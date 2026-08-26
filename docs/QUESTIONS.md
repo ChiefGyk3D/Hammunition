@@ -247,3 +247,51 @@ If one is granted, the manifest changes in one line.
 
 **This is your call, not mine** — it is the same class of decision as D-001, which
 you made deliberately.
+
+---
+
+## Q-008 🔴 — Does the RF-security profile include cellular interception tooling?
+
+**Raised by:** item 4, the DragonOS Tier 1 inventory. **Blocks:** the shape of the
+`sigint` / RF-security profile, and therefore item 5's naming work. **Changes:**
+what Hammunition is willing to install on someone's behalf.
+
+DragonOS Resolute R1 devotes 20 of its 99 README units to **Cellular / EW**:
+`srsRAN_4G`, `Osmocom core` (bsc/bts/msc/hlr/mgw/pcu/sgsn/ggsn/stp/cbc),
+`osmo-trx`, `OsmocomBB`, `LTESniffer`, `FALCON`, `intrusive-lte-mme`, `sni5gect`,
+`IMSI-catcher`, `QCSuper`, `gr-gsm`, `cmas-pws-4g` and others. `SCOPE.md`
+describes DragonOS as "the SIGINT delta" without distinguishing this cluster from
+`rtl_433` and `inspectrum`. They are not the same kind of thing.
+
+**The line that matters is transmit, not topic.**
+
+| Class | Examples | Character |
+|---|---|---|
+| Passive receive | `gr-gsm`, `IMSI-catcher`, `QCSuper`, `FALCON`, `LTESniffer`, `cmas-pws-4g` | Receives and decodes signals already in the air. Legality varies by jurisdiction — interception statutes, not spectrum rules. |
+| **Active transmit** | `srsRAN_4G`, `Osmocom core`, `osmo-trx`, `intrusive-lte-mme`, `sni5gect`, `ella-core`, `ocudu` | Operates a cellular network. In the US this engages FCC licensing *and* federal interception law; an ordinary user has no authorisation for either. |
+
+DragonOS states the constraint itself — its README qualifies `intrusive-lte-mme`
+as *"authorized RX/active use"*. Its audience has authorisations ours generally
+will not: red teams under contract, labs with shielded benches, vendors, academics.
+
+**This is not a question about whether the software is legitimate.** It is. The
+question is whether a one-command installer aimed at licensed hams is the right
+delivery mechanism, given that the distance between "installed" and "transmitting"
+is one command and the user may hold no authorisation at all.
+
+| Option | Consequence |
+|---|---|
+| **A. Receive-only subset in the opt-in RF-security profile; transmit-capable cellular out of 1.0** ⭐ | Keeps `gr-gsm` (already apt on Debian 13, Kali and Parrot), `QCSuper`, the LTE decoders. Requires the legal/ethical framing CLAUDE.md already mandates for `docs/rf-security/`. Nothing is hidden — the excluded units get an entry saying why, per `PARITY-POLICY.md`'s RETIRE rules. |
+| B. Include everything behind an explicit opt-in and a strong warning | Matches DragonOS's own posture and treats the user as an adult. Puts a rogue-base-station stack one `hammunition install` from a machine that also holds offensive tooling. |
+| C. Exclude the whole cellular cluster, receive and transmit alike | Simplest to defend. Also drops `gr-gsm`, which `PARITY-POLICY.md` already lists as an ADD and which every one of our targets packages. |
+| D. Separate `cellular` profile, documented as requiring authorisation, post-1.0 | Defers the decision without pretending it does not exist. Compatible with A. |
+
+**Recommendation: A now, D later.** Ship the receive-only subset in the opt-in
+RF-security profile for 1.0 with the legal framing the docs already require, and
+keep a `cellular` profile as an explicit post-1.0 question once there is a real
+policy and real documentation behind it. Record the excluded units with a reason
+rather than dropping them silently.
+
+**Why this is 🔴 rather than 🟡:** it is the only open question that changes what
+the tool is willing to do to a user's machine, and item 5's profile naming cannot
+be finished without it — `sigint` means different things under A, B and C.
