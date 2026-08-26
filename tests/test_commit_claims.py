@@ -73,7 +73,9 @@ def test_citing_a_decision_as_rationale_claims_nothing() -> None:
         "Per D-014, backends are justified by measurement rather than by "
         "convention. Nothing in D-014 changes here.\n"
     )
-    assert not check(message, {"scripts/deb-probe.sh"}, diff_for("scripts/deb-probe.sh", ["ok"]), set())
+    assert not check(
+        message, {"scripts/deb-probe.sh"}, diff_for("scripts/deb-probe.sh", ["ok"]), set()
+    )
 
 
 # ---------------------------------------------------------------------------

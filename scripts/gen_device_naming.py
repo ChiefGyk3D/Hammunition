@@ -150,9 +150,7 @@ def main() -> int:
     by_id_unknown = sum(1 for r in rows if r[1] == "unknown")
     symlinked = [r for r in rows if r[0].udev is not None]
     insufficient = [r for r in rows if r[4]]
-    reason_counts = {
-        r: sum(1 for row in rows if r in row[4]) for r, _ in REASONS
-    }
+    reason_counts = {r: sum(1 for row in rows if r in row[4]) for r, _ in REASONS}
     # The claim the reframe rests on: does any symlink duplicate a by-id path?
     overlap = [r for r in symlinked if r[1] in ("yes", "partly")]
 
@@ -162,8 +160,7 @@ def main() -> int:
     w("")
     w("# Device naming: what `/dev/serial/by-id/` covers, and what it does not")
     w("")
-    w(f"Generated {date.today().isoformat()} from `catalog/hardware/`. "
-      f"{n} devices.")
+    w(f"Generated {date.today().isoformat()} from `catalog/hardware/`. {n} devices.")
     w("")
     w("This project's stated highest-value hardware feature was persistent udev")
     w("symlinks by serial. A Proxmark3 capture put that in doubt, because")
@@ -182,7 +179,9 @@ def main() -> int:
     w(f"| Get one for some identifiers and not others | **{by_id_partly}** |")
     w(f"| Get none at all — nothing they present is a serial interface | **{by_id_no}** |")
     w(f"| Not yet recorded either way | **{by_id_unknown}** |")
-    w(f"| **Where by-id is insufficient for at least one reason** | **{len(insufficient)} of {n}** |")
+    w(
+        f"| **Where by-id is insufficient for at least one reason** | **{len(insufficient)} of {n}** |"
+    )
     w(f"| Carry a udev symlink from this catalog | **{len(symlinked)}** |")
     w(f"| …of which duplicate a path by-id would have given anyway | **{len(overlap)}** |")
     w("")
@@ -242,9 +241,11 @@ def main() -> int:
     w("which, so far, is exactly where by-id cannot reach.")
     w("")
     OUT.write_text("\n".join(out))
-    print(f"wrote {OUT.relative_to(REPO_ROOT)}: {n} devices, "
-          f"{len(insufficient)} where by-id is insufficient, "
-          f"{len(symlinked)} symlinks, {len(overlap)} overlapping")
+    print(
+        f"wrote {OUT.relative_to(REPO_ROOT)}: {n} devices, "
+        f"{len(insufficient)} where by-id is insufficient, "
+        f"{len(symlinked)} symlinks, {len(overlap)} overlapping"
+    )
     return 0
 
 

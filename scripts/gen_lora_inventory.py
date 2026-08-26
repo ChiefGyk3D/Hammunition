@@ -203,7 +203,7 @@ def main() -> int:
         "ESP32-S3 family is deliberately excluded: `303a:1001` was captured "
         "three times on 2026-08-26 — a Clip-Boy, a Minino and the ESP32-S3 "
         "inside a Free-WiLi 2 — and all three reported the identical product "
-        'string, `USB JTAG/serial debug unit`. That is the ROM\'s, not the '
+        "string, `USB JTAG/serial debug unit`. That is the ROM's, not the "
         "board's. No capture of an ESP32-S3 board using native USB can "
         "distinguish it from another, which is worth knowing before asking "
         "49 boards' worth of owners for one.",

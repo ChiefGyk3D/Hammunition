@@ -301,7 +301,9 @@ class RejectedId(Strict):
     def _check(self) -> RejectedId:
         for value, field in ((self.vendor, "vendor"), (self.product, "product")):
             if value is not None and not HEX4.match(value):
-                raise ManifestError(f"rejected USB {field} {value!r} must be 4 lowercase hex digits")
+                raise ManifestError(
+                    f"rejected USB {field} {value!r} must be 4 lowercase hex digits"
+                )
         return self
 
     def __str__(self) -> str:

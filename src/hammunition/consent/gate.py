@@ -19,7 +19,7 @@ import hashlib
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 
 from hammunition.manifest.schema import ConsentGate, RiskCategory
 
@@ -33,7 +33,7 @@ __all__ = [
 ]
 
 
-class Decision(str, Enum):
+class Decision(StrEnum):
     """How the affirmation was obtained. Recorded; never inferred later."""
 
     interactive = "interactive"

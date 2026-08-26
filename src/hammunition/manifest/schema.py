@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import re
 from datetime import date
-from enum import Enum
+from enum import StrEnum
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -60,7 +60,7 @@ class Strict(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class Arch(str, Enum):
+class Arch(StrEnum):
     x86_64 = "x86_64"
     aarch64 = "aarch64"
     armv7l = "armv7l"
@@ -432,19 +432,19 @@ class AptRepo(Strict):
 # ---------------------------------------------------------------------------
 
 
-class Status(str, Enum):
+class Status(StrEnum):
     supported = "supported"
     broken = "broken"
     retired = "retired"
     unverifiable = "unverifiable"
 
 
-class VerdictSource(str, Enum):
+class VerdictSource(StrEnum):
     tested = "tested"
     inherited = "inherited"
 
 
-class RetireReason(str, Enum):
+class RetireReason(StrEnum):
     world_changed = "world_changed"
     never_worked = "never_worked"
     out_of_scope = "out_of_scope"
@@ -631,7 +631,7 @@ class PackageManifest(Strict):
 # ---------------------------------------------------------------------------
 
 
-class RiskCategory(str, Enum):
+class RiskCategory(StrEnum):
     """What the software *can do* — never what any jurisdiction says about it.
 
     Capability is stable and observable. Legality is neither, and asserting it
