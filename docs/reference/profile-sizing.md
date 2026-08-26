@@ -54,7 +54,7 @@ estimated from measured survivor lists rather than from guesses.
 | `electronics` | — | 0 | 0 | 6 | **6** | ✅ |
 | `rf-security` | — | 0 | 0 | 14 | **14** | ✅ |
 | `rf-research` | — | 0 | 0 | 1 | **1** | post-1.0 |
-| `rfid` | — | 0 | 0 | 3 | **3** | post-1.0 |
+| `rfid` | — | 0 | 0 | 6 | **6** | post-1.0 |
 | `workstation` | — | 0 | 0 | 9 | **9** | post-1.0 |
 | `mesh` | — | 0 | 0 | 8 | **8** | post-1.0 |
 | `uconsole` | — | 0 | 0 | 5 | **5** | post-1.0 |
@@ -131,8 +131,8 @@ renaming it.
 | `electronics` | **Bench and electronics** | KiCad, gerbv, spice. Fine software; not radio. Opt-in, per the PARITY-POLICY question reserved to the maintainer. |
 | `rf-security` | **RF security and spectrum analysis** | DragonOS Tier 1, opt-in, with the legal framing CLAUDE.md requires. Its final shape depends on Q-008. |
 | `rf-research` *(post-1.0)* | **Transmit-capable and interception-capable RF tooling** | Consent-gated (**D-021**). Contents provisional pending **Q-008** — the receive-only subset only, with transmit-capable cellular stacks excluded. |
-| `rfid` *(post-1.0)* | **RFID and NFC** | Proposed in **Q-010**. Different domain, different range, different skills — and nothing is packaged on any target, so it needs the source backend first. |
-| `workstation` *(post-1.0)* | **Editor, terminal and bench tooling** | Proposed in **Q-011**. Not radio software; a lab machine needs it and the VS Code manifest has nowhere else to live. Deliberately boring, to stay small. |
+| `rfid` *(post-1.0)* | **RFID and NFC** | **Accepted, Q-010.** Different domain, different range, different skills. Five of six are apt on every probed target; `proxmark3` is apt on Kali only (4.21611-0kali1, measured 2026-08-26) and a pinned source build on the other three including the primary one, so it still needs the source backend. An earlier version of this line said nothing was packaged on any target — that was wrong and is corrected in Q-010. |
+| `workstation` *(post-1.0)* | **Editor, terminal and bench tooling** | **Accepted, Q-011.** Not radio software; a lab machine needs it and the VS Code manifest has nowhere else to live. Deliberately boring, and the exclusion list is a required schema field so it stays that way. |
 | `mesh` *(post-1.0)* | **Mesh and LoRa** | Meshtastic, Reticulum. Post-1.0. |
 | `uconsole` *(post-1.0)* | **ClockworkPi uConsole** | Hardware-specific: display, audio routing, power. Post-1.0. |
 

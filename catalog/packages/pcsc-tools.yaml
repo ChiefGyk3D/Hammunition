@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: pcsc-tools
+version: "1.7.3"
+summary: Smartcard reader diagnostics — is the reader even working?
+categories: [rfid]
+
+install:
+  - install:
+      method: apt
+      packages: [pcsc-tools]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Utilities for PC/SC smartcard readers: listing readers, monitoring card
+    insertion and removal, and identifying a card from its ATR against a
+    public database.
+  why_you_want_it: >-
+    It answers the first question in every contactless problem -- does the
+    host see the reader at all -- separately from whether any card tooling
+    works. pcsc_scan identifying a card by ATR is often the fastest route to
+    knowing what you are holding.
+  prerequisites: >-
+    The pcscd daemon running, which the package pulls in, and a PC/SC-
+    compatible reader.
+  known_problems: >-
+    pcscd and libnfc will fight over the same reader: whichever claims it
+    first wins and the other reports no device. Stopping pcscd is the usual
+    fix when libnfc tools suddenly stop seeing hardware, and it is the single
+    most common confusion in this profile.
+  upstream_url: https://github.com/LudovicRousseau/pcsc-tools

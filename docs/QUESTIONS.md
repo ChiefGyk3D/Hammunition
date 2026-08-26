@@ -351,7 +351,7 @@ recommendation of **DCO, not a CLA** stands unopposed.
 
 ---
 
-## Q-010 🟡 — Accept a separate `rfid` profile?
+## Q-010 ✅ — Accept a separate `rfid` profile? — **RESOLVED 2026-08-26**
 
 **Raised by:** item 3, the device catalog. **Blocks:** where Proxmark3 lands.
 **Changes:** the profile set, which is user-facing and hard to rename later.
@@ -368,16 +368,29 @@ same reason.
 |---|---|---|
 | Range | metres to kilometres | centimetres |
 | Hardware | SDRs, Wi-Fi and Bluetooth adapters | purpose-built readers |
-| Software | apt-installable across four targets | **nothing packaged anywhere** |
+| Software | apt-installable across four targets | **packaged on one target of four** |
 | Skills | spectrum, modulation, DSP | card protocols, cryptography, key recovery |
 | Overlap | — | essentially none |
 
 The packaging point is the decisive one. Every unit in `rf-security` installs
-from apt on at least one target. **No target packages a Proxmark client at all,
-and none ships a Proxmark udev rule** — measured, not assumed. `libnfc-bin` is
-in Debian 13 and covers PN53x readers, but that is a different device family
-from a Proxmark. So `rfid` is not just a different domain; it has a different
-*cost*, and burying that inside `rf-security` would hide it.
+from apt on at least one target.
+
+> **Correction, 2026-08-26.** This section previously said *"No target packages
+> a Proxmark client at all"*. **That is wrong.** Kali rolling ships
+> `proxmark3 4.21611-0kali1`, which corresponds to upstream's `v4.21611` tag.
+> Debian 13 and Parrot do not package it, and no target ships a Proxmark udev
+> rule — both measured in containers today. The claim was inherited from a
+> narrower probe and not re-checked before it was used as the decisive argument.
+> It should have been, which is what D-018 exists to say.
+
+The corrected picture does not change the answer and barely weakens it: the
+client is absent on **three of four targets including the primary one**, so
+`rfid` still cannot ship without the source backend, and folding it into
+`rf-security` would still make an otherwise apt-only profile depend on that
+backend. `libnfc-bin` is in Debian 13 and covers PN53x readers, but that is a
+different device family from a Proxmark and reaches only 13.56 MHz. So `rfid`
+is not just a different domain; it has a different *cost*, and burying that
+inside `rf-security` would hide it.
 
 | Option | Consequence |
 |---|---|
@@ -392,6 +405,19 @@ already covers testing systems you do not own if that ever becomes relevant.
 `catalog/hardware/devices/proxmark3.yaml` is written and its identifier is
 flagged unconfirmed — Proxmark hardware spans several generations with different
 identifiers and none is in a distribution rule to read from.
+
+**Resolved: A.** `catalog/profiles/rfid.yaml` ships post-1.0 with six packages:
+`libnfc-bin`, `libfreefare-bin`, `mfoc`, `mfcuk`, `pcsc-tools` and `proxmark3`.
+Five are apt on all three probed targets; `proxmark3` is apt on Kali and a
+pinned source build everywhere else, using the same `v4.21611` tag Kali packages
+so a user does not end up on a different client version depending on their
+distribution.
+
+Ungated, and this is the closest call in the catalog. Reading a card you are
+holding involves no third party, no protected communication and no spectrum;
+`third_party_systems` is a property of what an operator chooses to do rather
+than of what the profile installs. Gating routine software is what teaches
+people to dismiss gates.
 
 ---
 

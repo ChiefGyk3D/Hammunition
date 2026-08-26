@@ -184,9 +184,13 @@ PROFILES = [
         "RFID and NFC",
         (),
         0,
-        3,
-        "Proposed in **Q-010**. Different domain, different range, different skills — "
-        "and nothing is packaged on any target, so it needs the source backend first.",
+        6,
+        "**Accepted, Q-010.** Different domain, different range, different skills. "
+        "Five of six are apt on every probed target; `proxmark3` is apt on Kali only "
+        "(4.21611-0kali1, measured 2026-08-26) and a pinned source build on the other "
+        "three including the primary one, so it still needs the source backend. An "
+        "earlier version of this line said nothing was packaged on any target — that "
+        "was wrong and is corrected in Q-010.",
         "post-1.0",
     ),
     Profile(
@@ -195,8 +199,9 @@ PROFILES = [
         (),
         0,
         9,
-        "Proposed in **Q-011**. Not radio software; a lab machine needs it and the "
-        "VS Code manifest has nowhere else to live. Deliberately boring, to stay small.",
+        "**Accepted, Q-011.** Not radio software; a lab machine needs it and the "
+        "VS Code manifest has nowhere else to live. Deliberately boring, and the "
+        "exclusion list is a required schema field so it stays that way.",
         "post-1.0",
     ),
     Profile("mesh", "Mesh and LoRa", (), 0, 8, "Meshtastic, Reticulum. Post-1.0.", "post-1.0"),

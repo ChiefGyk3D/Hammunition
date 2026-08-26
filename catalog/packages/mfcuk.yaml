@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: mfcuk
+version: "0.3.8"
+summary: MIFARE Classic key recovery with no known key — the slow path
+categories: [rfid]
+
+install:
+  - install:
+      method: apt
+      packages: [mfcuk]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Implements the 'darkside' attack, recovering a first sector key from a
+    MIFARE Classic card without needing any key to begin with.
+  why_you_want_it: >-
+    It is what you use when mfoc cannot start because every default key has
+    been changed. In practice the pair are used together: mfcuk to recover one
+    key, mfoc to expand that into the rest.
+  prerequisites: >-
+    A libnfc-supported reader and patience -- this attack takes minutes to
+    hours where mfoc takes seconds.
+  known_problems: >-
+    Much slower and much less reliable than mfoc, and it does not work against
+    every card revision. Upstream has been quiet since 2018. Both tools
+    predate the hardened MIFARE Classic EV1 variants, against which neither
+    works.
+  upstream_url: https://github.com/nfc-tools/mfcuk

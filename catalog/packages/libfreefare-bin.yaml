@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: libfreefare-bin
+version: "0.4.0"
+summary: Tools for MIFARE DESFire, Ultralight and Classic over libnfc
+categories: [rfid]
+
+install:
+  - install:
+      method: apt
+      packages: [libfreefare-bin]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Utilities built on libfreefare for working with the MIFARE card family,
+    including DESFire application and key management, which the older tools do
+    not handle at all.
+  why_you_want_it: >-
+    DESFire is what MIFARE Classic deployments are replaced with, and it is
+    not broken in the same way. Having tools for it is the difference between
+    studying a card technology and studying only its obsolete predecessor.
+  prerequisites: >-
+    A libnfc-supported reader.
+  known_problems: >-
+    DESFire's security actually works: without the keys there is very little
+    to see, which is the point. Upstream activity is low.
+  upstream_url: https://github.com/nfc-tools/libfreefare

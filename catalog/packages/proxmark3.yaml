@@ -1,0 +1,85 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: proxmark3
+version: "4.21611"
+summary: Client and firmware tooling for the Proxmark3 RFID and NFC research device
+categories: [rfid]
+
+# Q-010's evidence said no target packages a Proxmark client at all. That was
+# wrong and is corrected here: Kali rolling ships proxmark3 4.21611-0kali1,
+# measured 2026-08-26. Debian 13 and Parrot do not, so three of the four targets
+# still need the source build -- the substance of the argument survives, the
+# absolute claim did not.
+#
+# The Kali package tracks upstream's v4.21611 tag exactly, which is the ref
+# pinned below. That is a useful coincidence rather than a guarantee: a client
+# is version-locked to the firmware it flashes, so a user on Kali and a user on
+# Debian should end up on the same version rather than two.
+
+install:
+  - when:
+      distro: [kali]
+    install:
+      method: apt
+      packages: [proxmark3]
+    note: >-
+      Measured 2026-08-26 in kalilinux/kali-rolling: proxmark3 4.21611-0kali1,
+      which corresponds to upstream's v4.21611 tag.
+  - install:
+      method: git
+      repo: https://github.com/RfidResearchGroup/proxmark3
+      ref: v4.21611
+      build_system: make
+    build_depends:
+      - build-essential
+      - pkg-config
+      - libreadline-dev
+      - libpcsclite-dev
+      - libssl-dev
+      - libbz2-dev
+      - liblz4-dev
+      - libbluetooth-dev
+      - libpython3-dev
+      - libqt5svg5-dev
+      - qtbase5-dev
+      - gcc-arm-none-eabi
+      - libnewlib-dev
+    note: >-
+      Pinned to the same release Kali packages so a client built here and a
+      client installed there are the same version. This needs the source-from-git
+      backend, which is NOT WRITTEN -- see the engine status in README.md. The
+      manifest is data and is correct today; nothing can act on it yet.
+
+update:
+  probe:
+    method: github_tags
+    repo: RfidResearchGroup/proxmark3
+  strategy: rebuild
+
+documentation:
+  what_it_does: >-
+    Drives the Proxmark3, a research device for low-frequency (125 kHz) and
+    high-frequency (13.56 MHz) RFID and NFC. It reads, writes, emulates and
+    analyses a very wide range of card technologies, and it flashes the device's
+    own firmware.
+  why_you_want_it: >-
+    It is the most capable open RFID research tool there is, and it is the only
+    one in this profile that covers 125 kHz at all -- everything else here is
+    13.56 MHz over libnfc. If you want to study the access-control cards that
+    are actually deployed in buildings, this is the hardware that reaches them.
+  prerequisites: >-
+    Proxmark3 hardware, membership of `dialout` and `plugdev`, and firmware
+    matching the client version. On Debian 13 and Parrot the client must be
+    built from source, which needs a backend this project has not written yet.
+    See `catalog/hardware/devices/proxmark3.yaml` -- its USB identifier is
+    deliberately unconfirmed rather than guessed.
+  known_problems: >-
+    Client and firmware are version-locked and a mismatch produces confusing
+    behaviour rather than a clear error. Several incompatible hardware
+    generations share the name -- the original design, RDV4 and RDV5 -- and they
+    differ in USB identifier and in what the firmware supports. Packaged only on
+    Kali; the other three targets need a source build, and the ARM cross-compiler
+    in the build dependencies is required even to build the client, because the
+    client ships the firmware images it flashes.
+  upstream_url: https://github.com/RfidResearchGroup/proxmark3

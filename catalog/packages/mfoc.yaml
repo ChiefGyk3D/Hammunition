@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: mfoc
+version: "0.10.7"
+summary: Key recovery for MIFARE Classic cards with at least one known key
+categories: [rfid]
+
+install:
+  - install:
+      method: apt
+      packages: [mfoc]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Implements the 'nested' attack against MIFARE Classic: given one known
+    sector key -- often a factory default that was never changed -- it
+    recovers the remaining keys and dumps the card.
+  why_you_want_it: >-
+    MIFARE Classic's cipher has been broken since 2008 and the cards remain in
+    very wide use. Demonstrating that on a card you hold is the clearest
+    possible illustration of why deployed access control needs auditing.
+  prerequisites: >-
+    A libnfc-supported reader and a card that still has at least one default
+    key. Cards with every key changed need mfcuk instead, which is much
+    slower.
+  known_problems: >-
+    Fails outright against MIFARE Plus, DESFire and any card with no default
+    key left. Timing-sensitive: results vary with the reader, and a run that
+    fails on one PN532 may succeed on another. Upstream has been quiet since
+    2018.
+  upstream_url: https://github.com/nfc-tools/mfoc
