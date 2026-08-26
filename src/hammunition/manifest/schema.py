@@ -32,6 +32,7 @@ __all__ = [
     "InstallBlock",
     "ManifestError",
     "PackageManifest",
+    "PinBasis",
     "PinReview",
     "ProfileManifest",
     "RiskCategory",
@@ -151,6 +152,25 @@ class SourceInstall(Strict):
 
 COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 
+PinBasis = Literal["distribution_pin", "own_choice"]
+"""Where a commit pin's choice of revision came from.
+
+``distribution_pin``
+    A distribution already packages this exact commit. **This is the preferred
+    basis.** Kali and Parrot both package SDR++ at ``36ea9a1``: two
+    distributions independently hit the same missing-tags problem and answered
+    it the same way, which makes their commit a review signal upstream stopped
+    providing. Pinning it also means a source build and an apt install are the
+    same revision rather than two.
+
+``own_choice``
+    Nothing packages it and we had to choose. Legitimate, and more expensive: it
+    is a judgement nobody else has vetted, so the rationale must say which
+    distributions were checked and what they ship instead. Recording that we
+    *had to* is the point -- the next reviewer should be able to see whether the
+    situation has changed.
+"""
+
 
 class PinReview(Strict):
     """When a commit pin was last looked at, and by whom.  D-024.
@@ -172,6 +192,17 @@ class PinReview(Strict):
         min_length=2,
         description="Who looked. A name or handle, so the next reviewer knows who to ask.",
     )
+    basis: PinBasis = Field(
+        description=(
+            "Where the choice of commit came from. `distribution_pin` is strongly "
+            "preferred and must name the distributions; `own_choice` requires "
+            "saying what was checked and found nothing."
+        )
+    )
+    distributions: list[str] = Field(
+        default_factory=list,
+        description="Distributions packaging this exact commit. Required for `distribution_pin`.",
+    )
     rationale: str = Field(
         min_length=30,
         description=(
@@ -185,6 +216,30 @@ class PinReview(Strict):
         le=730,
         description="How long this pin may stand before it must be looked at again.",
     )
+
+    @model_validator(mode="after")
+    def _basis(self) -> PinReview:
+        if self.basis == "distribution_pin" and not self.distributions:
+            raise ManifestError(
+                "pin_review basis is 'distribution_pin' but names no distributions. "
+                "The whole value of this basis is that somebody else vetted the "
+                "revision; say who."
+            )
+        if self.basis == "own_choice":
+            if self.distributions:
+                raise ManifestError(
+                    "pin_review basis is 'own_choice' but names distributions. If a "
+                    "distribution packages this commit, the basis is distribution_pin."
+                )
+            if len(self.rationale) < 80:
+                raise ManifestError(
+                    "an 'own_choice' pin_review needs a fuller rationale: which "
+                    "distributions were checked, what they ship instead, and why "
+                    "this commit. Choosing a revision nobody else vetted is the "
+                    "expensive path and the reasoning has to survive the next "
+                    "reviewer (D-024)."
+                )
+        return self
 
     @property
     def due(self) -> date:

@@ -1094,17 +1094,45 @@ Its instructions end with the part that matters: **do not bump `last_reviewed`
 without reading upstream's log and testing any move.** A date bumped to silence
 a check certifies nothing, and would make this worse than having no field.
 
+### The preferred method: check what the distributions pin first
+
+**Before choosing a commit, look at what packages it.** If a distribution ships
+a git snapshot, pin *their* commit.
+
+This is not a tiebreaker, it is the main rule, and the reasoning is stronger
+than "someone else looked":
+
+1. **It is the review signal upstream stopped providing.** A Debian, Kali or
+   Parrot maintainer picked that revision, built it, and shipped it to users who
+   would complain. That is a vetting process we do not have and cannot cheaply
+   reproduce.
+2. **It collapses two revisions into one.** A user who installs from apt and a
+   user who builds from source end up running the same code. Without this they
+   run different programs under the same name, and a bug report from one does
+   not transfer to the other.
+3. **Independent agreement is evidence.** Kali and Parrot both landed on
+   SDR++ `36ea9a1`. Two maintainers hitting the same missing-tags problem and
+   answering it the same way is a stronger signal than either alone.
+
+Recency is not a reason. Master HEAD is newer and nobody has vetted it.
+
+**Choosing our own commit is legitimate and more expensive.** When nothing
+packages the project, `basis: own_choice` is correct — and the rationale must
+then say *which distributions were checked and what they ship instead*, so the
+next reviewer can see whether that has changed. The schema enforces the
+difference: `distribution_pin` must name the distributions, `own_choice` must
+not name any and needs a fuller rationale.
+
+`scripts/check_pin_reviews.py` prints the basis on every line and flags
+own-choice pins with a note to re-check whether anything packages them now.
+
 ### First instance — `catalog/packages/sdrpp.yaml`
 
 Apt on Kali and Parrot; a reviewed SHA everywhere else.
 
-The pin is **not** master HEAD. Kali and Parrot both package SDR++ as a git
-snapshot at `36ea9a1` — the distributions hit the same missing-tags problem and
-answered it the same way — so pinning their commit means a user who builds from
-source and a user who installs from apt run the same revision. Two commits older
-than master, and worth it. **Someone else's packaging is the review signal
-upstream stopped providing**, and it is a better one than our own preference for
-recency.
+`basis: distribution_pin`, `distributions: [kali, parrot]`. Both package SDR++
+as a git snapshot at `36ea9a1`, two commits behind master, and taking theirs is
+worth those two commits for every reason in the section above.
 
 Same reasoning as `proxmark3.yaml`, which pins `v4.21611` because that is the
 release Kali packages, and where a client/firmware mismatch would otherwise be

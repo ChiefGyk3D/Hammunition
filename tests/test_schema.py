@@ -585,6 +585,8 @@ def _review(**overrides: object) -> dict[str, object]:
         "last_reviewed": "2026-08-26",
         "reviewed_by": "someone",
         "rationale": "Matches the commit the distributions package, verified to resolve.",
+        "basis": "distribution_pin",
+        "distributions": ["kali", "parrot"],
     }
     data.update(overrides)
     return data
@@ -645,3 +647,70 @@ def test_every_commit_pin_in_the_catalog_has_a_review() -> None:
         for block in manifest.install:
             if isinstance(block.install, GitInstall) and COMMIT_SHA_RE.match(block.install.ref):
                 assert block.install.pin_review is not None, f"{name} pins a SHA with no review"
+
+
+def test_a_distribution_pin_must_name_the_distributions() -> None:
+    from hammunition.manifest.schema import GitInstall
+
+    with pytest.raises((ManifestError, ValidationError)):
+        GitInstall.model_validate(
+            _git_install(pin_review=_review(basis="distribution_pin", distributions=[]))
+        )
+
+
+def test_an_own_choice_pin_may_not_name_distributions() -> None:
+    """If one packages it, the basis is distribution_pin -- that is the whole point."""
+    from hammunition.manifest.schema import GitInstall
+
+    with pytest.raises((ManifestError, ValidationError)):
+        GitInstall.model_validate(
+            _git_install(pin_review=_review(basis="own_choice", distributions=["kali"]))
+        )
+
+
+def test_an_own_choice_pin_needs_a_fuller_rationale() -> None:
+    """Choosing a revision nobody else vetted is the expensive path."""
+    from hammunition.manifest.schema import GitInstall
+
+    with pytest.raises((ManifestError, ValidationError)):
+        GitInstall.model_validate(
+            _git_install(
+                pin_review=_review(
+                    basis="own_choice",
+                    distributions=[],
+                    rationale="Latest commit that builds cleanly on Debian 13.",
+                )
+            )
+        )
+
+
+def test_an_own_choice_pin_is_accepted_when_it_says_what_was_checked() -> None:
+    from hammunition.manifest.schema import GitInstall
+
+    install = GitInstall.model_validate(
+        _git_install(
+            pin_review=_review(
+                basis="own_choice",
+                distributions=[],
+                rationale=(
+                    "Checked Debian 13, Kali rolling, Parrot and Ubuntu 26.04 on "
+                    "2026-08-26: none packages this project at all. Chosen as the "
+                    "last commit before the Qt6 migration, which does not build "
+                    "against the Qt5 our stable targets ship."
+                ),
+            )
+        )
+    )
+    assert install.pin_review is not None
+    assert install.pin_review.basis == "own_choice"
+
+
+def test_the_catalogs_pins_prefer_a_distribution() -> None:
+    """Not a hard rule -- own_choice is legitimate -- but worth noticing if it drifts."""
+    from hammunition.manifest.schema import GitInstall
+
+    for name, manifest in load_catalog(CATALOG).items():
+        for block in manifest.install:
+            review = getattr(block.install, "pin_review", None)
+            if isinstance(block.install, GitInstall) and review and review.basis == "own_choice":
+                assert len(review.rationale) >= 80, name

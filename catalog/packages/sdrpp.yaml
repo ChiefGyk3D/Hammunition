@@ -37,6 +37,8 @@ install:
       pin_review:
         last_reviewed: 2026-08-26
         reviewed_by: hammunition-maintainers
+        basis: distribution_pin
+        distributions: [kali, parrot]
         cadence_days: 180
         rationale: >-
           Chosen to match the commit Kali and Parrot package

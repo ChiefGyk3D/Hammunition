@@ -142,7 +142,7 @@ Do not re-litigate these without being asked:
 | Displacing a distro choice | Coexist, disclose, never remove silently | The AHRL `librtlsdr` pattern (**D-022**) |
 | Device tooling | Install the means of talking to a device, never gate it on what the device can do | Otherwise every flasher is a gating argument (**D-026**) |
 | Licence | GPL-3.0-or-later engine, CC0-1.0 catalog | Split on the architectural boundary (**D-023**) |
-| Untagged upstreams | Pin a **reviewed** commit, never a branch or a rolling artifact | An unreviewed SHA and an abandoned tag are the same failure (**D-024**) |
+| Untagged upstreams | Pin the commit a **distribution** already packages; our own only when nothing does | Their packaging is the review signal upstream stopped providing (**D-024**) |
 | Evidence | Re-verify a claim when it becomes decisive, not only when gathered | Four bugs, one shape (**D-025**) |
 | Hardware claims | `status` and `maintainer_verified` are separate fields | `usrp` is supported from Debian's rule and has never been run here (**D-027**) |
 

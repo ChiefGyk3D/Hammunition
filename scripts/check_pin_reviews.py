@@ -57,10 +57,15 @@ def main() -> int:
         assert review is not None
         state = "OVERDUE" if review.is_overdue(today) else "ok"
         remaining = (review.due - today).days
+        basis = (
+            f"matches {'+'.join(review.distributions)}"
+            if review.basis == "distribution_pin"
+            else "OWN CHOICE - nothing packages it"
+        )
         print(
             f"{state:8} {name:20} {install.ref[:12]}  "
             f"reviewed {review.last_reviewed} by {review.reviewed_by}  "
-            f"due {review.due} ({remaining:+d} days)"
+            f"due {review.due} ({remaining:+d} days)  [{basis}]"
         )
         if review.is_overdue(today):
             overdue.append((name, install))
@@ -75,6 +80,13 @@ def main() -> int:
         print("this check into a chore that certifies nothing.")
         return 1
 
+    own = [n for n, i in pins if i.pin_review and i.pin_review.basis == "own_choice"]
+    if own:
+        print(
+            f"\nnote: {len(own)} pin(s) chosen by us rather than by a distribution "
+            f"({', '.join(own)}). Re-check whether anything packages them now -- "
+            f"a distribution pin is the cheaper and better-vetted basis (D-024)."
+        )
     print(f"\n{len(pins)} pin(s), none overdue")
     return 0
 
