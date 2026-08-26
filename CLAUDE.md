@@ -140,6 +140,7 @@ Do not re-litigate these without being asked:
 | Profile resolution | Consults detected hardware | 12 per-device Soapy modules; a user needs one (**D-020**) |
 | Consent gates | Disclose capability, never adjudicate law | `--yes` cannot satisfy one (**D-021**) |
 | Displacing a distro choice | Coexist, disclose, never remove silently | The AHRL `librtlsdr` pattern (**D-022**) |
+| Device tooling | Install the means of talking to a device, never gate it on what the device can do | Otherwise every flasher is a gating argument (**D-026**) |
 | Licence | GPL-3.0-or-later engine, CC0-1.0 catalog | Split on the architectural boundary (**D-023**) |
 | Untagged upstreams | Pin a **reviewed** commit, never a branch or a rolling artifact | An unreviewed SHA and an abandoned tag are the same failure (**D-024**) |
 | Evidence | Re-verify a claim when it becomes decisive, not only when gathered | Four bugs, one shape (**D-025**) |
@@ -261,11 +262,11 @@ an unsupported combination appear to work.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 36
+  packages/        # one YAML per piece of software          ✅ 37
   profiles/        # named bundles referencing packages      ✅ 4
   hardware/
     classes/       # device families with shared Linux needs ✅ badgelife
-    devices/       # one YAML per device                     ✅ 16
+    devices/       # one YAML per device                     ✅ 17
 src/hammunition/
   cli/             # argparse/click entry points             ❌ not written
   manifest/        # schema, loader, validation              ✅

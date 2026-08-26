@@ -1,0 +1,67 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+kind: device
+name: esp32-marauder
+summary: justcallmekoko's ESP32 Marauder — 2.4 GHz Wi-Fi and Bluetooth survey firmware on ESP32 hardware
+vendor: justcallmekoko (community hardware, several builders)
+status: untested
+
+# The badgelife class earning its keep on a second device, which is the
+# validation that it was the right abstraction rather than a wrapper around one
+# board. Same Linux-side path as clip-boy: esptool to flash, a serial console to
+# interact, and udev rules for whichever bridge the board carries.
+#
+# NO VERSION IS RECORDED. The maintainer believes the board in hand is a v5 and
+# has not confirmed it from the silkscreen, and it is not established that a v5
+# exists. Since the revision determines the USB bridge chip, and the bridge chip
+# is the entire object of the identification exercise, writing an unverified
+# revision here would defeat the purpose of the entry. It goes in once read.
+device_class: badgelife
+
+gap_closure: maintainer_hardware
+identification_gap: >-
+  Per-revision, and deliberately not narrowed further than the evidence allows.
+  Marauder is a firmware that runs on several hardware builds, and the USB path
+  differs between them: older boards use a CP2102 bridge (10c4:ea60) or a CH340
+  (1a86:7523), both already confirmed in the badgelife class from Debian's
+  usb.ids; ESP32-S3-based boards present Espressif's native USB CDC under vendor
+  303a, which the class carries as unconfirmed. So the entry does NOT assume a
+  bridge — it inherits all of them from the class, which is why the device works
+  today without a pinned identifier. What is unknown is which one THIS board
+  uses, and the answer also settles the class's unconfirmed 303a entry if it
+  turns out to be an S3. The board revision is likewise unconfirmed and must be
+  read off the silkscreen rather than assumed.
+
+documentation:
+  what_it_is: >-
+    A firmware for ESP32 boards that turns them into a handheld 2.4 GHz survey
+    tool, sold and built by several people as a self-contained device with a
+    screen and battery. The hardware is ordinary ESP32; the Marauder identity is
+    the firmware.
+  what_you_can_do_with_it: >-
+    Scan for Wi-Fi access points and stations and for Bluetooth Low Energy
+    advertisements, capture probe requests, and log what is present on the band
+    around you. The firmware also includes active features — deauthentication
+    frames, beacon spam, and captive-portal impersonation — which transmit
+    rather than listen. Stating that plainly is deliberate: nobody should
+    discover it by surprise, and operating those features against networks you
+    do not own or are not authorised to test is a separate matter from
+    installing a flasher.
+  setup_steps: >-
+    Install the badgelife class packages, join `dialout` and `plugdev`, then log
+    out and back in — group membership does not apply to an existing session.
+    Plug the board in and run `esptool chip_id`, which reports what the chip
+    actually is and is the quickest way to resolve an ambiguous silkscreen.
+    `tio /dev/badge-<serial>` opens a console at 115200 8N1. Firmware images
+    come from upstream and are flashed with esptool; nothing here flashes
+    anything on its own.
+  known_problems: >-
+    Several hardware builds share the name and differ in USB bridge, screen and
+    button layout, so instructions written for one board may not match another.
+    A board whose USB is provided by its own firmware disappears from /dev while
+    being reflashed, which is expected rather than a fault. ModemManager holds a
+    newly attached serial device for around twenty seconds on many desktops,
+    which looks exactly like a dead board; the generated udev rules tag matching
+    devices so it ignores them.
+  upstream_url: https://github.com/justcallmekoko/ESP32Marauder

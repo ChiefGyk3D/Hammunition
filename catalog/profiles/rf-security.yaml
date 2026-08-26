@@ -16,6 +16,7 @@ stage: "1.0"
 # docs/reference/dragonos-tier1-inventory.md.
 packages:
   - aircrack-ng
+  - esptool
   - hcxdumptool
   - hcxtools
   - inspectrum
@@ -34,7 +35,11 @@ documentation:
     specific to protected communications, and all of it is packaged by at least
     one of our target distributions, so it installs from apt with no ceremony.
   deliberately_excludes: >-
-    Anything that transmits, and anything aimed at cellular. Those are in
+    Anything that transmits, and anything aimed at cellular. `esptool` is the
+    edge case D-026 was written for and is included: it writes bytes to a serial
+    port, and the firmware people write with it comes from upstream and runs on
+    the device rather than on the host. Gating a flasher would gate the serial
+    console next, and then `lsusb`. Those are in
     `rf-research`, which is consent-gated. Kismet is a strong fit and is
     packaged on Kali and Parrot but not Debian 13 or Ubuntu 26.04; it is held
     back until the third-party apt repo path is implemented rather than shipped

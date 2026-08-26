@@ -1156,3 +1156,63 @@ D-018 says external claims are tested before published — it governs what we sa
 outward. D-025 governs what we let ourselves rely on inward. The HamClock
 retraction produced the first; Q-010's retraction produced the second, and
 should have been prevented by it.
+
+---
+
+## D-026 — We install tooling for a device; we do not install the device's capability
+
+**Date:** 2026-08-26. **Status:** accepted.
+
+**Rule.** A manifest that installs the means of *talking to* a device — a
+flasher, a serial console, a udev rule, a driver, a configuration client — is
+neutral tooling and is not consent-gated, **regardless of what the device can
+do once it is running**. Firmware that comes from upstream and executes on the
+device is not something this project installs, and treating it as though we did
+would be a claim we cannot support.
+
+### Why this needs stating
+
+Without it, every flasher becomes a gating argument. `esptool` writes an image
+to an ESP32; some of those images do things that fall squarely inside the D-021
+taxonomy. If the flasher inherits the gate, then so does `tio`, because you can
+drive the same firmware over a serial console — and so does `screen`, and so
+does `usbutils`, because enumeration is the first step of everything.
+
+That is the reductio, and it lands somewhere worse than "too many prompts": a
+gate that appears in front of routine software is one people learn to dismiss,
+which is exactly what would make the `rf-research` gate useless at the moment it
+matters. **D-021's gates work only because they are rare.** Diluting them is not
+a cautious error.
+
+### Where the line actually falls
+
+| | Gated |
+|---|---|
+| Installing `esptool`, `tio`, a udev rule, a driver | **No** — this is how a computer talks to a peripheral |
+| A package whose own function is a capability in the D-021 taxonomy — `gr-gsm` decoding cellular signalling on the host | **Yes** |
+| Firmware fetched from upstream and run on the device | **Not installed by us at all**, so there is nothing to gate |
+
+The test is *what does the thing we install do on the machine we install it on*.
+`gr-gsm` decodes cellular signalling on the host; that is the capability, and
+`rf-research` gates it. `esptool` copies bytes to a serial port.
+
+### Applied
+
+**ESP32 Marauder** — its firmware includes active features (deauthentication,
+beacon spam, captive-portal impersonation) that are transmit-side under the
+Q-008 tiering. Hammunition installs `esptool` and a serial console. It belongs
+in `rf-security`, ungated. This decides the WiFi Pineapple and the USB Rubber
+Ducky identically, which is the point of writing it as a rule.
+
+### What the documentation must still do
+
+Neutral tooling is not silent tooling. The device entry states plainly what the
+hardware does, including the active features, so nobody discovers them by
+surprise. It also says that operating those features against networks you do not
+own or are not authorised to test is a separate matter from installing a
+flasher.
+
+That sentence is deliberately about *what is being installed*, not about what is
+lawful. **Same discipline as D-021: describe capability, do not adjudicate
+legality.** The `ConsentGate` wording validator exists because that line is easy
+to cross by accident, and it is just as easy to cross in prose.
