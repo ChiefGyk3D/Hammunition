@@ -5,11 +5,15 @@ categories: [hf-propagation]
 
 # SHAPE 7 — the launcher needs a configurable service endpoint.
 #
-# HamClock's author, Elwood Downey (WB0OEW), became a Silent Key on 2026-01-29,
-# and HamClock was reported to stop functioning at the end of June 2026. AHRL
-# v27 (May 2026) builds the original four times and hardcodes
+# HamClock's author, Elwood Downey (WB0OEW), became a Silent Key on 2026-01-29.
+# Three secondary sources reported that HamClock would stop functioning at the
+# end of June 2026. **We tested it and that is wrong** (D-018): hamclock.com
+# serves version 4.27 with an active changelog. Only clearskyinstitute.com,
+# Elwood's own host, refuses TCP.
+#
+# AHRL v27 (May 2026) builds the original four times and hardcodes
 # `-b hamclock.com:80` into every generated launcher, so repointing an install
-# at a surviving backend means editing four generated scripts.
+# at a different backend means editing four generated scripts.
 #
 # Here the backend is a manifest field. Repointing every install is a one-line
 # catalog change. See D-013 and reference/licence-verification.md.
@@ -40,14 +44,16 @@ service_endpoints:
     default_url: https://ohb.works
     description: >-
       Data backend supplying solar indices, DX cluster spots, and propagation
-      data. Defaults to the Open HamClock Backend, the community replacement for
-      the original hamclock.com service.
+      data. Defaults to the Open HamClock Backend, a community-run alternative
+      to hamclock.com.
     user_configurable: true
     note: >-
-      The original backend at hamclock.com was reported to stop serving data at
-      the end of June 2026 following the author's death. We have not tested a
-      live client against it and do not claim it is down — but it is not a
-      sensible default. If you run your own backend, point this at it.
+      hamclock.com is live and serving version 4.27, tested 2026-08-25 — the
+      widely reported June 2026 shutdown did not happen. It is now run by a
+      third party and funded by patron subscriptions, which is why it is not the
+      default here: a community backend is a better default for software we
+      install on someone's behalf. Both work. If you run your own, point this
+      at it. Which backend should be the default is Q-006, still open.
 
 launchers:
   - name: hamclock-next
@@ -67,14 +73,17 @@ documentation:
     full-screen on a dedicated display or in a window.
   why_you_want_it: >-
     It is the at-a-glance station dashboard for deciding which band to work, and
-    it is the maintained successor to HamClock, whose author became a Silent Key
-    in January 2026.
+    it is one of two maintained continuations of HamClock, whose author became a
+    Silent Key in January 2026. The other is OpenHamClock, which has the larger
+    community; which should be the recommended default is Q-006.
   prerequisites: >-
     A working network connection and a reachable data backend. Set your
     latitude, longitude and callsign on first run.
   known_problems: >-
-    The original HamClock's backend at hamclock.com was reported to stop serving
-    data at the end of June 2026. This manifest defaults to the Open HamClock
-    Backend instead, and the endpoint is configurable rather than compiled into
-    a launcher script.
+    Widely reported in mid-2026 to have stopped working after the original
+    author's death. Tested 2026-08-25: hamclock.com is up and serving version
+    4.27. The host that is gone is clearskyinstitute.com. This manifest defaults
+    to the Open HamClock Backend, a community-run alternative, and the endpoint
+    is a configurable field rather than a string compiled into a launcher
+    script — so switching backends is a one-line change, not a rebuild.
   upstream_url: https://github.com/k4drw/hamclock-next

@@ -1,179 +1,245 @@
-# Session log — overnight, 2026-08-25
+# Session log — overnight round 3, 2026-08-25
 
-Queue complete: acknowledgments, BPQ, and items 1–6. Eight commits, one per
-completed item. All checks green except the one that could not run, which is
-Q-002 and is flagged rather than assumed.
+Queue complete: items 1–6. Eight commits, one per completed item plus a
+formatting fix and this log. Everything green, including the check that could not
+run last round.
+
+Previous round's log is in git history at `33495fe`.
+
+---
+
+## Headline
+
+**`mypy --strict` passes clean.** Q-002 is closed. Twelve source files, checked
+on Debian 13's own Python 3.13 inside a container, not on whatever the host has.
+
+**All five inventory sources are now measured.** Skywave and DragonOS Tier 1 were
+the last two. Every inventory is generated from upstream data and regenerable;
+none is hand-typed.
+
+**Two new red-flag findings** that change decisions already made — the Debian
+Blend is 94% installable on stable rather than 100%, and DragonOS ships 20 units
+of cellular/EW tooling that cannot be folded into a `sigint` package count.
 
 ---
 
 ## What completed
 
-### Acknowledgment records (pre-queue) — `71e1771`
-- **D-013 gains worked example 2**: the `produced`/`install_as` result. AHRL needs
-  four order-dependent renames because both WSJT-X builds emit `wsjtx`; declaring
-  the mapping means neither package controls its installed name, so the collision
-  cannot occur and the ordering constraint *stops existing* rather than being
-  automated. Generalised into a principle: when imperative logic needs a careful
-  sequence, check whether the sequence is inherent or an artifact of the tooling.
-- **Licence discrepancy recorded**: `test_menus_debian13.py` carries the GPL
-  notice with **no copyright line at all**, where D-011 describes both files as
-  "Copyright 2024/2025". No further action, as instructed.
-- **`glfer` manifest added** so the `toolkit_risk` register launches with three
-  frameworks (qt5, gtk2, wx3.2) instead of one, and with both `no_path` and
-  `in_progress` represented — which is the distinction that carries the value.
+### Item 1 — Podman migration, and mypy --strict passes — `7d2f8ea`
 
-### BPQ licence — `bdd2f47` — **the assumption was wrong, in your favour**
-linbpq is **GPL-3.0-or-later**, not closed source. Explicit grant in `LinBPQ.c`,
-Copyright 2001-2018 John Wiseman G8BPQ, worded as a statement about the whole
-project. 7 of 12 sampled `.c` files carry it; the five without are generated data
-and allocator helpers.
+Per Q-001: **rootless Podman, no `docker` group.** `containers/targets.yaml`,
+`scripts/run-targets.sh`, the `Makefile` and the CI workflow all migrated.
+Docker is now used nowhere.
 
-Better still: **upstream publishes version tags** (`25.39`, `25.36`, …). The
-unversioned `/Downloads/Beta/` URLs are how *73Linux* fetches it. We were about
-to inherit someone else's packaging problem and record it as an upstream defect.
-Neither offered option is needed — see **Q-005**. `DESIGN.md` §15.6 amended.
+Linux Mint 22.3 added as a target (Q-004) because `js8call.yaml` branches on it
+specifically — without the target, that selector was decoration and the manifest
+untestable. `raspios-arm64` renamed to `debian-13-arm64` with
+`claims: aarch64-only`, because an arm64 Debian container is not Raspberry Pi OS
+and D-018 forbids claiming what we have not tested (Q-003).
 
-### Item 1 — CI harness — `b54a791`
-`pyproject.toml` (3.11+, mypy strict + pydantic plugin, ruff incl. ANN),
-`.github/workflows/ci.yml` (types/lint/tests × py3.11–3.13, one container job per
-target, docs, hygiene), `containers/targets.yaml` + parameterised Dockerfile,
-`scripts/capability_matrix.py`, `scripts/check_doc_links.py`,
-`scripts/run-targets.sh`, `Makefile`.
+**mypy went 24 → 26 → 3 → 2 → 0.** The one error worth keeping is
+`strict_equality` flagging `gtk2.upstream_port_status != qt5.upstream_port_status`
+as a **non-overlapping comparison** — mypy narrowed both operands to distinct
+literals, so the assertion was statically always-true and tested nothing.
+Replaced with a set-cardinality assertion that can actually fail. Q-002 predicted
+`strict_equality` would matter; its other three predictions never fired.
 
-All five base images verified to exist on Docker Hub before being written into
-CI. Lint findings fixed rather than suppressed.
+Local runs needed two workarounds because this account has no `/etc/subuid`
+ranges. Item 6 wired them into an explicit, loud `HAMMUNITION_DEGRADED_PODMAN=1`
+opt-in rather than leaving them as command-line folklore. CI needs neither.
 
-**`mypy --strict` did not run.** See Q-002 — this is the honest answer you asked
-for, not a hedge.
+### Item 2 — `linbpq` manifest — `fed2b85`
 
-### Item 2 — HamClock — `c4908eb` — **tested, and the forecast was wrong**
-Retracted: that AHRL leaves users pointed at a discontinued backend.
-`hamclock.com` is **up**, `Last-Modified 2026-08-07`, and `version.pl` returns
-**4.27** with a feature changelog. HamClock was continued past the 4.23 AHRL
-ships.
+Pinned to tag `25.39`, closing Q-005 and the last packet-core blocker. Build
+dependencies came from upstream's makefile `LIBS` line and were then **verified
+in a Debian 13 container** — worth recording that `sources.debian.org` searches
+*source* packages, so an earlier API check wrongly reported all seven library
+`-dev` packages missing. The container is authoritative and now gets used that
+way.
 
-Confirmed: Elwood's own server `clearskyinstitute.com` refuses TCP. The sunset
-was real, it landed on the original host.
+First manifest to carry `config_files`, which makes `DESIGN.md` §15.5
+station-local configuration concrete rather than deferred.
 
-**Resolves 4.22 vs 4.23**: neither was final. Newsline was right in January, AHRL
-in May, the live backend is on 4.27.
+### Item 3 — Skywave Linux inventory — `71a6663`
 
-New: `hamclock.com` is now third-party and patron-funded. Four options recorded,
-not three; both candidate clients verified MIT (**Q-006**).
+`docs/reference/skywave-inventory.md`, generated. Sources: the versioned Featured
+Applications list on `skywavelinux.com` (5.10.0, Debian Sid base) for *what*,
+`AB9IL/SDR-Scripts` for *how*, and apt probes in `debian:13` and `debian:sid`.
 
-### Item 3 — Debian Blend — `746cb32`
-`docs/reference/blend-inventory.md`: **12 tasks, 160 entries, 152 unique
-packages** — matches SCOPE.md's estimate exactly. Generated by
-`scripts/gen_blend_inventory.py` from upstream control-format task files, so it
-cannot drift.
+**60 applications — 9 delta, 29 overlap, 22 base system.** Both prior estimates
+hold. Three corrections to `SCOPE.md`:
 
-**The finding that changes M3 scope: 11 of AHRL's 35 source builds are already
-packaged in Debian.** For those the trade-off is version currency, not
-availability.
+- **Most of the "remote SDR clients" are not client software.** KiwiSDR, WebSDR,
+  Web-888, PhantomSDR and OpenWebRX are receivers you connect *to*. Skywave ships
+  exactly one dedicated client. The real asset for a hardware-less user is the
+  **receiver directory** — data, not a package.
+- **AIS is not in 5.10.0** and is already ours.
+- The OpenWebRX and PhantomSDR entries traced to `sourcecode.html`, which
+  documents the v4 era (Ubuntu focal, WSJT-X 1.6.0) and has not been updated.
 
-### Item 4 — Overlaps — `8fd0e1e`
-`docs/reference/overlaps.md`. ADS-B → `readsb`; logging → `qlog`; SDR →
-`gqrx-sdr`; APRS → `xastir`; satellite imaging → `satdump`. Availability checked
-against `sources.debian.org`, which changed two recommendations.
+**Provenance, all tested rather than taken from GitHub metadata:**
 
-### Item 5 — Profile sizing — `bded261`
-`docs/reference/profile-sizing.md`. Union ~200–230 after de-duplication. **No
-profile exceeds 80**; `ham-core` at ~62 flagged with a proposed four-way split.
+- **SuperSDR has no licence.** No `LICENSE`, no header, default copyright — and
+  the other two KiwiSDR clients are no better. Raised as **Q-007**.
+- **Thierry Leconte archived his whole decoder suite.** `acarsdec` continues at
+  `f00b4r0/acarsdec` (where Skywave's 4.4.1 comes from); `vdlm2dec` supersedes to
+  `szpajder/dumpvdl2`; `acarsserv` has no successor.
+- GitHub's licence API said `NONE` for `TLeconte/acarsdec`, which states LGPL-2
+  in its README. The same lesson `linbpq` taught, in the other direction.
 
-### Item 6 — Doc reconciliation — `4dc6e62`
-Roadmap conflict resolved. `CLAUDE.md` and `DESIGN.md` §14 both said "1.0 = AHRL
-parity + the packet core"; `SCOPE.md` said stages 1–5. Both now read the
-five-source formula, recorded as **D-017**. Neither file previously mentioned
-DragonOS, Skywave or SCOPE.md at all; both now carry the tiering including the
-Tier 3 gate. **D-018** added. D-013 corrected, D-006 amended.
+**A control probe of the Blend's own 152 packages** found **8 that do not install
+on Debian 13** — including `qlog`, which `overlaps.md` picks as the recommended
+logging default. Seven are sid-only release lag. Became **D-019**.
+
+### Item 4 — DragonOS Tier 1 inventory — `0d9bda7`
+
+`docs/reference/dragonos-tier1-inventory.md`, generated from DragonOS's published
+README (Resolute R1, Ubuntu 26.04) and probed in **all four** x86 targets.
+
+**99 README units — 24 Tier 1**, 26 Tier 2, 1 Tier 3, 20 hardware, 20
+cellular/EW, 8 DragonOS-specific. The generator refuses to emit a Tier 1 row that
+is in no target's apt and has no named upstream `.deb`, so the table cannot
+silently overclaim.
+
+`SCOPE.md`'s Tier 1 list needed correcting on four of five names. **Kismet is not
+in the Resolute R1 README at all** — it is in the older FocalX one. `dumphfdl`
+and `DumpVDL2` are Tier 2. `AIS-Catcher` is Tier 1 by `.deb`, not apt. Only
+`readsb` survived as written.
+
+**The Tier 3 gate is now measurable, and the news is good:** all four targets ship
+`gnuradio 3.10.12.0` — the same upstream version DragonOS built its OOT modules
+against. We are not chasing four APIs. The gate itself does not move.
+
+**Universal Radio Hacker is archived** — read-only, final release v2.10.0, the
+version DragonOS ships, 12,500 stars, in no target's apt and apparently never
+packaged for Debian. Per `PARITY-POLICY.md` "finished" is a legitimate state and
+a verdict may not be inherited, so its disposition waits on our own install test.
+
+**Raised Q-008 🔴, the first red question.** DragonOS devotes 20 units to
+cellular/EW and `SCOPE.md` folds that into "the SIGINT delta" without
+distinguishing a passive decoder from a rogue base station. The line is
+**transmit, not topic**.
+
+### Item 5 — Profile sizing regenerated, names argued — `cfe9c26`
+
+`profile-sizing.md` becomes generated. Every number derives from a measured
+inventory; the profile set and its **names** are the curated part.
+
+**Naming treated as the deliverable.** Four rules, and two names that are
+deliberately not the obvious ones:
+
+- **`station`, not `ham-core`.** "core" is a packaging word, not an operator
+  word. `hammunition install station` reads as a sentence, and it survives the
+  four-way split — `station` (26), `logging` (14), `morse` (15),
+  `propagation` (18).
+- **`rf-security`, not `sigint`.** CLAUDE.md already uses that phrase for the
+  docs section and the security requirement; a different word in the CLI would
+  be a defect. SIGINT is also a term of art for a state intelligence function,
+  and most of this profile is Wi-Fi auditing and protocol analysis.
+
+`cellular` is named but deliberately undefined pending Q-008.
+
+**Three errors were caught by making the numbers derived rather than typed:**
+
+- The sizing **summed** Blend tasks instead of unioning them. `morse` absorbs
+  `morse` and `training`, which share five packages, so it read 20 when it is 13
+  — inflating exactly the profile the split exists to right-size.
+- The dispositions parser tested only the AHRL column for a digit, so the `ADD`
+  row — whose AHRL cell is an em dash — was silently dropped and the 73Linux
+  delta came out as 2 instead of 13.
+- The old hand-written doc said 13 `soapysdr-module-*` packages while listing 12.
+
+### Item 6 — Doc reconciliation — this commit
+
+**Two new decisions**, both from measurements this round:
+
+- **D-019 — Blend task membership is a category, not an install default.** 155 of
+  160 entries are `Recommends` and none is `Depends`; importing membership as an
+  install list would make every profile maximal. Includes the 94%-on-stable
+  finding.
+- **D-020 — Detected hardware drives profile resolution.** 12 of the Blend's 39
+  `sdr` packages are per-device SoapySDR backends. The Blend, Skywave and
+  DragonOS all ship the full set because a live ISO cannot know what is plugged
+  in. We can. Removes 11 of 12 from the common case, and needs a hardware
+  selector in the schema.
+
+**Corrections to documents that were wrong:**
+
+- `overlaps.md` claimed `qlog` "costs no backend work" because it is in Debian.
+  It does not install on Debian 13. Recommendation unchanged; the capability
+  matrix has to say so. `dump1090-mutability` is likewise sid-only, which
+  strengthens the `readsb` call.
+- `SCOPE.md` said gr-gsm's upstream "has stalled entirely for GR 3.10". Debian
+  ships `gr-gsm 1.0.0~20220727-1+b18`, maintained by the Debian Hamradio
+  Maintainers against `git.osmocom.org/gr-gsm`, and it installs from apt on
+  Debian 13, Kali and Parrot — not Ubuntu 26.04. Upstream moved off GitHub; the
+  packaging did not stop. Same correction applied to `PARITY-POLICY.md`.
+- **`catalog/packages/hamclock-next.yaml` still carried the retracted claim** in
+  three places — the shape comment, the endpoint note, and `known_problems` —
+  that HamClock stopped working in June 2026. Last round retracted that in
+  `dispositions.md` and produced D-018; the manifest was missed. Now corrected,
+  with hamclock.com flagged as live, third-party and patron-funded.
+
+**Two tooling defects fixed**, both found by doing the work rather than by
+looking for them:
+
+- **`scripts/check_doc_links.py` matched its skip list against every path
+  component**, so `reference` also matched `docs/reference/` and the checker
+  silently skipped all seven inventory documents while reporting success. This is
+  the `.gitignore` anchoring bug, repeated inside the tool meant to catch
+  problems. Skip list is now root-anchored. The first version of the regression
+  test reimplemented the filter and **passed happily with the bug reintroduced**;
+  the checker now exposes `scanned_docs()` and the test asserts on the real one.
+- **The podman degraded-mode workarounds were never wired in** — item 1 used them
+  from the command line and left the harness broken for this account.
+  `HAMMUNITION_DEGRADED_PODMAN=1` now applies them explicitly, prints a warning
+  that isolation is weakened, and prints the one root command that fixes it
+  properly.
 
 ---
 
-## What's in QUESTIONS.md
+## Open questions
 
-| | Urgency | Blocks |
-|---|---|---|
-| **Q-005** BPQ: assumption wrong, third option exists | 🔴 | 1.0 packet core |
-| **Q-001** Containers unusable — docker group is root-equivalent | 🔴 | all container work |
-| **Q-002** `mypy --strict` authored but unverified | 🔴 | our own stated standard |
-| **Q-006** Which HamClock, now there are four | 🟡 | public copy |
-| **Q-003** No Pi OS image; arm64 proxy is not Pi coverage | 🟡 | M4 hardware |
-| **Q-004** Mint 22.3 selector exists but Mint is in no target list | 🟢 | — |
-
-**Q-001 is the keystone.** It blocks Q-002, and container tests gate every
-capability-matrix claim. I did not fix it: adding an account to the `docker`
-group grants root-equivalent host access, and on a machine that also holds
-security tooling that is your call, not mine. Recommendation is rootless Docker
-or Podman.
+| | Status |
+|---|---|
+| Q-001 – Q-005 | ✅ resolved last round |
+| **Q-006** 🟡 | Which HamClock. Recommendation stands; the manifest's factual notes are now correct. |
+| **Q-007** 🟡 | SuperSDR has no licence. Recommend CARRY pinned with the licence state recorded, and ask upstream. |
+| **Q-008** 🔴 | Does the RF-security profile include cellular interception tooling? Blocks item 5's profile contents. |
 
 ---
 
-## What surprised me
+## What I could not do
 
-**1. Testing overturned a settled conclusion, and it was wrong in the direction
-that flattered us.** Three consistent secondary sources said HamClock had died.
-One `curl` disproved it. We had already written it into `dispositions.md` as
-evidence for our own design argument — which is exactly when scrutiny is
-weakest. Now **D-018**.
+**Nothing was skipped, but two things are worth naming.**
 
-**2. The BPQ assumption was backwards.** We were treating 73Linux's fetch method
-as an upstream defect. Upstream publishes GPL source with version tags. The
-lesson generalises past BPQ and is recorded in §15.6: *check how upstream
-publishes before accepting how an existing installer fetches.*
+**The local container harness runs degraded.** Full fidelity needs one root
+command this session was not authorised to run:
 
-**3. Our own `.gitignore` was hiding a documentation section.** Not new this
-session, but the same shape as both findings above — inherited assumption,
-unchecked.
+```
+sudo usermod --add-subuids 100000-165535 --add-subgids 100000-165535 chiefgyk3d
+podman system migrate
+```
 
-**4. The Blend eliminates a third of AHRL's source-build problem.** 11 of 35
-already packaged. Staging AHRL before the Blend, as the original roadmap implied,
-would have meant building a source backend for software Debian already ships.
+CI is unaffected — its runners have subordinate ID ranges.
 
-**5. Three unpinned snapshots resolve to apt for free.** `satdump`, `sdrpp`, and
-`readsb` are packaged. D-006's snapshot list shrinks from six to three at no cost.
-
-**6. Debian package names differ from upstream names more than expected.**
-`gqrx-sdr`, not `gqrx`. A manifest that guesses resolves to nothing, silently —
-which is why **D-016** exists.
-
-### Contradictions found in documents
-
-| Document | Contradiction | Resolution |
-|---|---|---|
-| `CLAUDE.md`, `DESIGN.md` §14 | "1.0 = AHRL parity + packet core" vs `SCOPE.md` stages 1–5 | D-017; both reconciled |
-| `CLAUDE.md`, `DESIGN.md` | No mention of DragonOS, Skywave or SCOPE.md at all | Added, with Tier 3 gate |
-| `D-013` | "software that has since been discontinued" | Corrected, original left intact |
-| `D-011` | "Copyright 2024/2025" for both AHRL files | One has no copyright line; recorded |
-| `D-008` | PITERM/QTSOUND/PIAPRS as "Pi system helpers" | Corrected last session; they are now in the packet core |
+**No `.deb` was installed and no source build was attempted.** Every availability
+claim in the new inventories is `apt-cache policy` inside a container, which
+proves the archive offers the package, not that it installs and runs. The four
+upstream `.deb` units in DragonOS Tier 1 target older releases than our primary
+targets — SatDump's newest is Ubuntu 24.04, SDR++'s is Debian bookworm — and each
+needs an install test before its manifest claims support. Flagged in the document
+rather than assumed away.
 
 ---
 
-## Where the next session starts
+## Verification
 
-**First, unblock the keystone.** Answer **Q-001**, then run `make venv && make
-types` and fix what `--strict` finds. Q-002 lists the four places I would look
-first. Until that happens the schema does not meet our own stated standard, and
-we should not say it does.
-
-**Then, highest value in order:**
-
-1. **Q-005** — decide BPQ, then write the manifest. It is the last thing blocking
-   the 1.0 packet core and the answer is now cheap.
-2. **Skywave and DragonOS Tier 1 inventories** — the two unmeasured inputs. Both
-   feed `profile-sizing.md`, and `sigint` is currently sized from a prose list.
-   The Blend generator is a working template for this.
-3. **Q-006** — decide the HamClock default; it is holding public copy.
-4. **`ham-core` split** — decide before profiles are built. Names are user-facing
-   and hard to change later.
-
-**Do not start** DragonOS Tier 3. It is gated behind the source backend and pin
-database (D-017), and neither exists.
-
-### State
-
-- 55 tests pass; `ruff` clean; doc links clean; `mypy --strict` **not run**
-- 9 manifests, 7 schema shapes + `glfer`
-- 18 decisions, 6 open questions
-- No third-party material committed; `reference/` and `reference/blend-tasks/`
-  correctly ignored
-- Nothing pushed to any remote
+| Check | Result |
+|---|---|
+| `pytest` | 65 passed |
+| `mypy --strict` | clean, 12 source files, in a `debian:13` container |
+| `ruff check` / `ruff format --check` | clean |
+| `scripts/check_doc_links.py` | clean — and now actually scanning `docs/reference/` |
+| Generated docs regenerate identically | yes |
+| `.gitignore` anchoring | `docs/reference/` tracked (8 files); every `reference/` subdir ignored; 0 files tracked under `reference/` |

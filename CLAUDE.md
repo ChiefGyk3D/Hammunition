@@ -134,7 +134,10 @@ Do not re-litigate these without being asked:
 | Update tracking | `update` block on every manifest | AHRL has no update story — install once, rot forever (**D-010**) |
 | Backend selection | Measured, never conventional | We listed cargo/flatpak from habit and missed CPAN from data (**D-014**) |
 | 73Linux | Inventory source, never a base | No license file; `.bapp` is bash with a header (**D-001**) |
-| 1.0 scope | AHRL parity + packet core | VARA and HAMRS are post-1.0 (**D-008**) |
+| 1.0 scope | The five-source union | Staged by coverage-per-effort (**D-017**) |
+| External claims | Tested before published | The HamClock retraction (**D-018**) |
+| Blend tasks | A category, not an install default | 155 of 160 entries are `Recommends` (**D-019**) |
+| Profile resolution | Consults detected hardware | 12 per-device Soapy modules; a user needs one (**D-020**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
 
@@ -210,7 +213,15 @@ capability-matrix claims not backed by a passing container test.
 - Type hints throughout; `mypy --strict` clean
 - Tests run in containers per target distro, never against the dev machine.
   `containers/targets.yaml` declares them; `scripts/run-targets.sh` runs them
-  locally and **fails loudly** if docker is unusable rather than skipping.
+  locally with **rootless Podman** and **fails loudly** if the runtime is
+  unusable rather than skipping. Never join the `docker` group to work around
+  it — group membership is root-equivalent host access, which is the trade this
+  project declined (Q-001).
+- An account with no `/etc/subuid` ranges can set
+  `HAMMUNITION_DEGRADED_PODMAN=1`, which applies the two workarounds
+  (`APT_SANDBOX_USER=root`, `ignore_chown_errors`) and **prints a warning that
+  isolation is weakened**. Opt-in, never a silent default; CI needs neither. The
+  real fix is one root command, printed by the script.
 - `mypy --strict` is wired into CI as a gate (`.github/workflows/ci.yml`).
   CI pins Python 3.11+; a dev machine may be older, and CI is the authority.
 - `scripts/check_doc_links.py` validates markdown links **and backticked repo
@@ -269,8 +280,17 @@ Both former open questions are settled. Do not reopen without new evidence.
 
 **Still open and now blocking:** station-local configuration (callsign, grid
 square, rig device paths). The 1.0 packet core forces it — AX.25's install writes
-`wl2k ${MYCALL} 1200 255 7 Winlink` into `/etc/ax25/axports`. See `DESIGN.md`
-§15.3 and the D-004 amendment.
+`wl2k ${MYCALL} 1200 255 7 Winlink` into `/etc/ax25/axports`, and
+`catalog/packages/linbpq.yaml` is the first manifest in the repository to carry a
+`config_files` block, templating `NODECALL`, `NODEALIAS` and `LOCATOR`. It is no
+longer a design question in the abstract; a shipped manifest depends on it. See
+`DESIGN.md` §15.3 and the D-004 amendment.
+
+**Open questions awaiting the maintainer** are in `docs/QUESTIONS.md`. Q-001
+through Q-005 are resolved. Open: **Q-006** (which HamClock), **Q-007**
+(SuperSDR has no licence), and **Q-008 🔴** (does the RF-security profile include
+cellular interception tooling — the only open question that changes what the tool
+will do to a user's machine).
 
 ## Roadmap — 1.0 is the five-source union
 
@@ -314,18 +334,26 @@ never substitutes.
 - Manifest schema + validator
 - apt backend only
 - `/etc/os-release` detection for Parrot and Debian
-- ~20 packages, one `ham-core` profile, seeded from the AHRL inventory
+- ~20 packages, one starter profile, seeded from the AHRL inventory
+  (named `ham-core` when M1 was written; `docs/reference/profile-sizing.md`
+  proposes **`station`** instead, and a four-way split — awaiting the maintainer)
 - `install`, `list`, `status`, `--dry-run`
 - Container test harness for Parrot and Debian
 
-**M2 — inventory and coverage.** *Done for AHRL and the Debian Blend* —
-`docs/reference/blend-inventory.md` records all 12 Blend tasks and 152 packages,
-generated from upstream task files. Remaining: Skywave and DragonOS Tier 1.
-*Previously for AHRL* —
-`docs/reference/ahrl-inventory.md` records all 95 executing units with method,
-package names, build details, category, and conditionals. Headline: 57 of 95 are
-not apt-installable. Remaining: the 73Linux delta inventory, and per-unit
-dispositions per `PARITY-POLICY.md`.
+**M2 — inventory and coverage. ✅ All five sources are now measured.** Every
+inventory is generated from upstream data and regenerable; none is hand-typed.
+
+| Source | Document | Headline |
+|---|---|---|
+| AHRL | `docs/reference/ahrl-inventory.md` | 95 executing units; **57 not apt-installable** |
+| Debian Blend | `docs/reference/blend-inventory.md` | 12 tasks, 152 packages; **8 not installable on Debian 13** (**D-019**) |
+| 73Linux | `docs/reference/dispositions.md` | 28 delta units; 13 survive |
+| Skywave | `docs/reference/skywave-inventory.md` | 60 apps; **9 delta**, all absent from Debian stable *and* unstable |
+| DragonOS | `docs/reference/dragonos-tier1-inventory.md` | 99 README units; **24 Tier 1**, probed in all four targets |
+
+Dispositions are complete for AHRL and the 73Linux delta
+(`docs/reference/dispositions.md`); the Skywave and DragonOS deltas need theirs.
+Sizing and naming are in `docs/reference/profile-sizing.md`.
 
 **M3 — backend completeness.** Backends are justified by measurement, never by
 convention (**D-014**). Every backend names the unit requiring it.

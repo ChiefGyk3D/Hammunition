@@ -21,7 +21,7 @@ files, so the cost of each recommendation is known rather than assumed.
 | Candidate | Source | Availability |
 |---|---|---|
 | `dump1090` (FlightAware) | AHRL — source build from a `master` zip | **not in Debian** |
-| `dump1090-mutability` | Debian Blend (`nonamateur`) | in Debian |
+| `dump1090-mutability` | Debian Blend (`nonamateur`) | **in unstable only — not in Debian 13** |
 | `readsb` | — | **in Debian** |
 | Virtual Radar Server | AHRL — Mono + `.exe` | not in Debian |
 | `tar1090` (web UI) | — | **not in Debian** |
@@ -31,7 +31,10 @@ files, so the cost of each recommendation is known rather than assumed.
 > Actively maintained, in Debian, and it supersedes both dump1090 forks at once — AHRL's unpinned `master` snapshot and the Blend's `dump1090-mutability`, which AHRL itself dropped in v27.
 
 **Also carry:** `dump1090-mutability` — it is the Blend's own choice and removing
-it would break parity with a team-governed source for no user benefit.
+it would break parity with a team-governed source for no user benefit. Note,
+measured 2026-08-25, that it does **not** install on Debian 13 either; it is in
+unstable. That strengthens rather than weakens the `readsb` recommendation, since
+`readsb` is in Debian 13 and every other target.
 
 **Recommend RETIRE:** Virtual Radar Server. Mono was handed off by Microsoft in
 2024, the AHRL install needs a second tarball purely to patch a runtime error,
@@ -48,21 +51,41 @@ apt-only and available today.
 
 | Candidate | Source | Availability |
 |---|---|---|
-| `qlog`, `cqrlog`, `xlog`, `klog`, `tlf`, `tucnak`, `pyqso`, `not1mm`, `trustedqsl` | Blend `logging` | **all in Debian** |
+| `cqrlog`, `xlog`, `klog`, `tlf`, `tucnak`, `pyqso`, `trustedqsl` | Blend `logging` | in Debian 13 |
+| `qlog`, `not1mm` | Blend `logging` | **in unstable only — not in Debian 13** |
 | `fllog`, `flnet` | AHRL — source | not in Debian |
 | HAMRS | 73Linux — AppImage | not in Debian |
 
 ### Recommended: `qlog` for general logging
 
-> Modern, actively developed, already the agreed default in `PARITY-POLICY.md`, and in Debian — so the default costs no backend work.
+> Modern, actively developed, and already the agreed default in `PARITY-POLICY.md`.
+
+⚠️ **Corrected 2026-08-25 — `qlog` does not install on Debian 13.** A probe of
+all 152 Blend packages inside a `debian:13` container found `qlog` and `not1mm`
+present in unstable (`qlog 0.52.0-1`) and absent from stable. The earlier claim
+that this default "costs no backend work" was wrong on our primary targets,
+which derive from Debian stable.
+
+The **recommendation is unchanged** — `qlog` is still the right default, and it
+arrives in Debian 14. What changes is what the catalog must say in the meantime:
+
+| Option | Consequence |
+|---|---|
+| **Recommend `qlog`; declare it unavailable on stable in the capability matrix; fall back to `cqrlog`** ⭐ | Honest, costs nothing, and is exactly what the capability matrix exists for. `cqrlog` is in Debian 13 and works. |
+| Ship a source or upstream-`.deb` path for `qlog` on stable | Gives everyone the default. Adds a backend obligation for one package, for a gap that closes on its own. |
+| Change the default to something in stable | Optimises for today's package archive over the software. Wrong trade. |
+
+**Recommendation: the first.** Per **D-005**, coverage counts only where it
+installs, and per **D-019** *"in the Blend"* is not the same claim as
+*"installable"*. Recorded rather than papered over.
 
 **These are not all the same job**, and treating them as one overlap would be a
 mistake:
 
 | Job | Recommended | Why |
 |---|---|---|
-| General station log | `qlog` | Active, modern, packaged |
-| Contest logging (GUI) | `not1mm` | Actively developed; already carried by AHRL |
+| General station log | `qlog` | Active and modern; **sid-only, see above** |
+| Contest logging (GUI) | `not1mm` | Actively developed; already carried by AHRL; **sid-only** |
 | Contest logging (terminal) | `tlf` | The serious contest CLI; no GUI competitor |
 | Net control | `flnet` | Different workflow entirely — running a net, not logging QSOs |
 | Networked shared log | `fllog` | Serves a log across machines; not a personal logger |

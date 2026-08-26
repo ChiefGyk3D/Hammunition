@@ -99,6 +99,13 @@ def test_root_reference_dir_is_ignored() -> None:
     [
         "reference/bin/install_ahrl",
         "reference/tarballs/fldigi-4.2.11.tar.gz",
+        # Source trees and probe output added by the round-3 inventories. Each
+        # is upstream material or a machine-generated measurement, never ours.
+        "reference/skywave/SDR-Scripts/sdr-installer.sh",
+        "reference/skywave/skywavelinux-index.html",
+        "reference/dragonos/README.txt",
+        "reference/probes/blend-debian-13.tsv",
+        "reference/blend-tasks/sdr",
         "vendor/anything.txt",
         "andy_v27.tar.gz",
         "some/nested/upstream.tar.gz",

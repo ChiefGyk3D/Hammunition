@@ -7,7 +7,7 @@ Hammunition's target coverage is the union of what these five projects serve:
 | Debian Hamradio Blend | Ham, packaged | ~152 packages | **Lowest** — apt metapackages, machine-readable task lists |
 | Andy's Ham Radio Linux | Ham, curated | 95 units | **Medium** — 57 non-apt, but inventoried |
 | 73Linux | Winlink / packet / EMCOMM | 47 apps (~15 delta) | **Low-medium** — mostly apt or .deb |
-| Skywave Linux | Remote SDR, listening | ~30 apps (small delta) | **Low** — heavy overlap, few unique |
+| Skywave Linux | Remote SDR, listening | 60 apps, **9 delta** (measured) | **Low** — heavy overlap, few unique |
 | DragonOS | SDR / SIGINT | 200+ | **Highest** — mostly source-built GNU Radio OOT modules |
 
 **Union of coverage, not union of packages.** Where several sources ship
@@ -31,6 +31,14 @@ morse, packetmodes, rigcontrol, satellite, sdr, tools, training, nonamateur.
 no status honesty, no non-Debian software. Our value over it is everything that
 happens after `apt install`.
 
+**Two measured qualifications, both settled by D-019.** The Blend uses
+`Recommends` for 155 of 160 entries and `Depends` for none, so task membership
+means *"belongs to this category"*, never *"install by default"* — importing it
+as an install list would make every profile maximal. And **8 of its 152 packages
+do not install on Debian 13**, including `qlog`, which `overlaps.md` picks as the
+recommended logging default. Cheapest coverage in the landscape, yes — at 94% on
+a stable base, not 100%.
+
 **Do first.** It's the highest coverage-per-effort in the project.
 
 ### AHRL — the parity target
@@ -48,24 +56,64 @@ Deferred post-1.0: VARA (Wine prefix, closed-source freeware), HAMRS (AppImage,
 scrapes its own download URL).
 
 ### Skywave Linux — the listening delta
-Small and mostly overlapping, but its unique cluster is genuinely unserved
-elsewhere: **remote SDR clients** (KiwiSDR, WebSDR, Web-888, PhantomSDR,
-OpenWebRX), utility decoders (ACARS, HFDL, VDL2, AIS), and Reticulum/MeshChat.
+**Measured** — `docs/reference/skywave-inventory.md`, release 5.10.0. Of 60
+featured applications, **9 are delta**, 29 overlap another source, and 22 are
+the desktop the live ISO boots into.
+
+The delta is the **utility-decoder cluster** — ACARS, HFDL, VDL2, and the
+libraries and calibration tools they need — plus SuperSDR and Reticulum MeshChat.
+Every one is absent from Debian, stable *and* unstable, so this is a real gap in
+the distribution rather than release lag.
 
 Cheap to absorb, high user value, and it makes Hammunition useful to someone
 who doesn't own an SDR yet — a real on-ramp.
 
-Note Skywave deliberately *dropped* the GNU Radio-heavy stack to stay lean, and
-excludes the SDRplay API as closed-source. Both are decisions worth respecting
-rather than reversing by default.
+**Three corrections to the earlier description of this delta,** all in the
+inventory:
+
+- **Most of the "remote SDR clients" are not client software.** KiwiSDR, WebSDR,
+  Web-888, PhantomSDR and OpenWebRX are receivers and server stacks you connect
+  *to*. Skywave ships exactly one dedicated client, **SuperSDR**; everything else
+  is a browser plus AB9IL's site-directory tooling. The real asset for a
+  hardware-less user is the **receiver directory**, which is data, not a package.
+- **AIS is not in the 5.10.0 release** and is already ours: `rtl-ais` is in
+  Debian 13 and `ais-catcher` has a manifest. It belongs on our ADD list.
+- **SuperSDR has no licence** — no `LICENSE`, no header, default copyright, and
+  the other KiwiSDR clients are no better. See **Q-007**.
+
+Skywave deliberately *dropped* the GNU Radio-heavy stack to stay lean and
+*excludes* the SDRplay API as closed-source. Both are confirmed from its own
+release notes. Respect the second: the SDRplay artifact sits behind an
+interactive download gate, so it cannot be checksummed in advance and cannot
+meet our security requirement. The first does not transfer — DragonOS Tier 3
+*is* GNU Radio, and our `sdr` profile carries gqrx.
 
 ### DragonOS — the SIGINT delta, tiered
 The largest and most expensive. Absorb in three tiers, and do not treat them as
 one job.
 
-**Tier 1 — apt-installable or upstream .deb.** Kismet, Wireshark, Aircrack-ng,
-rtl_433, readsb, AIS-Catcher, dumphfdl, DumpVDL2, gpredict, inspectrum, and the
-SoapySDR family. Cheap, stable, high value. **This is the 1.0 SIGINT profile.**
+**Tier 1 — apt-installable or upstream .deb.** **Measured** —
+`docs/reference/dragonos-tier1-inventory.md`, release Resolute R1, probed in all
+four x86 target containers. Of 99 README units, **24 are Tier 1**: Wireshark,
+aircrack-ng, hcxdumptool/hcxtools, Ubertooth, rtl_433, inspectrum, GNU Radio,
+SoapySDR, UHD, gpsd/ffmpeg/sox, the ham decoders we already carry, and four that
+arrive as an upstream `.deb` — SDRangel, SDR++, SatDump and AIS-Catcher.
+**This is the 1.0 RF-security profile.**
+
+The earlier list above needed correcting on four of five names:
+
+- **Kismet** is not in the Resolute R1 README at all — it is in the older FocalX
+  one. It belongs in the profile on its own merits (apt on Kali and Parrot, with
+  drone-detection capture drivers on Kali; an official signed apt repo elsewhere)
+  and should stop being cited as a DragonOS inheritance.
+- **dumphfdl and DumpVDL2** are in no target's apt and in neither Debian stable
+  nor unstable. They are Tier 2.
+- **AIS-Catcher** is Tier 1 by upstream `.deb`, not by apt.
+- **readsb** survives as written, and stays our ADS-B default per `overlaps.md`.
+
+**Cellular / EW is 20 of the 99 units and is not folded into this.** The line is
+*transmit*, not topic: a passive decoder and a rogue base station are different
+kinds of thing. See **Q-008**, which is open and blocks the profile's contents.
 
 **Tier 2 — maintained upstream binaries or straightforward builds.** SDR++,
 SDRangel, SatDump, SigDigger, SDRTrunk, DSD-FME, qFlipper, Universal Radio
@@ -76,8 +124,21 @@ fix on the way through.
 **Tier 3 — GNU Radio out-of-tree modules.** gr-gsm, gr-iridium, gr-lora_sdr,
 gr-satellites, gr-air-modes, gr-dect2, gr-nrsc5, gr-tempest, gr-smart_meters,
 and the rest. **This is where the maintenance burden lives.** Each is pinned to
-a GNU Radio API version, and GNU Radio's release train breaks them routinely —
-gr-gsm's upstream has stalled entirely for GR 3.10.
+a GNU Radio API version, and GNU Radio's release train breaks them routinely.
+
+**Two measured findings soften this, without moving the gate.** First, all four
+of our x86 targets ship the **same** GNU Radio — `3.10.12.0`, differing only in
+Debian revision — and it is the same upstream version DragonOS built its modules
+against. We are not chasing four APIs. (`libvolk` does differ: 3.2 on the
+Debian-13-derived targets, 3.3 on the newer ones.)
+
+Second, the claim that **gr-gsm's upstream has stalled entirely for GR 3.10 no
+longer holds as a practical matter.** Debian ships `gr-gsm 1.0.0~20220727-1+b18`,
+maintained by the Debian Hamradio Maintainers against
+`git.osmocom.org/gr-gsm`, and it is present in Debian 13, Kali and Parrot —
+though **not** Ubuntu 26.04. Upstream development did move off GitHub; the
+packaging did not stop. It installs today from apt on three of four targets,
+which is a different situation from the one this paragraph originally described.
 
 **Tier 3 policy:** carry only modules with a maintained upstream or a maintained
 fork, mark the whole tier `experimental`, and record the GNU Radio version each
@@ -96,9 +157,26 @@ At 400–600 packages nobody installs everything, and DragonOS-scale installs ar
 exactly what users complain about. Profile design *is* the user experience, and
 it needs its own attention — not a byproduct of the catalog.
 
-Minimum viable profile set: `ham-core`, `digital-modes`, `packet`, `satellite`,
-`antenna`, `sdr`, `sigint`, `mesh`, `listening`, `electronics`, `uconsole`.
-Flat tags with overlap, per D-003.
+**Sized and named** in `docs/reference/profile-sizing.md`, now that all five
+sources are measured. No profile exceeds the 80-package threshold. Two names are
+**proposed and awaiting the maintainer**, because names are user-facing and
+effectively permanent:
+
+- **`station`** rather than `ham-core`, split four ways into `station` (26),
+  `logging` (14), `morse` (15) and `propagation` (18). `core` is a packaging
+  word, not an operator word.
+- **`rf-security`** rather than `sigint`, matching `docs/rf-security/` and the
+  security requirement in CLAUDE.md, which already use that phrase.
+
+Proposed set: `station`, `logging`, `morse`, `propagation`, `digital-modes`,
+`packet`, `satellite`, `antenna`, `sdr`, `listening`, `electronics`,
+`rf-security`, plus `mesh` and `uconsole` post-1.0. A `cellular` profile is named
+but deliberately undefined pending **Q-008**. Flat tags with overlap, per
+**D-003**.
+
+Profile resolution also consults **detected hardware** (**D-020**): 12 of the
+Blend's 39 `sdr` packages are per-device SoapySDR backends, and a one-dongle
+operator needs one of them.
 
 ### The pin/hash database is a named sub-project
 Five sources, hundreds of non-apt artifacts, and not one of them publishes

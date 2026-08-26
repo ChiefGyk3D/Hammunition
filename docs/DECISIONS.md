@@ -681,3 +681,87 @@ end to end, and the write-up says so.
 
 **Cheap to comply with.** The tests that overturned this were a DNS lookup, a TCP
 connect, and two HTTP GETs.
+
+---
+
+## D-019 — Blend task membership is a category, not an install default
+
+**Decided:** A package's presence in a Debian Hamradio Blend task means *"this
+belongs to this category."* It does **not** mean *"install this."* Our profiles
+import Blend task membership as tagging and decide inclusion separately.
+
+**Evidence:** measured in `docs/reference/blend-inventory.md`. Of 160 task
+entries, **155 are `Recommends` and 5 are `Suggests`. There is not one
+`Depends`.** The Blend's metapackages are opt-out by construction: `apt install
+hamradio-datamodes` pulls every recommendation unless the operator knows to pass
+`--no-install-recommends`.
+
+Our profiles are opt-in (**D-003**). Importing task membership as an install
+list would make every profile maximal — the exact DragonOS-scale complaint
+`SCOPE.md` names — and would do it silently, because the Blend's own metadata
+looks like a package list until you read the relation column.
+
+**Second, related finding: "in the Blend" is not "installable."** A probe of all
+152 Blend packages inside a `debian:13` container found **8 that do not install
+on Debian 13**: `aethersdr`, `dump1090-mutability`, `fbb`, `not1mm`,
+`odr-audioenc`, `qlog`, `sdrangel`, `sdrpp`. Seven are present in unstable, so
+most of it is ordinary release lag — the Blend tracks unstable and we target
+stable. `odr-audioenc` is in neither.
+
+That is 94% coverage on stable, not 100%, and the residual lands on packages we
+had already chosen: `qlog` is `overlaps.md`'s recommended logging default, and
+`sdrpp` and `sdrangel` are in the Blend's `sdr` task. Per **D-005**, coverage
+counts only where it installs.
+
+**Consequences.**
+
+- Profile manifests state their own membership. Blend tasks seed it; they do not
+  define it.
+- Every Blend package a profile includes is checked against the target before
+  the capability matrix claims it.
+- `SCOPE.md`'s "cheapest coverage in the project" stands, qualified: cheapest,
+  and 94% rather than complete on a stable base.
+
+---
+
+## D-020 — Detected hardware drives profile resolution
+
+**Decided:** Profile resolution consults detected hardware. A profile may declare
+packages as *available-not-installed*, selected only when the matching device is
+present. This is a structural requirement on M4, not an optimisation.
+
+**Evidence, from two independent sources.** The Blend's `sdr` task is 39
+packages, of which **12 are `soapysdr-module-*`** — per-device backends for
+airspy, bladerf, hackrf, lms7, mirisdr, osmosdr, redpitaya, remote, rfspace,
+rtlsdr, uhd and audio. Skywave Linux ships **the same full set** in its 5.10.0
+release, and DragonOS ships it too.
+
+All three do it for the same reason: **a live ISO cannot know what will be
+plugged in.** Skywave and DragonOS boot from USB on an unknown machine; the
+Blend is a metapackage with no host to inspect.
+
+**We are not in that position.** We run on an installed system with the device
+attached, which is the whole premise of the project. Installing eleven backends
+for hardware the operator does not own is exactly the bloat all three of those
+projects are forced into and we are not.
+
+Measured effect: **11 of the 12 removed from the common case**, from the single
+largest profile in the catalog.
+
+**Consequences.**
+
+- The manifest schema needs a way to express "install when this device is
+  present" — a hardware selector alongside the existing `distro`, `arch` and
+  version selectors (**D-002**).
+- `hammunition --dry-run` must show which modules were selected and why, because
+  a resolution that depends on hidden state is exactly what the dry-run
+  requirement exists to prevent.
+- With no device attached, resolution installs `soapysdr-tools` and nothing
+  device-specific, and says so rather than failing.
+- This generalises past SoapySDR: firmware packages, udev rules and DKMS modules
+  have the same shape. It is the same mechanism that makes persistent udev
+  symlinks by serial worth building.
+
+**Not a substitute for honesty.** If detection fails or is ambiguous, the engine
+reports it and installs the conservative set. Guessing at hardware would be a
+silent degradation, which **D-016** forbids.

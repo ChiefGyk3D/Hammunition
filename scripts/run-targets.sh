@@ -53,6 +53,48 @@ fi
 
 echo "runtime: $($RUNTIME --version)"
 
+# ---------------------------------------------------------------------------
+# Degraded mode, opt-in and loud.
+#
+# An account with no /etc/subuid and /etc/subgid ranges can still run rootless
+# podman, but only with two workarounds:
+#
+#   --storage-opt ignore_chown_errors=true   image layers cannot be chowned
+#   --build-arg APT_SANDBOX_USER=root        apt cannot drop to uid 42
+#
+# Both weaken the isolation the container is there to provide, so they are NOT
+# the default and never silently applied. CI needs neither: its runners have
+# subordinate ID ranges. The real fix on a dev machine is one root command,
+# printed below.
+#
+# This exists because the alternative — joining the docker group — is the trade
+# this project declined, and an unusable local harness is how people end up
+# making it anyway.
+# ---------------------------------------------------------------------------
+BUILD_OPTS=()
+RUN_OPTS=()
+if [[ "${HAMMUNITION_DEGRADED_PODMAN:-0}" == "1" ]]; then
+    BUILD_OPTS=(--build-arg "APT_SANDBOX_USER=root" --storage-opt ignore_chown_errors=true)
+    RUN_OPTS=(--storage-opt ignore_chown_errors=true)
+    cat >&2 <<'MSG'
+
+┌─ DEGRADED MODE ──────────────────────────────────────────────────────────┐
+│ HAMMUNITION_DEGRADED_PODMAN=1 is set. Container isolation is WEAKENED:   │
+│   * apt runs as root inside the build instead of dropping to uid 42      │
+│   * image layer ownership errors are ignored                            │
+│                                                                          │
+│ Results are still useful for type checking and package probes. Do NOT    │
+│ treat a pass here as equivalent to CI.                                   │
+│                                                                          │
+│ Fix it properly — one root command, then re-run without this variable:   │
+│   sudo usermod --add-subuids 100000-165535 \                             │
+│                --add-subgids 100000-165535 "$(id -un)"                   │
+│   podman system migrate                                                  │
+└──────────────────────────────────────────────────────────────────────────┘
+
+MSG
+fi
+
 targets=$(python3 - <<'PY'
 import pathlib
 
@@ -70,14 +112,17 @@ while IFS=$'\t' read -r name image platform claims; do
     if ! "$RUNTIME" build --platform="$platform" \
             -f containers/Dockerfile.target \
             --build-arg "BASE=$image" \
+            ${BUILD_OPTS[@]+"${BUILD_OPTS[@]}"} \
             -t "hammunition-$name:local" . ; then
         failed+=("$name (build)"); continue
     fi
-    if ! "$RUNTIME" run --rm --platform="$platform" "hammunition-$name:local" \
+    if ! "$RUNTIME" run --rm --platform="$platform" \
+            ${RUN_OPTS[@]+"${RUN_OPTS[@]}"} "hammunition-$name:local" \
             python scripts/capability_matrix.py --check ; then
         failed+=("$name (validate)"); continue
     fi
-    if ! "$RUNTIME" run --rm --platform="$platform" "hammunition-$name:local" \
+    if ! "$RUNTIME" run --rm --platform="$platform" \
+            ${RUN_OPTS[@]+"${RUN_OPTS[@]}"} "hammunition-$name:local" \
             python -m pytest ; then
         failed+=("$name (tests)")
     fi

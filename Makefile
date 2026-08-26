@@ -45,10 +45,18 @@ check: lint types test docs ## Everything CI runs, minus containers
 containers: ## Build and validate every target container (rootless podman)
 	@bash scripts/run-targets.sh
 
+# Set HAMMUNITION_DEGRADED_PODMAN=1 if this account has no /etc/subuid ranges.
+# It weakens container isolation and prints a warning; see scripts/run-targets.sh.
+DEGRADED_BUILD := $(if $(filter 1,$(HAMMUNITION_DEGRADED_PODMAN)),--build-arg APT_SANDBOX_USER=root --storage-opt ignore_chown_errors=true,)
+DEGRADED_RUN   := $(if $(filter 1,$(HAMMUNITION_DEGRADED_PODMAN)),--storage-opt ignore_chown_errors=true,)
+
 types-container: ## Run mypy --strict inside a target container (no host install)
-	$(RUNTIME) build $(PODMAN_OPTS) -f containers/Dockerfile.target \
+ifeq ($(HAMMUNITION_DEGRADED_PODMAN),1)
+	@echo "WARNING: degraded podman mode — container isolation weakened. Not equivalent to CI."
+endif
+	$(RUNTIME) build $(DEGRADED_BUILD) $(PODMAN_OPTS) -f containers/Dockerfile.target \
 	  --build-arg BASE=debian:13 -t hammunition-types:local .
-	$(RUNTIME) run --rm hammunition-types:local mypy --strict
+	$(RUNTIME) run --rm $(DEGRADED_RUN) hammunition-types:local mypy --strict
 
 clean:
 	rm -rf $(VENV) .pytest_cache .mypy_cache .ruff_cache

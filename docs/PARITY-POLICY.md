@@ -169,8 +169,25 @@ gr-lora_sdr.
 **RF security and SIGINT.** Separate opt-in profile. Universal Radio Hacker,
 inspectrum, SigDigger, Kismet, rtl_433, Aircrack-ng suite, Ubertooth, SDRTrunk,
 OP25, DSD-FME, HackRF/PortaPack firmware management, qFlipper, CatSniffer and
-nRF52840 tooling. Note gr-gsm's upstream has stalled for modern GNU Radio — carry
-a maintained fork, marked experimental, or don't carry it.
+nRF52840 tooling.
+
+**Two units in this list now have measured status** (`docs/reference/dragonos-tier1-inventory.md`):
+
+- **gr-gsm** — the "upstream has stalled for modern GNU Radio" note is out of
+  date as a practical matter. Debian ships `gr-gsm 1.0.0~20220727-1+b18`,
+  maintained by the Debian Hamradio Maintainers against `git.osmocom.org/gr-gsm`,
+  and it installs from apt on Debian 13, Kali and Parrot — not Ubuntu 26.04.
+  Upstream development moved off GitHub; the packaging did not stop. **CARRY via
+  apt**, with the Ubuntu gap recorded in the capability matrix. It is also in
+  the receive-only cellular group that **Q-008** governs.
+- **Universal Radio Hacker** — `jopohl/urh` is **archived**: read-only, last
+  pushed 2025-12-19, final release v2.10.0, 12,500 stars. It is in none of the
+  four targets' apt and appears never to have been packaged for Debian at all
+  (`tracker.debian.org/pkg/urh` 404s). It installs from PyPI. Per this document
+  "finished" is a legitimate state and a `broken` verdict may not be inherited,
+  so **the disposition waits on our own install test on a supported distro** —
+  most likely CARRY via a venv or pipx backend with `status: frozen` and the
+  archival recorded. Do not write it down as dead without testing it.
 
 **Direction finding.** Ham interest (ARDF, foxhunting) and security interest,
 served by neither side. KrakenSDR DoA, DF-Aggregator.
