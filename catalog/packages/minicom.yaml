@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: minicom
+version: "2.10"
+summary: Full-screen serial communication program, the one everyone already knows
+categories: [workstation, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [minicom]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A full-screen terminal program for serial ports, with menu-driven
+    configuration, capture-to-file and modem dialling that nobody uses any
+    more.
+  why_you_want_it: >-
+    It is carried because it is what existing documentation assumes. When an
+    upstream project's instructions say 'open minicom at 115200 8N1', having
+    it present means those instructions work verbatim rather than needing
+    translation.
+  prerequisites: >-
+    Membership of the dialout group.
+  known_problems: >-
+    Its exit key sequence (Ctrl-A then X) surprises people, and it will
+    happily start with a saved configuration that does not match the device in
+    front of you. tio is the better default; minicom is here for compatibility
+    with instructions written elsewhere.
+  upstream_url: https://salsa.debian.org/minicom-team/minicom

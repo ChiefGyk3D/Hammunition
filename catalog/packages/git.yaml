@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: git
+version: "2.47.3"
+summary: Distributed version control — the tool this project is distributed with
+categories: [workstation]
+
+install:
+  - install:
+      method: apt
+      packages: [git]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Tracks changes to files over time, with full history available offline and
+    the ability to synchronise with remote copies.
+  why_you_want_it: >-
+    Every workflow in this catalog assumes it. Hammunition itself is
+    distributed by git rather than by tarball — that difference is one of the
+    stated reasons the project exists — and several manifests install software
+    directly from a pinned git revision.
+  prerequisites: >-
+    Nothing. It is in the base repositories of every supported target.
+  known_problems: >-
+    None. Configure user.name and user.email before your first commit or git
+    will refuse to make one.
+  upstream_url: https://git-scm.com/

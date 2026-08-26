@@ -259,8 +259,8 @@ an unsupported combination appear to work.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 11
-  profiles/        # named bundles referencing packages      ✅ 2
+  packages/        # one YAML per piece of software          ✅ 19
+  profiles/        # named bundles referencing packages      ✅ 3
   hardware/
     classes/       # device families with shared Linux needs ✅ badgelife
     devices/       # one YAML per device                     ✅ 16
@@ -312,7 +312,6 @@ through Q-005 are resolved. Open:
 | **Q-007** 🟡 | SuperSDR has no licence — carry it, or not |
 | **Q-008** 🔴 | Does the RF profile include cellular interception tooling? Blocks `rf-research`'s contents |
 | **Q-010** 🟡 | Accept a separate `rfid` profile? |
-| **Q-011** 🟡 | Accept a `workstation` profile, and with what contents? |
 | **Q-012** 🟢 | What copyright holder string do the SPDX headers name? A default is in place |
 
 ## Roadmap — 1.0 is the five-source union

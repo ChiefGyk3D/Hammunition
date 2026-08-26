@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: tio
+version: "3.9"
+summary: Serial device terminal — the modern replacement for screen on a TTY
+categories: [workstation, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [tio]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Opens a terminal session on a serial device. It reconnects automatically
+    when the device disappears and comes back, and it does not take over the
+    whole terminal the way a full-screen program does.
+  why_you_want_it: >-
+    It is the least painful way to talk to a badge, a Meshtastic node or any
+    microcontroller board. The automatic reconnect matters more than it
+    sounds: a board being reflashed drops off the bus and returns, and tio
+    simply picks the session back up where screen or minicom would have
+    exited.
+  prerequisites: >-
+    Membership of the dialout group, which the hardware catalog's device
+    entries request. Group membership does not apply to a session already open
+    — log out and back in.
+  known_problems: >-
+    ModemManager grabs new serial devices on many desktops and holds them for
+    roughly twenty seconds, which looks exactly like a dead board. The
+    generated udev rules tag known devices so ModemManager ignores them.
+  upstream_url: https://github.com/tio/tio

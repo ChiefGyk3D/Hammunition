@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: screen
+version: "4.9.1"
+summary: Terminal multiplexer, and the serial console of last resort
+categories: [workstation]
+
+install:
+  - install:
+      method: apt
+      packages: [screen]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Keeps terminal sessions alive independently of the terminal they were
+    started from, so a dropped connection does not kill what was running. It
+    also opens serial devices directly.
+  why_you_want_it: >-
+    Two reasons, and the second is the real one: sessions that survive a
+    dropped SSH connection to a field machine, and the fact that a great deal
+    of ham and SDR documentation instructs the reader to run screen
+    /dev/ttyUSB0 115200. tmux is the better multiplexer; screen is the one the
+    instructions name.
+  prerequisites: >-
+    Membership of the dialout group for serial use.
+  known_problems: >-
+    Version 5 changed defaults and key handling; Kali ships 5.x while Debian
+    13 and Parrot ship 4.9. Instructions written for one may not match the
+    other. Detaching from a serial session leaves the port held open, which
+    then looks like a busy device to the next program.
+  upstream_url: https://www.gnu.org/software/screen/

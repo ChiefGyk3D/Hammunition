@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: usbutils
+version: "018"
+summary: lsusb — step one of every hardware problem in this catalog
+categories: [workstation, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [usbutils]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Lists USB devices attached to the system, with vendor and product
+    identifiers, and with -v the full descriptor for each.
+  why_you_want_it: >-
+    It earns its place twice. Half the entries in catalog/hardware/ record an
+    identification gap that only lsusb output against real hardware can close,
+    and separately, 'is the device even enumerating' is the first question in
+    every SDR or serial-device problem — before drivers, before udev rules,
+    before groups.
+  prerequisites: >-
+    Nothing. Full descriptors from lsusb -v need root for some fields.
+  known_problems: >-
+    A device that appears in lsusb but has no /dev node is a udev or
+    permissions problem, not a hardware one — which is exactly the distinction
+    the tool is here to let you make.
+  upstream_url: https://github.com/gregkh/usbutils

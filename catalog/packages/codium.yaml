@@ -1,0 +1,110 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: codium
+version: "1.126"
+summary: VSCodium — Microsoft's VS Code source, built without their telemetry or branding
+categories: [workstation]
+
+# recommended_default is false even though on Parrot this IS the distribution's
+# own choice and adds no repository at all. The flag is per-manifest and the
+# behaviour is per-target, which is a real tension this manifest is the first to
+# hit -- D-022's rule 5 says a package that adds a third-party repository is
+# never a default, and on three of four targets this one does. Taking the
+# conservative reading costs a Parrot user one explicit opt-in; taking the other
+# reading would ship a manifest that silently adds a repository on Debian.
+recommended_default: false
+
+# The other half of D-022. `code.yaml` offers Microsoft's build alongside this
+# one and is never a default; this is the build Parrot already chose, and on
+# Parrot it needs no repository at all — measured 2026-08-26, codium 1.126.04524
+# is in Parrot's own archive.
+#
+# Everywhere else it needs VSCodium's repository, which gets the same treatment
+# as Microsoft's: declared here, key fingerprint pinned, shown before it is
+# added. The rule from D-022 is symmetric on purpose. Being the freer option is
+# not a reason to skip a disclosure.
+
+apt_repos:
+  - name: vscodium
+    uri: https://download.vscodium.com/debs
+    suites: [vscodium]
+    components: [main]
+    key_url: https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/raw/master/pub.gpg
+    key_fingerprint: 1302DE60231889FE1EBACADC54678CF75A278D9C
+    rationale: >-
+      VSCodium is not packaged by Debian, Ubuntu, Kali or Mint, so this
+      repository is the only apt route on those targets. Parrot ships it in its
+      own archive and does not need this. Adding the repository grants its
+      maintainer the ability to ship updates for any package name published
+      there, for as long as it stays configured. The fingerprint above was read
+      from the published key on 2026-08-26 with `gpg --show-keys` and belongs to
+      "Pavlo Rudyi <paulcarroty@riseup.net>", a 4096-bit RSA key created
+      2018-10-09. This is a single-maintainer repository, which is worth knowing
+      before adding it; that is a smaller trust surface than Microsoft's in some
+      ways and a larger one in others, and the choice is yours rather than ours.
+
+system_modifications:
+  - kind: apt_pin
+    description: >-
+      Adds VSCodium's apt repository and pins its signing key. Does NOT happen
+      on Parrot, which ships codium in its own archive.
+    detail: >-
+      Writes /etc/apt/sources.list.d/vscodium.sources and installs the signing
+      key to /etc/apt/keyrings/vscodium.gpg, with Signed-By pointing at that
+      keyring so the key is trusted for this repository only and not
+      archive-wide. On Parrot neither file is written and no repository is
+      added, because the package is already in the distribution's archive.
+    reversible: true
+    reverse_hint: >-
+      sudo rm /etc/apt/sources.list.d/vscodium.sources
+      /etc/apt/keyrings/vscodium.gpg && sudo apt update
+
+install:
+  # Parrot first: it ships codium in its own archive, so no third-party
+  # repository is added at all. First-match-wins, so the default block below
+  # never runs there.
+  - when:
+      distro: [parrot]
+    install:
+      method: apt
+      packages: [codium]
+    note: >-
+      Measured 2026-08-26 in parrotsec/core: codium 1.126.04524 is available
+      from Parrot's own archive. Adding VSCodium's repository here would be
+      pointless and would widen the trust surface for no benefit.
+  - install:
+      method: apt
+      packages: [codium]
+    note: >-
+      Needs the vscodium apt repository declared above. Measured 2026-08-26:
+      absent from Debian 13 and Kali rolling.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A source build of Microsoft's Visual Studio Code with the telemetry,
+    tracking and Microsoft branding removed, and pointed at the Open VSX
+    extension registry instead of Microsoft's marketplace.
+  why_you_want_it: >-
+    It is the editor Parrot already ships, which is the reason it is here rather
+    than an argument about editors. A project that installs software on other
+    people's machines should default to what the distribution chose, and only
+    offer alternatives explicitly — that principle is D-022 and this manifest is
+    the case it was written around.
+  prerequisites: >-
+    On Parrot, nothing. On every other target, the vscodium apt repository above
+    must be added first, which is shown to you before it happens.
+  known_problems: >-
+    Extensions come from Open VSX rather than Microsoft's marketplace, and a few
+    Microsoft-published extensions are not there — the C++ and remote-development
+    ones most notably, which are licensed for use only with Microsoft's own
+    build. That is the concrete trade-off against `code`, and it runs the other
+    way too: `code` sends telemetry to Microsoft by default and requires their
+    repository. Both are installable, neither displaces the other, and the
+    catalog does not pick for you.
+  upstream_url: https://vscodium.com/

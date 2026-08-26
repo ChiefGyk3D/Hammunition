@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: tmux
+version: "3.5a"
+summary: Terminal multiplexer for sessions that outlive the connection
+categories: [workstation]
+
+install:
+  - install:
+      method: apt
+      packages: [tmux]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Splits one terminal into multiple panes and windows, and keeps them
+    running after you disconnect so you can reattach later from anywhere.
+  why_you_want_it: >-
+    A station machine is frequently headless or reached over SSH from a
+    laptop, and a long capture or a decode run should not die because the link
+    dropped. It is the multiplexer to reach for; screen is carried alongside
+    it only because other people's instructions name screen.
+  prerequisites: >-
+    Nothing.
+  known_problems: >-
+    Version differences change the configuration syntax between targets —
+    Debian 13 and Parrot ship 3.5a, Kali ships 3.7b — so a config copied from
+    a blog post may fail to parse. Nothing in this catalog ships a tmux
+    config.
+  upstream_url: https://github.com/tmux/tmux

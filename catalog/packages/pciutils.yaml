@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: pciutils
+version: "3.13.0"
+summary: lspci — for the SDRs and capture cards that are not on USB
+categories: [workstation, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [pciutils]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Lists PCI and PCIe devices with their identifiers, drivers in use, and
+    resource assignments.
+  why_you_want_it: >-
+    Not every SDR is a USB dongle. LimeSDR XTRX and Red Pitaya-class hardware
+    sit on PCIe, and 'which driver claimed this device' is a question only
+    lspci -k answers. It is also how you check whether a kernel module bound
+    at all.
+  prerequisites: >-
+    Nothing.
+  known_problems: >-
+    Device names come from a pci.ids database that ages; a very new card may
+    show as an unrecognised vendor and product number, which is cosmetic
+    rather than a fault.
+  upstream_url: https://mj.ucw.cz/sw/pciutils/

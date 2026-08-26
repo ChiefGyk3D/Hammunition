@@ -395,7 +395,7 @@ identifiers and none is in a distribution rule to read from.
 
 ---
 
-## Q-011 🟡 — Accept a `workstation` profile, and what goes in it?
+## Q-011 ✅ — Accept a `workstation` profile, and what goes in it? — **RESOLVED 2026-08-26**
 
 **Raised by:** item 5, the VS Code manifest. **Blocks:** where `code` lands — it
 currently declares `categories: [workstation]` against a profile that does not
@@ -446,6 +446,24 @@ argument.
 `usbutils` is the one that earns its place twice: half the hardware entries in
 `catalog/hardware/` say "run lsusb and record what you see", and six of them
 cannot be completed without someone doing exactly that.
+
+**Resolved: A, with the contents above.** `catalog/profiles/workstation.yaml`
+ships with all nine, and the exclusion list is written into the profile's
+`deliberately_excludes` — a required schema field — so it travels with the
+profile rather than living in a review comment.
+
+Two things the implementation measured that the recommendation assumed:
+
+- **`codium` is not in Debian 13 or Kali.** Only Parrot ships it (1.126.04524,
+  measured 2026-08-26). Everywhere else it needs VSCodium's own apt repository,
+  which gets the same D-022 treatment as Microsoft's: declared, fingerprint
+  pinned (`1302DE60…F433B132`, read from the published key), shown before it is
+  added. Being the freer option is not a reason to skip a disclosure.
+- **A package can be a distribution default on one target and a third-party repo
+  on another**, and `recommended_default` is per-manifest while the behaviour is
+  per-target. `codium` takes the conservative reading — false everywhere —
+  because the alternative silently adds a repository on Debian. This will recur;
+  it is recorded in the manifest rather than rediscovered.
 
 ---
 
