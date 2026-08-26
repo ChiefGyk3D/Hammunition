@@ -3,12 +3,15 @@ name: limesdr
 summary: LimeSDR USB and Mini — full-duplex transmit-capable SDR
 vendor: Lime Microsystems
 status: untested
+gap_closure: unverified_by_maintainer
 identification_gap: >-
-  No USB identifier confirmed. Debian's limesuite package installs without a
-  udev rules file matching this device name, so there was no authoritative source
-  to read one from here, and the USB identifier differs between LimeSDR USB and
-  LimeSDR Mini — the Mini is FTDI-based, the USB variant is not. Record lsusb for
-  the specific board before adding rules.
+  No USB identifier confirmed, and the maintainer does not own the hardware to
+  confirm one. The entry is carried anyway because other operators do. Debian's limesuite ships no udev rule naming this device, so
+  there was no authoritative file to read an identifier from either. The
+  identifier also differs between the two boards sold under this name — the
+  Mini is FTDI-based and the USB variant is not — so a single pair would not
+  describe the entry even if one were guessed. Closing this needs lsusb output
+  from someone holding the specific board.
 groups: [plugdev]
 packages: [limesuite, soapysdr-module-lms7]
 documentation:

@@ -3,6 +3,7 @@ name: uconsole
 summary: ClockworkPi uConsole — portable handheld Linux terminal used as a field radio host
 vendor: ClockworkPi
 status: planned
+gap_closure: not_applicable
 identification_gap: >-
   Not a USB peripheral. The uConsole is a host computer, so it has no VID:PID to
   record and does not fit the device model the rest of this catalog uses. It is

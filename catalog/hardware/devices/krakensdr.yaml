@@ -4,8 +4,14 @@ summary: KrakenSDR — five coherent RTL-SDR receivers for direction finding
 vendor: KrakenRF
 status: untested
 
+gap_closure: unverified_by_maintainer
 identification_gap: >-
-  Not separately identified. KrakenSDR is five RTL2832U receivers on one board, so each channel enumerates with the ordinary RTL-SDR identifiers already confirmed in the rtl-sdr entry (0bda:2838). What is NOT confirmed here is whether the board exposes any additional control interface with its own identifier. The per-channel rules work; a board-level rule is unverified.
+  Not separately identified. KrakenSDR is five RTL2832U receivers on one board,
+  so each channel enumerates with the ordinary RTL-SDR identifiers already
+  confirmed in the rtl-sdr entry (0bda:2838). What is NOT confirmed is whether
+  the board exposes any additional control interface with its own identifier.
+  The per-channel rules work regardless; only a board-level rule is unverified.
+  The maintainer does not own one, so this needs lsusb output from an owner — a low-value gap, since the device is usable without it.
 groups: [dialout, plugdev]
 packages: [rtl-sdr, soapysdr-module-rtlsdr]
 documentation:

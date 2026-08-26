@@ -4,6 +4,7 @@ summary: Electronic Cats Minino — 802.15.4 and Zigbee analysis board
 vendor: Electronic Cats
 status: untested
 device_class: badgelife
+gap_closure: maintainer_hardware
 identification_gap: >-
   No USB identifier confirmed. Minino is an ESP32-based board, so the badgelife class rules most likely cover it via native USB CDC or a bridge chip, but this has not been verified against hardware and no distribution ships a rule naming it. Confirm with lsusb before claiming support.
 groups: [dialout, plugdev]

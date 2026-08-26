@@ -14,11 +14,12 @@ usb_ids:
     description: Mirics MSi3101 SDR
     evidence: Debian 13 /lib/udev/rules.d/60-libmirisdr4.rules
     confirmed: true
+gap_closure: unverified_by_maintainer
 identification_gap: >-
   The identifiers above are Mirics silicon as recorded by Debian's libmirisdr4,
   which the open libmirisdr driver targets. Current RSP models under SDRplay's
-  own API may enumerate differently and that has NOT been verified here. Confirm
-  with lsusb against the specific model before relying on these rules.
+  own API may enumerate differently and that has NOT been verified. The maintainer does not own an RSP, so confirming it needs lsusb output from an owner, per model — RSP1A, RSPdx and RSPduo should each be recorded rather
+  than assumed to share a pair.
 groups: [plugdev]
 packages: [libmirisdr4, soapysdr-module-mirisdr]
 documentation:

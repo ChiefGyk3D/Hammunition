@@ -4,6 +4,7 @@ summary: Electronic Cats CatSniffer v3 — multiprotocol sub-GHz, BLE and 802.15
 vendor: Electronic Cats
 status: untested
 device_class: badgelife
+gap_closure: maintainer_hardware
 identification_gap: >-
   No USB identifier confirmed. CatSniffer v3 combines a TI radio with a host-side USB serial interface; whether that is a native CDC endpoint or a bridge chip has not been verified against hardware here, and no distribution ships a udev rule naming it. The badgelife class rules cover CP210x, CH34x and ESP32 native USB, which is likely to include it, so the device works without a pinned identifier. Run lsusb with it attached and add the confirmed pair before this entry claims status: supported.
 groups: [dialout, plugdev]

@@ -5,6 +5,7 @@ vendor: SafeHazard
 device_class: badgelife
 status: untested
 
+gap_closure: maintainer_hardware
 identification_gap: >-
   No USB identifier confirmed. Clip-Boy is an ESP32-S3 design, so it most likely
   enumerates on Espressif's native USB CDC — which the badgelife class carries as

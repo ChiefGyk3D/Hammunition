@@ -4,6 +4,7 @@ summary: Meshtastic LoRa nodes — T-Deck, T-Echo, RAK and WisMesh boards
 vendor: various (LilyGO, RAK Wireless, Heltec)
 device_class: badgelife
 status: untested
+gap_closure: maintainer_hardware
 identification_gap: >-
   Not a single device and deliberately not treated as one. Meshtastic runs on many
   boards using at least three different USB paths: ESP32-S3 native USB (T-Deck),

@@ -3,12 +3,14 @@ name: plutosdr
 summary: ADALM-Pluto — inexpensive full-duplex learning and development SDR
 vendor: Analog Devices
 status: untested
+gap_closure: unverified_by_maintainer
 identification_gap: >-
-  No USB identifier confirmed here. The Pluto presents as a composite device —
-  USB networking, mass storage and serial — and which interfaces appear depends
-  on the firmware revision, so a single VID:PID does not describe it. No Debian
-  package installed here shipped a matching udev rule. Record lsusb output for
-  your firmware revision before adding rules.
+  No USB identifier confirmed, and the maintainer does not own the hardware to
+  confirm one. The entry is carried anyway because other operators do. The Pluto presents as a composite device — USB networking, mass
+  storage and serial — and which interfaces appear depends on the firmware
+  revision, so a single VID:PID does not describe it in the first place. No
+  Debian package here shipped a matching udev rule. Closing this needs lsusb
+  output from someone holding the board, tagged with its firmware revision.
 groups: [plugdev, dialout]
 packages: [soapysdr-module-plutosdr]
 documentation:

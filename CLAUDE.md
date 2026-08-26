@@ -20,7 +20,7 @@ disagrees with it, DECISIONS wins and the disagreeing file is a bug.
 - `docs/QUESTIONS.md` — decisions awaiting the maintainer, with recommendations
 - `docs/reference/` — the measurements everything rests on: `ahrl-inventory.md`,
   `blend-inventory.md`, `dispositions.md`, `overlaps.md`, `profile-sizing.md`,
-  `licence-verification.md`
+  `licence-verification.md`, `hardware-gaps.md`
 
 ## What this project is NOT
 

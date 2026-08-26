@@ -25,6 +25,15 @@ dev = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# PEP 561. `[tool.mypy] files` analyses src, tests and scripts together, so this
+# is not what keeps the repo's own checking honest. It is for everyone else: an
+# installed copy without the marker is unfollowable, and a downstream consumer
+# type-checking against our manifest classes silently gets `Any` for all of them.
+# The catalog is meant to be usable by an engine that is not ours; that is worth
+# one empty file.
+[tool.setuptools.package-data]
+hammunition = ["py.typed"]
+
 # ---------------------------------------------------------------------------
 # mypy --strict is a hard gate, not an aspiration (CLAUDE.md Conventions).
 # ---------------------------------------------------------------------------

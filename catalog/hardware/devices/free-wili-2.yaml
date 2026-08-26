@@ -4,6 +4,7 @@ summary: Free-WiLi 2 — multi-tool development board
 vendor: Free-WiLi
 status: untested
 device_class: badgelife
+gap_closure: maintainer_hardware
 identification_gap: >-
   No USB identifier confirmed, and the hardware's USB implementation has not been verified here. The badgelife class rules are a reasonable starting point for anything presenting as USB serial, but this entry does not assert that Free-WiLi 2 does. Run lsusb and record the result before this claims support.
 groups: [dialout, plugdev]

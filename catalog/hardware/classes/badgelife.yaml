@@ -35,15 +35,20 @@ usb_ids:
     evidence: >-
       PID 0x1001 confirmed as USB_JTAG_SERIAL_PID in esptool 4.7.0 as packaged in
       Debian 13. Vendor 303a is Espressif's registered USB VID but is NOT in
-      Debian's usb.ids and was not verified from a citable source here. Confirm
-      with lsusb against real hardware before relying on this rule.
+      Debian's usb.ids and was not verified from a citable source here. Closable
+      by the maintainer: several ESP32-S3 boards are in the kit — Minino,
+      Clip-Boy, the CallMeKoko boards, and the Meshtastic T-Deck — and any one of
+      them attached over native USB settles it. Confirm with lsusb before relying
+      on this rule.
     confirmed: false
   - vendor: "1a86"
     product: "55d4"
     description: WCH CH9102/CH343 UART bridge — increasingly common on newer boards
     evidence: >-
       Widely reported for CH9102F but NOT present in Debian 13 usb.ids and not
-      confirmed here. Verify with lsusb before relying on this rule.
+      confirmed here. Closable by the maintainer if any board in the kit uses a
+      CH9102 rather than a CH340; which of them do is not known without checking.
+      Verify with lsusb before relying on this rule.
     confirmed: false
 
 groups:

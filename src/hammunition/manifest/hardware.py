@@ -25,12 +25,41 @@ __all__ = [
     "DeviceClass",
     "DeviceManifest",
     "Firmware",
+    "GapClosure",
     "UdevBinding",
     "UsbId",
 ]
 
 HEX4 = re.compile(r"^[0-9a-f]{4}$")
 UDEV_MODE = re.compile(r"^0[0-7]{3}$")
+
+
+GapClosure = Literal["maintainer_hardware", "unverified_by_maintainer", "not_applicable"]
+"""Who can close an ``identification_gap``, and how.
+
+``identification_gap`` records *what* is unknown. It does not record whether
+anyone is in a position to find out, and every gap in the catalog was written
+ending in some variant of "run lsusb and record it" — advice that is useless
+when nobody on the project owns the device. Two entries (LimeSDR, PlutoSDR)
+told the reader to attach hardware that does not exist here.
+
+So the disposition is structural:
+
+``maintainer_hardware``
+    The device is in the maintainer's kit. One ``lsusb`` closes it; no
+    contribution is needed and none should be solicited.
+``unverified_by_maintainer``
+    We carry the entry because other operators have the device; the maintainer
+    does not, so it cannot be verified here and the gap stays open on purpose.
+    Named for *why* it is open rather than "pending", which implies someone is
+    getting to it. This is the standing treatment for anything the catalog
+    supports but cannot test.
+``not_applicable``
+    No single identifier exists to record — the entry is a host computer, or a
+    family of boards that enumerate several different ways. ``lsusb`` against
+    one unit would not close it, and treating it as an open task would keep it
+    permanently open.
+"""
 
 
 class UsbId(Strict):
@@ -180,6 +209,10 @@ class DeviceManifest(_DeviceCommon):
         default=None,
         description="What is unknown about how this device enumerates, and why.",
     )
+    gap_closure: GapClosure | None = Field(
+        default=None,
+        description="Who can close the gap. Required whenever there is one.",
+    )
     status: Literal["supported", "untested", "planned"] = "untested"
 
     @model_validator(mode="after")
@@ -199,6 +232,17 @@ class DeviceManifest(_DeviceCommon):
             raise ManifestError(
                 f"device {self.name!r} matches several USB ids but pins an unsuffixed "
                 f"symlink; two attached devices would race for the same /dev name"
+            )
+        if self.identification_gap and self.gap_closure is None:
+            raise ManifestError(
+                f"device {self.name!r} records an identification_gap but no "
+                f"gap_closure. A gap nobody can close is not the same work item as "
+                f"one lsusb would settle, and the reader cannot tell them apart "
+                f"from the prose."
+            )
+        if self.gap_closure and not self.identification_gap:
+            raise ManifestError(
+                f"device {self.name!r} sets gap_closure with no identification_gap to close"
             )
         if self.status == "supported" and not confirmed and not self.device_class:
             raise ManifestError(

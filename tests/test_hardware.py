@@ -62,8 +62,35 @@ def test_a_device_may_not_be_silent_about_unknown_identifiers() -> None:
 
 
 def test_stating_the_gap_is_enough() -> None:
-    d = device(identification_gap="Not verified against hardware; run lsusb and record it.")
+    d = device(
+        identification_gap="Not verified against hardware; run lsusb and record it.",
+        gap_closure="maintainer_hardware",
+    )
     assert d.usb_ids == []
+
+
+def test_a_gap_must_say_who_can_close_it() -> None:
+    """A gap nobody can close is a different work item from one lsusb settles.
+
+    Every gap in the catalog once ended in "run lsusb and record it", including
+    two devices no one on the project owns. Prose could not carry the
+    difference; the field has to.
+    """
+    with pytest.raises((ManifestError, ValidationError)):
+        device(identification_gap="No identifier confirmed against real hardware.")
+
+
+def test_closure_without_a_gap_is_meaningless() -> None:
+    with pytest.raises((ManifestError, ValidationError)):
+        device(usb_ids=[CONFIRMED], gap_closure="unverified_by_maintainer")
+
+
+def test_closure_is_a_closed_set() -> None:
+    with pytest.raises((ManifestError, ValidationError)):
+        device(
+            identification_gap="No identifier confirmed against real hardware.",
+            gap_closure="ask_around",
+        )
 
 
 def test_inheriting_a_class_is_enough() -> None:
@@ -200,3 +227,21 @@ def test_the_maintainers_kit_is_represented() -> None:
         "krakensdr",
     ):
         assert name in devices, f"{name} is in the maintainer's kit but has no entry"
+
+
+def test_every_catalogued_gap_declares_its_closure() -> None:
+    """The generated gap report groups by closure, so an unset one hides a device."""
+    _, devices = load_hardware(HARDWARE)
+    for name, entry in devices.items():
+        assert bool(entry.identification_gap) == bool(entry.gap_closure), name
+
+
+def test_devices_the_maintainer_does_not_own_do_not_ask_for_an_lsusb() -> None:
+    """LimeSDR and PlutoSDR are not on the bench; the entries must not imply they are.
+
+    Both once told the reader to attach hardware that does not exist here, which
+    reads as a task for the maintainer and is a task for a contributor.
+    """
+    _, devices = load_hardware(HARDWARE)
+    for name in ("limesdr", "plutosdr"):
+        assert devices[name].gap_closure == "unverified_by_maintainer", name
