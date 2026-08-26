@@ -295,3 +295,49 @@ rather than dropping them silently.
 **Why this is 🔴 rather than 🟡:** it is the only open question that changes what
 the tool is willing to do to a user's machine, and item 5's profile naming cannot
 be finished without it — `sigint` means different things under A, B and C.
+
+---
+
+## Q-009 🔴 — What licence does Hammunition ship under?
+
+**Raised by:** publishing the README. **Blocks:** any outside contribution, and
+arguably the repository being public at all. **Changes:** who can use, fork,
+package or contribute to this.
+
+There is **no `LICENSE` file in the repository** and no licence header on any
+source file. Default copyright therefore applies: all rights reserved, nobody
+may copy, modify or redistribute.
+
+**This is exactly the objection this project raises about other people's work.**
+D-001 declines to build on 73Linux because it has no licence file. Q-007 flags
+SuperSDR for the same reason. Shipping a public repository in that state while
+criticising it in two decision records is not a position that survives contact
+with anyone who reads both.
+
+**The catalog and the engine may want different answers**, which is the real
+question here rather than a detail:
+
+| | Consideration |
+|---|---|
+| **The catalog** (`catalog/`, `docs/reference/`) | The durable asset, and deliberately designed to be usable by an engine that is not ours. A permissive or data-oriented licence maximises that. It is closer to a database than to a program. |
+| **The engine** (`src/hammunition/`) | Ordinary software. Copyleft is defensible and matches most of the ham ecosystem. |
+
+| Option | Consequence |
+|---|---|
+| **A. GPL-3.0-or-later throughout** ⭐ | Matches AHRL, 73Linux's tooling, Skywave's scripts, and most ham software. Familiar to this audience. Strongest guarantee that a fork stays open — which is the governance argument the project is founded on. Copylefts the catalog too, which slightly undercuts "usable by an engine that isn't ours". |
+| B. GPL-3.0-or-later engine, CC0 or MIT catalog | Matches the architecture invariant exactly: the catalog is data anyone may use, the engine is copyleft software. Two licences to explain, and contributors must understand which tree they are in. |
+| C. Apache-2.0 throughout | Permissive, explicit patent grant, good for contribution from companies. Loses the copyleft guarantee that a commercial fork stays open. |
+| D. AGPL-3.0 | Overkill — nothing here is a network service. |
+
+**Recommendation: B**, and A if you want one licence and no explaining. B is
+what the architecture actually describes: `docs/reference/` is measurement,
+`catalog/` is data, and both are more valuable the more freely they travel.
+The engine is where the copyleft argument has force.
+
+**Also needs deciding with it:** whether contributions require a DCO sign-off
+(`git commit -s`) or a CLA. Recommendation: **DCO, not a CLA** — a CLA is a
+barrier to exactly the drive-by manifest contributions this project wants, and
+the multi-maintainer governance argument does not need one.
+
+**Until this is answered** the README says the contents are all-rights-reserved,
+which is accurate and unattractive. It should not stay that way long.
