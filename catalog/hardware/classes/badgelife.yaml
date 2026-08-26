@@ -17,6 +17,7 @@ usb_ids:
     description: Silicon Labs CP2102/CP2109 UART bridge — the most common badge bridge
     evidence: Debian 13 usb.ids (usb.ids package), vendor 10c4 "Silicon Labs", product ea60 "CP210x UART Bridge"
     confirmed: true
+    node_kind: serial
     ambiguity:
       basis: kernel_generic_driver
       evidence: >-
@@ -31,6 +32,7 @@ usb_ids:
     description: Silicon Labs CP2105 dual UART bridge
     evidence: Debian 13 usb.ids, product ea70 "CP2105 Dual UART Bridge"
     confirmed: true
+    node_kind: serial
     ambiguity:
       basis: kernel_generic_driver
       evidence: >-
@@ -45,6 +47,7 @@ usb_ids:
     description: Silicon Labs CP2108 quad UART bridge
     evidence: Debian 13 usb.ids, product ea71 "CP2108 Quad UART Bridge"
     confirmed: true
+    node_kind: serial
     ambiguity:
       basis: kernel_generic_driver
       evidence: >-
@@ -59,6 +62,7 @@ usb_ids:
     description: WCH CH340 UART bridge — common on low-cost badges
     evidence: Debian 13 usb.ids, vendor 1a86 "QinHeng Electronics", product 7523 "CH340 serial converter"
     confirmed: true
+    node_kind: serial
     ambiguity:
       basis: kernel_generic_driver
       evidence: >-
@@ -79,6 +83,7 @@ usb_ids:
       Previously carried as unconfirmed on the strength of esptool 4.7.0 calling
       0x1001 USB_JTAG_SERIAL_PID.
     confirmed: true
+    node_kind: serial
     ambiguity:
       basis: vendor_chip_default
       evidence: >-
@@ -102,6 +107,7 @@ usb_ids:
       string. usb.ids names it "QinHeng Electronics USB Single Serial"; Debian
       13 modules.alias binds it to cdc_acm.
     confirmed: true
+    node_kind: serial
     ambiguity:
       basis: kernel_generic_driver
       evidence: >-
@@ -112,26 +118,44 @@ usb_ids:
       also_used_by:
         - c5-wardriver
         - any board using a WCH CH343 bridge
+
+# A CLASS CARRIES ONLY CONFIRMED IDENTIFIERS, and this class is why the rule
+# exists. D-030.
+#
+# Every identifier above propagates to every device that joins the class, so an
+# unconfirmed one here is not an isolated guess -- it is a guess with a
+# distribution mechanism. Twice now this class handed a device identifiers that
+# could not match it:
+#
+#   * The CatSniffer v3 was expected to be an ESP32 behind a bridge. It is a
+#     bare RP2040 at 2e8a:00c0 with no ESP32 in it at all, and it left the class.
+#   * The C5 Wardriver was expected to present Espressif's native 303a:1001. It
+#     is a WCH CH343 at 1a86:55d3.
+#
+# Both misses came from the class predicting downward. The correction is to
+# invert the direction: evidence flows UPWARD. A device is captured, and an
+# identifier joins the class once some device has actually presented it. Every
+# pair above now names the capture or the distribution rule it came from, and
+# the schema refuses an unconfirmed one outright.
+#
+# Negative evidence is still worth keeping -- otherwise the next person re-adds
+# what was already ruled out -- so it lives in `rejected_ids`, which cannot
+# generate a rule and cannot be inherited.
+
+rejected_ids:
   - vendor: "1a86"
     product: "55d4"
-    description: WCH CH9102 UART bridge — a sibling of 55d3, carried on report only
-    evidence: >-
-      Widely reported for the CH9102F, NOT present in Debian 13 usb.ids, and not
-      confirmed against any hardware here. Worth keeping as a worked example of
-      the difference a capture makes: this pair was the class's guess at what a
-      CH343-family board would present, and when one was finally captured on
-      2026-08-26 it turned out to be 55d3. One digit out. A widely-reported
-      identifier is not evidence, and the rule it generates would silently never
-      match.
-    confirmed: false
-    ambiguity:
-      basis: generic_function_name
-      evidence: >-
-        A UART bridge chip either way, so ambiguous regardless of whether the
-        identifier itself is ever confirmed -- a bridge identifies silicon
-        rather than a product.
-      also_used_by:
-        - any board using a WCH CH9102 bridge
+    description: WCH CH9102 UART bridge — a sibling of 55d3
+    assumed_to_be: >-
+      The identifier a CH343-family board would present, on the strength of it
+      being widely reported for the CH9102F across forum posts and vendor pages.
+    why_rejected: >-
+      Not present in Debian 13 usb.ids and never confirmed against hardware
+      here. When a CH343-family board was finally captured on 2026-08-26 -- a C5
+      Wardriver v1.1 -- it presented 1a86:55d3. One digit out. This is the last
+      identifier this class will carry on report alone: a widely-reported pair
+      is not evidence, and the rule it generates silently never matches, which
+      an operator cannot tell from a bad cable. Kept as the worked example.
 
 groups:
   - dialout

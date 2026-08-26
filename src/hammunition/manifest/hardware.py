@@ -33,6 +33,7 @@ __all__ = [
     "GapClosure",
     "MaintainerVerification",
     "NodeKind",
+    "RejectedId",
     "UdevBinding",
     "UsbAmbiguity",
     "UsbId",
@@ -268,6 +269,45 @@ class UsbId(Strict):
         return f"{self.vendor}:{self.product or '*'}"
 
 
+class RejectedId(Strict):
+    """An identifier considered and deliberately not carried.
+
+    A class propagates every identifier it holds to every device that joins it,
+    so an unconfirmed one in a class is not an isolated guess -- it is a guess
+    with a distribution mechanism. Two flashed boards proved the point: the
+    CatSniffer v3 turned out to be a bare RP2040 with no ESP32 in it, and the C5
+    Wardriver a CH343 bridge rather than the native USB the class predicted.
+    Both times ``badgelife`` had supplied identifiers that could not match.
+
+    So a class carries only confirmed identifiers, and this is where the
+    instructive failures live instead. Negative evidence is worth keeping --
+    "we looked at this pair and here is why it is not ours" stops the next
+    person re-adding it -- but it must live somewhere that cannot generate a
+    rule or be inherited by a device.
+    """
+
+    vendor: str = Field(description="4 hex digits, lowercase.")
+    product: str | None = None
+    description: str = Field(min_length=3)
+    assumed_to_be: str = Field(
+        min_length=10, description="What it was believed to identify when it was added."
+    )
+    why_rejected: str = Field(
+        min_length=40,
+        description="What the evidence turned out to be, and what it cost to find out.",
+    )
+
+    @model_validator(mode="after")
+    def _check(self) -> RejectedId:
+        for value, field in ((self.vendor, "vendor"), (self.product, "product")):
+            if value is not None and not HEX4.match(value):
+                raise ManifestError(f"rejected USB {field} {value!r} must be 4 lowercase hex digits")
+        return self
+
+    def __str__(self) -> str:
+        return f"{self.vendor}:{self.product or '*'}"
+
+
 class MaintainerVerification(Strict):
     """Evidence that someone here actually ran the hardware.
 
@@ -391,6 +431,10 @@ class _DeviceCommon(Strict):
     name: str
     summary: str
     usb_ids: list[UsbId] = Field(default_factory=list)
+    rejected_ids: list[RejectedId] = Field(
+        default_factory=list,
+        description="Identifiers considered and not carried, with why. Cannot generate a rule.",
+    )
 
     groups: list[str] = Field(
         default_factory=list,
@@ -460,6 +504,16 @@ class DeviceClass(_DeviceCommon):
     def _check(self) -> DeviceClass:
         if not SLUG.match(self.name):
             raise ManifestError(f"device class name {self.name!r} must be a lowercase slug")
+        unconfirmed = [str(i) for i in self.usb_ids if not i.confirmed]
+        if unconfirmed:
+            raise ManifestError(
+                f"device class {self.name!r} carries unconfirmed identifiers "
+                f"{unconfirmed}. A class propagates downward to every device that "
+                f"joins it, so a guess here is a guess with a distribution mechanism "
+                f"— which is how badgelife supplied identifiers that could not match "
+                f"to two boards in a row. Evidence flows upward: confirm it on a "
+                f"device first. Keep the instructive ones in rejected_ids (D-030)."
+            )
         _check_symlink_safety(self.name, self.usb_ids, self.udev)
         return self
 

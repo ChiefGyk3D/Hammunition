@@ -1531,3 +1531,67 @@ by-id path nobody memorises — remains worth having, and for a libusb device a
 symlink is the only stable name there is. What changes is that a symlink now
 has to earn its place against a mechanism that already exists, rather than being
 assumed to be the deliverable.
+
+---
+
+## D-030 — Evidence flows upward: a class carries only confirmed identifiers
+
+**Date:** 2026-08-26. **Status:** accepted.
+
+**Rule.** A `DeviceClass` may carry **only identifiers confirmed against
+hardware or cited to a distribution rule**. Devices contribute identifiers
+upward into a class; a class never predicts them downward. Enforced by
+`DeviceClass`, not by review. Negative evidence lives in `rejected_ids`, which
+cannot generate a udev rule and cannot be inherited.
+
+### Two misses, one shape
+
+`badgelife` was written to generalise: ESP32 badges all need a serial console,
+a flasher and rules for native USB plus the bridge chips older designs use.
+Build the class once and every badge works. That reasoning is sound and the
+class still exists. What was wrong was the *direction* of the inference.
+
+Two boards were flashed and captured, and the class had mispredicted both:
+
+| Device | Class predicted | Hardware presented |
+|---|---|---|
+| CatSniffer v3 | An ESP32 behind a bridge chip | `2e8a:00c0` — a bare RP2040, no ESP32 in it at all |
+| C5 Wardriver v1.1 | Espressif native USB, `303a:1001` | `1a86:55d3` — a WCH CH343 bridge |
+
+Neither is a near miss that better guessing would have caught. The CatSniffer
+left the class entirely. The C5 Wardriver landed one hex digit from an
+identifier the class was *already carrying* on reputation — `1a86:55d4`, "widely
+reported" for the CH9102F — which is the worst possible outcome, because a rule
+built on `55d4` would silently never match and look exactly like a bad cable.
+
+Two misses is a pattern, not bad luck. An unconfirmed identifier in a class is
+not an isolated guess: **it is a guess with a distribution mechanism**, inherited
+by every device that joins.
+
+### The C5 capture's real lesson
+
+The stated reason for waiting until the board was flashed was that an unflashed
+ESP32 sits in ROM bootloader mode and presents a different identifier. That was
+not the payoff. The payoff is that this board never presented `303a:1001` in any
+mode — so a pre-flash capture would have been read as *confirming* a false
+assumption rather than exposing one. The discipline was right for a better
+reason than the one given for it.
+
+### Why `rejected_ids` rather than deletion
+
+Deleting `1a86:55d4` would lose the finding, and the next person would re-add it
+from the same forum posts. Keeping it in `usb_ids` with `confirmed: false` keeps
+it able to generate a rule and be inherited. So it moves to a field that can do
+neither, alongside what it was assumed to be and what it cost to find out. It is
+kept as the worked example, and it is **the last identifier this class will
+carry on report alone**.
+
+### Consequences applied
+
+- `DeviceClass` refuses any `usb_ids` entry with `confirmed: false`.
+- `badgelife`'s six remaining identifiers each name the capture or the Debian
+  source they came from; `1a86:55d4` is in `rejected_ids`.
+- `test_unconfirmed_identifiers_are_visibly_unconfirmed` has now been pointed at
+  three worked examples and lost two of them, which is the healthy direction. It
+  no longer asserts that any unconfirmed identifier exists anywhere — an empty
+  list is the goal state, not a reason to keep one around to satisfy a test.

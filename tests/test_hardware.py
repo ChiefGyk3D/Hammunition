@@ -203,16 +203,23 @@ def test_dangling_class_reference_fails_loudly(tmp_path: Path) -> None:
 def test_unconfirmed_identifiers_are_visibly_unconfirmed() -> None:
     """An identifier taken from documentation must not read as one from hardware.
 
-    This used to name badgelife's Espressif 303a:1001 as the worked example. Two
-    captures on 2026-08-26 confirmed it, so the example moved rather than the
-    property: 1a86:55d4 is still carried on reputation alone and must still say
-    so. If badgelife ever has nothing unconfirmed, that is a good day and this
-    test should be deleted, not weakened.
+    This test has now been pointed at three different worked examples and lost
+    two of them, which is the healthy direction. It first named badgelife's
+    Espressif 303a:1001; two captures on 2026-08-26 confirmed that. It then
+    named 1a86:55d4, which D-030 moved out of `usb_ids` entirely — a class may
+    no longer carry an unconfirmed identifier at all, so the example survives in
+    `rejected_ids` where it can generate nothing.
+
+    What is left is the property rather than any one example, checked across
+    every device: an unconfirmed identifier must read as unconfirmed. There is
+    no assertion that any exist. An empty catalog-wide list is the goal state,
+    not a reason to keep something around to satisfy a test.
     """
-    classes, _ = load_hardware(HARDWARE)
-    unconfirmed = [i for i in classes["badgelife"].usb_ids if not i.confirmed]
-    assert unconfirmed, "badgelife carries nothing unconfirmed; retire this test"
-    for usb in unconfirmed:
+    classes, devices = load_hardware(HARDWARE)
+    entries: list[UsbId] = []
+    for holder in (*classes.values(), *devices.values()):
+        entries += [i for i in holder.usb_ids if not i.confirmed]
+    for usb in entries:
         assert CONTRADICTS_CONFIRMED.search(usb.evidence), (
             f"{usb} is unconfirmed but its evidence does not say so, so a reader "
             f"cannot tell it apart from one captured against hardware"
@@ -597,6 +604,78 @@ def test_devices_sharing_an_identifier_both_declare_it() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Evidence flows upward: a class carries only what a device confirmed.  D-030
+# ---------------------------------------------------------------------------
+
+
+def test_a_class_refuses_an_unconfirmed_identifier() -> None:
+    """A guess in a class is a guess with a distribution mechanism.
+
+    Twice `badgelife` handed a device identifiers that could not match it: the
+    CatSniffer v3 turned out to be a bare RP2040, and the C5 Wardriver a CH343
+    bridge rather than the native ESP32 USB the class predicted. Both misses
+    came from the class predicting downward.
+    """
+    with pytest.raises((ManifestError, ValidationError)):
+        DeviceClass.model_validate(
+            {
+                "kind": "class",
+                "name": "badges",
+                "summary": "Conference badges of every kind",
+                "usb_ids": [
+                    {
+                        "vendor": "1a86",
+                        "product": "55d4",
+                        "description": "WCH CH9102 UART bridge",
+                        "evidence": "Widely reported for the CH9102F; no capture anywhere.",
+                        "confirmed": False,
+                    }
+                ],
+                "documentation": DOCS.model_dump(),
+            }
+        )
+
+
+def test_a_rejected_identifier_keeps_the_lesson_without_the_rule() -> None:
+    cls = DeviceClass.model_validate(
+        {
+            "kind": "class",
+            "name": "badges",
+            "summary": "Conference badges of every kind",
+            "usb_ids": [CP2102.model_dump()],
+            "rejected_ids": [
+                {
+                    "vendor": "1a86",
+                    "product": "55d4",
+                    "description": "WCH CH9102 UART bridge",
+                    "assumed_to_be": "What a CH343-family board would present.",
+                    "why_rejected": (
+                        "A C5 Wardriver was captured on 2026-08-26 and presented "
+                        "1a86:55d3. One digit out."
+                    ),
+                }
+            ],
+            "documentation": DOCS.model_dump(),
+        }
+    )
+    assert [str(i) for i in cls.usb_ids] == ["10c4:ea60"]
+    assert [str(i) for i in cls.rejected_ids] == ["1a86:55d4"]
+
+
+def test_no_catalogued_class_carries_an_unconfirmed_identifier() -> None:
+    classes, _ = load_hardware(HARDWARE)
+    for cls in classes.values():
+        assert all(i.confirmed for i in cls.usb_ids), cls.name
+
+
+def test_the_ch9102_lesson_survives_in_badgelife() -> None:
+    """Kept as the worked example, where it cannot generate or propagate a rule."""
+    classes, _ = load_hardware(HARDWARE)
+    rejected = {str(i) for i in classes["badgelife"].rejected_ids}
+    assert "1a86:55d4" in rejected
+
+
+# ---------------------------------------------------------------------------
 # Composite devices are a named shape, not a paragraph
 # ---------------------------------------------------------------------------
 
@@ -716,3 +795,35 @@ def test_every_symlink_in_the_catalog_is_outside_by_ids_reach() -> None:
         if dev.device_class:
             ids += list(classes[dev.device_class].usb_ids)
         assert not any(i.by_id_reachable for i in ids if i.confirmed), dev.name
+
+
+# ---------------------------------------------------------------------------
+# The README's numbers are catalog data, so they are checked like catalog data
+# ---------------------------------------------------------------------------
+
+
+def test_the_readme_hardware_counts_match_the_catalog() -> None:
+    """A hand-typed count is a claim, and this project tests its claims.
+
+    The supported/run-here pair is on the front page because it is a stronger
+    credibility signal than anything we could assert in prose — which makes it
+    exactly the number that must not drift. CLAUDE.md already says a doc
+    duplicating manifest data by hand is a defect; this is the cheapest way to
+    keep one honest short of generating the README.
+    """
+    classes, devices = load_hardware(HARDWARE)
+    confirmed = {
+        (i.vendor, i.product)
+        for holder in (*classes.values(), *devices.values())
+        for i in holder.usb_ids
+        if i.confirmed
+    }
+    readme = (HARDWARE.parent.parent / "README.md").read_text()
+    expected = [
+        f"{len(devices)} devices, {len(classes)} classes, "
+        f"{len(confirmed)} confirmed USB identifiers",
+        f"**{sum(1 for d in devices.values() if d.status == 'supported')}** / "
+        f"**{sum(1 for d in devices.values() if d.maintainer_verified)}**",
+    ]
+    for claim in expected:
+        assert claim in readme, f"README no longer says {claim!r}"
