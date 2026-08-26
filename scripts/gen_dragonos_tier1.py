@@ -410,11 +410,30 @@ All four publish ordinary GitHub release assets with stable naming — no webpag
 scraping, unlike HAMRS. None publishes a checksum file alongside, which is the
 pin/hash sub-project `SCOPE.md` names, not a blocker for this inventory.
 
-Note the base mismatch: SatDump's newest `.deb` targets Ubuntu 24.04 and
-SDR++'s targets Debian bookworm. Both are older than our primary targets. A
-`.deb` built for an older release is not guaranteed to satisfy on a newer one,
-so each needs an install test before its manifest claims support — exactly the
-kind of claim **D-018** says to test before publishing."""
+**Tested 2026-08-26 — the base mismatch was real, and worse than flagged.**
+See `docs/reference/install-verification.md` for the full matrix.
+
+| Artifact | Debian 13 | Ubuntu 26.04 |
+|---|---|---|
+| SatDump, built for Ubuntu 24.04 | ❌ unmet deps | ❌ unmet deps |
+| SDR++, `debian_bookworm` | ❌ unmet deps | ❌ unmet deps |
+| SDR++, `debian_sid` | ✅ | ✅ |
+| SDRangel, built for Ubuntu 26.04 | ❌ unmet deps | ✅ |
+| AIS-Catcher, `debian_bookworm` | ✅ | ✅ |
+
+**Only two of the four reach a target through their `.deb`.** SatDump is still
+Tier 1, but **by apt** — `satdump 1.2.2-1` is in Debian 13 and installs cleanly.
+SDRangel is Tier 1 only on the base it was built for. SDR++ works only through
+the `sid`-targeted artifact, which is not the obvious choice and is not
+documented upstream.
+
+**SDR++ also has no pinnable release.** Its assets hang off a rolling `nightly`
+tag, so the URL never changes and the artifact behind it does. No version to
+pin, no checksum published — the pin/hash sub-project `SCOPE.md` names, in its
+sharpest form so far.
+
+Consequence for the schema: these units need **per-target install blocks**, not
+one URL each. `Selector` already expresses that; the manifests have to use it."""
 
 EW_PROSE = """\
 DragonOS Resolute R1 devotes an entire section to cellular and electronic

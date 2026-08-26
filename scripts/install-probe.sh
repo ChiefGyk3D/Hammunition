@@ -1,24 +1,30 @@
 #!/usr/bin/env bash
-# Attempt a REAL install of each named package and classify the outcome.
+# Attempt a REAL install of one package and classify the outcome honestly.
 #
 # `apt-cache policy` proves the archive *offers* a package. It does not prove
-# dependency resolution succeeds on that release, which is the claim a
-# capability-matrix row actually makes. This closes that gap.
+# dependency resolution succeeds on that release, which is what a
+# capability-matrix row actually claims. This closes that gap — and no more
+# than that gap.
 #
-# Three outcomes, because a rootless container without subordinate UID ranges
-# cannot run a postinst that chowns to a system user, and that is an artifact of
-# the harness rather than a fact about the package:
+#   OK          resolved, unpacked and configured
+#   UNRESOLVED  not in the archive, or dependencies could not be satisfied.
+#               Trustworthy: this is a fact about the archive.
+#   UNPACKED    dependencies resolved and the package unpacked, but
+#               configuration failed. In a rootless container WITHOUT
+#               subordinate UID ranges this is expected and near-universal for
+#               anything pulling dbus or systemd: postinst scripts chown to
+#               system users and the kernel returns EINVAL. It says nothing
+#               about the package.
 #
-#   OK        unpacked and configured
-#   DEGRADED  dependencies resolved and the package unpacked; its postinst
-#             failed only on `chown ... Invalid argument`. Dependency
-#             resolution — the thing being measured — succeeded. Real on a
-#             machine with subuid ranges; see HAMMUNITION_DEGRADED_PODMAN.
-#   FAIL      not in the archive, or dependencies could not be satisfied
+# The UNPACKED test is deliberately structural, not a string match on error
+# text: if dpkg has a version recorded, resolution and unpack succeeded. An
+# earlier version of this script tried to pattern-match the failure messages
+# and mis-classified two packages, which is precisely the kind of guess D-018
+# exists to prevent.
 #
-# Run ONE package per invocation. Sharing a container across packages lets one
-# broken postinst wedge dpkg and mark every later package failed, which is how
-# the first version of this script produced 21 false failures.
+# Run ONE package per invocation. Sharing a container lets one broken postinst
+# wedge dpkg and mark every later package failed — that produced 21 false
+# failures on the first attempt.
 set -uo pipefail
 export DEBIAN_FRONTEND=noninteractive
 APT="apt-get -o APT::Sandbox::User=${APT_SANDBOX_USER:-_apt} -o DPkg::Lock::Timeout=-1"
@@ -26,20 +32,20 @@ APT="apt-get -o APT::Sandbox::User=${APT_SANDBOX_USER:-_apt} -o DPkg::Lock::Time
 pkg="$1"
 out=$($APT install -y --no-install-recommends "$pkg" 2>&1)
 status=$?
-ver=$(dpkg-query -W -f='${Version}' "$pkg" 2>/dev/null || echo "-")
+ver=$(dpkg-query -W -f='${Version}' "$pkg" 2>/dev/null || true)
 
 if [[ $status -eq 0 ]]; then
-    printf '%s\tOK\t%s\t\n' "$pkg" "$ver"
+    printf '%s\tOK\t%s\t\n' "$pkg" "${ver:--}"
     exit 0
 fi
 
-# Unpacked but the postinst tripped only over an unmappable chown/chgrp.
-if printf '%s' "$out" | grep -qiE "ch(own|grp).*Invalid argument" \
-   && ! printf '%s' "$out" | grep -qiE "Unable to locate|have unmet dependencies|not going to be installed|no installation candidate"; then
-    printf '%s\tDEGRADED\t%s\tpostinst chown unmappable in a rootless container without subuid\n' "$pkg" "$ver"
+if [[ -n "$ver" ]]; then
+    detail=$(printf '%s' "$out" | grep -oiE '(ch(own|grp)|fchownat|statoverride|access ACL)[^\n]{0,40}Invalid argument' | head -1)
+    printf '%s\tUNPACKED\t%s\t%s\n' "$pkg" "$ver" \
+        "${detail:-configuration failed; dependency resolution and unpack succeeded}"
     exit 0
 fi
 
 reason=$(printf '%s' "$out" | grep -iE '^E:' | grep -viE 'Sub-process /usr/bin/dpkg' | head -1 | cut -c1-140)
 [[ -z "$reason" ]] && reason=$(printf '%s' "$out" | grep -iE '^E:' | head -1 | cut -c1-140)
-printf '%s\tFAIL\t%s\t%s\n' "$pkg" "${ver:--}" "${reason:-unknown}"
+printf '%s\tUNRESOLVED\t-\t%s\n' "$pkg" "${reason:-unknown}"

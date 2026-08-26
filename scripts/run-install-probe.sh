@@ -19,7 +19,7 @@ if [[ "${HAMMUNITION_DEGRADED_PODMAN:-0}" == "1" ]]; then
     sandbox_user="root"
     build_opts=(--storage-opt ignore_chown_errors=true --build-arg "APT_SANDBOX_USER=root")
     run_opts=(--storage-opt ignore_chown_errors=true -e APT_SANDBOX_USER=root)
-    echo "NOTE: degraded podman — postinst chown failures are reported as DEGRADED, not FAIL." >&2
+    echo "NOTE: degraded podman — configuration failures are reported as UNPACKED, not as package defects." >&2
 fi
 
 # Populate apt lists once so each package run starts from a warm cache.

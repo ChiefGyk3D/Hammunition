@@ -92,7 +92,11 @@ meet our security requirement. The first does not transfer — DragonOS Tier 3
 The largest and most expensive. Absorb in three tiers, and do not treat them as
 one job.
 
-**Tier 1 — apt-installable or upstream .deb.** **Measured** —
+**Tier 1 — apt-installable, or an upstream `.deb` that resolves on the
+target.** The qualifier is not pedantry: three of the four `.deb` artifacts
+tested do **not** resolve on our targets from the URL upstream advertises
+(`docs/reference/install-verification.md`). A tier meant to be cheap and stable
+cannot admit artifacts that fail to install. **Measured** —
 `docs/reference/dragonos-tier1-inventory.md`, release Resolute R1, probed in all
 four x86 target containers. Of 99 README units, **24 are Tier 1**: Wireshark,
 aircrack-ng, hcxdumptool/hcxtools, Ubertooth, rtl_433, inspectrum, GNU Radio,
