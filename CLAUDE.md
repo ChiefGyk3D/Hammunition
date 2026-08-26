@@ -14,8 +14,13 @@ Binary: `hammunition`. Python package: `hammunition`.
 
 `docs/DECISIONS.md` is authoritative. Where this file or `docs/DESIGN.md`
 disagrees with it, DECISIONS wins and the disagreeing file is a bug.
-`docs/PARITY-POLICY.md` governs per-unit disposition and the M5 exit criteria.
-`docs/reference/ahrl-inventory.md` is the measurement everything else rests on.
+
+- `docs/SCOPE.md` — the five-source union and 1.0 staging (**D-017**)
+- `docs/PARITY-POLICY.md` — per-unit disposition and M5 exit criteria
+- `docs/QUESTIONS.md` — decisions awaiting the maintainer, with recommendations
+- `docs/reference/` — the measurements everything rests on: `ahrl-inventory.md`,
+  `blend-inventory.md`, `dispositions.md`, `overlaps.md`, `profile-sizing.md`,
+  `licence-verification.md`
 
 ## What this project is NOT
 
@@ -203,7 +208,16 @@ capability-matrix claims not backed by a passing container test.
 - Fail loudly, never silently degrade
 - Structured logging to `~/.local/state/hammunition/`
 - Type hints throughout; `mypy --strict` clean
-- Tests run in containers per target distro, never against the dev machine
+- Tests run in containers per target distro, never against the dev machine.
+  `containers/targets.yaml` declares them; `scripts/run-targets.sh` runs them
+  locally and **fails loudly** if docker is unusable rather than skipping.
+- `mypy --strict` is wired into CI as a gate (`.github/workflows/ci.yml`).
+  CI pins Python 3.11+; a dev machine may be older, and CI is the authority.
+- `scripts/check_doc_links.py` validates markdown links **and backticked repo
+  paths** — this project's prose cites files by backtick, so a markdown-only
+  checker would validate almost nothing.
+- Generated docs are generated: `scripts/gen_blend_inventory.py` rebuilds the
+  Blend inventory from upstream task files. Never hand-edit a generated file.
 - Small, logically scoped commits
 - `/reference/` and `/vendor/` are gitignored, **anchored to the repo root**:
   third-party tarballs and extracted upstream trees are studied locally, never
@@ -254,7 +268,7 @@ square, rig device paths). The 1.0 packet core forces it — AX.25's install wri
 `wl2k ${MYCALL} 1200 255 7 Winlink` into `/etc/ax25/axports`. See `DESIGN.md`
 §15.3 and the D-004 amendment.
 
-## Roadmap — 1.0 is AHRL parity plus the packet core
+## Roadmap — 1.0 is the five-source union
 
 Parity is **not** "reproduce AHRL." Per `docs/PARITY-POLICY.md`, the goal is that
 a user who uninstalls AHRL and installs Hammunition is **strictly better off**:
@@ -267,9 +281,30 @@ Every unit gets exactly one disposition: **CARRY, SUPERSEDE, REVIVE, RETIRE, or
 ADD**. No unit is left unclassified. Never inherit a `broken` verdict without
 testing it ourselves.
 
-**1.0 = AHRL parity + the 1.0 packet core** (PAT, AX.25, BPQ, ARDOP, Direwolf
-with configuration) — **D-008**. VARA and HAMRS are post-1.0. Novel capability
-(SIGINT, RF security, mesh) layers on top, never substitutes.
+**1.0 = Debian Blend + AHRL parity + 73Linux packet core + Skywave listening
+delta + DragonOS Tier 1** (**D-017**; `docs/SCOPE.md` governs). Staged by
+coverage-per-effort, not by source:
+
+1. **Debian Blend** — 152 packages, team-governed, signed, machine-readable.
+   Cheapest coverage and best provenance. **11 of AHRL's 35 source builds are
+   already packaged here**, so Blend-first shrinks the source-backend problem
+   rather than merely deferring it. See `docs/reference/blend-inventory.md`.
+2. **AHRL parity** — per `PARITY-POLICY.md`, with honest status.
+3. **73Linux packet core** — PAT, AX.25, BPQ, ARDOP, QtTermTCP, QtSoundModem,
+   Pi-APRS, and Direwolf *with configuration* (**D-008**).
+4. **Skywave listening delta** — remote SDR clients, utility decoders. Cheap, and
+   an on-ramp for users who own no hardware yet.
+5. **DragonOS Tier 1** — apt or upstream `.deb` only. This is the 1.0 SIGINT
+   profile.
+
+**DragonOS is tiered and the tiers are not one job.** Tier 2 (maintained upstream
+binaries) is post-1.0. **Tier 3 — GNU Radio out-of-tree modules — must not be
+attempted before the source backend and pin database are solid.** Each module
+records the GNU Radio version it was built against; where nothing maintained
+exists, document the gap rather than carry a fork we cannot sustain.
+
+VARA and HAMRS are post-1.0. Novel capability (RF security, mesh) layers on top,
+never substitutes.
 
 **M1 — walking skeleton.** Nothing beyond this scope unless asked.
 - Manifest schema + validator
@@ -279,7 +314,10 @@ with configuration) — **D-008**. VARA and HAMRS are post-1.0. Novel capability
 - `install`, `list`, `status`, `--dry-run`
 - Container test harness for Parrot and Debian
 
-**M2 — inventory and coverage.** *Done for AHRL* —
+**M2 — inventory and coverage.** *Done for AHRL and the Debian Blend* —
+`docs/reference/blend-inventory.md` records all 12 Blend tasks and 152 packages,
+generated from upstream task files. Remaining: Skywave and DragonOS Tier 1.
+*Previously for AHRL* —
 `docs/reference/ahrl-inventory.md` records all 95 executing units with method,
 package names, build details, category, and conditionals. Headline: 57 of 95 are
 not apt-installable. Remaining: the 73Linux delta inventory, and per-unit

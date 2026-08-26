@@ -209,6 +209,12 @@ inherited from an AHRL shell comment.
   master/main snapshots. (A pinned `SatDump-1.2.2.zip` sits unused in the AHRL
   tarball.)
 
+  *Amendment 2026-08-25:* **three of these six are packaged in Debian** —
+  `satdump`, `sdrpp`, and `dump1090`'s supersession target `readsb`. Preferring
+  the packaged version resolves the snapshot problem at zero cost rather than by
+  building our own pin. See `reference/blend-inventory.md` and
+  `reference/overlaps.md`. `gsmc`, `cwwav` and `AntScope2` still need pinning.
+
 **Needs our own recipe:**
 - AIS-catcher — good software, installed via the one method our security rules
   flatly prohibit (remote script piped into bash)
@@ -414,6 +420,41 @@ Full sourcing in `reference/licence-verification.md`. Two consequences:
    HamClock Backend would be a one-line catalog change. Hardcoded into four
    generated launchers, it is not. This is shape 7 in the schema.
 
+### Correction to worked example 1, 2026-08-25 — tested, and partly wrong
+
+The example above was written from reporting. It was then tested, per the
+maintainer's instruction to test rather than report, and **two of its statements
+do not survive**. The original text is left intact above; this is the retraction.
+
+**Retracted:** *"the software it fails to install is the replacement for software
+that has since been discontinued"* and *"AHRL v27 installs four copies of a
+discontinued client pointed at a discontinued server."*
+
+**What testing found** (full probe results in
+`reference/licence-verification.md`):
+
+- `hamclock.com` is **up**: HTTP 200, `Last-Modified 2026-08-07`, and
+  `/ham/HamClock/version.pl` returns **4.27** with a changelog of new features.
+  HamClock was continued after its author's death, past the 4.23 AHRL ships.
+- Elwood's own server, `clearskyinstitute.com`, **is** gone — it refuses TCP.
+  The sunset was real; it landed on the original host, not on the hostname AHRL
+  points at.
+- `hamclock.com` is now a third-party, patron-funded operation.
+
+**What survives, and it is the part that mattered:** `install_hamclock_next` is
+still defined, enabled, menu-registered, changelog-announced, and **never
+called**. The dead menu entry is real. Only the claim about *what the user lost*
+was wrong — they lost access to a maintained fork, not a rescue from a dead one.
+
+**The methodological point is worth more than the example.** A statement about
+the world was recorded as settled on the strength of three consistent secondary
+sources, and a single `curl` overturned it. `PARITY-POLICY.md` already says never
+inherit a `broken` verdict without testing it; this extends that to **every**
+external-state claim, including the ones that flatter our argument. Ours did, and
+it was wrong.
+
+---
+
 ### Worked example 2, 2026-08-25 — the collision that stopped existing
 
 The first example shows the declarative catalog preventing a bug. This one shows
@@ -587,3 +628,56 @@ Carried across from AHRL and corrected in our manifests:
 | `libportaudio-ocaml-dev` in **fldigi** deps | Spurious. Remove. |
 | `LIBWXGTK_DEV` resolved by `apt-cache search libwxgtk \| grep dev \| grep -v media \| grep -v webview` | Replace with **explicit per-distro package names**. The wxWidgets 3.2 → 3.3 transition changes the name and the pipeline silently returns the wrong package or nothing. Affects `freedv`, `gspiceui`, `tqsl`, `xwxapt`. |
 | `install_gspiceui` hardcodes an `aarch64-linux-gnu` symlink path on every arch | Dangling symlink on x86_64. Use the `arch` selector (**D-002**). |
+
+---
+
+## D-017 — 1.0 is the five-source union, not AHRL parity alone
+
+**Decided:** `docs/SCOPE.md` governs 1.0 scope. **1.0 = Debian Blend + AHRL
+parity + 73Linux packet core + Skywave listening delta + DragonOS Tier 1**
+(`SCOPE.md` staging 1–5).
+
+**Supersedes** the "1.0 = AHRL parity + packet core" formulation in `CLAUDE.md`
+and `DESIGN.md` §14, both reconciled 2026-08-25. **D-008** is unchanged: it
+settled the packet-core split, which remains stage 3 of five.
+
+**Evidence gathered since D-008:** the Debian Blend is 152 packages of
+team-governed, signed, machine-readable coverage
+(`reference/blend-inventory.md`), and **11 of AHRL's 35 source builds are already
+packaged there**. Blend-first is not merely cheap — it shrinks the source-backend
+problem that D-004 identifies as the core engineering cost. Staging AHRL ahead of
+it would have meant building a source backend for software Debian already ships.
+
+**DragonOS is tiered, and the tiers are not one job.** Tier 1 (apt or upstream
+`.deb`) is the 1.0 SIGINT profile. Tier 2 is post-1.0. **Tier 3 — GNU Radio
+out-of-tree modules — must not be attempted before the source backend and pin
+database are solid**, and each module records the GNU Radio version it was built
+against. Where nothing maintained exists, document the gap rather than carrying a
+fork we cannot sustain.
+
+---
+
+## D-018 — Every external-state claim is tested before it is published
+
+**Decided:** Any claim about the outside world — a service being down, a project
+being dead, a package being unavailable — is **tested** before it enters a
+document a user might read. Secondary sources establish what to test, never the
+conclusion.
+
+**Evidence:** the HamClock case. Three consistent secondary sources — Amateur
+Radio Newsline, ARRL Eastern Massachusetts, Amateur Radio Daily — supported the
+conclusion that HamClock stopped functioning in June 2026. It was recorded as
+settled and written into `dispositions.md`. One `curl` overturned it: the backend
+serves version 4.27 with an active changelog.
+
+The claim was wrong in the direction that flattered our argument, which is
+precisely when scrutiny is weakest.
+
+**Generalises `PARITY-POLICY.md`'s rule.** That document already forbids
+inheriting a `broken` verdict without testing it. This extends the same standard
+from package build status to every external fact, and adds: **record what was
+not tested.** The HamClock probe used guessed endpoint paths and ran no client
+end to end, and the write-up says so.
+
+**Cheap to comply with.** The tests that overturned this were a DNS lookup, a TCP
+connect, and two HTTP GETs.

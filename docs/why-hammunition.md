@@ -122,6 +122,14 @@ weather satellite decoder, Hammunition will tell you that all NOAA APT satellite
 went out of service in November 2025 rather than installing a decoder for signals
 that aren't there.
 
+We hold ourselves to that standard about our own claims too. While preparing this
+catalog we recorded — on three consistent sources — that HamClock had stopped
+working. We then tested it, and it hadn't: the original author's server is gone,
+but the project was picked up by others and is on a newer release than the ham
+distributions ship. We were wrong in the direction that flattered our argument.
+The correction is in `docs/reference/dispositions.md`, and the rule we wrote
+afterwards is that external claims get tested before they get published.
+
 ### The configuration layer
 
 Installing packages is the easy part. The hard part — and the part almost nobody

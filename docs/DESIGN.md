@@ -306,15 +306,26 @@ with better tooling. Avoiding that is the entire point.
 
 ## 14. Roadmap
 
-**1.0 = AHRL parity + the packet core** (**D-008**). Parity is not "reproduce
-AHRL" — per `PARITY-POLICY.md` it is that a user who uninstalls AHRL and installs
-Hammunition is **strictly better off**. Every unit gets one disposition: CARRY,
-SUPERSEDE, REVIVE, RETIRE, ADD. Reproducing AHRL faithfully, broken entries
-included, would be a worse product than AHRL.
+**1.0 = Debian Blend + AHRL parity + 73Linux packet core + Skywave listening
+delta + DragonOS Tier 1** (**D-017**). `docs/SCOPE.md` governs scope; this
+section defers to it.
 
-In 1.0: PAT, AX.25, BPQ, ARDOP, Direwolf-with-configuration. Post-1.0: VARA
-(Wine prefix) and HAMRS (AppImage). Novel capability layers on top, never
-substitutes.
+Parity is not "reproduce AHRL" — per `PARITY-POLICY.md` it is that a user who
+uninstalls AHRL and installs Hammunition is **strictly better off**. Every unit
+gets one disposition: CARRY, SUPERSEDE, REVIVE, RETIRE, ADD.
+
+Staged by coverage-per-effort: Blend first (152 packages, best provenance, and it
+removes 11 of AHRL's 35 source builds from the backend problem), then AHRL
+parity, then the packet core, then the listening delta, then DragonOS Tier 1.
+
+**DragonOS tiering is load-bearing.** Tier 1 is apt or upstream `.deb` and lands
+in 1.0. Tier 2 is post-1.0. **Tier 3 — GNU Radio out-of-tree modules — is gated
+behind a solid source backend and pin database** and must not be started before
+them; GNU Radio's release train breaks these routinely and gr-gsm's upstream has
+already stalled. Carry only modules with a maintained upstream, mark the tier
+`experimental`, and record the GNU Radio version each was built against.
+
+VARA and HAMRS are post-1.0. Novel capability layers on top, never substitutes.
 
 - **M1 — walking skeleton.** Manifest schema and validator, apt backend,
   os-release detection for Parrot and Debian, ~20 packages, one `ham-core`
