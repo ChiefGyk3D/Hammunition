@@ -26,12 +26,14 @@ from pydantic import Field, model_validator
 from .schema import SLUG, ManifestError, Strict
 
 __all__ = [
+    "AmbiguityBasis",
     "DeviceClass",
     "DeviceManifest",
     "Firmware",
     "GapClosure",
     "MaintainerVerification",
     "UdevBinding",
+    "UsbAmbiguity",
     "UsbId",
 ]
 
@@ -67,6 +69,61 @@ So the disposition is structural:
 """
 
 
+AmbiguityBasis = Literal[
+    "kernel_generic_driver",
+    "shared_across_products",
+    "vendor_chip_default",
+    "generic_function_name",
+]
+"""Why an identifier does not identify a *device*.  D-028.
+
+Four evidence classes, in descending order of how citable they are:
+
+``kernel_generic_driver``
+    The kernel's own ``modules.alias`` binds the pair to a general-purpose
+    USB-serial driver -- ``cp210x``, ``ch341``, ``ftdi_sio``, ``pl2303``. The
+    kernel maintainers put it in a *bridge* driver's table, which is as close to
+    an authoritative statement of "this is a chip, not a product" as exists.
+``shared_across_products``
+    The archive sweep found the pair in two or more packages' rules naming
+    different devices. ``0483:df11`` is in both ``qflipper``'s rules and
+    ``dmrconfig``'s, where it is a TYT MD-UV380.
+``vendor_chip_default``
+    A documented chip-level constant in vendor tooling, shared by every board
+    using that silicon -- Espressif's ``303a:1001``, which esptool calls
+    ``USB_JTAG_SERIAL_PID``.
+``generic_function_name``
+    ``usb.ids`` names a function rather than a product: "CP210x UART Bridge",
+    "Virtual COM Port", "STM Device in DFU Mode". Weakest of the four and still
+    evidence, because that database is written by people looking at descriptors.
+"""
+
+
+class UsbAmbiguity(Strict):
+    """Evidence that a VID:PID names a chip or a function, not a device.
+
+    The counterpart to ``UsbId.evidence``. That field stops us asserting an
+    identifier we have not seen; this one stops us *acting* on an identifier
+    that is real and does not mean what a udev rule would take it to mean.
+
+    Both failures are silent, and they are mirror images. Under-matching: the
+    ``rtl-sdr`` entry carried three identifiers where Debian carries 42, so a
+    Hauppauge stick got no symlink and no error. Over-matching: a symlink on
+    ``10c4:ea60`` names every CP2102 adapter on the machine -- a rig-control
+    cable, a GPS receiver -- after whichever badge the rule was written for.
+    """
+
+    basis: AmbiguityBasis
+    evidence: str = Field(
+        min_length=20,
+        description="Where this came from: a modules.alias line, a sweep result, a vendor constant.",
+    )
+    also_used_by: list[str] = Field(
+        default_factory=list,
+        description="Other devices or packages known to share the pair, where known.",
+    )
+
+
 class UsbId(Strict):
     """One USB vendor/product pair, with its provenance.
 
@@ -86,6 +143,10 @@ class UsbId(Strict):
         ),
     )
     confirmed: bool = True
+    ambiguity: UsbAmbiguity | None = Field(
+        default=None,
+        description="Set when the pair names a chip or a function rather than a device. D-028.",
+    )
 
     @model_validator(mode="after")
     def _check(self) -> UsbId:
@@ -155,6 +216,21 @@ class UdevBinding(Strict):
             "device matches."
         ),
     )
+    match_product: str | None = Field(
+        default=None,
+        description=(
+            'Emitted as ATTRS{product}=="..." alongside the identifiers. Required '
+            "when any identifier is ambiguous, because VID:PID alone would match "
+            "unrelated hardware."
+        ),
+    )
+    match_serial: str | None = Field(
+        default=None,
+        description=(
+            'Emitted as ATTRS{serial}=="...". Pins the rule to one physical unit; '
+            "use for an operator's own device, not for a catalog-wide rule."
+        ),
+    )
     mode: str = "0660"
     group: str = "plugdev"
     tag_uaccess: bool = Field(
@@ -218,6 +294,30 @@ class _DeviceCommon(Strict):
     documentation: HardwareDocumentation
 
 
+def _check_symlink_safety(name: str, usb_ids: list[UsbId], udev: UdevBinding | None) -> None:
+    """A device-specific symlink needs an identifier that specifies a device.
+
+    D-028. Refused structurally rather than reviewed, for the same reason there
+    is no ``method: script`` and no unverified download: both halves of this
+    failure are silent. A rule matching ``10c4:ea60`` alone names every CP2102
+    adapter attached to the machine after whichever badge the rule was written
+    for -- a rig-control cable, a GPS puck, a Meshtastic node -- and the operator
+    sees a symlink pointing at the wrong device with no error anywhere.
+    """
+    if udev is None:
+        return
+    ambiguous = [i for i in usb_ids if i.ambiguity]
+    if ambiguous and not (udev.match_product or udev.match_serial):
+        pairs = ", ".join(str(i) for i in ambiguous)
+        raise ManifestError(
+            f"{name!r} pins the symlink /dev/{udev.symlink} to identifiers that do "
+            f"not identify a device: {pairs}. A rule matching those alone claims "
+            f"every device using that chip. Add match_product (or match_serial), "
+            f"or drop the symlink and rely on /dev/serial/by-id/, which systemd "
+            f"already populates from the descriptor strings (D-028)."
+        )
+
+
 class DeviceClass(_DeviceCommon):
     """A family of devices with identical Linux-side needs.
 
@@ -236,6 +336,7 @@ class DeviceClass(_DeviceCommon):
     def _check(self) -> DeviceClass:
         if not SLUG.match(self.name):
             raise ManifestError(f"device class name {self.name!r} must be a lowercase slug")
+        _check_symlink_safety(self.name, self.usb_ids, self.udev)
         return self
 
 
@@ -313,4 +414,5 @@ class DeviceManifest(_DeviceCommon):
                 f"device {self.name!r} claims status 'supported' with no confirmed "
                 f"USB identifier — D-018: do not claim what has not been tested"
             )
+        _check_symlink_safety(self.name, self.usb_ids, self.udev)
         return self

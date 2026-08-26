@@ -18,6 +18,7 @@ import pytest
 from pydantic import ValidationError
 
 from hammunition.manifest.hardware import (
+    DeviceClass,
     DeviceManifest,
     HardwareDocumentation,
     UdevBinding,
@@ -325,3 +326,137 @@ def test_no_device_claims_verification_it_does_not_have() -> None:
         if entry.maintainer_verified is not None:
             assert entry.status != "planned", name
             assert entry.gap_closure != "unverified_by_maintainer", name
+
+
+# ---------------------------------------------------------------------------
+# D-028 — an identifier that names a chip may not name a /dev node
+# ---------------------------------------------------------------------------
+
+
+CP2102 = UsbId(
+    vendor="10c4",
+    product="ea60",
+    description="Silicon Labs CP2102 UART bridge",
+    evidence="Debian 13 usb.ids and modules.alias",
+    ambiguity={  # type: ignore[arg-type]
+        "basis": "kernel_generic_driver",
+        "evidence": "Debian 13 modules.alias binds 10c4:ea60 to cp210x, a generic bridge driver.",
+    },
+)
+
+
+def test_a_symlink_on_a_bridge_chip_is_refused() -> None:
+    """The failure this exists for: /dev/marauder on every CP2102 adapter.
+
+    A rig-control cable, a GPS puck and a Meshtastic node all use CP2102s. A
+    rule matching the chip claims whichever of them enumerates, and the operator
+    sees a symlink pointing at the wrong device with no error anywhere.
+    """
+    with pytest.raises((ManifestError, ValidationError)):
+        device(
+            usb_ids=[CP2102],
+            udev={"symlink": "marauder"},
+        )
+
+
+def test_a_product_match_makes_it_safe() -> None:
+    entry = device(
+        usb_ids=[CP2102],
+        udev={"symlink": "marauder", "match_product": "ESP32 Marauder"},
+    )
+    assert entry.udev is not None
+    assert entry.udev.match_product == "ESP32 Marauder"
+
+
+def test_a_serial_match_makes_it_safe() -> None:
+    entry = device(
+        usb_ids=[CP2102],
+        udev={"symlink": "rig-991a", "match_serial": "A50285BI"},
+    )
+    assert entry.udev is not None
+
+
+def test_an_unambiguous_identifier_needs_no_extra_match() -> None:
+    """pn533_usb is a device driver, not a bridge driver. The nfc symlink stands."""
+    entry = device(usb_ids=[CONFIRMED], udev={"symlink": "hackrf"})
+    assert entry.udev is not None
+
+
+def test_the_rule_applies_to_classes_too() -> None:
+    """badgelife is where this actually bit, and a class is not exempt."""
+    with pytest.raises((ManifestError, ValidationError)):
+        DeviceClass.model_validate(
+            {
+                "kind": "class",
+                "name": "badges",
+                "summary": "Conference badges of every kind",
+                "usb_ids": [CP2102.model_dump()],
+                "udev": {"symlink": "badge"},
+                "documentation": DOCS.model_dump(),
+            }
+        )
+
+
+def test_badgelife_emits_no_symlink() -> None:
+    """Regression. Every identifier it carries is a bridge chip."""
+    classes, _ = load_hardware(HARDWARE)
+    badgelife = classes["badgelife"]
+    assert badgelife.udev is None, (
+        "badgelife pins a symlink to bridge-chip identifiers; a CP2102 rig cable would claim it"
+    )
+    assert all(i.ambiguity for i in badgelife.usb_ids), (
+        "every identifier in badgelife is a bridge chip and must say so"
+    )
+
+
+def test_no_catalogued_symlink_rests_on_an_ambiguous_identifier() -> None:
+    """The property, asserted across the whole catalog rather than per entry."""
+    classes, devices = load_hardware(HARDWARE)
+    # Separate loops: usb_ids lives on each subclass, not the shared base.
+    checked: list[tuple[str, UdevBinding | None, list[UsbId]]] = [
+        (c.name, c.udev, c.usb_ids) for c in classes.values()
+    ]
+    checked += [(d.name, d.udev, d.usb_ids) for d in devices.values()]
+    for name, udev, usb_ids in checked:
+        if udev and not (udev.match_product or udev.match_serial):
+            offenders = [str(i) for i in usb_ids if i.ambiguity]
+            assert not offenders, f"{name}: /dev/{udev.symlink} rests on {offenders}"
+
+
+def test_an_identifier_on_the_ambiguity_list_must_say_so(tmp_path: Path) -> None:
+    """The list is only load-bearing if something checks against it.
+
+    An unmarked identifier passes the symlink check silently, because that check
+    keys off the `ambiguity` block. So the loader cross-checks the generated
+    list, and this asserts the loader actually does it rather than trusting it.
+    """
+    (tmp_path / "devices").mkdir()
+    (tmp_path / "ambiguous-ids.yaml").write_text(
+        "kind: ambiguity-list\n"
+        "identifiers:\n"
+        '  - id: "10c4:ea60"\n'
+        "    basis: kernel_generic_driver\n"
+    )
+    (tmp_path / "devices" / "thing.yaml").write_text(
+        "kind: device\n"
+        "name: thing\n"
+        "summary: A thing with a bridge chip\n"
+        "vendor: Example\n"
+        "usb_ids:\n"
+        '  - vendor: "10c4"\n'
+        '    product: "ea60"\n'
+        "    description: A CP2102 bridge\n"
+        "    evidence: Debian 13 usb.ids and modules.alias\n"
+        "documentation:\n"
+        "  what_it_is: A device used for testing this loader behaviour.\n"
+        "  what_you_can_do_with_it: Nothing at all, it is a fixture.\n"
+        "  setup_steps: Plug it in, join plugdev, log out and back in again.\n"
+    )
+    with pytest.raises(CatalogError) as caught:
+        load_hardware(tmp_path)
+    assert "names a chip" in str(caught.value)
+
+
+def test_the_real_catalog_marks_every_ambiguous_identifier() -> None:
+    """Regression for badgelife, asserted as a property of the whole catalog."""
+    load_hardware(HARDWARE)  # raises if any identifier is on the list unmarked

@@ -145,6 +145,7 @@ Do not re-litigate these without being asked:
 | Untagged upstreams | Pin the commit a **distribution** already packages; our own only when nothing does | Their packaging is the review signal upstream stopped providing (**D-024**) |
 | Evidence | Re-verify a claim when it becomes decisive, not only when gathered | Four bugs, one shape (**D-025**) |
 | Hardware claims | `status` and `maintainer_verified` are separate fields | `usrp` is supported from Debian's rule and has never been run here (**D-027**) |
+| udev symlinks | An identifier naming a chip may not name a `/dev` node | `/dev/badge` on a CP2102 claims the rig cable (**D-028**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
 

@@ -128,7 +128,7 @@ scripts/identify-device.sh sdrplay-rsp
 
 Flipper Zero — multi-protocol handheld for sub-GHz, NFC, RFID, infrared and iButton
 
-One identifier from Debian's rule is deliberately NOT carried above: `0483:df11`, the device's DFU mode. It is STMicroelectronics' generic STM32 bootloader identifier, shared by every STM32 board in DFU — including, as the same sweep found, the TYT MD-UV380 radio in `dmrconfig`'s rule. A udev symlink on it would name an unrelated device /dev/flipper. Distinguishing them needs a serial or an interface check against real hardware, which nobody here has. Normal and U2F modes are unambiguous and are carried; DFU is recorded here as a known-but-unusable identifier rather than silently dropped.
+One identifier from Debian's rule is deliberately NOT carried above: `0483:df11`, the device's DFU mode. It is STMicroelectronics' generic STM32 bootloader identifier, shared by every STM32 board in DFU — including, as the same sweep found, the TYT MD-UV380 radio in `dmrconfig`'s rule. A udev symlink on it would name an unrelated device /dev/flipper. The normal and U2F identifiers are carried, and they are ambiguous too: `0483:5740` is usb.ids' "Virtual COM Port", ST's reference identifier, reused by a wide range of STM32 projects that never changed it. So this entry emits no symlink at all. What would fix that is one `ATTRS{product}` string, which the device almost certainly supplies and nobody here has read -- run `scripts/identify-device.sh flipper-zero` and it turns three ambiguous identifiers into one safe rule.
 
 ### `hackrf-pro`
 

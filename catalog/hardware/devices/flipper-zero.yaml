@@ -29,6 +29,16 @@ usb_ids:
       package, commented "Flipper Zero serial port". usb.ids names 0483:5740
       "STMicroelectronics Virtual COM Port".
     confirmed: true
+    ambiguity:
+      basis: generic_function_name
+      evidence: >-
+        usb.ids names 0483:5740 "Virtual COM Port" -- a function, not a
+        product. It is STMicroelectronics' reference VCP identifier and is
+        reused by a wide range of STM32-based projects that never changed it.
+        Confirmed as the Flipper's serial mode by qflipper's own rule; not
+        confirmed as belonging to the Flipper alone, which is a different claim.
+      also_used_by:
+        - STM32 projects shipping the reference USB CDC descriptors
   - vendor: "0483"
     product: "5741"
     description: Flipper Zero — U2F security-key mode
@@ -36,27 +46,46 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/42-flipperzero.rules, commented
       "Flipper U2F".
     confirmed: true
+    ambiguity:
+      basis: generic_function_name
+      evidence: >-
+        Adjacent to 0483:5740 in STMicroelectronics' range and named by no
+        product string in usb.ids. Treated as ambiguous on the same basis as its
+        neighbour rather than assumed unique because it happens to be less
+        widely documented -- absence of evidence about reuse is not evidence of
+        uniqueness.
 
 identification_gap: >-
   One identifier from Debian's rule is deliberately NOT carried above:
   `0483:df11`, the device's DFU mode. It is STMicroelectronics' generic
   STM32 bootloader identifier, shared by every STM32 board in DFU — including,
   as the same sweep found, the TYT MD-UV380 radio in `dmrconfig`'s rule. A
-  udev symlink on it would name an unrelated device /dev/flipper. Distinguishing
-  them needs a serial or an interface check against real hardware, which nobody
-  here has. Normal and U2F modes are unambiguous and are carried; DFU is
-  recorded here as a known-but-unusable identifier rather than silently dropped.
+  udev symlink on it would name an unrelated device /dev/flipper.
+
+  The normal and U2F identifiers are carried, and they are ambiguous too:
+  `0483:5740` is usb.ids' "Virtual COM Port", ST's reference identifier, reused
+  by a wide range of STM32 projects that never changed it. So this entry emits
+  no symlink at all. What would fix that is one `ATTRS{product}` string, which
+  the device almost certainly supplies and nobody here has read -- run
+  `scripts/identify-device.sh flipper-zero` and it turns three ambiguous
+  identifiers into one safe rule.
 gap_closure: unverified_by_maintainer
 
 groups: [dialout, plugdev]
 packages: [dfu-util]
 
-udev:
-  symlink: flipper
-  serial_suffix: true
-  mode: "0660"
-  group: dialout
-  tag_uaccess: true
+# NO SYMLINK, and the schema is what caught it. This entry originally emitted
+# /dev/flipper-<serial>. Its normal-mode identifier is 0483:5740, which usb.ids
+# names "Virtual COM Port" -- ST's reference VCP identifier, reused by a wide
+# range of STM32 projects. A rule matching it alone would name any of them
+# /dev/flipper.
+#
+# The fix is ATTRS{product}, which the device almost certainly supplies, and
+# nobody here has read it. Writing a match_product we have not seen would be the
+# same class of error as guessing a VID:PID -- a rule that silently never
+# matches instead of one that matches too much. So the symlink waits for a
+# capture; /dev/serial/by-id/ works in the meantime, populated by systemd from
+# the descriptor strings.
 
 firmware:
   - kind: dfu

@@ -17,21 +17,57 @@ usb_ids:
     description: Silicon Labs CP2102/CP2109 UART bridge — the most common badge bridge
     evidence: Debian 13 usb.ids (usb.ids package), vendor 10c4 "Silicon Labs", product ea60 "CP210x UART Bridge"
     confirmed: true
+    ambiguity:
+      basis: kernel_generic_driver
+      evidence: >-
+        Debian 13 modules.alias binds this pair to the cp210x driver, a
+        general-purpose USB-serial bridge. The kernel maintainers list it in a
+        bridge driver's table, which is the closest thing to an authoritative
+        statement that the pair names silicon and not a product.
+      also_used_by:
+        - any board using a Silicon Labs CP210x bridge
   - vendor: "10c4"
     product: "ea70"
     description: Silicon Labs CP2105 dual UART bridge
     evidence: Debian 13 usb.ids, product ea70 "CP2105 Dual UART Bridge"
     confirmed: true
+    ambiguity:
+      basis: kernel_generic_driver
+      evidence: >-
+        Debian 13 modules.alias binds this pair to the cp210x driver, a
+        general-purpose USB-serial bridge. The kernel maintainers list it in a
+        bridge driver's table, which is the closest thing to an authoritative
+        statement that the pair names silicon and not a product.
+      also_used_by:
+        - any board using a Silicon Labs CP210x bridge
   - vendor: "10c4"
     product: "ea71"
     description: Silicon Labs CP2108 quad UART bridge
     evidence: Debian 13 usb.ids, product ea71 "CP2108 Quad UART Bridge"
     confirmed: true
+    ambiguity:
+      basis: kernel_generic_driver
+      evidence: >-
+        Debian 13 modules.alias binds this pair to the cp210x driver, a
+        general-purpose USB-serial bridge. The kernel maintainers list it in a
+        bridge driver's table, which is the closest thing to an authoritative
+        statement that the pair names silicon and not a product.
+      also_used_by:
+        - any board using a Silicon Labs CP210x bridge
   - vendor: "1a86"
     product: "7523"
     description: WCH CH340 UART bridge — common on low-cost badges
     evidence: Debian 13 usb.ids, vendor 1a86 "QinHeng Electronics", product 7523 "CH340 serial converter"
     confirmed: true
+    ambiguity:
+      basis: kernel_generic_driver
+      evidence: >-
+        Debian 13 modules.alias binds this pair to the ch341 driver, a
+        general-purpose USB-serial bridge. The kernel maintainers list it in a
+        bridge driver's table, which is the closest thing to an authoritative
+        statement that the pair names silicon and not a product.
+      also_used_by:
+        - any board using a WCH CH340 bridge
   - vendor: "303a"
     product: "1001"
     description: Espressif ESP32-S3/C3 native USB CDC and JTAG-serial peripheral
@@ -44,6 +80,15 @@ usb_ids:
       them attached over native USB settles it. Confirm with lsusb before relying
       on this rule.
     confirmed: false
+    ambiguity:
+      basis: vendor_chip_default
+      evidence: >-
+        esptool 4.7.0 as packaged in Debian 13 calls 0x1001
+        USB_JTAG_SERIAL_PID -- a constant of the ESP32-S3/C3 USB-serial-JTAG
+        peripheral, so it is shared by every board using that silicon rather
+        than identifying any of them.
+      also_used_by:
+        - every ESP32-S3 and ESP32-C3 board using native USB
   - vendor: "1a86"
     product: "55d4"
     description: WCH CH9102/CH343 UART bridge — increasingly common on newer boards
@@ -53,6 +98,15 @@ usb_ids:
       CH9102 rather than a CH340; which of them do is not known without checking.
       Verify with lsusb before relying on this rule.
     confirmed: false
+    ambiguity:
+      basis: generic_function_name
+      evidence: >-
+        Widely reported for the WCH CH9102/CH343, which is a UART bridge chip.
+        Not in Debian 13 usb.ids and not confirmed here; ambiguous regardless
+        of confirmation, because a bridge chip identifies silicon rather than
+        a product.
+      also_used_by:
+        - any board using a WCH CH9102 or CH343 bridge
 
 groups:
   - dialout
@@ -72,12 +126,25 @@ firmware:
       Many enter bootloader mode automatically via DTR/RTS; some need BOOT held
       while RESET is tapped. Nothing here flashes anything on its own.
 
-udev:
-  symlink: badge
-  serial_suffix: true
-  mode: "0660"
-  group: dialout
-  tag_uaccess: true
+# NO CLASS-LEVEL SYMLINK, and this is a correction rather than an omission.
+#
+# This class previously emitted /dev/badge-<serial> for every identifier above.
+# Every one of them is a bridge chip: the kernel binds 10c4:ea60 to cp210x and
+# 1a86:7523 to ch341, and 303a:1001 is Espressif's chip-level constant. A rule
+# matching those names every CP2102 adapter on the machine after whichever badge
+# it was written for -- a rig-control cable, a GPS puck, a Meshtastic node --
+# and the operator sees a symlink pointing at the wrong device, with no error
+# anywhere. The same silent failure as the rtl-sdr gap, pointed the other way.
+#
+# The right answer for USB-serial devices is the one that already exists:
+# systemd's 60-serial.rules populates /dev/serial/by-id/ from the manufacturer,
+# product and serial strings in the descriptor, per unit, with no help from us.
+# Where a board carries a serial it is already distinguishable there.
+#
+# A device-specific symlink is still worth having for an OPERATOR-CHOSEN role
+# name -- /dev/rig-991a is more useful than a by-id path nobody memorises -- and
+# that belongs in station-local configuration with a match_serial for the
+# specific unit, not in a catalog-wide class rule. See D-028.
 
 documentation:
   what_it_is: >-

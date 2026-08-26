@@ -10,7 +10,7 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from .hardware import DeviceClass, DeviceManifest
+from .hardware import DeviceClass, DeviceManifest, UsbId
 from .schema import ManifestError, PackageManifest, ProfileManifest
 
 __all__ = [
@@ -116,6 +116,7 @@ def load_hardware(
     """
     classes: dict[str, DeviceClass] = {}
     devices: dict[str, DeviceManifest] = {}
+    ambiguous: dict[tuple[str, str], str] = {}
     failures: dict[Path, str] = {}
 
     for path in sorted(directory.rglob("*.yaml")):
@@ -123,7 +124,11 @@ def load_hardware(
             data = yaml.safe_load(path.read_text())
             if not isinstance(data, dict):
                 raise ManifestError("hardware entry must be a YAML mapping")
-            if data.get("kind") == "class":
+            if data.get("kind") == "ambiguity-list":
+                for entry in data.get("identifiers") or []:
+                    vendor, _, product = str(entry["id"]).partition(":")
+                    ambiguous[(vendor, product)] = str(entry["basis"])
+            elif data.get("kind") == "class":
                 entry_class = DeviceClass.model_validate(data)
                 if entry_class.name in classes:
                     raise ManifestError(f"duplicate device class {entry_class.name!r}")
@@ -142,6 +147,41 @@ def load_hardware(
                 f"device {name!r} references unknown device_class {device.device_class!r}"
             )
 
+    # D-028. The generated ambiguity list is only load-bearing if something
+    # checks against it. An identifier the kernel classifies as a bridge chip,
+    # carried in a manifest without saying so, is exactly the state that lets a
+    # symlink rule reach hardware it was never meant to name -- and the symlink
+    # check downstream keys off the `ambiguity` block, so an unmarked identifier
+    # silently passes it.
+    if ambiguous:
+        for holder_name, usb_ids, source in _hardware_identifiers(classes, devices):
+            for usb in usb_ids:
+                if usb.product is None or usb.ambiguity is not None:
+                    continue
+                basis = ambiguous.get((usb.vendor.lower(), usb.product.lower()))
+                if basis is not None:
+                    failures[directory / source] = (
+                        f"{holder_name!r} carries {usb.vendor}:{usb.product} with no "
+                        f"`ambiguity` block, but the generated list marks it "
+                        f"{basis} — it names a chip, not a device. Add the block, or "
+                        f"regenerate the list if the evidence has changed (D-028)."
+                    )
+
     if failures:
         raise CatalogError(failures)
     return classes, devices
+
+
+def _hardware_identifiers(
+    classes: dict[str, DeviceClass], devices: dict[str, DeviceManifest]
+) -> list[tuple[str, list[UsbId], str]]:
+    """(name, usb_ids, filename) for classes and devices alike.
+
+    Separate lists rather than one merged sequence: `usb_ids` lives on each
+    subclass, because a class must carry at least one identifier and a device
+    may carry none.
+    """
+    rows: list[tuple[str, list[UsbId], str]] = []
+    rows += [(c.name, c.usb_ids, f"classes/{c.name}.yaml") for c in classes.values()]
+    rows += [(d.name, d.usb_ids, f"devices/{d.name}.yaml") for d in devices.values()]
+    return rows

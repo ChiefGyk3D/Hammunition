@@ -57,13 +57,36 @@ while read -r pkg; do
 done < packages
 
 log "$(find debs -name '*.deb' | wc -l) archives downloaded; extracting rules"
+
+# Extract ONLY the rules files, and judge success by whether a file appeared --
+# never by tar's exit status.
+#
+# The first version of this used `dpkg-deb -x ... || continue`. Under rootless
+# podman without subuid ranges, tar cannot chown or chmod, so it writes the
+# files and THEN exits non-zero. Every one of 280 packages logged "bad archive"
+# while the sweep still produced thousands of rows, so the run looked
+# successful, the log said total failure, and the truth was a partial extraction
+# nobody had characterised. Same shape as the install probe reporting 21 false
+# failures, and the same fix: test the artifact, not the exit code.
+extracted_ok=0
+extract_failed=0
 for deb in debs/*.deb; do
     [ -e "$deb" ] || continue
     pkg="$(basename "$deb" | cut -d_ -f1)"
     dest="extracted/$pkg"
     mkdir -p "$dest"
-    dpkg-deb -x "$deb" "$dest" 2>/dev/null || { log "  skipped (bad archive): $pkg"; continue; }
+    dpkg-deb --fsys-tarfile "$deb" 2>/dev/null \
+        | tar -x --no-same-permissions --no-same-owner --wildcards \
+              -C "$dest" './*udev/rules.d/*' 2>/dev/null || true
+    if find "$dest" -name '*.rules' -print -quit | grep -q .; then
+        extracted_ok=$((extracted_ok + 1))
+    else
+        extract_failed=$((extract_failed + 1))
+        log "  no rules file recovered: $pkg"
+        rmdir "$dest" 2>/dev/null || true
+    fi
 done
+log "rules recovered from $extracted_ok packages; $extract_failed yielded none"
 
 log "parsing"
 python3 - <<'PY'
