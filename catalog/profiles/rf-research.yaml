@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
 name: rf-research
 summary: Transmit-capable and interception-capable RF tooling — affirmative opt-in required
 stage: post-1.0

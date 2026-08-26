@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # Attempt a REAL install of one package and classify the outcome honestly.
 #
 # `apt-cache policy` proves the archive *offers* a package. It does not prove

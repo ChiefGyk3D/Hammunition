@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
 name: linbpq
 version: "25.39"
 summary: BPQ32 packet-radio node, BBS and Winlink gateway

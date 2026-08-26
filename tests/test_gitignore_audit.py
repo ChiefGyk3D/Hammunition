@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """The .gitignore anchoring property, and the audit that enforces it.
 
 Three silent exclusions have come from the same mistake: a pattern written for a

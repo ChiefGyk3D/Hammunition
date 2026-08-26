@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # Drive scripts/install-probe.sh once per package, in a fresh container each
 # time, against one target image. Writes a TSV to reference/install-tests/.
 #

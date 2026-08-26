@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Audit .gitignore for the unanchored-pattern bug.
 
 Three times now a `.gitignore` rule written for a project-root output directory

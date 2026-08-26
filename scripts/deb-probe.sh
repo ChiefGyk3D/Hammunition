@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # Download an upstream .deb and attempt a real install, classifying the outcome
 # the same way scripts/install-probe.sh does.
 #

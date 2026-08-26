@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
 name: rf-security
 summary: Spectrum analysis, wireless auditing and protocol inspection
 stage: "1.0"

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
 name: mshv
 version: 2.76.5
 summary: Multi-mode weak-signal application with multi-stream FT8 decoding

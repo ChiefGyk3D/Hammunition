@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
 kind: device
 name: sdrplay-rsp
 summary: SDRplay RSP series — receive-only SDR needing a closed-source vendor API

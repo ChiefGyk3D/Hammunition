@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
 kind: device
 name: rtl-sdr
 summary: RTL2832U DVB-T dongle repurposed as a wideband receive-only SDR

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
 kind: device
 name: proxmark3
 summary: Proxmark3 — RFID and NFC research tool (original design; RDV boards unverified)

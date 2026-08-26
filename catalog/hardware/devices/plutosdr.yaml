@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
 kind: device
 name: plutosdr
 summary: ADALM-Pluto — inexpensive full-duplex learning and development SDR

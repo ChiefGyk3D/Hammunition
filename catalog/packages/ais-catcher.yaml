@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
 name: ais-catcher
 version: "0.70"
 summary: AIS receiver and decoder for marine vessel traffic, with a web map

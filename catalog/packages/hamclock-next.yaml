@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
 name: hamclock-next
 version: "1.5"
 summary: Maintained SDL2 rewrite of HamClock — grey line, propagation, DX cluster

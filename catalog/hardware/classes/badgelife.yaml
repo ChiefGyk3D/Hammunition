@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
 kind: class
 name: badgelife
 summary: Conference badges and SAOs — serial console, flashing, and the USB bridges they use

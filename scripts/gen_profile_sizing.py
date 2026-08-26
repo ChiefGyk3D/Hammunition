@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Generate docs/reference/profile-sizing.md.
 
 `SCOPE.md`: *"Profile design **is** the user experience."* This sizes every

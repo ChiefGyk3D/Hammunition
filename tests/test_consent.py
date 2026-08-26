@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Consent gate tests.  D-021.
 
 The decision says three things that only mean something if a test enforces

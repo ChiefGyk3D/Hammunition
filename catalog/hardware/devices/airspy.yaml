@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
 kind: device
 name: airspy
 summary: Airspy R2, Mini and HF+ — receive-only SDRs with better dynamic range than an RTL dongle

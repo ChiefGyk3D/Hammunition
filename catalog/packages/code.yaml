@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
 name: code
 version: "1.104"
 summary: Microsoft's Visual Studio Code build — optional alternative to the VSCodium your distro ships

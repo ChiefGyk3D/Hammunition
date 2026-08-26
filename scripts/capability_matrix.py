@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Resolve every manifest against every declared target.
 
 CLAUDE.md requires capability-matrix claims to be backed by a passing container

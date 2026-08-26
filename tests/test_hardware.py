@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Device catalog tests.  D-020.
 
 The invariant worth testing is the one about evidence. A wrong VID:PID produces

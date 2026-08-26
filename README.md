@@ -187,7 +187,17 @@ now:
 
 ## Licence
 
-Not yet chosen — see `docs/QUESTIONS.md`. Until it is, treat the contents as
-all-rights-reserved. The inventories cite third-party projects under their own
-licences, which are recorded in
+**Two licences, split on the architectural boundary** (see
+[D-023](docs/DECISIONS.md)):
+
+| Tree | Licence | Why |
+|---|---|---|
+| `src/`, `scripts/`, `tests/`, `docs/` | **GPL-3.0-or-later** | Copyleft is the governance argument this project was founded on: a fork cannot close the source. It is also what the ham ecosystem already runs. |
+| `catalog/` | **CC0-1.0** | The catalog must stay usable by an engine that isn't ours. Manifests record facts — that `fldigi` is packaged as `fldigi` and needs `hamlib` configured first — and CC0 removes an ambiguity rather than making a grant. |
+
+SPDX headers throughout, per the [REUSE](https://reuse.software/)
+specification; verbatim texts in [`LICENSES/`](LICENSES/).
+
+This relicenses nothing the catalog *describes*. Every program in the inventory
+keeps its own licence, recorded in
 [`docs/reference/licence-verification.md`](docs/reference/licence-verification.md).

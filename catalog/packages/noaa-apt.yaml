@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
 name: noaa-apt
 version: 1.4.1
 summary: Decoder for NOAA weather-satellite APT imagery

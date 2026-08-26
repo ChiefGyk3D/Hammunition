@@ -298,7 +298,7 @@ be finished without it — `sigint` means different things under A, B and C.
 
 ---
 
-## Q-009 🔴 — What licence does Hammunition ship under?
+## Q-009 ✅ — What licence does Hammunition ship under? — **RESOLVED 2026-08-26**
 
 **Raised by:** publishing the README. **Blocks:** any outside contribution, and
 arguably the repository being public at all. **Changes:** who can use, fork,
@@ -339,8 +339,15 @@ The engine is where the copyleft argument has force.
 barrier to exactly the drive-by manifest contributions this project wants, and
 the multi-maintainer governance argument does not need one.
 
-**Until this is answered** the README says the contents are all-rights-reserved,
-which is accurate and unattractive. It should not stay that way long.
+**Resolved: option B.** `LICENSE` is GPL-3.0-or-later over `src/`, `scripts/`,
+`tests/` and `docs/`; `catalog/LICENSE` is CC0-1.0. The split follows the
+architectural boundary — copyleft where the governance argument has force,
+CC0 where the invariant requires the data travel freely. SPDX headers per REUSE.
+Recorded as **D-023**, and answered in `why-hammunition.md` in the same document
+that raises the criticism of other projects for lacking one.
+
+DCO-versus-CLA is still open and carried into D-023's "still open" section; the
+recommendation of **DCO, not a CLA** stands unopposed.
 
 ---
 
@@ -439,3 +446,23 @@ argument.
 `usbutils` is the one that earns its place twice: half the hardware entries in
 `catalog/hardware/` say "run lsusb and record what you see", and six of them
 cannot be completed without someone doing exactly that.
+
+---
+
+## Q-012 🟢 — What copyright holder string do the SPDX headers name?
+
+**Raised by:** implementing D-023. **Blocks:** nothing — a default is in place
+and is trivially changed by one sed. **Changes:** who is named on 58 files.
+
+Every file now carries `SPDX-FileCopyrightText: 2026 The Hammunition
+contributors`.
+
+| Option | Consequence |
+|---|---|
+| **A. `The Hammunition contributors`** ⭐ | Current default. Matches the project's founding argument — multiple maintainers from day one — and needs no update when the second one arrives. Standard for community projects. Slightly abstract if anyone ever needs to identify a rights holder. |
+| B. A named individual | Unambiguous rights holder. Contradicts the governance pitch on the first line of every file, and needs revisiting the moment someone else contributes. |
+| C. An entity or foundation | Cleanest if one ever exists. None does. |
+
+**Recommendation: A**, which is what is in the tree. This is recorded only so
+the choice is visible rather than inherited by default — say the word and it
+changes in one commit.

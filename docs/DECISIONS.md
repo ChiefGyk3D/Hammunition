@@ -949,3 +949,84 @@ archive. Writing the rule once means the tenth case is not argued from scratch.
 
 **First instance:** `catalog/packages/code.yaml`, offering Microsoft's VS Code
 build alongside — never instead of — the `codium` that Parrot ships.
+
+---
+
+## D-023 — Two licences, split on the architectural boundary
+
+**Date:** 2026-08-26. **Status:** accepted. **Closes:** Q-009.
+
+`LICENSE` — **GPL-3.0-or-later**, covering `src/`, `scripts/`, `tests/`, `docs/`
+and the repository's own build and CI files.
+
+`catalog/LICENSE` — **CC0-1.0**, covering everything under `catalog/`.
+
+### Why a split rather than one licence
+
+The repository already has an architectural boundary and CLAUDE.md states it as
+an invariant: the catalog is data that **must remain usable by an engine that
+isn't ours**, and the engine is replaceable software. A single licence would
+have to lose one of those two properties.
+
+**Copyleft on the engine is the point.** This project exists because of a
+governance problem, not a software problem — AHRL's bus factor of one, 73Linux's
+missing licence file, contribution by emailing the maintainer. A permissive
+licence would let a fork close the source and reproduce the exact failure mode
+the project was founded to answer. GPL-3.0-or-later also matches the ecosystem
+this audience already runs: hamlib, fldigi, WSJT-X, GNU Radio, and AHRL's own
+installer.
+
+**Copyleft on the catalog would defeat its purpose.** A GPL manifest tree is one
+an alternative engine cannot freely consume, which contradicts the invariant
+directly. CC0 is not a concession here — it is what the data already is. A
+manifest records that `fldigi` is packaged as `fldigi` on Debian and needs
+`hamlib` configured first. Those are **facts about the world**, and the thin
+copyright interest anyone could claim in an arrangement of them is not worth the
+friction it would impose on the thing we most want reused. CC0 removes an
+ambiguity rather than making a grant.
+
+### What this does not do
+
+It does not relicense anything the catalog *describes*. Every piece of software
+in the inventory keeps its own licence, recorded in
+`docs/reference/licence-verification.md`, and CC0 on a manifest says nothing
+about the program the manifest installs.
+
+`docs/` is GPL-3.0-or-later by default rather than by argument — it falls under
+the repository licence because nothing said otherwise. CC-BY-4.0 would be a
+defensible refinement for prose and is not worth a third licence today. The
+generated reference under `docs/packages/` is derived from CC0 manifests, which
+constrains nothing, since CC0 imposes no conditions to inherit.
+
+### Mechanics
+
+SPDX headers per the REUSE specification: `SPDX-FileCopyrightText` and
+`SPDX-License-Identifier` on every source and manifest file, `REUSE.toml` for
+formats where a comment is unwelcome, and verbatim texts under `LICENSES/`.
+
+The texts are **copied from Debian `base-files`** (`/usr/share/common-licenses/`)
+rather than transcribed, and their checksums are recorded in `REUSE.toml`:
+GPL-3 `8ceb4b9e…65b903`, CC0-1.0 `a2010f34…cf0499`. A licence reproduced from
+memory is a licence with an unknown diff in it.
+
+`tests/test_licensing.py` asserts every file carries the identifier its tree
+requires, so a new manifest cannot arrive unlicensed and a new engine module
+cannot arrive under CC0 by copy-paste.
+
+### The reason this could not stay open
+
+D-001 declines to build on 73Linux because it ships no licence file. Q-007 flags
+SuperSDR for the same thing. Publishing a public repository in that state while
+making that criticism twice in the decision record is not a position that
+survives anyone reading both documents. `why-hammunition.md` now answers it in
+the same document that raises it.
+
+### Still open
+
+Whether contributions carry a DCO sign-off or a CLA. Recommendation stands from
+Q-009: **DCO, not a CLA** — a CLA is a barrier to exactly the drive-by manifest
+contributions this project wants.
+
+The copyright holder string is `The Hammunition contributors`, chosen as the
+default for a project whose founding argument is multiple maintainers. See
+Q-012 if you would rather it name a person or an entity.

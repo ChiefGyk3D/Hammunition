@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Generate docs/reference/dragonos-tier1-inventory.md from DragonOS's own README.
 
 `SCOPE.md` defines **Tier 1** as *"apt-installable or upstream .deb"* and makes it

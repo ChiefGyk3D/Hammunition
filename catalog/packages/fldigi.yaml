@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
 name: fldigi
 version: 4.2.11
 summary: Multi-mode digital modem for PSK31, RTTY, Olivia, MT63 and more

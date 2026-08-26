@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
 kind: device
 name: catsniffer-v3
 summary: Electronic Cats CatSniffer v3 — multiprotocol sub-GHz, BLE and 802.15.4

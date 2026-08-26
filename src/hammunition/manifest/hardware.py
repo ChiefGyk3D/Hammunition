@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Device catalog schema.  D-020.
 
 D-020 says detected hardware drives profile resolution. This is the data that

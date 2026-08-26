@@ -1,0 +1,47 @@
+version = 1
+SPDX-PackageName = "hammunition"
+SPDX-PackageDownloadLocation = "https://github.com/ChiefGyk3D/Hammunition"
+
+# Two licences, split on the architectural boundary CLAUDE.md draws between the
+# catalog and the engine. See D-023 in docs/DECISIONS.md for the reasoning; the
+# short version is that copyleft on the engine serves the governance objection
+# this project was founded on, and copyleft on the catalog would defeat the
+# requirement that the catalog stay usable by an engine that is not ours.
+#
+# Files carrying their own SPDX header are annotated there and not here. These
+# entries cover formats where a comment is impossible or unwelcome -- generated
+# documentation, data, licence texts themselves.
+
+[[annotations]]
+path = "catalog/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 The Hammunition contributors"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = "docs/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 The Hammunition contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = ["README.md", "CLAUDE.md", "Makefile", "pyproject.toml", ".gitignore"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 The Hammunition contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = [".github/**", "containers/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 The Hammunition contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Verbatim licence texts, copied from Debian base-files
+# (/usr/share/common-licenses) rather than transcribed. sha256:
+#   GPL-3    8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903
+#   CC0-1.0  a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499
+[[annotations]]
+path = ["LICENSE", "catalog/LICENSE", "LICENSES/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "NONE"
+SPDX-License-Identifier = "CC0-1.0"

@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Generate docs/reference/blend-inventory.md from the Debian Blend task files.
 
 CLAUDE.md: "Generate what can be generated." The package reference comes from

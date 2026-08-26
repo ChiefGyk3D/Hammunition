@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Append-only transaction log.
 
 CLAUDE.md puts structured logging in ``~/.local/state/hammunition/`` and D-004

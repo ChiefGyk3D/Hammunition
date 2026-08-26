@@ -203,6 +203,39 @@ We didn't, because forking would inherit the architecture we specifically wanted
 to change. Rewriting from the package inventory gets us a declarative catalog and
 keeps the provenance unambiguous.
 
+### What we ship under, since we asked it of others
+
+If a missing licence file is enough for us to decline forking 73Linux, and
+enough to hold up SuperSDR pending a decision, then the same question pointed
+back at us deserves an answer in the same document rather than a link to one.
+
+We ship under **two** licences, split on the boundary the architecture already
+draws:
+
+- **`src/`, `scripts/`, `tests/`, `docs/` — GPL-3.0-or-later.** Copyleft is not
+  decoration here. The argument for this project is a governance argument: that
+  the failure mode in this space is a single maintainer and a closed door, not
+  bad software. A permissive licence would let a fork close the source and
+  recreate exactly that. It is also the licence most of the ham ecosystem
+  already runs on, including AHRL's own installer.
+- **`catalog/` — CC0-1.0.** The catalog is required to stay usable by an engine
+  that isn't ours; that requirement is written into our own architecture rules.
+  Copylefting it would contradict that outright. And the honest description of a
+  manifest is that it records facts — `fldigi` is packaged as `fldigi`, it wants
+  `hamlib` configured first, it is not in Raspberry Pi OS. Whatever thin
+  copyright interest attaches to arranging facts is not worth the friction it
+  would put on the one artifact we most want other people to take. CC0 removes
+  an ambiguity; it does not make a grant.
+
+Two licences cost one paragraph of explanation. One licence would have cost
+either the governance guarantee or the invariant, and neither was available to
+spend. The reasoning is recorded as D-023.
+
+Nothing in this relicenses the software the catalog *describes*. Every program
+in the inventory keeps its own terms, verified and recorded in
+`docs/reference/licence-verification.md` — which is where that criticism of
+other projects started, and is the same standard applied to us.
+
 ### Why governance from day one?
 
 Nearly every project in this space depends on one person. That's not a criticism

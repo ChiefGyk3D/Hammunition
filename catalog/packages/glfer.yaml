@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
 name: glfer
 version: 0.4.2
 summary: QRSS and DFCW receiver for extremely slow narrowband CW on LF/MF

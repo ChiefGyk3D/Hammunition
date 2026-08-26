@@ -127,6 +127,7 @@ Do not re-litigate these without being asked:
 | Undo semantics | Transaction log + `uninstall` | True rollback is not achievable; do not promise it |
 | Config management | Own engine, Ansible as export target | Keep the catalog engine-agnostic |
 | Privilege | Drop to user where possible; sudo only for apt/udev | Runs alongside offensive tooling |
+| Licence | GPL-3.0-or-later engine, CC0-1.0 catalog | The invariant requires the catalog travel freely; the governance argument requires the engine not (**D-023**) |
 | Naming | One name: Hammunition | "Renegade RF" is held in reserve, not used in docs or code |
 | Architecture selector | `arch` structural from M1 | 9 AHRL units are arch-conditional; retrofitting is what broke `gspiceui` (**D-002**) |
 | Profiles | Flat tags with overlap, no nesting | AHRL categories overlap but never nest; 73Linux is a flat checklist (**D-003**) |
@@ -310,9 +311,9 @@ through Q-005 are resolved. Open:
 | **Q-006** 🟡 | Which HamClock, and which backend endpoint |
 | **Q-007** 🟡 | SuperSDR has no licence — carry it, or not |
 | **Q-008** 🔴 | Does the RF profile include cellular interception tooling? Blocks `rf-research`'s contents |
-| **Q-009** 🔴 | What licence does Hammunition ship under? There is no `LICENSE` file — the same objection D-001 raises against 73Linux |
 | **Q-010** 🟡 | Accept a separate `rfid` profile? |
 | **Q-011** 🟡 | Accept a `workstation` profile, and with what contents? |
+| **Q-012** 🟢 | What copyright holder string do the SPDX headers name? A default is in place |
 
 ## Roadmap — 1.0 is the five-source union
 

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
 kind: device
 name: ubertooth-one
 summary: 2.4 GHz wireless development platform for Bluetooth monitoring

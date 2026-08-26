@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Generate docs/reference/skywave-inventory.md from Skywave Linux's own data.
 
 CLAUDE.md: "Generate what can be generated." Skywave publishes no machine-readable

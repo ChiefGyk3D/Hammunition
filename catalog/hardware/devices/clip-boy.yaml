@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
 kind: device
 name: clip-boy
 summary: Open-source DEF CON badge — ESP32-S3 with an LVGL touch UI

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Resolving a consent gate into a recorded affirmation.  D-021.
 
 Three properties this module exists to guarantee, each with a test:

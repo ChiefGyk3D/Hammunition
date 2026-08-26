@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Rules for software that displaces a distribution's choice.  D-022.
 
 The first instance is an editor and feels minor. The pattern is not: it recurs

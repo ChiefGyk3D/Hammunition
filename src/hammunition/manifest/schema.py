@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Hammunition package manifest schema.
 
 Shaped by measurement, not convention. Every field here exists because a real
