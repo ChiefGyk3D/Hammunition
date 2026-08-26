@@ -357,6 +357,7 @@ def test_launcher_may_not_reference_an_undeclared_endpoint() -> None:
 # DESIGN.md §15.5 (station-local config) concrete rather than deferred.
 # ===========================================================================
 
+
 def test_shape8_linbpq_declares_station_variables(catalog: Catalog) -> None:
     bpq = catalog["linbpq"]
     assert bpq.station_variables == {"callsign", "node_alias", "grid_square"}

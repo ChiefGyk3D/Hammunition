@@ -23,8 +23,18 @@ OUT = REPO_ROOT / "docs" / "reference" / "blend-inventory.md"
 BASE_URL = "https://salsa.debian.org/blends-team/hamradio/-/raw/master/tasks"
 
 TASKS = [
-    "antenna", "datamodes", "digitalvoice", "logging", "morse", "nonamateur",
-    "packetmodes", "rigcontrol", "satellite", "sdr", "tools", "training",
+    "antenna",
+    "datamodes",
+    "digitalvoice",
+    "logging",
+    "morse",
+    "nonamateur",
+    "packetmodes",
+    "rigcontrol",
+    "satellite",
+    "sdr",
+    "tools",
+    "training",
 ]
 RELATIONS = ("Depends", "Recommends", "Suggests", "Ignore", "Avoid")
 
@@ -85,7 +95,7 @@ def _ahrl_facts() -> tuple[set[str], list[str]]:
     """Pull AHRL's apt package names and source-built unit names from the
     inventory doc, so the cross-reference below is derived rather than typed."""
     inv = (REPO_ROOT / "docs" / "reference" / "ahrl-inventory.md").read_text()
-    phase2 = inv[inv.index("### Phase 2"):inv.index("### Phase 3")]
+    phase2 = inv[inv.index("### Phase 2") : inv.index("### Phase 3")]
     apt: set[str] = set()
     for row in phase2.splitlines():
         if not row.startswith("| "):
@@ -93,12 +103,23 @@ def _ahrl_facts() -> tuple[set[str], list[str]]:
         cells = [c.strip() for c in row.strip("|").split("|")]
         if len(cells) >= 3 and cells[0].isdigit():
             apt.update(re.findall(r"`([a-z0-9][a-z0-9.+-]*)`", cells[2]))
-    apt.update({
-        "xastir", "svxlink-server", "svxreflector", "libhamlib4", "pipx",
-        "js8call", "jtdx", "flamp", "flmsg", "flwrap", "atril",
-    })
+    apt.update(
+        {
+            "xastir",
+            "svxlink-server",
+            "svxreflector",
+            "libhamlib4",
+            "pipx",
+            "js8call",
+            "jtdx",
+            "flamp",
+            "flmsg",
+            "flwrap",
+            "atril",
+        }
+    )
 
-    phase3 = inv[inv.index("### Phase 3"):inv.index("### Phase 4")]
+    phase3 = inv[inv.index("### Phase 3") : inv.index("### Phase 4")]
     built: list[str] = []
     for row in phase3.splitlines():
         cells = row.strip("|").split("|")
@@ -130,8 +151,7 @@ def _crossref(blend_pkgs: set[str]) -> list[str]:
         "",
         "### The finding that matters for M3 scope",
         "",
-        f"**{len(packaged)} of AHRL's {len(built)} source builds are already packaged "
-        "in Debian.**",
+        f"**{len(packaged)} of AHRL's {len(built)} source builds are already packaged in Debian.**",
         "",
         "| AHRL builds from source | Debian ships as apt |",
         "|---|---|",
