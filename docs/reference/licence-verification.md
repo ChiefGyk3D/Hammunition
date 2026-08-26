@@ -203,3 +203,80 @@ All four AHRL HamClock menu entries hardcode `-b hamclock.com:80` as a launcher
 argument. A dead upstream service cannot be repointed without editing generated
 launchers. **The backend URL must be a manifest field, not a launcher constant** —
 this is shape 7 in the schema work.
+
+---
+
+## linbpq / BPQ32 — GPL-3.0-or-later, verified 2026-08-25
+
+**This corrects a maintainer assumption, and it unblocks the 1.0 packet core.**
+
+The working assumption was that linbpq is "free to use, but not open source," so
+mirroring might not be permitted. **It is open source.** John Wiseman's software
+carries an explicit GPL-3.0-or-later grant.
+
+### Evidence
+
+`https://github.com/g8bpq/LinBPQ` — 276 paths, tree not truncated, last push
+2026-08-25 (the project is actively developed).
+
+Like AHRL, there is **no `LICENSE` or `COPYING` file** in the tree and GitHub's
+licence API returns `null`. The grant is in the source headers. `LinBPQ.c`,
+lines 1–18, verbatim:
+
+```c
+/*
+Copyright 2001-2018 John Wiseman G8BPQ
+
+This file is part of LinBPQ/BPQ32.
+ 
+LinBPQ/BPQ32 is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+LinBPQ/BPQ32 is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with LinBPQ/BPQ32.  If not, see http://www.gnu.org/licenses
+*/
+```
+
+Note the wording: *"This file is part of LinBPQ/BPQ32. **LinBPQ/BPQ32** is free
+software"* — a statement about the whole project, not that one file.
+
+Sampled 12 of 216 `.c`/`.h` files: **7 carry the header verbatim.** The five
+without it are generated data and allocator helpers (`APRSIconData.c`,
+`APRSStdPages.c`, `AISCommon.c`, `Alloc.c`, `Alloc.h`) — the pattern of a
+project that headers its real source and not its tables.
+
+### The finding that actually matters: **there are version tags**
+
+```
+tags: 25.39, 25.36, 25.35, 25.32, 25.30, 25.28, 25.15, 25.13, 25.12, 25.11
+releases: NONE
+```
+
+This dissolves the problem rather than solving it. The pin-and-verify difficulty
+recorded in `DESIGN.md` §15.6 came from 73Linux's *install method* — `wget` of
+loose, unversioned binaries from `cantab.net/.../Downloads/Beta/` — not from
+anything upstream does. Upstream publishes tagged source.
+
+**We do not have to mirror binaries, and we do not need `status: unverifiable`.**
+BPQ becomes an ordinary pinned source build, structurally identical to
+AIS-catcher (schema shape 6): a `git` install block with `ref: "25.39"`, a
+declared build-dependency list, and no unverified download anywhere.
+
+See **Q-005**. `DESIGN.md` §15.6 is amended accordingly.
+
+### Caveat recorded honestly
+
+The GPL applies to the **source on GitHub**. The prebuilt binaries at
+`cantab.net/.../Beta/` are a separate distribution channel with no stated terms
+on the page. Under GPL-3.0 the author is free to distribute his own binaries
+however he likes, and downstream redistribution of *those specific binaries*
+would carry an obligation to offer corresponding source. Building from the
+tagged source sidesteps that question entirely, which is a second reason to
+prefer it.

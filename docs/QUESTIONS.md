@@ -115,3 +115,42 @@ no CI job.
 **Recommendation:** add Linux Mint 22.3 as a declared target. It is cheap
 (`linuxmintd/mint22-amd64` or equivalent) and we are already writing manifests
 against it — an untested selector is worse than no selector.
+
+---
+
+## Q-005 🔴 — BPQ: the licence assumption was wrong, and there is a third option
+
+**Blocks:** the 1.0 packet core (D-008). **Resolves:** `DESIGN.md` §15.6.
+
+You asked me to check the condition before deciding, and the condition came back
+the opposite way. **linbpq is GPL-3.0-or-later** — explicit grant in the source
+headers, Copyright 2001-2018 John Wiseman G8BPQ, verified against seven sampled
+files. Full evidence in `docs/reference/licence-verification.md`.
+
+More usefully: **upstream publishes version tags** (`25.39`, `25.36`, `25.35`,
+…). The unversioned `/Downloads/Beta/` URLs are how *73Linux* installs it, not
+how upstream publishes it. We were about to inherit someone else's packaging
+problem.
+
+| Option | Assessment |
+|---|---|
+| Mirror binaries with our own hashes | Your conditional pointed here, and it is now permitted. But it means hosting, bandwidth, a GPL source-offer obligation for the binaries we redistribute, and staying in step with a project that committed **today**. |
+| `status: unverifiable`, opt-in | No longer warranted. It would tell users this package is uniquely untrustworthy when it is a normal GPL project with tagged releases. |
+| **Build from a pinned git tag** ⭐ | Structurally identical to AIS-catcher (shape 6). `ref: "25.39"`, declared `build_depends`, no unverified download, no hosting, no GPL redistribution question. |
+
+**Recommendation: build from a pinned tag.** It is the option that makes BPQ
+ordinary instead of special, and "this package is not actually a special case"
+is the best available outcome.
+
+Two things to decide when you pick:
+
+1. **Which tag.** `25.39` is newest; upstream tags frequently and does not cut
+   releases, so tag selection is a judgement call about stability.
+2. **What we lose.** 73Linux also fetches a prebuilt `pibpqConfigGen`, HTML
+   pages, and a sample `bpq32.cfg`. Some are KM4ACK's own work and unlicensed
+   (D-001), so they cannot come with us regardless. BPQ needs real configuration
+   to be useful, which lands it in the same bucket as Direwolf: *installed with
+   configuration, not merely installed*.
+
+**I did not write a BPQ manifest.** The finding is recorded; building the packet
+core is not in this queue.

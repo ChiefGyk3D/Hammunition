@@ -364,14 +364,23 @@ substitutes.
    a `config` concept with templating from station-local variables, and those
    variables need a home that is gitignored by construction.
 
-6. **Unverifiable upstreams.** BPQ (linbpq) is published as loose files in a
-   personal website's `/Downloads/Beta/` directory — unversioned URLs, no release
-   structure, no checksums. It is the first 1.0 unit that cannot satisfy
-   **D-004**'s pin-and-verify requirement as upstream publishes it. Options:
-   mirror with our own hashes, carry as `status: unverifiable` behind an explicit
-   opt-in, or drop from 1.0. Needs a policy, not a per-package hack — HAMRS
-   (scrapes its own download page) and several AHRL snapshots have the same
-   shape.
+6. **Unverifiable upstreams.** *Substantially resolved 2026-08-25 — see below.*
+
+   The original concern: BPQ (linbpq) appeared to be published as loose files in
+   a personal website's `/Downloads/Beta/` directory — unversioned URLs, no
+   release structure, no checksums — making it the first 1.0 unit that could not
+   satisfy **D-004**'s pin-and-verify requirement.
+
+   **That was 73Linux's install method, not upstream's publishing model.**
+   Verified: linbpq is GPL-3.0-or-later with tagged source on GitHub (`25.39`,
+   `25.36`, …). It becomes an ordinary pinned source build. See
+   `reference/licence-verification.md` and **Q-005**.
+
+   **The general question survives BPQ's removal from it.** HAMRS discovers its
+   AppImage by scraping `hamrs.app`, and several AHRL units ship as unversioned
+   `master` snapshots. The lesson is a method, not a policy: **check how upstream
+   publishes before accepting how an existing installer fetches.** One of the
+   two is usually better, and it is rarely the installer.
 
 7. **Catalog versioning.** If a user is on Hammunition 1.2, which catalog version
    do they get, and can they pin it? Interacts with the three-tier model
