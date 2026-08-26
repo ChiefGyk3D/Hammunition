@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: gr-gsm
+version: "1.0.0"
+summary: GNU Radio blocks for receiving and analysing GSM signalling
+categories: [rf-research]
+
+# The only package in `rf-research`, which is the only consent-gated profile.
+# D-021: the gate discloses a capability and asks for an affirmation. It does
+# not say what is legal where you are, and neither does this manifest -- the
+# documentation below describes what the software does and what it is aimed at,
+# which is what an operator needs to make their own decision.
+install:
+  - install:
+      method: apt
+      packages: [gr-gsm]
+
+depends: [gnuradio]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Provides GNU Radio blocks and command-line tools for receiving GSM downlink
+    signalling: finding a base station's control channel, demodulating it, and
+    decoding the unencrypted signalling messages it carries.
+  why_you_want_it: >-
+    It is the standard teaching and research tool for how a cellular control
+    channel actually works, and it is what most published cellular-security
+    research builds on. It is receive-only and decodes signalling rather than
+    call content.
+  prerequisites: >-
+    GNU Radio and a receiver capable of covering the GSM bands -- typically an
+    RTL-SDR with a corrected frequency offset, which grgsm_scanner will help
+    establish. It is in the consent-gated `rf-research` profile, so installing
+    it requires an affirmative answer that neither `--yes` nor a scripted
+    install can supply on your behalf.
+  known_problems: >-
+    Frequency accuracy matters more than for most SDR software; an uncorrected
+    RTL-SDR will fail to lock and produce nothing rather than an error. GSM
+    deployment is being wound down in many places, so there may simply be no
+    signal present. The package is built against a specific GNU Radio version
+    and breaks when that version changes underneath it, which is the general
+    problem D-017 defers all GNU Radio out-of-tree modules for.
+  upstream_url: https://github.com/velichkov/gr-gsm

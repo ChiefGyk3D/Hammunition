@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: hcxdumptool
+version: "6.3.5"
+summary: Wi-Fi frame capture aimed at producing hash files for offline analysis
+categories: [rf-security]
+
+install:
+  - install:
+      method: apt
+      packages: [hcxdumptool]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Captures 802.11 frames directly from a monitor-mode interface, targeting
+    the material needed to reconstruct PMKIDs and handshakes rather than
+    recording everything.
+  why_you_want_it: >-
+    It captures what is actually needed for offline analysis instead of a full
+    packet dump, which makes both the capture and the file that comes out of
+    it far smaller. Paired with hcxtools it is the modern path where aircrack-
+    ng's own capture is the traditional one.
+  prerequisites: >-
+    A monitor-mode capable adapter, and hcxtools to convert what it produces.
+  known_problems: >-
+    It transmits by default in some modes -- it will actively solicit
+    responses rather than only listening -- which is a materially different
+    act from passive capture and is worth knowing before pointing it at
+    anything. Version 6.x and 7.x take different command-line options, and
+    Debian 13 and Parrot ship 6.3.5 while Kali ships 7.1.2, so instructions
+    from one will not run on the other.
+  upstream_url: https://github.com/ZerBea/hcxdumptool

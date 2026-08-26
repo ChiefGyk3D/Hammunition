@@ -259,7 +259,7 @@ an unsupported combination appear to work.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 19
+  packages/        # one YAML per piece of software          ✅ 28
   profiles/        # named bundles referencing packages      ✅ 3
   hardware/
     classes/       # device families with shared Linux needs ✅ badgelife

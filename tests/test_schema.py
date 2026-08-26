@@ -535,3 +535,26 @@ def test_compiler_flags_are_recorded_not_rediscovered(catalog: Catalog) -> None:
     flags = install.compiler_flags
     assert "-Wno-incompatible-pointer-types" in flags
     assert len(flags) == 3
+
+
+# ---------------------------------------------------------------------------
+# The catalog cross-checks against itself
+# ---------------------------------------------------------------------------
+
+
+def test_every_profile_package_has_a_manifest() -> None:
+    """Q-011 option C, rejected: a profile naming packages nothing defines.
+
+    `load_profiles` has always been able to catch this, but only when handed the
+    package catalog -- and nothing handed it one, so the shipped catalog spent a
+    round with nine dangling references and a passing test suite. The check is
+    worthless unless something runs it against the real catalog.
+    """
+    from hammunition.manifest.load import load_catalog, load_profiles
+
+    packages = load_catalog(CATALOG)
+    profiles = load_profiles(CATALOG.parent / "profiles", packages)
+    assert profiles, "no profiles loaded"
+    for profile in profiles.values():
+        missing = [p for p in profile.packages if p not in packages]
+        assert not missing, f"profile {profile.name} names undefined packages: {missing}"

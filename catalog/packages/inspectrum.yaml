@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: inspectrum
+version: "0.3.1"
+summary: Offline visualiser for captured radio signals — read a waveform by eye
+categories: [rf-security, sdr]
+
+install:
+  - install:
+      method: apt
+      packages: [inspectrum]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Opens a recorded IQ capture and displays it as a spectrogram you can zoom,
+    measure and annotate, with cursors for reading off symbol rates and
+    decoding simple modulation by hand.
+  why_you_want_it: >-
+    It is how you work out what an unknown signal is before writing any code
+    to decode it. Nothing else makes the structure of a capture -- preamble,
+    symbol period, modulation -- as immediately visible, and it is entirely
+    offline, so it needs no hardware at all.
+  prerequisites: >-
+    A recorded IQ file. Nothing transmits and no receiver is required, which
+    makes it a good first tool for someone who owns no hardware yet.
+  known_problems: >-
+    Large captures are memory-hungry; a multi-gigabyte recording will
+    struggle. It reads raw IQ and expects you to know the sample format and
+    rate of the file, which is not stored in a bare .cfile.
+  upstream_url: https://github.com/miek/inspectrum

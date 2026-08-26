@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: rtl-433
+version: "25.02"
+summary: Decoder for the unlicensed ISM bands — weather stations, sensors, tyre monitors
+categories: [rf-security, sdr, tracking]
+
+install:
+  - install:
+      method: apt
+      packages: [rtl-433]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Receives on 433, 868 and 915 MHz with an SDR and decodes the several
+    hundred device protocols used by consumer sensors: weather stations,
+    temperature probes, doorbells, tyre-pressure monitors, energy meters.
+  why_you_want_it: >-
+    It is the fastest way to demonstrate to yourself that an SDR works and
+    that the air around you is full of traffic. It is also genuinely useful: a
+    local weather station's data is yours to read, and the decoder list is the
+    best reference for what these bands carry.
+  prerequisites: >-
+    An RTL-SDR or other supported receiver and an antenna for the band you
+    want. The default is 433.92 MHz.
+  known_problems: >-
+    Protocol coverage varies -- an unrecognised device produces nothing rather
+    than an error, so silence does not mean the receiver is broken. Kali ships
+    26.07 while Debian 13 and Parrot ship 25.02, and decoder numbering changes
+    between releases.
+  upstream_url: https://github.com/merbanan/rtl_433

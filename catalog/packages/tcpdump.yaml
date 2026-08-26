@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: tcpdump
+version: "4.99.5"
+summary: Command-line packet capture — the tool that works when nothing else does
+categories: [rf-security, workstation]
+
+install:
+  - install:
+      method: apt
+      packages: [tcpdump]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Captures network traffic from an interface and prints or saves it, with a
+    filter language for selecting what to record.
+  why_you_want_it: >-
+    It is present on everything, needs no display, and its capture files are
+    read by every other tool including Wireshark. On a headless field machine
+    or over a slow SSH link it is the only practical option.
+  prerequisites: >-
+    Root, or the CAP_NET_RAW capability, to open an interface for capture.
+  known_problems: >-
+    Capturing to a terminal on a busy interface produces more output than
+    anyone can read; -w to a file and analyse afterwards. Its filter syntax is
+    not Wireshark's display-filter syntax, which catches people out
+    constantly.
+  upstream_url: https://www.tcpdump.org/

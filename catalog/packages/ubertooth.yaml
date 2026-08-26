@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: ubertooth
+version: "2020.12.R1"
+summary: Host tools for the Ubertooth One Bluetooth sniffer
+categories: [rf-security]
+
+install:
+  - install:
+      method: apt
+      packages: [ubertooth]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    The host-side utilities for the Ubertooth One: spectrum monitoring across
+    2.4 GHz, and capture of Bluetooth Low Energy traffic to a file other tools
+    can read.
+  why_you_want_it: >-
+    Bluetooth is one of the few common protocols an ordinary SDR handles badly
+    -- it hops fast and wide -- and the Ubertooth is purpose-built for it. It
+    is also one of the few pieces of RF-security hardware with a genuinely
+    open design.
+  prerequisites: >-
+    Ubertooth One hardware, its udev rules and group membership from the
+    hardware catalog, and firmware matching the host tools.
+  known_problems: >-
+    Host tools and device firmware are version-locked and a mismatch produces
+    confusing failures rather than a clear error -- the single most common
+    problem with this device. The three targets ship three different versions
+    (Debian 13 2018.12.R1, Kali and Parrot 2020.12.R1), so the firmware you
+    flash must match the tools your distribution gave you.
+  upstream_url: https://github.com/greatscottgadgets/ubertooth

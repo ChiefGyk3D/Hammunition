@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: hcxtools
+version: "6.3.5"
+summary: Converts captured Wi-Fi frames into hash formats analysis tools read
+categories: [rf-security]
+
+install:
+  - install:
+      method: apt
+      packages: [hcxtools]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A set of conversion and inspection utilities that turn pcapng captures
+    into the hash formats used by offline analysis tools, and report what a
+    capture actually contains.
+  why_you_want_it: >-
+    A capture is not usable until it is converted, and hcxpcapngtool is what
+    reports whether the capture contains anything useful at all -- which saves
+    discovering hours later that the handshake was never there.
+  prerequisites: >-
+    A capture, usually from hcxdumptool.
+  known_problems: >-
+    Version-matched to hcxdumptool: mixing a 6.x tool with a 7.x capture
+    produces confusing errors. Debian 13 and Parrot ship 6.3.5, Kali ships
+    7.1.2.
+  upstream_url: https://github.com/ZerBea/hcxtools

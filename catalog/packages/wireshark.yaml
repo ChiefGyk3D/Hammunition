@@ -1,0 +1,57 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: wireshark
+version: "4.4.16"
+summary: Protocol analyser — decodes captured traffic across two thousand protocols
+categories: [rf-security, workstation]
+
+install:
+  - install:
+      method: apt
+      packages: [wireshark, tshark]
+
+# Wireshark's install asks a debconf question -- may non-root users capture? --
+# and answering yes creates a group and changes the permissions on dumpcap.
+# That is a system modification and is declared, not left to a prompt the
+# operator answers without context. Nothing here answers it on their behalf.
+system_modifications:
+  - kind: group_membership
+    description: >-
+      Adds the operator to the `wireshark` group so capture works without root
+    detail: >-
+      Debian's wireshark-common package asks at install time whether non-root
+      users may capture. Answering yes sets dumpcap setuid-free with
+      CAP_NET_RAW and CAP_NET_ADMIN, and restricts execution to the `wireshark`
+      group; membership of that group is then equivalent to the ability to
+      capture all traffic on the machine. Group membership does not apply to a
+      session already open -- log out and back in.
+    reversible: true
+    reverse_hint: >-
+      sudo gpasswd -d $USER wireshark && sudo dpkg-reconfigure wireshark-common
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Reads captured network traffic, live or from a file, and decodes it down to
+    individual protocol fields with a filter language for finding what matters
+    in a large capture. `tshark` is the same engine without the interface.
+  why_you_want_it: >-
+    It is the tool every other capture in this catalog feeds into. It reads
+    tcpdump's files, it reads the pcap output from the Bluetooth and 802.11
+    tooling, and its dissectors cover far more than networking -- including
+    radio protocols that arrive as pcap from an SDR decoder.
+  prerequisites: >-
+    Membership of the `wireshark` group for non-root capture, which the system
+    modification above describes. Reading a capture file needs nothing at all.
+  known_problems: >-
+    The debconf question about non-root capture is asked once, at install, and
+    answering it wrongly is fixed with `dpkg-reconfigure wireshark-common`
+    rather than by reinstalling. Its display-filter syntax is not tcpdump's
+    capture-filter syntax and the two are easily confused. Very large captures
+    are memory-hungry; use `tshark` or split the file.
+  upstream_url: https://www.wireshark.org/

@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: aircrack-ng
+version: "1.7"
+summary: Wi-Fi security auditing suite — capture, analysis and key recovery
+categories: [rf-security]
+
+install:
+  - install:
+      method: apt
+      packages: [aircrack-ng]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A suite for auditing 802.11 networks: putting an adapter into monitor
+    mode, capturing frames, and recovering WEP and WPA-PSK keys from captured
+    handshakes offline.
+  why_you_want_it: >-
+    It is the reference toolkit for wireless auditing and the one every piece
+    of existing documentation assumes. The capture side is also generally
+    useful for understanding what is on the air around you, independent of any
+    key recovery.
+  prerequisites: >-
+    An adapter whose driver supports monitor mode and, for some tools, packet
+    injection. Not every chipset does, and this is the single most common
+    cause of 'it does not work'. airmon-ng will report which processes
+    conflict.
+  known_problems: >-
+    NetworkManager and wpa_supplicant fight over an interface put into monitor
+    mode; airmon-ng check kill is the usual answer, and it will drop your
+    network connection. Key recovery against WPA depends on capturing a
+    handshake, which requires a client to associate while you are listening.
+  upstream_url: https://www.aircrack-ng.org/
