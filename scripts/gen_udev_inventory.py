@@ -66,20 +66,14 @@ def read_rows(path: Path) -> list[dict[str, str]]:
 
 
 def catalog_identifiers() -> set[tuple[str, str]]:
-    """Every (vendor, product) the catalog already carries.
-
-    Classes and devices are read separately: `usb_ids` lives on each subclass
-    rather than the shared base, because a class must have at least one
-    identifier and a device may have none. Collapsing that is what the schema
-    exists to prevent.
-    """
+    """Every (vendor, product) the catalog already carries."""
     classes, devices = load_hardware(REPO_ROOT / "catalog" / "hardware")
-    held: set[tuple[str, str]] = set()
-    for entry in classes.values():
-        held |= {(u.vendor.lower(), u.product.lower()) for u in entry.usb_ids if u.product}
-    for device in devices.values():
-        held |= {(u.vendor.lower(), u.product.lower()) for u in device.usb_ids if u.product}
-    return held
+    return {
+        (usb.vendor.lower(), usb.product.lower())
+        for entry in (*classes.values(), *devices.values())
+        for usb in entry.usb_ids
+        if usb.product
+    }
 
 
 def render(target: str, rows: list[dict[str, str]], held: set[tuple[str, str]]) -> str:

@@ -289,13 +289,19 @@ class HardwareDocumentation(Strict):
 
 
 class _DeviceCommon(Strict):
-    # `name` and `summary` live here rather than on each subclass so that code
-    # handling both -- the gap report, the package cross-check -- can iterate a
-    # merged sequence without widening to a base that knows nothing. `usb_ids`
-    # deliberately does NOT move up: a class must have at least one identifier
-    # and a device may have none, and that difference is the point.
+    # `name`, `summary` and `usb_ids` live here rather than on each subclass so
+    # that code handling both -- the gap report, the ambiguity cross-check, the
+    # package cross-check -- can iterate a merged sequence without widening to a
+    # base that knows nothing about identifiers.
+    #
+    # The invariant that kept `usb_ids` on the subclasses is not lost: a class
+    # must carry at least one identifier and a device may carry none. It is
+    # expressed where it belongs instead, as a narrowed constraint on
+    # `DeviceClass.usb_ids`. Keeping the field down here cost three separate
+    # workarounds in call sites before it was worth saying so.
     name: str
     summary: str
+    usb_ids: list[UsbId] = Field(default_factory=list)
 
     groups: list[str] = Field(
         default_factory=list,
@@ -343,6 +349,8 @@ class DeviceClass(_DeviceCommon):
     """
 
     kind: Literal["class"] = "class"
+    # Narrowed from the base: a class exists to carry identifiers shared by a
+    # family, so one with none describes nothing.
     usb_ids: list[UsbId] = Field(
         min_length=1, description="Bridge chips and native-USB identifiers."
     )
@@ -363,7 +371,6 @@ class DeviceManifest(_DeviceCommon):
     device_class: str | None = Field(
         default=None, description="Inherits that class's ids, groups, packages and tooling."
     )
-    usb_ids: list[UsbId] = Field(default_factory=list)
     identification_gap: str | None = Field(
         default=None,
         description="What is unknown about how this device enumerates, and why.",

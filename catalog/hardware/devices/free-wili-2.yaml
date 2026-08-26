@@ -97,11 +97,12 @@ usb_ids:
       evidence: >-
         esptool calls 0x1001 USB_JTAG_SERIAL_PID, a constant of the
         ESP32-S3/C3 USB-serial-JTAG peripheral. CONFIRMED BY CAPTURE rather
-        than inferred: the Clip-Boy presents the identical pair AND the
-        identical product string, and the two are unrelated products. Only the
-        serial differs, and a serial is per-unit.
+        than inferred: the Clip-Boy and the Minino present the identical pair
+        AND the identical product string, and all three are unrelated products.
+        Only the serial differs, and a serial is per-unit.
       also_used_by:
         - clip-boy
+        - minino
         - every ESP32-S3 or ESP32-C3 board using native USB
 
 # NO SYMLINK. Not because nothing here is distinguishable -- 093c:2059 is

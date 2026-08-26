@@ -10,7 +10,7 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from .hardware import DeviceClass, DeviceManifest, UsbId
+from .hardware import DeviceClass, DeviceManifest
 from .schema import ManifestError, PackageManifest, ProfileManifest
 
 __all__ = [
@@ -154,14 +154,19 @@ def load_hardware(
     # check downstream keys off the `ambiguity` block, so an unmarked identifier
     # silently passes it.
     if ambiguous:
-        for holder_name, usb_ids, source in _hardware_identifiers(classes, devices):
-            for usb in usb_ids:
+        for entry in (*classes.values(), *devices.values()):
+            source = (
+                f"classes/{entry.name}.yaml"
+                if isinstance(entry, DeviceClass)
+                else f"devices/{entry.name}.yaml"
+            )
+            for usb in entry.usb_ids:
                 if usb.product is None or usb.ambiguity is not None:
                     continue
                 basis = ambiguous.get((usb.vendor.lower(), usb.product.lower()))
                 if basis is not None:
                     failures[directory / source] = (
-                        f"{holder_name!r} carries {usb.vendor}:{usb.product} with no "
+                        f"{entry.name!r} carries {usb.vendor}:{usb.product} with no "
                         f"`ambiguity` block, but the generated list marks it "
                         f"{basis} — it names a chip, not a device. Add the block, or "
                         f"regenerate the list if the evidence has changed (D-028)."
@@ -170,18 +175,3 @@ def load_hardware(
     if failures:
         raise CatalogError(failures)
     return classes, devices
-
-
-def _hardware_identifiers(
-    classes: dict[str, DeviceClass], devices: dict[str, DeviceManifest]
-) -> list[tuple[str, list[UsbId], str]]:
-    """(name, usb_ids, filename) for classes and devices alike.
-
-    Separate lists rather than one merged sequence: `usb_ids` lives on each
-    subclass, because a class must carry at least one identifier and a device
-    may carry none.
-    """
-    rows: list[tuple[str, list[UsbId], str]] = []
-    rows += [(c.name, c.usb_ids, f"classes/{c.name}.yaml") for c in classes.values()]
-    rows += [(d.name, d.usb_ids, f"devices/{d.name}.yaml") for d in devices.values()]
-    return rows

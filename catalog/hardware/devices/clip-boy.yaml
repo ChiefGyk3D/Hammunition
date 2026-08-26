@@ -13,9 +13,9 @@ status: supported
 # clearest demonstration of D-028 in the catalog.
 #
 # Clip-Boy presents 303a:1001 with product string "USB JTAG/serial debug unit".
-# So does the ESP32-S3 inside the Free-WiLi 2. Same vendor, same product, same
-# product STRING. Two unrelated products, indistinguishable by anything a
-# catalog-wide udev rule can match on. Only the per-unit serial differs, and a
+# So does the Minino, and so does the ESP32-S3 inside the Free-WiLi 2. Same
+# vendor, same product, same product STRING. THREE unrelated products,
+# indistinguishable by anything a catalog-wide udev rule can match on. Only the per-unit serial differs, and a
 # serial belongs to one board on one desk, not in a shipped manifest.
 #
 # The honest consequence is that this device gets NO device-specific symlink,
@@ -37,11 +37,12 @@ usb_ids:
       evidence: >-
         esptool calls 0x1001 USB_JTAG_SERIAL_PID, a constant of the ESP32-S3/C3
         USB-serial-JTAG peripheral. Confirmed by capture, not inferred: the
-        Free-WiLi 2's onboard ESP32-S3 presents the identical pair AND the
-        identical product string on the same day on the same machine. Nothing
-        short of the serial distinguishes them.
+        Minino and the Free-WiLi 2's onboard ESP32-S3 present the identical
+        pair AND the identical product string, all three captured on the same
+        day on the same machine. Nothing short of the serial distinguishes them.
       also_used_by:
         - free-wili-2
+        - minino
         - every ESP32-S3 or ESP32-C3 board using native USB
 
 maintainer_verified:

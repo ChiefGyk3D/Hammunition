@@ -5,11 +5,60 @@ kind: device
 name: minino
 summary: Electronic Cats Minino — 802.15.4 and Zigbee analysis board
 vendor: Electronic Cats
-status: untested
-device_class: badgelife
-gap_closure: maintainer_hardware
-identification_gap: >-
-  No USB identifier confirmed. Minino is an ESP32-based board, so the badgelife class rules most likely cover it via native USB CDC or a bridge chip, but this has not been verified against hardware and no distribution ships a rule naming it. Confirm with lsusb before claiming support.
+status: supported
+
+# Captured against real hardware 2026-08-26. The guess in the previous version
+# was right -- an ESP32 board on native USB -- and the capture matters for a
+# reason beyond this entry.
+#
+# Minino is the THIRD device to present 303a:1001 with the product string "USB
+# JTAG/serial debug unit". The Clip-Boy and the ESP32-S3 inside a Free-WiLi 2
+# are the other two, all captured on the same machine on the same day. Three
+# unrelated products, one identifier, one product string. The only thing that
+# differs is the serial, which is a MAC address and belongs to one board.
+#
+# That is no longer an argument from an esptool constant. It is three
+# observations, and it is why this entry emits no symlink: there is nothing a
+# catalog-wide rule could match on that would not also name the other two.
+
+usb_ids:
+  - vendor: "303a"
+    product: "1001"
+    description: Espressif ESP32-S3 native USB JTAG/serial peripheral
+    evidence: >-
+      lsusb against real hardware 2026-08-26 on Pop!_OS 22.04, via
+      scripts/identify-device.sh. manufacturer=Espressif product="USB
+      JTAG/serial debug unit" serial=48:F6:EE:C2:A5:F0, presenting
+      /dev/ttyACM0.
+    confirmed: true
+    ambiguity:
+      basis: vendor_chip_default
+      evidence: >-
+        esptool calls 0x1001 USB_JTAG_SERIAL_PID, a constant of the ESP32-S3/C3
+        USB-serial-JTAG peripheral. Confirmed by three captures of three
+        unrelated products -- this board, clip-boy, and the ESP32-S3 inside
+        free-wili-2 -- all reporting the identical pair AND the identical
+        product string. Only the serial differs, and a serial is per-unit.
+      also_used_by:
+        - clip-boy
+        - free-wili-2
+        - every ESP32-S3 or ESP32-C3 board using native USB
+
+# NO SYMLINK, for the reason three captures now demonstrate rather than assert:
+# nothing distinguishes this board from two others in the same catalog except a
+# per-unit serial. /dev/serial/by-id/ already carries that, populated by
+# systemd from the descriptor, and the three boards' MAC-address serials are
+# distinct -- so the mechanism that already exists works and ours would not.
+
+maintainer_verified:
+  date: 2026-08-26
+  by: ChiefGyk3D
+  distro: Pop!_OS 22.04
+  what_was_tested: >-
+    Attached and enumerated; identifier, product string and serial captured with
+    scripts/identify-device.sh. The radio side was not exercised and no firmware
+    was flashed.
+
 groups: [dialout, plugdev]
 packages: [esptool, tio, wireshark]
 documentation:

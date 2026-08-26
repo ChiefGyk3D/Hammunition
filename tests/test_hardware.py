@@ -219,22 +219,52 @@ def test_unconfirmed_identifiers_are_visibly_unconfirmed() -> None:
         )
 
 
-def test_the_espressif_identifier_is_confirmed_by_two_captures() -> None:
-    """Two unrelated products, one identifier -- the empirical basis for D-028."""
+def test_the_espressif_identifier_is_confirmed_by_three_captures() -> None:
+    """Three unrelated products, one identifier -- the empirical basis for D-028.
+
+    Clip-Boy, Minino and the ESP32-S3 inside a Free-WiLi 2 all report 303a:1001
+    with the product string "USB JTAG/serial debug unit". Not an argument from an
+    esptool constant any more; three observations of three different boards.
+    """
     classes, devices = load_hardware(HARDWARE)
     holders = [
-        holder
-        for holder in (classes["badgelife"], devices["clip-boy"], devices["free-wili-2"])
-        for usb in holder.usb_ids
-        if str(usb) == "303a:1001"
+        classes["badgelife"],
+        devices["clip-boy"],
+        devices["minino"],
+        devices["free-wili-2"],
     ]
-    assert len(holders) == 3, "303a:1001 should appear in badgelife, clip-boy and free-wili-2"
     for holder in holders:
-        usb = next(i for i in holder.usb_ids if str(i) == "303a:1001")
-        assert usb.confirmed, f"{holder.name}: captured against hardware twice"
+        usb = next((i for i in holder.usb_ids if str(i) == "303a:1001"), None)
+        assert usb is not None, f"{holder.name} should carry 303a:1001"
+        assert usb.confirmed, f"{holder.name}: captured against hardware"
         assert usb.ambiguity is not None, (
-            f"{holder.name}: the same pair on two unrelated products is the definition of ambiguous"
+            f"{holder.name}: the same pair on three unrelated products is ambiguous"
         )
+
+
+def test_shared_identifier_claims_are_mutual() -> None:
+    """`also_used_by` is hand-maintained, so it drifts unless something checks.
+
+    If clip-boy says the pair is shared with minino, minino must say the same. A
+    one-sided claim means somebody added a device and updated one file, and the
+    reader of the other file is told the identifier is theirs alone.
+    """
+    classes, devices = load_hardware(HARDWARE)
+    holders = {e.name: e.usb_ids for e in (*classes.values(), *devices.values())}
+    for name, usb_ids in holders.items():
+        for usb in usb_ids:
+            if usb.ambiguity is None:
+                continue
+            for other in usb.ambiguity.also_used_by:
+                if other not in holders:
+                    continue  # free prose, e.g. "every ESP32-S3 board"
+                theirs = next((i for i in holders[other] if str(i) == str(usb)), None)
+                assert theirs is not None, (
+                    f"{name} says {other} shares {usb}, but {other} does not carry it"
+                )
+                assert theirs.ambiguity is not None, (
+                    f"{name} says {other} shares {usb}, but {other} does not declare it shared"
+                )
 
 
 def test_devices_without_confirmed_ids_are_not_marked_supported() -> None:
@@ -442,15 +472,11 @@ def test_badgelife_emits_no_symlink() -> None:
 def test_no_catalogued_symlink_rests_on_an_ambiguous_identifier() -> None:
     """The property, asserted across the whole catalog rather than per entry."""
     classes, devices = load_hardware(HARDWARE)
-    # Separate loops: usb_ids lives on each subclass, not the shared base.
-    checked: list[tuple[str, UdevBinding | None, list[UsbId]]] = [
-        (c.name, c.udev, c.usb_ids) for c in classes.values()
-    ]
-    checked += [(d.name, d.udev, d.usb_ids) for d in devices.values()]
-    for name, udev, usb_ids in checked:
+    for entry in (*classes.values(), *devices.values()):
+        udev = entry.udev
         if udev and not (udev.match_product or udev.match_serial):
-            offenders = [str(i) for i in usb_ids if i.ambiguity]
-            assert not offenders, f"{name}: /dev/{udev.symlink} rests on {offenders}"
+            offenders = [str(i) for i in entry.usb_ids if i.ambiguity]
+            assert not offenders, f"{entry.name}: /dev/{udev.symlink} rests on {offenders}"
 
 
 def test_an_identifier_on_the_ambiguity_list_must_say_so(tmp_path: Path) -> None:
