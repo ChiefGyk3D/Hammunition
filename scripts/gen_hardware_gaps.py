@@ -241,7 +241,22 @@ def render(classes: dict[str, DeviceClass], devices: dict[str, DeviceManifest]) 
         lines.append(
             f"| {where} | `{pair}` | {usb.description} | {' '.join(usb.evidence.split())} |"
         )
-    lines.append("")
+    lines += [
+        "",
+        "---",
+        "",
+        "## If you own one of these",
+        "",
+        "Every gap above marked `unverified_by_maintainer` is closable by anyone "
+        "holding the hardware, in about thirty seconds, and by nobody without it. "
+        "`scripts/identify-device.sh <name>` is read-only, needs no root, and "
+        "prints a block ready to paste — see "
+        "[contributing/hardware.md](../contributing/hardware.md).",
+        "",
+        "The catalog stores vendor and product identifiers only. Serial numbers "
+        "are per-unit and are never recorded here.",
+        "",
+    ]
     return "\n".join(lines)
 
 

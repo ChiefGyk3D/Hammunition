@@ -265,8 +265,8 @@ catalog/
   packages/        # one YAML per piece of software          ✅ 37
   profiles/        # named bundles referencing packages      ✅ 4
   hardware/
-    classes/       # device families with shared Linux needs ✅ badgelife
-    devices/       # one YAML per device                     ✅ 19
+    classes/       # device families with shared Linux needs ✅ 2
+    devices/       # one YAML per device                     ✅ 20
 src/hammunition/
   cli/             # argparse/click entry points             ❌ not written
   manifest/        # schema, loader, validation              ✅
@@ -277,6 +277,7 @@ src/hammunition/
   distro/          # /etc/os-release detection               ❌ not written
   hardware/        # USB/serial detection, udev generation   ❌ not written
 docs/              # "Hacker's Ham Shack" — guides and labs (section title, not a brand)
+  contributing/    # how to contribute; hardware.md is the live ask   ✅
 tests/
 ```
 

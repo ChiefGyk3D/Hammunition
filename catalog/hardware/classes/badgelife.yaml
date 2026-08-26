@@ -40,7 +40,7 @@ usb_ids:
       Debian 13. Vendor 303a is Espressif's registered USB VID but is NOT in
       Debian's usb.ids and was not verified from a citable source here. Closable
       by the maintainer: several ESP32-S3 boards are in the kit — Minino,
-      Clip-Boy, the CallMeKoko boards, and the Meshtastic T-Deck — and any one of
+      Clip-Boy, the ESP32 Marauder board, and the Meshtastic T-Deck — any one of
       them attached over native USB settles it. Confirm with lsusb before relying
       on this rule.
     confirmed: false

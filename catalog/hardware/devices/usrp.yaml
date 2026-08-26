@@ -1,0 +1,96 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+kind: device
+name: usrp
+summary: Ettus USRP — the research-grade SDR family, B200/B210 and older USB models
+vendor: Ettus Research / National Instruments
+status: supported
+
+# Not owned by the maintainer, and `status: supported` anyway -- which is worth
+# explaining, because it looks like the D-018 violation it is not. The claim
+# being made is that these identifiers are correct and the udev rules generated
+# from them will match, and the evidence for that is Debian's own uhd-host rule,
+# a primary source. What is NOT claimed is that anyone here has run one.
+#
+# That distinction is the whole reason `gap_closure` and `status` are separate
+# fields. A device can have a perfectly known USB identity and no operational
+# testing behind it. Conflating the two would mean either overclaiming or
+# throwing away good evidence, and neither is honest.
+
+usb_ids:
+  - vendor: "fffe"
+    product: "0002"
+    description: USRP1 device — unknown vendor
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/60-uhd-host.rules, from the uhd-host
+      package. Vendor and product names from Debian's usb.ids where present.
+    confirmed: true
+  - vendor: "2500"
+    product: "0002"
+    description: B100 device — Ettus Research LLC
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/60-uhd-host.rules, from the uhd-host
+      package. Vendor and product names from Debian's usb.ids where present.
+    confirmed: true
+  - vendor: "2500"
+    product: "0020"
+    description: B200 — USRP B210, Ettus Research LLC
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/60-uhd-host.rules, from the uhd-host
+      package. Vendor and product names from Debian's usb.ids where present.
+    confirmed: true
+  - vendor: "2500"
+    product: "0021"
+    description: USRP B200-mini — Ettus Research LLC
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/60-uhd-host.rules, from the uhd-host
+      package. Vendor and product names from Debian's usb.ids where present.
+    confirmed: true
+  - vendor: "2500"
+    product: "0022"
+    description: B200 — USRP B205-mini, Ettus Research LLC
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/60-uhd-host.rules, from the uhd-host
+      package. Vendor and product names from Debian's usb.ids where present.
+    confirmed: true
+  - vendor: "3923"
+    product: "7813"
+    description: B200 device — National Instruments Corp.
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/60-uhd-host.rules, from the uhd-host
+      package. Vendor and product names from Debian's usb.ids where present.
+    confirmed: true
+  - vendor: "3923"
+    product: "7814"
+    description: B200 device — National Instruments Corp.
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/60-uhd-host.rules, from the uhd-host
+      package. Vendor and product names from Debian's usb.ids where present.
+    confirmed: true
+groups: [plugdev]
+packages: [uhd-host, gqrx-sdr]
+
+documentation:
+  what_it_is: >-
+    Ettus Research's Universal Software Radio Peripheral family. The B200 and
+    B210 are the USB members and the ones most people meet; the entries here
+    also cover the older USRP1 and B100, and the National-Instruments-branded
+    B2xx boards, which enumerate under a different vendor id.
+  what_you_can_do_with_it: >-
+    Full-duplex transmit and receive with calibration and clock discipline good
+    enough for research work, driven through UHD directly or through GNU Radio
+    and SoapySDR.
+  setup_steps: >-
+    Install uhd-host and join `plugdev`, then log out and back in. The FPGA
+    images are large and Debian's package does not ship them all —
+    `uhd_images_downloader` fetches what your board needs, over the network, on
+    first use. `uhd_find_devices` should then list the board.
+  known_problems: >-
+    The firmware download on first use surprises people, especially on a field
+    machine with no connectivity — fetch the images before you leave. USB 3.0 is
+    effectively required for the B210's full sample rate, and a marginal cable
+    or hub shows up as dropped samples rather than as an error. The NI-branded
+    boards are the same hardware under a different vendor id, which is why both
+    appear above.
+  upstream_url: https://kb.ettus.com/

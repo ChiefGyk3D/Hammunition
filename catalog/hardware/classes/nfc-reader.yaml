@@ -1,0 +1,122 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+kind: class
+name: nfc-reader
+summary: PN53x-based NFC readers — the contactless equivalent of the badgelife class
+
+# The second device class, and written for the same reason as the first: these
+# readers differ in badge and price and not at all in what Linux needs. libnfc
+# talks to all of them, they all want plugdev, and Debian ships one udev rule
+# covering the family. Build the class once and every reader works.
+#
+# Every identifier here is transcribed from Debian's own rule, which is why they
+# are all confirmed while most of the device catalog is not. That is the point
+# worth noticing: a distribution's udev rules are an under-used primary source,
+# and reading them is cheaper and more reliable than owning the hardware.
+#
+# Serves the `rfid` profile. Distinct from a Proxmark, which is not PN53x, is
+# not covered by this rule, and reaches 125 kHz where these do not.
+
+usb_ids:
+  - vendor: "04cc"
+    product: "0531"
+    description: PN531 device — ST-Ericsson
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/93-pn53x.rules, from the libnfc-bin
+      package. Vendor and product names from Debian's usb.ids where present.
+    confirmed: true
+  - vendor: "054c"
+    product: "0193"
+    description: PN531 device — Sony Corp.
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/93-pn53x.rules, from the libnfc-bin
+      package. Vendor and product names from Debian's usb.ids where present.
+    confirmed: true
+  - vendor: "04cc"
+    product: "2533"
+    description: NFC device (PN533) — ST-Ericsson
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/93-pn53x.rules, from the libnfc-bin
+      package. Vendor and product names from Debian's usb.ids where present.
+    confirmed: true
+  - vendor: "04e6"
+    product: "5591"
+    description: PN533 — SCL3711-NFC&RW, SCM Microsystems, Inc.
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/93-pn53x.rules, from the libnfc-bin
+      package. Vendor and product names from Debian's usb.ids where present.
+    confirmed: true
+  - vendor: "04e6"
+    product: "5594"
+    description: PN533 device — SCM Microsystems, Inc.
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/93-pn53x.rules, from the libnfc-bin
+      package. Vendor and product names from Debian's usb.ids where present.
+    confirmed: true
+  - vendor: "1fd3"
+    product: "0608"
+    description: PN533 device — unknown vendor
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/93-pn53x.rules, from the libnfc-bin
+      package. Vendor and product names from Debian's usb.ids where present.
+    confirmed: true
+  - vendor: "054c"
+    product: "02e1"
+    description: PN533 — FeliCa S330 [PaSoRi], Sony Corp.
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/93-pn53x.rules, from the libnfc-bin
+      package. Vendor and product names from Debian's usb.ids where present.
+    confirmed: true
+  - vendor: "072f"
+    product: "2200"
+    description: ACR122 / Touchatag — ACR122U, Advanced Card Systems, Ltd
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/93-pn53x.rules, from the libnfc-bin
+      package. Vendor and product names from Debian's usb.ids where present.
+    confirmed: true
+  - vendor: "072f"
+    product: "90cc"
+    description: ACR122 / Touchatag — ACR38 SmartCard Reader, Advanced Card Systems, Ltd
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/93-pn53x.rules, from the libnfc-bin
+      package. Vendor and product names from Debian's usb.ids where present.
+    confirmed: true
+groups:
+  - plugdev
+
+packages:
+  - libnfc-bin
+  - libfreefare-bin
+  - pcsc-tools
+
+udev:
+  symlink: nfc
+  serial_suffix: true
+  mode: "0660"
+  group: plugdev
+  tag_uaccess: true
+
+documentation:
+  what_it_is: >-
+    A device class rather than a single device: the USB contactless readers
+    built on NXP's PN531, PN532 and PN533 controllers, sold under many names —
+    the ACR122U and Touchatag being the ones most people meet first.
+  what_you_can_do_with_it: >-
+    Read, write and analyse 13.56 MHz contactless cards: MIFARE Classic,
+    Ultralight and DESFire, and NFC tags generally. With a supported reader,
+    emulate a tag or relay between two of them.
+  setup_steps: >-
+    Install the class packages, join `plugdev`, then log out and back in —
+    group membership does not apply to an existing session. USB readers are
+    usually found without configuration; a serial reader needs an entry in
+    /etc/nfc/libnfc.conf. `nfc-list` should report the reader and its firmware.
+  known_problems: >-
+    pcscd and libnfc compete for the same reader — whichever claims it first
+    wins and the other reports no device at all. That is the single most common
+    confusion with this hardware, and the fix is to stop pcscd when using libnfc
+    tools. The ACR122U in particular is claimed by pcscd on most desktops the
+    moment it is plugged in. These readers are 13.56 MHz only: they cannot see a
+    125 kHz card at all, which surprises people arriving from access-control
+    work. Cheap clones misreport their own firmware capabilities.
+  upstream_url: https://github.com/nfc-tools/libnfc
