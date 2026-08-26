@@ -154,3 +154,42 @@ Two things to decide when you pick:
 
 **I did not write a BPQ manifest.** The finding is recorded; building the packet
 core is not in this queue.
+
+---
+
+## Q-006 🟡 — Which HamClock, now that there are four options?
+
+**Blocks:** nothing immediately. **Changes:** the SUPERSEDE #1 rationale, and any
+public copy about HamClock.
+
+Tested 2026-08-25 rather than reported. The forecast was wrong: HamClock did not
+stop. `hamclock.com/ham/HamClock/version.pl` serves **4.27** with a feature
+changelog. Elwood's own server (`clearskyinstitute.com`) *is* gone — it refuses
+TCP — but the hostname AHRL points at is live and maintained.
+
+| Option | State | Licence | Consideration |
+|---|---|---|---|
+| **`accius/openhamclock`** ⭐ | 455 stars, pushed 2026-08-22 | MIT | Most active by a wide margin. ARRL EMA covered it. Continuation of the original codebase. |
+| **`k4drw/hamclock-next`** | 34 stars, pushed 2026-06-23 | MIT | Full SDL2 rewrite. Carries Elwood's copyright forward explicitly. Smaller, newer, less proven. **This is the unit AHRL defines and never calls (D-013).** |
+| **hamclock.com** backend | Live, 4.27 | service | Third-party, patron-funded — "$4.99/month is what keeps the backend on the air" — plus an Amazon Appstore listing. Works today; commercial direction unknown. |
+| **`ohb.works`** | HTTPS 200 | service | Open HamClock Backend. Recommended by Amateur Radio Daily. A backend only; you still need a client. |
+
+**Recommendation: CARRY both clients; default to `openhamclock`; default the
+backend endpoint to `ohb.works`.**
+
+Reasoning:
+
+- **openhamclock as client default** — 13× the community of hamclock-next and
+  pushed three days ago. It is the continuation people actually use.
+- **hamclock-next carried, not dropped** — it is a genuine rewrite, it honours
+  the original author, and it is the D-013 worked example. Dropping the unit that
+  proves our central design argument would be a poor trade.
+- **`ohb.works` as the endpoint default** — a community backend is a better
+  default than a commercial one for software we install on someone's behalf.
+  hamclock.com stays available; `service_endpoints` is user-configurable by
+  design, which is the whole point of shape 7.
+
+**One thing I could not test:** no HamClock client was run end to end. Two of six
+guessed endpoint paths responded; the four 404s are as likely to be my wrong path
+names as missing functionality. Before defaulting anyone to `ohb.works`, someone
+should run a real client against both and confirm.

@@ -173,36 +173,97 @@ receive updates"; devices continue initially but "it's expected data will no
 longer be pushed to the application" by June 2026. Recommends the **Open HamClock
 Backend** (`ohb.works`) to keep existing clients running past the sunset.
 
-### What is *not* established, and must not be overstated
+### TESTED 2026-08-25 — the forecast was wrong, and I nearly published it
 
-1. **Whether the shutdown actually happened on schedule.** Three sources agree it
-   was expected end of June 2026; one hedges ("apparently"). Today is
-   2026-08-25, so the date has passed — but **we have not tested a live client**
-   and must not claim we have. Correct phrasing: *reported to stop functioning
-   end of June 2026*.
-2. **The final version number.** Newsline says the final release is **4.22**.
-   AHRL v27 ships **`ESPHamClock-V4.23.zip`** and its CHANGES lists "updated
-   ESPHamClock 4.23". One of the two is wrong, or 4.23 came from a community
-   mirror. Unresolved, and it does not change the conclusion.
+Last session recorded the June 2026 sunset as *reported*. Instructed to test it
+rather than report it, I did. **The conclusion changes.**
 
-### Successors — there are three, not one
+#### What the probes found
 
-| Project | What it is |
+| Probe | Result |
 |---|---|
-| `hamclock-next` (k4drw) | Full SDL2 rewrite. **AHRL v27 already ships the tarball and never calls the install function** (**D-013**). |
-| `openhamclock` (accius) | Updated HamClock fork; ARRL EMA reports it "is being updated regularly". |
-| Open HamClock Backend (`ohb.works`) | Replacement *server*, keeping existing clients alive. |
+| DNS `hamclock.com` | 52.15.88.208 |
+| TCP `hamclock.com:80` | **CONNECTED** |
+| `GET http://hamclock.com/` | **HTTP 200**, 22,860 bytes, `Last-Modified: Fri, 07 Aug 2026` |
+| `GET /ham/HamClock/version.pl` | **HTTP 200** |
+| `GET /ham/HamClock/esats.pl` | **HTTP 200**, 4,545 bytes |
+| DNS `clearskyinstitute.com` | 72.167.43.150 |
+| TCP `clearskyinstitute.com:80` | **NO CONNECTION** |
+| `GET clearskyinstitute.com/ham/HamClock/version.pl` | **no response, terminated** |
 
-AHRL already ships an `open_hamclock.desktop` bookmark pointing at
-openhamclock.com — so it has a bookmark to a successor while building four
-copies of the discontinued original.
+`version.pl` returns, verbatim:
+
+```
+4.27
+
+Changes since 4.25:
+  * New panes: Active Nets, Rocket Launches
+  * Satellite transponder frequency display
+  * HamQSL band conditions
+  * Upstream maintenance and bug fixes
+```
+
+#### What that means
+
+1. **HamClock did not stop. It was continued.** Newsline reported 4.22 as final
+   in January; AHRL shipped 4.23 in May; the live backend serves **4.27** with a
+   changelog of new features. Development continued past the author's death.
+   **This resolves the 4.22-vs-4.23 discrepancy** — both were true snapshots of
+   a moving target, and neither was final.
+
+2. **Elwood's original server *is* gone.** `clearskyinstitute.com` refuses TCP
+   entirely. The sunset was real — it just landed on the original host, not on
+   the name AHRL happens to point at. hamclock.com's own page says so: *"your
+   clock keeps ticking now that the original Clear Sky Institute server is
+   offline."*
+
+3. **hamclock.com is now a different operation.** Patron-funded, commercial
+   adjacent: *"Become a patron sponsor by subscribing: $4.99/month is what keeps
+   the backend on the air for everyone,"* plus an Amazon Appstore listing and a
+   Fire TV build. It is a third-party continuation, not the author's service.
+
+#### The correction I owe
+
+Last session's `dispositions.md` SUPERSEDE #1 said AHRL v27 leaves users with
+*"four menu entries pointing at a discontinued backend."* **That is wrong.**
+AHRL's launchers pass `-b hamclock.com:80`, and hamclock.com is up, maintained,
+and serving a newer version than AHRL ships. Corrected in place.
+
+Had this gone into public copy unverified, we would have told users a live
+service was dead — in a document whose entire argument is that we report status
+honestly. The instruction to test rather than report is what caught it.
+
+#### Limits of what was tested
+
+- Endpoint paths were **guessed** from the original API shape. Two of six
+  responded; the four 404s are as likely to be wrong path names as missing
+  functionality. **No claim is made that the backend is partial.**
+- No HamClock client was run against it. "Serves `version.pl` and `esats.pl`" is
+  not "a client works end to end."
+- Whether hamclock.com stays free is a commercial question, not a technical one.
+
+#### Four paths forward, not three
+
+| Option | Status 2026-08-25 | Licence |
+|---|---|---|
+| **hamclock.com** backend | Live, serving 4.27, patron-funded, third-party | service, not software |
+| **`accius/openhamclock`** | Pushed **2026-08-22**, 455 stars | **MIT** (dual copyright, so GitHub reports NOASSERTION) |
+| **`k4drw/hamclock-next`** | Pushed 2026-06-23, 34 stars | **MIT** — *"Copyright (c) 2020-2025 Elwood Charles Downey (WB0OEW) / Copyright (c) 2026-present HamClock Community Maintainers"* |
+| **`ohb.works`** | HTTPS 200, WordPress site | service, not software |
+
+Both candidate clients are MIT and clean under **D-011**. See **Q-006**.
 
 ### Why this matters to the schema
 
 All four AHRL HamClock menu entries hardcode `-b hamclock.com:80` as a launcher
-argument. A dead upstream service cannot be repointed without editing generated
-launchers. **The backend URL must be a manifest field, not a launcher constant** —
-this is shape 7 in the schema work.
+argument.
+
+**The testing strengthened this argument rather than weakening it.** In seven
+months the backend landscape moved twice: the author's server went offline, and
+a third-party patron-funded service took over the name AHRL points at. A
+hardcoded launcher constant cannot follow that. A manifest field can, in one
+line, for every install. **This is shape 7**, and it is now justified by observed
+churn rather than by a forecast.
 
 ---
 

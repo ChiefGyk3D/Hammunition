@@ -111,6 +111,41 @@ attached, not a hypothetical.
 **manifest field**, never a hardcoded launcher argument. Recorded as the worked
 example in **D-013**; this is schema shape 7.
 
+### CORRECTION 2026-08-25 — tested, and the forecast was wrong
+
+The text below this correction was written from *reporting*. Instructed to test
+it, I did, and one claim does not survive.
+
+**Retracted:** that AHRL v27 leaves users with "four menu entries pointing at a
+discontinued backend." AHRL passes `-b hamclock.com:80`, and **hamclock.com is
+up** — HTTP 200, `Last-Modified 2026-08-07`, and `/ham/HamClock/version.pl`
+returns **4.27** with a changelog of new features. HamClock did not stop; it was
+continued by someone else, past the version AHRL ships.
+
+**Confirmed:** Elwood's own server is gone. `clearskyinstitute.com:80` refuses
+TCP outright. The sunset was real — it landed on the original host, not on the
+hostname AHRL uses.
+
+**New:** hamclock.com is now a third-party, patron-funded operation ("$4.99/month
+is what keeps the backend on the air"), with an Amazon Appstore listing. Not the
+author's service, and its commercial trajectory is not ours to predict.
+
+**Also resolves the 4.22-vs-4.23 discrepancy:** neither was final. Newsline was
+right in January, AHRL was right in May, and the live backend is on 4.27.
+
+**What this changes for the disposition.** SUPERSEDE still stands, but for a
+different and better reason. Not "the original is dead" — it isn't. Rather:
+AHRL's four builds are pinned to a frozen 4.23 while the ecosystem moved to 4.27
+across two maintained MIT forks, and AHRL's backend host is now a commercial
+third party its users never chose. **Shape 7 is what matters here**, and the
+testing strengthened it: the backend landscape moved twice in seven months, which
+a launcher constant cannot follow and a manifest field can.
+
+Full probe results and limits in `docs/reference/licence-verification.md`.
+Successor choice is **Q-006** — there are four options, not three.
+
+---
+
 **Sourcing.** Verified against primary reporting and quoted in full in
 `licence-verification.md`. Two things that must not be overstated in public
 copy:
@@ -120,9 +155,11 @@ copy:
 - Amateur Radio Newsline reports the final release as **4.22**; AHRL v27 ships
   **4.23**. Unresolved discrepancy; it does not change the conclusion.
 
-There are **three** successors, not one: `hamclock-next` (k4drw, SDL2 rewrite),
-`openhamclock` (accius), and the Open HamClock Backend at `ohb.works` — a
-replacement *server* that keeps existing clients alive.
+There are **four** options, not three — see Q-006. Both candidate clients are
+**MIT** and clean under D-011: `accius/openhamclock` (455 stars, pushed
+2026-08-22) and `k4drw/hamclock-next` (34 stars, pushed 2026-06-23, and it
+carries Elwood's copyright forward explicitly). The other two —
+`hamclock.com` and `ohb.works` — are backend *services*, not software.
 
 ---
 
