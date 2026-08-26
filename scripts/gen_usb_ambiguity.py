@@ -320,6 +320,41 @@ def write_doc(
 
     lines += [
         "",
+        "## What hardware found that this could not",
+        "",
+        "Three identifiers were captured against real hardware on 2026-08-26 "
+        "that this list does not contain, and each one is a different limit of "
+        "the method:",
+        "",
+        "| Identifier | Why the sweep missed it |",
+        "|---|---|",
+        "| `303a:1001` | Espressif's native USB-serial-JTAG. No Debian package "
+        "names it and the kernel claims it by interface class, so neither source "
+        "sees it. Two captures — a Clip-Boy and the ESP32-S3 inside a Free-WiLi 2 "
+        "— report the same pair **and the same product string**. |",
+        "| `2e8a:00c0` | A bare RP2040 running Arduino-core firmware, which is "
+        "what a CatSniffer v3 presents. Claimed by `cdc_acm` on class, invisible "
+        "to both sources for the same reason. |",
+        "| `1d50:6089` | **A false negative, not a blind spot.** The sweep saw "
+        'this pair and excluded it: `usb.ids` calls it "Great Scott Gadgets '
+        'HackRF One SDR", a product name, which the generator treats as '
+        "evidence a vendor bought an id for one device. A HackRF Pro capture "
+        "shows the successor board reuses it, differing only in product string. |",
+        "",
+        "The first two are honest limits — a pair no package names and no driver "
+        "claims by id cannot be inferred from packages and drivers. **The third "
+        "is a wrong inference**, and the useful one: a product name in `usb.ids` "
+        "is evidence that an identifier once meant one device, not that it still "
+        "does. Vendors reuse identifiers across a product line, and the database "
+        "records the first name it was given.",
+        "",
+        "That rule is not tightened in response, because tightening it — treating "
+        "every product-named pair as ambiguous — would flag the 777 currently "
+        "excluded and make the list useless. The correct handling is what "
+        "happened: the sweep produces a floor, hardware raises it, and an entry "
+        "may carry a hand-written `ambiguity` block the generator never "
+        "suggested. Both `hackrf-one` and `hackrf-pro` now do.",
+        "",
         "## What this does not do",
         "",
         "It does not decide which device an identifier belongs to. An ambiguous "

@@ -5,11 +5,70 @@ kind: device
 name: catsniffer-v3
 summary: Electronic Cats CatSniffer v3 — multiprotocol sub-GHz, BLE and 802.15.4
 vendor: Electronic Cats
-status: untested
-device_class: badgelife
-gap_closure: maintainer_hardware
+status: supported
+
+# Captured against real hardware 2026-08-26, and it contradicted the entry.
+#
+# The previous version guessed this board "combines a TI radio with a host-side
+# USB serial interface" and that "the badgelife class rules ... are likely to
+# include it". Both wrong. CatSniffer v3 presents as an RP2040: vendor 2e8a
+# (Raspberry Pi), product 00c0, manufacturer "Arduino", product string
+# "RaspberryPi Pico". No CP210x, no CH340, no ESP32 -- nothing the badgelife
+# class carries. The device_class link is removed, because inheriting rules that
+# cannot match is worse than inheriting none.
+#
+# It is also ambiguous in the strongest possible way: that identifier and that
+# product string belong to every RP2040 running Arduino-core USB firmware. A
+# rule matching them would claim any Pico on the machine.
+
+device_class: null
+
+usb_ids:
+  - vendor: "2e8a"
+    product: "00c0"
+    description: RP2040 CDC serial, as presented by Arduino-core firmware
+    evidence: >-
+      lsusb against real hardware 2026-08-26 on Pop!_OS 22.04, via
+      scripts/identify-device.sh. manufacturer=Arduino product="RaspberryPi
+      Pico" serial=613863E6351D29A3 (the RP2040 flash unique id), presenting
+      /dev/ttyACM0.
+    confirmed: true
+    ambiguity:
+      basis: vendor_chip_default
+      evidence: >-
+        Vendor 2e8a is Raspberry Pi and 00c0 with product string "RaspberryPi
+        Pico" is what Arduino-core USB firmware presents on any RP2040. The
+        board identifies its microcontroller and its build environment, not
+        itself. Not on the generated ambiguity list: the device is claimed by
+        cdc_acm on interface class rather than by identifier, so neither the
+        kernel module table nor Debian's udev rules mention it -- a real limit
+        of the sweep, found by attaching hardware.
+      also_used_by:
+        - any Raspberry Pi Pico or RP2040 board running Arduino-core firmware
+
+# NO SYMLINK. There is nothing safe to match on: the identifier and the product
+# string are those of a bare RP2040. Only the serial is specific, and a serial
+# is per-unit and belongs in station-local configuration rather than a shipped
+# rule. /dev/serial/by-id/ already carries it.
+
+maintainer_verified:
+  date: 2026-08-26
+  by: ChiefGyk3D
+  distro: Pop!_OS 22.04
+  what_was_tested: >-
+    Attached and enumerated; identifier, product string and serial captured with
+    scripts/identify-device.sh. The radio side was not exercised and no firmware
+    was flashed.
+
 identification_gap: >-
-  No USB identifier confirmed. CatSniffer v3 combines a TI radio with a host-side USB serial interface; whether that is a native CDC endpoint or a bridge chip has not been verified against hardware here, and no distribution ships a udev rule naming it. The badgelife class rules cover CP210x, CH34x and ESP32 native USB, which is likely to include it, so the device works without a pinned identifier. Run lsusb with it attached and add the confirmed pair before this entry claims status: supported.
+  The host-side identifier is confirmed, and it identifies an RP2040 rather than
+  a CatSniffer. What is NOT established is whether a differently flashed
+  CatSniffer v3 presents something else -- the board's USB identity comes from
+  its firmware, so a unit running the vendor image rather than an Arduino-core
+  build may differ. Captures from other units, or from this one after
+  reflashing, would settle it.
+gap_closure: maintainer_hardware
+
 groups: [dialout, plugdev]
 packages: [esptool, tio, wireshark]
 documentation:

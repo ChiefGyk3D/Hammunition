@@ -38,6 +38,21 @@ __all__ = [
 ]
 
 HEX4 = re.compile(r"^[0-9a-f]{4}$")
+
+# Evidence that asserts, in the present tense, that the identifier is NOT
+# confirmed -- which would contradict `confirmed: true`.
+#
+# This was a bare `"unconfirmed" in evidence` substring test, and it rejected a
+# perfectly good entry whose evidence recorded its own history: "previously
+# carried as unconfirmed" is not a contradiction, it is exactly the sentence a
+# gap-closing capture should write. A check that punishes the most informative
+# prose is a check that teaches people to write less of it.
+CONTRADICTS_CONFIRMED = re.compile(
+    r"\b(?:is|are|remains?|stays?)\s+unconfirmed\b"
+    r"|\bunconfirmed\s+(?:here|as\s+of|by\s+us)\b"
+    r"|\bnot\s+(?:confirmed|verified)\b",
+    re.IGNORECASE,
+)
 UDEV_MODE = re.compile(r"^0[0-7]{3}$")
 
 
@@ -153,10 +168,10 @@ class UsbId(Strict):
         for value, field in ((self.vendor, "vendor"), (self.product, "product")):
             if value is not None and not HEX4.match(value):
                 raise ManifestError(f"USB {field} {value!r} must be 4 lowercase hex digits")
-        if self.confirmed and "unconfirmed" in self.evidence.lower():
+        if self.confirmed and CONTRADICTS_CONFIRMED.search(self.evidence):
             raise ManifestError(
                 f"USB id {self.vendor}:{self.product} is marked confirmed but its "
-                f"evidence says otherwise"
+                f"evidence asserts it is not"
             )
         return self
 

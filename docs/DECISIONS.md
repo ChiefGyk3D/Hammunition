@@ -1240,7 +1240,8 @@ The test is *what does the thing we install do on the machine we install it on*.
 
 ### Applied
 
-**ESP32 Marauder** — its firmware includes active features (deauthentication,
+**ESP32 Marauder firmware**, as run by boards such as the C5 Wardriver — it
+includes active features (deauthentication,
 beacon spam, captive-portal impersonation) that are transmit-side under the
 Q-008 tiering. Hammunition installs `esptool` and a serial console. It belongs
 in `rf-security`, ungated. This decides the WiFi Pineapple and the USB Rubber

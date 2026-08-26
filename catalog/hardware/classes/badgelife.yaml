@@ -72,23 +72,23 @@ usb_ids:
     product: "1001"
     description: Espressif ESP32-S3/C3 native USB CDC and JTAG-serial peripheral
     evidence: >-
-      PID 0x1001 confirmed as USB_JTAG_SERIAL_PID in esptool 4.7.0 as packaged in
-      Debian 13. Vendor 303a is Espressif's registered USB VID but is NOT in
-      Debian's usb.ids and was not verified from a citable source here. Closable
-      by the maintainer: several ESP32-S3 boards are in the kit — Minino,
-      Clip-Boy, the ESP32 Marauder board, and the Meshtastic T-Deck — any one of
-      them attached over native USB settles it. Confirm with lsusb before relying
-      on this rule.
-    confirmed: false
+      CONFIRMED BY CAPTURE 2026-08-26 on Pop!_OS 22.04, twice, on two unrelated
+      products: the Clip-Boy and the ESP32-S3 inside a Free-WiLi 2. Both report
+      manufacturer=Espressif and product="USB JTAG/serial debug unit"; only the
+      serial (a MAC address) differs. Previously carried as unconfirmed on the
+      strength of esptool 4.7.0 calling 0x1001 USB_JTAG_SERIAL_PID.
+    confirmed: true
     ambiguity:
       basis: vendor_chip_default
       evidence: >-
-        esptool 4.7.0 as packaged in Debian 13 calls 0x1001
-        USB_JTAG_SERIAL_PID -- a constant of the ESP32-S3/C3 USB-serial-JTAG
-        peripheral, so it is shared by every board using that silicon rather
-        than identifying any of them.
+        A constant of the ESP32-S3/C3 USB-serial-JTAG peripheral rather than an
+        identifier for any board. The two captures above are the proof: same
+        vendor, same product, same product STRING, two entirely different
+        products. Nothing a catalog-wide rule can match on separates them.
       also_used_by:
-        - every ESP32-S3 and ESP32-C3 board using native USB
+        - clip-boy
+        - free-wili-2
+        - every ESP32-S3 or ESP32-C3 board using native USB
   - vendor: "1a86"
     product: "55d4"
     description: WCH CH9102/CH343 UART bridge — increasingly common on newer boards

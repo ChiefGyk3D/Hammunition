@@ -5,50 +5,101 @@ kind: device
 name: hackrf-pro
 summary: HackRF Pro — Great Scott Gadgets' successor to the HackRF One
 vendor: Great Scott Gadgets
-status: planned
+status: supported
 
-# Planned, not owned. Catalogued because other operators have one and because
-# it is on the maintainer's list, NOT because anything here has been verified.
-# The distinction matters enough to be structural: `gap_closure` says
-# unverified_by_maintainer, so the generated gap report does not list this among
-# the things one lsusb on this bench would settle.
+# Captured against real hardware 2026-08-26. This entry previously said the
+# maintainer did not own one and marked it `planned`; that was true when it was
+# written and is not now.
 #
-# Nothing about this device's USB identity is asserted. The HackRF One entry's
-# identifiers come from Debian's own udev rules and apply to the One; whether
-# this board shares them, and whether its DFU mode differs, is not established
-# here and must not be inferred from the family name.
+# The capture answered the question the entry had refused to guess at, and the
+# answer is the interesting part: the Pro presents 1d50:6089 -- BYTE-IDENTICAL
+# to the HackRF One. Great Scott Gadgets reused the identifier for the successor
+# board. Only the product string differs: "HackRF Pro" against "HackRF One".
+#
+# The earlier entry said assuming a successor reuses its predecessor's ids was
+# "exactly the family-resemblance guess that produces a rule which silently
+# never matches". The guess would have been right. Refusing to make it was still
+# correct -- being right by luck is not a method, and the same refusal is what
+# produced the far more valuable finding below.
+#
+# THIS PAIR IS NOT ON THE GENERATED AMBIGUITY LIST. usb.ids names it "Great
+# Scott Gadgets HackRF One SDR", a product name, and the generator treats a
+# product name as evidence that a vendor bought an identifier for one device.
+# Sound in general; wrong here. Hardware found what the sweep could not, which
+# is the argument for doing both.
 
-gap_closure: unverified_by_maintainer
+usb_ids:
+  - vendor: "1d50"
+    product: "6089"
+    description: HackRF Pro — the same identifier the HackRF One uses
+    evidence: >-
+      lsusb against real hardware 2026-08-26 on Pop!_OS 22.04, via
+      scripts/identify-device.sh. manufacturer="Great Scott Gadgets"
+      product="HackRF Pro" serial=0000000000000000812865de24233c5f. lsusb
+      renders the pair as "Great Scott Gadgets HackRF One SDR" from usb.ids,
+      which is the database being out of date rather than the device lying.
+    confirmed: true
+    ambiguity:
+      basis: shared_across_products
+      evidence: >-
+        Confirmed by capture: the HackRF One carries the identical pair. The
+        two are distinguishable only by ATTRS{product}. Any rule matching
+        1d50:6089 alone claims both.
+      also_used_by:
+        - hackrf-one
+
+udev:
+  # The whole reason this is safe. Without match_product the rule would name a
+  # HackRF One /dev/hackrf-pro, and the operator would have no way to tell.
+  match_product: HackRF Pro
+  symlink: hackrf-pro
+  serial_suffix: true
+  mode: "0660"
+  group: plugdev
+  tag_uaccess: true
+
+maintainer_verified:
+  date: 2026-08-26
+  by: ChiefGyk3D
+  distro: Pop!_OS 22.04
+  what_was_tested: >-
+    Attached and enumerated; identifier, product string and serial captured with
+    scripts/identify-device.sh. No /dev node is created, which is expected for a
+    libusb device. Nothing was received or transmitted and no firmware was read.
+
 identification_gap: >-
-  Nothing confirmed. The maintainer does not own one, and no Debian package
-  installed here ships a udev rule naming it — the rules in `libhackrf` cover
-  the HackRF One's identifiers, and assuming a successor board reuses them is
-  exactly the kind of family-resemblance guess that produces a udev rule which
-  silently never matches. It also has a DFU or bootloader mode that will
-  enumerate differently again. Closing this needs lsusb output from an owner,
-  captured in both normal and bootloader modes.
+  Narrowed. The operating-mode identifier is confirmed. What is NOT confirmed is
+  the DFU or bootloader identifier: the HackRF One enumerates as 1fc9:000c in
+  DFU, and whether the Pro does the same has not been checked — putting the
+  board into DFU was out of scope for an enumeration capture. Until it is
+  checked, this entry carries no firmware block rather than inheriting one that
+  may not match.
+gap_closure: maintainer_hardware
 
 groups: [plugdev]
 packages: [hackrf, soapysdr-module-hackrf, gqrx-sdr]
 
 documentation:
   what_it_is: >-
-    A wideband half-duplex software defined radio from Great Scott Gadgets,
-    positioned as the successor to the HackRF One, which has been the default
-    wide-coverage transmit-capable SDR in this space for over a decade.
+    A wideband half-duplex software defined radio from Great Scott Gadgets, the
+    successor to the HackRF One, which has been the default wide-coverage
+    transmit-capable SDR in this space for over a decade.
   what_you_can_do_with_it: >-
     The same broad receive and transmit work the HackRF One is used for across a
-    very wide frequency range, half-duplex. Specific capabilities, coverage and
-    sample rates are deliberately not stated here because none of them has been
-    verified against hardware by this project.
+    very wide frequency range, half-duplex. Coverage and sample rates are
+    deliberately not quoted here: this project has enumerated the device, not
+    measured it, and D-027 keeps those two claims apart.
   setup_steps: >-
-    Not documented, and deliberately so. Nothing has been tested on this
-    hardware. Per D-018, this project does not describe a setup path it has not
-    walked. When an owner records the identifiers, the `hackrf` host tools and
-    Soapy module are the expected starting point, as they are for the One.
+    Install the hackrf host tools, join `plugdev`, then log out and back in.
+    `hackrf_info` reports the board and its firmware and is the first check that
+    permissions are right. Note the version skew across targets — Debian 13 and
+    Parrot ship the 2024.02.1 tools while Kali ships 2026.01.3, and host tools
+    are version-locked to device firmware.
   known_problems: >-
-    Unknown, because untested here. The one thing worth saying in advance
-    applies to the whole family: a transmit-capable SDR into an unterminated
-    port or the wrong antenna is a hardware risk regardless of what the software
-    does.
+    It shares its USB identifier with the HackRF One and is distinguished only
+    by its product string, so any udev rule, and any software that selects a
+    board by VID:PID, will see the two as the same device. If both are attached,
+    expect tools that take the first match to pick arbitrarily. Beyond that, the
+    family caveat: this transmits, and transmitting into an unterminated port or
+    the wrong antenna risks the hardware regardless of what the software does.
   upstream_url: https://greatscottgadgets.com/hackrf/

@@ -18,6 +18,7 @@ import pytest
 from pydantic import ValidationError
 
 from hammunition.manifest.hardware import (
+    CONTRADICTS_CONFIRMED,
     DeviceClass,
     DeviceManifest,
     HardwareDocumentation,
@@ -200,11 +201,40 @@ def test_dangling_class_reference_fails_loudly(tmp_path: Path) -> None:
 
 
 def test_unconfirmed_identifiers_are_visibly_unconfirmed() -> None:
-    """The badgelife ESP32 entry is the honest-gap worked example."""
+    """An identifier taken from documentation must not read as one from hardware.
+
+    This used to name badgelife's Espressif 303a:1001 as the worked example. Two
+    captures on 2026-08-26 confirmed it, so the example moved rather than the
+    property: 1a86:55d4 is still carried on reputation alone and must still say
+    so. If badgelife ever has nothing unconfirmed, that is a good day and this
+    test should be deleted, not weakened.
+    """
     classes, _ = load_hardware(HARDWARE)
-    esp = [i for i in classes["badgelife"].usb_ids if i.vendor == "303a"]
-    assert esp and not esp[0].confirmed
-    assert "lsusb" in esp[0].evidence.lower()
+    unconfirmed = [i for i in classes["badgelife"].usb_ids if not i.confirmed]
+    assert unconfirmed, "badgelife carries nothing unconfirmed; retire this test"
+    for usb in unconfirmed:
+        assert CONTRADICTS_CONFIRMED.search(usb.evidence), (
+            f"{usb} is unconfirmed but its evidence does not say so, so a reader "
+            f"cannot tell it apart from one captured against hardware"
+        )
+
+
+def test_the_espressif_identifier_is_confirmed_by_two_captures() -> None:
+    """Two unrelated products, one identifier -- the empirical basis for D-028."""
+    classes, devices = load_hardware(HARDWARE)
+    holders = [
+        holder
+        for holder in (classes["badgelife"], devices["clip-boy"], devices["free-wili-2"])
+        for usb in holder.usb_ids
+        if str(usb) == "303a:1001"
+    ]
+    assert len(holders) == 3, "303a:1001 should appear in badgelife, clip-boy and free-wili-2"
+    for holder in holders:
+        usb = next(i for i in holder.usb_ids if str(i) == "303a:1001")
+        assert usb.confirmed, f"{holder.name}: captured against hardware twice"
+        assert usb.ambiguity is not None, (
+            f"{holder.name}: the same pair on two unrelated products is the definition of ambiguous"
+        )
 
 
 def test_devices_without_confirmed_ids_are_not_marked_supported() -> None:
@@ -460,3 +490,65 @@ def test_an_identifier_on_the_ambiguity_list_must_say_so(tmp_path: Path) -> None
 def test_the_real_catalog_marks_every_ambiguous_identifier() -> None:
     """Regression for badgelife, asserted as a property of the whole catalog."""
     load_hardware(HARDWARE)  # raises if any identifier is on the list unmarked
+
+
+def test_evidence_recording_its_own_history_is_not_a_contradiction() -> None:
+    """The naive substring check rejected exactly the prose a capture should write.
+
+    "Previously carried as unconfirmed" is history, and a check that punishes
+    the most informative sentence in an entry teaches people to write less.
+    """
+    usb = UsbId(
+        vendor="303a",
+        product="1001",
+        description="ESP32-S3 native USB",
+        evidence=(
+            "Confirmed by capture on two devices 2026-08-26. Previously carried "
+            "as unconfirmed on the strength of an esptool constant."
+        ),
+        confirmed=True,
+    )
+    assert usb.confirmed
+
+
+@pytest.mark.parametrize(
+    "evidence",
+    [
+        "This pair is unconfirmed and was read from a forum post somewhere.",
+        "Widely reported but not confirmed against any hardware we have here.",
+        "Taken from vendor documentation; unconfirmed here and worth checking.",
+        "Plausible for this board but not verified against real hardware yet.",
+    ],
+)
+def test_evidence_that_really_does_contradict_is_still_caught(evidence: str) -> None:
+    with pytest.raises((ManifestError, ValidationError)):
+        UsbId(
+            vendor="303a",
+            product="1001",
+            description="ESP32-S3 native USB",
+            evidence=evidence,
+            confirmed=True,
+        )
+
+
+def test_a_capture_makes_a_device_verified_without_making_it_run() -> None:
+    """D-027 under real data: four devices enumerated, none exercised."""
+    _, devices = load_hardware(HARDWARE)
+    verified = {n: d for n, d in devices.items() if d.maintainer_verified}
+    assert verified, "no device records a maintainer verification"
+    for name, entry in verified.items():
+        assert entry.maintainer_verified is not None
+        assert entry.gap_closure != "unverified_by_maintainer", name
+
+
+def test_devices_sharing_an_identifier_both_declare_it() -> None:
+    """hackrf-one and hackrf-pro share 1d50:6089; neither may claim it alone."""
+    _, devices = load_hardware(HARDWARE)
+    for name in ("hackrf-one", "hackrf-pro"):
+        entry = devices[name]
+        shared = [i for i in entry.usb_ids if str(i) == "1d50:6089"]
+        assert shared, f"{name} should carry 1d50:6089"
+        assert shared[0].ambiguity is not None, f"{name} must declare the pair shared"
+        assert entry.udev is not None and entry.udev.match_product, (
+            f"{name} pins a symlink to a shared identifier and needs match_product"
+        )

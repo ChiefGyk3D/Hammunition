@@ -113,7 +113,7 @@ documentation:
     its own firmware.
   what_you_can_do_with_it: >-
     Read, store and replay the short-range protocols above, and use it as a
-    general-purpose hardware interface over GPIO. Like the ESP32 Marauder, some
+    general-purpose hardware interface over GPIO. Like the Marauder firmware, some
     of what its firmware can do transmits rather than listens; that is a
     property of firmware supplied by upstream and running on the device.
     Operating those features against systems you do not own or are not

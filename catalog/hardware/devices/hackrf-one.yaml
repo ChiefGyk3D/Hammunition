@@ -13,6 +13,19 @@ usb_ids:
     description: HackRF One
     evidence: Debian 13 /lib/udev/rules.d/60-libhackrf0.rules, from the libhackrf0 package
     confirmed: true
+    ambiguity:
+      basis: shared_across_products
+      evidence: >-
+        CONFIRMED BY CAPTURE 2026-08-26, not by the sweep: a HackRF Pro
+        enumerates with this same 1d50:6089 and differs only in its product
+        string ("HackRF Pro" against "HackRF One"). Great Scott Gadgets reused
+        the identifier for the successor board. The generated ambiguity list
+        does NOT contain this pair -- usb.ids names it "Great Scott Gadgets
+        HackRF One SDR", a product name, which the generator treats as evidence
+        that a vendor bought an id for one device. That inference is sound in
+        general and wrong here.
+      also_used_by:
+        - hackrf-pro
   - vendor: "1d50"
     product: "604b"
     description: HackRF Jawbreaker (predecessor)
@@ -43,6 +56,9 @@ firmware:
       anything automatically.
 
 udev:
+  # match_product is not decoration here. 1d50:6089 is shared with the HackRF
+  # Pro, so without it this rule names a Pro /dev/hackrf-one. D-028.
+  match_product: HackRF One
   symlink: hackrf
   serial_suffix: true
   mode: "0660"

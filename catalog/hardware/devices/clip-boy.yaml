@@ -6,16 +6,51 @@ name: clip-boy
 summary: Open-source DEF CON badge — ESP32-S3 with an LVGL touch UI
 vendor: SafeHazard
 device_class: badgelife
-status: untested
+status: supported
 
-gap_closure: maintainer_hardware
-identification_gap: >-
-  No USB identifier confirmed. Clip-Boy is an ESP32-S3 design, so it most likely
-  enumerates on Espressif's native USB CDC — which the badgelife class carries as
-  303a:1001, itself marked unconfirmed. Whether this board exposes native USB or
-  routes through a bridge chip has not been verified against hardware. The class
-  rules cover every plausible case, so the device works without pinning an ID;
-  this entry does not guess one.
+# Captured against real hardware 2026-08-26. The guess in the previous version
+# was right -- it is ESP32-S3 native USB -- and the capture turned that into the
+# clearest demonstration of D-028 in the catalog.
+#
+# Clip-Boy presents 303a:1001 with product string "USB JTAG/serial debug unit".
+# So does the ESP32-S3 inside the Free-WiLi 2. Same vendor, same product, same
+# product STRING. Two unrelated products, indistinguishable by anything a
+# catalog-wide udev rule can match on. Only the per-unit serial differs, and a
+# serial belongs to one board on one desk, not in a shipped manifest.
+#
+# The honest consequence is that this device gets NO device-specific symlink,
+# ever, from us. /dev/serial/by-id/ already separates the two by serial, which
+# is the right answer and one systemd made years ago.
+
+usb_ids:
+  - vendor: "303a"
+    product: "1001"
+    description: Espressif ESP32-S3 native USB JTAG/serial peripheral
+    evidence: >-
+      lsusb against real hardware 2026-08-26 on Pop!_OS 22.04, via
+      scripts/identify-device.sh. manufacturer=Espressif product="USB
+      JTAG/serial debug unit" serial=28:37:2F:88:DC:40, presenting
+      /dev/ttyACM0.
+    confirmed: true
+    ambiguity:
+      basis: vendor_chip_default
+      evidence: >-
+        esptool calls 0x1001 USB_JTAG_SERIAL_PID, a constant of the ESP32-S3/C3
+        USB-serial-JTAG peripheral. Confirmed by capture, not inferred: the
+        Free-WiLi 2's onboard ESP32-S3 presents the identical pair AND the
+        identical product string on the same day on the same machine. Nothing
+        short of the serial distinguishes them.
+      also_used_by:
+        - free-wili-2
+        - every ESP32-S3 or ESP32-C3 board using native USB
+
+maintainer_verified:
+  date: 2026-08-26
+  by: ChiefGyk3D
+  distro: Pop!_OS 22.04
+  what_was_tested: >-
+    Attached and enumerated; identifier, product string and serial captured with
+    scripts/identify-device.sh. Nothing was run and no firmware was flashed.
 
 firmware:
   - kind: esptool

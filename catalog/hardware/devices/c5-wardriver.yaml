@@ -2,36 +2,41 @@
 # SPDX-License-Identifier: CC0-1.0
 
 kind: device
-name: esp32-marauder
-summary: justcallmekoko's ESP32 Marauder — 2.4 GHz Wi-Fi and Bluetooth survey firmware on ESP32 hardware
-vendor: justcallmekoko (community hardware, several builders)
+name: c5-wardriver
+summary: C5 Wardriver v1.1 — justcallmekoko's ESP32 survey board, runs Marauder-family firmware
+vendor: justcallmekoko (community hardware)
 status: untested
 
-# The badgelife class earning its keep on a second device, which is the
-# validation that it was the right abstraction rather than a wrapper around one
-# board. Same Linux-side path as clip-boy: esptool to flash, a serial console to
-# interact, and udev rules for whichever bridge the board carries.
+# Renamed from `esp32-marauder`. The entry was written around the firmware
+# because that was the name I had; the maintainer's board is a C5 Wardriver
+# v1.1, and ESP32 Marauder is firmware that runs on several boards rather than a
+# board itself. Modelling the firmware as the device would have put the
+# identifier of whatever hardware happened to be under it into an entry named
+# after software -- and the identifier belongs to the board.
 #
-# NO VERSION IS RECORDED. The maintainer believes the board in hand is a v5 and
-# has not confirmed it from the silkscreen, and it is not established that a v5
-# exists. Since the revision determines the USB bridge chip, and the bridge chip
-# is the entire object of the identification exercise, writing an unverified
-# revision here would defeat the purpose of the entry. It goes in once read.
+# The revision IS now known: v1.1, from the maintainer. It was deliberately
+# absent before, because the revision determines the USB path and guessing one
+# would have defeated the point of the entry.
+#
+# Still uncaptured: the board needs flashing before first use, so enumeration
+# waits on that. Which is itself informative -- an unflashed ESP32 may present
+# only its ROM bootloader.
 device_class: badgelife
 
 gap_closure: maintainer_hardware
 identification_gap: >-
-  Per-revision, and deliberately not narrowed further than the evidence allows.
-  Marauder is a firmware that runs on several hardware builds, and the USB path
-  differs between them: older boards use a CP2102 bridge (10c4:ea60) or a CH340
-  (1a86:7523), both already confirmed in the badgelife class from Debian's
-  usb.ids; ESP32-S3-based boards present Espressif's native USB CDC under vendor
-  303a, which the class carries as unconfirmed. So the entry does NOT assume a
-  bridge — it inherits all of them from the class, which is why the device works
-  today without a pinned identifier. What is unknown is which one THIS board
-  uses, and the answer also settles the class's unconfirmed 303a entry if it
-  turns out to be an S3. The board revision is likewise unconfirmed and must be
-  read off the silkscreen rather than assumed.
+  Not yet captured, and the reason is worth recording rather than treating as a
+  delay: the board has not been flashed, and on an ESP32 the USB identity comes
+  from the firmware. An unflashed board may present only its ROM download mode,
+  which is a different identifier from what it will present in normal
+  operation — so a capture taken now would record the bootloader and read as
+  though it recorded the device.
+
+  Both are worth having, and they are separate records. The badgelife class
+  covers every plausible case in the meantime, which is the point of a class,
+  and the class's 303a:1001 is now confirmed against two other boards — so if
+  this one is an ESP32-S3 on native USB, it is already covered and already
+  ambiguous.
 
 documentation:
   what_it_is: >-

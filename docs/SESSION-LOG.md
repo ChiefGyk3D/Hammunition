@@ -177,7 +177,7 @@ tension is now recorded in the manifest; it will recur.
 contributors`. One sed if you want otherwise.
 
 **The ESP32 Marauder revision**, from the silkscreen, before anything records
-one. Also which bridge chip it carries — `identify-device.sh esp32-marauder`
+one. Also which bridge chip it carries — `identify-device.sh c5-wardriver`
 answers both.
 
 **Four gaps on your bench.** `scripts/identify-device.sh <name>` — read-only, no
@@ -188,7 +188,7 @@ scripts/identify-device.sh catsniffer-v3
 scripts/identify-device.sh minino
 scripts/identify-device.sh free-wili-2
 scripts/identify-device.sh clip-boy
-scripts/identify-device.sh esp32-marauder
+scripts/identify-device.sh c5-wardriver
 ```
 
 The last one closes the Espressif `303a` vendor ID for the whole `badgelife`

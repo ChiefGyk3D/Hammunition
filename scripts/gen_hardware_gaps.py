@@ -118,7 +118,7 @@ BLOCKS: dict[str, tuple[str, str]] = {
         "The recorded Mirics identifiers work for the open driver. What is "
         "unverified is the vendor-API path, which is post-1.0 anyway.",
     ),
-    "esp32-marauder": (
+    "c5-wardriver": (
         "M4",
         "Covered by the badgelife class, which carries every bridge this board "
         "might use. Closing it also settles the class's unconfirmed Espressif "
