@@ -539,8 +539,7 @@ RISK_DISCLOSURES: dict[RiskCategory, str] = {
         "IMSI, IMEI, MAC addresses, or subscriber records."
     ),
     RiskCategory.third_party_systems: (
-        "Can interact with, probe or test systems and networks that belong to "
-        "someone else."
+        "Can interact with, probe or test systems and networks that belong to someone else."
     ),
     RiskCategory.spectrum_disruption: (
         "Can degrade or deny service to other users of the radio spectrum, whether "
@@ -582,9 +581,7 @@ class ConsentGate(Strict):
     """
 
     risk_categories: list[RiskCategory] = Field(min_length=1)
-    env_var: str = Field(
-        description="Scripted path. Separate from --yes, and recorded when used."
-    )
+    env_var: str = Field(description="Scripted path. Separate from --yes, and recorded when used.")
     disclosure: str = Field(
         min_length=40,
         description="What the software can do. Capability, never legality.",
@@ -611,7 +608,10 @@ class ConsentGate(Strict):
                         f"D-021: disclose the capability and ask about authorization; "
                         f"do not adjudicate. Offending text: {text[:80]!r}"
                     )
-        if "authoriz" not in self.affirmation.lower() and "authoris" not in self.affirmation.lower():
+        if (
+            "authoriz" not in self.affirmation.lower()
+            and "authoris" not in self.affirmation.lower()
+        ):
             raise ManifestError(
                 "consent affirmation must ask the operator to affirm their "
                 "authorization; anything else is a warning, not a gate"

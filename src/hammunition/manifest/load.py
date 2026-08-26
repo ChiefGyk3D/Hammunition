@@ -7,9 +7,15 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from .schema import ManifestError, PackageManifest
+from .schema import ManifestError, PackageManifest, ProfileManifest
 
-__all__ = ["CatalogError", "load_catalog", "load_manifest"]
+__all__ = [
+    "CatalogError",
+    "load_catalog",
+    "load_manifest",
+    "load_profile",
+    "load_profiles",
+]
 
 
 class CatalogError(Exception):
@@ -48,3 +54,47 @@ def load_catalog(directory: Path) -> dict[str, PackageManifest]:
     if failures:
         raise CatalogError(failures)
     return manifests
+
+
+def load_profile(path: Path) -> ProfileManifest:
+    data = yaml.safe_load(path.read_text())
+    if not isinstance(data, dict):
+        raise ManifestError(f"{path}: profile must be a YAML mapping")
+    return ProfileManifest.model_validate(data)
+
+
+def load_profiles(
+    directory: Path, packages: dict[str, PackageManifest] | None = None
+) -> dict[str, ProfileManifest]:
+    """Load every profile, reporting *all* failures together — D-016.
+
+    When ``packages`` is supplied, a profile naming a package that is not in the
+    catalog is a failure rather than a warning. A profile that half-resolves is
+    the silent degradation D-016 forbids: the operator asked for a named set and
+    would get some of it without being told which part is missing.
+    """
+    profiles: dict[str, ProfileManifest] = {}
+    failures: dict[Path, str] = {}
+
+    for path in sorted(directory.glob("*.yaml")):
+        try:
+            profile = load_profile(path)
+        except (ValidationError, ManifestError, yaml.YAMLError) as exc:
+            failures[path] = str(exc).split("\n")[0]
+            continue
+        if profile.name in profiles:
+            failures[path] = f"duplicate profile name {profile.name!r}"
+            continue
+        if packages is not None:
+            missing = [p for p in profile.packages if p not in packages]
+            if missing:
+                failures[path] = (
+                    f"profile {profile.name!r} names packages with no manifest: "
+                    f"{', '.join(sorted(missing))}"
+                )
+                continue
+        profiles[profile.name] = profile
+
+    if failures:
+        raise CatalogError(failures)
+    return profiles

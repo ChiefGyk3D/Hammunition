@@ -1,0 +1,57 @@
+name: rf-research
+summary: Transmit-capable and interception-capable RF tooling — affirmative opt-in required
+stage: post-1.0
+
+# CONSENT-GATED. D-021.
+#
+# This profile exists to hold the tools whose *capability* is the hazard, so
+# that `rf-security` does not have to. Splitting them is the whole point: a gate
+# on everything trains people to click through, and `rf-security` (Wireshark,
+# aircrack-ng, inspectrum, rtl_433) ships in Debian and Kali without ceremony.
+#
+# Contents are provisional pending Q-008. The listed set is the receive-only
+# subset from that question's recommendation; the transmit-capable cellular
+# stacks (srsRAN_4G, Osmocom core, osmo-trx, intrusive-lte-mme) are deliberately
+# NOT here and are not scheduled until Q-008 is answered.
+consent:
+  env_var: HAMMUNITION_ACCEPT_RF_RESEARCH
+  risk_categories:
+    - unlicensed_transmission
+    - protected_communications
+    - identifier_collection
+    - spectrum_disruption
+  disclosure: >-
+    This profile installs software that can drive connected radio hardware to
+    transmit, and software that can receive, decode and store communications
+    carried over the air, including identifiers belonging to people and their
+    devices. Transmitting may require a licence or other authorization, and
+    receiving some communications may require authorization as well, depending
+    on where you are and what you are doing.
+  affirmation: >-
+    Do you affirm that you have the authorization you need for how you intend to
+    use this software?
+
+packages:
+  - gr-gsm
+
+documentation:
+  what_it_installs: >-
+    Software whose capability, rather than its complexity, is the reason it is
+    kept separate: tools that can cause hardware to transmit, and tools that
+    receive and decode communications not addressed to you.
+  why_together: >-
+    They share a single property — using them lawfully depends on authorization
+    you hold and we cannot see. Grouping them means the affirmation is asked
+    once, about something specific, rather than repeatedly about everything.
+  deliberately_excludes: >-
+    Transmit-capable cellular network stacks — srsRAN_4G, the Osmocom core,
+    osmo-trx and intrusive-lte-mme. DragonOS ships them and they have legitimate
+    uses in authorized engagements and shielded labs, but a one-command
+    installer is the wrong delivery mechanism for a rogue base station. Q-008
+    governs whether they ever land, most likely in a separate `cellular`
+    profile. Also excludes everything in `rf-security`, which is not gated.
+  manual_configuration: >-
+    Nothing is configured automatically. gr-gsm needs a supported SDR and a
+    tuned capture; see the profile documentation for a worked example. No
+    transmit path is enabled by installing this.
+  disk_footprint_hint: Small today — one package plus the GNU Radio stack it depends on.
