@@ -1374,6 +1374,19 @@ Two further bases exist for cases no probe reaches and are recorded by hand:
 `USB_JTAG_SERIAL_PID`) and `generic_function_name` (`usb.ids` naming a function
 — "Virtual COM Port", "CP210x UART Bridge").
 
+**`303a:1001` stopped being an inference on 2026-08-26.** Three unrelated
+products were captured on one machine on one day — a Clip-Boy, a Minino, and the
+ESP32-S3 inside a Free-WiLi 2 — and all three report the identical vendor,
+product **and product string**: `Espressif` / `USB JTAG/serial debug unit`. Only
+the serial differs, and a serial is per-unit.
+
+Three observations beat any argument from a vendor constant, and they settle the
+design question underneath the rule: **none of those three devices can carry a
+catalog-wide symlink**, because no attribute a rule could match on distinguishes
+one from the other two. Their MAC-address serials *are* distinct, so
+`/dev/serial/by-id/` separates them — the mechanism systemd already ships works
+here and ours would not.
+
 **Deliberately over-inclusive.** A pair in a bridge driver's table is *not*
 automatically generic: vendors buy identifier blocks from FTDI and Silicon Labs,
 so many are device-specific. The discriminator is what `usb.ids` calls it — a
