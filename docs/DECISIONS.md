@@ -765,3 +765,86 @@ largest profile in the catalog.
 **Not a substitute for honesty.** If detection fails or is ambiguous, the engine
 reports it and installs the conservative set. Guessing at hardware would be a
 silent degradation, which **D-016** forbids.
+
+---
+
+## D-021 — Consent gates disclose a risk category; they never give legal advice
+
+**Decided:** A profile whose lawful use depends on the operator's authorization
+is **consent-gated**. Installing it requires an affirmative act that a
+convenience flag cannot supply.
+
+### The mechanism
+
+| Requirement | Rule |
+|---|---|
+| Interactive by default | The gate prompts on a TTY and blocks until answered. |
+| `--yes` must not satisfy it | `--yes`/`-y` means *"do not ask me to confirm routine steps."* A gate that a convenience flag walks through is not a gate. |
+| Scripted path is separate and explicit | The profile declares its own environment variable, e.g. `HAMMUNITION_ACCEPT_RF_RESEARCH=1`. Nothing else sets it, and setting it is recorded. |
+| Recorded | The transaction log stores who affirmed, when, which risk categories were disclosed, the exact disclosure text, and whether it came from a prompt or the variable. |
+| Specific | The disclosure names the **risk category**, never a generic warning. |
+| No TTY and no variable | Refuse and explain. Never assume consent from silence. |
+
+### What the gate must not do
+
+**It must not tell the user what is legal where they are.** We cannot determine
+a user's jurisdiction, their licence class, their employer's authorizations, or
+the terms of an engagement they may be operating under. We are not lawyers and
+this software is not legal advice.
+
+The gate therefore **discloses and asks**; it does not adjudicate:
+
+- ✅ *"This profile installs software that can cause connected hardware to
+  transmit. Transmitting may require a licence or authorization. Do you affirm
+  you have the authorization required for how you intend to use it?"*
+- ❌ *"Transmitting on these frequencies is illegal without an amateur licence in
+  most countries."*
+
+The second sentence is an opinion about law. The first is a disclosure and a
+question. **Any wording that reads as legal advice is a defect.** Write it so a
+lawyer reading it sees a disclosure, not an opinion — no jurisdictions, no
+statutes, no "illegal", no "you may/may not".
+
+The corollary matters as much: **we do not decide for the user either.** A
+consent gate that refuses to install because we guessed the user is unauthorized
+would be the same error in the opposite direction. The user affirms; we record.
+
+### Risk-category taxonomy
+
+Categories describe **what the software can do**, not what any jurisdiction says
+about it. That is what keeps them stable and keeps us out of the advice business.
+
+| Category | The capability being disclosed |
+|---|---|
+| `unlicensed_transmission` | Can cause connected hardware to emit RF, on frequencies, power levels or modes that may require a licence or authorization. |
+| `protected_communications` | Can receive, decode, store or display communications that may be protected from interception. |
+| `identifier_collection` | Can collect identifiers associated with people or their devices — IMSI, IMEI, MAC, serial numbers, subscriber records. |
+| `third_party_systems` | Can interact with, probe or test systems and networks; doing so needs the owner's authorization. |
+| `spectrum_disruption` | Can degrade or deny service to other users of the spectrum, whether or not that is the intent. |
+| `credential_recovery` | Can recover, crack or replay authentication material. |
+
+A profile lists every category that applies. `rf-research` under **Q-008** would
+carry `unlicensed_transmission`, `protected_communications`,
+`identifier_collection` and `spectrum_disruption`.
+
+### Where it applies, and where it deliberately does not
+
+Gates attach to **profiles**, not packages. A gate on every package would train
+users to click through, which is the failure mode this exists to avoid — the
+prompt has to be rare enough to be read.
+
+`rf-security` as scoped in `profile-sizing.md` — Wireshark, aircrack-ng,
+inspectrum, rtl_433 — is **not** gated by this decision on its own. Those tools
+ship in Debian and Kali without ceremony and gating them would be theatre.
+Gating is for the profile where the capability itself is the hazard.
+
+**This is a mechanism decision, not a scoping one.** Which profiles are gated
+follows from **Q-008**, which is open.
+
+### Why a mechanism and not a warning
+
+`--dry-run` already prints every system modification (CLAUDE.md, security
+requirements) and the transaction log already records what happened. Neither
+records that a human took responsibility. That record is the point: it is what
+distinguishes a tool that was used with authorization from one that was not, and
+it belongs in the log next to the packages it authorized.

@@ -11,6 +11,8 @@ requirements rather than preferences:
   unrepresentable, not merely discouraged.
 * ``RemoteArtifact`` requires ``sha256``. An unverified download cannot be
   expressed at all.
+* A ``ConsentGate`` disclosure cannot contain legal-advice wording. D-021 says
+  such wording is a defect; here it is a validation error.
 """
 
 from __future__ import annotations
@@ -23,9 +25,12 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 __all__ = [
+    "ConsentGate",
     "InstallBlock",
     "ManifestError",
     "PackageManifest",
+    "ProfileManifest",
+    "RiskCategory",
     "Selector",
     "Status",
 ]
@@ -33,6 +38,7 @@ __all__ = [
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 SLUG = re.compile(r"^[a-z0-9][a-z0-9._+-]*$")
 ENDPOINT_REF = re.compile(r"\{endpoint:([a-z0-9_-]+)\}")
+CONSENT_ENV = re.compile(r"^HAMMUNITION_ACCEPT_[A-Z0-9_]+$")
 STATION_REF = re.compile(r"\{station\.([a-z0-9_]+)\}")
 
 
@@ -496,3 +502,152 @@ class PackageManifest(Strict):
         for cfg in self.config_files:
             out |= cfg.station_variables
         return out
+
+
+# ---------------------------------------------------------------------------
+# Consent gates and profiles.  D-021.
+# ---------------------------------------------------------------------------
+
+
+class RiskCategory(str, Enum):
+    """What the software *can do* — never what any jurisdiction says about it.
+
+    Capability is stable and observable. Legality is neither, and asserting it
+    would make this project give legal advice it is not qualified to give.
+    """
+
+    unlicensed_transmission = "unlicensed_transmission"
+    protected_communications = "protected_communications"
+    identifier_collection = "identifier_collection"
+    third_party_systems = "third_party_systems"
+    spectrum_disruption = "spectrum_disruption"
+    credential_recovery = "credential_recovery"
+
+
+RISK_DISCLOSURES: dict[RiskCategory, str] = {
+    RiskCategory.unlicensed_transmission: (
+        "Can cause connected hardware to emit radio frequency energy, including on "
+        "frequencies, at power levels, or in modes that may require a licence or "
+        "other authorization."
+    ),
+    RiskCategory.protected_communications: (
+        "Can receive, decode, store or display communications that may be protected "
+        "from interception."
+    ),
+    RiskCategory.identifier_collection: (
+        "Can collect identifiers associated with people or their devices, such as "
+        "IMSI, IMEI, MAC addresses, or subscriber records."
+    ),
+    RiskCategory.third_party_systems: (
+        "Can interact with, probe or test systems and networks that belong to "
+        "someone else."
+    ),
+    RiskCategory.spectrum_disruption: (
+        "Can degrade or deny service to other users of the radio spectrum, whether "
+        "or not that is the intent."
+    ),
+    RiskCategory.credential_recovery: (
+        "Can recover, crack or replay authentication material such as keys, "
+        "passphrases or handshakes."
+    ),
+}
+
+# Wording that turns a disclosure into an opinion about law. D-021 calls such
+# wording a defect; making it a validation error means it cannot ship.
+#
+# Deliberately narrow. It targets adjudication ("this is illegal", "you may
+# not") and jurisdiction ("under FCC rules"). It does NOT ban the words
+# "licence" or "authorization", which are exactly what a disclosure must be
+# able to say.
+LEGAL_ADVICE_PATTERNS: tuple[tuple[str, str], ...] = (
+    (r"\b(?:is|are|would be|will be)\s+(?:il)?legal\b", "asserts what is or is not legal"),
+    (r"\bunlawful\b", "asserts unlawfulness"),
+    (r"\billegal\b", "asserts illegality"),
+    (r"\bprohibited\b", "asserts prohibition"),
+    (r"\bfelony\b|\bcriminal offen[cs]e\b", "characterises an offence"),
+    (r"\byou may not\b|\byou are not allowed\b", "tells the user what they may do"),
+    (r"\b(?:FCC|Ofcom|ETSI|ITU|CALEA|GDPR)\b", "names a specific regulator or statute"),
+    (r"\bin (?:most|all|many) (?:countries|jurisdictions)\b", "generalises across jurisdictions"),
+    (r"\bunder .{0,24}\blaw\b", "cites a body of law"),
+    (r"\brequires? a licen[cs]e\b(?!\s+or)", "states a legal requirement as fact"),
+)
+
+
+class ConsentGate(Strict):
+    """An affirmative opt-in that `--yes` cannot supply.  D-021.
+
+    The gate discloses a capability and asks the operator to affirm they have
+    the authorization they need. It does not decide for them in either
+    direction — neither granting permission nor refusing on their behalf.
+    """
+
+    risk_categories: list[RiskCategory] = Field(min_length=1)
+    env_var: str = Field(
+        description="Scripted path. Separate from --yes, and recorded when used."
+    )
+    disclosure: str = Field(
+        min_length=40,
+        description="What the software can do. Capability, never legality.",
+    )
+    affirmation: str = Field(
+        min_length=20,
+        description="The question. Must ask about the operator's authorization.",
+    )
+
+    @model_validator(mode="after")
+    def _check(self) -> ConsentGate:
+        if not CONSENT_ENV.match(self.env_var):
+            raise ManifestError(
+                f"consent env_var {self.env_var!r} must match HAMMUNITION_ACCEPT_<NAME>; "
+                f"a shared or generic variable would let one opt-in satisfy another gate"
+            )
+        if len(set(self.risk_categories)) != len(self.risk_categories):
+            raise ManifestError("consent risk_categories contains duplicates")
+        for text, field in ((self.disclosure, "disclosure"), (self.affirmation, "affirmation")):
+            for pattern, why in LEGAL_ADVICE_PATTERNS:
+                if re.search(pattern, text, re.IGNORECASE):
+                    raise ManifestError(
+                        f"consent {field} reads as legal advice — it {why}. "
+                        f"D-021: disclose the capability and ask about authorization; "
+                        f"do not adjudicate. Offending text: {text[:80]!r}"
+                    )
+        if "authoriz" not in self.affirmation.lower() and "authoris" not in self.affirmation.lower():
+            raise ManifestError(
+                "consent affirmation must ask the operator to affirm their "
+                "authorization; anything else is a warning, not a gate"
+            )
+        return self
+
+    @property
+    def risk_lines(self) -> list[str]:
+        """Canonical one-line disclosure per declared category."""
+        return [f"{c.value}: {RISK_DISCLOSURES[c]}" for c in self.risk_categories]
+
+
+class ProfileDocumentation(Strict):
+    """Required by CLAUDE.md for every profile."""
+
+    what_it_installs: str = Field(min_length=20)
+    why_together: str = Field(min_length=20)
+    deliberately_excludes: str = Field(min_length=10)
+    manual_configuration: str = Field(min_length=10)
+    disk_footprint_hint: str | None = None
+
+
+class ProfileManifest(Strict):
+    """A named bundle of packages.  Flat tags with overlap, D-003."""
+
+    name: str
+    summary: str
+    packages: list[str] = Field(min_length=1)
+    stage: Literal["1.0", "post-1.0"] = "1.0"
+    consent: ConsentGate | None = None
+    documentation: ProfileDocumentation
+
+    @model_validator(mode="after")
+    def _check(self) -> ProfileManifest:
+        if not SLUG.match(self.name):
+            raise ManifestError(f"profile name {self.name!r} must be a lowercase slug")
+        if len(set(self.packages)) != len(self.packages):
+            raise ManifestError(f"profile {self.name}: duplicate package entries")
+        return self
