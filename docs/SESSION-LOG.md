@@ -1,6 +1,7 @@
 # Session log — overnight round 5, 2026-08-26
 
-Queue complete. Seven commits, none pushed. Everything green.
+Queue complete. Fourteen commits, **pushed** — this publishes round 4 as well,
+which had been committed but held back. Everything green.
 
 Previous round's log is in git history at `175869a`.
 
@@ -78,6 +79,36 @@ rather than assumed.
 
 ### 7. SatDump and SDR++ — `da0e418`; the capture helper — `d284a31`
 
+### 8. D-024, reviewed commit pins — `ae688e9`
+
+Q-013 answered as general policy rather than one manifest. A tag carries an
+upstream signal that a revision was worth naming; a SHA carries none, so pinning
+one moves a judgement upstream stopped making onto us. `pin_review` records it;
+the schema rejects a SHA without one and a tag with one.
+
+Staleness is checked weekly on a schedule, never on push — failing an unrelated
+pull request because a date rolled over is how a check teaches people to ignore
+it.
+
+**The implementation beat the recommendation.** The pin is not master HEAD: Kali
+and Parrot both package SDR++ at commit `36ea9a1`, so pinning theirs means a
+source build and an apt install are the same revision. Someone else's packaging
+is the review signal upstream stopped providing.
+
+### 9. D-025, re-verify when a claim becomes decisive — `ae688e9`
+
+Your rule, and the fourth instance is what earned it. Gathering standards and
+decision standards are different bars.
+
+### 10. D-026, tooling is not capability — `4860c84`
+
+Plus the ESP32 Marauder in the `badgelife` class, with no version recorded
+because the revision is unconfirmed and the revision determines the bridge chip.
+
+### 11–14. Hardware inventory, community catalogue, 21 manifests, README
+
+`517f4f8`, `be893fc`, `bc40212`, `f35feb5`.
+
 ---
 
 ## What I got wrong
@@ -99,12 +130,12 @@ tension is now recorded in the manifest; it will recur.
 
 ## What needs you
 
-**Q-013 🟡 — SDR++.** Neither branch of your instruction fits. Upstream *does*
-tag, and the newest tag is from **2021-10-18**, 541+ commits behind a master that
-moved in July 2026. Recommendation: apt where packaged, SHA-pinned source build
-elsewhere. Explicitly not the nightly `.deb`.
+**Q-012 🟢 — copyright holder string.** A default is in place: `The Hammunition
+contributors`. One sed if you want otherwise.
 
-**Q-012 🟢 — copyright holder string.** A default is in place.
+**The ESP32 Marauder revision**, from the silkscreen, before anything records
+one. Also which bridge chip it carries — `identify-device.sh esp32-marauder`
+answers both.
 
 **Four gaps on your bench.** `scripts/identify-device.sh <name>` — read-only, no
 root, emits a paste-ready block with the evidence field filled in:
@@ -114,14 +145,18 @@ scripts/identify-device.sh catsniffer-v3
 scripts/identify-device.sh minino
 scripts/identify-device.sh free-wili-2
 scripts/identify-device.sh clip-boy
+scripts/identify-device.sh esp32-marauder
 ```
 
 The last one closes the Espressif `303a` vendor ID for the whole `badgelife`
 class, so it is worth more than the one device.
 
-**Which CallMeKoko boards you have.** They are ESP32, so the badgelife class
-almost certainly already covers them, but I will not write device entries for
-products I cannot name.
+**A note on what changed in the catalog's shape.** The most productive hour of
+this round was not writing manifests — it was reading Debian's own udev rules.
+`rtl-sdr` went from 3 identifiers to 42, the `nfc-reader` class was built from
+`93-pn53x.rules`, and the `usrp` entry from `60-uhd-host.rules`. None of that
+needed hardware. A distribution's rules are a primary source about devices
+nobody here owns, and we had barely been reading them.
 
 ---
 
