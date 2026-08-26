@@ -18,21 +18,30 @@ exactly where things stand:
 | | Status |
 |---|---|
 | Catalog schema (Pydantic, `mypy --strict`) | ✅ working |
-| Package manifests | 🟡 10 of a planned ~230 |
+| Package manifests | 🟡 58 of a planned ~230 |
+| Hardware catalog | 🟡 20 devices, 2 classes, 58 confirmed USB identifiers |
+| Profiles | 🟡 4 written, the rest sized and named on paper |
 | Inventories of all five upstream sources | ✅ complete and measured |
+| Consent gates for RF-research tooling | ✅ working |
 | `install` / `list` / `status` / `--dry-run` CLI | ❌ **not written** |
 | apt backend | ❌ **not written** |
 | Source, git, binary, venv, pipx backends | ❌ **not written** |
-| Hardware / udev layer | ❌ **not written** |
-| Profiles | 🟡 sized and named on paper only |
+| udev rule generation | ❌ **not written** |
 
 **Do not install this. There is nothing to install.** If you want a working ham
 radio Linux setup today, use one of the projects in [Credit](#credit) below —
 they work now, and this project exists because of them, not instead of them.
 
-What *is* usable today is the research: `docs/reference/` contains complete,
+What *is* usable today is the research. `docs/reference/` contains complete,
 generated inventories of five upstream projects, with per-package availability
-measured inside real containers rather than assumed.
+measured inside real containers rather than assumed — and, increasingly, with
+packages actually installed rather than merely reported as available, because
+those two turned out to disagree.
+
+**There is one thing you can help with right now**, and it needs no code:
+[contributing hardware identifiers](docs/contributing/hardware.md). A dozen
+devices in the catalog are waiting on `lsusb` output from somebody who owns
+one. It takes thirty seconds and there is a script for it.
 
 ---
 
@@ -166,6 +175,8 @@ Everything below is written before the code it describes, deliberately.
 | [`docs/PARITY-POLICY.md`](docs/PARITY-POLICY.md) | What we carry, replace, revive, retire and add |
 | [`docs/QUESTIONS.md`](docs/QUESTIONS.md) | Open questions, with recommendations |
 | [`docs/reference/`](docs/reference/) | The measured inventories everything rests on |
+| [`docs/reference/hardware-gaps.md`](docs/reference/hardware-gaps.md) | Every USB identifier we don't have, who can close it, and what it blocks |
+| [`docs/contributing/hardware.md`](docs/contributing/hardware.md) | How to send one, and what we do and don't store |
 
 The user-facing documentation site is *Hacker's Ham Shack*. Its standard: a
 licensed ham with moderate Linux experience should get from a fresh install to a
@@ -177,13 +188,25 @@ thread. A step that needs knowledge not in our docs is a documentation bug.
 ## Contributing
 
 Too early for code contributions — the engine does not exist yet. What is useful
-now:
+now, roughly in order:
 
+- **`lsusb` output for a device we don't own.** The most useful thing anyone can
+  send, and it needs no code. A device whose USB identifier is guessed produces a
+  udev rule that *silently never matches* — indistinguishable from a bad cable —
+  so this catalog refuses to guess, and a dozen entries are waiting on one fact
+  that takes thirty seconds to produce. There is a read-only script for it:
+  [`docs/contributing/hardware.md`](docs/contributing/hardware.md).
 - **Corrections to the inventories.** If `docs/reference/` says something wrong
   about a package you maintain or use, that is the most valuable issue you can
-  file.
+  file. Several of our own claims have already turned out to be wrong; each
+  correction is recorded in the document that made the claim rather than quietly
+  edited out.
 - **Answers to [`docs/QUESTIONS.md`](docs/QUESTIONS.md).**
 - **Telling us what AHRL or 73Linux got right that we have not noticed.**
+
+An entry for hardware nobody here owns is welcome too. `identification_gap`
+exists precisely so that *"this device exists and here is what Linux needs for
+it"* is a shippable state rather than a blocker.
 
 ## Licence
 
