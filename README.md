@@ -40,10 +40,13 @@ packages actually installed rather than merely reported as available, because
 those two turned out to disagree.
 
 **There is one thing you can help with right now**, and it needs no code:
-[contributing hardware identifiers](docs/contributing/hardware.md). Devices in
-the catalog are waiting on `lsusb` output from somebody who owns one. It takes
-thirty seconds, there is a read-only script for it, and there are
-[issue forms](.github/ISSUE_TEMPLATE/) that tell you exactly what to paste.
+[contributing hardware identifiers](docs/contributing/hardware.md). Eleven of
+the 21 catalogued devices still have something unknown about them, and seven of
+those are waiting on somebody who owns the hardware — the maintainer does not.
+Sixty-seven Meshtastic and MeshCore boards are waiting on one line each. It
+takes thirty seconds, there is a read-only script for it, and there are
+[issue forms](.github/ISSUE_TEMPLATE/) that say exactly what to paste and, just
+as usefully, which boards are **not** worth your time.
 
 ---
 

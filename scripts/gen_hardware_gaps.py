@@ -31,7 +31,12 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from hammunition.manifest.hardware import DeviceClass, DeviceManifest, UsbId  # noqa: E402
+from hammunition.manifest.hardware import (  # noqa: E402
+    DeviceClass,
+    DeviceManifest,
+    RejectedId,
+    UsbId,
+)
 from hammunition.manifest.load import load_hardware  # noqa: E402
 
 OUT = REPO_ROOT / "docs" / "reference" / "hardware-gaps.md"
@@ -148,9 +153,20 @@ def render(classes: dict[str, DeviceClass], devices: dict[str, DeviceManifest]) 
         "regenerate.",
         "",
         f"**Generated:** {date.today().isoformat()}  ",
+        # Was "with a confirmed identifier / without", which is not what is
+        # counted and had stopped being true: free-wili-2 carries six confirmed
+        # identifiers and still has an open gap, because what is unknown about
+        # it is which of four ports does what. A gap is a gap in *knowledge*,
+        # not necessarily in identifiers.
         f"**Devices in catalog:** {len(devices)} — "
-        f"**{len(devices) - len(gapped)} with a confirmed identifier, "
-        f"{len(gapped)} without**",
+        f"**{len(devices) - len(gapped)} fully characterised, "
+        f"{len(gapped)} with something still unknown**",
+        "",
+        f"Of those {len(devices)}, "
+        f"**{sum(1 for d in devices.values() if any(u.confirmed for u in d.usb_ids))} "
+        f"carry at least one confirmed USB identifier of their own** and "
+        f"**{sum(1 for d in devices.values() if d.maintainer_verified)} have been "
+        f"run on hardware here** (D-027: two different claims).",
         "",
         "A device whose USB identifier is guessed produces a udev rule that "
         "silently never matches, which an operator cannot distinguish from a bad "
@@ -236,13 +252,57 @@ def render(classes: dict[str, DeviceClass], devices: dict[str, DeviceManifest]) 
         "one is a smaller job than filling a gap — the pair either matches "
         "attached hardware or it does not.",
         "",
-        "| Where | VID:PID | What it is | Provenance |",
-        "|---|---|---|---|",
     ]
-    for where, pair, usb in sorted(unconfirmed, key=lambda row: row[1]):
+    if unconfirmed:
+        lines += [
+            "| Where | VID:PID | What it is | Provenance |",
+            "|---|---|---|---|",
+        ]
+        for where, pair, usb in sorted(unconfirmed, key=lambda row: row[1]):
+            lines.append(
+                f"| {where} | `{pair}` | {usb.description} | {' '.join(usb.evidence.split())} |"
+            )
+    else:
         lines.append(
-            f"| {where} | `{pair}` | {usb.description} | {' '.join(usb.evidence.split())} |"
+            "**There are none.** Every identifier in the catalog names a capture "
+            "or a distribution rule. That is the goal state rather than a "
+            "milestone — D-030 makes it structural for classes, which can no "
+            "longer carry an unconfirmed identifier at all, and the last one a "
+            "class held is in the section below."
         )
+
+    # D-030. Negative evidence, kept where it can generate no rule and be
+    # inherited by no device. Reported because deleting it is how the same
+    # identifier gets re-added from the same forum posts a year later.
+    rejected: list[tuple[str, RejectedId]] = []
+    for cls in classes.values():
+        rejected += [(f"class `{cls.name}`", r) for r in cls.rejected_ids]
+    for dev in devices.values():
+        rejected += [(f"device `{dev.name}`", r) for r in dev.rejected_ids]
+
+    lines += [
+        "",
+        f"## Considered and rejected — {len(rejected)}",
+        "",
+        "Identifiers this catalog looked at and does not carry. They live in "
+        "`rejected_ids`, which cannot generate a udev rule and cannot be "
+        "inherited by a device, because the alternative is deleting the finding "
+        "and having somebody re-add it from the same source next year.",
+        "",
+    ]
+    if rejected:
+        lines += [
+            "| Where | VID:PID | Assumed to be | Why not carried |",
+            "|---|---|---|---|",
+        ]
+        for where, entry in sorted(rejected, key=lambda row: str(row[1])):
+            lines.append(
+                f"| {where} | `{entry}` | {' '.join(entry.assumed_to_be.split())} "
+                f"| {' '.join(entry.why_rejected.split())} |"
+            )
+    else:
+        lines.append("None recorded.")
+
     lines += [
         "",
         "---",
