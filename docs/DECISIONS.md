@@ -848,3 +848,43 @@ requirements) and the transaction log already records what happened. Neither
 records that a human took responsibility. That record is the point: it is what
 distinguishes a tool that was used with authorization from one that was not, and
 it belongs in the log next to the packages it authorized.
+
+
+---
+
+## D-014 amendment, 2026-08-26 — cargo tested against its best candidate, and stays at zero
+
+**D-014** records `cargo` at **zero occurrences** and says a backend is added
+only when a unit requires it. Rayhunter was the strongest candidate to overturn
+that, and it does not.
+
+**Evidence.** `EFForg/rayhunter` is a Rust project — 2.6 MB of Rust, `Cargo.toml`
+and `Cargo.lock` at the repository root, GPL-3.0, 5,700 stars, pushed within the
+last week. If any unit in scope needed a cargo backend it should have been this
+one.
+
+Upstream publishes **prebuilt Linux binaries for x86-64, aarch64 and armv7**, and
+the `linux-x64` archive contains the installer, the `rayhunter-check` analyser,
+the on-device daemon and its init scripts. Nothing compiles on the user's
+machine. The **binary backend, already required for 1.0, covers it completely.**
+
+**cargo stays at zero.** The point of D-014 is that a backend costs maintenance
+forever and must be earned by a named unit; the best candidate examined so far
+does not need one.
+
+**Second finding, and the more valuable one.** `SCOPE.md` says of the pin/hash
+database that *"not one of them publishes checksums we can inherit"* — across
+AHRL's 63 archives, 73Linux, Skywave and DragonOS. **Rayhunter publishes a
+`.sha256` beside every release asset.** Verified 2026-08-26: the published digest
+for `rayhunter-v0.12.0-linux-x64.zip` matches the computed one.
+
+That makes it the first manifest in the catalog that can carry an **inherited**
+hash rather than one we pinned ourselves, and it is worth recording which
+project made that possible.
+
+**Third, a smaller one.** The installer statically links EFF's fork of the
+`adb_client` crate and speaks USB through `nusb`, so deploying to a hotspot needs
+**no `adb` package**. The obvious dependency is not a dependency.
+
+See `docs/guides/rayhunter.md`, including what was not tested — no device was
+attached and no capture analysed.
