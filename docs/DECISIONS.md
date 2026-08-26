@@ -888,3 +888,64 @@ project made that possible.
 
 See `docs/guides/rayhunter.md`, including what was not tested — no device was
 attached and no capture analysed.
+
+---
+
+## D-022 — Displacing software the distribution chose: coexist, disclose, never remove silently
+
+**Decided:** A manifest may offer software that competes with something the
+distribution deliberately ships. It may not quietly replace it. Five rules, and
+they are general — the VS Code case is the first instance, not the subject.
+
+### 1. Coexistence is the default; replacement is a separate, explicit act
+
+If both can be installed, install both. Wanting package B is not a request to
+remove package A, and treating it as one is how a tool ends up making decisions
+that were not asked of it. Removal requires the operator to say so, on its own.
+
+### 2. Never remove silently
+
+The displaced package is declared in `conflicts_with_repo_package`, printed by
+`--dry-run`, recorded in the transaction log with a `reverse_hint`, and
+reversible with one apt command that the documentation states.
+
+**This is the AHRL pattern we exist to fix.** AHRL removes the distribution's
+`librtlsdr` to install its own, with no record and no way for the operator to
+know it happened. Being newer is no excuse for repeating it.
+
+### 3. A third-party repository gets the full treatment
+
+Declared in the manifest as an `AptRepo`, signing key fingerprint pinned, and
+the rationale shown to the operator **before** the repository is added. Already
+a security requirement in CLAUDE.md; restated because this is the case that will
+tempt someone to skip it.
+
+Adding a vendor's repository is a larger act than installing a package: it grants
+that vendor the ability to ship updates to any package name they choose,
+forever. The disclosure must say that, not just name the URL.
+
+### 4. State the distribution's reasoning as a reason, not as an obstacle
+
+A distribution that ships B instead of A usually had a reason. Repeat it
+accurately and neutrally, then state the counter-argument with equal care.
+
+**Do not editorialise in either direction.** Not "Parrot ships VSCodium for
+ideological reasons but most people want real VS Code", and not "VS Code is
+proprietary spyware". The operator is choosing for their own machine and needs
+the facts, not our opinion. This is the same discipline **D-021** imposes on
+consent gates: disclose, do not adjudicate.
+
+### 5. Never the default, never in a base profile
+
+Software that displaces a distribution choice is opt-in, and does not belong in
+any profile an operator installs to get started.
+
+### Why this is a decision and not a manifest comment
+
+The first instance is an editor and it feels minor. The pattern is not: it will
+recur for `dump1090-mutability` versus `readsb`, for a vendor SDR driver against
+the distribution one, for anything where upstream ships a newer build than the
+archive. Writing the rule once means the tenth case is not argued from scratch.
+
+**First instance:** `catalog/packages/code.yaml`, offering Microsoft's VS Code
+build alongside — never instead of — the `codium` that Parrot ships.

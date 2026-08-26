@@ -67,7 +67,15 @@ def _minimal(**overrides: Any) -> dict[str, Any]:
 
 
 def test_catalog_loads(catalog: Catalog) -> None:
-    assert len(catalog) == 10
+    """Every YAML in catalog/packages/ parses and validates.
+
+    Asserts against the directory rather than a hardcoded count: a literal here
+    fails on every manifest added, which trains people to bump the number
+    without reading why it changed.
+    """
+    on_disk = {p.stem for p in CATALOG.glob("*.yaml")}
+    assert on_disk, "no manifests found"
+    assert set(catalog) == on_disk
 
 
 def test_every_manifest_has_documentation(catalog: Catalog) -> None:

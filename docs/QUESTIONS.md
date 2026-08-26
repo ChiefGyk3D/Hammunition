@@ -385,3 +385,57 @@ already covers testing systems you do not own if that ever becomes relevant.
 `catalog/hardware/devices/proxmark3.yaml` is written and its identifier is
 flagged unconfirmed — Proxmark hardware spans several generations with different
 identifiers and none is in a distribution rule to read from.
+
+---
+
+## Q-011 🟡 — Accept a `workstation` profile, and what goes in it?
+
+**Raised by:** item 5, the VS Code manifest. **Blocks:** where `code` lands — it
+currently declares `categories: [workstation]` against a profile that does not
+exist. **Changes:** the profile set, and arguably the scope of the project.
+
+The VS Code manifest has nowhere to go. It is not radio software, and every
+existing profile is. `profile-sizing.md`'s set is entirely RF: `station`,
+`logging`, `morse`, `propagation`, `digital-modes`, `packet`, `satellite`,
+`antenna`, `sdr`, `listening`, `electronics`, `rf-security`.
+
+**The case for it.** A lab machine needs an editor, a terminal, git tooling and
+a shell setup, and a person building a station is usually also building the
+machine it runs on. Every one of those is apt-installable on all four targets,
+so it is the cheapest profile in the catalog. It also gives displacement cases
+like `code` a home instead of an orphaned category.
+
+**The case against, and it is not weak.** This is scope creep in its most
+plausible costume. There are a thousand dotfile projects and this is not one of
+them; every hour spent choosing between `tmux` and `zellij` is an hour not spent
+on the source backend. It also invites bikeshedding from people who care
+enormously about editors, on a project whose actual difficulty is packaging.
+
+| Option | Consequence |
+|---|---|
+| **A. Minimal `workstation`, tightly scoped and opt-in** ⭐ | Editor, terminal, git tooling, serial console. Roughly 8-12 packages, all apt. Gives `code` a home. Scope defended by keeping it deliberately boring. |
+| B. No profile; drop the `code` manifest | Smallest scope. Also discards a worked example of **D-022** that took real research — the Microsoft key fingerprint is verified and the trade-off is documented. |
+| C. No profile; keep `code` uncategorised | Leaves a manifest referencing a category nothing defines, which the profile cross-check in `load_profiles` is designed to catch. Worst of both. |
+| D. Broad `workstation` with shell, prompt, dotfiles | This is the scope creep. Not recommended. |
+
+**Recommendation: A, with the contents fixed now so it cannot grow quietly.**
+
+| Package | Why |
+|---|---|
+| `git` | Every workflow here assumes it |
+| `tio` | Serial console — already a `badgelife` class dependency, so it is not new scope |
+| `minicom`, `screen` | The serial consoles people already know |
+| `tmux` | Sessions that survive a dropped SSH connection to a field machine |
+| `codium` | The editor the primary target already ships |
+| `code` | Opt-in, per **D-022**, never a default |
+| `usbutils`, `pciutils` | `lsusb` is step one of every hardware problem in this catalog |
+
+**Deliberately excluded:** shells, prompts, dotfiles, window managers, fonts,
+terminal emulators beyond what serial work needs. If it is a matter of taste, it
+is not in scope. Recommend writing that exclusion into the profile's
+`deliberately_excludes` so it is enforced by documentation rather than by
+argument.
+
+`usbutils` is the one that earns its place twice: half the hardware entries in
+`catalog/hardware/` say "run lsusb and record what you see", and six of them
+cannot be completed without someone doing exactly that.

@@ -1,0 +1,97 @@
+name: code
+version: "1.104"
+summary: Microsoft's Visual Studio Code build — optional alternative to the VSCodium your distro ships
+categories: [workstation]
+
+# FIRST INSTANCE OF D-022.
+#
+# This manifest offers software that competes with something the distribution
+# deliberately chose. Parrot 7.3 packages `codium` 1.126.04524 and `code-oss`
+# 1.75.1-0parrot1, and does NOT package `code` — verified in the parrotsec/core
+# container, 2026-08-26.
+#
+# Per D-022 this coexists rather than replaces. `codium` and `code` install to
+# different binaries, different config directories and different extension
+# directories, so both can be present and neither disturbs the other. Nothing
+# here removes anything.
+#
+# conflicts_with_repo_package is declared for disclosure, not for removal: it is
+# what makes `--dry-run` tell the operator that a related package is already
+# installed, so the choice is visible rather than discovered later.
+status: supported
+recommended_default: false
+
+conflicts_with_repo_package: []
+
+apt_repos:
+  - name: microsoft-vscode
+    uri: https://packages.microsoft.com/repos/code
+    suites: [stable]
+    components: [main]
+    key_url: https://packages.microsoft.com/keys/microsoft.asc
+    key_fingerprint: BC528686B50D79E339D3721CEB3E94ADBE1229CF
+    rationale: >-
+      Microsoft's own apt repository is the only route to their VS Code build;
+      it is not in Debian, Ubuntu, Kali or Parrot. Adding it grants Microsoft
+      the ability to ship updates for any package name they publish there, for
+      as long as it stays configured — that is a larger act than installing one
+      package and is the reason this is shown before it happens. The key
+      fingerprint above was read from the published key on 2026-08-26 and
+      belongs to "Microsoft (Release signing) <gpgsecurity@microsoft.com>".
+      Removing the repository is one command; see documentation.
+
+install:
+  - install:
+      method: apt
+      packages: [code]
+
+system_modifications:
+  - kind: apt_pin
+    description: Adds Microsoft's apt repository and pins its signing key
+    detail: >-
+      Writes /etc/apt/sources.list.d/microsoft-vscode.sources and installs the
+      signing key to /etc/apt/keyrings/microsoft.gpg, with Signed-By pointing at
+      that keyring so the key is trusted for this repository only and not
+      archive-wide.
+    reversible: true
+    reverse_hint: >-
+      sudo rm /etc/apt/sources.list.d/microsoft-vscode.sources
+      /etc/apt/keyrings/microsoft.gpg && sudo apt update
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+  cadence_hint: >-
+    Microsoft ships a new stable roughly monthly through this repository, so
+    normal `apt upgrade` keeps it current once the repository is configured.
+
+documentation:
+  what_it_does: >-
+    Microsoft's build of Visual Studio Code, a graphical source-code editor with
+    an integrated terminal, debugger and extension system.
+  why_you_want_it: >-
+    One reason, and it is a functional one: the Microsoft build can install
+    extensions from the Visual Studio Marketplace, and VSCodium cannot. The
+    marketplace's terms restrict it to Microsoft's own product, so VSCodium uses
+    Open VSX instead. Open VSX carries most popular extensions but not all of
+    them, and some — including Microsoft's own remote-development, Python and
+    C++ extensions — are licensed so that they only run in the Microsoft build.
+    If you need one of those, this is the only way to get it.
+  prerequisites: >-
+    None beyond a working apt. This coexists with VSCodium: different binary
+    (`code` versus `codium`), different config directory, different extension
+    directory. Installing this does not remove or alter VSCodium.
+  known_problems: >-
+    The trade-off, stated plainly in both directions. Microsoft's build is
+    compiled from the same open source as VSCodium but is distributed under a
+    proprietary licence and includes telemetry that is enabled by default;
+    VSCodium exists specifically to provide a build without either, which is why
+    Parrot ships it. Against that: the marketplace restriction above is real and
+    is not something VSCodium can fix, because it is a licensing decision rather
+    than a technical one. Telemetry can be turned off in settings
+    (`telemetry.telemetryLevel: "off"`), which reduces but does not eliminate the
+    difference. Both positions are defensible; this manifest takes neither and
+    installs nothing unless asked.
+  upstream_url: https://code.visualstudio.com/
+  upstream_support: https://github.com/microsoft/vscode/issues
