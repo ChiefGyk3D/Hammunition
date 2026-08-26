@@ -40,9 +40,10 @@ packages actually installed rather than merely reported as available, because
 those two turned out to disagree.
 
 **There is one thing you can help with right now**, and it needs no code:
-[contributing hardware identifiers](docs/contributing/hardware.md). A dozen
-devices in the catalog are waiting on `lsusb` output from somebody who owns
-one. It takes thirty seconds and there is a script for it.
+[contributing hardware identifiers](docs/contributing/hardware.md). Devices in
+the catalog are waiting on `lsusb` output from somebody who owns one. It takes
+thirty seconds, there is a read-only script for it, and there are
+[issue forms](.github/ISSUE_TEMPLATE/) that tell you exactly what to paste.
 
 ---
 
@@ -139,6 +140,55 @@ tangled together in shell, a single maintainer, and contribution by email.
 | Ham radio | Ham radio **plus** SDR, RF security and mesh |
 
 The full argument, with evidence, is in [`docs/why-hammunition.md`](docs/why-hammunition.md).
+
+---
+
+## What the hardware layer is actually for
+
+Not persistent device symlinks. That is what this project used to say, and the
+[generated accounting](docs/reference/device-naming.md) does not support it:
+systemd's `60-serial.rules` already gives every USB-*serial* device a stable
+`/dev/serial/by-id/` path, per unit, with no help from anybody. Stable naming
+was never the hard part.
+
+Of 21 catalogued devices, **17 are ones `by-id` does not settle**, and the
+reasons are the work:
+
+| What `by-id` cannot do | Where it bites |
+|---|---|
+| **Permissions** | A device only root can open is unusable however stable its path. This is what actually stops people. |
+| **Non-serial devices** | 12 of 21 present nothing serial at all — every SDR, the Ubertooth, the Proxmark in client mode. `libusb` devices get no `/dev/serial/` entry to name. |
+| **Identical units** | A Proxmark3 ships no product string and no serial. `by-id` builds its path from exactly those, so two of them collide there too. Only `by-path` separates them, and `by-path` changes when you move the cable. |
+| **Which interface is which** | A Free-WiLi 2 is six USB devices behind an internal hub, four serial ports on one of them. `by-id` gives each a stable path and labels none. |
+
+All five symlinks this catalog emits are on devices in the second row — none
+duplicates a path `by-id` would have given anyway. That was not designed for,
+and it is the clearest statement of where the two mechanisms actually divide.
+
+Two rules follow, both enforced by the schema rather than by review:
+
+- **An identifier that names a chip may not name a `/dev` node.** `10c4:ea60` is
+  a CP2102 bridge; a symlink on it claims your rig cable, your GPS puck and your
+  Meshtastic node alike. A rule resting on one must carry `ATTRS{product}` or
+  `ATTRS{serial}`, or emit no symlink ([D-028](docs/DECISIONS.md)).
+- **A product string nobody has read is as bad as a guessed VID:PID.** Both
+  produce a rule that silently never matches, which looks exactly like a bad
+  cable. `hackrf-one` failed this the day it was enforced and was closed by
+  reading upstream's USB descriptor, not by guessing ([D-029](docs/DECISIONS.md)).
+
+---
+
+## Where the identifiers come from
+
+Mined from primary sources, never curated by hand — a shortlist is how `rtl-sdr`
+came to carry 3 identifiers where Debian carries 42.
+
+| Source | What it yielded |
+|---|---|
+| [Every udev rule in the Debian archive](docs/reference/udev-inventory.md) | 1,947 identifiers across 280 packages, no shortlist |
+| [The kernel's own `modules.alias`](docs/reference/usb-ambiguity.md) | Which pairs the kernel binds to a *bridge* driver — the closest thing to an authoritative "this is a chip, not a product" |
+| [Meshtastic and MeshCore board definitions](docs/reference/lora-inventory.md) | 107 boards, 26 identifiers, the top one covering 49 — which closed the `meshtastic` entry with no hardware, and had to, since the maintainer's nodes were lost to flooding |
+| Upstream USB descriptors | `hackrf` states in C that the One and the Pro share `1d50:6089`, which had rested on comparing one capture |
 
 ---
 

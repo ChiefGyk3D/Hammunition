@@ -1,0 +1,70 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: Hardware identifier from a device you own
+description: >-
+  Thirty seconds of lsusb output for a device this catalog cannot test. The most
+  useful contribution anyone can make right now, and it needs no code.
+title: "hardware: <device name>"
+labels: ["hardware", "identifier"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Why this is worth your time.** A guessed USB identifier produces a
+        udev rule that *silently never matches* — indistinguishable from a bad
+        cable. So this catalog refuses to guess, and entries stay open until
+        somebody who owns the device says what it actually reports.
+
+        `docs/reference/hardware-gaps.md` lists every gap and who can close it.
+        Anything marked **unverified by the maintainer** is one of these.
+
+        **What we store:** vendor and product IDs, the manufacturer and product
+        strings, and *whether* a serial exists. **Not the serial value** — that
+        is per-unit and identifies your hardware, not the model.
+  - type: input
+    id: device
+    attributes:
+      label: What is it
+      description: Model name as the vendor sells it.
+      placeholder: LimeSDR Mini 2.0
+    validations:
+      required: true
+  - type: textarea
+    id: capture
+    attributes:
+      label: Capture output
+      description: >-
+        Run `scripts/identify-device.sh <name>` from a checkout — it is
+        read-only, touches nothing, and prints paste-ready YAML. No checkout?
+        `lsusb -v -d <vid>:<pid> 2>/dev/null | grep -E 'idVendor|idProduct|iManufacturer|iProduct|iSerial'`
+        is enough. Redact the serial value; keep the fact that there was one.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: distro
+    attributes:
+      label: What you ran it on
+      placeholder: Debian 13, kernel 6.12
+    validations:
+      required: true
+  - type: textarea
+    id: nodes
+    attributes:
+      label: What appeared under /dev
+      description: >-
+        `ls -l /dev/serial/by-id/` after plugging it in, plus any ttyUSB/ttyACM
+        that showed up. If nothing appeared, say so — that is a finding, not a
+        failure. It means the device is claimed by libusb and permissions rather
+        than naming are what matter for it.
+      render: text
+  - type: checkboxes
+    id: honesty
+    attributes:
+      label: Before you submit
+      options:
+        - label: This is output from hardware I attached, not from a datasheet, a forum post or a vendor page.
+          required: true
+        - label: I have removed the serial number value (keeping whether one existed).
+          required: false

@@ -49,3 +49,40 @@ So this closes the *identifier* question for a hundred boards and leaves the *di
 
 **Nothing here is `maintainer_verified`.** D-027 keeps that separate: upstream metadata is good evidence that an identifier is correct and no evidence at all that anyone here has run the hardware.
 
+## Which product strings are worth asking for
+
+Not all of them, and working out which is the useful part. A product string is only worth collecting where it can *distinguish* a board — and for the largest identifier family here it provably cannot.
+
+| Identifier | Boards | Product string here | Worth asking? |
+|---|---:|---|---|
+| `303a:1001` | 49 | `USB JTAG/serial debug unit` | **no** — the string is the chip's, not the board's |
+| `239a:0029` | 41 | not read here | **yes** |
+| `239a:002a` | 41 | not read here | **yes** |
+| `239a:8029` | 29 | not read here | **yes** |
+| `239a:802a` | 25 | not read here | **yes** |
+| `239a:4405` | 16 | not read here | **yes** |
+| `303a:0002` | 8 | not read here | **yes** |
+| `2886:1667` | 6 | not read here | **yes** |
+| `239a:00b3` | 4 | not read here | **yes** |
+| `2886:0059` | 4 | not read here | **yes** |
+| `239a:0071` | 3 | not read here | **yes** |
+| `2886:0057` | 3 | not read here | **yes** |
+| `2886:1668` | 3 | not read here | **yes** |
+| `2886:8044` | 1 | not read here | **yes** |
+| `2886:0044` | 1 | not read here | **yes** |
+| `239a:009f` | 1 | not read here | **yes** |
+| `303a:80d6` | 1 | not read here | **yes** |
+| `239a:cafe` | 1 | not read here | **yes** |
+| `239a:4404` | 1 | not read here | **yes** |
+| `1a86:7523` | 1 | not read here | **yes** |
+| `2886:0166` | 1 | not read here | **yes** |
+| `239a:00da` | 1 | not read here | **yes** |
+| `16d0:1178` | 1 | not read here | **yes** |
+| `239a:810b` | 1 | not read here | **yes** |
+| `239a:010b` | 1 | not read here | **yes** |
+| `239a:810c` | 1 | not read here | **yes** |
+
+**67 of the 107 board definitions sit behind an identifier whose product string nobody here has read.** Those are the useful captures. The ESP32-S3 family is deliberately excluded: `303a:1001` was captured three times on 2026-08-26 — a Clip-Boy, a Minino and the ESP32-S3 inside a Free-WiLi 2 — and all three reported the identical product string, `USB JTAG/serial debug unit`. That is the ROM's, not the board's. No capture of an ESP32-S3 board using native USB can distinguish it from another, which is worth knowing before asking 49 boards' worth of owners for one.
+
+The nRF52840 families are the opposite case: their UF2 bootloaders are built per board, so the string is usually the board's own name. That is where a thirty-second capture buys something, and it is what `.github/ISSUE_TEMPLATE/lora-product-string.yml` asks for.
+

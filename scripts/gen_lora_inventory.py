@@ -30,11 +30,33 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 import yaml  # noqa: E402
 
+from hammunition.manifest.load import load_hardware  # noqa: E402
+
 PROBE = REPO_ROOT / "reference" / "probes" / "lora-identifiers.tsv"
 AMBIGUITY = REPO_ROOT / "catalog" / "hardware" / "ambiguous-ids.yaml"
+HARDWARE = REPO_ROOT / "catalog" / "hardware"
 OUT = REPO_ROOT / "docs" / "reference" / "lora-inventory.md"
 
 FIELDS = ("project", "board_file", "board_name", "vendor", "product", "source")
+
+
+def product_strings() -> dict[str, set[str]]:
+    """Product strings the catalog has actually read, keyed by identifier.
+
+    Cross-referenced rather than assumed, because the answer changes what is
+    worth asking a contributor for. An identifier whose product string is a
+    *chip* constant — the ESP32-S3's ROM reports "USB JTAG/serial debug unit" on
+    every board that uses it — cannot be disambiguated by a product string at
+    all, and asking somebody to send one is asking them to confirm something
+    already known three times over.
+    """
+    classes, devices = load_hardware(HARDWARE)
+    found: dict[str, set[str]] = defaultdict(set)
+    for holder in (*classes.values(), *devices.values()):
+        for usb in holder.usb_ids:
+            if usb.product_string and usb.product:
+                found[f"{usb.vendor}:{usb.product}"].add(usb.product_string)
+    return found
 
 
 def ambiguous_ids() -> set[str]:
@@ -143,6 +165,53 @@ def main() -> int:
         "**Nothing here is `maintainer_verified`.** D-027 keeps that separate: "
         "upstream metadata is good evidence that an identifier is correct and no "
         "evidence at all that anyone here has run the hardware.",
+        "",
+        "## Which product strings are worth asking for",
+        "",
+        "Not all of them, and working out which is the useful part. A product "
+        "string is only worth collecting where it can *distinguish* a board — "
+        "and for the largest identifier family here it provably cannot.",
+        "",
+        "| Identifier | Boards | Product string here | Worth asking? |",
+        "|---|---:|---|---|",
+    ]
+    known = product_strings()
+    askable: set[str] = set()
+    for pair, board_set in ranked:
+        seen = sorted(known.get(pair, ()))
+        if seen and len(board_set) > 1:
+            # Read on several unrelated boards and identical every time: the
+            # string belongs to the silicon, so no capture can separate them.
+            verdict = "**no** — the string is the chip's, not the board's"
+            shown = ", ".join(f"`{x}`" for x in seen)
+        elif seen:
+            verdict = "already read"
+            shown = ", ".join(f"`{x}`" for x in seen)
+        else:
+            verdict = "**yes**"
+            shown = "not read here"
+            # Union, not a sum: one board claims up to four of these, and adding
+            # the column would report 196 boards out of a corpus of 107.
+            askable |= board_set
+        lines.append(f"| `{pair}` | {len(board_set)} | {shown} | {verdict} |")
+
+    lines += [
+        "",
+        f"**{len(askable)} of the {total_boards} board definitions sit behind an "
+        "identifier whose product string nobody here has read.** Those are the "
+        "useful captures. The "
+        "ESP32-S3 family is deliberately excluded: `303a:1001` was captured "
+        "three times on 2026-08-26 — a Clip-Boy, a Minino and the ESP32-S3 "
+        "inside a Free-WiLi 2 — and all three reported the identical product "
+        'string, `USB JTAG/serial debug unit`. That is the ROM\'s, not the '
+        "board's. No capture of an ESP32-S3 board using native USB can "
+        "distinguish it from another, which is worth knowing before asking "
+        "49 boards' worth of owners for one.",
+        "",
+        "The nRF52840 families are the opposite case: their UF2 bootloaders are "
+        "built per board, so the string is usually the board's own name. That is "
+        "where a thirty-second capture buys something, and it is what "
+        "`.github/ISSUE_TEMPLATE/lora-product-string.yml` asks for.",
         "",
     ]
     OUT.write_text("\n".join(lines) + "\n")

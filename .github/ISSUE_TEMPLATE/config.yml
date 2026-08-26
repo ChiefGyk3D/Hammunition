@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+blank_issues_enabled: true
+contact_links:
+  - name: What we do and do not store about your hardware
+    url: https://github.com/ChiefGyk3D/Hammunition/blob/main/docs/contributing/hardware.md
+    about: >-
+      Read this before pasting anything. Serial numbers are per-unit and we
+      record whether one exists, never the value.
+  - name: The measured inventories
+    url: https://github.com/ChiefGyk3D/Hammunition/tree/main/docs/reference
+    about: >-
+      Corrections to these are the most valuable issue you can file. Several of
+      our own claims have already turned out to be wrong.

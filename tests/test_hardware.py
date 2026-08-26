@@ -827,3 +827,36 @@ def test_the_readme_hardware_counts_match_the_catalog() -> None:
     ]
     for claim in expected:
         assert claim in readme, f"README no longer says {claim!r}"
+
+
+# ---------------------------------------------------------------------------
+# The contribution ask is generated data too
+# ---------------------------------------------------------------------------
+
+
+def test_the_lora_issue_form_states_the_generated_numbers() -> None:
+    """An ask that misstates its own scope wastes the contributor's time.
+
+    The LoRa form tells people which boards are worth capturing and which are
+    provably not. Both halves come from `docs/reference/lora-inventory.md`, and
+    a form quoting a stale count would send somebody to plug in a board whose
+    answer we already have three times over. So the numbers are read out of the
+    generated document rather than trusted to match it.
+    """
+    import re
+
+    root = HARDWARE.parent.parent
+    inventory = (root / "docs" / "reference" / "lora-inventory.md").read_text()
+    form = (root / ".github" / "ISSUE_TEMPLATE" / "lora-product-string.yml").read_text()
+
+    boards = re.search(r"\*\*Board definitions read:\*\* (\d+)", inventory)
+    ids = re.search(r"\*\*Distinct USB identifiers:\*\* (\d+)", inventory)
+    askable = re.search(r"\*\*(\d+) of the (\d+) board definitions", inventory)
+    assert boards and ids and askable, "lora-inventory.md no longer states its counts"
+
+    assert f"{boards.group(1)} board" in form
+    assert f"{ids.group(1)} distinct" in form
+    assert f"{askable.group(1)} of the {askable.group(2)} boards" in form
+    # The exclusion is the part most likely to rot back into a blanket ask.
+    assert "303a:1001" in form
+    assert askable.group(2) == boards.group(1)

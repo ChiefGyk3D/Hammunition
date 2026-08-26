@@ -1,0 +1,96 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: LoRa mesh board — product string
+description: >-
+  One line from a Meshtastic, MeshCore or RNode board. Trivial to do, impossible
+  to fake, and it closes something 107 upstream board definitions cannot.
+title: "lora: <board name>"
+labels: ["hardware", "lora", "good first issue"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **The gap, precisely.** Meshtastic and MeshCore publish a PlatformIO
+        board file per product, and we mined all of them: **107 board
+        definitions, 26 distinct USB identifiers, the top one covering 49
+        boards.** That closed the identifier question without any hardware —
+        which was necessary, because the maintainer's nodes were lost to
+        flooding.
+
+        It closed nothing else. **A board definition records what the flasher
+        matches, not what the board reports.** The descriptor's product string
+        is the only thing that could tell one board from another sharing a
+        module, and a flasher never needs it, so no upstream source has it.
+        Only somebody with the board in front of them does.
+
+        **Which boards are worth it** is in
+        [`docs/reference/lora-inventory.md`](https://github.com/ChiefGyk3D/Hammunition/blob/main/docs/reference/lora-inventory.md#which-product-strings-are-worth-asking-for),
+        generated, with the reasoning. Short version: **nRF52840 boards
+        (`239a:*`, `2886:*`) yes, ESP32-S3 boards using native USB no.** The
+        ESP32-S3's `303a:1001` was captured three times here on unrelated
+        products and reported the identical string every time — `USB
+        JTAG/serial debug unit`, which belongs to the ROM. We are not going to
+        ask 49 boards' worth of owners to confirm something already known.
+
+        **67 of the 107 boards sit behind an identifier nobody here has read.**
+        Yours is probably one of them.
+  - type: input
+    id: board
+    attributes:
+      label: Which board
+      description: The name on the silkscreen or the vendor's product page.
+      placeholder: LilyGo T-Echo / Heltec Mesh Node T114 / RAK4631
+    validations:
+      required: true
+  - type: dropdown
+    id: firmware
+    attributes:
+      label: What is running on it
+      options:
+        - Meshtastic
+        - MeshCore
+        - RNode / Reticulum
+        - Stock UF2 bootloader only, not yet flashed
+        - Something else (say which below)
+    validations:
+      required: true
+  - type: textarea
+    id: capture
+    attributes:
+      label: What it reports
+      description: |
+        Plug it in, then paste the output of:
+
+        ```
+        lsusb -v 2>/dev/null | grep -A3 -E 'idVendor.*(239a|2886|303a|1a86|16d0)'
+        ls -l /dev/serial/by-id/
+        ```
+
+        Or run `scripts/identify-device.sh <board>` from a checkout, which is
+        read-only and formats it for us. **Redact the serial value** — we record
+        only whether one exists.
+      render: text
+    validations:
+      required: true
+  - type: checkboxes
+    id: modes
+    attributes:
+      label: If you can, capture both modes
+      description: >-
+        A UF2 board enumerates differently in its bootloader (double-tap reset)
+        than when running firmware, and the bootloader's string is usually the
+        board-specific one, because the bootloader is built per board. Both
+        together are twice as useful as either.
+      options:
+        - label: Running firmware
+        - label: Bootloader / UF2 drive mode
+  - type: checkboxes
+    id: honesty
+    attributes:
+      label: Before you submit
+      options:
+        - label: This is output from a board I attached, not from a board definition, a wiki or a vendor page.
+          required: true
+        - label: I have removed the serial number value (keeping whether one existed).
+          required: false

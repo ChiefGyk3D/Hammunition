@@ -34,7 +34,32 @@ Use the name from the gap report if your device is listed. If it isn't, use any
 short lowercase name and say what the hardware is.
 
 Send the output as an issue or a pull request. Both are fine; the output is the
-contribution either way.
+contribution either way. There are issue forms that tell you exactly what to
+paste, so nothing is left to guess:
+
+| Form | For |
+|---|---|
+| [`hardware-identifier.yml`](../../.github/ISSUE_TEMPLATE/hardware-identifier.yml) | Any device in `hardware-gaps.md`, or one we do not list at all |
+| [`lora-product-string.yml`](../../.github/ISSUE_TEMPLATE/lora-product-string.yml) | Meshtastic, MeshCore and RNode boards — see below, the ask is narrower than it looks |
+
+### The LoRa ask is specific, and deliberately not a blanket one
+
+107 upstream board definitions were mined into
+[`docs/reference/lora-inventory.md`](../reference/lora-inventory.md), which settled
+what every Meshtastic and MeshCore board *presents* — 26 identifiers, the top
+one covering 49 boards — without anyone owning one. What it cannot settle is
+which board is which, because **a board definition records what the flasher
+matches, not what the board reports**, and the descriptor's product string is
+the only thing that separates two boards sharing a module.
+
+That makes the ask worth targeting rather than broadcasting. **nRF52840 boards
+(`239a:*`, `2886:*`) are worth a capture; ESP32-S3 boards using native USB are
+not.** The ESP32-S3's `303a:1001` was captured three times here on unrelated
+products — a Clip-Boy, a Minino, and the ESP32-S3 inside a Free-WiLi 2 — and
+reported the identical product string every time, because it belongs to the ROM
+rather than to any board. Asking 49 boards' worth of owners to confirm that
+would waste their thirty seconds, which is a reason to do the arithmetic before
+posting an ask rather than after.
 
 **"Nothing appeared" is a real result.** It means the device does not enumerate,
 or enumerates as something already present. Send that too — it is information we
