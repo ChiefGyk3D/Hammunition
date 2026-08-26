@@ -1,0 +1,58 @@
+name: js8call
+version: 2.5.2
+summary: Weak-signal keyboard-to-keyboard messaging built on the FT8 modem
+categories: [digital-modes]
+
+# SHAPE 1 — the method itself varies, not merely its argument.
+# Linux Mint 22.3 ships Qt 6.4.2; JS8Call 2.5.2 requires Qt 6.5. On that one
+# target we take the older repository build; everywhere else we build from
+# source. AHRL expresses this with an inverted shell test that is always false
+# (see D-013); here it is a selector.
+install:
+  - when:
+      distro: [linuxmint]
+      distro_version: ["22.3"]
+    install:
+      method: apt
+      packages: [js8call]
+    note: >-
+      Mint 22.3 has Qt 6.4.2 and JS8Call 2.5.2 needs Qt 6.5. The repository
+      version is older but it runs.
+
+  - install:
+      method: source
+      source:
+        url: https://github.com/JS8Call-improved/JS8Call-improved/releases/download/2.5.2/JS8Call-improved-release-2.5.2.tar.gz
+        sha256: f965db1e362bc2b21272894f8a3a03a7a28f9ac1a7313e5d2e37a5632db0cc6a
+      build_system: cmake
+    build_depends: [qt6-multimedia-dev, qt6-serialport-dev, cmake, build-essential]
+
+binaries:
+  - produced: JS8Call
+    install_as: js8call
+
+depends: [libhamlib4]
+
+update:
+  probe:
+    method: github_release
+    repo: JS8Call-improved/JS8Call-improved
+  strategy: rebuild
+
+documentation:
+  what_it_does: >-
+    Sends and receives short text messages over HF using the same weak-signal
+    modem technology as FT8, so contacts work at signal levels well below what
+    voice or CW can manage.
+  why_you_want_it: >-
+    It is the practical choice for keyboard-to-keyboard conversation and
+    store-and-forward messaging when band conditions are poor. Where FT8 only
+    exchanges signal reports, JS8Call carries actual text.
+  prerequisites: >-
+    Rig control via hamlib or flrig, and correctly routed sound-card audio
+    between the radio and the computer.
+  known_problems: >-
+    Needs Qt 6.5 or newer. Linux Mint 22.3 ships Qt 6.4.2, so that target
+    installs the older repository build instead.
+  upstream_url: https://github.com/JS8Call-improved/JS8Call-improved
+  upstream_support: JS8Call groups.io list

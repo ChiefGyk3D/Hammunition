@@ -1,0 +1,65 @@
+name: wsjtx-improved
+version: 3.1.0
+summary: Community fork of WSJT-X with additional decoding and UI features
+categories: [digital-modes]
+
+# Ordering is declared for determinism, but correctness no longer depends on it:
+# install_as gives each build a distinct final name, so neither can overwrite
+# the other regardless of sequence. Contrast AHRL, where running one without
+# the other leaves a mis-named binary.
+after: [wsjtx]
+
+install:
+  - install:
+      method: source
+      source:
+        url: https://sourceforge.net/projects/wsjt-x-improved/files/wsjtx-3.1.0_improved_PLUS_260418.tgz
+        sha256: 15c494dbfee81c40023c4c75ee0cd001ab5c894e4adca58ab2eb6d06bb7a338c
+      build_system: cmake
+      configure_args:
+        - -DWSJT_SKIP_MANPAGES=ON
+        - -DWSJT_GENERATE_DOCS=OFF
+    build_depends:
+      - gfortran
+      - libboost-all-dev
+      - qttools5-dev
+      - qttools5-dev-tools
+      - qtmultimedia5-dev
+      - libqt5serialport5-dev
+      - libfftw3-dev
+      - libreadline-dev
+      - libusb-1.0-0-dev
+      - libudev-dev
+
+binaries:
+  - produced: wsjtx
+    install_as: wsjtx-improved
+
+recommended_default: false
+
+toolkit_risk:
+  - framework: qt5
+    upstream_port_status: unknown
+    checked: 2026-08-25
+
+update:
+  probe:
+    method: none
+  strategy: manual
+  cadence_hint: >-
+    SourceForge releases with date-stamped filenames; no release API. Check
+    manually and re-pin the sha256.
+
+documentation:
+  what_it_does: >-
+    A fork of WSJT-X carrying decoding improvements, additional user-interface
+    options, and features that have not been merged upstream.
+  why_you_want_it: >-
+    Operators chasing marginal decodes often prefer it. It coexists with stock
+    WSJT-X rather than replacing it, so you can run either.
+  prerequisites: Same as WSJT-X — accurate clock, CAT control, audio routing.
+  known_problems: >-
+    Distributed as date-stamped SourceForge tarballs with no release feed, so
+    updates must be found and re-pinned by hand. Installs alongside stock
+    WSJT-X as wsjtx-improved.
+  upstream_url: https://sourceforge.net/projects/wsjt-x-improved/

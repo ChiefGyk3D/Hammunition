@@ -1,0 +1,57 @@
+name: noaa-apt
+version: 1.4.1
+summary: Decoder for NOAA weather-satellite APT imagery
+categories: [satellites, sdr]
+
+# SHAPE 5 — retired, and the catalog still carries it.
+# A user who goes looking must find an explanation, not silence.
+status: retired
+retire_reason: world_changed
+status_reason: >-
+  All NOAA APT satellites were taken out of service on 2025-11-09. The software
+  is not broken; the signals it decodes no longer exist. Verified by us against
+  NOAA service notices rather than inherited from AHRL's shell comment.
+status_date: 2025-11-09
+status_verdict: tested
+superseded_by: satdump
+recommended_default: false
+
+install:
+  - when:
+      arch: [aarch64]
+    install:
+      method: binary
+      artifact:
+        url: https://github.com/martinber/noaa-apt/releases/download/v1.4.1/noaa-apt-1.4.1-aarch64-linux-gnu.zip
+        sha256: 10f353381a2133de5cea588c367c383932bdc3bc7ddb690c6a555852b9fdbe59
+      format: zip
+  - when:
+      arch: [x86_64]
+    install:
+      method: binary
+      artifact:
+        url: https://github.com/martinber/noaa-apt/releases/download/v1.4.1/noaa-apt-1.4.1-x86_64-linux-gnu.zip
+        sha256: e2e3e00961fb6dbbe95bc712c06275cc601dfa58c3ba26f462fc344df40fdbff
+      format: zip
+
+update:
+  probe:
+    method: none
+  strategy: manual
+  cadence_hint: Retired. No further updates expected or wanted.
+
+documentation:
+  what_it_does: >-
+    Decodes Automatic Picture Transmission signals from NOAA weather satellites
+    into visible and infrared images, from a recording or a live SDR feed.
+  why_you_want_it: >-
+    You almost certainly do not, any more. Every NOAA satellite that transmitted
+    APT was decommissioned on 2025-11-09. For weather imagery from satellites
+    that are still transmitting, use SatDump, which handles current LRPT and
+    HRPT services.
+  prerequisites: An RTL-SDR or recorded audio of an APT pass.
+  known_problems: >-
+    Retired: the signal source is gone. Kept in the catalog so that operators
+    searching for an APT decoder get this explanation instead of finding
+    nothing and assuming we missed it.
+  upstream_url: https://noaa-apt.mbernardi.com.ar/

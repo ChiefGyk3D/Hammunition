@@ -1,0 +1,73 @@
+name: ais-catcher
+version: "0.70"
+summary: AIS receiver and decoder for marine vessel traffic, with a web map
+categories: [tracking, sdr]
+
+# SHAPE 6 — AHRL installs this with:
+#   bash -c "$(wget -qO- https://raw.githubusercontent.com/.../aiscatcher-install)"
+# That is unrepresentable here: the schema has no `method: script`, and
+# RemoteArtifact requires a sha256. The same software arrives as a pinned,
+# verifiable git revision instead, with the dependencies the script would have
+# installed declared where a dry-run can print them.
+install:
+  - install:
+      method: git
+      repo: https://github.com/jvde-github/AIS-catcher
+      ref: v0.70
+      build_system: cmake
+    build_depends:
+      - build-essential
+      - cmake
+      - pkg-config
+      - libsoxr-dev
+      - libsamplerate0-dev
+      - librtlsdr-dev
+      - libairspy-dev
+      - libhackrf-dev
+      - libcurl4-openssl-dev
+      - zlib1g-dev
+    note: >-
+      Dependencies are declared rather than discovered, so `--dry-run` can show
+      the whole set before anything is installed. AHRL's approach hides them
+      inside a downloaded script.
+
+binaries:
+  - produced: AIS-catcher
+    install_as: ais-catcher
+
+service_endpoints:
+  - name: webmap
+    default_url: http://localhost:8100
+    description: >-
+      Local web interface serving the vessel map. Bound to localhost by default;
+      change the port here if 8100 is taken.
+    user_configurable: true
+
+launchers:
+  - name: ais-catcher-web
+    exec: ais-catcher -N 8100 && x-www-browser {endpoint:webmap}
+    terminal: false
+
+update:
+  probe:
+    method: github_release
+    repo: jvde-github/AIS-catcher
+  strategy: rebuild
+
+documentation:
+  what_it_does: >-
+    Receives AIS transmissions from ships on 161.975 and 162.025 MHz using an
+    SDR, decodes the position and identity messages, and plots the vessels on a
+    web map served locally.
+  why_you_want_it: >-
+    It is the most capable open AIS decoder available, and coastal monitoring is
+    a natural companion to ADS-B aircraft tracking on the same receiver
+    hardware.
+  prerequisites: >-
+    An RTL-SDR or similar receiver and a VHF marine-band antenna. You must be
+    within range of the coast or inland waterways.
+  known_problems: >-
+    Upstream's own installer downloads and executes a shell script. We do not
+    use it: this manifest builds from a pinned git tag with declared
+    dependencies so the install is inspectable before it runs.
+  upstream_url: https://github.com/jvde-github/AIS-catcher

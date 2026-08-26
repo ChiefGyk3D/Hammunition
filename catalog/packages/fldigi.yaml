@@ -1,0 +1,72 @@
+name: fldigi
+version: 4.2.11
+summary: Multi-mode digital modem for PSK31, RTTY, Olivia, MT63 and more
+categories: [digital-modes, nbems]
+
+# SHAPE 2 — one build emits two user-facing programs, and the source build must
+# displace the repository package first.
+provides: [flarq]
+
+conflicts_with_repo_package: [fldigi]
+
+install:
+  - install:
+      method: source
+      source:
+        url: https://sourceforge.net/projects/fldigi/files/fldigi/fldigi-4.2.11.tar.gz
+        sha256: 762b370ffe9cae773a2a03b512d0b7242e7e90407c11d5abbd2d31ae6501664f
+      build_system: autotools
+    build_depends:
+      - libfltk1.3-dev
+      - libportaudio2
+      - libportaudiocpp0
+      - libsamplerate0-dev
+      - libsndfile1-dev
+      - libudev-dev
+    note: >-
+      AHRL also installs libportaudio-ocaml-dev here. That is an OCaml binding
+      fldigi does not use; it is a copy-paste error that never surfaced because
+      AHRL checks no exit status. Deliberately omitted — see D-016.
+
+binaries:
+  - produced: src/fldigi
+    install_as: fldigi
+  - produced: src/flarq
+    install_as: flarq
+
+depends: [libhamlib4]
+
+toolkit_risk:
+  - framework: wx3.2
+    upstream_port_status: unknown
+    checked: 2026-08-25
+    note: >-
+      Not fldigi itself, but AHRL resolves libwxgtk*-dev by apt-cache grep for
+      several units; fldigi uses FLTK and is unaffected. Recorded to keep the
+      register honest about what was checked.
+
+update:
+  probe:
+    method: binary_version
+    command: fldigi --version
+    pattern: 'fldigi version ([0-9.]+)'
+  strategy: rebuild
+
+documentation:
+  what_it_does: >-
+    Turns a sound card and a transceiver into a modem for around twenty digital
+    modes, including PSK31, RTTY, Olivia, Contestia and MT63, with a waterfall
+    display for tuning them.
+  why_you_want_it: >-
+    It is the reference implementation for HF digital modes on Linux and the
+    foundation of the NBEMS emergency-messaging stack alongside flmsg and flamp.
+  prerequisites: >-
+    Sound-card audio routed to and from the radio, and PTT via hamlib, flrig,
+    CAT, or a serial line.
+  known_problems: >-
+    The repository package is purged before installing, because the source build
+    installs to the same prefix. The build also produces flarq, which is why
+    this manifest declares it under provides — without that, a parity check
+    reports flarq as a false gap.
+  upstream_url: https://sourceforge.net/projects/fldigi/
+  upstream_support: linuxham groups.io list

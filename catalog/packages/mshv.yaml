@@ -1,0 +1,65 @@
+name: mshv
+version: 2.76.5
+summary: Multi-mode weak-signal application with multi-stream FT8 decoding
+categories: [digital-modes]
+
+# SHAPE 4 — same source archive, same build system, different project file per
+# architecture. The selector carries the arch; project_file carries the variant.
+install:
+  - when:
+      arch: [aarch64]
+    install:
+      method: source
+      source:
+        url: http://lz2hv.org/files/MSHV_2765_Full_Source_Code.zip
+        sha256: a20eb9451961fef77b059d2fb29fdacfa95d835b2ba03174e4187cf61aa8703a
+      build_system: qmake
+      project_file: MSHV_ARM_PI.pro
+    build_depends: [libqt5websockets5-dev, libasound2-dev, qt5-qmake]
+
+  - when:
+      arch: [x86_64]
+    install:
+      method: source
+      source:
+        url: http://lz2hv.org/files/MSHV_2765_Full_Source_Code.zip
+        sha256: a20eb9451961fef77b059d2fb29fdacfa95d835b2ba03174e4187cf61aa8703a
+      build_system: qmake
+      project_file: MSHV_x86_64.pro
+    build_depends: [libqt5websockets5-dev, libasound2-dev, qt5-qmake]
+
+binaries:
+  - produced: bin/MSHV
+    install_as: mshv
+
+launchers:
+  - name: mshv
+    exec: ./MSHV
+    working_directory: /usr/local/src/MSHV_2765/bin
+
+toolkit_risk:
+  - framework: qt5
+    upstream_port_status: unknown
+    checked: 2026-08-25
+    note: libqt5websockets5-dev. No published Qt6 plan.
+
+update:
+  probe:
+    method: none
+  strategy: manual
+  cadence_hint: Upstream posts numbered zips at lz2hv.org; re-pin by hand.
+
+documentation:
+  what_it_does: >-
+    Decodes and transmits FT8, JT65, JT9, MSK144 and other weak-signal modes,
+    with multi-stream decoding that lets one instance work several callers at
+    once — useful for contest and DXpedition operating.
+  why_you_want_it: >-
+    Where WSJT-X handles one exchange at a time, MSHV can run several in
+    parallel, which matters when you are the rare station being called.
+  prerequisites: CAT rig control and sound-card audio routing.
+  known_problems: >-
+    Ships a separate qmake project file per architecture and must run from its
+    build directory, so a generated launcher is required. Still on Qt5 with no
+    published port plan.
+  upstream_url: http://lz2hv.org/node/10

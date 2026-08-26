@@ -101,12 +101,13 @@ The original entry inherited a candidate backend list from `CLAUDE.md` and
 | `flatpak` | 0 | **Zero occurrences; not required for parity.** |
 | `appimage` | 0 in AHRL | **Not required for AHRL parity. Post-1.0**, required by the 73Linux delta — HAMRS is an AppImage whose upstream is discovered by scraping `hamrs.app`. |
 | Wine *prefix* | 0 in AHRL | AHRL's Morse Runner needs bare `wine` only. **Post-1.0**, VARA needs a configured prefix: `WINEARCH=win32`, `winetricks winxp`, `winetricks sound=alsa`. A prefix backend is more than `apt install wine`. |
-| **CPAN** | **1 real use** | **Required.** Missing from the original breakdown. `install_aa_analyzer` runs `(export PERL_MM_USE_DEFAULT=1; cpan install Device/SerialPort.pm)`. **Security note:** unpinned CPAN fetch, no checksum, and `PERL_MM_USE_DEFAULT=1` auto-accepts configuration prompts — it is a network install that answers its own questions. Either pin it, package the Perl dependency ourselves, or use the Debian `libdevice-serialport-perl` package if it satisfies the build. |
+| **CPAN** | **1 real use** | **Eliminated by supersession, 2026-08-25 — revisit only if a second consumer appears.** Originally: Missing from the original breakdown. `install_aa_analyzer` runs `(export PERL_MM_USE_DEFAULT=1; cpan install Device/SerialPort.pm)`. **Security note:** unpinned CPAN fetch, no checksum, and `PERL_MM_USE_DEFAULT=1` auto-accepts configuration prompts — it is a network install that answers its own questions. Superseded: `aa-analyzer` → `flaa` removes the only CPAN consumer in the inventory, and with it the backend. If `aa-analyzer` is carried as a CLI alternative, satisfy it from Debian's `libdevice-serialport-perl`, never from CPAN. See D-014's worked example. |
 | `snap` | 11 occurrences | **Not a backend — an anti-dependency.** Every occurrence is *removal* of snap Firefox, plus an APT pin to keep it off. Belongs in `system_modifications` as a package to purge and pin against, never as an install method. |
 
 **Measured backend set required for 1.0** (AHRL parity + packet core): apt,
 source-from-tarball, source-from-git, binary/`.deb`/archive, Python venv, pipx,
-CPAN, and launcher generation. Nothing else is justified by data.
+and launcher generation. **CPAN is not in the set** — see the amendment above.
+Nothing else is justified by data.
 
 ### Amendment, 2026-08-25 — 1.0 packet core needs no new backend
 
@@ -253,8 +254,32 @@ upstream publishes it, and AX.25 makes station-local config generation blocking
 rather than deferred.
 
 Secondary 73Linux units (XYGRIB, M0IAX) remain unclassified pending
-`PARITY-POLICY.md` disposition. Pi-system helpers (PISTATS, PITERM, VNC, CONKY,
-BATT) are RETIRE-as-out-of-scope.
+`PARITY-POLICY.md` disposition.
+
+### Correction, 2026-08-25 — three units were misclassified by their filenames
+
+The original text of this resolution read: *"Pi-system helpers (PISTATS, PITERM,
+VNC, CONKY, BATT) are RETIRE-as-out-of-scope."* **Three of those five were wrong,
+and the error was mine.** I classified them from the `PI*` filename prefix
+without reading the `.bapp` headers. The prefix is 73Linux's naming convention,
+not a statement about the software.
+
+| Unit | What I said | What it actually is | Corrected |
+|---|---|---|---|
+| `PITERM` | Pi system helper | **QtTermTCP** (G8BPQ) — packet terminal over TCP | **1.0 packet core** |
+| `QTSOUND` | *(not considered)* | **QtSoundModem** (UZ7HO / Wiseman port) — soundcard packet modem, a direct alternative to Direwolf | **1.0 packet core** |
+| `PIAPRS` | *(not considered)* | **Pi-APRS** — APRS messaging client | **1.0 packet core** |
+| `PISTATS` | Pi system helper | Pi3/4 stats monitor | RETIRE — correct as stated |
+| `CONKY`, `BATT`, `VNC` | Out of scope | System monitor, battery test, RealVNC viewer | RETIRE — correct as stated |
+
+**The 1.0 packet core is therefore eight units, not five:** PAT, AX.25, BPQ,
+ARDOP, Direwolf-with-configuration, **QtTermTCP, QtSoundModem, and Pi-APRS**.
+QtTermTCP and QtSoundModem are the same author's stack as BPQ, which is why they
+belong together.
+
+**Method note:** classify from the manifest header or the source, never from the
+filename. The `.bapp` `Comment=` field carried the correct answer the whole time
+and cost one HTTP request to read.
 
 ---
 
@@ -360,6 +385,35 @@ always false.
 A generated call list makes this class of bug structurally impossible. When
 justifying the declarative catalog to anyone, this is the example.
 
+### Worked example, 2026-08-25 — the dead menu entry has a real victim
+
+This stopped being hypothetical. The never-called function is
+`install_hamclock_next`, and the software it fails to install is **the
+replacement for software that has since been discontinued**.
+
+- HamClock's author, Elwood Downey (WB0OEW), became a Silent Key **2026-01-29**.
+- HamClock was reported to stop functioning **end of June 2026**.
+- **AHRL v27 shipped May 2026** — after the announcement, before the sunset.
+- v27 builds ESPHamClock **four times** (800x480, 1600x960, 2400x1440,
+  3200x1920) and every menu entry hardcodes `-b hamclock.com:80`.
+- v27 also ships `hamclock-next-1.5.tar.gz`, defines `install_hamclock_next()`,
+  installs `hamclock-next.desktop` into the HF_Propagation menu, and lists
+  "added hamclock-next" in CHANGES.
+- **The call is missing from the main body.**
+
+So AHRL v27 installs four copies of a discontinued client pointed at a
+discontinued server, ships the maintained successor in the same tarball, and
+never installs it. A user who wanted the working one got a dead menu entry.
+
+Full sourcing in `reference/licence-verification.md`. Two consequences:
+
+1. **The catalog's call list must be generated.** Not reviewed, not linted —
+   generated, so a defined unit that is never installed is unrepresentable.
+2. **Service endpoints are manifest fields, never launcher constants.** Had the
+   backend URL been a field, repointing every HamClock install at the Open
+   HamClock Backend would be a one-line catalog change. Hardcoded into four
+   generated launchers, it is not. This is shape 7 in the schema.
+
 ---
 
 ## D-014 — Backends are justified by measurement, not convention
@@ -381,5 +435,114 @@ When a backend is considered and rejected, record it as a measured zero rather
 than deleting it — the negative result is evidence, and it stops the next person
 re-adding it from the same convention.
 
+### Worked example, 2026-08-25 — CPAN, justified by one package, eliminated by one supersession
+
+CPAN entered the backend set correctly: measurement found it, convention had
+missed it, and exactly one unit required it — `aa-analyzer`, which needs the
+Perl module `Device::SerialPort`.
+
+Then the disposition pass found `flaa`: an actively maintained W1HKJ GUI for the
+same RigExpert AA-\* analyzers. Superseding `aa-analyzer` → `flaa` removed the
+only CPAN consumer in the inventory, and with it:
+
+- an entire backend we would have had to build, test per-distro, and maintain
+- an unpinned network install with no checksum
+- `PERL_MM_USE_DEFAULT=1`, which auto-accepts configuration prompts — a network
+  install that answers its own questions, in direct conflict with our security
+  requirements
+
+**The rule this adds:** measurement justifies a backend; it does not oblige us to
+build one. Before committing to a backend whose justification is a single
+package, check whether that package has a maintained replacement. A backend with
+one consumer is a liability with a dependency.
+
+**Order matters:** run dispositions before finalising backend scope. Had we built
+CPAN support first, we would have maintained it for a package we then superseded.
+
 **Closes:** the unexamined backend list in `CLAUDE.md` M3, `DESIGN.md` §6, and
 the `backends/` line in the repo layout.
+
+---
+
+## D-015 — Qt5 exposure is a standing register, not a one-time audit
+
+**Decided:** The catalog carries a **queryable Qt5 exposure register** as data:
+which units depend on Qt5, which specific Qt5 components, and whether a Qt6 path
+exists upstream. It is maintained continuously and reported, not audited once.
+
+**Evidence:** Qt5 is not a per-package risk — it is one systemic risk with many
+faces, and it has **already claimed two units**. `dream` died on
+`libqt5webkit5-dev` and `mvoice` on `libopendht-dev`, both removed in Debian 13.
+AHRL discovered each failure one package at a time, by compile error, after the
+fact.
+
+Units still on Qt5 in the inventory: **QLog** (qtbase5, qtwebengine5, qt5charts,
+qt5keychain — the heaviest exposure in the catalog), **wsjtx**,
+**wsjtx_improved**, **MSHV**, **gqrx**, **qgrid**, **QtTinySA**, **Coil64**,
+**AntScope2**, **wfview**.
+
+**Flagged no-migration-path:** `wfview` requires `libqt5gamepad5-dev`. **Qt
+Gamepad was deprecated in Qt 5.15 and never carried into Qt6** — there is no Qt6
+equivalent to migrate to. Upstream must drop or reimplement the feature. This is
+qualitatively different from a module that merely needs porting, and the register
+must distinguish the two.
+
+**Register fields, per unit:** `qt_major`, the specific component list, an
+upstream Qt6 status (`ported` | `in-progress` | `no-path` | `unknown`), and the
+date that status was last checked.
+
+**Why data and not a document:** a document goes stale silently. A register in
+the catalog can be queried (*"what breaks when Debian drops Qt5?"*), reported in
+CI, and diffed between releases. It is the same argument as **D-005**'s status
+field — knowledge that currently lives in a maintainer's head becomes something
+the tool can answer.
+
+**Generalises:** Qt5 is the instance, not the rule. Any shared dependency whose
+removal would take out multiple units warrants a register — GTK2 is the next
+candidate (`glfer` needs `libgtk2.0-dev`, and GTK2 is EOL).
+
+---
+
+## D-016 — The engine fails loudly on any unresolvable dependency
+
+**Decided:** An unresolvable dependency is a hard error that stops the run. Never
+a warning, never a log line the run continues past.
+
+**Evidence:** AHRL has **no `set -e` and checks no exit status anywhere** across
+3,911 lines. Every `apt install`, `make`, and `cmake` may fail and the script
+proceeds to the next program. This is why `bin/find_errors_ahrl` exists — it
+greps a 2.5-hour install transcript for error strings *afterwards*, and its own
+comment concedes *"It doesn't identify EVERY error...yet(?)."*
+
+The consequence is silent partial installs. Several AHRL dependency lines are
+suspected already-failing and nobody would know:
+
+| Dependency | Unit | Problem |
+|---|---|---|
+| `fftw2` | `glfer` | FFTW **version 2** |
+| `libgtk2.0-dev` | `glfer` | GTK2 is EOL |
+| `python3-tksnack` | `js8spotter` | Snack toolkit, very old |
+| `libportaudio-ocaml-dev` | `fldigi` | An **OCaml** binding fldigi does not use — almost certainly a copy-paste error that has never surfaced because nothing checks |
+
+**This restates `CLAUDE.md`'s "fail loudly, never silently degrade" as a specific,
+testable engine requirement**, because the failure mode it prevents is the single
+most common defect in the prior art.
+
+**Consequences:**
+- Dependency resolution is a distinct pre-flight phase. Resolve everything for
+  the whole transaction, report every failure together, then install — do not
+  discover failures one package at a time, mid-run.
+- `--dry-run` must resolve dependencies for real. A dry run that cannot tell you
+  a package is unobtainable is not complete, and **D-004** requires completeness.
+- Partial success is reported explicitly: what installed, what did not, why.
+
+### Latent bugs to fix rather than inherit
+
+Carried across from AHRL and corrected in our manifests:
+
+| Bug | Fix |
+|---|---|
+| `default-jre-headless` for **FoxTelem** and **YAAC** | Both are **Swing GUI** applications; a headless JRE is precisely the one without the AWT display stack. Use a full JRE. |
+| `libportaudio-ocaml-dev` in **fldigi** deps | Spurious. Remove. |
+| `LIBWXGTK_DEV` resolved by `apt-cache search libwxgtk \| grep dev \| grep -v media \| grep -v webview` | Replace with **explicit per-distro package names**. The wxWidgets 3.2 → 3.3 transition changes the name and the pipeline silently returns the wrong package or nothing. Affects `freedv`, `gspiceui`, `tqsl`, `xwxapt`. |
+| `install_gspiceui` hardcodes an `aarch64-linux-gnu` symlink path on every arch | Dangling symlink on x86_64. Use the `arch` selector (**D-002**). |

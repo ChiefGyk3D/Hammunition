@@ -106,9 +106,23 @@ accidentally shipped the successor and installed four copies of the deceased
 original instead. This is the D-013 argument with a real user consequence
 attached, not a hypothetical.
 
-**Action:** CARRY `hamclock-next` (REVIVE from dead code), SUPERSEDE
-ESPHamClock, and make the backend URL a configurable field rather than a
-hardcoded launcher argument.
+**Action — accepted 2026-08-25, treated as priority.** CARRY `hamclock-next`
+(REVIVE from dead code), SUPERSEDE ESPHamClock, and make the backend URL a
+**manifest field**, never a hardcoded launcher argument. Recorded as the worked
+example in **D-013**; this is schema shape 7.
+
+**Sourcing.** Verified against primary reporting and quoted in full in
+`licence-verification.md`. Two things that must not be overstated in public
+copy:
+
+- We have **not tested a live client**. Correct phrasing is *reported to stop
+  functioning end of June 2026*, not *stopped*.
+- Amateur Radio Newsline reports the final release as **4.22**; AHRL v27 ships
+  **4.23**. Unresolved discrepancy; it does not change the conclusion.
+
+There are **three** successors, not one: `hamclock-next` (k4drw, SDL2 rewrite),
+`openhamclock` (accius), and the Open HamClock Backend at `ohb.works` — a
+replacement *server* that keeps existing clients alive.
 
 ---
 
@@ -118,8 +132,9 @@ hardcoded launcher argument.
 release cadence and a GUI, where `owx` is a 2022 CLI snapshot that needs
 `-Wno-*` flags to compile.*
 
-AHRL installs both. Keep `owx` as an alternative for any model CHIRP lacks —
-but the default should be the tool that gets updated.
+AHRL installs both. **Accepted 2026-08-25: CARRY both, mark CHIRP the
+recommended default.** `owx` stays for any model CHIRP lacks — superseding is not
+an excuse to remove working software.
 
 ---
 
@@ -161,9 +176,9 @@ that starts a decoder and `killall -9`s it on exit.
 catalog, where `grig` is a generic hamlib front-end with no meaningful upstream
 activity in a decade.*
 
-CARRY `grig` as an alternative — it is a thin, dependency-light hamlib GUI and
-some operators prefer that — but `flrig` is the default. For Icom, `wfview` is
-better still.
+**Accepted 2026-08-25: CARRY both, mark `flrig` the recommended default.**
+`grig` stays — it is a thin, dependency-light hamlib GUI and some operators
+prefer that. For Icom, `wfview` is better still.
 
 ---
 
@@ -186,9 +201,15 @@ rm -fr /usr/local/bin/rtl_*
 …followed by hand-created `.so` symlinks in `/usr/lib/$(arch)-linux-gnu`. It
 deletes distro-managed libraries with no record and no undo, every run.
 
-**High value if true.** Needs a container check of the actual `librtlsdr`
-version on each target. If false, CARRY the blog driver but express the deletion
-honestly in `system_modifications` and warn in `--dry-run`.
+**High value if true — accepted 2026-08-25 as the highest-value item on this
+list.** Container-check the actual `librtlsdr` version **per target**; the answer
+may differ between Debian 13, Ubuntu 26.04, Parrot and Raspberry Pi OS.
+
+**Where it does not hold, the replacement is not silent.** The driver swap must
+appear in `system_modifications` **in full** and be printed by `--dry-run` in
+full: every deleted path, every created symlink, the udev rules file, and the
+modprobe blacklist. A user is entitled to know before we delete distro-managed
+libraries, not after.
 
 ---
 
@@ -243,6 +264,11 @@ worked**, **(3) out of scope**.
 | `tt3_gpl` | **2** | Settled. |
 | `noaa-apt` | **1** | Settled. |
 | `xwxapt` | **1** | Settled. |
+| Arduino IDE | **3** | Debian ships IDE **1.x**, deprecated upstream. Shipping a deprecated IDE is worse than shipping nothing — document and point at arduino.cc. Accepted 2026-08-25. |
+
+**All six proposed RETIREs accepted 2026-08-25**, plus Arduino from the EDA
+split. `install_browser` in particular: depend on `x-www-browser`, never manage a
+browser.
 
 **Deliberately *not* retired**, though each looks like a candidate:
 
@@ -309,8 +335,19 @@ belongs in ham-core. The left-hand column is a hobby that overlaps.
 replaced `pcb`/`gerbv` with KiCad's equivalents. Only KiCad, Fritzing, GSpiceUI,
 ngspice and Arduino are live decisions.
 
-**Recommendation:** separate `electronics` profile, not removal; move the five
-left-hand units; keep the right-hand column in ham-core. **Your call.**
+### Resolved 2026-08-25 — split accepted
+
+- **ham-core:** `xnec2c`, `Coil64`, `atlc`, `gsmc`, `Fl_MoxGen`, `flaa`,
+  `nanovna-saver`, `QtTinySA`. Antenna and RF test work.
+- **`electronics` profile, opt-in:** `kicad`, `fritzing`, `gspiceui`, `ngspice`.
+- **Arduino — RETIRE, reason (3).** Do **not** carry the Debian `arduino`
+  package: it is Arduino IDE **1.x**, and shipping a deprecated IDE is worse than
+  shipping nothing. Document the omission and point users at arduino.cc for
+  IDE 2.x.
+- **`pcb`, `gerbv`, `gwave` — out of consideration entirely.** Not in AHRL v27;
+  v26a removed `gwave` and replaced `pcb`/`gerbv` with KiCad equivalents.
+- `gspiceui`'s hardcoded `aarch64-linux-gnu` symlink is fixed via the `arch`
+  selector regardless of profile (**D-016**).
 
 ---
 
@@ -331,8 +368,17 @@ on aarch64.
 
 **The honest position:** nothing native replicates Morse Runner's contest
 simulation. The choice is a Wine dependency for one x86_64-only trainer, or a
-documented gap. **Your call.** If Wine leaves, note that VARA reintroduces it
-post-1.0 anyway — so the decision is about 1.0 scope, not about Wine forever.
+documented gap.
+
+### Resolved 2026-08-25 — conditional
+
+**If Morse Runner CE or a native alternative builds, carry that and drop the Wine
+prefix from 1.0.** If neither does, **defer Morse Runner post-1.0 alongside
+VARA** rather than pulling Wine into core for a CW trainer.
+
+Either way Wine leaves the 1.0 core: it exists in AHRL solely for this unit, and
+VARA reintroduces it post-1.0 regardless. Disposition stays `M` pending the build
+attempt — this is a testable condition, not an open opinion.
 
 ---
 
@@ -351,10 +397,18 @@ regardless of merit — not because they are bad, but because we have no right t
 ship them. **If the licence question is ever resolved with Jason (D-001's
 suggested email), most of this section reopens.**
 
-### ADD — the 1.0 packet core (D-008)
+### ADD — the 1.0 packet core (D-008), corrected to eight units
+
+**Correction accepted 2026-08-25.** `PITERM`, `QTSOUND` and `PIAPRS` were
+misclassified as Pi system helpers on the strength of their filename prefix. They
+are QtTermTCP, QtSoundModem and an APRS messaging client — third-party packet
+software. All three move into the 1.0 packet core. See D-008's correction.
 
 | Unit | What it is | Backend |
 |---|---|---|
+| **QtTermTCP** (`PITERM`) | Packet terminal over TCP (G8BPQ) — pairs with BPQ | Binary |
+| **QtSoundModem** (`QTSOUND`) | Soundcard packet modem (UZ7HO / Wiseman port) — alternative to Direwolf | Binary |
+| **Pi-APRS** (`PIAPRS`) | APRS messaging client | Binary |
 | **PAT** | Winlink client (`la5nta/pat`) | Vendor `.deb` from GitHub Releases, per-arch |
 | **AX.25** | `ax25-tools` + `ax25-apps` + `/etc/ax25/axports` config | apt + **templated config** |
 | **BPQ** (linbpq) | BBS / Winlink gateway node (G8BPQ) | Binary — *but see verification problem* |
@@ -375,11 +429,9 @@ about the software. Three of them are G8BPQ packet tools:
 | **XYGRIB** | GRIB weather viewer | Third-party, open source, genuinely absent from ham catalogs |
 | **GARIM / VARIM** | ARIM / VARIM file transfer over ARDOP / VARA | Core EMCOMM file transfer; GARIM is open, VARIM pairs with closed VARA |
 
-**Recommendation:** QtSoundModem and QtTermTCP should be evaluated for the 1.0
-packet core alongside BPQ — they are the same author's stack and the same use
-case. GARIM likewise. **This is a scope question, so I am not deciding it**, but
-the D-008 note that put them out of scope was based on my misreading of their
-names and should not stand as evidence.
+**Resolved 2026-08-25:** QtSoundModem, QtTermTCP and Pi-APRS move into the 1.0
+packet core. GARIM/VARIM and XYGRIB remain ADD, scoped with VARA post-1.0 where
+they depend on it.
 
 ### CARRY / post-1.0
 

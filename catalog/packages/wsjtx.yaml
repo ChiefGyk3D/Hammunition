@@ -1,0 +1,69 @@
+name: wsjtx
+version: 3.0.0
+summary: Weak-signal digital modes — FT8, FT4, JT65, JT9, WSPR, Q65
+categories: [digital-modes]
+
+conflicts_with_repo_package: [wsjtx]
+
+install:
+  - install:
+      method: source
+      source:
+        url: https://github.com/WSJTX/wsjtx/releases/download/wsjtx-3.0.0/wsjtx-3.0.0.tar.gz
+        sha256: eb8b72941b574f1ad16aa0b50ae8b0cc7eaa2943f9b7d4797ff910bf518042a7
+      build_system: cmake
+      configure_args:
+        - -DWSJT_SKIP_MANPAGES=ON
+        - -DWSJT_GENERATE_DOCS=OFF
+        - -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+    build_depends:
+      - gfortran
+      - libboost-all-dev
+      - qttools5-dev
+      - qttools5-dev-tools
+      - qtmultimedia5-dev
+      - libqt5serialport5-dev
+      - libfftw3-dev
+      - libreadline-dev
+      - libusb-1.0-0-dev
+      - libudev-dev
+
+# SHAPE 3 — the collision, resolved by declaration rather than choreography.
+# Both this package and wsjtx-improved emit a binary called `wsjtx`. AHRL
+# renames around it: install wsjtx -> mv to wsjtx_orig -> install improved ->
+# mv to wsjtx_improved -> mv wsjtx_orig back. Run either half alone and a
+# binary is wrong. Declaring install_as makes the collision unrepresentable.
+binaries:
+  - produced: wsjtx
+    install_as: wsjtx
+
+toolkit_risk:
+  - framework: qt5
+    upstream_port_status: in_progress
+    checked: 2026-08-25
+    note: qttools5, qtmultimedia5, libqt5serialport5. Qt6 port under way upstream.
+
+update:
+  probe:
+    method: github_release
+    repo: WSJTX/wsjtx
+  strategy: rebuild
+
+documentation:
+  what_it_does: >-
+    Decodes and transmits the weak-signal modes that dominate modern HF digital
+    operating, principally FT8 and FT4, plus WSPR for propagation beaconing and
+    Q65 for weak-signal VHF and EME work.
+  why_you_want_it: >-
+    FT8 is the most-used mode on HF, and this is the reference implementation.
+    It makes contacts possible on bands and at power levels where nothing else
+    gets through.
+  prerequisites: >-
+    Accurate system clock (within about a second), CAT rig control, and audio
+    routed both ways between radio and computer.
+  known_problems: >-
+    Under Wayland on Raspberry Pi the window renders without borders or
+    decorations; switch to X11. The repository package is purged first because
+    the source build uses the same prefix.
+  upstream_url: https://wsjt.sourceforge.io/wsjtx.html
+  upstream_support: WSJT-X groups.io list

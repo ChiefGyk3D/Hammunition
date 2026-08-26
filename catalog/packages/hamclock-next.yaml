@@ -1,0 +1,80 @@
+name: hamclock-next
+version: "1.5"
+summary: Maintained SDL2 rewrite of HamClock — grey line, propagation, DX cluster
+categories: [hf-propagation]
+
+# SHAPE 7 — the launcher needs a configurable service endpoint.
+#
+# HamClock's author, Elwood Downey (WB0OEW), became a Silent Key on 2026-01-29,
+# and HamClock was reported to stop functioning at the end of June 2026. AHRL
+# v27 (May 2026) builds the original four times and hardcodes
+# `-b hamclock.com:80` into every generated launcher, so repointing an install
+# at a surviving backend means editing four generated scripts.
+#
+# Here the backend is a manifest field. Repointing every install is a one-line
+# catalog change. See D-013 and reference/licence-verification.md.
+supersedes: [esphamclock]
+
+install:
+  - install:
+      method: source
+      source:
+        url: https://github.com/k4drw/hamclock-next/archive/refs/tags/v1.5.tar.gz
+        sha256: 1e4b79cb7e1544e965b193fd9b1586438f96a8f0b5f808cddad2cc147467e4be
+      build_system: cmake
+    build_depends:
+      - libsdl2-dev
+      - libsdl2-ttf-dev
+      - libsdl2-image-dev
+      - libcurl4-openssl-dev
+      - libsqlite3-dev
+      - cmake
+      - build-essential
+
+binaries:
+  - produced: hamclock-next
+    install_as: hamclock-next
+
+service_endpoints:
+  - name: backend
+    default_url: https://ohb.works
+    description: >-
+      Data backend supplying solar indices, DX cluster spots, and propagation
+      data. Defaults to the Open HamClock Backend, the community replacement for
+      the original hamclock.com service.
+    user_configurable: true
+    note: >-
+      The original backend at hamclock.com was reported to stop serving data at
+      the end of June 2026 following the author's death. We have not tested a
+      live client against it and do not claim it is down — but it is not a
+      sensible default. If you run your own backend, point this at it.
+
+launchers:
+  - name: hamclock-next
+    exec: hamclock-next --backend {endpoint:backend}
+    terminal: false
+
+update:
+  probe:
+    method: github_release
+    repo: k4drw/hamclock-next
+  strategy: rebuild
+
+documentation:
+  what_it_does: >-
+    Displays a live world map with the grey line, solar and geomagnetic indices,
+    satellite passes, DX cluster spots and band-condition predictions, either
+    full-screen on a dedicated display or in a window.
+  why_you_want_it: >-
+    It is the at-a-glance station dashboard for deciding which band to work, and
+    it is the maintained successor to HamClock, whose author became a Silent Key
+    in January 2026.
+  prerequisites: >-
+    A working network connection and a reachable data backend. Set your
+    latitude, longitude and callsign on first run.
+  known_problems: >-
+    The original HamClock's backend at hamclock.com was reported to stop serving
+    data at the end of June 2026. This manifest defaults to the Open HamClock
+    Backend instead, and the endpoint is configurable rather than compiled into
+    a launcher script.
+  upstream_url: https://github.com/k4drw/hamclock-next
