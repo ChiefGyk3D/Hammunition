@@ -223,3 +223,37 @@ def test_dispositions_summary_matches_index() -> None:
         assert claimed == (actual_ahrl[code], actual_delta[code]), (
             f"{name}: summary says {claimed}, index has ({actual_ahrl[code]}, {actual_delta[code]})"
         )
+
+
+# ---------------------------------------------------------------------------
+# The doc-link checker must actually scan docs/reference/
+#
+# The same unanchored-'reference' bug that hid docs/reference/ from git also hid
+# it from scripts/check_doc_links.py, whose SKIP_DIRS was matched against every
+# path component. Seven inventory documents were reported as "no broken internal
+# references" because none of them was ever opened.
+# ---------------------------------------------------------------------------
+
+
+def test_link_checker_scans_docs_reference() -> None:
+    """Regression: the checker's skip list must be root-anchored, like .gitignore."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "check_doc_links", REPO_ROOT / "scripts" / "check_doc_links.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    # The checker's own filter, not a copy of it.
+    scanned = [str(p) for p in module.scanned_docs()]
+
+    assert [p for p in scanned if p.startswith("docs/reference/")], (
+        "scripts/check_doc_links.py skips the whole docs/reference/ tree. Its "
+        "skip list must be anchored to the repo root, not matched against every "
+        "path component — see CLAUDE.md Conventions."
+    )
+    assert not [p for p in scanned if p.startswith("reference/")], (
+        "the gitignored root reference/ tree must stay out of the doc checker"
+    )

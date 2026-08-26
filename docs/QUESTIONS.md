@@ -203,3 +203,47 @@ Reasoning:
 guessed endpoint paths responded; the four 404s are as likely to be my wrong path
 names as missing functionality. Before defaulting anyone to `ohb.works`, someone
 should run a real client against both and confirm.
+
+---
+
+## Q-007 🟡 — SuperSDR has no licence. Do we carry it?
+
+**Raised by:** item 3, the Skywave inventory. **Blocks:** the `listening` profile's
+remote-SDR story. **Changes:** whether Hammunition ships a KiwiSDR client at all.
+
+`mcogoni/supersdr` — Skywave's KiwiSDR client, shipped as v3.14 in Skywave 5.10 —
+carries **no `LICENSE`, no `COPYING`, and no per-file header.** Verified by reading
+the repository tree and `supersdr.py` itself, not inferred from GitHub's metadata,
+which was wrong in the other direction for `acarsdec` in the same pass. Upstream is
+active (2026-02-18). Default copyright therefore applies: all rights reserved.
+
+This is the **D-001** situation again, and it lands on the single most visible piece
+of the listening delta. Worse, the alternatives are no cleaner:
+
+| Client | Licence | State |
+|---|---|---|
+| `mcogoni/supersdr` | **none** | active, the one Skywave ships |
+| `jks-prv/kiwiclient` | **none** — nothing in README or sources | active (2026-08-23), the reference CLI |
+| `llinkz/directKiwi` | WTFPL-style grant in README prose; no licence file | last touched 2025-10-09 |
+
+There is no cleanly-licensed KiwiSDR client in this ecosystem.
+
+**What is and is not at stake.** We do not redistribute source, so installing from
+upstream at a pinned ref is not the problem `.bapp` was. The problems are that we
+could not vendor a patch, could not carry a fork if upstream went quiet, and would
+be pointing users at software whose author has granted them nothing in writing.
+
+| Option | Consequence |
+|---|---|
+| **A. CARRY `supersdr`, pinned, with the licence state recorded in the manifest** ⭐ | Users get the client that works. `status`/`licence` fields make the risk visible rather than hidden. No forking, no patching — if upstream disappears, so does the unit. |
+| B. Ask upstream to add a licence first | Right thing to do regardless, and free to attempt. Cannot be a blocker: we do not control the answer or its timing. |
+| C. RETIRE the whole client cluster; document browser access only | Honest and clean. Also removes the on-ramp for the user who owns no hardware, which `SCOPE.md` calls the point of the listening delta. |
+| D. Carry `kiwiclient` instead | No improvement — same licence status, and a CLI rather than a GUI. |
+
+**Recommendation: A, and do B in parallel.** Carry it pinned, record
+`licence: unlicensed-default-copyright` in the manifest so the catalog states the
+fact rather than eliding it, and open a polite upstream issue asking for a licence.
+If one is granted, the manifest changes in one line.
+
+**This is your call, not mine** — it is the same class of decision as D-001, which
+you made deliberately.

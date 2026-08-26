@@ -28,7 +28,13 @@ MD_LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 BACKTICK_PATH = re.compile(r"`([A-Za-z0-9_./-]+\.(?:md|ya?ml|py|toml|sh|cfg))`")
 
 SKIP_SCHEMES = ("http://", "https://", "mailto:", "#")
-SKIP_DIRS = {".git", "reference", "vendor", "node_modules", ".venv"}
+
+# Anchored to the repo root, exactly like the `.gitignore` entries they mirror.
+# The unanchored form also matched `docs/reference/` — a required documentation
+# section — and silently excluded all seven inventory documents from checking,
+# which is the same bug the `.gitignore` had. A test asserts they are scanned.
+SKIP_ROOTS = {"reference", "vendor"}
+SKIP_ANYWHERE = {".git", "node_modules", ".venv", "__pycache__"}
 
 # Paths named in prose that are deliberately not repo files.
 #
@@ -45,6 +51,9 @@ ALLOW_MISSING = {
     "bin/test_menus_debian13.py",
     "bin/find_errors_ahrl",
     "bin/not_on_rpi.py",
+    # build scripts inside upstream source trees AHRL unpacks (reference/)
+    "./autogen.sh",
+    "./build_linux.sh",
     # 73Linux repository
     "73.sh",
     "bin/menu.sh",
@@ -58,15 +67,29 @@ def _candidates(path: str, doc: Path) -> list[Path]:
     return [REPO_ROOT / path, doc.parent / path]
 
 
+def scanned_docs() -> list[Path]:
+    """Every markdown file the checker will actually open, repo-relative.
+
+    Exposed so the regression test can assert on the *real* filter rather than
+    reimplementing it — a test that copies the logic it is guarding passes
+    happily when the logic is broken, which is how the original bug survived.
+    """
+    out: list[Path] = []
+    for md in sorted(REPO_ROOT.rglob("*.md")):
+        rel = md.relative_to(REPO_ROOT)
+        if rel.parts[0] in SKIP_ROOTS or any(p in SKIP_ANYWHERE for p in rel.parts):
+            continue
+        out.append(rel)
+    return out
+
+
 def check() -> int:
     broken: list[str] = []
     checked = 0
 
-    for md in sorted(REPO_ROOT.rglob("*.md")):
-        if any(part in SKIP_DIRS for part in md.parts):
-            continue
+    for rel in scanned_docs():
+        md = REPO_ROOT / rel
         text = md.read_text()
-        rel = md.relative_to(REPO_ROOT)
 
         for target in MD_LINK.findall(text):
             if target.startswith(SKIP_SCHEMES):
