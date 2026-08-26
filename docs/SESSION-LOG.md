@@ -1,7 +1,8 @@
 # Session log — overnight round 5, 2026-08-26
 
-Queue complete. Fourteen commits, **pushed** — this publishes round 4 as well,
-which had been committed but held back. Everything green.
+Queue complete, twice — a second batch arrived mid-round. Twenty commits,
+**pushed**; the first push also published round 4, which had been committed but
+held back. Everything green.
 
 Previous round's log is in git history at `175869a`.
 
@@ -108,6 +109,48 @@ because the revision is unconfirmed and the revision determines the bridge chip.
 ### 11–14. Hardware inventory, community catalogue, 21 manifests, README
 
 `517f4f8`, `be893fc`, `bc40212`, `f35feb5`.
+
+### 15. Copyright holder, and no CLA — `85b003f`
+
+Q-012 closed as `Copyright (C) 2026 Renegade Penguin LLC` across 115 files.
+**My option list had missed the answer**: I framed it as handle-versus-
+abstraction and treated an entity as hypothetical. An LLC is a legal person and
+can enforce a licence; a handle cannot.
+
+Deliberately *not* applied to `LICENSE` or `catalog/LICENSE` — verbatim texts
+whose checksums are asserted, and a copyright line inserted into a licence
+corrupts it. A test now says that in those words.
+
+`CONTRIBUTING.md` exists mainly to state what the company name does **not**
+mean: no CLA, no assignment, contributors keep copyright. A company name in
+every header invites the opposite assumption, and that inference would cost
+exactly the drive-by contributions the project most wants.
+
+### 16. D-027 — two axes for hardware claims — `acff5bb`
+
+`status: supported` and `maintainer_verified` are separate fields.
+**6 of 21 devices claim supported; 0 have been run here**, and that number is
+printed at the top of the gap report rather than smoothed away.
+
+### 17. D-024 — pin what a distribution packages — `a102cf8`
+
+Made structural: `basis` is `distribution_pin` (must name them) or `own_choice`
+(must name none, and needs a fuller rationale saying what was checked). "Looked
+recent" can no longer be expressed as a basis at all.
+
+### 18. The udev sweep — `0a6574f`
+
+The round's largest result. Every package in Debian 13 that ships a udev rule —
+280 of them, no shortlist — downloaded, unpacked and read. **1,947 distinct USB
+identifiers; we carried 77.**
+
+Two gaps closed without owning hardware: **LimeSDR** (Debian's `limesuite-udev`
+names the board) and **Flipper Zero** (Debian packages `qflipper`).
+
+And the hazard, which is the same failure pointed the other way: `0483:df11`
+appears in *both* `qflipper`'s rule and `dmrconfig`'s, where it is a TYT
+MD-UV380. Generic bridge identifiers over-match as silently as omission
+under-matches. A sweep produces candidates, not answers.
 
 ---
 
