@@ -46,6 +46,17 @@ Short answer: **none of them today.** The udev generator that would consume a co
 
 The hardware is in the kit. One `lsusb` closes each of these and no contribution is needed — do not solicit one.
 
+`scripts/identify-device.sh <name>` captures what is needed and prints a block ready to paste into the manifest. It is read-only, needs no root, and reports a device that does not enumerate as a finding rather than as a failure:
+
+```
+scripts/identify-device.sh catsniffer-v3
+scripts/identify-device.sh clip-boy
+scripts/identify-device.sh free-wili-2
+scripts/identify-device.sh meshtastic
+scripts/identify-device.sh minino
+scripts/identify-device.sh proxmark3
+```
+
 ### `catsniffer-v3`
 
 Electronic Cats CatSniffer v3 — multiprotocol sub-GHz, BLE and 802.15.4
@@ -85,6 +96,15 @@ No USB identifier confirmed yet, but the hardware to confirm one is in the maint
 ## Unverified by the maintainer — 4
 
 Carried because other operators have the device; the maintainer does not, so the gap cannot be closed here. This is deliberate, not a backlog — the entries stay and stay honest about why. `lsusb` output from an owner closes any of them.
+
+`scripts/identify-device.sh <name>` captures what is needed and prints a block ready to paste into the manifest. It is read-only, needs no root, and reports a device that does not enumerate as a finding rather than as a failure:
+
+```
+scripts/identify-device.sh krakensdr
+scripts/identify-device.sh limesdr
+scripts/identify-device.sh plutosdr
+scripts/identify-device.sh sdrplay-rsp
+```
 
 ### `krakensdr`
 

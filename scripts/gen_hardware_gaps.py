@@ -174,6 +174,18 @@ def render(classes: dict[str, DeviceClass], devices: dict[str, DeviceManifest]) 
             continue
         title, blurb = HEADING[closure]
         lines += [f"## {title} — {len(members)}", "", blurb, ""]
+        if closure != "not_applicable":
+            lines += [
+                "`scripts/identify-device.sh <name>` captures what is needed and "
+                "prints a block ready to paste into the manifest. It is read-only, "
+                "needs no root, and reports a device that does not enumerate as a "
+                "finding rather than as a failure:",
+                "",
+                "```",
+                *(f"scripts/identify-device.sh {n}" for n in sorted(d.name for d in members)),
+                "```",
+                "",
+            ]
         for device in sorted(members, key=lambda d: d.name):
             lines += [
                 f"### `{device.name}`",
