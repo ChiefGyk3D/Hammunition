@@ -225,7 +225,7 @@ def parse_readme() -> tuple[str, str, list[tuple[str, str, str]]]:
 
 
 def parse_probe(target: str) -> dict[str, str]:
-    path = SRC / f"apt-{target}.tsv"
+    path = REPO_ROOT / "reference" / "probes" / f"dragonos-{target}.tsv"
     if not path.exists():
         return {}
     out: dict[str, str] = {}
