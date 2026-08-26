@@ -510,3 +510,53 @@ contributors`.
 **Recommendation: A**, which is what is in the tree. This is recorded only so
 the choice is visible rather than inherited by default — say the word and it
 changes in one commit.
+
+---
+
+## Q-013 🟡 — How does SDR++ get into the catalog, if at all?
+
+**Raised by:** `install-verification.md`, which found SDR++'s release assets hang
+off a rolling `nightly` tag — a URL that never changes with an artifact behind it
+that does. **Blocks:** whether SDR++ ships at all. **Changes:** nothing else; it
+is one manifest.
+
+You asked me to check whether upstream tags releases in git even where the
+binaries do not, and said: if so, build from source at a tag; if not, mark it
+`unverifiable` behind explicit opt-in.
+
+**Upstream does tag. The tags are abandoned.** Measured 2026-08-26:
+
+| | |
+|---|---|
+| Newest release tag | `1.0.4`, commit `f539cfa`, **2021-10-18** |
+| `nightly` tag | commit `0521679`, 2024-01-17 |
+| `master` HEAD | commit `8c9f5ee`, **2026-07-04** |
+| Commits `1.0.4` → `nightly` | **541**, and more since |
+| Version DragonOS reports | 1.3.0 — **corresponds to no git tag at all** |
+
+So neither branch of your instruction quite fits. Building at `1.0.4` gives a
+program five years old that nobody runs and that no bug report will match.
+Marking it unverifiable would be wrong for a reason worth stating plainly:
+**every commit on master is an immutable, content-addressed SHA, which is a
+stronger pin than a tag.** The schema already knows this — `GitInstall.ref`
+accepts a SHA or a tag and rejects branch names by name. Nothing about this
+software is unpinnable; only its *binaries* are.
+
+| Option | Consequence |
+|---|---|
+| **A. Source build pinned to a commit SHA** ⭐ | `ref: 8c9f5ee8fe405775bfcd62c8c8f8c0fc928a64af` (2026-07-04). Fully pinned and reproducible. Costs us a curation judgement upstream does not make — which commit, and when to move — and that judgement has to be recorded and re-tested each time it moves. Needs the source-from-git backend, which is not written. |
+| B. The `nightly` `.deb`, `sid` variant | The only artifact that installs on both probed targets. Unpinnable by construction: rolling tag, no version, no published checksum. This is the shape the schema exists to forbid, and admitting it would make `RemoteArtifact`'s mandatory `sha256` a suggestion. |
+| C. Apt where available | `sdrpp` is packaged on Kali and Parrot but absent from Debian 13 and Ubuntu 26.04. Cheapest, and covers two targets honestly, but leaves the primary-target-adjacent Debian case empty. |
+| D. Do not carry it | Loses one of the more popular SDR front-ends. |
+
+**Recommendation: A and C together** — apt where the distribution packages it,
+a SHA-pinned source build elsewhere, which is exactly the shape `proxmark3.yaml`
+already uses. Not B under any circumstance: the reason to have a mandatory
+checksum field is that it is not negotiable when it is inconvenient.
+
+**The honest cost of A**, so it is not discovered later: pinning a SHA with no
+upstream release signal means *we* decide when to move it, and every move is a
+re-test. That is real maintenance we would be taking on because upstream stopped
+tagging. It may be a reason to prefer C alone and document the Debian gap.
+
+Say which and I will write the manifest.

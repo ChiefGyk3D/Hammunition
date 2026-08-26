@@ -1,0 +1,57 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: satdump
+version: "1.2.2"
+summary: Satellite data processing — receive, decode and image from weather and science satellites
+categories: [satellite, sdr, listening]
+
+# Tier 1 by apt, not by upstream .deb, and that is a correction rather than a
+# preference. `docs/reference/install-verification.md` measured the published
+# artifact: satdump's only Linux .deb targets Ubuntu 24.04 and installs on
+# NEITHER Debian 13 (wants libhdf5-hl-100t64) NOR Ubuntu 26.04 (wants
+# libvolk-bin and libfftw3-bin versions that are not there). SCOPE.md's Tier 1
+# definition now reads "an upstream .deb that RESOLVES on the target" for
+# exactly this reason.
+#
+# The apt package is present and installs cleanly on all four targets, so the
+# artifact that does not work is simply not used. Measured 2026-08-26:
+#   debian:13        1.2.2-1
+#   parrotsec/core   1.2.2-1
+#   kali-rolling     1.2.2+git20260527.6e4757c31+dfsg-3+b1
+
+install:
+  - install:
+      method: apt
+      packages: [satdump]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Receives, demodulates and decodes the downlinks of a large number of weather
+    and scientific satellites, turning raw IQ into calibrated images and data
+    products. It handles NOAA APT, Meteor LRPT, GOES and the higher-rate
+    polar-orbiter downlinks, live from an SDR or offline from a recording.
+  why_you_want_it: >-
+    It replaces a shelf of single-satellite decoders with one program that is
+    actively maintained, and it is the reason several older APT and LRPT tools
+    in the inventory are marked superseded rather than carried. Offline
+    processing of a recorded pass means you can capture now and decode later,
+    which matters when a pass is eight minutes long.
+  prerequisites: >-
+    A receiver covering the band you want and an antenna suited to it — a
+    turnstile or QFH for the polar orbiters. Nothing is required to process a
+    recording someone else made, which makes it usable before you own hardware.
+  known_problems: >-
+    Upstream's published .deb does not install on either Debian 13 or Ubuntu
+    26.04 — it is built for Ubuntu 24.04 and its dependencies have moved. Use
+    the distribution package, which is what this manifest does. Live decoding of
+    the high-rate downlinks is CPU-hungry; recording to disk and processing
+    afterwards is the reliable path on modest hardware. Kali's package is a git
+    snapshot rather than the 1.2.2 release, so behaviour can differ slightly
+    from Debian's and Parrot's.
+  upstream_url: https://github.com/SatDump/SatDump

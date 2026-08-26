@@ -259,7 +259,7 @@ an unsupported combination appear to work.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 34
+  packages/        # one YAML per piece of software          ✅ 35
   profiles/        # named bundles referencing packages      ✅ 4
   hardware/
     classes/       # device families with shared Linux needs ✅ badgelife
@@ -312,6 +312,7 @@ through Q-005 are resolved. Open:
 | **Q-007** 🟡 | SuperSDR has no licence — carry it, or not |
 | **Q-008** 🔴 | Does the RF profile include cellular interception tooling? Blocks `rf-research`'s contents |
 | **Q-012** 🟢 | What copyright holder string do the SPDX headers name? A default is in place |
+| **Q-013** 🟡 | How does SDR++ get into the catalog? Upstream tags are five years abandoned |
 
 ## Roadmap — 1.0 is the five-source union
 
