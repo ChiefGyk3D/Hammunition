@@ -1,0 +1,35 @@
+# Parameterised target container.
+#
+#   docker build -f containers/Dockerfile.target --build-arg BASE=debian:13 .
+#
+# Deliberately minimal: this validates the catalog against a target's real
+# /etc/os-release and package database. It does not install ham software —
+# that arrives with the backends.
+ARG BASE=debian:13
+FROM ${BASE}
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+# python3-full gives us venv; we never touch system site-packages.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      python3 python3-venv python3-pip ca-certificates apt-utils \
+ && rm -rf /var/lib/apt/lists/*
+
+# Vendored virtualenv, exactly as the shipped .deb will do (DESIGN.md §5).
+RUN python3 -m venv /opt/hammunition-venv
+ENV PATH="/opt/hammunition-venv/bin:${PATH}"
+
+WORKDIR /work
+COPY pyproject.toml README.md ./
+COPY src ./src
+RUN pip install --no-cache-dir -e ".[dev]"
+
+COPY catalog ./catalog
+COPY tests ./tests
+COPY scripts ./scripts
+COPY containers ./containers
+
+CMD ["python", "scripts/capability_matrix.py", "--check"]

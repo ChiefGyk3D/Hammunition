@@ -14,6 +14,7 @@ from __future__ import annotations
 import sys
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -22,7 +23,7 @@ from pydantic import ValidationError
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from hammunition.manifest.load import CatalogError, load_catalog, load_manifest  # noqa: E402
+from hammunition.manifest.load import CatalogError, load_catalog  # noqa: E402
 from hammunition.manifest.schema import (  # noqa: E402
     ManifestError,
     PackageManifest,
@@ -37,7 +38,7 @@ def catalog() -> dict[str, PackageManifest]:
     return load_catalog(CATALOG)
 
 
-def _minimal(**overrides) -> dict:
+def _minimal(**overrides: object) -> dict[str, Any]:
     base = {
         "name": "example",
         "version": "1.0",
@@ -58,6 +59,7 @@ def _minimal(**overrides) -> dict:
 # ===========================================================================
 # The whole catalog loads
 # ===========================================================================
+
 
 def test_catalog_loads(catalog) -> None:
     assert len(catalog) == 9
@@ -85,6 +87,7 @@ def test_every_remote_artifact_is_verified(catalog) -> None:
 # Shape 1 — install METHOD varies by distro, not just its argument
 # ===========================================================================
 
+
 def test_shape1_js8call_method_varies_by_distro(catalog) -> None:
     js8 = catalog["js8call"]
 
@@ -108,6 +111,7 @@ def test_shape1_selector_precision(catalog) -> None:
 # Shape 2 — provides + conflicts_with_repo_package
 # ===========================================================================
 
+
 def test_shape2_fldigi_provides_flarq(catalog) -> None:
     fldigi = catalog["fldigi"]
     assert "flarq" in fldigi.provides
@@ -127,6 +131,7 @@ def test_provides_may_not_list_self() -> None:
 # ===========================================================================
 # Shape 3 — the wsjtx binary collision
 # ===========================================================================
+
 
 def test_shape3_binary_collision_is_declared_away(catalog) -> None:
     """Both builds emit `wsjtx`; install_as gives them distinct final names, so
@@ -150,15 +155,20 @@ def test_shape3_only_one_is_the_default(catalog) -> None:
 
 def test_duplicate_install_as_is_rejected() -> None:
     with pytest.raises((ValidationError, ManifestError)):
-        PackageManifest.model_validate(_minimal(binaries=[
-            {"produced": "a", "install_as": "same"},
-            {"produced": "b", "install_as": "same"},
-        ]))
+        PackageManifest.model_validate(
+            _minimal(
+                binaries=[
+                    {"produced": "a", "install_as": "same"},
+                    {"produced": "b", "install_as": "same"},
+                ]
+            )
+        )
 
 
 # ===========================================================================
 # Shape 4 — per-architecture project file
 # ===========================================================================
+
 
 def test_shape4_mshv_project_file_per_arch(catalog) -> None:
     mshv = catalog["mshv"]
@@ -180,12 +190,13 @@ def test_shape4_unsupported_arch_resolves_to_none(catalog) -> None:
 # Shape 5 — retired, with a verdict we own
 # ===========================================================================
 
+
 def test_shape5_noaa_apt_is_retired_with_provenance(catalog) -> None:
     n = catalog["noaa-apt"]
     assert n.status is Status.retired
     assert n.retire_reason.value == "world_changed"
     assert n.status_date == date(2025, 11, 9)
-    assert n.status_verdict.value == "tested"   # D-005: never inherit a verdict
+    assert n.status_verdict.value == "tested"  # D-005: never inherit a verdict
     assert n.superseded_by == "satdump"
 
 
@@ -211,17 +222,20 @@ def test_non_supported_status_requires_provenance(missing: str) -> None:
 
 def test_retired_requires_a_reason_code() -> None:
     with pytest.raises((ValidationError, ManifestError)):
-        PackageManifest.model_validate(_minimal(
-            status="retired",
-            status_reason="Because.",
-            status_date="2025-11-09",
-            status_verdict="tested",
-        ))
+        PackageManifest.model_validate(
+            _minimal(
+                status="retired",
+                status_reason="Because.",
+                status_date="2025-11-09",
+                status_verdict="tested",
+            )
+        )
 
 
 # ===========================================================================
 # Shape 6 — the remote script is unrepresentable
 # ===========================================================================
+
 
 def test_shape6_ais_catcher_uses_a_pinned_ref(catalog) -> None:
     block = catalog["ais-catcher"].install[0]
@@ -233,49 +247,73 @@ def test_shape6_ais_catcher_uses_a_pinned_ref(catalog) -> None:
 def test_shape6_no_script_method_exists() -> None:
     """There is no way to say 'pipe this URL into bash'."""
     with pytest.raises((ValidationError, ManifestError)):
-        PackageManifest.model_validate(_minimal(install=[
-            {"install": {"method": "script", "url": "https://example.invalid/i.sh"}}
-        ]))
+        PackageManifest.model_validate(
+            _minimal(
+                install=[{"install": {"method": "script", "url": "https://example.invalid/i.sh"}}]
+            )
+        )
 
 
 def test_moving_git_refs_are_rejected() -> None:
     for ref in ("master", "main", "HEAD", "develop"):
         with pytest.raises((ValidationError, ManifestError)):
-            PackageManifest.model_validate(_minimal(install=[{
-                "install": {
-                    "method": "git",
-                    "repo": "https://example.invalid/x",
-                    "ref": ref,
-                    "build_system": "cmake",
-                }
-            }]))
+            PackageManifest.model_validate(
+                _minimal(
+                    install=[
+                        {
+                            "install": {
+                                "method": "git",
+                                "repo": "https://example.invalid/x",
+                                "ref": ref,
+                                "build_system": "cmake",
+                            }
+                        }
+                    ]
+                )
+            )
 
 
 def test_source_without_sha256_is_rejected() -> None:
     with pytest.raises((ValidationError, ManifestError)):
-        PackageManifest.model_validate(_minimal(install=[{
-            "install": {
-                "method": "source",
-                "source": {"url": "https://example.invalid/x.tar.gz"},
-                "build_system": "cmake",
-            }
-        }]))
+        PackageManifest.model_validate(
+            _minimal(
+                install=[
+                    {
+                        "install": {
+                            "method": "source",
+                            "source": {"url": "https://example.invalid/x.tar.gz"},
+                            "build_system": "cmake",
+                        }
+                    }
+                ]
+            )
+        )
 
 
 def test_malformed_sha256_is_rejected() -> None:
     with pytest.raises((ValidationError, ManifestError)):
-        PackageManifest.model_validate(_minimal(install=[{
-            "install": {
-                "method": "source",
-                "source": {"url": "https://example.invalid/x.tar.gz", "sha256": "deadbeef"},
-                "build_system": "cmake",
-            }
-        }]))
+        PackageManifest.model_validate(
+            _minimal(
+                install=[
+                    {
+                        "install": {
+                            "method": "source",
+                            "source": {
+                                "url": "https://example.invalid/x.tar.gz",
+                                "sha256": "deadbeef",
+                            },
+                            "build_system": "cmake",
+                        }
+                    }
+                ]
+            )
+        )
 
 
 # ===========================================================================
 # Shape 7 — configurable service endpoint
 # ===========================================================================
+
 
 def test_shape7_backend_is_a_field_not_a_launcher_constant(catalog) -> None:
     hc = catalog["hamclock-next"]
@@ -294,45 +332,64 @@ def test_shape7_launcher_references_endpoint_symbolically(catalog) -> None:
 
 def test_launcher_may_not_reference_an_undeclared_endpoint() -> None:
     with pytest.raises((ValidationError, ManifestError)):
-        PackageManifest.model_validate(_minimal(
-            launchers=[{"name": "x", "exec": "x --backend {endpoint:nope}"}]
-        ))
+        PackageManifest.model_validate(
+            _minimal(launchers=[{"name": "x", "exec": "x --backend {endpoint:nope}"}])
+        )
 
 
 # ===========================================================================
 # Cross-cutting rules
 # ===========================================================================
 
+
 def test_unconditional_block_may_not_shadow_later_blocks() -> None:
     """First-match-wins means a default block placed early silently wins."""
     with pytest.raises((ValidationError, ManifestError)):
-        PackageManifest.model_validate(_minimal(install=[
-            {"install": {"method": "apt", "packages": ["a"]}},
-            {"when": {"arch": ["aarch64"]},
-             "install": {"method": "apt", "packages": ["b"]}},
-        ]))
+        PackageManifest.model_validate(
+            _minimal(
+                install=[
+                    {"install": {"method": "apt", "packages": ["a"]}},
+                    {
+                        "when": {"arch": ["aarch64"]},
+                        "install": {"method": "apt", "packages": ["b"]},
+                    },
+                ]
+            )
+        )
 
 
 def test_irreversible_modification_must_explain_itself() -> None:
     with pytest.raises((ValidationError, ManifestError)):
-        PackageManifest.model_validate(_minimal(system_modifications=[{
-            "kind": "file_shadow",
-            "description": "Replaces distro librtlsdr",
-            "detail": "rm -fr /usr/lib/librtlsdr*",
-            "reversible": False,
-        }]))
+        PackageManifest.model_validate(
+            _minimal(
+                system_modifications=[
+                    {
+                        "kind": "file_shadow",
+                        "description": "Replaces distro librtlsdr",
+                        "detail": "rm -fr /usr/lib/librtlsdr*",
+                        "reversible": False,
+                    }
+                ]
+            )
+        )
 
 
 def test_third_party_repo_requires_a_pinned_key() -> None:
     with pytest.raises((ValidationError, ManifestError)):
-        PackageManifest.model_validate(_minimal(apt_repos=[{
-            "name": "example",
-            "uri": "https://ppa.invalid/",
-            "suites": ["stable"],
-            "components": ["main"],
-            "key_url": "https://ppa.invalid/key.asc",
-            "rationale": "Needed for the thing.",
-        }]))
+        PackageManifest.model_validate(
+            _minimal(
+                apt_repos=[
+                    {
+                        "name": "example",
+                        "uri": "https://ppa.invalid/",
+                        "suites": ["stable"],
+                        "components": ["main"],
+                        "key_url": "https://ppa.invalid/key.asc",
+                        "rationale": "Needed for the thing.",
+                    }
+                ]
+            )
+        )
 
 
 def test_categories_are_a_non_empty_list() -> None:
@@ -359,6 +416,7 @@ def test_extra_fields_are_rejected() -> None:
 # Loader behaviour
 # ===========================================================================
 
+
 def test_loader_reports_all_failures_not_just_the_first(tmp_path: Path) -> None:
     """D-016: resolve everything, then report together."""
     (tmp_path / "a.yaml").write_text("name: 'A'\n")
@@ -371,8 +429,7 @@ def test_loader_reports_all_failures_not_just_the_first(tmp_path: Path) -> None:
 def test_toolkit_risk_register_is_queryable(catalog) -> None:
     """D-015: 'what breaks when Debian drops Qt5?' must be answerable from data."""
     at_risk = {
-        name for name, m in catalog.items()
-        if any(t.framework == "qt5" for t in m.toolkit_risk)
+        name for name, m in catalog.items() if any(t.framework == "qt5" for t in m.toolkit_risk)
     }
     assert {"wsjtx", "wsjtx-improved", "mshv"} <= at_risk
     for name in at_risk:
@@ -382,9 +439,7 @@ def test_toolkit_risk_register_is_queryable(catalog) -> None:
 
 def test_toolkit_register_is_multi_framework(catalog) -> None:
     """D-015 is generic, not Qt5-specific. The register must prove that."""
-    frameworks = {
-        t.framework for m in catalog.values() for t in m.toolkit_risk
-    }
+    frameworks = {t.framework for m in catalog.values() for t in m.toolkit_risk}
     assert len(frameworks) > 1, f"register only covers {frameworks}"
     assert "gtk2" in frameworks
 

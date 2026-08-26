@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from .schema import ManifestError, PackageManifest
 
-__all__ = ["load_manifest", "load_catalog", "CatalogError"]
+__all__ = ["CatalogError", "load_catalog", "load_manifest"]
 
 
 class CatalogError(Exception):

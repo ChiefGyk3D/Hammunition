@@ -18,16 +18,16 @@ from __future__ import annotations
 import re
 from datetime import date
 from enum import Enum
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 __all__ = [
+    "InstallBlock",
+    "ManifestError",
     "PackageManifest",
     "Selector",
-    "InstallBlock",
     "Status",
-    "ManifestError",
 ]
 
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -48,6 +48,7 @@ class Strict(BaseModel):
 # Selectors — (distro, version, arch) -> method.  D-002, D-012.
 # ---------------------------------------------------------------------------
 
+
 class Arch(str, Enum):
     x86_64 = "x86_64"
     aarch64 = "aarch64"
@@ -66,13 +67,12 @@ class Selector(Strict):
     arch: list[Arch] | None = None
 
     def matches(self, distro: str, version: str, arch: str) -> bool:
-        if self.distro and distro not in self.distro:
-            return False
-        if self.distro_version and version not in self.distro_version:
-            return False
-        if self.arch and arch not in [a.value for a in self.arch]:
-            return False
-        return True
+        """An unset dimension matches anything; a set one must contain the value."""
+        return (
+            (not self.distro or distro in self.distro)
+            and (not self.distro_version or version in self.distro_version)
+            and (not self.arch or arch in [a.value for a in self.arch])
+        )
 
     @property
     def is_default(self) -> bool:
@@ -82,6 +82,7 @@ class Selector(Strict):
 # ---------------------------------------------------------------------------
 # Verified artifacts.  D-004: no unverified downloads, ever.
 # ---------------------------------------------------------------------------
+
 
 class RemoteArtifact(Strict):
     """A file fetched over the network. Verification is not optional."""
@@ -111,6 +112,7 @@ class Patch(Strict):
 # ---------------------------------------------------------------------------
 # Install methods.  Discriminated union on `method`.
 # ---------------------------------------------------------------------------
+
 
 class AptInstall(Strict):
     method: Literal["apt"] = "apt"
@@ -150,9 +152,7 @@ class GitInstall(Strict):
     @model_validator(mode="after")
     def _pinned(self) -> GitInstall:
         if self.ref in {"master", "main", "HEAD", "trunk", "develop"}:
-            raise ManifestError(
-                f"ref {self.ref!r} is a moving branch; pin a commit SHA or tag"
-            )
+            raise ManifestError(f"ref {self.ref!r} is a moving branch; pin a commit SHA or tag")
         return self
 
 
@@ -178,7 +178,7 @@ class PipxInstall(Strict):
 
 
 InstallMethod = Annotated[
-    Union[AptInstall, SourceInstall, GitInstall, BinaryInstall, VenvInstall, PipxInstall],
+    AptInstall | SourceInstall | GitInstall | BinaryInstall | VenvInstall | PipxInstall,
     Field(discriminator="method"),
 ]
 
@@ -199,6 +199,7 @@ class InstallBlock(Strict):
 # ---------------------------------------------------------------------------
 # Outputs: binaries, launchers, service endpoints.
 # ---------------------------------------------------------------------------
+
 
 class Binary(Strict):
     """Explicit build-output -> installed-name mapping.
@@ -242,10 +243,17 @@ class Launcher(Strict):
 # System modifications and config.  D-012, D-016.
 # ---------------------------------------------------------------------------
 
+
 class SystemModification(Strict):
     kind: Literal[
-        "udev_rule", "modprobe_blacklist", "group_create", "group_membership",
-        "foreign_arch", "package_purge", "apt_pin", "file_shadow",
+        "udev_rule",
+        "modprobe_blacklist",
+        "group_create",
+        "group_membership",
+        "foreign_arch",
+        "package_purge",
+        "apt_pin",
+        "file_shadow",
     ]
     description: str
     detail: str
@@ -294,6 +302,7 @@ class AptRepo(Strict):
 # ---------------------------------------------------------------------------
 # Status, updates, toolkit risk.
 # ---------------------------------------------------------------------------
+
 
 class Status(str, Enum):
     supported = "supported"
@@ -356,6 +365,7 @@ class Documentation(Strict):
 # Top level
 # ---------------------------------------------------------------------------
 
+
 class PackageManifest(Strict):
     name: str
     version: str
@@ -415,11 +425,13 @@ class PackageManifest(Strict):
         if self.status is Status.supported:
             return self
         missing = [
-            f for f, v in (
+            f
+            for f, v in (
                 ("status_reason", self.status_reason),
                 ("status_date", self.status_date),
                 ("status_verdict", self.status_verdict),
-            ) if v is None
+            )
+            if v is None
         ]
         if missing:
             raise ManifestError(

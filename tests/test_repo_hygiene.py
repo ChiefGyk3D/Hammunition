@@ -44,6 +44,7 @@ def _tracked_files() -> set[str]:
 # docs/reference/ must stay tracked
 # --------------------------------------------------------------------------
 
+
 def test_docs_reference_dir_is_not_ignored() -> None:
     """The unanchored 'reference/' rule regression. See CLAUDE.md Conventions."""
     assert not _is_ignored("docs/reference/"), (
@@ -75,6 +76,7 @@ def test_docs_reference_has_tracked_content() -> None:
 # Third-party material must stay out
 # --------------------------------------------------------------------------
 
+
 def test_root_reference_dir_is_ignored() -> None:
     """The AHRL extracted tree lives here and must never be committed."""
     assert _is_ignored("reference/"), "/reference/ must be git-ignored (D-011)"
@@ -97,8 +99,18 @@ def test_third_party_material_is_ignored(path: str) -> None:
 
 def test_no_third_party_archives_are_tracked() -> None:
     suffixes = (
-        ".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tar.xz", ".zip",
-        ".deb", ".rpm", ".whl", ".AppImage", ".iso", ".img",
+        ".tar",
+        ".tar.gz",
+        ".tgz",
+        ".tar.bz2",
+        ".tar.xz",
+        ".zip",
+        ".deb",
+        ".rpm",
+        ".whl",
+        ".AppImage",
+        ".iso",
+        ".img",
     )
     offenders = [f for f in _tracked_files() if f.endswith(suffixes)]
     assert not offenders, f"third-party archives are tracked: {offenders}"
@@ -106,8 +118,7 @@ def test_no_third_party_archives_are_tracked() -> None:
 
 def test_no_files_tracked_from_root_reference_tree() -> None:
     offenders = [
-        f for f in _tracked_files()
-        if f.startswith("reference/") or f.startswith("vendor/")
+        f for f in _tracked_files() if f.startswith("reference/") or f.startswith("vendor/")
     ]
     assert not offenders, f"third-party tree committed: {offenders}"
 
@@ -123,8 +134,12 @@ def test_no_files_tracked_from_root_reference_tree() -> None:
 DISPOSITIONS = REPO_ROOT / "docs" / "reference" / "dispositions.md"
 
 _CODES = {
-    "C": "CARRY", "S": "SUPERSEDE", "R": "REVIVE",
-    "X": "RETIRE", "A": "ADD", "?": "NEEDS-DECISION",
+    "C": "CARRY",
+    "S": "SUPERSEDE",
+    "R": "REVIVE",
+    "X": "RETIRE",
+    "A": "ADD",
+    "?": "NEEDS-DECISION",
     "M": "Reserved to maintainer",
 }
 
@@ -194,6 +209,5 @@ def test_dispositions_summary_matches_index() -> None:
         claimed = _summary_counts().get(name)
         assert claimed is not None, f"summary table missing row: {name}"
         assert claimed == (actual_ahrl[code], actual_delta[code]), (
-            f"{name}: summary says {claimed}, index has "
-            f"({actual_ahrl[code]}, {actual_delta[code]})"
+            f"{name}: summary says {claimed}, index has ({actual_ahrl[code]}, {actual_delta[code]})"
         )

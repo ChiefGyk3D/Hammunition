@@ -1,0 +1,46 @@
+# Supported targets. One container per entry in CI.
+#
+# `os_release_id` / `os_release_version` are what /etc/os-release reports, which
+# is what the engine keys on (DESIGN.md §8 — no heuristics). `image` is verified
+# to exist on Docker Hub; see scripts/verify-images.sh.
+targets:
+  - name: debian-13
+    image: debian:13
+    os_release_id: debian
+    os_release_version: "13"
+    arch: x86_64
+    priority: 2
+
+  - name: ubuntu-26.04
+    image: ubuntu:26.04
+    os_release_id: ubuntu
+    os_release_version: "26.04"
+    arch: x86_64
+    priority: 3
+
+  - name: kali-rolling
+    image: kalilinux/kali-rolling:latest
+    os_release_id: kali
+    os_release_version: "rolling"
+    arch: x86_64
+    priority: 4
+
+  - name: parrot
+    image: parrotsec/core:latest
+    os_release_id: parrot
+    os_release_version: "rolling"
+    arch: x86_64
+    priority: 1          # primary target, CLAUDE.md
+
+  - name: raspios-arm64
+    image: debian:13
+    platform: linux/arm64
+    os_release_id: debian
+    os_release_version: "13"
+    arch: aarch64
+    priority: 5
+    note: >-
+      Raspberry Pi OS publishes no official container image. debian:13 on
+      linux/arm64 is the closest honest proxy and exercises the aarch64
+      selectors (D-002). It is NOT a substitute for testing on real hardware,
+      and the capability matrix must say so rather than implying Pi coverage.
