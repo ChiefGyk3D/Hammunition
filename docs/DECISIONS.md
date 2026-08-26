@@ -1437,3 +1437,97 @@ node at all, udev rules were always about *access* rather than naming.
 - `nfc-reader` keeps its symlink: `pn533_usb` is a device driver, not a bridge
   driver. The rule distinguishes them by an explicit list, because `pn533_usb`
   also ends in `_usb` and getting that backwards would suppress a valid symlink.
+
+---
+
+## D-029 — The hardware layer is permissions and mapping; stable naming is mostly solved
+
+**Date:** 2026-08-26. **Status:** accepted. **Supersedes** the claim in
+`DESIGN.md` §9 that persistent udev symlinks are "the highest-value single
+feature in the project", and the same claim in `CLAUDE.md`.
+
+**Rule.** The hardware role's stated purpose is **permissions, composite-device
+mapping, firmware-mode identification, and honest documentation of the cases
+nothing solves.** A udev symlink is one tactic among those, used where evidence
+supports one — not the headline. Every device records what kind of interface it
+presents (`node_kind`), and `scripts/gen_device_naming.py` keeps the accounting
+current in `docs/reference/device-naming.md`.
+
+### What forced it
+
+D-028 already conceded, at the end, that systemd's `60-serial.rules` populates
+`/dev/serial/by-id/` from the descriptor strings with no help from us, and
+called that "a reduction in scope for the hardware role". It did not count.
+
+The Proxmark3 capture is what made counting necessary, and it cuts the other
+way from what the concession implied. `2d2d:504d` is proxmark.org's own
+registered vendor identifier, so the pair is *unambiguous* — D-028's problem
+does not apply. What the device supplies is nothing else: no product string and
+**no serial**, byte-identical descriptors across two different boards. by-id
+composes its path from manufacturer, product and serial, so two Proxmarks
+collide *there* exactly as they would under a naive symlink. Only
+`/dev/serial/by-path/` separates them, and by-path is topology: it changes when
+the operator moves the cable.
+
+So the honest conclusion was neither "by-id wins" nor "symlinks win". It was
+that **neither mechanism solves the identical-device case**, and what we can
+offer is the documentation that says so, in the entry's known-problems where
+somebody with two boards will find it.
+
+### The accounting
+
+Generated, not asserted. 21 devices in `catalog/hardware/devices/`:
+
+| | Devices |
+|---|---|
+| by-id covers every confirmed identifier | 5 |
+| covers some identifiers and not others | 3 |
+| covers none at all — nothing they present is serial | 9 |
+| not yet recorded either way | 4 |
+| **by-id insufficient for at least one reason** | **17 of 21** |
+| carry a udev symlink from this catalog | 5 |
+| …of which duplicate a path by-id would have given anyway | **0** |
+
+The last row is the finding, and it was not designed for: every symlink written
+so far is on a libusb device that systemd's *serial* rule never sees. The two
+mechanisms have not overlapped once. Nothing in the catalog is redundant, and
+nothing in it was the main event either.
+
+### What by-id does not give
+
+- **Permissions.** A device only root can open is unusable however stable its
+  path. This is what actually stops people, and by-id does nothing for it.
+- **Non-serial devices.** Every SDR here, the Ubertooth, and the Proxmark in
+  client mode are libusb devices with no `/dev/serial/` entry at all. 12 of 21.
+- **Identical units.** The Proxmark case above.
+- **Knowing which interface is which.** The Free-WiLi 2 presents four CDC ports
+  on one interface. by-id gives each a stable path and labels none of them; a
+  stable path to a port you cannot identify is not an answer.
+
+### Consequences applied
+
+- `UsbId` records `node_kind`, `ports`, `port_roles`, `product_string` and
+  `reports_serial`. Only the first is required to answer the accounting; the
+  rest are what make an answer *useful*.
+- **`composite: true` is a declared shape.** Declaring it obliges every
+  identifier to say what kind of interface it is, because the point of the
+  declaration is answering "which of these is the debug probe" — a question
+  by-id structurally cannot answer and a catalog can.
+- **`port_roles` takes every port or none.** A partial map reads as a complete
+  one.
+- **A `match_product` must equal a `product_string` some identifier records
+  having read.** `hackrf-one` failed this the moment it was enforced: it shipped
+  `match_product: HackRF One` on the strength of nothing, the maintainer owning
+  a Pro. Guessing a product string is the mirror image of guessing a VID:PID and
+  is just as silent. Closed by mining upstream's USB descriptor, not by asking
+  for hardware.
+- `DESIGN.md` §9, `CLAUDE.md` and `why-hammunition.md` are rewritten to lead
+  with access and mapping rather than with symlinks.
+
+### What this does not change
+
+Symlinks stay. An **operator-chosen role name** — `/dev/rig-991a` beats any
+by-id path nobody memorises — remains worth having, and for a libusb device a
+symlink is the only stable name there is. What changes is that a symlink now
+has to earn its place against a mechanism that already exists, rather than being
+assumed to be the deliverable.

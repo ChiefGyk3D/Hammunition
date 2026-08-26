@@ -20,7 +20,8 @@ disagrees with it, DECISIONS wins and the disagreeing file is a bug.
 - `docs/QUESTIONS.md` — decisions awaiting the maintainer, with recommendations
 - `docs/reference/` — the measurements everything rests on: `ahrl-inventory.md`,
   `blend-inventory.md`, `dispositions.md`, `overlaps.md`, `profile-sizing.md`,
-  `licence-verification.md`, `hardware-gaps.md`
+  `licence-verification.md`, `hardware-gaps.md`, `udev-inventory.md`,
+  `usb-ambiguity.md`, `lora-inventory.md`, `device-naming.md`
 
 ## What this project is NOT
 
@@ -455,6 +456,13 @@ authoritative:
   other operators have them; their gaps say *not owned* rather than *pending*,
   because the reason a gap is open is as important as the fact that it is.
 
-Persistent udev symlinks by device serial are the highest-value feature in the
-hardware role — `/dev/rig-991a`, `/dev/catsniffer`, etc., so plug order stops
-mattering and downstream configs reference stable names.
+**The hardware role is permissions, composite-device mapping, firmware-mode
+identification, and honest documentation of what nothing solves** (**D-029**).
+Persistent udev symlinks are one tactic used where the evidence supports one,
+not the headline — this file previously called them "the highest-value feature",
+and the generated accounting in `docs/reference/device-naming.md` does not
+support that. systemd's `60-serial.rules` already gives every USB-*serial*
+device a stable `/dev/serial/by-id/` path. It gives nothing to the 12 of 21
+catalogued devices that are libusb, nothing to a Proxmark3 that supplies no
+serial for it to compose a path from, nothing to permissions, and no label to
+any of the Free-WiLi 2's four ports. That is the work.

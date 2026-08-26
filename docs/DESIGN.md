@@ -232,11 +232,35 @@ Configuration for SDRs (HackRF, RTL-SDR, Airspy, SDRplay, LimeSDR, PlutoSDR,
 BladeRF), serial-connected transceivers and CAT interfaces, Digirig, GPS
 receivers, LoRa and Meshtastic hardware.
 
-**The highest-value single feature in the project:** persistent udev symlinks by
-device serial. `/dev/rig-991a`, `/dev/rig-ftx1`, `/dev/catsniffer`,
-`/dev/meshtastic0`. Plug order stops mattering; every downstream config
-references a stable name. This is roughly 150 lines of rules and saves an hour
-per field deployment.
+**What this layer is for** (D-029): **permissions, composite-device mapping,
+firmware-mode identification, and honest documentation of the cases nothing
+solves.** Persistent udev symlinks are one tactic among those, not the headline.
+
+That is a correction. This section previously called symlinks "the highest-value
+single feature in the project", and the accounting in
+[`reference/device-naming.md`](reference/device-naming.md) does not support it.
+systemd's `60-serial.rules` already composes `/dev/serial/by-id/` paths from the
+descriptor strings, per unit, with no help from anybody — stable naming was
+never the hard part. What by-id does *not* give is the actual work:
+
+- **Permissions.** A device only root can open is unusable however stable its
+  path, and this is what actually stops people.
+- **Non-serial devices.** 12 of 21 catalogued devices present nothing serial at
+  all — every SDR, the Ubertooth, the Proxmark in client mode. They are libusb
+  devices with no `/dev/serial/` entry for by-id to populate. For these a
+  symlink is the only stable name there is, which is why all five symlinks in
+  the catalog are on such devices and none duplicates a by-id path.
+- **Identical units.** A Proxmark3 supplies no product string and no serial, so
+  two of them collide in by-id exactly as under a naive symlink. Only
+  `/dev/serial/by-path/` separates them, and by-path is topology — it changes
+  when the cable moves. Neither mechanism solves this, and saying so in the
+  entry's known-problems is the deliverable.
+- **Knowing which interface is which.** A Free-WiLi 2 presents four CDC ports on
+  one interface. by-id gives each a stable path and labels none of them.
+
+An **operator-chosen role name** — `/dev/rig-991a` beats any by-id path nobody
+memorises — is still worth having, and belongs in station-local configuration
+with a `match_serial` for that unit rather than in a catalog-wide class rule.
 
 Everything the hardware layer does to a system is printed before it happens and
 recorded in the transaction log.

@@ -19,7 +19,8 @@ exactly where things stand:
 |---|---|
 | Catalog schema (Pydantic, `mypy --strict`) | ✅ working |
 | Package manifests | 🟡 58 of a planned ~230 |
-| Hardware catalog | 🟡 20 devices, 2 classes, 58 confirmed USB identifiers |
+| Hardware catalog | 🟡 21 devices, 2 classes, 94 confirmed USB identifiers |
+| …of which **supported** / **run on hardware here** | **16** / **7** — [two different claims](docs/DECISIONS.md), kept apart on purpose |
 | Profiles | 🟡 4 written, the rest sized and named on paper |
 | Inventories of all five upstream sources | ✅ complete and measured |
 | Consent gates for RF-research tooling | ✅ working |
@@ -176,6 +177,7 @@ Everything below is written before the code it describes, deliberately.
 | [`docs/QUESTIONS.md`](docs/QUESTIONS.md) | Open questions, with recommendations |
 | [`docs/reference/`](docs/reference/) | The measured inventories everything rests on |
 | [`docs/reference/hardware-gaps.md`](docs/reference/hardware-gaps.md) | Every USB identifier we don't have, who can close it, and what it blocks |
+| [`docs/reference/device-naming.md`](docs/reference/device-naming.md) | What `/dev/serial/by-id/` already covers, and the 17 of 21 devices where it does not |
 | [`docs/contributing/hardware.md`](docs/contributing/hardware.md) | How to send one, and what we do and don't store |
 
 The user-facing documentation site is *Hacker's Ham Shack*. Its standard: a

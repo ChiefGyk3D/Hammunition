@@ -135,8 +135,16 @@ afterwards is that external claims get tested before they get published.
 Installing packages is the easy part. The hard part — and the part almost nobody
 handles — is everything after:
 
-- udev rules and device permissions so your SDR works without root
-- persistent device naming so `/dev/ttyUSB0` roulette stops mattering
+- udev rules and device permissions so your SDR works without root — the thing
+  that actually stops people, and the thing no amount of stable naming fixes
+- a map of what a device's interfaces *are*, which matters as soon as one board
+  presents four serial ports and Linux labels none of them
+- persistent naming where it is still missing. Linux already solves most of
+  this: systemd populates `/dev/serial/by-id/` for anything presenting a serial
+  port, and we are not going to pretend otherwise to claim a feature. It does
+  nothing for the SDRs, which have no serial port at all, and nothing for a
+  device that ships no serial number for the path to be built from — and it
+  cannot give you `/dev/rig-991a`, a name you chose
 - audio routing for digital modes, which is where most Linux ham setups die
 - CAT and rig control setup
 - gpsd integration
