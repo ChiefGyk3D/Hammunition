@@ -1,0 +1,7 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# D-031. Refuse a commit whose message describes a change the commit does not
+# contain. Enable with:  git config core.hooksPath .githooks
+exec python3 "$(git rev-parse --show-toplevel)/scripts/check_commit_claims.py" "$1"

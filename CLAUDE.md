@@ -250,6 +250,13 @@ capability-matrix claims not backed by a passing container test.
   generic bridge identifiers like `0403:6001` and `0483:df11` appear in rules
   for devices they do not identify, and carrying those over-matches as silently
   as omission under-matches. See `docs/reference/udev-inventory.md`.
+- **Verify the effect, not the exit status** (**D-031**). A tool reporting
+  success is not evidence it did anything: `sed` exits 0 on an anchor that
+  matched nothing, `dpkg-deb -x` writes files and *then* exits non-zero, and a
+  `.gitignore` match makes a written file simply absent with no error anywhere.
+  Check the artefact. `scripts/check_commit_claims.py` enforces the commit-message
+  half — enable it with `git config core.hooksPath .githooks`; CI runs it over
+  every commit in a pull request either way.
 - Small, logically scoped commits
 - **Git workflow (WIP phase, 2026-08-25):** commit and **push directly to `main`**
   after each completed item. Once there is a solid working version, switch to

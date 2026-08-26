@@ -54,6 +54,34 @@ jobs:
       - run: ruff format --check .
 
   # -------------------------------------------------------------------------
+  # D-031. A commit message that describes a change the commit does not contain
+  # is how the D-028 amendment shipped as a no-op. The hook is opt-in locally
+  # (git will not run hooks from a clone, by design); this is the enforcement.
+  # -------------------------------------------------------------------------
+  commit-claims:
+    name: commit claims
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Every commit in the pull request
+        run: |
+          set -euo pipefail
+          base='${{ github.event.pull_request.base.sha }}'
+          head='${{ github.event.pull_request.head.sha }}'
+          fail=0
+          for rev in $(git rev-list "$base..$head"); do
+            echo "--- $(git log -1 --format='%h %s' "$rev")"
+            python3 scripts/check_commit_claims.py --rev "$rev" || fail=1
+          done
+          exit $fail
+
+  # -------------------------------------------------------------------------
   # Schema and catalog validation across supported interpreters.
   # -------------------------------------------------------------------------
   tests:

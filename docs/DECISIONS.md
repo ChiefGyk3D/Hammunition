@@ -1595,3 +1595,67 @@ carry on report alone**.
   three worked examples and lost two of them, which is the healthy direction. It
   no longer asserts that any unconfirmed identifier exists anywhere — an empty
   list is the goal state, not a reason to keep one around to satisfy a test.
+
+---
+
+## D-031 — Verify the effect, not the exit status
+
+**Date:** 2026-08-26. **Status:** accepted.
+
+**Rule.** A tool reporting success is not evidence that the tool did anything.
+Before claiming a change, **check the artefact you meant to change**, and where
+the claim is made in a commit message, let a hook check it rather than a person
+remember to. `scripts/check_commit_claims.py` runs as a `commit-msg` hook and in
+CI.
+
+### Three bugs, one shape
+
+| | What happened | What was read instead |
+|---|---|---|
+| The D-028 amendment | A `sed` anchor matched text that did not exist, so the edit no-oped. The commit message described a change the commit did not contain. | `sed`'s exit status, which is always 0, and a `grep` count checked *after* committing |
+| The udev sweep | `dpkg-deb -x` writes files and *then* exits non-zero under rootless podman, so `\|\| continue` fired after the write. All 280 packages logged "bad archive" while 2,750 rows were emitted. | The row count. The log was never opened. |
+| The `state/` directory | Written, and never committed, because a `.gitignore` pattern matched it. Nothing errored anywhere. | Nothing — that is the point. Absence of an error was taken as presence of a file. |
+
+D-025 already says a claim gets re-verified when it becomes decisive. This is the
+narrower and more embarrassing case: **verifying your own writes**, at the moment
+you make them. The distance between them is the distance between "was this still
+true a month later" and "did this happen at all".
+
+### What the hook checks
+
+Three things, chosen because each maps to one of the bugs above:
+
+1. **Restated decisions.** A message asserting what a decision *says* — "D-028
+   no longer rests on an esptool constant" — must touch that decision's own
+   section. A mention of `D-028` elsewhere in the diff does not count, and that
+   distinction is load-bearing: the first version of this check passed the very
+   commit it was written for, because that commit added schema docstrings which
+   happen to say "D-028" while never touching the decision.
+2. **Claimed paths.** A message saying it adds
+   `catalog/hardware/devices/minino.yaml` requires that path in the commit.
+3. **Phantom paths.** Any path the message names that exists on disk but is
+   neither tracked nor staged. That is the `state/` bug precisely, and it is the
+   one no other tool reports.
+
+Ordinary citation is deliberately untouched: "per D-014" asserts nothing about
+the diff and does not fire. A check that flags correct behaviour gets switched
+off, which would cost more than the bug it prevents.
+
+### Verified by reintroducing the bug
+
+The check was run against this repository's own history and refuses `717ba26`,
+the commit whose amendment silently matched nothing, while passing every other
+commit around it. The same method as `scripts/audit_gitignore.py`, and for the
+same reason: **a checker that has never been shown to catch the thing it was
+written for is itself an unverified claim.**
+
+### Enabling it
+
+```
+git config core.hooksPath .githooks
+```
+
+Not enabled automatically — git will not run hooks from a cloned repository, by
+design, and a project that works around that is asking contributors to execute
+code on clone. CI runs the same script over every commit in a pull request, so
+the check is enforced whether or not a contributor opts in locally.

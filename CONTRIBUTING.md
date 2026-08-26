@@ -82,7 +82,16 @@ holder line is a separate thing from attribution, and neither replaces the other
 ruff check . && ruff format --check .
 python3 scripts/audit_gitignore.py
 python3 scripts/check_doc_links.py
+git config core.hooksPath .githooks     # once per clone; see below
 ```
+
+That last line enables a `commit-msg` hook that refuses a commit whose message
+describes a change the commit does not contain — a decision it says it amended
+but did not touch, a file it says it added that git does not have (**D-031**).
+It is opt-in because git will not run hooks from a clone by design, and a
+project that works around that is asking you to execute its code on clone. CI
+runs the same script over every commit in your pull request regardless, so
+enabling it locally saves you a round trip rather than gating anything.
 
 Tests and `mypy --strict` run against a target container rather than your
 machine — `scripts/run-targets.sh`. CI is the authority: it pins Python 3.11+ and
