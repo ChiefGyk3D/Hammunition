@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: gqrx-sdr
+version: "2.17.6"
+summary: Graphical SDR receiver — waterfall, demodulators and a bookmark list
+categories: [sdr, listening]
+
+install:
+  - install:
+      method: apt
+      packages: [gqrx-sdr]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A general-purpose SDR receiver with a waterfall display, the usual
+    analogue demodulators, recording, and a remote-control interface other
+    software can drive.
+  why_you_want_it: >-
+    It is the receiver most people are pointed at first, it works with
+    anything gr-osmosdr or SoapySDR reaches, and its remote-control interface
+    lets satellite tracking software steer it for Doppler correction.
+  prerequisites: >-
+    A supported receiver and its driver. Audio output through PulseAudio or
+    PipeWire.
+  known_problems: >-
+    Built on GNU Radio, so it inherits GNU Radio's version sensitivity — a
+    distribution upgrade that moves GNU Radio can leave it unable to start
+    until it is rebuilt. On Wayland the waterfall can be slow; AHRL's guidance
+    to prefer X11 for ham applications applies here.
+  upstream_url: https://gqrx.dk/

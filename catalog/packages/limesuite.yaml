@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: limesuite
+version: "23.11.0"
+summary: Host tools and library for LimeSDR hardware
+categories: [sdr, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [limesuite]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    LimeUtil, LimeQuickTest and the LimeSuiteGUI, plus the library the
+    SoapySDR module is built against, for configuring and calibrating the
+    LMS7002M transceiver.
+  why_you_want_it: >-
+    LimeSDR hardware needs calibration in a way most SDRs do not, and these
+    are the tools that do it. LimeUtil --find is the first diagnostic.
+  prerequisites: >-
+    LimeSDR hardware. Note the limesdr hardware entry carries no confirmed
+    identifier — the maintainer does not own one — so udev rules for it are
+    not generated yet.
+  known_problems: >-
+    Upstream has moved to LimeSuiteNG while every target still ships the
+    classic 23.11 release; the two are not interchangeable and documentation
+    written for one will not match the other. The USB and Mini boards are
+    different hardware with different quirks.
+  upstream_url: https://github.com/myriadrf/LimeSuite

@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: soapysdr-module-airspy
+version: "0.2.0"
+summary: SoapySDR driver module for Airspy hardware
+categories: [sdr, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [soapysdr-module-airspy]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A plugin for SoapySDR, the vendor-neutral SDR abstraction layer, that
+    makes Airspy R2 and Mini usable through the generic SoapySDR interface.
+  why_you_want_it: >-
+    It is what lets one program drive many different radios. Software written
+    against SoapySDR — CubicSDR, SDR++, GQRX, gr-osmosdr and a great deal else
+    — reaches Airspy hardware through this module rather than through a
+    Airspy-specific code path, so installing it is usually the difference
+    between an application listing your radio and showing an empty device
+    list.
+  prerequisites: >-
+    The underlying Airspy library and udev rules — see the `airspy` entry in
+    the hardware catalog — plus SoapySDR itself, which apt pulls in.
+  known_problems: >-
+    A SoapySDR module and its underlying library are versioned together and a
+    mismatch shows up as a device that is not listed rather than as an error.
+    `SoapySDRUtil --info` reports which modules loaded and is the first thing
+    to check when a radio is invisible.
+  upstream_url: https://github.com/pothosware/SoapySDR/wiki

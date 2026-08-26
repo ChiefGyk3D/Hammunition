@@ -162,6 +162,14 @@ class HardwareDocumentation(Strict):
 
 
 class _DeviceCommon(Strict):
+    # `name` and `summary` live here rather than on each subclass so that code
+    # handling both -- the gap report, the package cross-check -- can iterate a
+    # merged sequence without widening to a base that knows nothing. `usb_ids`
+    # deliberately does NOT move up: a class must have at least one identifier
+    # and a device may have none, and that difference is the point.
+    name: str
+    summary: str
+
     groups: list[str] = Field(
         default_factory=list,
         description="Group membership required for non-root access.",
@@ -184,8 +192,6 @@ class DeviceClass(_DeviceCommon):
     """
 
     kind: Literal["class"] = "class"
-    name: str
-    summary: str
     usb_ids: list[UsbId] = Field(
         min_length=1, description="Bridge chips and native-USB identifiers."
     )
@@ -201,8 +207,6 @@ class DeviceManifest(_DeviceCommon):
     """One physical device."""
 
     kind: Literal["device"] = "device"
-    name: str
-    summary: str
     vendor: str
     device_class: str | None = Field(
         default=None, description="Inherits that class's ids, groups, packages and tooling."

@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: airspy
+version: "1.0.10"
+summary: Host tools and library for Airspy R2 and Mini receivers
+categories: [sdr, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [airspy]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    The library and command-line utilities for Airspy R2 and Mini:
+    airspy_info, airspy_rx for raw capture, and the calibration and firmware
+    tools.
+  why_you_want_it: >-
+    Airspy hardware sits between an RTL-SDR and a research-grade radio in both
+    price and quality, and these are the tools that confirm it is working
+    before any application touches it.
+  prerequisites: >-
+    Airspy hardware and the udev rules from the airspy hardware entry.
+  known_problems: >-
+    The R2, Mini and HF+ are different products with different libraries —
+    this one does not cover the HF+, which needs airspyhf. Mixing them up is
+    the usual first confusion.
+  upstream_url: https://github.com/airspy/airspyone_host

@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: soapysdr-module-lms7
+version: "23.11.0"
+summary: SoapySDR driver module for LimeSDR (LMS7002M) hardware
+categories: [sdr, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [soapysdr-module-lms7]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A plugin for SoapySDR that makes LimeSDR USB, Mini and XTRX boards usable
+    through the generic SoapySDR interface, built against the classic LimeSuite
+    library.
+  why_you_want_it: >-
+    It is what lets one program drive many different radios. Software written
+    against SoapySDR reaches LimeSDR hardware through this module rather than
+    through a Lime-specific code path, so installing it is usually the
+    difference between an application listing your radio and showing an empty
+    device list.
+  prerequisites: >-
+    LimeSDR hardware and limesuite. Note that the `limesdr` hardware entry
+    carries no confirmed USB identifier — the maintainer does not own one — so
+    udev rules for it are not generated yet and access may need root until
+    someone contributes an lsusb capture.
+  known_problems: >-
+    Built against LimeSuite 23.11, which every target still ships while upstream
+    has moved to LimeSuiteNG. The two are not interchangeable, and a module and
+    its library must match: a mismatch shows up as a device that is not listed
+    rather than as an error. `SoapySDRUtil --info` reports which modules loaded
+    and is the first thing to check.
+  upstream_url: https://github.com/myriadrf/LimeSuite

@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: multimon-ng
+version: "1.3.1"
+summary: Decoder for POCSAG, FLEX, AFSK, DTMF and other audio-band digital modes
+categories: [listening, tracking]
+
+install:
+  - install:
+      method: apt
+      packages: [multimon-ng]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Takes demodulated audio and decodes a range of classic digital modes:
+    POCSAG and FLEX paging, AFSK at several rates, DTMF, ZVEI and others.
+  why_you_want_it: >-
+    It is how audio from a receiver becomes text, and it is the standard back
+    end for APRS and paging work. Piped from rtl_fm it turns a cheap dongle
+    into a working decoder with no GUI at all.
+  prerequisites: >-
+    An audio source — typically piped from rtl_fm or a sound card fed by a
+    receiver. It expects raw samples at a specific rate, which is the usual
+    first mistake.
+  known_problems: >-
+    It decodes whatever it is given and reports nothing when the input is
+    wrong, so silence usually means a sample-rate or format mismatch rather
+    than an absent signal.
+  upstream_url: https://github.com/EliasOenal/multimon-ng

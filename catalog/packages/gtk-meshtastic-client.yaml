@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: gtk-meshtastic-client
+version: "1.2"
+summary: Desktop GUI for Meshtastic nodes
+categories: [mesh]
+
+install:
+  - install:
+      method: apt
+      packages: [gtk-meshtastic-client]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A GTK application for talking to a Meshtastic node: messaging, node list,
+    and basic configuration, without the command line.
+  why_you_want_it: >-
+    It is the packaged desktop client, which is a better first experience than
+    the CLI for reading messages and watching who is on the mesh.
+  prerequisites: >-
+    A Meshtastic node on USB and dialout membership. The python3-meshtastic
+    package is the more capable route for configuration.
+  known_problems: >-
+    Versions diverge across targets (1.2 on Debian and Parrot, 1.5 on Kali)
+    and it tracks upstream firmware less closely than the Python client does.
+  upstream_url: https://github.com/meshtastic/meshtastic

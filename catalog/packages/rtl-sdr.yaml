@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: rtl-sdr
+version: "2.0.2"
+summary: Host tools and library for RTL2832U-based receivers
+categories: [sdr, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [rtl-sdr]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    The command-line tools and shared library for RTL2832U DVB-T dongles used
+    as general receivers: rtl_test, rtl_fm, rtl_power, rtl_tcp and rtl_sdr
+    itself.
+  why_you_want_it: >-
+    It is the foundation of the cheapest possible entry into SDR, and rtl_test
+    is the canonical first diagnostic — if it reports your dongle and its
+    tuner, the hardware and permissions are right and any remaining problem is
+    in the application.
+  prerequisites: >-
+    An RTL2832U-based dongle and the udev rules from the rtl-sdr hardware
+    entry, which now carries all 42 identifiers Debian's own rule recognises.
+  known_problems: >-
+    The kernel's DVB-T driver claims the device first on many systems and must
+    be blacklisted; rtl_test reports this as a device that is busy. Cheap
+    dongles drift with temperature and need a PPM correction, which is not a
+    fault. Several tuner chips exist behind the same identifiers with
+    different frequency coverage.
+  upstream_url: https://gitea.osmocom.org/sdr/rtl-sdr

@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: soapysdr-module-plutosdr
+version: "0.2.2"
+summary: SoapySDR driver module for the ADALM-Pluto
+categories: [sdr, hardware]
+
+# Honest capability gap, and the first manifest to carry one this cleanly.
+# Measured 2026-08-26:
+#   kali-rolling   0.2.2-1.1
+#   debian 13      ABSENT
+#   parrot         ABSENT
+#
+# There is exactly one install block and it is selected for Kali only. On the
+# other targets nothing matches, which is what the capability matrix is for:
+# CLAUDE.md says the engine reports honest gaps rather than faking coverage, and
+# adding a source build we have not tested would be faking it. The device entry
+# for plutosdr already records the same gap from the other direction.
+
+install:
+  - when:
+      distro: [kali]
+    install:
+      method: apt
+      packages: [soapysdr-module-plutosdr]
+    note: >-
+      Kali only. Absent from Debian 13 and Parrot, where this package resolves
+      to nothing at all — it is in Debian unstable and has not reached stable.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A plugin for SoapySDR that makes the Analog Devices ADALM-Pluto usable
+    through the generic SoapySDR interface, over the network link the device
+    presents rather than through a character device.
+  why_you_want_it: >-
+    Without it, SoapySDR-based software cannot see a Pluto at all. With it, the
+    same applications that drive an RTL-SDR or a HackRF will drive a Pluto.
+  prerequisites: >-
+    An ADALM-Pluto, and libiio, which the Pluto is reached through. On Debian 13
+    and Parrot this package is simply not available — see known problems.
+  known_problems: >-
+    Not packaged for Debian 13 or Parrot, only for Kali. On a stable Debian base
+    there is currently no apt route to Pluto support in SoapySDR, and this
+    manifest says so rather than shipping an untested source build. The Pluto is
+    also a composite device reached over its USB network interface, so it does
+    not fit the single-device-node model most of this catalog assumes.
+  upstream_url: https://github.com/pothosware/SoapyPlutoSDR

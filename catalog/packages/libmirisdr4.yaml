@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: libmirisdr4
+version: "2.0.0"
+summary: Open driver for Mirics-based receivers, including SDRplay RSP hardware
+categories: [sdr, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [libmirisdr4]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A free-software driver for receivers built on Mirics silicon, which
+    includes the SDRplay RSP line, plus the udev rules for them.
+  why_you_want_it: >-
+    It is the open alternative to SDRplay's proprietary API, so RSP hardware
+    can be used without a closed binary driver. It is also the source of the
+    identifiers in the sdrplay-rsp hardware entry.
+  prerequisites: >-
+    Mirics-based hardware.
+  known_problems: >-
+    It does not implement everything SDRplay's own API does, and current RSP
+    models may enumerate differently from what this driver recognises — the
+    sdrplay-rsp entry records that gap rather than assuming it away. Naming
+    trap: the package is libmirisdr4, not libmirisdr0, which older
+    documentation cites.
+  upstream_url: https://github.com/f4exb/libmirisdr-4

@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: airspyhf
+version: "1.6.8"
+summary: Host tools and library for the Airspy HF+ HF and VHF receiver
+categories: [sdr, hardware, listening]
+
+install:
+  - install:
+      method: apt
+      packages: [airspyhf]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    The library and utilities for the Airspy HF+ Discovery and its
+    predecessors — a different product line from the Airspy R2 and Mini, aimed
+    at HF and low VHF.
+  why_you_want_it: >-
+    The HF+ is one of the better inexpensive HF receivers, and it is a
+    separate driver from the wideband Airspy line. Installing the wrong one is
+    why a working HF+ appears dead.
+  prerequisites: >-
+    Airspy HF+ hardware and the 03eb:800c udev rule shipped by libairspyhf1,
+    recorded in the airspy hardware entry.
+  known_problems: >-
+    Distinct from the `airspy` package, which does not see this hardware. It
+    is a receiver only and covers HF and low VHF rather than the wideband
+    range the R2 covers.
+  upstream_url: https://github.com/airspy/airspyhf

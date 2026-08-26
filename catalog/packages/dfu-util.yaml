@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: dfu-util
+version: "0.11"
+summary: Device Firmware Upgrade tool — flash devices that expose a standard DFU mode
+categories: [hardware, workstation]
+
+install:
+  - install:
+      method: apt
+      packages: [dfu-util]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Implements the USB DFU protocol: lists devices in DFU mode, uploads and
+    downloads firmware images, and ships udev rules for a long list of DFU-
+    capable hardware.
+  why_you_want_it: >-
+    Several devices in this catalog enumerate differently in bootloader mode
+    and are flashed over standard DFU rather than a vendor tool — the HackRF
+    among them. It is also the generic answer for a board whose vendor tooling
+    is not packaged anywhere.
+  prerequisites: >-
+    A device in DFU mode, which usually means holding a button while attaching
+    it, and plugdev membership.
+  known_problems: >-
+    A device in DFU mode has a different USB identifier from the same device
+    running normally, which is why several hardware entries record a separate
+    dfu_usb_id. Interrupting a firmware write can leave a device recoverable
+    only through DFU, which is fine when DFU is what you were using and not
+    when it is not.
+  upstream_url: https://dfu-util.sourceforge.net/

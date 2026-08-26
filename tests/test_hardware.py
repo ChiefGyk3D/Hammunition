@@ -23,7 +23,7 @@ from hammunition.manifest.hardware import (
     UdevBinding,
     UsbId,
 )
-from hammunition.manifest.load import CatalogError, load_hardware
+from hammunition.manifest.load import CatalogError, load_catalog, load_hardware
 from hammunition.manifest.schema import ManifestError
 
 HARDWARE = Path(__file__).resolve().parent.parent / "catalog" / "hardware"
@@ -248,3 +248,21 @@ def test_devices_the_maintainer_does_not_own_do_not_ask_for_an_lsusb() -> None:
     _, devices = load_hardware(HARDWARE)
     for name in ("limesdr", "plutosdr"):
         assert devices[name].gap_closure == "unverified_by_maintainer", name
+
+
+def test_every_package_a_device_names_has_a_manifest() -> None:
+    """The profile cross-check's blind spot, found by looking for it.
+
+    `load_profiles` catches a profile naming an undefined package. Nothing
+    caught a *device* doing it, and 21 were dangling -- the SoapySDR modules,
+    the vendor host tools, the Meshtastic clients. A device entry saying
+    "these packages make it useful" is the same kind of promise a profile makes.
+    """
+    packages = load_catalog(HARDWARE.parent / "packages")
+    classes, devices = load_hardware(HARDWARE)
+    for entry in (*classes.values(), *devices.values()):
+        referenced = set(entry.packages)
+        for firmware in entry.firmware:
+            referenced |= set(firmware.packages)
+        missing = sorted(referenced - set(packages))
+        assert not missing, f"{entry.name} names packages with no manifest: {missing}"

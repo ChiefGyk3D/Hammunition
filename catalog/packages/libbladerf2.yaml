@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: libbladerf2
+version: "0.2024.05"
+summary: Library and udev rules for Nuand bladeRF boards
+categories: [sdr, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [libbladerf2]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    The shared library the bladeRF host tools and SoapySDR module are built
+    against, together with the udev rules that make the boards accessible
+    without root.
+  why_you_want_it: >-
+    Nothing reaches a bladeRF without it, and its udev rules are the reason
+    the hardware entry's identifiers are confirmed rather than guessed — they
+    were read from this package's own rules.
+  prerequisites: >-
+    bladeRF hardware. Firmware and FPGA images are separate and version-
+    sensitive.
+  known_problems: >-
+    Debian 13 and Parrot ship 0.2024.05 while Kali ships 0.2025.10, and the
+    FPGA image must match the library version. The x40, x115 and 2.0 micro are
+    different boards with different images.
+  upstream_url: https://github.com/Nuand/bladeRF

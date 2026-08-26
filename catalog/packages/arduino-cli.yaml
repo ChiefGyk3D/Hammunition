@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: arduino-cli
+version: "1.5.1"
+summary: Command-line toolchain for compiling and uploading Arduino-framework firmware
+categories: [hardware, workstation]
+
+# Same honest gap as soapysdr-module-plutosdr, different cause. Measured
+# 2026-08-26: Kali 1.5.1-4; absent from Debian 13 and Parrot.
+#
+# D-026 applies: this compiles and uploads firmware, which is tooling for
+# talking to a device. What that firmware then does on the device is not
+# something this project installs.
+
+install:
+  - when:
+      distro: [kali]
+    install:
+      method: apt
+      packages: [arduino-cli]
+    note: >-
+      Kali only. Absent from Debian 13 and Parrot. Upstream ships prebuilt
+      binaries, which would need the binary backend plus a pinned checksum;
+      that is deliberately not claimed here until it is tested.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Compiles and uploads Arduino-framework sketches from the command line,
+    manages board support packages and libraries, and lists attached boards
+    with the ports and cores they need.
+  why_you_want_it: >-
+    Several devices in this catalog run Arduino-framework firmware, and building
+    it from a terminal is reproducible in a way the graphical IDE is not. It is
+    also the fastest way to identify which core a connected board wants.
+  prerequisites: >-
+    Membership of the `dialout` group and a board support package for whatever
+    you are targeting, which it downloads on first use. On Debian 13 and Parrot
+    the package is not available at all.
+  known_problems: >-
+    Not packaged for Debian 13 or Parrot — Kali only. Board support packages are
+    fetched from the network on first use, which is worth doing before taking a
+    machine into the field. ModemManager grabbing a newly attached board for
+    twenty seconds makes upload fail in a way that looks like a wiring problem.
+  upstream_url: https://github.com/arduino/arduino-cli

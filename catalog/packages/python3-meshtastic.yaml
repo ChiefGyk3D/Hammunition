@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: python3-meshtastic
+version: "2.6.0"
+summary: Meshtastic command-line client and Python API
+categories: [mesh, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [python3-meshtastic]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    The official Meshtastic client library and `meshtastic` command:
+    configures a node over USB serial or BLE, sends and receives messages, and
+    reads channel and region settings.
+  why_you_want_it: >-
+    It is how a Meshtastic node is configured from a computer rather than a
+    phone, which matters for reproducible setup and for anything scripted. The
+    Python API is also the route to logging a mesh's traffic.
+  prerequisites: >-
+    A Meshtastic node on USB and dialout membership. Region must be set before
+    the radio will transmit at all, which is the first thing every new node
+    needs.
+  known_problems: >-
+    Client and firmware versions track each other closely and a large gap
+    causes confusing configuration errors. Debian 13 and Parrot ship 2.6.0
+    while Kali ships 2.7.11, so a node flashed with current firmware may want
+    a newer client than a stable base provides.
+  upstream_url: https://github.com/meshtastic/python
