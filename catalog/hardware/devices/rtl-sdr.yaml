@@ -1,0 +1,41 @@
+kind: device
+name: rtl-sdr
+summary: RTL2832U DVB-T dongle repurposed as a wideband receive-only SDR
+vendor: various (Realtek RTL2832U reference design)
+status: supported
+
+usb_ids:
+  - vendor: "0bda"
+    product: "2838"
+    description: Realtek RTL2838 DVB-T — the canonical RTL-SDR
+    evidence: Debian 13 /lib/udev/rules.d/60-librtlsdr0.rules, from the rtl-sdr package
+    confirmed: true
+  - vendor: "0bda"
+    product: "2832"
+    description: Realtek RTL2832U DVB-T
+    evidence: Debian 13 /lib/udev/rules.d/60-librtlsdr0.rules
+    confirmed: true
+
+groups: [plugdev]
+packages: [rtl-sdr, soapysdr-module-rtlsdr, gqrx-sdr, rtl-433, multimon-ng]
+
+documentation:
+  what_it_is: >-
+    A television tuner dongle whose chipset can be driven as a general-purpose
+    receiver, roughly 24 MHz to 1.7 GHz depending on the tuner, receive only. The
+    cheapest way into SDR by a wide margin, and the reason most people have one.
+  what_you_can_do_with_it: >-
+    Listen to broadcast and amateur bands, decode ADS-B, ISM-band sensors, POCSAG
+    and AIS, and feed the whole utility-decoder cluster.
+  setup_steps: >-
+    Install the packages and add yourself to plugdev. Debian's rtl-sdr package
+    ships udev rules and a modprobe blacklist for dvb_usb_rtl28xxu; without that
+    blacklist the DVB driver claims the device first and rtl_test reports it as
+    busy.
+  known_problems: >-
+    The dvb_usb_rtl28xxu kernel driver claiming the device is the single most
+    common failure and looks like broken hardware. Clones vary enormously in
+    oscillator stability — kalibrate-rtl exists for exactly this. The librtlsdr
+    rules file matches over forty rebadged devices, so a dongle sold under another
+    name usually still works.
+  upstream_url: https://osmocom.org/projects/rtl-sdr/wiki

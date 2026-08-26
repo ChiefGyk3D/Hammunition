@@ -1,0 +1,20 @@
+kind: device
+name: free-wili-2
+summary: Free-WiLi 2 — multi-tool development board
+vendor: Free-WiLi
+status: untested
+device_class: badgelife
+identification_gap: >-
+  No USB identifier confirmed, and the hardware's USB implementation has not been verified here. The badgelife class rules are a reasonable starting point for anything presenting as USB serial, but this entry does not assert that Free-WiLi 2 does. Run lsusb and record the result before this claims support.
+groups: [dialout, plugdev]
+packages: [esptool, tio]
+documentation:
+  what_it_is: >-
+    A multi-tool development board. Its Linux-side requirements have not been characterised here beyond the assumption that it presents a serial interface.
+  what_you_can_do_with_it: >-
+    Not yet documented. This entry is a placeholder with an honest gap rather than a description written from a product page.
+  setup_steps: >-
+    Follow the badgelife class setup as a starting point and report what lsusb shows, so this entry can be completed from evidence.
+  known_problems: >-
+    Undocumented here. Writing setup instructions for hardware nobody on the project has attached would be exactly the kind of untested claim D-018 forbids.
+  upstream_url: https://freewili.com/

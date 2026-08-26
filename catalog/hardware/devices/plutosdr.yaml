@@ -1,0 +1,30 @@
+kind: device
+name: plutosdr
+summary: ADALM-Pluto — inexpensive full-duplex learning and development SDR
+vendor: Analog Devices
+status: untested
+identification_gap: >-
+  No USB identifier confirmed here. The Pluto presents as a composite device —
+  USB networking, mass storage and serial — and which interfaces appear depends
+  on the firmware revision, so a single VID:PID does not describe it. No Debian
+  package installed here shipped a matching udev rule. Record lsusb output for
+  your firmware revision before adding rules.
+groups: [plugdev, dialout]
+packages: [soapysdr-module-plutosdr]
+documentation:
+  what_it_is: >-
+    A small full-duplex software defined radio built around an Analog Devices
+    AD9363 transceiver and a Zynq SoC, sold as a learning platform and widely
+    used well beyond that.
+  what_you_can_do_with_it: >-
+    Transmit and receive simultaneously, and run software on the device itself —
+    it boots Linux and appears to the host as a network device.
+  setup_steps: >-
+    Debian 13 does not ship soapysdr-module-plutosdr; it is in unstable only, so
+    on a stable base this needs a non-apt path. The device is usually reached over
+    its USB network interface rather than a /dev node.
+  known_problems: >-
+    soapysdr-module-plutosdr is sid-only, so it is unavailable from apt on our
+    primary targets. Being a composite device, it does not fit the single-symlink
+    model the rest of this catalog uses.
+  upstream_url: https://wiki.analog.com/university/tools/pluto

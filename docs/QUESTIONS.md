@@ -341,3 +341,47 @@ the multi-maintainer governance argument does not need one.
 
 **Until this is answered** the README says the contents are all-rights-reserved,
 which is accurate and unattractive. It should not stay that way long.
+
+---
+
+## Q-010 🟡 — Accept a separate `rfid` profile?
+
+**Raised by:** item 3, the device catalog. **Blocks:** where Proxmark3 lands.
+**Changes:** the profile set, which is user-facing and hard to rename later.
+
+Your instruction was to recommend a separate `rfid` profile rather than folding
+RFID into `rf-security`, on the grounds that it is a different domain and mixing
+them muddies both. Recorded here as a recommendation because the profile set is
+yours to approve — `profile-sizing.md` treats naming as a deliverable for the
+same reason.
+
+**The argument holds on the evidence, and gets stronger the closer you look.**
+
+| | `rf-security` | `rfid` |
+|---|---|---|
+| Range | metres to kilometres | centimetres |
+| Hardware | SDRs, Wi-Fi and Bluetooth adapters | purpose-built readers |
+| Software | apt-installable across four targets | **nothing packaged anywhere** |
+| Skills | spectrum, modulation, DSP | card protocols, cryptography, key recovery |
+| Overlap | — | essentially none |
+
+The packaging point is the decisive one. Every unit in `rf-security` installs
+from apt on at least one target. **No target packages a Proxmark client at all,
+and none ships a Proxmark udev rule** — measured, not assumed. `libnfc-bin` is
+in Debian 13 and covers PN53x readers, but that is a different device family
+from a Proxmark. So `rfid` is not just a different domain; it has a different
+*cost*, and burying that inside `rf-security` would hide it.
+
+| Option | Consequence |
+|---|---|
+| **A. Separate `rfid` profile, post-1.0** ⭐ | Honest about the cost — it needs the source backend before it can ship anything. Keeps `rf-security` fully apt-installable, which is its main virtue. |
+| B. Fold into `rf-security` | One fewer name. Makes an apt-only profile depend on the source backend, so `rf-security` stops being cheap. |
+| C. No RFID at all | Loses a domain the maintainer actively works in and hardware they own. |
+
+**Recommendation: A.** Not gated by **D-021**: reading a card you hold is not the
+kind of capability the consent taxonomy is about, and `third_party_systems`
+already covers testing systems you do not own if that ever becomes relevant.
+
+`catalog/hardware/devices/proxmark3.yaml` is written and its identifier is
+flagged unconfirmed — Proxmark hardware spans several generations with different
+identifiers and none is in a distribution rule to read from.

@@ -1,0 +1,28 @@
+kind: device
+name: limesdr
+summary: LimeSDR USB and Mini — full-duplex transmit-capable SDR
+vendor: Lime Microsystems
+status: untested
+identification_gap: >-
+  No USB identifier confirmed. Debian's limesuite package installs without a
+  udev rules file matching this device name, so there was no authoritative source
+  to read one from here, and the USB identifier differs between LimeSDR USB and
+  LimeSDR Mini — the Mini is FTDI-based, the USB variant is not. Record lsusb for
+  the specific board before adding rules.
+groups: [plugdev]
+packages: [limesuite, soapysdr-module-lms7]
+documentation:
+  what_it_is: >-
+    A full-duplex transmit-capable software defined radio with a field-programmable
+    RF transceiver, sold as a full-size USB board and a smaller Mini variant.
+  what_you_can_do_with_it: >-
+    Simultaneous transmit and receive across a wide range, and the LimeSuite
+    tooling for calibrating and configuring the transceiver directly.
+  setup_steps: >-
+    Install limesuite and soapysdr-module-lms7 from apt, then run LimeUtil --find.
+    Add udev rules once the identifier for your board is confirmed.
+  known_problems: >-
+    USB and Mini are different hardware with different identifiers and different
+    quirks. Debian ships limesuite 23.11 while upstream has moved to LimeSuiteNG;
+    the two are not interchangeable and DragonOS carries both.
+  upstream_url: https://limemicro.com/

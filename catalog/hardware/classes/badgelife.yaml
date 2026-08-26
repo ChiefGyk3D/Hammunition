@@ -1,0 +1,94 @@
+kind: class
+name: badgelife
+summary: Conference badges and SAOs — serial console, flashing, and the USB bridges they use
+
+# Generalised deliberately. ESP32-based conference badges are everywhere and
+# their Linux-side needs are identical: a serial console, a flasher, and udev
+# rules covering native USB CDC plus the two bridge chips older designs use.
+# Build the class once and every badge works. A specific badge is then a worked
+# example, not a special case.
+
+usb_ids:
+  - vendor: "10c4"
+    product: "ea60"
+    description: Silicon Labs CP2102/CP2109 UART bridge — the most common badge bridge
+    evidence: Debian 13 usb.ids (usb.ids package), vendor 10c4 "Silicon Labs", product ea60 "CP210x UART Bridge"
+    confirmed: true
+  - vendor: "10c4"
+    product: "ea70"
+    description: Silicon Labs CP2105 dual UART bridge
+    evidence: Debian 13 usb.ids, product ea70 "CP2105 Dual UART Bridge"
+    confirmed: true
+  - vendor: "10c4"
+    product: "ea71"
+    description: Silicon Labs CP2108 quad UART bridge
+    evidence: Debian 13 usb.ids, product ea71 "CP2108 Quad UART Bridge"
+    confirmed: true
+  - vendor: "1a86"
+    product: "7523"
+    description: WCH CH340 UART bridge — common on low-cost badges
+    evidence: Debian 13 usb.ids, vendor 1a86 "QinHeng Electronics", product 7523 "CH340 serial converter"
+    confirmed: true
+  - vendor: "303a"
+    product: "1001"
+    description: Espressif ESP32-S3/C3 native USB CDC and JTAG-serial peripheral
+    evidence: >-
+      PID 0x1001 confirmed as USB_JTAG_SERIAL_PID in esptool 4.7.0 as packaged in
+      Debian 13. Vendor 303a is Espressif's registered USB VID but is NOT in
+      Debian's usb.ids and was not verified from a citable source here. Confirm
+      with lsusb against real hardware before relying on this rule.
+    confirmed: false
+  - vendor: "1a86"
+    product: "55d4"
+    description: WCH CH9102/CH343 UART bridge — increasingly common on newer boards
+    evidence: >-
+      Widely reported for CH9102F but NOT present in Debian 13 usb.ids and not
+      confirmed here. Verify with lsusb before relying on this rule.
+    confirmed: false
+
+groups:
+  - dialout
+  - plugdev
+
+packages:
+  - esptool
+  - tio
+  - screen
+  - minicom
+
+firmware:
+  - kind: esptool
+    packages: [esptool]
+    note: >-
+      Most ESP32 badges flash over the same serial link used for the console.
+      Many enter bootloader mode automatically via DTR/RTS; some need BOOT held
+      while RESET is tapped. Nothing here flashes anything on its own.
+
+udev:
+  symlink: badge
+  serial_suffix: true
+  mode: "0660"
+  group: dialout
+  tag_uaccess: true
+
+documentation:
+  what_it_is: >-
+    A device class rather than a single device: conference badges, SAOs and the
+    development boards they are built from, nearly all of which present as a USB
+    serial port either natively or through a CP210x or CH34x bridge.
+  what_you_can_do_with_it: >-
+    Open a serial console to read badge output and use its shell if it has one,
+    and flash new or modified firmware from Linux rather than from a browser.
+  setup_steps: >-
+    Install the class packages, add yourself to dialout and plugdev, then log out
+    and back in — group membership does not apply to an existing session. Plug the
+    badge in and check for a persistent symlink under /dev. `tio /dev/badge-<serial>`
+    opens a console; 115200 8N1 is the usual default.
+  known_problems: >-
+    ModemManager grabs new serial devices on many desktops and holds them for
+    around twenty seconds, which looks exactly like a dead badge. The generated
+    udev rules tag matching devices so ModemManager ignores them. A badge whose
+    native USB stack is provided by its own firmware will disappear from /dev when
+    that firmware crashes or is being replaced; that is expected, not a fault.
+    Two identical badges attached at once is exactly why serial_suffix defaults on.
+  upstream_url: https://github.com/espressif/esptool

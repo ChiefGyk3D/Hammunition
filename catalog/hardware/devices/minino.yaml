@@ -1,0 +1,20 @@
+kind: device
+name: minino
+summary: Electronic Cats Minino — 802.15.4 and Zigbee analysis board
+vendor: Electronic Cats
+status: untested
+device_class: badgelife
+identification_gap: >-
+  No USB identifier confirmed. Minino is an ESP32-based board, so the badgelife class rules most likely cover it via native USB CDC or a bridge chip, but this has not been verified against hardware and no distribution ships a rule naming it. Confirm with lsusb before claiming support.
+groups: [dialout, plugdev]
+packages: [esptool, tio, wireshark]
+documentation:
+  what_it_is: >-
+    A compact ESP32-based board aimed at IEEE 802.15.4 and Zigbee work, from the same maker as CatSniffer.
+  what_you_can_do_with_it: >-
+    Capture and inspect 802.15.4 and Zigbee traffic, and run alternative firmware for specific tasks.
+  setup_steps: >-
+    Follow the badgelife class setup. Flash with esptool, open a console with tio.
+  known_problems: >-
+    As with CatSniffer, capture behaviour depends on which firmware variant is loaded, and the USB identifier is unconfirmed here.
+  upstream_url: https://github.com/ElectronicCats/Minino

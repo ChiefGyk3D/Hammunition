@@ -1,0 +1,42 @@
+kind: device
+name: sdrplay-rsp
+summary: SDRplay RSP series — receive-only SDR needing a closed-source vendor API
+vendor: SDRplay
+status: untested
+usb_ids:
+  - vendor: "1df7"
+    product: "2500"
+    description: Mirics MSi2500-based device — the silicon behind early RSPs
+    evidence: Debian 13 /lib/udev/rules.d/60-libmirisdr4.rules, from the libmirisdr4 package
+    confirmed: true
+  - vendor: "1df7"
+    product: "3000"
+    description: Mirics MSi3101 SDR
+    evidence: Debian 13 /lib/udev/rules.d/60-libmirisdr4.rules
+    confirmed: true
+identification_gap: >-
+  The identifiers above are Mirics silicon as recorded by Debian's libmirisdr4,
+  which the open libmirisdr driver targets. Current RSP models under SDRplay's
+  own API may enumerate differently and that has NOT been verified here. Confirm
+  with lsusb against the specific model before relying on these rules.
+groups: [plugdev]
+packages: [libmirisdr4, soapysdr-module-mirisdr]
+documentation:
+  what_it_is: >-
+    A family of receive-only SDRs with good HF performance. The vendor's own API
+    is closed source and distributed as a binary installer behind a web form.
+  what_you_can_do_with_it: >-
+    Wideband receive, with the open libmirisdr path for older Mirics-based
+    hardware and the vendor API for full support of current models.
+  setup_steps: >-
+    The open path is libmirisdr4 plus soapysdr-module-mirisdr, which installs from
+    apt and covers Mirics-based devices. The vendor API is a manual step and this
+    project will not automate it — see known_problems.
+  known_problems: >-
+    The SDRplay API is a .run installer behind an interactive download page. It
+    cannot be fetched non-interactively, cannot be checksummed in advance, and
+    therefore cannot satisfy this project's requirement that every non-apt source
+    is verified before installation. Skywave Linux dropped it for the same reason
+    and said so in its release notes. If you need it, download and run it yourself;
+    we will document the step and not perform it.
+  upstream_url: https://www.sdrplay.com/

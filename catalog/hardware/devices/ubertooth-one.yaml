@@ -1,0 +1,43 @@
+kind: device
+name: ubertooth-one
+summary: 2.4 GHz wireless development platform for Bluetooth monitoring
+vendor: Great Scott Gadgets
+status: supported
+
+usb_ids:
+  - vendor: "1d50"
+    product: "6002"
+    description: Ubertooth One
+    evidence: Debian 13 /lib/udev/rules.d/40-ubertooth.rules, from the ubertooth package
+    confirmed: true
+  - vendor: "1d50"
+    product: "6000"
+    description: Ubertooth Zero
+    evidence: Debian 13 /lib/udev/rules.d/40-ubertooth.rules
+    confirmed: true
+
+groups: [plugdev]
+packages: [ubertooth, wireshark]
+
+udev:
+  symlink: ubertooth
+  serial_suffix: true
+  group: plugdev
+
+documentation:
+  what_it_is: >-
+    An open-source 2.4 GHz platform built for observing Bluetooth Classic and
+    Bluetooth Low Energy, which ordinary Bluetooth adapters cannot do.
+  what_you_can_do_with_it: >-
+    Follow BLE connections, capture advertising traffic, and pipe results into
+    Wireshark for analysis.
+  setup_steps: >-
+    Install the packages, add yourself to plugdev, log out and back in. Run
+    ubertooth-util -v to confirm the firmware version matches the host tools —
+    a mismatch is the usual cause of confusing behaviour.
+  known_problems: >-
+    Host tools and device firmware are versioned together and must match; Debian's
+    ubertooth package and a device flashed elsewhere often disagree. Capture is
+    best-effort by design — it is a monitoring platform, not a protocol analyser
+    with guaranteed coverage.
+  upstream_url: https://greatscottgadgets.com/ubertoothone/

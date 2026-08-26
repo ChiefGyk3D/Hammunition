@@ -1,0 +1,68 @@
+kind: device
+name: hackrf-one
+summary: Half-duplex 1 MHz - 6 GHz software defined radio, transmit capable
+vendor: Great Scott Gadgets
+status: supported
+
+usb_ids:
+  - vendor: "1d50"
+    product: "6089"
+    description: HackRF One
+    evidence: Debian 13 /lib/udev/rules.d/60-libhackrf0.rules, from the libhackrf0 package
+    confirmed: true
+  - vendor: "1d50"
+    product: "604b"
+    description: HackRF Jawbreaker (predecessor)
+    evidence: Debian 13 /lib/udev/rules.d/60-libhackrf0.rules
+    confirmed: true
+  - vendor: "1d50"
+    product: "cc15"
+    description: rad1o badge, which speaks the HackRF protocol
+    evidence: Debian 13 /lib/udev/rules.d/60-libhackrf0.rules
+    confirmed: true
+
+groups: [plugdev]
+packages: [hackrf, soapysdr-module-hackrf, gqrx-sdr, sdrpp]
+
+firmware:
+  - kind: dfu
+    packages: [hackrf, dfu-util]
+    dfu_usb_id:
+      vendor: "1fc9"
+      product: "000c"
+      description: NXP LPC device in DFU mode — HackRF in bootloader
+      evidence: Debian 13 /lib/udev/rules.d/60-libhackrf0.rules
+      confirmed: true
+    note: >-
+      hackrf_spiflash writes firmware; the device enumerates as 1fc9:000c while in
+      the bootloader, which is why that identifier needs its own udev rule. A
+      PortaPack running Mayhem is flashed the same way. Nothing here flashes
+      anything automatically.
+
+udev:
+  symlink: hackrf
+  serial_suffix: true
+  mode: "0660"
+  group: plugdev
+  tag_uaccess: true
+
+documentation:
+  what_it_is: >-
+    A wideband half-duplex software defined radio covering 1 MHz to 6 GHz, able to
+    transmit as well as receive. With a PortaPack attached it becomes a standalone
+    handheld with a screen and controls, usually running the Mayhem firmware.
+  what_you_can_do_with_it: >-
+    Receive across a very wide range with gqrx, SDR++ or SDRangel, capture and
+    replay signals, and — because it transmits — act as a signal source for test
+    and development work.
+  setup_steps: >-
+    Install the packages, add yourself to plugdev, log out and back in. Plug it in
+    and run hackrf_info; it should report the serial and firmware version. The
+    persistent symlink appears as /dev/hackrf-<serial>.
+  known_problems: >-
+    Transmit capability is why this device sits behind the rf-research consent
+    gate rather than in rf-security. USB 2.0 bandwidth limits sustained sample
+    rates; a poor cable or an unpowered hub shows up as dropped samples rather
+    than as an error. Flashing a PortaPack firmware that does not match the
+    hardware revision can leave the device needing a recovery flash.
+  upstream_url: https://greatscottgadgets.com/hackrf/

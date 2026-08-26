@@ -1,0 +1,47 @@
+kind: device
+name: bladerf
+summary: Nuand bladeRF — full-duplex transmit-capable SDR with an on-board FPGA
+vendor: Nuand
+status: supported
+usb_ids:
+  - vendor: "2cf0"
+    product: "5250"
+    description: bladeRF 2.0 micro
+    evidence: Debian 13 /lib/udev/rules.d/88-nuand-bladerf2.rules, from the libbladerf2 package
+    confirmed: true
+  - vendor: "2cf0"
+    product: "5246"
+    description: bladeRF x40 / x115
+    evidence: Debian 13 /lib/udev/rules.d/88-nuand-bladerf1.rules
+    confirmed: true
+  - vendor: "1d50"
+    product: "6066"
+    description: bladeRF, OpenMoko-allocated identifier used by earlier firmware
+    evidence: Debian 13 /lib/udev/rules.d/88-nuand-bladerf1.rules
+    confirmed: true
+groups: [plugdev]
+packages: [libbladerf2, soapysdr-module-bladerf, gqrx-sdr]
+firmware:
+  - kind: vendor_tool
+    packages: [libbladerf2]
+    note: >-
+      bladeRF-cli loads FPGA images and updates firmware. The FPGA bitstream is a
+      separate download from the firmware and both are version-matched to the
+      host library; a mismatch reports as an obscure initialisation failure.
+udev: {symlink: bladerf, serial_suffix: true, group: plugdev}
+documentation:
+  what_it_is: >-
+    A full-duplex software defined radio with an on-board FPGA, able to transmit
+    and receive at once — which most of the cheaper devices cannot.
+  what_you_can_do_with_it: >-
+    Anything needing simultaneous transmit and receive, and FPGA work for
+    processing that has to happen before the data reaches the host.
+  setup_steps: >-
+    Install the packages, add yourself to plugdev, and load a matching FPGA image
+    with bladeRF-cli. The image is not shipped with the library and must be
+    fetched separately.
+  known_problems: >-
+    Three USB identifiers across generations, so a rule written for one board
+    silently does not match another. Host library, firmware and FPGA image are
+    version-coupled.
+  upstream_url: https://www.nuand.com/

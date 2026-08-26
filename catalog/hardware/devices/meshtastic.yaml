@@ -1,0 +1,42 @@
+kind: device
+name: meshtastic
+summary: Meshtastic LoRa nodes — T-Deck, T-Echo, RAK and WisMesh boards
+vendor: various (LilyGO, RAK Wireless, Heltec)
+device_class: badgelife
+status: untested
+identification_gap: >-
+  Not a single device and deliberately not treated as one. Meshtastic runs on many
+  boards using at least three different USB paths: ESP32-S3 native USB (T-Deck),
+  nRF52840 with an Adafruit-style bootloader (T-Echo), and CP210x or CH34x bridges
+  on older or cheaper boards. Only the CP210x and CH340 identifiers in the
+  badgelife class are confirmed here. The nRF52840 boards enumerate differently
+  again in bootloader mode. Record lsusb per board rather than assuming.
+groups: [dialout, plugdev]
+packages: [python3-meshtastic, gtk-meshtastic-client, tio]
+firmware:
+  - kind: esptool
+    packages: [esptool]
+    note: ESP32-based nodes such as T-Deck flash with esptool over the serial port.
+  - kind: uf2
+    packages: []
+    note: >-
+      nRF52840 boards such as T-Echo use a UF2 bootloader — double-tap reset and
+      the board mounts as a USB mass storage device you copy firmware onto. No
+      flashing tool is needed, but the device enumerates as storage rather than
+      serial while in that mode, so a serial udev rule will not match it.
+documentation:
+  what_it_is: >-
+    Long-range low-power mesh networking over LoRa, running on a wide range of
+    inexpensive boards. The node is the radio; the phone or computer is a client.
+  what_you_can_do_with_it: >-
+    Text messaging and position sharing over a mesh with no infrastructure, at
+    ranges measured in kilometres, on licence-free ISM bands.
+  setup_steps: >-
+    Both python3-meshtastic and gtk-meshtastic-client are in Debian 13 — measured,
+    not assumed. Add yourself to dialout, attach the node, and talk to it over the
+    serial port with the CLI.
+  known_problems: >-
+    Regional frequency settings are the operator's responsibility and the defaults
+    may not match where you are. ModemManager grabbing the serial port affects
+    these boards as much as any badge. Firmware and client versions drift quickly.
+  upstream_url: https://meshtastic.org/

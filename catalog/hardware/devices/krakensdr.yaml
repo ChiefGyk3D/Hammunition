@@ -1,0 +1,20 @@
+kind: device
+name: krakensdr
+summary: KrakenSDR — five coherent RTL-SDR receivers for direction finding
+vendor: KrakenRF
+status: untested
+
+identification_gap: >-
+  Not separately identified. KrakenSDR is five RTL2832U receivers on one board, so each channel enumerates with the ordinary RTL-SDR identifiers already confirmed in the rtl-sdr entry (0bda:2838). What is NOT confirmed here is whether the board exposes any additional control interface with its own identifier. The per-channel rules work; a board-level rule is unverified.
+groups: [dialout, plugdev]
+packages: [rtl-sdr, soapysdr-module-rtlsdr]
+documentation:
+  what_it_is: >-
+    Five phase-coherent RTL-SDR receivers on a single board with a shared clock, which is what makes direction finding possible rather than just five dongles in a hub.
+  what_you_can_do_with_it: >-
+    Radio direction finding and angle-of-arrival work — the ARDF and foxhunting use case on the amateur side, and signal geolocation on the security side.
+  setup_steps: >-
+    The five channels appear as ordinary RTL-SDR devices. Because plug order determines which is which and coherence depends on knowing the order, persistent symlinks by serial matter more here than anywhere else in this catalog.
+  known_problems: >-
+    Coherent operation depends on the channels being identified consistently across reboots, which is precisely the problem persistent udev symlinks solve. The direction-finding software stack is not in Debian and is Tier 2 work.
+  upstream_url: https://www.krakenrf.com/

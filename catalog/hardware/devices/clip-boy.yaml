@@ -1,0 +1,44 @@
+kind: device
+name: clip-boy
+summary: Open-source DEF CON badge — ESP32-S3 with an LVGL touch UI
+vendor: SafeHazard
+device_class: badgelife
+status: untested
+
+identification_gap: >-
+  No USB identifier confirmed. Clip-Boy is an ESP32-S3 design, so it most likely
+  enumerates on Espressif's native USB CDC — which the badgelife class carries as
+  303a:1001, itself marked unconfirmed. Whether this board exposes native USB or
+  routes through a bridge chip has not been verified against hardware. The class
+  rules cover every plausible case, so the device works without pinning an ID;
+  this entry does not guess one.
+
+firmware:
+  - kind: esptool
+    packages: [esptool, arduino-cli]
+    note: >-
+      Firmware is an Arduino sketch in the upstream repository, so the Linux path
+      is arduino-cli to build and esptool to flash. Upstream also offers a web
+      flasher, but that is ESP Web Tools over WebSerial — a browser path, not a
+      toolchain path. Building locally is what lets you modify the badge, which
+      is the point of it being open source.
+
+documentation:
+  what_it_is: >-
+    An open-source DEF CON badge built around an ESP32-S3 with a touch display
+    driven by LVGL. Licensed GPL-3.0, with the hardware design files — BOM,
+    Gerbers, enclosure and OmniTag — published alongside the firmware.
+  what_you_can_do_with_it: >-
+    Read its serial output, build and flash modified firmware, and use it as a
+    worked example of the badgelife class: everything here is class behaviour
+    with a name attached.
+  setup_steps: >-
+    Follow the badgelife class setup. Clone the upstream repository, build the
+    sketch with arduino-cli against the ESP32-S3 board definition, and flash with
+    esptool over the badge's serial port.
+  known_problems: >-
+    The published flashing route is a web flasher using ESP Web Tools over
+    WebSerial, which needs a Chromium-based browser and does not work in Firefox
+    or on a machine without a graphical session. That gap is the reason this
+    entry exists.
+  upstream_url: https://github.com/SafeHazard/Clip-Boy

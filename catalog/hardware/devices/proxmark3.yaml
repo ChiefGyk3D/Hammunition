@@ -1,0 +1,47 @@
+kind: device
+name: proxmark3
+summary: Proxmark3 and Proxmark3 RDV4 — RFID and NFC research tool
+vendor: Proxmark community / RRG
+status: untested
+
+identification_gap: >-
+  No USB identifier confirmed here. Proxmark3 hardware exists in several
+  generations from different makers, and the identifier differs between the
+  original design, RDV4, and the Iceman-firmware variants — which is exactly the
+  situation where a guessed VID:PID produces a udev rule that silently never
+  matches. No Debian package ships a Proxmark udev rule to read one from, and
+  the client is not packaged. Attach the device, record lsusb output for the
+  specific board and firmware, and add the confirmed pair before this entry
+  claims support. The bootloader enumerates separately and needs its own entry.
+
+groups: [dialout, plugdev]
+packages: []
+
+firmware:
+  - kind: bootloader_button
+    packages: []
+    note: >-
+      The Proxmark client flashes both bootloader and application images, and the
+      device enumerates with a different identifier while in the bootloader. The
+      client is built from source against the firmware it will talk to — client
+      and firmware are version-locked and a mismatch is the most common source of
+      confusing behaviour. Not packaged in Debian; this needs the source backend.
+
+documentation:
+  what_it_is: >-
+    A research tool for low-frequency (125 kHz) and high-frequency (13.56 MHz)
+    RFID and NFC, able to read, emulate and analyse a wide range of card
+    technologies.
+  what_you_can_do_with_it: >-
+    Read and analyse access cards and transit tokens, study the protocols they
+    use, and emulate them for testing systems you are authorized to test.
+  setup_steps: >-
+    Not documented here yet. The client is not in Debian and must be built from
+    source against matching firmware, which needs the source backend this project
+    has not written. Writing steps for an untested path would be a documentation
+    bug, not a placeholder.
+  known_problems: >-
+    Client and firmware are version-locked. Several incompatible hardware
+    generations share the name. Neither the client nor a udev rule is packaged by
+    any target distribution.
+  upstream_url: https://github.com/RfidResearchGroup/proxmark3

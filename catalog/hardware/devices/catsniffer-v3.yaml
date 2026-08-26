@@ -1,0 +1,20 @@
+kind: device
+name: catsniffer-v3
+summary: Electronic Cats CatSniffer v3 — multiprotocol sub-GHz, BLE and 802.15.4
+vendor: Electronic Cats
+status: untested
+device_class: badgelife
+identification_gap: >-
+  No USB identifier confirmed. CatSniffer v3 combines a TI radio with a host-side USB serial interface; whether that is a native CDC endpoint or a bridge chip has not been verified against hardware here, and no distribution ships a udev rule naming it. The badgelife class rules cover CP210x, CH34x and ESP32 native USB, which is likely to include it, so the device works without a pinned identifier. Run lsusb with it attached and add the confirmed pair before this entry claims status: supported.
+groups: [dialout, plugdev]
+packages: [esptool, tio, wireshark]
+documentation:
+  what_it_is: >-
+    A multiprotocol RF board built around Texas Instruments radio silicon, covering sub-GHz ISM bands, Bluetooth Low Energy and IEEE 802.15.4 from one device.
+  what_you_can_do_with_it: >-
+    Sniff and analyse traffic across the three protocol families it supports, and load alternative firmware for specific capture tasks.
+  setup_steps: >-
+    Follow the badgelife class setup — the Linux-side needs are a serial console and a flasher, which the class already provides. Confirm the device appears under /dev before going further.
+  known_problems: >-
+    Firmware and host tooling are versioned together and the board ships in several firmware variants; a capture tool that reports nothing is usually running against the wrong firmware rather than a quiet band. The USB identifier is unconfirmed here.
+  upstream_url: https://github.com/ElectronicCats/CatSniffer

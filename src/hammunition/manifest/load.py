@@ -7,11 +7,13 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
+from .hardware import DeviceClass, DeviceManifest
 from .schema import ManifestError, PackageManifest, ProfileManifest
 
 __all__ = [
     "CatalogError",
     "load_catalog",
+    "load_hardware",
     "load_manifest",
     "load_profile",
     "load_profiles",
@@ -98,3 +100,45 @@ def load_profiles(
     if failures:
         raise CatalogError(failures)
     return profiles
+
+
+def load_hardware(
+    directory: Path,
+) -> tuple[dict[str, DeviceClass], dict[str, DeviceManifest]]:
+    """Load `catalog/hardware/`, reporting all failures together — D-016.
+
+    A device naming a `device_class` that does not exist is a failure: the class
+    is where its udev rules and tooling come from, so a dangling reference means
+    the device silently gets none of them.
+    """
+    classes: dict[str, DeviceClass] = {}
+    devices: dict[str, DeviceManifest] = {}
+    failures: dict[Path, str] = {}
+
+    for path in sorted(directory.rglob("*.yaml")):
+        try:
+            data = yaml.safe_load(path.read_text())
+            if not isinstance(data, dict):
+                raise ManifestError("hardware entry must be a YAML mapping")
+            if data.get("kind") == "class":
+                entry_class = DeviceClass.model_validate(data)
+                if entry_class.name in classes:
+                    raise ManifestError(f"duplicate device class {entry_class.name!r}")
+                classes[entry_class.name] = entry_class
+            else:
+                device = DeviceManifest.model_validate(data)
+                if device.name in devices:
+                    raise ManifestError(f"duplicate device {device.name!r}")
+                devices[device.name] = device
+        except (ValidationError, ManifestError, yaml.YAMLError) as exc:
+            failures[path] = str(exc).split("\n")[0]
+
+    for name, device in devices.items():
+        if device.device_class and device.device_class not in classes:
+            failures[directory / f"{name}.yaml"] = (
+                f"device {name!r} references unknown device_class {device.device_class!r}"
+            )
+
+    if failures:
+        raise CatalogError(failures)
+    return classes, devices

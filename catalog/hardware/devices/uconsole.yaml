@@ -1,0 +1,31 @@
+kind: device
+name: uconsole
+summary: ClockworkPi uConsole — portable handheld Linux terminal used as a field radio host
+vendor: ClockworkPi
+status: planned
+identification_gap: >-
+  Not a USB peripheral. The uConsole is a host computer, so it has no VID:PID to
+  record and does not fit the device model the rest of this catalog uses. It is
+  here because its display, audio routing and power management need
+  configuration that no ham or SDR project ships, and because the Hacker Gadgets
+  AIO expansion board attached to it may present USB devices that do need
+  entries. None of that has been characterised here.
+groups: []
+packages: []
+documentation:
+  what_it_is: >-
+    A small handheld computer built around a Raspberry Pi compute module or a
+    ClockworkPi core, with a built-in display, keyboard and battery — used here as
+    a portable host for field radio work.
+  what_you_can_do_with_it: >-
+    Run the same catalog on a machine you can carry, which is the point of the
+    portable and field-kit parts of this project.
+  setup_steps: >-
+    Not documented. Nothing has been tested on this hardware. Per D-018 and Q-003
+    this project does not claim Raspberry Pi or uConsole support until it is
+    verified on the actual device.
+  known_problems: >-
+    Display rotation, audio routing and power management all need configuration
+    beyond a stock install. The arm64 container target exercises architecture
+    selectors only and is explicitly not a claim of Pi or uConsole support.
+  upstream_url: https://www.clockworkpi.com/uconsole

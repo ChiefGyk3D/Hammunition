@@ -1,0 +1,34 @@
+kind: device
+name: airspy
+summary: Airspy R2, Mini and HF+ — receive-only SDRs with better dynamic range than an RTL dongle
+vendor: Airspy
+status: supported
+usb_ids:
+  - vendor: "1d50"
+    product: "60a1"
+    description: Airspy R2 / Airspy Mini
+    evidence: Debian 13 /lib/udev/rules.d/60-libairspy0.rules, from the libairspy0 package
+    confirmed: true
+  - vendor: "03eb"
+    product: "800c"
+    description: Airspy HF+ / HF+ Discovery
+    evidence: Debian 13 /lib/udev/rules.d/60-libairspyhf1.rules, from the libairspyhf1 package
+    confirmed: true
+groups: [plugdev]
+packages: [airspy, airspyhf, soapysdr-module-airspy, gqrx-sdr]
+udev: {symlink: airspy, serial_suffix: true, group: plugdev}
+documentation:
+  what_it_is: >-
+    A family of receive-only software defined radios. R2 and Mini cover VHF and
+    UHF; HF+ is a separate design aimed at HF and the low VHF broadcast bands.
+  what_you_can_do_with_it: >-
+    Serious listening. The dynamic range is enough to work weak signals next to
+    strong broadcast carriers, which is where an RTL dongle gives up.
+  setup_steps: >-
+    Install the packages and add yourself to plugdev. Note R2/Mini and HF+ use
+    different libraries and different USB identifiers, so a working R2 setup does
+    not mean an HF+ will be found.
+  known_problems: >-
+    The HF+ is a different product line despite the shared brand — SoapySDR needs
+    soapysdr-module-airspyhf, which is not the same module as for the R2.
+  upstream_url: https://airspy.com/
