@@ -16,11 +16,11 @@ Short answer: **none of them today.** The udev generator that would consume a co
 |---|---|---|---|
 | `catsniffer-v3` | maintainer_hardware | **M4** | Covered by the badgelife class rules in the meantime, which is the point of having a class. Blocks only a pinned per-device symlink. |
 | `free-wili-2` | maintainer_hardware | **M4** | Not asserted to be USB-serial at all, so the class is a guess rather than a cover. Worth an early lsusb for that reason alone. |
-| `meshtastic` | maintainer_hardware | **M4** | Closing it produces new per-board entries rather than an identifier on this one. Three boards in the kit means three captures. |
 | `proxmark3` | maintainer_hardware | **Q-010 / M4** | The anchor device for the proposed `rfid` profile. The profile can be decided without it, but cannot claim `supported` for its only hardware, and the client needs the source backend regardless. |
 | `flipper-zero` | unverified_by_maintainer | **?** | Not assessed. |
 | `krakensdr` | unverified_by_maintainer | **nothing** | Usable now through the confirmed RTL-SDR identifiers. Only a board-level control rule is missing, and nothing needs one. |
 | `limesdr` | unverified_by_maintainer | **post-1.0** | No SDR in the 1.0 profiles depends on it. |
+| `meshtastic` | unverified_by_maintainer | **nothing** | Identifiers closed from upstream board metadata covering 107 products (docs/reference/lora-inventory.md). What is left is per-board product STRINGS, which no upstream source records because a flasher does not need them — a contribution ask for anyone owning a node. |
 | `plutosdr` | unverified_by_maintainer | **post-1.0** | Its Soapy module is sid-only, so apt cannot install it on a stable base — the packaging gap blocks this device well before the identifier does. |
 | `portapack-h4m` | unverified_by_maintainer | **post-1.0** | Planned, not owned, and it may never warrant an identifier of its own — it is an add-on the host sees through the HackRF beneath it. The right record may turn out to be a note on that entry instead. |
 | `sdrplay-rsp` | unverified_by_maintainer | **M4** | The recorded Mirics identifiers work for the open driver. What is unverified is the vendor-API path, which is post-1.0 anyway. |
@@ -32,17 +32,17 @@ Short answer: **none of them today.** The udev generator that would consume a co
 |---|---|---|
 | `catsniffer-v3` | supported | The host-side identifier is confirmed, and it identifies an RP2040 rather than a CatSniffer. |
 | `free-wili-2` | supported | Narrowed to one thing. |
-| `meshtastic` | untested | Not a single device and deliberately not treated as one. |
 | `proxmark3` | supported | Narrowed sharply, and what remains is a real limitation rather than missing work. |
 | `flipper-zero` | supported | One identifier from Debian's rule is deliberately NOT carried above: `0483:df11`, the device's DFU mode. |
 | `krakensdr` | untested | Not separately identified. |
 | `limesdr` | supported | Narrowed, not closed. |
+| `meshtastic` | supported | Not closable as a single record, and now for a documented reason rather than an unexplored one. |
 | `plutosdr` | untested | No USB identifier confirmed, and the maintainer does not own the hardware to confirm one. |
 | `portapack-h4m` | planned | Nothing confirmed, and the shape of what is unknown is itself unusual. |
 | `sdrplay-rsp` | untested | The identifiers above are Mirics silicon as recorded by Debian's libmirisdr4, which the open libmirisdr driver targets. |
 | `uconsole` | planned | Not a USB peripheral. |
 
-## Closable on the maintainer's bench — 4
+## Closable on the maintainer's bench — 3
 
 The hardware is in the kit. One `lsusb` closes each of these and no contribution is needed — do not solicit one.
 
@@ -51,7 +51,6 @@ The hardware is in the kit. One `lsusb` closes each of these and no contribution
 ```
 scripts/identify-device.sh catsniffer-v3
 scripts/identify-device.sh free-wili-2
-scripts/identify-device.sh meshtastic
 scripts/identify-device.sh proxmark3
 ```
 
@@ -67,19 +66,13 @@ Free-WiLi 2 — multi-function hardware-hacking tool presenting six USB devices
 
 Narrowed to one thing. Every identifier is confirmed against hardware, but the main interface (093c:2059) presents four CDC ACM ports and which port carries which function is not documented here. Naming one of them /dev/free-wili would be a coin toss. Upstream documentation or a functional test would settle it; /dev/serial/by-id/ distinguishes them by interface number in the meantime.
 
-### `meshtastic`
-
-Meshtastic LoRa nodes — T-Deck, T-Echo, RAK and WisMesh boards
-
-Not a single device and deliberately not treated as one. Meshtastic runs on many boards using at least three different USB paths: ESP32-S3 native USB (T-Deck), nRF52840 with an Adafruit-style bootloader (T-Echo), and CP210x or CH34x bridges on older or cheaper boards. Only the CP210x and CH340 identifiers in the badgelife class are confirmed here. The nRF52840 boards enumerate differently again in bootloader mode. Record lsusb per board rather than assuming.
-
 ### `proxmark3`
 
 Proxmark3 v3 and v5 — RFID and NFC research tool (RDV4 not covered)
 
 Narrowed sharply, and what remains is a real limitation rather than missing work. The operating-mode identifier is confirmed. What is NOT established: Whether the v3 and v5 boards differ at all in their descriptors. Both captures returned identical output, which suggests they do not, but the two runs cannot be attributed to two specific boards with confidence from the record kept. The bootloader identifier. A Proxmark enumerates differently while its bootloader is running, and that was not captured -- it needs the button held during attachment. Whether any firmware variant supplies a serial. The stock build does not, and if some variant does, that changes the story above completely: a serial would restore /dev/serial/by-id/ as the answer.
 
-## Unverified by the maintainer — 6
+## Unverified by the maintainer — 7
 
 Carried because other operators have the device; the maintainer does not, so the gap cannot be closed here. This is deliberate, not a backlog — the entries stay and stay honest about why. `lsusb` output from an owner closes any of them.
 
@@ -89,6 +82,7 @@ Carried because other operators have the device; the maintainer does not, so the
 scripts/identify-device.sh flipper-zero
 scripts/identify-device.sh krakensdr
 scripts/identify-device.sh limesdr
+scripts/identify-device.sh meshtastic
 scripts/identify-device.sh plutosdr
 scripts/identify-device.sh portapack-h4m
 scripts/identify-device.sh sdrplay-rsp
@@ -111,6 +105,12 @@ Not separately identified. KrakenSDR is five RTL2832U receivers on one board, so
 LimeSDR USB and Mini — full-duplex transmit-capable SDR
 
 Narrowed, not closed. The board identifiers are now confirmed from Debian's own rule, but which of the LimeSDR variants a given identifier belongs to has not been checked against hardware -- the USB board and the Mini are different designs and the Mini is FTDI-based, so `1d50:6108` is believed to be the full-size board and `0403:601f` the Mini. The maintainer owns neither. An owner running scripts/identify-device.sh would settle which is which, and would also confirm whether current Mini revisions still present 0403:601f.
+
+### `meshtastic`
+
+Meshtastic LoRa nodes — T-Deck, T-Echo, RAK and WisMesh boards
+
+Not closable as a single record, and now for a documented reason rather than an unexplored one. The identifiers are confirmed from upstream board metadata covering 107 products; what no upstream source records is the manufacturer and product STRINGS a running board reports, because a flasher matches on VID:PID and never needs them. Those strings are the only thing that could make a per-board udev rule safe. So the remaining work is per-board captures, and it is a contribution ask rather than a task: the maintainer's boards were lost to flooding, and anyone with a T-Deck, a T-Echo, a RAK or a Heltec can close one board's worth in thirty seconds with scripts/identify-device.sh.
 
 ### `plutosdr`
 
@@ -169,7 +169,7 @@ Discarding that evidence for lack of hardware would throw away a real claim. Mer
 | `hackrf-pro` | supported | yes, 2026-08-26 | ChiefGyk3D on Pop!_OS 22.04 - Attached and enumerated in both normal and DFU modes; identifiers, product strings and serials captured with scripts/identify-device.sh. No /dev node is created in either mode, which is expected for a libusb device. Nothing was received or transmitted, and no firmware was read or written. |
 | `krakensdr` | untested | no | - |
 | `limesdr` | supported | no | identifiers from a distribution rule; never run here |
-| `meshtastic` | untested | no | - |
+| `meshtastic` | supported | no | identifiers from a distribution rule; never run here |
 | `minino` | supported | yes, 2026-08-26 | ChiefGyk3D on Pop!_OS 22.04 - Attached and enumerated; identifier, product string and serial captured with scripts/identify-device.sh. The radio side was not exercised and no firmware was flashed. |
 | `plutosdr` | untested | no | - |
 | `portapack-h4m` | planned | no | - |
@@ -180,7 +180,7 @@ Discarding that evidence for lack of hardware would throw away a real claim. Mer
 | `uconsole` | planned | no | - |
 | `usrp` | supported | no | identifiers from a distribution rule; never run here |
 
-**15 of 21 devices claim `supported`; 7 have been run here.** That gap is not a defect to be closed by relaxing either column. It is the honest state, and printing it is the point.
+**16 of 21 devices claim `supported`; 7 have been run here.** That gap is not a defect to be closed by relaxing either column. It is the honest state, and printing it is the point.
 
 ---
 

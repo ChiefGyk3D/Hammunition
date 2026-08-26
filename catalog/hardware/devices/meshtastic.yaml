@@ -6,15 +6,159 @@ name: meshtastic
 summary: Meshtastic LoRa nodes — T-Deck, T-Echo, RAK and WisMesh boards
 vendor: various (LilyGO, RAK Wireless, Heltec)
 device_class: badgelife
-status: untested
-gap_closure: maintainer_hardware
+status: supported
+
+# Closed from upstream data, not from hardware -- and it could not have been
+# closed any other way. The maintainer's Meshtastic boards were lost in a flood,
+# and Meshtastic was never one device to begin with: it is firmware that runs on
+# a hundred of them.
+#
+# Meshtastic and MeshCore both build with PlatformIO, so every supported board
+# ships a boards/*.json naming the identifiers its flasher looks for. That is
+# the same class of source as Debian's udev rules, pointed somewhere Debian
+# cannot reach. 107 board definitions across the two projects yield 26 distinct
+# identifiers -- and the top one covers 49 boards.
+#
+# So this entry carries the identifiers a Meshtastic node is likely to present
+# and asserts nothing about WHICH node. Every one is ambiguous by measurement:
+# the pair names the module a board is built on, not the board. See
+# docs/reference/lora-inventory.md.
+
+usb_ids:
+  - vendor: "303a"
+    product: "1001"
+    description: Espressif ESP32-S3/C3 native USB — the most common Meshtastic path
+    evidence: >-
+      Meshtastic and MeshCore PlatformIO board definitions, read 2026-08-26 by
+      scripts/lora-sweep.sh. Claimed by 49 distinct board definitions
+      across the two projects. Also captured directly from three unrelated non-Meshtastic devices; see badgelife.
+    confirmed: true
+    ambiguity:
+      basis: vendor_chip_default
+      evidence: >-
+        Claimed by 49 different products in the upstream board metadata,
+        which is what "shared" means measured rather than asserted. The pair
+        identifies the module a board is built on, not the board.
+      also_used_by:
+        - see docs/reference/lora-inventory.md for the full list
+  - vendor: "239a"
+    product: "0029"
+    description: Adafruit nRF52840 application mode
+    evidence: >-
+      Meshtastic and MeshCore PlatformIO board definitions, read 2026-08-26 by
+      scripts/lora-sweep.sh. Claimed by 41 distinct board definitions
+      across the two projects. 
+    confirmed: true
+    ambiguity:
+      basis: vendor_chip_default
+      evidence: >-
+        Claimed by 41 different products in the upstream board metadata,
+        which is what "shared" means measured rather than asserted. The pair
+        identifies the module a board is built on, not the board.
+      also_used_by:
+        - see docs/reference/lora-inventory.md for the full list
+  - vendor: "239a"
+    product: "002a"
+    description: Adafruit nRF52840 application mode, second identifier
+    evidence: >-
+      Meshtastic and MeshCore PlatformIO board definitions, read 2026-08-26 by
+      scripts/lora-sweep.sh. Claimed by 41 distinct board definitions
+      across the two projects. 
+    confirmed: true
+    ambiguity:
+      basis: vendor_chip_default
+      evidence: >-
+        Claimed by 41 different products in the upstream board metadata,
+        which is what "shared" means measured rather than asserted. The pair
+        identifies the module a board is built on, not the board.
+      also_used_by:
+        - see docs/reference/lora-inventory.md for the full list
+  - vendor: "239a"
+    product: "8029"
+    description: Adafruit nRF52840 UF2 bootloader
+    evidence: >-
+      Meshtastic and MeshCore PlatformIO board definitions, read 2026-08-26 by
+      scripts/lora-sweep.sh. Claimed by 29 distinct board definitions
+      across the two projects. Bootloader mode: a board here is being flashed, not operated.
+    confirmed: true
+    ambiguity:
+      basis: vendor_chip_default
+      evidence: >-
+        Claimed by 29 different products in the upstream board metadata,
+        which is what "shared" means measured rather than asserted. The pair
+        identifies the module a board is built on, not the board.
+      also_used_by:
+        - see docs/reference/lora-inventory.md for the full list
+  - vendor: "239a"
+    product: "802a"
+    description: Adafruit nRF52840 UF2 bootloader, second identifier
+    evidence: >-
+      Meshtastic and MeshCore PlatformIO board definitions, read 2026-08-26 by
+      scripts/lora-sweep.sh. Claimed by 25 distinct board definitions
+      across the two projects. Bootloader mode.
+    confirmed: true
+    ambiguity:
+      basis: vendor_chip_default
+      evidence: >-
+        Claimed by 25 different products in the upstream board metadata,
+        which is what "shared" means measured rather than asserted. The pair
+        identifies the module a board is built on, not the board.
+      also_used_by:
+        - see docs/reference/lora-inventory.md for the full list
+  - vendor: "239a"
+    product: "4405"
+    description: Adafruit nRF52840 bootloader variant
+    evidence: >-
+      Meshtastic and MeshCore PlatformIO board definitions, read 2026-08-26 by
+      scripts/lora-sweep.sh. Claimed by 16 distinct board definitions
+      across the two projects. 
+    confirmed: true
+    ambiguity:
+      basis: vendor_chip_default
+      evidence: >-
+        Claimed by 16 different products in the upstream board metadata,
+        which is what "shared" means measured rather than asserted. The pair
+        identifies the module a board is built on, not the board.
+      also_used_by:
+        - see docs/reference/lora-inventory.md for the full list
+  - vendor: "2886"
+    product: "1667"
+    description: Seeed nRF52840 module
+    evidence: >-
+      Meshtastic and MeshCore PlatformIO board definitions, read 2026-08-26 by
+      scripts/lora-sweep.sh. Claimed by 6 distinct board definitions
+      across the two projects. 
+    confirmed: true
+    ambiguity:
+      basis: vendor_chip_default
+      evidence: >-
+        Claimed by 6 different products in the upstream board metadata,
+        which is what "shared" means measured rather than asserted. The pair
+        identifies the module a board is built on, not the board.
+      also_used_by:
+        - see docs/reference/lora-inventory.md for the full list
+
+# NO SYMLINK, and no prospect of one at this level. Every identifier above is
+# shared across dozens of products by measurement. A per-board entry could
+# carry one if that board turns out to supply a distinguishing product string --
+# which the board definitions do not record, because a flasher does not need it.
+# Only a capture shows a descriptor string, and that is the part upstream data
+# cannot supply.
+
 identification_gap: >-
-  Not a single device and deliberately not treated as one. Meshtastic runs on many
-  boards using at least three different USB paths: ESP32-S3 native USB (T-Deck),
-  nRF52840 with an Adafruit-style bootloader (T-Echo), and CP210x or CH34x bridges
-  on older or cheaper boards. Only the CP210x and CH340 identifiers in the
-  badgelife class are confirmed here. The nRF52840 boards enumerate differently
-  again in bootloader mode. Record lsusb per board rather than assuming.
+  Not closable as a single record, and now for a documented reason rather than
+  an unexplored one. The identifiers are confirmed from upstream board metadata
+  covering 107 products; what no upstream source records is the manufacturer and
+  product STRINGS a running board reports, because a flasher matches on VID:PID
+  and never needs them. Those strings are the only thing that could make a
+  per-board udev rule safe.
+
+  So the remaining work is per-board captures, and it is a contribution ask
+  rather than a task: the maintainer's boards were lost to flooding, and anyone
+  with a T-Deck, a T-Echo, a RAK or a Heltec can close one board's worth in
+  thirty seconds with scripts/identify-device.sh.
+gap_closure: unverified_by_maintainer
+
 groups: [dialout, plugdev]
 packages: [python3-meshtastic, gtk-meshtastic-client, tio]
 firmware:

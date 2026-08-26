@@ -35,7 +35,7 @@ from __future__ import annotations
 import re
 import sys
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 
@@ -133,6 +133,7 @@ def read_tsv(path: Path, fields: int) -> list[list[str]]:
 def main() -> int:
     aliases = read_tsv(PROBES / "modules-alias-debian-13.tsv", 4)
     sweep = read_tsv(PROBES / "udev-debian-13.tsv", 9)
+    lora = read_tsv(PROBES / "lora-identifiers.tsv", 6)
     if not aliases:
         print("no kernel alias probe; run scripts/kernel-alias-probe.sh", file=sys.stderr)
         return 1
@@ -175,6 +176,37 @@ def main() -> int:
             names=tuple(sorted(names_of.get(key, ()))),
         )
 
+    # Third source: LoRa mesh firmware board definitions. Meshtastic and
+    # MeshCore publish a PlatformIO board file per supported product, each
+    # naming the identifiers its flasher looks for. A pair claimed by two or
+    # more DIFFERENT boards is shared by construction -- and this is where the
+    # sharing is most extreme, because a hundred products are built on a handful
+    # of modules.
+    boards_of: dict[tuple[str, str], set[str]] = defaultdict(set)
+    for project, board_file, board_name, vendor, product, source in lora:
+        if source == "platformio":
+            boards_of[(vendor, product)].add(f"{project}:{board_name or board_file}")
+
+    for key, boards in boards_of.items():
+        if len(boards) < 2:
+            continue
+        existing = findings.get(key)
+        listed = sorted(boards)[:6]
+        note = (
+            f"Claimed by {len(boards)} LoRa mesh board definitions across "
+            f"Meshtastic and MeshCore, e.g. {', '.join(listed)}."
+        )
+        if existing is None:
+            findings[key] = Finding(
+                basis="shared_across_products",
+                usbids=kernel_name.get(key, usbids_name.get(key, "")),
+                drivers=tuple(sorted(driver_of.get(key, ()))),
+                packages=tuple(sorted(packages_of.get(key, ()))),
+                names=(note,),
+            )
+        else:
+            findings[key] = replace(existing, names=(*existing.names, note))
+
     for key, packages in packages_of.items():
         if key in findings or len(packages) < 2 or len(names_of.get(key, ())) < 2:
             continue
@@ -187,7 +219,7 @@ def main() -> int:
         )
 
     write_data(findings)
-    write_doc(findings, len(aliases), len(sweep), vendor_specific)
+    write_doc(findings, len(aliases), len(sweep), vendor_specific, len(lora))
     print(
         f"wrote {DATA_OUT.relative_to(REPO_ROOT)} and {DOC_OUT.relative_to(REPO_ROOT)}: "
         f"{len(findings)} ambiguous identifiers"
@@ -235,6 +267,7 @@ def write_doc(
     aliases: int,
     sweep: int,
     vendor_specific: int,
+    lora: int,
 ) -> None:
     by_basis: dict[str, int] = defaultdict(int)
     for info in findings.values():
@@ -254,6 +287,7 @@ def write_doc(
         f"**Generated:** {date.today().isoformat()}, Debian 13  ",
         f"**Kernel id→driver pairs read:** {aliases}  ",
         f"**udev rule identifiers read:** {sweep}  ",
+        f"**LoRa mesh board definitions read:** {lora}  ",
         f"**Identifiers that name a chip, not a device:** {len(findings)}",
         "",
         "| Basis | Count |",

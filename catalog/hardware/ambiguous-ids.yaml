@@ -3779,6 +3779,27 @@ identifiers:
     seen_in: [modemmanager, usb-modeswitch-data]
     # named: Linktop LW272/LW273 (BSNL Teracom)
     # named: ttyACM1 (if #3): Primary AT port
+  - id: "239a:0029"
+    basis: shared_across_products
+    # named: Claimed by 41 LoRa mesh board definitions across Meshtastic and MeshCore, e.g. meshcore:BQ nRF52840, meshcore:Heltec Mesh Node T1 Board, meshcore:Heltec Mesh Solar Board, meshcore:Heltec T096 Board, meshcore:Heltec T114 Board, meshcore:Heltec Tower V2 Board.
+  - id: "239a:002a"
+    basis: shared_across_products
+    # named: Claimed by 41 LoRa mesh board definitions across Meshtastic and MeshCore, e.g. meshcore:BQ nRF52840, meshcore:Heltec Mesh Node T1 Board, meshcore:Heltec Mesh Solar Board, meshcore:Heltec T096 Board, meshcore:Heltec T114 Board, meshcore:Heltec Tower V2 Board.
+  - id: "239a:0071"
+    basis: shared_across_products
+    # named: Claimed by 3 LoRa mesh board definitions across Meshtastic and MeshCore, e.g. meshcore:Heltec Tower V2 Board, meshtastic:Heltec MeshTower V2 (Adafruit BSP), meshtastic:Heltec nrf (Adafruit BSP).
+  - id: "239a:00b3"
+    basis: shared_across_products
+    # named: Claimed by 4 LoRa mesh board definitions across Meshtastic and MeshCore, e.g. meshcore:Keepteen LT1, meshcore:ProMicro NRF52840, meshtastic:MeshLink, meshtastic:ProMicro compatible nRF52840.
+  - id: "239a:4405"
+    basis: shared_across_products
+    # named: Claimed by 16 LoRa mesh board definitions across Meshtastic and MeshCore, e.g. meshcore:Heltec Tower V2 Board, meshcore:Heltec nrf (Adafruit BSP), meshcore:elecrow eink, meshcore:elecrow nrf, meshcore:elecrow solar, meshtastic:Canary (Adafruit BSP).
+  - id: "239a:8029"
+    basis: shared_across_products
+    # named: Claimed by 29 LoRa mesh board definitions across Meshtastic and MeshCore, e.g. meshcore:BQ nRF52840, meshcore:Heltec Mesh Node T1 Board, meshcore:Heltec Mesh Solar Board, meshcore:Heltec T096 Board, meshcore:Heltec T114 Board, meshcore:Keepteen LT1.
+  - id: "239a:802a"
+    basis: shared_across_products
+    # named: Claimed by 25 LoRa mesh board definitions across Meshtastic and MeshCore, e.g. meshcore:BQ nRF52840, meshcore:Heltec Mesh Node T1 Board, meshcore:Heltec Mesh Solar Board, meshcore:Heltec T096 Board, meshcore:Heltec T114 Board, meshcore:Keepteen LT1.
   - id: "23f2:0003"
     basis: kernel_generic_driver
     kernel_drivers: [ftdi_sio]
@@ -3818,6 +3839,18 @@ identifiers:
     seen_in: [argyll, colord]
     # named: ColorHug
     # named: ColorHug, old and new USB ID's, ColorHug 2
+  - id: "2886:0057"
+    basis: shared_across_products
+    # named: Claimed by 3 LoRa mesh board definitions across Meshtastic and MeshCore, e.g. meshcore:Seeed SenseCAP MeshTracker X1, meshtastic:Seeed Mesh Tracker X1, meshtastic:Seeed T1000-E.
+  - id: "2886:0059"
+    basis: shared_across_products
+    # named: Claimed by 4 LoRa mesh board definitions across Meshtastic and MeshCore, e.g. meshcore:Seeed Studio XIAO nRF52840, meshtastic:icarus, meshtastic:seeed-xiao-s3, meshtastic:seeed_solar_node.
+  - id: "2886:1667"
+    basis: shared_across_products
+    # named: Claimed by 6 LoRa mesh board definitions across Meshtastic and MeshCore, e.g. meshcore:Seeed Wio Tracker L1, meshtastic:Heltec Mesh Node T1, meshtastic:Heltec RC52, meshtastic:Heltec nrf (Adafruit BSP), meshtastic:seeed_wio_tracker_L1, meshtastic:seeed_wio_tracker_L1_Pro_1W.
+  - id: "2886:1668"
+    basis: shared_across_products
+    # named: Claimed by 3 LoRa mesh board definitions across Meshtastic and MeshCore, e.g. meshcore:Seeed Wio Tracker L1, meshtastic:seeed_wio_tracker_L1, meshtastic:seeed_wio_tracker_L1_Pro_1W.
   - id: "2912:0001"
     basis: kernel_generic_driver
     kernel_drivers: [cdc_acm]
@@ -3869,6 +3902,13 @@ identifiers:
   - id: "2caf:13a3"
     basis: kernel_generic_driver
     kernel_drivers: [ftdi_sio]
+  - id: "303a:0002"
+    basis: shared_across_products
+    # named: Claimed by 8 LoRa mesh board definitions across Meshtastic and MeshCore, e.g. meshcore:Heltec Vision Master E213, meshcore:Heltec Vision Master E290, meshcore:Heltec Vision Master T190, meshcore:heltec_wifi_lora_32 v5 (16 MB FLASH, 8 MB PSRAM), meshtastic:Heltec Vision Master E213, meshtastic:Heltec Vision Master E290.
+  - id: "303a:1001"
+    basis: shared_across_products
+    seen_in: [openocd]
+    # named: Claimed by 49 LoRa mesh board definitions across Meshtastic and MeshCore, e.g. meshcore:BQ Station G2, meshcore:ELECROW ThinkNode M7, meshcore:ESP32-S3-WROOM-1-N4 (4 MB Flash, No PSRAM), meshcore:ESP32-S3-Zero, meshcore:Heltec RC32 (16 MB FLASH, 8 MB PSRAM), meshcore:Heltec Vision Master E213.
   - id: "32a7:0000"
     basis: kernel_generic_driver
     kernel_drivers: [cdc_acm]

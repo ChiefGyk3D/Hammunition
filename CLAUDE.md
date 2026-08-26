@@ -237,6 +237,11 @@ capability-matrix claims not backed by a passing container test.
   checker would validate almost nothing.
 - Generated docs are generated: `scripts/gen_blend_inventory.py` rebuilds the
   Blend inventory from upstream task files. Never hand-edit a generated file.
+- **Upstream project metadata is mined the same way.** Meshtastic and MeshCore
+  publish a PlatformIO board file per product naming its USB identifiers;
+  `scripts/lora-sweep.sh` reads them. 107 boards, 26 identifiers, the top one
+  covering 49 — which is how the `meshtastic` entry was closed without any
+  hardware, and had to be, since the maintainer's nodes were lost to flooding.
 - **Distribution udev rules are a primary source and are mined, not guessed.**
   `scripts/run-udev-sweep.sh` reads every package in the archive that ships one
   — no curated shortlist, because a curated shortlist is how `rtl-sdr` came to

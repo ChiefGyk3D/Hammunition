@@ -6,12 +6,13 @@ regenerate.
 **Generated:** 2026-08-26, Debian 13  
 **Kernel id→driver pairs read:** 7694  
 **udev rule identifiers read:** 2750  
-**Identifiers that name a chip, not a device:** 1246
+**LoRa mesh board definitions read:** 299  
+**Identifiers that name a chip, not a device:** 1259
 
 | Basis | Count |
 |---|---:|
 | `kernel_generic_driver` | 1173 |
-| `shared_across_products` | 73 |
+| `shared_across_products` | 86 |
 
 **777 pairs were considered and NOT flagged**: they sit in a bridge driver's table but `usb.ids` names a product, which means a vendor bought an identifier for a device rather than reusing the chip maker's default. `ftdi_sio` alone knows about hundreds of those.
 

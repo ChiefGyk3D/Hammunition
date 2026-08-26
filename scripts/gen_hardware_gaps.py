@@ -85,9 +85,11 @@ BLOCKS: dict[str, tuple[str, str]] = {
         "than a cover. Worth an early lsusb for that reason alone.",
     ),
     "meshtastic": (
-        "M4",
-        "Closing it produces new per-board entries rather than an identifier on "
-        "this one. Three boards in the kit means three captures.",
+        "nothing",
+        "Identifiers closed from upstream board metadata covering 107 products "
+        "(docs/reference/lora-inventory.md). What is left is per-board product "
+        "STRINGS, which no upstream source records because a flasher does not "
+        "need them — a contribution ask for anyone owning a node.",
     ),
     "limesdr": ("post-1.0", "No SDR in the 1.0 profiles depends on it."),
     "hackrf-pro": (
