@@ -26,6 +26,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/93-pn53x.rules, from the libnfc-bin
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "054c"
     product: "0193"
     description: PN531 device — Sony Corp.
@@ -33,6 +34,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/93-pn53x.rules, from the libnfc-bin
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "04cc"
     product: "2533"
     description: NFC device (PN533) — ST-Ericsson
@@ -40,6 +42,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/93-pn53x.rules, from the libnfc-bin
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "04e6"
     product: "5591"
     description: PN533 — SCL3711-NFC&RW, SCM Microsystems, Inc.
@@ -47,6 +50,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/93-pn53x.rules, from the libnfc-bin
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "04e6"
     product: "5594"
     description: PN533 device — SCM Microsystems, Inc.
@@ -54,6 +58,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/93-pn53x.rules, from the libnfc-bin
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1fd3"
     product: "0608"
     description: PN533 device — unknown vendor
@@ -61,6 +66,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/93-pn53x.rules, from the libnfc-bin
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "054c"
     product: "02e1"
     description: PN533 — FeliCa S330 [PaSoRi], Sony Corp.
@@ -68,6 +74,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/93-pn53x.rules, from the libnfc-bin
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "072f"
     product: "2200"
     description: ACR122 / Touchatag — ACR122U, Advanced Card Systems, Ltd
@@ -75,6 +82,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/93-pn53x.rules, from the libnfc-bin
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "072f"
     product: "90cc"
     description: ACR122 / Touchatag — ACR38 SmartCard Reader, Advanced Card Systems, Ltd
@@ -82,6 +90,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/93-pn53x.rules, from the libnfc-bin
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
 groups:
   - plugdev
 

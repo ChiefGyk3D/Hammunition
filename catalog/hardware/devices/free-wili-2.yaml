@@ -7,6 +7,20 @@ summary: Free-WiLi 2 — multi-function hardware-hacking tool presenting six USB
 vendor: Intrepid Control Systems / FREE-WILi
 status: supported
 
+# COMPOSITE. One product, six USB devices, an internal hub, four vendors. That
+# is a shape rather than a quirk of this board, so it is declared rather than
+# described: `composite: true` obliges every identifier below to say what kind
+# of interface it is, and the schema refuses the declaration otherwise.
+#
+# The obligation is the point. An enumerated list of six identifiers with no
+# functions attached does not answer the only question an operator actually has
+# here -- "which of these four serial ports is the debug probe?" -- and that is
+# precisely the question /dev/serial/by-id/ cannot answer either. It hands out
+# six stable paths and labels none of them. Labelling them is work only a
+# catalog can do, and it is a better argument for this project's hardware layer
+# than any symlink.
+composite: true
+
 # Captured against real hardware 2026-08-26. The entry previously said "no USB
 # identifier confirmed, and the hardware's USB implementation has not been
 # verified here", and guessed the badgelife class rules were "a reasonable
@@ -30,6 +44,10 @@ usb_ids:
       serial=FX0053. usb.ids attributes vendor 093c to Intrepid Control
       Systems, which is the Free-WiLi vendor.
     confirmed: true
+    node_kind: serial
+    ports: 4
+    product_string: FREE-WILi2
+    reports_serial: true
   - vendor: "093c"
     product: "205a"
     description: Free-WiLi 2 secondary interface, reporting firmware v07
@@ -38,6 +56,9 @@ usb_ids:
       manufacturer=FreeWili product="FW2 v07" serial=FX0053 — the same board
       serial as 093c:2059, which is how the two are known to be one device.
     confirmed: true
+    node_kind: serial
+    product_string: FW2 v07
+    reports_serial: true
   - vendor: "093c"
     product: "205f"
     description: Free-WiLi 2 mass-storage interface ("FW Ultra Fast Media")
@@ -46,6 +67,9 @@ usb_ids:
       manufacturer=FREE-WILi product="FW Ultra Fast Media" serial=0000395D5DB7.
       No /dev node created; it is storage rather than a serial port.
     confirmed: true
+    node_kind: storage
+    product_string: FW Ultra Fast Media
+    reports_serial: true
   - vendor: "0403"
     product: "6014"
     description: FTDI FT232H bridge inside the Free-WiLi 2
@@ -53,6 +77,9 @@ usb_ids:
       lsusb against real hardware 2026-08-26 on Pop!_OS 22.04.
       manufacturer=FREE-WILi product=FW2 serial=FX0053, presenting /dev/ttyUSB0.
     confirmed: true
+    node_kind: serial
+    product_string: FW2
+    reports_serial: true
     ambiguity:
       basis: kernel_generic_driver
       evidence: >-
@@ -72,6 +99,9 @@ usb_ids:
       serial=E66568714F71BE29 — a DIFFERENT serial from the rest of the board,
       because it is a separate microcontroller.
     confirmed: true
+    node_kind: serial
+    product_string: "FreeWili Debug Probe (CMSIS-DAP"
+    reports_serial: true
     ambiguity:
       basis: vendor_chip_default
       evidence: >-
@@ -92,6 +122,9 @@ usb_ids:
       serial=3C:DC:75:9A:A5:0C — a MAC address, which is how Espressif parts
       report a serial.
     confirmed: true
+    node_kind: serial
+    product_string: USB JTAG/serial debug unit
+    reports_serial: true
     ambiguity:
       basis: vendor_chip_default
       evidence: >-
@@ -122,11 +155,15 @@ maintainer_verified:
     serials. Nothing was run against the hardware and no firmware was flashed.
 
 identification_gap: >-
-  Narrowed to one thing. Every identifier is confirmed against hardware, but the
-  main interface (093c:2059) presents four CDC ACM ports and which port carries
-  which function is not documented here. Naming one of them /dev/free-wili would
-  be a coin toss. Upstream documentation or a functional test would settle it;
-  /dev/serial/by-id/ distinguishes them by interface number in the meantime.
+  Narrowed to one thing, and it is now a named field rather than a paragraph.
+  Every identifier is confirmed against hardware, but 093c:2059 presents four
+  CDC ACM ports and `port_roles` on it is empty because which port carries which
+  function is not known here. Naming one of them /dev/free-wili would be a coin
+  toss, and /dev/serial/by-id/ gives all four a stable path while labelling none
+  of them — a stable path to a port you cannot identify is not an answer.
+  Upstream documentation or a functional test settles it; the schema will then
+  take four names in order, and it takes four or none, because a partial map
+  reads as a complete one.
 gap_closure: maintainer_hardware
 
 groups: [dialout, plugdev]

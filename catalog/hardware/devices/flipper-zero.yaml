@@ -29,6 +29,7 @@ usb_ids:
       package, commented "Flipper Zero serial port". usb.ids names 0483:5740
       "STMicroelectronics Virtual COM Port".
     confirmed: true
+    node_kind: serial
     ambiguity:
       basis: generic_function_name
       evidence: >-
@@ -46,6 +47,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/42-flipperzero.rules, commented
       "Flipper U2F".
     confirmed: true
+    node_kind: hid
     ambiguity:
       basis: generic_function_name
       evidence: >-
@@ -100,6 +102,8 @@ firmware:
         same pair identifies any STM32 in DFU mode; it is safe as a firmware
         target, where the operator has chosen the device, and unsafe as a
         symlink rule, where the kernel matches whatever is attached.
+      confirmed: true
+      node_kind: libusb
     note: >-
       qFlipper is the normal route and handles the mode switch itself. dfu-util
       is the recovery path when the device will not boot far enough for

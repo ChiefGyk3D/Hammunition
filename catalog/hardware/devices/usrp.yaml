@@ -26,6 +26,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-uhd-host.rules, from the uhd-host
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "2500"
     product: "0002"
     description: B100 device — Ettus Research LLC
@@ -33,6 +34,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-uhd-host.rules, from the uhd-host
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "2500"
     product: "0020"
     description: B200 — USRP B210, Ettus Research LLC
@@ -40,6 +42,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-uhd-host.rules, from the uhd-host
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "2500"
     product: "0021"
     description: USRP B200-mini — Ettus Research LLC
@@ -47,6 +50,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-uhd-host.rules, from the uhd-host
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "2500"
     product: "0022"
     description: B200 — USRP B205-mini, Ettus Research LLC
@@ -54,6 +58,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-uhd-host.rules, from the uhd-host
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "3923"
     product: "7813"
     description: B200 device — National Instruments Corp.
@@ -61,6 +66,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-uhd-host.rules, from the uhd-host
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "3923"
     product: "7814"
     description: B200 device — National Instruments Corp.
@@ -68,6 +74,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-uhd-host.rules, from the uhd-host
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
 groups: [plugdev]
 packages: [uhd-host, gqrx-sdr]
 

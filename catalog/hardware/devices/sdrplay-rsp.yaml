@@ -12,11 +12,13 @@ usb_ids:
     description: Mirics MSi2500-based device — the silicon behind early RSPs
     evidence: Debian 13 /lib/udev/rules.d/60-libmirisdr4.rules, from the libmirisdr4 package
     confirmed: true
+    node_kind: libusb
   - vendor: "1df7"
     product: "3000"
     description: Mirics MSi3101 SDR
     evidence: Debian 13 /lib/udev/rules.d/60-libmirisdr4.rules
     confirmed: true
+    node_kind: libusb
 gap_closure: unverified_by_maintainer
 identification_gap: >-
   The identifiers above are Mirics silicon as recorded by Debian's libmirisdr4,

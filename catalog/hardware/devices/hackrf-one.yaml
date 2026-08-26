@@ -11,31 +11,55 @@ usb_ids:
   - vendor: "1d50"
     product: "6089"
     description: HackRF One
-    evidence: Debian 13 /lib/udev/rules.d/60-libhackrf0.rules, from the libhackrf0 package
+    evidence: >-
+      Debian 13 /lib/udev/rules.d/60-libhackrf0.rules, from the libhackrf0
+      package. The product string is NOT from a capture — nobody here owns a
+      HackRF One — but from upstream's own USB descriptor:
+      greatscottgadgets/hackrf firmware/hackrf_usb/usb_descriptor.c at
+      55b1b21918e7ea697b961e5818c5493c875a0303 (2026-08-04) builds
+      usb_descriptor_string_product_hackrf_one[] as the sixteen-bit characters
+      'H','a','c','k','R','F',' ','O','n','e'. Mined rather than guessed, the
+      same way the LoRa board identifiers were.
     confirmed: true
+    node_kind: libusb
+    product_string: HackRF One
+    reports_serial: true
     ambiguity:
       basis: shared_across_products
       evidence: >-
         CONFIRMED BY CAPTURE 2026-08-26, not by the sweep: a HackRF Pro
         enumerates with this same 1d50:6089 and differs only in its product
-        string ("HackRF Pro" against "HackRF One"). Great Scott Gadgets reused
-        the identifier for the successor board. The generated ambiguity list
-        does NOT contain this pair -- usb.ids names it "Great Scott Gadgets
-        HackRF One SDR", a product name, which the generator treats as evidence
-        that a vendor bought an id for one device. That inference is sound in
-        general and wrong here.
+        string ("HackRF Pro" against "HackRF One"). Upstream says so outright,
+        which is stronger than the inference from one capture: usb_descriptor.c
+        guards the 0x6089 idProduct with `#if defined(IS_HACKRF_ONE) ||
+        defined(IS_PRALINE)` -- one descriptor, two boards, Praline being the
+        Pro's build name. Jawbreaker (0x604B) and rad1o (0xCC15) each get their
+        own. The generated ambiguity list does NOT contain this pair -- usb.ids
+        names it "Great Scott Gadgets HackRF One SDR", a product name, which the
+        generator treats as evidence that a vendor bought an id for one device.
+        That inference is sound in general and wrong here.
       also_used_by:
         - hackrf-pro
   - vendor: "1d50"
     product: "604b"
     description: HackRF Jawbreaker (predecessor)
-    evidence: Debian 13 /lib/udev/rules.d/60-libhackrf0.rules
+    evidence: >-
+      Debian 13 /lib/udev/rules.d/60-libhackrf0.rules. Product string from
+      upstream's usb_descriptor_string_product_jawbreaker[] in
+      firmware/hackrf_usb/usb_descriptor.c, not from hardware.
     confirmed: true
+    node_kind: libusb
+    product_string: HackRF Jawbreaker
   - vendor: "1d50"
     product: "cc15"
     description: rad1o badge, which speaks the HackRF protocol
-    evidence: Debian 13 /lib/udev/rules.d/60-libhackrf0.rules
+    evidence: >-
+      Debian 13 /lib/udev/rules.d/60-libhackrf0.rules. Product string from
+      upstream's usb_descriptor_string_product_rad1o[] in
+      firmware/hackrf_usb/usb_descriptor.c, not from hardware.
     confirmed: true
+    node_kind: libusb
+    product_string: rad1o
 
 groups: [plugdev]
 packages: [hackrf, soapysdr-module-hackrf, gqrx-sdr, sdrpp]
@@ -49,6 +73,9 @@ firmware:
       description: NXP LPC device in DFU mode — HackRF in bootloader
       evidence: Debian 13 /lib/udev/rules.d/60-libhackrf0.rules
       confirmed: true
+      node_kind: libusb
+      product_string: LPC
+      reports_serial: false
       ambiguity:
         basis: shared_across_products
         evidence: >-

@@ -12,16 +12,19 @@ usb_ids:
     description: bladeRF 2.0 micro
     evidence: Debian 13 /lib/udev/rules.d/88-nuand-bladerf2.rules, from the libbladerf2 package
     confirmed: true
+    node_kind: libusb
   - vendor: "2cf0"
     product: "5246"
     description: bladeRF x40 / x115
     evidence: Debian 13 /lib/udev/rules.d/88-nuand-bladerf1.rules
     confirmed: true
+    node_kind: libusb
   - vendor: "1d50"
     product: "6066"
     description: bladeRF, OpenMoko-allocated identifier used by earlier firmware
     evidence: Debian 13 /lib/udev/rules.d/88-nuand-bladerf1.rules
     confirmed: true
+    node_kind: libusb
 groups: [plugdev]
 packages: [libbladerf2, soapysdr-module-bladerf, gqrx-sdr]
 firmware:

@@ -421,11 +421,27 @@ def test_a_symlink_on_a_bridge_chip_is_refused() -> None:
 
 def test_a_product_match_makes_it_safe() -> None:
     entry = device(
-        usb_ids=[CP2102],
+        usb_ids=[CP2102.model_copy(update={"product_string": "ESP32 Marauder"})],
         udev={"symlink": "marauder", "match_product": "ESP32 Marauder"},
     )
     assert entry.udev is not None
     assert entry.udev.match_product == "ESP32 Marauder"
+
+
+def test_a_product_match_nobody_has_read_is_refused() -> None:
+    """The mirror image of a guessed VID:PID, and just as silent.
+
+    `hackrf-one` shipped `match_product: HackRF One` on the strength of nothing
+    — the maintainer owns a Pro, not a One. A product string that is one
+    character out produces a rule that never matches, which looks exactly like
+    a bad cable. So the string has to be recorded on the identifier it was read
+    from, with the capture or the upstream source in its evidence.
+    """
+    with pytest.raises((ManifestError, ValidationError)):
+        device(
+            usb_ids=[CP2102],
+            udev={"symlink": "marauder", "match_product": "ESP32 Marauder"},
+        )
 
 
 def test_a_serial_match_makes_it_safe() -> None:
@@ -578,3 +594,125 @@ def test_devices_sharing_an_identifier_both_declare_it() -> None:
         assert entry.udev is not None and entry.udev.match_product, (
             f"{name} pins a symlink to a shared identifier and needs match_product"
         )
+
+
+# ---------------------------------------------------------------------------
+# Composite devices are a named shape, not a paragraph
+# ---------------------------------------------------------------------------
+
+
+def test_composite_requires_more_than_one_identifier() -> None:
+    with pytest.raises((ManifestError, ValidationError)):
+        device(usb_ids=[CONFIRMED], composite=True)
+
+
+def test_composite_requires_every_interface_to_say_what_it_is() -> None:
+    """The point of declaring composite is answering 'which one is the probe'."""
+    with pytest.raises((ManifestError, ValidationError)):
+        device(
+            usb_ids=[CONFIRMED, CONFIRMED.model_copy(update={"product": "604b"})],
+            composite=True,
+        )
+
+
+def test_a_mapped_composite_is_accepted() -> None:
+    entry = device(
+        usb_ids=[
+            CONFIRMED.model_copy(update={"node_kind": "libusb"}),
+            CONFIRMED.model_copy(update={"product": "604b", "node_kind": "serial"}),
+        ],
+        composite=True,
+    )
+    assert entry.composite
+
+
+def test_free_wili_is_the_composite_in_the_catalog() -> None:
+    _, devices = load_hardware(HARDWARE)
+    fw = devices["free-wili-2"]
+    assert fw.composite
+    assert len(fw.usb_ids) == 6
+    assert all(i.node_kind is not None for i in fw.usb_ids)
+
+
+# ---------------------------------------------------------------------------
+# What /dev/serial/by-id/ does and does not settle
+# ---------------------------------------------------------------------------
+
+
+def test_only_serial_interfaces_reach_by_id() -> None:
+    assert CONFIRMED.model_copy(update={"node_kind": "serial"}).by_id_reachable
+    assert not CONFIRMED.model_copy(update={"node_kind": "libusb"}).by_id_reachable
+    assert not CONFIRMED.model_copy(update={"node_kind": "storage"}).by_id_reachable
+
+
+def test_a_serial_device_with_no_serial_collides_in_by_id_too() -> None:
+    """The Proxmark3 case, and the reason the symlink plan was not simply retired.
+
+    by-id composes its path from manufacturer, product and serial. A device
+    supplying no serial collides there exactly as a naive symlink would, so
+    neither mechanism separates two of them and only by-path — which is
+    topology, and moves when the cable moves — does.
+    """
+    pm = UsbId(
+        vendor="2d2d",
+        product="504d",
+        description="Proxmark3 in normal operating mode",
+        evidence="lsusb 2026-08-26: manufacturer=proxmark.org, no product string, no serial.",
+        node_kind="serial",
+        reports_serial=False,
+    )
+    assert pm.by_id_reachable
+    assert pm.by_id_distinguishes_units is False
+
+
+def test_the_proxmark_is_still_the_catalogs_counter_example() -> None:
+    _, devices = load_hardware(HARDWARE)
+    pm = devices["proxmark3"].usb_ids[0]
+    assert pm.node_kind == "serial"
+    assert pm.reports_serial is False
+    assert devices["proxmark3"].udev is None
+
+
+def test_ports_are_named_completely_or_not_at_all() -> None:
+    """A partial map reads as a complete one."""
+    with pytest.raises((ManifestError, ValidationError)):
+        UsbId(
+            vendor="093c",
+            product="2059",
+            description="Free-WiLi 2 main interface",
+            evidence="lsusb against real hardware 2026-08-26",
+            node_kind="serial",
+            ports=4,
+            port_roles=["console"],
+        )
+
+
+def test_only_serial_interfaces_multiplex_ports() -> None:
+    with pytest.raises((ManifestError, ValidationError)):
+        UsbId(
+            vendor="093c",
+            product="205f",
+            description="Mass storage interface",
+            evidence="lsusb against real hardware 2026-08-26",
+            node_kind="storage",
+            ports=3,
+        )
+
+
+def test_every_symlink_in_the_catalog_is_outside_by_ids_reach() -> None:
+    """The accounting's headline, asserted rather than left to the generator.
+
+    Not a design rule — a device that by-id already names could still earn a
+    symlink for an operator-chosen role name. It is a finding: every symlink
+    written so far is on a libusb device systemd's serial rule never sees, so
+    the two mechanisms have not overlapped once. If that ever stops being true,
+    the entry that broke it owes a reason beyond stability.
+    """
+    classes, devices = load_hardware(HARDWARE)
+    for dev in devices.values():
+        if dev.udev is None:
+            continue
+        ids = list(dev.usb_ids)
+        if dev.device_class:
+            ids += list(classes[dev.device_class].usb_ids)
+        assert not any(i.by_id_reachable for i in ids if i.confirmed), dev.name

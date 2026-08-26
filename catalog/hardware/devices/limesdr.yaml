@@ -38,6 +38,7 @@ usb_ids:
       LimeSDR". Read by the archive-wide sweep in scripts/udev-sweep.sh, not
       from hardware -- see docs/reference/udev-inventory.md.
     confirmed: true
+    node_kind: libusb
   - vendor: "0403"
     product: "601f"
     description: FTDI FT601 32-bit FIFO - the USB interface on LimeSDR Mini
@@ -48,6 +49,7 @@ usb_ids:
       general-purpose serial adapter, so it does not collide the way 0403:6001
       would.
     confirmed: true
+    node_kind: libusb
   - vendor: "04b4"
     product: "00f1"
     description: Cypress FX3 in bootloader mode - LimeSDR firmware recovery
@@ -57,6 +59,7 @@ usb_ids:
       rule is NOT: 8613 is the stock FX2 development-kit identifier, shared by
       a very large number of unrelated boards.
     confirmed: true
+    node_kind: libusb
 
 identification_gap: >-
   Narrowed, not closed. The board identifiers are now confirmed from Debian's

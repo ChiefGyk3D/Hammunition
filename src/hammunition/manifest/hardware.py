@@ -32,6 +32,7 @@ __all__ = [
     "Firmware",
     "GapClosure",
     "MaintainerVerification",
+    "NodeKind",
     "UdevBinding",
     "UsbAmbiguity",
     "UsbId",
@@ -139,12 +140,40 @@ class UsbAmbiguity(Strict):
     )
 
 
+NodeKind = Literal["serial", "libusb", "storage", "hid", "network", "sound"]
+"""What the kernel makes of this interface, which decides how it can be named.
+
+Recorded because the naming accounting cannot be done without it, and the
+accounting overturned this project's stated priority. ``/dev/serial/by-id/`` is
+systemd's, is already correct, and needs nothing from us -- but it exists only
+for ``serial``. An ``libusb`` device has no ``/dev/serial/`` entry at all, and
+most of this catalog is ``libusb``.
+
+``serial``
+    A USB-serial interface: ``cdc_acm``, ``ftdi_sio``, ``cp210x``, ``ch341``.
+    Gets a ``/dev/ttyUSB*`` or ``/dev/ttyACM*``, and a ``/dev/serial/by-id/``
+    path composed by systemd from the descriptor strings.
+``libusb``
+    Claimed by no kernel driver and opened directly through libusb: every SDR
+    here, the Ubertooth, the Proxmark in client mode. There is no ``/dev`` node
+    but the bus device, so permissions are the whole problem and by-id does not
+    apply.
+``storage``, ``hid``, ``network``, ``sound``
+    Claimed by a class driver. Named by their own subsystem's rules; nothing
+    here should be writing symlinks for them.
+"""
+
+
 class UsbId(Strict):
     """One USB vendor/product pair, with its provenance.
 
     ``product`` may be None to match every product of a vendor — occasionally
     correct (a vendor with one product line) and usually lazy, so it needs the
     same evidence as anything else.
+
+    On a composite device this is one *interface* rather than one device, which
+    is why it carries ``node_kind``, ``ports`` and ``port_roles``: a Free-WiLi 2
+    is six of these behind an internal hub, and four of its ports live on one.
     """
 
     vendor: str = Field(description="4 hex digits, lowercase.")
@@ -162,6 +191,38 @@ class UsbId(Strict):
         default=None,
         description="Set when the pair names a chip or a function rather than a device. D-028.",
     )
+    node_kind: NodeKind | None = Field(
+        default=None,
+        description="What /dev node the kernel makes. None means nobody has recorded it.",
+    )
+    ports: int = Field(
+        default=1,
+        ge=1,
+        description="How many nodes this one interface presents. >1 only makes sense for serial.",
+    )
+    port_roles: list[str] = Field(
+        default_factory=list,
+        description=(
+            "What each port is for, in interface order. Empty means unknown, "
+            "which is a documented gap on a multi-port device rather than a "
+            "detail: a stable path to a port you cannot identify is not an answer."
+        ),
+    )
+    product_string: str | None = Field(
+        default=None,
+        description=(
+            "ATTRS{product} as actually read from the descriptor. The source of "
+            "truth for any udev match_product -- writing one nobody has read is "
+            "the same defect as guessing a VID:PID, pointed the other way."
+        ),
+    )
+    reports_serial: bool | None = Field(
+        default=None,
+        description=(
+            "Whether the device supplies a per-unit serial. False is a finding, "
+            "not a blank: it means two of them collide in /dev/serial/by-id/ too."
+        ),
+    )
 
     @model_validator(mode="after")
     def _check(self) -> UsbId:
@@ -173,7 +234,35 @@ class UsbId(Strict):
                 f"USB id {self.vendor}:{self.product} is marked confirmed but its "
                 f"evidence asserts it is not"
             )
+        if self.ports > 1 and self.node_kind not in (None, "serial"):
+            raise ManifestError(
+                f"USB id {self.vendor}:{self.product} claims {self.ports} ports on a "
+                f"{self.node_kind} interface; only serial interfaces multiplex ports"
+            )
+        if self.port_roles and len(self.port_roles) != self.ports:
+            raise ManifestError(
+                f"USB id {self.vendor}:{self.product} names {len(self.port_roles)} port "
+                f"roles for {self.ports} ports. Name all of them or none — a partial "
+                f"map reads as a complete one."
+            )
         return self
+
+    @property
+    def by_id_reachable(self) -> bool:
+        """Whether systemd's 60-serial.rules gives this a /dev/serial/by-id/ path."""
+        return self.node_kind == "serial"
+
+    @property
+    def by_id_distinguishes_units(self) -> bool | None:
+        """Whether that path separates two of these attached at once.
+
+        None when unrecorded. False is the Proxmark case: by-id composes from
+        manufacturer, product and serial, so a device supplying no serial
+        collides there exactly as a naive symlink would.
+        """
+        if not self.by_id_reachable:
+            return False
+        return self.reports_serial
 
     def __str__(self) -> str:
         return f"{self.vendor}:{self.product or '*'}"
@@ -327,6 +416,18 @@ def _check_symlink_safety(name: str, usb_ids: list[UsbId], udev: UdevBinding | N
     """
     if udev is None:
         return
+    if udev.match_product is not None:
+        read = {i.product_string for i in usb_ids if i.product_string}
+        if udev.match_product not in read:
+            raise ManifestError(
+                f"{name!r} matches ATTRS{{product}}=={udev.match_product!r}, which no "
+                f"identifier here records having read"
+                + (f" (recorded: {sorted(read)})" if read else "")
+                + ". A product string nobody has read is the same defect as a guessed "
+                "VID:PID, pointed the other way: the rule silently never matches and "
+                "looks exactly like a bad cable. Record it in product_string on the "
+                "identifier it was read from, with the capture or source in evidence."
+            )
     ambiguous = [i for i in usb_ids if i.ambiguity]
     if ambiguous and not (udev.match_product or udev.match_serial):
         pairs = ", ".join(str(i) for i in ambiguous)
@@ -390,6 +491,13 @@ class DeviceManifest(_DeviceCommon):
         default=None,
         description="Evidence that someone on this project actually ran the device.",
     )
+    composite: bool = Field(
+        default=False,
+        description=(
+            "This is one product that enumerates as several USB devices behind an "
+            "internal hub. Declaring it obliges every identifier to say what it is."
+        ),
+    )
 
     @model_validator(mode="after")
     def _check(self) -> DeviceManifest:
@@ -436,5 +544,21 @@ class DeviceManifest(_DeviceCommon):
                 f"device {self.name!r} claims status 'supported' with no confirmed "
                 f"USB identifier — D-018: do not claim what has not been tested"
             )
+        if self.composite:
+            if len(self.usb_ids) < 2:
+                raise ManifestError(
+                    f"device {self.name!r} is marked composite but carries "
+                    f"{len(self.usb_ids)} identifier(s). Composite means several USB "
+                    f"devices behind one internal hub; one identifier is a plain device."
+                )
+            unmapped = [str(i) for i in self.usb_ids if i.node_kind is None]
+            if unmapped:
+                raise ManifestError(
+                    f"device {self.name!r} is composite but {unmapped} do not say what "
+                    f"kind of interface they are. The point of declaring composite is to "
+                    f"answer 'which of these is the debug probe' — an unmapped list of "
+                    f"identifiers does not, and /dev/serial/by-id/ already provides the "
+                    f"stable paths it cannot label (D-029)."
+                )
         _check_symlink_safety(self.name, self.usb_ids, self.udev)
         return self

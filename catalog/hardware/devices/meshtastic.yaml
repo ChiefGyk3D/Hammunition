@@ -33,6 +33,7 @@ usb_ids:
       scripts/lora-sweep.sh. Claimed by 49 distinct board definitions
       across the two projects. Also captured directly from three unrelated non-Meshtastic devices; see badgelife.
     confirmed: true
+    node_kind: serial
     ambiguity:
       basis: vendor_chip_default
       evidence: >-
@@ -49,6 +50,7 @@ usb_ids:
       scripts/lora-sweep.sh. Claimed by 41 distinct board definitions
       across the two projects. 
     confirmed: true
+    node_kind: serial
     ambiguity:
       basis: vendor_chip_default
       evidence: >-
@@ -65,6 +67,7 @@ usb_ids:
       scripts/lora-sweep.sh. Claimed by 41 distinct board definitions
       across the two projects. 
     confirmed: true
+    node_kind: serial
     ambiguity:
       basis: vendor_chip_default
       evidence: >-
@@ -81,6 +84,7 @@ usb_ids:
       scripts/lora-sweep.sh. Claimed by 29 distinct board definitions
       across the two projects. Bootloader mode: a board here is being flashed, not operated.
     confirmed: true
+    node_kind: storage
     ambiguity:
       basis: vendor_chip_default
       evidence: >-
@@ -97,6 +101,7 @@ usb_ids:
       scripts/lora-sweep.sh. Claimed by 25 distinct board definitions
       across the two projects. Bootloader mode.
     confirmed: true
+    node_kind: storage
     ambiguity:
       basis: vendor_chip_default
       evidence: >-
@@ -113,6 +118,7 @@ usb_ids:
       scripts/lora-sweep.sh. Claimed by 16 distinct board definitions
       across the two projects. 
     confirmed: true
+    node_kind: storage
     ambiguity:
       basis: vendor_chip_default
       evidence: >-
@@ -129,6 +135,7 @@ usb_ids:
       scripts/lora-sweep.sh. Claimed by 6 distinct board definitions
       across the two projects. 
     confirmed: true
+    node_kind: serial
     ambiguity:
       basis: vendor_chip_default
       evidence: >-

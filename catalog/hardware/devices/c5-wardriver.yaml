@@ -32,6 +32,9 @@ usb_ids:
       presenting /dev/ttyACM0. No manufacturer string at all. usb.ids names
       1a86:55d3 "QinHeng Electronics USB Single Serial".
     confirmed: true
+    node_kind: serial
+    product_string: USB Single Serial
+    reports_serial: true
     ambiguity:
       basis: kernel_generic_driver
       evidence: >-

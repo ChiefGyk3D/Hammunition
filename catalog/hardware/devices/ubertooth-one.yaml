@@ -13,11 +13,13 @@ usb_ids:
     description: Ubertooth One
     evidence: Debian 13 /lib/udev/rules.d/40-ubertooth.rules, from the ubertooth package
     confirmed: true
+    node_kind: libusb
   - vendor: "1d50"
     product: "6000"
     description: Ubertooth Zero
     evidence: Debian 13 /lib/udev/rules.d/40-ubertooth.rules
     confirmed: true
+    node_kind: libusb
 
 groups: [plugdev]
 packages: [ubertooth, wireshark]

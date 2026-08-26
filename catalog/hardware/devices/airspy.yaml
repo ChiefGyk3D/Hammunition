@@ -12,11 +12,13 @@ usb_ids:
     description: Airspy R2 / Airspy Mini
     evidence: Debian 13 /lib/udev/rules.d/60-libairspy0.rules, from the libairspy0 package
     confirmed: true
+    node_kind: libusb
   - vendor: "03eb"
     product: "800c"
     description: Airspy HF+ / HF+ Discovery
     evidence: Debian 13 /lib/udev/rules.d/60-libairspyhf1.rules, from the libairspyhf1 package
     confirmed: true
+    node_kind: libusb
 groups: [plugdev]
 packages: [airspy, airspyhf, soapysdr-module-airspy, gqrx-sdr]
 udev: {symlink: airspy, serial_suffix: true, group: plugdev}

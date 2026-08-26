@@ -33,6 +33,9 @@ usb_ids:
       Pico" serial=613863E6351D29A3 (the RP2040 flash unique id), presenting
       /dev/ttyACM0.
     confirmed: true
+    node_kind: serial
+    product_string: RaspberryPi Pico
+    reports_serial: true
     ambiguity:
       basis: vendor_chip_default
       evidence: >-

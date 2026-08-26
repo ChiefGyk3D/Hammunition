@@ -32,6 +32,9 @@ usb_ids:
       JTAG/serial debug unit" serial=28:37:2F:88:DC:40, presenting
       /dev/ttyACM0.
     confirmed: true
+    node_kind: serial
+    product_string: USB JTAG/serial debug unit
+    reports_serial: true
     ambiguity:
       basis: vendor_chip_default
       evidence: >-

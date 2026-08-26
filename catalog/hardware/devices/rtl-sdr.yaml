@@ -25,6 +25,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "0bda"
     product: "2838"
     description: RTL2832U OEM vid/pid, e.g. ezcap EzTV668 (E4000), Newsky TV28T (E4000/R820T) etc. — RTL2838 DVB-T, Realtek Semiconductor Corp.
@@ -32,6 +33,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "0413"
     product: "6680"
     description: DigitalNow Quad DVB-T PCI-E card (4x FC0012?) device — Leadtek Research, Inc.
@@ -39,6 +41,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "0413"
     product: "6f0f"
     description: Leadtek WinFast DTV Dongle mini D (FC0012) device — Leadtek Research, Inc.
@@ -46,6 +49,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "0458"
     product: "707f"
     description: Genius TVGo DVB-T03 USB dongle (Ver. B) — TVGo DVB-T03 [RTL2832], KYE Systems Corp. (Mouse Systems)
@@ -53,6 +57,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "0ccd"
     product: "00a9"
     description: Terratec Cinergy T Stick Black (rev 1) (FC0012) — RTL2838 DVB-T COFDM Demodulator [TerraTec Cinergy T Stick Black], TerraTec Electronic GmbH
@@ -60,6 +65,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "0ccd"
     product: "00b3"
     description: Terratec NOXON rev 1 (FC0013) — NOXON DAB/DAB+ Stick, TerraTec Electronic GmbH
@@ -67,6 +73,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "0ccd"
     product: "00b4"
     description: Terratec Deutschlandradio DAB Stick (FC0013) device — TerraTec Electronic GmbH
@@ -74,6 +81,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "0ccd"
     product: "00b5"
     description: Terratec NOXON DAB Stick - Radio Energy (FC0013) device — TerraTec Electronic GmbH
@@ -81,6 +89,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "0ccd"
     product: "00b7"
     description: Terratec Media Broadcast DAB Stick (FC0013) device — TerraTec Electronic GmbH
@@ -88,6 +97,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "0ccd"
     product: "00b8"
     description: Terratec BR DAB Stick (FC0013) device — TerraTec Electronic GmbH
@@ -95,6 +105,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "0ccd"
     product: "00b9"
     description: Terratec WDR DAB Stick (FC0013) — WDR DAB/DAB+ Stick, TerraTec Electronic GmbH
@@ -102,6 +113,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "0ccd"
     product: "00c0"
     description: Terratec MuellerVerlag DAB Stick (FC0013) device — TerraTec Electronic GmbH
@@ -109,6 +121,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "0ccd"
     product: "00c6"
     description: Terratec Fraunhofer DAB Stick (FC0013) device — TerraTec Electronic GmbH
@@ -116,6 +129,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "0ccd"
     product: "00d3"
     description: Terratec Cinergy T Stick RC (Rev.3) (E4000) device — TerraTec Electronic GmbH
@@ -123,6 +137,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "0ccd"
     product: "00d7"
     description: Terratec T Stick PLUS (E4000) device — TerraTec Electronic GmbH
@@ -130,6 +145,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "0ccd"
     product: "00e0"
     description: Terratec NOXON rev 2 (E4000) — NOXON DAB/DAB+ Stick V2, TerraTec Electronic GmbH
@@ -137,6 +153,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1554"
     product: "5020"
     description: PixelView PV-DT235U(RN) (FC0012) device — Prolink Microsystems Corp.
@@ -144,6 +161,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "15f4"
     product: "0131"
     description: Astrometa DVB-T/DVB-T2 (R828D) — Astrometa DVB-T/T2/C FM & DAB receiver [RTL2832P], HanfTek
@@ -151,6 +169,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "15f4"
     product: "0133"
     description: HanfTek DAB+FM+DVB-T device — HanfTek
@@ -158,6 +177,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "185b"
     product: "0620"
     description: Compro Videomate U620F (E4000) device — Compro
@@ -165,6 +185,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "185b"
     product: "0650"
     description: Compro Videomate U650F (E4000) device — Compro
@@ -172,6 +193,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "185b"
     product: "0680"
     description: Compro Videomate U680F (E4000) device — Compro
@@ -179,6 +201,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1b80"
     product: "d393"
     description: GIGABYTE GT-U7300 (FC0012) — DVB-T receiver [RTL2832U], Afatech
@@ -186,6 +209,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1b80"
     product: "d394"
     description: DIKOM USB-DVBT HD device — Afatech
@@ -193,6 +217,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1b80"
     product: "d395"
     description: Peak 102569AGPK (FC0012) device — Afatech
@@ -200,6 +225,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1b80"
     product: "d397"
     description: KWorld KW-UB450-T USB DVB-T Pico TV (TUA9001) — DVB-T receiver [RTL2832U], Afatech
@@ -207,6 +233,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1b80"
     product: "d398"
     description: Zaapa ZT-MINDVBZP (FC0012) — DVB-T receiver [RTL2832U], Afatech
@@ -214,6 +241,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1b80"
     product: "d39d"
     description: SVEON STV20 DVB-T USB & FM (FC0012) device — Afatech
@@ -221,6 +249,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1b80"
     product: "d3a4"
     description: Twintech UT-40 (FC0013) device — Afatech
@@ -228,6 +257,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1b80"
     product: "d3a8"
     description: ASUS U3100MINI_PLUS_V2 (FC0013) device — Afatech
@@ -235,6 +265,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1b80"
     product: "d3af"
     description: SVEON STV27 DVB-T USB & FM (FC0013) device — Afatech
@@ -242,6 +273,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1b80"
     product: "d3b0"
     description: SVEON STV21 DVB-T USB & FM device — Afatech
@@ -249,6 +281,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1d19"
     product: "1101"
     description: Dexatek DK DVB-T Dongle (Logilink VG0002A) (FC2580) — DK DVB-T Dongle, Dexatek Technology Ltd.
@@ -256,6 +289,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1d19"
     product: "1102"
     description: Dexatek DK DVB-T Dongle (MSI DigiVox mini II V3.0) — DK mini DVB-T Dongle, Dexatek Technology Ltd.
@@ -263,6 +297,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1d19"
     product: "1103"
     description: Dexatek DK 5217 DVB-T Dongle (FC2580) — DK 5217 DVB-T Dongle, Dexatek Technology Ltd.
@@ -270,6 +305,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1d19"
     product: "1104"
     description: MSI DigiVox Micro HD (FC2580) — MSI DigiVox Micro HD, Dexatek Technology Ltd.
@@ -277,6 +313,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1f4d"
     product: "a803"
     description: Sweex DVB-T USB (FC0012) device — G-Tek Electronics Group
@@ -284,6 +321,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1f4d"
     product: "b803"
     description: GTek T803 (FC0012) — Lifeview LV5TDLX DVB-T [RTL2832U], G-Tek Electronics Group
@@ -291,6 +329,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1f4d"
     product: "c803"
     description: Lifeview LV5TDeluxe (FC0012) — NotOnlyTV (Lifeview) LV5TDLX DVB-T [RTL2832U], G-Tek Electronics Group
@@ -298,6 +337,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1f4d"
     product: "d286"
     description: MyGica TD312 (FC0012) device — G-Tek Electronics Group
@@ -305,6 +345,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
   - vendor: "1f4d"
     product: "d803"
     description: PROlectrix DV107669 (FC0012) device — G-Tek Electronics Group
@@ -312,6 +353,7 @@ usb_ids:
       Debian 13 /usr/lib/udev/rules.d/60-librtlsdr0.rules, from the librtlsdr0
       package. Vendor and product names from Debian's usb.ids where present.
     confirmed: true
+    node_kind: libusb
 groups: [plugdev]
 packages: [rtl-sdr, soapysdr-module-rtlsdr, gqrx-sdr, rtl-433, multimon-ng]
 

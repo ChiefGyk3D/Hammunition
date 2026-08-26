@@ -39,6 +39,9 @@ usb_ids:
       renders the pair as "Great Scott Gadgets HackRF One SDR" from usb.ids,
       which is the database being out of date rather than the device lying.
     confirmed: true
+    node_kind: libusb
+    product_string: HackRF Pro
+    reports_serial: true
     ambiguity:
       basis: shared_across_products
       evidence: >-
@@ -81,6 +84,9 @@ firmware:
         /dev node. Identical to the identifier the HackRF One presents in DFU,
         which Debian's own 60-libhackrf0.rules also carries.
       confirmed: true
+      node_kind: libusb
+      product_string: LPC
+      reports_serial: false
       ambiguity:
         basis: shared_across_products
         evidence: >-

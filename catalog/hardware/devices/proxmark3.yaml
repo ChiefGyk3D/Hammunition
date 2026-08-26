@@ -40,6 +40,8 @@ usb_ids:
       serial, presenting /dev/ttyACM0. usb.ids names 2d2d "proxmark.org" and
       504d "Proxmark3" -- an identifier the project registered for itself.
     confirmed: true
+    node_kind: serial
+    reports_serial: false
 
 # NO SYMLINK, and for a reason none of the other entries have: there is no
 # serial to suffix and no product string to match. A rule could safely say "this
