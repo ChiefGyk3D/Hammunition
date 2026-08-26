@@ -1,0 +1,150 @@
+# ---------------------------------------------------------------------------
+# Reference material — third-party source we study but never redistribute.
+# AHRL tarballs, upstream releases, extracted trees. Provenance stays clean.
+# ---------------------------------------------------------------------------
+# Anchored to the repo root: docs/reference/ is a required documentation
+# section (see CLAUDE.md) and must NOT be caught by this rule.
+/reference/
+/vendor/
+!/reference/README.md
+!/reference/.gitkeep
+
+# Archives and images of any kind
+*.tar
+*.tar.gz
+*.tgz
+*.tar.bz2
+*.tar.xz
+*.zip
+*.7z
+*.rar
+*.gz
+*.bz2
+*.xz
+*.iso
+*.img
+*.deb
+*.rpm
+*.AppImage
+*.snap
+*.flatpak
+*.dmg
+
+# ---------------------------------------------------------------------------
+# Secrets and machine-specific config — nothing here ever gets committed
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.asc
+!**/pubkey.asc
+*.gpg
+!**/*.pub.gpg
+secrets.yml
+secrets.yaml
+*_rsa
+*_ed25519
+.netrc
+.credentials
+
+# Operator-specific station config (callsigns, grid squares, rig paths)
+station.local.yml
+station.local.yaml
+*.local.yml
+*.local.yaml
+!example.local.yml
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Environments
+.venv/
+venv/
+ENV/
+env/
+.python-version
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+
+# ---------------------------------------------------------------------------
+# Runtime state — transaction logs, caches, generated artifacts
+# ---------------------------------------------------------------------------
+state/
+logs/
+*.log
+.hammunition/
+catalog.cache
+coverage-report.json
+coverage-report.md
+
+# Generated udev rules (produced by the engine, never hand-edited into git)
+generated/
+*.rules
+!catalog/hardware/**/*.rules
+
+# ---------------------------------------------------------------------------
+# Docs build output
+# ---------------------------------------------------------------------------
+site/
+docs/_build/
+.docusaurus/
+.cache/
+
+# ---------------------------------------------------------------------------
+# Containers and test scratch
+# ---------------------------------------------------------------------------
+.container-cache/
+test-results/
+*.qcow2
+
+# ---------------------------------------------------------------------------
+# Editors and OS cruft
+# ---------------------------------------------------------------------------
+.idea/
+.vscode/
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+.direnv/
