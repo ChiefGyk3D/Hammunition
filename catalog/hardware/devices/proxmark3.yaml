@@ -3,22 +3,24 @@
 
 kind: device
 name: proxmark3
-summary: Proxmark3 — RFID and NFC research tool (original design; RDV boards unverified)
+summary: Proxmark3 v3 and v5 — RFID and NFC research tool (RDV4 not covered)
 vendor: Proxmark community / RRG
 status: untested
 
 gap_closure: maintainer_hardware
 identification_gap: >-
-  No USB identifier confirmed yet, but the hardware to confirm one is in the
-  maintainer's kit and simply has to be located — this is a deferred task, not a
-  contribution ask. The unit is an original-design Proxmark3, not an RDV4 or
-  RDV5. That matters: the identifier differs across generations and across
-  Iceman-firmware variants, which is exactly the situation where a guessed
-  VID:PID produces a udev rule that silently never matches. So the lsusb capture
-  will close this entry for the original design only; the RDV boards stay
-  unconfirmed and need their own evidence from someone who owns one. No Debian
+  No USB identifier confirmed yet, and this is a deferred task rather than a
+  contribution ask — the hardware is in the maintainer's kit and has to be
+  located. Two boards are owned, a v3 and a v5, and they are different hardware:
+  the identifier differs across generations and across Iceman-firmware variants,
+  which is exactly the situation where a guessed VID:PID produces a udev rule
+  that silently never matches. So each board needs its own capture and the two
+  must not be conflated. An RDV4 is planned and not owned; nothing here claims
+  to cover it, and its identifier must come from someone who has one. No Debian
   package ships a Proxmark udev rule to read an identifier from, and the client
-  is not packaged. The bootloader enumerates separately and needs its own record.
+  is not packaged outside Kali. The bootloader enumerates separately and needs
+  its own record.
+
 groups: [dialout, plugdev]
 packages: []
 
@@ -48,7 +50,8 @@ documentation:
   known_problems: >-
     Client and firmware are version-locked, and a mismatch is the most common
     source of confusing behaviour. Several incompatible hardware generations
-    share the name — the original design, RDV4 and RDV5 — and this entry covers
-    the original only, because that is the board available to test against.
+    share the name. This entry covers the v3 and v5 boards, which are what is
+    available to test against; an RDV4 is planned and not owned, and is
+    deliberately not claimed here.
     Neither the client nor a udev rule is packaged by any target distribution.
   upstream_url: https://github.com/RfidResearchGroup/proxmark3

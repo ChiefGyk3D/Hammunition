@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+kind: device
+name: portapack-h4m
+summary: PortaPack H4M — add-on board giving a HackRF a screen, controls and standalone operation
+vendor: Community hardware (several builders)
+status: planned
+
+# Planned, not owned. The interesting structural point: a PortaPack is an
+# add-on that sits on a HackRF and turns it into a self-contained device with
+# its own firmware. On the USB side the host still sees the HackRF underneath,
+# so the device model in this catalog fits it poorly -- it is closer to a
+# firmware and a form factor than to a separate peripheral.
+#
+# That is recorded rather than resolved. Guessing whether it presents its own
+# identifier, or the HackRF's, or a third one in firmware-update mode, is
+# precisely the guess this catalog refuses to make.
+
+gap_closure: unverified_by_maintainer
+identification_gap: >-
+  Nothing confirmed, and the shape of what is unknown is itself unusual. The
+  PortaPack is an add-on board rather than a peripheral: the host generally sees
+  the HackRF it is attached to, so this entry may or may not warrant its own
+  USB identifier at all. Whether the combined device enumerates as the HackRF,
+  as something distinct, or differently again while its own firmware is being
+  updated, is not established here. The maintainer does not own one. Closing
+  this needs lsusb output from an owner in each of those states, and the answer
+  may be that the right record is a note on the HackRF entry rather than an
+  identifier here.
+
+groups: [plugdev]
+packages: [hackrf]
+
+documentation:
+  what_it_is: >-
+    An add-on board that mounts on a HackRF and adds a screen, navigation
+    controls and a battery, together with replacement firmware, turning it from
+    a host-tethered SDR into a self-contained handheld device.
+  what_you_can_do_with_it: >-
+    Operate the radio away from a computer. What it can do in that mode is a
+    property of the firmware loaded on it, which comes from upstream and runs on
+    the device — per D-026, this project installs the tooling for talking to the
+    hardware, not the device's own capability, and does not enumerate the
+    latter here.
+  setup_steps: >-
+    Not documented. Nothing has been tested on this hardware, and the setup path
+    for a device that is primarily operated standalone is materially different
+    from the tethered case this catalog is otherwise built around.
+  known_problems: >-
+    Untested here. Structurally, the thing to know is that firmware and host
+    tools are separate concerns for this device in a way they are not for a
+    plain HackRF, and several builders sell boards under this name whose
+    hardware differs.
+  upstream_url: https://greatscottgadgets.com/hackrf/

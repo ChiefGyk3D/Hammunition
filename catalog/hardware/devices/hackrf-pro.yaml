@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+kind: device
+name: hackrf-pro
+summary: HackRF Pro — Great Scott Gadgets' successor to the HackRF One
+vendor: Great Scott Gadgets
+status: planned
+
+# Planned, not owned. Catalogued because other operators have one and because
+# it is on the maintainer's list, NOT because anything here has been verified.
+# The distinction matters enough to be structural: `gap_closure` says
+# unverified_by_maintainer, so the generated gap report does not list this among
+# the things one lsusb on this bench would settle.
+#
+# Nothing about this device's USB identity is asserted. The HackRF One entry's
+# identifiers come from Debian's own udev rules and apply to the One; whether
+# this board shares them, and whether its DFU mode differs, is not established
+# here and must not be inferred from the family name.
+
+gap_closure: unverified_by_maintainer
+identification_gap: >-
+  Nothing confirmed. The maintainer does not own one, and no Debian package
+  installed here ships a udev rule naming it — the rules in `libhackrf` cover
+  the HackRF One's identifiers, and assuming a successor board reuses them is
+  exactly the kind of family-resemblance guess that produces a udev rule which
+  silently never matches. It also has a DFU or bootloader mode that will
+  enumerate differently again. Closing this needs lsusb output from an owner,
+  captured in both normal and bootloader modes.
+
+groups: [plugdev]
+packages: [hackrf, soapysdr-module-hackrf, gqrx-sdr]
+
+documentation:
+  what_it_is: >-
+    A wideband half-duplex software defined radio from Great Scott Gadgets,
+    positioned as the successor to the HackRF One, which has been the default
+    wide-coverage transmit-capable SDR in this space for over a decade.
+  what_you_can_do_with_it: >-
+    The same broad receive and transmit work the HackRF One is used for across a
+    very wide frequency range, half-duplex. Specific capabilities, coverage and
+    sample rates are deliberately not stated here because none of them has been
+    verified against hardware by this project.
+  setup_steps: >-
+    Not documented, and deliberately so. Nothing has been tested on this
+    hardware. Per D-018, this project does not describe a setup path it has not
+    walked. When an owner records the identifiers, the `hackrf` host tools and
+    Soapy module are the expected starting point, as they are for the One.
+  known_problems: >-
+    Unknown, because untested here. The one thing worth saying in advance
+    applies to the whole family: a transmit-capable SDR into an unterminated
+    port or the wrong antenna is a hardware risk regardless of what the software
+    does.
+  upstream_url: https://greatscottgadgets.com/hackrf/

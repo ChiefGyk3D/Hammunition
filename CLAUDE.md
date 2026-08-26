@@ -266,7 +266,7 @@ catalog/
   profiles/        # named bundles referencing packages      ✅ 4
   hardware/
     classes/       # device families with shared Linux needs ✅ badgelife
-    devices/       # one YAML per device                     ✅ 17
+    devices/       # one YAML per device                     ✅ 19
 src/hammunition/
   cli/             # argparse/click entry points             ❌ not written
   manifest/        # schema, loader, validation              ✅
@@ -426,10 +426,21 @@ assumed coverage.
 
 ## Hardware context
 
-The maintainer's own gear drives priority for the hardware role: HackRF Pro +
-PortaPack, CatSniffer V3, Free-WiLi 2, nRF52840, Meshtastic devices (T-Deck,
-T-Echo, RAK/WisMesh), ClockworkPi uConsole, Yaesu FT-991A, BTECH UV-50PRO,
-Panasonic Toughbook FZ-55.
+The maintainer's own gear drives priority for the hardware role. **Owned and
+testable** distinguishes what can close an `identification_gap` here from what
+cannot — see `docs/reference/hardware-gaps.md`, which is generated and
+authoritative:
+
+- **Owned:** CatSniffer V3, Electronic Cats Minino, Free-WiLi 2, nRF52840,
+  Proxmark3 v3 and v5, Clip-Boy, ESP32 Marauder (revision unconfirmed),
+  EFF Rayhunter, ClockworkPi uConsole with Hacker Gadgets AIO v2, Meshtastic
+  devices (T-Deck, T-Echo, RAK/WisMesh), Yaesu FT-991A, BTECH UV-50PRO,
+  Panasonic Toughbook FZ-55.
+- **Planned, not owned:** HackRF Pro, PortaPack H4M, Proxmark3 RDV4. Catalogued,
+  never marked maintainer-verified.
+- **Not owned:** LimeSDR, PlutoSDR, KrakenSDR, SDRplay RSP. Carried because
+  other operators have them; their gaps say *not owned* rather than *pending*,
+  because the reason a gap is open is as important as the fact that it is.
 
 Persistent udev symlinks by device serial are the highest-value feature in the
 hardware role — `/dev/rig-991a`, `/dev/catsniffer`, etc., so plug order stops

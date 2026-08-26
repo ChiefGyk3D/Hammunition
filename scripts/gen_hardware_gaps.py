@@ -90,6 +90,18 @@ BLOCKS: dict[str, tuple[str, str]] = {
         "this one. Three boards in the kit means three captures.",
     ),
     "limesdr": ("post-1.0", "No SDR in the 1.0 profiles depends on it."),
+    "hackrf-pro": (
+        "post-1.0",
+        "Planned hardware, not owned. The HackRF One entry covers the family's "
+        "current member with identifiers read from Debian's own udev rules; "
+        "nothing here assumes a successor board reuses them.",
+    ),
+    "portapack-h4m": (
+        "post-1.0",
+        "Planned, not owned, and it may never warrant an identifier of its own "
+        "— it is an add-on the host sees through the HackRF beneath it. The "
+        "right record may turn out to be a note on that entry instead.",
+    ),
     "plutosdr": (
         "post-1.0",
         "Its Soapy module is sid-only, so apt cannot install it on a stable "
