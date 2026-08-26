@@ -414,6 +414,47 @@ Full sourcing in `reference/licence-verification.md`. Two consequences:
    HamClock Backend would be a one-line catalog change. Hardcoded into four
    generated launchers, it is not. This is shape 7 in the schema.
 
+### Worked example 2, 2026-08-25 — the collision that stopped existing
+
+The first example shows the declarative catalog preventing a bug. This one shows
+it **removing a problem from the design entirely**, which is the stronger claim.
+
+AHRL installs WSJT-X and WSJT-X-improved in sequence. Both builds emit a binary
+called `wsjtx`, so the second overwrites the first. AHRL choreographs around it:
+
+```
+install wsjtx          → mv /usr/local/bin/wsjtx  /usr/local/bin/wsjtx_orig
+install wsjtx_improved → mv /usr/local/bin/wsjtx  /usr/local/bin/wsjtx_improved
+                       → mv /usr/local/bin/wsjtx_orig /usr/local/bin/wsjtx
+```
+
+Four renames across two functions, order-dependent in both directions. Run
+either half alone — which the `INSTALL_*` toggles explicitly permit — and a
+binary ends up under the wrong name. Nothing detects it.
+
+Our schema declares the mapping instead:
+
+```yaml
+# wsjtx.yaml                    # wsjtx-improved.yaml
+binaries:                       binaries:
+  - produced: wsjtx               - produced: wsjtx
+    install_as: wsjtx               install_as: wsjtx-improved
+```
+
+The builds still emit the same filename. They can no longer collide, because
+neither package controls its installed name — the manifest does. The ordering
+constraint is not automated or made safe; **it stops existing.** `after:` is
+retained for genuine ordering (units that must create groups before user
+creation), and `wsjtx-improved` declares it for determinism, but correctness no
+longer depends on it. A schema validator rejects duplicate `install_as` outright.
+
+**The general principle:** when imperative install logic needs a careful
+sequence, check whether the sequence is inherent or an artifact of the tooling.
+AHRL's rename dance looks like a hard ordering requirement and is in fact a
+naming collision that better modelling deletes. Prefer making a bad state
+unrepresentable over making it survivable — the same reasoning that removed
+`method: script` and optional `sha256` from the schema.
+
 ---
 
 ## D-014 — Backends are justified by measurement, not convention

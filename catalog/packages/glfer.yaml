@@ -1,0 +1,70 @@
+name: glfer
+version: 0.4.2
+summary: QRSS and DFCW receiver for extremely slow narrowband CW on LF/MF
+categories: [digital-modes]
+
+# Carried with attention per PARITY-POLICY: builds only with warning
+# suppressions on a modern toolchain. Recorded rather than rediscovered.
+install:
+  - install:
+      method: source
+      source:
+        url: https://www.qsl.net/in3otd/glfer-0.4.2.tar.gz
+        sha256: 06aad6fa425b23b92424ef2514a49d9590dd8d457f5f89210fead11b3a910c26
+      build_system: autotools
+      compiler_flags:
+        - -Wno-incompatible-pointer-types
+        - -Wno-deprecated-declarations
+        - -Wno-implicit-function-declaration
+    build_depends:
+      - libgtk2.0-dev
+      - libglib2.0-dev
+      - libgdk-pixbuf-2.0-dev
+      - fftw2
+    note: >-
+      Two of these build dependencies are themselves at risk. See toolkit_risk
+      and D-016: AHRL never checks exit status, so if either has already been
+      dropped from a target the build fails silently there.
+
+binaries:
+  - produced: glfer
+    install_as: glfer
+
+# D-015 — the register launches with two frameworks, not one.
+toolkit_risk:
+  - framework: gtk2
+    upstream_port_status: no_path
+    checked: 2026-08-25
+    note: >-
+      GTK2 reached end of life and is being removed across distributions. glfer
+      0.4.2 dates from 2003 and has had no upstream release since; there is no
+      GTK3 or GTK4 port to migrate to, so this is no_path rather than
+      not-yet-ported. When a target drops libgtk2.0-dev, glfer stops building
+      there and the correct response is a status change, not a patch.
+
+update:
+  probe:
+    method: none
+  strategy: manual
+  cadence_hint: >-
+    No upstream release since 0.4.2. Treat as finished software; check annually
+    rather than expecting updates.
+
+documentation:
+  what_it_does: >-
+    Receives and displays QRSS (very slow CW, seconds to minutes per element)
+    and DFCW (dual-frequency CW) as a scrolling spectrogram, so signals far
+    below the audible noise floor become visible.
+  why_you_want_it: >-
+    QRSS operating on the LF and MF bands uses milliwatts and relies on visual
+    detection over long integration times. This is one of very few Linux tools
+    that does it, and there is no maintained alternative.
+  prerequisites: >-
+    A receiver with stable frequency reference and audio into the sound card.
+    Frequency drift matters more than sensitivity for this mode.
+  known_problems: >-
+    Dates from 2003 and requires three warning suppressions to compile on a
+    modern toolchain, all recorded in compiler_flags. Depends on GTK2 and
+    FFTW 2, both of which are being retired by distributions; when a target
+    drops either, glfer stops building there.
+  upstream_url: https://www.qsl.net/in3otd/glfer.html

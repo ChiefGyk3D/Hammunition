@@ -60,7 +60,7 @@ def _minimal(**overrides) -> dict:
 # ===========================================================================
 
 def test_catalog_loads(catalog) -> None:
-    assert len(catalog) == 8
+    assert len(catalog) == 9
 
 
 def test_every_manifest_has_documentation(catalog) -> None:
@@ -378,3 +378,32 @@ def test_toolkit_risk_register_is_queryable(catalog) -> None:
     for name in at_risk:
         for risk in catalog[name].toolkit_risk:
             assert risk.checked, f"{name}: register entry must record when it was checked"
+
+
+def test_toolkit_register_is_multi_framework(catalog) -> None:
+    """D-015 is generic, not Qt5-specific. The register must prove that."""
+    frameworks = {
+        t.framework for m in catalog.values() for t in m.toolkit_risk
+    }
+    assert len(frameworks) > 1, f"register only covers {frameworks}"
+    assert "gtk2" in frameworks
+
+
+def test_no_path_is_distinct_from_not_yet_ported(catalog) -> None:
+    """The distinction that carries the value: glfer's GTK2 has nowhere to go,
+    which is a different problem from a port that simply has not happened."""
+    glfer = catalog["glfer"]
+    gtk2 = next(t for t in glfer.toolkit_risk if t.framework == "gtk2")
+    assert gtk2.upstream_port_status == "no_path"
+
+    wsjtx = catalog["wsjtx"]
+    qt5 = next(t for t in wsjtx.toolkit_risk if t.framework == "qt5")
+    assert qt5.upstream_port_status == "in_progress"
+    assert gtk2.upstream_port_status != qt5.upstream_port_status
+
+
+def test_compiler_flags_are_recorded_not_rediscovered(catalog) -> None:
+    """PARITY-POLICY 'CARRY with attention': the flags are catalog data."""
+    flags = catalog["glfer"].install[0].install.compiler_flags
+    assert "-Wno-incompatible-pointer-types" in flags
+    assert len(flags) == 3

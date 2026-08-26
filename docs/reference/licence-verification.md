@@ -104,9 +104,17 @@ Lines 18–21, verbatim:
 
 `sha256: e100b56609ad4850cd1ba89fdfee18bacb05fd944ed40801c67be813e075e56b`
 
-Lines 1–13 carry the **identical** GPL-3.0-or-later notice, word for word. It
-carries **no copyright line** — the notice appears without an attached
-`Copyright` statement.
+Lines 1–13 carry the **identical** GPL-3.0-or-later notice, word for word.
+
+**Discrepancy, recorded 2026-08-25:** unlike `install_ahrl`, this file carries
+**no copyright line at all** — the licence notice appears without any attached
+`Copyright` statement naming an author or year.
+
+`DECISIONS.md` D-011 says the two files are "GPL-3.0-or-later (Copyright
+2024/2025, Andy Stewart KB1OIQ)", which is precise for `install_ahrl` and
+imprecise for this one. Recorded for accuracy; **no further action**. It changes
+nothing operationally: we do not reuse either file, and a GPL notice without a
+copyright line is still a GPL notice.
 
 ### Everything else — no notice
 
