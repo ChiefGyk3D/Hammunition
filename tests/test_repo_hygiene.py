@@ -110,3 +110,90 @@ def test_no_files_tracked_from_root_reference_tree() -> None:
         if f.startswith("reference/") or f.startswith("vendor/")
     ]
     assert not offenders, f"third-party tree committed: {offenders}"
+
+
+# --------------------------------------------------------------------------
+# dispositions.md must stay internally consistent
+#
+# PARITY-POLICY.md requires that no unit is left unclassified, and the summary
+# table claims to be derived from the index rather than hand-maintained. This
+# asserts both, so the two cannot drift.
+# --------------------------------------------------------------------------
+
+DISPOSITIONS = REPO_ROOT / "docs" / "reference" / "dispositions.md"
+
+_CODES = {
+    "C": "CARRY", "S": "SUPERSEDE", "R": "REVIVE",
+    "X": "RETIRE", "A": "ADD", "?": "NEEDS-DECISION",
+    "M": "Reserved to maintainer",
+}
+
+
+def _parse_index() -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    import re
+
+    text = DISPOSITIONS.read_text()
+    ahrl_block, rest = text.split("**AHRL (105):**")[1].split("**73Linux delta (28):**")
+    delta_block = rest.split("\n---")[0]
+
+    def parse(block: str) -> list[tuple[str, str]]:
+        entries = []
+        for part in block.split("·"):
+            item = part.strip()
+            if not item:
+                continue
+            m = re.search(r"`([A-Za-z0-9_.+\- ]+)`\s*([SRXCAM?])\s*$", item)
+            assert m, f"unparseable index entry: {item!r}"
+            entries.append((m.group(1).strip(), m.group(2)))
+        return entries
+
+    return parse(ahrl_block), parse(delta_block)
+
+
+def _summary_counts() -> dict[str, tuple[int, int]]:
+    """Parse the summary table into {disposition: (ahrl, delta)}."""
+    counts = {}
+    for line in DISPOSITIONS.read_text().splitlines():
+        if not line.startswith("| ") or line.startswith("| **Total"):
+            continue
+        cells = [c.strip().strip("*") for c in line.strip("|").split("|")]
+        if len(cells) != 4 or cells[0] in {"Disposition", "---"}:
+            continue
+        if cells[0] not in _CODES.values():
+            continue
+        ahrl = 0 if cells[1] == "—" else int(cells[1])
+        delta = 0 if cells[2] == "—" else int(cells[2])
+        counts[cells[0]] = (ahrl, delta)
+    return counts
+
+
+def test_dispositions_index_totals() -> None:
+    ahrl, delta = _parse_index()
+    assert len(ahrl) == 105, f"expected 105 AHRL units, found {len(ahrl)}"
+    assert len(delta) == 28, f"expected 28 delta units, found {len(delta)}"
+
+
+def test_dispositions_no_duplicate_units() -> None:
+    from collections import Counter
+
+    ahrl, delta = _parse_index()
+    for label, entries in (("AHRL", ahrl), ("delta", delta)):
+        dupes = [n for n, c in Counter(n for n, _ in entries).items() if c > 1]
+        assert not dupes, f"{label} index has duplicates: {dupes}"
+
+
+def test_dispositions_summary_matches_index() -> None:
+    """The summary table claims to be derived from the index. Hold it to that."""
+    from collections import Counter
+
+    ahrl, delta = _parse_index()
+    actual_ahrl = Counter(code for _, code in ahrl)
+    actual_delta = Counter(code for _, code in delta)
+
+    for code, name in _CODES.items():
+        claimed = _summary_counts().get(name)
+        assert claimed is not None, f"summary table missing row: {name}"
+        assert claimed == (actual_ahrl[code], actual_delta[code]), (
+            f"{name}: summary says {claimed}, index has "
+            f"({actual_ahrl[code]}, {actual_delta[code]})"
+        )
