@@ -1,6 +1,10 @@
 name: CI
 
 on:
+  schedule:
+    # Weekly. D-024's cadence is measured in months; this only has to be
+    # frequent enough that an overdue pin is noticed within a week of going so.
+    - cron: "17 6 * * 1"
   push:
     branches: [main]
   pull_request:
@@ -147,3 +151,24 @@ jobs:
       # names the offending rule and line, which a pytest assertion cannot.
       - run: python scripts/audit_gitignore.py
       - run: pytest tests/test_repo_hygiene.py tests/test_gitignore_audit.py
+
+  # -------------------------------------------------------------------------
+  # Commit pins go stale on a calendar, not on a commit.  D-024.
+  #
+  # Whether a pin is well-formed is a property of the code and is asserted in
+  # tests, which run on every push. Whether it is STALE is a property of the
+  # date, and failing an unrelated pull request because a review date rolled
+  # over would teach people to ignore the job -- which is the one outcome that
+  # makes the whole mechanism worthless. So this runs on a schedule.
+  # -------------------------------------------------------------------------
+  pin-reviews:
+    name: commit pin reviews
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      - run: python scripts/check_pin_reviews.py

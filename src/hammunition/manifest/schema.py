@@ -32,6 +32,7 @@ __all__ = [
     "InstallBlock",
     "ManifestError",
     "PackageManifest",
+    "PinReview",
     "ProfileManifest",
     "RiskCategory",
     "Selector",
@@ -148,6 +149,53 @@ class SourceInstall(Strict):
     build_dir: str | None = None
 
 
+COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$")
+
+
+class PinReview(Strict):
+    """When a commit pin was last looked at, and by whom.  D-024.
+
+    A tag carries an upstream signal: someone decided that revision was worth
+    naming. A commit SHA carries none — it is perfectly pinned and perfectly
+    arbitrary. When a project stops tagging, pinning a commit is the right
+    answer, but it moves a judgement upstream stopped making onto us, and an
+    unreviewed commit pin from four years ago is the same failure as an
+    abandoned tag pointed the other way.
+
+    So the judgement is recorded rather than implied. This is metadata about
+    *our* decision, not about the software, which is why it lives beside the
+    ref rather than in documentation.
+    """
+
+    last_reviewed: date
+    reviewed_by: str = Field(
+        min_length=2,
+        description="Who looked. A name or handle, so the next reviewer knows who to ask.",
+    )
+    rationale: str = Field(
+        min_length=30,
+        description=(
+            "Why THIS commit rather than any other, and what was checked. "
+            "'HEAD at the time' is not a rationale; it is the absence of one."
+        ),
+    )
+    cadence_days: int = Field(
+        default=180,
+        ge=30,
+        le=730,
+        description="How long this pin may stand before it must be looked at again.",
+    )
+
+    @property
+    def due(self) -> date:
+        from datetime import timedelta
+
+        return self.last_reviewed + timedelta(days=self.cadence_days)
+
+    def is_overdue(self, today: date) -> bool:
+        return today > self.due
+
+
 class GitInstall(Strict):
     """Build from a pinned git revision. `ref` must be immutable."""
 
@@ -157,11 +205,27 @@ class GitInstall(Strict):
     build_system: Literal["autotools", "cmake", "qmake", "make", "custom"]
     configure_args: list[str] = Field(default_factory=list)
     compiler_flags: list[str] = Field(default_factory=list)
+    pin_review: PinReview | None = Field(
+        default=None,
+        description="Required when `ref` is a commit SHA rather than a tag. D-024.",
+    )
 
     @model_validator(mode="after")
     def _pinned(self) -> GitInstall:
         if self.ref in {"master", "main", "HEAD", "trunk", "develop"}:
             raise ManifestError(f"ref {self.ref!r} is a moving branch; pin a commit SHA or tag")
+        if COMMIT_SHA.match(self.ref) and self.pin_review is None:
+            raise ManifestError(
+                f"ref {self.ref!r} is a commit SHA and needs a pin_review. A tag carries "
+                f"an upstream signal that a revision was worth naming; a SHA carries none, "
+                f"so pinning one moves a judgement upstream stopped making onto us. "
+                f"Record when it was reviewed, by whom, and why this commit (D-024)."
+            )
+        if not COMMIT_SHA.match(self.ref) and self.pin_review is not None:
+            raise ManifestError(
+                f"ref {self.ref!r} is a tag, so pin_review does not apply -- upstream "
+                f"already made the judgement this field exists to record"
+            )
         return self
 
 

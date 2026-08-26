@@ -127,7 +127,6 @@ Do not re-litigate these without being asked:
 | Undo semantics | Transaction log + `uninstall` | True rollback is not achievable; do not promise it |
 | Config management | Own engine, Ansible as export target | Keep the catalog engine-agnostic |
 | Privilege | Drop to user where possible; sudo only for apt/udev | Runs alongside offensive tooling |
-| Licence | GPL-3.0-or-later engine, CC0-1.0 catalog | The invariant requires the catalog travel freely; the governance argument requires the engine not (**D-023**) |
 | Naming | One name: Hammunition | "Renegade RF" is held in reserve, not used in docs or code |
 | Architecture selector | `arch` structural from M1 | 9 AHRL units are arch-conditional; retrofitting is what broke `gspiceui` (**D-002**) |
 | Profiles | Flat tags with overlap, no nesting | AHRL categories overlap but never nest; 73Linux is a flat checklist (**D-003**) |
@@ -141,6 +140,9 @@ Do not re-litigate these without being asked:
 | Profile resolution | Consults detected hardware | 12 per-device Soapy modules; a user needs one (**D-020**) |
 | Consent gates | Disclose capability, never adjudicate law | `--yes` cannot satisfy one (**D-021**) |
 | Displacing a distro choice | Coexist, disclose, never remove silently | The AHRL `librtlsdr` pattern (**D-022**) |
+| Licence | GPL-3.0-or-later engine, CC0-1.0 catalog | Split on the architectural boundary (**D-023**) |
+| Untagged upstreams | Pin a **reviewed** commit, never a branch or a rolling artifact | An unreviewed SHA and an abandoned tag are the same failure (**D-024**) |
+| Evidence | Re-verify a claim when it becomes decisive, not only when gathered | Four bugs, one shape (**D-025**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
 
@@ -259,7 +261,7 @@ an unsupported combination appear to work.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 35
+  packages/        # one YAML per piece of software          ✅ 36
   profiles/        # named bundles referencing packages      ✅ 4
   hardware/
     classes/       # device families with shared Linux needs ✅ badgelife
@@ -312,7 +314,6 @@ through Q-005 are resolved. Open:
 | **Q-007** 🟡 | SuperSDR has no licence — carry it, or not |
 | **Q-008** 🔴 | Does the RF profile include cellular interception tooling? Blocks `rf-research`'s contents |
 | **Q-012** 🟢 | What copyright holder string do the SPDX headers name? A default is in place |
-| **Q-013** 🟡 | How does SDR++ get into the catalog? Upstream tags are five years abandoned |
 
 ## Roadmap — 1.0 is the five-source union
 

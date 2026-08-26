@@ -1030,3 +1030,129 @@ contributions this project wants.
 The copyright holder string is `The Hammunition contributors`, chosen as the
 default for a project whose founding argument is multiple maintainers. See
 Q-012 if you would rather it name a person or an entity.
+
+---
+
+## D-024 — A commit pin carries no upstream signal, so it carries ours
+
+**Date:** 2026-08-26. **Status:** accepted. **Resolves:** Q-013, as general
+policy rather than as one manifest.
+
+**Rule.** Where upstream has stopped tagging, pin a commit SHA — never a branch,
+never a rolling release artifact. A SHA pin **must** carry a `pin_review`
+recording `last_reviewed`, `reviewed_by`, a `rationale` for *that* commit, and a
+`cadence_days` after which it must be looked at again. A tag must **not** carry
+one.
+
+### Why the field, and not just a convention
+
+A tag carries an upstream signal: someone decided that revision was worth
+naming. A commit SHA carries none. It is perfectly pinned and perfectly
+arbitrary.
+
+That makes the two failure modes symmetric, and both are "nobody looked":
+
+| | |
+|---|---|
+| **An abandoned tag** | SDR++'s newest release tag is `1.0.4`, 2021-10-18. Master moved in July 2026, 541+ commits later. Pinning the tag ships a five-year-old program nobody runs. |
+| **An unreviewed commit** | Fully pinned, fully reproducible, and in four years indistinguishable from the case above. |
+
+Pinning a commit is the right answer to a project that stopped tagging, and it
+**moves a judgement upstream stopped making onto us**. Recording that judgement
+is what separates a pin from a guess that happens to be reproducible.
+
+### Enforced, not encouraged
+
+`GitInstall` rejects a SHA with no `pin_review` and rejects a tag that has one —
+the second because a review on a tag would read as though someone vetted a
+revision choice that upstream actually made. `rationale` has a minimum length
+because *"HEAD at the time"* is the absence of a rationale rather than a short
+one.
+
+**Staleness is checked on a schedule, not on every push.** Whether a pin is
+well-formed is a property of the code, asserted in tests that run on every
+commit. Whether it is stale is a property of the calendar. Failing an unrelated
+pull request because a date rolled over would teach people to ignore the job,
+which is the one outcome that makes the mechanism worthless.
+`scripts/check_pin_reviews.py` runs weekly in CI and prints what to do.
+
+Its instructions end with the part that matters: **do not bump `last_reviewed`
+without reading upstream's log and testing any move.** A date bumped to silence
+a check certifies nothing, and would make this worse than having no field.
+
+### First instance — `catalog/packages/sdrpp.yaml`
+
+Apt on Kali and Parrot; a reviewed SHA everywhere else.
+
+The pin is **not** master HEAD. Kali and Parrot both package SDR++ as a git
+snapshot at `36ea9a1` — the distributions hit the same missing-tags problem and
+answered it the same way — so pinning their commit means a user who builds from
+source and a user who installs from apt run the same revision. Two commits older
+than master, and worth it. **Someone else's packaging is the review signal
+upstream stopped providing**, and it is a better one than our own preference for
+recency.
+
+Same reasoning as `proxmark3.yaml`, which pins `v4.21611` because that is the
+release Kali packages, and where a client/firmware mismatch would otherwise be
+silent.
+
+**Explicitly not used:** SDR++'s `nightly` release assets. A URL that never
+changes with an artifact behind it that does, no version, no published checksum.
+`RemoteArtifact` requires a `sha256` and the reason to have a mandatory field is
+that it does not bend when bending would be convenient.
+
+---
+
+## D-025 — A claim gets re-verified when it becomes decisive, not only when gathered
+
+**Date:** 2026-08-26. **Status:** accepted.
+
+**Rule.** Gathering standards and decision standards are different bars. A fact
+collected in passing may be inherited, cited or estimated. **The moment a claim
+is promoted to decisive for a decision, it is re-verified against a primary
+source, and the verification is dated in the document that relies on it.**
+
+### The four instances that produced this
+
+Four bugs, one shape: *something was checked once, in a narrower context than
+the one it ended up carrying.*
+
+| | What happened |
+|---|---|
+| **HamClock** | Three secondary sources said it would stop working in June 2026. Never probed. Written into `dispositions.md` as evidence for our own argument. It was live at 4.27. |
+| **`check_doc_links.py`** | The checking tool, unchecked. It skipped `docs/reference/` and reported success over seven files it never opened. The first regression test reimplemented the bug and passed. |
+| **`src/hammunition/state/`** | Written, tested, type-checked, never committed. mypy, pytest and ruff all read the working tree; only git read the index. |
+| **Kali `proxmark3`** | A narrow probe became the decisive argument in Q-010 without re-verification. Kali packages it. |
+
+The first and fourth are the same error at different scales. The second and
+third are its reflexive form: *the instrument was never pointed at itself.*
+
+### What this actually requires
+
+Not "verify everything", which is unaffordable and would mean verifying nothing.
+Three concrete obligations:
+
+1. **When a claim becomes load-bearing, re-check it then.** The trigger is
+   promotion, not age. A fact that was fine as background becomes a different
+   kind of object when an argument rests on it.
+2. **Date the verification in the document that relies on it**, so the next
+   reader can see how old the support is without going looking. This is already
+   the house style in `docs/reference/`; D-025 makes it a rule.
+3. **Point every checking tool at itself.** A checker gets a test that fails
+   when its own bug is reintroduced — verified by reintroducing it, not by
+   assuming. `scripts/audit_gitignore.py` was written this way and both
+   historical bugs were re-added to confirm it catches them.
+
+### The failure this does not prevent
+
+A claim that was true when verified and became false afterwards. Dating the
+verification is what makes that recoverable rather than invisible: a reader can
+see the support is two years old and go looking. An undated claim gives them
+nothing to be suspicious of.
+
+### Relationship to D-018
+
+D-018 says external claims are tested before published — it governs what we say
+outward. D-025 governs what we let ourselves rely on inward. The HamClock
+retraction produced the first; Q-010's retraction produced the second, and
+should have been prevented by it.

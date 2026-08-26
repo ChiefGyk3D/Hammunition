@@ -513,7 +513,7 @@ changes in one commit.
 
 ---
 
-## Q-013 🟡 — How does SDR++ get into the catalog, if at all?
+## Q-013 ✅ — How does SDR++ get into the catalog, if at all? — **RESOLVED 2026-08-26**
 
 **Raised by:** `install-verification.md`, which found SDR++'s release assets hang
 off a rolling `nightly` tag — a URL that never changes with an artifact behind it
@@ -559,4 +559,18 @@ upstream release signal means *we* decide when to move it, and every move is a
 re-test. That is real maintenance we would be taking on because upstream stopped
 tagging. It may be a reason to prefer C alone and document the Debian gap.
 
-Say which and I will write the manifest.
+**Resolved: A and C, generalised into D-024 rather than settled as one
+manifest.** Projects that have stopped tagging get pinned to a *reviewed*
+commit: `GitInstall.pin_review` records when, by whom, why that commit, and the
+cadence after which it must be looked at again. The schema rejects a SHA without
+one and a tag with one; `scripts/check_pin_reviews.py` reports staleness on a
+weekly CI schedule rather than on every push, so a rolled-over date never fails
+an unrelated pull request.
+
+**The implementation improved on the recommendation.** The pin is not master
+HEAD. Kali and Parrot both package SDR++ as a git snapshot at `36ea9a1` — the
+distributions hit the same problem and answered it the same way — so pinning
+their commit means a source build and an apt install are the same revision.
+Two commits older than master, and worth it: someone else's packaging is the
+review signal upstream stopped providing, and it is a better one than our own
+preference for recency.

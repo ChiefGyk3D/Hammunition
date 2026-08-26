@@ -14,6 +14,7 @@ Two halves:
 
 from __future__ import annotations
 
+import re
 import sys
 from datetime import date
 from pathlib import Path
@@ -558,3 +559,89 @@ def test_every_profile_package_has_a_manifest() -> None:
     for profile in profiles.values():
         missing = [p for p in profile.packages if p not in packages]
         assert not missing, f"profile {profile.name} names undefined packages: {missing}"
+
+
+# ---------------------------------------------------------------------------
+# D-024 — a commit pin carries no upstream signal, so it carries ours
+# ---------------------------------------------------------------------------
+
+COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+SHA = "36ea9a143422f5b374371461667ff53fb9387300"
+
+
+def _git_install(**overrides: object) -> dict[str, object]:
+    data: dict[str, object] = {
+        "method": "git",
+        "repo": "https://example.invalid/thing",
+        "ref": SHA,
+        "build_system": "cmake",
+    }
+    data.update(overrides)
+    return data
+
+
+def _review(**overrides: object) -> dict[str, object]:
+    data: dict[str, object] = {
+        "last_reviewed": "2026-08-26",
+        "reviewed_by": "someone",
+        "rationale": "Matches the commit the distributions package, verified to resolve.",
+    }
+    data.update(overrides)
+    return data
+
+
+def test_a_commit_pin_needs_a_review() -> None:
+    from hammunition.manifest.schema import GitInstall
+
+    with pytest.raises((ManifestError, ValidationError)):
+        GitInstall.model_validate(_git_install())
+
+
+def test_a_reviewed_commit_pin_is_accepted() -> None:
+    from hammunition.manifest.schema import GitInstall
+
+    install = GitInstall.model_validate(_git_install(pin_review=_review()))
+    assert install.pin_review is not None
+
+
+def test_a_tag_needs_no_review_because_upstream_made_the_judgement() -> None:
+    from hammunition.manifest.schema import GitInstall
+
+    assert GitInstall.model_validate(_git_install(ref="v4.21611")).pin_review is None
+
+
+def test_a_tag_may_not_carry_a_review() -> None:
+    """Not pedantry: it would read as though someone vetted the revision choice."""
+    from hammunition.manifest.schema import GitInstall
+
+    with pytest.raises((ManifestError, ValidationError)):
+        GitInstall.model_validate(_git_install(ref="v4.21611", pin_review=_review()))
+
+
+def test_a_rationale_must_say_something() -> None:
+    """'HEAD at the time' is the absence of a rationale, not a short one."""
+    from hammunition.manifest.schema import GitInstall
+
+    with pytest.raises((ManifestError, ValidationError)):
+        GitInstall.model_validate(_git_install(pin_review=_review(rationale="HEAD")))
+
+
+def test_overdue_is_computed_from_the_recorded_cadence() -> None:
+    from datetime import date as _date
+
+    from hammunition.manifest.schema import PinReview
+
+    review = PinReview.model_validate(_review(cadence_days=30))
+    assert review.due == _date(2026, 9, 25)
+    assert not review.is_overdue(_date(2026, 9, 25))
+    assert review.is_overdue(_date(2026, 9, 26))
+
+
+def test_every_commit_pin_in_the_catalog_has_a_review() -> None:
+    """Time-independent on purpose. Staleness is checked on a schedule, not here."""
+    from hammunition.manifest.schema import GitInstall
+
+    for name, manifest in load_catalog(CATALOG).items():
+        for block in manifest.install:
+            if isinstance(block.install, GitInstall) and COMMIT_SHA_RE.match(block.install.ref):
+                assert block.install.pin_review is not None, f"{name} pins a SHA with no review"

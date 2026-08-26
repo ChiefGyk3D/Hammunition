@@ -1,0 +1,96 @@
+# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-License-Identifier: CC0-1.0
+
+name: sdrpp
+version: "0.0~git20260520.36ea9a1"
+summary: SDR++ — cross-platform SDR receiver with a modular DSP chain
+categories: [sdr, listening]
+
+# First instance of D-024. Upstream stopped tagging: the newest release tag is
+# 1.0.4 from 2021-10-18, and master moved in July 2026 — 541+ commits later. The
+# published binaries hang off a rolling `nightly` tag whose URL never changes
+# while the artifact behind it does, with no version and no checksum. That shape
+# is what RemoteArtifact's mandatory sha256 exists to refuse, so it is not used
+# here however convenient it would be.
+#
+# The pin is NOT master HEAD. Kali and Parrot both package this as a git
+# snapshot at 36ea9a1 — the distributions hit the same missing-tags problem and
+# answered it the same way — so pinning their commit means a user who builds
+# from source and a user who installs from apt run the same revision. That is
+# the same reasoning as proxmark3.yaml, and it is worth more than being two
+# commits newer.
+
+install:
+  - when:
+      distro: [kali, parrot]
+    install:
+      method: apt
+      packages: [sdrpp]
+    note: >-
+      Measured 2026-08-26. Kali: 0.0~git20260520.36ea9a1+dfsg-2. Parrot:
+      the same snapshot backported, +dfsg-2~bpo13+1. Absent from Debian 13.
+  - install:
+      method: git
+      repo: https://github.com/AlexandreRouma/SDRPlusPlus
+      ref: 36ea9a143422f5b374371461667ff53fb9387300
+      build_system: cmake
+      pin_review:
+        last_reviewed: 2026-08-26
+        reviewed_by: hammunition-maintainers
+        cadence_days: 180
+        rationale: >-
+          Chosen to match the commit Kali and Parrot package
+          (0.0~git20260520.36ea9a1), so a source build and an apt install are
+          the same revision rather than two. Verified 2026-08-26 that this SHA
+          resolves in upstream's repository, dates to 2026-05-19, and is two
+          commits behind master — the gap is deliberate and the distributions'
+          packaging is the review signal upstream stopped providing. Not master
+          HEAD, which nobody else has vetted. Revisit when the distribution
+          snapshot moves; if upstream resumes tagging, drop this pin for a tag.
+    build_depends:
+      - build-essential
+      - cmake
+      - pkg-config
+      - libfftw3-dev
+      - libglfw3-dev
+      - libvolk-dev
+      - libsoapysdr-dev
+      - librtlsdr-dev
+      - libairspy-dev
+      - libhackrf-dev
+      - libad9361-dev
+      - libiio-dev
+      - libzstd-dev
+    note: >-
+      Needs the source-from-git backend, which is NOT WRITTEN. The manifest is
+      data and is correct today; nothing can act on it yet. Note libvolk-dev,
+      not libvolk2-dev — the SONAME changed and upstream's bookworm .deb still
+      wants the old name, which is why that artifact fails on Debian 13.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: rebuild
+
+documentation:
+  what_it_does: >-
+    A general-purpose SDR receiver: waterfall and spectrum display, a modular
+    DSP chain, and demodulators for the usual analogue modes, driving RTL-SDR,
+    Airspy, HackRF, SDRplay, PlutoSDR, LimeSDR and anything reachable through
+    SoapySDR.
+  why_you_want_it: >-
+    It is fast, it is comfortable on modest hardware, and its module system
+    means a new radio or a new decoder is a plugin rather than a fork. For many
+    operators it is the day-to-day receiver that GQRX used to be.
+  prerequisites: >-
+    A supported receiver and its driver library. On Debian 13 there is no apt
+    package, so it needs the source build — and therefore the source-from-git
+    backend this project has not written yet.
+  known_problems: >-
+    Upstream has not tagged a release since 2021 and publishes binaries only
+    under a rolling `nightly` tag with no version and no checksum, so there is
+    nothing stable to point a download at. This manifest builds from the commit
+    Kali and Parrot package rather than from that artifact. Upstream's
+    `debian_bookworm` .deb additionally fails on Debian 13 because it depends on
+    `libvolk2-dev`, a package name that no longer exists.
+  upstream_url: https://github.com/AlexandreRouma/SDRPlusPlus
