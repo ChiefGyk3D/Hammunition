@@ -1,4 +1,19 @@
 # ---------------------------------------------------------------------------
+# ANCHORING POLICY -- read before adding a pattern.
+#
+# A pattern with no slash matches at EVERY depth. Three times that has silently
+# excluded real work: `reference/` also matched docs/reference/, `state/` also
+# matched src/hammunition/state/. Both looked obviously fine.
+#
+# So: a pattern naming a project-root artifact is anchored with a leading slash.
+# A pattern that must match at any depth -- secrets, caches, third-party
+# archives, editor cruft -- is fine unanchored, and is listed by name with its
+# reason in scripts/audit_gitignore.py. That script fails on any pattern that is
+# neither, and separately fails if anything in the source tree is ignored.
+# Run it: `python3 scripts/audit_gitignore.py`. CI runs it too.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
 # Reference material — third-party source we study but never redistribute.
 # AHRL tarballs, upstream releases, extracted trees. Provenance stays clean.
 # ---------------------------------------------------------------------------
@@ -79,9 +94,11 @@ __pycache__/
 /wheels/
 share/python-wheels/
 *.egg-info/
-.installed.cfg
+/.installed.cfg
 *.egg
-MANIFEST
+# Anchored: unanchored, `MANIFEST` matches any file or directory of that name at
+# any depth. It is a setuptools artifact and only ever appears at the root.
+/MANIFEST
 
 # Environments
 .venv/
@@ -98,10 +115,10 @@ dmypy.json
 .ruff_cache/
 .tox/
 .nox/
-.coverage
-.coverage.*
+/.coverage
+/.coverage.*
 /htmlcov/
-coverage.xml
+/coverage.xml
 *.cover
 .hypothesis/
 
@@ -116,11 +133,15 @@ coverage.xml
 # ---------------------------------------------------------------------------
 /state/
 /logs/
+# `*.log` stays unanchored -- a run writes its log wherever it was run from -- and
+# is therefore exactly the shape that swallowed `reference/` and `state/`. The
+# working-tree half of scripts/audit_gitignore.py is what makes that safe: a .log
+# appearing under a source root is a failure, not a silent exclusion.
 *.log
 .hammunition/
-catalog.cache
-coverage-report.json
-coverage-report.md
+/catalog.cache
+/coverage-report.json
+/coverage-report.md
 
 # Generated udev rules (produced by the engine, never hand-edited into git)
 /generated/

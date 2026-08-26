@@ -236,6 +236,12 @@ capability-matrix claims not backed by a passing container test.
   after each completed item. Once there is a solid working version, switch to
   feature branches and PRs. We are a long way from that; until then, main is the
   working branch and pushing is expected rather than gated.
+- **Every `.gitignore` pattern is anchored to the repo root unless it has a
+  recorded reason not to be.** `scripts/audit_gitignore.py` enforces both halves:
+  nothing in the source tree may be ignored, and an unanchored pattern must be
+  listed by name with why it must match at any depth. Three silent exclusions
+  came from the same mistake — a trailing slash reads as anchored and anchors
+  nothing. CI runs it.
 - `/reference/` and `/vendor/` are gitignored, **anchored to the repo root**:
   third-party tarballs and extracted upstream trees are studied locally, never
   committed. Keep provenance clean. The anchoring matters — the unanchored form

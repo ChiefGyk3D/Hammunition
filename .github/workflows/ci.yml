@@ -143,4 +143,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -e ".[dev]"
-      - run: pytest tests/test_repo_hygiene.py
+      # Runs before the tests so its report is the first thing in the log: it
+      # names the offending rule and line, which a pytest assertion cannot.
+      - run: python scripts/audit_gitignore.py
+      - run: pytest tests/test_repo_hygiene.py tests/test_gitignore_audit.py
