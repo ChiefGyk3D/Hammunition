@@ -1027,9 +1027,23 @@ Whether contributions carry a DCO sign-off or a CLA. Recommendation stands from
 Q-009: **DCO, not a CLA** — a CLA is a barrier to exactly the drive-by manifest
 contributions this project wants.
 
-The copyright holder string is `The Hammunition contributors`, chosen as the
-default for a project whose founding argument is multiple maintainers. See
-Q-012 if you would rather it name a person or an entity.
+### Amendment, 2026-08-26 — the holder, and no CLA
+
+Both of the "still open" items above are closed.
+
+**Copyright holder: `Copyright (C) 2026 Renegade Penguin LLC`** (Q-012). An LLC
+is a legal person and can enforce a licence; a handle cannot. It also keeps the
+maintainer's legal name out of a public repository. Applied to every SPDX header,
+`REUSE.toml`, `CONTRIBUTING.md` and the README footer — and deliberately **not**
+to `LICENSE` or `catalog/LICENSE`, which are verbatim texts whose checksums are
+asserted; a copyright line inserted into a licence corrupts it.
+
+**No CLA and no copyright assignment.** Contributors keep copyright on their own
+work, licensed under GPL-3.0-or-later (CC0-1.0 in `catalog/`) by the act of
+contributing. This is the ordinary GPL arrangement and is written into
+`CONTRIBUTING.md` because a company name in the headers invites the opposite
+assumption. A CLA would be a barrier to exactly the drive-by manifest and `lsusb`
+contributions this project most wants.
 
 ---
 

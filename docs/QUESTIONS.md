@@ -493,7 +493,7 @@ Two things the implementation measured that the recommendation assumed:
 
 ---
 
-## Q-012 🟢 — What copyright holder string do the SPDX headers name?
+## Q-012 ✅ — What copyright holder string do the SPDX headers name? — **RESOLVED 2026-08-26**
 
 **Raised by:** implementing D-023. **Blocks:** nothing — a default is in place
 and is trivially changed by one sed. **Changes:** who is named on 58 files.
@@ -507,9 +507,30 @@ contributors`.
 | B. A named individual | Unambiguous rights holder. Contradicts the governance pitch on the first line of every file, and needs revisiting the moment someone else contributes. |
 | C. An entity or foundation | Cleanest if one ever exists. None does. |
 
-**Recommendation: A**, which is what is in the tree. This is recorded only so
-the choice is visible rather than inherited by default — say the word and it
-changes in one commit.
+**Resolved: none of the above.** `Copyright (C) 2026 Renegade Penguin LLC`.
+
+The option list missed the answer, and the reason is worth keeping: I framed it
+as handle-versus-abstraction and treated an entity as hypothetical ("cleanest if
+one ever exists"). The maintainer had one. An LLC is a **legal person**, which
+resolves the enforceability problem a handle-only line has — a handle cannot
+enforce a licence — and it keeps the maintainer's legal name out of a public
+repository, which the other options did not.
+
+Applied to 115 files, `REUSE.toml`, `CONTRIBUTING.md` and the README footer.
+
+**Not applied to `LICENSE` or `catalog/LICENSE`.** Those are the verbatim GPL-3.0
+and CC0-1.0 texts from Debian `base-files`, and their checksums are asserted in
+`tests/test_licensing.py`; a project copyright line inserted into either would
+corrupt the licence. The GPL's own template at its line 635 is part of that text,
+not a field to fill in, and CC0 is a waiver — a copyright notice printed inside
+it would contradict the instrument.
+
+`CONTRIBUTING.md` states what the company name does **not** mean, because people
+reasonably assume otherwise when one appears in copyright headers: **no CLA, no
+copyright assignment.** Contributors keep copyright on their own work under
+GPL-3.0-or-later; contributions from the LLC are the LLC's. Handles remain fine
+for attribution everywhere it appears. That also settles the DCO-versus-CLA
+question D-023 left open, in the direction it recommended.
 
 ---
 

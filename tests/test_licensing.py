@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """Every file carries the licence its tree requires. D-023.
@@ -123,3 +123,38 @@ def test_licence_texts_are_present_and_verbatim() -> None:
 def test_reuse_toml_exists() -> None:
     """Covers the formats a comment cannot reach — data, generated docs, config."""
     assert (REPO_ROOT / "REUSE.toml").is_file()
+
+
+HOLDER = "Copyright (C) 2026 Renegade Penguin LLC"
+
+
+def test_one_copyright_holder_everywhere() -> None:
+    """Q-012. A second holder string is a copy-paste, not a decision."""
+    holders = {m.group(1) for p, _ in ALL_FILES for m in [COPYRIGHT.search(p.read_text())] if m}
+    assert holders == {HOLDER}, f"expected one holder, found: {sorted(holders)}"
+
+
+def test_no_cla_claim_is_stated_where_people_look() -> None:
+    """A company name in every header invites the assumption this rebuts.
+
+    Not decoration: without it a contributor reasonably infers assignment, and
+    the inference costs us exactly the drive-by contributions we most want.
+    """
+    contributing = (REPO_ROOT / "CONTRIBUTING.md").read_text()
+    assert "no CLA" in contributing or "There is no CLA" in contributing
+    assert "retain copyright" in contributing or "keep your copyright" in contributing.lower()
+
+
+def test_the_licence_texts_carry_no_project_copyright() -> None:
+    """A copyright line inserted into a licence corrupts the licence.
+
+    The checksum test above already catches this, but it fails with "does not
+    match the canonical text", which does not tell the next person WHY someone
+    would have edited it. This one names the mistake.
+    """
+    for name in ("LICENSE", "catalog/LICENSE"):
+        assert HOLDER not in (REPO_ROOT / name).read_text(), (
+            f"{name} is a verbatim licence text. The copyright notice belongs in "
+            f"the SPDX headers and REUSE.toml, not inside the licence -- and CC0 "
+            f"is a waiver, so a notice printed on it contradicts the instrument."
+        )

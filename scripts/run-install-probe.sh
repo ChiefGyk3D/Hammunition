@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# SPDX-FileCopyrightText: 2026 The Hammunition contributors
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # Drive scripts/install-probe.sh once per package, in a fresh container each

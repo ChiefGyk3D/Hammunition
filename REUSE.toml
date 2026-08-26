@@ -1,6 +1,21 @@
 version = 1
 SPDX-PackageName = "hammunition"
+SPDX-PackageSupplier = "Renegade Penguin LLC"
 SPDX-PackageDownloadLocation = "https://github.com/ChiefGyk3D/Hammunition"
+
+# The copyright holder is Renegade Penguin LLC, a legal person -- a handle cannot
+# enforce a licence. That is separate from attribution, which uses handles
+# everywhere it appears, and it is NOT a claim on contributors' work: there is no
+# CLA and no assignment, and contributors keep copyright on what they write. See
+# CONTRIBUTING.md, which says so in the place people will actually look.
+#
+# The notice lives here and in every file's SPDX header rather than inside
+# LICENSE. LICENSE is the verbatim GPL-3.0 text from Debian base-files and its
+# checksum is asserted in tests/test_licensing.py; a project copyright line
+# inserted into it would corrupt the licence itself. The GPL's own template at
+# its line 635 is part of that text, not a field to fill in. Same for
+# catalog/LICENSE: CC0 is a waiver of rights, so a copyright notice inside it
+# would contradict the instrument it is printed on.
 
 # Two licences, split on the architectural boundary CLAUDE.md draws between the
 # catalog and the engine. See D-023 in docs/DECISIONS.md for the reasoning; the
@@ -15,25 +30,25 @@ SPDX-PackageDownloadLocation = "https://github.com/ChiefGyk3D/Hammunition"
 [[annotations]]
 path = "catalog/**"
 precedence = "aggregate"
-SPDX-FileCopyrightText = "2026 The Hammunition contributors"
+SPDX-FileCopyrightText = "Copyright (C) 2026 Renegade Penguin LLC"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
 path = "docs/**"
 precedence = "aggregate"
-SPDX-FileCopyrightText = "2026 The Hammunition contributors"
+SPDX-FileCopyrightText = "Copyright (C) 2026 Renegade Penguin LLC"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
 [[annotations]]
 path = ["README.md", "CLAUDE.md", "Makefile", "pyproject.toml", ".gitignore"]
 precedence = "aggregate"
-SPDX-FileCopyrightText = "2026 The Hammunition contributors"
+SPDX-FileCopyrightText = "Copyright (C) 2026 Renegade Penguin LLC"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
 [[annotations]]
 path = [".github/**", "containers/**"]
 precedence = "aggregate"
-SPDX-FileCopyrightText = "2026 The Hammunition contributors"
+SPDX-FileCopyrightText = "Copyright (C) 2026 Renegade Penguin LLC"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
 # Verbatim licence texts, copied from Debian base-files
