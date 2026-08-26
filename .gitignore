@@ -66,17 +66,17 @@ __pycache__/
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
+/build/
+/develop-eggs/
+/dist/
+/downloads/
+/eggs/
 .eggs/
-lib64/
-parts/
-sdist/
-var/
-wheels/
+/lib64/
+/parts/
+/sdist/
+/var/
+/wheels/
 share/python-wheels/
 *.egg-info/
 .installed.cfg
@@ -100,16 +100,22 @@ dmypy.json
 .nox/
 .coverage
 .coverage.*
-htmlcov/
+/htmlcov/
 coverage.xml
 *.cover
 .hypothesis/
 
 # ---------------------------------------------------------------------------
 # Runtime state — transaction logs, caches, generated artifacts
+#
+# ANCHORED to the repo root. `state/` unanchored also matched
+# src/hammunition/state/ — a source package — and silently kept it out of git
+# through a whole commit. Same class of bug as the unanchored `reference/` rule.
+# Caches that legitimately appear at any depth (__pycache__, .venv, .mypy_cache)
+# stay unanchored on purpose. A test asserts every source package is tracked.
 # ---------------------------------------------------------------------------
-state/
-logs/
+/state/
+/logs/
 *.log
 .hammunition/
 catalog.cache
@@ -117,14 +123,14 @@ coverage-report.json
 coverage-report.md
 
 # Generated udev rules (produced by the engine, never hand-edited into git)
-generated/
+/generated/
 *.rules
 !catalog/hardware/**/*.rules
 
 # ---------------------------------------------------------------------------
 # Docs build output
 # ---------------------------------------------------------------------------
-site/
+/site/
 docs/_build/
 .docusaurus/
 .cache/
@@ -133,7 +139,7 @@ docs/_build/
 # Containers and test scratch
 # ---------------------------------------------------------------------------
 .container-cache/
-test-results/
+/test-results/
 *.qcow2
 
 # ---------------------------------------------------------------------------

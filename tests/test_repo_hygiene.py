@@ -264,3 +264,63 @@ def test_link_checker_scans_docs_reference() -> None:
     assert not [p for p in scanned if p.startswith("reference/")], (
         "the gitignored root reference/ tree must stay out of the doc checker"
     )
+
+
+# ---------------------------------------------------------------------------
+# Every source package must be tracked
+#
+# `state/` in .gitignore was unanchored and therefore also matched
+# src/hammunition/state/, which kept a whole source package out of git through
+# an entire commit without any error. `reference/` did the same thing to
+# docs/reference/ earlier. Rather than add a third named special case, this
+# asserts the general property: if it is a Python package under src/ or tests/,
+# git must be able to see it.
+# ---------------------------------------------------------------------------
+
+
+def _source_packages() -> list[str]:
+    roots = [REPO_ROOT / "src", REPO_ROOT / "tests"]
+    out: list[str] = []
+    for root in roots:
+        if not root.exists():
+            continue
+        for path in sorted(root.rglob("*.py")):
+            if "__pycache__" in path.parts:
+                continue
+            out.append(str(path.relative_to(REPO_ROOT)))
+    return out
+
+
+def test_no_source_file_is_git_ignored() -> None:
+    ignored = [p for p in _source_packages() if _is_ignored(p)]
+    assert not ignored, (
+        "these source files are git-ignored and would silently never be "
+        f"committed: {ignored}. A .gitignore rule for build output or runtime "
+        "state must be anchored to the repo root."
+    )
+
+
+def test_every_source_file_is_tracked() -> None:
+    """Ignored or not, an untracked source file is a commit somebody forgot."""
+    tracked = _tracked_files()
+    missing = [p for p in _source_packages() if p not in tracked]
+    assert not missing, f"source files exist but are not tracked by git: {missing}"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "src/hammunition/state/log.py",
+        "src/hammunition/consent/gate.py",
+        "src/hammunition/manifest/schema.py",
+    ],
+)
+def test_named_source_packages_are_not_ignored(path: str) -> None:
+    """Spot checks with names, so a failure says which rule went wrong."""
+    assert not _is_ignored(path), f"{path} is git-ignored"
+
+
+@pytest.mark.parametrize("path", ["state/transactions.jsonl", "logs/run.log", "build/lib/x.py"])
+def test_root_output_dirs_are_still_ignored(path: str) -> None:
+    """Anchoring must not have stopped the rules doing their actual job."""
+    assert _is_ignored(path), f"{path} should be git-ignored but is not"
