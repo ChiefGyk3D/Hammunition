@@ -1,5 +1,14 @@
 # Supported targets. One container per entry in CI.
 #
+# RUNTIME: rootless Podman, not Docker.
+#
+# Docker group membership grants root-equivalent access to the host — any
+# container can bind-mount / as root. This project's own security requirements
+# say it runs alongside offensive tooling on a field laptop, so requiring
+# root-equivalent access to run our CI would be indefensible. Podman is rootless
+# by default and CLI-compatible; `podman-docker` provides the socket shim if
+# something expects `docker`.
+#
 # `os_release_id` / `os_release_version` are what /etc/os-release reports, which
 # is what the engine keys on (DESIGN.md §8 — no heuristics). `image` is verified
 # to exist on Docker Hub; see scripts/verify-images.sh.
@@ -32,15 +41,32 @@ targets:
     arch: x86_64
     priority: 1          # primary target, CLAUDE.md
 
-  - name: raspios-arm64
+  - name: linuxmint-22.3
+    image: linuxmintd/mint22.3-amd64:latest
+    os_release_id: linuxmint
+    os_release_version: "22.3"
+    arch: x86_64
+    priority: 6
+    note: >-
+      Added because catalog/packages/js8call.yaml branches on Linux Mint 22.3
+      specifically — apt there, source everywhere else. Without Mint as a target
+      that selector is decoration and the manifest is untestable (Q-004).
+
+  # NOT Raspberry Pi OS. See `claims` below — this exercises aarch64 selectors
+  # and nothing more.
+  - name: debian-13-arm64
     image: debian:13
     platform: linux/arm64
     os_release_id: debian
     os_release_version: "13"
     arch: aarch64
     priority: 5
+    claims: aarch64-only
     note: >-
-      Raspberry Pi OS publishes no official container image. debian:13 on
-      linux/arm64 is the closest honest proxy and exercises the aarch64
-      selectors (D-002). It is NOT a substitute for testing on real hardware,
-      and the capability matrix must say so rather than implying Pi coverage.
+      Renamed from raspios-arm64, which was a lie by filename. Raspberry Pi OS
+      publishes no official container image, and an arm64 Debian container is
+      not Pi OS: different kernel, different firmware, different default
+      packages, no Pi hardware paths. D-018 forbids claiming what we have not
+      tested, so this target claims aarch64 selector coverage ONLY. Raspberry
+      Pi support stays `untested` in the capability matrix until it is verified
+      on real hardware — a ClockworkPi uConsole is available for that (Q-003).

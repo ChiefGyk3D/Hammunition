@@ -8,13 +8,20 @@
 ARG BASE=debian:13
 FROM ${BASE}
 
+# APT_SANDBOX_USER: leave as `_apt` (apt's default, defence-in-depth) wherever
+# the container runtime is properly configured. Set to `root` ONLY on a rootless
+# runtime that lacks /etc/subuid ranges, where apt cannot drop privileges to
+# uid 42 and the build fails outright. Made an explicit build arg so the
+# degraded mode is visible in the build command rather than baked in silently.
+ARG APT_SANDBOX_USER=_apt
+
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-# python3-full gives us venv; we never touch system site-packages.
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
+# python3-venv gives us a vendored virtualenv; we never touch system site-packages.
+RUN apt-get -o APT::Sandbox::User=${APT_SANDBOX_USER} update \
+ && apt-get -o APT::Sandbox::User=${APT_SANDBOX_USER} install -y --no-install-recommends \
       python3 python3-venv python3-pip ca-certificates apt-utils \
  && rm -rf /var/lib/apt/lists/*
 

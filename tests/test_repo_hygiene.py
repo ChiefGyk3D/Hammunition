@@ -18,6 +18,18 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
+# These tests assert properties of the *repository* — .gitignore behaviour,
+# what is tracked, that third-party material never lands in git. A target
+# container deliberately contains only src/, catalog/, tests/ and scripts/,
+# with no .git and no docs/ tree, so there is nothing here to assert about.
+# Skipping is correct: running them there would test the copy, not the repo.
+IN_GIT_WORKTREE = (REPO_ROOT / ".git").exists()
+
+pytestmark = pytest.mark.skipif(
+    not IN_GIT_WORKTREE,
+    reason="repository hygiene tests require a git worktree (not present in target containers)",
+)
+
 
 def _git(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(

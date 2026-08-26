@@ -25,21 +25,26 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from hammunition.manifest.load import CatalogError, load_catalog  # noqa: E402
 from hammunition.manifest.schema import (  # noqa: E402
+    AptInstall,
+    GitInstall,
     ManifestError,
     PackageManifest,
+    SourceInstall,
     Status,
 )
 
 CATALOG = REPO_ROOT / "catalog" / "packages"
 
+Catalog = dict[str, PackageManifest]
+
 
 @pytest.fixture(scope="module")
-def catalog() -> dict[str, PackageManifest]:
+def catalog() -> Catalog:
     return load_catalog(CATALOG)
 
 
-def _minimal(**overrides: object) -> dict[str, Any]:
-    base = {
+def _minimal(**overrides: Any) -> dict[str, Any]:
+    base: dict[str, Any] = {
         "name": "example",
         "version": "1.0",
         "summary": "An example package",
@@ -61,11 +66,11 @@ def _minimal(**overrides: object) -> dict[str, Any]:
 # ===========================================================================
 
 
-def test_catalog_loads(catalog) -> None:
+def test_catalog_loads(catalog: Catalog) -> None:
     assert len(catalog) == 9
 
 
-def test_every_manifest_has_documentation(catalog) -> None:
+def test_every_manifest_has_documentation(catalog: Catalog) -> None:
     """CLAUDE.md: an undocumented package cannot ship."""
     for name, m in catalog.items():
         assert m.documentation.what_it_does, name
@@ -73,7 +78,7 @@ def test_every_manifest_has_documentation(catalog) -> None:
         assert m.documentation.upstream_url, name
 
 
-def test_every_remote_artifact_is_verified(catalog) -> None:
+def test_every_remote_artifact_is_verified(catalog: Catalog) -> None:
     """D-004: no unverified downloads anywhere in the catalog."""
     for name, m in catalog.items():
         for block in m.install:
@@ -88,23 +93,25 @@ def test_every_remote_artifact_is_verified(catalog) -> None:
 # ===========================================================================
 
 
-def test_shape1_js8call_method_varies_by_distro(catalog) -> None:
+def test_shape1_js8call_method_varies_by_distro(catalog: Catalog) -> None:
     js8 = catalog["js8call"]
 
     mint = js8.resolve("linuxmint", "22.3", "x86_64")
     other = js8.resolve("debian", "13", "x86_64")
 
     assert mint is not None and other is not None
-    assert mint.install.method == "apt"
+    assert isinstance(mint.install, AptInstall)
     assert mint.install.packages == ["js8call"]
-    assert other.install.method == "source"
+    assert isinstance(other.install, SourceInstall)
     assert other.install.build_system == "cmake"
 
 
-def test_shape1_selector_precision(catalog) -> None:
+def test_shape1_selector_precision(catalog: Catalog) -> None:
     """Mint 22.4 must NOT get the Qt-6.4 workaround."""
     js8 = catalog["js8call"]
-    assert js8.resolve("linuxmint", "22.4", "x86_64").install.method == "source"
+    block = js8.resolve("linuxmint", "22.4", "x86_64")
+    assert block is not None
+    assert isinstance(block.install, SourceInstall)
 
 
 # ===========================================================================
@@ -112,13 +119,13 @@ def test_shape1_selector_precision(catalog) -> None:
 # ===========================================================================
 
 
-def test_shape2_fldigi_provides_flarq(catalog) -> None:
+def test_shape2_fldigi_provides_flarq(catalog: Catalog) -> None:
     fldigi = catalog["fldigi"]
     assert "flarq" in fldigi.provides
     assert {b.install_as for b in fldigi.binaries} == {"fldigi", "flarq"}
 
 
-def test_shape2_fldigi_declares_repo_conflict(catalog) -> None:
+def test_shape2_fldigi_declares_repo_conflict(catalog: Catalog) -> None:
     """The purge is destructive, so it must be declared, not implicit."""
     assert catalog["fldigi"].conflicts_with_repo_package == ["fldigi"]
 
@@ -133,7 +140,7 @@ def test_provides_may_not_list_self() -> None:
 # ===========================================================================
 
 
-def test_shape3_binary_collision_is_declared_away(catalog) -> None:
+def test_shape3_binary_collision_is_declared_away(catalog: Catalog) -> None:
     """Both builds emit `wsjtx`; install_as gives them distinct final names, so
     AHRL's rename dance is unnecessary rather than merely automated."""
     a, b = catalog["wsjtx"], catalog["wsjtx-improved"]
@@ -144,11 +151,11 @@ def test_shape3_binary_collision_is_declared_away(catalog) -> None:
     assert a.binaries[0].install_as != b.binaries[0].install_as
 
 
-def test_shape3_ordering_is_declared(catalog) -> None:
+def test_shape3_ordering_is_declared(catalog: Catalog) -> None:
     assert catalog["wsjtx-improved"].after == ["wsjtx"]
 
 
-def test_shape3_only_one_is_the_default(catalog) -> None:
+def test_shape3_only_one_is_the_default(catalog: Catalog) -> None:
     assert catalog["wsjtx"].recommended_default is True
     assert catalog["wsjtx-improved"].recommended_default is False
 
@@ -170,18 +177,21 @@ def test_duplicate_install_as_is_rejected() -> None:
 # ===========================================================================
 
 
-def test_shape4_mshv_project_file_per_arch(catalog) -> None:
+def test_shape4_mshv_project_file_per_arch(catalog: Catalog) -> None:
     mshv = catalog["mshv"]
     arm = mshv.resolve("debian", "13", "aarch64")
     x86 = mshv.resolve("debian", "13", "x86_64")
 
+    assert arm is not None and x86 is not None
+    assert isinstance(arm.install, SourceInstall)
+    assert isinstance(x86.install, SourceInstall)
     assert arm.install.project_file == "MSHV_ARM_PI.pro"
     assert x86.install.project_file == "MSHV_x86_64.pro"
     # Same archive, same hash — only the project file differs.
     assert arm.install.source.sha256 == x86.install.source.sha256
 
 
-def test_shape4_unsupported_arch_resolves_to_none(catalog) -> None:
+def test_shape4_unsupported_arch_resolves_to_none(catalog: Catalog) -> None:
     """Honest gaps, not shims. CLAUDE.md capability matrix."""
     assert catalog["mshv"].resolve("debian", "13", "armv7l") is None
 
@@ -191,16 +201,18 @@ def test_shape4_unsupported_arch_resolves_to_none(catalog) -> None:
 # ===========================================================================
 
 
-def test_shape5_noaa_apt_is_retired_with_provenance(catalog) -> None:
+def test_shape5_noaa_apt_is_retired_with_provenance(catalog: Catalog) -> None:
     n = catalog["noaa-apt"]
     assert n.status is Status.retired
+    assert n.retire_reason is not None
     assert n.retire_reason.value == "world_changed"
     assert n.status_date == date(2025, 11, 9)
-    assert n.status_verdict.value == "tested"  # D-005: never inherit a verdict
+    assert n.status_verdict is not None  # D-005: never inherit a verdict
+    assert n.status_verdict.value == "tested"
     assert n.superseded_by == "satdump"
 
 
-def test_shape5_retired_stays_in_the_catalog(catalog) -> None:
+def test_shape5_retired_stays_in_the_catalog(catalog: Catalog) -> None:
     """PARITY-POLICY: users who go looking must find an explanation, not silence."""
     assert "noaa-apt" in catalog
     assert catalog["noaa-apt"].documentation.why_you_want_it
@@ -237,9 +249,9 @@ def test_retired_requires_a_reason_code() -> None:
 # ===========================================================================
 
 
-def test_shape6_ais_catcher_uses_a_pinned_ref(catalog) -> None:
+def test_shape6_ais_catcher_uses_a_pinned_ref(catalog: Catalog) -> None:
     block = catalog["ais-catcher"].install[0]
-    assert block.install.method == "git"
+    assert isinstance(block.install, GitInstall)
     assert block.install.ref == "v0.70"
     assert block.build_depends, "dependencies must be declared, not discovered"
 
@@ -315,7 +327,7 @@ def test_malformed_sha256_is_rejected() -> None:
 # ===========================================================================
 
 
-def test_shape7_backend_is_a_field_not_a_launcher_constant(catalog) -> None:
+def test_shape7_backend_is_a_field_not_a_launcher_constant(catalog: Catalog) -> None:
     hc = catalog["hamclock-next"]
     endpoint = next(e for e in hc.service_endpoints if e.name == "backend")
 
@@ -325,7 +337,7 @@ def test_shape7_backend_is_a_field_not_a_launcher_constant(catalog) -> None:
     assert "hamclock.com" not in hc.launchers[0].exec
 
 
-def test_shape7_launcher_references_endpoint_symbolically(catalog) -> None:
+def test_shape7_launcher_references_endpoint_symbolically(catalog: Catalog) -> None:
     exec_line = catalog["hamclock-next"].launchers[0].exec
     assert "{endpoint:backend}" in exec_line
 
@@ -426,7 +438,7 @@ def test_loader_reports_all_failures_not_just_the_first(tmp_path: Path) -> None:
     assert len(exc.value.failures) == 2
 
 
-def test_toolkit_risk_register_is_queryable(catalog) -> None:
+def test_toolkit_risk_register_is_queryable(catalog: Catalog) -> None:
     """D-015: 'what breaks when Debian drops Qt5?' must be answerable from data."""
     at_risk = {
         name for name, m in catalog.items() if any(t.framework == "qt5" for t in m.toolkit_risk)
@@ -437,14 +449,14 @@ def test_toolkit_risk_register_is_queryable(catalog) -> None:
             assert risk.checked, f"{name}: register entry must record when it was checked"
 
 
-def test_toolkit_register_is_multi_framework(catalog) -> None:
+def test_toolkit_register_is_multi_framework(catalog: Catalog) -> None:
     """D-015 is generic, not Qt5-specific. The register must prove that."""
     frameworks = {t.framework for m in catalog.values() for t in m.toolkit_risk}
     assert len(frameworks) > 1, f"register only covers {frameworks}"
     assert "gtk2" in frameworks
 
 
-def test_no_path_is_distinct_from_not_yet_ported(catalog) -> None:
+def test_no_path_is_distinct_from_not_yet_ported(catalog: Catalog) -> None:
     """The distinction that carries the value: glfer's GTK2 has nowhere to go,
     which is a different problem from a port that simply has not happened."""
     glfer = catalog["glfer"]
@@ -454,11 +466,19 @@ def test_no_path_is_distinct_from_not_yet_ported(catalog) -> None:
     wsjtx = catalog["wsjtx"]
     qt5 = next(t for t in wsjtx.toolkit_risk if t.framework == "qt5")
     assert qt5.upstream_port_status == "in_progress"
-    assert gtk2.upstream_port_status != qt5.upstream_port_status
+
+    # The register must actually distinguish states, not just carry one.
+    # (Asserting `gtk2.status != qt5.status` directly is tautological once mypy
+    # narrows both to distinct literals — strict_equality catches that.)
+    states = {t.upstream_port_status for m in catalog.values() for t in m.toolkit_risk}
+    assert len(states) > 1, f"register collapses to a single state: {states}"
+    assert "no_path" in states
 
 
-def test_compiler_flags_are_recorded_not_rediscovered(catalog) -> None:
+def test_compiler_flags_are_recorded_not_rediscovered(catalog: Catalog) -> None:
     """PARITY-POLICY 'CARRY with attention': the flags are catalog data."""
-    flags = catalog["glfer"].install[0].install.compiler_flags
+    install = catalog["glfer"].install[0].install
+    assert isinstance(install, SourceInstall)
+    flags = install.compiler_flags
     assert "-Wno-incompatible-pointer-types" in flags
     assert len(flags) == 3

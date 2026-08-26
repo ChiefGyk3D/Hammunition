@@ -219,6 +219,10 @@ capability-matrix claims not backed by a passing container test.
 - Generated docs are generated: `scripts/gen_blend_inventory.py` rebuilds the
   Blend inventory from upstream task files. Never hand-edit a generated file.
 - Small, logically scoped commits
+- **Git workflow (WIP phase, 2026-08-25):** commit and **push directly to `main`**
+  after each completed item. Once there is a solid working version, switch to
+  feature branches and PRs. We are a long way from that; until then, main is the
+  working branch and pushing is expected rather than gated.
 - `/reference/` and `/vendor/` are gitignored, **anchored to the repo root**:
   third-party tarballs and extracted upstream trees are studied locally, never
   committed. Keep provenance clean. The anchoring matters — the unanchored form

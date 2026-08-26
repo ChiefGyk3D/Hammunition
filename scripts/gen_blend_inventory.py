@@ -109,7 +109,10 @@ def _ahrl_facts() -> tuple[set[str], list[str]]:
 
 def _crossref(blend_pkgs: set[str]) -> list[str]:
     apt, built = _ahrl_facts()
-    norm = lambda s: re.sub(r"[^a-z0-9]", "", s.lower())  # noqa: E731
+
+    def norm(value: str) -> str:
+        return re.sub(r"[^a-z0-9]", "", value.lower())
+
     by_norm = {norm(p): p for p in blend_pkgs}
 
     shared = sorted(blend_pkgs & apt)
