@@ -1,7 +1,15 @@
 # Hammunition — Decision Record
 
 Decisions settled by evidence. Each entry names what was decided, what decided
-it, and what it closes. Supersedes anything in `DESIGN.md` that disagrees.
+it, and what it closes. Supersedes anything in `CLAUDE.md` or `DESIGN.md` that
+disagrees.
+
+Amendments are appended and dated rather than rewritten, so the reasoning trail
+survives. Where an amendment supersedes the original text, it says so.
+
+`PARITY-POLICY.md` governs per-unit disposition (CARRY / SUPERSEDE / REVIVE /
+RETIRE / ADD) and carries the M5 exit criteria. Where it and D-005 differ, it
+wins — see the D-005 amendment.
 
 ---
 
@@ -81,6 +89,62 @@ zero checksums across 63 archives plus three unpinned network fetches, and
 gives us anything to inherit. Sourcing and verifying every non-apt artifact is a
 named sub-project, not a field in a YAML file.
 
+### Amendment, 2026-08-25 — backend list corrected by measurement
+
+The original entry inherited a candidate backend list from `CLAUDE.md` and
+`DESIGN.md` without checking it. Verified counts across all 3,911 lines of
+`bin/install_ahrl`:
+
+| Backend | Occurrences in AHRL v27 | Verdict |
+|---|---:|---|
+| `cargo` | 0 | **Zero occurrences; not required for parity.** Retained here as a recorded negative, not deleted — `noaa-apt` is written in Rust but ships as a prebuilt binary, so Rust in the tree does not imply a cargo backend. |
+| `flatpak` | 0 | **Zero occurrences; not required for parity.** |
+| `appimage` | 0 in AHRL | **Not required for AHRL parity. Post-1.0**, required by the 73Linux delta — HAMRS is an AppImage whose upstream is discovered by scraping `hamrs.app`. |
+| Wine *prefix* | 0 in AHRL | AHRL's Morse Runner needs bare `wine` only. **Post-1.0**, VARA needs a configured prefix: `WINEARCH=win32`, `winetricks winxp`, `winetricks sound=alsa`. A prefix backend is more than `apt install wine`. |
+| **CPAN** | **1 real use** | **Required.** Missing from the original breakdown. `install_aa_analyzer` runs `(export PERL_MM_USE_DEFAULT=1; cpan install Device/SerialPort.pm)`. **Security note:** unpinned CPAN fetch, no checksum, and `PERL_MM_USE_DEFAULT=1` auto-accepts configuration prompts — it is a network install that answers its own questions. Either pin it, package the Perl dependency ourselves, or use the Debian `libdevice-serialport-perl` package if it satisfies the build. |
+| `snap` | 11 occurrences | **Not a backend — an anti-dependency.** Every occurrence is *removal* of snap Firefox, plus an APT pin to keep it off. Belongs in `system_modifications` as a package to purge and pin against, never as an install method. |
+
+**Measured backend set required for 1.0** (AHRL parity + packet core): apt,
+source-from-tarball, source-from-git, binary/`.deb`/archive, Python venv, pipx,
+CPAN, and launcher generation. Nothing else is justified by data.
+
+### Amendment, 2026-08-25 — 1.0 packet core needs no new backend
+
+Checked against the 73Linux delta admitted to 1.0 by D-008:
+
+| Unit | Install shape | Backend |
+|---|---|---|
+| PAT | vendor `.deb` from GitHub Releases, per-arch | binary/`.deb` — **have it** |
+| ARDOP | prebuilt release asset via GitHub Releases API | binary — **have it** |
+| Direwolf | `git clone` + cmake | source-from-git — **have it** |
+| AX.25 | apt (`ax25-tools`, `ax25-apps`) + config generation | apt — **have it** |
+| BPQ (linbpq) | loose binaries + zips via `wget` | binary — **have it**, but see below |
+
+**No new backend is required.** Three findings that are not backend gaps but do
+need decisions:
+
+1. **BPQ breaks pin-and-verify.** linbpq is fetched as individual files from a
+   personal website's `/Downloads/Beta/` directory — unversioned URLs, no release
+   structure, no checksums, and the word *Beta* in the path. We can hash what we
+   download, but the URL's contents change under us with no version to pin to.
+   This is the first unit in the catalog that cannot satisfy D-004's verification
+   requirement as upstream currently publishes. Needs a policy: mirror it
+   ourselves with our own hashes, carry it as `status: unverifiable` with an
+   explicit user opt-in, or exclude it from 1.0.
+
+2. **ARDOP's revival path is "don't build it."** AHRL disabled ardop over a
+   compile error. 73Linux downloads upstream's *prebuilt release binary* instead.
+   The REVIVE in `PARITY-POLICY.md` may need no code fix at all — just a change
+   of install method. Test this before spending effort on the build.
+
+3. **AX.25 needs templated config generation, not just installation.** Its
+   install writes an operator-specific line into `/etc/ax25/axports`:
+   `echo "wl2k ${MYCALL} 1200 255 7 Winlink" | sudo tee -a /etc/ax25/axports`.
+   This makes `DESIGN.md` §15.3 (station-local configuration — callsign, grid,
+   device paths) **blocking for the 1.0 packet core**, not a deferred question.
+   It also exceeds `system_modifications` as scoped in D-012, which covers udev,
+   groups, and blacklists but not templated config files.
+
 ---
 
 ## D-005 — Parity means coverage with honest status, not universal success
@@ -98,6 +162,24 @@ lives in comments. In our catalog it is queryable data.
 
 **Schema consequence:** `status` (supported | broken | retired) with a `reason`
 string and a `date`.
+
+### Amendment, 2026-08-25 — "has a status" is too weak a bar
+
+Superseded in part by `PARITY-POLICY.md`. Coverage alone is not parity.
+
+M5 requires that every unit **either installs successfully on at least one
+supported distro, or carries a `broken`/`retired` status verified by us** — not
+inherited from an AHRL shell comment.
+
+- **Never inherit a verdict.** Re-attempt `ardop`, `radiosonde_auto_rx`, and the
+  compiler-flag-fragile set (`glfer`, `gsmc`, `owx`, `linrad`, `qgrid`) on
+  current sources, on our supported distros, before accepting any verdict.
+- **Record the attempt**, not just the conclusion: date tried, version tried,
+  distro, and the actual failure. The next person needs to know what was tested.
+- **Exit criterion:** our install-success fraction must be **at least as good as
+  AHRL's own**. AHRL ships 95 units with 9 disabled. Shipping 95 manifests with
+  40 marked broken is not parity, however complete the coverage looks.
+- **Inherited verdicts count against us.** Tested-and-confirmed-dead does not.
 
 ---
 
@@ -154,8 +236,25 @@ AHRL-derived catalog leaves them stranded.
 Secondary from 73Linux: XYGRIB (GRIB weather), HAMRS (logging), M0IAX. Pi-system
 helpers (PISTATS, PITERM, VNC, CONKY, BATT) are out of scope.
 
-**Open:** whether this lands in 1.0 or immediately post-1.0. Ship date pressure
-versus shipping a "complete" ham station that cannot do Winlink.
+### Resolved, 2026-08-25 — split the delta
+
+**In 1.0 — the packet core:** PAT, AX.25 stack, BPQ, ARDOP, and Direwolf *with
+configuration, not merely installation*.
+
+**Post-1.0:** VARA (needs a configured Wine prefix; closed-source freeware) and
+HAMRS (needs an AppImage backend, and its upstream is discovered by scraping a
+webpage).
+
+**1.0 is therefore: AHRL parity + the packet core.** Verified against the
+measured backend set — none of the five 1.0 units requires a backend we do not
+already need (see the D-004 amendment of the same date), so the split costs no
+new engineering. Two caveats recorded there: BPQ cannot satisfy pin-and-verify as
+upstream publishes it, and AX.25 makes station-local config generation blocking
+rather than deferred.
+
+Secondary 73Linux units (XYGRIB, M0IAX) remain unclassified pending
+`PARITY-POLICY.md` disposition. Pi-system helpers (PISTATS, PITERM, VNC, CONKY,
+BATT) are RETIRE-as-out-of-scope.
 
 ---
 
@@ -260,3 +359,27 @@ always false.
 
 A generated call list makes this class of bug structurally impossible. When
 justifying the declarative catalog to anyone, this is the example.
+
+---
+
+## D-014 — Backends are justified by measurement, not convention
+
+**Decided:** No backend enters the roadmap without a named package in the
+inventory that requires it. Every backend carries its justifying unit.
+
+**Evidence:** `CLAUDE.md` and `DESIGN.md` both listed `cargo`, `flatpak`, and
+`appimage` as candidate backends. Measurement found zero occurrences of any of
+them in AHRL v27. They were on the list because installers usually have them —
+convention, not data.
+
+The same blind spot ran the other way: **CPAN** was in nobody's list and is
+genuinely required by `aa-analyzer`. Convention predicted three backends we do
+not need and missed one we do.
+
+**Rule:** a backend proposal names the unit(s) requiring it, or it does not ship.
+When a backend is considered and rejected, record it as a measured zero rather
+than deleting it — the negative result is evidence, and it stops the next person
+re-adding it from the same convention.
+
+**Closes:** the unexamined backend list in `CLAUDE.md` M3, `DESIGN.md` §6, and
+the `backends/` line in the repo layout.

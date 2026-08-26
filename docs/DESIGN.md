@@ -3,8 +3,11 @@
 > Pick your RF arsenal.
 
 Status: draft, pre-implementation. This document holds the reasoning behind the
-decisions summarised in `CLAUDE.md`. Where the two disagree, `CLAUDE.md` wins and
-this document should be corrected.
+decisions summarised in `CLAUDE.md`.
+
+**Authority order:** `DECISIONS.md` > `PARITY-POLICY.md` > `CLAUDE.md` > this
+document. Where any of them disagrees with this file, they win and this file is a
+bug. `docs/reference/ahrl-inventory.md` is the measurement everything rests on.
 
 ---
 
@@ -63,11 +66,23 @@ worse. We use the AHRL inventory as the seed for our catalog.
 as one. We solve a governance problem and cover a domain AHRL does not. AHRL is
 credited prominently in the README. Approach Andy before launch as a courtesy.
 
-**Provenance.** Package *names* are facts and freely usable. AHRL's own scripts
-and configuration files are Andy's work under whatever license ships with the
-tarball — verify it before reusing anything beyond the inventory. Our
-implementation is written from the package list, not ported from his code, which
-keeps the provenance unambiguous.
+**Provenance — verified, not assumed.** Package names, versions, upstream URLs,
+install mechanisms, build flags, `-Wno-*` workarounds and patch sets are facts
+and freely usable.
+
+Verified 2026-08-25: `bin/install_ahrl` and `bin/test_menus_debian13.py` carry
+GPL-3.0-or-later headers, Copyright 2024/2025 Andy Stewart (KB1OIQ). **No
+`LICENSE` or `COPYING` ships at the top level**, and the rest of AHRL's authored
+material — seven helper scripts, 105 `.desktop` files, 18 `.directory` files, and
+all documentation prose — carries no license notice at all.
+
+**Therefore:** do not reuse `.desktop` files, `.directory` files, menu structure,
+or documentation prose; their status is genuinely unclear. Do not port installer
+logic; GPL-3.0-or-later would be viral. Writing from the inventory keeps
+provenance unambiguous. See **D-011**.
+
+**73Linux:** no license file at all, so nothing from its code. Inventory only.
+See **D-001**.
 
 ## 3. Scope
 
@@ -154,11 +169,23 @@ Bash is permitted only for small helper scripts, never for core logic.
 identically across all Debian-family targets, and produces output we can show
 the user verbatim.
 
-**Additional backends,** implemented only once the AHRL coverage report proves
-they are needed: pipx, cargo, flatpak, AppImage, source build. Parity with AHRL
-is unreachable with apt alone — AHRL builds some things from source precisely
-because they are not packaged, and those are the highest-value cases for our
-users.
+**Additional backends, justified by measurement rather than convention**
+(**D-014**). The coverage report is done: **57 of 95 AHRL units are not
+apt-installable**. An apt-only tool covers 40% of the parity target.
+
+Required for 1.0: source-from-tarball (35 units), binary/`.deb`/archive (9),
+Python venv (3), pipx (1), source-from-git (1), **CPAN** (1 — `aa-analyzer`
+needs `Device::SerialPort`), and launcher generation (14 units need a generated
+wrapper).
+
+Measured zeros, recorded so they are not re-added from habit: `cargo` 0,
+`flatpak` 0, `appimage` 0 across all 3,911 lines of AHRL. AppImage and a
+configured Wine prefix are post-1.0 (HAMRS, VARA). `snap` appears 11 times, all
+removals — it is an anti-dependency belonging in `system_modifications`.
+
+This is the core engineering problem, not an edge case. The non-apt packages are
+precisely the ones users cannot easily install themselves — the reason to exist
+(**D-004**).
 
 **Third-party APT repositories** must be declared in the manifest with a pinned
 signing key, shown to the user before being added, and documented. Never added
@@ -166,9 +193,10 @@ silently.
 
 ## 7. Undo semantics
 
-**We do not promise rollback.** True rollback across apt plus pipx plus cargo
-plus AppImage is not achievable — apt alone cannot cleanly reverse a transaction
-that pulled dependency changes.
+**We do not promise rollback.** True rollback across apt plus source builds plus
+`make install` plus per-user venvs plus CPAN is not achievable — apt alone cannot
+cleanly reverse a transaction that pulled dependency changes, and a source build
+that ran `make install` scatters files with no manifest.
 
 **We promise a transaction log.** Every package installed, every source enabled,
 every file written, every group modified, recorded with timestamps. `hammunition
@@ -189,9 +217,12 @@ shim to make an unsupported combination appear to work.
 
 Priority order: Parrot OS, then Debian, Ubuntu, Kali, Raspberry Pi OS.
 
-Raspberry Pi OS implies ARM64. Decide early whether ARM is a day-one target —
-designing for it is cheap, retrofitting is not. This matters directly: the
-ClockworkPi uConsole is a target device.
+Raspberry Pi OS implies ARM64. **Settled (D-002): ARM is a day-one target and
+`arch` is a structural selector in the schema from M1.** Nine AHRL units are
+arch-conditional; 73Linux ships arch-partitioned trees. The retrofit cost is
+visible in AHRL's `install_gspiceui`, which hardcodes an `aarch64-linux-gnu` path
+on every architecture and leaves a dangling symlink on x86_64. The ClockworkPi
+uConsole is a target device.
 
 ## 9. Hardware
 
@@ -275,34 +306,73 @@ with better tooling. Avoiding that is the entire point.
 
 ## 14. Roadmap
 
-AHRL parity defines 1.0. Everything AHRL installs, Hammunition installs, on more
-distributions, with better mechanics. Novel capability layers on top of parity,
-never substitutes for it.
+**1.0 = AHRL parity + the packet core** (**D-008**). Parity is not "reproduce
+AHRL" — per `PARITY-POLICY.md` it is that a user who uninstalls AHRL and installs
+Hammunition is **strictly better off**. Every unit gets one disposition: CARRY,
+SUPERSEDE, REVIVE, RETIRE, ADD. Reproducing AHRL faithfully, broken entries
+included, would be a worse product than AHRL.
+
+In 1.0: PAT, AX.25, BPQ, ARDOP, Direwolf-with-configuration. Post-1.0: VARA
+(Wine prefix) and HAMRS (AppImage). Novel capability layers on top, never
+substitutes.
 
 - **M1 — walking skeleton.** Manifest schema and validator, apt backend,
   os-release detection for Parrot and Debian, ~20 packages, one `ham-core`
   profile, `install`/`list`/`status`/`--dry-run`, container test harness.
-- **M2 — inventory and coverage.** Complete AHRL v27 package list extracted into
-  manifests. Coverage report: what is apt-installable per target, what is not.
-  This report drives M3 scope — measured, not guessed.
-- **M3 — backend completeness.** Implement the backends M2 proves necessary.
+- **M2 — inventory and coverage.** *AHRL done* — see
+  `reference/ahrl-inventory.md`: 95 units, 57 non-apt. Remaining: the 73Linux
+  delta and per-unit dispositions.
+- **M3 — backend completeness.** Implement the measured backend set (§6). Every
+  backend names the unit requiring it (**D-014**).
 - **M4 — profiles and hardware.** Full profile set, udev rules, groups, firmware,
   persistent device symlinks.
-- **M5 — parity verified.** Automated check that every AHRL package resolves to
-  an installable manifest on at least one supported distro. Gaps documented in
-  the capability matrix, never hidden.
+- **M5 — parity verified.** Every unit either installs on at least one supported
+  distro, or carries a `broken`/`retired` status **verified by us**, never
+  inherited from an AHRL comment. **Exit criterion: our install-success fraction
+  must be at least as good as AHRL's own** — 95 units, 9 disabled. Shipping 95
+  manifests with 40 broken is not parity. Inherited verdicts count against us.
 - **Post-1.0.** SIGINT and RF-security profiles, Meshtastic/LoRa, Parrot-specific
   integration. Where Hammunition stops being "AHRL done properly" and becomes its
   own thing.
 
-## 15. Open questions
+## 15. Questions
 
-1. **Profile dependencies.** Can a profile depend on another — does `sdr` pull in
-   `ham-core`? Flat is simpler; nested is more useful and harder to get right.
-   Must be settled before the schema is final.
-2. **ARM as a day-one target.** Cheap to design in, expensive to retrofit. The
-   uConsole argues for yes.
-3. **Station-local configuration.** Callsign, grid square, rig device paths.
-   Where does operator-specific config live, and how does it stay out of git?
-4. **Catalog versioning.** If a user is on Hammunition 1.2, which catalog version
-   do they get, and can they pin it?
+### Closed
+
+1. **Profile dependencies** — closed by **D-003**. Flat tags with overlap, no
+   nesting. AHRL's categories overlap heavily (14 programs in two or three) but
+   never nest; the one nested case is a doc menu, not a software grouping.
+   73Linux uses a flat checklist. `categories` is a list.
+2. **ARM as a day-one target** — closed by **D-002**. Yes. `arch` is a structural
+   selector from M1.
+3. **Can we build on 73Linux?** — closed by **D-001**. No: unlicensed, and
+   `.bapp` is bash with a metadata header. Inventory source only.
+4. **Does the Winlink delta land in 1.0?** — closed by **D-008**. Split. Packet
+   core in 1.0; VARA and HAMRS post-1.0.
+
+### Open
+
+5. **Station-local configuration — now blocking.** Callsign, grid square, rig
+   device paths. Where does operator-specific config live, and how does it stay
+   out of git?
+
+   No longer deferrable: the 1.0 packet core forces it. AX.25's install writes
+   `wl2k ${MYCALL} 1200 255 7 Winlink` into `/etc/ax25/axports`, and Direwolf is
+   admitted to 1.0 explicitly *with configuration, not merely installation*. This
+   also exceeds `system_modifications` as scoped in **D-012**, which covers udev
+   rules, groups and blacklists but not templated config files. The schema needs
+   a `config` concept with templating from station-local variables, and those
+   variables need a home that is gitignored by construction.
+
+6. **Unverifiable upstreams.** BPQ (linbpq) is published as loose files in a
+   personal website's `/Downloads/Beta/` directory — unversioned URLs, no release
+   structure, no checksums. It is the first 1.0 unit that cannot satisfy
+   **D-004**'s pin-and-verify requirement as upstream publishes it. Options:
+   mirror with our own hashes, carry as `status: unverifiable` behind an explicit
+   opt-in, or drop from 1.0. Needs a policy, not a per-package hack — HAMRS
+   (scrapes its own download page) and several AHRL snapshots have the same
+   shape.
+
+7. **Catalog versioning.** If a user is on Hammunition 1.2, which catalog version
+   do they get, and can they pin it? Interacts with the three-tier model
+   (**D-009**) — core, community, and local tiers may not version together.

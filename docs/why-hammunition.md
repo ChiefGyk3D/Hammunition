@@ -2,9 +2,21 @@
 
 *Linux radio tools for people who can't leave well enough alone.*
 
-If you're deciding whether to install this, that decision should be informed.
-This page explains what Hammunition does, what it doesn't, who built the ground
-it stands on, and when you'd be better off with something else.
+> **State of the project, August 2026: there is nothing to install yet.**
+> Hammunition is in design. What exists today is documentation — a decision
+> record, a parity policy, and a complete measured inventory of what Andy's Ham
+> Radio Linux v27 installs (95 units, 57 of which apt cannot provide). No
+> catalog, no engine, no CLI, no releases. Everything below describes what
+> Hammunition is being built to do, not what it does. When that changes, this
+> banner changes with it.
+>
+> If you need a working ham Linux setup *today*, the "You might prefer something
+> else" section near the bottom is the honest answer, and it is not a formality.
+
+If you're deciding whether this is worth following, that decision should be
+informed. This page explains what Hammunition is for, what it deliberately
+isn't, who built the ground it stands on, and when you'd be better off with
+something else.
 
 ---
 

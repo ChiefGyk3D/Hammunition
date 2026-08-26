@@ -10,6 +10,13 @@ Debian, Ubuntu, Kali, Raspberry Pi OS.
 
 Binary: `hammunition`. Python package: `hammunition`.
 
+## Document authority
+
+`docs/DECISIONS.md` is authoritative. Where this file or `docs/DESIGN.md`
+disagrees with it, DECISIONS wins and the disagreeing file is a bug.
+`docs/PARITY-POLICY.md` governs per-unit disposition and the M5 exit criteria.
+`docs/reference/ahrl-inventory.md` is the measurement everything else rests on.
+
 ## What this project is NOT
 
 Do not propose or build any of these. They have been considered and rejected:
@@ -22,7 +29,13 @@ Do not propose or build any of these. They have been considered and rejected:
 
 We **augment** an existing system. Upstream packages are used wherever they exist.
 
-## Prior art: Andy's Ham Radio Linux (AHRL)
+## Inventory sources
+
+Two projects seed the catalog. Both are inventory sources; neither is a base we
+build on. See **D-001** and **D-011** for the provenance rules, and credit both
+in the README.
+
+### Andy's Ham Radio Linux (AHRL)
 
 AHRL by Andy Stewart (KB1OIQ) is the direct inspiration and the closest existing
 thing to what we are building. Study it before designing anything. Treat it with
@@ -60,8 +73,26 @@ as versioned tarballs on SourceForge.
 | No automated cross-distro testing | CI containers per target distro |
 | Ham radio only | Ham radio plus SDR, SIGINT, and RF security on a security-tooling base |
 
-**Positioning.** We are not competing with AHRL and must not present ourselves as
-its replacement in README, docs, or commit messages. We cover a domain it does
+### 73Linux (KM4ACK)
+
+73Linux, by Jason Oleham (KM4ACK), grew out of Build-a-Pi. Same shape as AHRL and
+as us: an installer layered onto an existing Debian-family OS, not a distribution.
+Actively maintained, 47 unique units across `app/stable/pi/` and
+`app/stable/x86_64/`.
+
+**What we take:** the inventory delta. 73Linux covers Winlink, packet, and EMCOMM
+— PAT, PATMENU3, BPQ, AX.25, ARDOP, ARDOPGUI, VARA, GARIM, VARIM — a domain AHRL
+does not touch at all. The packet core lands in 1.0 (**D-008**). Its community
+side-loading model also informs our three-tier catalog (**D-009**).
+
+**What we do not take:** any code. There is no LICENSE or COPYING in the
+repository and no header on `73.sh`, so default copyright applies. A `.bapp` is
+also executable bash with a metadata header — five easy fields declarative, every
+hard field trapped inside an imperative `INSTALL()` body. That is the architecture
+we exist to replace. See **D-001**.
+
+**Positioning.** We are not competing with AHRL or 73Linux and must not present
+ourselves as a replacement for either in README, docs, or commit messages. We cover a domain it does
 not — RF security and SIGINT alongside amateur radio — and we solve a governance
 problem rather than a software problem. Credit AHRL prominently in the README.
 
@@ -92,6 +123,15 @@ Do not re-litigate these without being asked:
 | Config management | Own engine, Ansible as export target | Keep the catalog engine-agnostic |
 | Privilege | Drop to user where possible; sudo only for apt/udev | Runs alongside offensive tooling |
 | Naming | One name: Hammunition | "Renegade RF" is held in reserve, not used in docs or code |
+| Architecture selector | `arch` structural from M1 | 9 AHRL units are arch-conditional; retrofitting is what broke `gspiceui` (**D-002**) |
+| Profiles | Flat tags with overlap, no nesting | AHRL categories overlap but never nest; 73Linux is a flat checklist (**D-003**) |
+| Catalog tiers | core / community / local | Side-loading is 73Linux's best idea and answers our founding objection to AHRL (**D-009**) |
+| Update tracking | `update` block on every manifest | AHRL has no update story — install once, rot forever (**D-010**) |
+| Backend selection | Measured, never conventional | We listed cargo/flatpak from habit and missed CPAN from data (**D-014**) |
+| 73Linux | Inventory source, never a base | No license file; `.bapp` is bash with a header (**D-001**) |
+| 1.0 scope | AHRL parity + packet core | VARA and HAMRS are post-1.0 (**D-008**) |
+
+Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
 
 ## Security requirements
 
@@ -133,6 +173,10 @@ how to inspect it afterward, and how to reverse it. Groups added, udev rules
 written, config files touched, repositories enabled. Nothing happens to a user's
 machine that is not written down.
 
+**Top-level docs (not part of the user-facing site):** `DECISIONS.md`
+(authoritative decision record), `PARITY-POLICY.md` (per-unit disposition and M5
+exit criteria), `DESIGN.md` (reasoning), `why-hammunition.md` (public rationale).
+
 **Structure under `docs/` ("Hacker's Ham Shack"):**
 - `getting-started/` — install, first profile, first contact
 - `profiles/` — one page per profile, generated from manifests plus prose
@@ -161,8 +205,11 @@ capability-matrix claims not backed by a passing container test.
 - Type hints throughout; `mypy --strict` clean
 - Tests run in containers per target distro, never against the dev machine
 - Small, logically scoped commits
-- `reference/` and `vendor/` are gitignored: third-party tarballs and extracted
-  upstream trees are studied locally, never committed. Keep provenance clean.
+- `/reference/` and `/vendor/` are gitignored, **anchored to the repo root**:
+  third-party tarballs and extracted upstream trees are studied locally, never
+  committed. Keep provenance clean. The anchoring matters — the unanchored form
+  also matches `docs/reference/`, a required documentation section, and silently
+  excluded it. A test asserts `docs/reference/` stays tracked.
 
 ## Capability matrix
 
@@ -180,7 +227,7 @@ catalog/
 src/hammunition/
   cli/             # argparse/click entry points
   manifest/        # schema, loader, validation
-  backends/        # apt, pipx, cargo, flatpak, appimage, source
+  backends/        # apt, source, git, binary, venv, pipx, cpan (D-014)
   distro/          # /etc/os-release detection and capability resolution
   hardware/        # USB/serial detection, udev generation
   state/           # transaction log, uninstall
@@ -188,18 +235,41 @@ docs/              # "Hacker's Ham Shack" — guides and labs (section title, no
 tests/
 ```
 
-## Open question to resolve before the schema is final
+## Closed questions
 
-Can a profile depend on another profile — does `sdr` pull in `ham-core`? Flat
-profiles are simpler; nested ones are more useful and harder to get right. Ask
-the maintainer rather than deciding unilaterally.
+Both former open questions are settled. Do not reopen without new evidence.
 
-## Roadmap — AHRL parity is the definition of 1.0
+- **Profile nesting** — closed by **D-003**. Profiles are flat tags with overlap;
+  they do not nest or depend on each other. AHRL's categories overlap heavily
+  (14 programs appear in two or three) but never nest; 73Linux uses a flat
+  checklist. These are tags, not a tree. `categories` is a list.
+- **ARM as a day-one target** — closed by **D-002**. Yes. `arch` is a structural
+  selector in the schema from M1, not a retrofit. Nine AHRL units are
+  arch-conditional and 73Linux ships arch-partitioned trees. The cost of
+  retrofitting is visible in AHRL's `install_gspiceui`, which hardcodes an
+  `aarch64-linux-gnu` path on every architecture.
 
-AHRL is the baseline, not merely an influence. Hammunition 1.0 means: everything
-AHRL installs, Hammunition installs, on more distros, with better mechanics.
-Novel capability (SIGINT, RF security) is layered on top of parity, never
-substituted for it.
+**Still open and now blocking:** station-local configuration (callsign, grid
+square, rig device paths). The 1.0 packet core forces it — AX.25's install writes
+`wl2k ${MYCALL} 1200 255 7 Winlink` into `/etc/ax25/axports`. See `DESIGN.md`
+§15.3 and the D-004 amendment.
+
+## Roadmap — 1.0 is AHRL parity plus the packet core
+
+Parity is **not** "reproduce AHRL." Per `docs/PARITY-POLICY.md`, the goal is that
+a user who uninstalls AHRL and installs Hammunition is **strictly better off**:
+everything that worked still works, some things work that didn't, some are better
+than what they replace, and the dead weight is gone *with an explanation*.
+Reproducing AHRL faithfully — broken and obsolete entries included — would be a
+worse product than AHRL.
+
+Every unit gets exactly one disposition: **CARRY, SUPERSEDE, REVIVE, RETIRE, or
+ADD**. No unit is left unclassified. Never inherit a `broken` verdict without
+testing it ourselves.
+
+**1.0 = AHRL parity + the 1.0 packet core** (PAT, AX.25, BPQ, ARDOP, Direwolf
+with configuration) — **D-008**. VARA and HAMRS are post-1.0. Novel capability
+(SIGINT, RF security, mesh) layers on top, never substitutes.
 
 **M1 — walking skeleton.** Nothing beyond this scope unless asked.
 - Manifest schema + validator
@@ -209,22 +279,47 @@ substituted for it.
 - `install`, `list`, `status`, `--dry-run`
 - Container test harness for Parrot and Debian
 
-**M2 — inventory and coverage.** Extract the complete AHRL v27 package list into
-manifests. Produce a coverage report: which AHRL packages are apt-installable on
-each target, and which need another backend. That report drives M3 scope — do not
-guess at which backends are needed, measure it.
+**M2 — inventory and coverage.** *Done for AHRL* —
+`docs/reference/ahrl-inventory.md` records all 95 executing units with method,
+package names, build details, category, and conditionals. Headline: 57 of 95 are
+not apt-installable. Remaining: the 73Linux delta inventory, and per-unit
+dispositions per `PARITY-POLICY.md`.
 
-**M3 — backend completeness.** Implement whichever backends the M2 report proves
-necessary (pipx, cargo, flatpak, AppImage, source build). Parity is unreachable
-with apt alone; AHRL builds some things from source, and those are exactly the
-packages users cannot easily install themselves — the highest-value cases.
+**M3 — backend completeness.** Backends are justified by measurement, never by
+convention (**D-014**). Every backend names the unit requiring it.
+
+Measured from the inventory: **57 of 95 AHRL units cannot be satisfied by apt** —
+35 source builds from bundled tarballs, 9 prebuilt binaries and data archives,
+4 Python venv/pipx, 2 Python-run-in-place, 3 infrastructure, 2 launcher-only,
+1 network git clone, 1 remote script piped into bash. An apt-only tool covers
+40% of the parity target, and the missing 60% is precisely what users cannot
+install themselves — the reason this project exists (**D-004**).
+
+Required for 1.0: apt, source-from-tarball, source-from-git, binary/`.deb`/
+archive, Python venv, pipx, **CPAN** (`aa-analyzer` needs
+`Device::SerialPort`), and launcher generation (14 units need a generated
+wrapper).
+
+Measured zeros — recorded, not deleted, so they are not re-added by convention:
+`cargo` 0, `flatpak` 0, `appimage` 0 in AHRL. AppImage and a configured Wine
+prefix are **post-1.0**, required by HAMRS and VARA respectively. `snap` appears
+11 times and is an **anti-dependency** — every occurrence is removal — so it
+belongs in `system_modifications`, never as a backend.
 
 **M4 — profiles and hardware.** Full profile set. udev rules, group membership,
 firmware. Persistent device symlinks.
 
-**M5 — parity verified.** Automated check that every package in the AHRL
-inventory resolves to an installable manifest on at least one supported distro.
-Gaps are documented in the capability matrix, never hidden.
+**M5 — parity verified.** Every unit either **installs successfully on at least
+one supported distro**, or carries a `broken`/`retired` status **verified by us**
+— never inherited from an AHRL shell comment. Re-attempt `ardop`,
+`radiosonde_auto_rx`, and the compiler-flag-fragile set before accepting any
+verdict, and record what was tested: date, version, distro, actual failure.
+
+**Exit criterion: our install-success fraction must be at least as good as
+AHRL's own.** AHRL ships 95 units with 9 disabled. Shipping 95 manifests with 40
+marked broken is not parity, however complete the coverage looks. Inherited
+verdicts count against us; tested-and-confirmed-dead does not. The M5 report
+shows disposition, evidence, and whether each verdict was tested or inherited.
 
 **Post-1.0 — the extension.** SIGINT and RF-security profiles, Meshtastic/LoRa,
 the Parrot-specific integration. This is where Hammunition stops being "AHRL
