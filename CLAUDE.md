@@ -144,6 +144,7 @@ Do not re-litigate these without being asked:
 | Licence | GPL-3.0-or-later engine, CC0-1.0 catalog | Split on the architectural boundary (**D-023**) |
 | Untagged upstreams | Pin a **reviewed** commit, never a branch or a rolling artifact | An unreviewed SHA and an abandoned tag are the same failure (**D-024**) |
 | Evidence | Re-verify a claim when it becomes decisive, not only when gathered | Four bugs, one shape (**D-025**) |
+| Hardware claims | `status` and `maintainer_verified` are separate fields | `usrp` is supported from Debian's rule and has never been run here (**D-027**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
 

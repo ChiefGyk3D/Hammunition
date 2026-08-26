@@ -18,6 +18,7 @@ so in ``identification_gap`` rather than ship a guess.
 from __future__ import annotations
 
 import re
+from datetime import date as date_
 from typing import Literal
 
 from pydantic import Field, model_validator
@@ -29,6 +30,7 @@ __all__ = [
     "DeviceManifest",
     "Firmware",
     "GapClosure",
+    "MaintainerVerification",
     "UdevBinding",
     "UsbId",
 ]
@@ -99,6 +101,40 @@ class UsbId(Strict):
 
     def __str__(self) -> str:
         return f"{self.vendor}:{self.product or '*'}"
+
+
+class MaintainerVerification(Strict):
+    """Evidence that someone here actually ran the hardware.
+
+    `status` and this field answer two different questions and are deliberately
+    separate:
+
+    ``status: supported``
+        The identifiers are right and the install recipe works. `usrp` claims
+        this on the strength of Debian's own `uhd-host` udev rule -- a primary
+        source -- while nobody on this project owns a USRP. That is a real,
+        useful claim and discarding it because we lack the hardware would throw
+        away good evidence.
+    ``maintainer_verified``
+        Somebody plugged it in. A different claim entirely.
+
+    Conflating the two is how projects come to claim support they have never
+    tested, which is the failure D-018 and D-025 both exist to prevent, applied
+    to hardware instead of to prose. So this is not a boolean: a bare `true`
+    would be a claim with no evidence behind it, which is the same defect one
+    level down.
+    """
+
+    date: date_
+    by: str = Field(min_length=2, description="Who ran it. A name or handle.")
+    distro: str = Field(min_length=3, description="What it was tested on, e.g. 'parrot rolling'.")
+    what_was_tested: str = Field(
+        min_length=25,
+        description=(
+            "What actually happened. 'It works' is not a test result; "
+            "'enumerated, rules matched, rtl_test found the tuner' is."
+        ),
+    )
 
 
 class UdevBinding(Strict):
@@ -220,7 +256,17 @@ class DeviceManifest(_DeviceCommon):
         default=None,
         description="Who can close the gap. Required whenever there is one.",
     )
-    status: Literal["supported", "untested", "planned"] = "untested"
+    status: Literal["supported", "untested", "planned"] = Field(
+        default="untested",
+        description=(
+            "Whether the identifiers and setup recipe are correct. Orthogonal to "
+            "`maintainer_verified`, which is whether anyone here ran the hardware."
+        ),
+    )
+    maintainer_verified: MaintainerVerification | None = Field(
+        default=None,
+        description="Evidence that someone on this project actually ran the device.",
+    )
 
     @model_validator(mode="after")
     def _check(self) -> DeviceManifest:
@@ -250,6 +296,17 @@ class DeviceManifest(_DeviceCommon):
         if self.gap_closure and not self.identification_gap:
             raise ManifestError(
                 f"device {self.name!r} sets gap_closure with no identification_gap to close"
+            )
+        if self.maintainer_verified and self.gap_closure == "unverified_by_maintainer":
+            raise ManifestError(
+                f"device {self.name!r} records a maintainer verification and also says "
+                f"the gap is unverified_by_maintainer. Both cannot be true: somebody "
+                f"either ran this hardware or did not."
+            )
+        if self.maintainer_verified and self.status == "planned":
+            raise ManifestError(
+                f"device {self.name!r} is marked planned but records a maintainer "
+                f"verification -- planned means not yet acquired"
             )
         if self.status == "supported" and not confirmed and not self.device_class:
             raise ManifestError(

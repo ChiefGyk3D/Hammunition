@@ -1230,3 +1230,72 @@ That sentence is deliberately about *what is being installed*, not about what is
 lawful. **Same discipline as D-021: describe capability, do not adjudicate
 legality.** The `ConsentGate` wording validator exists because that line is easy
 to cross by accident, and it is just as easy to cross in prose.
+
+---
+
+## D-027 — "Supported" and "we have run it" are separate claims
+
+**Date:** 2026-08-26. **Status:** accepted.
+
+**Rule.** A device manifest carries two independent fields:
+
+| Field | The claim |
+|---|---|
+| `status: supported` | The identifiers are correct and the setup recipe works. |
+| `maintainer_verified` | Somebody on this project plugged the hardware in. |
+
+Neither implies the other, and the generated capability reporting shows both.
+
+### Why they must not be one field
+
+`usrp` forced the distinction. Its seven USB identifiers come from Debian's own
+`60-uhd-host.rules` — a primary source, maintained by people who ship the driver
+— and every rule generated from them will match. That is a real, useful,
+evidenced claim. **Nobody on this project owns a USRP.**
+
+Collapse the two and one of two bad things happens:
+
+- **Require hardware for `supported`** and we throw away good evidence. The
+  entry would have to say "untested" while holding a citation to the
+  distribution's own rule file, which is worse information than the truth.
+- **Let `supported` imply verification** and we have claimed support we never
+  tested. That is the exact failure D-018 exists to prevent for external claims
+  and D-025 for internal ones, applied to hardware.
+
+Two fields cost one column in a table. The alternative costs either evidence or
+honesty.
+
+### Not a boolean
+
+`maintainer_verified` is a record, not a flag: date, who, which distribution, and
+what actually happened. A bare `true` would be a claim with no evidence behind
+it — the same defect one level down, and the reason `UsbId.evidence` and
+`PinReview.rationale` exist. *"It works"* fails the minimum length on purpose;
+*"enumerated, rules matched, `rtl_test` found the tuner"* is a test result.
+
+Two contradictions are rejected outright: a verification alongside
+`gap_closure: unverified_by_maintainer`, and a verification on `status: planned`.
+Somebody either ran the hardware or did not.
+
+### What it looks like today
+
+**6 of 20 devices claim `supported`. 0 have been run here.**
+
+That is printed at the top of `docs/reference/hardware-gaps.md`, and the gap is
+not a defect to be closed by relaxing either column. It is the honest state of a
+project whose hardware layer is built out of distribution udev rules, and saying
+so is the point.
+
+### Relationship to `gap_closure`
+
+Three fields now describe a device's evidential position, and they are genuinely
+orthogonal:
+
+- `status` — are the identifiers and recipe right?
+- `maintainer_verified` — has anyone here run it?
+- `gap_closure` — if something is unknown, who could find out?
+
+`usrp` is `supported`, unverified, with no gap. `catsniffer-v3` is `untested`,
+unverified, with a gap closable on this bench. `limesdr` is `untested`,
+unverified, with a gap closable only by an owner. Each combination means
+something different to a user deciding whether to buy the hardware.

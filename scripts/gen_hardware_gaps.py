@@ -245,6 +245,44 @@ def render(classes: dict[str, DeviceClass], devices: dict[str, DeviceManifest]) 
         "",
         "---",
         "",
+        "## Support and verification are two different claims",
+        "",
+        "`status` says the identifiers and setup recipe are correct. "
+        "`maintainer_verified` says somebody here plugged the hardware in. They "
+        "answer different questions, and a device can honestly be the first "
+        "without the second: `usrp` claims `supported` on the strength of "
+        "Debian's own `uhd-host` udev rule, a primary source, while nobody on "
+        "this project owns one.",
+        "",
+        "Discarding that evidence for lack of hardware would throw away a real "
+        "claim. Merging the two columns is how a project comes to claim support "
+        "it has never tested. So they are separate fields and both are shown.",
+        "",
+        "| Device | Status | Run here | Evidence |",
+        "|---|---|---|---|",
+    ]
+    for device in sorted(devices.values(), key=lambda d: d.name):
+        seen = device.maintainer_verified
+        if seen:
+            mark = f"yes, {seen.date}"
+            evidence = f"{seen.by} on {seen.distro} - {seen.what_was_tested}"
+        else:
+            mark = "no"
+            evidence = "identifiers from a distribution rule; never run here"
+            if device.status != "supported":
+                evidence = "-"
+        lines.append(f"| `{device.name}` | {device.status} | {mark} | {evidence} |")
+
+    ran = sum(1 for d in devices.values() if d.maintainer_verified)
+    supported = sum(1 for d in devices.values() if d.status == "supported")
+    lines += [
+        "",
+        f"**{supported} of {len(devices)} devices claim `supported`; {ran} have "
+        "been run here.** That gap is not a defect to be closed by relaxing "
+        "either column. It is the honest state, and printing it is the point.",
+        "",
+        "---",
+        "",
         "## If you own one of these",
         "",
         "Every gap above marked `unverified_by_maintainer` is closable by anyone "

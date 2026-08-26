@@ -178,6 +178,39 @@ These are different from the gaps above: an identifier **is** recorded and rules
 
 ---
 
+## Support and verification are two different claims
+
+`status` says the identifiers and setup recipe are correct. `maintainer_verified` says somebody here plugged the hardware in. They answer different questions, and a device can honestly be the first without the second: `usrp` claims `supported` on the strength of Debian's own `uhd-host` udev rule, a primary source, while nobody on this project owns one.
+
+Discarding that evidence for lack of hardware would throw away a real claim. Merging the two columns is how a project comes to claim support it has never tested. So they are separate fields and both are shown.
+
+| Device | Status | Run here | Evidence |
+|---|---|---|---|
+| `airspy` | supported | no | identifiers from a distribution rule; never run here |
+| `bladerf` | supported | no | identifiers from a distribution rule; never run here |
+| `catsniffer-v3` | untested | no | - |
+| `clip-boy` | untested | no | - |
+| `esp32-marauder` | untested | no | - |
+| `free-wili-2` | untested | no | - |
+| `hackrf-one` | supported | no | identifiers from a distribution rule; never run here |
+| `hackrf-pro` | planned | no | - |
+| `krakensdr` | untested | no | - |
+| `limesdr` | untested | no | - |
+| `meshtastic` | untested | no | - |
+| `minino` | untested | no | - |
+| `plutosdr` | untested | no | - |
+| `portapack-h4m` | planned | no | - |
+| `proxmark3` | untested | no | - |
+| `rtl-sdr` | supported | no | identifiers from a distribution rule; never run here |
+| `sdrplay-rsp` | untested | no | - |
+| `ubertooth-one` | supported | no | identifiers from a distribution rule; never run here |
+| `uconsole` | planned | no | - |
+| `usrp` | supported | no | identifiers from a distribution rule; never run here |
+
+**6 of 20 devices claim `supported`; 0 have been run here.** That gap is not a defect to be closed by relaxing either column. It is the honest state, and printing it is the point.
+
+---
+
 ## If you own one of these
 
 Every gap above marked `unverified_by_maintainer` is closable by anyone holding the hardware, in about thirty seconds, and by nobody without it. `scripts/identify-device.sh <name>` is read-only, needs no root, and prints a block ready to paste — see [contributing/hardware.md](../contributing/hardware.md).

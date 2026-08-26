@@ -266,3 +266,62 @@ def test_every_package_a_device_names_has_a_manifest() -> None:
             referenced |= set(firmware.packages)
         missing = sorted(referenced - set(packages))
         assert not missing, f"{entry.name} names packages with no manifest: {missing}"
+
+
+# ---------------------------------------------------------------------------
+# Two axes: is it supported, and has anyone here run it
+# ---------------------------------------------------------------------------
+
+
+VERIFICATION = {
+    "date": "2026-08-26",
+    "by": "someone",
+    "distro": "parrot rolling",
+    "what_was_tested": "Enumerated, udev rule matched, rtl_test found the tuner.",
+}
+
+
+def test_supported_and_verified_are_independent() -> None:
+    """usrp is the case: identifiers from Debian's own rule, nobody here owns one."""
+    _, devices = load_hardware(HARDWARE)
+    usrp = devices["usrp"]
+    assert usrp.status == "supported"
+    assert usrp.maintainer_verified is None
+
+
+def test_a_verification_needs_evidence_not_a_boolean() -> None:
+    """A bare true would be the same defect one level down."""
+    with pytest.raises((ManifestError, ValidationError)):
+        device(
+            usb_ids=[CONFIRMED],
+            maintainer_verified={**VERIFICATION, "what_was_tested": "works"},
+        )
+
+
+def test_verified_may_not_also_be_unverified_by_maintainer() -> None:
+    with pytest.raises((ManifestError, ValidationError)):
+        device(
+            identification_gap="No identifier confirmed against real hardware.",
+            gap_closure="unverified_by_maintainer",
+            maintainer_verified=VERIFICATION,
+        )
+
+
+def test_planned_hardware_cannot_have_been_run() -> None:
+    with pytest.raises((ManifestError, ValidationError)):
+        device(usb_ids=[CONFIRMED], status="planned", maintainer_verified=VERIFICATION)
+
+
+def test_a_verification_is_accepted_with_evidence() -> None:
+    entry = device(usb_ids=[CONFIRMED], status="supported", maintainer_verified=VERIFICATION)
+    assert entry.maintainer_verified is not None
+    assert entry.maintainer_verified.distro == "parrot rolling"
+
+
+def test_no_device_claims_verification_it_does_not_have() -> None:
+    """The claim this project is most likely to make carelessly, so it is asserted."""
+    _, devices = load_hardware(HARDWARE)
+    for name, entry in devices.items():
+        if entry.maintainer_verified is not None:
+            assert entry.status != "planned", name
+            assert entry.gap_closure != "unverified_by_maintainer", name
