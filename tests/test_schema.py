@@ -67,7 +67,7 @@ def _minimal(**overrides: Any) -> dict[str, Any]:
 
 
 def test_catalog_loads(catalog: Catalog) -> None:
-    assert len(catalog) == 9
+    assert len(catalog) == 10
 
 
 def test_every_manifest_has_documentation(catalog: Catalog) -> None:
@@ -347,6 +347,47 @@ def test_launcher_may_not_reference_an_undeclared_endpoint() -> None:
         PackageManifest.model_validate(
             _minimal(launchers=[{"name": "x", "exec": "x --backend {endpoint:nope}"}])
         )
+
+
+# ===========================================================================
+# Shape 8 — templated station-local configuration
+#
+# Q-005/D-008: the packet core is admitted "with configuration, not merely
+# installation". linbpq is the first manifest to need it, which makes
+# DESIGN.md §15.5 (station-local config) concrete rather than deferred.
+# ===========================================================================
+
+def test_shape8_linbpq_declares_station_variables(catalog: Catalog) -> None:
+    bpq = catalog["linbpq"]
+    assert bpq.station_variables == {"callsign", "node_alias", "grid_square"}
+
+
+def test_shape8_no_callsign_is_hardcoded(catalog: Catalog) -> None:
+    """Operator identity must be a variable, never a literal in the catalog."""
+    for name, manifest in catalog.items():
+        for cfg in manifest.config_files:
+            assert "{station." in cfg.template, (
+                f"{name}: config template has no station variable — check it is "
+                f"not hardcoding operator-specific data"
+            )
+
+
+def test_shape8_config_files_are_backed_up(catalog: Catalog) -> None:
+    """We write to /etc on the operator's behalf; D-016 says say so and be
+    reversible."""
+    for name, manifest in catalog.items():
+        for cfg in manifest.config_files:
+            assert cfg.backup_existing, f"{name}: {cfg.path} would be clobbered"
+
+
+def test_bpq_builds_from_a_pinned_tag_not_a_mirror(catalog: Catalog) -> None:
+    """Q-005: GPL-3.0-or-later with upstream tags, so no mirror and no
+    `unverifiable` status is warranted."""
+    block = catalog["linbpq"].install[0]
+    assert isinstance(block.install, GitInstall)
+    assert block.install.ref == "25.39"
+    assert "cantab.net" not in block.install.repo
+    assert catalog["linbpq"].status is Status.supported
 
 
 # ===========================================================================

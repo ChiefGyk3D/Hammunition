@@ -8,7 +8,9 @@ unilaterally.
 
 ---
 
-## Q-001 🔴 — Container tests cannot run on this machine
+## Q-001 ✅ RESOLVED 2026-08-25 — rootless Podman installed and working. Two degraded-mode workarounds needed locally (see SESSION-LOG); CI needs neither.
+
+## Q-001 (original) — Container tests cannot run on this machine
 
 **Blocks:** item 1's verification half, and every future capability-matrix claim
 made locally.
@@ -36,7 +38,9 @@ fails loudly with these instructions rather than skipping silently.
 
 ---
 
-## Q-002 🔴 — `mypy --strict` is authored but UNVERIFIED
+## Q-002 ✅ RESOLVED 2026-08-25 — **`mypy --strict` passes clean** on Python 3.13.5 in-container. 24 errors found and fixed; `strict_equality` caught a tautological assertion, as predicted.
+
+## Q-002 (original) — `mypy --strict` is authored but UNVERIFIED
 
 **Depends on Q-001.**
 
@@ -84,7 +88,9 @@ I would rather say so than let it pass on silence.
 
 ---
 
-## Q-003 🟡 — Raspberry Pi OS has no container image
+## Q-003 ✅ RESOLVED 2026-08-25 — target renamed `debian-13-arm64`, `claims: aarch64-only`. Pi stays untested until verified on uConsole hardware.
+
+## Q-003 (original) — Raspberry Pi OS has no container image
 
 `containers/targets.yaml` uses `debian:13` on `linux/arm64` as the closest
 honest proxy. It exercises the `aarch64` selectors, which is most of the value,
@@ -103,7 +109,9 @@ a real gap at M4 when hardware support lands.
 
 ---
 
-## Q-004 🟢 — Ubuntu 26.04 is in CI but not in `CLAUDE.md`'s target list
+## Q-004 ✅ RESOLVED 2026-08-25 — `linuxmint-22.3` added, pinned to `linuxmintd/mint22.3-amd64`.
+
+## Q-004 (original) — Ubuntu 26.04 is in CI but not in `CLAUDE.md`'s target list
 
 `CLAUDE.md` names Parrot, Debian, Ubuntu, Kali and Raspberry Pi OS. AHRL's own
 tested set includes Ubuntu/Xubuntu/Kubuntu 26.04 and Linux Mint 22.3, and one
@@ -118,7 +126,9 @@ against it — an untested selector is worse than no selector.
 
 ---
 
-## Q-005 🔴 — BPQ: the licence assumption was wrong, and there is a third option
+## Q-005 ✅ RESOLVED 2026-08-25 — BPQ: pinned tag. `catalog/packages/linbpq.yaml` written.
+
+## Q-005 (original) — BPQ: the licence assumption was wrong, and there is a third option
 
 **Blocks:** the 1.0 packet core (D-008). **Resolves:** `DESIGN.md` §15.6.
 
