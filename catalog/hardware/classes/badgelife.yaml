@@ -94,23 +94,44 @@ usb_ids:
         - free-wili-2
         - every ESP32-S3 or ESP32-C3 board using native USB
   - vendor: "1a86"
-    product: "55d4"
-    description: WCH CH9102/CH343 UART bridge — increasingly common on newer boards
+    product: "55d3"
+    description: WCH CH343 USB-serial bridge
     evidence: >-
-      Widely reported for CH9102F but NOT present in Debian 13 usb.ids and not
-      confirmed here. Closable by the maintainer if any board in the kit uses a
-      CH9102 rather than a CH340; which of them do is not known without checking.
-      Verify with lsusb before relying on this rule.
+      CONFIRMED BY CAPTURE 2026-08-26 on Pop!_OS 22.04: a C5 Wardriver v1.1
+      presents this pair with product="USB Single Serial" and no manufacturer
+      string. usb.ids names it "QinHeng Electronics USB Single Serial"; Debian
+      13 modules.alias binds it to cdc_acm.
+    confirmed: true
+    ambiguity:
+      basis: kernel_generic_driver
+      evidence: >-
+        A WCH bridge chip. usb.ids names a function -- "USB Single Serial" --
+        and boards using it commonly supply no manufacturer or product string of
+        their own, as the C5 Wardriver does not, leaving only the per-unit
+        serial.
+      also_used_by:
+        - c5-wardriver
+        - any board using a WCH CH343 bridge
+  - vendor: "1a86"
+    product: "55d4"
+    description: WCH CH9102 UART bridge — a sibling of 55d3, carried on report only
+    evidence: >-
+      Widely reported for the CH9102F, NOT present in Debian 13 usb.ids, and not
+      confirmed against any hardware here. Worth keeping as a worked example of
+      the difference a capture makes: this pair was the class's guess at what a
+      CH343-family board would present, and when one was finally captured on
+      2026-08-26 it turned out to be 55d3. One digit out. A widely-reported
+      identifier is not evidence, and the rule it generates would silently never
+      match.
     confirmed: false
     ambiguity:
       basis: generic_function_name
       evidence: >-
-        Widely reported for the WCH CH9102/CH343, which is a UART bridge chip.
-        Not in Debian 13 usb.ids and not confirmed here; ambiguous regardless
-        of confirmation, because a bridge chip identifies silicon rather than
-        a product.
+        A UART bridge chip either way, so ambiguous regardless of whether the
+        identifier itself is ever confirmed -- a bridge identifies silicon
+        rather than a product.
       also_used_by:
-        - any board using a WCH CH9102 or CH343 bridge
+        - any board using a WCH CH9102 bridge
 
 groups:
   - dialout

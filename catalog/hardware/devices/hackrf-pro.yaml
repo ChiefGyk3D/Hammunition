@@ -63,18 +63,42 @@ maintainer_verified:
   by: ChiefGyk3D
   distro: Pop!_OS 22.04
   what_was_tested: >-
-    Attached and enumerated; identifier, product string and serial captured with
-    scripts/identify-device.sh. No /dev node is created, which is expected for a
-    libusb device. Nothing was received or transmitted and no firmware was read.
+    Attached and enumerated in both normal and DFU modes; identifiers, product
+    strings and serials captured with scripts/identify-device.sh. No /dev node is
+    created in either mode, which is expected for a libusb device. Nothing was
+    received or transmitted, and no firmware was read or written.
 
-identification_gap: >-
-  Narrowed. The operating-mode identifier is confirmed. What is NOT confirmed is
-  the DFU or bootloader identifier: the HackRF One enumerates as 1fc9:000c in
-  DFU, and whether the Pro does the same has not been checked — putting the
-  board into DFU was out of scope for an enumeration capture. Until it is
-  checked, this entry carries no firmware block rather than inheriting one that
-  may not match.
-gap_closure: maintainer_hardware
+firmware:
+  - kind: dfu
+    packages: [dfu-util, hackrf]
+    dfu_usb_id:
+      vendor: "1fc9"
+      product: "000c"
+      description: NXP LPC4330 in DFU mode — the microcontroller, not the radio
+      evidence: >-
+        Captured against real hardware 2026-08-26 on Pop!_OS 22.04 by attaching
+        a HackRF Pro in DFU mode. manufacturer=NXP product=LPC serial=ABCD, no
+        /dev node. Identical to the identifier the HackRF One presents in DFU,
+        which Debian's own 60-libhackrf0.rules also carries.
+      confirmed: true
+      ambiguity:
+        basis: shared_across_products
+        evidence: >-
+          Debian's 60-libhackrf0.rules comments this pair "NXP Semiconductors
+          DFU mode (HackRF and rad1o)" -- the rule itself names two devices. The
+          capture adds a third, the HackRF Pro, and shows why no rule can do
+          better: in DFU the board reports manufacturer=NXP, product=LPC and
+          serial=ABCD. Those are the NXP ROM's own constants, identical on every
+          LPC4330. Even the serial is a placeholder.
+        also_used_by:
+          - hackrf-one
+          - rad1o
+          - any device built on an NXP LPC4330
+    note: >-
+      In DFU the board is an NXP microcontroller and nothing more: it does not
+      report itself as a HackRF, a Pro or anything else. Select it by the port
+      you plugged it into, and do not have two LPC4330 devices in DFU at once.
+
 
 groups: [plugdev]
 packages: [hackrf, soapysdr-module-hackrf, gqrx-sdr]

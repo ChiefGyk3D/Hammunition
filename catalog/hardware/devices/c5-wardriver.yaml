@@ -5,38 +5,58 @@ kind: device
 name: c5-wardriver
 summary: C5 Wardriver v1.1 — justcallmekoko's ESP32 survey board, runs Marauder-family firmware
 vendor: justcallmekoko (community hardware)
-status: untested
+status: supported
 
-# Renamed from `esp32-marauder`. The entry was written around the firmware
-# because that was the name I had; the maintainer's board is a C5 Wardriver
-# v1.1, and ESP32 Marauder is firmware that runs on several boards rather than a
-# board itself. Modelling the firmware as the device would have put the
-# identifier of whatever hardware happened to be under it into an entry named
-# after software -- and the identifier belongs to the board.
+# Captured against real hardware 2026-08-26, after flashing. The entry expected
+# an ESP32 on native USB, inheriting badgelife's 303a:1001 like the Clip-Boy and
+# the Minino. It does not: it presents a WCH CH343-family bridge, 1a86:55d3.
 #
-# The revision IS now known: v1.1, from the maintainer. It was deliberately
-# absent before, because the revision determines the USB path and guessing one
-# would have defeated the point of the entry.
+# So the wait for flashing was worth it for a reason other than the one given.
+# The stated reason was that an unflashed ESP32 shows its ROM bootloader; the
+# actual payoff is that this board never had the identifier the class predicted,
+# and a capture taken on the assumption it would have been read as confirmation.
 #
-# Still uncaptured: the board needs flashing before first use, so enumeration
-# waits on that. Which is itself informative -- an unflashed ESP32 may present
-# only its ROM bootloader.
+# It also lands next to a guess already in the catalog. badgelife carries
+# 1a86:55d4 as an UNCONFIRMED CH9102/CH343 identifier, "widely reported". The
+# real board is 55d3. One digit out, and the guessed one is still unconfirmed --
+# a good illustration of why a widely-reported identifier is not evidence.
 device_class: badgelife
 
-gap_closure: maintainer_hardware
-identification_gap: >-
-  Not yet captured, and the reason is worth recording rather than treating as a
-  delay: the board has not been flashed, and on an ESP32 the USB identity comes
-  from the firmware. An unflashed board may present only its ROM download mode,
-  which is a different identifier from what it will present in normal
-  operation — so a capture taken now would record the bootloader and read as
-  though it recorded the device.
+usb_ids:
+  - vendor: "1a86"
+    product: "55d3"
+    description: WCH CH343 USB-serial bridge, as used on this board
+    evidence: >-
+      lsusb against real hardware 2026-08-26 on Pop!_OS 22.04, via
+      scripts/identify-device.sh. product="USB Single Serial" serial=5B7B027280,
+      presenting /dev/ttyACM0. No manufacturer string at all. usb.ids names
+      1a86:55d3 "QinHeng Electronics USB Single Serial".
+    confirmed: true
+    ambiguity:
+      basis: kernel_generic_driver
+      evidence: >-
+        Debian 13 modules.alias binds 1a86:55d3 to cdc_acm, and it is on the
+        generated ambiguity list. usb.ids calls it "USB Single Serial", which is
+        a function rather than a product, and the board supplies no manufacturer
+        string and no product string of its own -- so there is nothing beyond
+        the per-unit serial to match on.
+      also_used_by:
+        - any board using a WCH CH343 bridge
 
-  Both are worth having, and they are separate records. The badgelife class
-  covers every plausible case in the meantime, which is the point of a class,
-  and the class's 303a:1001 is now confirmed against two other boards — so if
-  this one is an ESP32-S3 on native USB, it is already covered and already
-  ambiguous.
+# NO SYMLINK. The board contributes no distinguishing descriptor of its own: no
+# manufacturer, and a product string of "USB Single Serial" that belongs to the
+# bridge chip. Only the serial is specific, and a serial is per-unit.
+# /dev/serial/by-id/ carries it already.
+
+maintainer_verified:
+  date: 2026-08-26
+  by: ChiefGyk3D
+  distro: Pop!_OS 22.04
+  what_was_tested: >-
+    Flashed, attached and enumerated; identifier, product string and serial
+    captured with scripts/identify-device.sh. Firmware output was confirmed over
+    UART, so the board is running. Its screen did not display correctly, which
+    is recorded as a known problem rather than a USB finding.
 
 documentation:
   what_it_is: >-
@@ -62,6 +82,13 @@ documentation:
     come from upstream and are flashed with esptool; nothing here flashes
     anything on its own.
   known_problems: >-
+    Observed 2026-08-26 on the maintainer's v1.1 board: firmware runs and
+    reports over UART, but the screen did not display correctly. That is a board
+    or firmware matter rather than anything Linux does, and it is recorded here
+    because the symptom -- a device that looks dead but is not -- is exactly what
+    someone will search for. Check UART output before assuming the board is
+    faulty.
+
     Several hardware builds share the name and differ in USB bridge, screen and
     button layout, so instructions written for one board may not match another.
     A board whose USB is provided by its own firmware disappears from /dev while

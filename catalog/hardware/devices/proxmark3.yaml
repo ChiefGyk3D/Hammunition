@@ -5,21 +5,74 @@ kind: device
 name: proxmark3
 summary: Proxmark3 v3 and v5 — RFID and NFC research tool (RDV4 not covered)
 vendor: Proxmark community / RRG
-status: untested
+status: supported
 
-gap_closure: maintainer_hardware
+# Captured against real hardware 2026-08-26, twice, and the second capture is
+# the finding.
+#
+# The Proxmark presents 2d2d:504d -- proxmark.org's own vendor id, so the
+# identifier is device-specific and NOT ambiguous. That part is easy. What it
+# does not present is anything else at all: no product string, and NO SERIAL.
+#
+# Two captures were taken under different names and returned byte-identical
+# descriptors. Whether that was two boards or one board twice does not change
+# the conclusion, and the conclusion is unusually strong: nothing in this
+# device's USB descriptor distinguishes one unit from another.
+#
+# That breaks more than a symlink. `serial_suffix` has nothing to append.
+# /dev/serial/by-id/ -- which has been the answer for every other serial device
+# in this catalog -- composes its path from manufacturer, product and serial,
+# so two attached Proxmarks collide there too. The only discriminator left is
+# /dev/serial/by-path/, which names the physical port rather than the device.
+#
+# So for this device the ordering is inverted: by-path is correct and by-id is
+# not. Worth stating because it is the first counter-example to a rule this
+# catalog otherwise leans on, and somebody will hit it with two boards attached.
+
+usb_ids:
+  - vendor: "2d2d"
+    product: "504d"
+    description: Proxmark3 in normal operating mode
+    evidence: >-
+      lsusb against real hardware 2026-08-26 on Pop!_OS 22.04, via
+      scripts/identify-device.sh, captured twice under different names with
+      identical results. manufacturer=proxmark.org, NO product string, NO
+      serial, presenting /dev/ttyACM0. usb.ids names 2d2d "proxmark.org" and
+      504d "Proxmark3" -- an identifier the project registered for itself.
+    confirmed: true
+
+# NO SYMLINK, and for a reason none of the other entries have: there is no
+# serial to suffix and no product string to match. A rule could safely say "this
+# is a Proxmark", because 2d2d:504d is unambiguous -- and it could not say WHICH
+# Proxmark. With one attached that is harmless; with two it is a coin toss, and
+# a coin toss that silently picks the wrong board is what D-028 exists to
+# prevent.
+
+maintainer_verified:
+  date: 2026-08-26
+  by: ChiefGyk3D
+  distro: Pop!_OS 22.04
+  what_was_tested: >-
+    Attached and enumerated, twice, with scripts/identify-device.sh. Both
+    captures returned the same identifier, no product string and no serial. The
+    client was not built and no card was read.
+
 identification_gap: >-
-  No USB identifier confirmed yet, and this is a deferred task rather than a
-  contribution ask — the hardware is in the maintainer's kit and has to be
-  located. Two boards are owned, a v3 and a v5, and they are different hardware:
-  the identifier differs across generations and across Iceman-firmware variants,
-  which is exactly the situation where a guessed VID:PID produces a udev rule
-  that silently never matches. So each board needs its own capture and the two
-  must not be conflated. An RDV4 is planned and not owned; nothing here claims
-  to cover it, and its identifier must come from someone who has one. No Debian
-  package ships a Proxmark udev rule to read an identifier from, and the client
-  is not packaged outside Kali. The bootloader enumerates separately and needs
-  its own record.
+  Narrowed sharply, and what remains is a real limitation rather than missing
+  work. The operating-mode identifier is confirmed. What is NOT established:
+
+  Whether the v3 and v5 boards differ at all in their descriptors. Both captures
+  returned identical output, which suggests they do not, but the two runs cannot
+  be attributed to two specific boards with confidence from the record kept.
+
+  The bootloader identifier. A Proxmark enumerates differently while its
+  bootloader is running, and that was not captured -- it needs the button held
+  during attachment.
+
+  Whether any firmware variant supplies a serial. The stock build does not, and
+  if some variant does, that changes the story above completely: a serial would
+  restore /dev/serial/by-id/ as the answer.
+gap_closure: maintainer_hardware
 
 groups: [dialout, plugdev]
 packages: []
@@ -48,6 +101,12 @@ documentation:
     has not written. Writing steps for an untested path would be a documentation
     bug, not a placeholder.
   known_problems: >-
+    Two attached at once cannot be told apart. The device supplies no product
+    string and no serial, so /dev/serial/by-id/ gives both the same path and no
+    udev symlink can distinguish them. Use /dev/serial/by-path/, which names the
+    physical port, and keep track of which board is in which socket. This is the
+    one device in this catalog for which by-path beats by-id.
+
     Client and firmware are version-locked, and a mismatch is the most common
     source of confusing behaviour. Several incompatible hardware generations
     share the name. This entry covers the v3 and v5 boards, which are what is

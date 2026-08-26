@@ -49,6 +49,19 @@ firmware:
       description: NXP LPC device in DFU mode — HackRF in bootloader
       evidence: Debian 13 /lib/udev/rules.d/60-libhackrf0.rules
       confirmed: true
+      ambiguity:
+        basis: shared_across_products
+        evidence: >-
+          Debian's own 60-libhackrf0.rules comments this pair "NXP
+          Semiconductors DFU mode (HackRF and rad1o)" -- the rule names two
+          devices itself. A HackRF Pro captured in DFU on 2026-08-26 adds a
+          third and shows why no rule can do better: the board reports
+          manufacturer=NXP, product=LPC, serial=ABCD, which are the NXP ROM's
+          constants and identical on every LPC4330. The serial is a placeholder.
+        also_used_by:
+          - hackrf-pro
+          - rad1o
+          - any device built on an NXP LPC4330
     note: >-
       hackrf_spiflash writes firmware; the device enumerates as 1fc9:000c while in
       the bootloader, which is why that identifier needs its own udev rule. A
