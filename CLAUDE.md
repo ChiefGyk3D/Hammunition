@@ -236,6 +236,13 @@ capability-matrix claims not backed by a passing container test.
   checker would validate almost nothing.
 - Generated docs are generated: `scripts/gen_blend_inventory.py` rebuilds the
   Blend inventory from upstream task files. Never hand-edit a generated file.
+- **Distribution udev rules are a primary source and are mined, not guessed.**
+  `scripts/run-udev-sweep.sh` reads every package in the archive that ships one
+  — no curated shortlist, because a curated shortlist is how `rtl-sdr` came to
+  carry 3 identifiers where Debian carries 42. A sweep produces *candidates*:
+  generic bridge identifiers like `0403:6001` and `0483:df11` appear in rules
+  for devices they do not identify, and carrying those over-matches as silently
+  as omission under-matches. See `docs/reference/udev-inventory.md`.
 - Small, logically scoped commits
 - **Git workflow (WIP phase, 2026-08-25):** commit and **push directly to `main`**
   after each completed item. Once there is a solid working version, switch to
@@ -267,7 +274,7 @@ catalog/
   profiles/        # named bundles referencing packages      ✅ 4
   hardware/
     classes/       # device families with shared Linux needs ✅ 2
-    devices/       # one YAML per device                     ✅ 20
+    devices/       # one YAML per device                     ✅ 21
 src/hammunition/
   cli/             # argparse/click entry points             ❌ not written
   manifest/        # schema, loader, validation              ✅

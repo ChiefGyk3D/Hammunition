@@ -1,0 +1,103 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+kind: device
+name: flipper-zero
+summary: Flipper Zero — multi-protocol handheld for sub-GHz, NFC, RFID, infrared and iButton
+vendor: Flipper Devices
+status: supported
+
+# Found by the archive-wide udev sweep, not by going looking for it: Debian
+# packages `qflipper`, and its 42-flipperzero.rules names all three modes. That
+# is the sweep doing what it was built for -- surfacing hardware the catalog
+# should obviously carry and nobody had thought to add.
+#
+# D-026 decides the framing, and this is the device the rule was written for
+# alongside the Marauder. What Hammunition installs is qFlipper: a desktop tool
+# that flashes firmware and manages files over USB. The firmware comes from
+# upstream and runs on the device. Ungated, in rf-security.
+#
+# Not maintainer_verified: nobody here has one. D-027 keeps that separate from
+# `supported`, which is a claim about the identifiers and the recipe.
+
+usb_ids:
+  - vendor: "0483"
+    product: "5740"
+    description: Flipper Zero — normal mode, presenting a USB serial port
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/42-flipperzero.rules, from the qflipper
+      package, commented "Flipper Zero serial port". usb.ids names 0483:5740
+      "STMicroelectronics Virtual COM Port".
+    confirmed: true
+  - vendor: "0483"
+    product: "5741"
+    description: Flipper Zero — U2F security-key mode
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/42-flipperzero.rules, commented
+      "Flipper U2F".
+    confirmed: true
+
+identification_gap: >-
+  One identifier from Debian's rule is deliberately NOT carried above:
+  `0483:df11`, the device's DFU mode. It is STMicroelectronics' generic
+  STM32 bootloader identifier, shared by every STM32 board in DFU — including,
+  as the same sweep found, the TYT MD-UV380 radio in `dmrconfig`'s rule. A
+  udev symlink on it would name an unrelated device /dev/flipper. Distinguishing
+  them needs a serial or an interface check against real hardware, which nobody
+  here has. Normal and U2F modes are unambiguous and are carried; DFU is
+  recorded here as a known-but-unusable identifier rather than silently dropped.
+gap_closure: unverified_by_maintainer
+
+groups: [dialout, plugdev]
+packages: [dfu-util]
+
+udev:
+  symlink: flipper
+  serial_suffix: true
+  mode: "0660"
+  group: dialout
+  tag_uaccess: true
+
+firmware:
+  - kind: dfu
+    packages: [dfu-util]
+    dfu_usb_id:
+      vendor: "0483"
+      product: "df11"
+      description: STM32 DFU bootloader — NOT Flipper-specific
+      evidence: >-
+        Debian 13 /usr/lib/udev/rules.d/42-flipperzero.rules, commented
+        "Flipper Zero DFU". Recorded here rather than in usb_ids because the
+        same pair identifies any STM32 in DFU mode; it is safe as a firmware
+        target, where the operator has chosen the device, and unsafe as a
+        symlink rule, where the kernel matches whatever is attached.
+    note: >-
+      qFlipper is the normal route and handles the mode switch itself. dfu-util
+      is the recovery path when the device will not boot far enough for
+      qFlipper to reach it. Firmware comes from upstream; nothing here builds or
+      supplies it.
+
+documentation:
+  what_it_is: >-
+    A handheld multi-tool for short-range wireless protocols: sub-GHz radio,
+    125 kHz RFID, 13.56 MHz NFC, infrared, iButton and GPIO, with a screen and
+    its own firmware.
+  what_you_can_do_with_it: >-
+    Read, store and replay the short-range protocols above, and use it as a
+    general-purpose hardware interface over GPIO. Like the ESP32 Marauder, some
+    of what its firmware can do transmits rather than listens; that is a
+    property of firmware supplied by upstream and running on the device.
+    Operating those features against systems you do not own or are not
+    authorised to test is a separate matter from installing a flashing tool.
+  setup_steps: >-
+    Join `dialout` and `plugdev`, then log out and back in — group membership
+    does not apply to an existing session. Attach the device and look for a
+    persistent symlink under /dev. qFlipper is the normal desktop route and is
+    not packaged in Debian 13; dfu-util, which is, covers firmware recovery.
+  known_problems: >-
+    Its DFU mode presents the generic STM32 bootloader identifier, so a rule
+    matching it would also match unrelated STM32 boards — see the
+    identification gap above. ModemManager grabs the serial port for around
+    twenty seconds on many desktops, which looks exactly like a dead device;
+    the generated rules tag it so ModemManager ignores it.
+  upstream_url: https://flipperzero.one/

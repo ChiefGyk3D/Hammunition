@@ -5,16 +5,69 @@ kind: device
 name: limesdr
 summary: LimeSDR USB and Mini — full-duplex transmit-capable SDR
 vendor: Lime Microsystems
-status: untested
-gap_closure: unverified_by_maintainer
+status: supported
+
+# GAP CLOSED FROM A DISTRIBUTION RULE, 2026-08-26 -- and this entry is the proof
+# that the udev sweep is a method rather than a one-off. It previously said "no
+# USB identifier confirmed, and the maintainer does not own the hardware to
+# confirm one". Debian's own limesuite-udev package ships 64-limesuite.rules,
+# which names the board directly. Nobody had to own one.
+#
+# `status: supported` with no `maintainer_verified` is exactly the D-027 shape:
+# the identifiers are right and rules built from them will match; nobody here
+# has plugged one in. Two claims, two fields.
+#
+# NOT EVERY IDENTIFIER IN THE RULE IS TAKEN, and the omissions matter more than
+# the inclusions. Debian's rule also lists 0403:6001 (FTDI FT232 serial) and
+# 04b4:8613 (Cypress FX2 development kit). Those are generic bridge chips shared
+# by thousands of unrelated devices, and LimeSuite matches them because it
+# probes rather than because they identify a LimeSDR. Emitting a SYMLINK for
+# them would name every FTDI serial adapter on the machine /dev/limesdr.
+#
+# That is the mirror image of the rtl-sdr gap: over-matching instead of
+# under-matching, and just as silent. A sweep is a source of candidates, not a
+# list of answers.
+
+usb_ids:
+  - vendor: "1d50"
+    product: "6108"
+    description: LimeSDR (Myriad-RF) - the full-size USB board
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/64-limesuite.rules, from the
+      limesuite-udev package; usb.ids names 1d50:6108 "OpenMoko, Inc. Myriad-RF
+      LimeSDR". Read by the archive-wide sweep in scripts/udev-sweep.sh, not
+      from hardware -- see docs/reference/udev-inventory.md.
+    confirmed: true
+  - vendor: "0403"
+    product: "601f"
+    description: FTDI FT601 32-bit FIFO - the USB interface on LimeSDR Mini
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/64-limesuite.rules, from the
+      limesuite-udev package; usb.ids names 0403:601f "FT601 32-bit FIFO IC".
+      Specific enough to be safe: the FT601 is a superspeed FIFO bridge, not a
+      general-purpose serial adapter, so it does not collide the way 0403:6001
+      would.
+    confirmed: true
+  - vendor: "04b4"
+    product: "00f1"
+    description: Cypress FX3 in bootloader mode - LimeSDR firmware recovery
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/64-limesuite.rules, from the
+      limesuite-udev package. Deliberately kept while 04b4:8613 from the same
+      rule is NOT: 8613 is the stock FX2 development-kit identifier, shared by
+      a very large number of unrelated boards.
+    confirmed: true
+
 identification_gap: >-
-  No USB identifier confirmed, and the maintainer does not own the hardware to
-  confirm one. The entry is carried anyway because other operators do. Debian's limesuite ships no udev rule naming this device, so
-  there was no authoritative file to read an identifier from either. The
-  identifier also differs between the two boards sold under this name — the
-  Mini is FTDI-based and the USB variant is not — so a single pair would not
-  describe the entry even if one were guessed. Closing this needs lsusb output
-  from someone holding the specific board.
+  Narrowed, not closed. The board identifiers are now confirmed from Debian's
+  own rule, but which of the LimeSDR variants a given identifier belongs to has
+  not been checked against hardware -- the USB board and the Mini are different
+  designs and the Mini is FTDI-based, so `1d50:6108` is believed to be the
+  full-size board and `0403:601f` the Mini. The maintainer owns neither. An
+  owner running scripts/identify-device.sh would settle which is which, and
+  would also confirm whether current Mini revisions still present 0403:601f.
+gap_closure: unverified_by_maintainer
+
 groups: [plugdev]
 packages: [limesuite, soapysdr-module-lms7]
 documentation:
