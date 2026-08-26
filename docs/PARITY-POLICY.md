@@ -192,6 +192,14 @@ nRF52840 tooling.
 **Direction finding.** Ham interest (ARDF, foxhunting) and security interest,
 served by neither side. KrakenSDR DoA, DF-Aggregator.
 
+**Defensive cellular.** EFF's **Rayhunter** detects IMSI catchers rather than
+being one. It transmits nothing and collects no identifiers but its own device's,
+so it belongs in `rf-security` **ungated** — none of D-021's risk categories
+fits it. Investigated 2026-08-26: the host tooling is a prebuilt binary with a
+**published, verified `.sha256`**, the first inheritable hash in this catalog.
+See `docs/guides/rayhunter.md`. The topic adjacency with DragonOS's cellular/EW
+cluster will confuse people and the docs say so explicitly.
+
 **Modern SDR applications.** SDR++, SDRangel, SatDump — all actively developed,
 none in Debian, therefore absent from the ham blends.
 

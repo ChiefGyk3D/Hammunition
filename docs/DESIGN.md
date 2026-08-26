@@ -178,7 +178,9 @@ Python venv (3), pipx (1), source-from-git (1), **CPAN** (1 — `aa-analyzer`
 needs `Device::SerialPort`), and launcher generation (14 units need a generated
 wrapper).
 
-Measured zeros, recorded so they are not re-added from habit: `cargo` 0,
+Measured zeros, recorded so they are not re-added from habit — and `cargo`
+re-tested 2026-08-26 against Rayhunter, its strongest candidate, which ships
+prebuilt Linux binaries and needs no cargo backend (D-014 amendment): `cargo` 0,
 `flatpak` 0, `appimage` 0 across all 3,911 lines of AHRL. AppImage and a
 configured Wine prefix are post-1.0 (HAMRS, VARA). `snap` appears 11 times, all
 removals — it is an anti-dependency belonging in `system_modifications`.
@@ -318,7 +320,9 @@ Staged by coverage-per-effort: Blend first (152 packages, best provenance, and i
 removes 11 of AHRL's 35 source builds from the backend problem), then AHRL
 parity, then the packet core, then the listening delta, then DragonOS Tier 1.
 
-**DragonOS tiering is load-bearing.** Tier 1 is apt or upstream `.deb` and lands
+**DragonOS tiering is load-bearing.** Tier 1 is apt, or an upstream `.deb`
+**that resolves on the target** — three of four tested do not, see
+`docs/reference/install-verification.md`. It lands
 in 1.0. Tier 2 is post-1.0. **Tier 3 — GNU Radio out-of-tree modules — is gated
 behind a solid source backend and pin database** and must not be started before
 them; GNU Radio's release train breaks these routinely and gr-gsm's upstream has

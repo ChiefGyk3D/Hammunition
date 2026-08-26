@@ -185,7 +185,10 @@ operator needs one of them.
 ### The pin/hash database is a named sub-project
 Five sources, hundreds of non-apt artifacts, and not one of them publishes
 checksums we can inherit. AHRL ships zero across 63 archives; 73Linux scrapes
-directory listings; DragonOS builds from `/usr/src` with no pinning. Sourcing and
+directory listings; DragonOS builds from `/usr/src` with no pinning. **One
+exception, found 2026-08-26:** EFF's Rayhunter publishes a `.sha256` beside
+every release asset, verified to match. It is the first upstream in this project
+whose hash we can inherit rather than pin ourselves. Sourcing and
 verifying every artifact is ongoing work and arguably our most valuable output.
 
 ### Overlap resolution needs a policy

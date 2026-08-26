@@ -138,6 +138,8 @@ Do not re-litigate these without being asked:
 | External claims | Tested before published | The HamClock retraction (**D-018**) |
 | Blend tasks | A category, not an install default | 155 of 160 entries are `Recommends` (**D-019**) |
 | Profile resolution | Consults detected hardware | 12 per-device Soapy modules; a user needs one (**D-020**) |
+| Consent gates | Disclose capability, never adjudicate law | `--yes` cannot satisfy one (**D-021**) |
+| Displacing a distro choice | Coexist, disclose, never remove silently | The AHRL `librtlsdr` pattern (**D-022**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
 
@@ -250,19 +252,27 @@ an unsupported combination appear to work.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software
-  profiles/        # named bundles referencing packages
-  hardware/        # udev rules, group membership, firmware
+  packages/        # one YAML per piece of software          ✅ 11
+  profiles/        # named bundles referencing packages      ✅ 2
+  hardware/
+    classes/       # device families with shared Linux needs ✅ badgelife
+    devices/       # one YAML per device                     ✅ 16
 src/hammunition/
-  cli/             # argparse/click entry points
-  manifest/        # schema, loader, validation
-  backends/        # apt, source, git, binary, venv, pipx, cpan (D-014)
-  distro/          # /etc/os-release detection and capability resolution
-  hardware/        # USB/serial detection, udev generation
-  state/           # transaction log, uninstall
+  cli/             # argparse/click entry points             ❌ not written
+  manifest/        # schema, loader, validation              ✅
+    hardware.py    # device catalog schema (D-020)           ✅
+  consent/         # affirmative consent gates (D-021)       ✅
+  state/           # transaction log, uninstall              ✅ log only
+  backends/        # apt, source, git, binary, venv, pipx    ❌ not written
+  distro/          # /etc/os-release detection               ❌ not written
+  hardware/        # USB/serial detection, udev generation   ❌ not written
 docs/              # "Hacker's Ham Shack" — guides and labs (section title, not a brand)
 tests/
 ```
+
+Ticks mark what exists. The engine's install path — CLI, backends, distro
+detection, udev generation — is **not written**, which the README states up
+front and this table should not let anyone forget.
 
 ## Closed questions
 
@@ -287,10 +297,16 @@ longer a design question in the abstract; a shipped manifest depends on it. See
 `DESIGN.md` §15.3 and the D-004 amendment.
 
 **Open questions awaiting the maintainer** are in `docs/QUESTIONS.md`. Q-001
-through Q-005 are resolved. Open: **Q-006** (which HamClock), **Q-007**
-(SuperSDR has no licence), and **Q-008 🔴** (does the RF-security profile include
-cellular interception tooling — the only open question that changes what the tool
-will do to a user's machine).
+through Q-005 are resolved. Open:
+
+| | |
+|---|---|
+| **Q-006** 🟡 | Which HamClock, and which backend endpoint |
+| **Q-007** 🟡 | SuperSDR has no licence — carry it, or not |
+| **Q-008** 🔴 | Does the RF profile include cellular interception tooling? Blocks `rf-research`'s contents |
+| **Q-009** 🔴 | What licence does Hammunition ship under? There is no `LICENSE` file — the same objection D-001 raises against 73Linux |
+| **Q-010** 🟡 | Accept a separate `rfid` profile? |
+| **Q-011** 🟡 | Accept a `workstation` profile, and with what contents? |
 
 ## Roadmap — 1.0 is the five-source union
 
