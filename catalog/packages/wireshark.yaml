@@ -17,6 +17,7 @@ install:
 # operator answers without context. Nothing here answers it on their behalf.
 system_modifications:
   - kind: group_membership
+    group: wireshark
     description: >-
       Adds the operator to the `wireshark` group so capture works without root
     detail: >-

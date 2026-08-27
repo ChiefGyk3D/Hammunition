@@ -387,6 +387,39 @@ class SystemModification(Strict):
     detail: str
     reversible: bool
     reverse_hint: str | None = None
+    group: str | None = Field(
+        default=None,
+        description=(
+            "For `group_membership`: the group to add the operator to. Required "
+            "there, and forbidden elsewhere."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _group_is_named(self) -> SystemModification:
+        """A group membership names its group in a field, never in prose.
+
+        This field exists because the engine needed the name and the only place
+        it appeared was inside `detail`, where both manifests happened to write
+        it in backticks. Scraping it back out worked on both, which is exactly
+        what makes that kind of parser dangerous: adding an operator to the
+        wrong group is a privilege change that does not announce itself, and
+        the prose is free text that no test constrains.
+        """
+        if self.kind == "group_membership":
+            if not self.group:
+                raise ManifestError(
+                    "a group_membership modification must name its group in `group`; "
+                    "the engine adds the operator to it and will not infer the name "
+                    "from the prose in `detail`"
+                )
+            if not SLUG.match(self.group):
+                raise ManifestError(f"group must be a lowercase name: {self.group!r}")
+        elif self.group is not None:
+            raise ManifestError(
+                f"`group` is only meaningful for group_membership, not {self.kind!r}"
+            )
+        return self
 
     @model_validator(mode="after")
     def _irreversible_explained(self) -> SystemModification:
