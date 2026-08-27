@@ -151,3 +151,25 @@ def test_the_commit_that_prompted_this_is_still_caught() -> None:
 @pytest.mark.skipif(not (REPO_ROOT / ".git").exists(), reason="not a git checkout")
 def test_the_head_commit_passes_its_own_check() -> None:
     assert run_on("HEAD").returncode == 0, run_on("HEAD").stderr
+
+
+def test_a_parenthesised_anchor_is_a_citation_not_a_claim() -> None:
+    """The check flagged its own author, and the fix is not to loosen the verbs.
+
+    "...verified before writing a word of it (D-018)" put a claim verb eighteen
+    characters from an anchor that was only ever being cited. A bare
+    parenthesised anchor is this repository's citation form; a claim is written
+    "amends D-028". The commit this check exists to catch — 717ba26 — said
+    "D-028 no longer rests on ...", unparenthesised and mid-sentence, so the
+    exemption costs nothing it was built for.
+    """
+    message = (
+        "hardware: mine gpsd\n\n"
+        "Verified by listing package contents on Debian 13 before writing a "
+        "word of it (D-018).\n"
+    )
+    assert not check(message, {"catalog/packages/gpsd.yaml"}, "", {"catalog/packages/gpsd.yaml"})
+
+
+def test_the_exemption_does_not_cover_a_real_claim() -> None:
+    assert check("docs: amends D-018 to require a container\n", {"README.md"}, "", set())

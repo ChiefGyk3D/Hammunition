@@ -1438,6 +1438,50 @@ node at all, udev rules were always about *access* rather than naming.
   driver. The rule distinguishes them by an explicit list, because `pn533_usb`
   also ends in `_usb` and getting that backwards would suppress a valid symlink.
 
+
+### D-028 amendment, 2026-08-27 — a distribution says it out loud
+
+The strongest evidence for this decision was not ours and had been sitting in
+the archive the whole time. Debian ships `gpsd`'s `60-gpsd.rules` with **five
+identifiers commented out**, each under the line:
+
+```
+# !!! rule disabled in Debian as it matches too many other devices
+```
+
+They are `0403:6001` (FTDI FT232), `10c4:ea60` and `10c4:ea71` (Silicon Labs
+CP210x and CP2108), and `067b:2303` (Prolific PL2303) **twice**. Two of those
+are identifiers this project had already had to stop claiming, for the same
+reason pointed the other way: `10c4:ea60` is what `badgelife` was naming
+`/dev/badge`, and `0403:6001` is the pair D-028's opening paragraph uses as its
+example. A distribution maintainer reached this conclusion independently, about
+the same silicon, and acted on it in a file they ship.
+
+The same rules file opens with the GPSD project stating the principle outright,
+in 2010:
+
+> GPSes don't have their own USB device class. They're serial-over-USB devices,
+> so what you see is actually the ID of the serial-over-USB chip.
+
+**What this changes.** `AmbiguityBasis` gains `distribution_disabled`, ranked
+above every existing basis, because it is not an inference from a driver table
+or a name — it is a maintainer's conclusion, with their reason attached.
+`scripts/udev-sweep.sh` now extracts commented-out rules deliberately rather
+than discarding them as comments. Archive-wide that is **13 identifiers across
+five packages** — `gpsd`, `dfu-util`, `argyll`, `ponyprog` and `knxd` — and
+every one is a bridge chip or a generic bootloader. `dfu-util` disables
+`0483:df11`, the pair this decision was written about.
+
+`gps-receiver` carries those five in `rejected_ids` with Debian's own reason,
+which is what that field was built for one decision earlier.
+
+**A bug the same file exposed.** The sweep attributed the wrong description to
+`1546:01a9`, calling a u-blox 9 a Silicon Labs CP210x. The extractor rejected
+any comment of 60 characters or more as boilerplate — the u-blox line is 73 —
+and then *kept the previous comment* rather than clearing the field. 156 of
+2,750 rows carried a description that long. A rejected comment now clears it:
+no description is honest, someone else's is not.
+
 ---
 
 ## D-029 — The hardware layer is permissions and mapping; stable naming is mostly solved

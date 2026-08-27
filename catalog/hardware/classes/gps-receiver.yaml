@@ -1,0 +1,295 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+kind: class
+name: gps-receiver
+summary: USB GNSS receivers — position for APRS and grid squares, and time for FT8
+
+# A class rather than devices, and for once the reason is upstream's rather than
+# ours. gpsd's own rules file opens with it:
+#
+#   "GPSes don't have their own USB device class. They're serial-over-USB
+#    devices, so what you see is actually the ID of the serial-over-USB chip.
+#    Fortunately, just two of these account for over 80% of consumer-grade
+#    GPS sensors."
+#
+# That is D-028 stated by the GPSD project in 2010, about their own hardware,
+# before this project existed. The identifiers below are theirs, mined from
+# /usr/lib/udev/rules.d/60-gpsd.rules as shipped in Debian 13's gpsd
+# 3.25-5+deb13u1 -- not from a list somebody typed.
+
+# THE DISTRIBUTION ALREADY NAMES THESE. gpsd's rule emits SYMLINK+="gps%n", so a
+# receiver appears at /dev/gps0 with nothing from us. Per D-029 this is the third
+# naming mechanism after /dev/serial/by-id/ and our own symlinks, and the first
+# one we have found that makes ours redundant rather than merely unnecessary.
+distribution_naming: "/dev/gpsN, from gpsd's own 60-gpsd.rules"
+
+usb_ids:
+  - vendor: "1546"
+    product: "01a5"
+    description: u-blox 5 GNSS module
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/60-gpsd.rules, from gpsd 3.25-5+deb13u1,
+      commented "u-blox AG, u-blox 5 (tested with Navilock NL-402U) [linux
+      module: cdc_acm]".
+    confirmed: true
+    node_kind: serial
+    ambiguity:
+      basis: shared_across_products
+      evidence: >-
+        u-blox sells modules, not finished receivers, so this pair names the
+        chipset generation and not a product -- usb.ids records it as "[u-blox
+        5]", in brackets, which is how that database writes a chip family.
+        gpsd's own comment names the Navilock NL-402U merely as the unit they
+        tested against. On the generated list, though on thinner grounds than
+        this: the sweep sees it in gpsd and in modemmanager, whose rule is
+        "Fully ignore u-blox GPS devices" -- an exclusion rather than a
+        competing claim.
+      also_used_by:
+        - every receiver built on a u-blox 5 module, under whichever brand
+  - vendor: "1546"
+    product: "01a6"
+    description: u-blox 6 GNSS module
+    evidence: >-
+      Debian 13 60-gpsd.rules, commented "u-blox AG, u-blox 6 (tested with GNSS
+      Evaluation Kit TCXO) [linux module: cdc_acm]".
+    confirmed: true
+    node_kind: serial
+    ambiguity:
+      basis: shared_across_products
+      evidence: >-
+        A module generation rather than a product, on the same basis as
+        1546:01a5. usb.ids records it as "[u-blox 6]".
+      also_used_by:
+        - every receiver built on a u-blox 6 module
+  - vendor: "1546"
+    product: "01a7"
+    description: u-blox 7 GNSS module
+    evidence: >-
+      Debian 13 60-gpsd.rules, commented "u-blox AG, u-blox 7 [linux module:
+      cdc_acm]".
+    confirmed: true
+    node_kind: serial
+    ambiguity:
+      basis: shared_across_products
+      evidence: >-
+        A module generation rather than a product. This is the one most likely
+        to be in a hand: the widely sold "VK-172" and "G7020" dongles are u-blox
+        7 modules on a stick and all present this pair.
+      also_used_by:
+        - every receiver built on a u-blox 7 module
+  - vendor: "1546"
+    product: "01a8"
+    description: u-blox 8 GNSS module
+    evidence: >-
+      Debian 13 60-gpsd.rules, commented "u-blox AG, u-blox 8 (tested with GNSS
+      Evaluation Kit EKV-M8N) [linux module: cdc_acm]".
+    confirmed: true
+    node_kind: serial
+    ambiguity:
+      basis: shared_across_products
+      evidence: >-
+        A module generation rather than a product. usb.ids records it as
+        "[u-blox 8]".
+      also_used_by:
+        - every receiver built on a u-blox 8 module
+  - vendor: "1546"
+    product: "01a9"
+    description: u-blox 9 GNSS module
+    evidence: >-
+      Debian 13 60-gpsd.rules, commented "u-blox AG, u-blox 9 (tested with GNSS
+      Evaluation Kit C099-F9P) [linux module: cdc_acm]". The archive sweep
+      previously recorded this row's description as a Silicon Labs CP210x, from
+      a comment three lines earlier; that was a bug in our extractor, fixed
+      before this entry was written.
+    confirmed: true
+    node_kind: serial
+    ambiguity:
+      basis: shared_across_products
+      evidence: >-
+        A module generation rather than a product. The u-blox 9 generation is
+        what an RTK-capable receiver is usually built on, so this pair spans a
+        particularly wide range of prices and purposes.
+      also_used_by:
+        - every receiver built on a u-blox 9 module
+  - vendor: "091e"
+    product: "0003"
+    description: Garmin GPS, various models
+    evidence: >-
+      Debian 13 60-gpsd.rules, commented "Garmin International GPSmap, various
+      models (tested with Garmin GPS 18 USB) [linux module: garmin_gps]".
+      usb.ids names the pair "GPS (various models)".
+    confirmed: true
+    node_kind: serial
+    ambiguity:
+      basis: generic_function_name
+      evidence: >-
+        Both sources say "various models" outright — Debian's rule comment and
+        usb.ids independently. Garmin used one identifier across a product line,
+        so the pair tells you a Garmin GPS is attached and nothing about which.
+        That is fine for a class whose whole purpose is "a GNSS receiver is
+        here", and disqualifying for a per-device symlink.
+      also_used_by:
+        - the Garmin GPSmap line, tested by gpsd against a GPS 18 USB
+  - vendor: "0e8d"
+    product: "3329"
+    description: MediaTek GNSS chipset, as used in handheld loggers
+    evidence: >-
+      Debian 13 60-gpsd.rules, commented "MediaTek (tested with HOLUX M-1200E)
+      [linux module: cdc_acm]".
+    confirmed: true
+    node_kind: serial
+    ambiguity:
+      basis: shared_across_products
+      evidence: >-
+        Two packages in the Debian archive name this pair as two different
+        products: gpsd calls it a HOLUX M-1200E and mtkbabel calls it an i-Blue
+        747 GPS data logger. That is the sweep's shared_across_products test
+        firing on exactly the evidence it was built to find, rather than on an
+        inference about a driver.
+      also_used_by:
+        - HOLUX M-1200E
+        - i-Blue 747 data logger
+        - other loggers built on the same MediaTek chipset
+  - vendor: "0557"
+    product: "2008"
+    description: ATEN UC-232A serial adapter, as used by some GPS receivers
+    evidence: >-
+      Debian 13 60-gpsd.rules, commented "ATEN International Co., Ltd UC-232A
+      Serial Port [linux module: pl2303]".
+    confirmed: true
+    node_kind: serial
+    ambiguity:
+      basis: kernel_generic_driver
+      evidence: >-
+        A PL2303 serial adapter, bound by Debian 13's modules.alias to pl2303.
+        It is a general-purpose USB-to-serial cable that gpsd matches because
+        some receivers are sold behind one — not a GPS. Debian left this one
+        enabled while disabling the plain 067b:2303 next to it, which is a
+        judgement about how common each is rather than about what they are.
+      also_used_by:
+        - any device behind an ATEN UC-232A adapter, GPS or otherwise
+  - vendor: "067b"
+    product: "aaa0"
+    description: PS-360 OEM GPS, the unit bundled with MS Streets and Trips 2005
+    evidence: >-
+      Debian 13 60-gpsd.rules, commented "PS-360 OEM (GPS sold with MS Street
+      and Trips 2005) [linux module: pl2303]". usb.ids names the pair "Prolific
+      Pharos".
+    confirmed: true
+    node_kind: serial
+    ambiguity:
+      basis: shared_across_products
+      evidence: >-
+        Not on the generated list, and recorded as ambiguous anyway: gpsd calls
+        it a PS-360 and usb.ids calls it a Prolific Pharos. Two names for one
+        pair, from two independent sources, which is the definition the sweep
+        uses when it has two packages to compare and cannot see when the second
+        source is a different database.
+      also_used_by:
+        - PS-360 OEM receiver
+        - Prolific Pharos receiver
+  - vendor: "1163"
+    product: "0100"
+    description: DeLorme Earthmate GPS, original model
+    evidence: >-
+      Debian 13 60-gpsd.rules, commented "Cypress M8/CY7C64013 (Delorme uses
+      these) [linux module: cypress_m8]". usb.ids attributes vendor 1163 to
+      DeLorme Publishing and names the pair "Earthmate GPS (orig)".
+    confirmed: true
+    node_kind: serial
+  - vendor: "1163"
+    product: "0200"
+    description: DeLorme Earthmate GPS, LT-20 and LT-40
+    evidence: >-
+      Debian 13 60-gpsd.rules, commented "Cypress M8/CY7C64013 (DeLorme LT-40)".
+      usb.ids names the pair "Earthmate GPS (LT-20, LT-40)".
+    confirmed: true
+    node_kind: serial
+
+# FIVE IDENTIFIERS DELIBERATELY NOT CARRIED, and this is the best evidence in
+# the catalog for D-028 because it is not ours. Debian ships 60-gpsd.rules with
+# these five commented out, each under the line:
+#
+#   # !!! rule disabled in Debian as it matches too many other devices
+#
+# A distribution maintainer reached this project's conclusion, about two of the
+# same identifiers, and acted on it in a file they ship. It is stronger than
+# anything we infer from modules.alias, and the archive-wide sweep now extracts
+# these deliberately: 13 identifiers across gpsd, dfu-util, argyll, ponyprog and
+# knxd, every one of them a bridge chip or a generic bootloader.
+rejected_ids:
+  - vendor: "0403"
+    product: "6001"
+    description: FTDI FT232 / 8U232AM UART bridge
+    assumed_to_be: >-
+      The identifier of a GPS receiver behind an FTDI cable, which some are.
+    why_rejected: >-
+      Disabled by Debian in the shipped rule with the comment "rule disabled in
+      Debian as it matches too many other devices". This is the identifier on
+      most rig-control cables, and gpsd's rule does not merely name a device --
+      it sets ENV{SYSTEMD_WANTS}="gpsdctl@%k.service", so a match starts gpsd on
+      the port. Carried, it would hand an operator's CAT cable to the GPS
+      daemon. The same pair is disabled again in argyll's rules.
+  - vendor: "10c4"
+    product: "ea60"
+    description: Silicon Labs CP2102/CP2109 UART bridge
+    assumed_to_be: >-
+      A CP210x-based receiver — gpsd's comment names the Holux m241 and the
+      Wintec grays2 wbt-201, both of which really do use one.
+    why_rejected: >-
+      Disabled by Debian for matching too many other devices. Independently the
+      same identifier this project's `badgelife` class had to stop claiming, for
+      the same reason pointed the other way: it is the most common USB-serial
+      bridge in existence and names a chip.
+  - vendor: "10c4"
+    product: "ea71"
+    description: Silicon Labs CP2108 quad UART bridge
+    assumed_to_be: A CP210x-based receiver, as above.
+    why_rejected: >-
+      Disabled by Debian for matching too many other devices. A four-port bridge
+      chip; matching it would claim all four ports of any board using one.
+  - vendor: "067b"
+    product: "2303"
+    description: Prolific PL2303 UART bridge
+    assumed_to_be: >-
+      A PL2303-based receiver. gpsd's file lists this pair TWICE, once for the
+      generic PL2303 and once for a u-blox 8 GNSS mouse, and disables both.
+    why_rejected: >-
+      Disabled by Debian for matching too many other devices — twice in the same
+      file, which is as clear as a maintainer can be. The most widely cloned
+      serial bridge there is.
+
+groups: [dialout]
+packages: [gpsd, gpsd-clients, gpsd-tools]
+
+documentation:
+  what_it_is: >-
+    USB GNSS receivers as a family rather than as products: a dongle, a puck, a
+    module on a breakout board, or a handheld with a data cable. Nearly all of
+    them present as a USB serial port, either natively or through a bridge chip,
+    which is why they are one class and not eleven devices.
+  what_you_can_do_with_it: >-
+    Feed position and time to everything on the station at once through gpsd —
+    APRS beaconing, grid-square lookup, satellite pass prediction, and clock
+    discipline for FT8 and JS8, where being a second out is the difference
+    between decoding and not.
+  setup_steps: >-
+    Install `gpsd`, `gpsd-clients` and `gpsd-tools`, join `dialout`, then log out
+    and back in — group membership does not apply to a session already open.
+    Attach the receiver and run `cgps`; a fix takes a minute or two from cold
+    with a clear view of the sky. There is no udev rule to write: gpsd ships one
+    and it already gives you /dev/gps0.
+  known_problems: >-
+    gpsd's rule starts gpsd on whatever matches it, which is correct for a GPS
+    and hostile for anything else sharing an identifier — see the five
+    identifiers Debian disabled for exactly that reason. If a receiver is not
+    on the enabled list it will not be picked up automatically; point gpsd at
+    the port by hand rather than adding a rule matching its bridge chip, which
+    is the mistake the disabled rules exist to prevent.
+
+    Two receivers attached at once get /dev/gps0 and /dev/gps1 in plug order,
+    and nothing distinguishes them: gpsd's SYMLINK+="gps%n" uses the kernel's
+    device number, not a serial. u-blox modules do report a serial, so
+    /dev/serial/by-id/ separates them where gpsd's own naming cannot.
+  upstream_url: https://gpsd.io/

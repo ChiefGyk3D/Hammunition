@@ -13,7 +13,7 @@
 #                           packages' rules naming different devices
 
 kind: ambiguity-list
-generated: 2026-08-26
+generated: 2026-08-27
 source: debian-13
 identifiers:
   - id: "0104:00be"
@@ -22,6 +22,9 @@ identifiers:
   - id: "03eb:0030"
     basis: kernel_generic_driver
     kernel_drivers: [cdc_acm]
+  - id: "03eb:204b"
+    basis: distribution_disabled
+    # named: knxd
   - id: "03eb:2103"
     basis: shared_across_products
     usb_ids_name: JTAG ICE mkII
@@ -135,17 +138,12 @@ identifiers:
     basis: kernel_generic_driver
     kernel_drivers: [ftdi_sio]
   - id: "0403:6001"
-    basis: kernel_generic_driver
+    basis: distribution_disabled
     usb_ids_name: FT232 Serial (UART) IC
     kernel_drivers: [ftdi_sio]
     seen_in: [flashrom, libhamlib4t64, libsigrok4t64, limesuite-udev, ola, openfpgaloader, openocd, qlcplus, upower]
-    # named: Buspirate
-    # named: FTDI USB Serial Device converter
-    # named: Generic FTDI Products
-    # named: Original FT232/FT245 VID:PID
-    # named: Watts Up? Pro Devices
-    # named: ftdi-la
-    # named: udev rules for ftdi devices
+    # named: argyll
+    # named: gpsd: rule disabled in Debian as it matches too many other devices
   - id: "0403:6006"
     basis: kernel_generic_driver
     kernel_drivers: [ftdi_sio]
@@ -162,8 +160,8 @@ identifiers:
     usb_ids_name: FT4232H Quad HS USB-UART/FIFO IC
     kernel_drivers: [ftdi_sio]
     seen_in: [flashrom, openfpgaloader, openocd]
-    # named: FTDI FT4232H Mini-Module
     # named: Original FT4232 VID:PID
+    # named: http://www.ftdichip.com/Products/EvaluationKits/FT4232H_MiniModule.htm
   - id: "0403:6014"
     basis: kernel_generic_driver
     usb_ids_name: FT232H Single HS USB-UART/FIFO IC
@@ -172,12 +170,11 @@ identifiers:
     # named: Original FT232H VID:PID
     # named: ftdi-la
   - id: "0403:6015"
-    basis: shared_across_products
+    basis: distribution_disabled
     usb_ids_name: Bridge(I2C/SPI/UART/FIFO)
     kernel_drivers: [ftdi_sio]
     seen_in: [infnoise, openfpgaloader, openocd]
-    # named: Original FT231X VID:PID
-    # named: Original FT231XQ VID:PID
+    # named: argyll
   - id: "0403:6040"
     basis: kernel_generic_driver
     kernel_drivers: [ftdi_sio]
@@ -226,13 +223,13 @@ identifiers:
     usb_ids_name: TIAO Multi-Protocol Adapter
     kernel_drivers: [ftdi_sio]
     seen_in: [flashrom, openocd]
-    # named: TIAO/DIYGADGET USB Multi-Protocol Adapter (TUMPA)
     # named: TUMPA, TUMPA Lite
+    # named: http://www.diygadget.com/tiao-usb-multi-protocol-adapter-jtag-spi-i2c-serial.html
   - id: "0403:8a99"
     basis: shared_across_products
     seen_in: [flashrom, openocd]
-    # named: TIAO/DIYGADGET USB Multi-Protocol Adapter (TUMPA) Lite
     # named: TUMPA, TUMPA Lite
+    # named: http://www.tiaowiki.com/w/TIAO_USB_Multi_Protocol_Adapter_Lite_User's_Manual
   - id: "0403:8e08"
     basis: kernel_generic_driver
     kernel_drivers: [ftdi_sio]
@@ -292,12 +289,12 @@ identifiers:
     basis: kernel_generic_driver
     kernel_drivers: [ftdi_sio]
     seen_in: [openocd]
-    # named: Kristech KT-Link
+    # named: Xverve Signalyzer Tool (DT-USB-ST), Signalyzer LITE (DT-USB-SLITE)
   - id: "0403:bca1"
     basis: kernel_generic_driver
     kernel_drivers: [ftdi_sio]
     seen_in: [openocd]
-    # named: Kristech KT-Link
+    # named: Xverve Signalyzer Tool (DT-USB-ST), Signalyzer LITE (DT-USB-SLITE)
   - id: "0403:bca2"
     basis: kernel_generic_driver
     kernel_drivers: [ftdi_sio]
@@ -1103,12 +1100,10 @@ identifiers:
     # named: STLink V3SET MINIE
     # named: STMicroelectronics STLINK-V3
   - id: "0483:df11"
-    basis: shared_across_products
+    basis: distribution_disabled
     usb_ids_name: STM Device in DFU Mode
     seen_in: [dfu-util, dmrconfig, qdmr, qflipper]
-    # named: Flipper Zero DFU
-    # named: STM32
-    # named: TYT MD-UV380
+    # named: dfu-util
   - id: "049f:ffff"
     basis: kernel_generic_driver
     kernel_drivers: [safe_serial]
@@ -1175,11 +1170,6 @@ identifiers:
     seen_in: [argyll, colord]
     # named: ColorHug (legacy)
     # named: ColorHug, old and new USB ID's, ColorHug 2
-  - id: "04d8:fa63"
-    basis: shared_across_products
-    seen_in: [ola, qlcplus]
-    # named: EUROLITE Product
-    # named: udev rules for the Eurolite
   - id: "04d8:fb31"
     basis: shared_across_products
     seen_in: [gr-funcube, qthid-fcd-controller]
@@ -1250,7 +1240,7 @@ identifiers:
     usb_ids_name: UC-232A Serial Port [pl2303]
     kernel_drivers: [pl2303]
     seen_in: [gpsd]
-    # named: when to run it on boot (similar to init.d processing).
+    # named: ATEN International Co., Ltd UC-232A Serial Port [linux module: pl2303]
   - id: "0557:2011"
     basis: kernel_generic_driver
     usb_ids_name: UC-2324 4xSerial Ports [mos7840]
@@ -1473,11 +1463,11 @@ identifiers:
     basis: kernel_generic_driver
     kernel_drivers: [pl2303]
   - id: "067b:2303"
-    basis: kernel_generic_driver
+    basis: distribution_disabled
     usb_ids_name: PL2303 Serial Port / Mobile Phone Data Cable
     kernel_drivers: [pl2303]
     seen_in: [libsigrok4t64]
-    # named: Tondaj SL-814
+    # named: gpsd: rule disabled in Debian as it matches too many other devices
   - id: "067b:2304"
     basis: kernel_generic_driver
     kernel_drivers: [pl2303]
@@ -1883,8 +1873,8 @@ identifiers:
     usb_ids_name: Qstarz BT-Q1000XT
     kernel_drivers: [cdc_acm]
     seen_in: [gpsd, mtkbabel]
+    # named: MediaTek (tested with HOLUX M-1200E) [linux module: cdc_acm]
     # named: i-Blue 747 GPS data logger
-    # named: u-blox AG, u-blox 7 [linux module: cdc_acm]
   - id: "0eba:1080"
     basis: kernel_generic_driver
     kernel_drivers: [pl2303]
@@ -2228,11 +2218,11 @@ identifiers:
     basis: kernel_generic_driver
     kernel_drivers: [cp210x]
   - id: "10c4:ea60"
-    basis: kernel_generic_driver
+    basis: distribution_disabled
     usb_ids_name: CP210x UART Bridge
     kernel_drivers: [cp210x]
     seen_in: [libsigrok4t64]
-    # named: Voltcraft PPS-11815
+    # named: gpsd: rule disabled in Debian as it matches too many other devices
   - id: "10c4:ea61"
     basis: kernel_generic_driver
     usb_ids_name: CP210x UART Bridge
@@ -2246,9 +2236,10 @@ identifiers:
     usb_ids_name: CP2105 Dual UART Bridge
     kernel_drivers: [cp210x]
   - id: "10c4:ea71"
-    basis: kernel_generic_driver
+    basis: distribution_disabled
     usb_ids_name: CP2108 Quad UART Bridge
     kernel_drivers: [cp210x]
+    # named: gpsd: rule disabled in Debian as it matches too many other devices
   - id: "10c4:ea7a"
     basis: kernel_generic_driver
     kernel_drivers: [cp210x]
@@ -2334,7 +2325,7 @@ identifiers:
     usb_ids_name: ME909u-521 mPCIe LTE/GPS card
     seen_in: [modemmanager, usb-modeswitch-data]
     # named: Huawei ME909u-521 (MBIM, dummy config)
-    # named: do not edit this file, it will be overwritten on update
+    # named: MU609 does not support getportmode (crashes modem with default firmware)
   - id: "1342:0202"
     basis: kernel_generic_driver
     usb_ids_name: EasiDock 200 Serial Port
@@ -2361,14 +2352,14 @@ identifiers:
     basis: shared_across_products
     usb_ids_name: [u-blox 5]
     seen_in: [gpsd, modemmanager]
-    # named: Cygnal Integrated Products, Inc. [linux module: cp210x]
     # named: Fully ignore u-blox GPS devices
+    # named: u-blox AG, u-blox 5 (tested with Navilock NL-402U) [linux module: cdc_acm]
   - id: "1546:01a6"
     basis: shared_across_products
     usb_ids_name: [u-blox 6]
     seen_in: [gpsd, modemmanager]
-    # named: Cygnal Integrated Products, Inc. [linux module: cp210x]
     # named: Fully ignore u-blox GPS devices
+    # named: u-blox AG, u-blox 6 (tested with GNSS Evaluation Kit TCXO) [linux module: cdc_acm]
   - id: "1546:01a7"
     basis: shared_across_products
     usb_ids_name: [u-blox 7]
@@ -2380,12 +2371,12 @@ identifiers:
     usb_ids_name: [u-blox 8]
     seen_in: [gpsd, modemmanager]
     # named: Fully ignore u-blox GPS devices
-    # named: u-blox AG, u-blox 7 [linux module: cdc_acm]
+    # named: u-blox AG, u-blox 8 (tested with GNSS Evaluation Kit EKV-M8N) [linux module: cdc_acm]
   - id: "1546:01a9"
     basis: shared_across_products
     seen_in: [gpsd, modemmanager]
     # named: Fully ignore u-blox GPS devices
-    # named: u-blox AG, u-blox 7 [linux module: cdc_acm]
+    # named: u-blox AG, u-blox 9 (tested with GNSS Evaluation Kit C099-F9P) [linux module: cdc_acm]
   - id: "1546:0502"
     basis: kernel_generic_driver
     kernel_drivers: [ftdi_sio]
@@ -2451,8 +2442,7 @@ identifiers:
     seen_in: [avrdude, libhamlib4t64, ola, qlcplus]
     # named: USBasp
     # named: VOTI USBasp AVR Programmer
-    # named: for Anyma's uDMX devices and clones, and
-    # named: udev rules for the anyma dmx device
+    # named: them. The devices nodes are found under /dev/bus/usb/xxx/yyy.
   - id: "16c0:09b0"
     basis: kernel_generic_driver
     kernel_drivers: [cp210x]
@@ -2538,23 +2528,6 @@ identifiers:
   - id: "19cf:3000"
     basis: kernel_generic_driver
     kernel_drivers: [cp210x]
-  - id: "19d2:0003"
-    basis: shared_across_products
-    kernel_drivers: [option]
-    seen_in: [modemmanager, usb-modeswitch-data]
-    # named: ZTE MU351
-    # named: do not edit this file, it will be overwritten on update
-  - id: "19d2:0033"
-    basis: shared_across_products
-    kernel_drivers: [option]
-    seen_in: [modemmanager, usb-modeswitch-data]
-    # named: ZTE MF636DB
-    # named: do not edit this file, it will be overwritten on update
-  - id: "19d2:1007"
-    basis: shared_across_products
-    seen_in: [modemmanager, usb-modeswitch-data]
-    # named: Vodafone (ZTE) K3570-Z
-    # named: do not edit this file, it will be overwritten on update
   - id: "1a28:6010"
     basis: kernel_generic_driver
     kernel_drivers: [ftdi_sio]
@@ -2609,10 +2582,16 @@ identifiers:
   - id: "1a79:6001"
     basis: kernel_generic_driver
     kernel_drivers: [ftdi_sio]
+  - id: "1a86:5512"
+    basis: distribution_disabled
+    usb_ids_name: CH341 in EPP/MEM/I2C mode, EPP/I2C adapter
+    seen_in: [flashrom, imsprog]
+    # named: ponyprog
   - id: "1a86:5523"
-    basis: kernel_generic_driver
+    basis: distribution_disabled
     usb_ids_name: CH341 in serial mode, usb to serial port converter
     kernel_drivers: [ch341]
+    # named: ponyprog
   - id: "1a86:55d3"
     basis: kernel_generic_driver
     kernel_drivers: [cdc_acm]
@@ -2621,9 +2600,10 @@ identifiers:
     usb_ids_name: CH340 serial converter
     kernel_drivers: [ch341]
   - id: "1a86:7523"
-    basis: kernel_generic_driver
+    basis: distribution_disabled
     usb_ids_name: CH340 serial converter
     kernel_drivers: [ch341]
+    # named: ponyprog
   - id: "1b1f:c006"
     basis: kernel_generic_driver
     kernel_drivers: [ftdi_sio]
@@ -3895,6 +3875,8 @@ identifiers:
     kernel_drivers: [option, qmi_wwan]
     seen_in: [eg25-manager, modemmanager]
     # named: Default attributes values
+    # named: We can identify the PPP by looking for the string "pinephone-pro" in the device tree "compatible" property
+    # named: power/control needs to be "on" for the community-maintained firmware
     # named: ttyUSB3 (if #3): AT secondary port
   - id: "2caf:13a2"
     basis: kernel_generic_driver
@@ -4098,6 +4080,9 @@ identifiers:
   - id: "9986:7523"
     basis: kernel_generic_driver
     kernel_drivers: [ch341]
+  - id: "dead:beef"
+    basis: distribution_disabled
+    # named: knxd
   - id: "deee:0300"
     basis: kernel_generic_driver
     kernel_drivers: [ftdi_sio]

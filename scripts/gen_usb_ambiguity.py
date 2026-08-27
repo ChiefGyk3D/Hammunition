@@ -132,7 +132,7 @@ def read_tsv(path: Path, fields: int) -> list[list[str]]:
 
 def main() -> int:
     aliases = read_tsv(PROBES / "modules-alias-debian-13.tsv", 4)
-    sweep = read_tsv(PROBES / "udev-debian-13.tsv", 9)
+    sweep = read_tsv(PROBES / "udev-debian-13.tsv", 11)
     lora = read_tsv(PROBES / "lora-identifiers.tsv", 6)
     if not aliases:
         print("no kernel alias probe; run scripts/kernel-alias-probe.sh", file=sys.stderr)
@@ -149,8 +149,26 @@ def main() -> int:
     packages_of: dict[tuple[str, str], set[str]] = defaultdict(set)
     names_of: dict[tuple[str, str], set[str]] = defaultdict(set)
     usbids_name: dict[tuple[str, str], str] = {}
-    for package, _section, _rules, vendor, product, _link, comment, _vn, pn in sweep:
+    # A rule the distribution shipped and commented out, with the reason it
+    # gave. Strongest evidence in the whole dataset -- see below.
+    disabled_by: dict[tuple[str, str], set[str]] = defaultdict(set)
+    for (
+        package,
+        _section,
+        _rules,
+        vendor,
+        product,
+        _link,
+        comment,
+        _vn,
+        pn,
+        enabled,
+        reason,
+    ) in sweep:
         key = (vendor, product)
+        if enabled == "0":
+            disabled_by[key].add(f"{package}: {reason}" if reason else package)
+            continue
         packages_of[key].add(package)
         if comment:
             names_of[key].add(comment)
@@ -158,6 +176,20 @@ def main() -> int:
             usbids_name[key] = pn
 
     findings: dict[tuple[str, str], Finding] = {}
+
+    # FIRST source, because it outranks every inference below it. A distribution
+    # shipping a rule and switching it off is not us deducing that a pair names
+    # silicon -- it is a maintainer having reached that conclusion and acted on
+    # it, in a file they ship. Debian's 60-gpsd.rules says so in as many words:
+    # "rule disabled in Debian as it matches too many other devices".
+    for key, sources in sorted(disabled_by.items()):
+        findings[key] = Finding(
+            basis="distribution_disabled",
+            usbids=kernel_name.get(key, usbids_name.get(key, "")),
+            drivers=tuple(sorted(driver_of.get(key, ()))),
+            packages=tuple(sorted(packages_of.get(key, ()))),
+            names=tuple(sorted(sources)),
+        )
 
     vendor_specific = 0
     for key, drivers in driver_of.items():
@@ -167,6 +199,9 @@ def main() -> int:
         name = kernel_name.get(key, usbids_name.get(key, ""))
         if not names_a_chip(name):
             vendor_specific += 1
+            continue
+        if key in findings:
+            # Already carried on stronger evidence; do not demote it.
             continue
         findings[key] = Finding(
             basis="kernel_generic_driver",
@@ -292,6 +327,7 @@ def write_doc(
         "",
         "| Basis | Count |",
         "|---|---:|",
+        f"| `distribution_disabled` | {by_basis.get('distribution_disabled', 0)} |",
         f"| `kernel_generic_driver` | {by_basis.get('kernel_generic_driver', 0)} |",
         f"| `shared_across_products` | {by_basis.get('shared_across_products', 0)} |",
         "",

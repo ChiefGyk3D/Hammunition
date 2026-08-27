@@ -71,6 +71,14 @@ ANCHOR = r"[DQ]-\d{3}"
 # present-tense assertion about what the document says, in a commit that never
 # touched the document. Verbs alone would not have caught it.
 STATE_CHANGE = r"no longer|now|instead|as of|has been|have been|already"
+# A bare parenthesised anchor is this repository's citation form: "...which is
+# the shim CLAUDE.md forbids (D-016)", "verified before writing it (D-018)".
+# Exempted, because the check flagged its own author's commit for the second of
+# those -- "writing" is a claim verb and D-018 was eighteen characters away. A
+# claim reads "amends D-028", never "(D-028)", so the distinction costs nothing:
+# the commit this check exists to catch said "D-028 no longer rests on ...",
+# unparenthesised, in the middle of a sentence.
+CITATION = re.compile(rf"\((?:{ANCHOR})\)")
 # "amends D-028", "D-028 is amended" — satisfied by any changed line mentioning
 # it, because the work may legitimately live in code or in a manifest.
 CLAIMED_ANCHOR = re.compile(
@@ -184,9 +192,12 @@ def check(message: str, changed: set[str], diff: str, tracked: set[str]) -> list
 
     # Strip comment lines a commit template leaves behind.
     body = "\n".join(line for line in message.splitlines() if not line.startswith("#"))
+    # Blank out citations before looking for claims, so a verb landing near one
+    # cannot manufacture a claim out of a reference.
+    body_for_anchors = CITATION.sub("(cited)", body)
 
-    restated = anchors_in(body, RESTATED_ANCHOR)
-    for anchor in sorted(anchors_in(body, CLAIMED_ANCHOR) | restated):
+    restated = anchors_in(body_for_anchors, RESTATED_ANCHOR)
+    for anchor in sorted(anchors_in(body_for_anchors, CLAIMED_ANCHOR) | restated):
         in_section = False
         span = section_range(anchor)
         if span is not None:

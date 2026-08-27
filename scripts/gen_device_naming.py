@@ -113,9 +113,16 @@ def ours_answer(dev: DeviceManifest, cls: DeviceClass | None) -> tuple[str, list
     """
     adds: list[str] = []
     udev = dev.udev or (cls.udev if cls else None)
+    distro_name = dev.distribution_naming or (cls.distribution_naming if cls else None)
     groups = list(dev.groups) + (list(cls.groups) if cls else [])
     packages = list(dev.packages) + (list(cls.packages) if cls else [])
     firmware = list(dev.firmware) + (list(cls.firmware) if cls else [])
+    if distro_name:
+        # Reported as *not* ours on purpose. gpsd ships SYMLINK+="gps%n", so a
+        # receiver is named with nothing from us — the third naming mechanism
+        # after by-id and our own, and the first found to make ours redundant
+        # rather than merely unnecessary.
+        adds.append(f"(distro names it: {distro_name})")
     if udev is not None:
         adds.append(f"symlink `/dev/{udev.symlink}`")
     if groups or (udev is not None and udev.tag_uaccess):
@@ -219,6 +226,25 @@ def main() -> int:
         why_s = ", ".join(f"`{r}`" for r in why) if why else "—"
         w(f"| `{dev.name}` | {answer} | {add_s} | {why_s} |")
     w("")
+    w("## Classes")
+    w("")
+    w("A class is a naming subject too, and one of them carries the finding this")
+    w("table exists to make visible: some devices are already named by the package")
+    w("that drives them.")
+    w("")
+    w("| Class | by-id | Named by | Devices in it |")
+    w("|---|---|---|---|")
+    for name, cls in sorted(classes.items()):
+        answer = by_id_answer(list(cls.usb_ids))
+        members = sum(1 for d in devices.values() if d.device_class == name)
+        if cls.distribution_naming:
+            named = f"the distribution — `{cls.distribution_naming}`"
+        elif cls.udev is not None:
+            named = f"us — `/dev/{cls.udev.symlink}`"
+        else:
+            named = "nothing device-specific"
+        w(f"| `{name}` | {answer} | {named} | {members} |")
+    w("")
     w("## What this changes")
     w("")
     w("`by-id` gives a stable path. It does not give:")
@@ -234,6 +260,11 @@ def main() -> int:
     w("  separates them and is topology, so it changes when the cable moves.")
     w("- **Knowing which interface is which.** A multi-port device gets a stable")
     w("  path per port and a label on none of them.")
+    w("")
+    w("- **A name somebody else already provides.** `gpsd` ships")
+    w('  `SYMLINK+="gps%n"`, so a GNSS receiver is `/dev/gps0` with nothing from')
+    w("  us. Writing our own on top would be a D-022 displacement with no benefit;")
+    w("  recording that the distribution did it is the useful act.")
     w("")
     w("So the hardware layer's value is permissions, composite-device mapping,")
     w("firmware-mode identification, and honest documentation of the cases nothing")

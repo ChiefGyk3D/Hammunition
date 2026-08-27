@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: gpsd-tools
+version: "3.25"
+summary: cgps and gpsmon — the two programs you actually reach for when a receiver misbehaves
+categories: [hardware, station, timing]
+
+depends: [gpsd]
+
+install:
+  - install:
+      method: apt
+      packages: [gpsd-tools]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Three terminal programs: `cgps`, a live fix and satellite display; `gpsmon`,
+    which shows the raw sentences the receiver is sending; and `gpssnmp`.
+  why_you_want_it: >-
+    The first question about a misbehaving receiver is always whether it has a
+    fix at all, and `cgps` answers it in one command with no X server and no
+    scripting. `gpsmon` answers the second question — whether the receiver is
+    saying anything — which matters because a receiver with a dead antenna and
+    a receiver on the wrong baud rate look identical from any higher level.
+  prerequisites: >-
+    gpsd running. This is a separate package from `gpsd-clients` on Debian,
+    which is worth knowing before spending an evening wondering where `cgps`
+    went.
+  known_problems: >-
+    `gpsmon` puts the receiver into a mode `cgps` does not expect, so run one
+    at a time rather than both against the same device.
+  upstream_url: https://gpsd.io/
