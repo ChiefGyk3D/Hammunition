@@ -153,7 +153,10 @@ class AptBackend:
         if not packages:
             return {}
         command = Command(
-            argv=("apt-cache", "policy", *packages),
+            # `--` is belt and braces: DEB_PACKAGE already refuses anything that
+            # is not a package name, and this makes the argv wrong-by-construction
+            # for an option even if that check is ever relaxed.
+            argv=("apt-cache", "policy", "--", *packages),
             description=f"Ask apt what it knows about {len(packages)} package(s)",
             requires_root=False,
         )
@@ -193,7 +196,7 @@ class AptBackend:
             return []
         return [
             Command(
-                argv=("apt-get", "install", "--yes", *ordered),
+                argv=("apt-get", "install", "--yes", "--", *ordered),
                 description=f"Install {len(ordered)} package(s) with apt",
                 requires_root=True,
                 env=dict(NONINTERACTIVE),

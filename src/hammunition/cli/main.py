@@ -191,6 +191,20 @@ def cmd_list(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def operator(args: argparse.Namespace) -> str:
+    """Who this run is on behalf of.
+
+    Used for two things that must agree: which account `gpasswd` adds to a
+    group, and whose transaction log gets written. They were resolved
+    separately, and under `sudo hammunition` the log went to root's home while
+    the group membership went to the right person — so `hammunition status`,
+    run afterwards as that person, reported no transactions at all.
+    """
+    return (
+        getattr(args, "user", None) or os.environ.get("SUDO_USER") or os.environ.get("USER") or ""
+    )
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     try:
         target = Target.detect()
@@ -215,7 +229,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     print(f"  {len(packages)} packages, {resolvable} of which resolve on this target")
     print(f"  {len(profiles)} profiles")
 
-    log = TransactionLog()
+    log = TransactionLog(owner=operator(args) or None)
     entries = list(log.read())
     print(f"Transaction log: {log.path}")
     if not entries:
@@ -252,7 +266,7 @@ def cmd_install(args: argparse.Namespace) -> int:
 
     runner = SubprocessRunner()
     apt = AptBackend(runner)
-    user = args.user or os.environ.get("SUDO_USER") or os.environ.get("USER") or ""
+    user = operator(args)
 
     try:
         plan = resolve(
@@ -284,7 +298,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         print("\nDry run: nothing above was executed.")
         return EXIT_OK
 
-    log = TransactionLog()
+    log = TransactionLog(owner=user or None)
 
     # Consent gates come after the plan is printed and before anything runs.
     # --yes is passed so the call site documents that it does not help; the
@@ -319,6 +333,10 @@ def cmd_install(args: argparse.Namespace) -> int:
 
     print("\nRunning:")
     report = execute(commands, runner, log=log, plan=plan, echo=print)
+    if log.ownership_error:
+        # Not fatal — the commands ran — but not silent either. A log the
+        # operator cannot append to fails on their next run instead of this one.
+        print(f"\nWarning: {log.ownership_error}", file=sys.stderr)
     if report.ok:
         print(f"\nDone. {len(report.completed)} command(s) completed.")
         if plan.group_memberships:

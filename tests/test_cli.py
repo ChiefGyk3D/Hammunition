@@ -13,6 +13,9 @@ against a fixture of expected text.
 
 from __future__ import annotations
 
+import argparse
+import os
+import pwd
 import sys
 from pathlib import Path
 from typing import Any
@@ -30,13 +33,14 @@ from hammunition.cli.main import (  # noqa: E402
     EXIT_UNPLANNABLE,
     build_parser,
     main,
+    operator,
     render_plan,
 )
 from hammunition.distro import Target  # noqa: E402
 from hammunition.execute import commands_for, execute  # noqa: E402
 from hammunition.manifest.schema import PackageManifest  # noqa: E402
 from hammunition.plan import GroupMembership, InstallPlan, PlannedPackage  # noqa: E402
-from hammunition.state import TransactionLog  # noqa: E402
+from hammunition.state import TransactionLog, log_path  # noqa: E402
 
 TARGET = Target(distro="debian", version="13", arch="x86_64")
 
@@ -283,3 +287,108 @@ def _subparser_names(parser: Any) -> list[str]:
         if hasattr(action, "choices") and action.choices:
             return sorted(action.choices)
     return []
+
+
+def pwd_struct(*, name: str, uid: int, home: str) -> pwd.struct_passwd:
+    """Minimal stand-in for a `pwd.struct_passwd`, positional fields only."""
+    return pwd.struct_passwd((name, "x", uid, uid, "", home, "/bin/sh"))
+
+
+# ---------------------------------------------------------------------------
+# Whose log is it
+# ---------------------------------------------------------------------------
+
+
+def test_the_log_follows_the_operator_when_running_as_root(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`sudo hammunition install` wrote its record where the operator cannot see it.
+
+    The engine already resolves who the operator is, because `gpasswd` needs a
+    name. The log did not use that answer, so it landed in /root while the
+    group membership went to the right person — and `hammunition status`, run
+    afterwards by that person, reported no transactions at all. Two answers to
+    one question is how a log ends up wrong about the thing it exists to record.
+    """
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setattr(
+        pwd, "getpwnam", lambda name: pwd_struct(name=name, uid=1000, home=f"/home/{name}")
+    )
+    assert log_path("operator") == Path(
+        "/home/operator/.local/state/hammunition/transactions.jsonl"
+    )
+
+
+def test_the_log_ignores_the_operator_when_not_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Running as yourself, $XDG_STATE_HOME is yours and is honoured."""
+    monkeypatch.setattr(os, "geteuid", lambda: 1000)
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    assert log_path("someone-else") == tmp_path / "hammunition" / "transactions.jsonl"
+
+
+def test_root_installing_for_root_keeps_the_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A genuine root-only box is not a sudo invocation and needs no redirect."""
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setattr(pwd, "getpwnam", lambda name: pwd_struct(name=name, uid=0, home="/root"))
+    monkeypatch.delenv("XDG_STATE_HOME", raising=False)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: Path("/root")))
+    assert log_path("root") == Path("/root/.local/state/hammunition/transactions.jsonl")
+
+
+def test_the_operator_is_resolved_the_same_way_everywhere(monkeypatch: pytest.MonkeyPatch) -> None:
+    """One answer, used by both the group change and the log."""
+    monkeypatch.setenv("SUDO_USER", "operator")
+    monkeypatch.setenv("USER", "root")
+    assert operator(argparse.Namespace(user=None)) == "operator"
+    assert operator(argparse.Namespace(user="explicit")) == "explicit"
+    # `status` has no --user flag at all, and must still reach the same answer.
+    assert operator(argparse.Namespace()) == "operator"
+
+
+def test_a_root_written_log_is_handed_to_its_operator(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Created as root in somebody's home, it must end up owned by them.
+
+    Not verifiable end to end in this project's own container harness: rootless
+    podman with no /etc/subuid runs with `ignore_chown_errors`, where `chown`
+    to another uid cannot succeed at all. So the call is asserted here and the
+    failure path is asserted below — claiming a working chown on the strength
+    of code that suppresses its own errors is the exact thing D-031 forbids.
+    """
+    calls: list[tuple[Path, int, int]] = []
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setattr(
+        pwd, "getpwnam", lambda name: pwd_struct(name=name, uid=1000, home=str(tmp_path))
+    )
+    monkeypatch.setattr(os, "chown", lambda path, uid, gid: calls.append((Path(path), uid, gid)))
+
+    log = TransactionLog(tmp_path / ".local" / "state" / "hammunition" / "t.jsonl", owner="radioop")
+    log.append({"event": "test", "version": 1})
+
+    assert log.ownership_error is None
+    # The file and every directory made on the way to it, not just the last.
+    assert {path.name for path, _, _ in calls} >= {"t.jsonl", "hammunition", "state", ".local"}
+    assert all((uid, gid) == (1000, 1000) for _, uid, gid in calls)
+
+
+def test_a_chown_that_cannot_happen_is_reported_not_swallowed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`fail loudly, never silently degrade` applies to the failure log itself."""
+
+    def refuse(path: object, uid: int, gid: int) -> None:
+        raise PermissionError(1, "Operation not permitted")
+
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setattr(
+        pwd, "getpwnam", lambda name: pwd_struct(name=name, uid=1000, home=str(tmp_path))
+    )
+    monkeypatch.setattr(os, "chown", refuse)
+
+    log = TransactionLog(tmp_path / ".local" / "state" / "hammunition" / "t.jsonl", owner="radioop")
+    log.append({"event": "test", "version": 1})
+
+    assert log.ownership_error is not None
+    assert "radioop" in log.ownership_error
+    assert "chown" in log.ownership_error

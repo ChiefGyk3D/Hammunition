@@ -430,16 +430,19 @@ def test_an_after_naming_an_absent_package_is_satisfied_by_absence(tmp_path: Pat
 
 
 def test_an_ordering_cycle_is_reported_rather_than_looping(tmp_path: Path) -> None:
+    # Two-character names because a Debian package name must be at least two
+    # characters (policy 5.6.1) and the schema now holds manifests to that --
+    # these strings become argv for a privileged apt-get.
     catalog = {
-        "a": _manifest(
-            name="a", after=["b"], install=[{"install": {"method": "apt", "packages": ["a"]}}]
+        "aa": _manifest(
+            name="aa", after=["bb"], install=[{"install": {"method": "apt", "packages": ["aa"]}}]
         ),
-        "b": _manifest(
-            name="b", after=["a"], install=[{"install": {"method": "apt", "packages": ["b"]}}]
+        "bb": _manifest(
+            name="bb", after=["aa"], install=[{"install": {"method": "apt", "packages": ["bb"]}}]
         ),
     }
     with pytest.raises(PlanError) as exc:
-        _resolve(tmp_path, ["a", "b"], catalog=catalog, known={"a": None, "b": None})
+        _resolve(tmp_path, ["aa", "bb"], catalog=catalog, known={"aa": None, "bb": None})
     assert any("cycle" in b.reason for b in exc.value.blockers)
 
 

@@ -19,6 +19,8 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
+from pydantic import ValidationError  # noqa: E402
+
 from hammunition.backends import (  # noqa: E402
     AptBackend,
     BackendError,
@@ -27,6 +29,8 @@ from hammunition.backends import (  # noqa: E402
     RecordingRunner,
     parse_policy,
 )
+from hammunition.cli.main import load_all  # noqa: E402
+from hammunition.manifest.schema import AptInstall, ManifestError  # noqa: E402
 
 POLICY = """\
 rtl-sdr:
@@ -119,7 +123,9 @@ def test_probe_asks_apt_once_for_the_whole_set(tmp_path: Path) -> None:
     runner = apt.runner
     assert isinstance(runner, RecordingRunner)
     assert len(runner.commands) == 1
-    assert runner.commands[0].argv == ("apt-cache", "policy", "rtl-sdr", "tcpdump")
+    # `--` before the names: a package name cannot be an option, and the schema
+    # already refuses one that looks like it. Both, because the failure is silent.
+    assert runner.commands[0].argv == ("apt-cache", "policy", "--", "rtl-sdr", "tcpdump")
 
 
 def test_probing_never_asks_for_privilege(tmp_path: Path) -> None:
@@ -134,12 +140,16 @@ def test_probing_never_asks_for_privilege(tmp_path: Path) -> None:
 def test_a_broken_apt_is_fatal_rather_than_an_empty_answer(tmp_path: Path) -> None:
     """Silently treating a failed probe as 'nothing exists' is the D-016 defect."""
     runner = RecordingRunner(
-        {"apt-cache policy x": CommandResult(argv=(), returncode=100, stdout="", stderr="boom")}
+        {
+            "apt-cache policy -- rtl-sdr": CommandResult(
+                argv=(), returncode=100, stdout="", stderr="boom"
+            )
+        }
     )
     lists = tmp_path / "lists"
     lists.mkdir()
     with pytest.raises(BackendError, match="apt-cache policy failed"):
-        AptBackend(runner, lists_dir=lists).probe(["x"])
+        AptBackend(runner, lists_dir=lists).probe(["rtl-sdr"])
 
 
 def test_empty_lists_are_detectable(tmp_path: Path) -> None:
@@ -160,9 +170,9 @@ def test_a_missing_lists_directory_is_not_an_exception(tmp_path: Path) -> None:
 def test_installation_is_one_transaction_deduplicated_and_ordered() -> None:
     """One apt-get, so apt resolves the dependency set once and any conflict is
     reported before anything is unpacked."""
-    commands = AptBackend(RecordingRunner()).install_commands(["b", "a", "b"])
+    commands = AptBackend(RecordingRunner()).install_commands(["tcpdump", "rtl-sdr", "tcpdump"])
     assert len(commands) == 1
-    assert commands[0].argv == ("apt-get", "install", "--yes", "a", "b")
+    assert commands[0].argv == ("apt-get", "install", "--yes", "--", "rtl-sdr", "tcpdump")
 
 
 def test_installing_nothing_produces_no_command() -> None:
@@ -215,3 +225,45 @@ def test_display_shows_exactly_what_will_run() -> None:
     rendered = command.display(euid=1000)
     assert rendered.startswith("DEBIAN_FRONTEND=noninteractive sudo apt-get install --yes ")
     assert "'a b'" in rendered, "a shell-unsafe argument must be quoted in the display"
+
+
+# ---------------------------------------------------------------------------
+# A package name is a package name
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "-o",
+        "--reinstall",
+        "APT::Get::AllowUnauthenticated=true",
+        "a",  # Debian policy 5.6.1: at least two characters
+        "Wireshark",  # and lower case only
+        "rtl sdr",
+        "../etc/passwd",
+    ],
+)
+def test_a_manifest_cannot_smuggle_an_apt_option_as_a_package(name: str) -> None:
+    """These strings become argv for a root-privileged apt-get.
+
+    D-009 opens the catalog to community and local tiers, so manifests will
+    arrive from people this project has not met. The pre-flight probe happens
+    to catch the option-shaped ones — apt-cache consumes them and returns no
+    stanza, so "asked for, not returned" reports them unobtainable — but that
+    is an incidental property of one code path rather than an invariant, and
+    this project's posture elsewhere is to make the bad state unrepresentable.
+    """
+    with pytest.raises((ManifestError, ValidationError)):
+        AptInstall(packages=[name])
+
+
+@pytest.mark.parametrize("name", ["rtl-sdr", "libhamlib4", "gcc-14", "libc6:i386", "g++"])
+def test_real_package_names_are_accepted(name: str) -> None:
+    assert AptInstall(packages=[name]).packages == [name]
+
+
+def test_the_whole_catalog_passes_the_package_name_rule() -> None:
+    """Not a hypothetical: if this ever fails, a real manifest is wrong."""
+    packages, _ = load_all(Path(__file__).resolve().parent.parent / "catalog")
+    assert packages

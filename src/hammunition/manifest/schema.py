@@ -21,6 +21,7 @@ requirements rather than preferences:
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from datetime import date
 from enum import StrEnum
 from typing import Annotated, Literal
@@ -42,6 +43,37 @@ __all__ = [
 
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 SLUG = re.compile(r"^[a-z0-9][a-z0-9._+-]*$")
+
+# Debian policy §5.6.1: at least two characters, starting alphanumeric, from
+# lowercase letters, digits, plus, minus and dot. The optional suffix is an
+# architecture qualifier (`libc6:i386`, `foo:any`).
+#
+# Validated rather than taken on trust because these strings become argv for a
+# root-privileged `apt-get install`. A manifest saying
+#
+#     packages: ["-o", "APT::Get::AllowUnauthenticated=true", "tio"]
+#
+# is not a package list; it is two apt options and a package, and D-009's
+# community and local tiers mean manifests will arrive from people this project
+# has not met. The pre-flight probe happens to catch that one -- apt-cache
+# consumes the option and returns no stanza for it, so the "asked for, not
+# returned" comparison reports it unobtainable -- but that is an incidental
+# property of one code path, not an invariant. This project's posture elsewhere
+# is to make the bad state unrepresentable (`method: script`, mandatory
+# `sha256`), and a package name is a package name.
+DEB_PACKAGE = re.compile(r"^[a-z0-9][a-z0-9+.-]+(?::[a-z0-9][a-z0-9-]*)?$")
+
+
+def _check_package_names(names: Sequence[str], field: str) -> None:
+    bad = [n for n in names if not DEB_PACKAGE.match(n)]
+    if bad:
+        raise ManifestError(
+            f"{field} contains {bad!r}, which are not Debian package names. "
+            f"These become argv for a privileged apt-get, so anything that is "
+            f"not a package name is refused here rather than discovered later."
+        )
+
+
 ENDPOINT_REF = re.compile(r"\{endpoint:([a-z0-9_-]+)\}")
 CONSENT_ENV = re.compile(r"^HAMMUNITION_ACCEPT_[A-Z0-9_]+$")
 STATION_REF = re.compile(r"\{station\.([a-z0-9_]+)\}")
@@ -128,6 +160,11 @@ class Patch(Strict):
 class AptInstall(Strict):
     method: Literal["apt"] = "apt"
     packages: list[str] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _check(self) -> AptInstall:
+        _check_package_names(self.packages, "apt packages")
+        return self
 
 
 class SourceInstall(Strict):
@@ -322,6 +359,11 @@ class InstallBlock(Strict):
         description="apt packages needed to BUILD only. Never reported as installed.",
     )
     note: str | None = None
+
+    @model_validator(mode="after")
+    def _check(self) -> InstallBlock:
+        _check_package_names(self.build_depends, "build_depends")
+        return self
 
 
 # ---------------------------------------------------------------------------
@@ -568,6 +610,24 @@ class PackageManifest(Strict):
     def _name_is_slug(self) -> PackageManifest:
         if not SLUG.match(self.name):
             raise ManifestError(f"name must be a lowercase slug: {self.name!r}")
+        return self
+
+    @model_validator(mode="after")
+    def _dependency_names_are_package_names(self) -> PackageManifest:
+        """`depends` reaches apt, so it is held to apt's naming rules.
+
+        The field spans two namespaces — a catalog package or a distro one, and
+        `plan._pull_catalog_dependencies` resolves which. Both are checked here
+        because every catalog name is already a valid Debian package name, and
+        the entries that are *not* catalog names go to `apt-cache policy` as
+        argv. `conflicts_with_repo_package` names distro packages by
+        definition; `provides` names what a build emits, which a later backend
+        will resolve against apt the same way.
+        """
+        _check_package_names(self.depends, f"{self.name}: depends")
+        _check_package_names(
+            self.conflicts_with_repo_package, f"{self.name}: conflicts_with_repo_package"
+        )
         return self
 
     @model_validator(mode="after")
