@@ -1,0 +1,285 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+"""The CLI and the executor.
+
+The property worth asserting here is not that the output looks nice. It is that
+``--dry-run`` cannot drift from what a real run does, because CLAUDE.md
+requires the dry run to be *complete and accurate, not approximate*. The only
+durable way to hold that is for both to consume the same list of commands, and
+the test for it compares the printed transcript against that list rather than
+against a fixture of expected text.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT / "src"))
+
+from hammunition.backends import AptBackend, Command, CommandResult, RecordingRunner  # noqa: E402
+from hammunition.cli.main import (  # noqa: E402
+    EXIT_CONSENT,
+    EXIT_FAILED,
+    EXIT_OK,
+    EXIT_UNPLANNABLE,
+    build_parser,
+    main,
+    render_plan,
+)
+from hammunition.distro import Target  # noqa: E402
+from hammunition.execute import commands_for, execute  # noqa: E402
+from hammunition.manifest.schema import PackageManifest  # noqa: E402
+from hammunition.plan import GroupMembership, InstallPlan, PlannedPackage  # noqa: E402
+from hammunition.state import TransactionLog  # noqa: E402
+
+TARGET = Target(distro="debian", version="13", arch="x86_64")
+
+CATALOG = REPO_ROOT / "catalog"
+
+
+def _manifest() -> PackageManifest:
+    return PackageManifest.model_validate(
+        {
+            "name": "example",
+            "version": "1.0",
+            "summary": "An example package",
+            "categories": ["digital-modes"],
+            "install": [{"install": {"method": "apt", "packages": ["example"]}}],
+            "update": {"probe": {"method": "apt_policy"}},
+            "documentation": {
+                "what_it_does": "Does an example thing for the purposes of testing.",
+                "why_you_want_it": "Because the test suite requires a valid manifest.",
+                "upstream_url": "https://example.invalid/",
+            },
+        }
+    )
+
+
+def _plan(**overrides: Any) -> InstallPlan:
+    manifest = _manifest()
+    base: dict[str, Any] = {
+        "target": TARGET,
+        "packages": (
+            PlannedPackage(
+                manifest=manifest,
+                block=manifest.install[0],
+                apt_packages=("example",),
+            ),
+        ),
+    }
+    base.update(overrides)
+    return InstallPlan(**base)
+
+
+# ---------------------------------------------------------------------------
+# The dry run and the real run cannot drift
+# ---------------------------------------------------------------------------
+
+
+def test_the_rendered_plan_shows_every_command_that_would_run() -> None:
+    plan = _plan()
+    apt = AptBackend(RecordingRunner())
+    commands = commands_for(plan, apt, current_groups=frozenset())
+    text = "\n".join(render_plan(plan, commands, euid=0))
+    for command in commands:
+        assert command.display(euid=0) in text, "a command would run without being shown"
+
+
+def test_group_membership_is_planned_after_installation() -> None:
+    """Debian's wireshark-common creates the `wireshark` group at install time,
+    so adding the operator first would fail on a group that does not exist."""
+    plan = _plan(
+        group_memberships=(
+            GroupMembership(
+                group="wireshark",
+                user="operator",
+                package="wireshark",
+                description="capture without root",
+                detail="adds to `wireshark`",
+                reverse_hint=None,
+            ),
+        )
+    )
+    commands = commands_for(plan, AptBackend(RecordingRunner()), current_groups=frozenset())
+    assert commands[0].argv[0] == "apt-get"
+    assert commands[-1].argv[:2] == ("gpasswd", "--add")
+
+
+def test_an_operator_already_in_the_group_is_not_added_again() -> None:
+    """Idempotent: every operation is safe to re-run (CLAUDE.md)."""
+    plan = _plan(
+        group_memberships=(
+            GroupMembership(
+                group="dialout",
+                user="operator",
+                package="example",
+                description="serial access",
+                detail="adds to `dialout`",
+                reverse_hint=None,
+            ),
+        )
+    )
+    commands = commands_for(
+        plan, AptBackend(RecordingRunner()), current_groups=frozenset({"dialout"})
+    )
+    assert all(c.argv[0] != "gpasswd" for c in commands)
+
+
+def test_refresh_runs_before_anything_else() -> None:
+    commands = commands_for(_plan(), AptBackend(RecordingRunner()), refresh=True)
+    assert commands[0].argv == ("apt-get", "update")
+
+
+# ---------------------------------------------------------------------------
+# Execution
+# ---------------------------------------------------------------------------
+
+
+def test_execution_stops_at_the_first_failure(tmp_path: Path) -> None:
+    """D-016: a failure stops the run. It is never a warning to continue past."""
+    first = Command(argv=("false",), description="fails", requires_root=False)
+    second = Command(argv=("true",), description="never runs", requires_root=False)
+    runner = RecordingRunner(
+        {"false": CommandResult(argv=("false",), returncode=1, stdout="", stderr="boom")}
+    )
+    log = TransactionLog(tmp_path / "log.jsonl")
+    report = execute([first, second], runner, log=log, plan=_plan())
+
+    assert not report.ok
+    assert report.failed is first
+    assert second not in runner.commands, "a command after a failure was still run"
+
+
+def test_a_command_is_logged_before_it_runs(tmp_path: Path) -> None:
+    """A run killed mid-apt-get must leave a record that it was started. A log
+    written only on success would hide exactly the state that matters."""
+    command = Command(argv=("false",), description="fails", requires_root=False)
+    runner = RecordingRunner(
+        {"false": CommandResult(argv=("false",), returncode=1, stdout="", stderr="")}
+    )
+    log = TransactionLog(tmp_path / "log.jsonl")
+    execute([command], runner, log=log, plan=_plan())
+
+    events = [entry["event"] for entry in log.read()]
+    assert events.index("command_begin") < events.index("command_end")
+    assert "transaction_failed" in events
+    assert "transaction_end" not in events
+
+
+def test_a_successful_transaction_is_closed(tmp_path: Path) -> None:
+    log = TransactionLog(tmp_path / "log.jsonl")
+    report = execute(
+        [Command(argv=("true",), description="ok")], RecordingRunner(), log=log, plan=_plan()
+    )
+    assert report.ok
+    assert [e["event"] for e in log.read()][-1] == "transaction_end"
+
+
+def test_the_log_records_the_target_it_ran_against(tmp_path: Path) -> None:
+    log = TransactionLog(tmp_path / "log.jsonl")
+    execute([], RecordingRunner(), log=log, plan=_plan())
+    begin = next(e for e in log.read() if e["event"] == "transaction_begin")
+    assert begin["target"]["distro"] == "debian"
+
+
+# ---------------------------------------------------------------------------
+# The command line itself
+# ---------------------------------------------------------------------------
+
+
+def test_yes_is_documented_as_not_satisfying_a_consent_gate() -> None:
+    """D-021. The help text is where an operator learns this before they try it."""
+    install_help = _subparser_help(build_parser(), "install")
+    assert "--yes" in install_help
+    assert "consent gate" in install_help
+
+
+def _subparser_help(parser: Any, name: str) -> str:
+    for action in parser._actions:
+        if hasattr(action, "choices") and action.choices and name in action.choices:
+            help_text: str = action.choices[name].format_help()
+            return help_text
+    raise AssertionError(f"no subparser named {name!r}")
+
+
+def test_list_runs_against_the_real_catalog(capsys: Any) -> None:
+    assert main(["--catalog", str(CATALOG), "list", "profiles"]) == EXIT_OK
+    out = capsys.readouterr().out
+    assert "rf-security" in out
+
+
+def test_show_prints_the_disclosure_for_a_gated_profile(capsys: Any) -> None:
+    assert main(["--catalog", str(CATALOG), "show", "rf-research"]) == EXIT_OK
+    out = capsys.readouterr().out
+    assert "consent-gated" in out
+    assert "authorization" in out
+
+
+def test_show_of_an_unknown_profile_fails_rather_than_printing_nothing(capsys: Any) -> None:
+    assert main(["--catalog", str(CATALOG), "show", "nosuch"]) == EXIT_UNPLANNABLE
+
+
+def test_a_catalog_path_without_packages_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit, match="does not look like a catalog"):
+        main(["--catalog", str(tmp_path), "list"])
+
+
+# ---------------------------------------------------------------------------
+# The documentation is checked against the code, not trusted
+# ---------------------------------------------------------------------------
+
+CLI_DOC = REPO_ROOT / "docs" / "reference" / "cli.md"
+
+
+def test_the_documented_exit_codes_match_the_code() -> None:
+    """A table of exit codes is exactly the kind of prose that goes stale
+    silently: scripts read these, and nothing else would notice a drift."""
+    import re
+
+    table = dict(re.findall(r"^\| (\d) \| (.+?) \|$", CLI_DOC.read_text(), re.MULTILINE))
+    documented = {int(code) for code in table}
+    implemented = {EXIT_OK, EXIT_FAILED, EXIT_UNPLANNABLE, EXIT_CONSENT}
+    assert documented == implemented
+
+
+def test_every_verb_is_documented() -> None:
+    """A feature is not done until it is documented (CLAUDE.md), and the docs
+    generator cannot reach argparse, so this is the check."""
+    text = CLI_DOC.read_text()
+    verbs = _subparser_names(build_parser())
+    assert verbs, "no subcommands found"
+    for verb in verbs:
+        assert f"`hammunition {verb}" in text, f"{verb} is undocumented"
+
+
+def test_every_install_flag_is_documented() -> None:
+    text = CLI_DOC.read_text()
+    install = _subparser(build_parser(), "install")
+    flags = {
+        option
+        for action in install._actions
+        for option in action.option_strings
+        if option.startswith("--") and option != "--help"
+    }
+    for flag in flags:
+        assert f"`{flag}" in text, f"{flag} is undocumented"
+
+
+def _subparser(parser: Any, name: str) -> Any:
+    for action in parser._actions:
+        if hasattr(action, "choices") and action.choices and name in action.choices:
+            return action.choices[name]
+    raise AssertionError(f"no subparser named {name!r}")
+
+
+def _subparser_names(parser: Any) -> list[str]:
+    for action in parser._actions:
+        if hasattr(action, "choices") and action.choices:
+            return sorted(action.choices)
+    return []

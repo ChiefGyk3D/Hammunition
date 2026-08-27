@@ -18,6 +18,7 @@ disagrees with it, DECISIONS wins and the disagreeing file is a bug.
 - `docs/SCOPE.md` — the five-source union and 1.0 staging (**D-017**)
 - `docs/PARITY-POLICY.md` — per-unit disposition and M5 exit criteria
 - `docs/QUESTIONS.md` — decisions awaiting the maintainer, with recommendations
+- `docs/reference/cli.md` — the CLI: verbs, flags, exit codes, what it refuses
 - `docs/reference/` — the measurements everything rests on: `ahrl-inventory.md`,
   `blend-inventory.md`, `dispositions.md`, `overlaps.md`, `profile-sizing.md`,
   `licence-verification.md`, `hardware-gaps.md`, `udev-inventory.md`,
@@ -332,22 +333,28 @@ catalog/
     classes/       # device families with shared Linux needs ✅ 2
     devices/       # one YAML per device                     ✅ 21
 src/hammunition/
-  cli/             # argparse/click entry points             ❌ not written
+  cli/             # argparse entry points; install/list/status/show ✅
   manifest/        # schema, loader, validation              ✅
     hardware.py    # device catalog schema (D-020)           ✅
   consent/         # affirmative consent gates (D-021)       ✅
   state/           # transaction log, uninstall              ✅ log only
-  backends/        # apt, source, git, binary, venv, pipx    ❌ not written
-  distro/          # /etc/os-release detection               ❌ not written
+  plan.py          # pre-flight resolution (D-016)           ✅
+  execute.py       # plan -> commands -> runner              ✅
+  backends/        # apt ✅; source, git, binary, venv, pipx, CPAN ❌
+  distro/          # /etc/os-release detection               ✅
   hardware/        # USB/serial detection, udev generation   ❌ not written
 docs/              # "Hacker's Ham Shack" — guides and labs (section title, not a brand)
   contributing/    # how to contribute; hardware.md is the live ask   ✅
+  reference/cli.md # the CLI reference                       ✅
 tests/
 ```
 
-Ticks mark what exists. The engine's install path — CLI, backends, distro
-detection, udev generation — is **not written**, which the README states up
-front and this table should not let anyone forget.
+Ticks mark what exists. **M1's walking skeleton runs**: detect, resolve, print,
+install, log. What it cannot do it refuses by name — six backends, third-party
+apt repos, templated config files and udev generation are all measured, named
+and absent. Do not let the working skeleton read as a working installer: **57 of
+AHRL's 95 units cannot be satisfied by apt**, so apt-only is roughly 40% of the
+parity target and the missing 60% is the hard part (**D-004**).
 
 ## Closed questions
 
@@ -418,15 +425,21 @@ exists, document the gap rather than carry a fork we cannot sustain.
 VARA and HAMRS are post-1.0. Novel capability (RF security, mesh) layers on top,
 never substitutes.
 
-**M1 — walking skeleton.** Nothing beyond this scope unless asked.
-- Manifest schema + validator
-- apt backend only
-- `/etc/os-release` detection for Parrot and Debian
+**M1 — walking skeleton. ✅ It runs.** `hammunition install <profile> --dry-run`
+resolves the whole transaction and prints every command; without `--dry-run` it
+installs. Remaining M1 gap is the starter profile's name and contents, which
+`docs/reference/profile-sizing.md` still has awaiting the maintainer.
+- Manifest schema + validator ✅
+- apt backend only ✅ — with real resolution: `depends` goes through
+  `apt-cache policy`, which is what D-016's four suspected-stale AHRL
+  dependency lines needed and never got
+- `/etc/os-release` detection ✅ — shared with `scripts/capability_matrix.py`
+  rather than duplicated, so `--check` verifies the parser the engine uses
 - ~20 packages, one starter profile, seeded from the AHRL inventory
   (named `ham-core` when M1 was written; `docs/reference/profile-sizing.md`
   proposes **`station`** instead, and a four-way split — awaiting the maintainer)
-- `install`, `list`, `status`, `--dry-run`
-- Container test harness for Parrot and Debian
+- `install`, `list`, `status`, `show`, `--dry-run` ✅
+- Container test harness for Parrot and Debian ✅
 
 **M2 — inventory and coverage. ✅ All five sources are now measured.** Every
 inventory is generated from upstream data and regenerable; none is hand-typed.

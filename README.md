@@ -8,9 +8,9 @@ targeting Debian, Ubuntu, Kali, Linux Mint and Raspberry Pi OS.
 
 ---
 
-## ⚠️ Work in progress — this does not install anything yet
+## ⚠️ Work in progress — it installs apt packages, and nothing else yet
 
-**Status: pre-alpha. Design and inventory phase. There is no working installer.**
+**Status: pre-alpha. The M1 walking skeleton runs; most of the engine does not.**
 
 Being honest about this up front matters more than looking finished, so here is
 exactly where things stand:
@@ -24,20 +24,37 @@ exactly where things stand:
 | Profiles | 🟡 4 written, the rest sized and named on paper |
 | Inventories of all five upstream sources | ✅ complete and measured |
 | Consent gates for RF-research tooling | ✅ working |
-| `install` / `list` / `status` / `--dry-run` CLI | ❌ **not written** |
-| apt backend | ❌ **not written** |
-| Source, git, binary, venv, pipx backends | ❌ **not written** |
+| Distro detection from `/etc/os-release` | ✅ working |
+| `install` / `list` / `status` / `show` / `--dry-run` CLI | ✅ working |
+| apt backend, with real pre-flight resolution | ✅ working |
+| Group membership from a manifest | ✅ working |
+| Source, git, binary, venv, pipx, CPAN backends | ❌ **not written** — refused by name |
+| Third-party apt repos, templated config files | ❌ **not written** — refused by name |
 | udev rule generation | ❌ **not written** |
+| `uninstall` | ❌ **not written** — the log it will read is being written correctly now |
 
-**Do not install this. There is nothing to install.** If you want a working ham
-radio Linux setup today, use one of the projects in [Credit](#credit) below —
-they work now, and this project exists because of them, not instead of them.
+**Only about half the catalog is reachable.** Of AHRL's 95 units, **57 cannot be
+satisfied by apt at all** — that missing 60% is the hard part and is precisely
+what users cannot install themselves, which is the reason the project exists. An
+apt-only installer is a skeleton, not a product. If you want a working ham radio
+Linux setup today, use one of the projects in [Credit](#credit) below — they
+work now, and this project exists because of them, not instead of them.
 
-What *is* usable today is the research. `docs/reference/` contains complete,
-generated inventories of five upstream projects, with per-package availability
-measured inside real containers rather than assumed — and, increasingly, with
-packages actually installed rather than merely reported as available, because
-those two turned out to disagree.
+What it does do, it does completely: `--dry-run` prints every command and every
+system change before anything happens, resolution finishes before installation
+begins so a failure is a report rather than a half-installed machine, and a
+package this engine cannot handle is **refused by name with the reason**, never
+skipped. See [`docs/reference/cli.md`](docs/reference/cli.md).
+
+```
+hammunition install rf-security --dry-run
+```
+
+The other thing that is usable today is the research. `docs/reference/` contains
+complete, generated inventories of five upstream projects, with per-package
+availability measured inside real containers rather than assumed — and,
+increasingly, with packages actually installed rather than merely reported as
+available, because those two turned out to disagree.
 
 **There is one thing you can help with right now**, and it needs no code:
 [contributing hardware identifiers](docs/contributing/hardware.md). Eleven of

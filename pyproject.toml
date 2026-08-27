@@ -14,6 +14,10 @@ dependencies = [
     "PyYAML>=6.0",
 ]
 
+# The console script. `hammunition` is the binary name (CLAUDE.md).
+[project.scripts]
+hammunition = "hammunition.cli.main:main"
+
 [project.optional-dependencies]
 dev = [
     "mypy>=1.10",
