@@ -214,6 +214,48 @@ a defect.
 required doc fields, CLI examples that no longer match actual output, and
 capability-matrix claims not backed by a passing container test.
 
+## CI and tests are not optional
+
+**Every project here gets working CI and a real test suite, and their absence is
+a defect to fix rather than a state to work around.** A maintainer preference,
+recorded once and applying from here on — it does not need asking about again.
+
+This repository already largely does this: eight CI jobs, `mypy --strict` as a
+gate, container-based target tests, and a docs link checker. What follows is
+the reasoning behind the rule, learned the hard way in the sibling project
+[hammunition-hill](https://github.com/ChiefGyk3D/hammunition-hill), so that it
+survives contact with the next repository rather than living in one person's
+head.
+
+- **Put checks in the test suite; let CI run the test suite.** A CI-only script
+  rots, because nobody can run it locally and nobody notices when it stops
+  meaning anything.
+- **A check must be falsifiable.** Break the thing it watches on purpose and
+  confirm it goes red with a message naming the fix, before trusting it. One
+  check in the sibling project was silently passing on the exact input it
+  existed to catch — a comment-stripping regex ate the `//` in `https://`.
+- **Test the matrix, not your machine.** An ElementTree truthiness bug there
+  passed on the dev venv's Python 3.11 and failed on 3.12+. It was a real bug,
+  not a warning to silence.
+- **A check nobody trusts is worse than none.** Two were deliberately left out
+  for that reason: a formatter that would reflow 36 hand-formatted files for no
+  defect caught, and whole-environment dependency auditing that would report
+  advisories against the runner's own pip.
+- **Prove properties, not just behaviour.** That project's test suite blocks
+  every socket to anywhere but loopback, so it cannot quietly depend on the real
+  internet; and it asserts the feature counts in its README against the code,
+  because the README claimed twelve panels for months after there were nineteen.
+- **Run it and look at it.** Three separate visual bugs there passed every test
+  and were found by rendering the page.
+- **Measure before claiming.** An importer's first version needed ~620 MB of RAM
+  at real scale, more than a Pi Zero has, while its docstring claimed the
+  opposite.
+- **Never pin an action from memory; resolve it.** Every pin in that project's
+  first workflow was a real commit and two major versions stale, and one failed
+  outright against the runner's newer CLI. `git ls-remote --tags` is the check.
+  Worth a look here too: this repository's `actions/checkout@v4` is three majors
+  behind current.
+
 ## Conventions
 
 - Idempotent: every operation safe to re-run
