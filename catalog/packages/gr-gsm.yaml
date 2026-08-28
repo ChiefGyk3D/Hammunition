@@ -46,4 +46,8 @@ documentation:
     signal present. The package is built against a specific GNU Radio version
     and breaks when that version changes underneath it, which is the general
     problem D-017 defers all GNU Radio out-of-tree modules for.
-  upstream_url: https://github.com/velichkov/gr-gsm
+  # Debian's own gr-gsm source package declares this Homepage (apt-cache
+  # showsrc, Debian 13, 2026-08-28) — the project moved to Osmocom, and
+  # neither the ptrkrysik original nor the velichkov fork this field
+  # previously named is where the maintained code lives.
+  upstream_url: https://git.osmocom.org/gr-gsm
