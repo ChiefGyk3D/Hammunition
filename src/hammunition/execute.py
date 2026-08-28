@@ -27,6 +27,7 @@ from datetime import UTC, datetime
 from typing import Protocol
 
 from hammunition.backends import (
+    Action,
     AptBackend,
     AptPackageState,
     BackendError,
@@ -36,10 +37,15 @@ from hammunition.backends import (
 from hammunition.plan import InstallPlan
 from hammunition.state import TransactionLog
 
+#: One entry in a plan: a process to run, or something the engine does itself.
+#: `--dry-run` prints these and a real run performs them, from the same objects.
+Step = Command | Action
+
 __all__ = [
     "EffectCheck",
     "ExecutionReport",
     "PackageProber",
+    "Step",
     "Verification",
     "commands_for",
     "execute",
@@ -233,8 +239,8 @@ def verify_effects(
 class ExecutionReport:
     """What actually happened. Partial success is reported explicitly (D-016)."""
 
-    completed: tuple[Command, ...]
-    failed: Command | None
+    completed: tuple[Step, ...]
+    failed: Step | None
     stderr: str
     verification: Verification | None = None
     """The post-run effect check, when one was performed (D-031). ``None`` when
@@ -253,7 +259,7 @@ class ExecutionReport:
 
 
 def execute(
-    commands: Sequence[Command],
+    commands: Sequence[Step],
     runner: CommandRunner,
     *,
     log: TransactionLog,
@@ -295,9 +301,53 @@ def execute(
         }
     )
 
-    completed: list[Command] = []
+    completed: list[Step] = []
     for command in commands:
         write(f"  $ {command.display(euid=shown_as)}")
+
+        if isinstance(command, Action):
+            # An in-process step: same logging shape, same failure contract. It
+            # is logged before it runs for the same reason a command is -- a run
+            # killed mid-extraction must leave a record that extraction started.
+            log.append(
+                {
+                    "event": "action_begin",
+                    "version": 1,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "kind": command.kind,
+                    "detail": command.detail,
+                    "description": command.description,
+                }
+            )
+            try:
+                outcome = command.perform()
+            except BackendError as exc:
+                log.append(
+                    {
+                        "event": "transaction_failed",
+                        "version": 1,
+                        "timestamp": datetime.now(UTC).isoformat(),
+                        "kind": command.kind,
+                        "detail": command.detail,
+                        "error": str(exc),
+                        "completed": len(completed),
+                    }
+                )
+                return ExecutionReport(completed=tuple(completed), failed=command, stderr=str(exc))
+            log.append(
+                {
+                    "event": "action_end",
+                    "version": 1,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "kind": command.kind,
+                    "outcome": outcome,
+                }
+            )
+            if outcome:
+                write(f"    {outcome}")
+            completed.append(command)
+            continue
+
         log.append(
             {
                 "event": "command_begin",

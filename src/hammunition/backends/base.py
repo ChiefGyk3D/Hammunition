@@ -30,11 +30,13 @@ from __future__ import annotations
 import os
 import shlex
 import subprocess
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 __all__ = [
+    "Action",
     "BackendError",
     "Command",
     "CommandResult",
@@ -60,6 +62,15 @@ class Command:
     env: Mapping[str, str] = field(default_factory=dict)
     """Extra environment. ``DEBIAN_FRONTEND=noninteractive`` and nothing secret."""
 
+    cwd: Path | None = None
+    """Where to run it. ``./configure`` has no meaning without one.
+
+    The alternative is ``sh -c 'cd X && ./configure'``, which would put a shell
+    back into a module whose first stated property is that ``shell=True`` is
+    unrepresentable. A directory passed to :func:`subprocess.run` is not a
+    shell, so this stays a plain argv.
+    """
+
     def argv_for(self, *, euid: int, sudo: Sequence[str] = ("sudo",)) -> tuple[str, ...]:
         """The argv actually executed, with escalation applied if it is needed.
 
@@ -82,12 +93,66 @@ class Command:
         return self.argv
 
     def display(self, *, euid: int = 0, sudo: Sequence[str] = ("sudo",)) -> str:
-        """A copy-pasteable rendering of exactly what will run."""
+        """A copy-pasteable rendering of exactly what will run.
+
+        ``cwd`` is rendered as a leading ``cd`` because a build command's
+        meaning depends on where it runs: printing ``./configure`` without
+        saying where would be an incomplete disclosure of a step that is about
+        to modify a machine, and an operator reproducing the plan by hand would
+        run it in the wrong place.
+        """
         if self.requires_root and euid != 0:
             # Escalated: the env is already inside the argv, via `env`.
-            return shlex.join(self.argv_for(euid=euid, sudo=sudo))
-        prefix = "".join(f"{k}={shlex.quote(v)} " for k, v in sorted(self.env.items()))
-        return prefix + shlex.join(self.argv_for(euid=euid, sudo=sudo))
+            rendered = shlex.join(self.argv_for(euid=euid, sudo=sudo))
+        else:
+            prefix = "".join(f"{k}={shlex.quote(v)} " for k, v in sorted(self.env.items()))
+            rendered = prefix + shlex.join(self.argv_for(euid=euid, sudo=sudo))
+        if self.cwd is not None:
+            return f"cd {shlex.quote(str(self.cwd))} && {rendered}"
+        return rendered
+
+
+@dataclass(frozen=True)
+class Action:
+    """Something the engine does *itself*, in process, rather than by exec.
+
+    Two steps of a source build have no honest argv: verifying a download's
+    digest, and unpacking an archive. Both could be shelled out — ``sha256sum``,
+    ``tar -x`` — and both are safer done here, where the file handle and the
+    extraction filter are ours and a redirect or a member named ``../..`` cannot
+    be someone else's default. See :mod:`hammunition.fetch` and the source
+    backend.
+
+    Making them a peer of :class:`Command` rather than a separate mechanism is
+    the point. A plan is a list of steps; the dry run prints them and the real
+    run performs them, from the *same* objects. Describing an in-process step in
+    prose in the plan and doing it in code at run time would be the second code
+    path this module exists to avoid, and CLAUDE.md requires ``--dry-run`` to be
+    complete and accurate rather than approximate.
+
+    ``perform`` returns a one-line outcome for the transcript and the log, and
+    raises :class:`BackendError` to fail the transaction exactly as a non-zero
+    exit does.
+    """
+
+    kind: str
+    """Machine-readable: ``fetch``, ``extract``. Recorded in the log."""
+
+    description: str
+    """Plain language, shown above the step. Says *why*."""
+
+    detail: str
+    """What it will do, concretely — a URL, a path. Shown in place of an argv."""
+
+    perform: Callable[[], str]
+    requires_root: bool = False
+
+    def display(self, *, euid: int = 0, sudo: Sequence[str] = ("sudo",)) -> str:
+        """Rendered for the plan. Bracketed so it cannot be mistaken for a
+        shell command an operator could paste — it is not one, and printing it
+        as though it were would be its own small lie."""
+        del euid, sudo  # an in-process step is never escalated by prefixing
+        return f"[{self.kind}] {self.detail}"
 
 
 @dataclass(frozen=True)
@@ -131,12 +196,18 @@ class SubprocessRunner:
                 text=True,
                 check=False,
                 env=env,
+                cwd=command.cwd,
             )
         except FileNotFoundError as exc:
             raise BackendError(
                 f"{argv[0]!r} is not on PATH, so {command.description.lower()} cannot "
                 f"be attempted. This is a missing prerequisite, not a package that is "
                 f"unavailable."
+            ) from exc
+        except NotADirectoryError as exc:
+            raise BackendError(
+                f"{command.cwd} is not a directory, so {command.description.lower()} "
+                f"cannot be attempted"
             ) from exc
         except PermissionError as exc:
             raise BackendError(f"not permitted to execute {argv[0]!r}: {exc}") from exc

@@ -11,6 +11,7 @@ that reports coverage the engine does not have is the shim CLAUDE.md forbids.
 
 from .apt import AptBackend, AptPackageState, parse_policy
 from .base import (
+    Action,
     BackendError,
     Command,
     CommandResult,
@@ -29,6 +30,7 @@ IMPLEMENTED_MODIFICATIONS: frozenset[str] = frozenset({"group_membership"})
 __all__ = [
     "IMPLEMENTED_METHODS",
     "IMPLEMENTED_MODIFICATIONS",
+    "Action",
     "AptBackend",
     "AptPackageState",
     "BackendError",
