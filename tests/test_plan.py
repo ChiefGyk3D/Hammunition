@@ -598,3 +598,63 @@ def test_declared_patches_are_refused_during_resolution(tmp_path: Path) -> None:
             },
             known={"libexample-dev": None, "fftw2": None},
         )
+
+
+def test_a_depends_naming_another_manifest_is_not_asked_of_apt(tmp_path: Path) -> None:
+    """`depends` holds names in two namespaces. One naming another manifest is
+    pulled into the plan as a catalog package, and must not *also* be probed as
+    a distro package — apt has never heard of `libacars`, so asking would report
+    the transaction unsatisfiable because something we are about to build from
+    source is not in the archive.
+
+    Found by writing the real acarsdec manifest, which depends on our own
+    libacars: the planner's docstring already described the intended behaviour
+    and the code did the other thing.
+    """
+    library = _manifest(
+        name="library",
+        install=[
+            {
+                "install": {
+                    "method": "source",
+                    "source": {"url": "https://example.invalid/l.tar.gz", "sha256": "c" * 64},
+                    "build_system": "cmake",
+                },
+                "build_depends": ["cmake"],
+            }
+        ],
+        update={"probe": {"method": "none"}},
+    )
+    consumer = _manifest(
+        name="consumer",
+        depends=["library", "libreal-dev"],
+        # `depends` pulls the catalog package in; `after` is what orders it.
+        # They are separate on purpose (a runtime dependency need not build
+        # first), which does mean a source library needs both — the real
+        # acarsdec manifest declares both for exactly this reason.
+        after=["library"],
+        install=[
+            {
+                "install": {
+                    "method": "source",
+                    "source": {"url": "https://example.invalid/c.tar.gz", "sha256": "d" * 64},
+                    "build_system": "cmake",
+                },
+                "build_depends": ["cmake"],
+            }
+        ],
+        update={"probe": {"method": "none"}},
+    )
+
+    plan = _resolve(
+        tmp_path,
+        ["consumer"],
+        catalog={"library": library, "consumer": consumer},
+        known={"cmake": None, "libreal-dev": None},  # note: no "library"
+    )
+
+    names = [p.name for p in plan.packages]
+    assert "library" in names, "the catalog dependency was not pulled in"
+    assert names.index("library") < names.index("consumer"), "it must build first"
+    assert "library" not in plan.apt_to_install, "a catalog package was sent to apt"
+    assert "libreal-dev" in plan.apt_to_install, "a genuine distro dependency was dropped"

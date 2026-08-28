@@ -473,11 +473,18 @@ def resolve(
         # else -- which is the whole point. glfer's build_depends name `fftw2`
         # and `libgtk2.0-dev`, two of D-016's four suspected-stale dependency
         # lines; nothing in AHRL ever asked apt whether they still exist.
+        # `depends` holds names in two namespaces (see _pull_catalog_dependencies).
+        # One naming another manifest has already been pulled into the plan as a
+        # catalog package and must NOT also be asked of apt: `libacars` is ours
+        # and apt has never heard of it, so probing it would report the
+        # transaction unsatisfiable because a package we are about to build from
+        # source is not in the archive.
+        distro_depends = tuple(d for d in manifest.depends if d not in catalog)
         if block.install.method == "apt":
-            packages = (*block.install.packages, *manifest.depends)
+            packages = (*block.install.packages, *distro_depends)
             build_only: tuple[str, ...] = ()
         else:
-            packages = (*block.build_depends, *manifest.depends)
+            packages = (*block.build_depends, *distro_depends)
             build_only = tuple(dict.fromkeys(block.build_depends))
         resolved.append((manifest, block, tuple(dict.fromkeys(packages)), build_only))
 
@@ -518,7 +525,7 @@ def resolve(
             for manifest, _, packages, _ in resolved:
                 missing = [p for p in packages if p not in states or not states[p].known]
                 if missing:
-                    origin = {p: "depends" for p in manifest.depends}
+                    origin = {p: "depends" for p in manifest.depends if p not in catalog}
                     origin.update({p: "build_depends" for p in _build_depends_of(manifest)})
                     detail = ", ".join(f"{p} ({origin.get(p, 'install')})" for p in sorted(missing))
                     blockers.append(

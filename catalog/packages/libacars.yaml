@@ -1,0 +1,79 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: libacars
+version: 2.2.1
+summary: Shared library that decodes ACARS application-layer messages
+categories: [listening]
+
+# The Skywave delta's foundation: acarsdec, dumpvdl2 and dumphfdl all link it,
+# so it installs before any of them. Absent from Debian stable *and* unstable
+# (measured in debian:13 and debian:sid, see skywave-inventory.md) — this is a
+# real hole in the distribution rather than release lag, which is why an
+# aeronautical decoding stack cannot be assembled from apt alone.
+install:
+  - install:
+      method: git
+      repo: https://github.com/szpajder/libacars
+      # A tag, so no pin_review is required: upstream decided this revision was
+      # worth naming, which is the judgement D-024 exists to record when a
+      # project stops making it. Newest tag as of 2026-08-28.
+      ref: v2.2.1
+      build_system: cmake
+    build_depends:
+      # Read from upstream's own README rather than guessed. zlib is required
+      # for MIAM and OHMA decompression; libxml2 and jansson are optional but
+      # each disables a message class when absent, so all three are installed —
+      # a decoder that silently leaves OHMA messages undecoded looks like a
+      # reception problem, not a build option.
+      - build-essential
+      - cmake
+      - zlib1g-dev
+      - libxml2-dev
+      - libjansson-dev
+    note: >-
+      Upstream's configuration summary prints which of the three were detected.
+      If a target ever drops one, the build still succeeds and the library
+      quietly loses a capability — the failure mode this project exists to make
+      visible, so it is worth checking the summary rather than the exit status
+      (D-031).
+
+update:
+  probe:
+    method: github_tags
+  strategy: rebuild
+  cadence_hint: >-
+    Tagged releases, infrequent. Last commit on the default branch was
+    2025-11-02 (verified 2026-08-28 from the default branch's head, not
+    GitHub's updated_at — D-032). Maintained rather than busy.
+
+documentation:
+  what_it_does: >-
+    Decodes the application layer that rides inside ACARS, VDL Mode 2 and HFDL
+    messages. The radio decoders recover the text of a message; libacars is what
+    turns that text into structured data — CPDLC clearances, ADS-C position
+    reports, MIAM file transfers, OHMA payloads — and pretty-prints the XML and
+    JSON some of them carry.
+  why_you_want_it: >-
+    You do not install it for itself. It is the shared dependency of acarsdec,
+    dumpvdl2 and dumphfdl, and without it those decoders print raw message
+    bodies instead of decoded content. Installing it first is what makes the
+    rest of the aeronautical cluster useful rather than merely functional.
+  prerequisites: >-
+    None beyond a compiler and CMake. It is a library with no radio hardware
+    requirement of its own — the decoders that link it are where an SDR is
+    needed.
+  known_problems: >-
+    zlib, libxml2 and jansson are each optional at build time and each silently
+    disables a feature when missing: no zlib means compressed MIAM and OHMA
+    messages are left undecoded, no libxml2 means XML is not formatted, no
+    jansson means OHMA JSON is not decoded at all. The build prints a
+    configuration summary saying which were found; a decoder that appears to be
+    receiving nothing useful is worth checking against that summary before
+    blaming the antenna. All three are listed as build dependencies here so the
+    question does not arise.
+  upstream_url: https://github.com/szpajder/libacars
+  upstream_support: >-
+    GitHub issues at https://github.com/szpajder/libacars/issues. The same
+    author maintains dumpvdl2 and dumphfdl, so a decoding question is usually
+    best asked against the decoder rather than the library.

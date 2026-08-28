@@ -1,0 +1,87 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: acarsdec
+version: "4.6"
+summary: VHF ACARS decoder for aircraft datalink messages
+categories: [listening]
+
+depends:
+  # Our own manifest, not an apt package: acarsdec links libacars to decode the
+  # application layer, and `after` sequences the build so the library exists
+  # before this configures against it.
+  - libacars
+
+after:
+  - libacars
+
+install:
+  - install:
+      method: git
+      # SUPERSEDE, applied. The original TLeconte/acarsdec is archived (last
+      # activity 2025-07-31); f00b4r0 is the maintained continuation and is what
+      # Skywave 5.10 already ships, since its 4.4.1 can only have come from this
+      # tree. See dispositions.md.
+      repo: https://github.com/f00b4r0/acarsdec
+      ref: v4.6
+      build_system: cmake
+    build_depends:
+      - build-essential
+      - cmake
+      - pkg-config
+      # Every optional input backend upstream autodetects, except SDRplay and
+      # MQTT. SDRplay is excluded deliberately: its API sits behind an
+      # interactive download gate, so it cannot be checksummed in advance and
+      # cannot meet our security requirement (the same objection Skywave raised
+      # and carried through). MQTT output is a deployment concern, not a
+      # listening one.
+      - librtlsdr-dev
+      - libsoapysdr-dev
+      - libairspy-dev
+      - libsndfile1-dev
+      - libasound2-dev
+      - libcjson-dev
+    note: >-
+      Upstream autodetects each optional library and prints a summary of what
+      was enabled. Missing one does not fail the build — it silently removes an
+      input source or an output format, so the summary is the thing to read
+      rather than the exit status (D-031).
+
+update:
+  probe:
+    method: github_tags
+  strategy: rebuild
+  cadence_hint: >-
+    Tagged releases. Last commit on the default branch 2026-06-28 (verified
+    2026-08-28 from the branch head, not GitHub's updated_at — D-032).
+
+documentation:
+  what_it_does: >-
+    Decodes ACARS — the VHF datalink airliners use for short operational
+    messages — from an SDR, and prints each message with its aircraft
+    registration, flight number, label and text. With libacars present it also
+    decodes the application layer inside those messages: CPDLC clearances and
+    ADS-C position reports rather than raw payloads.
+  why_you_want_it: >-
+    It is the entry point to aeronautical monitoring and it works with the
+    cheapest dongle you own. ACARS sits around 131 MHz in most regions, needs no
+    special antenna beyond something resonant at VHF, and produces readable
+    traffic within minutes. Nothing in Debian does this: `apt-cache search`
+    finds no `acars*` package in stable or unstable, which makes this and its
+    siblings the largest single coverage gap the Debian Blend leaves.
+  prerequisites: >-
+    An SDR (RTL-SDR, Airspy or anything SoapySDR reaches) and a VHF antenna.
+    Install libacars first or the application layer is left undecoded — the
+    catalog sequences that for you.
+  known_problems: >-
+    Optional libraries are autodetected and their absence is silent: without
+    libsndfile there is no file input, without libasound no ALSA input, without
+    libcjson no JSON output. The build prints which were enabled. SDRplay
+    support is deliberately not built here because the vendor API cannot be
+    fetched non-interactively and therefore cannot be verified against a
+    checksum.
+  upstream_url: https://github.com/f00b4r0/acarsdec
+  upstream_support: >-
+    GitHub issues at https://github.com/f00b4r0/acarsdec/issues. Note that the
+    older TLeconte/acarsdec repository is archived and read-only; issues opened
+    there will not be seen.

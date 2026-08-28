@@ -1,0 +1,80 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: dumpvdl2
+version: 2.7.0
+summary: VDL Mode 2 decoder for aircraft datalink
+categories: [listening]
+
+# SUPERSEDES the archived vdlm2dec, which Skywave still ships as 2.3. All four
+# PARITY-POLICY bars are met: same core function, actively maintained, installs
+# the same way, and the trade-off in one sentence — dumpvdl2 is the maintained
+# VDL Mode 2 decoder; vdlm2dec is archived and untouched since 2024-02-11.
+superseded_by: null
+
+depends:
+  - libacars
+after:
+  - libacars
+
+install:
+  - install:
+      method: git
+      repo: https://github.com/szpajder/dumpvdl2
+      ref: v2.7.0
+      build_system: cmake
+    build_depends:
+      - build-essential
+      - cmake
+      - git
+      - pkg-config
+      - libglib2.0-dev
+      - librtlsdr-dev
+      - libsoapysdr-dev
+      # Optional upstream, installed here: sqlite3 enables the offline aircraft
+      # database lookup that turns an ICAO hex code into a registration, and
+      # protobuf-c is needed for the on-disk message format.
+      - libsqlite3-dev
+      - libprotobuf-c-dev
+    note: >-
+      Upstream lists librtlsdr, SoapySDR, sqlite3 and protobuf-c as optional and
+      autodetects each. As with the rest of this cluster, a missing one removes
+      a capability without failing the build, so the cmake summary is the thing
+      to check.
+
+update:
+  probe:
+    method: github_tags
+  strategy: rebuild
+  cadence_hint: >-
+    Tagged releases. Last commit on the default branch 2026-08-01 (verified
+    2026-08-28 from the branch head — D-032). The most actively developed of the
+    three szpajder decoders.
+
+documentation:
+  what_it_does: >-
+    Decodes VDL Mode 2, the higher-rate digital successor to plain ACARS that
+    airliners use over land. It recovers the link layer and, through libacars,
+    the applications riding on it — CPDLC controller-pilot messages, ADS-C
+    position contracts, and ACARS-over-AVLC traffic.
+  why_you_want_it: >-
+    VDL2 carries most of the datalink traffic that plain ACARS used to, so in
+    much of Europe and North America it is where the interesting messages have
+    moved. It runs on the same dongle and the same VHF antenna as acarsdec, on
+    adjacent frequencies around 136 MHz, and the two are usually run together.
+  prerequisites: >-
+    An SDR and a VHF antenna. libacars must be installed first for application
+    decoding, which the catalog sequences. The aircraft-registration lookup
+    needs a Basestation-format database file you supply yourself; upstream
+    documents where to get one.
+  known_problems: >-
+    Skywave ships the archived `vdlm2dec` instead of this, and its published
+    `decoders.sh` carries an `update_dumpvdl2` function with a missing leading
+    slash in a `cd` path, so that build runs in whatever directory the previous
+    job left. Neither affects us — we carry the maintained decoder and have no
+    `cd` to get wrong — but it is why the version Skywave documents and the one
+    it ships differ.
+  upstream_url: https://github.com/szpajder/dumpvdl2
+  upstream_support: >-
+    GitHub issues at https://github.com/szpajder/dumpvdl2/issues. Same author as
+    libacars and dumphfdl.

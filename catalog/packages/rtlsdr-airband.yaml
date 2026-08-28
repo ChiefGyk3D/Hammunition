@@ -1,0 +1,81 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: rtlsdr-airband
+version: 5.3.1
+summary: Multi-channel AM/NFM voice receiver with streaming output
+categories: [listening]
+
+install:
+  - install:
+      method: git
+      # Canonical repository, resolved past two redirects: both
+      # szpajder/RTLSDR-Airband and charlie-foxtrot/RTLSDR-Airband still answer
+      # and both now redirect here. GitHub's licence API answers happily for a
+      # redirect, which is why the URL was followed to its final location rather
+      # than trusted (D-018).
+      repo: https://github.com/rtl-airband/RTLSDR-Airband
+      ref: v5.3.1
+      build_system: cmake
+    build_depends:
+      # Read from upstream's own Dockerfile and translated from Alpine names to
+      # Debian ones: build-base -> build-essential, pkgconf -> pkg-config,
+      # lame-dev -> libmp3lame-dev, fftw-dev -> libfftw3-dev, pulseaudio-dev ->
+      # libpulse-dev, soapy-sdr-dev -> libsoapysdr-dev, airspyone-host-dev ->
+      # libairspy-dev.
+      - build-essential
+      - cmake
+      - pkg-config
+      - librtlsdr-dev
+      - libsoapysdr-dev
+      - libairspy-dev
+      - libmp3lame-dev
+      - libshout3-dev
+      - libconfig-dev
+      - libfftw3-dev
+      - libusb-1.0-0-dev
+      - libpulse-dev
+    note: >-
+      Upstream's container build compiles rtl-sdr-blog from source for RTL-SDR
+      V4 support rather than using the distribution's librtlsdr. We take the
+      distribution package instead; if a V4 dongle is the target, see the
+      `rtl_sdr_v4` disposition, which is a separate decision from this build.
+
+update:
+  probe:
+    method: github_tags
+  strategy: rebuild
+  cadence_hint: >-
+    Tagged releases, actively developed. Last commit on the default branch
+    2026-08-23 (verified 2026-08-28 from the branch head — D-032). Skywave ships
+    4.0.2, well behind.
+
+documentation:
+  what_it_does: >-
+    Receives many narrowband voice channels at once from a single SDR and
+    outputs them as audio: to a local sound device, to files, or to an Icecast
+    server. Built for air-band AM monitoring, where a dozen tower, ground and
+    approach frequencies sit within one dongle's bandwidth, but it handles NFM
+    equally well.
+  why_you_want_it: >-
+    Nothing else in the catalog turns one dongle into a multi-channel scanner
+    with no moving parts and no scanning delay — every channel is demodulated
+    continuously, so nothing is missed while the receiver is elsewhere. The
+    Icecast output is what makes a feed shareable, which is how most public
+    air-band streams are produced.
+  prerequisites: >-
+    An SDR and an antenna for the band of interest. A configuration file is
+    required and is the real work: channels, gains, squelch and outputs are all
+    declared there. Streaming to Icecast needs a server and credentials, which
+    are yours to supply and are deliberately never written into the catalog.
+  known_problems: >-
+    CPU use scales with the number of channels and the sample rate; on a Pi this
+    is the limiting factor rather than the radio. Upstream builds against
+    rtl-sdr-blog rather than the distribution's librtlsdr in order to support
+    RTL-SDR V4 dongles — with the distribution library a V4 may not tune
+    correctly.
+  upstream_url: https://github.com/rtl-airband/RTLSDR-Airband
+  upstream_support: >-
+    GitHub issues and the project wiki at
+    https://github.com/rtl-airband/RTLSDR-Airband. Note that the older
+    szpajder/ and charlie-foxtrot/ URLs redirect here; issues belong on this one.
