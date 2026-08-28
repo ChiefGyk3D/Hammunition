@@ -61,6 +61,7 @@ __all__ = [
     "SourceLayout",
     "build_commands",
     "extract",
+    "needs_root_for",
     "prepare_tree",
 ]
 
@@ -292,6 +293,25 @@ class SourceBackend:
         )
 
 
+def needs_root_for(prefix: Path) -> bool:
+    """Whether installing into *prefix* requires escalation on this machine.
+
+    ``/usr/local`` needs root; a prefix under the operator's home does not, and
+    asking for a password to write somewhere already writable is both rude and
+    a lie about what the command needs. Answered against the nearest existing
+    ancestor, because the leaf usually does not exist until the install creates
+    it.
+
+    Under ``sudo`` this is trivially true of everything, which is correct: the
+    step is running as root either way, and ``argv_for`` drops the prefix when
+    the euid is already 0.
+    """
+    probe = prefix
+    while not probe.exists() and probe != probe.parent:
+        probe = probe.parent
+    return not os.access(probe, os.W_OK)
+
+
 def _compiler_env(compiler_flags: Sequence[str]) -> dict[str, str]:
     """``compiler_flags`` as CFLAGS/CXXFLAGS.
 
@@ -332,6 +352,7 @@ def build_commands(
     env = _compiler_env(compiler_flags)
     args = list(configure_args)
     jobs_arg = str(jobs)
+    privileged = needs_root_for(prefix)
     if build_system == "cmake":
         return [
             Command(
@@ -356,7 +377,7 @@ def build_commands(
             Command(
                 argv=("cmake", "--install", str(layout.build)),
                 description=f"Install {name} into {prefix}",
-                requires_root=True,
+                requires_root=privileged,
             ),
         ]
 
@@ -377,7 +398,7 @@ def build_commands(
             Command(
                 argv=("make", "install"),
                 description=f"Install {name} into {prefix}",
-                requires_root=True,
+                requires_root=privileged,
                 cwd=layout.src,
             ),
         ]
@@ -402,7 +423,7 @@ def build_commands(
             Command(
                 argv=("make", "install"),
                 description=f"Install {name} into {prefix}",
-                requires_root=True,
+                requires_root=privileged,
                 cwd=layout.src,
             ),
         ]
@@ -418,7 +439,7 @@ def build_commands(
         Command(
             argv=("make", "install", f"PREFIX={prefix}"),
             description=f"Install {name} into {prefix}",
-            requires_root=True,
+            requires_root=privileged,
             cwd=layout.src,
         ),
     ]
