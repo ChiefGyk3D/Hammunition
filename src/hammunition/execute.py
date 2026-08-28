@@ -33,7 +33,9 @@ from hammunition.backends import (
     BackendError,
     Command,
     CommandRunner,
+    SourceBackend,
 )
+from hammunition.manifest.schema import SourceInstall
 from hammunition.plan import InstallPlan
 from hammunition.state import TransactionLog
 
@@ -90,18 +92,36 @@ def commands_for(
     *,
     refresh: bool = False,
     current_groups: frozenset[str] | None = None,
-) -> list[Command]:
-    """Every command this plan implies, in the order it will run.
+    source: SourceBackend | None = None,
+) -> list[Step]:
+    """Every step this plan implies, in the order it will run.
 
-    Group membership comes after installation on purpose: several of these
-    groups are created by the package being installed (Debian's
-    ``wireshark-common`` creates ``wireshark``), so adding the operator first
-    would fail on a group that does not exist yet.
+    The order is not cosmetic. apt runs first because a source build needs its
+    ``build_depends`` — its compiler, its headers — present before ``./configure``
+    can succeed. Group membership comes last because several of these groups are
+    created by the package being installed (Debian's ``wireshark-common`` creates
+    ``wireshark``), so adding the operator first would fail on a group that does
+    not exist yet.
+
+    ``source`` is required if the plan holds any source build, and its absence
+    is an error rather than a silent skip — a plan that quietly dropped the one
+    step that installs the software would report success having done nothing.
     """
-    commands: list[Command] = []
+    commands: list[Step] = []
     if refresh:
         commands.append(apt.refresh_command())
     commands.extend(apt.install_commands(plan.apt_to_install))
+
+    for planned in plan.packages:
+        block = planned.block.install
+        if not isinstance(block, SourceInstall):
+            continue
+        if source is None:
+            raise BackendError(
+                f"{planned.name} is a source build and no source backend was supplied. "
+                f"Skipping it would report a successful run that installed nothing."
+            )
+        commands.extend(source.steps(planned.manifest, block))
 
     cache: dict[str, frozenset[str]] = {}
     for membership in plan.group_memberships:

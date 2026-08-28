@@ -37,12 +37,14 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 
 from hammunition.backends import IMPLEMENTED_METHODS, IMPLEMENTED_MODIFICATIONS, AptBackend
+from hammunition.backends.source import IMPLEMENTED_BUILD_SYSTEMS
 from hammunition.distro import Target
 from hammunition.manifest.schema import (
     ConsentGate,
     InstallBlock,
     PackageManifest,
     ProfileManifest,
+    SourceInstall,
     Status,
 )
 
@@ -111,6 +113,15 @@ class PlannedPackage:
 
     already_installed: tuple[str, ...] = ()
     requested_by: tuple[str, ...] = (REQUESTED_DIRECTLY,)
+
+    build_only: tuple[str, ...] = ()
+    """Of `apt_packages`, the ones that are `build_depends`.
+
+    They are installed like any other apt package -- a build needs its
+    toolchain present -- but they are not the software the operator asked for,
+    and the plan says so. Reporting `libgtk2.0-dev` in the same breath as
+    `glfer` would misdescribe what was installed and, later, what `uninstall`
+    may safely remove."""
 
     @property
     def name(self) -> str:
@@ -264,6 +275,18 @@ def _order(
     return ordered
 
 
+def _build_depends_of(manifest: PackageManifest) -> set[str]:
+    """Every apt name that appears as a build dependency anywhere in *manifest*.
+
+    Used only to label a missing package in a blocker, so an operator is told
+    that `fftw2` is something glfer needs to *build* rather than something it
+    needs to run. Across all blocks rather than the resolved one, because the
+    label is cosmetic and a name that is a build dependency on any target is a
+    build dependency for the purpose of that sentence.
+    """
+    return {name for block in manifest.install for name in block.build_depends}
+
+
 def _check_engine_capability(manifest: PackageManifest, block: InstallBlock) -> list[Blocker]:
     """Refuse, by name, anything this engine build cannot actually do.
 
@@ -289,6 +312,39 @@ def _check_engine_capability(manifest: PackageManifest, block: InstallBlock) -> 
                 ),
             )
         )
+
+    if isinstance(block.install, SourceInstall) and method in IMPLEMENTED_METHODS:
+        # D-016: everything the run cannot do is found before anything is done.
+        # The backend raises on these too, but discovering them after the apt
+        # step has already installed a toolchain is exactly the fix-one-re-run
+        # shape resolution exists to prevent.
+        source: SourceInstall = block.install
+        if source.build_system not in IMPLEMENTED_BUILD_SYSTEMS:
+            found.append(
+                Blocker(
+                    subject=manifest.name,
+                    reason=(
+                        f"builds with {source.build_system!r}, which this engine build "
+                        f"does not implement (it implements "
+                        f"{', '.join(sorted(IMPLEMENTED_BUILD_SYSTEMS))})"
+                    ),
+                    remedy=(
+                        "no manifest in the catalog uses it, so this is an unimplemented "
+                        "gap rather than a regression (D-014)"
+                    ),
+                )
+            )
+        if source.patches:
+            found.append(
+                Blocker(
+                    subject=manifest.name,
+                    reason=f"declares {len(source.patches)} source patch(es), which cannot be applied yet",
+                    remedy=(
+                        "building the source unpatched would produce a binary the manifest "
+                        "does not describe, so it is refused rather than approximated"
+                    ),
+                )
+            )
 
     if manifest.apt_repos:
         names = ", ".join(repo.name for repo in manifest.apt_repos)
@@ -378,7 +434,8 @@ def resolve(
 
     ordered = _order(wanted, catalog, blockers)
 
-    resolved: list[tuple[PackageManifest, InstallBlock, tuple[str, ...]]] = []
+    # (manifest, block, every apt package it needs, which of those are build-only)
+    resolved: list[tuple[PackageManifest, InstallBlock, tuple[str, ...], tuple[str, ...]]] = []
     for name in ordered:
         manifest = catalog[name]
 
@@ -409,13 +466,22 @@ def resolve(
             blockers.extend(capability)
             continue
 
-        # Only apt reaches here — _check_engine_capability rejects everything else.
-        assert block.install.method == "apt"
-        packages = (*block.install.packages, *manifest.depends)
-        resolved.append((manifest, block, tuple(dict.fromkeys(packages))))
+        # apt and source reach here; _check_engine_capability rejects the rest.
+        # A source build needs its `build_depends` from apt before it can start,
+        # and those go through the same pre-flight candidate check as everything
+        # else -- which is the whole point. glfer's build_depends name `fftw2`
+        # and `libgtk2.0-dev`, two of D-016's four suspected-stale dependency
+        # lines; nothing in AHRL ever asked apt whether they still exist.
+        if block.install.method == "apt":
+            packages = (*block.install.packages, *manifest.depends)
+            build_only: tuple[str, ...] = ()
+        else:
+            packages = (*block.build_depends, *manifest.depends)
+            build_only = tuple(dict.fromkeys(block.build_depends))
+        resolved.append((manifest, block, tuple(dict.fromkeys(packages)), build_only))
 
     # -- one apt probe for the whole transaction ---------------------------
-    all_apt = sorted({p for _, _, packages in resolved for p in packages})
+    all_apt = sorted({p for _, _, packages, _ in resolved for p in packages})
     states = {}
     notes: list[str] = []
     if all_apt:
@@ -448,10 +514,11 @@ def resolve(
                 )
         else:
             states = apt.probe(all_apt)
-            for manifest, _, packages in resolved:
+            for manifest, _, packages, _ in resolved:
                 missing = [p for p in packages if p not in states or not states[p].known]
                 if missing:
                     origin = {p: "depends" for p in manifest.depends}
+                    origin.update({p: "build_depends" for p in _build_depends_of(manifest)})
                     detail = ", ".join(f"{p} ({origin.get(p, 'install')})" for p in sorted(missing))
                     blockers.append(
                         Blocker(
@@ -476,8 +543,9 @@ def resolve(
             apt_packages=packages,
             already_installed=tuple(p for p in packages if p in states and states[p].is_installed),
             requested_by=tuple(dict.fromkeys(wanted[manifest.name])),
+            build_only=build_only,
         )
-        for manifest, block, packages in resolved
+        for manifest, block, packages, build_only in resolved
     )
 
     # An empty operator name is how `gpasswd --add '' wireshark` got built on the

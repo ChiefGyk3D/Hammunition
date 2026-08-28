@@ -41,17 +41,25 @@ somebody who needed the data.
 
 ## The transaction lifecycle
 
-A run writes these in order. Each command is logged **before** it runs and its
+A run writes these in order. Each step is logged **before** it runs and its
 outcome after, so a run killed mid-`apt-get` leaves a `command_begin` with no
 matching end — which is exactly the state an operator needs to see, and the
 state a log written only on success would hide.
+
+Steps come in two kinds and are logged on the same contract. A **command** is a
+process; an **action** is something the engine does itself, in process — today
+verifying a download's digest and unpacking an archive, neither of which has an
+honest `argv`. An action that fails ends the transaction exactly as a non-zero
+exit does.
 
 | `event` | Written | Carries |
 |---|---|---|
 | `transaction_begin` | Once, first | `target`, the manifest `packages` requested, the `apt_packages` the whole set resolved to. |
 | `command_begin` | Before each command | `argv`, `requires_root`, `description`. |
 | `command_end` | After each command that ran | `argv`, `returncode`. |
-| `transaction_failed` | Instead of the rest, on the first failure | the failing `argv`, its `returncode` (or `error` for a missing binary), and how many commands `completed` before it. |
+| `action_begin` | Before each in-process step | `kind` (`fetch`, `extract`), `detail`, `description`. |
+| `action_end` | After each in-process step | `kind`, `outcome` — one line saying what actually happened, e.g. the bytes fetched and the digest verified. |
+| `transaction_failed` | Instead of the rest, on the first failure | the failing `argv`, its `returncode` (or `error` for a missing binary), and how many commands `completed` before it. For an in-process step, `kind` and `detail` in place of `argv`. |
 | `transaction_end` | Once, on the success path | `completed`, and the effect check below. |
 
 ### `transaction_end` — version 2, the effect check (D-031)

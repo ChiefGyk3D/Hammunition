@@ -5,10 +5,15 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # CLI reference
 
-The `hammunition` command. This is the M1 walking skeleton: **the apt backend
-and nothing else**. Six further backends are measured, named and scheduled for
-1.0 (`docs/DESIGN.md` §6), and a package needing one is **refused by name**
-rather than skipped — see [What it refuses](#what-it-refuses).
+The `hammunition` command. Two backends are implemented: **apt** and
+**source**. Four more are measured, named and scheduled for 1.0
+(`docs/DESIGN.md` §6) — git, binary, venv, pipx — and a package needing one is
+**refused by name** rather than skipped; see
+[What it refuses](#what-it-refuses).
+
+The source backend is the expensive half of the parity target: **57 of AHRL's
+95 units cannot be satisfied by apt**, and 35 of those are source builds from
+bundled tarballs.
 
 ## Installing the engine
 
@@ -85,8 +90,13 @@ Resolution is a distinct phase that finishes before anything is executed
 4. **Resolve** each manifest against `(distro, version, arch)`. No matching
    install block means this target is genuinely unsupported for that package.
 5. **Check what this engine can actually do** — see below.
-6. **Ask apt once**, about every distro package the whole transaction needs,
-   the manifests' own packages and their `depends` together.
+6. **Ask apt once**, about every distro package the whole transaction needs —
+   the manifests' own packages, their `depends`, and the `build_depends` of any
+   source build, together. This is how a stale build dependency is caught before
+   a compiler is installed rather than after `./configure` fails: glfer's
+   `build_depends` name `fftw2` and `libgtk2.0-dev`, two of the four AHRL
+   dependency lines **D-016** records as suspected-stale, and nothing in AHRL
+   ever asked apt whether they still exist.
 7. **Print the plan**, in full, for every run and not only for `--dry-run`.
 8. **Present any consent gate**, then confirm, then execute.
 
@@ -102,7 +112,10 @@ capability matrix that reports coverage the engine does not have is the shim
 
 | Situation | What you see |
 |---|---|
-| A `source`, `git`, `binary`, `venv` or `pipx` install block | the backend named, and that it is scheduled but not written |
+| A `git`, `binary`, `venv` or `pipx` install block | the backend named, and that it is scheduled but not written |
+| A `source` block whose `build_system` is `custom` | the build system named. No manifest uses it, so it is an unimplemented gap rather than a regression (**D-014**) |
+| A `source` block declaring `patches` | that applying them is not implemented — building unpatched source would produce a binary the manifest does not describe |
+| A `build_depends` package apt has no candidate for | which name, marked `build_depends`, **before** the toolchain is installed |
 | A manifest declaring third-party `apt_repos` | that adding a repository with a pinned key is a disclosed modification of its own |
 | A manifest with `config_files` | that station-local configuration is the open design question it waits on (`docs/DESIGN.md` §15.3) |
 | A `system_modifications` kind other than `group_membership` | the kind, by name |
@@ -123,9 +136,69 @@ apt. This asks.
 commands stay unprivileged, `sudo` is added in exactly one place, and
 resolution never asks for it at all — so `--dry-run` works as a normal user.
 
-Only two kinds of privileged command exist today: `apt-get`, and `gpasswd
---add` for a manifest's declared `group_membership`. Both are printed before
-they run and recorded in the transaction log.
+Three kinds of privileged command exist today: `apt-get`, `gpasswd --add` for a
+manifest's declared `group_membership`, and the final install step of a source
+build (`make install`, `cmake --install`). Each is printed before it runs and
+recorded in the transaction log.
+
+**A source build compiles as the operator, not as root.** Only the install into
+`/usr/local` is escalated. A build run wholly as root would leave a tree of
+root-owned object files in the operator's own cache for no benefit.
+
+## How a source build works
+
+A `source` install block becomes six steps, all of them printed before any of
+them happens.
+
+```
+  # Install 3 package(s) with apt
+  $ sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes -- fftw2 libgdk-pixbuf-2.0-dev libgtk2.0-dev
+  # Download and verify the glfer source archive
+  $ [fetch] https://www.qsl.net/in3otd/glfer-0.4.2.tar.gz -> ~/.cache/hammunition/artifacts/06aad6fa…-glfer-0.4.2.tar.gz (sha256 verified)
+  # Unpack the glfer source
+  $ [extract] ~/.cache/hammunition/artifacts/06aad6fa…-glfer-0.4.2.tar.gz -> ~/.cache/hammunition/build/glfer-06aad6fa/src
+  # Configure glfer
+  $ cd ~/.cache/hammunition/build/glfer-06aad6fa/src && CFLAGS='-Wno-incompatible-pointer-types …' ./configure --prefix=/usr/local
+  # Compile glfer
+  $ cd ~/.cache/hammunition/build/glfer-06aad6fa/src && CFLAGS='…' make -j 8
+  # Install glfer into /usr/local
+  $ cd ~/.cache/hammunition/build/glfer-06aad6fa/src && sudo make install
+```
+
+A `[fetch]` or `[extract]` line is a step the engine performs **itself**, in
+process, rather than a command you could paste — which is why it is bracketed
+rather than rendered as a shell line. Both could have been shelled out to
+`sha256sum` and `tar`, and both are safer here: the file handle and the
+extraction filter are ours, so a redirect to `file://` and an archive member
+named `../../etc/cron.d/x` are refused by construction rather than by whatever
+the local tool happens to default to.
+
+Everything else is an ordinary `Command` with a working directory, rendered as a
+leading `cd` so the line stays copy-pasteable and an operator reproducing the
+plan by hand runs it in the right place.
+
+**Where things go.** Verified archives land in
+`$XDG_CACHE_HOME/hammunition/artifacts`, named by their own sha256 — the path
+encodes the expectation, so a file at that path can only be content that matched
+it. Build trees go in `$XDG_CACHE_HOME/hammunition/build`. Both are caches in
+the real sense: deleting them costs a re-download and a rebuild and nothing else.
+Under `sudo` they follow the operator, not root, for the same reason the
+transaction log does.
+
+**Verification is not optional and cannot be skipped.** The schema requires
+`sha256` on every remote artifact, so an unverified download cannot be expressed
+in the catalog; the fetcher streams to a temporary file, hashes as it writes, and
+moves the result into place only on a match. A mismatch deletes the download and
+stops the run. A cached artifact is re-hashed on every use rather than trusted
+for having been verified once.
+
+Signature verification is **not** implemented. `signature_url` and
+`signing_key_fingerprint` are carried in the catalog and are not checked, so an
+artifact declaring them is digest-pinned rather than signed, and the plan says so.
+
+**Build systems:** `cmake`, `autotools`, `qmake` and `make`, which is what the
+catalog uses (6 / 2 / 2 / 2). `custom` is a measured zero and is refused by name
+(**D-014**).
 
 ## Consent gates
 

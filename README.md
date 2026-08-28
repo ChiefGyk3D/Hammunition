@@ -28,17 +28,19 @@ exactly where things stand:
 | `install` / `list` / `status` / `show` / `--dry-run` CLI | ✅ working |
 | apt backend, with real pre-flight resolution | ✅ working |
 | Group membership from a manifest | ✅ working |
-| Source, git, binary, venv, pipx, CPAN backends | ❌ **not written** — refused by name |
+| Source builds from a verified tarball (cmake, autotools, qmake, make) | ✅ working |
+| git, binary, venv, pipx, CPAN backends | ❌ **not written** — refused by name |
 | Third-party apt repos, templated config files | ❌ **not written** — refused by name |
 | udev rule generation | ❌ **not written** |
 | `uninstall` | ❌ **not written** — the log it will read is being written correctly now |
 
-**Only about half the catalog is reachable.** Of AHRL's 95 units, **57 cannot be
-satisfied by apt at all** — that missing 60% is the hard part and is precisely
-what users cannot install themselves, which is the reason the project exists. An
-apt-only installer is a skeleton, not a product. If you want a working ham radio
-Linux setup today, use one of the projects in [Credit](#credit) below — they
-work now, and this project exists because of them, not instead of them.
+**Much of the catalog is still out of reach.** Of AHRL's 95 units, **57 cannot
+be satisfied by apt at all** — that missing 60% is the hard part and is precisely
+what users cannot install themselves, which is the reason the project exists. The
+largest single slice of it, the 35 source builds from bundled tarballs, is now
+reachable; the rest is not. If you want a working ham radio Linux setup today,
+use one of the projects in [Credit](#credit) below — they work now, and this
+project exists because of them, not instead of them.
 
 What it does do, it does completely: `--dry-run` prints every command and every
 system change before anything happens, resolution finishes before installation

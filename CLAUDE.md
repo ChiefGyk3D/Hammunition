@@ -356,7 +356,9 @@ src/hammunition/
   state/           # transaction log, uninstall              ✅ log only
   plan.py          # pre-flight resolution (D-016)           ✅
   execute.py       # plan -> commands -> runner              ✅
-  backends/        # apt ✅; source, git, binary, venv, pipx, CPAN ❌
+  backends/        # apt ✅ source ✅; git, binary, venv, pipx, CPAN ❌
+  fetch.py         # verified download, mandatory sha256          ✅
+  paths.py         # owner-aware XDG dirs (log, cache, build)     ✅
   distro/          # /etc/os-release detection               ✅
   hardware/        # USB/serial detection, udev generation   ❌ not written
 docs/              # "Hacker's Ham Shack" — guides and labs (section title, not a brand)
@@ -365,12 +367,15 @@ docs/              # "Hacker's Ham Shack" — guides and labs (section title, no
 tests/
 ```
 
-Ticks mark what exists. **M1's walking skeleton runs**: detect, resolve, print,
-install, log. What it cannot do it refuses by name — six backends, third-party
-apt repos, templated config files and udev generation are all measured, named
-and absent. Do not let the working skeleton read as a working installer: **57 of
-AHRL's 95 units cannot be satisfied by apt**, so apt-only is roughly 40% of the
-parity target and the missing 60% is the hard part (**D-004**).
+Ticks mark what exists. **M1's walking skeleton runs** — detect, resolve, print,
+install, log — and **M3 has begun**: the verified fetcher and the
+source-from-tarball backend are written, so a `source` manifest now plans and
+builds end to end. What it cannot do it still refuses by name: four backends
+(git, binary, venv, pipx), third-party apt repos, templated config files and
+udev generation are measured, named and absent. Do not let this read as a
+working installer: **57 of AHRL's 95 units cannot be satisfied by apt**, and
+while source-from-tarball is the largest single slice of that 57 (35 units), the
+rest of the 60% is still the hard part (**D-004**).
 
 ## Closed questions
 
@@ -484,10 +489,15 @@ Measured from the inventory: **57 of 95 AHRL units cannot be satisfied by apt** 
 40% of the parity target, and the missing 60% is precisely what users cannot
 install themselves — the reason this project exists (**D-004**).
 
-Required for 1.0: apt, source-from-tarball, source-from-git, binary/`.deb`/
-archive, Python venv, pipx, **CPAN** (`aa-analyzer` needs
+Required for 1.0: apt ✅, source-from-tarball ✅, source-from-git,
+binary/`.deb`/archive, Python venv, pipx, **CPAN** (`aa-analyzer` needs
 `Device::SerialPort`), and launcher generation (14 units need a generated
 wrapper).
+
+**Build systems are measured too.** The source backend implements `cmake` (6),
+`autotools` (2), `qmake` (2) and `make` (2) — counted across the catalog's
+twelve `source` and `git` blocks. `custom` and `patches` are **measured zeros**
+and are refused by name rather than built for speculatively.
 
 Measured zeros — recorded, not deleted, so they are not re-added by convention:
 `cargo` 0, `flatpak` 0, `appimage` 0 in AHRL. AppImage and a configured Wine

@@ -9,11 +9,11 @@ should be installable without pulling anything extra in to parse its own
 arguments.
 
 The shape follows M1: ``install``, ``list``, ``status``, ``--dry-run``. What
-the engine cannot do it says so, by name — there are six backends measured and
-scheduled for 1.0 that are not written, and a package needing one is refused
-with the backend named rather than skipped. CLAUDE.md forbids a shim that makes
-an unsupported combination appear to work, and a CLI that quietly drops the
-packages it cannot handle is that shim.
+the engine cannot do it says so, by name — four backends measured and scheduled
+for 1.0 are not written (git, binary, venv, pipx), and a package needing one is
+refused with the backend named rather than skipped. CLAUDE.md forbids a shim
+that makes an unsupported combination appear to work, and a CLI that quietly
+drops the packages it cannot handle is that shim.
 
 Exit codes, because scripts read them:
 
@@ -34,7 +34,12 @@ import textwrap
 from collections.abc import Sequence
 from pathlib import Path
 
-from hammunition.backends import AptBackend, BackendError, Command, SubprocessRunner
+from hammunition.backends import (
+    AptBackend,
+    BackendError,
+    SourceBackend,
+    SubprocessRunner,
+)
 from hammunition.consent import (
     ConsentDeclined,
     ConsentUnavailable,
@@ -42,9 +47,11 @@ from hammunition.consent import (
     resolve_consent,
 )
 from hammunition.distro import DetectionError, Target
-from hammunition.execute import commands_for, execute
+from hammunition.execute import Step, commands_for, execute
+from hammunition.fetch import Fetcher
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
 from hammunition.manifest.schema import PackageManifest, ProfileManifest, Status
+from hammunition.paths import build_root
 from hammunition.plan import InstallPlan, PlanError, resolve
 from hammunition.state import TransactionLog, log_path
 
@@ -105,7 +112,7 @@ def load_all(
 
 def render_plan(
     plan: InstallPlan,
-    commands: Sequence[Command],
+    commands: Sequence[Step],
     *,
     euid: int,
     log_destination: Path | None = None,
@@ -136,7 +143,11 @@ def render_plan(
             lines.append(f"  {planned.name:<28} {state:<18} [{why}]")
             for apt_package in planned.apt_packages:
                 mark = "+" if apt_package in planned.outstanding else "="
-                lines.append(f"      {mark} {apt_package}")
+                # A build dependency is installed like any other apt package but
+                # is not the software that was asked for, and saying so is the
+                # difference between "glfer needs GTK2" and "glfer is GTK2".
+                note = "  (to build)" if apt_package in planned.build_only else ""
+                lines.append(f"      {mark} {apt_package}{note}")
         lines.append("")
 
     if plan.group_memberships:
@@ -367,7 +378,15 @@ def cmd_install(args: argparse.Namespace) -> int:
         return EXIT_FAILED
 
     euid = os.geteuid()
-    commands = commands_for(plan, apt, refresh=args.refresh)
+    # The artifact cache and the build tree belong to the operator, not to root:
+    # under sudo they would otherwise land in /root, invisible to the person who
+    # asked for the build and re-downloaded on their next unprivileged run. Same
+    # reasoning as the transaction log, and the same helper resolves both.
+    source = SourceBackend(
+        Fetcher(owner=user or None),
+        build_root=build_root(user or None),
+    )
+    commands = commands_for(plan, apt, refresh=args.refresh, source=source)
     # Disclose the log destination in the plan itself, so the file write (and,
     # under sudo, the chown to the operator) is shown before it happens rather
     # than surfacing after. A handoff only occurs when root is writing into

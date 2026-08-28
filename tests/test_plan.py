@@ -536,3 +536,80 @@ def test_a_gated_profile_carries_its_gate_into_the_plan(tmp_path: Path) -> None:
     plan = _resolve(tmp_path, ["gated"], profiles={"gated": profile})
     assert plan.consent_gates[0][0] == "gated"
     assert plan.consent_gates[0][1].env_var == "HAMMUNITION_ACCEPT_TESTING"
+
+
+# ---------------------------------------------------------------------------
+# Source builds: build_depends go through the same pre-flight apt check
+# ---------------------------------------------------------------------------
+
+
+def _source_manifest(**install: Any) -> PackageManifest:
+    block: dict[str, Any] = {
+        "method": "source",
+        "source": {"url": "https://example.invalid/example-1.0.tar.gz", "sha256": "a" * 64},
+        "build_system": "autotools",
+    }
+    block.update(install)
+    return _manifest(
+        install=[{"install": block, "build_depends": ["libexample-dev", "fftw2"]}],
+        update={"probe": {"method": "none"}},
+    )
+
+
+def test_build_depends_are_what_a_source_build_installs(tmp_path: Path) -> None:
+    """A source build installs its toolchain from apt, not itself. The manifest's
+    own name is not an apt package and must not be treated as one."""
+    plan = _resolve(
+        tmp_path,
+        ["example"],
+        catalog={"example": _source_manifest()},
+        known={"libexample-dev": None, "fftw2": None},
+    )
+    planned = plan.packages[0]
+    assert set(planned.apt_packages) == {"libexample-dev", "fftw2"}
+    assert set(planned.build_only) == {"libexample-dev", "fftw2"}
+    assert "example" not in planned.apt_packages
+
+
+def test_a_stale_build_dependency_is_caught_before_anything_is_built(tmp_path: Path) -> None:
+    """D-016's whole point, now reaching source builds. glfer's real
+    build_depends name `fftw2` and `libgtk2.0-dev`, two of the four AHRL
+    dependency lines suspected of having gone stale years ago — nothing in AHRL
+    ever asked apt whether they still exist. This asks, before the compiler is
+    installed rather than after it fails."""
+    with pytest.raises(PlanError) as caught:
+        _resolve(
+            tmp_path,
+            ["example"],
+            catalog={"example": _source_manifest()},
+            known={"libexample-dev": None},  # fftw2 has no candidate
+        )
+    message = str(caught.value)
+    assert "fftw2" in message
+    assert "build_depends" in message, "the blocker must say it is a build dependency"
+
+
+def test_an_unimplemented_build_system_is_refused_during_resolution(tmp_path: Path) -> None:
+    """Not mid-build. Discovering it after apt has already installed a toolchain
+    is the fix-one-re-run shape resolution exists to prevent."""
+    with pytest.raises(PlanError, match="custom"):
+        _resolve(
+            tmp_path,
+            ["example"],
+            catalog={"example": _source_manifest(build_system="custom")},
+            known={"libexample-dev": None, "fftw2": None},
+        )
+
+
+def test_declared_patches_are_refused_during_resolution(tmp_path: Path) -> None:
+    with pytest.raises(PlanError, match="patch"):
+        _resolve(
+            tmp_path,
+            ["example"],
+            catalog={
+                "example": _source_manifest(
+                    patches=[{"file": "src/main.c", "description": "a patch we cannot apply"}]
+                )
+            },
+            known={"libexample-dev": None, "fftw2": None},
+        )

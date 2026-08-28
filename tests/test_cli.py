@@ -26,11 +26,13 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from hammunition.backends import (  # noqa: E402
+    Action,
     AptBackend,
     BackendError,
     Command,
     CommandResult,
     RecordingRunner,
+    SourceBackend,
 )
 from hammunition.backends.apt import AptPackageState  # noqa: E402
 from hammunition.cli.main import (  # noqa: E402
@@ -46,6 +48,7 @@ from hammunition.cli.main import (  # noqa: E402
 )
 from hammunition.distro import Target  # noqa: E402
 from hammunition.execute import commands_for, execute, verify_effects  # noqa: E402
+from hammunition.fetch import Fetcher  # noqa: E402
 from hammunition.manifest.schema import PackageManifest  # noqa: E402
 from hammunition.plan import GroupMembership, InstallPlan, PlannedPackage  # noqa: E402
 from hammunition.state import TransactionLog, log_path  # noqa: E402
@@ -71,6 +74,17 @@ def _manifest() -> PackageManifest:
             },
         }
     )
+
+
+def _argv(step: Any) -> tuple[str, ...]:
+    """The argv of a step that must be a Command.
+
+    `commands_for` returns Command | Action now that a source build contributes
+    in-process steps, so a test asserting on an argv says which it expects
+    rather than assuming.
+    """
+    assert isinstance(step, Command), f"expected a Command, got {type(step).__name__}"
+    return step.argv
 
 
 def _plan(**overrides: Any) -> InstallPlan:
@@ -119,8 +133,8 @@ def test_group_membership_is_planned_after_installation() -> None:
         )
     )
     commands = commands_for(plan, AptBackend(RecordingRunner()), current_groups=frozenset())
-    assert commands[0].argv[0] == "apt-get"
-    assert commands[-1].argv[:2] == ("gpasswd", "--add")
+    assert _argv(commands[0])[0] == "apt-get"
+    assert _argv(commands[-1])[:2] == ("gpasswd", "--add")
 
 
 def test_an_operator_already_in_the_group_is_not_added_again() -> None:
@@ -140,12 +154,12 @@ def test_an_operator_already_in_the_group_is_not_added_again() -> None:
     commands = commands_for(
         plan, AptBackend(RecordingRunner()), current_groups=frozenset({"dialout"})
     )
-    assert all(c.argv[0] != "gpasswd" for c in commands)
+    assert all(_argv(c)[0] != "gpasswd" for c in commands)
 
 
 def test_refresh_runs_before_anything_else() -> None:
     commands = commands_for(_plan(), AptBackend(RecordingRunner()), refresh=True)
-    assert commands[0].argv == ("apt-get", "update")
+    assert _argv(commands[0]) == ("apt-get", "update")
 
 
 # ---------------------------------------------------------------------------
@@ -741,3 +755,116 @@ def test_the_log_destination_is_disclosed_and_a_bad_owner_is_not_silent(
     text = "\n".join(lines)
     assert "Records:" in text
     assert str(dest) in text  # the /root path is visible, not silent
+
+
+# ---------------------------------------------------------------------------
+# Source builds reach the command list
+# ---------------------------------------------------------------------------
+
+
+def _source_plan(tmp_path: Path) -> InstallPlan:
+    manifest = PackageManifest.model_validate(
+        {
+            "name": "example",
+            "version": "1.0",
+            "summary": "An example built from source",
+            "categories": ["digital-modes"],
+            "install": [
+                {
+                    "install": {
+                        "method": "source",
+                        "source": {
+                            "url": "https://example.invalid/example-1.0.tar.gz",
+                            "sha256": "b" * 64,
+                        },
+                        "build_system": "autotools",
+                    },
+                    "build_depends": ["libexample-dev"],
+                }
+            ],
+            "update": {"probe": {"method": "none"}},
+            "documentation": {
+                "what_it_does": "Does an example thing for the purposes of testing.",
+                "why_you_want_it": "Because the test suite requires a valid manifest.",
+                "upstream_url": "https://example.invalid/",
+            },
+        }
+    )
+    return InstallPlan(
+        target=TARGET,
+        packages=(
+            PlannedPackage(
+                manifest=manifest,
+                block=manifest.install[0],
+                apt_packages=("libexample-dev",),
+                build_only=("libexample-dev",),
+            ),
+        ),
+    )
+
+
+def _source_backend(tmp_path: Path) -> SourceBackend:
+    return SourceBackend(Fetcher(tmp_path / "cache"), build_root=tmp_path / "build", jobs=2)
+
+
+def test_apt_runs_before_a_source_build_needs_its_toolchain(tmp_path: Path) -> None:
+    """Order is not cosmetic: ./configure cannot succeed before build_depends
+    are installed."""
+    steps = commands_for(
+        _source_plan(tmp_path),
+        AptBackend(RecordingRunner()),
+        source=_source_backend(tmp_path),
+    )
+    labels = [s.kind if isinstance(s, Action) else s.argv[0] for s in steps]
+    assert labels == ["apt-get", "fetch", "extract", "./configure", "make", "make"]
+
+
+def test_a_source_build_without_a_backend_is_an_error_not_a_skip(tmp_path: Path) -> None:
+    """Silently dropping the one step that installs the software would report a
+    successful run that installed nothing."""
+    with pytest.raises(BackendError, match="source build"):
+        commands_for(_source_plan(tmp_path), AptBackend(RecordingRunner()), source=None)
+
+
+def test_the_plan_marks_build_dependencies_as_such(tmp_path: Path) -> None:
+    """`glfer needs GTK2` and `glfer is GTK2` are different claims."""
+    plan = _source_plan(tmp_path)
+    steps = commands_for(plan, AptBackend(RecordingRunner()), source=_source_backend(tmp_path))
+    text = "\n".join(render_plan(plan, steps, euid=0))
+    assert "libexample-dev  (to build)" in text
+
+
+def test_an_in_process_step_is_logged_like_a_command(tmp_path: Path) -> None:
+    """An Action fails the transaction on the same contract a Command does, and
+    a run killed mid-extraction must leave a record that extraction started."""
+    performed: list[str] = []
+
+    def boom() -> str:
+        performed.append("tried")
+        raise BackendError("the archive was not what the manifest said")
+
+    action = Action(kind="extract", description="Unpack it", detail="a -> b", perform=boom)
+    log = TransactionLog(tmp_path / "log.jsonl")
+    report = execute([action], RecordingRunner(), log=log, plan=_plan())
+
+    assert performed == ["tried"]
+    assert not report.ok
+    assert report.failed is action
+    events = [e["event"] for e in log.read()]
+    assert "action_begin" in events
+    assert "transaction_failed" in events
+    assert "transaction_end" not in events
+
+
+def test_a_successful_action_records_its_outcome(tmp_path: Path) -> None:
+    action = Action(
+        kind="fetch",
+        description="Fetch it",
+        detail="url -> path",
+        perform=lambda: "downloaded 12 bytes, sha256 abc… verified",
+    )
+    log = TransactionLog(tmp_path / "log.jsonl")
+    execute([action], RecordingRunner(), log=log, plan=_plan(packages=()))
+
+    end = next(e for e in log.read() if e["event"] == "action_end")
+    assert "verified" in end["outcome"]

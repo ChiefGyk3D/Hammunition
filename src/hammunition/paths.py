@@ -28,7 +28,7 @@ import os
 import pwd
 from pathlib import Path
 
-__all__ = ["APP", "artifact_cache_dir", "owner_aware_dir", "state_dir"]
+__all__ = ["APP", "artifact_cache_dir", "build_root", "owner_aware_dir", "state_dir"]
 
 APP = "hammunition"
 
@@ -76,4 +76,19 @@ def artifact_cache_dir(owner: str | None = None) -> Path:
     """
     return owner_aware_dir(xdg_var="XDG_CACHE_HOME", home_relative=(".cache",), owner=owner) / (
         "artifacts"
+    )
+
+
+def build_root(owner: str | None = None) -> Path:
+    """``$XDG_CACHE_HOME/hammunition/build`` — where source trees are unpacked
+    and compiled.
+
+    A cache for the same reason the artifact store is: it is reproducible from
+    the catalog plus a verified download, and deleting it costs only time. It is
+    deliberately *not* under the artifact cache — that directory is
+    content-addressed and every name in it is a digest, which is a property
+    worth keeping true.
+    """
+    return owner_aware_dir(xdg_var="XDG_CACHE_HOME", home_relative=(".cache",), owner=owner) / (
+        "build"
     )
