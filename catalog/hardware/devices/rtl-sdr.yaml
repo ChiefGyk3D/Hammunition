@@ -373,7 +373,8 @@ documentation:
   known_problems: >-
     The dvb_usb_rtl28xxu kernel driver claiming the device is the single most
     common failure and looks like broken hardware. Clones vary enormously in
-    oscillator stability — kalibrate-rtl exists for exactly this. The librtlsdr
+    oscillator stability — the `kalibrate-rtl` tool exists for exactly this,
+    though it is not carried in this catalog yet. The librtlsdr
     rules file matches over forty rebadged devices, so a dongle sold under another
     name usually still works.
   upstream_url: https://osmocom.org/projects/rtl-sdr/wiki

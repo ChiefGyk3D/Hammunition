@@ -15,7 +15,9 @@ identification_gap: >-
   the board exposes any additional control interface with its own identifier.
   The per-channel rules work regardless; only a board-level rule is unverified.
   The maintainer does not own one, so this needs lsusb output from an owner — a low-value gap, since the device is usable without it.
-groups: [dialout, plugdev]
+# plugdev only, matching rtl-sdr for the same RTL2832U silicon: these are
+# libusb devices with no serial tty, so dialout grants nothing here.
+groups: [plugdev]
 packages: [rtl-sdr, soapysdr-module-rtlsdr]
 documentation:
   what_it_is: >-
@@ -23,7 +25,7 @@ documentation:
   what_you_can_do_with_it: >-
     Radio direction finding and angle-of-arrival work — the ARDF and foxhunting use case on the amateur side, and signal geolocation on the security side.
   setup_steps: >-
-    The five channels appear as ordinary RTL-SDR devices. Because plug order determines which is which and coherence depends on knowing the order, persistent symlinks by serial matter more here than anywhere else in this catalog.
+    The five channels appear as ordinary RTL-SDR devices behind an internal hub, and coherent operation depends on knowing which channel is which. They cannot be told apart by serial — RTL2832U dongles commonly ship identical serials — so the distinguishing key is USB topology (`/dev/serial/by-path`, or the bus position), not a by-serial symlink. This entry emits no symlink and none would help.
   known_problems: >-
-    Coherent operation depends on the channels being identified consistently across reboots, which is precisely the problem persistent udev symlinks solve. The direction-finding software stack is not in Debian and is Tier 2 work.
+    Coherent operation depends on the channels being identified consistently across reboots. Because the five tuners share a vendor/product identifier and often a serial, topology (by-path) is what identifies them — a by-serial symlink is exactly the wrong mechanism here, the identical-units problem the Proxmark3 entry also hits. The direction-finding software stack is not in Debian and is Tier 2 work.
   upstream_url: https://www.krakenrf.com/

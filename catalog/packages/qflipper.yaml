@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: qflipper
+version: "1.3.3"
+summary: Desktop companion for the Flipper Zero — firmware, files, and CLI over USB
+categories: [hardware, rf-security]
+
+install:
+  - install:
+      method: apt
+      packages: [qflipper]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    The official Qt desktop application for the Flipper Zero: it updates the
+    device firmware, browses and transfers files on its SD card, and exposes
+    the Flipper's serial CLI. It also ships `42-flipperzero.rules`, the udev
+    rule that grants access to the Flipper's normal and DFU modes — which is
+    how this device reached the catalog at all, through the archive-wide udev
+    sweep.
+  why_you_want_it: >-
+    It is the normal, supported way to manage a Flipper from a computer, and
+    the one that keeps firmware and the qFlipper version aligned. `dfu-util`
+    covers bare firmware recovery when a device is stuck in DFU, but it does
+    not manage files or track releases; qFlipper is the everyday tool and
+    dfu-util is the recovery hatch.
+  prerequisites: >-
+    A Flipper Zero, and membership of `dialout` and `plugdev` — the same groups
+    the `flipper-zero` hardware entry requests. The shipped udev rule handles
+    the permissions once you are in those groups.
+  known_problems: >-
+    Packaged and identical across all four targets at 1.3.3 (apt-cache policy
+    on Debian 13, Kali, Parrot and Ubuntu 26.04, 2026-08-28; Ubuntu carries the
+    -build1 rebuild). ModemManager can grab the Flipper's serial port for about
+    twenty seconds on many desktops, which looks like a dead device; the udev
+    rule's ModemManager-ignore tag is the fix.
+  upstream_url: https://github.com/flipperdevices/qFlipper

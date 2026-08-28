@@ -74,7 +74,9 @@ documentation:
   what_you_can_do_with_it: >-
     Receive satellite telemetry — its design purpose — plus anything else in
     range of a 192 kHz-wide receiver with good front-end filtering: weather
-    satellites, ADS-B is out of reach but VHF/UHF ham traffic is not. The
+    satellites, and VHF/UHF ham traffic. ADS-B is out of reach — not for
+    frequency (the Pro reaches 1090 MHz) but because its sample bandwidth is
+    only 96/192 kHz where ADS-B needs about 2 MHz. The
     audio-class design means any SDR program that can read a soundcard can
     use it, with gr-funcube or qthid doing the tuning.
   setup_steps: >-

@@ -81,9 +81,10 @@ documentation:
     out and back in — group membership does not apply to an existing session.
     Plug the board in and run `esptool chip_id`, which reports what the chip
     actually is and is the quickest way to resolve an ambiguous silkscreen.
-    `tio /dev/badge-<serial>` opens a console at 115200 8N1. Firmware images
-    come from upstream and are flashed with esptool; nothing here flashes
-    anything on its own.
+    `tio /dev/ttyACM0` opens a console at 115200 8N1 (this board supplies no
+    distinguishing descriptor, so it gets no `/dev/badge-*` symlink — see the
+    NO SYMLINK note above). Firmware images come from upstream and are flashed
+    with esptool; nothing here flashes anything on its own.
   known_problems: >-
     Observed 2026-08-26 on the maintainer's v1.1 board: firmware runs and
     reports over UART, but the screen did not display correctly. That is a board
@@ -97,6 +98,7 @@ documentation:
     A board whose USB is provided by its own firmware disappears from /dev while
     being reflashed, which is expected rather than a fault. ModemManager holds a
     newly attached serial device for around twenty seconds on many desktops,
-    which looks exactly like a dead board; the generated udev rules tag matching
-    devices so it ignores them.
+    which looks exactly like a dead board; the fix is a udev rule tagging the
+    device so ModemManager ignores it, which Hammunition's hardware role will
+    emit once the udev generator is written (it is not yet).
   upstream_url: https://github.com/justcallmekoko/ESP32Marauder

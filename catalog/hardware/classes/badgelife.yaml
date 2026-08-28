@@ -206,13 +206,18 @@ documentation:
   setup_steps: >-
     Install the class packages, add yourself to dialout and plugdev, then log out
     and back in — group membership does not apply to an existing session. Plug the
-    badge in and check for a persistent symlink under /dev. `tio /dev/badge-<serial>`
-    opens a console; 115200 8N1 is the usual default.
+    badge in; it appears as `/dev/ttyACM0` (or `/dev/serial/by-id/...` where the
+    board supplies a serial). `tio /dev/ttyACM0` opens a console; 115200 8N1 is
+    the usual default. This class emits no `/dev/badge-*` symlink — see the
+    NO CLASS-LEVEL SYMLINK note below for why.
   known_problems: >-
     ModemManager grabs new serial devices on many desktops and holds them for
-    around twenty seconds, which looks exactly like a dead badge. The generated
-    udev rules tag matching devices so ModemManager ignores them. A badge whose
+    around twenty seconds, which looks exactly like a dead badge. The fix is a
+    udev rule tagging the device `ENV{ID_MM_DEVICE_IGNORE}="1"`; Hammunition's
+    hardware role will emit one, but the udev generator is not written yet (see
+    the repo status table), so until it lands add that line by hand. A badge whose
     native USB stack is provided by its own firmware will disappear from /dev when
     that firmware crashes or is being replaced; that is expected, not a fault.
-    Two identical badges attached at once is exactly why serial_suffix defaults on.
+    Two identical badges attached at once cannot be told apart by a serial they
+    do not supply; `serial_suffix` helps only where the board provides one.
   upstream_url: https://github.com/espressif/esptool

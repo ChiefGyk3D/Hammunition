@@ -35,5 +35,7 @@ documentation:
     not mean an HF+ will be found.
   known_problems: >-
     The HF+ is a different product line despite the shared brand — SoapySDR needs
-    soapysdr-module-airspyhf, which is not the same module as for the R2.
+    the `airspyhf` package (native tools and the gqrx backend), which this
+    entry already carries — the SoapySDR module for the HF+ is not packaged
+    here, and is not the same module as the R2's `soapysdr-module-airspy`.
   upstream_url: https://airspy.com/

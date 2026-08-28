@@ -51,10 +51,13 @@ usb_ids:
         AT-D868UV and AT-D878UV, dmrconfig says AT-D868UV only -- which is two
         upstreams recording different subsets of the same silicon's users.
 
-        Not on the generated ambiguity list: neither Debian's rules nor the
-        kernel's module table binds it to a bridge driver, because a GD32 CDC
-        device is claimed by cdc_acm on interface class rather than by
-        identifier. The same blind spot recorded on free-wili-2's RP2040 probe.
+        On the generated ambiguity list as `shared_across_products`, because
+        the sweep sees the pair in two packages' rules (dmrconfig and qdmr).
+        This entry records the more specific `vendor_chip_default`: the sweep
+        knows only that two DMR tools claim it, while the reason it is a chip
+        identifier is that 28e9:018a is GDMicroelectronics' GD32 CDC default,
+        which every GD32 on the stock USB stack presents — a stronger basis
+        than co-occurrence, and the one to record.
       also_used_by:
         - any GD32 microcontroller using the stock USB CDC descriptors
 

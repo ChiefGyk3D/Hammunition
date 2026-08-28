@@ -64,7 +64,7 @@ and we should not be inventing work.
 | `krakensdr` | unknown | access, packages, documented gap | `unrecorded` |
 | `limesdr` | no | access, packages, documented gap | `no-serial-subsystem` |
 | `meshtastic` | partly | access, packages, firmware mode, documented gap | `no-serial-subsystem` |
-| `minino` | yes | access, packages | — |
+| `minino` | yes | access, packages, firmware mode | — |
 | `plutosdr` | unknown | access, packages, documented gap | `unrecorded` |
 | `portapack-h4m` | unknown | access, packages, documented gap | `unrecorded` |
 | `proxmark3` | yes | access, firmware mode, documented gap | `no-unit-serial` |
@@ -83,7 +83,7 @@ that drives them.
 
 | Class | by-id | Named by | Devices in it |
 |---|---|---|---|
-| `badgelife` | yes | nothing device-specific | 3 |
+| `badgelife` | yes | nothing device-specific | 4 |
 | `dmr-radio` | partly | nothing device-specific | 0 |
 | `gps-receiver` | yes | the distribution — `/dev/gpsN, from gpsd's own 60-gpsd.rules` | 0 |
 | `nfc-reader` | no | us — `/dev/nfc` | 0 |

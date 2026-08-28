@@ -119,8 +119,10 @@ documentation:
     and run hackrf_info; it should report the serial and firmware version. The
     persistent symlink appears as /dev/hackrf-<serial>.
   known_problems: >-
-    Transmit capability is why this device sits behind the rf-research consent
-    gate rather than in rf-security. USB 2.0 bandwidth limits sustained sample
+    Transmit capability is why this device belongs with the consent-gated
+    rf-research profile rather than rf-security when a profile carries it — no
+    profile installs a HackRF host tool yet (rf-research's contents are pending
+    Q-008), so today the gate is a statement of intent, not an installed fact. USB 2.0 bandwidth limits sustained sample
     rates; a poor cable or an unpowered hub shows up as dropped samples rather
     than as an error. Flashing a PortaPack firmware that does not match the
     hardware revision can leave the device needing a recovery flash.

@@ -21,6 +21,8 @@ status: supported
 # observations, and it is why this entry emits no symlink: there is nothing a
 # catalog-wide rule could match on that would not also name the other two.
 
+device_class: badgelife
+
 usb_ids:
   - vendor: "303a"
     product: "1001"
@@ -70,7 +72,7 @@ documentation:
   what_you_can_do_with_it: >-
     Capture and inspect 802.15.4 and Zigbee traffic, and run alternative firmware for specific tasks.
   setup_steps: >-
-    Follow the badgelife class setup. Flash with esptool, open a console with tio.
+    Flash with esptool and open a console with tio — the badgelife class this device joins provides both. Add yourself to dialout and plugdev, then log out and back in.
   known_problems: >-
-    As with CatSniffer, capture behaviour depends on which firmware variant is loaded, and the USB identifier is unconfirmed here.
+    Capture behaviour depends on which firmware variant is loaded. The USB identifier is confirmed by capture (303a:1001) — the shared ESP32-S3 USB-JTAG identifier, which is why it is carried as ambiguous rather than as a symlink source.
   upstream_url: https://github.com/ElectronicCats/Minino
