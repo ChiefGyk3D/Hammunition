@@ -25,9 +25,11 @@ install:
       - libgdk-pixbuf-2.0-dev
       - fftw2
     note: >-
-      Two of these build dependencies are themselves at risk. See toolkit_risk
-      and D-016: AHRL never checks exit status, so if either has already been
-      dropped from a target the build fails silently there.
+      Two of these build dependencies are themselves at risk: libgtk2.0-dev
+      (see toolkit_risk — GTK2 is end-of-life with no port to move to) and
+      fftw2, the 1998-era FFT library modern code left for fftw3. D-016: AHRL
+      never checks exit status, so if either has already been dropped from a
+      target the build fails silently there.
 
 binaries:
   - produced: glfer

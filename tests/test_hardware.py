@@ -934,3 +934,46 @@ def test_the_programmer_class_is_still_generated() -> None:
         "catalog/hardware/classes/programmer.yaml differs from what the generator "
         "produces. Either it was hand-edited, or the sweep has moved and it is stale."
     )
+
+
+@pytest.mark.parametrize(
+    "script, output",
+    [
+        ("gen_hardware_gaps.py", "docs/reference/hardware-gaps.md"),
+        ("gen_device_naming.py", "docs/reference/device-naming.md"),
+    ],
+)
+def test_catalog_derived_reports_are_current(script: str, output: str) -> None:
+    """A generated report that lags the catalog is a stale claim with a byline.
+
+    hardware-gaps.md sat at "Devices in catalog: 21" while the catalog held 23
+    -- nobody re-ran the generator when devices were added, nothing checked,
+    and the README repeated the lagging number as fact. The programmer class
+    already has this test; these two generators read nothing but the catalog,
+    so unlike that one there is no probe to skip on: the check runs
+    everywhere, and regeneration must be a no-op modulo the date line.
+    """
+    import subprocess
+
+    root = HARDWARE.parent.parent
+    target = root / output
+    before = target.read_text()
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / script)],
+        capture_output=True,
+        text=True,
+        cwd=root,
+        check=False,
+    )
+    after = target.read_text()
+    if before != after:
+        target.write_text(before)
+    assert result.returncode == 0, result.stderr
+
+    def without_date(text: str) -> list[str]:
+        return [ln for ln in text.splitlines() if not ln.lstrip("<!-# ").startswith("Generated")]
+
+    assert without_date(before) == without_date(after), (
+        f"{output} differs from what {script} produces. Either it was "
+        f"hand-edited, or the catalog moved and the report is stale."
+    )

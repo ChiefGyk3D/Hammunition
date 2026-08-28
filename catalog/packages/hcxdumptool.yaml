@@ -33,6 +33,8 @@ documentation:
     responses rather than only listening -- which is a materially different
     act from passive capture and is worth knowing before pointing it at
     anything. Version 6.x and 7.x take different command-line options, and
-    Debian 13 and Parrot ship 6.3.5 while Kali ships 7.1.2, so instructions
+    Debian 13 and Parrot ship 6.3.5 while Kali ships 7.1.2 (apt-cache
+    policy, 2026-08-28; Ubuntu 26.04 ships a third pair, 7.0.0 dumptool with
+    7.1.0 tools), so instructions
     from one will not run on the other.
   upstream_url: https://github.com/ZerBea/hcxdumptool

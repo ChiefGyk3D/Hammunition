@@ -343,11 +343,11 @@ an unsupported combination appear to work.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 58
+  packages/        # one YAML per piece of software          ✅ 70
   profiles/        # named bundles referencing packages      ✅ 4
   hardware/
     classes/       # device families with shared Linux needs ✅ 2
-    devices/       # one YAML per device                     ✅ 21
+    devices/       # one YAML per device                     ✅ 23
 src/hammunition/
   cli/             # argparse entry points; install/list/status/show ✅
   manifest/        # schema, loader, validation              ✅

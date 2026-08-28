@@ -3,12 +3,13 @@
 *Linux radio tools for people who can't leave well enough alone.*
 
 > **State of the project, August 2026: there is nothing to install yet.**
-> Hammunition is in design. What exists today is documentation — a decision
-> record, a parity policy, and a complete measured inventory of what Andy's Ham
-> Radio Linux v27 installs (95 units, 57 of which apt cannot provide). No
-> catalog, no engine, no CLI, no releases. Everything below describes what
-> Hammunition is being built to do, not what it does. When that changes, this
-> banner changes with it.
+> The catalog is real — 70 package manifests, 4 profiles, and a 23-device
+> hardware catalog with 297 measured USB identifiers — and so are the engine's
+> foundations: schema, consent gates, transaction log, all tested across six
+> container targets. The install path (CLI, backends, distro detection) is
+> under review and not yet merged, and there are no releases. Everything below
+> describes what Hammunition is being built to do, not yet what it does. When
+> that changes, this banner changes with it.
 >
 > If you need a working ham Linux setup *today*, the "You might prefer something
 > else" section near the bottom is the honest answer, and it is not a formality.
@@ -105,7 +106,8 @@ shows you all of it before anything happens, and it's complete rather than
 approximate.
 
 **On undo, we want to be precise about what we promise.** True rollback across
-apt, pipx, cargo, and AppImage is not achievable — apt alone can't cleanly
+apt, source builds, per-user venvs, pipx, and CPAN — the backends the AHRL
+inventory actually measured a need for — is not achievable — apt alone can't cleanly
 reverse a transaction that pulled dependency changes. What we offer is
 `hammunition uninstall`, which removes what Hammunition added and tells you
 honestly about anything it can't safely reverse. A smaller promise we can
@@ -187,8 +189,11 @@ write your own consumer.
 
 Because the ham-plus-security operator is the person we're building for, and
 Parrot is a reasonable base for that work. Debian, Ubuntu, Kali, Mint, and
-Raspberry Pi OS are all supported — we test on all of them — but Parrot is where
-we start.
+Raspberry Pi OS are supported targets, and the capability matrix says which
+claims are container-tested and which are not: Raspberry Pi OS publishes no
+container image, so it stays `untested` until verified on real hardware, and
+Mint's only published container turned out to carry Ubuntu's identity inside.
+Parrot is where we start, and it is in CI.
 
 ### Why Python?
 
@@ -292,7 +297,7 @@ promises with dates — priorities.
 ### Digital voice and M17
 
 M17 is an open, patent-free digital voice standard, and Linux support for it is
-in poor shape — AHRL currently ships none at all after `mvoice` broke on Debian
+in poor shape — AHRL v27 ships none at all after `mvoice` broke on Debian
 13. This is a gap worth filling properly rather than porting something broken.
 
 - **M17 tooling** — m17-tools, mvoice or a maintained successor, M17 gateway
@@ -324,9 +329,10 @@ profile requiring explicit opt-in, with legal framing (see below).
   tooling, nRF-based 802.15.4/BLE tools
 - **HackRF ecosystem** — PortaPack/Mayhem firmware management, hackrf-tools
 - **Trunked and digital voice decode** — SDRTrunk, OP25, DSD-FME
-- **Cellular** — noting that gr-gsm's upstream has stalled for modern GNU Radio;
-  we'll carry a maintained fork and mark it experimental rather than pretend
-  otherwise
+- **Cellular** — gr-gsm, which Debian ships as a maintained package that
+  installs from apt on three of four targets (an earlier draft here repeated
+  the folklore that its upstream had stalled; the measurement in SCOPE.md
+  retired that claim)
 
 ### Direction finding
 

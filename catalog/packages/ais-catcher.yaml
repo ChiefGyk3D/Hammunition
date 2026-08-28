@@ -46,9 +46,12 @@ service_endpoints:
       change the port here if 8100 is taken.
     user_configurable: true
 
+# The port appears twice — the -N flag and the endpoint URL — because the
+# launcher template can only substitute a whole endpoint, not parse one.
+# Change them together or the browser opens a map the server is not on.
 launchers:
   - name: ais-catcher-web
-    exec: ais-catcher -N 8100 && x-www-browser {endpoint:webmap}
+    exec: (sleep 2; x-www-browser {endpoint:webmap}) & exec ais-catcher -N 8100
     terminal: false
 
 update:

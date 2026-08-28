@@ -34,7 +34,9 @@ binaries:
   - produced: JS8Call
     install_as: js8call
 
-depends: [libhamlib4]
+# libhamlib4t64, not libhamlib4 — see the note in fldigi.yaml: the t64
+# transition renamed it on every target (measured 2026-08-28).
+depends: [libhamlib4t64]
 
 update:
   probe:

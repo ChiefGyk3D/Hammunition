@@ -26,8 +26,11 @@ documentation:
     not broken in the same way. Having tools for it is the difference between
     studying a card technology and studying only its obsolete predecessor.
   prerequisites: >-
-    A libnfc-supported reader.
+    A libnfc-supported reader — see the `nfc-reader` hardware class for
+    identifiers and permissions.
   known_problems: >-
     DESFire's security actually works: without the keys there is very little
-    to see, which is the point. Upstream activity is low.
+    to see, which is the point. Upstream activity is low — every target ships
+    the same 0.4.0 release (apt-cache policy on all four, 2026-08-28), and
+    there has been no upstream release beyond it.
   upstream_url: https://github.com/nfc-tools/libfreefare

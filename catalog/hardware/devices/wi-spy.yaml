@@ -1,0 +1,158 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+kind: device
+name: wi-spy
+summary: MetaGeek Wi-Spy family — USB spectrum analyzers for 2.4 GHz, dual-band and 900 MHz
+vendor: MetaGeek
+status: supported
+
+# One family file, ten identifiers, none owned here. Nine are read directly
+# from Debian's 99-wispy.rules (extracted from the spectools package, not
+# from the sweep row — the rule's only comment, "Two vid/pid pairs for
+# Wispy1 USB dongle", describes the first two lines and the sweep attributed
+# it to all nine). The model behind each pair comes from upstream's own
+# defines in wispy_hw_gen1.c, wispy_hw_24x.c and wispy_hw_dbx.c at
+# 2016-01-R1, which is the only source that names them at all: usb.ids does
+# not know vendor 1dd5, and knows the two gen1 pairs only as "MetaGeek
+# Wi-Spy".
+#
+# The tenth pair is the finding: upstream supports the Wi-Spy 950x at
+# 1dd5:0950 (METAGEEK_WISPY950x_PID, used in the detection loop), and
+# Debian's rule stops at nine — a 950x owner gets permission-denied from
+# the same package that ships the code supporting their device. The
+# rtl-sdr shape again: an under-matching rule fails silently.
+
+usb_ids:
+  - vendor: "04b4"
+    product: "0bad"
+    description: Wi-Spy first generation, original firmware (Cypress-programmed identifier)
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/99-wispy.rules, from the spectools
+      package, read from the extracted package; model identity from upstream
+      wispy_hw_gen1.c (METAGEEK_WISPY1A) at 2016-01-R1, and usb.ids names the
+      pair "MetaGeek Wi-Spy". Not from hardware — none owned here.
+    confirmed: true
+    node_kind: hid
+  - vendor: "1781"
+    product: "083e"
+    description: Wi-Spy first generation, later firmware
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/99-wispy.rules, from the spectools
+      package; model identity from upstream wispy_hw_gen1.c
+      (METAGEEK_WISPY1B) at 2016-01-R1, and usb.ids names the pair "MetaGeek
+      Wi-Spy". The same physical product as 04b4:0bad under different
+      firmware — a renumbered device, not a second device.
+    confirmed: true
+    node_kind: hid
+  - vendor: "1781"
+    product: "083f"
+    description: Wi-Spy 2.4x
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/99-wispy.rules, from the spectools
+      package; model identity from upstream wispy_hw_24x.c
+      (METAGEEK_WISPY24x) at 2016-01-R1, and usb.ids names the pair "MetaGeek
+      Wi-Spy 2.4x".
+    confirmed: true
+    node_kind: hid
+  - vendor: "1dd5"
+    product: "5000"
+    description: Wi-Spy DBx (dual-band, first hardware revision)
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/99-wispy.rules, from the spectools
+      package; model identity from upstream wispy_hw_dbx.c
+      (METAGEEK_WISPYDBx) at 2016-01-R1. usb.ids does not know vendor 1dd5
+      at all — upstream's defines are the only naming source there is.
+    confirmed: true
+    node_kind: hid
+  - vendor: "1dd5"
+    product: "5001"
+    description: Wi-Spy DBx revision 2
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/99-wispy.rules, from the spectools
+      package; model identity from upstream wispy_hw_dbx.c
+      (METAGEEK_WISPYDBx_V2) at 2016-01-R1.
+    confirmed: true
+    node_kind: hid
+  - vendor: "1dd5"
+    product: "5002"
+    description: Wi-Spy DBx revision 3
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/99-wispy.rules, from the spectools
+      package; model identity from upstream wispy_hw_dbx.c
+      (METAGEEK_WISPYDBx_V3) at 2016-01-R1.
+    confirmed: true
+    node_kind: hid
+  - vendor: "1dd5"
+    product: "2400"
+    description: Wi-Spy 24i
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/99-wispy.rules, from the spectools
+      package; model identity from upstream wispy_hw_dbx.c
+      (METAGEEK_WISPY24I) at 2016-01-R1.
+    confirmed: true
+    node_kind: hid
+  - vendor: "1dd5"
+    product: "2410"
+    description: Wi-Spy 2.4x revision 2
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/99-wispy.rules, from the spectools
+      package; model identity from upstream wispy_hw_dbx.c
+      (METAGEEK_WISPY24x_V2) at 2016-01-R1 — handled by the DBx code path,
+      not the original 24x one.
+    confirmed: true
+    node_kind: hid
+  - vendor: "1dd5"
+    product: "0900"
+    description: Wi-Spy 900x (900 MHz band; v2 shares the pair, distinguished by bcdDevice)
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/99-wispy.rules, from the spectools
+      package; model identity from upstream wispy_hw_dbx.c
+      (METAGEEK_WISPY900x) at 2016-01-R1, whose comment records that the
+      900x v2 uses the same pair and is detected via bcdDevice.
+    confirmed: true
+    node_kind: hid
+  - vendor: "1dd5"
+    product: "0950"
+    description: Wi-Spy 950x — supported by the code, missing from the shipped udev rule
+    evidence: >-
+      Upstream wispy_hw_dbx.c at 2016-01-R1 defines METAGEEK_WISPY950x_PID
+      0x0950 and matches it in the device detection loop, read from the
+      Debian 13 source package for spectools 201601r1-6. Debian's shipped
+      rule names nine pairs and omits this one, so the identifier is real
+      and the permission grant is not: a 950x owner must add the rule
+      themselves. Not from hardware — none owned here.
+    confirmed: true
+    node_kind: hid
+
+groups: [plugdev]
+packages: [spectools]
+
+documentation:
+  what_it_is: >-
+    A family of USB spectrum analyzers from MetaGeek: purpose-built sweep
+    receivers that report raw RF energy per frequency bin rather than decoded
+    traffic. Models cover 2.4 GHz only (original, 2.4x, 24i), 2.4 plus 5 GHz
+    (DBx), and 900 MHz (900x, 950x). Discontinued hardware, common
+    secondhand, and fully supported by open tooling that was
+    reverse-engineered before the vendor tools existed for Linux.
+  what_you_can_do_with_it: >-
+    See the band as energy: identify interference sources a packet capture
+    cannot distinguish — microwave ovens, analogue video senders, frequency
+    hoppers — and verify channel occupancy before committing a link to it.
+    The kernel claims the units as HID devices; spectools detaches the
+    kernel driver and drives them over libusb, so everything rides on the
+    udev permission grant.
+  setup_steps: >-
+    Install spectools and join plugdev, then replug the device. Debian's
+    shipped rule grants group access by identifier for every model except
+    the 950x, which needs a one-line rule copied from the pattern in
+    99-wispy.rules with idProduct 0950.
+  known_problems: >-
+    The 950x gap above is the sharp edge: supported by the code, omitted
+    from the shipped rule, and the failure is a generic permissions error.
+    The first-generation dongle appears under either of two identifiers
+    depending on firmware; both are the same product and both are in the
+    rule. Upstream has been static since 2016 — expect no fixes, but also no
+    breakage, since the protocol is fixed hardware.
+  upstream_url: https://www.kismetwireless.net/static/spectools/

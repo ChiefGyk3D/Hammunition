@@ -28,10 +28,10 @@ documentation:
     difference between an application listing your radio and showing an empty
     device list.
   prerequisites: >-
-    LimeSDR hardware and limesuite. Note that the `limesdr` hardware entry
-    carries no confirmed USB identifier — the maintainer does not own one — so
-    udev rules for it are not generated yet and access may need root until
-    someone contributes an lsusb capture.
+    LimeSDR hardware and limesuite. The `limesdr` hardware entry carries
+    three identifiers confirmed from Debian's own 64-limesuite.rules (closed
+    2026-08-26 without hardware — the maintainer still owns none), so udev
+    rules for it can be generated from the catalog.
   known_problems: >-
     Built against LimeSuite 23.11, which every target still ships while upstream
     has moved to LimeSuiteNG. The two are not interchangeable, and a module and

@@ -30,5 +30,6 @@ documentation:
   known_problems: >-
     Version-matched to hcxdumptool: mixing a 6.x tool with a 7.x capture
     produces confusing errors. Debian 13 and Parrot ship 6.3.5, Kali ships
-    7.1.2.
+    7.1.2, and Ubuntu 26.04 ships mismatched halves — 7.1.0 tools beside a
+    7.0.0 hcxdumptool (apt-cache policy on all four, 2026-08-28).
   upstream_url: https://github.com/ZerBea/hcxtools

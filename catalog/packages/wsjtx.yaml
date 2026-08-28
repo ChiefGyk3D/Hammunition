@@ -66,7 +66,12 @@ documentation:
     routed both ways between radio and computer.
   known_problems: >-
     Under Wayland on Raspberry Pi the window renders without borders or
-    decorations; switch to X11. The repository package is purged first because
+    decorations; switch to X11. That report is inherited from AHRL's
+    operational notes and has not been reproduced here — no Pi has run this
+    build yet. The repository package is purged first because
     the source build uses the same prefix.
-  upstream_url: https://wsjt.sourceforge.io/wsjtx.html
+  # The old SourceForge page is now only a moved-notice pointing here
+# (checked 2026-08-28); the install source and release probe already used
+# the project's GitHub, and now the homepage agrees with them.
+  upstream_url: https://wsjtx.github.io/wsjtx/index.html
   upstream_support: WSJT-X groups.io list

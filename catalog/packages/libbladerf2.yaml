@@ -29,7 +29,8 @@ documentation:
     bladeRF hardware. Firmware and FPGA images are separate and version-
     sensitive.
   known_problems: >-
-    Debian 13 and Parrot ship 0.2024.05 while Kali ships 0.2025.10, and the
+    Debian 13, Parrot and Ubuntu 26.04 ship 0.2024.05 while Kali ships
+    0.2025.10 (apt-cache policy, 2026-08-28), and the
     FPGA image must match the library version. The x40, x115 and 2.0 micro are
     different boards with different images.
   upstream_url: https://github.com/Nuand/bladeRF

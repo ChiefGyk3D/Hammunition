@@ -21,8 +21,10 @@ install:
       build_system: autotools
     build_depends:
       - libfltk1.3-dev
-      - libportaudio2
-      - libportaudiocpp0
+      # portaudio19-dev, not the runtime libportaudio2/libportaudiocpp0 —
+      # a build needs the headers, and Debian's own fldigi Build-Depends
+      # says portaudio19-dev (apt-cache showsrc, Debian 13, 2026-08-28).
+      - portaudio19-dev
       - libsamplerate0-dev
       - libsndfile1-dev
       - libudev-dev
@@ -37,7 +39,12 @@ binaries:
   - produced: src/flarq
     install_as: flarq
 
-depends: [libhamlib4]
+# libhamlib4 has no candidate on any target since the 64-bit time_t
+# transition renamed it; libhamlib4t64 is the package on Debian 13, Kali,
+# Parrot and Ubuntu 26.04 alike (apt-cache policy on all four, 2026-08-28).
+# The old name would have blocked resolution with 'apt has no candidate' —
+# the exact stale-dependency failure D-016's blocker text cites.
+depends: [libhamlib4t64]
 
 toolkit_risk:
   - framework: wx3.2

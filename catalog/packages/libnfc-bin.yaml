@@ -27,8 +27,10 @@ documentation:
     different device family from a Proxmark -- 13.56 MHz only, and no low-
     frequency support -- so the two complement rather than replace each other.
   prerequisites: >-
-    A PN53x-based reader on USB or serial, and a /etc/nfc/libnfc.conf entry
-    for serial devices. USB readers are usually found without configuration.
+    A PN53x-based reader on USB or serial — the `nfc-reader` hardware class
+    carries the identifiers and permissions story — and a /etc/nfc/libnfc.conf
+    entry for serial devices. USB readers are usually found without
+    configuration.
   known_problems: >-
     It does not do low-frequency (125 kHz) at all, which is half of what
     people arrive at this profile for. MIFARE Classic support depends on the

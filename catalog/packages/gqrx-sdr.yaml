@@ -29,8 +29,10 @@ documentation:
     A supported receiver and its driver. Audio output through PulseAudio or
     PipeWire.
   known_problems: >-
-    Built on GNU Radio, so it inherits GNU Radio's version sensitivity — a
-    distribution upgrade that moves GNU Radio can leave it unable to start
-    until it is rebuilt. On Wayland the waterfall can be slow; AHRL's guidance
+    Built on GNU Radio, so it inherits GNU Radio's version sensitivity. The
+    apt install this manifest performs is insulated from that in the steady
+    state — the archive rebuilds gqrx-sdr against its own GNU Radio — but a
+    partial upgrade that moves GNU Radio before the rebuilt gqrx-sdr arrives
+    can leave it unable to start until the archive catches up. On Wayland the waterfall can be slow; AHRL's guidance
     to prefer X11 for ham applications applies here.
   upstream_url: https://gqrx.dk/
