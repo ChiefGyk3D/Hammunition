@@ -13,7 +13,7 @@
 #                           packages' rules naming different devices
 
 kind: ambiguity-list
-generated: 2026-08-27
+generated: 2026-08-28
 source: debian-13
 identifiers:
   - id: "0104:00be"
@@ -22,9 +22,6 @@ identifiers:
   - id: "03eb:0030"
     basis: kernel_generic_driver
     kernel_drivers: [cdc_acm]
-  - id: "03eb:204b"
-    basis: distribution_disabled
-    # named: knxd
   - id: "03eb:2103"
     basis: shared_across_products
     usb_ids_name: JTAG ICE mkII
@@ -142,7 +139,6 @@ identifiers:
     usb_ids_name: FT232 Serial (UART) IC
     kernel_drivers: [ftdi_sio]
     seen_in: [flashrom, libhamlib4t64, libsigrok4t64, limesuite-udev, ola, openfpgaloader, openocd, qlcplus, upower]
-    # named: argyll
     # named: gpsd: rule disabled in Debian as it matches too many other devices
   - id: "0403:6006"
     basis: kernel_generic_driver
@@ -170,11 +166,12 @@ identifiers:
     # named: Original FT232H VID:PID
     # named: ftdi-la
   - id: "0403:6015"
-    basis: distribution_disabled
+    basis: shared_across_products
     usb_ids_name: Bridge(I2C/SPI/UART/FIFO)
     kernel_drivers: [ftdi_sio]
     seen_in: [infnoise, openfpgaloader, openocd]
-    # named: argyll
+    # named: Original FT231X VID:PID
+    # named: Original FT231XQ VID:PID
   - id: "0403:6040"
     basis: kernel_generic_driver
     kernel_drivers: [ftdi_sio]
@@ -1100,10 +1097,12 @@ identifiers:
     # named: STLink V3SET MINIE
     # named: STMicroelectronics STLINK-V3
   - id: "0483:df11"
-    basis: distribution_disabled
+    basis: shared_across_products
     usb_ids_name: STM Device in DFU Mode
     seen_in: [dfu-util, dmrconfig, qdmr, qflipper]
-    # named: dfu-util
+    # named: Flipper Zero DFU
+    # named: STM32
+    # named: TYT MD-UV380
   - id: "049f:ffff"
     basis: kernel_generic_driver
     kernel_drivers: [safe_serial]
@@ -2583,15 +2582,15 @@ identifiers:
     basis: kernel_generic_driver
     kernel_drivers: [ftdi_sio]
   - id: "1a86:5512"
-    basis: distribution_disabled
+    basis: shared_across_products
     usb_ids_name: CH341 in EPP/MEM/I2C mode, EPP/I2C adapter
     seen_in: [flashrom, imsprog]
-    # named: ponyprog
+    # named: Add permission to all user to have complete acces to eeprom programmer CH341
+    # named: Winchiphead (WCH) CH341a based programmer
   - id: "1a86:5523"
-    basis: distribution_disabled
+    basis: kernel_generic_driver
     usb_ids_name: CH341 in serial mode, usb to serial port converter
     kernel_drivers: [ch341]
-    # named: ponyprog
   - id: "1a86:55d3"
     basis: kernel_generic_driver
     kernel_drivers: [cdc_acm]
@@ -2600,10 +2599,9 @@ identifiers:
     usb_ids_name: CH340 serial converter
     kernel_drivers: [ch341]
   - id: "1a86:7523"
-    basis: distribution_disabled
+    basis: kernel_generic_driver
     usb_ids_name: CH340 serial converter
     kernel_drivers: [ch341]
-    # named: ponyprog
   - id: "1b1f:c006"
     basis: kernel_generic_driver
     kernel_drivers: [ftdi_sio]
@@ -3831,6 +3829,11 @@ identifiers:
   - id: "2886:1668"
     basis: shared_across_products
     # named: Claimed by 3 LoRa mesh board definitions across Meshtastic and MeshCore, e.g. meshcore:Seeed Wio Tracker L1, meshtastic:seeed_wio_tracker_L1, meshtastic:seeed_wio_tracker_L1_Pro_1W.
+  - id: "28e9:018a"
+    basis: shared_across_products
+    seen_in: [dmrconfig, qdmr]
+    # named: Anytone AT-D868UV
+    # named: Anytone AT-D868UV, AT-D878UV
   - id: "2912:0001"
     basis: kernel_generic_driver
     kernel_drivers: [cdc_acm]
@@ -4080,9 +4083,6 @@ identifiers:
   - id: "9986:7523"
     basis: kernel_generic_driver
     kernel_drivers: [ch341]
-  - id: "dead:beef"
-    basis: distribution_disabled
-    # named: knxd
   - id: "deee:0300"
     basis: kernel_generic_driver
     kernel_drivers: [ftdi_sio]

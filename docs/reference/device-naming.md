@@ -2,7 +2,7 @@
 
 # Device naming: what `/dev/serial/by-id/` covers, and what it does not
 
-Generated 2026-08-27 from `catalog/hardware/`. 21 devices.
+Generated 2026-08-28 from `catalog/hardware/`. 21 devices.
 
 This project's stated highest-value hardware feature was persistent udev
 symlinks by serial. A Proxmark3 capture put that in doubt, because
@@ -82,6 +82,7 @@ that drives them.
 | Class | by-id | Named by | Devices in it |
 |---|---|---|---|
 | `badgelife` | yes | nothing device-specific | 3 |
+| `dmr-radio` | partly | nothing device-specific | 0 |
 | `gps-receiver` | yes | the distribution — `/dev/gpsN, from gpsd's own 60-gpsd.rules` | 0 |
 | `nfc-reader` | no | us — `/dev/nfc` | 0 |
 

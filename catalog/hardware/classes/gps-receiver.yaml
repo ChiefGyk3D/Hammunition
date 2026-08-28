@@ -216,8 +216,11 @@ usb_ids:
 # A distribution maintainer reached this project's conclusion, about two of the
 # same identifiers, and acted on it in a file they ship. It is stronger than
 # anything we infer from modules.alias, and the archive-wide sweep now extracts
-# these deliberately: 13 identifiers across gpsd, dfu-util, argyll, ponyprog and
-# knxd, every one of them a bridge chip or a generic bootloader.
+# these deliberately, and only where the packager said WHY: archive-wide that is
+# 5 rows and 4 distinct identifiers, all of them here in gpsd, and every one a
+# bridge chip. The eight other commented-out rules in the archive carry no
+# reason and are documentation rather than judgement -- dfu-util's is an
+# alternative plugdev form for older systems, offered below a rule that is live.
 rejected_ids:
   - vendor: "0403"
     product: "6001"

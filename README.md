@@ -18,8 +18,8 @@ exactly where things stand:
 | | Status |
 |---|---|
 | Catalog schema (Pydantic, `mypy --strict`) | ✅ working |
-| Package manifests | 🟡 61 of a planned ~230 |
-| Hardware catalog | 🟡 21 devices, 3 classes, 105 confirmed USB identifiers |
+| Package manifests | 🟡 63 of a planned ~230 |
+| Hardware catalog | 🟡 21 devices, 4 classes, 107 confirmed USB identifiers |
 | …of which **supported** / **run on hardware here** | **16** / **7** — [two different claims](docs/DECISIONS.md), kept apart on purpose |
 | Profiles | 🟡 4 written, the rest sized and named on paper |
 | Inventories of all five upstream sources | ✅ complete and measured |
@@ -188,7 +188,7 @@ came to carry 3 identifiers where Debian carries 42.
 
 | Source | What it yielded |
 |---|---|
-| [Every udev rule in the Debian archive](docs/reference/udev-inventory.md) | 1,947 identifiers across 280 packages, no shortlist — **including 13 that a distribution shipped and switched off**, each saying why |
+| [Every udev rule in the Debian archive](docs/reference/udev-inventory.md) | 1,947 identifiers across 280 packages, no shortlist — **including 4 a distribution shipped and switched off with a reason**, which is the strongest evidence in the dataset |
 | [The kernel's own `modules.alias`](docs/reference/usb-ambiguity.md) | Which pairs the kernel binds to a *bridge* driver — the closest thing to an authoritative "this is a chip, not a product" |
 | [Meshtastic and MeshCore board definitions](docs/reference/lora-inventory.md) | 107 boards, 26 identifiers, the top one covering 49 — which closed the `meshtastic` entry with no hardware, and had to, since the maintainer's nodes were lost to flooding |
 | Upstream USB descriptors | `hackrf` states in C that the One and the Pro share `1d50:6089`, which had rested on comparing one capture |

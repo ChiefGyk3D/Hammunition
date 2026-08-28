@@ -1467,10 +1467,28 @@ in 2010:
 above every existing basis, because it is not an inference from a driver table
 or a name — it is a maintainer's conclusion, with their reason attached.
 `scripts/udev-sweep.sh` now extracts commented-out rules deliberately rather
-than discarding them as comments. Archive-wide that is **13 identifiers across
-five packages** — `gpsd`, `dfu-util`, `argyll`, `ponyprog` and `knxd` — and
-every one is a bridge chip or a generic bootloader. `dfu-util` disables
-`0483:df11`, the pair this decision was written about.
+than discarding them as comments.
+
+**Corrected 2026-08-27, same day.** This paragraph first read "13 identifiers
+across five packages — `gpsd`, `dfu-util`, `argyll`, `ponyprog` and `knxd`" and
+said `dfu-util` disables `0483:df11`. Both were wrong, from reading a sweep row
+instead of opening the file. dfu-util's rule for `0483:df11` is **live**, as
+`TAG+="uaccess"`; what is commented out below it is an alternative `plugdev`
+form offered "on older systems". ponyprog's are CH341 modes it does not use and
+knxd's is `dead:beef`.
+
+The distinction was already in the data and went unused: **only a
+commented-out rule with a stated reason is evidence.** The generator now
+requires one, which is the difference between a maintainer's judgement and a
+line of documentation. Archive-wide the honest figure is **5 rows, 4 distinct
+identifiers, all in `gpsd`** — `0403:6001`, `10c4:ea60`, `10c4:ea71` and
+`067b:2303` twice. Fewer, and every one of them a bridge chip, which is the
+claim that mattered.
+
+That this correction is D-031's own failure mode, made in the commit that
+recorded a different instance of it, is not a coincidence worth softening: the
+check catches commit messages, and nothing catches reading a column and
+believing it.
 
 `gps-receiver` carries those five in `rejected_ids` with Debian's own reason,
 which is what that field was built for one decision earlier.

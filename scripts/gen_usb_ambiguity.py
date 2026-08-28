@@ -167,7 +167,16 @@ def main() -> int:
     ) in sweep:
         key = (vendor, product)
         if enabled == "0":
-            disabled_by[key].add(f"{package}: {reason}" if reason else package)
+            # A REASON IS REQUIRED. A commented-out rule is only evidence when
+            # the packager said why they commented it out. Without that it is
+            # documentation: dfu-util's disabled 0483:df11 line is an
+            # alternative plugdev form offered "on older systems" while the
+            # rule itself is live above it as TAG+="uaccess"; ponyprog's are
+            # modes of a CH341 it does not use; knxd's is dead:beef. Counting
+            # those as a distribution's judgement is how 5 real findings were
+            # first reported as 13.
+            if reason:
+                disabled_by[key].add(f"{package}: {reason}")
             continue
         packages_of[key].add(package)
         if comment:

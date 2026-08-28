@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: qdmr
+version: 0.12.1
+summary: Codeplug editor for DMR handhelds — one codeplug, many radios
+categories: [station, radio-programming, dmr]
+
+install:
+  - install:
+      method: apt
+      packages: [qdmr]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Reads, edits and writes the codeplug — the channel, contact, talkgroup and
+    zone configuration — of a DMR handheld over USB. It keeps the codeplug in
+    its own device-independent format and generates the radio-specific binary
+    when it writes, which is what lets one configuration be sent to radios from
+    different manufacturers.
+  why_you_want_it: >-
+    The manufacturer's own software is Windows-only in every case that matters,
+    and a DMR codeplug is not a small thing to rebuild: a few thousand contacts,
+    a channel list per region, and a zone layout that has to match how you
+    actually use the radio. qdmr is the reason none of that has to live in a
+    Windows VM.
+  prerequisites: >-
+    Membership of `dialout`, which the `dmr-radio` hardware class requests, and
+    a radio in the right mode — most are programmed over a normal USB cable but
+    the TYT MD-UV380 family is programmed in STM32 DFU mode.
+  known_problems: >-
+    It ships two programs whose names collide with a different Debian package:
+    `qdmr` is the GUI and `dmrconf` is its command-line counterpart, while
+    `dmrconfig` is a separate project and a separate package. Verified by
+    listing package contents on Debian 13. Reading a codeplug before writing
+    one is not optional advice — a radio whose codeplug is overwritten with a
+    partial one is not bricked but is a long evening.
+  upstream_url: https://dm3mat.darc.de/qdmr/
