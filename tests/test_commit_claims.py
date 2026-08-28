@@ -207,3 +207,42 @@ def test_the_verb_requirement_still_catches_a_bare_path_claim() -> None:
     )
     assert problems
     assert any("nonexistent" in p for p in problems)
+
+
+# ---------------------------------------------------------------------------
+# Bug 4: "uid-1000" read as decision D-100
+# ---------------------------------------------------------------------------
+
+
+def test_a_hyphenated_number_inside_a_word_is_not_an_anchor() -> None:
+    """The message that found this said "creates uid-1000 files".
+
+    ANCHOR had no boundary guards and every check runs IGNORECASE, so a claim
+    verb followed by the "d-100" inside "uid-1000" produced a refusal naming a
+    decision the message never mentions. Fourth instance of this repository's
+    recurring bug: the checker itself unchecked.
+    """
+    message = (
+        "tests: fix the ownership tests\n\n"
+        "On a CI runner uid 1000 creates uid-1000 files, the guard never "
+        "fires, and both tests assert on a code path that never ran.\n"
+    )
+    assert not check(
+        message,
+        changed={"tests/test_cli.py"},
+        diff=diff_for("tests/test_cli.py", ["    pass"]),
+        tracked={"tests/test_cli.py"},
+    )
+
+
+def test_the_boundary_guards_do_not_exempt_a_real_anchor() -> None:
+    """Same sentence shape, a genuine anchor -- must still be refused."""
+    message = "tests: fix\n\nThis creates D-100 from whole cloth.\n"
+    problems = check(
+        message,
+        changed={"tests/test_cli.py"},
+        diff=diff_for("tests/test_cli.py", ["    pass"]),
+        tracked={"tests/test_cli.py"},
+    )
+    assert problems
+    assert "D-100" in problems[0]

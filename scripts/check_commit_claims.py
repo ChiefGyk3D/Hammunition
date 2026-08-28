@@ -64,7 +64,13 @@ CLAIM_VERBS = (
     r"delet(?:e|es|ed|ing)|writ(?:e|es|ing)|wrote|creat(?:e|es|ed|ing)|"
     r"introduc(?:e|es|ed|ing)|drop(?:s|ped|ping)?|split(?:s|ting)?"
 )
-ANCHOR = r"[DQ]-\d{3}"
+# Guarded on both sides: the checks run IGNORECASE, and without the left guard
+# "creates uid-1000 files" contains a claim verb followed by "d-100" -- a
+# refusal naming a decision the message never mentions. Without the right
+# guard the same "d-1000" reads as D-100 plus a stray digit. A word character
+# or hyphen touching either end means it is a fragment of some longer token,
+# not an anchor.
+ANCHOR = r"(?<![\w-])[DQ]-\d{3}(?!\d)"
 # A statement that a decision's *content* has changed, without a claim verb in
 # sight. This is the phrasing of the bug that prompted the check: "D-028 no
 # longer rests on an esptool constant; it rests on three captures" — a
