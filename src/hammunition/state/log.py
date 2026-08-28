@@ -18,13 +18,14 @@ reads should degrade to ignoring what it does not understand.
 
 from __future__ import annotations
 
-import contextlib
 import json
 import os
 import pwd
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any
+
+from hammunition.paths import state_dir
 
 __all__ = ["TransactionLog", "log_path"]
 
@@ -44,18 +45,10 @@ def log_path(owner: str | None = None) -> Path:
     it, while `hammunition status` run as themselves reports "no transactions
     recorded", is the log being wrong about the one thing it exists to record.
 
-    ``$XDG_STATE_HOME`` is deliberately not consulted in that case: under sudo
-    it either does not survive ``env_reset`` or belongs to root, and neither is
-    the operator's.
+    The owner-aware resolution itself lives in :mod:`hammunition.paths`, shared
+    with the artifact cache, which faces the identical sudo problem.
     """
-    if owner and os.geteuid() == 0:
-        entry = None
-        with contextlib.suppress(KeyError):
-            entry = pwd.getpwnam(owner)
-        if entry is not None and entry.pw_uid != 0:
-            return Path(entry.pw_dir) / ".local" / "state" / "hammunition" / "transactions.jsonl"
-    base = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local" / "state")
-    return Path(base) / "hammunition" / "transactions.jsonl"
+    return state_dir(owner) / "transactions.jsonl"
 
 
 class TransactionLog:
