@@ -556,6 +556,10 @@ def test_install_dry_run_prints_the_plan_and_executes_nothing(
     assert "git" in out
     assert "will install" in out
     assert "Dry run: nothing above was executed." in out
+    # The transaction log write is disclosed in the plan, not left to surface
+    # after the fact (#3).
+    assert "Records:" in out
+    assert "transaction log written to" in out
 
 
 def test_install_refresh_on_empty_lists_is_plannable_through_main(
@@ -581,3 +585,28 @@ def test_install_without_refresh_on_empty_lists_is_blocked_through_main(
     err = capsys.readouterr().err
     assert rc == EXIT_UNPLANNABLE
     assert "apt-get update" in err
+
+
+def test_the_log_destination_is_disclosed_and_a_bad_owner_is_not_silent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """render_plan shows where the log goes, so a root run whose operator does
+    not resolve — and whose log therefore falls back to /root — says so in the
+    plan instead of doing it silently (#6)."""
+    import pwd as _pwd
+
+    from hammunition.state import log_path
+
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    real = _pwd.getpwnam
+    monkeypatch.setattr(
+        _pwd, "getpwnam", lambda n: (_ for _ in ()).throw(KeyError(n)) if n == "typo" else real(n)
+    )
+    monkeypatch.delenv("XDG_STATE_HOME", raising=False)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: Path("/root")))
+    dest = log_path("typo")
+    assert str(dest).startswith("/root"), "an unresolved owner falls back to root's home"
+    lines = render_plan(_plan(), [], euid=0, log_destination=dest, hands_log_to=None)
+    text = "\n".join(lines)
+    assert "Records:" in text
+    assert str(dest) in text  # the /root path is visible, not silent

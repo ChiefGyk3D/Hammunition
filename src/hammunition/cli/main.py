@@ -46,7 +46,7 @@ from hammunition.execute import commands_for, execute
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
 from hammunition.manifest.schema import PackageManifest, ProfileManifest, Status
 from hammunition.plan import InstallPlan, PlanError, resolve
-from hammunition.state import TransactionLog
+from hammunition.state import TransactionLog, log_path
 
 __all__ = ["build_parser", "main"]
 
@@ -103,13 +103,28 @@ def load_all(
 # ---------------------------------------------------------------------------
 
 
-def render_plan(plan: InstallPlan, commands: Sequence[Command], *, euid: int) -> list[str]:
+def render_plan(
+    plan: InstallPlan,
+    commands: Sequence[Command],
+    *,
+    euid: int,
+    log_destination: Path | None = None,
+    hands_log_to: str | None = None,
+) -> list[str]:
     """The complete account of what will happen. Printed for every run.
 
     Not only for ``--dry-run``. An operator who is about to say yes should be
     reading the same text the dry run would have shown them, because a
     disclosure that appears only when you ask for it is one most people never
     see.
+
+    ``log_destination`` and ``hands_log_to`` disclose the transaction log — a
+    file written to the machine, and under ``sudo`` a file (and the directories
+    on the way to it) chowned to the operator. CLAUDE.md: nothing happens to a
+    machine that is not written down, before it happens. Showing the resolved
+    path also makes a wrong one visible: if the operator does not resolve and
+    the log falls back to ``/root``, the plan now says so instead of the
+    fallback happening in silence.
     """
     lines = [f"Target: {plan.target.describe()}", ""]
 
@@ -149,6 +164,16 @@ def render_plan(plan: InstallPlan, commands: Sequence[Command], *, euid: int) ->
             wrapped = _wrap(note, indent="      ")
             lines.append("  - " + wrapped[0].strip())
             lines.extend(wrapped[1:])
+        lines.append("")
+
+    if log_destination is not None:
+        lines.append("Records:")
+        lines.append(f"  transaction log written to {log_destination}")
+        if hands_log_to is not None:
+            lines.append(
+                f"  the log and any directories created for it are given to "
+                f"{hands_log_to!r} (chown), since root is writing into their home"
+            )
         lines.append("")
 
     lines.append(f"Commands ({len(commands)}):")
@@ -331,14 +356,31 @@ def cmd_install(args: argparse.Namespace) -> int:
 
     euid = os.geteuid()
     commands = commands_for(plan, apt, refresh=args.refresh)
-    for line in render_plan(plan, commands, euid=euid):
+    # Disclose the log destination in the plan itself, so the file write (and,
+    # under sudo, the chown to the operator) is shown before it happens rather
+    # than surfacing after. A handoff only occurs when root is writing into
+    # somebody else's home, which is exactly when log_path redirects.
+    log_owner = user or None
+    log_destination = log_path(log_owner)
+    hands_log_to = (
+        log_owner
+        if (log_owner and euid == 0 and str(log_destination).startswith("/home"))
+        else None
+    )
+    for line in render_plan(
+        plan,
+        commands,
+        euid=euid,
+        log_destination=log_destination,
+        hands_log_to=hands_log_to,
+    ):
         print(line)
 
     if args.dry_run:
         print("\nDry run: nothing above was executed.")
         return EXIT_OK
 
-    log = TransactionLog(owner=user or None)
+    log = TransactionLog(owner=log_owner)
 
     # Consent gates come after the plan is printed and before anything runs.
     # --yes is passed so the call site documents that it does not help; the
