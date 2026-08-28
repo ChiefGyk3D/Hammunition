@@ -166,73 +166,97 @@ _CODES = {
 }
 
 
-def _parse_index() -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+# The index carries one bold sub-header per source, each naming its own count.
+# The summary table has one column per source in the same order. Both are held
+# to the index below, so a fifth source (or a sixth) needs only a row here.
+_SOURCES = (
+    ("AHRL", "**AHRL (105):**", 105),
+    ("73Linux delta", "**73Linux delta (28):**", 28),
+    ("Skywave delta", "**Skywave delta (9):**", 9),
+    ("DragonOS Tier-1 — new units", "**DragonOS Tier-1 — new units (8):**", 8),
+)
+
+
+def _parse_index() -> dict[str, list[tuple[str, str]]]:
+    """Each source's index sub-list, as {source: [(unit, code), ...]}.
+
+    A sub-list is the single paragraph after its bold header — up to the next
+    blank line, which stops it before the following header or an explanatory
+    note. The note under the DragonOS list backticks names *without* a code, so
+    bounding on the blank line keeps it out rather than tripping the parser.
+    """
     import re
 
     text = DISPOSITIONS.read_text()
-    ahrl_block, rest = text.split("**AHRL (105):**")[1].split("**73Linux delta (28):**")
-    delta_block = rest.split("\n---")[0]
-
-    def parse(block: str) -> list[tuple[str, str]]:
-        entries = []
+    parsed: dict[str, list[tuple[str, str]]] = {}
+    for source, marker, _count in _SOURCES:
+        assert marker in text, f"index is missing the {source!r} sub-header {marker!r}"
+        # The header is followed by a blank line before the token paragraph;
+        # strip that so the paragraph itself is what the blank-line split bounds.
+        block = text.split(marker, 1)[1].lstrip("\n").split("\n\n", 1)[0]
+        entries: list[tuple[str, str]] = []
         for part in block.split("·"):
             item = part.strip()
             if not item:
                 continue
             m = re.search(r"`([A-Za-z0-9_.+\- ]+)`\s*([SRXCAM?])\s*$", item)
-            assert m, f"unparseable index entry: {item!r}"
+            assert m, f"unparseable {source} index entry: {item!r}"
             entries.append((m.group(1).strip(), m.group(2)))
-        return entries
+        parsed[source] = entries
+    return parsed
 
-    return parse(ahrl_block), parse(delta_block)
 
+def _summary_counts() -> dict[str, tuple[int, ...]]:
+    """Parse the per-source columns of the summary table into {disposition: (...)}.
 
-def _summary_counts() -> dict[str, tuple[int, int]]:
-    """Parse the summary table into {disposition: (ahrl, delta)}."""
-    counts = {}
+    The row is ``| name | AHRL | 73Linux | Skywave | DragonOS | Total |`` — six
+    cells. The per-source columns are all but the first (name) and last (total).
+    """
+    counts: dict[str, tuple[int, ...]] = {}
+    expected_cells = 2 + len(_SOURCES)  # name + per-source columns + total
     for line in DISPOSITIONS.read_text().splitlines():
         if not line.startswith("| ") or line.startswith("| **Total"):
             continue
         cells = [c.strip().strip("*") for c in line.strip("|").split("|")]
-        if len(cells) != 4 or cells[0] in {"Disposition", "---"}:
+        if len(cells) != expected_cells or cells[0] in {"Disposition", "---"}:
             continue
         if cells[0] not in _CODES.values():
             continue
-        ahrl = 0 if cells[1] == "—" else int(cells[1])
-        delta = 0 if cells[2] == "—" else int(cells[2])
-        counts[cells[0]] = (ahrl, delta)
+        per_source = tuple(0 if c == "—" else int(c) for c in cells[1:-1])
+        counts[cells[0]] = per_source
     return counts
 
 
 def test_dispositions_index_totals() -> None:
-    ahrl, delta = _parse_index()
-    assert len(ahrl) == 105, f"expected 105 AHRL units, found {len(ahrl)}"
-    assert len(delta) == 28, f"expected 28 delta units, found {len(delta)}"
+    parsed = _parse_index()
+    for source, _marker, count in _SOURCES:
+        assert len(parsed[source]) == count, (
+            f"expected {count} {source} units, found {len(parsed[source])}"
+        )
 
 
 def test_dispositions_no_duplicate_units() -> None:
     from collections import Counter
 
-    ahrl, delta = _parse_index()
-    for label, entries in (("AHRL", ahrl), ("delta", delta)):
+    for source, entries in _parse_index().items():
         dupes = [n for n, c in Counter(n for n, _ in entries).items() if c > 1]
-        assert not dupes, f"{label} index has duplicates: {dupes}"
+        assert not dupes, f"{source} index has duplicates: {dupes}"
 
 
 def test_dispositions_summary_matches_index() -> None:
-    """The summary table claims to be derived from the index. Hold it to that."""
+    """The summary table claims to be derived from the index. Hold it to that,
+    every source column against its own sub-list."""
     from collections import Counter
 
-    ahrl, delta = _parse_index()
-    actual_ahrl = Counter(code for _, code in ahrl)
-    actual_delta = Counter(code for _, code in delta)
+    parsed = _parse_index()
+    per_source_counts = [Counter(code for _, code in parsed[s]) for s, _m, _c in _SOURCES]
+    summary = _summary_counts()
 
     for code, name in _CODES.items():
-        claimed = _summary_counts().get(name)
+        claimed = summary.get(name)
         assert claimed is not None, f"summary table missing row: {name}"
-        assert claimed == (actual_ahrl[code], actual_delta[code]), (
-            f"{name}: summary says {claimed}, index has ({actual_ahrl[code]}, {actual_delta[code]})"
-        )
+        actual = tuple(counter[code] for counter in per_source_counts)
+        assert claimed == actual, f"{name}: summary says {claimed}, index has {actual}"
 
 
 # ---------------------------------------------------------------------------

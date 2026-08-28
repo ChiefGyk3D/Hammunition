@@ -1,9 +1,13 @@
 # Dispositions — every unit, one classification
 
-Applies `PARITY-POLICY.md` to `ahrl-inventory.md` and the 73Linux delta.
+Applies `PARITY-POLICY.md` to `ahrl-inventory.md`, the 73Linux delta, the
+Skywave delta (`skywave-inventory.md`) and the DragonOS Tier-1 set
+(`dragonos-tier1-inventory.md`) — all five sources now dispositioned.
 
 **Scope:** 105 AHRL `INSTALL_*` toggles (95 executing + 9 disabled + 1 dead
-code) and 28 73Linux delta units. **133 units, none unclassified.**
+code), 28 73Linux delta units, 9 Skywave delta units, and the 8 genuinely-new
+of DragonOS's 24 Tier-1 units (the other 16 are CARRY cross-references to AHRL
+or the Blend). **150 units, none unclassified.**
 
 **Method:** dispositions follow the policy's bars. Where the policy already
 settled a case, it is recorded here and **not re-argued**. Two clusters are
@@ -21,16 +25,21 @@ depending on distro package state is marked *(verify in container)*.
 
 ## Summary
 
-| Disposition | AHRL | 73Linux delta | Total |
-|---|---:|---:|---:|
-| CARRY | 61 | 2 | 63 |
-| SUPERSEDE | 12 | 0 | 12 |
-| REVIVE | 6 | 0 | 6 |
-| RETIRE | 10 | 12 | 22 |
-| ADD | — | 11 | 11 |
-| NEEDS-DECISION | 10 | 3 | 13 |
-| Reserved to maintainer | 6 | 0 | 6 |
-| **Total** | **105** | **28** | **133** |
+| Disposition | AHRL | 73Linux delta | Skywave delta | DragonOS T1* | Total |
+|---|---:|---:|---:|---:|---:|
+| CARRY | 61 | 2 | 0 | 0 | 63 |
+| SUPERSEDE | 12 | 0 | 1 | 0 | 13 |
+| REVIVE | 6 | 0 | 0 | 0 | 6 |
+| RETIRE | 10 | 12 | 0 | 0 | 22 |
+| ADD | — | 11 | 7 | 8 | 26 |
+| NEEDS-DECISION | 10 | 3 | 1 | 0 | 14 |
+| Reserved to maintainer | 6 | 0 | 0 | 0 | 6 |
+| **Total** | **105** | **28** | **9** | **8** | **150** |
+
+\* **DragonOS Tier 1 is 24 units; only the 8 genuinely-new ones are counted
+here.** The other 16 arrive through AHRL parity or the Debian Blend — CARRY by
+cross-reference, already counted under AHRL, and listed in the Tier-1 section
+above rather than double-counted.
 
 Counts are derived from the complete index at the foot of this document, not
 maintained by hand. Two overlap decisions (the FT8-family default and the
@@ -492,10 +501,98 @@ they depend on it.
 
 ---
 
-## Complete index — all 133 units
+## Skywave delta — 9 units
+
+Applies the policy to `skywave-inventory.md`'s measured delta. Every one is
+**absent from Debian, stable and unstable** (measured in `debian:13` and
+`debian:sid`), so none can arrive by apt and each names the backend it forces.
+This is the cluster that justifies the **source-from-git** backend more than any
+single AHRL unit does: a coherent aeronautical/maritime decoding domain no other
+source in the union — and no Debian release — covers. **None has a manifest yet.**
+
+| Unit | Disposition | Upstream (resolved, D-018) | Licence | Backend | Note |
+|---|---|---|---|---|---|
+| **LibACARS** | ADD | `szpajder/libacars` | MIT | source-from-git (CMake) | Dependency of the four decoders below; `depends` for each. |
+| **Acarsdec** | ADD | `f00b4r0/acarsdec` | GPL-2.0-only | source-from-git | Install from the maintained successor; `TLeconte/acarsdec` is archived. Skywave 5.10 already ships the f00b4r0 line (v4.4.1). |
+| **Acarsserv** | ADD | `TLeconte/acarsserv` | GPL-2.0 | source-from-git | The one at-risk unit: **archived 2026-03-13, no successor found.** Still the SQLite companion `acarsdec` documents. Carry, and record the archived-upstream risk (**D-024** territory — pin the commit a distribution packages; here none does, so pin our own and watch for a successor). |
+| **DumpHFDL** | ADD | `szpajder/dumphfdl` | GPL-3.0 | source-from-git (CMake) | Active (2026-08-07). Depends on LibACARS. |
+| **VDLM2dec** | **SUPERSEDE** → `dumpvdl2` | `szpajder/dumpvdl2` | GPL-3.0 | source-from-git (CMake) | Meets all four SUPERSEDE bars: same function, maintained, same install, one-sentence trade-off — *dumpvdl2 is the maintained VDL Mode 2 decoder; vdlm2dec is archived.* Skywave ships the archived `vdlm2dec 2.3`; we carry the successor and record `superseded_by:`. |
+| **RTLSDR-Airband** | ADD | `rtl-airband/RTLSDR-Airband` | GPL-2.0 | source-from-git (CMake) | Active, v5.3.0 (2026-08-16) — Skywave ships 4.0.2. Canonical repo resolved past two redirects. |
+| **Kalibrate-RTL** | ADD | `steve-m/kalibrate-rtl` | BSD-2-Clause | source-from-git (autotools) | Active (2026-08-19). Dongle PPM calibration off GSM bursts. |
+| **SuperSDR** | **NEEDS-DECISION** (Q-007) | `mcogoni/supersdr` | **none — default copyright** | source-from-git / python-in-place | The headline listening client, and it carries no licence — no `LICENSE`, no header, checked in-tree. The other two KiwiSDR clients in AB9IL's set are no better. We can install from upstream; we cannot vendor or patch. Reserved to the maintainer. |
+| **Reticulum MeshChat** | ADD (post-1.0) | `liamcottle/reticulum-meshchat` | MIT | AppImage | Ships Linux only as an AppImage — a cleaner second consumer than HAMRS (ordinary GitHub release assets, no page-scraping). Lands in the post-1.0 `mesh` profile, so it does not promote AppImage into 1.0, but the backend now has two independent users (**D-014**). |
+
+**Backend tally.** Seven 1.0 units (six ADD + the dumpvdl2 SUPERSEDE) are
+**source-from-git**; LibACARS is a shared `depends` for four of them. MeshChat is
+the post-1.0 AppImage. SuperSDR would be an eighth source build if Q-007 carries
+it. Skywave adds **no** backend requirement AHRL did not already impose — but it
+is the densest single argument for finishing source-from-git, because the whole
+delta needs it and buys a domain nothing else covers.
+
+**Profile placement.** All eight decoders/clients land in `listening`
+(`profile-sizing.md` sized it with room); MeshChat in post-1.0 `mesh`.
+
+---
+
+## DragonOS Tier 1 — 24 units
+
+Applies the policy to `dragonos-tier1-inventory.md`. Membership was decided by an
+`apt-cache policy` probe in all four x86 targets, not by the list in `SCOPE.md`.
+The headline is that **Tier 1 is mostly already ours**: 16 of the 24 arrive
+through AHRL parity or the Debian Blend and are CARRY, cross-referenced below and
+not re-argued. The 8 genuinely-new SIGINT units are ADD — and **seven already
+have manifests**; the catalog anticipated them. Only `sdrangel` remains to write.
+
+### The 16 already covered — CARRY (cross-reference)
+
+Not re-classified here; each is dispositioned where it first appears.
+
+| Via AHRL (already CARRY/SUPERSEDE) | Via Debian Blend |
+|---|---|
+| `fldigi`, `js8call`, `wsjtx`, `qsstv`, `gpredict`, `gnuradio`, `gqrx`, `cubicsdr`, `direwolf`, `satdump`, `AIS-catcher` — and `sdrpp` = AHRL's `SDR++` (CARRY, pinned — the unversioned-snapshot fix, not a replacement) | `soapysdr-tools`, `uhd-host`, `multimon-ng`, `hacktv`, `gpsd`/`ffmpeg`/`sox` (infrastructure) |
+
+### The 8 new — ADD
+
+All eight are the RF-security/SIGINT contribution. Backend is apt except the two
+`.deb` units, which need **per-target install blocks** (`Selector` already
+expresses this) because apt has no candidate on some targets.
+
+| Unit | Manifest | apt coverage | Backend | Note |
+|---|---|---|---|---|
+| **wireshark** | ✅ written | all four | apt + `group_membership` | Capture without root needs the `wireshark` group — a disclosed modification. |
+| **aircrack-ng** | ✅ written | all four | apt | Wi-Fi audit suite. |
+| **hcxdumptool** | ✅ written | all four | apt | WPA capture. Transmit-adjacent; RF-security profile. |
+| **hcxtools** | ✅ written | all four | apt | Companion conversion tools. |
+| **ubertooth** | ✅ written | all four | apt | BLE/BT sniffer host tools. Owned hardware (issue #9). |
+| **rtl-433** | ✅ written | all four | apt | ISM 433/868/915 decoder. |
+| **inspectrum** | ✅ written | all four | apt | Offline signal visualiser. |
+| **sdrangel** | ❌ **to write** | Kali only | upstream `.deb` per-target | `f4exb/sdrangel` ships `sdrangel_7.27.2_ubuntu-26.04_amd64.deb`; tested to install on Ubuntu 26.04 only, apt on Kali. Needs a `Selector` block, not one URL. |
+
+**Two `.deb` cautions carried from the inventory, both pin/hash-database work,
+neither a blocker here.** `sdrangel`'s artifact installs only on the base it was
+built for (per-target blocks required); **`sdrpp` has no pinnable release** — its
+assets hang off a rolling `nightly` tag, so the URL is stable and the artifact
+behind it is not. Record both against the pin/hash sub-project `SCOPE.md` names.
+
+**Backend tally.** Six apt (all written), one apt-with-group (`wireshark`,
+written), one upstream `.deb` with a per-target selector (`sdrangel`, to write).
+DragonOS Tier 1 adds **no source build** — it is the cheapest of the five deltas,
+exactly as `SCOPE.md`'s staging predicted, and it is nearly done.
+
+**Profile placement.** All eight in `rf-security` (the opt-in SIGINT profile).
+Cellular/EW is deliberately **not** here — 20 units, transmit-capable, blocked on
+**Q-008**.
+
+---
+
+## Complete index — all 150 units
 
 Sorted for completeness-checking. `S` = SUPERSEDE, `R` = REVIVE, `X` = RETIRE,
 `C` = CARRY, `A` = ADD, `?` = NEEDS-DECISION, `M` = reserved to maintainer.
+
+133 AHRL + 73Linux units, plus **9 Skywave delta** and **8 new DragonOS Tier-1**
+units. The other 16 DragonOS Tier-1 units are cross-references to units already
+listed under AHRL or covered by the Blend, and are not re-indexed here.
 
 **AHRL (105):**
 
@@ -527,6 +624,21 @@ Sorted for completeness-checking. `S` = SUPERSEDE, `R` = REVIVE, `X` = RETIRE,
 `PAT` A · `PATMENU` X · `PATMENU3` ? · `PIAPRS` A · `PIQSO` X · `PISTATS` X ·
 `PITERM` A · `QTSOUND` A · `REPEAT` ? · `SECURITY` X · `SHOWLOG` X · `VARA` A ·
 `VARIM` A · `VNC` X · `XYGRIB` A
+
+**Skywave delta (9):**
+
+`acarsdec` A · `acarsserv` A · `dumphfdl` A · `kalibrate-rtl` A · `libacars` A ·
+`reticulum-meshchat` A · `rtlsdr-airband` A · `supersdr` ? · `vdlm2dec` S
+
+**DragonOS Tier-1 — new units (8):**
+
+`aircrack-ng` A · `hcxdumptool` A · `hcxtools` A · `inspectrum` A · `rtl-433` A ·
+`sdrangel` A · `ubertooth` A · `wireshark` A
+
+*(The 16 already-covered Tier-1 units — `fldigi`, `js8call`, `wsjtx`, `qsstv`,
+`gpredict`, `gnuradio`, `gqrx`, `cubicsdr`, `direwolf`, `satdump`, `AIS-catcher`,
+`sdrpp`=`SDR++`, `soapysdr-tools`, `uhd-host`, `multimon-ng`, `hacktv`,
+`gpsd`/`ffmpeg`/`sox` — are indexed under AHRL or arrive via the Blend.)*
 
 ---
 

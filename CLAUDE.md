@@ -468,9 +468,11 @@ inventory is generated from upstream data and regenerable; none is hand-typed.
 | Skywave | `docs/reference/skywave-inventory.md` | 60 apps; **9 delta**, all absent from Debian stable *and* unstable |
 | DragonOS | `docs/reference/dragonos-tier1-inventory.md` | 99 README units; **24 Tier 1**, probed in all four targets |
 
-Dispositions are complete for AHRL and the 73Linux delta
-(`docs/reference/dispositions.md`); the Skywave and DragonOS deltas need theirs.
-Sizing and naming are in `docs/reference/profile-sizing.md`.
+Dispositions are complete for **all five sources**
+(`docs/reference/dispositions.md`): 150 units, none unclassified — AHRL,
+73Linux, the Skywave delta (9: 7 ADD, 1 SUPERSEDE, 1 NEEDS-DECISION), and
+DragonOS Tier 1 (8 new ADD, 16 CARRY by cross-reference). Sizing and naming
+are in `docs/reference/profile-sizing.md`.
 
 **M3 — backend completeness.** Backends are justified by measurement, never by
 convention (**D-014**). Every backend names the unit requiring it.

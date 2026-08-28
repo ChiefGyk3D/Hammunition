@@ -261,10 +261,14 @@ def dispositions() -> dict[str, tuple[int, int]]:
 
     for line in body[body.index("## Summary") :].splitlines():
         cells = [c.strip().strip("*") for c in line.strip().strip("|").split("|")]
-        # A disposition row is 4 cells and has a number in at least one of the
-        # two source columns. An em dash means "not applicable to this source",
-        # which is why testing only the first column silently dropped ADD.
-        if len(cells) == 4 and (cells[1].isdigit() or cells[2].isdigit()):
+        # The summary carries one column per source (five now: name, AHRL,
+        # 73Linux, Skywave, DragonOS, Total). This reads only the first two
+        # source columns — AHRL and the 73Linux delta — which stay columns 1
+        # and 2 whatever sources are appended after them; the later sources are
+        # measured from their own inventories below, not from here. An em dash
+        # means "not applicable to this source", which is why testing only the
+        # first column silently dropped ADD.
+        if len(cells) >= 4 and (cells[1].isdigit() or cells[2].isdigit()):
             out[cells[0]] = (count(cells[1]), count(cells[2]))
         if line.startswith("| **Total**"):
             break

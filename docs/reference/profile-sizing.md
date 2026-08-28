@@ -5,7 +5,7 @@ regenerate. Every number below is derived from a measured inventory; the
 profile set and its **names** are the curated part and are argued rather
 than asserted.
 
-**Generated:** 2026-08-26  
+**Generated:** 2026-08-28  
 **Split threshold:** anything over **80** packages is flagged
 
 ---
