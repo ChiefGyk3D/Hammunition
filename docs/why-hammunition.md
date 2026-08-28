@@ -190,10 +190,12 @@ write your own consumer.
 Because the ham-plus-security operator is the person we're building for, and
 Parrot is a reasonable base for that work. Debian, Ubuntu, Kali, Mint, and
 Raspberry Pi OS are supported targets, and the capability matrix says which
-claims are container-tested and which are not: Raspberry Pi OS publishes no
-container image, so it stays `untested` until verified on real hardware, and
-Mint's only published container turned out to carry Ubuntu's identity inside.
-Parrot is where we start, and it is in CI.
+claims are container-tested and which are not. Five of them run in CI as real
+containers — including Mint, whose published image ships Ubuntu's identity, so
+the build installs Mint's own `base-files` from Mint's own repo to make the
+container a genuine Mint. Only Raspberry Pi OS stays `untested`: it publishes
+no container image, so it waits on real hardware. Parrot is where we start,
+and it is in CI.
 
 ### Why Python?
 

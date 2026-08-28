@@ -73,14 +73,16 @@ identification_gap: >-
 gap_closure: maintainer_hardware
 
 groups: [dialout, plugdev]
-packages: [esptool, tio, wireshark]
+# No esptool: this is an RP2040, flashed over its UF2 bootloader, not an
+# ESP32. tio is the serial console; wireshark consumes the capture output.
+packages: [tio, wireshark]
 documentation:
   what_it_is: >-
     A multiprotocol RF board built around Texas Instruments radio silicon, covering sub-GHz ISM bands, Bluetooth Low Energy and IEEE 802.15.4 from one device.
   what_you_can_do_with_it: >-
     Sniff and analyse traffic across the three protocol families it supports, and load alternative firmware for specific capture tasks.
   setup_steps: >-
-    Follow the badgelife class setup — the Linux-side needs are a serial console and a flasher, which the class already provides. Confirm the device appears under /dev before going further.
+    This board is an RP2040 (confirmed by capture, see below), not the ESP32 the badgelife class serves, so it joins no class. Its Linux-side needs are a serial console — `tio /dev/ttyACM0` at 115200 8N1 — and, for firmware, the RP2040 UF2 bootloader: hold BOOTSEL while attaching and it mounts as a USB mass-storage device you copy a `.uf2` onto. Confirm it appears under /dev before going further.
   known_problems: >-
-    Firmware and host tooling are versioned together and the board ships in several firmware variants; a capture tool that reports nothing is usually running against the wrong firmware rather than a quiet band. The USB identifier is unconfirmed here.
+    Firmware and host tooling are versioned together and the board ships in several firmware variants; a capture tool that reports nothing is usually running against the wrong firmware rather than a quiet band. The USB identifier is confirmed by capture (2e8a:00c0), and it is the generic RP2040/Arduino identifier — shared with every Pico, which is why no rule here matches on it.
   upstream_url: https://github.com/ElectronicCats/CatSniffer

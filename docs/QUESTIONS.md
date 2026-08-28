@@ -598,7 +598,25 @@ preference for recency.
 
 ---
 
-## Q-014 🟡 — The Mint container was never Mint. How should Linux Mint coverage be provided?
+## Q-014 ✅ — The Mint container was never Mint. — **RESOLVED 2026-08-28**
+
+Resolved by the maintainer: Mint should be genuinely container-tested, not
+declared-untested. And it can be, honestly. The `linuxmintd/mint22.3-amd64`
+image is built from Ubuntu and ships Ubuntu's `base-files` (hence
+`ID=ubuntu`), but it carries `packages.linuxmint.com` (the `zena` suite =
+Mint 22.3) and Mint's own apt preferences pinning it. Mint's `base-files` is
+a version *downgrade* from Ubuntu's security update, so the image never
+installed it. The target build now installs `base-files/zena` — Mint's own
+signed package from Mint's own repo — which sets `ID=linuxmint`,
+`VERSION_ID=22.3`, the identity a real Mint ISO ships and its priority-700
+pin keeps. Not a forged file (the shim the capability-matrix rules forbid):
+the distribution's own package completing an incompletely-built image. The
+`linuxmint-22.3` target is restored to `containers/targets.yaml` with
+`identity_package: base-files/zena`, and js8call's Mint-specific selector is
+now exercised against a real Mint os-release. Verified: the built image
+reports `linuxmint 22.3`, the drift check passes, and the full suite is green
+inside it. Option 1 (declared-but-untested) is therefore moot — option 2
+(real coverage) turned out to cost one build arg, not a VM.
 
 **Raised by:** the engine's `--check` drift guard, first run 2026-08-28.
 **Blocks:** honest capability-matrix claims for Linux Mint 22.3, one of

@@ -98,10 +98,11 @@ documentation:
     Read and analyse access cards and transit tokens, study the protocols they
     use, and emulate them for testing systems you are authorized to test.
   setup_steps: >-
-    Not documented here yet. The client is not in Debian and must be built from
-    source against matching firmware, which needs the source backend this project
-    has not written. Writing steps for an untested path would be a documentation
-    bug, not a placeholder.
+    Kali packages the client (proxmark3 4.21611-0kali1, measured 2026-08-26)
+    and the `proxmark3` package installs it there. On Debian 13 and Parrot it
+    must be built from source against matching firmware, which needs the source
+    backend this project has not written — those steps are not documented yet,
+    because writing an untested path would be a documentation bug.
   known_problems: >-
     Two attached at once cannot be told apart. The device supplies no product
     string and no serial, so /dev/serial/by-id/ gives both the same path and no

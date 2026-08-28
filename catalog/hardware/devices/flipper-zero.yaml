@@ -13,9 +13,10 @@ status: supported
 # should obviously carry and nobody had thought to add.
 #
 # D-026 decides the framing, and this is the device the rule was written for
-# alongside the Marauder. What Hammunition installs is qFlipper: a desktop tool
-# that flashes firmware and manages files over USB. The firmware comes from
-# upstream and runs on the device. Ungated, in rf-security.
+# alongside the Marauder. What Hammunition carries is qFlipper: a desktop tool
+# that flashes firmware and manages files over USB (apt-installable on all four
+# targets, 2026-08-28), plus dfu-util as the recovery hatch. The firmware comes
+# from upstream and runs on the device.
 #
 # Not maintainer_verified: nobody here has one. D-027 keeps that separate from
 # `supported`, which is a claim about the identifiers and the recipe.
@@ -74,7 +75,7 @@ identification_gap: >-
 gap_closure: unverified_by_maintainer
 
 groups: [dialout, plugdev]
-packages: [dfu-util]
+packages: [qflipper, dfu-util]
 
 # NO SYMLINK, and the schema is what caught it. This entry originally emitted
 # /dev/flipper-<serial>. Its normal-mode identifier is 0483:5740, which usb.ids
@@ -124,13 +125,15 @@ documentation:
     authorised to test is a separate matter from installing a flashing tool.
   setup_steps: >-
     Join `dialout` and `plugdev`, then log out and back in — group membership
-    does not apply to an existing session. Attach the device and look for a
-    persistent symlink under /dev. qFlipper is the normal desktop route and is
-    not packaged in Debian 13; dfu-util, which is, covers firmware recovery.
+    does not apply to an existing session. Attach the device; it appears as
+    `/dev/ttyACM0` (this entry emits no symlink — see the NO SYMLINK note).
+    qFlipper is the normal desktop route and is packaged on all four targets
+    (qflipper 1.3.3, 2026-08-28); dfu-util covers firmware recovery from DFU.
   known_problems: >-
     Its DFU mode presents the generic STM32 bootloader identifier, so a rule
     matching it would also match unrelated STM32 boards — see the
     identification gap above. ModemManager grabs the serial port for around
     twenty seconds on many desktops, which looks exactly like a dead device;
-    the generated rules tag it so ModemManager ignores it.
+    qFlipper's shipped udev rule tags it with `ENV{ID_MM_DEVICE_IGNORE}="1"` so
+    ModemManager leaves it alone.
   upstream_url: https://flipperzero.one/

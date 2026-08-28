@@ -15,9 +15,32 @@ FROM ${BASE}
 # degraded mode is visible in the build command rather than baked in silently.
 ARG APT_SANDBOX_USER=_apt
 
+# IDENTITY_PACKAGE: a distribution-identity package to install from the target's
+# own repo before anything reads /etc/os-release. Default empty (a no-op for the
+# five targets whose base image already carries the right identity).
+#
+# It exists for one honest case. linuxmintd/mint22.3-amd64 is built from Ubuntu
+# and ships Ubuntu's `base-files`, so its /etc/os-release reads ID=ubuntu — the
+# Mint `base-files` is a version DOWNGRADE (13ubuntu10mint22.3.0 sorts below
+# Ubuntu's 13ubuntu10.4 security update) and was never installed. The image is
+# still genuinely Mint: it carries packages.linuxmint.com and Mint's own apt
+# preferences pinning that repo. Installing `base-files/zena` lets Mint's own
+# signed package set Mint's own os-release — the identity a real Mint 22.3 ISO
+# ships and its priority-700 pin keeps. This is NOT forging a file (the shim the
+# capability-matrix rules forbid); it is completing an incompletely-built image
+# with the distribution's own package. The suite selector carries no version, so
+# it does not rot when Mint revises base-files.
+ARG IDENTITY_PACKAGE=""
+
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PYTHONDONTWRITEBYTECODE=1
+
+RUN if [ -n "${IDENTITY_PACKAGE}" ]; then \
+      apt-get -o APT::Sandbox::User=${APT_SANDBOX_USER} update \
+   && apt-get -o APT::Sandbox::User=${APT_SANDBOX_USER} install -y --allow-downgrades "${IDENTITY_PACKAGE}" \
+   && rm -rf /var/lib/apt/lists/*; \
+    fi
 
 # python3-venv gives us a vendored virtualenv; we never touch system site-packages.
 RUN apt-get -o APT::Sandbox::User=${APT_SANDBOX_USER} update \

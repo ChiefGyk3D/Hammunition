@@ -106,16 +106,20 @@ import yaml
 
 data = yaml.safe_load(pathlib.Path("containers/targets.yaml").read_text())
 for t in data["targets"]:
-    print(f"{t['name']}\t{t['image']}\t{t.get('platform', 'linux/amd64')}\t{t.get('claims', 'full')}")
+    print(
+        f"{t['name']}\t{t['image']}\t{t.get('platform', 'linux/amd64')}"
+        f"\t{t.get('claims', 'full')}\t{t.get('identity_package', '')}"
+    )
 PY
 )
 
 failed=()
-while IFS=$'\t' read -r name image platform claims; do
+while IFS=$'\t' read -r name image platform claims identity_package; do
     echo "═══ $name ($image, $platform, claims=$claims) ═══"
     if ! "$RUNTIME" build --platform="$platform" \
             -f containers/Dockerfile.target \
             --build-arg "BASE=$image" \
+            --build-arg "IDENTITY_PACKAGE=$identity_package" \
             ${BUILD_OPTS[@]+"${BUILD_OPTS[@]}"} \
             -t "hammunition-$name:local" . ; then
         failed+=("$name (build)"); continue

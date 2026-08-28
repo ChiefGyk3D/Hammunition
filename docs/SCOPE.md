@@ -97,8 +97,10 @@ target.** The qualifier is not pedantry: three of the four `.deb` artifacts
 tested do **not** resolve on our targets from the URL upstream advertises
 (`docs/reference/install-verification.md`). A tier meant to be cheap and stable
 cannot admit artifacts that fail to install. **Measured** —
-`docs/reference/dragonos-tier1-inventory.md`, release Resolute R1, probed in all
-four x86 target containers. Of 99 README units, **24 are Tier 1**: Wireshark,
+`docs/reference/dragonos-tier1-inventory.md`, release Resolute R1, probed in the
+four x86 target containers then in CI (Mint was restored as a fifth on
+2026-08-28 and is not re-probed here — being Ubuntu-noble-based, it tracks the
+Ubuntu result). Of 99 README units, **24 are Tier 1**: Wireshark,
 aircrack-ng, hcxdumptool/hcxtools, Ubertooth, rtl_433, inspectrum, GNU Radio,
 SoapySDR, UHD, gpsd/ffmpeg/sox, the ham decoders we already carry, and four that
 arrive as an upstream `.deb` — SDRangel, SDR++, SatDump and AIS-Catcher.
@@ -139,9 +141,11 @@ Debian-13-derived targets, 3.3 on the newer ones.)
 Second, the claim that **gr-gsm's upstream has stalled entirely for GR 3.10 no
 longer holds as a practical matter.** Debian ships `gr-gsm 1.0.0~20220727-1+b18`,
 maintained by the Debian Hamradio Maintainers against
-`git.osmocom.org/gr-gsm`, and it is present in Debian 13, Kali and Parrot —
-though **not** Ubuntu 26.04. Upstream development did move off GitHub; the
-packaging did not stop. It installs today from apt on three of four targets,
+`git.osmocom.org/gr-gsm`, and it is present in Debian 13, Kali, Parrot and
+Mint 22.3 — though **not** Ubuntu 26.04, where it was dropped from a newer
+universe (Mint 22.3 rides Ubuntu's older noble universe, which still carries
+it). Upstream development did move off GitHub; the packaging did not stop. It
+installs today from apt on four of the five x86 targets (measured 2026-08-28),
 which is a different situation from the one this paragraph originally described.
 
 **Tier 3 policy:** carry only modules with a maintained upstream or a maintained

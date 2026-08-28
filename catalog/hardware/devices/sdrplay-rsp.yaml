@@ -42,7 +42,6 @@ documentation:
     The SDRplay API is a .run installer behind an interactive download page. It
     cannot be fetched non-interactively, cannot be checksummed in advance, and
     therefore cannot satisfy this project's requirement that every non-apt source
-    is verified before installation. Skywave Linux dropped it for the same reason
-    and said so in its release notes. If you need it, download and run it yourself;
+    is verified before installation. If you need it, download and run it yourself;
     we will document the step and not perform it.
   upstream_url: https://www.sdrplay.com/

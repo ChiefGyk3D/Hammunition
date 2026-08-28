@@ -29,7 +29,11 @@ consent:
     carried over the air, including identifiers belonging to people and their
     devices. Transmitting may require a licence or other authorization, and
     receiving some communications may require authorization as well, depending
-    on where you are and what you are doing.
+    on where you are and what you are doing. (What installs *today* is the
+    receive/interception subset — gr-gsm — pending Q-008; the transmit tooling
+    this disclosure covers is not in the profile yet. The disclosure describes
+    the profile's gated scope, not a promise that every capability is installed
+    now.)
   affirmation: >-
     Do you affirm that you have the authorization you need for how you intend to
     use this software?
@@ -55,6 +59,7 @@ documentation:
     profile. Also excludes everything in `rf-security`, which is not gated.
   manual_configuration: >-
     Nothing is configured automatically. gr-gsm needs a supported SDR and a
-    tuned capture; see the profile documentation for a worked example. No
-    transmit path is enabled by installing this.
+    tuned capture — its own documentation (the upstream project page in the
+    gr-gsm package manifest) is the reference; this catalog ships no worked
+    example yet. No transmit path is enabled by installing this.
   disk_footprint_hint: Small today — one package plus the GNU Radio stack it depends on.

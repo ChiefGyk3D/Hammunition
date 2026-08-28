@@ -73,7 +73,8 @@ documentation:
     matching the client version. On Debian 13 and Parrot the client must be
     built from source, which needs a backend this project has not written yet.
     See `catalog/hardware/devices/proxmark3.yaml` -- its USB identifier is
-    deliberately unconfirmed rather than guessed.
+    confirmed by capture (2d2d:504d, 2026-08-26); what it cannot solve is
+    telling two identical units apart, since the board supplies no serial.
   known_problems: >-
     Client and firmware are version-locked and a mismatch produces confusing
     behaviour rather than a clear error. Several incompatible hardware
