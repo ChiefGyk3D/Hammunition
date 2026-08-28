@@ -18,7 +18,7 @@ exactly where things stand:
 | | Status |
 |---|---|
 | Catalog schema (Pydantic, `mypy --strict`) | ✅ working |
-| Package manifests | 🟡 68 of a planned ~230 |
+| Package manifests | 🟡 70 of a planned ~230 |
 | Hardware catalog | 🟡 23 devices, 5 classes, 297 confirmed USB identifiers |
 | …of which **supported** / **run on hardware here** | **18** / **7** — [two different claims](docs/DECISIONS.md), kept apart on purpose |
 | Profiles | 🟡 4 written, the rest sized and named on paper |
@@ -41,7 +41,7 @@ those two turned out to disagree.
 
 **There is one thing you can help with right now**, and it needs no code:
 [contributing hardware identifiers](docs/contributing/hardware.md). Eleven of
-the 21 catalogued devices still have something unknown about them, and seven of
+the 23 catalogued devices still have something unknown about them, and seven of
 those are waiting on somebody who owns the hardware — the maintainer does not.
 Sixty-seven Meshtastic and MeshCore boards are waiting on one line each. It
 takes thirty seconds, there is a read-only script for it, and there are
@@ -154,13 +154,13 @@ systemd's `60-serial.rules` already gives every USB-*serial* device a stable
 `/dev/serial/by-id/` path, per unit, with no help from anybody. Stable naming
 was never the hard part.
 
-Of 21 catalogued devices, **17 are ones `by-id` does not settle**, and the
+Of 23 catalogued devices, **19 are ones `by-id` does not settle**, and the
 reasons are the work:
 
 | What `by-id` cannot do | Where it bites |
 |---|---|
 | **Permissions** | A device only root can open is unusable however stable its path. This is what actually stops people. |
-| **Non-serial devices** | 12 of 21 present nothing serial at all — every SDR, the Ubertooth, the Proxmark in client mode. `libusb` devices get no `/dev/serial/` entry to name. |
+| **Non-serial devices** | 11 of 23 present nothing serial at all — every SDR, the Ubertooth, the Proxmark in client mode. `libusb` devices get no `/dev/serial/` entry to name. |
 | **Identical units** | A Proxmark3 ships no product string and no serial. `by-id` builds its path from exactly those, so two of them collide there too. Only `by-path` separates them, and `by-path` changes when you move the cable. |
 | **Which interface is which** | A Free-WiLi 2 is six USB devices behind an internal hub, four serial ports on one of them. `by-id` gives each a stable path and labels none. |
 
@@ -188,7 +188,7 @@ came to carry 3 identifiers where Debian carries 42.
 
 | Source | What it yielded |
 |---|---|
-| [Every udev rule in the Debian archive](docs/reference/udev-inventory.md) | 1,947 identifiers across 280 packages, no shortlist — **including 4 a distribution shipped and switched off with a reason**, which is the strongest evidence in the dataset. The `programmer` class is generated from it: 180 identifiers nobody typed |
+| [Every udev rule in the Debian archive](docs/reference/udev-inventory.md) | 280 packages swept, 1,947 identifiers from the 122 whose rules name USB devices, no shortlist — **including 4 a distribution shipped and switched off with a reason**, which is the strongest evidence in the dataset. The `programmer` class is generated from it: 180 identifiers nobody typed |
 | [The kernel's own `modules.alias`](docs/reference/usb-ambiguity.md) | Which pairs the kernel binds to a *bridge* driver — the closest thing to an authoritative "this is a chip, not a product" |
 | [Meshtastic and MeshCore board definitions](docs/reference/lora-inventory.md) | 107 boards, 26 identifiers, the top one covering 49 — which closed the `meshtastic` entry with no hardware, and had to, since the maintainer's nodes were lost to flooding |
 | Upstream USB descriptors | `hackrf` states in C that the One and the Pro share `1d50:6089`, which had rested on comparing one capture |

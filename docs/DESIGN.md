@@ -245,7 +245,7 @@ never the hard part. What by-id does *not* give is the actual work:
 
 - **Permissions.** A device only root can open is unusable however stable its
   path, and this is what actually stops people.
-- **Non-serial devices.** 12 of 21 catalogued devices present nothing serial at
+- **Non-serial devices.** 11 of 23 catalogued devices present nothing serial at
   all — every SDR, the Ubertooth, the Proxmark in client mode. They are libusb
   devices with no `/dev/serial/` entry for by-id to populate. For these a
   symlink is the only stable name there is, which is why all five symlinks in
