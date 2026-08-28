@@ -345,6 +345,31 @@ def test_the_operator_is_resolved_the_same_way_everywhere(monkeypatch: pytest.Mo
     assert operator(argparse.Namespace()) == "operator"
 
 
+def _fake_root_ownership(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make every stat report a root-owned file, whoever actually runs pytest.
+
+    ``_give_to_owner`` only touches files whose ``st_uid`` is 0 -- the ones
+    root itself just created. With ``geteuid`` faked to 0 but the files really
+    created by whoever runs the suite, that guard is environment-dependent:
+    true under the local container harness (pytest runs as root there), false
+    on a CI runner (uid 1000 creates uid-1000 files, the guard never fires,
+    and both assertions below test nothing). Both tests fake the third fact
+    the same way they fake the first two, instead of inheriting it from the
+    invoking user -- which is how they passed local verification and failed
+    the same commit's own CI.
+    """
+    real_stat = os.stat
+
+    def as_root(path: object, **kwargs: object) -> os.stat_result:
+        result = real_stat(path, **kwargs)  # type: ignore[arg-type]
+        values = list(result)
+        values[4] = 0  # st_uid
+        values[5] = 0  # st_gid
+        return os.stat_result(values)
+
+    monkeypatch.setattr(os, "stat", as_root)
+
+
 def test_a_root_written_log_is_handed_to_its_operator(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -362,6 +387,7 @@ def test_a_root_written_log_is_handed_to_its_operator(
         pwd, "getpwnam", lambda name: pwd_struct(name=name, uid=1000, home=str(tmp_path))
     )
     monkeypatch.setattr(os, "chown", lambda path, uid, gid: calls.append((Path(path), uid, gid)))
+    _fake_root_ownership(monkeypatch)
 
     log = TransactionLog(tmp_path / ".local" / "state" / "hammunition" / "t.jsonl", owner="radioop")
     log.append({"event": "test", "version": 1})
@@ -385,6 +411,7 @@ def test_a_chown_that_cannot_happen_is_reported_not_swallowed(
         pwd, "getpwnam", lambda name: pwd_struct(name=name, uid=1000, home=str(tmp_path))
     )
     monkeypatch.setattr(os, "chown", refuse)
+    _fake_root_ownership(monkeypatch)
 
     log = TransactionLog(tmp_path / ".local" / "state" / "hammunition" / "t.jsonl", owner="radioop")
     log.append({"event": "test", "version": 1})
