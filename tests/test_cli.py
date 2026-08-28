@@ -38,6 +38,7 @@ from hammunition.cli.main import (  # noqa: E402
     EXIT_OK,
     EXIT_UNPLANNABLE,
     build_parser,
+    cmd_status,
     main,
     operator,
     render_plan,
@@ -462,3 +463,59 @@ def test_a_chown_that_cannot_happen_is_reported_not_swallowed(
     assert log.ownership_error is not None
     assert "radioop" in log.ownership_error
     assert "chown" in log.ownership_error
+
+
+# ---------------------------------------------------------------------------
+# status reports the outcome, not just the intent
+# ---------------------------------------------------------------------------
+
+
+def _status_log(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tail: list[dict[str, object]]
+) -> str:
+    """Write a transaction log (begin + given tail), run cmd_status, return stdout."""
+    import io
+    from contextlib import redirect_stdout
+
+    monkeypatch.setattr(Target, "detect", classmethod(lambda cls: TARGET))
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    monkeypatch.delenv("SUDO_USER", raising=False)
+    monkeypatch.setenv("USER", "root")  # operator() -> "root", falsy owner path uses XDG
+    log = TransactionLog(log_path())
+    log.append({"event": "transaction_begin", "version": 1, "apt_packages": ["a", "b", "c"]})
+    for entry in tail:
+        log.append({"version": 1, **entry})
+    args = argparse.Namespace(catalog=CATALOG, user=None)
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        cmd_status(args)
+    return buf.getvalue()
+
+
+def test_status_reports_a_failed_transaction_as_failed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A run that died on package 3 of 20 must not read as 20 covered. This was
+    the bug: cmd_status looked only at transaction_begin."""
+    out = _status_log(tmp_path, monkeypatch, [{"event": "transaction_failed", "completed": 2}])
+    assert "FAILED" in out
+    assert "after 2 command(s)" in out
+
+
+def test_status_reports_a_completed_transaction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    out = _status_log(tmp_path, monkeypatch, [{"event": "transaction_end", "completed": 3}])
+    assert "completed 3 command(s)" in out
+    assert "FAILED" not in out
+
+
+def test_status_reports_an_interrupted_transaction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A begin with no terminal event (killed mid-run) is neither success nor
+    failure, and must not be reported as either."""
+    out = _status_log(tmp_path, monkeypatch, [{"event": "command_begin", "argv": ["apt-get"]}])
+    assert "did not record an ending" in out
+    assert "FAILED" not in out
+    assert "completed" not in out

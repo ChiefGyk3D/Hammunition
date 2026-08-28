@@ -244,12 +244,43 @@ def cmd_status(args: argparse.Namespace) -> int:
         print("  no transactions recorded")
         return EXIT_OK
 
-    installed: list[str] = []
-    for entry in entries:
-        if entry.get("event") == "transaction_begin":
-            installed = [str(p) for p in entry.get("apt_packages", [])]
-    print(f"  {len(entries)} entries; most recent transaction covered {len(installed)} package(s)")
-    for name in installed:
+    # The most recent transaction, and how it actually ended. Reading only
+    # transaction_begin and calling its packages "covered" reported a run that
+    # died on package 3 of 20 as if all 20 landed — the one command whose job
+    # is honest reporting, lying by omission. So find the last begin and the
+    # first terminal event after it.
+    begin_index = max(
+        (i for i, e in enumerate(entries) if e.get("event") == "transaction_begin"),
+        default=None,
+    )
+    print(f"  {len(entries)} entries")
+    if begin_index is None:
+        print("  no transaction start recorded (log holds only other events)")
+        return EXIT_OK
+
+    begin = entries[begin_index]
+    intended = [str(p) for p in begin.get("apt_packages", [])]
+    tail = entries[begin_index + 1 :]
+    ended = next((e for e in tail if e.get("event") == "transaction_end"), None)
+    failed = next((e for e in tail if e.get("event") == "transaction_failed"), None)
+
+    if failed is not None:
+        done = failed.get("completed", 0)
+        print(
+            f"  most recent transaction FAILED after {done} command(s); "
+            f"{len(intended)} package(s) were intended, not necessarily installed"
+        )
+    elif ended is not None:
+        print(
+            f"  most recent transaction completed {ended.get('completed', 0)} "
+            f"command(s); {len(intended)} package(s) intended"
+        )
+    else:
+        print(
+            f"  most recent transaction did not record an ending (interrupted or "
+            f"still running); {len(intended)} package(s) were intended"
+        )
+    for name in intended:
         print(f"    {name}")
     return EXIT_OK
 
