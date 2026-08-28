@@ -292,6 +292,13 @@ head.
   generic bridge identifiers like `0403:6001` and `0483:df11` appear in rules
   for devices they do not identify, and carrying those over-matches as silently
   as omission under-matches. See `docs/reference/udev-inventory.md`.
+- **A citation of a distribution's udev rule is checked against that rule.**
+  `scripts/check_rule_citations.py` verifies every identifier in
+  `catalog/hardware/` against the archive sweep — the file it cites really
+  contains the pair, a "disabled by Debian" claim really is a commented-out rule
+  *with a stated reason*, and `basis: distribution_disabled` is true of the
+  archive. Written because reading a sweep row and not opening the file produced
+  a wrong claim in D-028 one commit after D-031 was recorded.
 - **Verify the effect, not the exit status** (**D-031**). A tool reporting
   success is not evidence it did anything: `sed` exits 0 on an anchor that
   matched nothing, `dpkg-deb -x` writes files and *then* exits non-zero, and a

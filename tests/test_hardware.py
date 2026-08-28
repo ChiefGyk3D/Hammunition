@@ -12,6 +12,7 @@ is unknown.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -860,3 +861,35 @@ def test_the_lora_issue_form_states_the_generated_numbers() -> None:
     # The exclusion is the part most likely to rot back into a blanket ask.
     assert "303a:1001" in form
     assert askable.group(2) == boards.group(1)
+
+
+# ---------------------------------------------------------------------------
+# Citations of distribution rules are checked against the sweep.  D-031
+# ---------------------------------------------------------------------------
+
+
+def test_every_rule_citation_is_supported_by_the_sweep() -> None:
+    """The gap that let `dfu-util disables 0483:df11` ship.
+
+    The commit-claims hook catches a message describing work a commit does not
+    contain. Nothing caught reading a sweep row and believing it — a conclusion
+    drawn from a column, with the file never opened. This is that check, and it
+    runs in the suite rather than only in CI so it can be falsified locally.
+
+    Skipped without the probe rather than passed: the sweep output is gitignored
+    measurement, so a fresh clone has none, and reporting "ok" there would be
+    the same defect one level up.
+    """
+    import subprocess
+
+    root = HARDWARE.parent.parent
+    if not (root / "reference" / "probes" / "udev-debian-13.tsv").is_file():
+        pytest.skip("no udev sweep output; run scripts/run-udev-sweep.sh")
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_rule_citations.py")],
+        capture_output=True,
+        text=True,
+        cwd=root,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr

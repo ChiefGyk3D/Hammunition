@@ -1711,6 +1711,44 @@ commit around it. The same method as `scripts/audit_gitignore.py`, and for the
 same reason: **a checker that has never been shown to catch the thing it was
 written for is itself an unverified claim.**
 
+### The second half, added 2026-08-27
+
+The commit above shipped with a gap stated in its own message: the hook catches
+a message describing work a commit does not contain, and **nothing catches
+reading a column and believing it.** One commit later that gap produced exactly
+the predicted failure — a D-028 amendment asserting that `dfu-util` disables
+`0483:df11`, drawn from a sweep row, with the rules file never opened. It does
+not; the rule is live as `TAG+="uaccess"`.
+
+`scripts/check_rule_citations.py` closes it for the case where these claims are
+load-bearing. Most of the hardware catalog's identifiers cite a shipped rules
+file by name, which makes the claim checkable against the same measurement it
+came from:
+
+- an identifier citing `60-gpsd.rules` must appear in a file of that name;
+- a `rejected_ids` entry saying the distribution disabled a rule must match a
+  sweep row that is commented out **and carries a reason**;
+- an identifier carried in `usb_ids` must not be one that was commented out;
+- and `basis: distribution_disabled` is checked against the whole archive rather
+  than against whichever file the prose happens to name.
+
+90 identifiers across 15 rules files, all verified. It runs in the test suite,
+and weekly in CI — the sweep is 280 packages and ~264 MB, too expensive per
+push, and failing an unrelated pull request because a Debian upload changed a
+rule is how a check gets ignored.
+
+**Falsified before being trusted**, and the first version failed that: citing
+the wrong file went red and reintroducing the original `dfu-util` claim went
+red, but *claiming a live rule was disabled* stayed green. Most of
+`gps-receiver`'s `rejected_ids` say "disabled by Debian" without naming a file,
+and the check only looked when a file was named — a hole precisely where the
+claims are. Fixed, re-falsified, all three red.
+
+**What it does not cover**, said plainly: prose in `docs/`. The wrong claim
+appeared there too, and a check that pattern-matched English would be the kind
+nobody trusts. The catalog is where a claim becomes load-bearing — it generates
+rules — and that is where this is enforced.
+
 ### Enabling it
 
 ```

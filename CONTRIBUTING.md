@@ -82,6 +82,7 @@ holder line is a separate thing from attribution, and neither replaces the other
 ruff check . && ruff format --check .
 python3 scripts/audit_gitignore.py
 python3 scripts/check_doc_links.py
+python3 scripts/check_rule_citations.py   # needs scripts/run-udev-sweep.sh first
 git config core.hooksPath .githooks     # once per clone; see below
 ```
 
