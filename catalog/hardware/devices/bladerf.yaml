@@ -34,7 +34,12 @@ firmware:
       bladeRF-cli loads FPGA images and updates firmware. The FPGA bitstream is a
       separate download from the firmware and both are version-matched to the
       host library; a mismatch reports as an obscure initialisation failure.
-udev: {symlink: bladerf, serial_suffix: true, group: plugdev}
+# serial_suffix unset: the identifiers come from Debian's bladeRF udev rule,
+# which attests identifiers and not descriptor strings. bladeRF-cli reports a
+# serial, but that is the tool reading the FPGA's own record -- not evidence the
+# USB descriptor carries one, and a udev rule can only use the descriptor. Not
+# owned; closes on a capture.
+udev: {symlink: bladerf, group: plugdev}
 documentation:
   what_it_is: >-
     A full-duplex software defined radio with an on-board FPGA, able to transmit

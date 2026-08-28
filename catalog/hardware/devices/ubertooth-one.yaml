@@ -26,7 +26,10 @@ packages: [ubertooth, wireshark, spectools]
 
 udev:
   symlink: ubertooth
-  serial_suffix: true
+  # serial_suffix unset: the identifier comes from Debian's 40-ubertooth.rules,
+  # which attests a VID:PID. Nobody here has read an iSerial from an Ubertooth
+  # One, and a suffix with nothing to append is the proxmark3 failure. Not owned;
+  # closes on a capture.
   group: plugdev
 
 documentation:

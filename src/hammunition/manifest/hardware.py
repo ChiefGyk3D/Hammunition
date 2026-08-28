@@ -368,13 +368,23 @@ class UdevBinding(Strict):
     """
 
     symlink: str = Field(description="Base name under /dev, e.g. 'catsniffer'.")
-    serial_suffix: bool = Field(
-        default=True,
+    serial_suffix: bool | None = Field(
+        default=None,
         description=(
-            "Append the device serial, giving /dev/<symlink>-<serial>. Required "
-            "when more than one of the same model may be attached; harmless when "
-            "not, and the engine also emits the unsuffixed name when exactly one "
-            "device matches."
+            "Append the device serial, giving /dev/<symlink>-<serial>. Three "
+            "states, and the third is the point.\n\n"
+            "`true` -- the device supplies a per-unit serial and the symlink "
+            "carries it. Requires a confirmed identifier with "
+            "`reports_serial: true`; a suffix is not something to assume.\n\n"
+            "`false` -- it does not, so the symlink is unsuffixed. Only valid "
+            "when at most one identifier is confirmed, or two units would race "
+            "for the same /dev name.\n\n"
+            "`null` (the default) -- **nobody has checked.** The generator must "
+            "refuse to emit a symlink rather than guess. This used to default to "
+            "`true`, which meant every device silently claimed a serial nobody "
+            "had read, and `serial_suffix` with nothing to append produces a "
+            "broken or nondeterministic name -- the proxmark3 failure, armed by "
+            "default for every device added afterwards."
         ),
     )
     match_product: str | None = Field(
@@ -497,6 +507,18 @@ def _check_symlink_safety(name: str, usb_ids: list[UsbId], udev: UdevBinding | N
                 "looks exactly like a bad cable. Record it in product_string on the "
                 "identifier it was read from, with the capture or source in evidence."
             )
+    if udev.serial_suffix is True and not any(
+        i.reports_serial is True for i in usb_ids if i.confirmed
+    ):
+        raise ManifestError(
+            f"{name!r} sets serial_suffix but no confirmed identifier records "
+            f"reports_serial: true. The cited udev rules attest *identifiers*, not "
+            f"descriptor strings -- an identifier in a rule is not evidence the "
+            f"device fills in iSerial. A suffix with nothing to append produces a "
+            f"broken or nondeterministic symlink, which is the proxmark3 failure. "
+            f"Set reports_serial on the identifier a capture confirmed it from, or "
+            f"leave serial_suffix unset until somebody has plugged one in (D-031)."
+        )
     ambiguous = [i for i in usb_ids if i.ambiguity]
     if ambiguous and not (udev.match_product or udev.match_serial):
         pairs = ", ".join(str(i) for i in ambiguous)

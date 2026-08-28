@@ -977,3 +977,65 @@ def test_catalog_derived_reports_are_current(script: str, output: str) -> None:
         f"{output} differs from what {script} produces. Either it was "
         f"hand-edited, or the catalog moved and the report is stale."
     )
+
+
+# ---------------------------------------------------------------------------
+# serial_suffix needs evidence, and "nobody checked" is a state (issue #9)
+# ---------------------------------------------------------------------------
+
+
+def _id(**overrides: object) -> UsbId:
+    base: dict[str, object] = {
+        "vendor": "1d50",
+        "product": "6002",
+        "description": "An example device",
+        "evidence": "Debian 13 /lib/udev/rules.d/40-example.rules",
+        "confirmed": True,
+        "node_kind": "libusb",
+    }
+    base.update(overrides)
+    return UsbId(**base)  # type: ignore[arg-type]
+
+
+def _device(**overrides: object) -> DeviceManifest:
+    overrides.setdefault("usb_ids", [_id()])
+    return device(**overrides)
+
+
+def test_serial_suffix_without_evidence_is_refused() -> None:
+    """The cited udev rules attest *identifiers*, not descriptor strings. An
+    identifier in a rule is not evidence the device fills in iSerial, and a
+    suffix with nothing to append produces a broken symlink — the proxmark3
+    failure, which used to be armed by default for every device."""
+    with pytest.raises((ManifestError, ValidationError), match="reports_serial"):
+        _device(udev={"symlink": "example", "serial_suffix": True, "group": "plugdev"})
+
+
+def test_serial_suffix_with_a_capture_behind_it_is_accepted() -> None:
+    device = _device(
+        usb_ids=[_id(reports_serial=True, evidence="lsusb against real hardware 2026-08-28")],
+        udev={"symlink": "example", "serial_suffix": True, "group": "plugdev"},
+    )
+    assert device.udev is not None
+    assert device.udev.serial_suffix is True
+
+
+def test_nobody_checked_is_a_representable_state() -> None:
+    """The third state is the point. `true` and `false` are both claims; leaving
+    it unset says nobody has plugged one in, which is the truth for every device
+    in this catalog that is not owned."""
+    device = _device(udev={"symlink": "example", "group": "plugdev"})
+    assert device.udev is not None
+    assert device.udev.serial_suffix is None
+
+
+def test_the_catalog_claims_a_suffix_only_where_a_capture_backs_it() -> None:
+    """The real catalog, not a fixture. Three devices and one class claimed a
+    suffix on the strength of a Debian rule that attests no such thing."""
+    classes, devices = load_hardware(HARDWARE)
+    for name, entry in [*devices.items(), *classes.items()]:
+        if entry.udev is None or entry.udev.serial_suffix is not True:
+            continue
+        assert any(i.reports_serial is True for i in entry.usb_ids if i.confirmed), (
+            f"{name} claims serial_suffix with no confirmed reports_serial evidence"
+        )

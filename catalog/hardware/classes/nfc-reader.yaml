@@ -101,7 +101,10 @@ packages:
 
 udev:
   symlink: nfc
-  serial_suffix: true
+  # serial_suffix unset. This is a *class* spanning many PN53x readers sold under
+  # many names, so whether a serial exists is a per-product fact and not one the
+  # class can assert for all of them. The ACR122U in particular is widely reported
+  # to supply none. Closes per-device, from a reader the maintainer has.
   mode: "0660"
   group: plugdev
   tag_uaccess: true

@@ -21,7 +21,11 @@ usb_ids:
     node_kind: libusb
 groups: [plugdev]
 packages: [airspy, airspyhf, soapysdr-module-airspy, gqrx-sdr]
-udev: {symlink: airspy, serial_suffix: true, group: plugdev}
+# serial_suffix is deliberately unset: nobody here has read an iSerial from an
+# Airspy. The identifiers above come from Debian's libairspyhf1 udev rule, which
+# attests a VID:PID and says nothing about descriptor strings. Not owned, so this
+# closes on a capture rather than on reasoning (see identification_gap).
+udev: {symlink: airspy, group: plugdev}
 documentation:
   what_it_is: >-
     A family of receive-only software defined radios. R2 and Mini cover VHF and
