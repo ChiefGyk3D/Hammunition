@@ -200,3 +200,29 @@ jobs:
           python-version: "3.11"
       - run: pip install -e ".[dev]"
       - run: python scripts/check_pin_reviews.py
+
+  # -------------------------------------------------------------------------
+  # D-031. Every identifier citing a distribution's udev rule is checked
+  # against that rule. This needs the archive-wide sweep -- 280 packages and
+  # ~264 MB of downloads -- so it cannot run on every push, and the sweep
+  # output is gitignored measurement that a fresh clone does not have. Weekly,
+  # which is often enough to catch a citation that a Debian upload invalidated
+  # and cheap enough that nobody learns to ignore it.
+  # -------------------------------------------------------------------------
+  rule-citations:
+    name: udev rule citations
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      - name: Sweep every udev rule in the archive
+        run: |
+          mkdir -p reference/probes
+          podman run --rm -v "$PWD/scripts/udev-sweep.sh":/sweep.sh:ro debian:13 \
+            bash /sweep.sh > reference/probes/udev-debian-13.tsv
+          wc -l reference/probes/udev-debian-13.tsv
+      - run: python scripts/check_rule_citations.py

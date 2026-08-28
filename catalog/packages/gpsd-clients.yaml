@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: gpsd-clients
+version: "3.25"
+summary: Clients that consume what gpsd serves — xgps, gpspipe, gpxlogger, gpsdecode
+categories: [hardware, station, timing]
+
+depends: [gpsd]
+
+install:
+  - install:
+      method: apt
+      packages: [gpsd-clients]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Programs that connect to the gpsd socket and do something with the stream:
+    `xgps` for a graphical satellite and fix view, `gpspipe` for piping raw or
+    JSON output into anything else, `gpxlogger` for recording a track,
+    `gpsdecode` for turning NMEA and AIS into readable text, and `gps2udp` for
+    forwarding a feed to another host.
+  why_you_want_it: >-
+    gpsd on its own is a daemon with nothing attached to it. These are the
+    programs that read it, and `gpspipe` in particular is how a receiver gets
+    into a script that was never written with GPS in mind.
+  prerequisites: >-
+    gpsd running with a receiver attached. These talk to the daemon over its
+    socket and never to the device, so they need no serial permissions of their
+    own — which is the point of running a daemon in front of a receiver.
+  known_problems: >-
+    Debian splits the fix display and the raw monitor out into `gpsd-tools`,
+    so `cgps` and `gpsmon` are NOT here despite every tutorial pairing them
+    with this package. Verified by listing the package contents on Debian 13:
+    gpsd-clients 3.25-5+deb13u1 ships xgps, xgpsspeed, gpspipe, gpsdecode,
+    gpxlogger, gps2udp, gpscat, gpscsv, gpsplot, gpsprof, gpsrinex, gpsfake,
+    gpssubframe, lcdgps, gegps and zerk, and neither cgps nor gpsmon.
+  upstream_url: https://gpsd.io/

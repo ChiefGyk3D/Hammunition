@@ -2,7 +2,7 @@
 
 # Device naming: what `/dev/serial/by-id/` covers, and what it does not
 
-Generated 2026-08-26 from `catalog/hardware/`. 21 devices.
+Generated 2026-08-28 from `catalog/hardware/`. 21 devices.
 
 This project's stated highest-value hardware feature was persistent udev
 symlinks by serial. A Proxmark3 capture put that in doubt, because
@@ -73,6 +73,19 @@ and we should not be inventing work.
 | `uconsole` | unknown | documented gap | `unrecorded` |
 | `usrp` | no | access, packages | `no-serial-subsystem` |
 
+## Classes
+
+A class is a naming subject too, and one of them carries the finding this
+table exists to make visible: some devices are already named by the package
+that drives them.
+
+| Class | by-id | Named by | Devices in it |
+|---|---|---|---|
+| `badgelife` | yes | nothing device-specific | 3 |
+| `dmr-radio` | partly | nothing device-specific | 0 |
+| `gps-receiver` | yes | the distribution — `/dev/gpsN, from gpsd's own 60-gpsd.rules` | 0 |
+| `nfc-reader` | no | us — `/dev/nfc` | 0 |
+
 ## What this changes
 
 `by-id` gives a stable path. It does not give:
@@ -88,6 +101,11 @@ and we should not be inventing work.
   separates them and is topology, so it changes when the cable moves.
 - **Knowing which interface is which.** A multi-port device gets a stable
   path per port and a label on none of them.
+
+- **A name somebody else already provides.** `gpsd` ships
+  `SYMLINK+="gps%n"`, so a GNSS receiver is `/dev/gps0` with nothing from
+  us. Writing our own on top would be a D-022 displacement with no benefit;
+  recording that the distribution did it is the useful act.
 
 So the hardware layer's value is permissions, composite-device mapping,
 firmware-mode identification, and honest documentation of the cases nothing

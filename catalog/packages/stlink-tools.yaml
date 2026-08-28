@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: stlink-tools
+version: "1.8.0"
+summary: Flash and debug STM32 targets through an ST-Link probe
+categories: [electronics, programmer]
+
+install:
+  - install:
+      method: apt
+      packages: [stlink-tools]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Four programs for ST-Link probes: `st-flash` writes and reads flash, `st-
+    info` identifies the probe and target, `st-util` provides a GDB server, and
+    `st-trace` reads the SWO trace pin.
+  why_you_want_it: >-
+    ST-Link probes are on the front of every Nucleo and Discovery board and cost
+    a few pounds standalone, which makes them the default way onto an STM32.
+    This is the lighter alternative to openocd for that one family — fewer
+    configuration files and a faster path to a working flash command.
+  prerequisites: >-
+    An ST-Link probe. Access comes from the `programmer` hardware class; the
+    package ships rules for 11 identifiers covering the V1 through V3 probes.
+  known_problems: >-
+    A cloned ST-Link with mismatched firmware reports a target it cannot then
+    talk to, which reads as a broken board rather than a broken probe. `st-info
+    --probe` is the first thing to run and it distinguishes the two.
+
+        STM32 devices in DFU mode present `0483:df11`, the generic STM32
+    bootloader identifier this catalog refuses to treat as a device — that is
+    dfu-util's job, not this package's.
+  upstream_url: https://github.com/stlink-org/stlink

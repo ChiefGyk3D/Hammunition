@@ -119,20 +119,36 @@ class Finding:
     names: tuple[str, ...] = field(default_factory=tuple)
 
 
+class ProbeSchemaError(Exception):
+    """A probe file exists and does not have the shape this script expects."""
+
+
 def read_tsv(path: Path, fields: int) -> list[list[str]]:
+    """Rows of exactly `fields` columns, and a loud failure if there are none.
+
+    The silent version of this dropped every row of the udev sweep the day a
+    twelfth column was added, and reported success: 1,186 findings instead of
+    1,257, exit 0, no message. A strict column count is the right check and an
+    exit code of zero on a file it rejected entirely is not — a probe whose rows
+    all have the wrong width is a schema change, not an empty dataset.
+    """
     if not path.is_file():
         return []
-    rows = []
-    for line in path.read_text(errors="replace").splitlines():
-        parts = line.split("\t")
-        if len(parts) == fields:
-            rows.append(parts)
+    lines = [line for line in path.read_text(errors="replace").splitlines() if line.strip()]
+    rows = [parts for line in lines if len(parts := line.split("\t")) == fields]
+    if lines and not rows:
+        widths = sorted({len(line.split("\t")) for line in lines})
+        raise ProbeSchemaError(
+            f"{path.name} has {len(lines)} rows and none with {fields} columns "
+            f"(found {widths}). The probe's format changed; update this script "
+            f"rather than letting it read nothing and call that a result."
+        )
     return rows
 
 
 def main() -> int:
     aliases = read_tsv(PROBES / "modules-alias-debian-13.tsv", 4)
-    sweep = read_tsv(PROBES / "udev-debian-13.tsv", 9)
+    sweep = read_tsv(PROBES / "udev-debian-13.tsv", 12)
     lora = read_tsv(PROBES / "lora-identifiers.tsv", 6)
     if not aliases:
         print("no kernel alias probe; run scripts/kernel-alias-probe.sh", file=sys.stderr)
@@ -149,8 +165,36 @@ def main() -> int:
     packages_of: dict[tuple[str, str], set[str]] = defaultdict(set)
     names_of: dict[tuple[str, str], set[str]] = defaultdict(set)
     usbids_name: dict[tuple[str, str], str] = {}
-    for package, _section, _rules, vendor, product, _link, comment, _vn, pn in sweep:
+    # A rule the distribution shipped and commented out, with the reason it
+    # gave. Strongest evidence in the whole dataset -- see below.
+    disabled_by: dict[tuple[str, str], set[str]] = defaultdict(set)
+    for (
+        package,
+        _section,
+        _rules,
+        vendor,
+        product,
+        _link,
+        comment,
+        _vn,
+        pn,
+        enabled,
+        reason,
+        _subsystem,
+    ) in sweep:
         key = (vendor, product)
+        if enabled == "0":
+            # A REASON IS REQUIRED. A commented-out rule is only evidence when
+            # the packager said why they commented it out. Without that it is
+            # documentation: dfu-util's disabled 0483:df11 line is an
+            # alternative plugdev form offered "on older systems" while the
+            # rule itself is live above it as TAG+="uaccess"; ponyprog's are
+            # modes of a CH341 it does not use; knxd's is dead:beef. Counting
+            # those as a distribution's judgement is how 5 real findings were
+            # first reported as 13.
+            if reason:
+                disabled_by[key].add(f"{package}: {reason}")
+            continue
         packages_of[key].add(package)
         if comment:
             names_of[key].add(comment)
@@ -158,6 +202,20 @@ def main() -> int:
             usbids_name[key] = pn
 
     findings: dict[tuple[str, str], Finding] = {}
+
+    # FIRST source, because it outranks every inference below it. A distribution
+    # shipping a rule and switching it off is not us deducing that a pair names
+    # silicon -- it is a maintainer having reached that conclusion and acted on
+    # it, in a file they ship. Debian's 60-gpsd.rules says so in as many words:
+    # "rule disabled in Debian as it matches too many other devices".
+    for key, sources in sorted(disabled_by.items()):
+        findings[key] = Finding(
+            basis="distribution_disabled",
+            usbids=kernel_name.get(key, usbids_name.get(key, "")),
+            drivers=tuple(sorted(driver_of.get(key, ()))),
+            packages=tuple(sorted(packages_of.get(key, ()))),
+            names=tuple(sorted(sources)),
+        )
 
     vendor_specific = 0
     for key, drivers in driver_of.items():
@@ -167,6 +225,9 @@ def main() -> int:
         name = kernel_name.get(key, usbids_name.get(key, ""))
         if not names_a_chip(name):
             vendor_specific += 1
+            continue
+        if key in findings:
+            # Already carried on stronger evidence; do not demote it.
             continue
         findings[key] = Finding(
             basis="kernel_generic_driver",
@@ -292,6 +353,7 @@ def write_doc(
         "",
         "| Basis | Count |",
         "|---|---:|",
+        f"| `distribution_disabled` | {by_basis.get('distribution_disabled', 0)} |",
         f"| `kernel_generic_driver` | {by_basis.get('kernel_generic_driver', 0)} |",
         f"| `shared_across_products` | {by_basis.get('shared_across_products', 0)} |",
         "",

@@ -52,16 +52,36 @@ FIELDS = (
     "comment",
     "vendor_name",
     "product_name",
+    "enabled",
+    "disabled_reason",
+    "subsystem",
 )
 
 
-def read_rows(path: Path) -> list[dict[str, str]]:
+def read_rows(path: Path, *, enabled_only: bool = True) -> list[dict[str, str]]:
+    """Rows from the sweep.
+
+    Disabled rules are excluded by default and counted separately: a rule a
+    distribution shipped and commented out is evidence about an identifier, not
+    a claim that the identifier is supported, and mixing the two would inflate
+    every coverage number in this document by thirteen.
+    """
     rows = []
+    seen = 0
     for line in path.read_text(errors="replace").splitlines():
+        seen += 1 if line.strip() else 0
         parts = line.split("\t")
         if len(parts) != len(FIELDS):
             continue
-        rows.append(dict(zip(FIELDS, parts, strict=True)))
+        row = dict(zip(FIELDS, parts, strict=True))
+        if enabled_only and row["enabled"] == "0":
+            continue
+        rows.append(row)
+    if seen and not rows:
+        raise SystemExit(
+            f"{path.name} has {seen} rows and none with {len(FIELDS)} columns. The "
+            f"probe's format changed; update FIELDS rather than reading nothing."
+        )
     return rows
 
 

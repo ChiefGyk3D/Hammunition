@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: openocd
+version: "0.12.0"
+summary: On-chip debugging and in-system programming over JTAG and SWD
+categories: [electronics, programmer]
+
+install:
+  - install:
+      method: apt
+      packages: [openocd]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Speaks JTAG and SWD to a target chip through a debug adapter, exposing a GDB
+    server and a telnet console. It is the layer between a probe — an ST-Link, a
+    CMSIS-DAP, an FTDI-based adapter — and the debugger or flashing tool you
+    actually type at.
+  why_you_want_it: >-
+    It is the free implementation everything else assumes. A vendor IDE will
+    flash the vendor's own board; openocd flashes whatever you have, from
+    whatever host, and is what makes a five-pound probe interchangeable with a
+    two-hundred-pound one.
+  prerequisites: >-
+    A debug adapter and a configuration naming it and the target. Access comes
+    from the `programmer` hardware class — plugdev and dialout — and openocd
+    ships its own udev rules covering 100 identifiers, the largest set of the
+    five programmer packages.
+  known_problems: >-
+    Its configuration is two files that must agree: an interface config for the
+    probe and a target config for the chip. A mismatch reports as a failed
+    handshake and looks identical to bad wiring.
+
+        It also claims `0403:6001`, `0403:6010`, `0403:6014` and `0403:6015` —
+    generic FTDI bridges. `0403:6001` is one of only two identifiers
+    `libhamlib4t64` claims, so on a station that does both, openocd's access
+    rule and the rig-control cable are the same device to the kernel. See the
+    `programmer` class.
+  upstream_url: https://openocd.org/

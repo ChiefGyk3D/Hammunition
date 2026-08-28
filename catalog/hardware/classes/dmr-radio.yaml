@@ -1,0 +1,151 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+kind: class
+name: dmr-radio
+summary: DMR handhelds being programmed over USB — codeplug read and write
+
+# Mined from the two Debian packages that program these radios: qdmr 0.12.1's
+# 60-qdmr.rules and dmrconfig 1.1+git20230126's 60-dmrconfig.rules. Both name
+# exactly the same three identifiers, which is itself informative -- two
+# independent upstreams arrived at the same three, so the list is not one
+# author's guess.
+#
+# Three identifiers for a category with dozens of radios in it, because most DMR
+# handhelds present as an ordinary CDC serial device that needs no rule at all.
+# What needs a rule is the minority that enumerate as a bare microcontroller:
+# an STM32 in DFU, a Freescale part, or a GD32.
+
+usb_ids:
+  - vendor: "15a2"
+    product: "0073"
+    description: Baofeng RD-5R and TD-5R in programming mode
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/60-qdmr.rules (qdmr 0.12.1) and
+      60-dmrconfig.rules (dmrconfig 1.1+git20230126), both commented "Baofeng
+      RD-5R, TD-5R". usb.ids attributes vendor 15a2 to Freescale Semiconductor.
+    confirmed: true
+    node_kind: libusb
+  - vendor: "28e9"
+    product: "018a"
+    description: Anytone AT-D868UV and AT-D878UV
+    evidence: >-
+      Debian 13 60-qdmr.rules, commented "Anytone AT-D868UV, AT-D878UV";
+      60-dmrconfig.rules carries the same pair commented "Anytone AT-D868UV".
+      usb.ids attributes vendor 28e9 to GDMicroelectronics — a GD32
+      microcontroller, which is what an Anytone presents as.
+    confirmed: true
+    # The rule's SHAPE is the evidence for this, not a guess: qdmr's entry for
+    # this pair sets ENV{ID_MM_DEVICE_IGNORE}="1" and nothing else, which is
+    # what you write for a device ModemManager would otherwise grab -- and
+    # ModemManager only grabs serial ports. The two Baofeng and TYT entries
+    # match SUBSYSTEM=="usb" and set MODE, which is what you write for a device
+    # opened through libusb.
+    node_kind: serial
+    ambiguity:
+      basis: vendor_chip_default
+      evidence: >-
+        Vendor 28e9 is GDMicroelectronics and 018a is its CDC identifier, so the
+        pair names a GD32 running the stock USB stack rather than an Anytone.
+        The two rules disagree about which radios it covers -- qdmr says
+        AT-D868UV and AT-D878UV, dmrconfig says AT-D868UV only -- which is two
+        upstreams recording different subsets of the same silicon's users.
+
+        Not on the generated ambiguity list: neither Debian's rules nor the
+        kernel's module table binds it to a bridge driver, because a GD32 CDC
+        device is claimed by cdc_acm on interface class rather than by
+        identifier. The same blind spot recorded on free-wili-2's RP2040 probe.
+      also_used_by:
+        - any GD32 microcontroller using the stock USB CDC descriptors
+
+# NEITHER RULE EMITS A SYMLINK, and neither does this class. Both upstream rules
+# only set permissions -- that is the whole of what they do, which is D-029's
+# point about this layer arriving from a third direction: what these devices
+# need from Linux is access, not a name.
+
+# THE THIRD IDENTIFIER IS NOT CARRIED ABOVE, deliberately.
+rejected_ids:
+  - vendor: "0483"
+    product: "df11"
+    description: STM32 device in DFU mode
+    assumed_to_be: >-
+      A TYT MD-UV380 being programmed — which it genuinely is, since that radio
+      is programmed in the STM32 bootloader and both qdmr and dmrconfig match
+      this pair to reach it.
+    why_rejected: >-
+      It is STMicroelectronics' generic DFU identifier, presented by every STM32
+      in the bootloader. This project already found it in qflipper's rules as a
+      Flipper Zero and in dmrconfig's as a TYT radio, which is the finding D-028
+      was written from. It belongs under `firmware` on the entry for
+      a radio the operator has chosen to flash, never in `usb_ids` where the
+      kernel matches whatever is attached. The distinction is D-028's, and this
+      is the third package to make it necessary.
+
+firmware:
+  - kind: dfu
+    packages: [qdmr, dmrconfig, dfu-util]
+    dfu_usb_id:
+      vendor: "0483"
+      product: "df11"
+      description: STM32 DFU bootloader — the mode a TYT MD-UV380 is programmed in
+      evidence: >-
+        Debian 13 60-qdmr.rules and 60-dmrconfig.rules, both commented "TYT
+        MD-UV380". Recorded here rather than in usb_ids because the same pair
+        identifies any STM32 in DFU: safe as a target the operator has chosen,
+        unsafe as a rule the kernel applies to whatever enumerates.
+      confirmed: true
+      node_kind: libusb
+      ambiguity:
+        basis: shared_across_products
+        evidence: >-
+          Three packages in the Debian archive name this pair as three
+          different things: qflipper as a Flipper Zero, qdmr and dmrconfig as a
+          TYT MD-UV380, and dfu-util as "STM32" with no device at all — which
+          is the honest description, since that is what it identifies.
+        also_used_by:
+          - flipper-zero
+          - TYT MD-UV380 and its family
+          - any STM32 device in DFU mode
+    note: >-
+      The TYT MD-UV380 family is programmed in the bootloader rather than in
+      normal operation. Both qdmr and dmrconfig handle the transition
+      themselves; dfu-util is the recovery path. Nothing here flashes anything
+      on its own, and no firmware is supplied by this project.
+
+groups: [dialout]
+packages: [qdmr, dmrconfig, dfu-util]
+
+documentation:
+  what_it_is: >-
+    DMR handhelds — Anytone, TYT, Baofeng, Radioddity and their rebadges — seen
+    from the Linux side while being programmed. Most of the time that is an
+    ordinary USB serial connection; for some radios it is a bare microcontroller
+    in a bootloader.
+  what_you_can_do_with_it: >-
+    Read the codeplug off a radio, edit it on Linux, and write it back, without
+    the manufacturer's Windows software. qdmr for a GUI and a device-independent
+    codeplug, dmrconfig for a plain-text one you can keep in git.
+  setup_steps: >-
+    Install `qdmr` or `dmrconfig`, join `dialout`, then log out and back in —
+    group membership does not apply to a session already open. Attach the radio
+    with its programming cable and read the codeplug BEFORE writing one, so
+    there is something to go back to.
+  known_problems: >-
+    The two packages set different permissions on the same identifiers, and the
+    difference is worth seeing before choosing:
+
+      qdmr:       MODE="660", GROUP="dialout"
+      dmrconfig:  MODE="666"
+
+    dmrconfig's rule makes the matching USB device world-writable by every user
+    on the machine, with no group involved. On a single-user laptop that is
+    invisible; on a shared machine it is a permission widening nobody asked for,
+    and it applies to `0483:df11` — the generic STM32 bootloader identifier,
+    which is not a DMR radio and may well be something else entirely. This
+    project does not change what a distribution's package ships (D-022); it
+    prints it, which is what this note is.
+
+    Both rules are also install-time only: a radio attached before the package
+    was installed keeps the permissions it enumerated with until it is
+    replugged or the rules are reloaded.
+  upstream_url: https://dm3mat.darc.de/qdmr/

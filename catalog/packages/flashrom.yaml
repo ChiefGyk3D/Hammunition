@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: flashrom
+version: "1.4.0"
+summary: Reads, writes and verifies SPI, LPC and parallel flash chips in place
+categories: [electronics, programmer]
+
+install:
+  - install:
+      method: apt
+      packages: [flashrom]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Talks directly to a flash chip — usually the SPI ROM holding a system's
+    firmware — through a USB programmer or an on-board interface, and reads,
+    erases, writes or verifies it.
+  why_you_want_it: >-
+    It is how a firmware image gets off a board and back on again: dumping a
+    router's ROM before modifying it, reflashing a bricked board through a clip,
+    or recovering a system whose firmware update failed. For anyone working on
+    RF hardware it is also the way into the flash on an SDR or a radio's control
+    board.
+  prerequisites: >-
+    A programmer flashrom supports and, for in-circuit work, a way to hold the
+    host CPU off the bus. Access comes from the `programmer` hardware class.
+  known_problems: >-
+    The binary is `/usr/sbin/flashrom`, not `/usr/bin` — verified by listing the
+    package contents on Debian 13 — so it is not on a normal user's PATH by
+    default even after the group membership is right.
+
+        Writing the wrong image to a system's boot flash produces a machine that
+    does not start, and recovering it needs the same programmer you already
+    have. Read and keep a copy first; flashrom will do that in one command and
+    it is the only step that cannot be redone afterwards.
+  upstream_url: https://flashrom.org/

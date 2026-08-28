@@ -151,3 +151,98 @@ def test_the_commit_that_prompted_this_is_still_caught() -> None:
 @pytest.mark.skipif(not (REPO_ROOT / ".git").exists(), reason="not a git checkout")
 def test_the_head_commit_passes_its_own_check() -> None:
     assert run_on("HEAD").returncode == 0, run_on("HEAD").stderr
+
+
+def test_a_parenthesised_anchor_is_a_citation_not_a_claim() -> None:
+    """The check flagged its own author, and the fix is not to loosen the verbs.
+
+    "...verified before writing a word of it (D-018)" put a claim verb eighteen
+    characters from an anchor that was only ever being cited. A bare
+    parenthesised anchor is this repository's citation form; a claim is written
+    "amends D-028". The commit this check exists to catch — 717ba26 — said
+    "D-028 no longer rests on ...", unparenthesised and mid-sentence, so the
+    exemption costs nothing it was built for.
+    """
+    message = (
+        "hardware: mine gpsd\n\n"
+        "Verified by listing package contents on Debian 13 before writing a "
+        "word of it (D-018).\n"
+    )
+    assert not check(message, {"catalog/packages/gpsd.yaml"}, "", {"catalog/packages/gpsd.yaml"})
+
+
+def test_the_exemption_does_not_cover_a_real_claim() -> None:
+    assert check("docs: amends D-018 to require a container\n", {"README.md"}, "", set())
+
+
+def test_a_path_mentioned_without_a_verb_is_not_a_claim() -> None:
+    """The verb requirement applied to only one branch of the path pattern.
+
+    `CLAIMED_PATH` was built by concatenating the verb prefix onto
+    `PATH.pattern`, which contains a top-level alternation — so the regex split
+    into "verb ... `backticked path`" OR "bare repo path", and the second
+    branch required no verb. Every mention of a path read as a claim about it.
+    Found when a message citing `catalog/hardware/ambiguous-ids.yaml` as
+    precedent was told the file was missing from the commit.
+    """
+    message = (
+        "hardware: the programmer class, generated\n\n"
+        "catalog/hardware/ambiguous-ids.yaml set the precedent inside catalog/.\n"
+    )
+    assert not check(
+        message,
+        changed={"catalog/hardware/classes/programmer.yaml"},
+        diff="",
+        tracked={"catalog/hardware/ambiguous-ids.yaml"},
+    )
+
+
+def test_the_verb_requirement_still_catches_a_bare_path_claim() -> None:
+    """Narrowing the regex must not lose the case it was written for."""
+    problems = check(
+        "hardware: adds catalog/hardware/devices/nonexistent.yaml\n",
+        changed={"README.md"},
+        diff="",
+        tracked={"README.md"},
+    )
+    assert problems
+    assert any("nonexistent" in p for p in problems)
+
+
+# ---------------------------------------------------------------------------
+# Bug 4: "uid-1000" read as decision D-100
+# ---------------------------------------------------------------------------
+
+
+def test_a_hyphenated_number_inside_a_word_is_not_an_anchor() -> None:
+    """The message that found this said "creates uid-1000 files".
+
+    ANCHOR had no boundary guards and every check runs IGNORECASE, so a claim
+    verb followed by the "d-100" inside "uid-1000" produced a refusal naming a
+    decision the message never mentions. Fourth instance of this repository's
+    recurring bug: the checker itself unchecked.
+    """
+    message = (
+        "tests: fix the ownership tests\n\n"
+        "On a CI runner uid 1000 creates uid-1000 files, the guard never "
+        "fires, and both tests assert on a code path that never ran.\n"
+    )
+    assert not check(
+        message,
+        changed={"tests/test_cli.py"},
+        diff=diff_for("tests/test_cli.py", ["    pass"]),
+        tracked={"tests/test_cli.py"},
+    )
+
+
+def test_the_boundary_guards_do_not_exempt_a_real_anchor() -> None:
+    """Same sentence shape, a genuine anchor -- must still be refused."""
+    message = "tests: fix\n\nThis creates D-100 from whole cloth.\n"
+    problems = check(
+        message,
+        changed={"tests/test_cli.py"},
+        diff=diff_for("tests/test_cli.py", ["    pass"]),
+        tracked={"tests/test_cli.py"},
+    )
+    assert problems
+    assert "D-100" in problems[0]

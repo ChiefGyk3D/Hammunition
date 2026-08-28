@@ -35,4 +35,15 @@ documentation:
     dfu_usb_id. Interrupting a firmware write can leave a device recoverable
     only through DFU, which is fine when DFU is what you were using and not
     when it is not.
+
+    This package is also the clearest illustration of why those identifiers stay
+    out of `usb_ids`. Its shipped rule, `60-dfu-util.rules`, grants access to
+    `0483:df11` — and labels it exactly "# STM32", naming no device, because
+    there is no device to name. The same pair reaches this catalog from two
+    other packages calling it two other things: qflipper as a Flipper Zero,
+    qdmr and dmrconfig as a TYT MD-UV380. The tool that talks to everything in
+    DFU is the one that gets the identifier right, by declining to pretend it
+    means a product. So an entry that wants it names it under `firmware`, where
+    the operator has chosen the device, never in `usb_ids`, where the kernel
+    matches whatever is attached.
   upstream_url: https://dfu-util.sourceforge.net/

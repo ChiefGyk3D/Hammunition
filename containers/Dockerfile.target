@@ -34,9 +34,11 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 RUN pip install --no-cache-dir -e ".[dev]"
 
-COPY catalog ./catalog
-COPY tests ./tests
-COPY scripts ./scripts
-COPY containers ./containers
+# The whole repository, not a curated list: the list this replaced predated
+# tests that read .gitignore, LICENSE, REUSE.toml and .github/, so the tests
+# passed against a mounted dev checkout and failed in every CI container --
+# "test the matrix, not your machine", failed from the harness side.
+# .dockerignore (repo root) holds the exclusions, each with its reason.
+COPY . ./
 
 CMD ["python", "scripts/capability_matrix.py", "--check"]

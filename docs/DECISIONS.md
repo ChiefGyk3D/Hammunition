@@ -1438,6 +1438,68 @@ node at all, udev rules were always about *access* rather than naming.
   driver. The rule distinguishes them by an explicit list, because `pn533_usb`
   also ends in `_usb` and getting that backwards would suppress a valid symlink.
 
+
+### D-028 amendment, 2026-08-27 — a distribution says it out loud
+
+The strongest evidence for this decision was not ours and had been sitting in
+the archive the whole time. Debian ships `gpsd`'s `60-gpsd.rules` with **five
+identifiers commented out**, each under the line:
+
+```
+# !!! rule disabled in Debian as it matches too many other devices
+```
+
+They are `0403:6001` (FTDI FT232), `10c4:ea60` and `10c4:ea71` (Silicon Labs
+CP210x and CP2108), and `067b:2303` (Prolific PL2303) **twice**. Two of those
+are identifiers this project had already had to stop claiming, for the same
+reason pointed the other way: `10c4:ea60` is what `badgelife` was naming
+`/dev/badge`, and `0403:6001` is the pair D-028's opening paragraph uses as its
+example. A distribution maintainer reached this conclusion independently, about
+the same silicon, and acted on it in a file they ship.
+
+The same rules file opens with the GPSD project stating the principle outright,
+in 2010:
+
+> GPSes don't have their own USB device class. They're serial-over-USB devices,
+> so what you see is actually the ID of the serial-over-USB chip.
+
+**What this changes.** `AmbiguityBasis` gains `distribution_disabled`, ranked
+above every existing basis, because it is not an inference from a driver table
+or a name — it is a maintainer's conclusion, with their reason attached.
+`scripts/udev-sweep.sh` now extracts commented-out rules deliberately rather
+than discarding them as comments.
+
+**Corrected 2026-08-27, same day.** This paragraph first read "13 identifiers
+across five packages — `gpsd`, `dfu-util`, `argyll`, `ponyprog` and `knxd`" and
+said `dfu-util` disables `0483:df11`. Both were wrong, from reading a sweep row
+instead of opening the file. dfu-util's rule for `0483:df11` is **live**, as
+`TAG+="uaccess"`; what is commented out below it is an alternative `plugdev`
+form offered "on older systems". ponyprog's are CH341 modes it does not use and
+knxd's is `dead:beef`.
+
+The distinction was already in the data and went unused: **only a
+commented-out rule with a stated reason is evidence.** The generator now
+requires one, which is the difference between a maintainer's judgement and a
+line of documentation. Archive-wide the honest figure is **5 rows, 4 distinct
+identifiers, all in `gpsd`** — `0403:6001`, `10c4:ea60`, `10c4:ea71` and
+`067b:2303` twice. Fewer, and every one of them a bridge chip, which is the
+claim that mattered.
+
+That this correction is D-031's own failure mode, made in the commit that
+recorded a different instance of it, is not a coincidence worth softening: the
+check catches commit messages, and nothing catches reading a column and
+believing it.
+
+`gps-receiver` carries those five in `rejected_ids` with Debian's own reason,
+which is what that field was built for one decision earlier.
+
+**A bug the same file exposed.** The sweep attributed the wrong description to
+`1546:01a9`, calling a u-blox 9 a Silicon Labs CP210x. The extractor rejected
+any comment of 60 characters or more as boilerplate — the u-blox line is 73 —
+and then *kept the previous comment* rather than clearing the field. 156 of
+2,750 rows carried a description that long. A rejected comment now clears it:
+no description is honest, someone else's is not.
+
 ---
 
 ## D-029 — The hardware layer is permissions and mapping; stable naming is mostly solved
@@ -1648,6 +1710,44 @@ the commit whose amendment silently matched nothing, while passing every other
 commit around it. The same method as `scripts/audit_gitignore.py`, and for the
 same reason: **a checker that has never been shown to catch the thing it was
 written for is itself an unverified claim.**
+
+### The second half, added 2026-08-27
+
+The commit above shipped with a gap stated in its own message: the hook catches
+a message describing work a commit does not contain, and **nothing catches
+reading a column and believing it.** One commit later that gap produced exactly
+the predicted failure — a D-028 amendment asserting that `dfu-util` disables
+`0483:df11`, drawn from a sweep row, with the rules file never opened. It does
+not; the rule is live as `TAG+="uaccess"`.
+
+`scripts/check_rule_citations.py` closes it for the case where these claims are
+load-bearing. Most of the hardware catalog's identifiers cite a shipped rules
+file by name, which makes the claim checkable against the same measurement it
+came from:
+
+- an identifier citing `60-gpsd.rules` must appear in a file of that name;
+- a `rejected_ids` entry saying the distribution disabled a rule must match a
+  sweep row that is commented out **and carries a reason**;
+- an identifier carried in `usb_ids` must not be one that was commented out;
+- and `basis: distribution_disabled` is checked against the whole archive rather
+  than against whichever file the prose happens to name.
+
+90 identifiers across 15 rules files, all verified. It runs in the test suite,
+and weekly in CI — the sweep is 280 packages and ~264 MB, too expensive per
+push, and failing an unrelated pull request because a Debian upload changed a
+rule is how a check gets ignored.
+
+**Falsified before being trusted**, and the first version failed that: citing
+the wrong file went red and reintroducing the original `dfu-util` claim went
+red, but *claiming a live rule was disabled* stayed green. Most of
+`gps-receiver`'s `rejected_ids` say "disabled by Debian" without naming a file,
+and the check only looked when a file was named — a hole precisely where the
+claims are. Fixed, re-falsified, all three red.
+
+**What it does not cover**, said plainly: prose in `docs/`. The wrong claim
+appeared there too, and a check that pattern-matched English would be the kind
+nobody trusts. The catalog is where a claim becomes load-bearing — it generates
+rules — and that is where this is enforced.
 
 ### Enabling it
 

@@ -281,6 +281,15 @@ head.
   checker would validate almost nothing.
 - Generated docs are generated: `scripts/gen_blend_inventory.py` rebuilds the
   Blend inventory from upstream task files. Never hand-edit a generated file.
+- **Two files under `catalog/` are generated too**, and being generated does not
+  breach the "pure data, no executable logic" invariant — a generated YAML file
+  is data exactly as a typed one is. `catalog/hardware/ambiguous-ids.yaml` comes
+  from `gen_usb_ambiguity.py`; `catalog/hardware/classes/programmer.yaml` comes
+  from `gen_programmer_class.py`, because five packages name **180 distinct
+  identifiers** between them and transcribing 180 evidence strings by hand is a
+  long opportunity to make the mistakes this project keeps writing checks for.
+  Run `gen_usb_ambiguity.py` first: the class reads its output. A test asserts
+  regeneration is a no-op.
 - **Upstream project metadata is mined the same way.** Meshtastic and MeshCore
   publish a PlatformIO board file per product naming its USB identifiers;
   `scripts/lora-sweep.sh` reads them. 107 boards, 26 identifiers, the top one
@@ -293,6 +302,13 @@ head.
   generic bridge identifiers like `0403:6001` and `0483:df11` appear in rules
   for devices they do not identify, and carrying those over-matches as silently
   as omission under-matches. See `docs/reference/udev-inventory.md`.
+- **A citation of a distribution's udev rule is checked against that rule.**
+  `scripts/check_rule_citations.py` verifies every identifier in
+  `catalog/hardware/` against the archive sweep — the file it cites really
+  contains the pair, a "disabled by Debian" claim really is a commented-out rule
+  *with a stated reason*, and `basis: distribution_disabled` is true of the
+  archive. Written because reading a sweep row and not opening the file produced
+  a wrong claim in D-028 one commit after D-031 was recorded.
 - **Verify the effect, not the exit status** (**D-031**). A tool reporting
   success is not evidence it did anything: `sed` exits 0 on an anchor that
   matched nothing, `dpkg-deb -x` writes files and *then* exits non-zero, and a

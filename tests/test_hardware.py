@@ -12,6 +12,7 @@ is unknown.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -860,3 +861,76 @@ def test_the_lora_issue_form_states_the_generated_numbers() -> None:
     # The exclusion is the part most likely to rot back into a blanket ask.
     assert "303a:1001" in form
     assert askable.group(2) == boards.group(1)
+
+
+# ---------------------------------------------------------------------------
+# Citations of distribution rules are checked against the sweep.  D-031
+# ---------------------------------------------------------------------------
+
+
+def test_every_rule_citation_is_supported_by_the_sweep() -> None:
+    """The gap that let `dfu-util disables 0483:df11` ship.
+
+    The commit-claims hook catches a message describing work a commit does not
+    contain. Nothing caught reading a sweep row and believing it — a conclusion
+    drawn from a column, with the file never opened. This is that check, and it
+    runs in the suite rather than only in CI so it can be falsified locally.
+
+    Skipped without the probe rather than passed: the sweep output is gitignored
+    measurement, so a fresh clone has none, and reporting "ok" there would be
+    the same defect one level up.
+    """
+    import subprocess
+
+    root = HARDWARE.parent.parent
+    if not (root / "reference" / "probes" / "udev-debian-13.tsv").is_file():
+        pytest.skip("no udev sweep output; run scripts/run-udev-sweep.sh")
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_rule_citations.py")],
+        capture_output=True,
+        text=True,
+        cwd=root,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_the_programmer_class_is_still_generated() -> None:
+    """`Never hand-edit a generated file` (CLAUDE.md), enforced rather than asked.
+
+    This is the first *device* file in the catalog produced by a script, and the
+    risk that comes with that is somebody fixing one of 180 entries in place and
+    losing it at the next regeneration. Re-running the generator must be a
+    no-op; if it is not, either the file was edited or the sweep moved and the
+    file is stale. Both are worth failing for.
+
+    Skipped without the probe, which a fresh clone does not have — the sweep
+    output is gitignored measurement.
+    """
+    import subprocess
+
+    root = HARDWARE.parent.parent
+    if not (root / "reference" / "probes" / "udev-debian-13.tsv").is_file():
+        pytest.skip("no udev sweep output; run scripts/run-udev-sweep.sh")
+    target = HARDWARE / "classes" / "programmer.yaml"
+    before = target.read_text()
+    result = subprocess.run(
+        [sys.executable, str(root / "scripts" / "gen_programmer_class.py")],
+        capture_output=True,
+        text=True,
+        cwd=root,
+        check=False,
+    )
+    after = target.read_text()
+    if before != after:
+        target.write_text(before)
+    assert result.returncode == 0, result.stderr
+
+    def without_date(text: str) -> list[str]:
+        """The date line changes daily and says nothing about content."""
+        return [ln for ln in text.splitlines() if not ln.startswith("# Generated:")]
+
+    assert without_date(before) == without_date(after), (
+        "catalog/hardware/classes/programmer.yaml differs from what the generator "
+        "produces. Either it was hand-edited, or the sweep has moved and it is stale."
+    )

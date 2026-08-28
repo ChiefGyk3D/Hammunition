@@ -64,13 +64,27 @@ CLAIM_VERBS = (
     r"delet(?:e|es|ed|ing)|writ(?:e|es|ing)|wrote|creat(?:e|es|ed|ing)|"
     r"introduc(?:e|es|ed|ing)|drop(?:s|ped|ping)?|split(?:s|ting)?"
 )
-ANCHOR = r"[DQ]-\d{3}"
+# Guarded on both sides: the checks run IGNORECASE, and without the left guard
+# "creates uid-1000 files" contains a claim verb followed by "d-100" -- a
+# refusal naming a decision the message never mentions. Without the right
+# guard the same "d-1000" reads as D-100 plus a stray digit. A word character
+# or hyphen touching either end means it is a fragment of some longer token,
+# not an anchor.
+ANCHOR = r"(?<![\w-])[DQ]-\d{3}(?!\d)"
 # A statement that a decision's *content* has changed, without a claim verb in
 # sight. This is the phrasing of the bug that prompted the check: "D-028 no
 # longer rests on an esptool constant; it rests on three captures" — a
 # present-tense assertion about what the document says, in a commit that never
 # touched the document. Verbs alone would not have caught it.
 STATE_CHANGE = r"no longer|now|instead|as of|has been|have been|already"
+# A bare parenthesised anchor is this repository's citation form: "...which is
+# the shim CLAUDE.md forbids (D-016)", "verified before writing it (D-018)".
+# Exempted, because the check flagged its own author's commit for the second of
+# those -- "writing" is a claim verb and D-018 was eighteen characters away. A
+# claim reads "amends D-028", never "(D-028)", so the distinction costs nothing:
+# the commit this check exists to catch said "D-028 no longer rests on ...",
+# unparenthesised, in the middle of a sentence.
+CITATION = re.compile(rf"\((?:{ANCHOR})\)")
 # "amends D-028", "D-028 is amended" — satisfied by any changed line mentioning
 # it, because the work may legitimately live in code or in a manifest.
 CLAIMED_ANCHOR = re.compile(
@@ -96,8 +110,15 @@ PATH = re.compile(
     r"`([A-Za-z0-9_./-]+\.[A-Za-z0-9]{1,6}|[A-Za-z0-9_-]+/[A-Za-z0-9_./-]*)`"
     r"|(?<![\w/`])((?:src|scripts|tests|catalog|docs|containers|\.github)/[A-Za-z0-9_./-]+)"
 )
+# The verb prefix must apply to BOTH branches of PATH, so PATH goes inside a
+# group. Without it the top-level `|` in PATH.pattern split this regex in two
+# and the second alternative — the bare `catalog/...` form — carried no verb
+# requirement at all, so every mention of a repo path read as a claim about it.
+# Third instance in this project of a checker that was itself unchecked; it
+# surfaced when a commit message *cited* catalog/hardware/ambiguous-ids.yaml as
+# precedent and was told the file was missing from the commit.
 CLAIMED_PATH = re.compile(
-    rf"\b(?:{CLAIM_VERBS})\b[^.\n]{{0,100}}?" + PATH.pattern,
+    rf"\b(?:{CLAIM_VERBS})\b[^.\n]{{0,100}}?(?:{PATH.pattern})",
     re.IGNORECASE,
 )
 
@@ -184,9 +205,12 @@ def check(message: str, changed: set[str], diff: str, tracked: set[str]) -> list
 
     # Strip comment lines a commit template leaves behind.
     body = "\n".join(line for line in message.splitlines() if not line.startswith("#"))
+    # Blank out citations before looking for claims, so a verb landing near one
+    # cannot manufacture a claim out of a reference.
+    body_for_anchors = CITATION.sub("(cited)", body)
 
-    restated = anchors_in(body, RESTATED_ANCHOR)
-    for anchor in sorted(anchors_in(body, CLAIMED_ANCHOR) | restated):
+    restated = anchors_in(body_for_anchors, RESTATED_ANCHOR)
+    for anchor in sorted(anchors_in(body_for_anchors, CLAIMED_ANCHOR) | restated):
         in_section = False
         span = section_range(anchor)
         if span is not None:

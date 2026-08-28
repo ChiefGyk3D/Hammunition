@@ -262,6 +262,17 @@ An **operator-chosen role name** — `/dev/rig-991a` beats any by-id path nobody
 memorises — is still worth having, and belongs in station-local configuration
 with a `match_serial` for that unit rather than in a catalog-wide class rule.
 
+**The sharpest case is in this project's own domain.** `libhamlib4t64`, the ham
+radio CAT control library, claims exactly two USB identifiers: `0403:6001` and
+`16c0:05dc`. Both are also claimed by the programmer tooling — `flashrom`,
+`openocd` and `openfpgaloader` for the first, `avrdude` for the second. An
+FTDI-based rig-control cable and an FTDI-based JTAG adapter are the same USB
+device as far as the kernel is concerned, and `16c0:05dc` is a *shared* V-USB
+pair that Objective Development hands out to hobby projects. There is no rule
+that grants a programmer access without granting it to the rig cable. That is
+not a problem to solve; it is a property of the hardware, and the deliverable is
+saying so where an operator will read it.
+
 Everything the hardware layer does to a system is printed before it happens and
 recorded in the transaction log.
 

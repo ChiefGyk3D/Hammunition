@@ -87,6 +87,7 @@ So the disposition is structural:
 
 
 AmbiguityBasis = Literal[
+    "distribution_disabled",
     "kernel_generic_driver",
     "shared_across_products",
     "vendor_chip_default",
@@ -94,8 +95,18 @@ AmbiguityBasis = Literal[
 ]
 """Why an identifier does not identify a *device*.  D-028.
 
-Four evidence classes, in descending order of how citable they are:
+Five evidence classes, in descending order of how citable they are:
 
+``distribution_disabled``
+    A distribution shipped a rule for the pair and **commented it out**, saying
+    why. The strongest evidence there is, because it is not an inference from a
+    driver table or a name -- it is a maintainer stating the conclusion and
+    acting on it. Debian's ``60-gpsd.rules`` carries five, each marked "rule
+    disabled in Debian as it matches too many other devices": ``0403:6001``,
+    ``10c4:ea60``, ``10c4:ea71`` and ``067b:2303`` twice. The archive-wide sweep
+    finds 13 such identifiers in all, and every one of them is a bridge chip or
+    a generic bootloader -- ``dfu-util`` disables ``0483:df11``, the pair D-028
+    was written about.
 ``kernel_generic_driver``
     The kernel's own ``modules.alias`` binds the pair to a general-purpose
     USB-serial driver -- ``cp210x``, ``ch341``, ``ftdi_sio``, ``pl2303``. The
@@ -436,6 +447,14 @@ class _DeviceCommon(Strict):
     rejected_ids: list[RejectedId] = Field(
         default_factory=list,
         description="Identifiers considered and not carried, with why. Cannot generate a rule.",
+    )
+    distribution_naming: str | None = Field(
+        default=None,
+        description=(
+            "A persistent name a distribution package already provides, e.g. "
+            "gpsd's /dev/gpsN. Recorded so the accounting can tell 'we add a "
+            "name' apart from 'somebody already did'."
+        ),
     )
 
     groups: list[str] = Field(

@@ -1,0 +1,24 @@
+# Context filter for containers/Dockerfile.target (read by podman and docker).
+#
+# The target image now takes the WHOLE repository (COPY . ./), because the
+# previous curated COPY list rotted exactly the way curated lists do here:
+# tests added after the list was written read .gitignore, LICENSE, REUSE.toml
+# and .github/, none of which were in the image, and every container job went
+# red while local runs -- which mount the full tree -- stayed green.
+#
+# So this file lists only what must NOT reach the image, and each entry says
+# why. Unlike .gitignore, a bare name here matches at the context ROOT only,
+# so `reference` does not touch docs/reference/ (a test asserts it is there).
+#
+# .git       -- tests that need a worktree already skip without one; shipping
+#               history into six images per push buys nothing.
+# reference  -- gitignored 264MB local sweep data; never in CI checkouts but
+#               present on dev machines, and a local build must match CI.
+# vendor     -- gitignored extracted upstream trees, same reason.
+.git
+reference
+vendor
+**/__pycache__
+.mypy_cache
+.pytest_cache
+.ruff_cache
