@@ -114,6 +114,9 @@ jobs:
           - { name: debian-13,     image: "debian:13",                    platform: linux/amd64 }
           - { name: ubuntu-26.04,  image: "ubuntu:26.04",                 platform: linux/amd64 }
           - { name: kali-rolling,  image: "kalilinux/kali-rolling:latest", platform: linux/amd64 }
+          # Mint's image ships Ubuntu's base-files; identity_package installs
+          # Mint's own from its own repo so os-release reads linuxmint (Q-014).
+          - { name: linuxmint-22.3, image: "linuxmintd/mint22.3-amd64:latest", platform: linux/amd64, identity_package: "base-files/zena" }
           # NOT Raspberry Pi OS — exercises aarch64 selectors only (Q-003).
           - { name: debian-13-arm64, image: "debian:13",                    platform: linux/arm64 }
     steps:
@@ -131,6 +134,7 @@ jobs:
           podman build --platform=${{ matrix.target.platform }} \
             -f containers/Dockerfile.target \
             --build-arg BASE=${{ matrix.target.image }} \
+            --build-arg IDENTITY_PACKAGE="${{ matrix.target.identity_package }}" \
             -t hammunition-${{ matrix.target.name }}:ci .
 
       - name: Validate catalog against this target

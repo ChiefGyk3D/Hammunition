@@ -51,20 +51,30 @@ targets:
     arch: x86_64
     priority: 1          # primary target, CLAUDE.md
 
-  # NO LINUX MINT TARGET, and the absence is a finding, not an oversight.
-  # A linuxmint-22.3 target (image linuxmintd/mint22.3-amd64) sat here from
-  # Q-004 until 2026-08-28, added so js8call's Mint-specific selector would
-  # be exercised. The first time anything read that image's own identity --
-  # the --check drift guard -- it turned out /etc/os-release in the image is
-  # Ubuntu 24.04's, verbatim: ID=ubuntu, VERSION_ID="24.04". The one selector
-  # the target existed to exercise could never match inside it, so every
-  # green run was false coverage. Mint publishes no container image that
-  # carries Mint's os-release; forging one in the Dockerfile would be the
-  # shim CLAUDE.md forbids. Same disposition as Raspberry Pi OS below: the
-  # support claim stays, the capability matrix reports Mint as untested in
-  # containers, and js8call's selector is exercised by unit tests against a
-  # captured Mint os-release. Q-014 asks the maintainer how real Mint
-  # coverage should be provided.
+  # Linux Mint 22.3, made genuinely testable 2026-08-28 (Q-014 resolved).
+  # The linuxmintd/mint22.3-amd64 image is built from Ubuntu and ships Ubuntu's
+  # base-files, so out of the box its /etc/os-release reads ID=ubuntu -- which
+  # is why this target was briefly removed. But the image IS Mint: it carries
+  # packages.linuxmint.com (the `zena` suite = Mint 22.3) and Mint's own apt
+  # preferences pinning it. Mint's base-files is a version DOWNGRADE from
+  # Ubuntu's security update, so the image never installed it; `identity_package`
+  # tells the Dockerfile to install `base-files/zena`, and Mint's own signed
+  # package then sets ID=linuxmint, VERSION_ID=22.3 -- the identity a real Mint
+  # ISO ships and its pin keeps. Not a forged file: the distribution's own
+  # package from the distribution's own repo. This is what lets js8call's
+  # Mint-specific selector be exercised against a real Mint os-release.
+  - name: linuxmint-22.3
+    image: linuxmintd/mint22.3-amd64:latest
+    os_release_id: linuxmint
+    os_release_version: "22.3"
+    identity_package: base-files/zena
+    arch: x86_64
+    priority: 6
+    note: >-
+      catalog/packages/js8call.yaml branches on Linux Mint 22.3 specifically
+      (apt there, source everywhere else); without Mint as a real target that
+      selector is untested. See containers/Dockerfile.target's IDENTITY_PACKAGE
+      for why an install step is needed and why it is honest.
 
   # NOT Raspberry Pi OS. See `claims` below — this exercises aarch64 selectors
   # and nothing more.
