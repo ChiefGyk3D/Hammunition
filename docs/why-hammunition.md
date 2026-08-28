@@ -3,13 +3,16 @@
 *Linux radio tools for people who can't leave well enough alone.*
 
 > **State of the project, August 2026: there is nothing to install yet.**
-> The catalog is real — 70 package manifests, 4 profiles, and a 23-device
+> The catalog is real — 71 package manifests, 4 profiles, and a 23-device
 > hardware catalog with 297 measured USB identifiers — and so are the engine's
 > foundations: schema, consent gates, transaction log, all tested across six
-> container targets. The install path (CLI, backends, distro detection) is
-> under review and not yet merged, and there are no releases. Everything below
-> describes what Hammunition is being built to do, not yet what it does. When
-> that changes, this banner changes with it.
+> container targets. The M1 walking skeleton is merged: distro detection, an
+> apt backend, pre-flight resolution, and the install/list/status/show CLI
+> with a complete --dry-run. It installs apt-backed packages today; the other
+> backends (source, git, venv, pipx, CPAN) and udev setup are M3 and M4, and
+> there are no releases yet. Everything below describes what Hammunition is
+> being built to do; the parts that already do it are marked in the README
+> status table. When that changes, this banner changes with it.
 >
 > If you need a working ham Linux setup *today*, the "You might prefer something
 > else" section near the bottom is the honest answer, and it is not a formality.

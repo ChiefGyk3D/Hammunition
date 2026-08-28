@@ -343,7 +343,7 @@ an unsupported combination appear to work.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 70
+  packages/        # one YAML per piece of software          ✅ 71
   profiles/        # named bundles referencing packages      ✅ 4
   hardware/
     classes/       # device families with shared Linux needs ✅ 2

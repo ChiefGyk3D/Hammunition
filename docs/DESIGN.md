@@ -3,7 +3,8 @@
 > Pick your RF arsenal.
 
 Status: living design document; the schema, consent, and state halves it
-describes are implemented and tested, the install path is in review. It holds
+describes are implemented and tested, and the M1 install path (distro
+detection, apt backend, pre-flight resolution, CLI) is merged. It holds
 the reasoning behind the decisions summarised in `CLAUDE.md`.
 
 **Authority order:** `DECISIONS.md` > `PARITY-POLICY.md` > `CLAUDE.md` > this
@@ -367,9 +368,13 @@ already stalled. Carry only modules with a maintained upstream, mark the tier
 
 VARA and HAMRS are post-1.0. Novel capability layers on top, never substitutes.
 
-- **M1 — walking skeleton.** Manifest schema and validator, apt backend,
-  os-release detection for Parrot and Debian, ~20 packages, one `ham-core`
-  profile, `install`/`list`/`status`/`--dry-run`, container test harness.
+- **M1 — walking skeleton.** *Delivered* (PR #2). Manifest schema and
+  validator, apt backend, os-release detection, pre-flight resolution
+  (D-016), and the `install`/`list`/`status`/`show` CLI with a complete
+  `--dry-run`, on a container test harness across six targets. The catalog
+  outgrew the original ~20-package / one-`ham-core`-profile sketch — it is 71
+  packages and 4 profiles now — but the skeleton is what M1 named: apt-only,
+  with every other backend refused by name until M3.
 - **M2 — inventory and coverage.** *Done* — all five sources measured (see
   `reference/`), and dispositions are complete for AHRL and the 73Linux delta:
   133 units, none unclassified. Remaining: dispositions for the Skywave and
