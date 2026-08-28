@@ -59,6 +59,7 @@ config_files:
 
 system_modifications:
   - kind: group_membership
+    group: dialout
     description: LinBPQ needs serial and audio access for TNCs and soundmodems
     detail: adds the operating user to the `dialout` group
     reversible: true

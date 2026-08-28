@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import platform
 import sys
 from pathlib import Path
 from typing import Any
@@ -28,6 +27,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
+from hammunition.distro import DetectionError, Target  # noqa: E402
 from hammunition.manifest.load import load_catalog  # noqa: E402
 from hammunition.manifest.schema import PackageManifest  # noqa: E402
 
@@ -35,21 +35,19 @@ CATALOG = REPO_ROOT / "catalog" / "packages"
 TARGETS = REPO_ROOT / "containers" / "targets.yaml"
 
 
-def read_os_release(path: Path = Path("/etc/os-release")) -> tuple[str, str]:
-    """Return ``(ID, VERSION_ID)`` from /etc/os-release. No heuristics."""
-    if not path.exists():
-        raise SystemExit(f"{path} not found; cannot identify this system")
-    fields: dict[str, str] = {}
-    for line in path.read_text().splitlines():
-        if "=" not in line or line.startswith("#"):
-            continue
-        key, _, value = line.partition("=")
-        fields[key.strip()] = value.strip().strip('"')
-    distro = fields.get("ID", "")
-    version = fields.get("VERSION_ID", fields.get("VERSION_CODENAME", ""))
-    if not distro:
-        raise SystemExit("os-release has no ID field")
-    return distro, version
+def detect_target() -> Target:
+    """Identify this container using the engine's own detection.
+
+    Deliberately not a second parser. This script's ``--check`` mode exists to
+    catch a target image drifting away from what ``containers/targets.yaml``
+    declares; if it read ``/etc/os-release`` with its own copy of the logic, it
+    would be verifying a parser the engine does not use, and the two could
+    disagree about a machine while both reported success.
+    """
+    try:
+        return Target.detect()
+    except DetectionError as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 def load_targets() -> list[dict[str, Any]]:
@@ -94,9 +92,9 @@ def main() -> int:
         return 0
 
     if args.check:
-        distro, version = read_os_release()
-        arch = platform.machine()
-        print(f"detected: ID={distro} VERSION_ID={version} arch={arch}")
+        target = detect_target()
+        distro, version, arch = target.distro, target.version, target.arch
+        print(f"detected: {target.describe()}")
 
         declared = []
         for t in load_targets():
