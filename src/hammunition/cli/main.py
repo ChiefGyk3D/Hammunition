@@ -143,6 +143,14 @@ def render_plan(plan: InstallPlan, commands: Sequence[Command], *, euid: int) ->
                 lines.extend(wrapped[1:])
         lines.append("")
 
+    if plan.notes:
+        lines.append("Notes:")
+        for note in plan.notes:
+            wrapped = _wrap(note, indent="      ")
+            lines.append("  - " + wrapped[0].strip())
+            lines.extend(wrapped[1:])
+        lines.append("")
+
     lines.append(f"Commands ({len(commands)}):")
     if not commands:
         lines.append("  (none — everything this plan asks for is already in place)")
@@ -276,6 +284,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             target=target,
             apt=apt,
             user=user,
+            refresh=args.refresh,
         )
     except PlanError as exc:
         print(str(exc), file=sys.stderr)

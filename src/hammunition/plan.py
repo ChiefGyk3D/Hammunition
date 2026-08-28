@@ -356,6 +356,7 @@ def resolve(
     target: Target,
     apt: AptBackend,
     user: str,
+    refresh: bool = False,
 ) -> InstallPlan:
     """Build a complete plan, or raise :class:`PlanError` listing every blocker.
 
@@ -415,18 +416,35 @@ def resolve(
     # -- one apt probe for the whole transaction ---------------------------
     all_apt = sorted({p for _, _, packages in resolved for p in packages})
     states = {}
+    notes: list[str] = []
     if all_apt:
         if not apt.lists_populated():
-            blockers.append(
-                Blocker(
-                    subject="apt",
-                    reason=(
-                        "has no package lists, so every package would resolve as unknown. "
-                        "Reporting them all as unobtainable would be a confident lie"
-                    ),
-                    remedy="run `sudo apt-get update`, or pass --refresh to do it as part of this run",
+            if refresh:
+                # --refresh puts `apt-get update` at the head of this same run,
+                # so empty lists are a sequencing fact, not a blocker -- refusing
+                # here would tell the operator to pass the flag they just passed.
+                # What is genuinely lost is the pre-flight candidate check:
+                # nothing can know what apt will offer until update has run, so
+                # the plan discloses the gap instead of silently skipping the
+                # check (D-016 wants the resolution honest, not decorative).
+                notes.append(
+                    "apt has no package lists yet; --refresh runs apt-get update "
+                    "first, so which packages actually have candidates cannot be "
+                    "known before this plan executes. A package apt does not "
+                    "offer will fail the apt-get install step rather than being "
+                    "caught here."
                 )
-            )
+            else:
+                blockers.append(
+                    Blocker(
+                        subject="apt",
+                        reason=(
+                            "has no package lists, so every package would resolve as unknown. "
+                            "Reporting them all as unobtainable would be a confident lie"
+                        ),
+                        remedy="run `sudo apt-get update`, or pass --refresh to do it as part of this run",
+                    )
+                )
         else:
             states = apt.probe(all_apt)
             for manifest, _, packages in resolved:
@@ -505,4 +523,5 @@ def resolve(
         packages=planned,
         group_memberships=memberships,
         consent_gates=tuple(gates),
+        notes=tuple(notes),
     )

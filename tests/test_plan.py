@@ -361,6 +361,44 @@ def test_empty_apt_lists_are_reported_as_such_not_as_missing_packages(tmp_path: 
     assert blocker.remedy and "apt-get update" in blocker.remedy
 
 
+def test_refresh_turns_the_empty_lists_blocker_into_a_disclosed_note(tmp_path: Path) -> None:
+    """The blocker's own remedy says "pass --refresh". For the first shipped
+    version, resolve() never learned the flag existed, so a fresh machine got
+    an error telling the operator to pass the flag they had just passed --
+    there was no way to install anything except running apt-get update by
+    hand, contradicting both the blocker text and docs/reference/cli.md."""
+    apt = _apt(tmp_path, {}, populated=False)
+    plan = resolve(
+        ["example"],
+        catalog={"example": _manifest()},
+        profiles={},
+        target=TARGET,
+        apt=apt,
+        user="operator",
+        refresh=True,
+    )
+    assert plan.apt_to_install == ("example",)
+    # The lost pre-flight candidate check is disclosed, not silently skipped.
+    assert plan.notes and "cannot be known" in plan.notes[0]
+
+
+def test_refresh_with_populated_lists_still_probes(tmp_path: Path) -> None:
+    """--refresh on a machine with lists is an update, not an excuse to skip
+    the candidate check that is still perfectly possible."""
+    apt = _apt(tmp_path, {"example": None})
+    plan = resolve(
+        ["example"],
+        catalog={"example": _manifest()},
+        profiles={},
+        target=TARGET,
+        apt=apt,
+        user="operator",
+        refresh=True,
+    )
+    assert plan.apt_to_install == ("example",)
+    assert not plan.notes
+
+
 # ---------------------------------------------------------------------------
 # Group membership
 # ---------------------------------------------------------------------------
