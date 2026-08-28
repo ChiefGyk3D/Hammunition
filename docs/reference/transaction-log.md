@@ -39,6 +39,60 @@ somebody who needed the data.
 
 ---
 
+## The transaction lifecycle
+
+A run writes these in order. Each command is logged **before** it runs and its
+outcome after, so a run killed mid-`apt-get` leaves a `command_begin` with no
+matching end — which is exactly the state an operator needs to see, and the
+state a log written only on success would hide.
+
+| `event` | Written | Carries |
+|---|---|---|
+| `transaction_begin` | Once, first | `target`, the manifest `packages` requested, the `apt_packages` the whole set resolved to. |
+| `command_begin` | Before each command | `argv`, `requires_root`, `description`. |
+| `command_end` | After each command that ran | `argv`, `returncode`. |
+| `transaction_failed` | Instead of the rest, on the first failure | the failing `argv`, its `returncode` (or `error` for a missing binary), and how many commands `completed` before it. |
+| `transaction_end` | Once, on the success path | `completed`, and the effect check below. |
+
+### `transaction_end` — version 2, the effect check (D-031)
+
+Every command exiting 0 is **not** taken as evidence the machine changed:
+`apt-get install` can exit 0 having installed nothing a held or broken package
+quietly refused, and `gpasswd` exits 0 whether or not the membership took. So
+after the last command completes, the run re-reads each claimed effect from the
+same source resolution used — `apt-cache policy` for a package, the group
+database for a membership — and records the confirmed state here.
+
+```json
+{
+  "event": "transaction_end",
+  "version": 2,
+  "timestamp": "2026-08-28T12:00:00+00:00",
+  "completed": 2,
+  "verified": true,
+  "checks": [
+    {"kind": "package", "subject": "js8call", "confirmed": true, "detail": "installed 2.2.0+ds1-1"},
+    {"kind": "group", "subject": "op:dialout", "confirmed": true, "detail": "membership present in the group database"}
+  ]
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `verified` | `true` only when every check is confirmed. A completed run with `verified: false` exited 1 and named what did not take. |
+| `checks[].kind` | `package`, `group`, or `verification` (the last when the re-probe itself could not run). |
+| `checks[].subject` | The package name, or `user:group`. |
+| `checks[].confirmed` | Whether the effect is actually present now, not whether the command exited 0. |
+| `checks[].detail` | What was found — the installed version, or why it could not be confirmed. |
+
+`uninstall` will trust this record over an exit code: a package recorded
+`confirmed: false` was never actually installed and must not be "removed". A
+version-1 `transaction_end` (written before this check existed) carries no
+`verified` key, and a reader treats its absence as *not recorded* rather than as
+a passing verdict.
+
+---
+
 ## `consent_affirmed`
 
 Written when an operator affirms a consent gate (**D-021**). This is the record

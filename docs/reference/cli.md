@@ -140,8 +140,8 @@ differently from "somebody said no".
 
 | Code | Meaning |
 |---|---|
-| 0 | Success, or a dry run that resolved cleanly |
-| 1 | A command failed while running, or the system is unsupported |
+| 0 | Success — every command ran **and** its effect was confirmed afterwards |
+| 1 | A command failed while running, a completed command's effect could not be confirmed (D-031), or the system is unsupported |
 | 2 | The transaction could not be planned — every blocker is printed |
 | 3 | A consent gate was declined, or could not be presented |
 
@@ -160,10 +160,22 @@ handed back to that operator (`chown`). The path shown is the path the run
 uses, so if the operator cannot be resolved and it falls back to root's home,
 the plan says so rather than redirecting in silence.
 
+**A command exiting 0 is not recorded as an effect.** `apt-get install` can
+exit 0 having installed nothing a held or broken package quietly refused, and
+`gpasswd` exits 0 whether or not the membership took (**D-031**). So after every
+command has completed the run **re-reads** what it claimed to change — from the
+same sources resolution used pre-flight, `apt-cache policy` for a package and
+the group database for a membership — and records the confirmed state, not the
+exit code, in `transaction_end`. That is the record `uninstall` will trust, and
+it must not say "installed" on the strength of a return value. A completed run
+whose effect cannot be confirmed prints exactly what did not take and exits 1;
+its log entry carries `verified: false`.
+
 `hammunition status` reads that log back and reports how the **most recent
 transaction ended** — completed, failed after N commands, or interrupted with
-no ending recorded — never just what it set out to do. A run that died partway
-is not reported as if it finished.
+no ending recorded — never just what it set out to do, and for a completed run
+whether its effects were **confirmed afterwards** or came back unverified. A run
+that died partway is not reported as if it finished.
 
 Hammunition does not roll back. It tells you what it did (**D-004**). On a
 failure the run stops at that command, and the count that completed is printed

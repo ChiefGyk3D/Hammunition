@@ -32,6 +32,7 @@ from hammunition.backends import (  # noqa: E402
     CommandResult,
     RecordingRunner,
 )
+from hammunition.backends.apt import AptPackageState  # noqa: E402
 from hammunition.cli.main import (  # noqa: E402
     EXIT_CONSENT,
     EXIT_FAILED,
@@ -44,7 +45,7 @@ from hammunition.cli.main import (  # noqa: E402
     render_plan,
 )
 from hammunition.distro import Target  # noqa: E402
-from hammunition.execute import commands_for, execute  # noqa: E402
+from hammunition.execute import commands_for, execute, verify_effects  # noqa: E402
 from hammunition.manifest.schema import PackageManifest  # noqa: E402
 from hammunition.plan import GroupMembership, InstallPlan, PlannedPackage  # noqa: E402
 from hammunition.state import TransactionLog, log_path  # noqa: E402
@@ -234,6 +235,136 @@ def test_the_log_records_the_target_it_ran_against(tmp_path: Path) -> None:
     execute([], RecordingRunner(), log=log, plan=_plan())
     begin = next(e for e in log.read() if e["event"] == "transaction_begin")
     assert begin["target"]["distro"] == "debian"
+
+
+# ---------------------------------------------------------------------------
+# Effect verification (D-031): exit 0 is not evidence the change took
+# ---------------------------------------------------------------------------
+
+
+class _FakeProber:
+    """A prober that returns a chosen apt state, so a package that did not land
+    can be tested without an apt that refuses to install one."""
+
+    def __init__(self, states: dict[str, AptPackageState]) -> None:
+        self.states = states
+        self.asked: list[str] = []
+
+    def probe(self, packages: Any) -> dict[str, AptPackageState]:
+        self.asked = list(packages)
+        return {name: self.states[name] for name in packages if name in self.states}
+
+
+def _installed(name: str) -> AptPackageState:
+    return AptPackageState(name=name, installed="1.0", candidate="1.0")
+
+
+def test_a_package_that_did_not_land_is_a_discrepancy() -> None:
+    """apt-get exited 0; apt reports the package absent. That is the exact
+    shape D-031 exists to catch, and it must not read as success."""
+    prober = _FakeProber({})  # apt knows nothing about it afterwards
+    verification = verify_effects(_plan(), prober)
+    assert prober.asked == ["example"], "the effect check must actually re-probe apt"
+    assert not verification.ok
+    assert [c.subject for c in verification.discrepancies] == ["example"]
+
+
+def test_a_package_confirmed_installed_verifies() -> None:
+    verification = verify_effects(_plan(), _FakeProber({"example": _installed("example")}))
+    assert verification.ok
+    assert [c.subject for c in verification.confirmed] == ["example"]
+
+
+def test_a_membership_absent_from_the_group_db_is_a_discrepancy() -> None:
+    """gpasswd exited 0; the group database does not show the membership."""
+    plan = _plan(
+        packages=(),
+        group_memberships=(
+            GroupMembership(
+                group="dialout",
+                user="operator",
+                package="example",
+                description="serial access",
+                detail="adds to dialout",
+                reverse_hint=None,
+            ),
+        ),
+    )
+    absent = verify_effects(plan, None, group_lookup=lambda _u: frozenset())
+    assert not absent.ok
+    present = verify_effects(plan, None, group_lookup=lambda _u: frozenset({"dialout"}))
+    assert present.ok
+
+
+def test_execute_records_the_effect_check_in_transaction_end(tmp_path: Path) -> None:
+    """The verdict lands in transaction_end — the record uninstall will trust —
+    not only in the return value."""
+    log = TransactionLog(tmp_path / "log.jsonl")
+    report = execute(
+        [Command(argv=("true",), description="ok")],
+        RecordingRunner(),
+        log=log,
+        plan=_plan(),
+        prober=_FakeProber({"example": _installed("example")}),
+    )
+    assert report.verified
+    end = next(e for e in log.read() if e["event"] == "transaction_end")
+    assert end["version"] == 2
+    assert end["verified"] is True
+    assert any(c["subject"] == "example" and c["confirmed"] for c in end["checks"])
+
+
+def test_execute_flags_an_unconfirmed_effect(tmp_path: Path) -> None:
+    log = TransactionLog(tmp_path / "log.jsonl")
+    report = execute(
+        [Command(argv=("true",), description="ok")],
+        RecordingRunner(),
+        log=log,
+        plan=_plan(),
+        prober=_FakeProber({}),  # nothing landed
+    )
+    assert report.ok, "the command still exited 0"
+    assert not report.verified, "but the effect was not confirmed"
+    end = next(e for e in log.read() if e["event"] == "transaction_end")
+    assert end["verified"] is False
+
+
+def test_a_probe_failure_records_unverified_not_a_crash(tmp_path: Path) -> None:
+    """If the re-probe itself fails, the run does not crash and does not claim
+    success it cannot back up — it records the check as unverified."""
+
+    class Broken:
+        def probe(self, packages: Any) -> dict[str, AptPackageState]:
+            raise BackendError("apt-cache policy failed")
+
+    log = TransactionLog(tmp_path / "log.jsonl")
+    report = execute(
+        [Command(argv=("true",), description="ok")],
+        RecordingRunner(),
+        log=log,
+        plan=_plan(),
+        prober=Broken(),
+    )
+    assert report.ok
+    assert not report.verified
+    assert report.verification is not None
+    assert report.verification.discrepancies[0].kind == "verification"
+
+
+def test_no_prober_and_no_groups_records_no_verification(tmp_path: Path) -> None:
+    """An older-shaped call with nothing to verify writes transaction_end
+    without a verdict, rather than inventing `verified: true`."""
+    log = TransactionLog(tmp_path / "log.jsonl")
+    report = execute(
+        [Command(argv=("true",), description="ok")],
+        RecordingRunner(),
+        log=log,
+        plan=_plan(packages=()),
+    )
+    assert report.verification is None
+    assert not report.verified
+    end = next(e for e in log.read() if e["event"] == "transaction_end")
+    assert "verified" not in end
 
 
 # ---------------------------------------------------------------------------

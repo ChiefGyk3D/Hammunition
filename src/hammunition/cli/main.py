@@ -300,6 +300,18 @@ def cmd_status(args: argparse.Namespace) -> int:
             f"  most recent transaction completed {ended.get('completed', 0)} "
             f"command(s); {len(intended)} package(s) intended"
         )
+        # transaction_end version 2 carries the D-031 effect check. An older
+        # log (version 1) has no `verified` key; treat its absence as "not
+        # recorded" rather than inventing a verdict.
+        if "verified" in ended:
+            checks = ended.get("checks", [])
+            unconfirmed = [c for c in checks if not c.get("confirmed", False)]
+            if ended.get("verified"):
+                print(f"  effects confirmed afterwards: {len(checks)} check(s) passed (D-031)")
+            else:
+                print(f"  UNVERIFIED: {len(unconfirmed)} effect(s) could not be confirmed:")
+                for check in unconfirmed:
+                    print(f"    {check.get('subject', '?')}: {check.get('detail', '')}")
     else:
         print(
             f"  most recent transaction did not record an ending (interrupted or "
@@ -414,13 +426,35 @@ def cmd_install(args: argparse.Namespace) -> int:
             return EXIT_OK
 
     print("\nRunning:")
-    report = execute(commands, runner, log=log, plan=plan, echo=print, euid=euid)
+    # Pass apt as the prober so the run re-reads what it changed (D-031): an
+    # exit code of 0 from apt-get or gpasswd is not evidence the package landed
+    # or the membership took, and transaction_end is the record uninstall will
+    # trust.
+    report = execute(commands, runner, log=log, plan=plan, echo=print, euid=euid, prober=apt)
     if log.ownership_error:
         # Not fatal — the commands ran — but not silent either. A log the
         # operator cannot append to fails on their next run instead of this one.
         print(f"\nWarning: {log.ownership_error}", file=sys.stderr)
+    if report.ok and not report.verified and report.verification is not None:
+        # Every command exited 0, but re-reading the effect found something it
+        # claimed to do that did not happen. Fail loudly (CLAUDE.md): a green
+        # exit code over a machine that did not actually change is the lie
+        # D-031 exists to catch.
+        print(
+            f"\nCommands completed, but {len(report.verification.discrepancies)} "
+            f"effect(s) could not be confirmed afterwards:",
+            file=sys.stderr,
+        )
+        for check in report.verification.discrepancies:
+            print(f"  {check.subject}: {check.detail}", file=sys.stderr)
+        print(
+            f"\nThe transaction log records this as unverified ({log.path}). "
+            f"An exit code of 0 is not proof the change took (D-031).",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
     if report.ok:
-        print(f"\nDone. {len(report.completed)} command(s) completed.")
+        print(f"\nDone. {len(report.completed)} command(s) completed and confirmed.")
         if plan.group_memberships:
             print(
                 "Group membership does not apply to a session that is already open — "
