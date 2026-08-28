@@ -22,7 +22,7 @@ usb_ids:
     node_kind: libusb
 
 groups: [plugdev]
-packages: [ubertooth, wireshark]
+packages: [ubertooth, wireshark, spectools]
 
 udev:
   symlink: ubertooth
@@ -35,7 +35,9 @@ documentation:
     Bluetooth Low Energy, which ordinary Bluetooth adapters cannot do.
   what_you_can_do_with_it: >-
     Follow BLE connections, capture advertising traffic, and pipe results into
-    Wireshark for analysis.
+    Wireshark for analysis. spectools drives it as a raw 2.4 GHz spectrum
+    sweep source too (its ubertooth_hw_u1.c matches 1d50:6002 and the old
+    ffff:0004), a second use of the same hardware at no cost.
   setup_steps: >-
     Install the packages, add yourself to plugdev, log out and back in. Run
     ubertooth-util -v to confirm the firmware version matches the host tools —

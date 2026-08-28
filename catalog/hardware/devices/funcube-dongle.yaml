@@ -1,0 +1,92 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+kind: device
+name: funcube-dongle
+summary: FUNcube Dongle Pro and Pro+ — AMSAT-UK's receive-only satellite SDR
+vendor: AMSAT-UK / Howse
+status: supported
+
+# One family file for both generations, the meshtastic.yaml shape: two
+# products, two identifiers, one set of Linux needs. Not owned here — the
+# identifiers are from Debian's rule and upstream's own source, not from a
+# capture, which is exactly what `status: supported` without
+# `maintainer_verified` means (D-027).
+#
+# The model-to-identifier mapping is worth being explicit about because
+# memory gets it backwards easily (this entry's author started from the
+# wrong recollection): the ORIGINAL Pro is fb56 and the LATER Pro+ is fb31.
+# Upstream's source is the authority — fcd_control_impl.cc line 18 defines
+# FCD_PRODUCT_ID 0xFB56 and fcdpp_control_impl.cc line 19 defines
+# FCDPROPLUS_PRODUCT_ID 0xfb31, read from gr-funcube 3.10.0~rc3-4's orig
+# tarball, and Debian's rule comment agrees.
+
+usb_ids:
+  - vendor: "04d8"
+    product: "fb56"
+    description: FUNcube Dongle Pro (the original)
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/60-gr-funcube.rules, from the
+      gr-funcube package, read directly from the extracted package; model
+      identity from upstream fcd_control_impl.cc (FCD_PRODUCT_ID 0xFB56) at
+      3.10.0~rc3. Not from hardware — nobody here owns one.
+    confirmed: true
+    node_kind: hid
+    ambiguity:
+      basis: shared_across_products
+      evidence: >-
+        On the generated ambiguity list because two packages ship rules for
+        the pair — gr-funcube and qthid-fcd-controller. Both are tools for
+        this same device, so the sharing is an artifact of counting packages
+        rather than products: the pair does identify a FUNcube Dongle Pro.
+        Recorded because the loader requires the listing be acknowledged,
+        and the block is the honest place to say the listing overstates it.
+      also_used_by: [qthid-fcd-controller]
+  - vendor: "04d8"
+    product: "fb31"
+    description: FUNcube Dongle Pro+ (the second generation, with preselector filters)
+    evidence: >-
+      Debian 13 /usr/lib/udev/rules.d/60-gr-funcube.rules, from the
+      gr-funcube package, read directly from the extracted package; model
+      identity from upstream fcdpp_control_impl.cc (FCDPROPLUS_PRODUCT_ID
+      0xfb31) at 3.10.0~rc3. Not from hardware — nobody here owns one.
+    confirmed: true
+    node_kind: hid
+    ambiguity:
+      basis: shared_across_products
+      evidence: >-
+        Same shape as the Pro's entry: listed because gr-funcube and
+        qthid-fcd-controller both ship rules for it, and both are tools for
+        this device. An artifact of the package count, not a shared chip —
+        the pair identifies a FUNcube Dongle Pro+.
+      also_used_by: [qthid-fcd-controller]
+
+packages: [gr-funcube]
+
+documentation:
+  what_it_is: >-
+    A receive-only SDR in a USB dongle, built by AMSAT-UK to fund and receive
+    the FUNcube educational satellites. Two generations: the Pro (64-1700
+    MHz) and the Pro+ (150 kHz-240 MHz and 420 MHz-1.9 GHz, with SAW
+    filtering the Pro lacks). To Linux it is a composite device — samples
+    arrive as a standard USB audio class capture device, and tuning happens
+    over a HID control interface.
+  what_you_can_do_with_it: >-
+    Receive satellite telemetry — its design purpose — plus anything else in
+    range of a 192 kHz-wide receiver with good front-end filtering: weather
+    satellites, ADS-B is out of reach but VHF/UHF ham traffic is not. The
+    audio-class design means any SDR program that can read a soundcard can
+    use it, with gr-funcube or qthid doing the tuning.
+  setup_steps: >-
+    Install gr-funcube; its udev rule grants world access to both models'
+    control interfaces, so no group membership is required. The dongle
+    appears as an ALSA capture device for the sample stream. If raw
+    /dev/hidraw access fails, check which USB bus the dongle landed on — the
+    shipped rule's hidraw stanzas only match bus 1 (see the gr-funcube
+    package entry).
+  known_problems: >-
+    The two generations are configured by different tools and blocks — a
+    Pro+ is not a Pro with wider coverage, and software written for one does
+    not tune the other. Sample rate is fixed by the audio interface (96 kHz
+    Pro, 192 kHz Pro+), which no setting changes.
+  upstream_url: https://www.funcubedongle.com/
