@@ -419,10 +419,44 @@ def _with_group(**extra: Any) -> PackageManifest:
     )
 
 
-def test_a_group_membership_is_planned_with_its_group(tmp_path: Path) -> None:
+def _resolvable(monkeypatch: Any, name: str = "operator") -> None:
+    """Make pwd.getpwnam accept the test's fake operator, so resolution's
+    'is this a real user' check (which prevents a mid-transaction gpasswd
+    failure) does not reject the placeholder every group test uses."""
+    import pwd
+
+    real = pwd.getpwnam
+
+    def fake(n: str) -> Any:
+        if n == name:
+            return real("root")  # any real struct; only that it resolves matters
+        return real(n)
+
+    monkeypatch.setattr(pwd, "getpwnam", fake)
+
+
+def test_a_group_membership_is_planned_with_its_group(tmp_path: Path, monkeypatch: Any) -> None:
+    _resolvable(monkeypatch)
     plan = _resolve(tmp_path, ["example"], catalog={"example": _with_group()})
     assert plan.group_memberships[0].group == "dialout"
     assert plan.group_memberships[0].user == "operator"
+
+
+def test_an_operator_that_names_no_account_is_blocked_before_apt_runs(
+    tmp_path: Path,
+) -> None:
+    """`--user nosuchuser` used to sail through resolution — user_groups()
+    returns {} for an unknown name — and fail on gpasswd mid-transaction,
+    after apt had already changed the machine. D-016 wants it caught here."""
+    with pytest.raises(PlanError) as exc:
+        _resolve(
+            tmp_path,
+            ["example"],
+            catalog={"example": _with_group()},
+            user="nosuchuser-hammunition-test",
+        )
+    reason = exc.value.blockers[0].reason
+    assert "is not a user on this system" in reason
 
 
 def test_no_operator_means_no_privilege_change(tmp_path: Path) -> None:

@@ -32,6 +32,7 @@ installer executes.
 
 from __future__ import annotations
 
+import pwd
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 
@@ -503,6 +504,29 @@ def resolve(
             )
         )
         raise PlanError(blockers)
+
+    # An operator that names no real account is caught here, not after apt has
+    # already run. `gpasswd --add nosuchuser dialout` fails, but user_groups()
+    # returns an empty set for an unknown name ("about to be added anyway"), so
+    # nothing upstream noticed until the privileged command failed mid-
+    # transaction, on a machine apt had already changed. D-016: a failure is a
+    # report before anything happens, never a surprise halfway through.
+    if needs_user and user:
+        try:
+            pwd.getpwnam(user)
+        except KeyError:
+            groups = ", ".join(sorted({g for _, g in needs_user if g}))
+            blockers.append(
+                Blocker(
+                    subject=", ".join(sorted({name for name, _ in needs_user})),
+                    reason=(
+                        f"needs the operator {user!r} added to {groups}, but {user!r} "
+                        f"is not a user on this system"
+                    ),
+                    remedy="pass --user <name> naming an account that exists",
+                )
+            )
+            raise PlanError(blockers) from None
 
     memberships = tuple(
         GroupMembership(
