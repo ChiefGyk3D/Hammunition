@@ -1759,3 +1759,64 @@ Not enabled automatically — git will not run hooks from a cloned repository, b
 design, and a project that works around that is asking contributors to execute
 code on clone. CI runs the same script over every commit in a pull request, so
 the check is enforced whether or not a contributor opts in locally.
+
+---
+
+## D-032 — Upstream liveness is the default branch's head commit, never GitHub's activity fields
+
+**Date:** 2026-08-28. **Status:** accepted.
+
+**Rule.** When the catalog or an inventory states that an upstream project is
+active, dormant, or dead, that claim is measured from **the newest commit on the
+project's default branch**. GitHub's `updated_at` and `pushed_at` are not
+evidence of development and must not be published as if they were.
+
+```
+gh api repos/<owner>/<repo> --jq .default_branch
+gh api "repos/<owner>/<repo>/commits?sha=<branch>&per_page=1" --jq '.[0].commit.author.date'
+```
+
+### What the two rejected fields actually mean
+
+| Field | Moves when | Why it is wrong here |
+|---|---|---|
+| `updated_at` | **Somebody stars the repository.** Also on a fork, a description edit, a topic change. | It measures attention, not work. A dead project that gets discovered looks freshly maintained. |
+| `pushed_at` | A push to **any** branch, including a fork's. | The near-miss. Overstated 5 of the 9 upstreams in the Skywave delta. |
+
+### What it cost
+
+`skywave-inventory.md` published an "active (date)" column built from
+`updated_at`, and `QUESTIONS.md` posed a maintainer decision on top of it:
+
+| Unit | Published as | Actual last commit | Gap |
+|---|---|---|---|
+| Kalibrate-RTL | active (2026-08-19) | 2022-02-01 | 4.5 years |
+| SuperSDR | active (2026-02-18) | 2022-12-31 | 3.7 years |
+| directKiwi | last touched 2025-10-09 | 2023-03-03 | 2.5 years |
+
+Both corrections changed something downstream. Kalibrate-RTL has also **never cut
+a tag**, so its manifest needs a commit pin and a `pin_review` (**D-024**) rather
+than the tag the "active" reading implied. And **Q-007** — whether to carry an
+unlicensed KiwiSDR client — was asked with "upstream is active" in its premise;
+on the corrected dates the recommended option carries software that is both
+unlicensed *and* three and a half years stale, while the option previously
+dismissed as "no improvement" is the only maintained client of the three.
+
+The irony is recorded because it is the useful part: the paragraph immediately
+below that table claimed the findings were *"tested against the repositories
+rather than taken from GitHub's metadata"*. The prose asserting the discipline
+sat directly beneath a table that had abandoned it.
+
+### Relationship to the neighbours
+
+**D-018** says an external claim is tested before it is published. **D-025** says
+a claim is re-verified when it becomes decisive. This is the third face of the
+same coin and the one neither covers: *the field you measured was never the field
+you wanted*, so testing it again the same way would have confirmed the error.
+When a metric is a proxy, name what it actually counts before publishing it as
+what you meant.
+
+**Consequence.** Any generator or document asserting upstream health records the
+method beside the number, so the next reader can tell what was counted.
+`gen_skywave_inventory.py` now carries the query in a comment and the doc carries
+a `UPSTREAM_METHOD` section stating both the right field and the wrong ones.

@@ -345,10 +345,12 @@ def render() -> str:
     add("")
     add("### Where each one actually comes from")
     add("")
-    add("| Unit | Upstream we would use | Licence | State |")
-    add("|---|---|---|---|")
-    for unit, upstream, lic, state in UPSTREAMS:
-        add(f"| {unit} | {upstream} | {lic} | {state} |")
+    add("| Unit | Upstream we would use | Licence | Newest tag | Last commit | State |")
+    add("|---|---|---|---|---|---|")
+    for unit, upstream, lic, tag, last, state in UPSTREAMS:
+        add(f"| {unit} | {upstream} | {lic} | {tag} | {last} | {state} |")
+    add("")
+    add(UPSTREAM_METHOD)
     add("")
     add(PROVENANCE_PROSE)
     add("")
@@ -430,21 +432,54 @@ def render() -> str:
     return "\n".join(out) + "\n"
 
 
+# Last commit on the **default branch**, and the newest tag, verified 2026-08-28
+# against the GitHub API. Re-measure with:
+#
+#   gh api repos/<owner>/<repo> --jq .default_branch
+#   gh api "repos/<owner>/<repo>/commits?sha=<branch>&per_page=1" --jq '.[0].commit.author.date'
+#   gh api "repos/<owner>/<repo>/tags?per_page=1" --jq '.[0].name'
+#
+# NOT `updated_at`, and NOT `pushed_at`. See UPSTREAM_METHOD below: the first
+# version of this table used `updated_at`, which moves when somebody stars the
+# repository, and it reported two long-dormant projects as active.
 UPSTREAMS = [
-    ("Acarsdec", "`f00b4r0/acarsdec`", "GPL-2.0-only", "**successor** — original archived"),
-    ("Acarsserv", "`TLeconte/acarsserv`", "GPL-2.0", "**archived** 2026-03-13; no successor found"),
-    ("DumpHFDL", "`szpajder/dumphfdl`", "GPL-3.0", "active (2026-08-07)"),
-    ("VDLM2dec", "`szpajder/dumpvdl2`", "GPL-3.0", "**supersedes** the archived `vdlm2dec`"),
-    ("LibACARS", "`szpajder/libacars`", "MIT", "active; dependency of all of the above"),
-    ("RTLSDR-Airband", "`rtl-airband/RTLSDR-Airband`", "GPL-2.0", "active, v5.3.0 (2026-08-16)"),
-    ("Kalibrate-RTL", "`steve-m/kalibrate-rtl`", "BSD-2-Clause", "active (2026-08-19)"),
-    ("SuperSDR", "`mcogoni/supersdr`", "**none — default copyright**", "active (2026-02-18)"),
-    ("Reticulum MeshChat", "`liamcottle/reticulum-meshchat`", "MIT", "active (2026-08-25)"),
+    ("Acarsdec", "`f00b4r0/acarsdec`", "GPL-2.0-only", "v4.6", "2026-06-28", "successor to the archived original"),
+    ("Acarsserv", "`TLeconte/acarsserv`", "GPL-2.0", "—", "2018-12-19", "**archived**; no successor found"),
+    ("DumpHFDL", "`szpajder/dumphfdl`", "GPL-3.0", "v1.7.0", "2025-11-02", "maintained"),
+    ("VDLM2dec", "`szpajder/dumpvdl2`", "GPL-3.0", "v2.7.0", "2026-08-01", "**supersedes** the archived `vdlm2dec`"),
+    ("LibACARS", "`szpajder/libacars`", "MIT", "v2.2.1", "2025-11-02", "dependency of the four above"),
+    ("RTLSDR-Airband", "`rtl-airband/RTLSDR-Airband`", "GPL-2.0", "v5.3.1", "2026-08-23", "maintained"),
+    ("Kalibrate-RTL", "`steve-m/kalibrate-rtl`", "BSD-2-Clause", "**none**", "2022-02-01", "**dormant**, and it has never cut a tag"),
+    ("SuperSDR", "`mcogoni/supersdr`", "**none — default copyright**", "v3.14", "2022-12-31", "**dormant**"),
+    ("Reticulum MeshChat", "`liamcottle/reticulum-meshchat`", "MIT", "v2.4.0", "2026-08-15", "maintained"),
 ]
 
+UPSTREAM_METHOD = """\
+**How the last-commit column was measured, and how it was measured wrongly the
+first time.** The dates here are the newest commit on each project's **default
+branch**, read from the GitHub API on 2026-08-28.
+
+The first version of this table used the API's `updated_at` field, which is not
+a measure of development at all — **it moves when somebody stars the
+repository**, forks it, or edits its description. Two projects were reported as
+active on that basis and are not:
+
+| Unit | Was published as | Last commit on the default branch |
+|---|---|---|
+| Kalibrate-RTL | active (2026-08-19) | **2022-02-01** |
+| SuperSDR | active (2026-02-18) | **2022-12-31** |
+
+`pushed_at` is the near-miss and is also wrong: it moves on a push to *any*
+branch, including a fork's, so it overstated five of these nine. Only the
+default branch's head commit answers the question this column is asked for.
+
+Both corrections change decisions that were resting on them, and both are
+recorded below rather than quietly amended (**D-018**, **D-025**)."""
+
 PROVENANCE_PROSE = """\
-Three findings, all tested against the repositories rather than taken from
-GitHub's metadata (**D-018**).
+Three findings about provenance, each checked in the repository tree rather than
+read off a metadata field — which, as the correction above records, is the
+distinction that matters here.
 
 **1. `SuperSDR` has no licence.** `mcogoni/supersdr` carries no `LICENSE`, no
 `COPYING`, and no per-file header — checked in the repository tree and in
@@ -465,9 +500,16 @@ read-only on GitHub:
 
 | Original | State | Where it goes |
 |---|---|---|
-| `TLeconte/acarsdec` | archived 2026-08-17, last release 3.7 (2022) | **SUPERSEDE** → `f00b4r0/acarsdec`, GPL-2.0-only, v4.6 (2026-06-18) |
-| `TLeconte/vdlm2dec` | archived 2026-06-12 | **SUPERSEDE** → `szpajder/dumpvdl2`, GPL-3.0, active |
-| `TLeconte/acarsserv` | archived 2026-03-13 | **CARRY** — no successor found; still the companion store `acarsdec` documents |
+| `TLeconte/acarsdec` | archived; last activity 2025-07-31 | **SUPERSEDE** → `f00b4r0/acarsdec`, GPL-2.0-only, v4.6 |
+| `TLeconte/vdlm2dec` | archived; last activity 2024-02-11 | **SUPERSEDE** → `szpajder/dumpvdl2`, GPL-3.0, v2.7.0 |
+| `TLeconte/acarsserv` | archived; last activity **2018-12-19** | **CARRY** — no successor found; still the companion store `acarsdec` documents |
+
+The `archived` flag is verified from the API. The *dates* on which each was
+archived are not: GitHub does not expose `archived_at` for any of these three,
+so an earlier version of this table stating exact archive dates was publishing
+something it could not source. What is shown instead is last repository
+activity, which is checkable. Note how far back `acarsserv`'s goes — carrying it
+means carrying software untouched since 2018.
 
 Skywave 5.10 already ships Acarsdec **4.4.1**, which can only have come from the
 `f00b4r0` continuation, so the ISO tracks the live tree. Its *published*

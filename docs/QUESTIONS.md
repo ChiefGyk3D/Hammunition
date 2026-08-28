@@ -214,19 +214,27 @@ remote-SDR story. **Changes:** whether Hammunition ships a KiwiSDR client at all
 `mcogoni/supersdr` — Skywave's KiwiSDR client, shipped as v3.14 in Skywave 5.10 —
 carries **no `LICENSE`, no `COPYING`, and no per-file header.** Verified by reading
 the repository tree and `supersdr.py` itself, not inferred from GitHub's metadata,
-which was wrong in the other direction for `acarsdec` in the same pass. Upstream is
-active (2026-02-18). Default copyright therefore applies: all rights reserved.
+which was wrong in the other direction for `acarsdec` in the same pass. Default
+copyright therefore applies: all rights reserved.
+
+**Correction, 2026-08-28 — this question was posed with a wrong fact in it.** It
+said upstream was "active (2026-02-18)". That date is GitHub's `updated_at`, which
+moves when somebody *stars* a repository. The newest commit on SuperSDR's default
+branch is **2022-12-31**. It is not active; it has been untouched for three and a
+half years. The whole table below was measured the same wrong way and is corrected
+with default-branch commit dates.
 
 This is the **D-001** situation again, and it lands on the single most visible piece
 of the listening delta. Worse, the alternatives are no cleaner:
 
-| Client | Licence | State |
+| Client | Licence | Last commit (default branch) |
 |---|---|---|
-| `mcogoni/supersdr` | **none** | active, the one Skywave ships |
-| `jks-prv/kiwiclient` | **none** — nothing in README or sources | active (2026-08-23), the reference CLI |
-| `llinkz/directKiwi` | WTFPL-style grant in README prose; no licence file | last touched 2025-10-09 |
+| `mcogoni/supersdr` | **none** | **2022-12-31** — dormant; the one Skywave ships |
+| `jks-prv/kiwiclient` | **none** — nothing in README or sources | **2026-08-03** — the only maintained one, and a CLI |
+| `llinkz/directKiwi` | WTFPL-style grant in README prose; no licence file | **2023-03-03** — dormant |
 
-There is no cleanly-licensed KiwiSDR client in this ecosystem.
+There is no cleanly-licensed KiwiSDR client in this ecosystem, and the only one
+still being worked on is the CLI.
 
 **What is and is not at stake.** We do not redistribute source, so installing from
 upstream at a pinned ref is not the problem `.bapp` was. The problems are that we
@@ -235,15 +243,25 @@ be pointing users at software whose author has granted them nothing in writing.
 
 | Option | Consequence |
 |---|---|
-| **A. CARRY `supersdr`, pinned, with the licence state recorded in the manifest** ⭐ | Users get the client that works. `status`/`licence` fields make the risk visible rather than hidden. No forking, no patching — if upstream disappears, so does the unit. |
-| B. Ask upstream to add a licence first | Right thing to do regardless, and free to attempt. Cannot be a blocker: we do not control the answer or its timing. |
+| Option | Consequence |
+|---|---|
+| **A. CARRY `supersdr`, pinned, with the licence state recorded in the manifest** ⭐ | Users get the client that works. `status`/`licence` fields make the risk visible rather than hidden. No forking, no patching — if upstream disappears, so does the unit. **Weaker than it looked:** the software is also three and a half years stale, so "if upstream disappears" is closer to "upstream already has". |
+| B. Ask upstream to add a licence first | Right thing to do regardless, and free to attempt. Cannot be a blocker: we do not control the answer or its timing. **Less likely to land** on a repository whose author has not committed since 2022. |
 | C. RETIRE the whole client cluster; document browser access only | Honest and clean. Also removes the on-ramp for the user who owns no hardware, which `SCOPE.md` calls the point of the listening delta. |
-| D. Carry `kiwiclient` instead | No improvement — same licence status, and a CLI rather than a GUI. |
+| D. Carry `kiwiclient` instead | Same licence status, and a CLI rather than a GUI — but it is the **only one of the three still maintained** (2026-08-03). On the corrected dates this is no longer plainly worse than A. |
 
-**Recommendation: A, and do B in parallel.** Carry it pinned, record
+**Recommendation, revised 2026-08-28: still A, but with less confidence, and D is
+now a real contender.** The licence position is unchanged and is the same class of
+decision as D-001. What changed is that A's software is dormant, so carrying it
+buys a client that will not gain fixes, while D buys a maintained one at the cost
+of a CLI instead of a GUI. Carry pinned either way, record
 `licence: unlicensed-default-copyright` in the manifest so the catalog states the
 fact rather than eliding it, and open a polite upstream issue asking for a licence.
-If one is granted, the manifest changes in one line.
+
+The dormancy is a fact about the software, not a verdict: **PARITY-POLICY.md** is
+explicit that "finished" is a legitimate state for a tool to be in, and a KiwiSDR
+client that works against a stable protocol may simply be done. It is recorded
+because it changes the trade-off, not because it settles it.
 
 **This is your call, not mine** — it is the same class of decision as D-001, which
 you made deliberately.

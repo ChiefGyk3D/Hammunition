@@ -148,6 +148,7 @@ Do not re-litigate these without being asked:
 | Evidence | Re-verify a claim when it becomes decisive, not only when gathered | Four bugs, one shape (**D-025**) |
 | Hardware claims | `status` and `maintainer_verified` are separate fields | `usrp` is supported from Debian's rule and has never been run here (**D-027**) |
 | udev symlinks | An identifier naming a chip may not name a `/dev` node | `/dev/badge` on a CP2102 claims the rig cable (**D-028**) |
+| Upstream liveness | The default branch's head commit, never GitHub's `updated_at`/`pushed_at` | `updated_at` moves when somebody *stars* a repo; it reported two dead projects as active (**D-032**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
 
