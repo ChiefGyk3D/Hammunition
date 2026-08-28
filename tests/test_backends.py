@@ -11,6 +11,7 @@ unknown. Getting either wrong turns a fixable situation into a confident lie.
 
 from __future__ import annotations
 
+import shlex
 import sys
 from pathlib import Path
 
@@ -61,7 +62,7 @@ def _apt(tmp_path: Path, stdout: str, *, populated: bool = True) -> AptBackend:
     lists.mkdir(exist_ok=True)
     if populated:
         (lists / "deb.debian.org_debian_dists_trixie_main_binary-amd64_Packages").touch()
-    runner = RecordingRunner()
+    runner = _StrictRunner()
     backend = AptBackend(runner, lists_dir=lists)
     # Scripted by argv, so the test asserts the backend asked the right question.
     runner.responses = {
@@ -71,9 +72,28 @@ def _apt(tmp_path: Path, stdout: str, *, populated: bool = True) -> AptBackend:
     return backend
 
 
+class _StrictRunner(RecordingRunner):
+    """A runner that refuses a command it has no script for.
+
+    RecordingRunner's tolerant default -- empty success for anything -- is
+    right for --dry-run and wrong for this fixture: when the backend grew the
+    `--` guard, every scripted key stopped matching and probe() started
+    returning {} while all the tests stayed green, because the canned POLICY
+    text was simply never consumed. The exact failure CLAUDE.md's standing
+    rule describes, in the suite written under that rule. A fixture whose
+    responses can silently go unused is not a fixture, it is a hope.
+    """
+
+    def run(self, command: Command) -> CommandResult:
+        key = shlex.join(command.argv)
+        if key not in self.responses:
+            raise AssertionError(f"unscripted command: {key!r}. Scripted: {sorted(self.responses)}")
+        return super().run(command)
+
+
 def _policy_keys(stdout: str) -> list[str]:
     names = [line.rstrip(":") for line in stdout.splitlines() if line and not line[0].isspace()]
-    return ["apt-cache policy " + " ".join(names)]
+    return ["apt-cache policy -- " + " ".join(names)]
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +151,10 @@ def test_probe_asks_apt_once_for_the_whole_set(tmp_path: Path) -> None:
 def test_probing_never_asks_for_privilege(tmp_path: Path) -> None:
     """A dry run has to work without sudo, so resolution must be unprivileged."""
     apt = _apt(tmp_path, POLICY)
-    apt.probe(["rtl-sdr"])
+    # Both names: the fixture scripts the exact argv, and asking for a subset
+    # was previously answered by RecordingRunner's tolerant empty default --
+    # this test never consumed POLICY at all until the runner became strict.
+    apt.probe(["rtl-sdr", "tcpdump"])
     runner = apt.runner
     assert isinstance(runner, RecordingRunner)
     assert runner.commands[0].requires_root is False
@@ -223,8 +246,33 @@ def test_display_shows_exactly_what_will_run() -> None:
         env={"DEBIAN_FRONTEND": "noninteractive"},
     )
     rendered = command.display(euid=1000)
-    assert rendered.startswith("DEBIAN_FRONTEND=noninteractive sudo apt-get install --yes ")
+    assert rendered.startswith("sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes ")
     assert "'a b'" in rendered, "a shell-unsafe argument must be quoted in the display"
+
+
+def test_env_rides_inside_the_sudo_boundary() -> None:
+    """Default sudoers has env_reset and DEBIAN_FRONTEND is not in env_keep,
+    so a variable merged into the *parent* environment dies at the sudo
+    boundary and apt runs interactive -- a debconf question opens a prompt
+    that capture_output has swallowed, and the run hangs with nothing on
+    screen. The variable has to be argv, inside the escalation:
+    `sudo env DEBIAN_FRONTEND=noninteractive apt-get ...`."""
+    command = Command(
+        argv=("apt-get", "install", "--yes", "--", "wireshark"),
+        description="x",
+        requires_root=True,
+        env={"DEBIAN_FRONTEND": "noninteractive"},
+    )
+    escalated = command.argv_for(euid=1000)
+    assert escalated[:3] == ("sudo", "env", "DEBIAN_FRONTEND=noninteractive")
+    assert escalated[3:] == command.argv
+    # Running as root there is no boundary to cross; the process env carries it.
+    assert command.argv_for(euid=0) == command.argv
+    assert command.display(euid=0).startswith("DEBIAN_FRONTEND=noninteractive apt-get ")
+    # And the display agrees with the escalated argv exactly.
+    assert command.display(euid=1000).split(" -- ")[0] == (
+        "sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -267,3 +315,19 @@ def test_the_whole_catalog_passes_the_package_name_rule() -> None:
     """Not a hypothetical: if this ever fails, a real manifest is wrong."""
     packages, _ = load_all(Path(__file__).resolve().parent.parent / "catalog")
     assert packages
+
+
+# ---------------------------------------------------------------------------
+# The probe pipeline, end to end through the fixture
+# ---------------------------------------------------------------------------
+
+
+def test_probe_actually_consumes_the_scripted_policy_text(tmp_path: Path) -> None:
+    """The whole probe -> parse pipeline, through the same argv the backend
+    really emits. This is the test that was missing when the fixture died:
+    it goes red if the backend's argv and the fixture's keys ever drift
+    apart again, instead of probe() quietly returning {}."""
+    states = _apt(tmp_path, POLICY).probe(["rtl-sdr", "tcpdump"])
+    assert states["rtl-sdr"].known is True
+    assert states["rtl-sdr"].is_installed is False
+    assert states["tcpdump"].installed == "4.99.5-2"

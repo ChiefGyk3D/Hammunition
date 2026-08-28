@@ -65,13 +65,27 @@ class Command:
 
         Already being root is not the same as not needing root, so the flag
         stays true and only the prefix disappears.
+
+        When escalation happens, ``env`` rides *inside* the sudo boundary as
+        ``sudo env K=V argv...``. Merging it into the parent process's
+        environment does not survive sudo: default sudoers has ``env_reset``
+        and ``DEBIAN_FRONTEND`` is not in ``env_keep``, so apt would run
+        without the one variable whose absence turns a debconf question into
+        an invisible prompt behind ``capture_output`` -- the exact hang this
+        module documents itself as preventing.
         """
         if self.requires_root and euid != 0:
+            carried = tuple(f"{k}={v}" for k, v in sorted(self.env.items()))
+            if carried:
+                return (*sudo, "env", *carried, *self.argv)
             return (*sudo, *self.argv)
         return self.argv
 
     def display(self, *, euid: int = 0, sudo: Sequence[str] = ("sudo",)) -> str:
         """A copy-pasteable rendering of exactly what will run."""
+        if self.requires_root and euid != 0:
+            # Escalated: the env is already inside the argv, via `env`.
+            return shlex.join(self.argv_for(euid=euid, sudo=sudo))
         prefix = "".join(f"{k}={shlex.quote(v)} " for k, v in sorted(self.env.items()))
         return prefix + shlex.join(self.argv_for(euid=euid, sudo=sudo))
 

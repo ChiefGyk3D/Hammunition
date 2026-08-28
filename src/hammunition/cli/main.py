@@ -341,7 +341,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             return EXIT_OK
 
     print("\nRunning:")
-    report = execute(commands, runner, log=log, plan=plan, echo=print)
+    report = execute(commands, runner, log=log, plan=plan, echo=print, euid=euid)
     if log.ownership_error:
         # Not fatal — the commands ran — but not silent either. A log the
         # operator cannot append to fails on their next run instead of this one.

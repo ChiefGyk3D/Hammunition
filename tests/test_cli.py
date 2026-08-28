@@ -25,7 +25,13 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from hammunition.backends import AptBackend, Command, CommandResult, RecordingRunner  # noqa: E402
+from hammunition.backends import (  # noqa: E402
+    AptBackend,
+    BackendError,
+    Command,
+    CommandResult,
+    RecordingRunner,
+)
 from hammunition.cli.main import (  # noqa: E402
     EXIT_CONSENT,
     EXIT_FAILED,
@@ -174,6 +180,43 @@ def test_a_command_is_logged_before_it_runs(tmp_path: Path) -> None:
     assert events.index("command_begin") < events.index("command_end")
     assert "transaction_failed" in events
     assert "transaction_end" not in events
+
+
+def test_a_missing_binary_fails_the_transaction_not_the_engine(tmp_path: Path) -> None:
+    """A BackendError mid-run (no sudo in a minimal container, no gpasswd) is
+    a failure of this transaction: same failed report, same
+    transaction_failed record, same exit-code contract. The first shipped
+    version let it escape as a raw traceback, leaving the log with a
+    command_begin and no ending -- the log lying by omission."""
+
+    class Refusing(RecordingRunner):
+        def run(self, command: Command) -> CommandResult:
+            super().run(command)
+            raise BackendError("'sudo' is not on PATH")
+
+    command = Command(argv=("apt-get", "install"), description="x", requires_root=True)
+    log = TransactionLog(tmp_path / "log.jsonl")
+    report = execute([command], Refusing(), log=log, plan=_plan())
+
+    assert not report.ok
+    assert report.failed is command
+    assert "sudo" in report.stderr
+    events = [entry["event"] for entry in log.read()]
+    assert "transaction_failed" in events
+    assert "transaction_end" not in events
+
+
+def test_the_echoed_line_matches_the_process_table(tmp_path: Path) -> None:
+    """An unprivileged run must echo `sudo apt-get ...`, because that is what
+    is in the process table. The first version echoed the euid-0 rendering
+    whoever was running."""
+    command = Command(argv=("apt-get", "install"), description="x", requires_root=True)
+    runner = RecordingRunner()
+    log = TransactionLog(tmp_path / "log.jsonl")
+    lines: list[str] = []
+    execute([command], runner, log=log, plan=_plan(), echo=lines.append, euid=1000)
+    shown = [line for line in lines if line.lstrip().startswith("$")]
+    assert shown and "sudo" in shown[0]
 
 
 def test_a_successful_transaction_is_closed(tmp_path: Path) -> None:

@@ -19,12 +19,13 @@ from __future__ import annotations
 
 import contextlib
 import grp
+import os
 import pwd
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from hammunition.backends import AptBackend, Command, CommandRunner
+from hammunition.backends import AptBackend, BackendError, Command, CommandRunner
 from hammunition.plan import InstallPlan
 from hammunition.state import TransactionLog
 
@@ -111,6 +112,7 @@ def execute(
     log: TransactionLog,
     plan: InstallPlan,
     echo: Callable[[str], None] | None = None,
+    euid: int | None = None,
 ) -> ExecutionReport:
     """Run every command, stopping at the first failure.
 
@@ -118,8 +120,13 @@ def execute(
     ordering matters: a run killed mid-``apt-get`` leaves a record that the
     command was started, which is exactly the state an operator needs to see
     and the state a log written only on success would hide.
+
+    ``euid`` is whose the run is, so the echoed line matches the process
+    table -- an unprivileged run says ``sudo apt-get ...``, not ``apt-get
+    ...``. Defaults to the real euid.
     """
     write = echo if echo is not None else (lambda _line: None)
+    shown_as = os.geteuid() if euid is None else euid
 
     log.append(
         {
@@ -134,7 +141,7 @@ def execute(
 
     completed: list[Command] = []
     for command in commands:
-        write(f"  $ {command.display()}")
+        write(f"  $ {command.display(euid=shown_as)}")
         log.append(
             {
                 "event": "command_begin",
@@ -145,7 +152,26 @@ def execute(
                 "description": command.description,
             }
         )
-        result = runner.run(command)
+        try:
+            result = runner.run(command)
+        except BackendError as exc:
+            # A missing binary (no sudo in a minimal container, no gpasswd) is
+            # a failure of this transaction, not a crash of the engine: it gets
+            # the same transaction_failed record and the same exit-code
+            # contract as a command that ran and returned non-zero. Letting it
+            # escape as a traceback left the log saying command_begin with no
+            # ending, which is the log lying by omission.
+            log.append(
+                {
+                    "event": "transaction_failed",
+                    "version": 1,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "argv": list(command.argv),
+                    "error": str(exc),
+                    "completed": len(completed),
+                }
+            )
+            return ExecutionReport(completed=tuple(completed), failed=command, stderr=str(exc))
         log.append(
             {
                 "event": "command_end",
