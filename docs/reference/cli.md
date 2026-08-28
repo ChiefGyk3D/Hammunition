@@ -153,6 +153,18 @@ and its outcome after, so a run killed mid-`apt-get` leaves a record that the
 command was started. That is the state an operator needs to see, and a log
 written only on success would hide it.
 
+The log is itself a modification, so the plan discloses it: a **Records**
+section names the destination path, and under `sudo` — where root writes into
+the operator's home — it says the log and the directories created for it are
+handed back to that operator (`chown`). The path shown is the path the run
+uses, so if the operator cannot be resolved and it falls back to root's home,
+the plan says so rather than redirecting in silence.
+
+`hammunition status` reads that log back and reports how the **most recent
+transaction ended** — completed, failed after N commands, or interrupted with
+no ending recorded — never just what it set out to do. A run that died partway
+is not reported as if it finished.
+
 Hammunition does not roll back. It tells you what it did (**D-004**). On a
 failure the run stops at that command, and the count that completed is printed
 along with the log's location.
