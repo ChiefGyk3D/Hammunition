@@ -372,7 +372,7 @@ VARA and HAMRS are post-1.0. Novel capability layers on top, never substitutes.
   validator, apt backend, os-release detection, pre-flight resolution
   (D-016), and the `install`/`list`/`status`/`show` CLI with a complete
   `--dry-run`, on a container test harness across six targets. The catalog
-  outgrew the original ~20-package / one-`ham-core`-profile sketch — it is 76
+  outgrew the original ~20-package / one-`ham-core`-profile sketch — it is 77
   packages and 4 profiles now — but the skeleton is what M1 named: apt-only,
   with every other backend refused by name until M3.
 - **M2 — inventory and coverage.** *Done* — all five sources measured (see

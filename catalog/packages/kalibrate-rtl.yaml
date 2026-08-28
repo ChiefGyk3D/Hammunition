@@ -1,0 +1,92 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: kalibrate-rtl
+version: 0.4.1+git20191125
+summary: Measures an SDR dongle's frequency error against GSM base stations
+categories: [listening]
+
+install:
+  # Kali packages it; nowhere else does. Measured 2026-08-28 across the four x86
+  # targets (dragonos-tier1-inventory.md): kali only.
+  - when:
+      distro: [kali]
+    install:
+      method: apt
+      packages: [kalibrate-rtl]
+    note: >-
+      Kali ships 0.4.1+git20191125-0kali2, which is the same revision the source
+      block below pins — deliberately, so an apt install and a source build are
+      the same software rather than two.
+
+  - install:
+      method: git
+      repo: https://github.com/steve-m/kalibrate-rtl
+      # Upstream has never cut a tag, so this is a commit pin and D-024 requires
+      # the judgement behind it to be recorded rather than implied.
+      ref: 66074b82daf4a1c588ce1c565a145fac1c59ec56
+      build_system: autotools
+      pin_review:
+        last_reviewed: 2026-08-28
+        reviewed_by: hammunition-maintainers
+        basis: distribution_pin
+        distributions: [kali]
+        cadence_days: 365
+        rationale: >-
+          Kali packages kalibrate-rtl as 0.4.1+git20191125-0kali2. Its
+          debian/watch declares mode=git with pretty=0.4.1+git%cd tracking
+          steve-m/kalibrate-rtl HEAD, so the version string names the committer
+          date of the revision packaged, and the tip of master with committer
+          date 2019-11-25 is this commit. That makes the choice Kali's rather
+          than ours, which is the whole point of this basis, and it means the
+          apt path above and this build are the same revision. Master has moved
+          three commits since — a MIPS shared-memory fix and a README edit — and
+          has been still since 2022-02-01; none of that is worth diverging from
+          the packaged revision for on our targets. Kali's own watch file
+          carries a commented-out block headed "use the following when upstream
+          starts to tag releases", so they are waiting for a tag too.
+    build_depends:
+      - build-essential
+      - autoconf
+      - automake
+      - libtool
+      - pkg-config
+      - librtlsdr-dev
+      - libfftw3-dev
+
+update:
+  probe:
+    method: none
+  strategy: manual
+  cadence_hint: >-
+    Dormant, not dead: last commit on the default branch 2022-02-01, and no tags
+    have ever been cut (verified 2026-08-28 from the branch head, not GitHub's
+    updated_at — D-032). Nothing to poll, so the pin is reviewed on its cadence
+    rather than chased.
+
+documentation:
+  what_it_does: >-
+    Measures how far off frequency an RTL-SDR dongle actually is, by listening
+    to a GSM base station — whose carrier is disciplined to a far better
+    reference than anything in a ten-dollar tuner — and reporting the error in
+    parts per million. That number goes into the `-p` option of most SDR tools.
+  why_you_want_it: >-
+    A cheap dongle's crystal can be tens of ppm out, which at 145 MHz is a
+    kilohertz or more: enough to put a narrow FM signal off-centre and enough to
+    stop a decoder locking at all. Calibrating once and recording the figure
+    makes every other tool in the catalog more accurate, and it costs one
+    measurement.
+  prerequisites: >-
+    An RTL-SDR dongle and an antenna that hears a GSM downlink — GSM900 or
+    GSM850 depending on region. It only listens; it transmits nothing.
+  known_problems: >-
+    It depends on GSM being on the air, and GSM has been switched off in a
+    growing number of countries. Where there is no GSM carrier to hear, this
+    tool cannot measure anything and the alternative is a known local beacon or
+    a signal generator. Upstream is dormant — last commit 2022-02-01 — but the
+    tool is small and does one thing, and "finished" is a legitimate state for
+    software to be in (PARITY-POLICY.md).
+  upstream_url: https://github.com/steve-m/kalibrate-rtl
+  upstream_support: >-
+    GitHub issues, though the repository has been quiet since 2022. Kali's
+    packaging is the more actively maintained artefact.

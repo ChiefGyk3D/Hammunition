@@ -202,7 +202,13 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -e ".[dev]"
-      - run: python scripts/check_pin_reviews.py
+      # --verify-refs fetches each ref from its upstream, which needs the
+      # network. That is fine on a scheduled job and is why this check lives
+      # here rather than in the test suite, which blocks the network on
+      # purpose. It catches a ref that no longer resolves -- a deleted or
+      # re-cut tag, or a wrong SHA, which is still 40 hex characters and so
+      # passes every offline check there is.
+      - run: python scripts/check_pin_reviews.py --verify-refs
 
   # -------------------------------------------------------------------------
   # D-031. Every identifier citing a distribution's udev rule is checked
