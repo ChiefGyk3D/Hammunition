@@ -595,3 +595,51 @@ their commit means a source build and an apt install are the same revision.
 Two commits older than master, and worth it: someone else's packaging is the
 review signal upstream stopped providing, and it is a better one than our own
 preference for recency.
+
+---
+
+## Q-014 🟡 — The Mint container was never Mint. How should Linux Mint coverage be provided?
+
+**Raised by:** the engine's `--check` drift guard, first run 2026-08-28.
+**Blocks:** honest capability-matrix claims for Linux Mint 22.3, one of
+CLAUDE.md's named secondary targets. **Changes:** whether `js8call`'s
+Mint-specific selector — the only distro-version branch in the catalog — is
+ever exercised against a real Mint.
+
+**What was found.** The `linuxmint-22.3` CI target (Q-004) ran
+`linuxmintd/mint22.3-amd64:latest`, the closest thing to an official Mint
+container image. The first code to ever read that image's own identity found
+`/etc/os-release` inside is **Ubuntu 24.04's, verbatim**: `ID=ubuntu`,
+`VERSION_ID="24.04"`. The engine keys distro detection on `/etc/os-release`
+by decision, so inside that container Hammunition correctly reports Ubuntu
+24.04 — a release we do not otherwise target — and the `linuxmint` selector
+the target existed to exercise can never match. Every green run it produced
+was false coverage. The target is removed; the finding is recorded in
+`containers/targets.yaml` where the entry used to be.
+
+**What was NOT done.** Writing Mint's os-release into the image from the
+Dockerfile would make the selector match. That is a forged identity — the
+"shim to make an unsupported combination appear to work" that CLAUDE.md's
+capability-matrix section forbids — and it would test our ability to write a
+file, not Mint.
+
+**Options.**
+
+1. **Leave Mint as declared-but-container-untested**, exactly like Raspberry
+   Pi OS: the selector is verified by unit tests against a captured Mint
+   os-release, the capability matrix says `untested`, and the docs say why.
+   Zero cost, fully honest, and the js8call Qt-version claim (Mint 22.3 ships
+   Qt 6.4.2) remains a claim taken from packaging data rather than a test.
+2. **A periodic VM-based job** (Vagrant/qemu with the real Mint ISO), run on
+   a schedule rather than per push. Real coverage, meaningful cost: a new CI
+   mechanism for one selector on one package.
+3. **Drop the Mint-specific branch from js8call** and let Mint users get the
+   source build path. Removes the only consumer of the selector, which would
+   also remove the reason Mint is more than an `ID_LIKE=ubuntu` footnote.
+
+**Recommendation:** option 1 now, option 2 only if Mint-specific divergence
+grows past a single package. The Raspberry Pi OS precedent (Q-003) is exactly
+this shape and has held up: an honest `untested` beats a green lie, and D-018
+already commits the project to not claiming what it has not run. Option 3
+throws away a measured, real difference (the Qt 6.4.2 gap is a fact about
+Mint 22.3) to simplify bookkeeping, which is backwards.

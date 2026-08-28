@@ -27,30 +27,44 @@ targets:
     arch: x86_64
     priority: 3
 
+  # `rolling: true` means the image tag follows the distribution's moving
+  # stream, so VERSION_ID changes under us by design. The drift check then
+  # matches on os_release_id alone and prints the version it found;
+  # `os_release_version` records the last MEASURED value (read from the
+  # image's own /etc/os-release, 2026-08-28), as a record rather than a
+  # match requirement. Without this flag, kali's quarterly version bump
+  # would redden every unrelated pull request -- the calendar-driven
+  # failure the commit-pin job's comment warns teaches people to ignore CI.
   - name: kali-rolling
     image: kalilinux/kali-rolling:latest
     os_release_id: kali
-    os_release_version: "rolling"
+    os_release_version: "2026.3"
+    rolling: true
     arch: x86_64
     priority: 4
 
   - name: parrot
     image: parrotsec/core:latest
     os_release_id: parrot
-    os_release_version: "rolling"
+    os_release_version: "7.3"
+    rolling: true        # the *tag* rolls: 7.3 becomes 7.4 in place
     arch: x86_64
     priority: 1          # primary target, CLAUDE.md
 
-  - name: linuxmint-22.3
-    image: linuxmintd/mint22.3-amd64:latest
-    os_release_id: linuxmint
-    os_release_version: "22.3"
-    arch: x86_64
-    priority: 6
-    note: >-
-      Added because catalog/packages/js8call.yaml branches on Linux Mint 22.3
-      specifically — apt there, source everywhere else. Without Mint as a target
-      that selector is decoration and the manifest is untestable (Q-004).
+  # NO LINUX MINT TARGET, and the absence is a finding, not an oversight.
+  # A linuxmint-22.3 target (image linuxmintd/mint22.3-amd64) sat here from
+  # Q-004 until 2026-08-28, added so js8call's Mint-specific selector would
+  # be exercised. The first time anything read that image's own identity --
+  # the --check drift guard -- it turned out /etc/os-release in the image is
+  # Ubuntu 24.04's, verbatim: ID=ubuntu, VERSION_ID="24.04". The one selector
+  # the target existed to exercise could never match inside it, so every
+  # green run was false coverage. Mint publishes no container image that
+  # carries Mint's os-release; forging one in the Dockerfile would be the
+  # shim CLAUDE.md forbids. Same disposition as Raspberry Pi OS below: the
+  # support claim stays, the capability matrix reports Mint as untested in
+  # containers, and js8call's selector is exercised by unit tests against a
+  # captured Mint os-release. Q-014 asks the maintainer how real Mint
+  # coverage should be provided.
 
   # NOT Raspberry Pi OS. See `claims` below — this exercises aarch64 selectors
   # and nothing more.
