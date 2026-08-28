@@ -293,23 +293,30 @@ class SourceBackend:
         )
 
 
+#: Directories where installing is a system-wide change. FHS, plus /opt.
+SYSTEM_ROOTS = (Path("/usr"), Path("/opt"), Path("/srv"), Path("/etc"), Path("/var"))
+
+
 def needs_root_for(prefix: Path) -> bool:
-    """Whether installing into *prefix* requires escalation on this machine.
+    """Whether installing into *prefix* is a privileged, system-wide change.
 
-    ``/usr/local`` needs root; a prefix under the operator's home does not, and
-    asking for a password to write somewhere already writable is both rude and
-    a lie about what the command needs. Answered against the nearest existing
-    ancestor, because the leaf usually does not exist until the install creates
-    it.
+    A property of the **destination**, not of the process asking. That
+    distinction is the whole point, and the first version of this function got
+    it wrong: it asked ``os.access(prefix, W_OK)``, which answers "can *I* write
+    here" — so under sudo, and in every one of our root-running target
+    containers, ``/usr/local`` came back writable and the install step declared
+    it needed no privilege. Six container jobs caught it that the dev machine
+    could not, because the dev machine is not root.
 
-    Under ``sudo`` this is trivially true of everything, which is correct: the
-    step is running as root either way, and ``argv_for`` drops the prefix when
-    the euid is already 0.
+    :class:`Command` already states the rule this restores: *already being root
+    is not the same as not needing root*, so the flag stays true and only the
+    ``sudo`` prefix disappears when the euid is 0.
+
+    Deciding from the path also makes the answer the same on every machine,
+    which a plan that must be printed and compared needs it to be.
     """
-    probe = prefix
-    while not probe.exists() and probe != probe.parent:
-        probe = probe.parent
-    return not os.access(probe, os.W_OK)
+    resolved = prefix.resolve()
+    return any(resolved == root or root in resolved.parents for root in SYSTEM_ROOTS)
 
 
 def _compiler_env(compiler_flags: Sequence[str]) -> dict[str, str]:

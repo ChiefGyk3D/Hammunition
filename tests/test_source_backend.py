@@ -34,6 +34,7 @@ from hammunition.backends.source import (  # noqa: E402
     DEFAULT_PREFIX,
     SourceBackend,
     extract,
+    needs_root_for,
 )
 from hammunition.fetch import Fetcher  # noqa: E402
 from hammunition.manifest.schema import PackageManifest  # noqa: E402
@@ -334,3 +335,52 @@ def test_patches_are_refused_by_name(tmp_path: Path) -> None:
     backend = _backend(tmp_path)
     with pytest.raises(BackendError, match="patch"):
         backend.steps(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# Privilege is a property of the destination, not of who is asking
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("prefix", "privileged"),
+    [
+        ("/usr/local", True),
+        ("/usr/local/bin", True),
+        ("/opt/thing", True),
+        ("/var/lib/thing", True),
+        ("/home/operator/.local", False),
+        ("/tmp/build-prefix", False),
+    ],
+)
+def test_privilege_is_decided_by_the_destination(prefix: str, privileged: bool) -> None:
+    """The first version asked `os.access(prefix, W_OK)` — "can *I* write here".
+    Under sudo, and in every one of the root-running target containers, that
+    made /usr/local look unprivileged and the install step claim it needed no
+    root. Six container jobs caught what the dev machine could not, because the
+    dev machine is not root.
+
+    Deciding from the path restores `Command`'s stated rule — already being root
+    is not the same as not needing root — and makes the answer identical on
+    every machine, which a plan that gets printed and compared requires.
+    """
+    assert needs_root_for(Path(prefix)) is privileged
+
+
+def test_the_install_step_stays_privileged_even_when_run_as_root(tmp_path: Path) -> None:
+    """Asserted without faking a euid: the question never consults one."""
+    manifest = _manifest("cmake")
+    backend = SourceBackend(
+        Fetcher(tmp_path / "cache"),
+        build_root=tmp_path / "build",
+        prefix=DEFAULT_PREFIX,
+        jobs=2,
+    )
+    steps = backend.steps(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+    install = next(
+        s for s in steps if isinstance(s, Command) and s.argv[:2] == ("cmake", "--install")
+    )
+    assert install.requires_root, "installing into /usr/local is privileged whoever runs it"
+    # ...and the sudo prefix is what disappears for root, not the flag.
+    assert install.display(euid=0).startswith("cmake")
+    assert install.display(euid=1000).startswith("sudo")
