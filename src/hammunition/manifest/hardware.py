@@ -103,10 +103,14 @@ Five evidence classes, in descending order of how citable they are:
     driver table or a name -- it is a maintainer stating the conclusion and
     acting on it. Debian's ``60-gpsd.rules`` carries five, each marked "rule
     disabled in Debian as it matches too many other devices": ``0403:6001``,
-    ``10c4:ea60``, ``10c4:ea71`` and ``067b:2303`` twice. The archive-wide sweep
-    finds 13 such identifiers in all, and every one of them is a bridge chip or
-    a generic bootloader -- ``dfu-util`` disables ``0483:df11``, the pair D-028
-    was written about.
+    ``10c4:ea60``, ``10c4:ea71`` and ``067b:2303`` twice. Those five rows --
+    four identifiers, all gpsd's -- are the archive-wide total: a rule counts
+    only when it is commented out *with a stated reason*. The raw sweep shows
+    more rows from disabled rules, and the first version of this docstring
+    repeated the wrong reading D-028's amendment retracts: it said the sweep
+    finds 13 and that ``dfu-util`` disables ``0483:df11``, when dfu-util's
+    rule for that pair is live and the commented line under it is an
+    alternative ``plugdev`` form for older systems.
 ``kernel_generic_driver``
     The kernel's own ``modules.alias`` binds the pair to a general-purpose
     USB-serial driver -- ``cp210x``, ``ch341``, ``ftdi_sio``, ``pl2303``. The
