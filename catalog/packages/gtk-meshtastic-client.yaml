@@ -18,8 +18,10 @@ update:
 
 documentation:
   what_it_does: >-
-    A GTK application for talking to a Meshtastic node: messaging, node list,
-    and basic configuration, without the command line.
+    A GTK application for talking to a Meshtastic node — one of the LoRa
+    mesh radios that relay short text messages between handhelds with no
+    infrastructure — covering messaging, the node list, and basic
+    configuration, without the command line.
   why_you_want_it: >-
     It is the packaged desktop client, which is a better first experience than
     the CLI for reading messages and watching who is on the mesh.
@@ -27,6 +29,7 @@ documentation:
     A Meshtastic node on USB and dialout membership. The python3-meshtastic
     package is the more capable route for configuration.
   known_problems: >-
-    Versions diverge across targets (1.2 on Debian and Parrot, 1.5 on Kali)
+    Versions diverge across targets (1.2 on Debian and Parrot, 1.4 on
+    Ubuntu 26.04, 1.5 on Kali — apt-cache policy, 2026-08-28)
     and it tracks upstream firmware less closely than the Python client does.
-  upstream_url: https://github.com/meshtastic/meshtastic
+  upstream_url: https://gitlab.com/kop316/gtk-meshtastic-client

@@ -21,7 +21,9 @@ update:
 documentation:
   what_it_does: >-
     Three terminal programs: `cgps`, a live fix and satellite display; `gpsmon`,
-    which shows the raw sentences the receiver is sending; and `gpssnmp`.
+    which shows the raw sentences the receiver is sending; and `gpssnmp`,
+    which exposes fix and satellite data as SNMP OIDs so an ordinary network
+    monitoring system can watch a receiver.
   why_you_want_it: >-
     The first question about a misbehaving receiver is always whether it has a
     fix at all, and `cgps` answers it in one command with no X server and no
@@ -33,6 +35,8 @@ documentation:
     which is worth knowing before spending an evening wondering where `cgps`
     went.
   known_problems: >-
-    `gpsmon` puts the receiver into a mode `cgps` does not expect, so run one
-    at a time rather than both against the same device.
+    `gpsmon` can switch a receiver between NMEA and binary mode — its own
+    manual documents the mode-toggling commands and warns about switching
+    dual-protocol units (gpsmon(1), gpsd 3.25, Debian 13) — so run one tool
+    at a time rather than gpsmon and cgps against the same device.
   upstream_url: https://gpsd.io/

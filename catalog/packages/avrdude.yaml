@@ -34,7 +34,8 @@ documentation:
     high-voltage programmer to recover. This is not a bug and it is the most
     common way an AVR ends up in a drawer.
 
-        Its 64 identifiers include `16c0:05dc`, the USBasp, which is one of
+        Its identifiers (counted by the generated programmer class, not
+        here) include `16c0:05dc`, the USBasp, which is one of
     Objective Development's shared V-USB pairs and not an identifier for any
     product. `libhamlib4t64` claims it too.
   upstream_url: https://github.com/avrdudes/avrdude

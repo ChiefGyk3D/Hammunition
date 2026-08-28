@@ -28,6 +28,7 @@ documentation:
   prerequisites: >-
     Nothing. It is in the base repositories of every supported target.
   known_problems: >-
-    None. Configure user.name and user.email before your first commit or git
-    will refuse to make one.
+    Configure user.name and user.email before your first commit or git will
+    refuse to make one — the only first-run surprise in an otherwise
+    boring, reliable package.
   upstream_url: https://git-scm.com/

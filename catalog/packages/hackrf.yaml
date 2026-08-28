@@ -32,7 +32,8 @@ documentation:
   known_problems: >-
     Host tools and device firmware are version-locked; hackrf_info reports a
     mismatch and it is worth reading. Debian 13 and Parrot ship 2024.02.1
-    while Kali ships 2026.01.3, so the firmware you flash should match the
+    while Kali ships 2026.01.3 (apt-cache policy, 2026-08-28), so the
+    firmware you flash should match the
     tools your distribution gave you. This is a transmit-capable radio:
     transmitting into an unterminated port risks the hardware.
   upstream_url: https://github.com/greatscottgadgets/hackrf
