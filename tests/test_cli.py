@@ -519,3 +519,65 @@ def test_status_reports_an_interrupted_transaction(
     assert "did not record an ending" in out
     assert "FAILED" not in out
     assert "completed" not in out
+
+
+# ---------------------------------------------------------------------------
+# install, end to end through main() — the wiring both shipped M1 bugs lived in
+# ---------------------------------------------------------------------------
+
+
+def _mock_apt(monkeypatch: pytest.MonkeyPatch, *, populated: bool) -> None:
+    """A target and an apt backend that need no real machine, so main()'s
+    install path can be driven end to end. Resolution calls lists_populated()
+    and probe(); nothing here executes, because every test below is --dry-run."""
+    from hammunition.backends.apt import AptBackend, AptPackageState
+
+    monkeypatch.setattr(Target, "detect", classmethod(lambda cls: TARGET))
+    monkeypatch.setattr(AptBackend, "lists_populated", lambda self: populated)
+    monkeypatch.setattr(
+        AptBackend,
+        "probe",
+        lambda self, pkgs: {
+            p: AptPackageState(name=p, installed=None, candidate="1.0") for p in pkgs
+        },
+    )
+
+
+def test_install_dry_run_prints_the_plan_and_executes_nothing(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    """The dry-run early return, driven through main() — not resolve() in
+    isolation. This is the seam the review found untested, where --refresh not
+    reaching resolution and the sudo/env boundary both hid."""
+    _mock_apt(monkeypatch, populated=True)
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "git"])
+    out = capsys.readouterr().out
+    assert rc == EXIT_OK
+    assert "git" in out
+    assert "will install" in out
+    assert "Dry run: nothing above was executed." in out
+
+
+def test_install_refresh_on_empty_lists_is_plannable_through_main(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    """--refresh on a fresh machine must produce a plan, not the blocker that
+    tells you to pass the flag you just passed. End to end, the bug #1 shape."""
+    _mock_apt(monkeypatch, populated=False)
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "--refresh", "git"])
+    out = capsys.readouterr().out
+    assert rc == EXIT_OK
+    assert "apt-get update" in out  # the refresh command is in the plan
+    assert "cannot be known" in out  # the disclosed loss of the candidate check
+    assert "Dry run: nothing above was executed." in out
+
+
+def test_install_without_refresh_on_empty_lists_is_blocked_through_main(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    """The other side: no --refresh on empty lists is still a blocker."""
+    _mock_apt(monkeypatch, populated=False)
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "git"])
+    err = capsys.readouterr().err
+    assert rc == EXIT_UNPLANNABLE
+    assert "apt-get update" in err
