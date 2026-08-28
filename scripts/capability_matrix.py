@@ -96,11 +96,23 @@ def main() -> int:
         distro, version, arch = target.distro, target.version, target.arch
         print(f"detected: {target.describe()}")
 
-        declared = [
-            t
-            for t in load_targets()
-            if t["os_release_id"] == distro and str(t["os_release_version"]) == version
-        ]
+        declared = []
+        for t in load_targets():
+            if t["os_release_id"] != distro:
+                continue
+            if t.get("rolling"):
+                # The tag follows a moving stream, so the version matches by
+                # construction -- but say what was actually found, so the log
+                # records what this run tested rather than what the file
+                # remembered.
+                declared.append(t)
+                if str(t["os_release_version"]) != version:
+                    print(
+                        f"note: rolling target; targets.yaml last measured "
+                        f"{t['os_release_version']}, this image reports {version}"
+                    )
+            elif str(t["os_release_version"]) == version:
+                declared.append(t)
         if not declared:
             print(
                 f"FAIL: running on {distro} {version}, which no target in "
