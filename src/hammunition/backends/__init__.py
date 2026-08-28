@@ -3,8 +3,9 @@
 
 """Install backends.
 
-``apt`` and ``source`` are implemented. The other four that 1.0 needs — git,
-binary, venv, pipx — are measured, named and absent (DESIGN.md §6, D-014). The
+``apt``, ``source`` and ``git`` are implemented. The other three that 1.0
+needs — binary, venv, pipx — are measured, named and absent (DESIGN.md §6,
+D-014). The
 planner refuses a manifest whose method has no backend, by name, rather than
 skipping it; a capability matrix that reports coverage the engine does not have
 is the shim CLAUDE.md forbids.
@@ -23,10 +24,11 @@ from .base import (
     RecordingRunner,
     SubprocessRunner,
 )
+from .git import GitBackend
 from .source import SourceBackend
 
 #: Install methods this engine build can actually perform.
-IMPLEMENTED_METHODS: frozenset[str] = frozenset({"apt", "source"})
+IMPLEMENTED_METHODS: frozenset[str] = frozenset({"apt", "git", "source"})
 
 #: `system_modifications` kinds this engine build can actually perform.
 #: Everything else is a declared, named gap — never a silent skip.
@@ -42,6 +44,7 @@ __all__ = [
     "Command",
     "CommandResult",
     "CommandRunner",
+    "GitBackend",
     "RecordingRunner",
     "SourceBackend",
     "SubprocessRunner",

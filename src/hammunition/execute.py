@@ -33,9 +33,10 @@ from hammunition.backends import (
     BackendError,
     Command,
     CommandRunner,
+    GitBackend,
     SourceBackend,
 )
-from hammunition.manifest.schema import SourceInstall
+from hammunition.manifest.schema import GitInstall, SourceInstall
 from hammunition.plan import InstallPlan
 from hammunition.state import TransactionLog
 
@@ -93,6 +94,7 @@ def commands_for(
     refresh: bool = False,
     current_groups: frozenset[str] | None = None,
     source: SourceBackend | None = None,
+    git: GitBackend | None = None,
 ) -> list[Step]:
     """Every step this plan implies, in the order it will run.
 
@@ -103,8 +105,8 @@ def commands_for(
     ``wireshark``), so adding the operator first would fail on a group that does
     not exist yet.
 
-    ``source`` is required if the plan holds any source build, and its absence
-    is an error rather than a silent skip — a plan that quietly dropped the one
+    ``source`` and ``git`` are required if the plan holds a build of that kind,
+    and an absence is an error rather than a silent skip — a plan that quietly dropped the one
     step that installs the software would report success having done nothing.
     """
     commands: list[Step] = []
@@ -114,14 +116,20 @@ def commands_for(
 
     for planned in plan.packages:
         block = planned.block.install
-        if not isinstance(block, SourceInstall):
-            continue
-        if source is None:
-            raise BackendError(
-                f"{planned.name} is a source build and no source backend was supplied. "
-                f"Skipping it would report a successful run that installed nothing."
-            )
-        commands.extend(source.steps(planned.manifest, block))
+        if isinstance(block, SourceInstall):
+            if source is None:
+                raise BackendError(
+                    f"{planned.name} is a source build and no source backend was supplied. "
+                    f"Skipping it would report a successful run that installed nothing."
+                )
+            commands.extend(source.steps(planned.manifest, block))
+        elif isinstance(block, GitInstall):
+            if git is None:
+                raise BackendError(
+                    f"{planned.name} builds from git and no git backend was supplied. "
+                    f"Skipping it would report a successful run that installed nothing."
+                )
+            commands.extend(git.steps(planned.manifest, block))
 
     cache: dict[str, frozenset[str]] = {}
     for membership in plan.group_memberships:

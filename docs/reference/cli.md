@@ -5,9 +5,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # CLI reference
 
-The `hammunition` command. Two backends are implemented: **apt** and
-**source**. Four more are measured, named and scheduled for 1.0
-(`docs/DESIGN.md` §6) — git, binary, venv, pipx — and a package needing one is
+The `hammunition` command. Three backends are implemented: **apt**, **source**
+and **git**. Three more are measured, named and scheduled for 1.0
+(`docs/DESIGN.md` §6) — binary, venv, pipx — and a package needing one is
 **refused by name** rather than skipped; see
 [What it refuses](#what-it-refuses).
 
@@ -112,8 +112,8 @@ capability matrix that reports coverage the engine does not have is the shim
 
 | Situation | What you see |
 |---|---|
-| A `git`, `binary`, `venv` or `pipx` install block | the backend named, and that it is scheduled but not written |
-| A `source` block whose `build_system` is `custom` | the build system named. No manifest uses it, so it is an unimplemented gap rather than a regression (**D-014**) |
+| A `binary`, `venv` or `pipx` install block | the backend named, and that it is scheduled but not written |
+| A `source` or `git` block whose `build_system` is `custom` | the build system named. No manifest uses it, so it is an unimplemented gap rather than a regression (**D-014**) |
 | A `source` block declaring `patches` | that applying them is not implemented — building unpatched source would produce a binary the manifest does not describe |
 | A `build_depends` package apt has no candidate for | which name, marked `build_depends`, **before** the toolchain is installed |
 | A manifest declaring third-party `apt_repos` | that adding a repository with a pinned key is a disclosed modification of its own |
@@ -199,6 +199,46 @@ artifact declaring them is digest-pinned rather than signed, and the plan says s
 **Build systems:** `cmake`, `autotools`, `qmake` and `make`, which is what the
 catalog uses (6 / 2 / 2 / 2). `custom` is a measured zero and is refused by name
 (**D-014**).
+
+## How a git build works
+
+A `git` block builds the same way once the tree is there; only how it *arrives*
+differs, and so does the question that has to be answered about it.
+
+```
+  # Clear any previous ais-catcher checkout
+  $ [prepare] ~/.cache/hammunition/build/ais-catcher-v0.70/src (removed if present, then recreated)
+  # Start an empty repository for ais-catcher
+  $ git init --quiet ~/.cache/hammunition/build/ais-catcher-v0.70/src
+  # Point it at https://github.com/jvde-github/AIS-catcher
+  $ git -C … remote add origin https://github.com/jvde-github/AIS-catcher
+  # Fetch ais-catcher at v0.70
+  $ git -C … fetch --depth 1 origin v0.70
+  # Check out v0.70
+  $ git -C … checkout --quiet FETCH_HEAD
+  # Confirm ais-catcher is at the pinned revision
+  $ [verify-pin] git rev-parse HEAD in … must be v0.70
+```
+
+**The archive backend asks *are these the right bytes*; this one asks *is this
+the right revision*.** A sha256 answers the first. Nothing about a successful
+clone answers the second: `git` can exit 0 having handed over a different commit
+than the catalog was written against — a re-cut tag, a moved branch, a server
+that ignored what was asked for. So the pin is **checked after the checkout and
+before the build** (**D-031**). A commit pin must match exactly or the run stops;
+a tag has nothing to compare against, so the revision it resolved to is recorded
+instead — which is the raw material of the pin database, because the day a tag is
+re-cut the log says what it used to be.
+
+**A moving ref cannot be expressed.** The schema refuses `master`, `main`,
+`HEAD`, `trunk` and `develop`, and a bare commit SHA requires a `pin_review`
+naming who reviewed it, when, and why that commit (**D-024**). A tag carries an
+upstream signal that somebody thought a revision worth naming; a SHA carries
+none, so pinning one moves a judgement upstream stopped making onto us, and it is
+recorded beside the pin rather than implied by it.
+
+The fetch is shallow and by ref, so a pinned commit costs one object walk rather
+than a project's whole history.
 
 ## Consent gates
 

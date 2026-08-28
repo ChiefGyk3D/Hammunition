@@ -379,11 +379,12 @@ VARA and HAMRS are post-1.0. Novel capability layers on top, never substitutes.
   `reference/`), and dispositions are complete for **all five**: 150 units, none
   unclassified (`reference/dispositions.md`).
 - **M3 — backend completeness.** *Begun.* The verified-artifact fetcher and the
-  source-from-tarball backend are written, so a `source` manifest plans and
-  builds end to end; the build systems implemented are the ones the catalog
-  uses (cmake 6, autotools 2, qmake 2, make 2), with `custom` and `patches` as
-  measured zeros refused by name. Remaining: git, binary/`.deb`, venv, pipx,
-  CPAN, and launcher generation. Implement the measured backend set (§6). Every
+  source-from-tarball and source-from-git backends are written, so `source` and
+  `git` manifests plan and build end to end; the build systems implemented are
+  the ones the catalog uses (cmake 6, autotools 2, qmake 2, make 2), with
+  `custom` and `patches` as
+  measured zeros refused by name. Remaining: binary/`.deb`, venv, pipx, CPAN,
+  and launcher generation. Implement the measured backend set (§6). Every
   backend names the unit requiring it (**D-014**).
 - **M4 — profiles and hardware.** Full profile set, and the hardware role as
   D-029 defines it: permissions, composite-device mapping, firmware-mode

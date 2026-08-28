@@ -29,7 +29,8 @@ exactly where things stand:
 | apt backend, with real pre-flight resolution | ✅ working |
 | Group membership from a manifest | ✅ working |
 | Source builds from a verified tarball (cmake, autotools, qmake, make) | ✅ working |
-| git, binary, venv, pipx, CPAN backends | ❌ **not written** — refused by name |
+| Builds from a pinned git revision, with the pin verified after checkout | ✅ working |
+| binary, venv, pipx, CPAN backends | ❌ **not written** — refused by name |
 | Third-party apt repos, templated config files | ❌ **not written** — refused by name |
 | udev rule generation | ❌ **not written** |
 | `uninstall` | ❌ **not written** — the log it will read is being written correctly now |

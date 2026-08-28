@@ -356,7 +356,7 @@ src/hammunition/
   state/           # transaction log, uninstall              ✅ log only
   plan.py          # pre-flight resolution (D-016)           ✅
   execute.py       # plan -> commands -> runner              ✅
-  backends/        # apt ✅ source ✅; git, binary, venv, pipx, CPAN ❌
+  backends/        # apt ✅ source ✅ git ✅; binary, venv, pipx, CPAN ❌
   fetch.py         # verified download, mandatory sha256          ✅
   paths.py         # owner-aware XDG dirs (log, cache, build)     ✅
   distro/          # /etc/os-release detection               ✅
@@ -369,9 +369,9 @@ tests/
 
 Ticks mark what exists. **M1's walking skeleton runs** — detect, resolve, print,
 install, log — and **M3 has begun**: the verified fetcher and the
-source-from-tarball backend are written, so a `source` manifest now plans and
-builds end to end. What it cannot do it still refuses by name: four backends
-(git, binary, venv, pipx), third-party apt repos, templated config files and
+source-from-tarball and source-from-git backends are written, so `source` and
+`git` manifests now plan and build end to end. What it cannot do it still refuses by name: three backends
+(binary, venv, pipx), third-party apt repos, templated config files and
 udev generation are measured, named and absent. Do not let this read as a
 working installer: **57 of AHRL's 95 units cannot be satisfied by apt**, and
 while source-from-tarball is the largest single slice of that 57 (35 units), the
@@ -489,7 +489,7 @@ Measured from the inventory: **57 of 95 AHRL units cannot be satisfied by apt** 
 40% of the parity target, and the missing 60% is precisely what users cannot
 install themselves — the reason this project exists (**D-004**).
 
-Required for 1.0: apt ✅, source-from-tarball ✅, source-from-git,
+Required for 1.0: apt ✅, source-from-tarball ✅, source-from-git ✅,
 binary/`.deb`/archive, Python venv, pipx, **CPAN** (`aa-analyzer` needs
 `Device::SerialPort`), and launcher generation (14 units need a generated
 wrapper).

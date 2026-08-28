@@ -157,18 +157,12 @@ def test_all_blockers_are_reported_together_not_just_the_first(tmp_path: Path) -
     CLAUDE.md is about.
     """
     catalog = {
+        # A method with no backend. `venv` rather than `git`, which the engine
+        # implements now -- the point of this entry is "unimplemented", so it
+        # has to name something that still is.
         "unbuildable": _manifest(
             name="unbuildable",
-            install=[
-                {
-                    "install": {
-                        "method": "git",
-                        "repo": "https://example.invalid/x.git",
-                        "ref": "v1.0",
-                        "build_system": "cmake",
-                    }
-                }
-            ],
+            install=[{"install": {"method": "venv", "requirements": ["example"]}}],
         ),
         "known-broken": _manifest(
             name="known-broken",
@@ -265,21 +259,12 @@ def test_a_method_with_no_backend_is_refused_by_name(tmp_path: Path) -> None:
     have is the shim CLAUDE.md forbids."""
     catalog = {
         "example": _manifest(
-            install=[
-                {
-                    "install": {
-                        "method": "git",
-                        "repo": "https://example.invalid/x.git",
-                        "ref": "v1.0",
-                        "build_system": "cmake",
-                    }
-                }
-            ]
+            install=[{"install": {"method": "pipx", "spec": "example-tool"}}],
         )
     }
     with pytest.raises(PlanError) as exc:
         _resolve(tmp_path, ["example"], catalog=catalog)
-    assert "'git' backend" in exc.value.blockers[0].reason
+    assert "'pipx' backend" in exc.value.blockers[0].reason
 
 
 def test_an_unsupported_target_is_refused_rather_than_shimmed(tmp_path: Path) -> None:

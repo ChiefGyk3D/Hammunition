@@ -37,6 +37,7 @@ from pathlib import Path
 from hammunition.backends import (
     AptBackend,
     BackendError,
+    GitBackend,
     SourceBackend,
     SubprocessRunner,
 )
@@ -382,11 +383,10 @@ def cmd_install(args: argparse.Namespace) -> int:
     # under sudo they would otherwise land in /root, invisible to the person who
     # asked for the build and re-downloaded on their next unprivileged run. Same
     # reasoning as the transaction log, and the same helper resolves both.
-    source = SourceBackend(
-        Fetcher(owner=user or None),
-        build_root=build_root(user or None),
-    )
-    commands = commands_for(plan, apt, refresh=args.refresh, source=source)
+    builds = build_root(user or None)
+    source = SourceBackend(Fetcher(owner=user or None), build_root=builds)
+    git = GitBackend(runner=runner, build_root=builds, prefix=source.prefix, jobs=source.jobs)
+    commands = commands_for(plan, apt, refresh=args.refresh, source=source, git=git)
     # Disclose the log destination in the plan itself, so the file write (and,
     # under sudo, the chown to the operator) is shown before it happens rather
     # than surfacing after. A handoff only occurs when root is writing into

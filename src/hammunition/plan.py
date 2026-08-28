@@ -41,6 +41,7 @@ from hammunition.backends.source import IMPLEMENTED_BUILD_SYSTEMS
 from hammunition.distro import Target
 from hammunition.manifest.schema import (
     ConsentGate,
+    GitInstall,
     InstallBlock,
     PackageManifest,
     ProfileManifest,
@@ -313,12 +314,12 @@ def _check_engine_capability(manifest: PackageManifest, block: InstallBlock) -> 
             )
         )
 
-    if isinstance(block.install, SourceInstall) and method in IMPLEMENTED_METHODS:
+    if isinstance(block.install, SourceInstall | GitInstall) and method in IMPLEMENTED_METHODS:
         # D-016: everything the run cannot do is found before anything is done.
         # The backend raises on these too, but discovering them after the apt
         # step has already installed a toolchain is exactly the fix-one-re-run
         # shape resolution exists to prevent.
-        source: SourceInstall = block.install
+        source: SourceInstall | GitInstall = block.install
         if source.build_system not in IMPLEMENTED_BUILD_SYSTEMS:
             found.append(
                 Blocker(
@@ -334,7 +335,7 @@ def _check_engine_capability(manifest: PackageManifest, block: InstallBlock) -> 
                     ),
                 )
             )
-        if source.patches:
+        if isinstance(source, SourceInstall) and source.patches:
             found.append(
                 Blocker(
                     subject=manifest.name,

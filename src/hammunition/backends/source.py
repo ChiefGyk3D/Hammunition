@@ -45,6 +45,7 @@ import os
 import shutil
 import tarfile
 import zipfile
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -58,7 +59,9 @@ __all__ = [
     "IMPLEMENTED_BUILD_SYSTEMS",
     "SourceBackend",
     "SourceLayout",
+    "build_commands",
     "extract",
+    "prepare_tree",
 ]
 
 #: FHS: locally-built software goes in /usr/local, where it does not collide
@@ -120,6 +123,20 @@ def _safe_members(names: list[str], destination: Path) -> None:
                 f"directory, which is how an archive turns 'unpack' into "
                 f"'write anywhere'"
             )
+
+
+def prepare_tree(destination: Path) -> str:
+    """Remove any previous tree at *destination* and recreate it empty.
+
+    Idempotent (CLAUDE.md): a re-run builds from a clean tree rather than
+    layering a new checkout or archive over a half-built one, where a stale
+    object file outlives the source it came from.
+    """
+    existed = destination.exists()
+    if existed:
+        shutil.rmtree(destination)
+    destination.mkdir(parents=True)
+    return f"{'cleared and recreated' if existed else 'created'} {destination}"
 
 
 def extract(archive: Path, destination: Path) -> str:
@@ -256,118 +273,152 @@ class SourceBackend:
         where = "cached" if result.from_cache else "downloaded"
         return f"{where} {result.size} bytes, sha256 {result.sha256[:12]}… verified"
 
-    def _compiler_env(self, block: SourceInstall) -> dict[str, str]:
-        """``compiler_flags`` as CFLAGS/CXXFLAGS.
-
-        Six AHRL units need ``-Wno-*`` to build against a modern toolchain, and
-        AHRL carries them as shell string-mangling. Declaring them means the
-        flags are catalog data a reviewer can see, and the day a compiler stops
-        needing one it is deleted from a manifest rather than hunted for in a
-        script.
-        """
-        if not block.compiler_flags:
-            return {}
-        flags = " ".join(block.compiler_flags)
-        return {"CFLAGS": flags, "CXXFLAGS": flags}
-
     def _build_commands(
         self,
         manifest: PackageManifest,
         block: SourceInstall,
         layout: SourceLayout,
     ) -> list[Command]:
-        env = self._compiler_env(block)
-        args = list(block.configure_args)
-        name = manifest.name
-        jobs = str(self.jobs)
+        return build_commands(
+            name=manifest.name,
+            build_system=block.build_system,
+            layout=layout,
+            prefix=self.prefix,
+            jobs=self.jobs,
+            configure_args=block.configure_args,
+            compiler_flags=block.compiler_flags,
+            project_file=block.project_file,
+            build_args=block.build_args,
+        )
 
-        if block.build_system == "cmake":
-            return [
-                Command(
-                    argv=(
-                        "cmake",
-                        "-S",
-                        str(layout.src),
-                        "-B",
-                        str(layout.build),
-                        f"-DCMAKE_INSTALL_PREFIX={self.prefix}",
-                        "-DCMAKE_BUILD_TYPE=Release",
-                        *args,
-                    ),
-                    description=f"Configure {name} with cmake",
-                    env=env,
-                ),
-                Command(
-                    argv=("cmake", "--build", str(layout.build), "--parallel", jobs),
-                    description=f"Compile {name}",
-                    env=env,
-                ),
-                Command(
-                    argv=("cmake", "--install", str(layout.build)),
-                    description=f"Install {name} into {self.prefix}",
-                    requires_root=True,
-                ),
-            ]
 
-        if block.build_system == "autotools":
-            return [
-                Command(
-                    argv=("./configure", f"--prefix={self.prefix}", *args),
-                    description=f"Configure {name}",
-                    env=env,
-                    cwd=layout.src,
-                ),
-                Command(
-                    argv=("make", "-j", jobs),
-                    description=f"Compile {name}",
-                    env=env,
-                    cwd=layout.src,
-                ),
-                Command(
-                    argv=("make", "install"),
-                    description=f"Install {name} into {self.prefix}",
-                    requires_root=True,
-                    cwd=layout.src,
-                ),
-            ]
+def _compiler_env(compiler_flags: Sequence[str]) -> dict[str, str]:
+    """``compiler_flags`` as CFLAGS/CXXFLAGS.
 
-        if block.build_system == "qmake":
-            # `project_file` exists because MSHV needs a different .pro per
-            # architecture; without it qmake picks the only one in the tree.
-            project = [block.project_file] if block.project_file else []
-            return [
-                Command(
-                    argv=("qmake", *project, f"PREFIX={self.prefix}", *args),
-                    description=f"Configure {name} with qmake",
-                    env=env,
-                    cwd=layout.src,
-                ),
-                Command(
-                    argv=("make", "-j", jobs),
-                    description=f"Compile {name}",
-                    env=env,
-                    cwd=layout.src,
-                ),
-                Command(
-                    argv=("make", "install"),
-                    description=f"Install {name} into {self.prefix}",
-                    requires_root=True,
-                    cwd=layout.src,
-                ),
-            ]
+    Six AHRL units need ``-Wno-*`` to build against a modern toolchain, and AHRL
+    carries them as shell string-mangling. Declaring them means the flags are
+    catalog data a reviewer can see, and the day a compiler stops needing one it
+    is deleted from a manifest rather than hunted for in a script.
+    """
+    if not compiler_flags:
+        return {}
+    flags = " ".join(compiler_flags)
+    return {"CFLAGS": flags, "CXXFLAGS": flags}
 
-        # `make`: no configure step at all.
+
+def build_commands(
+    *,
+    name: str,
+    build_system: str,
+    layout: SourceLayout,
+    prefix: Path,
+    jobs: int,
+    configure_args: Sequence[str] = (),
+    compiler_flags: Sequence[str] = (),
+    project_file: str | None = None,
+    build_args: Sequence[str] = (),
+) -> list[Command]:
+    """Configure, compile and install, for one build system.
+
+    Shared by the source and git backends, because how a tree *arrived* — an
+    archive verified by digest, or a clone pinned to a revision — says nothing
+    about how it is built. Keeping one copy is what stops the two drifting into
+    subtly different builds of the same software.
+
+    Only the final command is privileged. CLAUDE.md drops to the operator
+    wherever possible, and a build run wholly as root would leave a tree of
+    root-owned objects in the operator's cache for no benefit.
+    """
+    env = _compiler_env(compiler_flags)
+    args = list(configure_args)
+    jobs_arg = str(jobs)
+    if build_system == "cmake":
         return [
             Command(
-                argv=("make", "-j", jobs, *block.build_args),
+                argv=(
+                    "cmake",
+                    "-S",
+                    str(layout.src),
+                    "-B",
+                    str(layout.build),
+                    f"-DCMAKE_INSTALL_PREFIX={prefix}",
+                    "-DCMAKE_BUILD_TYPE=Release",
+                    *args,
+                ),
+                description=f"Configure {name} with cmake",
+                env=env,
+            ),
+            Command(
+                argv=("cmake", "--build", str(layout.build), "--parallel", jobs_arg),
+                description=f"Compile {name}",
+                env=env,
+            ),
+            Command(
+                argv=("cmake", "--install", str(layout.build)),
+                description=f"Install {name} into {prefix}",
+                requires_root=True,
+            ),
+        ]
+
+    if build_system == "autotools":
+        return [
+            Command(
+                argv=("./configure", f"--prefix={prefix}", *args),
+                description=f"Configure {name}",
+                env=env,
+                cwd=layout.src,
+            ),
+            Command(
+                argv=("make", "-j", jobs_arg),
                 description=f"Compile {name}",
                 env=env,
                 cwd=layout.src,
             ),
             Command(
-                argv=("make", "install", f"PREFIX={self.prefix}"),
-                description=f"Install {name} into {self.prefix}",
+                argv=("make", "install"),
+                description=f"Install {name} into {prefix}",
                 requires_root=True,
                 cwd=layout.src,
             ),
         ]
+
+    if build_system == "qmake":
+        # `project_file` exists because MSHV needs a different .pro per
+        # architecture; without it qmake picks the only one in the tree.
+        project = [project_file] if project_file else []
+        return [
+            Command(
+                argv=("qmake", *project, f"PREFIX={prefix}", *args),
+                description=f"Configure {name} with qmake",
+                env=env,
+                cwd=layout.src,
+            ),
+            Command(
+                argv=("make", "-j", jobs_arg),
+                description=f"Compile {name}",
+                env=env,
+                cwd=layout.src,
+            ),
+            Command(
+                argv=("make", "install"),
+                description=f"Install {name} into {prefix}",
+                requires_root=True,
+                cwd=layout.src,
+            ),
+        ]
+
+    # `make`: no configure step at all.
+    return [
+        Command(
+            argv=("make", "-j", jobs_arg, *build_args),
+            description=f"Compile {name}",
+            env=env,
+            cwd=layout.src,
+        ),
+        Command(
+            argv=("make", "install", f"PREFIX={prefix}"),
+            description=f"Install {name} into {prefix}",
+            requires_root=True,
+            cwd=layout.src,
+        ),
+    ]
