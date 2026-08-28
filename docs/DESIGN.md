@@ -2,8 +2,9 @@
 
 > Pick your RF arsenal.
 
-Status: draft, pre-implementation. This document holds the reasoning behind the
-decisions summarised in `CLAUDE.md`.
+Status: living design document; the schema, consent, and state halves it
+describes are implemented and tested, the install path is in review. It holds
+the reasoning behind the decisions summarised in `CLAUDE.md`.
 
 **Authority order:** `DECISIONS.md` > `PARITY-POLICY.md` > `CLAUDE.md` > this
 document. Where any of them disagrees with this file, they win and this file is a
@@ -369,13 +370,15 @@ VARA and HAMRS are post-1.0. Novel capability layers on top, never substitutes.
 - **M1 — walking skeleton.** Manifest schema and validator, apt backend,
   os-release detection for Parrot and Debian, ~20 packages, one `ham-core`
   profile, `install`/`list`/`status`/`--dry-run`, container test harness.
-- **M2 — inventory and coverage.** *AHRL done* — see
-  `reference/ahrl-inventory.md`: 95 units, 57 non-apt. Remaining: the 73Linux
-  delta and per-unit dispositions.
+- **M2 — inventory and coverage.** *Done* — all five sources measured (see
+  `reference/`), and dispositions are complete for AHRL and the 73Linux delta:
+  133 units, none unclassified. Remaining: dispositions for the Skywave and
+  DragonOS deltas.
 - **M3 — backend completeness.** Implement the measured backend set (§6). Every
   backend names the unit requiring it (**D-014**).
-- **M4 — profiles and hardware.** Full profile set, udev rules, groups, firmware,
-  persistent device symlinks.
+- **M4 — profiles and hardware.** Full profile set, and the hardware role as
+  D-029 defines it: permissions, composite-device mapping, firmware-mode
+  identification — with symlinks where the naming accounting supports one.
 - **M5 — parity verified.** Every unit either installs on at least one supported
   distro, or carries a `broken`/`retired` status **verified by us**, never
   inherited from an AHRL comment. **Exit criterion: our install-success fraction

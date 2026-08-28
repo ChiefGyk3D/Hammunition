@@ -6,7 +6,7 @@ Hammunition's target coverage is the union of what these five projects serve:
 |---|---|---|---|
 | Debian Hamradio Blend | Ham, packaged | ~152 packages | **Lowest** — apt metapackages, machine-readable task lists |
 | Andy's Ham Radio Linux | Ham, curated | 95 units | **Medium** — 57 non-apt, but inventoried |
-| 73Linux | Winlink / packet / EMCOMM | 47 apps (~15 delta) | **Low-medium** — mostly apt or .deb |
+| 73Linux | Winlink / packet / EMCOMM | 47 apps, **28 delta, 13 surviving** (measured) | **Low-medium** — mostly apt or .deb |
 | Skywave Linux | Remote SDR, listening | 60 apps, **9 delta** (measured) | **Low** — heavy overlap, few unique |
 | DragonOS | SDR / SIGINT | 200+ | **Highest** — mostly source-built GNU Radio OOT modules |
 

@@ -246,8 +246,8 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full version, including what
 the copyright headers do and do not mean — **there is no CLA and no copyright
 assignment; you keep copyright on what you write.**
 
-Too early for code contributions — the engine does not exist yet. What is useful
-now, roughly in order:
+Too early for large code contributions — the engine's install path is not
+merged yet. What is useful now, roughly in order:
 
 - **`lsusb` output for a device we don't own.** The most useful thing anyone can
   send, and it needs no code. A device whose USB identifier is guessed produces a

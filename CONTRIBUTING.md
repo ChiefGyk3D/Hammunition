@@ -5,9 +5,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Contributing to Hammunition
 
-The engine does not exist yet, so this is not the moment for large code
-contributions. It **is** the moment for the things that are hard to do later and
-easy to do now.
+The engine's install path is not merged yet, so this is not the moment for
+large code contributions. It **is** the moment for the things that are hard to
+do later and easy to do now.
 
 ## The most useful thing you can send
 

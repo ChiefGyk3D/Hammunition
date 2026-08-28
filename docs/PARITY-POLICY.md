@@ -144,9 +144,10 @@ classification.
 
 ## What needs classifying
 
-Every remaining AHRL unit, plus the 73Linux delta. For each, the disposition and
-the evidence for it. Where the disposition is SUPERSEDE or RETIRE, name what
-replaces it or state plainly that nothing does.
+*Done for AHRL and the 73Linux delta* — `docs/reference/dispositions.md`
+classifies 133 units with none left unclassified, each with its evidence.
+Still to classify: the Skywave and DragonOS deltas. Where a disposition is
+SUPERSEDE or RETIRE, name what replaces it or state plainly that nothing does.
 
 ---
 
@@ -157,7 +158,7 @@ Ordered by how badly the ecosystem needs them.
 **M17 / digital voice.** AHRL has zero M17 support in v27. Find the maintained
 tooling and build it properly.
 
-**Packet / Winlink / EMCOMM.** AHRL has no Winlink client at all. 1.0 core: PAT,
+**Packet / Winlink / EMCOMM.** AHRL v27 has no Winlink client at all. 1.0 core: PAT,
 AX.25 stack, BPQ, ARDOP, Direwolf *with configuration, not just installation*.
 Post-1.0: VARA (needs Wine prefix, closed-source freeware), HAMRS (needs
 AppImage, and its upstream discovers downloads by scraping a webpage).
@@ -206,9 +207,11 @@ none in Debian, therefore absent from the ham blends.
 **Test equipment.** nanovna-saver (restored in AHRL v27), TinySA tooling,
 AntScope2 pinned.
 
-**Configuration that nobody ships.** Persistent udev symlinks by device serial.
-Audio routing for digital modes. A KISS bridge systemd unit for Bluetooth-
-connected radios. This is the differentiator and it isn't a package list.
+**Configuration that nobody ships.** Device permissions and composite-device
+mapping (the hardware role as D-029 reframed it — symlinks are one tactic,
+used where the naming accounting supports one). Audio routing for digital
+modes. A KISS bridge systemd unit for Bluetooth-connected radios. This is the
+differentiator and it isn't a package list.
 
 ---
 
