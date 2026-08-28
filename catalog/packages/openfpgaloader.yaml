@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: openfpgaloader
+version: "0.13.1"
+summary: Universal bitstream loader for FPGAs, over JTAG and SPI
+categories: [electronics, programmer]
+
+install:
+  - install:
+      method: apt
+      packages: [openfpgaloader]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Loads a bitstream into an FPGA, or writes it to the flash the FPGA boots
+    from, across a wide range of boards and cables — Lattice, Xilinx, Altera,
+    Gowin and others — through one command rather than one vendor tool per
+    family.
+  why_you_want_it: >-
+    Vendor loaders are large, per-family, and often not packaged. This is one
+    small program that covers most boards, which matters for SDR work
+    specifically: the LimeSDR, the USRP and the HackRF all carry programmable
+    logic, and an open loader is what keeps them serviceable without a vendor
+    toolchain.
+  prerequisites: >-
+    A supported cable or an on-board FTDI interface. Access comes from the
+    `programmer` hardware class.
+  known_problems: >-
+    Writing to an FPGA's boot flash rather than to its volatile configuration
+    survives a power cycle, which is the point and also the risk: a bad image in
+    flash means the board comes up wrong every time until it is reprogrammed.
+    Loading to SRAM first is the reversible way to test one.
+
+        Most of its 19 identifiers are FTDI bridges shared with openocd and
+    flashrom, which is why it is in the `programmer` class rather than carrying
+    its own.
+  upstream_url: https://github.com/trabucayre/openFPGALoader

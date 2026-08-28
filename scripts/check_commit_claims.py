@@ -104,8 +104,15 @@ PATH = re.compile(
     r"`([A-Za-z0-9_./-]+\.[A-Za-z0-9]{1,6}|[A-Za-z0-9_-]+/[A-Za-z0-9_./-]*)`"
     r"|(?<![\w/`])((?:src|scripts|tests|catalog|docs|containers|\.github)/[A-Za-z0-9_./-]+)"
 )
+# The verb prefix must apply to BOTH branches of PATH, so PATH goes inside a
+# group. Without it the top-level `|` in PATH.pattern split this regex in two
+# and the second alternative — the bare `catalog/...` form — carried no verb
+# requirement at all, so every mention of a repo path read as a claim about it.
+# Third instance in this project of a checker that was itself unchecked; it
+# surfaced when a commit message *cited* catalog/hardware/ambiguous-ids.yaml as
+# precedent and was told the file was missing from the commit.
 CLAIMED_PATH = re.compile(
-    rf"\b(?:{CLAIM_VERBS})\b[^.\n]{{0,100}}?" + PATH.pattern,
+    rf"\b(?:{CLAIM_VERBS})\b[^.\n]{{0,100}}?(?:{PATH.pattern})",
     re.IGNORECASE,
 )
 

@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: avrdude
+version: "7.1"
+summary: Reads and writes AVR microcontroller memories through almost any programmer
+categories: [electronics, programmer]
+
+install:
+  - install:
+      method: apt
+      packages: [avrdude]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Uploads, downloads and verifies the flash, EEPROM and fuse bytes of an AVR —
+    the ATmega and ATtiny families, and the AVR core inside most classic Arduino
+    boards — through a very long list of programmers.
+  why_you_want_it: >-
+    It is what the Arduino IDE shells out to, so knowing it directly means being
+    able to flash a board without the IDE, script a production run, or recover a
+    chip whose fuses were set wrong. It also reaches programmers no IDE offers.
+  prerequisites: >-
+    A programmer, and for the older ones a serial or parallel port. Access for
+    the USB ones comes from the `programmer` hardware class.
+  known_problems: >-
+    Setting fuse bytes wrongly can make a chip unreachable by the programmer
+    that set them — a low-voltage-programming or clock-source fuse can require a
+    high-voltage programmer to recover. This is not a bug and it is the most
+    common way an AVR ends up in a drawer.
+
+        Its 64 identifiers include `16c0:05dc`, the USBasp, which is one of
+    Objective Development's shared V-USB pairs and not an identifier for any
+    product. `libhamlib4t64` claims it too.
+  upstream_url: https://github.com/avrdudes/avrdude

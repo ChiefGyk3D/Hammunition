@@ -25,7 +25,7 @@
 #
 # Output is TSV on stdout:
 #   package  section  rules_file  vendor  product  symlink  comment  vendor_name
-#   product_name  enabled  disabled_reason
+#   product_name  enabled  disabled_reason  subsystem
 #
 # DISABLED RULES ARE EXTRACTED TOO, and they turned out to be the best evidence
 # in the whole sweep. Debian's own gpsd rules file comments five identifiers out
@@ -139,6 +139,12 @@ for line in out.stdout.splitlines():
 PAIR = re.compile(
     r"idVendor\}\s*==\s*\"([0-9a-fA-F]{4})\".*?idProduct\}\s*==\s*\"([0-9a-fA-F]{4})\"")
 SYMLINK = re.compile(r'SYMLINK\+?=\s*"([^"]+)"')
+# Which subsystem the rule matches, which is the only thing in a rules file that
+# says what KIND of device it is. `tty` means a serial port; `usb` means the bus
+# device, which is what a libusb program opens. Recorded because inferring it
+# 180 times for the programmer class would be guessing 180 times, and because
+# it is how the DMR class established that an Anytone is a serial device.
+SUBSYSTEM = re.compile(r'SUBSYSTEMS?\s*==\s*"([^"]+)"')
 
 # Boilerplate a comment must not be mistaken for a device description. The
 # previous filter was `len(text) < 60`, which rejected
@@ -210,10 +216,12 @@ for pkg_dir in sorted(Path("extracted").iterdir()):
             vendor, product = m.group(1).lower(), m.group(2).lower()
             link = SYMLINK.search(stripped)
             vname, pname = DB.get(vendor, ("", {}))[0], DB.get(vendor, ("", {}))[1].get(product, "")
+            subsystem = SUBSYSTEM.search(stripped)
             print("\t".join((
                 pkg, SECTION.get(pkg, ""), rules.name, vendor, product,
                 link.group(1) if link else "", comment, vname, pname,
-                enabled, reason if enabled == "0" else "")))
+                enabled, reason if enabled == "0" else "",
+                subsystem.group(1) if subsystem else "")))
             if enabled == "0":
                 disabled_rows += 1
                 reason = ""

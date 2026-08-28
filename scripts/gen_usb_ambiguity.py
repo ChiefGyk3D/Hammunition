@@ -119,20 +119,36 @@ class Finding:
     names: tuple[str, ...] = field(default_factory=tuple)
 
 
+class ProbeSchemaError(Exception):
+    """A probe file exists and does not have the shape this script expects."""
+
+
 def read_tsv(path: Path, fields: int) -> list[list[str]]:
+    """Rows of exactly `fields` columns, and a loud failure if there are none.
+
+    The silent version of this dropped every row of the udev sweep the day a
+    twelfth column was added, and reported success: 1,186 findings instead of
+    1,257, exit 0, no message. A strict column count is the right check and an
+    exit code of zero on a file it rejected entirely is not — a probe whose rows
+    all have the wrong width is a schema change, not an empty dataset.
+    """
     if not path.is_file():
         return []
-    rows = []
-    for line in path.read_text(errors="replace").splitlines():
-        parts = line.split("\t")
-        if len(parts) == fields:
-            rows.append(parts)
+    lines = [line for line in path.read_text(errors="replace").splitlines() if line.strip()]
+    rows = [parts for line in lines if len(parts := line.split("\t")) == fields]
+    if lines and not rows:
+        widths = sorted({len(line.split("\t")) for line in lines})
+        raise ProbeSchemaError(
+            f"{path.name} has {len(lines)} rows and none with {fields} columns "
+            f"(found {widths}). The probe's format changed; update this script "
+            f"rather than letting it read nothing and call that a result."
+        )
     return rows
 
 
 def main() -> int:
     aliases = read_tsv(PROBES / "modules-alias-debian-13.tsv", 4)
-    sweep = read_tsv(PROBES / "udev-debian-13.tsv", 11)
+    sweep = read_tsv(PROBES / "udev-debian-13.tsv", 12)
     lora = read_tsv(PROBES / "lora-identifiers.tsv", 6)
     if not aliases:
         print("no kernel alias probe; run scripts/kernel-alias-probe.sh", file=sys.stderr)
@@ -164,6 +180,7 @@ def main() -> int:
         pn,
         enabled,
         reason,
+        _subsystem,
     ) in sweep:
         key = (vendor, product)
         if enabled == "0":

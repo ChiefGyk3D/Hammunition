@@ -173,3 +173,37 @@ def test_a_parenthesised_anchor_is_a_citation_not_a_claim() -> None:
 
 def test_the_exemption_does_not_cover_a_real_claim() -> None:
     assert check("docs: amends D-018 to require a container\n", {"README.md"}, "", set())
+
+
+def test_a_path_mentioned_without_a_verb_is_not_a_claim() -> None:
+    """The verb requirement applied to only one branch of the path pattern.
+
+    `CLAIMED_PATH` was built by concatenating the verb prefix onto
+    `PATH.pattern`, which contains a top-level alternation — so the regex split
+    into "verb ... `backticked path`" OR "bare repo path", and the second
+    branch required no verb. Every mention of a path read as a claim about it.
+    Found when a message citing `catalog/hardware/ambiguous-ids.yaml` as
+    precedent was told the file was missing from the commit.
+    """
+    message = (
+        "hardware: the programmer class, generated\n\n"
+        "catalog/hardware/ambiguous-ids.yaml set the precedent inside catalog/.\n"
+    )
+    assert not check(
+        message,
+        changed={"catalog/hardware/classes/programmer.yaml"},
+        diff="",
+        tracked={"catalog/hardware/ambiguous-ids.yaml"},
+    )
+
+
+def test_the_verb_requirement_still_catches_a_bare_path_claim() -> None:
+    """Narrowing the regex must not lose the case it was written for."""
+    problems = check(
+        "hardware: adds catalog/hardware/devices/nonexistent.yaml\n",
+        changed={"README.md"},
+        diff="",
+        tracked={"README.md"},
+    )
+    assert problems
+    assert any("nonexistent" in p for p in problems)
