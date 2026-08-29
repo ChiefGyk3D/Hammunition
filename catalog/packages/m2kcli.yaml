@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: m2kcli
+version: "0.9.0"
+summary: Command-line control of the ADALM2000 lab instrument
+categories: [electronics, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [m2kcli]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Drives an Analog Devices ADALM2000 from the command line: oscilloscope
+    capture, signal generation, the logic analyser and pattern generator, the
+    programmable power supplies and the digital I/O, each as a subcommand with
+    output you can pipe.
+  why_you_want_it: >-
+    The ADALM2000 is a genuinely capable USB instrument -- scope, generator,
+    logic analyser and supplies in a small box -- and its normal interface is
+    the Scopy GUI. This is the scriptable half: automated measurement sweeps,
+    captures triggered by something else, and instrument control inside a test
+    script.
+  prerequisites: >-
+    An ADALM2000 and libiio reaching it, over USB or over the network. Device
+    access usually needs a udev rule.
+  known_problems: >-
+    It is a thin command-line layer over libm2k and assumes you know the
+    instrument; it will not stop you asking for a sample rate the hardware
+    cannot deliver, and the result is data that is wrong rather than an error.
+    The maintainer does not own this hardware, so nothing here is
+    maintainer-verified (D-027).
+  upstream_url: https://github.com/analogdevicesinc/libm2k
+  upstream_support: Analog Devices. GitHub issues at the URL above.

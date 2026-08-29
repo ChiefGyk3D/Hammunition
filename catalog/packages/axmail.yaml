@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: axmail
+version: "2.13"
+summary: Mail reader that packet callers reach through a node
+categories: [packet, emcomm]
+
+after: [ax25-tools]
+
+install:
+  - install:
+      method: apt
+      packages: [axmail]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Presents a mail interface to a caller who has connected to your machine
+    over AX.25, reading and writing from the system's own mail spool. It is
+    started from a node front end rather than run directly.
+  why_you_want_it: >-
+    It lets a packet station carry mail for people without running a full BBS.
+    A caller connects, reads what is waiting for them, leaves a message, and
+    disconnects -- which for a small local network is often all that is
+    actually wanted.
+  prerequisites: >-
+    A working AX.25 stack, a node front end such as uronode configured to
+    launch it, and a local mail system for it to read from.
+  known_problems: >-
+    It is a front end onto local mail, so anything wrong with mail delivery on
+    the machine appears as a packet problem to the caller. Messages carried on
+    behalf of others over amateur radio are subject to content rules in most
+    jurisdictions, and running the service means accepting that.
+  upstream_url: https://sourceforge.net/projects/axmail/
+  upstream_support: SourceForge project page at the URL above.

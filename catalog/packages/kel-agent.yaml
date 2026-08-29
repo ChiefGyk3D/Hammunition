@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: kel-agent
+version: "0.4.6"
+summary: Bridges browser-based logging software to the radio hardware on your desk
+categories: [logging, rig-control, station]
+
+install:
+  - install:
+      method: apt
+      packages: [kel-agent]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Runs a small local WebSocket server that exposes hamlib rig control and
+    other local station functions to a web application running in your
+    browser, so a logging site can read your frequency and key your radio.
+  why_you_want_it: >-
+    Browser-based logging has an obvious hole: a web page cannot open a serial
+    port. This is the piece that closes it without the logging software having
+    to be installed at all. If you use a web logger and want it to know what
+    the radio is doing, something like this has to exist.
+  prerequisites: >-
+    A radio reachable through hamlib, and a web application that speaks this
+    agent's protocol -- it is not a general bridge, and the application has to
+    know about it.
+  known_problems: >-
+    A local WebSocket server that a web page can talk to is a real attack
+    surface: any page you visit can attempt to connect to it, and what stands
+    between a hostile page and your transmitter is whatever origin checking the
+    agent does. Run it when you are logging rather than at boot, and understand
+    that this is the trade being made.
+  upstream_url: https://github.com/k0swe/kel-agent
+  upstream_support: K0SWE. GitHub issues at the URL above.

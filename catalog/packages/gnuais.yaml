@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: gnuais
+version: "0.3.3"
+summary: Decodes AIS from the discriminator output of a VHF receiver
+categories: [tracking, listening]
+
+install:
+  - install:
+      method: apt
+      packages: [gnuais]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Takes audio from a VHF receiver tuned to an AIS channel -- ideally from the
+    discriminator, before the audio filtering -- demodulates the GMSK, decodes
+    the AIS messages, and stores the vessel data in a local database. It can
+    also forward what it hears to an AIS aggregator.
+  why_you_want_it: >-
+    It is the route that does not need an SDR. An old marine VHF or a scanner
+    with a discriminator tap is enough, which is worth knowing if you already
+    have one -- and a purpose-built receiver on a fixed antenna often
+    outperforms a dongle on the same feedline.
+  prerequisites: >-
+    A receiver tuned to 161.975 or 162.025 MHz, with audio into a sound card.
+    Discriminator audio rather than speaker audio: the receiver's audio filter
+    removes the components the demodulator needs, which is why a tap is the
+    usual advice.
+  known_problems: >-
+    One receiver hears one channel. Vessels alternate between the two, so a
+    single-receiver setup sees roughly half the traffic and does not know it --
+    rtl-ais covers both from one dongle for exactly this reason. Speaker audio
+    instead of discriminator audio produces a very low decode rate that reads
+    as bad reception.
+  upstream_url: http://gnuais.sourceforge.net/
+  upstream_support: SourceForge project page at the URL above.

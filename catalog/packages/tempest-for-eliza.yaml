@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: tempest-for-eliza
+version: "1.0.5"
+summary: Makes a monitor radiate music on an AM radio — a TEMPEST demonstration
+categories: [rf-security, electronics]
+
+install:
+  - install:
+      method: apt
+      packages: [tempest-for-eliza]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Draws patterns on the screen chosen so that the video signal's own
+    electromagnetic emissions carry an audio tone. Tuned to the right frequency
+    on an ordinary AM radio nearby, the monitor plays music. Nothing is
+    transmitted deliberately -- the display is simply driven so that what it
+    already leaks becomes intelligible.
+  why_you_want_it: >-
+    It is the clearest possible demonstration that computers radiate their
+    contents, and the reason TEMPEST shielding standards exist. Reading about
+    compromising emanations convinces nobody; hearing a tune come out of a
+    radio because of what is on a screen convinces everybody, immediately. As a
+    teaching tool for why RF security is a real discipline it has no equal.
+  prerequisites: >-
+    An AM radio and a monitor. It works best with an analogue VGA display and
+    considerably less well with the shielded digital links modern hardware
+    uses, which is itself the point being demonstrated.
+  known_problems: >-
+    Modern displays leak far less than the CRTs and analogue links this was
+    written for, so on current hardware the effect may be weak or absent --
+    that is progress, not a bug. The emissions are unintentional and low power,
+    but they are emissions: what is lawful to radiate is jurisdictional and is
+    yours to know. This is in the `rf-security` category and reaches an
+    operator through a profile requiring explicit opt-in.
+  upstream_url: http://www.erikyyy.de/tempest/
+  upstream_support: >-
+    Erik Thiele's original page above. This is a 2001 demonstration rather than
+    a developed project.

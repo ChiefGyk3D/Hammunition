@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: fccexam
+version: "1.0.7"
+summary: Practice tests for the US FCC commercial radio licence exams
+categories: [training]
+
+install:
+  - install:
+      method: apt
+      packages: [fccexam]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Practice questions for the FCC commercial radio operator licence elements
+    -- the General Radiotelephone Operator Licence and the associated
+    endorsements -- drawn from the published pools.
+  why_you_want_it: >-
+    These are not the amateur exams. The GROL is what a technician maintaining
+    aviation, marine or broadcast transmitters needs, and it comes up for
+    amateurs who work professionally around radio. The Debian Blend's own note
+    on this package says the same thing, because the confusion is common.
+  prerequisites: None.
+  known_problems: >-
+    Frequently mistaken for the amateur exam tool; that is `hamexam`. The pool
+    snapshot caveat applies here too -- Ubuntu and Kali carry 1.0.8 against
+    1.0.7 elsewhere (measured 2026-08-28).
+  upstream_url: https://tracker.debian.org/pkg/fccexam
+  upstream_support: >-
+    Debian declares no upstream Homepage; the tracker is cited rather than a
+    guess.

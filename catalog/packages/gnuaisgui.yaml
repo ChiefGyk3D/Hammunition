@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: gnuaisgui
+version: "0.3.3"
+summary: Puts the vessels gnuais has heard on an OpenStreetMap display
+categories: [tracking, listening]
+
+depends: [gnuais]
+
+install:
+  - install:
+      method: apt
+      packages: [gnuaisgui]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Reads the vessel database gnuais maintains and draws it on an
+    OpenStreetMap background: position, heading, track history, name and vessel
+    type for each contact.
+  why_you_want_it: >-
+    AIS data as text is a list of MMSI numbers and coordinates. On a map it is
+    a harbour. This is the difference between having the decode working and
+    getting anything out of it.
+  prerequisites: >-
+    gnuais running and populating its database, which this manifest declares as
+    a dependency. Map tiles are fetched over the network, so the display needs
+    an internet connection even though the reception does not.
+  known_problems: >-
+    Map tiles come from a public tile server; heavy use is discourteous and may
+    be rate-limited, which shows up as a blank map rather than an error.
+    Displaying vessel positions is republishing them locally, which is
+    harmless; feeding them onward is a separate decision.
+  upstream_url: http://gnuais.sourceforge.net/
+  upstream_support: SourceForge project page -- same project as gnuais.

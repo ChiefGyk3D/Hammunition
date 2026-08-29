@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: canadian-ham-exam
+version: "1.0.1"
+summary: Practice tests for the Canadian amateur radio qualification exams
+categories: [training]
+
+install:
+  - install:
+      method: apt
+      packages: [canadian-ham-exam]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Draws questions from the Innovation, Science and Economic Development
+    Canada question banks for the Basic and Advanced qualifications, marks
+    them, and reports where you are losing marks.
+  why_you_want_it: >-
+    Same reason as hamexam and a different country: the Canadian exams are
+    drawn from published banks, so practising against the bank is the method.
+    Having it offline and free matters for a study tool people use in short
+    bursts over weeks.
+  prerequisites: None.
+  known_problems: >-
+    The question bank is a snapshot at packaging time and Mint 22.3 carries
+    1.0.0 against 1.0.1 elsewhere. Basic with Honours is a pass threshold
+    rather than a separate exam, and the program's scoring will not tell you
+    what the current threshold is -- check the regulator, not the software.
+  upstream_url: https://launchpad.net/canadian-ham-exam
+  upstream_support: Launchpad project page at the URL above.

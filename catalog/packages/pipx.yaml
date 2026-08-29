@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: pipx
+version: "1.7.1"
+summary: Installs Python applications in their own environments, on the PATH
+categories: [workstation, station]
+
+install:
+  - install:
+      method: apt
+      packages: [pipx]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Installs a Python application into a virtual environment of its own and
+    puts its commands on your PATH. Each application gets isolated
+    dependencies, so two programs wanting incompatible versions of the same
+    library can both work, and none of them touches the system Python.
+  why_you_want_it: >-
+    A number of ham programs ship only on PyPI -- not1mm and
+    radiosonde_auto_rx among them -- and `pip install` into the system Python
+    is both discouraged and, on Debian 13 and later, refused outright by PEP
+    668. pipx is the supported answer, and it is why AHRL installs it as a
+    prerequisite before anything else (inventory unit 3).
+  prerequisites: >-
+    Python 3, which every target has. `pipx ensurepath` adds
+    `~/.local/bin` to your PATH and needs a new shell before it takes effect --
+    the commonest first-run confusion.
+  known_problems: >-
+    Because it installs into the user's home, a program installed with sudo
+    lands in root's home and is invisible to you; AHRL works around this by
+    running pipx as the user through pkexec and then generating a wrapper
+    script. Versions across targets are far apart -- 1.7.1 on Debian 13 and
+    Parrot, 1.8.0 on Ubuntu, 1.15.0 on Kali, 1.4.3 on Mint (measured
+    2026-08-28) -- and the command-line interface has grown in that range, so
+    advice found online may name options an older build does not have.
+  upstream_url: https://github.com/pypa/pipx
+  upstream_support: The Python Packaging Authority. GitHub issues at the URL above.
