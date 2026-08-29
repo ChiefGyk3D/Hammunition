@@ -35,14 +35,14 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 178 | 8 | 33 | 2 | 0 |
-| ubuntu-26.04 | 179 | 7 | 33 | 2 | 0 |
-| kali-rolling | 184 | 7 | 30 | 0 | 0 |
-| parrot | 181 | 6 | 32 | 2 | 0 |
-| linuxmint-22.3 | 172 | 15 | 32 | 2 | 0 |
-| debian-13-arm64 | 177 | 9 | 33 | 2 | 0 |
+| debian-13 | 178 | 9 | 33 | 2 | 0 |
+| ubuntu-26.04 | 179 | 8 | 33 | 2 | 0 |
+| kali-rolling | 184 | 8 | 30 | 0 | 0 |
+| parrot | 181 | 7 | 32 | 2 | 0 |
+| linuxmint-22.3 | 172 | 16 | 32 | 2 | 0 |
+| debian-13-arm64 | 177 | 10 | 33 | 2 | 0 |
 
-**221 manifests** against **6 targets**.
+**222 manifests** against **6 targets**.
 
 ---
 
@@ -106,6 +106,12 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `soapysdr-module-rfspace` | kali-rolling | `soapysdr-module-rfspace` |
 | `soapysdr-module-rfspace` | ubuntu-26.04 | `soapysdr-module-rfspace` |
 | `voacapl` | linuxmint-22.3 | `voacapl` |
+| `xygrib` | debian-13 | `xygrib` |
+| `xygrib` | debian-13-arm64 | `xygrib` |
+| `xygrib` | kali-rolling | `xygrib` |
+| `xygrib` | linuxmint-22.3 | `xygrib` |
+| `xygrib` | parrot | `xygrib` |
+| `xygrib` | ubuntu-26.04 | `xygrib` |
 
 ---
 
@@ -332,5 +338,6 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `xlog` | apt | apt | apt | apt | apt | apt |
 | `xnec2c` | apt | apt | apt | apt | apt | apt |
 | `xwefax` | source | source | source | source | source | source |
+| `xygrib` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
 | `yagiuda` | apt | apt | apt | apt | apt | apt |
 | `z8530-utils2` | apt | apt | apt | apt | apt | apt |

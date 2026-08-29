@@ -461,6 +461,29 @@ software. All three move into the 1.0 packet core. See D-008's correction.
 | **ARDOP** | ARDOP modem | Prebuilt release asset (also REVIVEs AHRL's `ardop`) |
 | **Direwolf** | Soundcard TNC — *with configuration* | Already CARRY'd from AHRL; the ADD is the config |
 
+#### Status, 2026-08-28 — five of eight, and four by a better route
+
+| Unit | Manifest | How, against how 73Linux does it |
+|---|---|---|
+| PAT | `pat` | apt — 73Linux fetches a vendor `.deb` per architecture |
+| AX.25 | `ax25-tools`, `ax25-apps` | apt. The `/etc/ax25/axports` config is still open |
+| BPQ | `linbpq` | source from upstream's own tag — 73Linux takes an unversioned prebuilt from a directory named Beta |
+| ARDOP | `ardopcf` | source from upstream's release tag — 73Linux pulls a prebuilt release asset |
+| Direwolf | `direwolf` | apt. The ADD is the configuration, still open |
+| QtTermTCP | — | binary backend, not written |
+| QtSoundModem | — | binary backend, not written |
+| Pi-APRS | — | binary backend, not written |
+
+None of the three outstanding is packaged on any target: `apt-cache policy`
+finds no candidate for `qttermtcp`, `qtsoundmodem`, `garim` or `varim` on
+Debian 13, Ubuntu 26.04 or Kali (2026-08-28). `xygrib`, listed further down as
+an ADD candidate, **is** in apt on all three and now has a manifest.
+
+The two open items are the same one: station-local configuration. `axports`
+and `direwolf.conf` both need a callsign, which is the question CLAUDE.md
+records as blocking and which `linbpq`'s `config_files` block already depends
+on.
+
 ### ADD candidates — third-party, genuinely useful, not yet scoped
 
 **I flagged these as "Pi-system helpers, out of scope" in D-008. That was wrong

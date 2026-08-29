@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**221 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**222 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -114,7 +114,7 @@ Bench electronics and EDA — circuit design, simulation, test gear.
 - [stlink-tools](stlink-tools.md) — Flash and debug STM32 targets through an ST-Link probe
 - [tempest-for-eliza](tempest-for-eliza.md) — Makes a monitor radiate music on an AM radio — a TEMPEST demonstration
 
-### `emcomm` — 19
+### `emcomm` — 20
 
 Emergency and public-service communications.
 
@@ -137,6 +137,7 @@ Emergency and public-service communications.
 - [svxreflector](svxreflector.md) — Conference server that links many SvxLink nodes into one talk group
 - [uronode](uronode.md) — Node front end that lets other stations reach services on your machine
 - [xastir](xastir.md) — APRS client with real maps — see and be seen on the packet network
+- [xygrib](xygrib.md) — Views GRIB weather files — wind, pressure, waves, on a map
 
 ### `hardware` — 53
 
@@ -212,7 +213,7 @@ Propagation prediction, solar indices, beacons and grey line.
 - [wwl](wwl.md) — Distance and bearing between two Maidenhead locators, from the command line
 - [xdx](xdx.md) — DX cluster client — see what other operators are hearing, right now
 
-### `listening` — 32
+### `listening` — 33
 
 Receive-only monitoring and decoding. Needs no licence and often no transmitter, which makes it the on-ramp for an operator who owns nothing but a dongle yet.
 
@@ -248,6 +249,7 @@ Receive-only monitoring and decoding. Needs no licence and often no transmitter,
 - [welle-io](welle-io.md) — DAB and DAB+ digital radio receiver with a modern interface
 - [xdemorse](xdemorse.md) — Live Morse decoder with a GTK waterfall, from a sound card
 - [xwefax](xwefax.md) — Receives HF weather fax and draws the chart
+- [xygrib](xygrib.md) — Views GRIB weather files — wind, pressure, waves, on a map
 
 ### `logging` — 13
 
@@ -464,7 +466,7 @@ Software-defined radio — receivers, transceivers and the software.
 - [welle-io](welle-io.md) — DAB and DAB+ digital radio receiver with a modern interface
 - [wfview](wfview.md) — Control a modern Icom radio, waterfall and all, over USB or the network
 
-### `station` — 30
+### `station` — 31
 
 Station infrastructure that is not itself a radio application: time, position, and the plumbing an operating position needs.
 
@@ -498,6 +500,7 @@ Station infrastructure that is not itself a radio application: time, position, a
 - [tzwatch](tzwatch.md) — Prints the time in several time zones at once, in a terminal
 - [wfview](wfview.md) — Control a modern Icom radio, waterfall and all, over USB or the network
 - [xdx](xdx.md) — DX cluster client — see what other operators are hearing, right now
+- [xygrib](xygrib.md) — Views GRIB weather files — wind, pressure, waves, on a map
 
 ### `timing` — 7
 
@@ -793,5 +796,6 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [xlog](xlog.md) | Small GTK station log that opens instantly and does the basics well | apt |
 | [xnec2c](xnec2c.md) | Interactive antenna modelling — NEC2 with a live graphical front end | apt |
 | [xwefax](xwefax.md) | Receives HF weather fax and draws the chart | source |
+| [xygrib](xygrib.md) | Views GRIB weather files — wind, pressure, waves, on a map | apt |
 | [yagiuda](yagiuda.md) | Analyse and optimise Yagi-Uda arrays without writing a NEC model | apt |
 | [z8530-utils2](z8530-utils2.md) | Configures Z8530-based HDLC cards for high-speed packet | apt |

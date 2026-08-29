@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: xygrib
+version: "1.2.6.1"
+summary: Views GRIB weather files — wind, pressure, waves, on a map
+categories: [emcomm, station, listening]
+
+install:
+  - install:
+      method: apt
+      packages: [xygrib]
+    note: >-
+      Present on Debian 13, Ubuntu 26.04 and Kali (measured 2026-08-28).
+      73Linux installs it as a unit of its own; apt covers it on every target
+      checked, so no build is needed.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Reads GRIB files — the format meteorological services publish numerical
+    forecasts in — and draws them: wind barbs and streamlines, pressure
+    isobars, temperature, precipitation, cloud cover, wave height and period,
+    animated forward through the forecast period. It downloads GRIBs for a
+    region you select as well as opening ones you already have.
+  why_you_want_it: >-
+    Two reasons that both matter to radio operators. Sailors and emergency
+    communicators request GRIB files over Winlink, because a GRIB for a region
+    is small enough to move over HF where a weather website is not — and this
+    is what turns that file into a forecast you can read. Second, propagation
+    and antennas both care about weather: knowing a front is coming is the
+    difference between lowering a mast and repairing one.
+  prerequisites: >-
+    A GRIB file. Downloading one inside the program needs a network; the
+    interesting case is the one that arrived by radio, which needs nothing.
+  known_problems: >-
+    GRIB files are large in proportion to the area and resolution requested,
+    and the commonest mistake over a radio link is requesting more than the
+    link can carry — narrow the region and the parameter list before sending
+    the request, not after waiting for it. The forecast is only as good as the
+    model run it came from, and an old file is a confident picture of
+    yesterday: check the run time rather than the file's date.
+  upstream_url: https://www.opengribs.org/
+  upstream_support: >-
+    The OpenGribs project, which also runs the GRIB server the download
+    function uses. Forum and documentation linked from the site.
