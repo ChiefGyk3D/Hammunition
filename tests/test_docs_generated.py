@@ -228,3 +228,60 @@ def test_regenerating_the_parity_report_is_a_no_op() -> None:
         "scripts/gen_parity_coverage.py. A manifest was probably added without "
         "regenerating it."
     )
+
+
+# ---------------------------------------------------------------------------
+# The not-carried page
+#
+# Same shape as the parity report: reads nothing but the catalog and
+# dispositions.md, so every check runs everywhere. Its generator validates its
+# own curated tables against the dispositions index and exits non-zero when
+# they disagree, so the no-op check below also fails when a disposition
+# changes without this page's reasons following it.
+# ---------------------------------------------------------------------------
+
+NOT_CARRIED = REPO_ROOT / "docs" / "reference" / "not-carried.md"
+
+
+def test_regenerating_the_not_carried_page_is_a_no_op() -> None:
+    import subprocess
+
+    before = NOT_CARRIED.read_text()
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "gen_not_carried.py")],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    after = NOT_CARRIED.read_text()
+    if before != after:
+        NOT_CARRIED.write_text(before)
+    assert result.returncode == 0, result.stderr
+
+    def without_date(text: str) -> list[str]:
+        return [ln for ln in text.splitlines() if not ln.startswith("**Generated:**")]
+
+    assert without_date(before) == without_date(after), (
+        "docs/reference/not-carried.md is stale — run scripts/gen_not_carried.py. "
+        "Either a disposition changed or a reason table was edited without "
+        "regenerating."
+    )
+
+
+def test_every_retired_unit_has_a_row() -> None:
+    """The page's purpose asserted directly: every X unit in the dispositions
+    index appears in the rendered page, so a retirement cannot be invisible."""
+    spec = importlib.util.spec_from_file_location(
+        "gen_not_carried", REPO_ROOT / "scripts" / "gen_not_carried.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    text = NOT_CARRIED.read_text()
+    missing = sorted(
+        unit
+        for unit, code in module.parse_index()
+        if code == "X" and f"| `{unit}` |" not in text
+    )
+    assert not missing, f"retired units with no row in not-carried.md: {missing}"
