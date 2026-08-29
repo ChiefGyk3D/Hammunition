@@ -1,0 +1,82 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: flaa
+version: "1.0.2"
+summary: Drives a RigExpert antenna analyser from the desktop
+categories: [antenna, station]
+
+install:
+  - install:
+      method: source
+      source:
+        url: https://w1hkj.org/files/flaa/flaa-1.0.2.tar.gz
+        sha256: a66faaae0f29d9ecce7ee37c1e0e7fe5731133e625d9e9dd898a5076ed6ecb01
+      build_system: autotools
+    build_depends:
+      - build-essential
+      - pkg-config
+      - libfltk1.3-dev
+    note: >-
+      Build dependencies are MEASURED, not copied. Built in a Debian 13
+      container on 2026-08-28 with build-essential, pkg-config and
+      libfltk1.3-dev and nothing else: configure exits 0, make exits 0, and
+      the binary appears. AHRL lists extra packages for some of these
+      (libpng-dev and libxft-dev for flcluster, libsamplerate0-dev for flnet);
+      they are not needed, because libfltk1.3-dev already pulls what the build
+      uses. This is the same over-specification the fldigi manifest records
+      for libportaudio-ocaml-dev.
+
+      The sha256 is ours. Upstream publishes checksums for its Windows
+      installers only -- w1hkj.org/files/sha256vals.txt lists .exe files and no
+      source tarballs -- so this digest was computed from the tarball fetched
+      from the project's own site on 2026-08-28. It pins the exact bytes that
+      were reviewed and built, which is the guarantee actually on offer; it is
+      not an upstream signature and this manifest does not imply one.
+
+binaries:
+  - produced: src/flaa
+    install_as: flaa
+
+update:
+  probe:
+    method: none
+  strategy: rebuild
+  cadence_hint: >-
+    W1HKJ releases irregularly and announces on the linuxham list rather than
+    through a tagged repository, so there is nothing to probe automatically.
+    Check w1hkj.org/files/flaa/ when something else in the suite moves.
+
+documentation:
+  what_it_does: >-
+    Controls a RigExpert AA-series antenna analyser over its serial link:
+    runs a sweep across a range you choose, plots SWR, impedance, return loss
+    and the Smith chart on a screen rather than the instrument's own display,
+    and saves the results.
+  why_you_want_it: >-
+    An antenna analyser's own screen is small and its memory is smaller. This
+    turns a sweep into a file you can keep, compare against last year's, and
+    put beside the change you made to the antenna. Comparing two sweeps is
+    where antenna work actually happens, and no handheld instrument does it.
+  prerequisites: >-
+    A RigExpert analyser and access to its serial device -- membership of the
+    `dialout` group. This catalog also carries `antscope2` territory: AHRL
+    installs RigExpert's own vendor .deb on x86 only, and this is the
+    portable, source-built alternative.
+  known_problems: >-
+    It speaks to RigExpert instruments and not to other analysers; a NanoVNA
+    needs nanovna-saver instead. Not packaged by any of our targets, so source
+    is the only route -- measured, not assumed: `apt-cache policy` finds no
+    candidate for flaa, flcluster, fllog, flnet or flwkey on Debian 13.
+    Debian carries `libflxmlrpc-dev` at 0.1.4 and this build asks pkg-config
+    for flxmlrpc >= 1.0.1, so the system library is NOT used: configure falls
+    back to the copy bundled in the tarball and its summary line reads "Have
+    flxmlrpc library ....... internal lib". Measured, not inferred. Installing
+    libflxmlrpc-dev alongside would change nothing, which is why it is not a
+    build dependency here.
+  upstream_url: https://w1hkj.org/
+  upstream_support: >-
+    The W1HKJ suite. The linuxham group on groups.io is where questions are
+    answered. Note that Debian's Homepage field for the packaged members of
+    this suite points at w1hkj.com, which now redirects to an unrelated site --
+    .org is the project.

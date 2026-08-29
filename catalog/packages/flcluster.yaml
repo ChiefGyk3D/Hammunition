@@ -1,0 +1,80 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: flcluster
+version: "1.1.01"
+summary: DX cluster client that feeds the rest of the W1HKJ suite
+categories: [hf-propagation, station]
+
+install:
+  - install:
+      method: source
+      source:
+        url: https://w1hkj.org/files/flcluster/flcluster-1.1.01.tar.gz
+        sha256: a7fddbacf4b030a7c63070a61a50be2d9a0729559bec4dcae62f5cbdee1e2365
+      build_system: autotools
+    build_depends:
+      - build-essential
+      - pkg-config
+      - libfltk1.3-dev
+    note: >-
+      Build dependencies are MEASURED, not copied. Built in a Debian 13
+      container on 2026-08-28 with build-essential, pkg-config and
+      libfltk1.3-dev and nothing else: configure exits 0, make exits 0, and
+      the binary appears. AHRL lists extra packages for some of these
+      (libpng-dev and libxft-dev for flcluster, libsamplerate0-dev for flnet);
+      they are not needed, because libfltk1.3-dev already pulls what the build
+      uses. This is the same over-specification the fldigi manifest records
+      for libportaudio-ocaml-dev.
+
+      The sha256 is ours. Upstream publishes checksums for its Windows
+      installers only -- w1hkj.org/files/sha256vals.txt lists .exe files and no
+      source tarballs -- so this digest was computed from the tarball fetched
+      from the project's own site on 2026-08-28. It pins the exact bytes that
+      were reviewed and built, which is the guarantee actually on offer; it is
+      not an upstream signature and this manifest does not imply one.
+
+binaries:
+  - produced: src/flcluster
+    install_as: flcluster
+
+update:
+  probe:
+    method: none
+  strategy: rebuild
+  cadence_hint: >-
+    W1HKJ releases irregularly and announces on the linuxham list rather than
+    through a tagged repository, so there is nothing to probe automatically.
+    Check w1hkj.org/files/flcluster/ when something else in the suite moves.
+
+documentation:
+  what_it_does: >-
+    Connects to a DX cluster over telnet, shows the spots with filtering by
+    band, mode and continent, and publishes them over XML-RPC so fldigi and the
+    other suite members can act on a spot without a second connection to the
+    cluster.
+  why_you_want_it: >-
+    Xdx does the same job standalone and does it well. The reason to prefer
+    this one is integration: if you already run fldigi, flrig and fllog, this
+    puts cluster spots into that same fabric, so clicking a spot moves the
+    radio. One cluster login serving several programs is also better manners
+    towards the node.
+  prerequisites: >-
+    A cluster node to connect to and your callsign for the login. For the
+    integration to be worth anything, other W1HKJ programs already running.
+  known_problems: >-
+    Spots are what people typed: busted callsigns and frequencies a kHz out
+    are routine on any cluster and no client can fix that. Not packaged on any
+    target, so source is the only route.
+    Debian carries `libflxmlrpc-dev` at 0.1.4 and this build asks pkg-config
+    for flxmlrpc >= 1.0.1, so the system library is NOT used: configure falls
+    back to the copy bundled in the tarball and its summary line reads "Have
+    flxmlrpc library ....... internal lib". Measured, not inferred. Installing
+    libflxmlrpc-dev alongside would change nothing, which is why it is not a
+    build dependency here.
+  upstream_url: https://w1hkj.org/
+  upstream_support: >-
+    The W1HKJ suite. The linuxham group on groups.io is where questions are
+    answered. Note that Debian's Homepage field for the packaged members of
+    this suite points at w1hkj.com, which now redirects to an unrelated site --
+    .org is the project.
