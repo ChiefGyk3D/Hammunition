@@ -170,10 +170,19 @@ core is not in this queue.
 ## Q-006 ✅ — Which HamClock? — **RESOLVED 2026-08-29**
 
 **Adopted as recommended.** Carry both clients; `openhamclock` is the default;
-the backend endpoint defaults to `ohb.works`. The untested caveat below still
-stands and is now a task rather than a question: nobody has run a HamClock
-client end to end against either backend, and someone should before an operator
-is defaulted to one.
+the backend endpoint defaults to `ohb.works`, which
+`catalog/packages/hamclock-next.yaml` now records as settled.
+
+**But `openhamclock` cannot be installed yet, and that was not known when the
+recommendation was written.** It is not the C++ program the original HamClock
+was: at tag v26.6.0 it is a Node and Vite web application — `package.json`,
+`vite.config.mjs`, `server.js`, an `electron/` directory, a `Dockerfile` — and
+its releases publish no binary assets. It needs an `npm` backend this project
+does not have. See `docs/reference/source-build-gaps.md` #7. The decision
+stands as a preference; `hamclock-next` is what ships until the backend exists.
+
+The untested caveat below also still stands and is now a task rather than a
+question: nobody has run a HamClock client end to end against either backend.
 
 ## Q-006 (original) — Which HamClock, now that there are four options?
 
@@ -227,6 +236,13 @@ oversight, not a reservation of rights.
 The manifest must still state the position plainly: no LICENSE, no header, null
 GitHub licence field, and a last commit of 2022-12-31 — all measured, none of it
 implied to be permission.
+
+**It cannot be written yet, for a reason unrelated to the licence.** At tag
+v3.14 SuperSDR is `supersdr.py` beside a frequency database, two fonts, two
+images and two vendored Python packages, with no `setup.py` and no install
+rule. It runs from the directory it was unpacked into. That needs installing a
+tree and generating a launcher, neither of which exists — see
+`docs/reference/source-build-gaps.md` #8, which `js8spotter` and `mshv` share.
 
 ## Q-007 (original) — SuperSDR has no licence. Do we carry it?
 

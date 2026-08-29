@@ -56,7 +56,14 @@ service_endpoints:
       third party and funded by patron subscriptions, which is why it is not the
       default here: a community backend is a better default for software we
       install on someone's behalf. Both work. If you run your own, point this
-      at it. Which backend should be the default is Q-006, still open.
+      at it.
+
+      **Q-006 resolved 2026-08-29** and this default is the answer: `ohb.works`.
+      What that question could NOT settle is still open and is a task rather
+      than a decision — nobody has run a HamClock client end to end against
+      either backend. Two of six guessed endpoint paths responded and the four
+      404s are as likely to be wrong path names as missing functionality.
+      Someone should confirm before relying on this.
 
 launchers:
   - name: hamclock-next

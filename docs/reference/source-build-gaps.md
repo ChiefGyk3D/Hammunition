@@ -120,6 +120,49 @@ cannot find its own data. It needs the tree installed somewhere and a launcher
 that runs it from there — which is M3's launcher-generation work, and MSHV is
 one of its 14 units.
 
+### 7. A JavaScript build — `openhamclock`
+
+**This one blocks a decision that has already been made.** Q-006 resolved on
+2026-08-29 to default to `accius/openhamclock`, on the strength of its activity
+and community — 456 stars, head `47d4ac14ccc4` dated 2026-08-27, MIT by its
+LICENSE file even though GitHub's licence field reports NOASSERTION.
+
+Nobody checked how it builds. It is not the C++ program the original HamClock
+was: at tag v26.6.0 the tree carries `package.json`, `package-lock.json`,
+`vite.config.mjs`, `server.js`, an `electron/` directory, a `Dockerfile` and a
+`wasm-build/`. It is a Node and Vite web application, and its latest release
+publishes no binary assets.
+
+So it needs `npm`, which is not a backend this project has, has never measured
+a need for, and would be the first one justified by a single unit. Until then
+`hamclock-next` is what the `propagation` profile ships — a cmake build we can
+actually perform — and the profile says why rather than silently substituting.
+
+This is the D-018 and D-025 shape a third time: a decision resting on a
+property nobody verified, which only became decisive when someone tried to act
+on it. Activity and community size were measured correctly. Buildability was
+not measured at all.
+
+### 8. Python run in place, with a data tree — `supersdr`, `js8spotter`, `mshv`
+
+Not a build problem. These are programs that are never installed anywhere:
+they run from the directory they were unpacked into, because they read fonts,
+databases and configuration from paths relative to themselves.
+
+`supersdr` at tag v3.14 is `supersdr.py` beside `eibi.csv`, two TTF fonts, two
+images and two vendored Python packages, with no `setup.py`, no
+`requirements.txt` and no install rule. `js8spotter` and `mshv` have the same
+shape. `provides_install_target: false` does not help, because what has to be
+installed is a tree and what `binaries` installs is an executable.
+
+Two things are needed together and neither exists: installing a directory to a
+known location, and generating a launcher that runs the program from it. M3
+already counts launcher generation at 14 units; this is what those 14 units
+actually need.
+
+Q-007 resolved on 2026-08-29 to carry `supersdr`. It cannot be written yet for
+this reason and not for the licence one.
+
 ---
 
 ## What this list is for
