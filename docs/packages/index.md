@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**223 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**225 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -114,7 +114,7 @@ Bench electronics and EDA — circuit design, simulation, test gear.
 - [stlink-tools](stlink-tools.md) — Flash and debug STM32 targets through an ST-Link probe
 - [tempest-for-eliza](tempest-for-eliza.md) — Makes a monitor radiate music on an AM radio — a TEMPEST demonstration
 
-### `emcomm` — 20
+### `emcomm` — 22
 
 Emergency and public-service communications.
 
@@ -133,6 +133,8 @@ Emergency and public-service communications.
 - [linbpq](linbpq.md) — BPQ32 packet-radio node, BBS and Winlink gateway
 - [linpac](linpac.md) — Terminal for AX.25 packet with a built-in mail client and macros
 - [pat](pat.md) — Winlink client — radio email that works when the internet does not
+- [qtsoundmodem](qtsoundmodem.md) — Soundcard packet modem with a scope — an alternative to Direwolf
+- [qttermtcp](qttermtcp.md) — Packet terminal that connects over TCP to a BPQ node
 - [svxlink-server](svxlink-server.md) — Repeater controller and EchoLink node in software
 - [svxreflector](svxreflector.md) — Conference server that links many SvxLink nodes into one talk group
 - [uronode](uronode.md) — Node front end that lets other stations reach services on your machine
@@ -286,7 +288,7 @@ The NBEMS stack specifically — fldigi with flmsg, flamp and flwrap for formal 
 - [flmsg](flmsg.md) — Fills in and transmits the standard message forms EMCOMM runs on
 - [flwrap](flwrap.md) — Wraps a file with a checksum so the far end knows it arrived intact
 
-### `packet` — 22
+### `packet` — 24
 
 AX.25 and packet radio, including Winlink and BBS work.
 
@@ -308,6 +310,8 @@ AX.25 and packet radio, including Winlink and BBS work.
 - [linpac](linpac.md) — Terminal for AX.25 packet with a built-in mail client and macros
 - [minimodem](minimodem.md) — General-purpose audio FSK modem — Bell 103, RTTY, AX.25 and anything else
 - [pat](pat.md) — Winlink client — radio email that works when the internet does not
+- [qtsoundmodem](qtsoundmodem.md) — Soundcard packet modem with a scope — an alternative to Direwolf
+- [qttermtcp](qttermtcp.md) — Packet terminal that connects over TCP to a BPQ node
 - [tmd710-tncsetup](tmd710-tncsetup.md) — Configures the built-in TNC on Kenwood TM-D710 and TH-D72 radios
 - [uronode](uronode.md) — Node front end that lets other stations reach services on your machine
 - [xastir](xastir.md) — APRS client with real maps — see and be seen on the packet network
@@ -734,6 +738,8 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [qsstv](qsstv.md) | Slow-scan television and radiofax — receive and transmit pictures | apt |
 | [qtel](qtel.md) | EchoLink client — work repeaters and stations over the internet | apt |
 | [qthid-fcd-controller](qthid-fcd-controller.md) | Sets frequency and gain on a FUNcube Dongle | apt |
+| [qtsoundmodem](qtsoundmodem.md) | Soundcard packet modem with a scope — an alternative to Direwolf | git |
+| [qttermtcp](qttermtcp.md) | Packet terminal that connects over TCP to a BPQ node | git |
 | [qttinysa](qttinysa.md) | Desktop front end for the tinySA and tinySA Ultra spectrum analysers | apt |
 | [quisk](quisk.md) | SDR transceiver software with a real front panel, driving hardware or a dongle | apt |
 | [radioclk](radioclk.md) | Disciplines the system clock from an MSF, WWVB or DCF77 time signal | apt |

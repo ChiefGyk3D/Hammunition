@@ -22,12 +22,12 @@ decision. Only CARRY, SUPERSEDE, REVIVE and ADD owe a manifest.
 |---|---:|
 | Units in the five-source union | **150** |
 | …that owe a manifest (C, S, R, A) | **108** |
-| …covered | **86** |
-| …outstanding, with a recorded reason | **22** |
+| …covered | **88** |
+| …outstanding, with a recorded reason | **20** |
 | …outstanding, unexplained | **0** |
-| Manifests in the catalog | **223** |
+| Manifests in the catalog | **225** |
 
-Coverage of what is owed: **86/108** (79%).
+Coverage of what is owed: **88/108** (81%).
 
 The catalog is larger than the union because the Debian Blend contributes
 152 packages, most of which are not AHRL units, and because hardware
@@ -46,9 +46,7 @@ Absent on purpose. Each names what it waits on.
 | `GARIM` | ADD | waits on the binary backend; not packaged on any target (measured) |
 | `GridTracker2` | CARRY | vendor .deb, per-arch; waits on the binary backend |
 | `HAMRS` | ADD | post-1.0 — AppImage |
-| `PIAPRS` | ADD | QtTermTCP family — waits on the binary backend |
-| `PITERM` | ADD | QtTermTCP — waits on the binary backend |
-| `QTSOUND` | ADD | QtSoundModem — waits on the binary backend |
+| `PIAPRS` | ADD | G8BPQ's QtBPQAPRS — tagged source exists (00.13) but was not built or verified |
 | `VARA` | ADD | post-1.0 — closed software needing a configured Wine prefix |
 | `VARIM` | ADD | post-1.0 — VARA's messaging client, same constraint |
 | `ahrl_docs` | SUPERSEDE | SUPERSEDE #8-11 — replaced by our own engine, not by software |
@@ -73,7 +71,7 @@ Absent on purpose. Each names what it waits on.
 | CARRY | 63 | 56 |
 | SUPERSEDE | 13 | 9 |
 | REVIVE | 6 | 3 |
-| ADD | 26 | 18 |
+| ADD | 26 | 20 |
 | RETIRE | 22 | — |
 | NEEDS-DECISION | 14 | — |
 | reserved to maintainer | 6 | — |
@@ -184,7 +182,7 @@ catalog is where an operator would look for it.
 | `pipx` | CARRY | `pipx` |
 | `PIQSO` | RETIRE | — |
 | `PISTATS` | RETIRE | — |
-| `PITERM` | ADD | — *waiting, see above* |
+| `PITERM` | ADD | `qttermtcp` |
 | `putty` | NEEDS-DECISION | — |
 | `pyautogui` | RETIRE | — |
 | `qgrid` | CARRY | `qgrid` |
@@ -192,7 +190,7 @@ catalog is where an operator would look for it.
 | `qrq` | CARRY | `qrq` |
 | `qsstv` | CARRY | `qsstv` |
 | `qtel` | CARRY | `qtel` |
-| `QTSOUND` | ADD | — *waiting, see above* |
+| `QTSOUND` | ADD | `qtsoundmodem` |
 | `QtTinySA` | CARRY | `qttinysa` |
 | `quisk` | CARRY | `quisk` |
 | `radiosonde_auto_rx` | REVIVE | — *waiting, see above* |

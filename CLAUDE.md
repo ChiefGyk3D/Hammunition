@@ -375,7 +375,7 @@ in their own install notes.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 223
+  packages/        # one YAML per piece of software          ✅ 225
   profiles/        # named bundles referencing packages      ✅ 15
   hardware/
     classes/       # device families with shared Linux needs ✅ 5
@@ -530,9 +530,13 @@ name**, post-1.0 per SCOPE.md), Python venv, pipx, **CPAN** (`aa-analyzer`
 needs `Device::SerialPort`), and launcher generation (14 units need a generated
 wrapper).
 
-The binary backend unblocks the largest single group: QtTermTCP, QtSoundModem
-and Pi-APRS from D-008's packet core, plus GARIM, ARDOPGUI, AntScope2,
-GridTracker2 and `sdrangel` on the five targets that do not package it. **A
+The binary backend was written for the largest single group of blocked units.
+Two of them turned out not to need it: **QtTermTCP and QtSoundModem tag source
+on GitHub**, so they are ordinary pinned qmake builds, and only 73Linux's habit
+of fetching unversioned executables from a directory called `Beta` made them
+look like binary units. What remains for it is Pi-APRS, GARIM, ARDOPGUI,
+AntScope2, GridTracker2 and `sdrangel` on the five targets that do not package
+it. **A
 `.deb` goes through `apt-get install ./file.deb`, never `dpkg -i`** — apt
 resolves the dependencies where dpkg installs the package and leaves them
 broken.

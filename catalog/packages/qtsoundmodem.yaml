@@ -1,0 +1,97 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: qtsoundmodem
+version: "24.45"
+summary: Soundcard packet modem with a scope — an alternative to Direwolf
+categories: [packet, emcomm]
+
+install:
+  - install:
+      method: git
+      repo: https://github.com/g8bpq/QtSoundModem
+      ref: "24.45"
+      build_system: qmake
+      configure_args:
+        # qmake builds its own flag string and ignores CFLAGS from the
+        # environment, so `compiler_flags` cannot reach this build -- the same
+        # shape as linrad and Fl_MoxGen. QMAKE_CFLAGS+= on the qmake line does
+        # reach it. Measured: without these the build stops at audio.c:312 on
+        # an implicit declaration of Sleep(), then at ax25.c:1748 on an
+        # implicit int. GCC 14 made both errors.
+        - QMAKE_CFLAGS+=-Wno-implicit-function-declaration -Wno-implicit-int -Wno-int-conversion -Wno-incompatible-pointer-types
+      provides_install_target: false
+    build_depends:
+      - build-essential
+      - pkg-config
+      - qtbase5-dev
+      - qt5-qmake
+      - qtbase5-dev-tools
+      - libqt5serialport5-dev
+      - libasound2-dev
+      - libpulse-dev
+      - libfftw3-dev
+    note: >-
+      Built from this tag in a Debian 13 container on 2026-08-29 -- qmake exits
+      0, make exits 0, and the binary appears.
+
+      **73Linux installs the prebuilt binary and this builds the source, and
+      the difference matters.** Upstream publishes bare, unversioned
+      executables in a directory called `Beta`: `QtTermTCP`, `QtTermTCP15`,
+      `QtSoundModem`, `QtSoundModem64`. No version in the filename, no
+      checksums, replaced in place. Pinning a sha256 to one of those would
+      break the moment the author rebuilt. He also tags source on GitHub, which
+      is an ordinary pinned build with none of that fragility -- the same
+      finding `linbpq` recorded, and DESIGN.md's lesson from it: check how
+      upstream publishes before accepting how an existing installer fetches.
+
+binaries:
+  - produced: QtSoundModem
+    install_as: qtsoundmodem
+
+toolkit_risk:
+  - framework: qt5
+    upstream_port_status: unknown
+    checked: 2026-08-29
+
+update:
+  probe:
+    method: github_tags
+    repo: g8bpq/QtSoundModem
+  strategy: rebuild
+  cadence_hint: >-
+    24.45 is the newest tag and is date-shaped; the older ones are 0.7x, so
+    sorting tags as version strings gets this wrong. The default branch's head
+    is 9cd2735bc970, 2025-11-10 (read from the branch, D-032).
+
+documentation:
+  what_it_does: >-
+    Demodulates and modulates AX.25 packet from a sound card and presents a
+    KISS interface over TCP, with a waterfall and a constellation display so
+    you can see what the modem is actually receiving. It runs several modems at
+    once on different audio channels, including 1200 baud AFSK and higher-rate
+    modes.
+  why_you_want_it: >-
+    Direwolf is the default soundcard TNC in this catalog and is excellent
+    headless. This is the one with a screen: the scope and constellation make
+    audio level and tuning problems visible instead of inferred, which is
+    exactly the thing that costs new packet operators the most time. Running
+    both is normal -- Direwolf for the station that stays up, this for working
+    out why it is not decoding.
+  prerequisites: >-
+    Sound card audio to and from the radio, and PTT -- a serial control line or
+    VOX. A program to connect to its KISS port: LinBPQ, Xastir, Pat or anything
+    else that speaks KISS over TCP.
+  known_problems: >-
+    **It needs four permissive compiler flags to build on a current toolchain**,
+    recorded in the install block rather than left for you to discover. One of
+    them silences an implicit declaration of `Sleep()`, which is a Windows
+    function -- the Linux path through that code should be treated as less
+    exercised than the Windows one. Transmit audio level decides whether anyone
+    decodes you, and the scope this program provides is the best tool available
+    for getting it right, which is most of the argument for installing it.
+  upstream_url: https://github.com/g8bpq/QtSoundModem
+  upstream_support: >-
+    John Wiseman, G8BPQ. BPQ32 group on groups.io. **No LICENSE file and no
+    header** (checked at tag 24.45, 2026-08-29); carried under D-033, fetched
+    from the author's own repository and never mirrored.

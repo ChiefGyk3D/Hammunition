@@ -7,6 +7,8 @@ stage: "1.0"
 
 packages:
   - direwolf
+  - qtsoundmodem
+  - qttermtcp
   - ax25-tools
   - ax25-apps
   - ax25-xtools
@@ -28,10 +30,11 @@ packages:
 
 documentation:
   what_it_installs: >-
-    A soundcard TNC, the kernel AX.25 stack's configuration and user tools, a
-    packet terminal, a node front end, a BBS and Winlink gateway, the Winlink
-    client, an HF data modem, the full-featured APRS client, a digipeater and an
-    internet gateway, mail tools, AMPRnet routing, and a GRIB weather viewer.
+    Two soundcard TNCs — one headless and one with a scope — the kernel AX.25
+    stack's configuration and user tools, two packet terminals, a node front
+    end, a BBS and Winlink gateway, the Winlink client, an HF data modem, the
+    full-featured APRS client, a digipeater and an internet gateway, mail
+    tools, AMPRnet routing, and a GRIB weather viewer.
   why_together: >-
     This is a network, not a set of programs. Direwolf turns a radio into a
     modem, ax25-tools brings the port up, and everything above that speaks over
@@ -45,9 +48,12 @@ documentation:
     Most of the 73Linux delta lands in this profile whole, and AHRL has none of
     it — this is the clearest example of what the five-source union bought.
   deliberately_excludes: >-
-    QtTermTCP, QtSoundModem and Pi-APRS, which are three of D-008's eight
-    packet-core units and all wait on the binary backend; none is packaged on
-    any of our six targets, which was measured rather than assumed. VARA and
+    Pi-APRS, which is the last of D-008's eight packet-core units without a
+    manifest. **QtTermTCP and QtSoundModem are now IN**, and not through the
+    binary backend: 73Linux fetches unversioned prebuilt executables from a
+    directory called `Beta`, and upstream tags source on GitHub, so both are
+    ordinary pinned qmake builds. Neither is packaged on any of our six
+    targets, which was measured. VARA and
     its messaging client are post-1.0 — closed software needing a configured
     Wine prefix. `fbb`, the classic packet BBS, is in Ubuntu and Mint and not in
     Debian, Kali or Parrot, so including it would half-install the profile on

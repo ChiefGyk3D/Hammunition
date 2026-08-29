@@ -1,0 +1,98 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: qttermtcp
+version: "0.81"
+summary: Packet terminal that connects over TCP to a BPQ node
+categories: [packet, emcomm]
+
+after: [linbpq]
+
+install:
+  - install:
+      method: git
+      repo: https://github.com/g8bpq/QtTermTCP
+      ref: "0.81"
+      build_system: qmake
+      # The .pro declares no INSTALLS target, so the binary is copied into the
+      # prefix rather than `make install` being run against nothing.
+      provides_install_target: false
+    build_depends:
+      - build-essential
+      - pkg-config
+      - qtbase5-dev
+      - qt5-qmake
+      - qtbase5-dev-tools
+      - qtmultimedia5-dev
+      - libqt5serialport5-dev
+    note: >-
+      Built from this tag in a Debian 13 container on 2026-08-29 -- qmake exits
+      0, make exits 0, and the binary appears.
+
+      **73Linux installs the prebuilt binary and this builds the source, and
+      the difference matters.** Upstream publishes bare, unversioned
+      executables in a directory called `Beta`: `QtTermTCP`, `QtTermTCP15`,
+      `QtSoundModem`, `QtSoundModem64`. No version in the filename, no
+      checksums, replaced in place. Pinning a sha256 to one of those would
+      break the moment the author rebuilt. He also tags source on GitHub, which
+      is an ordinary pinned build with none of that fragility -- the same
+      finding `linbpq` recorded, and DESIGN.md's lesson from it: check how
+      upstream publishes before accepting how an existing installer fetches.
+
+      This one needs no compiler flags at all, which for a Qt5 application of
+      its age is better than expected and was tested rather than assumed.
+
+binaries:
+  - produced: QtTermTCP
+    install_as: qttermtcp
+
+toolkit_risk:
+  - framework: qt5
+    upstream_port_status: unknown
+    checked: 2026-08-29
+    note: >-
+      Builds against qtbase5-dev with serialport and multimedia. No Qt6 plan
+      was found by this check; recorded as unknown rather than guessed.
+
+update:
+  probe:
+    method: github_tags
+    repo: g8bpq/QtTermTCP
+  strategy: rebuild
+  cadence_hint: >-
+    Tagged irregularly. 0.81 is the newest tag; the default branch's head is
+    00ca15573c46, 2026-02-18, read from the branch rather than GitHub's
+    updated_at (D-032). Note the repository also carries a tag literally named
+    `list`, which is not a version -- do not take "the newest tag" mechanically.
+
+documentation:
+  what_it_does: >-
+    A terminal for packet radio that connects over TCP rather than over a local
+    AX.25 port: it speaks to a BPQ node's telnet listener, or to any host
+    offering one, with multiple sessions, scripted macros and a scrollback that
+    survives a disconnection.
+  why_you_want_it: >-
+    It is the client for the node LinBPQ runs. Where `linpac` connects to a
+    callsign over the air from the machine holding the radio, this connects to
+    a node over the network -- which is how you use a packet station that lives
+    in a loft, at a club site, or on the other side of a VPN. For an operator
+    running BPQ it is the natural front end, written by the same author.
+  prerequisites: >-
+    A node to connect to and its host and port. Your callsign, because the node
+    asks for it at login. Nothing local: this needs no AX.25 stack and no radio
+    on the machine it runs on, which is the point.
+  known_problems: >-
+    Connecting over TCP means the security of the link is whatever the network
+    provides -- a node's telnet listener exposed to the internet is exposed to
+    everyone, and this client cannot improve that. The interface assumes
+    familiarity with packet node commands and does not teach them. As with
+    every G8BPQ program, the Windows build is the one with the most users and
+    the Linux path occasionally lags.
+  upstream_url: https://github.com/g8bpq/QtTermTCP
+  upstream_support: >-
+    John Wiseman, G8BPQ. The repository's own description says he uses GitHub
+    for source distribution only, so the BPQ32 group on groups.io is where
+    questions are actually answered. **No LICENSE file and no header** (checked
+    at tag 0.81, 2026-08-29): carried under D-033, which weighs community
+    adoption and the fact that this catalog fetches from the author's own
+    repository rather than redistributing anything.

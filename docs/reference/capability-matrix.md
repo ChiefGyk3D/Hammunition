@@ -35,14 +35,14 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 178 | 10 | 33 | 2 | 0 |
-| ubuntu-26.04 | 179 | 9 | 33 | 2 | 0 |
-| kali-rolling | 184 | 9 | 30 | 0 | 0 |
-| parrot | 181 | 8 | 32 | 2 | 0 |
-| linuxmint-22.3 | 172 | 17 | 32 | 2 | 0 |
-| debian-13-arm64 | 177 | 11 | 33 | 2 | 0 |
+| debian-13 | 178 | 10 | 35 | 2 | 0 |
+| ubuntu-26.04 | 179 | 9 | 35 | 2 | 0 |
+| kali-rolling | 184 | 9 | 32 | 0 | 0 |
+| parrot | 181 | 8 | 34 | 2 | 0 |
+| linuxmint-22.3 | 172 | 17 | 34 | 2 | 0 |
+| debian-13-arm64 | 177 | 11 | 35 | 2 | 0 |
 
-**223 manifests** against **6 targets**.
+**225 manifests** against **6 targets**.
 
 ---
 
@@ -279,6 +279,8 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `qsstv` | apt | apt | apt | apt | apt | apt |
 | `qtel` | apt | apt | apt | apt | apt | apt |
 | `qthid-fcd-controller` | apt | apt | apt | apt | apt | apt |
+| `qtsoundmodem` | git | git | git | git | git | git |
+| `qttermtcp` | git | git | git | git | git | git |
 | `qttinysa` | apt | apt | apt | apt | apt | apt |
 | `quisk` | apt | apt | apt | apt | apt | apt |
 | `radioclk` | apt | apt | apt | apt | apt | apt |
