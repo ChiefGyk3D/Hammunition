@@ -19,6 +19,8 @@ disagrees with it, DECISIONS wins and the disagreeing file is a bug.
 - `docs/PARITY-POLICY.md` — per-unit disposition and M5 exit criteria
 - `docs/QUESTIONS.md` — decisions awaiting the maintainer, with recommendations
 - `docs/reference/cli.md` — the CLI: verbs, flags, exit codes, what it refuses
+- `docs/reference/source-build-gaps.md` — what the source backend cannot yet
+  build, each gap named by the unit whose build proved it
 - `docs/reference/` — the measurements everything rests on: `ahrl-inventory.md`,
   `blend-inventory.md`, `dispositions.md`, `overlaps.md`, `profile-sizing.md`,
   `licence-verification.md`, `hardware-gaps.md`, `udev-inventory.md`,

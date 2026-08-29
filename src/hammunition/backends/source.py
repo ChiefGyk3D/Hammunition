@@ -28,8 +28,11 @@ match the manifest and leaves nothing usable behind when it does. The build
 steps below take a path that verification already vouched for.
 
 **The tree lands in a predictable place, so the plan can be printed before the
-archive exists.** Extraction always strips a single top-level directory into
-``<build>/src``, so ``./configure`` and ``cmake -S`` can be rendered with real
+archive exists.** Extraction strips a single top-level directory into
+``<build>/src`` when the archive has exactly one — nearly every release tarball
+does — and unpacks as-is when it does not, which some zips (linrad's, for one)
+require. Either way the source root is ``<build>/src``, so ``./configure`` and
+``cmake -S`` can be rendered with real
 paths at plan time rather than described in prose. A dry run that said "then
 configure in whatever directory the tarball unpacks to" would be the
 approximate dry run CLAUDE.md forbids.
