@@ -1,0 +1,73 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: cwwav
+version: "0.4.1"
+summary: Turns text into a Morse audio file, from the command line
+categories: [cw, training]
+
+install:
+  - install:
+      method: git
+      repo: https://github.com/oyvholm/cwwav
+      # AHRL builds an unversioned `master` snapshot. Upstream tags releases,
+      # so this pins 0.4.1 -- a tag carries the signal that somebody thought a
+      # revision worth naming, which a branch head does not (D-024).
+      ref: "0.4.1"
+      build_system: make
+      compiler_flags:
+        # GCC 14 promoted implicit function declarations to an error. cwwav
+        # calls isspace() without including <ctype.h>, which was legal C89 and
+        # is not accepted now. Measured: without this flag the build fails on
+        # Debian 13 at cwwav.c:459; with it, the build succeeds and the binary
+        # runs. Same shape as glfer's three flags.
+        - -Wno-implicit-function-declaration
+      # Upstream's Makefile has no install rule -- it builds one binary in the
+      # source root and stops.
+      provides_install_target: false
+    build_depends:
+      - build-essential
+      - libsndfile1-dev
+    note: >-
+      Built from tag 0.4.1 in a Debian 13 container on 2026-08-28: make exits 0
+      with the flag above, produces `cwwav`, and `./cwwav --help` prints its
+      usage. Upstream is dormant -- the head of `master` is 9618fd29adab, dated
+      2018-06-06, read from the branch rather than from GitHub's `updated_at`
+      (D-032). Dormant is not dead: the program does one thing and is finished.
+
+binaries:
+  - produced: cwwav
+    install_as: cwwav
+
+update:
+  probe:
+    method: github_tags
+    repo: oyvholm/cwwav
+  strategy: rebuild
+  cadence_hint: >-
+    No release since 0.4.1 and no commit since 2018. Check annually rather
+    than expecting movement.
+
+documentation:
+  what_it_does: >-
+    Reads text and writes a sound file of it in Morse -- WAV, or anything
+    libsndfile can write -- with speed, Farnsworth spacing, tone frequency and
+    volume set on the command line. It reads standard input, so it sits in a
+    pipe.
+  why_you_want_it: >-
+    ebook2cw covers the same ground with more features and MP3 output; cwwav is
+    smaller and its output is uncompressed, which matters when the file is
+    going into another program rather than into your ears. For generating
+    practice material inside a script, or producing a known-good Morse signal
+    to test a decoder against, this is the simpler tool.
+  prerequisites: >-
+    None to generate a file. Something to play it with.
+  known_problems: >-
+    It needs a compiler flag to build at all on a current toolchain, which is
+    recorded in the install block above rather than discovered by you. Upstream
+    has not moved since 2018, so that flag will keep being needed. It writes
+    files and does not play them, which surprises people expecting a sounder --
+    `cw` from unixcw is that.
+  upstream_url: https://github.com/oyvholm/cwwav
+  upstream_support: >-
+    Oyvind A. Holm. GitHub issues at the URL above, on a dormant repository.

@@ -50,7 +50,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from hammunition.fetch import Fetcher
-from hammunition.manifest.schema import PackageManifest, SourceInstall
+from hammunition.manifest.schema import Binary, PackageManifest, SourceInstall
 
 from .base import Action, BackendError, Command
 
@@ -61,6 +61,7 @@ __all__ = [
     "SourceLayout",
     "build_commands",
     "extract",
+    "install_binary_commands",
     "needs_root_for",
     "prepare_tree",
 ]
@@ -290,6 +291,8 @@ class SourceBackend:
             compiler_flags=block.compiler_flags,
             project_file=block.project_file,
             build_args=block.build_args,
+            provides_install_target=block.provides_install_target,
+            binaries=manifest.binaries,
         )
 
 
@@ -333,6 +336,42 @@ def _compiler_env(compiler_flags: Sequence[str]) -> dict[str, str]:
     return {"CFLAGS": flags, "CXXFLAGS": flags}
 
 
+def install_binary_commands(
+    *,
+    name: str,
+    layout: SourceLayout,
+    prefix: Path,
+    binaries: Sequence[Binary],
+) -> list[Command]:
+    """Install named build outputs, for a project whose build has no install rule.
+
+    Two of the catalog's qmake units -- MSHV and Coil64 -- ship a ``.pro`` with
+    no ``INSTALLS``, so ``make install`` has nothing to do and fails. AHRL's
+    answer is to leave the binary in the build tree and generate a launcher
+    that ``cd``s into it, which is why its menu entries carry working
+    directories. Copying the declared binary into the prefix is the better
+    answer and it is what makes the `binaries` field mean something rather than
+    being documentation.
+
+    `install -D` creates the target directory, so no separate mkdir is needed.
+    """
+    return [
+        Command(
+            argv=(
+                "install",
+                "-D",
+                "-m",
+                "0755",
+                str(layout.src / binary.produced),
+                str(prefix / "bin" / binary.install_as),
+            ),
+            description=f"Install {name}'s {binary.produced} as {binary.install_as}",
+            requires_root=needs_root_for(prefix),
+        )
+        for binary in binaries
+    ]
+
+
 def build_commands(
     *,
     name: str,
@@ -344,6 +383,8 @@ def build_commands(
     compiler_flags: Sequence[str] = (),
     project_file: str | None = None,
     build_args: Sequence[str] = (),
+    provides_install_target: bool = True,
+    binaries: Sequence[Binary] = (),
 ) -> list[Command]:
     """Configure, compile and install, for one build system.
 
@@ -360,6 +401,14 @@ def build_commands(
     args = list(configure_args)
     jobs_arg = str(jobs)
     privileged = needs_root_for(prefix)
+    # A project with no install rule gets an explicit copy of what it emits
+    # instead of a `make install` that would fail. The schema refuses the
+    # combination of no-install-target and no declared binaries.
+    explicit = (
+        install_binary_commands(name=name, layout=layout, prefix=prefix, binaries=binaries)
+        if not provides_install_target
+        else None
+    )
     if build_system == "cmake":
         return [
             Command(
@@ -381,10 +430,16 @@ def build_commands(
                 description=f"Compile {name}",
                 env=env,
             ),
-            Command(
-                argv=("cmake", "--install", str(layout.build)),
-                description=f"Install {name} into {prefix}",
-                requires_root=privileged,
+            *(
+                explicit
+                if explicit is not None
+                else [
+                    Command(
+                        argv=("cmake", "--install", str(layout.build)),
+                        description=f"Install {name} into {prefix}",
+                        requires_root=privileged,
+                    )
+                ]
             ),
         ]
 
@@ -402,11 +457,17 @@ def build_commands(
                 env=env,
                 cwd=layout.src,
             ),
-            Command(
-                argv=("make", "install"),
-                description=f"Install {name} into {prefix}",
-                requires_root=privileged,
-                cwd=layout.src,
+            *(
+                explicit
+                if explicit is not None
+                else [
+                    Command(
+                        argv=("make", "install"),
+                        description=f"Install {name} into {prefix}",
+                        requires_root=privileged,
+                        cwd=layout.src,
+                    )
+                ]
             ),
         ]
 
@@ -427,11 +488,17 @@ def build_commands(
                 env=env,
                 cwd=layout.src,
             ),
-            Command(
-                argv=("make", "install"),
-                description=f"Install {name} into {prefix}",
-                requires_root=privileged,
-                cwd=layout.src,
+            *(
+                explicit
+                if explicit is not None
+                else [
+                    Command(
+                        argv=("make", "install"),
+                        description=f"Install {name} into {prefix}",
+                        requires_root=privileged,
+                        cwd=layout.src,
+                    )
+                ]
             ),
         ]
 
@@ -443,10 +510,16 @@ def build_commands(
             env=env,
             cwd=layout.src,
         ),
-        Command(
-            argv=("make", "install", f"PREFIX={prefix}"),
-            description=f"Install {name} into {prefix}",
-            requires_root=privileged,
-            cwd=layout.src,
+        *(
+            explicit
+            if explicit is not None
+            else [
+                Command(
+                    argv=("make", "install", f"PREFIX={prefix}"),
+                    description=f"Install {name} into {prefix}",
+                    requires_root=privileged,
+                    cwd=layout.src,
+                )
+            ]
         ),
     ]

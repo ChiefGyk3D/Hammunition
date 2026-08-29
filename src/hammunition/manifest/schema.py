@@ -185,6 +185,15 @@ class SourceInstall(Strict):
     )
     patches: list[Patch] = Field(default_factory=list)
     build_dir: str | None = None
+    provides_install_target: bool = Field(
+        default=True,
+        description=(
+            "False when the project's build system has no install rule. "
+            "The backend then installs the manifest's `binaries` explicitly "
+            "instead of running `make install`, which would fail. Requires "
+            "`binaries` to be declared."
+        ),
+    )
 
 
 COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -297,6 +306,18 @@ class GitInstall(Strict):
     build_system: Literal["autotools", "cmake", "qmake", "make", "custom"]
     configure_args: list[str] = Field(default_factory=list)
     compiler_flags: list[str] = Field(default_factory=list)
+    project_file: str | None = Field(
+        default=None,
+        description="qmake .pro / cmake subdir, as for a source build.",
+    )
+    build_args: list[str] = Field(default_factory=list)
+    provides_install_target: bool = Field(
+        default=True,
+        description=(
+            "False when the project's build system has no install rule. See "
+            "SourceInstall for the full note."
+        ),
+    )
     pin_review: PinReview | None = Field(
         default=None,
         description="Required when `ref` is a commit SHA rather than a tag. D-024.",
@@ -663,6 +684,27 @@ class PackageManifest(Strict):
                 f"{self.name}: retired requires retire_reason (world_changed | "
                 f"never_worked | out_of_scope)"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _no_install_target_needs_binaries(self) -> PackageManifest:
+        """A build with no install rule has to be told what to install.
+
+        `provides_install_target: false` replaces `make install` with an
+        explicit copy of each declared binary. With no `binaries` that leaves a
+        compiled tree and nothing on the PATH -- a build that succeeds and
+        installs nothing, which is the silent-success failure this project
+        keeps writing checks against (D-031).
+        """
+        for block in self.install:
+            if getattr(block.install, "provides_install_target", True):
+                continue
+            if not self.binaries:
+                raise ManifestError(
+                    f"{self.name}: provides_install_target is false, so nothing would "
+                    f"be installed. Declare `binaries` naming what the build emits and "
+                    f"what each should be called in the prefix."
+                )
         return self
 
     @model_validator(mode="after")

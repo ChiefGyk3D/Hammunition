@@ -1,0 +1,85 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: coil64
+version: "2.4.39"
+summary: Calculates inductance for coils of almost any geometry
+categories: [electronics, antenna]
+
+install:
+  - install:
+      method: git
+      repo: https://github.com/radioacoustick/Coil64
+      # A tag, so no pin_review is needed (D-024). v2.4.39 is upstream's latest
+      # release and the same version AHRL bundles, which is a useful
+      # coincidence: two independent parties arrived at the same revision.
+      ref: v2.4.39
+      build_system: qmake
+      # The .pro file declares no INSTALLS target -- checked in the tag on
+      # 2026-08-28 -- so `make install` has nothing to run. The binary is
+      # copied into the prefix instead; see `binaries` below.
+      provides_install_target: false
+    build_depends:
+      - build-essential
+      - qtbase5-dev
+      - qt5-qmake
+      - qtbase5-dev-tools
+    note: >-
+      Built from this tag in a Debian 13 container on 2026-08-28: qmake exits
+      0, make exits 0, and a `Coil64` executable appears in the source root.
+      Resources are compiled in through Qt's resource system, so the binary is
+      self-contained and copying it into a prefix is sufficient -- unlike MSHV,
+      the catalog's other qmake unit, which reads data from directories beside
+      itself.
+
+binaries:
+  - produced: Coil64
+    install_as: coil64
+
+toolkit_risk:
+  - framework: qt5
+    upstream_port_status: unknown
+    checked: 2026-08-28
+    note: >-
+      Builds against qtbase5-dev. Upstream has published no Qt6 plan that this
+      check found; recorded as unknown rather than guessed.
+
+update:
+  probe:
+    method: github_tags
+    repo: radioacoustick/Coil64
+  strategy: rebuild
+  cadence_hint: >-
+    Tagged releases, several a year. Latest is v2.4.39, and the default
+    branch's head is b9b4e834ecb7 (read from the branch, not from GitHub's
+    updated_at -- D-032).
+
+documentation:
+  what_it_does: >-
+    Computes inductance, and the dimensions to achieve a target inductance, for
+    a long list of coil forms: single-layer air-cored solenoids, multilayer and
+    sectioned windings, flat spirals, toroids on ferrite and powdered-iron
+    cores, ferrite rods, pot cores, meander traces on a PCB, and coupled coils.
+    It also does self-resonant frequency, Q, and the reverse calculation from
+    a measured inductance back to a wire length.
+  why_you_want_it: >-
+    Winding an inductor is a place where the textbook formula and the bench
+    disagree, because the formula assumes a geometry you did not build. Coil64
+    covers enough forms that the one in front of you is usually there, and it
+    computes both directions -- how many turns for this inductance, and what
+    did I just wind. For matching networks, traps and filters that saves an
+    evening of trimming.
+  prerequisites: >-
+    None beyond a desktop session. It calculates; it talks to no hardware.
+  known_problems: >-
+    Its accuracy is the accuracy of the empirical formulas behind it, which
+    are good for the geometries they were derived for and degrade outside
+    them -- a very short, very wide coil is where the classic solenoid formulas
+    stop being trustworthy and the program does not warn you. Amidon and
+    manufacturer core data is built in and ages as parts are discontinued.
+    Measuring the finished coil with a NanoVNA remains the check.
+  upstream_url: https://github.com/radioacoustick/Coil64
+  upstream_support: >-
+    Valery Kustarev. GitHub issues at the URL above; the wiki there documents
+    which formula each calculation uses, which is worth reading before
+    trusting a result at the edge of a geometry.

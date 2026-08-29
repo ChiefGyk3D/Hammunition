@@ -1,0 +1,83 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: xwefax
+version: "2.4.4"
+summary: Receives HF weather fax and draws the chart
+categories: [listening, digital-modes]
+
+# NEEDS-DECISION in docs/reference/dispositions.md: fldigi has a built-in
+# WEFAX mode, and whether xwefax does anything fldigi does not needs someone
+# with radiofax experience rather than a feature comparison. Carried
+# unmodified until that is answered; this manifest does not claim the question
+# is settled.
+recommended_default: false
+
+install:
+  - install:
+      method: source
+      source:
+        url: https://www.qsl.net/5b4az/pkg/xwefax/xwefax-2.4.4.tar.bz2
+        sha256: 22a1e403f98eb289be977df2a4872bb7634bc6d267bad5067be95662b55da28a
+      build_system: autotools
+    build_depends:
+      - build-essential
+      - pkg-config
+      - libgtk-3-dev
+      # AHRL lists libgtk-3-dev alone (inventory unit 74). Measured on Debian
+      # 13 on 2026-08-28, that is not enough: the build stops with
+      # "fatal error: alsa/asoundlib.h: No such file or directory". AHRL gets
+      # away with it because freedv (unit 53) and MSHV (unit 61) both install
+      # libasound2-dev earlier in the same run -- so its xwefax build depends
+      # on the order of two unrelated units, and AHRL checks no exit status, so
+      # reordering them would break this silently.
+      - libasound2-dev
+    note: >-
+      With libasound2-dev present, configure exits 0, make exits 0 and
+      `src/xwefax` appears -- measured in a Debian 13 container on 2026-08-28.
+      The tarball is not linked from the project page, which offers 2.4.3;
+      2.4.4 is present at the predictable URL and is the version AHRL bundles.
+      The sha256 is ours, computed from that download: 5B4AZ publishes no
+      checksums, so this pins the bytes reviewed and built and implies no
+      upstream signature.
+
+binaries:
+  - produced: src/xwefax
+    install_as: xwefax
+
+update:
+  probe:
+    method: none
+  strategy: rebuild
+  cadence_hint: >-
+    5B4AZ releases irregularly and the download directory is not indexed, so
+    there is nothing to probe. Check qsl.net/5b4az/pages/wefax.html by hand.
+
+documentation:
+  what_it_does: >-
+    Demodulates HF radiofax -- the WEFAX transmissions weather services send on
+    shortwave -- from receiver audio, synchronises on the start tone and phasing
+    signal, and draws the chart as it arrives, saving it as an image.
+  why_you_want_it: >-
+    Radiofax is still transmitted: surface analyses, wind and wave charts and
+    ice reports go out daily from several stations for the benefit of vessels
+    at sea. Receiving one is the most tangible demonstration there is that HF
+    carries real, current, useful information, and the resulting chart is a
+    genuine forecast product rather than a novelty.
+  prerequisites: >-
+    A receiver capable of SSB reception on HF, its audio into a sound card, and
+    a schedule -- transmissions are at fixed times from fixed stations and
+    tuning at the wrong moment gets you nothing. Rig control through the CAT
+    interface is supported and optional.
+  known_problems: >-
+    A slanted image means the sound card's sample rate is not what the software
+    assumes, exactly as with SSTV, and it is corrected once per machine rather
+    than per reception. Missing the phasing signal at the start of a
+    transmission produces an image offset horizontally, which looks like a
+    decoding fault and is a timing one. fldigi also decodes WEFAX; whether this
+    program does anything fldigi does not is an open question in the
+    dispositions, which is why it does not claim to be a recommended default.
+  upstream_url: https://www.qsl.net/5b4az/pages/wefax.html
+  upstream_support: >-
+    Neoklis Kyriazis, 5B4AZ -- the same author as nec2c and xdemorse. The
+    project page carries the source and notes; there is no issue tracker.

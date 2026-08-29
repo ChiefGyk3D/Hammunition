@@ -25,6 +25,7 @@ import zipfile
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -37,7 +38,11 @@ from hammunition.backends.source import (  # noqa: E402
     needs_root_for,
 )
 from hammunition.fetch import Fetcher  # noqa: E402
-from hammunition.manifest.schema import PackageManifest  # noqa: E402
+from hammunition.manifest.schema import (  # noqa: E402
+    ManifestError,
+    PackageManifest,
+    SourceInstall,
+)
 
 PAYLOAD_SHA = "a" * 64
 
@@ -384,3 +389,122 @@ def test_the_install_step_stays_privileged_even_when_run_as_root(tmp_path: Path)
     # ...and the sudo prefix is what disappears for root, not the flag.
     assert install.display(euid=0).startswith("cmake")
     assert install.display(euid=1000).startswith("sudo")
+
+
+# ---------------------------------------------------------------------------
+# Builds with no install rule of their own
+# ---------------------------------------------------------------------------
+
+
+def test_a_project_with_no_install_rule_installs_its_declared_binaries(tmp_path: Path) -> None:
+    """MSHV and Coil64 ship a .pro with no INSTALLS, so `make install` has
+    nothing to do and fails. AHRL leaves the binary in the build tree and
+    generates a launcher that cd's into it; copying it into the prefix is the
+    better answer and it is what makes `binaries` mean something."""
+    manifest = PackageManifest.model_validate(
+        {
+            "name": "coily",
+            "version": "1.0",
+            "summary": "A qmake project whose .pro has no install rule",
+            "categories": ["electronics"],
+            "install": [
+                {
+                    "install": {
+                        "method": "source",
+                        "source": {"url": "https://example.invalid/c.tar.gz", "sha256": "0" * 64},
+                        "build_system": "qmake",
+                        "provides_install_target": False,
+                    }
+                }
+            ],
+            "binaries": [{"produced": "Coily", "install_as": "coily"}],
+            "update": {"probe": {"method": "none"}},
+            "documentation": {
+                "what_it_does": "Stands in for a qmake project with no install rule.",
+                "why_you_want_it": "Because two real ones in this catalog have none.",
+                "upstream_url": "https://example.invalid/",
+            },
+        }
+    )
+    backend = SourceBackend(
+        Fetcher(tmp_path / "cache"), build_root=tmp_path / "b", prefix=tmp_path / "p", jobs=2
+    )
+    block = manifest.install[0].install
+    assert isinstance(block, SourceInstall)
+    commands = backend._build_commands(manifest, block, backend.layout(manifest, block))
+
+    argvs = [c.argv for c in commands]
+    assert ("make", "install") not in argvs, "the failing install step is still there"
+    last = commands[-1]
+    assert last.argv[0] == "install"
+    assert last.argv[-1].endswith("/p/bin/coily")
+    assert last.argv[-2].endswith("/src/Coily")
+
+
+def test_declaring_no_install_target_without_binaries_is_refused() -> None:
+    """Otherwise the build succeeds and installs nothing -- a silent success,
+    which is the failure mode this project keeps writing checks against."""
+    with pytest.raises((ValidationError, ManifestError), match="provides_install_target"):
+        PackageManifest.model_validate(
+            {
+                "name": "empty",
+                "version": "1.0",
+                "summary": "Declares no install target and names no binaries",
+                "categories": ["electronics"],
+                "install": [
+                    {
+                        "install": {
+                            "method": "source",
+                            "source": {
+                                "url": "https://example.invalid/e.tar.gz",
+                                "sha256": "0" * 64,
+                            },
+                            "build_system": "qmake",
+                            "provides_install_target": False,
+                        }
+                    }
+                ],
+                "update": {"probe": {"method": "none"}},
+                "documentation": {
+                    "what_it_does": "Exists only to be rejected by the validator.",
+                    "why_you_want_it": "It should not be representable at all.",
+                    "upstream_url": "https://example.invalid/",
+                },
+            }
+        )
+
+
+def test_the_default_still_runs_the_build_systems_own_install(tmp_path: Path) -> None:
+    """Guards the guard: if the flag defaulted to False the test above would
+    pass for the wrong reason and every ordinary build would change."""
+    manifest = PackageManifest.model_validate(
+        {
+            "name": "ordinary",
+            "version": "1.0",
+            "summary": "An ordinary autotools project",
+            "categories": ["electronics"],
+            "install": [
+                {
+                    "install": {
+                        "method": "source",
+                        "source": {"url": "https://example.invalid/o.tar.gz", "sha256": "0" * 64},
+                        "build_system": "autotools",
+                    }
+                }
+            ],
+            "binaries": [{"produced": "src/ordinary", "install_as": "ordinary"}],
+            "update": {"probe": {"method": "none"}},
+            "documentation": {
+                "what_it_does": "Stands in for every normal source build in the catalog.",
+                "why_you_want_it": "To prove the new flag changed nothing by default.",
+                "upstream_url": "https://example.invalid/",
+            },
+        }
+    )
+    backend = SourceBackend(
+        Fetcher(tmp_path / "cache"), build_root=tmp_path / "b", prefix=tmp_path / "p", jobs=2
+    )
+    block = manifest.install[0].install
+    assert isinstance(block, SourceInstall)
+    commands = backend._build_commands(manifest, block, backend.layout(manifest, block))
+    assert commands[-1].argv == ("make", "install")

@@ -107,6 +107,10 @@ class GitBackend:
                 jobs=self.jobs,
                 configure_args=block.configure_args,
                 compiler_flags=block.compiler_flags,
+                project_file=block.project_file,
+                build_args=block.build_args,
+                provides_install_target=block.provides_install_target,
+                binaries=manifest.binaries,
             )
         )
         return steps
