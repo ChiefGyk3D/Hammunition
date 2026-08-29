@@ -585,6 +585,58 @@ Cellular/EW is deliberately **not** here — 20 units, transmit-capable, blocked
 
 ---
 
+## REVIVE — verification log
+
+Three of the six REVIVE units were tested on **2026-08-28** in a Debian 13
+container. `PARITY-POLICY.md` requires a REVIVE to be attempted rather than
+assumed, and two of these had inherited verdicts that measurement changed.
+
+| Unit | Tested | Result |
+|---|---|---|
+| `ardop` | build from tag `1.0.4.1.3` | **Revived.** Now `catalog/packages/ardopcf.yaml`. |
+| `mvoice` | dependency availability | **Still blocked.** Reason confirmed. |
+| `dream` | dependency availability | **Still blocked.** Reason confirmed. |
+
+**`ardop` — AHRL's error was not the error.** AHRL v27 disabled it with
+"compiler error on Xubuntu 26.04 / in function `client_handler`: too many args
+to function `process_http_req`". On Debian 13 the build fails somewhere else
+entirely: three `-Wint-conversion` errors at `lib/rawhid/rawhid.c:361`, because
+GCC 14 promoted that warning to an error. With `-Wno-int-conversion` the build
+succeeds and produces `ardopcf`. Upstream's `master` head
+(`a7c92289b569`, 2025-05-27, read from the branch — **D-032**) fails
+identically, so the release tag is the right pin and this is a current defect
+rather than one a newer revision has fixed.
+
+The flag silences a genuine bug rather than a pedantic warning: the CM108 HID
+path passes a `hid_device *` to `read()`, `write()` and `close()` on the
+non-Windows branch. The manifest records that CM108 push-to-talk should be
+tested before it is relied on, and that serial and VOX keying are unaffected.
+Reporting it upstream has not been done from here.
+
+The suggestion in the table above — take 73Linux's prebuilt release asset
+instead of compiling — turned out to be unnecessary. Compiling works.
+
+**`mvoice` — the blocker is real and measured.** `libopendht-dev` has **no
+candidate on Debian 13** (`apt-cache policy`, 2026-08-28), which is exactly
+what AHRL's "no openhdt" comment claimed. Upstream is alive: head of `master`
+is `7589795c7ca0`, 2026-06-12. Its README acknowledges the situation directly
+and instructs the user to build OpenDHT from source — a build dependency that
+must itself be built, which is a shape no manifest in this catalog can express
+today. **The disposition stands and the reason is now tested rather than
+inherited.**
+
+**`dream` — same shape.** `libqt5webkit5-dev` has **no candidate on Debian 13**
+(measured the same way). AHRL's "no webkitwidgets" comment is confirmed. What
+is still open is the question the table above asks: whether Qt5 WebKit is
+genuinely required or only for an optional dashboard. That needs reading the
+source, not probing the archive.
+
+`ibp`, `radiosonde_auto_rx` and `hamclock-next` were not attempted in this
+round. `hamclock-next` already has a manifest; `radiosonde_auto_rx` waits on
+the venv backend by design.
+
+---
+
 ## Complete index — all 150 units
 
 Sorted for completeness-checking. `S` = SUPERSEDE, `R` = REVIVE, `X` = RETIRE,
