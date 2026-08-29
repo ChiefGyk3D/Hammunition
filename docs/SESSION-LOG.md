@@ -1,7 +1,7 @@
 # Session log — overnight round 6, 2026-08-28 → 29
 
 One instruction: *keep grinding through those manifests, do not stop.*
-Twenty-one commits, all pushed. The catalog went from **77 manifests to 217**.
+Twenty-six commits, all pushed. The catalog went from **77 manifests to 222**.
 
 Previous round's log is in git history at `f13055b`.
 
@@ -41,11 +41,20 @@ Installed in a container: svxlink-server does create an `svxlink` user and
 group and adds it to `dialout` and `audio`; xastir creates nothing and its
 binary is already 0755. Same source, same kind of claim. Measure each.
 
-**ardop is revived, and AHRL's error was not the error.** Its recorded
-failure does not happen on Debian 13; the real one is three `-Wint-conversion`
-errors GCC 14 promoted. One flag builds it — and that flag silences a genuine
-bug in the CM108 push-to-talk path, which the manifest says out loud rather
-than reporting a clean build.
+**Two of AHRL's disabled units revive, and neither for the reason it gave.**
+`ardop`'s recorded failure does not happen on Debian 13; the real one is three
+`-Wint-conversion` errors GCC 14 promoted. One flag builds it — and that flag
+silences a genuine bug in the CM108 push-to-talk path, which the manifest says
+out loud rather than reporting a clean build. `ibp`'s "many, many compiler
+errors" is **one missing header**: with `libncurses-dev` present it builds with
+no flags at all and runs. Two verdicts inherited, two wrong.
+
+**Three Makefiles that ignore `CFLAGS`, and only one needs patching.**
+`Fl_MoxGen` never mentions `$(CFLAGS)` but does use `$(CC)`, so a `build_args`
+override reaches it. `gsmc` needs no flags at all at its own tag — AHRL patches
+it only because it builds an unversioned `master` snapshot. `linrad` bakes
+`-Werror` into a literal flag string with no variable to override, and is the
+one unit that forces a patch feature.
 
 **The qmake path had never worked, for either unit that uses it.** Both
 `MSHV` and `Coil64` ship a `.pro` with no `INSTALLS`, so the backend's
@@ -56,15 +65,16 @@ before writing its manifest.
 
 ## What completed
 
-**Catalog: 77 → 217 manifests.** 188 apt, 12 git, 12 source, 4 with a
-per-target split, 1 binary. 27 categories, now a controlled vocabulary.
+**Catalog: 77 → 222 manifests**, carrying 229 install blocks: 194 apt, 18
+source, 15 git, 2 binary. 27 categories, now a controlled vocabulary.
 
 By cluster: Morse and CW (11), logging (8), propagation and antenna (15),
 digital modes and NBEMS (14), packet and APRS (11), the SDR layer (19), rig
 control and EchoLink (11), the SoapySDR module set completed (6 more, all 12
 now), AIS and exam practice and station plumbing (12), the rest of the Blend
 (17), the packages our targets disagree about (5), the W1HKJ source suite (5),
-ardopcf, coil64, cwwav, xwefax, acarsserv, qlog.
+ardopcf, coil64, cwwav, xwefax, acarsserv, qlog, ibp, qgrid, fl-moxgen,
+gsmc, xygrib.
 
 **Engine.**
 
@@ -80,7 +90,7 @@ ardopcf, coil64, cwwav, xwefax, acarsserv, qlog.
 
 **Documentation.**
 
-* `docs/packages/` — 218 generated pages, one per manifest plus an index. The
+* `docs/packages/` — 223 generated pages, one per manifest plus an index. The
   layout has called for this since it was written and it did not exist.
 * `docs/reference/capability-matrix.md` — every manifest against every target,
   resolution merged with a measured `apt-cache policy` sweep, because
@@ -143,6 +153,12 @@ degraded — no `/etc/subuid` ranges. One root command fixes it:
 sudo usermod --add-subuids 100000-165535 --add-subgids 100000-165535 chiefgyk3d
 podman system migrate
 ```
+
+**A git checkout of an autotools project can fail where the tarball of the
+same tag succeeds.** Git does not preserve timestamps, so `configure` looks
+stale, make enters maintainer mode, and it dies needing an autotools version
+that is not there. `gsmc` is a `source` manifest for that reason and the rule
+is written down: for autotools, prefer the tarball.
 
 **`linrad` defeated the source backend, four ways**, and that is written up in
 `source-build-gaps.md` rather than bodged. Its Makefile hardcodes `-Werror` and
