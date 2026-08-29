@@ -1,0 +1,76 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: packet
+summary: AX.25, APRS, Winlink and the EMCOMM stack
+stage: "1.0"
+
+packages:
+  - direwolf
+  - ax25-tools
+  - ax25-apps
+  - ax25-xtools
+  - linpac
+  - uronode
+  - linbpq
+  - pat
+  - ardopcf
+  - xastir
+  - aprsdigi
+  - aprx
+  - a2d
+  - axmail
+  - ax25mail-utils
+  - ampr-ripd
+  - minimodem
+  - xygrib
+  - tmd710-tncsetup
+
+documentation:
+  what_it_installs: >-
+    A soundcard TNC, the kernel AX.25 stack's configuration and user tools, a
+    packet terminal, a node front end, a BBS and Winlink gateway, the Winlink
+    client, an HF data modem, the full-featured APRS client, a digipeater and an
+    internet gateway, mail tools, AMPRnet routing, and a GRIB weather viewer.
+  why_together: >-
+    This is a network, not a set of programs. Direwolf turns a radio into a
+    modem, ax25-tools brings the port up, and everything above that speaks over
+    it. Installing half of it gives you something that connects to nothing.
+
+    **The weather viewer belongs here and looks like it does not.** A GRIB file
+    for one region is small enough to move over HF where a weather website is
+    not, which is why sailors and emergency operators request them over Winlink.
+    It is the thing the link is often carrying.
+
+    Most of the 73Linux delta lands in this profile whole, and AHRL has none of
+    it — this is the clearest example of what the five-source union bought.
+  deliberately_excludes: >-
+    QtTermTCP, QtSoundModem and Pi-APRS, which are three of D-008's eight
+    packet-core units and all wait on the binary backend; none is packaged on
+    any of our six targets, which was measured rather than assumed. VARA and
+    its messaging client are post-1.0 — closed software needing a configured
+    Wine prefix. `fbb`, the classic packet BBS, is in Ubuntu and Mint and not in
+    Debian, Kali or Parrot, so including it would half-install the profile on
+    the primary target; its client-side tools are here and the BBS you forward
+    with will be somebody else's.
+  manual_configuration: >-
+    **This profile installs a working packet stack that does nothing until you
+    write your callsign into two files, and that is the largest manual step in
+    this catalog.** `/etc/ax25/axports` needs a port line naming your callsign,
+    the device and the speed; `direwolf.conf` needs your callsign, the audio
+    device and the PTT method. Neither is generated yet — station-local
+    configuration is the open design question, and `linbpq` is the one manifest
+    that already templates it. The shipped direwolf example is heavily
+    commented and is the right starting point. Pat is configured with
+    `pat configure`, which writes your Winlink credentials.
+
+    **Serial and audio access need the `dialout` group**, and a session already
+    open does not gain it. **Transmit audio level** decides whether anyone
+    decodes you; direwolf reports its own receive levels and that is where to
+    start. Running a digipeater or an igate puts traffic on a shared network
+    under your callsign — the example configurations are deliberately not
+    digipeaters, and turning that on is a decision about a resource other
+    people depend on.
+  disk_footprint_hint: >-
+    Around 500 MB. LinBPQ and ardopcf are source builds from pinned upstream
+    tags; everything else is apt.

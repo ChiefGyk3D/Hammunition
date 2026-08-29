@@ -42,12 +42,16 @@ consent:
 
 packages:
   - gr-gsm
+  - hacktv
 
 documentation:
   what_it_installs: >-
     Software whose capability, rather than its complexity, is the reason it is
     kept separate: tools that can cause hardware to transmit, and tools that
-    receive and decode communications not addressed to you.
+    receive and decode communications not addressed to you. Today that is
+    `gr-gsm`, which receives and decodes GSM downlink signalling, and `hacktv`,
+    which drives a HackRF to generate complete analogue television signals in
+    bands allocated to other services.
   why_together: >-
     They share a single property — using them lawfully depends on authorization
     you hold and we cannot see. Grouping them means the affirmation is asked

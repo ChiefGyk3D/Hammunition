@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: electronics
+summary: Bench electronics, instruments and device programmers
+stage: "1.0"
+
+packages:
+  - avrdude
+  - flashrom
+  - openocd
+  - openfpgaloader
+  - stlink-tools
+  - m2kcli
+  - qttinysa
+  - nanovna-saver
+  - gsmc
+  - coil64
+  - atlc
+
+documentation:
+  what_it_installs: >-
+    Five device programmers covering AVR, SPI flash, ARM debug probes, FPGAs
+    and ST-LINK; command-line control of the ADALM2000 lab instrument; desktop
+    front ends for the two instruments most likely to be on a ham's bench, the
+    tinySA spectrum analyser and the NanoVNA; and three calculators — a Smith
+    chart, a coil designer and an arbitrary transmission-line solver.
+  why_together: >-
+    This is the half of the hobby that happens at a bench rather than at an
+    operating position. It is deliberately opt-in: a station that only operates
+    needs none of it, and a person building or repairing equipment wants all of
+    it. The instrument front ends are here rather than in `antenna` because you
+    reach for them for anything you have built, not only for antennas.
+  deliberately_excludes: >-
+    The EDA cluster — KiCad, Fritzing, ngspice, gspiceui. Those are reserved to
+    the maintainer in `docs/PARITY-POLICY.md` and are not a decision this
+    profile makes. Also excludes the `programmer` hardware class's udev rules,
+    which are hardware catalog entries rather than packages and are applied by
+    device detection rather than by installing a profile.
+  manual_configuration: >-
+    **Programmers and instruments need device permissions and this profile does
+    not grant them.** Most need membership of `plugdev` or `dialout` and a udev
+    rule; the hardware catalog carries the rules and applying them is M4 work
+    that is not written yet. Until then, a device that works under `sudo` and
+    not otherwise is a permissions problem, not a broken cable. Know your
+    tinySA's input power limit before connecting it to anything transmitting —
+    it is the instrument most often destroyed on its first day.
+  disk_footprint_hint: >-
+    Around 250 MB. The Qt front ends for the tinySA and NanoVNA are most of it;
+    the programmers themselves are small.

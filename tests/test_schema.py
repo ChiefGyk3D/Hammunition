@@ -561,6 +561,65 @@ def test_every_profile_package_has_a_manifest() -> None:
         assert not missing, f"profile {profile.name} names undefined packages: {missing}"
 
 
+def test_every_profile_package_can_actually_be_installed() -> None:
+    """A profile is a promise that `hammunition install <name>` gets you
+    somewhere. A package whose only install method this engine cannot perform
+    breaks that promise at plan time, after the operator has committed.
+
+    The maintainer's bar for 1.0 is explicit: getting a user most of the way is
+    a success, but there must be **no true blocker** other than configuration
+    they supply. An unimplementable method is a true blocker, so it is checked
+    rather than hoped for. Packages that need an unwritten backend stay out of
+    profiles and are named in each profile's `deliberately_excludes`.
+    """
+    from hammunition.backends import IMPLEMENTED_METHODS
+    from hammunition.manifest.load import load_catalog, load_profiles
+
+    packages = load_catalog(CATALOG)
+    profiles = load_profiles(CATALOG.parent / "profiles", packages)
+    blocked = [
+        (profile.name, name, sorted({b.install.method for b in packages[name].install}))
+        for profile in profiles.values()
+        for name in profile.packages
+        if not {b.install.method for b in packages[name].install} & IMPLEMENTED_METHODS
+    ]
+    assert not blocked, (
+        "profile packages with no install method this engine can perform: "
+        f"{blocked}. Either implement the backend or take the package out of "
+        "the profile and say so in deliberately_excludes."
+    )
+
+
+def test_the_twelve_1_0_profiles_exist() -> None:
+    """docs/reference/profile-sizing.md argued a specific set and the
+    maintainer accepted it on 2026-08-29. Renaming a profile later breaks
+    every shell history, forum post and document that names it, so the set is
+    asserted rather than left to drift."""
+    from hammunition.manifest.load import load_catalog, load_profiles
+
+    packages = load_catalog(CATALOG)
+    profiles = load_profiles(CATALOG.parent / "profiles", packages)
+    shipped = {name for name, p in profiles.items() if p.stage == "1.0"}
+    expected = {
+        "station",
+        "logging",
+        "morse",
+        "propagation",
+        "digital-modes",
+        "packet",
+        "satellite",
+        "antenna",
+        "sdr",
+        "listening",
+        "electronics",
+        "rf-security",
+    }
+    assert shipped == expected, (
+        f"1.0 profile set changed. missing: {sorted(expected - shipped)}; "
+        f"unexpected: {sorted(shipped - expected)}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # D-024 — a commit pin carries no upstream signal, so it carries ours
 # ---------------------------------------------------------------------------

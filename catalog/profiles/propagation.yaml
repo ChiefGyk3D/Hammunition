@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: propagation
+summary: Band conditions, grey line, beacons and DX spotting
+stage: "1.0"
+
+packages:
+  - hamclock-next
+  - xdx
+  - flcluster
+  - sunclock
+  - voacapl
+  - pythonprop
+  - ibp
+  - wwl
+  - qgrid
+  - python3-pyhamtools
+  - twclock
+
+documentation:
+  what_it_installs: >-
+    A live map showing the grey line and solar indices, two DX cluster clients,
+    a sun clock, the VOACAP propagation engine with a graphical front end that
+    makes its output readable, a monitor for the international beacon network,
+    and grid-square tools in command-line and graphical form.
+  why_together: >-
+    Every one of these answers the same question from a different angle: is the
+    band open, and to where. They are grouped rather than spread through the
+    mode profiles because they are genuinely optional — a station that works
+    one local repeater needs none of it — and because most of them depend on
+    web services, which makes this the first profile a low-bandwidth or offline
+    station skips.
+
+    **The beacon monitor is the one to notice.** The NCDXF/IARU beacons
+    transmit on a fixed three-minute rotation from known transmitters at known
+    powers in known places, so listening to 14.100 and noting which callsigns
+    you hear is a real measurement of your own antenna and receiver. No website
+    substitutes for that.
+  deliberately_excludes: >-
+    **`openhamclock`, which Q-006 chose as the default client and which cannot
+    be installed yet.** It is a Node and Vite web application rather than the
+    C++ program the original HamClock was, and it needs an `npm` backend this
+    project does not have — see `docs/reference/source-build-gaps.md` #7.
+    `hamclock-next` ships instead: a maintained SDL2 rewrite that carries the
+    original author's copyright forward and that this engine can actually
+    build. The substitution is stated rather than made quietly. Also excludes
+    SPLAT!, which answers "what does the terrain do to this specific path" and
+    lives in `antenna`.
+  manual_configuration: >-
+    **A DX cluster client needs a node address and your callsign**, and neither
+    is chosen for you. **VOACAP needs a smoothed sunspot number** for the month
+    you are asking about, which is itself a prediction you supply, and antenna
+    descriptions if you want the answer to be about your station rather than
+    about a default dipole — treating that default as your station is the
+    commonest way to get a confidently wrong answer. HamClock's data backend
+    defaults to `ohb.works`, a community-run service, and is user-configurable;
+    nobody has yet run a client end to end against it, so confirm before
+    relying on it. The beacon monitor is a schedule computation, so a system
+    clock a minute out tells you confidently about the wrong beacon.
+  disk_footprint_hint: >-
+    Around 300 MB. pythonprop's cartopy, scipy and matplotlib stack is most of
+    it, and hamclock-next is a source build against SDL2.

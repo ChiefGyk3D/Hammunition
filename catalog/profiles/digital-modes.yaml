@@ -1,0 +1,79 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: digital-modes
+summary: FT8, JS8, PSK31, SSTV, digital voice and the rest of the keyboard modes
+stage: "1.0"
+
+packages:
+  - fldigi
+  - flmsg
+  - flamp
+  - flwrap
+  - comptext
+  - comptty
+  - wsjtx
+  - wsjtx-improved
+  - jtdx
+  - mshv
+  - js8call
+  - qsstv
+  - freedv
+  - psk31lx
+  - twpsk
+  - minimodem
+  - glfer
+  - xwefax
+  - multimon-ng
+  - qtel
+  - flrig
+
+documentation:
+  what_it_installs: >-
+    fldigi and the NBEMS stack that surrounds it, the whole FT8 family, JS8Call,
+    SSTV and radiofax, open digital voice, two small PSK31 clients, a
+    general-purpose FSK modem, a QRSS receiver, and the measuring tools that let
+    you compare two of them honestly.
+  why_together: >-
+    This is the reason most people install something like this. It is the widest
+    profile in the set and it is still coherent: everything here turns sound-card
+    audio into text, pictures or speech through a transceiver, and everything
+    here has the same three prerequisites — audio in, audio out, and a way to key
+    the radio.
+
+    **`wsjtx` is the recommended default of the FT8 family.** `wsjtx-improved`,
+    `jtdx` and `mshv` all decode FT8 and all declare themselves not the default;
+    they are carried because each has a real constituency — a better decoder in
+    crowded conditions, multi-stream decoding for a pileup — and because
+    PARITY-POLICY requires the choice be visible rather than made silently.
+  deliberately_excludes: >-
+    Packet and Winlink, which are `packet`. Morse, which is `morse` — fldigi
+    decodes CW too, and the dedicated tools do it better. `ardopcf` is an HF
+    data modem and sits in `packet` with the Winlink client it exists to serve.
+    Also excludes the FT8 family's own configuration: no frequency lists, no
+    station details, nothing that would need your callsign.
+
+    **The SvxLink infrastructure is deliberately not here.** `svxlink-server`,
+    `svxreflector`, `remotetrx` and the calibration and GPIO helpers run a
+    repeater or a linked network — that is operating infrastructure other
+    people depend on, not a mode you work, and it wants a considered install
+    rather than arriving inside a bundle. `qtel` IS here, because using
+    EchoLink from a desktop is an operating activity like any other.
+  manual_configuration: >-
+    **An accurate clock is not optional for FT8.** It transmits in 15-second
+    windows and a clock more than about a second out decodes nothing while
+    appearing to work — run NTP or chrony before anything else. **Audio
+    routing is the other thing nothing here does for you**: sound card in and
+    out to the radio, at levels that do not overdrive it, and PTT through
+    hamlib, flrig, CAT or VOX. Transmit audio level is the single biggest cause
+    of a station that hears everyone and is heard by nobody.
+
+    **Running several of the FT8 family at once contends for the same sound
+    device and the same radio** — pick one per session. SSTV needs the sound
+    card's sample rate calibrated once per machine or every picture slants,
+    which people blame on the band.
+  disk_footprint_hint: >-
+    Around 1.2 GB, and **four of these are source builds** — fldigi, both
+    WSJT-X variants and MSHV — so expect a long install. fldigi purges the
+    repository package first, because the source build installs to the same
+    prefix.

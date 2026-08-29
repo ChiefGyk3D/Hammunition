@@ -1,0 +1,78 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: listening
+summary: Shortwave, utility and aeronautical listening — no licence, no transmitter
+stage: "1.0"
+
+packages:
+  - libacars
+  - acarsdec
+  - acarsserv
+  - dumpvdl2
+  - dumphfdl
+  - rtlsdr-airband
+  - multimon-ng
+  - multimon
+  - dsdcc
+  - readsb
+  - mlat-client-adsbfi
+  - gr-air-modes
+  - rtl-ais
+  - ais-catcher
+  - gnuais
+  - gnuaisgui
+  - welle-io
+  - dablin
+  - satdump
+  - kalibrate-rtl
+  - morse2ascii
+  - xdemorse
+  - gqrx-sdr
+
+documentation:
+  what_it_installs: >-
+    The aeronautical decoder cluster — ACARS, VDL Mode 2 and HFDL, with the
+    shared library that turns their raw text into structured messages and a
+    database to keep what was heard. Aircraft transponder decoding with a
+    multilateration feeder. Marine AIS three ways. DAB in a window and in a pipe.
+    A multi-channel airband scanner, digital voice protocol decoding, paging
+    and classic mode decoding, weather satellite imaging, and two Morse
+    decoders.
+  why_together: >-
+    **This is the profile that needs no licence and no transmitter**, which
+    makes it the best on-ramp this project has. Someone with a twenty-pound
+    dongle and a wire can have aircraft on a map within an hour, and that is
+    usually what turns an interest into a hobby.
+
+    It is also where the Skywave delta lands. The aeronautical cluster in
+    particular is a genuine hole in Debian — libacars, acarsdec, dumpvdl2 and
+    dumphfdl are absent from stable *and* unstable, measured in containers —
+    so it is the clearest case of the thing this project exists to do: install
+    what a person cannot easily install themselves.
+  deliberately_excludes: >-
+    **`supersdr`, the headline remote-KiwiSDR client**, which Q-007 decided to
+    carry and which cannot be written yet: it runs from the directory it is
+    unpacked into, beside its own frequency database and fonts, and installing
+    a tree with a generated launcher is not something this engine does. See
+    `docs/reference/source-build-gaps.md` #8. Also excludes anything that
+    transmits, and anything aimed at protected communications — those are
+    `rf-security` and the consent-gated `rf-research`.
+  manual_configuration: >-
+    **An antenna for the band matters more than the receiver.** A quarter wave
+    for 1090 MHz is about 7 cm and for marine VHF about 46 cm; either, outside,
+    will multiply what a stub on a desk achieves, and 1090 MHz is line of sight
+    so height is everything. **Determine the dongle's PPM correction** — the
+    two AIS channels are 50 kHz apart and an uncorrected offset silently puts
+    one outside the filter, which reads as poor propagation.
+
+    Each decoder is configured separately and none is configured here; the
+    aeronautical tools in particular want frequencies for your region.
+    **Feeding an aggregator publishes what your receiver hears and where it
+    is, continuously**, and every feeder here is off unless you configure it —
+    that is a decision with a privacy dimension for the vessels and aircraft
+    as well as for you.
+  disk_footprint_hint: >-
+    Around 400 MB. Six of these are source or pinned-git builds — the whole
+    aeronautical cluster plus kalibrate-rtl — so the install takes longer than
+    the size suggests.

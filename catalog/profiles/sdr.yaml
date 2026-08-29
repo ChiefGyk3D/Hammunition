@@ -1,0 +1,77 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: sdr
+summary: Software-defined radio — receivers, GNU Radio, and the driver layer
+stage: "1.0"
+
+# D-020 says profile resolution consults detected hardware, and this is the
+# profile that needs it most: the Debian Blend's `sdr` task carries twelve
+# per-device SoapySDR modules and a one-dongle user needs exactly one. Hardware
+# detection is not written (M4), so this ships the software plus the driver
+# stack for the device almost everyone actually has, and names the rest.
+packages:
+  - gqrx-sdr
+  - sdrpp
+  - cubicsdr
+  - gnuradio
+  - gr-osmosdr
+  - soapysdr-tools
+  - soapysdr-module-rtlsdr
+  - rtl-sdr
+  - soapyremote-server
+  - soapysdr-module-remote
+  - inspectrum
+  - gr-rds
+  - quisk
+  - gnss-sdr
+
+documentation:
+  what_it_installs: >-
+    Three general-purpose receivers with waterfalls, GNU Radio and the block
+    that lets a flow graph talk to almost any radio, the SoapySDR tools and the
+    RTL-SDR driver stack, the client and server halves of network SDR sharing,
+    an offline signal visualiser, an RDS decoder, a transceiver application for
+    hardware that transmits, and a complete GPS receiver in software.
+  why_together: >-
+    Everything here works with one cheap dongle, and the driver layer is what
+    makes the applications interchangeable — software written against SoapySDR
+    reaches your radio through a module, which is why installing the right one
+    is usually the difference between an application listing your radio and
+    showing an empty device list.
+
+    **The network pair is worth the two packages.** Run the server where the
+    antenna is and the client where you are sitting, and every SoapySDR program
+    reaches the remote radio unchanged. Getting the antenna away from a modern
+    house is the single biggest improvement available to most receivers.
+  deliberately_excludes: >-
+    **Eleven of the twelve per-device SoapySDR modules.** Airspy, bladeRF,
+    LimeSDR, MiriSDR, PlutoSDR, Red Pitaya, RFSpace, USRP, OsmoSDR, audio and
+    the FUNcube all have manifests and none is installed here, because a
+    one-dongle user needs one module and installing twelve to be safe is
+    exactly what D-020 exists to avoid. Install the one matching your hardware
+    by name. `soapysdr-module-rtlsdr` is the exception on frequency grounds
+    rather than principle: an RTL-SDR is what most people have.
+
+    Also excludes transmit-capable and interception tooling, which is
+    `rf-security` and the consent-gated `rf-research`; the DAB transmit chain,
+    which emits into a broadcast band; and the aeronautical and utility
+    decoders, which are `listening`.
+  manual_configuration: >-
+    **A dongle that works under `sudo` and not otherwise is a permissions
+    problem.** Device access needs a udev rule and usually the `plugdev` group;
+    the hardware catalog carries the rules and applying them is M4 work that is
+    not written, so today that is a manual step. `SoapySDRUtil --find` is the
+    first command to run when a radio is invisible — it separates a USB or
+    permissions problem from a missing module from an application bug.
+
+    **Determine your dongle's frequency error once** and keep the PPM
+    correction; several decoders fail to lock rather than reporting an error
+    when it is wrong. `soapyremote-server` has no authentication at all —
+    anyone who can reach the port can use your radio and hear what it hears —
+    so it belongs on a trusted network or behind a tunnel, deliberately.
+    Quisk is configured in Python rather than through a dialog; the shipped
+    examples are the starting point and this is the step that stops people.
+  disk_footprint_hint: >-
+    Around 1.5 GB, most of it GNU Radio and its Python stack. Without GNU Radio
+    the rest is roughly 300 MB.

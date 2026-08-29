@@ -23,7 +23,7 @@ exactly where things stand:
 | …parity coverage | 🟡 **86 of the 108 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
 | Hardware catalog | 🟡 23 devices, 5 classes, 297 confirmed USB identifiers |
 | …of which **supported** / **run on hardware here** | **18** / **7** — [two different claims](docs/DECISIONS.md), kept apart on purpose |
-| Profiles | 🟡 4 written, the rest sized and named on paper |
+| Profiles | ✅ **all 12 of the 1.0 set**, plus 3 post-1.0 — every package installable, asserted by test |
 | Inventories of all five upstream sources | ✅ complete and measured |
 | Consent gates for RF-research tooling | ✅ working |
 | Distro detection from `/etc/os-release` | ✅ working |

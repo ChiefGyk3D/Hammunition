@@ -1,0 +1,61 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: morse
+summary: Morse code — sending, decoding, learning, and licence exam practice
+stage: "1.0"
+
+packages:
+  - aldo
+  - cw
+  - cwcp
+  - xcwcp
+  - qrq
+  - morse
+  - ebook2cw
+  - ebook2cwgui
+  - cwwav
+  - cwdaemon
+  - flwkey
+  - morse2ascii
+  - xdemorse
+  - ibp
+  - hamexam
+  - canadian-ham-exam
+  - fccexam
+
+documentation:
+  what_it_installs: >-
+    Four ways to learn — Koch method training, high-speed callsign drilling,
+    the three unixcw front ends, and a converter that turns any text you were
+    going to read into Morse audio at a speed you choose. Two decoders, one
+    live from a receiver and one offline from a recording. Two ways to send: a
+    daemon that keys a transmitter for a logging program, and a control panel
+    for a Winkeyer. A beacon monitor. And practice tests for the US and
+    Canadian licence exams.
+  why_together: >-
+    Morse is a skill before it is a mode, and everything here is either
+    practice, sending or copying. The licence exam tools are here because the
+    Debian Hamradio Blend groups its `morse` and `training` tasks together and
+    the same person wants both at the same stage — this is the profile someone
+    installs while they are still learning. If the exam tools look out of place
+    in something called `morse`, that is a fair reading and they are three
+    packages you can remove.
+  deliberately_excludes: >-
+    fldigi, which decodes CW among twenty other modes and belongs in
+    `digital-modes`. Contest loggers, which key CW through `cwdaemon` and live
+    in `logging`. Nothing here needs a radio: every trainer generates its own
+    audio, which is the point.
+  manual_configuration: >-
+    **`cwdaemon` needs a keying interface and a group you are not in.** Serial
+    keying needs `dialout`, parallel needs `lp`, and this profile adds neither
+    because which one depends on hardware the catalog cannot see. USB-to-serial
+    adapters vary widely in how fast they toggle a control line, and a slow one
+    keys cleanly at 15 wpm and falls apart at 30 — that is the adapter, not the
+    software. `flwkey` needs a Winkeyer on `dialout` too. **Check the exam
+    question pools against the current ones** before trusting a score: the
+    pools are revised on a rolling cycle and a packaged version can be asking
+    questions that are no longer on the exam.
+  disk_footprint_hint: >-
+    Under 100 MB. Everything here is small; the largest single item is the
+    wxWidgets front end for ebook2cw.

@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: satellite
+summary: Tracking, working and decoding amateur and weather satellites
+stage: "1.0"
+
+packages:
+  - gpredict
+  - gr-satellites
+  - satdump
+  - libhamlib-utils
+
+documentation:
+  what_it_installs: >-
+    A tracker that predicts passes and drives a rotator and radio through
+    hamlib, a large collection of telemetry decoders as GNU Radio blocks, and
+    SatDump for turning a weather-satellite pass into an image. Hamlib's
+    command-line tools come along because Doppler correction is what makes the
+    difference between chasing a signal across the band and staying on it, and
+    that runs through `rigctld`.
+  why_together: >-
+    A satellite pass is one activity with three parts: know when it is, follow
+    it while it happens, and make sense of what came down. Nothing here is
+    useful without the other two. It is a small profile because it is a
+    well-defined job.
+  deliberately_excludes: >-
+    The APT weather-satellite decoders. `noaa-apt` and `xwxapt` are in this
+    catalog and in the AHRL inventory, and both are RETIRE'd for the same
+    reason: every NOAA APT satellite went out of service on 2025-11-09.
+    SatDump covers what is still transmitting, and the retired entries stay in
+    the catalog with their provenance rather than vanishing. FoxTelem is also
+    absent — decoding AMSAT Fox telemetry is only worth it if enough of that
+    constellation is still alive, which nobody here has checked.
+  manual_configuration: >-
+    **Keplerian elements go stale in days, not months**, and gpredict computes
+    from whatever it last downloaded without warning you. Update them before
+    relying on a prediction; that is the single most common cause of a pass
+    that does not happen when predicted. Set your own location accurately —
+    every prediction is relative to it. Rotator and radio control need hamlib
+    reaching the hardware and `rigctld` running, which is a step that is easy
+    to miss.
+  disk_footprint_hint: >-
+    Around 400 MB. SatDump and gr-satellites carry most of it; gr-satellites
+    pulls the whole GNU Radio stack if it is not already present, which roughly
+    doubles the figure on a fresh machine.
