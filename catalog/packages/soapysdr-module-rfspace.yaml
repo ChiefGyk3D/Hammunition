@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: soapysdr-module-rfspace
+version: "0.2.5"
+summary: SoapySDR driver module for RFSpace networked receivers
+categories: [sdr, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [soapysdr-module-rfspace]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Speaks the RFSpace protocol -- SDR-IQ, SDR-IP, NetSDR, CloudIQ and the
+    Cloud-SDR line -- and presents those receivers as SoapySDR devices, over
+    USB or over the network depending on model.
+  why_you_want_it: >-
+    RFSpace receivers are well-regarded HF hardware with a proprietary
+    protocol, and outside their own software they are reachable through
+    surprisingly little. This is what puts one in front of gqrx, SDR++ or
+    CubicSDR. `cutesdr`, which this catalog also carries, is the vendor-adjacent
+    client for the same hardware.
+  prerequisites: >-
+    RFSpace hardware. Networked models must be reachable on the network, and
+    discovery is by broadcast, so a router in between usually means the device
+    is not found.
+  known_problems: >-
+    Built from the same `soapyosmo` source as the OsmoSDR module, so the two
+    move together in Debian. The maintainer does not own this hardware and
+    nothing here is maintainer-verified (D-027); it is carried because other
+    operators have it.
+  upstream_url: https://github.com/pothosware/SoapyOsmo/wiki
+  upstream_support: The Pothosware project.

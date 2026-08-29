@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: soapysdr-module-remote
+version: "0.5.2"
+summary: The client half of SoapyRemote — uses an SDR served by another machine
+categories: [sdr, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [soapysdr-module-remote]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Discovers SDRs published on the network by `soapyremote-server` and
+    presents them locally as SoapySDR devices. The application sees an ordinary
+    radio; the samples arrive over the network.
+  why_you_want_it: >-
+    This is the half that goes on the machine with the screen. Install
+    `soapyremote-server` where the dongle is and this where you are sitting,
+    and every SoapySDR program reaches the remote radio unchanged. Getting the
+    antenna away from a noisy house is the usual reason.
+  prerequisites: >-
+    A running `soapyremote-server` somewhere reachable. Discovery uses
+    broadcast, so a device on another subnet must be named explicitly in the
+    device string rather than found.
+  known_problems: >-
+    Network bandwidth bounds the sample rate, and exceeding it drops samples
+    rather than reporting an error -- the symptom is gaps and clicks that look
+    like a hardware fault. There is no authentication anywhere in this
+    protocol, in either half.
+  upstream_url: https://github.com/pothosware/SoapyRemote/wiki
+  upstream_support: The Pothosware project.

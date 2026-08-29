@@ -3,7 +3,7 @@
 
 name: uhd-soapysdr
 version: "0.4.1"
-summary: Makes Ettus USRP hardware visible to SoapySDR software
+summary: Makes SoapySDR devices visible to software written for UHD
 categories: [sdr, hardware]
 
 install:
@@ -18,22 +18,24 @@ update:
 
 documentation:
   what_it_does: >-
-    A SoapySDR module that wraps libuhd, so a USRP appears as an ordinary
-    SoapySDR device to any program that speaks that interface.
+    A libuhd plugin that presents SoapySDR devices as if they were USRPs. A
+    program written against UHD -- Ettus's own API -- then opens an RTL-SDR,
+    a HackRF or an Airspy without knowing anything about SoapySDR.
   why_you_want_it: >-
-    USRPs are driven through UHD, which is its own API; a large amount of SDR
-    software speaks SoapySDR and nothing else. This is the bridge, and it is
-    what lets a USRP be used with software written for cheaper hardware.
+    It runs the bridge in the direction people usually do not think about.
+    `soapysdr-module-uhd`, which this catalog carries separately, makes a USRP
+    visible to SoapySDR software; this one makes cheap hardware visible to UHD
+    software. Both come from the same upstream project and the names are close
+    enough that installing the wrong one is easy -- decide by which API the
+    program you want to run was written against.
   prerequisites: >-
-    UHD itself and the firmware images a USRP needs -- uhd-host carries the
-    downloader for those, and a device without matching firmware fails to
-    initialise. The device on USB or Ethernet depending on model.
+    libuhd, and a SoapySDR module for whatever hardware you actually have. It
+    is a translation layer and has no devices of its own.
   known_problems: >-
-    A layer over a layer: a problem can be in the application, in SoapySDR, in
-    this module, in UHD, or in the firmware, and the error usually names only
-    the outermost. Test with UHD's own utilities first to establish that the
-    device works at all. Advanced USRP features -- timed commands, multiple
-    channels, GPSDO discipline -- are not all expressible through SoapySDR, so
-    the native API remains the right choice for those.
+    Not every UHD feature has a SoapySDR equivalent. Timed commands, precise
+    multi-channel alignment and GPSDO discipline are USRP capabilities that a
+    dongle does not have, and a UHD program that depends on them will fail
+    against a translated device rather than degrade. The two similarly named
+    packages are the commonest confusion here; see above.
   upstream_url: https://github.com/pothosware/SoapyUHD/wiki
-  upstream_support: The Pothosware project.
+  upstream_support: The Pothosware project. GitHub issues and the wiki.

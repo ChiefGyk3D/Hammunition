@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: soapysdr-module-osmosdr
+version: "0.2.5"
+summary: SoapySDR driver module for OsmoSDR and MiriSDR hardware
+categories: [sdr, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [soapysdr-module-osmosdr]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Makes the devices supported by the OsmoSDR driver library usable through
+    SoapySDR, so SoapySDR software sees them without needing OsmoSDR-specific
+    code.
+  why_you_want_it: >-
+    Only if you have the hardware. Do not confuse it with `gr-osmosdr`, which
+    is the GNU Radio block that reaches many different devices -- the names are
+    close and the two do quite different jobs. This is a device driver shim;
+    that is a framework block.
+  prerequisites: >-
+    OsmoSDR hardware and its driver library, which apt pulls in.
+  known_problems: >-
+    The hardware was never widely produced and the software around it is
+    maintained rather than developed. Debian builds this and
+    `soapysdr-module-rfspace` from the same `soapyosmo` source package, so they
+    share a version and a release cadence.
+  upstream_url: https://github.com/pothosware/SoapyOsmo/wiki
+  upstream_support: The Pothosware project.

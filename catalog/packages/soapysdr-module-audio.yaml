@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: soapysdr-module-audio
+version: "0.1.1"
+summary: SoapySDR driver module for sound-card SDRs and Airspy HF hardware
+categories: [sdr, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [soapysdr-module-audio]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Presents an ordinary audio input as a SoapySDR device, so a receiver whose
+    IQ output is a stereo pair on a sound card can be used by SoapySDR
+    software. The module also carries support for hardware that pairs an audio
+    IQ path with USB tuning control.
+  why_you_want_it: >-
+    A large family of homebrew and kit receivers -- the SoftRock line and its
+    descendants -- produce quadrature audio and nothing else. Without this they
+    are invisible to modern SDR software; with it they behave like any other
+    device.
+  prerequisites: >-
+    A sound card capable of stereo input at the sample rate the receiver needs,
+    and correct channel assignment: swapped I and Q mirrors the spectrum, which
+    is a real and confusing failure.
+  known_problems: >-
+    Sound-card SDRs have no way to report their tuning frequency, so the
+    software cannot know where it is listening -- that offset is configuration,
+    not discovery. Consumer sound cards clip and roll off at the edges of their
+    range, so the usable bandwidth is narrower than the sample rate suggests.
+  upstream_url: https://github.com/pothosware/SoapyAudio/wiki
+  upstream_support: The Pothosware project.

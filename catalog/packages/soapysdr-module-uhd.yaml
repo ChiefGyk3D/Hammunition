@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: soapysdr-module-uhd
+version: "0.4.1"
+summary: SoapySDR driver module for Ettus USRP hardware
+categories: [sdr, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [soapysdr-module-uhd]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A SoapySDR plugin that wraps libuhd, so a USRP appears as an ordinary
+    SoapySDR device to any program speaking that interface.
+  why_you_want_it: >-
+    USRPs are driven through UHD, which is its own API, while a great deal of
+    SDR software speaks SoapySDR and nothing else. This is what lets a USRP be
+    used with software written for cheaper hardware -- CubicSDR, SDR++, gqrx
+    and the rest. It is the opposite direction from `uhd-soapysdr`, which this
+    catalog also carries; both are built from the same upstream source and the
+    names are easy to swap.
+  prerequisites: >-
+    UHD itself and the firmware images a USRP needs -- `uhd-host` carries the
+    downloader, and a device without matching firmware fails to initialise.
+  known_problems: >-
+    A layer over a layer: a fault can be in the application, in SoapySDR, in
+    this module, in UHD or in the firmware, and the error usually names only
+    the outermost. Test with UHD's own utilities first to establish the device
+    works at all. Advanced USRP features are not all expressible through
+    SoapySDR, so the native API remains right for those.
+  upstream_url: https://github.com/pothosware/SoapyUHD/wiki
+  upstream_support: The Pothosware project.
