@@ -65,7 +65,7 @@ reviewable at the manifest rather than only here.
 | `aa-analyzer` | `flaa` | Both are RigExpert antenna-analyser front ends; flaa is the maintained W1HKJ one. |
 | `ahrl_docs` | the Hammunition engine | The generated package reference replaces AHRL's PACKAGES/VERSIONS files (SUPERSEDE #8-11). |
 | `ahrl_menus` | the Hammunition engine | Profiles and desktop integration replace the xdg menu installer (SUPERSEDE #8-11). |
-| `ahrl_version` | the Hammunition engine | `hammunition --version` replaces the generated version script (SUPERSEDE #8-11). |
+| `ahrl_version` | the Hammunition engine | `hammunition status` reports target, catalog and transaction state — richer than AHRL's generated two-line version script (SUPERSEDE #8-11). The CLI has no `--version` flag yet; first VM run, 2026-08-29. |
 | `dump1090` | `readsb` | readsb is the maintained ADS-B decoder descended from dump1090; AHRL built an unversioned `dump1090-master` snapshot. |
 | `ESPHamClock` | `hamclock-next` / `openhamclock` | HamClock's author became a Silent Key on 2026-01-29 and the hamclock.com data feed sunset in June 2026. The community successors carry on; the default backend is `ohb.works` (Q-006). |
 | `gpsman` | `gpsbabel` + `gpsd` | GPSMan is a Tcl relic; gpsbabel converts the data and gpsd serves the device. The replacement declares `supersedes: [gpsman]` itself. |

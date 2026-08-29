@@ -28,7 +28,7 @@ The right programming cable, and access to its serial device -- the `dialout` gr
 
 ## Known problems
 
-Counterfeit Prolific and FTDI cables are the dominant problem in this whole area. A cable may enumerate, appear in `dmesg`, and still fail to communicate, because the driver detects the clone and refuses. Buy from a known source. Always download from the radio before uploading to it: the downloaded image is your only backup, and a wrong model selection can write an image the radio cannot boot from. Some radios are known to CHIRP only in a development build, which is why the version spread across targets matters.
+Counterfeit Prolific and FTDI cables are the dominant problem in this whole area. A cable may enumerate, appear in `dmesg`, and still fail to communicate, because the driver detects the clone and refuses. Buy from a known source. Always download from the radio before uploading to it: the downloaded image is your only backup, and a wrong model selection can write an image the radio cannot boot from. Some radios are known to CHIRP only in a development build, which is why the version spread across targets matters. The packaged executables are `chirpw` (the GUI) and `chirpc` (the CLI) -- there is no `chirp` binary, so typing the package name launches nothing (verified on Parrot 7.3, 2026-08-29; AHRL users will also miss its generated `run_chirp` wrapper, which we do not reproduce).
 
 ## Keeping it current
 

@@ -251,8 +251,9 @@ SUPERSEDED: dict[str, tuple[str, str | None, str]] = {
     "ahrl_version": (
         "the Hammunition engine",
         None,
-        "`hammunition --version` replaces the generated version script "
-        "(SUPERSEDE #8-11).",
+        "`hammunition status` reports target, catalog and transaction state — "
+        "richer than AHRL's generated two-line version script (SUPERSEDE "
+        "#8-11). The CLI has no `--version` flag yet; first VM run, 2026-08-29.",
     ),
     "source_libs": (
         "the Hammunition engine",
