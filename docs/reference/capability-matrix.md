@@ -245,7 +245,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `minimodem` | apt | apt | apt | apt | apt | apt |
 | `miri-sdr` | apt | apt | apt | apt | apt | apt |
 | `mlat-client-adsbfi` | apt | apt | apt | apt | apt ✗ | apt |
-| `morse` | apt | apt | apt | apt | apt | apt |
+| `morse-classic` | apt | apt | apt | apt | apt | apt |
 | `morse2ascii` | apt | apt | apt | apt | apt | apt |
 | `mshv` | source | source | source | source | source | source |
 | `multimon` | apt | apt | apt | apt | apt | apt |

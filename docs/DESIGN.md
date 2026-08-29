@@ -415,9 +415,20 @@ VARA and HAMRS are post-1.0. Novel capability layers on top, never substitutes.
 
 ### Open
 
-5. **Station-local configuration — now blocking.** Callsign, grid square, rig
-   device paths. Where does operator-specific config live, and how does it stay
-   out of git?
+5. **Station-local configuration — RESOLVED 2026-08-29, see D-035.** Values
+   live in `$XDG_CONFIG_HOME/hammunition/station.yml`, mode 0600, resolved
+   owner-aware so `sudo` writes to the invoking user's home. They arrive from
+   that file, from `--callsign` and its siblings, or from a prompt that happens
+   only when the request needs a value and the terminal can answer.
+
+   **A missing value defers one file rather than refusing the transaction**,
+   which is the part that mattered: the `packet` profile's nineteen packages
+   used to fail entirely because `linbpq` did not know a callsign. Nothing is
+   invented — no default, no placeholder — because a config written with a
+   made-up callsign would transmit it.
+
+   The original question, kept because the reasoning below is still the
+   argument for the shape:
 
    No longer deferrable: the 1.0 packet core forces it. AX.25's install writes
    `wl2k ${MYCALL} 1200 255 7 Winlink` into `/etc/ax25/axports`, and Direwolf is

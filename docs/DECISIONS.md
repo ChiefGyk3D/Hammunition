@@ -1931,3 +1931,69 @@ shared one would let an opt-in to receiving satisfy an opt-in to transmitting.
 
 **Consequence for 1.0.** `rf-research`'s contents are now settled rather than
 provisional, and its `deliberately_excludes` says *post-1.0*, not *undecided*.
+
+---
+
+## D-035 — A missing station value defers one file; it does not refuse the transaction
+
+**Date:** 2026-08-29. **Status:** accepted. **Closes:** DESIGN.md §15 question 5,
+open and blocking since the 1.0 packet core was admitted.
+
+**Rule.** Configuration this catalog writes on the operator's behalf is
+templated from station-local values — callsign, grid square, node alias. When a
+value is unknown, the file is **not written and is reported**, and everything
+else in the transaction proceeds.
+
+### Why deferral rather than refusal
+
+The old behaviour was a blocker: any manifest with a `config_files` block
+failed resolution, and because a profile fails if any member fails, the
+**`packet` profile could not be installed by anyone**. Nineteen packages —
+Direwolf, the AX.25 stack, Pat, Xastir, LinBPQ — refused because one of them did
+not know a callsign. That is the profile the 73Linux delta was acquired for.
+
+The maintainer's bar, recorded because it is the reasoning and not just the
+verdict: *getting a user 95% of the way is a success as long as there are no
+true blockers to 100% besides some user config.* An unknown callsign is user
+config. It is not a true blocker, and treating it as one served nobody.
+
+So `Deferral` sits beside `Blocker` in the planner and the two mean different
+things. A blocker means the machine must not be touched. A deferral means most
+of what was asked for happens, one part does not, and the report names it
+precisely with the command that would let it.
+
+### Three properties that are not negotiable
+
+**Nothing is invented.** There is no default callsign, no placeholder, no
+`CHANGEME`. A configuration file written with a made-up callsign would transmit
+it, and the station identifier is the operator's legal identity on the air.
+
+**A partial file is never written.** A config missing one of three values is
+deferred whole. A file with `{station.callsign}` still in it looks configured
+and is not, which is worse than an absent file because the operator has no
+reason to look.
+
+**Existing files are backed up before being replaced**, once. These paths
+belong to the distribution's packages as often as to us — overwriting a
+hand-tuned `/etc/ax25/axports` without a copy is damage no transaction log can
+undo. The backup is written only if one does not already exist, so a second run
+cannot replace the operator's original with our own previous output.
+
+### How values arrive
+
+Three sources, later winning: `$XDG_CONFIG_HOME/hammunition/station.yml`, then
+`--callsign` and its siblings, then an interactive prompt. The prompt happens
+only when the request **actually needs a value**, standard input and output are
+both a terminal, and `--yes` was not given. Prompting for a callsign to install
+a spectrum analyser is how people learn to dismiss prompts, which is precisely
+what would make the consent gates of **D-021** worthless.
+
+The file is mode 0600 and its path is resolved owner-aware, so running under
+`sudo` still writes to the invoking user's home rather than root's.
+
+### Relationship to D-012
+
+**D-012** scoped `system_modifications` to udev rules, groups and blacklists
+and explicitly did not cover templated config. This is that gap filled, and it
+is filled as a separate concept rather than a fourth modification kind, because
+a config file is the only one of the four that can be *partly* possible.

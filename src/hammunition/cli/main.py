@@ -31,7 +31,7 @@ import argparse
 import os
 import sys
 import textwrap
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from hammunition.backends import (
@@ -55,6 +55,16 @@ from hammunition.manifest.schema import PackageManifest, ProfileManifest, Status
 from hammunition.paths import build_root
 from hammunition.plan import InstallPlan, PlanError, resolve
 from hammunition.state import TransactionLog, log_path
+from hammunition.station import (
+    STATION_FIELDS,
+    Station,
+    StationError,
+    config_path,
+    is_interactive,
+    load_station,
+    prompt_for,
+    save_station,
+)
 
 __all__ = ["build_parser", "main"]
 
@@ -168,6 +178,25 @@ def render_plan(
                 wrapped = _wrap(risk, indent="        ")
                 lines.append("      - " + wrapped[0].strip())
                 lines.extend(wrapped[1:])
+        lines.append("")
+
+    if plan.config_files:
+        lines.append("Configuration that will be written:")
+        for package, config, _body in plan.config_files:
+            backup = "existing file backed up" if config.backup_existing else "NOT backed up"
+            verb = "appended to" if config.append else "written"
+            lines.append(f"  {config.path}  ({verb}, mode {config.mode}, {backup})  [{package}]")
+        lines.append("")
+
+    if plan.deferrals:
+        # Deliberately after the packages and before the notes: this is the
+        # part of the request that will NOT happen, and burying it under a
+        # heading called "notes" is how it stops being read. D-035.
+        lines.append("Will NOT happen (the rest of the transaction still will):")
+        for deferral in plan.deferrals:
+            lines.append(f"  {deferral.subject}: {deferral.what}")
+            lines.extend(_wrap(f"why: {deferral.why}", indent="      "))
+            lines.extend(_wrap(f"→ {deferral.remedy}", indent="      "))
         lines.append("")
 
     if plan.notes:
@@ -334,6 +363,120 @@ def cmd_status(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_station_show(args: argparse.Namespace) -> int:
+    """What is saved, and where. Says plainly when nothing is."""
+    user = operator(args)
+    path = config_path(user)
+    try:
+        station = load_station(owner=user)
+    except StationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+
+    print(f"Station configuration: {path}")
+    if not path.exists():
+        print("  (no file yet)")
+    values = station.as_dict()
+    if not values:
+        print("\nNothing set. `hammunition station set --callsign <yours>` starts it off.")
+        print("Nothing is invented on your behalf: a configuration file needing a value")
+        print("you have not given is reported as not written, and the package still installs.")
+        return EXIT_OK
+    print()
+    for field in sorted(STATION_FIELDS):
+        value = station.get(field)
+        print(f"  {field:<14} {value if value else '(not set)'}")
+    return EXIT_OK
+
+
+def cmd_station_set(args: argparse.Namespace) -> int:
+    user = operator(args)
+    try:
+        current = load_station(owner=user)
+    except StationError:
+        current = Station()
+    overrides = {
+        field: value
+        for field, value in (
+            ("callsign", args.callsign),
+            ("grid_square", args.grid_square),
+            ("node_alias", args.node_alias),
+        )
+        if value
+    }
+    if not overrides:
+        print(
+            "error: nothing to set. Pass at least one of --callsign, --grid-square, --node-alias.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    try:
+        station = Station(**{**current.as_dict(), **overrides})
+    except StationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    path = save_station(station, owner=user)
+    print(f"Saved to {path} (mode 0600).")
+    for field in sorted(overrides):
+        print(f"  {field:<14} {station.get(field)}")
+    return EXIT_OK
+
+
+def _station_for(
+    args: argparse.Namespace,
+    packages: Mapping[str, PackageManifest],
+    profiles: Mapping[str, ProfileManifest],
+    user: str,
+) -> Station:
+    """The station values this run will use.
+
+    Three sources, later winning: the saved file, then `--callsign` and friends,
+    then a prompt — and the prompt happens only when the request actually needs
+    a value, the terminal can answer, and `--yes` was not given. Asking for a
+    callsign to install a spectrum analyser would be the kind of prompt people
+    learn to dismiss, which is what makes the consent gates worthless.
+    """
+    try:
+        station = load_station(owner=user)
+    except StationError as exc:
+        print(f"warning: {exc}", file=sys.stderr)
+        print("  continuing without saved station values.", file=sys.stderr)
+        station = Station()
+
+    overrides = {
+        field: value
+        for field, value in (
+            ("callsign", args.callsign),
+            ("grid_square", args.grid_square),
+            ("node_alias", args.node_alias),
+        )
+        if value
+    }
+    if overrides:
+        station = Station(**{**station.as_dict(), **overrides})
+
+    if args.yes or not is_interactive():
+        return station
+
+    needed: set[str] = set()
+    for name in args.names:
+        for package in profiles[name].packages if name in profiles else [name]:
+            manifest = packages.get(package)
+            if manifest is not None:
+                needed |= manifest.station_variables
+    outstanding = station.missing(needed)
+    if not outstanding:
+        return station
+
+    print("Some configuration in this request needs values only you can supply.")
+    print("Leave any blank to skip it — the package still installs and the file is not written.\n")
+    station = prompt_for(outstanding, station)
+    if station.as_dict():
+        saved = save_station(station, owner=user)
+        print(f"\nSaved to {saved} (mode 0600).\n")
+    return station
+
+
 def cmd_install(args: argparse.Namespace) -> int:
     try:
         target = Target.detect()
@@ -356,6 +499,8 @@ def cmd_install(args: argparse.Namespace) -> int:
     apt = AptBackend(runner)
     user = operator(args)
 
+    station = _station_for(args, packages, profiles, user)
+
     try:
         plan = resolve(
             args.names,
@@ -365,6 +510,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             apt=apt,
             user=user,
             refresh=args.refresh,
+            station=station,
         )
     except PlanError as exc:
         print(str(exc), file=sys.stderr)
@@ -606,7 +752,28 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="operator to add to groups (default: $SUDO_USER, else $USER)",
     )
+    # Station values. Supplying one here overrides the saved file for this run
+    # and, if a prompt happens, is remembered.
+    p_install.add_argument("--callsign", default=None, help="your callsign — it is transmitted")
+    p_install.add_argument("--grid-square", default=None, help="Maidenhead locator, e.g. IO91wm")
+    p_install.add_argument(
+        "--node-alias", default=None, help="short packet node alias, up to six characters"
+    )
     p_install.set_defaults(func=cmd_install)
+
+    p_station = sub.add_parser("station", help="the values only you can supply")
+    station_sub = p_station.add_subparsers(dest="station_command", required=True)
+
+    p_station_show = station_sub.add_parser("show", help="print the saved station values")
+    p_station_show.add_argument("--user", default=None, help="whose configuration to read")
+    p_station_show.set_defaults(func=cmd_station_show)
+
+    p_station_set = station_sub.add_parser("set", help="save station values")
+    p_station_set.add_argument("--callsign", default=None)
+    p_station_set.add_argument("--grid-square", default=None)
+    p_station_set.add_argument("--node-alias", default=None)
+    p_station_set.add_argument("--user", default=None, help="whose configuration to write")
+    p_station_set.set_defaults(func=cmd_station_set)
 
     return parser
 

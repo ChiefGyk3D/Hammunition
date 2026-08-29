@@ -11,7 +11,7 @@ packages:
   - cwcp
   - xcwcp
   - qrq
-  - morse
+  - morse-classic
   - ebook2cw
   - ebook2cwgui
   - cwwav

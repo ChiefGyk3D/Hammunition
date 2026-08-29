@@ -49,7 +49,7 @@ Morse code -- keying, decoding, and learning to hear it.
 - [ebook2cwgui](ebook2cwgui.md) — Graphical front end for ebook2cw
 - [flwkey](flwkey.md) — Control panel for the Winkeyer hardware CW keyer
 - [ibp](ibp.md) — Shows which NCDXF/IARU beacon is transmitting right now, on which band
-- [morse](morse.md) — Text-to-Morse sounder and trainer, Eric Raymond's morse-classic
+- [morse-classic](morse-classic.md) — Text-to-Morse sounder and trainer, Eric Raymond's morse-classic
 - [morse2ascii](morse2ascii.md) — Decodes Morse out of a recorded WAV file
 - [qrq](qrq.md) — High-speed Morse trainer that pushes your callsign copy to its limit
 - [tlf](tlf.md) — Console contest logger built for speed, driven from the keyboard
@@ -552,7 +552,7 @@ Licence exam preparation and operating practice.
 - [ebook2cwgui](ebook2cwgui.md) — Graphical front end for ebook2cw
 - [fccexam](fccexam.md) — Practice tests for the US FCC commercial radio licence exams
 - [hamexam](hamexam.md) — Practice tests for the United States amateur radio licence exams
-- [morse](morse.md) — Text-to-Morse sounder and trainer, Eric Raymond's morse-classic
+- [morse-classic](morse-classic.md) — Text-to-Morse sounder and trainer, Eric Raymond's morse-classic
 - [qrq](qrq.md) — High-speed Morse trainer that pushes your callsign copy to its limit
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
@@ -700,7 +700,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [minimodem](minimodem.md) | General-purpose audio FSK modem — Bell 103, RTTY, AX.25 and anything else | apt |
 | [miri-sdr](miri-sdr.md) | Command-line tools for Mirics-based receivers | apt |
 | [mlat-client-adsbfi](mlat-client-adsbfi.md) | Contributes ADS-B timing data so a network can locate aircraft by multilateration | apt |
-| [morse](morse.md) | Text-to-Morse sounder and trainer, Eric Raymond's morse-classic | apt |
+| [morse-classic](morse-classic.md) | Text-to-Morse sounder and trainer, Eric Raymond's morse-classic | apt |
 | [morse2ascii](morse2ascii.md) | Decodes Morse out of a recorded WAV file | apt |
 | [mshv](mshv.md) | Multi-mode weak-signal application with multi-stream FT8 decoding | source |
 | [multimon](multimon.md) | The original multimon decoder, kept for the modes its successor dropped | apt |

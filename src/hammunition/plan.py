@@ -40,6 +40,7 @@ from hammunition.backends import IMPLEMENTED_METHODS, IMPLEMENTED_MODIFICATIONS,
 from hammunition.backends.source import IMPLEMENTED_BUILD_SYSTEMS
 from hammunition.distro import Target
 from hammunition.manifest.schema import (
+    ConfigFile,
     ConsentGate,
     GitInstall,
     InstallBlock,
@@ -48,9 +49,11 @@ from hammunition.manifest.schema import (
     SourceInstall,
     Status,
 )
+from hammunition.station import Station
 
 __all__ = [
     "Blocker",
+    "Deferral",
     "GroupMembership",
     "InstallPlan",
     "PlanError",
@@ -79,6 +82,33 @@ class Blocker:
         if self.remedy:
             line += f"\n    → {self.remedy}"
         return line
+
+
+@dataclass(frozen=True)
+class Deferral:
+    """Something the transaction will NOT do, without refusing to proceed.
+
+    The distinction from :class:`Blocker` is the whole of D-035. A blocker means
+    the machine must not be touched. A deferral means most of what was asked for
+    happens and one part does not, named precisely, with what would let it.
+
+    Templated configuration missing a station value is the case this exists for:
+    a `packet` profile of nineteen packages used to refuse entirely because
+    `linbpq` did not know a callsign. Nineteen packages installed and one file
+    not written is a better outcome than nothing installed, and it is only
+    honest if the unwritten file is reported rather than skipped.
+    """
+
+    subject: str
+    what: str
+    """What will not happen."""
+    why: str
+    """What is missing."""
+    remedy: str
+    """What the operator can do about it."""
+
+    def render(self) -> str:
+        return f"{self.subject}: {self.what}\n    why: {self.why}\n    → {self.remedy}"
 
 
 class PlanError(Exception):
@@ -143,6 +173,11 @@ class InstallPlan:
     group_memberships: tuple[GroupMembership, ...] = ()
     consent_gates: tuple[tuple[str, ConsentGate], ...] = ()
     notes: tuple[str, ...] = field(default_factory=tuple)
+    deferrals: tuple[Deferral, ...] = ()
+    """Parts of the request that will not happen, and why. D-035."""
+
+    config_files: tuple[tuple[str, ConfigFile, str], ...] = ()
+    """(package, config file, rendered body) for every file that WILL be written."""
 
     @property
     def apt_to_install(self) -> tuple[str, ...]:
@@ -361,21 +396,9 @@ def _check_engine_capability(manifest: PackageManifest, block: InstallBlock) -> 
             )
         )
 
-    if manifest.config_files:
-        variables = sorted(manifest.station_variables)
-        found.append(
-            Blocker(
-                subject=manifest.name,
-                reason=(
-                    "writes templated configuration"
-                    + (f" needing station values ({', '.join(variables)})" if variables else "")
-                ),
-                remedy=(
-                    "station-local configuration — callsign, grid square, rig device paths — "
-                    "is the open design question this manifest is waiting on (DESIGN.md §15.3)"
-                ),
-            )
-        )
+    # `config_files` is deliberately NOT a blocker any more. A templated file
+    # whose station values are unknown becomes a Deferral: the package installs
+    # and the file is reported as not written. See D-035 and `_plan_config`.
 
     for modification in manifest.system_modifications:
         if modification.kind not in IMPLEMENTED_MODIFICATIONS:
@@ -388,6 +411,44 @@ def _check_engine_capability(manifest: PackageManifest, block: InstallBlock) -> 
             )
 
     return found
+
+
+def _plan_config(
+    manifest: PackageManifest, station: Station
+) -> tuple[list[tuple[str, ConfigFile, str]], list[Deferral]]:
+    """Render this manifest's templated config, or defer what cannot be rendered.
+
+    Every file is all-or-nothing: a config file written with some values
+    substituted and others left as `{station.callsign}` is worse than no file,
+    because it looks configured. So a file missing one value is deferred whole.
+    """
+    writable: list[tuple[str, ConfigFile, str]] = []
+    deferred: list[Deferral] = []
+    for config in manifest.config_files:
+        wanted = config.station_variables
+        unknown = station.missing(wanted)
+        if unknown:
+            deferred.append(
+                Deferral(
+                    subject=manifest.name,
+                    what=f"will not write {config.path}",
+                    why="station values not set: " + ", ".join(unknown),
+                    remedy=(
+                        "run `hammunition station set --"
+                        + " --".join(f"{v.replace('_', '-')} <value>" for v in unknown)
+                        + "` and install again, or write the file by hand. The package "
+                        "itself installs either way."
+                    ),
+                )
+            )
+            continue
+        body = config.template
+        for variable in wanted:
+            value = station.get(variable)
+            assert value is not None  # `missing` above proved it
+            body = body.replace("{station." + variable + "}", value)
+        writable.append((manifest.name, config, body))
+    return writable, deferred
 
 
 def _status_blocker(manifest: PackageManifest) -> Blocker | None:
@@ -415,6 +476,7 @@ def resolve(
     apt: AptBackend,
     user: str,
     refresh: bool = False,
+    station: Station | None = None,
 ) -> InstallPlan:
     """Build a complete plan, or raise :class:`PlanError` listing every blocker.
 
@@ -424,6 +486,9 @@ def resolve(
     than N answers taken at N different moments.
     """
     blockers: list[Blocker] = []
+    deferrals: list[Deferral] = []
+    config_files: list[tuple[str, ConfigFile, str]] = []
+    station = station if station is not None else Station()
 
     wanted, gates = _expand_requests(names, catalog, profiles, blockers)
     _pull_catalog_dependencies(wanted, catalog)
@@ -466,6 +531,10 @@ def resolve(
         if capability:
             blockers.extend(capability)
             continue
+
+        writable, deferred = _plan_config(manifest, station)
+        config_files.extend(writable)
+        deferrals.extend(deferred)
 
         # apt and source reach here; _check_engine_capability rejects the rest.
         # A source build needs its `build_depends` from apt before it can start,
@@ -624,4 +693,6 @@ def resolve(
         group_memberships=memberships,
         consent_gates=tuple(gates),
         notes=tuple(notes),
+        deferrals=tuple(deferrals),
+        config_files=tuple(config_files),
     )

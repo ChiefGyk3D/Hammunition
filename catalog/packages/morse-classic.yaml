@@ -1,9 +1,17 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: CC0-1.0
 
-name: morse
+name: morse-classic
 version: "2.6"
 summary: Text-to-Morse sounder and trainer, Eric Raymond's morse-classic
+
+# Named for the upstream project, `morse-classic`, rather than for Debian's
+# binary package `morse`. Two reasons, and the second is the one that forced it.
+# Upstream's own name is morse-classic and the repository is esr/morse-classic,
+# so this is the more accurate identifier. And `morse` is the name of a profile:
+# the engine refuses a request that is ambiguous between a package and a
+# profile, which is correct and which made the profile uninstallable by name.
+# The apt package below is unchanged — Debian's name is Debian's to choose.
 categories: [cw, training]
 
 install:

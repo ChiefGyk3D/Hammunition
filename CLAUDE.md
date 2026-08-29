@@ -155,6 +155,7 @@ Do not re-litigate these without being asked:
 | Hardware claims | `status` and `maintainer_verified` are separate fields | `usrp` is supported from Debian's rule and has never been run here (**D-027**) |
 | Unlicensed upstreams | Weigh community adoption and what we actually do — carry, state the position, never mirror | Most small-utility authors are not lawyers; a missing LICENSE is usually oversight (**D-033**) |
 | Cellular tooling | Staged, not filtered. Receive in 1.0, transmit post-1.0, both consent-gated | The line is transmit, not topic (**D-034**) |
+| Station config | A missing value defers one file, never the transaction. Nothing is invented | 19 packages refused over one unknown callsign (**D-035**) |
 | udev symlinks | An identifier naming a chip may not name a `/dev` node | `/dev/badge` on a CP2102 claims the rig cable (**D-028**) |
 | Upstream liveness | The default branch's head commit, never GitHub's `updated_at`/`pushed_at` | `updated_at` moves when somebody *stars* a repo; it reported two dead projects as active (**D-032**) |
 

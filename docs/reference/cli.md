@@ -72,9 +72,39 @@ Names may be packages or profiles, mixed freely.
 | Flag | Effect |
 |---|---|
 | `--dry-run` | Resolve everything, print exactly what would run, change nothing |
-| `--yes` | Skip the confirmation. **Does not satisfy a consent gate** (D-021) |
+| `--yes` | Skip the confirmation. **Does not satisfy a consent gate** (D-021). Also suppresses the station prompt |
 | `--refresh` | Run `apt-get update` as the transaction's first command |
 | `--user NAME` | Who to add to groups. Defaults to `$SUDO_USER`, then `$USER` |
+| `--callsign CALL` | Station callsign for this run. Overrides the saved value |
+| `--grid-square LOC` | Maidenhead locator, four or six characters |
+| `--node-alias NAME` | Short packet node alias, up to six characters |
+
+### `hammunition station show` / `hammunition station set`
+
+The values only you can supply — callsign, grid square, packet node alias. Some
+manifests write configuration files templated with them: `linbpq` needs a node
+callsign, AX.25 needs one in `/etc/ax25/axports`, Direwolf needs one in its
+own configuration.
+
+```
+hammunition station set --callsign M0ABC --grid-square IO91wm
+hammunition station show
+```
+
+Saved to `$XDG_CONFIG_HOME/hammunition/station.yml`, mode 0600, resolved
+owner-aware so that running under `sudo` still writes to the invoking user's
+home rather than root's.
+
+**A value you have not supplied does not block an install.** The package is
+installed and the file that needed the value is reported under *Will NOT
+happen*, with the command that would let it be written. That is deliberate
+(**D-035**): a nineteen-package profile refusing entirely because one file
+needed a callsign got an operator nowhere.
+
+**Nothing is invented.** There is no default callsign and no placeholder,
+because a configuration file written with a made-up callsign would transmit
+it. An interactive run offers to prompt for what the request actually needs;
+`--yes`, a pipe, or a value that is already known all skip the question.
 
 ## How a run is ordered
 

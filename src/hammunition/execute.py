@@ -21,9 +21,12 @@ import contextlib
 import grp
 import os
 import pwd
+import shutil
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import partial
+from pathlib import Path
 from typing import Protocol
 
 from hammunition.backends import (
@@ -87,6 +90,69 @@ def user_groups(user: str) -> frozenset[str]:
     return frozenset(names)
 
 
+def write_config(path: Path, body: str, mode: int, *, append: bool, backup: bool) -> str:
+    """Write one templated configuration file. Returns a one-line outcome.
+
+    Backing up first is the default and matters: these paths belong to the
+    distribution's packages as often as to us, and overwriting an operator's
+    hand-tuned `/etc/ax25/axports` without a copy would be the kind of damage
+    no transaction log can undo.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    saved = ""
+    if backup and path.exists():
+        backup_path = path.with_suffix(path.suffix + ".hammunition-backup")
+        if not backup_path.exists():
+            shutil.copy2(path, backup_path)
+            saved = f", previous contents saved to {backup_path.name}"
+        else:
+            saved = f", {backup_path.name} already exists and was left alone"
+    if append and path.exists():
+        with path.open("a") as handle:
+            handle.write(body if body.endswith("\n") else body + "\n")
+        action = "appended to"
+    else:
+        path.write_text(body if body.endswith("\n") else body + "\n")
+        action = "wrote"
+    os.chmod(path, mode)
+    return f"{action} {path} (mode {mode:04o}){saved}"
+
+
+def config_steps(plan: InstallPlan) -> list[Action]:
+    """One Action per config file the plan resolved. Never a partial file.
+
+    `plan.config_files` holds only what could be fully rendered — a file
+    missing a station value is a Deferral and never reaches here, because a
+    config written with `{station.callsign}` still in it looks configured and
+    is not.
+    """
+    steps: list[Action] = []
+    for package, config, body in plan.config_files:
+        path = Path(config.path)
+        mode = int(config.mode, 8)
+        verb = "Append" if config.append else "Write"
+        steps.append(
+            Action(
+                kind="config",
+                description=f"{verb} {config.path} for {package}",
+                detail=(
+                    f"mode {config.mode}, "
+                    + ("existing file backed up" if config.backup_existing else "no backup")
+                ),
+                perform=partial(
+                    write_config,
+                    path,
+                    body,
+                    mode,
+                    append=config.append,
+                    backup=config.backup_existing,
+                ),
+                requires_root=not os.access(path.parent if path.parent.exists() else "/", os.W_OK),
+            )
+        )
+    return steps
+
+
 def commands_for(
     plan: InstallPlan,
     apt: AptBackend,
@@ -130,6 +196,11 @@ def commands_for(
                     f"Skipping it would report a successful run that installed nothing."
                 )
             commands.extend(git.steps(planned.manifest, block))
+
+    # Configuration is written after the software that reads it exists, so a
+    # package's own postinst cannot overwrite what we put down, and before
+    # group membership for the same reason the comment above gives.
+    commands.extend(config_steps(plan))
 
     cache: dict[str, frozenset[str]] = {}
     for membership in plan.group_memberships:
