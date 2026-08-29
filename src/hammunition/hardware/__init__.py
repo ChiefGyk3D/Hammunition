@@ -9,6 +9,17 @@ Persistent udev symlinks are one tactic used where the evidence supports one,
 not the headline.
 """
 
+from .detect import AttachedDevice, Match, match_catalog, read_usb_bus
 from .udev import RULES_PATH, Omission, RuleSet, rules_file, rules_for
 
-__all__ = ["RULES_PATH", "Omission", "RuleSet", "rules_file", "rules_for"]
+__all__ = [
+    "RULES_PATH",
+    "AttachedDevice",
+    "Match",
+    "Omission",
+    "RuleSet",
+    "match_catalog",
+    "read_usb_bus",
+    "rules_file",
+    "rules_for",
+]

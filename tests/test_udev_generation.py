@@ -285,3 +285,99 @@ def test_no_rule_carries_an_unsubstituted_placeholder(
     for line in text.splitlines():
         if line.startswith("SUBSYSTEM"):
             assert "None" not in line, f"a None leaked into a rule: {line}"
+
+
+# ---------------------------------------------------------------------------
+# Detection — what is actually plugged in
+# ---------------------------------------------------------------------------
+
+
+def test_sysfs_is_read_rather_than_lsusb(tmp_path: Path) -> None:
+    """`lsusb` is a package that may not be installed, its output is formatted
+    for people, and a container may see nothing through it. sysfs gives the
+    descriptor fields directly and identically everywhere."""
+    from hammunition.hardware import read_usb_bus
+
+    bus = tmp_path / "devices"
+    device = bus / "1-2"
+    device.mkdir(parents=True)
+    (device / "idVendor").write_text("1D50\n")
+    (device / "idProduct").write_text("6089\n")
+    (device / "product").write_text("HackRF One\n")
+    (device / "serial").write_text("0000abcd\n")
+    # An interface directory, which has no idVendor and must be skipped.
+    (bus / "1-2:1.0").mkdir()
+
+    found = read_usb_bus(bus)
+    assert len(found) == 1, "an interface directory was counted as a device"
+    assert found[0].vendor == "1d50", "identifiers are normalised to lowercase"
+    assert found[0].product_string == "HackRF One"
+    assert found[0].serial == "0000abcd"
+
+
+def test_an_absent_usb_tree_is_not_an_error(tmp_path: Path) -> None:
+    """A container without USB passthrough is a normal place to run this."""
+    from hammunition.hardware import read_usb_bus
+
+    assert read_usb_bus(tmp_path / "nothing here") == []
+
+
+def test_a_generic_product_string_does_not_resolve_ambiguity(
+    catalog: tuple[dict[str, Any], dict[str, Any]],
+) -> None:
+    """The bug this caught on real hardware.
+
+    `303a:1001` is the ESP32-S3's USB-JTAG peripheral, shared by 49 LoRa board
+    definitions. Clip-Boy, Free-WiLi 2 and Minino all record its product string
+    as "USB JTAG/serial debug unit", because that is Espressif's default and
+    every one of those boards reports it. The matcher treated a match on it as
+    confirmation, so plugging in a Minino reported an unambiguous Clip-Boy —
+    while two other entries had silently claimed the same device.
+
+    A product string resolves an identifier only if the catalog shows it
+    belongs to exactly one entry.
+    """
+    from hammunition.hardware import AttachedDevice, match_catalog
+
+    classes, devices = catalog
+    espressif = AttachedDevice(
+        vendor="303a", product="1001", product_string="USB JTAG/serial debug unit"
+    )
+    matches, _unknown = match_catalog([espressif], {**classes, **devices})
+
+    assert len(matches) > 1, "this identifier is shared; the fixture assumes several claim it"
+    assert all(m.ambiguous for m in matches), (
+        "every claim on a shared identifier with a generic product string must "
+        f"stay a candidate: {[(m.name, m.ambiguous) for m in matches]}"
+    )
+
+
+def test_a_distinctive_product_string_does_resolve_ambiguity(
+    catalog: tuple[dict[str, Any], dict[str, Any]],
+) -> None:
+    """The other half: HackRF One and Pro share 1d50:6089 and report different
+    product strings, so the string genuinely tells them apart."""
+    from hammunition.hardware import AttachedDevice, match_catalog
+
+    classes, devices = catalog
+    pro = AttachedDevice(vendor="1d50", product="6089", product_string="HackRF Pro")
+    matches, _unknown = match_catalog([pro], {**classes, **devices})
+
+    resolved = [m for m in matches if not m.ambiguous]
+    assert [m.name for m in resolved] == ["hackrf-pro"], (
+        f"the product string should have picked exactly one entry: {matches}"
+    )
+
+
+def test_unrecognised_devices_are_reported_rather_than_dropped(
+    catalog: tuple[dict[str, Any], dict[str, Any]],
+) -> None:
+    """Most of what is on a bus is a hub, a keyboard or a webcam. Saying so is
+    better than an empty answer that looks like a failed scan."""
+    from hammunition.hardware import AttachedDevice, match_catalog
+
+    classes, devices = catalog
+    keyboard = AttachedDevice(vendor="046d", product="c53a", product_string="USB Receiver")
+    matches, unknown = match_catalog([keyboard], {**classes, **devices})
+    assert not matches
+    assert unknown == [keyboard]
