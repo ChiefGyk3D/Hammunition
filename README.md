@@ -32,8 +32,10 @@ exactly where things stand:
 | Group membership from a manifest | ✅ working |
 | Source builds from a verified tarball (cmake, autotools, qmake, make) | ✅ working |
 | Builds from a pinned git revision, with the pin verified after checkout | ✅ working |
-| binary, venv, pipx, CPAN backends | ❌ **not written** — refused by name |
-| Third-party apt repos, templated config files | ❌ **not written** — refused by name |
+| Prebuilt binaries: `.deb`, tarball, zip, executable | ✅ working — `.deb` through apt, never `dpkg -i` |
+| AppImage, venv, pipx, CPAN backends | ❌ **not written** — refused by name |
+| Templated config files, from station values | ✅ working — a missing value defers one file, not the transaction |
+| Third-party apt repos | ❌ **not written** — refused by name |
 | udev rule generation | ❌ **not written** |
 | `uninstall` | ❌ **not written** — the log it will read is being written correctly now |
 

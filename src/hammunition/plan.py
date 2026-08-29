@@ -36,10 +36,16 @@ import pwd
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 
-from hammunition.backends import IMPLEMENTED_METHODS, IMPLEMENTED_MODIFICATIONS, AptBackend
+from hammunition.backends import (
+    IMPLEMENTED_BINARY_FORMATS,
+    IMPLEMENTED_METHODS,
+    IMPLEMENTED_MODIFICATIONS,
+    AptBackend,
+)
 from hammunition.backends.source import IMPLEMENTED_BUILD_SYSTEMS
 from hammunition.distro import Target
 from hammunition.manifest.schema import (
+    BinaryInstall,
     ConfigFile,
     ConsentGate,
     GitInstall,
@@ -378,6 +384,36 @@ def _check_engine_capability(manifest: PackageManifest, block: InstallBlock) -> 
                     remedy=(
                         "building the source unpatched would produce a binary the manifest "
                         "does not describe, so it is refused rather than approximated"
+                    ),
+                )
+            )
+
+    if isinstance(block.install, BinaryInstall):
+        # The format is checked here rather than only in the backend, so an
+        # AppImage is a plan-time refusal naming the gap rather than a failure
+        # partway through a transaction.
+        if block.install.format not in IMPLEMENTED_BINARY_FORMATS:
+            found.append(
+                Blocker(
+                    subject=manifest.name,
+                    reason=(
+                        f"is a {block.install.format!r} artifact, which this engine "
+                        f"build cannot install"
+                    ),
+                    remedy=(
+                        "AppImage is post-1.0 (SCOPE.md); it is refused by name rather "
+                        "than skipped, so the gap stays visible"
+                    ),
+                )
+            )
+        elif block.install.format != "deb" and not manifest.binaries:
+            found.append(
+                Blocker(
+                    subject=manifest.name,
+                    reason="is a prebuilt archive or executable that names no `binaries`",
+                    remedy=(
+                        "declare what the artifact contains and what it should be called; "
+                        "unpacking it otherwise installs nothing while reporting success"
                     ),
                 )
             )

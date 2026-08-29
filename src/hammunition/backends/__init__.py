@@ -24,23 +24,26 @@ from .base import (
     RecordingRunner,
     SubprocessRunner,
 )
+from .binary import IMPLEMENTED_BINARY_FORMATS, BinaryBackend
 from .git import GitBackend
 from .source import SourceBackend
 
 #: Install methods this engine build can actually perform.
-IMPLEMENTED_METHODS: frozenset[str] = frozenset({"apt", "git", "source"})
+IMPLEMENTED_METHODS: frozenset[str] = frozenset({"apt", "binary", "git", "source"})
 
 #: `system_modifications` kinds this engine build can actually perform.
 #: Everything else is a declared, named gap — never a silent skip.
 IMPLEMENTED_MODIFICATIONS: frozenset[str] = frozenset({"group_membership"})
 
 __all__ = [
+    "IMPLEMENTED_BINARY_FORMATS",
     "IMPLEMENTED_METHODS",
     "IMPLEMENTED_MODIFICATIONS",
     "Action",
     "AptBackend",
     "AptPackageState",
     "BackendError",
+    "BinaryBackend",
     "Command",
     "CommandResult",
     "CommandRunner",

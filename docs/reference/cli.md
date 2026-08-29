@@ -230,6 +230,38 @@ artifact declaring them is digest-pinned rather than signed, and the plan says s
 catalog uses (6 / 2 / 2 / 2). `custom` is a measured zero and is refused by name
 (**D-014**).
 
+## How a prebuilt binary is installed
+
+Eight units in the dispositions wait on this and nothing else — QtTermTCP,
+QtSoundModem and Pi-APRS from D-008's packet core, GARIM, ARDOPGUI, AntScope2,
+GridTracker2, and `sdrangel` on the five targets that do not package it.
+
+Four formats, and the differences are the design:
+
+| Format | What happens |
+|---|---|
+| `deb` | Fetched, verified, then **`apt-get install ./file.deb`** |
+| `tarball`, `zip` | Fetched, verified, unpacked, and the files named in `binaries` installed |
+| `executable` | Fetched, verified, installed under the one name `binaries` gives it |
+| `appimage` | **Refused by name.** Post-1.0 per `docs/SCOPE.md` |
+
+**A `.deb` goes through apt, never `dpkg -i`.** apt resolves the package's
+dependencies; dpkg installs it and leaves them broken, which is the classic way
+a vendor package wedges a machine. It also means the result is an ordinary
+installed package apt knows about, so removing it later is `apt remove` rather
+than archaeology. If apt refuses — usually a `.deb` built for a different
+release — that is the correct outcome and the transaction stops there.
+
+**Nothing here is unverified.** `sha256` is mandatory in the schema and the
+fetcher refuses a mismatch, leaving nothing usable behind. That matters more
+than for a source build, because nobody is going to read a `.deb`.
+
+**An archive naming no `binaries` is refused at plan time**, because unpacking
+it would leave a directory in a cache and install nothing while reporting
+success. The unpack directory is keyed by the artifact's digest, so a vendor
+who republishes under the same URL does not get their new files layered over
+the old ones.
+
 ## How a git build works
 
 A `git` block builds the same way once the tree is there; only how it *arrives*

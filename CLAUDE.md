@@ -388,7 +388,7 @@ src/hammunition/
   state/           # transaction log, uninstall              ✅ log only
   plan.py          # pre-flight resolution (D-016)           ✅
   execute.py       # plan -> commands -> runner              ✅
-  backends/        # apt ✅ source ✅ git ✅; binary, venv, pipx, CPAN ❌
+  backends/        # apt ✅ source ✅ git ✅ binary ✅; venv, pipx, CPAN ❌
   fetch.py         # verified download, mandatory sha256          ✅
   paths.py         # owner-aware XDG dirs (log, cache, build)     ✅
   distro/          # /etc/os-release detection               ✅
@@ -525,11 +525,17 @@ Measured from the inventory: **57 of 95 AHRL units cannot be satisfied by apt** 
 install themselves — the reason this project exists (**D-004**).
 
 Required for 1.0: apt ✅, source-from-tarball ✅, source-from-git ✅,
-binary/`.deb`/archive, Python venv, pipx, **CPAN** (`aa-analyzer` needs
-`Device::SerialPort`), and launcher generation (14 units need a generated
-wrapper). The three outstanding units of D-008's packet core — QtTermTCP,
-QtSoundModem and Pi-APRS — all wait on the binary backend, and none is
-packaged on any target.
+binary ✅ (`.deb`, tarball, zip, single executable — **AppImage refused by
+name**, post-1.0 per SCOPE.md), Python venv, pipx, **CPAN** (`aa-analyzer`
+needs `Device::SerialPort`), and launcher generation (14 units need a generated
+wrapper).
+
+The binary backend unblocks the largest single group: QtTermTCP, QtSoundModem
+and Pi-APRS from D-008's packet core, plus GARIM, ARDOPGUI, AntScope2,
+GridTracker2 and `sdrangel` on the five targets that do not package it. **A
+`.deb` goes through `apt-get install ./file.deb`, never `dpkg -i`** — apt
+resolves the dependencies where dpkg installs the package and leaves them
+broken.
 
 **Build systems are measured too.** The source backend implements `cmake` (11),
 `autotools` (10), `make` (7), `qmake` (4) and `qmake6` (1) — counted across the

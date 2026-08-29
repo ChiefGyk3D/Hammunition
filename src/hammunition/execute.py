@@ -34,12 +34,13 @@ from hammunition.backends import (
     AptBackend,
     AptPackageState,
     BackendError,
+    BinaryBackend,
     Command,
     CommandRunner,
     GitBackend,
     SourceBackend,
 )
-from hammunition.manifest.schema import GitInstall, SourceInstall
+from hammunition.manifest.schema import BinaryInstall, GitInstall, SourceInstall
 from hammunition.plan import InstallPlan
 from hammunition.state import TransactionLog
 
@@ -161,6 +162,7 @@ def commands_for(
     current_groups: frozenset[str] | None = None,
     source: SourceBackend | None = None,
     git: GitBackend | None = None,
+    binary: BinaryBackend | None = None,
 ) -> list[Step]:
     """Every step this plan implies, in the order it will run.
 
@@ -196,6 +198,14 @@ def commands_for(
                     f"Skipping it would report a successful run that installed nothing."
                 )
             commands.extend(git.steps(planned.manifest, block))
+        elif isinstance(block, BinaryInstall):
+            if binary is None:
+                raise BackendError(
+                    f"{planned.name} installs a prebuilt artifact and no binary backend "
+                    f"was supplied. Skipping it would report a successful run that "
+                    f"installed nothing."
+                )
+            commands.extend(binary.steps(planned.manifest, block))
 
     # Configuration is written after the software that reads it exists, so a
     # package's own postinst cannot overwrite what we put down, and before
