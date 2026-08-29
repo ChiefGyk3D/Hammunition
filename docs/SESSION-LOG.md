@@ -1,7 +1,7 @@
 # Session log — overnight round 6, 2026-08-28 → 29
 
 One instruction: *keep grinding through those manifests, do not stop.*
-Twenty-two commits, all pushed. The catalog went from **77 manifests to 217**.
+Twenty-one commits, all pushed. The catalog went from **77 manifests to 217**.
 
 Previous round's log is in git history at `f13055b`.
 
