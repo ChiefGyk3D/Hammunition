@@ -1,0 +1,104 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: qlog
+version: "0.52.0"
+summary: Modern Qt station log with award tracking and online-service upload
+categories: [logging, rig-control]
+
+# The dispositions record QLog as AHRL's recommended logging default among
+# cqrlog, xlog and QLog. It is also one of only three Blend packages this
+# catalog could not reach from apt on the primary target -- Kali carries
+# 0.51.1 and nothing else does -- so this builds it, which closes Blend
+# coverage at 152 of 152.
+install:
+  - install:
+      method: git
+      repo: https://github.com/foldynl/QLog
+      # A tag, so no pin_review (D-024). v0.52.0 happens to be the head of the
+      # default branch as well (0c9ef849f2b4, checked 2026-08-28), which is a
+      # coincidence of timing rather than a policy -- the tag is what is pinned.
+      ref: v0.52.0
+      build_system: qmake6
+    build_depends:
+      - build-essential
+      - pkg-config
+      - qt6-base-dev
+      - qt6-tools-dev
+      - qt6-tools-dev-tools
+      - qt6-webengine-dev
+      - qt6-serialport-dev
+      - qt6-charts-dev
+      - qt6-websockets-dev
+      - qt6-multimedia-dev
+      - qt6-l10n-tools
+      - libqt6sql6-sqlite
+      - qtkeychain-qt6-dev
+      - libhamlib-dev
+      - libssl-dev
+      - zlib1g-dev
+      - libsqlite3-dev
+    note: >-
+      Built from this tag in a Debian 13 container on 2026-08-28, and the
+      dependency list is what that build actually needed rather than what AHRL
+      records for 0.49.1: qmake6 exits 0, make exits 0, and `make install` with
+      a PREFIX installs `bin/qlog`, a desktop file, an icon, a man page and an
+      AppStream metainfo file. The first attempt failed on a missing
+      `sqlite3.h`, which is why libsqlite3-dev is here and why the list was
+      measured rather than copied.
+
+      `qmake6`, not `qmake`: with only qt6-base-dev installed, Debian 13 has no
+      `/usr/bin/qmake` at all, and installing `qt5-qmake` to supply the name
+      would hand a Qt6 project the Qt5 tool. QLog is the manifest that made the
+      engine learn the distinction.
+
+toolkit_risk:
+  - framework: qt6
+    upstream_port_status: ported
+    checked: 2026-08-28
+    note: >-
+      Already on Qt6 and building against it; recorded as ported rather than
+      left unknown. Debian's own package tracks the same line.
+
+update:
+  probe:
+    method: github_tags
+    repo: foldynl/QLog
+  strategy: rebuild
+  cadence_hint: >-
+    Actively developed -- v0.52.0 is current and the default branch's head is
+    the same commit (read from the branch, not GitHub's updated_at, D-032).
+    Releases are frequent; online-service integrations are what change most
+    between them.
+
+documentation:
+  what_it_does: >-
+    A station log built around award chasing: DXCC, WAS, WAZ, IOTA, SOTA, POTA
+    and more tracked per band and mode, with the map and statistics to see what
+    is missing. It reads the rig through hamlib, takes spots from a DX cluster
+    and from WSJT-X, uploads to LoTW, eQSL, ClubLog, QRZ and HamQTH, and
+    imports and exports ADIF.
+  why_you_want_it: >-
+    It is the most actively developed of the Linux logs and the one whose
+    integrations actually keep working, which is the thing that dates a logging
+    program fastest. Where CQRLOG wants a database server and xlog is
+    deliberately minimal, QLog is the full-featured modern option, and the
+    award tracking is its reason to exist rather than a feature list item.
+  prerequisites: >-
+    Your callsign and station location, which every award computation depends
+    on. Rig control needs hamlib to reach the radio. LoTW upload needs a
+    callsign certificate, which comes from TQSL -- this catalog carries
+    `trustedqsl` for that, and QLog can call it.
+  known_problems: >-
+    Only Kali packages it among our six targets, and at 0.51.1 rather than
+    0.52.0, so everywhere else this is a source build with a substantial Qt6
+    dependency set -- around twenty packages and a long compile. The binary the
+    build produces is large because it is unstripped; `make install` handles
+    that. Award definitions and online-service APIs both change under it, so a
+    build left alone for a year will start failing uploads rather than
+    announcing that it is old.
+  upstream_url: https://github.com/foldynl/QLog
+  upstream_support: >-
+    Ladislav Foldyna, OK1MLG. GitHub issues and a wiki at the URL above; the
+    wiki's per-service setup pages are the fastest route through the upload
+    credentials.

@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**215 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**216 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -241,7 +241,7 @@ Receive-only monitoring and decoding. Needs no licence and often no transmitter,
 - [xdemorse](xdemorse.md) — Live Morse decoder with a GTK waterfall, from a sound card
 - [xwefax](xwefax.md) — Receives HF weather fax and draws the chart
 
-### `logging` — 12
+### `logging` — 13
 
 Contact logging, awards tracking, QSL and confirmation services.
 
@@ -253,6 +253,7 @@ Contact logging, awards tracking, QSL and confirmation services.
 - [not1mm](not1mm.md) — Contest logger for Linux, modelled on N1MM but not it
 - [pyqso](pyqso.md) — Simple GTK logger in Python, easy to read and easy to change
 - [python3-pyhamtools](python3-pyhamtools.md) — Python library for callsign lookup, locators and DXCC data
+- [qlog](qlog.md) — Modern Qt station log with award tracking and online-service upload
 - [tlf](tlf.md) — Console contest logger built for speed, driven from the keyboard
 - [trustedqsl](trustedqsl.md) — Signs and uploads logs to ARRL Logbook of the World
 - [tucnak](tucnak.md) — VHF and above contest logger, built around locator scoring and networking
@@ -357,7 +358,7 @@ RFID and NFC — readers, transponders, and the cards themselves.
 - [pcsc-tools](pcsc-tools.md) — Smartcard reader diagnostics — is the reader even working?
 - [proxmark3](proxmark3.md) — Client and firmware tooling for the Proxmark3 RFID and NFC research device
 
-### `rig-control` — 13
+### `rig-control` — 14
 
 CAT control of a transceiver while operating: frequency, mode, PTT and the panadapter that rides on them, as distinct from writing its memories.
 
@@ -372,6 +373,7 @@ CAT control of a transceiver while operating: frequency, mode, PTT and the panad
 - [kel-agent](kel-agent.md) — Bridges browser-based logging software to the radio hardware on your desk
 - [klog](klog.md) — Cross-platform Qt station log that stays out of the way
 - [libhamlib-utils](libhamlib-utils.md) — The command-line tools for hamlib — test a radio before blaming software
+- [qlog](qlog.md) — Modern Qt station log with award tracking and online-service upload
 - [quisk](quisk.md) — SDR transceiver software with a real front panel, driving hardware or a dongle
 - [wfview](wfview.md) — Control a modern Icom radio, waterfall and all, over USB or the network
 
@@ -706,6 +708,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [pythonprop](pythonprop.md) | Graphical front end that makes VOACAP predictions readable | apt |
 | [qdmr](qdmr.md) | Codeplug editor for DMR handhelds — one codeplug, many radios | apt |
 | [qflipper](qflipper.md) | Desktop companion for the Flipper Zero — firmware, files, and CLI over USB | apt |
+| [qlog](qlog.md) | Modern Qt station log with award tracking and online-service upload | git |
 | [qrq](qrq.md) | High-speed Morse trainer that pushes your callsign copy to its limit | apt |
 | [qsstv](qsstv.md) | Slow-scan television and radiofax — receive and transmit pictures | apt |
 | [qtel](qtel.md) | EchoLink client — work repeaters and stations over the internet | apt |

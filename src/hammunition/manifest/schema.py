@@ -172,7 +172,7 @@ class SourceInstall(Strict):
 
     method: Literal["source"] = "source"
     source: RemoteArtifact
-    build_system: Literal["autotools", "cmake", "qmake", "make", "custom"]
+    build_system: Literal["autotools", "cmake", "qmake", "qmake6", "make", "custom"]
     configure_args: list[str] = Field(default_factory=list)
     build_args: list[str] = Field(default_factory=list)
     compiler_flags: list[str] = Field(
@@ -303,7 +303,7 @@ class GitInstall(Strict):
     method: Literal["git"] = "git"
     repo: str
     ref: str = Field(description="Commit SHA or tag. Never a branch name.")
-    build_system: Literal["autotools", "cmake", "qmake", "make", "custom"]
+    build_system: Literal["autotools", "cmake", "qmake", "qmake6", "make", "custom"]
     configure_args: list[str] = Field(default_factory=list)
     compiler_flags: list[str] = Field(default_factory=list)
     project_file: str | None = Field(

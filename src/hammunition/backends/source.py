@@ -9,8 +9,12 @@ apt-only tool covers roughly 40% of the parity target and the missing 60% is
 precisely what users cannot install for themselves.
 
 The build systems implemented here are the ones the catalog actually needs,
-counted rather than assumed (**D-014**): **cmake 6, autotools 2, qmake 2,
-make 2** across the twelve `source` and `git` blocks in the catalog today.
+counted rather than assumed (**D-014**): **cmake 11, autotools 9, make 4,
+qmake 3, qmake6 1** across the twenty-eight `source` and `git` blocks in the
+catalog today. ``qmake6`` is a separate entry rather than a flag on ``qmake``
+because it is a different binary: Debian 13 with only ``qt6-base-dev``
+installed has no ``/usr/bin/qmake`` at all, and installing ``qt5-qmake`` to
+supply the name would hand a Qt6 project the Qt5 tool.
 Two fields are **measured zeros** and are refused by name rather than
 speculatively implemented — no manifest uses ``custom``, and none carries
 ``patches``. Recording the zero is the point: it stops either being re-added
@@ -72,7 +76,7 @@ DEFAULT_PREFIX = Path("/usr/local")
 
 #: Counted from the catalog, not assumed (D-014). `custom` is a measured zero
 #: and is refused by name.
-IMPLEMENTED_BUILD_SYSTEMS = frozenset({"autotools", "cmake", "qmake", "make"})
+IMPLEMENTED_BUILD_SYSTEMS = frozenset({"autotools", "cmake", "qmake", "qmake6", "make"})
 
 _TAR_SUFFIXES = (".tar.gz", ".tgz", ".tar.bz2", ".tbz2", ".tar.xz", ".txz", ".tar")
 
@@ -471,14 +475,20 @@ def build_commands(
             ),
         ]
 
-    if build_system == "qmake":
+    if build_system in {"qmake", "qmake6"}:
         # `project_file` exists because MSHV needs a different .pro per
         # architecture; without it qmake picks the only one in the tree.
+        #
+        # qmake6 is a separate build system rather than a detail, because it is
+        # a different binary and the choice is a fact about the project. On
+        # Debian 13 with only qt6-base-dev installed there is no `qmake` at all
+        # -- only `/usr/bin/qmake6` -- and installing `qt5-qmake` to provide the
+        # name would hand a Qt6 project the Qt5 tool. Measured 2026-08-28.
         project = [project_file] if project_file else []
         return [
             Command(
-                argv=("qmake", *project, f"PREFIX={prefix}", *args),
-                description=f"Configure {name} with qmake",
+                argv=(build_system, *project, f"PREFIX={prefix}", *args),
+                description=f"Configure {name} with {build_system}",
                 env=env,
                 cwd=layout.src,
             ),
