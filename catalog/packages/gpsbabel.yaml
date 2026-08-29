@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: gpsbabel
+version: "1.10.0"
+summary: Converts between GPS file formats and talks to the receiver
+categories: [station, tracking, timing]
+
+# SUPERSEDE, per docs/reference/dispositions.md #7: AHRL carries `gpsman`, a
+# Tcl/Tk application whose upstream has been dormant for years. GPSBabel plus
+# gpsd covers format conversion and device access with active maintenance.
+supersedes: [gpsman]
+
+install:
+  - install:
+      method: apt
+      packages: [gpsbabel]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Reads and writes something over a hundred GPS and mapping file formats --
+    GPX, KML, Garmin's several, NMEA, CSV, OziExplorer and the rest -- and
+    converts between any pair of them. It also uploads and downloads waypoints,
+    routes and tracklogs directly to and from a receiver over serial or USB,
+    and can filter what passes through: simplify a track, drop duplicate
+    waypoints, split by distance or time.
+  why_you_want_it: >-
+    Every mapping program and every receiver has a favourite format and it is
+    never the one you have. This is the tool that stops that mattering. For
+    amateur radio specifically it is how a SOTA or POTA track comes off a
+    handheld and into something you can put beside a log, and how a set of
+    repeater locations becomes waypoints on a receiver.
+  prerequisites: >-
+    A file to convert, or a receiver on serial or USB and access to its device
+    -- the `dialout` group for a serial adapter. Knowing which format your
+    receiver actually speaks, which is not always the one its manual claims.
+  known_problems: >-
+    The filter and format options are numerous and interact; a conversion that
+    silently drops a field is more common than one that errors, so check the
+    output rather than the exit status. Direct device transfer works best with
+    Garmin hardware and is patchier elsewhere. For live position rather than
+    stored tracks, gpsd is the right tool and this catalog carries it -- the
+    two do different jobs and the dispositions pair them deliberately.
+  upstream_url: https://www.gpsbabel.org/
+  upstream_support: >-
+    The GPSBabel project. Documentation on the site is thorough and format
+    specific, which is where the answer to "why did my field disappear"
+    usually is.

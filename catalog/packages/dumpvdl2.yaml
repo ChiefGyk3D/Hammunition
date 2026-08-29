@@ -10,7 +10,13 @@ categories: [listening]
 # PARITY-POLICY bars are met: same core function, actively maintained, installs
 # the same way, and the trade-off in one sentence — dumpvdl2 is the maintained
 # VDL Mode 2 decoder; vdlm2dec is archived and untouched since 2024-02-11.
-superseded_by: null
+#
+# This said `superseded_by: null`, which is the schema default and carries no
+# claim at all: the comment above asserted the relationship and nothing
+# machine-readable did. Found by `scripts/gen_parity_coverage.py`, which looks
+# for exactly this link when matching a dispositioned unit to the manifest
+# that carries it.
+supersedes: [vdlm2dec]
 
 depends:
   - libacars

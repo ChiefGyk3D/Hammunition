@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**222 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**223 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -466,7 +466,7 @@ Software-defined radio — receivers, transceivers and the software.
 - [welle-io](welle-io.md) — DAB and DAB+ digital radio receiver with a modern interface
 - [wfview](wfview.md) — Control a modern Icom radio, waterfall and all, over USB or the network
 
-### `station` — 31
+### `station` — 32
 
 Station infrastructure that is not itself a radio application: time, position, and the plumbing an operating position needs.
 
@@ -481,6 +481,7 @@ Station infrastructure that is not itself a radio application: time, position, a
 - [flwkey](flwkey.md) — Control panel for the Winkeyer hardware CW keyer
 - [gnss-sdr](gnss-sdr.md) — A complete GPS and GNSS receiver built entirely in software
 - [gpredict](gpredict.md) — Real-time satellite tracking and pass prediction, with radio control
+- [gpsbabel](gpsbabel.md) — Converts between GPS file formats and talks to the receiver
 - [gpsd](gpsd.md) — GPS service daemon — one process owns the receiver, everything else asks it
 - [gpsd-clients](gpsd-clients.md) — Clients that consume what gpsd serves — xgps, gpspipe, gpxlogger, gpsdecode
 - [gpsd-tools](gpsd-tools.md) — cgps and gpsmon — the two programs you actually reach for when a receiver misbehaves
@@ -502,11 +503,12 @@ Station infrastructure that is not itself a radio application: time, position, a
 - [xdx](xdx.md) — DX cluster client — see what other operators are hearing, right now
 - [xygrib](xygrib.md) — Views GRIB weather files — wind, pressure, waves, on a map
 
-### `timing` — 7
+### `timing` — 8
 
 Time and frequency — clocks, disciplining, and stable references.
 
 - [gnss-sdr](gnss-sdr.md) — A complete GPS and GNSS receiver built entirely in software
+- [gpsbabel](gpsbabel.md) — Converts between GPS file formats and talks to the receiver
 - [gpsd](gpsd.md) — GPS service daemon — one process owns the receiver, everything else asks it
 - [gpsd-clients](gpsd-clients.md) — Clients that consume what gpsd serves — xgps, gpspipe, gpxlogger, gpsdecode
 - [gpsd-tools](gpsd-tools.md) — cgps and gpsmon — the two programs you actually reach for when a receiver misbehaves
@@ -514,7 +516,7 @@ Time and frequency — clocks, disciplining, and stable references.
 - [twclock](twclock.md) — World clock for the operating position, with a CW station-ID timer
 - [tzwatch](tzwatch.md) — Prints the time in several time zones at once, in a terminal
 
-### `tracking` — 17
+### `tracking` — 18
 
 Position reporting and target tracking: APRS, ADS-B, AIS, and the map that shows them.
 
@@ -526,6 +528,7 @@ Position reporting and target tracking: APRS, ADS-B, AIS, and the map that shows
 - [dump1090-mutability](dump1090-mutability.md) — The older dump1090 fork, kept because two targets still carry it
 - [gnuais](gnuais.md) — Decodes AIS from the discriminator output of a VHF receiver
 - [gnuaisgui](gnuaisgui.md) — Puts the vessels gnuais has heard on an OpenStreetMap display
+- [gpsbabel](gpsbabel.md) — Converts between GPS file formats and talks to the receiver
 - [gr-air-modes](gr-air-modes.md) — Decodes aircraft transponder replies with GNU Radio
 - [mlat-client-adsbfi](mlat-client-adsbfi.md) — Contributes ADS-B timing data so a network can locate aircraft by multilateration
 - [multimon](multimon.md) — The original multimon decoder, kept for the modes its successor dropped
@@ -650,6 +653,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [gnuaisgui](gnuaisgui.md) | Puts the vessels gnuais has heard on an OpenStreetMap display | apt |
 | [gnuradio](gnuradio.md) | Build a radio out of signal-processing blocks instead of hardware | apt |
 | [gpredict](gpredict.md) | Real-time satellite tracking and pass prediction, with radio control | apt |
+| [gpsbabel](gpsbabel.md) | Converts between GPS file formats and talks to the receiver | apt |
 | [gpsd](gpsd.md) | GPS service daemon — one process owns the receiver, everything else asks it | apt |
 | [gpsd-clients](gpsd-clients.md) | Clients that consume what gpsd serves — xgps, gpspipe, gpxlogger, gpsdecode | apt |
 | [gpsd-tools](gpsd-tools.md) | cgps and gpsmon — the two programs you actually reach for when a receiver misbehaves | apt |

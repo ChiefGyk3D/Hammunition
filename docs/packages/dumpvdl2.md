@@ -9,6 +9,7 @@
 - **Upstream:** <https://github.com/szpajder/dumpvdl2>
 - **Needs first:** `libacars`
 - **Install after:** `libacars`
+- **Supersedes:** `vdlm2dec`
 
 ## What it does
 

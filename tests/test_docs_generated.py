@@ -156,3 +156,75 @@ def test_regenerating_the_matrix_is_a_no_op() -> None:
         "docs/reference/capability-matrix.md is stale — regenerate it. If the "
         "sweep has moved, that is the point: the matrix is a measurement."
     )
+
+
+# ---------------------------------------------------------------------------
+# The parity coverage report
+#
+# Unlike the capability matrix this reads nothing but the catalog and
+# dispositions.md, so every check here runs everywhere with no probe to skip on.
+# ---------------------------------------------------------------------------
+
+PARITY = REPO_ROOT / "docs" / "reference" / "parity-coverage.md"
+
+
+def _parity_generator() -> object:
+    spec = importlib.util.spec_from_file_location(
+        "gen_parity_coverage", REPO_ROOT / "scripts" / "gen_parity_coverage.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_every_parity_alias_names_a_real_manifest() -> None:
+    """A wrong alias hides a gap: the unit reports as covered by a manifest
+    that does not exist, and the coverage number goes up for nothing. This is
+    the failure the report itself warns about, asserted rather than warned."""
+    gen = _parity_generator()
+    catalog = load_catalog(REPO_ROOT / "catalog" / "packages")
+    broken = sorted(
+        f"{unit} -> {target}"
+        for unit, target in gen.ALIASES.items()  # type: ignore[attr-defined]
+        if target not in catalog
+    )
+    assert not broken, f"parity aliases naming no manifest: {broken}"
+
+
+def test_no_dispositioned_unit_is_unexplained() -> None:
+    """Every CARRY/SUPERSEDE/REVIVE/ADD unit either has a manifest or a
+    recorded reason it does not. A unit in neither list is work nobody has
+    decided about, and it should be visible rather than absorbed into a
+    percentage."""
+    assert "## Outstanding and unexplained" not in PARITY.read_text(), (
+        "parity-coverage.md lists units that owe a manifest, have none, and "
+        "carry no recorded reason. Either write the manifest or add the reason "
+        "to EXPLAINED in scripts/gen_parity_coverage.py."
+    )
+
+
+def test_regenerating_the_parity_report_is_a_no_op() -> None:
+    import subprocess
+
+    before = PARITY.read_text()
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "gen_parity_coverage.py")],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    after = PARITY.read_text()
+    if before != after:
+        PARITY.write_text(before)
+    assert result.returncode == 0, result.stderr
+
+    def without_date(text: str) -> list[str]:
+        return [ln for ln in text.splitlines() if not ln.startswith("**Generated:**")]
+
+    assert without_date(before) == without_date(after), (
+        "docs/reference/parity-coverage.md is stale — run "
+        "scripts/gen_parity_coverage.py. A manifest was probably added without "
+        "regenerating it."
+    )

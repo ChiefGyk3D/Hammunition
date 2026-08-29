@@ -23,6 +23,8 @@ disagrees with it, DECISIONS wins and the disagreeing file is a bug.
   build, each gap named by the unit whose build proved it
 - `docs/reference/capability-matrix.md` — every manifest against every target,
   resolution merged with a measured `apt-cache policy` sweep
+- `docs/reference/parity-coverage.md` — every dispositioned unit against the
+  catalog: what is covered, what is outstanding, and why each gap is open
 - `docs/reference/` — the measurements everything rests on: `ahrl-inventory.md`,
   `blend-inventory.md`, `dispositions.md`, `overlaps.md`, `profile-sizing.md`,
   `licence-verification.md`, `hardware-gaps.md`, `udev-inventory.md`,
@@ -200,16 +202,22 @@ machine that is not written down.
 (authoritative decision record), `PARITY-POLICY.md` (per-unit disposition and M5
 exit criteria), `DESIGN.md` (reasoning), `why-hammunition.md` (public rationale).
 
-**Structure under `docs/` ("Hacker's Ham Shack"):**
+**Structure under `docs/` ("Hacker's Ham Shack").** ✅ marks what exists:
 - `getting-started/` — install, first profile, first contact
 - `profiles/` — one page per profile, generated from manifests plus prose
-- `packages/` — generated reference, one entry per manifest
+- `packages/` ✅ — generated reference, one entry per manifest.
+  `scripts/gen_package_reference.py`; `tests/test_docs_generated.py` asserts
+  regeneration is a no-op
 - `hardware/` — per-device setup: SDRs, rigs, CAT interfaces, GPS, LoRa
 - `guides/` — task-oriented: digital modes, APRS, satellite, packet, SDR
 - `troubleshooting/` — symptom-first, not component-first
 - `rf-security/` — separate section, legal and ethical framing required
-- `contributing/` — how to add a manifest, how to add a backend, review process
-- `reference/` — CLI, schema, capability matrix, transaction log format
+- `contributing/` — how to add a manifest ✅, how to add a backend, review
+  process; `docs/contributing/hardware.md` ✅ is the live ask
+- `reference/` ✅ — CLI, capability matrix, transaction log format and the
+  measured inventories. The **schema** reference is the gap here: the authority
+  is `src/hammunition/manifest/schema.py`, whose fields and validators are
+  documented in place
 
 **Generate what can be generated.** The package reference and capability matrix
 come from manifests, so they cannot drift from reality. Hand-written prose is for
@@ -364,10 +372,10 @@ in their own install notes.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 222
+  packages/        # one YAML per piece of software          ✅ 223
   profiles/        # named bundles referencing packages      ✅ 4
   hardware/
-    classes/       # device families with shared Linux needs ✅ 2
+    classes/       # device families with shared Linux needs ✅ 5
     devices/       # one YAML per device                     ✅ 23
 src/hammunition/
   cli/             # argparse entry points; install/list/status/show ✅
@@ -472,14 +480,17 @@ resolves the whole transaction and prints every command; without `--dry-run` it
 installs. Remaining M1 gap is the starter profile's name and contents, which
 `docs/reference/profile-sizing.md` still has awaiting the maintainer.
 - Manifest schema + validator ✅
-- apt backend only ✅ — with real resolution: `depends` goes through
+- apt backend ✅ — with real resolution: `depends` goes through
   `apt-cache policy`, which is what D-016's four suspected-stale AHRL
-  dependency lines needed and never got
+  dependency lines needed and never got. Source and git backends followed
+  in M3; see below
 - `/etc/os-release` detection ✅ — shared with `scripts/capability_matrix.py`
   rather than duplicated, so `--check` verifies the parser the engine uses
-- ~20 packages, one starter profile, seeded from the AHRL inventory
-  (named `ham-core` when M1 was written; `docs/reference/profile-sizing.md`
-  proposes **`station`** instead, and a four-way split — awaiting the maintainer)
+- the starter profile is the last M1 item and is **awaiting the maintainer**:
+  named `ham-core` when M1 was written, `docs/reference/profile-sizing.md`
+  proposes **`station`** instead and a four-way split. The catalog it would
+  draw on is no longer the constraint — 222 manifests exist where M1 planned
+  about twenty
 - `install`, `list`, `status`, `show`, `--dry-run` ✅
 - Container test harness for Parrot and Debian ✅
 
@@ -513,12 +524,21 @@ install themselves — the reason this project exists (**D-004**).
 Required for 1.0: apt ✅, source-from-tarball ✅, source-from-git ✅,
 binary/`.deb`/archive, Python venv, pipx, **CPAN** (`aa-analyzer` needs
 `Device::SerialPort`), and launcher generation (14 units need a generated
-wrapper).
+wrapper). The three outstanding units of D-008's packet core — QtTermTCP,
+QtSoundModem and Pi-APRS — all wait on the binary backend, and none is
+packaged on any target.
 
-**Build systems are measured too.** The source backend implements `cmake` (6),
-`autotools` (2), `qmake` (2) and `make` (2) — counted across the catalog's
-twelve `source` and `git` blocks. `custom` and `patches` are **measured zeros**
-and are refused by name rather than built for speculatively.
+**Build systems are measured too.** The source backend implements `cmake` (11),
+`autotools` (10), `make` (7), `qmake` (4) and `qmake6` (1) — counted across the
+catalog's 33 `source` and `git` blocks. `qmake6` is separate from `qmake`
+because Debian 13 with only `qt6-base-dev` has no `/usr/bin/qmake` at all.
+
+`custom` and `patches` remain **measured zeros in the catalog** and are refused
+by name. `patches` is no longer a speculative zero, though: `linrad` needs one
+and cannot be shipped without it, because its Makefile bakes `-Werror` into a
+literal flag string with no variable to override.
+`docs/reference/source-build-gaps.md` names that and five other gaps, each
+against the unit whose build proved it.
 
 Measured zeros — recorded, not deleted, so they are not re-added by convention:
 `cargo` 0, `flatpak` 0, `appimage` 0 in AHRL. AppImage and a configured Wine

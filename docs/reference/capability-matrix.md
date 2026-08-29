@@ -35,14 +35,14 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 178 | 9 | 33 | 2 | 0 |
-| ubuntu-26.04 | 179 | 8 | 33 | 2 | 0 |
-| kali-rolling | 184 | 8 | 30 | 0 | 0 |
-| parrot | 181 | 7 | 32 | 2 | 0 |
-| linuxmint-22.3 | 172 | 16 | 32 | 2 | 0 |
-| debian-13-arm64 | 177 | 10 | 33 | 2 | 0 |
+| debian-13 | 178 | 10 | 33 | 2 | 0 |
+| ubuntu-26.04 | 179 | 9 | 33 | 2 | 0 |
+| kali-rolling | 184 | 9 | 30 | 0 | 0 |
+| parrot | 181 | 8 | 32 | 2 | 0 |
+| linuxmint-22.3 | 172 | 17 | 32 | 2 | 0 |
+| debian-13-arm64 | 177 | 11 | 33 | 2 | 0 |
 
-**222 manifests** against **6 targets**.
+**223 manifests** against **6 targets**.
 
 ---
 
@@ -81,6 +81,12 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `fbb` | debian-13-arm64 | `fbb` |
 | `fbb` | kali-rolling | `fbb` |
 | `fbb` | parrot | `fbb` |
+| `gpsbabel` | debian-13 | `gpsbabel` |
+| `gpsbabel` | debian-13-arm64 | `gpsbabel` |
+| `gpsbabel` | kali-rolling | `gpsbabel` |
+| `gpsbabel` | linuxmint-22.3 | `gpsbabel` |
+| `gpsbabel` | parrot | `gpsbabel` |
+| `gpsbabel` | ubuntu-26.04 | `gpsbabel` |
 | `gr-gsm` | ubuntu-26.04 | `gr-gsm` |
 | `gtk-meshtastic-client` | linuxmint-22.3 | `gtk-meshtastic-client` |
 | `m2kcli` | linuxmint-22.3 | `m2kcli` |
@@ -192,6 +198,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `gnuaisgui` | apt | apt | apt | apt | apt | apt |
 | `gnuradio` | apt | apt | apt | apt | apt | apt |
 | `gpredict` | apt | apt | apt | apt | apt | apt |
+| `gpsbabel` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
 | `gpsd` | apt | apt | apt | apt | apt | apt |
 | `gpsd-clients` | apt | apt | apt | apt | apt | apt |
 | `gpsd-tools` | apt | apt | apt | apt | apt | apt |
