@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: sunclock
+version: "3.57"
+summary: World map showing the day-night terminator and where the sun is now
+categories: [hf-propagation, station]
+
+install:
+  - install:
+      method: apt
+      packages: [sunclock]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Draws a world map with the illuminated half lit and the dark half shaded,
+    the sun's sub-solar point marked, and the terminator moving in real time.
+    It will also give sunrise, sunset, twilight times and local time for a
+    place you click on, and it ships a set of detailed regional maps.
+  why_you_want_it: >-
+    Grey-line propagation is the reason. The band conditions along the
+    terminator are different from anywhere else on the planet and the window is
+    short, so knowing where the line is right now -- and which parts of the
+    world it is crossing -- is an operating decision, not decoration. It is
+    also the fastest way to answer "is it dark there yet" before calling.
+  prerequisites: >-
+    An X11 session. It draws with plain Xlib and Xpm rather than a toolkit.
+  known_problems: >-
+    It is an X11 application from the 1990s and looks like one: no theming, no
+    HiDPI scaling, fixed-size fonts. It works exactly as it always did, and on
+    a 4K display it will be very small. The detailed maps live in a separate
+    package which the main one depends on, so the disk cost is larger than the
+    binary suggests.
+  upstream_url: https://github.com/nongiach/Sunclock
+  upstream_support: >-
+    Effectively finished software. The GitHub mirror above is the Homepage
+    Debian declares; there is no active development to file against.

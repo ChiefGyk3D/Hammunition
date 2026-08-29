@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: atlc
+version: "4.6.1"
+summary: Computes impedance of a transmission line of any cross-section, from a picture of it
+categories: [antenna, electronics]
+
+install:
+  - install:
+      method: apt
+      packages: [atlc]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    You draw the cross-section of a transmission line as a bitmap -- conductors
+    in one colour, each dielectric in another -- and it solves the field
+    numerically to give characteristic impedance, capacitance, inductance,
+    velocity factor and loss. Coax, twin-lead, stripline, or a shape no formula
+    covers: it does not care, because it is not using a formula.
+  why_you_want_it: >-
+    Every closed-form impedance equation assumes a geometry. The moment you
+    build something the textbook does not have -- a coax with an off-centre
+    conductor, a balun wound on an odd former, an air-spaced line with
+    supports, a stripline on a board with two dielectrics -- the equations stop
+    applying and this is the tool that still answers. It is also how you check
+    a homemade line before trusting it with power.
+  prerequisites: >-
+    A bitmap of the cross-section, drawn to a colour convention the manual
+    specifies, and the patience to make the pixel scale right -- resolution is
+    accuracy here.
+  known_problems: >-
+    It is command-line only with no bundled drawing tool, so producing the
+    input is most of the work and the colour convention is easy to get wrong;
+    a mistake there yields a confident number for a structure you did not
+    intend. Convergence is slower the finer the mesh, and a high-resolution
+    bitmap can take a long time. AHRL installs it from apt with no menu entry
+    for the same reason: it is a tool for someone who already knows they need
+    it.
+  upstream_url: https://tracker.debian.org/pkg/atlc
+  upstream_support: >-
+    Debian's package declares no upstream Homepage and the original site is not
+    cited by it, so the package tracker is the honest pointer rather than an
+    invented one. The manual pages shipped with the package are the real
+    documentation.

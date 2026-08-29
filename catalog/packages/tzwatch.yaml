@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: tzwatch
+version: "1.4.4"
+summary: Prints the time in several time zones at once, in a terminal
+categories: [station, timing]
+
+install:
+  - install:
+      method: apt
+      packages: [tzwatch]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Prints the current date and time in a list of time zones you configure, in
+    the terminal, and can keep updating in place. Zones are named the way the
+    system names them, so anything in the tz database works.
+  why_you_want_it: >-
+    The console equivalent of twclock, and the one that works over SSH to a
+    remote station. Scheduling a sked, working a net that meets at a local
+    time somewhere else, or just keeping UTC visible in a tmux pane -- all of
+    which want text, not a window.
+  prerequisites: >-
+    The tz database, which every Debian-family system already has.
+  known_problems: >-
+    It reads zone names, so a mistyped one is simply not found rather than
+    silently interpreted as UTC. Daylight-saving transitions are handled by
+    the tz database rather than by this program, which means they are correct
+    and also means an out-of-date tzdata gives confidently wrong answers for
+    the countries that changed their rules this year.
+  upstream_url: https://tracker.debian.org/pkg/tzwatch
+  upstream_support: >-
+    Debian's package declares no upstream Homepage -- this is a small utility
+    maintained through the distribution rather than by a live project, so the
+    package tracker is the honest pointer. Recorded rather than invented.

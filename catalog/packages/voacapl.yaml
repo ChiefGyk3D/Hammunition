@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: voacapl
+version: "0.7.6"
+summary: The VOACAP HF propagation prediction engine, ported to Linux
+categories: [hf-propagation]
+
+install:
+  - install:
+      method: apt
+      packages: [voacapl]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Predicts HF circuit performance between two points: which bands will be
+    open at which hours, the probability of a usable signal, the expected
+    signal-to-noise ratio, and the required power for a given reliability. It
+    is the Voice of America Coverage Analysis Program -- the model broadcasters
+    used to plan shortwave schedules -- with its Fortran core intact.
+  why_you_want_it: >-
+    Predictions from a real ionospheric model are a different thing from a band
+    condition indicator. Given a date, a smoothed sunspot number, two
+    locations, antennas and power, it will tell you which hour to try and which
+    band, which is the difference between calling CQ into a dead band and
+    working the path. It also underlies pythonprop and several online
+    predictors, so learning it once pays off elsewhere.
+  prerequisites: >-
+    A smoothed sunspot number for the month in question, which is a
+    prediction itself and which you supply. The coefficient data is in the
+    voacapl-data package, which this one depends on. Antenna files describing
+    what you actually have, if you want the answer to be about your station
+    rather than about a dipole.
+  known_problems: >-
+    It is a Fortran program with a command-line and file-based interface
+    designed in the 1980s, and the input file format is unforgiving. Most
+    people should drive it through pythonprop rather than directly. The model
+    predicts monthly medians, not tonight: a prediction that says a band is
+    open 60 percent of the time is not wrong when the band is shut, which is
+    the most common misreading of its output.
+  upstream_url: https://www.qsl.net/hz1jw/voacapl/index.html
+  upstream_support: >-
+    Jim Watson, HZ1JW / M0DNS, maintains the Linux port. The project page
+    carries the documentation, which is worth reading before the first run.

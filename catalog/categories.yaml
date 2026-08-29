@@ -20,6 +20,10 @@
 # the checker, the docs generator, and the person adding the next manifest.
 
 categories:
+  - name: antenna
+    summary: >-
+      Antenna and transmission-line design, modelling, and measurement.
+
   - name: contest
     summary: >-
       Contest operating -- scoring, duplicate checking, rate keeping,

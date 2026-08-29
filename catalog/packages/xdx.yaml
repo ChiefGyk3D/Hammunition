@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: xdx
+version: "2.91"
+summary: DX cluster client — see what other operators are hearing, right now
+categories: [hf-propagation, station]
+
+install:
+  - install:
+      method: apt
+      packages: [xdx]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Connects over telnet to a DX cluster node and shows the spots other
+    operators are posting: callsign, frequency, time and comment, with
+    colouring and filtering so the bands you care about stand out. It resolves
+    each spotted callsign to its DXCC entity, and it can pass a frequency to a
+    logging program or a rig.
+  why_you_want_it: >-
+    A cluster is a distributed pair of ears covering every band at once. When
+    a rare entity comes up on 17 metres and you are listening on 20, the
+    cluster is how you find out inside a minute rather than after the pileup
+    has gone. It is also the cheapest live indicator of what is actually open.
+  prerequisites: >-
+    A network connection and the address of a cluster node to connect to,
+    which the program does not choose for you. Your callsign, because nodes
+    ask for it at login.
+  known_problems: >-
+    Spots are what people typed, not what is true: busted callsigns and
+    frequencies off by a kHz are routine, and posting a correction is
+    considered poor form, so the errors persist. Treat a spot as a hint about
+    where to listen rather than as a fact. DXCC resolution uses cty.dat from
+    the hamradio-files package, which ages -- a new prefix will resolve to the
+    wrong entity until that is refreshed.
+  upstream_url: https://sourceforge.net/projects/xdxclusterclient/
+  upstream_support: SourceForge project page at the URL above.

@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: qttinysa
+version: "1.0.2"
+summary: Desktop front end for the tinySA and tinySA Ultra spectrum analysers
+categories: [electronics, sdr, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [qttinysa]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Controls a tinySA over USB and plots its output on a desktop screen: live
+    spectrum with markers and peak tracking, waterfall, trace maths and
+    averaging, band presets, and export of the captured traces. Instrument
+    settings that are several button presses on the device are controls on a
+    window here.
+  why_you_want_it: >-
+    Same argument as NanoVNA-Saver and the same instrument philosophy: a
+    genuinely useful analyser behind a two-inch screen. Hunting a spurious
+    emission, checking a transmitter's harmonics, or finding what is
+    desensitising a receiver all involve staring at a display and moving
+    markers, and the difference in usable screen area is the difference between
+    doing it and giving up.
+  prerequisites: >-
+    A tinySA or tinySA Ultra on USB and access to its serial port -- the
+    `dialout` group again. Know the input power limit of your model before
+    connecting it to anything transmitting: this is the instrument that is most
+    often destroyed on its first day.
+  known_problems: >-
+    AHRL unpacks this into /usr/local/src and runs it in place from a generated
+    wrapper (inventory unit 88); Debian packages it properly, so this is the
+    packaged version. The tinySA has a hard maximum input level and exceeding
+    it damages the front end permanently -- an attenuator between transmitter
+    and instrument is not optional. Trace data is only as trustworthy as the
+    instrument's own calibration, which is not a laboratory standard.
+  upstream_url: https://github.com/g4ixt/QtTinySA/
+  upstream_support: Ian Jefferson, G4IXT. GitHub issues at the URL above.

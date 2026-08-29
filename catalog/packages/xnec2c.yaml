@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: xnec2c
+version: "4.4.16"
+summary: Interactive antenna modelling — NEC2 with a live graphical front end
+categories: [antenna]
+
+install:
+  - install:
+      method: apt
+      packages: [xnec2c]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Models an antenna as a wire structure and computes what it does: radiation
+    pattern in 2D and 3D, gain, feedpoint impedance and SWR against frequency,
+    current distribution along each wire, near fields. It runs the NEC2 engine
+    continuously as you change a parameter, so the pattern redraws while you
+    drag rather than after a batch run.
+  why_you_want_it: >-
+    Antenna design is iterative and the interesting part is what happens when
+    you move something. Batch NEC -- edit a card deck, run, plot, repeat -- makes
+    that loop slow enough that people stop exploring. This makes it immediate,
+    which is why it is the tool most Linux operators actually use for modelling
+    rather than the one they mean to learn.
+  prerequisites: >-
+    A NEC input file describing the geometry. Writing one from scratch means
+    learning the card format; starting from one of the shipped examples and
+    changing it is the usual and faster route.
+  known_problems: >-
+    NEC2 has real modelling rules -- segment lengths relative to wavelength and
+    to wire diameter, junction handling, ground models -- and violating them
+    produces output that looks fine and is wrong. The program will warn about
+    some of it and not all. A model is not a measurement: it does not know
+    about your mast, your feedline, the house, or the ground under it, and the
+    difference between a modelled and a built antenna is usually those things
+    rather than an error in the model.
+  upstream_url: https://github.com/KJ7LNW/xnec2c
+  upstream_support: >-
+    Now maintained by Eric Wheeler, KJ7LNW, after the original author Neoklis
+    Kyriazis, 5B4AZ. GitHub issues at the URL above.

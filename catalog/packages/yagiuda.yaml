@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: yagiuda
+version: "1.19"
+summary: Analyse and optimise Yagi-Uda arrays without writing a NEC model
+categories: [antenna]
+
+install:
+  - install:
+      method: apt
+      packages: [yagiuda]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A set of command-line programs specialised to Yagi-Uda antennas: give it
+    element lengths and spacings and it returns gain, front-to-back ratio,
+    input impedance and radiation pattern, and it will optimise a design
+    against a chosen goal. The method-of-moments code underneath is specific to
+    parallel dipole arrays rather than general.
+  why_you_want_it: >-
+    Because the general modellers make you describe a Yagi as arbitrary wires
+    and then get out of the way, and this one knows what a Yagi is. Optimising
+    a six-element beam for gain against front-to-back is a couple of commands
+    here and a scripted NEC sweep otherwise.
+  prerequisites: >-
+    Element dimensions to start from, in the units the programs expect --
+    reading the manual pages first will save an hour of numbers that are off by
+    a factor.
+  known_problems: >-
+    Specialisation is the trade: it models parallel-element Yagis and nothing
+    else, so a design with a folded dipole driven element, a gamma match, or a
+    boom that is electrically significant is outside what it represents.
+    Optimiser output should be checked in a general modeller before anyone
+    cuts aluminium.
+  upstream_url: https://www.g8wrb.co.uk/yagi/
+  upstream_support: >-
+    Dr David Kirkby, G8WRB. The project page is the documentation route.

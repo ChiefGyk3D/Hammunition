@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: pythonprop
+version: "0.30.1"
+summary: Graphical front end that makes VOACAP predictions readable
+categories: [hf-propagation]
+
+# voacapl is the engine; this package depends on it in Debian too. Declared
+# rather than assumed, so a plan that installs only the front end is refused
+# at resolution rather than discovered at first run.
+depends: [voacapl]
+
+install:
+  - install:
+      method: apt
+      packages: [pythonprop]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Runs voacapl and turns its output into plots: area coverage maps showing
+    where a signal reaches at a given hour, point-to-point charts of band
+    versus time of day, and comparisons between antennas or power levels. The
+    input parameters are a form rather than a fixed-column text file.
+  why_you_want_it: >-
+    VOACAP's own output is a table of numbers per hour per band and reading it
+    is a skill. The area map answers the question people actually have -- who
+    can hear me, at this hour, on this band -- in one picture. It is the
+    difference between having the model and being able to use it.
+  prerequisites: >-
+    voacapl, which this manifest declares. Cartopy and matplotlib for the
+    plotting, which Debian's package depends on directly. A smoothed sunspot
+    number, as with voacapl.
+  known_problems: >-
+    Map rendering pulls in cartopy, scipy and matplotlib -- a large dependency
+    stack for a program whose job is to draw contours, and the usual source of
+    a slow first launch. The predictions are only as good as the antenna
+    description you give it; the default is a dipole at a default height and
+    treating that as your station is the commonest way to get a confidently
+    wrong answer.
+  upstream_url: https://www.qsl.net/hz1jw/pythonprop/index.html
+  upstream_support: Jim Watson, HZ1JW / M0DNS -- same author as voacapl.

@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: wwl
+version: "1.3"
+summary: Distance and bearing between two Maidenhead locators, from the command line
+categories: [hf-propagation, antenna]
+
+install:
+  - install:
+      method: apt
+      packages: [wwl]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Takes two Maidenhead grid squares and prints the great-circle distance and
+    the azimuth from the first to the second. It also converts between
+    locators and latitude and longitude in both directions.
+  why_you_want_it: >-
+    It is the small tool that answers the question a beam heading depends on,
+    without opening anything. Two arguments, one line of output, scriptable --
+    which is what makes it useful inside other things rather than only at a
+    prompt.
+  prerequisites: None. It is a single binary with no data files.
+  known_problems: >-
+    It computes the great-circle path, which is the right answer for a beam
+    heading and not always the path a signal actually took: long path, and
+    skewed paths near the auroral zones, are real and this will not tell you
+    about them. Six-character locators give a centre-of-square answer, so
+    distances between nearby stations carry a few kilometres of inherent slop.
+  upstream_url: http://www.db.net/downloads/
+  upstream_support: >-
+    Small, long-stable utility. Debian's package is the practical support
+    route; there is no active upstream project page beyond the download
+    directory above.

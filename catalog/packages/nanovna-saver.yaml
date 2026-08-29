@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: nanovna-saver
+version: "0.7.3"
+summary: Desktop companion for the NanoVNA — bigger screen, real calibration, exportable data
+categories: [antenna, electronics, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [nanovna-saver]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Drives a NanoVNA over USB from a PC: runs sweeps wider and with more points
+    than the device's own screen allows, performs and stores calibrations,
+    displays Smith charts, SWR, return loss and impedance, averages multiple
+    sweeps, and exports Touchstone s1p and s2p files for other tools.
+  why_you_want_it: >-
+    The NanoVNA is a remarkable instrument attached to a postage-stamp display
+    and four buttons. Everything that makes a VNA useful -- seeing the whole
+    sweep, calibrating properly, keeping the measurement -- is painful on the
+    device and straightforward here. Touchstone export is the part that matters
+    most: a measurement you cannot get out of the instrument is a measurement
+    you cannot compare.
+  prerequisites: >-
+    A NanoVNA on USB, and permission to open its serial port -- membership of
+    the `dialout` group, which the hardware catalog requests and which does not
+    apply to a session already open. A calibration kit, or the loads that came
+    with the device; an uncalibrated sweep is a picture, not a measurement.
+  known_problems: >-
+    The NanoVNA family is a large set of clones with different firmware and
+    different serial protocols, and support varies -- a device that enumerates
+    is not necessarily one this speaks to correctly. AHRL installs it into a
+    per-user venv from an unpinned git clone (inventory unit 85); this uses the
+    packaged version instead, which is older and does not move under you.
+    Calibration is stored per-session unless saved, and the commonest mistake is
+    a sweep taken outside the calibrated range, which produces confident
+    nonsense at the edges.
+  upstream_url: https://github.com/NanoVNA-Saver/nanovna-saver
+  upstream_support: GitHub issues at the URL above.

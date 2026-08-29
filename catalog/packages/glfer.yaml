@@ -31,6 +31,14 @@ install:
       never checks exit status, so if either has already been dropped from a
       target the build fails silently there.
 
+      **Measured 2026-08-28: both still resolve on all five x86 targets** —
+      Debian 13 and Parrot fftw2 2.1.5-7+b1 / libgtk2.0-dev 2.24.33-7, Ubuntu
+      26.04 2.1.5-7build2 / 2.24.33-10, Kali 2.1.5-8 / 2.24.33-10+b1, Mint
+      22.3 2.1.5-6build2 / 2.24.33-4ubuntu1.1. The risk is real and it has not
+      arrived; the register above stays, because the day it does arrive nothing
+      will announce it. fftw2 is also still pulled by cassbeam in the same
+      archive, which is part of why it survives.
+
 binaries:
   - produced: glfer
     install_as: glfer
