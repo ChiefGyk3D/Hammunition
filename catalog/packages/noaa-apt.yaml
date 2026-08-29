@@ -4,7 +4,7 @@
 name: noaa-apt
 version: 1.4.1
 summary: Decoder for NOAA weather-satellite APT imagery
-categories: [satellites, sdr]
+categories: [satellite, sdr]
 
 # SHAPE 5 — retired, and the catalog still carries it.
 # A user who goes looking must find an explanation, not silence.

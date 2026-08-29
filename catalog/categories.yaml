@@ -1,0 +1,107 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+# The category vocabulary — D-003's flat tags, written down.
+#
+# Categories are tags, not a tree: they overlap freely and never nest. What
+# they must not do is drift, and they had. `satdump` was tagged `satellite`
+# and `noaa-apt` `satellites`, so a query for either found half the satellite
+# software in the catalog and reported it as all of it. Nothing failed; the
+# answer was just quietly wrong, which is the failure mode this project keeps
+# writing checks against.
+#
+# A controlled vocabulary is the fix, and the cost is deliberate: adding a tag
+# means editing this file, where the tag you were about to invent is already
+# visible three lines up. `tests/test_categories.py` enforces both directions —
+# no manifest may use an undeclared tag, and no declared tag may go unused, so
+# the vocabulary cannot accumulate names nothing carries.
+#
+# This file is data, not logic, and is not loaded by the engine. It exists for
+# the checker, the docs generator, and the person adding the next manifest.
+
+categories:
+  - name: digital-modes
+    summary: >-
+      Keyboard-to-keyboard and weak-signal modes worked with a transceiver:
+      PSK31, RTTY, FT8, JS8, SSTV and the rest.
+
+  - name: dmr
+    summary: DMR — codeplugs, talkgroups, and the radios that use them.
+
+  - name: electronics
+    summary: Bench electronics and EDA — circuit design, simulation, test gear.
+
+  - name: emcomm
+    summary: Emergency and public-service communications.
+
+  - name: hardware
+    summary: >-
+      Device support rather than an application: drivers, firmware, udev
+      permissions, and the tools for talking to a device at all.
+
+  - name: hf-propagation
+    summary: Propagation prediction, solar indices, beacons and grey line.
+
+  - name: listening
+    summary: >-
+      Receive-only monitoring and decoding. Needs no licence and often no
+      transmitter, which makes it the on-ramp for an operator who owns nothing
+      but a dongle yet.
+
+  - name: mesh
+    summary: LoRa and mesh networking — Meshtastic, MeshCore, Reticulum.
+
+  - name: nbems
+    summary: >-
+      The NBEMS stack specifically — fldigi with flmsg, flamp and flwrap for
+      formal message handling without an internet connection.
+
+  - name: packet
+    summary: AX.25 and packet radio, including Winlink and BBS work.
+
+  - name: programmer
+    summary: Device programmers and flashers for microcontrollers and memories.
+
+  - name: radio-programming
+    summary: >-
+      Writing memories and settings into a transceiver — codeplugs and channel
+      lists, as distinct from controlling a radio while operating it.
+
+  - name: rf-research
+    summary: >-
+      Research tooling whose lawful use is jurisdiction-dependent. Consent-gated
+      (D-021).
+
+  - name: rf-security
+    summary: >-
+      RF security and SIGINT tooling. Opt-in by profile, never installed by
+      default.
+
+  - name: rfid
+    summary: RFID and NFC — readers, transponders, and the cards themselves.
+
+  - name: satellite
+    summary: >-
+      Amateur satellites and weather satellites — tracking, prediction,
+      telemetry and image decoding.
+
+  - name: sdr
+    summary: Software-defined radio — receivers, transceivers and the software.
+
+  - name: station
+    summary: >-
+      Station infrastructure that is not itself a radio application: time,
+      position, and the plumbing an operating position needs.
+
+  - name: timing
+    summary: Time and frequency — clocks, disciplining, and stable references.
+
+  - name: tracking
+    summary: >-
+      Position reporting and target tracking: APRS, ADS-B, AIS, and the
+      map that shows them.
+
+  - name: workstation
+    summary: >-
+      The machine the station runs on rather than the radio: editors, serial
+      consoles, enumeration tools.
