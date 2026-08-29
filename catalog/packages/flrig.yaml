@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: flrig
+version: "2.0.05"
+summary: Rig control with a real front panel, shared between programs over XML-RPC
+categories: [rig-control, station]
+
+# SUPERSEDE, per docs/reference/dispositions.md #5: AHRL carries `grig`, a
+# hamlib demonstration front end that has not moved in years. flrig does the
+# same job, is actively developed, and adds the XML-RPC server that lets
+# fldigi, WSJT-X and a logger share one serial port -- which is the actual
+# problem an operator has.
+supersedes: [grig]
+
+install:
+  - install:
+      method: apt
+      packages: [flrig]
+    note: >-
+      AHRL purges the repository package and builds 2.0.10 from source
+      (inventory unit 51). Debian 13 and Parrot carry 2.0.05, Ubuntu 26.04 and
+      Kali the same, Mint 2.0.04 (measured 2026-08-28). Five point releases is
+      not a reason to own a build -- see docs/contributing/manifests.md -- but
+      it is a reason to record the gap, because flrig's release notes are
+      mostly new radio models and yours may be in one of them.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Talks CAT to a transceiver and gives it a window: frequency, mode,
+    filters, power, S-meter, VFO and memory access, laid out like a front
+    panel. It also runs an XML-RPC server, so fldigi, WSJT-X, a logger and
+    anything else can read and set the radio through flrig instead of each
+    fighting for the serial port.
+  why_you_want_it: >-
+    That server is the reason. A radio has one CAT port and a station has
+    several programs that want it; without something in the middle, the second
+    program to start finds the port busy. flrig is the piece that makes the
+    normal digital-modes setup -- modem, logger, rig control -- work at the same
+    time.
+  prerequisites: >-
+    A CAT interface to the radio and access to its serial device, which means
+    membership of the `dialout` group. Knowing which model to select: flrig has
+    per-radio backends and the closest-looking one is often not the right one.
+  known_problems: >-
+    Two programs both configured to open the serial port directly, with flrig
+    also running, is the classic failure -- everything appears configured and
+    the radio behaves erratically. Decide that flrig owns the port and point
+    the rest at flrig. Some radios need specific baud rates and CI-V
+    addresses that no default gets right, and the symptom is silence rather
+    than an error.
+
+    Debian's Homepage field for this package points at w1hkj.com, which no
+    longer belongs to the project: as of 2026-08-28 both w1hkj.com and
+    www.w1hkj.com 301-redirect to an unrelated site, and the subpaths Debian
+    cites return 404. The live project is w1hkj.org, which is what this
+    manifest points at. An operator following the packaged link lands
+    somewhere that is not the fldigi suite and has no way to tell that from a
+    site redesign.
+  upstream_url: https://w1hkj.org/flrig-help/
+  upstream_support: The W1HKJ suite -- linuxham on groups.io.

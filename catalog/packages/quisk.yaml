@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: quisk
+version: "4.2.32"
+summary: SDR transceiver software with a real front panel, driving hardware or a dongle
+categories: [sdr, digital-modes, rig-control]
+
+install:
+  - install:
+      method: apt
+      packages: [quisk]
+    note: >-
+      AHRL purges the repository package and builds 4.2.50 from a tarball,
+      running it out of /usr/local/src rather than installing to a prefix
+      (inventory unit 65). Debian 13 and Parrot carry 4.2.32, Ubuntu 26.04 and
+      Kali 4.2.50, Mint 4.2.30 (measured 2026-08-28). The packaged build is
+      used here; the run-in-place pattern is exactly the shape this project
+      exists to replace.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A software-defined transceiver: waterfall and panadapter, filters, AGC,
+    noise blanker, and transmit as well as receive. It speaks to SoapySDR
+    devices, to sound-card IQ hardware such as the SoftRock family, and to
+    Hermes and HPSDR boards, and it can act as a panadapter alongside a
+    conventional radio.
+  why_you_want_it: >-
+    It is one of the few pieces of Linux SDR software that transmits rather
+    than only receiving, which is what makes it a transceiver rather than a
+    receiver. For homebrew and kit SDR hardware in particular it is often the
+    software the hardware was designed against.
+  prerequisites: >-
+    A configuration file. Quisk is configured in Python rather than through a
+    settings dialog, and the shipped examples are the starting point -- this is
+    the step that stops people, and it is deliberate rather than an omission.
+    Hardware access means the `dialout` or `plugdev` group depending on the
+    device.
+  known_problems: >-
+    The Python configuration is genuinely a barrier for a first-time user and
+    there is no graphical alternative for the hardware section. Transmit
+    involves real RF: check what your device actually emits before connecting
+    an antenna, and remember that a dongle-only setup cannot transmit at all.
+    python3-wxgtk is the toolkit, and wx applications scale poorly on HiDPI.
+  upstream_url: https://pypi.org/project/quisk/
+  upstream_support: >-
+    James C. Ahlstrom, N2ADR. Both Debian and PyPI declare the project home as
+    james.ahlstrom.name/quisk/, and this could NOT be checked: that host
+    resolves to an IPv6 address only and the machine doing the checking has no
+    IPv6 route (2026-08-28). Unreachable from here is not the same as gone, so
+    the manifest points at the PyPI project instead, which is live, carries the
+    same author, and was publishing 4.2.54 while Debian 13 shipped 4.2.32.
+    Someone with IPv6 should confirm the project page and this entry can then
+    cite it.

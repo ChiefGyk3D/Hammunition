@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: comptext
+version: "1.0.1"
+summary: Compares two text streams and scores how much of one arrived intact
+categories: [digital-modes, nbems]
+
+install:
+  - install:
+      method: apt
+      packages: [comptext]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Takes a sent file and a received file and reports the character accuracy
+    between them as a percentage, aligning the two so that dropped or inserted
+    characters do not throw the whole comparison off.
+  why_you_want_it: >-
+    It turns "that mode seemed better" into a number. Comparing two digital
+    modes, two audio levels, two filter settings or two antennas on the same
+    path is an experiment, and without a score it is an opinion. This is the
+    W1HKJ suite's measuring instrument.
+  prerequisites: >-
+    The original text and the received text as files. Getting the received
+    text out of fldigi means logging it, which is a setting rather than a
+    default.
+  known_problems: >-
+    It scores characters, not meaning: a decode that is 90 percent accurate may
+    still be unreadable if the errors land in the callsign. Use it to compare
+    conditions against each other rather than as an absolute measure of whether
+    a mode is usable.
+
+    Debian's Homepage field for this package points at w1hkj.com, which no
+    longer belongs to the project: as of 2026-08-28 both w1hkj.com and
+    www.w1hkj.com 301-redirect to an unrelated site, and the subpaths Debian
+    cites return 404. The live project is w1hkj.org, which is what this
+    manifest points at. An operator following the packaged link lands
+    somewhere that is not the fldigi suite and has no way to tell that from a
+    site redesign.
+  upstream_url: https://w1hkj.org/
+  upstream_support: The W1HKJ suite -- linuxham on groups.io.

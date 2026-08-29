@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: flmsg
+version: "4.0.23"
+summary: Fills in and transmits the standard message forms EMCOMM runs on
+categories: [digital-modes, nbems, emcomm]
+
+after: [fldigi]
+
+install:
+  - install:
+      method: apt
+      packages: [flmsg]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Provides the forms that emergency and public-service traffic uses -- ICS
+    213 and the rest of the ICS set, ARRL radiogram, plaintext and several
+    agency-specific ones -- as fill-in templates, then compresses each into a
+    compact wire format and sends it through fldigi. The receiving end gets the
+    same form back, laid out, and can print it or open it in a browser.
+  why_you_want_it: >-
+    Formal message handling is form handling. An agency wants an ICS 213, not a
+    paragraph, and getting the fields right matters more than the prose. This
+    sends one in a fraction of the airtime the printed form would take, because
+    only the field contents cross the link, and it hands the other end
+    something an official can sign rather than a transcript.
+  prerequisites: >-
+    fldigi, running and configured for the mode in use. A browser for viewing
+    received forms, which is what the xdg-utils recommendation is for.
+  known_problems: >-
+    Both ends need compatible flmsg versions for a form the sender has and the
+    receiver does not; the failure is a form that renders wrongly rather than
+    an error. Custom agency forms are files that have to be distributed
+    separately, and that distribution is the part that breaks during an actual
+    activation rather than during a drill.
+
+    Debian's Homepage field for this package points at w1hkj.com, which no
+    longer belongs to the project: as of 2026-08-28 both w1hkj.com and
+    www.w1hkj.com 301-redirect to an unrelated site, and the subpaths Debian
+    cites return 404. The live project is w1hkj.org, which is what this
+    manifest points at. An operator following the packaged link lands
+    somewhere that is not the fldigi suite and has no way to tell that from a
+    site redesign.
+  upstream_url: https://w1hkj.org/flmsg-help/
+  upstream_support: The W1HKJ suite -- linuxham on groups.io.

@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: flamp
+version: "2.2.14"
+summary: Sends files over radio in numbered blocks that can be filled in later
+categories: [digital-modes, nbems, emcomm]
+
+# The NBEMS stack is a set, not a list of alternatives: fldigi is the modem,
+# flmsg the forms editor, flamp the file mover, flwrap the envelope. Ordering
+# rather than dependency (D-003) -- flamp runs standalone, but its whole
+# purpose is to drive fldigi.
+after: [fldigi]
+
+install:
+  - install:
+      method: apt
+      packages: [flamp]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Breaks a file into numbered blocks, each individually checksummed, and
+    transmits them through fldigi. Receivers report which blocks they are
+    missing, and the sender retransmits only those. AMP -- Amateur Multicast
+    Protocol -- is designed so one transmission serves many receivers at once.
+  why_you_want_it: >-
+    Sending a file over HF means accepting that parts of it will not arrive.
+    Everything else either fails and starts over or needs a two-way connection
+    per receiver, and neither works when twenty stations are copying the same
+    net. This is the mechanism that makes broadcast file transfer over a noisy
+    channel actually work, which is why EMCOMM traffic handling uses it.
+  prerequisites: >-
+    fldigi running and configured, since flamp does not own a modem or a radio
+    -- it hands blocks to fldigi and reads what fldigi decodes.
+  known_problems: >-
+    A receiver that started late gets the blocks from then on and requests the
+    rest; if nobody is transmitting fills, the file simply stays incomplete and
+    nothing announces it. Check the block report rather than assuming a
+    transfer finished. Mode choice matters more than it looks: a mode too fast
+    for conditions loses more blocks than the fill cycle can recover.
+  upstream_url: https://w1hkj.org/flamp-help/
+  upstream_support: >-
+    The W1HKJ suite, maintained by the fldigi developers. The linuxham group on
+    groups.io is where the answers actually are.

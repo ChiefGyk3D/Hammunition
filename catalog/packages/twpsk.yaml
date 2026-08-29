@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: twpsk
+version: "4.3"
+summary: PSK31 in an X11 window, the graphical companion to psk31lx
+categories: [digital-modes]
+
+install:
+  - install:
+      method: apt
+      packages: [twpsk]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Works PSK31 through a sound card with a Motif interface: a tuning display
+    for finding and locking the signal, receive and transmit panes, and
+    programmable macros for the repeated parts of a contact.
+  why_you_want_it: >-
+    It is small and does one mode. fldigi is the right answer for an operator
+    who wants twenty modes and a station's worth of integration; this is the
+    right answer for someone who wants PSK31 and a window, on a machine where
+    starting fldigi is more than the job needs.
+  prerequisites: >-
+    An X11 session with Motif, sound card audio to and from the radio, and PTT.
+  known_problems: >-
+    Motif, so no modern theming and no HiDPI scaling. As with psk31lx the
+    upstream is gone -- wa0eir.bcts.info does not resolve (checked
+    2026-08-28) -- so what Debian ships is what exists. For anything beyond
+    PSK31, fldigi covers the same ground and is maintained.
+  upstream_url: https://tracker.debian.org/pkg/twpsk
+  upstream_support: >-
+    Ted Williams, WA0EIR. See psk31lx: the author's site is unreachable and the
+    distribution is the only route.

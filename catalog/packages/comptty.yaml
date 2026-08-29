@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: comptty
+version: "1.0.1"
+summary: The same accuracy comparison as comptext, for Baudot RTTY streams
+categories: [digital-modes]
+
+install:
+  - install:
+      method: apt
+      packages: [comptty]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Compares a sent and a received RTTY stream and reports accuracy, handling
+    the Baudot shift states that make a naive character comparison meaningless
+    -- a single missed shift character turns the rest of a line into digits
+    without any of the letters being wrong.
+  why_you_want_it: >-
+    Because comptext scores it wrongly. Baudot is a five-bit code with figures
+    and letters shifts, so an ordinary text diff of two RTTY decodes reports a
+    catastrophe where one shift was lost. If you are measuring RTTY
+    performance, this is the tool that knows that.
+  prerequisites: >-
+    Sent and received streams as files, as with comptext.
+  known_problems: >-
+    Narrower in scope than comptext by design and not useful for anything but
+    RTTY. The shift-state handling is the whole value; using this on non-Baudot
+    text gives worse results than comptext would.
+
+    Debian's Homepage field for this package points at w1hkj.com, which no
+    longer belongs to the project: as of 2026-08-28 both w1hkj.com and
+    www.w1hkj.com 301-redirect to an unrelated site, and the subpaths Debian
+    cites return 404. The live project is w1hkj.org, which is what this
+    manifest points at. An operator following the packaged link lands
+    somewhere that is not the fldigi suite and has no way to tell that from a
+    site redesign.
+  upstream_url: https://w1hkj.org/
+  upstream_support: The W1HKJ suite -- linuxham on groups.io.

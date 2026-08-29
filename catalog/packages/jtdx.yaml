@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: jtdx
+version: "2.2.159"
+summary: WSJT-X derivative tuned for DX working and crowded FT8 conditions
+categories: [digital-modes]
+
+# The FT8 family overlaps heavily -- wsjtx, wsjtx-improved, jtdx, mshv and
+# js8call all decode FT8 -- and PARITY-POLICY requires exactly one recommended
+# default. `wsjtx` holds it by carrying the schema default; this one declares
+# itself explicitly not the default, as wsjtx-improved already does. Which tool
+# SHOULD be the default is an open question in
+# docs/reference/dispositions.md and is not decided here.
+recommended_default: false
+
+install:
+  - install:
+      method: apt
+      packages: [jtdx]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Decodes and transmits FT8, FT4, JT65 and JT9, with a decoder and a set of
+    operating aids aimed at DX work: more aggressive multi-pass decoding,
+    filtering by whether an entity or grid is new to you, and automation for
+    working a station that is calling elsewhere in the passband.
+  why_you_want_it: >-
+    On a crowded band its decoder finds signals that others miss, and the
+    new-entity filtering is the difference between reading four hundred decodes
+    a minute and seeing the six that matter. Operators chasing DXCC on FT8 tend
+    to prefer it for exactly those two reasons.
+  prerequisites: >-
+    An accurate clock -- FT8 transmits in 15-second windows and a clock more
+    than about a second out will decode nothing while appearing to work. Run
+    NTP or chrony. Rig control and audio in and out, as with any of the family.
+  known_problems: >-
+    Development has been comparatively quiet against WSJT-X, wsjtx-improved and
+    MSHV -- that is the reason this manifest does not claim the default, and it
+    is a maintenance observation rather than a verdict on the software, which
+    has a devoted user base. Its automation can transmit without a human in the
+    loop, which is legal in most places and is still worth understanding before
+    switching on. Running several of the FT8 family at once contends for the
+    same sound device and the same rig.
+  upstream_url: https://sourceforge.net/projects/jtdx-improved/
+  upstream_support: >-
+    Debian packages the `jtdx-improved` fork, which is the actively packaged
+    line; the original jtdx.tech project is separate.

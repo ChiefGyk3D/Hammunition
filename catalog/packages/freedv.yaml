@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: freedv
+version: "1.8.11"
+summary: Digital voice over HF in the bandwidth of an SSB signal
+categories: [digital-modes]
+
+install:
+  - install:
+      method: apt
+      packages: [freedv]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Encodes speech with the Codec2 vocoder at rates from 700 bits per second
+    upward, modulates it into an SSB-width channel, and decodes the same in
+    reverse. Several modes trade robustness against quality; the low-rate ones
+    are designed to stay intelligible where SSB is already unusable.
+  why_you_want_it: >-
+    It is the open digital voice mode -- no proprietary codec, no licence fee,
+    no closed hardware, which is what separates it from DMR, D-STAR and System
+    Fusion. The engineering claim is that below a certain signal level digital
+    stays intelligible while analogue SSB has already turned to noise, and on a
+    marginal path that is testable rather than theoretical.
+  prerequisites: >-
+    A transceiver with SSB and audio in and out, PTT through hamlib or a serial
+    line, and another station also running FreeDV -- which is the real
+    constraint. Activity is concentrated on scheduled nets and specific
+    frequencies rather than spread across the bands.
+  known_problems: >-
+    Below the threshold it does not degrade gracefully; it stops, completely,
+    where SSB would have been merely painful. That cliff is the trade the mode
+    makes and it surprises people used to analogue. Codec2 at 700 bits per
+    second sounds like a robot even under perfect conditions -- this is the
+    codec, not your audio chain, and no amount of level adjustment changes it.
+  upstream_url: https://freedv.org/
+  upstream_support: >-
+    The FreeDV project, with David Rowe VK5DGR's Codec2 underneath. Mailing
+    list and documentation linked from the site.

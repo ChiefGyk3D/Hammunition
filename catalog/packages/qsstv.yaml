@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: qsstv
+version: "9.5.8"
+summary: Slow-scan television and radiofax — receive and transmit pictures
+categories: [digital-modes, listening]
+
+install:
+  - install:
+      method: apt
+      packages: [qsstv]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Decodes and transmits the analogue SSTV modes -- Martin, Scottie, Robot,
+    PD and the rest -- and the digital DRM-based ones, plus HF radiofax. It
+    finds the mode from the header tone automatically, corrects slant, and
+    keeps a gallery of everything received.
+  why_you_want_it: >-
+    SSTV is the mode where the result is a picture, which makes it the one
+    people show other people. It is also genuinely useful: the ISS transmits
+    SSTV on 145.800 during scheduled events and a handheld with an antenna is
+    enough to receive it. The radiofax side still carries live weather charts
+    from several stations.
+  prerequisites: >-
+    Receiver audio into a sound card, and for transmit, audio out plus PTT
+    through hamlib, flrig or a serial line. The sound card sample rate matters:
+    an uncalibrated card slants the picture, which is what the slant correction
+    exists for.
+  known_problems: >-
+    Slanted or torn images almost always mean sample-rate error rather than
+    propagation, and the correction has to be done once per machine -- new
+    users blame the band. The Qt5 interface is dense and the mode selector is
+    easy to leave on the wrong setting after a manual decode. Digital SSTV
+    needs both ends to agree and is far less common on the air than the
+    analogue modes.
+  upstream_url: https://www.qsl.net/on4qz/qsstv/
+  upstream_support: >-
+    Johan Maes, ON4QZ. The project page carries documentation and the source.

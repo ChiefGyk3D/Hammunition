@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: psk31lx
+version: "2.2"
+summary: PSK31 in a terminal, with no desktop and no waterfall
+categories: [digital-modes]
+
+install:
+  - install:
+      method: apt
+      packages: [psk31lx]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Transmits and receives PSK31 through a sound card from a curses interface:
+    a tuning indicator, a receive window, a transmit buffer and a set of
+    programmable macros. No graphics, no window manager.
+  why_you_want_it: >-
+    It runs over SSH. A remote or headless station -- a Pi at the antenna, a
+    machine in a shed, a field setup driven from a laptop over a link -- can
+    work PSK31 with this and cannot with fldigi. It is also small enough to be
+    comprehensible, which matters if you want to understand the mode rather
+    than only operate it.
+  prerequisites: >-
+    Sound card audio to and from the radio, and PTT -- serial line or VOX.
+    Tuning is done from a text indicator rather than a waterfall, which takes
+    more care than clicking a trace.
+  known_problems: >-
+    Finding a signal without a waterfall is genuinely harder, and the usual
+    approach is to tune with a graphical program first and then switch. See
+    the upstream note below: the author's site is gone, so this is packaged
+    software with no live upstream.
+  upstream_url: https://tracker.debian.org/pkg/psk31lx
+  upstream_support: >-
+    Ted Williams, WA0EIR -- the same author as twclock and twpsk, and the same
+    outcome: the Homepage Debian declares, wa0eir.bcts.info, does not resolve
+    (checked 2026-08-28). Three packages in this catalog share that dead
+    domain. The distribution is the only support route.
