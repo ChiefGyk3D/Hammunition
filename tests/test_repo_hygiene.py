@@ -351,3 +351,41 @@ def test_named_source_packages_are_not_ignored(path: str) -> None:
 def test_root_output_dirs_are_still_ignored(path: str) -> None:
     """Anchoring must not have stopped the rules doing their actual job."""
     assert _is_ignored(path), f"{path} should be git-ignored but is not"
+
+
+# ---------------------------------------------------------------------------
+# The link checker must not treat a machine path as a repo path
+#
+# The catalog documents udev rules, device nodes and config files by absolute
+# path constantly, and the generated package reference surfaces every
+# manifest's `config_files`. Reporting `/etc/bpq32.cfg` as a broken repo
+# reference is both wrong and the kind of false positive that teaches people
+# to ignore a checker.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("path", "is_system"),
+    [
+        ("/etc/bpq32.cfg", True),
+        ("/usr/local/bin/hammunition", True),
+        ("/dev/serial/by-id/usb-thing", True),
+        ("/var/lib/direwolf", True),
+        # A repo path written with a stray leading slash must STILL be caught.
+        ("/docs/reference/dispositions.md", False),
+        ("docs/reference/dispositions.md", False),
+        ("catalog/packages/fldigi.yaml", False),
+    ],
+)
+def test_link_checker_distinguishes_machine_paths_from_repo_paths(
+    path: str, is_system: bool
+) -> None:
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "check_doc_links", REPO_ROOT / "scripts" / "check_doc_links.py"
+    )
+    assert spec and spec.loader
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    assert checker.is_system_path(path) is is_system

@@ -344,7 +344,7 @@ an unsupported combination appear to work.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 77
+  packages/        # one YAML per piece of software          ✅ 215
   profiles/        # named bundles referencing packages      ✅ 4
   hardware/
     classes/       # device families with shared Linux needs ✅ 2

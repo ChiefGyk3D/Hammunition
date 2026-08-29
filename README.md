@@ -18,7 +18,8 @@ exactly where things stand:
 | | Status |
 |---|---|
 | Catalog schema (Pydantic, `mypy --strict`) | ✅ working |
-| Package manifests | 🟡 71 of a planned ~230 |
+| Package manifests | 🟡 **215**, up from 71 |
+| …Debian Blend coverage | 🟡 **151 of 152** — only `qlog` outstanding |
 | Hardware catalog | 🟡 23 devices, 5 classes, 297 confirmed USB identifiers |
 | …of which **supported** / **run on hardware here** | **18** / **7** — [two different claims](docs/DECISIONS.md), kept apart on purpose |
 | Profiles | 🟡 4 written, the rest sized and named on paper |

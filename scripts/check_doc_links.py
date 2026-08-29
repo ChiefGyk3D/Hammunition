@@ -33,6 +33,48 @@ BACKTICK_PATH = re.compile(r"`([A-Za-z0-9_./-]+\.(?:md|ya?ml|py|toml|sh|cfg))`")
 
 SKIP_SCHEMES = ("http://", "https://", "mailto:", "#")
 
+# A backticked path rooted at one of these is a location on the operator's
+# machine, not a file in this repository. The catalog documents udev rules,
+# config files and device nodes by absolute path constantly, and the package
+# reference now surfaces every manifest's `config_files` — so without this the
+# checker reports `/etc/bpq32.cfg` as a broken repo reference, which is both
+# wrong and the kind of false positive that teaches people to ignore a checker.
+#
+# Deliberately a list of FHS roots rather than "anything starting with /":
+# `/docs/reference/x.md` is a repo path written with a stray leading slash and
+# should still be caught.
+SYSTEM_ROOTS = frozenset(
+    {
+        "bin",
+        "boot",
+        "dev",
+        "etc",
+        "home",
+        "lib",
+        "lib32",
+        "lib64",
+        "media",
+        "mnt",
+        "opt",
+        "proc",
+        "root",
+        "run",
+        "sbin",
+        "srv",
+        "sys",
+        "tmp",
+        "usr",
+        "var",
+    }
+)
+
+
+def is_system_path(target: str) -> bool:
+    """True for an absolute path naming a location on the target machine."""
+    parts = Path(target).parts
+    return len(parts) > 1 and parts[0] == "/" and parts[1] in SYSTEM_ROOTS
+
+
 # Anchored to the repo root, exactly like the `.gitignore` entries they mirror.
 # The unanchored form also matched `docs/reference/` — a required documentation
 # section — and silently excluded all seven inventory documents from checking,
@@ -108,7 +150,7 @@ def check() -> int:
         for target in BACKTICK_PATH.findall(text):
             if target in ALLOW_MISSING or Path(target).name in ALLOW_MISSING:
                 continue
-            if "/" not in target:
+            if "/" not in target or is_system_path(target):
                 continue
             checked += 1
             if not any(c.exists() for c in _candidates(target, md)):
