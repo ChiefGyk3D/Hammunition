@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: cutesdr
+version: "1.20"
+summary: Small demodulator and spectrum display for networked receivers
+categories: [sdr, listening]
+
+install:
+  - install:
+      method: apt
+      packages: [cutesdr]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Displays a spectrum and waterfall and demodulates AM, FM, SSB and CW from
+    an RFSPACE networked receiver or a compatible sample stream. It was written
+    as a demonstration of the DSP techniques as much as a program to use, and
+    the source is correspondingly readable.
+  why_you_want_it: >-
+    Two reasons and they pull in different directions. If you have RFSPACE
+    hardware -- SDR-IQ, SDR-IP, NetSDR -- it is a direct client. If you do not,
+    it is one of the clearest worked examples of receiver DSP in C++ that
+    exists, which is a different kind of useful.
+  prerequisites: >-
+    RFSPACE hardware or a compatible stream. It does not speak SoapySDR, so
+    it will not open an arbitrary dongle.
+  known_problems: >-
+    Narrow hardware support is the main limit and it is by design. The project
+    has not moved in a long time; Qt has moved several times underneath it.
+    For general SDR listening on ordinary hardware, gqrx or SDR++ are the
+    right tools and this is not.
+  upstream_url: http://www.rfspace.com/RFSPACE/OtherApps.html
+  upstream_support: >-
+    Moe Wheatley, AE4JY, via RFSPACE's applications page. There is no issue
+    tracker.

@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: gr-hpsdr
+version: "3.0"
+summary: GNU Radio blocks for OpenHPSDR transceiver hardware
+categories: [sdr, hardware]
+
+depends: [gnuradio]
+
+install:
+  - install:
+      method: apt
+      packages: [gr-hpsdr]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Source and sink blocks that speak OpenHPSDR protocol 1 over Ethernet, so
+    Hermes, Hermes-Lite, Metis and the other HPSDR boards can be used inside a
+    GNU Radio flow graph for both receive and transmit.
+  why_you_want_it: >-
+    HPSDR hardware is the open-hardware end of amateur SDR -- capable
+    transceivers with published designs -- and this is how you build your own
+    processing around one instead of using the vendor software. The
+    Hermes-Lite 2 in particular is a common homebrew transceiver and this is
+    its GNU Radio path.
+  prerequisites: >-
+    HPSDR hardware on the same Ethernet segment. It is discovered by broadcast,
+    so a router between you and it usually means it is not found.
+  known_problems: >-
+    Protocol 1 only. Newer boards using protocol 2 are not supported by this
+    module and the failure is a device that does not respond rather than a
+    version message. As an out-of-tree module it is compiled against a specific
+    GNU Radio version, which is the version-lock problem the gnuradio manifest
+    describes.
+  upstream_url: https://github.com/Tom-McDermott/gr-hpsdr
+  upstream_support: Tom McDermott, N5EG. GitHub issues at the URL above.

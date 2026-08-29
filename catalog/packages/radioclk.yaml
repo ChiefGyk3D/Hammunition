@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: radioclk
+version: "1.0"
+summary: Disciplines the system clock from an MSF, WWVB or DCF77 time signal
+categories: [timing, station]
+
+install:
+  - install:
+      method: apt
+      packages: [radioclk]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Decodes the low-frequency time-signal broadcasts -- MSF from Anthorn, WWVB
+    from Colorado, DCF77 from Mainflingen -- from a receiver module attached to
+    a serial port, and presents the result to ntpd as a reference clock.
+  why_you_want_it: >-
+    Time that does not come from the internet. For a station that must work
+    disconnected -- emergency communications, a remote site, anything where
+    the network is the thing that failed -- a radio clock is an independent
+    source, and FT8 and other timed modes stop working within a couple of
+    seconds of drift.
+  prerequisites: >-
+    An LF time-signal receiver module wired to a serial port's data carrier
+    detect line, and to be within range of a transmitter: MSF covers Britain
+    and nearby, DCF77 much of Europe, WWVB much of North America. ntpd
+    configured to accept a reference clock.
+  known_problems: >-
+    LF reception indoors is poor and switch-mode power supplies, LED lighting
+    and computer monitors all interfere badly -- the receiver usually has to be
+    away from the equipment it is timing. Decoding takes a full minute per
+    frame and several frames to trust, so it is not a fast fix for a wrong
+    clock. A GPS-disciplined source is more accurate and easier where the sky
+    is visible; this is for where it is not.
+  upstream_url: http://www.buzzard.me.uk/jonathan/radioclock.html
+  upstream_support: >-
+    Jonathan Buzzard's page above is the reference. Long stable rather than
+    actively developed.

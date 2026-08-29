@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: osmo-sdr
+version: "0.1.8"
+summary: Tools for the original OsmoSDR hardware
+categories: [sdr, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [osmo-sdr]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Command-line tools and the driver library for OsmoSDR, the small
+    single-board SDR the Osmocom project designed before RTL-SDR made cheap
+    dongles universal.
+  why_you_want_it: >-
+    Only if you have the hardware. It is carried because the device exists and
+    a person holding one should find support here rather than a gap, not
+    because it is a device anyone should now go looking for.
+  prerequisites: >-
+    OsmoSDR hardware. Nothing here is useful without it.
+  known_problems: >-
+    The hardware was never produced in large numbers and the project's energy
+    moved to gr-osmosdr and to supporting other devices years ago. Treat this
+    as legacy support: it works, and no one is developing it. The name is a
+    recurring confusion -- `osmo-sdr` is this hardware's driver, `gr-osmosdr`
+    is the GNU Radio block that talks to many devices, and most people
+    searching for one want the other.
+  upstream_url: https://osmocom.org/projects/osmosdr
+  upstream_support: The Osmocom project.

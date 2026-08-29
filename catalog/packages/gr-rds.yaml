@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: gr-rds
+version: "3.10"
+summary: Decodes the data carried alongside broadcast FM — station names, traffic
+categories: [listening, sdr]
+
+depends: [gnuradio]
+
+install:
+  - install:
+      method: apt
+      packages: [gr-rds]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Decodes RDS, the low-rate data channel on a 57 kHz subcarrier of a
+    broadcast FM signal: station name, programme type, radio text, alternative
+    frequencies, the clock, and TMC traffic messages. It also transmits it,
+    which is where the module's name ends in "transceiver".
+  why_you_want_it: >-
+    It is the friendliest possible introduction to real demodulation. The
+    signal is strong, always present, and the result is human-readable text
+    that either matches what the station is called or does not -- immediate
+    feedback that no weak-signal work gives you. As a first GNU Radio flow
+    graph to understand rather than merely run, it is hard to beat.
+  prerequisites: >-
+    Any SDR that covers the FM broadcast band and a couple of hundred kHz of
+    bandwidth. A wire will do for an antenna.
+  known_problems: >-
+    RDS needs a solid signal: a station you can hear through noise will
+    produce partial or garbled text, which looks like a decoder bug and is not.
+    The transmit side is real RF on a broadcast band and is not lawful to
+    radiate in most places -- the module will happily generate it into a dummy
+    load or a file, and what leaves an antenna is your responsibility.
+  upstream_url: https://github.com/bastibl/gr-rds
+  upstream_support: Bastian Bloessl. GitHub issues at the URL above.

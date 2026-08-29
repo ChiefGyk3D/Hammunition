@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: readsb
+version: "3.14.1630"
+summary: Efficient Mode S and ADS-B decoder — the maintained dump1090 successor
+categories: [tracking, sdr, listening]
+
+# SUPERSEDE, per docs/reference/dispositions.md #4 and the dump1090 entry in
+# PARITY-POLICY: AHRL builds dump1090 from a FlightAware zip with a long
+# hand-written CFLAGS line. readsb is the maintained fork of that lineage and
+# is packaged.
+supersedes: [dump1090]
+
+install:
+  - install:
+      method: apt
+      packages: [readsb]
+    note: >-
+      Present on Debian 13, Ubuntu 26.04, Kali and Parrot; absent on Linux Mint
+      22.3 (measured 2026-08-28). Debian 13 does NOT carry
+      `dump1090-mutability`, which Ubuntu and Mint do -- so on Debian the older
+      name is not a fallback and this is the ADS-B decoder available.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Decodes Mode S, ADS-B and TIS-B from an SDR and serves the results: a
+    built-in web map, Beast and raw output for other software, SBS format for
+    older tools, and JSON for anything else. It drives RTL-SDR, bladeRF and
+    dedicated Mode S receivers, and it is written to be efficient enough to run
+    continuously on a Raspberry Pi.
+  why_you_want_it: >-
+    ADS-B is the most immediately rewarding thing to do with a cheap dongle:
+    aircraft appear on a map within a minute of getting the antenna outside.
+    readsb is the maintained line of that software -- dump1090 forked several
+    times and this is the fork that is still developed -- and its decoder
+    recovers more messages from weak signals than the original.
+  prerequisites: >-
+    An SDR that reaches 1090 MHz, and an antenna for it. Antenna matters more
+    than the receiver: a proper quarter-wave or collinear outside will multiply
+    the range over a stub on a desk, and 1090 MHz is line of sight, so height
+    is everything.
+  known_problems: >-
+    It wants exclusive use of the dongle; anything else holding the device
+    means it will not start. Feeding aggregator networks is a choice with a
+    privacy dimension -- you are publishing what your receiver hears, and where
+    it is, to a third party -- and it is off unless configured. The web map
+    binds locally by default; exposing it publishes your receiver's location.
+  upstream_url: https://github.com/adsbfi/readsb
+  upstream_support: >-
+    The adsb.fi fork is what Debian packages and what this cites. Several
+    readsb forks exist with different feature sets, which is worth knowing when
+    reading advice found online.

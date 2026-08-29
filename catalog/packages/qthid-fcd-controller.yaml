@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: qthid-fcd-controller
+version: "4.1"
+summary: Sets frequency and gain on a FUNcube Dongle
+categories: [sdr, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [qthid-fcd-controller]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A small control panel for the FUNcube Dongle Pro and Pro+: it sets the
+    tuning frequency, the LNA and mixer gains, the filter selections and the
+    IQ correction, all of which the dongle exposes over USB HID rather than
+    through its audio interface.
+  why_you_want_it: >-
+    The FUNcube presents itself as a sound card, so audio software can read
+    its samples but has no way to tune it. This is the other half. Without
+    something like it the dongle sits wherever it was last set.
+  prerequisites: >-
+    A FUNcube Dongle, and permission to open its HID device -- a udev rule,
+    since HID access is not granted to ordinary users by default.
+  known_problems: >-
+    Pro and Pro+ have different frequency coverage and different gain
+    controls, and a control that does nothing usually means the wrong model
+    assumption rather than a fault. This catalog also carries `gr-funcube` for
+    the GNU Radio path; the two do not conflict but only one should be holding
+    the device at a time.
+  upstream_url: https://oz9aec.net/radios/funcube-dongle/updated-fcdctl-for-the-funcube-dongle-pro-and-pro
+  upstream_support: Alexandru Csete, OZ9AEC -- also the author of gqrx.

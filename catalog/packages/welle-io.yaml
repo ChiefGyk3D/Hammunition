@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: welle-io
+version: "2.4"
+summary: DAB and DAB+ digital radio receiver with a modern interface
+categories: [listening, sdr]
+
+install:
+  - install:
+      method: apt
+      packages: [welle.io]
+    note: >-
+      The Debian package is named `welle.io`, with a dot. This manifest is
+      `welle-io` because manifest names are lowercase slugs and a dot is not
+      one -- the schema enforces that. The apt name inside the block is the
+      real one and is what reaches the archive.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Receives DAB and DAB+ broadcasting from an SDR: scans a band for
+    ensembles, lists the services in each, decodes the audio, and shows the
+    slideshow images and text the stations send alongside it. It also has a
+    diagnostic view with constellation and impulse response, which is unusual
+    in a consumer-facing receiver.
+  why_you_want_it: >-
+    DAB is a real digital broadcasting system carrying dozens of stations in
+    one multiplex, and a cheap dongle receives it. The diagnostic view is the
+    part worth having beyond listening: seeing the OFDM constellation open and
+    close as you move the antenna teaches more about digital broadcasting than
+    reading about it.
+  prerequisites: >-
+    An SDR covering Band III, around 174 to 240 MHz, which every RTL-SDR does,
+    and a suitable antenna. DAB coverage is regional -- much of Europe and
+    Australia, very little of North America -- so check there is a multiplex
+    where you are before concluding the software is broken.
+  known_problems: >-
+    An empty scan usually means no DAB service in range rather than a fault,
+    and the program cannot tell you which. DAB+ uses the HE-AAC codec and
+    stations that use plain DAB use MP2; both are handled, but a station using
+    an unusual configuration may list and not play. CPU load is modest but the
+    display is Qt Quick and wants working graphics acceleration.
+  upstream_url: https://www.welle.io/
+  upstream_support: GitHub issues linked from the site.

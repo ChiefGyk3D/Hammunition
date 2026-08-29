@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: gr-limesdr
+version: "3.0.1.10.69"
+summary: GNU Radio blocks for LimeSDR hardware
+categories: [sdr, hardware]
+
+depends: [gnuradio]
+
+install:
+  - install:
+      method: apt
+      packages: [gr-limesdr]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Native GNU Radio source and sink blocks for the LimeSDR family, exposing
+    the device's own controls -- per-channel gain stages, the analogue and
+    digital filter chain, NCO and calibration -- rather than the lowest common
+    denominator a generic wrapper offers.
+  why_you_want_it: >-
+    You can reach a LimeSDR through gr-osmosdr or SoapySDR, and for simple
+    receive that is enough. This is for when it is not: full-duplex operation,
+    both channels at once, and the filter and calibration control that MIMO
+    and transmit work actually need.
+  prerequisites: >-
+    LimeSDR hardware and LimeSuite, which this catalog carries separately.
+    Device firmware and gateware must match the LimeSuite version, and that
+    mismatch is the most common LimeSDR problem.
+  known_problems: >-
+    The maintainer does not own this hardware, so nothing here is
+    maintainer-verified (D-027) -- it is carried because other operators have
+    the devices. Version-locked to GNU Radio like every out-of-tree module.
+    LimeSDR transmits, and what you emit is your responsibility.
+  upstream_url: https://wiki.myriadrf.org/Gr-limesdr_Plugin_for_GNURadio
+  upstream_support: MyriadRF. Wiki and forum at the URL above.

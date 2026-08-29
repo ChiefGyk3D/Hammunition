@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: gnuradio
+version: "3.10.12.0"
+summary: Build a radio out of signal-processing blocks instead of hardware
+categories: [sdr, digital-modes]
+
+install:
+  - install:
+      method: apt
+      packages: [gnuradio]
+    note: >-
+      Mint 22.3 is a major release behind at 3.10.9.2 where every other target
+      carries 3.10.12.0 (measured 2026-08-28). That matters more here than
+      elsewhere: out-of-tree modules are compiled against a specific GNU Radio
+      ABI, so a module built for 3.10.12 will not load under 3.10.9. Anything
+      in this catalog that depends on gnuradio inherits that constraint.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A signal-processing framework and a graphical editor for it. You connect
+    blocks -- sources, filters, demodulators, decoders, sinks -- into a flow
+    graph, and it runs as a real-time radio. The blocks are C++ and Python; the
+    editor, GNU Radio Companion, generates a Python program you can read and
+    edit.
+  why_you_want_it: >-
+    Every SDR application is a flow graph someone else already drew. This is
+    where you draw your own, and it is the difference between using the modes
+    somebody wrote a program for and demodulating the signal in front of you.
+    It is also the substrate: gr-satellites, gr-air-modes, gr-rds and the
+    SIGINT tooling are all GNU Radio modules, so this is what they load into.
+  prerequisites: >-
+    A radio to feed it -- gr-osmosdr or SoapySDR provide the hardware sources
+    for RTL-SDR, HackRF, Airspy and the rest, and neither is pulled in
+    automatically. Real-time sample rates are CPU work; a wide flow graph on a
+    slow machine underruns rather than slowing down.
+  known_problems: >-
+    Out-of-tree modules are version-locked to the GNU Radio they were compiled
+    against, and a mismatch shows up as a block that will not import rather
+    than as a version error -- this is the single most common GNU Radio
+    problem and it is why SCOPE.md puts third-party modules behind a working
+    source backend and a pin database rather than in 1.0. Flow graphs written
+    for 3.7 or 3.8 need porting for 3.10; the syntax changed and the errors
+    are not obvious.
+  upstream_url: https://www.gnuradio.org/
+  upstream_support: >-
+    The GNU Radio project. Mailing list, matrix chat and extensive tutorials
+    linked from the site; the guided tutorials are the right starting point
+    and are better than most software's.

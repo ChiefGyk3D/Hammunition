@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: soapysdr-tools
+version: "0.8.1"
+summary: Command-line tools for the SoapySDR hardware abstraction layer
+categories: [sdr, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [soapysdr-tools]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Carries `SoapySDRUtil`, which enumerates every SDR the system can see
+    through SoapySDR, prints its capabilities -- sample rates, gain stages,
+    antenna ports, tuning ranges -- and runs a rate test against it. SoapySDR
+    itself is the abstraction layer; this is how you interrogate it.
+  why_you_want_it: >-
+    `SoapySDRUtil --find` is the first command to run when an SDR is not
+    working, and it answers a question nothing else does cleanly: does the
+    software layer see the device at all. It separates a USB or permissions
+    problem from a driver problem from an application problem, which is three
+    evenings saved.
+  prerequisites: >-
+    A per-device SoapySDR module for whatever hardware you have. This catalog
+    carries them separately -- soapysdr-module-rtlsdr, -hackrf, -airspy and the
+    rest -- because a user needs the one matching their device, not all twelve
+    (D-020). Device access usually means a udev rule and the `plugdev` group.
+  known_problems: >-
+    An empty `--find` with the device plugged in almost always means the
+    matching module is not installed, or that permissions stop the process
+    opening the USB device -- and the output is the same silence in both cases.
+    Check `lsusb` first, then whether the module package is present, then the
+    permissions.
+  upstream_url: https://github.com/pothosware/SoapySDR/wiki
+  upstream_support: The Pothosware project. GitHub issues and the wiki.

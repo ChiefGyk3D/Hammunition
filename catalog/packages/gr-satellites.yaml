@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: gr-satellites
+version: "5.5.0"
+summary: Decoders for the telemetry of hundreds of amateur satellites
+categories: [satellite, sdr, listening]
+
+depends: [gnuradio]
+
+install:
+  - install:
+      method: apt
+      packages: [gr-satellites]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A GNU Radio out-of-tree module carrying decoders for a very large number of
+    amateur and research satellites: the modulation, the framing, the
+    forward error correction and the telemetry format for each, plus the
+    generic building blocks -- AX.25, CCSDS, several FEC schemes -- to write a
+    decoder for one it does not know.
+  why_you_want_it: >-
+    Receiving a satellite is easy and understanding it is not. Every spacecraft
+    has its own framing and its own telemetry layout, and this is the
+    accumulated work of decoding them. It turns a recording of a pass into
+    battery voltages and temperatures, which is what makes satellite listening
+    a hobby rather than a demonstration.
+  prerequisites: >-
+    An SDR and an antenna suited to the band -- most amateur satellites are on
+    VHF and UHF. Doppler correction, which means knowing when the pass is and
+    tracking it; gpredict feeding a tuning offset is the usual arrangement.
+  known_problems: >-
+    Satellites die, and a decoder for a spacecraft that has re-entered will
+    never produce anything -- check the satellite is alive before debugging the
+    decode chain. As an out-of-tree module it is compiled against a specific
+    GNU Radio version, which matters on Mint 22.3 where GNU Radio is a minor
+    release behind the other targets. Doppler shift on UHF is several kHz
+    across a pass and an uncorrected receiver loses lock partway through.
+  upstream_url: https://github.com/daniestevez/gr-satellites
+  upstream_support: >-
+    Daniel Estevez, EA4GPZ. GitHub issues, and the documentation is genuinely
+    good on the theory as well as the software.

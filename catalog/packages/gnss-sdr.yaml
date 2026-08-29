@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: gnss-sdr
+version: "0.0.20"
+summary: A complete GPS and GNSS receiver built entirely in software
+categories: [sdr, timing, station]
+
+install:
+  - install:
+      method: apt
+      packages: [gnss-sdr]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Takes raw RF samples from an SDR and does everything a GPS chip does:
+    acquisition, tracking, demodulating the navigation message, and computing
+    a position fix. It handles GPS, Galileo, GLONASS and BeiDou, and it can
+    work from a live SDR or from a recorded file.
+  why_you_want_it: >-
+    A GPS receiver is normally a sealed box that emits a position, and there
+    is no way to see inside it. This opens the box: every stage is visible and
+    configurable, the intermediate products can be logged, and a recorded
+    capture can be reprocessed with different settings. For understanding how
+    satellite navigation actually works, or for research into interference and
+    spoofing detection, nothing else is close.
+  prerequisites: >-
+    An SDR with enough bandwidth -- roughly 2 MHz minimum for GPS L1 -- and an
+    active GNSS antenna, which needs bias tee power the dongle may not
+    provide. Substantial CPU: real-time multi-constellation processing is
+    genuinely demanding, and file-based post-processing is the usual route.
+  known_problems: >-
+    Configuration is a long file with many interacting parameters, and a
+    receiver that never acquires gives no clue which one is wrong -- start
+    from a shipped example and a known-good recording rather than from your
+    own antenna. Antenna and bias tee are where most first attempts fail: GNSS
+    signals are below the noise floor and a passive antenna will not do.
+  upstream_url: https://gnss-sdr.org
+  upstream_support: >-
+    The GNSS-SDR project at CTTC. Documentation on the site is thorough and
+    the mailing list is active.
