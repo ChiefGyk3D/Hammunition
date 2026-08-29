@@ -27,7 +27,7 @@ The original text and the received text as files. Getting the received text out 
 ## Known problems
 
 It scores characters, not meaning: a decode that is 90 percent accurate may still be unreadable if the errors land in the callsign. Use it to compare conditions against each other rather than as an absolute measure of whether a mode is usable.
-Debian's Homepage field for this package points at w1hkj.com, which no longer belongs to the project: as of 2026-08-28 both w1hkj.com and www.w1hkj.com 301-redirect to an unrelated site, and the subpaths Debian cites return 404. The live project is w1hkj.org, which is what this manifest points at. An operator following the packaged link lands somewhere that is not the fldigi suite and has no way to tell that from a site redesign.
+Debian's Homepage field for this package points at w1hkj.com, which no longer serves the project. Corrected 2026-08-29 after re-checking: it does still resolve, and both it and www.w1hkj.com 301-redirect to kylegentz.com, **which has no DNS record at all** — so the chain ends nowhere. The subpaths Debian cites return 404 on the way. An earlier note here said the redirect landed on "an unrelated site"; that was read from an empty response and the accurate statement is that the target does not exist. Either way the packaged link is useless, and the live project is w1hkj.org, which is what this manifest points at.
 
 ## Keeping it current
 

@@ -35,6 +35,6 @@ It expects to be told the tone frequency and will produce confident nonsense if 
 
 ## Where to get help with the software itself
 
-Luigi Auriemma's tools page. This is a small utility from a large personal collection rather than an actively developed project; Debian's package is the practical support route.
+Luigi Auriemma's tools page. This is a small utility from a large personal collection rather than an actively developed project; Debian's package is the practical support route. The page returns 403 to an automated request (checked 2026-08-29) — bot-blocking rather than absence, so it is cited as live, and `scripts/check_upstream_urls.py` will keep reporting it. Noted here so the next person does not re-investigate it.
 
 *Source: [`catalog/packages/morse2ascii.yaml`](../../catalog/packages/morse2ascii.yaml)*

@@ -6,7 +6,7 @@
 
 - **Version recorded:** 1.1.0
 - **Categories:** `logging`
-- **Upstream:** <https://christianjacobs.uk/pyqso>
+- **Upstream:** <https://github.com/ctjacobs/pyqso>
 
 ## What it does
 
@@ -35,6 +35,6 @@ It is a smaller project than the other logs here and its online-service integrat
 
 ## Where to get help with the software itself
 
-Christian Jacobs, M0UOS. Issues at https://github.com/ctjacobs/pyqso.
+Christian Jacobs, M0UOS. GitHub issues at the URL above. Debian declares the Homepage as christianjacobs.uk/pyqso and that hostname has no DNS record at all (checked 2026-08-29), so the repository is cited instead. It is alive: head of `master` is 869c98f80d57, 2025-10-21, read from the branch rather than from GitHub's `updated_at` (D-032). GPL-3.0.
 
 *Source: [`catalog/packages/pyqso.yaml`](../../catalog/packages/pyqso.yaml)*

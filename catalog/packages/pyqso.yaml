@@ -37,6 +37,10 @@ documentation:
     exports go through TQSL separately. Rig control needs python3-hamlib, also
     only recommended, and its absence shows up as the rig fields simply never
     filling in rather than as an error.
-  upstream_url: https://christianjacobs.uk/pyqso
+  upstream_url: https://github.com/ctjacobs/pyqso
   upstream_support: >-
-    Christian Jacobs, M0UOS. Issues at https://github.com/ctjacobs/pyqso.
+    Christian Jacobs, M0UOS. GitHub issues at the URL above. Debian declares
+    the Homepage as christianjacobs.uk/pyqso and that hostname has no DNS
+    record at all (checked 2026-08-29), so the repository is cited instead. It
+    is alive: head of `master` is 869c98f80d57, 2025-10-21, read from the
+    branch rather than from GitHub's `updated_at` (D-032). GPL-3.0.

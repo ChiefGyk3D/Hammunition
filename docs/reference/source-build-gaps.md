@@ -99,7 +99,19 @@ equivalent fixes detection — and those paths carry the architecture triplet, s
 expressing them needs either per-arch install blocks or a substitution the
 schema does not have.
 
-### 5. Installing a tree, not a binary — `mshv`
+### 5. No build step at all — `wordsworth`
+
+`wordsworth_0.3.tar.gz` contains two Perl scripts, a README, a COPYING and a
+5000-word list. There is nothing to compile and no Makefile, so the `make`
+build system — the only one that skips `configure` — fails immediately with
+"No targets specified and no makefile found".
+
+Two things are missing, not one. A build system that builds nothing, and a way
+to install a **data file**: `binaries` puts executables in `<prefix>/bin` and
+`QSO_Words_5000.txt` is not one. AHRL copies the two scripts to
+`/usr/local/bin` and leaves the word list in the source tree.
+
+### 6. Installing a tree, not a binary — `mshv`
 
 `provides_install_target: false` copies declared binaries into the prefix. MSHV
 reads settings, resources and logs from directories beside its executable in

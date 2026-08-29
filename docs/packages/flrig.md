@@ -29,7 +29,7 @@ A CAT interface to the radio and access to its serial device, which means member
 ## Known problems
 
 Two programs both configured to open the serial port directly, with flrig also running, is the classic failure -- everything appears configured and the radio behaves erratically. Decide that flrig owns the port and point the rest at flrig. Some radios need specific baud rates and CI-V addresses that no default gets right, and the symptom is silence rather than an error.
-Debian's Homepage field for this package points at w1hkj.com, which no longer belongs to the project: as of 2026-08-28 both w1hkj.com and www.w1hkj.com 301-redirect to an unrelated site, and the subpaths Debian cites return 404. The live project is w1hkj.org, which is what this manifest points at. An operator following the packaged link lands somewhere that is not the fldigi suite and has no way to tell that from a site redesign.
+Debian's Homepage field for this package points at w1hkj.com, which no longer serves the project. Corrected 2026-08-29 after re-checking: it does still resolve, and both it and www.w1hkj.com 301-redirect to kylegentz.com, **which has no DNS record at all** — so the chain ends nowhere. The subpaths Debian cites return 404 on the way. An earlier note here said the redirect landed on "an unrelated site"; that was read from an empty response and the accurate statement is that the target does not exist. Either way the packaged link is useless, and the live project is w1hkj.org, which is what this manifest points at.
 
 ## Keeping it current
 
