@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: svxlink-calibration-tools
+version: "24.02"
+summary: Sets the audio levels an SvxLink node needs to work properly
+categories: [digital-modes, station]
+
+after: [svxlink-server]
+
+install:
+  - install:
+      method: apt
+      packages: [svxlink-calibration-tools]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Tools for measuring and setting the transmit and receive audio levels
+    between a computer and a radio in an SvxLink installation, including the
+    CTCSS tone level and the deviation of the transmitted signal.
+  why_you_want_it: >-
+    Audio level is the single most common reason a repeater controller works on
+    the bench and badly on the air. Over-deviation sounds distorted and splatters;
+    under-deviation is quiet and fails to open squelch on distant receivers. Both
+    are invisible without measurement, and this is the measurement.
+  prerequisites: >-
+    A configured SvxLink installation and a radio connected. A second receiver
+    to listen on helps considerably and is not required.
+  known_problems: >-
+    Getting levels right is iterative and takes longer than people expect,
+    which is why it is so often skipped. The tools measure what the sound card
+    sees; the radio's own microphone gain and compressor sit between that and
+    the transmitted signal, so a correct reading here does not guarantee correct
+    deviation without checking on the air.
+  upstream_url: https://www.svxlink.org
+  upstream_support: Tobias Blomberg, SM0SVX -- part of the SvxLink project.

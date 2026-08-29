@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: baycomusb
+version: "0.10"
+summary: Driver for the HB9JNX USB packet modem
+categories: [packet, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [baycomusb]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Drives the Baycom USB packet modem and presents it to the AX.25 stack. The
+    USB sibling of the EPP modem, and the one with a fighting chance of
+    connecting to a current machine.
+  why_you_want_it: >-
+    Only if you have the hardware. Carried for the same reason as baycomepp:
+    the device exists and an operator holding one should find an entry rather
+    than a gap.
+  prerequisites: >-
+    A Baycom USB modem, and permission to open its USB device -- which means a
+    udev rule rather than root.
+  known_problems: >-
+    Long unmaintained: the version is 0.10 and Debian's revisions are all that
+    have changed in many years. The Blend marks it hardware-specific and
+    Suggests rather than Recommends. As with the EPP modem, a sound-card TNC is
+    the answer for anything new.
+  upstream_url: https://tracker.debian.org/pkg/baycomusb
+  upstream_support: >-
+    Thomas Sailer, HB9JNX. No live upstream page is declared; the tracker is
+    cited rather than a guess.

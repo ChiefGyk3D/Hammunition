@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: mlat-client-adsbfi
+version: "0.4.2"
+summary: Contributes ADS-B timing data so a network can locate aircraft by multilateration
+categories: [tracking, sdr]
+
+install:
+  - install:
+      method: apt
+      packages: [mlat-client-adsbfi]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Takes the timestamped Mode S messages your receiver hears and forwards them
+    to a multilateration server, which combines arrival times from several
+    receivers to compute a position for aircraft that transmit Mode S but not
+    ADS-B position.
+  why_you_want_it: >-
+    A large fraction of aircraft report identity and altitude but no position.
+    Multilateration recovers it from timing differences across receivers, and
+    that only works collectively -- one receiver cannot do it. This is how a
+    receiver joins that effort.
+  prerequisites: >-
+    A working Mode S receiver feeding it -- readsb or dump1090 -- and an
+    account with a network that runs multilateration. An accurate receiver
+    location, because the computation is only as good as the coordinates you
+    give it.
+  known_problems: >-
+    It is a feeder client: it publishes what your receiver hears, and your
+    receiver's precise location, to a third party, continuously. That is the
+    deal being made and it is worth stating plainly. A wrong location does not
+    fail -- it silently degrades the solution for everyone in your area. This
+    is the adsb.fi fork; other networks ship their own client and they are not
+    interchangeable.
+  upstream_url: https://github.com/adsbfi/mlat-client-adsbfi
+  upstream_support: The adsb.fi project. GitHub issues at the URL above.

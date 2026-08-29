@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: langford-utils
+version: "0.0.20130228"
+summary: Control programs for the Per Vices Noctar board
+categories: [sdr, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [langford-utils]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Utilities for the Per Vices Noctar, an IQ demodulator board, providing the
+    host-side control its FPGA design expects.
+  why_you_want_it: >-
+    Only with the hardware, which was produced in small numbers well over a
+    decade ago. Carried so that an operator who has one finds an entry rather
+    than silence -- the Blend lists it as hardware-specific for the same
+    reason.
+  prerequisites: A Per Vices Noctar board.
+  known_problems: >-
+    The version is a 2013 date and nothing has changed upstream since; Per
+    Vices has moved to entirely different products. Treat this as archival
+    support. Do not go looking for the hardware on the strength of this entry.
+  upstream_url: https://www.pervices.com/
+  upstream_support: >-
+    Per Vices. The company is active and this product line is not, so support
+    for the board itself is unlikely to be available.

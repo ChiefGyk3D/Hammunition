@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: z8530-utils2
+version: "3.0-1"
+summary: Configures Z8530-based HDLC cards for high-speed packet
+categories: [packet, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [z8530-utils2]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Loads configuration and firmware into Z8530 serial communication
+    controller cards -- the SCC cards used for packet radio at speeds a
+    sound-card modem could not reach -- and sets the parameters the kernel
+    driver needs.
+  why_you_want_it: >-
+    High-speed packet, 9600 baud and well above, was built on this hardware. If
+    you have an SCC card and a link to run over it, these are the tools that
+    configure it; nothing else does.
+  prerequisites: >-
+    A Z8530-based card in an ISA or PCI slot, and a kernel with the matching
+    driver. Both are museum conditions on current hardware.
+  known_problems: >-
+    The hardware predates PCI Express and most of it is ISA, so a modern
+    machine cannot host it at all. Carried for completeness and for anyone
+    maintaining an existing installation, not as a route to build a new one.
+    Suggests rather than Recommends in the Blend, marked hardware-specific.
+  upstream_url: https://tracker.debian.org/pkg/z8530-utils2
+  upstream_support: >-
+    No upstream Homepage is declared. Debian's package is the only route, and
+    it is long stable rather than developed.

@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: svxlink-gpio
+version: "24.02"
+summary: Lets SvxLink key a radio and read squelch through GPIO pins
+categories: [digital-modes, hardware, station]
+
+after: [svxlink-server]
+
+install:
+  - install:
+      method: apt
+      packages: [svxlink-gpio]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Scripts and configuration that let SvxLink use general-purpose I/O pins --
+    on a Raspberry Pi or similar -- for push-to-talk, squelch detection and
+    other control lines, instead of a serial port's handshake lines.
+  why_you_want_it: >-
+    A Pi at a repeater site has GPIO and often no serial port worth using. This
+    is what lets the controller key the transmitter and read a COS line directly
+    from the header, which is both simpler and more reliable than a USB serial
+    adapter at an unattended site.
+  prerequisites: >-
+    A board with GPIO, and level shifting or opto-isolation between it and the
+    radio -- 3.3 volt logic connected directly to a radio's control lines is
+    how boards die. Permission to access the GPIO device, which is a group
+    membership on most systems.
+  known_problems: >-
+    Direct electrical connection between a computer's GPIO and a transmitter is
+    the part to get right: RF finds ground loops, and an unisolated PTT line at
+    a repeater site is a reliable source of intermittent faults that look like
+    software. Pin numbering conventions differ between board revisions and
+    libraries, which is the commonest configuration error.
+  upstream_url: https://www.svxlink.org
+  upstream_support: Tobias Blomberg, SM0SVX -- part of the SvxLink project.

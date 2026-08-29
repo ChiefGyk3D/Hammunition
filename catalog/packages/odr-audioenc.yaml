@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: odr-audioenc
+version: "3.6.0"
+summary: Encodes audio into the DAB and DAB+ formats a multiplexer expects
+categories: [sdr]
+
+recommended_default: false
+
+install:
+  - install:
+      method: apt
+      packages: [odr-audioenc]
+    note: >-
+      NOT in Debian 13, and present on Parrot -- 3.6.0-2 on both Parrot and
+      Kali, 3.6.0-2build1 on Ubuntu 26.04, absent on Debian 13 and Mint
+      (measured 2026-08-28). That direction is unusual: Parrot tracks Debian,
+      so this is one of the few places it carries something its base does not,
+      and it is the reason the rest of the ODR chain is installable on the
+      primary target and this piece is the one to check.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Encodes audio to HE-AAC for DAB+ or MPEG Layer II for classic DAB, at the
+    bit rates and framing a DAB multiplexer requires, taking input from a file,
+    a sound card, or a network stream.
+  why_you_want_it: >-
+    It is the first stage of the transmission chain: nothing else in the ODR
+    tools accepts ordinary audio. Its bit-rate and codec choices are also what
+    determine how a station sounds, which on DAB is decided at the encoder and
+    nowhere else.
+  prerequisites: >-
+    Audio to encode, and odr-dabmux to feed. On Debian 13 the package is
+    absent, so this manifest will report an apt gap there rather than install
+    -- which is the correct behaviour and not a defect.
+  known_problems: >-
+    DAB+ bit rates below about 48 kbit/s are where the codec's limits become
+    obvious, and broadcasters are routinely tempted lower to fit more services
+    into a multiplex. Encoding is lawful everywhere; what the chain does at its
+    far end is the part that is not (see odr-dabmod).
+  upstream_url: https://github.com/Opendigitalradio/ODR-AudioEnc
+  upstream_support: >-
+    The Open Digital Radio project. Debian declares opendigitalradio.org as the
+    Homepage and that host answered nothing on http or https when checked on
+    2026-08-28 -- the same finding as the `dablin` manifest -- so the
+    repository is cited. It is live: head of the default branch is 20d3b59de3aa,
+    2024-12-03, read from the branch rather than from GitHub's `updated_at`
+    (D-032).

@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: multimon
+version: "1.0"
+summary: The original multimon decoder, kept for the modes its successor dropped
+categories: [listening, tracking]
+
+install:
+  - install:
+      method: apt
+      packages: [multimon]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Decodes a set of audio-band digital modes -- POCSAG paging, AX.25 at 1200
+    baud, DTMF, ZVEI and others -- from a sound card or a file, printing what it
+    finds as text.
+  why_you_want_it: >-
+    Mostly you want `multimon-ng`, the maintained rewrite, which this catalog
+    also carries and which covers more modes. This is the original, and it is
+    carried because the Blend carries both and because a mode occasionally
+    behaves differently between them. If you are following older instructions
+    that name `multimon` specifically, this is what they meant.
+  prerequisites: >-
+    Demodulated audio, usually piped from an SDR tool or taken from a receiver.
+    The sample rate must be what it expects.
+  known_problems: >-
+    Superseded in practice: `multimon-ng` is where development went and where
+    new modes appear. Both being installed is harmless -- the binaries have
+    different names -- but there is rarely a reason. Like its successor it
+    reports nothing when the input format is wrong, so silence usually means a
+    sample-rate mismatch rather than an absent signal.
+  upstream_url: https://tracker.debian.org/pkg/multimon
+  upstream_support: >-
+    Thomas Sailer, HB9JNX, originally. No live upstream page is declared;
+    multimon-ng at https://github.com/EliasOenal/multimon-ng is where the
+    lineage continues.

@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: bladerf
+version: "0.2024.05"
+summary: Command-line tools for Nuand bladeRF transceivers
+categories: [sdr, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [bladerf]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Carries `bladeRF-cli`, which enumerates bladeRF devices, loads FPGA
+    bitstreams and firmware, sets frequency, gain and sample rate, runs
+    loopback tests, and captures or transmits sample files directly.
+  why_you_want_it: >-
+    It is the first thing to run when a bladeRF is not working and the
+    diagnostic that separates hardware from software. It is also how the FPGA
+    image is loaded, which the device needs before it will do anything at all
+    -- a bladeRF with no bitstream looks broken.
+  prerequisites: >-
+    A bladeRF, and the matching FPGA bitstream for the board revision and the
+    library version. USB 3 for the higher sample rates; on USB 2 the device
+    works and the achievable bandwidth is much lower.
+  known_problems: >-
+    Library, firmware and FPGA bitstream versions must be compatible, and a
+    mismatch is the dominant bladeRF problem -- the symptom is a device that
+    enumerates and then fails to configure. Kali carries 0.2025.10 against
+    Debian 13 and Parrot's 0.2024.05 (measured 2026-08-28), which shifts the
+    compatible bitstream with it. The bladeRF transmits; what leaves an antenna
+    is your responsibility. The maintainer does not own this hardware (D-027).
+  upstream_url: https://www.nuand.com/bladeRF
+  upstream_support: Nuand. Forum and GitHub linked from the site.

@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: ampr-ripd
+version: "2.4.1"
+summary: Keeps a gateway's routes current on the amateur radio IP network
+categories: [packet, station]
+
+install:
+  - install:
+      method: apt
+      packages: [ampr-ripd]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Listens for the RIPv2 routing announcements the AMPRnet gateway system
+    broadcasts and installs the resulting routes and tunnel endpoints into the
+    kernel, so a station on the 44.0.0.0/8 amateur network reaches the rest of
+    it without hand-maintained routing.
+  why_you_want_it: >-
+    AMPRnet is a real IP network allocated to amateur radio, reached over IP-IP
+    tunnels between gateways whose addresses change. Maintaining those routes
+    by hand is not practical; this is the daemon that does it, and it is what
+    turns a 44-net allocation into working connectivity.
+  prerequisites: >-
+    An AMPRnet allocation and a registered gateway, which are administrative
+    steps rather than software ones. Kernel IP-IP tunnelling. The Blend marks
+    this as a Suggests rather than a Recommends precisely because it is only
+    useful to gateway operators.
+  known_problems: >-
+    Only useful if you run a gateway; on an ordinary station it will run and do
+    nothing visible. It installs kernel routes, so a misconfiguration affects
+    the whole machine's networking rather than one application. AMPRnet address
+    space has been partly reallocated in recent years and some documentation
+    found online predates that.
+  upstream_url: http://www.yo2loj.ro/hamprojects/
+  upstream_support: Marius Petrescu, YO2LOJ. The project page above.

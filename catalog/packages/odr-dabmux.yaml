@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: odr-dabmux
+version: "5.1.0"
+summary: Assembles audio services into a DAB ensemble multiplex
+categories: [sdr]
+
+recommended_default: false
+
+install:
+  - install:
+      method: apt
+      packages: [odr-dabmux]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Takes several encoded audio services and their associated data and combines
+    them into a single ETI stream -- the DAB ensemble as defined by ETSI EN 300
+    401 -- with the service information, labels and error protection the
+    standard requires.
+  why_you_want_it: >-
+    DAB carries many stations in one multiplex, and the multiplexer is the
+    piece that decides what is in it. This is the free-software implementation
+    that community and experimental broadcasters actually use, and it is also
+    the way to generate a standards-correct ensemble for testing a receiver.
+  prerequisites: >-
+    Encoded audio from odr-audioenc, and something to do with the ETI output --
+    odr-dabmod to modulate it for transmission, or a file for a receiver such
+    as dablin to play back.
+  known_problems: >-
+    The output of this alone is a data stream, not a signal, and it is entirely
+    lawful to generate. What follows it may not be: see odr-dabmod. Debian 13
+    and Parrot carry 5.1.0 against Kali's 5.5.1 (measured 2026-08-28), and the
+    configuration file syntax has changed across that range.
+  upstream_url: https://github.com/Opendigitalradio/ODR-DabMux
+  upstream_support: >-
+    The Open Digital Radio project. Debian declares opendigitalradio.org as the
+    Homepage and that host answered nothing on http or https when checked on
+    2026-08-28 -- the same finding as the `dablin` manifest -- so the
+    repository is cited. It is live: head of the default branch is ce22f5bd3f1a,
+    2026-06-17, read from the branch rather than from GitHub's `updated_at`
+    (D-032).

@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: odr-padenc
+version: "3.0.0"
+summary: Encodes the text and images that ride alongside a DAB service
+categories: [sdr]
+
+recommended_default: false
+
+install:
+  - install:
+      method: apt
+      packages: [odr-padenc]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Produces Programme Associated Data for a DAB service: the dynamic label
+    that scrolls the track name across a receiver, and the slideshow images
+    that accompany it, encoded and paced to fit the bit rate reserved for them.
+  why_you_want_it: >-
+    PAD is what makes a DAB service look finished on a receiver. A station
+    with no dynamic label and no slides is technically correct and visibly
+    amateur, and this is the piece that fixes that.
+  prerequisites: >-
+    odr-audioenc to carry the encoded PAD alongside the audio, and a source for
+    the text and images -- typically a playout system writing a file this
+    watches.
+  known_problems: >-
+    PAD shares the service's bit rate, so generous slideshow settings cost
+    audio quality; this trade is not automatic and is the usual thing to get
+    wrong. Receivers vary in how much of the standard they implement and a
+    slide that looks right in one may not appear in another.
+  upstream_url: https://github.com/Opendigitalradio/ODR-PadEnc
+  upstream_support: >-
+    The Open Digital Radio project. Debian declares opendigitalradio.org as the
+    Homepage and that host answered nothing on http or https when checked on
+    2026-08-28 -- the same finding as the `dablin` manifest -- so the
+    repository is cited. It is live: head of the default branch is ad48e104e654,
+    2025-09-10, read from the branch rather than from GitHub's `updated_at`
+    (D-032).

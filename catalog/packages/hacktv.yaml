@@ -1,0 +1,57 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: hacktv
+version: "0+git20250218"
+summary: Generates and transmits analogue television — a HackRF as a TV station
+categories: [sdr, rf-security]
+
+# Not a default install anywhere. It reaches an operator through a profile
+# requiring explicit opt-in, which is where D-021's consent gate lives: this
+# manifest discloses the capability and does not adjudicate what is lawful
+# where you are.
+recommended_default: false
+
+install:
+  - install:
+      method: apt
+      packages: [hacktv]
+    note: >-
+      Kali carries a much newer snapshot -- 0+git20260515 against 0+git20250218
+      on Debian 13, Parrot and Ubuntu, and 0+git20230104 on Mint (measured
+      2026-08-28). This software is versioned by commit date and new television
+      standards arrive between them.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Encodes video into a complete analogue television signal -- PAL, NTSC,
+    SECAM and several older and regional standards, with teletext, colour
+    subcarriers, NICAM sound and even the scrambling systems used by 1990s
+    satellite broadcasters -- and feeds it to a HackRF or writes it to a file.
+  why_you_want_it: >-
+    Analogue television is switched off almost everywhere, which makes it a
+    subject of restoration rather than of use. This is the tool that puts a
+    picture back on a period television set, and it is the most complete
+    working implementation of those standards in software. For anyone studying
+    or restoring broadcast history, or testing an analogue receiver, nothing
+    else is close.
+  prerequisites: >-
+    A HackRF, or the patience to work with output files. Video to transmit. If
+    anything is connected to an antenna, an understanding of what you are
+    radiating and where.
+  known_problems: >-
+    This is a transmitter. It generates real signals in bands that are, in most
+    countries, allocated to services other than amateur radio, and connecting
+    it to an antenna is not the same act as feeding a screened cable into a
+    television with a dummy load and heavy attenuation. What is lawful is
+    jurisdictional and this project does not tell you what your rules are --
+    it tells you plainly what the software does, which is the position D-021
+    describes. The HackRF also has no output filtering worth the name, so
+    harmonics are radiated along with the intended signal.
+  upstream_url: https://github.com/fsphil/hacktv
+  upstream_support: Philip Heron. GitHub issues at the URL above.

@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: baycomepp
+version: "0.10"
+summary: Driver for the HB9JNX parallel-port packet modem
+categories: [packet, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [baycomepp]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Drives the Baycom EPP modem, a packet radio modem that attaches to an
+    enhanced parallel port, presenting it to the kernel AX.25 stack.
+  why_you_want_it: >-
+    Only if you have one. It is carried because the hardware exists and someone
+    holding one should find support here rather than a gap -- the Blend lists it
+    as a Suggests for the same reason, marking it hardware-specific.
+  prerequisites: >-
+    A Baycom EPP modem and a machine with a real parallel port in EPP mode.
+    Both are increasingly hard to find; USB parallel adapters do not provide
+    EPP and will not work.
+  known_problems: >-
+    Parallel ports have effectively disappeared from modern hardware, which is
+    the practical barrier rather than anything about the software. Direct
+    hardware access from a driver like this also sits poorly with modern kernel
+    lockdown and secure boot arrangements. For new work, a sound-card modem
+    such as Direwolf does the same job on hardware that exists.
+  upstream_url: https://tracker.debian.org/pkg/baycomepp
+  upstream_support: >-
+    Thomas Sailer, HB9JNX, originally. Debian declares no Homepage and there is
+    no live project page to cite, so the tracker is the honest pointer.

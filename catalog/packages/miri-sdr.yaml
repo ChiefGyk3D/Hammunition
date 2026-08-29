@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: miri-sdr
+version: "2.0.0"
+summary: Command-line tools for Mirics-based receivers
+categories: [sdr, hardware]
+
+install:
+  - install:
+      method: apt
+      packages: [miri-sdr]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Tools built on libmirisdr-4 for receivers using Mirics MSi2500 and MSi001
+    silicon -- tuning, sample capture to a file, and streaming over a pipe --
+    without the vendor's own closed driver.
+  why_you_want_it: >-
+    Mirics silicon appears in a number of inexpensive wideband receivers whose
+    vendor support on Linux is either closed-source or absent. This is the open
+    path to them, and it is what this catalog's `soapysdr-module-mirisdr` and
+    `libmirisdr4` entries build on.
+  prerequisites: >-
+    Mirics-based hardware and USB access to it -- a udev rule rather than root.
+  known_problems: >-
+    Devices using this silicon vary a great deal in what else is on the board,
+    and a device that enumerates may still not tune correctly. SDRplay's own
+    receivers use Mirics parts but ship a proprietary API, and this library is
+    not a substitute for it -- that is the most common misunderstanding here.
+    The maintainer owns none of this hardware (D-027).
+  upstream_url: https://github.com/f4exb/libmirisdr-4/
+  upstream_support: >-
+    Edouard Griffiths, F4EXB, maintains the fork Debian packages. GitHub issues.
