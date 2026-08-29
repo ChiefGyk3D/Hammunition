@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: morse
+version: "2.6"
+summary: Text-to-Morse sounder and trainer, Eric Raymond's morse-classic
+categories: [cw, training]
+
+install:
+  - install:
+      method: apt
+      packages: [morse]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Sounds text as Morse and drills you on it, with a mode that sends random
+    groups and checks what you type back. It is the long-lived Unix morse
+    program, maintained by Eric Raymond as morse-classic.
+  why_you_want_it: >-
+    It is small, has no dependencies worth the name, and does the one thing
+    without ceremony. On a headless or minimal machine where aldo's or qrq's
+    interfaces are more than you want, this still works.
+  prerequisites: >-
+    A sound device for audio output; it can also print the dots and dashes,
+    which is occasionally what you want when checking an encoding by eye.
+  known_problems: >-
+    Its teaching model is the plain speed-up approach rather than Koch, so as a
+    learning tool it is weaker than aldo. As a converter and a sounder it is
+    fine, and that is the use to keep it for.
+  upstream_url: https://gitlab.com/esr/morse-classic
+  upstream_support: GitLab issues at the project above.

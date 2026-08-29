@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: qrq
+version: "0.3.5"
+summary: High-speed Morse trainer that pushes your callsign copy to its limit
+categories: [cw, training]
+
+install:
+  - install:
+      method: apt
+      packages: [qrq]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Sends a callsign, you type what you heard, and it speeds up when you are
+    right and slows down when you are not. Scoring is weighted so a correct
+    copy at high speed is worth more than several at low speed, and the result
+    goes into a local high-score table. It is a Linux equivalent of DL4MM's
+    Rufz.
+  why_you_want_it: >-
+    Contest and pileup work is callsign copy under time pressure, which is a
+    different skill from copying prose, and no amount of ebook practice
+    develops it. This is the drill that does. It also finds your actual ceiling
+    rather than the one you assume you have.
+  prerequisites: >-
+    Working sound output. It generates its own tone, so no radio or interface
+    is involved.
+  known_problems: >-
+    It plays a callsign exactly once — that is the point, and it is
+    demoralising for the first few sessions. Start with the speed floor well
+    below where you think you are. The bundled callsign list is drawn from real
+    contest logs, so it is heavy on the prefixes that actually appear on the
+    air rather than on an even spread.
+  upstream_url: https://fkurz.net/ham/qrq.html
+  upstream_support: Fabian Kurz, DJ1YFK.

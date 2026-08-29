@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: xcwcp
+version: "3.6.1"
+summary: Qt Morse tutor that both sends practice and reads your keying
+categories: [cw, training]
+
+install:
+  - install:
+      method: apt
+      packages: [xcwcp]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    The graphical unixcw front end. It sends the same practice material as cwcp
+    from a windowed interface, and it will also take keyboard input as a
+    straight key or iambic paddle and show you the text your keying actually
+    produced.
+  why_you_want_it: >-
+    The receive half is the reason to prefer it over cwcp. Reading back your
+    own sending is the only cheap way to find out that your dashes are short or
+    your inter-character spacing is collapsing, which is what makes otherwise
+    good sending hard for other operators to copy.
+  prerequisites: >-
+    A desktop session and a sound device. Paddle emulation uses the keyboard;
+    no keyer hardware is required or supported.
+  known_problems: >-
+    Keyboard-as-paddle inherits the keyboard's own repeat and debounce
+    behaviour, so the timing it reports is approximate at high speed. AHRL
+    installs this one from apt and none of the other unixcw front ends
+    (inventory unit 37).
+  upstream_url: https://unixcw.sourceforge.net/
+  upstream_support: The unixcw project on SourceForge.

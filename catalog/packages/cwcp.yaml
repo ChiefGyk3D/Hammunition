@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: cwcp
+version: "3.6.1"
+summary: Curses Morse tutor — unixcw with a menu instead of a command line
+categories: [cw, training]
+
+install:
+  - install:
+      method: apt
+      packages: [cwcp]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A full-screen terminal program that sends practice material — random
+    characters, words, callsigns, or text you type — while letting you change
+    speed, tone and grouping from a menu as it runs.
+  why_you_want_it: >-
+    It is the middle ground between the scriptable cw and the graphical xcwcp:
+    interactive enough to adjust mid-session, and usable over SSH on a headless
+    machine, which xcwcp is not.
+  prerequisites: >-
+    A sound device and a terminal. Nothing else.
+  known_problems: >-
+    Shares the unixcw timing engine, so the same load-related stutter applies.
+    The menu keys are not the ones a vi or emacs user expects; the help screen
+    is the fastest way past that.
+  upstream_url: https://unixcw.sourceforge.net/
+  upstream_support: The unixcw project on SourceForge.

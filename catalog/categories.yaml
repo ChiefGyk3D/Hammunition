@@ -20,6 +20,15 @@
 # the checker, the docs generator, and the person adding the next manifest.
 
 categories:
+  - name: contest
+    summary: >-
+      Contest operating -- scoring, duplicate checking, rate keeping,
+      and keying under time pressure.
+
+  - name: cw
+    summary: >-
+      Morse code -- keying, decoding, and learning to hear it.
+
   - name: digital-modes
     summary: >-
       Keyboard-to-keyboard and weak-signal modes worked with a transceiver:
@@ -80,6 +89,12 @@ categories:
   - name: rfid
     summary: RFID and NFC — readers, transponders, and the cards themselves.
 
+  - name: rig-control
+    summary: >-
+      CAT control of a transceiver while operating: frequency, mode, PTT
+      and the panadapter that rides on them, as distinct from writing its
+      memories.
+
   - name: satellite
     summary: >-
       Amateur satellites and weather satellites — tracking, prediction,
@@ -100,6 +115,10 @@ categories:
     summary: >-
       Position reporting and target tracking: APRS, ADS-B, AIS, and the
       map that shows them.
+
+  - name: training
+    summary: >-
+      Licence exam preparation and operating practice.
 
   - name: workstation
     summary: >-

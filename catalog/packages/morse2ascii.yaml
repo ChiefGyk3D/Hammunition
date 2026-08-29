@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: morse2ascii
+version: "0.2.1"
+summary: Decodes Morse out of a recorded WAV file
+categories: [cw, listening]
+
+install:
+  - install:
+      method: apt
+      packages: [morse2ascii]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Takes a PCM WAV recording containing Morse and prints the text. It works on
+    a file rather than on a live sound card, and it is told the tone frequency
+    and rough speed rather than guessing them.
+  why_you_want_it: >-
+    Offline decoding is a different job from live decoding, and it is the one
+    that comes up when you have a recording of something you could not copy at
+    the time — a beacon, a fragment from an SDR capture, an audio file someone
+    sent you. Being able to re-run it with different parameters until the text
+    falls out is exactly what a live decoder cannot do.
+  prerequisites: >-
+    A WAV file in PCM format. Anything else — MP3, Ogg, FLAC, or a WAV with a
+    compressed codec inside it — has to be converted first, with sox or ffmpeg.
+  known_problems: >-
+    It expects to be told the tone frequency and will produce confident
+    nonsense if that is wrong, which is the usual first result. Machine-sent
+    Morse decodes well; hand-sent Morse with irregular spacing often does not,
+    and no parameter fixes that. For live decoding from a receiver, use
+    xdemorse or fldigi instead.
+  upstream_url: https://aluigi.altervista.org/mytoolz.htm
+  upstream_support: >-
+    Luigi Auriemma's tools page. This is a small utility from a large personal
+    collection rather than an actively developed project; Debian's package is
+    the practical support route.

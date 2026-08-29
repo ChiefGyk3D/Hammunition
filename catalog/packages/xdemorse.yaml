@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: xdemorse
+version: "3.6.7"
+summary: Live Morse decoder with a GTK waterfall, from a sound card
+categories: [cw, listening]
+
+install:
+  - install:
+      method: apt
+      packages: [xdemorse]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Listens on a sound card, shows a narrow spectrum display so you can see
+    which tone you are decoding, and prints the Morse it hears as text. It
+    tracks sending speed automatically within a range you set.
+  why_you_want_it: >-
+    It is the small, focused live decoder: a window with a waterfall and a text
+    pane, no logging, no modem, no configuration ceremony. When the question is
+    just "what is that signal saying", fldigi is a lot of program to start.
+  prerequisites: >-
+    Receiver audio reaching a sound-card input — a physical cable, or a loopback
+    device if the receiver is itself software. Set the audio device inside the
+    program, not by hoping the default is right.
+  known_problems: >-
+    Hand-sent Morse with irregular weighting defeats it, as it defeats every
+    automatic decoder; the operator's ear remains better and this is worth
+    knowing before blaming the software. It decodes one tone at a time, so a
+    crowded band needs the receiver's filter narrowed rather than the program
+    adjusted.
+  upstream_url: https://www.qsl.net/5b4az/pkg/morse/xdemorse/xdemorse.html
+  upstream_support: >-
+    Neoklis Kyriazis, 5B4AZ. The project page carries the source and a change
+    log; there is no issue tracker.

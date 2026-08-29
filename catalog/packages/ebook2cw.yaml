@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: ebook2cw
+version: "0.8.5"
+summary: Converts a text file or ebook into Morse code audio at a chosen speed
+categories: [cw, training]
+
+install:
+  - install:
+      method: apt
+      packages: [ebook2cw]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Reads plain text and writes it out as Morse audio in MP3 or Ogg Vorbis,
+    splitting a long book into one file per chapter. Speed, Farnsworth spacing,
+    sidetone pitch and effective word rate are all set on the command line, and
+    the ID3 tags carry the chapter titles so a player treats the result like an
+    audiobook.
+  why_you_want_it: >-
+    Head copy is a listening skill and it improves with hours, not with
+    exercises. This turns any text you already want to read into those hours on
+    a phone or a car stereo, at exactly the speed you are currently failing at.
+    It is the practical answer to "I do not have time to practise".
+  prerequisites: >-
+    None. It writes files; it does not touch a sound card or a radio.
+  known_problems: >-
+    The default 25 wpm is faster than most people expect. Set the effective
+    speed with -e well below the character speed set with -w — that is
+    Farnsworth spacing, and learning at full character speed with long gaps is
+    the method that works. Starting at a low character speed is the mistake it
+    makes easy.
+  upstream_url: https://fkurz.net/ham/ebook2cw.html
+  upstream_support: >-
+    Fabian Kurz, DJ1YFK. Contact details and a web version of the converter are
+    on the project page.

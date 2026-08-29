@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: aldo
+version: "0.7.8"
+summary: Morse trainer with four teaching methods, including Koch
+categories: [cw, training]
+
+install:
+  - install:
+      method: apt
+      packages: [aldo]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Teaches Morse four ways: Koch, which introduces two characters at full
+    speed and adds one at a time; blocks, which sends fixed-length groups;
+    callsign practice; and a QSO simulator that sends realistic exchanges.
+    Everything is generated, so the material never repeats.
+  why_you_want_it: >-
+    Koch is the method with the best evidence behind it and the one most
+    beginners never meet, because the obvious approach — learn the alphabet
+    slowly, then speed up — produces a plateau that is very hard to leave. Aldo
+    is the shortest route to doing it properly on Linux.
+  prerequisites: >-
+    A sound device. It generates its own audio and needs no radio.
+  known_problems: >-
+    The Koch mode's defaults start at 20 wpm character speed, which is correct
+    and feels impossible on the first evening. Resist lowering it; lower the
+    effective speed instead. Progress is stored per user, so running it under
+    sudo starts you over in root's home directory.
+  upstream_url: https://www.nongnu.org/aldo/
+  upstream_support: Savannah project page at the URL above.
