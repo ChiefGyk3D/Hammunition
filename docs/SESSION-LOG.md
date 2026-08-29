@@ -1,223 +1,178 @@
-# Session log — overnight round 5, 2026-08-26
+# Session log — overnight round 6, 2026-08-28 → 29
 
-Queue complete, twice — a second batch arrived mid-round. Twenty commits,
-**pushed**; the first push also published round 4, which had been committed but
-held back. Everything green.
+One instruction: *keep grinding through those manifests, do not stop.*
+Twenty-two commits, all pushed. The catalog went from **77 manifests to 217**.
 
-Previous round's log is in git history at `175869a`.
+Previous round's log is in git history at `f13055b`.
 
 ---
 
 ## Headline
 
-**Three of your decisions landed; one of my claims was wrong.** Q-009, Q-010 and
-Q-011 are resolved and implemented. Q-010's *decisive argument* was false —
-Kali packages a Proxmark client — and the retraction is in the question itself
-rather than quietly edited out.
+**The Debian Blend is complete: 152 of 152.** `SCOPE.md` stages 1.0 by
+coverage-per-effort and puts the Blend first, as the cheapest coverage with the
+best provenance. That stage is done. It stood at 127 covered when the night
+started and the last one, `qlog`, is not in any target's archive but Kali's, so
+it is built from source.
 
-**The project has a licence.** GPL-3.0-or-later engine, CC0-1.0 catalog, split
-on the architectural boundary, enforced by tests rather than by convention.
+**Four upstream sites Debian still points at are dead or no longer the
+project's**, covering fourteen packages between them, and every one was found
+by requesting the URL before publishing it rather than after.
 
-**The `.gitignore` bug class is closed, not patched again.** Every pattern is
-now anchored or justified by name, and the audit is verified against both
-historical bugs.
+* `w1hkj.com` — the Homepage for five packages — 301-redirects to an unrelated
+  site, and the subpaths Debian cites 404. The project is at `w1hkj.org`.
+* `xastir.org` has **no DNS record at all**, while the project's `master`
+  moved a month ago. Live project, dead website.
+* `wa0eir.bcts.info` covers three packages and does not resolve. Neither does
+  the second address `twclock`'s own copyright file names.
+* `opendigitalradio.org` resolves and answers nothing on either scheme,
+  covering five.
 
-**The catalog was internally inconsistent and nothing noticed.** Two profiles
-named nine packages with no manifests.
+A fifth, `quisk`'s, **could not be checked at all** — it is IPv6-only and this
+machine has no IPv6 route. That is not the same as gone and the manifest says
+which it is. And `mshv`'s download URL was a 404 while its recorded sha256 was
+correct: the file fetched from where MSHV actually publishes hashes to exactly
+the digest already in the manifest, which is the mandatory-checksum rule
+earning its keep in a way it was not designed for.
+
+**Two AHRL claims measured, opposite answers.** AHRL runs `xastir` and
+`svxlink-server` early because it believes their packages create groups.
+Installed in a container: svxlink-server does create an `svxlink` user and
+group and adds it to `dialout` and `audio`; xastir creates nothing and its
+binary is already 0755. Same source, same kind of claim. Measure each.
+
+**ardop is revived, and AHRL's error was not the error.** Its recorded
+failure does not happen on Debian 13; the real one is three `-Wint-conversion`
+errors GCC 14 promoted. One flag builds it — and that flag silences a genuine
+bug in the CM108 push-to-talk path, which the manifest says out loud rather
+than reporting a clean build.
+
+**The qmake path had never worked, for either unit that uses it.** Both
+`MSHV` and `Coil64` ship a `.pro` with no `INSTALLS`, so the backend's
+`make install` step had nothing to run. Found by reading Coil64's project file
+before writing its manifest.
 
 ---
 
 ## What completed
 
-### 1. Hardware gap dispositions — `1a6165a`
+**Catalog: 77 → 217 manifests.** 188 apt, 12 git, 12 source, 4 with a
+per-target split, 1 binary. 27 categories, now a controlled vocabulary.
 
-Every `identification_gap` in the device catalog ended in some variant of "run
-lsusb and record it". For LimeSDR and PlutoSDR that told the reader to attach
-hardware that does not exist here. `gap_closure` is now required alongside every
-gap: `maintainer_hardware`, `unverified_by_maintainer` (your term, chosen over
-"pending" because it names *why* the gap is open), or `not_applicable`.
+By cluster: Morse and CW (11), logging (8), propagation and antenna (15),
+digital modes and NBEMS (14), packet and APRS (11), the SDR layer (19), rig
+control and EchoLink (11), the SoapySDR module set completed (6 more, all 12
+now), AIS and exam practice and station plumbing (12), the rest of the Blend
+(17), the packages our targets disagree about (5), the W1HKJ source suite (5),
+ardopcf, coil64, cwwav, xwefax, acarsserv, qlog.
 
-Proxmark3 is scoped to the original design — not RDV4 or RDV5 — because that is
-the board available to test against. Gap left open, nothing guessed.
+**Engine.**
 
-New generated `docs/reference/hardware-gaps.md` answers what the per-file prose
-could not: **when does any of this block anything.** Today, none of it. The udev
-generator that would consume an identifier is M4 and is not written.
+* `provides_install_target: false` — a build with no install rule installs its
+  declared `binaries` instead. The first thing that makes that field mean
+  something. The schema refuses it without `binaries`, because otherwise the
+  build succeeds and puts nothing on the PATH.
+* `qmake6` is its own build system. Debian 13 with only `qt6-base-dev` has no
+  `/usr/bin/qmake` at all, and `qt5-qmake` would supply the name with the wrong
+  tool.
+* `GitInstall` gained `project_file` and `build_args`, which the source path
+  had and the git path silently dropped.
 
-### 2. The `.gitignore` audit — `c4c6552`
+**Documentation.**
 
-You asked for one pass over every pattern rather than a fourth point patch.
-`scripts/audit_gitignore.py` does two checks, because the failures have two
-shapes: nothing in the source tree may be ignored (catches a collision when the
-directory appears), and every pattern is anchored or listed by name with why it
-must match at any depth (catches it *before* the directory exists — the only
-check that would have prevented all three rather than detected them).
+* `docs/packages/` — 218 generated pages, one per manifest plus an index. The
+  layout has called for this since it was written and it did not exist.
+* `docs/reference/capability-matrix.md` — every manifest against every target,
+  resolution merged with a measured `apt-cache policy` sweep, because
+  resolution alone says `apt` for the four targets where `sdrangel` is not.
+* `docs/reference/source-build-gaps.md` — what the source backend cannot yet
+  build, each gap named by the unit whose build proved it.
+* `docs/contributing/manifests.md` — the conventions this round established.
+* The REVIVE table in `dispositions.md` now has a verification log beside it.
 
-Verified by reintroducing both historical bugs. Eleven findings on the first
-run; `MANIFEST` was the live hazard and `catalog.cache` was the next instance
-waiting to happen.
+**Tooling.**
 
-### 3. Licensing — `b201edf`
-
-Q-009 resolved as you specified. Texts copied from Debian `base-files` rather
-than transcribed, checksums recorded. `why-hammunition.md` answers it in the
-same document that raises the criticism against 73Linux and SuperSDR.
-
-### 4. `workstation` — `23cc52b`
-
-Nine packages, contents fixed at acceptance, exclusion list written into
-`deliberately_excludes` — a required schema field — so it travels with the
-profile rather than living in a review comment.
-
-### 5. Catalog consistency — `b9bc183`
-
-Nine manifests written for packages the profiles already referenced.
-
-### 6. `rfid` — `e1cd469`
-
-Six packages. Ungated, which is the closest call in the catalog and is argued
-rather than assumed.
-
-### 7. SatDump and SDR++ — `da0e418`; the capture helper — `d284a31`
-
-### 8. D-024, reviewed commit pins — `ae688e9`
-
-Q-013 answered as general policy rather than one manifest. A tag carries an
-upstream signal that a revision was worth naming; a SHA carries none, so pinning
-one moves a judgement upstream stopped making onto us. `pin_review` records it;
-the schema rejects a SHA without one and a tag with one.
-
-Staleness is checked weekly on a schedule, never on push — failing an unrelated
-pull request because a date rolled over is how a check teaches people to ignore
-it.
-
-**The implementation beat the recommendation.** The pin is not master HEAD: Kali
-and Parrot both package SDR++ at commit `36ea9a1`, so pinning theirs means a
-source build and an apt install are the same revision. Someone else's packaging
-is the review signal upstream stopped providing.
-
-### 9. D-025, re-verify when a claim becomes decisive — `ae688e9`
-
-Your rule, and the fourth instance is what earned it. Gathering standards and
-decision standards are different bars.
-
-### 10. D-026, tooling is not capability — `4860c84`
-
-Plus the ESP32 Marauder in the `badgelife` class, with no version recorded
-because the revision is unconfirmed and the revision determines the bridge chip.
-
-### 11–14. Hardware inventory, community catalogue, 21 manifests, README
-
-`517f4f8`, `be893fc`, `bc40212`, `f35feb5`.
-
-### 15. Copyright holder, and no CLA — `85b003f`
-
-Q-012 closed as `Copyright (C) 2026 Renegade Penguin LLC` across 115 files.
-**My option list had missed the answer**: I framed it as handle-versus-
-abstraction and treated an entity as hypothetical. An LLC is a legal person and
-can enforce a licence; a handle cannot.
-
-Deliberately *not* applied to `LICENSE` or `catalog/LICENSE` — verbatim texts
-whose checksums are asserted, and a copyright line inserted into a licence
-corrupts it. A test now says that in those words.
-
-`CONTRIBUTING.md` exists mainly to state what the company name does **not**
-mean: no CLA, no assignment, contributors keep copyright. A company name in
-every header invites the opposite assumption, and that inference would cost
-exactly the drive-by contributions the project most wants.
-
-### 16. D-027 — two axes for hardware claims — `acff5bb`
-
-`status: supported` and `maintainer_verified` are separate fields.
-**6 of 21 devices claim supported; 0 have been run here**, and that number is
-printed at the top of the gap report rather than smoothed away.
-
-### 17. D-024 — pin what a distribution packages — `a102cf8`
-
-Made structural: `basis` is `distribution_pin` (must name them) or `own_choice`
-(must name none, and needs a fuller rationale saying what was checked). "Looked
-recent" can no longer be expressed as a basis at all.
-
-### 18. The udev sweep — `0a6574f`
-
-The round's largest result. Every package in Debian 13 that ships a udev rule —
-280 of them, no shortlist — downloaded, unpacked and read. **1,947 distinct USB
-identifiers; we carried 77.**
-
-Two gaps closed without owning hardware: **LimeSDR** (Debian's `limesuite-udev`
-names the board) and **Flipper Zero** (Debian packages `qflipper`).
-
-And the hazard, which is the same failure pointed the other way: `0483:df11`
-appears in *both* `qflipper`'s rule and `dmrconfig`'s, where it is a TYT
-MD-UV380. Generic bridge identifiers over-match as silently as omission
-under-matches. A sweep produces candidates, not answers.
+* `scripts/apt-policy-sweep.sh` — what each target's archive offers, for a list
+  of names. Its own first result was false and it now fails loudly on a short
+  sweep.
+* `scripts/gen_package_reference.py` and `scripts/gen_capability_matrix.py`.
+* The link checker no longer reports `/etc/bpq32.cfg` as a broken repo path.
 
 ---
 
-## What I got wrong
+## Mistakes worth keeping
 
-**Q-010's decisive argument.** It said "No target packages a Proxmark client at
-all." Kali ships `proxmark3 4.21611-0kali1`. The claim came from a narrower probe
-and was never re-checked before it became load-bearing. Repo-wide sweep found
-two hits; the generated one was fixed in its generator, never by hand. The answer
-survives — the client is absent on three of four targets including the primary
-one — but the argument as stated was false.
+**Four versions filled in from memory, all four wrong.** `aldo` 0.7.7 for
+0.7.8, `morse` 2.5 for 2.6, `morse2ascii` 0.1.4 for 0.2.1, `xdemorse` 3.3 for
+3.6.7. Every one would have validated and shipped. The sweep found them in
+forty seconds, which is the whole argument for running it first.
 
-**The `codium` manifest failed D-022 on the first run.** The tests caught it, not
-my reading of them. It adds a third-party repository on three of four targets
-while being the distribution's own choice on the fourth, and
-`recommended_default` is per-manifest while the behaviour is per-target. That
-tension is now recorded in the manifest; it will recur.
+**`uhd-soapysdr` was described as the exact opposite of what it does.** It is a
+libuhd plugin that presents a dongle to UHD software; I wrote it as a SoapySDR
+plugin for USRPs, which is `soapysdr-module-uhd`. Same source package, near
+anagram names. Found by reading `apt-cache show` while writing the sibling —
+nothing in the schema can tell a fluent description from a true one.
 
----
+**The arm64 sweep reported "0 offered, 0 absent" and exited 0.** No
+qemu-user-static on this machine, so the container never ran. That is a
+measurement, and a false one. The script counts its rows now, and the fix was
+not emulation but asking the archive: `dpkg --add-architecture arm64` and
+`apt-cache policy pkg:arm64` — which has its own trap, since an
+`Architecture: all` package has no `:arm64` binary and would read as absent.
 
-## What needs you
+**A test regex matched its own documentation.** The capability-matrix
+staleness check parsed every `| \`name\` |` row and reported `apt` as a package
+the catalog had lost — the legend explaining what `apt` means.
 
-**Q-012 🟢 — copyright holder string.** A default is in place: `The Hammunition
-contributors`. One sed if you want otherwise.
-
-**The ESP32 Marauder revision**, from the silkscreen, before anything records
-one. Also which bridge chip it carries — `identify-device.sh c5-wardriver`
-answers both.
-
-**Four gaps on your bench.** `scripts/identify-device.sh <name>` — read-only, no
-root, emits a paste-ready block with the evidence field filled in:
-
-```
-scripts/identify-device.sh catsniffer-v3
-scripts/identify-device.sh minino
-scripts/identify-device.sh free-wili-2
-scripts/identify-device.sh clip-boy
-scripts/identify-device.sh c5-wardriver
-```
-
-The last one closes the Espressif `303a` vendor ID for the whole `badgelife`
-class, so it is worth more than the one device.
-
-**A note on what changed in the catalog's shape.** The most productive hour of
-this round was not writing manifests — it was reading Debian's own udev rules.
-`rtl-sdr` went from 3 identifiers to 42, the `nfc-reader` class was built from
-`93-pn53x.rules`, and the `usrp` entry from `60-uhd-host.rules`. None of that
-needed hardware. A distribution's rules are a primary source about devices
-nobody here owns, and we had barely been reading them.
+**mypy was red on `main` for four commits and I did not notice**, because I ran
+`mypy --strict src/hammunition` and CI runs the bare `mypy --strict`, which
+covers `scripts/` and `tests/` too. Two errors in the docs generator, both
+real. Fixed in the same round; the lesson is to run the command CI runs, not a
+narrower one that passes.
 
 ---
 
 ## What I could not do
 
-**No hardware was attached to anything.** Still true, and now the limiting
-factor on six device entries rather than a general caveat.
+**No hardware was attached to anything.** Unchanged.
 
-**Configuration is still untested for anything pulling dbus or systemd.** The
-local harness runs degraded — no `/etc/subuid` ranges. One root command fixes it:
+**Nothing was installed outside a container**, and the local harness is still
+degraded — no `/etc/subuid` ranges. One root command fixes it:
 
 ```
 sudo usermod --add-subuids 100000-165535 --add-subgids 100000-165535 chiefgyk3d
 podman system migrate
 ```
 
-**Nothing was installed outside a container, and nothing was pushed.**
+**`linrad` defeated the source backend, four ways**, and that is written up in
+`source-build-gaps.md` rather than bodged. Its Makefile hardcodes `-Werror` and
+ignores `CFLAGS`, so patching is the only route and `patches` is still a
+refused-by-name zero. Its `configure` also fails to find X11 and ALSA on
+Debian's multiarch layout **without failing** — it prints "Not present", then
+"Normal End", exits 0, and compiles `-DHAVE_X11=0`. AHRL runs a bare
+`./configure` here and checks no exit status, so that is what its users get.
 
-**Ubuntu 26.04, Mint and Raspberry Pi OS were not probed this round.** The new
-availability measurements cover Debian 13, Kali rolling and Parrot. Manifests
-claim only what was measured.
+**`mvoice` and `dream` stay blocked** and their reasons are now measured rather
+than inherited: `libopendht-dev` and `libqt5webkit5-dev` have no candidate on
+Debian 13.
+
+**65 manifests have no `upstream_support` field** — all of them predate this
+round. The schema makes it optional and `CLAUDE.md` makes it required, which is
+a mismatch worth resolving; filling them in needs verification, not invention.
+
+**Profiles are unchanged at four.** With 217 manifests that is now the largest
+usability gap, and `profile-sizing.md` has been waiting on your naming decision
+since M1.
+
+---
+
+## Waiting on you
+
+Unchanged from the last round: **Q-006** (which HamClock), **Q-007** (SuperSDR
+has no licence — and the recommendation is materially weaker now that its
+upstream is measured dormant since 2022-12-31), **Q-008** (does the RF profile
+include cellular interception tooling).
+
+New, and cheap to answer: **the starter profile's name and contents**. It is
+M1's last open item, everything it would reference now exists, and
+`docs/reference/profile-sizing.md` has the sizing ready.

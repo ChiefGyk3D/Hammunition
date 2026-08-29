@@ -70,9 +70,13 @@ def method_of(block: InstallBlock) -> str:
         return f"prebuilt {install.format} from {install.artifact.url}"
     if isinstance(install, VenvInstall):
         return "python venv: `" + "`, `".join(install.requirements) + "`"
-    if isinstance(install, PipxInstall):
-        return f"pipx: `{install.spec}`"
-    return install.method
+    # No fallback branch: InstallMethod is a closed union and mypy proves the
+    # chain above exhausts it. A `return install.method` here reads as
+    # defensive and is unreachable, which mypy --strict rejects -- correctly,
+    # because it would silently absorb a new install method instead of
+    # failing to compile when one is added.
+    assert isinstance(install, PipxInstall)
+    return f"pipx: `{install.spec}`"
 
 
 def selector_of(block: InstallBlock) -> str:

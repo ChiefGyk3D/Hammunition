@@ -50,7 +50,8 @@ def rendered() -> dict[str, str]:
             "categories"
         ]
     }
-    return gen.render(catalog, vocabulary)  # type: ignore[attr-defined]
+    rendered: dict[str, str] = gen.render(catalog, vocabulary)  # type: ignore[attr-defined]
+    return rendered
 
 
 def test_there_is_something_to_compare(rendered: dict[str, str]) -> None:
@@ -86,3 +87,72 @@ def test_generated_pages_say_they_are_generated() -> None:
         if "gen_package_reference.py" not in p.read_text().split("\n")[0]
     ]
     assert not unmarked, f"generated pages with no generated-by line: {unmarked[:6]}"
+
+
+# ---------------------------------------------------------------------------
+# The capability matrix
+#
+# Its generator reads a measured apt sweep from the gitignored reference/probes
+# tree, so a full regeneration check cannot run in CI. Two checks instead: the
+# part that needs no probe runs everywhere, and the full no-op runs where the
+# sweep exists. This is the same shape the programmer-class generator already
+# uses, for the same reason.
+# ---------------------------------------------------------------------------
+
+MATRIX = REPO_ROOT / "docs" / "reference" / "capability-matrix.md"
+PROBES = REPO_ROOT / "reference" / "probes"
+
+
+def test_the_matrix_lists_every_manifest() -> None:
+    """Runs everywhere, needs no probe, and catches the common staleness:
+    a manifest added and the matrix not regenerated."""
+    text = MATRIX.read_text()
+    catalog = load_catalog(REPO_ROOT / "catalog" / "packages")
+    missing = sorted(name for name in catalog if f"| `{name}` |" not in text)
+    assert not missing, (
+        f"{len(missing)} manifest(s) absent from the capability matrix — "
+        f"run scripts/gen_capability_matrix.py: {missing[:8]}"
+    )
+
+
+def test_the_matrix_lists_no_package_that_left_the_catalog() -> None:
+    import re
+
+    catalog = load_catalog(REPO_ROOT / "catalog" / "packages")
+    # Only the full table at the end. The legend above it uses the same row
+    # shape to explain what `apt` means, and matching that reported `apt` as a
+    # package the catalog had lost -- a check failing on its own documentation.
+    _, _, table = MATRIX.read_text().partition("## Every manifest")
+    listed = set(re.findall(r"^\| `([a-z0-9][a-z0-9.+-]*)` \|", table, re.M))
+    assert listed, "found no package rows; the section heading must have changed"
+    stale = sorted(listed - set(catalog))
+    assert not stale, f"matrix names packages the catalog no longer has: {stale}"
+
+
+@pytest.mark.skipif(
+    not list(PROBES.glob("policy-cat-*.tsv")),
+    reason="needs the apt sweep in reference/probes/ — see the generator's docstring",
+)
+def test_regenerating_the_matrix_is_a_no_op() -> None:
+    import subprocess
+
+    before = MATRIX.read_text()
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "gen_capability_matrix.py")],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    after = MATRIX.read_text()
+    if before != after:
+        MATRIX.write_text(before)
+    assert result.returncode == 0, result.stderr
+
+    def without_date(text: str) -> list[str]:
+        return [ln for ln in text.splitlines() if not ln.startswith("**Generated:**")]
+
+    assert without_date(before) == without_date(after), (
+        "docs/reference/capability-matrix.md is stale — regenerate it. If the "
+        "sweep has moved, that is the point: the matrix is a measurement."
+    )

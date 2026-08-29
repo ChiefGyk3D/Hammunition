@@ -21,6 +21,8 @@ disagrees with it, DECISIONS wins and the disagreeing file is a bug.
 - `docs/reference/cli.md` — the CLI: verbs, flags, exit codes, what it refuses
 - `docs/reference/source-build-gaps.md` — what the source backend cannot yet
   build, each gap named by the unit whose build proved it
+- `docs/reference/capability-matrix.md` — every manifest against every target,
+  resolution merged with a measured `apt-cache policy` sweep
 - `docs/reference/` — the measurements everything rests on: `ahrl-inventory.md`,
   `blend-inventory.md`, `dispositions.md`, `overlaps.md`, `profile-sizing.md`,
   `licence-verification.md`, `hardware-gaps.md`, `udev-inventory.md`,
@@ -341,6 +343,22 @@ head.
 Not every profile works everywhere. Manifests declare per-distro support and the
 engine reports honest gaps rather than faking coverage. Never add a shim to make
 an unsupported combination appear to work.
+
+`docs/reference/capability-matrix.md` is generated and is the record.
+**Resolution alone overstates coverage**, which is why it merges two things.
+Most manifests carry one *unconditional* apt block deliberately — apt reports
+the truth at plan time, where a `when:` selector would freeze one evening's
+measurement and be wrong the day a distribution picks the package up — so
+`scripts/capability_matrix.py`, which answers "does a manifest resolve to a
+block", says `apt` for every target including the four where `sdrangel` does
+not exist. `scripts/gen_capability_matrix.py` merges that resolution with a
+measured `apt-cache policy` sweep and distinguishes `apt` from `apt ✗`.
+
+It remains the **weaker** of the two checks: policy proves the archive offers a
+package, not that it installs. `install-verification.md` is the stronger one and
+covers a subset. Build rows are weaker still — they say a build is *declared*,
+not that it succeeds; the manifests whose builds have actually been run say so
+in their own install notes.
 
 ## Repo layout
 
