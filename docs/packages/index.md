@@ -4,11 +4,11 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**217 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**220 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
-### `antenna` — 11
+### `antenna` — 13
 
 Antenna and transmission-line design, modelling, and measurement.
 
@@ -16,9 +16,11 @@ Antenna and transmission-line design, modelling, and measurement.
 - [cassbeam](cassbeam.md) — Models Cassegrain dish antennas — the microwave and radio-astronomy case
 - [coil64](coil64.md) — Calculates inductance for coils of almost any geometry
 - [electronics-radio-dev](electronics-radio-dev.md) — Metapackage pulling in the Blend's RF circuit-design tools
+- [fl-moxgen](fl-moxgen.md) — Designs Moxon rectangle antennas and prints them to scale
 - [flaa](flaa.md) — Drives a RigExpert antenna analyser from the desktop
 - [nanovna-saver](nanovna-saver.md) — Desktop companion for the NanoVNA — bigger screen, real calibration, exportable data
 - [nec2c](nec2c.md) — The NEC2 antenna modelling engine as a C program, for scripting
+- [qgrid](qgrid.md) — Maidenhead grid square calculator with a map and a compass
 - [splat](splat.md) — Terrain-aware path analysis for VHF and above, from real elevation data
 - [wwl](wwl.md) — Distance and bearing between two Maidenhead locators, from the command line
 - [xnec2c](xnec2c.md) — Interactive antenna modelling — NEC2 with a live graphical front end
@@ -33,7 +35,7 @@ Contest operating -- scoring, duplicate checking, rate keeping, and keying under
 - [tlf](tlf.md) — Console contest logger built for speed, driven from the keyboard
 - [tucnak](tucnak.md) — VHF and above contest logger, built around locator scoring and networking
 
-### `cw` — 15
+### `cw` — 16
 
 Morse code -- keying, decoding, and learning to hear it.
 
@@ -45,6 +47,7 @@ Morse code -- keying, decoding, and learning to hear it.
 - [ebook2cw](ebook2cw.md) — Converts a text file or ebook into Morse code audio at a chosen speed
 - [ebook2cwgui](ebook2cwgui.md) — Graphical front end for ebook2cw
 - [flwkey](flwkey.md) — Control panel for the Winkeyer hardware CW keyer
+- [ibp](ibp.md) — Shows which NCDXF/IARU beacon is transmitting right now, on which band
 - [morse](morse.md) — Text-to-Morse sounder and trainer, Eric Raymond's morse-classic
 - [morse2ascii](morse2ascii.md) — Decodes Morse out of a recorded WAV file
 - [qrq](qrq.md) — High-speed Morse trainer that pushes your callsign copy to its limit
@@ -191,14 +194,16 @@ Device support rather than an application: drivers, firmware, udev permissions, 
 - [usbutils](usbutils.md) — lsusb — step one of every hardware problem in this catalog
 - [z8530-utils2](z8530-utils2.md) — Configures Z8530-based HDLC cards for high-speed packet
 
-### `hf-propagation` — 9
+### `hf-propagation` — 11
 
 Propagation prediction, solar indices, beacons and grey line.
 
 - [flcluster](flcluster.md) — DX cluster client that feeds the rest of the W1HKJ suite
 - [hamclock-next](hamclock-next.md) — Maintained SDL2 rewrite of HamClock — grey line, propagation, DX cluster
+- [ibp](ibp.md) — Shows which NCDXF/IARU beacon is transmitting right now, on which band
 - [python3-pyhamtools](python3-pyhamtools.md) — Python library for callsign lookup, locators and DXCC data
 - [pythonprop](pythonprop.md) — Graphical front end that makes VOACAP predictions readable
+- [qgrid](qgrid.md) — Maidenhead grid square calculator with a map and a compass
 - [splat](splat.md) — Terrain-aware path analysis for VHF and above, from real elevation data
 - [sunclock](sunclock.md) — World map showing the day-night terminator and where the sun is now
 - [voacapl](voacapl.md) — The VOACAP HF propagation prediction engine, ported to Linux
@@ -457,7 +462,7 @@ Software-defined radio — receivers, transceivers and the software.
 - [welle-io](welle-io.md) — DAB and DAB+ digital radio receiver with a modern interface
 - [wfview](wfview.md) — Control a modern Icom radio, waterfall and all, over USB or the network
 
-### `station` — 29
+### `station` — 30
 
 Station infrastructure that is not itself a radio application: time, position, and the plumbing an operating position needs.
 
@@ -480,6 +485,7 @@ Station infrastructure that is not itself a radio application: time, position, a
 - [libhamlib-utils](libhamlib-utils.md) — The command-line tools for hamlib — test a radio before blaming software
 - [pipx](pipx.md) — Installs Python applications in their own environments, on the PATH
 - [qdmr](qdmr.md) — Codeplug editor for DMR handhelds — one codeplug, many radios
+- [qgrid](qgrid.md) — Maidenhead grid square calculator with a map and a compass
 - [radioclk](radioclk.md) — Disciplines the system clock from an MSF, WWVB or DCF77 time signal
 - [remotetrx](remotetrx.md) — Puts an SvxLink receiver or transceiver at the end of a network link
 - [sunclock](sunclock.md) — World map showing the day-night terminator and where the sun is now
@@ -619,6 +625,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [esptool](esptool.md) | Flash and inspect ESP8266 and ESP32 chips over their serial bootloader | apt |
 | [fbb](fbb.md) | The classic packet radio BBS and mailbox | apt |
 | [fccexam](fccexam.md) | Practice tests for the US FCC commercial radio licence exams | apt |
+| [fl-moxgen](fl-moxgen.md) | Designs Moxon rectangle antennas and prints them to scale | source |
 | [flaa](flaa.md) | Drives a RigExpert antenna analyser from the desktop | source |
 | [flamp](flamp.md) | Sends files over radio in numbered blocks that can be filled in later | apt |
 | [flashrom](flashrom.md) | Reads, writes and verifies SPI, LPC and parallel flash chips in place | apt |
@@ -657,6 +664,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [hamexam](hamexam.md) | Practice tests for the United States amateur radio licence exams | apt |
 | [hcxdumptool](hcxdumptool.md) | Wi-Fi frame capture aimed at producing hash files for offline analysis | apt |
 | [hcxtools](hcxtools.md) | Converts captured Wi-Fi frames into hash formats analysis tools read | apt |
+| [ibp](ibp.md) | Shows which NCDXF/IARU beacon is transmitting right now, on which band | source |
 | [icom](icom.md) | Minimal CI-V control for Icom radios from the command line | apt |
 | [inspectrum](inspectrum.md) | Offline visualiser for captured radio signals — read a waveform by eye | apt |
 | [js8call](js8call.md) | Weak-signal keyboard-to-keyboard messaging built on the FT8 modem | apt, source |
@@ -710,6 +718,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [pythonprop](pythonprop.md) | Graphical front end that makes VOACAP predictions readable | apt |
 | [qdmr](qdmr.md) | Codeplug editor for DMR handhelds — one codeplug, many radios | apt |
 | [qflipper](qflipper.md) | Desktop companion for the Flipper Zero — firmware, files, and CLI over USB | apt |
+| [qgrid](qgrid.md) | Maidenhead grid square calculator with a map and a compass | source |
 | [qlog](qlog.md) | Modern Qt station log with award tracking and online-service upload | git |
 | [qrq](qrq.md) | High-speed Morse trainer that pushes your callsign copy to its limit | apt |
 | [qsstv](qsstv.md) | Slow-scan television and radiofax — receive and transmit pictures | apt |

@@ -27,7 +27,7 @@ stops. Nothing in the schema can say which target to build for an autotools
 project. (`build_args` exists on `SourceInstall` but is only passed by the
 `make` build system, which has no configure step.)
 
-### 2. In-tree patching — `linrad`, and `gsmc` on AHRL's evidence
+### 2. In-tree patching — `linrad`; nearly `Fl_MoxGen`, and `gsmc` on AHRL's evidence
 
 `patches` is in the schema and is a **measured zero**: the backend refuses it
 by name rather than implementing it speculatively. Linrad ends that.
@@ -45,6 +45,16 @@ So our existing `compiler_flags` mechanism, which sets `CFLAGS`/`CXXFLAGS` in
 the environment, **cannot fix a build whose Makefile ignores them**. That is
 the first thing a patch feature would exist for, and AHRL independently
 patches `gsmc`'s Makefile in place for the same class of reason.
+
+`Fl_MoxGen` is the same illness with a cure. Its rule is
+`@$(CC) -c -o write_pdf.o write_pdf.c`, which never mentions `$(CFLAGS)` —
+but it does mention `$(CC)`, so `build_args: ["CC=cc -Wno-implicit-function-declaration"]`
+reaches it. That works and is expressible today. It is worth recording as the
+cheaper answer to try first: a Makefile that ignores `CFLAGS` may still honour
+an override of whatever variable it *does* use, and only when nothing is
+overridable does a patch become necessary. Linrad's `-Werror` is baked into a
+literal flag string with no variable to override, which is why it is the one
+that forces the feature.
 
 ### 3. Architecture-dependent `configure` arguments — `linrad`
 

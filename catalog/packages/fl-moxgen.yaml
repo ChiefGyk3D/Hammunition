@@ -1,0 +1,80 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: fl-moxgen
+version: "1.00"
+summary: Designs Moxon rectangle antennas and prints them to scale
+categories: [antenna]
+
+install:
+  - install:
+      method: source
+      source:
+        url: https://sourceforge.net/projects/flmoxgen/files/Fl_MoxGen-1.00.tar.gz/download
+        sha256: 547b5ba7e9fa96dc8d88e62eef73eb4673de7c0e41a7485a3ff18887e355ffd2
+      build_system: make
+      build_args:
+        # Its Makefile's rule for write_pdf.o is `@$(CC) -c -o write_pdf.o
+        # write_pdf.c` and never mentions $(CFLAGS), so `compiler_flags` --
+        # which this backend sets in the environment -- cannot reach it.
+        # Overriding CC does, because the rule does use that. Measured: without
+        # this the build stops at write_pdf.c:164 on an implicit declaration of
+        # getcwd(), which GCC 14 made an error.
+        - CC=cc -Wno-implicit-function-declaration
+        # The `all` target builds the PDF-capable binary only if it finds
+        # hpdf.h under $(LIBHARU_INC), which defaults to a path Debian does not
+        # use. Without this it silently builds fl_moxgen_no_pdf instead -- a
+        # working program with the printing removed, and no error anywhere.
+        - LIBHARU_INC=/usr/include
+    build_depends:
+      - build-essential
+      - pkg-config
+      - libfltk1.3-dev
+      - libhpdf-dev
+    note: >-
+      Built in a Debian 13 container on 2026-08-28 with the two overrides
+      above: make exits 0, `fl_moxgen` is produced, and running it headless
+      gets as far as "Can't open display", which is a GUI binary working. AHRL
+      bundles 1.01; SourceForge offers only **1.00** and no 1.01 exists there,
+      so this pins what upstream actually publishes.
+
+      Its `install` target copies to a hardcoded `BINDIR=/usr/local/bin` and
+      `SHAREDIR=/usr/local/share/fl_moxgen` rather than reading PREFIX. That
+      matches our default prefix and would silently ignore any other.
+
+update:
+  probe:
+    method: none
+  strategy: rebuild
+  cadence_hint: >-
+    SourceForge shows 1.00 current with 0.01 through 0.05 in Old_releases.
+    Infrequent; check the project files list by hand.
+
+documentation:
+  what_it_does: >-
+    Computes the dimensions of a Moxon rectangle for a chosen frequency and
+    wire diameter, draws it, and prints it to scale as a PDF -- a template you
+    can lay wire against.
+  why_you_want_it: >-
+    A Moxon is a two-element beam with about 5 dB of gain and a very deep
+    rearward null, made from wire and a couple of spreaders, and it is one of
+    the best returns on effort in portable antenna building. Its dimensions are
+    fussy: the gap between the tips sets the null and small errors move it a
+    long way. This does that arithmetic and hands you a drawing rather than
+    four numbers.
+  prerequisites: >-
+    A desktop session and a frequency. Nothing else -- the design work happens
+    before any hardware exists.
+  known_problems: >-
+    **Check that you got the PDF-capable build.** Without libharu found at
+    build time the Makefile quietly builds `fl_moxgen_no_pdf` instead, which is
+    the same program with the printing gone and no message saying so. The
+    build arguments above prevent it, and it is worth knowing because printing
+    to scale is most of the point. As with any modelled antenna, the numbers
+    assume the thing is in free space; a Moxon two metres off the ground
+    behaves differently and the null in particular will not be where the model
+    says.
+  upstream_url: https://sourceforge.net/projects/flmoxgen/
+  upstream_support: >-
+    The flmoxgen project on SourceForge. The sha256 is ours, computed from the
+    SourceForge download, since upstream publishes no checksum.

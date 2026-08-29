@@ -35,14 +35,14 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 178 | 8 | 29 | 2 | 0 |
-| ubuntu-26.04 | 179 | 7 | 29 | 2 | 0 |
-| kali-rolling | 184 | 7 | 26 | 0 | 0 |
-| parrot | 181 | 6 | 28 | 2 | 0 |
-| linuxmint-22.3 | 172 | 15 | 28 | 2 | 0 |
-| debian-13-arm64 | 177 | 9 | 29 | 2 | 0 |
+| debian-13 | 178 | 8 | 32 | 2 | 0 |
+| ubuntu-26.04 | 179 | 7 | 32 | 2 | 0 |
+| kali-rolling | 184 | 7 | 29 | 0 | 0 |
+| parrot | 181 | 6 | 31 | 2 | 0 |
+| linuxmint-22.3 | 172 | 15 | 31 | 2 | 0 |
+| debian-13-arm64 | 177 | 9 | 32 | 2 | 0 |
 
-**217 manifests** against **6 targets**.
+**220 manifests** against **6 targets**.
 
 ---
 
@@ -166,6 +166,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `esptool` | apt | apt | apt | apt | apt | apt |
 | `fbb` | apt ✗ | apt | apt ✗ | apt ✗ | apt | apt ✗ |
 | `fccexam` | apt | apt | apt | apt | apt | apt |
+| `fl-moxgen` | source | source | source | source | source | source |
 | `flaa` | source | source | source | source | source | source |
 | `flamp` | apt | apt | apt | apt | apt | apt |
 | `flashrom` | apt | apt | apt | apt | apt | apt |
@@ -204,6 +205,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `hamexam` | apt | apt | apt | apt | apt | apt |
 | `hcxdumptool` | apt | apt | apt | apt | apt | apt |
 | `hcxtools` | apt | apt | apt | apt | apt | apt |
+| `ibp` | source | source | source | source | source | source |
 | `icom` | apt | apt | apt | apt | apt | apt |
 | `inspectrum` | apt | apt | apt | apt | apt | apt |
 | `js8call` | source | source | source | source | apt | source |
@@ -257,6 +259,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `pythonprop` | apt | apt | apt | apt | apt ✗ | apt |
 | `qdmr` | apt | apt | apt | apt | apt | apt |
 | `qflipper` | apt | apt | apt | apt | apt | apt |
+| `qgrid` | source | source | source | source | source | source |
 | `qlog` | git | git | git | git | git | git |
 | `qrq` | apt | apt | apt | apt | apt | apt |
 | `qsstv` | apt | apt | apt | apt | apt | apt |

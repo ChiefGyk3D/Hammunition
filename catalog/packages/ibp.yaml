@@ -1,0 +1,84 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: ibp
+version: "0.21"
+summary: Shows which NCDXF/IARU beacon is transmitting right now, on which band
+categories: [hf-propagation, cw]
+
+# REVIVE, per PARITY-POLICY and docs/reference/dispositions.md. AHRL disabled
+# this in v27 with the comment "many, many compiler errors". Retested on
+# Debian 13 and that verdict does not hold at all -- see the install note.
+install:
+  - install:
+      method: source
+      source:
+        url: http://www.pa3fwm.nl/software/ibp/ibp-0.21.tgz
+        sha256: b3b118ca83619f0a5605652a0a8c385c77ada3a10321a771e2d19f9f59604abd
+      build_system: make
+      # Upstream's Makefile builds `ibp` in the source root and declares no
+      # install rule.
+      provides_install_target: false
+    build_depends:
+      - build-essential
+      - libncurses-dev
+    note: >-
+      **AHRL's verdict was wrong for this target, and not by a little.** Its
+      "many, many compiler errors" is one missing header: `ibp.c:14:10: fatal
+      error: curses.h: No such file or directory`. With `libncurses-dev`
+      installed, make exits 0 with **no compiler flags at all** and produces a
+      binary that runs -- `./ibp -h` prints its usage. Tested in a Debian 13
+      container on 2026-08-28, and re-tested with the permissive flags this
+      catalog carries elsewhere, which changed nothing, so none are carried.
+
+      The Makefile defaults to `CFLAGS = -DnoX11`, so this is the curses build.
+      An Imakefile for an X11 version ships alongside it and is not used here.
+
+binaries:
+  - produced: ibp
+    install_as: ibp
+
+update:
+  probe:
+    method: none
+  strategy: rebuild
+  cadence_hint: >-
+    0.21 is the current and probably final release; the man page is dated
+    2003. Finished software rather than abandoned -- the beacon schedule it
+    implements has not changed since 1995, and if it does, that is the thing
+    to watch for rather than a release.
+
+documentation:
+  what_it_does: >-
+    The NCDXF/IARU International Beacon Project runs eighteen beacons around
+    the world, transmitting in a fixed three-minute rotation on five bands --
+    14.100, 18.110, 21.150, 24.930 and 28.200 MHz. This computes the schedule
+    from the clock and tells you which beacon is on which band at this instant,
+    in a terminal, updating as it moves. It will also send the active beacon's
+    callsign as Morse.
+  why_you_want_it: >-
+    It turns the beacons into a propagation instrument rather than a curiosity.
+    Tune to 14.100, watch which callsigns you can hear as the rotation goes
+    round, and you have measured the band's reach in three minutes -- from
+    known transmitters, at known powers, in known places. That is a real
+    measurement, and nothing on the internet substitutes for it because it is
+    your antenna and your receiver that are being tested.
+  prerequisites: >-
+    An accurate clock. The whole thing is a schedule computation, so a clock a
+    minute out tells you confidently about the wrong beacon. Run NTP or chrony.
+    A receiver on the five frequencies above, and preferably CW ears -- the
+    beacons send their callsign then four dashes at descending power.
+  known_problems: >-
+    A wrong system clock produces confident nonsense with no indication that
+    anything is amiss, which is the failure worth knowing about. Beacons do go
+    off the air individually and the program cannot know that -- hearing
+    nothing from one slot is not evidence about propagation until you have
+    checked the NCDXF status page. This is the curses build; there is no
+    graphical interface.
+  upstream_url: http://www.pa3fwm.nl/software/ibp/
+  upstream_support: >-
+    Pieter-Tjerk de Boer, PA3FWM. GPL-2.0, read from the COPYING file in the
+    tarball. The page above is the only contact route; there is no tracker.
+    The sha256 is ours, computed from that download -- upstream publishes no
+    checksum -- so it pins the bytes reviewed and built and implies no
+    signature.
