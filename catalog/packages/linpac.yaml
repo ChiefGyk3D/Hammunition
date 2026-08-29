@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: linpac
+version: "0.28"
+summary: Terminal for AX.25 packet with a built-in mail client and macros
+categories: [packet, emcomm]
+
+install:
+  - install:
+      method: apt
+      packages: [linpac]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A multi-channel terminal for AX.25: ten connections at once on separate
+    screens, a scripted macro language for the repetitive parts of working a
+    BBS, and a mail client that speaks the packet BBS protocols directly.
+    Connections are made to a callsign rather than to a hostname.
+  why_you_want_it: >-
+    It is the classic packet terminal and still the most comfortable way to
+    work a BBS or a node from Linux. The macros matter more than they sound:
+    logging into a BBS, reading new messages and disconnecting is a fixed
+    sequence, and having it on a key is the difference between using packet
+    and admiring it.
+  prerequisites: >-
+    A configured AX.25 stack -- ax25-tools with a port defined in
+    `/etc/ax25/axports` -- and a TNC or soundmodem behind it. That
+    configuration carries your callsign and is the step this catalog cannot yet
+    generate for you; see the open station-configuration question in CLAUDE.md.
+  known_problems: >-
+    Nothing works until AX.25 is configured, and the failure is a terminal that
+    connects to nothing rather than a message naming the missing port. AHRL
+    installs `libax25` alongside it (inventory unit 25), which Debian's package
+    already depends on. The interface is from the era it comes from: function
+    keys and modes, not menus.
+  upstream_url: https://sourceforge.net/projects/linpac/
+  upstream_support: SourceForge project page at the URL above.

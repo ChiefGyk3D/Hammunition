@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: uronode
+version: "2.15"
+summary: Node front end that lets other stations reach services on your machine
+categories: [packet, emcomm]
+
+after: [ax25-tools]
+
+install:
+  - install:
+      method: apt
+      packages: [uronode]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Answers inbound connections -- over AX.25, NET/ROM, Rose or TCP -- and
+    presents a command prompt from which the caller can connect onward to
+    another station, read a bulletin, reach a BBS, or use whatever else you
+    have configured. It is the switchboard a packet node presents to the world.
+  why_you_want_it: >-
+    A node is what makes a station useful to other people rather than only to
+    you. If your machine is well sited or well connected, running a node lets
+    others reach places they could not reach directly, which is most of what a
+    packet network is.
+  prerequisites: >-
+    A configured AX.25 stack, and `ax25d` set up to hand inbound connections to
+    uronode. Your callsign appears in that configuration and in what callers
+    see.
+  known_problems: >-
+    A node is a service other people use, and running one is a commitment: an
+    unreliable node is worse for a network than no node. It relays traffic on
+    your callsign's authority, so what passes through it is your
+    responsibility in most jurisdictions. Configuration is several files and
+    getting the ax25d handoff right is the usual sticking point.
+  upstream_url: https://uronode.sourceforge.net/
+  upstream_support: SourceForge project page at the URL above.

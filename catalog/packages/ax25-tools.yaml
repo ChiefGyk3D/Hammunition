@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: ax25-tools
+version: "0.0.10"
+summary: Configures the kernel AX.25 stack — ports, interfaces, NET/ROM, Rose
+categories: [packet, emcomm]
+
+install:
+  - install:
+      method: apt
+      packages: [ax25-tools]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    The administrative half of Linux AX.25: attaches a serial TNC or a KISS
+    device to the kernel stack, brings AX.25 interfaces up, configures NET/ROM
+    and Rose, and runs the daemons that let inbound connections reach a
+    program. It carries kissattach, axparms, mheard, ax25d and the rest.
+  why_you_want_it: >-
+    Linux has AX.25 in the kernel, which is unusual and genuinely useful --
+    packet connections are sockets, so ordinary programs can use them. This is
+    what turns that from a compiled-in capability into a working port.
+  prerequisites: >-
+    A port definition in `/etc/ax25/axports` naming your callsign, the device,
+    and the speed. That file is the station configuration this catalog does not
+    yet generate: 73Linux writes a line into it at install time, and doing that
+    correctly requires knowing a callsign, which is the open question CLAUDE.md
+    records as blocking. Until then this manifest installs the tools and the
+    file is yours to write.
+  known_problems: >-
+    An unconfigured axports produces failures that name a port rather than
+    saying the file is empty, which reads as a hardware problem. The AX.25
+    stack has a long history of being lightly maintained in the kernel, and
+    some of the more exotic paths -- Rose in particular -- have few users and
+    correspondingly few bug reports. A callsign written into axports is
+    transmitted; it is the station identity, not a label.
+  upstream_url: https://linux-ax25.in-berlin.de/wiki/Main_Page
+  upstream_support: >-
+    The linux-ax25 project wiki, which is also the best available
+    documentation for the kernel stack itself.

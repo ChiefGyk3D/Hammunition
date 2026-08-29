@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: aprx
+version: "2.9.1"
+summary: APRS digipeater and internet gateway, small enough for a Pi
+categories: [tracking, packet]
+
+install:
+  - install:
+      method: apt
+      packages: [aprx]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Acts as an APRS digipeater and as an igate: it can repeat packets on RF,
+    forward what it hears to the APRS-IS internet network, and pass messages
+    from the internet back out to a local station. It speaks KISS to a
+    soundmodem or TNC and runs as a daemon with one configuration file.
+  why_you_want_it: >-
+    An igate is what puts a local APRS network on the map that everyone else
+    looks at, and it is the most common reason to leave a Raspberry Pi and a
+    radio running in a loft. Aprx is small, has no graphical dependencies, and
+    is designed to run unattended for years -- which is the actual requirement.
+  prerequisites: >-
+    A receiver and a soundmodem or TNC. A callsign and an APRS-IS passcode for
+    the gateway side. Transmitting on RF from internet traffic is a separate
+    decision and is off unless configured.
+  known_problems: >-
+    Gating internet traffic to RF is the part that causes trouble: done
+    carelessly it floods the local channel with messages for stations that are
+    not there. The convention is to gate only what is needed and only for
+    stations recently heard locally, and the configuration file's defaults are
+    deliberately conservative. An igate publishes what it hears to a permanent
+    public archive, including the positions of stations that may not realise
+    how far their packets travel.
+  upstream_url: https://thelifeofkenneth.com/aprx/
+  upstream_support: >-
+    The maintained aprx line lives at the URL above; the original
+    aprx.he.fi site is no longer the reference.

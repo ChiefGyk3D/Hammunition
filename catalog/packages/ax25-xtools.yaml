@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: ax25-xtools
+version: "0.0.10"
+summary: X11 versions of the AX.25 monitoring tools
+categories: [packet]
+
+after: [ax25-tools]
+
+install:
+  - install:
+      method: apt
+      packages: [ax25-xtools]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Windowed equivalents of the ax25-tools monitors, principally `xlisten` --
+    the same raw-frame view as `listen` in a scrolling window rather than a
+    terminal.
+  why_you_want_it: >-
+    On a desktop, having the frame monitor in its own window beside the
+    terminal program is more useful than it sounds: packet debugging is a
+    comparison between what you sent and what went out, and that is a
+    two-window job.
+  prerequisites: >-
+    An X11 session and a configured AX.25 port.
+  known_problems: >-
+    It is a thin X11 wrapper with no theming and no scrollback beyond what the
+    widget holds. For anything to be captured rather than watched, the
+    command-line `listen` piped to a file is the better tool.
+  upstream_url: https://linux-ax25.in-berlin.de/wiki/Main_Page
+  upstream_support: The linux-ax25 project wiki.

@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: ax25-apps
+version: "0.0.8"
+summary: The programs you actually use over AX.25 once a port is up
+categories: [packet, emcomm]
+
+# ax25-tools brings the port up; these speak over it. Ordering, not dependency
+# (D-003) -- they install independently and are useless separately.
+after: [ax25-tools]
+
+install:
+  - install:
+      method: apt
+      packages: [ax25-apps]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    The user-facing AX.25 programs: `call` for an interactive connection to
+    another station, `listen` for watching raw traffic on a port, `ax25ipd` for
+    tunnelling AX.25 over IP links, and `ax25rtd` for routing.
+  why_you_want_it: >-
+    `listen` alone justifies it. Watching the raw frames on a port is how every
+    packet problem is actually diagnosed -- whether the TNC is keying, whether
+    frames are malformed, whether anyone is hearing you -- and there is no
+    substitute for seeing the traffic. `call` is the minimal way to prove a
+    path works before blaming a terminal program.
+  prerequisites: >-
+    A working AX.25 port from ax25-tools. Without one these programs have
+    nothing to talk to.
+  known_problems: >-
+    `listen` shows everything on the port including your own transmissions,
+    which confuses a first diagnosis. `ax25ipd` links your local packet
+    network to a wider one over the internet, which changes who can reach your
+    station and is worth deciding deliberately rather than copying from an
+    example configuration.
+  upstream_url: https://linux-ax25.in-berlin.de/wiki/Ax25-apps
+  upstream_support: The linux-ax25 project wiki.

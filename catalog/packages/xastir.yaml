@@ -1,0 +1,62 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: xastir
+version: "2.2.0"
+summary: APRS client with real maps — see and be seen on the packet network
+categories: [tracking, packet, emcomm]
+
+install:
+  - install:
+      method: apt
+      packages: [xastir]
+    note: >-
+      AHRL runs this early because it believes the package creates an
+      `xastir-ax25` group, and follows it with `chmod o+x /usr/bin/xastir`
+      (inventory unit 8). Measured on Debian 13 on 2026-08-28 by installing the
+      package in a container: `/usr/bin/xastir` is already 0755 root:root and
+      no xastir-ax25 group exists. Both steps are no-ops on this target, so
+      neither is carried. This is what PARITY-POLICY means by not inheriting a
+      verdict -- the workaround was true once and the manifest does not repeat
+      it because AHRL still does.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Plots APRS stations, objects, weather reports and messages on a map, and
+    transmits your own position and messages. It takes data from a TNC or
+    soundmodem on RF, from an APRS-IS internet feed, or both at once, and it
+    reads GPS from gpsd for a moving station.
+  why_you_want_it: >-
+    APRS is the network that answers "where is everyone" during an event or an
+    emergency, and Xastir is the full-featured Linux client for it -- not a
+    position beacon but the whole picture, with messaging, weather station
+    integration and the map layers that make a public-service deployment
+    legible. It is the tool that turns a set of packets into a situation.
+  prerequisites: >-
+    A callsign, which APRS transmits in clear and which identifies you.
+    RF operation needs a TNC or a soundmodem such as Direwolf, and access to
+    the serial or audio device. Maps are the real setup: Xastir supports many
+    formats and ships with very little, so obtaining map data for your area is
+    a step nothing does for you -- and the project's own website, which is
+    where that documentation lived, is currently unreachable (see below).
+  known_problems: >-
+    The map configuration is the part everyone struggles with, and an empty
+    map looks like a broken program rather than a missing data file. APRS is
+    not private: your position, your callsign and your messages are relayed
+    globally and archived by several public sites indefinitely. Beaconing from
+    a home station at a rate suited to a moving vehicle is the most common way
+    to annoy a local network.
+  upstream_url: https://github.com/Xastir/Xastir
+  upstream_support: >-
+    The project is alive and its website is not. `xastir.org` and
+    `www.xastir.org` have no DNS record at all (checked 2026-08-28) -- that is
+    what Debian declares as the Homepage, and what the GitHub repository still
+    declares too. The repository itself is active: head of `master` is
+    33a56e58d527, 2026-07-29, read from the branch rather than from GitHub's
+    `updated_at` (D-032). Issues there are the working support route; the
+    mailing lists the dead site linked could not be checked.

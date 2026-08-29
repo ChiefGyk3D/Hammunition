@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: a2d
+version: "2.0.5"
+summary: Bridges APRS messages to DAPNET pagers
+categories: [tracking, packet, emcomm]
+
+install:
+  - install:
+      method: apt
+      packages: [a2d]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Watches APRS for messages addressed to configured callsigns and forwards
+    them into DAPNET, the amateur radio paging network, so they arrive on a
+    POCSAG pager.
+  why_you_want_it: >-
+    A pager runs for weeks on one battery and receives where a phone has no
+    signal, which is exactly the property emergency communications wants. This
+    is the piece that lets APRS -- the network most amateurs already have --
+    reach one.
+  prerequisites: >-
+    An APRS feed to watch, DAPNET credentials, and a pager on the network.
+    DAPNET is largely European in coverage; there may be no transmitter within
+    range of you, which is worth checking before setting any of this up.
+  known_problems: >-
+    It is a bridge between two networks and inherits the failure modes of both:
+    an APRS message that was never received cannot be forwarded, and DAPNET
+    delivery depends on transmitter coverage that varies enormously by region.
+    Neither failure produces an error at this end. Messages crossing between
+    public networks are public at both.
+  upstream_url: https://github.com/NGC2023/a2d
+  upstream_support: GitHub issues at the URL above.

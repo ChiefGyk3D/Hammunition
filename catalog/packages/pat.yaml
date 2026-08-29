@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: pat
+version: "0.16.0"
+summary: Winlink client — radio email that works when the internet does not
+categories: [packet, emcomm]
+
+install:
+  - install:
+      method: apt
+      packages: [pat]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A Winlink client with a web interface: compose, send and receive Winlink
+    email over telnet, over packet through an AX.25 port or a KISS TNC, or
+    over HF using ARDOP or VARA. It manages the mailbox, the forms, and the
+    connection scripts for reaching a gateway station.
+  why_you_want_it: >-
+    Winlink is how amateur radio carries email with no internet at all, and it
+    is the system emergency management agencies actually ask for. Pat is the
+    modern Linux client for it -- one binary, a browser interface, and no
+    Windows dependency, which is what makes a Linux station a usable Winlink
+    station.
+  prerequisites: >-
+    A Winlink account, which is free and tied to your callsign. A path to a
+    gateway: telnet over the internet to start with, then packet or HF once
+    the radio side is configured. Its configuration file carries your callsign
+    and password, and is written by `pat configure` rather than generated here
+    -- the station-configuration question this catalog has open (CLAUDE.md,
+    D-004 amendment) is exactly this file and LinBPQ's.
+  known_problems: >-
+    The web interface binds to localhost by default; exposing it to a network
+    exposes your mailbox and your Winlink credentials, and there is no
+    authentication in front of it. Winlink messages traverse a system with
+    published policies about content and are not private. HF forwarding needs
+    ARDOP or VARA, neither of which is in this catalog yet -- VARA is post-1.0
+    and runs under Wine -- so the honest state today is telnet and packet.
+  upstream_url: https://getpat.io
+  upstream_support: >-
+    LA5NTA and contributors. GitHub issues and a wiki linked from the site;
+    the wiki's connection-script examples are the fastest route to a working
+    HF or packet setup.

@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: aprsdigi
+version: "3.11.0"
+summary: APRS digipeater — repeats packets so they reach further than one hop
+categories: [tracking, packet]
+
+after: [ax25-tools]
+
+install:
+  - install:
+      method: apt
+      packages: [aprsdigi]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Listens on one or more AX.25 ports and retransmits APRS packets according
+    to their digipeater path, supporting the WIDEn-N convention, callsign
+    substitution, cross-band and cross-port repeating, and duplicate
+    suppression.
+  why_you_want_it: >-
+    APRS coverage is built from digipeaters. A station on a hill or a tall
+    building fills a hole that mobile stations fall into, and this is the
+    software that does it on Linux with the kernel AX.25 stack rather than
+    inside a modem.
+  prerequisites: >-
+    A configured AX.25 port, a radio that can transmit unattended, and a
+    considered decision about your paths. Also a callsign, which every
+    repeated packet carries as having passed through you.
+  known_problems: >-
+    A badly configured digipeater is actively harmful to a local network:
+    repeating everything, repeating too many hops, or failing to suppress
+    duplicates floods a shared channel that everyone else needs. Learn the
+    local convention before switching one on -- the WIDEn-N rules exist
+    because the earlier free-for-all did not scale. Unattended transmission
+    has licence implications in most jurisdictions and they are yours to know.
+  upstream_url: https://github.com/n2ygk/aprsdigi/
+  upstream_support: Alan Crosswell, N2YGK. GitHub issues at the URL above.
