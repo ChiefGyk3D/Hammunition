@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: icom
+version: "20120228"
+summary: Minimal CI-V control for Icom radios from the command line
+categories: [rig-control]
+
+install:
+  - install:
+      method: apt
+      packages: [icom]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Sends CI-V commands to an Icom transceiver over a serial interface --
+    setting frequency and mode, reading back what the radio reports -- as a
+    small standalone program with no library dependency.
+  why_you_want_it: >-
+    Rarely, and deliberately so. Hamlib's `rigctl` covers this and far more.
+    What this offers is directness: it speaks the CI-V protocol with nothing in
+    between, which makes it useful for understanding the protocol or for
+    debugging a case where hamlib's backend is itself suspect.
+  prerequisites: >-
+    An Icom radio with a CI-V interface, the correct CI-V address, and access
+    to the serial device.
+  known_problems: >-
+    The version string is its release date and it is from 2012; the CI-V
+    command set has grown since. It has no upstream Homepage in Debian and no
+    project page to point at, so what the distribution ships is what exists.
+    For ordinary rig control, use libhamlib-utils instead -- this is carried
+    for the narrow case where the simpler tool is the more useful one.
+  upstream_url: https://tracker.debian.org/pkg/icom
+  upstream_support: >-
+    Debian declares no upstream Homepage for this package, so the tracker is
+    the honest pointer rather than an invented project page.

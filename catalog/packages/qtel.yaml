@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: qtel
+version: "24.02"
+summary: EchoLink client — work repeaters and stations over the internet
+categories: [digital-modes]
+
+install:
+  - install:
+      method: apt
+      packages: [qtel]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Connects to the EchoLink network as a station: it lists the nodes,
+    repeaters and conference servers currently online, connects to one, and
+    passes audio both ways using the computer's own sound card and a
+    push-to-talk button on screen.
+  why_you_want_it: >-
+    EchoLink is how a licensed operator reaches a repeater on the other side of
+    the world with no radio at all, and how a repeater reaches operators who
+    are out of range of it. Qtel is the Linux client, part of the SvxLink
+    project, and it is the straightforward way onto that network from a
+    desktop.
+  prerequisites: >-
+    An EchoLink account, which requires proof of licence and is not instant --
+    the validation step takes days. A working sound card. EchoLink uses UDP
+    ports 5198 and 5199, which a NAT router usually has to be told to forward.
+  known_problems: >-
+    The port forwarding is the single most common reason a connection appears
+    to succeed and carries no audio -- signalling arrives and voice does not.
+    EchoLink requires a licensed callsign and validates it; connecting is not
+    anonymous. A node you connect to may key a real transmitter somewhere, so
+    the ordinary courtesies about identifying and pausing between transmissions
+    apply exactly as they do on the air.
+  upstream_url: https://www.svxlink.org
+  upstream_support: >-
+    Tobias Blomberg, SM0SVX. EchoLink itself is run separately from the
+    software and account problems go to EchoLink rather than here.

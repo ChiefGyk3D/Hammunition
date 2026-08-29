@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: svxreflector
+version: "24.02"
+summary: Conference server that links many SvxLink nodes into one talk group
+categories: [digital-modes, emcomm]
+
+install:
+  - install:
+      method: apt
+      packages: [svxreflector]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A server that SvxLink nodes connect to, relaying audio between all of them
+    so that a transmission on any node is heard on the rest. It supports talk
+    groups, so one server can carry several independent conversations, and it
+    authenticates the nodes that connect.
+  why_you_want_it: >-
+    Point-to-point links between repeaters do not scale past a handful. A
+    reflector is the star-topology answer: every node connects to one place and
+    the mesh problem disappears. If you are building a regional linked system
+    rather than joining one, this is the piece in the middle.
+  prerequisites: >-
+    A machine reachable by the nodes, which in practice means a public address
+    or a VPN, and the ports open. Node authentication keys, which you issue.
+  known_problems: >-
+    It is infrastructure other people depend on: an unreliable reflector takes
+    a whole linked system down rather than one node. Audio quality is limited
+    by the worst link in the group, not the average. As with svxlink-server the
+    version spread across targets is wide and configuration syntax has changed
+    between releases, so examples need checking against your version.
+  upstream_url: https://www.svxlink.org
+  upstream_support: Tobias Blomberg, SM0SVX -- same project as svxlink-server.

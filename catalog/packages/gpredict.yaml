@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: gpredict
+version: "2.3-115-g0f3beb6"
+summary: Real-time satellite tracking and pass prediction, with radio control
+categories: [satellite, station]
+
+install:
+  - install:
+      method: apt
+      packages: [gpredict]
+    note: >-
+      AHRL builds 2.5.1 from a tarball (inventory unit 55). The archive
+      versions are older and inconsistent: Debian 13, Parrot and Mint carry the
+      snapshot 2.3-115-g0f3beb6, Ubuntu 26.04 carries 2.4, Kali 2.5.2 (measured
+      2026-08-28). The Debian package is a git snapshot rather than a release,
+      which is a packaging judgement upstream's release cadence forced. This is
+      apt for now; the version gap is real and a source build is a defensible
+      future change once someone measures what 2.5 fixes for an operator.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Tracks satellites in real time from Keplerian elements: shows them on a map
+    and in a polar plot, predicts passes with elevation and duration, and drives
+    a rotator and a radio through hamlib so the antenna follows the satellite
+    and the receiver follows the Doppler shift.
+  why_you_want_it: >-
+    Working a satellite is a ten-minute window that arrives on a schedule you
+    have to know in advance, with a frequency that moves several kHz while you
+    are on it. Gpredict is what answers both. The Doppler tuning in particular
+    is the difference between chasing a signal across the band and staying on
+    it.
+  prerequisites: >-
+    Current Keplerian elements, which it downloads and which go stale in days
+    rather than months -- a prediction from old elements is confidently wrong.
+    Your own location, accurately. Radio and rotator control need hamlib to
+    reach the hardware.
+  known_problems: >-
+    Stale elements are the commonest cause of a pass that does not happen when
+    predicted, and nothing warns you: the program computes from whatever it
+    has. Update before relying on a prediction. The hamlib radio interface
+    needs `rigctld` running rather than direct access, which is a step that is
+    easy to miss, and Doppler correction for a full-duplex satellite means two
+    radios or one that can do both.
+  upstream_url: http://gpredict.oz9aec.net/
+  upstream_support: >-
+    Alexandru Csete, OZ9AEC -- also the author of gqrx. GitHub issues linked
+    from the site.

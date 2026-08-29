@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: remotetrx
+version: "24.02"
+summary: Puts an SvxLink receiver or transceiver at the end of a network link
+categories: [digital-modes, station]
+
+install:
+  - install:
+      method: apt
+      packages: [remotetrx]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Runs on a machine attached to a radio and serves that radio's audio and
+    squelch state to an SvxLink server elsewhere on the network, so the
+    repeater controller and the radio need not be in the same building.
+  why_you_want_it: >-
+    Repeater sites are where the antenna should be and rarely where a computer
+    should be. This splits the two: a small machine at the site handles the
+    radio, and the controller with its configuration, modules and logs lives
+    somewhere maintainable. It is also how a multi-site voting receiver system
+    is built.
+  prerequisites: >-
+    An SvxLink server to connect to, a network path with low enough latency to
+    be usable for voice, and a radio interfaced for audio and squelch.
+  known_problems: >-
+    Latency and jitter on the link become audible delay in the repeater's
+    response, which operators notice immediately as a hesitant repeater. A link
+    that drops takes the site off the air with no local fallback unless one is
+    arranged. Same version-spread caveat as the rest of the SvxLink family.
+  upstream_url: https://www.svxlink.org
+  upstream_support: Tobias Blomberg, SM0SVX -- part of the SvxLink project.

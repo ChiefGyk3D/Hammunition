@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: kappanhang
+version: "1.3"
+summary: Opens an Icom network radio as an ordinary sound card and serial port
+categories: [rig-control, station]
+
+install:
+  - install:
+      method: apt
+      packages: [kappanhang]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Connects to a network-capable Icom transceiver over its own IP protocol and
+    presents the radio's audio as a PulseAudio device and its serial stream as
+    a virtual serial port on your machine. Programs then use the remote radio
+    exactly as if it were plugged in.
+  why_you_want_it: >-
+    It makes remote operating transparent to everything else. Rather than each
+    program needing to understand Icom's network protocol, fldigi, WSJT-X and a
+    logger see a sound card and a serial port, and none of them has to know the
+    radio is elsewhere. That is a much better shape than per-application remote
+    support.
+  prerequisites: >-
+    A network-capable Icom radio -- IC-705, IC-7610, IC-9700 and similar -- with
+    its network settings enabled and a user and password configured on the
+    radio. A route to it.
+  known_problems: >-
+    Audio over an unreliable link produces dropouts that look like propagation,
+    which matters when you are judging a weak signal. Only one client can hold
+    the radio's network session at a time, so this and wfview cannot both be
+    connected. The radio's own credentials are the only authentication between
+    a network and your transmitter; treat exposing it as the decision it is.
+  upstream_url: https://github.com/nonoo/kappanhang
+  upstream_support: Norbert Varga, HA2NON. GitHub issues at the URL above.

@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: tmd710-tncsetup
+version: "1.13.1"
+summary: Configures the built-in TNC on Kenwood TM-D710 and TH-D72 radios
+categories: [packet, tracking, radio-programming]
+
+install:
+  - install:
+      method: apt
+      packages: [tmd710-tncsetup]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Sends the setup commands a Kenwood TM-D710, TM-D710G or TH-D72 needs before
+    its internal TNC will work with an APRS program: callsign, beacon settings,
+    path, and the KISS-mode switch that hands the TNC over to the computer.
+  why_you_want_it: >-
+    These radios have a real TNC inside them, which is a considerable
+    convenience -- no sound card, no interface, no level adjustment. Getting it
+    into the right mode from the front panel is a menu safari, and this does it
+    in one command, repeatably, which matters when you are setting up in the
+    field.
+  prerequisites: >-
+    One of the supported Kenwood radios and its data cable, with access to the
+    serial device.
+  known_problems: >-
+    It is specific to these models and will not usefully talk to anything else.
+    The radio's own APRS functions and computer control of the TNC are
+    mutually exclusive modes; switching to KISS turns off the radio's internal
+    APRS display, which surprises people who wanted both.
+  upstream_url: https://github.com/fmarier/tmd710_tncsetup
+  upstream_support: Francois Marier, VA7GPL. GitHub issues at the URL above.
