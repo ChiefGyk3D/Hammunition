@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: fbb
+version: "7.011"
+summary: The classic packet radio BBS and mailbox
+categories: [packet, emcomm]
+
+after: [ax25-tools]
+
+install:
+  - install:
+      method: apt
+      packages: [fbb]
+    note: >-
+      **Only Ubuntu 26.04 and Linux Mint 22.3 carry this**, both at 7.011-3. No
+      candidate on Debian 13, Kali or Parrot (measured 2026-08-28). The
+      direction is unusual -- Debian's line lacks something Ubuntu's has -- and
+      it matters because `ax25mail-utils`, which this catalog carries and which
+      exists to forward mail with an FBB system, is present on every target.
+      On the primary target you get the client side of a BBS you cannot run.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Runs a packet radio bulletin board: user accounts, message areas, bulletins,
+    file libraries, and automatic forwarding of mail to and from other BBS
+    systems on a schedule. It answers connections over AX.25, NET/ROM and
+    telnet, and it is the system most of the surviving packet BBS network
+    speaks.
+  why_you_want_it: >-
+    If you want to run a BBS rather than use one, this is the software the rest
+    of the network expects to forward with. The forwarding protocols are FBB's,
+    and interoperating with them is what makes a new BBS part of the network
+    rather than an island.
+  prerequisites: >-
+    A configured AX.25 stack and a callsign for the BBS. Forwarding partners,
+    which is an arrangement with their operators rather than a setting.
+    Somewhere for it to run continuously.
+  known_problems: >-
+    Not available on Debian 13, Kali or Parrot -- see the install note. It is
+    old software with a configuration model to match: several files, a
+    forwarding schedule in its own syntax, and unforgiving behaviour when they
+    disagree. Running a BBS means carrying other people's traffic under your
+    callsign, which in most jurisdictions makes its content your
+    responsibility.
+  upstream_url: https://sourceforge.net/projects/linfbb/
+  upstream_support: >-
+    The linfbb project on SourceForge. Long-stable rather than actively
+    developed.

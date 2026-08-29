@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: dump1090-mutability
+version: "1.15"
+summary: The older dump1090 fork, kept because two targets still carry it
+categories: [tracking, sdr, listening]
+
+# `readsb` is the maintained line and the SUPERSEDE the dispositions record.
+# This is not a competing default.
+recommended_default: false
+superseded_by: readsb
+
+install:
+  - install:
+      method: apt
+      packages: [dump1090-mutability]
+    note: >-
+      **Only Ubuntu 26.04 and Linux Mint 22.3 carry this**, both at
+      1.15~20180310. No candidate on Debian 13, Kali or Parrot (measured
+      2026-08-28). That is worth stating precisely because it inverts the usual
+      advice: on the primary target the package everyone's ADS-B tutorial names
+      does not exist, and `readsb` is what does.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Decodes Mode S and ADS-B from an RTL-SDR and serves the results over the
+    network and through a small built-in web map. It is the "mutability" fork
+    of the original dump1090, packaged by Debian and Ubuntu.
+  why_you_want_it: >-
+    Mostly you want `readsb`, which this catalog carries and which is the
+    maintained continuation of the same lineage with a better decoder. This
+    entry exists because a great deal of written advice names
+    dump1090-mutability specifically, and because two of our six targets are
+    where it still is.
+  prerequisites: >-
+    An RTL-SDR that reaches 1090 MHz and an antenna for that band. It wants
+    exclusive use of the dongle.
+  known_problems: >-
+    The upstream snapshot is from 2018 and the fork is not developed; the
+    Homepage Debian declares is the mutability repository, which has not moved
+    in years. Absent from Debian 13, Kali and Parrot, so following an
+    instruction to install it there will fail -- use readsb. Its web map
+    binds locally by default; exposing it publishes your receiver's location.
+  upstream_url: https://github.com/mutability/dump1090
+  upstream_support: >-
+    Effectively none upstream. The distribution package is the support route,
+    and readsb is where the development went.

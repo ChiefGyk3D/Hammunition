@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: aethersdr
+version: "26.8.1"
+summary: Linux client for FlexRadio transceivers
+categories: [sdr, rig-control, station]
+
+install:
+  - install:
+      method: apt
+      packages: [aethersdr]
+    note: >-
+      **Only Kali carries this**, at 26.8.1+ds-1. No candidate on Debian 13,
+      Ubuntu 26.04, Parrot or Mint (measured 2026-08-28). It is in the Blend's
+      SDR task, which again tracks unstable rather than stable.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Connects to a FlexRadio SmartSDR transceiver over the network and provides
+    the operating interface: panadapter and waterfall, slice receivers, filter
+    and mode control, transmit, and the metering the radio reports.
+  why_you_want_it: >-
+    FlexRadio's own client software is Windows-only, and the radios are
+    network-native -- the transceiver is a server and the front panel is
+    software. That makes a Linux client the difference between using one from
+    Linux and keeping a Windows machine on the desk purely to talk to it.
+  prerequisites: >-
+    A FlexRadio transceiver reachable on the network. Discovery is by broadcast,
+    so a router between you and the radio usually means it is not found.
+  known_problems: >-
+    Reproducing a commercial vendor's protocol means feature coverage lags the
+    vendor client and can break when the radio's firmware is updated -- check
+    before updating firmware rather than after. The maintainer does not own
+    this hardware, so nothing here is maintainer-verified (D-027); it is
+    carried because other operators have it. Absent from four of the six
+    targets, as above.
+  upstream_url: https://github.com/aethersdr/AetherSDR
+  upstream_support: The AetherSDR project. GitHub issues at the URL above.

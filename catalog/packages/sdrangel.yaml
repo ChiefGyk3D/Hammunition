@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: sdrangel
+version: "7.27.1"
+summary: SDR transceiver and analyser that does several things at once
+categories: [sdr, listening, rf-security]
+
+install:
+  - install:
+      method: apt
+      packages: [sdrangel]
+    note: >-
+      **Only Kali carries this.** Measured across all six targets on
+      2026-08-28: Kali 7.27.1+dfsg-2, and no candidate on Debian 13, Ubuntu
+      26.04, Parrot or Linux Mint 22.3. `docs/reference/install-verification.md`
+      recorded the same absence from Debian 13 in its Tier 1 probe. It is the
+      last of DragonOS Tier 1's eight new ADD units, and on every target but
+      Kali this manifest will report an apt gap rather than install -- which is
+      the honest answer, not a defect. Upstream publishes .deb artefacts and
+      an AppImage; reaching those needs the binary backend, which M3 has not
+      written yet.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A full SDR application built around independent channel plugins: one
+    device's captured bandwidth can feed several demodulators and analysers
+    simultaneously -- AM, FM, SSB, DSD-based digital voice, APT and satellite
+    decoders, ADS-B, packet, a spectrum analyser and a scope -- each in its own
+    panel. It transmits as well as receives on hardware that can, and it drives
+    almost every SDR in common use.
+  why_you_want_it: >-
+    It is the most feature-dense SDR application in open source, and the reason
+    to reach for it over gqrx or SDR++ is when you want to do several things to
+    one capture at the same time. Watching a band while decoding two signals in
+    it, or running an analyser alongside a demodulator, is a single window
+    here and three programs fighting over a dongle anywhere else.
+  prerequisites: >-
+    An SDR and its driver library. A capable machine: SDRangel is
+    computationally heavy and benefits from a GPU for its display. On the four
+    targets that do not package it, nothing here installs -- see the note above.
+  known_problems: >-
+    The interface is dense enough to be genuinely hard to start with; the
+    plugin model means almost nothing is where a gqrx user expects it. Its
+    transmit capability is real RF on hardware that can radiate, which is why
+    this entry is categorised rf-security as well as sdr and reaches an
+    operator through a profile requiring explicit opt-in. Debian's build is
+    `+dfsg`, so components that could not be distributed have been removed and
+    a feature present upstream may be absent here.
+  upstream_url: https://www.sdrangel.org/
+  upstream_support: >-
+    Edouard Griffiths, F4EXB -- also the author of the dsdcc decoder this
+    catalog carries. GitHub issues and a wiki linked from the site.

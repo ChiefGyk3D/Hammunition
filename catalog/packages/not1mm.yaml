@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: not1mm
+version: "26.8.10"
+summary: Contest logger for Linux, modelled on N1MM but not it
+categories: [contest, logging]
+
+install:
+  - install:
+      method: apt
+      packages: [not1mm]
+    note: >-
+      **Only Kali carries this**, at 26.8.10-1. No candidate on Debian 13,
+      Ubuntu 26.04, Parrot or Linux Mint 22.3 (measured 2026-08-28) -- and it
+      is in the Debian Hamradio Blend's logging task, which is a good reminder
+      that the Blend tracks unstable rather than stable. AHRL installs it into
+      a per-user venv from PyPI with no pinned version (inventory unit 86).
+      Reaching it on the other targets means the venv or pipx backend, which
+      M3 has not written; until then this manifest reports an apt gap there.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+  cadence_hint: >-
+    Versioned by release date and released often -- contest support and scoring
+    rules arrive with new versions, so a season-old build may not know this
+    year's rules.
+
+documentation:
+  what_it_does: >-
+    A contest logger with per-contest scoring plugins, duplicate checking,
+    multiplier tracking, a band map fed from a cluster, CW and voice keying,
+    rig control through hamlib, and Cabrillo export in the format contest
+    sponsors accept. The interface deliberately echoes N1MM Logger, the
+    Windows program most contesters already know.
+  why_you_want_it: >-
+    Contesting on Linux has long meant tlf in a terminal or a Windows machine
+    for the weekend. This is the graphical alternative, and the familiarity is
+    the point: an operator who knows N1MM can sit down at it without relearning
+    the layout mid-contest.
+  prerequisites: >-
+    Your callsign, grid and section or zone, which determine the exchange and
+    the scoring. Rig control through hamlib if you want frequency logged
+    automatically. A contest configuration chosen before the contest starts,
+    not during it.
+  known_problems: >-
+    Available from apt only on Kali among our targets, which is the practical
+    obstacle. AHRL's answer -- a per-user venv from PyPI with no pinned
+    version -- installs whatever PyPI has that day, which for software whose
+    scoring rules change annually is a reproducibility problem rather than a
+    convenience. Scoring plugins are per-contest and one that has not been
+    written or updated will compute a total you cannot submit; check yours
+    beforehand.
+  upstream_url: https://github.com/mbridak/not1mm
+  upstream_support: >-
+    Michael Bridak, K6GTE. GitHub issues at the URL above; the project is
+    responsive and contest plugins are a common contribution.
