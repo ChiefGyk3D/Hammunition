@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: python3-pyhamtools
+version: "0.11.0"
+summary: Python library for callsign lookup, locators and DXCC data
+categories: [logging, hf-propagation]
+
+install:
+  - install:
+      method: apt
+      packages: [python3-pyhamtools]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A library, not a program. It resolves a callsign to its DXCC entity, CQ and
+    ITU zone and continent using country files or online sources, converts
+    between Maidenhead locators and coordinates, computes distance and bearing
+    between two points, and looks up callsigns against QRZ, HamQTH and ClubLog.
+  why_you_want_it: >-
+    Every one of those is a small job that is easy to get subtly wrong -- DXCC
+    entity resolution in particular is a table of exceptions, not a rule. If
+    you are writing anything that touches callsigns, this is the difference
+    between a script that works and a script that works except for the
+    interesting prefixes.
+  prerequisites: >-
+    Python 3. Online lookups need network access and, for QRZ, an account;
+    offline entity resolution works from a country file with no network at all.
+  known_problems: >-
+    Country files age. DXCC entities are added, deleted and redefined, and a
+    stale cty.dat resolves a new prefix to the wrong entity silently -- the
+    library reports an answer, not a doubt. Refresh the data rather than
+    trusting a cached copy for award-critical work.
+  upstream_url: https://github.com/dh1tw/pyhamtools
+  upstream_support: Tobias Wellnitz, DH1TW. GitHub issues at the URL above.

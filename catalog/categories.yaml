@@ -57,6 +57,10 @@ categories:
       transmitter, which makes it the on-ramp for an operator who owns nothing
       but a dongle yet.
 
+  - name: logging
+    summary: >-
+      Contact logging, awards tracking, QSL and confirmation services.
+
   - name: mesh
     summary: LoRa and mesh networking — Meshtastic, MeshCore, Reticulum.
 

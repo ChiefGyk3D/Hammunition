@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: pyqso
+version: "1.1.0"
+summary: Simple GTK logger in Python, easy to read and easy to change
+categories: [logging]
+
+install:
+  - install:
+      method: apt
+      packages: [pyqso]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Logs contacts into an SQLite file with ADIF import and export, DX cluster
+    telnet access, grey-line and world map display, a callsign lookup against
+    QRZ or HamQTH, and simple statistics over the log.
+  why_you_want_it: >-
+    It is the log you can actually read the source of. Three hundred lines of
+    Python per feature rather than a Pascal or Qt application, an SQLite file
+    rather than a private format, and a straightforward path to adding the one
+    field your award chase needs. For an operator who programs, that is worth
+    more than the feature list.
+  prerequisites: >-
+    A desktop session with GTK 3. The map display wants python3-cartopy, which
+    the package recommends rather than depends on; without it the log works and
+    the map does not appear.
+  known_problems: >-
+    It is a smaller project than the other logs here and its online-service
+    integrations are correspondingly thinner -- there is no LoTW signing, so
+    exports go through TQSL separately. Rig control needs python3-hamlib, also
+    only recommended, and its absence shows up as the rig fields simply never
+    filling in rather than as an error.
+  upstream_url: https://christianjacobs.uk/pyqso
+  upstream_support: >-
+    Christian Jacobs, M0UOS. Issues at https://github.com/ctjacobs/pyqso.

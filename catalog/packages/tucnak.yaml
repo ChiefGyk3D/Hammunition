@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: tucnak
+version: "4.67"
+summary: VHF and above contest logger, built around locator scoring and networking
+categories: [contest, logging]
+
+install:
+  - install:
+      method: apt
+      packages: [tucnak]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A contest log for VHF, UHF and microwave work: scoring by distance between
+    Maidenhead locators, ODX tracking, multi-operator networking so several
+    positions share one log, EDI export in the format the VHF contest robots
+    expect, and integration with rotator control, CW keying and voice keying.
+  why_you_want_it: >-
+    VHF contest scoring is distance-based, which makes it a different problem
+    from HF -- an HF logger that treats a contact as one point cannot score a
+    VHF contest at all. Tucnak is built for that, and for the multi-station
+    setups that VHF contesting from a hilltop actually involves.
+  prerequisites: >-
+    Your own locator, set correctly, because every score in the contest is
+    computed from it. Networking between positions needs them on the same
+    network with the ports open. Rotator and rig control need the hardware
+    reachable, which usually means the `dialout` group.
+  known_problems: >-
+    The package depends on `udev` and `passwd` beyond the usual libraries,
+    which is unusual for a logging program and reflects how much hardware it
+    expects to drive. Its interface is dense and assumes VHF contest
+    conventions rather than explaining them; if the terminology is unfamiliar,
+    the contest is not the moment to meet it.
+  upstream_url: http://tucnak.nagano.cz
+  upstream_support: >-
+    Ladislav Vaiz, OK1ZIA. The project page carries the documentation and
+    contact details.

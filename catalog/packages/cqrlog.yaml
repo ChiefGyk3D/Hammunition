@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: cqrlog
+version: "2.5.2"
+summary: Full-featured station log with a database behind it and rig control in front
+categories: [logging, rig-control]
+
+install:
+  - install:
+      method: apt
+      packages: [cqrlog]
+    note: >-
+      Present on every target except Kali, measured across all six on
+      2026-08-28. The block is left unconditional rather than excluding Kali by
+      selector: apt answers the question correctly and currently at plan time,
+      where a selector would encode one evening's measurement and go stale the
+      day Kali picks the package up.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Keeps the station log in a MariaDB database rather than a file, which is
+    what lets it answer questions a flat log cannot: worked-before checks
+    across every band and mode at once, DXCC and IOTA award tracking, grey-line
+    and beam-heading display for the callsign currently in the entry field. It
+    drives the rig through hamlib, uploads to LoTW, eQSL and ClubLog, and
+    imports and exports ADIF.
+  why_you_want_it: >-
+    It is the heaviest of the general-purpose Linux logs and the one to choose
+    when the log is the centre of the station rather than a record kept after
+    the fact. If what you want is a log that opens instantly and stays out of
+    the way, xlog or KLog will suit you better; if you want award tracking that
+    is actually correct, this is the one that does it.
+  prerequisites: >-
+    A MariaDB server. The package depends on the client and server core
+    libraries and recommends the server itself, which our apt backend installs
+    because it does not suppress Recommends. A callsign certificate is needed
+    before LoTW upload will work, which comes from TQSL rather than from here.
+  known_problems: >-
+    Installed with Recommends suppressed it will start and then fail to connect
+    to a database that is not running -- an error that reads as a configuration
+    problem rather than a missing package. It is a Free Pascal application
+    built with Lazarus and uses GTK 2, which is unmaintained upstream; it works,
+    and it will not gain a modern theme or fractional scaling. On a HiDPI
+    display expect small text that no setting inside the program fixes.
+  upstream_url: https://www.cqrlog.com
+  upstream_support: >-
+    Petr Hlozek, OK2CQR. Issues on GitHub at https://github.com/ok2cqr/cqrlog
+    and a users group linked from the site.
