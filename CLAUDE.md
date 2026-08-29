@@ -153,6 +153,8 @@ Do not re-litigate these without being asked:
 | Untagged upstreams | Pin the commit a **distribution** already packages; our own only when nothing does | Their packaging is the review signal upstream stopped providing (**D-024**) |
 | Evidence | Re-verify a claim when it becomes decisive, not only when gathered | Four bugs, one shape (**D-025**) |
 | Hardware claims | `status` and `maintainer_verified` are separate fields | `usrp` is supported from Debian's rule and has never been run here (**D-027**) |
+| Unlicensed upstreams | Weigh community adoption and what we actually do — carry, state the position, never mirror | Most small-utility authors are not lawyers; a missing LICENSE is usually oversight (**D-033**) |
+| Cellular tooling | Staged, not filtered. Receive in 1.0, transmit post-1.0, both consent-gated | The line is transmit, not topic (**D-034**) |
 | udev symlinks | An identifier naming a chip may not name a `/dev` node | `/dev/badge` on a CP2102 claims the rig cable (**D-028**) |
 | Upstream liveness | The default branch's head commit, never GitHub's `updated_at`/`pushed_at` | `updated_at` moves when somebody *stars* a repo; it reported two dead projects as active (**D-032**) |
 
@@ -428,14 +430,14 @@ square, rig device paths). The 1.0 packet core forces it — AX.25's install wri
 longer a design question in the abstract; a shipped manifest depends on it. See
 `DESIGN.md` §15.3 and the D-004 amendment.
 
-**Open questions awaiting the maintainer** are in `docs/QUESTIONS.md`. Q-001
-through Q-005 are resolved. Open:
+**Open questions awaiting the maintainer** are in `docs/QUESTIONS.md`.
+**Q-001 through Q-014 are all resolved.** Q-006, Q-007 and Q-008 closed on
+2026-08-29: HamClock carries both clients defaulting to `openhamclock` with
+`ohb.works` as the backend; SuperSDR is carried under **D-033**; cellular
+tooling is staged under **D-034**.
 
-| | |
-|---|---|
-| **Q-006** 🟡 | Which HamClock, and which backend endpoint |
-| **Q-007** 🟡 | SuperSDR has no licence — carry it, or not |
-| **Q-008** 🔴 | Does the RF profile include cellular interception tooling? Blocks `rf-research`'s contents |
+There are no open questions blocking work. The next decisions that will need
+you are the ones this round's work raises, not ones already on the list.
 
 ## Roadmap — 1.0 is the five-source union
 

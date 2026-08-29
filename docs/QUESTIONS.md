@@ -167,7 +167,15 @@ core is not in this queue.
 
 ---
 
-## Q-006 🟡 — Which HamClock, now that there are four options?
+## Q-006 ✅ — Which HamClock? — **RESOLVED 2026-08-29**
+
+**Adopted as recommended.** Carry both clients; `openhamclock` is the default;
+the backend endpoint defaults to `ohb.works`. The untested caveat below still
+stands and is now a task rather than a question: nobody has run a HamClock
+client end to end against either backend, and someone should before an operator
+is defaulted to one.
+
+## Q-006 (original) — Which HamClock, now that there are four options?
 
 **Blocks:** nothing immediately. **Changes:** the SUPERSEDE #1 rationale, and any
 public copy about HamClock.
@@ -206,7 +214,21 @@ should run a real client against both and confirm.
 
 ---
 
-## Q-007 🟡 — SuperSDR has no licence. Do we carry it?
+## Q-007 ✅ — SuperSDR has no licence. Do we carry it? — **RESOLVED 2026-08-29**
+
+**Yes, carry it** — and the reasoning generalises, so it is recorded as
+**D-033** rather than left as one unit's exception. A missing licence is
+weighed against how widely the community already relies on the software and
+against what this project actually does with it, which is fetch it from the
+author's own server at install time rather than redistribute it. Most authors
+of small ham utilities are not lawyers; a missing LICENSE is usually an
+oversight, not a reservation of rights.
+
+The manifest must still state the position plainly: no LICENSE, no header, null
+GitHub licence field, and a last commit of 2022-12-31 — all measured, none of it
+implied to be permission.
+
+## Q-007 (original) — SuperSDR has no licence. Do we carry it?
 
 **Raised by:** item 3, the Skywave inventory. **Blocks:** the `listening` profile's
 remote-SDR story. **Changes:** whether Hammunition ships a KiwiSDR client at all.
@@ -268,7 +290,20 @@ you made deliberately.
 
 ---
 
-## Q-008 🔴 — Does the RF-security profile include cellular interception tooling?
+## Q-008 ✅ — Does the RF-security profile include cellular interception tooling?
+— **RESOLVED 2026-08-29**
+
+**Option A now, D later — and D is a commitment, not a maybe.** Recorded as
+**D-034**. The cellular cluster is carried in full and *staged*: receive-and-
+decode tooling ships in the consent-gated `rf-research` profile for 1.0, and the
+transmit-capable network stacks land post-1.0 in a separate consent-gated
+`cellular` profile with its own `env_var`.
+
+The dividing line is **transmit, not topic**. The excluded units are scheduled
+rather than refused, and each gets an entry saying so — "not yet" and "not ever"
+are different claims.
+
+## Q-008 (original) — Does the RF-security profile include cellular interception tooling?
 
 **Raised by:** item 4, the DragonOS Tier 1 inventory. **Blocks:** the shape of the
 `sigint` / RF-security profile, and therefore item 5's naming work. **Changes:**

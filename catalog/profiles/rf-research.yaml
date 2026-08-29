@@ -12,10 +12,12 @@ stage: post-1.0
 # on everything trains people to click through, and `rf-security` (Wireshark,
 # aircrack-ng, inspectrum, rtl_433) ships in Debian and Kali without ceremony.
 #
-# Contents are provisional pending Q-008. The listed set is the receive-only
-# subset from that question's recommendation; the transmit-capable cellular
-# stacks (srsRAN_4G, Osmocom core, osmo-trx, intrusive-lte-mme) are deliberately
-# NOT here and are not scheduled until Q-008 is answered.
+# Contents settled by D-034 (Q-008 resolved 2026-08-29). This profile holds the
+# RECEIVE-and-decode half of the cellular cluster. The transmit-capable stacks —
+# srsRAN_4G, the Osmocom core, osmo-trx, OsmocomBB, intrusive-lte-mme, sni5gect —
+# are NOT here and are **scheduled post-1.0** for a separate consent-gated
+# `cellular` profile with its own env_var. They are staged, not refused: the
+# dividing line is transmit, not topic.
 consent:
   env_var: HAMMUNITION_ACCEPT_RF_RESEARCH
   risk_categories:
@@ -52,11 +54,14 @@ documentation:
     once, about something specific, rather than repeatedly about everything.
   deliberately_excludes: >-
     Transmit-capable cellular network stacks — srsRAN_4G, the Osmocom core,
-    osmo-trx and intrusive-lte-mme. DragonOS ships them and they have legitimate
-    uses in authorized engagements and shielded labs, but a one-command
-    installer is the wrong delivery mechanism for a rogue base station. Q-008
-    governs whether they ever land, most likely in a separate `cellular`
-    profile. Also excludes everything in `rf-security`, which is not gated.
+    osmo-trx, OsmocomBB, intrusive-lte-mme and sni5gect. They are **post-1.0,
+    not out of scope** (D-034): they land in a separate consent-gated
+    `cellular` profile with its own env_var, once that profile and the
+    `docs/rf-security/` framing exist. The objection was never to the software,
+    which is legitimate and which DragonOS ships; it is that a one-command
+    installer aimed at licensed hams is the wrong delivery mechanism for a
+    rogue base station before that framing is written. Also excludes everything
+    in `rf-security`, which is not gated.
   manual_configuration: >-
     Nothing is configured automatically. gr-gsm needs a supported SDR and a
     tuned capture — its own documentation (the upstream project page in the

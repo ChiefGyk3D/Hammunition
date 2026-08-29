@@ -1820,3 +1820,114 @@ what you meant.
 method beside the number, so the next reader can tell what was counted.
 `gen_skywave_inventory.py` now carries the query in a comment and the doc carries
 a `UPSTREAM_METHOD` section stating both the right field and the wrong ones.
+
+---
+
+## D-033 — An upstream with no licence is judged on adoption and on what we actually do with it
+
+**Date:** 2026-08-29. **Status:** accepted. **Resolves:** Q-007.
+**Decided by:** the maintainer.
+
+**Rule.** A missing licence does not by itself keep software out of the catalog.
+Weigh how widely the community already relies on it, and weigh what this project
+actually does with the code. Where both point the same way, carry it, record the
+licence state plainly in the manifest, and revisit if the situation changes.
+
+### What "no licence" means, precisely
+
+Default copyright: no grant to redistribute or to modify. That is a real
+constraint and this decision does not pretend otherwise. What it does is
+distinguish the constraint from the risk.
+
+**We do not redistribute.** The catalog is data — a name, a URL, a digest and a
+description of what the software does. Facts about third-party software are
+freely usable, which `ahrl-inventory.md` already states about AHRL's own
+provenance record. The bytes reach the operator's machine from the author's own
+server or repository at install time, by the same act the operator would perform
+by hand. **D-001** already forbids mirroring for an unrelated reason and that
+prohibition does the work here too.
+
+So the exposure of carrying an unlicensed upstream is closer to that of a
+bookmark than of a fork. It is not zero, and it is not the exposure a
+distribution takes on when it builds and ships a binary.
+
+### Why adoption is the second input
+
+The maintainer's reasoning, recorded because it is the load-bearing half:
+**most authors of small ham and SDR utilities are not lawyers and do not
+understand licence compliance.** A missing `LICENSE` file is very often an
+oversight rather than a reservation of rights, and reading it as a deliberate
+refusal would remove from the catalog software the community has depended on
+for years — while doing nothing to make anyone safer.
+
+Where a project is already carried by Skywave Linux, by AHRL, by a distribution,
+or by a large body of users, that adoption is evidence about the author's actual
+posture. It is not permission and the manifest must not imply that it is.
+
+### What a manifest must still do
+
+* **State the licence position in `upstream_support`.** "No LICENSE file, no
+  header, checked in-tree on <date>" — the same standard
+  `licence-verification.md` already applies. Never write "unlicensed" as if it
+  were a licence, and never leave it unsaid.
+* **Never mirror the source.** Fetch from the author's own URL, with a digest.
+* **Prefer asking.** Where an author is reachable, a request for an explicit
+  licence is worth more than this decision is, and one accepted pull request
+  retires the question permanently.
+
+### What this does not license
+
+It does not extend to redistributing, vendoring, forking or relicensing, and it
+does not apply to the engine — `catalog/` is CC0-1.0 and `src/` is
+GPL-3.0-or-later (**D-023**), and neither may absorb third-party code without a
+grant. If a rights-holder objects, the entry goes; that is the cost of the
+position and it is a cheap one, because removing a manifest costs nothing but
+the manifest.
+
+**First consequence.** `supersdr` is carried. It has no LICENSE, no header and a
+null GitHub licence field, and its last commit is 2022-12-31 — both measured.
+Both facts go in the manifest.
+
+---
+
+## D-034 — Cellular tooling is staged, and the line is transmit
+
+**Date:** 2026-08-29. **Status:** accepted. **Resolves:** Q-008.
+**Decided by:** the maintainer.
+
+**Rule.** The cellular cluster is carried in full, **staged rather than
+filtered**, and every stage is behind an affirmative consent gate (**D-021**).
+
+| Stage | Contents | Where |
+|---|---|---|
+| **1.0** | Receive and decode only — `gr-gsm`, `QCSuper`, the LTE decoders, IMSI-catcher-class receivers | the consent-gated `rf-research` profile |
+| **post-1.0** | Transmit-capable network stacks — `srsRAN_4G`, the Osmocom core, `osmo-trx`, `OsmocomBB`, `intrusive-lte-mme`, `sni5gect` | a separate consent-gated `cellular` profile |
+
+**The dividing line is transmit, not topic.** Receiving a signal already in the
+air and operating a cellular network are different acts with different
+authorisations behind them, and grouping them by subject would hide that.
+
+### Why staged rather than excluded
+
+The transmit stacks are legitimate software with legitimate users — authorised
+engagements, shielded labs, vendors, academics — and DragonOS ships them. The
+objection was never to the software. It was that a one-command installer aimed
+at licensed hams is the wrong delivery mechanism *today*, before there is a
+`cellular` profile with its own gate and before `docs/rf-security/` carries the
+framing CLAUDE.md already requires of it.
+
+So they are **scheduled, not refused**. Each excluded unit gets a catalog entry
+recording that it is post-1.0 and why, per `PARITY-POLICY.md`'s rule against
+silent drops. "Not yet" and "not ever" are different claims and the docs must
+not blur them.
+
+### What the gate does and does not do
+
+Per **D-021** the gate discloses a capability and asks the operator to affirm
+the authorisation they hold. It does not adjudicate law, in either direction —
+it neither grants permission nor refuses on anyone's behalf, and `--yes` cannot
+satisfy it. The post-1.0 `cellular` profile gets its own `env_var`, because a
+shared one would let an opt-in to receiving satisfy an opt-in to transmitting.
+
+**Consequence for 1.0.** `rf-research`'s contents are now settled rather than
+provisional, and its `deliberately_excludes` says *post-1.0*, not *undecided*.
