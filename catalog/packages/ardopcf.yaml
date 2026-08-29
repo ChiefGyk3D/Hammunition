@@ -1,0 +1,100 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: ardopcf
+version: "1.0.4.1.3"
+summary: HF data modem for Winlink and packet over poor paths
+categories: [packet, digital-modes, emcomm]
+
+# REVIVE, per docs/reference/dispositions.md and PARITY-POLICY. AHRL disabled
+# ardop in v27 with the comment "compiler error on Xubuntu 26.04 / in function
+# 'client_handler': too many args to function 'process_http_req'". That verdict
+# is NOT inherited: it was retested here, and the failure on Debian 13 is a
+# different one -- see the install note. It builds, and this manifest carries
+# the flag that makes it build.
+install:
+  - install:
+      method: git
+      repo: https://github.com/pflarue/ardop
+      # The newest release, and the version AHRL shipped. Upstream's `master`
+      # head (a7c92289b569, 2025-05-27) fails the same way, so tracking the
+      # branch would buy nothing.
+      ref: "1.0.4.1.3"
+      build_system: make
+      compiler_flags:
+        # GCC 14 promoted -Wint-conversion from a warning to an error.
+        # lib/rawhid/rawhid.c passes a `hid_device *` to read(), write() and
+        # close() on the non-Windows branch, which has always been wrong and
+        # used to compile anyway. See known_problems -- this flag restores the
+        # old behaviour, it does not fix the code.
+        - -Wno-int-conversion
+      # Upstream's Makefile builds `ardopcf` in the source root and has no
+      # install rule.
+      provides_install_target: false
+    build_depends:
+      - build-essential
+      - pkg-config
+      - libasound2-dev
+    note: >-
+      Tested on Debian 13 on 2026-08-28, which is what PARITY-POLICY requires
+      before a REVIVE. Without the flag the build fails at
+      lib/rawhid/rawhid.c:361 with three -Wint-conversion errors -- not the
+      error AHRL recorded, so its verdict was stale as well as inherited. With
+      the flag, make exits 0 and `ardopcf` is produced. Upstream master fails
+      identically, so this is a current defect rather than one a newer revision
+      has fixed.
+
+binaries:
+  - produced: ardopcf
+    install_as: ardopcf
+
+update:
+  probe:
+    method: github_release
+    repo: pflarue/ardop
+  strategy: rebuild
+  cadence_hint: >-
+    Releases are infrequent -- 1.0.4.1.3 is from 2024-11-01 and the default
+    branch's head is 2025-05-27 (read from the branch, not GitHub's
+    updated_at -- D-032). A tag named 2.0.3.2.1 exists in the repository and
+    does NOT point at an ardopcf source tree; do not pin it.
+
+documentation:
+  what_it_does: >-
+    ardopcf is a soundcard modem for ARDOP, the Amateur Radio Digital Open
+    Protocol: an ARQ data mode designed for HF, where it negotiates speed and
+    bandwidth against changing conditions and retries what did not get through.
+    It presents a TCP interface that Pat and other Winlink clients connect to,
+    plus a web interface for watching what the modem is doing.
+  why_you_want_it: >-
+    It is the open path to Winlink over HF. Without an HF modem, Pat can reach
+    a gateway by telnet or by packet on VHF and no further -- which is fine
+    until the internet is the thing that failed and the nearest packet node is
+    out of range. The alternative, VARA, is closed software that runs under
+    Wine. ARDOP is neither, which is why the dispositions revive it rather
+    than retiring it.
+  prerequisites: >-
+    An HF transceiver with audio in and out and PTT, and a Winlink client such
+    as Pat pointed at the modem's TCP port. A Winlink account for anything
+    beyond testing.
+  known_problems: >-
+    **CM108 HID push-to-talk should be tested before you rely on it.** The
+    compiler flag this build needs silences a real int-to-pointer conversion in
+    the CM108 code path: `read(CM108Handle, ...)` where `CM108Handle` is a
+    `hid_device *`. That is wrong on Linux, it is wrong upstream today, and the
+    flag restores the behaviour older compilers produced rather than correcting
+    it. Serial-line and VOX keying do not go through that code and are
+    unaffected. This is worth reporting upstream; it has not been reported from
+    here.
+
+    ARDOP is not VARA and does not interoperate with it -- a gateway offering
+    only VARA cannot be reached with this. Getting audio levels right matters
+    more than for a keyboard mode, because the modem measures the channel and
+    adapts to it, so an overdriven signal makes it choose settings that then do
+    not work.
+  upstream_url: https://github.com/pflarue/ardop
+  upstream_support: >-
+    Peter LaRue and contributors. MIT licensed -- verified by reading the
+    LICENSE file at tag 1.0.4.1.3 on 2026-08-28, which names Rick Muething,
+    John Wiseman and Peter LaRue and excludes the bundled libraries under
+    lib/, each of which carries its own. GitHub issues at the URL above.
