@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**216 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**217 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -205,11 +205,12 @@ Propagation prediction, solar indices, beacons and grey line.
 - [wwl](wwl.md) — Distance and bearing between two Maidenhead locators, from the command line
 - [xdx](xdx.md) — DX cluster client — see what other operators are hearing, right now
 
-### `listening` — 31
+### `listening` — 32
 
 Receive-only monitoring and decoding. Needs no licence and often no transmitter, which makes it the on-ramp for an operator who owns nothing but a dongle yet.
 
 - [acarsdec](acarsdec.md) — VHF ACARS decoder for aircraft datalink messages
+- [acarsserv](acarsserv.md) — Stores what acarsdec and dumpvdl2 decode into a SQLite database
 - [airspyhf](airspyhf.md) — Host tools and library for the Airspy HF+ HF and VHF receiver
 - [cubicsdr](cubicsdr.md) — Cross-platform SDR receiver with several demodulators running at once
 - [cutesdr](cutesdr.md) — Small demodulator and spectrum display for networked receivers
@@ -567,6 +568,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 |---|---|---|
 | [a2d](a2d.md) | Bridges APRS messages to DAPNET pagers | apt |
 | [acarsdec](acarsdec.md) | VHF ACARS decoder for aircraft datalink messages | git |
+| [acarsserv](acarsserv.md) | Stores what acarsdec and dumpvdl2 decode into a SQLite database | git |
 | [aethersdr](aethersdr.md) | Linux client for FlexRadio transceivers | apt |
 | [aircrack-ng](aircrack-ng.md) | Wi-Fi security auditing suite — capture, analysis and key recovery | apt |
 | [airspy](airspy.md) | Host tools and library for Airspy R2 and Mini receivers | apt |
