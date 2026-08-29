@@ -27,7 +27,7 @@ stops. Nothing in the schema can say which target to build for an autotools
 project. (`build_args` exists on `SourceInstall` but is only passed by the
 `make` build system, which has no configure step.)
 
-### 2. In-tree patching — `linrad`; nearly `Fl_MoxGen`, and `gsmc` on AHRL's evidence
+### 2. In-tree patching — `linrad`, and nearly `Fl_MoxGen`
 
 `patches` is in the schema and is a **measured zero**: the backend refuses it
 by name rather than implementing it speculatively. Linrad ends that.
@@ -43,8 +43,11 @@ line — because the Makefile builds its own flag string and never consults
 
 So our existing `compiler_flags` mechanism, which sets `CFLAGS`/`CXXFLAGS` in
 the environment, **cannot fix a build whose Makefile ignores them**. That is
-the first thing a patch feature would exist for, and AHRL independently
-patches `gsmc`'s Makefile in place for the same class of reason.
+the first thing a patch feature would exist for. AHRL independently patches
+`gsmc`'s Makefile in place for what looks like the same reason — and that turned
+out to be avoidable: at gsmc's own tag v1.2.1 the build is clean with no flags
+at all, and AHRL only needs the patch because it builds an unversioned `master`
+snapshot instead.
 
 `Fl_MoxGen` is the same illness with a cure. Its rule is
 `@$(CC) -c -o write_pdf.o write_pdf.c`, which never mentions `$(CFLAGS)` —
@@ -56,7 +59,25 @@ overridable does a patch become necessary. Linrad's `-Werror` is baked into a
 literal flag string with no variable to override, which is why it is the one
 that forces the feature.
 
-### 3. Architecture-dependent `configure` arguments — `linrad`
+### 3. `autoreconf` before `configure` — `gsmc`, from git
+
+Not a gap that blocks anything today, because there is a way round it, but the
+shape is worth recording.
+
+Git does not preserve timestamps. A checkout of an autotools project therefore
+has `configure` and `aclocal.m4` looking older than `configure.ac`, so make
+enters maintainer mode and tries to regenerate them — which needs the exact
+autotools version the project was released with and fails as
+`Makefile:357: aclocal.m4 Error 127` when it is absent. `autoreconf -fi` first
+fixes it, and this backend does not run one.
+
+**The tarball of the same tag builds cleanly**, because its timestamps are
+uniform and maintainer mode never triggers. So `gsmc` is a `source` manifest
+pointing at the tag's archive rather than a `git` manifest pointing at the
+tag — and the rule that produces is a useful one: for an autotools project,
+prefer the tarball; the git route needs a bootstrap step nothing here performs.
+
+### 4. Architecture-dependent `configure` arguments — `linrad`
 
 Linrad's `configure` looks for `libX11.so` and `libasound.so` at paths that do
 not match Debian's multiarch layout, and **says so without failing**:
@@ -78,7 +99,7 @@ equivalent fixes detection — and those paths carry the architecture triplet, s
 expressing them needs either per-arch install blocks or a substitution the
 schema does not have.
 
-### 4. Installing a tree, not a binary — `mshv`
+### 5. Installing a tree, not a binary — `mshv`
 
 `provides_install_target: false` copies declared binaries into the prefix. MSHV
 reads settings, resources and logs from directories beside its executable in

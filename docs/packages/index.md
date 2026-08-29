@@ -4,11 +4,11 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**220 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**221 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
-### `antenna` — 13
+### `antenna` — 14
 
 Antenna and transmission-line design, modelling, and measurement.
 
@@ -18,6 +18,7 @@ Antenna and transmission-line design, modelling, and measurement.
 - [electronics-radio-dev](electronics-radio-dev.md) — Metapackage pulling in the Blend's RF circuit-design tools
 - [fl-moxgen](fl-moxgen.md) — Designs Moxon rectangle antennas and prints them to scale
 - [flaa](flaa.md) — Drives a RigExpert antenna analyser from the desktop
+- [gsmc](gsmc.md) — Interactive Smith chart for designing impedance matching networks
 - [nanovna-saver](nanovna-saver.md) — Desktop companion for the NanoVNA — bigger screen, real calibration, exportable data
 - [nec2c](nec2c.md) — The NEC2 antenna modelling engine as a C program, for scripting
 - [qgrid](qgrid.md) — Maidenhead grid square calculator with a map and a compass
@@ -95,7 +96,7 @@ DMR — codeplugs, talkgroups, and the radios that use them.
 - [dmrconfig](dmrconfig.md) — Command-line DMR codeplug tool — the text-file approach to the same job
 - [qdmr](qdmr.md) — Codeplug editor for DMR handhelds — one codeplug, many radios
 
-### `electronics` — 12
+### `electronics` — 13
 
 Bench electronics and EDA — circuit design, simulation, test gear.
 
@@ -104,6 +105,7 @@ Bench electronics and EDA — circuit design, simulation, test gear.
 - [coil64](coil64.md) — Calculates inductance for coils of almost any geometry
 - [electronics-radio-dev](electronics-radio-dev.md) — Metapackage pulling in the Blend's RF circuit-design tools
 - [flashrom](flashrom.md) — Reads, writes and verifies SPI, LPC and parallel flash chips in place
+- [gsmc](gsmc.md) — Interactive Smith chart for designing impedance matching networks
 - [m2kcli](m2kcli.md) — Command-line control of the ADALM2000 lab instrument
 - [nanovna-saver](nanovna-saver.md) — Desktop companion for the NanoVNA — bigger screen, real calibration, exportable data
 - [openfpgaloader](openfpgaloader.md) — Universal bitstream loader for FPGAs, over JTAG and SPI
@@ -657,6 +659,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [gr-osmosdr](gr-osmosdr.md) | One GNU Radio source block that speaks to nearly every SDR | apt |
 | [gr-rds](gr-rds.md) | Decodes the data carried alongside broadcast FM — station names, traffic | apt |
 | [gr-satellites](gr-satellites.md) | Decoders for the telemetry of hundreds of amateur satellites | apt |
+| [gsmc](gsmc.md) | Interactive Smith chart for designing impedance matching networks | source |
 | [gtk-meshtastic-client](gtk-meshtastic-client.md) | Desktop GUI for Meshtastic nodes | apt |
 | [hackrf](hackrf.md) | Host tools for HackRF — transfer, sweep, spectrum and firmware utilities | apt |
 | [hacktv](hacktv.md) | Generates and transmits analogue television — a HackRF as a TV station | apt |

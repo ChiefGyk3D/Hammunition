@@ -35,14 +35,14 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 178 | 8 | 32 | 2 | 0 |
-| ubuntu-26.04 | 179 | 7 | 32 | 2 | 0 |
-| kali-rolling | 184 | 7 | 29 | 0 | 0 |
-| parrot | 181 | 6 | 31 | 2 | 0 |
-| linuxmint-22.3 | 172 | 15 | 31 | 2 | 0 |
-| debian-13-arm64 | 177 | 9 | 32 | 2 | 0 |
+| debian-13 | 178 | 8 | 33 | 2 | 0 |
+| ubuntu-26.04 | 179 | 7 | 33 | 2 | 0 |
+| kali-rolling | 184 | 7 | 30 | 0 | 0 |
+| parrot | 181 | 6 | 32 | 2 | 0 |
+| linuxmint-22.3 | 172 | 15 | 32 | 2 | 0 |
+| debian-13-arm64 | 177 | 9 | 33 | 2 | 0 |
 
-**220 manifests** against **6 targets**.
+**221 manifests** against **6 targets**.
 
 ---
 
@@ -198,6 +198,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `gr-osmosdr` | apt | apt | apt | apt | apt | apt |
 | `gr-rds` | apt | apt | apt | apt | apt | apt |
 | `gr-satellites` | apt | apt | apt | apt | apt | apt |
+| `gsmc` | source | source | source | source | source | source |
 | `gtk-meshtastic-client` | apt | apt | apt | apt | apt ✗ | apt |
 | `hackrf` | apt | apt | apt | apt | apt | apt |
 | `hacktv` | apt | apt | apt | apt | apt | apt |
