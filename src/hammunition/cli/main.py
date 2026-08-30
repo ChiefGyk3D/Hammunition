@@ -542,7 +542,10 @@ def cmd_install(args: argparse.Namespace) -> int:
     binary = BinaryBackend(
         fetcher=source.fetcher, runner=runner, build_root=builds, prefix=source.prefix
     )
-    commands = commands_for(plan, apt, refresh=args.refresh, source=source, git=git, binary=binary)
+    commands = commands_for(
+        plan, apt, refresh=args.refresh, source=source, git=git, binary=binary,
+        config_staging=builds,
+    )
     # Disclose the log destination in the plan itself, so the file write (and,
     # under sudo, the chown to the operator) is shown before it happens rather
     # than surfacing after. A handoff only occurs when root is writing into
@@ -940,6 +943,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         result: int = args.func(args)
     except CatalogError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    except StationError as exc:
+        # A bad --callsign is operator input, not an engine fault: it gets the
+        # validator's message and the planning exit code, never a traceback.
+        # Found on the first Parrot VM run that passed one.
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_UNPLANNABLE
     except KeyboardInterrupt:

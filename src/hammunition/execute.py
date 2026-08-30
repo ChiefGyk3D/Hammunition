@@ -22,6 +22,7 @@ import grp
 import os
 import pwd
 import shutil
+import tempfile
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -121,36 +122,104 @@ def write_config(path: Path, body: str, mode: int, *, append: bool, backup: bool
     return f"{action} {path} (mode {mode:04o}){saved}"
 
 
-def config_steps(plan: InstallPlan) -> list[Action]:
-    """One Action per config file the plan resolved. Never a partial file.
+def stage_config(staging: Path, target: Path, body: str, *, append: bool) -> str:
+    """Render the *final* contents of a root-owned config into a staging file.
+
+    The staged file is complete — for an append, the target's current contents
+    plus the new block — so the privileged step is a plain ``install`` of a
+    finished file, never a shell redirect or an in-place edit run as root.
+    """
+    if append and target.exists():
+        try:
+            existing = target.read_text()
+        except OSError as exc:
+            raise BackendError(
+                f"{target} must be read to append to it, and that failed: "
+                f"{exc.strerror}. Nothing was staged."
+            ) from exc
+        body = existing + ("" if existing.endswith("\n") else "\n") + body
+    staging.parent.mkdir(parents=True, exist_ok=True)
+    staging.write_text(body if body.endswith("\n") else body + "\n")
+    os.chmod(staging, 0o600)
+    return f"staged {target} contents at {staging}"
+
+
+def config_steps(plan: InstallPlan, *, staging_root: Path | None = None) -> list[Step]:
+    """The steps that write each config file the plan resolved. Never a partial file.
 
     `plan.config_files` holds only what could be fully rendered — a file
     missing a station value is a Deferral and never reaches here, because a
     config written with `{station.callsign}` still in it looks configured and
     is not.
+
+    A path the operator can write gets one in-process Action, as before. A
+    root-owned path (``/etc/bpq32.cfg``) cannot be written in-process by an
+    unprivileged engine — the first Parrot VM run proved it with a
+    ``PermissionError`` — so it becomes commands the runner can elevate: stage
+    the finished contents unprivileged, ``cp -a`` the existing file to its
+    backup (only when one exists and no backup does, decided at plan time,
+    matching what the in-process path has always done), then
+    ``install -m MODE`` the staged file into place. Every step is printed by
+    ``--dry-run`` exactly as it will run.
     """
-    steps: list[Action] = []
+    steps: list[Step] = []
+    staging_dir = (staging_root or Path(tempfile.gettempdir())) / "config-staging"
     for package, config, body in plan.config_files:
         path = Path(config.path)
         mode = int(config.mode, 8)
         verb = "Append" if config.append else "Write"
+        # Writability of the nearest ancestor that exists, because that is the
+        # directory mkdir -p would actually have to write into. Probing "/"
+        # when the parent is merely not-yet-created classified a writable
+        # tmp-dir target as root-only and routed it through sudo for nothing.
+        probe = path.parent
+        while not probe.exists() and probe != probe.parent:
+            probe = probe.parent
+        needs_root = not os.access(probe, os.W_OK)
+        if not needs_root:
+            steps.append(
+                Action(
+                    kind="config",
+                    description=f"{verb} {config.path} for {package}",
+                    detail=(
+                        f"mode {config.mode}, "
+                        + ("existing file backed up" if config.backup_existing else "no backup")
+                    ),
+                    perform=partial(
+                        write_config,
+                        path,
+                        body,
+                        mode,
+                        append=config.append,
+                        backup=config.backup_existing,
+                    ),
+                )
+            )
+            continue
+
+        staging = staging_dir / f"{package}{path.name and '-' + path.name}"
         steps.append(
             Action(
                 kind="config",
-                description=f"{verb} {config.path} for {package}",
-                detail=(
-                    f"mode {config.mode}, "
-                    + ("existing file backed up" if config.backup_existing else "no backup")
-                ),
-                perform=partial(
-                    write_config,
-                    path,
-                    body,
-                    mode,
-                    append=config.append,
-                    backup=config.backup_existing,
-                ),
-                requires_root=not os.access(path.parent if path.parent.exists() else "/", os.W_OK),
+                description=f"Render {config.path} for {package} into a staging file",
+                detail=f"staged at {staging}, mode 0600; installed by the next command",
+                perform=partial(stage_config, staging, path, body, append=config.append),
+            )
+        )
+        backup_path = path.with_suffix(path.suffix + ".hammunition-backup")
+        if config.backup_existing and path.exists() and not backup_path.exists():
+            steps.append(
+                Command(
+                    argv=("cp", "-a", str(path), str(backup_path)),
+                    description=f"Back up the existing {config.path} first",
+                    requires_root=True,
+                )
+            )
+        steps.append(
+            Command(
+                argv=("install", "-m", config.mode, str(staging), str(path)),
+                description=f"{verb} {config.path} for {package} (mode {config.mode})",
+                requires_root=True,
             )
         )
     return steps
@@ -165,6 +234,7 @@ def commands_for(
     source: SourceBackend | None = None,
     git: GitBackend | None = None,
     binary: BinaryBackend | None = None,
+    config_staging: Path | None = None,
 ) -> list[Step]:
     """Every step this plan implies, in the order it will run.
 
@@ -212,7 +282,7 @@ def commands_for(
     # Configuration is written after the software that reads it exists, so a
     # package's own postinst cannot overwrite what we put down, and before
     # group membership for the same reason the comment above gives.
-    commands.extend(config_steps(plan))
+    commands.extend(config_steps(plan, staging_root=config_staging))
 
     cache: dict[str, frozenset[str]] = {}
     for membership in plan.group_memberships:
@@ -432,7 +502,7 @@ def execute(
             )
             try:
                 outcome = command.perform()
-            except BackendError as exc:
+            except (BackendError, OSError) as exc:
                 log.append(
                     {
                         "event": "transaction_failed",

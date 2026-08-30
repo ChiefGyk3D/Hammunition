@@ -60,6 +60,19 @@ guest, engine at the commit introducing the verb:
 | `uninstall station --dry-run` again | *Nothing to do* — attribution replay saw its own removal. |
 | `install station --yes` after the uninstall | Reinstalls cleanly. The full install → uninstall → reinstall cycle holds. |
 
+## Configuration: linbpq end to end (D-008, D-035)
+
+The first run of a `config_files` manifest outside a container, and the first
+real run of the git backend on the primary target. Three defects fell out of
+one command, each now fixed with a regression test:
+
+| Test | Result |
+|---|---|
+| `install linbpq --callsign N0CALL …` | The validator rightly rejected the placeholder — but as a **raw traceback**. `StationError` from operator input now prints the validator's message and exits 2. |
+| `install linbpq --yes --callsign N0TST --grid-square FN31pr --node-alias TEST` (first attempt) | Clone pinned to tag `25.39` (`be1400c7`), pin verified, compile clean — then **`make install` failed: upstream's makefile has no install target** (`all:` only; the word "install" does not appear in it). The manifest had claimed `provides_install_target` by default; measured, not assumed, it is `false`, and the declared `binaries` path now installs it — the same mechanism that already served coil64/cwwav/ardopcf. |
+| Same command after the manifest fix | Failed on the config write: **an unprivileged engine cannot write `/etc/bpq32.cfg` in-process**, and the `PermissionError` escaped as a traceback. Root-owned config targets now plan as *stage the finished file unprivileged → `cp -a` backup when one is due → `sudo install -m MODE`* — every step printed by `--dry-run` exactly as run, no shell, contents never in argv. |
+| Same command, final engine | **10 commands completed and confirmed.** Verified independently: `/etc/bpq32.cfg` root-owned mode 0644 carrying `NODECALL=N0TST` / `NODEALIAS=TEST` / `LOCATOR=FN31pr`; `/usr/local/bin/linbpq` runs and announces G8BPQ 6.0.25.36; `dialout` membership present. |
+
 ## Harness finding: the guest suspends itself
 
 Both apparent "wedges" this campaign (domain `running`, CPU time frozen,

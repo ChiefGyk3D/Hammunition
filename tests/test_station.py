@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -261,3 +262,44 @@ def test_a_planned_config_file_is_written_by_a_real_run(tmp_path: Path) -> None:
     assert target.read_text() == "CALL=M0ABC\n"
     assert target.stat().st_mode & 0o777 == 0o640
     assert any(e["event"] == "action_end" for e in log.read()), "the write was not logged"
+
+
+def test_a_root_owned_config_becomes_staged_commands_not_an_in_process_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An unprivileged engine cannot write /etc in-process — the first Parrot
+    VM run proved it with a PermissionError traceback. A root-owned target
+    must plan as: stage unprivileged, then `install -m` under sudo, with a
+    `cp -a` backup first only when there is something to back up."""
+    import os as os_module
+
+    from hammunition.backends import Action, Command
+    from hammunition.execute import config_steps
+    from hammunition.manifest.schema import ConfigFile
+
+    monkeypatch.setattr(os_module, "access", lambda *_a, **_k: False)
+
+    config = ConfigFile.model_validate(
+        {"path": "/etc/hammunition-test.cfg", "template": "CALL={station.callsign}\n", "mode": "0644"}
+    )
+
+    class PlanStub:
+        config_files: ClassVar[list[tuple[str, ConfigFile, str]]] = [
+            ("linbpq", config, "CALL=M0ABC\n")
+        ]
+
+    steps = config_steps(PlanStub(), staging_root=tmp_path)  # type: ignore[arg-type]
+    kinds = [type(s).__name__ for s in steps]
+    assert kinds == ["Action", "Command"], kinds
+    action, install = steps
+    assert isinstance(action, Action) and action.kind == "config"
+    assert isinstance(install, Command)
+    assert install.argv[:3] == ("install", "-m", "0644")
+    assert install.requires_root
+
+    # Perform the staging half for real: the staged file carries the final
+    # contents and never touches the root-owned target.
+    outcome = action.perform()
+    staged = Path(install.argv[3])
+    assert staged.read_text() == "CALL=M0ABC\n"
+    assert "staged" in outcome

@@ -868,3 +868,16 @@ def test_a_successful_action_records_its_outcome(tmp_path: Path) -> None:
 
     end = next(e for e in log.read() if e["event"] == "action_end")
     assert "verified" in end["outcome"]
+
+
+def test_a_bad_callsign_is_an_error_message_not_a_traceback(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """StationError from operator input gets the validator's message and the
+    planning exit code. Found on the first Parrot VM run that passed
+    --callsign N0CALL: the run ended in a raw traceback."""
+    code = main(["install", "linbpq", "--dry-run", "--callsign", "N0CALL"])
+    assert code == EXIT_UNPLANNABLE
+    err = capsys.readouterr().err
+    assert "does not look like a callsign" in err
+    assert "Traceback" not in err

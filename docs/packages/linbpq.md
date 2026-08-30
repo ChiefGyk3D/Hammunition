@@ -24,6 +24,7 @@ A configured AX.25 stack, a TNC or soundmodem such as Direwolf or QtSoundModem, 
 
 - git (make) — https://github.com/g8bpq/LinBPQ at `25.39`
   - build dependencies: `build-essential`, `libpaho-mqtt-dev`, `libjansson-dev`, `libminiupnpc-dev`, `libconfig-dev`, `libpcap-dev`, `zlib1g-dev`, `libi2c-dev`
+  - the project's build system has no install rule; the binaries listed below are copied into the prefix instead
   - Dependency list derived from the LIBS line of upstream's makefile (-lpaho-mqtt3a -ljansson -lminiupnpc -lm -lz -lpthread -lconfig -lpcap) and verified present on Debian 13 by querying the target container, not by guessing package names. Upstream supports `make noi2c` to drop the I2C dependency on hardware without it.
 
 Binaries this produces:

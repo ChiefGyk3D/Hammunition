@@ -23,6 +23,11 @@ install:
       repo: https://github.com/g8bpq/LinBPQ
       ref: "25.39"
       build_system: make
+      # Measured, not assumed: the first real build (Parrot 7.3 VM,
+      # 2026-08-29) compiled clean and then failed on `make install` — the
+      # makefile's only target is `all:` and the word "install" does not
+      # appear in it. The declared binary below is what gets installed.
+      provides_install_target: false
     build_depends:
       - build-essential
       - libpaho-mqtt-dev
