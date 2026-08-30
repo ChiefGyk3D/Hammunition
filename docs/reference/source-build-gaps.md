@@ -66,7 +66,12 @@ overridable does a patch become necessary. Linrad's `-Werror` is baked into a
 literal flag string with no variable to override, which is why it is the one
 that forces the feature.
 
-### 3. `autoreconf` before `configure` — `gsmc`, from git
+### 3. `autoreconf` before `configure` — `kalibrate-rtl` (and gsmc-from-git) — **CLOSED 2026-08-30**
+
+`autoreconf: true` on a source/git block runs `autoreconf -fi` before
+configure and the planner injects autoconf/automake/libtool. kalibrate-rtl
+was the first manifest to actually hit the gap — the Parrot grind failed it
+at './configure is not on PATH'.
 
 Not a gap that blocks anything today, because there is a way round it, but the
 shape is worth recording.

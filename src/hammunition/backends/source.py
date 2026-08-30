@@ -330,6 +330,7 @@ class SourceBackend:
             build_args=block.build_args,
             provides_install_target=block.provides_install_target,
             binaries=manifest.binaries,
+            autoreconf=block.autoreconf,
         )
         if block.install_tree:
             commands.extend(
@@ -525,6 +526,7 @@ def build_commands(
     build_args: Sequence[str] = (),
     provides_install_target: bool = True,
     binaries: Sequence[Binary] = (),
+    autoreconf: bool = False,
 ) -> list[Command]:
     """Configure, compile and install, for one build system.
 
@@ -564,6 +566,12 @@ def build_commands(
                 ),
                 description=f"Configure {name} with cmake",
                 env=env,
+                # cwd matters even with -S/-B: execute_process() children in
+                # the project's CMakeLists inherit it, and rtlsdr-airband's
+                # version script runs `git describe` from wherever that is.
+                # Undefined cwd made the answer depend on where the engine
+                # happened to be started (measured 2026-08-30).
+                cwd=layout.src,
             ),
             Command(
                 argv=("cmake", "--build", str(layout.build), "--parallel", jobs_arg),
@@ -585,6 +593,18 @@ def build_commands(
 
     if build_system == "autotools":
         return [
+            *(
+                [
+                    Command(
+                        argv=("autoreconf", "-fi"),
+                        description=f"Generate {name}'s configure (autoreconf -fi)",
+                        env=env,
+                        cwd=layout.src,
+                    )
+                ]
+                if autoreconf
+                else []
+            ),
             Command(
                 argv=("./configure", f"--prefix={prefix}", *args),
                 description=f"Configure {name}",

@@ -35,7 +35,11 @@ from pathlib import Path
 from hammunition.manifest.schema import COMMIT_SHA, GitInstall, PackageManifest
 
 from .base import Action, BackendError, Command, CommandRunner
+import re
+
 from .source import SourceLayout, build_commands, prepare_tree, tree_install_commands
+
+COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 __all__ = ["GitBackend"]
 
@@ -91,6 +95,20 @@ class GitBackend:
                 argv=("git", "-C", str(src), "checkout", "--quiet", "FETCH_HEAD"),
                 description=f"Check out {block.ref}",
             ),
+            *(
+                [
+                    Command(
+                        # A shallow tag fetch leaves only FETCH_HEAD; builds
+                        # that version themselves with `git describe` then see
+                        # no tag at all. Recreating the ref locally costs
+                        # nothing and makes describe answer with the pin.
+                        argv=("git", "-C", str(src), "tag", "-f", block.ref, "FETCH_HEAD"),
+                        description=f"Recreate the {block.ref} tag for describe-based versioning",
+                    )
+                ]
+                if not COMMIT_SHA_RE.match(block.ref)
+                else []
+            ),
             Action(
                 kind="verify-pin",
                 description=f"Confirm {manifest.name} is at the pinned revision",
@@ -111,6 +129,7 @@ class GitBackend:
                 build_args=block.build_args,
                 provides_install_target=block.provides_install_target,
                 binaries=manifest.binaries,
+                autoreconf=block.autoreconf,
             )
         )
         if block.install_tree:

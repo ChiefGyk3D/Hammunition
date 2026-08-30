@@ -25,6 +25,9 @@ install:
       # Upstream has never cut a tag, so this is a commit pin and D-024 requires
       # the judgement behind it to be recorded rather than implied.
       ref: 66074b82daf4a1c588ce1c565a145fac1c59ec56
+      # No generated configure in the tree -- the first campaign proved it
+      # (source-build-gaps #3, closed 2026-08-30 by this flag).
+      autoreconf: true
       build_system: autotools
       pin_review:
         last_reviewed: 2026-08-28

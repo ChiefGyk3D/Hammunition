@@ -618,6 +618,8 @@ def resolve(
             tool_depends = ("git",)
         elif block.install.method == "source" and getattr(block.install, "patches", None):
             tool_depends = ("patch",)
+        if getattr(block.install, "autoreconf", False):
+            tool_depends = (*tool_depends, "autoconf", "automake", "libtool")
         if block.install.method == "apt":
             packages = (*block.install.packages, *distro_depends)
             build_only: tuple[str, ...] = ()

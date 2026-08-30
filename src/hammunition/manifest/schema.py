@@ -185,6 +185,16 @@ class SourceInstall(Strict):
     )
     patches: list[Patch] = Field(default_factory=list)
     build_dir: str | None = None
+    autoreconf: bool = Field(
+        default=False,
+        description=(
+            "Run autoreconf -fi before configure -- for autotools projects "
+            "shipped without a generated configure (git checkouts, mostly). "
+            "kalibrate-rtl proved the need (source-build-gaps #3); the "
+            "planner injects the autotools toolchain when set."
+        ),
+    )
+
     provides_install_target: bool = Field(
         default=True,
         description=(
@@ -321,6 +331,15 @@ class GitInstall(Strict):
         description="qmake .pro / cmake subdir, as for a source build.",
     )
     build_args: list[str] = Field(default_factory=list)
+    autoreconf: bool = Field(
+        default=False,
+        description=(
+            "Run autoreconf -fi before configure -- for autotools projects "
+            "shipped without a generated configure (git checkouts, mostly). "
+            "kalibrate-rtl proved the need (source-build-gaps #3); the "
+            "planner injects the autotools toolchain when set."
+        ),
+    )
     provides_install_target: bool = Field(
         default=True,
         description=(
