@@ -75,9 +75,12 @@ loses it. Each one was learned by losing it on the first Parrot image:
    drops, `virsh dompmwakeup` refuses (`s2idle` never looks suspended to
    QEMU), and the console says "Display output is not active". One
    `virsh send-key DOMAIN KEY_LEFTSHIFT` wakes it; the mask prevents it.
-5. **Detach the install ISO** — the script refuses to baseline while one is
+5. `sudo apt install python3-venv` where the image does not ship it —
+   Debian netinst does not, and without it the engine's git-clone workflow
+   cannot even create its virtualenv. (Parrot and Kali ship it.)
+6. **Detach the install ISO** — the script refuses to baseline while one is
    attached.
-6. Shut the guest down, then take the baseline (a cold baseline boots fresh;
+7. Shut the guest down, then take the baseline (a cold baseline boots fresh;
    a live one resumes mid-session — fine for quick loops, worse as a
    months-later known state):
 
@@ -87,19 +90,21 @@ loses it. Each one was learned by losing it on the first Parrot image:
 
    The name is always `clean-baseline`, taken once, **before the first
    hammunition run**. The script refuses to overwrite it.
-3. Test. Break things. Install profiles.
-4. Back to fresh in one command:
 
-   ```sh
-   scripts/vm-snapshot.sh reset ParrotOS_Dev
-   ```
+### The campaign loop
 
-5. Mid-campaign checkpoints when a long setup shouldn't be repeated:
+Test. Break things. Install profiles. Then back to fresh in one command:
 
-   ```sh
-   scripts/vm-snapshot.sh save ParrotOS_Dev station-installed
-   scripts/vm-snapshot.sh restore ParrotOS_Dev station-installed
-   ```
+```sh
+scripts/vm-snapshot.sh reset ParrotOS_Dev
+```
+
+Mid-campaign checkpoints when a long setup shouldn't be repeated:
+
+```sh
+scripts/vm-snapshot.sh save ParrotOS_Dev station-installed
+scripts/vm-snapshot.sh restore ParrotOS_Dev station-installed
+```
 
 Idempotency claims get tested *without* resetting: run the same install
 twice from the post-install state and diff the transaction log. Uninstall

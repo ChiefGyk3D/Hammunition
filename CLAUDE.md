@@ -157,6 +157,7 @@ Do not re-litigate these without being asked:
 | Cellular tooling | Staged, not filtered. Receive in 1.0, transmit post-1.0, both consent-gated | The line is transmit, not topic (**D-034**) |
 | Station config | A missing value defers one file, never the transaction. Nothing is invented | 19 packages refused over one unknown callsign (**D-035**) |
 | udev symlinks | An identifier naming a chip may not name a `/dev` node | `/dev/badge` on a CP2102 claims the rig cable (**D-028**) |
+| Desktop menus | Curated submenus, generated per DE from `categories` | GNOME folders ≠ Xfce `.menu` ≠ COSMIC; one unmeasured mechanism each (**D-036**) |
 | Upstream liveness | The default branch's head commit, never GitHub's `updated_at`/`pushed_at` | `updated_at` moves when somebody *stars* a repo; it reported two dead projects as active (**D-032**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.

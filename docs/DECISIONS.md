@@ -1997,3 +1997,48 @@ The file is mode 0600 and its path is resolved owner-aware, so running under
 and explicitly did not cover templated config. This is that gap filled, and it
 is filled as a separate concept rather than a fourth modification kind, because
 a config file is the only one of the four that can be *partly* possible.
+
+## D-036 — Desktop integration is curated submenus, generated per desktop environment
+
+**Date:** 2026-08-29. **Status:** accepted (maintainer, during the first VM
+verification campaign). **Depends on:** the M3 launcher-generation work, which
+is the same unwritten machinery.
+
+**Rule.** Hammunition organizes what it installs into curated submenus, the way
+AHRL's menu tree did — and generates that organization from the catalog's
+existing `categories` tags, per desktop environment. The DEs that must work,
+set by the OS ladder we support: **GNOME** (Debian 13, Ubuntu), **COSMIC**
+(Pop!_OS 24.04), **Xfce** (Kali's default, Parrot).
+
+### What is measured and what is not yet
+
+Today's state, measured on the Parrot VM (2026-08-29): apt-installed GUI
+packages ship their own `.desktop` entries and appear in the DE's flat menus
+(chirp 1, flrig 1, gpsd-clients 2); autotools `make install` frequently
+installs one under `/usr/local/share/applications`; the 14 units needing a
+*generated* launcher get nothing, because the schema's `Launcher` block has no
+consumer. Curation rides on the same generator, so this decision and that gap
+are one work item.
+
+What is **not yet measured** and must be before implementation, in the spirit
+of D-014 — one mechanism per DE, verified rather than assumed:
+
+- **Xfce** consumes the freedesktop menu spec directly — `.menu` XML,
+  `.directory` entries, `xdg-desktop-menu` — the mechanism AHRL already used.
+  Expected to be the straightforward case; verify on Kali/Parrot.
+- **GNOME Shell renders no nested menus.** Its app grid folders come from
+  `org.gnome.desktop.app-folders` gsettings, a different mechanism entirely,
+  and per-user rather than system-wide. Generating `.menu` XML alone would
+  produce curation Xfce shows and GNOME silently ignores.
+- **COSMIC** is new and its app-library folder story must be read from the
+  code or tested on Pop 24.04, not inferred.
+
+### Boundaries carried over from existing decisions
+
+The organization is generated **from the catalog's flat `categories` tags**
+(D-003: tags overlap, never nest — a program may appear in two submenus, as 13
+AHRL programs did). Menu data the engine writes is a system modification like
+any other: printed before it happens, recorded in the transaction log, removed
+by uninstall. And per D-022, we add our curated tree alongside the DE's own
+organization; we never rewrite or suppress what the distribution's packages
+put in the standard categories.
