@@ -146,6 +146,27 @@ unrecorded test result rots into an inherited verdict within weeks.
    compiler-flag-fragile set, and every `broken` candidate — each verdict
    recorded with its evidence.
 
+## Campaigns at scale
+
+`scripts/vm_campaign.py` is the ladder's loop, automated: it expands
+profiles (or takes explicit units), runs `hammunition install <unit> --yes`
+per unit over SSH against a prepared VM, and emits the evidence table —
+outcome, seconds, and the actual tail text for every failure and plan-time
+refusal. The engine's own exit codes do the classifying: 0 is
+completed-and-confirmed, 2 is an honest refusal naming what is missing.
+
+```sh
+scripts/vm-snapshot.sh reset debian13_dev        # when you want isolation
+scripts/vm_campaign.py --host user@GUEST_IP \
+    --identity ~/.ssh/hammunition_vm_ed25519 \
+    --profile packet --out campaign-packet.md
+```
+
+No reset between units, deliberately: a campaign is one accumulating
+machine-state, like a real operator's machine. This is the mechanism the M5
+report will be generated from — one campaign per target, every unit, and
+the exit-criterion fraction falls out as arithmetic.
+
 ## Recording results
 
 One file per campaign under `docs/reference/` once results exist (shape to be

@@ -78,3 +78,32 @@ def test_steps_write_both_artifacts_and_they_are_real(tmp_path: Path) -> None:
 def test_a_manifest_with_no_launchers_plans_nothing() -> None:
     m = manifest(launchers=[])
     assert launcher_steps(m, bin_dir=Path("/x"), applications_dir=Path("/y")) == []
+
+
+def test_campaign_report_buckets_and_names_every_unit() -> None:
+    """The campaign renderer: every unit gets a row, failures carry their
+    evidence text, refusals are not counted as failures."""
+    import importlib.util
+    from pathlib import Path as P
+
+    spec = importlib.util.spec_from_file_location(
+        "vm_campaign", P(__file__).resolve().parent.parent / "scripts" / "vm_campaign.py"
+    )
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    import sys as _sys
+
+    _sys.modules["vm_campaign"] = mod
+    spec.loader.exec_module(mod)
+
+    results = [
+        mod.UnitResult("good", 0, 12.0, "Done. 2 command(s) completed and confirmed."),
+        mod.UnitResult("gap", 2, 1.0, "resolves to the pipx backend"),
+        mod.UnitResult("broken", 1, 300.0, "make: *** Error 1"),
+    ]
+    report = mod.render_report(target_line="Testville 1.0", engine_commit="abc1234", results=results)
+    assert "3 — 1 installed+confirmed, 1 refused at plan time, 1 failed" in report
+    for unit in ("good", "gap", "broken"):
+        assert f"| `{unit}` |" in report
+    assert "## Failures" in report and "make: *** Error 1" in report
+    assert "## Plan-time refusals" in report and "pipx backend" in report
