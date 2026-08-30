@@ -22,12 +22,12 @@ decision. Only CARRY, SUPERSEDE, REVIVE and ADD owe a manifest.
 |---|---:|
 | Units in the five-source union | **150** |
 | …that owe a manifest (C, S, R, A) | **108** |
-| …covered | **96** |
-| …outstanding, with a recorded reason | **12** |
+| …covered | **97** |
+| …outstanding, with a recorded reason | **11** |
 | …outstanding, unexplained | **0** |
-| Manifests in the catalog | **233** |
+| Manifests in the catalog | **235** |
 
-Coverage of what is owed: **96/108** (88%).
+Coverage of what is owed: **97/108** (89%).
 
 The catalog is larger than the union because the Debian Blend contributes
 152 packages, most of which are not AHRL units, and because hardware
@@ -50,7 +50,6 @@ Absent on purpose. Each names what it waits on.
 | `ahrl_version` | SUPERSEDE | SUPERSEDE #8-11 — replaced by our own engine |
 | `dream` | REVIVE | REVIVE blocked: libqt5webkit5-dev has no candidate on Debian 13 (measured) |
 | `mvoice` | REVIVE | REVIVE blocked: libopendht-dev has no candidate on Debian 13 (measured) |
-| `radiosonde_auto_rx` | REVIVE | REVIVE waiting on the venv+payload hybrid — source-build-gaps.md #9 |
 | `reticulum-meshchat` | ADD | post-1.0 — AppImage, lands in the mesh profile |
 | `source_libs` | SUPERSEDE | SUPERSEDE #8-11 — replaced by our own engine |
 
@@ -62,7 +61,7 @@ Absent on purpose. Each names what it waits on.
 |---|---:|---:|
 | CARRY | 63 | 62 |
 | SUPERSEDE | 13 | 9 |
-| REVIVE | 6 | 3 |
+| REVIVE | 6 | 4 |
 | ADD | 26 | 22 |
 | RETIRE | 22 | — |
 | NEEDS-DECISION | 14 | — |
@@ -185,7 +184,7 @@ catalog is where an operator would look for it.
 | `QTSOUND` | ADD | `qtsoundmodem` |
 | `QtTinySA` | CARRY | `qttinysa` |
 | `quisk` | CARRY | `quisk` |
-| `radiosonde_auto_rx` | REVIVE | — *waiting, see above* |
+| `radiosonde_auto_rx` | REVIVE | `radiosonde-auto-rx` |
 | `REPEAT` | NEEDS-DECISION | — |
 | `reticulum-meshchat` | ADD | — *waiting, see above* |
 | `rf_exposure_calc` | NEEDS-DECISION | — |
@@ -201,7 +200,7 @@ catalog is where an operator would look for it.
 | `source_libs` | SUPERSEDE | — *waiting, see above* |
 | `splat` | CARRY | `splat` |
 | `sunclock` | CARRY | `sunclock` |
-| `supersdr` | NEEDS-DECISION | — *waiting, see above* |
+| `supersdr` | NEEDS-DECISION | `supersdr` |
 | `svxlink` | CARRY | `svxlink-server` |
 | `svxreflector` | CARRY | `svxreflector` |
 | `tkcvs` | RETIRE | — |

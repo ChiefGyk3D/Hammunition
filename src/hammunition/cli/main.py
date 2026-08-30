@@ -555,7 +555,13 @@ def cmd_install(args: argparse.Namespace) -> int:
     binary = BinaryBackend(
         fetcher=source.fetcher, runner=runner, build_root=builds, prefix=source.prefix
     )
-    venv = VenvBackend(venv_root=venv_root(user or None), bin_dir=user_bin_dir(user or None))
+    venv = VenvBackend(
+        venv_root=venv_root(user or None),
+        bin_dir=user_bin_dir(user or None),
+        fetcher=source.fetcher,
+        build_root=builds,
+        prefix=source.prefix,
+    )
     commands = commands_for(
         plan, apt, refresh=args.refresh, source=source, git=git, binary=binary,
         venv=venv, config_staging=builds,

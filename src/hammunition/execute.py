@@ -307,6 +307,11 @@ def commands_for(
                     planned.manifest,
                     bin_dir=launcher_bin,
                     applications_dir=launcher_applications,
+                    venv_dir=(
+                        venv.venv_root / planned.name
+                        if venv is not None and isinstance(planned.block.install, VenvInstall)
+                        else None
+                    ),
                 )
             )
 

@@ -187,7 +187,13 @@ this reason and not for the licence one.
 
 ---
 
-### 9. A venv beside a payload tree — `radiosonde_auto_rx`, and now `supersdr`
+### 9. A venv beside a payload tree — `radiosonde_auto_rx` and `supersdr` — **CLOSED 2026-08-30**
+
+The venv method gained a verified `payload` archive (tree-installed under
+the shared prefix), an optional `payload_build_script` run inside the
+verified tree (auto_rx's C demodulators), and a `{venv}` launcher token
+joining the per-operator venv to the shared tree. Both units carry
+manifests; VM verification queued behind the campaign grind.
 
 The REVIVE table said "standard venv install from the pinned upstream tag",
 and the venv backend now exists — but reading upstream (2026-08-30) shows the

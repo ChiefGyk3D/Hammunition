@@ -129,3 +129,119 @@ def test_declared_env_reaches_the_pip_command_and_only_that(tmp_path: Path) -> N
     venv_create, pip = commands
     assert not venv_create.env
     assert pip.env == {"SETUPTOOLS_SCM_PRETEND_VERSION_FOR_VENVUNIT": "1.0"}
+
+
+# ---------------------------------------------------------------------------
+# The payload half of the hybrid (source-build-gaps #9)
+# ---------------------------------------------------------------------------
+
+
+def hybrid_manifest(script: str | None) -> PackageManifest:
+    block: dict[str, Any] = {
+        "method": "venv",
+        "requirements": [HASHED],
+        "payload": {"url": "https://example.org/tree.tar.gz", "sha256": "1" * 64},
+    }
+    if script:
+        block["payload_build_script"] = script
+    return PackageManifest.model_validate(
+        {
+            "name": "hybridunit",
+            "version": "1.0",
+            "summary": "Fixture for the venv payload hybrid",
+            "categories": ["listening"],
+            "install": [{"install": block}],
+            "launchers": [
+                {
+                    "name": "hybridunit",
+                    "exec": "exec {venv}/bin/python run.py",
+                    "working_directory": "/usr/local/share/hammunition/hybridunit",
+                }
+            ],
+            "update": {"probe": {"method": "none"}, "strategy": "reinstall"},
+            "documentation": {
+                "what_it_does": "Exists so the hybrid path has a unit to plan.",
+                "why_you_want_it": "You do not; the suite does.",
+                "upstream_url": "https://example.invalid/",
+            },
+        }
+    )
+
+
+def test_payload_plans_fetch_extract_build_and_tree_install(tmp_path: Path) -> None:
+    class StubFetcher:
+        def path_for(self, artifact: Any) -> Path:
+            return tmp_path / "cache" / "tree.tar.gz"
+
+        def fetch(self, artifact: Any) -> Any:
+            raise AssertionError("planning must not fetch")
+
+    backend = VenvBackend(
+        venv_root=tmp_path / "venvs",
+        bin_dir=tmp_path / "bin",
+        fetcher=StubFetcher(),  # type: ignore[arg-type]
+        build_root=tmp_path / "build",
+    )
+    m = hybrid_manifest("auto_rx/build.sh")
+    steps = backend.steps(m, block(m))
+    kinds = [s.kind if isinstance(s, Action) else s.argv[0] for s in steps]
+    assert kinds[:3] == ["requirements", "python3", str(tmp_path / "venvs" / "hybridunit" / "bin" / "pip")]
+    assert "fetch" in kinds and "extract" in kinds
+    assert ("sh") in kinds, kinds
+    assert kinds[-3:] == ["rm", "install", "cp"], "tree install must be last"
+    build = next(s for s in steps if not isinstance(s, Action) and s.argv[0] == "sh")
+    assert build.argv == ("sh", "auto_rx/build.sh")  # type: ignore[union-attr]
+    assert not build.requires_root  # type: ignore[union-attr]
+
+
+def test_a_payload_without_a_fetcher_is_refused_by_name(tmp_path: Path) -> None:
+    from hammunition.backends import BackendError
+
+    backend = VenvBackend(venv_root=tmp_path / "venvs", bin_dir=tmp_path / "bin")
+    m = hybrid_manifest(None)
+    with pytest.raises(BackendError, match="fetcher"):
+        backend.steps(m, block(m))
+
+
+def test_the_venv_placeholder_resolves_in_launchers(tmp_path: Path) -> None:
+    from hammunition.launchers import wrapper_body
+
+    m = hybrid_manifest(None)
+    body = wrapper_body(m, m.launchers[0], venv_dir=tmp_path / "venvs" / "hybridunit")
+    assert f"exec {tmp_path}/venvs/hybridunit/bin/python run.py" in body
+
+
+def test_a_venv_launcher_with_no_venv_dir_fails_loudly(tmp_path: Path) -> None:
+    from hammunition.backends import BackendError
+    from hammunition.launchers import wrapper_body
+
+    m = hybrid_manifest(None)
+    with pytest.raises(BackendError, match="diverged"):
+        wrapper_body(m, m.launchers[0])
+
+
+def test_a_build_script_without_a_payload_is_refused_at_the_schema() -> None:
+    with pytest.raises((ValueError,), match="no payload"):
+        PackageManifest.model_validate(
+            {
+                "name": "broken",
+                "version": "1.0",
+                "summary": "Script with no tree to run in",
+                "categories": ["listening"],
+                "install": [
+                    {
+                        "install": {
+                            "method": "venv",
+                            "requirements": [HASHED],
+                            "payload_build_script": "build.sh",
+                        }
+                    }
+                ],
+                "update": {"probe": {"method": "none"}, "strategy": "reinstall"},
+                "documentation": {
+                    "what_it_does": "Exists to be refused by the validator.",
+                    "why_you_want_it": "You do not; the suite does.",
+                    "upstream_url": "https://example.invalid/",
+                },
+            }
+        )

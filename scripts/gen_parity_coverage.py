@@ -78,6 +78,7 @@ ALIASES: dict[str, str] = {
     # AHRL's toggle names an upstream, ours names the package that provides it.
     "rtl_sdr_v4": "rtl-sdr",
     "ardop": "ardopcf",
+    "radiosonde_auto_rx": "radiosonde-auto-rx",
     "GPS": "gpsd",
     # 73Linux filenames for third-party software.
     "AX25": "ax25-tools",
@@ -108,8 +109,6 @@ EXPLAINED: dict[str, str] = {
     "gpsman": "SUPERSEDE #7 — gpsbabel carries it and declares it",
     "dream": "REVIVE blocked: libqt5webkit5-dev has no candidate on Debian 13 (measured)",
     "mvoice": "REVIVE blocked: libopendht-dev has no candidate on Debian 13 (measured)",
-    "radiosonde_auto_rx": "REVIVE waiting on the venv+payload hybrid — source-build-gaps.md #9",
-    "supersdr": "Q-007 carries it; waits on the venv+payload hybrid — python3-sounddevice has no Debian candidate (measured 2026-08-30), source-build-gaps.md #9",
     "linrad": "source-build-gaps.md #1, #2, #4 — needs a patch, a custom make target and per-arch configure args",
     "wordsworth": "source-build-gaps.md #5 — no build step and a data file to install",
     "js8spotter": "run-in-place Python; waits on launcher generation",

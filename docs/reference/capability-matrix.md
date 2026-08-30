@@ -35,14 +35,14 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 177 | 9 | 45 | 2 | 0 |
-| ubuntu-26.04 | 178 | 8 | 45 | 2 | 0 |
-| kali-rolling | 182 | 9 | 42 | 0 | 0 |
-| parrot | 180 | 7 | 44 | 2 | 0 |
-| linuxmint-22.3 | 171 | 16 | 44 | 2 | 0 |
-| debian-13-arm64 | 176 | 10 | 42 | 5 | 0 |
+| debian-13 | 177 | 9 | 47 | 2 | 0 |
+| ubuntu-26.04 | 178 | 8 | 47 | 2 | 0 |
+| kali-rolling | 182 | 9 | 44 | 0 | 0 |
+| parrot | 180 | 7 | 46 | 2 | 0 |
+| linuxmint-22.3 | 171 | 16 | 46 | 2 | 0 |
+| debian-13-arm64 | 176 | 10 | 44 | 5 | 0 |
 
-**233 manifests** against **6 targets**.
+**235 manifests** against **6 targets**.
 
 ---
 
@@ -285,6 +285,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `qttinysa` | apt | apt | apt | apt | apt | apt |
 | `quisk` | apt | apt | apt | apt | apt | apt |
 | `radioclk` | apt | apt | apt | apt | apt | apt |
+| `radiosonde-auto-rx` | venv | venv | venv | venv | venv | venv |
 | `readsb` | apt | apt | apt | apt | apt ✗ | apt |
 | `remotetrx` | apt | apt | apt | apt | apt | apt |
 | `rtl-433` | apt | apt | apt | apt | apt | apt |
@@ -314,6 +315,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `splat` | apt | apt | apt | apt | apt | apt |
 | `stlink-tools` | apt | apt | apt | apt | apt | apt |
 | `sunclock` | apt | apt | apt | apt | apt | apt |
+| `supersdr` | venv | venv | venv | venv | venv | venv |
 | `svxlink-calibration-tools` | apt | apt | apt | apt | apt | apt |
 | `svxlink-gpio` | apt | apt | apt | apt | apt | apt |
 | `svxlink-server` | apt | apt | apt | apt | apt | apt |

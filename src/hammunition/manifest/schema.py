@@ -410,6 +410,25 @@ class VenvInstall(Strict):
             "it, 2026-08-30). Never secrets -- the plan prints this."
         ),
     )
+    payload: RemoteArtifact | None = Field(
+        default=None,
+        description=(
+            "A verified archive whose extracted tree installs to "
+            "<prefix>/share/hammunition/<name>, for software that is a data "
+            "tree run by a venv rather than a pip-installable package. The "
+            "two-unit demand (source-build-gaps #9): radiosonde_auto_rx and "
+            "supersdr. Launchers reach the venv with the {venv} placeholder."
+        ),
+    )
+    payload_build_script: str | None = Field(
+        default=None,
+        description=(
+            "A script inside the verified payload tree, run with sh before "
+            "the tree installs -- radiosonde_auto_rx compiles its C "
+            "demodulators via auto_rx/build.sh. Requires payload; declare "
+            "its toolchain in the block's build_depends."
+        ),
+    )
     expose: list[str] = Field(
         default_factory=list,
         description=(
@@ -418,6 +437,15 @@ class VenvInstall(Strict):
             "nothing while reporting success."
         ),
     )
+
+    @model_validator(mode="after")
+    def _payload_script_needs_payload(self) -> VenvInstall:
+        if self.payload_build_script and not self.payload:
+            raise ManifestError(
+                "payload_build_script declared with no payload — there is no tree "
+                "to run it in"
+            )
+        return self
 
     @model_validator(mode="after")
     def _hashes(self) -> VenvInstall:

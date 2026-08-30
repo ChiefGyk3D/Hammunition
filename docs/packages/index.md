@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**233 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**235 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -220,7 +220,7 @@ Propagation prediction, solar indices, beacons and grey line.
 - [wwl](wwl.md) — Distance and bearing between two Maidenhead locators, from the command line
 - [xdx](xdx.md) — DX cluster client — see what other operators are hearing, right now
 
-### `listening` — 34
+### `listening` — 36
 
 Receive-only monitoring and decoding. Needs no licence and often no transmitter, which makes it the on-ramp for an operator who owns nothing but a dongle yet.
 
@@ -248,12 +248,14 @@ Receive-only monitoring and decoding. Needs no licence and often no transmitter,
 - [multimon](multimon.md) — The original multimon decoder, kept for the modes its successor dropped
 - [multimon-ng](multimon-ng.md) — Decoder for POCSAG, FLEX, AFSK, DTMF and other audio-band digital modes
 - [qsstv](qsstv.md) — Slow-scan television and radiofax — receive and transmit pictures
+- [radiosonde-auto-rx](radiosonde-auto-rx.md) — Automatically receive, decode and map weather-balloon radiosondes
 - [readsb](readsb.md) — Efficient Mode S and ADS-B decoder — the maintained dump1090 successor
 - [rtl-ais](rtl-ais.md) — Receives both AIS channels at once from one cheap dongle
 - [rtlsdr-airband](rtlsdr-airband.md) — Multi-channel AM/NFM voice receiver with streaming output
 - [satdump](satdump.md) — Satellite data processing — receive, decode and image from weather and science satellites
 - [sdrangel](sdrangel.md) — SDR transceiver and analyser that does several things at once
 - [sdrpp](sdrpp.md) — SDR++ — cross-platform SDR receiver with a modular DSP chain
+- [supersdr](supersdr.md) — Turn any KiwiSDR into your rig's panadapter, synchronized over CAT
 - [welle-io](welle-io.md) — DAB and DAB+ digital radio receiver with a modern interface
 - [xdemorse](xdemorse.md) — Live Morse decoder with a GTK waterfall, from a sound card
 - [xwefax](xwefax.md) — Receives HF weather fax and draws the chart
@@ -409,7 +411,7 @@ Amateur satellites and weather satellites — tracking, prediction, telemetry an
 - [noaa-apt](noaa-apt.md) — Decoder for NOAA weather-satellite APT imagery
 - [satdump](satdump.md) — Satellite data processing — receive, decode and image from weather and science satellites
 
-### `sdr` — 66
+### `sdr` — 67
 
 Software-defined radio — receivers, transceivers and the software.
 
@@ -475,6 +477,7 @@ Software-defined radio — receivers, transceivers and the software.
 - [soapysdr-module-uhd](soapysdr-module-uhd.md) — SoapySDR driver module for Ettus USRP hardware
 - [soapysdr-tools](soapysdr-tools.md) — Command-line tools for the SoapySDR hardware abstraction layer
 - [spectools](spectools.md) — Spectrum display for MetaGeek Wi-Spy dongles and the Ubertooth One
+- [supersdr](supersdr.md) — Turn any KiwiSDR into your rig's panadapter, synchronized over CAT
 - [uhd-host](uhd-host.md) — USRP Hardware Driver — host tools and firmware images for Ettus USRP radios
 - [uhd-soapysdr](uhd-soapysdr.md) — Makes SoapySDR devices visible to software written for UHD
 - [welle-io](welle-io.md) — DAB and DAB+ digital radio receiver with a modern interface
@@ -530,7 +533,7 @@ Time and frequency — clocks, disciplining, and stable references.
 - [twclock](twclock.md) — World clock for the operating position, with a CW station-ID timer
 - [tzwatch](tzwatch.md) — Prints the time in several time zones at once, in a terminal
 
-### `tracking` — 20
+### `tracking` — 21
 
 Position reporting and target tracking: APRS, ADS-B, AIS, and the map that shows them.
 
@@ -548,6 +551,7 @@ Position reporting and target tracking: APRS, ADS-B, AIS, and the map that shows
 - [multimon](multimon.md) — The original multimon decoder, kept for the modes its successor dropped
 - [multimon-ng](multimon-ng.md) — Decoder for POCSAG, FLEX, AFSK, DTMF and other audio-band digital modes
 - [qtbpqaprs](qtbpqaprs.md) — G8BPQ's Qt APRS client, the messaging-focused one
+- [radiosonde-auto-rx](radiosonde-auto-rx.md) — Automatically receive, decode and map weather-balloon radiosondes
 - [readsb](readsb.md) — Efficient Mode S and ADS-B decoder — the maintained dump1090 successor
 - [rtl-433](rtl-433.md) — Decoder for the unlicensed ISM bands — weather stations, sensors, tyre monitors
 - [rtl-ais](rtl-ais.md) — Receives both AIS channels at once from one cheap dongle
@@ -762,6 +766,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [qttinysa](qttinysa.md) | Desktop front end for the tinySA and tinySA Ultra spectrum analysers | apt |
 | [quisk](quisk.md) | SDR transceiver software with a real front panel, driving hardware or a dongle | apt |
 | [radioclk](radioclk.md) | Disciplines the system clock from an MSF, WWVB or DCF77 time signal | apt |
+| [radiosonde-auto-rx](radiosonde-auto-rx.md) | Automatically receive, decode and map weather-balloon radiosondes | venv |
 | [readsb](readsb.md) | Efficient Mode S and ADS-B decoder — the maintained dump1090 successor | apt |
 | [remotetrx](remotetrx.md) | Puts an SvxLink receiver or transceiver at the end of a network link | apt |
 | [rtl-433](rtl-433.md) | Decoder for the unlicensed ISM bands — weather stations, sensors, tyre monitors | apt |
@@ -791,6 +796,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [splat](splat.md) | Terrain-aware path analysis for VHF and above, from real elevation data | apt |
 | [stlink-tools](stlink-tools.md) | Flash and debug STM32 targets through an ST-Link probe | apt |
 | [sunclock](sunclock.md) | World map showing the day-night terminator and where the sun is now | apt |
+| [supersdr](supersdr.md) | Turn any KiwiSDR into your rig's panadapter, synchronized over CAT | venv |
 | [svxlink-calibration-tools](svxlink-calibration-tools.md) | Sets the audio levels an SvxLink node needs to work properly | apt |
 | [svxlink-gpio](svxlink-gpio.md) | Lets SvxLink key a radio and read squelch through GPIO pins | apt |
 | [svxlink-server](svxlink-server.md) | Repeater controller and EchoLink node in software | apt |
