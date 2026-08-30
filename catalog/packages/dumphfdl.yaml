@@ -13,11 +13,43 @@ after:
 
 install:
   - install:
-      method: git
-      repo: https://github.com/szpajder/dumphfdl
-      ref: v1.7.0
+      # Was a git build; converted to the tag archive so the liquid-dsp
+      # version-check patch below can apply (patches are a source-block
+      # feature). Same revision either way -- the archive is the tag.
+      method: source
+      source:
+        url: https://github.com/szpajder/dumphfdl/archive/refs/tags/v1.7.0.tar.gz
+        sha256: 56b091e5e3f8c3b87c91f63cbd3a15fc6c318b297e30f89b77dbaae5991f2d7a
+      patches:
+        - file: src/CMakeLists.txt
+          description: >-
+            Two independent breaks against liquid-dsp 1.8 on Kali, measured
+            2026-08-30. First the version check cannot even compile: liquid
+            1.8's own header uses va_list without including stdarg.h, and
+            GCC 15's tightened glibc headers no longer leak it through
+            stdio.h -- so the snippet gains the include. Behind that, 1.8
+            byte-packs LIQUID_VERSION_NUMBER (1.8.2 reports 67586) where the
+            check expects decimal, so the minimum drops to 66304 (1.3.0
+            byte-packed), which both encodings satisfy for every version the
+            code supports. Debian's older liquid passes untouched either
+            way.
+          unified_diff: |
+            --- a/src/CMakeLists.txt
+            +++ b/src/CMakeLists.txt
+            @@ -69,10 +69,11 @@
+             set(CMAKE_REQUIRED_LIBRARIES_SAVE ${CMAKE_REQUIRED_LIBRARIES})
+             set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} ${LIQUIDDSP_LIBRARIES})
+             set(LIQUID_VERSION_MIN "1.3.0")
+            -set(LIQUID_VERSION_NUMBER_MIN 1003000)
+            +set(LIQUID_VERSION_NUMBER_MIN 66304)
+             set(LIQUID_VERSION_NUMBER_MAX 1999999)
+             check_c_source_runs("
+            +#include <stdarg.h>
+             #include <stdio.h>
+             #include <liquid/liquid.h>
       build_system: cmake
     build_depends:
+      - patch
       - build-essential
       - cmake
       - pkg-config

@@ -18,8 +18,12 @@ install:
         # shape as linrad and Fl_MoxGen. QMAKE_CFLAGS+= on the qmake line does
         # reach it. Measured: without these the build stops at audio.c:312 on
         # an implicit declaration of Sleep(), then at ax25.c:1748 on an
-        # implicit int. GCC 14 made both errors.
-        - QMAKE_CFLAGS+=-Wno-implicit-function-declaration -Wno-implicit-int -Wno-int-conversion -Wno-incompatible-pointer-types
+        # implicit int. GCC 14 made both errors -- and Kali's GCC 15 added a
+        # third class, C23 treating `void f()` as zero-parameter so old
+        # declarations conflict with their own definitions (Modulate.c:47,
+        # measured 2026-08-30); -std=gnu17 pins the dialect the code is
+        # written in.
+        - QMAKE_CFLAGS+=-std=gnu17 -Wno-implicit-function-declaration -Wno-implicit-int -Wno-int-conversion -Wno-incompatible-pointer-types
       provides_install_target: false
     build_depends:
       - build-essential

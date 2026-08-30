@@ -161,7 +161,9 @@ def test_the_pin_is_checked_after_the_checkout_and_before_the_build(tmp_path: Pa
 
     labels = [s.kind if isinstance(s, Action) else " ".join(s.argv[:2]) for s in steps]
     assert labels.index("verify-pin") > labels.index("git -C"), "the pin was checked too early"
-    assert labels.index("verify-pin") < labels.index("cmake -S"), "the build ran before the check"
+    assert labels.index("verify-pin") < labels.index("cmake --fresh"), (
+        "the build ran before the check"
+    )
 
 
 def test_the_fetch_is_shallow_and_by_ref(tmp_path: Path) -> None:

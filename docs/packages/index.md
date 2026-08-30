@@ -647,7 +647,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [dmrconfig](dmrconfig.md) | Command-line DMR codeplug tool — the text-file approach to the same job | apt |
 | [dsdcc](dsdcc.md) | Decodes digital voice protocols from demodulated audio | apt |
 | [dump1090-mutability](dump1090-mutability.md) | The older dump1090 fork, kept because two targets still carry it | apt |
-| [dumphfdl](dumphfdl.md) | HFDL decoder for long-range oceanic aircraft datalink | git |
+| [dumphfdl](dumphfdl.md) | HFDL decoder for long-range oceanic aircraft datalink | source |
 | [dumpvdl2](dumpvdl2.md) | VDL Mode 2 decoder for aircraft datalink | git |
 | [ebook2cw](ebook2cw.md) | Converts a text file or ebook into Morse code audio at a chosen speed | apt |
 | [ebook2cwgui](ebook2cwgui.md) | Graphical front end for ebook2cw | apt |

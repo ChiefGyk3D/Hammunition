@@ -24,8 +24,8 @@ An HF-capable SDR — an RTL dongle alone will not do, since HFDL lives between 
 
 ## How it installs
 
-- git (cmake) — https://github.com/szpajder/dumphfdl at `v1.7.0`
-  - build dependencies: `build-essential`, `cmake`, `pkg-config`, `libglib2.0-dev`, `libconfig++-dev`, `libliquid-dev`, `libfftw3-dev`, `libsoapysdr-dev`, `libsqlite3-dev`
+- source (cmake) from https://github.com/szpajder/dumphfdl/archive/refs/tags/v1.7.0.tar.gz
+  - build dependencies: `patch`, `build-essential`, `cmake`, `pkg-config`, `libglib2.0-dev`, `libconfig++-dev`, `libliquid-dev`, `libfftw3-dev`, `libsoapysdr-dev`, `libsqlite3-dev`
   - `SCOPE.md` listed dumphfdl as DragonOS Tier 1 — "apt-installable or an upstream .deb". It is neither: absent from Debian stable and unstable and from every target's apt, measured in containers. It is a source build, and that correction is recorded in dragonos-tier1-inventory.md.
 
 ## Known problems

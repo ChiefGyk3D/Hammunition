@@ -556,6 +556,13 @@ def build_commands(
             Command(
                 argv=(
                     "cmake",
+                    # --fresh: the source tree is cleared and re-extracted
+                    # every run, but the build dir survives with cmake's
+                    # cache -- including cached try_run verdicts, so a fixed
+                    # source kept failing on the previous source's cached
+                    # failure (dumphfdl's liquid check, Kali, 2026-08-30).
+                    # Idempotent re-runs need the configure to be fresh too.
+                    "--fresh",
                     "-S",
                     str(layout.src),
                     "-B",

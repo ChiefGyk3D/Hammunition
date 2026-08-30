@@ -166,7 +166,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `dmrconfig` | apt | apt | apt | apt | apt | apt |
 | `dsdcc` | apt | apt | apt | apt | apt | apt |
 | `dump1090-mutability` | apt ✗ | apt | apt ✗ | apt ✗ | apt | apt ✗ |
-| `dumphfdl` | git | git | git | git | git | git |
+| `dumphfdl` | source | source | source | source | source | source |
 | `dumpvdl2` | git | git | git | git | git | git |
 | `ebook2cw` | apt | apt | apt | apt | apt | apt |
 | `ebook2cwgui` | apt | apt | apt | apt | apt | apt |
