@@ -35,11 +35,7 @@ from pathlib import Path
 from hammunition.manifest.schema import COMMIT_SHA, GitInstall, PackageManifest
 
 from .base import Action, BackendError, Command, CommandRunner
-import re
-
 from .source import SourceLayout, build_commands, prepare_tree, tree_install_commands
-
-COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 __all__ = ["GitBackend"]
 
@@ -106,7 +102,7 @@ class GitBackend:
                         description=f"Recreate the {block.ref} tag for describe-based versioning",
                     )
                 ]
-                if not COMMIT_SHA_RE.match(block.ref)
+                if not COMMIT_SHA.match(block.ref)
                 else []
             ),
             Action(
