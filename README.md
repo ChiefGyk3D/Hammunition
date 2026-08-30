@@ -10,7 +10,7 @@ targeting Debian, Ubuntu, Kali, Linux Mint and Raspberry Pi OS.
 
 ## ⚠️ Alpha — it installs, configures and removes; the hard 40% is still ahead
 
-**Status: alpha, as of v0.1.0.** The core cycle — resolve, disclose, install,
+**Status: alpha, v0.5.0.** The core cycle — resolve, disclose, install,
 configure, verify, remove — runs end to end and is **VM-verified on Parrot,
 Kali and Debian 13** (`docs/reference/vm-verification-*.md`), not just in
 containers. Three backends, launcher generation and the hardware layer's
@@ -47,6 +47,7 @@ exactly where things stand:
 | udev rule generation from the hardware catalog | 🟡 written; not yet exercised against real hardware |
 | `uninstall` | ✅ working — removes exactly what the log attributes to us, verified removals, apt only |
 | End-to-end VM verification (install / configure / remove) | ✅ Parrot, Kali, Debian 13 — Ubuntu and Pop!_OS queued |
+| Automated per-unit install campaigns (`scripts/vm_campaign.py`) | ✅ first report filed: the packet profile, 21/21 on Debian 13 |
 
 **Much of the catalog is still out of reach.** Of AHRL's 95 units, **57 cannot
 be satisfied by apt at all** — that missing 60% is the hard part and is precisely
