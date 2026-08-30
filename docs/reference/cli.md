@@ -121,6 +121,27 @@ install is (**D-031**): apt is re-probed and the run is only reported clean
 when every package is confirmed absent. A removal apt quietly declined exits
 1 with `verified: false` in the log.
 
+### `hammunition menus apply [--gnome]`
+
+Writes the curated **Ham Radio** desktop-menu layer (**D-036**), generated
+from the catalog's own category vocabulary — one taxonomy, no second list.
+Two mechanisms, both per-user and unprivileged:
+
+- **Menu-spec DEs (Xfce and friends):** a merged `.menu` tree with one
+  submenu per catalog category, each populated by the
+  `X-Hammunition-<category>` markers every generated desktop entry already
+  carries, plus the `.directory` entries naming them. Honours
+  `$XDG_MENU_PREFIX`, because a merged file that does not match the root
+  menu's name merges nothing, silently.
+- **GNOME:** an app-folder named *Ham Radio* populated by
+  `categories=['HamRadio']` — no app list to maintain. Applied only when
+  `XDG_CURRENT_DESKTOP` says GNOME (or `--gnome` forces it), and it needs
+  your desktop session's bus: over bare SSH it fails loudly rather than
+  pretending. The folder-children list is appended to, never replaced.
+
+Run it once after installing launcher-carrying packages; menus refresh on
+next login. COSMIC is the measured-later third mechanism (D-036 addendum).
+
 ### `hammunition station show` / `hammunition station set`
 
 The values only you can supply — callsign, grid square, packet node alias. Some

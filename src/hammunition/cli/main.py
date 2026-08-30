@@ -805,6 +805,55 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
     return EXIT_FAILED
 
 
+def cmd_menus_apply(args: argparse.Namespace) -> int:
+    import yaml
+
+    from hammunition.menus import Category, MenuPaths, gnome_commands, menu_steps
+
+    catalog_root = find_catalog(args.catalog)
+    vocabulary = yaml.safe_load((catalog_root / "categories.yaml").read_text())["categories"]
+    categories = [Category(name=c["name"], summary=c["summary"]) for c in vocabulary]
+
+    home = Path.home()
+    paths = MenuPaths(
+        menus_dir=Path(os.environ.get("XDG_CONFIG_HOME") or home / ".config") / "menus",
+        directories_dir=Path(os.environ.get("XDG_DATA_HOME") or home / ".local" / "share")
+        / "desktop-directories",
+    )
+    prefix = os.environ.get("XDG_MENU_PREFIX", "")
+    steps = menu_steps(categories, paths, menu_prefix=prefix)
+
+    desktop = os.environ.get("XDG_CURRENT_DESKTOP", "")
+    wants_gnome = "GNOME" in desktop.upper() or args.gnome
+    print(f"Menu tree: {len(categories)} categories, menu prefix {prefix!r}")
+    for step in steps:
+        print(f"  {step.display()}")
+        outcome = step.perform()
+        print(f"    {outcome}")
+    if wants_gnome:
+        runner = SubprocessRunner()
+        print("GNOME app-folder (needs your session bus):")
+        for command in gnome_commands():
+            print(f"  $ {' '.join(command.argv[:3])} …")
+            result = runner.run(command)
+            if result.returncode != 0:
+                print(
+                    f"error: {result.stderr.strip()[:200]}\n"
+                    f"GNOME folders live in dconf; run this inside your desktop "
+                    f"session, not over bare SSH.",
+                    file=sys.stderr,
+                )
+                return EXIT_FAILED
+    else:
+        print(
+            "GNOME app-folder skipped: XDG_CURRENT_DESKTOP does not say GNOME "
+            "(pass --gnome to force). The menu-spec files above serve Xfce and "
+            "friends either way."
+        )
+    print("Done. Menus refresh on next login (or `xfce4-panel -r` / GNOME Shell reload).")
+    return EXIT_OK
+
+
 def cmd_show(args: argparse.Namespace) -> int:
     """Print the consent disclosure for a gated profile without installing it."""
     catalog_root = find_catalog(args.catalog)
@@ -955,6 +1004,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="operator whose transaction log to read (default: $SUDO_USER, else $USER)",
     )
     p_uninstall.set_defaults(func=cmd_uninstall)
+
+    p_menus = sub.add_parser("menus", help="curated desktop menus from the catalog (D-036)")
+    menus_sub = p_menus.add_subparsers(dest="menus_command", required=True)
+    p_menus_apply = menus_sub.add_parser(
+        "apply", help="write the Ham Radio menu tree; on GNOME also the app-folder"
+    )
+    p_menus_apply.add_argument(
+        "--gnome", action="store_true", help="apply the GNOME app-folder even if undetected"
+    )
+    p_menus_apply.set_defaults(func=cmd_menus_apply)
 
     p_station = sub.add_parser("station", help="the values only you can supply")
     station_sub = p_station.add_subparsers(dest="station_command", required=True)

@@ -124,6 +124,11 @@ def desktop_entry(manifest: PackageManifest, launcher: Launcher, wrapper: Path) 
             for category in manifest.categories
             for part in XDG_CATEGORIES.get(category, "HamRadio").split(";")
         }
+        # The catalog's own tags ride along as X- extension categories (the
+        # menu spec reserves the prefix for exactly this), so the curated
+        # menu tree can include by catalog category without a second
+        # taxonomy anywhere (D-036).
+        | {f"X-Hammunition-{category}" for category in manifest.categories}
     )
     return (
         "[Desktop Entry]\n"
