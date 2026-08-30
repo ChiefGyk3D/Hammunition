@@ -82,9 +82,11 @@ ALIASES: dict[str, str] = {
     # 73Linux filenames for third-party software.
     "AX25": "ax25-tools",
     "BPQ": "linbpq",
-    # 73Linux filenames again: PITERM is QtTermTCP, QTSOUND is QtSoundModem.
+    # 73Linux filenames again: PITERM is QtTermTCP, QTSOUND is QtSoundModem,
+    # PIAPRS is QtBPQAPRS.
     "PITERM": "qttermtcp",
     "QTSOUND": "qtsoundmodem",
+    "PIAPRS": "qtbpqaprs",
     # SUPERSEDE #3: aa-analyzer -> flaa, both RigExpert analyser front ends.
     "aa-analyzer": "flaa",
     # SUPERSEDE #4: Virtual Radar Server -> readsb + tar1090. readsb is the
@@ -115,7 +117,6 @@ EXPLAINED: dict[str, str] = {
     "GridTracker2": "vendor .deb, per-arch; waits on the binary backend",
     "ARDOPGUI": "waits on the binary backend",
     "GARIM": "waits on the binary backend; not packaged on any target (measured)",
-    "PIAPRS": "G8BPQ's QtBPQAPRS — tagged source exists (00.13) but was not built or verified",
     "VARA": "post-1.0 — closed software needing a configured Wine prefix",
     "VARIM": "post-1.0 — VARA's messaging client, same constraint",
     "HAMRS": "post-1.0 — AppImage",

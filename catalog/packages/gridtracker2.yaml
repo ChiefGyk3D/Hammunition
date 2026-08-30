@@ -1,0 +1,67 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: gridtracker2
+version: "2.260812.0"
+summary: Live map of FT8/JS8 activity, fed by WSJT-X and JS8Call
+categories: [digital-modes]
+
+# CARRY from AHRL, which ships two per-arch vendor .debs in its tarball
+# (2.260421.1). This manifest fetches the current release from the project's
+# own GitLab package registry instead — versioned, per-arch, and with the
+# registry's stored sha256 for every file. The amd64 hash below was verified
+# by downloading the artifact (2026-08-30); the arm64 hash is the registry's
+# record for a file not yet run here. download.gridtracker.org, the URL older
+# docs cite, no longer resolves (measured 2026-08-30).
+install:
+  - when:
+      arch: [x86_64]
+    install:
+      method: binary
+      artifact:
+        url: https://gitlab.com/api/v4/projects/61942134/packages/generic/GridTracker2/2.260812.0/GridTracker2-2.260812.0-amd64.deb
+        sha256: ddb3af23fe76312566955cb4f98134fa5ed8690d40d525de1e618606797f2ce5
+      format: deb
+  - when:
+      arch: [aarch64]
+    install:
+      method: binary
+      artifact:
+        url: https://gitlab.com/api/v4/projects/61942134/packages/generic/GridTracker2/2.260812.0/GridTracker2-2.260812.0-arm64.deb
+        sha256: a1d922d5d7148869a0c1cb95c9dc9907ed97c1e7fe96d229065e8119eaa699b7
+      format: deb
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    Releases land in the GitLab package registry
+    (gitlab.com/gridtracker.org/gridtracker2), versioned by date like
+    2.260812.0. No probe method reads a GitLab registry yet; when one exists
+    this manifest is its first user.
+
+documentation:
+  what_it_does: >-
+    Listens to WSJT-X or JS8Call over UDP and draws every decode on a live
+    world map by grid square -- who is being heard where, on which band, in
+    real time. Tracks wanted grids, states and DXCC entities against your log,
+    and can send spots onward to PSK Reporter.
+  why_you_want_it: >-
+    FT8 without a map is a list of callsigns; with GridTracker it becomes
+    situational awareness -- band openings are visible as they happen, and a
+    needed grid lights up the moment it transmits. The de facto companion to
+    WSJT-X. GridTracker2 is the maintained successor to the original
+    GridTracker that AHRL v26 shipped.
+  prerequisites: >-
+    WSJT-X or JS8Call running with UDP reporting enabled (WSJT-X: Settings ->
+    Reporting -> UDP Server). No radio access of its own -- everything arrives
+    over the network from the decoder.
+  known_problems: >-
+    An Electron application, so the .deb is large (~110 MB) and CPU/RAM use is
+    browser-class -- relevant on a Raspberry Pi. The vendor .deb installs to
+    /opt and provides its own desktop entry.
+  upstream_url: https://gridtracker.org/
+  upstream_support: >-
+    The GridTracker project -- gitlab.com/gridtracker.org/gridtracker2 issues,
+    and an active Discord linked from the project site.

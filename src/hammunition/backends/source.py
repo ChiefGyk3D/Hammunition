@@ -330,17 +330,27 @@ def needs_root_for(prefix: Path) -> bool:
 
 
 def _compiler_env(compiler_flags: Sequence[str]) -> dict[str, str]:
-    """``compiler_flags`` as CFLAGS/CXXFLAGS.
+    """``compiler_flags`` as CFLAGS/CXXFLAGS/CPPFLAGS in the environment.
 
     Six AHRL units need ``-Wno-*`` to build against a modern toolchain, and AHRL
     carries them as shell string-mangling. Declaring them means the flags are
     catalog data a reviewer can see, and the day a compiler stops needing one it
     is deleted from a manifest rather than hunted for in a script.
+
+    All three variables, because make's precedence makes any single one a
+    gamble: a Makefile that assigns ``CFLAGS = -g`` (ardopcf does) silently
+    discards the environment's CFLAGS, but the same Makefile *appends* with
+    ``CPPFLAGS += -Isrc``, and an appended variable starts from the
+    environment — so the flag arrives through CPPFLAGS with the include path
+    intact. Found when ardopcf's first real engine build failed on Parrot with
+    the exact error its flag exists to silence. Passing flags as command-line
+    ``make`` arguments instead would override appends entirely and drop
+    upstream's own values, which is worse.
     """
     if not compiler_flags:
         return {}
     flags = " ".join(compiler_flags)
-    return {"CFLAGS": flags, "CXXFLAGS": flags}
+    return {"CFLAGS": flags, "CXXFLAGS": flags, "CPPFLAGS": flags}
 
 
 def install_binary_commands(

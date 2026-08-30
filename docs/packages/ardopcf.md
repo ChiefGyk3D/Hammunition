@@ -26,7 +26,7 @@ An HF transceiver with audio in and out and PTT, and a Winlink client such as Pa
   - build dependencies: `build-essential`, `pkg-config`, `libasound2-dev`
   - compiler flags: `-Wno-int-conversion` — without these it does not build on a current toolchain
   - the project's build system has no install rule; the binaries listed below are copied into the prefix instead
-  - Tested on Debian 13 on 2026-08-28, which is what PARITY-POLICY requires before a REVIVE. Without the flag the build fails at lib/rawhid/rawhid.c:361 with three -Wint-conversion errors -- not the error AHRL recorded, so its verdict was stale as well as inherited. With the flag, make exits 0 and `ardopcf` is produced. Upstream master fails identically, so this is a current defect rather than one a newer revision has fixed.
+  - Tested on Debian 13 on 2026-08-28, which is what PARITY-POLICY requires before a REVIVE. Without the flag the build fails at lib/rawhid/rawhid.c:361 with three -Wint-conversion errors -- not the error AHRL recorded, so its verdict was stale as well as inherited. With the flag, make exits 0 and `ardopcf` is produced. Upstream master fails identically, so this is a current defect rather than one a newer revision has fixed. One mechanism note, learned when the first real engine build on Parrot (2026-08-30) failed with the exact error the flag silences: upstream's Makefile assigns `CFLAGS =` (discarding the environment) but appends `CPPFLAGS +=`, so the flag only arrives via environment CPPFLAGS -- which the source backend now exports alongside CFLAGS/CXXFLAGS.
 
 Binaries this produces:
 

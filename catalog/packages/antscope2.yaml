@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: antscope2
+version: "2.0.2"
+summary: RigExpert's own analyzer software, for their antenna analyzers
+categories: [antenna]
+
+# CARRY from AHRL, which installs the vendor .deb on x86_64 and skips
+# aarch64 outright ("I tried compiling this but it didn't work"). Upstream is
+# nominally open (github.com/rigexpert/AntScope2) but publishes no tagged
+# Linux release; the vendor directory ships an x86_64 build only, so this is
+# a binary unit by measurement, x86_64 by measurement (D-014, D-002).
+#
+# The vendor packaging is sloppy in ways worth recording: the 2.0.2 file's
+# internal control says "Version: 1.0, Architecture: all" although the
+# payload is an x86_64 executable under /usr/antscope2/. dpkg will therefore
+# report antscope2 1.0 installed. Measured from the artifact, 2026-08-30.
+install:
+  - when:
+      arch: [x86_64]
+    install:
+      method: binary
+      artifact:
+        url: https://rigexpert.com/files/software/Antscope/antscope2forlinux/antscope2_2.0.2_ubuntu.deb
+        sha256: 3cdae87407b5327bf1b5b6aca70d05ceb90e6427084d219e2f152bf4b21a06d6
+      format: deb
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    New builds appear as new filenames in
+    rigexpert.com/files/software/Antscope/antscope2forlinux/ with no feed and
+    no changelog. Check when a new analyzer model is not recognised.
+
+documentation:
+  what_it_does: >-
+    Talks to RigExpert antenna analyzers (AA-series, Stick-series) over USB,
+    drives sweeps, and plots SWR, R/X and Smith charts, with cable
+    compensation and measurement export.
+  why_you_want_it: >-
+    It is the vendor's own software and the only Linux program that speaks to
+    every current RigExpert model. For the models flaa supports, flaa is the
+    lighter open alternative; for the rest this is the option.
+  prerequisites: >-
+    A RigExpert analyzer. Most models enumerate as a USB CDC serial device --
+    membership of `dialout` covers those. AHRL additionally shipped a udev
+    rule opening 0483:a1de (some models' custom USB interface) to MODE 0666;
+    this catalog has not yet carried a RigExpert entry in the hardware
+    catalog, so on such models the device may need root until it does.
+  known_problems: >-
+    x86_64 only -- the vendor ships no ARM build and AHRL's compile attempt
+    on aarch64 failed. The .deb installs the whole application under
+    /usr/antscope2/ with a launcher script, not into standard paths, and its
+    control metadata (version "1.0", architecture "all") does not match the
+    filename or payload.
+  upstream_url: https://rigexpert.com/software/antscope2/
+  upstream_support: RigExpert's own support channels; source at github.com/rigexpert/AntScope2.

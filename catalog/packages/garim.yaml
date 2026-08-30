@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: garim
+version: "1.7"
+summary: Graphical ARIM messaging over an ARDOP TNC
+categories: [emcomm, packet]
+
+# ADD from the 73Linux delta (D-008 EMCOMM file transfer; dispositions:
+# "GARIM is open"). 73Linux's packaging habits made this look like a binary
+# unit -- the same mistake QtTermTCP and QtSoundModem already corrected --
+# but upstream publishes a versioned autotools source tarball with a GPL-3
+# COPYING, a manpage and its own .desktop file. An ordinary source build,
+# measured 2026-08-30 from the tarball itself.
+install:
+  - install:
+      method: source
+      source:
+        url: https://www.whitemesa.net/garim/src/garim-1.7.tar.gz
+        sha256: 30cf6db1a2b495975a499b45f3e760758579b81c99157b2d52d699f0c46ff9a4
+      build_system: autotools
+    build_depends:
+      - build-essential
+      - libfltk1.3-dev
+    note: >-
+      configure.ac checks for fltk-config, so libfltk1.3-dev is the one real
+      dependency beyond the toolchain -- the same FLTK the W1HKJ family
+      already pulls in.
+
+depends: [ardopcf]
+
+update:
+  probe:
+    method: none
+  strategy: rebuild
+  cadence_hint: >-
+    Versioned tarballs at whitemesa.net/garim/src/; the help page states the
+    current version. Slow-moving, single-author (NW8L).
+
+documentation:
+  what_it_does: >-
+    A graphical client for the ARIM protocol -- keyboard chat, messages and
+    file transfer between stations over an ARDOP TNC on HF. The FLTK
+    counterpart to the curses `arim` program, by the same author.
+  why_you_want_it: >-
+    EMCOMM file transfer over ARDOP without Winlink infrastructure:
+    point-to-point, no gateway needed. Pairs with the `ardopcf` this catalog
+    already carries; the closed-source equivalent path (VARIM over VARA) is
+    post-1.0.
+  prerequisites: >-
+    A running ARDOP TNC -- `ardopcf`, configured for your rig and audio --
+    and rig audio/PTT working. gARIM connects to the TNC's TCP port.
+  known_problems: >-
+    Note the ardopcf caveat this catalog records: CM108 PTT keying in ardopcf
+    is suspect; serial and VOX keying are unaffected. gARIM inherits whatever
+    keying path the TNC uses.
+  upstream_url: https://www.whitemesa.net/garim/garim.html
+  upstream_support: >-
+    Robert Cunnings NW8L, via the ARDOP users group (ardop.groups.io) --
+    linked from the help page.

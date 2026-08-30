@@ -1,0 +1,68 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: qtbpqaprs
+version: "00.13"
+summary: G8BPQ's Qt APRS client, the messaging-focused one
+categories: [packet, tracking]
+
+# ADD from the 73Linux delta, where it ships as "PIAPRS" -- the same rename
+# habit that hid QtTermTCP behind PITERM. GPL-3.0 by LICENSE, tagged source
+# on GitHub, an ordinary pinned qmake build: qmake + make produced the
+# binary first try on Debian 13 (2026-08-30), needing nothing beyond
+# qtbase5. The .pro declares only core/gui/network/widgets.
+install:
+  - install:
+      method: git
+      repo: https://github.com/g8bpq/QtBPQAPRS
+      ref: "00.13"
+      build_system: qmake
+      # No INSTALLS target in the .pro; the binary is copied into the prefix.
+      provides_install_target: false
+    build_depends:
+      - build-essential
+      - pkg-config
+      - qtbase5-dev
+      - qt5-qmake
+      - qtbase5-dev-tools
+    note: >-
+      Built from this tag on the Debian 13 VM on 2026-08-30: qmake and make
+      exit 0 and produce QtBPQAPRS with only qtbase5 installed. Upstream's
+      last push is 2024-08 -- slow-moving, like the rest of the G8BPQ suite,
+      and versioned tags mean slow is fine (D-024).
+
+binaries:
+  - produced: QtBPQAPRS
+    install_as: qtbpqaprs
+
+update:
+  probe:
+    method: github_tags
+    repo: g8bpq/QtBPQAPRS
+  strategy: rebuild
+  cadence_hint: >-
+    G8BPQ tags releases irregularly. Check alongside linbpq updates -- they
+    are designed to move together.
+
+documentation:
+  what_it_does: >-
+    An APRS client that connects to a BPQ node (or APRS-IS) and focuses on
+    the messaging half of APRS -- station list, message exchange, beacons --
+    with a map view fed by an internet tile server.
+  why_you_want_it: >-
+    Xastir and YAAC are mapping-first; this is messaging-first, and it is the
+    APRS front end designed to sit on the linbpq node this catalog already
+    configures. If your APRS use is "exchange messages over the local
+    network node", this is the shortest path.
+  prerequisites: >-
+    A running linbpq node with its APRS component enabled, or an APRS-IS
+    account for internet-only use. Nothing touches the radio directly; RF
+    access arrives through the node.
+  known_problems: >-
+    The build emits sprintf truncation warnings (upstream C in a Qt shell);
+    they do not fail the build and are upstream's to fix. Map tiles need
+    internet access; there is no offline tile store.
+  upstream_url: https://github.com/g8bpq/QtBPQAPRS
+  upstream_support: >-
+    John Wiseman G8BPQ, via the BPQ32 groups.io list -- the same channel as
+    linbpq itself.

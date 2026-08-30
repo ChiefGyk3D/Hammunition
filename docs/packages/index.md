@@ -4,14 +4,15 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**225 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**229 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
-### `antenna` — 14
+### `antenna` — 15
 
 Antenna and transmission-line design, modelling, and measurement.
 
+- [antscope2](antscope2.md) — RigExpert's own analyzer software, for their antenna analyzers
 - [atlc](atlc.md) — Computes impedance of a transmission line of any cross-section, from a picture of it
 - [cassbeam](cassbeam.md) — Models Cassegrain dish antennas — the microwave and radio-astronomy case
 - [coil64](coil64.md) — Calculates inductance for coils of almost any geometry
@@ -57,7 +58,7 @@ Morse code -- keying, decoding, and learning to hear it.
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 - [xdemorse](xdemorse.md) — Live Morse decoder with a GTK waterfall, from a sound card
 
-### `digital-modes` — 27
+### `digital-modes` — 28
 
 Keyboard-to-keyboard and weak-signal modes worked with a transceiver: PSK31, RTTY, FT8, JS8, SSTV and the rest.
 
@@ -71,6 +72,7 @@ Keyboard-to-keyboard and weak-signal modes worked with a transceiver: PSK31, RTT
 - [freedv](freedv.md) — Digital voice over HF in the bandwidth of an SSB signal
 - [glfer](glfer.md) — QRSS and DFCW receiver for extremely slow narrowband CW on LF/MF
 - [gnuradio](gnuradio.md) — Build a radio out of signal-processing blocks instead of hardware
+- [gridtracker2](gridtracker2.md) — Live map of FT8/JS8 activity, fed by WSJT-X and JS8Call
 - [js8call](js8call.md) — Weak-signal keyboard-to-keyboard messaging built on the FT8 modem
 - [jtdx](jtdx.md) — WSJT-X derivative tuned for DX working and crowded FT8 conditions
 - [minimodem](minimodem.md) — General-purpose audio FSK modem — Bell 103, RTTY, AX.25 and anything else
@@ -114,7 +116,7 @@ Bench electronics and EDA — circuit design, simulation, test gear.
 - [stlink-tools](stlink-tools.md) — Flash and debug STM32 targets through an ST-Link probe
 - [tempest-for-eliza](tempest-for-eliza.md) — Makes a monitor radiate music on an AM radio — a TEMPEST demonstration
 
-### `emcomm` — 22
+### `emcomm` — 23
 
 Emergency and public-service communications.
 
@@ -130,6 +132,7 @@ Emergency and public-service communications.
 - [flmsg](flmsg.md) — Fills in and transmits the standard message forms EMCOMM runs on
 - [flnet](flnet.md) — Net control operator's list — who checked in, in what order
 - [flwrap](flwrap.md) — Wraps a file with a checksum so the far end knows it arrived intact
+- [garim](garim.md) — Graphical ARIM messaging over an ARDOP TNC
 - [linbpq](linbpq.md) — BPQ32 packet-radio node, BBS and Winlink gateway
 - [linpac](linpac.md) — Terminal for AX.25 packet with a built-in mail client and macros
 - [pat](pat.md) — Winlink client — radio email that works when the internet does not
@@ -288,7 +291,7 @@ The NBEMS stack specifically — fldigi with flmsg, flamp and flwrap for formal 
 - [flmsg](flmsg.md) — Fills in and transmits the standard message forms EMCOMM runs on
 - [flwrap](flwrap.md) — Wraps a file with a checksum so the far end knows it arrived intact
 
-### `packet` — 24
+### `packet` — 26
 
 AX.25 and packet radio, including Winlink and BBS work.
 
@@ -306,10 +309,12 @@ AX.25 and packet radio, including Winlink and BBS work.
 - [baycomusb](baycomusb.md) — Driver for the HB9JNX USB packet modem
 - [direwolf](direwolf.md) — Software TNC — turns a sound card into an APRS and packet modem
 - [fbb](fbb.md) — The classic packet radio BBS and mailbox
+- [garim](garim.md) — Graphical ARIM messaging over an ARDOP TNC
 - [linbpq](linbpq.md) — BPQ32 packet-radio node, BBS and Winlink gateway
 - [linpac](linpac.md) — Terminal for AX.25 packet with a built-in mail client and macros
 - [minimodem](minimodem.md) — General-purpose audio FSK modem — Bell 103, RTTY, AX.25 and anything else
 - [pat](pat.md) — Winlink client — radio email that works when the internet does not
+- [qtbpqaprs](qtbpqaprs.md) — G8BPQ's Qt APRS client, the messaging-focused one
 - [qtsoundmodem](qtsoundmodem.md) — Soundcard packet modem with a scope — an alternative to Direwolf
 - [qttermtcp](qttermtcp.md) — Packet terminal that connects over TCP to a BPQ node
 - [tmd710-tncsetup](tmd710-tncsetup.md) — Configures the built-in TNC on Kenwood TM-D710 and TH-D72 radios
@@ -520,7 +525,7 @@ Time and frequency — clocks, disciplining, and stable references.
 - [twclock](twclock.md) — World clock for the operating position, with a CW station-ID timer
 - [tzwatch](tzwatch.md) — Prints the time in several time zones at once, in a terminal
 
-### `tracking` — 18
+### `tracking` — 19
 
 Position reporting and target tracking: APRS, ADS-B, AIS, and the map that shows them.
 
@@ -537,6 +542,7 @@ Position reporting and target tracking: APRS, ADS-B, AIS, and the map that shows
 - [mlat-client-adsbfi](mlat-client-adsbfi.md) — Contributes ADS-B timing data so a network can locate aircraft by multilateration
 - [multimon](multimon.md) — The original multimon decoder, kept for the modes its successor dropped
 - [multimon-ng](multimon-ng.md) — Decoder for POCSAG, FLEX, AFSK, DTMF and other audio-band digital modes
+- [qtbpqaprs](qtbpqaprs.md) — G8BPQ's Qt APRS client, the messaging-focused one
 - [readsb](readsb.md) — Efficient Mode S and ADS-B decoder — the maintained dump1090 successor
 - [rtl-433](rtl-433.md) — Decoder for the unlicensed ISM bands — weather stations, sensors, tyre monitors
 - [rtl-ais](rtl-ais.md) — Receives both AIS channels at once from one cheap dongle
@@ -594,6 +600,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [ais-catcher](ais-catcher.md) | AIS receiver and decoder for marine vessel traffic, with a web map | git |
 | [aldo](aldo.md) | Morse trainer with four teaching methods, including Koch | apt |
 | [ampr-ripd](ampr-ripd.md) | Keeps a gateway's routes current on the amateur radio IP network | apt |
+| [antscope2](antscope2.md) | RigExpert's own analyzer software, for their antenna analyzers | binary |
 | [aprsdigi](aprsdigi.md) | APRS digipeater — repeats packets so they reach further than one hop | apt |
 | [aprx](aprx.md) | APRS digipeater and internet gateway, small enough for a Pi | apt |
 | [ardopcf](ardopcf.md) | HF data modem for Winlink and packet over poor paths | git |
@@ -650,6 +657,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [flwkey](flwkey.md) | Control panel for the Winkeyer hardware CW keyer | source |
 | [flwrap](flwrap.md) | Wraps a file with a checksum so the far end knows it arrived intact | apt |
 | [freedv](freedv.md) | Digital voice over HF in the bandwidth of an SSB signal | apt |
+| [garim](garim.md) | Graphical ARIM messaging over an ARDOP TNC | source |
 | [git](git.md) | Distributed version control — the tool this project is distributed with | apt |
 | [glfer](glfer.md) | QRSS and DFCW receiver for extremely slow narrowband CW on LF/MF | source |
 | [gnss-sdr](gnss-sdr.md) | A complete GPS and GNSS receiver built entirely in software | apt |
@@ -670,6 +678,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [gr-osmosdr](gr-osmosdr.md) | One GNU Radio source block that speaks to nearly every SDR | apt |
 | [gr-rds](gr-rds.md) | Decodes the data carried alongside broadcast FM — station names, traffic | apt |
 | [gr-satellites](gr-satellites.md) | Decoders for the telemetry of hundreds of amateur satellites | apt |
+| [gridtracker2](gridtracker2.md) | Live map of FT8/JS8 activity, fed by WSJT-X and JS8Call | binary |
 | [gsmc](gsmc.md) | Interactive Smith chart for designing impedance matching networks | source |
 | [gtk-meshtastic-client](gtk-meshtastic-client.md) | Desktop GUI for Meshtastic nodes | apt |
 | [hackrf](hackrf.md) | Host tools for HackRF — transfer, sweep, spectrum and firmware utilities | apt |
@@ -736,6 +745,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [qlog](qlog.md) | Modern Qt station log with award tracking and online-service upload | git |
 | [qrq](qrq.md) | High-speed Morse trainer that pushes your callsign copy to its limit | apt |
 | [qsstv](qsstv.md) | Slow-scan television and radiofax — receive and transmit pictures | apt |
+| [qtbpqaprs](qtbpqaprs.md) | G8BPQ's Qt APRS client, the messaging-focused one | git |
 | [qtel](qtel.md) | EchoLink client — work repeaters and stations over the internet | apt |
 | [qthid-fcd-controller](qthid-fcd-controller.md) | Sets frequency and gain on a FUNcube Dongle | apt |
 | [qtsoundmodem](qtsoundmodem.md) | Soundcard packet modem with a scope — an alternative to Direwolf | git |
