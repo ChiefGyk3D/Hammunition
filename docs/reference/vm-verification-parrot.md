@@ -94,7 +94,20 @@ hybrid-sleep.target` is now baseline prep item 4 in the runbook, baked into
    Found while writing `not-carried.md`, which had claimed it as the
    `ahrl_version` replacement; the page now names `hammunition status`
    instead. An engine `--version` remains worth having for bug reports.
-3. **The two manifests that do not resolve on Parrot are deliberate.**
+3. **The interactive station prompt works, in the right order, exactly once.**
+   Tested over a forced TTY with no saved values: the three questions come
+   *before* the plan is resolved, answers save to `station.yml` (mode 0600),
+   the plan then shows the resolved config write, and declining at the
+   confirmation changes nothing. A second run asks no questions. `--yes` and
+   non-interactive runs skip the prompt by design and defer the file (D-035);
+   `hammunition station set` is the deliberate up-front path.
+4. **A git-built package is not yet idempotent on re-run.** `linbpq` shows
+   `already installed` in the plan header, yet the command list still carries
+   the full clone-and-rebuild plus the config rewrite. The outcome is
+   idempotent; the work is not — the second-run-changes-nothing property that
+   apt packages already have needs the git/source backends to learn what
+   "already installed at this pin" means. Engine work, queued.
+5. **The two manifests that do not resolve on Parrot are deliberate.**
    `status` says 223/225; the two are `arduino-cli` and
    `soapysdr-module-plutosdr`, both of which carry a single
    `when: distro: [kali]` block. That is the capability matrix behaving as
