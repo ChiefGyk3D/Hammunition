@@ -2042,3 +2042,33 @@ any other: printed before it happens, recorded in the transaction log, removed
 by uninstall. And per D-022, we add our curated tree alongside the DE's own
 organization; we never rewrite or suppress what the distribution's packages
 put in the standard categories.
+
+## D-014 amendment, 2026-08-30 — pipx and CPAN re-measured, and both are zeros now
+
+**D-014** justifies every backend by a named unit. Two of the backends still
+listed as required for 1.0 no longer have one, because the catalog moved out
+from under the requirement and nobody re-measured:
+
+- **pipx** was required for exactly one unit: CHIRP, which AHRL installs as a
+  bundled wheel through `pipx install --system-site-packages`. This catalog's
+  `chirp` resolved to **apt on all five targets** (measured 2026-08-28, and
+  the Parrot VM ran the apt install on 2026-08-29). The other AHRL pipx-family
+  unit, `pyautogui`, was retired as developer tooling. Zero manifests declare
+  `method: pipx`.
+- **CPAN** was required for exactly one unit: `aa-analyzer`, whose install
+  begins with `cpan install Device/SerialPort.pm`. `aa-analyzer` is
+  **SUPERSEDE → `flaa`** (accepted; both are RigExpert analyser front ends).
+  Zero manifests need a Perl module from anywhere.
+
+**Consequence.** The 1.0 backend list contracts to: apt, source, git, binary
+(all written) plus **venv** (real users: `not1mm`, `nanovna-saver`, and the
+`radiosonde_auto_rx` REVIVE waits on it by design) and **launcher
+generation** (14 units, now fused with D-036). The `PipxInstall` schema stub
+stays — a community-tier manifest may one day declare it, and the engine
+refuses it by name exactly as before — but nobody builds a backend for a
+measured zero. This is the same motion as the cargo amendment above: the
+requirement was real when measured, the world moved, and the measurement was
+repeated before the work was done rather than after.
+
+The station profile's `pipx` **apt package** is unrelated and stays: that is
+a tool installed *for the operator*, not a backend the engine uses.

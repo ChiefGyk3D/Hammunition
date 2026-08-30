@@ -730,3 +730,35 @@ this shape and has held up: an honest `untested` beats a green lie, and D-018
 already commits the project to not claiming what it has not run. Option 3
 throws away a measured, real difference (the Qt 6.4.2 gap is a fact about
 Mint 22.3) to simplify bookkeeping, which is backwards.
+
+## Q-015 — The NEEDS-DECISION batch: fourteen units, one sitting
+
+**Raised 2026-08-30.** Every unit below is dispositioned NEEDS-DECISION in
+`docs/reference/dispositions.md`, each with its question already stated there.
+They are the last judgment calls between the catalog and full coverage of the
+five-source union, and none is design work — each is a yes/no/stage call.
+Recommendations follow the precedents already set (browser/notepadqq/xosview
+for scope, Q-006/Q-007 for defaults, D-034 for staging).
+
+| Unit | The question | Recommendation |
+|---|---|---|
+| `claws-mail` | Does the EMCOMM stack carry a mail client? | **Do not carry.** Every target ships mail options; the scope rule that retired the browser applies. Document "you need a local mail client" in the emcomm profile's manual-configuration notes instead. |
+| `putty` | Serial-terminal tool or out of scope? | **Carry, in the `workstation` profile.** Genuinely used for radio serial consoles and cheap (apt everywhere) — but if the scope rule feels stronger than the convenience, the fallback is documenting `minicom`/`picocom` in the hardware docs. Lowest-confidence call in this table. |
+| `rf_exposure_calc` | Do we ship browser bookmarks? | **Retire, with the other bookmarks.** A bookmark to a dead site is worse than none, liveness checks for URLs are real maintenance, and a catalog entry that opens a web page installs nothing. Put the URLs (hintlink power density, DXLook, HamTab, PSKReporter, VOACAP, OpenHamClock) in the propagation guide prose, once. |
+| `solar_data` | Same, plus a deprecated ImageMagick dependency | **Retire**, same reasoning; the N0NBH banners belong in guide prose. |
+| `xwefax` vs fldigi | Superseded by fldigi's WEFAX mode? | **Carry both, no supersede.** The question needs a radiofax operator, not a spec comparison; until one weighs in, dropping a dedicated tool on an assumption is the inherited-verdict mistake. |
+| `jtdx` | Deprecate in favour of the others? | **Carry as-is, no deprecation mark.** Devoted user base, packaged, measured. |
+| FT8-family default | wsjtx / wsjtx-improved / jtdx / mshv / js8call — which is recommended? | **`wsjtx`.** Reference implementation, packaged on every target, the documentation everyone else's assumes. The others stay carried; js8call is a different mode, not an alternative. |
+| `FoxTelem` | Enough of the Fox constellation alive to justify it? | **Stage post-1.0 pending an AMSAT status check.** Partial world-changed case; blocking 1.0 on a satellite census serves nobody, quietly carrying a decoder for re-entered satellites serves nobody either. |
+| `libhamlib4` | A catalog unit, or purely a dependency? | **Dependency, not a unit.** No menu entry, no operator-facing surface; it arrives through `depends` and `libhamlib-utils` is already the operator-facing manifest. Mark resolved with no manifest owed. |
+| `country_files` (cty.dat) | A package, or the first "data asset with a cadence"? | **Post-1.0, as the data-asset design question.** The consuming apps bundle their own copies; a monthly-cadence fan-out asset deserves a schema shape, not a shoehorn. Document manual updates in the logging guide meanwhile. |
+| `wine` | If Morse Runner goes conditional, does Wine leave 1.0? | **Already effectively resolved:** the Morse Runner resolution took Wine out of the 1.0 core; VARA brings a Wine *prefix* back post-1.0. Mark it so. |
+| `M0IAX` (JS8 utilities) | Does the JS8 profile want them? | **Post-1.0 candidate.** Third-party and fine, but no measured demand; revisit when a JS8 profile user asks. |
+| `PATMENU3` | Clone KM4ACK's menu, or is PAT's UI enough? | **PAT's own web UI suffices.** Do not write a licence-clean clone of a wrapper whose function PAT ships natively; document the web UI in the packet profile docs. |
+| `REPEAT` (RepeaterSTART) | In scope? | **Post-1.0 candidate.** Repeater directory app, open, harmless — and nothing in the five-source union's 1.0 rationale needs it. |
+
+**What resolving this buys:** every unit in the five-source union has a final
+disposition; the parity-coverage "owed" denominator stops moving; and the
+retire/no-manifest calls land in `not-carried.md` automatically once the
+dispositions index is updated (the generator refuses to run until the reasons
+follow — that is the drift guard doing its job).
