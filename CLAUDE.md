@@ -385,7 +385,7 @@ src/hammunition/
   manifest/        # schema, loader, validation              ✅
     hardware.py    # device catalog schema (D-020)           ✅
   consent/         # affirmative consent gates (D-021)       ✅
-  state/           # transaction log, uninstall              ✅ log only
+  state/           # transaction log, uninstall              ✅ apt removal only
   plan.py          # pre-flight resolution (D-016)           ✅
   execute.py       # plan -> commands -> runner              ✅
   backends/        # apt ✅ source ✅ git ✅ binary ✅; venv, pipx, CPAN ❌

@@ -145,6 +145,26 @@ just intended.
 
 ---
 
+## The uninstall lifecycle
+
+Written by `hammunition uninstall`. Same before/after ordering, same
+first-failure stop, and the same shared `command_begin` / `command_end` events
+as an install — that sharing is deliberate, because **attribution replays
+`command_end` alone**: an `apt-get install` that exited 0 attributes the
+packages after its `--`, an `apt-get remove` that exited 0 un-attributes
+them, chronologically. The apt command's own recorded outcome is the source
+of truth, not the surrounding transaction — a run that died on command 3 of 5
+still installed whatever command 2 installed.
+
+| `event` | Written | Carries |
+|---|---|---|
+| `uninstall_begin` | Once, first | `target`, the unit `packages` being removed, the `apt_packages` the single `apt-get remove` will name. |
+| `command_begin` / `command_end` | Around each command | Identical shape to the install lifecycle's. |
+| `uninstall_failed` | Instead of the rest, on the first failure | the failing `argv`, its `returncode` (or `error` for a missing binary), and how many commands `completed`. |
+| `uninstall_end` | Once, on the success path | `completed`, `verified`, and `checks[]` with `kind: "package_removed"` — confirmed means apt was re-probed and the package is **absent** (**D-031**), because `apt-get remove` exits 0 for a package a held dependency kept installed. |
+
+---
+
 ## Planned events
 
 Not yet implemented. Listed so the format is designed once rather than grown.

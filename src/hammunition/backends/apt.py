@@ -202,3 +202,24 @@ class AptBackend:
                 env=dict(NONINTERACTIVE),
             )
         ]
+
+    def remove_commands(self, packages: Iterable[str]) -> list[Command]:
+        """One ``apt-get remove`` for the whole set.
+
+        ``remove``, not ``purge``: configuration a user may have edited stays
+        on disk, which is the conservative half of D-004's honesty. Dependencies
+        apt pulled in are deliberately not named — ``apt autoremove`` exists,
+        the uninstall plan points at it, and removing shared dependencies by
+        name is how an uninstall breaks a package it never touched.
+        """
+        ordered = sorted(set(packages))
+        if not ordered:
+            return []
+        return [
+            Command(
+                argv=("apt-get", "remove", "--yes", "--", *ordered),
+                description=f"Remove {len(ordered)} package(s) with apt",
+                requires_root=True,
+                env=dict(NONINTERACTIVE),
+            )
+        ]

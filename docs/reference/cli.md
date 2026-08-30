@@ -79,6 +79,41 @@ Names may be packages or profiles, mixed freely.
 | `--grid-square LOC` | Maidenhead locator, four or six characters |
 | `--node-alias NAME` | Short packet node alias, up to six characters |
 
+### `hammunition uninstall NAME... [--dry-run] [--yes] [--user NAME]`
+
+Removes what Hammunition itself installed, and only that (**D-004**). Names
+may be packages or profiles, mixed freely.
+
+| Flag | Effect |
+|---|---|
+| `--dry-run` | Resolve the removal, print exactly what would run, change nothing |
+| `--yes` | Skip the confirmation |
+| `--user NAME` | Whose transaction log to read. Defaults to `$SUDO_USER`, then `$USER` |
+
+"Installed by Hammunition" is read from the transaction log, by replaying the
+recorded `apt-get` commands that actually exited 0 — not from what a run
+*intended*. The plan then partitions honestly, and prints every part:
+
+- **Removing** — attributed to Hammunition and currently installed. These
+  become one `apt-get remove` (never `purge`: configuration a user may have
+  edited stays on disk).
+- **Left in place** — installed, but not installed by Hammunition. It was
+  there before us or arrived by another road; removing it would exceed the
+  promise.
+- **Already absent** — attributed but no longer installed.
+
+What it deliberately does not reverse, and says so in every plan:
+dependencies apt pulled in (`sudo apt autoremove` clears orphans), group
+memberships, and any configuration files written — all recorded in the log.
+A unit whose install on this target is not apt is refused with the backend
+named: the engine does not yet know how to reverse a `make install`, and a
+file sweep pretending otherwise is the shim CLAUDE.md forbids.
+
+After the commands complete, the removal is **verified** the same way an
+install is (**D-031**): apt is re-probed and the run is only reported clean
+when every package is confirmed absent. A removal apt quietly declined exits
+1 with `verified: false` in the log.
+
 ### `hammunition station show` / `hammunition station set`
 
 The values only you can supply — callsign, grid square, packet node alias. Some
@@ -358,5 +393,7 @@ along with the log's location.
 
 ## What is not here yet
 
-`uninstall` is not written. The log it will read is being written correctly
-now, which is the part that cannot be added retroactively.
+`uninstall` covers the apt backend only. Reversing a source, git or binary
+install — files placed by `make install`, wrappers, udev rules — is refused
+by name; what those installs wrote is in the transaction log, which is the
+part that could not have been added retroactively.

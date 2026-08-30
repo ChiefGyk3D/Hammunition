@@ -40,9 +40,10 @@ from hammunition.backends import (
     GitBackend,
     SourceBackend,
 )
+from hammunition.distro import Target
 from hammunition.manifest.schema import BinaryInstall, GitInstall, SourceInstall
 from hammunition.plan import InstallPlan
-from hammunition.state import TransactionLog
+from hammunition.state import RemovalPlan, TransactionLog
 
 #: One entry in a plan: a process to run, or something the engine does itself.
 #: `--dry-run` prints these and a real run performs them, from the same objects.
@@ -56,6 +57,7 @@ __all__ = [
     "Verification",
     "commands_for",
     "execute",
+    "run_removal",
     "user_groups",
     "verify_effects",
 ]
@@ -536,6 +538,142 @@ def execute(
     end_entry: dict[str, object] = {
         "event": "transaction_end",
         "version": 2,
+        "timestamp": datetime.now(UTC).isoformat(),
+        "completed": len(completed),
+    }
+    if verification is not None:
+        end_entry["verified"] = verification.ok
+        end_entry["checks"] = [c.to_log_entry() for c in verification.checks]
+    log.append(end_entry)
+    return ExecutionReport(
+        completed=tuple(completed), failed=None, stderr="", verification=verification
+    )
+
+
+def run_removal(
+    commands: Sequence[Command],
+    runner: CommandRunner,
+    *,
+    log: TransactionLog,
+    plan: RemovalPlan,
+    target: Target,
+    echo: Callable[[str], None] | None = None,
+    euid: int | None = None,
+    prober: PackageProber | None = None,
+) -> ExecutionReport:
+    """Run a removal, with the same logging contract as :func:`execute`.
+
+    Same before/after event ordering, same first-failure stop, and the same
+    D-031 ending: the effect check re-reads apt and confirms the packages are
+    *absent* — ``apt-get remove`` exiting 0 for a package a held dependency
+    kept installed would otherwise be recorded as removed.
+
+    Its terminal events are ``uninstall_begin`` / ``uninstall_end`` /
+    ``uninstall_failed`` so a log reader can tell a removal from an install
+    without parsing argv; the per-command events are the shared
+    ``command_begin`` / ``command_end``, which is what lets attribution replay
+    both directions from one event type.
+    """
+    write = echo if echo is not None else (lambda _line: None)
+    shown_as = os.geteuid() if euid is None else euid
+
+    log.append(
+        {
+            "event": "uninstall_begin",
+            "version": 1,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "target": target.to_log_entry(),
+            "packages": list(plan.to_remove),
+            "apt_packages": list(plan.apt_packages),
+        }
+    )
+
+    completed: list[Step] = []
+    for command in commands:
+        write(f"  $ {command.display(euid=shown_as)}")
+        log.append(
+            {
+                "event": "command_begin",
+                "version": 1,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "argv": list(command.argv),
+                "requires_root": command.requires_root,
+                "description": command.description,
+            }
+        )
+        try:
+            result = runner.run(command)
+        except BackendError as exc:
+            log.append(
+                {
+                    "event": "uninstall_failed",
+                    "version": 1,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "argv": list(command.argv),
+                    "error": str(exc),
+                    "completed": len(completed),
+                }
+            )
+            return ExecutionReport(completed=tuple(completed), failed=command, stderr=str(exc))
+        log.append(
+            {
+                "event": "command_end",
+                "version": 1,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "argv": list(command.argv),
+                "returncode": result.returncode,
+            }
+        )
+        if not result.ok:
+            log.append(
+                {
+                    "event": "uninstall_failed",
+                    "version": 1,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "argv": list(command.argv),
+                    "returncode": result.returncode,
+                    "completed": len(completed),
+                }
+            )
+            return ExecutionReport(completed=tuple(completed), failed=command, stderr=result.stderr)
+        completed.append(command)
+
+    verification: Verification | None = None
+    if prober is not None and plan.apt_packages:
+        try:
+            states = prober.probe(plan.apt_packages)
+            checks = []
+            for package in plan.apt_packages:
+                state = states.get(package)
+                still_there = state is not None and state.is_installed
+                checks.append(
+                    EffectCheck(
+                        kind="package_removed",
+                        subject=package,
+                        confirmed=not still_there,
+                        detail=(
+                            f"still installed at {state.installed}"
+                            if still_there and state is not None
+                            else "no longer installed"
+                        ),
+                    )
+                )
+            verification = Verification(checks=tuple(checks))
+        except BackendError as exc:
+            verification = Verification(
+                checks=(
+                    EffectCheck(
+                        kind="verification",
+                        subject="apt-cache policy",
+                        confirmed=False,
+                        detail=f"the post-removal effect check could not run: {exc}",
+                    ),
+                )
+            )
+
+    end_entry: dict[str, object] = {
+        "event": "uninstall_end",
+        "version": 1,
         "timestamp": datetime.now(UTC).isoformat(),
         "completed": len(completed),
     }

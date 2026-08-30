@@ -49,13 +49,19 @@ from hammunition.consent import (
     resolve_consent,
 )
 from hammunition.distro import DetectionError, Target
-from hammunition.execute import Step, commands_for, execute
+from hammunition.execute import Step, commands_for, execute, run_removal
 from hammunition.fetch import Fetcher
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
-from hammunition.manifest.schema import PackageManifest, ProfileManifest, Status
+from hammunition.manifest.schema import AptInstall, PackageManifest, ProfileManifest, Status
 from hammunition.paths import build_root
 from hammunition.plan import InstallPlan, PlanError, resolve
-from hammunition.state import TransactionLog, log_path
+from hammunition.state import (
+    RemovalError,
+    TransactionLog,
+    installed_by_hammunition,
+    log_path,
+    plan_removal,
+)
 from hammunition.station import (
     STATION_FIELDS,
     Station,
@@ -645,6 +651,135 @@ def cmd_install(args: argparse.Namespace) -> int:
     return EXIT_FAILED
 
 
+def cmd_uninstall(args: argparse.Namespace) -> int:
+    try:
+        target = Target.detect()
+    except DetectionError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    if not target.is_debian_family:
+        print(
+            f"error: {target.describe()} is not Debian-family; there is nothing "
+            f"Hammunition could have installed here.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+
+    catalog_root = find_catalog(args.catalog)
+    packages, profiles = load_all(catalog_root)
+    runner = SubprocessRunner()
+    apt = AptBackend(runner)
+    user = operator(args)
+    log = TransactionLog(owner=user or None)
+
+    attributed = installed_by_hammunition(log)
+    # Probe every package the request could touch, so the plan partitions on
+    # what is installed now rather than on what the log said at install time.
+    probe_set: set[str] = set()
+    for name in args.names:
+        for unit in profiles[name].packages if name in profiles else [name]:
+            manifest = packages.get(unit)
+            if manifest is None:
+                continue
+            block = manifest.resolve(target.distro, target.version, target.arch)
+            if block is not None and isinstance(block.install, AptInstall):
+                probe_set.update(block.install.packages)
+    try:
+        states = apt.probe(sorted(probe_set)) if probe_set else {}
+        plan = plan_removal(
+            args.names,
+            catalog=packages,
+            profiles=profiles,
+            target=target,
+            attributed=attributed,
+            states=states,
+        )
+    except RemovalError as exc:
+        print(str(exc), file=sys.stderr)
+        print("\nNothing was changed.", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    except BackendError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+
+    euid = os.geteuid()
+    commands = apt.remove_commands(plan.apt_packages)
+
+    print(f"Target: {target.describe()}\n")
+    if plan.to_remove:
+        print(f"Removing ({len(plan.to_remove)} unit(s)):")
+        for unit, unit_packages in plan.to_remove.items():
+            print(f"  {unit:28} - {' '.join(unit_packages)}")
+    for label, mapping in (
+        ("Left in place — installed, but not installed by Hammunition:", plan.left_foreign),
+        ("Already absent:", plan.already_absent),
+    ):
+        flat = {unit: pkgs for unit, pkgs in mapping.items() if pkgs or unit not in plan.to_remove}
+        if flat:
+            print(f"\n{label}")
+            for unit, unit_packages in flat.items():
+                print(f"  {unit:28} {' '.join(unit_packages) or '(nothing resolves here)'}")
+    print(
+        "\nNot reversed, by design: dependencies apt pulled in (run "
+        "`sudo apt autoremove` to clear orphans), group memberships, and any "
+        "config files written — all recorded in the transaction log (D-004)."
+    )
+
+    if commands:
+        print(f"\nCommands ({len(commands)}):")
+        for command in commands:
+            print(f"  # {command.description}")
+            print(f"  $ {command.display(euid=euid)}")
+    else:
+        print("\nNothing to do: none of this is installed, or none of it was ours.")
+        return EXIT_OK
+
+    if args.dry_run:
+        print("\nDry run: nothing above was executed.")
+        return EXIT_OK
+    if not args.yes:
+        print()
+        if not _prompt("Proceed with the commands above?"):
+            print("Aborted. Nothing was changed.")
+            return EXIT_OK
+
+    print("\nRunning:")
+    report = run_removal(
+        commands, runner, log=log, plan=plan, target=target, echo=print, euid=euid, prober=apt
+    )
+    if log.ownership_error:
+        print(f"\nWarning: {log.ownership_error}", file=sys.stderr)
+    if report.ok and not report.verified and report.verification is not None:
+        print(
+            f"\nCommands completed, but {len(report.verification.discrepancies)} "
+            f"removal(s) could not be confirmed afterwards:",
+            file=sys.stderr,
+        )
+        for check in report.verification.discrepancies:
+            print(f"  {check.subject}: {check.detail}", file=sys.stderr)
+        print(
+            f"\nThe transaction log records this as unverified ({log.path}). "
+            f"An exit code of 0 is not proof the change took (D-031).",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    if report.ok:
+        print(f"\nDone. {len(report.completed)} command(s) completed and confirmed.")
+        return EXIT_OK
+
+    assert report.failed is not None
+    print(
+        f"\nFailed: {report.failed.display(euid=euid)}\n{report.stderr.strip()}",
+        file=sys.stderr,
+    )
+    print(
+        f"{len(report.completed)} command(s) completed before the failure and are "
+        f"recorded in {log.path}.",
+        file=sys.stderr,
+    )
+    return EXIT_FAILED
+
+
 def cmd_show(args: argparse.Namespace) -> int:
     """Print the consent disclosure for a gated profile without installing it."""
     catalog_root = find_catalog(args.catalog)
@@ -764,6 +899,23 @@ def build_parser() -> argparse.ArgumentParser:
         "--node-alias", default=None, help="short packet node alias, up to six characters"
     )
     p_install.set_defaults(func=cmd_install)
+
+    p_uninstall = sub.add_parser(
+        "uninstall", help="remove what Hammunition itself installed (apt only, D-004)"
+    )
+    p_uninstall.add_argument("names", nargs="+", metavar="NAME", help="package or profile names")
+    p_uninstall.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="resolve the removal and print exactly what would run, then stop",
+    )
+    p_uninstall.add_argument("--yes", action="store_true", help="skip the confirmation")
+    p_uninstall.add_argument(
+        "--user",
+        default=None,
+        help="operator whose transaction log to read (default: $SUDO_USER, else $USER)",
+    )
+    p_uninstall.set_defaults(func=cmd_uninstall)
 
     p_station = sub.add_parser("station", help="the values only you can supply")
     station_sub = p_station.add_subparsers(dest="station_command", required=True)
