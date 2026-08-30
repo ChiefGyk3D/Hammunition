@@ -386,14 +386,14 @@ src/hammunition/
   manifest/        # schema, loader, validation              ✅
     hardware.py    # device catalog schema (D-020)           ✅
   consent/         # affirmative consent gates (D-021)       ✅
-  state/           # transaction log, uninstall              ✅ apt removal only
+  state/           # transaction log, uninstall              ✅ apt removal, VM-verified
   plan.py          # pre-flight resolution (D-016)           ✅
   execute.py       # plan -> commands -> runner              ✅
   backends/        # apt ✅ source ✅ git ✅ binary ✅; venv, pipx, CPAN ❌
   fetch.py         # verified download, mandatory sha256          ✅
   paths.py         # owner-aware XDG dirs (log, cache, build)     ✅
   distro/          # /etc/os-release detection               ✅
-  hardware/        # USB/serial detection, udev generation   ❌ not written
+  hardware/        # USB/serial detection, udev generation   ✅ written; not hardware-verified
 docs/              # "Hacker's Ham Shack" — guides and labs (section title, not a brand)
   contributing/    # how to contribute; hardware.md is the live ask   ✅
   reference/cli.md # the CLI reference                       ✅

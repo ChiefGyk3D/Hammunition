@@ -5,11 +5,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # CLI reference
 
-The `hammunition` command. Three backends are implemented: **apt**, **source**
-and **git**. Three more are measured, named and scheduled for 1.0
-(`docs/DESIGN.md` §6) — binary, venv, pipx — and a package needing one is
-**refused by name** rather than skipped; see
-[What it refuses](#what-it-refuses).
+The `hammunition` command, at **v0.1.0 (alpha)**. Four backends are
+implemented: **apt**, **source**, **git** and **binary**. Three more are
+measured, named and scheduled for 1.0 (`docs/DESIGN.md` §6) — venv, pipx,
+CPAN — and a package needing one is **refused by name** rather than skipped;
+see [What it refuses](#what-it-refuses). The install/configure/remove cycle
+is VM-verified on Parrot, Kali and Debian 13
+(`docs/reference/vm-verification-parrot.md` and siblings).
 
 The source backend is the expensive half of the parity target: **57 of AHRL's
 95 units cannot be satisfied by apt**, and 35 of those are source builds from
@@ -31,6 +33,11 @@ Override the catalog location with `--catalog DIR` or `HAMMUNITION_CATALOG`.
 A directory with no `packages/` inside it is an error rather than an empty
 catalog, because an empty catalog makes `list` print nothing and look like an
 answer.
+
+## Global flags
+
+`--version` prints the engine version and exits. `--catalog DIR` points at a
+catalog other than the checkout's own.
 
 ## Verbs
 
@@ -177,12 +184,11 @@ capability matrix that reports coverage the engine does not have is the shim
 
 | Situation | What you see |
 |---|---|
-| A `binary`, `venv` or `pipx` install block | the backend named, and that it is scheduled but not written |
+| A `venv` or `pipx` install block | the backend named, and that it is scheduled but not written |
 | A `source` or `git` block whose `build_system` is `custom` | the build system named. No manifest uses it, so it is an unimplemented gap rather than a regression (**D-014**) |
 | A `source` block declaring `patches` | that applying them is not implemented — building unpatched source would produce a binary the manifest does not describe |
 | A `build_depends` package apt has no candidate for | which name, marked `build_depends`, **before** the toolchain is installed |
 | A manifest declaring third-party `apt_repos` | that adding a repository with a pinned key is a disclosed modification of its own |
-| A manifest with `config_files` | that station-local configuration is the open design question it waits on (`docs/DESIGN.md` §15.3) |
 | A `system_modifications` kind other than `group_membership` | the kind, by name |
 | A package whose status is `broken` or `retired` | the recorded reason, verdict and date |
 | A dependency apt has no candidate for | which name, and whether it came from `install` or `depends` |

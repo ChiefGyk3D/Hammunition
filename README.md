@@ -8,9 +8,14 @@ targeting Debian, Ubuntu, Kali, Linux Mint and Raspberry Pi OS.
 
 ---
 
-## ⚠️ Work in progress — it installs apt packages, and nothing else yet
+## ⚠️ Alpha — it installs, configures and removes; the hard 40% is still ahead
 
-**Status: pre-alpha. The M1 walking skeleton runs; most of the engine does not.**
+**Status: alpha, as of v0.1.0.** The core cycle — resolve, disclose, install,
+configure, verify, remove — runs end to end and is **VM-verified on Parrot,
+Kali and Debian 13** (`docs/reference/vm-verification-*.md`), not just in
+containers. Three backends, launcher generation and the hardware layer's
+field-verification are still to come, and until they land a fifth of the
+catalog's owed units stay out of reach.
 
 Being honest about this up front matters more than looking finished, so here is
 exactly where things stand:
@@ -27,7 +32,7 @@ exactly where things stand:
 | Inventories of all five upstream sources | ✅ complete and measured |
 | Consent gates for RF-research tooling | ✅ working |
 | Distro detection from `/etc/os-release` | ✅ working |
-| `install` / `list` / `status` / `show` / `--dry-run` CLI | ✅ working |
+| `install` / `uninstall` / `list` / `status` / `show` / `--dry-run` CLI | ✅ working |
 | apt backend, with real pre-flight resolution | ✅ working |
 | Group membership from a manifest | ✅ working |
 | Source builds from a verified tarball (cmake, autotools, qmake, make) | ✅ working |
@@ -36,14 +41,16 @@ exactly where things stand:
 | AppImage, venv, pipx, CPAN backends | ❌ **not written** — refused by name |
 | Templated config files, from station values | ✅ working — a missing value defers one file, not the transaction |
 | Third-party apt repos | ❌ **not written** — refused by name |
-| udev rule generation | ❌ **not written** |
-| `uninstall` | ❌ **not written** — the log it will read is being written correctly now |
+| udev rule generation from the hardware catalog | 🟡 written; not yet exercised against real hardware |
+| `uninstall` | ✅ working — removes exactly what the log attributes to us, verified removals, apt only |
+| End-to-end VM verification (install / configure / remove) | ✅ Parrot, Kali, Debian 13 — Ubuntu and Pop!_OS queued |
 
 **Much of the catalog is still out of reach.** Of AHRL's 95 units, **57 cannot
 be satisfied by apt at all** — that missing 60% is the hard part and is precisely
 what users cannot install themselves, which is the reason the project exists. The
-largest single slice of it, the 35 source builds from bundled tarballs, is now
-reachable; the rest is not. If you want a working ham radio Linux setup today,
+source, git and prebuilt-binary backends now cover most of it; what remains
+out of reach is the venv/pipx/CPAN slice and the fourteen units needing a
+generated launcher. If you want a working ham radio Linux setup today,
 use one of the projects in [Credit](#credit) below — they work now, and this
 project exists because of them, not instead of them.
 

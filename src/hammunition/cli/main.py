@@ -8,10 +8,11 @@ tool whose whole pitch is "you can read what it is going to do to your machine"
 should be installable without pulling anything extra in to parse its own
 arguments.
 
-The shape follows M1: ``install``, ``list``, ``status``, ``--dry-run``. What
-the engine cannot do it says so, by name — four backends measured and scheduled
-for 1.0 are not written (git, binary, venv, pipx), and a package needing one is
-refused with the backend named rather than skipped. CLAUDE.md forbids a shim
+The verbs are ``install``, ``uninstall``, ``list``, ``status``, ``show`` and
+``station``, all with the M1 property intact: what the engine cannot do it says
+so, by name. Three backends measured and scheduled for 1.0 are not written
+(venv, pipx, CPAN), and a package needing one is refused with the backend named
+rather than skipped. CLAUDE.md forbids a shim
 that makes an unsupported combination appear to work, and a CLI that quietly
 drops the packages it cannot handle is that shim.
 
@@ -32,6 +33,7 @@ import os
 import sys
 import textwrap
 from collections.abc import Mapping, Sequence
+from importlib import metadata
 from pathlib import Path
 
 from hammunition.backends import (
@@ -837,14 +839,28 @@ def _prompt(text: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
+def _engine_version() -> str:
+    """The installed package version, or a marker when running uninstalled."""
+    try:
+        return metadata.version("hammunition")
+    except metadata.PackageNotFoundError:
+        return "0+uninstalled"
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="hammunition",
         description="Turn a Debian-family install into an amateur radio, SDR and RF workstation.",
         epilog=(
-            "Pre-alpha. Only the apt backend exists; a package needing another is "
-            "refused by name rather than skipped."
+            "Alpha. The apt, source, git and binary backends exist and the "
+            "install/configure/remove cycle is VM-verified on Parrot, Kali and "
+            "Debian 13; a package needing venv, pipx or CPAN is refused by name."
         ),
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"hammunition {_engine_version()}",
     )
     parser.add_argument(
         "--catalog",
