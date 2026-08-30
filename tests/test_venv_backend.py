@@ -190,8 +190,8 @@ def test_payload_plans_fetch_extract_build_and_tree_install(tmp_path: Path) -> N
     assert ("sh") in kinds, kinds
     assert kinds[-3:] == ["rm", "install", "cp"], "tree install must be last"
     build = next(s for s in steps if not isinstance(s, Action) and s.argv[0] == "sh")
-    assert build.argv == ("sh", "auto_rx/build.sh")  # type: ignore[union-attr]
-    assert not build.requires_root  # type: ignore[union-attr]
+    assert build.argv == ("sh", "auto_rx/build.sh")
+    assert not build.requires_root
 
 
 def test_a_payload_without_a_fetcher_is_refused_by_name(tmp_path: Path) -> None:
