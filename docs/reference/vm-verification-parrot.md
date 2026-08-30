@@ -45,6 +45,31 @@ Two facts about Parrot that baseline prep must include, now baked into
 | Idempotency — same command again | **Zero commands.** All 10 report `already installed`, output ends `Nothing to do.`, exit 0, no sudo touched. |
 | The container-blocked six | **All six configure cleanly on a real init system.** `gpsd` in the station run; `direwolf`, `gpredict`, `cubicsdr`, `gnuradio`, `gr-gsm` in one engine transaction (`--yes`), one apt command, completed and confirmed, all five verified `ii` afterwards. `install-verification.md`'s rootless-harness caveat is now closed for the whole set: those were harness facts, not package problems. |
 
+## Uninstall (added same day — the verb did not exist that morning)
+
+`hammunition uninstall` was written because this campaign needed to test
+removal and found nothing to test. All results below are from the Parrot
+guest, engine at the commit introducing the verb:
+
+| Test | Result |
+|---|---|
+| `uninstall twclock --dry-run` | One unit, one `apt-get remove` command, nothing executed. |
+| `uninstall aircrack-ng --dry-run` | **The promise holds:** Parrot preinstalls aircrack-ng, Hammunition did not — reported under *Left in place — installed, but not installed by Hammunition* and refused. Nothing to do. |
+| `uninstall twclock --yes` | Completed and confirmed; dpkg shows `rc` — removed, config kept, which is `remove`-not-`purge` doing what the plan said. |
+| `uninstall station --yes` | Planned 9 (twclock correctly in *already absent*), one command, completed and confirmed; all 10 station packages verified gone via `dpkg-query` afterwards. |
+| `uninstall station --dry-run` again | *Nothing to do* — attribution replay saw its own removal. |
+| `install station --yes` after the uninstall | Reinstalls cleanly. The full install → uninstall → reinstall cycle holds. |
+
+## Harness finding: the guest suspends itself
+
+Both apparent "wedges" this campaign (domain `running`, CPU time frozen,
+network gone, `dompmwakeup` refusing) were the **desktop guest's own idle
+suspend**, not the snapshot tooling first suspected: the console showed
+"Display output is not active" and a single `virsh send-key` woke it.
+`systemctl mask sleep.target suspend.target hibernate.target
+hybrid-sleep.target` is now baseline prep item 4 in the runbook, baked into
+`clean-baseline` v3 along with sshd and the NOPASSWD drop-in.
+
 ## Findings for the catalog and engine
 
 1. **chirp's executables are `chirpw` (GUI) and `chirpc` (CLI) — there is no

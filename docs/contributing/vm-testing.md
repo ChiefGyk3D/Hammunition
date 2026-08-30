@@ -53,12 +53,31 @@ findings about the gap, not bugs, until that decision is made.
 
 `scripts/vm-snapshot.sh` wraps virsh; `docs` here, mechanism there. The loop
 that keeps install testing honest is **every campaign starts from the same
-frozen state**:
+frozen state**.
 
-1. Install the OS. Update it (`apt update && apt full-upgrade`). Install
-   `openssh-server`. Reboot once. **Detach the install ISO** — the script
-   refuses to baseline while one is attached.
-2. Shut the guest down, then take the baseline (a cold baseline boots fresh;
+### Baseline prep — the per-image checklist
+
+Every item below must be *inside* `clean-baseline`, or every reset silently
+loses it. Each one was learned by losing it on the first Parrot image:
+
+1. Install the OS. Update it (`apt update && apt full-upgrade`).
+2. `sudo apt install openssh-server && sudo systemctl enable --now ssh` —
+   Parrot ships it installed but **disabled**; a baseline without it comes
+   up unreachable on every reset.
+3. Passwordless sudo for the test account (dev VMs only, never a bridged
+   machine — the engine invokes `sudo apt-get` itself, and driving that over
+   non-interactive SSH needs it):
+   `echo 'USER ALL=(ALL) NOPASSWD: ALL' | sudo tee /etc/sudoers.d/90-dev-nopasswd`
+   then `sudo chmod 440 /etc/sudoers.d/90-dev-nopasswd && sudo visudo -c`.
+4. `sudo systemctl mask sleep.target suspend.target hibernate.target
+   hybrid-sleep.target` — a **desktop guest suspends itself on idle**. The
+   symptom is nasty: the domain says `running`, CPU time freezes, the network
+   drops, `virsh dompmwakeup` refuses (`s2idle` never looks suspended to
+   QEMU), and the console says "Display output is not active". One
+   `virsh send-key DOMAIN KEY_LEFTSHIFT` wakes it; the mask prevents it.
+5. **Detach the install ISO** — the script refuses to baseline while one is
+   attached.
+6. Shut the guest down, then take the baseline (a cold baseline boots fresh;
    a live one resumes mid-session — fine for quick loops, worse as a
    months-later known state):
 
@@ -85,7 +104,9 @@ frozen state**:
 Idempotency claims get tested *without* resetting: run the same install
 twice from the post-install state and diff the transaction log. Uninstall
 claims get tested against a `save` checkpoint, not the baseline, so what
-uninstall missed is visible instead of being wiped by the revert.
+uninstall missed is visible instead of being wiped by the revert. Take
+checkpoints **cold** (shut down first) — they double as known states months
+later, and a cold snapshot cannot capture a guest mid-anything.
 
 ## What to test, in order
 
