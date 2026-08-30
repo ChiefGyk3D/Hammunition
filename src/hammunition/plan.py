@@ -376,17 +376,22 @@ def _check_engine_capability(manifest: PackageManifest, block: InstallBlock) -> 
                     ),
                 )
             )
-        if isinstance(source, SourceInstall) and source.patches:
-            found.append(
-                Blocker(
-                    subject=manifest.name,
-                    reason=f"declares {len(source.patches)} source patch(es), which cannot be applied yet",
-                    remedy=(
-                        "building the source unpatched would produce a binary the manifest "
-                        "does not describe, so it is refused rather than approximated"
-                    ),
+        if isinstance(source, SourceInstall):
+            undiffed = [p.file for p in source.patches if not p.unified_diff]
+            if undiffed:
+                found.append(
+                    Blocker(
+                        subject=manifest.name,
+                        reason=(
+                            f"declares patches for {', '.join(undiffed)} with no "
+                            f"unified_diff to apply"
+                        ),
+                        remedy=(
+                            "a description alone cannot be applied; building unpatched "
+                            "source would produce a binary the manifest does not describe"
+                        ),
+                    )
                 )
-            )
 
     if isinstance(block.install, BinaryInstall):
         # The format is checked here rather than only in the backend, so an
@@ -406,11 +411,18 @@ def _check_engine_capability(manifest: PackageManifest, block: InstallBlock) -> 
                     ),
                 )
             )
-        elif block.install.format != "deb" and not manifest.binaries:
+        elif (
+            block.install.format != "deb"
+            and not manifest.binaries
+            and not block.install.install_tree
+        ):
             found.append(
                 Blocker(
                     subject=manifest.name,
-                    reason="is a prebuilt archive or executable that names no `binaries`",
+                    reason=(
+                        "is a prebuilt archive or executable that names no `binaries` "
+                        "and no `install_tree`"
+                    ),
                     remedy=(
                         "declare what the artifact contains and what it should be called; "
                         "unpacking it otherwise installs nothing while reporting success"

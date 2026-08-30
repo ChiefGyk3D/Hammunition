@@ -201,7 +201,7 @@ capability matrix that reports coverage the engine does not have is the shim
 |---|---|
 | A `pipx` install block | the backend named — re-measured to zero users (D-014 amendment) and unwritten |
 | A `source` or `git` block whose `build_system` is `custom` | the build system named. No manifest uses it, so it is an unimplemented gap rather than a regression (**D-014**) |
-| A `source` block declaring `patches` | that applying them is not implemented — building unpatched source would produce a binary the manifest does not describe |
+| A `patches` entry with no `unified_diff` | a description alone cannot be applied — building unpatched source would produce a binary the manifest does not describe. (Declared diffs stage and apply with patch(1) since v0.4.0.) |
 | A `build_depends` package apt has no candidate for | which name, marked `build_depends`, **before** the toolchain is installed |
 | A manifest declaring third-party `apt_repos` | that adding a repository with a pinned key is a disclosed modification of its own |
 | A `system_modifications` kind other than `group_membership` | the kind, by name |

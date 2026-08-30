@@ -57,7 +57,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from hammunition.fetch import Fetcher
-from hammunition.manifest.schema import Binary, PackageManifest, SourceInstall
+from hammunition.manifest.schema import Binary, PackageManifest, Patch, SourceInstall
 
 from .base import Action, BackendError, Command
 
@@ -70,7 +70,10 @@ __all__ = [
     "extract",
     "install_binary_commands",
     "needs_root_for",
+    "patch_steps",
     "prepare_tree",
+    "tree_destination",
+    "tree_install_commands",
 ]
 
 #: FHS: locally-built software goes in /usr/local, where it does not collide
@@ -81,7 +84,7 @@ DEFAULT_PREFIX = Path("/usr/local")
 #: and is refused by name.
 IMPLEMENTED_BUILD_SYSTEMS = frozenset({"autotools", "cmake", "qmake", "qmake6", "make"})
 
-_TAR_SUFFIXES = (".tar.gz", ".tgz", ".tar.bz2", ".tbz2", ".tar.xz", ".txz", ".tar")
+_TAR_SUFFIXES = (".tar.gz", ".tgz", ".tar.bz2", ".tbz2", ".tbz", ".tar.xz", ".txz", ".tar")
 
 
 @dataclass(frozen=True)
@@ -108,6 +111,29 @@ def _is_tar(name: str) -> bool:
 
 def _is_zip(name: str) -> bool:
     return name.lower().endswith(".zip")
+
+
+def _sniff(archive: Path) -> str | None:
+    """``"tar"``, ``"zip"``, or None — from the bytes, not the name.
+
+    The artifact cache names files by digest plus whatever the URL ended in,
+    and a SourceForge URL ends in ``/download`` — MSHV's fetch verified
+    cleanly and then could not be unpacked because the *name* said nothing
+    (found 2026-08-30). The content is the authority; the suffix check
+    remains only as the fallback for a bare uncompressed tar, whose 257-byte
+    magic offset an empty-ish file may not reach.
+    """
+    with archive.open("rb") as handle:
+        head = handle.read(6)
+        handle.seek(257)
+        ustar = handle.read(5)
+    if head[:4] == b"PK\x03\x04":
+        return "zip"
+    if head[:2] == b"\x1f\x8b" or head[:3] == b"BZh" or head[:6] == b"\xfd7zXZ\x00":
+        return "tar"
+    if ustar == b"ustar":
+        return "tar"
+    return None
 
 
 def _safe_members(names: list[str], destination: Path) -> None:
@@ -172,18 +198,28 @@ def extract(archive: Path, destination: Path) -> str:
     staging.mkdir(parents=True)
 
     try:
-        if _is_tar(archive.name):
+        kind = _sniff(archive)
+        if kind == "tar" or (kind is None and _is_tar(archive.name)):
             with tarfile.open(archive) as tar:
                 # PEP 706. Refuses absolute paths, `..`, links pointing outside
                 # the destination, device nodes, and setuid/setgid bits.
                 tar.extractall(staging, filter="data")
                 count = len(tar.getnames())
-        elif _is_zip(archive.name):
+        elif kind == "zip" or (kind is None and _is_zip(archive.name)):
             with zipfile.ZipFile(archive) as archive_zip:
                 names = archive_zip.namelist()
                 _safe_members(names, staging)
                 archive_zip.extractall(staging)
                 count = len(names)
+                # Python's zipfile discards the unix mode bits a zip records
+                # in external_attr, so an executable `configure` arrives
+                # unrunnable (linrad's zip proved it -- AHRL's script chmods
+                # by hand for the same reason). Restore what the archive
+                # actually recorded; never invent a bit it did not carry.
+                for info in archive_zip.infolist():
+                    mode = (info.external_attr >> 16) & 0o777
+                    if mode:
+                        os.chmod(staging / info.filename, mode)
         else:
             raise BackendError(
                 f"{archive.name} is not an archive this backend unpacks. "
@@ -250,13 +286,6 @@ class SourceBackend:
                 f"catalog uses it, so it is an unimplemented gap rather than a "
                 f"regression — D-014 records the zero rather than building for it."
             )
-        if block.patches:
-            raise BackendError(
-                f"{manifest.name} declares {len(block.patches)} patch(es), and applying "
-                f"them is not implemented. No manifest in the catalog carries a patch "
-                f"today, so this is a named gap rather than a silent skip — building "
-                f"unpatched source would produce a binary the manifest did not describe."
-            )
 
         layout = self.layout(manifest, block)
         artifact = block.source
@@ -274,6 +303,7 @@ class SourceBackend:
                 perform=lambda: extract(self.fetcher.path_for(artifact), layout.src),
             ),
         ]
+        steps.extend(patch_steps(manifest.name, block.patches, layout))
         steps.extend(self._build_commands(manifest, block, layout))
         return steps
 
@@ -288,7 +318,7 @@ class SourceBackend:
         block: SourceInstall,
         layout: SourceLayout,
     ) -> list[Command]:
-        return build_commands(
+        commands = build_commands(
             name=manifest.name,
             build_system=block.build_system,
             layout=layout,
@@ -301,6 +331,13 @@ class SourceBackend:
             provides_install_target=block.provides_install_target,
             binaries=manifest.binaries,
         )
+        if block.install_tree:
+            commands.extend(
+                tree_install_commands(
+                    name=manifest.name, source_tree=layout.src, prefix=self.prefix
+                )
+            )
+        return commands
 
 
 #: Directories where installing is a system-wide change. FHS, plus /opt.
@@ -389,6 +426,92 @@ def install_binary_commands(
     ]
 
 
+def tree_install_commands(*, name: str, source_tree: Path, prefix: Path) -> list[Command]:
+    """Install the whole tree to ``<prefix>/share/hammunition/<name>``.
+
+    For software that reads settings, resources or data beside its executable
+    (source-build-gaps #6 and #8 -- MSHV, run-in-place Python and Java
+    trees). ``cp -aT`` replaces content in place; the target is wholly ours,
+    under our own share/ namespace, so clearing it first is safe and keeps a
+    re-run from accumulating files upstream deleted.
+    """
+    destination = prefix / "share" / "hammunition" / name
+    privileged = needs_root_for(prefix)
+    return [
+        Command(
+            argv=("rm", "-rf", "--", str(destination)),
+            description=f"Clear any previous {name} tree",
+            requires_root=privileged,
+        ),
+        Command(
+            argv=("install", "-d", str(destination.parent)),
+            description=f"Ensure {destination.parent} exists",
+            requires_root=privileged,
+        ),
+        Command(
+            argv=("cp", "-aT", str(source_tree), str(destination)),
+            description=f"Install the {name} tree into {destination}",
+            requires_root=privileged,
+        ),
+    ]
+
+
+def tree_destination(prefix: Path, name: str) -> Path:
+    """Where :func:`tree_install_commands` puts *name*'s tree."""
+    return prefix / "share" / "hammunition" / name
+
+
+def write_patch(path: Path, diff: str) -> str:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(diff if diff.endswith("\n") else diff + "\n")
+    return f"staged patch at {path}"
+
+
+def patch_steps(
+    name: str,
+    patches: Sequence[Patch],
+    layout: SourceLayout,
+) -> list[Action | Command]:
+    """Stage each declared diff and apply it with patch(1), in order.
+
+    Implemented the day the measured zero ended: linrad's Makefile bakes
+    -Werror into a literal flag string with no variable to override, so it
+    cannot ship without an in-tree edit (source-build-gaps #2). AHRL does
+    these edits with sed at install time; a declared unified diff is
+    reviewable in the catalog and fails loudly when upstream moves the code
+    it touches. Idempotent the same way builds are: the tree is cleared and
+    re-extracted every run, so a patch never applies twice. Manifests with
+    patches must carry `patch` in build_depends.
+    """
+    from functools import partial
+
+    steps: list[Action | Command] = []
+    for index, declared in enumerate(patches):
+        if not declared.unified_diff:
+            raise BackendError(
+                f"{name}: patch for {declared.file!r} declares no unified_diff — a "
+                f"description alone cannot be applied, and building unpatched source "
+                f"would produce a binary the manifest does not describe"
+            )
+        staged = layout.root / "patches" / f"{index:02d}-{Path(declared.file).name}.diff"
+        steps.append(
+            Action(
+                kind="patch",
+                description=f"Stage the {declared.file} patch: {declared.description}",
+                detail=str(staged),
+                perform=partial(write_patch, staged, declared.unified_diff),
+            )
+        )
+        steps.append(
+            Command(
+                argv=("patch", "-p1", "-i", str(staged)),
+                description=f"Apply it to {declared.file}",
+                cwd=layout.src,
+            )
+        )
+    return steps
+
+
 def build_commands(
     *,
     name: str,
@@ -469,7 +592,10 @@ def build_commands(
                 cwd=layout.src,
             ),
             Command(
-                argv=("make", "-j", jobs_arg),
+                # build_args reach make here too (gap #1: linrad's build is
+                # ./configure then `make xlinrad64` -- a bare make prints usage
+                # and stops).
+                argv=("make", "-j", jobs_arg, *build_args),
                 description=f"Compile {name}",
                 env=env,
                 cwd=layout.src,
@@ -506,7 +632,10 @@ def build_commands(
                 cwd=layout.src,
             ),
             Command(
-                argv=("make", "-j", jobs_arg),
+                # build_args reach make here too (gap #1: linrad's build is
+                # ./configure then `make xlinrad64` -- a bare make prints usage
+                # and stops).
+                argv=("make", "-j", jobs_arg, *build_args),
                 description=f"Compile {name}",
                 env=env,
                 cwd=layout.src,

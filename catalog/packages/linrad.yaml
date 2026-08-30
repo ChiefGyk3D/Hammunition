@@ -1,0 +1,161 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: linrad
+version: "05.02"
+summary: SM5BSZ's DSP receiver — the deep-toolbox SDR for weak-signal work
+categories: [sdr, listening]
+
+# CARRY from AHRL, and the unit that ended three measured zeros at once
+# (source-build-gaps #1, #2, #4): its build is ./configure then a *named*
+# make target, its Makefile.in bakes -Werror into literal flag strings that
+# no variable overrides, and its targets are per-architecture. The configure
+# is real GNU Autoconf 2.71 despite the hand-rolled reputation, so the
+# autotools path fits once build_args reach make. Fetched from upstream's own
+# archive over https; the .tbz preserves the exec bit the old .zip lost.
+install:
+  - when:
+      arch: [x86_64]
+    install:
+      method: source
+      source:
+        url: https://www.sm5bsz.com/linuxdsp/archive/lir05-02.tbz
+        sha256: 9b8bbfb2baf854aac8f28a21f6d82e41d0ba6ca7cc5f4d47c7e787580872ce09
+      build_system: autotools
+      build_args: [xlinrad64]
+      provides_install_target: false
+      patches:
+        - file: Makefile.in
+          description: >-
+            Remove the six baked-in -Werror occurrences. GCC has promoted
+            warnings for two decades since this code was written; building
+            it as errors-on-warnings fails on the first deprecation, and
+            upstream provides no variable to override the literal string.
+          unified_diff: |
+            --- a/Makefile.in	2026-08-30 16:52:27.073905710 -0400
+            +++ b/Makefile.in	2026-08-30 16:52:27.075258720 -0400
+            @@ -57,7 +57,7 @@
+             @DARWIN@ @OCLPROGS32@ -DSERVER=@MAKE_SERVER@ -DHAVE_SVGALIB=@CONSOLE32_OK@ \
+             -DHAVE_CUFFT=@CUFFT32_OK@ \
+             -Wreturn-type -Wformat @M32@ -Wunused -Wcomment -Wchar-subscripts -Wshadow \
+            --Wuninitialized -Wparentheses -Wstrict-prototypes -Werror -ffast-math \
+            +-Wuninitialized -Wparentheses -Wstrict-prototypes -ffast-math \
+             -Wundef -fomit-frame-pointer -c -o
+             
+             CFLN	= -O2 -DOSNUM=1 @X11_32_INC@ -W -Wall -DCPU=@CPU@ @OSSINC32@ \
+            @@ -66,7 +66,7 @@
+             @DARWIN@ @OCLPROGS32@ -DSERVER=@MAKE_SERVER@ -DHAVE_CUFFT=@CUFFT32_OK@ \
+             -Wconversion \
+             -Wreturn-type -Wformat @M32@ -Wunused -Wcomment -Wchar-subscripts -Wshadow \
+            --Wuninitialized -Wparentheses -Wstrict-prototypes -Werror -ffast-math \
+            +-Wuninitialized -Wparentheses -Wstrict-prototypes -ffast-math \
+             -Wundef -fomit-frame-pointer -c -o
+             
+             CFLOCL	= -O2 -DOSNUM=1 @X11_32_INC@ -W -Wall -DCPU=@CPU@ @OSSINC32@ \
+            @@ -75,13 +75,13 @@
+             @DARWIN@ -DSERVER=@MAKE_SERVER@ -DHAVE_SVGALIB=@CONSOLE32_OK@ \
+             @OCLPROGS32@ -DCL_USE_DEPRECATED_OPENCL_1_2_APIS -DHAVE_CUFFT=@CUFFT32_OK@ \
+             -Wreturn-type -Wformat @M32@ -Wunused -Wcomment -Wchar-subscripts -Wshadow \
+            --Wuninitialized -Wparentheses -Werror -ffast-math \
+            +-Wuninitialized -Wparentheses -ffast-math \
+             -Wundef -fomit-frame-pointer -c -o
+             
+             CFW	= -O2 -DOSNUM=2 -W -Wall -Wimplicit -DIA64=0 -DHAVE_CUFFT=0 \
+             -DCPU=CPU_INTEL -DSERVER=@MAKE_SERVER@ -DHAVE_OSS=0 -DOPENCL_PRESENT=0 \
+             @M32@ -Wreturn-type -Wformat -Wunused -Wcomment -Wchar-subscripts \
+            --Wshadow -Wuninitialized -Wparentheses -Wstrict-prototypes -Werror \
+            +-Wshadow -Wuninitialized -Wparentheses -Wstrict-prototypes \
+             -ffast-math -Wundef -fomit-frame-pointer -c -o
+             
+             # -fsyntax-only -pedantic -pedantic-errors -w -Wextra -Wall -Waddress -Waggrega
+            @@ -90,13 +90,13 @@
+             -DCPU=CPU_INTEL -DSERVER=@MAKE_SERVER@ -DHAVE_OSS=0 -DOPENCL_PRESENT=0 \
+             @M32@ -Wreturn-type -Wformat -Wunused -Wcomment -Wchar-subscripts \
+             -Wconversion \
+            --Wshadow -Wuninitialized -Wparentheses -Wstrict-prototypes -Werror \
+            +-Wshadow -Wuninitialized -Wparentheses -Wstrict-prototypes \
+             -ffast-math -Wundef -fomit-frame-pointer -c -o
+             
+             CFW64	= -O2 -DOSNUM=2 -W -Wall -Wimplicit -DIA64=1 -DHAVE_CUFFT=0 \
+             -DCPU=CPU_INTEL -DSERVER=@MAKE_SERVER@ -DHAVE_OSS=0 -DOPENCL_PRESENT=0 \
+             @M64@ -Wreturn-type -Wformat -Wunused -Wcomment -Wchar-subscripts \
+            --Wshadow -Wuninitialized -Wparentheses -Wstrict-prototypes -Werror \
+            +-Wshadow -Wuninitialized -Wparentheses -Wstrict-prototypes \
+             -ffast-math -Wundef -fomit-frame-pointer -c -o
+             
+             CFL64	= -O2 -DOSNUM=1 @X11_64_INC@ -W -Wall -DHAVE_OSS=@OSS64_H@ \
+            @@ -105,7 +105,7 @@
+             @OCLPROGS64@ -DHAVE_CUFFT=@CUFFT64_OK@ \
+             -Wimplicit -Wreturn-type -Wformat @M64@ -Wunused -Wcomment -DOSSD=@OSSHDR64@ \
+             -Wchar-subscripts -Wshadow -Wuninitialized -Wparentheses @OSSINC64@ \
+            --Wstrict-prototypes -Werror -ffast-math -Wundef -fomit-frame-pointer \
+            +-Wstrict-prototypes -ffast-math -Wundef -fomit-frame-pointer \
+             -c -o
+             
+             CFLN64	= -O2 -DOSNUM=1 @X11_64_INC@ -W -Wall -DHAVE_OSS=@OSS64_H@ \
+            @@ -114,7 +114,7 @@
+             -DHAVE_CUFFT=@CUFFT64_OK@ -DOSSD=@OSSHDR64@ @OSSINC64@ @OCLPROGS64@ \
+             -Wconversion -Wimplicit -Wreturn-type -Wformat @M64@ -Wunused -Wcomment \
+             -Wchar-subscripts -Wshadow -Wuninitialized -Wparentheses \
+            --Wstrict-prototypes -Werror -ffast-math -Wundef -fomit-frame-pointer \
+            +-Wstrict-prototypes -ffast-math -Wundef -fomit-frame-pointer \
+             -c -o
+             
+             CFLOCL64	= -O2 -DOSNUM=1 @X11_64_INC@ -W -Wall -DHAVE_OSS=@OSS64_H@ \
+            @@ -123,7 +123,7 @@
+             @OCLPROGS64@ -DCL_USE_DEPRECATED_OPENCL_1_2_APIS -DHAVE_CUFFT=@CUFFT64_OK@ \
+             -Wimplicit -Wreturn-type -Wformat @M64@ -Wunused -Wcomment -DOSSD=@OSSHDR64@ \
+             -Wchar-subscripts -Wshadow -Wuninitialized -Wparentheses @OSSINC64@ \
+            --Werror -ffast-math -Wundef -fomit-frame-pointer \
+            +-ffast-math -Wundef -fomit-frame-pointer \
+             -c -o
+             
+             # Define dependencies for routines used both in Linux and Windows
+    build_depends:
+      - build-essential
+      - patch
+      - nasm
+      - libx11-dev
+      - libxext-dev
+    note: >-
+      Patched before configure runs, so the generated Makefile inherits the
+      fix. The 64-bit X11 target (xlinrad64) is what AHRL shipped; the ARM
+      targets are unmeasured here and the block is x86_64-gated rather than
+      guessed (D-002, D-025).
+
+binaries:
+  - produced: xlinrad64
+    install_as: linrad
+
+update:
+  probe:
+    method: none
+  strategy: rebuild
+  cadence_hint: >-
+    Upstream versions land as lirNN-MM.tbz in sm5bsz.com/linuxdsp/archive/.
+    Slow-moving and worth checking manually; the SourceForge mirror carries
+    only packaged snapshots.
+
+documentation:
+  what_it_does: >-
+    A software-defined receiver with an unusually deep DSP toolbox — adaptive
+    noise blanking, smart filtering, coherent averaging — driven from a dense
+    X11 interface. The classic choice for EME and other weak-signal work
+    where its blanker still outclasses newer SDR GUIs.
+  why_you_want_it: >-
+    Nothing else in the catalog has Linrad's noise-blanking pedigree. If your
+    problem is hearing a station under local impulse noise or off the Moon,
+    this is the tool the weak-signal community still reaches for.
+  prerequisites: >-
+    An SDR or soundcard input, and patience with the interface — first-run
+    setup walks through hardware configuration in a terminal-style UI. Runs
+    under X11; install as `linrad` from the PATH.
+  known_problems: >-
+    The interface predates every modern UI convention; read SM5BSZ's site
+    before judging it. Built with -Werror removed (see the patch) — the
+    warnings are real but benign 1990s C, and fixing them upstream is beyond
+    a packaging project's remit.
+  upstream_url: http://www.sm5bsz.com/linuxdsp/linrad.htm
+  upstream_support: >-
+    Leif Asbrink SM5BSZ's site and the linrad mailing list — documentation is
+    extensive, in its own idiom.

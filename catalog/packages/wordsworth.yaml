@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: wordsworth
+version: "0.3"
+summary: Generate Morse practice text the Wordsworth way — words, not characters
+categories: [cw, training]
+
+# CARRY from AHRL. source-build-gaps #5 recorded "no build step and a data
+# file to install"; reading the scripts (2026-08-30) softened the second
+# half: gen_cw_words.pl embeds its word lists inline and text_to_cw.pl reads
+# whatever input file you give it — the bundled QSO_Words_5000.txt is sample
+# input, not a runtime dependency. So this is the binary backend installing
+# two GPL-3 Perl scripts from a verified tarball, and the sample text is
+# noted below rather than shipped to a path nothing reads.
+install:
+  - install:
+      method: binary
+      artifact:
+        url: https://downloads.sourceforge.net/project/kb1oiq-k1ig-wordsworth/wordsworth/wordsworth_0.3.tar.gz
+        sha256: 7e59114de96bb8c746a2db94958f83bbe5919d3c619f03d1564549cd124183b2
+      format: tarball
+    note: >-
+      The SourceForge artifact hashes identically to the copy AHRL bundles --
+      verified 2026-08-30, both downloads. Perl itself is essential on every
+      target; no dependency line needed.
+
+binaries:
+  - produced: gen_cw_words.pl
+    install_as: gen_cw_words
+  - produced: text_to_cw.pl
+    install_as: text_to_cw
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: Effectively finished software; 0.3 has stood since 2021.
+
+documentation:
+  what_it_does: >-
+    Two small Perl tools implementing K1IG's "Wordsworth" method of Morse
+    training: gen_cw_words emits random words from built-in lists (common CW
+    words, letters, names, numbers) for head-copy practice, and text_to_cw
+    converts any text file into practice material. Pipe either into a CW
+    audio tool such as ebook2cw.
+  why_you_want_it: >-
+    The Wordsworth method (QST, 2019) trains hearing whole words instead of
+    counting dits -- the widely recommended path past the 10 WPM plateau.
+    These are the author-adjacent reference tools, co-published by AHRL's own
+    maintainer.
+  prerequisites: >-
+    A CW audio generator to feed -- ebook2cw or the ebook2cwgui this catalog
+    carries. Perl is already on every Debian-family system.
+  known_problems: >-
+    None known. The upstream tarball also carries QSO_Words_5000.txt, sample
+    QSO text worth feeding to text_to_cw -- grab it from the archive if you
+    want it; nothing installs it system-wide.
+  upstream_url: https://sourceforge.net/projects/kb1oiq-k1ig-wordsworth/
+  upstream_support: The SourceForge project (KB1OIQ and K1IG).

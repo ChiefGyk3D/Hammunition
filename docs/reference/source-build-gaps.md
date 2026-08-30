@@ -19,7 +19,10 @@ Measured **2026-08-28** in Debian 13 containers unless stated otherwise.
 
 ## Open
 
-### 1. A custom `make` target — `linrad`
+### 1. A custom `make` target — `linrad` — **CLOSED 2026-08-30**
+
+`build_args` now reach `make` on the autotools path too; linrad's
+`make xlinrad64` built and installed on the Parrot VM.
 
 The autotools path runs `make` with no target. Linrad's build is
 `./configure` followed by `make xlinrad64`; a bare `make` prints usage and
@@ -27,7 +30,11 @@ stops. Nothing in the schema can say which target to build for an autotools
 project. (`build_args` exists on `SourceInstall` but is only passed by the
 `make` build system, which has no configure step.)
 
-### 2. In-tree patching — `linrad`, and nearly `Fl_MoxGen`
+### 2. In-tree patching — `linrad`, and nearly `Fl_MoxGen` — **CLOSED 2026-08-30**
+
+Declared unified diffs stage and apply with patch(1) before configure;
+linrad ships with its six baked-in -Werror occurrences patched out, VM-built.
+A patch with only a description is still refused by name.
 
 `patches` is in the schema and is a **measured zero**: the backend refuses it
 by name rather than implementing it speculatively. Linrad ends that.
@@ -77,7 +84,10 @@ pointing at the tag's archive rather than a `git` manifest pointing at the
 tag — and the rule that produces is a useful one: for an autotools project,
 prefer the tarball; the git route needs a bootstrap step nothing here performs.
 
-### 4. Architecture-dependent `configure` arguments — `linrad`
+### 4. Architecture-dependent `configure` arguments — `linrad` — **CLOSED 2026-08-30**
+
+Arch-gated install blocks carry per-arch `build_args`; linrad's manifest
+gates x86_64 and leaves ARM unmeasured rather than guessed.
 
 Linrad's `configure` looks for `libX11.so` and `libasound.so` at paths that do
 not match Debian's multiarch layout, and **says so without failing**:
@@ -99,7 +109,11 @@ equivalent fixes detection — and those paths carry the architecture triplet, s
 expressing them needs either per-arch install blocks or a substitution the
 schema does not have.
 
-### 5. No build step at all — `wordsworth`
+### 5. No build step at all — `wordsworth` — **CLOSED 2026-08-30**
+
+The binary backend's tarball format installs the two scripts; reading the
+code softened the 'data file' half — the word lists are embedded, the txt is
+sample input. VM-verified emitting practice words.
 
 `wordsworth_0.3.tar.gz` contains two Perl scripts, a README, a COPYING and a
 5000-word list. There is nothing to compile and no Makefile, so the `make`
@@ -111,7 +125,12 @@ to install a **data file**: `binaries` puts executables in `<prefix>/bin` and
 `QSO_Words_5000.txt` is not one. AHRL copies the two scripts to
 `/usr/local/bin` and leaves the word list in the source tree.
 
-### 6. Installing a tree, not a binary — `mshv`
+### 6. Installing a tree, not a binary — `mshv` — **CLOSED 2026-08-30**
+
+`install_tree` lands the whole build under
+`/usr/local/share/hammunition/<name>`; MSHV built and runs from its tree via
+the generated launcher, after two build-deps AHRL only had by install-order
+accident (libpulse-dev, libfftw3-dev) were measured in.
 
 `provides_install_target: false` copies declared binaries into the prefix. MSHV
 reads settings, resources and logs from directories beside its executable in
@@ -143,7 +162,10 @@ property nobody verified, which only became decisive when someone tried to act
 on it. Activity and community size were measured correctly. Buildability was
 not measured at all.
 
-### 8. Python run in place, with a data tree — `supersdr`, `js8spotter`, `mshv`
+### 8. Python run in place, with a data tree — `js8spotter` — **CLOSED 2026-08-30** (supersdr moved to #9)
+
+`install_tree` plus a generated launcher; js8spotter 1.20 installed and
+launches from its tree on the Parrot VM.
 
 Not a build problem. These are programs that are never installed anywhere:
 they run from the directory they were unpacked into, because they read fonts,
@@ -165,7 +187,7 @@ this reason and not for the licence one.
 
 ---
 
-### 9. A venv beside compiled decoders — `radiosonde_auto_rx`
+### 9. A venv beside a payload tree — `radiosonde_auto_rx`, and now `supersdr`
 
 The REVIVE table said "standard venv install from the pinned upstream tag",
 and the venv backend now exists — but reading upstream (2026-08-30) shows the
@@ -176,6 +198,16 @@ clone. That is the git backend with a `custom` build step (a measured zero
 until now), the venv backend, config templating and launcher generation
 composed on one unit. It stays a documented gap rather than getting a
 manifest that pretends any single backend covers it.
+
+`supersdr` joined this class on 2026-08-30, from the other direction: its
+data tree installs fine (`install_tree` closed #8 the same day), but its
+audio dependency does not exist as a Debian package at all —
+`python3-sounddevice` has no candidate on Debian 13, measured by the
+engine's own D-016 refusal on the first install attempt. Run-in-place with
+system python cannot satisfy it; a hash-pinned venv can, but then the app's
+tree and the venv are two halves one install block cannot yet express. Two
+units now demand the same composition, which is the D-014 bar for building
+it.
 
 ## What this list is for
 

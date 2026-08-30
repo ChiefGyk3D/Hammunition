@@ -194,6 +194,16 @@ class SourceInstall(Strict):
             "`binaries` to be declared."
         ),
     )
+    install_tree: bool = Field(
+        default=False,
+        description=(
+            "Install the whole built/extracted tree to "
+            "<prefix>/share/hammunition/<name> instead of (or beside) named "
+            "binaries. For software that reads settings, resources or data "
+            "beside its executable -- MSHV, run-in-place trees (gaps #6/#8). "
+            "Requires a launcher (or binaries) so the tree is reachable."
+        ),
+    )
 
 
 COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -318,6 +328,16 @@ class GitInstall(Strict):
             "SourceInstall for the full note."
         ),
     )
+    install_tree: bool = Field(
+        default=False,
+        description=(
+            "Install the whole built/extracted tree to "
+            "<prefix>/share/hammunition/<name> instead of (or beside) named "
+            "binaries. For software that reads settings, resources or data "
+            "beside its executable -- MSHV, run-in-place trees (gaps #6/#8). "
+            "Requires a launcher (or binaries) so the tree is reachable."
+        ),
+    )
     pin_review: PinReview | None = Field(
         default=None,
         description="Required when `ref` is a commit SHA rather than a tag. D-024.",
@@ -349,6 +369,17 @@ class BinaryInstall(Strict):
     artifact: RemoteArtifact
     format: Literal["deb", "tarball", "zip", "executable", "appimage"]
     strip_components: int = 0
+    install_tree: bool = Field(
+        default=False,
+        description=(
+            "Install the whole built/extracted tree to "
+            "<prefix>/share/hammunition/<name> instead of (or beside) named "
+            "binaries. For software that reads settings, resources or data "
+            "beside its executable -- MSHV, run-in-place trees (gaps #6/#8). "
+            "Requires a launcher (or binaries) so the tree is reachable."
+        ),
+    )
+
 
 
 class VenvInstall(Strict):
@@ -748,11 +779,12 @@ class PackageManifest(Strict):
         for block in self.install:
             if getattr(block.install, "provides_install_target", True):
                 continue
-            if not self.binaries:
+            if not self.binaries and not getattr(block.install, "install_tree", False):
                 raise ManifestError(
                     f"{self.name}: provides_install_target is false, so nothing would "
                     f"be installed. Declare `binaries` naming what the build emits and "
-                    f"what each should be called in the prefix."
+                    f"what each should be called in the prefix, or install_tree with a "
+                    f"launcher into it."
                 )
         return self
 

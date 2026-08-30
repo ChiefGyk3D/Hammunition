@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**229 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**233 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -37,7 +37,7 @@ Contest operating -- scoring, duplicate checking, rate keeping, and keying under
 - [tlf](tlf.md) — Console contest logger built for speed, driven from the keyboard
 - [tucnak](tucnak.md) — VHF and above contest logger, built around locator scoring and networking
 
-### `cw` — 16
+### `cw` — 17
 
 Morse code -- keying, decoding, and learning to hear it.
 
@@ -55,10 +55,11 @@ Morse code -- keying, decoding, and learning to hear it.
 - [qrq](qrq.md) — High-speed Morse trainer that pushes your callsign copy to its limit
 - [tlf](tlf.md) — Console contest logger built for speed, driven from the keyboard
 - [twclock](twclock.md) — World clock for the operating position, with a CW station-ID timer
+- [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 - [xdemorse](xdemorse.md) — Live Morse decoder with a GTK waterfall, from a sound card
 
-### `digital-modes` — 28
+### `digital-modes` — 29
 
 Keyboard-to-keyboard and weak-signal modes worked with a transceiver: PSK31, RTTY, FT8, JS8, SSTV and the rest.
 
@@ -74,6 +75,7 @@ Keyboard-to-keyboard and weak-signal modes worked with a transceiver: PSK31, RTT
 - [gnuradio](gnuradio.md) — Build a radio out of signal-processing blocks instead of hardware
 - [gridtracker2](gridtracker2.md) — Live map of FT8/JS8 activity, fed by WSJT-X and JS8Call
 - [js8call](js8call.md) — Weak-signal keyboard-to-keyboard messaging built on the FT8 modem
+- [js8spotter](js8spotter.md) — JS8Call's companion — spot tracking, forms, APRS and SMS gateways
 - [jtdx](jtdx.md) — WSJT-X derivative tuned for DX working and crowded FT8 conditions
 - [minimodem](minimodem.md) — General-purpose audio FSK modem — Bell 103, RTTY, AX.25 and anything else
 - [mshv](mshv.md) — Multi-mode weak-signal application with multi-stream FT8 decoding
@@ -116,7 +118,7 @@ Bench electronics and EDA — circuit design, simulation, test gear.
 - [stlink-tools](stlink-tools.md) — Flash and debug STM32 targets through an ST-Link probe
 - [tempest-for-eliza](tempest-for-eliza.md) — Makes a monitor radiate music on an AM radio — a TEMPEST demonstration
 
-### `emcomm` — 23
+### `emcomm` — 24
 
 Emergency and public-service communications.
 
@@ -133,6 +135,7 @@ Emergency and public-service communications.
 - [flnet](flnet.md) — Net control operator's list — who checked in, in what order
 - [flwrap](flwrap.md) — Wraps a file with a checksum so the far end knows it arrived intact
 - [garim](garim.md) — Graphical ARIM messaging over an ARDOP TNC
+- [js8spotter](js8spotter.md) — JS8Call's companion — spot tracking, forms, APRS and SMS gateways
 - [linbpq](linbpq.md) — BPQ32 packet-radio node, BBS and Winlink gateway
 - [linpac](linpac.md) — Terminal for AX.25 packet with a built-in mail client and macros
 - [pat](pat.md) — Winlink client — radio email that works when the internet does not
@@ -217,7 +220,7 @@ Propagation prediction, solar indices, beacons and grey line.
 - [wwl](wwl.md) — Distance and bearing between two Maidenhead locators, from the command line
 - [xdx](xdx.md) — DX cluster client — see what other operators are hearing, right now
 
-### `listening` — 33
+### `listening` — 34
 
 Receive-only monitoring and decoding. Needs no licence and often no transmitter, which makes it the on-ramp for an operator who owns nothing but a dongle yet.
 
@@ -239,6 +242,7 @@ Receive-only monitoring and decoding. Needs no licence and often no transmitter,
 - [gr-satellites](gr-satellites.md) — Decoders for the telemetry of hundreds of amateur satellites
 - [kalibrate-rtl](kalibrate-rtl.md) — Measures an SDR dongle's frequency error against GSM base stations
 - [libacars](libacars.md) — Shared library that decodes ACARS application-layer messages
+- [linrad](linrad.md) — SM5BSZ's DSP receiver — the deep-toolbox SDR for weak-signal work
 - [minimodem](minimodem.md) — General-purpose audio FSK modem — Bell 103, RTTY, AX.25 and anything else
 - [morse2ascii](morse2ascii.md) — Decodes Morse out of a recorded WAV file
 - [multimon](multimon.md) — The original multimon decoder, kept for the modes its successor dropped
@@ -290,7 +294,7 @@ The NBEMS stack specifically — fldigi with flmsg, flamp and flwrap for formal 
 - [flmsg](flmsg.md) — Fills in and transmits the standard message forms EMCOMM runs on
 - [flwrap](flwrap.md) — Wraps a file with a checksum so the far end knows it arrived intact
 
-### `packet` — 26
+### `packet` — 27
 
 AX.25 and packet radio, including Winlink and BBS work.
 
@@ -319,6 +323,7 @@ AX.25 and packet radio, including Winlink and BBS work.
 - [tmd710-tncsetup](tmd710-tncsetup.md) — Configures the built-in TNC on Kenwood TM-D710 and TH-D72 radios
 - [uronode](uronode.md) — Node front end that lets other stations reach services on your machine
 - [xastir](xastir.md) — APRS client with real maps — see and be seen on the packet network
+- [yaac](yaac.md) — Yet Another APRS Client — the deep, portable Java one
 - [z8530-utils2](z8530-utils2.md) — Configures Z8530-based HDLC cards for high-speed packet
 
 ### `programmer` — 5
@@ -404,7 +409,7 @@ Amateur satellites and weather satellites — tracking, prediction, telemetry an
 - [noaa-apt](noaa-apt.md) — Decoder for NOAA weather-satellite APT imagery
 - [satdump](satdump.md) — Satellite data processing — receive, decode and image from weather and science satellites
 
-### `sdr` — 65
+### `sdr` — 66
 
 Software-defined radio — receivers, transceivers and the software.
 
@@ -435,6 +440,7 @@ Software-defined radio — receivers, transceivers and the software.
 - [libbladerf2](libbladerf2.md) — Library and udev rules for Nuand bladeRF boards
 - [libmirisdr4](libmirisdr4.md) — Open driver for Mirics-based receivers, including SDRplay RSP hardware
 - [limesuite](limesuite.md) — Host tools and library for LimeSDR hardware
+- [linrad](linrad.md) — SM5BSZ's DSP receiver — the deep-toolbox SDR for weak-signal work
 - [miri-sdr](miri-sdr.md) — Command-line tools for Mirics-based receivers
 - [mlat-client-adsbfi](mlat-client-adsbfi.md) — Contributes ADS-B timing data so a network can locate aircraft by multilateration
 - [noaa-apt](noaa-apt.md) — Decoder for NOAA weather-satellite APT imagery
@@ -524,7 +530,7 @@ Time and frequency — clocks, disciplining, and stable references.
 - [twclock](twclock.md) — World clock for the operating position, with a CW station-ID timer
 - [tzwatch](tzwatch.md) — Prints the time in several time zones at once, in a terminal
 
-### `tracking` — 19
+### `tracking` — 20
 
 Position reporting and target tracking: APRS, ADS-B, AIS, and the map that shows them.
 
@@ -547,8 +553,9 @@ Position reporting and target tracking: APRS, ADS-B, AIS, and the map that shows
 - [rtl-ais](rtl-ais.md) — Receives both AIS channels at once from one cheap dongle
 - [tmd710-tncsetup](tmd710-tncsetup.md) — Configures the built-in TNC on Kenwood TM-D710 and TH-D72 radios
 - [xastir](xastir.md) — APRS client with real maps — see and be seen on the packet network
+- [yaac](yaac.md) — Yet Another APRS Client — the deep, portable Java one
 
-### `training` — 12
+### `training` — 13
 
 Licence exam preparation and operating practice.
 
@@ -563,6 +570,7 @@ Licence exam preparation and operating practice.
 - [hamexam](hamexam.md) — Practice tests for the United States amateur radio licence exams
 - [morse-classic](morse-classic.md) — Text-to-Morse sounder and trainer, Eric Raymond's morse-classic
 - [qrq](qrq.md) — High-speed Morse trainer that pushes your callsign copy to its limit
+- [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
 ### `workstation` — 15
@@ -690,6 +698,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [icom](icom.md) | Minimal CI-V control for Icom radios from the command line | apt |
 | [inspectrum](inspectrum.md) | Offline visualiser for captured radio signals — read a waveform by eye | apt |
 | [js8call](js8call.md) | Weak-signal keyboard-to-keyboard messaging built on the FT8 modem | apt, source |
+| [js8spotter](js8spotter.md) | JS8Call's companion — spot tracking, forms, APRS and SMS gateways | binary |
 | [jtdx](jtdx.md) | WSJT-X derivative tuned for DX working and crowded FT8 conditions | apt |
 | [kalibrate-rtl](kalibrate-rtl.md) | Measures an SDR dongle's frequency error against GSM base stations | apt, git |
 | [kappanhang](kappanhang.md) | Opens an Icom network radio as an ordinary sound card and serial port | apt |
@@ -705,6 +714,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [limesuite](limesuite.md) | Host tools and library for LimeSDR hardware | apt |
 | [linbpq](linbpq.md) | BPQ32 packet-radio node, BBS and Winlink gateway | git |
 | [linpac](linpac.md) | Terminal for AX.25 packet with a built-in mail client and macros | apt |
+| [linrad](linrad.md) | SM5BSZ's DSP receiver — the deep-toolbox SDR for weak-signal work | source |
 | [m2kcli](m2kcli.md) | Command-line control of the ADALM2000 lab instrument | apt |
 | [mfcuk](mfcuk.md) | MIFARE Classic key recovery with no known key — the slow path | apt |
 | [mfoc](mfoc.md) | Key recovery for MIFARE Classic cards with at least one known key | apt |
@@ -805,6 +815,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [welle-io](welle-io.md) | DAB and DAB+ digital radio receiver with a modern interface | apt |
 | [wfview](wfview.md) | Control a modern Icom radio, waterfall and all, over USB or the network | apt |
 | [wireshark](wireshark.md) | Protocol analyser — decodes captured traffic across two thousand protocols | apt |
+| [wordsworth](wordsworth.md) | Generate Morse practice text the Wordsworth way — words, not characters | binary |
 | [wsjtx](wsjtx.md) | Weak-signal digital modes — FT8, FT4, JT65, JT9, WSPR, Q65 | source |
 | [wsjtx-improved](wsjtx-improved.md) | Community fork of WSJT-X with additional decoding and UI features | source |
 | [wwl](wwl.md) | Distance and bearing between two Maidenhead locators, from the command line | apt |
@@ -816,5 +827,6 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [xnec2c](xnec2c.md) | Interactive antenna modelling — NEC2 with a live graphical front end | apt |
 | [xwefax](xwefax.md) | Receives HF weather fax and draws the chart | source |
 | [xygrib](xygrib.md) | Views GRIB weather files — wind, pressure, waves, on a map | apt |
+| [yaac](yaac.md) | Yet Another APRS Client — the deep, portable Java one | binary |
 | [yagiuda](yagiuda.md) | Analyse and optimise Yagi-Uda arrays without writing a NEC model | apt |
 | [z8530-utils2](z8530-utils2.md) | Configures Z8530-based HDLC cards for high-speed packet | apt |

@@ -22,12 +22,12 @@ decision. Only CARRY, SUPERSEDE, REVIVE and ADD owe a manifest.
 |---|---:|
 | Units in the five-source union | **150** |
 | …that owe a manifest (C, S, R, A) | **108** |
-| …covered | **92** |
-| …outstanding, with a recorded reason | **16** |
+| …covered | **96** |
+| …outstanding, with a recorded reason | **12** |
 | …outstanding, unexplained | **0** |
-| Manifests in the catalog | **229** |
+| Manifests in the catalog | **233** |
 
-Coverage of what is owed: **92/108** (85%).
+Coverage of what is owed: **96/108** (88%).
 
 The catalog is larger than the union because the Debian Blend contributes
 152 packages, most of which are not AHRL units, and because hardware
@@ -49,14 +49,10 @@ Absent on purpose. Each names what it waits on.
 | `ahrl_menus` | SUPERSEDE | SUPERSEDE #8-11 — replaced by our own engine |
 | `ahrl_version` | SUPERSEDE | SUPERSEDE #8-11 — replaced by our own engine |
 | `dream` | REVIVE | REVIVE blocked: libqt5webkit5-dev has no candidate on Debian 13 (measured) |
-| `js8spotter` | CARRY | run-in-place Python; waits on launcher generation |
-| `linrad` | CARRY | source-build-gaps.md #1, #2, #4 — needs a patch, a custom make target and per-arch configure args |
 | `mvoice` | REVIVE | REVIVE blocked: libopendht-dev has no candidate on Debian 13 (measured) |
-| `radiosonde_auto_rx` | REVIVE | REVIVE waiting on the venv+custom-build hybrid — source-build-gaps.md #9 |
+| `radiosonde_auto_rx` | REVIVE | REVIVE waiting on the venv+payload hybrid — source-build-gaps.md #9 |
 | `reticulum-meshchat` | ADD | post-1.0 — AppImage, lands in the mesh profile |
 | `source_libs` | SUPERSEDE | SUPERSEDE #8-11 — replaced by our own engine |
-| `wordsworth` | CARRY | source-build-gaps.md #5 — no build step and a data file to install |
-| `yaac` | CARRY | Java jar; waits on launcher generation |
 
 ---
 
@@ -64,7 +60,7 @@ Absent on purpose. Each names what it waits on.
 
 | Disposition | Units | Covered |
 |---|---:|---:|
-| CARRY | 63 | 58 |
+| CARRY | 63 | 62 |
 | SUPERSEDE | 13 | 9 |
 | REVIVE | 6 | 3 |
 | ADD | 26 | 22 |
@@ -151,7 +147,7 @@ catalog is where an operator would look for it.
 | `ibp` | REVIVE | `ibp` |
 | `inspectrum` | ADD | `inspectrum` |
 | `js8call` | CARRY | `js8call` |
-| `js8spotter` | CARRY | — *waiting, see above* |
+| `js8spotter` | CARRY | `js8spotter` |
 | `jtdx` | NEEDS-DECISION | `jtdx` |
 | `kalibrate-rtl` | ADD | `kalibrate-rtl` |
 | `kicad` | reserved to maintainer | — |
@@ -159,7 +155,7 @@ catalog is where an operator would look for it.
 | `libacars` | ADD | `libacars` |
 | `libhamlib4` | NEEDS-DECISION | — |
 | `linpac` | CARRY | `linpac` |
-| `linrad` | CARRY | — *waiting, see above* |
+| `linrad` | CARRY | `linrad` |
 | `M0IAX` | NEEDS-DECISION | — |
 | `mfc_gpl` | RETIRE | — |
 | `morse_runner` | reserved to maintainer | — |
@@ -205,7 +201,7 @@ catalog is where an operator would look for it.
 | `source_libs` | SUPERSEDE | — *waiting, see above* |
 | `splat` | CARRY | `splat` |
 | `sunclock` | CARRY | `sunclock` |
-| `supersdr` | NEEDS-DECISION | — |
+| `supersdr` | NEEDS-DECISION | — *waiting, see above* |
 | `svxlink` | CARRY | `svxlink-server` |
 | `svxreflector` | CARRY | `svxreflector` |
 | `tkcvs` | RETIRE | — |
@@ -220,7 +216,7 @@ catalog is where an operator would look for it.
 | `wfview` | CARRY | `wfview` |
 | `wine` | NEEDS-DECISION | — |
 | `wireshark` | ADD | `wireshark` |
-| `wordsworth` | CARRY | — *waiting, see above* |
+| `wordsworth` | CARRY | `wordsworth` |
 | `wsjtx` | CARRY | `wsjtx` |
 | `wsjtx_improved` | CARRY | `wsjtx-improved` |
 | `wwl` | CARRY | `wwl` |
@@ -233,4 +229,4 @@ catalog is where an operator would look for it.
 | `xwefax` | NEEDS-DECISION | `xwefax` |
 | `xwxapt` | RETIRE | — |
 | `XYGRIB` | ADD | `xygrib` |
-| `yaac` | CARRY | — *waiting, see above* |
+| `yaac` | CARRY | `yaac` |

@@ -35,14 +35,14 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 177 | 9 | 41 | 2 | 0 |
-| ubuntu-26.04 | 178 | 8 | 41 | 2 | 0 |
-| kali-rolling | 182 | 9 | 38 | 0 | 0 |
-| parrot | 180 | 7 | 40 | 2 | 0 |
-| linuxmint-22.3 | 171 | 16 | 40 | 2 | 0 |
-| debian-13-arm64 | 176 | 10 | 40 | 3 | 0 |
+| debian-13 | 177 | 9 | 45 | 2 | 0 |
+| ubuntu-26.04 | 178 | 8 | 45 | 2 | 0 |
+| kali-rolling | 182 | 9 | 42 | 0 | 0 |
+| parrot | 180 | 7 | 44 | 2 | 0 |
+| linuxmint-22.3 | 171 | 16 | 44 | 2 | 0 |
+| debian-13-arm64 | 176 | 10 | 43 | 4 | 0 |
 
-**229 manifests** against **6 targets**.
+**233 manifests** against **6 targets**.
 
 ---
 
@@ -221,6 +221,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `icom` | apt | apt | apt | apt | apt | apt |
 | `inspectrum` | apt | apt | apt | apt | apt | apt |
 | `js8call` | source | source | source | source | apt | source |
+| `js8spotter` | binary | binary | binary | binary | binary | binary |
 | `jtdx` | apt | apt | apt | apt | apt | apt |
 | `kalibrate-rtl` | git | git | apt | git | git | git |
 | `kappanhang` | apt | apt | apt | apt | apt | apt |
@@ -236,6 +237,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `limesuite` | apt | apt | apt | apt | apt | apt |
 | `linbpq` | git | git | git | git | git | git |
 | `linpac` | apt | apt | apt | apt | apt | apt |
+| `linrad` | source | source | source | source | source | — |
 | `m2kcli` | apt | apt | apt | apt | apt ✗ | apt |
 | `mfcuk` | apt | apt | apt | apt | apt | apt |
 | `mfoc` | apt | apt | apt | apt | apt | apt |
@@ -336,6 +338,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `welle-io` | apt | apt | apt | apt | apt | apt |
 | `wfview` | apt | apt | apt | apt | apt | apt |
 | `wireshark` | apt | apt | apt | apt | apt | apt |
+| `wordsworth` | binary | binary | binary | binary | binary | binary |
 | `wsjtx` | source | source | source | source | source | source |
 | `wsjtx-improved` | source | source | source | source | source | source |
 | `wwl` | apt | apt | apt | apt | apt | apt |
@@ -347,5 +350,6 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `xnec2c` | apt | apt | apt | apt | apt | apt |
 | `xwefax` | source | source | source | source | source | source |
 | `xygrib` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
+| `yaac` | binary | binary | binary | binary | binary | binary |
 | `yagiuda` | apt | apt | apt | apt | apt | apt |
 | `z8530-utils2` | apt | apt | apt | apt | apt | apt |

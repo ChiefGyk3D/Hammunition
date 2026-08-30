@@ -23,14 +23,12 @@ CAT rig control and sound-card audio routing.
 ## How it installs
 
 - source (qmake) from https://sourceforge.net/projects/mshv/files/MSHV_2765_Full_Source_Code.zip/download — *arch aarch64*
-  - build dependencies: `libqt5websockets5-dev`, `libasound2-dev`, `qt5-qmake`
+  - build dependencies: `libqt5websockets5-dev`, `libasound2-dev`, `libpulse-dev`, `libfftw3-dev`, `qt5-qmake`
+  - the project's build system has no install rule; the binaries listed below are copied into the prefix instead
 - source (qmake) from https://sourceforge.net/projects/mshv/files/MSHV_2765_Full_Source_Code.zip/download — *arch x86_64*
-  - build dependencies: `libqt5websockets5-dev`, `libasound2-dev`, `qt5-qmake`
-  - **This build will fail at `make install` and the manifest does not yet hide that.** Every MSHV .pro file sets `DESTDIR = bin` and declares no `INSTALLS` target — checked in MSHV_2765_Full_Source_Code.zip on 2026-08-28, all eight .pro files — so there is no install rule for the qmake path's third command to run. The schema now carries `provides_install_target: false` for exactly this, and MSHV cannot use it yet: it reads settings, resources and logs from directories beside the binary in `bin/`, so copying the executable alone into a prefix produces a program that starts and cannot find its own data. AHRL's answer is a launcher that `cd`s into the build tree, which is why the launcher below carries a working directory. Installing the tree and generating that launcher is M3's launcher-generation work, and MSHV is one of its 14 units. Coil64 is the clean case the new flag does serve.
-
-Binaries this produces:
-
-- `bin/MSHV` → `mshv`
+  - build dependencies: `libqt5websockets5-dev`, `libasound2-dev`, `libpulse-dev`, `libfftw3-dev`, `qt5-qmake`
+  - the project's build system has no install rule; the binaries listed below are copied into the prefix instead
+  - **Closed 2026-08-30 by install_tree (source-build-gaps #6).** The history, kept because it dates the evidence: Every MSHV .pro file sets `DESTDIR = bin` and declares no `INSTALLS` target — checked in MSHV_2765_Full_Source_Code.zip on 2026-08-28, all eight .pro files — so there is no install rule for the qmake path's third command to run. The schema now carries `provides_install_target: false` for exactly this, and MSHV cannot use it yet: it reads settings, resources and logs from directories beside the binary in `bin/`, so copying the executable alone into a prefix produces a program that starts and cannot find its own data. AHRL's answer is a launcher that `cd`s into the build tree, which is why the launcher below carries a working directory. Installing the tree and generating that launcher is M3's launcher-generation work, and MSHV is one of its 14 units. Coil64 is the clean case the new flag does serve.
 
 ## Known problems
 

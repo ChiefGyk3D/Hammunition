@@ -508,3 +508,100 @@ def test_the_default_still_runs_the_build_systems_own_install(tmp_path: Path) ->
     assert isinstance(block, SourceInstall)
     commands = backend._build_commands(manifest, block, backend.layout(manifest, block))
     assert commands[-1].argv == ("make", "install")
+
+
+# ---------------------------------------------------------------------------
+# Patches — the measured zero ended by linrad (source-build-gaps #2)
+# ---------------------------------------------------------------------------
+
+
+def test_declared_patches_stage_then_apply_in_order(tmp_path: Path) -> None:
+    from hammunition.backends.source import SourceLayout, patch_steps
+    from hammunition.manifest.schema import Patch
+
+    layout = SourceLayout(root=tmp_path)
+    steps = patch_steps(
+        "linrad",
+        [
+            Patch(file="Makefile", description="unbake -Werror", unified_diff="--- a\n+++ b\n"),
+            Patch(file="x.c", description="second", unified_diff="--- a\n+++ b\n"),
+        ],
+        layout,
+    )
+    kinds = [s.kind if isinstance(s, Action) else s.argv[0] for s in steps]
+    assert kinds == ["patch", "patch", "patch", "patch"]
+    # stage, apply, stage, apply — and apply runs in the source tree
+    assert steps[1].argv[:3] == ("patch", "-p1", "-i")  # type: ignore[union-attr]
+    assert steps[1].cwd == layout.src  # type: ignore[union-attr]
+    outcome = steps[0].perform()  # type: ignore[union-attr]
+    assert "staged patch" in outcome
+    staged = layout.root / "patches" / "00-Makefile.diff"
+    assert staged.read_text().startswith("--- a")
+
+
+def test_a_patch_without_a_diff_is_refused_by_name(tmp_path: Path) -> None:
+    from hammunition.backends.source import SourceLayout, patch_steps
+    from hammunition.manifest.schema import Patch
+
+    with pytest.raises(BackendError, match="no unified_diff"):
+        patch_steps(
+            "linrad",
+            [Patch(file="Makefile", description="described only")],
+            SourceLayout(root=tmp_path),
+        )
+
+
+def test_zip_extraction_restores_recorded_unix_modes(tmp_path: Path) -> None:
+    """Python's zipfile drops mode bits; linrad's configure arrives
+    unrunnable without this. Only recorded bits are restored — a zip that
+    carries none gets no invented executables."""
+    import os
+    import zipfile
+
+    from hammunition.backends.source import extract
+
+    archive = tmp_path / "src.zip"
+    with zipfile.ZipFile(archive, "w") as z:
+        info = zipfile.ZipInfo("tree/configure")
+        info.external_attr = 0o755 << 16
+        z.writestr(info, "#!/bin/sh\n")
+        z.writestr("tree/plain.txt", "data\n")
+    dest = tmp_path / "out"
+    extract(archive, dest)
+    assert os.access(dest / "configure", os.X_OK)
+    assert not os.access(dest / "plain.txt", os.X_OK)
+
+
+def test_install_tree_plans_clear_then_ensure_then_copy(tmp_path: Path) -> None:
+    """Gaps #6 and #8: the tree lands whole under the shared prefix, replaced
+    in place so a re-run cannot accumulate files upstream deleted."""
+    from pathlib import Path as P
+
+    from hammunition.backends.source import tree_destination, tree_install_commands
+
+    commands = tree_install_commands(
+        name="mshv", source_tree=tmp_path / "src", prefix=P("/usr/local")
+    )
+    assert [c.argv[0] for c in commands] == ["rm", "install", "cp"]
+    dest = tree_destination(P("/usr/local"), "mshv")
+    assert str(dest) == "/usr/local/share/hammunition/mshv"
+    assert commands[0].argv == ("rm", "-rf", "--", str(dest))
+    assert commands[2].argv == ("cp", "-aT", str(tmp_path / "src"), str(dest))
+    assert all(c.requires_root for c in commands)
+
+
+def test_extraction_trusts_magic_bytes_over_the_filename(tmp_path: Path) -> None:
+    """A SourceForge /download URL caches as <sha>-download with no archive
+    suffix at all; MSHV's verified fetch then failed to unpack. Content
+    decides now."""
+    import zipfile as zf
+
+    from hammunition.backends.source import extract
+
+    nameless = tmp_path / "cafecafe-download"
+    with zf.ZipFile(nameless, "w") as z:
+        z.writestr("tree/file.txt", "data\n")
+    dest = tmp_path / "out"
+    outcome = extract(nameless, dest)
+    assert (dest / "file.txt").read_text() == "data\n"
+    assert "unpacked 1 entries" in outcome

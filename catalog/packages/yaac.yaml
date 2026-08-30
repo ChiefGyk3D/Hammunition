@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: yaac
+version: "snapshot-2026-08-30"
+summary: Yet Another APRS Client — the deep, portable Java one
+categories: [packet, tracking]
+
+# CARRY from AHRL. Upstream publishes exactly one artifact, an unversioned
+# rolling YAAC.zip -- the same shape 73Linux's Beta directory had, but with
+# no versioned alternative anywhere. The pin below is a dated snapshot
+# hash: it verifies what we measured, and it WILL break on upstream's next
+# roll, which is the honest failure mode -- refetch, rehash, rebump. The
+# alternative (no hash) is a path this catalog does not have (D-004).
+install:
+  - install:
+      method: binary
+      artifact:
+        url: https://www.ka2ddo.org/ka2ddo/YAAC.zip
+        sha256: e64c3fca5fa466f08af49c2104ca604c14d6c1c9d681771408dd07c7db5007e6
+      format: zip
+      install_tree: true
+    note: >-
+      The zip is loose-rooted (YAAC.jar, lib/, images/, plugins/ at top
+      level) and lands whole under the shared prefix; YAAC reads everything
+      relative to its jar.
+
+depends: [default-jre-headless, libjssc-java]
+
+launchers:
+  - name: yaac
+    exec: exec java -jar /usr/local/share/hammunition/yaac/YAAC.jar
+    working_directory: /usr/local/share/hammunition/yaac
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    Upstream rolls YAAC.zip in place, several times a year, announced on the
+    yaac-users group. A hash mismatch on install IS the update signal;
+    refetch and re-pin.
+
+documentation:
+  what_it_does: >-
+    A full APRS station in Java: maps with offline OSM tiles, digipeater and
+    I-gate operation, messaging, weather station support, and a plugin
+    system -- portable across anything with a JRE.
+  why_you_want_it: >-
+    Between Xastir's mapping focus and QtBPQAPRS's messaging focus, YAAC is
+    the do-everything option, and the one with first-class digipeater and
+    I-gate roles. KA2DDO maintains it actively and documents it deeply.
+  prerequisites: >-
+    A TNC (Direwolf serves well -- this catalog configures it) or an APRS-IS
+    passcode for internet-only operation. Serial TNCs need the dialout
+    group; libjssc-java supplies the serial bindings.
+  known_problems: >-
+    First run opens a setup wizard; give it a moment on the first tile
+    download. The dated-snapshot pin above means an upstream roll turns into
+    a hash-mismatch refusal until this manifest is re-pinned -- deliberate,
+    and the cadence hint says why.
+  upstream_url: https://www.ka2ddo.org/ka2ddo/YAAC.html
+  upstream_support: Andrew KA2DDO; the yaac-users group and an extensive built-in manual.

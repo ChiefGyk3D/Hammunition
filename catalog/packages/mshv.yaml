@@ -18,7 +18,19 @@ install:
         sha256: a20eb9451961fef77b059d2fb29fdacfa95d835b2ba03174e4187cf61aa8703a
       build_system: qmake
       project_file: MSHV_ARM_PI.pro
-    build_depends: [libqt5websockets5-dev, libasound2-dev, qt5-qmake]
+      provides_install_target: false
+      install_tree: true
+    build_depends:
+      # libpulse-dev is absent from AHRL's install_mshv -- its build only
+      # succeeds there because install_dream ran earlier and left pulse
+      # headers behind. Order-dependent correctness, D-016's exact thesis;
+      # measured when the first isolated build failed (Parrot VM, 2026-08-30).
+      # libfftw3-dev is missing from AHRL the same way (wsjtx installs it).
+      - libqt5websockets5-dev
+      - libasound2-dev
+      - libpulse-dev
+      - libfftw3-dev
+      - qt5-qmake
 
   - when:
       arch: [x86_64]
@@ -29,10 +41,22 @@ install:
         sha256: a20eb9451961fef77b059d2fb29fdacfa95d835b2ba03174e4187cf61aa8703a
       build_system: qmake
       project_file: MSHV_x86_64.pro
-    build_depends: [libqt5websockets5-dev, libasound2-dev, qt5-qmake]
+      provides_install_target: false
+      install_tree: true
+    build_depends:
+      # libpulse-dev is absent from AHRL's install_mshv -- its build only
+      # succeeds there because install_dream ran earlier and left pulse
+      # headers behind. Order-dependent correctness, D-016's exact thesis;
+      # measured when the first isolated build failed (Parrot VM, 2026-08-30).
+      # libfftw3-dev is missing from AHRL the same way (wsjtx installs it).
+      - libqt5websockets5-dev
+      - libasound2-dev
+      - libpulse-dev
+      - libfftw3-dev
+      - qt5-qmake
     note: >-
-      **This build will fail at `make install` and the manifest does not yet
-      hide that.** Every MSHV .pro file sets `DESTDIR = bin` and declares no
+      **Closed 2026-08-30 by install_tree (source-build-gaps #6).** The
+      history, kept because it dates the evidence: Every MSHV .pro file sets `DESTDIR = bin` and declares no
       `INSTALLS` target — checked in MSHV_2765_Full_Source_Code.zip on
       2026-08-28, all eight .pro files — so there is no install rule for the
       qmake path's third command to run. The schema now carries
@@ -45,14 +69,12 @@ install:
       launcher is M3's launcher-generation work, and MSHV is one of its 14
       units. Coil64 is the clean case the new flag does serve.
 
-binaries:
-  - produced: bin/MSHV
-    install_as: mshv
-
 launchers:
   - name: mshv
-    exec: ./MSHV
-    working_directory: /usr/local/src/MSHV_2765/bin
+    # Upstream's qmake projects emit differently-named executables per
+    # architecture; one wrapper serves both (the exec line is shell).
+    exec: if [ "$(uname -m)" = aarch64 ]; then exec ./MSHV_ARM_PI; else exec ./MSHV_x86_64; fi
+    working_directory: /usr/local/share/hammunition/mshv/bin
 
 toolkit_risk:
   - framework: qt5

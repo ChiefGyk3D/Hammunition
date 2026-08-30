@@ -1,0 +1,62 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: js8spotter
+version: "1.20"
+summary: JS8Call's companion — spot tracking, forms, APRS and SMS gateways
+categories: [digital-modes, emcomm]
+
+# CARRY from AHRL, which unpacks the source zip into the *user's home* and
+# generates a per-user installer, menu script and desktop entry by hand --
+# three of the fourteen launcher-generation cases in one unit. Here the tree
+# installs once, system-wide, under the shared prefix (source-build-gaps #8
+# closed by install_tree), and the launcher is generated from this block.
+# Python-run-in-place: there is nothing to build.
+install:
+  - install:
+      method: binary
+      artifact:
+        url: https://kf7mix.com/files/js8spotter/js8spotter-120_src.zip
+        sha256: bf65a7769cc0b9d0789635cbdb0e06aa2c49b2edfdedaed8833f0241c9259255
+      format: zip
+      install_tree: true
+    note: >-
+      AHRL v27 shipped 1.18; upstream is at 1.20 (fetched and hashed
+      2026-08-30). AHRL also apt-installs python3-tksnack for it -- one of
+      the four suspected-stale dependency lines D-016 records; 1.20 runs
+      without it and it is deliberately absent here.
+
+depends: [python3-tk, python3-pil, python3-pil.imagetk]
+
+launchers:
+  - name: js8spotter
+    exec: exec python3 js8spotter.py
+    working_directory: /usr/local/share/hammunition/js8spotter
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    Versioned zips at kf7mix.com/js8spotter.html; KF7MIX releases a few
+    times a year. Bump the URL and hash together.
+
+documentation:
+  what_it_does: >-
+    A companion to JS8Call: watches its API for activity, tracks spots and
+    stations on a map, exchanges forms, and gateways to APRS and SMS -- the
+    EMCOMM side of JS8 that JS8Call itself leaves to companions.
+  why_you_want_it: >-
+    If JS8Call is your keyboard, this is your logbook-and-dispatch desk:
+    who was heard where, forms traffic for nets, and reach into APRS.
+  prerequisites: >-
+    JS8Call running with its TCP API enabled (Settings -> Reporting -> API).
+    Everything arrives over the local API; no radio access of its own.
+  known_problems: >-
+    Runs in place from the installed tree via the generated `js8spotter`
+    launcher; its SQLite database is created in the working directory on
+    first run, so per-user data lands in the tree unless you set the DB path
+    in File -> Settings. A per-user copy is the upstream-documented
+    alternative if that bothers you.
+  upstream_url: https://kf7mix.com/js8spotter.html
+  upstream_support: Joe KF7MIX, via the js8spotter groups.io list linked from his site.

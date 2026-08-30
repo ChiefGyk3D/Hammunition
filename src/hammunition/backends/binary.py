@@ -47,7 +47,14 @@ from hammunition.fetch import Fetcher
 from hammunition.manifest.schema import BinaryInstall, PackageManifest
 
 from .base import Action, BackendError, Command, CommandRunner
-from .source import SourceLayout, extract, install_binary_commands, needs_root_for, prepare_tree
+from .source import (
+    SourceLayout,
+    extract,
+    install_binary_commands,
+    needs_root_for,
+    prepare_tree,
+    tree_install_commands,
+)
 
 __all__ = ["IMPLEMENTED_BINARY_FORMATS", "BinaryBackend"]
 
@@ -126,11 +133,12 @@ class BinaryBackend:
 
         if block.format in _ARCHIVE_FORMATS:
             layout = self.layout(manifest, block)
-            if not manifest.binaries:
+            if not manifest.binaries and not block.install_tree:
                 raise BackendError(
-                    f"{manifest.name} is a prebuilt archive and names no `binaries`. "
-                    f"Unpacking it would leave a directory in a cache and install "
-                    f"nothing — a run that reports success having done nothing."
+                    f"{manifest.name} is a prebuilt archive and names no `binaries` "
+                    f"and no `install_tree`. Unpacking it would leave a directory in "
+                    f"a cache and install nothing — a run that reports success having "
+                    f"done nothing."
                 )
             steps.append(
                 Action(
@@ -156,6 +164,12 @@ class BinaryBackend:
                     binaries=manifest.binaries,
                 )
             )
+            if block.install_tree:
+                steps.extend(
+                    tree_install_commands(
+                        name=manifest.name, source_tree=layout.src, prefix=self.prefix
+                    )
+                )
             return steps
 
         # `executable`: one file, installed under the name the manifest gives it.

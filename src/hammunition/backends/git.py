@@ -35,7 +35,7 @@ from pathlib import Path
 from hammunition.manifest.schema import COMMIT_SHA, GitInstall, PackageManifest
 
 from .base import Action, BackendError, Command, CommandRunner
-from .source import SourceLayout, build_commands, prepare_tree
+from .source import SourceLayout, build_commands, prepare_tree, tree_install_commands
 
 __all__ = ["GitBackend"]
 
@@ -113,6 +113,12 @@ class GitBackend:
                 binaries=manifest.binaries,
             )
         )
+        if block.install_tree:
+            steps.extend(
+                tree_install_commands(
+                    name=manifest.name, source_tree=layout.src, prefix=self.prefix
+                )
+            )
         return steps
 
     def verify_pin(self, src: Path, ref: str) -> str:
