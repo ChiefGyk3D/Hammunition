@@ -12,6 +12,12 @@ categories: [digital-modes]
 # the other leaves a mis-named binary.
 after: [wsjtx]
 
+# Measured 2026-08-30 on both targets: the vendor .deb ships files the
+# distribution's wsjtx-data owns (a jtdx dependency) with no Replaces
+# header, and it registers as dpkg package `wsjtx`. Declaring both turns a
+# mid-transaction dpkg collision into a plan-time refusal naming the remedy.
+conflicts_with_repo_package: [wsjtx-data, wsjtx]
+
 install:
   - when:
       arch: [x86_64]

@@ -160,6 +160,15 @@ class PlannedPackage:
     `glfer` would misdescribe what was installed and, later, what `uninstall`
     may safely remove."""
 
+    displaces: tuple[str, ...] = ()
+    """Declared `conflicts_with_repo_package` entries that are installed NOW.
+
+    D-022: coexist and disclose, never remove silently. A source build that
+    shadows the distro's binary on PATH is disclosed in the plan; a vendor
+    .deb that would collide at the dpkg file level is refused before anything
+    runs -- that split is decided at planning, from the same probe as
+    everything else."""
+
     @property
     def name(self) -> str:
         return self.manifest.name
@@ -618,10 +627,21 @@ def resolve(
         resolved.append((manifest, block, tuple(dict.fromkeys(packages)), build_only))
 
     # -- one apt probe for the whole transaction ---------------------------
+    # Declared repo conflicts ride the same probe: the plan needs to know
+    # whether each is installed NOW. They are deliberately excluded from the
+    # no-candidate check below -- a conflict package missing from the archive
+    # is a fine state, not a blocker.
+    all_conflicts = sorted(
+        {c for manifest, _, _, _ in resolved for c in manifest.conflicts_with_repo_package}
+    )
     all_apt = sorted({p for _, _, packages, _ in resolved for p in packages})
     states = {}
     notes: list[str] = []
-    if all_apt:
+    # `or all_conflicts`: a unit with nothing to apt-install (a pure vendor
+    # .deb) still needs the probe to know whether its declared conflicts are
+    # installed -- the gate that skipped it left the wsjtx-improved refusal
+    # untested until this line existed.
+    if all_apt or all_conflicts:
         if not apt.lists_populated():
             if refresh:
                 # --refresh puts `apt-get update` at the head of this same run,
@@ -650,7 +670,7 @@ def resolve(
                     )
                 )
         else:
-            states = apt.probe(all_apt)
+            states = apt.probe(sorted({*all_apt, *all_conflicts}))
             for manifest, _, packages, _ in resolved:
                 missing = [p for p in packages if p not in states or not states[p].known]
                 if missing:
@@ -670,6 +690,33 @@ def resolve(
                         )
                     )
 
+    # -- declared conflicts against what is installed now (D-022) ----------
+    for manifest, block, _, _ in resolved:
+        installed_conflicts = [
+            c
+            for c in manifest.conflicts_with_repo_package
+            if c in states and states[c].is_installed
+        ]
+        if not installed_conflicts:
+            continue
+        if isinstance(block.install, BinaryInstall) and block.install.format == "deb":
+            names = ", ".join(installed_conflicts)
+            blockers.append(
+                Blocker(
+                    subject=manifest.name,
+                    reason=(
+                        f"its vendor .deb collides with installed distribution "
+                        f"package(s): {names}"
+                    ),
+                    remedy=(
+                        f"remove them first (sudo apt-get remove {names}) or skip this "
+                        f"unit -- the alternative is a dpkg file collision partway "
+                        f"through the transaction, which is how this rule was measured "
+                        f"(wsjtx-improved vs wsjtx-data, 2026-08-30)"
+                    ),
+                )
+            )
+
     if blockers:
         raise PlanError(blockers)
 
@@ -681,6 +728,11 @@ def resolve(
             already_installed=tuple(p for p in packages if p in states and states[p].is_installed),
             requested_by=tuple(dict.fromkeys(wanted[manifest.name])),
             build_only=build_only,
+            displaces=tuple(
+                c
+                for c in manifest.conflicts_with_repo_package
+                if c in states and states[c].is_installed
+            ),
         )
         for manifest, block, packages, build_only in resolved
     )

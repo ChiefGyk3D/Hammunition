@@ -167,6 +167,16 @@ machine-state, like a real operator's machine. This is the mechanism the M5
 report will be generated from — one campaign per target, every unit, and
 the exit-criterion fraction falls out as arithmetic.
 
+## Maintenance sweeps
+
+`scripts/check_artifact_urls.py` asks every pinned artifact URL in the
+catalog whether it still exists — HEAD with a ranged-GET fallback, hard 4xx
+verdicts kept apart from hosts that merely flaked today. Run it before a
+release and after campaigns; it exists because four manifests carried URLs
+constructed from AHRL's bundled filenames that nothing had ever fetched.
+Deliberately not per-push CI: it needs the live internet, and a red job
+nobody trusts is worse than none.
+
 ## Recording results
 
 One file per campaign under `docs/reference/` once results exist (shape to be

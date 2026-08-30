@@ -204,6 +204,7 @@ capability matrix that reports coverage the engine does not have is the shim
 | A `patches` entry with no `unified_diff` | a description alone cannot be applied — building unpatched source would produce a binary the manifest does not describe. (Declared diffs stage and apply with patch(1) since v0.4.0.) |
 | A `build_depends` package apt has no candidate for | which name, marked `build_depends`, **before** the toolchain is installed |
 | A manifest declaring third-party `apt_repos` | that adding a repository with a pinned key is a disclosed modification of its own |
+| A vendor `.deb` whose declared `conflicts_with_repo_package` is installed | the colliding packages by name, with the removal command — a dpkg file collision mid-transaction is the refused alternative |
 | A `system_modifications` kind other than `group_membership` | the kind, by name |
 | A package whose status is `broken` or `retired` | the recorded reason, verdict and date |
 | A dependency apt has no candidate for | which name, and whether it came from `install` or `depends` |

@@ -26,6 +26,8 @@ Same as WSJT-X — accurate clock, CAT control, audio routing.
 
 - prebuilt deb from https://downloads.sourceforge.net/project/wsjt-x-improved/WSJT-X_v3.2.0/Linux/wsjtx_3.2.0_improved_PLUS_260818_amd64.deb — *arch x86_64*
 
+This displaces the distribution's own `wsjtx-data`, `wsjtx` (**D-022**: coexist, disclose, never remove silently).
+
 ## Known problems
 
 Distributed as date-stamped SourceForge artifacts with no release feed, so updates must be found and re-pinned by hand. The 3.2.0 vendor .deb registers as dpkg package `wsjtx` and installs /usr/bin/wsjtx -- a source-built stock WSJT-X in /usr/local/bin shadows it on PATH, so run /usr/bin/wsjtx explicitly when both are present. Measured harder (2026-08-30, Parrot and the campaign box state): the deb ships /usr/share/pixmaps/wsjtx_icon.png without a Replaces header, so dpkg refuses it -- correctly -- on any machine where the distribution's wsjtx-data is installed, which jtdx depends on. Until this catalog can declare package conflicts, installing wsjtx-improved alongside jtdx means removing jtdx and wsjtx-data first; the engine's failure text says exactly this.

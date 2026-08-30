@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -117,3 +118,82 @@ def test_the_vscode_instance_does_not_remove_vscodium(
     manifest = catalog["code"]
     assert "codium" not in manifest.conflicts_with_repo_package
     assert "codium" not in " ".join(m.detail for m in manifest.system_modifications).lower()
+
+
+# ---------------------------------------------------------------------------
+# The consumer for conflicts_with_repo_package (2026-08-30): the split is
+# decided by method — a vendor .deb collides at the dpkg level and is refused
+# at plan time; a source build shadows on PATH and is disclosed.
+# ---------------------------------------------------------------------------
+
+
+def _conflicting_manifest(method_block: dict[str, Any]) -> PackageManifest:
+
+    base: dict[str, Any] = {
+        "name": "clasher",
+        "version": "1.0",
+        "summary": "Fixture that declares a repo conflict",
+        "categories": ["digital-modes"],
+        "conflicts_with_repo_package": ["distro-owned"],
+        "install": [{"install": method_block}],
+        "update": {"probe": {"method": "none"}, "strategy": "manual"},
+        "documentation": {
+            "what_it_does": "Exists so the conflict consumer has a unit.",
+            "why_you_want_it": "You do not; the suite does.",
+            "upstream_url": "https://example.invalid/",
+        },
+    }
+    return PackageManifest.model_validate(base)
+
+
+def _plan_with_conflict(tmp_path: Path, method_block: dict[str, Any], installed: bool) -> Any:
+
+    from hammunition.distro import Target
+    from hammunition.plan import resolve
+    from test_plan import _apt  # reuse the fake-apt helper
+
+    manifest = _conflicting_manifest(method_block)
+    known = {"distro-owned": "1.0" if installed else None, "clasher": None, "git": None}
+    apt = _apt(tmp_path, known)
+    return resolve(
+        ["clasher"],
+        catalog={"clasher": manifest},
+        profiles={},
+        target=Target(distro="debian", version="13", arch="x86_64"),
+        apt=apt,
+        user="op",
+    )
+
+
+DEB_BLOCK: dict[str, Any] = {
+    "method": "binary",
+    "artifact": {"url": "https://example.org/x.deb", "sha256": "0" * 64},
+    "format": "deb",
+}
+GIT_BLOCK: dict[str, Any] = {
+    "method": "git",
+    "repo": "https://example.org/x",
+    "ref": "1.0",
+    "build_system": "make",
+}
+
+
+def test_a_vendor_deb_conflicting_with_an_installed_package_is_refused(tmp_path: Path) -> None:
+    import pytest as _pytest
+
+    from hammunition.plan import PlanError
+
+    with _pytest.raises(PlanError, match="collides with installed distribution"):
+        _plan_with_conflict(tmp_path, DEB_BLOCK, installed=True)
+
+
+def test_a_source_build_shadowing_an_installed_package_is_disclosed_not_refused(
+    tmp_path: Path,
+) -> None:
+    plan = _plan_with_conflict(tmp_path, GIT_BLOCK, installed=True)
+    assert plan.packages[0].displaces == ("distro-owned",)
+
+
+def test_an_uninstalled_conflict_is_silent(tmp_path: Path) -> None:
+    plan = _plan_with_conflict(tmp_path, DEB_BLOCK, installed=False)
+    assert plan.packages[0].displaces == ()

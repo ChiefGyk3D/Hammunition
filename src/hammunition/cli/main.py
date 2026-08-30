@@ -171,6 +171,16 @@ def render_plan(
                 lines.append(f"      {mark} {apt_package}{note}")
         lines.append("")
 
+    displacing = [(p.name, c) for p in plan.packages for c in p.displaces]
+    if displacing:
+        lines.append("Installed distribution packages displaced or shadowed (D-022):")
+        for name, conflict in displacing:
+            lines.append(
+                f"  {conflict}  — declared by {name}; the distribution package stays "
+                f"installed, see that manifest's notes"
+            )
+        lines.append("")
+
     if plan.group_memberships:
         lines.append("Group membership changes:")
         for membership in plan.group_memberships:
