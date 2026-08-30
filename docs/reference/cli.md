@@ -5,12 +5,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # CLI reference
 
-The `hammunition` command, at **v0.1.0 (alpha)**. Four backends are
-implemented: **apt**, **source**, **git** and **binary**. Three more are
-measured, named and scheduled for 1.0 (`docs/DESIGN.md` §6) — venv, pipx,
-CPAN — and a package needing one is **refused by name** rather than skipped;
-see [What it refuses](#what-it-refuses). The install/configure/remove cycle
-is VM-verified on Parrot, Kali and Debian 13
+The `hammunition` command, at **v0.2.0 (alpha)**. Five backends are
+implemented: **apt**, **source**, **git**, **binary** and **venv** (per-user
+virtualenvs, hash-pinned end to end with `pip --require-hashes`). pipx and
+CPAN re-measured to zero users and left the 1.0 list (D-014 amendment,
+2026-08-30); a package declaring one is still **refused by name**. The
+install/configure/remove cycle is VM-verified on Parrot, Kali and Debian 13
 (`docs/reference/vm-verification-parrot.md` and siblings).
 
 The source backend is the expensive half of the parity target: **57 of AHRL's
@@ -184,7 +184,7 @@ capability matrix that reports coverage the engine does not have is the shim
 
 | Situation | What you see |
 |---|---|
-| A `venv` or `pipx` install block | the backend named, and that it is scheduled but not written |
+| A `pipx` install block | the backend named — re-measured to zero users (D-014 amendment) and unwritten |
 | A `source` or `git` block whose `build_system` is `custom` | the build system named. No manifest uses it, so it is an unimplemented gap rather than a regression (**D-014**) |
 | A `source` block declaring `patches` | that applying them is not implemented — building unpatched source would produce a binary the manifest does not describe |
 | A `build_depends` package apt has no candidate for | which name, marked `build_depends`, **before** the toolchain is installed |

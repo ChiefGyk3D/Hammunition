@@ -165,6 +165,18 @@ this reason and not for the licence one.
 
 ---
 
+### 9. A venv beside compiled decoders — `radiosonde_auto_rx`
+
+The REVIVE table said "standard venv install from the pinned upstream tag",
+and the venv backend now exists — but reading upstream (2026-08-30) shows the
+estimate was short: `auto_rx` is a git clone whose `build.sh` compiles a set
+of C demodulators in-tree, plus a venv for `requirements.txt`, plus a
+`station.cfg` templated from operator values, and it runs in place from the
+clone. That is the git backend with a `custom` build step (a measured zero
+until now), the venv backend, config templating and launcher generation
+composed on one unit. It stays a documented gap rather than getting a
+manifest that pretends any single backend covers it.
+
 ## What this list is for
 
 Each entry is a feature request with its evidence attached, so that when one is

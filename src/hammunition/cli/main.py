@@ -43,6 +43,7 @@ from hammunition.backends import (
     GitBackend,
     SourceBackend,
     SubprocessRunner,
+    VenvBackend,
 )
 from hammunition.consent import (
     ConsentDeclined,
@@ -55,7 +56,7 @@ from hammunition.execute import Step, commands_for, execute, run_removal
 from hammunition.fetch import Fetcher
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
 from hammunition.manifest.schema import AptInstall, PackageManifest, ProfileManifest, Status
-from hammunition.paths import build_root
+from hammunition.paths import build_root, user_bin_dir, venv_root
 from hammunition.plan import InstallPlan, PlanError, resolve
 from hammunition.state import (
     RemovalError,
@@ -544,9 +545,10 @@ def cmd_install(args: argparse.Namespace) -> int:
     binary = BinaryBackend(
         fetcher=source.fetcher, runner=runner, build_root=builds, prefix=source.prefix
     )
+    venv = VenvBackend(venv_root=venv_root(user or None), bin_dir=user_bin_dir(user or None))
     commands = commands_for(
         plan, apt, refresh=args.refresh, source=source, git=git, binary=binary,
-        config_staging=builds,
+        venv=venv, config_staging=builds,
     )
     # Disclose the log destination in the plan itself, so the file write (and,
     # under sudo, the chown to the operator) is shown before it happens rather

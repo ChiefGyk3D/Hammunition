@@ -389,7 +389,7 @@ src/hammunition/
   state/           # transaction log, uninstall              ✅ apt removal, VM-verified
   plan.py          # pre-flight resolution (D-016)           ✅
   execute.py       # plan -> commands -> runner              ✅
-  backends/        # apt ✅ source ✅ git ✅ binary ✅; venv, pipx, CPAN ❌
+  backends/        # apt ✅ source ✅ git ✅ binary ✅ venv ✅; pipx/CPAN measured zeros
   fetch.py         # verified download, mandatory sha256          ✅
   paths.py         # owner-aware XDG dirs (log, cache, build)     ✅
   distro/          # /etc/os-release detection               ✅

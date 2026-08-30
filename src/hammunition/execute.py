@@ -40,9 +40,10 @@ from hammunition.backends import (
     CommandRunner,
     GitBackend,
     SourceBackend,
+    VenvBackend,
 )
 from hammunition.distro import Target
-from hammunition.manifest.schema import BinaryInstall, GitInstall, SourceInstall
+from hammunition.manifest.schema import BinaryInstall, GitInstall, SourceInstall, VenvInstall
 from hammunition.plan import InstallPlan
 from hammunition.state import RemovalPlan, TransactionLog
 
@@ -234,6 +235,7 @@ def commands_for(
     source: SourceBackend | None = None,
     git: GitBackend | None = None,
     binary: BinaryBackend | None = None,
+    venv: VenvBackend | None = None,
     config_staging: Path | None = None,
 ) -> list[Step]:
     """Every step this plan implies, in the order it will run.
@@ -278,6 +280,14 @@ def commands_for(
                     f"installed nothing."
                 )
             commands.extend(binary.steps(planned.manifest, block))
+        elif isinstance(block, VenvInstall):
+            if venv is None:
+                raise BackendError(
+                    f"{planned.name} installs into a virtualenv and no venv backend "
+                    f"was supplied. Skipping it would report a successful run that "
+                    f"installed nothing."
+                )
+            commands.extend(venv.steps(planned.manifest, block))
 
     # Configuration is written after the software that reads it exists, so a
     # package's own postinst cannot overwrite what we put down, and before

@@ -157,12 +157,12 @@ def test_all_blockers_are_reported_together_not_just_the_first(tmp_path: Path) -
     CLAUDE.md is about.
     """
     catalog = {
-        # A method with no backend. `venv` rather than `git`, which the engine
-        # implements now -- the point of this entry is "unimplemented", so it
-        # has to name something that still is.
+        # A method with no backend. `pipx` rather than `venv`, which the engine
+        # implements now (2026-08-30) -- the point of this entry is
+        # "unimplemented", so it has to name something that still is.
         "unbuildable": _manifest(
             name="unbuildable",
-            install=[{"install": {"method": "venv", "requirements": ["example"]}}],
+            install=[{"install": {"method": "pipx", "spec": "example"}}],
         ),
         "known-broken": _manifest(
             name="known-broken",

@@ -1,0 +1,131 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+"""The venv backend: hash-pinned, unprivileged, and reachable afterwards."""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from hammunition.backends import Command, VenvBackend
+from hammunition.backends.base import Action
+from hammunition.manifest.schema import ManifestError, PackageManifest, VenvInstall
+
+HASHED = (
+    "example==1.0 --hash=sha256:"
+    "0000000000000000000000000000000000000000000000000000000000000000"
+)
+
+
+def manifest(requirements: list[str], expose: list[str]) -> PackageManifest:
+    return PackageManifest.model_validate(
+        {
+            "name": "venvunit",
+            "version": "1.0",
+            "summary": "Fixture for the venv backend suite",
+            "categories": ["logging"],
+            "install": [
+                {"install": {"method": "venv", "requirements": requirements, "expose": expose}}
+            ],
+            "update": {"probe": {"method": "pypi"}, "strategy": "reinstall"},
+            "documentation": {
+                "what_it_does": "Exists so the venv backend has a unit to plan.",
+                "why_you_want_it": "You do not; the suite does.",
+                "upstream_url": "https://example.invalid/",
+            },
+        }
+    )
+
+
+def block(m: PackageManifest) -> VenvInstall:
+    install = m.install[0].install
+    assert isinstance(install, VenvInstall)
+    return install
+
+
+def test_an_unhashed_requirement_is_refused_at_the_schema() -> None:
+    """The security rule enforced before a plan exists: no hash, no manifest."""
+    with pytest.raises((ManifestError, ValueError), match="--hash=sha256"):
+        manifest(["example==1.0"], [])
+
+
+def test_marker_and_comment_lines_need_no_hash() -> None:
+    m = manifest([HASHED, "# a comment", "--no-binary :none:"], [])
+    assert len(block(m).requirements) == 3
+
+
+def test_the_steps_are_staged_venv_pip_wrapper_in_that_order(tmp_path: Path) -> None:
+    backend = VenvBackend(venv_root=tmp_path / "venvs", bin_dir=tmp_path / "bin")
+    m = manifest([HASHED], ["venvunit"])
+    steps = backend.steps(m, block(m))
+    kinds: list[Any] = [s.kind if isinstance(s, Action) else s.argv[:3] for s in steps]
+    assert kinds[0] == "requirements"
+    assert kinds[1] == ("python3", "-m", "venv")
+    assert "--require-hashes" in steps[2].argv  # type: ignore[union-attr]
+    assert kinds[3] == "wrapper"
+    assert all(not getattr(s, "requires_root", False) for s in steps), (
+        "nothing in a venv install may need root"
+    )
+
+
+def test_staging_and_wrapper_actions_actually_produce_their_files(tmp_path: Path) -> None:
+    """Perform the in-process halves for real (D-031: the effect, not the plan)."""
+    backend = VenvBackend(venv_root=tmp_path / "venvs", bin_dir=tmp_path / "bin")
+    m = manifest([HASHED], ["venvunit"])
+    steps = backend.steps(m, block(m))
+
+    outcome = steps[0].perform()  # type: ignore[union-attr]
+    staged = tmp_path / "venvs" / "venvunit.requirements.txt"
+    assert staged.read_text() == HASHED + "\n"
+    assert "1 pinned requirement line(s)" in outcome
+
+    steps[3].perform()  # type: ignore[union-attr]
+    wrapper = tmp_path / "bin" / "venvunit"
+    body = wrapper.read_text()
+    assert body.startswith("#!/bin/sh\n")
+    assert str(tmp_path / "venvs" / "venvunit" / "bin" / "venvunit") in body
+    assert os.access(wrapper, os.X_OK)
+
+
+def test_pip_runs_from_the_venv_it_installs_into(tmp_path: Path) -> None:
+    backend = VenvBackend(venv_root=tmp_path / "venvs", bin_dir=tmp_path / "bin")
+    m = manifest([HASHED], [])
+    pip_cmd = [s for s in backend.steps(m, block(m)) if isinstance(s, Command)][1]
+    assert pip_cmd.argv[0] == str(tmp_path / "venvs" / "venvunit" / "bin" / "pip")
+
+
+def test_declared_env_reaches_the_pip_command_and_only_that(tmp_path: Path) -> None:
+    """The setuptools-scm-from-archive case: the version var must ride the pip
+    invocation, and the plan shows it because Command env is printed."""
+    m = PackageManifest.model_validate(
+        {
+            "name": "venvunit",
+            "version": "1.0",
+            "summary": "Fixture for the env-passing test",
+            "categories": ["logging"],
+            "install": [
+                {
+                    "install": {
+                        "method": "venv",
+                        "requirements": [HASHED],
+                        "env": {"SETUPTOOLS_SCM_PRETEND_VERSION_FOR_VENVUNIT": "1.0"},
+                    }
+                }
+            ],
+            "update": {"probe": {"method": "pypi"}, "strategy": "reinstall"},
+            "documentation": {
+                "what_it_does": "Exists so the env-passing path has a unit.",
+                "why_you_want_it": "You do not; the suite does.",
+                "upstream_url": "https://example.invalid/",
+            },
+        }
+    )
+    backend = VenvBackend(venv_root=tmp_path / "venvs", bin_dir=tmp_path / "bin")
+    commands = [s for s in backend.steps(m, block(m)) if isinstance(s, Command)]
+    venv_create, pip = commands
+    assert not venv_create.env
+    assert pip.env == {"SETUPTOOLS_SCM_PRETEND_VERSION_FOR_VENVUNIT": "1.0"}

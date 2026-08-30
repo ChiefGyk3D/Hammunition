@@ -352,9 +352,58 @@ class BinaryInstall(Strict):
 
 
 class VenvInstall(Strict):
+    """A per-user Python virtualenv, hash-pinned end to end.
+
+    ``requirements`` lines are requirements-file syntax and **every package
+    line must carry at least one ``--hash=sha256:``** — pip then runs with
+    ``--require-hashes``, which extends the demand to the whole dependency
+    tree. That is CLAUDE.md's checksum rule applied to PyPI: apt packages are
+    distribution-signed, a bare ``pip install name`` is neither signed nor
+    pinned, and the difference is exactly what the rule exists for. Generate
+    the lines with ``uv pip compile --universal --generate-hashes``.
+
+    Environment-marker lines (``; python_version >= "3.10"``) and blank or
+    comment lines pass through untouched.
+    """
+
     method: Literal["venv"] = "venv"
     requirements: list[str] = Field(min_length=1)
     python: str = ">=3.11"
+    env: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Build-time environment for pip. Exists for one measured case: a "
+            "project using setuptools-scm, installed from a hashed release "
+            "archive, has no .git to read its version from and needs "
+            "SETUPTOOLS_SCM_PRETEND_VERSION_FOR_<NAME> (nanovna-saver proved "
+            "it, 2026-08-30). Never secrets -- the plan prints this."
+        ),
+    )
+    expose: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Console-script names from the venv's bin/ to wrap onto the "
+            "operator's PATH (~/.local/bin). A venv nobody can invoke installs "
+            "nothing while reporting success."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _hashes(self) -> VenvInstall:
+        unhashed = [
+            line
+            for line in self.requirements
+            if line.strip()
+            and not line.lstrip().startswith(("#", "--"))
+            and "--hash=sha256:" not in line
+        ]
+        if unhashed:
+            raise ManifestError(
+                f"venv requirements without a --hash=sha256: pin: {unhashed[:3]} — "
+                f"non-apt sources are verified or refused (CLAUDE.md security "
+                f"requirements); regenerate with uv pip compile --generate-hashes"
+            )
+        return self
 
 
 class PipxInstall(Strict):

@@ -52,7 +52,7 @@ Absent on purpose. Each names what it waits on.
 | `js8spotter` | CARRY | run-in-place Python; waits on launcher generation |
 | `linrad` | CARRY | source-build-gaps.md #1, #2, #4 — needs a patch, a custom make target and per-arch configure args |
 | `mvoice` | REVIVE | REVIVE blocked: libopendht-dev has no candidate on Debian 13 (measured) |
-| `radiosonde_auto_rx` | REVIVE | REVIVE waiting on the venv backend, by design |
+| `radiosonde_auto_rx` | REVIVE | REVIVE waiting on the venv+custom-build hybrid — source-build-gaps.md #9 |
 | `reticulum-meshchat` | ADD | post-1.0 — AppImage, lands in the mesh profile |
 | `source_libs` | SUPERSEDE | SUPERSEDE #8-11 — replaced by our own engine |
 | `wordsworth` | CARRY | source-build-gaps.md #5 — no build step and a data file to install |

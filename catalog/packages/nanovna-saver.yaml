@@ -2,46 +2,86 @@
 # SPDX-License-Identifier: CC0-1.0
 
 name: nanovna-saver
-version: "0.7.3"
-summary: Desktop companion for the NanoVNA — bigger screen, real calibration, exportable data
-categories: [antenna, electronics, hardware]
+version: "0.7.4.dev0+g3445a0ab"
+summary: Sweep, chart and calibrate a NanoVNA from the computer
+categories: [antenna, electronics]
 
+# CARRY from AHRL, which git-clones main unpinned into a home-dir venv. The
+# measured situation (2026-08-30) is messier than either a PyPI install or a
+# binary: the project is NOT on PyPI; the latest release (v0.7.3,
+# 2025-02-24) caps requires-python at <3.13 while every target here ships
+# 3.13+; and its release assets are a Windows .exe and an aarch64 ELF only.
+# So: x86_64 builds from a hash-pinned commit archive (HEAD lifted the
+# python ceiling; no distribution packages this, so the pin basis is
+# own_choice per D-024 -- first release after 2026-04-18 replaces it), and
+# aarch64 takes upstream's prebuilt single executable. The commit archive
+# needs SETUPTOOLS_SCM_PRETEND_VERSION because a GitHub archive has no .git
+# to read a version from.
 install:
-  - install:
-      method: apt
-      packages: [nanovna-saver]
+  - when:
+      arch: [x86_64]
+    install:
+      method: venv
+      expose: [NanoVNASaver]
+      env:
+        SETUPTOOLS_SCM_PRETEND_VERSION_FOR_NANOVNASAVER: 0.7.4.dev0
+      requirements:
+        - nanovnasaver @ https://github.com/NanoVNA-Saver/nanovna-saver/archive/3445a0ab86161f9c886c9d6f215eb57cab9b6f45.tar.gz  --hash=sha256:e8b1796b7ae06a0245a44060bd9f8135f4228aab3b56387e34f7822241071e42
+        - numpy==2.5.2  --hash=sha256:0090ccdd57ec2703e9b49d0bf554767370581c1dd0a6b2bb2b2d9def317d042a  --hash=sha256:078f9b027b478c9379b9677babbf0f8b8f1ecfada27636d7b9a93990c638739f  --hash=sha256:07d4e89f3a9ab0a9ba24264ccdb642b3dd951b2281e8883a5481a4aa79cc31a7  --hash=sha256:0a4035ae1129ff8777f08bfbd44f1e5d8e9c049ce0c2dd78fc0d92c13e7251c0  --hash=sha256:0aadf13b60048d501e05fa699efaf7734e2494f3498a4c2a5521d822640324f3  --hash=sha256:14e373cfc6387177e8409dac3c7159be8eb05cd77096cd7c950268b86f62831c  --hash=sha256:1ab3d4a901f844ea836c3e80bf463c6a27d7f3c14e8e292fcf28d348b25b9bce  --hash=sha256:24b9dc2e3d84aa58523798805194e23e736f3f6ce2d1a5b92583ae734e6dbda8  --hash=sha256:27650bb0e7140fa3d37b9923b4803645e0b125d190f326eecfd3f4dad8e8ade1  --hash=sha256:28ac63476ec7651484215ee7fa15a1f78b57c14621f01e392afe17b9a1390ce4  --hash=sha256:29b86ff8a6cc556b47ec6b64b194815cc80e6bf5eedcc6cddfd65318cb0b4eee  --hash=sha256:29d81e97f668489cba8ebfd796b9bdd453525d35dd9e162e2daec94bf3fc7740  --hash=sha256:2cc779226e476d1e1f08c74068c419e60f41a9e0e069c92f6671d31d5c985e98  --hash=sha256:2ffa7bacab3e2ee1b19ed31766bb60bb380b68c23f051e199c5cc598afd68710  --hash=sha256:318b9a4c845dbea06708a29c84ee429cc3065048db34cdb799047643492050ee  --hash=sha256:34c319e2963be042673fb46570501b2f06c41924e17e3563d58646b4380dfb68  --hash=sha256:3a2f061cebd9e3d23bdcfaaded5e2293a4c6a5b60fa42df85d410a725ce621bf  --hash=sha256:3cdec01fa790a186d430433fdd4d4ffb70eed6f0eeb4bf05c8dbe2dce0a9bcb8  --hash=sha256:3e4c367352d3747784248a227fbec218e193b56f7e6692e3b64fc805478ecfdf  --hash=sha256:40f4d451aed46a8046a1aae41c4e55fb3612273df9c502480135e1501576a34b  --hash=sha256:44ef9675d908e65f9953063837c3277730f3f4437615a4cdab67b366cabaf884  --hash=sha256:4bbd96c833ecc8cc069ce518078fc8c60cb9cbfb0fea5b7a803ad65035596d03  --hash=sha256:4ec954036759bcee3aa484f8603bd9c14f3e776293b85578b8734c2d72777c69  --hash=sha256:4f9744f9fbdcea0bc552e8f19e1f141f811a3f9bc2be2cc6e86d982cab23e3f4  --hash=sha256:50a68f4bacd8a2b33d8da3d2269d0d78500f86ea582e4786dc10f5ef2c2c6842  --hash=sha256:50e500dc868e9313530ce12ba470fe50ff3afe3d62993ed6eff652dacd555b65  --hash=sha256:52c808f96484f5571a5cc863775ce50247c17dfb3b0361f8ed6b4b0456f80080  --hash=sha256:5f8e00be2ec6f45f4e8a41a527f68d44a7d96fee92a650e4d8b1326f77f61e6e  --hash=sha256:60e902ac295855348a5ca2ea4c89108989a9f5fddfad3dfc0a8f36b10358567e  --hash=sha256:65f188481f1669e26f62b701e8205d19e460fa4a9b52a1414ba382330e4a3414  --hash=sha256:6950c4b7dd562453090548ba7f5da7e59f57f85663f15d5dcc60e249192f7e59  --hash=sha256:6a9bb119fb8dd21ba30b3f0e555b7e2b081bd9883af21ec9c1c633d161cda3a8  --hash=sha256:6b588cc8f902d6bff201c19fd00c43ab8545671e3554d014e12e14139e5e8617  --hash=sha256:6df895598c0edcb41030126c89e0f353b07d93238116143b7405e937359736c4  --hash=sha256:6e8172ddfcf5cf74b811d372b570b83c60bd2de87a6fbfbebdadb4a9bd9c6cbb  --hash=sha256:7354826bc6f8f69402e9b7fe28d15fcd34feebd74f856f111585c5b0c9fb0251  --hash=sha256:7587f53dfbd5edc0f7b87c6217b4c6d2d1f2ef9c3da70bc1315e7db5f8d7ec9d  --hash=sha256:77843ca236b777e67f8d6b3660ea116e499612703a0ecd7093f316201eb9d8e2  --hash=sha256:7999d4ddb0c4025018373fd787510d46e04c769467af22869707b3c1cfd459ab  --hash=sha256:85aaccb24182c25df891ad0ec333585967e115269d5f1b17f2c9ae005bc96657  --hash=sha256:8e4cb9a754c8a0c62eaa88273a5fba3391f4a610d1dee893c0755da31c083f15  --hash=sha256:8ee9c4eeb8454b3660a8b53493563c3e121c2fc94fbd72b848ef814ed7b676a9  --hash=sha256:9a0731745a72a184490a582fb4af2533512bd071ace67785b5fdffc0ae58dce8  --hash=sha256:9e9413326d726c2545bfa65d2c0876871e8d8386e77f992c1d426e180bbd4323  --hash=sha256:a610dc7e3c52edd39c2bc2375ff9c3fd59cb3ad00e4472d36f83bc1457145788  --hash=sha256:a839318485284a6fb31be4f8f2c91c8f2cb22f4543c4a8903f12b0671ffe07cc  --hash=sha256:afb3f0632d6b2e3ba04dbce8d1e48d321b369138b73830b5ca371a0e8d479d56  --hash=sha256:b879fb674276e331513fb136b78dbc6bd3c848309e0d841cfd63be3896c4cfc1  --hash=sha256:b9727f472d2f3888053b8a75ab0cb94745a9de224bb5846dbadc0092101bc71d  --hash=sha256:ba0a474801b8dc67b66bf465548abc90e82b44d2611b5770f33008dcabffe8ec  --hash=sha256:bd68ece1553d2023c09a4226d9e41c586ad2d20594d1a456186c33513d2cb3f2  --hash=sha256:c081cbe16ba1ab53078e5ff29013621e33c509eedab055775d956427712c236e  --hash=sha256:c1f017dc0875c9209d219f97feceb7d54c2661bb243deb4114478e1295808af7  --hash=sha256:cebc2d6dbb605a7703d59751dea4bd6b0ab127a5a4338a6f432df1936fef8b26  --hash=sha256:cf7de32f486e4ac9e2d93b810f9e9ac72a728dd46a32a0bb403222f27f653514  --hash=sha256:d482d171c406ae88c5b19cad3b6a1c4c5209f886ab74bc44c2c865c23f52d860  --hash=sha256:d6a48072864e3324e194a8fbb3c657bcc5b5c869dbc64c9537b1d5c862572c0a  --hash=sha256:d787cf769c3baeb5f6235e778edb52c08dfa923789b5958f28e6450f96107cb1  --hash=sha256:dc649493697006bc90614a5f0bbc8cb3cb1866715c474e473694968d7e6b99ab  --hash=sha256:ddf47472af2e4280d79bac82304f5e80150211f1b9e614b760061d5fdfbb6eba  --hash=sha256:e5651f3f87add730ee6608d915009e19c911fba0cb000c7e3ea994b7d768eb12  --hash=sha256:e79aba74ffaf5f78a050d777c184cddf8fdffabab38acf5f3ef1fecbc17895d6  --hash=sha256:eaa088384c46f519dacb93b7ec483a6d6b19a4a2085ae4f25ab9b1c43d387d1e  --hash=sha256:eaca7ff36f0f52e2111ec71f169d8fd3e889e7ddc0d2592e0d703fd8d3ce8fac  --hash=sha256:f06571a052127dc1b4e8b83029b4d1b20daa2b64a31cdd181fc6bc774e9000eb  --hash=sha256:fd0d703772bba096843785bd38371e31bb4a0c1151497ad5739d182114a73f7f
+        - pyserial==3.5  --hash=sha256:3c77e014170dfffbd816e6ffc205e9842efb10be9f58ec16d3e8675b4925cddb  --hash=sha256:c4451db6ba391ca6ca299fb3ec7bae67a5c55dde170964c7a14ceefec02f2cf0
+        - pyside6==6.11.2  --hash=sha256:0444ac71d0791a19bded35f6d9a94515941f23a6eb7098ca45a1b64a338be697  --hash=sha256:13a3c79816879d9743672a669f1988f74459a78f89a97a2624fae4fe059ffa3a  --hash=sha256:3201d67e3c10be2eaedd3910ff0f02351eca7e88c95a291cde5e7f2f55ef207f  --hash=sha256:57fe867a6c93821a085d74e8a26f863fc2363516848181c466032595b33b1729  --hash=sha256:dc6d03990489a5085842770718392ef5de36352d8f608d9a9fe03e60af4d7b66
+        - pyside6-addons==6.11.2  --hash=sha256:354c574a839f7d0751960ba03f33bec87c95e0f2796dca3287f54d03abe97dac  --hash=sha256:a2ca3c73e5f060d4aca49451abd9fba68dd0e1c66ff40cea3a1fe0415def579a  --hash=sha256:a8b00956925fbdeffc7052cf933506391289f35ac4f3f71a0a167ec195cd47b4  --hash=sha256:d5606af369484b862b4d5741cfc179e19d2b8819c3e04d210b8188e0c9f85988  --hash=sha256:f449ea4431da20e7b86752cca8d166f93434516fe417f981c27e5f8e1b554407
+        - pyside6-essentials==6.11.2  --hash=sha256:77795c145202e65a78d88f7cd409d186e3ba23d159bdb3ba2dcd159ae5e5f0d9  --hash=sha256:aaf9f25f0f324874085fa5b26a610318db8a8e243cf85bb3e5400595191c7778  --hash=sha256:c8a29def77032773a30879f7f24415b5395ad08592d147c170824ef4c735dfc1  --hash=sha256:d3ec6e1885c46e57f16364f38ea8040ffc5dc0b18341058f608fede3ba930567  --hash=sha256:fadd75c5c20800d64dd0a586ea8cb337c5e630aa2246df0e5105738afa46e02c
+        - scipy==1.18.1  --hash=sha256:011413b7426b75012840e35649e00fe0a2c3bae89fed433876e3a99251572efc  --hash=sha256:0ac49ea97594532dd44b7136094d35f5440fa06e6d9c6384a74c01764df388c5  --hash=sha256:0e82073ecc7acc6436fac4b31674109c7e1d3e596789767eda01258a8c9e8123  --hash=sha256:0fcb3c93519f27bb4f0c4b0f7802cdcaca7fcf93267b75edda2e9f4e8a55cbd7  --hash=sha256:10ac20c69d880f77f375db44c22e3e6a644f9fefa291d4cd2fb9790a89fc99fd  --hash=sha256:11c423f1049c5755ad4409af52a9ada1cff96fe9b50795d4af3619f292901239  --hash=sha256:179ce34a8d0fe273d8883ba59e17e052247d08973dfcb743ca52bb1cce2d60b0  --hash=sha256:1bca3b943fc2567ea49cd02c99abde49da4d5178ec46f624bd8255cda8755beb  --hash=sha256:1d73131e358976663dd969e1fb4ed1404b815cd977eaaedc3b3a133ba2d81c35  --hash=sha256:2a0b02f9fc46f8520330c23d45e6560db7e3a0d927232139427637f98943e11d  --hash=sha256:2d3ab0e8c69a17dd3559eab8cbb88f258e285c94d572c2719033f90f83290c89  --hash=sha256:30f464bee641fa8e282577c7dce027308403213c6ca8270bba73285c91024bc5  --hash=sha256:33a834464fdabc0f26a45508df31b3cc5d028e04dbf6c5ed398541418e0a12fe  --hash=sha256:3ab3523da44749156e1f68b464dc56af11ae4cbc5c739a49d05f32b982eca9f3  --hash=sha256:3c085faa2cfa879c5141df483f836f4d691045a078224a670fa570fa01612d89  --hash=sha256:457fd7a2a8edeb044ab6ffbc0aa03ff6cd18491356e5e0c834d76ce621b916d1  --hash=sha256:49023963c193dacee096301452f223ee24d86ec5807f8df93c0f7221d119e305  --hash=sha256:52c4b7422442aba924d03ad4019852b08a92e64ea187b933135687bfe2747307  --hash=sha256:559ed65f60c1af5a03f3912605a1b5114f522c7c32fb23c3376ae8f03219fe28  --hash=sha256:5632e3ae3d09197c446310cd5187de63e28448ce22f0f67b2b93d97503c0c230  --hash=sha256:5e4d44984abc0020154ea81b247adeddcc3ac5527b975ff798bd1ba0adc513c2  --hash=sha256:75b00eb8fb802090aa903f4ea1c7f5a584779f967361e68b7e98e531cc2d7174  --hash=sha256:78a0d7c918e74a232394117160e7e3db503377572a45bcef8826e4ab8a35feba  --hash=sha256:78c0665edead396b1abb4897c41a5c1d9bf090c8a637a4c20a61678e0a264e66  --hash=sha256:7bbf207c4453ce1ad2e00b17313852b33310b83090c2311bdaf97f93c0380d12  --hash=sha256:7f4b8bc363b6d65ee2152bec57568e3c52639bb34c46057b09857a307ed5e21d  --hash=sha256:82f201b4c878551d48558337aab270d3c6cca5507b8737c8d8a608d234cccde0  --hash=sha256:83de5453a7799afc9048b4616bd085cef126e36412f0ea2f6370c36a2a3a51e7  --hash=sha256:88f0e784020649f88ea48c9f5ddfa403bf9205820667c0914740b392035afb82  --hash=sha256:8bcf3c1ba5d6456e2effd30fcbd3459b044d683fcdac79a2e6830f0bdf7de487  --hash=sha256:911de823097db8b63f034299d12662db93344e6ffa0b881cbb57748974b70168  --hash=sha256:92c14f5bdbfb6216315ce33e78080474082de8b3830122ba97809bfbe65f75c0  --hash=sha256:95298364e251be3e60249facbeeca03631d3bb7584f85879516ec55ac717b81f  --hash=sha256:9554bcc6d715ee87a633a3cc8e7703c6628b100dd29cb8a2efc4c0533c7ff729  --hash=sha256:9f2897bf7737392ad0d5213ea7b6add72a4edf5679b3153106aeb88b6507b3b9  --hash=sha256:a1d33a7836f7ddc1993427966a0823468ec41bcbdb1a9f9942d1d7e57f803ba3  --hash=sha256:ac0333bdf38309aa3dcbe7e3fa7ea29e7a2c37c6ea306a757b700ded8e4596ad  --hash=sha256:bff0b729edd992766136b34e39cc76bc2fad905aa58897ee72a9cd000a6d8443  --hash=sha256:c24acac1e18912761c4700239bbc1fd32f615af690f1584d49b35859be51324d  --hash=sha256:c35d74ce0e193ff740c2f2be2ac913ddc232fe6c1ff40b26cfecb9c670c63314  --hash=sha256:c825cef2f49e46753726a7181a8e199804a912b29519ada542c6ebc654951899  --hash=sha256:c9d18a33309122074ea483dd92dd444189166b8b2ec429fe9ed5ac73c7a0aa23  --hash=sha256:cbf38d043c1aa4ab306e1ada6ab6eddacc3322a20b7af1b30bc93254b366fe09  --hash=sha256:cd479fc04dd9401e3b4f49e76518768ef99c4f517a98c284eb091fd725719adf  --hash=sha256:ceb30a00ce7c92d459819443d29ca486d882b83fb6738bdcbb2a1cce94ac5daa  --hash=sha256:cfbf154f2ba187f2ed6cce2639efff7d105f1140573642c0161615b6d91d6a87  --hash=sha256:d2924a03db38dc2e848bca2fe9f077dafb891480b91a00a0963a8cf86dfc31c1  --hash=sha256:d416b16cccfd70fbf62400e84d0bb2f4e6af519a45557f1692c749b37f14b315  --hash=sha256:d65d448389b8436493abcf629cc94ad0cf32aecaf06e1acca1de53cc795f2f12  --hash=sha256:d84a09d0dad90ba6525d8ac1c2334b33e64bf3ccfe9e841f02feb867a22681e4  --hash=sha256:ddef79fb382df40104a19bb7151b3b23e57c1778fcf857c71ceecd9bd264513f  --hash=sha256:e3b417bf8c2c7c16e8f58ad91db17783ec911ac16e7b50eb6eab6e809b4f5b07  --hash=sha256:e402cf31eb68f453dbb2d36fc6d722b33f24a55d68b2ae1d92fa6305ca71c298  --hash=sha256:e6fb6a55cc0ba97b59a1f288fb86dc6fce8bdfc0fffcbfd015e3a954bf2a2d93  --hash=sha256:e708533e8b2ae2497d65346538a7dcc92814410b25b81432eac66de0f2af8265  --hash=sha256:ea324d9dd34c38bfb9bec8ca4d1b407db97dbb74029f566b8e322b1b6fe56fe6  --hash=sha256:eb0dfcf4e28a99c12c999744a2ff67c9b06200e20401c7c88186e33552a46331  --hash=sha256:eda632a7981f69730d6281f451db9c1c370993a2c0d7ddb43e2a809a2862b83a  --hash=sha256:f29633129f9fa7e88a3f0fca835de2d030bfc9643f7799e1a0c46cee24d38fc7  --hash=sha256:f55fa87b6c612ecd6b058f167c53231b1d14e412efe361d3d6e38b3631c73218  --hash=sha256:fdaf5ea890a6183d0565f51a61799d67081bd5b1cf03c5f4b3fd3732108625c9
+        - shiboken6==6.11.2  --hash=sha256:4bbbd6fa4d7cff5ec5e12bc4c10e1d845fa30c89457ecb13cc64f7bddb77f6f9  --hash=sha256:53659683b1f7a08e9f87eff9b1065f1ceb7110cd7a4bc09fdf5efe43d286604d  --hash=sha256:6ab0eba1c904455df621f9a6df3ca2bb896bab8670572d2bc4e37804ae91f19a  --hash=sha256:7a7a0a72a9ed26c9bf77d42246b1c736486befb8f31aa2fb29957ea4cdd1c1c2  --hash=sha256:97c49432488df958f0308736f3d15b6915d8826fc380af17bb4b9ec5c4a5e81b
+    note: >-
+      The nanovnasaver line pins the commit archive by sha256 and pip
+      verifies it like any wheel (--require-hashes). GitHub does not promise
+      eternal stability for auto-generated archives -- if this hash ever
+      fails, that is the archive changing, not tampering necessarily; verify
+      and re-pin. Regenerate the set with uv pip compile --universal
+      --generate-hashes, with the SETUPTOOLS_SCM env var exported.
+  - when:
+      arch: [aarch64]
+    install:
+      method: binary
+      artifact:
+        url: https://github.com/NanoVNA-Saver/nanovna-saver/releases/download/v0.7.3/nanovna-saver.raspi
+        sha256: 2de8c1f6cc64829ceaf5ea13ad47f0507bf4ca7d1336dfc68b355a1609c712c0
+      format: executable
+
+binaries:
+  - produced: nanovna-saver.raspi
+    install_as: NanoVNASaver
 
 update:
   probe:
-    method: apt_policy
-  strategy: apt_upgrade
+    method: github_release
+    repo: NanoVNA-Saver/nanovna-saver
+  strategy: reinstall
+  cadence_hint: >-
+    Watch for the first release after 2026-04 -- it ends the commit pin and
+    the python-ceiling workaround in one move.
 
 documentation:
   what_it_does: >-
-    Drives a NanoVNA over USB from a PC: runs sweeps wider and with more points
-    than the device's own screen allows, performs and stores calibrations,
-    displays Smith charts, SWR, return loss and impedance, averages multiple
-    sweeps, and exports Touchstone s1p and s2p files for other tools.
+    Connects to a NanoVNA or tinySA over USB serial, drives frequency
+    sweeps, and displays S11/S21 as SWR, Smith chart, phase and magnitude
+    plots -- with proper SOLT calibration, markers, and Touchstone export.
   why_you_want_it: >-
-    The NanoVNA is a remarkable instrument attached to a postage-stamp display
-    and four buttons. Everything that makes a VNA useful -- seeing the whole
-    sweep, calibrating properly, keeping the measurement -- is painful on the
-    device and straightforward here. Touchstone export is the part that matters
-    most: a measurement you cannot get out of the instrument is a measurement
-    you cannot compare.
+    The NanoVNA's own screen is two inches across. This is how antenna
+    measurements actually get read, compared and saved -- the de facto
+    companion software for the most common antenna analyzer hardware in
+    amateur radio.
   prerequisites: >-
-    A NanoVNA on USB, and permission to open its serial port -- membership of
-    the `dialout` group, which the hardware catalog requests and which does not
-    apply to a session already open. A calibration kit, or the loads that came
-    with the device; an uncalibrated sweep is a picture, not a measurement.
+    A NanoVNA-family device on USB and access to its serial port -- the
+    `dialout` group. Calibration standards (the SOLT set that came with the
+    device) for anything beyond rough looks.
   known_problems: >-
-    The NanoVNA family is a large set of clones with different firmware and
-    different serial protocols, and support varies -- a device that enumerates
-    is not necessarily one this speaks to correctly. AHRL installs it into a
-    per-user venv from an unpinned git clone (inventory unit 85); this uses the
-    packaged version instead, which is older and does not move under you.
-    Calibration is stored per-session unless saved, and the commonest mistake is
-    a sweep taken outside the calibrated range, which produces confident
-    nonsense at the edges.
+    On x86_64 the wrapper is `NanoVNASaver` in ~/.local/bin (open a new
+    shell after first install). The pinned commit is between releases by
+    necessity -- the python ceiling -- and behaves as a 0.7.4 development
+    snapshot. On Wayland, Qt may want QT_QPA_PLATFORM=xcb, the standing
+    guidance.
   upstream_url: https://github.com/NanoVNA-Saver/nanovna-saver
-  upstream_support: GitHub issues at the URL above.
+  upstream_support: GitHub issues; an active project with many contributors.

@@ -92,3 +92,36 @@ def build_root(owner: str | None = None) -> Path:
     return owner_aware_dir(xdg_var="XDG_CACHE_HOME", home_relative=(".cache",), owner=owner) / (
         "build"
     )
+
+
+def data_dir(owner: str | None = None) -> Path:
+    """``$XDG_DATA_HOME/hammunition`` — installed per-user payloads live here.
+
+    *Data*, not cache: a virtualenv the operator's launchers point into is not
+    reproducible-for-free the way a build tree is — deleting it breaks
+    installed software until a reinstall. That distinction is why venvs do not
+    live under ``build_root``.
+    """
+    return owner_aware_dir(xdg_var="XDG_DATA_HOME", home_relative=(".local", "share"), owner=owner)
+
+
+def venv_root(owner: str | None = None) -> Path:
+    """``$XDG_DATA_HOME/hammunition/venvs`` — one virtualenv per manifest."""
+    return data_dir(owner) / "venvs"
+
+
+def user_bin_dir(owner: str | None = None) -> Path:
+    """``~/.local/bin`` for the operator — where venv wrappers land.
+
+    Debian-family shells put it on PATH when it exists. Deliberately not
+    ``/usr/local/bin``: a per-user venv reached through a system-wide wrapper
+    would break for every user but one, and writing it needs no root, which is
+    the privilege rule (CLAUDE.md) doing its job.
+    """
+    if owner and os.geteuid() == 0:
+        entry = None
+        with contextlib.suppress(KeyError):
+            entry = pwd.getpwnam(owner)
+        if entry is not None and entry.pw_uid != 0:
+            return Path(entry.pw_dir) / ".local" / "bin"
+    return Path.home() / ".local" / "bin"

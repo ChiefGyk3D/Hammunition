@@ -20,7 +20,7 @@ Antenna and transmission-line design, modelling, and measurement.
 - [fl-moxgen](fl-moxgen.md) — Designs Moxon rectangle antennas and prints them to scale
 - [flaa](flaa.md) — Drives a RigExpert antenna analyser from the desktop
 - [gsmc](gsmc.md) — Interactive Smith chart for designing impedance matching networks
-- [nanovna-saver](nanovna-saver.md) — Desktop companion for the NanoVNA — bigger screen, real calibration, exportable data
+- [nanovna-saver](nanovna-saver.md) — Sweep, chart and calibrate a NanoVNA from the computer
 - [nec2c](nec2c.md) — The NEC2 antenna modelling engine as a C program, for scripting
 - [qgrid](qgrid.md) — Maidenhead grid square calculator with a map and a compass
 - [splat](splat.md) — Terrain-aware path analysis for VHF and above, from real elevation data
@@ -33,7 +33,7 @@ Antenna and transmission-line design, modelling, and measurement.
 Contest operating -- scoring, duplicate checking, rate keeping, and keying under time pressure.
 
 - [cwdaemon](cwdaemon.md) — Network service that keys a transmitter's Morse from a serial or parallel port
-- [not1mm](not1mm.md) — Contest logger for Linux, modelled on N1MM but not it
+- [not1mm](not1mm.md) — A contest logger that speaks to your rig, keyer and cluster
 - [tlf](tlf.md) — Console contest logger built for speed, driven from the keyboard
 - [tucnak](tucnak.md) — VHF and above contest logger, built around locator scoring and networking
 
@@ -109,7 +109,7 @@ Bench electronics and EDA — circuit design, simulation, test gear.
 - [flashrom](flashrom.md) — Reads, writes and verifies SPI, LPC and parallel flash chips in place
 - [gsmc](gsmc.md) — Interactive Smith chart for designing impedance matching networks
 - [m2kcli](m2kcli.md) — Command-line control of the ADALM2000 lab instrument
-- [nanovna-saver](nanovna-saver.md) — Desktop companion for the NanoVNA — bigger screen, real calibration, exportable data
+- [nanovna-saver](nanovna-saver.md) — Sweep, chart and calibrate a NanoVNA from the computer
 - [openfpgaloader](openfpgaloader.md) — Universal bitstream loader for FPGAs, over JTAG and SPI
 - [openocd](openocd.md) — On-chip debugging and in-system programming over JTAG and SWD
 - [qttinysa](qttinysa.md) — Desktop front end for the tinySA and tinySA Ultra spectrum analysers
@@ -144,7 +144,7 @@ Emergency and public-service communications.
 - [xastir](xastir.md) — APRS client with real maps — see and be seen on the packet network
 - [xygrib](xygrib.md) — Views GRIB weather files — wind, pressure, waves, on a map
 
-### `hardware` — 53
+### `hardware` — 52
 
 Device support rather than an application: drivers, firmware, udev permissions, and the tools for talking to a device at all.
 
@@ -171,7 +171,6 @@ Device support rather than an application: drivers, firmware, udev permissions, 
 - [m2kcli](m2kcli.md) — Command-line control of the ADALM2000 lab instrument
 - [minicom](minicom.md) — Full-screen serial communication program, the one everyone already knows
 - [miri-sdr](miri-sdr.md) — Command-line tools for Mirics-based receivers
-- [nanovna-saver](nanovna-saver.md) — Desktop companion for the NanoVNA — bigger screen, real calibration, exportable data
 - [osmo-sdr](osmo-sdr.md) — Tools for the original OsmoSDR hardware
 - [pciutils](pciutils.md) — lspci — for the SDRs and capture cards that are not on USB
 - [python3-meshtastic](python3-meshtastic.md) — Meshtastic command-line client and Python API
@@ -265,7 +264,7 @@ Contact logging, awards tracking, QSL and confirmation services.
 - [flnet](flnet.md) — Net control operator's list — who checked in, in what order
 - [kel-agent](kel-agent.md) — Bridges browser-based logging software to the radio hardware on your desk
 - [klog](klog.md) — Cross-platform Qt station log that stays out of the way
-- [not1mm](not1mm.md) — Contest logger for Linux, modelled on N1MM but not it
+- [not1mm](not1mm.md) — A contest logger that speaks to your rig, keyer and cluster
 - [pyqso](pyqso.md) — Simple GTK logger in Python, easy to read and easy to change
 - [python3-pyhamtools](python3-pyhamtools.md) — Python library for callsign lookup, locators and DXCC data
 - [qlog](qlog.md) — Modern Qt station log with award tracking and online-service upload
@@ -718,10 +717,10 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [mshv](mshv.md) | Multi-mode weak-signal application with multi-stream FT8 decoding | source |
 | [multimon](multimon.md) | The original multimon decoder, kept for the modes its successor dropped | apt |
 | [multimon-ng](multimon-ng.md) | Decoder for POCSAG, FLEX, AFSK, DTMF and other audio-band digital modes | apt |
-| [nanovna-saver](nanovna-saver.md) | Desktop companion for the NanoVNA — bigger screen, real calibration, exportable data | apt |
+| [nanovna-saver](nanovna-saver.md) | Sweep, chart and calibrate a NanoVNA from the computer | binary, venv |
 | [nec2c](nec2c.md) | The NEC2 antenna modelling engine as a C program, for scripting | apt |
 | [noaa-apt](noaa-apt.md) | Decoder for NOAA weather-satellite APT imagery | binary |
-| [not1mm](not1mm.md) | Contest logger for Linux, modelled on N1MM but not it | apt |
+| [not1mm](not1mm.md) | A contest logger that speaks to your rig, keyer and cluster | venv |
 | [odr-audioenc](odr-audioenc.md) | Encodes audio into the DAB and DAB+ formats a multiplexer expects | apt |
 | [odr-dabmod](odr-dabmod.md) | Turns a DAB ensemble into a transmittable OFDM signal | apt |
 | [odr-dabmux](odr-dabmux.md) | Assembles audio services into a DAB ensemble multiplex | apt |

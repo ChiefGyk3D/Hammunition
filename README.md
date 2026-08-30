@@ -38,7 +38,9 @@ exactly where things stand:
 | Source builds from a verified tarball (cmake, autotools, qmake, make) | ✅ working |
 | Builds from a pinned git revision, with the pin verified after checkout | ✅ working |
 | Prebuilt binaries: `.deb`, tarball, zip, executable | ✅ working — `.deb` through apt, never `dpkg -i` |
-| AppImage, venv, pipx, CPAN backends | ❌ **not written** — refused by name |
+| Per-user venv installs, hash-pinned end to end (`--require-hashes`) | ✅ working — not1mm and NanoVNASaver run from them |
+| AppImage backend | ❌ post-1.0 (SCOPE.md) — refused by name |
+| pipx / CPAN backends | ⚪ re-measured to **zero users** and dropped from 1.0 (D-014 amendment) |
 | Templated config files, from station values | ✅ working — a missing value defers one file, not the transaction |
 | Third-party apt repos | ❌ **not written** — refused by name |
 | udev rule generation from the hardware catalog | 🟡 written; not yet exercised against real hardware |

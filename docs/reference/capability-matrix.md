@@ -35,12 +35,12 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 178 | 10 | 39 | 2 | 0 |
-| ubuntu-26.04 | 179 | 9 | 39 | 2 | 0 |
-| kali-rolling | 184 | 9 | 36 | 0 | 0 |
-| parrot | 181 | 8 | 38 | 2 | 0 |
-| linuxmint-22.3 | 172 | 17 | 38 | 2 | 0 |
-| debian-13-arm64 | 177 | 11 | 38 | 3 | 0 |
+| debian-13 | 177 | 9 | 41 | 2 | 0 |
+| ubuntu-26.04 | 178 | 8 | 41 | 2 | 0 |
+| kali-rolling | 182 | 9 | 38 | 0 | 0 |
+| parrot | 180 | 7 | 40 | 2 | 0 |
+| linuxmint-22.3 | 171 | 16 | 40 | 2 | 0 |
+| debian-13-arm64 | 176 | 10 | 40 | 3 | 0 |
 
 **229 manifests** against **6 targets**.
 
@@ -91,11 +91,6 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `gtk-meshtastic-client` | linuxmint-22.3 | `gtk-meshtastic-client` |
 | `m2kcli` | linuxmint-22.3 | `m2kcli` |
 | `mlat-client-adsbfi` | linuxmint-22.3 | `mlat-client-adsbfi` |
-| `not1mm` | debian-13 | `not1mm` |
-| `not1mm` | debian-13-arm64 | `not1mm` |
-| `not1mm` | linuxmint-22.3 | `not1mm` |
-| `not1mm` | parrot | `not1mm` |
-| `not1mm` | ubuntu-26.04 | `not1mm` |
 | `odr-audioenc` | debian-13 | `odr-audioenc` |
 | `odr-audioenc` | debian-13-arm64 | `odr-audioenc` |
 | `odr-audioenc` | linuxmint-22.3 | `odr-audioenc` |
@@ -253,10 +248,10 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `mshv` | source | source | source | source | source | source |
 | `multimon` | apt | apt | apt | apt | apt | apt |
 | `multimon-ng` | apt | apt | apt | apt | apt | apt |
-| `nanovna-saver` | apt | apt | apt | apt | apt | apt |
+| `nanovna-saver` | venv | venv | venv | venv | venv | binary |
 | `nec2c` | apt | apt | apt | apt | apt | apt |
 | `noaa-apt` | binary | binary | binary | binary | binary | binary |
-| `not1mm` | apt ✗ | apt ✗ | apt | apt ✗ | apt ✗ | apt ✗ |
+| `not1mm` | venv | venv | venv | venv | venv | venv |
 | `odr-audioenc` | apt ✗ | apt | apt | apt | apt ✗ | apt ✗ |
 | `odr-dabmod` | apt | apt | apt | apt | apt | apt |
 | `odr-dabmux` | apt | apt | apt | apt | apt | apt |

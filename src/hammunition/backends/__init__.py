@@ -27,9 +27,10 @@ from .base import (
 from .binary import IMPLEMENTED_BINARY_FORMATS, BinaryBackend
 from .git import GitBackend
 from .source import SourceBackend
+from .venv import VenvBackend
 
 #: Install methods this engine build can actually perform.
-IMPLEMENTED_METHODS: frozenset[str] = frozenset({"apt", "binary", "git", "source"})
+IMPLEMENTED_METHODS: frozenset[str] = frozenset({"apt", "binary", "git", "source", "venv"})
 
 #: `system_modifications` kinds this engine build can actually perform.
 #: Everything else is a declared, named gap — never a silent skip.
@@ -51,5 +52,6 @@ __all__ = [
     "RecordingRunner",
     "SourceBackend",
     "SubprocessRunner",
+    "VenvBackend",
     "parse_policy",
 ]
