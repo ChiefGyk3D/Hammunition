@@ -4,7 +4,7 @@
 
 **Weak-signal keyboard-to-keyboard messaging built on the FT8 modem**
 
-- **Version recorded:** 2.5.2
+- **Version recorded:** 3.0.3
 - **Categories:** `digital-modes`
 - **Upstream:** <https://github.com/JS8Call-improved/JS8Call-improved>
 - **Needs first:** `libhamlib4t64`
@@ -25,8 +25,8 @@ Rig control via hamlib or flrig, and correctly routed sound-card audio between t
 
 - apt: `js8call` — *on linuxmint; version 22.3*
   - Mint 22.3 has Qt 6.4.2 and JS8Call 2.5.2 needs Qt 6.5. The repository version is older but it runs.
-- source (cmake) from https://github.com/JS8Call-improved/JS8Call-improved/releases/download/2.5.2/JS8Call-improved-release-2.5.2.tar.gz
-  - build dependencies: `qt6-multimedia-dev`, `qt6-serialport-dev`, `cmake`, `build-essential`
+- git (cmake) — https://github.com/JS8Call-improved/JS8Call-improved at `v3.0.3`
+  - build dependencies: `qt6-multimedia-dev`, `qt6-serialport-dev`, `qt6-tools-dev`, `libboost-dev`, `libfftw3-dev`, `libhamlib-dev`, `gfortran`, `cmake`, `build-essential`
 
 Binaries this produces:
 

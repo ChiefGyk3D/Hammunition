@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: CC0-1.0
 
 name: fldigi
-version: 4.2.11
+version: "4.2.13"
 summary: Multi-mode digital modem for PSK31, RTTY, Olivia, MT63 and more
 categories: [digital-modes, nbems]
 
@@ -16,11 +16,18 @@ install:
   - install:
       method: source
       source:
-        url: https://sourceforge.net/projects/fldigi/files/fldigi/fldigi-4.2.11.tar.gz
-        sha256: 762b370ffe9cae773a2a03b512d0b7242e7e90407c11d5abbd2d31ae6501664f
+        # Fetch-verified 2026-08-30 -- the 4.2.11 URL this manifest carried was
+        # constructed from AHRL's bundled copy, never fetched, and 404s: the
+        # classic unverified-claim shape. downloads.sourceforge.net is the
+        # direct-fetch host; the tarball hash below is from the actual download.
+        url: https://downloads.sourceforge.net/project/fldigi/fldigi/fldigi-4.2.13.tar.gz
+        sha256: a1e8d990359ce9c0cce3ceb5116fd0cf72c95528969766898640ca6ca2dba8d4
       build_system: autotools
     build_depends:
       - libfltk1.3-dev
+      # 4.2.13's configure demands libpng directly (failed without it on the
+      # first fetch-verified build, Parrot VM 2026-08-30).
+      - libpng-dev
       # portaudio19-dev, not the runtime libportaudio2/libportaudiocpp0 —
       # a build needs the headers, and Debian's own fldigi Build-Depends
       # says portaudio19-dev (apt-cache showsrc, Debian 13, 2026-08-28).

@@ -4,7 +4,7 @@
 
 **Community fork of WSJT-X with additional decoding and UI features**
 
-- **Version recorded:** 3.1.0
+- **Version recorded:** 3.2.0
 - **Categories:** `digital-modes`
 - **Upstream:** <https://sourceforge.net/projects/wsjt-x-improved/>
 - **Install after:** `wsjtx`
@@ -24,16 +24,11 @@ Same as WSJT-X — accurate clock, CAT control, audio routing.
 
 ## How it installs
 
-- source (cmake) from https://sourceforge.net/projects/wsjt-x-improved/files/wsjtx-3.1.0_improved_PLUS_260418.tgz
-  - build dependencies: `gfortran`, `libboost-all-dev`, `qttools5-dev`, `qttools5-dev-tools`, `qtmultimedia5-dev`, `libqt5serialport5-dev`, `libfftw3-dev`, `libreadline-dev`, `libusb-1.0-0-dev`, `libudev-dev`
-
-Binaries this produces:
-
-- `wsjtx` → `wsjtx-improved`
+- prebuilt deb from https://downloads.sourceforge.net/project/wsjt-x-improved/WSJT-X_v3.2.0/Linux/wsjtx_3.2.0_improved_PLUS_260818_amd64.deb — *arch x86_64*
 
 ## Known problems
 
-Distributed as date-stamped SourceForge tarballs with no release feed, so updates must be found and re-pinned by hand. Installs alongside stock WSJT-X as wsjtx-improved.
+Distributed as date-stamped SourceForge artifacts with no release feed, so updates must be found and re-pinned by hand. The 3.2.0 vendor .deb registers as dpkg package `wsjtx` and installs /usr/bin/wsjtx -- a source-built stock WSJT-X in /usr/local/bin shadows it on PATH, so run /usr/bin/wsjtx explicitly when both are present. Measured harder (2026-08-30, Parrot and the campaign box state): the deb ships /usr/share/pixmaps/wsjtx_icon.png without a Replaces header, so dpkg refuses it -- correctly -- on any machine where the distribution's wsjtx-data is installed, which jtdx depends on. Until this catalog can declare package conflicts, installing wsjtx-improved alongside jtdx means removing jtdx and wsjtx-data first; the engine's failure text says exactly this.
 
 ## Toolkit risk
 

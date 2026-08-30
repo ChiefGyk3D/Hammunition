@@ -697,7 +697,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [ibp](ibp.md) | Shows which NCDXF/IARU beacon is transmitting right now, on which band | source |
 | [icom](icom.md) | Minimal CI-V control for Icom radios from the command line | apt |
 | [inspectrum](inspectrum.md) | Offline visualiser for captured radio signals — read a waveform by eye | apt |
-| [js8call](js8call.md) | Weak-signal keyboard-to-keyboard messaging built on the FT8 modem | apt, source |
+| [js8call](js8call.md) | Weak-signal keyboard-to-keyboard messaging built on the FT8 modem | apt, git |
 | [js8spotter](js8spotter.md) | JS8Call's companion — spot tracking, forms, APRS and SMS gateways | binary |
 | [jtdx](jtdx.md) | WSJT-X derivative tuned for DX working and crowded FT8 conditions | apt |
 | [kalibrate-rtl](kalibrate-rtl.md) | Measures an SDR dongle's frequency error against GSM base stations | apt, git |
@@ -816,8 +816,8 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [wfview](wfview.md) | Control a modern Icom radio, waterfall and all, over USB or the network | apt |
 | [wireshark](wireshark.md) | Protocol analyser — decodes captured traffic across two thousand protocols | apt |
 | [wordsworth](wordsworth.md) | Generate Morse practice text the Wordsworth way — words, not characters | binary |
-| [wsjtx](wsjtx.md) | Weak-signal digital modes — FT8, FT4, JT65, JT9, WSPR, Q65 | source |
-| [wsjtx-improved](wsjtx-improved.md) | Community fork of WSJT-X with additional decoding and UI features | source |
+| [wsjtx](wsjtx.md) | Weak-signal digital modes — FT8, FT4, JT65, JT9, WSPR, Q65 | git |
+| [wsjtx-improved](wsjtx-improved.md) | Community fork of WSJT-X with additional decoding and UI features | binary |
 | [wwl](wwl.md) | Distance and bearing between two Maidenhead locators, from the command line | apt |
 | [xastir](xastir.md) | APRS client with real maps — see and be seen on the packet network | apt |
 | [xcwcp](xcwcp.md) | Qt Morse tutor that both sends practice and reads your keying | apt |

@@ -40,7 +40,7 @@ build HAS been run in a container say so in their own install notes.
 | kali-rolling | 182 | 9 | 42 | 0 | 0 |
 | parrot | 180 | 7 | 44 | 2 | 0 |
 | linuxmint-22.3 | 171 | 16 | 44 | 2 | 0 |
-| debian-13-arm64 | 176 | 10 | 43 | 4 | 0 |
+| debian-13-arm64 | 176 | 10 | 42 | 5 | 0 |
 
 **233 manifests** against **6 targets**.
 
@@ -220,7 +220,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `ibp` | source | source | source | source | source | source |
 | `icom` | apt | apt | apt | apt | apt | apt |
 | `inspectrum` | apt | apt | apt | apt | apt | apt |
-| `js8call` | source | source | source | source | apt | source |
+| `js8call` | git | git | git | git | apt | git |
 | `js8spotter` | binary | binary | binary | binary | binary | binary |
 | `jtdx` | apt | apt | apt | apt | apt | apt |
 | `kalibrate-rtl` | git | git | apt | git | git | git |
@@ -339,8 +339,8 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `wfview` | apt | apt | apt | apt | apt | apt |
 | `wireshark` | apt | apt | apt | apt | apt | apt |
 | `wordsworth` | binary | binary | binary | binary | binary | binary |
-| `wsjtx` | source | source | source | source | source | source |
-| `wsjtx-improved` | source | source | source | source | source | source |
+| `wsjtx` | git | git | git | git | git | git |
+| `wsjtx-improved` | binary | binary | binary | binary | binary | — |
 | `wwl` | apt | apt | apt | apt | apt | apt |
 | `xastir` | apt | apt | apt | apt | apt | apt |
 | `xcwcp` | apt | apt | apt | apt | apt | apt |

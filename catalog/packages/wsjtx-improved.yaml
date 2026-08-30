@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: CC0-1.0
 
 name: wsjtx-improved
-version: 3.1.0
+version: "3.2.0"
 summary: Community fork of WSJT-X with additional decoding and UI features
 categories: [digital-modes]
 
@@ -13,30 +13,20 @@ categories: [digital-modes]
 after: [wsjtx]
 
 install:
-  - install:
-      method: source
-      source:
-        url: https://sourceforge.net/projects/wsjt-x-improved/files/wsjtx-3.1.0_improved_PLUS_260418.tgz
-        sha256: 15c494dbfee81c40023c4c75ee0cd001ab5c894e4adca58ab2eb6d06bb7a338c
-      build_system: cmake
-      configure_args:
-        - -DWSJT_SKIP_MANPAGES=ON
-        - -DWSJT_GENERATE_DOCS=OFF
-    build_depends:
-      - gfortran
-      - libboost-all-dev
-      - qttools5-dev
-      - qttools5-dev-tools
-      - qtmultimedia5-dev
-      - libqt5serialport5-dev
-      - libfftw3-dev
-      - libreadline-dev
-      - libusb-1.0-0-dev
-      - libudev-dev
-
-binaries:
-  - produced: wsjtx
-    install_as: wsjtx-improved
+  - when:
+      arch: [x86_64]
+    install:
+      # The flat 3.1.0 source-tgz URL was AHRL's bundled filename, never
+      # fetched -- SF actually files releases under WSJT-X_vX.Y.Z/<OS>/, and
+      # for 3.2.0 the Linux artifacts are vendor .debs (PLUS flavour matches
+      # what AHRL shipped; a Raspberry Pi directory exists for ARM and is not
+      # yet measured). Fetch-verified 2026-08-30; goes through
+      # apt-get install ./file.deb like every deb.
+      method: binary
+      artifact:
+        url: https://downloads.sourceforge.net/project/wsjt-x-improved/WSJT-X_v3.2.0/Linux/wsjtx_3.2.0_improved_PLUS_260818_amd64.deb
+        sha256: 904b943c98bd2cd5e30e2f1aee8fef401a535d2821af8728078e60dfeb287903
+      format: deb
 
 recommended_default: false
 
@@ -62,7 +52,16 @@ documentation:
     WSJT-X rather than replacing it, so you can run either.
   prerequisites: Same as WSJT-X — accurate clock, CAT control, audio routing.
   known_problems: >-
-    Distributed as date-stamped SourceForge tarballs with no release feed, so
-    updates must be found and re-pinned by hand. Installs alongside stock
-    WSJT-X as wsjtx-improved.
+    Distributed as date-stamped SourceForge artifacts with no release feed,
+    so updates must be found and re-pinned by hand. The 3.2.0 vendor .deb
+    registers as dpkg package `wsjtx` and installs /usr/bin/wsjtx -- a
+    source-built stock WSJT-X in /usr/local/bin shadows it on PATH, so run
+    /usr/bin/wsjtx explicitly when both are present. Measured harder
+    (2026-08-30, Parrot and the campaign box state): the deb ships
+    /usr/share/pixmaps/wsjtx_icon.png without a Replaces header, so dpkg
+    refuses it -- correctly -- on any machine where the distribution's
+    wsjtx-data is installed, which jtdx depends on. Until this catalog can
+    declare package conflicts, installing wsjtx-improved alongside jtdx
+    means removing jtdx and wsjtx-data first; the engine's failure text says
+    exactly this.
   upstream_url: https://sourceforge.net/projects/wsjt-x-improved/

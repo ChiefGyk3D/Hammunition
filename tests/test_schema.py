@@ -114,7 +114,7 @@ def test_shape1_js8call_method_varies_by_distro(catalog: Catalog) -> None:
     assert mint is not None and other is not None
     assert isinstance(mint.install, AptInstall)
     assert mint.install.packages == ["js8call"]
-    assert isinstance(other.install, SourceInstall)
+    assert isinstance(other.install, GitInstall)
     assert other.install.build_system == "cmake"
 
 
@@ -123,7 +123,10 @@ def test_shape1_selector_precision(catalog: Catalog) -> None:
     js8 = catalog["js8call"]
     block = js8.resolve("linuxmint", "22.4", "x86_64")
     assert block is not None
-    assert isinstance(block.install, SourceInstall)
+    # Since 3.0.3 the default path is a pinned git build (upstream stopped
+    # publishing source tarballs); the assertion is about the SELECTOR, so
+    # what matters is that Mint 22.4 falls through to the build path.
+    assert isinstance(block.install, GitInstall)
 
 
 # ===========================================================================
@@ -153,14 +156,15 @@ def test_provides_may_not_list_self() -> None:
 
 
 def test_shape3_binary_collision_is_declared_away(catalog: Catalog) -> None:
-    """Both builds emit `wsjtx`; install_as gives them distinct final names, so
-    AHRL's rename dance is unnecessary rather than merely automated."""
+    """The two WSJT-X builds must not overwrite each other. Since 3.2.0 the
+    improved fork ships a vendor .deb owning /usr/bin/wsjtx while stock
+    builds from source into /usr/local -- distinct paths by construction,
+    and the improved manifest documents the PATH shadowing. What this test
+    still owes: stock keeps its explicit name, and the improved unit's
+    manifest says how to reach its binary."""
     a, b = catalog["wsjtx"], catalog["wsjtx-improved"]
-
-    assert a.binaries[0].produced == b.binaries[0].produced == "wsjtx"
-    assert a.binaries[0].install_as == "wsjtx"
-    assert b.binaries[0].install_as == "wsjtx-improved"
-    assert a.binaries[0].install_as != b.binaries[0].install_as
+    assert a.binaries and a.binaries[0].install_as == "wsjtx"
+    assert "usr/bin/wsjtx" in (b.documentation.known_problems or "")
 
 
 def test_shape3_ordering_is_declared(catalog: Catalog) -> None:

@@ -4,7 +4,7 @@
 
 **Multi-mode digital modem for PSK31, RTTY, Olivia, MT63 and more**
 
-- **Version recorded:** 4.2.11
+- **Version recorded:** 4.2.13
 - **Categories:** `digital-modes`, `nbems`
 - **Upstream:** <https://sourceforge.net/projects/fldigi/>
 - **Also provides:** `flarq`
@@ -24,8 +24,8 @@ Sound-card audio routed to and from the radio, and PTT via hamlib, flrig, CAT, o
 
 ## How it installs
 
-- source (autotools) from https://sourceforge.net/projects/fldigi/files/fldigi/fldigi-4.2.11.tar.gz
-  - build dependencies: `libfltk1.3-dev`, `portaudio19-dev`, `libsamplerate0-dev`, `libsndfile1-dev`, `libudev-dev`
+- source (autotools) from https://downloads.sourceforge.net/project/fldigi/fldigi/fldigi-4.2.13.tar.gz
+  - build dependencies: `libfltk1.3-dev`, `libpng-dev`, `portaudio19-dev`, `libsamplerate0-dev`, `libsndfile1-dev`, `libudev-dev`
   - AHRL also installs libportaudio-ocaml-dev here. That is an OCaml binding fldigi does not use; it is a copy-paste error that never surfaced because AHRL checks no exit status. Deliberately omitted — see D-016.
 
 Binaries this produces:

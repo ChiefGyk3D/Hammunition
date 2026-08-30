@@ -4,7 +4,7 @@
 
 **Weak-signal digital modes — FT8, FT4, JT65, JT9, WSPR, Q65**
 
-- **Version recorded:** 3.0.0
+- **Version recorded:** 3.0.2
 - **Categories:** `digital-modes`
 - **Upstream:** <https://wsjtx.github.io/wsjtx/index.html>
 
@@ -22,8 +22,8 @@ Accurate system clock (within about a second), CAT rig control, and audio routed
 
 ## How it installs
 
-- source (cmake) from https://github.com/WSJTX/wsjtx/releases/download/wsjtx-3.0.0/wsjtx-3.0.0.tar.gz
-  - build dependencies: `gfortran`, `libboost-all-dev`, `qttools5-dev`, `qttools5-dev-tools`, `qtmultimedia5-dev`, `libqt5serialport5-dev`, `libfftw3-dev`, `libreadline-dev`, `libusb-1.0-0-dev`, `libudev-dev`
+- git (cmake) — https://github.com/WSJTX/wsjtx at `v3.0.2`
+  - build dependencies: `gfortran`, `libboost-dev`, `libboost-log-dev`, `libboost-filesystem-dev`, `qttools5-dev`, `qttools5-dev-tools`, `qtmultimedia5-dev`, `libqt5serialport5-dev`, `libfftw3-dev`, `libreadline-dev`, `libusb-1.0-0-dev`, `libudev-dev`
 
 Binaries this produces:
 

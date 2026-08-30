@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: CC0-1.0
 
 name: wsjtx
-version: 3.0.0
+version: "3.0.2"
 summary: Weak-signal digital modes — FT8, FT4, JT65, JT9, WSPR, Q65
 categories: [digital-modes]
 
@@ -10,18 +10,29 @@ conflicts_with_repo_package: [wsjtx]
 
 install:
   - install:
-      method: source
-      source:
-        url: https://github.com/WSJTX/wsjtx/releases/download/wsjtx-3.0.0/wsjtx-3.0.0.tar.gz
-        sha256: eb8b72941b574f1ad16aa0b50ae8b0cc7eaa2943f9b7d4797ff910bf518042a7
+      # The 3.0.0 release-asset URL this manifest carried was constructed
+      # from AHRL's bundled filename and never fetched -- it 404s, and
+      # upstream (now at v3.0.2) publishes no Linux source asset at all:
+      # source lives in the repository. A pinned git build of the tag,
+      # verified after checkout. Measured 2026-08-30 by the first campaign.
+      method: git
+      repo: https://github.com/WSJTX/wsjtx
+      ref: "v3.0.2"
       build_system: cmake
+      configure_args: ["-DWSJT_SKIP_MANPAGES=ON", "-DWSJT_GENERATE_DOCS=OFF"]
       configure_args:
         - -DWSJT_SKIP_MANPAGES=ON
         - -DWSJT_GENERATE_DOCS=OFF
         - -DCMAKE_POLICY_VERSION_MINIMUM=3.5
     build_depends:
       - gfortran
-      - libboost-all-dev
+      # Narrowed from AHRL's libboost-all-dev, which drags libboost-mpi and an
+      # OpenMPI/hwloc chain that conflicts outright on a Parrot desktop with
+      # backports enabled (measured 2026-08-30). WSJT-X's CMake wants only
+      # these Boost pieces.
+      - libboost-dev
+      - libboost-log-dev
+      - libboost-filesystem-dev
       - qttools5-dev
       - qttools5-dev-tools
       - qtmultimedia5-dev

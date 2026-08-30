@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: CC0-1.0
 
 name: js8call
-version: 2.5.2
+version: "3.0.3"
 summary: Weak-signal keyboard-to-keyboard messaging built on the FT8 modem
 categories: [digital-modes]
 
@@ -23,12 +23,25 @@ install:
       version is older but it runs.
 
   - install:
-      method: source
-      source:
-        url: https://github.com/JS8Call-improved/JS8Call-improved/releases/download/2.5.2/JS8Call-improved-release-2.5.2.tar.gz
-        sha256: f965db1e362bc2b21272894f8a3a03a7a28f9ac1a7313e5d2e37a5632db0cc6a
+      # The 2.5.2-era release tarballs are gone: upstream is at v3.0.3 and its
+      # Linux release assets are AppImages only (measured 2026-08-30, the old
+      # URL 404s). The source is still the repository, so this is a pinned
+      # git build of the tag -- the pin verified after checkout like every
+      # git unit.
+      method: git
+      repo: https://github.com/JS8Call-improved/JS8Call-improved
+      ref: "v3.0.3"
       build_system: cmake
-    build_depends: [qt6-multimedia-dev, qt6-serialport-dev, cmake, build-essential]
+    build_depends:
+      - qt6-multimedia-dev
+      - qt6-serialport-dev
+      - qt6-tools-dev
+      - libboost-dev
+      - libfftw3-dev
+      - libhamlib-dev
+      - gfortran
+      - cmake
+      - build-essential
 
 binaries:
   - produced: JS8Call

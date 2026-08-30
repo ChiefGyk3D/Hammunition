@@ -72,7 +72,7 @@ class UnitResult:
 def run_unit(host: str, identity: str | None, unit: str, timeout: int) -> UnitResult:
     """One engine install over SSH; the tail is the evidence."""
     remote = (
-        f"cd hammunition && .venv/bin/hammunition install {unit} --yes 2>&1 | tail -25; "
+        f"cd hammunition && .venv/bin/hammunition install {unit} --yes 2>&1 | tail -60; "
         f'echo "__EXIT=${{PIPESTATUS[0]}}"'
     )
     argv = list(SSH_BASE)
@@ -93,8 +93,16 @@ def run_unit(host: str, identity: str | None, unit: str, timeout: int) -> UnitRe
             exit_code = int(line.split("=", 1)[1])
         else:
             tail_lines.append(line)
-    # Keep what a reader needs: the failure text, or the confirmation line.
-    keep = [ln for ln in tail_lines if ln.strip()][-6:]
+    # Keep what a reader needs. Stderr outruns block-buffered stdout through
+    # a pipe, so a failure's text can land ANYWHERE in the merged stream —
+    # the first report buried every real error above the tail window. Prefer
+    # the lines from the first failure marker; fall back to the last few.
+    nonempty = [ln for ln in tail_lines if ln.strip()]
+    markers = ("Failed:", "problem block", "error:", "E: ")
+    start = next(
+        (i for i, ln in enumerate(nonempty) if any(m in ln for m in markers)), None
+    )
+    keep = nonempty[start : start + 10] if start is not None else nonempty[-6:]
     return UnitResult(unit, exit_code, seconds, "\n".join(keep))
 
 
