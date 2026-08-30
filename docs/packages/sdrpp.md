@@ -25,7 +25,7 @@ A supported receiver and its driver library. On Debian 13 there is no apt packag
 - apt: `sdrpp` — *on kali, parrot*
   - Measured 2026-08-26. Kali: 0.0~git20260520.36ea9a1+dfsg-2. Parrot: the same snapshot backported, +dfsg-2~bpo13+1. Absent from Debian 13.
 - git (cmake) — https://github.com/AlexandreRouma/SDRPlusPlus at `36ea9a143422f5b374371461667ff53fb9387300`
-  - build dependencies: `build-essential`, `cmake`, `pkg-config`, `libfftw3-dev`, `libglfw3-dev`, `libvolk-dev`, `libsoapysdr-dev`, `librtlsdr-dev`, `libairspy-dev`, `libhackrf-dev`, `libad9361-dev`, `libiio-dev`, `libzstd-dev`
+  - build dependencies: `build-essential`, `cmake`, `pkg-config`, `libfftw3-dev`, `libglfw3-dev`, `libvolk-dev`, `libsoapysdr-dev`, `librtlsdr-dev`, `libairspy-dev`, `libairspyhf-dev`, `libhackrf-dev`, `librtaudio-dev`, `libad9361-dev`, `libiio-dev`, `libzstd-dev`
   - Needs the source-from-git backend, which is NOT WRITTEN. The manifest is data and is correct today; nothing can act on it yet. Note libvolk-dev, not libvolk2-dev — the SONAME changed and upstream's bookworm .deb still wants the old name, which is why that artifact fails on Debian 13.
 
 ## Known problems

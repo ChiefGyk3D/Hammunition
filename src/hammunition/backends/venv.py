@@ -166,11 +166,16 @@ class VenvBackend:
             ),
         ]
         if block.payload_build_script:
+            # Run from the script's own directory: upstream build scripts
+            # address their tree relative to themselves (auto_rx/build.sh
+            # invokes `python3 -m autorx.version`, which only resolves from
+            # auto_rx/ — measured on the first Debian run, 2026-08-30).
+            script = Path(block.payload_build_script)
             steps.append(
                 Command(
-                    argv=("sh", block.payload_build_script),
+                    argv=("sh", script.name),
                     description=f"Run {manifest.name}'s payload build ({block.payload_build_script})",
-                    cwd=layout.src,
+                    cwd=layout.src / script.parent,
                 )
             )
         steps.extend(

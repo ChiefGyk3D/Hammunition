@@ -190,7 +190,8 @@ def test_payload_plans_fetch_extract_build_and_tree_install(tmp_path: Path) -> N
     assert ("sh") in kinds, kinds
     assert kinds[-3:] == ["rm", "install", "cp"], "tree install must be last"
     build = next(s for s in steps if not isinstance(s, Action) and s.argv[0] == "sh")
-    assert build.argv == ("sh", "auto_rx/build.sh")
+    assert build.argv == ("sh", "build.sh")
+    assert build.cwd is not None and build.cwd.name == "auto_rx"
     assert not build.requires_root
 
 

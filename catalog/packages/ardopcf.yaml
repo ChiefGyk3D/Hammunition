@@ -28,6 +28,12 @@ install:
         # used to compile anyway. See known_problems -- this flag restores the
         # old behaviour, it does not fix the code.
         - -Wno-int-conversion
+        # Kali's GCC 15 defaults to C23, where `void f()` means zero
+        # parameters -- ws_server.c then fails with AHRL's original "too
+        # many arguments to process_http_req" error, which was a compiler
+        # generation away all along (measured on the Kali grind,
+        # 2026-08-30). Pin the dialect the code was written in.
+        - -std=gnu17
       # Upstream's Makefile builds `ardopcf` in the source root and has no
       # install rule.
       provides_install_target: false

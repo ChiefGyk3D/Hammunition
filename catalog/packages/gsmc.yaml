@@ -14,6 +14,13 @@ install:
         url: https://github.com/tym163com/gsmc/archive/refs/tags/v1.2.1.tar.gz
         sha256: db5b978c330fcb1b157c5708c560a30f71aa13af7fd4dbebae268dff67fe1a62
       build_system: autotools
+      compiler_flags:
+        # 1990s GTK2 C against modern GCC: incompatible-pointer-types became
+        # a hard error (Kali GCC 15 failed the grind at widget.c:142,
+        # 2026-08-30) and the C23 default breaks old prototypes the same way
+        # ardopcf's did. Same class AHRL silences with sed; declared here.
+        - -Wno-incompatible-pointer-types
+        - -std=gnu17
     build_depends:
       - build-essential
       - pkg-config

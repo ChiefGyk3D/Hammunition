@@ -59,7 +59,12 @@ install:
       - libsoapysdr-dev
       - librtlsdr-dev
       - libairspy-dev
+      # cmake hard-requires airspyhf too -- the first real Debian build
+      # failed without it (2026-08-30); AHRL's list had it and ours dropped
+      # it in transcription.
+      - libairspyhf-dev
       - libhackrf-dev
+      - librtaudio-dev
       - libad9361-dev
       - libiio-dev
       - libzstd-dev
