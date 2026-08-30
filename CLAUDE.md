@@ -527,8 +527,10 @@ install themselves — the reason this project exists (**D-004**).
 
 Required for 1.0: apt ✅, source-from-tarball ✅, source-from-git ✅,
 binary ✅ (`.deb`, tarball, zip, single executable — **AppImage refused by
-name**, post-1.0 per SCOPE.md), Python venv, and launcher generation (14
-units need a generated wrapper, now fused with **D-036**'s menus). **pipx and
+name**, post-1.0 per SCOPE.md), Python venv ✅ (hash-pinned, 2026-08-30), and
+launcher generation ✅ (engine written same day; the 14 units migrate as
+their other gaps close, and **D-036**'s per-DE submenu layer is still to
+measure). **pipx and
 CPAN left the list on 2026-08-30** — re-measured at zero users after chirp
 went apt and aa-analyzer's supersede; see the D-014 amendment.
 

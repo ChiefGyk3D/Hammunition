@@ -43,6 +43,7 @@ from hammunition.backends import (
     VenvBackend,
 )
 from hammunition.distro import Target
+from hammunition.launchers import launcher_steps
 from hammunition.manifest.schema import BinaryInstall, GitInstall, SourceInstall, VenvInstall
 from hammunition.plan import InstallPlan
 from hammunition.state import RemovalPlan, TransactionLog
@@ -237,6 +238,8 @@ def commands_for(
     binary: BinaryBackend | None = None,
     venv: VenvBackend | None = None,
     config_staging: Path | None = None,
+    launcher_bin: Path | None = None,
+    launcher_applications: Path | None = None,
 ) -> list[Step]:
     """Every step this plan implies, in the order it will run.
 
@@ -293,6 +296,19 @@ def commands_for(
     # package's own postinst cannot overwrite what we put down, and before
     # group membership for the same reason the comment above gives.
     commands.extend(config_steps(plan, staging_root=config_staging))
+
+    # Launchers after the software and its configuration exist. Generated
+    # only when the caller supplies the per-user directories -- a caller that
+    # does not (older tests, bare planning) gets plans identical to before.
+    if launcher_bin is not None and launcher_applications is not None:
+        for planned in plan.packages:
+            commands.extend(
+                launcher_steps(
+                    planned.manifest,
+                    bin_dir=launcher_bin,
+                    applications_dir=launcher_applications,
+                )
+            )
 
     cache: dict[str, frozenset[str]] = {}
     for membership in plan.group_memberships:

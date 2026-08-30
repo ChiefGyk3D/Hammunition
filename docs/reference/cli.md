@@ -148,6 +148,21 @@ because a configuration file written with a made-up callsign would transmit
 it. An interactive run offers to prompt for what the request actually needs;
 `--yes`, a pipe, or a value that is already known all skip the question.
 
+## Launchers and menu entries
+
+A manifest may declare `launchers` — programs that need a working directory,
+a service-endpoint argument, or that simply have no `.desktop` of their own
+(Java jars, run-in-place trees; 14 units measured). For each one the run
+generates two per-user artifacts, unprivileged, printed like every other
+step: a wrapper script in `~/.local/bin` with `{endpoint:NAME}` substituted
+from the manifest's `service_endpoints` (the repointable-backend rule — a
+dead upstream is fixed by editing the catalog, not launchers), and a desktop
+entry in `~/.local/share/applications` whose `Categories=` are mapped from
+the manifest's own category tags, `HamRadio` first (**D-036**). Entries
+carry `X-Hammunition-Package` so later tooling can find its own work. The
+curated per-DE submenu layer (Xfce `.menu`, GNOME app-folders, COSMIC) is
+D-036's next, measured step.
+
 ## How a run is ordered
 
 Resolution is a distinct phase that finishes before anything is executed

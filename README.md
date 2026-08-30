@@ -39,6 +39,7 @@ exactly where things stand:
 | Builds from a pinned git revision, with the pin verified after checkout | ✅ working |
 | Prebuilt binaries: `.deb`, tarball, zip, executable | ✅ working — `.deb` through apt, never `dpkg -i` |
 | Per-user venv installs, hash-pinned end to end (`--require-hashes`) | ✅ working — not1mm and NanoVNASaver run from them |
+| Launcher + desktop-entry generation from manifests (D-036) | ✅ engine written, first units verified; per-DE curated submenus still to measure |
 | AppImage backend | ❌ post-1.0 (SCOPE.md) — refused by name |
 | pipx / CPAN backends | ⚪ re-measured to **zero users** and dropped from 1.0 (D-014 amendment) |
 | Templated config files, from station values | ✅ working — a missing value defers one file, not the transaction |

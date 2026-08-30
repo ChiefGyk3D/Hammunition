@@ -49,9 +49,12 @@ service_endpoints:
 # The port appears twice — the -N flag and the endpoint URL — because the
 # launcher template can only substitute a whole endpoint, not parse one.
 # Change them together or the browser opens a map the server is not on.
+# The exec names AIS-catcher exactly as upstream's install target spells it
+# -- the first generated launcher (Parrot VM, 2026-08-30) said `ais-catcher`
+# and could launch nothing, which no check caught until a human ran it.
 launchers:
   - name: ais-catcher-web
-    exec: (sleep 2; x-www-browser {endpoint:webmap}) & exec ais-catcher -N 8100
+    exec: (sleep 2; x-www-browser {endpoint:webmap}) & exec AIS-catcher -N 8100
     terminal: false
 
 update:

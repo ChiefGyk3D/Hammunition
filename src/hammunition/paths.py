@@ -125,3 +125,21 @@ def user_bin_dir(owner: str | None = None) -> Path:
         if entry is not None and entry.pw_uid != 0:
             return Path(entry.pw_dir) / ".local" / "bin"
     return Path.home() / ".local" / "bin"
+
+
+def applications_dir(owner: str | None = None) -> Path:
+    """``~/.local/share/applications`` for the operator — desktop entries.
+
+    Deliberately not hammunition-scoped: this is the freedesktop per-user
+    applications directory, the one every DE already reads. Our files are
+    recognisable anyway — ``hammunition-*.desktop``, each carrying
+    ``X-Hammunition-Package``.
+    """
+    if owner and os.geteuid() == 0:
+        entry = None
+        with contextlib.suppress(KeyError):
+            entry = pwd.getpwnam(owner)
+        if entry is not None and entry.pw_uid != 0:
+            return Path(entry.pw_dir) / ".local" / "share" / "applications"
+    base = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
+    return Path(base) / "applications"
