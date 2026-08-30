@@ -2072,3 +2072,29 @@ repeated before the work was done rather than after.
 
 The station profile's `pipx` **apt package** is unrelated and stays: that is
 a tool installed *for the operator*, not a backend the engine uses.
+
+## D-036 addendum, 2026-08-30 — two of the three menu mechanisms measured
+
+D-036 named three per-DE mechanisms and called all three unmeasured. Two are
+now measured on the target VMs; COSMIC still waits for the Pop!_OS image.
+
+- **GNOME (Debian 13 VM): fully drivable, and better than hoped.** The
+  `org.gnome.desktop.app-folders` schema reads and writes headless via
+  `dbus-run-session gsettings ...` (persisting through dconf's user
+  database), and the relocatable per-folder schema carries `name`, `apps`,
+  `excluded-apps` — and **`categories`**. A folder declaring
+  `categories=['HamRadio']` populates itself from the same `Categories=`
+  values the launcher generator already writes, so GNOME curation is one
+  folder declaration, not a maintained app list. Verified round-trip:
+  set `['HamRadio']`, read it back, restored the default.
+- **Xfce (Kali VM): the classic path, present as expected.**
+  `xdg-desktop-menu` is installed, the menu prefix is `xfce-`, and user
+  merged menus belong in `~/.config/menus/xfce-applications-merged/`.
+  File-level mechanics confirmed; whether the rendered menu looks right is a
+  console-lane check, like every GUI claim.
+- **COSMIC: still unmeasured.** Nothing asserted until Pop 24.04 exists on
+  the ladder.
+
+Implementation note for whoever builds it: both measured mechanisms are
+per-user and unprivileged, exactly like the launcher generator's artifacts —
+the whole menu layer can honour the privilege rule with zero sudo.

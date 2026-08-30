@@ -658,3 +658,30 @@ def test_a_depends_naming_another_manifest_is_not_asked_of_apt(tmp_path: Path) -
     assert names.index("library") < names.index("consumer"), "it must build first"
     assert "library" not in plan.apt_to_install, "a catalog package was sent to apt"
     assert "libreal-dev" in plan.apt_to_install, "a genuine distro dependency was dropped"
+
+
+def test_a_git_build_pulls_git_itself_into_the_apt_set(tmp_path: Path) -> None:
+    """The first fresh-baseline campaign failed every git unit at `git init`:
+    each earlier VM had git only as a leftover of manual testing. The engine
+    owns its own tools now."""
+    catalog = {
+        "gitunit": _manifest(
+            name="gitunit",
+            install=[
+                {
+                    "install": {
+                        "method": "git",
+                        "repo": "https://example.org/x",
+                        "ref": "1.0",
+                        "build_system": "make",
+                    }
+                }
+            ],
+        )
+    }
+    plan = _resolve(
+        tmp_path, ["gitunit"], catalog=catalog, known={"git": None, "gitunit": None}
+    )
+    assert "git" in plan.apt_to_install
+    planned = plan.packages[0]
+    assert "git" in planned.build_only

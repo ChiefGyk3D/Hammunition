@@ -597,12 +597,24 @@ def resolve(
         # transaction unsatisfiable because a package we are about to build from
         # source is not in the archive.
         distro_depends = tuple(d for d in manifest.depends if d not in catalog)
+        # Tools the ENGINE's own method needs, owned here rather than left to
+        # every manifest to remember: a git build needs git, an applied patch
+        # needs patch(1). Found the hard way — the first campaign against a
+        # fresh baseline failed all four git units at `git init`, because
+        # every earlier VM had git only as a leftover of manual testing.
+        # AHRL's install_source_libs was this idea as a blanket; per-method
+        # injection keeps the plan honest about who needs what.
+        tool_depends: tuple[str, ...] = ()
+        if block.install.method == "git":
+            tool_depends = ("git",)
+        elif block.install.method == "source" and getattr(block.install, "patches", None):
+            tool_depends = ("patch",)
         if block.install.method == "apt":
             packages = (*block.install.packages, *distro_depends)
             build_only: tuple[str, ...] = ()
         else:
-            packages = (*block.build_depends, *distro_depends)
-            build_only = tuple(dict.fromkeys(block.build_depends))
+            packages = (*block.build_depends, *tool_depends, *distro_depends)
+            build_only = tuple(dict.fromkeys((*block.build_depends, *tool_depends)))
         resolved.append((manifest, block, tuple(dict.fromkeys(packages)), build_only))
 
     # -- one apt probe for the whole transaction ---------------------------
