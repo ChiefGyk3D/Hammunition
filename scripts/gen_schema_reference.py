@@ -77,7 +77,15 @@ ORDER = [
 
 
 def _type_name(annotation: object) -> str:
-    """A short, readable rendering of a field's annotation."""
+    """A short, readable rendering of a field's annotation.
+
+    Deliberately version-independent: every branch produces a string computed
+    from the type's *structure*, never from a repr or ``__name__`` that Python
+    renders differently across minor versions. ``typing.Literal.__name__``, for
+    one, is not stable across 3.12/3.13, and letting it reach the output made
+    the schema doc's no-op test pass on 3.11/3.12 and fail on 3.13 — the exact
+    test-the-matrix bug CLAUDE.md records.
+    """
     origin = typing.get_origin(annotation)
     if origin is None:
         if isinstance(annotation, type):
@@ -88,7 +96,11 @@ def _type_name(annotation: object) -> str:
         return " | ".join(_type_name(a) for a in args if a is not type(None)) + (
             " | None" if type(None) in args else ""
         )
-    base = getattr(origin, "__name__", str(origin))
+    if origin is typing.Literal:
+        return f"Literal[{', '.join(str(a) for a in args)}]"
+    # Containers (list, dict, tuple, …): the origin is a real class whose
+    # __name__ is stable; a plain-class fallback only for the unexpected.
+    base = origin.__name__ if isinstance(origin, type) else str(origin).replace("typing.", "")
     if args:
         return f"{base}[{', '.join(_type_name(a) for a in args)}]"
     return base
