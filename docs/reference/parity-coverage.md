@@ -66,8 +66,8 @@ Absent on purpose. Each names what it waits on.
 | SUPERSEDE | 14 | 9 |
 | REVIVE | 6 | 4 |
 | ADD | 26 | 22 |
-| RETIRE | 27 | — |
-| NEEDS-DECISION | 2 | — |
+| RETIRE | 28 | — |
+| NEEDS-DECISION | 1 | — |
 | reserved to maintainer | 6 | — |
 
 RETIRE, NEEDS-DECISION and reserved units show no coverage figure because
@@ -188,7 +188,7 @@ catalog is where an operator would look for it.
 | `QtTinySA` | CARRY | `qttinysa` |
 | `quisk` | CARRY | `quisk` |
 | `radiosonde_auto_rx` | REVIVE | `radiosonde-auto-rx` |
-| `REPEAT` | NEEDS-DECISION | — |
+| `REPEAT` | RETIRE | — |
 | `reticulum-meshchat` | ADD | — *waiting, see above* |
 | `rf_exposure_calc` | RETIRE | — |
 | `rtl-433` | ADD | `rtl-433` |

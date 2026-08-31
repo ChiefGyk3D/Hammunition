@@ -151,6 +151,13 @@ RETIRED: dict[str, tuple[str, str]] = {
         "Writing a licence-clean clone of a wrapper around a built-in "
         "feature would be work spent making the product worse.",
     ),
+    "REPEAT": (
+        "73Linux",
+        "Ruled 2026-08-30 (Q-015 decision 13): RepeaterSTART is third-party, "
+        "open and harmless — and nothing in the five-source union's 1.0 "
+        "rationale needs a repeater-directory app. Not carried in 1.0; a "
+        "post-1.0 candidate on demand, like M0IAX.",
+    ),
     # 73Linux — licence-blocked scripts (D-001: no licence file in the
     # repository, so KM4ACK's own works cannot be redistributed or derived
     # from; third-party software he *installs* is unaffected).

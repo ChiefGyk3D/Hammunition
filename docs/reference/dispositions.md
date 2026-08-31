@@ -30,9 +30,9 @@ depending on distro package state is marked *(verify in container)*.
 | CARRY | 67 | 2 | 0 | 0 | 69 |
 | SUPERSEDE | 13 | 0 | 1 | 0 | 14 |
 | REVIVE | 6 | 0 | 0 | 0 | 6 |
-| RETIRE | 13 | 14 | 0 | 0 | 27 |
+| RETIRE | 13 | 15 | 0 | 0 | 28 |
 | ADD | — | 11 | 7 | 8 | 26 |
-| NEEDS-DECISION | 0 | 1 | 1 | 0 | 2 |
+| NEEDS-DECISION | 0 | 0 | 1 | 0 | 1 |
 | Reserved to maintainer | 6 | 0 | 0 | 0 | 6 |
 | **Total** | **105** | **28** | **9** | **8** | **150** |
 
@@ -502,7 +502,7 @@ they depend on it.
 | VARA | ADD (post-1.0) | Closed-source freeware, needs Wine prefix. Settled post-1.0 by D-008. |
 | HAMRS | ADD (post-1.0) | Proprietary freemium, AppImage, upstream scrapes its own download page. Settled post-1.0. |
 | GPS | CARRY | `gpsd` — we need it anyway for the hardware layer |
-| REPEAT | NEEDS-DECISION | RepeaterSTART is third-party; question is scope, not licence |
+| REPEAT | RETIRE (revisit on demand) | RepeaterSTART, third-party. Ruled 2026-08-30: open and harmless, but nothing in the five-source union's 1.0 rationale needs a repeater directory. Post-1.0 candidate. |
 | M0IAX | RETIRE (revisit on demand) | JS8Call utilities, third-party. Ruled 2026-08-30: no measured demand; revisit when a JS8 profile user asks. |
 
 ### RETIRE — 73Linux delta
@@ -688,7 +688,7 @@ listed under AHRL or covered by the Blend, and are not re-indexed here.
 `ARDOPGUI` C · `AX25` A · `BATT` X · `BPQ` A · `CONKY` X · `DIPOLE` X · `EES` X ·
 `GARIM` A · `GPS` C · `GPSUPDATE` X · `GRIDCALC` X · `HAMRS` A · `M0IAX` X ·
 `PAT` A · `PATMENU` X · `PATMENU3` X · `PIAPRS` A · `PIQSO` X · `PISTATS` X ·
-`PITERM` A · `QTSOUND` A · `REPEAT` ? · `SECURITY` X · `SHOWLOG` X · `VARA` A ·
+`PITERM` A · `QTSOUND` A · `REPEAT` X · `SECURITY` X · `SHOWLOG` X · `VARA` A ·
 `VARIM` A · `VNC` X · `XYGRIB` A
 
 **Skywave delta (9):**

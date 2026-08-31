@@ -755,7 +755,7 @@ for scope, Q-006/Q-007 for defaults, D-034 for staging).
 | `wine` | If Morse Runner goes conditional, does Wine leave 1.0? | ✅ **RESOLVED 2026-08-30 — out of the 1.0 core.** The Morse Runner resolution removed its only 1.0 consumer; VARA brings a configured Wine *prefix* back post-1.0 as its own prerequisite, not as a catalog unit. |
 | `M0IAX` (JS8 utilities) | Does the JS8 profile want them? | ✅ **RESOLVED 2026-08-30 — not carried; post-1.0 candidate.** Third-party and fine, but no measured demand. Revisit the moment a JS8 profile user asks — retired-with-a-reason, not retired-as-dead. |
 | `PATMENU3` | Clone KM4ACK's menu, or is PAT's UI enough? | ✅ **RESOLVED 2026-08-30 — PAT's own web UI suffices.** No licence-clean clone of a wrapper whose function Pat ships natively; `pat http` is documented in the packet profile. |
-| `REPEAT` (RepeaterSTART) | In scope? | **Post-1.0 candidate.** Repeater directory app, open, harmless — and nothing in the five-source union's 1.0 rationale needs it. |
+| `REPEAT` (RepeaterSTART) | In scope? | ✅ **RESOLVED 2026-08-30 — not carried; post-1.0 candidate.** Open and harmless, but nothing in the five-source union's 1.0 rationale needs a repeater directory. Revisit on demand. |
 
 **What resolving this buys:** every unit in the five-source union has a final
 disposition; the parity-coverage "owed" denominator stops moving; and the

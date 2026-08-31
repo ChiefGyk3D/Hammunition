@@ -48,6 +48,7 @@ changed, it never worked, or it was never radio.
 | `PIQSO` | 73Linux | KM4ACK's own script, unlicensed repository (D-001). |
 | `PISTATS` | 73Linux | Out of scope — a system monitor, not radio. |
 | `pyautogui` | AHRL | Out of scope — AHRL's own menu-regression test harness, installed onto every user system. The equivalent here is CI, not a catalog entry. |
+| `REPEAT` | 73Linux | Ruled 2026-08-30 (Q-015 decision 13): RepeaterSTART is third-party, open and harmless — and nothing in the five-source union's 1.0 rationale needs a repeater-directory app. Not carried in 1.0; a post-1.0 candidate on demand, like M0IAX. |
 | `rf_exposure_calc` | AHRL | Ruled 2026-08-30 (Q-015 decision 7): a menu entry that opens a URL is not software, and it rots exactly as fast as the URL. The power-density calculator link — and AHRL's five HF_Propagation bookmarks (DXLook, HamTab, OpenHamClock, PSKReporter, VOACAP) — live once, as prose, in `docs/guides/propagation.md`. |
 | `SECURITY` | 73Linux | KM4ACK's own script, unlicensed repository (D-001). |
 | `SHOWLOG` | 73Linux | KM4ACK's own script, unlicensed repository (D-001). |
