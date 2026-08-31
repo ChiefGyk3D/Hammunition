@@ -7,7 +7,7 @@ regenerate. The reasons live in that script and are validated against
 the complete index in `docs/reference/dispositions.md`: a disposition
 added there without a reason here fails generation by name.
 
-**Generated:** 2026-08-29
+**Generated:** 2026-08-30
 
 If you came here from Andy's Ham Radio Linux or 73Linux and something
 you used is missing, this page says why. `PARITY-POLICY.md` promises

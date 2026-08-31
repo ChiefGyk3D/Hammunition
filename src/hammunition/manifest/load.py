@@ -92,10 +92,16 @@ def load_profiles(
             continue
         if packages is not None:
             missing = [p for p in profile.packages if p not in packages]
+            missing += [
+                option
+                for group in profile.suggests_one_of
+                for option in group.options
+                if option not in packages
+            ]
             if missing:
                 failures[path] = (
                     f"profile {profile.name!r} names packages with no manifest: "
-                    f"{', '.join(sorted(missing))}"
+                    f"{', '.join(sorted(set(missing)))}"
                 )
                 continue
         profiles[profile.name] = profile

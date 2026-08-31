@@ -35,14 +35,14 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 177 | 9 | 47 | 2 | 0 |
-| ubuntu-26.04 | 178 | 8 | 47 | 2 | 0 |
-| kali-rolling | 182 | 9 | 44 | 0 | 0 |
-| parrot | 180 | 7 | 46 | 2 | 0 |
-| linuxmint-22.3 | 171 | 16 | 46 | 2 | 0 |
-| debian-13-arm64 | 176 | 10 | 44 | 5 | 0 |
+| debian-13 | 177 | 13 | 47 | 2 | 0 |
+| ubuntu-26.04 | 178 | 12 | 47 | 2 | 0 |
+| kali-rolling | 182 | 13 | 44 | 0 | 0 |
+| parrot | 180 | 11 | 46 | 2 | 0 |
+| linuxmint-22.3 | 171 | 20 | 46 | 2 | 0 |
+| debian-13-arm64 | 176 | 14 | 44 | 5 | 0 |
 
-**235 manifests** against **6 targets**.
+**239 manifests** against **6 targets**.
 
 ---
 
@@ -60,6 +60,12 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `aethersdr` | parrot | `aethersdr` |
 | `aethersdr` | ubuntu-26.04 | `aethersdr` |
 | `baycomepp` | debian-13-arm64 | `baycomepp` |
+| `claws-mail` | debian-13 | `claws-mail` |
+| `claws-mail` | debian-13-arm64 | `claws-mail` |
+| `claws-mail` | kali-rolling | `claws-mail` |
+| `claws-mail` | linuxmint-22.3 | `claws-mail` |
+| `claws-mail` | parrot | `claws-mail` |
+| `claws-mail` | ubuntu-26.04 | `claws-mail` |
 | `code` | debian-13 | `code` |
 | `code` | debian-13-arm64 | `code` |
 | `code` | kali-rolling | `code` |
@@ -77,10 +83,22 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `dump1090-mutability` | debian-13-arm64 | `dump1090-mutability` |
 | `dump1090-mutability` | kali-rolling | `dump1090-mutability` |
 | `dump1090-mutability` | parrot | `dump1090-mutability` |
+| `evolution` | debian-13 | `evolution` |
+| `evolution` | debian-13-arm64 | `evolution` |
+| `evolution` | kali-rolling | `evolution` |
+| `evolution` | linuxmint-22.3 | `evolution` |
+| `evolution` | parrot | `evolution` |
+| `evolution` | ubuntu-26.04 | `evolution` |
 | `fbb` | debian-13 | `fbb` |
 | `fbb` | debian-13-arm64 | `fbb` |
 | `fbb` | kali-rolling | `fbb` |
 | `fbb` | parrot | `fbb` |
+| `geary` | debian-13 | `geary` |
+| `geary` | debian-13-arm64 | `geary` |
+| `geary` | kali-rolling | `geary` |
+| `geary` | linuxmint-22.3 | `geary` |
+| `geary` | parrot | `geary` |
+| `geary` | ubuntu-26.04 | `geary` |
 | `gpsbabel` | debian-13 | `gpsbabel` |
 | `gpsbabel` | debian-13-arm64 | `gpsbabel` |
 | `gpsbabel` | kali-rolling | `gpsbabel` |
@@ -106,6 +124,12 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `sdrangel` | ubuntu-26.04 | `sdrangel` |
 | `soapysdr-module-rfspace` | kali-rolling | `soapysdr-module-rfspace` |
 | `soapysdr-module-rfspace` | ubuntu-26.04 | `soapysdr-module-rfspace` |
+| `thunderbird` | debian-13 | `thunderbird` |
+| `thunderbird` | debian-13-arm64 | `thunderbird` |
+| `thunderbird` | kali-rolling | `thunderbird` |
+| `thunderbird` | linuxmint-22.3 | `thunderbird` |
+| `thunderbird` | parrot | `thunderbird` |
+| `thunderbird` | ubuntu-26.04 | `thunderbird` |
 | `voacapl` | linuxmint-22.3 | `voacapl` |
 | `xygrib` | debian-13 | `xygrib` |
 | `xygrib` | debian-13-arm64 | `xygrib` |
@@ -148,6 +172,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `canadian-ham-exam` | apt | apt | apt | apt | apt | apt |
 | `cassbeam` | apt | apt | apt | apt | apt | apt |
 | `chirp` | apt | apt | apt | apt | apt | apt |
+| `claws-mail` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
 | `code` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
 | `codium` | apt ✗ | apt ✗ | apt ✗ | apt | apt ✗ | apt ✗ |
 | `coil64` | git | git | git | git | git | git |
@@ -172,6 +197,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `ebook2cwgui` | apt | apt | apt | apt | apt | apt |
 | `electronics-radio-dev` | apt | apt | apt | apt | apt | apt |
 | `esptool` | apt | apt | apt | apt | apt | apt |
+| `evolution` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
 | `fbb` | apt ✗ | apt | apt ✗ | apt ✗ | apt | apt ✗ |
 | `fccexam` | apt | apt | apt | apt | apt | apt |
 | `fl-moxgen` | source | source | source | source | source | source |
@@ -188,6 +214,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `flwrap` | apt | apt | apt | apt | apt | apt |
 | `freedv` | apt | apt | apt | apt | apt | apt |
 | `garim` | source | source | source | source | source | source |
+| `geary` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
 | `git` | apt | apt | apt | apt | apt | apt |
 | `glfer` | source | source | source | source | source | source |
 | `gnss-sdr` | apt | apt | apt | apt | apt | apt |
@@ -322,6 +349,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `svxreflector` | apt | apt | apt | apt | apt | apt |
 | `tcpdump` | apt | apt | apt | apt | apt | apt |
 | `tempest-for-eliza` | apt | apt | apt | apt | apt | apt |
+| `thunderbird` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
 | `tio` | apt | apt | apt | apt | apt | apt |
 | `tlf` | apt | apt | apt | apt | apt | apt |
 | `tmd710-tncsetup` | apt | apt | apt | apt | apt | apt |

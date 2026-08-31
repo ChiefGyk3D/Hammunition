@@ -27,12 +27,12 @@ depending on distro package state is marked *(verify in container)*.
 
 | Disposition | AHRL | 73Linux delta | Skywave delta | DragonOS T1* | Total |
 |---|---:|---:|---:|---:|---:|
-| CARRY | 61 | 2 | 0 | 0 | 63 |
+| CARRY | 62 | 2 | 0 | 0 | 64 |
 | SUPERSEDE | 12 | 0 | 1 | 0 | 13 |
 | REVIVE | 6 | 0 | 0 | 0 | 6 |
 | RETIRE | 10 | 12 | 0 | 0 | 22 |
 | ADD | — | 11 | 7 | 8 | 26 |
-| NEEDS-DECISION | 10 | 3 | 1 | 0 | 14 |
+| NEEDS-DECISION | 9 | 3 | 1 | 0 | 13 |
 | Reserved to maintainer | 6 | 0 | 0 | 0 | 6 |
 | **Total** | **105** | **28** | **9** | **8** | **150** |
 
@@ -332,7 +332,7 @@ browser.
 
 | Unit | The specific question |
 |---|---|
-| Claws Mail | In scope? It is in AHRL's **NBEMS** menu because EMCOMM workflows need local mail, and Winlink/PAT makes that more relevant, not less. But it is a general mail client. **Question: does the packet/Winlink profile carry a mail client, or do we document "install one" and stop?** |
+| Claws Mail | **RESOLVED 2026-08-30 (Q-015 #1):** neither carried-by-default nor documented-away. The packet profile *detects* an existing mail client and respects the system's choice; only when none is found does an interactive run offer an open-source selection — Thunderbird, Claws Mail, Evolution, Geary — each now a catalog manifest, none ever installed silently, `--yes` skipping with a note (the D-035 shape). Claws Mail is CARRY as one option among four. |
 | PuTTY | Same shape. On Linux `ssh` is built in, but PuTTY is genuinely useful as a *serial terminal* for radio programming. **Question: carry as a serial-terminal tool, or retire as out-of-scope and point at `minicom`/`picocom`?** |
 | RF Exposure Calculator | It is a two-line script opening `hintlink.com/power_density.htm`. **Question: do we ship browser bookmarks at all?** If yes they need liveness checks — a bookmark to a dead site is worse than no bookmark. Same for AHRL's five HF_Propagation bookmarks (DXLook, HamTab, OpenHamClock, PSKReporter, VOACAP). |
 | Solar Data | Same, plus it depends on `display` from ImageMagick, which IM7 deprecated in favour of `magick display`. **Question: retire, or reimplement as a real fetch-and-render?** |
@@ -673,7 +673,7 @@ listed under AHRL or covered by the Blend, and are not re-indexed here.
 
 `aa-analyzer` S · `ahrl_docs` S · `ahrl_menus` S · `ahrl_version` S ·
 `AIS-catcher` C · `AntScope2` C · `ardop` R · `arduino` M · `atlc` C ·
-`backdrops` X · `browser` X · `chirp` C · `claws-mail` ? · `Coil64` C ·
+`backdrops` X · `browser` X · `chirp` C · `claws-mail` C · `Coil64` C ·
 `country_files` ? · `cqrlog` C · `cwwav` C · `direwolf` C · `dream` R ·
 `dump1090` S · `ebook2cwgui` C · `ESPHamClock` S · `flaa` C · `flamp` C ·
 `flcluster` C · `fldigi` C · `fllog` C · `Fl_MoxGen` C · `flmsg` C · `flnet` C ·

@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: claws-mail
+# Debian 13 candidate at time of writing; apt tracks the real version.
+version: "4.3.1"
+summary: The fast, plain-text-first mail client AHRL shipped
+categories: [emcomm, workstation]
+
+# One of the packet profile's mail-client options (Q-015 #1, resolved
+# 2026-08-30): the engine detects an existing mail client first and installs
+# nothing when one is present; only when none is found does an interactive
+# run offer this selection. Never installed by default.
+install:
+  - install:
+      method: apt
+      packages: [claws-mail]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Claws Mail: a lightweight, keyboard-friendly client with strong plain-text handling and a plugin system.
+  why_you_want_it: >-
+    AHRL's choice for the NBEMS menu, and the lightest full client here — plain-text-first suits radio traffic, and it starts instantly on a Pi-class machine. In the packet/Winlink workflow, messages fetched by PAT land in a
+    local mailbox; a mail client is how a human reads and writes them.
+  prerequisites: >-
+    Nothing radio-side. To wire it to Winlink, point it at PAT's mailbox or
+    use PAT's own web UI alongside it -- the packet profile's documentation
+    covers the workflow.
+  known_problems: >-
+    The interface is dated by modern standards; that is also why it is fast.
+  upstream_url: https://www.claws-mail.org/
+  upstream_support: The Claws Mail project — mailing lists and a thorough manual.

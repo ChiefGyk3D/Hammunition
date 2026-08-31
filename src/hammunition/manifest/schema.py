@@ -1019,6 +1019,31 @@ class ProfileDocumentation(Strict):
     disk_footprint_hint: str | None = None
 
 
+class SuggestionGroup(Strict):
+    """One-of-several optional companions, offered only when nothing serves.
+
+    Born from the claws-mail decision (Q-015 #1, resolved 2026-08-30): the
+    EMCOMM stack wants a local mail client, but choosing one for the
+    operator is desktop-distribution work — so the engine *detects* first
+    (any of ``detect_commands`` on PATH means the need is already met and
+    the system's own choice is respected), and only when nothing is found
+    does an interactive run offer ``options``, every one an open-source
+    catalog manifest. ``--yes`` and non-interactive runs skip with a note,
+    never block — the station-prompt precedent (D-035).
+    """
+
+    name: str
+    reason: str = Field(min_length=20, description="Why the profile wants one, shown at the prompt.")
+    detect_commands: list[str] = Field(
+        min_length=1,
+        description="Binaries whose presence means the need is already met.",
+    )
+    options: list[str] = Field(
+        min_length=2,
+        description="Catalog manifests to offer, in display order.",
+    )
+
+
 class ProfileManifest(Strict):
     """A named bundle of packages.  Flat tags with overlap, D-003."""
 
@@ -1028,6 +1053,7 @@ class ProfileManifest(Strict):
     stage: Literal["1.0", "post-1.0"] = "1.0"
     consent: ConsentGate | None = None
     documentation: ProfileDocumentation
+    suggests_one_of: list[SuggestionGroup] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _check(self) -> ProfileManifest:

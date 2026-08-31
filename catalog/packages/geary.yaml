@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: geary
+# Debian 13 candidate at time of writing; apt tracks the real version.
+version: "46.0"
+summary: The minimal, conversation-view mail client
+categories: [emcomm, workstation]
+
+# One of the packet profile's mail-client options (Q-015 #1, resolved
+# 2026-08-30): the engine detects an existing mail client first and installs
+# nothing when one is present; only when none is found does an interactive
+# run offer this selection. Never installed by default.
+install:
+  - install:
+      method: apt
+      packages: [geary]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Geary: a deliberately simple GNOME-family client built around conversation view.
+  why_you_want_it: >-
+    For the operator who wants a mailbox and nothing else — smallest cognitive footprint of the four. In the packet/Winlink workflow, messages fetched by PAT land in a
+    local mailbox; a mail client is how a human reads and writes them.
+  prerequisites: >-
+    Nothing radio-side. To wire it to Winlink, point it at PAT's mailbox or
+    use PAT's own web UI alongside it -- the packet profile's documentation
+    covers the workflow.
+  known_problems: >-
+    Simple by design: no filters to speak of, which heavy Winlink traffic may outgrow.
+  upstream_url: https://wiki.gnome.org/Apps/Geary
+  upstream_support: The GNOME project.

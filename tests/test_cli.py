@@ -881,3 +881,102 @@ def test_a_bad_callsign_is_an_error_message_not_a_traceback(
     err = capsys.readouterr().err
     assert "does not look like a callsign" in err
     assert "Traceback" not in err
+
+
+# ---------------------------------------------------------------------------
+# Suggestion groups (Q-015 #1): detect, respect, offer, never block
+# ---------------------------------------------------------------------------
+
+
+def _suggesting_profile() -> Any:
+    from hammunition.manifest.schema import ProfileManifest
+
+    return ProfileManifest.model_validate(
+        {
+            "name": "suggestive",
+            "summary": "Fixture profile with a mail-client suggestion",
+            "packages": ["example"],
+            "suggests_one_of": [
+                {
+                    "name": "mail-client",
+                    "reason": "Winlink messages land in a mailbox and a human reads them there.",
+                    "detect_commands": ["definitely-not-a-binary-xyz"],
+                    "options": ["optiona", "optionb"],
+                }
+            ],
+            "documentation": {
+                "what_it_installs": "One fixture package, plus whatever gets chosen.",
+                "why_together": "They exist to exercise the suggestion machinery.",
+                "deliberately_excludes": "Everything real.",
+                "manual_configuration": "Nothing at all.",
+            },
+        }
+    )
+
+
+def test_a_detected_command_is_respected_and_nothing_offered(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import shutil as shutil_module
+
+    from hammunition.cli.main import _apply_suggestions
+
+    monkeypatch.setattr(shutil_module, "which", lambda c: "/usr/bin/found")
+    extra, notes = _apply_suggestions(
+        ["suggestive"], {"suggestive": _suggesting_profile()}, assume_yes=False
+    )
+    assert extra == []
+    assert any("already installed — respected" in n for n in notes)
+
+
+def test_yes_skips_the_offer_with_a_note_never_blocking(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import shutil as shutil_module
+
+    from hammunition.cli.main import _apply_suggestions
+
+    monkeypatch.setattr(shutil_module, "which", lambda c: None)
+    extra, notes = _apply_suggestions(
+        ["suggestive"], {"suggestive": _suggesting_profile()}, assume_yes=True
+    )
+    assert extra == []
+    assert any("skipped" in n and "optiona, optionb" in n for n in notes)
+
+
+def test_an_interactive_choice_adds_the_chosen_option(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import builtins
+    import shutil as shutil_module
+    import sys as sys_module
+
+    from hammunition.cli.main import _apply_suggestions
+
+    main_module = sys_module.modules["hammunition.cli.main"]
+    monkeypatch.setattr(shutil_module, "which", lambda c: None)
+    monkeypatch.setattr(main_module, "is_interactive", lambda: True)
+    monkeypatch.setattr(builtins, "input", lambda prompt="": "2")
+    extra, notes = _apply_suggestions(
+        ["suggestive"], {"suggestive": _suggesting_profile()}, assume_yes=False
+    )
+    assert extra == ["optionb"]
+    assert any("you chose optionb" in n for n in notes)
+
+
+def test_skip_is_always_an_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    import builtins
+    import shutil as shutil_module
+    import sys as sys_module
+
+    from hammunition.cli.main import _apply_suggestions
+
+    main_module = sys_module.modules["hammunition.cli.main"]
+    monkeypatch.setattr(shutil_module, "which", lambda c: None)
+    monkeypatch.setattr(main_module, "is_interactive", lambda: True)
+    monkeypatch.setattr(builtins, "input", lambda prompt="": "s")
+    extra, notes = _apply_suggestions(
+        ["suggestive"], {"suggestive": _suggesting_profile()}, assume_yes=False
+    )
+    assert extra == []
+    assert any("skipped by choice" in n for n in notes)

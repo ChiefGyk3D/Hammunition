@@ -86,6 +86,15 @@ Names may be packages or profiles, mixed freely.
 | `--grid-square LOC` | Maidenhead locator, four or six characters |
 | `--node-alias NAME` | Short packet node alias, up to six characters |
 
+**Suggestion groups.** A profile may suggest one-of-several optional
+companions (the packet profile's mail client is the first): the run
+*detects* first — any of the group's known commands on PATH means the
+system's own choice is respected and nothing is offered — and only an
+interactive run without `--yes` gets the selection, every option an
+open-source catalog manifest, with skip always an answer. Non-interactive
+runs note the skip and never block (the D-035 shape). Nothing from a
+suggestion group is ever installed silently.
+
 ### `hammunition uninstall NAME... [--dry-run] [--yes] [--user NAME]`
 
 Removes what Hammunition itself installed, and only that (**D-004**). Names

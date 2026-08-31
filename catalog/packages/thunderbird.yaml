@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: thunderbird
+# Debian 13 candidate at time of writing; apt tracks the real version.
+version: "140.14.0esr"
+summary: Mozilla's full-featured mail client — the household name
+categories: [emcomm, workstation]
+
+# One of the packet profile's mail-client options (Q-015 #1, resolved
+# 2026-08-30): the engine detects an existing mail client first and installs
+# nothing when one is present; only when none is found does an interactive
+# run offer this selection. Never installed by default.
+install:
+  - install:
+      method: apt
+      packages: [thunderbird]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Mozilla Thunderbird: mail, calendars, address book and RSS in one long-lived, actively developed open-source client.
+  why_you_want_it: >-
+    The most widely known open-source mail client, which matters for EMCOMM: in a stress situation, familiar software is a feature. Rich filtering keeps Winlink traffic organised. In the packet/Winlink workflow, messages fetched by PAT land in a
+    local mailbox; a mail client is how a human reads and writes them.
+  prerequisites: >-
+    Nothing radio-side. To wire it to Winlink, point it at PAT's mailbox or
+    use PAT's own web UI alongside it -- the packet profile's documentation
+    covers the workflow.
+  known_problems: >-
+    Ubuntu has been migrating Thunderbird to snap; on our verified targets (Parrot, Debian, Kali) the apt package is the real application. Measure Ubuntu when its VM exists.
+  upstream_url: https://www.thunderbird.net/
+  upstream_support: MZLA/Thunderbird project — support.mozilla.org and an active community.

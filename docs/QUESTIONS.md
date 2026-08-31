@@ -742,7 +742,7 @@ for scope, Q-006/Q-007 for defaults, D-034 for staging).
 
 | Unit | The question | Recommendation |
 |---|---|---|
-| `claws-mail` | Does the EMCOMM stack carry a mail client? | **Do not carry.** Every target ships mail options; the scope rule that retired the browser applies. Document "you need a local mail client" in the emcomm profile's manual-configuration notes instead. |
+| `claws-mail` | Does the EMCOMM stack carry a mail client? | **RESOLVED 2026-08-30 — a third way, the maintainer's:** detect an existing client and respect the system default; if none, offer an open-source selection (Thunderbird, Claws Mail, Evolution, Geary) interactively; never install silently. Implemented as the profile `suggests_one_of` mechanism. |
 | `putty` | Serial-terminal tool or out of scope? | **Carry, in the `workstation` profile.** Genuinely used for radio serial consoles and cheap (apt everywhere) — but if the scope rule feels stronger than the convenience, the fallback is documenting `minicom`/`picocom` in the hardware docs. Lowest-confidence call in this table. |
 | `rf_exposure_calc` | Do we ship browser bookmarks? | **Retire, with the other bookmarks.** A bookmark to a dead site is worse than none, liveness checks for URLs are real maintenance, and a catalog entry that opens a web page installs nothing. Put the URLs (hintlink power density, DXLook, HamTab, PSKReporter, VOACAP, OpenHamClock) in the propagation guide prose, once. |
 | `solar_data` | Same, plus a deprecated ImageMagick dependency | **Retire**, same reasoning; the N0NBH banners belong in guide prose. |

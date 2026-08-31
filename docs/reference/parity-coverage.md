@@ -21,13 +21,13 @@ decision. Only CARRY, SUPERSEDE, REVIVE and ADD owe a manifest.
 | | |
 |---|---:|
 | Units in the five-source union | **150** |
-| …that owe a manifest (C, S, R, A) | **108** |
-| …covered | **97** |
+| …that owe a manifest (C, S, R, A) | **109** |
+| …covered | **98** |
 | …outstanding, with a recorded reason | **11** |
 | …outstanding, unexplained | **0** |
-| Manifests in the catalog | **235** |
+| Manifests in the catalog | **239** |
 
-Coverage of what is owed: **97/108** (89%).
+Coverage of what is owed: **98/109** (89%).
 
 The catalog is larger than the union because the Debian Blend contributes
 152 packages, most of which are not AHRL units, and because hardware
@@ -59,12 +59,12 @@ Absent on purpose. Each names what it waits on.
 
 | Disposition | Units | Covered |
 |---|---:|---:|
-| CARRY | 63 | 62 |
+| CARRY | 64 | 63 |
 | SUPERSEDE | 13 | 9 |
 | REVIVE | 6 | 4 |
 | ADD | 26 | 22 |
 | RETIRE | 22 | — |
-| NEEDS-DECISION | 14 | — |
+| NEEDS-DECISION | 13 | — |
 | reserved to maintainer | 6 | — |
 
 RETIRE, NEEDS-DECISION and reserved units show no coverage figure because
@@ -98,7 +98,7 @@ catalog is where an operator would look for it.
 | `BPQ` | ADD | `linbpq` |
 | `browser` | RETIRE | — |
 | `chirp` | CARRY | `chirp` |
-| `claws-mail` | NEEDS-DECISION | — |
+| `claws-mail` | CARRY | `claws-mail` |
 | `Coil64` | CARRY | `coil64` |
 | `CONKY` | RETIRE | — |
 | `country_files` | NEEDS-DECISION | — |

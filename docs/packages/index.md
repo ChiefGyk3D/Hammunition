@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**235 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**239 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -118,7 +118,7 @@ Bench electronics and EDA — circuit design, simulation, test gear.
 - [stlink-tools](stlink-tools.md) — Flash and debug STM32 targets through an ST-Link probe
 - [tempest-for-eliza](tempest-for-eliza.md) — Makes a monitor radiate music on an AM radio — a TEMPEST demonstration
 
-### `emcomm` — 24
+### `emcomm` — 28
 
 Emergency and public-service communications.
 
@@ -128,13 +128,16 @@ Emergency and public-service communications.
 - [ax25-tools](ax25-tools.md) — Configures the kernel AX.25 stack — ports, interfaces, NET/ROM, Rose
 - [ax25mail-utils](ax25mail-utils.md) — Utilities for exchanging mail with an FBB packet BBS
 - [axmail](axmail.md) — Mail reader that packet callers reach through a node
+- [claws-mail](claws-mail.md) — The fast, plain-text-first mail client AHRL shipped
 - [direwolf](direwolf.md) — Software TNC — turns a sound card into an APRS and packet modem
+- [evolution](evolution.md) — GNOME's integrated mail, calendar and groupware client
 - [fbb](fbb.md) — The classic packet radio BBS and mailbox
 - [flamp](flamp.md) — Sends files over radio in numbered blocks that can be filled in later
 - [flmsg](flmsg.md) — Fills in and transmits the standard message forms EMCOMM runs on
 - [flnet](flnet.md) — Net control operator's list — who checked in, in what order
 - [flwrap](flwrap.md) — Wraps a file with a checksum so the far end knows it arrived intact
 - [garim](garim.md) — Graphical ARIM messaging over an ARDOP TNC
+- [geary](geary.md) — The minimal, conversation-view mail client
 - [js8spotter](js8spotter.md) — JS8Call's companion — spot tracking, forms, APRS and SMS gateways
 - [linbpq](linbpq.md) — BPQ32 packet-radio node, BBS and Winlink gateway
 - [linpac](linpac.md) — Terminal for AX.25 packet with a built-in mail client and macros
@@ -143,6 +146,7 @@ Emergency and public-service communications.
 - [qttermtcp](qttermtcp.md) — Packet terminal that connects over TCP to a BPQ node
 - [svxlink-server](svxlink-server.md) — Repeater controller and EchoLink node in software
 - [svxreflector](svxreflector.md) — Conference server that links many SvxLink nodes into one talk group
+- [thunderbird](thunderbird.md) — Mozilla's full-featured mail client — the household name
 - [uronode](uronode.md) — Node front end that lets other stations reach services on your machine
 - [xastir](xastir.md) — APRS client with real maps — see and be seen on the packet network
 - [xygrib](xygrib.md) — Views GRIB weather files — wind, pressure, waves, on a map
@@ -577,21 +581,25 @@ Licence exam preparation and operating practice.
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `workstation` — 15
+### `workstation` — 19
 
 The machine the station runs on rather than the radio: editors, serial consoles, enumeration tools.
 
 - [arduino-cli](arduino-cli.md) — Command-line toolchain for compiling and uploading Arduino-framework firmware
+- [claws-mail](claws-mail.md) — The fast, plain-text-first mail client AHRL shipped
 - [code](code.md) — Microsoft's Visual Studio Code build — optional alternative to the VSCodium your distro ships
 - [codium](codium.md) — VSCodium — Microsoft's VS Code source, built without their telemetry or branding
 - [dfu-util](dfu-util.md) — Device Firmware Upgrade tool — flash devices that expose a standard DFU mode
 - [esptool](esptool.md) — Flash and inspect ESP8266 and ESP32 chips over their serial bootloader
+- [evolution](evolution.md) — GNOME's integrated mail, calendar and groupware client
+- [geary](geary.md) — The minimal, conversation-view mail client
 - [git](git.md) — Distributed version control — the tool this project is distributed with
 - [minicom](minicom.md) — Full-screen serial communication program, the one everyone already knows
 - [pciutils](pciutils.md) — lspci — for the SDRs and capture cards that are not on USB
 - [pipx](pipx.md) — Installs Python applications in their own environments, on the PATH
 - [screen](screen.md) — Terminal multiplexer, and the serial console of last resort
 - [tcpdump](tcpdump.md) — Command-line packet capture — the tool that works when nothing else does
+- [thunderbird](thunderbird.md) — Mozilla's full-featured mail client — the household name
 - [tio](tio.md) — Serial device terminal — the modern replacement for screen on a TTY
 - [tmux](tmux.md) — Terminal multiplexer for sessions that outlive the connection
 - [usbutils](usbutils.md) — lsusb — step one of every hardware problem in this catalog
@@ -629,6 +637,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [canadian-ham-exam](canadian-ham-exam.md) | Practice tests for the Canadian amateur radio qualification exams | apt |
 | [cassbeam](cassbeam.md) | Models Cassegrain dish antennas — the microwave and radio-astronomy case | apt |
 | [chirp](chirp.md) | Reads, edits and writes the memory channels of hundreds of radios | apt |
+| [claws-mail](claws-mail.md) | The fast, plain-text-first mail client AHRL shipped | apt |
 | [code](code.md) | Microsoft's Visual Studio Code build — optional alternative to the VSCodium your distro ships | apt |
 | [codium](codium.md) | VSCodium — Microsoft's VS Code source, built without their telemetry or branding | apt |
 | [coil64](coil64.md) | Calculates inductance for coils of almost any geometry | git |
@@ -653,6 +662,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [ebook2cwgui](ebook2cwgui.md) | Graphical front end for ebook2cw | apt |
 | [electronics-radio-dev](electronics-radio-dev.md) | Metapackage pulling in the Blend's RF circuit-design tools | apt |
 | [esptool](esptool.md) | Flash and inspect ESP8266 and ESP32 chips over their serial bootloader | apt |
+| [evolution](evolution.md) | GNOME's integrated mail, calendar and groupware client | apt |
 | [fbb](fbb.md) | The classic packet radio BBS and mailbox | apt |
 | [fccexam](fccexam.md) | Practice tests for the US FCC commercial radio licence exams | apt |
 | [fl-moxgen](fl-moxgen.md) | Designs Moxon rectangle antennas and prints them to scale | source |
@@ -669,6 +679,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [flwrap](flwrap.md) | Wraps a file with a checksum so the far end knows it arrived intact | apt |
 | [freedv](freedv.md) | Digital voice over HF in the bandwidth of an SSB signal | apt |
 | [garim](garim.md) | Graphical ARIM messaging over an ARDOP TNC | source |
+| [geary](geary.md) | The minimal, conversation-view mail client | apt |
 | [git](git.md) | Distributed version control — the tool this project is distributed with | apt |
 | [glfer](glfer.md) | QRSS and DFCW receiver for extremely slow narrowband CW on LF/MF | source |
 | [gnss-sdr](gnss-sdr.md) | A complete GPS and GNSS receiver built entirely in software | apt |
@@ -803,6 +814,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [svxreflector](svxreflector.md) | Conference server that links many SvxLink nodes into one talk group | apt |
 | [tcpdump](tcpdump.md) | Command-line packet capture — the tool that works when nothing else does | apt |
 | [tempest-for-eliza](tempest-for-eliza.md) | Makes a monitor radiate music on an AM radio — a TEMPEST demonstration | apt |
+| [thunderbird](thunderbird.md) | Mozilla's full-featured mail client — the household name | apt |
 | [tio](tio.md) | Serial device terminal — the modern replacement for screen on a TTY | apt |
 | [tlf](tlf.md) | Console contest logger built for speed, driven from the keyboard | apt |
 | [tmd710-tncsetup](tmd710-tncsetup.md) | Configures the built-in TNC on Kenwood TM-D710 and TH-D72 radios | apt |

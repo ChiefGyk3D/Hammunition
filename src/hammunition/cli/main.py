@@ -497,6 +497,59 @@ def _station_for(
     return station
 
 
+def _apply_suggestions(
+    names: list[str],
+    profiles: Mapping[str, ProfileManifest],
+    *,
+    assume_yes: bool,
+) -> tuple[list[str], list[str]]:
+    """Resolve each requested profile's suggestion groups (Q-015 #1).
+
+    Detection first: any of the group's ``detect_commands`` on PATH means the
+    system already has an answer and it is respected — nothing offered,
+    nothing installed. Only an interactive run without ``--yes`` gets the
+    selection prompt, and skipping is always an option; a non-interactive run
+    notes the skip instead of blocking (the D-035 shape). Returns the extra
+    package names chosen and the notes to print with the plan.
+    """
+    import shutil
+
+    extra: list[str] = []
+    notes: list[str] = []
+    for name in names:
+        profile = profiles.get(name)
+        if profile is None:
+            continue
+        for group in profile.suggests_one_of:
+            found = next((c for c in group.detect_commands if shutil.which(c)), None)
+            if found:
+                notes.append(
+                    f"{group.name}: `{found}` is already installed — respected, "
+                    f"nothing offered ({name} profile)"
+                )
+                continue
+            if assume_yes or not is_interactive():
+                notes.append(
+                    f"{group.name}: none detected and this run cannot ask — skipped. "
+                    f"The {name} profile's docs list the options "
+                    f"({', '.join(group.options)}); install one by name any time"
+                )
+                continue
+            print(f"\nThe {name} profile suggests a {group.name}, and none was detected.")
+            print(textwrap.fill(group.reason, width=78, initial_indent="  ", subsequent_indent="  "))
+            for index, option in enumerate(group.options, start=1):
+                print(f"  [{index}] {option}")
+            print("  [s] skip — install none")
+            answer = input(f"Choose a {group.name} [1-{len(group.options)}/s]: ").strip().lower()
+            if answer.isdigit() and 1 <= int(answer) <= len(group.options):
+                chosen = group.options[int(answer) - 1]
+                extra.append(chosen)
+                notes.append(f"{group.name}: you chose {chosen}; added to this transaction")
+            else:
+                notes.append(f"{group.name}: skipped by choice")
+    return extra, notes
+
+
 def cmd_install(args: argparse.Namespace) -> int:
     try:
         target = Target.detect()
@@ -521,9 +574,13 @@ def cmd_install(args: argparse.Namespace) -> int:
 
     station = _station_for(args, packages, profiles, user)
 
+    suggested, suggestion_notes = _apply_suggestions(
+        args.names, profiles, assume_yes=args.yes
+    )
+
     try:
         plan = resolve(
-            args.names,
+            [*args.names, *suggested],
             catalog=packages,
             profiles=profiles,
             target=target,
@@ -579,6 +636,8 @@ def cmd_install(args: argparse.Namespace) -> int:
         if (log_owner and euid == 0 and str(log_destination).startswith("/home"))
         else None
     )
+    for note in suggestion_notes:
+        print(f"note: {note}")
     for line in render_plan(
         plan,
         commands,

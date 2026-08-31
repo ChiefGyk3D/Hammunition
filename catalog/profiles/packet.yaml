@@ -28,6 +28,29 @@ packages:
   - xygrib
   - tmd710-tncsetup
 
+# Q-015 #1, resolved 2026-08-30: detect an existing mail client and respect
+# the system's own choice; offer an open-source selection only when nothing
+# serves; never install one silently.
+suggests_one_of:
+  - name: mail-client
+    reason: >-
+      Winlink messages fetched by PAT land in a local mailbox, and a mail
+      client is how a human reads and writes them. If you already have one,
+      it is respected and nothing is installed.
+    detect_commands:
+      - thunderbird
+      - claws-mail
+      - evolution
+      - geary
+      - mutt
+      - neomutt
+      - kmail
+    options:
+      - thunderbird
+      - claws-mail
+      - evolution
+      - geary
+
 documentation:
   what_it_installs: >-
     Two soundcard TNCs — one headless and one with a scope — the kernel AX.25

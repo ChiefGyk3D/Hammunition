@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: evolution
+# Debian 13 candidate at time of writing; apt tracks the real version.
+version: "3.56.2"
+summary: GNOME's integrated mail, calendar and groupware client
+categories: [emcomm, workstation]
+
+# One of the packet profile's mail-client options (Q-015 #1, resolved
+# 2026-08-30): the engine detects an existing mail client first and installs
+# nothing when one is present; only when none is found does an interactive
+# run offer this selection. Never installed by default.
+install:
+  - install:
+      method: apt
+      packages: [evolution]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Evolution: GNOME's mail client with deep calendar/contacts integration and Exchange support.
+  why_you_want_it: >-
+    The natural pick on a GNOME desktop (Debian's default install often carries it already, which the detection respects), and the most 'groupware' of the options. In the packet/Winlink workflow, messages fetched by PAT land in a
+    local mailbox; a mail client is how a human reads and writes them.
+  prerequisites: >-
+    Nothing radio-side. To wire it to Winlink, point it at PAT's mailbox or
+    use PAT's own web UI alongside it -- the packet profile's documentation
+    covers the workflow.
+  known_problems: >-
+    Heaviest of the four; pulls a slice of GNOME on non-GNOME desktops.
+  upstream_url: https://wiki.gnome.org/Apps/Evolution
+  upstream_support: The GNOME project.
