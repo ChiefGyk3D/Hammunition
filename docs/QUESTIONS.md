@@ -753,7 +753,7 @@ for scope, Q-006/Q-007 for defaults, D-034 for staging).
 | `libhamlib4` | A catalog unit, or purely a dependency? | ✅ **RESOLVED 2026-08-30 — dependency, not a unit.** SUPERSEDE by apt `depends` resolution; no manifest owed. `libhamlib-utils` is the operator-facing hamlib manifest. |
 | `country_files` (cty.dat) | A package, or the first "data asset with a cadence"? | ✅ **RESOLVED 2026-08-30 — post-1.0, as the data-asset design question.** CARRY, manifest deferred until the schema grows a data-asset shape; the consuming apps bundle their own copies meanwhile. |
 | `wine` | If Morse Runner goes conditional, does Wine leave 1.0? | ✅ **RESOLVED 2026-08-30 — out of the 1.0 core.** The Morse Runner resolution removed its only 1.0 consumer; VARA brings a configured Wine *prefix* back post-1.0 as its own prerequisite, not as a catalog unit. |
-| `M0IAX` (JS8 utilities) | Does the JS8 profile want them? | **Post-1.0 candidate.** Third-party and fine, but no measured demand; revisit when a JS8 profile user asks. |
+| `M0IAX` (JS8 utilities) | Does the JS8 profile want them? | ✅ **RESOLVED 2026-08-30 — not carried; post-1.0 candidate.** Third-party and fine, but no measured demand. Revisit the moment a JS8 profile user asks — retired-with-a-reason, not retired-as-dead. |
 | `PATMENU3` | Clone KM4ACK's menu, or is PAT's UI enough? | **PAT's own web UI suffices.** Do not write a licence-clean clone of a wrapper whose function PAT ships natively; document the web UI in the packet profile docs. |
 | `REPEAT` (RepeaterSTART) | In scope? | **Post-1.0 candidate.** Repeater directory app, open, harmless — and nothing in the five-source union's 1.0 rationale needs it. |
 

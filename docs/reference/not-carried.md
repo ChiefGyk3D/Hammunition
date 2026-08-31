@@ -39,6 +39,7 @@ changed, it never worked, or it was never radio.
 | `EES` | 73Linux | KM4ACK's own script (an emergency email server) in an unlicensed repository — we cannot ship or derive from it (D-001). The function is genuinely useful; a licensed equivalent is the path if one is wanted. |
 | `GPSUPDATE` | 73Linux | KM4ACK's own script, unlicensed repository (D-001). GPS-driven time/position update for the Pi image workflow. |
 | `GRIDCALC` | 73Linux | KM4ACK's own grid-square calculator, unlicensed repository (D-001). Useful function; if wanted, we write our own or carry a licensed equivalent. |
+| `M0IAX` | 73Linux | Ruled 2026-08-30 (Q-015 decision 11): JS8Call companion utilities, third-party and unproblematic — but with no measured demand from any JS8 operator here. Not carried in 1.0; a post-1.0 candidate the moment a JS8 profile user asks. Retired with a reason, not retired as dead. |
 | `mfc_gpl` | AHRL | Never worked — an empty stub in AHRL v27 (the function body is comments), depending on the long-dead `libserial-0.1`. Byonics MicroFox config tool; AHRL's own SOFTWARE doc calls it obsolete and points at the Byonics website. |
 | `noaa-apt` | AHRL | World changed — the NOAA APT satellites went out of service on 2025-11-09. For today's weather satellites use **SatDump** (carried). This unit keeps a manifest with `status: retired` so the verdict and its provenance are findable where an operator would look (D-005). |
 | `notepadqq` | AHRL | Out of scope — a general-purpose text editor, present for AHRL's ARRL Teachers Institute menu rather than for radio. |

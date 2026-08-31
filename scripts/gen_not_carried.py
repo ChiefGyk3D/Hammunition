@@ -134,6 +134,14 @@ RETIRED: dict[str, tuple[str, str]] = {
         "onto every user system. The equivalent here is CI, not a catalog "
         "entry.",
     ),
+    "M0IAX": (
+        "73Linux",
+        "Ruled 2026-08-30 (Q-015 decision 11): JS8Call companion utilities, "
+        "third-party and unproblematic — but with no measured demand from "
+        "any JS8 operator here. Not carried in 1.0; a post-1.0 candidate "
+        "the moment a JS8 profile user asks. Retired with a reason, not "
+        "retired as dead.",
+    ),
     # 73Linux — licence-blocked scripts (D-001: no licence file in the
     # repository, so KM4ACK's own works cannot be redistributed or derived
     # from; third-party software he *installs* is unaffected).

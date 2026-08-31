@@ -66,8 +66,8 @@ Absent on purpose. Each names what it waits on.
 | SUPERSEDE | 14 | 9 |
 | REVIVE | 6 | 4 |
 | ADD | 26 | 22 |
-| RETIRE | 25 | — |
-| NEEDS-DECISION | 4 | — |
+| RETIRE | 26 | — |
+| NEEDS-DECISION | 3 | — |
 | reserved to maintainer | 6 | — |
 
 RETIRE, NEEDS-DECISION and reserved units show no coverage figure because
@@ -158,7 +158,7 @@ catalog is where an operator would look for it.
 | `libhamlib4` | SUPERSEDE | — *waiting, see above* |
 | `linpac` | CARRY | `linpac` |
 | `linrad` | CARRY | `linrad` |
-| `M0IAX` | NEEDS-DECISION | — |
+| `M0IAX` | RETIRE | — |
 | `mfc_gpl` | RETIRE | — |
 | `morse_runner` | reserved to maintainer | — |
 | `MSHV` | CARRY | `mshv` |
