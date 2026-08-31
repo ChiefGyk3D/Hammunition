@@ -28,6 +28,15 @@ report exists so a human reads the tail and decides; nothing here fakes a
 verdict (D-031: the effect is what was observed, and what was observed is
 what is reported).
 
+**Run it in the foreground, not detached.** Under ``nohup`` on a box that
+already has a display server running (a logged-in Wayland/X session),
+``xvfb-run`` can block on a display lock and the whole sweep wedges with no
+output — Python block-buffers stdout when it is not a tty, so you see
+nothing. Run it attached (progress prints per entry), or on a genuinely
+headless VM with no competing session. This lane wants eyes on it anyway:
+"it launched" is a weaker claim than "it came up correctly", and the second
+is a human's call.
+
 Usage, on the VM, from the repo checkout:
     sudo apt-get install -y xvfb dbus-x11
     .venv/bin/python scripts/vm_gui_smoke.py [--timeout 8] [--only unit ...]
@@ -160,7 +169,9 @@ def main() -> int:
             verdict, rc, tail = smoke(cmd, args.timeout)
             counts[verdict] += 1
             mark = {"alive": "✓", "exited-clean": "○", "failed": "✗"}[verdict]
-            print(f"[{mark}] {unit}: {entry} — {verdict} (rc={rc})")
+            # flush each line so a foreground run shows live progress rather
+            # than one silent block at the end (the nohup wedge lesson).
+            print(f"[{mark}] {unit}: {entry} — {verdict} (rc={rc})", flush=True)
             if verdict == "failed":
                 failures.append(f"### {unit} — {entry}\nrc={rc}\n```\n{tail}\n```")
             elif verdict == "exited-clean" and tail:
