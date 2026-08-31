@@ -78,6 +78,7 @@ def _manifest(
                         "method": "binary",
                         "artifact": {"url": url, "sha256": sha256},
                         "format": fmt,
+                        **({"deb_package": "xunit"} if fmt == "deb" else {}),
                     }
                 }
             ],

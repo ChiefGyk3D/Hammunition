@@ -8,12 +8,23 @@ not a rollback promise, is what ``uninstall`` stands on.
 """
 
 from .log import TransactionLog, log_path
-from .uninstall import RemovalError, RemovalPlan, installed_by_hammunition, plan_removal
+from .uninstall import (
+    ArtifactRemoval,
+    RemovalError,
+    RemovalPaths,
+    RemovalPlan,
+    files_installed_by_hammunition,
+    installed_by_hammunition,
+    plan_removal,
+)
 
 __all__ = [
+    "ArtifactRemoval",
     "RemovalError",
+    "RemovalPaths",
     "RemovalPlan",
     "TransactionLog",
+    "files_installed_by_hammunition",
     "installed_by_hammunition",
     "log_path",
     "plan_removal",

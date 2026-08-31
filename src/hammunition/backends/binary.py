@@ -184,7 +184,10 @@ class BinaryBackend:
             Action(
                 kind="install-binary",
                 description=f"Install {manifest.name} as {target}",
-                detail="mode 0755",
+                # The detail is the destination path, verbatim: action_end
+                # records it, and uninstall's file-attribution replay reads
+                # it back — an Action leaves no argv for the replay to parse.
+                detail=str(target),
                 perform=lambda: self._install_executable(fetched, target),
                 requires_root=needs_root_for(self.prefix),
             )

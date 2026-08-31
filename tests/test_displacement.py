@@ -169,6 +169,7 @@ DEB_BLOCK: dict[str, Any] = {
     "method": "binary",
     "artifact": {"url": "https://example.org/x.deb", "sha256": "0" * 64},
     "format": "deb",
+    "deb_package": "vendor-unit",
 }
 GIT_BLOCK: dict[str, Any] = {
     "method": "git",

@@ -387,6 +387,17 @@ class BinaryInstall(Strict):
     method: Literal["binary"] = "binary"
     artifact: RemoteArtifact
     format: Literal["deb", "tarball", "zip", "executable", "appimage"]
+    deb_package: str | None = Field(
+        default=None,
+        description=(
+            "The control-file Package name a `deb` artifact installs, read "
+            "from the .deb itself (`dpkg-deb -f file.deb Package`), never "
+            "assumed from the filename — wsjtx-improved's vendor deb installs "
+            "as `wsjtx`, and GridTracker2's filename casing matches nothing. "
+            "Required for format: deb; it is what `uninstall` hands to "
+            "`apt-get remove` and what `status` probes."
+        ),
+    )
     strip_components: int = 0
     install_tree: bool = Field(
         default=False,
@@ -399,6 +410,23 @@ class BinaryInstall(Strict):
         ),
     )
 
+    @model_validator(mode="after")
+    def _deb_package_matches_format(self) -> BinaryInstall:
+        if self.format == "deb":
+            if self.deb_package is None:
+                raise ManifestError(
+                    "format: deb requires deb_package — the control-file name "
+                    "the archive installs, read with `dpkg-deb -f file.deb "
+                    "Package`. Without it, uninstall and status have nothing "
+                    "true to hand to apt."
+                )
+            _check_package_names([self.deb_package], "deb_package")
+        elif self.deb_package is not None:
+            raise ManifestError(
+                f"deb_package is only meaningful for format: deb, not "
+                f"format: {self.format} — nothing here reaches dpkg's database."
+            )
+        return self
 
 
 class VenvInstall(Strict):

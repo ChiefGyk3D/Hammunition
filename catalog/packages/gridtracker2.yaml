@@ -22,6 +22,7 @@ install:
         url: https://gitlab.com/api/v4/projects/61942134/packages/generic/GridTracker2/2.260812.0/GridTracker2-2.260812.0-amd64.deb
         sha256: ddb3af23fe76312566955cb4f98134fa5ed8690d40d525de1e618606797f2ce5
       format: deb
+      deb_package: gridtracker2  # dpkg-deb -f: control name is lowercase, unlike the filename
   - when:
       arch: [aarch64]
     install:
@@ -30,6 +31,7 @@ install:
         url: https://gitlab.com/api/v4/projects/61942134/packages/generic/GridTracker2/2.260812.0/GridTracker2-2.260812.0-arm64.deb
         sha256: a1d922d5d7148869a0c1cb95c9dc9907ed97c1e7fe96d229065e8119eaa699b7
       format: deb
+      deb_package: gridtracker2  # dpkg-deb -f: control name is lowercase, unlike the filename
 
 update:
   probe:

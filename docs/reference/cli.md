@@ -107,28 +107,44 @@ may be packages or profiles, mixed freely.
 | `--user NAME` | Whose transaction log to read. Defaults to `$SUDO_USER`, then `$USER` |
 
 "Installed by Hammunition" is read from the transaction log, by replaying the
-recorded `apt-get` commands that actually exited 0 — not from what a run
-*intended*. The plan then partitions honestly, and prints every part:
+recorded commands that actually exited 0 — not from what a run *intended*.
+Four attribution routes, each exact:
 
-- **Removing** — attributed to Hammunition and currently installed. These
-  become one `apt-get remove` (never `purge`: configuration a user may have
-  edited stays on disk).
-- **Left in place** — installed, but not installed by Hammunition. It was
-  there before us or arrived by another road; removing it would exceed the
-  promise.
+- **apt packages** — the recorded `apt-get install`/`remove` commands.
+- **files under `/usr/local`** — the engine's own `install -D` commands (and
+  the executable format's recorded destination). A same-named file the
+  operator put there is not in the log and is never touched.
+- **vendor `.deb`s** — the fetch cache names artifacts by their sha256, so
+  the recorded install carries the manifest's own digest; the manifest's
+  `deb_package` field names what to hand to `apt-get remove`.
+- **namespaced trees and venvs** — `share/hammunition/<name>` and
+  `venvs/<name>` can only be ours.
+
+Wrappers and desktop entries in your home are removed only after being read
+back: the file must carry the engine's generated marker, or it is reported
+and left. The plan partitions honestly and prints every part:
+
+- **Removing** — attributed apt packages (one `apt-get remove`, never
+  `purge`: configuration a user may have edited stays on disk).
+- **Removing artifacts** — venvs, installed trees, copied binaries,
+  wrappers, desktop entries — each printed with the *basis* for believing
+  it is ours: `namespaced`, `log`, or `marker`.
+- **Left in place** — installed, but not installed by Hammunition; or
+  present but unattributed by the log. Removing it would exceed the promise.
 - **Already absent** — attributed but no longer installed.
 
 What it deliberately does not reverse, and says so in every plan:
 dependencies apt pulled in (`sudo apt autoremove` clears orphans), group
 memberships, and any configuration files written — all recorded in the log.
-A unit whose install on this target is not apt is refused with the backend
-named: the engine does not yet know how to reverse a `make install`, and a
-file sweep pretending otherwise is the shim CLAUDE.md forbids.
+A source or git unit whose build ran a real `make install` into `/usr/local`
+is refused with the gap named: there is no file manifest to reverse, and a
+file sweep pretending otherwise is the shim CLAUDE.md forbids. A staged,
+recorded install is the planned fix.
 
 After the commands complete, the removal is **verified** the same way an
-install is (**D-031**): apt is re-probed and the run is only reported clean
-when every package is confirmed absent. A removal apt quietly declined exits
-1 with `verified: false` in the log.
+install is (**D-031**): apt is re-probed, every removed artifact path is
+re-checked absent, and the run is only reported clean when both confirm. A
+removal apt quietly declined exits 1 with `verified: false` in the log.
 
 ### `hammunition menus apply [--gnome]`
 
@@ -445,7 +461,9 @@ along with the log's location.
 
 ## What is not here yet
 
-`uninstall` covers the apt backend only. Reversing a source, git or binary
-install — files placed by `make install`, wrappers, udev rules — is refused
-by name; what those installs wrote is in the transaction log, which is the
-part that could not have been added retroactively.
+`uninstall` reverses apt, venv and binary installs, copied binaries,
+installed trees, wrappers and desktop entries. What it still refuses, by
+name: a source or git build that ran a real `make install` into `/usr/local`
+— no file manifest exists to reverse, and the planned fix is a staged
+install that records one. udev rules and group memberships are recorded but
+not yet reversed.

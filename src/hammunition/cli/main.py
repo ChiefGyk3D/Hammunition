@@ -45,6 +45,7 @@ from hammunition.backends import (
     SubprocessRunner,
     VenvBackend,
 )
+from hammunition.backends.source import DEFAULT_PREFIX
 from hammunition.consent import (
     ConsentDeclined,
     ConsentUnavailable,
@@ -52,15 +53,29 @@ from hammunition.consent import (
     resolve_consent,
 )
 from hammunition.distro import DetectionError, Target
-from hammunition.execute import Step, commands_for, execute, run_removal
+from hammunition.execute import (
+    Step,
+    artifact_removal_steps,
+    commands_for,
+    execute,
+    run_removal,
+)
 from hammunition.fetch import Fetcher
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
-from hammunition.manifest.schema import AptInstall, PackageManifest, ProfileManifest, Status
+from hammunition.manifest.schema import (
+    AptInstall,
+    BinaryInstall,
+    PackageManifest,
+    ProfileManifest,
+    Status,
+)
 from hammunition.paths import applications_dir, build_root, user_bin_dir, venv_root
 from hammunition.plan import InstallPlan, PlanError, resolve
 from hammunition.state import (
     RemovalError,
+    RemovalPaths,
     TransactionLog,
+    files_installed_by_hammunition,
     installed_by_hammunition,
     log_path,
     plan_removal,
@@ -763,6 +778,13 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
     log = TransactionLog(owner=user or None)
 
     attributed = installed_by_hammunition(log)
+    attributed_files = files_installed_by_hammunition(log)
+    removal_paths = RemovalPaths(
+        prefix=DEFAULT_PREFIX,
+        venv_root=venv_root(user or None),
+        bin_dir=user_bin_dir(user or None),
+        applications_dir=applications_dir(user or None),
+    )
     # Probe every package the request could touch, so the plan partitions on
     # what is installed now rather than on what the log said at install time.
     probe_set: set[str] = set()
@@ -772,8 +794,12 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
             if manifest is None:
                 continue
             block = manifest.resolve(target.distro, target.version, target.arch)
-            if block is not None and isinstance(block.install, AptInstall):
+            if block is None:
+                continue
+            if isinstance(block.install, AptInstall):
                 probe_set.update(block.install.packages)
+            elif isinstance(block.install, BinaryInstall) and block.install.deb_package:
+                probe_set.add(block.install.deb_package)
     try:
         states = apt.probe(sorted(probe_set)) if probe_set else {}
         plan = plan_removal(
@@ -783,6 +809,9 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
             target=target,
             attributed=attributed,
             states=states,
+            paths=removal_paths,
+            attributed_files=attributed_files,
+            log=log,
         )
     except RemovalError as exc:
         print(str(exc), file=sys.stderr)
@@ -793,13 +822,24 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
         return EXIT_FAILED
 
     euid = os.geteuid()
-    commands = apt.remove_commands(plan.apt_packages)
+    commands: list[Step] = list(apt.remove_commands(plan.apt_packages))
+    commands.extend(artifact_removal_steps(plan))
 
     print(f"Target: {target.describe()}\n")
     if plan.to_remove:
         print(f"Removing ({len(plan.to_remove)} unit(s)):")
         for unit, unit_packages in plan.to_remove.items():
             print(f"  {unit:28} - {' '.join(unit_packages)}")
+    if plan.artifacts:
+        print(f"\nRemoving artifacts ({sum(len(a) for a in plan.artifacts.values())}):")
+        for unit, removals in plan.artifacts.items():
+            for removal in removals:
+                print(f"  {unit:28} {removal.kind:14} {removal.path}  [{removal.basis}]")
+    if plan.left_unattributed:
+        print("\nLeft in place — present, but the transaction log does not attribute it:")
+        for unit, files in plan.left_unattributed.items():
+            for path in files:
+                print(f"  {unit:28} {path}")
     for label, mapping in (
         ("Left in place — installed, but not installed by Hammunition:", plan.left_foreign),
         ("Already absent:", plan.already_absent),

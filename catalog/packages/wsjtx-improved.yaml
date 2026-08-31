@@ -33,6 +33,7 @@ install:
         url: https://downloads.sourceforge.net/project/wsjt-x-improved/WSJT-X_v3.2.0/Linux/wsjtx_3.2.0_improved_PLUS_260818_amd64.deb
         sha256: 904b943c98bd2cd5e30e2f1aee8fef401a535d2821af8728078e60dfeb287903
       format: deb
+      deb_package: wsjtx  # dpkg-deb -f: the vendor deb takes over the distro package's name -- which is also why it conflicts with wsjtx-data
 
 recommended_default: false
 

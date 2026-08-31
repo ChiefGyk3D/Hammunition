@@ -57,8 +57,8 @@ exit does.
 | `transaction_begin` | Once, first | `target`, the manifest `packages` requested, the `apt_packages` the whole set resolved to. |
 | `command_begin` | Before each command | `argv`, `requires_root`, `description`. |
 | `command_end` | After each command that ran | `argv`, `returncode`. |
-| `action_begin` | Before each in-process step | `kind` (`fetch`, `extract`, `config`, `requirements`, `wrapper`, `desktop-entry`, `patch`, `prepare`, `install-binary`, `verify-pin`), `detail`, `description`. |
-| `action_end` | After each in-process step | `kind`, `outcome` — one line saying what actually happened, e.g. the bytes fetched and the digest verified. |
+| `action_begin` | Before each in-process step | `kind` (`fetch`, `extract`, `config`, `requirements`, `wrapper`, `desktop-entry`, `patch`, `prepare`, `install-binary`, `verify-pin`, `remove-venv`, `remove-wrapper`, `remove-desktop-entry`), `detail`, `description`. |
+| `action_end` | After each in-process step | `kind`, `detail`, `outcome` — one line saying what actually happened. `detail` (added 2026-08-31) is what uninstall's file-attribution replay reads back for `install-binary`; older entries without it leave those installs unattributed, reported and left in place. |
 | `transaction_failed` | Instead of the rest, on the first failure | the failing `argv`, its `returncode` (or `error` for a missing binary), and how many commands `completed` before it. For an in-process step, `kind` and `detail` in place of `argv`. |
 | `transaction_end` | Once, on the success path | `completed`, and the effect check below. |
 

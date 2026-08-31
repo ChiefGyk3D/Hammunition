@@ -25,6 +25,7 @@ install:
         url: https://rigexpert.com/files/software/Antscope/antscope2forlinux/antscope2_2.0.2_ubuntu.deb
         sha256: 3cdae87407b5327bf1b5b6aca70d05ceb90e6427084d219e2f152bf4b21a06d6
       format: deb
+      deb_package: antscope2  # dpkg-deb -f: measured on the Parrot VM, 2026-08-31
 
 update:
   probe:
