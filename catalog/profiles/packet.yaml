@@ -50,6 +50,7 @@ suggests_one_of:
       - claws-mail
       - evolution
       - geary
+    recommended: thunderbird
 
 documentation:
   what_it_installs: >-

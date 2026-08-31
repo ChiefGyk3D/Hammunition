@@ -35,14 +35,14 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 177 | 13 | 47 | 2 | 0 |
-| ubuntu-26.04 | 178 | 12 | 47 | 2 | 0 |
-| kali-rolling | 182 | 13 | 44 | 0 | 0 |
-| parrot | 180 | 11 | 46 | 2 | 0 |
-| linuxmint-22.3 | 171 | 20 | 46 | 2 | 0 |
-| debian-13-arm64 | 176 | 14 | 44 | 5 | 0 |
+| debian-13 | 177 | 16 | 47 | 2 | 0 |
+| ubuntu-26.04 | 178 | 15 | 47 | 2 | 0 |
+| kali-rolling | 182 | 16 | 44 | 0 | 0 |
+| parrot | 180 | 14 | 46 | 2 | 0 |
+| linuxmint-22.3 | 171 | 23 | 46 | 2 | 0 |
+| debian-13-arm64 | 176 | 17 | 44 | 5 | 0 |
 
-**239 manifests** against **6 targets**.
+**242 manifests** against **6 targets**.
 
 ---
 
@@ -78,6 +78,12 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `codium` | linuxmint-22.3 | `codium` |
 | `codium` | ubuntu-26.04 | `codium` |
 | `cqrlog` | kali-rolling | `cqrlog` |
+| `cutecom` | debian-13 | `cutecom` |
+| `cutecom` | debian-13-arm64 | `cutecom` |
+| `cutecom` | kali-rolling | `cutecom` |
+| `cutecom` | linuxmint-22.3 | `cutecom` |
+| `cutecom` | parrot | `cutecom` |
+| `cutecom` | ubuntu-26.04 | `cutecom` |
 | `cwdaemon` | kali-rolling | `cwdaemon` |
 | `dump1090-mutability` | debian-13 | `dump1090-mutability` |
 | `dump1090-mutability` | debian-13-arm64 | `dump1090-mutability` |
@@ -112,6 +118,18 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `odr-audioenc` | debian-13 | `odr-audioenc` |
 | `odr-audioenc` | debian-13-arm64 | `odr-audioenc` |
 | `odr-audioenc` | linuxmint-22.3 | `odr-audioenc` |
+| `picocom` | debian-13 | `picocom` |
+| `picocom` | debian-13-arm64 | `picocom` |
+| `picocom` | kali-rolling | `picocom` |
+| `picocom` | linuxmint-22.3 | `picocom` |
+| `picocom` | parrot | `picocom` |
+| `picocom` | ubuntu-26.04 | `picocom` |
+| `putty` | debian-13 | `putty` |
+| `putty` | debian-13-arm64 | `putty` |
+| `putty` | kali-rolling | `putty` |
+| `putty` | linuxmint-22.3 | `putty` |
+| `putty` | parrot | `putty` |
+| `putty` | ubuntu-26.04 | `putty` |
 | `python3-meshtastic` | linuxmint-22.3 | `python3-meshtastic` |
 | `pythonprop` | linuxmint-22.3 | `pythonprop` |
 | `readsb` | linuxmint-22.3 | `readsb` |
@@ -180,6 +198,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `comptty` | apt | apt | apt | apt | apt | apt |
 | `cqrlog` | apt | apt | apt ✗ | apt | apt | apt |
 | `cubicsdr` | apt | apt | apt | apt | apt | apt |
+| `cutecom` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
 | `cutesdr` | apt | apt | apt | apt | apt | apt |
 | `cw` | apt | apt | apt | apt | apt | apt |
 | `cwcp` | apt | apt | apt | apt | apt | apt |
@@ -291,9 +310,11 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `pat` | apt | apt | apt | apt | apt | apt |
 | `pciutils` | apt | apt | apt | apt | apt | apt |
 | `pcsc-tools` | apt | apt | apt | apt | apt | apt |
+| `picocom` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
 | `pipx` | apt | apt | apt | apt | apt | apt |
 | `proxmark3` | git | git | apt | git | git | git |
 | `psk31lx` | apt | apt | apt | apt | apt | apt |
+| `putty` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
 | `pyqso` | apt | apt | apt | apt | apt | apt |
 | `python3-meshtastic` | apt | apt | apt | apt | apt ✗ | apt |
 | `python3-pyhamtools` | apt | apt | apt | apt | apt | apt |

@@ -21,13 +21,13 @@ decision. Only CARRY, SUPERSEDE, REVIVE and ADD owe a manifest.
 | | |
 |---|---:|
 | Units in the five-source union | **150** |
-| …that owe a manifest (C, S, R, A) | **109** |
-| …covered | **98** |
+| …that owe a manifest (C, S, R, A) | **110** |
+| …covered | **99** |
 | …outstanding, with a recorded reason | **11** |
 | …outstanding, unexplained | **0** |
-| Manifests in the catalog | **239** |
+| Manifests in the catalog | **242** |
 
-Coverage of what is owed: **98/109** (89%).
+Coverage of what is owed: **99/110** (90%).
 
 The catalog is larger than the union because the Debian Blend contributes
 152 packages, most of which are not AHRL units, and because hardware
@@ -59,12 +59,12 @@ Absent on purpose. Each names what it waits on.
 
 | Disposition | Units | Covered |
 |---|---:|---:|
-| CARRY | 64 | 63 |
+| CARRY | 65 | 64 |
 | SUPERSEDE | 13 | 9 |
 | REVIVE | 6 | 4 |
 | ADD | 26 | 22 |
 | RETIRE | 22 | — |
-| NEEDS-DECISION | 13 | — |
+| NEEDS-DECISION | 12 | — |
 | reserved to maintainer | 6 | — |
 
 RETIRE, NEEDS-DECISION and reserved units show no coverage figure because
@@ -174,7 +174,7 @@ catalog is where an operator would look for it.
 | `PIQSO` | RETIRE | — |
 | `PISTATS` | RETIRE | — |
 | `PITERM` | ADD | `qttermtcp` |
-| `putty` | NEEDS-DECISION | — |
+| `putty` | CARRY | `putty` |
 | `pyautogui` | RETIRE | — |
 | `qgrid` | CARRY | `qgrid` |
 | `QLog` | CARRY | `qlog` |

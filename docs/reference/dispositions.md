@@ -27,12 +27,12 @@ depending on distro package state is marked *(verify in container)*.
 
 | Disposition | AHRL | 73Linux delta | Skywave delta | DragonOS T1* | Total |
 |---|---:|---:|---:|---:|---:|
-| CARRY | 62 | 2 | 0 | 0 | 64 |
+| CARRY | 63 | 2 | 0 | 0 | 65 |
 | SUPERSEDE | 12 | 0 | 1 | 0 | 13 |
 | REVIVE | 6 | 0 | 0 | 0 | 6 |
 | RETIRE | 10 | 12 | 0 | 0 | 22 |
 | ADD | — | 11 | 7 | 8 | 26 |
-| NEEDS-DECISION | 9 | 3 | 1 | 0 | 13 |
+| NEEDS-DECISION | 8 | 3 | 1 | 0 | 12 |
 | Reserved to maintainer | 6 | 0 | 0 | 0 | 6 |
 | **Total** | **105** | **28** | **9** | **8** | **150** |
 
@@ -333,7 +333,7 @@ browser.
 | Unit | The specific question |
 |---|---|
 | Claws Mail | **RESOLVED 2026-08-30 (Q-015 #1):** neither carried-by-default nor documented-away. The packet profile *detects* an existing mail client and respects the system's choice; only when none is found does an interactive run offer an open-source selection — Thunderbird, Claws Mail, Evolution, Geary — each now a catalog manifest, none ever installed silently, `--yes` skipping with a note (the D-035 shape). Claws Mail is CARRY as one option among four. |
-| PuTTY | Same shape. On Linux `ssh` is built in, but PuTTY is genuinely useful as a *serial terminal* for radio programming. **Question: carry as a serial-terminal tool, or retire as out-of-scope and point at `minicom`/`picocom`?** |
+| PuTTY | **RESOLVED 2026-08-30 (Q-015 #2):** CARRY, as the recommended option in the workstation profile's serial-terminal suggestion group (detect-respect-offer, same mechanism as the mail client). Offered alongside CuteCom, picocom, tio and minicom; Termius (proprietary freemium) and MobaXterm (Windows-only) are named in the docs but not offered. |
 | RF Exposure Calculator | It is a two-line script opening `hintlink.com/power_density.htm`. **Question: do we ship browser bookmarks at all?** If yes they need liveness checks — a bookmark to a dead site is worse than no bookmark. Same for AHRL's five HF_Propagation bookmarks (DXLook, HamTab, OpenHamClock, PSKReporter, VOACAP). |
 | Solar Data | Same, plus it depends on `display` from ImageMagick, which IM7 deprecated in favour of `magick display`. **Question: retire, or reimplement as a real fetch-and-render?** |
 | `xwefax` vs `fldigi` | fldigi has a built-in WEFAX mode. **Question: is `xwefax` superseded by fldigi, or does it do something fldigi does not?** Needs someone with radiofax experience, not a spec comparison. |
@@ -683,7 +683,7 @@ listed under AHRL or covered by the Blend, and are not re-indexed here.
 `ibp` R · `js8call` C · `js8spotter` C · `jtdx` ? · `kicad` M · `klog` C ·
 `libhamlib4` ? · `linpac` C · `linrad` C · `mfc_gpl` X · `morse_runner` M ·
 `MSHV` C · `mvoice` R · `nanovna-saver` C · `ngspice` M · `noaa-apt` X ·
-`not1mm` C · `notepadqq` X · `owx` S · `pipx` C · `putty` ? · `pyautogui` X ·
+`not1mm` C · `notepadqq` X · `owx` S · `pipx` C · `putty` C · `pyautogui` X ·
 `qgrid` C · `QLog` C · `qrq` C · `qsstv` C · `qtel` C · `QtTinySA` C ·
 `quisk` C · `radiosonde_auto_rx` R · `rf_exposure_calc` ? · `rtl_sdr_v4` S ·
 `SatDump` C · `SDR++` C · `solar_data` ? · `source_libs` S · `splat` C ·

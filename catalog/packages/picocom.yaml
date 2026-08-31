@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: picocom
+# Debian 13 candidate at time of writing; apt tracks the real version.
+version: "3.1"
+summary: The minimal terminal-native serial console
+categories: [workstation]
+
+# One of the workstation profile's serial-terminal options (Q-015 #2,
+# resolved 2026-08-30): detect an existing terminal, respect it, and offer
+# this open-source selection only when none is found. Never installed by
+# default.
+install:
+  - install:
+      method: apt
+      packages: [picocom]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    picocom: a tiny, keyboard-only serial terminal that runs in your shell -- open a device at a baud rate and talk to it.
+  why_you_want_it: >-
+    The unixy answer: no GUI, nothing to configure, ideal over SSH into a headless station or on a Pi. What experienced operators reach for once the GUI novelty wears off.
+  prerequisites: >-
+    Access to the serial device -- membership of the `dialout` group, which
+    the workstation profile arranges. A programming cable or rig data port.
+  known_problems: >-
+    Escape sequences (Ctrl-A Ctrl-X to quit) take a moment to learn; the manpage is short and complete. Needs `dialout`.
+  upstream_url: https://github.com/npat-efault/picocom
+  upstream_support: The picocom project on GitHub.

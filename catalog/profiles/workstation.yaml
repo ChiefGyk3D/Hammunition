@@ -23,6 +23,20 @@ packages:
   - codium
   - code
 
+# Q-015 #2, resolved 2026-08-30: a serial terminal for rig consoles, TNC
+# config and programming cables. Detect any existing one and respect it;
+# offer an open-source selection only when none is found; PuTTY recommended
+# for its saved-session GUI, never installed silently.
+suggests_one_of:
+  - name: serial-terminal
+    reason: >-
+      Rig debug ports, TNC configuration and GPS at raw baud all want a
+      serial console. PuTTY is the familiar GUI one; picocom and tio are the
+      terminal-native answers. If you already run one, it is respected.
+    detect_commands: [putty, cutecom, picocom, tio, minicom, screen, moserial]
+    options: [putty, cutecom, picocom, tio, minicom]
+    recommended: putty
+
 documentation:
   what_it_installs: >-
     Version control, three serial consoles, a terminal multiplexer, the two

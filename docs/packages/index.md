@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**239 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**242 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -581,7 +581,7 @@ Licence exam preparation and operating practice.
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `workstation` — 19
+### `workstation` — 22
 
 The machine the station runs on rather than the radio: editors, serial consoles, enumeration tools.
 
@@ -589,6 +589,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 - [claws-mail](claws-mail.md) — The fast, plain-text-first mail client AHRL shipped
 - [code](code.md) — Microsoft's Visual Studio Code build — optional alternative to the VSCodium your distro ships
 - [codium](codium.md) — VSCodium — Microsoft's VS Code source, built without their telemetry or branding
+- [cutecom](cutecom.md) — A graphical serial terminal, Qt-native and simple
 - [dfu-util](dfu-util.md) — Device Firmware Upgrade tool — flash devices that expose a standard DFU mode
 - [esptool](esptool.md) — Flash and inspect ESP8266 and ESP32 chips over their serial bootloader
 - [evolution](evolution.md) — GNOME's integrated mail, calendar and groupware client
@@ -596,7 +597,9 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 - [git](git.md) — Distributed version control — the tool this project is distributed with
 - [minicom](minicom.md) — Full-screen serial communication program, the one everyone already knows
 - [pciutils](pciutils.md) — lspci — for the SDRs and capture cards that are not on USB
+- [picocom](picocom.md) — The minimal terminal-native serial console
 - [pipx](pipx.md) — Installs Python applications in their own environments, on the PATH
+- [putty](putty.md) — The GUI serial terminal hams reach for, with saved sessions
 - [screen](screen.md) — Terminal multiplexer, and the serial console of last resort
 - [tcpdump](tcpdump.md) — Command-line packet capture — the tool that works when nothing else does
 - [thunderbird](thunderbird.md) — Mozilla's full-featured mail client — the household name
@@ -645,6 +648,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [comptty](comptty.md) | The same accuracy comparison as comptext, for Baudot RTTY streams | apt |
 | [cqrlog](cqrlog.md) | Full-featured station log with a database behind it and rig control in front | apt |
 | [cubicsdr](cubicsdr.md) | Cross-platform SDR receiver with several demodulators running at once | apt |
+| [cutecom](cutecom.md) | A graphical serial terminal, Qt-native and simple | apt |
 | [cutesdr](cutesdr.md) | Small demodulator and spectrum display for networked receivers | apt |
 | [cw](cw.md) | Sounds text as Morse from the command line — the unixcw core tool | apt |
 | [cwcp](cwcp.md) | Curses Morse tutor — unixcw with a menu instead of a command line | apt |
@@ -756,9 +760,11 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [pat](pat.md) | Winlink client — radio email that works when the internet does not | apt |
 | [pciutils](pciutils.md) | lspci — for the SDRs and capture cards that are not on USB | apt |
 | [pcsc-tools](pcsc-tools.md) | Smartcard reader diagnostics — is the reader even working? | apt |
+| [picocom](picocom.md) | The minimal terminal-native serial console | apt |
 | [pipx](pipx.md) | Installs Python applications in their own environments, on the PATH | apt |
 | [proxmark3](proxmark3.md) | Client and firmware tooling for the Proxmark3 RFID and NFC research device | apt, git |
 | [psk31lx](psk31lx.md) | PSK31 in a terminal, with no desktop and no waterfall | apt |
+| [putty](putty.md) | The GUI serial terminal hams reach for, with saved sessions | apt |
 | [pyqso](pyqso.md) | Simple GTK logger in Python, easy to read and easy to change | apt |
 | [python3-meshtastic](python3-meshtastic.md) | Meshtastic command-line client and Python API | apt |
 | [python3-pyhamtools](python3-pyhamtools.md) | Python library for callsign lookup, locators and DXCC data | apt |

@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: cutecom
+# Debian 13 candidate at time of writing; apt tracks the real version.
+version: "0.51.0"
+summary: A graphical serial terminal, Qt-native and simple
+categories: [workstation]
+
+# One of the workstation profile's serial-terminal options (Q-015 #2,
+# resolved 2026-08-30): detect an existing terminal, respect it, and offer
+# this open-source selection only when none is found. Never installed by
+# default.
+install:
+  - install:
+      method: apt
+      packages: [cutecom]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    CuteCom: a Qt graphical serial terminal with a line-oriented input, hex view, and logging.
+  why_you_want_it: >-
+    The lighter GUI alternative to PuTTY for pure serial work -- no SSH baggage, a clean device/speed picker, and a send-file feature useful for pushing config to a TNC.
+  prerequisites: >-
+    Access to the serial device -- membership of the `dialout` group, which
+    the workstation profile arranges. A programming cable or rig data port.
+  known_problems: >-
+    Serial only, by design. Needs `dialout`.
+  upstream_url: https://gitlab.com/cutecom/cutecom
+  upstream_support: The CuteCom project on GitLab.

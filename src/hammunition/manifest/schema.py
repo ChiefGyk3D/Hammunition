@@ -1042,6 +1042,19 @@ class SuggestionGroup(Strict):
         min_length=2,
         description="Catalog manifests to offer, in display order.",
     )
+    recommended: str | None = Field(
+        default=None,
+        description="One of `options`, flagged at the prompt as the suggested pick.",
+    )
+
+    @model_validator(mode="after")
+    def _recommended_is_an_option(self) -> SuggestionGroup:
+        if self.recommended is not None and self.recommended not in self.options:
+            raise ManifestError(
+                f"suggestion group {self.name!r}: recommended {self.recommended!r} "
+                f"is not one of its options"
+            )
+        return self
 
 
 class ProfileManifest(Strict):

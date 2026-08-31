@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: putty
+# Debian 13 candidate at time of writing; apt tracks the real version.
+version: "0.83"
+summary: The GUI serial terminal hams reach for, with saved sessions
+categories: [workstation]
+
+# One of the workstation profile's serial-terminal options (Q-015 #2,
+# resolved 2026-08-30): detect an existing terminal, respect it, and offer
+# this open-source selection only when none is found. Never installed by
+# default.
+install:
+  - install:
+      method: apt
+      packages: [putty]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    PuTTY: a graphical terminal for serial lines (and SSH/telnet). On Linux its serial mode is the draw -- pick a device and speed, save the session, reconnect in a click.
+  why_you_want_it: >-
+    The de facto GUI serial console for radio work: rig debug ports, TNC configuration, GPS at a raw baud rate. Saved sessions per device beat retyping stty incantations.
+  prerequisites: >-
+    Access to the serial device -- membership of the `dialout` group, which
+    the workstation profile arranges. A programming cable or rig data port.
+  known_problems: >-
+    `ssh` makes PuTTY's network side redundant on Linux; it is carried for the serial side. Needs `dialout` for the serial device -- the workstation profile adds you.
+  upstream_url: https://www.chiark.greenend.org.uk/~sgtatham/putty/
+  upstream_support: Simon Tatham's PuTTY project.

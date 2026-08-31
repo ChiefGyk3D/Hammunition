@@ -538,9 +538,15 @@ def _apply_suggestions(
             print(f"\nThe {name} profile suggests a {group.name}, and none was detected.")
             print(textwrap.fill(group.reason, width=78, initial_indent="  ", subsequent_indent="  "))
             for index, option in enumerate(group.options, start=1):
-                print(f"  [{index}] {option}")
+                flag = "  (recommended)" if option == group.recommended else ""
+                print(f"  [{index}] {option}{flag}")
             print("  [s] skip — install none")
-            answer = input(f"Choose a {group.name} [1-{len(group.options)}/s]: ").strip().lower()
+            default = ""
+            if group.recommended in group.options:
+                default = str(group.options.index(group.recommended) + 1)
+            prompt = f"Choose a {group.name} [1-{len(group.options)}/s]"
+            prompt += f" (default {default}): " if default else ": "
+            answer = (input(prompt).strip().lower() or default)
             if answer.isdigit() and 1 <= int(answer) <= len(group.options):
                 chosen = group.options[int(answer) - 1]
                 extra.append(chosen)
