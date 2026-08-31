@@ -21,13 +21,13 @@ decision. Only CARRY, SUPERSEDE, REVIVE and ADD owe a manifest.
 | | |
 |---|---:|
 | Units in the five-source union | **150** |
-| …that owe a manifest (C, S, R, A) | **115** |
-| …covered | **101** |
+| …that owe a manifest (C, S, R, A) | **116** |
+| …covered | **102** |
 | …outstanding, with a recorded reason | **14** |
 | …outstanding, unexplained | **0** |
 | Manifests in the catalog | **242** |
 
-Coverage of what is owed: **101/115** (87%).
+Coverage of what is owed: **102/116** (87%).
 
 The catalog is larger than the union because the Debian Blend contributes
 152 packages, most of which are not AHRL units, and because hardware
@@ -65,9 +65,9 @@ Absent on purpose. Each names what it waits on.
 | CARRY | 69 | 66 |
 | SUPERSEDE | 14 | 9 |
 | REVIVE | 6 | 4 |
-| ADD | 26 | 22 |
+| ADD | 27 | 23 |
 | RETIRE | 28 | — |
-| NEEDS-DECISION | 1 | — |
+| NEEDS-DECISION | 0 | — |
 | reserved to maintainer | 6 | — |
 
 RETIRE, NEEDS-DECISION and reserved units show no coverage figure because
@@ -203,7 +203,7 @@ catalog is where an operator would look for it.
 | `source_libs` | SUPERSEDE | — *waiting, see above* |
 | `splat` | CARRY | `splat` |
 | `sunclock` | CARRY | `sunclock` |
-| `supersdr` | NEEDS-DECISION | `supersdr` |
+| `supersdr` | ADD | `supersdr` |
 | `svxlink` | CARRY | `svxlink-server` |
 | `svxreflector` | CARRY | `svxreflector` |
 | `tkcvs` | RETIRE | — |

@@ -31,8 +31,8 @@ depending on distro package state is marked *(verify in container)*.
 | SUPERSEDE | 13 | 0 | 1 | 0 | 14 |
 | REVIVE | 6 | 0 | 0 | 0 | 6 |
 | RETIRE | 13 | 15 | 0 | 0 | 28 |
-| ADD | — | 11 | 7 | 8 | 26 |
-| NEEDS-DECISION | 0 | 0 | 1 | 0 | 1 |
+| ADD | — | 11 | 8 | 8 | 27 |
+| NEEDS-DECISION | 0 | 0 | 0 | 0 | 0 |
 | Reserved to maintainer | 6 | 0 | 0 | 0 | 6 |
 | **Total** | **105** | **28** | **9** | **8** | **150** |
 
@@ -533,7 +533,7 @@ source in the union — and no Debian release — covers. **None has a manifest 
 | **VDLM2dec** | **SUPERSEDE** → `dumpvdl2` | `szpajder/dumpvdl2` | GPL-3.0 | source-from-git (CMake) | Meets all four SUPERSEDE bars: same function, maintained, same install, one-sentence trade-off — *dumpvdl2 is the maintained VDL Mode 2 decoder; vdlm2dec is archived.* Skywave ships the archived `vdlm2dec 2.3`; we carry the successor and record `superseded_by:`. |
 | **RTLSDR-Airband** | ADD | `rtl-airband/RTLSDR-Airband` | GPL-2.0 | source-from-git (CMake) | Active, v5.3.0 (2026-08-16) — Skywave ships 4.0.2. Canonical repo resolved past two redirects. |
 | **Kalibrate-RTL** | ADD | `steve-m/kalibrate-rtl` | BSD-2-Clause | source-from-git (autotools) | **Dormant, not active** — last commit on master is **2022-02-01**, and it has never cut a tag (re-verified 2026-08-28; the "active" claim came from GitHub's `updated_at`, which moves when somebody stars a repository). Consequence for the manifest: no tag to pin, so it needs a commit pin with a `pin_review` (**D-024**). Kali packages it and Debian does not, so the basis can be `distribution_pin` rather than `own_choice` if Kali's revision is identifiable. |
-| **SuperSDR** | **NEEDS-DECISION** (Q-007) | `mcogoni/supersdr` | **none — default copyright** | source-from-git / python-in-place | The headline listening client, and it carries no licence — no `LICENSE`, no header, checked in-tree. The other two KiwiSDR clients in AB9IL's set are no better. **Also dormant: last commit 2022-12-31** (re-verified 2026-08-28; the earlier "active (2026-02-18)" was GitHub's `updated_at`). Unlicensed *and* three and a half years untouched is a materially weaker case than Q-007 was posed with. Reserved to the maintainer. |
+| **SuperSDR** | ADD — **resolved 2026-08-29** (Q-007, carried under **D-033**) | `mcogoni/supersdr` | **none — default copyright** | source-from-git / python-in-place | The headline listening client, and it carries no licence — no `LICENSE`, no header, checked in-tree. The other two KiwiSDR clients in AB9IL's set are no better. **Also dormant: last commit 2022-12-31** (re-verified 2026-08-28; the earlier "active (2026-02-18)" was GitHub's `updated_at`). Unlicensed *and* three and a half years untouched was a materially weaker case than Q-007 was posed with — and the maintainer carried it anyway under **D-033** (community adoption weighed, position stated, fetched from the author's repo, never mirrored). The manifest exists (venv+payload hybrid) and confirmed on all three campaign targets. |
 | **Reticulum MeshChat** | ADD (post-1.0) | `liamcottle/reticulum-meshchat` | MIT | AppImage | Ships Linux only as an AppImage — a cleaner second consumer than HAMRS (ordinary GitHub release assets, no page-scraping). Lands in the post-1.0 `mesh` profile, so it does not promote AppImage into 1.0, but the backend now has two independent users (**D-014**). |
 
 **Backend tally.** Seven 1.0 units (six ADD + the dumpvdl2 SUPERSEDE) are
@@ -694,7 +694,7 @@ listed under AHRL or covered by the Blend, and are not re-indexed here.
 **Skywave delta (9):**
 
 `acarsdec` A · `acarsserv` A · `dumphfdl` A · `kalibrate-rtl` A · `libacars` A ·
-`reticulum-meshchat` A · `rtlsdr-airband` A · `supersdr` ? · `vdlm2dec` S
+`reticulum-meshchat` A · `rtlsdr-airband` A · `supersdr` A · `vdlm2dec` S
 
 **DragonOS Tier-1 — new units (8):**
 
