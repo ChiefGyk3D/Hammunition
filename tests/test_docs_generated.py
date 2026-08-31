@@ -396,8 +396,22 @@ def test_every_schema_model_is_documented() -> None:
 
 
 def test_regenerating_the_schema_reference_is_a_no_op() -> None:
+    import difflib
+
     gen = _schema_generator()
     rendered: str = gen.render()  # type: ignore[attr-defined]
-    assert SCHEMA_DOC.read_text() == rendered, (
-        "docs/reference/schema.md is out of date — run scripts/gen_schema_reference.py"
-    )
+    on_disk = SCHEMA_DOC.read_text()
+    if on_disk != rendered:
+        diff = "\n".join(
+            difflib.unified_diff(
+                on_disk.splitlines(),
+                rendered.splitlines(),
+                fromfile="committed",
+                tofile="regenerated",
+                lineterm="",
+            )
+        )
+        raise AssertionError(
+            "docs/reference/schema.md is out of date — run "
+            f"scripts/gen_schema_reference.py.\nDiff (committed vs regenerated):\n{diff}"
+        )
