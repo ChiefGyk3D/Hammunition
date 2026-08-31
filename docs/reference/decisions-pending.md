@@ -3,40 +3,29 @@ SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
-# Decisions pending — the morning list
+# Q-015 — all fourteen decisions ruled and applied
 
-The Q-015 units still awaiting your call, ordered so the mechanical
-ones go first and the ones needing outside knowledge go last. Two are already
-resolved (`claws-mail`, `putty`) and not repeated. Each has a recommendation
-and its precedent; the intent is that you can answer these one at a time
-quickly. **Nothing here was applied autonomously** — every one has at least a
-sliver of preference in it, and you asked to take them one at a time.
+The batch is closed. Decisions 1–2 were ruled individually on 2026-08-30;
+decisions 3 and 4 the same morning; the maintainer then directed "go with all
+the recommended steps" for the remainder, and every recommendation was applied
+with its own commit. `docs/QUESTIONS.md` carries each ruling in place;
+`dispositions.md`, `parity-coverage.md` and `not-carried.md` carry the
+consequences. **The dispositions summary now reads zero NEEDS-DECISION in
+every column.**
 
-## Group A — mechanical (bookkeeping, no real trade-off)
-
-| # | Unit | Recommendation | Why it is mechanical |
+| # | Unit | Ruling | Where it landed |
 |---|---|---|---|
-
-## Group B — a preference call (I lean one way, you may differ)
-
-| # | Unit | Recommendation | The other view |
-|---|---|---|---|
-| 8 | `country_files` (cty.dat) | **Post-1.0, as the data-asset design question.** Apps bundle their own; document manual updates meanwhile. | Could be pulled into 1.0 as the first "data asset with an update cadence" if you want that schema shape now rather than later. |
-
-## Group C — needs knowledge I do not have
-
-| # | Unit | Recommendation | What it actually needs |
-|---|---|---|---|
-| 9 | `xwefax` vs fldigi | **Carry both, no supersede.** | A radiofax operator's judgment on whether fldigi's built-in WEFAX truly replaces the dedicated tool. Dropping it on a spec comparison is the inherited-verdict mistake. |
-| 10 | `FoxTelem` | **Stage post-1.0 pending an AMSAT status check.** | Whether enough of the AMSAT Fox constellation is alive to justify carrying its decoder. A census, not a guess. |
-| 11 | `M0IAX` (JS8 utilities) | **Post-1.0 candidate.** | Whether the JS8 profile wants them — no measured demand yet. |
-| 12 | `PATMENU3` | **PAT's own web UI suffices** — do not clone KM4ACK's licence-blocked wrapper. | Confirmation you are content with PAT's native UI over a clean-room menu reimplementation. |
-| 13 | `REPEAT` (RepeaterSTART) | **Post-1.0 candidate.** | Whether a repeater-directory app is in 1.0 scope; nothing in the union's rationale needs it. |
-
-## How to answer
-
-Tell me the number and your call (or "recommendation" to take mine). I apply
-it, update `dispositions.md`, `QUESTIONS.md` and the parity ledger, regenerate
-the affected docs, and — where it adds a manifest or changes behaviour —
-verify on a VM before moving to the next. Group A can go in one breath if you
-just say "A: recommendations."
+| 1 | Mail client | Detect → respect → offer (Thunderbird recommended), never silent | `packet` profile suggestion group |
+| 2 | Serial terminal | Same mechanism, PuTTY recommended; Termius/MobaXterm named, not offered | `workstation` profile suggestion group |
+| 3 | `libhamlib4` | Dependency, not a unit — SUPERSEDE by apt `depends` | superseded-by-our-own-engine table |
+| 4 | `jtdx` | Carry as-is, no deprecation on vibes | full CARRY |
+| 5 | `wine` | Out of the 1.0 core; VARA's configured prefix returns post-1.0 as a dependency | RETIRE with reason |
+| 6 | FT8-family default | `wsjtx` | recorded in the wsjtx manifest's docs |
+| 7 | `rf_exposure_calc` + `solar_data` | Retire the bookmarks; URLs live once as prose | `docs/guides/propagation.md` |
+| 8 | `country_files` (cty.dat) | Post-1.0 — the first data-asset-with-cadence deserves a schema shape | CARRY, outstanding with reason |
+| 9 | `xwefax` vs fldigi | Carry both; no supersede on a spec comparison | full CARRY (manifest already confirmed) |
+| 10 | `FoxTelem` | Post-1.0 pending an AMSAT constellation census | CARRY, outstanding with reason |
+| 11 | `M0IAX` | Not carried; post-1.0 candidate on first demand | RETIRE with reason |
+| 12 | `PATMENU3` | `pat http` ships the interface the wrapper fronts | RETIRE; packet profile documents the web UI |
+| 13 | `REPEAT` | Out of 1.0 scope, not out of favour; post-1.0 on demand | RETIRE with reason |
+| 14 | `supersdr` (bookkeeping) | Q-007's Friday resolution reflected in the index | ADD, confirmed 3-for-3 |
