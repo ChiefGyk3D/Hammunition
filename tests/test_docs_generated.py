@@ -285,3 +285,46 @@ def test_every_retired_unit_has_a_row() -> None:
         if code == "X" and f"| `{unit}` |" not in text
     )
     assert not missing, f"retired units with no row in not-carried.md: {missing}"
+
+
+# ---------------------------------------------------------------------------
+# The profile reference (docs/profiles/), same generated-is-generated contract
+# as the package reference above.
+# ---------------------------------------------------------------------------
+
+PROFILE_DOCS = REPO_ROOT / "docs" / "profiles"
+
+
+def _profile_generator() -> object:
+    spec = importlib.util.spec_from_file_location(
+        "gen_profile_reference", REPO_ROOT / "scripts" / "gen_profile_reference.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_every_profile_has_a_generated_page() -> None:
+    gen = _profile_generator()
+    rendered: dict[str, str] = gen.render()  # type: ignore[attr-defined]
+    from hammunition.manifest.load import load_catalog, load_profiles
+
+    catalog = load_catalog(REPO_ROOT / "catalog" / "packages")
+    profiles = load_profiles(REPO_ROOT / "catalog" / "profiles", catalog)
+    missing = sorted(name for name in profiles if f"{name}.md" not in rendered)
+    assert not missing, f"no generated page for profile(s): {missing}"
+    assert "index.md" in rendered
+
+
+def test_regenerating_the_profile_reference_is_a_no_op() -> None:
+    gen = _profile_generator()
+    rendered: dict[str, str] = gen.render()  # type: ignore[attr-defined]
+    on_disk = {p.name: p.read_text() for p in PROFILE_DOCS.glob("*.md")}
+    stale = sorted(set(on_disk) - set(rendered))
+    absent = sorted(set(rendered) - set(on_disk))
+    changed = sorted(n for n in set(rendered) & set(on_disk) if rendered[n] != on_disk[n])
+    assert not (stale or absent or changed), (
+        "docs/profiles/ is out of date — run scripts/gen_profile_reference.py.\n"
+        f"  stale: {stale[:6]}\n  absent: {absent[:6]}\n  changed: {changed[:6]}"
+    )
