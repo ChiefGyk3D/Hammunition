@@ -16,14 +16,11 @@ sliver of preference in it, and you asked to take them one at a time.
 
 | # | Unit | Recommendation | Why it is mechanical |
 |---|---|---|---|
-| 5 | `wine` | **Confirm out of 1.0 core, post-1.0 for VARA.** | Already effectively resolved — the Morse Runner decision took Wine out of core; VARA reintroduces a Wine prefix post-1.0. Just needs recording. |
 
 ## Group B — a preference call (I lean one way, you may differ)
 
 | # | Unit | Recommendation | The other view |
 |---|---|---|---|
-| 6 | FT8-family default | **`wsjtx`** — mark it the recommended default where wsjtx/wsjtx-improved/jtdx/mshv/js8call overlap. | You might prefer wsjtx-improved for marginal decodes, or decline to pick a default at all. It is metadata on an already-carried unit — purely additive whichever way. |
-| 7 | `rf_exposure_calc` + `solar_data` (the browser bookmarks) | **Retire, move URLs to guide prose.** A bookmark to a dead site is worse than none. | Your mail/serial rulings suggest you might prefer an *offer* pattern here too — a "propagation links" suggestion group, or a small launcher set. Your call whether bookmarks are worth any mechanism at all. |
 | 8 | `country_files` (cty.dat) | **Post-1.0, as the data-asset design question.** Apps bundle their own; document manual updates meanwhile. | Could be pulled into 1.0 as the first "data asset with an update cadence" if you want that schema shape now rather than later. |
 
 ## Group C — needs knowledge I do not have

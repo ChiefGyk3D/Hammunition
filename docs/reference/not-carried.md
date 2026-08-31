@@ -46,8 +46,10 @@ changed, it never worked, or it was never radio.
 | `PIQSO` | 73Linux | KM4ACK's own script, unlicensed repository (D-001). |
 | `PISTATS` | 73Linux | Out of scope — a system monitor, not radio. |
 | `pyautogui` | AHRL | Out of scope — AHRL's own menu-regression test harness, installed onto every user system. The equivalent here is CI, not a catalog entry. |
+| `rf_exposure_calc` | AHRL | Ruled 2026-08-30 (Q-015 decision 7): a menu entry that opens a URL is not software, and it rots exactly as fast as the URL. The power-density calculator link — and AHRL's five HF_Propagation bookmarks (DXLook, HamTab, OpenHamClock, PSKReporter, VOACAP) — live once, as prose, in `docs/guides/propagation.md`. |
 | `SECURITY` | 73Linux | KM4ACK's own script, unlicensed repository (D-001). |
 | `SHOWLOG` | 73Linux | KM4ACK's own script, unlicensed repository (D-001). |
+| `solar_data` | AHRL | Ruled 2026-08-30 (Q-015 decision 7): same reasoning as `rf_exposure_calc`, plus its implementation depended on ImageMagick's deprecated `display`. The N0NBH banners it fetched are linked from `docs/guides/propagation.md` without the plumbing. |
 | `tkcvs` | AHRL | Out of scope, and the world moved — a Tk GUI for CVS and Subversion. CVS is dead, and the unit had no menu entry in AHRL and no connection to radio. |
 | `tt3_gpl` | AHRL | Never worked — the same empty-stub shape and the same dead `libserial-0.1` dependency. Byonics TinyTrak3 configuration GUI. |
 | `VNC` | 73Linux | Out of scope — RealVNC viewer, a proprietary general-purpose remote desktop. |

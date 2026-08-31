@@ -64,8 +64,8 @@ Absent on purpose. Each names what it waits on.
 | SUPERSEDE | 14 | 9 |
 | REVIVE | 6 | 4 |
 | ADD | 26 | 22 |
-| RETIRE | 23 | — |
-| NEEDS-DECISION | 9 | — |
+| RETIRE | 25 | — |
+| NEEDS-DECISION | 7 | — |
 | reserved to maintainer | 6 | — |
 
 RETIRE, NEEDS-DECISION and reserved units show no coverage figure because
@@ -188,7 +188,7 @@ catalog is where an operator would look for it.
 | `radiosonde_auto_rx` | REVIVE | `radiosonde-auto-rx` |
 | `REPEAT` | NEEDS-DECISION | — |
 | `reticulum-meshchat` | ADD | — *waiting, see above* |
-| `rf_exposure_calc` | NEEDS-DECISION | — |
+| `rf_exposure_calc` | RETIRE | — |
 | `rtl-433` | ADD | `rtl-433` |
 | `rtl_sdr_v4` | SUPERSEDE | `rtl-sdr` |
 | `rtlsdr-airband` | ADD | `rtlsdr-airband` |
@@ -197,7 +197,7 @@ catalog is where an operator would look for it.
 | `sdrangel` | ADD | `sdrangel` |
 | `SECURITY` | RETIRE | — |
 | `SHOWLOG` | RETIRE | — |
-| `solar_data` | NEEDS-DECISION | — |
+| `solar_data` | RETIRE | — |
 | `source_libs` | SUPERSEDE | — *waiting, see above* |
 | `splat` | CARRY | `splat` |
 | `sunclock` | CARRY | `sunclock` |

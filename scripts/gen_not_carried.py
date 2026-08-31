@@ -65,6 +65,21 @@ RETIRED: dict[str, tuple[str, str]] = {
         "prefix* back post-1.0 as its own prerequisite — a dependency of "
         "that unit, never a catalog unit of its own.",
     ),
+    "rf_exposure_calc": (
+        "AHRL",
+        "Ruled 2026-08-30 (Q-015 decision 7): a menu entry that opens a URL "
+        "is not software, and it rots exactly as fast as the URL. The "
+        "power-density calculator link — and AHRL's five HF_Propagation "
+        "bookmarks (DXLook, HamTab, OpenHamClock, PSKReporter, VOACAP) — "
+        "live once, as prose, in `docs/guides/propagation.md`.",
+    ),
+    "solar_data": (
+        "AHRL",
+        "Ruled 2026-08-30 (Q-015 decision 7): same reasoning as "
+        "`rf_exposure_calc`, plus its implementation depended on "
+        "ImageMagick's deprecated `display`. The N0NBH banners it fetched "
+        "are linked from `docs/guides/propagation.md` without the plumbing.",
+    ),
     "xwxapt": (
         "AHRL",
         "World changed — same NOAA APT shutdown, same pointer: use **SatDump**. "
