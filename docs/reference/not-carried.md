@@ -51,6 +51,7 @@ changed, it never worked, or it was never radio.
 | `tkcvs` | AHRL | Out of scope, and the world moved — a Tk GUI for CVS and Subversion. CVS is dead, and the unit had no menu entry in AHRL and no connection to radio. |
 | `tt3_gpl` | AHRL | Never worked — the same empty-stub shape and the same dead `libserial-0.1` dependency. Byonics TinyTrak3 configuration GUI. |
 | `VNC` | 73Linux | Out of scope — RealVNC viewer, a proprietary general-purpose remote desktop. |
+| `wine` | AHRL | Ruled out of the 1.0 core 2026-08-30 (Q-015 decision 5): its only AHRL consumer, Morse Runner, is reserved and no 1.0 profile needs Windows-compatibility machinery. VARA brings a *configured Wine prefix* back post-1.0 as its own prerequisite — a dependency of that unit, never a catalog unit of its own. |
 | `xosview` | AHRL | Out of scope — an X11 system-load monitor from the 1990s. No menu entry, not radio. |
 | `xwxapt` | AHRL | World changed — same NOAA APT shutdown, same pointer: use **SatDump**. Note `xwefax` (HF radiofax) is *not* in this category: radiofax is still transmitted, and that unit is carried. |
 

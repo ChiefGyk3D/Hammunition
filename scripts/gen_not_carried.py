@@ -57,6 +57,14 @@ RETIRED: dict[str, tuple[str, str]] = {
         "This unit keeps a manifest with `status: retired` so the verdict and "
         "its provenance are findable where an operator would look (D-005).",
     ),
+    "wine": (
+        "AHRL",
+        "Ruled out of the 1.0 core 2026-08-30 (Q-015 decision 5): its only "
+        "AHRL consumer, Morse Runner, is reserved and no 1.0 profile needs "
+        "Windows-compatibility machinery. VARA brings a *configured Wine "
+        "prefix* back post-1.0 as its own prerequisite — a dependency of "
+        "that unit, never a catalog unit of its own.",
+    ),
     "xwxapt": (
         "AHRL",
         "World changed — same NOAA APT shutdown, same pointer: use **SatDump**. "

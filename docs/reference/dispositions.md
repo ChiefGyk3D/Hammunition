@@ -30,9 +30,9 @@ depending on distro package state is marked *(verify in container)*.
 | CARRY | 64 | 2 | 0 | 0 | 66 |
 | SUPERSEDE | 13 | 0 | 1 | 0 | 14 |
 | REVIVE | 6 | 0 | 0 | 0 | 6 |
-| RETIRE | 10 | 12 | 0 | 0 | 22 |
+| RETIRE | 11 | 12 | 0 | 0 | 23 |
 | ADD | — | 11 | 7 | 8 | 26 |
-| NEEDS-DECISION | 6 | 3 | 1 | 0 | 10 |
+| NEEDS-DECISION | 5 | 3 | 1 | 0 | 9 |
 | Reserved to maintainer | 6 | 0 | 0 | 0 | 6 |
 | **Total** | **105** | **28** | **9** | **8** | **150** |
 
@@ -342,7 +342,6 @@ browser.
 | HamClock default | After SUPERSEDE #1: is the default `hamclock-next`, or ESPHamClock repointed at Open HamClock Backend? **Question: which, and do we carry both?** |
 | FoxTelem | Decodes AMSAT Fox-series telemetry. Some Fox satellites have re-entered. **Question: is enough of the constellation alive to justify carrying it?** Needs an AMSAT status check, not a guess — and it is a *partial* world-changed case, unlike NOAA APT which is total. |
 | `country_files` (cty.dat) | Not software — a data file, fanned out to six directories, that goes stale monthly. **Question: is this a package, or the first instance of a "data asset with an update cadence" that the schema needs a shape for?** |
-| `wine` | In AHRL it exists solely for Morse Runner. **Question: if the Morse Runner call goes against Wine, does Wine leave 1.0 entirely?** VARA needs a Wine *prefix* post-1.0 regardless. |
 
 ---
 
@@ -687,7 +686,7 @@ listed under AHRL or covered by the Blend, and are not re-indexed here.
 `quisk` C · `radiosonde_auto_rx` R · `rf_exposure_calc` ? · `rtl_sdr_v4` S ·
 `SatDump` C · `SDR++` C · `solar_data` ? · `source_libs` S · `splat` C ·
 `sunclock` C · `svxlink` C · `svxreflector` C · `tkcvs` X · `tqsl` C ·
-`tt3_gpl` X · `virtual_radar_server` S · `wfview` C · `wine` ? · `wordsworth` C ·
+`tt3_gpl` X · `virtual_radar_server` S · `wfview` C · `wine` X · `wordsworth` C ·
 `wsjtx` C · `wsjtx_improved` C · `wwl` C · `xastir` C · `xcwcp` C · `xdx` C ·
 `xlog` C · `xnec2c` C · `xosview` X · `xwefax` ? · `xwxapt` X · `yaac` C
 

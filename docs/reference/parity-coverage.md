@@ -64,8 +64,8 @@ Absent on purpose. Each names what it waits on.
 | SUPERSEDE | 14 | 9 |
 | REVIVE | 6 | 4 |
 | ADD | 26 | 22 |
-| RETIRE | 22 | — |
-| NEEDS-DECISION | 10 | — |
+| RETIRE | 23 | — |
+| NEEDS-DECISION | 9 | — |
 | reserved to maintainer | 6 | — |
 
 RETIRE, NEEDS-DECISION and reserved units show no coverage figure because
@@ -214,7 +214,7 @@ catalog is where an operator would look for it.
 | `virtual_radar_server` | SUPERSEDE | `readsb` |
 | `VNC` | RETIRE | — |
 | `wfview` | CARRY | `wfview` |
-| `wine` | NEEDS-DECISION | — |
+| `wine` | RETIRE | — |
 | `wireshark` | ADD | `wireshark` |
 | `wordsworth` | CARRY | `wordsworth` |
 | `wsjtx` | CARRY | `wsjtx` |
