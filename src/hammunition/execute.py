@@ -677,10 +677,16 @@ def _remove_if_ours(path: Path) -> str:
 
 
 def _remove_venv(path: Path) -> str:
-    """Remove a per-user venv tree. The path is namespaced (venvs/<unit>)."""
+    """Remove a per-user venv tree or its staged requirements file.
+
+    Both are namespaced (``venvs/<unit>`` and ``venvs/<unit>.requirements.txt``).
+    """
     if not path.exists():
         return f"already absent: {path}"
-    shutil.rmtree(path)
+    if path.is_dir():
+        shutil.rmtree(path)
+    else:
+        path.unlink()
     return f"removed {path}"
 
 

@@ -159,17 +159,26 @@ def files_installed_by_hammunition(log: TransactionLog) -> frozenset[str]:
 def deb_attributed(log: TransactionLog, *, sha256: str, deb_package: str) -> bool:
     """Whether a vendor .deb with this digest is currently ours to remove.
 
-    The fetch cache names artifacts ``<sha256>-<filename>``, so the recorded
-    ``apt-get install --yes -- <path>`` argv carries the manifest's digest in
-    its basename. Replayed in order: the digest's install attributes it, a
-    later successful ``apt-get remove`` naming *deb_package* un-attributes
-    it. An operator's own reinstall of the distribution package is invisible
-    to this log and changes nothing here — ``plan_removal`` still checks what
-    is installed *now* before acting.
+    The fetch cache names artifacts ``<sha256>-<filename>``, so the record of
+    the install carries the manifest's digest. The install itself runs inside
+    the backend's ``install-deb`` Action — its apt-get never appears as a
+    ``command_end`` of its own — so the digest is read from that action's
+    recorded outcome (``installed <sha256>-<file> through apt``, the
+    backend's own single-writer string). Replayed in order: the digest's
+    install attributes it, a later successful ``apt-get remove`` naming
+    *deb_package* un-attributes it. An operator's own reinstall of the
+    distribution package is invisible to this log and changes nothing here —
+    ``plan_removal`` still checks what is installed *now* before acting.
     """
     attributed = False
     for entry in log.read():
-        if entry.get("event") != "command_end" or entry.get("returncode") != 0:
+        event = entry.get("event")
+        if event == "action_end" and entry.get("kind") == "install-deb":
+            outcome = entry.get("outcome")
+            if isinstance(outcome, str) and f"installed {sha256}-" in outcome:
+                attributed = True
+            continue
+        if event != "command_end" or entry.get("returncode") != 0:
             continue
         packages = _packages_after_dashes(entry.get("argv"))
         if packages is None:
@@ -314,6 +323,16 @@ def plan_removal(
             add(
                 unit,
                 ArtifactRemoval("venv", paths.venv_root / manifest.name, "namespaced"),
+            )
+            # The backend stages the hash-pinned requirements file beside the
+            # venv; it is namespaced the same way and leaves with it.
+            add(
+                unit,
+                ArtifactRemoval(
+                    "venv",
+                    paths.venv_root / f"{manifest.name}.requirements.txt",
+                    "namespaced",
+                ),
             )
             for script in install.expose:
                 add(unit, ArtifactRemoval("wrapper", paths.bin_dir / script, "marker"))

@@ -629,3 +629,21 @@ class _NeverRunner:
 
     def run(self, command: Command) -> Any:
         raise AssertionError(f"no Command should reach the runner, got {command.argv}")
+
+
+def test_deb_attribution_reads_the_install_deb_actions_outcome(tmp_path: Path) -> None:
+    # The .deb install runs inside the backend's Action, so its apt-get never
+    # appears as a command_end — the digest lives in the recorded outcome.
+    log = write_log(
+        tmp_path,
+        [
+            {
+                "event": "action_end",
+                "version": 1,
+                "kind": "install-deb",
+                "outcome": f"installed {DIGEST}-antscope2_2.0.2_ubuntu.deb through apt",
+            }
+        ],
+    )
+    assert deb_attributed(log, sha256=DIGEST, deb_package="antscope2")
+    assert not deb_attributed(log, sha256="cd" * 32, deb_package="antscope2")
