@@ -27,12 +27,12 @@ depending on distro package state is marked *(verify in container)*.
 
 | Disposition | AHRL | 73Linux delta | Skywave delta | DragonOS T1* | Total |
 |---|---:|---:|---:|---:|---:|
-| CARRY | 64 | 2 | 0 | 0 | 66 |
+| CARRY | 65 | 2 | 0 | 0 | 67 |
 | SUPERSEDE | 13 | 0 | 1 | 0 | 14 |
 | REVIVE | 6 | 0 | 0 | 0 | 6 |
 | RETIRE | 13 | 12 | 0 | 0 | 25 |
 | ADD | — | 11 | 7 | 8 | 26 |
-| NEEDS-DECISION | 3 | 3 | 1 | 0 | 7 |
+| NEEDS-DECISION | 2 | 3 | 1 | 0 | 6 |
 | Reserved to maintainer | 6 | 0 | 0 | 0 | 6 |
 | **Total** | **105** | **28** | **9** | **8** | **150** |
 
@@ -337,7 +337,6 @@ browser.
 | PuTTY | **RESOLVED 2026-08-30 (Q-015 #2):** CARRY, as the recommended option in the workstation profile's serial-terminal suggestion group (detect-respect-offer, same mechanism as the mail client). Offered alongside CuteCom, picocom, tio and minicom; Termius (proprietary freemium) and MobaXterm (Windows-only) are named in the docs but not offered. |
 | `xwefax` vs `fldigi` | fldigi has a built-in WEFAX mode. **Question: is `xwefax` superseded by fldigi, or does it do something fldigi does not?** Needs someone with radiofax experience, not a spec comparison. |
 | FoxTelem | Decodes AMSAT Fox-series telemetry. Some Fox satellites have re-entered. **Question: is enough of the constellation alive to justify carrying it?** Needs an AMSAT status check, not a guess — and it is a *partial* world-changed case, unlike NOAA APT which is total. |
-| `country_files` (cty.dat) | Not software — a data file, fanned out to six directories, that goes stale monthly. **Question: is this a package, or the first instance of a "data asset with an update cadence" that the schema needs a shape for?** |
 
 ---
 
@@ -668,7 +667,7 @@ listed under AHRL or covered by the Blend, and are not re-indexed here.
 `aa-analyzer` S · `ahrl_docs` S · `ahrl_menus` S · `ahrl_version` S ·
 `AIS-catcher` C · `AntScope2` C · `ardop` R · `arduino` M · `atlc` C ·
 `backdrops` X · `browser` X · `chirp` C · `claws-mail` C · `Coil64` C ·
-`country_files` ? · `cqrlog` C · `cwwav` C · `direwolf` C · `dream` R ·
+`country_files` C · `cqrlog` C · `cwwav` C · `direwolf` C · `dream` R ·
 `dump1090` S · `ebook2cwgui` C · `ESPHamClock` S · `flaa` C · `flamp` C ·
 `flcluster` C · `fldigi` C · `fllog` C · `Fl_MoxGen` C · `flmsg` C · `flnet` C ·
 `flrig` C · `flwkey` C · `flwrap` C · `FoxTelem` ? · `freedv` C · `fritzing` M ·

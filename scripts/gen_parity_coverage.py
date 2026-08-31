@@ -102,6 +102,7 @@ EXPLAINED: dict[str, str] = {
     "ahrl_docs": "SUPERSEDE #8-12 — replaced by our own engine, not by software",
     "ahrl_menus": "SUPERSEDE #8-12 — replaced by our own engine",
     "ahrl_version": "SUPERSEDE #8-12 — replaced by our own engine",
+    "country_files": "post-1.0 — the first data-asset-with-an-update-cadence; a monthly fan-out file deserves a schema shape, not a shoehorn. The consuming apps bundle their own cty.dat meanwhile (Q-015 decision 8, 2026-08-30)",
     "source_libs": "SUPERSEDE #8-12 — replaced by our own engine",
     "libhamlib4": "SUPERSEDE #8-12 — a dependency, not a unit; apt `depends` carries it and `libhamlib-utils` is the operator-facing manifest (Q-015 decision 3, 2026-08-30)",
     "owx": "SUPERSEDE #2 — chirp carries it; chirp declares `supersedes: [owx]`",
