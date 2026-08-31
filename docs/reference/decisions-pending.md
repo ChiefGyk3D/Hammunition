@@ -16,7 +16,6 @@ sliver of preference in it, and you asked to take them one at a time.
 
 | # | Unit | Recommendation | Why it is mechanical |
 |---|---|---|---|
-| 4 | `jtdx` | **Carry as-is**, no deprecation mark. | Already carried, already builds and confirms on every target. The question was only whether to demote it; devoted user base says no. |
 | 5 | `wine` | **Confirm out of 1.0 core, post-1.0 for VARA.** | Already effectively resolved — the Morse Runner decision took Wine out of core; VARA reintroduces a Wine prefix post-1.0. Just needs recording. |
 
 ## Group B — a preference call (I lean one way, you may differ)

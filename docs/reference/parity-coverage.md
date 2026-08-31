@@ -21,13 +21,13 @@ decision. Only CARRY, SUPERSEDE, REVIVE and ADD owe a manifest.
 | | |
 |---|---:|
 | Units in the five-source union | **150** |
-| …that owe a manifest (C, S, R, A) | **111** |
-| …covered | **99** |
+| …that owe a manifest (C, S, R, A) | **112** |
+| …covered | **100** |
 | …outstanding, with a recorded reason | **12** |
 | …outstanding, unexplained | **0** |
 | Manifests in the catalog | **242** |
 
-Coverage of what is owed: **99/111** (89%).
+Coverage of what is owed: **100/112** (89%).
 
 The catalog is larger than the union because the Debian Blend contributes
 152 packages, most of which are not AHRL units, and because hardware
@@ -60,12 +60,12 @@ Absent on purpose. Each names what it waits on.
 
 | Disposition | Units | Covered |
 |---|---:|---:|
-| CARRY | 65 | 64 |
+| CARRY | 66 | 65 |
 | SUPERSEDE | 14 | 9 |
 | REVIVE | 6 | 4 |
 | ADD | 26 | 22 |
 | RETIRE | 22 | — |
-| NEEDS-DECISION | 11 | — |
+| NEEDS-DECISION | 10 | — |
 | reserved to maintainer | 6 | — |
 
 RETIRE, NEEDS-DECISION and reserved units show no coverage figure because
@@ -148,7 +148,7 @@ catalog is where an operator would look for it.
 | `inspectrum` | ADD | `inspectrum` |
 | `js8call` | CARRY | `js8call` |
 | `js8spotter` | CARRY | `js8spotter` |
-| `jtdx` | NEEDS-DECISION | `jtdx` |
+| `jtdx` | CARRY | `jtdx` |
 | `kalibrate-rtl` | ADD | `kalibrate-rtl` |
 | `kicad` | reserved to maintainer | — |
 | `klog` | CARRY | `klog` |

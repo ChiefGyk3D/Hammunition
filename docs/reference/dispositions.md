@@ -27,12 +27,12 @@ depending on distro package state is marked *(verify in container)*.
 
 | Disposition | AHRL | 73Linux delta | Skywave delta | DragonOS T1* | Total |
 |---|---:|---:|---:|---:|---:|
-| CARRY | 63 | 2 | 0 | 0 | 65 |
+| CARRY | 64 | 2 | 0 | 0 | 66 |
 | SUPERSEDE | 13 | 0 | 1 | 0 | 14 |
 | REVIVE | 6 | 0 | 0 | 0 | 6 |
 | RETIRE | 10 | 12 | 0 | 0 | 22 |
 | ADD | — | 11 | 7 | 8 | 26 |
-| NEEDS-DECISION | 7 | 3 | 1 | 0 | 11 |
+| NEEDS-DECISION | 6 | 3 | 1 | 0 | 10 |
 | Reserved to maintainer | 6 | 0 | 0 | 0 | 6 |
 | **Total** | **105** | **28** | **9** | **8** | **150** |
 
@@ -338,7 +338,6 @@ browser.
 | RF Exposure Calculator | It is a two-line script opening `hintlink.com/power_density.htm`. **Question: do we ship browser bookmarks at all?** If yes they need liveness checks — a bookmark to a dead site is worse than no bookmark. Same for AHRL's five HF_Propagation bookmarks (DXLook, HamTab, OpenHamClock, PSKReporter, VOACAP). |
 | Solar Data | Same, plus it depends on `display` from ImageMagick, which IM7 deprecated in favour of `magick display`. **Question: retire, or reimplement as a real fetch-and-render?** |
 | `xwefax` vs `fldigi` | fldigi has a built-in WEFAX mode. **Question: is `xwefax` superseded by fldigi, or does it do something fldigi does not?** Needs someone with radiofax experience, not a spec comparison. |
-| JTDX | Development has been comparatively quiet against WSJT-X, wsjtx-improved and MSHV. **Question: CARRY as-is, or mark deprecated in favour of the others?** I will not call this — JTDX has a devoted user base and I have no maintenance data good enough to justify demoting it. |
 | FT8 family default | We carry `wsjtx`, `wsjtx_improved`, `jtdx`, `mshv`, `js8call`. The policy requires marking a recommended default where several tools overlap. **Question: which one?** |
 | HamClock default | After SUPERSEDE #1: is the default `hamclock-next`, or ESPHamClock repointed at Open HamClock Backend? **Question: which, and do we carry both?** |
 | FoxTelem | Decodes AMSAT Fox-series telemetry. Some Fox satellites have re-entered. **Question: is enough of the constellation alive to justify carrying it?** Needs an AMSAT status check, not a guess — and it is a *partial* world-changed case, unlike NOAA APT which is total. |
@@ -680,7 +679,7 @@ listed under AHRL or covered by the Blend, and are not re-indexed here.
 `flrig` C · `flwkey` C · `flwrap` C · `FoxTelem` ? · `freedv` C · `fritzing` M ·
 `glfer` C · `gnuradio` C · `gpredict` C · `gpsman` S · `gqrx` C ·
 `GridTracker2` C · `grig` S · `gsmc` C · `gspiceui` M · `hamclock_next` R ·
-`ibp` R · `js8call` C · `js8spotter` C · `jtdx` ? · `kicad` M · `klog` C ·
+`ibp` R · `js8call` C · `js8spotter` C · `jtdx` C · `kicad` M · `klog` C ·
 `libhamlib4` S · `linpac` C · `linrad` C · `mfc_gpl` X · `morse_runner` M ·
 `MSHV` C · `mvoice` R · `nanovna-saver` C · `ngspice` M · `noaa-apt` X ·
 `not1mm` C · `notepadqq` X · `owx` S · `pipx` C · `putty` C · `pyautogui` X ·
