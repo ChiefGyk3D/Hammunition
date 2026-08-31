@@ -7,7 +7,9 @@ contains logic, and no manifest may assume our engine is the one reading it.
 
 This page is the conventions. When a field's meaning is the question, the
 authority is `src/hammunition/manifest/schema.py` — every field carries a
-docstring and the validators say what they refuse and why. This page is for the
+docstring and the validators say what they refuse and why. The
+[schema reference](../reference/schema.md) is that authority rendered as a
+table, generated from the models so it cannot drift. This page is for the
 decisions the schema cannot make for you.
 
 ## Measure it. Do not recall it.

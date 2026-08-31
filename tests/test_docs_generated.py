@@ -370,3 +370,36 @@ def test_regenerating_the_hardware_reference_is_a_no_op() -> None:
         "docs/hardware/ is out of date — run scripts/gen_hardware_reference.py.\n"
         f"  stale: {stale[:6]}\n  absent: {absent[:6]}\n  changed: {changed[:6]}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Schema reference — rendered from the pydantic models, cannot drift.
+# ---------------------------------------------------------------------------
+
+SCHEMA_DOC = REPO_ROOT / "docs" / "reference" / "schema.md"
+
+
+def _schema_generator() -> object:
+    spec = importlib.util.spec_from_file_location(
+        "gen_schema_reference", REPO_ROOT / "scripts" / "gen_schema_reference.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_every_schema_model_is_documented() -> None:
+    gen = _schema_generator()
+    rendered: str = gen.render()  # type: ignore[attr-defined]
+    models = gen._model_classes()  # type: ignore[attr-defined]
+    missing = sorted(name for name in models if f"### `{name}`" not in rendered)
+    assert not missing, f"schema model(s) absent from the reference: {missing}"
+
+
+def test_regenerating_the_schema_reference_is_a_no_op() -> None:
+    gen = _schema_generator()
+    rendered: str = gen.render()  # type: ignore[attr-defined]
+    assert SCHEMA_DOC.read_text() == rendered, (
+        "docs/reference/schema.md is out of date — run scripts/gen_schema_reference.py"
+    )
