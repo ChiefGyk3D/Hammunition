@@ -14,7 +14,7 @@ Decodes and transmits the weak-signal modes that dominate modern HF digital oper
 
 ## Why you would want it
 
-FT8 is the most-used mode on HF, and this is the reference implementation. It makes contacts possible on bands and at power levels where nothing else gets through.
+FT8 is the most-used mode on HF, and this is the reference implementation. It makes contacts possible on bands and at power levels where nothing else gets through. **This is the catalog's recommended default of the FT8 family** (maintainer ruling, 2026-08-30): every guide and third-party document assumes it, and it is packaged on every target. The forks stay carried — wsjtx-improved for marginal-decode tuning, jtdx and mshv for their own followings — and js8call is a different mode, not an alternative.
 
 ## Before it will work
 
