@@ -99,10 +99,11 @@ ALIASES: dict[str, str] = {
 #: Units with no manifest for a reason that is recorded elsewhere. Keeps the
 #: "missing" list to things genuinely undone.
 EXPLAINED: dict[str, str] = {
-    "ahrl_docs": "SUPERSEDE #8-11 — replaced by our own engine, not by software",
-    "ahrl_menus": "SUPERSEDE #8-11 — replaced by our own engine",
-    "ahrl_version": "SUPERSEDE #8-11 — replaced by our own engine",
-    "source_libs": "SUPERSEDE #8-11 — replaced by our own engine",
+    "ahrl_docs": "SUPERSEDE #8-12 — replaced by our own engine, not by software",
+    "ahrl_menus": "SUPERSEDE #8-12 — replaced by our own engine",
+    "ahrl_version": "SUPERSEDE #8-12 — replaced by our own engine",
+    "source_libs": "SUPERSEDE #8-12 — replaced by our own engine",
+    "libhamlib4": "SUPERSEDE #8-12 — a dependency, not a unit; apt `depends` carries it and `libhamlib-utils` is the operator-facing manifest (Q-015 decision 3, 2026-08-30)",
     "owx": "SUPERSEDE #2 — chirp carries it; chirp declares `supersedes: [owx]`",
     "dump1090": "SUPERSEDE — readsb carries it and declares it",
     "grig": "SUPERSEDE #5 — flrig carries it and declares it",

@@ -63,9 +63,9 @@ reviewable at the manifest rather than only here.
 | Unit | Use instead | Trade-off |
 |---|---|---|
 | `aa-analyzer` | `flaa` | Both are RigExpert antenna-analyser front ends; flaa is the maintained W1HKJ one. |
-| `ahrl_docs` | the Hammunition engine | The generated package reference replaces AHRL's PACKAGES/VERSIONS files (SUPERSEDE #8-11). |
-| `ahrl_menus` | the Hammunition engine | Profiles and desktop integration replace the xdg menu installer (SUPERSEDE #8-11). |
-| `ahrl_version` | the Hammunition engine | `hammunition --version` and `hammunition status` replace the generated two-line version script (SUPERSEDE #8-11). The flag was missing until the first VM campaign noticed; added 2026-08-29. |
+| `ahrl_docs` | the Hammunition engine | The generated package reference replaces AHRL's PACKAGES/VERSIONS files (SUPERSEDE #8-12). |
+| `ahrl_menus` | the Hammunition engine | Profiles and desktop integration replace the xdg menu installer (SUPERSEDE #8-12). |
+| `ahrl_version` | the Hammunition engine | `hammunition --version` and `hammunition status` replace the generated two-line version script (SUPERSEDE #8-12). The flag was missing until the first VM campaign noticed; added 2026-08-29. |
 | `dump1090` | `readsb` | readsb is the maintained ADS-B decoder descended from dump1090; AHRL built an unversioned `dump1090-master` snapshot. |
 | `ESPHamClock` | `hamclock-next` / `openhamclock` | HamClock's author became a Silent Key on 2026-01-29 and the hamclock.com data feed sunset in June 2026. The community successors carry on; the default backend is `ohb.works` (Q-006). |
 | `gpsman` | `gpsbabel` + `gpsd` | GPSMan is a Tcl relic; gpsbabel converts the data and gpsd serves the device. The replacement declares `supersedes: [gpsman]` itself. |
@@ -73,7 +73,7 @@ reviewable at the manifest rather than only here.
 | `libhamlib4` | apt `depends` resolution | A shared library with no operator surface is a dependency, not a unit: every rig-control manifest that needs hamlib declares it, apt installs it, and `libhamlib-utils` is the operator-facing hamlib manifest. Ruled by the maintainer 2026-08-30 (Q-015 decision 3). |
 | `owx` | `chirp` | CHIRP programs the same Wouxun radios owx existed for, plus several hundred others. |
 | `rtl_sdr_v4` | the distribution's `librtlsdr` (manifest `rtl-sdr`) | AHRL hand-deletes the distro library and installs the RTL-SDR Blog fork from an unpinned clone. We carry the distribution package and handle the V4 situation by disclosure, not displacement (D-022). |
-| `source_libs` | the Hammunition engine | Manifests declare their own build dependencies; a blanket toolchain install is replaced by per-unit `build_depends` (SUPERSEDE #8-11). |
+| `source_libs` | the Hammunition engine | Manifests declare their own build dependencies; a blanket toolchain install is replaced by per-unit `build_depends` (SUPERSEDE #8-12). |
 | `vdlm2dec` | `dumpvdl2` | dumpvdl2 is the maintained VDL Mode 2 decoder; vdlm2dec's upstream is archived. The manifest records `superseded_by`. |
 | `virtual_radar_server` | `readsb` | VRS is a dormant Mono application that needs a bundled config patch just to start. readsb is native and maintained; the tar1090 web front end it pairs with is in no target's archive, which is a documented gap rather than a shim. |
 

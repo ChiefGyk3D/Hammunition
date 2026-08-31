@@ -240,19 +240,19 @@ SUPERSEDED: dict[str, tuple[str, str | None, str]] = {
         "the Hammunition engine",
         None,
         "The generated package reference replaces AHRL's PACKAGES/VERSIONS "
-        "files (SUPERSEDE #8-11).",
+        "files (SUPERSEDE #8-12).",
     ),
     "ahrl_menus": (
         "the Hammunition engine",
         None,
         "Profiles and desktop integration replace the xdg menu installer "
-        "(SUPERSEDE #8-11).",
+        "(SUPERSEDE #8-12).",
     ),
     "ahrl_version": (
         "the Hammunition engine",
         None,
         "`hammunition --version` and `hammunition status` replace the "
-        "generated two-line version script (SUPERSEDE #8-11). The flag was "
+        "generated two-line version script (SUPERSEDE #8-12). The flag was "
         "missing until the first VM campaign noticed; added 2026-08-29.",
     ),
     "libhamlib4": (
@@ -267,7 +267,7 @@ SUPERSEDED: dict[str, tuple[str, str | None, str]] = {
         "the Hammunition engine",
         None,
         "Manifests declare their own build dependencies; a blanket toolchain "
-        "install is replaced by per-unit `build_depends` (SUPERSEDE #8-11).",
+        "install is replaced by per-unit `build_depends` (SUPERSEDE #8-12).",
     ),
 }
 

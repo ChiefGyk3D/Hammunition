@@ -23,8 +23,8 @@ decision. Only CARRY, SUPERSEDE, REVIVE and ADD owe a manifest.
 | Units in the five-source union | **150** |
 | …that owe a manifest (C, S, R, A) | **111** |
 | …covered | **99** |
-| …outstanding, with a recorded reason | **11** |
-| …outstanding, unexplained | **1** |
+| …outstanding, with a recorded reason | **12** |
+| …outstanding, unexplained | **0** |
 | Manifests in the catalog | **242** |
 
 Coverage of what is owed: **99/111** (89%).
@@ -32,18 +32,6 @@ Coverage of what is owed: **99/111** (89%).
 The catalog is larger than the union because the Debian Blend contributes
 152 packages, most of which are not AHRL units, and because hardware
 support needs entries no inventory lists.
-
----
-
-## Outstanding and unexplained
-
-These owe a manifest, do not have one, and no reason is recorded.
-This list should be empty or shrinking; anything sitting here is work
-nobody has decided about.
-
-| Unit | Disposition |
-|---|---|
-| `libhamlib4` | SUPERSEDE |
 
 ---
 
@@ -57,13 +45,14 @@ Absent on purpose. Each names what it waits on.
 | `HAMRS` | ADD | post-1.0 — AppImage |
 | `VARA` | ADD | post-1.0 — closed software needing a configured Wine prefix |
 | `VARIM` | ADD | post-1.0 — VARA's messaging client, same constraint |
-| `ahrl_docs` | SUPERSEDE | SUPERSEDE #8-11 — replaced by our own engine, not by software |
-| `ahrl_menus` | SUPERSEDE | SUPERSEDE #8-11 — replaced by our own engine |
-| `ahrl_version` | SUPERSEDE | SUPERSEDE #8-11 — replaced by our own engine |
+| `ahrl_docs` | SUPERSEDE | SUPERSEDE #8-12 — replaced by our own engine, not by software |
+| `ahrl_menus` | SUPERSEDE | SUPERSEDE #8-12 — replaced by our own engine |
+| `ahrl_version` | SUPERSEDE | SUPERSEDE #8-12 — replaced by our own engine |
 | `dream` | REVIVE | REVIVE blocked: libqt5webkit5-dev has no candidate on Debian 13 (measured) |
+| `libhamlib4` | SUPERSEDE | SUPERSEDE #8-12 — a dependency, not a unit; apt `depends` carries it and `libhamlib-utils` is the operator-facing manifest (Q-015 decision 3, 2026-08-30) |
 | `mvoice` | REVIVE | REVIVE blocked: libopendht-dev has no candidate on Debian 13 (measured) |
 | `reticulum-meshchat` | ADD | post-1.0 — AppImage, lands in the mesh profile |
-| `source_libs` | SUPERSEDE | SUPERSEDE #8-11 — replaced by our own engine |
+| `source_libs` | SUPERSEDE | SUPERSEDE #8-12 — replaced by our own engine |
 
 ---
 
@@ -164,7 +153,7 @@ catalog is where an operator would look for it.
 | `kicad` | reserved to maintainer | — |
 | `klog` | CARRY | `klog` |
 | `libacars` | ADD | `libacars` |
-| `libhamlib4` | SUPERSEDE | — |
+| `libhamlib4` | SUPERSEDE | — *waiting, see above* |
 | `linpac` | CARRY | `linpac` |
 | `linrad` | CARRY | `linrad` |
 | `M0IAX` | NEEDS-DECISION | — |
