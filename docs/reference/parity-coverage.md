@@ -66,8 +66,8 @@ Absent on purpose. Each names what it waits on.
 | SUPERSEDE | 14 | 9 |
 | REVIVE | 6 | 4 |
 | ADD | 26 | 22 |
-| RETIRE | 26 | — |
-| NEEDS-DECISION | 3 | — |
+| RETIRE | 27 | — |
+| NEEDS-DECISION | 2 | — |
 | reserved to maintainer | 6 | — |
 
 RETIRE, NEEDS-DECISION and reserved units show no coverage figure because
@@ -171,7 +171,7 @@ catalog is where an operator would look for it.
 | `owx` | SUPERSEDE | `chirp` |
 | `PAT` | ADD | `pat` |
 | `PATMENU` | RETIRE | — |
-| `PATMENU3` | NEEDS-DECISION | — |
+| `PATMENU3` | RETIRE | — |
 | `PIAPRS` | ADD | `qtbpqaprs` |
 | `pipx` | CARRY | `pipx` |
 | `PIQSO` | RETIRE | — |

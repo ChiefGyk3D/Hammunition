@@ -142,6 +142,15 @@ RETIRED: dict[str, tuple[str, str]] = {
         "the moment a JS8 profile user asks. Retired with a reason, not "
         "retired as dead.",
     ),
+    "PATMENU3": (
+        "73Linux",
+        "Ruled 2026-08-30 (Q-015 decision 12): doubly unneeded. KM4ACK's "
+        "menu wrapper is licence-blocked (D-001) — and the interface it "
+        "fronts ships with Pat itself: `pat http` serves the full Winlink "
+        "web UI at localhost:8080, documented in the packet profile. "
+        "Writing a licence-clean clone of a wrapper around a built-in "
+        "feature would be work spent making the product worse.",
+    ),
     # 73Linux — licence-blocked scripts (D-001: no licence file in the
     # repository, so KM4ACK's own works cannot be redistributed or derived
     # from; third-party software he *installs* is unaffected).

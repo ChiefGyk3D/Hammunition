@@ -44,6 +44,7 @@ changed, it never worked, or it was never radio.
 | `noaa-apt` | AHRL | World changed — the NOAA APT satellites went out of service on 2025-11-09. For today's weather satellites use **SatDump** (carried). This unit keeps a manifest with `status: retired` so the verdict and its provenance are findable where an operator would look (D-005). |
 | `notepadqq` | AHRL | Out of scope — a general-purpose text editor, present for AHRL's ARRL Teachers Institute menu rather than for radio. |
 | `PATMENU` | 73Linux | KM4ACK's own earlier PAT menu wrapper, unlicensed repository (D-001). Its successor PATMENU3 is a separate, still-open decision. |
+| `PATMENU3` | 73Linux | Ruled 2026-08-30 (Q-015 decision 12): doubly unneeded. KM4ACK's menu wrapper is licence-blocked (D-001) — and the interface it fronts ships with Pat itself: `pat http` serves the full Winlink web UI at localhost:8080, documented in the packet profile. Writing a licence-clean clone of a wrapper around a built-in feature would be work spent making the product worse. |
 | `PIQSO` | 73Linux | KM4ACK's own script, unlicensed repository (D-001). |
 | `PISTATS` | 73Linux | Out of scope — a system monitor, not radio. |
 | `pyautogui` | AHRL | Out of scope — AHRL's own menu-regression test harness, installed onto every user system. The equivalent here is CI, not a catalog entry. |

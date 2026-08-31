@@ -92,7 +92,11 @@ documentation:
     configuration is the open design question, and `linbpq` is the one manifest
     that already templates it. The shipped direwolf example is heavily
     commented and is the right starting point. Pat is configured with
-    `pat configure`, which writes your Winlink credentials.
+    `pat configure`, which writes your Winlink credentials. **Pat's own web
+    interface is the menu** — `pat http` serves it at `localhost:8080` for
+    composing, reading and posting Winlink mail. 73Linux wraps Pat in its
+    PATMENU3 script; that wrapper is licence-blocked and unneeded here,
+    because the web UI it fronts ships with Pat itself.
 
     **Serial and audio access need the `dialout` group**, and a session already
     open does not gain it. **Transmit audio level** decides whether anyone

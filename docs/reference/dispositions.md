@@ -30,9 +30,9 @@ depending on distro package state is marked *(verify in container)*.
 | CARRY | 67 | 2 | 0 | 0 | 69 |
 | SUPERSEDE | 13 | 0 | 1 | 0 | 14 |
 | REVIVE | 6 | 0 | 0 | 0 | 6 |
-| RETIRE | 13 | 13 | 0 | 0 | 26 |
+| RETIRE | 13 | 14 | 0 | 0 | 27 |
 | ADD | — | 11 | 7 | 8 | 26 |
-| NEEDS-DECISION | 0 | 2 | 1 | 0 | 3 |
+| NEEDS-DECISION | 0 | 1 | 1 | 0 | 2 |
 | Reserved to maintainer | 6 | 0 | 0 | 0 | 6 |
 | **Total** | **105** | **28** | **9** | **8** | **150** |
 
@@ -498,7 +498,7 @@ they depend on it.
 | Unit | Disposition | Note |
 |---|---|---|
 | ARDOPGUI | CARRY (post-1.0) | GUI for ARDOP; pairs with the 1.0 ARDOP |
-| PATMENU3 | NEEDS-DECISION | KM4ACK's own menu wrapper for PAT — licence blocked. Question: do we write our own equivalent, or does PAT's native UI suffice? |
+| PATMENU3 | RETIRE | KM4ACK's menu wrapper for PAT — licence blocked, and ruled 2026-08-30 unneeded: `pat http` ships the interface the wrapper fronts. Documented in the packet profile. |
 | VARA | ADD (post-1.0) | Closed-source freeware, needs Wine prefix. Settled post-1.0 by D-008. |
 | HAMRS | ADD (post-1.0) | Proprietary freemium, AppImage, upstream scrapes its own download page. Settled post-1.0. |
 | GPS | CARRY | `gpsd` — we need it anyway for the hardware layer |
@@ -687,7 +687,7 @@ listed under AHRL or covered by the Blend, and are not re-indexed here.
 
 `ARDOPGUI` C · `AX25` A · `BATT` X · `BPQ` A · `CONKY` X · `DIPOLE` X · `EES` X ·
 `GARIM` A · `GPS` C · `GPSUPDATE` X · `GRIDCALC` X · `HAMRS` A · `M0IAX` X ·
-`PAT` A · `PATMENU` X · `PATMENU3` ? · `PIAPRS` A · `PIQSO` X · `PISTATS` X ·
+`PAT` A · `PATMENU` X · `PATMENU3` X · `PIAPRS` A · `PIQSO` X · `PISTATS` X ·
 `PITERM` A · `QTSOUND` A · `REPEAT` ? · `SECURITY` X · `SHOWLOG` X · `VARA` A ·
 `VARIM` A · `VNC` X · `XYGRIB` A
 
