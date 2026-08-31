@@ -10,12 +10,16 @@ targeting Debian, Ubuntu, Kali, Linux Mint and Raspberry Pi OS.
 
 ## ⚠️ Alpha — it installs, configures and removes; the hard 40% is still ahead
 
-**Status: alpha, v0.5.0.** The core cycle — resolve, disclose, install,
+**Status: alpha, v0.6.0.** The core cycle — resolve, disclose, install,
 configure, verify, remove — runs end to end and is **VM-verified on Parrot,
-Kali and Debian 13** (`docs/reference/vm-verification-*.md`), not just in
-containers. Three backends, launcher generation and the hardware layer's
-field-verification are still to come, and until they land a fifth of the
-catalog's owed units stay out of reach.
+Kali and Debian 13**, with **zero hard install failures across the whole
+catalog on all three targets** ([M5 parity verified](docs/reference/m5-parity-verified.md)).
+Five backends are written (apt, source, git, binary, venv — including a
+venv+payload hybrid), launchers and curated desktop menus generate for Xfce
+and GNOME, and profiles can offer an operator a choice of companion (mail
+client, serial terminal) rather than choosing for them. What remains for 1.0:
+Ubuntu and Pop!_OS verification, GUI-launch and real-hardware checks, a dozen
+maintainer decisions, and release engineering.
 
 Being honest about this up front matters more than looking finished, so here is
 exactly where things stand:
@@ -47,7 +51,10 @@ exactly where things stand:
 | udev rule generation from the hardware catalog | 🟡 written; not yet exercised against real hardware |
 | `uninstall` | ✅ working — removes exactly what the log attributes to us, verified removals, apt only |
 | End-to-end VM verification (install / configure / remove) | ✅ Parrot, Kali, Debian 13 — Ubuntu and Pop!_OS queued |
-| Automated per-unit install campaigns (`scripts/vm_campaign.py`) | ✅ first report filed: the packet profile, 21/21 on Debian 13 |
+| M5 install-success across the full catalog, three targets | ✅ **zero hard failures**; every unit installs on ≥1 target or is refused with a reason |
+| Curated desktop menus (Xfce menu-spec + GNOME app-folders) | ✅ generated from category tags; COSMIC pending a Pop VM |
+| Profile companion offers (mail client, serial terminal) | ✅ detect → respect → offer, never silent |
+| Getting-started, profile, troubleshooting docs | ✅ written and generated |
 
 **Much of the catalog is still out of reach.** Of AHRL's 95 units, **57 cannot
 be satisfied by apt at all** — that missing 60% is the hard part and is precisely
