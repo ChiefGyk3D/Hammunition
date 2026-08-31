@@ -44,8 +44,8 @@ A manifest is **strict**: an unknown field is an error, not ignored. That is del
 
 Restricts an install block to some subset of targets.
 
-    An empty selector matches everything and acts as the default. Resolution is
-    first-match-wins in list order, so defaults belong last.
+An empty selector matches everything and acts as the default. Resolution is
+first-match-wins in list order, so defaults belong last.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -56,7 +56,7 @@ Restricts an install block to some subset of targets.
 ### `InstallBlock`
 
 One (selector -> method) pair. The method itself varies, not just its
-    argument — js8call is apt on Linux Mint 22.3 and a cmake build elsewhere.
+argument — js8call is apt on Linux Mint 22.3 and a cmake build elsewhere.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -127,16 +127,16 @@ Vendor .deb, archive, or prebuilt executable.
 
 A per-user Python virtualenv, hash-pinned end to end.
 
-    ``requirements`` lines are requirements-file syntax and **every package
-    line must carry at least one ``--hash=sha256:``** — pip then runs with
-    ``--require-hashes``, which extends the demand to the whole dependency
-    tree. That is CLAUDE.md's checksum rule applied to PyPI: apt packages are
-    distribution-signed, a bare ``pip install name`` is neither signed nor
-    pinned, and the difference is exactly what the rule exists for. Generate
-    the lines with ``uv pip compile --universal --generate-hashes``.
+``requirements`` lines are requirements-file syntax and **every package
+line must carry at least one ``--hash=sha256:``** — pip then runs with
+``--require-hashes``, which extends the demand to the whole dependency
+tree. That is CLAUDE.md's checksum rule applied to PyPI: apt packages are
+distribution-signed, a bare ``pip install name`` is neither signed nor
+pinned, and the difference is exactly what the rule exists for. Generate
+the lines with ``uv pip compile --universal --generate-hashes``.
 
-    Environment-marker lines (``; python_version >= "3.10"``) and blank or
-    comment lines pass through untouched.
+Environment-marker lines (``; python_version >= "3.10"``) and blank or
+comment lines pass through untouched.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -173,16 +173,16 @@ An in-tree source edit. AHRL does these with sed; we declare them.
 
 When a commit pin was last looked at, and by whom.  D-024.
 
-    A tag carries an upstream signal: someone decided that revision was worth
-    naming. A commit SHA carries none — it is perfectly pinned and perfectly
-    arbitrary. When a project stops tagging, pinning a commit is the right
-    answer, but it moves a judgement upstream stopped making onto us, and an
-    unreviewed commit pin from four years ago is the same failure as an
-    abandoned tag pointed the other way.
+A tag carries an upstream signal: someone decided that revision was worth
+naming. A commit SHA carries none — it is perfectly pinned and perfectly
+arbitrary. When a project stops tagging, pinning a commit is the right
+answer, but it moves a judgement upstream stopped making onto us, and an
+unreviewed commit pin from four years ago is the same failure as an
+abandoned tag pointed the other way.
 
-    So the judgement is recorded rather than implied. This is metadata about
-    *our* decision, not about the software, which is why it lives beside the
-    ref rather than in documentation.
+So the judgement is recorded rather than implied. This is metadata about
+*our* decision, not about the software, which is why it lives beside the
+ref rather than in documentation.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -197,9 +197,9 @@ When a commit pin was last looked at, and by whom.  D-024.
 
 Explicit build-output -> installed-name mapping.
 
-    This is what dissolves the wsjtx / wsjtx_improved rename dance: both builds
-    emit `wsjtx`, so AHRL renames around them. Declaring `install_as` makes the
-    collision impossible instead of choreographed.
+This is what dissolves the wsjtx / wsjtx_improved rename dance: both builds
+emit `wsjtx`, so AHRL renames around them. Declaring `install_as` makes the
+collision impossible instead of choreographed.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -221,9 +221,9 @@ A generated wrapper script. 14 AHRL units need one.
 
 A remote service the software talks to.
 
-    Exists because AHRL hardcodes `-b hamclock.com:80` into four generated
-    launchers, and that host was reported to stop serving in June 2026. A dead
-    upstream must be repointable by editing the catalog, not the launchers.
+Exists because AHRL hardcodes `-b hamclock.com:80` into four generated
+launchers, and that host was reported to stop serving in June 2026. A dead
+upstream must be repointable by editing the catalog, not the launchers.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -248,8 +248,8 @@ A remote service the software talks to.
 
 Templated configuration written on the operator's behalf.
 
-    AX.25 forces this into 1.0: its install appends
-    `wl2k ${MYCALL} 1200 255 7 Winlink` to /etc/ax25/axports.
+AX.25 forces this into 1.0: its install appends
+`wl2k ${MYCALL} 1200 255 7 Winlink` to /etc/ax25/axports.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -277,8 +277,8 @@ Third-party apt source. Key pinning is mandatory.
 
 Standing exposure register.  D-015.
 
-    The component list is derivable from build_depends; upstream port status and
-    the date it was checked are not, which is the whole reason this exists.
+The component list is derivable from build_depends; upstream port status and
+the date it was checked are not, which is the whole reason this exists.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -349,14 +349,14 @@ Required by CLAUDE.md for every profile.
 
 One-of-several optional companions, offered only when nothing serves.
 
-    Born from the claws-mail decision (Q-015 #1, resolved 2026-08-30): the
-    EMCOMM stack wants a local mail client, but choosing one for the
-    operator is desktop-distribution work — so the engine *detects* first
-    (any of ``detect_commands`` on PATH means the need is already met and
-    the system's own choice is respected), and only when nothing is found
-    does an interactive run offer ``options``, every one an open-source
-    catalog manifest. ``--yes`` and non-interactive runs skip with a note,
-    never block — the station-prompt precedent (D-035).
+Born from the claws-mail decision (Q-015 #1, resolved 2026-08-30): the
+EMCOMM stack wants a local mail client, but choosing one for the
+operator is desktop-distribution work — so the engine *detects* first
+(any of ``detect_commands`` on PATH means the need is already met and
+the system's own choice is respected), and only when nothing is found
+does an interactive run offer ``options``, every one an open-source
+catalog manifest. ``--yes`` and non-interactive runs skip with a note,
+never block — the station-prompt precedent (D-035).
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -370,9 +370,9 @@ One-of-several optional companions, offered only when nothing serves.
 
 An affirmative opt-in that `--yes` cannot supply.  D-021.
 
-    The gate discloses a capability and asks the operator to affirm they have
-    the authorization they need. It does not decide for them in either
-    direction — neither granting permission nor refusing on their behalf.
+The gate discloses a capability and asks the operator to affirm they have
+the authorization they need. It does not decide for them in either
+direction — neither granting permission nor refusing on their behalf.
 
 | Field | Type | Required | Description |
 |---|---|---|---|

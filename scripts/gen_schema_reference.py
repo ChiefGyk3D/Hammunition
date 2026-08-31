@@ -25,8 +25,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import inspect
 import sys
-import textwrap
 import types
 import typing
 from pathlib import Path
@@ -123,7 +123,12 @@ def _model_classes() -> dict[str, type[BaseModel]]:
 
 def render_model(name: str, model: type[BaseModel]) -> str:
     lines = [f"### `{name}`", ""]
-    doc = textwrap.dedent(model.__doc__ or "").strip()
+    # inspect.cleandoc, not textwrap.dedent: Python 3.13 auto-dedents __doc__
+    # at compile time while 3.12 does not, and dedent cannot normalise a
+    # docstring whose first line is unindented but whose continuations are.
+    # cleandoc produces the identical result on both, which is what keeps this
+    # generated file byte-stable across the CI matrix (the 3.13 no-op failure).
+    doc = inspect.cleandoc(model.__doc__ or "")
     if doc:
         lines += [doc, ""]
     fields = model.model_fields
