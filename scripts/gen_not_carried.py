@@ -255,6 +255,14 @@ SUPERSEDED: dict[str, tuple[str, str | None, str]] = {
         "generated two-line version script (SUPERSEDE #8-11). The flag was "
         "missing until the first VM campaign noticed; added 2026-08-29.",
     ),
+    "libhamlib4": (
+        "apt `depends` resolution",
+        None,
+        "A shared library with no operator surface is a dependency, not a "
+        "unit: every rig-control manifest that needs hamlib declares it, apt "
+        "installs it, and `libhamlib-utils` is the operator-facing hamlib "
+        "manifest. Ruled by the maintainer 2026-08-30 (Q-015 decision 3).",
+    ),
     "source_libs": (
         "the Hammunition engine",
         None,

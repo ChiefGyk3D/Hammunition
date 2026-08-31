@@ -5,7 +5,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Decisions pending — the morning list
 
-The twelve Q-015 units still awaiting your call, ordered so the mechanical
+The Q-015 units still awaiting your call, ordered so the mechanical
 ones go first and the ones needing outside knowledge go last. Two are already
 resolved (`claws-mail`, `putty`) and not repeated. Each has a recommendation
 and its precedent; the intent is that you can answer these one at a time
@@ -16,7 +16,6 @@ sliver of preference in it, and you asked to take them one at a time.
 
 | # | Unit | Recommendation | Why it is mechanical |
 |---|---|---|---|
-| 3 | `libhamlib4` | **Dependency, not a unit** — resolve with no manifest owed. | No menu entry, no operator surface; arrives via `depends`, and `libhamlib-utils` is the operator-facing manifest already carried. |
 | 4 | `jtdx` | **Carry as-is**, no deprecation mark. | Already carried, already builds and confirms on every target. The question was only whether to demote it; devoted user base says no. |
 | 5 | `wine` | **Confirm out of 1.0 core, post-1.0 for VARA.** | Already effectively resolved — the Morse Runner decision took Wine out of core; VARA reintroduces a Wine prefix post-1.0. Just needs recording. |
 

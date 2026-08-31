@@ -70,6 +70,7 @@ reviewable at the manifest rather than only here.
 | `ESPHamClock` | `hamclock-next` / `openhamclock` | HamClock's author became a Silent Key on 2026-01-29 and the hamclock.com data feed sunset in June 2026. The community successors carry on; the default backend is `ohb.works` (Q-006). |
 | `gpsman` | `gpsbabel` + `gpsd` | GPSMan is a Tcl relic; gpsbabel converts the data and gpsd serves the device. The replacement declares `supersedes: [gpsman]` itself. |
 | `grig` | `flrig` | Same function, maintained, richer rig support. |
+| `libhamlib4` | apt `depends` resolution | A shared library with no operator surface is a dependency, not a unit: every rig-control manifest that needs hamlib declares it, apt installs it, and `libhamlib-utils` is the operator-facing hamlib manifest. Ruled by the maintainer 2026-08-30 (Q-015 decision 3). |
 | `owx` | `chirp` | CHIRP programs the same Wouxun radios owx existed for, plus several hundred others. |
 | `rtl_sdr_v4` | the distribution's `librtlsdr` (manifest `rtl-sdr`) | AHRL hand-deletes the distro library and installs the RTL-SDR Blog fork from an unpinned clone. We carry the distribution package and handle the V4 situation by disclosure, not displacement (D-022). |
 | `source_libs` | the Hammunition engine | Manifests declare their own build dependencies; a blanket toolchain install is replaced by per-unit `build_depends` (SUPERSEDE #8-11). |

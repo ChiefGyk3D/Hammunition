@@ -21,17 +21,29 @@ decision. Only CARRY, SUPERSEDE, REVIVE and ADD owe a manifest.
 | | |
 |---|---:|
 | Units in the five-source union | **150** |
-| …that owe a manifest (C, S, R, A) | **110** |
+| …that owe a manifest (C, S, R, A) | **111** |
 | …covered | **99** |
 | …outstanding, with a recorded reason | **11** |
-| …outstanding, unexplained | **0** |
+| …outstanding, unexplained | **1** |
 | Manifests in the catalog | **242** |
 
-Coverage of what is owed: **99/110** (90%).
+Coverage of what is owed: **99/111** (89%).
 
 The catalog is larger than the union because the Debian Blend contributes
 152 packages, most of which are not AHRL units, and because hardware
 support needs entries no inventory lists.
+
+---
+
+## Outstanding and unexplained
+
+These owe a manifest, do not have one, and no reason is recorded.
+This list should be empty or shrinking; anything sitting here is work
+nobody has decided about.
+
+| Unit | Disposition |
+|---|---|
+| `libhamlib4` | SUPERSEDE |
 
 ---
 
@@ -60,11 +72,11 @@ Absent on purpose. Each names what it waits on.
 | Disposition | Units | Covered |
 |---|---:|---:|
 | CARRY | 65 | 64 |
-| SUPERSEDE | 13 | 9 |
+| SUPERSEDE | 14 | 9 |
 | REVIVE | 6 | 4 |
 | ADD | 26 | 22 |
 | RETIRE | 22 | — |
-| NEEDS-DECISION | 12 | — |
+| NEEDS-DECISION | 11 | — |
 | reserved to maintainer | 6 | — |
 
 RETIRE, NEEDS-DECISION and reserved units show no coverage figure because
@@ -152,7 +164,7 @@ catalog is where an operator would look for it.
 | `kicad` | reserved to maintainer | — |
 | `klog` | CARRY | `klog` |
 | `libacars` | ADD | `libacars` |
-| `libhamlib4` | NEEDS-DECISION | — |
+| `libhamlib4` | SUPERSEDE | — |
 | `linpac` | CARRY | `linpac` |
 | `linrad` | CARRY | `linrad` |
 | `M0IAX` | NEEDS-DECISION | — |

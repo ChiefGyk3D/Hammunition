@@ -28,11 +28,11 @@ depending on distro package state is marked *(verify in container)*.
 | Disposition | AHRL | 73Linux delta | Skywave delta | DragonOS T1* | Total |
 |---|---:|---:|---:|---:|---:|
 | CARRY | 63 | 2 | 0 | 0 | 65 |
-| SUPERSEDE | 12 | 0 | 1 | 0 | 13 |
+| SUPERSEDE | 13 | 0 | 1 | 0 | 14 |
 | REVIVE | 6 | 0 | 0 | 0 | 6 |
 | RETIRE | 10 | 12 | 0 | 0 | 22 |
 | ADD | — | 11 | 7 | 8 | 26 |
-| NEEDS-DECISION | 8 | 3 | 1 | 0 | 12 |
+| NEEDS-DECISION | 7 | 3 | 1 | 0 | 11 |
 | Reserved to maintainer | 6 | 0 | 0 | 0 | 6 |
 | **Total** | **105** | **28** | **9** | **8** | **150** |
 
@@ -269,7 +269,7 @@ Low stakes — `gpsman`'s menu entry is documentation-only in AHRL.
 
 ---
 
-### 8–11. Infrastructure superseded by our own engine
+### 8–12. Infrastructure superseded by our own engine
 
 | AHRL unit | Superseded by | Trade-off |
 |---|---|---|
@@ -277,6 +277,7 @@ Low stakes — `gpsman`'s menu entry is documentation-only in AHRL.
 | `ahrl_menus` | Generated desktop entries from `categories` | *A generated call list cannot drift from the catalog — which is exactly the bug that leaves `hamclock-next` dead (**D-013**).* |
 | `ahrl_docs` | Generated package reference | *Generated docs cannot contradict the manifests; `dpkg-query --list` dumped to a text file can.* |
 | `ahrl_version` | `hammunition --version` | *Standard CLI behaviour beats a generated shell script that echoes a string.* |
+| `libhamlib4` | apt `depends` resolution | *A shared library with no operator surface is a dependency, not a unit — every rig-control manifest that needs it declares it, and `libhamlib-utils` is the operator-facing hamlib manifest. Ruled by the maintainer 2026-08-30 (Q-015 decision 3).* |
 
 ---
 
@@ -341,7 +342,6 @@ browser.
 | FT8 family default | We carry `wsjtx`, `wsjtx_improved`, `jtdx`, `mshv`, `js8call`. The policy requires marking a recommended default where several tools overlap. **Question: which one?** |
 | HamClock default | After SUPERSEDE #1: is the default `hamclock-next`, or ESPHamClock repointed at Open HamClock Backend? **Question: which, and do we carry both?** |
 | FoxTelem | Decodes AMSAT Fox-series telemetry. Some Fox satellites have re-entered. **Question: is enough of the constellation alive to justify carrying it?** Needs an AMSAT status check, not a guess — and it is a *partial* world-changed case, unlike NOAA APT which is total. |
-| `libhamlib4` vs `libhamlib-dev` | AHRL installs the runtime as a unit and the dev package as a build dependency of others. **Question: is hamlib a catalog unit at all, or purely a dependency?** It has no menu entry. |
 | `country_files` (cty.dat) | Not software — a data file, fanned out to six directories, that goes stale monthly. **Question: is this a package, or the first instance of a "data asset with an update cadence" that the schema needs a shape for?** |
 | `wine` | In AHRL it exists solely for Morse Runner. **Question: if the Morse Runner call goes against Wine, does Wine leave 1.0 entirely?** VARA needs a Wine *prefix* post-1.0 regardless. |
 
@@ -681,7 +681,7 @@ listed under AHRL or covered by the Blend, and are not re-indexed here.
 `glfer` C · `gnuradio` C · `gpredict` C · `gpsman` S · `gqrx` C ·
 `GridTracker2` C · `grig` S · `gsmc` C · `gspiceui` M · `hamclock_next` R ·
 `ibp` R · `js8call` C · `js8spotter` C · `jtdx` ? · `kicad` M · `klog` C ·
-`libhamlib4` ? · `linpac` C · `linrad` C · `mfc_gpl` X · `morse_runner` M ·
+`libhamlib4` S · `linpac` C · `linrad` C · `mfc_gpl` X · `morse_runner` M ·
 `MSHV` C · `mvoice` R · `nanovna-saver` C · `ngspice` M · `noaa-apt` X ·
 `not1mm` C · `notepadqq` X · `owx` S · `pipx` C · `putty` C · `pyautogui` X ·
 `qgrid` C · `QLog` C · `qrq` C · `qsstv` C · `qtel` C · `QtTinySA` C ·
