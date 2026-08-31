@@ -21,13 +21,13 @@ decision. Only CARRY, SUPERSEDE, REVIVE and ADD owe a manifest.
 | | |
 |---|---:|
 | Units in the five-source union | **150** |
-| …that owe a manifest (C, S, R, A) | **113** |
-| …covered | **100** |
+| …that owe a manifest (C, S, R, A) | **114** |
+| …covered | **101** |
 | …outstanding, with a recorded reason | **13** |
 | …outstanding, unexplained | **0** |
 | Manifests in the catalog | **242** |
 
-Coverage of what is owed: **100/113** (88%).
+Coverage of what is owed: **101/114** (88%).
 
 The catalog is larger than the union because the Debian Blend contributes
 152 packages, most of which are not AHRL units, and because hardware
@@ -61,12 +61,12 @@ Absent on purpose. Each names what it waits on.
 
 | Disposition | Units | Covered |
 |---|---:|---:|
-| CARRY | 67 | 65 |
+| CARRY | 68 | 66 |
 | SUPERSEDE | 14 | 9 |
 | REVIVE | 6 | 4 |
 | ADD | 26 | 22 |
 | RETIRE | 25 | — |
-| NEEDS-DECISION | 6 | — |
+| NEEDS-DECISION | 5 | — |
 | reserved to maintainer | 6 | — |
 
 RETIRE, NEEDS-DECISION and reserved units show no coverage figure because
@@ -227,7 +227,7 @@ catalog is where an operator would look for it.
 | `xlog` | CARRY | `xlog` |
 | `xnec2c` | CARRY | `xnec2c` |
 | `xosview` | RETIRE | — |
-| `xwefax` | NEEDS-DECISION | `xwefax` |
+| `xwefax` | CARRY | `xwefax` |
 | `xwxapt` | RETIRE | — |
 | `XYGRIB` | ADD | `xygrib` |
 | `yaac` | CARRY | `yaac` |
