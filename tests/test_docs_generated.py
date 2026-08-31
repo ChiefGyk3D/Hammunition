@@ -328,3 +328,45 @@ def test_regenerating_the_profile_reference_is_a_no_op() -> None:
         "docs/profiles/ is out of date — run scripts/gen_profile_reference.py.\n"
         f"  stale: {stale[:6]}\n  absent: {absent[:6]}\n  changed: {changed[:6]}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Hardware reference — one page per device, generated from the device catalog.
+# Same no-op contract as the package and profile references.
+# ---------------------------------------------------------------------------
+
+HARDWARE_DOCS = REPO_ROOT / "docs" / "hardware"
+
+
+def _hardware_generator() -> object:
+    spec = importlib.util.spec_from_file_location(
+        "gen_hardware_reference", REPO_ROOT / "scripts" / "gen_hardware_reference.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_every_device_has_a_generated_page() -> None:
+    gen = _hardware_generator()
+    rendered: dict[str, str] = gen.render()  # type: ignore[attr-defined]
+    from hammunition.manifest.load import load_hardware
+
+    _classes, devices = load_hardware(REPO_ROOT / "catalog" / "hardware")
+    missing = sorted(name for name in devices if f"{name}.md" not in rendered)
+    assert not missing, f"no generated page for device(s): {missing}"
+    assert "index.md" in rendered
+
+
+def test_regenerating_the_hardware_reference_is_a_no_op() -> None:
+    gen = _hardware_generator()
+    rendered: dict[str, str] = gen.render()  # type: ignore[attr-defined]
+    on_disk = {p.name: p.read_text() for p in HARDWARE_DOCS.glob("*.md")}
+    stale = sorted(set(on_disk) - set(rendered))
+    absent = sorted(set(rendered) - set(on_disk))
+    changed = sorted(n for n in set(rendered) & set(on_disk) if rendered[n] != on_disk[n])
+    assert not (stale or absent or changed), (
+        "docs/hardware/ is out of date — run scripts/gen_hardware_reference.py.\n"
+        f"  stale: {stale[:6]}\n  absent: {absent[:6]}\n  changed: {changed[:6]}"
+    )
