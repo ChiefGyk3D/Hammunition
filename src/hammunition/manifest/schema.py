@@ -489,8 +489,7 @@ class VenvInstall(Strict):
     def _payload_script_needs_payload(self) -> VenvInstall:
         if self.payload_build_script and not self.payload:
             raise ManifestError(
-                "payload_build_script declared with no payload — there is no tree "
-                "to run it in"
+                "payload_build_script declared with no payload — there is no tree to run it in"
             )
         return self
 
@@ -1061,7 +1060,9 @@ class SuggestionGroup(Strict):
     """
 
     name: str
-    reason: str = Field(min_length=20, description="Why the profile wants one, shown at the prompt.")
+    reason: str = Field(
+        min_length=20, description="Why the profile wants one, shown at the prompt."
+    )
     detect_commands: list[str] = Field(
         min_length=1,
         description="Binaries whose presence means the need is already met.",

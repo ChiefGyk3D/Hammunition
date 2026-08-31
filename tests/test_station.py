@@ -280,7 +280,11 @@ def test_a_root_owned_config_becomes_staged_commands_not_an_in_process_write(
     monkeypatch.setattr(os_module, "access", lambda *_a, **_k: False)
 
     config = ConfigFile.model_validate(
-        {"path": "/etc/hammunition-test.cfg", "template": "CALL={station.callsign}\n", "mode": "0644"}
+        {
+            "path": "/etc/hammunition-test.cfg",
+            "template": "CALL={station.callsign}\n",
+            "mode": "0644",
+        }
     )
 
     class PlanStub:

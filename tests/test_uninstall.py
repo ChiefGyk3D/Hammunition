@@ -142,7 +142,11 @@ def test_non_apt_commands_and_other_events_are_ignored(tmp_path: Path) -> None:
         [
             command_end(["apt-get", "update"]),
             command_end(["gpasswd", "--add", "user", "dialout"]),
-            {"event": "command_begin", "version": 1, "argv": ["apt-get", "install", "--yes", "--", "x"]},
+            {
+                "event": "command_begin",
+                "version": 1,
+                "argv": ["apt-get", "install", "--yes", "--", "x"],
+            },
             {"event": "some_future_event", "version": 9},
         ],
     )
@@ -287,9 +291,7 @@ class FakeProber:
 def removal_plan_for(*packages: str) -> Any:
     from hammunition.state.uninstall import RemovalPlan
 
-    return RemovalPlan(
-        to_remove={p: [p] for p in packages}, left_foreign={}, already_absent={}
-    )
+    return RemovalPlan(to_remove={p: [p] for p in packages}, left_foreign={}, already_absent={})
 
 
 def remove_command(*packages: str) -> Command:
@@ -377,7 +379,13 @@ def test_a_missing_binary_is_a_failure_not_a_crash(tmp_path: Path) -> None:
 
 def test_uninstall_then_attribution_reports_the_package_gone(tmp_path: Path) -> None:
     log = TransactionLog(path=tmp_path / "t.jsonl")
-    log.append({"event": "command_end", "argv": ["apt-get", "install", "--yes", "--", "flrig"], "returncode": 0})
+    log.append(
+        {
+            "event": "command_end",
+            "argv": ["apt-get", "install", "--yes", "--", "flrig"],
+            "returncode": 0,
+        }
+    )
     assert installed_by_hammunition(log) == {"flrig"}
     run_removal(
         [remove_command("flrig")],
@@ -412,7 +420,11 @@ def test_install_D_attributes_and_rm_unattributes(tmp_path: Path) -> None:
 def test_a_failed_install_attributes_nothing(tmp_path: Path) -> None:
     log = write_log(
         tmp_path,
-        [command_end(["install", "-D", "-m", "0755", "/build/x", "/usr/local/bin/x"], returncode=1)],
+        [
+            command_end(
+                ["install", "-D", "-m", "0755", "/build/x", "/usr/local/bin/x"], returncode=1
+            )
+        ],
     )
     assert files_installed_by_hammunition(log) == frozenset()
 
@@ -519,15 +531,25 @@ def test_a_copied_binary_needs_the_logs_word(tmp_path: Path) -> None:
         binaries=[{"produced": "cb", "install_as": "cb"}],
     )
     unattributed = plan_removal(
-        ["cb"], catalog={"cb": unit}, profiles={}, target=TARGET,
-        attributed=frozenset(), states={}, paths=paths,
+        ["cb"],
+        catalog={"cb": unit},
+        profiles={},
+        target=TARGET,
+        attributed=frozenset(),
+        states={},
+        paths=paths,
     )
     assert unattributed.artifacts == {}
     assert unattributed.left_unattributed == {"cb": [str(dest)]}
 
     attributed = plan_removal(
-        ["cb"], catalog={"cb": unit}, profiles={}, target=TARGET,
-        attributed=frozenset(), states={}, paths=paths,
+        ["cb"],
+        catalog={"cb": unit},
+        profiles={},
+        target=TARGET,
+        attributed=frozenset(),
+        states={},
+        paths=paths,
         attributed_files=frozenset({str(dest)}),
     )
     assert [(r.kind, r.basis) for r in attributed.artifacts["cb"]] == [("binary", "log")]
@@ -549,15 +571,27 @@ def test_a_deb_unit_is_ours_only_with_the_digest_in_the_log(tmp_path: Path) -> N
         [command_end(["apt-get", "install", "--yes", "--", f"/cache/{DIGEST}-du_1.0_amd64.deb"])],
     )
     ours = plan_removal(
-        ["du"], catalog={"du": unit}, profiles={}, target=TARGET,
-        attributed=frozenset(), states=states, paths=paths_for(tmp_path), log=log,
+        ["du"],
+        catalog={"du": unit},
+        profiles={},
+        target=TARGET,
+        attributed=frozenset(),
+        states=states,
+        paths=paths_for(tmp_path),
+        log=log,
     )
     assert ours.to_remove == {"du": ["du"]}
 
     silent_log = write_log(tmp_path, [])
     foreign = plan_removal(
-        ["du"], catalog={"du": unit}, profiles={}, target=TARGET,
-        attributed=frozenset(), states=states, paths=paths_for(tmp_path), log=silent_log,
+        ["du"],
+        catalog={"du": unit},
+        profiles={},
+        target=TARGET,
+        attributed=frozenset(),
+        states=states,
+        paths=paths_for(tmp_path),
+        log=silent_log,
     )
     assert foreign.to_remove == {}
     assert foreign.left_foreign == {"du": ["du"]}

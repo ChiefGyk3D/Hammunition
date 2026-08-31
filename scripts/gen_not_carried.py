@@ -120,13 +120,11 @@ RETIRED: dict[str, tuple[str, str]] = {
     ),
     "xosview": (
         "AHRL",
-        "Out of scope — an X11 system-load monitor from the 1990s. No menu "
-        "entry, not radio.",
+        "Out of scope — an X11 system-load monitor from the 1990s. No menu entry, not radio.",
     ),
     "backdrops": (
         "AHRL",
-        "Out of scope — 20 MB of desktop wallpapers. Hammunition is not a "
-        "desktop theme.",
+        "Out of scope — 20 MB of desktop wallpapers. Hammunition is not a desktop theme.",
     ),
     "pyautogui": (
         "AHRL",
@@ -189,8 +187,7 @@ RETIRED: dict[str, tuple[str, str]] = {
     ),
     "DIPOLE": (
         "73Linux",
-        "KM4ACK's own dipole calculator, unlicensed repository (D-001). Same "
-        "position as GRIDCALC.",
+        "KM4ACK's own dipole calculator, unlicensed repository (D-001). Same position as GRIDCALC.",
     ),
     "BATT": (
         "73Linux",
@@ -216,8 +213,7 @@ RETIRED: dict[str, tuple[str, str]] = {
     ),
     "VNC": (
         "73Linux",
-        "Out of scope — RealVNC viewer, a proprietary general-purpose remote "
-        "desktop.",
+        "Out of scope — RealVNC viewer, a proprietary general-purpose remote desktop.",
     ),
 }
 
@@ -229,8 +225,7 @@ SUPERSEDED: dict[str, tuple[str, str | None, str]] = {
     "aa-analyzer": (
         "`flaa`",
         "flaa",
-        "Both are RigExpert antenna-analyser front ends; flaa is the "
-        "maintained W1HKJ one.",
+        "Both are RigExpert antenna-analyser front ends; flaa is the maintained W1HKJ one.",
     ),
     "dump1090": (
         "`readsb`",
@@ -259,8 +254,7 @@ SUPERSEDED: dict[str, tuple[str, str | None, str]] = {
     "owx": (
         "`chirp`",
         "chirp",
-        "CHIRP programs the same Wouxun radios owx existed for, plus several "
-        "hundred others.",
+        "CHIRP programs the same Wouxun radios owx existed for, plus several hundred others.",
     ),
     "rtl_sdr_v4": (
         "the distribution's `librtlsdr` (manifest `rtl-sdr`)",
@@ -292,8 +286,7 @@ SUPERSEDED: dict[str, tuple[str, str | None, str]] = {
     "ahrl_menus": (
         "the Hammunition engine",
         None,
-        "Profiles and desktop integration replace the xdg menu installer "
-        "(SUPERSEDE #8-12).",
+        "Profiles and desktop integration replace the xdg menu installer (SUPERSEDE #8-12).",
     ),
     "ahrl_version": (
         "the Hammunition engine",
@@ -429,7 +422,9 @@ def validate(units: list[tuple[str, str]], catalog_names: set[str]) -> None:
         for unit in sorted(expected - table):
             problems.append(f"{label}: index marks `{unit}` {code} but no reason is recorded here")
         for unit in sorted(table - expected):
-            problems.append(f"{label}: `{unit}` has an entry here but the index does not mark it {code}")
+            problems.append(
+                f"{label}: `{unit}` has an entry here but the index does not mark it {code}"
+            )
 
     index_codes = dict(units)
     for unit, (expected_code, _, _) in RESOLVED_NOT_CARRIED.items():
@@ -442,10 +437,14 @@ def validate(units: list[tuple[str, str]], catalog_names: set[str]) -> None:
 
     for unit, (_, manifest, _) in SUPERSEDED.items():
         if manifest is not None and manifest not in catalog_names:
-            problems.append(f"SUPERSEDED: `{unit}` points at manifest `{manifest}`, which does not exist")
+            problems.append(
+                f"SUPERSEDED: `{unit}` points at manifest `{manifest}`, which does not exist"
+            )
     for unit, (manifest, _) in REVIVED.items():
         if manifest is not None and manifest not in catalog_names:
-            problems.append(f"REVIVED: `{unit}` points at manifest `{manifest}`, which does not exist")
+            problems.append(
+                f"REVIVED: `{unit}` points at manifest `{manifest}`, which does not exist"
+            )
 
     if problems:
         sys.exit("not-carried tables disagree with dispositions.md:\n  " + "\n  ".join(problems))

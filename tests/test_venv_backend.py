@@ -16,8 +16,7 @@ from hammunition.backends.base import Action
 from hammunition.manifest.schema import ManifestError, PackageManifest, VenvInstall
 
 HASHED = (
-    "example==1.0 --hash=sha256:"
-    "0000000000000000000000000000000000000000000000000000000000000000"
+    "example==1.0 --hash=sha256:0000000000000000000000000000000000000000000000000000000000000000"
 )
 
 
@@ -185,7 +184,11 @@ def test_payload_plans_fetch_extract_build_and_tree_install(tmp_path: Path) -> N
     m = hybrid_manifest("auto_rx/build.sh")
     steps = backend.steps(m, block(m))
     kinds = [s.kind if isinstance(s, Action) else s.argv[0] for s in steps]
-    assert kinds[:3] == ["requirements", "python3", str(tmp_path / "venvs" / "hybridunit" / "bin" / "pip")]
+    assert kinds[:3] == [
+        "requirements",
+        "python3",
+        str(tmp_path / "venvs" / "hybridunit" / "bin" / "pip"),
+    ]
     assert "fetch" in kinds and "extract" in kinds
     assert ("sh") in kinds, kinds
     assert kinds[-3:] == ["rm", "install", "cp"], "tree install must be last"

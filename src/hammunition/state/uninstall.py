@@ -184,9 +184,7 @@ def deb_attributed(log: TransactionLog, *, sha256: str, deb_package: str) -> boo
         if packages is None:
             continue
         verb = entry["argv"][1]
-        if verb == "install" and any(
-            Path(str(p)).name.startswith(f"{sha256}-") for p in packages
-        ):
+        if verb == "install" and any(Path(str(p)).name.startswith(f"{sha256}-") for p in packages):
             attributed = True
         elif verb == "remove" and deb_package in packages:
             attributed = False
@@ -407,9 +405,7 @@ def plan_removal(
             )
 
     if blockers:
-        raise RemovalError(
-            "this removal cannot be planned:\n  " + "\n  ".join(sorted(blockers))
-        )
+        raise RemovalError("this removal cannot be planned:\n  " + "\n  ".join(sorted(blockers)))
     return RemovalPlan(
         to_remove=to_remove,
         left_foreign=left_foreign,

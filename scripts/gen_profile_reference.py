@@ -55,8 +55,7 @@ def page(profile: ProfileManifest, known: set[str]) -> str:
         "",
         f"> {profile.summary}",
         "",
-        f"**Stage:** {profile.stage}"
-        + ("  ·  **consent-gated**" if profile.consent else ""),
+        f"**Stage:** {profile.stage}" + ("  ·  **consent-gated**" if profile.consent else ""),
         "",
         "## What it installs",
         "",

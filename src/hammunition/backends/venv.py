@@ -138,7 +138,9 @@ class VenvBackend:
             )
         return steps
 
-    def _payload_steps(self, manifest: PackageManifest, block: VenvInstall) -> list[Action | Command]:
+    def _payload_steps(
+        self, manifest: PackageManifest, block: VenvInstall
+    ) -> list[Action | Command]:
         from hammunition.backends.base import BackendError
 
         payload = block.payload
@@ -179,9 +181,7 @@ class VenvBackend:
                 )
             )
         steps.extend(
-            tree_install_commands(
-                name=manifest.name, source_tree=layout.src, prefix=self.prefix
-            )
+            tree_install_commands(name=manifest.name, source_tree=layout.src, prefix=self.prefix)
         )
         return steps
 

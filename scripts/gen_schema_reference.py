@@ -120,7 +120,11 @@ def render_model(name: str, model: type[BaseModel]) -> str:
     lines += ["| Field | Type | Required | Description |", "|---|---|---|---|"]
     for field_name, info in fields.items():
         required = "**yes**" if info.is_required() else "no"
-        if not info.is_required() and info.default is not PydanticUndefined and info.default not in (None, [], {}):
+        if (
+            not info.is_required()
+            and info.default is not PydanticUndefined
+            and info.default not in (None, [], {})
+        ):
             required = f"no (default `{info.default}`)"
         type_str = _type_name(info.annotation).replace("|", "\\|")
         desc = (info.description or "").replace("\n", " ").replace("|", "\\|").strip()

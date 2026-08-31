@@ -33,7 +33,14 @@ from xml.sax.saxutils import escape
 
 from hammunition.backends.base import Action, Command
 
-__all__ = ["Category", "MenuPaths", "gnome_commands", "menu_steps", "render_directory", "render_menu"]
+__all__ = [
+    "Category",
+    "MenuPaths",
+    "gnome_commands",
+    "menu_steps",
+    "render_directory",
+    "render_menu",
+]
 
 MENU_NAME = "Ham Radio"
 GNOME_FOLDER = "HamRadio"
@@ -83,13 +90,7 @@ def render_menu(categories: list[Category]) -> str:
 
 
 def render_directory(name: str, comment: str) -> str:
-    return (
-        "[Desktop Entry]\n"
-        "Type=Directory\n"
-        f"Name={name}\n"
-        f"Comment={comment}\n"
-        "Icon=folder\n"
-    )
+    return f"[Desktop Entry]\nType=Directory\nName={name}\nComment={comment}\nIcon=folder\n"
 
 
 def _write(path: Path, body: str) -> str:

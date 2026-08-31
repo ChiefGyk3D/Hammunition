@@ -70,9 +70,7 @@ def desktop_exec(path: Path) -> str | None:
 
 def dpkg_desktop_files(packages: list[str]) -> list[Path]:
     """Every /usr/share/applications entry the given packages own."""
-    result = subprocess.run(
-        ["dpkg", "-L", *packages], capture_output=True, text=True
-    )
+    result = subprocess.run(["dpkg", "-L", *packages], capture_output=True, text=True)
     if result.returncode != 0:
         return []
     return [
@@ -98,10 +96,7 @@ def collect(only: list[str]) -> dict[str, list[tuple[str, str]]]:
             installed = [
                 p
                 for p in block.install.packages
-                if subprocess.run(
-                    ["dpkg-query", "-W", p], capture_output=True
-                ).returncode
-                == 0
+                if subprocess.run(["dpkg-query", "-W", p], capture_output=True).returncode == 0
             ]
             for desktop in dpkg_desktop_files(installed):
                 cmd = desktop_exec(desktop)

@@ -551,7 +551,9 @@ def _apply_suggestions(
                 )
                 continue
             print(f"\nThe {name} profile suggests a {group.name}, and none was detected.")
-            print(textwrap.fill(group.reason, width=78, initial_indent="  ", subsequent_indent="  "))
+            print(
+                textwrap.fill(group.reason, width=78, initial_indent="  ", subsequent_indent="  ")
+            )
             for index, option in enumerate(group.options, start=1):
                 flag = "  (recommended)" if option == group.recommended else ""
                 print(f"  [{index}] {option}{flag}")
@@ -561,7 +563,7 @@ def _apply_suggestions(
                 default = str(group.options.index(group.recommended) + 1)
             prompt = f"Choose a {group.name} [1-{len(group.options)}/s]"
             prompt += f" (default {default}): " if default else ": "
-            answer = (input(prompt).strip().lower() or default)
+            answer = input(prompt).strip().lower() or default
             if answer.isdigit() and 1 <= int(answer) <= len(group.options):
                 chosen = group.options[int(answer) - 1]
                 extra.append(chosen)
@@ -595,9 +597,7 @@ def cmd_install(args: argparse.Namespace) -> int:
 
     station = _station_for(args, packages, profiles, user)
 
-    suggested, suggestion_notes = _apply_suggestions(
-        args.names, profiles, assume_yes=args.yes
-    )
+    suggested, suggestion_notes = _apply_suggestions(args.names, profiles, assume_yes=args.yes)
 
     try:
         plan = resolve(
@@ -641,8 +641,14 @@ def cmd_install(args: argparse.Namespace) -> int:
         prefix=source.prefix,
     )
     commands = commands_for(
-        plan, apt, refresh=args.refresh, source=source, git=git, binary=binary,
-        venv=venv, config_staging=builds,
+        plan,
+        apt,
+        refresh=args.refresh,
+        source=source,
+        git=git,
+        binary=binary,
+        venv=venv,
+        config_staging=builds,
         launcher_bin=user_bin_dir(user or None),
         launcher_applications=applications_dir(user or None),
     )

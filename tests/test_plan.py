@@ -679,9 +679,7 @@ def test_a_git_build_pulls_git_itself_into_the_apt_set(tmp_path: Path) -> None:
             ],
         )
     }
-    plan = _resolve(
-        tmp_path, ["gitunit"], catalog=catalog, known={"git": None, "gitunit": None}
-    )
+    plan = _resolve(tmp_path, ["gitunit"], catalog=catalog, known={"git": None, "gitunit": None})
     assert "git" in plan.apt_to_install
     planned = plan.packages[0]
     assert "git" in planned.build_only

@@ -99,9 +99,7 @@ def run_unit(host: str, identity: str | None, unit: str, timeout: int) -> UnitRe
     # the lines from the first failure marker; fall back to the last few.
     nonempty = [ln for ln in tail_lines if ln.strip()]
     markers = ("Failed:", "problem block", "error:", "E: ")
-    start = next(
-        (i for i, ln in enumerate(nonempty) if any(m in ln for m in markers)), None
-    )
+    start = next((i for i, ln in enumerate(nonempty) if any(m in ln for m in markers)), None)
     keep = nonempty[start : start + 10] if start is not None else nonempty[-6:]
     return UnitResult(unit, exit_code, seconds, "\n".join(keep))
 
@@ -174,13 +172,20 @@ def main() -> int:
         check=False,
     ).stdout.strip()
 
-    target_probe = subprocess.run(
-        [*SSH_BASE, *(["-i", args.identity] if args.identity else []), args.host,
-         "cd hammunition && .venv/bin/hammunition status 2>/dev/null | head -1"],
-        capture_output=True,
-        text=True,
-        check=False,
-    ).stdout.strip() or args.host
+    target_probe = (
+        subprocess.run(
+            [
+                *SSH_BASE,
+                *(["-i", args.identity] if args.identity else []),
+                args.host,
+                "cd hammunition && .venv/bin/hammunition status 2>/dev/null | head -1",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.strip()
+        or args.host
+    )
 
     results: list[UnitResult] = []
     for unit in units:

@@ -101,7 +101,9 @@ def test_campaign_report_buckets_and_names_every_unit() -> None:
         mod.UnitResult("gap", 2, 1.0, "resolves to the pipx backend"),
         mod.UnitResult("broken", 1, 300.0, "make: *** Error 1"),
     ]
-    report = mod.render_report(target_line="Testville 1.0", engine_commit="abc1234", results=results)
+    report = mod.render_report(
+        target_line="Testville 1.0", engine_commit="abc1234", results=results
+    )
     assert "3 — 1 installed+confirmed, 1 refused at plan time, 1 failed" in report
     for unit in ("good", "gap", "broken"):
         assert f"| `{unit}` |" in report

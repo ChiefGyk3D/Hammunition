@@ -95,8 +95,10 @@ def main() -> int:
         elif verdict == "transient":
             transient.append((name, url, detail))
 
-    print(f"\n{len(urls)} URL(s): {len(urls) - len(dead) - len(transient)} ok, "
-          f"{len(dead)} dead, {len(transient)} unreachable today")
+    print(
+        f"\n{len(urls)} URL(s): {len(urls) - len(dead) - len(transient)} ok, "
+        f"{len(dead)} dead, {len(transient)} unreachable today"
+    )
     if dead:
         print("\nDead pins — the manifest's URL no longer exists upstream:")
         for name, url, detail in dead:

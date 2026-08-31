@@ -22,7 +22,12 @@ hammunition = "hammunition.cli.main:main"
 dev = [
     "mypy>=1.10",
     "pytest>=8.0",
-    "ruff>=0.5",
+    # Pinned exactly: `ruff format --check` is a CI gate, and ruff's formatter
+    # evolves between releases, so an unpinned floor let CI drift red against
+    # code no one had touched. Pin the version the repo is formatted with; bump
+    # it deliberately and reformat in the same commit. (CLAUDE.md: a check must
+    # be reproducible, or it is a check nobody trusts.)
+    "ruff==0.16.5",
     "types-PyYAML",
 ]
 

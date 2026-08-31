@@ -707,8 +707,7 @@ def resolve(
                 Blocker(
                     subject=manifest.name,
                     reason=(
-                        f"its vendor .deb collides with installed distribution "
-                        f"package(s): {names}"
+                        f"its vendor .deb collides with installed distribution package(s): {names}"
                     ),
                     remedy=(
                         f"remove them first (sudo apt-get remove {names}) or skip this "

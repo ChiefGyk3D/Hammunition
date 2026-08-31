@@ -280,9 +280,7 @@ def test_every_retired_unit_has_a_row() -> None:
     spec.loader.exec_module(module)
     text = NOT_CARRIED.read_text()
     missing = sorted(
-        unit
-        for unit, code in module.parse_index()
-        if code == "X" and f"| `{unit}` |" not in text
+        unit for unit, code in module.parse_index() if code == "X" and f"| `{unit}` |" not in text
     )
     assert not missing, f"retired units with no row in not-carried.md: {missing}"
 

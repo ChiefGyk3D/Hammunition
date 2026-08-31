@@ -56,9 +56,7 @@ def verification_line(device: DeviceManifest) -> str:
     }[device.status]
     if device.maintainer_verified:
         mv = device.maintainer_verified
-        verified = (
-            f"**Maintainer-verified** {mv.date} on {mv.distro}: {mv.what_was_tested.strip()}"
-        )
+        verified = f"**Maintainer-verified** {mv.date} on {mv.distro}: {mv.what_was_tested.strip()}"
     else:
         verified = (
             "**Not maintainer-verified**: nobody on this project has run this "
@@ -134,8 +132,7 @@ def page(
     if device.identification_gap:
         closure = {
             "maintainer_hardware": (
-                "the maintainer owns this hardware; the gap closes at the next "
-                "capture session"
+                "the maintainer owns this hardware; the gap closes at the next capture session"
             ),
             "unverified_by_maintainer": (
                 "nobody on this project owns one — an operator who does can close "
@@ -248,13 +245,10 @@ def index(devices: dict[str, DeviceManifest], classes: dict[str, DeviceClass]) -
         "",
         "## Device classes",
         "",
-        "Families with shared Linux needs; a device in a class inherits its "
-        "rules and tooling.",
+        "Families with shared Linux needs; a device in a class inherits its rules and tooling.",
         "",
     ]
-    lines += [
-        f"- [{name}]({name}-class.md) — {classes[name].summary}" for name in sorted(classes)
-    ]
+    lines += [f"- [{name}]({name}-class.md) — {classes[name].summary}" for name in sorted(classes)]
     lines += [
         "",
         "Own hardware that is not here, or is marked untested? "
