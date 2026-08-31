@@ -21,13 +21,13 @@ decision. Only CARRY, SUPERSEDE, REVIVE and ADD owe a manifest.
 | | |
 |---|---:|
 | Units in the five-source union | **150** |
-| …that owe a manifest (C, S, R, A) | **114** |
+| …that owe a manifest (C, S, R, A) | **115** |
 | …covered | **101** |
-| …outstanding, with a recorded reason | **13** |
+| …outstanding, with a recorded reason | **14** |
 | …outstanding, unexplained | **0** |
 | Manifests in the catalog | **242** |
 
-Coverage of what is owed: **101/114** (88%).
+Coverage of what is owed: **101/115** (87%).
 
 The catalog is larger than the union because the Debian Blend contributes
 152 packages, most of which are not AHRL units, and because hardware
@@ -42,6 +42,7 @@ Absent on purpose. Each names what it waits on.
 | Unit | Disposition | Waiting on |
 |---|---|---|
 | `ARDOPGUI` | CARRY | waits on the binary backend |
+| `FoxTelem` | CARRY | post-1.0 — pending an AMSAT constellation census: a partial world-changed case, and neither blocking 1.0 on a satellite survey nor quietly carrying a decoder for re-entered spacecraft serves anybody (Q-015 decision 10, 2026-08-30) |
 | `HAMRS` | ADD | post-1.0 — AppImage |
 | `VARA` | ADD | post-1.0 — closed software needing a configured Wine prefix |
 | `VARIM` | ADD | post-1.0 — VARA's messaging client, same constraint |
@@ -61,12 +62,12 @@ Absent on purpose. Each names what it waits on.
 
 | Disposition | Units | Covered |
 |---|---:|---:|
-| CARRY | 68 | 66 |
+| CARRY | 69 | 66 |
 | SUPERSEDE | 14 | 9 |
 | REVIVE | 6 | 4 |
 | ADD | 26 | 22 |
 | RETIRE | 25 | — |
-| NEEDS-DECISION | 5 | — |
+| NEEDS-DECISION | 4 | — |
 | reserved to maintainer | 6 | — |
 
 RETIRE, NEEDS-DECISION and reserved units show no coverage figure because
@@ -125,7 +126,7 @@ catalog is where an operator would look for it.
 | `flrig` | CARRY | `flrig` |
 | `flwkey` | CARRY | `flwkey` |
 | `flwrap` | CARRY | `flwrap` |
-| `FoxTelem` | NEEDS-DECISION | — |
+| `FoxTelem` | CARRY | — *waiting, see above* |
 | `freedv` | CARRY | `freedv` |
 | `fritzing` | reserved to maintainer | — |
 | `GARIM` | ADD | `garim` |

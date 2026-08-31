@@ -27,12 +27,12 @@ depending on distro package state is marked *(verify in container)*.
 
 | Disposition | AHRL | 73Linux delta | Skywave delta | DragonOS T1* | Total |
 |---|---:|---:|---:|---:|---:|
-| CARRY | 66 | 2 | 0 | 0 | 68 |
+| CARRY | 67 | 2 | 0 | 0 | 69 |
 | SUPERSEDE | 13 | 0 | 1 | 0 | 14 |
 | REVIVE | 6 | 0 | 0 | 0 | 6 |
 | RETIRE | 13 | 12 | 0 | 0 | 25 |
 | ADD | — | 11 | 7 | 8 | 26 |
-| NEEDS-DECISION | 1 | 3 | 1 | 0 | 5 |
+| NEEDS-DECISION | 0 | 3 | 1 | 0 | 4 |
 | Reserved to maintainer | 6 | 0 | 0 | 0 | 6 |
 | **Total** | **105** | **28** | **9** | **8** | **150** |
 
@@ -335,7 +335,6 @@ browser.
 |---|---|
 | Claws Mail | **RESOLVED 2026-08-30 (Q-015 #1):** neither carried-by-default nor documented-away. The packet profile *detects* an existing mail client and respects the system's choice; only when none is found does an interactive run offer an open-source selection — Thunderbird, Claws Mail, Evolution, Geary — each now a catalog manifest, none ever installed silently, `--yes` skipping with a note (the D-035 shape). Claws Mail is CARRY as one option among four. |
 | PuTTY | **RESOLVED 2026-08-30 (Q-015 #2):** CARRY, as the recommended option in the workstation profile's serial-terminal suggestion group (detect-respect-offer, same mechanism as the mail client). Offered alongside CuteCom, picocom, tio and minicom; Termius (proprietary freemium) and MobaXterm (Windows-only) are named in the docs but not offered. |
-| FoxTelem | Decodes AMSAT Fox-series telemetry. Some Fox satellites have re-entered. **Question: is enough of the constellation alive to justify carrying it?** Needs an AMSAT status check, not a guess — and it is a *partial* world-changed case, unlike NOAA APT which is total. |
 
 ---
 
@@ -669,7 +668,7 @@ listed under AHRL or covered by the Blend, and are not re-indexed here.
 `country_files` C · `cqrlog` C · `cwwav` C · `direwolf` C · `dream` R ·
 `dump1090` S · `ebook2cwgui` C · `ESPHamClock` S · `flaa` C · `flamp` C ·
 `flcluster` C · `fldigi` C · `fllog` C · `Fl_MoxGen` C · `flmsg` C · `flnet` C ·
-`flrig` C · `flwkey` C · `flwrap` C · `FoxTelem` ? · `freedv` C · `fritzing` M ·
+`flrig` C · `flwkey` C · `flwrap` C · `FoxTelem` C · `freedv` C · `fritzing` M ·
 `glfer` C · `gnuradio` C · `gpredict` C · `gpsman` S · `gqrx` C ·
 `GridTracker2` C · `grig` S · `gsmc` C · `gspiceui` M · `hamclock_next` R ·
 `ibp` R · `js8call` C · `js8spotter` C · `jtdx` C · `kicad` M · `klog` C ·
