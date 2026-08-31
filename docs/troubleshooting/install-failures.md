@@ -17,7 +17,7 @@ Failed: [fetch] https://…/foo-1.2.3.tar.gz … returned HTTP 404 (Not Found)
 
 A pinned upstream URL moved or the project stopped publishing that artifact.
 This is a catalog bug, not your machine — the manifest's URL needs updating.
-[Open an issue](../contributing/index.md) with the package name, or if you
+[Open an issue](https://github.com/ChiefGyk3D/Hammunition/issues) with the package name, or if you
 maintain a checkout, run the sweep that catches these:
 
 ```sh
