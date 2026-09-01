@@ -167,6 +167,40 @@ Two mechanisms, both per-user and unprivileged:
 Run it once after installing launcher-carrying packages; menus refresh on
 next login. COSMIC is the measured-later third mechanism (D-036 addendum).
 
+### `hammunition hardware list`
+
+What is plugged in, what the catalog recognises, and what setup a device
+needs — the permissions-and-udev half of the device role (**D-029**). Reads
+`/sys/bus/usb/devices` directly (never `lsusb`, which may not be installed
+and whose output is a screen-scrape), matches against the device catalog,
+and reports three things: **recognised** devices attached (an ambiguous
+identifier is flagged as a candidate, not a conclusion — **D-028**),
+**unrecognised** attached devices (a prompt to contribute one), and whether
+the udev rules and your access-group membership are already in place.
+Detection drives nothing: it reports, and you decide (**D-020**).
+
+### `hammunition hardware apply [--dry-run] [--yes] [--user NAME]`
+
+Writes the whole catalog's udev rules to
+`/etc/udev/rules.d/65-hammunition.rules`, reloads and triggers udev, and adds
+you to the device-access groups the catalog needs (`plugdev`, `dialout`).
+
+- **All the rules, not only attached devices' —** a udev rule is declarative
+  and harmless for a device that is not present, so applying the whole set
+  means a supported device works the moment you plug it in, not only if it
+  happened to be attached when you ran this.
+- **Idempotent.** A rules file that already matches is a no-op, and a group
+  you are already in is skipped. Re-running when nothing has changed reports
+  "nothing to do".
+- **Disclosed and verified.** Every privileged command is printed before it
+  runs (`--dry-run` prints and stops); afterwards the rules file is re-read
+  against what was written and each group re-checked (**D-031**) — an exit
+  code is not taken as proof. The rules file is refused a rule for any device
+  whose identifier is ambiguous without a distinguishing product string, and
+  each such omission is printed with why (`docs/reference/device-naming.md`).
+- **Group membership applies at next login.** The command says so; log out
+  and back in before expecting device access.
+
 ### `hammunition station show` / `hammunition station set`
 
 The values only you can supply — callsign, grid square, packet node alias. Some

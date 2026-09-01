@@ -8,8 +8,8 @@ tool whose whole pitch is "you can read what it is going to do to your machine"
 should be installable without pulling anything extra in to parse its own
 arguments.
 
-The verbs are ``install``, ``uninstall``, ``list``, ``status``, ``show`` and
-``station``, all with the M1 property intact: what the engine cannot do it says
+The verbs are ``install``, ``uninstall``, ``list``, ``status``, ``show``,
+``menus``, ``hardware`` and ``station``, all with the M1 property intact: what the engine cannot do it says
 so, by name. Three backends measured and scheduled for 1.0 are not written
 (venv, pipx, CPAN), and a package needing one is refused with the backend named
 rather than skipped. CLAUDE.md forbids a shim
@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import tempfile
 import textwrap
 from collections.abc import Mapping, Sequence
 from importlib import metadata
@@ -40,6 +41,7 @@ from hammunition.backends import (
     AptBackend,
     BackendError,
     BinaryBackend,
+    Command,
     GitBackend,
     SourceBackend,
     SubprocessRunner,
@@ -59,8 +61,10 @@ from hammunition.execute import (
     commands_for,
     execute,
     run_removal,
+    user_groups,
 )
 from hammunition.fetch import Fetcher
+from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
 from hammunition.manifest.schema import (
     AptInstall,
@@ -1015,6 +1019,181 @@ def _prompt(text: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# hardware — the permissions and udev half of the device role (D-029)
+# ---------------------------------------------------------------------------
+
+
+def _load_hardware_catalog(
+    args: argparse.Namespace,
+) -> tuple[dict[str, DeviceClass], dict[str, DeviceManifest]]:
+    from hammunition.manifest.load import load_hardware
+
+    catalog_root = find_catalog(args.catalog)
+    return load_hardware(catalog_root / "hardware")
+
+
+def cmd_hardware_list(args: argparse.Namespace) -> int:
+    """What is plugged in, what the catalog recognises, and what it would set up."""
+    from hammunition.hardware import plan_hardware
+
+    try:
+        target = Target.detect()
+    except DetectionError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    classes, devices = _load_hardware_catalog(args)
+    user = operator(args)
+    groups_now = user_groups(user) if user else frozenset()
+    plan = plan_hardware(classes, devices, user=user, user_groups_now=groups_now)
+
+    print(f"Target: {target.describe()}\n")
+    if plan.detected:
+        print("Recognised devices attached:")
+        for match in plan.detected:
+            flag = "  (ambiguous identifier — could be another device)" if match.ambiguous else ""
+            print(f"  {match.name:20} {match.attached.describe()}{flag}")
+    else:
+        print("No catalogued devices detected on the USB bus.")
+    if plan.unrecognised:
+        print("\nAttached but not in the catalog (a device we could add):")
+        for dev in plan.unrecognised:
+            print(f"  {dev.describe()}")
+    print(
+        f"\nudev rules: {len(plan.rules_content.splitlines())} lines for the whole "
+        f"catalog would go to {plan.rules_path}"
+        + (" — already current." if plan.rules_already_current else " (not yet applied).")
+    )
+    wanted = sorted(set(plan.groups_to_add) | set(plan.groups_present))
+    if wanted:
+        joined = ", ".join(
+            f"{g} ✓" if g in plan.groups_present else f"{g} (missing)" for g in wanted
+        )
+        print(f"Access groups {user!r} needs: {joined}")
+    print("\nRun `hammunition hardware apply` to write the rules and join the groups.")
+    return EXIT_OK
+
+
+def cmd_hardware_apply(args: argparse.Namespace) -> int:
+    """Write the catalog's udev rules and join the device-access groups."""
+    from hammunition.hardware import plan_hardware
+
+    try:
+        Target.detect()
+    except DetectionError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    classes, devices = _load_hardware_catalog(args)
+    user = operator(args)
+    if not user:
+        print("error: could not determine which user to set up.", file=sys.stderr)
+        return EXIT_FAILED
+    groups_now = user_groups(user)
+    plan = plan_hardware(classes, devices, user=user, user_groups_now=groups_now)
+
+    print(f"Hardware setup for {user!r}\n")
+    if plan.omissions:
+        print("Catalogued but deliberately not given a rule (see device-naming.md):")
+        for om in plan.omissions[:8]:
+            print(f"  {om.render()}")
+        if len(plan.omissions) > 8:
+            print(f"  … and {len(plan.omissions) - 8} more")
+        print()
+
+    if plan.is_noop:
+        print(
+            "Nothing to do: the rules file already matches and you are in every "
+            "access group. Hardware setup is complete."
+        )
+        return EXIT_OK
+
+    staging = Path(tempfile.gettempdir()) / "hammunition" / "udev-staging.rules"
+    commands: list[Command] = []
+    if not plan.rules_already_current:
+        print(f"Will write {len(plan.rules_content.splitlines())} lines to {plan.rules_path}")
+        commands += [
+            Command(
+                argv=("install", "-D", "-m", "0644", str(staging), str(plan.rules_path)),
+                description=f"Install the generated rules to {plan.rules_path}",
+                requires_root=True,
+            ),
+            Command(
+                argv=("udevadm", "control", "--reload-rules"),
+                description="Reload udev so the new rules take effect",
+                requires_root=True,
+            ),
+            Command(
+                argv=("udevadm", "trigger"),
+                description="Apply the rules to devices already attached",
+                requires_root=True,
+            ),
+        ]
+    else:
+        print(f"Rules file at {plan.rules_path} is already current.")
+    for group in plan.groups_to_add:
+        print(f"Will add {user!r} to the {group!r} group")
+        commands.append(
+            Command(
+                argv=("gpasswd", "--add", user, group),
+                description=f"Add {user} to {group} for device access",
+                requires_root=True,
+            )
+        )
+
+    euid = os.geteuid()
+    print(f"\nCommands ({len(commands)}):")
+    for command in commands:
+        print(f"  # {command.description}")
+        print(f"  $ {command.display(euid=euid)}")
+
+    if args.dry_run:
+        print("\nDry run: nothing above was executed.")
+        return EXIT_OK
+    if not args.yes and not _prompt("\nProceed with the commands above?"):
+        print("Aborted. Nothing was changed.")
+        return EXIT_OK
+
+    if not plan.rules_already_current:
+        staging.parent.mkdir(parents=True, exist_ok=True)
+        staging.write_text(plan.rules_content)
+        os.chmod(staging, 0o644)
+
+    runner = SubprocessRunner()
+    print("\nRunning:")
+    for command in commands:
+        print(f"  $ {command.display(euid=euid)}")
+        result = runner.run(command)
+        if result.returncode != 0:
+            print(f"error: {result.stderr.strip()[:300]}", file=sys.stderr)
+            print("Stopped. What ran above is applied; the rest is not.", file=sys.stderr)
+            return EXIT_FAILED
+
+    # D-031: verify the effect, not the exit status.
+    problems: list[str] = []
+    if not plan.rules_already_current:
+        try:
+            if Path(plan.rules_path).read_text() != plan.rules_content:
+                problems.append(f"{plan.rules_path} on disk does not match what we wrote")
+        except OSError as exc:
+            problems.append(f"could not read back {plan.rules_path}: {exc}")
+    after = user_groups(user)
+    for group in plan.groups_to_add:
+        if group not in after:
+            problems.append(f"{user} is still not in {group}")
+    if problems:
+        for problem in problems:
+            print(f"  unverified: {problem}", file=sys.stderr)
+        return EXIT_FAILED
+
+    print("\nDone and verified.")
+    if plan.groups_to_add:
+        print(
+            f"Group membership ({', '.join(plan.groups_to_add)}) takes effect at your "
+            f"next login — log out and back in before expecting device access."
+        )
+    return EXIT_OK
+
+
+# ---------------------------------------------------------------------------
 # Parser
 # ---------------------------------------------------------------------------
 
@@ -1125,6 +1304,23 @@ def build_parser() -> argparse.ArgumentParser:
         "--gnome", action="store_true", help="apply the GNOME app-folder even if undetected"
     )
     p_menus_apply.set_defaults(func=cmd_menus_apply)
+
+    p_hardware = sub.add_parser(
+        "hardware", help="detect devices; apply udev rules and groups (D-029)"
+    )
+    hardware_sub = p_hardware.add_subparsers(dest="hardware_command", required=True)
+
+    p_hw_list = hardware_sub.add_parser("list", help="what is attached and what setup it needs")
+    p_hw_list.add_argument("--user", default=None, help="whose group membership to check")
+    p_hw_list.set_defaults(func=cmd_hardware_list)
+
+    p_hw_apply = hardware_sub.add_parser(
+        "apply", help="write the udev rules and join the device-access groups"
+    )
+    p_hw_apply.add_argument("--dry-run", action="store_true", help="print, change nothing")
+    p_hw_apply.add_argument("--yes", action="store_true", help="skip the confirmation")
+    p_hw_apply.add_argument("--user", default=None, help="whom to set up")
+    p_hw_apply.set_defaults(func=cmd_hardware_apply)
 
     p_station = sub.add_parser("station", help="the values only you can supply")
     station_sub = p_station.add_subparsers(dest="station_command", required=True)
