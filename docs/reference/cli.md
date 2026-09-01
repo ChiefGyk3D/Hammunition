@@ -167,6 +167,27 @@ Two mechanisms, both per-user and unprivileged:
 Run it once after installing launcher-carrying packages; menus refresh on
 next login. COSMIC is the measured-later third mechanism (D-036 addendum).
 
+### `hammunition doctor [--user NAME]`
+
+A **read-only** health check: is this machine ready, and what is not yet set
+up. It changes nothing, and it is the first thing to run on a fresh machine
+or when something misbehaves — it turns the failures the engine would
+otherwise hit mid-transaction into a report you read up front, each with the
+one command that fixes it. Twelve checks across four severities:
+
+- **fail** — the engine cannot work until fixed (not a Debian-family system;
+  no catalog). Exits non-zero.
+- **warn** — a whole class of installs will fail or a feature is unavailable
+  until fixed (no `python3-venv`, no compiler, no callsign, missing device
+  group), but the engine runs and everything else works.
+- **info** — a true fact that is not a problem (no ham hardware attached
+  right now; udev rules not yet applied on a machine with no radios).
+- **ok** — checked and healthy.
+
+The closing line counts each, and the exit code is non-zero only when
+something is **blocking**. It is the natural first command after installing
+from the checkout, and the one to paste when asking for help.
+
 ### `hammunition hardware list`
 
 What is plugged in, what the catalog recognises, and what setup a device

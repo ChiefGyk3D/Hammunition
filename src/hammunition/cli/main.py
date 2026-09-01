@@ -1194,6 +1194,117 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# doctor — a read-only health check
+# ---------------------------------------------------------------------------
+
+
+def cmd_doctor(args: argparse.Namespace) -> int:
+    """Report what is ready and what is not yet set up. Changes nothing."""
+    import shutil
+
+    from hammunition.doctor import run_checks, summarize
+    from hammunition.hardware import RULES_PATH, plan_hardware, rules_file
+    from hammunition.manifest.load import load_hardware
+    from hammunition.paths import state_dir
+
+    classes: dict[str, DeviceClass] = {}
+    devices: dict[str, DeviceManifest] = {}
+
+    user = operator(args)
+
+    try:
+        target = Target.detect()
+        target_describe: str | None = target.describe()
+        is_debian = target.is_debian_family
+    except DetectionError:
+        target_describe, is_debian = None, False
+
+    catalog_counts: tuple[int, int] | None = None
+    needed_groups: list[str] = []
+    attached_recognised = 0
+    try:
+        catalog_root = find_catalog(args.catalog)
+        packages, profiles = load_all(catalog_root)
+        catalog_counts = (len(packages), len(profiles))
+        classes, devices = load_hardware(catalog_root / "hardware")
+        groups_now = user_groups(user) if user else frozenset()
+        hw = plan_hardware(classes, devices, user=user or "", user_groups_now=groups_now)
+        needed_groups = sorted(set(hw.groups_to_add) | set(hw.groups_present))
+        attached_recognised = len(hw.detected)
+    except (SystemExit, CatalogError, OSError):
+        groups_now = frozenset()
+
+    # python3 -m venv works iff the venv module imports and ensurepip is present.
+    try:
+        import ensurepip  # noqa: F401
+        import venv  # noqa: F401
+
+        has_venv_module = True
+    except ImportError:
+        has_venv_module = False
+
+    local_bin = str(user_bin_dir(user or None))
+    path_has_local_bin = local_bin in os.environ.get("PATH", "").split(os.pathsep)
+
+    tools = {
+        "cc": bool(shutil.which("cc") or shutil.which("gcc")),
+        "git": bool(shutil.which("git")),
+    }
+
+    from hammunition.station import load_station
+
+    try:
+        station = load_station(owner=user or None)
+        station_set = station.callsign is not None
+    except Exception:
+        station_set = False
+
+    rules_applied = False
+    rules_file_path = Path(RULES_PATH)
+    if rules_file_path.exists() and (classes or devices):
+        expected, _ = rules_file([*classes.values(), *devices.values()])
+        try:
+            rules_applied = rules_file_path.read_text() == expected
+        except OSError:
+            rules_applied = True  # present but unreadable-as-text: it exists
+
+    log_dir = state_dir(user or None)
+    log_dir_writable = os.access(log_dir if log_dir.exists() else log_dir.parent, os.W_OK)
+
+    checks = run_checks(
+        target_describe=target_describe,
+        is_debian_family=is_debian,
+        catalog_counts=catalog_counts,
+        has_venv_module=has_venv_module,
+        path_has_local_bin=path_has_local_bin,
+        tools=tools,
+        groups_now=groups_now,
+        needed_groups=needed_groups,
+        station_set=station_set,
+        rules_applied=rules_applied,
+        attached_recognised=attached_recognised,
+        log_dir_writable=log_dir_writable,
+    )
+
+    glyph = {"ok": "✓", "warn": "!", "fail": "✗", "info": "·"}
+    print("Hammunition health check\n")
+    for check in checks:
+        print(f"  [{glyph[check.status]}] {check.name:14} {check.detail}")
+        if check.fix and check.status in ("fail", "warn"):
+            print(f"      → {check.fix}")
+    fails, warns, healthy = summarize(checks)
+    print(f"\n{healthy} ok, {warns} to look at, {fails} blocking.")
+    if fails:
+        print("Fix the blocking items above before installing.")
+        return EXIT_FAILED
+    if warns:
+        print("The engine works; the items marked ! limit what you can install until fixed.")
+    else:
+        print("Ready.")
+    return EXIT_OK
+
+
+# ---------------------------------------------------------------------------
 # Parser
 # ---------------------------------------------------------------------------
 
@@ -1304,6 +1415,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--gnome", action="store_true", help="apply the GNOME app-folder even if undetected"
     )
     p_menus_apply.set_defaults(func=cmd_menus_apply)
+
+    p_doctor = sub.add_parser("doctor", help="read-only health check: is this machine ready?")
+    p_doctor.add_argument("--user", default=None, help="whose setup to check")
+    p_doctor.set_defaults(func=cmd_doctor)
 
     p_hardware = sub.add_parser(
         "hardware", help="detect devices; apply udev rules and groups (D-029)"
