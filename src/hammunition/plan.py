@@ -203,6 +203,32 @@ class InstallPlan:
         return tuple(sorted(seen))
 
     @property
+    def debconf_selections(self) -> tuple[str, ...]:
+        """Preseed lines to apply before apt runs, from packages being installed.
+
+        Only from packages with outstanding apt work — preseeding for a package
+        that is already installed would answer a question that was answered at
+        its install, and re-running would not change what is on disk. Order
+        follows the packages; duplicates are dropped keeping first sight.
+        """
+        seen: dict[str, None] = {}
+        for planned in self.packages:
+            if planned.outstanding:
+                for line in planned.manifest.debconf_selections:
+                    seen.setdefault(line, None)
+        return tuple(seen)
+
+    @property
+    def reconfigure_after(self) -> tuple[str, ...]:
+        """Packages to dpkg-reconfigure after the apt install, from installs only."""
+        seen: dict[str, None] = {}
+        for planned in self.packages:
+            if planned.outstanding:
+                for pkg in planned.manifest.reconfigure_after:
+                    seen.setdefault(pkg, None)
+        return tuple(seen)
+
+    @property
     def is_empty(self) -> bool:
         """Nothing to install and nothing to change — a legitimate outcome."""
         return not self.apt_to_install and not self.group_memberships

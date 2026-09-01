@@ -29,7 +29,40 @@ install:
         url: https://github.com/k4drw/hamclock-next/archive/refs/tags/v1.5.tar.gz
         sha256: 1e4b79cb7e1544e965b193fd9b1586438f96a8f0b5f808cddad2cc147467e4be
       build_system: cmake
+      patches:
+        - file: CMakeLists.txt
+          description: >-
+            v1.5's CMake aliases the wrong target name for cpp-httplib. When
+            `find_package(httplib)` succeeds -- which happens on the second
+            build, because hamclock's own `cmake --install` leaks its bundled
+            cpp-httplib v0.14.3 into /usr/local/lib/cmake/httplib, whose
+            exported target is `httplib::httplib` -- the else branch runs
+            `add_library(httplib ALIAS cpp-httplib::cpp-httplib)` and cmake
+            aborts: that target does not exist. The name is simply wrong; the
+            same file's target_link_libraries lines (742, 780) already use
+            `httplib::httplib`. Both alias lines are corrected to match. This
+            makes the build idempotent (CLAUDE.md: safe to re-run) -- measured
+            failing on the second run across Parrot, Debian and Kali,
+            2026-09-01 -- and builds cleanly whether httplib comes from
+            FetchContent or a system package.
+          unified_diff: |
+            --- a/CMakeLists.txt
+            +++ b/CMakeLists.txt
+            @@ -385,10 +385,10 @@
+             if(NOT httplib_FOUND)
+                 FetchContent_MakeAvailable(httplib)
+                 if(NOT TARGET httplib)
+            -        add_library(httplib ALIAS cpp-httplib::cpp-httplib)
+            +        add_library(httplib ALIAS httplib::httplib)
+                 endif()
+             else()
+                 if(NOT TARGET httplib)
+            -        add_library(httplib ALIAS cpp-httplib::cpp-httplib)
+            +        add_library(httplib ALIAS httplib::httplib)
+                 endif()
+             endif()
     build_depends:
+      - patch
       - libsdl2-dev
       - libsdl2-ttf-dev
       - libsdl2-image-dev

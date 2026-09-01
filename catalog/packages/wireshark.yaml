@@ -9,12 +9,26 @@ categories: [rf-security, workstation]
 install:
   - install:
       method: apt
-      packages: [wireshark, tshark]
+      # libcap2-bin provides setcap, which wireshark-common's postinst uses to
+      # grant dumpcap CAP_NET_RAW/CAP_NET_ADMIN restricted to the wireshark
+      # group. Without it the postinst's setcap silently no-ops and non-root
+      # capture does not work despite the group existing -- measured on a
+      # minimal Debian 13 where libcap2-bin was absent, 2026-09-01.
+      packages: [wireshark, tshark, libcap2-bin]
 
 # Wireshark's install asks a debconf question -- may non-root users capture? --
-# and answering yes creates a group and changes the permissions on dumpcap.
-# That is a system modification and is declared, not left to a prompt the
-# operator answers without context. Nothing here answers it on their behalf.
+# and answering yes creates the `wireshark` group and grants dumpcap
+# CAP_NET_RAW/CAP_NET_ADMIN restricted to it. Non-interactively the question
+# takes its default (false) and none of that happens, so the group the
+# membership below needs never exists -- measured failing on Debian 13,
+# 2026-09-01. We answer it, before the install, so the postinst does the work;
+# this is disclosed in the plan and reversible with dpkg-reconfigure.
+debconf_selections:
+  - "wireshark-common wireshark-common/install-setuid boolean true"
+# After the transaction, so setcap runs with libcap2-bin present regardless of
+# apt's within-transaction configure order.
+reconfigure_after:
+  - wireshark-common
 system_modifications:
   - kind: group_membership
     group: wireshark

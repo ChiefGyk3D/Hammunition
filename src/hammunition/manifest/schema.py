@@ -764,6 +764,31 @@ class PackageManifest(Strict):
     apt_repos: list[AptRepo] = Field(default_factory=list)
     system_modifications: list[SystemModification] = Field(default_factory=list)
     config_files: list[ConfigFile] = Field(default_factory=list)
+    debconf_selections: list[str] = Field(
+        default_factory=list,
+        description=(
+            "debconf preseed lines applied BEFORE the apt install, so a "
+            "package's postinst reads them instead of taking a default that "
+            "needs an interactive answer. Each line is "
+            "'<package> <question> <type> <value>', the debconf-set-selections "
+            "format. The one measured need: wireshark, whose non-root capture "
+            "is off by default and whose group and dumpcap capabilities are "
+            "only created when wireshark-common/install-setuid is preseeded "
+            "true (measured on Debian 13, 2026-09-01)."
+        ),
+    )
+    reconfigure_after: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Packages to `dpkg-reconfigure` non-interactively AFTER the apt "
+            "install. Paired with `debconf_selections` for the case where a "
+            "postinst action depends on another package in the same "
+            "transaction: wireshark-common's setcap of dumpcap needs "
+            "libcap2-bin, and apt does not guarantee it is configured first, so "
+            "the reconfigure re-runs the action once the whole transaction is "
+            "settled (measured on Debian 13, 2026-09-01)."
+        ),
+    )
 
     scope: Literal["system", "user"] = "system"
     status: Status = Status.supported
@@ -785,6 +810,22 @@ class PackageManifest(Strict):
     def _name_is_slug(self) -> PackageManifest:
         if not SLUG.match(self.name):
             raise ManifestError(f"name must be a lowercase slug: {self.name!r}")
+        return self
+
+    @model_validator(mode="after")
+    def _debconf_selections_are_well_formed(self) -> PackageManifest:
+        """Each line is '<package> <question> <type> <value>' — four fields.
+
+        Validated because the whole line becomes stdin to a root
+        debconf-set-selections; a malformed line silently sets nothing, which
+        is the quiet failure this project keeps writing checks for.
+        """
+        for line in self.debconf_selections:
+            if len(line.split()) < 4:
+                raise ManifestError(
+                    f"debconf selection {line!r} is malformed: expected "
+                    f"'<package> <question> <type> <value>'."
+                )
         return self
 
     @model_validator(mode="after")

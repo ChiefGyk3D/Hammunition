@@ -71,6 +71,12 @@ class Command:
     shell, so this stays a plain argv.
     """
 
+    stdin: str | None = None
+    """Fed to the process on standard input. Its one use is
+    ``debconf-set-selections``, which reads preseed answers from stdin — a plain
+    argv with no file to leave behind. Never a secret; the plan prints that
+    input is supplied but not its bytes."""
+
     def argv_for(self, *, euid: int, sudo: Sequence[str] = ("sudo",)) -> tuple[str, ...]:
         """The argv actually executed, with escalation applied if it is needed.
 
@@ -107,6 +113,13 @@ class Command:
         else:
             prefix = "".join(f"{k}={shlex.quote(v)} " for k, v in sorted(self.env.items()))
             rendered = prefix + shlex.join(self.argv_for(euid=euid, sudo=sudo))
+        if self.stdin is not None:
+            # Disclose that input is fed, and what it is at a glance (a single
+            # short preseed line is shown; anything longer is summarised), but
+            # keep the rendering a real pipe an operator could reproduce.
+            one_line = self.stdin.strip()
+            shown = one_line if "\n" not in one_line and len(one_line) <= 120 else "…preseed…"
+            rendered = f"printf %s {shlex.quote(shown)} | {rendered}"
         if self.cwd is not None:
             return f"cd {shlex.quote(str(self.cwd))} && {rendered}"
         return rendered
@@ -197,6 +210,7 @@ class SubprocessRunner:
                 check=False,
                 env=env,
                 cwd=command.cwd,
+                input=command.stdin,
             )
         except FileNotFoundError as exc:
             raise BackendError(

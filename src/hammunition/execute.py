@@ -257,7 +257,35 @@ def commands_for(
     commands: list[Step] = []
     if refresh:
         commands.append(apt.refresh_command())
+    if plan.debconf_selections and plan.apt_to_install:
+        # Before the apt install, never after: a package's postinst reads its
+        # preseeded answers as it configures, so wireshark-common creates the
+        # wireshark group and grants dumpcap its capabilities in one pass. Fed
+        # on stdin — a plain argv with no file left on the machine.
+        commands.append(
+            Command(
+                argv=("debconf-set-selections",),
+                description="Preseed debconf answers so non-interactive installs pick the right defaults",
+                requires_root=True,
+                stdin="\n".join(plan.debconf_selections) + "\n",
+            )
+        )
     commands.extend(apt.install_commands(plan.apt_to_install))
+
+    if plan.reconfigure_after and plan.apt_to_install:
+        # After the whole apt transaction is settled, so a postinst action that
+        # needs another just-installed package (wireshark-common's setcap needs
+        # libcap2-bin) re-runs with everything present. Non-interactive: the
+        # answer is already in the debconf DB from the preseed above.
+        for pkg in plan.reconfigure_after:
+            commands.append(
+                Command(
+                    argv=("dpkg-reconfigure", pkg),
+                    description=f"Re-run {pkg}'s configuration now the whole transaction is present",
+                    requires_root=True,
+                    env={"DEBIAN_FRONTEND": "noninteractive"},
+                )
+            )
 
     for planned in plan.packages:
         block = planned.block.install

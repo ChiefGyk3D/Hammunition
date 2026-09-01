@@ -24,7 +24,7 @@ A working network connection and a reachable data backend. Set your latitude, lo
 ## How it installs
 
 - source (cmake) from https://github.com/k4drw/hamclock-next/archive/refs/tags/v1.5.tar.gz
-  - build dependencies: `libsdl2-dev`, `libsdl2-ttf-dev`, `libsdl2-image-dev`, `libcurl4-openssl-dev`, `libsqlite3-dev`, `cmake`, `build-essential`
+  - build dependencies: `patch`, `libsdl2-dev`, `libsdl2-ttf-dev`, `libsdl2-image-dev`, `libcurl4-openssl-dev`, `libsqlite3-dev`, `cmake`, `build-essential`
 
 Binaries this produces:
 

@@ -27,6 +27,8 @@ A manifest is **strict**: an unknown field is an error, not ignored. That is del
 | `apt_repos` | `list[AptRepo]` | no |  |
 | `system_modifications` | `list[SystemModification]` | no |  |
 | `config_files` | `list[ConfigFile]` | no |  |
+| `debconf_selections` | `list[str]` | no | debconf preseed lines applied BEFORE the apt install, so a package's postinst reads them instead of taking a default that needs an interactive answer. Each line is '<package> <question> <type> <value>', the debconf-set-selections format. The one measured need: wireshark, whose non-root capture is off by default and whose group and dumpcap capabilities are only created when wireshark-common/install-setuid is preseeded true (measured on Debian 13, 2026-09-01). |
+| `reconfigure_after` | `list[str]` | no | Packages to `dpkg-reconfigure` non-interactively AFTER the apt install. Paired with `debconf_selections` for the case where a postinst action depends on another package in the same transaction: wireshark-common's setcap of dumpcap needs libcap2-bin, and apt does not guarantee it is configured first, so the reconfigure re-runs the action once the whole transaction is settled (measured on Debian 13, 2026-09-01). |
 | `scope` | `Literal[system, user]` | no (default `system`) |  |
 | `status` | `Status` | no (default `supported`) |  |
 | `status_reason` | `str \| None` | no |  |

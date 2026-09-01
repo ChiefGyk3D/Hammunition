@@ -22,7 +22,7 @@ Membership of the `wireshark` group for non-root capture, which the system modif
 
 ## How it installs
 
-- apt: `wireshark`, `tshark`
+- apt: `wireshark`, `tshark`, `libcap2-bin`
 
 ## What it changes on your machine
 
