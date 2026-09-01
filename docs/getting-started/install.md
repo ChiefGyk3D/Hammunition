@@ -10,13 +10,35 @@ supported install today is a git clone: the engine runs from the checkout, and
 it finds the catalog by walking up from its own location, so nothing needs
 configuring.
 
+## The one-command way
+
+```sh
+git clone https://github.com/ChiefGyk3D/Hammunition
+cd Hammunition
+./bootstrap.sh
+```
+
+`bootstrap.sh` creates the virtualenv, installs the engine into it, installs
+`python3-venv` if a netinst left it out (the only thing it does as root, and it
+tells you first), and finishes by running `hammunition doctor` so you see
+exactly what is ready. It is idempotent — safe to re-run after a `git pull`.
+
+## Or by hand
+
 ```sh
 git clone https://github.com/ChiefGyk3D/Hammunition
 cd Hammunition
 python3 -m venv .venv
 .venv/bin/pip install -e .
-.venv/bin/hammunition status
+.venv/bin/hammunition doctor
 ```
+
+`hammunition doctor` is the read-only health check: target detected, catalog
+loaded, `python3-venv` present, `~/.local/bin` on PATH, a compiler for source
+builds, your callsign, device groups, attached hardware. It changes nothing,
+names the one command that fixes each gap, and is the thing to paste when
+asking for help. `hammunition status` is the narrower "does it see my
+machine":
 
 `hammunition status` is the "does it see my machine" check. It prints what
 `/etc/os-release` says you are running, whether that is a Debian family the

@@ -1339,7 +1339,10 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="path to the catalog/ directory (default: found from the checkout)",
     )
-    sub = parser.add_subparsers(dest="command", required=True)
+    # Not required: a bare `hammunition` prints help and exits 0 (main handles
+    # it), which is friendlier than argparse's "command is required" error for
+    # someone running it for the first time to see what it does.
+    sub = parser.add_subparsers(dest="command", required=False)
 
     p_list = sub.add_parser("list", help="show what the catalog contains")
     p_list.add_argument(
@@ -1457,6 +1460,13 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if not getattr(args, "func", None):
+        # Bare `hammunition`: print the top-level help and exit cleanly, which
+        # is friendlier than argparse's "command is required" error for someone
+        # running it for the first time. (Group verbs keep required sub-verbs,
+        # so `hammunition hardware` still gets argparse's standard message.)
+        parser.print_help()
+        return EXIT_OK
     try:
         result: int = args.func(args)
     except CatalogError as exc:
