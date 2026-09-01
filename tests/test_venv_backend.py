@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -63,7 +64,9 @@ def test_the_steps_are_staged_venv_pip_wrapper_in_that_order(tmp_path: Path) -> 
     steps = backend.steps(m, block(m))
     kinds: list[Any] = [s.kind if isinstance(s, Action) else s.argv[:3] for s in steps]
     assert kinds[0] == "requirements"
-    assert kinds[1] == ("python3", "-m", "venv")
+    # The venv is built with the engine's own interpreter (>=3.11 guaranteed),
+    # never bare python3 which is 3.10 on Ubuntu/Pop 22.04.
+    assert kinds[1] == (sys.executable, "-m", "venv")
     assert "--require-hashes" in steps[2].argv  # type: ignore[union-attr]
     assert kinds[3] == "wrapper"
     assert all(not getattr(s, "requires_root", False) for s in steps), (
@@ -186,7 +189,7 @@ def test_payload_plans_fetch_extract_build_and_tree_install(tmp_path: Path) -> N
     kinds = [s.kind if isinstance(s, Action) else s.argv[0] for s in steps]
     assert kinds[:3] == [
         "requirements",
-        "python3",
+        sys.executable,
         str(tmp_path / "venvs" / "hybridunit" / "bin" / "pip"),
     ]
     assert "fetch" in kinds and "extract" in kinds

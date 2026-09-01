@@ -32,6 +32,7 @@ same already-installed-at-pin gap the git backend records).
 from __future__ import annotations
 
 import os
+import sys
 from functools import partial
 from pathlib import Path
 
@@ -101,7 +102,14 @@ class VenvBackend:
                 perform=partial(write_requirements, requirements, list(block.requirements)),
             ),
             Command(
-                argv=("python3", "-m", "venv", str(venv)),
+                # The engine's own interpreter, never bare `python3`. The
+                # engine requires Python >= 3.11, so sys.executable is
+                # guaranteed to clear that bar; bare `python3` is the system
+                # one, which on Ubuntu/Pop 22.04 is 3.10 — and a unit venv
+                # built on 3.10 cannot install a modern hash-pinned tree
+                # (numpy 2.5 dropped 3.10). Found deploying to a Pop 22.04
+                # laptop, where nanovna-saver's numpy pin had no 3.10 wheel.
+                argv=(sys.executable, "-m", "venv", str(venv)),
                 description=f"Create (or reuse) {manifest.name}'s virtualenv",
                 requires_root=False,
             ),
