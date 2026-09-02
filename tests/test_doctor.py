@@ -10,7 +10,9 @@ value of the command.
 
 from __future__ import annotations
 
-from hammunition.doctor import Check, run_checks, summarize
+from pathlib import Path
+
+from hammunition.doctor import Check, run_checks, summarize, writable_or_creatable
 
 HEALTHY: dict[str, object] = {
     "target_describe": "Parrot Security 7.3",
@@ -81,3 +83,18 @@ def test_unapplied_udev_is_info_not_warn() -> None:
 def test_a_readonly_state_dir_warns() -> None:
     checks = run_checks(**{**HEALTHY, "log_dir_writable": False})  # type: ignore[arg-type]
     assert _by_name(checks)["state dir"].status == "warn"
+
+
+def test_a_state_dir_whose_ancestors_do_not_exist_yet_is_creatable(tmp_path: Path) -> None:
+    # A fresh account: ~/.local does not exist, let alone ~/.local/state/hammunition.
+    assert writable_or_creatable(tmp_path / ".local" / "state" / "hammunition")
+
+
+def test_a_state_dir_under_a_readonly_ancestor_is_not(tmp_path: Path) -> None:
+    locked = tmp_path / "locked"
+    locked.mkdir()
+    locked.chmod(0o500)
+    try:
+        assert not writable_or_creatable(locked / "state" / "hammunition")
+    finally:
+        locked.chmod(0o700)

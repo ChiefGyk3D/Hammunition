@@ -27,10 +27,12 @@ Severity has four levels, and the distinction is the point:
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
-__all__ = ["Check", "Status", "run_checks", "summarize"]
+__all__ = ["Check", "Status", "run_checks", "summarize", "writable_or_creatable"]
 
 Status = Literal["ok", "warn", "fail", "info"]
 
@@ -208,6 +210,22 @@ def run_checks(
         )
 
     return checks
+
+
+def writable_or_creatable(path: Path) -> bool:
+    """Can ``path`` be written, or created and then written?
+
+    The state directory does not exist until the first transaction, and on a
+    fresh account neither does ``~/.local`` above it. Checking only the
+    immediate parent reported a brand-new Ubuntu 24.04 VM as unable to record
+    history (2026-09-01) when nothing was wrong beyond nothing having run yet.
+    The nearest ancestor that exists is what decides whether a ``mkdir -p``
+    will succeed.
+    """
+    for candidate in (path, *path.parents):
+        if candidate.exists():
+            return os.access(candidate, os.W_OK)
+    return False
 
 
 def summarize(checks: list[Check]) -> tuple[int, int, int]:

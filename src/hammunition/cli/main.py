@@ -1202,7 +1202,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     """Report what is ready and what is not yet set up. Changes nothing."""
     import shutil
 
-    from hammunition.doctor import run_checks, summarize
+    from hammunition.doctor import run_checks, summarize, writable_or_creatable
     from hammunition.hardware import RULES_PATH, plan_hardware, rules_file
     from hammunition.manifest.load import load_hardware
     from hammunition.paths import state_dir
@@ -1269,7 +1269,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             rules_applied = True  # present but unreadable-as-text: it exists
 
     log_dir = state_dir(user or None)
-    log_dir_writable = os.access(log_dir if log_dir.exists() else log_dir.parent, os.W_OK)
+    log_dir_writable = writable_or_creatable(log_dir)
 
     checks = run_checks(
         target_describe=target_describe,
