@@ -36,7 +36,7 @@ build HAS been run in a container say so in their own install notes.
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
 | debian-13 | 176 | 17 | 47 | 2 | 0 |
-| ubuntu-26.04 | 177 | 16 | 47 | 2 | 0 |
+| ubuntu-26.04 | 177 | 15 | 48 | 2 | 0 |
 | kali-rolling | 181 | 17 | 44 | 0 | 0 |
 | parrot | 179 | 15 | 46 | 2 | 0 |
 | linuxmint-22.3 | 170 | 24 | 46 | 2 | 0 |
@@ -139,7 +139,6 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `sdrangel` | debian-13-arm64 | `sdrangel` |
 | `sdrangel` | linuxmint-22.3 | `sdrangel` |
 | `sdrangel` | parrot | `sdrangel` |
-| `sdrangel` | ubuntu-26.04 | `sdrangel` |
 | `soapysdr-module-rfspace` | kali-rolling | `soapysdr-module-rfspace` |
 | `soapysdr-module-rfspace` | ubuntu-26.04 | `soapysdr-module-rfspace` |
 | `thunderbird` | debian-13 | `thunderbird` |
@@ -348,7 +347,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `rtlsdr-airband` | git | git | git | git | git | git |
 | `satdump` | apt | apt | apt | apt | apt ✗ | apt |
 | `screen` | apt | apt | apt | apt | apt | apt |
-| `sdrangel` | apt ✗ | apt ✗ | apt | apt ✗ | apt ✗ | apt ✗ |
+| `sdrangel` | apt ✗ | binary | apt | apt ✗ | apt ✗ | apt ✗ |
 | `sdrpp` | git | git | apt | apt | git | git |
 | `soapyremote-server` | apt | apt | apt | apt | apt | apt |
 | `soapysdr-module-airspy` | apt | apt | apt | apt | apt | apt |

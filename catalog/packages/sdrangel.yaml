@@ -2,24 +2,47 @@
 # SPDX-License-Identifier: CC0-1.0
 
 name: sdrangel
-version: "7.27.1"
+version: "7.27.2"
 summary: SDR transceiver and analyser that does several things at once
 categories: [sdr, listening, rf-security]
 
 install:
+  - when:
+      distro: [ubuntu]
+      distro_version: ["26.04"]
+      arch: [x86_64]
+    install:
+      method: binary
+      artifact:
+        url: https://github.com/f4exb/sdrangel/releases/download/v7.27.2/sdrangel_7.27.2_ubuntu-26.04_amd64.deb
+        sha256: e78ed9006916dd2475ce864200fe40c64d5ed120dc83d910c7ec6544b26a1c99
+      format: deb
+      deb_package: sdrangel  # dpkg-deb -f: measured from the artefact, 2026-09-01
+    note: >-
+      Upstream's own .deb, built for this release. Ubuntu 26.04 has no archive
+      candidate (measured on the VM, 2026-09-01) and this artefact resolves
+      against stock 26.04 (`apt-get install -s`: Inst sdrangel 7.27.2-1).
   - install:
       method: apt
       packages: [sdrangel]
     note: >-
-      **Only Kali carries this.** Measured across all six targets on
-      2026-08-28: Kali 7.27.1+dfsg-2, and no candidate on Debian 13, Ubuntu
+      **Only Kali carries this in an archive.** Measured across all six targets
+      on 2026-08-28: Kali 7.27.1+dfsg-2, and no candidate on Debian 13, Ubuntu
       26.04, Parrot or Linux Mint 22.3. `docs/reference/install-verification.md`
-      recorded the same absence from Debian 13 in its Tier 1 probe. It is the
-      last of DragonOS Tier 1's eight new ADD units, and on every target but
-      Kali this manifest will report an apt gap rather than install -- which is
-      the honest answer, not a defect. Upstream publishes .deb artefacts and
-      an AppImage; reaching those needs the binary backend, which M3 has not
-      written yet.
+      recorded the same absence from Debian 13 in its Tier 1 probe. Upstream
+      publishes three Ubuntu .debs per release, and on 2026-09-01 each was
+      measured against apt's resolver: the **26.04** build resolves on 26.04
+      (carried above); the **24.04** build depends on `libuhd4.10.0`, which
+      noble does not ship -- upstream builds against Ettus's PPA, a third-party
+      repository -- so it does not install on a stock 24.04 or on Linux Mint
+      22.3; the **22.04** build has the same UHD dependency; and **no build
+      fits Debian 13 or Parrot**, whose ffmpeg, OpenCV, UHD and Qt sit between
+      the 24.04 and 26.04 generations (24.04 wants `libavcodec60`,
+      `qtbase-abi-5-15-13`; 26.04 wants `libavcodec62`, `libqt6core6t64 >=
+      6.10.2`; trixie has neither). On those targets this manifest reports an
+      apt gap rather than install, which is the honest answer. The remaining
+      upstream artefacts are a flatpak and a snap: flatpak is a measured zero
+      as a backend and snap is an anti-dependency (D-014).
 
 update:
   probe:
@@ -42,8 +65,9 @@ documentation:
     here and three programs fighting over a dongle anywhere else.
   prerequisites: >-
     An SDR and its driver library. A capable machine: SDRangel is
-    computationally heavy and benefits from a GPU for its display. On the four
-    targets that do not package it, nothing here installs -- see the note above.
+    computationally heavy and benefits from a GPU for its display. On Debian
+    13, Parrot, Ubuntu 24.04 and Linux Mint, nothing here installs -- see the
+    install notes for what was measured.
   known_problems: >-
     The interface is dense enough to be genuinely hard to start with; the
     plugin model means almost nothing is where a gqrx user expects it. Its

@@ -792,7 +792,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [rtlsdr-airband](rtlsdr-airband.md) | Multi-channel AM/NFM voice receiver with streaming output | git |
 | [satdump](satdump.md) | Satellite data processing — receive, decode and image from weather and science satellites | apt |
 | [screen](screen.md) | Terminal multiplexer, and the serial console of last resort | apt |
-| [sdrangel](sdrangel.md) | SDR transceiver and analyser that does several things at once | apt |
+| [sdrangel](sdrangel.md) | SDR transceiver and analyser that does several things at once | apt, binary |
 | [sdrpp](sdrpp.md) | SDR++ — cross-platform SDR receiver with a modular DSP chain | apt, git |
 | [soapyremote-server](soapyremote-server.md) | Serves a local SDR over the network to software on another machine | apt |
 | [soapysdr-module-airspy](soapysdr-module-airspy.md) | SoapySDR driver module for Airspy hardware | apt |

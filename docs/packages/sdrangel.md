@@ -4,7 +4,7 @@
 
 **SDR transceiver and analyser that does several things at once**
 
-- **Version recorded:** 7.27.1
+- **Version recorded:** 7.27.2
 - **Categories:** `listening`, `rf-security`, `sdr`
 - **Upstream:** <https://www.sdrangel.org/>
 
@@ -18,12 +18,14 @@ It is the most feature-dense SDR application in open source, and the reason to r
 
 ## Before it will work
 
-An SDR and its driver library. A capable machine: SDRangel is computationally heavy and benefits from a GPU for its display. On the four targets that do not package it, nothing here installs -- see the note above.
+An SDR and its driver library. A capable machine: SDRangel is computationally heavy and benefits from a GPU for its display. On Debian 13, Parrot, Ubuntu 24.04 and Linux Mint, nothing here installs -- see the install notes for what was measured.
 
 ## How it installs
 
+- prebuilt deb from https://github.com/f4exb/sdrangel/releases/download/v7.27.2/sdrangel_7.27.2_ubuntu-26.04_amd64.deb — *on ubuntu; version 26.04; arch x86_64*
+  - Upstream's own .deb, built for this release. Ubuntu 26.04 has no archive candidate (measured on the VM, 2026-09-01) and this artefact resolves against stock 26.04 (`apt-get install -s`: Inst sdrangel 7.27.2-1).
 - apt: `sdrangel`
-  - **Only Kali carries this.** Measured across all six targets on 2026-08-28: Kali 7.27.1+dfsg-2, and no candidate on Debian 13, Ubuntu 26.04, Parrot or Linux Mint 22.3. `docs/reference/install-verification.md` recorded the same absence from Debian 13 in its Tier 1 probe. It is the last of DragonOS Tier 1's eight new ADD units, and on every target but Kali this manifest will report an apt gap rather than install -- which is the honest answer, not a defect. Upstream publishes .deb artefacts and an AppImage; reaching those needs the binary backend, which M3 has not written yet.
+  - **Only Kali carries this in an archive.** Measured across all six targets on 2026-08-28: Kali 7.27.1+dfsg-2, and no candidate on Debian 13, Ubuntu 26.04, Parrot or Linux Mint 22.3. `docs/reference/install-verification.md` recorded the same absence from Debian 13 in its Tier 1 probe. Upstream publishes three Ubuntu .debs per release, and on 2026-09-01 each was measured against apt's resolver: the **26.04** build resolves on 26.04 (carried above); the **24.04** build depends on `libuhd4.10.0`, which noble does not ship -- upstream builds against Ettus's PPA, a third-party repository -- so it does not install on a stock 24.04 or on Linux Mint 22.3; the **22.04** build has the same UHD dependency; and **no build fits Debian 13 or Parrot**, whose ffmpeg, OpenCV, UHD and Qt sit between the 24.04 and 26.04 generations (24.04 wants `libavcodec60`, `qtbase-abi-5-15-13`; 26.04 wants `libavcodec62`, `libqt6core6t64 >= 6.10.2`; trixie has neither). On those targets this manifest reports an apt gap rather than install, which is the honest answer. The remaining upstream artefacts are a flatpak and a snap: flatpak is a measured zero as a backend and snap is an anti-dependency (D-014).
 
 ## Known problems
 
