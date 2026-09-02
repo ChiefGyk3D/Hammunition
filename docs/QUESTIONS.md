@@ -731,7 +731,9 @@ already commits the project to not claiming what it has not run. Option 3
 throws away a measured, real difference (the Qt 6.4.2 gap is a fact about
 Mint 22.3) to simplify bookkeeping, which is backwards.
 
-## Q-015 — The NEEDS-DECISION batch: fourteen units, one sitting
+## Q-015 ✅ RESOLVED 2026-08-30 — all fourteen decided in one sitting; each row below carries its verdict.
+
+## Q-015 (original) — The NEEDS-DECISION batch: fourteen units, one sitting
 
 **Raised 2026-08-30.** Every unit below is dispositioned NEEDS-DECISION in
 `docs/reference/dispositions.md`, each with its question already stated there.
@@ -763,7 +765,9 @@ retire/no-manifest calls land in `not-carried.md` automatically once the
 dispositions index is updated (the generator refuses to run until the reasons
 follow — that is the drift guard doing its job).
 
-## Q-016 — A `node` build system for openhamclock, or keep hamclock-next as the default?
+## Q-016 ✅ RESOLVED 2026-09-02 — **A, with two conditions (D-037):** Node is disclosed as a requirement of the unit, and the plan refuses when Node is absent or older than the unit's floor. Node comes from the distribution's packages, never fetched.
+
+## Q-016 (original) — A `node` build system for openhamclock, or keep hamclock-next as the default?
 
 **Raised 2026-09-01.** Q-006 made `openhamclock` the default HamClock client
 and `docs/reference/source-build-gaps.md` §7 records that it cannot be built

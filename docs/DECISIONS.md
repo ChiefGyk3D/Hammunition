@@ -2207,3 +2207,50 @@ does not log into. Verified on Parrot: the bare-SSH run refuses and lists
 the four; `--menu-prefix plasma-` writes a file gnome-menus' spec parser
 reads back from `plasma-applications.menu` as 25 populated submenus with
 the source-built entries gathered at the top.
+
+## D-037 — A `node` build is acceptable when it is disclosed as a requirement and refused when Node is absent or too old
+
+**Date:** 2026-09-02. **Status:** accepted (maintainer, closing Q-016).
+**Depends on:** D-014 (a backend is justified by a named unit), D-016
+(refuse at plan time, never partway), D-021's spirit (disclose, do not
+decide for the operator), Q-006 (openhamclock is the HamClock default).
+
+**Rule.** The engine may build a unit with Node and npm. Two conditions,
+both the maintainer's:
+
+1. **Node is disclosed as a requirement of that unit**, in the manifest's
+   documentation and in the plan the operator reads before anything runs —
+   not discovered as a build failure. A unit that needs Node says so the way
+   a unit that needs a transceiver says so.
+2. **When Node does not exist on the machine, or the version is not new
+   enough, the engine refuses at plan time** and says which: the floor the
+   unit declares, the version found (or that none was), and where a
+   qualifying one comes from. It never fetches Node itself.
+
+**Where Node comes from.** The distribution's own `nodejs` and `npm`
+packages, declared as build dependencies like any toolchain, so apt installs
+them inside the transaction and `--dry-run` prints them. Every target's
+archive Node clears Vite 6.4's `^18 || ^20 || >=22` floor today (measured
+2026-09-01: Ubuntu 24.04 18.19, Debian 13 and Parrot 20.19, Ubuntu 26.04
+22.22, Kali 24.19), so the refusal path is for the day one does not — it is
+checked against the archive's candidate, not assumed. NodeSource and every
+other third-party Node repository are out: that is the third-party-apt-repo
+backend, which is a separate security decision the maintainer has not made.
+
+**What the build is.** The three npm invocations Q-016 measured, every one
+with `--ignore-scripts` so no third-party lifecycle code runs: `npm ci`
+against the lock file inside the sha256-pinned source tarball (728 tarballs,
+each pinned by its sha512 `integrity` field — the closure is transitively
+verified from one manifest hash), `npm run build`, `npm prune --omit=dev`.
+The tree installs per-user like a venv unit; the launcher binds loopback
+(`HOST=127.0.0.1`) because the code's own default is every interface.
+
+**Why the conditions matter.** A registry fetch during a build is new here;
+the operator reading the plan must see that a unit will do it and what it
+needs before they say yes. And "install Node from somewhere" is exactly the
+`curl | bash` habit AHRL's `aiscatcher-install` line shows and this project
+exists to refuse — so the engine names the gap and stops.
+
+**What this does not decide.** Whether the P.533 propagation WASM
+(upstream's `prebuild` fetches it from a moving tag, skipped here) is carried
+as a pinned artefact. The built-in model serves until an operator asks.

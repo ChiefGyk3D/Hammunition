@@ -159,6 +159,7 @@ Do not re-litigate these without being asked:
 | udev symlinks | An identifier naming a chip may not name a `/dev` node | `/dev/badge` on a CP2102 claims the rig cable (**D-028**) |
 | Desktop menus | Curated submenus, generated per DE from `categories` | GNOME folders ≠ Xfce `.menu` ≠ COSMIC; one unmeasured mechanism each (**D-036**) |
 | Upstream liveness | The default branch's head commit, never GitHub's `updated_at`/`pushed_at` | `updated_at` moves when somebody *stars* a repo; it reported two dead projects as active (**D-032**) |
+| Node builds | Disclosed as a requirement; refused at plan time when Node is absent or too old; never fetched | openhamclock is a Vite app and `curl | bash` for Node is the habit we refuse (**D-037**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
 
@@ -334,10 +335,16 @@ head.
   half — enable it with `git config core.hooksPath .githooks`; CI runs it over
   every commit in a pull request either way.
 - Small, logically scoped commits
-- **Git workflow (WIP phase, 2026-08-25):** commit and **push directly to `main`**
-  after each completed item. Once there is a solid working version, switch to
-  feature branches and PRs. We are a long way from that; until then, main is the
-  working branch and pushing is expected rather than gated.
+- **Git workflow (from 2026-09-02, v0.7.0 tagged):** work happens on **feature
+  branches, merged to `main` by pull request** — the workflow the README has
+  promised since day one. The WIP phase before it (2026-08-25 to 09-02)
+  pushed directly to `main`; that ended when the whole catalog installed on
+  five targets with zero failures and the maintainer said so. Small, logically
+  scoped PRs; CI's PR-only jobs (commit claims, pin reviews, udev citations)
+  run on every one. A PR is merged by the maintainer, never by the author of
+  the branch on their own say-so. `main` is tagged at releases; releases are
+  annotated tags, and signed once a signing key is configured on the
+  maintainer's machine (v0.7.0 is not — no key existed).
 - **Every `.gitignore` pattern is anchored to the repo root unless it has a
   recorded reason not to be.** `scripts/audit_gitignore.py` enforces both halves:
   nothing in the source tree may be ignored, and an unanchored pattern must be
@@ -433,7 +440,7 @@ longer a design question in the abstract; a shipped manifest depends on it. See
 `DESIGN.md` §15.3 and the D-004 amendment.
 
 **Open questions awaiting the maintainer** are in `docs/QUESTIONS.md`.
-**Q-001 through Q-014 are all resolved.** Q-006, Q-007 and Q-008 closed on
+**Q-001 through Q-016 are all resolved.** Q-006, Q-007 and Q-008 closed on
 2026-08-29: HamClock carries both clients defaulting to `openhamclock` with
 `ohb.works` as the backend; SuperSDR is carried under **D-033**; cellular
 tooling is staged under **D-034**.

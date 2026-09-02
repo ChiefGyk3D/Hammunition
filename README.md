@@ -12,8 +12,8 @@ targeting Debian, Ubuntu, Kali, Linux Mint and Raspberry Pi OS.
 
 **Status: alpha, v0.7.0 — ready to deploy and shake out.** The core cycle —
 resolve, disclose, install, configure, verify, remove — runs end to end and is
-**VM-verified on Parrot, Kali and Debian 13**, with **zero hard install
-failures across the whole catalog on all three targets**
+**VM-verified on Parrot, Kali, Debian 13, Ubuntu 24.04 and Ubuntu 26.04**, with
+**zero hard install failures across the whole catalog on all five**
 ([M5 parity verified](docs/reference/m5-parity-verified.md)). Five backends are
 written (apt, source, git, binary, venv — including a venv+payload hybrid), and
 `uninstall` now reverses every one of them, not just apt. `./bootstrap.sh`

@@ -78,6 +78,11 @@ holder line is a separate thing from attribution, and neither replaces the other
 
 ## Before you open a pull request
 
+Work goes on a branch and reaches `main` by pull request — maintainers
+included, since v0.7.0. Keep a PR to one logical change; CI runs jobs on a
+PR that it cannot run on a push (the commit-claims check over every commit,
+pin reviews, udev-rule citations).
+
 ```
 ruff check . && ruff format --check .
 python3 scripts/audit_gitignore.py

@@ -144,7 +144,7 @@ cannot find its own data. It needs the tree installed somewhere and a launcher
 that runs it from there — which is M3's launcher-generation work, and MSHV is
 one of its 14 units.
 
-### 7. A JavaScript build — `openhamclock` — **MEASURED 2026-09-01, awaiting Q-016**
+### 7. A JavaScript build — `openhamclock` — **MEASURED 2026-09-01; DECIDED 2026-09-02 (D-037), backend in progress**
 
 **This one blocks a decision that has already been made.** Q-006 resolved on
 2026-08-29 to default to `accius/openhamclock`, on the strength of its activity
