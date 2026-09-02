@@ -923,11 +923,21 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
 def cmd_menus_apply(args: argparse.Namespace) -> int:
     import yaml
 
-    from hammunition.menus import Category, MenuPaths, gnome_commands, menu_steps
+    from hammunition.menus import (
+        Category,
+        MenuPaths,
+        gnome_commands,
+        menu_steps,
+        place_installed_entries,
+    )
 
     catalog_root = find_catalog(args.catalog)
     vocabulary = yaml.safe_load((catalog_root / "categories.yaml").read_text())["categories"]
-    categories = [Category(name=c["name"], summary=c["summary"]) for c in vocabulary]
+    categories = [
+        Category(name=c["name"], summary=c["summary"], title=c.get("title", "")) for c in vocabulary
+    ]
+    manifests, _ = load_all(catalog_root)
+    placement = place_installed_entries(manifests.values())
 
     home = Path.home()
     paths = MenuPaths(
@@ -936,11 +946,16 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
         / "desktop-directories",
     )
     prefix = os.environ.get("XDG_MENU_PREFIX", "")
-    steps = menu_steps(categories, paths, menu_prefix=prefix)
+    steps = menu_steps(categories, paths, menu_prefix=prefix, placement=placement)
 
     desktop = os.environ.get("XDG_CURRENT_DESKTOP", "")
     wants_gnome = "GNOME" in desktop.upper() or args.gnome
-    print(f"Menu tree: {len(categories)} categories, menu prefix {prefix!r}")
+    placed = sum(len(v) for v in placement.by_category.values())
+    print(
+        f"Menu tree: {len(categories)} categories, menu prefix {prefix!r}; "
+        f"{len(placement.claimed)} desktop entries from installed catalog packages "
+        f"placed {placed} times by their manifests' categories (dpkg -L, this machine)"
+    )
     for step in steps:
         print(f"  {step.display()}")
         outcome = step.perform()
@@ -948,8 +963,11 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
     if wants_gnome:
         runner = SubprocessRunner()
         print("GNOME app-folder (needs your session bus):")
-        for command in gnome_commands():
-            print(f"  $ {' '.join(command.argv[:3])} …")
+        for command in gnome_commands(placement):
+            # The two read-modify-write steps are python -c bodies; the
+            # description says what they do and the body would fill a screen.
+            shown = command.argv[:2] if command.argv[0] == "python3" else command.argv
+            print(f"  # {command.description}\n  $ {' '.join(shown)} …")
             result = runner.run(command)
             if result.returncode != 0:
                 print(

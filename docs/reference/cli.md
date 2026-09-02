@@ -153,19 +153,34 @@ from the catalog's own category vocabulary — one taxonomy, no second list.
 Two mechanisms, both per-user and unprivileged:
 
 - **Menu-spec DEs (Xfce and friends):** a merged `.menu` tree with one
-  submenu per catalog category, each populated by the
-  `X-Hammunition-<category>` markers every generated desktop entry already
-  carries, plus the `.directory` entries naming them. Honours
-  `$XDG_MENU_PREFIX`, because a merged file that does not match the root
-  menu's name merges nothing, silently.
+  submenu per catalog category, titled from the vocabulary (`SDR`, not
+  `Sdr`). Each submenu includes the `X-Hammunition-<category>` markers every
+  generated desktop entry carries **and, by `<Filename>`, the desktop entries
+  the installed catalog packages ship themselves** — mapped at apply time
+  from `dpkg -L` of each manifest's apt package (or `.deb` name) to the
+  manifest's categories, so `fldigi.desktop` lands under Digital Modes and
+  NBEMS because `fldigi.yaml` says so. Whatever else carries the freedesktop
+  `HamRadio` category and no manifest claimed — a source build's
+  `make install` entry under `/usr/local`, for one — is gathered at the
+  tree's top level rather than left scattered through Internet and
+  Multimedia. The DE's own copies of every entry are untouched (D-022).
+  Honours `$XDG_MENU_PREFIX`, because a merged file that does not match the
+  root menu's name merges nothing, silently.
 - **GNOME:** an app-folder named *Ham Radio* populated by
-  `categories=['HamRadio']` — no app list to maintain. Applied only when
-  `XDG_CURRENT_DESKTOP` says GNOME (or `--gnome` forces it), and it needs
-  your desktop session's bus: over bare SSH it fails loudly rather than
-  pretending. The folder-children list is appended to, never replaced.
+  `categories=['HamRadio']` — no app list to maintain — plus the same
+  measured entries unioned into its `apps` list, for the ones a
+  distribution tagged some other way (Kali's `gqrx` and `chirp` carry
+  `kali-radio-frequency`). Applied only when `XDG_CURRENT_DESKTOP` says
+  GNOME (or `--gnome` forces it), and it needs your desktop session's bus:
+  over bare SSH it fails loudly rather than pretending. Both lists are
+  appended to, never replaced.
 
-Run it once after installing launcher-carrying packages; menus refresh on
-next login. COSMIC is the measured-later third mechanism (D-036 addendum).
+Measured on the Kali VM's Xfce tree (2026-09-01) with a full catalog
+installed: 73 desktop entries from installed packages, placed 130 times;
+parsed back with gnome-menus' spec implementation, every one under its
+submenu. Run it once after installing anything with a desktop entry; menus
+refresh on next login. COSMIC is the measured-later third mechanism (D-036
+addendum).
 
 ### `hammunition doctor [--user NAME]`
 

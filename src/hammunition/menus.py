@@ -10,8 +10,18 @@ measurements; COSMIC waits for a Pop!_OS machine to exist):
   ``.menu`` file in the user's ``menus`` config builds a "Ham Radio" tree
   with one submenu per catalog category, each including by the
   ``X-Hammunition-<category>`` marker the launcher generator writes into
-  every desktop entry. One taxonomy: the tree is rendered from
-  ``catalog/categories.yaml``, the same vocabulary the manifests use.
+  every desktop entry — and, by ``<Filename>``, the desktop entries the
+  installed catalog packages ship themselves, placed under the submenu of
+  their manifest's categories. Measured on the Kali VM (2026-09-01): 43 of
+  the distribution's own ``HamRadio`` entries sat scattered under Internet,
+  Multimedia, Education and Other while the curated tree held the 7
+  generated launchers, and 42 of the 43 mapped back to a manifest through
+  ``dpkg -L`` of its apt package. Anything ``HamRadio``-tagged that no
+  manifest claims is gathered at the tree's top level, so a source build's
+  ``make install`` entry under ``/usr/local`` still lands in Ham Radio.
+  One taxonomy: the tree is rendered from ``catalog/categories.yaml``, the
+  same vocabulary the manifests use, and the desktop-file ids come from
+  the machine at apply time, never from a maintained list.
 - **GNOME app-folders** — GNOME Shell renders no nested menus; its folders
   live in gsettings. One "Ham Radio" folder declaring
   ``categories=['HamRadio']`` populates itself from the same entries with
@@ -26,18 +36,24 @@ mechanisms share and the launcher artifacts already have.
 from __future__ import annotations
 
 import os
+import subprocess
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 from xml.sax.saxutils import escape
 
 from hammunition.backends.base import Action, Command
+from hammunition.manifest.schema import AptInstall, BinaryInstall, PackageManifest
 
 __all__ = [
     "Category",
+    "DesktopIdLister",
     "MenuPaths",
+    "Placement",
     "gnome_commands",
     "menu_steps",
+    "place_installed_entries",
     "render_directory",
     "render_menu",
 ]
@@ -52,6 +68,94 @@ class Category:
 
     name: str
     summary: str
+    title: str = ""
+    """How the tag reads on a menu — ``SDR``, not ``Sdr``. Falls back to a
+    title-cased name, which is wrong for every acronym; the vocabulary carries
+    the real one."""
+
+    @property
+    def label(self) -> str:
+        return self.title or self.name.replace("-", " ").title()
+
+
+@dataclass(frozen=True)
+class Placement:
+    """Where the installed catalog packages' own desktop entries go.
+
+    ``by_category`` maps a category tag to the desktop-file ids (``wsjtx.desktop``)
+    of entries shipped by installed packages whose manifest carries that tag.
+    ``claimed`` is every id placed anywhere plus every generated launcher's id —
+    the set the top-level ``HamRadio`` catch-all must exclude, or each of them
+    shows twice.
+    """
+
+    by_category: dict[str, tuple[str, ...]]
+    claimed: tuple[str, ...]
+
+    @classmethod
+    def empty(cls) -> Placement:
+        return cls(by_category={}, claimed=())
+
+
+DesktopIdLister = Callable[[str], list[str]]
+"""Given an installed package name, the desktop-file ids it ships (empty if
+the package is not installed). Injected so the placement is testable without
+dpkg; :func:`dpkg_desktop_ids` is the real one."""
+
+
+def dpkg_desktop_ids(package: str) -> list[str]:
+    """The desktop entries an installed package put under the XDG data dir.
+
+    ``dpkg-query -L`` is unprivileged and exits 1 for a package that is not
+    installed, which is the ordinary case for most of the catalog and not an
+    error here.
+    """
+    result = subprocess.run(
+        ["dpkg-query", "-L", package], capture_output=True, text=True, check=False
+    )
+    if result.returncode != 0:
+        return []
+    return sorted(
+        Path(line).name
+        for line in result.stdout.splitlines()
+        if line.startswith("/usr/share/applications/") and line.endswith(".desktop")
+    )
+
+
+def place_installed_entries(
+    manifests: Iterable[PackageManifest], lister: DesktopIdLister = dpkg_desktop_ids
+) -> Placement:
+    """Map each installed catalog package's own desktop entries to its
+    manifest's categories.
+
+    The whole catalog is consulted, not only what the transaction log says
+    Hammunition installed: being in the catalog *is* the curation, and an
+    operator who installed ``fldigi`` with apt last year is served by the
+    same submenu. A package that is not installed lists nothing, so the
+    result describes this machine.
+    """
+    by_category: dict[str, set[str]] = {}
+    claimed: set[str] = set()
+    for manifest in manifests:
+        for launcher in manifest.launchers:
+            claimed.add(f"hammunition-{launcher.name}.desktop")
+        packages: set[str] = set()
+        for block in manifest.install:
+            method = block.install
+            if isinstance(method, AptInstall):
+                packages.update(p for p in method.packages if not p.startswith("-"))
+            elif isinstance(method, BinaryInstall) and method.deb_package:
+                packages.add(method.deb_package)
+        ids = {desktop_id for package in sorted(packages) for desktop_id in lister(package)}
+        if not ids:
+            continue
+        claimed.update(ids)
+        for category in manifest.categories:
+            by_category.setdefault(category, set()).update(ids)
+    return Placement(
+        by_category={k: tuple(sorted(v)) for k, v in sorted(by_category.items())},
+        claimed=tuple(sorted(claimed)),
+    )
 
 
 @dataclass(frozen=True)
@@ -65,16 +169,34 @@ class MenuPaths:
     """``~/.local/share/desktop-directories`` — the .directory entries."""
 
 
-def render_menu(categories: list[Category]) -> str:
-    """The merged ``.menu`` XML: one tree, one submenu per category."""
+def render_menu(categories: list[Category], placement: Placement | None = None) -> str:
+    """The merged ``.menu`` XML: one tree, one submenu per category.
+
+    Each submenu includes by the ``X-Hammunition-<category>`` marker (the
+    generated launchers) and by ``<Filename>`` (the entries installed
+    packages ship, from ``placement``). The tree's own level includes every
+    ``HamRadio``-tagged entry the submenus did not claim, so nothing radio
+    is left scattered through the DE's flat categories — D-036's "alongside
+    the DE's own organization", with the DE's own copies untouched.
+    """
+    placement = placement or Placement.empty()
+
+    def filenames(ids: tuple[str, ...], indent: str) -> str:
+        return "".join(f"\n{indent}<Filename>{escape(i)}</Filename>" for i in ids)
+
     submenus = "\n".join(
         f"""    <Menu>
       <Name>hammunition-{escape(c.name)}</Name>
       <Directory>hammunition-{escape(c.name)}.directory</Directory>
-      <Include><Category>X-Hammunition-{escape(c.name)}</Category></Include>
+      <Include>
+        <Category>X-Hammunition-{escape(c.name)}</Category>{filenames(placement.by_category.get(c.name, ()), "        ")}
+      </Include>
     </Menu>"""
         for c in categories
     )
+    catch_all = "    <Include><Category>HamRadio</Category></Include>"
+    if placement.claimed:
+        catch_all += f"\n    <Exclude>{filenames(placement.claimed, '      ')}\n    </Exclude>"
     return f"""<!DOCTYPE Menu PUBLIC "-//freedesktop//DTD Menu 1.0//EN"
  "http://www.freedesktop.org/standards/menu-spec/menu-1.0.dtd">
 <!-- generated by hammunition (D-036); regenerate with `hammunition menus apply` -->
@@ -83,6 +205,7 @@ def render_menu(categories: list[Category]) -> str:
   <Menu>
     <Name>{MENU_NAME}</Name>
     <Directory>hammunition-hamradio.directory</Directory>
+{catch_all}
 {submenus}
   </Menu>
 </Menu>
@@ -100,7 +223,13 @@ def _write(path: Path, body: str) -> str:
     return f"wrote {path}"
 
 
-def menu_steps(categories: list[Category], paths: MenuPaths, *, menu_prefix: str) -> list[Action]:
+def menu_steps(
+    categories: list[Category],
+    paths: MenuPaths,
+    *,
+    menu_prefix: str,
+    placement: Placement | None = None,
+) -> list[Action]:
     """The file half — inert data any menu-spec DE picks up on next login.
 
     ``menu_prefix`` is the DE's ``$XDG_MENU_PREFIX`` (``xfce-`` on Xfce,
@@ -108,15 +237,19 @@ def menu_steps(categories: list[Category], paths: MenuPaths, *, menu_prefix: str
     or nothing merges, which is a silent nothing — hence it is a parameter,
     not a guess.
     """
+    placed = sum(len(v) for v in (placement or Placement.empty()).by_category.values())
     steps = [
         Action(
             kind="menu",
-            description=f"Write the {MENU_NAME} menu tree ({len(categories)} categories)",
+            description=(
+                f"Write the {MENU_NAME} menu tree ({len(categories)} categories, "
+                f"{placed} installed-package entries placed)"
+            ),
             detail=str(paths.menus_dir / f"{menu_prefix}applications-merged" / "hammunition.menu"),
             perform=partial(
                 _write,
                 paths.menus_dir / f"{menu_prefix}applications-merged" / "hammunition.menu",
-                render_menu(categories),
+                render_menu(categories, placement),
             ),
         ),
         Action(
@@ -140,15 +273,22 @@ def menu_steps(categories: list[Category], paths: MenuPaths, *, menu_prefix: str
                 perform=partial(
                     _write,
                     target,
-                    render_directory(category.name.replace("-", " ").title(), category.summary),
+                    render_directory(category.label, category.summary),
                 ),
             )
         )
     return steps
 
 
-def gnome_commands() -> list[Command]:
+def gnome_commands(placement: Placement | None = None) -> list[Command]:
     """The GNOME half — an app-folder populated by category, via gsettings.
+
+    ``categories=['HamRadio']`` already gathers every entry tagged HamRadio,
+    including the ones distributions ship. The entries a catalog package
+    ships *without* that tag (Kali's ``gqrx`` and ``chirp`` carry Kali's own
+    ``kali-radio-frequency`` instead; ``welle.io`` says ``AudioVideo``) are
+    appended to the folder's ``apps`` list from ``placement`` — a union, so
+    re-running adds nothing twice and removes nothing the operator added.
 
     Needs the operator's session bus (dconf), so these are Commands the
     runner executes as the user: they succeed in a desktop session and fail
@@ -201,4 +341,31 @@ def gnome_commands() -> list[Command]:
             ),
             description="Populate it by category — no app list to maintain",
         ),
-    ]
+    ] + (
+        [
+            Command(
+                argv=(
+                    "python3",
+                    "-c",
+                    (
+                        "import subprocess, ast\n"
+                        f"schema = 'org.gnome.desktop.app-folders.folder:{folder_path}'\n"
+                        "current = subprocess.run(['gsettings','get',schema,'apps'],"
+                        "capture_output=True,text=True,check=True).stdout.strip()\n"
+                        "value = ast.literal_eval(current.removeprefix('@as '))\n"
+                        f"wanted = {list(placement.claimed)!r}\n"
+                        "merged = value + [a for a in wanted if a not in value]\n"
+                        "if merged != value:\n"
+                        "    subprocess.run(['gsettings','set',schema,'apps',str(merged)],check=True)\n"
+                        "print('apps:', len(merged))\n"
+                    ),
+                ),
+                description=(
+                    f"Add the {len(placement.claimed)} installed-package entries by name "
+                    "(union, never replace) — the ones not tagged HamRadio need it"
+                ),
+            )
+        ]
+        if placement and placement.claimed
+        else []
+    )

@@ -2098,3 +2098,46 @@ now measured on the target VMs; COSMIC still waits for the Pop!_OS image.
 Implementation note for whoever builds it: both measured mechanisms are
 per-user and unprivileged, exactly like the launcher generator's artifacts —
 the whole menu layer can honour the privilege rule with zero sudo.
+
+## D-036 addendum, 2026-09-01 — the curated tree was seven entries wide; it now places what the packages ship
+
+The menu layer went into the engine on 2026-08-30 with submenus that
+included by the `X-Hammunition-<category>` marker — which only the entries
+Hammunition *generates* carry. Rendered on the Kali VM with the whole
+catalog installed and parsed back with gnome-menus' implementation of the
+spec, the Ham Radio tree held **7 entries** while **43** desktop entries the
+distribution's own packages ship with `Categories=…HamRadio…` sat under
+Internet (fldigi, xastir), Multimedia (wsjtx), Education (gpredict) and
+Other (chirp). GNOME was better off by accident: its folder's
+`categories=['HamRadio']` gathers those 43, though not the 23 entries
+catalog packages ship under other tags (`kali-radio-frequency`,
+`AudioVideo`, `Science`). "Alongside the DE's own organization" was true
+and the curation was nearly empty — the "run it and look at it" class of
+bug.
+
+**Measured, then built.** `dpkg -S` on those 43 mapped 42 to a manifest
+through the apt package that shipped them; the 43rd (`gridtracker2`) is a
+`.deb` unit and maps through its `deb_package`. So `menus apply` now asks
+`dpkg -L` for every catalog package present on the machine, places each
+`.desktop` it ships under the submenu of every category its manifest
+carries — the menu spec's `<Filename>` include — and gathers anything
+`HamRadio`-tagged that no manifest claimed at the tree's top level, with
+the placed ids excluded there so nothing shows twice. GNOME gets the same
+ids unioned into the folder's `apps`. Re-measured on Kali: 73 entries
+placed 130 times, every one under its submenu; the source-built units
+(`fldigi`'s family, `wsjtx`, `qlog`, `garim` — installed by `make install`
+under `/usr/local`, so no dpkg record) land at the top level as designed.
+The GNOME half round-tripped headless on the Debian 13 VM (71 apps, the
+same 71 on a second run).
+
+**Boundaries kept.** One taxonomy: categories still come from
+`catalog/categories.yaml`, which now also carries each tag's menu title
+(the engine cannot know `sdr` is SDR and rendered "Sdr"). No maintained app
+list: the desktop-file ids are read from the machine at apply time, never
+typed into the catalog. The whole catalog is consulted rather than the
+transaction log, because being in the catalog *is* the curation and an
+operator's own earlier `apt install fldigi` deserves the same submenu. The
+DE's own copies are untouched (D-022). Still open: a source build's entries
+could be placed too, from cmake's `install_manifest.txt` where one exists;
+and the menu files are not yet in the transaction log, so `uninstall` does
+not remove them — both named here rather than left to be rediscovered.
