@@ -235,6 +235,15 @@ scripts/vm_campaign.py --host user@GUEST_IP \
     --profile packet --out campaign-packet.md
 ```
 
+`--timeout` is a per-unit budget enforced **on the VM** by `timeout`, so a
+unit that exceeds it is actually stopped and filed as `STOPPED (budget)` —
+a separate bucket from failures, because it is not a verdict. It was
+enforced locally once, which only killed the ssh client: Ubuntu 26.04's
+single-job `qlog` compile was written off at 900 s and finished, verified,
+at 1032 s with the next units running on top of it (2026-09-02). The
+default of 1800 s covers every compile measured so far; a no-swap VM that
+`default_jobs()` sizes to one job is the case that needs it.
+
 No reset between units, deliberately: a campaign is one accumulating
 machine-state, like a real operator's machine. This is the mechanism the M5
 report will be generated from — one campaign per target, every unit, and

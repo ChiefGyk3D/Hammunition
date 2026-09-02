@@ -54,6 +54,7 @@ OUTCOMES = {
     1: "FAILED",
     2: "refused (plan)",
     3: "consent declined",
+    124: "STOPPED (budget)",
 }
 
 
@@ -70,9 +71,19 @@ class UnitResult:
 
 
 def run_unit(host: str, identity: str | None, unit: str, timeout: int) -> UnitResult:
-    """One engine install over SSH; the tail is the evidence."""
+    """One engine install over SSH; the tail is the evidence.
+
+    The budget is enforced on the VM, not here. A local ``subprocess`` timeout
+    only kills the ssh client; the remote ``hammunition install`` keeps going
+    with nobody watching, and the next unit starts on top of it. That is how
+    the Ubuntu 26.04 campaign filed ``qlog`` as failed at 900 s while its
+    single-job compile ran on to a verified transaction at 1032 s
+    (2026-09-02). ``timeout`` on the VM signals the whole process group, so
+    the compile stops with the engine, and exit 124 says so.
+    """
     remote = (
-        f"cd hammunition && .venv/bin/hammunition install {unit} --yes 2>&1 | tail -60; "
+        f"cd hammunition && timeout -k 30 {timeout}s "
+        f".venv/bin/hammunition install {unit} --yes 2>&1 | tail -60; "
         f'echo "__EXIT=${{PIPESTATUS[0]}}"'
     )
     argv = list(SSH_BASE)
@@ -81,11 +92,18 @@ def run_unit(host: str, identity: str | None, unit: str, timeout: int) -> UnitRe
     argv += [host, f"bash -c '{remote}'"]
     started = datetime.now(UTC)
     try:
-        proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, check=False)
+        proc = subprocess.run(
+            argv, capture_output=True, text=True, timeout=timeout + 120, check=False
+        )
         raw = proc.stdout
     except subprocess.TimeoutExpired:
-        return UnitResult(unit, -1, timeout, f"timed out after {timeout}s (build still running?)")
+        return UnitResult(unit, -1, timeout, f"ssh did not return {timeout + 120}s after start")
     seconds = (datetime.now(UTC) - started).total_seconds()
+    return classify(unit, raw, seconds=seconds, timeout=timeout)
+
+
+def classify(unit: str, raw: str, *, seconds: float, timeout: int) -> UnitResult:
+    """Turn the remote session's merged output into a filed result."""
     exit_code = 255
     tail_lines: list[str] = []
     for line in raw.splitlines():
@@ -93,6 +111,10 @@ def run_unit(host: str, identity: str | None, unit: str, timeout: int) -> UnitRe
             exit_code = int(line.split("=", 1)[1])
         else:
             tail_lines.append(line)
+    if exit_code == 124:
+        return UnitResult(
+            unit, 124, seconds, f"stopped by the {timeout}s budget; the build was still running"
+        )
     # Keep what a reader needs. Stderr outruns block-buffered stdout through
     # a pipe, so a failure's text can land ANYWHERE in the merged stream —
     # the first report buried every real error above the tail window. Prefer
@@ -112,7 +134,9 @@ def render_report(
 ) -> str:
     ok = [r for r in results if r.exit_code == 0]
     refused = [r for r in results if r.exit_code == 2]
-    failed = [r for r in results if r.exit_code not in (0, 2)]
+    stopped = [r for r in results if r.exit_code == 124]
+    failed = [r for r in results if r.exit_code not in (0, 2, 124)]
+    budget = f", {len(stopped)} stopped by the budget" if stopped else ""
     lines = [
         "# VM campaign report",
         "",
@@ -121,7 +145,7 @@ def render_report(
         f"**Target:** {target_line}",
         f"**Units:** {len(results)} — "
         f"{len(ok)} installed+confirmed, {len(refused)} refused at plan time, "
-        f"{len(failed)} failed",
+        f"{len(failed)} failed{budget}",
         "",
         "Exit 0 is the engine's own bar: completed *and confirmed* by re-probe",
         "(D-031). A plan-time refusal is honest coverage reporting, not a",
@@ -132,7 +156,12 @@ def render_report(
     ]
     for r in results:
         lines.append(f"| `{r.unit}` | {r.outcome} | {r.seconds:.0f} |")
-    for title, bucket in (("Failures", failed), ("Plan-time refusals", refused)):
+    buckets = (
+        ("Failures", failed),
+        ("Stopped by the budget (not a verdict; rerun with a larger --timeout)", stopped),
+        ("Plan-time refusals", refused),
+    )
+    for title, bucket in buckets:
         if not bucket:
             continue
         lines += ["", f"## {title}", ""]

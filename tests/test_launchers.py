@@ -109,3 +109,33 @@ def test_campaign_report_buckets_and_names_every_unit() -> None:
         assert f"| `{unit}` |" in report
     assert "## Failures" in report and "make: *** Error 1" in report
     assert "## Plan-time refusals" in report and "pipx backend" in report
+
+
+def test_campaign_files_a_budget_stop_as_stopped_not_failed() -> None:
+    """The per-unit budget is enforced on the VM by ``timeout``, whose exit
+    124 must be filed as a stop, in its own bucket, and never read as the
+    engine's own failure. A local timeout used to leave the remote build
+    running and file it failed; qlog on Ubuntu 26.04 then completed 132 s
+    after being written off."""
+    import importlib.util
+    from pathlib import Path as P
+
+    spec = importlib.util.spec_from_file_location(
+        "vm_campaign", P(__file__).resolve().parent.parent / "scripts" / "vm_campaign.py"
+    )
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    stopped = mod.classify("qlog", "  $ make -j 1\n__EXIT=124\n", seconds=900.4, timeout=900)
+    assert stopped.exit_code == 124
+    assert stopped.outcome == "STOPPED (budget)"
+    assert "900s budget" in stopped.tail
+    done = mod.classify(
+        "qlog", "Done. 11 command(s) completed.\n__EXIT=0\n", seconds=5, timeout=900
+    )
+    assert done.exit_code == 0 and "Done." in done.tail
+    report = mod.render_report(target_line="T", engine_commit="abc", results=[stopped, done])
+    assert "1 installed+confirmed, 0 refused at plan time, 0 failed, 1 stopped" in report
+    assert "STOPPED (budget)" in report and "## Stopped by the budget" in report
+    assert "## Failures" not in report
