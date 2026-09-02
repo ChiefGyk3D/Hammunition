@@ -6,6 +6,7 @@ summary: Band conditions, grey line, beacons and DX spotting
 stage: "1.0"
 
 packages:
+  - openhamclock
   - hamclock-next
   - xdx
   - flcluster
@@ -20,7 +21,8 @@ packages:
 
 documentation:
   what_it_installs: >-
-    A live map showing the grey line and solar indices, two DX cluster clients,
+    Two HamClock successors — a browser dashboard and a desktop program — each
+    a live map showing the grey line and solar indices; two DX cluster clients,
     a sun clock, the VOACAP propagation engine with a graphical front end that
     makes its output readable, a monitor for the international beacon network,
     and grid-square tools in command-line and graphical form.
@@ -38,26 +40,35 @@ documentation:
     you hear is a real measurement of your own antenna and receiver. No website
     substitutes for that.
   deliberately_excludes: >-
-    **`openhamclock`, which Q-006 chose as the default client and which cannot
-    be installed yet.** It is a Node and Vite web application rather than the
-    C++ program the original HamClock was, and it needs an `npm` backend this
-    project does not have — see `docs/reference/source-build-gaps.md` #7.
-    `hamclock-next` ships instead: a maintained SDL2 rewrite that carries the
-    original author's copyright forward and that this engine can actually
-    build. The substitution is stated rather than made quietly. Also excludes
-    SPLAT!, which answers "what does the terrain do to this specific path" and
-    lives in `antenna`.
+    Nothing that Q-006 chose. **Both HamClock continuations ship**:
+    `openhamclock`, the default, is a Node and Vite web application built by
+    the `node` backend (D-037) and needs Node.js 20.19 or newer from the
+    distribution — Debian 13, Parrot and Ubuntu 26.04 offer it; **Ubuntu
+    24.04's 18.19 does not, and there the plan refuses `openhamclock` by
+    name** (it builds on 18 and its server dies at first start, measured).
+    A refused unit refuses the transaction (D-016), so on 24.04 this profile
+    does not install as a whole — `voacapl` and `pythonprop` have no
+    candidate there either — and the operator installs the units that do
+    resolve by name, `hamclock-next` among them. `hamclock-next` is the SDL2
+    rewrite that runs as an ordinary desktop program with no Node involved;
+    an operator who wants the original's look, or no web server on the
+    machine, uses that one. Excludes SPLAT!, which answers "what does the
+    terrain do to this specific path" and lives in `antenna`.
   manual_configuration: >-
     **A DX cluster client needs a node address and your callsign**, and neither
     is chosen for you. **VOACAP needs a smoothed sunspot number** for the month
     you are asking about, which is itself a prediction you supply, and antenna
     descriptions if you want the answer to be about your station rather than
     about a default dipole — treating that default as your station is the
-    commonest way to get a confidently wrong answer. HamClock's data backend
+    commonest way to get a confidently wrong answer. **`openhamclock` needs
+    your callsign and grid in its `.env`** (the path is in its package page);
+    it starts with `N0CALL` at `FN31` until you edit it. `hamclock-next`'s data backend
     defaults to `ohb.works`, a community-run service, and is user-configurable;
     nobody has yet run a client end to end against it, so confirm before
     relying on it. The beacon monitor is a schedule computation, so a system
     clock a minute out tells you confidently about the wrong beacon.
   disk_footprint_hint: >-
-    Around 300 MB. pythonprop's cartopy, scipy and matplotlib stack is most of
-    it, and hamclock-next is a source build against SDL2.
+    Around 450 MB. pythonprop's cartopy, scipy and matplotlib stack is the
+    largest piece, openhamclock's pruned Node tree is about 140 MB (measured;
+    the build copy under ~/.cache is the same again), and hamclock-next is a
+    source build against SDL2.

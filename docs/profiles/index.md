@@ -13,7 +13,7 @@ Named bundles of software that belong together. Flat tags with overlap, never ne
 | [logging](logging.md) | 1.0 | 11 | Station logs, contest logging and award tracking |
 | [morse](morse.md) | 1.0 | 17 | Morse code — sending, decoding, learning, and licence exam practice |
 | [packet](packet.md) | 1.0 | 21 | AX.25, APRS, Winlink and the EMCOMM stack |
-| [propagation](propagation.md) | 1.0 | 11 | Band conditions, grey line, beacons and DX spotting |
+| [propagation](propagation.md) | 1.0 | 12 | Band conditions, grey line, beacons and DX spotting |
 | [rf-research](rf-research.md) 🔒 | post-1.0 | 2 | Transmit-capable and interception-capable RF tooling — affirmative opt-in required |
 | [rf-security](rf-security.md) | 1.0 | 9 | Spectrum analysis, wireless auditing and protocol inspection |
 | [rfid](rfid.md) | post-1.0 | 6 | RFID and NFC — card protocols, readers, and the tooling to study them |
