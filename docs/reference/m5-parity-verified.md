@@ -65,6 +65,46 @@ project carried forward was re-attempted rather than trusted: `ardopcf` revived
 (`gsmc`, `qtsoundmodem`, `glfer`, `linrad`, `xwefax`) all build with recorded
 flags. The only standing verdicts are `retired` ones with tested provenance.
 
+## Re-run at v0.7.0 — the whole catalog, one pass per target (2026-09-01)
+
+The grind above was run profile by profile and then by the uncovered names.
+On 2026-09-01, engine at `382f49f`, `scripts/vm_campaign.py` was pointed at
+**every one of the 242 units in the catalog** on each of the three VMs, from
+the `clean-baseline` snapshot, in one accumulating pass each — the way an
+operator who installs everything would experience it.
+
+| Target | Installed + confirmed | Refused at plan time | Hard failures |
+|---|---:|---:|---:|
+| Parrot 7.3 | **232** | 10 | **0** |
+| Debian 13 | **231** | 11 | **0** |
+| Kali rolling | **233** | 9 | **0** |
+
+**726 unit-installs, zero failures.** The first pass found exactly two, both
+fixed the same day and re-confirmed on all three targets:
+
+- `hamclock-next` — its `CMakeLists.txt` aliases a `cpp-httplib::cpp-httplib`
+  target in the branch taken when `find_package(httplib)` succeeds, which it
+  does on the *second* build because hamclock's own `cmake --install` leaks
+  its bundled cpp-httplib into `/usr/local`, whose exported target is
+  `httplib::httplib`. Idempotent re-install failed on all three targets.
+  Carried as the catalog's third real patch, two hunks.
+- `wireshark` — non-interactive install takes debconf's default (*no* non-root
+  capture), so the `wireshark` group the manifest's membership needs never
+  existed on Debian; and on a minimal image `setcap` was absent so dumpcap got
+  no capabilities. Fixed by `debconf_selections` (preseed before apt),
+  `libcap2-bin` in the package list, and `reconfigure_after` so the postinst
+  re-runs once the whole transaction is present. Capabilities verified on
+  all three.
+
+Every refusal is one of the classes below, printed with its reason; per
+target they were: `aethersdr`, `dump1090-mutability`, `fbb`, `sdrangel`
+absent from the Parrot and Debian archives (and `odr-audioenc` from
+Debian's); `cqrlog`, `cwdaemon`, `soapysdr-module-rfspace` absent from
+Kali's; `code`/`codium` waiting on the third-party-repo backend;
+`arduino-cli` and `soapysdr-module-plutosdr` declaring no block for the
+target; `noaa-apt` retired; and `wsjtx-improved` refusing to collide with the
+`wsjtx` installed earlier in the same pass.
+
 ## Caveats, stated
 
 - **Two targets remain unrun:** Ubuntu and Pop!_OS. The engine permits Pop
