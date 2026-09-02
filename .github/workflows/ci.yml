@@ -31,7 +31,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.11", "3.12", "3.13"]
+        # 3.14 is what Ubuntu 26.04 -- a supported target -- ships (3.14.4,
+        # measured on its VM 2026-09-02, suite green). Test the matrix, not
+        # the dev machine.
+        python: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -90,7 +93,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.11", "3.12", "3.13"]
+        # 3.14 is what Ubuntu 26.04 -- a supported target -- ships (3.14.4,
+        # measured on its VM 2026-09-02, suite green). Test the matrix, not
+        # the dev machine.
+        python: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
