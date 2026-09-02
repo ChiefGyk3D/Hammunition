@@ -33,6 +33,7 @@ installer executes.
 from __future__ import annotations
 
 import pwd
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 
@@ -41,6 +42,7 @@ from hammunition.backends import (
     IMPLEMENTED_METHODS,
     IMPLEMENTED_MODIFICATIONS,
     AptBackend,
+    AptPackageState,
 )
 from hammunition.backends.source import IMPLEMENTED_BUILD_SYSTEMS
 from hammunition.distro import Target
@@ -50,6 +52,7 @@ from hammunition.manifest.schema import (
     ConsentGate,
     GitInstall,
     InstallBlock,
+    NodeInstall,
     PackageManifest,
     ProfileManifest,
     SourceInstall,
@@ -550,6 +553,71 @@ def _status_blocker(manifest: PackageManifest) -> Blocker | None:
     )
 
 
+#: A Debian version string's upstream major and minor: an optional epoch, then
+#: two dotted numbers. ``20.19.2+dfsg1-1`` -> (20, 19);
+#: ``1:18.19.1+dfsg-6ubuntu5`` -> (18, 19). The minor matters: ``require()``
+#: of an ES module works from 20.19 and not from 20.18, and openhamclock's
+#: server needs it.
+_MAJOR_MINOR = re.compile(r"^(?:\d+:)?(\d+)\.(\d+)")
+
+
+def node_version(version: str) -> tuple[int, int] | None:
+    match = _MAJOR_MINOR.match(version.strip())
+    return (int(match.group(1)), int(match.group(2))) if match else None
+
+
+def _check_node_floor(
+    manifest: PackageManifest, install: NodeInstall, nodejs: AptPackageState | None
+) -> Blocker | str:
+    """The D-037 gate: a Blocker below the floor, a disclosure note at or above it.
+
+    The version that counts is the one the run will have: what is installed
+    now, else what apt would install. ``nodejs`` is in the transaction's own
+    tool dependencies, so an archive with no candidate at all is already a
+    no-candidate blocker by the time this runs; that case is repeated here in
+    D-037's words rather than left to the generic one.
+    """
+    floor = install.node_min_version
+    floor_parsed = node_version(floor)
+    assert floor_parsed is not None  # the schema's pattern guarantees MAJOR.MINOR
+    version = nodejs.installed or nodejs.candidate if nodejs is not None else None
+    found = node_version(version) if version else None
+    source = "installed" if nodejs is not None and nodejs.installed else "the archive's candidate"
+    if version is None or found is None:
+        return Blocker(
+            subject=manifest.name,
+            reason=(
+                f"is a Node.js application needing Node {floor} or newer, and this "
+                f"distribution offers no nodejs package"
+            ),
+            remedy=(
+                "Node is only ever taken from the distribution, never fetched (D-037); "
+                "a release of this distribution that carries nodejs, or skip this unit"
+            ),
+        )
+    if found < floor_parsed:
+        return Blocker(
+            subject=manifest.name,
+            reason=(
+                f"is a Node.js application needing Node {floor} or newer, and this "
+                f"distribution's nodejs is {version} ({source}) — "
+                f"{found[0]}.{found[1]}"
+            ),
+            remedy=(
+                "Node is only ever taken from the distribution, never fetched (D-037); "
+                "a newer release of this distribution carries a newer nodejs, or skip "
+                "this unit"
+            ),
+        )
+    return (
+        f"{manifest.name} is a Node.js application: it needs Node {floor} or newer "
+        f"(this machine: nodejs {version}, {source}) and its build fetches its "
+        f"dependency closure from registry.npmjs.org, each package verified against "
+        f"the sha512 pins in the lock file inside the sha256-verified source archive. "
+        f"No package lifecycle scripts run during the build."
+    )
+
+
 def resolve(
     names: Sequence[str],
     *,
@@ -644,6 +712,13 @@ def resolve(
             tool_depends = ("git",)
         elif block.install.method == "source" and getattr(block.install, "patches", None):
             tool_depends = ("patch",)
+        elif block.install.method == "node":
+            # The distribution's Node and npm, never fetched (D-037). Riding
+            # the probe below is what makes "absent" a named refusal rather
+            # than a failed `npm` exec halfway through.
+            tool_depends = ("nodejs", "npm")
+            if block.install.patches:
+                tool_depends = (*tool_depends, "patch")
         if getattr(block.install, "autoreconf", False):
             tool_depends = (*tool_depends, "autoconf", "automake", "libtool")
         if block.install.method == "apt":
@@ -717,6 +792,26 @@ def resolve(
                             ),
                         )
                     )
+
+    # -- Node.js floor, from the same probe (D-037) -------------------------
+    # Disclosed as a requirement, refused when the distribution's Node is
+    # absent or too old. Never fetched: the remedy is a newer release of the
+    # distribution or skipping the unit, and the plan says so.
+    for manifest, block, _, _ in resolved:
+        if not isinstance(block.install, NodeInstall):
+            continue
+        if not states:
+            notes.append(
+                f"{manifest.name} needs Node.js {block.install.node_min_version} or newer "
+                f"from the distribution's nodejs package, and with no apt lists the "
+                f"version on offer cannot be checked before this plan executes."
+            )
+            continue
+        outcome = _check_node_floor(manifest, block.install, states.get("nodejs"))
+        if isinstance(outcome, Blocker):
+            blockers.append(outcome)
+        else:
+            notes.append(outcome)
 
     # -- declared conflicts against what is installed now (D-022) ----------
     for manifest, block, _, _ in resolved:

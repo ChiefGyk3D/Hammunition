@@ -511,6 +511,108 @@ class VenvInstall(Strict):
         return self
 
 
+class NodeInstall(Strict):
+    """A Node.js application built from a verified source archive (D-037).
+
+    One measured user: ``openhamclock``, a Node and Vite web application whose
+    release publishes no binary. The build is ``npm ci`` -> ``npm run
+    <build_script>`` -> ``npm prune --omit=dev``, every step with lifecycle
+    scripts ignored, and the pruned tree installs per-user under
+    ``$XDG_DATA_HOME/hammunition/node/<name>`` with a wrapper on the
+    operator's PATH that runs ``node <entry>`` from it.
+
+    What it costs and how it is disclosed: Node comes only from the
+    distribution's ``nodejs``/``npm`` packages, never fetched, and the plan
+    refuses when they are absent or older than ``node_min_version``. ``npm ci``
+    fetches the dependency closure from registry.npmjs.org, each tarball
+    verified against the sha512 in ``package-lock.json`` — which lives inside
+    the sha256-verified archive, so the whole closure is transitively pinned
+    from one manifest hash. Both facts are printed in the plan.
+    """
+
+    method: Literal["node"] = "node"
+    artifact: RemoteArtifact = Field(
+        description="The sha256-pinned source archive. Must contain package-lock.json."
+    )
+    node_min_version: str = Field(
+        pattern=r"^\d+\.\d+$",
+        description=(
+            "The lowest Node.js version, as `MAJOR.MINOR`, the application "
+            "(its bundler included) runs on; the plan refuses below it. "
+            "Measured by running it, never read from `engines` alone: "
+            "openhamclock's dependencies satisfy Vite's `^18` floor and its "
+            "server still dies on Node 18 at start, because `require()` of an "
+            "ES module needs 20.19 -- a minor, which is why this is not a major."
+        ),
+    )
+    entry: str = Field(description="The script `node` runs from the tree root, e.g. server.js.")
+    build_script: str | None = Field(
+        default="build",
+        description=(
+            "The package.json script that produces the runtime tree (Vite's "
+            "`build`). None for an application that runs from source unbuilt."
+        ),
+    )
+    build_output: str | None = Field(
+        default="dist",
+        description=(
+            "A directory build_script must produce, checked after the build "
+            "(D-031: an `npm run build` exiting 0 is not evidence it built). "
+            "None only when build_script is None."
+        ),
+    )
+    command: str | None = Field(
+        default=None,
+        description=(
+            "Name of the wrapper put on the operator's PATH (~/.local/bin). "
+            "Defaults to the manifest name."
+        ),
+    )
+    env: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Runtime environment baked into the wrapper, e.g. PORT. HOST is "
+            "refused: the engine always binds a node application to "
+            "127.0.0.1 (D-037), and a manifest cannot widen that."
+        ),
+    )
+    preserve: list[str] = Field(
+        default_factory=lambda: [".env"],
+        description=(
+            "Files inside the installed tree a reinstall keeps: an application "
+            "that writes its configuration beside itself (openhamclock's .env) "
+            "would otherwise lose it on every update."
+        ),
+    )
+    patches: list[Patch] = Field(
+        default_factory=list,
+        description=(
+            "Unified diffs applied to the unpacked tree before npm runs, the "
+            "source backend's mechanism. First user: openhamclock 26.7.0 reads "
+            "HOST and then listens on 0.0.0.0 anyway, so the loopback bind the "
+            "engine sets is one line of upstream away from meaning nothing."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _host_is_ours(self) -> NodeInstall:
+        if "HOST" in self.env:
+            raise ManifestError(
+                "a node block may not set HOST — the engine binds every node "
+                "application to 127.0.0.1 and the manifest cannot widen it (D-037)"
+            )
+        if self.build_script is None and self.build_output is not None:
+            raise ManifestError("build_output declared with no build_script to produce it")
+        if self.build_script is not None and self.build_output is None:
+            raise ManifestError(
+                "a build_script must name its build_output — the tree it produces is "
+                "what the run checks for, not the script's exit status (D-031)"
+            )
+        if self.command is not None and not SLUG.match(self.command):
+            raise ManifestError(f"command must be a lowercase name: {self.command!r}")
+        return self
+
+
 class PipxInstall(Strict):
     method: Literal["pipx"] = "pipx"
     spec: str
@@ -518,7 +620,13 @@ class PipxInstall(Strict):
 
 
 InstallMethod = Annotated[
-    AptInstall | SourceInstall | GitInstall | BinaryInstall | VenvInstall | PipxInstall,
+    AptInstall
+    | SourceInstall
+    | GitInstall
+    | BinaryInstall
+    | VenvInstall
+    | NodeInstall
+    | PipxInstall,
     Field(discriminator="method"),
 ]
 
@@ -929,6 +1037,29 @@ class PackageManifest(Strict):
                         f"{self.name}: launcher {launcher.name!r} references "
                         f"undeclared endpoint {ref!r}"
                     )
+        return self
+
+    @model_validator(mode="after")
+    def _launcher_does_not_shadow_node_wrapper(self) -> PackageManifest:
+        """A launcher and a node block's wrapper share ``~/.local/bin``.
+
+        Both are written there by name, so a launcher named like the node
+        command overwrites the wrapper it composes through ``{node}`` — and
+        then runs itself. Found on the first dry run of ``openhamclock``,
+        whose launcher and manifest were both called ``openhamclock``.
+        """
+        commands = {
+            block.install.command or self.name
+            for block in self.install
+            if isinstance(block.install, NodeInstall)
+        }
+        for launcher in self.launchers:
+            if launcher.name in commands:
+                raise ManifestError(
+                    f"{self.name}: launcher {launcher.name!r} has the same name as the "
+                    f"node wrapper it would overwrite in ~/.local/bin — name the "
+                    f"launcher differently or set the node block's `command`"
+                )
         return self
 
     @model_validator(mode="after")

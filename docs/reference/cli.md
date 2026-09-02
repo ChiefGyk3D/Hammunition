@@ -5,11 +5,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # CLI reference
 
-The `hammunition` command, at **v0.7.0 (alpha)**. Five backends are
-implemented: **apt**, **source**, **git**, **binary** and **venv** (per-user
-virtualenvs, hash-pinned end to end with `pip --require-hashes`). pipx and
-CPAN re-measured to zero users and left the 1.0 list (D-014 amendment,
-2026-08-30); a package declaring one is still **refused by name**. The
+The `hammunition` command, at **v0.7.0 (alpha)**. Six backends are
+implemented: **apt**, **source**, **git**, **binary**, **venv** (per-user
+virtualenvs, hash-pinned end to end with `pip --require-hashes`) and **node**
+(Node.js applications from a verified archive, D-037 — Node only ever from
+the distribution's `nodejs`, refused at plan time when absent or too old, and
+the registry fetch disclosed in the plan). pipx and CPAN re-measured to zero
+users and left the 1.0 list (D-014 amendment, 2026-08-30); a package
+declaring one is still **refused by name**. The
 install/configure/remove cycle is VM-verified on Parrot, Kali and Debian 13
 (`docs/reference/vm-verification-parrot.md` and siblings).
 

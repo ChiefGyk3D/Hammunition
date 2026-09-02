@@ -43,6 +43,7 @@ from hammunition.manifest.schema import (  # noqa: E402
     BinaryInstall,
     GitInstall,
     InstallBlock,
+    NodeInstall,
     PackageManifest,
     PipxInstall,
     SourceInstall,
@@ -70,6 +71,12 @@ def method_of(block: InstallBlock) -> str:
         return f"prebuilt {install.format} from {install.artifact.url}"
     if isinstance(install, VenvInstall):
         return "python venv: `" + "`, `".join(install.requirements) + "`"
+    if isinstance(install, NodeInstall):
+        return (
+            f"node (needs Node {install.node_min_version}+ from the distribution; "
+            f"dependencies fetched from registry.npmjs.org against the lock file) "
+            f"from {install.artifact.url}"
+        )
     # No fallback branch: InstallMethod is a closed union and mypy proves the
     # chain above exhausts it. A `return install.method` here reads as
     # defensive and is unreachable, which mypy --strict rejects -- correctly,

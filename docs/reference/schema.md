@@ -63,7 +63,7 @@ argument — js8call is apt on Linux Mint 22.3 and a cmake build elsewhere.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `when` | `Selector` | no |  |
-| `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| PipxInstall` | **yes** |  |
+| `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| NodeInstall \| PipxInstall` | **yes** |  |
 | `build_depends` | `list[str]` | no | apt packages needed to BUILD only. Never reported as installed. |
 | `note` | `str \| None` | no |  |
 
@@ -149,6 +149,38 @@ comment lines pass through untouched.
 | `payload` | `RemoteArtifact \| None` | no | A verified archive whose extracted tree installs to <prefix>/share/hammunition/<name>, for software that is a data tree run by a venv rather than a pip-installable package. The two-unit demand (source-build-gaps #9): radiosonde_auto_rx and supersdr. Launchers reach the venv with the {venv} placeholder. |
 | `payload_build_script` | `str \| None` | no | A script inside the verified payload tree, run with sh before the tree installs -- radiosonde_auto_rx compiles its C demodulators via auto_rx/build.sh. Requires payload; declare its toolchain in the block's build_depends. |
 | `expose` | `list[str]` | no | Console-script names from the venv's bin/ to wrap onto the operator's PATH (~/.local/bin). A venv nobody can invoke installs nothing while reporting success. |
+
+### `NodeInstall`
+
+A Node.js application built from a verified source archive (D-037).
+
+One measured user: ``openhamclock``, a Node and Vite web application whose
+release publishes no binary. The build is ``npm ci`` -> ``npm run
+<build_script>`` -> ``npm prune --omit=dev``, every step with lifecycle
+scripts ignored, and the pruned tree installs per-user under
+``$XDG_DATA_HOME/hammunition/node/<name>`` with a wrapper on the
+operator's PATH that runs ``node <entry>`` from it.
+
+What it costs and how it is disclosed: Node comes only from the
+distribution's ``nodejs``/``npm`` packages, never fetched, and the plan
+refuses when they are absent or older than ``node_min_version``. ``npm ci``
+fetches the dependency closure from registry.npmjs.org, each tarball
+verified against the sha512 in ``package-lock.json`` — which lives inside
+the sha256-verified archive, so the whole closure is transitively pinned
+from one manifest hash. Both facts are printed in the plan.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `method` | `Literal[node]` | no (default `node`) |  |
+| `artifact` | `RemoteArtifact` | **yes** | The sha256-pinned source archive. Must contain package-lock.json. |
+| `node_min_version` | `str` | **yes** | The lowest Node.js version, as `MAJOR.MINOR`, the application (its bundler included) runs on; the plan refuses below it. Measured by running it, never read from `engines` alone: openhamclock's dependencies satisfy Vite's `^18` floor and its server still dies on Node 18 at start, because `require()` of an ES module needs 20.19 -- a minor, which is why this is not a major. |
+| `entry` | `str` | **yes** | The script `node` runs from the tree root, e.g. server.js. |
+| `build_script` | `str \| None` | no (default `build`) | The package.json script that produces the runtime tree (Vite's `build`). None for an application that runs from source unbuilt. |
+| `build_output` | `str \| None` | no (default `dist`) | A directory build_script must produce, checked after the build (D-031: an `npm run build` exiting 0 is not evidence it built). None only when build_script is None. |
+| `command` | `str \| None` | no | Name of the wrapper put on the operator's PATH (~/.local/bin). Defaults to the manifest name. |
+| `env` | `dict[str, str]` | no | Runtime environment baked into the wrapper, e.g. PORT. HOST is refused: the engine always binds a node application to 127.0.0.1 (D-037), and a manifest cannot widen that. |
+| `preserve` | `list[str]` | no | Files inside the installed tree a reinstall keeps: an application that writes its configuration beside itself (openhamclock's .env) would otherwise lose it on every update. |
+| `patches` | `list[Patch]` | no | Unified diffs applied to the unpacked tree before npm runs, the source backend's mechanism. First user: openhamclock 26.7.0 reads HOST and then listens on 0.0.0.0 anyway, so the loopback bind the engine sets is one line of upstream away from meaning nothing. |
 
 ### `RemoteArtifact`
 

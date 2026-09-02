@@ -10,9 +10,9 @@ arguments.
 
 The verbs are ``install``, ``uninstall``, ``list``, ``status``, ``show``,
 ``menus``, ``hardware`` and ``station``, all with the M1 property intact: what the engine cannot do it says
-so, by name. Three backends measured and scheduled for 1.0 are not written
-(venv, pipx, CPAN), and a package needing one is refused with the backend named
-rather than skipped. CLAUDE.md forbids a shim
+so, by name. Every backend the 1.0 measurement requires is written (apt, source,
+git, binary, venv, and node by D-037); pipx and CPAN re-measured to zero and a
+package declaring one is refused with the backend named rather than skipped. CLAUDE.md forbids a shim
 that makes an unsupported combination appear to work, and a CLI that quietly
 drops the packages it cannot handle is that shim.
 
@@ -43,6 +43,7 @@ from hammunition.backends import (
     BinaryBackend,
     Command,
     GitBackend,
+    NodeBackend,
     SourceBackend,
     SubprocessRunner,
     VenvBackend,
@@ -70,13 +71,14 @@ from hammunition.manifest.schema import (
     AptInstall,
     BinaryInstall,
     GitInstall,
+    NodeInstall,
     PackageManifest,
     ProfileManifest,
     SourceInstall,
     Status,
     VenvInstall,
 )
-from hammunition.paths import applications_dir, build_root, user_bin_dir, venv_root
+from hammunition.paths import applications_dir, build_root, node_root, user_bin_dir, venv_root
 from hammunition.plan import InstallPlan, PlanError, PlannedPackage, resolve
 from hammunition.state import (
     RemovalError,
@@ -169,6 +171,8 @@ def _plan_state(planned: PlannedPackage) -> str:
         return "will build"
     if isinstance(method, VenvInstall):
         return "will install"  # into its own venv, reported by the venv step
+    if isinstance(method, NodeInstall):
+        return "will build"
     return "will fetch+install"
 
 
@@ -665,6 +669,12 @@ def cmd_install(args: argparse.Namespace) -> int:
         build_root=builds,
         prefix=source.prefix,
     )
+    node = NodeBackend(
+        fetcher=source.fetcher,
+        build_root=builds,
+        node_root=node_root(user or None),
+        bin_dir=user_bin_dir(user or None),
+    )
     commands = commands_for(
         plan,
         apt,
@@ -673,6 +683,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         git=git,
         binary=binary,
         venv=venv,
+        node=node,
         config_staging=builds,
         launcher_bin=user_bin_dir(user or None),
         launcher_applications=applications_dir(user or None),
@@ -824,6 +835,7 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
         venv_root=venv_root(user or None),
         bin_dir=user_bin_dir(user or None),
         applications_dir=applications_dir(user or None),
+        node_root=node_root(user or None),
     )
     # Probe every package the request could touch, so the plan partitions on
     # what is installed now rather than on what the log said at install time.
@@ -1381,7 +1393,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="hammunition",
         description="Turn a Debian-family install into an amateur radio, SDR and RF workstation.",
         epilog=(
-            "Alpha. The apt, source, git, binary and venv backends exist; the "
+            "Alpha. The apt, source, git, binary, venv and node backends exist; the "
             "install/configure/remove cycle is VM-verified on Parrot, Kali and "
             "Debian 13 across the whole catalog. A package needing a third-party "
             "apt repository, pipx or CPAN is refused by name."

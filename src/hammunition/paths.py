@@ -110,6 +110,17 @@ def venv_root(owner: str | None = None) -> Path:
     return data_dir(owner) / "venvs"
 
 
+def node_root(owner: str | None = None) -> Path:
+    """``$XDG_DATA_HOME/hammunition/node`` — one built Node.js tree per manifest.
+
+    Per-user for the same reason venvs are, plus one of its own: a node
+    application writes into its own directory (openhamclock creates ``.env``
+    beside ``server.js`` on first start), which a tree under ``/opt`` would
+    have to be world-writable to allow (D-037).
+    """
+    return data_dir(owner) / "node"
+
+
 def user_bin_dir(owner: str | None = None) -> Path:
     """``~/.local/bin`` for the operator — where venv wrappers land.
 
