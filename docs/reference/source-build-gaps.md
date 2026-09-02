@@ -144,7 +144,7 @@ cannot find its own data. It needs the tree installed somewhere and a launcher
 that runs it from there — which is M3's launcher-generation work, and MSHV is
 one of its 14 units.
 
-### 7. A JavaScript build — `openhamclock` — **MEASURED 2026-09-01; DECIDED 2026-09-02 (D-037), backend in progress**
+### 7. A JavaScript build — `openhamclock` — **CLOSED 2026-09-02** (D-037)
 
 **This one blocks a decision that has already been made.** Q-006 resolved on
 2026-08-29 to default to `accius/openhamclock`, on the strength of its activity
@@ -178,7 +178,7 @@ Debian's own `nodejs` 20.19.2 and `npm` 9.2.0 — nothing from NodeSource:
 | `npm prune --omit=dev --ignore-scripts` | Runtime tree **142 MB, 200 packages**. |
 | `node server.js` | HTTP 200 on `:3001` three seconds after start, serving the built dashboard. |
 | Native modules | **None** — no `.node` files, no `binding.gyp` — so `--ignore-scripts` (no third-party lifecycle code ever runs) costs nothing. |
-| Node floor | Vite 6.4 declares `^18 \|\| ^20 \|\| >=22`; every target's archive Node qualifies: Ubuntu 24.04 ships 18.19, Debian 13 and Parrot 20.19, Ubuntu 26.04 22.22, Kali 24.19. |
+| Node floor | Vite 6.4 declares `^18 \|\| ^20 \|\| >=22`, and that number is wrong — see below. **Measured 20.19.** Debian 13 and Parrot ship 20.19, Ubuntu 26.04 22.22, Kali 24.19; **Ubuntu 24.04 ships 18.19 and is refused.** |
 
 Three properties the manifest and any backend must handle, all measured:
 
@@ -200,72 +200,63 @@ Three properties the manifest and any backend must handle, all measured:
    also holds security tooling, a dashboard listening on every interface is not
    an acceptable default.
 
-The shape that falls out is a `node` build system in the source backend —
-`npm ci` → `npm run build` → `npm prune --omit=dev`, every step with scripts
-ignored — installing the tree per-user with a launcher that runs `node
-server.js` bound to loopback and opens the browser. What it introduces that no
-current build does is **registry access at build time**: 728 tarballs from
+The shape that fell out is a `node` backend (`src/hammunition/backends/node.py`)
+rather than a build system inside the source backend, because none of the
+source backend's shape applies — no prefix, no `make install`, no `binaries`
+list. `npm ci` → `npm run build` → `npm prune --omit=dev`, every step with
+scripts ignored, then the pruned tree copies per-user to
+`$XDG_DATA_HOME/hammunition/node/<name>` with `.env` preserved across
+rebuilds, and a wrapper on `~/.local/bin` runs `node server.js` from it with
+`HOST=127.0.0.1`. The launcher composes that wrapper through a `{node}`
+placeholder and opens the browser. What it introduces that no other build
+does is **registry access at build time**: 728 tarballs from
 `registry.npmjs.org`, verified by the lock file rather than by a manifest
-`sha256` each. Whether that trade is acceptable on this project's security
-posture is **Q-016**, the maintainer's call, and it is not implemented here.
+`sha256` each. **Q-016 closed on 2026-09-02 as D-037**: acceptable when
+disclosed as a requirement and refused when Node is absent or too old. The
+backend does three things the measurement did not: it checks the lock file
+really carries an `integrity` for every resolved package before `npm ci`
+runs (the property the whole argument rests on, so it is checked rather than
+assumed); it gates at plan time on `apt-cache policy`'s `nodejs` version
+against the manifest's `node_min_version`, preferring the installed version
+over the candidate; and it prints the requirement and the registry fetch in
+the plan before anything runs. Carried in `catalog/packages/openhamclock.yaml`
+at v26.7.0.
 
-### 8. Python run in place, with a data tree — `js8spotter` — **CLOSED 2026-08-30** (supersdr moved to #9)
+Three more things carrying it found, which the measurement above did not.
+Each is the D-025 shape again — a claim re-verified when it became decisive:
 
-`install_tree` plus a generated launcher; js8spotter 1.20 installed and
-launches from its tree on the Parrot VM.
+- **Point 3's premise was false: the code ignores `HOST` altogether.**
+  `server/config.js` reads it and the startup banner prints it, and
+  `server.js:364` then calls `app.listen(PORT, '0.0.0.0', ...)` regardless.
+  The first real install through the engine, with the wrapper's
+  `HOST=127.0.0.1` in force, measured `00000000:0BB9` in `/proc/net/tcp` —
+  every interface — and that is the only reason it was caught. Upstream main
+  has the same line at 2026-09-02. So `NodeInstall` gained `patches`, the
+  same `Patch` model the source backend takes, applied after extraction and
+  before the lock-file check; the manifest carries a one-token diff
+  (`'0.0.0.0'` → `HOST`) with its evidence in the description, and `patch`
+  joins the build dependencies. Re-measured after the patch: tcp4 nothing,
+  tcp6 `[::1]:3001` only.
+- **`.env` overrides the wrapper, and `localhost` is `::1`.** `config.js`
+  writes every key of the `.env` it generates into `process.env` *over* the
+  environment, so the operator's file wins and the wrapper's `HOST` is a
+  default, not a guarantee. The template says `HOST=localhost`, which Node 20
+  binds as `::1` only — `curl http://127.0.0.1:3001` gets nothing and
+  `http://localhost:3001` gets 200 — so the launcher opens `localhost`, where
+  a browser tries both families. One edit widens the bind and that is the
+  operator's to make; `API_WRITE_KEY` is the thing to set alongside it. UDP
+  2237 (WSJT-X) binds `0.0.0.0` whatever `HOST` says; only
+  `WSJTX_ENABLED=false` stops it.
+- **The Node floor is 20.19, not 18, and it is a minor.** On the Ubuntu 24.04
+  VM (Node 18.19.1) the build succeeds end to end and the server dies at its
+  first start: `server/routes/satellites.js` does `require('axios-cookiejar-support')`,
+  version 6.0.5 of which is `"type": "module"`, and `require()` of an ES module
+  is Node 20.19+ (`ERR_REQUIRE_ESM` below it). Vite's `engines` range
+  described the bundler, not the server, and `package.json` declares none.
+  `node_min_major: 18` became `node_min_version: "20.19"` — a `MAJOR.MINOR`
+  string, because a major-only floor would admit 20.18 — and the plan-time
+  gate compares both numbers. Ubuntu 24.04 is now refused at plan time by
+  name, which is exactly the outcome D-037 asks for: the requirement is
+  disclosed, and Node is not fetched to meet it.
 
-Not a build problem. These are programs that are never installed anywhere:
-they run from the directory they were unpacked into, because they read fonts,
-databases and configuration from paths relative to themselves.
-
-`supersdr` at tag v3.14 is `supersdr.py` beside `eibi.csv`, two TTF fonts, two
-images and two vendored Python packages, with no `setup.py`, no
-`requirements.txt` and no install rule. `js8spotter` and `mshv` have the same
-shape. `provides_install_target: false` does not help, because what has to be
-installed is a tree and what `binaries` installs is an executable.
-
-Two things are needed together and neither exists: installing a directory to a
-known location, and generating a launcher that runs the program from it. M3
-already counts launcher generation at 14 units; this is what those 14 units
-actually need.
-
-Q-007 resolved on 2026-08-29 to carry `supersdr`. It cannot be written yet for
-this reason and not for the licence one.
-
----
-
-### 9. A venv beside a payload tree — `radiosonde_auto_rx` and `supersdr` — **CLOSED 2026-08-30**
-
-The venv method gained a verified `payload` archive (tree-installed under
-the shared prefix), an optional `payload_build_script` run inside the
-verified tree (auto_rx's C demodulators), and a `{venv}` launcher token
-joining the per-operator venv to the shared tree. Both units carry
-manifests; VM verification queued behind the campaign grind.
-
-The REVIVE table said "standard venv install from the pinned upstream tag",
-and the venv backend now exists — but reading upstream (2026-08-30) shows the
-estimate was short: `auto_rx` is a git clone whose `build.sh` compiles a set
-of C demodulators in-tree, plus a venv for `requirements.txt`, plus a
-`station.cfg` templated from operator values, and it runs in place from the
-clone. That is the git backend with a `custom` build step (a measured zero
-until now), the venv backend, config templating and launcher generation
-composed on one unit. It stays a documented gap rather than getting a
-manifest that pretends any single backend covers it.
-
-`supersdr` joined this class on 2026-08-30, from the other direction: its
-data tree installs fine (`install_tree` closed #8 the same day), but its
-audio dependency does not exist as a Debian package at all —
-`python3-sounddevice` has no candidate on Debian 13, measured by the
-engine's own D-016 refusal on the first install attempt. Run-in-place with
-system python cannot satisfy it; a hash-pinned venv can, but then the app's
-tree and the venv are two halves one install block cannot yet express. Two
-units now demand the same composition, which is the D-014 bar for building
-it.
-
-## What this list is for
-
-Each entry is a feature request with its evidence attached, so that when one is
-built the argument for its shape is already written down and the unit to test
-it against is already named. Nothing here should be implemented because it
-sounds useful; it should be implemented because `linrad` or `mshv` needs it and
-the manifest is waiting.
+All three are in the manifest's `known_problems` and the D-037 amendment.

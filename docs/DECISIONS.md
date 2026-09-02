@@ -2229,11 +2229,11 @@ both the maintainer's:
 
 **Where Node comes from.** The distribution's own `nodejs` and `npm`
 packages, declared as build dependencies like any toolchain, so apt installs
-them inside the transaction and `--dry-run` prints them. Every target's
-archive Node clears Vite 6.4's `^18 || ^20 || >=22` floor today (measured
-2026-09-01: Ubuntu 24.04 18.19, Debian 13 and Parrot 20.19, Ubuntu 26.04
-22.22, Kali 24.19), so the refusal path is for the day one does not — it is
-checked against the archive's candidate, not assumed. NodeSource and every
+them inside the transaction and `--dry-run` prints them. The floor is
+checked against the archive's candidate (or the installed version), never
+assumed — and the first unit needed that check on the first day: see the
+second amendment, where Ubuntu 24.04's 18.19 turned out not to clear it.
+NodeSource and every
 other third-party Node repository are out: that is the third-party-apt-repo
 backend, which is a separate security decision the maintainer has not made.
 
@@ -2254,3 +2254,48 @@ exists to refuse — so the engine names the gap and stops.
 **What this does not decide.** Whether the P.533 propagation WASM
 (upstream's `prebuild` fetches it from a moving tag, skipped here) is carried
 as a pinned artefact. The built-in model serves until an operator asks.
+
+**Amendment, 2026-09-02 — what the loopback bind is and is not.** Written
+while carrying the first unit. The engine's wrapper sets `HOST=127.0.0.1`
+and the schema refuses a manifest that sets `HOST` at all, so the *engine's*
+default is loopback and no catalog entry can widen it. openhamclock's own
+config loader then reads the `.env` it creates beside `server.js` and writes
+every key into the environment over whatever was there — its `.env.example`
+says `HOST=localhost`, so the result is still loopback, but an operator who
+edits that one line to `0.0.0.0` has widened it, and the wrapper does not
+stop them. That is the right split: the engine chooses the safe default and
+the operator's own config file is theirs to change (D-021's shape — disclose,
+do not adjudicate). The manifest's `known_problems` says so, and says the
+other thing `HOST` does not govern: the WSJT-X integration binds UDP 2237 on
+every interface at start, and only `WSJTX_ENABLED=false` in that `.env` stops
+it. Read from `server/config.js` and `server/routes/wsjtx.js` at v26.7.0, not
+assumed from `.env.example`'s comments.
+
+**Second amendment, 2026-09-02 — two claims above were false, and the fixes
+are in the schema.** Both found by installing through the engine and
+measuring, the same day the rule was written.
+
+1. *"The code's own default is every interface"* understated it: v26.7.0
+   ignores `HOST` entirely. `server.js:364` is `app.listen(PORT, '0.0.0.0',
+   ...)`, so with the wrapper's `HOST=127.0.0.1` in force the first real
+   install still showed `00000000:0BB9` in `/proc/net/tcp`. Upstream main
+   has the same line. The fix is one token in one line, so `NodeInstall`
+   gained `patches` — the same `Patch` model the source backend takes,
+   applied after extraction and before the lock-file check, `patch` joining
+   the build dependencies — and the manifest carries the diff with its
+   evidence. With it, and the `.env` loader's `HOST=localhost`, the bind
+   measures `[::1]:3001` only: Node binds `localhost` as IPv6 loopback, so
+   the launcher opens `http://localhost:3001` rather than an IPv4 address.
+   The rule stands; what changed is that the engine's loopback default now
+   *has an effect* on this unit.
+2. *"Every target's archive Node clears the floor"* was read from Vite's
+   `engines` range, which describes the bundler. The server needs
+   `require()` of an ES module (`axios-cookiejar-support` 6.x), which is Node
+   20.19+, and on Ubuntu 24.04's 18.19 the build succeeds and the server
+   dies at first start with `ERR_REQUIRE_ESM`. So the floor is **20.19**,
+   and because it is a minor the schema field became `node_min_version`, a
+   `MAJOR.MINOR` string compared on both numbers — `node_min_major: 20`
+   would have admitted 20.18. Ubuntu 24.04 is now refused at plan time by
+   name. That is the rule working as written: the requirement is disclosed,
+   the refusal is specific, and Node is not fetched to meet it. A floor is
+   measured by running the unit, never read from `engines`.
