@@ -144,7 +144,7 @@ cannot find its own data. It needs the tree installed somewhere and a launcher
 that runs it from there — which is M3's launcher-generation work, and MSHV is
 one of its 14 units.
 
-### 7. A JavaScript build — `openhamclock`
+### 7. A JavaScript build — `openhamclock` — **MEASURED 2026-09-01, awaiting Q-016**
 
 **This one blocks a decision that has already been made.** Q-006 resolved on
 2026-08-29 to default to `accius/openhamclock`, on the strength of its activity
@@ -166,6 +166,48 @@ This is the D-018 and D-025 shape a third time: a decision resting on a
 property nobody verified, which only became decisive when someone tried to act
 on it. Activity and community size were measured correctly. Buildability was
 not measured at all.
+
+**Measured 2026-09-01, on the Debian 13 VM, tag v26.7.0** (tarball sha256
+`0c179ab1cf1e42bddda53933fc0417d18c5b3ff5c09ae9ffa747714670d2c943`), using
+Debian's own `nodejs` 20.19.2 and `npm` 9.2.0 — nothing from NodeSource:
+
+| Step | Result |
+|---|---|
+| `npm ci --ignore-scripts --no-audit --no-fund` | 728 packages, **8 s**, 534 MB. Every one is pinned by a sha512 `integrity` field in `package-lock.json` (797 entries, one per `resolved` URL), and the lock file lives inside the sha256-pinned tarball — so the whole dependency closure is transitively verified from one manifest hash. |
+| `npm run build --ignore-scripts` | Vite 6.4.3 build, **6 s**, `dist/` 11 MB. |
+| `npm prune --omit=dev --ignore-scripts` | Runtime tree **142 MB, 200 packages**. |
+| `node server.js` | HTTP 200 on `:3001` three seconds after start, serving the built dashboard. |
+| Native modules | **None** — no `.node` files, no `binding.gyp` — so `--ignore-scripts` (no third-party lifecycle code ever runs) costs nothing. |
+| Node floor | Vite 6.4 declares `^18 \|\| ^20 \|\| >=22`; every target's archive Node qualifies: Ubuntu 24.04 ships 18.19, Debian 13 and Parrot 20.19, Ubuntu 26.04 22.22, Kali 24.19. |
+
+Three properties the manifest and any backend must handle, all measured:
+
+1. **`prebuild` fetches from a moving tag.** `scripts/fetch-wasm.js` downloads
+   P.533 WASM from the `wasm-latest` GitHub release with a checksum file *from
+   the same release* — self-attested, not a pin. It exits 0 and skips when it
+   cannot, and the server then uses its built-in propagation model ("Standalone
+   mode"). `npm run build --ignore-scripts` suppresses the pre-script, and the
+   build above ran without it. A pinned WASM could be carried later as a
+   verified artefact if the P.533 model matters to an operator.
+2. **It writes into its own directory.** First start creates `.env` from
+   `.env.example` beside `server.js`, and wants a station callsign and
+   locator there (D-035's values). So it installs per-user, the way venv units
+   and `mshv`'s tree do, never under `/opt` or `/usr/local`.
+3. **The code's default bind is `0.0.0.0`.** `server/config.js` falls back to
+   all interfaces when `HOST` is unset (`.env.example` says `localhost`, so a
+   generated `.env` fixes it); it also opens a WSJT-X UDP listener on
+   `0.0.0.0:2237`. A launcher must set `HOST=127.0.0.1` — on a machine that
+   also holds security tooling, a dashboard listening on every interface is not
+   an acceptable default.
+
+The shape that falls out is a `node` build system in the source backend —
+`npm ci` → `npm run build` → `npm prune --omit=dev`, every step with scripts
+ignored — installing the tree per-user with a launcher that runs `node
+server.js` bound to loopback and opens the browser. What it introduces that no
+current build does is **registry access at build time**: 728 tarballs from
+`registry.npmjs.org`, verified by the lock file rather than by a manifest
+`sha256` each. Whether that trade is acceptable on this project's security
+posture is **Q-016**, the maintainer's call, and it is not implemented here.
 
 ### 8. Python run in place, with a data tree — `js8spotter` — **CLOSED 2026-08-30** (supersdr moved to #9)
 

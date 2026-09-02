@@ -762,3 +762,44 @@ disposition; the parity-coverage "owed" denominator stops moving; and the
 retire/no-manifest calls land in `not-carried.md` automatically once the
 dispositions index is updated (the generator refuses to run until the reasons
 follow — that is the drift guard doing its job).
+
+## Q-016 — A `node` build system for openhamclock, or keep hamclock-next as the default?
+
+**Raised 2026-09-01.** Q-006 made `openhamclock` the default HamClock client
+and `docs/reference/source-build-gaps.md` §7 records that it cannot be built
+by any backend we have: it is a Node and Vite web application. On 2026-09-01
+the build was measured end to end on the Debian 13 VM with Debian's own Node
+20 — `npm ci` 8 s, `npm run build` 6 s, runtime tree 142 MB, dashboard served
+three seconds after `node server.js`, no native modules anywhere in the tree.
+Buildability is no longer the unknown; the question is the trade.
+
+**What a `node` build system would be.** Three npm invocations inside the
+source backend, every one with `--ignore-scripts` so no third-party lifecycle
+code runs: `npm ci` (install exactly the lock file), `npm run build` (Vite),
+`npm prune --omit=dev` (drop the toolchain). The tree installs per-user like
+a venv unit; a launcher runs `node server.js` with `HOST=127.0.0.1` — the
+code's own default is every interface — and opens the browser. Station
+values (D-035) template its `.env`.
+
+**What it introduces.** Network access to `registry.npmjs.org` *during a
+build*: 728 tarballs. Verification is real but different in shape from every
+other backend's — each tarball is pinned by a sha512 in `package-lock.json`,
+and the lock file is inside the sha256-pinned source tarball, so the closure
+is transitively verified from one manifest hash. No current build fetches at
+build time except `hamclock-next`'s cmake `FetchContent` of cpp-httplib,
+which is the same property at a smaller scale and was accepted without a
+decision.
+
+| Option | For | Against |
+|---|---|---|
+| **A. Add `node`, carry openhamclock, keep it the default** ⭐ | Honours Q-006 as decided on the merits that still hold (13× the community, actively released — v26.7.0 on 2026-08-31). One unit justifies it, which D-014 permits when the unit is named. Verification chain is complete and `--ignore-scripts` removes the class of attack npm is known for. Measured: 15 s and 142 MB. | A build that talks to a registry is new; 728 packages is a large closure to have vouched for by upstream's lock file rather than by our pins. A backend for one unit. |
+| B. Carry openhamclock, but not as the default | Same build, lower stakes: `propagation` keeps shipping the cmake `hamclock-next` we build offline. | Re-opens Q-006's default, which was decided on community size, not buildability — and buildability is now measured fine. |
+| C. Do not carry; keep `hamclock-next` | No new backend, no registry access. | Discards the decided default and the client 13× more people use; the profile keeps explaining an absence. |
+
+**Recommendation: A.** The security objection was to *unverified* fetching
+and to lifecycle scripts; both are answered by the lock file's integrity
+pins and `--ignore-scripts`, and the tree has no native modules so nothing
+is lost. The launcher's loopback bind is non-negotiable and belongs in the
+backend, not the manifest. If A: also decide whether the P.533 WASM (fetched
+by upstream's `prebuild` from a moving tag, skipped here) is carried as a
+pinned artefact or left to the built-in model.
