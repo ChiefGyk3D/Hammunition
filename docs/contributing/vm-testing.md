@@ -49,6 +49,79 @@ findings about the gap, not bugs, until that decision is made.
   the dev machine; a VM on the dev machine's hypervisor is a separate,
   disposable system and is exactly the sanctioned shape.
 
+## Provisioning from a cloud image — no ISO, no console, no host root
+
+The Ubuntu guests (24.04 and 26.04, 2026-09-01) were built this way, and it
+is the fastest route to a new rung: about ten minutes from download to
+`clean-baseline`, entirely from a shell, without ever opening a graphical
+installer. It needs `virt-install` 4.0+ and a libvirt account that can talk
+to `qemu:///system` — but not write access to the storage pool directory,
+because every volume operation goes through the daemon.
+
+1. **Download the cloud image and verify it.** Ubuntu publishes
+   `SHA256SUMS` next to every image; check it, and record the digest you
+   matched in the campaign notes — a cloud image is executable content and
+   the same rule applies to it as to every artifact the catalog pins.
+2. **Create the volume through the pool, then upload and grow it.** The
+   default pool lives under `/var/lib/libvirt/images/`, which an ordinary
+   account cannot write; the daemon can:
+
+   ```sh
+   virsh -c qemu:///system vol-create-as default ubuntu2604_dev.qcow2 40G --format qcow2
+   virsh -c qemu:///system vol-upload --pool default ubuntu2604_dev.qcow2 resolute-server-cloudimg-amd64.img
+   virsh -c qemu:///system vol-resize --pool default ubuntu2604_dev.qcow2 40G
+   ```
+
+   `vol-upload` replaces the volume's contents with the image and shrinks
+   it to the image's virtual size; the `vol-resize` afterwards is what
+   gives the guest its 40 GB, and cloud-init grows the root filesystem
+   into it on first boot.
+3. **Write the cloud-init seed.** A `user-data` declaring the dev account
+   (in `sudo`, `dialout`, `plugdev`; `NOPASSWD` sudo is what the campaign
+   script's `--yes` runs rely on), its SSH public key, `ssh_pwauth`,
+   `package_update`/`package_upgrade`, and `packages:
+   [openssh-server, python3-venv, git, rsync]`; a `meta-data` with an
+   `instance-id` and `local-hostname`. Keep the seed **outside the repo**
+   — it carries a password hash. Two more lines earn their place in
+   `runcmd`: mask `sleep.target suspend.target hibernate.target
+   hybrid-sleep.target` so a campaign that runs overnight is not suspended
+   halfway, and `touch` a sentinel file so a poll can tell "booted" from
+   "cloud-init finished".
+4. **Import, then wait on the sentinel, not the boot.**
+
+   ```sh
+   virt-install --connect qemu:///system --name ubuntu2604_dev \
+       --memory 4096 --vcpus 4 --import \
+       --disk vol=default/ubuntu2604_dev.qcow2,format=qcow2,bus=virtio \
+       --osinfo ubuntu24.04 --network network=default,model=virtio \
+       --cloud-init user-data=./user-data,meta-data=./meta-data \
+       --graphics none --noautoconsole
+   ```
+
+   `--osinfo ubuntu24.04` is the newest Ubuntu the host's osinfo database
+   knew about; it only tunes virtual hardware defaults, and the guest is
+   still 26.04. `--graphics none`: the console lane is a later, separate
+   check, and a cloud image has no desktop yet anyway. The first boot runs
+   `package_upgrade`, which on a fresh image is a few minutes; the sentinel
+   from step 3 is what to wait for.
+5. **Detach the seed before baselining.** `virt-install` attaches the
+   cloud-init seed as a CD-ROM, and `scripts/vm-snapshot.sh baseline`
+   refuses a domain with an ISO attached by design (an attached image is
+   state the snapshot would silently depend on):
+
+   ```sh
+   virsh -c qemu:///system detach-disk ubuntu2604_dev sda --persistent
+   ```
+
+   Then the ordinary baseline checklist below — engine venv, SSH alias,
+   `clean-baseline` — applies unchanged.
+
+**Sizing note, measured.** A 4 GB guest with **no swap** is what a cloud
+image gives you, and a four-job C++ build of a Qt application was OOM-killed
+on one (js8call, 2026-09-01) while passing on a 4 GB Debian guest with 3 GB
+of swap. The engine now sizes parallelism to memory plus swap; a guest for
+build campaigns still wants either 8 GB or a swap file.
+
 ## The snapshot discipline
 
 `scripts/vm-snapshot.sh` wraps virsh; `docs` here, mechanism there. The loop
