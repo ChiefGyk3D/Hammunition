@@ -720,7 +720,16 @@ def cmd_install(args: argparse.Namespace) -> int:
     # exit code of 0 from apt-get or gpasswd is not evidence the package landed
     # or the membership took, and transaction_end is the record uninstall will
     # trust.
-    report = execute(commands, runner, log=log, plan=plan, echo=print, euid=euid, prober=apt)
+    report = execute(
+        commands,
+        runner,
+        log=log,
+        plan=plan,
+        echo=print,
+        euid=euid,
+        prober=apt,
+        prefix=source.prefix,
+    )
     if log.ownership_error:
         # Not fatal — the commands ran — but not silent either. A log the
         # operator cannot append to fails on their next run instead of this one.

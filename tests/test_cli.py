@@ -310,6 +310,75 @@ def test_a_membership_absent_from_the_group_db_is_a_discrepancy() -> None:
     assert present.ok
 
 
+def _built_plan(tmp_path: Path) -> InstallPlan:
+    """A git unit declaring one binary, planned against a fake target."""
+    manifest = PackageManifest.model_validate(
+        {
+            "name": "builtish",
+            "version": "1.0",
+            "summary": "A build that declares what it installs",
+            "categories": ["digital-modes"],
+            "install": [
+                {
+                    "install": {
+                        "method": "git",
+                        "repo": "https://example.invalid/builtish",
+                        "ref": "v1.0",
+                        "build_system": "cmake",
+                    }
+                }
+            ],
+            "binaries": [{"produced": "Builtish", "install_as": "builtish"}],
+            "update": {"probe": {"method": "none"}},
+            "documentation": {
+                "what_it_does": "Stands in for a source build.",
+                "why_you_want_it": "To prove the effect check looks for its binary.",
+                "upstream_url": "https://example.invalid/",
+            },
+        }
+    )
+    return InstallPlan(
+        target=TARGET,
+        packages=(PlannedPackage(manifest=manifest, block=manifest.install[0], apt_packages=()),),
+    )
+
+
+def test_a_declared_binary_that_was_never_installed_is_unconfirmed(tmp_path: Path) -> None:
+    """js8call's `cmake --install` has no rule for its executable: it exits 0,
+    writes an empty install manifest, and four targets reported the unit
+    confirmed with no /usr/local/bin/js8call. The check is the file."""
+    verification = verify_effects(_built_plan(tmp_path), None, prefix=tmp_path / "p")
+    assert not verification.ok
+    (check,) = verification.discrepancies
+    assert check.kind == "binary"
+    assert check.subject == "builtish:builtish"
+    assert (
+        "no executable at" in check.detail
+        and str(tmp_path / "p" / "bin" / "builtish") in check.detail
+    )
+
+
+def test_a_declared_binary_present_and_executable_is_confirmed(tmp_path: Path) -> None:
+    binary = tmp_path / "p" / "bin" / "builtish"
+    binary.parent.mkdir(parents=True)
+    binary.write_text("#!/bin/sh\n")
+    not_executable = verify_effects(_built_plan(tmp_path), None, prefix=tmp_path / "p")
+    assert not not_executable.ok, (
+        "a file that cannot be run is not the binary the manifest promised"
+    )
+    binary.chmod(0o755)
+    verification = verify_effects(_built_plan(tmp_path), None, prefix=tmp_path / "p")
+    assert verification.ok
+    assert verification.confirmed[0].kind == "binary"
+
+
+def test_without_a_prefix_binaries_are_an_unasked_question(tmp_path: Path) -> None:
+    """Symmetry with the prober: no prefix means the built half is absent from
+    the checks, not reported as failed."""
+    verification = verify_effects(_built_plan(tmp_path), None)
+    assert verification.checks == ()
+
+
 def test_execute_records_the_effect_check_in_transaction_end(tmp_path: Path) -> None:
     """The verdict lands in transaction_end — the record uninstall will trust —
     not only in the return value."""

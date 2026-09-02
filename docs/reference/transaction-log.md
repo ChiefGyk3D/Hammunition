@@ -69,7 +69,8 @@ Every command exiting 0 is **not** taken as evidence the machine changed:
 quietly refused, and `gpasswd` exits 0 whether or not the membership took. So
 after the last command completes, the run re-reads each claimed effect from the
 same source resolution used — `apt-cache policy` for a package, the group
-database for a membership — and records the confirmed state here.
+database for a membership, the filesystem for a build's declared binary — and
+records the confirmed state here.
 
 ```json
 {
@@ -80,7 +81,8 @@ database for a membership — and records the confirmed state here.
   "verified": true,
   "checks": [
     {"kind": "package", "subject": "js8call", "confirmed": true, "detail": "installed 2.2.0+ds1-1"},
-    {"kind": "group", "subject": "op:dialout", "confirmed": true, "detail": "membership present in the group database"}
+    {"kind": "group", "subject": "op:dialout", "confirmed": true, "detail": "membership present in the group database"},
+    {"kind": "binary", "subject": "fldigi:fldigi", "confirmed": true, "detail": "executable at /usr/local/bin/fldigi"}
   ]
 }
 ```
@@ -88,10 +90,18 @@ database for a membership — and records the confirmed state here.
 | Field | Meaning |
 |---|---|
 | `verified` | `true` only when every check is confirmed. A completed run with `verified: false` exited 1 and named what did not take. |
-| `checks[].kind` | `package`, `group`, or `verification` (the last when the re-probe itself could not run). |
-| `checks[].subject` | The package name, or `user:group`. |
+| `checks[].kind` | `package`, `group`, `binary`, or `verification` (the last when the re-probe itself could not run). |
+| `checks[].subject` | The package name, `user:group`, or `unit:install_as` for a binary a source, git or non-deb binary unit declares. |
 | `checks[].confirmed` | Whether the effect is actually present now, not whether the command exited 0. |
 | `checks[].detail` | What was found — the installed version, or why it could not be confirmed. |
+
+A `binary` check exists because a build's install step is the exit code that
+lies most quietly: js8call v3.0.3's `CMakeLists.txt` has no install rule for
+its executable, so `cmake --install` exits 0, writes an empty
+`install_manifest.txt`, and installs nothing — and four targets had recorded the
+unit `verified: true` on the strength of its build dependencies alone
+(2026-09-02). The check is `<prefix>/bin/<install_as>` existing and being
+executable, for every entry in the manifest's `binaries`.
 
 `uninstall` will trust this record over an exit code: a package recorded
 `confirmed: false` was never actually installed and must not be "removed". A

@@ -441,6 +441,52 @@ def test_a_project_with_no_install_rule_installs_its_declared_binaries(tmp_path:
     assert last.argv[-2].endswith("/src/Coily")
 
 
+def test_a_cmake_project_with_no_install_rule_copies_from_its_build_dir(tmp_path: Path) -> None:
+    """cmake builds out of tree, so what it emits is in the build directory,
+    not the source tree. js8call v3.0.3 has no install rule for its executable
+    -- `cmake --install` exits 0 and writes an empty install manifest -- and
+    the copy has to look where cmake actually wrote JS8Call (2026-09-02)."""
+    manifest = PackageManifest.model_validate(
+        {
+            "name": "js8ish",
+            "version": "3.0.3",
+            "summary": "A cmake project whose CMakeLists has no install rule",
+            "categories": ["digital-modes"],
+            "install": [
+                {
+                    "install": {
+                        "method": "source",
+                        "source": {"url": "https://example.invalid/j.tar.gz", "sha256": "0" * 64},
+                        "build_system": "cmake",
+                        "provides_install_target": False,
+                    }
+                }
+            ],
+            "binaries": [{"produced": "JS8ish", "install_as": "js8ish"}],
+            "update": {"probe": {"method": "none"}},
+            "documentation": {
+                "what_it_does": "Stands in for a cmake project with no install rule.",
+                "why_you_want_it": "Because js8call is one.",
+                "upstream_url": "https://example.invalid/",
+            },
+        }
+    )
+    backend = SourceBackend(
+        Fetcher(tmp_path / "cache"), build_root=tmp_path / "b", prefix=tmp_path / "p", jobs=2
+    )
+    block = manifest.install[0].install
+    assert isinstance(block, SourceInstall)
+    commands = backend._build_commands(manifest, block, backend.layout(manifest, block))
+
+    assert not any("--install" in c.argv for c in commands), "cmake --install would install nothing"
+    last = commands[-1]
+    assert last.argv[0] == "install"
+    assert last.argv[-1].endswith("/p/bin/js8ish")
+    assert last.argv[-2].endswith("/build/JS8ish"), (
+        "looked in the source tree, where cmake never writes"
+    )
+
+
 def test_declaring_no_install_target_without_binaries_is_refused() -> None:
     """Otherwise the build succeeds and installs nothing -- a silent success,
     which is the failure mode this project keeps writing checks against."""

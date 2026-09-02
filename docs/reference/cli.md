@@ -520,9 +520,12 @@ the plan says so rather than redirecting in silence.
 exit 0 having installed nothing a held or broken package quietly refused, and
 `gpasswd` exits 0 whether or not the membership took (**D-031**). So after every
 command has completed the run **re-reads** what it claimed to change — from the
-same sources resolution used pre-flight, `apt-cache policy` for a package and
-the group database for a membership — and records the confirmed state, not the
-exit code, in `transaction_end`. That is the record `uninstall` will trust, and
+same sources resolution used pre-flight, `apt-cache policy` for a package,
+the group database for a membership, and the filesystem for every binary a
+source, git or binary unit declares (`<prefix>/bin/<install_as>` must exist and
+be executable — js8call's `cmake --install` exits 0 and installs nothing, and
+was recorded confirmed on four targets before this check existed) — and
+records the confirmed state, not the exit code, in `transaction_end`. That is the record `uninstall` will trust, and
 it must not say "installed" on the strength of a return value. A completed run
 whose effect cannot be confirmed prints exactly what did not take and exits 1;
 its log entry carries `verified: false`.

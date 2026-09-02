@@ -427,7 +427,7 @@ def _compiler_env(compiler_flags: Sequence[str]) -> dict[str, str]:
 def install_binary_commands(
     *,
     name: str,
-    layout: SourceLayout,
+    produced_in: Path,
     prefix: Path,
     binaries: Sequence[Binary],
 ) -> list[Command]:
@@ -441,6 +441,12 @@ def install_binary_commands(
     answer and it is what makes the `binaries` field mean something rather than
     being documentation.
 
+    ``produced_in`` is the directory the build emits into -- cmake's
+    out-of-tree build directory, the source tree for everything else, and the
+    extracted tree for a binary archive. It was the source tree unconditionally
+    until js8call, a cmake build with no install rule, needed this path and
+    would have looked for ``JS8Call`` where cmake never writes it (2026-09-02).
+
     `install -D` creates the target directory, so no separate mkdir is needed.
     """
     return [
@@ -450,7 +456,7 @@ def install_binary_commands(
                 "-D",
                 "-m",
                 "0755",
-                str(layout.src / binary.produced),
+                str(produced_in / binary.produced),
                 str(prefix / "bin" / binary.install_as),
             ),
             description=f"Install {name}'s {binary.produced} as {binary.install_as}",
@@ -580,7 +586,12 @@ def build_commands(
     # instead of a `make install` that would fail. The schema refuses the
     # combination of no-install-target and no declared binaries.
     explicit = (
-        install_binary_commands(name=name, layout=layout, prefix=prefix, binaries=binaries)
+        install_binary_commands(
+            name=name,
+            produced_in=layout.build if build_system == "cmake" else layout.src,
+            prefix=prefix,
+            binaries=binaries,
+        )
         if not provides_install_target
         else None
     )

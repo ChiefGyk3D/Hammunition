@@ -205,7 +205,7 @@ collision impossible instead of choreographed.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `produced` | `str` | **yes** | Path the build emits, relative to build dir. |
+| `produced` | `str` | **yes** | Path the build emits, relative to the directory it builds in: cmake's out-of-tree build directory, the source tree for the rest. |
 | `install_as` | `str` | **yes** | Final name in the install prefix. |
 
 ### `Launcher`

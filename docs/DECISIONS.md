@@ -2141,3 +2141,48 @@ DE's own copies are untouched (D-022). Still open: a source build's entries
 could be placed too, from cmake's `install_manifest.txt` where one exists;
 and the menu files are not yet in the transaction log, so `uninstall` does
 not remove them — both named here rather than left to be rediscovered.
+
+## D-031 addendum, 2026-09-02 — the effect check now covers what a build installs
+
+**The finding.** `js8call` was recorded `verified: true` on Parrot, Debian,
+Kali and Ubuntu 26.04 — a full-catalog pass on each — and none of the four
+has a `/usr/local/bin/js8call`. JS8Call-improved v3.0.3's `CMakeLists.txt`
+has no install rule for its executable (the only `install()` is in
+`resources/debian/CMakeLists.txt`, which nothing adds as a subdirectory), so
+`cmake --install` exits 0, writes an empty `install_manifest.txt`, and
+installs nothing. Every command in the transaction exited 0, and the effect
+check re-read apt for the build dependencies and found them present. It
+never asked whether the thing the operator wanted existed, because it had no
+check for a built artefact at all — the D-031 shape exactly, one layer up
+from the `sed` and `dpkg-deb` cases the decision was written from.
+
+**The check.** `transaction_end` gains a `binary` kind: for every source,
+git and non-`.deb` binary unit in the plan, each `binaries` entry must be an
+executable at `<prefix>/bin/<install_as>` after the run. A `.deb`'s contents
+are apt's to place and apt is asked about them; a venv's entry points are
+wrappers in the operator's `~/.local/bin`, a different mechanism with its
+own removal check.
+
+**What it found on the first pass, before any VM was touched.** Two of the
+26 manifests that declare `binaries` would have failed it. `js8call`, above,
+needed `provides_install_target: false` — and that path then needed fixing
+too, because the explicit copy looked for the build's output in the *source*
+tree, where cmake never writes it; every unit that had used the path so far
+was an in-tree qmake or make build, so nothing had noticed. `ais-catcher`
+declared `install_as: ais-catcher` while its own install rule places
+`AIS-catcher`, the name the manifest's launcher already execs. The `binaries`
+field on a unit whose build installs itself is documentation, and this is the
+check that makes documentation have to be true: `install_as` now has to say
+what the install rule does. Both rebuilt and confirmed on a VM the same
+night. Of the other 24 declarations, 23 match what the three full-catalog
+VMs hold in `/usr/local/bin`, and the 24th (`nanovna-saver`'s
+`NanoVNASaver`) belongs to its ARM-only binary block and is absent from all
+three x86 VMs as it should be — the x86 block is a venv, which the check
+does not read.
+
+**Still not covered.** A build that installs itself under the name it
+declares but is broken at runtime; and a unit that declares no `binaries`
+at all, which this check cannot see — the schema does not require the field,
+so a source unit with none is trusted on its install step's exit code as
+before. The `m5-parity-verified.md` counts predate this check; they are
+build-dependency counts for source units until re-run.

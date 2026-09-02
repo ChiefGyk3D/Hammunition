@@ -111,6 +111,18 @@ target; `noaa-apt` retired; and `wsjtx-improved` refusing to collide with the
   (`ID_LIKE`), but `distro: ubuntu` selectors will not match its `ID=pop` — a
   declare-the-target decision waits on those VMs. `dump1090-mutability` and
   `fbb` are expected to close there.
+- **"Confirmed" for a source build meant its build dependencies until
+  2026-09-02.** The effect check re-read apt and the group database only; a
+  build whose install step exited 0 having installed nothing passed. It
+  happened: `js8call` v3.0.3 has no cmake install rule and was recorded
+  confirmed on all three targets here with no `/usr/local/bin/js8call` on any
+  of them. The check now demands an executable at `<prefix>/bin/<install_as>`
+  for every declared binary (D-031 addendum), and a comparison of every
+  declaration against the three VMs' `/usr/local/bin` found exactly that one
+  unit missing and one misnamed (`ais-catcher`), both fixed and rebuilt. The
+  counts above stand for apt units; for source units they are counts of
+  builds whose install step exited 0, until the next full pass re-runs them
+  under the stronger check.
 - **GUI launch and hardware** are console/passthrough-lane checks, not part of
   this install-success evidence; they are tracked separately.
 - **Consent-gated profiles** (`rf-security`, `rf-research`) were not campaigned

@@ -28,7 +28,7 @@ An RTL-SDR or similar receiver and a VHF marine-band antenna. You must be within
 
 Binaries this produces:
 
-- `AIS-catcher` → `ais-catcher`
+- `AIS-catcher`
 
 ## Known problems
 

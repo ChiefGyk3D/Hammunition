@@ -554,7 +554,16 @@ class Binary(Strict):
     collision impossible instead of choreographed.
     """
 
-    produced: str = Field(description="Path the build emits, relative to build dir.")
+    produced: str = Field(
+        description=(
+            "Path the build emits, relative to the directory it builds in: "
+            "cmake's out-of-tree build directory, the source tree for the rest."
+        )
+    )
+    """With `provides_install_target` this is documentation and the install
+    rule decides the name; `install_as` must then match what the rule installs
+    (AIS-catcher's rule installs `AIS-catcher`, whatever the manifest says),
+    because the post-run effect check looks for `<prefix>/bin/<install_as>`."""
     install_as: str = Field(description="Final name in the install prefix.")
 
 

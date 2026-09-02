@@ -34,9 +34,13 @@ install:
       the whole set before anything is installed. AHRL's approach hides them
       inside a downloaded script.
 
+# The build's own install rule places it, under upstream's name -- which is
+# what the launcher below execs. This declaration said `ais-catcher` while
+# /usr/local/bin held `AIS-catcher`; it has to say what the rule does,
+# because the post-run effect check looks for it (2026-09-02).
 binaries:
   - produced: AIS-catcher
-    install_as: ais-catcher
+    install_as: AIS-catcher
 
 service_endpoints:
   - name: webmap

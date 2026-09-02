@@ -7,20 +7,28 @@ summary: Weak-signal keyboard-to-keyboard messaging built on the FT8 modem
 categories: [digital-modes]
 
 # SHAPE 1 — the method itself varies, not merely its argument.
-# Linux Mint 22.3 ships Qt 6.4.2; JS8Call 2.5.2 requires Qt 6.5. On that one
-# target we take the older repository build; everywhere else we build from
-# source. AHRL expresses this with an inverted shell test that is always false
-# (see D-013); here it is a selector.
+# Linux Mint 22.3 ships Qt 6.4.2; JS8Call requires Qt 6.5. On that target we
+# take the older repository build; everywhere else we build from source. AHRL
+# expresses this with an inverted shell test that is always false (see D-013);
+# here it is a selector.
+#
+# Mint 22.3 is built on Ubuntu 24.04, and Ubuntu 24.04 has the same Qt 6.4.2:
+# the git build's cmake configure refused it ("Could not find a configuration
+# file for package Qt6 compatible with requested version 6.5", measured on the
+# Ubuntu 24.04 VM, 2026-09-01). The selector named the derivative and not the
+# base it inherits the problem from. Pop!_OS 24.04 shares the base and is
+# named on the same evidence.
 install:
   - when:
-      distro: [linuxmint]
-      distro_version: ["22.3"]
+      distro: [linuxmint, ubuntu, pop]
+      distro_version: ["22.3", "24.04"]
     install:
       method: apt
       packages: [js8call]
     note: >-
-      Mint 22.3 has Qt 6.4.2 and JS8Call 2.5.2 needs Qt 6.5. The repository
-      version is older but it runs.
+      Ubuntu 24.04, and Mint 22.3 and Pop!_OS 24.04 on top of it, have
+      Qt 6.4.2 and JS8Call 3.x needs Qt 6.5. The repository's 2.2.0 is older
+      but it runs. Everywhere else builds the current release from source.
 
   - install:
       # The 2.5.2-era release tarballs are gone: upstream is at v3.0.3 and its
@@ -32,6 +40,14 @@ install:
       repo: https://github.com/JS8Call-improved/JS8Call-improved
       ref: "v3.0.3"
       build_system: cmake
+      # v3.0.3's CMakeLists.txt has no install rule for the executable -- the
+      # only install() is in resources/debian/CMakeLists.txt, which nothing
+      # adds as a subdirectory -- so `cmake --install` exits 0, writes an empty
+      # install_manifest.txt, and installs nothing. Four targets had reported
+      # js8call "confirmed" with no /usr/local/bin/js8call before the effect
+      # check learned to look for declared binaries (measured Ubuntu 26.04,
+      # 2026-09-02; absent on Parrot after its full-catalog pass too).
+      provides_install_target: false
     build_depends:
       - qt6-multimedia-dev
       - qt6-serialport-dev

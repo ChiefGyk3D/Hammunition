@@ -23,10 +23,11 @@ Rig control via hamlib or flrig, and correctly routed sound-card audio between t
 
 ## How it installs
 
-- apt: `js8call` — *on linuxmint; version 22.3*
-  - Mint 22.3 has Qt 6.4.2 and JS8Call 2.5.2 needs Qt 6.5. The repository version is older but it runs.
+- apt: `js8call` — *on linuxmint, ubuntu, pop; version 22.3, 24.04*
+  - Ubuntu 24.04, and Mint 22.3 and Pop!_OS 24.04 on top of it, have Qt 6.4.2 and JS8Call 3.x needs Qt 6.5. The repository's 2.2.0 is older but it runs. Everywhere else builds the current release from source.
 - git (cmake) — https://github.com/JS8Call-improved/JS8Call-improved at `v3.0.3`
   - build dependencies: `qt6-multimedia-dev`, `qt6-serialport-dev`, `qt6-tools-dev`, `libboost-dev`, `libfftw3-dev`, `libhamlib-dev`, `gfortran`, `cmake`, `build-essential`
+  - the project's build system has no install rule; the binaries listed below are copied into the prefix instead
 
 Binaries this produces:
 

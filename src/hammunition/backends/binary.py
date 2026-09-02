@@ -159,7 +159,7 @@ class BinaryBackend:
             steps.extend(
                 install_binary_commands(
                     name=manifest.name,
-                    layout=layout,
+                    produced_in=layout.src,
                     prefix=self.prefix,
                     binaries=manifest.binaries,
                 )

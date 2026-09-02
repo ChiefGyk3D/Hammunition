@@ -44,7 +44,13 @@ from hammunition.backends import (
 )
 from hammunition.distro import Target
 from hammunition.launchers import launcher_steps
-from hammunition.manifest.schema import BinaryInstall, GitInstall, SourceInstall, VenvInstall
+from hammunition.manifest.schema import (
+    BinaryInstall,
+    GitInstall,
+    InstallBlock,
+    SourceInstall,
+    VenvInstall,
+)
 from hammunition.plan import InstallPlan
 from hammunition.state import RemovalPlan, TransactionLog
 
@@ -75,6 +81,19 @@ class PackageProber(Protocol):
     """
 
     def probe(self, packages: Sequence[str]) -> dict[str, AptPackageState]: ...
+
+
+def _declares_installed_binaries(block: InstallBlock) -> bool:
+    """Whether a block's `binaries` name files the run puts at ``<prefix>/bin``.
+
+    True of source and git builds, and of binary units other than a ``.deb``
+    (whose contents apt places and apt is asked about). A venv's entry points
+    are wrappers in the operator's ``~/.local/bin`` and are not `binaries`.
+    """
+    method = block.install
+    if isinstance(method, SourceInstall | GitInstall):
+        return True
+    return isinstance(method, BinaryInstall) and method.format != "deb"
 
 
 def user_groups(user: str) -> frozenset[str]:
@@ -421,6 +440,7 @@ def verify_effects(
     prober: PackageProber | None,
     *,
     group_lookup: Callable[[str], frozenset[str]] = user_groups,
+    prefix: Path | None = None,
 ) -> Verification:
     """Read back whether the transaction's stated effects actually hold.
 
@@ -433,9 +453,38 @@ def verify_effects(
 
     The package half needs ``prober``; without one, only group memberships are
     checked. Packages are then simply absent from ``checks`` rather than
-    reported as failures — an unasked question, not a failed one.
+    reported as failures — an unasked question, not a failed one. Likewise the
+    built half needs ``prefix``: every source, git and non-deb binary unit that
+    declares ``binaries`` is checked for an executable at
+    ``<prefix>/bin/<install_as>``. Added the night js8call was found "confirmed"
+    on four targets with nothing installed: its ``cmake --install`` has no
+    rule for the executable, exits 0, and writes an empty install manifest.
     """
     checks: list[EffectCheck] = []
+
+    if prefix is not None:
+        for planned in plan.packages:
+            if not _declares_installed_binaries(planned.block):
+                continue
+            for binary in planned.manifest.binaries:
+                path = prefix / "bin" / binary.install_as
+                present = path.is_file() and os.access(path, os.X_OK)
+                checks.append(
+                    EffectCheck(
+                        kind="binary",
+                        subject=f"{planned.name}:{binary.install_as}",
+                        confirmed=present,
+                        detail=(
+                            f"executable at {path}"
+                            if present
+                            else (
+                                f"the install step exited 0 but there is no executable at "
+                                f"{path} -- the build has no install rule for it, or installs "
+                                f"it under another name"
+                            )
+                        ),
+                    )
+                )
 
     wanted = plan.apt_to_install
     if wanted and prober is not None:
@@ -508,6 +557,7 @@ def execute(
     euid: int | None = None,
     prober: PackageProber | None = None,
     group_lookup: Callable[[str], frozenset[str]] = user_groups,
+    prefix: Path | None = None,
 ) -> ExecutionReport:
     """Run every command, stopping at the first failure.
 
@@ -525,7 +575,9 @@ def execute(
     and its result is recorded in ``transaction_end`` — the record ``uninstall``
     will trust, which must not say "installed" on the strength of an exit code
     alone. Group memberships are always re-read from ``group_lookup``; the
-    package half needs the prober, so omitting it verifies groups only.
+    package half needs the prober, so omitting it verifies groups only, and
+    the built half needs ``prefix`` -- the install prefix whose ``bin`` every
+    declared binary must be found under.
     """
     write = echo if echo is not None else (lambda _line: None)
     shown_as = os.geteuid() if euid is None else euid
@@ -648,9 +700,9 @@ def execute(
     # changed. Re-read the effects from the same sources resolution used, and
     # let the confirmed state -- not the exit code -- be what the log records.
     verification: Verification | None = None
-    if prober is not None or plan.group_memberships:
+    if prober is not None or plan.group_memberships or prefix is not None:
         try:
-            verification = verify_effects(plan, prober, group_lookup=group_lookup)
+            verification = verify_effects(plan, prober, group_lookup=group_lookup, prefix=prefix)
         except BackendError as exc:
             # The re-probe itself failed -- apt worked for the install a moment
             # ago and does not now. That is not "the package is missing"; it is
