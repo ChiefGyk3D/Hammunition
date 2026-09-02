@@ -87,7 +87,7 @@ def test_commands_are_ordered_preseed_then_install_then_reconfigure() -> None:
         debconf_selections=["wireshark-common wireshark-common/install-setuid boolean true"],
         reconfigure_after=["wireshark-common"],
     )
-    apt = AptBackend(RecordingRunner([]))
+    apt = AptBackend(RecordingRunner())
     commands = commands_for(plan_for(m), apt=apt, refresh=False)
     argv0s = [c.argv[0] for c in commands if isinstance(c, Command)]
     assert argv0s[:3] == ["debconf-set-selections", "apt-get", "dpkg-reconfigure"]
@@ -102,7 +102,7 @@ def test_commands_are_ordered_preseed_then_install_then_reconfigure() -> None:
 
 
 def test_no_preseed_command_without_selections() -> None:
-    apt = AptBackend(RecordingRunner([]))
+    apt = AptBackend(RecordingRunner())
     commands = commands_for(plan_for(manifest("plain")), apt=apt, refresh=False)
     assert not any(
         isinstance(c, Command) and c.argv[0] == "debconf-set-selections" for c in commands
