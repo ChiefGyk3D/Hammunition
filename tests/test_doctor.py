@@ -10,7 +10,10 @@ value of the command.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+
+import pytest
 
 from hammunition.doctor import Check, run_checks, summarize, writable_or_creatable
 
@@ -90,6 +93,10 @@ def test_a_state_dir_whose_ancestors_do_not_exist_yet_is_creatable(tmp_path: Pat
     assert writable_or_creatable(tmp_path / ".local" / "state" / "hammunition")
 
 
+@pytest.mark.skipif(
+    os.geteuid() == 0,
+    reason="root writes through a 0o500 directory; the CI containers run the suite as root",
+)
 def test_a_state_dir_under_a_readonly_ancestor_is_not(tmp_path: Path) -> None:
     locked = tmp_path / "locked"
     locked.mkdir()

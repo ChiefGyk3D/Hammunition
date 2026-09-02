@@ -13,7 +13,7 @@ so its own install-success rate is **86 of 95 (90.5%)**.
 
 This is the evidence, gathered by `scripts/vm_campaign.py` across three live
 VMs — Parrot OS 7.3 (primary), Debian 13, Kali rolling — on 2026-08-30, engine
-at the v0.5.0 line. It is not a claim from resolution; every "confirmed" below
+at the v0.5.0 line, and extended to Ubuntu 24.04 and 26.04 on 2026-09-02. It is not a claim from resolution; every "confirmed" below
 is the engine's own D-031 bar: the command completed *and* a re-probe found the
 effect.
 
@@ -42,7 +42,7 @@ verified installing on a supported distro — comfortably past AHRL's 90.5%.
    states the backend and stops — CLAUDE.md's no-shim rule.
 2. **Absent from that archive.** `cqrlog`/`cwdaemon` on Kali,
    `dump1090-mutability`/`fbb` on the three targets here (both are Ubuntu/Mint
-   packages — verifiable once those VMs exist). The capability matrix records
+   packages — closed on the Ubuntu VMs on 2026-09-02, below). The capability matrix records
    these; they are facts about a distribution, not about the catalog.
 3. **Tested-and-retired verdict.** `noaa-apt` carries `status: retired` with
    provenance (the NOAA APT satellites went out of service 2025-11-09) and is
@@ -105,12 +105,58 @@ Kali's; `code`/`codium` waiting on the third-party-repo backend;
 target; `noaa-apt` retired; and `wsjtx-improved` refusing to collide with the
 `wsjtx` installed earlier in the same pass.
 
+## Ubuntu 24.04 and 26.04 — the whole catalog, one pass each (2026-09-02)
+
+Two Ubuntu VMs were provisioned on 2026-09-01 (`docs/contributing/vm-testing.md`
+records how) and the same 242-unit pass run on each overnight, engine at
+`3efff4a`, from a clean install. Ubuntu 24.04 is not a declared target: it is
+here because Pop!_OS 24.04 and Linux Mint 22.3 draw on its archive, so it
+stands in for both until a Pop VM exists. 4 GB and no swap on each, so the
+memory-sized job count built every source unit with **one** compiler job.
+
+| Target | Installed + confirmed | Refused at plan time | Hard failures |
+|---|---:|---:|---:|
+| Ubuntu 24.04 | **224** | 18 | **0** |
+| Ubuntu 26.04 | **233** | 9 | **0** |
+
+`dump1090-mutability` and `fbb` — the two units none of the three earlier
+archives carried — installed and confirmed on both, as did `cqrlog` and
+`cwdaemon` that Kali lacks. Every unit in the catalog that any target's
+archive offers has now installed on at least one target.
+
+The pass itself filed three non-zero results, none of them a build defect:
+
+- `js8call` on **24.04**: the git build's cmake configure refused Qt 6.4.2
+  (JS8Call needs 6.5). Ubuntu 24.04 has the same Qt as the Mint 22.3 the
+  manifest already selected the repository package for; the selector now
+  names Ubuntu 24.04 and Pop!_OS 24.04 alongside it, and the apt block
+  installed and confirmed (2.2.0) on the VM.
+- `js8call` on **26.04**: built, and the pass recorded it confirmed the way the
+  caveat below describes — with no executable installed. Rebuilt under the
+  binary effect check after the no-install-rule fix; see the count above.
+- `qlog` on **26.04**: filed as failed at the campaign harness's 900 s budget.
+  The single-job compile ran on unobserved to a verified `transaction_end` at
+  1032 s. The harness now enforces its budget on the VM and files a stop as a
+  stop, not a failure (`scripts/vm_campaign.py`); the count above includes it.
+
+Refusals per target: 24.04 has ten units absent from noble's archive that
+26.04 carries (`gtk-meshtastic-client`, `m2kcli`, `mlat-client-adsbfi`,
+`odr-audioenc`, `python3-meshtastic`, `pythonprop`, `readsb`, `rtl-ais`,
+`satdump`, `voacapl`) — the capability matrix's Mint 22.3 column, measured
+again from the archive it is built on — plus `sdrangel` (whose 24.04 `.deb`
+depends on a PPA's UHD; the 26.04 `.deb` is carried and installed) and
+`wsjtx-improved` refusing to collide with `wsjtx`. 26.04 adds `gr-gsm` and
+`soapysdr-module-rfspace`, absent from its archive. Both share the standing
+classes: `code`/`codium` waiting on the third-party-repo backend,
+`arduino-cli`/`soapysdr-module-plutosdr` declaring no block for the target,
+`aethersdr` absent, and `noaa-apt` retired.
+
 ## Caveats, stated
 
-- **Two targets remain unrun:** Ubuntu and Pop!_OS. The engine permits Pop
-  (`ID_LIKE`), but `distro: ubuntu` selectors will not match its `ID=pop` — a
-  declare-the-target decision waits on those VMs. `dump1090-mutability` and
-  `fbb` are expected to close there.
+- **Pop!_OS remains unrun.** The engine permits Pop (`ID_LIKE`), but
+  `distro: ubuntu` selectors will not match its `ID=pop` — a
+  declare-the-target decision waits on that VM. Its archive is Ubuntu
+  24.04's, which the pass above covers.
 - **"Confirmed" for a source build meant its build dependencies until
   2026-09-02.** The effect check re-read apt and the group database only; a
   build whose install step exited 0 having installed nothing passed. It
@@ -135,5 +181,5 @@ target; `noaa-apt` retired; and `wsjtx-improved` refusing to collide with the
 The M5 install-success exit criterion is **met**: every installable unit is
 verified on a supported target, the fraction beats AHRL's own, and the only
 non-installs are documented refusals in three honest classes. The remaining
-1.0 work (Ubuntu/Pop declaration, GUI/hardware verification, the maintainer's
+1.0 work (the Pop!_OS declaration, GUI/hardware verification, the maintainer's
 open decisions) is tracked elsewhere and does not bear on this criterion.
