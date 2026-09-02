@@ -69,12 +69,15 @@ from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
 from hammunition.manifest.schema import (
     AptInstall,
     BinaryInstall,
+    GitInstall,
     PackageManifest,
     ProfileManifest,
+    SourceInstall,
     Status,
+    VenvInstall,
 )
 from hammunition.paths import applications_dir, build_root, user_bin_dir, venv_root
-from hammunition.plan import InstallPlan, PlanError, resolve
+from hammunition.plan import InstallPlan, PlanError, PlannedPackage, resolve
 from hammunition.state import (
     RemovalError,
     RemovalPaths,
@@ -150,6 +153,25 @@ def load_all(
 # ---------------------------------------------------------------------------
 
 
+def _plan_state(planned: PlannedPackage) -> str:
+    """What the plan will do to this unit, in two words.
+
+    "already installed" is apt's answer and only apt's: it means every apt
+    package the block names is present. A source or binary unit's apt list is
+    its build dependencies, or nothing at all, so for those it was saying
+    "already installed" one line above a build -- sdrangel's .deb block on
+    the Ubuntu 26.04 VM read that way (2026-09-02).
+    """
+    method = planned.block.install
+    if isinstance(method, AptInstall):
+        return "already installed" if not planned.outstanding else "will install"
+    if isinstance(method, SourceInstall | GitInstall):
+        return "will build"
+    if isinstance(method, VenvInstall):
+        return "will install"  # into its own venv, reported by the venv step
+    return "will fetch+install"
+
+
 def render_plan(
     plan: InstallPlan,
     commands: Sequence[Step],
@@ -179,8 +201,7 @@ def render_plan(
         lines.append(f"Packages ({len(plan.packages)}):")
         for planned in plan.packages:
             why = ", ".join(planned.requested_by)
-            state = "already installed" if not planned.outstanding else "will install"
-            lines.append(f"  {planned.name:<28} {state:<18} [{why}]")
+            lines.append(f"  {planned.name:<28} {_plan_state(planned):<18} [{why}]")
             for apt_package in planned.apt_packages:
                 mark = "+" if apt_package in planned.outstanding else "="
                 # A build dependency is installed like any other apt package but

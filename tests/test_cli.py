@@ -1049,3 +1049,15 @@ def test_skip_is_always_an_answer(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     assert extra == []
     assert any("skipped by choice" in n for n in notes)
+
+
+def test_plan_state_says_will_build_for_a_source_unit_with_no_apt_work(tmp_path: Path) -> None:
+    """ "already installed" is apt's answer and only apt's. A git unit whose
+    apt list is empty (or whose build deps are all present) is about to be
+    built, and the summary line must say so -- sdrangel's .deb block read
+    "already installed" one line above its fetch and install (2026-09-02)."""
+    plan = _built_plan(tmp_path)
+    text = "\n".join(render_plan(plan, (), euid=1000))
+    assert "builtish" in text
+    assert "will build" in text
+    assert "already installed" not in text
