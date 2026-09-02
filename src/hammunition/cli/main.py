@@ -1322,9 +1322,10 @@ def build_parser() -> argparse.ArgumentParser:
         prog="hammunition",
         description="Turn a Debian-family install into an amateur radio, SDR and RF workstation.",
         epilog=(
-            "Alpha. The apt, source, git and binary backends exist and the "
+            "Alpha. The apt, source, git, binary and venv backends exist; the "
             "install/configure/remove cycle is VM-verified on Parrot, Kali and "
-            "Debian 13; a package needing venv, pipx or CPAN is refused by name."
+            "Debian 13 across the whole catalog. A package needing a third-party "
+            "apt repository, pipx or CPAN is refused by name."
         ),
     )
     parser.add_argument(
@@ -1393,7 +1394,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_install.set_defaults(func=cmd_install)
 
     p_uninstall = sub.add_parser(
-        "uninstall", help="remove what Hammunition itself installed (apt only, D-004)"
+        "uninstall", help="remove what Hammunition itself installed, by backend (D-004)"
     )
     p_uninstall.add_argument("names", nargs="+", metavar="NAME", help="package or profile names")
     p_uninstall.add_argument(

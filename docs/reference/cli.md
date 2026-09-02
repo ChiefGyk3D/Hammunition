@@ -5,7 +5,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # CLI reference
 
-The `hammunition` command, at **v0.2.0 (alpha)**. Five backends are
+The `hammunition` command, at **v0.7.0 (alpha)**. Five backends are
 implemented: **apt**, **source**, **git**, **binary** and **venv** (per-user
 virtualenvs, hash-pinned end to end with `pip --require-hashes`). pipx and
 CPAN re-measured to zero users and left the 1.0 list (D-014 amendment,
