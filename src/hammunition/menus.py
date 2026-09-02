@@ -50,16 +50,78 @@ __all__ = [
     "Category",
     "DesktopIdLister",
     "MenuPaths",
+    "MenuPrefixError",
     "Placement",
     "gnome_commands",
     "menu_steps",
     "place_installed_entries",
     "render_directory",
     "render_menu",
+    "resolve_menu_prefix",
+    "root_menu_prefixes",
 ]
 
 MENU_NAME = "Ham Radio"
 GNOME_FOLDER = "HamRadio"
+
+
+class MenuPrefixError(Exception):
+    """The merged file's name could not be decided, so nothing was written."""
+
+
+def root_menu_prefixes(config_dirs: Iterable[Path]) -> list[str]:
+    """Every ``<prefix>`` for which a ``<prefix>applications.menu`` root exists.
+
+    The root menus a machine carries are the measurement of which DEs can
+    read a merged file: each is a ``menus/<prefix>applications.menu`` under
+    ``$XDG_CONFIG_DIRS`` and merges ``<prefix>applications-merged/`` and
+    nothing else. Measured 2026-09-02: no machine in the VM set nor the
+    maintainer's laptop has a bare ``applications.menu``; Parrot has four
+    prefixed roots (``kf5-``, ``mate-``, ``plasma-``, ``xfce-``), Debian and
+    the laptop ``gnome-``, Kali ``xfce-``, a server image none.
+    """
+    found: dict[str, None] = {}
+    for config_dir in config_dirs:
+        for root in sorted((config_dir / "menus").glob("*applications.menu")):
+            found[root.name[: -len("applications.menu")]] = None
+    return list(found)
+
+
+def resolve_menu_prefix(
+    explicit: str | None,
+    environment: str | None,
+    config_dirs: Iterable[Path],
+) -> str:
+    """Decide which root menu the merged file is for -- or refuse.
+
+    An explicit ``--menu-prefix`` wins, then the session's
+    ``$XDG_MENU_PREFIX``. With neither -- ``sudo``, a shell older than the
+    login, plain SSH -- the empty prefix used to be written and merged into
+    nothing on every measured machine, silently. Now the installed root
+    menus decide: exactly one prefixed root means that one; a bare root and
+    no prefixed ones means the empty prefix; several means a refusal that
+    names them, because guessing which desktop the operator logs into is
+    how a menu gets written for the one they do not.
+    """
+    if explicit is not None:
+        return explicit
+    if environment:
+        return environment
+    prefixes = root_menu_prefixes(config_dirs)
+    if len(prefixes) == 1:
+        return prefixes[0]
+    if not prefixes:
+        raise MenuPrefixError(
+            "no root menu found (no <prefix>applications.menu under "
+            + ", ".join(str(d / "menus") for d in config_dirs)
+            + ") -- there is no menu to merge into on this machine"
+        )
+    listed = ", ".join(f"--menu-prefix {p!r}" for p in prefixes)
+    raise MenuPrefixError(
+        "$XDG_MENU_PREFIX is not set and this machine has "
+        f"{len(prefixes)} root menus -- run this inside your desktop session, "
+        f"or say which one: {listed}"
+    )
 
 
 @dataclass(frozen=True)

@@ -15,11 +15,14 @@ from hammunition.menus import (
     Category,
     DesktopIdLister,
     MenuPaths,
+    MenuPrefixError,
     Placement,
     gnome_commands,
     menu_steps,
     place_installed_entries,
     render_menu,
+    resolve_menu_prefix,
+    root_menu_prefixes,
 )
 
 CATS = [
@@ -236,3 +239,52 @@ def test_desktop_entries_carry_the_catalog_marker_categories(tmp_path: Path) -> 
     entry = desktop_entry(m, m.launchers[0], tmp_path / "bin" / "markable")
     assert "X-Hammunition-packet" in entry
     assert "X-Hammunition-sdr" in entry
+
+
+# ---------------------------------------------------------------------------
+# Which root menu the merged file is for
+# ---------------------------------------------------------------------------
+
+
+def _roots(tmp_path: Path, *names: str) -> Path:
+    menus = tmp_path / "xdg" / "menus"
+    menus.mkdir(parents=True)
+    for name in names:
+        (menus / f"{name}applications.menu").write_text("<Menu/>\n")
+    return tmp_path / "xdg"
+
+
+def test_the_installed_root_menus_are_the_prefixes(tmp_path: Path) -> None:
+    """Parrot carries four; the maintainer's laptop and Debian one; a server none."""
+    xdg = _roots(tmp_path, "kf5-", "mate-", "plasma-", "xfce-")
+    assert root_menu_prefixes([xdg]) == ["kf5-", "mate-", "plasma-", "xfce-"]
+    assert root_menu_prefixes([_roots(tmp_path / "srv")]) == []
+
+
+def test_an_explicit_prefix_wins_then_the_session_then_the_one_root(tmp_path: Path) -> None:
+    xdg = _roots(tmp_path, "gnome-")
+    assert resolve_menu_prefix("plasma-", "xfce-", [xdg]) == "plasma-"
+    assert resolve_menu_prefix(None, "xfce-", [xdg]) == "xfce-"
+    assert resolve_menu_prefix(None, None, [xdg]) == "gnome-"
+    assert resolve_menu_prefix(None, "", [xdg]) == "gnome-", "an empty variable is unset"
+    assert resolve_menu_prefix("", None, [xdg]) == "", "an explicit empty prefix is a choice"
+
+
+def test_several_root_menus_and_no_session_variable_is_a_refusal_that_names_them(
+    tmp_path: Path,
+) -> None:
+    """The empty prefix used to be written here and merged into nothing on
+    every measured machine. Guessing which of Parrot's four desktops the
+    operator logs into writes the menu for the ones they do not."""
+    xdg = _roots(tmp_path, "plasma-", "xfce-")
+    with pytest.raises(MenuPrefixError, match=r"--menu-prefix 'plasma-'.*--menu-prefix 'xfce-'"):
+        resolve_menu_prefix(None, None, [xdg])
+
+
+def test_no_root_menu_at_all_is_a_refusal(tmp_path: Path) -> None:
+    with pytest.raises(MenuPrefixError, match="no root menu"):
+        resolve_menu_prefix(None, None, [_roots(tmp_path)])
+
+
+def test_a_bare_root_menu_means_the_empty_prefix(tmp_path: Path) -> None:
+    assert resolve_menu_prefix(None, None, [_roots(tmp_path, "")]) == ""

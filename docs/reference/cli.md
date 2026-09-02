@@ -146,7 +146,7 @@ install is (**D-031**): apt is re-probed, every removed artifact path is
 re-checked absent, and the run is only reported clean when both confirm. A
 removal apt quietly declined exits 1 with `verified: false` in the log.
 
-### `hammunition menus apply [--gnome]`
+### `hammunition menus apply [--gnome] [--menu-prefix PREFIX]`
 
 Writes the curated **Ham Radio** desktop-menu layer (**D-036**), generated
 from the catalog's own category vocabulary — one taxonomy, no second list.
@@ -164,8 +164,16 @@ Two mechanisms, both per-user and unprivileged:
   `make install` entry under `/usr/local`, for one — is gathered at the
   tree's top level rather than left scattered through Internet and
   Multimedia. The DE's own copies of every entry are untouched (D-022).
-  Honours `$XDG_MENU_PREFIX`, because a merged file that does not match the
-  root menu's name merges nothing, silently.
+  **Which root menu it merges into is decided, never guessed:**
+  `--menu-prefix` wins, then the session's `$XDG_MENU_PREFIX`, then the
+  root menus installed under `$XDG_CONFIG_DIRS/menus/` — exactly one
+  `<prefix>applications.menu` means that one. With several and no session
+  variable (bare SSH, `sudo`, a shell older than the login) it **refuses and
+  names them**: Parrot carries four (`kf5-`, `mate-`, `plasma-`, `xfce-`),
+  and a merged file that does not match the root menu's name merges nothing,
+  silently. That silence was measured: no machine in the VM set nor the
+  maintainer's laptop has a bare `applications.menu`, so every run made
+  without the variable had written a file nothing read (2026-09-02).
 - **GNOME:** an app-folder named *Ham Radio* populated by
   `categories=['HamRadio']` — no app list to maintain — plus the same
   measured entries unioned into its `apps` list, for the ones a
@@ -178,7 +186,10 @@ Two mechanisms, both per-user and unprivileged:
 Measured on the Kali VM's Xfce tree (2026-09-01) with a full catalog
 installed: 73 desktop entries from installed packages, placed 130 times;
 parsed back with gnome-menus' spec implementation, every one under its
-submenu. Run it once after installing anything with a desktop entry; menus
+submenu. Measured again on the Parrot VM's Plasma root menu
+(`--menu-prefix plasma-`, 2026-09-02): 74 entries placed by manifest, parsed
+back as 25 populated submenus with 11 source-built entries gathered at the
+top. Run it once after installing anything with a desktop entry; menus
 refresh on next login. COSMIC is the measured-later third mechanism (D-036
 addendum).
 

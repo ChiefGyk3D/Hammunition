@@ -935,9 +935,11 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
     from hammunition.menus import (
         Category,
         MenuPaths,
+        MenuPrefixError,
         gnome_commands,
         menu_steps,
         place_installed_entries,
+        resolve_menu_prefix,
     )
 
     catalog_root = find_catalog(args.catalog)
@@ -954,7 +956,16 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
         directories_dir=Path(os.environ.get("XDG_DATA_HOME") or home / ".local" / "share")
         / "desktop-directories",
     )
-    prefix = os.environ.get("XDG_MENU_PREFIX", "")
+    config_dirs = [
+        Path(d) for d in (os.environ.get("XDG_CONFIG_DIRS") or "/etc/xdg").split(":") if d
+    ]
+    try:
+        prefix = resolve_menu_prefix(
+            args.menu_prefix, os.environ.get("XDG_MENU_PREFIX"), config_dirs
+        )
+    except MenuPrefixError as exc:
+        print(f"Refusing to write a menu that nothing would read: {exc}", file=sys.stderr)
+        return EXIT_FAILED
     steps = menu_steps(categories, paths, menu_prefix=prefix, placement=placement)
 
     desktop = os.environ.get("XDG_CURRENT_DESKTOP", "")
@@ -1444,6 +1455,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_menus_apply.add_argument(
         "--gnome", action="store_true", help="apply the GNOME app-folder even if undetected"
+    )
+    p_menus_apply.add_argument(
+        "--menu-prefix",
+        default=None,
+        metavar="PREFIX",
+        help=(
+            "which root menu to merge into (plasma-, xfce-, gnome-, ...); default "
+            "$XDG_MENU_PREFIX, else the one root menu installed, else refuse"
+        ),
     )
     p_menus_apply.set_defaults(func=cmd_menus_apply)
 

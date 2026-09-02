@@ -2186,3 +2186,24 @@ at all, which this check cannot see — the schema does not require the field,
 so a source unit with none is trusted on its install step's exit code as
 before. The `m5-parity-verified.md` counts predate this check; they are
 build-dependency counts for source units until re-run.
+
+## D-036 addendum, 2026-09-02 — the merged file's name is decided from the machine, or refused
+
+`menus apply` took the merged file's prefix from `$XDG_MENU_PREFIX` and
+wrote `applications-merged/hammunition.menu` when the variable was unset.
+Measured across every machine to hand — the four VMs and the maintainer's
+laptop — **none has a bare `applications.menu`**: Parrot's `/etc/xdg/menus`
+holds `kf5-`, `mate-`, `plasma-` and `xfce-` roots, Debian and the laptop
+`gnome-`, Kali `xfce-`, the Ubuntu server images none. So every run made
+over SSH, under `sudo`, or from a shell older than the login had written a
+file no root menu merges, and reported success. The Debian "71 apps,
+idempotent" measurement in the previous addendum was the GNOME gsettings
+half; its file half had merged into nothing.
+
+Now: an explicit `--menu-prefix`, else the session variable, else the one
+prefixed root installed, else a refusal naming the candidates. Guessing
+between Parrot's four would write the menu for the desktops the operator
+does not log into. Verified on Parrot: the bare-SSH run refuses and lists
+the four; `--menu-prefix plasma-` writes a file gnome-menus' spec parser
+reads back from `plasma-applications.menu` as 25 populated submenus with
+the source-built entries gathered at the top.
