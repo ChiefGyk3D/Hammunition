@@ -362,7 +362,7 @@ them happens.
   $ [extract] ~/.cache/hammunition/artifacts/06aad6fa…-glfer-0.4.2.tar.gz -> ~/.cache/hammunition/build/glfer-06aad6fa/src
   # Configure glfer
   $ cd ~/.cache/hammunition/build/glfer-06aad6fa/src && CFLAGS='-Wno-incompatible-pointer-types …' ./configure --prefix=/usr/local
-  # Compile glfer
+  # Compile glfer (8 parallel jobs; sized to CPUs and memory)
   $ cd ~/.cache/hammunition/build/glfer-06aad6fa/src && CFLAGS='…' make -j 8
   # Install glfer into /usr/local
   $ cd ~/.cache/hammunition/build/glfer-06aad6fa/src && sudo make install
@@ -402,6 +402,14 @@ artifact declaring them is digest-pinned rather than signed, and the plan says s
 **Build systems:** `cmake`, `autotools`, `qmake` and `make`, which is what the
 catalog uses (6 / 2 / 2 / 2). `custom` is a measured zero and is refused by name
 (**D-014**).
+
+**Parallelism is sized to memory, not only to CPUs:** one job per CPU, capped
+at one per 2 GiB of RAM plus swap, never below one. `-j$(nproc)` assumes the
+machine was sized for it; JS8Call's Qt sources were OOM-killed at four jobs on
+a 3.9 GB guest without swap and built at four on the same guest with 3 GB of
+swap (2026-09-01), and a four-core Raspberry Pi with 4 GB is the same shape.
+The job count is in the compile step's comment, so a slow build on a small
+machine is explained before it starts.
 
 ## How a prebuilt binary is installed
 

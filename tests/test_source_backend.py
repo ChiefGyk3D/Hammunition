@@ -605,3 +605,41 @@ def test_extraction_trusts_magic_bytes_over_the_filename(tmp_path: Path) -> None
     outcome = extract(nameless, dest)
     assert (dest / "file.txt").read_text() == "data\n"
     assert "unpacked 1 entries" in outcome
+
+
+# --- parallelism is sized to memory, not only to CPUs -----------------------
+
+
+def _meminfo(tmp_path: Path, mem_kib: int, swap_kib: int) -> Path:
+    p = tmp_path / "meminfo"
+    p.write_text(
+        f"MemTotal:       {mem_kib} kB\nMemFree:        1 kB\n"
+        f"SwapTotal:      {swap_kib} kB\nSwapFree:       0 kB\n"
+    )
+    return p
+
+
+def test_jobs_are_capped_by_memory_plus_swap(tmp_path: Path) -> None:
+    """The js8call measurement, 2026-09-01: four jobs were OOM-killed on a
+    3.9 GB guest without swap and completed on one with 3 GB of swap."""
+    from hammunition.backends.source import default_jobs
+
+    no_swap = _meminfo(tmp_path, mem_kib=4_004_000, swap_kib=0)
+    assert default_jobs(cpu_count=4, meminfo=no_swap) == 1
+    swapped = _meminfo(tmp_path, mem_kib=4_004_000, swap_kib=3_244_000)
+    assert default_jobs(cpu_count=4, meminfo=swapped) == 3
+
+
+def test_a_well_provisioned_machine_keeps_one_job_per_cpu(tmp_path: Path) -> None:
+    from hammunition.backends.source import default_jobs
+
+    big = _meminfo(tmp_path, mem_kib=32 * 1024 * 1024, swap_kib=0)
+    assert default_jobs(cpu_count=8, meminfo=big) == 8
+
+
+def test_jobs_never_drop_below_one_and_survive_a_missing_meminfo(tmp_path: Path) -> None:
+    from hammunition.backends.source import default_jobs
+
+    tiny = _meminfo(tmp_path, mem_kib=512 * 1024, swap_kib=0)
+    assert default_jobs(cpu_count=4, meminfo=tiny) == 1
+    assert default_jobs(cpu_count=4, meminfo=tmp_path / "absent") == 4

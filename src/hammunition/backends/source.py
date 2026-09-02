@@ -63,10 +63,12 @@ from .base import Action, BackendError, Command
 
 __all__ = [
     "DEFAULT_PREFIX",
+    "GIB_PER_JOB",
     "IMPLEMENTED_BUILD_SYSTEMS",
     "SourceBackend",
     "SourceLayout",
     "build_commands",
+    "default_jobs",
     "extract",
     "install_binary_commands",
     "needs_root_for",
@@ -85,6 +87,37 @@ DEFAULT_PREFIX = Path("/usr/local")
 IMPLEMENTED_BUILD_SYSTEMS = frozenset({"autotools", "cmake", "qmake", "qmake6", "make"})
 
 _TAR_SUFFIXES = (".tar.gz", ".tgz", ".tar.bz2", ".tbz2", ".tbz", ".tar.xz", ".txz", ".tar")
+
+
+#: Memory budget per parallel compiler job. JS8Call's Qt translation units
+#: were OOM-killed at four jobs on a 3.9 GB guest with no swap (Ubuntu 26.04
+#: cloud image, 2026-09-01) and built at four on a 3.9 GB guest with 3 GB of
+#: swap — so the budget counts swap, and 2 GiB is the round number between.
+GIB_PER_JOB = 2 * 1024**3
+
+
+def default_jobs(cpu_count: int | None = None, meminfo: Path = Path("/proc/meminfo")) -> int:
+    """Parallel build jobs: one per CPU, capped at one per :data:`GIB_PER_JOB`
+    of memory plus swap, never below one.
+
+    A build tool's ``-j$(nproc)`` assumes the machine was sized for it. A
+    Raspberry Pi with four cores and 4 GB is not, and neither is a cloud image
+    with no swap; the kernel then kills the compiler mid-file and the failure
+    reads as a broken unit rather than an oversubscribed one.
+    """
+    cpus = cpu_count if cpu_count is not None else (os.cpu_count() or 1)
+    try:
+        fields = dict(
+            (line.split(":")[0], int(line.split()[1]) * 1024)
+            for line in meminfo.read_text().splitlines()
+            if line.startswith(("MemTotal:", "SwapTotal:"))
+        )
+    except (OSError, ValueError, IndexError):
+        return cpus
+    budget = fields.get("MemTotal", 0) + fields.get("SwapTotal", 0)
+    if not budget:
+        return cpus
+    return max(1, min(cpus, budget // GIB_PER_JOB))
 
 
 @dataclass(frozen=True)
@@ -264,7 +297,7 @@ class SourceBackend:
         self.fetcher = fetcher
         self.build_root = build_root
         self.prefix = prefix
-        self.jobs = jobs if jobs is not None else (os.cpu_count() or 1)
+        self.jobs = jobs if jobs is not None else default_jobs()
 
     def layout(self, manifest: PackageManifest, block: SourceInstall) -> SourceLayout:
         """Where this package builds. Pure — touches no disk, so the plan can
@@ -582,7 +615,7 @@ def build_commands(
             ),
             Command(
                 argv=("cmake", "--build", str(layout.build), "--parallel", jobs_arg),
-                description=f"Compile {name}",
+                description=f"Compile {name} ({jobs} parallel {'job' if jobs == 1 else 'jobs'}; sized to CPUs and memory)",
                 env=env,
             ),
             *(
@@ -623,7 +656,7 @@ def build_commands(
                 # ./configure then `make xlinrad64` -- a bare make prints usage
                 # and stops).
                 argv=("make", "-j", jobs_arg, *build_args),
-                description=f"Compile {name}",
+                description=f"Compile {name} ({jobs} parallel {'job' if jobs == 1 else 'jobs'}; sized to CPUs and memory)",
                 env=env,
                 cwd=layout.src,
             ),
@@ -663,7 +696,7 @@ def build_commands(
                 # ./configure then `make xlinrad64` -- a bare make prints usage
                 # and stops).
                 argv=("make", "-j", jobs_arg, *build_args),
-                description=f"Compile {name}",
+                description=f"Compile {name} ({jobs} parallel {'job' if jobs == 1 else 'jobs'}; sized to CPUs and memory)",
                 env=env,
                 cwd=layout.src,
             ),
@@ -685,7 +718,7 @@ def build_commands(
     return [
         Command(
             argv=("make", "-j", jobs_arg, *build_args),
-            description=f"Compile {name}",
+            description=f"Compile {name} ({jobs} parallel {'job' if jobs == 1 else 'jobs'}; sized to CPUs and memory)",
             env=env,
             cwd=layout.src,
         ),
