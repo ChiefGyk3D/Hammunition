@@ -18,7 +18,7 @@ package does not exist. The sweep is what separates those.
 |---|---|
 | `apt` | Resolves to an apt block **and every package has a candidate**. |
 | `apt ✗` | Resolves to apt, and at least one package is **not in that archive**. Listed below. |
-| `source` / `git` | Resolves to a build. Declared, not verified here — see below. |
+| `source` / `git` / `binary` / `venv` / `node` | Resolves to a build. Declared, not verified here — see below. |
 | `—` | No install block resolves. The manifest does not claim this target. |
 | `apt ?` | Resolves to apt and this target was not swept. |
 
@@ -35,14 +35,14 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 176 | 17 | 47 | 2 | 0 |
-| ubuntu-26.04 | 177 | 15 | 48 | 2 | 0 |
-| kali-rolling | 181 | 17 | 44 | 0 | 0 |
-| parrot | 179 | 15 | 46 | 2 | 0 |
-| linuxmint-22.3 | 170 | 24 | 46 | 2 | 0 |
-| debian-13-arm64 | 175 | 18 | 44 | 5 | 0 |
+| debian-13 | 176 | 17 | 48 | 2 | 0 |
+| ubuntu-26.04 | 177 | 15 | 49 | 2 | 0 |
+| kali-rolling | 181 | 17 | 45 | 0 | 0 |
+| parrot | 179 | 15 | 47 | 2 | 0 |
+| linuxmint-22.3 | 170 | 24 | 47 | 2 | 0 |
+| debian-13-arm64 | 175 | 18 | 45 | 5 | 0 |
 
-**242 manifests** against **6 targets**.
+**243 manifests** against **6 targets**.
 
 ---
 
@@ -310,6 +310,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `odr-dabmux` | apt | apt | apt | apt | apt | apt |
 | `odr-padenc` | apt | apt | apt | apt | apt | apt |
 | `openfpgaloader` | apt | apt | apt | apt | apt | apt |
+| `openhamclock` | node | node | node | node | node | node |
 | `openocd` | apt | apt | apt | apt | apt | apt |
 | `osmo-sdr` | apt | apt | apt | apt | apt | apt |
 | `pat` | apt | apt | apt | apt | apt | apt |

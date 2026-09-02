@@ -1,0 +1,179 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: openhamclock
+version: "26.7.0"
+summary: Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites
+categories: [hf-propagation]
+
+# The first `node` unit in the catalog, and the one that justified the backend
+# (D-037, closing Q-016). Q-006 chose this as the default HamClock client on
+# community size and activity; source-build-gaps #7 then found nobody had
+# checked how it builds. It is a Node and Vite web application, not the C++
+# program the original was, and its releases publish no binary.
+#
+# Everything the build fetches is pinned: the tarball by the sha256 below, and
+# the 728-package dependency closure by the sha512 integrity fields in the
+# package-lock.json inside that tarball. Every npm step runs with
+# --ignore-scripts, so no third-party package executes during the build --
+# which also skips upstream's `prebuild`, a fetch of P.533 WASM from a moving
+# GitHub tag with a self-attested checksum. Without it the server runs its
+# built-in propagation model ("Standalone mode"). Measured 2026-09-02 on the
+# Debian 13 VM through this engine: 15 s, 181 MB installed tree, HTTP 200.
+
+install:
+  - install:
+      method: node
+      artifact:
+        url: https://github.com/accius/openhamclock/archive/refs/tags/v26.7.0.tar.gz
+        sha256: 0c179ab1cf1e42bddda53933fc0417d18c5b3ff5c09ae9ffa747714670d2c943
+      # Not 18, whatever Vite's `^18 || ^20 || >=22` says. Measured on the
+      # Ubuntu 24.04 VM (Node 18.19.1): the build succeeds, `npm ci` takes the
+      # lock file, and the server dies at start with ERR_REQUIRE_ESM --
+      # server/routes/satellites.js `require()`s axios-cookiejar-support 6.0.5,
+      # which is ESM-only, and require() of an ES module is Node >= 20.19.
+      # Debian 13 and Parrot ship 20.19.2 and run it; Ubuntu 24.04 is refused
+      # at plan time, by name, and that is the disclosure D-037 asks for.
+      node_min_version: "20.19"
+      entry: server.js
+      build_script: build
+      build_output: dist
+      # The server, headless, on PATH. The launcher below is `openhamclock`;
+      # the two cannot share a name because both land in ~/.local/bin.
+      command: openhamclock-server
+      # The launcher opens this address, so the port is pinned here to keep
+      # the two in agreement. See known_problems for what .env can change.
+      env:
+        PORT: "3001"
+      patches:
+        - file: server.js
+          description: >-
+            v26.7.0 reads HOST from the environment and its .env, prints it in
+            the startup banner, and then calls `app.listen(PORT, '0.0.0.0')`
+            regardless -- so the dashboard, with its unauthenticated write
+            API, listens on every interface whatever HOST says. Measured on
+            the Debian 13 VM (`/proc/net/tcp` showed `00000000:0BB9`), not
+            read from the comments in .env.example, which say the opposite.
+            Upstream main has the same line at 2026-09-02. One token makes
+            the documented setting true; the D-037 loopback default and the
+            operator's own HOST choice both depend on it.
+          unified_diff: |
+            --- a/server.js
+            +++ b/server.js
+            @@ -361,7 +361,7 @@
+             });
+             
+             // ── Start server ──
+            -app.listen(PORT, '0.0.0.0', () => {
+            +app.listen(PORT, HOST, () => {
+               console.log('');
+               console.log('╔═══════════════════════════════════════════════════════╗');
+               console.log('║                                                       ║');
+    build_depends:
+      - nodejs
+      - npm
+      - patch
+    note: >-
+      Needs Node.js 20.19 or newer from the distribution's own `nodejs` package
+      — the engine never fetches Node from NodeSource or nodejs.org, and
+      refuses at plan time when the archive's Node is absent or too old.
+      Ubuntu 24.04's 18.19 is too old: it builds, then the server dies at start
+      (ERR_REQUIRE_ESM; measured 2026-09-02), so that target is refused. The
+      build downloads its dependency closure from registry.npmjs.org, verified
+      against the lock file. Built and run 2026-09-02 on Debian 13 (Node
+      20.19.2, npm 9.2).
+
+launchers:
+  - name: openhamclock
+    # {node} is the engine's openhamclock-server wrapper, which starts the
+    # server bound to loopback; this waits for it and opens the dashboard.
+    # `localhost`, not 127.0.0.1: the .env upstream generates says
+    # HOST=localhost, which Node 20 binds as ::1 only (measured), and a
+    # browser asked for localhost tries both families.
+    # Ctrl-C in the terminal stops it.
+    exec: '{node} & sleep 3; xdg-open http://localhost:3001; wait'
+    terminal: true
+
+update:
+  probe:
+    method: github_release
+    repo: accius/openhamclock
+  strategy: rebuild
+  cadence_hint: >-
+    Upstream releases monthly, on the first Tuesday (its CHANGELOG says so;
+    the changelog itself is frozen and release notes live on GitHub). A
+    rebuild keeps the operator's .env.
+
+documentation:
+  what_it_does: >-
+    Serves a live station dashboard in your browser: a world map with the
+    grey line, solar and geomagnetic indices, band-condition predictions, DX
+    cluster and POTA spots, satellite passes, and live decodes from WSJT-X on
+    the same machine. It is the community's continuation of HamClock after its
+    author became a Silent Key in January 2026, rewritten as a web application
+    so it runs on anything with a browser — a shack PC, a Pi driving a wall
+    display, or a phone on the same network if you choose to allow that.
+  why_you_want_it: >-
+    It is the at-a-glance answer to "which band should I be on right now", and
+    the more active of the two maintained HamClock successors by a wide margin
+    (Q-006). The alternative is `hamclock-next`, an SDL2 rewrite that keeps the
+    original's look and runs as an ordinary desktop program with no Node
+    involved; both are carried, and `propagation` ships this one as the
+    default.
+  prerequisites: >-
+    **Node.js 20.19 or newer from your distribution** — `hammunition` installs
+    `nodejs` and `npm` from the archive and refuses, naming the version, if
+    what is offered is too old. Debian 13 and Parrot ship 20.19 and Ubuntu
+    26.04 ships 22.22; **Ubuntu 24.04 ships 18.19 and is refused** — the
+    server needs `require()` of an ES module, which arrived in 20.19, and on
+    18 it builds and then dies at its first start (measured). The engine will
+    not fetch a newer Node for you (D-037); on 24.04 the answer is
+    `hamclock-next`, or a newer release of the distribution.
+    **A network connection at install time**: the build fetches about 730
+    packages from registry.npmjs.org, each checked against the lock file that
+    arrives inside the sha256-verified source archive; nothing else is
+    fetched and no package's install scripts run. After installing, **edit
+    `~/.local/share/hammunition/node/openhamclock/.env`** and set `CALLSIGN`
+    and `LOCATOR` — the first start creates that file from upstream's example
+    with `N0CALL` and `FN31` in it, and the dashboard is centred on the wrong
+    hemisphere until you do. A reinstall or update keeps your `.env`. The
+    engine does not fill those values in yet (station config, D-035, is
+    absolute-path config files only so far); this is a hand step and the
+    profile says so.
+  known_problems: >-
+    **Upstream ignores its own `HOST` setting, so this build patches one
+    line.** v26.7.0 reads `HOST`, prints it, and then listens on `0.0.0.0`
+    anyway — measured, not assumed — which would put a dashboard with an
+    open write API on every interface of a machine that may also carry
+    security tooling. The patch makes `app.listen` use `HOST`, and it is in
+    the manifest for review. With it, the bind is whatever `.env` says:
+    the wrapper sets `HOST=127.0.0.1` but openhamclock's own `.env` loader
+    overrides the environment, and the `.env` it generates says
+    `HOST=localhost`, which Node binds as `::1` — loopback either way, and
+    why the launcher opens `http://localhost:3001` rather than an IPv4
+    address. Set `HOST=0.0.0.0` in `.env` and the dashboard is reachable from
+    your whole network, which is what you want for a wall display and not
+    what you want on a laptop; the choice is yours and it is one line, and
+    set `API_WRITE_KEY` there if you make it. The same override applies to
+    `PORT`: the launcher opens `:3001`, so change it in `.env` and the browser
+    tab points at the old one. **UDP 2237 listens on every interface
+    regardless** — the WSJT-X integration binds `0.0.0.0` at start and `HOST`
+    does not govern it; set `WSJTX_ENABLED=false` in `.env` if you do not run
+    WSJT-X, or want nothing listening. **The server opens outbound
+    connections the moment it starts** — a persistent telnet session to
+    `telnet.reversebeacon.net:7000` for RBN spots among them, logging in with
+    your `CALLSIGN`, or with the project's own `K0CJH-3` while `.env` still
+    says `N0CALL` (upstream does this deliberately, to keep invalid logins
+    off other people's infrastructure); one more reason to set your callsign
+    before the first start. **Propagation runs in "Standalone
+    mode"**: upstream's build normally downloads an ITU P.533 model as WASM
+    from a moving release tag with a checksum from the same place, which is
+    not a pin, so this build skips it and the server uses its built-in model.
+    A pinned WASM may be carried later as a verified artefact. **The
+    auto-update setting does nothing here**: `AUTO_UPDATE_ENABLED` expects a
+    git clone; leave it `false` and update through `hammunition`, which
+    rebuilds from the next pinned release. The runtime tree is about 180 MB.
+    **Two commands land on your PATH**: `openhamclock` opens the dashboard
+    in a terminal and a browser; `openhamclock-server` is the bare server
+    for a headless box or a systemd unit of your own.
+  upstream_url: https://github.com/accius/openhamclock

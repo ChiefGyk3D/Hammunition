@@ -159,6 +159,7 @@ Do not re-litigate these without being asked:
 | udev symlinks | An identifier naming a chip may not name a `/dev` node | `/dev/badge` on a CP2102 claims the rig cable (**D-028**) |
 | Desktop menus | Curated submenus, generated per DE from `categories` | GNOME folders ≠ Xfce `.menu` ≠ COSMIC; one unmeasured mechanism each (**D-036**) |
 | Upstream liveness | The default branch's head commit, never GitHub's `updated_at`/`pushed_at` | `updated_at` moves when somebody *stars* a repo; it reported two dead projects as active (**D-032**) |
+| Node builds | Allowed when disclosed as a requirement; refused at plan time when Node is absent or too old; Node only from the distribution | openhamclock is the Q-006 default and publishes no binary (**D-037**) |
 | Node builds | Disclosed as a requirement; refused at plan time when Node is absent or too old; never fetched | openhamclock is a Vite app and `curl | bash` for Node is the habit we refuse (**D-037**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
@@ -396,7 +397,7 @@ src/hammunition/
   state/           # transaction log, uninstall              ✅ apt removal, VM-verified
   plan.py          # pre-flight resolution (D-016)           ✅
   execute.py       # plan -> commands -> runner              ✅
-  backends/        # apt ✅ source ✅ git ✅ binary ✅ venv ✅; pipx/CPAN measured zeros
+  backends/        # apt ✅ source ✅ git ✅ binary ✅ venv ✅ node ✅; pipx/CPAN measured zeros
   fetch.py         # verified download, mandatory sha256          ✅
   paths.py         # owner-aware XDG dirs (log, cache, build)     ✅
   distro/          # /etc/os-release detection               ✅
@@ -410,9 +411,9 @@ tests/
 Ticks mark what exists. **M1's walking skeleton runs** — detect, resolve, print,
 install, log — and **M3 has begun**: the verified fetcher and the
 source-from-tarball and source-from-git backends are written, so `source` and
-`git` manifests now plan and build end to end. What it cannot do it still refuses by name: three backends
-(binary, venv, pipx), third-party apt repos, templated config files and
-udev generation are measured, named and absent. Do not let this read as a
+`git` manifests now plan and build end to end, and binary, venv and node
+followed. What it cannot do it still refuses by name: pipx, third-party apt
+repos and templated config files are measured, named and absent. Do not let this read as a
 working installer: **57 of AHRL's 95 units cannot be satisfied by apt**, and
 while source-from-tarball is the largest single slice of that 57 (35 units), the
 rest of the 60% is still the hard part (**D-004**).
@@ -537,7 +538,10 @@ binary ✅ (`.deb`, tarball, zip, single executable — **AppImage refused by
 name**, post-1.0 per SCOPE.md), Python venv ✅ (hash-pinned, 2026-08-30), and
 launcher generation ✅ (engine written same day; the 14 units migrate as
 their other gaps close, and **D-036**'s per-DE submenu layer is still to
-measure). **pipx and
+measure), and node ✅ (2026-09-02, **D-037**: one measured user,
+`openhamclock`; Node only from the distribution's `nodejs`, refused at plan
+time when absent or below the manifest's floor, the registry fetch disclosed
+in the plan, every npm step with `--ignore-scripts`). **pipx and
 CPAN left the list on 2026-08-30** — re-measured at zero users after chirp
 went apt and aa-analyzer's supersede; see the D-014 amendment.
 

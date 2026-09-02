@@ -63,6 +63,7 @@ from hammunition.manifest.schema import (
     AptInstall,
     BinaryInstall,
     GitInstall,
+    NodeInstall,
     PackageManifest,
     ProfileManifest,
     SourceInstall,
@@ -216,6 +217,9 @@ class RemovalPaths:
     venv_root: Path
     bin_dir: Path
     applications_dir: Path
+    node_root: Path | None = None
+    """Where node trees live. Optional so older callers plan as before; a
+    node unit's removal refuses by name without it rather than guessing."""
 
 
 @dataclass(frozen=True)
@@ -334,6 +338,26 @@ def plan_removal(
             )
             for script in install.expose:
                 add(unit, ArtifactRemoval("wrapper", paths.bin_dir / script, "marker"))
+
+        elif isinstance(install, NodeInstall):
+            if paths.node_root is None:
+                blockers.append(
+                    f"{unit}: is a node build and this removal was planned without "
+                    f"a node root — nothing knows where its tree is"
+                )
+                continue
+            # Per-user and namespaced, like a venv; removed with a plain rm as
+            # the operator, never root.
+            add(
+                unit,
+                ArtifactRemoval("tree", paths.node_root / manifest.name, "namespaced"),
+            )
+            add(
+                unit,
+                ArtifactRemoval(
+                    "wrapper", paths.bin_dir / (install.command or manifest.name), "marker"
+                ),
+            )
 
         elif isinstance(install, BinaryInstall):
             if install.format == "deb":

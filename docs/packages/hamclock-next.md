@@ -15,7 +15,7 @@ Displays a live world map with the grey line, solar and geomagnetic indices, sat
 
 ## Why you would want it
 
-It is the at-a-glance station dashboard for deciding which band to work, and it is one of two maintained continuations of HamClock, whose author became a Silent Key in January 2026. The other is OpenHamClock, which has the larger community; which should be the recommended default is Q-006.
+It is the at-a-glance station dashboard for deciding which band to work, and it is one of two maintained continuations of HamClock, whose author became a Silent Key in January 2026. The other is `openhamclock`, which has the larger community and is the default (Q-006) — but it is a Node web application served to a browser, and this one is an ordinary desktop program with no Node and no web server involved. Pick this one for the original's look, or for a machine you would rather not run a server on.
 
 ## Before it will work
 

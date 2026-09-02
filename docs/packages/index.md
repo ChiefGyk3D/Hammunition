@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**242 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**243 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -208,13 +208,14 @@ Device support rather than an application: drivers, firmware, udev permissions, 
 - [usbutils](usbutils.md) — lsusb — step one of every hardware problem in this catalog
 - [z8530-utils2](z8530-utils2.md) — Configures Z8530-based HDLC cards for high-speed packet
 
-### `hf-propagation` — 11
+### `hf-propagation` — 12
 
 Propagation prediction, solar indices, beacons and grey line.
 
 - [flcluster](flcluster.md) — DX cluster client that feeds the rest of the W1HKJ suite
 - [hamclock-next](hamclock-next.md) — Maintained SDL2 rewrite of HamClock — grey line, propagation, DX cluster
 - [ibp](ibp.md) — Shows which NCDXF/IARU beacon is transmitting right now, on which band
+- [openhamclock](openhamclock.md) — Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites
 - [python3-pyhamtools](python3-pyhamtools.md) — Python library for callsign lookup, locators and DXCC data
 - [pythonprop](pythonprop.md) — Graphical front end that makes VOACAP predictions readable
 - [qgrid](qgrid.md) — Maidenhead grid square calculator with a map and a compass
@@ -755,6 +756,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [odr-dabmux](odr-dabmux.md) | Assembles audio services into a DAB ensemble multiplex | apt |
 | [odr-padenc](odr-padenc.md) | Encodes the text and images that ride alongside a DAB service | apt |
 | [openfpgaloader](openfpgaloader.md) | Universal bitstream loader for FPGAs, over JTAG and SPI | apt |
+| [openhamclock](openhamclock.md) | Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites | node |
 | [openocd](openocd.md) | On-chip debugging and in-system programming over JTAG and SWD | apt |
 | [osmo-sdr](osmo-sdr.md) | Tools for the original OsmoSDR hardware | apt |
 | [pat](pat.md) | Winlink client — radio email that works when the internet does not | apt |

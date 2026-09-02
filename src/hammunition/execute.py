@@ -39,6 +39,7 @@ from hammunition.backends import (
     Command,
     CommandRunner,
     GitBackend,
+    NodeBackend,
     SourceBackend,
     VenvBackend,
 )
@@ -48,6 +49,7 @@ from hammunition.manifest.schema import (
     BinaryInstall,
     GitInstall,
     InstallBlock,
+    NodeInstall,
     SourceInstall,
     VenvInstall,
 )
@@ -256,6 +258,7 @@ def commands_for(
     git: GitBackend | None = None,
     binary: BinaryBackend | None = None,
     venv: VenvBackend | None = None,
+    node: NodeBackend | None = None,
     config_staging: Path | None = None,
     launcher_bin: Path | None = None,
     launcher_applications: Path | None = None,
@@ -338,6 +341,14 @@ def commands_for(
                     f"installed nothing."
                 )
             commands.extend(venv.steps(planned.manifest, block))
+        elif isinstance(block, NodeInstall):
+            if node is None:
+                raise BackendError(
+                    f"{planned.name} is a Node.js application and no node backend "
+                    f"was supplied. Skipping it would report a successful run that "
+                    f"installed nothing."
+                )
+            commands.extend(node.steps(planned.manifest, block))
 
     # Configuration is written after the software that reads it exists, so a
     # package's own postinst cannot overwrite what we put down, and before
@@ -357,6 +368,11 @@ def commands_for(
                     venv_dir=(
                         venv.venv_root / planned.name
                         if venv is not None and isinstance(planned.block.install, VenvInstall)
+                        else None
+                    ),
+                    node_wrapper=(
+                        node.wrapper_for(planned.manifest, planned.block.install)
+                        if node is not None and isinstance(planned.block.install, NodeInstall)
                         else None
                     ),
                 )

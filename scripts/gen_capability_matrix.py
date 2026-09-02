@@ -143,7 +143,7 @@ def render(catalog: dict[str, PackageManifest]) -> str:
         "|---|---|",
         f"| `{APT}` | Resolves to an apt block **and every package has a candidate**. |",
         f"| `{NO_CANDIDATE}` | Resolves to apt, and at least one package is **not in that archive**. Listed below. |",
-        "| `source` / `git` | Resolves to a build. Declared, not verified here — see below. |",
+        "| `source` / `git` / `binary` / `venv` / `node` | Resolves to a build. Declared, not verified here — see below. |",
         f"| `{ABSENT}` | No install block resolves. The manifest does not claim this target. |",
         "| `apt ?` | Resolves to apt and this target was not swept. |",
         "",
@@ -167,7 +167,7 @@ def render(catalog: dict[str, PackageManifest]) -> str:
         counts = {APT: 0, NO_CANDIDATE: 0, "build": 0, ABSENT: 0, "apt ?": 0}
         for cells in rows.values():
             value = cells[target_name]
-            if value in {"source", "git", "binary", "venv", "pipx"}:
+            if value in {"source", "git", "binary", "venv", "node", "pipx"}:
                 counts["build"] += 1
             else:
                 counts[value] += 1

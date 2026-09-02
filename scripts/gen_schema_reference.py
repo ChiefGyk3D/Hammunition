@@ -56,6 +56,7 @@ ORDER = [
     "GitInstall",
     "BinaryInstall",
     "VenvInstall",
+    "NodeInstall",
     "RemoteArtifact",
     "Patch",
     "PinReview",
