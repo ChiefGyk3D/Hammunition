@@ -905,7 +905,7 @@ def resolve(
     # a clean Kali, 2026-09-02, where `digital-modes` planned clean and then
     # failed at the dpkg step (jtdx brought `wsjtx-data`, the `wsjtx-improved`
     # .deb collided with it minutes later); and a clean Parrot the same night,
-    # where six of fifteen profiles failed at the apt step itself because a
+    # where five of fifteen profiles failed at the apt step itself because a
     # `-dev` package's exact-version dependency could not be met without
     # downgrading a library Parrot ships from its backports (D-038). Both are
     # D-016 defects -- the plan passed, the machine was touched, the failure
