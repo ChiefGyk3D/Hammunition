@@ -265,7 +265,16 @@ def commands_for(
 ) -> list[Step]:
     """Every step this plan implies, in the order it will run.
 
-    The order is not cosmetic. apt runs first because a source build needs its
+    The order is not cosmetic. Every download runs first, before anything
+    that changes the machine: a fetch is verified against the manifest's
+    sha256 (D-018), so a wrong hash or a dead URL refuses on an untouched
+    system rather than after apt has installed a toolchain for a build that
+    will never start; and a vendor .deb, which apt can only resolve from
+    its file, is simulated against the apt step once fetched and before
+    either runs -- the half of the "plan passed, machine touched, then it
+    failed" shape that D-038's plan-time simulate could not reach
+    (`docs/reference/vm-campaign-ubuntu.md`, 2026-09-02). apt runs next
+    because a source build needs its
     ``build_depends`` — its compiler, its headers — present before ``./configure``
     can succeed. Group membership comes last because several of these groups are
     created by the package being installed (Debian's ``wireshark-common`` creates
@@ -276,9 +285,87 @@ def commands_for(
     and an absence is an error rather than a silent skip — a plan that quietly dropped the one
     step that installs the software would report success having done nothing.
     """
-    commands: list[Step] = []
+    # Each backend's steps in build order; the fetches are lifted out below.
+    builds: list[Step] = []
+    for planned in plan.packages:
+        block = planned.block.install
+        if isinstance(block, SourceInstall):
+            if source is None:
+                raise BackendError(
+                    f"{planned.name} is a source build and no source backend was supplied. "
+                    f"Skipping it would report a successful run that installed nothing."
+                )
+            builds.extend(source.steps(planned.manifest, block))
+        elif isinstance(block, GitInstall):
+            if git is None:
+                raise BackendError(
+                    f"{planned.name} builds from git and no git backend was supplied. "
+                    f"Skipping it would report a successful run that installed nothing."
+                )
+            builds.extend(git.steps(planned.manifest, block))
+        elif isinstance(block, BinaryInstall):
+            if binary is None:
+                raise BackendError(
+                    f"{planned.name} installs a prebuilt artifact and no binary backend "
+                    f"was supplied. Skipping it would report a successful run that "
+                    f"installed nothing."
+                )
+            builds.extend(binary.steps(planned.manifest, block))
+        elif isinstance(block, VenvInstall):
+            if venv is None:
+                raise BackendError(
+                    f"{planned.name} installs into a virtualenv and no venv backend "
+                    f"was supplied. Skipping it would report a successful run that "
+                    f"installed nothing."
+                )
+            builds.extend(venv.steps(planned.manifest, block))
+        elif isinstance(block, NodeInstall):
+            if node is None:
+                raise BackendError(
+                    f"{planned.name} is a Node.js application and no node backend "
+                    f"was supplied. Skipping it would report a successful run that "
+                    f"installed nothing."
+                )
+            builds.extend(node.steps(planned.manifest, block))
+
+    # A `fetch` is an in-process download into the cache, verified before it
+    # is kept; it needs nothing apt installs and touches nothing outside the
+    # cache, so every one of them can go first. A git clone is a Command
+    # that needs git from apt and stays where its backend put it.
+    commands: list[Step] = [
+        step for step in builds if isinstance(step, Action) and step.kind == "fetch"
+    ]
+    builds = [step for step in builds if not (isinstance(step, Action) and step.kind == "fetch")]
+
     if refresh:
         commands.append(apt.refresh_command())
+
+    # A vendor .deb is resolved by apt from its file, and the file does not
+    # exist until its fetch has run -- so the plan's own simulate (D-038)
+    # could not include it. This one can: it runs after every fetch and
+    # before the apt step, over the apt packages and the downloaded .debs
+    # together, and a refusal here is a refusal on an untouched machine.
+    # `apt-get install ./file.deb` is what the binary backend runs later;
+    # asking the same resolver the same question first is the whole idea.
+    debs = [
+        str(binary.fetcher.path_for(planned.block.install.artifact))
+        for planned in plan.packages
+        if binary is not None
+        and isinstance(planned.block.install, BinaryInstall)
+        and planned.block.install.format == "deb"
+    ]
+    if debs:
+        commands.append(
+            apt.simulate_command(
+                (*plan.apt_to_install, *debs),
+                release=plan.apt_release,
+                description=(
+                    f"Ask apt whether the {len(debs)} downloaded .deb file(s) resolve "
+                    f"together with the apt step, before anything is installed"
+                ),
+            )
+        )
+
     if plan.debconf_selections and plan.apt_to_install:
         # Before the apt install, never after: a package's postinst reads its
         # preseeded answers as it configures, so wireshark-common creates the
@@ -309,46 +396,7 @@ def commands_for(
                 )
             )
 
-    for planned in plan.packages:
-        block = planned.block.install
-        if isinstance(block, SourceInstall):
-            if source is None:
-                raise BackendError(
-                    f"{planned.name} is a source build and no source backend was supplied. "
-                    f"Skipping it would report a successful run that installed nothing."
-                )
-            commands.extend(source.steps(planned.manifest, block))
-        elif isinstance(block, GitInstall):
-            if git is None:
-                raise BackendError(
-                    f"{planned.name} builds from git and no git backend was supplied. "
-                    f"Skipping it would report a successful run that installed nothing."
-                )
-            commands.extend(git.steps(planned.manifest, block))
-        elif isinstance(block, BinaryInstall):
-            if binary is None:
-                raise BackendError(
-                    f"{planned.name} installs a prebuilt artifact and no binary backend "
-                    f"was supplied. Skipping it would report a successful run that "
-                    f"installed nothing."
-                )
-            commands.extend(binary.steps(planned.manifest, block))
-        elif isinstance(block, VenvInstall):
-            if venv is None:
-                raise BackendError(
-                    f"{planned.name} installs into a virtualenv and no venv backend "
-                    f"was supplied. Skipping it would report a successful run that "
-                    f"installed nothing."
-                )
-            commands.extend(venv.steps(planned.manifest, block))
-        elif isinstance(block, NodeInstall):
-            if node is None:
-                raise BackendError(
-                    f"{planned.name} is a Node.js application and no node backend "
-                    f"was supplied. Skipping it would report a successful run that "
-                    f"installed nothing."
-                )
-            commands.extend(node.steps(planned.manifest, block))
+    commands.extend(builds)
 
     # Configuration is written after the software that reads it exists, so a
     # package's own postinst cannot overwrite what we put down, and before

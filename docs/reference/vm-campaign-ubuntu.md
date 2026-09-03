@@ -150,7 +150,9 @@ execution. **Fetching and verifying every artefact, and simulating every
 `.deb` against the post-apt state, before the first system modification**
 would make "the plan passed" mean what an operator reads it to mean. It is
 a reordering of `execute.py`, not a new backend, and it is recorded here so
-it is built on evidence and not forgotten.
+it is built on evidence and not forgotten. **Built 2026-09-03:** every
+fetch now runs first, and a plan holding a `.deb` simulates it together with
+the apt step after the fetch and before either installs.
 
 ## Left with the maintainer
 
