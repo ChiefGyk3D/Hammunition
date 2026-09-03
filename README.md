@@ -276,6 +276,7 @@ Everything below is written before the code it describes, deliberately.
 | [`docs/reference/hardware-gaps.md`](docs/reference/hardware-gaps.md) | Every USB identifier we don't have, who can close it, and what it blocks |
 | [`docs/reference/device-naming.md`](docs/reference/device-naming.md) | What `/dev/serial/by-id/` already covers, and the 19 of 23 devices where it does not |
 | [`docs/contributing/hardware.md`](docs/contributing/hardware.md) | How to send one, and what we do and don't store |
+| [`docs/contributing/releasing.md`](docs/contributing/releasing.md) | How a release is cut and signed, and why v0.7.0 is not |
 
 The user-facing documentation site is *Hacker's Ham Shack*. Its standard: a
 licensed ham with moderate Linux experience should get from a fresh install to a
