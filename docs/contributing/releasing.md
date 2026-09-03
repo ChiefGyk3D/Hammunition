@@ -106,36 +106,81 @@ two of the three disagree, trust none of them and ask.
 ## Hardware keys
 
 A private key that cannot be copied is the property both of these offer, and
-the cost is the same: it cannot be backed up either. **Enrol two**, or keep a
-file key alongside, before retiring anything.
+the cost is the same: it cannot be copied to a second token either. A key
+lives and dies with its token. So the plan is never "the key, on hardware";
+it is **one key per token, every token its own line**, and a token that is
+lost takes exactly one line with it.
 
 ### YubiKey, or any FIDO2 token
 
 OpenSSH 8.2 and later generate keys whose private half lives on a FIDO2
 token; git signs with them exactly as with a file key, with a touch per
-signature. A **resident** key can be loaded onto another machine from the
-token alone, which is the backup story for the key file itself (not for the
-token):
+signature. A **resident** key is stored on the token itself, so any machine
+the token is plugged into can recover the key files with `ssh-keygen -K` —
+nothing has to be carried between machines but the token. That is the only
+form worth enrolling here.
+
+**How many.** Three or four, not the drawer. The ones that will actually be
+at hand when a release is cut — the carried one and the desk one — plus one
+that never leaves a safe as the cold spare, enrolled the same day and never
+used until another is lost. Every enrolled token is one more line to retire
+if it goes missing and one more object to keep track of; a backup that is
+not in the file is not a backup of *this*, and does not need to be. Older
+tokens without FIDO2 (U2F-only) cannot hold a resident or PIN-protected key
+and should not be used for this.
+
+**Enrolling one token.** On a machine it is plugged into:
 
 ```sh
 # Needs libfido2 (Debian/Ubuntu: libfido2-1, pulled in by openssh-client).
 # ed25519-sk needs YubiKey firmware 5.2.3+; ecdsa-sk works on older ones.
+# `user` labels the key ON the token, so `ssh-keygen -K` names the recovered
+# files after it; `application` keeps it apart from any ssh: login key.
 ssh-keygen -t ed25519-sk -O resident -O verify-required \
-    -O application=ssh:hammunition-release \
-    -C "hammunition release signing (yubikey)" \
-    -f ~/.ssh/hammunition_release_sk
-
-# On another machine, with the token plugged in: recover the key files.
-ssh-keygen -K
+    -O application=ssh:hammunition-release -O user=carry \
+    -C "hammunition release signing (carry)" \
+    -f ~/.ssh/hammunition_release_carry_sk
 ```
 
+The label (`carry`, `desk`, `spare`) is a role, never a serial number.
+Then, as for any key: register the `.pub` with GitHub as a *Signing Key*, and
+append its line to `.github/allowed_signers` with `valid-after` set to today
+and the label in a trailing comment. Repeat per token; the file gains one
+line each time and GitHub one key.
+
 `verify-required` means the token's PIN is asked before it will sign, which is
-the difference between "someone has my key" and "someone has my key and my
-PIN". Registering the public key with GitHub is the same *Signing Key* step as
-above. **Whether GitHub accepts `sk-ssh-ed25519@openssh.com` in that role is
-to be verified on the day it is added** — add it, sign a throwaway tag on a
-branch, and look for "Verified" before writing its line into
-`allowed_signers`. This page will say which way it went.
+the difference between "someone has my token" and "someone has my token and
+my PIN" — and a YubiKey blocks its FIDO2 application after eight wrong PINs,
+reopened only by a reset that wipes the credentials, which is what lets a
+lost token be handled as a loss rather than a compromise below. **Whether GitHub accepts `sk-ssh-ed25519@openssh.com` in
+the Signing Key role is to be verified with the first token** — add it, sign
+a throwaway tag on a branch, and look for "Verified" before writing its line
+into `allowed_signers`. This page will say which way it went.
+
+**Which key signs on which machine.** `user.signingkey` names one key, so
+each machine's git config names the token that lives there — the desktop's
+names `desk`, the laptop's names `carry` — and a tag cut from the desktop
+with the carried token plugged in overrides for one command:
+
+```sh
+ssh-keygen -K                                   # once per machine per token
+git -c user.signingkey=~/.ssh/hammunition_release_carry_sk.pub tag -s v0.9.0 -m "v0.9.0"
+```
+
+Any enrolled token's tag verifies against the file; which one signed is
+visible in `git verify-tag`'s output and matters to nobody.
+
+**The workbook, when a token is lost or broken.** Only that token's line is
+affected; the others are independent keys and keep signing.
+
+| | |
+|---|---|
+| 1. Date it | `valid-before` on that token's line = the last day it was known to be in hand. Sign the commit that does this with a surviving token. |
+| 2. Remove it from GitHub | Settings → SSH and GPG keys → delete that signing key. |
+| 3. Decide loss or compromise | A `verify-required` token with the PIN unknown to the finder is a **loss**: nothing after step 2. A token *and* its PIN out of control, or a machine that had the token plugged in and was compromised, is a **compromise**: the procedure below, applied to tags that token signed after the date in step 1. |
+| 4. Replace it | Enrol the spare from the safe as the new carry or desk key (it is already in the file; it needs a new label at most), and enrol a new spare when convenient. Never below two enrolled tokens in hand. |
+
+A broken token is step 1 and 2 with today's date and no step 3.
 
 ### Immurok
 
