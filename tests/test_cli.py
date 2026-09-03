@@ -1061,3 +1061,45 @@ def test_plan_state_says_will_build_for_a_source_unit_with_no_apt_work(tmp_path:
     assert "builtish" in text
     assert "will build" in text
     assert "already installed" not in text
+
+
+def test_main_line_buffers_stdout_so_a_redirected_install_log_is_not_empty_until_exit() -> None:
+    """A whole-profile install redirected to a file showed 0 bytes for the
+    forty minutes it ran (Kali VM, 2026-09-02). The `$ command` headers
+    sat in Python's block buffer while the children wrote straight to the
+    same descriptor -- an empty, then out-of-order, log. Proven with a real
+    pipe rather than a mock: the child prints help and is read before it
+    exits only if the write was flushed at the newline."""
+    import subprocess
+
+    script = (
+        "import sys\n"
+        "from hammunition.cli.main import main\n"
+        # Bare `main([])` prints help and *returns*; --version would raise
+        # SystemExit and flush at interpreter exit, proving nothing.
+        "main([])\n"
+        # Block until the parent has read the line; if the version line was
+        # still buffered here, the parent's readline would hang instead.
+        "sys.stdin.readline()\n"
+    )
+    proc = subprocess.Popen(
+        [sys.executable, "-c", script],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        assert proc.stdout is not None and proc.stdin is not None
+        # A hung readline would fail the suite by timeout rather than assert;
+        # so it is polled instead, and 5 s is a hundred times what it needs.
+        import selectors
+
+        selector = selectors.DefaultSelector()
+        selector.register(proc.stdout, selectors.EVENT_READ)
+        assert selector.select(timeout=5), "nothing arrived: stdout is block-buffered"
+        assert proc.stdout.readline().startswith("usage:")
+    finally:
+        if proc.stdin is not None:
+            proc.stdin.write("\n")
+            proc.stdin.close()
+        proc.wait(timeout=10)

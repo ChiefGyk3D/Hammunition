@@ -1539,6 +1539,17 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    # Line-buffer stdout even when it is not a terminal. A whole-profile
+    # install redirected to a file showed 0 bytes for the forty minutes it
+    # ran (Kali VM, 2026-09-02): Python block-buffers a pipe, so every `$
+    # command` header sat in memory while the child processes, which write
+    # to the same descriptor directly, streamed past it -- a log that is
+    # empty until exit, and then out of order. An install that is killed
+    # mid-way loses the whole record. Line buffering costs nothing an
+    # installer notices.
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is not None:
+        reconfigure(line_buffering=True)
     parser = build_parser()
     args = parser.parse_args(argv)
     if not getattr(args, "func", None):
