@@ -249,6 +249,28 @@ machine-state, like a real operator's machine. This is the mechanism the M5
 report will be generated from — one campaign per target, every unit, and
 the exit-criterion fraction falls out as arithmetic.
 
+**Then install the profiles whole.** Per-unit success does not prove
+profile success: twenty of `digital-modes`' twenty-one members were
+confirmed by name on Parrot and Debian and the twenty-first carried a
+measured verdict, yet the profile could not install as a whole anywhere —
+that member's vendor `.deb` collided with a package another member pulled
+in, and the plan only saw it once it was asked for the transaction an
+operator actually types (clean Kali VM, 2026-09-02, forty-four commands in).
+`--whole-profiles` installs each name as one transaction, and
+`--reset-each DOMAIN` restores the guest to `clean-baseline` and re-prepares
+it before each, so every profile is measured from the state a new operator
+starts from:
+
+```sh
+scripts/vm_campaign.py --host user@GUEST_IP \
+    --identity ~/.ssh/hammunition_vm_ed25519 \
+    --whole-profiles --reset-each debian13_dev \
+    --units station digital-modes packet --timeout 3600 --out campaign-profiles.md
+```
+
+The budget is per profile here, and the source-heavy ones need it —
+`digital-modes` builds fldigi, WSJT-X and MSHV in one run.
+
 ## Maintenance sweeps
 
 `scripts/check_artifact_urls.py` asks every pinned artifact URL in the
