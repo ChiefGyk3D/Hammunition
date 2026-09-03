@@ -90,7 +90,8 @@ def _declares_installed_binaries(block: InstallBlock) -> bool:
     """Whether a block's `binaries` name files the run puts at ``<prefix>/bin``.
 
     True of source and git builds, and of binary units other than a ``.deb``
-    (whose contents apt places and apt is asked about). A venv's entry points
+    (whose contents apt places; its ``deb_package`` is what apt is asked
+    about instead, in ``verify_effects``). A venv's entry points
     are wrappers in the operator's ``~/.local/bin`` and are not `binaries`.
     """
     method = block.install
@@ -587,7 +588,23 @@ def verify_effects(
                     )
                 )
 
-    wanted = plan.apt_to_install
+    # A vendor .deb's package is not in apt_to_install -- apt installed it
+    # from a file, not from the archive -- and the binaries check above
+    # skips deb formats because apt placed the contents. Until 2026-09-03
+    # nobody then asked apt about it, and wsjtx-improved on Debian 13 ended
+    # `verified: true` with `checks: []`. Its deb_package is the effect.
+    deb_packages = tuple(
+        sorted(
+            {
+                planned.block.install.deb_package
+                for planned in plan.packages
+                if isinstance(planned.block.install, BinaryInstall)
+                and planned.block.install.format == "deb"
+                and planned.block.install.deb_package is not None
+            }
+        )
+    )
+    wanted = tuple(sorted({*plan.apt_to_install, *deb_packages}))
     if wanted and prober is not None:
         states = prober.probe(wanted)
         for name in wanted:

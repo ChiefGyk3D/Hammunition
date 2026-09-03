@@ -157,6 +157,18 @@ it is built on evidence and not forgotten. **Built 2026-09-03:** every
 fetch now runs first, and a plan holding a `.deb` simulates it together with
 the apt step after the fetch and before either installs.
 
+**Measured the same day, Debian 13:** `install wsjtx-improved --yes` ran
+the fetch first (67,711,336 bytes from SourceForge, 45 minutes at that
+mirror's pace), then `apt-get install --simulate --yes -- <cached .deb>`
+(exit 0), then the `install-deb` action; `wsjtx 3.2.0` installed, three
+steps confirmed. The transaction record exposed one more D-031 gap: it
+read `verified: true` with `checks: []`. A vendor `.deb`'s package is not
+in the apt step and the binaries check skips deb formats, so nothing had
+asked apt whether the package landed. `verify_effects` now probes each
+`.deb`'s declared `deb_package`; the uninstall-and-reinstall that followed
+recorded `{'kind': 'package', 'subject': 'wsjtx', 'confirmed': True,
+'detail': 'installed 3.2.0'}`.
+
 ## The repository backend, measured on 2026-09-03
 
 The one refusal every target shared — `code` and `codium` behind an
