@@ -188,8 +188,11 @@ bar again: every command completed *and* the re-probe found the software.
 | Debian 13 | `install codium --dry-run` with a hand-written `vscodium.sources` present | exit 2, refused as foreign, nothing changed |
 | Parrot 6.x | `install codium --yes`, package removed first, no variable | **confirmed**, 1 command, from `deb.parrot.sh echo/main`; note *not added (D-022)*; no gate, no files, no consent record |
 
-`workstation` itself is now seven archive-only packages and has no reason
-to refuse anywhere; whether it installs whole is the next campaign's row.
+`workstation` itself is now seven archive-only packages: `install
+workstation --yes` on the same Ubuntu 24.04 VM planned `minicom` and `tio`
+(the other five were already present from earlier profiles), one apt
+command, confirmed, and the serial-terminal suggestion respected the
+`screen` already there.
 
 ## Left with the maintainer
 
