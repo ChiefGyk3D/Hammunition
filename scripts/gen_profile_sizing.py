@@ -195,13 +195,26 @@ PROFILES = [
     ),
     Profile(
         "workstation",
-        "Editor, terminal and bench tooling",
+        "Terminal and bench tooling",
         (),
         0,
-        9,
-        "**Accepted, Q-011.** Not radio software; a lab machine needs it and the "
-        "VS Code manifest has nowhere else to live. Deliberately boring, and the "
-        "exclusion list is a required schema field so it stays that way.",
+        7,
+        "**Accepted, Q-011.** Not radio software; a lab machine needs it. "
+        "Deliberately boring, and the exclusion list is a required schema field so "
+        "it stays that way. Sized at nine until 2026-09-03, when the two editors "
+        "moved to `editors` — each needs a publisher's apt repository on most "
+        "targets (D-040), and that gate was withholding the other seven (D-039).",
+        "post-1.0",
+    ),
+    Profile(
+        "editors",
+        "VS Code and VSCodium, opt-in",
+        (),
+        0,
+        2,
+        "Split from `workstation` on 2026-09-03. Both are apt packages from a "
+        "publisher's repository against a pinned key (D-040); the consent gate is "
+        "per repository and `--yes` cannot satisfy it. Opt-in by construction.",
         "post-1.0",
     ),
     Profile("mesh", "Mesh and LoRa", (), 0, 8, "Meshtastic, Reticulum. Post-1.0.", "post-1.0"),

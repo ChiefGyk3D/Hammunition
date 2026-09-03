@@ -5,7 +5,7 @@ regenerate. Every number below is derived from a measured inventory; the
 profile set and its **names** are the curated part and are argued rather
 than asserted.
 
-**Generated:** 2026-08-28  
+**Generated:** 2026-09-03  
 **Split threshold:** anything over **80** packages is flagged
 
 ---
@@ -16,12 +16,12 @@ than asserted.
 |---|---|---:|
 | Debian Blend | `blend-inventory.md`, 12 tasks | **152** unique |
 | Blend, installable on Debian 13 | container probe | **144** |
-| AHRL survivors | `dispositions.md` — CARRY + SUPERSEDE + REVIVE | **79** |
+| AHRL survivors | `dispositions.md` — CARRY + SUPERSEDE + REVIVE | **86** |
 | 73Linux delta survivors | `dispositions.md` — CARRY + ADD | **13** |
 | Skywave delta | `skywave-inventory.md` | **9** |
 | DragonOS Tier 1 | `dragonos-tier1-inventory.md` | **24** |
 
-**Union upper bound: ~277 units** before de-duplication. Profiles are **flat
+**Union upper bound: ~284 units** before de-duplication. Profiles are **flat
 tags with overlap** (**D-003**), so the same package appears in several profiles
 and the per-profile totals deliberately sum to more than the union.
 
@@ -55,7 +55,8 @@ estimated from measured survivor lists rather than from guesses.
 | `rf-security` | — | 0 | 0 | 14 | **14** | ✅ |
 | `rf-research` | — | 0 | 0 | 1 | **1** | post-1.0 |
 | `rfid` | — | 0 | 0 | 6 | **6** | post-1.0 |
-| `workstation` | — | 0 | 0 | 9 | **9** | post-1.0 |
+| `workstation` | — | 0 | 0 | 7 | **7** | post-1.0 |
+| `editors` | — | 0 | 0 | 2 | **2** | post-1.0 |
 | `mesh` | — | 0 | 0 | 8 | **8** | post-1.0 |
 | `uconsole` | — | 0 | 0 | 5 | **5** | post-1.0 |
 
@@ -132,7 +133,8 @@ renaming it.
 | `rf-security` | **RF security and spectrum analysis** | DragonOS Tier 1, opt-in, with the legal framing CLAUDE.md requires. Its final shape depends on Q-008. |
 | `rf-research` *(post-1.0)* | **Transmit-capable and interception-capable RF tooling** | Consent-gated (**D-021**). Contents provisional pending **Q-008** — the receive-only subset only, with transmit-capable cellular stacks excluded. |
 | `rfid` *(post-1.0)* | **RFID and NFC** | **Accepted, Q-010.** Different domain, different range, different skills. Five of six are apt on every probed target; `proxmark3` is apt on Kali only (4.21611-0kali1, measured 2026-08-26) and a pinned source build on the other three including the primary one, so it still needs the source backend. An earlier version of this line said nothing was packaged on any target — that was wrong and is corrected in Q-010. |
-| `workstation` *(post-1.0)* | **Editor, terminal and bench tooling** | **Accepted, Q-011.** Not radio software; a lab machine needs it and the VS Code manifest has nowhere else to live. Deliberately boring, and the exclusion list is a required schema field so it stays that way. |
+| `workstation` *(post-1.0)* | **Terminal and bench tooling** | **Accepted, Q-011.** Not radio software; a lab machine needs it. Deliberately boring, and the exclusion list is a required schema field so it stays that way. Sized at nine until 2026-09-03, when the two editors moved to `editors` — each needs a publisher's apt repository on most targets (D-040), and that gate was withholding the other seven (D-039). |
+| `editors` *(post-1.0)* | **VS Code and VSCodium, opt-in** | Split from `workstation` on 2026-09-03. Both are apt packages from a publisher's repository against a pinned key (D-040); the consent gate is per repository and `--yes` cannot satisfy it. Opt-in by construction. |
 | `mesh` *(post-1.0)* | **Mesh and LoRa** | Meshtastic, Reticulum. Post-1.0. |
 | `uconsole` *(post-1.0)* | **ClockworkPi uConsole** | Hardware-specific: display, audio routing, power. Post-1.0. |
 

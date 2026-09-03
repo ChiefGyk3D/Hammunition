@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: CC0-1.0
 
 name: workstation
-summary: Editor, terminal and bench tooling for the machine the station runs on
+summary: Terminal and bench tooling for the machine the station runs on
 stage: "post-1.0"
 
 # Accepted per Q-011, contents fixed at acceptance so the profile cannot grow
@@ -11,7 +11,10 @@ stage: "post-1.0"
 # a required schema field, so the exclusion travels with the profile instead of
 # living in a review comment nobody reads.
 #
-# NOT consent-gated. Nothing here is an RF capability at all.
+# NOT consent-gated. Nothing here is an RF capability at all. The two editors
+# that were here until 2026-09-03 moved to `editors`: each needs a publisher's
+# apt repository on most targets, a gated modification of its own (D-040), and
+# it was withholding these seven until somebody affirmed it (D-039).
 packages:
   - git
   - tio
@@ -20,8 +23,6 @@ packages:
   - tmux
   - usbutils
   - pciutils
-  - codium
-  - code
 
 # Q-015 #2, resolved 2026-08-30: a serial terminal for rig consoles, TNC
 # config and programming cables. Detect any existing one and respect it;
@@ -39,11 +40,10 @@ suggests_one_of:
 
 documentation:
   what_it_installs: >-
-    Version control, three serial consoles, a terminal multiplexer, the two
-    hardware enumeration tools every device problem starts with, and an editor.
-    Nine packages, all from apt on every supported target except `code`, which
-    needs Microsoft's repository, and `codium`, which needs VSCodium's on
-    anything but Parrot.
+    Version control, three serial consoles, a terminal multiplexer, and the two
+    hardware enumeration tools every device problem starts with. Seven
+    packages, all from the distribution's own archive on every supported
+    target — nothing here adds a repository or asks for consent.
   why_together: >-
     A person building a station is usually also building the machine it runs on,
     and every RF profile in this catalog silently assumes some of this is
@@ -59,8 +59,10 @@ documentation:
     There are a thousand dotfile projects and this is not one of them; every
     hour spent choosing between tmux and zellij is an hour not spent on the
     source backend, which is what actually blocks 60% of the parity target.
-    Also excluded is any editor beyond the two here, and neither of those is a
-    default — `codium` is what Parrot chose and `code` is opt-in under D-022.
+    Also excluded, since 2026-09-03, is any editor: `codium` and `code` live in
+    the opt-in `editors` profile because each needs its publisher's apt
+    repository on most targets, and that gate should never stand between an
+    operator and `lsusb`.
   manual_configuration: >-
     Set `user.name` and `user.email` before your first commit or git refuses to
     make one. Serial work needs membership of the `dialout` group, which the
@@ -68,7 +70,5 @@ documentation:
     open — log out and back in. Nothing here ships a tmux, screen or minicom
     configuration, deliberately: those are taste, and taste is excluded.
   disk_footprint_hint: >-
-    Roughly 200 MB without an editor, or 600 MB with one. `code` and `codium`
-    are around 400 MB each and installing both doubles that; they coexist
-    without conflict but there is no reason to install both unless you want to
-    compare them.
+    Roughly 200 MB. An editor from the `editors` profile adds around 400 MB
+    on top of this.

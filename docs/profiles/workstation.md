@@ -2,27 +2,27 @@
 
 # Profile: workstation
 
-> Editor, terminal and bench tooling for the machine the station runs on
+> Terminal and bench tooling for the machine the station runs on
 
 **Stage:** post-1.0
 
 ## What it installs
 
-Version control, three serial consoles, a terminal multiplexer, the two hardware enumeration tools every device problem starts with, and an editor. Nine packages, all from apt on every supported target except `code`, which needs Microsoft's repository, and `codium`, which needs VSCodium's on anything but Parrot.
+Version control, three serial consoles, a terminal multiplexer, and the two hardware enumeration tools every device problem starts with. Seven packages, all from the distribution's own archive on every supported target — nothing here adds a repository or asks for consent.
 
-**Disk footprint:** Roughly 200 MB without an editor, or 600 MB with one. `code` and `codium` are around 400 MB each and installing both doubles that; they coexist without conflict but there is no reason to install both unless you want to compare them.
+**Disk footprint:** Roughly 200 MB. An editor from the `editors` profile adds around 400 MB on top of this.
 
 ## Why these belong together
 
 A person building a station is usually also building the machine it runs on, and every RF profile in this catalog silently assumes some of this is already present. Manifests install from pinned git revisions, hardware entries instruct you to run lsusb, badge and Meshtastic work needs a serial console, and a decode running over SSH to a field machine needs to survive the link dropping. This is that assumed floor, made explicit and installable rather than left to chance.
 
-## Packages (9)
+## Packages (7)
 
-[`git`](../packages/git.md), [`tio`](../packages/tio.md), [`minicom`](../packages/minicom.md), [`screen`](../packages/screen.md), [`tmux`](../packages/tmux.md), [`usbutils`](../packages/usbutils.md), [`pciutils`](../packages/pciutils.md), [`codium`](../packages/codium.md), [`code`](../packages/code.md)
+[`git`](../packages/git.md), [`tio`](../packages/tio.md), [`minicom`](../packages/minicom.md), [`screen`](../packages/screen.md), [`tmux`](../packages/tmux.md), [`usbutils`](../packages/usbutils.md), [`pciutils`](../packages/pciutils.md)
 
 ## What it deliberately excludes
 
-Shells, prompts, dotfiles, window managers, fonts, colour schemes, and terminal emulators beyond what serial work needs. The rule is simple enough to apply without argument: if it is a matter of taste, it is not in scope. There are a thousand dotfile projects and this is not one of them; every hour spent choosing between tmux and zellij is an hour not spent on the source backend, which is what actually blocks 60% of the parity target. Also excluded is any editor beyond the two here, and neither of those is a default — `codium` is what Parrot chose and `code` is opt-in under D-022.
+Shells, prompts, dotfiles, window managers, fonts, colour schemes, and terminal emulators beyond what serial work needs. The rule is simple enough to apply without argument: if it is a matter of taste, it is not in scope. There are a thousand dotfile projects and this is not one of them; every hour spent choosing between tmux and zellij is an hour not spent on the source backend, which is what actually blocks 60% of the parity target. Also excluded, since 2026-09-03, is any editor: `codium` and `code` live in the opt-in `editors` profile because each needs its publisher's apt repository on most targets, and that gate should never stand between an operator and `lsusb`.
 
 ## What you configure by hand afterward
 

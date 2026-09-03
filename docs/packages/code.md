@@ -28,8 +28,8 @@ None beyond a working apt. This coexists with VSCodium: different binary (`code`
 ## What it changes on your machine
 
 - **apt_pin** — Adds Microsoft's apt repository and pins its signing key
-  - Writes /etc/apt/sources.list.d/microsoft-vscode.sources and installs the signing key to /etc/apt/keyrings/microsoft.gpg, with Signed-By pointing at that keyring so the key is trusted for this repository only and not archive-wide.
-  - undo: sudo rm /etc/apt/sources.list.d/microsoft-vscode.sources /etc/apt/keyrings/microsoft.gpg && sudo apt update
+  - Writes /etc/apt/sources.list.d/microsoft-vscode.sources and installs the signing key to /etc/apt/keyrings/microsoft-vscode.gpg, with Signed-By pointing at that keyring so the key is trusted for this repository only and not archive-wide.
+  - undo: sudo rm /etc/apt/sources.list.d/microsoft-vscode.sources /etc/apt/keyrings/microsoft-vscode.gpg && sudo apt update
 
 ## Known problems
 
