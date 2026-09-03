@@ -158,6 +158,34 @@ def test_regenerating_the_matrix_is_a_no_op() -> None:
     )
 
 
+@pytest.mark.skipif(
+    not list(PROBES.glob("policy-cat-*.tsv")),
+    reason="needs the apt sweep in reference/probes/ — see the generator's docstring",
+)
+def test_every_swept_target_measured_every_apt_name_the_catalog_references() -> None:
+    """A name the sweep never asked about is not absent, and until 2026-09-03
+    the matrix said it was: the list was kept by hand, ten manifests outran it,
+    and every archive was reported as lacking all ten (D-031). The generator
+    now derives the list; this asserts each sweep on disk was run from it."""
+    spec = importlib.util.spec_from_file_location(
+        "gen_capability_matrix", REPO_ROOT / "scripts" / "gen_capability_matrix.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    wanted = set(module.apt_names(load_catalog(REPO_ROOT / "catalog" / "packages")))
+    behind: dict[str, list[str]] = {}
+    for swept in sorted(PROBES.glob("policy-cat-*.tsv")):
+        asked = {ln.split("\t", 1)[0] for ln in swept.read_text().splitlines() if "\t" in ln}
+        if wanted - asked:
+            behind[swept.name] = sorted(wanted - asked)
+    assert not behind, (
+        "sweep predates the catalog — regenerate the list with "
+        "`scripts/gen_capability_matrix.py --package-list` and re-sweep: "
+        f"{behind}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # The parity coverage report
 #

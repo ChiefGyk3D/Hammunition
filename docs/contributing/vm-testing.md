@@ -22,14 +22,17 @@ Full KVM/QEMU desktop VMs, worked in priority order. Parrot is primary
 | 1 | Parrot OS 7.x (Security) | `parrot` (priority 1) | Primary. The distro this project exists for. |
 | 2 | Debian 13 | `debian-13` | The baseline everything else derives from. |
 | 3 | Ubuntu 26.04 | `ubuntu-26.04` | |
-| 4 | Pop!_OS 24.04 | — none | See the caveat below before reading its results. |
-| 5 | Kali rolling | `kali-rolling` | A `Kali` domain already exists on the host. |
+| 4 | Ubuntu 24.04 | `ubuntu-24.04` | Declared 2026-09-03 from this VM's full-catalog campaign; the LTS Mint 22.x and Pop!_OS 24.04 install from. |
+| 5 | Pop!_OS 24.04 | — none | See the caveat below before reading its results. |
+| 6 | Kali rolling | `kali-rolling` | A `Kali` domain already exists on the host. |
 
 **The Pop!_OS caveat.** Pop!_OS is not a declared target. Its os-release says
 `ID=pop`, `ID_LIKE="ubuntu debian"`; the engine's family check consults
 `ID_LIKE`, so installation is *permitted* — but manifest selectors match on
-`ID` only, so any block gated `distro: ubuntu` will not match on Pop, and
-Pop 24.04 sits on Ubuntu 24.04-era archives while the matrix measures 26.04.
+`ID` only, so any block gated `distro: ubuntu` will not match on Pop. Its
+archive is Ubuntu 24.04's, which the matrix has measured as `ubuntu-24.04`
+since 2026-09-03 — so an apt gap on Pop that the 24.04 rung also shows is a
+fact about the archive, and one the 24.04 rung does not show is Pop's own.
 Treat Pop results as evidence for a **decision about declaring `pop` a
 target**, not as pass/fail against current claims. Failures unique to Pop are
 findings about the gap, not bugs, until that decision is made.

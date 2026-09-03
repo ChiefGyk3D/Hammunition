@@ -27,6 +27,24 @@ targets:
     arch: x86_64
     priority: 3
 
+  # Ubuntu 24.04, declared 2026-09-03 after the full-catalog VM campaign ran on
+  # it (docs/reference/vm-campaign-ubuntu.md). It is the LTS that Linux Mint
+  # 22.x and Pop!_OS 24.04 build on, so it is the archive an operator on either
+  # is actually installing from; before this entry the matrix measured 26.04
+  # only, and Q-017 was raised from what 24.04 refused. Declared alongside
+  # 26.04, not instead of it: the two archives disagree on 14 catalog packages
+  # (capability-matrix.md; 21 absent here against 11 there), and a manifest
+  # selector written against one is untested against the other. The sweep
+  # matches linuxmint-22.3's row for row -- Mint 22.3 installs from this very
+  # archive -- but Mint's os-release says ID=linuxmint, so a `distro: ubuntu`
+  # selector could never be exercised against 24.04's archive until now.
+  - name: ubuntu-24.04
+    image: ubuntu:24.04
+    os_release_id: ubuntu
+    os_release_version: "24.04"
+    arch: x86_64
+    priority: 7
+
   # `rolling: true` means the image tag follows the distribution's moving
   # stream, so VERSION_ID changes under us by design. The drift check then
   # matches on os_release_id alone and prints the version it found;

@@ -20,7 +20,7 @@ package does not exist. The sweep is what separates those.
 | `apt ✗` | Resolves to apt, and at least one package is **not in that archive**. Listed below. |
 | `source` / `git` / `binary` / `venv` / `node` | Resolves to a build. Declared, not verified here — see below. |
 | `—` | No install block resolves. The manifest does not claim this target. |
-| `apt ?` | Resolves to apt and this target was not swept. |
+| `apt ?` | Resolves to apt and the sweep never asked — either the target was not swept, or the sweep list predates the package. Not an absence: nobody measured it. |
 
 **This is the weaker of the two checks this repository runs.**
 `apt-cache policy` proves the archive *offers* a package; it does not
@@ -35,14 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 176 | 17 | 48 | 2 | 0 |
-| ubuntu-26.04 | 177 | 15 | 49 | 2 | 0 |
-| kali-rolling | 181 | 17 | 45 | 0 | 0 |
-| parrot | 179 | 15 | 47 | 2 | 0 |
-| linuxmint-22.3 | 170 | 24 | 47 | 2 | 0 |
-| debian-13-arm64 | 175 | 18 | 45 | 5 | 0 |
+| debian-13 | 186 | 7 | 48 | 2 | 0 |
+| ubuntu-26.04 | 187 | 5 | 49 | 2 | 0 |
+| ubuntu-24.04 | 180 | 14 | 47 | 2 | 0 |
+| kali-rolling | 189 | 9 | 45 | 0 | 0 |
+| parrot | 189 | 5 | 47 | 2 | 0 |
+| linuxmint-22.3 | 180 | 14 | 47 | 2 | 0 |
+| debian-13-arm64 | 185 | 8 | 45 | 5 | 0 |
 
-**243 manifests** against **6 targets**.
+**243 manifests** against **7 targets**.
 
 ---
 
@@ -58,355 +59,311 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `aethersdr` | debian-13-arm64 | `aethersdr` |
 | `aethersdr` | linuxmint-22.3 | `aethersdr` |
 | `aethersdr` | parrot | `aethersdr` |
+| `aethersdr` | ubuntu-24.04 | `aethersdr` |
 | `aethersdr` | ubuntu-26.04 | `aethersdr` |
+| `ax25-tools` | kali-rolling | `ax25-tools` |
+| `ax25-xtools` | kali-rolling | `ax25-xtools` |
 | `baycomepp` | debian-13-arm64 | `baycomepp` |
-| `claws-mail` | debian-13 | `claws-mail` |
-| `claws-mail` | debian-13-arm64 | `claws-mail` |
-| `claws-mail` | kali-rolling | `claws-mail` |
-| `claws-mail` | linuxmint-22.3 | `claws-mail` |
-| `claws-mail` | parrot | `claws-mail` |
-| `claws-mail` | ubuntu-26.04 | `claws-mail` |
 | `code` | debian-13 | `code` |
 | `code` | debian-13-arm64 | `code` |
 | `code` | kali-rolling | `code` |
 | `code` | linuxmint-22.3 | `code` |
 | `code` | parrot | `code` |
+| `code` | ubuntu-24.04 | `code` |
 | `code` | ubuntu-26.04 | `code` |
 | `codium` | debian-13 | `codium` |
 | `codium` | debian-13-arm64 | `codium` |
 | `codium` | kali-rolling | `codium` |
 | `codium` | linuxmint-22.3 | `codium` |
+| `codium` | ubuntu-24.04 | `codium` |
 | `codium` | ubuntu-26.04 | `codium` |
-| `cqrlog` | kali-rolling | `cqrlog` |
-| `cutecom` | debian-13 | `cutecom` |
-| `cutecom` | debian-13-arm64 | `cutecom` |
-| `cutecom` | kali-rolling | `cutecom` |
-| `cutecom` | linuxmint-22.3 | `cutecom` |
-| `cutecom` | parrot | `cutecom` |
-| `cutecom` | ubuntu-26.04 | `cutecom` |
 | `cwdaemon` | kali-rolling | `cwdaemon` |
 | `dump1090-mutability` | debian-13 | `dump1090-mutability` |
 | `dump1090-mutability` | debian-13-arm64 | `dump1090-mutability` |
 | `dump1090-mutability` | kali-rolling | `dump1090-mutability` |
 | `dump1090-mutability` | parrot | `dump1090-mutability` |
-| `evolution` | debian-13 | `evolution` |
-| `evolution` | debian-13-arm64 | `evolution` |
-| `evolution` | kali-rolling | `evolution` |
-| `evolution` | linuxmint-22.3 | `evolution` |
-| `evolution` | parrot | `evolution` |
-| `evolution` | ubuntu-26.04 | `evolution` |
 | `fbb` | debian-13 | `fbb` |
 | `fbb` | debian-13-arm64 | `fbb` |
 | `fbb` | kali-rolling | `fbb` |
 | `fbb` | parrot | `fbb` |
-| `geary` | debian-13 | `geary` |
-| `geary` | debian-13-arm64 | `geary` |
-| `geary` | kali-rolling | `geary` |
-| `geary` | linuxmint-22.3 | `geary` |
-| `geary` | parrot | `geary` |
-| `geary` | ubuntu-26.04 | `geary` |
-| `gpsbabel` | debian-13 | `gpsbabel` |
-| `gpsbabel` | debian-13-arm64 | `gpsbabel` |
-| `gpsbabel` | kali-rolling | `gpsbabel` |
-| `gpsbabel` | linuxmint-22.3 | `gpsbabel` |
-| `gpsbabel` | parrot | `gpsbabel` |
-| `gpsbabel` | ubuntu-26.04 | `gpsbabel` |
 | `gr-gsm` | ubuntu-26.04 | `gr-gsm` |
 | `gtk-meshtastic-client` | linuxmint-22.3 | `gtk-meshtastic-client` |
+| `gtk-meshtastic-client` | ubuntu-24.04 | `gtk-meshtastic-client` |
 | `m2kcli` | linuxmint-22.3 | `m2kcli` |
+| `m2kcli` | ubuntu-24.04 | `m2kcli` |
 | `mlat-client-adsbfi` | linuxmint-22.3 | `mlat-client-adsbfi` |
+| `mlat-client-adsbfi` | ubuntu-24.04 | `mlat-client-adsbfi` |
 | `odr-audioenc` | debian-13 | `odr-audioenc` |
 | `odr-audioenc` | debian-13-arm64 | `odr-audioenc` |
 | `odr-audioenc` | linuxmint-22.3 | `odr-audioenc` |
-| `picocom` | debian-13 | `picocom` |
-| `picocom` | debian-13-arm64 | `picocom` |
-| `picocom` | kali-rolling | `picocom` |
-| `picocom` | linuxmint-22.3 | `picocom` |
-| `picocom` | parrot | `picocom` |
-| `picocom` | ubuntu-26.04 | `picocom` |
-| `putty` | debian-13 | `putty` |
-| `putty` | debian-13-arm64 | `putty` |
-| `putty` | kali-rolling | `putty` |
-| `putty` | linuxmint-22.3 | `putty` |
-| `putty` | parrot | `putty` |
-| `putty` | ubuntu-26.04 | `putty` |
+| `odr-audioenc` | ubuntu-24.04 | `odr-audioenc` |
 | `python3-meshtastic` | linuxmint-22.3 | `python3-meshtastic` |
+| `python3-meshtastic` | ubuntu-24.04 | `python3-meshtastic` |
 | `pythonprop` | linuxmint-22.3 | `pythonprop` |
+| `pythonprop` | ubuntu-24.04 | `pythonprop` |
 | `readsb` | linuxmint-22.3 | `readsb` |
+| `readsb` | ubuntu-24.04 | `readsb` |
 | `rtl-ais` | linuxmint-22.3 | `rtl-ais` |
+| `rtl-ais` | ubuntu-24.04 | `rtl-ais` |
 | `satdump` | linuxmint-22.3 | `satdump` |
+| `satdump` | ubuntu-24.04 | `satdump` |
 | `sdrangel` | debian-13 | `sdrangel` |
 | `sdrangel` | debian-13-arm64 | `sdrangel` |
 | `sdrangel` | linuxmint-22.3 | `sdrangel` |
 | `sdrangel` | parrot | `sdrangel` |
+| `sdrangel` | ubuntu-24.04 | `sdrangel` |
 | `soapysdr-module-rfspace` | kali-rolling | `soapysdr-module-rfspace` |
 | `soapysdr-module-rfspace` | ubuntu-26.04 | `soapysdr-module-rfspace` |
-| `thunderbird` | debian-13 | `thunderbird` |
-| `thunderbird` | debian-13-arm64 | `thunderbird` |
-| `thunderbird` | kali-rolling | `thunderbird` |
-| `thunderbird` | linuxmint-22.3 | `thunderbird` |
-| `thunderbird` | parrot | `thunderbird` |
-| `thunderbird` | ubuntu-26.04 | `thunderbird` |
 | `voacapl` | linuxmint-22.3 | `voacapl` |
-| `wireshark` | debian-13 | `libcap2-bin` |
-| `wireshark` | debian-13-arm64 | `libcap2-bin` |
-| `wireshark` | kali-rolling | `libcap2-bin` |
-| `wireshark` | linuxmint-22.3 | `libcap2-bin` |
-| `wireshark` | parrot | `libcap2-bin` |
-| `wireshark` | ubuntu-26.04 | `libcap2-bin` |
-| `xygrib` | debian-13 | `xygrib` |
-| `xygrib` | debian-13-arm64 | `xygrib` |
-| `xygrib` | kali-rolling | `xygrib` |
-| `xygrib` | linuxmint-22.3 | `xygrib` |
-| `xygrib` | parrot | `xygrib` |
-| `xygrib` | ubuntu-26.04 | `xygrib` |
+| `voacapl` | ubuntu-24.04 | `voacapl` |
+| `z8530-utils2` | kali-rolling | `z8530-utils2` |
 
 ---
 
 ## Every manifest
 
-| Package | debian-13 | ubuntu-26.04 | kali-rolling | parrot | linuxmint-22.3 | debian-13-arm64 |
-|---|---|---|---|---|---|---|
-| `a2d` | apt | apt | apt | apt | apt | apt |
-| `acarsdec` | git | git | git | git | git | git |
-| `acarsserv` | git | git | git | git | git | git |
-| `aethersdr` | apt ✗ | apt ✗ | apt | apt ✗ | apt ✗ | apt ✗ |
-| `aircrack-ng` | apt | apt | apt | apt | apt | apt |
-| `airspy` | apt | apt | apt | apt | apt | apt |
-| `airspyhf` | apt | apt | apt | apt | apt | apt |
-| `ais-catcher` | git | git | git | git | git | git |
-| `aldo` | apt | apt | apt | apt | apt | apt |
-| `ampr-ripd` | apt | apt | apt | apt | apt | apt |
-| `antscope2` | binary | binary | binary | binary | binary | — |
-| `aprsdigi` | apt | apt | apt | apt | apt | apt |
-| `aprx` | apt | apt | apt | apt | apt | apt |
-| `ardopcf` | git | git | git | git | git | git |
-| `arduino-cli` | — | — | apt | — | — | — |
-| `atlc` | apt | apt | apt | apt | apt | apt |
-| `avrdude` | apt | apt | apt | apt | apt | apt |
-| `ax25-apps` | apt | apt | apt | apt | apt | apt |
-| `ax25-tools` | apt | apt | apt | apt | apt | apt |
-| `ax25-xtools` | apt | apt | apt | apt | apt | apt |
-| `ax25mail-utils` | apt | apt | apt | apt | apt | apt |
-| `axmail` | apt | apt | apt | apt | apt | apt |
-| `baycomepp` | apt | apt | apt | apt | apt | apt ✗ |
-| `baycomusb` | apt | apt | apt | apt | apt | apt |
-| `bladerf` | apt | apt | apt | apt | apt | apt |
-| `canadian-ham-exam` | apt | apt | apt | apt | apt | apt |
-| `cassbeam` | apt | apt | apt | apt | apt | apt |
-| `chirp` | apt | apt | apt | apt | apt | apt |
-| `claws-mail` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
-| `code` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
-| `codium` | apt ✗ | apt ✗ | apt ✗ | apt | apt ✗ | apt ✗ |
-| `coil64` | git | git | git | git | git | git |
-| `comptext` | apt | apt | apt | apt | apt | apt |
-| `comptty` | apt | apt | apt | apt | apt | apt |
-| `cqrlog` | apt | apt | apt ✗ | apt | apt | apt |
-| `cubicsdr` | apt | apt | apt | apt | apt | apt |
-| `cutecom` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
-| `cutesdr` | apt | apt | apt | apt | apt | apt |
-| `cw` | apt | apt | apt | apt | apt | apt |
-| `cwcp` | apt | apt | apt | apt | apt | apt |
-| `cwdaemon` | apt | apt | apt ✗ | apt | apt | apt |
-| `cwwav` | git | git | git | git | git | git |
-| `dablin` | apt | apt | apt | apt | apt | apt |
-| `dfu-util` | apt | apt | apt | apt | apt | apt |
-| `direwolf` | apt | apt | apt | apt | apt | apt |
-| `dmrconfig` | apt | apt | apt | apt | apt | apt |
-| `dsdcc` | apt | apt | apt | apt | apt | apt |
-| `dump1090-mutability` | apt ✗ | apt | apt ✗ | apt ✗ | apt | apt ✗ |
-| `dumphfdl` | source | source | source | source | source | source |
-| `dumpvdl2` | git | git | git | git | git | git |
-| `ebook2cw` | apt | apt | apt | apt | apt | apt |
-| `ebook2cwgui` | apt | apt | apt | apt | apt | apt |
-| `electronics-radio-dev` | apt | apt | apt | apt | apt | apt |
-| `esptool` | apt | apt | apt | apt | apt | apt |
-| `evolution` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
-| `fbb` | apt ✗ | apt | apt ✗ | apt ✗ | apt | apt ✗ |
-| `fccexam` | apt | apt | apt | apt | apt | apt |
-| `fl-moxgen` | source | source | source | source | source | source |
-| `flaa` | source | source | source | source | source | source |
-| `flamp` | apt | apt | apt | apt | apt | apt |
-| `flashrom` | apt | apt | apt | apt | apt | apt |
-| `flcluster` | source | source | source | source | source | source |
-| `fldigi` | source | source | source | source | source | source |
-| `fllog` | source | source | source | source | source | source |
-| `flmsg` | apt | apt | apt | apt | apt | apt |
-| `flnet` | source | source | source | source | source | source |
-| `flrig` | apt | apt | apt | apt | apt | apt |
-| `flwkey` | source | source | source | source | source | source |
-| `flwrap` | apt | apt | apt | apt | apt | apt |
-| `freedv` | apt | apt | apt | apt | apt | apt |
-| `garim` | source | source | source | source | source | source |
-| `geary` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
-| `git` | apt | apt | apt | apt | apt | apt |
-| `glfer` | source | source | source | source | source | source |
-| `gnss-sdr` | apt | apt | apt | apt | apt | apt |
-| `gnuais` | apt | apt | apt | apt | apt | apt |
-| `gnuaisgui` | apt | apt | apt | apt | apt | apt |
-| `gnuradio` | apt | apt | apt | apt | apt | apt |
-| `gpredict` | apt | apt | apt | apt | apt | apt |
-| `gpsbabel` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
-| `gpsd` | apt | apt | apt | apt | apt | apt |
-| `gpsd-clients` | apt | apt | apt | apt | apt | apt |
-| `gpsd-tools` | apt | apt | apt | apt | apt | apt |
-| `gqrx-sdr` | apt | apt | apt | apt | apt | apt |
-| `gr-air-modes` | apt | apt | apt | apt | apt | apt |
-| `gr-funcube` | apt | apt | apt | apt | apt | apt |
-| `gr-gsm` | apt | apt ✗ | apt | apt | apt | apt |
-| `gr-hpsdr` | apt | apt | apt | apt | apt | apt |
-| `gr-limesdr` | apt | apt | apt | apt | apt | apt |
-| `gr-osmosdr` | apt | apt | apt | apt | apt | apt |
-| `gr-rds` | apt | apt | apt | apt | apt | apt |
-| `gr-satellites` | apt | apt | apt | apt | apt | apt |
-| `gridtracker2` | binary | binary | binary | binary | binary | binary |
-| `gsmc` | source | source | source | source | source | source |
-| `gtk-meshtastic-client` | apt | apt | apt | apt | apt ✗ | apt |
-| `hackrf` | apt | apt | apt | apt | apt | apt |
-| `hacktv` | apt | apt | apt | apt | apt | apt |
-| `hamclock-next` | source | source | source | source | source | source |
-| `hamexam` | apt | apt | apt | apt | apt | apt |
-| `hcxdumptool` | apt | apt | apt | apt | apt | apt |
-| `hcxtools` | apt | apt | apt | apt | apt | apt |
-| `ibp` | source | source | source | source | source | source |
-| `icom` | apt | apt | apt | apt | apt | apt |
-| `inspectrum` | apt | apt | apt | apt | apt | apt |
-| `js8call` | git | git | git | git | apt | git |
-| `js8spotter` | binary | binary | binary | binary | binary | binary |
-| `jtdx` | apt | apt | apt | apt | apt | apt |
-| `kalibrate-rtl` | git | git | apt | git | git | git |
-| `kappanhang` | apt | apt | apt | apt | apt | apt |
-| `kel-agent` | apt | apt | apt | apt | apt | apt |
-| `klog` | apt | apt | apt | apt | apt | apt |
-| `langford-utils` | apt | apt | apt | apt | apt | apt |
-| `libacars` | git | git | git | git | git | git |
-| `libbladerf2` | apt | apt | apt | apt | apt | apt |
-| `libfreefare-bin` | apt | apt | apt | apt | apt | apt |
-| `libhamlib-utils` | apt | apt | apt | apt | apt | apt |
-| `libmirisdr4` | apt | apt | apt | apt | apt | apt |
-| `libnfc-bin` | apt | apt | apt | apt | apt | apt |
-| `limesuite` | apt | apt | apt | apt | apt | apt |
-| `linbpq` | git | git | git | git | git | git |
-| `linpac` | apt | apt | apt | apt | apt | apt |
-| `linrad` | source | source | source | source | source | — |
-| `m2kcli` | apt | apt | apt | apt | apt ✗ | apt |
-| `mfcuk` | apt | apt | apt | apt | apt | apt |
-| `mfoc` | apt | apt | apt | apt | apt | apt |
-| `minicom` | apt | apt | apt | apt | apt | apt |
-| `minimodem` | apt | apt | apt | apt | apt | apt |
-| `miri-sdr` | apt | apt | apt | apt | apt | apt |
-| `mlat-client-adsbfi` | apt | apt | apt | apt | apt ✗ | apt |
-| `morse-classic` | apt | apt | apt | apt | apt | apt |
-| `morse2ascii` | apt | apt | apt | apt | apt | apt |
-| `mshv` | source | source | source | source | source | source |
-| `multimon` | apt | apt | apt | apt | apt | apt |
-| `multimon-ng` | apt | apt | apt | apt | apt | apt |
-| `nanovna-saver` | venv | venv | venv | venv | venv | binary |
-| `nec2c` | apt | apt | apt | apt | apt | apt |
-| `noaa-apt` | binary | binary | binary | binary | binary | binary |
-| `not1mm` | venv | venv | venv | venv | venv | venv |
-| `odr-audioenc` | apt ✗ | apt | apt | apt | apt ✗ | apt ✗ |
-| `odr-dabmod` | apt | apt | apt | apt | apt | apt |
-| `odr-dabmux` | apt | apt | apt | apt | apt | apt |
-| `odr-padenc` | apt | apt | apt | apt | apt | apt |
-| `openfpgaloader` | apt | apt | apt | apt | apt | apt |
-| `openhamclock` | node | node | node | node | node | node |
-| `openocd` | apt | apt | apt | apt | apt | apt |
-| `osmo-sdr` | apt | apt | apt | apt | apt | apt |
-| `pat` | apt | apt | apt | apt | apt | apt |
-| `pciutils` | apt | apt | apt | apt | apt | apt |
-| `pcsc-tools` | apt | apt | apt | apt | apt | apt |
-| `picocom` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
-| `pipx` | apt | apt | apt | apt | apt | apt |
-| `proxmark3` | git | git | apt | git | git | git |
-| `psk31lx` | apt | apt | apt | apt | apt | apt |
-| `putty` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
-| `pyqso` | apt | apt | apt | apt | apt | apt |
-| `python3-meshtastic` | apt | apt | apt | apt | apt ✗ | apt |
-| `python3-pyhamtools` | apt | apt | apt | apt | apt | apt |
-| `pythonprop` | apt | apt | apt | apt | apt ✗ | apt |
-| `qdmr` | apt | apt | apt | apt | apt | apt |
-| `qflipper` | apt | apt | apt | apt | apt | apt |
-| `qgrid` | source | source | source | source | source | source |
-| `qlog` | git | git | git | git | git | git |
-| `qrq` | apt | apt | apt | apt | apt | apt |
-| `qsstv` | apt | apt | apt | apt | apt | apt |
-| `qtbpqaprs` | git | git | git | git | git | git |
-| `qtel` | apt | apt | apt | apt | apt | apt |
-| `qthid-fcd-controller` | apt | apt | apt | apt | apt | apt |
-| `qtsoundmodem` | git | git | git | git | git | git |
-| `qttermtcp` | git | git | git | git | git | git |
-| `qttinysa` | apt | apt | apt | apt | apt | apt |
-| `quisk` | apt | apt | apt | apt | apt | apt |
-| `radioclk` | apt | apt | apt | apt | apt | apt |
-| `radiosonde-auto-rx` | venv | venv | venv | venv | venv | venv |
-| `readsb` | apt | apt | apt | apt | apt ✗ | apt |
-| `remotetrx` | apt | apt | apt | apt | apt | apt |
-| `rtl-433` | apt | apt | apt | apt | apt | apt |
-| `rtl-ais` | apt | apt | apt | apt | apt ✗ | apt |
-| `rtl-sdr` | apt | apt | apt | apt | apt | apt |
-| `rtlsdr-airband` | git | git | git | git | git | git |
-| `satdump` | apt | apt | apt | apt | apt ✗ | apt |
-| `screen` | apt | apt | apt | apt | apt | apt |
-| `sdrangel` | apt ✗ | binary | apt | apt ✗ | apt ✗ | apt ✗ |
-| `sdrpp` | git | git | apt | apt | git | git |
-| `soapyremote-server` | apt | apt | apt | apt | apt | apt |
-| `soapysdr-module-airspy` | apt | apt | apt | apt | apt | apt |
-| `soapysdr-module-audio` | apt | apt | apt | apt | apt | apt |
-| `soapysdr-module-bladerf` | apt | apt | apt | apt | apt | apt |
-| `soapysdr-module-hackrf` | apt | apt | apt | apt | apt | apt |
-| `soapysdr-module-lms7` | apt | apt | apt | apt | apt | apt |
-| `soapysdr-module-mirisdr` | apt | apt | apt | apt | apt | apt |
-| `soapysdr-module-osmosdr` | apt | apt | apt | apt | apt | apt |
-| `soapysdr-module-plutosdr` | — | — | apt | — | — | — |
-| `soapysdr-module-redpitaya` | apt | apt | apt | apt | apt | apt |
-| `soapysdr-module-remote` | apt | apt | apt | apt | apt | apt |
-| `soapysdr-module-rfspace` | apt | apt ✗ | apt ✗ | apt | apt | apt |
-| `soapysdr-module-rtlsdr` | apt | apt | apt | apt | apt | apt |
-| `soapysdr-module-uhd` | apt | apt | apt | apt | apt | apt |
-| `soapysdr-tools` | apt | apt | apt | apt | apt | apt |
-| `spectools` | apt | apt | apt | apt | apt | apt |
-| `splat` | apt | apt | apt | apt | apt | apt |
-| `stlink-tools` | apt | apt | apt | apt | apt | apt |
-| `sunclock` | apt | apt | apt | apt | apt | apt |
-| `supersdr` | venv | venv | venv | venv | venv | venv |
-| `svxlink-calibration-tools` | apt | apt | apt | apt | apt | apt |
-| `svxlink-gpio` | apt | apt | apt | apt | apt | apt |
-| `svxlink-server` | apt | apt | apt | apt | apt | apt |
-| `svxreflector` | apt | apt | apt | apt | apt | apt |
-| `tcpdump` | apt | apt | apt | apt | apt | apt |
-| `tempest-for-eliza` | apt | apt | apt | apt | apt | apt |
-| `thunderbird` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
-| `tio` | apt | apt | apt | apt | apt | apt |
-| `tlf` | apt | apt | apt | apt | apt | apt |
-| `tmd710-tncsetup` | apt | apt | apt | apt | apt | apt |
-| `tmux` | apt | apt | apt | apt | apt | apt |
-| `trustedqsl` | apt | apt | apt | apt | apt | apt |
-| `tucnak` | apt | apt | apt | apt | apt | apt |
-| `twclock` | apt | apt | apt | apt | apt | apt |
-| `twpsk` | apt | apt | apt | apt | apt | apt |
-| `tzwatch` | apt | apt | apt | apt | apt | apt |
-| `ubertooth` | apt | apt | apt | apt | apt | apt |
-| `uhd-host` | apt | apt | apt | apt | apt | apt |
-| `uhd-soapysdr` | apt | apt | apt | apt | apt | apt |
-| `uronode` | apt | apt | apt | apt | apt | apt |
-| `usbutils` | apt | apt | apt | apt | apt | apt |
-| `voacapl` | apt | apt | apt | apt | apt ✗ | apt |
-| `welle-io` | apt | apt | apt | apt | apt | apt |
-| `wfview` | apt | apt | apt | apt | apt | apt |
-| `wireshark` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
-| `wordsworth` | binary | binary | binary | binary | binary | binary |
-| `wsjtx` | git | git | git | git | git | git |
-| `wsjtx-improved` | binary | binary | binary | binary | binary | — |
-| `wwl` | apt | apt | apt | apt | apt | apt |
-| `xastir` | apt | apt | apt | apt | apt | apt |
-| `xcwcp` | apt | apt | apt | apt | apt | apt |
-| `xdemorse` | apt | apt | apt | apt | apt | apt |
-| `xdx` | apt | apt | apt | apt | apt | apt |
-| `xlog` | apt | apt | apt | apt | apt | apt |
-| `xnec2c` | apt | apt | apt | apt | apt | apt |
-| `xwefax` | source | source | source | source | source | source |
-| `xygrib` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
-| `yaac` | binary | binary | binary | binary | binary | binary |
-| `yagiuda` | apt | apt | apt | apt | apt | apt |
-| `z8530-utils2` | apt | apt | apt | apt | apt | apt |
+| Package | debian-13 | ubuntu-26.04 | ubuntu-24.04 | kali-rolling | parrot | linuxmint-22.3 | debian-13-arm64 |
+|---|---|---|---|---|---|---|---|
+| `a2d` | apt | apt | apt | apt | apt | apt | apt |
+| `acarsdec` | git | git | git | git | git | git | git |
+| `acarsserv` | git | git | git | git | git | git | git |
+| `aethersdr` | apt ✗ | apt ✗ | apt ✗ | apt | apt ✗ | apt ✗ | apt ✗ |
+| `aircrack-ng` | apt | apt | apt | apt | apt | apt | apt |
+| `airspy` | apt | apt | apt | apt | apt | apt | apt |
+| `airspyhf` | apt | apt | apt | apt | apt | apt | apt |
+| `ais-catcher` | git | git | git | git | git | git | git |
+| `aldo` | apt | apt | apt | apt | apt | apt | apt |
+| `ampr-ripd` | apt | apt | apt | apt | apt | apt | apt |
+| `antscope2` | binary | binary | binary | binary | binary | binary | — |
+| `aprsdigi` | apt | apt | apt | apt | apt | apt | apt |
+| `aprx` | apt | apt | apt | apt | apt | apt | apt |
+| `ardopcf` | git | git | git | git | git | git | git |
+| `arduino-cli` | — | — | — | apt | — | — | — |
+| `atlc` | apt | apt | apt | apt | apt | apt | apt |
+| `avrdude` | apt | apt | apt | apt | apt | apt | apt |
+| `ax25-apps` | apt | apt | apt | apt | apt | apt | apt |
+| `ax25-tools` | apt | apt | apt | apt ✗ | apt | apt | apt |
+| `ax25-xtools` | apt | apt | apt | apt ✗ | apt | apt | apt |
+| `ax25mail-utils` | apt | apt | apt | apt | apt | apt | apt |
+| `axmail` | apt | apt | apt | apt | apt | apt | apt |
+| `baycomepp` | apt | apt | apt | apt | apt | apt | apt ✗ |
+| `baycomusb` | apt | apt | apt | apt | apt | apt | apt |
+| `bladerf` | apt | apt | apt | apt | apt | apt | apt |
+| `canadian-ham-exam` | apt | apt | apt | apt | apt | apt | apt |
+| `cassbeam` | apt | apt | apt | apt | apt | apt | apt |
+| `chirp` | apt | apt | apt | apt | apt | apt | apt |
+| `claws-mail` | apt | apt | apt | apt | apt | apt | apt |
+| `code` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
+| `codium` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt | apt ✗ | apt ✗ |
+| `coil64` | git | git | git | git | git | git | git |
+| `comptext` | apt | apt | apt | apt | apt | apt | apt |
+| `comptty` | apt | apt | apt | apt | apt | apt | apt |
+| `cqrlog` | apt | apt | apt | apt | apt | apt | apt |
+| `cubicsdr` | apt | apt | apt | apt | apt | apt | apt |
+| `cutecom` | apt | apt | apt | apt | apt | apt | apt |
+| `cutesdr` | apt | apt | apt | apt | apt | apt | apt |
+| `cw` | apt | apt | apt | apt | apt | apt | apt |
+| `cwcp` | apt | apt | apt | apt | apt | apt | apt |
+| `cwdaemon` | apt | apt | apt | apt ✗ | apt | apt | apt |
+| `cwwav` | git | git | git | git | git | git | git |
+| `dablin` | apt | apt | apt | apt | apt | apt | apt |
+| `dfu-util` | apt | apt | apt | apt | apt | apt | apt |
+| `direwolf` | apt | apt | apt | apt | apt | apt | apt |
+| `dmrconfig` | apt | apt | apt | apt | apt | apt | apt |
+| `dsdcc` | apt | apt | apt | apt | apt | apt | apt |
+| `dump1090-mutability` | apt ✗ | apt | apt | apt ✗ | apt ✗ | apt | apt ✗ |
+| `dumphfdl` | source | source | source | source | source | source | source |
+| `dumpvdl2` | git | git | git | git | git | git | git |
+| `ebook2cw` | apt | apt | apt | apt | apt | apt | apt |
+| `ebook2cwgui` | apt | apt | apt | apt | apt | apt | apt |
+| `electronics-radio-dev` | apt | apt | apt | apt | apt | apt | apt |
+| `esptool` | apt | apt | apt | apt | apt | apt | apt |
+| `evolution` | apt | apt | apt | apt | apt | apt | apt |
+| `fbb` | apt ✗ | apt | apt | apt ✗ | apt ✗ | apt | apt ✗ |
+| `fccexam` | apt | apt | apt | apt | apt | apt | apt |
+| `fl-moxgen` | source | source | source | source | source | source | source |
+| `flaa` | source | source | source | source | source | source | source |
+| `flamp` | apt | apt | apt | apt | apt | apt | apt |
+| `flashrom` | apt | apt | apt | apt | apt | apt | apt |
+| `flcluster` | source | source | source | source | source | source | source |
+| `fldigi` | source | source | source | source | source | source | source |
+| `fllog` | source | source | source | source | source | source | source |
+| `flmsg` | apt | apt | apt | apt | apt | apt | apt |
+| `flnet` | source | source | source | source | source | source | source |
+| `flrig` | apt | apt | apt | apt | apt | apt | apt |
+| `flwkey` | source | source | source | source | source | source | source |
+| `flwrap` | apt | apt | apt | apt | apt | apt | apt |
+| `freedv` | apt | apt | apt | apt | apt | apt | apt |
+| `garim` | source | source | source | source | source | source | source |
+| `geary` | apt | apt | apt | apt | apt | apt | apt |
+| `git` | apt | apt | apt | apt | apt | apt | apt |
+| `glfer` | source | source | source | source | source | source | source |
+| `gnss-sdr` | apt | apt | apt | apt | apt | apt | apt |
+| `gnuais` | apt | apt | apt | apt | apt | apt | apt |
+| `gnuaisgui` | apt | apt | apt | apt | apt | apt | apt |
+| `gnuradio` | apt | apt | apt | apt | apt | apt | apt |
+| `gpredict` | apt | apt | apt | apt | apt | apt | apt |
+| `gpsbabel` | apt | apt | apt | apt | apt | apt | apt |
+| `gpsd` | apt | apt | apt | apt | apt | apt | apt |
+| `gpsd-clients` | apt | apt | apt | apt | apt | apt | apt |
+| `gpsd-tools` | apt | apt | apt | apt | apt | apt | apt |
+| `gqrx-sdr` | apt | apt | apt | apt | apt | apt | apt |
+| `gr-air-modes` | apt | apt | apt | apt | apt | apt | apt |
+| `gr-funcube` | apt | apt | apt | apt | apt | apt | apt |
+| `gr-gsm` | apt | apt ✗ | apt | apt | apt | apt | apt |
+| `gr-hpsdr` | apt | apt | apt | apt | apt | apt | apt |
+| `gr-limesdr` | apt | apt | apt | apt | apt | apt | apt |
+| `gr-osmosdr` | apt | apt | apt | apt | apt | apt | apt |
+| `gr-rds` | apt | apt | apt | apt | apt | apt | apt |
+| `gr-satellites` | apt | apt | apt | apt | apt | apt | apt |
+| `gridtracker2` | binary | binary | binary | binary | binary | binary | binary |
+| `gsmc` | source | source | source | source | source | source | source |
+| `gtk-meshtastic-client` | apt | apt | apt ✗ | apt | apt | apt ✗ | apt |
+| `hackrf` | apt | apt | apt | apt | apt | apt | apt |
+| `hacktv` | apt | apt | apt | apt | apt | apt | apt |
+| `hamclock-next` | source | source | source | source | source | source | source |
+| `hamexam` | apt | apt | apt | apt | apt | apt | apt |
+| `hcxdumptool` | apt | apt | apt | apt | apt | apt | apt |
+| `hcxtools` | apt | apt | apt | apt | apt | apt | apt |
+| `ibp` | source | source | source | source | source | source | source |
+| `icom` | apt | apt | apt | apt | apt | apt | apt |
+| `inspectrum` | apt | apt | apt | apt | apt | apt | apt |
+| `js8call` | git | git | apt | git | git | apt | git |
+| `js8spotter` | binary | binary | binary | binary | binary | binary | binary |
+| `jtdx` | apt | apt | apt | apt | apt | apt | apt |
+| `kalibrate-rtl` | git | git | git | apt | git | git | git |
+| `kappanhang` | apt | apt | apt | apt | apt | apt | apt |
+| `kel-agent` | apt | apt | apt | apt | apt | apt | apt |
+| `klog` | apt | apt | apt | apt | apt | apt | apt |
+| `langford-utils` | apt | apt | apt | apt | apt | apt | apt |
+| `libacars` | git | git | git | git | git | git | git |
+| `libbladerf2` | apt | apt | apt | apt | apt | apt | apt |
+| `libfreefare-bin` | apt | apt | apt | apt | apt | apt | apt |
+| `libhamlib-utils` | apt | apt | apt | apt | apt | apt | apt |
+| `libmirisdr4` | apt | apt | apt | apt | apt | apt | apt |
+| `libnfc-bin` | apt | apt | apt | apt | apt | apt | apt |
+| `limesuite` | apt | apt | apt | apt | apt | apt | apt |
+| `linbpq` | git | git | git | git | git | git | git |
+| `linpac` | apt | apt | apt | apt | apt | apt | apt |
+| `linrad` | source | source | source | source | source | source | — |
+| `m2kcli` | apt | apt | apt ✗ | apt | apt | apt ✗ | apt |
+| `mfcuk` | apt | apt | apt | apt | apt | apt | apt |
+| `mfoc` | apt | apt | apt | apt | apt | apt | apt |
+| `minicom` | apt | apt | apt | apt | apt | apt | apt |
+| `minimodem` | apt | apt | apt | apt | apt | apt | apt |
+| `miri-sdr` | apt | apt | apt | apt | apt | apt | apt |
+| `mlat-client-adsbfi` | apt | apt | apt ✗ | apt | apt | apt ✗ | apt |
+| `morse-classic` | apt | apt | apt | apt | apt | apt | apt |
+| `morse2ascii` | apt | apt | apt | apt | apt | apt | apt |
+| `mshv` | source | source | source | source | source | source | source |
+| `multimon` | apt | apt | apt | apt | apt | apt | apt |
+| `multimon-ng` | apt | apt | apt | apt | apt | apt | apt |
+| `nanovna-saver` | venv | venv | venv | venv | venv | venv | binary |
+| `nec2c` | apt | apt | apt | apt | apt | apt | apt |
+| `noaa-apt` | binary | binary | binary | binary | binary | binary | binary |
+| `not1mm` | venv | venv | venv | venv | venv | venv | venv |
+| `odr-audioenc` | apt ✗ | apt | apt ✗ | apt | apt | apt ✗ | apt ✗ |
+| `odr-dabmod` | apt | apt | apt | apt | apt | apt | apt |
+| `odr-dabmux` | apt | apt | apt | apt | apt | apt | apt |
+| `odr-padenc` | apt | apt | apt | apt | apt | apt | apt |
+| `openfpgaloader` | apt | apt | apt | apt | apt | apt | apt |
+| `openhamclock` | node | node | node | node | node | node | node |
+| `openocd` | apt | apt | apt | apt | apt | apt | apt |
+| `osmo-sdr` | apt | apt | apt | apt | apt | apt | apt |
+| `pat` | apt | apt | apt | apt | apt | apt | apt |
+| `pciutils` | apt | apt | apt | apt | apt | apt | apt |
+| `pcsc-tools` | apt | apt | apt | apt | apt | apt | apt |
+| `picocom` | apt | apt | apt | apt | apt | apt | apt |
+| `pipx` | apt | apt | apt | apt | apt | apt | apt |
+| `proxmark3` | git | git | git | apt | git | git | git |
+| `psk31lx` | apt | apt | apt | apt | apt | apt | apt |
+| `putty` | apt | apt | apt | apt | apt | apt | apt |
+| `pyqso` | apt | apt | apt | apt | apt | apt | apt |
+| `python3-meshtastic` | apt | apt | apt ✗ | apt | apt | apt ✗ | apt |
+| `python3-pyhamtools` | apt | apt | apt | apt | apt | apt | apt |
+| `pythonprop` | apt | apt | apt ✗ | apt | apt | apt ✗ | apt |
+| `qdmr` | apt | apt | apt | apt | apt | apt | apt |
+| `qflipper` | apt | apt | apt | apt | apt | apt | apt |
+| `qgrid` | source | source | source | source | source | source | source |
+| `qlog` | git | git | git | git | git | git | git |
+| `qrq` | apt | apt | apt | apt | apt | apt | apt |
+| `qsstv` | apt | apt | apt | apt | apt | apt | apt |
+| `qtbpqaprs` | git | git | git | git | git | git | git |
+| `qtel` | apt | apt | apt | apt | apt | apt | apt |
+| `qthid-fcd-controller` | apt | apt | apt | apt | apt | apt | apt |
+| `qtsoundmodem` | git | git | git | git | git | git | git |
+| `qttermtcp` | git | git | git | git | git | git | git |
+| `qttinysa` | apt | apt | apt | apt | apt | apt | apt |
+| `quisk` | apt | apt | apt | apt | apt | apt | apt |
+| `radioclk` | apt | apt | apt | apt | apt | apt | apt |
+| `radiosonde-auto-rx` | venv | venv | venv | venv | venv | venv | venv |
+| `readsb` | apt | apt | apt ✗ | apt | apt | apt ✗ | apt |
+| `remotetrx` | apt | apt | apt | apt | apt | apt | apt |
+| `rtl-433` | apt | apt | apt | apt | apt | apt | apt |
+| `rtl-ais` | apt | apt | apt ✗ | apt | apt | apt ✗ | apt |
+| `rtl-sdr` | apt | apt | apt | apt | apt | apt | apt |
+| `rtlsdr-airband` | git | git | git | git | git | git | git |
+| `satdump` | apt | apt | apt ✗ | apt | apt | apt ✗ | apt |
+| `screen` | apt | apt | apt | apt | apt | apt | apt |
+| `sdrangel` | apt ✗ | binary | apt ✗ | apt | apt ✗ | apt ✗ | apt ✗ |
+| `sdrpp` | git | git | git | apt | apt | git | git |
+| `soapyremote-server` | apt | apt | apt | apt | apt | apt | apt |
+| `soapysdr-module-airspy` | apt | apt | apt | apt | apt | apt | apt |
+| `soapysdr-module-audio` | apt | apt | apt | apt | apt | apt | apt |
+| `soapysdr-module-bladerf` | apt | apt | apt | apt | apt | apt | apt |
+| `soapysdr-module-hackrf` | apt | apt | apt | apt | apt | apt | apt |
+| `soapysdr-module-lms7` | apt | apt | apt | apt | apt | apt | apt |
+| `soapysdr-module-mirisdr` | apt | apt | apt | apt | apt | apt | apt |
+| `soapysdr-module-osmosdr` | apt | apt | apt | apt | apt | apt | apt |
+| `soapysdr-module-plutosdr` | — | — | — | apt | — | — | — |
+| `soapysdr-module-redpitaya` | apt | apt | apt | apt | apt | apt | apt |
+| `soapysdr-module-remote` | apt | apt | apt | apt | apt | apt | apt |
+| `soapysdr-module-rfspace` | apt | apt ✗ | apt | apt ✗ | apt | apt | apt |
+| `soapysdr-module-rtlsdr` | apt | apt | apt | apt | apt | apt | apt |
+| `soapysdr-module-uhd` | apt | apt | apt | apt | apt | apt | apt |
+| `soapysdr-tools` | apt | apt | apt | apt | apt | apt | apt |
+| `spectools` | apt | apt | apt | apt | apt | apt | apt |
+| `splat` | apt | apt | apt | apt | apt | apt | apt |
+| `stlink-tools` | apt | apt | apt | apt | apt | apt | apt |
+| `sunclock` | apt | apt | apt | apt | apt | apt | apt |
+| `supersdr` | venv | venv | venv | venv | venv | venv | venv |
+| `svxlink-calibration-tools` | apt | apt | apt | apt | apt | apt | apt |
+| `svxlink-gpio` | apt | apt | apt | apt | apt | apt | apt |
+| `svxlink-server` | apt | apt | apt | apt | apt | apt | apt |
+| `svxreflector` | apt | apt | apt | apt | apt | apt | apt |
+| `tcpdump` | apt | apt | apt | apt | apt | apt | apt |
+| `tempest-for-eliza` | apt | apt | apt | apt | apt | apt | apt |
+| `thunderbird` | apt | apt | apt | apt | apt | apt | apt |
+| `tio` | apt | apt | apt | apt | apt | apt | apt |
+| `tlf` | apt | apt | apt | apt | apt | apt | apt |
+| `tmd710-tncsetup` | apt | apt | apt | apt | apt | apt | apt |
+| `tmux` | apt | apt | apt | apt | apt | apt | apt |
+| `trustedqsl` | apt | apt | apt | apt | apt | apt | apt |
+| `tucnak` | apt | apt | apt | apt | apt | apt | apt |
+| `twclock` | apt | apt | apt | apt | apt | apt | apt |
+| `twpsk` | apt | apt | apt | apt | apt | apt | apt |
+| `tzwatch` | apt | apt | apt | apt | apt | apt | apt |
+| `ubertooth` | apt | apt | apt | apt | apt | apt | apt |
+| `uhd-host` | apt | apt | apt | apt | apt | apt | apt |
+| `uhd-soapysdr` | apt | apt | apt | apt | apt | apt | apt |
+| `uronode` | apt | apt | apt | apt | apt | apt | apt |
+| `usbutils` | apt | apt | apt | apt | apt | apt | apt |
+| `voacapl` | apt | apt | apt ✗ | apt | apt | apt ✗ | apt |
+| `welle-io` | apt | apt | apt | apt | apt | apt | apt |
+| `wfview` | apt | apt | apt | apt | apt | apt | apt |
+| `wireshark` | apt | apt | apt | apt | apt | apt | apt |
+| `wordsworth` | binary | binary | binary | binary | binary | binary | binary |
+| `wsjtx` | git | git | git | git | git | git | git |
+| `wsjtx-improved` | binary | binary | binary | binary | binary | binary | — |
+| `wwl` | apt | apt | apt | apt | apt | apt | apt |
+| `xastir` | apt | apt | apt | apt | apt | apt | apt |
+| `xcwcp` | apt | apt | apt | apt | apt | apt | apt |
+| `xdemorse` | apt | apt | apt | apt | apt | apt | apt |
+| `xdx` | apt | apt | apt | apt | apt | apt | apt |
+| `xlog` | apt | apt | apt | apt | apt | apt | apt |
+| `xnec2c` | apt | apt | apt | apt | apt | apt | apt |
+| `xwefax` | source | source | source | source | source | source | source |
+| `xygrib` | apt | apt | apt | apt | apt | apt | apt |
+| `yaac` | binary | binary | binary | binary | binary | binary | binary |
+| `yagiuda` | apt | apt | apt | apt | apt | apt | apt |
+| `z8530-utils2` | apt | apt | apt | apt ✗ | apt | apt | apt |
