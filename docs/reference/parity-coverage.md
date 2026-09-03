@@ -41,7 +41,7 @@ Absent on purpose. Each names what it waits on.
 
 | Unit | Disposition | Waiting on |
 |---|---|---|
-| `ARDOPGUI` | CARRY | waits on the binary backend |
+| `ARDOPGUI` | CARRY | post-1.0 — GUI for ARDOP; ruled CARRY (post-1.0) in dispositions.md, so 1.0 ships `ardopcf` headless |
 | `FoxTelem` | CARRY | post-1.0 — pending an AMSAT constellation census: a partial world-changed case, and neither blocking 1.0 on a satellite survey nor quietly carrying a decoder for re-entered spacecraft serves anybody (Q-015 decision 10, 2026-08-30) |
 | `HAMRS` | ADD | post-1.0 — AppImage |
 | `VARA` | ADD | post-1.0 — closed software needing a configured Wine prefix |
