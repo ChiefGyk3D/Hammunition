@@ -40,7 +40,6 @@ This script only files the outcomes.
 from __future__ import annotations
 
 import argparse
-import shlex
 import subprocess
 import sys
 import time
@@ -100,20 +99,21 @@ def reset_and_prepare(domain: str, host: str, identity: str | None) -> None:
         time.sleep(5)
     else:
         sys.exit(f"{domain} did not answer ssh at {host} within 5 minutes of the restore")
+    # tar over ssh rather than rsync: the Debian 13 guest's clean-baseline
+    # has no rsync, and a prepare step that depends on a package the
+    # snapshot may lack fails before anything is measured. tar is essential.
+    excludes = ("./.git", "./.venv", "./reference", "./vendor", "*.tar.gz")
+    tar = subprocess.Popen(
+        ["tar", "-C", str(REPO_ROOT), *(f"--exclude={e}" for e in excludes), "-cf", "-", "."],
+        stdout=subprocess.PIPE,
+    )
     subprocess.run(
-        [
-            "rsync",
-            "-a",
-            "--delete",
-            "-e",
-            shlex.join(ssh),
-            *("--exclude", ".git", "--exclude", ".venv", "--exclude", "/reference"),
-            *("--exclude", "/vendor", "--exclude", "*.tar.gz"),
-            f"{REPO_ROOT}/",
-            f"{host}:hammunition/",
-        ],
+        [*ssh, host, "rm -rf hammunition && mkdir hammunition && tar -C hammunition -xf -"],
+        stdin=tar.stdout,
         check=True,
     )
+    if tar.wait() != 0:
+        sys.exit("tar of the repository failed")
     subprocess.run(
         [
             *ssh,
