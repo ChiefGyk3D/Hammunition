@@ -742,9 +742,16 @@ def test_status_reports_an_interrupted_transaction(
 
 def _mock_apt(monkeypatch: pytest.MonkeyPatch, *, populated: bool) -> None:
     """A target and an apt backend that need no real machine, so main()'s
-    install path can be driven end to end. Resolution calls lists_populated()
-    and probe(); nothing here executes, because every test below is --dry-run."""
-    from hammunition.backends.apt import AptBackend, AptPackageState
+    install path can be driven end to end. Resolution calls lists_populated(),
+    probe() and simulate(); nothing here executes, because every test below is
+    --dry-run.
+
+    simulate() must be covered too: it is a real ``apt-get --simulate`` and
+    unprivileged, so it runs during a dry run by design. Left to the machine,
+    this test passed on every dev box and GitHub runner that has a ``git``
+    package and failed inside all four target containers, whose apt lists are
+    empty — the "test the matrix, not your machine" shape, again."""
+    from hammunition.backends.apt import AptBackend, AptPackageState, AptSimulation
 
     monkeypatch.setattr(Target, "detect", classmethod(lambda cls: TARGET))
     monkeypatch.setattr(AptBackend, "lists_populated", lambda self: populated)
@@ -754,6 +761,13 @@ def _mock_apt(monkeypatch: pytest.MonkeyPatch, *, populated: bool) -> None:
         lambda self, pkgs: {
             p: AptPackageState(name=p, installed=None, candidate="1.0") for p in pkgs
         },
+    )
+    monkeypatch.setattr(
+        AptBackend,
+        "simulate",
+        lambda self, pkgs, *, release=None: AptSimulation(
+            ok=True, installs={p: frozenset({"stable"}) for p in pkgs}, release=release
+        ),
     )
 
 
