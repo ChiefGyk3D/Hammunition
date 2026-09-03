@@ -81,6 +81,25 @@ members are refused for an engine gap, not an archive gap — and stays refused
 until the apt_repos backend exists. Whether this table now installs whole on
 the VMs is the next campaign's measurement, not this one's claim.
 
+**Measured 2026-09-03, Ubuntu 24.04, engine at `05f3db0`, each profile
+from the clean-baseline snapshot** (`~/.local/state/hammunition-campaigns/
+ubuntu2404-deferral-2026-09-03.md`):
+
+| Profile | Outcome | Deferred, by the plan's own words | Seconds |
+|---|---|---|---:|
+| `satellite` | **installed+confirmed** | `satdump` — no candidate | 101 |
+| `electronics` | **installed+confirmed** | `m2kcli` — no candidate | 177 |
+| `propagation` | **installed+confirmed** | `openhamclock` — nodejs 18.19.1 below the 20.19 floor; `pythonprop`, `voacapl` — no candidate | 819 |
+| `listening` | **installed+confirmed** | `mlat-client-adsbfi`, `readsb`, `rtl-ais`, `satdump` — no candidate | 233 |
+| `workstation` | refused (plan) | — `code`, `codium`: engine gap, as the classification requires | 1 |
+
+Four of the five that refused whole on 2026-09-02 now install whole, with
+every deferral printed under *Will NOT happen* naming the member, the
+reason and the by-name command that shows the refusal in full. The fifth
+refused for the reason D-039 says it must. The deferred names are from a
+`--dry-run` of each profile on the same VM after the campaign, because the
+campaign report records outcomes and seconds, not plans.
+
 ## What the whole-profile runs found, and what was fixed
 
 **`digital-modes` on Kali planned clean and failed after forty-four
