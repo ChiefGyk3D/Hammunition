@@ -13,7 +13,6 @@ packages:
   - comptext
   - comptty
   - wsjtx
-  - wsjtx-improved
   - jtdx
   - mshv
   - js8call
@@ -41,12 +40,21 @@ documentation:
     here has the same three prerequisites — audio in, audio out, and a way to key
     the radio.
 
-    **`wsjtx` is the recommended default of the FT8 family.** `wsjtx-improved`,
-    `jtdx` and `mshv` all decode FT8 and all declare themselves not the default;
-    they are carried because each has a real constituency — a better decoder in
+    **`wsjtx` is the recommended default of the FT8 family.** `jtdx` and
+    `mshv` also decode FT8 and both declare themselves not the default; they
+    are carried because each has a real constituency — a better decoder in
     crowded conditions, multi-stream decoding for a pileup — and because
     PARITY-POLICY requires the choice be visible rather than made silently.
   deliberately_excludes: >-
+    **`wsjtx-improved`, the third FT8 alternative, is carried but not here.**
+    Its vendor .deb cannot coexist with the distribution's `wsjtx-data`, and
+    `jtdx` depends on that package — so a profile listing both can never
+    install as a whole. Measured on a clean Kali VM on 2026-09-02: the plan
+    passed, forty-four commands ran, fldigi and WSJT-X built, and the .deb
+    failed. The plan now refuses that pairing by name, and the profile no
+    longer asks for it. Install `wsjtx-improved` by name on a machine without
+    `jtdx`, or remove `jtdx` first; the package page says what to expect.
+
     Packet and Winlink, which are `packet`. Morse, which is `morse` — fldigi
     decodes CW too, and the dedicated tools do it better. `ardopcf` is an HF
     data modem and sits in `packet` with the Winlink client it exists to serve.
@@ -73,7 +81,10 @@ documentation:
     card's sample rate calibrated once per machine or every picture slants,
     which people blame on the band.
   disk_footprint_hint: >-
-    Around 1.2 GB, and **four of these are source builds** — fldigi, both
-    WSJT-X variants and MSHV — so expect a long install. fldigi purges the
+    Around 1.2 GB installed — 1.28 GB measured on Kali rolling, 2026-09-02,
+    as `df` before minus after with the build trees and apt cache subtracted.
+    The build trees are another 0.9 GB in `~/.cache/hammunition/build` until
+    you clear them, and **five of these are source builds** — fldigi, WSJT-X,
+    MSHV, glfer and xwefax — so expect a long install. fldigi purges the
     repository package first, because the source build installs to the same
     prefix.

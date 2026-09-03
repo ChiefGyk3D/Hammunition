@@ -43,7 +43,9 @@ from hammunition.backends import (
     IMPLEMENTED_MODIFICATIONS,
     AptBackend,
     AptPackageState,
+    AptSimulation,
 )
+from hammunition.backends.apt import downgrades_refused
 from hammunition.backends.source import IMPLEMENTED_BUILD_SYSTEMS
 from hammunition.distro import Target
 from hammunition.manifest.schema import (
@@ -196,6 +198,15 @@ class InstallPlan:
 
     config_files: tuple[tuple[str, ConfigFile, str], ...] = ()
     """(package, config file, rendered body) for every file that WILL be written."""
+
+    apt_release: str | None = None
+    """``--target-release`` for the apt step, when the transaction resolves only
+    from a release the target already installs from (D-038). None otherwise."""
+
+    apt_from_release: tuple[str, ...] = ()
+    """Of everything the apt step unpacks, the packages that come from
+    ``apt_release`` and nowhere else -- measured by apt's simulation, disclosed
+    in the plan."""
 
     @property
     def apt_to_install(self) -> tuple[str, ...]:
@@ -618,6 +629,55 @@ def _check_node_floor(
     )
 
 
+def _resolve_from_installed_release(
+    apt: AptBackend, packages: Sequence[str], failed: AptSimulation
+) -> tuple[AptSimulation, str, tuple[str, ...]] | Blocker:
+    """The D-038 retry: when apt refuses because it would have to downgrade
+    something already installed, ask again from the release that installed it.
+
+    A clean Parrot 7.3 has 197 of its 3,801 packages from `parrot-backports`,
+    pinned at 599 against the archive's 600 -- newer Qt, GTK, curl, ALSA for
+    the desktop. Every `-dev` package for those libraries carries an exact-
+    version dependency, so the archive's default `libcurl4-openssl-dev` (8.14)
+    needs `libcurl4t64` 8.14 where 8.21 is installed, and apt will not
+    downgrade a library to build against it. Nor should it. The `-dev` at 8.21
+    is in backports beside the library; `--target-release parrot-backports`
+    is apt's own way to prefer it, and it is what a Parrot user types.
+
+    So: the packages apt refused to downgrade name the release, the release
+    is tried once, and the result is either a resolved transaction with the
+    packages it takes from that release listed by name -- the plan discloses
+    them, the operator sees them before anything runs -- or the same refusal,
+    reported with apt's own words. Two releases, or none, is a refusal too:
+    nothing is guessed. The transaction is never widened silently: `-t`
+    prefers that release only for packages this transaction installs, and the
+    simulation says exactly which.
+    """
+    culprits = downgrades_refused(failed.error)
+    releases = sorted({r for p in culprits if (r := apt.installed_archive(p)) is not None})
+    refusal = Blocker(
+        subject="apt",
+        reason=f"cannot resolve this transaction as one apt-get install:\n{_indent(failed.error)}",
+        remedy=(
+            "the packages named above are the chain; `apt-get install --simulate` "
+            "with the same list reproduces it. Leave out the unit that needs the "
+            "unsatisfiable package, or fix the machine's apt state -- the plan "
+            "will not start a transaction apt has already said it cannot finish (D-016)"
+        ),
+    )
+    if len(releases) != 1:
+        return refusal
+    release = releases[0]
+    retried = apt.simulate(packages, release=release)
+    if not retried.ok:
+        return refusal
+    return retried, release, retried.from_archive(release)
+
+
+def _indent(text: str, prefix: str = "      ") -> str:
+    return "\n".join(prefix + line for line in text.splitlines())
+
+
 def resolve(
     names: Sequence[str],
     *,
@@ -839,6 +899,61 @@ def resolve(
                 )
             )
 
+    # -- the apt step, resolved by apt itself before anything runs ---------
+    # `apt-cache policy` says a package has a candidate; only apt's resolver
+    # says the whole set installs together. Two measured ways it does not:
+    # a clean Kali, 2026-09-02, where `digital-modes` planned clean and then
+    # failed at the dpkg step (jtdx brought `wsjtx-data`, the `wsjtx-improved`
+    # .deb collided with it minutes later); and a clean Parrot the same night,
+    # where five of fifteen profiles failed at the apt step itself because a
+    # `-dev` package's exact-version dependency could not be met without
+    # downgrading a library Parrot ships from its backports (D-038). Both are
+    # D-016 defects -- the plan passed, the machine was touched, the failure
+    # came after -- and one `--simulate` of the outstanding set answers both.
+    # It is asked only when everything else has resolved: a simulation of a
+    # set with a missing candidate fails for the reason already listed.
+    outstanding_apt = [p for p in all_apt if not (p in states and states[p].is_installed)]
+    apt_release: str | None = None
+    apt_from_release: tuple[str, ...] = ()
+    simulation = AptSimulation(ok=True)
+    if outstanding_apt and states and not blockers:
+        simulation = apt.simulate(outstanding_apt)
+        if not simulation.ok:
+            retried = _resolve_from_installed_release(apt, outstanding_apt, simulation)
+            if isinstance(retried, Blocker):
+                blockers.append(retried)
+            else:
+                simulation, apt_release, apt_from_release = retried
+
+    # -- declared conflicts against what this transaction itself installs --
+    # The check above sees what is installed NOW; on a clean machine that is
+    # nothing, and the simulation is the only thing that knows what the apt
+    # step pulls in.
+    if simulation.ok:
+        for manifest, block, _, _ in resolved:
+            if not (isinstance(block.install, BinaryInstall) and block.install.format == "deb"):
+                continue
+            hit = sorted(
+                c for c in manifest.conflicts_with_repo_package if c in simulation.installs
+            )
+            if not hit:
+                continue
+            names = ", ".join(hit)
+            blockers.append(
+                Blocker(
+                    subject=manifest.name,
+                    reason=(
+                        f"its vendor .deb collides with distribution package(s) this same "
+                        f"transaction would install: {names}"
+                    ),
+                    remedy=(
+                        f"leave out either {manifest.name} or whatever needs {names} (apt-get "
+                        f"install --simulate names the chain) -- the alternative is a "
+                        f"dpkg file collision after the apt step has already run"
+                    ),
+                )
+            )
+
     if blockers:
         raise PlanError(blockers)
 
@@ -929,4 +1044,6 @@ def resolve(
         notes=tuple(notes),
         deferrals=tuple(deferrals),
         config_files=tuple(config_files),
+        apt_release=apt_release,
+        apt_from_release=apt_from_release,
     )

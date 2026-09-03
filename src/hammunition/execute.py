@@ -292,7 +292,7 @@ def commands_for(
                 stdin="\n".join(plan.debconf_selections) + "\n",
             )
         )
-    commands.extend(apt.install_commands(plan.apt_to_install))
+    commands.extend(apt.install_commands(plan.apt_to_install, release=plan.apt_release))
 
     if plan.reconfigure_after and plan.apt_to_install:
         # After the whole apt transaction is settled, so a postinst action that

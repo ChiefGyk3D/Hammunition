@@ -67,8 +67,16 @@ documentation:
     (2026-08-30, Parrot and the campaign box state): the deb ships
     /usr/share/pixmaps/wsjtx_icon.png without a Replaces header, so dpkg
     refuses it -- correctly -- on any machine where the distribution's
-    wsjtx-data is installed, which jtdx depends on. Until this catalog can
-    declare package conflicts, installing wsjtx-improved alongside jtdx
-    means removing jtdx and wsjtx-data first; the engine's failure text says
-    exactly this.
+    wsjtx-data is installed, which jtdx depends on. The manifest declares
+    that conflict, so the plan refuses by name both when wsjtx-data is
+    already installed and when the same transaction would install it (the
+    `digital-modes` profile carried both until 2026-09-02, and could never
+    install whole); installing wsjtx-improved alongside jtdx means removing
+    jtdx and wsjtx-data first, and the refusal says so. **Kali rolling
+    cannot install the 3.2.0 .deb at all** (measured 2026-09-02): it
+    depends on `libboost-log1.83.0`, and Kali's archive has moved past that
+    boost, so apt refuses it with "none of the choices are installable".
+    A vendor .deb is built against one release's libraries, and this is
+    what that looks like on a rolling one; a newer upstream build, or the
+    Debian 13 and Ubuntu targets, are the answer.
   upstream_url: https://sourceforge.net/projects/wsjt-x-improved/

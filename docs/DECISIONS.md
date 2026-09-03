@@ -2299,3 +2299,109 @@ measuring, the same day the rule was written.
    name. That is the rule working as written: the requirement is disclosed,
    the refusal is specific, and Node is not fetched to meet it. A floor is
    measured by running the unit, never read from `engines`.
+
+## D-038 — On a target that installs from more than one release, an apt transaction the default release cannot resolve is resolved from the release the machine already installs from, disclosed by name
+
+**Date:** 2026-09-02. **Status:** accepted.
+**Depends on:** D-016 (refuse at plan time, never partway), D-022 (coexist
+and disclose, never remove or replace silently), D-025 (re-verify a claim
+when it becomes decisive), D-031 (verify the effect, not the exit status).
+
+**What was measured.** A clean Parrot 7.3 VM, restored to its
+`clean-baseline` snapshot, ran every profile as one transaction. Eight
+installed and confirmed, one stopped at its consent gate as it should, one
+was refused by name for its `apt_repos` units, and **five passed the plan
+and failed at the first apt command**, in about one second each —
+`digital-modes`, `electronics`, `listening`, `logging` and `propagation`.
+Every failure was the same text from apt 3.0.3:
+
+```
+E: Unable to correct problems, you have held broken packages.
+   Unable to satisfy dependencies. Reached two conflicting decisions:
+   1. libcurl4t64:amd64=8.14.1-2+deb13u5 is not selected for install
+   2. libcurl4t64:amd64=8.14.1-2+deb13u5 is selected as a downgrade because:
+      1. libcurl4-openssl-dev:amd64=8.14.1-2+deb13u5 is selected for install
+      2. libcurl4-openssl-dev:amd64=8.14.1-2+deb13u5 Depends libcurl4t64 (= 8.14.1-2+deb13u5)
+```
+
+The cause is the target, not the catalog. Parrot's baseline installs
+**197 of its 3,801 packages from `echo-backports`** — `apt-cache policy`
+reads it as `o=Parrot,a=parrot-backports,n=echo-backports`, pinned 599
+against the main release's 600 in `/etc/apt/preferences.d/`. The runtimes
+came from backports; the `-dev` packages the catalog's build dependencies
+name are still the main release's, and a Debian `-dev` package depends on
+its runtime at an **exact** version. Three chains were confirmed on the
+machine: `libcurl4t64` 8.21 (backports) against `libcurl4-openssl-dev` 8.14
+(main); `gir1.2-atk-1.0` 2.61 against `libatk1.0-dev` 2.56;
+`libqt6webenginecore6` 6.10 against `qt6-webengine-dev` 6.8. Every failed
+profile pulls at least one of those three in. apt will not downgrade a
+pinned-higher package to satisfy a dependency, and it is right not to.
+
+This was not the first sighting. `vm-campaign-digital-modes.md` recorded
+the same skew on 2026-08-30 — glfer and xwefax against the GTK dev chain —
+and worked around it by hand on the VM. A workaround applied to an image
+is exactly the evidence D-025 says to re-verify when it becomes decisive;
+here it became decisive when a clean snapshot took five profiles down.
+
+**What resolves it.** `apt-get install --simulate --yes --target-release
+parrot-backports <the same list>` resolves all five failed lines that were
+re-run by hand — digital-modes at 249 packages with 19 from backports,
+electronics 110/3, listening 263/10, logging 124/12, propagation 531/11.
+`-t` raises the named release's pin to 990 for candidate selection, so the
+`-dev` package is taken from the release its runtime already came from and
+the exact-version dependency is met by the version that is installed. The
+dozen-or-so packages that move are the `-dev` halves of runtimes the target
+chose to take from backports before this engine ran; nothing installed is
+downgraded and nothing is replaced.
+
+**Rule.** When apt refuses the transaction because an installed package
+would have to be downgraded:
+
+1. The engine reads **which** package from apt's own words (the `is
+   selected as a downgrade` line) and **where it is installed from** with
+   `apt-cache policy` — the archive on the `***` row of the version table.
+2. If every such package is installed from **one** release, the plan is
+   simulated again with `--target-release` naming that release. If apt
+   accepts it, the apt step runs with that flag, and the plan the operator
+   reads lists **every package that will be taken from that release and
+   from nowhere else** under a heading that says why.
+3. Otherwise — no downgrade line to read, more than one release, or apt
+   still refusing — the plan is refused with apt's text and the simulate
+   command that reproduces it (D-016). The engine does not try a second
+   release, does not try releases the culprit is not installed from, and
+   does not guess.
+
+**What was rejected.**
+
+- `-o APT::Solver::Strict-Pinning=false` also resolves the transaction —
+  by **downgrading** `libcurl4t64` to main's 8.14. That satisfies the
+  `-dev` package by changing what the target installed, which is D-022's
+  forbidden shape: a distribution's choice, replaced silently.
+- A narrow `libcurl4-openssl-dev/parrot-backports` pin instead of `-t`.
+  Tried; the chain moves. Pinning the `-dev` package to backports made its
+  own dependency the next exact-version mismatch, and the fix iterates
+  through the dependency graph one refusal at a time — the "fix one, re-run,
+  meet the next" loop D-016 exists to end.
+- Declaring the backports release in the catalog. A manifest saying
+  "on Parrot, take `libcurl4-openssl-dev` from backports" would freeze one
+  evening's measurement of one machine's package state into data that is
+  supposed to describe software. The capability-matrix note already records
+  why `when:` selectors are not used for what apt can answer at plan time;
+  this is the same argument.
+
+**The general check this produced.** Until this measurement the engine
+asked `apt-get install --simulate` only when a vendor `.deb` in the plan
+declared a conflict. It now asks it **once, for every transaction with
+outstanding apt work**, and refuses at plan time on any answer apt gives —
+`apt-cache policy` proves that each package exists, not that the set of
+them installs together. Five profiles reached the apt step and died there
+with a plan that had said they would install; that is the gap D-016 was
+written to close, and it was open because nothing had measured a target
+whose baseline installs from two releases.
+
+**What this does not decide.** Whether a target's *own* configuration is
+sensible — Parrot's backports pin is Parrot's decision and this engine
+neither judges nor changes it. And whether a release-specific plan should
+be recorded in the transaction log beyond the argv it already carries; the
+`--target-release` flag is in the printed and logged command, which is the
+disclosure D-031 asks for.

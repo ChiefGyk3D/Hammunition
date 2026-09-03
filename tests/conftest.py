@@ -14,6 +14,17 @@ This is a property of the suite, not of any one test, which is why it is
 enforced here rather than asserted in one place (CLAUDE.md: *prove properties,
 not just behaviour*). Loopback stays open so a future test may bind a local
 server if it needs one.
+
+**No test asks the machine's package manager.** The same shape one layer down:
+`apt-get --simulate` and `apt-cache policy` are unprivileged and answer at
+plan time, so a test that mocks part of the apt backend and not all of it
+runs the rest against whatever machine it is on. That is exactly what
+happened when D-038 added the simulate step — the CLI dry-run test passed on
+every dev box and GitHub runner, where a `git` package exists, and failed in
+all four target containers, whose apt lists are empty. Blocking `apt-get`,
+`apt-cache`, `apt`, `dpkg`, `dpkg-query` and `sudo` at the real runner makes
+that a failure everywhere, naming the mock to add. Compilers, tar and the
+rest stay open: the source-build tests run real builds on purpose.
 """
 
 from __future__ import annotations
@@ -23,8 +34,37 @@ from typing import Any
 
 import pytest
 
+from hammunition.backends.base import Command, CommandResult, SubprocessRunner
+
 _real_connect = socket.socket.connect
 _real_connect_ex = socket.socket.connect_ex
+_real_run = SubprocessRunner.run
+
+MACHINE_QUERIES = frozenset({"apt-get", "apt-cache", "apt", "dpkg", "dpkg-query", "sudo"})
+
+
+class MachineQueried(RuntimeError):
+    """A test ran a package-manager or privileged command on the host."""
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _no_machine_queries() -> Any:
+    def guard(self: SubprocessRunner, command: Command) -> CommandResult:
+        if command.argv and command.argv[0] in MACHINE_QUERIES:
+            raise MachineQueried(
+                f"the test suite blocked {command.argv[0]!r} ({command.description}). "
+                f"Tests must not ask the machine's package manager: give the backend a "
+                f"RecordingRunner, or monkeypatch every AptBackend method the code "
+                f"under test reaches (lists_populated, probe and simulate at plan "
+                f"time), so the result is the same in every target container."
+            )
+        return _real_run(self, command)
+
+    SubprocessRunner.run = guard  # type: ignore[method-assign]
+    try:
+        yield
+    finally:
+        SubprocessRunner.run = _real_run  # type: ignore[method-assign]
 
 
 def _loopback(address: Any) -> bool:

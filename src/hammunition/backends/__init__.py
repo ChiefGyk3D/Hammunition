@@ -14,7 +14,7 @@ coverage the engine does not have is the shim CLAUDE.md forbids.
 source builds from bundled tarballs, and 57 in total cannot be satisfied by apt.
 """
 
-from .apt import AptBackend, AptPackageState, parse_policy
+from .apt import AptBackend, AptPackageState, AptSimulation, parse_policy
 from .base import (
     Action,
     BackendError,
@@ -44,6 +44,7 @@ __all__ = [
     "Action",
     "AptBackend",
     "AptPackageState",
+    "AptSimulation",
     "BackendError",
     "BinaryBackend",
     "Command",

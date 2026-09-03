@@ -415,3 +415,23 @@ def test_regenerating_the_schema_reference_is_a_no_op() -> None:
             "docs/reference/schema.md is out of date — run "
             f"scripts/gen_schema_reference.py.\nDiff (committed vs regenerated):\n{diff}"
         )
+
+
+def test_every_explained_unit_really_has_no_manifest() -> None:
+    """An EXPLAINED reason is a claim that a unit has no manifest and why.
+    Once the manifest exists the reason is never rendered, so it can go stale
+    unseen — `ARDOPGUI` said "waits on the binary backend" for three days
+    after the binary backend shipped, and would have said it forever. A
+    reason for a covered unit is either wrong or dead; both come out."""
+    gen = _parity_generator()
+    catalog = load_catalog(REPO_ROOT / "catalog" / "packages")
+    table = gen.lookup_table(catalog)  # type: ignore[attr-defined]
+    stale = sorted(
+        f"{unit} -> {table[gen.normalise(unit)]}"  # type: ignore[attr-defined]
+        for unit in gen.EXPLAINED  # type: ignore[attr-defined]
+        if gen.normalise(unit) in table  # type: ignore[attr-defined]
+    )
+    assert not stale, (
+        f"EXPLAINED reasons for units that have a manifest: {stale}. "
+        "Delete the entry from scripts/gen_parity_coverage.py."
+    )

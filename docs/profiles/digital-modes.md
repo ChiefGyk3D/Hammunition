@@ -10,19 +10,20 @@
 
 fldigi and the NBEMS stack that surrounds it, the whole FT8 family, JS8Call, SSTV and radiofax, open digital voice, two small PSK31 clients, a general-purpose FSK modem, a QRSS receiver, and the measuring tools that let you compare two of them honestly.
 
-**Disk footprint:** Around 1.2 GB, and **four of these are source builds** — fldigi, both WSJT-X variants and MSHV — so expect a long install. fldigi purges the repository package first, because the source build installs to the same prefix.
+**Disk footprint:** Around 1.2 GB installed — 1.28 GB measured on Kali rolling, 2026-09-02, as `df` before minus after with the build trees and apt cache subtracted. The build trees are another 0.9 GB in `~/.cache/hammunition/build` until you clear them, and **five of these are source builds** — fldigi, WSJT-X, MSHV, glfer and xwefax — so expect a long install. fldigi purges the repository package first, because the source build installs to the same prefix.
 
 ## Why these belong together
 
 This is the reason most people install something like this. It is the widest profile in the set and it is still coherent: everything here turns sound-card audio into text, pictures or speech through a transceiver, and everything here has the same three prerequisites — audio in, audio out, and a way to key the radio.
-**`wsjtx` is the recommended default of the FT8 family.** `wsjtx-improved`, `jtdx` and `mshv` all decode FT8 and all declare themselves not the default; they are carried because each has a real constituency — a better decoder in crowded conditions, multi-stream decoding for a pileup — and because PARITY-POLICY requires the choice be visible rather than made silently.
+**`wsjtx` is the recommended default of the FT8 family.** `jtdx` and `mshv` also decode FT8 and both declare themselves not the default; they are carried because each has a real constituency — a better decoder in crowded conditions, multi-stream decoding for a pileup — and because PARITY-POLICY requires the choice be visible rather than made silently.
 
-## Packages (21)
+## Packages (20)
 
-[`fldigi`](../packages/fldigi.md), [`flmsg`](../packages/flmsg.md), [`flamp`](../packages/flamp.md), [`flwrap`](../packages/flwrap.md), [`comptext`](../packages/comptext.md), [`comptty`](../packages/comptty.md), [`wsjtx`](../packages/wsjtx.md), [`wsjtx-improved`](../packages/wsjtx-improved.md), [`jtdx`](../packages/jtdx.md), [`mshv`](../packages/mshv.md), [`js8call`](../packages/js8call.md), [`qsstv`](../packages/qsstv.md), [`freedv`](../packages/freedv.md), [`psk31lx`](../packages/psk31lx.md), [`twpsk`](../packages/twpsk.md), [`minimodem`](../packages/minimodem.md), [`glfer`](../packages/glfer.md), [`xwefax`](../packages/xwefax.md), [`multimon-ng`](../packages/multimon-ng.md), [`qtel`](../packages/qtel.md), [`flrig`](../packages/flrig.md)
+[`fldigi`](../packages/fldigi.md), [`flmsg`](../packages/flmsg.md), [`flamp`](../packages/flamp.md), [`flwrap`](../packages/flwrap.md), [`comptext`](../packages/comptext.md), [`comptty`](../packages/comptty.md), [`wsjtx`](../packages/wsjtx.md), [`jtdx`](../packages/jtdx.md), [`mshv`](../packages/mshv.md), [`js8call`](../packages/js8call.md), [`qsstv`](../packages/qsstv.md), [`freedv`](../packages/freedv.md), [`psk31lx`](../packages/psk31lx.md), [`twpsk`](../packages/twpsk.md), [`minimodem`](../packages/minimodem.md), [`glfer`](../packages/glfer.md), [`xwefax`](../packages/xwefax.md), [`multimon-ng`](../packages/multimon-ng.md), [`qtel`](../packages/qtel.md), [`flrig`](../packages/flrig.md)
 
 ## What it deliberately excludes
 
+**`wsjtx-improved`, the third FT8 alternative, is carried but not here.** Its vendor .deb cannot coexist with the distribution's `wsjtx-data`, and `jtdx` depends on that package — so a profile listing both can never install as a whole. Measured on a clean Kali VM on 2026-09-02: the plan passed, forty-four commands ran, fldigi and WSJT-X built, and the .deb failed. The plan now refuses that pairing by name, and the profile no longer asks for it. Install `wsjtx-improved` by name on a machine without `jtdx`, or remove `jtdx` first; the package page says what to expect.
 Packet and Winlink, which are `packet`. Morse, which is `morse` — fldigi decodes CW too, and the dedicated tools do it better. `ardopcf` is an HF data modem and sits in `packet` with the Winlink client it exists to serve. Also excludes the FT8 family's own configuration: no frequency lists, no station details, nothing that would need your callsign.
 **The SvxLink infrastructure is deliberately not here.** `svxlink-server`, `svxreflector`, `remotetrx` and the calibration and GPIO helpers run a repeater or a linked network — that is operating infrastructure other people depend on, not a mode you work, and it wants a considered install rather than arriving inside a bundle. `qtel` IS here, because using EchoLink from a desktop is an operating activity like any other.
 
