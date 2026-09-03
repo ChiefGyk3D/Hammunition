@@ -139,3 +139,30 @@ def test_campaign_files_a_budget_stop_as_stopped_not_failed() -> None:
     assert "1 installed+confirmed, 0 refused at plan time, 0 failed, 1 stopped" in report
     assert "STOPPED (budget)" in report and "## Stopped by the budget" in report
     assert "## Failures" not in report
+
+
+def test_campaign_files_a_declined_consent_gate_as_neither_failure_nor_refusal() -> None:
+    """A gated profile on a non-interactive stdin stops at its gate — exit 3
+    — because the campaign never affirms one (D-021). The Debian 13
+    whole-profile report counted `rf-research` as its one failure and printed
+    the gate's question under *Failures*, which reads as a defect it is not."""
+    import importlib.util
+    from pathlib import Path as P
+
+    spec = importlib.util.spec_from_file_location(
+        "vm_campaign", P(__file__).resolve().parent.parent / "scripts" / "vm_campaign.py"
+    )
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    gated = mod.UnitResult("rf-research", 3, 4.0, "Do you affirm that you have the authorization")
+    done = mod.UnitResult("sdr", 0, 162.0, "Done.")
+    report = mod.render_report(target_line="T", engine_commit="abc", results=[gated, done])
+    assert (
+        "1 installed+confirmed, 0 refused at plan time, 0 failed, 1 stopped at a consent gate"
+        in report
+    )
+    assert "| `rf-research` | consent declined |" in report
+    assert "## Failures" not in report
+    assert "## Consent gates presented" in report and "Do you affirm" in report

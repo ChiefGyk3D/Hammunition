@@ -191,9 +191,14 @@ def render_report(
 ) -> str:
     ok = [r for r in results if r.exit_code == 0]
     refused = [r for r in results if r.exit_code == 2]
+    # A consent gate declining on a non-interactive stdin is the gate working
+    # (D-021): the campaign never affirms one. It is neither a failure nor
+    # coverage the engine lacks, so it gets its own count and no failure tail.
+    declined = [r for r in results if r.exit_code == 3]
     stopped = [r for r in results if r.exit_code == 124]
-    failed = [r for r in results if r.exit_code not in (0, 2, 124)]
+    failed = [r for r in results if r.exit_code not in (0, 2, 3, 124)]
     budget = f", {len(stopped)} stopped by the budget" if stopped else ""
+    gated = f", {len(declined)} stopped at a consent gate" if declined else ""
     lines = [
         "# VM campaign report",
         "",
@@ -202,7 +207,7 @@ def render_report(
         f"**Target:** {target_line}",
         f"**{noun}:** {len(results)} — "
         f"{len(ok)} installed+confirmed, {len(refused)} refused at plan time, "
-        f"{len(failed)} failed{budget}",
+        f"{len(failed)} failed{gated}{budget}",
         "",
         "Exit 0 is the engine's own bar: completed *and confirmed* by re-probe",
         "(D-031). A plan-time refusal is honest coverage reporting, not a",
@@ -217,6 +222,7 @@ def render_report(
         ("Failures", failed),
         ("Stopped by the budget (not a verdict; rerun with a larger --timeout)", stopped),
         ("Plan-time refusals", refused),
+        ("Consent gates presented (the campaign affirms none, D-021)", declined),
     )
     for title, bucket in buckets:
         if not bucket:
