@@ -313,7 +313,11 @@ Resolution is a distinct phase that finishes before anything is executed
    a compiler is installed rather than after `./configure` fails: glfer's
    `build_depends` name `fftw2` and `libgtk2.0-dev`, two of the four AHRL
    dependency lines **D-016** records as suspected-stale, and nothing in AHRL
-   ever asked apt whether they still exist.
+   ever asked apt whether they still exist. When a vendor `.deb` in the
+   transaction declares a conflict, apt is asked a second question — what the
+   apt step would *pull in* (`apt-get install --simulate`, unprivileged,
+   no lock) — because `apt-cache policy` knows that `jtdx` exists, not that
+   installing it brings `wsjtx-data`.
 7. **Print the plan**, in full, for every run and not only for `--dry-run`.
 8. **Present any consent gate**, then confirm, then execute.
 
@@ -335,6 +339,7 @@ capability matrix that reports coverage the engine does not have is the shim
 | A `build_depends` package apt has no candidate for | which name, marked `build_depends`, **before** the toolchain is installed |
 | A manifest declaring third-party `apt_repos` | that adding a repository with a pinned key is a disclosed modification of its own |
 | A vendor `.deb` whose declared `conflicts_with_repo_package` is installed | the colliding packages by name, with the removal command — a dpkg file collision mid-transaction is the refused alternative |
+| A vendor `.deb` whose declared conflict is something **this same transaction's apt step would install** — directly, or as a dependency apt resolves | the package by name and both halves of the remedy: leave out the `.deb` unit, or the unit that pulls the conflict in. Found by `apt-get install --simulate`, run once, only when a `.deb` in the plan declares a conflict. A clean machine has nothing installed, so the row above is silent there; this one caught `digital-modes` planning clean and failing after forty-four commands (Kali, 2026-09-02) |
 | A `system_modifications` kind other than `group_membership` | the kind, by name |
 | A package whose status is `broken` or `retired` | the recorded reason, verdict and date |
 | A dependency apt has no candidate for | which name, and whether it came from `install` or `depends` |
