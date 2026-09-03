@@ -839,6 +839,44 @@ def resolve(
                 )
             )
 
+    # -- declared conflicts against what this transaction itself installs --
+    # The check above sees what is installed NOW. On a clean machine that is
+    # nothing, so `digital-modes` planned clean and then failed at the dpkg
+    # step: its own apt list carried `jtdx`, jtdx brought `wsjtx-data`, and the
+    # `wsjtx-improved` .deb collided with it minutes later. Measured on a
+    # clean Kali VM, 2026-09-02. apt's simulator is the only thing that knows
+    # what the apt step pulls in, so it is asked once, only when a vendor
+    # .deb declares a conflict, and only when everything else has resolved --
+    # a simulation of an unresolvable set fails for the reasons already listed.
+    deb_conflicts = {
+        manifest.name: manifest.conflicts_with_repo_package
+        for manifest, block, _, _ in resolved
+        if isinstance(block.install, BinaryInstall)
+        and block.install.format == "deb"
+        and manifest.conflicts_with_repo_package
+    }
+    if deb_conflicts and states and not blockers:
+        pulled_in = apt.would_install(all_apt)
+        for name, conflicts in deb_conflicts.items():
+            hit = sorted(c for c in conflicts if c in pulled_in)
+            if not hit:
+                continue
+            names = ", ".join(hit)
+            blockers.append(
+                Blocker(
+                    subject=name,
+                    reason=(
+                        f"its vendor .deb collides with distribution package(s) this same "
+                        f"transaction would install: {names}"
+                    ),
+                    remedy=(
+                        f"leave out either {name} or whatever needs {names} (apt-get "
+                        f"install --simulate names the chain) -- the alternative is a "
+                        f"dpkg file collision after the apt step has already run"
+                    ),
+                )
+            )
+
     if blockers:
         raise PlanError(blockers)
 

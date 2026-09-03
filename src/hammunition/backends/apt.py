@@ -117,6 +117,26 @@ def parse_policy(stdout: str) -> dict[str, AptPackageState]:
     return states
 
 
+def parse_simulation(stdout: str) -> set[str]:
+    """Package names from the ``Inst`` lines of ``apt-get --simulate``.
+
+    Line format, one per package apt would unpack::
+
+        Inst wsjtx-data (2.7.0+repack-1 Debian:13.1/stable [all])
+        Inst jtdx:i386 (...)
+
+    ``Conf`` lines repeat the same names and ``Remv`` lines are removals, so
+    only ``Inst`` counts. The architecture qualifier is dropped: a manifest
+    declares a conflict by package name, and ``wsjtx-data:all`` is the same
+    files as ``wsjtx-data``.
+    """
+    names: set[str] = set()
+    for line in stdout.splitlines():
+        if line.startswith("Inst "):
+            names.add(line.split()[1].partition(":")[0])
+    return names
+
+
 class AptBackend:
     """Resolution and installation through ``apt-get`` / ``apt-cache``."""
 
@@ -173,6 +193,34 @@ class AptBackend:
         """Packages apt has no candidate for. Sorted, for a stable report."""
         states = self.probe(packages)
         return sorted(p for p in packages if p not in states or not states[p].known)
+
+    def would_install(self, packages: Sequence[str]) -> set[str]:
+        """Every package apt would unpack to install *packages* -- the named
+        ones and everything they pull in.
+
+        ``apt-get install --simulate`` runs the real resolver without root and
+        without the lock, and prints one ``Inst <name> ...`` line per package
+        it would unpack. `apt-cache policy` cannot answer this: it knows that
+        `jtdx` has a candidate, not that installing it brings `wsjtx-data`,
+        which is the file-level collision the plan needs to see coming.
+        """
+        ordered = sorted(set(packages))
+        if not ordered:
+            return set()
+        command = Command(
+            argv=("apt-get", "install", "--simulate", "--yes", "--", *ordered),
+            description=f"Ask apt what installing {len(ordered)} package(s) would pull in",
+            requires_root=False,
+            env=dict(NONINTERACTIVE),
+        )
+        result = self.runner.run(command)
+        if not result.ok:
+            raise BackendError(
+                f"apt-get install --simulate failed (exit {result.returncode}). "
+                f"apt cannot resolve this transaction, so nothing will be started.\n"
+                f"{result.stderr.strip()}"
+            )
+        return parse_simulation(result.stdout)
 
     # -- execution ----------------------------------------------------------
 

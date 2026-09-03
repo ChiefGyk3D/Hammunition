@@ -198,3 +198,88 @@ def test_a_source_build_shadowing_an_installed_package_is_disclosed_not_refused(
 def test_an_uninstalled_conflict_is_silent(tmp_path: Path) -> None:
     plan = _plan_with_conflict(tmp_path, DEB_BLOCK, installed=False)
     assert plan.packages[0].displaces == ()
+
+
+# ---------------------------------------------------------------------------
+# The same conflict, arriving inside the transaction (2026-09-02): on a clean
+# machine nothing is installed, so the check above is silent, and the apt
+# step then installs the conflicting package minutes before the .deb lands.
+# ---------------------------------------------------------------------------
+
+
+def _plan_with_in_transaction_conflict(tmp_path: Path, pulled_in: set[str]) -> Any:
+    from hammunition.distro import Target
+    from hammunition.plan import resolve
+    from test_plan import _apt, _manifest
+
+    clasher = _conflicting_manifest(DEB_BLOCK)
+    # An ordinary apt unit whose dependency chain (per the simulated apt
+    # below) brings in the package the .deb collides with -- jtdx to
+    # wsjtx-improved's wsjtx-data.
+    puller = _manifest(
+        name="puller", install=[{"install": {"method": "apt", "packages": ["puller"]}}]
+    )
+    known: dict[str, str | None] = {"distro-owned": None, "clasher": None, "puller": None}
+    apt = _apt(tmp_path, known)
+
+    class SimulatingApt(type(apt)):  # type: ignore[misc]
+        def would_install(self, packages: Any) -> set[str]:
+            assert "puller" in packages
+            return {"puller", *pulled_in}
+
+    apt.__class__ = SimulatingApt
+    return resolve(
+        ["clasher", "puller"],
+        catalog={"clasher": clasher, "puller": puller},
+        profiles={},
+        target=Target(distro="debian", version="13", arch="x86_64"),
+        apt=apt,
+        user="op",
+    )
+
+
+def test_a_vendor_deb_conflicting_with_what_the_transaction_installs_is_refused(
+    tmp_path: Path,
+) -> None:
+    """`digital-modes` on a clean Kali: `jtdx` pulled `wsjtx-data`, the
+    `wsjtx-improved` .deb then collided with it at the dpkg step. The plan
+    had passed, because nothing was installed when it looked."""
+    from hammunition.plan import PlanError
+
+    with pytest.raises(PlanError) as excinfo:
+        _plan_with_in_transaction_conflict(tmp_path, pulled_in={"distro-owned"})
+    text = str(excinfo.value)
+    assert "this same transaction would install: distro-owned" in text
+    assert "leave out either clasher" in text
+
+
+def test_an_apt_step_that_does_not_pull_the_conflict_is_silent(tmp_path: Path) -> None:
+    plan = _plan_with_in_transaction_conflict(tmp_path, pulled_in={"something-else"})
+    assert [p.name for p in plan.packages] == ["clasher", "puller"]
+
+
+def test_the_simulation_is_only_asked_when_a_vendor_deb_declares_a_conflict(
+    tmp_path: Path,
+) -> None:
+    """One more apt call per plan is a cost every operator pays; it is paid
+    only by transactions that need the answer."""
+    from hammunition.backends.base import RecordingRunner
+    from test_plan import _apt, _resolve
+
+    apt = _apt(tmp_path, {"example": None})
+    _resolve(tmp_path, ["example"], apt=apt)
+    assert isinstance(apt.runner, RecordingRunner)
+    assert not [c for c in apt.runner.commands if "--simulate" in c.argv]
+
+
+def test_parse_simulation_keeps_inst_lines_only_and_drops_the_arch() -> None:
+    from hammunition.backends.apt import parse_simulation
+
+    out = (
+        "NOTE: This is only a simulation!\n"
+        "Inst wsjtx-data (2.7.0+repack-1 Debian:13.1/stable [all])\n"
+        "Inst jtdx:i386 (2.2.159 Debian:13.1/stable [i386])\n"
+        "Remv old-thing [1.0]\n"
+        "Conf wsjtx-data (2.7.0+repack-1 Debian:13.1/stable [all])\n"
+    )
+    assert parse_simulation(out) == {"wsjtx-data", "jtdx"}
