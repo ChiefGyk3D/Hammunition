@@ -225,6 +225,25 @@ def render_plan(
             )
         lines.append("")
 
+    if plan.apt_release is not None:
+        # apt would not resolve the transaction from the default release
+        # because a package already installed from another archive would have
+        # to be downgraded, so the whole apt step is resolved from that archive
+        # instead. Which packages that changes is the disclosure. D-038.
+        lines.append(f"apt packages resolved from {plan.apt_release} (D-038):")
+        lines.extend(
+            _wrap(
+                f"apt refused the default release because a package this machine "
+                f"already installs from {plan.apt_release} would have been "
+                f"downgraded; the apt step runs with --target-release "
+                f"{plan.apt_release}, which takes these from there:",
+                indent="  ",
+            )
+        )
+        for apt_package in plan.apt_from_release:
+            lines.append(f"      {apt_package}")
+        lines.append("")
+
     if plan.group_memberships:
         lines.append("Group membership changes:")
         for membership in plan.group_memberships:

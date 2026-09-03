@@ -313,11 +313,17 @@ Resolution is a distinct phase that finishes before anything is executed
    a compiler is installed rather than after `./configure` fails: glfer's
    `build_depends` name `fftw2` and `libgtk2.0-dev`, two of the four AHRL
    dependency lines **D-016** records as suspected-stale, and nothing in AHRL
-   ever asked apt whether they still exist. When a vendor `.deb` in the
-   transaction declares a conflict, apt is asked a second question — what the
-   apt step would *pull in* (`apt-get install --simulate`, unprivileged,
-   no lock) — because `apt-cache policy` knows that `jtdx` exists, not that
-   installing it brings `wsjtx-data`.
+   ever asked apt whether they still exist. Then apt is asked a second
+   question, once, whenever anything is outstanding: whether the whole set
+   installs *together*, and what the apt step would pull in (`apt-get install
+   --simulate`, unprivileged, no lock) — because `apt-cache policy` knows
+   that `jtdx` exists, not that installing it brings `wsjtx-data`, and knows
+   that `libcurl4-openssl-dev` exists, not that this machine's `libcurl4t64`
+   is from backports at a version it cannot depend on. If apt refuses because
+   an installed package would be downgraded, and every such package came from
+   one release, the question is asked a third time with `--target-release`
+   naming it; a yes is carried into the apt command and the plan lists what
+   that release supplies (**D-038**). Any other refusal is the plan's.
 7. **Print the plan**, in full, for every run and not only for `--dry-run`.
 8. **Present any consent gate**, then confirm, then execute.
 
@@ -339,7 +345,8 @@ capability matrix that reports coverage the engine does not have is the shim
 | A `build_depends` package apt has no candidate for | which name, marked `build_depends`, **before** the toolchain is installed |
 | A manifest declaring third-party `apt_repos` | that adding a repository with a pinned key is a disclosed modification of its own |
 | A vendor `.deb` whose declared `conflicts_with_repo_package` is installed | the colliding packages by name, with the removal command — a dpkg file collision mid-transaction is the refused alternative |
-| A vendor `.deb` whose declared conflict is something **this same transaction's apt step would install** — directly, or as a dependency apt resolves | the package by name and both halves of the remedy: leave out the `.deb` unit, or the unit that pulls the conflict in. Found by `apt-get install --simulate`, run once, only when a `.deb` in the plan declares a conflict. A clean machine has nothing installed, so the row above is silent there; this one caught `digital-modes` planning clean and failing after forty-four commands (Kali, 2026-09-02) |
+| A vendor `.deb` whose declared conflict is something **this same transaction's apt step would install** — directly, or as a dependency apt resolves | the package by name and both halves of the remedy: leave out the `.deb` unit, or the unit that pulls the conflict in. Found by the one `apt-get install --simulate` every transaction with apt work gets. A clean machine has nothing installed, so the row above is silent there; this one caught `digital-modes` planning clean and failing after forty-four commands (Kali, 2026-09-02) |
+| An apt transaction apt itself **cannot resolve** as one `apt-get install` — the packages all exist, and the set of them still does not install | `apt: cannot resolve this transaction as one apt-get install`, then apt's own words, indented, and the simulate command that reproduces it. When the reason is that an installed package would be downgraded and it is installed from one other release, the plan is first retried from that release (**D-038**) and this row is reached only if that fails too. Five Parrot profiles passed the plan and died at the first apt command before this row existed (2026-09-02) |
 | A `system_modifications` kind other than `group_membership` | the kind, by name |
 | A package whose status is `broken` or `retired` | the recorded reason, verdict and date |
 | A dependency apt has no candidate for | which name, and whether it came from `install` or `depends` |

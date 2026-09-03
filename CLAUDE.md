@@ -161,6 +161,7 @@ Do not re-litigate these without being asked:
 | Upstream liveness | The default branch's head commit, never GitHub's `updated_at`/`pushed_at` | `updated_at` moves when somebody *stars* a repo; it reported two dead projects as active (**D-032**) |
 | Node builds | Allowed when disclosed as a requirement; refused at plan time when Node is absent or too old; Node only from the distribution | openhamclock is the Q-006 default and publishes no binary (**D-037**) |
 | Node builds | Disclosed as a requirement; refused at plan time when Node is absent or too old; never fetched | openhamclock is a Vite app and `curl | bash` for Node is the habit we refuse (**D-037**) |
+| Mixed-release targets | Resolve from the release the machine already installs from, disclosed by name; never downgrade, never guess a release | Parrot's baseline takes 197 packages from backports and five profiles died at the first apt command (**D-038**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
 
