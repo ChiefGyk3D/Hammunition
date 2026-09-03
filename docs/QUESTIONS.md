@@ -810,7 +810,19 @@ pinned artefact or left to the built-in model.
 
 ---
 
-## Q-017 🟡 — A per-target gap in one profile member: refuse the profile (D-016), or defer the member (D-035)?
+## Q-017 ✅ — A per-target gap in one profile member: refuse the profile (D-016), or defer the member (D-035)? — **RESOLVED 2026-09-03**
+
+**A, as recommended, recorded as D-039.** A profile member is deferred when
+the reason is one of three facts about the target (no install block, no apt
+candidate for the unit's *own* packages, Node below the floor); its catalog
+dependents defer with it; a name the operator typed, an engine gap, a
+missing `depends`/`build_depends`, a retired status, and a profile with
+every member deferred all still refuse. Deferrals are logged
+(`transaction_begin` version 2) and shown by `status`. `workstation` still
+refuses whole over `code`/`codium` until the apt_repos backend exists, which
+was the test. Tests: `tests/test_profile_deferral.py`.
+
+The original question, as raised:
 
 **Raised 2026-09-02**, from the full-catalog campaigns on Ubuntu 24.04 and
 26.04 (`docs/reference/vm-campaign-ubuntu.md`). Every unit was planned and

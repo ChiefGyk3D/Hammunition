@@ -443,6 +443,17 @@ def cmd_status(args: argparse.Namespace) -> int:
         )
     for name in intended:
         print(f"    {name}")
+    # transaction_begin version 2 records what the plan deferred (D-039): a
+    # profile member this target's archive does not carry, or a station value
+    # a config file needed and did not have. A version 1 entry has no key and
+    # nothing is inferred from its absence.
+    deferred = begin.get("deferred", [])
+    if deferred:
+        print(f"  deferred in that transaction, by design ({len(deferred)}):")
+        for entry in deferred:
+            print(
+                f"    {entry.get('subject', '?')}: {entry.get('what', '')} -- {entry.get('why', '')}"
+            )
     return EXIT_OK
 
 

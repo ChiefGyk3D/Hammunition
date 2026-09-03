@@ -54,7 +54,7 @@ exit does.
 
 | `event` | Written | Carries |
 |---|---|---|
-| `transaction_begin` | Once, first | `target`, the manifest `packages` requested, the `apt_packages` the whole set resolved to. |
+| `transaction_begin` | Once, first | `target`, the manifest `packages` requested, the `apt_packages` the whole set resolved to. **Version 2** (2026-09-03) adds `deferred`: one `{kind, subject, what, why}` per thing the plan chose not to do — `kind: package` for a profile member the target does not offer (**D-039**), `kind: config` for a file a station value was missing for (**D-035**). `status` prints them; a version 1 entry has no key and nothing is inferred from its absence. |
 | `command_begin` | Before each command | `argv`, `requires_root`, `description`. |
 | `command_end` | After each command that ran | `argv`, `returncode`. |
 | `action_begin` | Before each in-process step | `kind` (`fetch`, `extract`, `config`, `requirements`, `wrapper`, `desktop-entry`, `patch`, `prepare`, `install-binary`, `verify-pin`, `remove-venv`, `remove-wrapper`, `remove-desktop-entry`), `detail`, `description`. |

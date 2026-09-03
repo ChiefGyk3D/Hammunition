@@ -49,6 +49,7 @@ from hammunition.backends.apt import downgrades_refused
 from hammunition.backends.source import IMPLEMENTED_BUILD_SYSTEMS
 from hammunition.distro import Target
 from hammunition.manifest.schema import (
+    AptInstall,
     BinaryInstall,
     ConfigFile,
     ConsentGate,
@@ -108,6 +109,11 @@ class Deferral:
     `linbpq` did not know a callsign. Nineteen packages installed and one file
     not written is a better outcome than nothing installed, and it is only
     honest if the unwritten file is reported rather than skipped.
+
+    Q-017 extended it to a *profile member the target does not offer*: on
+    Ubuntu 24.04 `listening` withheld nineteen installable units over four the
+    archive does not carry. Same shape, same rule -- most of what was asked
+    for happens, the part that does not is named, and `status` keeps naming it.
     """
 
     subject: str
@@ -117,9 +123,16 @@ class Deferral:
     """What is missing."""
     remedy: str
     """What the operator can do about it."""
+    kind: str = "config"
+    """``config`` (D-035: a file not written) or ``package`` (Q-017: a profile
+    member not installed). Recorded in the transaction log so `status` can
+    tell them apart."""
 
     def render(self) -> str:
         return f"{self.subject}: {self.what}\n    why: {self.why}\n    → {self.remedy}"
+
+    def to_log_entry(self) -> dict[str, str]:
+        return {"kind": self.kind, "subject": self.subject, "what": self.what, "why": self.why}
 
 
 class PlanError(Exception):
@@ -611,8 +624,8 @@ def _check_node_floor(
             subject=manifest.name,
             reason=(
                 f"is a Node.js application needing Node {floor} or newer, and this "
-                f"distribution's nodejs is {version} ({source}) — "
-                f"{found[0]}.{found[1]}"
+                f"distribution's nodejs is {version} ({source}): "
+                f"{found[0]}.{found[1]} is below the floor"
             ),
             remedy=(
                 "Node is only ever taken from the distribution, never fetched (D-037); "
@@ -678,6 +691,28 @@ def _indent(text: str, prefix: str = "      ") -> str:
     return "\n".join(prefix + line for line in text.splitlines())
 
 
+def _target_deferral(name: str, wanted: Mapping[str, Sequence[str]], why: str) -> Deferral:
+    """Q-017: a profile member this target does not offer, deferred by name.
+
+    Only for a member the operator did not ask for by name -- ``wanted`` says
+    who asked -- and only for a reason true of the *target*: no candidate on
+    this release for the unit's own packages, no install block for this
+    distro or architecture, a Node floor the distribution's package is below.
+    The caller decides the reason qualifies; this only phrases it.
+    """
+    via = ", ".join(w for w in wanted[name] if w != REQUESTED_DIRECTLY)
+    return Deferral(
+        subject=name,
+        what=f"will not be installed ({via})",
+        why=why,
+        remedy=(
+            f"the rest installs without it; `hammunition install {name}` shows the "
+            f"refusal in full, and a release that carries it needs no change here"
+        ),
+        kind="package",
+    )
+
+
 def resolve(
     names: Sequence[str],
     *,
@@ -711,6 +746,14 @@ def resolve(
 
     ordered = _order(wanted, catalog, blockers)
 
+    # Q-017: a member that reached the request only through a profile (or as a
+    # dependency of one) may be deferred when the target does not offer it. A
+    # name the operator typed is never deferred -- asking for it by name is
+    # asking to see the refusal.
+    deferrable = {name for name in ordered if REQUESTED_DIRECTLY not in wanted[name]}
+    deferred: dict[str, Deferral] = {}
+    target_name = target.pretty_name or f"{target.distro} {target.version}".strip()
+
     # (manifest, block, every apt package it needs, which of those are build-only)
     resolved: list[tuple[PackageManifest, InstallBlock, tuple[str, ...], tuple[str, ...]]] = []
     for name in ordered:
@@ -723,13 +766,16 @@ def resolve(
 
         block = manifest.resolve(target.distro, target.version, target.arch)
         if block is None:
+            where = f"{target.distro} {target.version or '(no version)'} on {target.arch}"
+            if name in deferrable:
+                deferred[name] = _target_deferral(
+                    name, wanted, f"the catalog declares no install block matching {where}"
+                )
+                continue
             blockers.append(
                 Blocker(
                     subject=name,
-                    reason=(
-                        f"declares no install block matching {target.distro} "
-                        f"{target.version or '(no version)'} on {target.arch}"
-                    ),
+                    reason=f"declares no install block matching {where}",
                     remedy=(
                         "this target is genuinely unsupported for this package; the catalog "
                         "says so rather than pretending otherwise"
@@ -743,9 +789,9 @@ def resolve(
             blockers.extend(capability)
             continue
 
-        writable, deferred = _plan_config(manifest, station)
+        writable, unwritable = _plan_config(manifest, station)
         config_files.extend(writable)
-        deferrals.extend(deferred)
+        deferrals.extend(unwritable)
 
         # apt and source reach here; _check_engine_capability rejects the rest.
         # A source build needs its `build_depends` from apt before it can start,
@@ -834,12 +880,28 @@ def resolve(
                 )
         else:
             states = apt.probe(sorted({*all_apt, *all_conflicts}))
-            for manifest, _, packages, _ in resolved:
+            for manifest, block, packages, _ in resolved:
                 missing = [p for p in packages if p not in states or not states[p].known]
                 if missing:
                     origin = {p: "depends" for p in manifest.depends if p not in catalog}
                     origin.update({p: "build_depends" for p in _build_depends_of(manifest)})
                     detail = ", ".join(f"{p} ({origin.get(p, 'install')})" for p in sorted(missing))
+                    # Q-017: the unit's OWN apt packages absent from this
+                    # release is the target's gap. A missing `depends` or
+                    # `build_depends` is the manifest's, and stays a blocker
+                    # -- deferral drawn wider than that swallows defects.
+                    own = (
+                        set(block.install.packages)
+                        if isinstance(block.install, AptInstall)
+                        else set()
+                    )
+                    if manifest.name in deferrable and set(missing) <= own:
+                        deferred[manifest.name] = _target_deferral(
+                            manifest.name,
+                            wanted,
+                            f"apt on {target_name} has no candidate for {', '.join(sorted(missing))}",
+                        )
+                        continue
                     blockers.append(
                         Blocker(
                             subject=manifest.name,
@@ -869,9 +931,81 @@ def resolve(
             continue
         outcome = _check_node_floor(manifest, block.install, states.get("nodejs"))
         if isinstance(outcome, Blocker):
-            blockers.append(outcome)
+            # Q-017: the distribution's Node being absent or below the floor
+            # is true of the target, so a profile member defers on it.
+            if manifest.name in deferrable:
+                # The blocker's reason reads on from its subject; the deferral
+                # prints `why:` on its own line, so name the subject again.
+                deferred[manifest.name] = _target_deferral(
+                    manifest.name, wanted, f"{manifest.name} {outcome.reason}"
+                )
+            else:
+                blockers.append(outcome)
         else:
             notes.append(outcome)
+
+    # -- Q-017: the deferred set closes over catalog dependencies -----------
+    # pythonprop depends on voacapl; a target that lacks voacapl cannot have
+    # pythonprop either, however present its own package is. A dependent the
+    # operator asked for by name is refused, naming the dependency.
+    changed = True
+    while changed:
+        changed = False
+        for manifest, _, _, _ in resolved:
+            if manifest.name in deferred:
+                continue
+            gone = sorted(d for d in manifest.depends if d in deferred)
+            if not gone:
+                continue
+            why = f"depends on {', '.join(gone)}, which this target does not offer"
+            if manifest.name in deferrable:
+                deferred[manifest.name] = _target_deferral(manifest.name, wanted, why)
+                changed = True
+            else:
+                blockers.append(
+                    Blocker(
+                        subject=manifest.name,
+                        reason=why,
+                        remedy=(
+                            f"`hammunition install {gone[0]}` shows why; there is no "
+                            f"installing the dependent without it"
+                        ),
+                    )
+                )
+                # Not `changed`: a blocker ends the plan, and its dependents
+                # would only repeat the same refusal.
+
+    # A profile whose every member is deferred is refused, not deferred: a
+    # plan that installs nothing and reports a success is the shape D-031
+    # exists to catch, one layer up.
+    for name in names:
+        profile = profiles.get(name)
+        if profile is None or name in catalog:
+            continue
+        members = [p for p in profile.packages if p in catalog]
+        if members and all(m in deferred for m in members):
+            blockers.append(
+                Blocker(
+                    subject=name,
+                    reason=(
+                        f"every member of this profile is unavailable on {target_name}: "
+                        f"{', '.join(members)}"
+                    ),
+                    remedy=(
+                        "the profile has nothing to install here; each member's own "
+                        "reason is listed by `hammunition install <member>`"
+                    ),
+                )
+            )
+
+    if deferred:
+        deferrals.extend(deferred[name] for name in ordered if name in deferred)
+        # A deferred member's configuration is neither written nor reported
+        # as unwritten: there is no package for the file to belong to.
+        config_files = [c for c in config_files if c[0] not in deferred]
+        deferrals = [d for d in deferrals if not (d.kind == "config" and d.subject in deferred)]
+        resolved = [r for r in resolved if r[0].name not in deferred]
+        all_apt = sorted({p for _, _, packages, _ in resolved for p in packages})
 
     # -- declared conflicts against what is installed now (D-022) ----------
     for manifest, block, _, _ in resolved:

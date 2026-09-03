@@ -2405,3 +2405,80 @@ neither judges nor changes it. And whether a release-specific plan should
 be recorded in the transaction log beyond the argv it already carries; the
 `--target-release` flag is in the printed and logged command, which is the
 disclosure D-031 asks for.
+
+## D-039 — A profile member the target does not offer is deferred by name and the rest of the profile installs; a member the operator named, an engine gap, or a manifest defect still refuses the transaction
+
+**Date:** 2026-09-03. **Status:** accepted; resolves Q-017.
+**Depends on:** D-016 (refuse at plan time, never partway), D-035 (a
+missing value defers one file, never the transaction), D-037 (Node only from
+the distribution), D-031 (verify the effect, not the exit status).
+**Amends:** D-016, which held that a transaction resolves whole or not at
+all. It still does, for everything the operator asked for by name. The
+exception is drawn around one thing: a *profile* member that the *target*
+does not offer.
+
+**What was measured.** The full-catalog campaigns on Ubuntu 24.04 and 26.04
+(`docs/reference/vm-campaign-ubuntu.md`, 2026-09-02): every unit planned
+and installed by name, and then **five of fifteen profiles refused whole on
+24.04, two on 26.04**, each over members refused for a reason true of the
+target — `listening` withheld nineteen installable units because the 24.04
+archive carries neither `readsb`, `rtl-ais`, `satdump` nor
+`mlat-client-adsbfi`; `propagation` withheld everything because Node 18.19
+is below openhamclock's 20.19 floor and 24.04 carries no `voacapl`. The
+operator's remedy was to install the nineteen by name, which is the
+fix-one-re-run loop D-016 exists to end, arriving from the other side.
+
+**The rule.** A package that reached the plan only through a profile, or as
+a catalog dependency of one, is **deferred** rather than refused when the
+reason is one of exactly three, each a fact about the target:
+
+1. the catalog declares no install block matching this distro, version and
+   architecture (D-002's selector, honestly negative);
+2. apt on this release has no candidate for **the unit's own packages** —
+   the `packages:` of its apt block, and only those;
+3. the distribution's `nodejs` is absent or below the manifest's floor
+   (D-037).
+
+A deferred member's catalog dependents defer with it, each naming the
+dependency it lost. Deferrals are printed under *Will NOT happen*, written
+to the transaction log (`transaction_begin` version 2, `deferred`), and
+reported by `hammunition status` for as long as that transaction is the most
+recent one.
+
+**What still refuses, by name.** Everything that is not one of those three:
+
+- **A name the operator typed.** `hammunition install satdump` on 24.04 is
+  a request to see the refusal, and it sees it in full. A unit named both
+  directly and through a profile is a named request.
+- **An engine gap.** `code` and `codium` are refused on every target because
+  the engine has no `apt_repos` backend yet, not because any archive lacks
+  them; deferring them would make the missing backend invisible.
+  `workstation` refuses whole until that backend exists, which is the test
+  Q-017 set for the classification.
+- **A missing `depends` or `build_depends`.** Those are the manifest's, not
+  the target's: D-016 names four AHRL dependency lines that went stale
+  exactly this way, and a deferral that swallowed them would hide the defect
+  the check was written to find.
+- **A retired or broken status**, a declined consent gate (D-021), a
+  verification failure (D-018), a declared package conflict (D-022), and an
+  apt simulation that cannot resolve (D-038). None is a fact about what the
+  archive offers.
+- **A profile whose every member is deferred.** Installing nothing and
+  reporting success is the shape D-031 exists to catch; it refuses naming
+  the profile and each member's reason.
+
+**Why the line is here and not wider.** Q-017's three options were: defer
+(this), fix each gap in the catalog with `when:` selectors, or a
+`--defer-unavailable` flag. The selectors would freeze one evening's
+`apt-cache policy` into data meant to describe software, and would still
+produce the same partial install, made silently in the catalog instead of
+reported by the engine. The flag is `--yes` for consent gates over again:
+the option everyone passes, at which point it is the default with a worse
+name (D-021). What makes deferral safe is not the mechanism but the
+classification, so the classification is the decision.
+
+**Rejected while building it:** deferring on any no-candidate result. A
+unit's `depends` line naming a package the archive lacks is indistinguishable
+from its own package being absent unless the plan checks which list the
+name came from — so it checks, and defers only when every missing name is
+in the unit's own `packages:`.
