@@ -324,10 +324,21 @@ Resolution is a distinct phase that finishes before anything is executed
    one release, the question is asked a third time with `--target-release`
    naming it; a yes is carried into the apt command and the plan lists what
    that release supplies (**D-038**). Any other refusal is the plan's.
-7. **Print the plan**, in full, for every run and not only for `--dry-run`.
-8. **Present any consent gate**, then confirm, then execute.
+7. **Defer what the target does not offer** — but only for a member that
+   reached the plan through a *profile*, and only for one of three reasons
+   that are facts about the target: no install block matches this
+   distro/version/arch, apt on this release has no candidate for the unit's
+   *own* packages, or the distribution's Node is below the manifest's floor.
+   The member and its catalog dependents are listed under *Will NOT happen*
+   with the reason, and the rest of the profile installs (**D-039**). A
+   name you typed is never deferred: `hammunition install satdump` on
+   Ubuntu 24.04 shows the refusal in full. An engine gap, a missing
+   `depends` or `build_depends`, a retired status, and a profile with every
+   member deferred all still refuse the transaction.
+8. **Print the plan**, in full, for every run and not only for `--dry-run`.
+9. **Present any consent gate**, then confirm, then execute.
 
-If anything in steps 2–6 fails, **every** failure is printed together and
+If anything in steps 2–7 fails, **every** failure is printed together and
 nothing is changed. Reporting only the first would have the same shape as the
 defect this is built against: fix one, re-run, meet the next.
 
@@ -349,7 +360,8 @@ capability matrix that reports coverage the engine does not have is the shim
 | An apt transaction apt itself **cannot resolve** as one `apt-get install` — the packages all exist, and the set of them still does not install | `apt: cannot resolve this transaction as one apt-get install`, then apt's own words, indented, and the simulate command that reproduces it. When the reason is that an installed package would be downgraded and it is installed from one other release, the plan is first retried from that release (**D-038**) and this row is reached only if that fails too. Five Parrot profiles passed the plan and died at the first apt command before this row existed (2026-09-02) |
 | A `system_modifications` kind other than `group_membership` | the kind, by name |
 | A package whose status is `broken` or `retired` | the recorded reason, verdict and date |
-| A dependency apt has no candidate for | which name, and whether it came from `install` or `depends` |
+| A dependency apt has no candidate for | which name, and whether it came from `install` or `depends`. A *profile* member whose own `install` packages are the ones missing is deferred instead (**D-039**), and the row above still applies to its `depends` |
+| A profile every member of which this target cannot install | the profile by name, with each member's reason — installing nothing and reporting success is not an outcome (**D-039**) |
 | No apt package lists at all | that this is a stale-lists problem, with `--refresh` as the remedy |
 | A group membership with no identifiable operator | that `--user` is needed |
 
@@ -560,7 +572,12 @@ its log entry carries `verified: false`.
 transaction ended** — completed, failed after N commands, or interrupted with
 no ending recorded — never just what it set out to do, and for a completed run
 whether its effects were **confirmed afterwards** or came back unverified. A run
-that died partway is not reported as if it finished.
+that died partway is not reported as if it finished. What that run **deferred
+by design** — a profile member the target does not offer (**D-039**), a
+configuration file a station value was missing for (**D-035**) — is listed
+after the packages it intended, from the `deferred` entry the log has carried
+since `transaction_begin` version 2, so a profile that landed eighteen of
+twenty-two still reads that way a week later.
 
 Hammunition does not roll back. It tells you what it did (**D-004**). On a
 failure the run stops at that command, and the count that completed is printed

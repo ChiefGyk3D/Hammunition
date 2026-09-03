@@ -200,7 +200,7 @@ def test_a_too_old_node_is_refused_at_plan_time_naming_floor_found_and_source(
         _plan(tmp_path, AptPackageState("nodejs", installed=None, candidate="16.20.2+dfsg-1"))
     text = str(exc.value)
     assert "needing Node 20.19 or newer" in text
-    assert "16.20.2+dfsg-1" in text and "— 16.20" in text
+    assert "16.20.2+dfsg-1" in text and "16.20 is below the floor" in text
     assert "never fetched (D-037)" in text
 
 

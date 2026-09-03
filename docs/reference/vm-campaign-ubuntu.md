@@ -72,8 +72,14 @@ member withholds the profile:
 
 Five of fifteen on 24.04, two on 26.04, one on Debian and Parrot. Whether
 a member the archive does not carry should withhold the profile (D-016) or
-be deferred by name the way a config file is (D-035) is **Q-017**, and it
-is the maintainer's; the table is its evidence.
+be deferred by name the way a config file is (D-035) was **Q-017**; the
+table is its evidence, and it was resolved on 2026-09-03 as **D-039**: the
+`m2kcli`, `readsb`, `rtl-ais`, `satdump`, `mlat-client-adsbfi`,
+`openhamclock`, `voacapl`, `pythonprop` and `gr-gsm` rows now defer by name
+and the rest of each profile installs. The `workstation` row does not — its
+members are refused for an engine gap, not an archive gap — and stays refused
+until the apt_repos backend exists. Whether this table now installs whole on
+the VMs is the next campaign's measurement, not this one's claim.
 
 ## What the whole-profile runs found, and what was fixed
 
@@ -129,7 +135,7 @@ it is built on evidence and not forgotten.
 
 ## Left with the maintainer
 
-- Q-017, above.
+- ~~Q-017, above.~~ Resolved as D-039, 2026-09-03.
 - The third-party-repository backend (`code`, `codium` on every target).
 - Ubuntu 24.04 as a declared target in `containers/targets.yaml` and the
   capability matrix, now that it is measured — or Linux Mint 22.3 as its

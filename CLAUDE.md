@@ -162,6 +162,7 @@ Do not re-litigate these without being asked:
 | Node builds | Allowed when disclosed as a requirement; refused at plan time when Node is absent or too old; Node only from the distribution | openhamclock is the Q-006 default and publishes no binary (**D-037**) |
 | Node builds | Disclosed as a requirement; refused at plan time when Node is absent or too old; never fetched | openhamclock is a Vite app and `curl | bash` for Node is the habit we refuse (**D-037**) |
 | Mixed-release targets | Resolve from the release the machine already installs from, disclosed by name; never downgrade, never guess a release | Parrot's baseline takes 197 packages from backports and five profiles died at the first apt command (**D-038**) |
+| Profile members a target lacks | Deferred by name, the rest installs; a name the operator typed, an engine gap or a manifest defect still refuses | `listening` withheld nineteen units on Ubuntu 24.04 over four the archive lacks (**D-039**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
 
@@ -447,11 +448,14 @@ longer a design question in the abstract; a shipped manifest depends on it. See
 `ohb.works` as the backend; SuperSDR is carried under **D-033**; cellular
 tooling is staged under **D-034**.
 
-**Q-017 is open** (raised 2026-09-02): whether a profile member the target's
-archive does not carry withholds the whole profile (D-016) or is deferred by
-name (D-035). Five of fifteen profiles do not install whole on Ubuntu 24.04
-over it; `docs/reference/vm-campaign-ubuntu.md` is the evidence. It does not
-block work — every unit still installs by name.
+**Q-017 is resolved as D-039** (2026-09-03): a profile member the target does
+not offer — no install block, no apt candidate for its *own* packages, Node
+below its floor — is deferred by name and the rest of the profile installs.
+A name the operator typed, an engine gap (`code`/`codium` need apt_repos), a
+missing `depends`/`build_depends`, a retired status, and a profile with every
+member deferred all still refuse. Deferrals are logged (`transaction_begin`
+version 2) and shown by `status`. `docs/reference/vm-campaign-ubuntu.md` is
+the evidence it was decided on.
 
 ## Roadmap — 1.0 is the five-source union
 

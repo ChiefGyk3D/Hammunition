@@ -601,11 +601,15 @@ def execute(
     log.append(
         {
             "event": "transaction_begin",
-            "version": 1,
+            # Version 2 adds `deferred` (Q-017 / D-039): what the plan chose
+            # NOT to do, so a `status` read later knows the run installed
+            # eighteen of a profile's twenty-two on purpose, not by accident.
+            "version": 2,
             "timestamp": datetime.now(UTC).isoformat(),
             "target": plan.target.to_log_entry(),
             "packages": [p.name for p in plan.packages],
             "apt_packages": list(plan.apt_to_install),
+            "deferred": [d.to_log_entry() for d in plan.deferrals],
         }
     )
 
