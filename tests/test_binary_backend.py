@@ -208,6 +208,48 @@ def test_a_deb_goes_through_apt_and_not_dpkg(tmp_path: Path) -> None:
     assert str(fetched["path"]) in argv
 
 
+def test_a_deb_is_simulated_with_the_apt_step_after_its_fetch_and_before_apt_installs(
+    tmp_path: Path,
+) -> None:
+    """The plan's own simulate (D-038) cannot include a file that has not
+    been downloaded. So the transaction fetches first, then asks apt about
+    the apt packages and the .deb *together*, then installs -- a vendor
+    package built for another release is refused with nothing changed."""
+    from hammunition.backends import AptBackend
+    from hammunition.execute import commands_for
+
+    manifest = _manifest("https://example.invalid/x.deb", "0" * 64, "deb", binaries=[])
+    backend = _backend(tmp_path)
+    plan = InstallPlan(
+        target=TARGET,
+        packages=(
+            PlannedPackage(manifest=manifest, block=manifest.install[0], apt_packages=("libdep",)),
+        ),
+        apt_release="stable",
+    )
+    steps = commands_for(plan, AptBackend(RecordingRunner()), binary=backend)
+    labels = [s.kind if isinstance(s, Action) else s.argv[0] for s in steps]
+    assert labels == ["fetch", "apt-get", "apt-get", "install-deb"]
+    simulate = steps[1]
+    assert isinstance(simulate, Command)
+    block = manifest.install[0].install
+    assert isinstance(block, BinaryInstall)
+    deb = str(backend.fetcher.path_for(block.artifact))
+    assert simulate.argv == (
+        "apt-get",
+        "install",
+        "--simulate",
+        "--yes",
+        "--target-release",
+        "stable",
+        "--",
+        deb,
+        "libdep",
+    )
+    assert not simulate.requires_root
+    assert ".deb" in simulate.description
+
+
 def test_apt_refusing_a_deb_is_an_error_not_a_pass(tmp_path: Path) -> None:
     """A vendor .deb built for a different release is the usual cause, and apt
     refusing it is the correct outcome."""

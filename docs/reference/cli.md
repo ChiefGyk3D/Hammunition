@@ -336,7 +336,18 @@ Resolution is a distinct phase that finishes before anything is executed
    `depends` or `build_depends`, a retired status, and a profile with every
    member deferred all still refuse the transaction.
 8. **Print the plan**, in full, for every run and not only for `--dry-run`.
-9. **Present any consent gate**, then confirm, then execute.
+9. **Present any consent gate**, then confirm, then execute — in this order:
+   **every download first**, fetched into the cache and verified against the
+   manifest's sha256 (**D-018**), so a wrong hash or a dead URL refuses on a
+   machine nothing has touched; then, when the plan holds a vendor `.deb`,
+   one more `apt-get install --simulate` over the apt packages and the
+   downloaded file together, because apt can only resolve a `.deb` from its
+   file and the plan-time simulate in step 6 could not include one; then
+   `apt-get update` if `--refresh`, debconf preseeds, the apt step, the
+   builds and installs in catalog order, configuration files, launchers,
+   and group membership last (several groups are created by the package
+   being installed). A `git` clone is a command that needs `git` from apt,
+   so it stays in build order rather than moving up with the fetches.
 
 If anything in steps 2–7 fails, **every** failure is printed together and
 nothing is changed. Reporting only the first would have the same shape as the

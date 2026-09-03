@@ -890,16 +890,36 @@ def _source_backend(tmp_path: Path) -> SourceBackend:
     return SourceBackend(Fetcher(tmp_path / "cache"), build_root=tmp_path / "build", jobs=2)
 
 
-def test_apt_runs_before_a_source_build_needs_its_toolchain(tmp_path: Path) -> None:
-    """Order is not cosmetic: ./configure cannot succeed before build_depends
-    are installed."""
+def test_every_fetch_runs_before_apt_and_apt_before_a_build(tmp_path: Path) -> None:
+    """Order is not cosmetic, twice over. Every download is fetched and
+    verified before the first thing that changes the machine, so a wrong
+    sha256 or a dead URL (D-018) is a refusal on an untouched system rather
+    than a failure after apt has installed a toolchain for a build that will
+    never start. Then apt, because ./configure cannot succeed before
+    build_depends are installed."""
     steps = commands_for(
         _source_plan(tmp_path),
         AptBackend(RecordingRunner()),
         source=_source_backend(tmp_path),
+        refresh=True,
     )
     labels = [s.kind if isinstance(s, Action) else s.argv[0] for s in steps]
-    assert labels == ["apt-get", "fetch", "extract", "./configure", "make", "make"]
+    assert labels == ["fetch", "apt-get", "apt-get", "extract", "./configure", "make", "make"]
+    assert _argv(steps[1]) == ("apt-get", "update")
+
+
+def test_a_fetch_that_fails_leaves_apt_unrun(tmp_path: Path) -> None:
+    """The property the order buys: nothing has been installed when a
+    download fails verification, so there is nothing to explain or undo."""
+    runner = RecordingRunner()
+    apt = AptBackend(runner)
+    steps = commands_for(_source_plan(tmp_path), apt, source=_source_backend(tmp_path))
+    log = TransactionLog(tmp_path / "log.jsonl")
+    # The URL is example.invalid: the fetch fails, which is the point.
+    report = execute(steps, runner, log=log, plan=_source_plan(tmp_path))
+    assert not report.ok
+    assert isinstance(report.failed, Action) and report.failed.kind == "fetch"
+    assert runner.commands == []
 
 
 def test_a_source_build_without_a_backend_is_an_error_not_a_skip(tmp_path: Path) -> None:

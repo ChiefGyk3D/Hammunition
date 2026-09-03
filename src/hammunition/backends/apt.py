@@ -310,17 +310,9 @@ class AptBackend:
         A failed simulation is a result, not an exception: the plan reads
         apt's account and decides what it means.
         """
-        ordered = sorted(set(packages))
-        if not ordered:
+        if not set(packages):
             return AptSimulation(ok=True, release=release)
-        target = ("--target-release", release) if release is not None else ()
-        command = Command(
-            argv=("apt-get", "install", "--simulate", "--yes", *target, "--", *ordered),
-            description=f"Ask apt how it would install {len(ordered)} package(s)",
-            requires_root=False,
-            env=dict(NONINTERACTIVE),
-        )
-        result = self.runner.run(command)
+        result = self.runner.run(self.simulate_command(packages, release=release))
         if not result.ok:
             # apt puts the E: lines and the solver's explanation on stderr;
             # stdout is "Reading package lists..." and worth nothing to a
@@ -328,6 +320,23 @@ class AptBackend:
             error = result.stderr.strip() or result.stdout.strip()
             return AptSimulation(ok=False, error=error, release=release)
         return AptSimulation(ok=True, installs=parse_simulation(result.stdout), release=release)
+
+    def simulate_command(
+        self, packages: Sequence[str], *, release: str | None = None, description: str = ""
+    ) -> Command:
+        """The ``--simulate`` invocation itself, for :meth:`simulate` and for a
+        plan that wants it as a step. A local ``.deb`` may be among *packages*
+        by path -- apt resolves a file the same way, which is how a downloaded
+        vendor package is checked against the apt step it will follow before
+        either has touched the machine."""
+        ordered = sorted(set(packages))
+        target = ("--target-release", release) if release is not None else ()
+        return Command(
+            argv=("apt-get", "install", "--simulate", "--yes", *target, "--", *ordered),
+            description=description or f"Ask apt how it would install {len(ordered)} package(s)",
+            requires_root=False,
+            env=dict(NONINTERACTIVE),
+        )
 
     def would_install(self, packages: Sequence[str]) -> set[str]:
         """Every package apt would unpack to install *packages* -- the named
