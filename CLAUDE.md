@@ -162,6 +162,8 @@ Do not re-litigate these without being asked:
 | Node builds | Allowed when disclosed as a requirement; refused at plan time when Node is absent or too old; Node only from the distribution | openhamclock is the Q-006 default and publishes no binary (**D-037**) |
 | Node builds | Disclosed as a requirement; refused at plan time when Node is absent or too old; never fetched | openhamclock is a Vite app and `curl | bash` for Node is the habit we refuse (**D-037**) |
 | Mixed-release targets | Resolve from the release the machine already installs from, disclosed by name; never downgrade, never guess a release | Parrot's baseline takes 197 packages from backports and five profiles died at the first apt command (**D-038**) |
+| Profile members the target lacks | Defer by name, install the rest; a typed name, an engine gap or a manifest defect still refuses | Five of fifteen profiles withheld nineteen installable units over four absent ones (**D-039**) |
+| Third-party apt repos | Manifest pins the key fingerprint; added only when the archive offers nothing; consent is the fingerprint itself, never `1` or `--yes`; both files come out on uninstall | `code`/`codium` refused on every target and withheld all of `workstation` (**D-040**) |
 | Profile members a target lacks | Deferred by name, the rest installs; a name the operator typed, an engine gap or a manifest defect still refuses | `listening` withheld nineteen units on Ubuntu 24.04 over four the archive lacks (**D-039**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
@@ -387,7 +389,7 @@ in their own install notes.
 ```
 catalog/
   packages/        # one YAML per piece of software          ✅ 225
-  profiles/        # named bundles referencing packages      ✅ 15
+  profiles/        # named bundles referencing packages      ✅ 16
   hardware/
     classes/       # device families with shared Linux needs ✅ 5
     devices/       # one YAML per device                     ✅ 23
@@ -399,7 +401,8 @@ src/hammunition/
   state/           # transaction log, uninstall              ✅ apt removal, VM-verified
   plan.py          # pre-flight resolution (D-016)           ✅
   execute.py       # plan -> commands -> runner              ✅
-  backends/        # apt ✅ source ✅ git ✅ binary ✅ venv ✅ node ✅; pipx/CPAN measured zeros
+  backends/        # apt ✅ source ✅ git ✅ binary ✅ venv ✅ node ✅ apt_repo ✅; pipx/CPAN measured zeros
+  openpgp.py       # key fingerprints from packets, no gpg (D-040)     ✅
   fetch.py         # verified download, mandatory sha256          ✅
   paths.py         # owner-aware XDG dirs (log, cache, build)     ✅
   distro/          # /etc/os-release detection               ✅
@@ -414,8 +417,8 @@ Ticks mark what exists. **M1's walking skeleton runs** — detect, resolve, prin
 install, log — and **M3 has begun**: the verified fetcher and the
 source-from-tarball and source-from-git backends are written, so `source` and
 `git` manifests now plan and build end to end, and binary, venv and node
-followed. What it cannot do it still refuses by name: pipx, third-party apt
-repos and templated config files are measured, named and absent. Do not let this read as a
+followed. What it cannot do it still refuses by name: pipx and templated config
+files are measured, named and absent. Do not let this read as a
 working installer: **57 of AHRL's 95 units cannot be satisfied by apt**, and
 while source-from-tarball is the largest single slice of that 57 (35 units), the
 rest of the 60% is still the hard part (**D-004**).

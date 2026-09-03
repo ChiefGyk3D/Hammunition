@@ -153,6 +153,35 @@ no affirmation was given. There is no path that installs a gated profile without
 writing this, and `--yes` is not such a path — that is asserted by test, not
 just intended.
 
+**A third-party apt repository writes the same event** (**D-040**), one per
+repository added, with `profile` set to `apt-repo:<name>`, an empty
+`risk_categories` (a repository is not an RF capability), and an `extra`
+object that says what was trusted:
+
+```json
+{
+  "event": "consent_affirmed",
+  "version": 1,
+  "profile": "apt-repo:microsoft-vscode",
+  "decision": "environment",
+  "risk_categories": [],
+  "env_var": "HAMMUNITION_ACCEPT_APT_REPO_MICROSOFT_VSCODE",
+  "extra": {
+    "kind": "apt_repo",
+    "unit": "code",
+    "repository": "microsoft-vscode",
+    "uri": "https://packages.microsoft.com/repos/code",
+    "key_fingerprint": "BC528686B50D79E339D3721CEB3E94ADBE1229CF"
+  }
+}
+```
+
+`decision: environment` here means the variable held the **fingerprint**,
+not `1` — a `1` is refused, and `--yes` cannot produce this event either. The
+files the repository added are attributed the same way as any other
+`install -D` (see the uninstall lifecycle), so the log says both who trusted
+the key and where it was written.
+
 ---
 
 ## The uninstall lifecycle

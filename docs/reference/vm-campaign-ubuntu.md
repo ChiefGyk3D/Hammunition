@@ -23,8 +23,10 @@ runs could not: two profiles that planned clean and failed partway.
 re-probe found the software (D-031). The consent gate is `rf-research`
 stopping on a non-interactive stdin, which is the gate working — the
 campaign never affirms one (D-021). The refusal is `workstation`, whose
-`code` and `codium` need the third-party-repository backend that is the
-maintainer's decision to make.
+`code` and `codium` needed the third-party-repository backend that was the
+maintainer's decision to make — made, and built, on 2026-09-03 (D-040); both
+editors moved to an opt-in `editors` profile the same day, so `workstation`
+is now seven archive-only packages.
 
 **Zero failures on either Ubuntu** is the headline. The engine's 24.04 and
 26.04 coverage was untested before this run — the capability matrix has
@@ -76,10 +78,11 @@ be deferred by name the way a config file is (D-035) was **Q-017**; the
 table is its evidence, and it was resolved on 2026-09-03 as **D-039**: the
 `m2kcli`, `readsb`, `rtl-ais`, `satdump`, `mlat-client-adsbfi`,
 `openhamclock`, `voacapl`, `pythonprop` and `gr-gsm` rows now defer by name
-and the rest of each profile installs. The `workstation` row does not — its
-members are refused for an engine gap, not an archive gap — and stays refused
-until the apt_repos backend exists. Whether this table now installs whole on
-the VMs is the next campaign's measurement, not this one's claim.
+and the rest of each profile installs. The `workstation` row did not — its
+members were refused for an engine gap, not an archive gap — until the
+apt_repos backend landed as D-040 and the two editors moved to `editors`.
+Whether this table now installs whole on the VMs is the next campaign's
+measurement, not this one's claim.
 
 **Measured 2026-09-03, Ubuntu 24.04, engine at `05f3db0`, each profile
 from the clean-baseline snapshot** (`~/.local/state/hammunition-campaigns/
@@ -154,10 +157,33 @@ it is built on evidence and not forgotten. **Built 2026-09-03:** every
 fetch now runs first, and a plan holding a `.deb` simulates it together with
 the apt step after the fetch and before either installs.
 
+## The repository backend, measured on 2026-09-03
+
+The one refusal every target shared — `code` and `codium` behind an
+`apt_repos` block this engine could not act on — closed as **D-040** and
+was run on two of the VMs the same day. The rows below are the engine's own
+bar again: every command completed *and* the re-probe found the software.
+
+| Target | Run | Result |
+|---|---|---|
+| Ubuntu 24.04, apt 2.8.3 | `install code`, no variable, no terminal | exit 3, nothing written — the gate stopping |
+| Ubuntu 24.04 | `install code`, variable `=1` | exit 3, refusal names the fingerprint it should hold |
+| Ubuntu 24.04 | `install code --yes`, variable = fingerprint | **confirmed**, 7 commands; 640-byte binary key from Microsoft's armored `.asc`; `code 1.136.0` from `packages.microsoft.com` |
+| Ubuntu 24.04 | `install code` again | 0 commands — already installed, repository already ours |
+| Ubuntu 24.04 | `uninstall code --yes` | **confirmed**, 4 commands; both files gone, `apt-cache policy code` has no candidate |
+| Debian 13, apt 3.0.3 | `install editors --yes`, both variables | **confirmed**, 11 commands; VSCodium's binary `pub.gpg` kept at 2256 bytes; `code 1.136.0` and `codium 1.126.04524` |
+| Debian 13 | `uninstall editors --yes` | **confirmed**, 6 commands, four files removed |
+| Debian 13 | `install codium --dry-run` with a hand-written `vscodium.sources` present | exit 2, refused as foreign, nothing changed |
+
+Parrot's `codium` row — where the archive carries the package and no
+repository should be added or asked about (D-022) — is not yet measured.
+`workstation` itself is now seven archive-only packages and has no reason
+to refuse anywhere; whether it installs whole is the next campaign's row.
+
 ## Left with the maintainer
 
 - ~~Q-017, above.~~ Resolved as D-039, 2026-09-03.
-- The third-party-repository backend (`code`, `codium` on every target).
+- ~~The third-party-repository backend (`code`, `codium` on every target).~~ Built as D-040, 2026-09-03.
 - Ubuntu 24.04 as a declared target in `containers/targets.yaml` and the
   capability matrix, now that it is measured — or Linux Mint 22.3 as its
   stand-in, which is the current state.

@@ -122,6 +122,10 @@ Four attribution routes, each exact:
   `deb_package` field names what to hand to `apt-get remove`.
 - **namespaced trees and venvs** — `share/hammunition/<name>` and
   `venvs/<name>` can only be ours.
+- **third-party apt repositories** — the two `install -D` commands that
+  wrote `<name>.sources` and `<name>.gpg` (**D-040**). Both are removed
+  and `apt-get update` runs afterwards so the lists forget the repository.
+  A same-named file the log does not attribute is left in place and named.
 
 Wrappers and desktop entries in your home are removed only after being read
 back: the file must carry the engine's generated marker, or it is reported
@@ -339,11 +343,16 @@ Resolution is a distinct phase that finishes before anything is executed
 9. **Present any consent gate**, then confirm, then execute — in this order:
    **every download first**, fetched into the cache and verified against the
    manifest's sha256 (**D-018**), so a wrong hash or a dead URL refuses on a
-   machine nothing has touched; then, when the plan holds a vendor `.deb`,
-   one more `apt-get install --simulate` over the apt packages and the
-   downloaded file together, because apt can only resolve a `.deb` from its
-   file and the plan-time simulate in step 6 could not include one; then
-   `apt-get update` if `--refresh`, debconf preseeds, the apt step, the
+   machine nothing has touched — a repository signing key is one of these
+   downloads, verified against the manifest's pinned fingerprint instead of
+   a sha256 (**D-040**); then, when the plan adds a repository, its two
+   files are written as root (`install -D -m 0644`); then `apt-get update`
+   if `--refresh` was given or a repository was added; then, when the plan
+   holds a vendor `.deb` or added a repository, one more `apt-get install
+   --simulate` over the apt packages and the downloaded file together,
+   because apt can only resolve a `.deb` from its file and can only see a
+   repository's packages after the update — the plan-time simulate in step
+   6 could include neither; then debconf preseeds, the apt step, the
    builds and installs in catalog order, configuration files, launchers,
    and group membership last (several groups are created by the package
    being installed). A `git` clone is a command that needs `git` from apt,
@@ -365,7 +374,8 @@ capability matrix that reports coverage the engine does not have is the shim
 | A `source` or `git` block whose `build_system` is `custom` | the build system named. No manifest uses it, so it is an unimplemented gap rather than a regression (**D-014**) |
 | A `patches` entry with no `unified_diff` | a description alone cannot be applied — building unpatched source would produce a binary the manifest does not describe. (Declared diffs stage and apply with patch(1) since v0.4.0.) |
 | A `build_depends` package apt has no candidate for | which name, marked `build_depends`, **before** the toolchain is installed |
-| A manifest declaring third-party `apt_repos` | that adding a repository with a pinned key is a disclosed modification of its own |
+| A manifest declaring third-party `apt_repos` whose `/etc/apt/sources.list.d/<name>.sources` or `/etc/apt/keyrings/<name>.gpg` already exists **with content this engine did not write** | the file by path, marked foreign — a source under our name that somebody else wrote is never overwritten (**D-040**). Both files present with our content and still no candidate means the lists are stale; that says `--refresh` instead |
+| A fetched signing key whose primary fingerprint is not the one the manifest pins | both fingerprints, and the key is discarded. A file that is not OpenPGP, fails its armor CRC, is truncated, or carries two primary keys is refused by name |
 | A vendor `.deb` whose declared `conflicts_with_repo_package` is installed | the colliding packages by name, with the removal command — a dpkg file collision mid-transaction is the refused alternative |
 | A vendor `.deb` whose declared conflict is something **this same transaction's apt step would install** — directly, or as a dependency apt resolves | the package by name and both halves of the remedy: leave out the `.deb` unit, or the unit that pulls the conflict in. Found by the one `apt-get install --simulate` every transaction with apt work gets. A clean machine has nothing installed, so the row above is silent there; this one caught `digital-modes` planning clean and failing after forty-four commands (Kali, 2026-09-02) |
 | An apt transaction apt itself **cannot resolve** as one `apt-get install` — the packages all exist, and the set of them still does not install | `apt: cannot resolve this transaction as one apt-get install`, then apt's own words, indented, and the simulate command that reproduces it. When the reason is that an installed package would be downgraded and it is installed from one other release, the plan is first retried from that release (**D-038**) and this row is reached only if that fails too. Five Parrot profiles passed the plan and died at the first apt command before this row existed (2026-09-02) |
@@ -540,6 +550,27 @@ walks through is not a gate (**D-021**). In a script, set the profile's own
 `HAMMUNITION_ACCEPT_*` variable to `1`. With no terminal and no variable, the
 run stops — silence is not consent, and "nobody was asked" is recorded
 differently from "somebody said no".
+
+**A third-party apt repository has a gate of its own** (**D-040**), presented
+after any profile gate and once per repository, whether the unit was
+named or reached through a profile. The disclosure names the unit, the
+URI, suites and components, the key's primary fingerprint, and the two
+files that will be written — `/etc/apt/sources.list.d/<name>.sources` and
+`/etc/apt/keyrings/<name>.gpg`, the latter in binary OpenPGP form, the
+former with `Signed-By:` naming it and nothing wider. The variable is
+`HAMMUNITION_ACCEPT_APT_REPO_<NAME>` (the repository's `name`, upper-cased,
+`-` and `.` as `_`), and **its value must be the fingerprint itself**, not
+`1`: checking the fingerprint against the publisher's own page is the one
+step the engine cannot do for you, and a variable set to `1` would be
+`--yes` again under another name. A `1` is refused with the value it
+should hold. The plan prints the variable and the fingerprint together.
+The affirmation is logged as `consent_affirmed` with profile
+`apt-repo:<name>`, so the log records who trusted which key and when.
+
+The repository is added only when the target's own archive offers no
+candidate for the unit's packages (**D-022**): on Parrot, `codium` installs
+from Parrot's archive and VSCodium's repository is neither added nor asked
+about. A `depends` the archive lacks is never a reason to add one.
 
 ## Exit codes
 
