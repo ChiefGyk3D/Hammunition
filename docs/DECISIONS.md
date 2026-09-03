@@ -2609,6 +2609,10 @@ that records it:
   hand-written `vscodium.sources` with different content then made
   `install codium` refuse at plan time as foreign, exit 2, nothing changed.
 
-Not yet measured: Parrot, where `codium` should install from Parrot's own
-archive with no repository mentioned (rule 3). That is the D-022 half and
-the next campaign's row.
+- **Parrot 6.x.** `install codium --yes` with `codium` removed first and
+  no variable set: one command, `apt-get install --yes -- codium`,
+  confirmed, from `deb.parrot.sh/parrot echo/main`; the plan carried the
+  note *the archive already offers codium; the vscodium repository the
+  manifest declares is not added (D-022)*, no gate was presented, no
+  file was written under `/etc/apt/keyrings/` or `sources.list.d/`, and
+  the log holds no `consent_affirmed`. Rule 3, measured.

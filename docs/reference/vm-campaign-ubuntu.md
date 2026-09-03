@@ -174,9 +174,8 @@ bar again: every command completed *and* the re-probe found the software.
 | Debian 13, apt 3.0.3 | `install editors --yes`, both variables | **confirmed**, 11 commands; VSCodium's binary `pub.gpg` kept at 2256 bytes; `code 1.136.0` and `codium 1.126.04524` |
 | Debian 13 | `uninstall editors --yes` | **confirmed**, 6 commands, four files removed |
 | Debian 13 | `install codium --dry-run` with a hand-written `vscodium.sources` present | exit 2, refused as foreign, nothing changed |
+| Parrot 6.x | `install codium --yes`, package removed first, no variable | **confirmed**, 1 command, from `deb.parrot.sh echo/main`; note *not added (D-022)*; no gate, no files, no consent record |
 
-Parrot's `codium` row — where the archive carries the package and no
-repository should be added or asked about (D-022) — is not yet measured.
 `workstation` itself is now seven archive-only packages and has no reason
 to refuse anywhere; whether it installs whole is the next campaign's row.
 
