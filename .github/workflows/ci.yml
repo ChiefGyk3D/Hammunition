@@ -119,6 +119,9 @@ jobs:
           - { name: parrot,        image: "parrotsec/core:latest",        platform: linux/amd64 }
           - { name: debian-13,     image: "debian:13",                    platform: linux/amd64 }
           - { name: ubuntu-26.04,  image: "ubuntu:26.04",                 platform: linux/amd64 }
+          # The LTS that Mint 22.x and Pop!_OS 24.04 install from; declared
+          # 2026-09-03 from the VM campaign, kept alongside 26.04 (targets.yaml).
+          - { name: ubuntu-24.04,  image: "ubuntu:24.04",                 platform: linux/amd64 }
           - { name: kali-rolling,  image: "kalilinux/kali-rolling:latest", platform: linux/amd64 }
           # Mint's image ships Ubuntu's base-files; identity_package installs
           # Mint's own from its own repo so os-release reads linuxmint (Q-014).

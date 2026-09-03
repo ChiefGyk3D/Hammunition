@@ -109,9 +109,10 @@ target; `noaa-apt` retired; and `wsjtx-improved` refusing to collide with the
 
 Two Ubuntu VMs were provisioned on 2026-09-01 (`docs/contributing/vm-testing.md`
 records how) and the same 242-unit pass run on each overnight, engine at
-`3efff4a`, from a clean install. Ubuntu 24.04 is not a declared target: it is
-here because Pop!_OS 24.04 and Linux Mint 22.3 draw on its archive, so it
-stands in for both until a Pop VM exists. 4 GB and no swap on each, so the
+`3efff4a`, from a clean install. Ubuntu 24.04 was not a declared target when
+this ran: it was here because Pop!_OS 24.04 and Linux Mint 22.3 draw on its
+archive, standing in for both until a Pop VM exists. This campaign is why it
+became one the next day (`ubuntu-24.04`, 2026-09-03). 4 GB and no swap on each, so the
 memory-sized job count built every source unit with **one** compiler job.
 
 | Target | Installed + confirmed | Refused at plan time | Hard failures |
