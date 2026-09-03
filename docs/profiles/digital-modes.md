@@ -10,7 +10,7 @@
 
 fldigi and the NBEMS stack that surrounds it, the whole FT8 family, JS8Call, SSTV and radiofax, open digital voice, two small PSK31 clients, a general-purpose FSK modem, a QRSS receiver, and the measuring tools that let you compare two of them honestly.
 
-**Disk footprint:** Around 1.2 GB, and **three of these are source builds** — fldigi, WSJT-X and MSHV — so expect a long install. fldigi purges the repository package first, because the source build installs to the same prefix.
+**Disk footprint:** Around 1.2 GB installed — 1.28 GB measured on Kali rolling, 2026-09-02, as `df` before minus after with the build trees and apt cache subtracted. The build trees are another 0.9 GB in `~/.cache/hammunition/build` until you clear them, and **five of these are source builds** — fldigi, WSJT-X, MSHV, glfer and xwefax — so expect a long install. fldigi purges the repository package first, because the source build installs to the same prefix.
 
 ## Why these belong together
 
