@@ -295,7 +295,15 @@ AX.25 forces this into 1.0: its install appends
 
 ### `AptRepo`
 
-Third-party apt source. Key pinning is mandatory.
+Third-party apt source. Key pinning is mandatory.  D-040.
+
+``name`` becomes two file names under ``/etc/apt`` and is restricted to
+what one can safely be. ``key_fingerprint`` is the *primary* key's,
+forty hex digits for a v4 key or sixty-four for a v6 one, spaces
+permitted; the engine computes the same thing from the file it fetches
+and refuses anything else. ``key_url`` is https: the fingerprint check
+is what makes the key trustworthy, but the transport still decides who
+can *see* the request.
 
 | Field | Type | Required | Description |
 |---|---|---|---|

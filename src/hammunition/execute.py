@@ -34,6 +34,7 @@ from hammunition.backends import (
     Action,
     AptBackend,
     AptPackageState,
+    AptRepoBackend,
     BackendError,
     BinaryBackend,
     Command,
@@ -259,6 +260,7 @@ def commands_for(
     binary: BinaryBackend | None = None,
     venv: VenvBackend | None = None,
     node: NodeBackend | None = None,
+    repos: AptRepoBackend | None = None,
     config_staging: Path | None = None,
     launcher_bin: Path | None = None,
     launcher_applications: Path | None = None,
@@ -337,7 +339,26 @@ def commands_for(
     ]
     builds = [step for step in builds if not (isinstance(step, Action) and step.kind == "fetch")]
 
-    if refresh:
+    # D-040: a repository's key is a fetch like any other and joins the
+    # others at the front -- a key whose fingerprint is not the pinned one
+    # refuses before anything is installed. The two files land next, then
+    # apt-get update is forced, because a source apt has not read is a
+    # source apt does not have.
+    if plan.apt_repos and repos is None:
+        raise BackendError(
+            f"the plan adds the {', '.join(a.repo.name for a in plan.apt_repos)} "
+            f"repositor{'y' if len(plan.apt_repos) == 1 else 'ies'} and no repository "
+            f"backend was supplied. Skipping it would leave apt unable to install what "
+            f"the plan promised."
+        )
+    if repos is not None:
+        repo_steps: list[Step] = []
+        for addition in plan.apt_repos:
+            repo_steps.extend(repos.steps(addition.repo, unit=addition.unit))
+        commands.extend(s for s in repo_steps if isinstance(s, Action) and s.kind == "fetch")
+        commands.extend(s for s in repo_steps if not (isinstance(s, Action) and s.kind == "fetch"))
+
+    if refresh or plan.apt_repos:
         commands.append(apt.refresh_command())
 
     # A vendor .deb is resolved by apt from its file, and the file does not
@@ -354,15 +375,31 @@ def commands_for(
         and isinstance(planned.block.install, BinaryInstall)
         and planned.block.install.format == "deb"
     ]
-    if debs:
+    # The same question again for a just-added repository: the plan-time
+    # simulate left its packages out because apt had no index for them.
+    # After the update, the resolver is asked about the whole apt step.
+    if debs or plan.apt_repos:
+        if debs and plan.apt_repos:
+            why = (
+                f"Ask apt whether the {len(debs)} downloaded .deb file(s) and the packages "
+                f"from the added repositor{'y' if len(plan.apt_repos) == 1 else 'ies'} "
+                f"resolve together with the apt step, before anything is installed"
+            )
+        elif debs:
+            why = (
+                f"Ask apt whether the {len(debs)} downloaded .deb file(s) resolve "
+                f"together with the apt step, before anything is installed"
+            )
+        else:
+            supplied = sorted(plan.repo_supplied)
+            why = (
+                f"Ask apt whether {', '.join(supplied)} resolve{'s' if len(supplied) == 1 else ''} "
+                f"from the added repositor{'y' if len(plan.apt_repos) == 1 else 'ies'} together "
+                f"with the apt step, before anything is installed"
+            )
         commands.append(
             apt.simulate_command(
-                (*plan.apt_to_install, *debs),
-                release=plan.apt_release,
-                description=(
-                    f"Ask apt whether the {len(debs)} downloaded .deb file(s) resolve "
-                    f"together with the apt step, before anything is installed"
-                ),
+                (*plan.apt_to_install, *debs), release=plan.apt_release, description=why
             )
         )
 
@@ -863,6 +900,18 @@ def artifact_removal_steps(plan: RemovalPlan) -> list[Action | Command]:
                     Command(
                         argv=("rm", "-f", "--", str(removal.path)),
                         description=f"Remove {unit}'s installed binary ({removal.basis})",
+                        requires_root=removal.requires_root,
+                    )
+                )
+            elif removal.kind == "apt-repo":
+                # D-040: the source file and the keyring the install wrote,
+                # attributed from its own `install -D -m 0644` commands. The
+                # caller runs apt-get update afterwards, so apt forgets the
+                # repository in the same transaction that removes its files.
+                steps.append(
+                    Command(
+                        argv=("rm", "-f", "--", str(removal.path)),
+                        description=f"Remove the apt repository file {unit} added ({removal.basis})",
                         requires_root=removal.requires_root,
                     )
                 )

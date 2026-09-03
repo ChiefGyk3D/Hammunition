@@ -46,10 +46,12 @@ from hammunition.backends import (
     AptSimulation,
 )
 from hammunition.backends.apt import downgrades_refused
+from hammunition.backends.apt_repo import AptRepoBackend, RepoState
 from hammunition.backends.source import IMPLEMENTED_BUILD_SYSTEMS
 from hammunition.distro import Target
 from hammunition.manifest.schema import (
     AptInstall,
+    AptRepo,
     BinaryInstall,
     ConfigFile,
     ConsentGate,
@@ -70,6 +72,7 @@ __all__ = [
     "InstallPlan",
     "PlanError",
     "PlannedPackage",
+    "RepoAddition",
     "resolve",
 ]
 
@@ -198,6 +201,27 @@ class PlannedPackage:
 
 
 @dataclass(frozen=True)
+class RepoAddition:
+    """One third-party apt repository this transaction will add.  D-040.
+
+    Decided at plan time from the file system and the apt probe: the unit's
+    own packages have no candidate in the archive as configured, and the
+    repository's two files are absent. A repository already present with
+    this engine's content is not added again; one present with anybody
+    else's content is a refusal, never an overwrite.
+    """
+
+    unit: str
+    repo: AptRepo
+    sources: str
+    """``/etc/apt/sources.list.d/<name>.sources`` -- the path, for disclosure."""
+    keyring: str
+    """``/etc/apt/keyrings/<name>.gpg`` -- likewise."""
+    packages: tuple[str, ...]
+    """The apt packages this repository is expected to supply."""
+
+
+@dataclass(frozen=True)
 class InstallPlan:
     """Everything that will happen, before any of it does."""
 
@@ -220,6 +244,18 @@ class InstallPlan:
     """Of everything the apt step unpacks, the packages that come from
     ``apt_release`` and nowhere else -- measured by apt's simulation, disclosed
     in the plan."""
+
+    apt_repos: tuple[RepoAddition, ...] = ()
+    """Third-party repositories added before the apt step, each behind its
+    own consent gate (D-040). Their packages are in ``apt_to_install`` but
+    were not part of the plan-time simulate: apt cannot resolve from a
+    repository it does not have yet, so the executor simulates again after
+    ``apt-get update``."""
+
+    @property
+    def repo_supplied(self) -> frozenset[str]:
+        """apt packages that only exist once a repository above is added."""
+        return frozenset(p for addition in self.apt_repos for p in addition.packages)
 
     @property
     def apt_to_install(self) -> tuple[str, ...]:
@@ -258,7 +294,7 @@ class InstallPlan:
     @property
     def is_empty(self) -> bool:
         """Nothing to install and nothing to change — a legitimate outcome."""
-        return not self.apt_to_install and not self.group_memberships
+        return not self.apt_to_install and not self.group_memberships and not self.apt_repos
 
 
 # ---------------------------------------------------------------------------
@@ -391,7 +427,9 @@ def _build_depends_of(manifest: PackageManifest) -> set[str]:
     return {name for block in manifest.install for name in block.build_depends}
 
 
-def _check_engine_capability(manifest: PackageManifest, block: InstallBlock) -> list[Blocker]:
+def _check_engine_capability(
+    manifest: PackageManifest, block: InstallBlock, *, repos_supported: bool = False
+) -> list[Blocker]:
     """Refuse, by name, anything this engine build cannot actually do.
 
     Never a warning and never a skip. CLAUDE.md forbids a shim that makes an
@@ -492,16 +530,19 @@ def _check_engine_capability(manifest: PackageManifest, block: InstallBlock) -> 
                 )
             )
 
-    if manifest.apt_repos:
+    if manifest.apt_repos and not repos_supported:
+        # The backend exists (D-040); a caller that plans without one -- a
+        # test, a bare `resolve` -- still gets the named refusal rather than
+        # a plan that silently assumes the repository will appear.
         names = ", ".join(repo.name for repo in manifest.apt_repos)
         found.append(
             Blocker(
                 subject=manifest.name,
-                reason=f"requires third-party apt repositories ({names}) that this engine cannot add yet",
+                reason=f"requires third-party apt repositories ({names}) and this plan has no repository backend",
                 remedy=(
                     "adding a repository with a pinned signing key is a disclosed system "
-                    "modification of its own and is not implemented; install it by hand or "
-                    "choose a package that does not need one"
+                    "modification of its own; plan with an AptRepoBackend, or install it by "
+                    "hand"
                 ),
             )
         )
@@ -713,6 +754,80 @@ def _target_deferral(name: str, wanted: Mapping[str, Sequence[str]], why: str) -
     )
 
 
+def _plan_repos(
+    manifest: PackageManifest,
+    install: AptInstall,
+    repos: AptRepoBackend,
+    missing: Sequence[str],
+    own: set[str],
+    notes: list[str],
+) -> list[RepoAddition] | Blocker:
+    """D-040: decide whether this unit's declared repositories are added.
+
+    Returns the additions -- possibly none -- or one blocker. The
+    repositories are added only when the unit's *own* apt packages have no
+    candidate: a target that already carries them is left as it is and told
+    so (D-022), and a missing ``depends`` is never a reason to add somebody
+    else's repository. Each repository is read from the file system:
+
+    * absent -- added, and its packages leave the plan-time simulate, which
+      cannot see a repository apt does not have yet;
+    * ours -- both files carry exactly what this engine writes, so the
+      candidate should exist and does not: the archive index is stale, and
+      the fix is ``--refresh``, never a second copy of the file;
+    * foreign -- a file of the same name with anybody else's content, which
+      is never overwritten.
+    """
+    own_missing = sorted(p for p in missing if p in own)
+    if not own_missing:
+        for repo in manifest.apt_repos:
+            if repos.state(repo, unit=manifest.name) is RepoState.absent:
+                notes.append(
+                    f"{manifest.name}: the archive already offers {', '.join(install.packages)}; "
+                    f"the {repo.name} repository the manifest declares is not added (D-022)"
+                )
+        return []
+    additions: list[RepoAddition] = []
+    for repo in manifest.apt_repos:
+        files = repos.files_for(repo)
+        state = repos.state(repo, unit=manifest.name)
+        if state is RepoState.foreign:
+            return Blocker(
+                subject=manifest.name,
+                reason=(
+                    f"{files.sources} or {files.keyring} already exists and is not this "
+                    f"engine's work; apt has no candidate for {', '.join(own_missing)}"
+                ),
+                remedy=(
+                    f"a file another tool or operator wrote is never overwritten (D-040): "
+                    f"inspect both, and either remove them or install {manifest.name} by hand"
+                ),
+            )
+        if state is RepoState.ours:
+            return Blocker(
+                subject=manifest.name,
+                reason=(
+                    f"the {repo.name} repository is already configured at {files.sources} "
+                    f"and apt still has no candidate for {', '.join(own_missing)}"
+                ),
+                remedy=(
+                    "the package index is stale or the repository does not carry the "
+                    "package for this release; run `hammunition install --refresh` "
+                    "(apt-get update) and read what apt says about the source"
+                ),
+            )
+        additions.append(
+            RepoAddition(
+                unit=manifest.name,
+                repo=repo,
+                sources=str(files.sources),
+                keyring=str(files.keyring),
+                packages=tuple(own_missing),
+            )
+        )
+    return additions
+
+
 def resolve(
     names: Sequence[str],
     *,
@@ -723,6 +838,7 @@ def resolve(
     user: str,
     refresh: bool = False,
     station: Station | None = None,
+    repos: AptRepoBackend | None = None,
 ) -> InstallPlan:
     """Build a complete plan, or raise :class:`PlanError` listing every blocker.
 
@@ -752,6 +868,7 @@ def resolve(
     # asking to see the refusal.
     deferrable = {name for name in ordered if REQUESTED_DIRECTLY not in wanted[name]}
     deferred: dict[str, Deferral] = {}
+    repo_additions: list[RepoAddition] = []
     target_name = target.pretty_name or f"{target.distro} {target.version}".strip()
 
     # (manifest, block, every apt package it needs, which of those are build-only)
@@ -784,7 +901,7 @@ def resolve(
             )
             continue
 
-        capability = _check_engine_capability(manifest, block)
+        capability = _check_engine_capability(manifest, block, repos_supported=repos is not None)
         if capability:
             blockers.extend(capability)
             continue
@@ -882,6 +999,28 @@ def resolve(
             states = apt.probe(sorted({*all_apt, *all_conflicts}))
             for manifest, block, packages, _ in resolved:
                 missing = [p for p in packages if p not in states or not states[p].known]
+                own = (
+                    set(block.install.packages) if isinstance(block.install, AptInstall) else set()
+                )
+                if (
+                    manifest.apt_repos
+                    and repos is not None
+                    and isinstance(block.install, AptInstall)
+                ):
+                    # D-040: the archive as configured has no candidate for
+                    # the unit's own packages, and the manifest names where
+                    # they come from. Decided here, from the same probe, so
+                    # a target that already offers the package -- Parrot's
+                    # own codium -- never gets a repository it does not need
+                    # (D-022), and a repository added under our name by an
+                    # earlier run is recognised rather than re-added.
+                    repo_outcome = _plan_repos(manifest, block.install, repos, missing, own, notes)
+                    if isinstance(repo_outcome, Blocker):
+                        blockers.append(repo_outcome)
+                        continue
+                    repo_additions.extend(repo_outcome)
+                    if repo_outcome:
+                        missing = [p for p in missing if p not in own]
                 if missing:
                     origin = {p: "depends" for p in manifest.depends if p not in catalog}
                     origin.update({p: "build_depends" for p in _build_depends_of(manifest)})
@@ -890,11 +1029,6 @@ def resolve(
                     # release is the target's gap. A missing `depends` or
                     # `build_depends` is the manifest's, and stays a blocker
                     # -- deferral drawn wider than that swallows defects.
-                    own = (
-                        set(block.install.packages)
-                        if isinstance(block.install, AptInstall)
-                        else set()
-                    )
                     if manifest.name in deferrable and set(missing) <= own:
                         deferred[manifest.name] = _target_deferral(
                             manifest.name,
@@ -1046,7 +1180,10 @@ def resolve(
     # came after -- and one `--simulate` of the outstanding set answers both.
     # It is asked only when everything else has resolved: a simulation of a
     # set with a missing candidate fails for the reason already listed.
-    outstanding_apt = [p for p in all_apt if not (p in states and states[p].is_installed)]
+    from_repos = {p for addition in repo_additions for p in addition.packages}
+    outstanding_apt = [
+        p for p in all_apt if not (p in states and states[p].is_installed) and p not in from_repos
+    ]
     apt_release: str | None = None
     apt_from_release: tuple[str, ...] = ()
     simulation = AptSimulation(ok=True)
@@ -1180,4 +1317,5 @@ def resolve(
         config_files=tuple(config_files),
         apt_release=apt_release,
         apt_from_release=apt_from_release,
+        apt_repos=tuple(repo_additions),
     )

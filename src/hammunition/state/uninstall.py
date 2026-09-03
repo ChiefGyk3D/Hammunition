@@ -126,12 +126,15 @@ def _packages_after_dashes(argv: Any) -> list[str] | None:
 def files_installed_by_hammunition(log: TransactionLog) -> frozenset[str]:
     """Every prefix file the log shows this engine installed and not removed.
 
-    The engine's own binary-install command is ``install -D -m 0755 <src>
-    <dest>`` (:func:`~hammunition.backends.source.install_binary_commands`);
-    a successful one attributes *dest*. Its own removal command is
-    ``rm -f -- <dest>``; a successful one un-attributes it. Everything else
-    — including the operator's own ``install`` runs, which are not in this
-    log — is invisible here, which is the point.
+    The engine's own file-install command is ``install -D -m <mode> <src>
+    <dest>`` — ``0755`` for a prefix binary
+    (:func:`~hammunition.backends.source.install_binary_commands`), ``0644``
+    for an apt repository's source file and keyring
+    (:class:`~hammunition.backends.apt_repo.AptRepoBackend`); a successful
+    one attributes *dest*. Its own removal command is ``rm -f -- <dest>``; a
+    successful one un-attributes it. Everything else — including the
+    operator's own ``install`` runs, which are not in this log — is invisible
+    here, which is the point.
     """
     attributed: set[str] = set()
     for entry in log.read():
@@ -150,7 +153,7 @@ def files_installed_by_hammunition(log: TransactionLog) -> frozenset[str]:
         argv = entry.get("argv")
         if not isinstance(argv, list) or not argv:
             continue
-        if argv[:4] == ["install", "-D", "-m", "0755"] and len(argv) == 6:
+        if argv[:3] == ["install", "-D", "-m"] and len(argv) == 6:
             attributed.add(str(argv[5]))
         elif argv[:2] == ["rm", "-f"] and "--" in argv:
             attributed.difference_update(str(p) for p in argv[argv.index("--") + 1 :])
@@ -203,7 +206,7 @@ class ArtifactRemoval:
     and removed only if it carries the engine's generated marker).
     """
 
-    kind: Literal["venv", "tree", "binary", "wrapper", "desktop-entry"]
+    kind: Literal["venv", "tree", "binary", "wrapper", "desktop-entry", "apt-repo"]
     path: Path
     basis: Literal["namespaced", "log", "marker"]
     requires_root: bool = False
@@ -290,6 +293,20 @@ def plan_removal(
         if removal.path.exists() or removal.path.is_symlink():
             artifacts.setdefault(unit, []).append(removal)
 
+    def plan_repos(unit: str, manifest: PackageManifest) -> None:
+        """The repository files the install wrote — on log evidence only (D-040).
+
+        The log recorded each ``install -D -m 0644`` destination exactly, so
+        the match is on the recorded path, never on a directory listing: a
+        ``code.sources`` the operator wrote by hand is not in this log and is
+        not touched.
+        """
+        for repo in manifest.apt_repos:
+            names = {f"{repo.name}.sources", f"{repo.name}.gpg"}
+            for path in sorted(attributed_files):
+                if Path(path).name in names:
+                    add(unit, ArtifactRemoval("apt-repo", Path(path), "log", requires_root=True))
+
     def plan_binaries(unit: str, manifest: PackageManifest) -> None:
         """Prefix binaries the engine copied — removable only on log evidence."""
         for binary in manifest.binaries:
@@ -320,6 +337,7 @@ def plan_removal(
                     left_foreign.setdefault(unit, []).append(package)
                 else:
                     already_absent.setdefault(unit, []).append(package)
+            plan_repos(unit, manifest)
 
         elif isinstance(install, VenvInstall):
             add(

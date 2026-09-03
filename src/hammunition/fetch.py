@@ -55,7 +55,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, Protocol
 
-from hammunition.backends import BackendError
+from hammunition.backends.base import BackendError
 from hammunition.manifest.schema import RemoteArtifact
 from hammunition.paths import artifact_cache_dir
 
