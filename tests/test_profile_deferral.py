@@ -188,8 +188,10 @@ def test_a_named_request_whose_catalog_dependency_is_unavailable_is_refused(
 
 
 def test_an_engine_gap_still_blocks_the_profile(tmp_path: Path) -> None:
-    """`workstation` is the test: code and codium are refused because the
-    engine lacks a backend, not because the archive lacks them."""
+    """A member refused for what the *engine* cannot do is not a target gap
+    and is never deferred. Planning without a repository backend is the
+    fixture for it now that D-040 exists (`tests/test_apt_repos.py` covers
+    the planned case); the shape holds for any engine-side refusal."""
     code = _unit(
         "code",
         apt_repos=[

@@ -297,7 +297,9 @@ def test_a_package_recorded_as_broken_is_not_installed_quietly(tmp_path: Path) -
     assert "marked broken" in exc.value.blockers[0].reason
 
 
-def test_a_third_party_repo_is_refused_until_the_engine_can_pin_a_key(tmp_path: Path) -> None:
+def test_a_third_party_repo_is_refused_when_planned_without_a_repo_backend(tmp_path: Path) -> None:
+    """D-040 built the backend; a resolve that was not given one still refuses
+    by name rather than planning around a repository that will never appear."""
     catalog = {
         "example": _manifest(
             apt_repos=[

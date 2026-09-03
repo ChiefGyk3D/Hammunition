@@ -39,6 +39,7 @@ from pathlib import Path
 
 from hammunition.backends import (
     AptBackend,
+    AptRepoBackend,
     BackendError,
     BinaryBackend,
     Command,
@@ -53,7 +54,9 @@ from hammunition.consent import (
     ConsentDeclined,
     ConsentUnavailable,
     render_disclosure,
+    repo_env_var,
     resolve_consent,
+    resolve_repo_consent,
 )
 from hammunition.distro import DetectionError, Target
 from hammunition.execute import (
@@ -242,6 +245,27 @@ def render_plan(
         )
         for apt_package in plan.apt_from_release:
             lines.append(f"      {apt_package}")
+        lines.append("")
+
+    if plan.apt_repos:
+        # Before group membership and the consent gates, because it is the
+        # largest thing the transaction does to the machine: a repository
+        # keeps shipping updates after this run is over. Each one has its own
+        # gate below. D-040.
+        lines.append("Third-party apt repositories that will be added (D-040):")
+        for addition in plan.apt_repos:
+            lines.append(
+                f"  {addition.repo.name}  [{addition.unit}: {', '.join(addition.packages)}]"
+            )
+            lines.append(
+                f"      {addition.repo.uri}  {' '.join(addition.repo.suites)}  {' '.join(addition.repo.components)}"
+            )
+            lines.append(f"      key {addition.repo.key_fingerprint}")
+            lines.append(f"      writes {addition.sources}")
+            lines.append(f"      writes {addition.keyring}")
+            lines.append(
+                f"      consent: {repo_env_var(addition.repo)} must equal the key fingerprint"
+            )
         lines.append("")
 
     if plan.group_memberships:
@@ -658,6 +682,10 @@ def cmd_install(args: argparse.Namespace) -> int:
 
     suggested, suggestion_notes = _apply_suggestions(args.names, profiles, assume_yes=args.yes)
 
+    # The repository backend plans from the file system alone, so it is built
+    # before resolve; its cache is the operator's, like every other fetch.
+    repos = AptRepoBackend(owner=user or None)
+
     try:
         plan = resolve(
             [*args.names, *suggested],
@@ -668,6 +696,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             user=user,
             refresh=args.refresh,
             station=station,
+            repos=repos,
         )
     except PlanError as exc:
         print(str(exc), file=sys.stderr)
@@ -714,6 +743,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         binary=binary,
         venv=venv,
         node=node,
+        repos=repos,
         config_staging=builds,
         launcher_bin=user_bin_dir(user or None),
         launcher_applications=applications_dir(user or None),
@@ -754,6 +784,29 @@ def cmd_install(args: argparse.Namespace) -> int:
             record = resolve_consent(
                 gate,
                 profile_name,
+                environ=os.environ,
+                prompt=_prompt if sys.stdin.isatty() else None,
+                assume_yes=args.yes,
+                actor=user or None,
+            )
+        except ConsentDeclined as exc:
+            print(f"\n{exc}. Nothing was changed.", file=sys.stderr)
+            return EXIT_CONSENT
+        except ConsentUnavailable as exc:
+            print(f"\n{exc}", file=sys.stderr)
+            return EXIT_CONSENT
+        log.append(record.to_log_entry())
+
+    # One gate per repository, after the profile gates and under the same
+    # rules: the environment answer is the pinned fingerprint itself, so an
+    # automation that affirms it has necessarily read the disclosure. D-040.
+    for addition in plan.apt_repos:
+        try:
+            record = resolve_repo_consent(
+                addition.repo,
+                addition.unit,
+                sources=addition.sources,
+                keyring=addition.keyring,
                 environ=os.environ,
                 prompt=_prompt if sys.stdin.isatty() else None,
                 assume_yes=args.yes,
@@ -906,6 +959,11 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
     euid = os.geteuid()
     commands: list[Step] = list(apt.remove_commands(plan.apt_packages))
     commands.extend(artifact_removal_steps(plan))
+    if any(r.kind == "apt-repo" for removals in plan.artifacts.values() for r in removals):
+        # The files are gone; apt's index still lists the repository until
+        # it is read again. Same transaction, so `uninstall` leaves apt in
+        # the state it found it (D-040).
+        commands.append(apt.refresh_command())
 
     print(f"Target: {target.describe()}\n")
     if plan.to_remove:

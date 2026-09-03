@@ -9,7 +9,10 @@ from .gate import (
     ConsentUnavailable,
     Decision,
     render_disclosure,
+    render_repo_disclosure,
+    repo_env_var,
     resolve_consent,
+    resolve_repo_consent,
 )
 
 __all__ = [
@@ -18,5 +21,8 @@ __all__ = [
     "ConsentUnavailable",
     "Decision",
     "render_disclosure",
+    "render_repo_disclosure",
+    "repo_env_var",
     "resolve_consent",
+    "resolve_repo_consent",
 ]

@@ -289,6 +289,57 @@ def test_a_package_confirmed_installed_verifies() -> None:
     assert [c.subject for c in verification.confirmed] == ["example"]
 
 
+def _deb_plan() -> InstallPlan:
+    """A vendor .deb unit whose deb_package is `xunit`, with no apt work."""
+    manifest = PackageManifest.model_validate(
+        {
+            "name": "vendored",
+            "version": "1.0",
+            "summary": "A vendor .deb that takes over a package name",
+            "categories": ["digital-modes"],
+            "install": [
+                {
+                    "install": {
+                        "method": "binary",
+                        "artifact": {"url": "https://example.invalid/x.deb", "sha256": "0" * 64},
+                        "format": "deb",
+                        "deb_package": "xunit",
+                    }
+                }
+            ],
+            "update": {"probe": {"method": "none"}},
+            "documentation": {
+                "what_it_does": "Stands in for wsjtx-improved.",
+                "why_you_want_it": "Its .deb takes over the distro package's name.",
+                "upstream_url": "https://example.invalid/",
+            },
+        }
+    )
+    return InstallPlan(
+        target=TARGET,
+        packages=(PlannedPackage(manifest=manifest, block=manifest.install[0], apt_packages=()),),
+    )
+
+
+def test_a_vendor_deb_that_did_not_land_is_a_discrepancy() -> None:
+    """wsjtx-improved on Debian 13 (2026-09-03) ended `verified: true` with
+    `checks: []`: the .deb's package is not in apt_to_install and the
+    binaries check skips deb formats, so nothing was asked. `apt-get
+    install ./file.deb` exiting 0 is the exit status; the effect is dpkg
+    holding the declared deb_package, and that is what must be probed."""
+    prober = _FakeProber({})
+    verification = verify_effects(_deb_plan(), prober)
+    assert prober.asked == ["xunit"], "the deb_package must be re-probed"
+    assert not verification.ok
+    assert [c.subject for c in verification.discrepancies] == ["xunit"]
+
+
+def test_a_vendor_deb_confirmed_installed_verifies() -> None:
+    verification = verify_effects(_deb_plan(), _FakeProber({"xunit": _installed("xunit")}))
+    assert verification.ok
+    assert [c.subject for c in verification.confirmed] == ["xunit"]
+
+
 def test_a_membership_absent_from_the_group_db_is_a_discrepancy() -> None:
     """gpasswd exited 0; the group database does not show the membership."""
     plan = _plan(

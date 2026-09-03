@@ -2450,11 +2450,13 @@ recent one.
 - **A name the operator typed.** `hammunition install satdump` on 24.04 is
   a request to see the refusal, and it sees it in full. A unit named both
   directly and through a profile is a named request.
-- **An engine gap.** `code` and `codium` are refused on every target because
-  the engine has no `apt_repos` backend yet, not because any archive lacks
-  them; deferring them would make the missing backend invisible.
-  `workstation` refuses whole until that backend exists, which is the test
-  Q-017 set for the classification.
+- **An engine gap.** When this was written, `code` and `codium` were
+  refused on every target because the engine had no `apt_repos` backend,
+  not because any archive lacked them; deferring them would have made the
+  missing backend invisible, and `workstation` refused whole until that
+  backend existed — the test Q-017 set for the classification. D-040 built
+  the backend the same day and moved both editors to their own opt-in
+  `editors` profile; the classification stands for the next gap.
 - **A missing `depends` or `build_depends`.** Those are the manifest's, not
   the target's: D-016 names four AHRL dependency lines that went stale
   exactly this way, and a deferral that swallowed them would hide the defect
@@ -2482,3 +2484,135 @@ unit's `depends` line naming a package the archive lacks is indistinguishable
 from its own package being absent unless the plan checks which list the
 name came from — so it checks, and defers only when every missing name is
 in the unit's own `packages:`.
+
+---
+
+## D-040 — A third-party apt repository is added only against a key the manifest pins by fingerprint, only when the target's own archive offers nothing, only after the operator affirms that fingerprint, and it comes out whole on uninstall
+
+**Date:** 2026-09-03. **Status:** accepted; built the same day.
+**Depends on:** D-021 (consent gates disclose capability; `--yes` cannot
+satisfy one), D-022 (coexist with a distribution's choice, never displace
+it silently), D-031 (verify the effect, not the exit status), D-018
+(external claims tested before published), D-039 (a member the target does
+not offer is deferred; an engine gap refuses).
+**Resolves:** the `apt_repos` engine gap that D-039 named and the `cli.md`
+refusal table listed by name.
+
+**What was measured.** Two manifests carry an `apt_repos` block: `code`
+(Microsoft, `packages.microsoft.com/repos/code`) and `codium` (VSCodium,
+`download.vscodium.com/debs`). Neither publisher's package is in Debian,
+Ubuntu, Kali or Mint; Parrot carries `codium` in its own archive. The
+Ubuntu campaigns (`vm-campaign-ubuntu.md`) showed the cost of not having
+the backend: both units refused on every target as an engine gap, and
+`workstation` — seven packages that need nothing beyond the archive —
+refused whole with them. The two publishers also differ in a way that
+decided the design below: Microsoft serves an armored `microsoft.asc`,
+VSCodium a binary `pub.gpg`.
+
+**The rule.**
+
+1. **The manifest pins the key.** An `apt_repos` entry names the `uri`,
+   `suites`, `components`, the `key_url` the key is fetched from, and the
+   **primary key fingerprint** (40 hex for v4, 64 for v6). Both URLs must
+   be `https://`. The fingerprint is the pin; the URL is only where to
+   look. A key whose primary fingerprint is not the pinned one is
+   discarded with both values printed. A file that is not OpenPGP, has no
+   public-key packet, fails its armor CRC, is truncated, or carries two
+   primaries is refused by name. The check is this engine's own packet
+   parser (`openpgp.py`), so it does not depend on `gpg` being installed
+   and cannot be satisfied by anything `gpg` would import silently.
+2. **Two files, both named for the repository, both disclosed in the
+   plan.** `/etc/apt/keyrings/<name>.gpg` holds the key in **binary**
+   OpenPGP form — an armored file is dearmored before the fingerprint is
+   computed, so the bytes on disk are exactly the bytes that were checked,
+   and a file called `.gpg` never holds text (VSCodium's is already
+   binary; calling Microsoft's dearmored key `.asc` would have been a
+   false claim about its contents, which is D-018 applied to a filename).
+   `/etc/apt/sources.list.d/<name>.sources` is deb822 with `Signed-By:`
+   naming that keyring and nothing wider, so the key is trusted for this
+   repository only, never archive-wide, and a marker comment names the
+   unit that wrote it. Nothing is written to `/etc/apt/trusted.gpg.d/`,
+   ever.
+3. **Only when the archive offers nothing** (D-022). The repository is
+   added when apt has no candidate for the unit's *own* packages and
+   neither file exists. A candidate in the archive means the repository is
+   not added and the plan says so; on Parrot, `codium` installs from
+   Parrot's archive and VSCodium's repository is never mentioned to apt. A
+   missing `depends` is never a reason to add a repository — that is the
+   manifest's defect, and it stays a blocker (D-039's reasoning).
+4. **Someone else's file of the same name is a refusal.** Plan-time
+   reads the file system, never apt: *ours* when both files hold what this
+   engine would write, *foreign* when a same-named file holds anything
+   else, *absent* otherwise. Foreign refuses — overwriting a source under
+   our name would silently change what that machine trusts. Ours with no
+   candidate points at `--refresh`, because the repository is there and
+   the lists are stale.
+5. **The gate is per repository and the answer is the fingerprint.**
+   `HAMMUNITION_ACCEPT_APT_REPO_<NAME>` must equal the pinned fingerprint.
+   A bare `1` is refused with the value it should hold; `--yes` never
+   satisfies it (D-021); an interactive prompt shows the disclosure —
+   URI, suites, components, fingerprint, both file paths, the unit that
+   wants it — and asks. The affirmation is logged as a `consent_affirmed`
+   record with profile `apt-repo:<name>` so the log says who trusted
+   which key and when. Making the operator type the fingerprint is the
+   point: it is the one check the engine cannot do for them, and an
+   environment variable that is just `1` is `--yes` with extra steps.
+6. **Order is the security property.** The key fetch is a `fetch` action
+   and runs with the other fetches, before anything touches the machine.
+   Then the staged source, then `install -D -m 0644` of both files as
+   root, then a forced `apt-get update`, then `apt-get install --simulate`
+   over the whole apt step, then the install. A repository that does not
+   carry what it promised refuses before the apt step, not partway.
+7. **Reversal is whole.** `uninstall` attributes both files to the
+   transaction that wrote them (every successful `install -D -m` in the
+   log), removes them, and refreshes apt. A same-named file this engine
+   did not write is left alone.
+
+**What this is not.** Not a general repository manager: there is no
+`add-repo` verb, no PPA shorthand, no way to add a repository the catalog
+does not declare. Not `apt-key` — that is deprecated and archive-wide,
+which is the property this decision exists to refuse. Not a fetch of
+`gpg`'s output: the fingerprint is computed here from the packets, so a
+key that `gpg --import` would accept with a warning is refused with a
+reason.
+
+**Consequences.** `code` and `codium` left `workstation` for an opt-in
+`editors` profile, so an operator who wants `lsusb` never sees a
+repository disclosure they did not ask for. The `cli.md` refusal table
+loses its `apt_repos` row. `code.yaml`'s stated keyring path was corrected
+to `microsoft-vscode.gpg` — the repository's `name`, which is what the
+engine writes — from `microsoft.gpg`, which was a guess written before the
+backend existed.
+
+**Measured on 2026-09-03**, on the dev VMs, with this engine at the commit
+that records it:
+
+- **Ubuntu 24.04.4, apt 2.8.3.** `install code` with no variable and no
+  terminal: exit 3, nothing written. With the variable set to `1`: exit 3,
+  the refusal naming the fingerprint it should hold, nothing written. With
+  the variable set to the fingerprint and `--yes`: seven commands
+  completed and confirmed; Microsoft's armored `microsoft.asc` was kept as
+  **640 bytes** of binary v4 OpenPGP (`file` reads it as *OpenPGP Public
+  Key Version 4, RSA 2048*), `apt-get update` accepted the repository
+  through `Signed-By`, the simulate resolved, and `code 1.136.0-1788342447`
+  installed from `packages.microsoft.com/repos/code stable/main`. A second
+  `install code` planned zero commands. `uninstall code` removed the
+  package, both files and refreshed apt: `apt-cache policy code` reports
+  no candidate afterwards. The log holds one `consent_affirmed` per
+  affirmation with `profile: apt-repo:microsoft-vscode` and the
+  fingerprint in `extra`.
+- **Debian 13, apt 3.0.3.** `install editors --yes` with both variables
+  set: two gates, two keys — VSCodium's binary `pub.gpg` kept untouched at
+  **2256 bytes** (RSA 4096) — eleven commands confirmed, `code 1.136.0`
+  and `codium 1.126.04524` installed from their publishers. `uninstall
+  editors` removed both packages and all four files in six commands. A
+  hand-written `vscodium.sources` with different content then made
+  `install codium` refuse at plan time as foreign, exit 2, nothing changed.
+
+- **Parrot 6.x.** `install codium --yes` with `codium` removed first and
+  no variable set: one command, `apt-get install --yes -- codium`,
+  confirmed, from `deb.parrot.sh/parrot echo/main`; the plan carried the
+  note *the archive already offers codium; the vscodium repository the
+  manifest declares is not added (D-022)*, no gate was presented, no
+  file was written under `/etc/apt/keyrings/` or `sources.list.d/`, and
+  the log holds no `consent_affirmed`. Rule 3, measured.

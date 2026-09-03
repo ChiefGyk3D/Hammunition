@@ -782,8 +782,21 @@ class ConfigFile(Strict):
         return set(STATION_REF.findall(self.template))
 
 
+_REPO_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+_FINGERPRINT = re.compile(r"^(?:[0-9A-F]{40}|[0-9A-F]{64})$")
+
+
 class AptRepo(Strict):
-    """Third-party apt source. Key pinning is mandatory."""
+    """Third-party apt source. Key pinning is mandatory.  D-040.
+
+    ``name`` becomes two file names under ``/etc/apt`` and is restricted to
+    what one can safely be. ``key_fingerprint`` is the *primary* key's,
+    forty hex digits for a v4 key or sixty-four for a v6 one, spaces
+    permitted; the engine computes the same thing from the file it fetches
+    and refuses anything else. ``key_url`` is https: the fingerprint check
+    is what makes the key trustworthy, but the transport still decides who
+    can *see* the request.
+    """
 
     name: str
     uri: str
@@ -792,6 +805,27 @@ class AptRepo(Strict):
     key_url: str
     key_fingerprint: str
     rationale: str = Field(description="Shown to the user before the repo is added.")
+
+    @model_validator(mode="after")
+    def _well_formed(self) -> AptRepo:
+        if not _REPO_NAME.match(self.name):
+            raise ManifestError(
+                f"apt repo name {self.name!r} must be lower-case letters, digits, "
+                f"'.', '_' or '-', starting with a letter or digit: it names files "
+                f"under /etc/apt"
+            )
+        digits = "".join(self.key_fingerprint.split()).upper()
+        if not _FINGERPRINT.match(digits):
+            raise ManifestError(
+                f"apt repo {self.name!r}: key_fingerprint must be 40 (v4) or 64 (v6) "
+                f"hex digits, got {self.key_fingerprint!r}"
+            )
+        for label, url in (("uri", self.uri), ("key_url", self.key_url)):
+            if not url.startswith("https://"):
+                raise ManifestError(f"apt repo {self.name!r}: {label} must be https, got {url!r}")
+        if not self.suites or not self.components:
+            raise ManifestError(f"apt repo {self.name!r}: suites and components are required")
+        return self
 
 
 # ---------------------------------------------------------------------------

@@ -818,9 +818,11 @@ candidate for the unit's *own* packages, Node below the floor); its catalog
 dependents defer with it; a name the operator typed, an engine gap, a
 missing `depends`/`build_depends`, a retired status, and a profile with
 every member deferred all still refuse. Deferrals are logged
-(`transaction_begin` version 2) and shown by `status`. `workstation` still
-refuses whole over `code`/`codium` until the apt_repos backend exists, which
-was the test. Tests: `tests/test_profile_deferral.py`.
+(`transaction_begin` version 2) and shown by `status`. `workstation` refused
+whole over `code`/`codium` for as long as the apt_repos backend did not
+exist, which was the test; the backend landed the same day as D-040 and
+both editors moved to the opt-in `editors` profile, so the next engine gap
+inherits the test. Tests: `tests/test_profile_deferral.py`.
 
 The original question, as raised:
 

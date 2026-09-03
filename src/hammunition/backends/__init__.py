@@ -15,6 +15,7 @@ source builds from bundled tarballs, and 57 in total cannot be satisfied by apt.
 """
 
 from .apt import AptBackend, AptPackageState, AptSimulation, parse_policy
+from .apt_repo import AptRepoBackend, RepoState
 from .base import (
     Action,
     BackendError,
@@ -35,7 +36,7 @@ IMPLEMENTED_METHODS: frozenset[str] = frozenset({"apt", "binary", "git", "node",
 
 #: `system_modifications` kinds this engine build can actually perform.
 #: Everything else is a declared, named gap — never a silent skip.
-IMPLEMENTED_MODIFICATIONS: frozenset[str] = frozenset({"group_membership"})
+IMPLEMENTED_MODIFICATIONS: frozenset[str] = frozenset({"group_membership", "apt_pin"})
 
 __all__ = [
     "IMPLEMENTED_BINARY_FORMATS",
@@ -44,6 +45,7 @@ __all__ = [
     "Action",
     "AptBackend",
     "AptPackageState",
+    "AptRepoBackend",
     "AptSimulation",
     "BackendError",
     "BinaryBackend",
@@ -53,6 +55,7 @@ __all__ = [
     "GitBackend",
     "NodeBackend",
     "RecordingRunner",
+    "RepoState",
     "SourceBackend",
     "SubprocessRunner",
     "VenvBackend",

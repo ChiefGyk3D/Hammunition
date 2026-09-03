@@ -8,6 +8,7 @@ Named bundles of software that belong together. Flat tags with overlap, never ne
 |---|---|---:|---|
 | [antenna](antenna.md) | 1.0 | 10 | Antenna modelling, transmission lines and coverage prediction |
 | [digital-modes](digital-modes.md) | 1.0 | 20 | FT8, JS8, PSK31, SSTV, digital voice and the rest of the keyboard modes |
+| [editors](editors.md) | post-1.0 | 2 | VS Code and VSCodium, opt-in, each behind its publisher's apt repository |
 | [electronics](electronics.md) | 1.0 | 11 | Bench electronics, instruments and device programmers |
 | [listening](listening.md) | 1.0 | 23 | Shortwave, utility and aeronautical listening — no licence, no transmitter |
 | [logging](logging.md) | 1.0 | 11 | Station logs, contest logging and award tracking |
@@ -20,6 +21,6 @@ Named bundles of software that belong together. Flat tags with overlap, never ne
 | [satellite](satellite.md) | 1.0 | 4 | Tracking, working and decoding amateur and weather satellites |
 | [sdr](sdr.md) | 1.0 | 14 | Software-defined radio — receivers, GNU Radio, and the driver layer |
 | [station](station.md) | 1.0 | 10 | The floor every station stands on — rig control, time, position |
-| [workstation](workstation.md) | post-1.0 | 9 | Editor, terminal and bench tooling for the machine the station runs on |
+| [workstation](workstation.md) | post-1.0 | 7 | Terminal and bench tooling for the machine the station runs on |
 
 🔒 = consent-gated (D-021).

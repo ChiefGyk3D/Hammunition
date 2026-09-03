@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: editors
+summary: VS Code and VSCodium, opt-in, each behind its publisher's apt repository
+stage: "post-1.0"
+
+# Split out of `workstation` on 2026-09-03 when the third-party repository
+# backend landed (D-040). Both editors are apt packages, but on every target
+# except Parrot's `codium` the archive does not carry them, so installing one
+# means adding a publisher's repository and trusting its signing key for that
+# repository. That is a system modification with a consent gate of its own,
+# and it was withholding the whole of `workstation` — seven packages that need
+# nothing beyond the distribution's own archive — until somebody affirmed it
+# (Q-017, D-039). Editors are opt-in; the bench tooling should not be.
+#
+# NOT consent-gated as a profile. The gate is per repository, at install time,
+# and `--yes` cannot satisfy it: HAMMUNITION_ACCEPT_APT_REPO_<NAME> must equal
+# the pinned key fingerprint from the manifest.
+packages:
+  - codium
+  - code
+
+documentation:
+  what_it_installs: >-
+    Two builds of the same editor. `codium` is the telemetry-free community
+    build of VS Code's open-source tree, and it is what Parrot ships in its own
+    archive; `code` is Microsoft's branded build with its marketplace and
+    telemetry. Each manifest declares its publisher's apt repository and the
+    fingerprint of the key that signs it; the engine adds the repository only
+    when the target's archive offers no candidate of its own (D-022), and only
+    after you have affirmed that key by fingerprint (D-040).
+  why_together: >-
+    They are alternatives to each other, and neither belongs in `workstation`.
+    A serial console, `git` and `lsusb` come from every target's own archive;
+    an editor from a publisher's repository does not, and under D-039 a member
+    the archive cannot supply is deferred while the rest of the profile
+    installs. Keeping both editors here means an operator who wants the bench
+    tooling never sees a repository disclosure they did not ask for, and one
+    who wants an editor sees exactly the one for the build they picked.
+  deliberately_excludes: >-
+    Every other editor. Vim, Emacs, nano, Kate, gedit and their relatives are in
+    every target's archive already and need no manifest, no repository and no
+    consent gate; the only reason these two are catalogued at all is that they
+    are the ones AHRL and 73Linux users ask for and the ones that need a
+    third-party repository to get. Extensions, settings sync and the marketplace
+    are the editor's business, not the catalog's. Installing both is supported
+    but pointless: they coexist without conflict and there is no reason to hold
+    both unless you are comparing them.
+  manual_configuration: >-
+    Affirm the repository before installing. The plan names the environment
+    variable and the fingerprint it must equal, and prints both the file it
+    will write under /etc/apt/sources.list.d/ and the keyring under
+    /etc/apt/keyrings/ that Signed-By will point at. Check the fingerprint
+    against the publisher's own page before exporting it — that check is the
+    whole point of the gate, and the engine cannot do it for you. On Parrot,
+    `codium` comes from the distribution and no repository is added; `code`
+    is Microsoft's everywhere. `hammunition uninstall <unit>` removes the
+    package and, where this engine wrote them, both repository files, then
+    refreshes apt.
+  disk_footprint_hint: >-
+    Around 400 MB per editor after the package unpacks; roughly 800 MB with
+    both. Each repository's metadata adds a few megabytes under
+    /var/lib/apt/lists/ and a refresh on every `apt update` from then on.
