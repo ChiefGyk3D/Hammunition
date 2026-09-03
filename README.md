@@ -259,6 +259,13 @@ requirements, not aspirations:
   are not lawyers.
 - **Tests run in rootless Podman**, never Docker. Docker group membership is
   root-equivalent host access, which is not a trade this project will make.
+- **Releases are SSH-signed tags**, verifiable against
+  [`.github/allowed_signers`](.github/allowed_signers), which records every
+  release key with the dates it was trusted. Check that file against
+  `https://api.github.com/users/ChiefGyk3D/ssh_signing_keys` before trusting
+  it; [`docs/contributing/releasing.md`](docs/contributing/releasing.md) is
+  the procedure. **No key exists yet**: `v0.7.0` is annotated and unsigned,
+  and the file says so.
 
 ---
 
