@@ -259,6 +259,13 @@ requirements, not aspirations:
   are not lawyers.
 - **Tests run in rootless Podman**, never Docker. Docker group membership is
   root-equivalent host access, which is not a trade this project will make.
+- **Releases are SSH-signed tags**, verifiable against
+  [`.github/allowed_signers`](.github/allowed_signers), which records every
+  release key with the dates it was trusted. Check that file against
+  `https://api.github.com/users/ChiefGyk3D/ssh_signing_keys` before trusting
+  it; [`docs/contributing/releasing.md`](docs/contributing/releasing.md) is
+  the procedure. **No key exists yet**: `v0.7.0` is annotated and unsigned,
+  and the file says so.
 
 ---
 
@@ -276,6 +283,7 @@ Everything below is written before the code it describes, deliberately.
 | [`docs/reference/hardware-gaps.md`](docs/reference/hardware-gaps.md) | Every USB identifier we don't have, who can close it, and what it blocks |
 | [`docs/reference/device-naming.md`](docs/reference/device-naming.md) | What `/dev/serial/by-id/` already covers, and the 19 of 23 devices where it does not |
 | [`docs/contributing/hardware.md`](docs/contributing/hardware.md) | How to send one, and what we do and don't store |
+| [`docs/contributing/releasing.md`](docs/contributing/releasing.md) | How a release is cut and signed, and why v0.7.0 is not |
 
 The user-facing documentation site is *Hacker's Ham Shack*. Its standard: a
 licensed ham with moderate Linux experience should get from a fresh install to a
