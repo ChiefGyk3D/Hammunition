@@ -2337,6 +2337,12 @@ machine: `libcurl4t64` 8.21 (backports) against `libcurl4-openssl-dev` 8.14
 profile pulls at least one of those three in. apt will not downgrade a
 pinned-higher package to satisfy a dependency, and it is right not to.
 
+This was not the first sighting. `vm-campaign-digital-modes.md` recorded
+the same skew on 2026-08-30 — glfer and xwefax against the GTK dev chain —
+and worked around it by hand on the VM. A workaround applied to an image
+is exactly the evidence D-025 says to re-verify when it becomes decisive;
+here it became decisive when a clean snapshot took five profiles down.
+
 **What resolves it.** `apt-get install --simulate --yes --target-release
 parrot-backports <the same list>` resolves all five failed lines that were
 re-run by hand — digital-modes at 249 packages with 19 from backports,

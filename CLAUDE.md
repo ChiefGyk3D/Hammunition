@@ -447,8 +447,11 @@ longer a design question in the abstract; a shipped manifest depends on it. See
 `ohb.works` as the backend; SuperSDR is carried under **D-033**; cellular
 tooling is staged under **D-034**.
 
-There are no open questions blocking work. The next decisions that will need
-you are the ones this round's work raises, not ones already on the list.
+**Q-017 is open** (raised 2026-09-02): whether a profile member the target's
+archive does not carry withholds the whole profile (D-016) or is deferred by
+name (D-035). Five of fifteen profiles do not install whole on Ubuntu 24.04
+over it; `docs/reference/vm-campaign-ubuntu.md` is the evidence. It does not
+block work — every unit still installs by name.
 
 ## Roadmap — 1.0 is the five-source union
 

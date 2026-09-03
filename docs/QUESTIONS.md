@@ -807,3 +807,68 @@ is lost. The launcher's loopback bind is non-negotiable and belongs in the
 backend, not the manifest. If A: also decide whether the P.533 WASM (fetched
 by upstream's `prebuild` from a moving tag, skipped here) is carried as a
 pinned artefact or left to the built-in model.
+
+---
+
+## Q-017 🟡 — A per-target gap in one profile member: refuse the profile (D-016), or defer the member (D-035)?
+
+**Raised 2026-09-02**, from the full-catalog campaigns on Ubuntu 24.04 and
+26.04 (`docs/reference/vm-campaign-ubuntu.md`). Every unit was planned and
+installed *by name*; the profiles were then checked against the refusals,
+and **five of fifteen profiles do not install as a whole on Ubuntu 24.04,
+two do not on 26.04**, each because one or more members is refused at plan time
+for a reason that is true of the target and not of the operator:
+
+| Profile | Refused on 24.04 | Refused on 26.04 | Why |
+|---|---|---|---|
+| `propagation` | `openhamclock`, `voacapl`, `pythonprop` | — | Node 18.19 < 20.19 (D-037); no apt candidate |
+| `listening` | `readsb`, `rtl-ais`, `satdump`, `mlat-client-adsbfi` | — | no apt candidate |
+| `satellite` | `satdump` | — | no apt candidate |
+| `electronics` | `m2kcli` | — | no apt candidate |
+| `workstation` | `code`, `codium` | `code`, `codium` | need the apt_repos backend, which is a decision of yours |
+| `rf-research` | — | `gr-gsm` | no apt candidate |
+
+An operator on 24.04 who asks for `listening` gets nothing — nineteen
+installable units withheld over four the archive does not carry — and the
+report tells them to install the nineteen by name. That is the shape D-035
+found intolerable for `packet` over one unknown callsign, and the
+maintainer's bar recorded there ("95% of the way is a success as long as
+there are no true blockers to 100%") reads the same way here. But D-035 was
+careful to say *what* it deferred: a config file, never a package, and D-016
+is the rule that a transaction resolves whole or not at all. Extending
+deferral to packages is a real change to D-016, and it is not mine to make.
+
+**What "a per-target gap" is, precisely.** A member is refused for a reason
+the plan can classify as *the target does not offer it*: no apt candidate on
+this release, a version floor the distribution's package is below (D-037), an
+architecture the block does not cover (D-002). It is **not** a consent gate
+declined (D-021 — the operator's answer stands for the transaction), a
+verification failure (D-018 — never proceed past a bad hash), a build
+dependency missing (that is a manifest defect), or a declared package
+conflict (D-022 — that needs the operator to choose).
+
+| Option | For | Against |
+|---|---|---|
+| **A. Defer the member, name it, install the rest** ⭐ | The D-035 shape and the maintainer's stated bar. The report already has a `Deferral` type and a place to print it; the operator sees `satdump: deferred — no candidate on Ubuntu 24.04` and nineteen units install. Per-name installs of the refused unit still refuse, so nothing is hidden. | Widens D-016's exception from config files to packages. A profile "installed" with a member missing needs the transaction log to say so, and `status` to show it, or the gap is silent a week later. |
+| B. Keep D-016 whole; fix each gap in the catalog | No engine change. Each row above becomes `when:` selectors or a per-target alternative. | The selectors freeze one evening's measurement (the reason most manifests deliberately carry one unconditional apt block — CLAUDE.md, capability matrix). And a profile with a `when:`-excluded member is the same partial install, made in the catalog instead of reported by the engine. |
+| C. A flag: `--defer-unavailable` | Opt-in, D-016 untouched by default. | The flag becomes the thing everyone passes, which is `--yes` for consent gates all over again — the objection D-021 recorded. |
+
+**Recommendation: A, with the classification above written into the
+decision**, a `deferred` entry in the transaction log per member, and
+`status` reporting deferrals for as long as they stand. The classification
+matters more than the mechanism: if "refused for a reason true of the
+target" is not drawn tightly, deferral swallows real defects. `workstation`
+is the test — `code` and `codium` are refused not because Ubuntu lacks them
+but because the engine lacks a backend, and under A they must still refuse
+the profile until the apt_repos decision is made, or the missing backend
+becomes invisible.
+
+**Not this question:** a profile carrying two members that cannot coexist.
+`digital-modes` listed `wsjtx` and `wsjtx-improved`, and the second's vendor
+.deb collides with `wsjtx-data`, which the first's neighbour `jtdx` pulls in
+— measured the same night on a clean Kali, see the campaign record. That was
+a catalog defect with an engine half (the conflict check only looked at what
+is installed *now*, not at what the same transaction installs) and was fixed
+as one the same night, not deferred: the plan now asks `apt-get --simulate`
+and refuses the pairing by name, and the profile no longer lists
+`wsjtx-improved`.
