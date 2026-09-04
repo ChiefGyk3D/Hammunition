@@ -62,6 +62,8 @@ documentation:
     passcode for internet-only operation. Serial TNCs need the dialout
     group; libjssc-java supplies the serial bindings.
   known_problems: >-
+    Unaffected by Linux 7.1's removal of the kernel AX.25 stack: it speaks
+    KISS and AGW to Direwolf directly. See `docs/reference/kernel-ax25.md`.
     First run opens a setup wizard; give it a moment on the first tile
     download. The single-roll pin above means an upstream roll turns into
     a hash-mismatch refusal until this manifest is re-pinned -- deliberate,

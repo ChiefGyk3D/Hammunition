@@ -5,6 +5,7 @@ name: ax25mail-utils
 version: "0.15"
 summary: Utilities for exchanging mail with an FBB packet BBS
 categories: [packet, emcomm]
+requires_kernel: [ax25]
 
 after: [ax25-tools]
 
@@ -36,6 +37,10 @@ documentation:
     Parrot -- only Ubuntu 26.04 and Mint carry it (measured 2026-08-28) -- so on
     the primary target these utilities talk to somebody else's BBS.
   known_problems: >-
+    Needs the kernel AX.25 stack, which Linux 7.1 removed (merge 64edfa65,
+    2026-04-24); on a 7.1 or newer kernel -- Kali rolling and Pop!_OS 24.04 on
+    7.1.5, measured 2026-09-04 -- the plan refuses or defers this unit by
+    name. See `ax25-tools` and `docs/reference/kernel-ax25.md`.
     The absence of `fbb` from the Debian line is the surprise here and it is
     the opposite of the usual direction. Forwarding protocols are old, lightly
     documented and unforgiving of configuration errors, and a mis-set

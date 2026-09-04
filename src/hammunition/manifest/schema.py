@@ -237,6 +237,12 @@ PinBasis = Literal["distribution_pin", "own_choice"]
     situation has changed.
 """
 
+# The `requires_kernel` vocabulary. One entry per subsystem the probe in
+# `hammunition.kernel` knows how to find; a name here without a module path
+# there is a test failure, so a manifest can never name a feature the plan
+# cannot check.
+KernelFeature = Literal["ax25"]
+
 
 class PinReview(Strict):
     """When a commit pin was last looked at, and by whom.  D-024.
@@ -907,6 +913,16 @@ class PackageManifest(Strict):
     provides: list[str] = Field(default_factory=list)
     conflicts_with_repo_package: list[str] = Field(default_factory=list)
     after: list[str] = Field(default_factory=list, description="Ordering, not dependency.")
+    requires_kernel: list[KernelFeature] = Field(
+        default_factory=list,
+        description=(
+            "Kernel subsystems the software cannot work without, checked against "
+            "the running kernel at plan time. A machine whose kernel lacks one "
+            "defers the unit in a profile and refuses it by name. Linux 7.1 "
+            "removed AX.25 (merge 64edfa65, 2026-04-24); `hammunition.kernel` "
+            "reads the module tree. The vocabulary is what has been measured."
+        ),
+    )
 
     binaries: list[Binary] = Field(default_factory=list)
     launchers: list[Launcher] = Field(default_factory=list)

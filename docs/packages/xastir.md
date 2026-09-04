@@ -27,7 +27,7 @@ A callsign, which APRS transmits in clear and which identifies you. RF operation
 
 ## Known problems
 
-The map configuration is the part everyone struggles with, and an empty map looks like a broken program rather than a missing data file. APRS is not private: your position, your callsign and your messages are relayed globally and archived by several public sites indefinitely. Beaconing from a home station at a rate suited to a moving vehicle is the most common way to annoy a local network.
+Unaffected by Linux 7.1's removal of the kernel AX.25 stack for its Serial KISS TNC and AGWPE interface types, which need no kernel stack. Only the "AX.25 TNC" interface type (DEVICE_AX25_TNC in `src/interface.c`) opens an AF_AX25 socket, and that one fails on 7.1 with "Address family not supported by protocol". See `docs/reference/kernel-ax25.md`. The map configuration is the part everyone struggles with, and an empty map looks like a broken program rather than a missing data file. APRS is not private: your position, your callsign and your messages are relayed globally and archived by several public sites indefinitely. Beaconing from a home station at a rate suited to a moving vehicle is the most common way to annoy a local network.
 
 ## Keeping it current
 

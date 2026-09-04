@@ -70,6 +70,7 @@ from hammunition.execute import (
     user_groups,
 )
 from hammunition.fetch import Fetcher
+from hammunition.kernel import KernelProbe
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
 from hammunition.manifest.schema import (
@@ -699,6 +700,9 @@ def cmd_install(args: argparse.Namespace) -> int:
             refresh=args.refresh,
             station=station,
             repos=repos,
+            # The running kernel is a fact about this machine, not the target
+            # (one Pop!_OS 24.04 VM has AX.25 under 7.0.11 and not under 7.1.5).
+            kernel=KernelProbe.detect(),
         )
     except PlanError as exc:
         print(str(exc), file=sys.stderr)

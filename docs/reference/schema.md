@@ -21,6 +21,7 @@ A manifest is **strict**: an unknown field is an error, not ignored. That is del
 | `provides` | `list[str]` | no |  |
 | `conflicts_with_repo_package` | `list[str]` | no |  |
 | `after` | `list[str]` | no | Ordering, not dependency. |
+| `requires_kernel` | `list[Literal[ax25]]` | no | Kernel subsystems the software cannot work without, checked against the running kernel at plan time. A machine whose kernel lacks one defers the unit in a profile and refuses it by name. Linux 7.1 removed AX.25 (merge 64edfa65, 2026-04-24); `hammunition.kernel` reads the module tree. The vocabulary is what has been measured. |
 | `binaries` | `list[Binary]` | no |  |
 | `launchers` | `list[Launcher]` | no |  |
 | `service_endpoints` | `list[ServiceEndpoint]` | no |  |

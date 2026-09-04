@@ -8,6 +8,7 @@
 - **Categories:** `emcomm`, `packet`
 - **Upstream:** <https://sourceforge.net/projects/linfbb/>
 - **Install after:** `ax25-tools`
+- **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)
 
 ## What it does
 
@@ -28,7 +29,7 @@ A configured AX.25 stack and a callsign for the BBS. Forwarding partners, which 
 
 ## Known problems
 
-Not available on Debian 13, Kali or Parrot -- see the install note. It is old software with a configuration model to match: several files, a forwarding schedule in its own syntax, and unforgiving behaviour when they disagree. Running a BBS means carrying other people's traffic under your callsign, which in most jurisdictions makes its content your responsibility.
+Needs the kernel AX.25 stack, which Linux 7.1 removed (merge 64edfa65, 2026-04-24); on a 7.1 or newer kernel -- Kali rolling and Pop!_OS 24.04 on 7.1.5, measured 2026-09-04 -- the plan refuses or defers this unit by name. See `ax25-tools` and `docs/reference/kernel-ax25.md`. Not available on Debian 13, Kali or Parrot -- see the install note. It is old software with a configuration model to match: several files, a forwarding schedule in its own syntax, and unforgiving behaviour when they disagree. Running a BBS means carrying other people's traffic under your callsign, which in most jurisdictions makes its content your responsibility.
 
 ## Keeping it current
 

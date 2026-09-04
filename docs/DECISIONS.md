@@ -2616,3 +2616,110 @@ that records it:
   manifest declares is not added (D-022)*, no gate was presented, no
   file was written under `/etc/apt/keyrings/` or `sources.list.d/`, and
   the log holds no `consent_affirmed`. Rule 3, measured.
+
+---
+
+## D-041 — A manifest declares the kernel subsystems it cannot work without; the plan reads the running kernel's module tree and refuses or defers by name, never from the capability matrix, and never by building a module
+
+**Date:** 2026-09-04. **Status:** accepted; built the same day, awaiting
+the maintainer's review on the pull request.
+**Depends on:** D-018 (external claims tested before published), D-024
+(carry only what a distribution packages), D-031 (verify the effect, not
+the exit status), D-039 (a profile member the target lacks is deferred by
+name; a typed name still refuses), the rejected-list entry *a custom kernel*.
+**Amends:** D-008's description of the packet core as resting on "the
+kernel AX.25 stack" — see Q-019.
+
+**What was measured.** Linux 7.1 removed the amateur-radio networking
+subsystem — `net/ax25`, `net/netrom`, `net/rose`, every driver in
+`drivers/net/hamradio` and their uapi headers — in merge
+`64edfa65062dc4509ba75978116b2f6d392346f5` (2026-04-24). Debian removed
+`ax25-tools` from testing on 2026-09-01 (#1143282: it no longer builds
+without `linux/hdlcdrv.h`), which is the archive gap the Kali campaign
+reported. On 2026-09-04, on the seven machines this project has:
+
+| Kernel | `ax25.ko` |
+|---|---|
+| Debian 13 6.12.107, Parrot 7.3 7.0.13, Ubuntu 24.04 6.8.0, Ubuntu 26.04 7.0.0 | module; `socket(AF_AX25)` opens after `modprobe ax25` |
+| Kali 7.1.5, Pop!_OS 24.04 VM 7.1.5, Pop!_OS 22.04 laptop 7.1.1 | absent; errno 97, `modprobe: FATAL: Module ax25 not found` |
+
+The Pop!_OS VM still has its previous 7.0.11 tree installed, with
+`ax25.ko.zst` in it, beside the 7.1.5 tree without. **The kernel is a fact
+about the machine, not the distribution.** The overnight campaign
+(`hammunition-overnight-2026-09-04`) had filed `packet` as installing
+whole on Pop!_OS; every package arrived, and `kissattach` could never have
+worked. Confirming by packages is necessary and not sufficient — issue
+#27's shape, one layer down.
+
+**The rule.**
+
+1. **The manifest says what it needs.** `requires_kernel` is a list drawn
+   from a closed vocabulary (`KernelFeature`, today `ax25` only). The
+   vocabulary is exactly the set the probe can find — a test asserts the
+   schema's `Literal`, the probe's module map and its description map are
+   the same set — so a manifest can never name a subsystem the plan cannot
+   check. It is declared only where the software opens `AF_AX25` sockets
+   or configures the kernel stack and has no other mode: ten units, listed
+   in `docs/reference/kernel-ax25.md`. Software with a userspace mode
+   (Direwolf, pat, LinBPQ, YAAC, Xastir, QtSoundModem) declares nothing
+   and its `known_problems` says which of its interfaces needs the kernel
+   — for pat and Xastir read from their source, not their README.
+2. **The plan reads `/lib/modules/<uname -r>/`**, never `lsmod` or
+   `/proc/net/ax25`: on every kernel that carries it, `ax25` is a module
+   nothing loads until a root `kissattach` does, and an unloaded module is
+   not a missing one. Present as `kernel/net/ax25/ax25.ko*` or in
+   `modules.builtin` → the unit plans. Present tree, absent module → a
+   name the operator typed **refuses**, naming the unit, the release and
+   the merge; a profile member **defers** with the same reason and the
+   rest installs (D-039's shape, for a fact about the machine rather than
+   the target). No module tree for the running kernel at all — a container
+   on the host's kernel, which is every CI target — is **disclosed as
+   unchecked** and the unit plans; absence of evidence is not evidence.
+3. **The remedies are the ones that exist.** A distribution kernel that
+   still carries the stack, or the userspace path. The refusal never
+   offers to build the module: the out-of-tree `mod-orphan` suggested
+   upstream is packaged by no distribution (D-024), and a kernel module
+   we compile is a custom kernel by another name.
+4. **It never enters the capability matrix.** The matrix is per target;
+   this is per machine, and per reboot. Writing "Kali: ✗" would be false
+   on a Kali box that kept its 7.0 kernel and would hide the same truth
+   about an Ubuntu 24.04 box the day its HWE kernel crosses 7.1.
+
+**What this is not.** Not a kernel-version check — a version number is a
+proxy, and the module tree is the fact. Not a check that the module is
+loaded, for the reason in rule 2. Not a general hardware-capability probe;
+the vocabulary grows one measured entry at a time, and `netrom`, `rose`
+and the `scc` driver are not in it because no manifest yet needs one that
+`ax25` does not already settle.
+
+**Consequences.** `z8530-utils2` declares `ax25` today and Q-019 asks
+whether to retire it: its `scc` driver left in the same merge and the
+hardware predates PCI Express. The `packet` profile page says which
+members it withholds on such a kernel and that the Direwolf–pat–APRS
+station still installs. `docs/reference/kernel-ax25.md` is the record and
+carries the reproduction commands.
+
+**Measured on 2026-09-04** with this engine (commit 383cf27) through
+`scripts/vm_campaign.py`, each VM restored to its clean snapshot first:
+
+| Machine | Unit | Outcome |
+|---|---|---|
+| Kali 2026.3, `7.1.5+kali-amd64` | `ax25-tools` | refused at plan time, two blockers: no apt candidate, *and* the kernel blocker naming `7.1.5+kali-amd64`, merge 64edfa65, the userspace path and D-024 |
+| Kali 2026.3 | `linpac` | refused at plan time on the kernel blocker alone — the package is in Kali's archive, so the archive check would have let it through |
+| Kali 2026.3 | `direwolf` | installed and confirmed, 5 s |
+| Debian 13, `6.12.107+deb13-amd64` | `ax25-tools` | installed and confirmed, 4 s |
+| Debian 13 | `linpac` | installed and confirmed, 2 s |
+
+The `packet` profile as a whole, dry-run on the same Kali VM: eight members
+deferred (`ax25-tools`, `linpac`, `aprsdigi`, `ax25-apps`, `ax25-xtools`,
+`ax25mail-utils`, `axmail`, `uronode`), 23 apt packages and the four git
+builds (`ardopcf`, `linbpq`, `qtsoundmodem`, `qttermtcp`) still planned,
+exit 0. That run found one defect the unit tests had not: a member the
+archive had already deferred (`ax25-tools`) had its reason *replaced* by the
+kernel's, and the deferral's "a release that carries it needs no change
+here" was then false of Kali's archive. A reason already recorded now
+stands; the typed-name refusal shows every one. The other two declaring
+units, `fbb` and `z8530-utils2`, are not `packet` members. The campaign
+reports are under
+`~/.local/state/hammunition-campaigns/` and the row-level evidence is in
+`docs/reference/kernel-ax25.md`.

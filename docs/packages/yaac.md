@@ -28,7 +28,7 @@ A TNC (Direwolf serves well -- this catalog configures it) or an APRS-IS passcod
 
 ## Known problems
 
-First run opens a setup wizard; give it a moment on the first tile download. The single-roll pin above means an upstream roll turns into a hash-mismatch refusal until this manifest is re-pinned -- deliberate, and the cadence hint says why.
+Unaffected by Linux 7.1's removal of the kernel AX.25 stack: it speaks KISS and AGW to Direwolf directly. See `docs/reference/kernel-ax25.md`. First run opens a setup wizard; give it a moment on the first tile download. The single-roll pin above means an upstream roll turns into a hash-mismatch refusal until this manifest is re-pinned -- deliberate, and the cadence hint says why.
 
 ## Keeping it current
 

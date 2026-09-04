@@ -8,6 +8,7 @@
 - **Categories:** `emcomm`, `packet`
 - **Upstream:** <https://uronode.sourceforge.net/>
 - **Install after:** `ax25-tools`
+- **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)
 
 ## What it does
 
@@ -27,7 +28,7 @@ A configured AX.25 stack, and `ax25d` set up to hand inbound connections to uron
 
 ## Known problems
 
-A node is a service other people use, and running one is a commitment: an unreliable node is worse for a network than no node. It relays traffic on your callsign's authority, so what passes through it is your responsibility in most jurisdictions. Configuration is several files and getting the ax25d handoff right is the usual sticking point.
+Needs the kernel AX.25 stack, which Linux 7.1 removed (merge 64edfa65, 2026-04-24); on a 7.1 or newer kernel -- Kali rolling and Pop!_OS 24.04 on 7.1.5, measured 2026-09-04 -- the plan refuses or defers this unit by name. See `ax25-tools` and `docs/reference/kernel-ax25.md`. A node is a service other people use, and running one is a commitment: an unreliable node is worse for a network than no node. It relays traffic on your callsign's authority, so what passes through it is your responsibility in most jurisdictions. Configuration is several files and getting the ax25d handoff right is the usual sticking point.
 
 ## Keeping it current
 

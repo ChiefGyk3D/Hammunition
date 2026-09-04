@@ -26,7 +26,7 @@ A Winlink account, which is free and tied to your callsign. A path to a gateway:
 
 ## Known problems
 
-The web interface binds to localhost by default; exposing it to a network exposes your mailbox and your Winlink credentials, and there is no authentication in front of it. Winlink messages traverse a system with published policies about content and are not private. HF forwarding needs ARDOP or VARA, neither of which is in this catalog yet -- VARA is post-1.0 and runs under Wine -- so the honest state today is telnet and packet.
+Unaffected by Linux 7.1's removal of the kernel AX.25 stack when its AX.25 engine is `agwpe` or `serial-tnc` (`ax25+agwpe://`, `ax25+serial-tnc://`): those talk to Direwolf's AGW port or a KISS TNC and never open an AF_AX25 socket. The `linux` engine (`ax25+linux://`, built with libax25) does, and fails on 7.1 with "Address family not supported by protocol". The generic `ax25://` scheme resolves to whichever engine `ax25.engine` names in the config, so a config that says `linux` is the one that breaks. Read from pat's `app/connect.go` and wl2k-go's `transport/ax25/ax25_linux.go`, 2026-09-04. See `docs/reference/kernel-ax25.md`. The web interface binds to localhost by default; exposing it to a network exposes your mailbox and your Winlink credentials, and there is no authentication in front of it. Winlink messages traverse a system with published policies about content and are not private. HF forwarding needs ARDOP or VARA, neither of which is in this catalog yet -- VARA is post-1.0 and runs under Wine -- so the honest state today is telnet and packet.
 
 ## Keeping it current
 
