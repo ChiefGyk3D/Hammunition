@@ -14,14 +14,16 @@ targeting Debian, Ubuntu, Kali, Linux Mint and Raspberry Pi OS.
 resolve, disclose, install, configure, verify, remove — runs end to end and is
 **VM-verified on Parrot, Kali, Debian 13, Ubuntu 24.04 and Ubuntu 26.04**, with
 **zero hard install failures across the whole catalog on all five**
-([M5 parity verified](docs/reference/m5-parity-verified.md)). Five backends are
-written (apt, source, git, binary, venv — including a venv+payload hybrid), and
-`uninstall` now reverses every one of them, not just apt. `./bootstrap.sh`
+([M5 parity verified](docs/reference/m5-parity-verified.md)). Seven backends are
+written (apt, source, git, binary, venv — including a venv+payload hybrid —
+node, and third-party apt repositories against a pinned key), and
+`uninstall` reverses every one of them, not just apt. `./bootstrap.sh`
 installs the engine in one command; `hammunition doctor` reports what is ready;
 `hammunition hardware` detects your radios and applies the udev rules and
 group membership they need; launchers and curated desktop menus generate for
-Xfce and GNOME. What remains for 1.0: Ubuntu and Pop!_OS install verification,
-GUI-launch and real-hardware checks on the bench, and release engineering.
+Xfce and GNOME. What remains for 1.0: Pop!_OS install verification on a real
+Pop VM, GUI-launch and real-hardware checks on the bench, and release
+engineering — the first signed tag waits on a key that does not exist yet.
 
 Being honest about this up front matters more than looking finished, so here is
 exactly where things stand:
@@ -34,7 +36,7 @@ exactly where things stand:
 | …parity coverage | 🟡 **88 of the 108 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
 | Hardware catalog | 🟡 23 devices, 5 classes, 297 confirmed USB identifiers |
 | …of which **supported** / **run on hardware here** | **18** / **7** — [two different claims](docs/DECISIONS.md), kept apart on purpose |
-| Profiles | ✅ **all 12 of the 1.0 set**, plus 3 post-1.0 — every package installable, asserted by test |
+| Profiles | ✅ **all 12 of the 1.0 set**, plus 4 post-1.0 — every package installable, asserted by test; a member a target's archive lacks is deferred by name, never the whole profile (D-039) |
 | Inventories of all five upstream sources | ✅ complete and measured |
 | Consent gates for RF-research tooling | ✅ working |
 | Distro detection from `/etc/os-release` | ✅ working |
@@ -49,11 +51,11 @@ exactly where things stand:
 | AppImage backend | ❌ post-1.0 (SCOPE.md) — refused by name |
 | pipx / CPAN backends | ⚪ re-measured to **zero users** and dropped from 1.0 (D-014 amendment) |
 | Templated config files, from station values | ✅ working — a missing value defers one file, not the transaction |
-| Third-party apt repos | ❌ **not written** — refused by name |
+| Third-party apt repos | ✅ working — manifest pins the key fingerprint, consent is that fingerprint and `--yes` cannot give it, both files reversed by `uninstall` (D-040); `code`/`codium` in the opt-in `editors` profile |
 | udev rule generation from the hardware catalog | ✅ generated and applied by `hammunition hardware apply`; not yet exercised against real hardware on the bench |
 | `uninstall` | ✅ working — reverses apt, venv, binary, .deb, trees and launchers; marker-verified, VM-proven; a real `make install` is refused by name |
-| End-to-end VM verification (install / configure / remove) | ✅ Parrot, Kali, Debian 13 — Ubuntu and Pop!_OS queued |
-| M5 install-success across the full catalog, three targets | ✅ **zero hard failures**; every unit installs on ≥1 target or is refused with a reason |
+| End-to-end VM verification (install / configure / remove) | ✅ Parrot, Kali, Debian 13, Ubuntu 24.04, Ubuntu 26.04 — Pop!_OS queued on a VM that does not exist yet |
+| M5 install-success across the full catalog, five targets | ✅ **zero hard failures**; every unit installs on ≥1 target or is refused with a reason |
 | Curated desktop menus (Xfce menu-spec + GNOME app-folders) | ✅ generated from category tags; COSMIC pending a Pop VM |
 | Profile companion offers (mail client, serial terminal) | ✅ detect → respect → offer, never silent |
 | Getting-started, profile, troubleshooting docs | ✅ written and generated |
@@ -61,9 +63,9 @@ exactly where things stand:
 **Much of the catalog is still out of reach.** Of AHRL's 95 units, **57 cannot
 be satisfied by apt at all** — that missing 60% is the hard part and is precisely
 what users cannot install themselves, which is the reason the project exists. The
-source, git and prebuilt-binary backends now cover most of it; what remains
-out of reach is the venv/pipx/CPAN slice and the fourteen units needing a
-generated launcher. If you want a working ham radio Linux setup today,
+source, git, prebuilt-binary, venv and node backends now cover it; what
+remains out of reach is AppImage and a configured Wine prefix, both post-1.0
+and each refused by name. If you want a working ham radio Linux setup today,
 use one of the projects in [Credit](#credit) below — they work now, and this
 project exists because of them, not instead of them.
 
