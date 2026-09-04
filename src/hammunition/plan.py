@@ -1112,6 +1112,11 @@ def resolve(
     # So it is read here, never written into the capability matrix, and a
     # profile member whose kernel lacks it defers the way a target gap does.
     for manifest, _, _, _ in resolved:
+        if manifest.name in deferred:
+            # Already withheld for a reason the target gave (Kali 2026.3 has
+            # no ax25-tools candidate AND no ax25 module). The first reason
+            # stands; the typed-name refusal shows every one.
+            continue
         for feature in manifest.requires_kernel:
             what = DESCRIBE[feature]
             present = None if kernel is None else kernel.available(feature)

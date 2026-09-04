@@ -2699,6 +2699,27 @@ members it withholds on such a kernel and that the Direwolf–pat–APRS
 station still installs. `docs/reference/kernel-ax25.md` is the record and
 carries the reproduction commands.
 
-**Measured on 2026-09-04** with this engine on the Kali VM (7.1.5) and
-the Debian 13 VM (6.12.107): recorded on the pull request, and in the
-campaign reports under `~/.local/state/hammunition-campaigns/`.
+**Measured on 2026-09-04** with this engine (commit 383cf27) through
+`scripts/vm_campaign.py`, each VM restored to its clean snapshot first:
+
+| Machine | Unit | Outcome |
+|---|---|---|
+| Kali 2026.3, `7.1.5+kali-amd64` | `ax25-tools` | refused at plan time, two blockers: no apt candidate, *and* the kernel blocker naming `7.1.5+kali-amd64`, merge 64edfa65, the userspace path and D-024 |
+| Kali 2026.3 | `linpac` | refused at plan time on the kernel blocker alone — the package is in Kali's archive, so the archive check would have let it through |
+| Kali 2026.3 | `direwolf` | installed and confirmed, 5 s |
+| Debian 13, `6.12.107+deb13-amd64` | `ax25-tools` | installed and confirmed, 4 s |
+| Debian 13 | `linpac` | installed and confirmed, 2 s |
+
+The `packet` profile as a whole, dry-run on the same Kali VM: eight members
+deferred (`ax25-tools`, `linpac`, `aprsdigi`, `ax25-apps`, `ax25-xtools`,
+`ax25mail-utils`, `axmail`, `uronode`), 23 apt packages and the four git
+builds (`ardopcf`, `linbpq`, `qtsoundmodem`, `qttermtcp`) still planned,
+exit 0. That run found one defect the unit tests had not: a member the
+archive had already deferred (`ax25-tools`) had its reason *replaced* by the
+kernel's, and the deferral's "a release that carries it needs no change
+here" was then false of Kali's archive. A reason already recorded now
+stands; the typed-name refusal shows every one. The other two declaring
+units, `fbb` and `z8530-utils2`, are not `packet` members. The campaign
+reports are under
+`~/.local/state/hammunition-campaigns/` and the row-level evidence is in
+`docs/reference/kernel-ax25.md`.

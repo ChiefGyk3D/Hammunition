@@ -91,6 +91,7 @@ time:
 | `kernel/net/ax25/ax25.ko*`, or the path in `modules.builtin` | nothing; the unit plans as usual |
 | a module tree for the running kernel that lacks it | **refuses the unit by name** if you typed it, naming the kernel release and the merge; **defers it** with the same reason if it reached the plan through a profile, and the rest of the profile installs (the **D-039** shape) |
 | no module tree for the running kernel at all | plans the unit and adds a note that the requirement *cannot be checked on this machine*. This is a container on the host's kernel — the CI targets — and is not evidence either way |
+| a profile member the target had already deferred — Kali's archive has no `ax25-tools` *and* its kernel has no `ax25` | keeps the reason already recorded. The first live `packet` dry-run on Kali replaced it with the kernel's, and the deferral's "a release that carries it needs no change here" was then false of Kali's archive. `hammunition install ax25-tools` by name shows both |
 
 The refusal's remedies are the ones that exist: a distribution kernel that
 still carries the stack (Debian 13's 6.12, Parrot 7.3's and Ubuntu 26.04's
@@ -136,3 +137,32 @@ hammunition install ax25-tools --dry-run
 The last line is the engine's own answer. On a kernel without the module it
 exits 2 with the refusal; on one with it, it prints the plan (and, under
 `--dry-run`, executes nothing).
+
+## The engine, measured
+
+Engine commit 383cf27, 2026-09-04, through `scripts/vm_campaign.py` with
+each VM restored to its clean snapshot before the run. Reports are
+`kernel-ax25-kali-units-2026-09-04.md` and
+`kernel-ax25-debian13-units-2026-09-04.md` under
+`~/.local/state/hammunition-campaigns/` on the maintainer's machine; the
+harness stamps the engine commit and the guest's InRelease dates into each.
+
+| Machine | Unit | Outcome |
+|---|---|---|
+| Kali 2026.3, `7.1.5+kali-amd64` | `ax25-tools` | **refused (plan)**, two blockers: *apt has no candidate for ax25-tools*, and *needs the kernel's AX.25 stack (module ax25), which kernel 7.1.5+kali-amd64 does not carry — Linux 7.1 removed net/ax25 and the hamradio drivers (merge 64edfa65, 2026-04-24)*, with the remedy naming Debian 13's 6.12, Parrot 7.3's and Ubuntu 26.04's 7.0, the userspace path, and that no module is built (D-024) |
+| Kali 2026.3 | `linpac` | **refused (plan)** on the kernel blocker alone. `linpac` is still in Kali's archive: the archive check passes it and the kernel check is what catches it |
+| Kali 2026.3 | `direwolf` | **installed, confirmed** in 5 s — the userspace modem is untouched |
+| Debian 13, `6.12.107+deb13-amd64` | `ax25-tools` | **installed, confirmed** in 4 s |
+| Debian 13 | `linpac` | **installed, confirmed** in 2 s |
+
+The whole `packet` profile, `--dry-run` on the same Kali VM after the fix
+described in the engine table above: **eight members deferred** —
+`ax25-tools` on the archive reason it already had, `linpac`, `aprsdigi`,
+`ax25-apps`, `ax25-xtools`, `ax25mail-utils`, `axmail` and `uronode` on the
+kernel — and the rest planned: 23 apt packages and the four git builds
+(`ardopcf`, `linbpq`, `qtsoundmodem`, `qttermtcp`), exit 0. The two
+declaring units outside `packet`, `fbb` and `z8530-utils2`, were not run.
+
+What is **not** measured here: any of this on real packet hardware, and
+nothing on the maintainer's Parrot laptop yet — its 7.0.13 row above is the
+Parrot VM's.

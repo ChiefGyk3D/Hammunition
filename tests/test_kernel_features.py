@@ -162,6 +162,29 @@ def test_a_profile_member_needing_ax25_is_deferred_and_the_rest_installs(tmp_pat
     assert "7.1.5+kali-amd64" in deferral.why
 
 
+def test_a_member_already_deferred_by_the_archive_keeps_that_reason(tmp_path: Path) -> None:
+    """Kali 2026.3, live: `ax25-tools` is absent from the archive AND the
+    kernel lacks ax25. The first `packet` dry-run on the VM showed only the
+    kernel reason -- the kernel block had replaced the archive deferral --
+    and its remedy text ("a release that carries it needs no change here")
+    was then false of Kali's archive. A reason already recorded stands; the
+    typed-name refusal shows both."""
+    catalog = _catalog(_unit("direwolf"), _unit("ax25-tools", requires_kernel=["ax25"]))
+    profile = _profile(name="packet", packages=["direwolf", "ax25-tools"])
+    plan = _resolve(
+        tmp_path,
+        ["packet"],
+        catalog=catalog,
+        profiles={"packet": profile},
+        known={"direwolf": None},  # no candidate for ax25-tools
+        kernel=_probe(False),
+    )
+    (deferral,) = [d for d in plan.deferrals if d.kind == "package"]
+    assert deferral.subject == "ax25-tools"
+    assert "no candidate" in deferral.why
+    assert "7.1.5+kali-amd64" not in deferral.why
+
+
 def test_a_kernel_that_carries_ax25_plans_the_unit_without_comment(tmp_path: Path) -> None:
     catalog = _catalog(_unit("ax25-tools", requires_kernel=["ax25"]))
     plan = _resolve(
