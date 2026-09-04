@@ -33,7 +33,7 @@ Binaries this produces:
 
 ## Known problems
 
-**It needs four permissive compiler flags to build on a current toolchain**, recorded in the install block rather than left for you to discover. One of them silences an implicit declaration of `Sleep()`, which is a Windows function -- the Linux path through that code should be treated as less exercised than the Windows one. Transmit audio level decides whether anyone decodes you, and the scope this program provides is the best tool available for getting it right, which is most of the argument for installing it.
+Unaffected by Linux 7.1's removal of the kernel AX.25 stack: it is a userspace modem exposing KISS and AGW over TCP, like Direwolf. See `docs/reference/kernel-ax25.md`. **It needs four permissive compiler flags to build on a current toolchain**, recorded in the install block rather than left for you to discover. One of them silences an implicit declaration of `Sleep()`, which is a Windows function -- the Linux path through that code should be treated as less exercised than the Windows one. Transmit audio level decides whether anyone decodes you, and the scope this program provides is the best tool available for getting it right, which is most of the argument for installing it.
 
 ## Toolkit risk
 

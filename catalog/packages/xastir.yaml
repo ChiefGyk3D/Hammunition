@@ -45,6 +45,11 @@ documentation:
     a step nothing does for you -- and the project's own website, which is
     where that documentation lived, is currently unreachable (see below).
   known_problems: >-
+    Unaffected by Linux 7.1's removal of the kernel AX.25 stack for its Serial
+    KISS TNC and AGWPE interface types, which need no kernel stack. Only the
+    "AX.25 TNC" interface type (DEVICE_AX25_TNC in `src/interface.c`) opens an
+    AF_AX25 socket, and that one fails on 7.1 with "Address family not
+    supported by protocol". See `docs/reference/kernel-ax25.md`.
     The map configuration is the part everyone struggles with, and an empty
     map looks like a broken program rather than a missing data file. APRS is
     not private: your position, your callsign and your messages are relayed

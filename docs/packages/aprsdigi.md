@@ -8,6 +8,7 @@
 - **Categories:** `packet`, `tracking`
 - **Upstream:** <https://github.com/n2ygk/aprsdigi/>
 - **Install after:** `ax25-tools`
+- **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)
 
 ## What it does
 
@@ -27,7 +28,7 @@ A configured AX.25 port, a radio that can transmit unattended, and a considered 
 
 ## Known problems
 
-A badly configured digipeater is actively harmful to a local network: repeating everything, repeating too many hops, or failing to suppress duplicates floods a shared channel that everyone else needs. Learn the local convention before switching one on -- the WIDEn-N rules exist because the earlier free-for-all did not scale. Unattended transmission has licence implications in most jurisdictions and they are yours to know.
+Needs the kernel AX.25 stack, which Linux 7.1 removed (merge 64edfa65, 2026-04-24); on a 7.1 or newer kernel -- Kali rolling and Pop!_OS 24.04 on 7.1.5, measured 2026-09-04 -- the plan refuses or defers this unit by name. See `ax25-tools` and `docs/reference/kernel-ax25.md`. A badly configured digipeater is actively harmful to a local network: repeating everything, repeating too many hops, or failing to suppress duplicates floods a shared channel that everyone else needs. Learn the local convention before switching one on -- the WIDEn-N rules exist because the earlier free-for-all did not scale. Unattended transmission has licence implications in most jurisdictions and they are yours to know.
 
 ## Keeping it current
 

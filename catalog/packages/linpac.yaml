@@ -5,6 +5,7 @@ name: linpac
 version: "0.28"
 summary: Terminal for AX.25 packet with a built-in mail client and macros
 categories: [packet, emcomm]
+requires_kernel: [ax25]
 
 install:
   - install:
@@ -34,6 +35,10 @@ documentation:
     configuration carries your callsign and is the step this catalog cannot yet
     generate for you; see the open station-configuration question in CLAUDE.md.
   known_problems: >-
+    Needs the kernel AX.25 stack, which Linux 7.1 removed (merge 64edfa65,
+    2026-04-24); on a 7.1 or newer kernel -- Kali rolling and Pop!_OS 24.04 on
+    7.1.5, measured 2026-09-04 -- the plan refuses or defers this unit by
+    name. See `ax25-tools` and `docs/reference/kernel-ax25.md`.
     Nothing works until AX.25 is configured, and the failure is a terminal that
     connects to nothing rather than a message naming the missing port. AHRL
     installs `libax25` alongside it (inventory unit 25), which Debian's package

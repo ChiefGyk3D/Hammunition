@@ -332,7 +332,10 @@ Resolution is a distinct phase that finishes before anything is executed
    reached the plan through a *profile*, and only for one of three reasons
    that are facts about the target: no install block matches this
    distro/version/arch, apt on this release has no candidate for the unit's
-   *own* packages, or the distribution's Node is below the manifest's floor.
+   *own* packages, or the distribution's Node is below the manifest's floor
+   — and for one fact about the *machine*: the running kernel lacks a
+   subsystem the manifest's `requires_kernel` names (**D-041**; Linux 7.1
+   removed AX.25, and Kali on 7.1.5 defers eight `packet` members).
    The member and its catalog dependents are listed under *Will NOT happen*
    with the reason, and the rest of the profile installs (**D-039**). A
    name you typed is never deferred: `hammunition install satdump` on
@@ -385,6 +388,7 @@ capability matrix that reports coverage the engine does not have is the shim
 | A profile every member of which this target cannot install | the profile by name, with each member's reason — installing nothing and reporting success is not an outcome (**D-039**) |
 | No apt package lists at all | that this is a stale-lists problem, with `--refresh` as the remedy |
 | A group membership with no identifiable operator | that `--user` is needed |
+| A unit whose `requires_kernel` names a subsystem the running kernel's module tree lacks | the unit, the kernel release and the merge that removed the subsystem, with the remedies that exist: a distribution kernel that still carries it, or the userspace path (Direwolf's KISS/AGW ports serve pat, LinBPQ, YAAC and Xastir without kernel AX.25). Never an offer to build the module — no distribution packages one, and Hammunition builds no kernel modules (**D-041**). A *profile* member is deferred instead, the D-039 shape. No module tree for the running kernel at all — a container — is disclosed as *cannot be checked* and the unit plans |
 
 The dependency check is the one that earns its keep. **D-016** names four AHRL
 dependency lines suspected of failing silently for years — `fftw2` (FFTW

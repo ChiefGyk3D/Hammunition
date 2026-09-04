@@ -49,6 +49,13 @@ from hammunition.backends.apt import downgrades_refused
 from hammunition.backends.apt_repo import AptRepoBackend, RepoState
 from hammunition.backends.source import IMPLEMENTED_BUILD_SYSTEMS
 from hammunition.distro import Target
+from hammunition.kernel import (
+    DESCRIBE,
+    KERNEL_REMOVAL,
+    NO_MODULE_BUILD,
+    USERSPACE_PATH,
+    KernelProbe,
+)
 from hammunition.manifest.schema import (
     AptInstall,
     AptRepo,
@@ -839,6 +846,7 @@ def resolve(
     refresh: bool = False,
     station: Station | None = None,
     repos: AptRepoBackend | None = None,
+    kernel: KernelProbe | None = None,
 ) -> InstallPlan:
     """Build a complete plan, or raise :class:`PlanError` listing every blocker.
 
@@ -846,6 +854,10 @@ def resolve(
     transaction needs — the manifests' own apt packages and their ``depends``
     together. One probe means one answer about the machine's apt state rather
     than N answers taken at N different moments.
+
+    ``kernel`` is the running kernel's module tree, consulted only for units
+    that declare ``requires_kernel``; ``None`` means it was not read, which is
+    disclosed on those units rather than assumed either way.
     """
     blockers: list[Blocker] = []
     deferrals: list[Deferral] = []
@@ -1093,6 +1105,42 @@ def resolve(
                 blockers.append(outcome)
         else:
             notes.append(outcome)
+
+    # -- Kernel subsystems the unit cannot work without ---------------------
+    # A fact about the machine, not the target: one Pop!_OS 24.04 VM has
+    # AX.25 in its 7.0.11 module tree and not in its 7.1.5 one (2026-09-04).
+    # So it is read here, never written into the capability matrix, and a
+    # profile member whose kernel lacks it defers the way a target gap does.
+    for manifest, _, _, _ in resolved:
+        for feature in manifest.requires_kernel:
+            what = DESCRIBE[feature]
+            present = None if kernel is None else kernel.available(feature)
+            if present is True:
+                continue
+            if kernel is None or present is None:
+                which = f" {kernel.release}" if kernel is not None else ""
+                notes.append(
+                    f"{manifest.name} needs {what}, which cannot be checked on this "
+                    f"machine: no module tree for the running kernel{which} is readable."
+                )
+                continue
+            why = f"needs {what}, which kernel {kernel.release} does not carry -- {KERNEL_REMOVAL}"
+            if manifest.name in deferrable:
+                deferred[manifest.name] = _target_deferral(
+                    manifest.name, wanted, f"{manifest.name} {why}"
+                )
+            else:
+                blockers.append(
+                    Blocker(
+                        subject=manifest.name,
+                        reason=why,
+                        remedy=(
+                            f"a distribution kernel that still carries it (Debian 13's 6.12, "
+                            f"Parrot 7.3's and Ubuntu 26.04's 7.0 do); {USERSPACE_PATH}; "
+                            f"{NO_MODULE_BUILD}"
+                        ),
+                    )
+                )
 
     # -- Q-017: the deferred set closes over catalog dependencies -----------
     # pythonprop depends on voacapl; a target that lacks voacapl cannot have

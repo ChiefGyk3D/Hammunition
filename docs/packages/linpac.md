@@ -7,6 +7,7 @@
 - **Version recorded:** 0.28
 - **Categories:** `emcomm`, `packet`
 - **Upstream:** <https://sourceforge.net/projects/linpac/>
+- **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)
 
 ## What it does
 
@@ -26,7 +27,7 @@ A configured AX.25 stack -- ax25-tools with a port defined in `/etc/ax25/axports
 
 ## Known problems
 
-Nothing works until AX.25 is configured, and the failure is a terminal that connects to nothing rather than a message naming the missing port. AHRL installs `libax25` alongside it (inventory unit 25), which Debian's package already depends on. The interface is from the era it comes from: function keys and modes, not menus.
+Needs the kernel AX.25 stack, which Linux 7.1 removed (merge 64edfa65, 2026-04-24); on a 7.1 or newer kernel -- Kali rolling and Pop!_OS 24.04 on 7.1.5, measured 2026-09-04 -- the plan refuses or defers this unit by name. See `ax25-tools` and `docs/reference/kernel-ax25.md`. Nothing works until AX.25 is configured, and the failure is a terminal that connects to nothing rather than a message naming the missing port. AHRL installs `libax25` alongside it (inventory unit 25), which Debian's package already depends on. The interface is from the era it comes from: function keys and modes, not menus.
 
 ## Keeping it current
 
