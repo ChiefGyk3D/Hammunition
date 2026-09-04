@@ -124,8 +124,8 @@ JUSTIFIED_UNANCHORED: dict[str, str] = {
             ".eggs/",
             "*.egg-info/",
             "*.egg",
-            ".venv/",
-            "venv/",
+            ".venv",  # no slash: a symlink named .venv must be ignored too
+            "venv",
             "ENV/",
             "env/",
             ".python-version",

@@ -146,6 +146,73 @@ def test_no_files_tracked_from_root_reference_tree() -> None:
 
 
 # --------------------------------------------------------------------------
+# A virtualenv must never be tracked, and a symlink must never leave the repo
+#
+# Commit 0e90998 tracked `.venv` -- as a symlink, mode 120000, whose target was
+# an absolute path into one maintainer's home directory. `.gitignore` said
+# `.venv/`, and the trailing slash matches only a directory, so the worktree's
+# symlink was not ignored and `git add -A` took it. Every CI job passed.
+# Checking out main afterwards replaced a real venv with a link to itself.
+#
+# Three properties, each of which was false on that commit.
+# --------------------------------------------------------------------------
+
+_VENV_NAMES = frozenset({".venv", "venv"})
+
+
+def _tracked_symlinks() -> dict[str, str]:
+    """Tracked symlinks and their targets, read from the index, not the disk."""
+    result = _git("ls-files", "-s")
+    assert result.returncode == 0, result.stderr
+    links: dict[str, str] = {}
+    for line in result.stdout.splitlines():
+        meta, _, path = line.partition("\t")
+        mode, blob, _stage = meta.split()
+        if mode == "120000":
+            links[path] = _git("cat-file", "-p", blob).stdout
+    return links
+
+
+def test_no_virtualenv_is_tracked() -> None:
+    offenders = [f for f in _tracked_files() if set(Path(f).parts) & _VENV_NAMES]
+    assert not offenders, f"a virtualenv is tracked: {offenders}"
+
+
+def test_no_tracked_symlink_points_outside_the_repo() -> None:
+    """A tracked link resolves inside the repo, and never by absolute path.
+
+    An absolute target is wrong twice over: it is a path on one machine, and it
+    is that machine's directory layout published in the history.
+    """
+    offenders = {}
+    for path, target in _tracked_symlinks().items():
+        resolved = (REPO_ROOT / path).parent.joinpath(target).resolve()
+        if Path(target).is_absolute() or not resolved.is_relative_to(REPO_ROOT.resolve()):
+            offenders[path] = target
+    assert not offenders, f"tracked symlink(s) leave the repository: {offenders}"
+
+
+@pytest.mark.parametrize("name", sorted(_VENV_NAMES))
+def test_virtualenv_is_ignored_even_as_a_symlink(name: str, tmp_path: Path) -> None:
+    """The repository's own .gitignore, applied to a scratch repo holding only
+    a symlink of that name. `git status` must not offer it -- which is exactly
+    what `.venv/` failed to do."""
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / ".gitignore").write_text((REPO_ROOT / ".gitignore").read_text())
+    (tmp_path / name).symlink_to(tmp_path / "somewhere-else")
+    status = subprocess.run(
+        ["git", "status", "--porcelain", "--untracked-files=all"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert f"?? {name}" not in status.splitlines(), (
+        f"a symlink named {name} is not ignored by .gitignore:\n{status}"
+    )
+
+
+# --------------------------------------------------------------------------
 # dispositions.md must stay internally consistent
 #
 # PARITY-POLICY.md requires that no unit is left unclassified, and the summary

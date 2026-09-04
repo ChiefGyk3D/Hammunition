@@ -355,7 +355,11 @@ head.
   nothing in the source tree may be ignored, and an unanchored pattern must be
   listed by name with why it must match at any depth. Three silent exclusions
   came from the same mistake — a trailing slash reads as anchored and anchors
-  nothing. CI runs it.
+  nothing. The slash has a second trap: it matches only a *directory*, so
+  `.venv/` let a worktree's `.venv` **symlink** into a commit on `main`
+  (0e90998), absolute home path and all, with CI green. The virtualenv names
+  carry no slash, and `tests/test_repo_hygiene.py` builds that symlink in a
+  scratch repo and asserts it is ignored. CI runs it.
 - `/reference/` and `/vendor/` are gitignored, **anchored to the repo root**:
   third-party tarballs and extracted upstream trees are studied locally, never
   committed. Keep provenance clean. The anchoring matters — the unanchored form
