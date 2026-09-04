@@ -82,6 +82,17 @@ worth six `-Wno-*` flags and a build that a future GCC will break.
 Where the reason is real, say it in the install block's `note`, with what was
 measured and when.
 
+`build_depends` lists what the *software* needs to build — libraries, headers,
+Qt. The engine's own tools are not the manifest's job: a `git` block pulls in
+`git`, `autoreconf: true` pulls in autoconf/automake/libtool, a `node` block
+pulls in `nodejs` and `npm`, and `build_system: cmake` pulls in `cmake`. That
+last one was learned the hard way — `wsjtx` never listed cmake and built on
+five targets anyway because `js8call` in the same profile did, until Pop!_OS
+resolved `js8call` from apt and `digital-modes` died at command 27 with
+`'cmake' is not on PATH`. A manifest that relies on its neighbours for a tool
+is a manifest that works by accident. Listing `cmake` yourself is harmless (it
+is de-duplicated), just unnecessary.
+
 ## Categories come from the vocabulary
 
 `catalog/categories.yaml` is the controlled list. Adding a tag means adding it

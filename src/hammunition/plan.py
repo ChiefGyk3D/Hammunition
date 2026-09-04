@@ -944,6 +944,16 @@ def resolve(
                 tool_depends = (*tool_depends, "patch")
         if getattr(block.install, "autoreconf", False):
             tool_depends = (*tool_depends, "autoconf", "automake", "libtool")
+        # The build system is the engine's tool as much as git is. wsjtx never
+        # declared cmake and built on five targets anyway, because js8call in
+        # the same profile is a git build there and declares it; on Pop!_OS
+        # 24.04 js8call comes from apt, nothing else asked for cmake, and
+        # digital-modes died at command 27 with 'cmake' not on PATH
+        # (2026-09-04). The other build systems are not injected here yet:
+        # every qmake manifest declares qt5-qmake itself, and what
+        # autotools and make builds get a compiler from is unmeasured.
+        if getattr(block.install, "build_system", None) == "cmake":
+            tool_depends = (*tool_depends, "cmake")
         if block.install.method == "apt":
             packages = (*block.install.packages, *distro_depends)
             build_only: tuple[str, ...] = ()

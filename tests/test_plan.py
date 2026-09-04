@@ -685,3 +685,61 @@ def test_a_git_build_pulls_git_itself_into_the_apt_set(tmp_path: Path) -> None:
     assert "git" in plan.apt_to_install
     planned = plan.packages[0]
     assert "git" in planned.build_only
+
+
+def test_a_cmake_build_pulls_cmake_itself_into_the_apt_set(tmp_path: Path) -> None:
+    """wsjtx never declared cmake and built on five targets anyway: js8call in
+    the same profile is a git build there and declares it. On Pop!_OS 24.04
+    js8call comes from apt, nothing else asked for cmake, and digital-modes
+    died at command 27 with 'cmake' not on PATH (2026-09-04). The build
+    system is the engine's tool, like git; a unit that declares cmake as well
+    gets it once."""
+    unit = _manifest(
+        name="cmakeunit",
+        install=[
+            {
+                "install": {
+                    "method": "git",
+                    "repo": "https://example.org/x",
+                    "ref": "1.0",
+                    "build_system": "cmake",
+                }
+            }
+        ],
+    )
+    known = {"git": None, "cmake": None, "cmakeunit": None}
+    plan = _resolve(tmp_path, ["cmakeunit"], catalog={"cmakeunit": unit}, known=known)
+    assert "cmake" in plan.apt_to_install and "git" in plan.apt_to_install
+    assert plan.packages[0].build_only.count("cmake") == 1
+    declared = _manifest(
+        name="declared",
+        install=[
+            {
+                "install": {
+                    "method": "source",
+                    "source": {"url": "https://example.invalid/c.tar.gz", "sha256": "d" * 64},
+                    "build_system": "cmake",
+                },
+                "build_depends": ["cmake"],
+            }
+        ],
+    )
+    plan = _resolve(tmp_path, ["declared"], catalog={"declared": declared}, known=known)
+    assert plan.packages[0].build_only.count("cmake") == 1
+    make = _manifest(
+        name="makeunit",
+        install=[
+            {
+                "install": {
+                    "method": "git",
+                    "repo": "https://example.org/y",
+                    "ref": "1.0",
+                    "build_system": "make",
+                }
+            }
+        ],
+    )
+    plan = _resolve(
+        tmp_path, ["makeunit"], catalog={"makeunit": make}, known={"git": None, "makeunit": None}
+    )
+    assert "cmake" not in plan.apt_to_install
