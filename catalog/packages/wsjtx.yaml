@@ -19,7 +19,6 @@ install:
       repo: https://github.com/WSJTX/wsjtx
       ref: "v3.0.2"
       build_system: cmake
-      configure_args: ["-DWSJT_SKIP_MANPAGES=ON", "-DWSJT_GENERATE_DOCS=OFF"]
       configure_args:
         - -DWSJT_SKIP_MANPAGES=ON
         - -DWSJT_GENERATE_DOCS=OFF
@@ -41,6 +40,15 @@ install:
       - libreadline-dev
       - libusb-1.0-0-dev
       - libudev-dev
+      # Never declared here, and never missed: on every target where js8call
+      # is a git build it declares libhamlib-dev and wsjtx built in its wake.
+      # Pop!_OS 24.04 resolves js8call from apt, and the first isolated
+      # configure stopped at "We could not find development headers for
+      # Hamlib" (VM campaign, 2026-09-04). D-016's order-dependence again.
+      - libhamlib-dev
+
+# libhamlib4t64, not libhamlib4 — see the note in fldigi.yaml.
+depends: [libhamlib4t64]
 
 # SHAPE 3 — the collision, resolved by declaration rather than choreography.
 # Both this package and wsjtx-improved emit a binary called `wsjtx`. AHRL
