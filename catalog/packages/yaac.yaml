@@ -2,22 +2,29 @@
 # SPDX-License-Identifier: CC0-1.0
 
 name: yaac
-version: "snapshot-2026-08-30"
+version: "build-230"
 summary: Yet Another APRS Client — the deep, portable Java one
 categories: [packet, tracking]
 
 # CARRY from AHRL. Upstream publishes exactly one artifact, an unversioned
 # rolling YAAC.zip -- the same shape 73Linux's Beta directory had, but with
-# no versioned alternative anywhere. The pin below is a dated snapshot
-# hash: it verifies what we measured, and it WILL break on upstream's next
+# no versioned alternative anywhere. The pin below is the hash of one
+# roll: it verifies what we measured, and it WILL break on upstream's next
 # roll, which is the honest failure mode -- refetch, rehash, rebump. The
 # alternative (no hash) is a path this catalog does not have (D-004).
+#
+# `version` is upstream's own build number, read from the first line of
+# https://www.ka2ddo.org/ka2ddo/YAACBuildNotes.txt, which is the one place
+# upstream names what YAAC.zip currently is. First roll caught by the pin:
+# the 2026-08-30 snapshot (e64c3fca…) failed on Kali on 2026-09-04 against
+# beta build#230, dated 2026-Sep-03 -- exactly the failure this comment
+# predicted. Digest measured twice from the host, identical.
 install:
   - install:
       method: binary
       artifact:
         url: https://www.ka2ddo.org/ka2ddo/YAAC.zip
-        sha256: e64c3fca5fa466f08af49c2104ca604c14d6c1c9d681771408dd07c7db5007e6
+        sha256: a56c4037d1384e399290a1024e3b2d781a251257715528287db83a19429d5d5f
       format: zip
       install_tree: true
     note: >-
@@ -56,7 +63,7 @@ documentation:
     group; libjssc-java supplies the serial bindings.
   known_problems: >-
     First run opens a setup wizard; give it a moment on the first tile
-    download. The dated-snapshot pin above means an upstream roll turns into
+    download. The single-roll pin above means an upstream roll turns into
     a hash-mismatch refusal until this manifest is re-pinned -- deliberate,
     and the cadence hint says why.
   upstream_url: https://www.ka2ddo.org/ka2ddo/YAAC.html
