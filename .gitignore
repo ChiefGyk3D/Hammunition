@@ -100,9 +100,14 @@ share/python-wheels/
 # any depth. It is a setuptools artifact and only ever appears at the root.
 /MANIFEST
 
-# Environments
-.venv/
-venv/
+# Environments. No trailing slash on the two names a virtualenv actually gets:
+# `.venv/` matches only a *directory*, so a worktree whose `.venv` is a symlink
+# to the main checkout's venv was not ignored, `git add -A` took it, and commit
+# 0e90998 shipped a symlink carrying an absolute home-directory path to main.
+# CI stayed green. A test now builds that symlink in a scratch repo against
+# this file and asserts it is ignored.
+.venv
+venv
 ENV/
 env/
 .python-version
