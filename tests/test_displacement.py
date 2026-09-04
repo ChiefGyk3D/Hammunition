@@ -153,7 +153,12 @@ def _plan_with_conflict(tmp_path: Path, method_block: dict[str, Any], installed:
     from test_plan import _apt  # reuse the fake-apt helper
 
     manifest = _conflicting_manifest(method_block)
-    known = {"distro-owned": "1.0" if installed else None, "clasher": None, "git": None}
+    known = {
+        "distro-owned": "1.0" if installed else None,
+        "clasher": None,
+        "git": None,
+        "build-essential": None,
+    }
     apt = _apt(tmp_path, known)
     return resolve(
         ["clasher"],

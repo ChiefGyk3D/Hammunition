@@ -944,6 +944,22 @@ def resolve(
                 tool_depends = (*tool_depends, "patch")
         if getattr(block.install, "autoreconf", False):
             tool_depends = (*tool_depends, "autoconf", "automake", "libtool")
+        # The toolchain is the engine's tool as much as git is. wsjtx never
+        # declared cmake or a compiler and built on five targets anyway,
+        # because js8call in the same profile is a git build there and
+        # declares both; on Pop!_OS 24.04 js8call comes from apt, nothing
+        # else asked for cmake, and digital-modes died at command 27 with
+        # 'cmake' not on PATH (2026-09-04). Measured the same day on the
+        # Debian 13 baseline, which ships no gcc: 33 of the catalog's 39
+        # source/git manifests list build-essential by hand and four C/C++
+        # builds (fldigi, glfer, mshv, wsjtx) rely on a neighbour for it --
+        # mshv's own note records the order-dependence. So every compiled
+        # build gets build-essential, and a cmake build gets cmake. qmake is
+        # not injected: all six qmake manifests declare qt5-qmake themselves.
+        if block.install.method in ("source", "git"):
+            tool_depends = (*tool_depends, "build-essential")
+            if getattr(block.install, "build_system", None) == "cmake":
+                tool_depends = (*tool_depends, "cmake")
         if block.install.method == "apt":
             packages = (*block.install.packages, *distro_depends)
             build_only: tuple[str, ...] = ()

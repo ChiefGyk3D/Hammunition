@@ -545,16 +545,17 @@ def _source_manifest(**install: Any) -> PackageManifest:
 
 def test_build_depends_are_what_a_source_build_installs(tmp_path: Path) -> None:
     """A source build installs its toolchain from apt, not itself. The manifest's
-    own name is not an apt package and must not be treated as one."""
+    own name is not an apt package and must not be treated as one; the compiler
+    is the engine's and rides along whether or not the manifest names it."""
     plan = _resolve(
         tmp_path,
         ["example"],
         catalog={"example": _source_manifest()},
-        known={"libexample-dev": None, "fftw2": None},
+        known={"libexample-dev": None, "fftw2": None, "build-essential": None},
     )
     planned = plan.packages[0]
-    assert set(planned.apt_packages) == {"libexample-dev", "fftw2"}
-    assert set(planned.build_only) == {"libexample-dev", "fftw2"}
+    assert set(planned.apt_packages) == {"libexample-dev", "fftw2", "build-essential"}
+    assert set(planned.build_only) == {"libexample-dev", "fftw2", "build-essential"}
     assert "example" not in planned.apt_packages
 
 
@@ -652,7 +653,7 @@ def test_a_depends_naming_another_manifest_is_not_asked_of_apt(tmp_path: Path) -
         tmp_path,
         ["consumer"],
         catalog={"library": library, "consumer": consumer},
-        known={"cmake": None, "libreal-dev": None},  # note: no "library"
+        known={"cmake": None, "build-essential": None, "libreal-dev": None},  # no "library"
     )
 
     names = [p.name for p in plan.packages]
@@ -681,7 +682,74 @@ def test_a_git_build_pulls_git_itself_into_the_apt_set(tmp_path: Path) -> None:
             ],
         )
     }
-    plan = _resolve(tmp_path, ["gitunit"], catalog=catalog, known={"git": None, "gitunit": None})
+    plan = _resolve(
+        tmp_path,
+        ["gitunit"],
+        catalog=catalog,
+        known={"git": None, "build-essential": None, "gitunit": None},
+    )
     assert "git" in plan.apt_to_install
     planned = plan.packages[0]
     assert "git" in planned.build_only
+
+
+def test_a_compiled_build_pulls_its_toolchain_into_the_apt_set(tmp_path: Path) -> None:
+    """wsjtx never declared cmake or a compiler and built on five targets
+    anyway: js8call in the same profile is a git build there and declares
+    both. On Pop!_OS 24.04 js8call comes from apt, nothing else asked for
+    cmake, and digital-modes died at command 27 with 'cmake' not on PATH
+    (2026-09-04); the Debian 13 baseline ships no gcc either. The toolchain
+    is the engine's tool, like git: every source/git build gets
+    build-essential, a cmake build gets cmake, and a unit that declares
+    either as well gets it once."""
+    unit = _manifest(
+        name="cmakeunit",
+        install=[
+            {
+                "install": {
+                    "method": "git",
+                    "repo": "https://example.org/x",
+                    "ref": "1.0",
+                    "build_system": "cmake",
+                }
+            }
+        ],
+    )
+    known = {"git": None, "cmake": None, "build-essential": None, "cmakeunit": None}
+    plan = _resolve(tmp_path, ["cmakeunit"], catalog={"cmakeunit": unit}, known=known)
+    assert "cmake" in plan.apt_to_install and "git" in plan.apt_to_install
+    assert "build-essential" in plan.apt_to_install
+    assert plan.packages[0].build_only.count("cmake") == 1
+    declared = _manifest(
+        name="declared",
+        install=[
+            {
+                "install": {
+                    "method": "source",
+                    "source": {"url": "https://example.invalid/c.tar.gz", "sha256": "d" * 64},
+                    "build_system": "cmake",
+                },
+                "build_depends": ["build-essential", "cmake"],
+            }
+        ],
+    )
+    plan = _resolve(tmp_path, ["declared"], catalog={"declared": declared}, known=known)
+    assert plan.packages[0].build_only.count("cmake") == 1
+    assert plan.packages[0].build_only.count("build-essential") == 1
+    make = _manifest(
+        name="makeunit",
+        install=[
+            {
+                "install": {
+                    "method": "git",
+                    "repo": "https://example.org/y",
+                    "ref": "1.0",
+                    "build_system": "make",
+                }
+            }
+        ],
+    )
+    known = {"git": None, "build-essential": None, "makeunit": None}
+    plan = _resolve(tmp_path, ["makeunit"], catalog={"makeunit": make}, known=known)
+    assert "cmake" not in plan.apt_to_install
+    assert "build-essential" in plan.apt_to_install
