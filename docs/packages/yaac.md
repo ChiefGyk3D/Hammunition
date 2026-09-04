@@ -4,7 +4,7 @@
 
 **Yet Another APRS Client — the deep, portable Java one**
 
-- **Version recorded:** snapshot-2026-08-30
+- **Version recorded:** build-230
 - **Categories:** `packet`, `tracking`
 - **Upstream:** <https://www.ka2ddo.org/ka2ddo/YAAC.html>
 - **Needs first:** `default-jre-headless`, `libjssc-java`
@@ -28,7 +28,7 @@ A TNC (Direwolf serves well -- this catalog configures it) or an APRS-IS passcod
 
 ## Known problems
 
-First run opens a setup wizard; give it a moment on the first tile download. The dated-snapshot pin above means an upstream roll turns into a hash-mismatch refusal until this manifest is re-pinned -- deliberate, and the cadence hint says why.
+First run opens a setup wizard; give it a moment on the first tile download. The single-roll pin above means an upstream roll turns into a hash-mismatch refusal until this manifest is re-pinned -- deliberate, and the cadence hint says why.
 
 ## Keeping it current
 
