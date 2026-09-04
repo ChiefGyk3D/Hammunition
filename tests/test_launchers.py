@@ -195,6 +195,11 @@ def test_campaign_prepare_refreshes_apt_lists_and_keeps_its_failure_text(
     remote = mod.PREPARE_REMOTE
     assert "sudo -n apt-get update" in remote
     assert remote.index("apt-get update") < remote.index("python3 -m venv")
+    # Pop!_OS 24.04 runs its own apt-get at boot and held the lists lock
+    # against the first prepare (2026-09-04). DPkg::Lock::Timeout does not
+    # cover that lock (measured: 0 s wait, apt 3.0.3), so the update is
+    # retried in a bounded loop instead.
+    assert "until sudo -n apt-get update" in remote and "-ge 30" in remote
 
     calls: list[list[str]] = []
     outcomes = iter(

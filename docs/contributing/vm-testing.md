@@ -262,7 +262,12 @@ longer had it, and six of fifteen profiles failed at their first fetch with
 a 404 — four commands into a transaction, on a catalog that was fine
 (2026-09-03). Every prepare now runs `apt-get update` before building the
 venv, which is also why a guest without passwordless sudo fails at prepare
-rather than at unit 1. A prepare that fails prints the guest's output and is
+rather than at unit 1. The update is retried for up to five minutes,
+because Pop!_OS 24.04 runs its own `apt-get` at boot and held the lists
+lock against a prepare that started 30 s after the restore (2026-09-04);
+`DPkg::Lock::Timeout` looks like the fix and is not — measured at a 0 s
+wait against a held lists lock on apt 3.0.3, it covers the dpkg frontend
+lock only. A prepare that fails prints the guest's output and is
 retried once, because the Kali campaign died at profile 5 of 15 with a bare
 `CalledProcessError` and no text — a PyPI hiccup and a broken guest were
 the same verdict. The report file is rewritten after every unit, so a

@@ -91,10 +91,16 @@ class UnitResult:
 # six of fifteen profiles failed at the first fetch with a 404 (2026-09-03).
 # So the lists are refreshed here, once per prepare, before anything is
 # measured -- the engine's own ``--refresh`` would do it per unit, and the
-# campaign is measuring the catalog, not the age of a snapshot.
+# campaign is measuring the catalog, not the age of a snapshot. The retry
+# loop is for a guest that runs its own apt at boot: Pop!_OS 24.04's did,
+# and a prepare that started 30 s after the restore lost the lists lock to
+# it (2026-09-04). ``DPkg::Lock::Timeout`` was the obvious fix and does not
+# apply to the lists lock -- measured at 0 s against a held lock, apt 3.0.3
+# -- so the wait is this loop, bounded at five minutes.
 PREPARE_REMOTE = (
-    "cd hammunition && sudo -n apt-get update -q "
-    "&& python3 -m venv .venv && .venv/bin/pip install -q -e . "
+    "cd hammunition || exit 1; n=0; until sudo -n apt-get update -q; do "
+    "n=$((n+1)); [ $n -ge 30 ] && exit 100; sleep 10; done; "
+    "python3 -m venv .venv && .venv/bin/pip install -q -e . "
     "&& .venv/bin/hammunition --version"
 )
 
