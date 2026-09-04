@@ -49,6 +49,7 @@ import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import unquote
 
 from .base import BackendError, Command, CommandRunner
 
@@ -60,6 +61,7 @@ __all__ = [
     "downgrades_refused",
     "parse_policy",
     "parse_simulation",
+    "stale_fetches",
 ]
 
 APT_LISTS = Path("/var/lib/apt/lists")
@@ -212,6 +214,37 @@ def downgrades_refused(error: str) -> list[str]:
         if match is not None and match["name"] not in names:
             names.append(match["name"])
     return names
+
+
+_FETCH_404_LINE = re.compile(r"^E: Failed to fetch (?P<url>\S+)\s+404\s+Not Found\b")
+
+
+def stale_fetches(error: str) -> list[str]:
+    """The ``.deb`` files a failed ``apt-get install`` asked the archive for
+    and was told no longer exist, from its transcript.
+
+    A Parrot 7.3 guest whose lists were four days old (2026-09-03)::
+
+        E: Failed to fetch https://deb.parrot.sh/parrot/pool/main/g/glib2.0/libglib2.0-dev_2.84.4-3%7edeb13u3_amd64.deb  404  Not Found [IP: 108.62.48.7 443]
+        E: Unable to fetch some archives, maybe run apt-get update or try with --fix-missing?
+
+    The lists named a glib2.0 the pool had since replaced. Nothing about the
+    catalog was wrong, the plan's candidate check had passed against those
+    same lists, and the transaction died four commands in with apt's own
+    hint buried under seven URLs. The file names are returned decoded
+    (``%7e`` is ``~``) so the message can name the versions. Any other
+    failure, and any other status than 404, yields an empty list: a mirror
+    that is down (a 5xx, a timeout) is not stale lists, and saying so would
+    send the operator to refresh lists that are fine.
+    """
+    files: list[str] = []
+    for line in error.splitlines():
+        match = _FETCH_404_LINE.match(line)
+        if match is not None:
+            name = unquote(match["url"].rsplit("/", 1)[-1])
+            if name not in files:
+                files.append(name)
+    return files
 
 
 @dataclass(frozen=True)

@@ -207,3 +207,56 @@ def test_the_plan_prints_what_comes_from_the_release(tmp_path: Path) -> None:
     assert "libcurl4-openssl-dev" in text
     assert "libnghttp3-dev" in text
     assert "D-038" in text
+
+
+PARROT_STALE_LISTS = """\
+E: Failed to fetch https://deb.parrot.sh/parrot/pool/main/g/glib2.0/gir1.2-glib-2.0-dev_2.84.4-3%7edeb13u3_amd64.deb  404  Not Found [IP: 108.62.48.7 443]
+E: Failed to fetch https://deb.parrot.sh/parrot/pool/main/g/glib2.0/libgirepository-2.0-0_2.84.4-3%7edeb13u3_amd64.deb  404  Not Found [IP: 108.62.48.7 443]
+E: Failed to fetch https://deb.parrot.sh/parrot/pool/main/g/glib2.0/girepository-tools_2.84.4-3%7edeb13u3_amd64.deb  404  Not Found [IP: 108.62.48.7 443]
+E: Failed to fetch https://deb.parrot.sh/parrot/pool/main/g/glib2.0/libglib2.0-dev_2.84.4-3%7edeb13u3_amd64.deb  404  Not Found [IP: 108.62.48.7 443]
+E: Unable to fetch some archives, maybe run apt-get update or try with --fix-missing?
+"""
+
+
+def test_a_404_from_the_pool_is_read_as_stale_lists_and_named_by_version() -> None:
+    """Six of fifteen profiles on a four-day-old Parrot guest failed at their
+    first apt-get install with this transcript (2026-09-03): the lists named
+    a glib2.0 the pool had replaced. The catalog was right, the plan had
+    passed against those lists, and the report ended in seven URLs with no
+    diagnosis. A 5xx or a timeout is a mirror problem, not stale lists, and
+    must not send the operator to refresh lists that are fine."""
+    from hammunition.backends.apt import stale_fetches
+
+    assert stale_fetches(PARROT_STALE_LISTS) == [
+        "gir1.2-glib-2.0-dev_2.84.4-3~deb13u3_amd64.deb",
+        "libgirepository-2.0-0_2.84.4-3~deb13u3_amd64.deb",
+        "girepository-tools_2.84.4-3~deb13u3_amd64.deb",
+        "libglib2.0-dev_2.84.4-3~deb13u3_amd64.deb",
+    ]
+    down = "E: Failed to fetch https://deb.debian.org/debian/pool/main/f/foo/foo_1_amd64.deb  503  Service Unavailable\n"
+    assert stale_fetches(down) == []
+    assert stale_fetches(PARROT_REFUSAL) == []
+
+
+def test_the_install_failure_says_stale_lists_installed_nothing_and_names_the_fix() -> None:
+    from hammunition.backends import Action, Command
+    from hammunition.cli.main import stale_lists_diagnosis
+
+    install = Command(
+        argv=("apt-get", "install", "--yes", "--", "libglib2.0-dev"),
+        description="",
+        requires_root=True,
+    )
+    text = stale_lists_diagnosis(install, PARROT_STALE_LISTS)
+    assert text is not None
+    assert "4 file(s) the mirror no longer has" in text
+    assert "girepository-tools_2.84.4-3~deb13u3_amd64.deb" in text and "and 1 more" in text
+    assert "libglib2.0-dev_2.84.4-3~deb13u3_amd64.deb" not in text  # the elided fourth
+    assert "installed nothing" in text
+    assert "sudo apt-get update" in text and "--refresh" in text
+    # Not every apt-get failure is this one, and not every 404 is apt's.
+    assert stale_lists_diagnosis(install, PARROT_REFUSAL) is None
+    remove = Command(argv=("apt-get", "remove", "--yes", "foo"), description="")
+    assert stale_lists_diagnosis(remove, PARROT_STALE_LISTS) is None
+    unpack = Action(kind="unpack", description="unpack", detail="", perform=lambda: "")
+    assert stale_lists_diagnosis(unpack, PARROT_STALE_LISTS) is None

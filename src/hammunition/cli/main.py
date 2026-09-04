@@ -38,6 +38,7 @@ from importlib import metadata
 from pathlib import Path
 
 from hammunition.backends import (
+    Action,
     AptBackend,
     AptRepoBackend,
     BackendError,
@@ -49,6 +50,7 @@ from hammunition.backends import (
     SubprocessRunner,
     VenvBackend,
 )
+from hammunition.backends.apt import stale_fetches
 from hammunition.backends.source import DEFAULT_PREFIX
 from hammunition.consent import (
     ConsentDeclined,
@@ -881,6 +883,9 @@ def cmd_install(args: argparse.Namespace) -> int:
         f"\nFailed: {report.failed.display(euid=euid)}\n{report.stderr.strip()}",
         file=sys.stderr,
     )
+    stale = stale_lists_diagnosis(report.failed, report.stderr)
+    if stale:
+        print(f"\n{stale}", file=sys.stderr)
     print(
         f"{len(report.completed)} command(s) completed before the failure and are "
         f"recorded in {log.path}. Hammunition does not roll back; it tells you what "
@@ -888,6 +893,34 @@ def cmd_install(args: argparse.Namespace) -> int:
         file=sys.stderr,
     )
     return EXIT_FAILED
+
+
+def stale_lists_diagnosis(failed: Command | Action, stderr: str) -> str | None:
+    """What a 404 from ``apt-get install`` means, in the operator's terms.
+
+    The plan's candidate check passed against the package lists on disk;
+    the archive has since replaced a version those lists name; apt asked for
+    the old file and was told it is gone. The catalog was right and the
+    machine is unchanged -- apt fetches every archive before it unpacks
+    any, so a fetch failure leaves nothing half-installed -- and the fix is
+    the one apt itself hints at under the URLs. Six of fifteen profiles on
+    a four-day-old Parrot guest failed exactly this way (2026-09-03), each
+    report ending in seven ``Failed to fetch`` lines and no diagnosis.
+    """
+    if isinstance(failed, Action) or "apt-get" not in failed.argv or "install" not in failed.argv:
+        return None
+    missing = stale_fetches(stderr)
+    if not missing:
+        return None
+    shown = ", ".join(missing[:3]) + (f" and {len(missing) - 3} more" if len(missing) > 3 else "")
+    return (
+        f"The package lists on this machine are older than the archive: apt asked for "
+        f"{len(missing)} file(s) the mirror no longer has ({shown}). The plan resolved "
+        f"against those lists, so the catalog is not at fault, and apt downloads every "
+        f"archive before unpacking any, so this command installed nothing. Refresh the "
+        f"lists and run the same install again: `sudo apt-get update`, or add --refresh "
+        f"to do it as the first step of the run."
+    )
 
 
 def cmd_uninstall(args: argparse.Namespace) -> int:

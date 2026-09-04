@@ -625,6 +625,18 @@ Hammunition does not roll back. It tells you what it did (**D-004**). On a
 failure the run stops at that command, and the count that completed is printed
 along with the log's location.
 
+One failure is diagnosed rather than merely printed. When an `apt-get install`
+fails with `404 Not Found` on files in the pool, the package lists on the
+machine are older than the archive: the plan resolved against those lists,
+so the catalog is not at fault, and apt downloads every archive before it
+unpacks any, so the command installed nothing. The message says so, names
+the files by version, and gives the remedy — `sudo apt-get update`, or
+`--refresh` on the same run. Six of fifteen profiles on a four-day-old Parrot
+guest died this way (2026-09-03), each report ending in seven URLs and
+apt's own hint under them. A `5xx` or a timeout is a mirror problem and gets
+no such diagnosis; sending an operator to refresh lists that are fine would
+be a wrong answer with a confident tone.
+
 ## What is not here yet
 
 `uninstall` reverses apt, venv and binary installs, copied binaries,
