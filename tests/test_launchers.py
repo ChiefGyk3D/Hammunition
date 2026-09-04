@@ -6,8 +6,11 @@
 from __future__ import annotations
 
 import os
+import subprocess
 from pathlib import Path
 from typing import Any
+
+import pytest
 
 from hammunition.launchers import desktop_entry, launcher_steps, wrapper_body
 from hammunition.manifest.schema import PackageManifest
@@ -166,3 +169,61 @@ def test_campaign_files_a_declined_consent_gate_as_neither_failure_nor_refusal()
     assert "| `rf-research` | consent declined |" in report
     assert "## Failures" not in report
     assert "## Consent gates presented" in report and "Do you affirm" in report
+
+
+def test_campaign_prepare_refreshes_apt_lists_and_keeps_its_failure_text(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Two things the Parrot and Kali campaigns of 2026-09-03 proved. Parrot:
+    a clean-baseline four days old still named glib2.0 2.84.4-3~deb13u3 and
+    the pool had moved on, so six of fifteen profiles failed at the first
+    fetch with a 404 — the prepare must refresh the lists, before the venv
+    (so a guest whose sudo is not passwordless fails prepare, not unit 1).
+    Kali: prepare failed at profile 5 with a bare CalledProcessError and
+    nothing captured, so a PyPI hiccup and a broken guest were the same
+    verdict — the failure text is printed and the transient kind is retried."""
+    import importlib.util
+    from pathlib import Path as P
+
+    spec = importlib.util.spec_from_file_location(
+        "vm_campaign", P(__file__).resolve().parent.parent / "scripts" / "vm_campaign.py"
+    )
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    remote = mod.PREPARE_REMOTE
+    assert "sudo -n apt-get update" in remote
+    assert remote.index("apt-get update") < remote.index("python3 -m venv")
+    # Pop!_OS 24.04 runs its own apt-get at boot and held the lists lock
+    # against the first prepare (2026-09-04). DPkg::Lock::Timeout does not
+    # cover that lock (measured: 0 s wait, apt 3.0.3), so the update is
+    # retried in a bounded loop instead.
+    assert "until sudo -n apt-get update" in remote and "-ge 30" in remote
+
+    calls: list[list[str]] = []
+    outcomes = iter(
+        [
+            subprocess.CompletedProcess(
+                [], 1, stdout="", stderr="ERROR: Could not fetch URL https://pypi.org/simple/"
+            ),
+            subprocess.CompletedProcess([], 0, stdout="hammunition 0.7.0\n", stderr=""),
+        ]
+    )
+
+    def fake_run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append(argv)
+        return next(outcomes)
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    mod.prepare(["ssh"], "user@guest")
+    assert len(calls) == 2 and calls[0][-1] == remote
+    out = capsys.readouterr().out
+    assert "prepare attempt 1/2 failed (exit 1)" in out
+    assert "Could not fetch URL https://pypi.org/simple/" in out
+
+    always = subprocess.CompletedProcess([], 1, stdout="", stderr="venv: command not found")
+    monkeypatch.setattr(mod.subprocess, "run", lambda argv, **kw: always)
+    with pytest.raises(SystemExit, match="could not be prepared after 2 attempts"):
+        mod.prepare(["ssh"], "user@guest")
+    assert "venv: command not found" in capsys.readouterr().out

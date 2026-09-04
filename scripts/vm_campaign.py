@@ -21,6 +21,9 @@ operator's machine behaves, and per-unit resets would turn a night into a
 week. Reset to `clean-baseline` before a campaign when you want isolation
 (`scripts/vm-snapshot.sh reset DOMAIN`).
 
+``--reset-first DOMAIN`` does that restore, and the prepare (repository
+synced, apt lists refreshed, venv built), once before the first unit.
+
 The exception is ``--whole-profiles``: each name is a profile installed as
 one transaction, and ``--reset-each DOMAIN`` restores the VM to
 `clean-baseline` and re-prepares it before every one. Per-unit success does
@@ -81,6 +84,50 @@ class UnitResult:
         return OUTCOMES.get(self.exit_code, f"exit {self.exit_code}")
 
 
+# The runbook's "prepared" includes updated (vm-testing.md, baseline prep
+# step 1), and a snapshot freezes the apt lists at the day it was taken. The
+# archive does not wait: Parrot's clean-baseline was four days old when its
+# lists still named glib2.0 2.84.4-3~deb13u3 and the pool had moved on, and
+# six of fifteen profiles failed at the first fetch with a 404 (2026-09-03).
+# So the lists are refreshed here, once per prepare, before anything is
+# measured -- the engine's own ``--refresh`` would do it per unit, and the
+# campaign is measuring the catalog, not the age of a snapshot. The retry
+# loop is for a guest that runs its own apt at boot: Pop!_OS 24.04's did,
+# and a prepare that started 30 s after the restore lost the lists lock to
+# it (2026-09-04). ``DPkg::Lock::Timeout`` was the obvious fix and does not
+# apply to the lists lock -- measured at 0 s against a held lock, apt 3.0.3
+# -- so the wait is this loop, bounded at five minutes.
+PREPARE_REMOTE = (
+    "cd hammunition || exit 1; n=0; until sudo -n apt-get update -q; do "
+    "n=$((n+1)); [ $n -ge 30 ] && exit 100; sleep 10; done; "
+    "python3 -m venv .venv && .venv/bin/pip install -q -e . "
+    "&& .venv/bin/hammunition --version"
+)
+
+
+def prepare(ssh: list[str], host: str, *, attempts: int = 2) -> None:
+    """The venv and the engine on the guest, with the failure text kept.
+
+    ``check=True`` with ``capture_output=True`` and nothing printed is how the
+    Kali campaign died at profile 5 of 15 with a bare ``CalledProcessError``
+    and no way to tell a PyPI hiccup from a broken guest (2026-09-03). The
+    output is printed on every failure, and one retry covers the transient
+    kind -- the same command succeeded by hand a minute later.
+    """
+    for attempt in range(1, attempts + 1):
+        proc = subprocess.run(
+            [*ssh, host, PREPARE_REMOTE], capture_output=True, text=True, check=False
+        )
+        if proc.returncode == 0:
+            return
+        tail = "\n".join((proc.stdout + proc.stderr).splitlines()[-15:])
+        print(
+            f"prepare attempt {attempt}/{attempts} failed (exit {proc.returncode}):\n{tail}",
+            flush=True,
+        )
+    sys.exit(f"{host} could not be prepared after {attempts} attempts; nothing was measured")
+
+
 def reset_and_prepare(domain: str, host: str, identity: str | None) -> None:
     """Back to `clean-baseline`, then the runbook's prepare steps.
 
@@ -114,16 +161,7 @@ def reset_and_prepare(domain: str, host: str, identity: str | None) -> None:
     )
     if tar.wait() != 0:
         sys.exit("tar of the repository failed")
-    subprocess.run(
-        [
-            *ssh,
-            host,
-            "cd hammunition && python3 -m venv .venv && .venv/bin/pip install -q -e . "
-            "&& .venv/bin/hammunition --version",
-        ],
-        check=True,
-        capture_output=True,
-    )
+    prepare(ssh, host)
 
 
 def run_unit(host: str, identity: str | None, unit: str, timeout: int) -> UnitResult:
@@ -252,7 +290,15 @@ def main() -> int:
         default=None,
         help="libvirt domain to restore to clean-baseline and re-prepare before every unit",
     )
+    parser.add_argument(
+        "--reset-first",
+        metavar="DOMAIN",
+        default=None,
+        help="libvirt domain to restore to clean-baseline and prepare once, before the campaign",
+    )
     args = parser.parse_args()
+    if args.reset_each and args.reset_first:
+        parser.error("--reset-each already resets before the first unit; drop --reset-first")
 
     catalog = load_catalog(REPO_ROOT / "catalog" / "packages")
     profiles = load_profiles(REPO_ROOT / "catalog" / "profiles", catalog)
@@ -277,6 +323,9 @@ def main() -> int:
         check=False,
     ).stdout.strip()
 
+    if args.reset_first:
+        reset_and_prepare(args.reset_first, args.host, args.identity)
+
     target_probe = (
         subprocess.run(
             [
@@ -291,6 +340,12 @@ def main() -> int:
         ).stdout.strip()
         or args.host
     )
+    noun = "Profiles (whole, from clean-baseline)" if args.whole_profiles else "Units"
+
+    def report_so_far(results: list[UnitResult]) -> str:
+        return render_report(
+            target_line=target_probe, engine_commit=commit, results=results, noun=noun
+        )
 
     results: list[UnitResult] = []
     for unit in units:
@@ -300,18 +355,16 @@ def main() -> int:
         result = run_unit(args.host, args.identity, unit, args.timeout)
         print(f"    {result.outcome} ({result.seconds:.0f}s)", flush=True)
         results.append(result)
+        # The report is rewritten after every unit, so a campaign that dies
+        # at unit 5 of 15 leaves the four results it had, and a failure's
+        # tail is readable while the next unit builds instead of hours later.
+        if args.out:
+            args.out.write_text(report_so_far(results))
 
-    report = render_report(
-        target_line=target_probe,
-        engine_commit=commit,
-        results=results,
-        noun="Profiles (whole, from clean-baseline)" if args.whole_profiles else "Units",
-    )
     if args.out:
-        args.out.write_text(report)
         print(f"wrote {args.out}")
     else:
-        print(report)
+        print(report_so_far(results))
     return 0
 
 
