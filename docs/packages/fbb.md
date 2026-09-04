@@ -24,7 +24,7 @@ A configured AX.25 stack and a callsign for the BBS. Forwarding partners, which 
 ## How it installs
 
 - apt: `fbb`
-  - **Only Ubuntu 26.04 and Linux Mint 22.3 carry this**, both at 7.011-3. No candidate on Debian 13, Kali or Parrot (measured 2026-08-28). The direction is unusual -- Debian's line lacks something Ubuntu's has -- and it matters because `ax25mail-utils`, which this catalog carries and which exists to forward mail with an FBB system, is present on every target. On the primary target you get the client side of a BBS you cannot run.
+  - **Only Ubuntu 26.04 and Linux Mint 22.3 carry this**, both at 7.011-3. No candidate on Debian 13, Kali or Parrot (measured 2026-08-28). The direction is unusual -- Debian's line lacks something Ubuntu's has -- and it matters because `ax25mail-utils`, which this catalog carries and which exists to forward mail with an FBB system, is present on every target. On the primary target you get the client side of a BBS you cannot run. The why, from the Debian tracker (2026-09-04): removed from testing on 2025-01-23 over RC bug #1091298, a build failure on armhf (`satupdat.c:664`, an incompatible pointer type the current GCC rejects), and unstable's 7.011-3 has not migrated since. Ubuntu's archive carries the same 7.011-3 regardless. It is a packaging bug in Debian's queue, not something this engine can route around.
 
 ## Known problems
 
