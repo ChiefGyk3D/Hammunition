@@ -83,15 +83,21 @@ Where the reason is real, say it in the install block's `note`, with what was
 measured and when.
 
 `build_depends` lists what the *software* needs to build — libraries, headers,
-Qt. The engine's own tools are not the manifest's job: a `git` block pulls in
-`git`, `autoreconf: true` pulls in autoconf/automake/libtool, a `node` block
-pulls in `nodejs` and `npm`, and `build_system: cmake` pulls in `cmake`. That
-last one was learned the hard way — `wsjtx` never listed cmake and built on
-five targets anyway because `js8call` in the same profile did, until Pop!_OS
-resolved `js8call` from apt and `digital-modes` died at command 27 with
-`'cmake' is not on PATH`. A manifest that relies on its neighbours for a tool
-is a manifest that works by accident. Listing `cmake` yourself is harmless (it
-is de-duplicated), just unnecessary.
+Qt. The toolchain is not the manifest's job: every `source` or `git` block
+pulls in `build-essential`, a `build_system: cmake` block pulls in `cmake`, a
+`git` block pulls in `git`, `autoreconf: true` pulls in
+autoconf/automake/libtool, and a `node` block pulls in `nodejs` and `npm`.
+This was learned the hard way — `wsjtx` never listed cmake or a compiler and
+built on five targets anyway because `js8call` in the same profile did, until
+Pop!_OS resolved `js8call` from apt and `digital-modes` died at command 27
+with `'cmake' is not on PATH`. Measured the same day: the Debian 13 baseline
+ships no gcc, 33 of 39 compiled manifests listed `build-essential` by hand,
+and four (`fldigi`, `glfer`, `mshv`, `wsjtx`) relied on a neighbour — `mshv`'s
+own note already records that order-dependence for a header. A manifest that
+relies on its neighbours for a tool works by accident. Listing
+`build-essential` or `cmake` yourself is harmless (de-duplicated), just
+unnecessary. `qmake` is the exception: every qmake manifest names `qt5-qmake`
+or `qt6-base-dev` itself and the engine does not add one.
 
 ## Categories come from the vocabulary
 
