@@ -83,6 +83,19 @@ def test_a_manifest_with_no_launchers_plans_nothing() -> None:
     assert launcher_steps(m, bin_dir=Path("/x"), applications_dir=Path("/y")) == []
 
 
+def _unreset(mod: object, commit: str) -> object:
+    """A campaign that reset nothing and read no apt lists: the header says so."""
+    return mod.Provenance(  # type: ignore[attr-defined]
+        engine_commit=commit,
+        dirty_files=0,
+        domain=None,
+        snapshot=None,
+        snapshot_created=None,
+        apt_lists=(),
+        prepared_at=None,
+    )
+
+
 def test_campaign_report_buckets_and_names_every_unit() -> None:
     """The campaign renderer: every unit gets a row, failures carry their
     evidence text, refusals are not counted as failures."""
@@ -105,9 +118,12 @@ def test_campaign_report_buckets_and_names_every_unit() -> None:
         mod.UnitResult("broken", 1, 300.0, "make: *** Error 1"),
     ]
     report = mod.render_report(
-        target_line="Testville 1.0", engine_commit="abc1234", results=results
+        target_line="Testville 1.0", provenance=_unreset(mod, "abc1234"), results=results
     )
-    assert "3 — 1 installed+confirmed, 1 refused at plan time, 1 failed" in report
+    assert (
+        "3 — 1 installed+confirmed (1 by no effect check), 1 refused at plan time, 1 failed"
+        in report
+    )
     for unit in ("good", "gap", "broken"):
         assert f"| `{unit}` |" in report
     assert "## Failures" in report and "make: *** Error 1" in report
@@ -138,8 +154,13 @@ def test_campaign_files_a_budget_stop_as_stopped_not_failed() -> None:
         "qlog", "Done. 11 command(s) completed.\n__EXIT=0\n", seconds=5, timeout=900
     )
     assert done.exit_code == 0 and "Done." in done.tail
-    report = mod.render_report(target_line="T", engine_commit="abc", results=[stopped, done])
-    assert "1 installed+confirmed, 0 refused at plan time, 0 failed, 1 stopped" in report
+    report = mod.render_report(
+        target_line="T", provenance=_unreset(mod, "abc"), results=[stopped, done]
+    )
+    assert (
+        "1 installed+confirmed (1 by no effect check), 0 refused at plan time, 0 failed, 1 stopped"
+        in report
+    )
     assert "STOPPED (budget)" in report and "## Stopped by the budget" in report
     assert "## Failures" not in report
 
@@ -161,10 +182,12 @@ def test_campaign_files_a_declined_consent_gate_as_neither_failure_nor_refusal()
 
     gated = mod.UnitResult("rf-research", 3, 4.0, "Do you affirm that you have the authorization")
     done = mod.UnitResult("sdr", 0, 162.0, "Done.")
-    report = mod.render_report(target_line="T", engine_commit="abc", results=[gated, done])
+    report = mod.render_report(
+        target_line="T", provenance=_unreset(mod, "abc"), results=[gated, done]
+    )
     assert (
-        "1 installed+confirmed, 0 refused at plan time, 0 failed, 1 stopped at a consent gate"
-        in report
+        "1 installed+confirmed (1 by no effect check), 0 refused at plan time, 0 failed, "
+        "1 stopped at a consent gate" in report
     )
     assert "| `rf-research` | consent declined |" in report
     assert "## Failures" not in report
