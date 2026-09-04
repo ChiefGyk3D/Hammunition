@@ -886,3 +886,56 @@ is installed *now*, not at what the same transaction installs) and was fixed
 as one the same night, not deferred: the plan now asks `apt-get --simulate`
 and refuses the pairing by name, and the profile no longer lists
 `wsjtx-improved`.
+
+---
+
+## Q-018 🟡 — Should `install` refresh the apt lists by default?
+
+**Raised 2026-09-04**, from the whole-profile campaign on Parrot
+(`~/.local/state/hammunition-campaigns/profiles-parrot-2026-09-03.md`, the
+first run; the rerun with fresh lists is in the morning report). The
+guest's `clean-baseline` was four days old. Its lists named
+`glib2.0 2.84.4-3~deb13u3`; the pool had moved to the next revision; and
+**six of fifteen profiles** — `digital-modes`, `electronics`, `listening`,
+`logging`, `packet`, `propagation` — passed the plan and died four
+commands in:
+
+```
+E: Failed to fetch https://deb.parrot.sh/parrot/pool/main/g/glib2.0/libglib2.0-dev_2.84.4-3%7edeb13u3_amd64.deb  404  Not Found
+E: Unable to fetch some archives, maybe run apt-get update or try with --fix-missing?
+```
+
+The catalog was right and the machine was unchanged (apt fetches every
+archive before it unpacks any). Four days is not an unusual age for an
+operator's lists; a laptop that last ran `apt update` before a trip will
+hit this on its first `hammunition install` home. AHRL and 73Linux both run
+`apt update` unconditionally before anything else, which is why neither
+has ever reported this failure.
+
+What the engine does today: `--refresh` puts `apt-get update` at the head
+of the transaction, disclosed in the plan, and the plan refuses outright
+when there are *no* lists. Nothing handles lists that exist and are stale,
+because nothing can measure it: the list files carry the archive's
+`Last-Modified` as their mtime and an `apt-get update` that hits unchanged
+indexes touches nothing, so "when did this machine last update" is not
+on disk on Debian at all (Ubuntu writes `/var/lib/apt/periodic/update-success-stamp`
+via a conf.d snippet Debian does not ship). The failure is now
+*diagnosed* — the message names the files, says nothing was installed,
+and gives the remedy — but a diagnosis is a consolation, not a fix.
+
+| Option | For | Against |
+|---|---|---|
+| **A. Refresh by default; `--no-refresh` to opt out** ⭐ | Matches what every operator does by hand and what both inventory sources do. The command is already disclosed in the plan when `--refresh` is passed; making it the default changes nothing about what `--dry-run` shows, only when. A plan with nothing to install skips it, so an idempotent re-run stays a no-op. | Every install starts with a privileged network operation. A field station with no uplink fails before its first package unless it remembers `--no-refresh` (the local-mirror case). The plan's candidate check still resolves against the *old* lists — the refresh runs after the plan is shown — so a package the fresh lists would newly offer is still refused, and one they would newly lack still fails at fetch, one step later. Every documented example gains a first line. |
+| B. Refresh when the lists look old | No cost on a fresh machine. | Not measurable on Debian, as above. A heuristic on file mtimes would read the archive's own timestamps and be wrong in both directions. Rejected on the evidence, not the taste. |
+| C. On a 404, run `apt-get update` and retry the same `apt-get install` once | Self-healing, contained, no default changes; D-038 is the precedent for one automatic retry. | D-038 retries the *plan*; this would run a command `--dry-run` never printed, which CLAUDE.md forbids — the dry run must be complete. And a retry after a partial fetch is exactly the moment an operator wants to be asked. |
+| D. Leave it: diagnosis plus `--refresh` | No change; the message now says what to do. | The operator learns the flag by failing once. That is the AHRL install-once-and-rot pattern (D-010) at the level of a single run. |
+
+**Recommendation: A.** The plan-time weakness is real but bounded — it
+produces one clean failure with the diagnosis, never a partial install —
+and the alternative is that every operator's first run after a few days
+away fails. If the field-station case matters more than it looks, `B`'s
+measurement problem does not go away and `C` is ruled out by the dry-run
+rule, so A with the opt-out is the only shape that survives. Whether the
+refresh also re-runs the candidate check against the fresh lists (a second,
+better plan, disclosed as such) is a follow-on, and worth doing if A is
+taken.
