@@ -295,6 +295,47 @@ scripts/vm_campaign.py --host user@GUEST_IP \
 The budget is per profile here, and the source-heavy ones need it —
 `digital-modes` builds fldigi, WSJT-X and MSHV in one run.
 
+### What a report has to carry to be believed
+
+Six unit passes on 2026-09-04 filed `installed+confirmed` 1,375 times, and
+not one row could say *what* had confirmed it without a shell on the guest.
+`yaac` on Parrot rested on a single check — `libjssc-java 2.8.0-4`, a
+dependency. `wsjtx-improved` was refused on every target for colliding
+with a `wsjtx-data` that `jtdx` had pulled in hours earlier, an honest
+refusal that hid the unit's own failure on a clean Kali (#24). The report
+now carries the evidence rather than the verdict alone:
+
+- **Confirmed by** — per unit, every check the engine's D-031 re-probe
+  made (`package jtdx installed 2.2.159`; `binary fldigi:fldigi executable
+  at …`; `group user:dialout …`), read from the transaction-log lines the
+  unit appended. `no effect checks` means the re-probe had nothing to ask,
+  and the summary counts those units separately: not failures, but exit
+  codes rather than evidence. An engine that probes launchers and
+  installed trees would empty that list; until then it is the stated blind
+  spot.
+- **Provenance** — the engine commit *and whether the synced tree matched
+  it* (the guest gets the working tree, not the commit), the libvirt domain
+  and snapshot with the snapshot's creation time, when prepare ran, and the
+  `Date:` of every InRelease in the guest's apt lists after prepare. A
+  reader can put the same tree on the same snapshot against lists of the
+  same age. The guest's address is never in the report.
+- **Cumulative refusals** — the guest reports what dpkg gained during each
+  unit, dependencies included, and a later plan-time refusal that names one
+  of those packages is labelled *cumulative* with the package and the unit
+  that brought it. It is a fact about the pass, not the unit, so with
+  `--reset-first DOMAIN` the campaign re-runs each such unit **alone on the
+  restored snapshot** after the pass and files both verdicts side by side.
+  `--reset-each` passes label nothing: no unit sees another's state.
+- **`<out>.evidence.jsonl`** — the machine-readable record beside the
+  markdown: the provenance, then one line per unit with exit code, tail,
+  every transaction-log entry it appended and every package it added, then
+  the isolated re-runs. Rewritten with the report after every unit, so a
+  campaign that dies keeps what it measured, and the markdown can be
+  reconstructed from it.
+
+`tests/test_vm_campaign.py` holds one test per claim above, each first run
+against a report that lacked the field to watch it fail.
+
 ## Maintenance sweeps
 
 `scripts/check_artifact_urls.py` asks every pinned artifact URL in the
