@@ -7,6 +7,7 @@
 - **Version recorded:** 3.0.2
 - **Categories:** `digital-modes`
 - **Upstream:** <https://wsjtx.github.io/wsjtx/index.html>
+- **Needs first:** `libhamlib4t64`
 
 ## What it does
 
@@ -23,7 +24,7 @@ Accurate system clock (within about a second), CAT rig control, and audio routed
 ## How it installs
 
 - git (cmake) — https://github.com/WSJTX/wsjtx at `v3.0.2`
-  - build dependencies: `gfortran`, `libboost-dev`, `libboost-log-dev`, `libboost-filesystem-dev`, `qttools5-dev`, `qttools5-dev-tools`, `qtmultimedia5-dev`, `libqt5serialport5-dev`, `libfftw3-dev`, `libreadline-dev`, `libusb-1.0-0-dev`, `libudev-dev`
+  - build dependencies: `gfortran`, `libboost-dev`, `libboost-log-dev`, `libboost-filesystem-dev`, `qttools5-dev`, `qttools5-dev-tools`, `qtmultimedia5-dev`, `libqt5serialport5-dev`, `libfftw3-dev`, `libreadline-dev`, `libusb-1.0-0-dev`, `libudev-dev`, `libhamlib-dev`
 
 Binaries this produces:
 
