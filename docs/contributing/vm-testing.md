@@ -250,7 +250,23 @@ default of 1800 s covers every compile measured so far; a no-swap VM that
 No reset between units, deliberately: a campaign is one accumulating
 machine-state, like a real operator's machine. This is the mechanism the M5
 report will be generated from — one campaign per target, every unit, and
-the exit-criterion fraction falls out as arithmetic.
+the exit-criterion fraction falls out as arithmetic. `--reset-first DOMAIN`
+restores `clean-baseline` and prepares the guest once before the first unit,
+so a whole-catalog campaign starts from the known state without a separate
+`reset` and a by-hand sync.
+
+**Prepare refreshes the apt lists.** A snapshot freezes them at the day it
+was taken and the archive moves on: Parrot's `clean-baseline` was four days
+old when its lists still named `glib2.0 2.84.4-3~deb13u3`, the pool no
+longer had it, and six of fifteen profiles failed at their first fetch with
+a 404 — four commands into a transaction, on a catalog that was fine
+(2026-09-03). Every prepare now runs `apt-get update` before building the
+venv, which is also why a guest without passwordless sudo fails at prepare
+rather than at unit 1. A prepare that fails prints the guest's output and is
+retried once, because the Kali campaign died at profile 5 of 15 with a bare
+`CalledProcessError` and no text — a PyPI hiccup and a broken guest were
+the same verdict. The report file is rewritten after every unit, so a
+campaign that dies keeps what it measured.
 
 **Then install the profiles whole.** Per-unit success does not prove
 profile success: twenty of `digital-modes`' twenty-one members were
