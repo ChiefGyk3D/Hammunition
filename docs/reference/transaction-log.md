@@ -118,6 +118,15 @@ a directory no install step created fails on every click. Both are unasked
 questions, not failures, when the run has no prefix or no per-user bin
 directory to look in.
 
+Measured on Debian 13 from the clean snapshot, engine 4c83e11, 2026-09-05:
+`js8spotter`, `yaac` and `supersdr` each ended with a `tree` and a
+`launcher` check beside their packages -- `yaac` went from one check on a
+dependency (`libjssc-java`) to four, one of them `YAAC.jar` itself. The
+falsification the issue asked for was run on the same guest: with the
+installed `YAAC.jar` removed, `verify_effects` against the live prefix went
+`verified: false` on `tree yaac:YAAC.jar` naming the missing path, and green
+again once it was put back.
+
 `uninstall` will trust this record over an exit code: a package recorded
 `confirmed: false` was never actually installed and must not be "removed". A
 version-1 `transaction_end` (written before this check existed) carries no
