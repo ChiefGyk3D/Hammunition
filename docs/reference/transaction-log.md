@@ -125,7 +125,13 @@ dependency (`libjssc-java`) to four, one of them `YAAC.jar` itself. The
 falsification the issue asked for was run on the same guest: with the
 installed `YAAC.jar` removed, `verify_effects` against the live prefix went
 `verified: false` on `tree yaac:YAAC.jar` naming the missing path, and green
-again once it was put back.
+again once it was put back. The two remaining tree units ran on the same
+snapshot afterwards: `mshv` (89 s, an actual qmake build) confirmed
+`tree mshv:bin/MSHV_x86_64` and a wrapper running in `.../mshv/bin`, and
+`radiosonde-auto-rx` confirmed `tree radiosonde-auto-rx:auto_rx/auto_rx.py`
+and a wrapper running in `.../radiosonde-auto-rx/auto_rx` -- so every marker
+in the catalog has been read back from a real install, not only inferred
+from the archive listing.
 
 `uninstall` will trust this record over an exit code: a package recorded
 `confirmed: false` was never actually installed and must not be "removed". A
