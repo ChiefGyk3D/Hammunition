@@ -128,6 +128,13 @@ def page(m: PackageManifest) -> str:
         out.append("- **Needs first:** " + ", ".join(f"`{p}`" for p in m.depends))
     if m.after:
         out.append("- **Install after:** " + ", ".join(f"`{p}`" for p in m.after))
+    if m.requires_kernel:
+        out.append(
+            "- **Needs from the kernel:** "
+            + ", ".join(f"`{f}`" for f in m.requires_kernel)
+            + " — checked against the running kernel at plan time; "
+            "see [kernel-ax25](../reference/kernel-ax25.md)"
+        )
     if m.supersedes:
         out.append("- **Supersedes:** " + ", ".join(f"`{p}`" for p in m.supersedes))
     if m.superseded_by:

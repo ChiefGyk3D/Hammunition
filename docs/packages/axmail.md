@@ -8,6 +8,7 @@
 - **Categories:** `emcomm`, `packet`
 - **Upstream:** <https://sourceforge.net/projects/axmail/>
 - **Install after:** `ax25-tools`
+- **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)
 
 ## What it does
 
@@ -27,7 +28,7 @@ A working AX.25 stack, a node front end such as uronode configured to launch it,
 
 ## Known problems
 
-It is a front end onto local mail, so anything wrong with mail delivery on the machine appears as a packet problem to the caller. Messages carried on behalf of others over amateur radio are subject to content rules in most jurisdictions, and running the service means accepting that.
+Needs the kernel AX.25 stack, which Linux 7.1 removed (merge 64edfa65, 2026-04-24); on a 7.1 or newer kernel -- Kali rolling and Pop!_OS 24.04 on 7.1.5, measured 2026-09-04 -- the plan refuses or defers this unit by name. See `ax25-tools` and `docs/reference/kernel-ax25.md`. It is a front end onto local mail, so anything wrong with mail delivery on the machine appears as a packet problem to the caller. Messages carried on behalf of others over amateur radio are subject to content rules in most jurisdictions, and running the service means accepting that.
 
 ## Keeping it current
 

@@ -15,7 +15,11 @@ status: supported
 #
 # `status: supported` with no `maintainer_verified` is exactly the D-027 shape:
 # the identifiers are right and rules built from them will match; nobody here
-# has plugged one in. Two claims, two fields.
+# has plugged one in. Two claims, two fields. On 2026-09-05 somebody else did
+# plug one in -- the first capture sent in through docs/contributing/hardware.md
+# (issue #30) -- and it matched the rule for the full-size board. That narrows
+# the gap below; it does not touch `maintainer_verified`, which is about this
+# project's own bench and stays unset.
 #
 # NOT EVERY IDENTIFIER IN THE RULE IS TAKEN, and the omissions matter more than
 # the inclusions. Debian's rule also lists 0403:6001 (FTDI FT232 serial) and
@@ -31,12 +35,17 @@ status: supported
 usb_ids:
   - vendor: "1d50"
     product: "6108"
-    description: LimeSDR (Myriad-RF) - the full-size USB board
+    description: LimeSDR-USB (Myriad-RF) - the full-size USB board
     evidence: >-
       Debian 13 /usr/lib/udev/rules.d/64-limesuite.rules, from the
       limesuite-udev package; usb.ids names 1d50:6108 "OpenMoko, Inc. Myriad-RF
-      LimeSDR". Read by the archive-wide sweep in scripts/udev-sweep.sh, not
-      from hardware -- see docs/reference/udev-inventory.md.
+      LimeSDR". Read by the archive-wide sweep in scripts/udev-sweep.sh -- and
+      then matched against hardware: an owner's lsusb capture (issue #30,
+      2026-09-05) reads iManufacturer "Myriad-RF", iProduct
+      "LimeSDR-USB", a serial present (redacted, per
+      docs/contributing/hardware.md), and nothing under /dev but the
+      /dev/bus/usb node -- which is what node_kind libusb claims. The first
+      identifier in this catalog confirmed by someone outside the project.
     confirmed: true
     node_kind: libusb
   - vendor: "0403"
@@ -62,13 +71,13 @@ usb_ids:
     node_kind: libusb
 
 identification_gap: >-
-  Narrowed, not closed. The board identifiers are now confirmed from Debian's
-  own rule, but which of the LimeSDR variants a given identifier belongs to has
-  not been checked against hardware -- the USB board and the Mini are different
-  designs and the Mini is FTDI-based, so `1d50:6108` is believed to be the
-  full-size board and `0403:601f` the Mini. The maintainer owns neither. An
-  owner running scripts/identify-device.sh would settle which is which, and
-  would also confirm whether current Mini revisions still present 0403:601f.
+  Narrowed again, still not closed. `1d50:6108` is the full-size LimeSDR-USB:
+  an owner's capture said so in the product string (issue #30, 2026-09-05),
+  and it presents no serial device, only the libusb node. What remains is
+  the Mini: `0403:601f` comes from Debian's rule alone and no Mini owner has
+  reported yet, so whether current Mini revisions still present it is
+  unknown. The maintainer owns neither board; a Mini owner running
+  scripts/identify-device.sh limesdr would close the rest.
 gap_closure: unverified_by_maintainer
 
 groups: [plugdev]
@@ -82,7 +91,9 @@ documentation:
     tooling for calibrating and configuring the transceiver directly.
   setup_steps: >-
     Install limesuite and soapysdr-module-lms7 from apt, then run LimeUtil --find.
-    Add udev rules once the identifier for your board is confirmed.
+    The full-size USB board's identifier is confirmed and its rule applies;
+    a Mini's is from Debian's rule only, so check LimeUtil --find as an
+    unprivileged user before trusting the permission grant.
   known_problems: >-
     USB and Mini are different hardware with different identifiers and different
     quirks. Debian ships limesuite 23.11 while upstream has moved to LimeSuiteNG;

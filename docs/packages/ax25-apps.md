@@ -8,6 +8,7 @@
 - **Categories:** `emcomm`, `packet`
 - **Upstream:** <https://linux-ax25.in-berlin.de/wiki/Ax25-apps>
 - **Install after:** `ax25-tools`
+- **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)
 
 ## What it does
 
@@ -27,7 +28,7 @@ A working AX.25 port from ax25-tools. Without one these programs have nothing to
 
 ## Known problems
 
-`listen` shows everything on the port including your own transmissions, which confuses a first diagnosis. `ax25ipd` links your local packet network to a wider one over the internet, which changes who can reach your station and is worth deciding deliberately rather than copying from an example configuration.
+Needs the kernel AX.25 stack, which Linux 7.1 removed (merge 64edfa65, 2026-04-24); on a 7.1 or newer kernel -- Kali rolling and Pop!_OS 24.04 on 7.1.5, measured 2026-09-04 -- the plan refuses or defers this unit by name. See `ax25-tools` and `docs/reference/kernel-ax25.md`. `listen` shows everything on the port including your own transmissions, which confuses a first diagnosis. `ax25ipd` links your local packet network to a wider one over the internet, which changes who can reach your station and is worth deciding deliberately rather than copying from an example configuration.
 
 ## Keeping it current
 

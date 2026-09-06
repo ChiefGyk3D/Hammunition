@@ -27,7 +27,7 @@ Audio in and out to the radio, and a way to key the transmitter -- a serial cont
 
 ## Known problems
 
-Transmit audio level is the single biggest cause of a station that hears everyone and is heard by nobody -- overdriving the radio produces a signal that looks strong and does not decode. Direwolf will tell you its own receive levels, which is the place to start. Running it as a digipeater or an igate puts traffic on the network under your callsign, and the default example configuration is deliberately not a digipeater; turning that on is a decision about a shared resource.
+Unaffected by Linux 7.1's removal of the kernel AX.25 stack: it is the userspace modem, and its KISS and AGW ports are what the other packet programs talk to. Only attaching it to the kernel stack with `kissattach` needs `ax25`, and that is `ax25-tools`' problem, not this unit's. See `docs/reference/kernel-ax25.md`. Transmit audio level is the single biggest cause of a station that hears everyone and is heard by nobody -- overdriving the radio produces a signal that looks strong and does not decode. Direwolf will tell you its own receive levels, which is the place to start. Running it as a digipeater or an igate puts traffic on the network under your callsign, and the default example configuration is deliberately not a digipeater; turning that on is a decision about a shared resource.
 
 ## Keeping it current
 

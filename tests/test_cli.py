@@ -841,6 +841,26 @@ def test_install_dry_run_prints_the_plan_and_executes_nothing(
     assert "transaction log written to" in out
 
 
+def test_install_reads_the_running_kernel_and_refuses_ax25_tools_without_ax25(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any, tmp_path: Path
+) -> None:
+    """The probe is wired in, end to end, against the shipped manifest: a 7.1
+    kernel with no ax25 module refuses `ax25-tools` by name and says why.
+    Measured on Kali 7.1.5 and Pop!_OS 7.1.5, 2026-09-04."""
+    from hammunition.kernel import KernelProbe
+
+    _mock_apt(monkeypatch, populated=True)
+    release = "7.1.5+kali-amd64"
+    (tmp_path / release / "kernel" / "net").mkdir(parents=True)
+    probe = KernelProbe(release=release, modules_root=tmp_path)
+    monkeypatch.setattr(KernelProbe, "detect", classmethod(lambda cls: probe))
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "ax25-tools"])
+    err = capsys.readouterr().err
+    assert rc == EXIT_UNPLANNABLE
+    assert "ax25-tools" in err and release in err and "AX.25" in err
+    assert "Nothing was changed" in err
+
+
 def test_install_refresh_on_empty_lists_is_plannable_through_main(
     monkeypatch: pytest.MonkeyPatch, capsys: Any
 ) -> None:

@@ -7,6 +7,7 @@
 - **Version recorded:** 0.0.10
 - **Categories:** `emcomm`, `packet`
 - **Upstream:** <https://linux-ax25.in-berlin.de/wiki/Main_Page>
+- **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)
 
 ## What it does
 
@@ -26,7 +27,7 @@ A port definition in `/etc/ax25/axports` naming your callsign, the device, and t
 
 ## Known problems
 
-An unconfigured axports produces failures that name a port rather than saying the file is empty, which reads as a hardware problem. The AX.25 stack has a long history of being lightly maintained in the kernel, and some of the more exotic paths -- Rose in particular -- have few users and correspondingly few bug reports. A callsign written into axports is transmitted; it is the station identity, not a label.
+Linux 7.1 removed the kernel AX.25 stack -- net/ax25, net/netrom, net/rose and every driver in drivers/net/hamradio -- in merge 64edfa65 of 2026-04-24. On a 7.1 or newer kernel there is nothing for kissattach to attach to: `socket(AF_AX25)` fails with "Address family not supported by protocol", and no modprobe helps because the module does not exist. Measured 2026-09-04: Kali rolling (7.1.5) and Pop!_OS 24.04 on its 7.1.5 kernel lack it; Debian 13 (6.12), Parrot 7.3 (7.0.13), Ubuntu 24.04 (6.8) and Ubuntu 26.04 (7.0.0) carry it as a module. Debian removed ax25-tools from testing on 2026-09-01 (#1143282) because it no longer builds against the headers that left with the subsystem, so Kali's archive lacks the package too. Hammunition reads the running kernel's module tree at plan time and refuses this unit by name, or defers it out of a profile, on a kernel without ax25. The userspace packet path is unaffected: Direwolf's KISS and AGW ports serve pat (`ax25+agwpe`), linbpq, YAAC and Xastir without kernel AX.25. See `docs/reference/kernel-ax25.md`. An unconfigured axports produces failures that name a port rather than saying the file is empty, which reads as a hardware problem. The AX.25 stack has a long history of being lightly maintained in the kernel, and some of the more exotic paths -- Rose in particular -- have few users and correspondingly few bug reports. A callsign written into axports is transmitted; it is the station identity, not a label.
 
 ## Keeping it current
 

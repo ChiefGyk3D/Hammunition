@@ -21,13 +21,19 @@ packages:
   - twclock
   - tzwatch
   - pipx
+  # The family's own dashboard. Sits here rather than in `propagation`
+  # because it is the station's front page, not one more propagation
+  # tool: the plan is for it to show what this installer set up.
+  - hammunition-hill
 
 documentation:
   what_it_installs: >-
     Hamlib's command-line tools, a rig control panel that other programs can
     share, the one radio programmer that covers hundreds of models, GPS for
     position and time with the converter that gets tracks off a handheld,
-    two clocks, and pipx.
+    two clocks, pipx, and Hammunition Hill -- the family's own local-first
+    dashboard, installed from its release .deb and served to your browser
+    on 127.0.0.1:8073.
   why_together: >-
     This is what every other profile quietly assumes is already there. A
     digital-modes setup needs something to key the radio; a logger needs to
@@ -61,6 +67,13 @@ documentation:
     menu. **Decide that flrig owns the serial port** and point everything else
     at flrig; two programs opening it directly is the classic failure and its
     symptom is erratic behaviour rather than an error. `pipx ensurepath` needs
-    a new shell before it takes effect.
+    a new shell before it takes effect. **Hammunition Hill is running from
+    the moment its package lands**: the .deb enables and starts
+    `hammunition-hill.service` as its own `hamhill` user, bound to loopback.
+    Give it your callsign and an ADIF log in
+    `/etc/hammunition-hill/config.toml` and restart the service; leave the
+    host at 127.0.0.1.
   disk_footprint_hint: >-
-    Around 120 MB. CHIRP and its wxPython dependency are most of it.
+    Around 125 MB. CHIRP and its wxPython dependency are most of it;
+    Hammunition Hill's .deb is under half a megabyte plus two Python
+    libraries.

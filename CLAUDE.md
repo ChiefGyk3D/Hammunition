@@ -165,6 +165,7 @@ Do not re-litigate these without being asked:
 | Profile members the target lacks | Defer by name, install the rest; a typed name, an engine gap or a manifest defect still refuses | Five of fifteen profiles withheld nineteen installable units over four absent ones (**D-039**) |
 | Third-party apt repos | Manifest pins the key fingerprint; added only when the archive offers nothing; consent is the fingerprint itself, never `1` or `--yes`; both files come out on uninstall | `code`/`codium` refused on every target and withheld all of `workstation` (**D-040**) |
 | Profile members a target lacks | Deferred by name, the rest installs; a name the operator typed, an engine gap or a manifest defect still refuses | `listening` withheld nineteen units on Ubuntu 24.04 over four the archive lacks (**D-039**) |
+| Kernel subsystems | `requires_kernel` on the manifest; the plan reads `/lib/modules/<uname -r>` and refuses or defers by name; never in the capability matrix, never a module we build | Linux 7.1 removed AX.25; Kali and the maintainer's own laptop have no `ax25.ko`, and `packet` had "installed whole" on Pop!_OS (**D-041**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
 
@@ -277,8 +278,9 @@ head.
 - **Never pin an action from memory; resolve it.** Every pin in that project's
   first workflow was a real commit and two major versions stale, and one failed
   outright against the runner's newer CLI. `git ls-remote --tags` is the check.
-  Worth a look here too: this repository's `actions/checkout@v4` is three majors
-  behind current.
+  This repository's pins were resolved the same way (e5c8260): `checkout`,
+  `setup-python` and `setup-qemu-action` sit on their current majors as of
+  2026-09-05, and the check is worth re-running whenever a workflow is touched.
 
 ## Conventions
 
@@ -345,8 +347,12 @@ head.
   promised since day one. The WIP phase before it (2026-08-25 to 09-02)
   pushed directly to `main`; that ended when the whole catalog installed on
   five targets with zero failures and the maintainer said so. Small, logically
-  scoped PRs; CI's PR-only jobs (commit claims, pin reviews, udev citations)
-  run on every one. A PR is merged by the maintainer, never by the author of
+  scoped PRs; CI's PR-only job (commit claims) runs on every one. **Pin
+  reviews and udev rule citations are weekly, not per-PR** — the citation
+  check needs a ~264 MB archive sweep and the pin check needs the network —
+  so a PR that changes a hardware citation or a pin has not been checked
+  until `gh workflow run ci.yml --ref <branch>` says so; do that before
+  calling it green. A PR is merged by the maintainer, never by the author of
   the branch on their own say-so. `main` is tagged at releases; releases are
   annotated tags, and signed once a signing key is configured on the
   maintainer's machine (v0.7.0 is not — no key existed).
@@ -450,6 +456,8 @@ longer a design question in the abstract; a shipped manifest depends on it. See
 `DESIGN.md` §15.3 and the D-004 amendment.
 
 **Open questions awaiting the maintainer** are in `docs/QUESTIONS.md`.
+**Q-018** (refresh apt lists by default) and **Q-019** (retire `z8530-utils2`;
+is the packet core userspace-primary now that Linux 7.1 has no AX.25) are open.
 **Q-001 through Q-016 are all resolved.** Q-006, Q-007 and Q-008 closed on
 2026-08-29: HamClock carries both clients defaulting to `openhamclock` with
 `ohb.works` as the backend; SuperSDR is carried under **D-033**; cellular

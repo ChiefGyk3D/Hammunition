@@ -63,13 +63,14 @@ import sys
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
+from hammunition.distro.detect import Target  # noqa: E402
 from hammunition.manifest.load import load_catalog, load_profiles  # noqa: E402
 
 SSH_BASE = [
@@ -102,6 +103,32 @@ def target_from_status(status_output: str) -> str:
     return first.removeprefix("Target:").strip() or TARGET_UNKNOWN
 
 
+def target_line(probed: str, results: list[UnitResult]) -> str:
+    """What the header names as the target.
+
+    The engine's own os-release reading, logged in ``transaction_begin`` by
+    the unit that ran on the guest, outranks the separate ``status`` probe:
+    the Kali ``packet`` report of 2026-09-05 read *status probe returned
+    nothing* while its evidence sidecar held the target all along. The
+    probe's answer stands when it gave one; the log fills the gap; the
+    unknown is only for a pass that logged nothing either.
+    """
+    if probed != TARGET_UNKNOWN:
+        return probed
+    for result in results:
+        for entry in result.entries:
+            logged = entry.get("target") if entry.get("event") == "transaction_begin" else None
+            if isinstance(logged, dict) and logged.get("distro"):
+                return Target(
+                    distro=str(logged["distro"]),
+                    version=str(logged.get("distro_version", "")),
+                    arch=str(logged.get("arch", "")),
+                    id_like=tuple(logged.get("id_like", ())),
+                    pretty_name=str(logged.get("pretty_name") or "") or None,
+                ).describe()
+    return TARGET_UNKNOWN
+
+
 @dataclass(frozen=True)
 class UnitResult:
     unit: str
@@ -116,6 +143,20 @@ class UnitResult:
     """What dpkg holds after this unit that it did not hold before --
     dependencies included, which the transaction log never names. `jtdx`
     brings `wsjtx-data`; only this delta knows."""
+    started_at: str | None = None
+    """UTC wall clock the ssh session began, ISO 8601 to the second. A row
+    that cannot be placed in time cannot be correlated with anything else
+    that touched the machine: on 2026-09-05 a second campaign reverted the
+    Parrot snapshot under a running sweep, whose `propagation` row read
+    `exit 255` with nothing to say when. None for rows filed without one."""
+
+    @property
+    def finished_at(self) -> str | None:
+        """`started_at` plus the measured seconds; None without a start."""
+        if self.started_at is None:
+            return None
+        ended = datetime.fromisoformat(self.started_at) + timedelta(seconds=self.seconds)
+        return ended.isoformat(timespec="seconds")
 
     @property
     def outcome(self) -> str:
@@ -130,6 +171,38 @@ class UnitResult:
             if entry.get("event") == "transaction_end"
             for check in entry.get("checks", ())
         )
+
+    @property
+    def deferrals(self) -> tuple[dict[str, Any], ...]:
+        """What the plan withheld by name, from `transaction_begin` (version
+        2, D-039/D-041): a member the target lacks, a config file the
+        station values do not fill (D-035)."""
+        return tuple(
+            deferral
+            for entry in self.entries
+            if entry.get("event") == "transaction_begin"
+            for deferral in entry.get("deferred", ())
+        )
+
+    @property
+    def deferred_members(self) -> tuple[dict[str, Any], ...]:
+        return tuple(d for d in self.deferrals if d.get("kind") == "package")
+
+    @property
+    def deferred_config(self) -> tuple[dict[str, Any], ...]:
+        return tuple(d for d in self.deferrals if d.get("kind") != "package")
+
+    @property
+    def outcome_with_deferrals(self) -> str:
+        """`installed+confirmed — 8 members deferred`: the Kali `packet` row
+        of 2026-09-05 said the first half only, with the eight in the log
+        beside it and nowhere in the table."""
+        parts = []
+        if members := len(self.deferred_members):
+            parts.append(f"{members} member{'s' if members != 1 else ''} deferred")
+        if config := len(self.deferred_config):
+            parts.append(f"{config} config file{'s' if config != 1 else ''} deferred")
+        return f"{self.outcome} — {', '.join(parts)}" if parts else self.outcome
 
     @property
     def evidence(self) -> str:
@@ -390,18 +463,27 @@ def run_unit(host: str, identity: str | None, unit: str, timeout: int) -> UnitRe
         argv += ["-i", identity]
     argv += [host, f"bash -c '{remote_command(unit, timeout)}'"]
     started = datetime.now(UTC)
+    started_at = started.isoformat(timespec="seconds")
     try:
         proc = subprocess.run(
             argv, capture_output=True, text=True, timeout=timeout + 120, check=False
         )
         raw = proc.stdout
     except subprocess.TimeoutExpired:
-        return UnitResult(unit, -1, timeout, f"ssh did not return {timeout + 120}s after start")
+        return UnitResult(
+            unit,
+            -1,
+            timeout,
+            f"ssh did not return {timeout + 120}s after start",
+            started_at=started_at,
+        )
     seconds = (datetime.now(UTC) - started).total_seconds()
-    return classify(unit, raw, seconds=seconds, timeout=timeout)
+    return classify(unit, raw, seconds=seconds, timeout=timeout, started_at=started_at)
 
 
-def classify(unit: str, raw: str, *, seconds: float, timeout: int) -> UnitResult:
+def classify(
+    unit: str, raw: str, *, seconds: float, timeout: int, started_at: str | None = None
+) -> UnitResult:
     """Turn the remote session's merged output into a filed result."""
     exit_code = 255
     tail_lines: list[str] = []
@@ -440,6 +522,7 @@ def classify(unit: str, raw: str, *, seconds: float, timeout: int) -> UnitResult
             f"stopped by the {timeout}s budget; the build was still running",
             kept,
             gained,
+            started_at=started_at,
         )
     # Keep what a reader needs. Stderr outruns block-buffered stdout through
     # a pipe, so a failure's text can land ANYWHERE in the merged stream —
@@ -449,7 +532,9 @@ def classify(unit: str, raw: str, *, seconds: float, timeout: int) -> UnitResult
     markers = ("Failed:", "problem block", "error:", "E: ")
     start = next((i for i, ln in enumerate(nonempty) if any(m in ln for m in markers)), None)
     keep = nonempty[start : start + 10] if start is not None else nonempty[-6:]
-    return UnitResult(unit, exit_code, seconds, "\n".join(keep), kept, gained)
+    return UnitResult(
+        unit, exit_code, seconds, "\n".join(keep), kept, gained, started_at=started_at
+    )
 
 
 def cumulative_refusals(results: list[UnitResult]) -> dict[str, dict[str, str]]:
@@ -504,6 +589,15 @@ def render_report(
     gated = f", {len(declined)} stopped at a consent gate" if declined else ""
     caused = f" ({len(cumulative)} of them cumulative)" if cumulative else ""
     blind = f" ({len(unchecked)} by no effect check)" if unchecked else ""
+    withheld = [r for r in results if r.deferrals]
+    members = sum(len(r.deferred_members) for r in withheld)
+    config_files = sum(len(r.deferred_config) for r in withheld)
+    partial = f" ({members} members deferred)" if members else ""
+    counted = ", ".join(
+        f"{n} {noun_}{'s' if n != 1 else ''}"
+        for n, noun_ in ((members, "member"), (config_files, "config file"))
+        if n
+    )
     lines = [
         "# VM campaign report",
         "",
@@ -511,7 +605,8 @@ def render_report(
         *provenance.header_lines(),
         f"**Target:** {target_line}",
         f"**{noun}:** {len(results)} — "
-        f"{len(ok)} installed+confirmed{blind}, {len(refused)} refused at plan time{caused}, "
+        f"{len(ok)} installed+confirmed{blind}{partial}, "
+        f"{len(refused)} refused at plan time{caused}, "
         f"{len(failed)} failed{gated}{budget}",
         "",
         "Exit 0 is the engine's own bar: completed *and confirmed* by re-probe",
@@ -520,13 +615,15 @@ def render_report(
         "reporting, not a failure — its text names what is missing. A refusal",
         "marked *cumulative* names a package an earlier unit of this same pass",
         "installed; it is a fact about the pass, and the unit is re-run alone.",
+        "*Members deferred* on a confirmed row means the plan withheld those by",
+        "name (D-039, D-041) and installed the rest; the section below says which.",
         "",
         "| Name | Outcome | Confirmed by | Seconds |",
         "|---|---|---|---:|",
     ]
 
     def outcome_cell(r: UnitResult) -> str:
-        cell = r.outcome
+        cell = r.outcome_with_deferrals
         if r.unit in cumulative:
             named = ", ".join(
                 f"`{pkg}`, installed by `{unit}`" for pkg, unit in cumulative[r.unit].items()
@@ -570,6 +667,24 @@ def render_report(
                 "```",
                 "",
             ]
+    if withheld:
+        lines += [
+            "",
+            f"## Deferred by name ({counted})",
+            "",
+            "What the plan withheld and why, per unit, from the transaction log",
+            "each unit wrote on the guest. A member the target lacks is not a",
+            "failure and not coverage either: `packet` on a 7.1 kernel installs",
+            "its Direwolf, pat and APRS station and none of its AX.25 stack (D-041).",
+            "",
+        ]
+        for r in withheld:
+            lines += [f"### `{r.unit}`", ""]
+            for d in r.deferred_members:
+                lines.append(f"- `{d['subject']}` — {d['why']}")
+            for d in r.deferred_config:
+                lines.append(f"- `{d['subject']}` — {d['what']}: {d['why']}")
+            lines.append("")
     if unchecked:
         lines += [
             "",
@@ -609,6 +724,8 @@ def write_evidence(
             "exit_code": r.exit_code,
             "outcome": r.outcome,
             "seconds": r.seconds,
+            "started_at": r.started_at,
+            "finished_at": r.finished_at,
             "tail": r.tail,
             "entries": list(r.entries),
             "new_packages": list(r.new_packages),
@@ -709,7 +826,7 @@ def main() -> int:
 
     def report_so_far() -> str:
         return render_report(
-            target_line=target_probe,
+            target_line=target_line(target_probe, results),
             provenance=provenance,
             results=results,
             noun=noun,

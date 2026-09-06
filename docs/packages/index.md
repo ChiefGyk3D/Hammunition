@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**243 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**244 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -208,12 +208,13 @@ Device support rather than an application: drivers, firmware, udev permissions, 
 - [usbutils](usbutils.md) — lsusb — step one of every hardware problem in this catalog
 - [z8530-utils2](z8530-utils2.md) — Configures Z8530-based HDLC cards for high-speed packet
 
-### `hf-propagation` — 12
+### `hf-propagation` — 13
 
 Propagation prediction, solar indices, beacons and grey line.
 
 - [flcluster](flcluster.md) — DX cluster client that feeds the rest of the W1HKJ suite
 - [hamclock-next](hamclock-next.md) — Maintained SDL2 rewrite of HamClock — grey line, propagation, DX cluster
+- [hammunition-hill](hammunition-hill.md) — Local-first ham radio dashboard — the Hammunition family's own
 - [ibp](ibp.md) — Shows which NCDXF/IARU beacon is transmitting right now, on which band
 - [openhamclock](openhamclock.md) — Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites
 - [python3-pyhamtools](python3-pyhamtools.md) — Python library for callsign lookup, locators and DXCC data
@@ -407,12 +408,13 @@ CAT control of a transceiver while operating: frequency, mode, PTT and the panad
 - [quisk](quisk.md) — SDR transceiver software with a real front panel, driving hardware or a dongle
 - [wfview](wfview.md) — Control a modern Icom radio, waterfall and all, over USB or the network
 
-### `satellite` — 4
+### `satellite` — 5
 
 Amateur satellites and weather satellites — tracking, prediction, telemetry and image decoding.
 
 - [gpredict](gpredict.md) — Real-time satellite tracking and pass prediction, with radio control
 - [gr-satellites](gr-satellites.md) — Decoders for the telemetry of hundreds of amateur satellites
+- [hammunition-hill](hammunition-hill.md) — Local-first ham radio dashboard — the Hammunition family's own
 - [noaa-apt](noaa-apt.md) — Decoder for NOAA weather-satellite APT imagery
 - [satdump](satdump.md) — Satellite data processing — receive, decode and image from weather and science satellites
 
@@ -488,7 +490,7 @@ Software-defined radio — receivers, transceivers and the software.
 - [welle-io](welle-io.md) — DAB and DAB+ digital radio receiver with a modern interface
 - [wfview](wfview.md) — Control a modern Icom radio, waterfall and all, over USB or the network
 
-### `station` — 32
+### `station` — 33
 
 Station infrastructure that is not itself a radio application: time, position, and the plumbing an operating position needs.
 
@@ -507,6 +509,7 @@ Station infrastructure that is not itself a radio application: time, position, a
 - [gpsd](gpsd.md) — GPS service daemon — one process owns the receiver, everything else asks it
 - [gpsd-clients](gpsd-clients.md) — Clients that consume what gpsd serves — xgps, gpspipe, gpxlogger, gpsdecode
 - [gpsd-tools](gpsd-tools.md) — cgps and gpsmon — the two programs you actually reach for when a receiver misbehaves
+- [hammunition-hill](hammunition-hill.md) — Local-first ham radio dashboard — the Hammunition family's own
 - [kappanhang](kappanhang.md) — Opens an Icom network radio as an ordinary sound card and serial port
 - [kel-agent](kel-agent.md) — Bridges browser-based logging software to the radio hardware on your desk
 - [libhamlib-utils](libhamlib-utils.md) — The command-line tools for hamlib — test a radio before blaming software
@@ -712,6 +715,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [hacktv](hacktv.md) | Generates and transmits analogue television — a HackRF as a TV station | apt |
 | [hamclock-next](hamclock-next.md) | Maintained SDL2 rewrite of HamClock — grey line, propagation, DX cluster | source |
 | [hamexam](hamexam.md) | Practice tests for the United States amateur radio licence exams | apt |
+| [hammunition-hill](hammunition-hill.md) | Local-first ham radio dashboard — the Hammunition family's own | binary |
 | [hcxdumptool](hcxdumptool.md) | Wi-Fi frame capture aimed at producing hash files for offline analysis | apt |
 | [hcxtools](hcxtools.md) | Converts captured Wi-Fi frames into hash formats analysis tools read | apt |
 | [ibp](ibp.md) | Shows which NCDXF/IARU beacon is transmitting right now, on which band | source |
