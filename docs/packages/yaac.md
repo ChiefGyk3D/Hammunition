@@ -28,7 +28,7 @@ A display: YAAC is a graphical Java application and needs the full JRE (default-
 
 ## Known problems
 
-First run opens a setup wizard; give it a moment on the first tile download. The single-roll pin above means an upstream roll turns into a hash-mismatch refusal until this manifest is re-pinned -- deliberate, and the cadence hint says why. YAAC's own Help > Check for Updates reports the same roll; the installed tree is root-owned under /usr/local and is replaced by re-pinning this manifest, so leave the in-app upgrade to installs YAAC manages itself.
+First run opens a setup wizard; give it a moment on the first tile download. The single-roll pin above means an upstream roll turns into a hash-mismatch refusal until this manifest is re-pinned -- deliberate, and the cadence hint says why. YAAC's own Help > Check for Updates reports the same roll, and its in-app upgrader can write the tree (measured on Debian 13, 2026-09-05: the tree lands owned by the installing operator, not root, so nothing stops it) -- but an upgrade applied that way is invisible to the transaction log and is silently replaced by the next install of this manifest. Leave the in-app upgrade to installs YAAC manages itself; here, re-pin.
 
 ## Keeping it current
 
