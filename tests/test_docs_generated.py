@@ -463,3 +463,12 @@ def test_every_explained_unit_really_has_no_manifest() -> None:
         f"EXPLAINED reasons for units that have a manifest: {stale}. "
         "Delete the entry from scripts/gen_parity_coverage.py."
     )
+
+
+def test_a_label_file_probe_shows_the_reader_where_the_label_lives(
+    rendered: dict[str, str],
+) -> None:
+    # A probe that names a file is only useful to a reader who can find the
+    # file; `probe: label file` alone says nothing (issue #31, yaac).
+    page = rendered["yaac.md"]
+    assert "- probe: label file (<https://www.ka2ddo.org/ka2ddo/YAACBuildLabel.txt>)" in page

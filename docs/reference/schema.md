@@ -345,12 +345,19 @@ the date it was checked are not, which is the whole reason this exists.
 
 How to learn the upstream version.  D-010.
 
+``label_file`` is the one probe an upstream told us about directly: YAAC
+publishes no tags and no releases, but its own Help > Check for Updates
+fetches a one-line text file and compares it to the compiled-in build
+label (issue #31, from the author). The catalog records that file as data
+so an engine can make the same comparison; one measured user, like ``pypi``.
+
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `method` | `Literal[apt_policy, github_release, github_tags, binary_version, pypi, none]` | **yes** |  |
+| `method` | `Literal[apt_policy, github_release, github_tags, binary_version, label_file, pypi, none]` | **yes** |  |
 | `repo` | `str \| None` | no |  |
 | `command` | `str \| None` | no |  |
 | `pattern` | `str \| None` | no |  |
+| `url` | `str \| None` | no | For `label_file`: the plain-text file whose content is upstream's current version label, compared verbatim against `version`. |
 
 ### `Documentation`
 

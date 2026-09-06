@@ -219,7 +219,8 @@ def page(m: PackageManifest) -> str:
     out.append("## Keeping it current\n")
     probe = m.update.probe
     how = probe.method.replace("_", " ")
-    out.append(f"- probe: {how}" + (f" (`{probe.repo}`)" if probe.repo else ""))
+    where = f" (`{probe.repo}`)" if probe.repo else f" (<{probe.url}>)" if probe.url else ""
+    out.append(f"- probe: {how}{where}")
     out.append(f"- strategy: {m.update.strategy}")
     if m.update.cadence_hint:
         out.append("- " + " ".join(m.update.cadence_hint.split()))

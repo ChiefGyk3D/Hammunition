@@ -4,10 +4,10 @@
 
 **Yet Another APRS Client — the deep, portable Java one**
 
-- **Version recorded:** build-230
+- **Version recorded:** 1.0-beta230(03-Sep-2026)
 - **Categories:** `packet`, `tracking`
 - **Upstream:** <https://www.ka2ddo.org/ka2ddo/YAAC.html>
-- **Needs first:** `default-jre-headless`, `libjssc-java`
+- **Needs first:** `default-jre`, `libjssc-java`
 
 ## What it does
 
@@ -19,7 +19,7 @@ Between Xastir's mapping focus and QtBPQAPRS's messaging focus, YAAC is the do-e
 
 ## Before it will work
 
-A TNC (Direwolf serves well -- this catalog configures it) or an APRS-IS passcode for internet-only operation. Serial TNCs need the dialout group; libjssc-java supplies the serial bindings.
+A display: YAAC is a graphical Java application and needs the full JRE (default-jre, which this manifest installs), under X11 or a Wayland session with XWayland. A TNC (Direwolf serves well -- this catalog configures it) or an APRS-IS passcode for internet-only operation. Serial TNCs need the dialout group; libjssc-java supplies the serial bindings.
 
 ## How it installs
 
@@ -28,16 +28,16 @@ A TNC (Direwolf serves well -- this catalog configures it) or an APRS-IS passcod
 
 ## Known problems
 
-First run opens a setup wizard; give it a moment on the first tile download. The single-roll pin above means an upstream roll turns into a hash-mismatch refusal until this manifest is re-pinned -- deliberate, and the cadence hint says why.
+First run opens a setup wizard; give it a moment on the first tile download. The single-roll pin above means an upstream roll turns into a hash-mismatch refusal until this manifest is re-pinned -- deliberate, and the cadence hint says why. YAAC's own Help > Check for Updates reports the same roll; the installed tree is root-owned under /usr/local and is replaced by re-pinning this manifest, so leave the in-app upgrade to installs YAAC manages itself.
 
 ## Keeping it current
 
-- probe: none
+- probe: label file (<https://www.ka2ddo.org/ka2ddo/YAACBuildLabel.txt>)
 - strategy: reinstall
-- Upstream rolls YAAC.zip in place, several times a year, announced on the yaac-users group. A hash mismatch on install IS the update signal; refetch and re-pin.
+- Upstream rolls YAAC.zip in place, several times a year, announced on yaac-users@groups.io. YAACBuildLabel.txt changes with each roll, and a hash mismatch on install is the same signal; refetch and re-pin.
 
 ## Where to get help with the software itself
 
-Andrew KA2DDO; the yaac-users group and an extensive built-in manual.
+Andrew KA2DDO, the author; the yaac-users@groups.io list and an extensive built-in manual. `java -jar YAAC.jar -version` prints the build label to quote in a report.
 
 *Source: [`catalog/packages/yaac.yaml`](../../catalog/packages/yaac.yaml)*

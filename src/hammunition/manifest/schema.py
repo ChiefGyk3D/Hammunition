@@ -907,12 +907,47 @@ class RetireReason(StrEnum):
 
 
 class UpdateProbe(Strict):
-    """How to learn the upstream version.  D-010."""
+    """How to learn the upstream version.  D-010.
 
-    method: Literal["apt_policy", "github_release", "github_tags", "binary_version", "pypi", "none"]
+    ``label_file`` is the one probe an upstream told us about directly: YAAC
+    publishes no tags and no releases, but its own Help > Check for Updates
+    fetches a one-line text file and compares it to the compiled-in build
+    label (issue #31, from the author). The catalog records that file as data
+    so an engine can make the same comparison; one measured user, like ``pypi``.
+    """
+
+    method: Literal[
+        "apt_policy",
+        "github_release",
+        "github_tags",
+        "binary_version",
+        "label_file",
+        "pypi",
+        "none",
+    ]
     repo: str | None = None
     command: str | None = None
     pattern: str | None = None
+    url: str | None = Field(
+        default=None,
+        description=(
+            "For `label_file`: the plain-text file whose content is upstream's "
+            "current version label, compared verbatim against `version`."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _label_file_has_a_url(self) -> UpdateProbe:
+        if self.method == "label_file" and not self.url:
+            raise ManifestError(
+                "a label_file probe names no url -- there is nothing to fetch and compare"
+            )
+        if self.method != "label_file" and self.url is not None:
+            raise ManifestError(
+                f"probe url {self.url!r} is set on a {self.method!r} probe; "
+                "only a label_file probe reads a url"
+            )
+        return self
 
 
 class UpdateBlock(Strict):
