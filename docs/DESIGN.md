@@ -213,7 +213,10 @@ archive on Parrot, never radioconda or PyBOMBS beside apt's GNU Radio, and the
 Debian Hamradio Blend — already in Parrot's own pool — is the base tier that
 apt satisfies before any other source is considered. The survey is
 `docs/reference/prior-art.md`; the rules it produced are in `CLAUDE.md` under
-"Hard constraints from the landscape survey".
+"Hard constraints from the landscape survey". What the base tier actually
+covers is measured, not assumed: `docs/reference/coverage-matrix.md`
+reconciles AHRL's 95 units against the blend's twelve task metapackages as
+Parrot's archive carries them, one class per unit.
 
 ## 7. Undo semantics
 
