@@ -63,7 +63,7 @@ import sys
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -143,6 +143,20 @@ class UnitResult:
     """What dpkg holds after this unit that it did not hold before --
     dependencies included, which the transaction log never names. `jtdx`
     brings `wsjtx-data`; only this delta knows."""
+    started_at: str | None = None
+    """UTC wall clock the ssh session began, ISO 8601 to the second. A row
+    that cannot be placed in time cannot be correlated with anything else
+    that touched the machine: on 2026-09-05 a second campaign reverted the
+    Parrot snapshot under a running sweep, whose `propagation` row read
+    `exit 255` with nothing to say when. None for rows filed without one."""
+
+    @property
+    def finished_at(self) -> str | None:
+        """`started_at` plus the measured seconds; None without a start."""
+        if self.started_at is None:
+            return None
+        ended = datetime.fromisoformat(self.started_at) + timedelta(seconds=self.seconds)
+        return ended.isoformat(timespec="seconds")
 
     @property
     def outcome(self) -> str:
@@ -449,18 +463,27 @@ def run_unit(host: str, identity: str | None, unit: str, timeout: int) -> UnitRe
         argv += ["-i", identity]
     argv += [host, f"bash -c '{remote_command(unit, timeout)}'"]
     started = datetime.now(UTC)
+    started_at = started.isoformat(timespec="seconds")
     try:
         proc = subprocess.run(
             argv, capture_output=True, text=True, timeout=timeout + 120, check=False
         )
         raw = proc.stdout
     except subprocess.TimeoutExpired:
-        return UnitResult(unit, -1, timeout, f"ssh did not return {timeout + 120}s after start")
+        return UnitResult(
+            unit,
+            -1,
+            timeout,
+            f"ssh did not return {timeout + 120}s after start",
+            started_at=started_at,
+        )
     seconds = (datetime.now(UTC) - started).total_seconds()
-    return classify(unit, raw, seconds=seconds, timeout=timeout)
+    return classify(unit, raw, seconds=seconds, timeout=timeout, started_at=started_at)
 
 
-def classify(unit: str, raw: str, *, seconds: float, timeout: int) -> UnitResult:
+def classify(
+    unit: str, raw: str, *, seconds: float, timeout: int, started_at: str | None = None
+) -> UnitResult:
     """Turn the remote session's merged output into a filed result."""
     exit_code = 255
     tail_lines: list[str] = []
@@ -499,6 +522,7 @@ def classify(unit: str, raw: str, *, seconds: float, timeout: int) -> UnitResult
             f"stopped by the {timeout}s budget; the build was still running",
             kept,
             gained,
+            started_at=started_at,
         )
     # Keep what a reader needs. Stderr outruns block-buffered stdout through
     # a pipe, so a failure's text can land ANYWHERE in the merged stream —
@@ -508,7 +532,9 @@ def classify(unit: str, raw: str, *, seconds: float, timeout: int) -> UnitResult
     markers = ("Failed:", "problem block", "error:", "E: ")
     start = next((i for i, ln in enumerate(nonempty) if any(m in ln for m in markers)), None)
     keep = nonempty[start : start + 10] if start is not None else nonempty[-6:]
-    return UnitResult(unit, exit_code, seconds, "\n".join(keep), kept, gained)
+    return UnitResult(
+        unit, exit_code, seconds, "\n".join(keep), kept, gained, started_at=started_at
+    )
 
 
 def cumulative_refusals(results: list[UnitResult]) -> dict[str, dict[str, str]]:
@@ -698,6 +724,8 @@ def write_evidence(
             "exit_code": r.exit_code,
             "outcome": r.outcome,
             "seconds": r.seconds,
+            "started_at": r.started_at,
+            "finished_at": r.finished_at,
             "tail": r.tail,
             "entries": list(r.entries),
             "new_packages": list(r.new_packages),

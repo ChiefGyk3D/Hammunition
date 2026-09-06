@@ -474,3 +474,39 @@ def test_remote_command_captures_only_the_lines_this_unit_appended(
     assert not any(e.get("stale") for e in result.entries)
     assert result.new_packages == ("wsjtx-data",)
     assert "__NEW_PACKAGES" not in result.tail and "wsjtx-data" not in result.tail
+
+
+def test_a_unit_record_says_when_it_ran_so_it_can_be_placed_beside_anything_else(
+    campaign: ModuleType, tmp_path: Path
+) -> None:
+    """Two campaigns touched the Parrot VM at once on 2026-09-05 -- a chained
+    run waited on the report file, which the harness rewrites after every
+    unit, and reverted the snapshot under the sweep's `propagation`. Its
+    row read `exit 255` and nothing in the record could say *when*, so the
+    overlap with `rfid` was undecidable and both were re-run. A row carries
+    the wall clock it started and finished at, UTC, or it cannot be placed
+    beside a libvirt event, a guest log or another campaign."""
+    yaac = campaign.classify(
+        "yaac",
+        "Done.\n__EXIT=0\n__LOG\n" + _begin("yaac") + "\n" + _end(_pkg("libjssc-java", "1")),
+        seconds=154.0,
+        timeout=3600,
+        started_at="2026-09-06T02:24:05+00:00",
+    )
+    assert yaac.started_at == "2026-09-06T02:24:05+00:00"
+    assert yaac.finished_at == "2026-09-06T02:26:39+00:00"
+
+    out = tmp_path / "campaign.md"
+    campaign.write_evidence(
+        campaign.evidence_path(out),
+        provenance=_provenance(campaign),
+        results=[yaac, campaign.UnitResult("gap", 2, 1.0, "no block")],
+    )
+    lines = [
+        json.loads(ln) for ln in (tmp_path / "campaign.evidence.jsonl").read_text().splitlines()
+    ]
+    assert lines[1]["started_at"] == "2026-09-06T02:24:05+00:00"
+    assert lines[1]["finished_at"] == "2026-09-06T02:26:39+00:00"
+    # A result filed without a clock (older code paths, hand-built rows) is
+    # honest about it rather than inventing one.
+    assert lines[2]["started_at"] is None and lines[2]["finished_at"] is None

@@ -328,10 +328,17 @@ now carries the evidence rather than the verdict alone:
   `--reset-each` passes label nothing: no unit sees another's state.
 - **`<out>.evidence.jsonl`** — the machine-readable record beside the
   markdown: the provenance, then one line per unit with exit code, tail,
-  every transaction-log entry it appended and every package it added, then
-  the isolated re-runs. Rewritten with the report after every unit, so a
-  campaign that dies keeps what it measured, and the markdown can be
-  reconstructed from it.
+  the UTC wall clock it started and finished at, every transaction-log
+  entry it appended and every package it added, then the isolated re-runs.
+  Rewritten with the report after every unit, so a campaign that dies
+  keeps what it measured, and the markdown can be reconstructed from it.
+  **That rewrite is also a trap:** the report file exists from the first
+  unit on, so anything that waits for it to appear before starting a second
+  campaign on the same VM starts immediately. On 2026-09-05 a chained run
+  did exactly that and reverted the Parrot snapshot under the sweep's
+  `propagation`, which filed `exit 255`; the rows carried no clock, so
+  whether `rfid` overlapped too was undecidable, and both were re-run.
+  Wait on the harness **process**, and one VM runs one campaign at a time.
 - **Deferred by name** — a `--whole-profiles` row whose plan withheld
   members (D-039, D-041) says so in its outcome cell (`installed+confirmed
   — 8 members deferred, 1 config file deferred`), the summary counts the
