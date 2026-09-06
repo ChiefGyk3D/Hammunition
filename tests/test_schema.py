@@ -777,3 +777,57 @@ def test_the_catalogs_pins_prefer_a_distribution() -> None:
             review = getattr(block.install, "pin_review", None)
             if isinstance(block.install, GitInstall) and review and review.basis == "own_choice":
                 assert len(review.rationale) >= 80, name
+
+
+# ---------------------------------------------------------------------------
+# Issue #31 -- corrections from YAAC's author
+#
+# yaac depended on default-jre-headless and generated a launcher. The install
+# confirmed clean on Debian 13, and the launcher died on every click with
+# java.awt.HeadlessException: the headless JRE ships no AWT. Nothing in the
+# effect checks can run a GUI, so the catalog itself has to refuse the shape.
+
+
+def _java_deps(manifest: PackageManifest) -> list[str]:
+    return [d for d in manifest.depends if "-jre" in d or "-jdk" in d]
+
+
+def test_a_unit_with_a_launcher_does_not_depend_on_a_headless_jre_alone(catalog: Catalog) -> None:
+    offenders: list[str] = []
+    for name, manifest in sorted(catalog.items()):
+        if not manifest.launchers:
+            continue
+        java = _java_deps(manifest)
+        if java and all(d.endswith("-headless") for d in java):
+            offenders.append(f"{name}: depends {java}")
+    assert not offenders, (
+        "a launcher needs a display and a headless JRE has no AWT -- the wrapper "
+        "raises java.awt.HeadlessException on every click (issue #31, measured on "
+        "Debian 13 under Xvfb). Depend on the full JRE instead: " + "; ".join(offenders)
+    )
+
+
+def test_a_label_file_probe_names_the_file() -> None:
+    data = _minimal(
+        update={
+            "probe": {
+                "method": "label_file",
+                "url": "https://www.ka2ddo.org/ka2ddo/YAACBuildLabel.txt",
+            },
+            "strategy": "reinstall",
+        }
+    )
+    manifest = PackageManifest.model_validate(data)
+    assert manifest.update.probe.url == "https://www.ka2ddo.org/ka2ddo/YAACBuildLabel.txt"
+
+
+def test_a_label_file_probe_without_a_url_is_refused() -> None:
+    data = _minimal(update={"probe": {"method": "label_file"}})
+    with pytest.raises((ManifestError, ValidationError), match=r"label_file.*url"):
+        PackageManifest.model_validate(data)
+
+
+def test_a_probe_url_belongs_to_a_label_file_probe_only() -> None:
+    data = _minimal(update={"probe": {"method": "none", "url": "https://example.invalid/x.txt"}})
+    with pytest.raises((ManifestError, ValidationError), match="only a label_file probe"):
+        PackageManifest.model_validate(data)

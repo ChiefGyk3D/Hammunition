@@ -2,23 +2,31 @@
 # SPDX-License-Identifier: CC0-1.0
 
 name: yaac
-version: "build-230"
+version: "1.0-beta230(03-Sep-2026)"
 summary: Yet Another APRS Client — the deep, portable Java one
 categories: [packet, tracking]
 
-# CARRY from AHRL. Upstream publishes exactly one artifact, an unversioned
+# CARRY from AHRL. Upstream publishes one binary artifact, an unversioned
 # rolling YAAC.zip -- the same shape 73Linux's Beta directory had, but with
-# no versioned alternative anywhere. The pin below is the hash of one
-# roll: it verifies what we measured, and it WILL break on upstream's next
-# roll, which is the honest failure mode -- refetch, rehash, rebump. The
-# alternative (no hash) is a path this catalog does not have (D-004).
+# no versioned alternative anywhere. That is by design, not neglect: the
+# author distributes a zip because it is the one method common to every
+# Linux dialect, Windows, macOS and FreeBSD, and does not support the
+# third-party Debian packaging that exists (issue #31). The pin below is the
+# hash of one roll: it verifies what we measured, and it WILL break on
+# upstream's next roll, which is the honest failure mode -- refetch, rehash,
+# rebump. The alternative (no hash) is a path this catalog does not have
+# (D-004).
 #
-# `version` is upstream's own build number, read from the first line of
-# https://www.ka2ddo.org/ka2ddo/YAACBuildNotes.txt, which is the one place
-# upstream names what YAAC.zip currently is. First roll caught by the pin:
+# `version` is upstream's own build label, verbatim from
+# https://www.ka2ddo.org/ka2ddo/YAACBuildLabel.txt -- the file YAAC's own
+# Help > Check for Updates compares against its compiled-in label, so a
+# mismatch there is exactly upstream's definition of "an update exists".
+# The same label comes out of `java -jar YAAC.jar -version`, which prints
+# it and exits without opening the GUI (added upstream at KM4ACK's request).
+# Both measured on 2026-09-05: the file read `1.0-beta230(03-Sep-2026)` and
+# the installed jar printed the same string. First roll caught by the pin:
 # the 2026-08-30 snapshot (e64c3fca…) failed on Kali on 2026-09-04 against
-# beta build#230, dated 2026-Sep-03 -- exactly the failure this comment
-# predicted. Digest measured twice from the host, identical.
+# this build. Digest measured twice from the host, identical.
 install:
   - install:
       method: binary
@@ -35,7 +43,14 @@ install:
       level) and lands whole under the shared prefix; YAAC reads everything
       relative to its jar.
 
-depends: [default-jre-headless, libjssc-java]
+# default-jre, not default-jre-headless. YAAC is a Swing application and the
+# headless JRE ships no AWT: with only default-jre-headless the install
+# confirmed clean on Debian 13 and the launcher then died on every click
+# with java.awt.HeadlessException, even under an X server (Xvfb, 2026-09-05).
+# With default-jre the same launcher reached "GUI instantiated". Reported by
+# the author in issue #31; a catalog test now refuses the headless-only shape
+# on any unit that generates a launcher.
+depends: [default-jre, libjssc-java]
 
 launchers:
   - name: yaac
@@ -44,12 +59,13 @@ launchers:
 
 update:
   probe:
-    method: none
+    method: label_file
+    url: https://www.ka2ddo.org/ka2ddo/YAACBuildLabel.txt
   strategy: reinstall
   cadence_hint: >-
-    Upstream rolls YAAC.zip in place, several times a year, announced on the
-    yaac-users group. A hash mismatch on install IS the update signal;
-    refetch and re-pin.
+    Upstream rolls YAAC.zip in place, several times a year, announced on
+    yaac-users@groups.io. YAACBuildLabel.txt changes with each roll, and
+    a hash mismatch on install is the same signal; refetch and re-pin.
 
 documentation:
   what_it_does: >-
@@ -61,15 +77,27 @@ documentation:
     the do-everything option, and the one with first-class digipeater and
     I-gate roles. KA2DDO maintains it actively and documents it deeply.
   prerequisites: >-
-    A TNC (Direwolf serves well -- this catalog configures it) or an APRS-IS
-    passcode for internet-only operation. Serial TNCs need the dialout
-    group; libjssc-java supplies the serial bindings.
+    A display: YAAC is a graphical Java application and needs the full JRE
+    (default-jre, which this manifest installs), under X11 or a Wayland
+    session with XWayland. A TNC (Direwolf serves well -- this catalog
+    configures it) or an APRS-IS passcode for internet-only operation.
+    Serial TNCs need the dialout group; libjssc-java supplies the serial
+    bindings.
   known_problems: >-
     Unaffected by Linux 7.1's removal of the kernel AX.25 stack: it speaks
     KISS and AGW to Direwolf directly. See `docs/reference/kernel-ax25.md`.
     First run opens a setup wizard; give it a moment on the first tile
     download. The single-roll pin above means an upstream roll turns into
     a hash-mismatch refusal until this manifest is re-pinned -- deliberate,
-    and the cadence hint says why.
+    and the cadence hint says why. YAAC's own Help > Check for Updates
+    reports the same roll, and its in-app upgrader can write the tree
+    (measured on Debian 13, 2026-09-05: the tree lands owned by the
+    installing operator, not root, so nothing stops it) -- but an upgrade
+    applied that way is invisible to the transaction log and is silently
+    replaced by the next install of this manifest. Leave the in-app
+    upgrade to installs YAAC manages itself; here, re-pin.
   upstream_url: https://www.ka2ddo.org/ka2ddo/YAAC.html
-  upstream_support: Andrew KA2DDO; the yaac-users group and an extensive built-in manual.
+  upstream_support: >-
+    Andrew KA2DDO, the author; the yaac-users@groups.io list and an
+    extensive built-in manual. `java -jar YAAC.jar -version` prints the
+    build label to quote in a report.
