@@ -20,6 +20,8 @@ install:
         url: https://github.com/projecthorus/radiosonde_auto_rx/archive/refs/tags/v1.8.2.tar.gz
         sha256: 52a9ee259ea9b37ca37007ad625a7ba5c978246735418c3c7272950cdbdf7cfc
       payload_build_script: auto_rx/build.sh
+      # Read back after the run (issue #27): the script the launcher runs.
+      tree_marker: auto_rx/auto_rx.py
       requirements:
         - bidict==0.24.1  --hash=sha256:4dca6c17f0b01700e9f24359daa5ebabf7be022d99f4cb2a257b6af2a5076c88  --hash=sha256:fd3eaa737917d8a14f4baa391670c433c4e3f6f5fd2cd99d4bf436437f432364
         - blinker==1.9.0  --hash=sha256:b4ce2265a7abece45e7cc896e98dbebe6cead56bcf805a3d23136d145f5445bf  --hash=sha256:ba0efaa9080b619ff2f3459d1d500c57bddea4a6b424b60a91141db6fd2f08bc

@@ -44,6 +44,7 @@ from hammunition.backends import (
     SourceBackend,
     VenvBackend,
 )
+from hammunition.backends.source import tree_destination
 from hammunition.distro import Target
 from hammunition.launchers import launcher_steps
 from hammunition.manifest.schema import (
@@ -98,6 +99,20 @@ def _declares_installed_binaries(block: InstallBlock) -> bool:
     if isinstance(method, SourceInstall | GitInstall):
         return True
     return isinstance(method, BinaryInstall) and method.format != "deb"
+
+
+def _tree_marker(block: InstallBlock) -> str | None:
+    """The marker file of a block that installs a tree, else None.
+
+    Source, git and non-deb binary blocks install one when ``install_tree``
+    is set; a venv installs one when it carries a ``payload``. The schema
+    makes the marker mandatory in exactly those cases, so a None here means
+    "no tree", never "a tree nobody named".
+    """
+    method = block.install
+    if isinstance(method, SourceInstall | GitInstall | BinaryInstall | VenvInstall):
+        return method.tree_marker
+    return None
 
 
 def user_groups(user: str) -> frozenset[str]:
@@ -499,7 +514,7 @@ class EffectCheck:
     """
 
     kind: str
-    """``"package"`` or ``"group"``."""
+    """``"package"``, ``"group"``, ``"binary"``, ``"tree"`` or ``"launcher"``."""
 
     subject: str
     """The package name, or ``"user:group"``."""
@@ -543,6 +558,7 @@ def verify_effects(
     *,
     group_lookup: Callable[[str], frozenset[str]] = user_groups,
     prefix: Path | None = None,
+    launcher_bin: Path | None = None,
 ) -> Verification:
     """Read back whether the transaction's stated effects actually hold.
 
@@ -561,10 +577,44 @@ def verify_effects(
     ``<prefix>/bin/<install_as>``. Added the night js8call was found "confirmed"
     on four targets with nothing installed: its ``cmake --install`` has no
     rule for the executable, exits 0, and writes an empty install manifest.
+
+    Two more halves, each again an unasked question when its argument is
+    absent (issue #27). With ``prefix``, every block that installs a *tree*
+    is checked for its ``tree_marker`` under ``<prefix>/share/hammunition/
+    <name>`` -- ``cp -aT`` exits 0 on any directory, and yaac, mshv,
+    js8spotter and the two venv payloads declare no ``binaries``, so they
+    ended ``verified: true`` with no check at all. With ``launcher_bin``,
+    every launcher the manifest declares is checked for an executable wrapper
+    at ``<launcher_bin>/<name>`` and, where it sets one, for its
+    ``working_directory`` existing -- a wrapper that ``cd``s into a directory
+    the run never made fails on every click.
     """
     checks: list[EffectCheck] = []
 
     if prefix is not None:
+        for planned in plan.packages:
+            marker = _tree_marker(planned.block)
+            if marker is None:
+                continue
+            path = tree_destination(prefix, planned.name) / marker
+            present = path.exists()
+            checks.append(
+                EffectCheck(
+                    kind="tree",
+                    subject=f"{planned.name}:{marker}",
+                    confirmed=present,
+                    detail=(
+                        f"tree marker present at {path}"
+                        if present
+                        else (
+                            f"the tree install exited 0 but {path} does not exist -- the "
+                            f"archive is laid out differently from what the launcher "
+                            f"expects, or the tree never landed"
+                        )
+                    ),
+                )
+            )
+
         for planned in plan.packages:
             if not _declares_installed_binaries(planned.block):
                 continue
@@ -623,6 +673,40 @@ def verify_effects(
                 )
             )
 
+    if launcher_bin is not None:
+        for planned in plan.packages:
+            for launcher in planned.manifest.launchers:
+                wrapper = launcher_bin / launcher.name
+                runnable = wrapper.is_file() and os.access(wrapper, os.X_OK)
+                workdir = (
+                    Path(launcher.working_directory)
+                    if launcher.working_directory is not None
+                    else None
+                )
+                workdir_ok = workdir is None or workdir.is_dir()
+                if runnable and workdir_ok:
+                    detail = f"executable wrapper at {wrapper}" + (
+                        f", runs in {workdir}" if workdir is not None else ""
+                    )
+                elif not runnable:
+                    detail = (
+                        f"the launcher step exited 0 but there is no executable wrapper "
+                        f"at {wrapper}"
+                    )
+                else:
+                    detail = (
+                        f"the wrapper at {wrapper} runs in {workdir}, which does not exist "
+                        f"-- no install step created it, so the launcher fails on every click"
+                    )
+                checks.append(
+                    EffectCheck(
+                        kind="launcher",
+                        subject=f"{planned.name}:{launcher.name}",
+                        confirmed=runnable and workdir_ok,
+                        detail=detail,
+                    )
+                )
+
     groups_now = {m.user: group_lookup(m.user) for m in plan.group_memberships}
     for membership in plan.group_memberships:
         present = membership.group in groups_now.get(membership.user, frozenset())
@@ -676,6 +760,7 @@ def execute(
     prober: PackageProber | None = None,
     group_lookup: Callable[[str], frozenset[str]] = user_groups,
     prefix: Path | None = None,
+    launcher_bin: Path | None = None,
 ) -> ExecutionReport:
     """Run every command, stopping at the first failure.
 
@@ -695,7 +780,9 @@ def execute(
     alone. Group memberships are always re-read from ``group_lookup``; the
     package half needs the prober, so omitting it verifies groups only, and
     the built half needs ``prefix`` -- the install prefix whose ``bin`` every
-    declared binary must be found under.
+    declared binary must be found under and whose ``share/hammunition`` every
+    installed tree's marker must be found under -- and the launcher half needs
+    ``launcher_bin``, the per-user directory the wrappers were written to.
     """
     write = echo if echo is not None else (lambda _line: None)
     shown_as = os.geteuid() if euid is None else euid
@@ -824,7 +911,13 @@ def execute(
     verification: Verification | None = None
     if prober is not None or plan.group_memberships or prefix is not None:
         try:
-            verification = verify_effects(plan, prober, group_lookup=group_lookup, prefix=prefix)
+            verification = verify_effects(
+                plan,
+                prober,
+                group_lookup=group_lookup,
+                prefix=prefix,
+                launcher_bin=launcher_bin,
+            )
         except BackendError as exc:
             # The re-probe itself failed -- apt worked for the install a moment
             # ago and does not now. That is not "the package is missing"; it is

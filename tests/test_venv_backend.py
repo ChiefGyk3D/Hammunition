@@ -143,6 +143,7 @@ def hybrid_manifest(script: str | None) -> PackageManifest:
         "method": "venv",
         "requirements": [HASHED],
         "payload": {"url": "https://example.org/tree.tar.gz", "sha256": "1" * 64},
+        "tree_marker": "run.py",
     }
     if script:
         block["payload_build_script"] = script

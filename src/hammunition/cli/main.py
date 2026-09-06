@@ -846,6 +846,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         euid=euid,
         prober=apt,
         prefix=source.prefix,
+        launcher_bin=user_bin_dir(user or None),
     )
     if log.ownership_error:
         # Not fatal — the commands ran — but not silent either. A log the
