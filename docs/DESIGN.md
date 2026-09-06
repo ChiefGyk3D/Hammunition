@@ -86,6 +86,14 @@ provenance unambiguous. See **D-011**.
 **73Linux:** no license file at all, so nothing from its code. Inventory only.
 See **D-001**.
 
+**The wider landscape** — FISSURE, RF Swift, EmComm Tools, LiaisonOS,
+pi-build, Nexus DR-X, the Debian Hamradio Blend, Kali's `kali-tools-sdr`
+taxonomy, radioconda, the distributions that are alive and the ones that are
+dead — is surveyed in `docs/reference/prior-art.md`, with every date and
+licence verified against a primary source on 2026-09-06. The licensing gates
+and packaging rules it produced are the "Hard constraints from the landscape
+survey" section of `CLAUDE.md`.
+
 ## 3. Scope
 
 ### In scope
@@ -165,6 +173,13 @@ Revisit if that mitigation proves inadequate in practice.
 
 Bash is permitted only for small helper scripts, never for core logic.
 
+The landscape survey (`docs/reference/prior-art.md`, §5) measures the same
+choice from the outside: every living peer — AHRL, 73Linux, EmComm Tools,
+LiaisonOS, Nexus DR-X — is an imperative bash installer, and the one
+declarative build in the space (HamPi's Ansible playbooks) is dormant. A
+declarative catalog consumed by a tested engine is an unoccupied position,
+which is the decision above restated as a market fact.
+
 ## 6. Package installation
 
 **Primary backend: `apt` via subprocess.** Simpler than `python3-apt`, behaves
@@ -193,7 +208,15 @@ precisely the ones users cannot easily install themselves — the reason to exis
 
 **Third-party APT repositories** must be declared in the manifest with a pinned
 signing key, shown to the user before being added, and documented. Never added
-silently.
+silently (**D-040**). The landscape survey narrows this further: never Kali's
+archive on Parrot, never radioconda or PyBOMBS beside apt's GNU Radio, and the
+Debian Hamradio Blend — already in Parrot's own pool — is the base tier that
+apt satisfies before any other source is considered. The survey is
+`docs/reference/prior-art.md`; the rules it produced are in `CLAUDE.md` under
+"Hard constraints from the landscape survey". What the base tier actually
+covers is measured, not assumed: `docs/reference/coverage-matrix.md`
+reconciles AHRL's 95 units against the blend's twelve task metapackages as
+Parrot's archive carries them, one class per unit.
 
 ## 7. Undo semantics
 

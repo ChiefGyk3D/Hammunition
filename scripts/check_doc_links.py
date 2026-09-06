@@ -105,6 +105,7 @@ ALLOW_MISSING = {
     "bin/menu.sh",
     "bin/runner.sh",
     "bin/template-maker.sh",
+    "bin/remove.sh",
 }
 
 
