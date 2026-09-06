@@ -212,6 +212,20 @@ unrecorded test result rots into an inherited verdict within weeks.
    gqrx, and whatever step 1 installed: launch, reach the main window, note
    any Wayland/X11 misbehaviour (AHRL's accumulated X11 guidance is a
    documentation obligation for us, not folklore).
+   `scripts/vm_gui_smoke.py` is the automated first pass: on the guest,
+   under `xvfb-run`, it starts every `.desktop` entry the catalog put there
+   and files each as **alive** (still running at the timeout), **exited
+   clean**, **suspect** (exit 0 *with* a fault line on stderr -- a
+   traceback, a JVM `Exception in thread`, the dynamic loader, Qt's
+   platform plugin, no display) or **failed** (non-zero). `suspect` exists
+   because yaac on a headless JRE raised `HeadlessException` and exited 0
+   (issue #31): by exit status alone that was clean. The lane was
+   falsified on Debian 13 (2026-09-05) by removing `default-jre` -- one
+   `suspect`, tail leading with the fault -- and restoring it -- `alive`.
+   A `failed` row is a finding to read, not a verdict: `radiosonde-auto-rx`
+   fails there by design until `station.cfg` exists, exactly as its
+   manifest says. "It launched" is still the weaker claim; the main window
+   is a human's call.
 6. **Hardware, on Parrot only at first.** USB-passthrough a real device
    (HackRF, Proxmark3, T-Deck), run detection, apply udev rules, replug,
    check group membership after re-login. This exercises the M4 code that
