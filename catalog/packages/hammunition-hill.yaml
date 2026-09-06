@@ -1,0 +1,100 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: hammunition-hill
+version: "1.0.0"
+summary: Local-first ham radio dashboard — the Hammunition family's own
+categories: [station, hf-propagation, satellite]
+
+# ADD, and the one unit in this catalog whose upstream is this project's own
+# maintainer. That is disclosed here rather than left for someone to notice:
+# Hammunition Hill is a separate project with its own repository, licence
+# (MPL-2.0), release process and tests, and it is carried on the same terms
+# as everything else -- a published, digest-pinned artifact, measured before
+# it was written down. Nothing about it is a curation claim of the AHRL kind;
+# it is here because the family was built to be installed together.
+#
+# Upstream publishes an arch-independent .deb per release beside a
+# SHA256SUMS file. Both fetched from the v1.0.0 release on 2026-09-06: the
+# digest below is what sha256sum printed for the downloaded file and what
+# SHA256SUMS lists for it; `dpkg-deb -f` gave Package hammunition-hill,
+# Architecture all, Depends python3 (>= 3.11), python3-httpx,
+# python3-defusedxml, adduser, Recommends python3-sgp4 -- every one in every
+# target's archive. Goes through apt-get install ./file.deb like every deb.
+#
+# Run on the Debian 13 VM from clean-baseline, 2026-09-06 (report
+# `hill-unit-debian13-2026-09-06.md` in the campaigns directory): installed
+# and confirmed in 7 s; afterwards the unit was enabled and active as
+# User=hamhill, 127.0.0.1:8073 was the only listener, GET / returned 200
+# text/html titled "Hammunition Hill", config.toml was root:hamhill 0640
+# with host/port/data_dir as documented below, and `hammunition uninstall`
+# left the service inactive, nothing on 8073 and the conffile in place.
+install:
+  - install:
+      method: binary
+      artifact:
+        url: https://github.com/ChiefGyk3D/hammunition-hill/releases/download/v1.0.0/hammunition-hill_1.0.0_all.deb
+        sha256: 4b26abaa6571960669be53ef4f03ac67eaf6c69d106828f6113f5840efe9a3fd
+      format: deb
+      deb_package: hammunition-hill  # dpkg-deb -f: control name matches the filename
+    note: >-
+      The .deb's postinst creates the `hamhill` system user, enables
+      `hammunition-hill.service` and starts it. That is a running service
+      from the moment the install completes; see known_problems for what it
+      listens on and how to stop it.
+
+update:
+  probe:
+    method: github_release
+    repo: ChiefGyk3D/hammunition-hill
+  strategy: reinstall
+  cadence_hint: >-
+    Tagged releases with a .deb and SHA256SUMS attached to each. A release
+    is a new digest; re-pin both.
+
+documentation:
+  what_it_does: >-
+    A dashboard for the operating position, served from this machine to your
+    own browser: clocks, band plan, solar and geomagnetic dials, propagation,
+    a globe with greyline and great-circle paths, DX spots coloured by your
+    log, satellites, weather, a callsign lookup, a CW trainer and the pocket
+    references. Snapshot architecture -- a collector fetches sources on its
+    own schedule, the page reads the snapshots -- so the page never talks to
+    the internet itself and the parts that need no internet keep working
+    with the WAN unplugged.
+  why_you_want_it: >-
+    HamClock answers "what is the band doing" on one screen; Hill answers it
+    for a laptop or a second monitor with your own log and station in the
+    picture, and without an outbound dependency the page can be broken by.
+    It is the Hammunition family's dashboard: built alongside this installer,
+    by its maintainer, to be installed through it -- and the plan is for it
+    to show the shack in front of you (rig state, live decodes, GPS fix, what
+    this installer has set up) as those local sources are wired in. Its
+    author's project, carried on the same evidence as everything else here.
+  prerequisites: >-
+    A browser on this machine. An internet connection for the fetched tiers
+    (space weather, spots, NWS); nothing for the offline tier. Optional: an
+    ADIF log to colour spots and track DXCC/WAS, a callsign in
+    /etc/hammunition-hill/config.toml, and API keys for the sources that
+    want one -- the config file documents each. The `station` profile's gpsd
+    is not consulted yet; position comes from the browser's geolocation.
+  known_problems: >-
+    **This unit starts a service.** The package enables and starts
+    `hammunition-hill.service` as the `hamhill` system user, listening on
+    127.0.0.1:8073 (the packaged config's host and port; both editable). It
+    is loopback-only by default and must stay that way -- upstream's own
+    documentation says not to expose it to the internet, and the unit is
+    hardened (ProtectSystem=strict, no capabilities, syscall filter) on that
+    assumption. Inspect with `systemctl status hammunition-hill`; stop and
+    disable with `systemctl disable --now hammunition-hill`;
+    `hammunition uninstall hammunition-hill` removes the package, which
+    stops the service, and leaves /etc/hammunition-hill/config.toml as a
+    conffile until purged. The dependency floor is Python 3.11: on a target
+    whose archive python3 is older (Pop!_OS 22.04, Ubuntu 22.04) apt refuses
+    the .deb at plan time, and that refusal is correct. 1.0 is US-first --
+    band plans, exam pools and weather severity are US; other regulators'
+    allocations are contributions upstream welcomes.
+  upstream_url: https://github.com/ChiefGyk3D/hammunition-hill
+  upstream_support: >-
+    Issues on the GitHub repository. `hamhill check --fetch` exercises every
+    configured source and is the first thing to run when a panel is blank.

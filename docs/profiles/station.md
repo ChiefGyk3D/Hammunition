@@ -8,18 +8,18 @@
 
 ## What it installs
 
-Hamlib's command-line tools, a rig control panel that other programs can share, the one radio programmer that covers hundreds of models, GPS for position and time with the converter that gets tracks off a handheld, two clocks, and pipx.
+Hamlib's command-line tools, a rig control panel that other programs can share, the one radio programmer that covers hundreds of models, GPS for position and time with the converter that gets tracks off a handheld, two clocks, pipx, and Hammunition Hill -- the family's own local-first dashboard, installed from its release .deb and served to your browser on 127.0.0.1:8073.
 
-**Disk footprint:** Around 120 MB. CHIRP and its wxPython dependency are most of it.
+**Disk footprint:** Around 125 MB. CHIRP and its wxPython dependency are most of it; Hammunition Hill's .deb is under half a megabyte plus two Python libraries.
 
 ## Why these belong together
 
 This is what every other profile quietly assumes is already there. A digital-modes setup needs something to key the radio; a logger needs to know the frequency; anything timed needs the clock to be right. Installing it once and by name is better than each profile pulling in half of it.
 Two pieces earn their place beyond the obvious. **flrig runs an XML-RPC server**, which is what lets fldigi, WSJT-X and a logger share one CAT port instead of the second program to start finding it busy — that is the normal digital-modes setup, and without something in the middle it does not work. **`rigctl` is the diagnostic** that separates a radio problem from a program problem: when fldigi will not key the transmitter, one command answers whether hamlib can.
 
-## Packages (10)
+## Packages (11)
 
-[`libhamlib-utils`](../packages/libhamlib-utils.md), [`flrig`](../packages/flrig.md), [`chirp`](../packages/chirp.md), [`gpsd`](../packages/gpsd.md), [`gpsd-clients`](../packages/gpsd-clients.md), [`gpsd-tools`](../packages/gpsd-tools.md), [`gpsbabel`](../packages/gpsbabel.md), [`twclock`](../packages/twclock.md), [`tzwatch`](../packages/tzwatch.md), [`pipx`](../packages/pipx.md)
+[`libhamlib-utils`](../packages/libhamlib-utils.md), [`flrig`](../packages/flrig.md), [`chirp`](../packages/chirp.md), [`gpsd`](../packages/gpsd.md), [`gpsd-clients`](../packages/gpsd-clients.md), [`gpsd-tools`](../packages/gpsd-tools.md), [`gpsbabel`](../packages/gpsbabel.md), [`twclock`](../packages/twclock.md), [`tzwatch`](../packages/tzwatch.md), [`pipx`](../packages/pipx.md), [`hammunition-hill`](../packages/hammunition-hill.md)
 
 ## What it deliberately excludes
 
@@ -27,4 +27,4 @@ Per-manufacturer radio tools. `wfview` is Icom, `kappanhang` is Icom network rad
 
 ## What you configure by hand afterward
 
-**Serial access needs the `dialout` group, and adding you to it does not affect a session that is already open** — log out and back in. Rig control needs your radio's hamlib model number, which `rigctl -l` lists and which is the thing most often set wrong; a mismatched backend gives partial control, where frequency works and mode does not, which reads as a broken cable. Icom radios additionally need the CI-V address matched to the radio's own menu. **Decide that flrig owns the serial port** and point everything else at flrig; two programs opening it directly is the classic failure and its symptom is erratic behaviour rather than an error. `pipx ensurepath` needs a new shell before it takes effect.
+**Serial access needs the `dialout` group, and adding you to it does not affect a session that is already open** — log out and back in. Rig control needs your radio's hamlib model number, which `rigctl -l` lists and which is the thing most often set wrong; a mismatched backend gives partial control, where frequency works and mode does not, which reads as a broken cable. Icom radios additionally need the CI-V address matched to the radio's own menu. **Decide that flrig owns the serial port** and point everything else at flrig; two programs opening it directly is the classic failure and its symptom is erratic behaviour rather than an error. `pipx ensurepath` needs a new shell before it takes effect. **Hammunition Hill is running from the moment its package lands**: the .deb enables and starts `hammunition-hill.service` as its own `hamhill` user, bound to loopback. Give it your callsign and an ADIF log in `/etc/hammunition-hill/config.toml` and restart the service; leave the host at 127.0.0.1.
