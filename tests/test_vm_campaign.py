@@ -40,18 +40,32 @@ def campaign() -> ModuleType:
     return mod
 
 
-def _begin(*packages: str, apt: tuple[str, ...] = ()) -> str:
+def _begin(
+    *packages: str,
+    apt: tuple[str, ...] = (),
+    deferred: tuple[dict[str, str], ...] = (),
+    target: dict[str, object] | None = None,
+) -> str:
     return json.dumps(
         {
             "event": "transaction_begin",
             "version": 2,
             "timestamp": "2026-09-04T06:02:00+00:00",
-            "target": {"id": "parrot"},
+            "target": target if target is not None else {"id": "parrot"},
             "packages": list(packages),
             "apt_packages": list(apt),
-            "deferred": [],
+            "deferred": list(deferred),
         }
     )
+
+
+def _deferral(subject: str, why: str, *, kind: str = "package") -> dict[str, str]:
+    what = (
+        "will not be installed (profile packet)"
+        if kind == "package"
+        else "will not write /etc/bpq32.cfg"
+    )
+    return {"kind": kind, "subject": subject, "what": what, "why": why}
 
 
 def _end(*checks: dict[str, object], verified: bool = True) -> str:
@@ -311,6 +325,105 @@ def test_evidence_sidecar_is_the_complete_machine_readable_record(
     assert [e["event"] for e in lines[1]["entries"]] == ["transaction_begin", "transaction_end"]
     assert lines[2]["unit"] == "gap" and lines[2]["exit_code"] == 2
     assert lines[3]["record"] == "isolated" and lines[3]["unit"] == "gap"
+
+
+def test_a_whole_profile_row_names_every_member_the_plan_deferred(campaign: ModuleType) -> None:
+    """`packet` on Kali filed as `installed+confirmed` in 39 s with 29 checks
+    and not one word about the eight members the plan withheld (2026-09-05).
+    The deferrals were in the transaction log the harness itself captured --
+    `transaction_begin` version 2 -- and nowhere in the table. That is D-041's
+    "installed whole on Pop!_OS" again, on the tool that exists to prevent it.
+    The row says how many members, a section says which and why, and a
+    config-file deferral (D-035) is counted apart from a member one."""
+    kernel = (
+        "linpac needs the kernel's AX.25 stack (module ax25), which kernel "
+        "7.1.5+kali-amd64 does not carry"
+    )
+    packet = campaign.classify(
+        "packet",
+        "Done.\n__EXIT=0\n__LOG\n"
+        + _begin(
+            "direwolf",
+            "pat",
+            apt=("direwolf", "pat"),
+            deferred=(
+                _deferral("linbpq", "station values not set: callsign", kind="config"),
+                _deferral("ax25-tools", "apt on Kali GNU/Linux Rolling has no candidate"),
+                _deferral("linpac", kernel),
+            ),
+        )
+        + "\n"
+        + _end(_pkg("direwolf", "1.8.1+dfsg-2"), _pkg("pat", "1.0.0-2")),
+        seconds=39,
+        timeout=9,
+    )
+    assert [d["subject"] for d in packet.deferred_members] == ["ax25-tools", "linpac"]
+    assert [d["subject"] for d in packet.deferred_config] == ["linbpq"]
+
+    report = campaign.render_report(
+        target_line="T",
+        provenance=_provenance(campaign),
+        results=[packet],
+        noun="Profiles (whole, from clean-baseline)",
+    )
+    assert (
+        "| `packet` | installed+confirmed — 2 members deferred, 1 config file deferred |"
+        " 2 checks: package direwolf installed 1.8.1+dfsg-2; package pat installed 1.0.0-2"
+        " | 39 |"
+    ) in report
+    assert "1 installed+confirmed (2 members deferred)" in report
+    assert "## Deferred by name (2 members, 1 config file)" in report
+    section = report.split("## Deferred by name (2 members, 1 config file)")[1]
+    assert "`packet`" in section
+    assert "`ax25-tools` — apt on Kali GNU/Linux Rolling has no candidate" in section
+    assert f"`linpac` — {kernel}" in section
+    assert "`linbpq` — will not write /etc/bpq32.cfg: station values not set: callsign" in section
+
+    plain = campaign.classify(
+        "direwolf",
+        "Done.\n__EXIT=0\n__LOG\n" + _begin("direwolf") + "\n" + _end(_pkg("direwolf", "1")),
+        seconds=5,
+        timeout=9,
+    )
+    quiet = campaign.render_report(
+        target_line="T", provenance=_provenance(campaign), results=[plain]
+    )
+    assert "## Deferred by name" not in quiet and "members deferred)" not in quiet
+    assert (
+        "| `direwolf` | installed+confirmed | 1 check: package direwolf installed 1 | 5 |" in quiet
+    )
+
+
+def test_the_target_falls_back_to_what_the_engine_logged_on_the_guest(
+    campaign: ModuleType,
+) -> None:
+    """The Kali `packet` report of 2026-09-05 read `**Target:** (status probe
+    returned nothing; ...)` while its own evidence sidecar held the engine's
+    os-release reading in `transaction_begin.target`. The log is the stronger
+    source -- the engine that ran the unit read it, on the guest, at the time
+    -- so it wins over the separate probe, and the probe's unknown is only
+    for a pass that logged nothing. The line is formatted exactly as the
+    engine's `Target.describe()` prints it."""
+    logged: dict[str, object] = {
+        "distro": "kali",
+        "distro_version": "2026.3",
+        "arch": "x86_64",
+        "id_like": ["debian"],
+        "pretty_name": "Kali GNU/Linux Rolling",
+    }
+    packet = campaign.classify(
+        "packet",
+        "Done.\n__EXIT=0\n__LOG\n" + _begin("direwolf", target=logged) + "\n" + _end(),
+        seconds=1,
+        timeout=9,
+    )
+    refused = campaign.UnitResult("gap", 2, 1.0, "no block")
+    assert campaign.target_line(campaign.TARGET_UNKNOWN, [refused, packet]) == (
+        "Kali GNU/Linux Rolling (ID=kali, version=2026.3, arch=x86_64)"
+    )
+    assert campaign.target_line(campaign.TARGET_UNKNOWN, [refused]) == campaign.TARGET_UNKNOWN
+    # A probe that answered is not second-guessed by the log.
+    assert campaign.target_line("Probed", [packet]) == "Probed"
 
 
 def test_remote_command_captures_only_the_lines_this_unit_appended(
