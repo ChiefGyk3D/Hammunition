@@ -20,6 +20,9 @@ install:
         sha256: bf65a7769cc0b9d0789635cbdb0e06aa2c49b2edfdedaed8833f0241c9259255
       format: zip
       install_tree: true
+      # Read back after the run (issue #27). The 1.20 zip has one root
+      # directory, which extract() strips, leaving js8spotter.py at the top.
+      tree_marker: js8spotter.py
     note: >-
       AHRL v27 shipped 1.18; upstream is at 1.20 (fetched and hashed
       2026-08-30). AHRL also apt-installs python3-tksnack for it -- one of

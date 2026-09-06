@@ -5,6 +5,7 @@ name: axmail
 version: "2.13"
 summary: Mail reader that packet callers reach through a node
 categories: [packet, emcomm]
+requires_kernel: [ax25]
 
 after: [ax25-tools]
 
@@ -32,6 +33,10 @@ documentation:
     A working AX.25 stack, a node front end such as uronode configured to
     launch it, and a local mail system for it to read from.
   known_problems: >-
+    Needs the kernel AX.25 stack, which Linux 7.1 removed (merge 64edfa65,
+    2026-04-24); on a 7.1 or newer kernel -- Kali rolling and Pop!_OS 24.04 on
+    7.1.5, measured 2026-09-04 -- the plan refuses or defers this unit by
+    name. See `ax25-tools` and `docs/reference/kernel-ax25.md`.
     It is a front end onto local mail, so anything wrong with mail delivery on
     the machine appears as a packet problem to the caller. Messages carried on
     behalf of others over amateur radio are subject to content rules in most

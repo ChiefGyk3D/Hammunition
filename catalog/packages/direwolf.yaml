@@ -43,6 +43,11 @@ documentation:
     the station-configuration question this catalog has open; the file is yours
     to write for now, and the shipped example is heavily commented.
   known_problems: >-
+    Unaffected by Linux 7.1's removal of the kernel AX.25 stack: it is the
+    userspace modem, and its KISS and AGW ports are what the other packet
+    programs talk to. Only attaching it to the kernel stack with `kissattach`
+    needs `ax25`, and that is `ax25-tools`' problem, not this unit's. See
+    `docs/reference/kernel-ax25.md`.
     Transmit audio level is the single biggest cause of a station that hears
     everyone and is heard by nobody -- overdriving the radio produces a signal
     that looks strong and does not decode. Direwolf will tell you its own

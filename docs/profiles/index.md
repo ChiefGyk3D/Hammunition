@@ -20,7 +20,7 @@ Named bundles of software that belong together. Flat tags with overlap, never ne
 | [rfid](rfid.md) | post-1.0 | 6 | RFID and NFC — card protocols, readers, and the tooling to study them |
 | [satellite](satellite.md) | 1.0 | 4 | Tracking, working and decoding amateur and weather satellites |
 | [sdr](sdr.md) | 1.0 | 14 | Software-defined radio — receivers, GNU Radio, and the driver layer |
-| [station](station.md) | 1.0 | 10 | The floor every station stands on — rig control, time, position |
+| [station](station.md) | 1.0 | 11 | The floor every station stands on — rig control, time, position |
 | [workstation](workstation.md) | post-1.0 | 7 | Terminal and bench tooling for the machine the station runs on |
 
 🔒 = consent-gated (D-021).

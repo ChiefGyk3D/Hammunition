@@ -5,6 +5,7 @@ name: aprsdigi
 version: "3.11.0"
 summary: APRS digipeater — repeats packets so they reach further than one hop
 categories: [tracking, packet]
+requires_kernel: [ax25]
 
 after: [ax25-tools]
 
@@ -34,6 +35,10 @@ documentation:
     considered decision about your paths. Also a callsign, which every
     repeated packet carries as having passed through you.
   known_problems: >-
+    Needs the kernel AX.25 stack, which Linux 7.1 removed (merge 64edfa65,
+    2026-04-24); on a 7.1 or newer kernel -- Kali rolling and Pop!_OS 24.04 on
+    7.1.5, measured 2026-09-04 -- the plan refuses or defers this unit by
+    name. See `ax25-tools` and `docs/reference/kernel-ax25.md`.
     A badly configured digipeater is actively harmful to a local network:
     repeating everything, repeating too many hops, or failing to suppress
     duplicates floods a shared channel that everyone else needs. Learn the

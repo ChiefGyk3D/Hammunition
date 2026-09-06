@@ -212,6 +212,20 @@ unrecorded test result rots into an inherited verdict within weeks.
    gqrx, and whatever step 1 installed: launch, reach the main window, note
    any Wayland/X11 misbehaviour (AHRL's accumulated X11 guidance is a
    documentation obligation for us, not folklore).
+   `scripts/vm_gui_smoke.py` is the automated first pass: on the guest,
+   under `xvfb-run`, it starts every `.desktop` entry the catalog put there
+   and files each as **alive** (still running at the timeout), **exited
+   clean**, **suspect** (exit 0 *with* a fault line on stderr -- a
+   traceback, a JVM `Exception in thread`, the dynamic loader, Qt's
+   platform plugin, no display) or **failed** (non-zero). `suspect` exists
+   because yaac on a headless JRE raised `HeadlessException` and exited 0
+   (issue #31): by exit status alone that was clean. The lane was
+   falsified on Debian 13 (2026-09-05) by removing `default-jre` -- one
+   `suspect`, tail leading with the fault -- and restoring it -- `alive`.
+   A `failed` row is a finding to read, not a verdict: `radiosonde-auto-rx`
+   fails there by design until `station.cfg` exists, exactly as its
+   manifest says. "It launched" is still the weaker claim; the main window
+   is a human's call.
 6. **Hardware, on Parrot only at first.** USB-passthrough a real device
    (HackRF, Proxmark3, T-Deck), run detection, apply udev rules, replug,
    check group membership after re-login. This exercises the M4 code that
@@ -310,9 +324,13 @@ now carries the evidence rather than the verdict alone:
   at …`; `group user:dialout …`), read from the transaction-log lines the
   unit appended. `no effect checks` means the re-probe had nothing to ask,
   and the summary counts those units separately: not failures, but exit
-  codes rather than evidence. An engine that probes launchers and
-  installed trees would empty that list; until then it is the stated blind
-  spot.
+  codes rather than evidence. Since 2026-09-05 the engine also probes
+  installed trees (`tree yaac:YAAC.jar tree marker present at …`) and the
+  wrappers it generated (`launcher yaac:yaac executable wrapper at …`), so
+  the units that used to sit in that list — yaac, mshv, js8spotter,
+  supersdr, radiosonde-auto-rx — now carry checks (issue #27). Anything
+  still listed there is a unit whose manifest declares nothing the engine
+  can read back, and that is the manifest's defect to fix.
 - **Provenance** — the engine commit *and whether the synced tree matched
   it* (the guest gets the working tree, not the commit), the libvirt domain
   and snapshot with the snapshot's creation time, when prepare ran, and the
@@ -328,10 +346,29 @@ now carries the evidence rather than the verdict alone:
   `--reset-each` passes label nothing: no unit sees another's state.
 - **`<out>.evidence.jsonl`** — the machine-readable record beside the
   markdown: the provenance, then one line per unit with exit code, tail,
-  every transaction-log entry it appended and every package it added, then
-  the isolated re-runs. Rewritten with the report after every unit, so a
-  campaign that dies keeps what it measured, and the markdown can be
-  reconstructed from it.
+  the UTC wall clock it started and finished at, every transaction-log
+  entry it appended and every package it added, then the isolated re-runs.
+  Rewritten with the report after every unit, so a campaign that dies
+  keeps what it measured, and the markdown can be reconstructed from it.
+  **That rewrite is also a trap:** the report file exists from the first
+  unit on, so anything that waits for it to appear before starting a second
+  campaign on the same VM starts immediately. On 2026-09-05 a chained run
+  did exactly that and reverted the Parrot snapshot under the sweep's
+  `propagation`, which filed `exit 255`; the rows carried no clock, so
+  whether `rfid` overlapped too was undecidable, and both were re-run.
+  Wait on the harness **process**, and one VM runs one campaign at a time.
+- **Deferred by name** — a `--whole-profiles` row whose plan withheld
+  members (D-039, D-041) says so in its outcome cell (`installed+confirmed
+  — 8 members deferred, 1 config file deferred`), the summary counts the
+  members, and a section lists each with the plan's reason, read from
+  `transaction_begin`'s `deferred` list. Added after `packet` on Kali filed
+  as `installed+confirmed` in 39 s with its eight AX.25 members in the
+  sidecar and nowhere in the table (2026-09-05) — the "installed whole on
+  Pop!_OS" reading D-041 exists to prevent, produced by the harness itself.
+- **Target from the log** — the header's `Target:` prefers the os-release
+  reading the engine logged on the guest in `transaction_begin` over the
+  separate `status` probe, which returned nothing for that same Kali run.
+  The unknown placeholder is only for a pass that logged nothing either.
 
 `tests/test_vm_campaign.py` holds one test per claim above, each first run
 against a report that lacked the field to watch it fail.

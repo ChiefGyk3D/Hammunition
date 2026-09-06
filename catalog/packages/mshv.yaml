@@ -20,6 +20,9 @@ install:
       project_file: MSHV_ARM_PI.pro
       provides_install_target: false
       install_tree: true
+      # Read back after the run (issue #27). Both .pro files set DESTDIR = bin
+      # and no TARGET, so qmake names the executable after the project file.
+      tree_marker: bin/MSHV_ARM_PI
     build_depends:
       # libpulse-dev is absent from AHRL's install_mshv -- its build only
       # succeeds there because install_dream ran earlier and left pulse
@@ -43,6 +46,7 @@ install:
       project_file: MSHV_x86_64.pro
       provides_install_target: false
       install_tree: true
+      tree_marker: bin/MSHV_x86_64
     build_depends:
       # libpulse-dev is absent from AHRL's install_mshv -- its build only
       # succeeds there because install_dream ran earlier and left pulse

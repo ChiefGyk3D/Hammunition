@@ -21,6 +21,7 @@ A manifest is **strict**: an unknown field is an error, not ignored. That is del
 | `provides` | `list[str]` | no |  |
 | `conflicts_with_repo_package` | `list[str]` | no |  |
 | `after` | `list[str]` | no | Ordering, not dependency. |
+| `requires_kernel` | `list[Literal[ax25]]` | no | Kernel subsystems the software cannot work without, checked against the running kernel at plan time. A machine whose kernel lacks one defers the unit in a profile and refuses it by name. Linux 7.1 removed AX.25 (merge 64edfa65, 2026-04-24); `hammunition.kernel` reads the module tree. The vocabulary is what has been measured. |
 | `binaries` | `list[Binary]` | no |  |
 | `launchers` | `list[Launcher]` | no |  |
 | `service_endpoints` | `list[ServiceEndpoint]` | no |  |
@@ -92,6 +93,7 @@ Build from a verified source archive.
 | `autoreconf` | `bool` | no (default `False`) | Run autoreconf -fi before configure -- for autotools projects shipped without a generated configure (git checkouts, mostly). kalibrate-rtl proved the need (source-build-gaps #3); the planner injects the autotools toolchain when set. |
 | `provides_install_target` | `bool` | no (default `True`) | False when the project's build system has no install rule. The backend then installs the manifest's `binaries` explicitly instead of running `make install`, which would fail. Requires `binaries` to be declared. |
 | `install_tree` | `bool` | no (default `False`) | Install the whole built/extracted tree to <prefix>/share/hammunition/<name> instead of (or beside) named binaries. For software that reads settings, resources or data beside its executable -- MSHV, run-in-place trees (gaps #6/#8). Requires a launcher (or binaries) so the tree is reachable. |
+| `tree_marker` | `str \| None` | no | One file, relative to the installed tree, whose presence proves the tree is what the launcher expects: yaac's YAAC.jar, js8spotter's js8spotter.py. The effect check reads it back after the run; `cp -aT` exits 0 on any directory, so without it a tree unit ended `verified: true` with no check at all (issue #27). Required exactly when the block installs a tree. |
 
 ### `GitInstall`
 
@@ -110,6 +112,7 @@ Build from a pinned git revision. `ref` must be immutable.
 | `autoreconf` | `bool` | no (default `False`) | Run autoreconf -fi before configure -- for autotools projects shipped without a generated configure (git checkouts, mostly). kalibrate-rtl proved the need (source-build-gaps #3); the planner injects the autotools toolchain when set. |
 | `provides_install_target` | `bool` | no (default `True`) | False when the project's build system has no install rule. See SourceInstall for the full note. |
 | `install_tree` | `bool` | no (default `False`) | Install the whole built/extracted tree to <prefix>/share/hammunition/<name> instead of (or beside) named binaries. For software that reads settings, resources or data beside its executable -- MSHV, run-in-place trees (gaps #6/#8). Requires a launcher (or binaries) so the tree is reachable. |
+| `tree_marker` | `str \| None` | no | One file, relative to the installed tree, whose presence proves the tree is what the launcher expects: yaac's YAAC.jar, js8spotter's js8spotter.py. The effect check reads it back after the run; `cp -aT` exits 0 on any directory, so without it a tree unit ended `verified: true` with no check at all (issue #27). Required exactly when the block installs a tree. |
 | `pin_review` | `PinReview \| None` | no | Required when `ref` is a commit SHA rather than a tag. D-024. |
 
 ### `BinaryInstall`
@@ -124,6 +127,7 @@ Vendor .deb, archive, or prebuilt executable.
 | `deb_package` | `str \| None` | no | The control-file Package name a `deb` artifact installs, read from the .deb itself (`dpkg-deb -f file.deb Package`), never assumed from the filename — wsjtx-improved's vendor deb installs as `wsjtx`, and GridTracker2's filename casing matches nothing. Required for format: deb; it is what `uninstall` hands to `apt-get remove` and what `status` probes. |
 | `strip_components` | `int` | no (default `0`) |  |
 | `install_tree` | `bool` | no (default `False`) | Install the whole built/extracted tree to <prefix>/share/hammunition/<name> instead of (or beside) named binaries. For software that reads settings, resources or data beside its executable -- MSHV, run-in-place trees (gaps #6/#8). Requires a launcher (or binaries) so the tree is reachable. |
+| `tree_marker` | `str \| None` | no | One file, relative to the installed tree, whose presence proves the tree is what the launcher expects: yaac's YAAC.jar, js8spotter's js8spotter.py. The effect check reads it back after the run; `cp -aT` exits 0 on any directory, so without it a tree unit ended `verified: true` with no check at all (issue #27). Required exactly when the block installs a tree. |
 
 ### `VenvInstall`
 
@@ -148,6 +152,7 @@ comment lines pass through untouched.
 | `env` | `dict[str, str]` | no | Build-time environment for pip. Exists for one measured case: a project using setuptools-scm, installed from a hashed release archive, has no .git to read its version from and needs SETUPTOOLS_SCM_PRETEND_VERSION_FOR_<NAME> (nanovna-saver proved it, 2026-08-30). Never secrets -- the plan prints this. |
 | `payload` | `RemoteArtifact \| None` | no | A verified archive whose extracted tree installs to <prefix>/share/hammunition/<name>, for software that is a data tree run by a venv rather than a pip-installable package. The two-unit demand (source-build-gaps #9): radiosonde_auto_rx and supersdr. Launchers reach the venv with the {venv} placeholder. |
 | `payload_build_script` | `str \| None` | no | A script inside the verified payload tree, run with sh before the tree installs -- radiosonde_auto_rx compiles its C demodulators via auto_rx/build.sh. Requires payload; declare its toolchain in the block's build_depends. |
+| `tree_marker` | `str \| None` | no | One file, relative to the installed tree, whose presence proves the tree is what the launcher expects: yaac's YAAC.jar, js8spotter's js8spotter.py. The effect check reads it back after the run; `cp -aT` exits 0 on any directory, so without it a tree unit ended `verified: true` with no check at all (issue #27). Required exactly when the block installs a tree. |
 | `expose` | `list[str]` | no | Console-script names from the venv's bin/ to wrap onto the operator's PATH (~/.local/bin). A venv nobody can invoke installs nothing while reporting success. |
 
 ### `NodeInstall`

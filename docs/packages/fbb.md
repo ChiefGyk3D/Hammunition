@@ -8,6 +8,7 @@
 - **Categories:** `emcomm`, `packet`
 - **Upstream:** <https://sourceforge.net/projects/linfbb/>
 - **Install after:** `ax25-tools`
+- **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)
 
 ## What it does
 
@@ -24,11 +25,11 @@ A configured AX.25 stack and a callsign for the BBS. Forwarding partners, which 
 ## How it installs
 
 - apt: `fbb`
-  - **Only Ubuntu 26.04 and Linux Mint 22.3 carry this**, both at 7.011-3. No candidate on Debian 13, Kali or Parrot (measured 2026-08-28). The direction is unusual -- Debian's line lacks something Ubuntu's has -- and it matters because `ax25mail-utils`, which this catalog carries and which exists to forward mail with an FBB system, is present on every target. On the primary target you get the client side of a BBS you cannot run.
+  - **Only Ubuntu 26.04 and Linux Mint 22.3 carry this**, both at 7.011-3. No candidate on Debian 13, Kali or Parrot (measured 2026-08-28). The direction is unusual -- Debian's line lacks something Ubuntu's has -- and it matters because `ax25mail-utils`, which this catalog carries and which exists to forward mail with an FBB system, is present on every target. On the primary target you get the client side of a BBS you cannot run. The why, from the Debian tracker (2026-09-04): removed from testing on 2025-01-23 over RC bug #1091298, a build failure on armhf (`satupdat.c:664`, an incompatible pointer type the current GCC rejects), and unstable's 7.011-3 has not migrated since. Ubuntu's archive carries the same 7.011-3 regardless. It is a packaging bug in Debian's queue, not something this engine can route around.
 
 ## Known problems
 
-Not available on Debian 13, Kali or Parrot -- see the install note. It is old software with a configuration model to match: several files, a forwarding schedule in its own syntax, and unforgiving behaviour when they disagree. Running a BBS means carrying other people's traffic under your callsign, which in most jurisdictions makes its content your responsibility.
+Needs the kernel AX.25 stack, which Linux 7.1 removed (merge 64edfa65, 2026-04-24); on a 7.1 or newer kernel -- Kali rolling and Pop!_OS 24.04 on 7.1.5, measured 2026-09-04 -- the plan refuses or defers this unit by name. See `ax25-tools` and `docs/reference/kernel-ax25.md`. Not available on Debian 13, Kali or Parrot -- see the install note. It is old software with a configuration model to match: several files, a forwarding schedule in its own syntax, and unforgiving behaviour when they disagree. Running a BBS means carrying other people's traffic under your callsign, which in most jurisdictions makes its content your responsibility.
 
 ## Keeping it current
 

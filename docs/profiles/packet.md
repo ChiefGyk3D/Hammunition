@@ -9,6 +9,7 @@
 ## What it installs
 
 Two soundcard TNCs — one headless and one with a scope — the kernel AX.25 stack's configuration and user tools, two packet terminals, a node front end, a BBS and Winlink gateway, the Winlink client, an HF data modem, the full-featured APRS client, a digipeater and an internet gateway, mail tools, AMPRnet routing, and a GRIB weather viewer.
+**On a kernel without AX.25 the kernel-side members are withheld, by name.** Linux 7.1 removed the AX.25 stack (2026-04-24); Kali rolling and Pop!_OS on their 7.1 kernels no longer have it, measured 2026-09-04. The plan reads the running kernel and defers `ax25-tools`, `ax25-apps`, `ax25-xtools`, `ax25mail-utils`, `axmail`, `aprsdigi`, `linpac` and `uronode` with the reason, and the rest installs: Direwolf, pat over `ax25+agwpe`, LinBPQ, YAAC and Xastir's AGWPE interface work with no kernel stack. What such a machine cannot have is a kernel port — no `axports`, `kissattach`, `ax25d` or NET/ROM. `docs/reference/kernel-ax25.md` has the measurements.
 
 **Disk footprint:** Around 500 MB. LinBPQ and ardopcf are source builds from pinned upstream tags; everything else is apt.
 

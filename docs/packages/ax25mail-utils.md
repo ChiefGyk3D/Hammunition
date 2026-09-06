@@ -8,6 +8,7 @@
 - **Categories:** `emcomm`, `packet`
 - **Upstream:** <https://sourceforge.net/projects/ax25mail/>
 - **Install after:** `ax25-tools`
+- **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)
 
 ## What it does
 
@@ -27,7 +28,7 @@ A configured AX.25 port and a BBS to forward with, which means an agreement with
 
 ## Known problems
 
-The absence of `fbb` from the Debian line is the surprise here and it is the opposite of the usual direction. Forwarding protocols are old, lightly documented and unforgiving of configuration errors, and a mis-set forwarding schedule can flood a slow RF link.
+Needs the kernel AX.25 stack, which Linux 7.1 removed (merge 64edfa65, 2026-04-24); on a 7.1 or newer kernel -- Kali rolling and Pop!_OS 24.04 on 7.1.5, measured 2026-09-04 -- the plan refuses or defers this unit by name. See `ax25-tools` and `docs/reference/kernel-ax25.md`. The absence of `fbb` from the Debian line is the surprise here and it is the opposite of the usual direction. Forwarding protocols are old, lightly documented and unforgiving of configuration errors, and a mis-set forwarding schedule can flood a slow RF link.
 
 ## Keeping it current
 

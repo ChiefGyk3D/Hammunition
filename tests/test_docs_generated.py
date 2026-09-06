@@ -66,6 +66,13 @@ def test_every_manifest_has_a_generated_page(rendered: dict[str, str]) -> None:
     assert not missing, f"no generated page for: {missing}"
 
 
+def test_a_kernel_requirement_is_rendered_on_the_page(rendered: dict[str, str]) -> None:
+    """`requires_kernel` is why a unit refuses on a 7.1 kernel; a reader must
+    see it without opening the manifest."""
+    assert "- **Needs from the kernel:** `ax25`" in rendered["ax25-tools.md"]
+    assert "Needs from the kernel" not in rendered["direwolf.md"]
+
+
 def test_regenerating_is_a_no_op(rendered: dict[str, str]) -> None:
     on_disk = {p.name: p.read_text() for p in PACKAGES.glob("*.md")}
     stale = sorted(set(on_disk) - set(rendered))

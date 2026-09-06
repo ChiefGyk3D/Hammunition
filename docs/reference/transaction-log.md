@@ -82,7 +82,9 @@ records the confirmed state here.
   "checks": [
     {"kind": "package", "subject": "js8call", "confirmed": true, "detail": "installed 2.2.0+ds1-1"},
     {"kind": "group", "subject": "op:dialout", "confirmed": true, "detail": "membership present in the group database"},
-    {"kind": "binary", "subject": "fldigi:fldigi", "confirmed": true, "detail": "executable at /usr/local/bin/fldigi"}
+    {"kind": "binary", "subject": "fldigi:fldigi", "confirmed": true, "detail": "executable at /usr/local/bin/fldigi"},
+    {"kind": "tree", "subject": "yaac:YAAC.jar", "confirmed": true, "detail": "tree marker present at /usr/local/share/hammunition/yaac/YAAC.jar"},
+    {"kind": "launcher", "subject": "yaac:yaac", "confirmed": true, "detail": "executable wrapper at /home/op/.local/bin/yaac, runs in /usr/local/share/hammunition/yaac"}
   ]
 }
 ```
@@ -90,8 +92,8 @@ records the confirmed state here.
 | Field | Meaning |
 |---|---|
 | `verified` | `true` only when every check is confirmed. A completed run with `verified: false` exited 1 and named what did not take. |
-| `checks[].kind` | `package`, `group`, `binary`, or `verification` (the last when the re-probe itself could not run). |
-| `checks[].subject` | The package name, `user:group`, or `unit:install_as` for a binary a source, git or non-deb binary unit declares. |
+| `checks[].kind` | `package`, `group`, `binary`, `tree`, `launcher`, or `verification` (the last when the re-probe itself could not run). |
+| `checks[].subject` | The package name, `user:group`, `unit:install_as` for a binary a source, git or non-deb binary unit declares, `unit:tree_marker` for an installed tree, or `unit:launcher` for a generated wrapper. |
 | `checks[].confirmed` | Whether the effect is actually present now, not whether the command exited 0. |
 | `checks[].detail` | What was found — the installed version, or why it could not be confirmed. |
 
@@ -102,6 +104,34 @@ its executable, so `cmake --install` exits 0, writes an empty
 unit `verified: true` on the strength of its build dependencies alone
 (2026-09-02). The check is `<prefix>/bin/<install_as>` existing and being
 executable, for every entry in the manifest's `binaries`.
+
+A `tree` check covers the units that declare no `binaries` because they are
+installed whole — yaac's zip, mshv's built directory, js8spotter, and the
+two venv payloads — and had therefore ended `verified: true` with no check at
+all (issue #27, 2026-09-05). `cp -aT` exits 0 on any directory, so each such
+block names a `tree_marker`, one file the launcher depends on, and the check
+is `<prefix>/share/hammunition/<unit>/<tree_marker>` existing. A `launcher`
+check reads back every wrapper the run generated: `<~/.local/bin>/<name>`
+must be an executable file, and where the launcher sets a
+`working_directory`, that directory must exist — a wrapper that `cd`s into
+a directory no install step created fails on every click. Both are unasked
+questions, not failures, when the run has no prefix or no per-user bin
+directory to look in.
+
+Measured on Debian 13 from the clean snapshot, engine 4c83e11, 2026-09-05:
+`js8spotter`, `yaac` and `supersdr` each ended with a `tree` and a
+`launcher` check beside their packages -- `yaac` went from one check on a
+dependency (`libjssc-java`) to four, one of them `YAAC.jar` itself. The
+falsification the issue asked for was run on the same guest: with the
+installed `YAAC.jar` removed, `verify_effects` against the live prefix went
+`verified: false` on `tree yaac:YAAC.jar` naming the missing path, and green
+again once it was put back. The two remaining tree units ran on the same
+snapshot afterwards: `mshv` (89 s, an actual qmake build) confirmed
+`tree mshv:bin/MSHV_x86_64` and a wrapper running in `.../mshv/bin`, and
+`radiosonde-auto-rx` confirmed `tree radiosonde-auto-rx:auto_rx/auto_rx.py`
+and a wrapper running in `.../radiosonde-auto-rx/auto_rx` -- so every marker
+in the catalog has been read back from a real install, not only inferred
+from the archive listing.
 
 `uninstall` will trust this record over an exit code: a package recorded
 `confirmed: false` was never actually installed and must not be "removed". A

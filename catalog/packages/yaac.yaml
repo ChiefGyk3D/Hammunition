@@ -27,6 +27,9 @@ install:
         sha256: a56c4037d1384e399290a1024e3b2d781a251257715528287db83a19429d5d5f
       format: zip
       install_tree: true
+      # Read back after the run (issue #27). Confirmed on the Parrot VM's
+      # 2026-09-04 install: YAAC.jar sits at the tree root beside lib/.
+      tree_marker: YAAC.jar
     note: >-
       The zip is loose-rooted (YAAC.jar, lib/, images/, plugins/ at top
       level) and lands whole under the shared prefix; YAAC reads everything
@@ -62,6 +65,8 @@ documentation:
     passcode for internet-only operation. Serial TNCs need the dialout
     group; libjssc-java supplies the serial bindings.
   known_problems: >-
+    Unaffected by Linux 7.1's removal of the kernel AX.25 stack: it speaks
+    KISS and AGW to Direwolf directly. See `docs/reference/kernel-ax25.md`.
     First run opens a setup wizard; give it a moment on the first tile
     download. The single-roll pin above means an upstream roll turns into
     a hash-mismatch refusal until this manifest is re-pinned -- deliberate,
