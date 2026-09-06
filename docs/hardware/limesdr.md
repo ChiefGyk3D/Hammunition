@@ -20,7 +20,7 @@ Simultaneous transmit and receive across a wide range, and the LimeSuite tooling
 
 ## Setup
 
-Install limesuite and soapysdr-module-lms7 from apt, then run LimeUtil --find. Add udev rules once the identifier for your board is confirmed.
+Install limesuite and soapysdr-module-lms7 from apt, then run LimeUtil --find. The full-size USB board's identifier is confirmed and its rule applies; a Mini's is from Debian's rule only, so check LimeUtil --find as an unprivileged user before trusting the permission grant.
 
 ## Known problems
 
@@ -30,13 +30,13 @@ USB and Mini are different hardware with different identifiers and different qui
 
 | USB id | What | Confirmed | Node |
 |---|---|---|---|
-| `1d50:6108` | LimeSDR (Myriad-RF) - the full-size USB board | yes | libusb |
+| `1d50:6108` | LimeSDR-USB (Myriad-RF) - the full-size USB board | yes | libusb |
 | `0403:601f` | FTDI FT601 32-bit FIFO - the USB interface on LimeSDR Mini | yes | libusb |
 | `04b4:00f1` | Cypress FX3 in bootloader mode - LimeSDR firmware recovery | yes | libusb |
 
 ## What is not yet known
 
-Narrowed, not closed. The board identifiers are now confirmed from Debian's own rule, but which of the LimeSDR variants a given identifier belongs to has not been checked against hardware -- the USB board and the Mini are different designs and the Mini is FTDI-based, so `1d50:6108` is believed to be the full-size board and `0403:601f` the Mini. The maintainer owns neither. An owner running scripts/identify-device.sh would settle which is which, and would also confirm whether current Mini revisions still present 0403:601f.
+Narrowed again, still not closed. `1d50:6108` is the full-size LimeSDR-USB: an owner's capture said so in the product string (issue #30, 2026-09-05), and it presents no serial device, only the libusb node. What remains is the Mini: `0403:601f` comes from Debian's rule alone and no Mini owner has reported yet, so whether current Mini revisions still present it is unknown. The maintainer owns neither board; a Mini owner running scripts/identify-device.sh limesdr would close the rest.
 
 *Who can close it:* nobody on this project owns one — an operator who does can close it with one lsusb ([how](../contributing/hardware.md)).
 
