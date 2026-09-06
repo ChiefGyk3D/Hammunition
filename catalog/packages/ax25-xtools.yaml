@@ -5,6 +5,7 @@ name: ax25-xtools
 version: "0.0.10"
 summary: X11 versions of the AX.25 monitoring tools
 categories: [packet]
+requires_kernel: [ax25]
 
 after: [ax25-tools]
 
@@ -31,6 +32,10 @@ documentation:
   prerequisites: >-
     An X11 session and a configured AX.25 port.
   known_problems: >-
+    Needs the kernel AX.25 stack, which Linux 7.1 removed (merge 64edfa65,
+    2026-04-24); on a 7.1 or newer kernel -- Kali rolling and Pop!_OS 24.04 on
+    7.1.5, measured 2026-09-04 -- the plan refuses or defers this unit by
+    name. See `ax25-tools` and `docs/reference/kernel-ax25.md`.
     It is a thin X11 wrapper with no theming and no scrollback beyond what the
     widget holds. For anything to be captured rather than watched, the
     command-line `listen` piped to a file is the better tool.

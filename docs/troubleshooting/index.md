@@ -34,6 +34,8 @@ or field use), not imagined. Where a fix is distribution-specific it says so.
   added to `dialout` at install, but group membership needs a fresh login.
 - **[A venv-installed program is "not found"](running.md#local-bin)** —
   `~/.local/bin` reaches PATH on next login; open a new shell.
+- **["Address family not supported by protocol" from a packet program](running.md#ax25)** —
+  Linux 7.1 removed kernel AX.25; the userspace path still works.
 - **[The FT8 waterfall is silent](../getting-started/first-contact.md#when-the-waterfall-is-silent)** —
   audio routing, covered in first contact.
 

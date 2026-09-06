@@ -104,6 +104,9 @@ documentation:
     QtSoundModem, and a callsign in `/etc/bpq32.cfg`. Running a Winlink gateway
     additionally requires registration with the Winlink system.
   known_problems: >-
+    Unaffected by Linux 7.1's removal of the kernel AX.25 stack: it carries
+    its own AX.25 implementation and drives Direwolf over KISS or AGW, so no
+    AF_AX25 socket is involved. See `docs/reference/kernel-ax25.md`.
     Upstream publishes prebuilt binaries in a directory named Beta with no
     versioning or checksums; we ignore those and build from a tagged source
     revision instead. The generated configuration is a minimum viable node and

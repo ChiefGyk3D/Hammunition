@@ -65,3 +65,42 @@ credentials, the things beyond the callsign/grid the engine already manages.
 The program's page under [`docs/packages/`](../packages/index.md) says which
 file and where; copy the shipped `*.example`, edit it, done. This is expected
 first-run setup, not a broken install.
+
+## <a name="ax25"></a>"Address family not supported by protocol" from a packet program
+
+```
+kissattach: Address family not supported by protocol
+OSError: [Errno 97] Address family not supported by protocol
+modprobe: FATAL: Module ax25 not found in directory /lib/modules/7.1.5-…
+```
+
+Your kernel has no AX.25 stack. **Linux 7.1 removed it** — `net/ax25`,
+NET/ROM, Rose and every `drivers/net/hamradio` driver, in one merge on
+2026-04-24 — so on a 7.1 or newer kernel there is no `ax25` module to load and
+nothing for `kissattach` to attach a TNC to. Check with:
+
+```
+uname -r
+ls /lib/modules/$(uname -r)/kernel/net/ax25/
+```
+
+A directory with `ax25.ko` (or `.ko.xz`, `.ko.zst`) in it means the kernel
+carries the stack and the module is merely not loaded yet — `sudo modprobe
+ax25`, or run `kissattach` as root, which autoloads it. No such directory
+means the kernel does not have it, and no package fixes that.
+
+What still works: the **userspace** packet path. Direwolf's KISS and AGW ports
+serve pat (`ax25+agwpe://`), LinBPQ, YAAC and Xastir's AGWPE interface with no
+kernel AX.25 at all. What does not: `axports`, `kissattach`, `ax25d`,
+`listen`, `mheard`, NET/ROM — everything in `ax25-tools` and `ax25-apps`, and
+the programs that sit on them (`linpac`, `uronode`, `fbb`, `aprsdigi`).
+
+Hammunition reads the running kernel at plan time and will refuse or defer
+those units by name on such a kernel, so the usual way to meet this is
+`hammunition install packet` on Kali (7.1.5) or a Pop!_OS machine on its
+current kernel — and the plan says which members it withheld and why. The
+measurements, and which units are affected, are in
+[`docs/reference/kernel-ax25.md`](../reference/kernel-ax25.md). If you need a
+kernel port, boot a kernel that still carries the stack: Debian 13's 6.12,
+Parrot 7.3's 7.0, Ubuntu 26.04's 7.0. Hammunition does not build kernel
+modules.

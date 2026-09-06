@@ -8,6 +8,7 @@
 - **Categories:** `packet`
 - **Upstream:** <https://linux-ax25.in-berlin.de/wiki/Main_Page>
 - **Install after:** `ax25-tools`
+- **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)
 
 ## What it does
 
@@ -27,7 +28,7 @@ An X11 session and a configured AX.25 port.
 
 ## Known problems
 
-It is a thin X11 wrapper with no theming and no scrollback beyond what the widget holds. For anything to be captured rather than watched, the command-line `listen` piped to a file is the better tool.
+Needs the kernel AX.25 stack, which Linux 7.1 removed (merge 64edfa65, 2026-04-24); on a 7.1 or newer kernel -- Kali rolling and Pop!_OS 24.04 on 7.1.5, measured 2026-09-04 -- the plan refuses or defers this unit by name. See `ax25-tools` and `docs/reference/kernel-ax25.md`. It is a thin X11 wrapper with no theming and no scrollback beyond what the widget holds. For anything to be captured rather than watched, the command-line `listen` piped to a file is the better tool.
 
 ## Keeping it current
 

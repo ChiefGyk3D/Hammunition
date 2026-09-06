@@ -87,6 +87,9 @@ documentation:
     VOX. A program to connect to its KISS port: LinBPQ, Xastir, Pat or anything
     else that speaks KISS over TCP.
   known_problems: >-
+    Unaffected by Linux 7.1's removal of the kernel AX.25 stack: it is a
+    userspace modem exposing KISS and AGW over TCP, like Direwolf. See
+    `docs/reference/kernel-ax25.md`.
     **It needs four permissive compiler flags to build on a current toolchain**,
     recorded in the install block rather than left for you to discover. One of
     them silences an implicit declaration of `Sleep()`, which is a Windows

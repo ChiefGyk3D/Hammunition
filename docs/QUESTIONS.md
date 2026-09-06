@@ -939,3 +939,46 @@ rule, so A with the opt-out is the only shape that survives. Whether the
 refresh also re-runs the candidate check against the fresh lists (a second,
 better plan, disclosed as such) is a follow-on, and worth doing if A is
 taken.
+
+---
+
+## Q-019 🟡 — Kernel AX.25 is gone from Linux 7.1: retire `z8530-utils2`, and does the packet core become userspace-primary?
+
+**Raised 2026-09-04**, from the Kali campaign's `ax25-tools` gap, which
+turned out to be a kernel removal rather than an archive accident
+(**D-041**, `docs/reference/kernel-ax25.md`). D-041 settles what the
+engine does on such a kernel. Two things it leaves to the maintainer:
+
+**1. `z8530-utils2`.** It configures the `scc` driver for Z8530 HDLC cards.
+That driver left the kernel with the rest of `drivers/net/hamradio` in the
+same merge; the cards are ISA and early PCI; the manifest already calls
+both "museum conditions". Today it carries `requires_kernel: [ax25]`, which
+is true but a proxy — a 7.0 kernel with `ax25.ko` and no `scc.ko` is
+possible in principle and the probe would pass it.
+
+| Option | For | Against |
+|---|---|---|
+| **A. Retire, verdict tested-by-us** ⭐ | The driver is gone upstream and no distribution will carry it back; the hardware has no modern host. A retire with the merge hash as evidence is exactly the "dead weight gone *with an explanation*" the parity policy asks for. | Somebody running a 6.12 kernel on a machine with an ISA slot loses a package they could still use. That person is running Debian 13 on a museum piece and can `apt install` it by hand. |
+| B. Add `scc` to the `requires_kernel` vocabulary and keep it | Precise. | A second probe entry for one unit nobody has run here; `scc.ko` would need its own measured path. Vocabulary that exists for one unit is the convention-over-measurement habit D-014 exists to refuse. |
+| C. Leave as is | Nothing to do. | The proxy above; and it stays a CARRY that has never been tested (M5 counts inherited verdicts against us). |
+
+**Recommendation: A.** The parity policy says every unit gets a verdict we
+tested; the test here is `git show 64edfa65 --stat` and it is conclusive.
+
+**2. D-008's packet-core statement.** D-008 and the `packet` profile prose
+both describe the core as the kernel AX.25 stack with Direwolf feeding it.
+On every 7.1+ kernel — Kali now, Ubuntu 24.04 when its HWE kernel moves,
+the maintainer's own laptop — the kernel half is unavailable and the
+userspace half (Direwolf → AGW/KISS → pat, LinBPQ, YAAC, Xastir) is the
+whole station. Should D-008 be amended to say the packet core is
+userspace-primary, with the kernel stack a bonus where the kernel still
+has it?
+
+| Option | For | Against |
+|---|---|---|
+| **A. Amend D-008: userspace-primary; kernel AX.25 where present** ⭐ | Matches what works on the maintainer's laptop today and on every target the day its kernel crosses 7.1. The getting-started packet guide would then teach the Direwolf–pat path first and `kissattach` second, which is the order a new operator should meet them in anyway. | The kernel path is the one that gives packet connections as sockets, which is the property the `ax25-tools` manifest praises; on Debian 13 it remains the fuller station. |
+| B. Leave D-008; let D-041's deferral carry it | No amendment. | The design record would describe a core whose primary member defers on the maintainer's own machine. |
+
+**Recommendation: A.** The amendment is a paragraph; the guide reorder is
+the real work and belongs to the getting-started packet page whenever it
+is written.

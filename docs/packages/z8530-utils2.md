@@ -7,6 +7,7 @@
 - **Version recorded:** 3.0-1
 - **Categories:** `hardware`, `packet`
 - **Upstream:** <https://tracker.debian.org/pkg/z8530-utils2>
+- **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)
 
 ## What it does
 
@@ -26,7 +27,7 @@ A Z8530-based card in an ISA or PCI slot, and a kernel with the matching driver.
 
 ## Known problems
 
-The hardware predates PCI Express and most of it is ISA, so a modern machine cannot host it at all. Carried for completeness and for anyone maintaining an existing installation, not as a route to build a new one. Suggests rather than Recommends in the Blend, marked hardware-specific.
+Needs the kernel AX.25 stack and the `scc` driver, both of which Linux 7.1 removed with the rest of drivers/net/hamradio (merge 64edfa65, 2026-04-24); the plan refuses or defers this unit by name on a 7.1 or newer kernel, and Q-019 asks whether to retire it. See `docs/reference/kernel-ax25.md`. The hardware predates PCI Express and most of it is ISA, so a modern machine cannot host it at all. Carried for completeness and for anyone maintaining an existing installation, not as a route to build a new one. Suggests rather than Recommends in the Blend, marked hardware-specific.
 
 ## Keeping it current
 

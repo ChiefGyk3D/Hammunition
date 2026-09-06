@@ -5,6 +5,7 @@ name: ax25-apps
 version: "0.0.8"
 summary: The programs you actually use over AX.25 once a port is up
 categories: [packet, emcomm]
+requires_kernel: [ax25]
 
 # ax25-tools brings the port up; these speak over it. Ordering, not dependency
 # (D-003) -- they install independently and are useless separately.
@@ -35,6 +36,10 @@ documentation:
     A working AX.25 port from ax25-tools. Without one these programs have
     nothing to talk to.
   known_problems: >-
+    Needs the kernel AX.25 stack, which Linux 7.1 removed (merge 64edfa65,
+    2026-04-24); on a 7.1 or newer kernel -- Kali rolling and Pop!_OS 24.04 on
+    7.1.5, measured 2026-09-04 -- the plan refuses or defers this unit by
+    name. See `ax25-tools` and `docs/reference/kernel-ax25.md`.
     `listen` shows everything on the port including your own transmissions,
     which confuses a first diagnosis. `ax25ipd` links your local packet
     network to a wider one over the internet, which changes who can reach your

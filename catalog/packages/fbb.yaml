@@ -5,6 +5,7 @@ name: fbb
 version: "7.011"
 summary: The classic packet radio BBS and mailbox
 categories: [packet, emcomm]
+requires_kernel: [ax25]
 
 after: [ax25-tools]
 
@@ -42,6 +43,10 @@ documentation:
     which is an arrangement with their operators rather than a setting.
     Somewhere for it to run continuously.
   known_problems: >-
+    Needs the kernel AX.25 stack, which Linux 7.1 removed (merge 64edfa65,
+    2026-04-24); on a 7.1 or newer kernel -- Kali rolling and Pop!_OS 24.04 on
+    7.1.5, measured 2026-09-04 -- the plan refuses or defers this unit by
+    name. See `ax25-tools` and `docs/reference/kernel-ax25.md`.
     Not available on Debian 13, Kali or Parrot -- see the install note. It is
     old software with a configuration model to match: several files, a
     forwarding schedule in its own syntax, and unforgiving behaviour when they
