@@ -347,8 +347,12 @@ head.
   promised since day one. The WIP phase before it (2026-08-25 to 09-02)
   pushed directly to `main`; that ended when the whole catalog installed on
   five targets with zero failures and the maintainer said so. Small, logically
-  scoped PRs; CI's PR-only jobs (commit claims, pin reviews, udev citations)
-  run on every one. A PR is merged by the maintainer, never by the author of
+  scoped PRs; CI's PR-only job (commit claims) runs on every one. **Pin
+  reviews and udev rule citations are weekly, not per-PR** — the citation
+  check needs a ~264 MB archive sweep and the pin check needs the network —
+  so a PR that changes a hardware citation or a pin has not been checked
+  until `gh workflow run ci.yml --ref <branch>` says so; do that before
+  calling it green. A PR is merged by the maintainer, never by the author of
   the branch on their own say-so. `main` is tagged at releases; releases are
   annotated tags, and signed once a signing key is configured on the
   maintainer's machine (v0.7.0 is not — no key existed).

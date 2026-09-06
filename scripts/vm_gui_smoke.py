@@ -15,9 +15,17 @@ Classification is by observed behaviour, not hope:
 
 - **alive** — still running when the timeout landed. A GUI came up (or is
   sitting in a first-run dialog, which counts: it launched).
-- **exited-clean** — exit 0 before the timeout. Some GUIs background
-  themselves and this is fine; some print ``--help`` and quit, which is
-  not. The report lists them for a human eye rather than guessing.
+- **exited-clean** — exit 0 before the timeout with nothing on stderr that
+  names a fault. Some GUIs background themselves and this is fine; some
+  print ``--help`` and quit, which is not. The report lists them for a
+  human eye rather than guessing.
+- **suspect** — exit 0 before the timeout *with* a fault line on stderr: a
+  traceback, a Java ``Caused by:``, the dynamic loader, Qt's platform
+  plugin, a segfault, no display. yaac on a headless JRE did exactly this
+  (issue #31): HeadlessException at the splash screen, then exit 0. By
+  exit status alone that was `exited-clean`; the verdict reads stderr too,
+  and the tail leads with the fault line rather than the last four frames.
+  Counts as red, like `failed`.
 - **failed** — non-zero exit, with the stderr tail that says why. This is
   the category the lane exists for: the missing shared library, the
   instant segfault, the Qt platform plugin that is not there.
@@ -128,8 +136,57 @@ def collect(only: list[str]) -> dict[str, list[tuple[str, str]]]:
     return todo
 
 
+# Lines that name a launch fault. Anchored to how the faults actually print,
+# not to the word "error": a Python traceback header, the JVM's `Exception in
+# thread "..."` line, a Java `Caused by:` or a bare `pkg.SomeException:` line,
+# the dynamic loader, Qt's platform plugin, a segfault, and the two ways X
+# reports no display. `ErrorDialog.class` and "INFO no errors" must not match
+# -- a lane that cries wolf gets ignored.
+FAULT = re.compile(
+    r"^(?:Traceback \(most recent call last\)"
+    r"|Exception in thread \""
+    r"|Caused by: "
+    r"|(?:[A-Za-z_][\w$]*\.)+[A-Z]\w*(?:Exception|Error)\b"
+    r"|[A-Z]\w*(?:Exception|Error): "
+    r"|.*error while loading shared libraries: "
+    r"|qt\.qpa\.plugin: "
+    r"|Segmentation fault"
+    r"|.*\bcannot open display\b"
+    r"|.*\bcould not connect to display\b"
+    r")"
+)
+
+
+def classify(rc: int, stderr: str) -> tuple[str, str]:
+    """('alive'|'exited-clean'|'suspect'|'failed', the tail worth reading).
+
+    The verdict reads the exit status *and* stderr. yaac on a headless JRE
+    raised java.awt.HeadlessException at the splash screen and exited 0
+    (issue #31): by exit status alone that is `exited-clean`, the same
+    bucket as a program that printed --help and left. With a fault line on
+    stderr it is `suspect`, and the tail leads with that line rather than
+    with whichever four stack frames happened to come last.
+    """
+    lines = stderr.strip().splitlines()
+    faults = [i for i, line in enumerate(lines) if FAULT.match(line)]
+    # A Java trace names the wrapper first and the real fault in its last
+    # `Caused by:` -- InvocationTargetException says nothing; the
+    # HeadlessException under it says everything. Lead with the innermost.
+    causes = [i for i in faults if lines[i].startswith("Caused by: ")]
+    first_fault = causes[-1] if causes else faults[0] if faults else None
+    if first_fault is None:
+        tail = "\n".join(lines[-4:])
+    else:
+        tail = "\n".join(lines[first_fault : first_fault + 4])
+    if rc == 124:
+        return "alive", tail
+    if rc == 0:
+        return ("suspect" if first_fault is not None else "exited-clean"), tail
+    return "failed", tail
+
+
 def smoke(cmd: str, timeout: int) -> tuple[str, int, str]:
-    """('alive'|'exited-clean'|'failed', rc, stderr tail)."""
+    """('alive'|'exited-clean'|'suspect'|'failed', rc, stderr tail)."""
     argv = [
         "timeout",
         "--signal=TERM",
@@ -143,12 +200,8 @@ def smoke(cmd: str, timeout: int) -> tuple[str, int, str]:
         *shlex.split(cmd),
     ]
     result = subprocess.run(argv, capture_output=True, text=True)
-    tail = "\n".join(result.stderr.strip().splitlines()[-4:])
-    if result.returncode == 124:
-        return "alive", 124, tail
-    if result.returncode == 0:
-        return "exited-clean", 0, tail
-    return "failed", result.returncode, tail
+    verdict, tail = classify(result.returncode, result.stderr)
+    return verdict, result.returncode, tail
 
 
 def main() -> int:
@@ -161,33 +214,39 @@ def main() -> int:
     total = sum(len(v) for v in todo.values())
     print(f"# GUI smoke — {total} desktop entr(ies) across {len(todo)} unit(s)\n")
 
-    counts = {"alive": 0, "exited-clean": 0, "failed": 0}
+    counts = {"alive": 0, "exited-clean": 0, "suspect": 0, "failed": 0}
     failures: list[str] = []
+    suspects: list[str] = []
     early: list[str] = []
     for unit, entries in todo.items():
         for entry, cmd in entries:
             verdict, rc, tail = smoke(cmd, args.timeout)
             counts[verdict] += 1
-            mark = {"alive": "✓", "exited-clean": "○", "failed": "✗"}[verdict]
+            mark = {"alive": "✓", "exited-clean": "○", "suspect": "?", "failed": "✗"}[verdict]
             # flush each line so a foreground run shows live progress rather
             # than one silent block at the end (the nohup wedge lesson).
             print(f"[{mark}] {unit}: {entry} — {verdict} (rc={rc})", flush=True)
             if verdict == "failed":
                 failures.append(f"### {unit} — {entry}\nrc={rc}\n```\n{tail}\n```")
+            elif verdict == "suspect":
+                suspects.append(f"### {unit} — {entry}\nrc=0\n```\n{tail}\n```")
             elif verdict == "exited-clean" and tail:
                 early.append(f"- {unit} / {entry}: {tail.splitlines()[-1][:120]}")
 
     print(
         f"\n**{counts['alive']} alive, {counts['exited-clean']} exited clean, "
-        f"{counts['failed']} failed** of {total}."
+        f"{counts['suspect']} suspect, {counts['failed']} failed** of {total}."
     )
     if failures:
         print("\n## Failures — read the tail, then decide\n")
         print("\n\n".join(failures))
+    if suspects:
+        print("\n## Exited 0 with a fault on stderr — read the tail, then decide\n")
+        print("\n\n".join(suspects))
     if early:
         print("\n## Exited clean before the timeout — worth a human eye\n")
         print("\n".join(early))
-    return 1 if counts["failed"] else 0
+    return 1 if counts["failed"] or counts["suspect"] else 0
 
 
 if __name__ == "__main__":
