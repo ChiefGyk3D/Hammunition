@@ -23,10 +23,11 @@ RFSpace hardware. Networked models must be reachable on the network, and discove
 ## How it installs
 
 - apt: `soapysdr-module-rfspace`
+  - **Not on Kali or Ubuntu 26.04.** Debian's `soapyosmo` 0.2.5-9 (2025-10-21) changelog: "Disable SoapyOsmo rfspace by default in favor of SoapyNetSDR". Testing and the releases that follow it build only the OsmoSDR and MiriSDR modules from that source; Debian 13 stable and Parrot stay on 0.2.5-8, which still has this one. The replacement Debian named, SoapyNetSDR, has no Debian package at all as of 2026-09-04 (Kali's archive lists 17 `soapysdr-module-*` packages and no `netsdr`; the tracker has no source for it), so on a testing-based machine RFSpace hardware currently has no SoapySDR path from the archive at all. Checked against the Debian tracker, the 0.2.5-11 changelog and Kali's archive on 2026-09-04.
 
 ## Known problems
 
-Built from the same `soapyosmo` source as the OsmoSDR module, so the two move together in Debian. The maintainer does not own this hardware and nothing here is maintainer-verified (D-027); it is carried because other operators have it.
+Built from the same `soapyosmo` source as the OsmoSDR module until Debian disabled it there in 0.2.5-9 -- see the install note. The maintainer does not own this hardware and nothing here is maintainer-verified (D-027); it is carried because other operators have it.
 
 ## Keeping it current
 

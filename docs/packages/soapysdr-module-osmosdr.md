@@ -26,7 +26,7 @@ OsmoSDR hardware and its driver library, which apt pulls in.
 
 ## Known problems
 
-The hardware was never widely produced and the software around it is maintained rather than developed. Debian builds this and `soapysdr-module-rfspace` from the same `soapyosmo` source package, so they share a version and a release cadence.
+The hardware was never widely produced and the software around it is maintained rather than developed. Debian built this and `soapysdr-module-rfspace` from the same `soapyosmo` source package until 0.2.5-9 (2025-10-21) disabled the RFSpace module; from then on this one ships everywhere and the RFSpace one only where the older source remains.
 
 ## Keeping it current
 

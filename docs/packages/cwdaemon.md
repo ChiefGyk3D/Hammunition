@@ -23,6 +23,7 @@ A keying interface on a real serial or parallel port and a transmitter to key. A
 ## How it installs
 
 - apt: `cwdaemon`
+  - **Not on Kali.** Debian removed `cwdaemon` from testing on 2025-11-03 over RC bug #1039160 -- the package ships a sysv-init script and no systemd unit -- and Kali inherits testing. Debian 13 stable keeps 0.10.2-3, as do Parrot, Ubuntu and Mint. Checked against the Debian tracker and Kali's archive on 2026-09-04; this is a packaging bug, not a dead upstream, and `tlf`'s keying still expects it.
 
 ## Known problems
 

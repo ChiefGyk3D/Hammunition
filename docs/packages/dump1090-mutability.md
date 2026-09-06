@@ -25,7 +25,7 @@ An RTL-SDR that reaches 1090 MHz and an antenna for that band. It wants exclusiv
 ## How it installs
 
 - apt: `dump1090-mutability`
-  - **Only Ubuntu 26.04 and Linux Mint 22.3 carry this**, both at 1.15~20180310. No candidate on Debian 13, Kali or Parrot (measured 2026-08-28). That is worth stating precisely because it inverts the usual advice: on the primary target the package everyone's ADS-B tutorial names does not exist, and `readsb` is what does.
+  - **Only Ubuntu 26.04 and Linux Mint 22.3 carry this**, both at 1.15~20180310. No candidate on Debian 13, Kali or Parrot (measured 2026-08-28). That is worth stating precisely because it inverts the usual advice: on the primary target the package everyone's ADS-B tutorial names does not exist, and `readsb` is what does. The why, from the Debian tracker (2026-09-04): removed from testing on 2024-08-10 over RC bug #1039187 -- a sysv-init script with no systemd unit -- and it never re-entered, so Debian 13 released without it and Kali and Parrot follow testing. Ubuntu's line kept it. Nothing about that is going to change for a fork whose upstream stopped in 2018.
 
 ## Known problems
 
