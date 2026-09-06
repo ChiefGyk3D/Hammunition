@@ -155,13 +155,26 @@ harness stamps the engine commit and the guest's InRelease dates into each.
 | Debian 13, `6.12.107+deb13-amd64` | `ax25-tools` | **installed, confirmed** in 4 s |
 | Debian 13 | `linpac` | **installed, confirmed** in 2 s |
 
-The whole `packet` profile, `--dry-run` on the same Kali VM after the fix
-described in the engine table above: **eight members deferred** —
-`ax25-tools` on the archive reason it already had, `linpac`, `aprsdigi`,
-`ax25-apps`, `ax25-xtools`, `ax25mail-utils`, `axmail` and `uronode` on the
-kernel — and the rest planned: 23 apt packages and the four git builds
-(`ardopcf`, `linbpq`, `qtsoundmodem`, `qttermtcp`), exit 0. The two
-declaring units outside `packet`, `fbb` and `z8530-utils2`, were not run.
+The whole `packet` profile, installed for real on 2026-09-05 with engine
+commit 6b8c080 (the fix included), each VM restored to its clean snapshot
+first — `scripts/vm_campaign.py --reset-each <domain> --whole-profiles
+--units packet`, reports `kernel-ax25-kali-packet-whole-2026-09-05.md` and
+`kernel-ax25-debian13-packet-whole-2026-09-05.md`, each with an
+`.evidence.jsonl` beside it holding the guest's transaction log:
+
+| Machine | Result | Deferred by name | Confirmed by re-probe |
+|---|---|---|---|
+| Kali 2026.3, `7.1.5+kali-amd64` | exit 0, 39 s | **eight.** `ax25-tools` and `ax25-xtools` on the archive — *apt on Kali GNU/Linux Rolling has no candidate*; both build from the `ax25-tools` source package Debian removed from testing on 2026-09-01. `linpac`, `aprsdigi`, `ax25-apps`, `ax25mail-utils`, `axmail`, `uronode` on the kernel | 29 checks: 24 apt packages installed, `ardopcf`, `linbpq`, `qtsoundmodem` and `qttermtcp` executable under `/usr/local/bin`, `dialout` membership present |
+| Debian 13, `6.12.107+deb13-amd64` | exit 0, 61 s | none | 40 checks, the same four builds and every member above it, `ax25-tools 0.0.10-rc5+git20230513+d3e6d4f-3` and `linpac 0.28-3` included |
+
+Both runs also deferred `linbpq`'s `/etc/bpq32.cfg` for the station values
+the VM does not set (D-035); that is a config deferral, not a member one.
+The two declaring units outside `packet`, `fbb` and `z8530-utils2`, were
+not run.
+
+An earlier `--dry-run` of the same profile on Kali, before the fix, had
+`ax25-xtools` deferred on the kernel; that was the overwrite at work, and
+the fresh run shows the archive reason it keeps.
 
 What is **not** measured here: any of this on real packet hardware, and
 nothing on the maintainer's Parrot laptop yet — its 7.0.13 row above is the

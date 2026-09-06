@@ -2719,7 +2719,23 @@ archive had already deferred (`ax25-tools`) had its reason *replaced* by the
 kernel's, and the deferral's "a release that carries it needs no change
 here" was then false of Kali's archive. A reason already recorded now
 stands; the typed-name refusal shows every one. The other two declaring
-units, `fbb` and `z8530-utils2`, are not `packet` members. The campaign
-reports are under
-`~/.local/state/hammunition-campaigns/` and the row-level evidence is in
-`docs/reference/kernel-ax25.md`.
+units, `fbb` and `z8530-utils2`, are not `packet` members.
+
+**Installed for real on 2026-09-05** (engine 6b8c080, the fix included,
+both VMs restored to their clean snapshot first, `--whole-profiles`):
+
+| Machine | `packet` | Deferred by name | Installed and confirmed |
+|---|---|---|---|
+| Kali 2026.3, `7.1.5+kali-amd64` | exit 0, 39 s | eight — `ax25-tools` and `ax25-xtools` on the archive (*apt on Kali GNU/Linux Rolling has no candidate*; both build from the `ax25-tools` source Debian removed), `linpac`, `aprsdigi`, `ax25-apps`, `ax25mail-utils`, `axmail`, `uronode` on the kernel | 29 checks: 24 apt packages, the four git builds executable under `/usr/local/bin`, `dialout` membership |
+| Debian 13, `6.12.107+deb13-amd64` | exit 0, 61 s | none | 40 checks, the eight above among them |
+
+Two things the real run corrected. The dry-run paragraph above had
+`ax25-xtools` deferred on the kernel; that reading came from the pre-fix
+output, where the kernel had overwritten every archive reason, and the
+fresh run shows the archive reason it keeps. And the harness's own report
+read *`packet` installed+confirmed* for Kali with no mention of the eight
+— the deferrals are in the transaction log it filed (`transaction_begin`,
+version 2), not in its table. That is the D-041 problem statement in
+miniature, on the tool that exists to prevent it, and is fixed separately.
+The campaign reports are under `~/.local/state/hammunition-campaigns/`
+and the row-level evidence is in `docs/reference/kernel-ax25.md`.
