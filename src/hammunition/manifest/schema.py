@@ -24,6 +24,7 @@ import re
 from collections.abc import Sequence
 from datetime import date
 from enum import StrEnum
+from pathlib import PurePosixPath
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -156,6 +157,36 @@ class Patch(Strict):
 # Install methods.  Discriminated union on `method`.
 # ---------------------------------------------------------------------------
 
+TREE_MARKER_DESCRIPTION = (
+    "One file, relative to the installed tree, whose presence proves the "
+    "tree is what the launcher expects: yaac's YAAC.jar, js8spotter's "
+    "js8spotter.py. The effect check reads it back after the run; `cp -aT` "
+    "exits 0 on any directory, so without it a tree unit ended `verified: "
+    "true` with no check at all (issue #27). Required exactly when the "
+    "block installs a tree."
+)
+
+
+def _check_tree_marker(installs_tree: bool, marker: str | None, how: str) -> None:
+    """A tree needs a marker and a marker needs a tree, and it stays inside."""
+    if installs_tree and marker is None:
+        raise ManifestError(
+            f"a {how} block installs a tree but names no tree_marker -- the effect "
+            f"check has nothing to read back, and `cp -aT` exits 0 on any directory"
+        )
+    if not installs_tree and marker is not None:
+        raise ManifestError(
+            f"tree_marker {marker!r} declared but this {how} block installs no tree; "
+            f"nothing would ever be checked against it"
+        )
+    if marker is not None:
+        parts = PurePosixPath(marker).parts
+        if not parts or marker.startswith("/") or ".." in parts:
+            raise ManifestError(
+                f"tree_marker {marker!r} must be a relative path inside the tree, "
+                f"with no `..` components"
+            )
+
 
 class AptInstall(Strict):
     method: Literal["apt"] = "apt"
@@ -214,6 +245,12 @@ class SourceInstall(Strict):
             "Requires a launcher (or binaries) so the tree is reachable."
         ),
     )
+    tree_marker: str | None = Field(default=None, description=TREE_MARKER_DESCRIPTION)
+
+    @model_validator(mode="after")
+    def _tree_marker(self) -> SourceInstall:
+        _check_tree_marker(self.install_tree, self.tree_marker, self.method)
+        return self
 
 
 COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -357,6 +394,7 @@ class GitInstall(Strict):
             "Requires a launcher (or binaries) so the tree is reachable."
         ),
     )
+    tree_marker: str | None = Field(default=None, description=TREE_MARKER_DESCRIPTION)
     pin_review: PinReview | None = Field(
         default=None,
         description="Required when `ref` is a commit SHA rather than a tag. D-024.",
@@ -378,6 +416,11 @@ class GitInstall(Strict):
                 f"ref {self.ref!r} is a tag, so pin_review does not apply -- upstream "
                 f"already made the judgement this field exists to record"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _tree_marker(self) -> GitInstall:
+        _check_tree_marker(self.install_tree, self.tree_marker, self.method)
         return self
 
 
@@ -409,6 +452,12 @@ class BinaryInstall(Strict):
             "Requires a launcher (or binaries) so the tree is reachable."
         ),
     )
+    tree_marker: str | None = Field(default=None, description=TREE_MARKER_DESCRIPTION)
+
+    @model_validator(mode="after")
+    def _tree_marker(self) -> BinaryInstall:
+        _check_tree_marker(self.install_tree, self.tree_marker, self.method)
+        return self
 
     @model_validator(mode="after")
     def _deb_package_matches_format(self) -> BinaryInstall:
@@ -476,6 +525,7 @@ class VenvInstall(Strict):
             "its toolchain in the block's build_depends."
         ),
     )
+    tree_marker: str | None = Field(default=None, description=TREE_MARKER_DESCRIPTION)
     expose: list[str] = Field(
         default_factory=list,
         description=(
@@ -491,6 +541,11 @@ class VenvInstall(Strict):
             raise ManifestError(
                 "payload_build_script declared with no payload — there is no tree to run it in"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _tree_marker(self) -> VenvInstall:
+        _check_tree_marker(self.payload is not None, self.tree_marker, "venv payload")
         return self
 
     @model_validator(mode="after")

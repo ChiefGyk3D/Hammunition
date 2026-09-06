@@ -310,9 +310,13 @@ now carries the evidence rather than the verdict alone:
   at …`; `group user:dialout …`), read from the transaction-log lines the
   unit appended. `no effect checks` means the re-probe had nothing to ask,
   and the summary counts those units separately: not failures, but exit
-  codes rather than evidence. An engine that probes launchers and
-  installed trees would empty that list; until then it is the stated blind
-  spot.
+  codes rather than evidence. Since 2026-09-05 the engine also probes
+  installed trees (`tree yaac:YAAC.jar tree marker present at …`) and the
+  wrappers it generated (`launcher yaac:yaac executable wrapper at …`), so
+  the units that used to sit in that list — yaac, mshv, js8spotter,
+  supersdr, radiosonde-auto-rx — now carry checks (issue #27). Anything
+  still listed there is a unit whose manifest declares nothing the engine
+  can read back, and that is the manifest's defect to fix.
 - **Provenance** — the engine commit *and whether the synced tree matched
   it* (the guest gets the working tree, not the commit), the libvirt domain
   and snapshot with the snapshot's creation time, when prepare ran, and the

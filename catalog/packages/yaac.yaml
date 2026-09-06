@@ -27,6 +27,9 @@ install:
         sha256: a56c4037d1384e399290a1024e3b2d781a251257715528287db83a19429d5d5f
       format: zip
       install_tree: true
+      # Read back after the run (issue #27). Confirmed on the Parrot VM's
+      # 2026-09-04 install: YAAC.jar sits at the tree root beside lib/.
+      tree_marker: YAAC.jar
     note: >-
       The zip is loose-rooted (YAAC.jar, lib/, images/, plugins/ at top
       level) and lands whole under the shared prefix; YAAC reads everything
