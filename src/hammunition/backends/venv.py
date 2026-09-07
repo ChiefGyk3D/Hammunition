@@ -5,7 +5,9 @@
 
 The last backend the 1.0 measurement requires (D-014, re-measured 2026-08-30:
 pipx and CPAN fell to zero users; venv kept three — not1mm, nanovna-saver,
-and the radiosonde_auto_rx REVIVE that waits on it by design).
+and the radiosonde_auto_rx REVIVE that waits on it by design. nanovna-saver
+went apt on 2026-09-06 once the archive turned out to carry it everywhere;
+supersdr had arrived by then, so the count is still three).
 
 What AHRL does for these units is a generated bash script that builds a venv
 in the operator's home and pip-installs an unpinned name from PyPI. Two

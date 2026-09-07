@@ -22,13 +22,15 @@ Your callsign and station location, which every award computation depends on. Ri
 
 ## How it installs
 
+- apt: `qlog` — *on parrot, kali*
+  - Measured 2026-09-06 with `apt-cache policy` on the VM targets: Parrot 7 candidate 0.52.0-1~bpo13+1 from `echo-backports`, Kali rolling 0.52.0-1. Both are the version the git block below builds, from the distribution's own packaging rather than a twenty-package Qt6 toolchain and a long compile. Installed through the engine on Kali and on Parrot the same day.
 - git (qmake6) — https://github.com/foldynl/QLog at `v0.52.0`
   - build dependencies: `build-essential`, `pkg-config`, `qt6-base-dev`, `qt6-tools-dev`, `qt6-tools-dev-tools`, `qt6-webengine-dev`, `qt6-serialport-dev`, `qt6-charts-dev`, `qt6-websockets-dev`, `qt6-multimedia-dev`, `qt6-l10n-tools`, `libqt6sql6-sqlite`, `qtkeychain-qt6-dev`, `libhamlib-dev`, `libssl-dev`, `zlib1g-dev`, `libsqlite3-dev`
   - Built from this tag in a Debian 13 container on 2026-08-28, and the dependency list is what that build actually needed rather than what AHRL records for 0.49.1: qmake6 exits 0, make exits 0, and `make install` with a PREFIX installs `bin/qlog`, a desktop file, an icon, a man page and an AppStream metainfo file. The first attempt failed on a missing `sqlite3.h`, which is why libsqlite3-dev is here and why the list was measured rather than copied. `qmake6`, not `qmake`: with only qt6-base-dev installed, Debian 13 has no `/usr/bin/qmake` at all, and installing `qt5-qmake` to supply the name would hand a Qt6 project the Qt5 tool. QLog is the manifest that made the engine learn the distinction.
 
 ## Known problems
 
-Only Kali packages it among our six targets, and at 0.51.1 rather than 0.52.0, so everywhere else this is a source build with a substantial Qt6 dependency set -- around twenty packages and a long compile. The binary the build produces is large because it is unstripped; `make install` handles that. Award definitions and online-service APIs both change under it, so a build left alone for a year will start failing uploads rather than announcing that it is old.
+Parrot (from its backports, which its baseline already uses) and Kali package 0.52.0; Debian 13, Ubuntu 24.04, Ubuntu 26.04 and Pop!_OS 24.04 do not (measured 2026-09-06), so on those this is a source build with a substantial Qt6 dependency set -- around twenty packages and a long compile. The binary the build produces is large because it is unstripped; `make install` handles that. Award definitions and online-service APIs both change under it, so a build left alone for a year will start failing uploads rather than announcing that it is old.
 
 ## Toolkit risk
 

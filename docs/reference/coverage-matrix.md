@@ -117,14 +117,14 @@ or `—` where none exists.
 | 61 | MSHV | 2.76.5 | — | — | `DELTA_SOURCE` | `mshv` (source) | GPL-3.0 | <https://lz2hv.org/node/10> |
 | 62 | Open Wouxun (owx) | — | `20250530` (echo) as `chirp` | `rigcontrol` | `DEAD` | `chirp` (apt) | — | <https://chirpmyradio.com/> — replacement: `chirp` (dispositions S) — Open Wouxun is a 2022 CLI snapshot; CHIRP drives the same radios with a GUI and a release cadence, and Parrot packages it |
 | 63 | qgrid | 3.2 | — | — | `DELTA_SOURCE` | `qgrid` (source) | GPL-2.0-or-later | <https://www.qsl.net/on4qz/qgrid/index.html> |
-| 64 | QLog | 0.49.1 | `0.52.0` (echo-backports) | — | `DELTA_APT` | `qlog` (git) | GPL-3.0 | <https://deb.parrot.sh/parrot/pool/main/q/qlog/> — Parrot's backports carry 0.52.0, ahead of AHRL's 0.49.1; the manifest builds from a tag and says only Kali packages it, which this probe contradicts |
+| 64 | QLog | 0.49.1 | `0.52.0` (echo-backports) | — | `DELTA_APT` | `qlog` (apt) | GPL-3.0 | <https://deb.parrot.sh/parrot/pool/main/q/qlog/> — Parrot's backports carry 0.52.0, ahead of AHRL's 0.49.1; the manifest installs that on Parrot and Kali and builds the same tag elsewhere (corrected 2026-09-06 -- it used to say only Kali packages it) |
 | 65 | QUISK | 4.2.50 | `4.2.32` (echo) | `sdr` | `COVERED` | `quisk` (apt) | — | <https://deb.parrot.sh/parrot/pool/main/q/quisk/> |
 | 66 | SatDump | — | `1.2.2` (echo) | — | `DELTA_APT` | `satdump` (apt) | — | <https://deb.parrot.sh/parrot/pool/main/s/satdump/> |
 | 67 | SDR++ | — | `0.0~git20260520.36ea9a1` (echo-backports) as `sdrpp` | — | `DELTA_APT` | `sdrpp` (apt) | — | <https://deb.parrot.sh/parrot/pool/main/s/sdrpp/> |
 | 68 | TQSL | 2.8.4 | `2.8.1` (echo) as `trustedqsl` | `logging` | `COVERED` | `trustedqsl` (apt) | — | <https://deb.parrot.sh/parrot/pool/main/t/trustedqsl/> |
 | 69 | wfview | 2.11 | `2.03` (echo) | `rigcontrol` | `COVERED_STALE` | `wfview` (apt) | — | <https://deb.parrot.sh/parrot/pool/main/w/wfview/> |
 | 70 | WSJT-X | 3.0.0 | `2.7.0` (echo) as `wsjtx` | `datamodes` | `COVERED_STALE` | `wsjtx` (git) | GPL-3.0 | <https://deb.parrot.sh/parrot/pool/main/w/wsjtx/> — the catalog builds 3.0.0 from git and purges the archive's 2.7.0 first |
-| 71 | WSJT-X improved | 3.1.0 | `2.8.0+250501` (echo) as `wsjtx-improved` | — | `DELTA_APT` | `wsjtx-improved` (binary:deb) | GPL-3.0 | <https://deb.parrot.sh/parrot/pool/main/w/wsjtx-improved/> — Parrot packages `wsjtx-improved` (2.8.0, a minor behind AHRL's 3.1.0) where the manifest fetches SourceForge's vendor `.deb` and knows only the archive's plain `wsjtx` |
+| 71 | WSJT-X improved | 3.1.0 | `2.8.0+250501` (echo) as `wsjtx-improved` | — | `DELTA_APT` | `wsjtx-improved` (binary:deb) | GPL-3.0 | <https://deb.parrot.sh/parrot/pool/main/w/wsjtx-improved/> — Parrot packages `wsjtx-improved` (2.8.0, a minor behind AHRL's 3.1.0) where the manifest fetches SourceForge's vendor `.deb`; the archive package `Breaks: wsjtx` and the engine cannot yet see an apt removal, so the manifest names it and does not use it (2026-09-06) |
 | 72 | xlog | 2.0.25 | `2.0.24` (echo) | `logging` | `COVERED` | `xlog` (apt) | — | <https://deb.parrot.sh/parrot/pool/main/x/xlog/> |
 | 73 | xnec2c | 4.4.18 | `4.4.16` (echo) | `antenna` | `COVERED` | `xnec2c` (apt) | — | <https://deb.parrot.sh/parrot/pool/main/x/xnec2c/> |
 | 74 | xwefax | 2.4.4 | — | — | `DELTA_SOURCE` | `xwefax` (source) | GPL-3.0 | <https://www.qsl.net/5b4az/> |
@@ -138,7 +138,7 @@ or `—` where none exists.
 | 82 | Backdrops | — | — | — | `DEAD` | — | — | <https://sourceforge.net/projects/kb1oiq-andysham/> — drop — AHRL's wallpapers, not software |
 | 83 | Country files (cty.dat) | — | — | — | `DELTA_UPSTREAM` | — | MIT-style (AD1C, `copyright.txt`) | <https://www.country-files.com/> — post-1.0 (Q-015): the cty.dat archive as a zip; Parrot's `hamradio-files` 20250523 carries Debian's copy, which is the 1.0 answer |
 | 84 | CHIRP | 20260501 | `20250530` (echo) | `rigcontrol` | `COVERED_STALE` | `chirp` (apt) | — | <https://deb.parrot.sh/parrot/pool/main/c/chirp/> |
-| 85 | NanoVNA-Saver | — | `0.7.3` (echo) | — | `DELTA_APT` | `nanovna-saver` (venv) | GPL-3.0-or-later | <https://deb.parrot.sh/parrot/pool/main/n/nanovna-saver/> — AHRL installs it with pipx and the manifest hash-pins a venv, saying no distribution packages it; Parrot does, at 0.7.3 |
+| 85 | NanoVNA-Saver | — | `0.7.3` (echo) | — | `DELTA_APT` | `nanovna-saver` (apt) | GPL-3.0-or-later | <https://deb.parrot.sh/parrot/pool/main/n/nanovna-saver/> — AHRL installs it with pipx; the manifest hash-pinned a venv on the claim that no distribution packages it, and since 2026-09-06 installs Parrot's 0.7.3 with the PySide6 dependency the package forgot (Debian #1112747) |
 | 86 | not1mm | — | — | — | `DELTA_SOURCE` | `not1mm` (venv) | GPL-3.0 | <https://github.com/mbridak/not1mm> |
 | 87 | js8spotter | 1.18 | — | — | `DELTA_UPSTREAM` | `js8spotter` (binary:zip) | MIT | <https://kf7mix.com/js8spotter.html> |
 | 88 | QtTinySA | 1.2.2 | `1.0.2+git20250424T094920-a2d39d0` (echo) | `rigcontrol` | `COVERED_STALE` | `qttinysa` (apt) | — | <https://deb.parrot.sh/parrot/pool/main/q/qttinysa/> |
@@ -187,12 +187,14 @@ FoxTelem and the country files are post-1.0 by Q-015, and Morse Runner
 is a Windows binary. They are classified by what AHRL does with them,
 not by what the catalog does.
 
-5 units the archive carries are built or fetched by the
-catalog anyway (fldigi, QLog, WSJT-X, WSJT-X improved, NanoVNA-Saver).
-Each row's note says why; three of the manifests' reasons — that no
-distribution packages NanoVNA-Saver, that only Kali packages QLog, that
-the archive's WSJT-X is the only one — are claims this probe
-contradicts, and those manifests owe a correction.
+3 units the archive carries are built or fetched by the
+catalog anyway (fldigi, WSJT-X, WSJT-X improved).
+Each row's note says why. When this probe first ran (2026-09-06) it
+contradicted three manifests — that no distribution packages
+NanoVNA-Saver, that only Kali packages QLog, that the archive's WSJT-X
+is the only one — and they were corrected the same day: the first two
+now install from the archive where it offers them, and the third names
+the archive package and why the engine does not use it yet.
 
 ## What the blend as base tier leaves to Hammunition
 
