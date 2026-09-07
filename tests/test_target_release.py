@@ -156,6 +156,7 @@ def test_the_apt_step_then_carries_the_target_release(tmp_path: Path) -> None:
         "apt-get",
         "install",
         "--yes",
+        "--no-remove",
         "--target-release",
         "parrot-backports",
     )

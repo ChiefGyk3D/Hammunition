@@ -60,6 +60,7 @@ __all__ = [
     "AptSimulation",
     "downgrades_refused",
     "parse_policy",
+    "parse_removals",
     "parse_simulation",
     "stale_fetches",
 ]
@@ -154,10 +155,10 @@ def parse_simulation(stdout: str) -> dict[str, frozenset[str]]:
         Inst libkrb5-dev (1.21.3-5+deb13u1 Parrot 7 Echo Parakeet:parrot, Parrot 7 Echo Parakeet:parrot-security [amd64])
         Inst jtdx:i386 (...)
 
-    ``Conf`` lines repeat the same names and ``Remv`` lines are removals, so
-    only ``Inst`` counts. The architecture qualifier is dropped: a manifest
-    declares a conflict by package name, and ``wsjtx-data:all`` is the same
-    files as ``wsjtx-data``. Each origin is ``Label:[Version/]Archive``, and
+    ``Conf`` lines repeat the same names, so only ``Inst`` counts here;
+    ``Remv`` lines are :func:`parse_removals`'s. The architecture qualifier
+    is dropped: a manifest declares a conflict by package name, and
+    ``wsjtx-data:all`` is the same files as ``wsjtx-data``. Each origin is ``Label:[Version/]Archive``, and
     a version offered by several archives lists them all, comma-separated;
     the archive names are what let the plan say *which* packages a
     ``--target-release`` transaction takes from that release, measured
@@ -178,6 +179,41 @@ def parse_simulation(stdout: str) -> dict[str, frozenset[str]]:
         )
         installs[match["name"]] = archives
     return installs
+
+
+_REMV_LINE = re.compile(r"^Remv (?P<name>[^\s:]+)(?::\S+)? \[(?P<version>[^\]]*)\]")
+
+
+def parse_removals(stdout: str) -> dict[str, str]:
+    """``package -> installed version`` for every package ``apt-get --simulate``
+    would remove to satisfy the request.
+
+    A Kali guest with the archive's ``wsjtx`` installed, asked for the
+    archive's ``wsjtx-improved`` (``Breaks: wsjtx``), 2026-09-07::
+
+        Remv wsjtx [3.0.2+dfsg-2]
+        Remv wsjtx-data [3.0.2+dfsg-2]
+        Remv wsjtx-doc [3.0.2+dfsg-2]
+
+    Until this parser existed the engine read only ``Inst`` lines, so that
+    transcript passed the plan with the three removals unseen and the runner
+    (``apt-get install --yes``, no ``--no-remove``) would have carried them
+    out. D-022 is *coexist, disclose, never remove silently*: the plan names
+    every package here and refuses. The architecture qualifier is dropped as
+    :func:`parse_simulation` drops it.
+    """
+    removals: dict[str, str] = {}
+    for line in stdout.splitlines():
+        if not line.startswith("Remv "):
+            continue
+        match = _REMV_LINE.match(line)
+        if match is None:
+            # A `Remv` line in a shape this parser has not met still names a
+            # package apt would remove; only the version is unknown.
+            removals[line.split()[1].partition(":")[0]] = ""
+            continue
+        removals[match["name"]] = match["version"]
+    return removals
 
 
 _DOWNGRADE_LINE = re.compile(
@@ -254,6 +290,11 @@ class AptSimulation:
     ok: bool
     installs: dict[str, frozenset[str]] = field(default_factory=dict)
     """``package -> archives`` for every package apt would unpack."""
+
+    removes: dict[str, str] = field(default_factory=dict)
+    """``package -> installed version`` for every package apt would remove
+    to get there. A resolver that succeeds by removing something is not a
+    transaction the plan may pass (D-022)."""
 
     error: str = ""
     """apt's own account when ``ok`` is false, verbatim."""
@@ -352,20 +393,35 @@ class AptBackend:
             # reader of the failure unless stderr is empty.
             error = result.stderr.strip() or result.stdout.strip()
             return AptSimulation(ok=False, error=error, release=release)
-        return AptSimulation(ok=True, installs=parse_simulation(result.stdout), release=release)
+        return AptSimulation(
+            ok=True,
+            installs=parse_simulation(result.stdout),
+            removes=parse_removals(result.stdout),
+            release=release,
+        )
 
     def simulate_command(
-        self, packages: Sequence[str], *, release: str | None = None, description: str = ""
+        self,
+        packages: Sequence[str],
+        *,
+        release: str | None = None,
+        description: str = "",
+        no_remove: bool = False,
     ) -> Command:
         """The ``--simulate`` invocation itself, for :meth:`simulate` and for a
         plan that wants it as a step. A local ``.deb`` may be among *packages*
         by path -- apt resolves a file the same way, which is how a downloaded
         vendor package is checked against the apt step it will follow before
-        either has touched the machine."""
+        either has touched the machine.
+
+        :meth:`simulate` asks *without* ``--no-remove`` so that the ``Remv``
+        lines exist to be read and named; a step that stands in for the
+        install command asks *with* it, the way the install command will."""
         ordered = sorted(set(packages))
         target = ("--target-release", release) if release is not None else ()
+        flags = ("--no-remove",) if no_remove else ()
         return Command(
-            argv=("apt-get", "install", "--simulate", "--yes", *target, "--", *ordered),
+            argv=("apt-get", "install", "--simulate", "--yes", *flags, *target, "--", *ordered),
             description=description or f"Ask apt how it would install {len(ordered)} package(s)",
             requires_root=False,
             env=dict(NONINTERACTIVE),
@@ -484,6 +540,12 @@ class AptBackend:
         when it has measured that the transaction resolves from that release
         and from nowhere else (D-038), and it appears in the printed command
         so the operator sees it before it runs.
+
+        ``--no-remove`` is D-022's belt to the plan's braces. The plan has
+        already refused any transaction whose simulation removed something;
+        if the real solve disagrees with the simulation, apt exits 100 with
+        ``Packages need to be removed but remove is disabled`` (Kali,
+        2026-09-07) rather than removing an installed package unseen.
         """
         ordered = sorted(set(packages))
         if not ordered:
@@ -492,7 +554,7 @@ class AptBackend:
         where = f" from {release}" if release is not None else ""
         return [
             Command(
-                argv=("apt-get", "install", "--yes", *target, "--", *ordered),
+                argv=("apt-get", "install", "--yes", "--no-remove", *target, "--", *ordered),
                 description=f"Install {len(ordered)} package(s) with apt{where}",
                 requires_root=True,
                 env=dict(NONINTERACTIVE),

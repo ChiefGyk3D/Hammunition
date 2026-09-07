@@ -1265,6 +1265,54 @@ def resolve(
             else:
                 simulation, apt_release, apt_from_release = retried
 
+    # -- what the apt step would REMOVE (D-022) ---------------------------
+    # apt "resolves" a `Breaks:` against an installed package by removing
+    # the installed one, and says so only in `Remv` lines the engine did not
+    # read until 2026-09-07 (issue #42). The archive's `wsjtx-improved`
+    # breaks `wsjtx`: on a Kali with `wsjtx` installed the simulation passed,
+    # the dry run printed no removal, and the runner -- no `--no-remove` --
+    # would have removed three packages unseen. Coexist, disclose, never
+    # remove silently: every removal is named with its version, attributed
+    # to the unit that declared the conflict where one did, and refused. The
+    # operator removes the package by hand or leaves the unit out; the
+    # engine does neither for them.
+    if simulation.ok and simulation.removes:
+        removed = ", ".join(
+            f"{name} ({v})" if v else name for name, v in sorted(simulation.removes.items())
+        )
+        names = " ".join(sorted(simulation.removes))
+        declaring = sorted(
+            manifest.name
+            for manifest, _, _, _ in resolved
+            if set(manifest.conflicts_with_repo_package) & set(simulation.removes)
+        )
+        if declaring:
+            subject = ", ".join(declaring)
+            reason = (
+                f"installing it means apt removes installed distribution package(s): {removed} "
+                f"(a declared conflicts_with_repo_package that cannot coexist -- the archive "
+                f"package Breaks it)"
+            )
+        else:
+            subject = ", ".join(sorted({m.name for m, _, _, _ in resolved if m.name in wanted}))
+            reason = (
+                f"apt would remove installed package(s) to install this transaction: {removed} "
+                f"-- and no manifest in it declares that conflict in conflicts_with_repo_package, "
+                f"which is a catalog defect worth an issue"
+            )
+        blockers.append(
+            Blocker(
+                subject=subject,
+                reason=reason,
+                remedy=(
+                    f"remove them yourself first (sudo apt-get remove {names}) or leave the "
+                    f"unit out -- the engine never removes a package the operator did not "
+                    f"ask it to (D-022), and the install step runs with --no-remove so apt "
+                    f"cannot either"
+                ),
+            )
+        )
+
     # -- declared conflicts against what this transaction itself installs --
     # The check above sees what is installed NOW; on a clean machine that is
     # nothing, and the simulation is the only thing that knows what the apt

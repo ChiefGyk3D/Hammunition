@@ -240,6 +240,7 @@ def test_a_deb_is_simulated_with_the_apt_step_after_its_fetch_and_before_apt_ins
         "install",
         "--simulate",
         "--yes",
+        "--no-remove",
         "--target-release",
         "stable",
         "--",

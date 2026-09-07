@@ -327,7 +327,11 @@ Resolution is a distinct phase that finishes before anything is executed
    an installed package would be downgraded, and every such package came from
    one release, the question is asked a third time with `--target-release`
    naming it; a yes is carried into the apt command and the plan lists what
-   that release supplies (**D-038**). Any other refusal is the plan's.
+   that release supplies (**D-038**). Any other refusal is the plan's. The
+   same simulate is read for what apt would **remove** (`Remv` lines): a
+   package that `Breaks:` an installed one is "resolved" by apt removing
+   the installed one, and the plan refuses that by name rather than let
+   the apt step do it unseen (**D-022**, issue #42).
 7. **Defer what the target does not offer** — but only for a member that
    reached the plan through a *profile*, and only for one of three reasons
    that are facts about the target: no install block matches this
@@ -380,6 +384,7 @@ capability matrix that reports coverage the engine does not have is the shim
 | A manifest declaring third-party `apt_repos` whose `/etc/apt/sources.list.d/<name>.sources` or `/etc/apt/keyrings/<name>.gpg` already exists **with content this engine did not write** | the file by path, marked foreign — a source under our name that somebody else wrote is never overwritten (**D-040**). Both files present with our content and still no candidate means the lists are stale; that says `--refresh` instead |
 | A fetched signing key whose primary fingerprint is not the one the manifest pins | both fingerprints, and the key is discarded. A file that is not OpenPGP, fails its armor CRC, is truncated, or carries two primary keys is refused by name |
 | A vendor `.deb` whose declared `conflicts_with_repo_package` is installed | the colliding packages by name, with the removal command — a dpkg file collision mid-transaction is the refused alternative |
+| An apt step apt can only complete by **removing an installed package** — a `Breaks:` against something already there, the archive's `wsjtx-improved` against `wsjtx` being the measured case | every package apt would remove, with its installed version, attributed to the unit whose `conflicts_with_repo_package` declares it (or, when none does, named as a catalog gap), and the removal command so the operator can do it deliberately. Read from the same `apt-get install --simulate`; before it was read, a Kali guest with `wsjtx` installed planned clean, printed no removal, and would have lost three packages at the apt step (2026-09-07). The apt step itself now runs with `--no-remove`, so apt errors rather than removes if the real solve ever disagrees with the simulation (**D-022**) |
 | A vendor `.deb` whose declared conflict is something **this same transaction's apt step would install** — directly, or as a dependency apt resolves | the package by name and both halves of the remedy: leave out the `.deb` unit, or the unit that pulls the conflict in. Found by the one `apt-get install --simulate` every transaction with apt work gets. A clean machine has nothing installed, so the row above is silent there; this one caught `digital-modes` planning clean and failing after forty-four commands (Kali, 2026-09-02) |
 | An apt transaction apt itself **cannot resolve** as one `apt-get install` — the packages all exist, and the set of them still does not install | `apt: cannot resolve this transaction as one apt-get install`, then apt's own words, indented, and the simulate command that reproduces it. When the reason is that an installed package would be downgraded and it is installed from one other release, the plan is first retried from that release (**D-038**) and this row is reached only if that fails too. Five Parrot profiles passed the plan and died at the first apt command before this row existed (2026-09-02) |
 | A `system_modifications` kind other than `group_membership` | the kind, by name |
@@ -418,7 +423,7 @@ them happens.
 
 ```
   # Install 3 package(s) with apt
-  $ sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes -- fftw2 libgdk-pixbuf-2.0-dev libgtk2.0-dev
+  $ sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-remove -- fftw2 libgdk-pixbuf-2.0-dev libgtk2.0-dev
   # Download and verify the glfer source archive
   $ [fetch] https://www.qsl.net/in3otd/glfer-0.4.2.tar.gz -> ~/.cache/hammunition/artifacts/06aad6fa…-glfer-0.4.2.tar.gz (sha256 verified)
   # Unpack the glfer source

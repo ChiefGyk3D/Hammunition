@@ -950,6 +950,54 @@ archive. Writing the rule once means the tenth case is not argued from scratch.
 **First instance:** `catalog/packages/code.yaml`, offering Microsoft's VS Code
 build alongside — never instead of — the `codium` that Parrot ships.
 
+### Amendment, 2026-09-07 — the engine could not see a removal, and now refuses one
+
+Rule 2 was documented and not enforced. `backends/apt.py parse_simulation`
+read only the `Inst` lines of `apt-get install --simulate` and its docstring
+said so; the install runner was `apt-get install --yes` with no
+`--no-remove`. So a package that `Breaks:` an installed one — the archive's
+`wsjtx-improved` against `wsjtx`, found while correcting its install notes
+(#41, issue #42) — would pass the plan, print no removal under `--dry-run`,
+and apt would remove the installed package at the apt step. Measured on a
+Kali guest with the archive's `wsjtx 3.0.2+dfsg-2` installed:
+
+```
+Remv wsjtx [3.0.2+dfsg-2]
+Remv wsjtx-data [3.0.2+dfsg-2]
+Remv wsjtx-doc [3.0.2+dfsg-2]
+Inst wsjtx-improved-data (3.1.0+260522+repack-1 kali-rolling [all])
+```
+
+Three removals, and the engine passed that transcript unchanged.
+
+**What changed.** `parse_removals` reads the `Remv` lines (package and
+installed version, architecture qualifier dropped); `AptSimulation` carries
+them as `removes`; the plan refuses any transaction whose simulation removes
+anything, naming every package with its version, attributing it to the unit
+whose `conflicts_with_repo_package` declares it — or, when no unit does,
+naming that as the catalog gap — and printing the `apt-get remove` the
+operator can run *deliberately*. The apt install step, the vendor-`.deb`
+install and the executor's post-fetch simulate all run with `--no-remove`,
+so if the real solve ever disagrees with the plan-time simulate apt exits
+100 (`Packages need to be removed but remove is disabled`, measured the same
+day) rather than removing. The plan-time simulate deliberately runs
+*without* it, because the `Remv` lines have to exist to be named.
+
+**Why refuse rather than disclose.** Rule 1 says coexistence is the default
+and replacement is a separate act. A `Breaks:` is the case where coexistence
+is impossible — apt will not install the one beside the other — so the only
+honest shapes are refuse, or remove on the operator's say-so. Removal on
+their say-so is `sudo apt-get remove <name>`, which the refusal prints; an
+engine flag that removes for them would be `--yes` under another name
+(D-021's objection, applied to removal). The refusal keeps the operator's
+hand on the one command that takes something off their machine.
+
+**What it unblocks.** Rule 2's mechanism was the reason `wsjtx-improved`
+stayed on a vendor `.deb` that cannot install on Kali (issue #24). With
+removals seen and refused, an archive `wsjtx-improved` block with
+`conflicts_with_repo_package: wsjtx` is exactly the disclosed displacement
+this decision describes.
+
 ---
 
 ## D-023 — Two licences, split on the architectural boundary
@@ -2772,9 +2820,9 @@ manifest changed, the change was run on a VM the same day.
   the archive's `wsjtx` is exactly the D-022 displacement — and the engine
   cannot see it: `backends/apt.py parse_simulation` reads only `Inst` lines,
   `Remv` lines are ignored, and the runner is `apt-get install --yes` with
-  no `--no-remove`. An apt block here would remove `wsjtx` silently. That is
-  an engine gap, filed as its own issue; the manifest names the archive
-  package and waits on it.
+  no `--no-remove`. An apt block here would remove `wsjtx` silently. That
+  was an engine gap, filed as issue #42 and closed by the D-022 amendment of
+  2026-09-07; the manifest's archive block followed (issue #24).
 
 Same shape as D-025: each claim was true, or believed, when written, and
 became decisive only when a probe read the archive against it.

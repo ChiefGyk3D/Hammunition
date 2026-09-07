@@ -415,7 +415,10 @@ def commands_for(
             )
         commands.append(
             apt.simulate_command(
-                (*plan.apt_to_install, *debs), release=plan.apt_release, description=why
+                (*plan.apt_to_install, *debs),
+                release=plan.apt_release,
+                description=why,
+                no_remove=True,
             )
         )
 
