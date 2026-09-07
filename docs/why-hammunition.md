@@ -2,20 +2,27 @@
 
 *Linux radio tools for people who can't leave well enough alone.*
 
-> **State of the project, August 2026: there is nothing to install yet.**
-> The catalog is real — 71 package manifests, 4 profiles, and a 23-device
-> hardware catalog with 297 measured USB identifiers — and so are the engine's
-> foundations: schema, consent gates, transaction log, all tested across six
-> container targets. The M1 walking skeleton is merged: distro detection, an
-> apt backend, pre-flight resolution, and the install/list/status/show CLI
-> with a complete --dry-run. It installs apt-backed packages today; the other
-> backends (source, git, venv, pipx, CPAN) and udev setup are M3 and M4, and
-> there are no releases yet. Everything below describes what Hammunition is
-> being built to do; the parts that already do it are marked in the README
-> status table. When that changes, this banner changes with it.
+> **State of the project, September 2026: it installs.** v0.7.0, an alpha,
+> was tagged on 2026-09-02. The catalog holds 244 package manifests, 16
+> profiles, and a 23-device hardware catalog with 297 measured USB
+> identifiers. The engine has seven backends — apt, source tarball, git,
+> binary, Python venv, Node, and opt-in third-party apt repositories — and
+> the whole catalog and every profile have been installed from a clean
+> snapshot on Parrot, Debian 13, Kali, Ubuntu 24.04, Ubuntu 26.04 and
+> Pop!_OS VMs, with the results written up under `docs/reference/`
+> (`vm-campaign-*.md`). Seven container targets run in CI, one of them
+> arm64. `hammunition hardware apply` writes udev rules and group
+> memberships from the device catalog; it has not yet been run against a
+> real radio on the bench. What is still open is written down rather than
+> implied: real-hardware checks, COSMIC desktop menus, what a packet station
+> means on a kernel without AX.25 (D-041), and a signed release, which waits
+> on a signing key that does not exist yet. Installation is a `bootstrap.sh`
+> into a virtualenv; the `.deb` is planned. The README status table is the
+> per-milestone account, and when it changes this banner changes with it.
 >
-> If you need a working ham Linux setup *today*, the "You might prefer something
-> else" section near the bottom is the honest answer, and it is not a formality.
+> If you need a working ham Linux setup *today* and none of that appeals,
+> the "You might prefer something else" section near the bottom is the
+> honest answer, and it is not a formality.
 
 If you're deciding whether this is worth following, that decision should be
 informed. This page explains what Hammunition is for, what it deliberately
@@ -109,8 +116,8 @@ shows you all of it before anything happens, and it's complete rather than
 approximate.
 
 **On undo, we want to be precise about what we promise.** True rollback across
-apt, source builds, per-user venvs, pipx, and CPAN — the backends the AHRL
-inventory actually measured a need for — is not achievable — apt alone can't cleanly
+apt, source builds, per-user venvs, and Node builds — the backends the AHRL
+inventory actually measured a need for — is not achievable: apt alone can't cleanly
 reverse a transaction that pulled dependency changes. What we offer is
 `hammunition uninstall`, which removes what Hammunition added and tells you
 honestly about anything it can't safely reverse. A smaller promise we can
@@ -193,8 +200,9 @@ write your own consumer.
 Because the ham-plus-security operator is the person we're building for, and
 Parrot is a reasonable base for that work. Debian, Ubuntu, Kali, Mint, and
 Raspberry Pi OS are supported targets, and the capability matrix says which
-claims are container-tested and which are not. Five of them run in CI as real
-containers — including Mint, whose published image ships Ubuntu's identity, so
+claims are container-tested and which are not. Seven container targets run in
+CI — Debian 13 on x86_64 and, under QEMU, on arm64; Ubuntu 24.04 and 26.04;
+Kali; Parrot; and Mint, whose published image ships Ubuntu's identity, so
 the build installs Mint's own `base-files` from Mint's own repo to make the
 container a genuine Mint. Only Raspberry Pi OS stays `untested`: it publishes
 no container image, so it waits on real hardware. Parrot is where we start,
@@ -206,8 +214,9 @@ Because contribution is the point. This project exists partly because we wanted 
 ham software catalog that anyone could contribute to, and Python is the language
 the ham and security communities actually read and write. Go would give us a
 static binary with no runtime dependency, which is genuinely attractive; we chose
-the larger contributor pool. We ship as a `.deb` with a vendored virtualenv so
-you never touch pip and your system Python is untouched.
+the larger contributor pool. Today `bootstrap.sh` builds a virtualenv and
+installs the engine into it, so your system Python is untouched; a `.deb` with
+that virtualenv vendored in is planned, so that you never touch pip either.
 
 ### Why not just fork an existing project?
 
@@ -260,7 +269,9 @@ Nearly every project in this space depends on one person. That's not a criticism
 — it's how volunteer software gets made, and the ham community is enormously in
 debt to those individuals. But it's fragile, and we'd rather build something that
 survives its founder. Multiple maintainers with merge rights, a documented
-decision process, signed releases, and a real pull-request path from the start.
+decision process, a real pull-request path, and signed releases — the first
+three from the start, the last as soon as a signing key exists (v0.7.0 is an
+annotated tag, unsigned, and says so).
 
 ---
 
@@ -432,9 +443,11 @@ The reason the catalog is data rather than code is so you can add to it without
 learning our internals. Adding a package means writing a YAML file. Adding a
 distribution means describing how packages resolve on it.
 
-Three tiers: **core** (reviewed, tested in CI, signed), **community**
-(contributed, reviewed, marked as such), and **local** (yours, never leaves your
-machine). You choose which tiers you trust.
+Three tiers are decided (D-009): **core** (reviewed, tested in CI, signed),
+**community** (contributed, reviewed, marked as such), and **local** (yours,
+never leaves your machine), and you choose which tiers you trust. Only the core
+tier exists today; the other two are a loader change the catalog's design
+already leaves room for.
 
 If you've been maintaining a personal script that installs your station, that
 script is a catalog contribution waiting to happen.

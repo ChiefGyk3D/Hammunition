@@ -158,6 +158,9 @@ classes: `code`/`codium` waiting on the third-party-repo backend,
   `distro: ubuntu` selectors will not match its `ID=pop` — a
   declare-the-target decision waits on that VM. Its archive is Ubuntu
   24.04's, which the pass above covers.
+  *Run since, on 2026-09-04:* the whole catalog and every profile, written
+  up in `vm-campaign-pop.md`. Same shape as Ubuntu 24.04 less two refusals,
+  and `code` installed from Pop's own archive.
 - **"Confirmed" for a source build meant its build dependencies until
   2026-09-02.** The effect check re-read apt and the group database only; a
   build whose install step exited 0 having installed nothing passed. It

@@ -35,7 +35,9 @@ since 2026-09-03 — so an apt gap on Pop that the 24.04 rung also shows is a
 fact about the archive, and one the 24.04 rung does not show is Pop's own.
 Treat Pop results as evidence for a **decision about declaring `pop` a
 target**, not as pass/fail against current claims. Failures unique to Pop are
-findings about the gap, not bugs, until that decision is made.
+findings about the gap, not bugs, until that decision is made. The evidence
+that decision now has is `docs/reference/vm-campaign-pop.md`: the whole
+catalog and every profile, run 2026-09-04, with no failure unique to Pop.
 
 ## VM conventions
 

@@ -68,8 +68,11 @@ ORDER = ("maintainer_hardware", "unverified_by_maintainer", "not_applicable")
 # manifests; this half is judgement and is argued here rather than asserted.
 #
 # The distinction that matters is between a gap that blocks *shipping something*
-# and a gap that blocks *nothing until the udev generator exists* (M4). Most are
-# the latter, which is why none of this is urgent today.
+# and a gap that blocks only the device's own udev rule or symlink (labelled M4,
+# the milestone that generator belonged to). `hammunition hardware apply`
+# refuses to write a rule on an unconfirmed identifier, so the second kind costs
+# the operator exactly one named omission in `apply`'s output — which is why
+# none of this is urgent today.
 BLOCKS: dict[str, tuple[str, str]] = {
     "proxmark3": (
         "Q-010 / M4",
@@ -176,10 +179,13 @@ def render(classes: dict[str, DeviceClass], devices: dict[str, DeviceManifest]) 
         "",
         "## When these actually have to be closed",
         "",
-        "Short answer: **none of them today.** The udev generator that would "
-        "consume a confirmed identifier is M4 and is not written, so every gap "
-        "below is currently inert. What follows is when each one stops being "
-        "inert.",
+        "Short answer: **none of them today.** `hammunition hardware apply` "
+        "consumes confirmed identifiers only and refuses to write a rule on a "
+        "guessed one (a rule that never matches is indistinguishable from a bad "
+        "cable), so an open gap costs the device its own rule and nothing else: "
+        "`apply` names the omission and moves on, and the class rules still "
+        "cover what they cover. What follows is what each gap withholds, and "
+        "when that starts to matter.",
         "",
         "| Device | Closure | Blocks | Until then |",
         "|---|---|---|---|",
@@ -190,8 +196,8 @@ def render(classes: dict[str, DeviceClass], devices: dict[str, DeviceManifest]) 
     lines += [
         "",
         "`nothing` means the device is usable as catalogued and the gap is a "
-        "completeness item. `M4` means it blocks a pinned per-device symlink and "
-        "nothing sooner. Only one gap blocks a decision rather than an "
+        "completeness item. `M4` means it blocks the device's own udev rule or "
+        "pinned symlink and nothing sooner. Only one gap blocks a decision rather than an "
         "implementation, and even that one is a claim of support, not the "
         "decision itself.",
         "",
