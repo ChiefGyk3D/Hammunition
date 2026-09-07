@@ -12,17 +12,20 @@ targeting Debian, Ubuntu, Kali, Linux Mint and Raspberry Pi OS.
 
 **Status: alpha, v0.7.0 — ready to deploy and shake out.** The core cycle —
 resolve, disclose, install, configure, verify, remove — runs end to end and is
-**VM-verified on Parrot, Kali, Debian 13, Ubuntu 24.04 and Ubuntu 26.04**, with
-**zero hard install failures across the whole catalog on all five**
-([M5 parity verified](docs/reference/m5-parity-verified.md)). Seven backends are
+**VM-verified on Parrot, Kali, Debian 13, Ubuntu 24.04, Ubuntu 26.04 and
+Pop!_OS 24.04**, with **zero hard install failures across the whole catalog on
+all six** ([M5 parity verified](docs/reference/m5-parity-verified.md); the
+Pop run is [its own page](docs/reference/vm-campaign-pop.md), because Pop is
+not a declared target yet). Seven backends are
 written (apt, source, git, binary, venv — including a venv+payload hybrid —
 node, and third-party apt repositories against a pinned key), and
 `uninstall` reverses every one of them, not just apt. `./bootstrap.sh`
 installs the engine in one command; `hammunition doctor` reports what is ready;
 `hammunition hardware` detects your radios and applies the udev rules and
 group membership they need; launchers and curated desktop menus generate for
-Xfce and GNOME. What remains for 1.0: Pop!_OS install verification on a real
-Pop VM, GUI-launch and real-hardware checks on the bench, and release
+Xfce and GNOME. What remains for 1.0: the Pop!_OS declaration decision now
+that its VM has run, COSMIC menus, real-hardware checks on the bench, what a
+packet station means on a kernel without AX.25 (D-041), and release
 engineering — the first signed tag waits on a key that does not exist yet.
 
 Being honest about this up front matters more than looking finished, so here is
@@ -31,9 +34,9 @@ exactly where things stand:
 | | Status |
 |---|---|
 | Catalog schema (Pydantic, `mypy --strict`) | ✅ working |
-| Package manifests | 🟡 **225**, up from 71 |
+| Package manifests | 🟡 **244**, up from 71 |
 | …Debian Blend coverage | ✅ **152 of 152** — SCOPE.md's first 1.0 stage, complete |
-| …parity coverage | 🟡 **88 of the 108 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
+| …parity coverage | 🟡 **102 of the 116 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
 | Hardware catalog | 🟡 23 devices, 5 classes, 297 confirmed USB identifiers |
 | …of which **supported** / **run on hardware here** | **18** / **7** — [two different claims](docs/DECISIONS.md), kept apart on purpose |
 | Profiles | ✅ **all 12 of the 1.0 set**, plus 4 post-1.0 — every package installable, asserted by test; a member a target's archive lacks is deferred by name, never the whole profile (D-039) |
@@ -54,9 +57,9 @@ exactly where things stand:
 | Third-party apt repos | ✅ working — manifest pins the key fingerprint, consent is that fingerprint and `--yes` cannot give it, both files reversed by `uninstall` (D-040); `code`/`codium` in the opt-in `editors` profile |
 | udev rule generation from the hardware catalog | ✅ generated and applied by `hammunition hardware apply`; not yet exercised against real hardware on the bench |
 | `uninstall` | ✅ working — reverses apt, venv, binary, .deb, trees and launchers; marker-verified, VM-proven; a real `make install` is refused by name |
-| End-to-end VM verification (install / configure / remove) | ✅ Parrot, Kali, Debian 13, Ubuntu 24.04, Ubuntu 26.04 — Pop!_OS queued on a VM that does not exist yet |
-| M5 install-success across the full catalog, five targets | ✅ **zero hard failures**; every unit installs on ≥1 target or is refused with a reason |
-| Curated desktop menus (Xfce menu-spec + GNOME app-folders) | ✅ generated from category tags; COSMIC pending a Pop VM |
+| End-to-end VM verification (install / configure / remove) | ✅ Parrot, Kali, Debian 13, Ubuntu 24.04, Ubuntu 26.04, and [Pop!_OS 24.04](docs/reference/vm-campaign-pop.md) as an undeclared target |
+| M5 install-success across the full catalog, six targets | ✅ **zero hard failures**; every unit installs on ≥1 target or is refused with a reason |
+| Curated desktop menus (Xfce menu-spec + GNOME app-folders) | ✅ generated from category tags; COSMIC unmeasured — the Pop VM exists now, its desktop has not been looked at |
 | Profile companion offers (mail client, serial terminal) | ✅ detect → respect → offer, never silent |
 | Getting-started, profile, troubleshooting docs | ✅ written and generated |
 

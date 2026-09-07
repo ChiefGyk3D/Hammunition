@@ -17,6 +17,7 @@ hand edit at all but a manifest changed without regenerating.
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
@@ -479,3 +480,33 @@ def test_a_label_file_probe_shows_the_reader_where_the_label_lives(
     # file; `probe: label file` alone says nothing (issue #31, yaac).
     page = rendered["yaac.md"]
     assert "- probe: label file (<https://www.ka2ddo.org/ka2ddo/YAACBuildLabel.txt>)" in page
+
+
+# ---------------------------------------------------------------------------
+# The README's catalog numbers are catalog data, so they are checked like it
+# ---------------------------------------------------------------------------
+
+
+def test_the_readme_manifest_count_matches_the_catalog() -> None:
+    """The front page said **225** manifests for a week while the catalog
+    held 244. The hardware counts on the same page have had this test since
+    they drifted (tests/test_hardware.py); the manifest count is the number
+    beside them and had nothing. Same shape, same fix."""
+    catalog = load_catalog(REPO_ROOT / "catalog" / "packages")
+    readme = (REPO_ROOT / "README.md").read_text()
+    claim = f"| Package manifests | 🟡 **{len(catalog)}**"
+    assert claim in readme, f"README no longer says {claim!r}"
+
+
+def test_the_readme_parity_coverage_matches_the_generated_page() -> None:
+    """The parity headline is generated into docs/reference/parity-coverage.md
+    and repeated by hand on the front page, which read "88 of the 108" after
+    the page said 102 of 116. The page is the authority; the README must
+    quote it."""
+    page = (REPO_ROOT / "docs" / "reference" / "parity-coverage.md").read_text()
+    match = re.search(r"Coverage of what is owed: \*\*(\d+)/(\d+)\*\*", page)
+    assert match, "parity-coverage.md no longer carries its headline line"
+    covered, owed = match.groups()
+    readme = (REPO_ROOT / "README.md").read_text()
+    claim = f"**{covered} of the {owed} units that owe a manifest**"
+    assert claim in readme, f"README no longer says {claim!r}"
