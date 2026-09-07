@@ -982,3 +982,59 @@ has it?
 **Recommendation: A.** The amendment is a paragraph; the guide reorder is
 the real work and belongs to the getting-started packet page whenever it
 is written.
+
+## Q-020 🟢 — Trunking, digital voice and repeaters: the order of the two post-1.0 tracks, and three calls inside them
+
+**Raised 2026-09-07**, from the maintainer asking whether trunking, DMR and
+repeater setups are on the roadmap. They were not written anywhere; they are
+now, as stages 9 and 10 of `docs/SCOPE.md` ("Post-1.0 tracks"), with the
+archive measured: of seventeen names swept across all seven targets, only
+`dsdcc` and `svxlink-server` exist in any archive, and both are already
+carried. Nothing here is 1.0 work; 🟢 because the answer shapes post-1.0
+manifests, not a release.
+
+**1. Ordering.** Track A (trunked and digital-voice *listening*: OP25,
+Trunk Recorder, SDRTrunk, DSD-FME — receive-only) before Track B (repeater
+and hotspot: SvxLink config, AllStarLink ASL3, the G4KLX MMDVM suite)?
+
+| Option | For | Against |
+|---|---|---|
+| **A. Listening first** ⭐ | Four units on three backends 1.0 ships; profiles that already exist; no station-config dependency; no transmit, so no new disclosure prose beyond the D-021 half. Answers "does it do trunking" soonest. | Two of the four build against GNU Radio and inherit the Tier 3 pin-and-re-verify burden. |
+| B. Repeater first | The SvxLink half is apt everywhere and is the more *ham* of the two tracks. | Every sub-stack waits on something: station config (D-004) for SvxLink, a D-040 manifest for ASL3, a D-024 pin decision plus hardware for MMDVM. |
+| C. Interleave: SvxLink config alongside Track A | The cheapest piece of B rides on the station-config work whenever that lands. | Two tracks in flight at once; the packet core already owns the station-config schedule. |
+
+**Recommendation: A**, with C's SvxLink piece taken the day station config
+exists, because at that point it is one `config_files` block.
+
+**2. Profile placement for Track A.** `listening`, `rf-security`, or both?
+
+| Option | For | Against |
+|---|---|---|
+| **A. Decoders in `listening`; OP25 and Trunk Recorder in `rf-security`** ⭐ | Matches what each profile is *for*: an operator with one dongle who wants to hear the local P25 system lands in `listening`; whole-system recording of trunked networks is the SIGINT posture `rf-security` already frames. Flat tags with overlap (D-003) allow a unit in both where it fits both. | Trunk Recorder and SDRTrunk do the same job on different stacks; splitting them by profile splits an overlap `overlaps.md` should decide once. |
+| B. Everything in `listening` | One place. | Puts a whole-network recorder in the on-ramp profile for people who own no hardware yet. |
+| C. Everything in `rf-security` | Opt-in by construction. | Hides "hear the local DMR repeater" behind a profile most hams will not open. |
+
+**3. The D-024 pin source for the G4KLX suite.** MMDVMHost and its gateways
+are untagged and in no archive. D-024 says pin the commit a distribution
+already packages, and our own only when nothing does. Pi-Star (GPL-2.0,
+V4.3.7 2026-05-01) packages them — as a Pi image, not an archive.
+
+| Option | For | Against |
+|---|---|---|
+| **A. Pi-Star's binary set counts; pin the commits it ships** ⭐ | It is the review signal D-024 is after: a maintained project that chose those commits, built them, and shipped them to the largest installed base of hotspots. Its successor Pi-Star_OS is CI-built and PR-able (`prior-art.md`), so the choice is reviewable. | Reading commit hashes out of an image is a measurement to script, not a metadata field to cite; and the image tracks ARM builds where our x86 targets need their own. |
+| B. Our own pins, D-024's fallback | No dependence on an image. | Nothing reviews our choice but us — the situation D-024 exists to avoid. |
+| C. Defer the suite entirely; SvxLink and ASL3 only | No pin question. | Leaves DMR, D-STAR, YSF and P25 hotspots — the thing most people mean by "hotspot" — out of the track. |
+
+**4. ASL3 under D-040.** Confirm that AllStarLink's own apt repository is the
+D-040 case — the distribution offers nothing, so the archive is admitted
+with its key fingerprint pinned in the manifest, added only on the operator
+typing that fingerprint — and that this does not conflict with the
+landscape-survey line "never add a third-party APT archive." CLAUDE.md
+already reads that line through D-040; this is the second manifest after
+`code`/`codium` to rely on the reading, and the first with a transmit
+capability behind it.
+
+**Recommendation: yes**, and no consent gate beyond the fingerprint: a
+node on the amateur bands is licensed operation, and D-021 discloses
+coordination and unattended-station conditions rather than adjudicating
+them.
