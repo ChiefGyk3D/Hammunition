@@ -49,8 +49,8 @@ target, and where your transaction log will live:
 Target: Parrot Security 7.3 (echo) (ID=parrot, version=7.3, arch=x86_64)
 Debian family: yes
 Catalog: /home/op/Hammunition/catalog
-  242 packages, 240 of which resolve on this target
-  15 profiles
+  244 packages, 242 of which resolve on this target
+  16 profiles
 Transaction log: /home/op/.local/state/hammunition/transactions.jsonl
   no transactions recorded
 ```

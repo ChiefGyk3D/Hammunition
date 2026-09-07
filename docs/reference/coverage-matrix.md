@@ -5,7 +5,7 @@
 > catalog and a fetched Parrot archive probe; the judgement is the
 > generator's `CURATION` table, every override of which cites a URL.
 
-**Generated:** 2026-09-06
+**Generated:** 2026-09-07
 
 ## What this answers
 
@@ -19,7 +19,7 @@ does. One class per unit; a URL for every class but `COVERED`.
 ## The archive that was measured
 
 - Archive: `https://deb.parrot.sh/parrot`, suites `echo echo-updates echo-security echo-backports`,
-  components `main contrib non-free non-free-firmware`, `amd64`; fetched 2026-09-06.
+  components `main contrib non-free non-free-firmware`, `amd64`; fetched 2026-09-07.
 - `Release`: Origin=Parrot Suite=parrot Codename=echo Date=Thu, 03 Sep 2026 14:23:55 UTC.
 - Blend: `debian-hamradio` **0.10** — 12 task metapackages
   (`hamradio-antenna`, `hamradio-datamodes`, `hamradio-digitalvoice`, `hamradio-logging`, `hamradio-morse`, `hamradio-nonamateur`, `hamradio-packetmodes`, `hamradio-rigcontrol`, `hamradio-satellite`, `hamradio-sdr`, `hamradio-tools`, `hamradio-training`).
