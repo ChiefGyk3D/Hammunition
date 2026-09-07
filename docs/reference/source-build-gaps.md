@@ -144,6 +144,15 @@ cannot find its own data. It needs the tree installed somewhere and a launcher
 that runs it from there — which is M3's launcher-generation work, and MSHV is
 one of its 14 units.
 
+The tree is the operator's, and since 2026-09-07 it says so (**D-043**,
+issue #38). MSHV writes its settings and logs beside `bin/`, so it only runs
+because the tree is writable by whoever launches it; the first version got
+that by accident — `cp -a` under root preserved the owner of the build tree
+the operator had unpacked — and nothing in the log recorded it. The copy now
+runs `--no-preserve=ownership` and the hand-over is its own logged step,
+`chown -R -h -- <operator>: <tree>`. `docs/packages/mshv.md` discloses it
+under "What it changes on your machine".
+
 ### 7. A JavaScript build — `openhamclock` — **CLOSED 2026-09-02** (D-037)
 
 **This one blocks a decision that has already been made.** Q-006 resolved on

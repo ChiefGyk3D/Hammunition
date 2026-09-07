@@ -632,8 +632,79 @@ def test_install_tree_plans_clear_then_ensure_then_copy(tmp_path: Path) -> None:
     dest = tree_destination(P("/usr/local"), "mshv")
     assert str(dest) == "/usr/local/share/hammunition/mshv"
     assert commands[0].argv == ("rm", "-rf", "--", str(dest))
-    assert commands[2].argv == ("cp", "-aT", str(tmp_path / "src"), str(dest))
+    assert commands[2].argv == (
+        "cp",
+        "-aT",
+        "--no-preserve=ownership",
+        str(tmp_path / "src"),
+        str(dest),
+    )
     assert all(c.requires_root for c in commands)
+
+
+def test_install_tree_hands_the_tree_to_the_operator_by_an_explicit_step(
+    tmp_path: Path,
+) -> None:
+    """Issue #38, D-043. Trees under /usr/local were operator-owned by accident:
+    `cp -a` under root preserved the owner of the build tree the operator
+    unpacked, and nothing in the log or the docs said so. The copy now
+    preserves nothing about ownership, and a chown step the log shows hands
+    the tree to the operator the run is on behalf of -- deliberately, because
+    MSHV and radiosonde-auto-rx write beside their executables."""
+    from pathlib import Path as P
+
+    from hammunition.backends.source import tree_destination, tree_install_commands
+
+    commands = tree_install_commands(
+        name="mshv", source_tree=tmp_path / "src", prefix=P("/usr/local"), owner="alice"
+    )
+    assert [c.argv[0] for c in commands] == ["rm", "install", "cp", "chown"]
+    dest = tree_destination(P("/usr/local"), "mshv")
+    chown = commands[3]
+    # -h: the tree's own symlinks change owner and are never followed, so a
+    # link pointing outside the tree cannot hand root's files to the operator
+    # (measured on Debian 13, 2026-09-07).
+    assert chown.argv == ("chown", "-R", "-h", "--", "alice:", str(dest))
+    assert chown.requires_root
+    assert "alice" in chown.description
+
+
+def test_install_tree_with_no_operator_stays_root_owned(tmp_path: Path) -> None:
+    """No operator known means nobody to hand the tree to: root keeps it,
+    which is what `--no-preserve=ownership` under root produces. The build
+    tree's owner is never consulted."""
+    from pathlib import Path as P
+
+    from hammunition.backends.source import tree_install_commands
+
+    commands = tree_install_commands(
+        name="mshv", source_tree=tmp_path / "src", prefix=P("/usr/local")
+    )
+    assert [c.argv[0] for c in commands] == ["rm", "install", "cp"]
+    assert "--no-preserve=ownership" in commands[2].argv
+
+
+def test_install_tree_into_an_unprivileged_prefix_needs_no_chown(tmp_path: Path) -> None:
+    """Under a prefix that needs no root the copy runs as the operator, so the
+    tree is theirs already and a chown would be a privileged no-op."""
+    from hammunition.backends.source import tree_install_commands
+
+    commands = tree_install_commands(
+        name="mshv", source_tree=tmp_path / "src", prefix=tmp_path / "prefix", owner="alice"
+    )
+    assert [c.argv[0] for c in commands] == ["rm", "install", "cp"]
+    assert not any(c.requires_root for c in commands)
+
+
+def test_the_source_backend_passes_the_operator_to_the_tree_install(tmp_path: Path) -> None:
+    from pathlib import Path as P
+
+    backend = _backend(tmp_path, prefix=P("/usr/local"), owner="alice")
+    manifest = _manifest("qmake", install_tree=True, tree_marker="thing")
+    steps = backend.steps(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+    last = steps[-1]
+    assert isinstance(last, Command)
+    assert last.argv[:5] == ("chown", "-R", "-h", "--", "alice:")
 
 
 def test_extraction_trusts_magic_bytes_over_the_filename(tmp_path: Path) -> None:

@@ -30,6 +30,12 @@ CAT rig control and sound-card audio routing.
   - the project's build system has no install rule; the binaries listed below are copied into the prefix instead
   - **Closed 2026-08-30 by install_tree (source-build-gaps #6).** The history, kept because it dates the evidence: Every MSHV .pro file sets `DESTDIR = bin` and declares no `INSTALLS` target — checked in MSHV_2765_Full_Source_Code.zip on 2026-08-28, all eight .pro files — so there is no install rule for the qmake path's third command to run. The schema now carries `provides_install_target: false` for exactly this, and MSHV cannot use it yet: it reads settings, resources and logs from directories beside the binary in `bin/`, so copying the executable alone into a prefix produces a program that starts and cannot find its own data. AHRL's answer is a launcher that `cd`s into the build tree, which is why the launcher below carries a working directory. Installing the tree and generating that launcher is M3's launcher-generation work, and MSHV is one of its 14 units. Coil64 is the clean case the new flag does serve.
 
+## What it changes on your machine
+
+- **installed tree** — `/usr/local/share/hammunition/mshv` is created and handed to the operator who ran the install by an explicit `chown` step in the plan (**D-043**): the software keeps settings, logs or data beside its executable, so the tree has to be writable by whoever runs it. On a shared machine that means anyone who can act as that user can change what the launcher runs.
+  - `/usr/local/share/hammunition` stays root-owned; the tree itself is replaced whole on every install, so anything the software wrote inside it is lost then
+  - undo: `hammunition uninstall mshv` removes the tree
+
 ## Known problems
 
 Ships a separate qmake project file per architecture and must run from its build directory, so a generated launcher is required. Still on Qt5 with no published port plan.

@@ -84,10 +84,13 @@ class VenvBackend:
         fetcher: Fetcher | None = None,
         build_root: Path | None = None,
         prefix: Path = Path("/usr/local"),
+        owner: str | None = None,
     ) -> None:
         self.venv_root = venv_root
         self.bin_dir = bin_dir
         self.fetcher = fetcher
+        #: The operator a payload tree is handed to (D-043); None keeps it root's.
+        self.owner = owner
         self.build_root = build_root
         self.prefix = prefix
 
@@ -191,7 +194,12 @@ class VenvBackend:
                 )
             )
         steps.extend(
-            tree_install_commands(name=manifest.name, source_tree=layout.src, prefix=self.prefix)
+            tree_install_commands(
+                name=manifest.name,
+                source_tree=layout.src,
+                prefix=self.prefix,
+                owner=self.owner,
+            )
         )
         return steps
 

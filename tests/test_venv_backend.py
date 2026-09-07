@@ -253,3 +253,29 @@ def test_a_build_script_without_a_payload_is_refused_at_the_schema() -> None:
                 },
             }
         )
+
+
+def test_the_venv_backend_passes_the_operator_to_the_payload_tree(tmp_path: Path) -> None:
+    """Issue #38, D-043: radiosonde-auto-rx writes `log/` beside its payload,
+    so the payload tree is handed to the operator by an explicit step."""
+
+    class StubFetcher:
+        def path_for(self, artifact: Any) -> Path:
+            return tmp_path / "cache" / "tree.tar.gz"
+
+        def fetch(self, artifact: Any) -> Any:
+            raise AssertionError("planning must not fetch")
+
+    backend = VenvBackend(
+        venv_root=tmp_path / "venvs",
+        bin_dir=tmp_path / "bin",
+        fetcher=StubFetcher(),  # type: ignore[arg-type]
+        build_root=tmp_path / "build",
+        owner="alice",
+    )
+    m = hybrid_manifest(None)
+    steps = backend.steps(m, block(m))
+    last = steps[-1]
+    assert isinstance(last, Command)
+    assert last.argv[:5] == ("chown", "-R", "-h", "--", "alice:")
+    assert last.argv[-1] == "/usr/local/share/hammunition/hybridunit"

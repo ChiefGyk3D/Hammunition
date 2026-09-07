@@ -2916,3 +2916,118 @@ meant rediscovering, in the field, that brltty claims a MicroFox-50.
 `docs/reference/prior-art.md`'s recommendation 4 ("lift `et-radio`
 under Apache-2.0") is superseded by rule 2: same finding, different
 conclusion, and this record says why.
+
+## D-043 — An installed tree belongs to the operator the run is on behalf of, by an explicit step the log shows; never by what `cp -a` happens to preserve
+
+**Date:** 2026-09-07. **Status:** accepted (maintainer, issue #38, option 1
+of the two offered there). **Depends on:** D-018 (the claim was measured
+before this record was written), D-031 (verify the effect, not the exit
+status), CLAUDE.md's privilege rule (drop to user where possible).
+**Amends:** nothing. It records what the engine already did and makes the
+engine say so.
+
+**What was measured.** On the Debian 13 guest, 2026-09-05, after
+`hammunition install yaac` (binary, `install_tree: true`),
+`radiosonde-auto-rx` (venv payload) and `mshv` (source,
+`install_tree: true`):
+
+```
+root:root             755 /usr/local/share/hammunition
+chiefgyk3d:chiefgyk3d 775 /usr/local/share/hammunition/yaac
+drwxrwxr-x chiefgyk3d     /usr/local/share/hammunition/mshv
+drwxrwxr-x chiefgyk3d     /usr/local/share/hammunition/radiosonde-auto-rx
+```
+
+The transaction log explained it: `["cp", "-aT", "<build>/src",
+"/usr/local/share/hammunition/yaac"]` with `requires_root: true`. `-a`
+preserves ownership, the build tree is unpacked by the operator, and root
+copying it keeps the operator as owner. A `make install` under the same
+prefix produces root-owned files. So tree units and binary units differed,
+nobody had chosen it, and nothing in the docstring, this record,
+`DESIGN.md` or `transaction-log.md` said trees were meant to be anyone's.
+PR #35 originally claimed the tree was root-owned and was corrected after
+this measurement (D-018).
+
+Two units run *because* of the accident. MSHV reads settings, resources and
+logs from directories beside its executable (`source-build-gaps.md` #6);
+`radiosonde-auto-rx` writes `log/` under its working directory. A
+root-owned tree would break both launchers on their first write.
+
+Measured again on 2026-09-07, on the same guest, for this record:
+
+- `sudo cp -aT --no-preserve=ownership <build>/src /tmp/np` gives
+  `root:root` throughout; `sudo cp -aT` alone gives `chiefgyk3d:chiefgyk3d`
+  throughout. The flag is what removes the accident.
+- `sudo chown -R -h user: <tree>` changes the tree, its files and its own
+  symlinks; a symlink inside the tree pointing at a root-owned file or
+  directory outside it leaves the target root-owned. Without `-h`,
+  `chown -R` also left targets alone, but `-h` is the documented guarantee
+  and the one the command carries.
+- With this change, `hammunition install yaac` on the guest: the plan
+  prints `sudo chown -R -h -- chiefgyk3d: /usr/local/share/hammunition/yaac`
+  under a description that says why; the run completes 10 of 10 commands
+  confirmed; `/usr/local/share/hammunition` stays `root:root 755`; the tree
+  is `chiefgyk3d:chiefgyk3d 775` and **0 of 526** entries under it are owned
+  by anyone else; `hammunition uninstall yaac` removes it.
+
+**The rule.**
+
+1. **A tree installed under a privileged prefix is handed to the operator
+   the run is on behalf of** — `--user`, else `$SUDO_USER`, else `$USER`,
+   the same resolution that owns the transaction log, the artifact cache
+   and the build tree. It is consistent with `paths.py`'s owner-aware
+   directories and with "drop to user where possible", and it is what two
+   shipped units need.
+2. **The hand-over is its own step.** `tree_install_commands` copies with
+   `cp -aT --no-preserve=ownership` and then plans
+   `chown -R -h -- <operator>: <tree>` as a fourth, root-requiring command
+   with a description saying who runs the software and why the tree is
+   theirs. The plan prints it, `--dry-run` shows it, the transaction log
+   records it. Ownership is never again a property of who unpacked the
+   build.
+3. **`-h` is not optional.** A tree may carry symlinks; `-h` changes the
+   link and never follows it, so a link pointing outside the tree cannot
+   hand root's files to the operator.
+4. **Without an operator, root keeps the tree.** A run with nobody to hand
+   the tree to (no `--user`, no `$SUDO_USER`, no `$USER`) plans no chown and
+   gets what `--no-preserve=ownership` under root produces. A prefix that
+   needs no root is written as the operator already and plans no chown
+   either.
+5. **The parent stays root's.** `/usr/local/share/hammunition` is created
+   by `install -d` under root and is not chowned; only the unit's own tree
+   is. An operator can replace the contents of their tree, not add or
+   remove trees.
+6. **Every tree unit discloses it.** `scripts/gen_package_reference.py`
+   renders an *installed tree* bullet under "What it changes on your
+   machine" for any manifest whose block carries a `tree_marker` — the
+   schema makes that field mandatory exactly when a tree is installed, so
+   the generator cannot miss one and nobody types it by hand. The bullet
+   names the path, the hand-over, the reason, the shared-machine
+   consequence, that the tree is replaced whole on every install, and the
+   undo. `tests/test_docs_generated.py` asserts it for all five units:
+   `yaac`, `mshv`, `js8spotter`, `radiosonde-auto-rx`, `supersdr`.
+7. **`uninstall` has nothing new to undo.** The chown is a property of a
+   tree the existing `rm -rf` step removes; the log records it for the
+   reader, not for rollback.
+
+**What this admits.** A launcher under `/usr/local` executes code the
+installing user can modify. On a single-operator workstation that is one
+trust domain; on a shared machine it is not, and the generated page says
+so before anyone installs. An application's own updater can also rewrite
+the tree (YAAC's *Help > Check for Updates*), after which the transaction
+log describes a tree that no longer exists, and the next install of the
+manifest replaces it whole — settings MSHV kept beside its executable
+included. Both are consequences of the design that made these units run at
+all, and this record's job is to have them written down rather than
+discovered. Option 2 in the issue — root-owned trees with each
+beside-the-executable writer relaunched from an operator-owned copy or an
+XDG state directory — costs a manifest field and per-unit work for at
+least four units, and is the shape to reach for if a shared-machine
+deployment ever becomes a target. It is not one now.
+
+**Consequences.** `tree_install_commands` takes `owner`; `SourceBackend`,
+`GitBackend`, `BinaryBackend` and `VenvBackend` carry it and
+`cmd_install` passes the operator it already resolves. Eight tests cover
+the step, its absence, and all four backends; `docs/packages/` is
+regenerated; `source-build-gaps.md` #6 records the closure. Issue #38 is
+closed by this record.

@@ -26,6 +26,12 @@ JS8Call running with its TCP API enabled (Settings -> Reporting -> API). Everyth
 - prebuilt zip from https://kf7mix.com/files/js8spotter/js8spotter-120_src.zip
   - AHRL v27 shipped 1.18; upstream is at 1.20 (fetched and hashed 2026-08-30). AHRL also apt-installs python3-tksnack for it -- one of the four suspected-stale dependency lines D-016 records; 1.20 runs without it and it is deliberately absent here.
 
+## What it changes on your machine
+
+- **installed tree** — `/usr/local/share/hammunition/js8spotter` is created and handed to the operator who ran the install by an explicit `chown` step in the plan (**D-043**): the software keeps settings, logs or data beside its executable, so the tree has to be writable by whoever runs it. On a shared machine that means anyone who can act as that user can change what the launcher runs.
+  - `/usr/local/share/hammunition` stays root-owned; the tree itself is replaced whole on every install, so anything the software wrote inside it is lost then
+  - undo: `hammunition uninstall js8spotter` removes the tree
+
 ## Known problems
 
 Runs in place from the installed tree via the generated `js8spotter` launcher; its SQLite database is created in the working directory on first run, so per-user data lands in the tree unless you set the DB path in File -> Settings. A per-user copy is the upstream-documented alternative if that bothers you.
