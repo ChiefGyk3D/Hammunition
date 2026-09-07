@@ -193,10 +193,8 @@ Do not re-litigate these without being asked:
 | udev symlinks | An identifier naming a chip may not name a `/dev` node | `/dev/badge` on a CP2102 claims the rig cable (**D-028**) |
 | Desktop menus | Curated submenus, generated per DE from `categories` | GNOME folders ≠ Xfce `.menu` ≠ COSMIC; one unmeasured mechanism each (**D-036**) |
 | Upstream liveness | The default branch's head commit, never GitHub's `updated_at`/`pushed_at` | `updated_at` moves when somebody *stars* a repo; it reported two dead projects as active (**D-032**) |
-| Node builds | Allowed when disclosed as a requirement; refused at plan time when Node is absent or too old; Node only from the distribution | openhamclock is the Q-006 default and publishes no binary (**D-037**) |
 | Node builds | Disclosed as a requirement; refused at plan time when Node is absent or too old; never fetched | openhamclock is a Vite app and `curl | bash` for Node is the habit we refuse (**D-037**) |
 | Mixed-release targets | Resolve from the release the machine already installs from, disclosed by name; never downgrade, never guess a release | Parrot's baseline takes 197 packages from backports and five profiles died at the first apt command (**D-038**) |
-| Profile members the target lacks | Defer by name, install the rest; a typed name, an engine gap or a manifest defect still refuses | Five of fifteen profiles withheld nineteen installable units over four absent ones (**D-039**) |
 | Third-party apt repos | Manifest pins the key fingerprint; added only when the archive offers nothing; consent is the fingerprint itself, never `1` or `--yes`; both files come out on uninstall | `code`/`codium` refused on every target and withheld all of `workstation` (**D-040**) |
 | Profile members a target lacks | Deferred by name, the rest installs; a name the operator typed, an engine gap or a manifest defect still refuses | `listening` withheld nineteen units on Ubuntu 24.04 over four the archive lacks (**D-039**) |
 | Kernel subsystems | `requires_kernel` on the manifest; the plan reads `/lib/modules/<uname -r>` and refuses or defers by name; never in the capability matrix, never a module we build | Linux 7.1 removed AX.25; Kali and the maintainer's own laptop have no `ax25.ko`, and `packet` had "installed whole" on Pop!_OS (**D-041**) |
@@ -348,7 +346,10 @@ head.
   identifiers** between them and transcribing 180 evidence strings by hand is a
   long opportunity to make the mistakes this project keeps writing checks for.
   Run `gen_usb_ambiguity.py` first: the class reads its output. A test asserts
-  regeneration is a no-op.
+  the class regenerates as a no-op; `ambiguous-ids.yaml` has no such test
+  yet, and neither do six other generators (they have no `--check` either) —
+  `docs/reference/udev-inventory.md` sat eleven identifiers stale for ten days
+  that way, found 2026-09-07.
 - **Upstream project metadata is mined the same way.** Meshtastic and MeshCore
   publish a PlatformIO board file per product naming its USB identifiers;
   `scripts/lora-sweep.sh` reads them. 107 boards, 26 identifiers, the top one
@@ -432,7 +433,7 @@ in their own install notes.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 225
+  packages/        # one YAML per piece of software          ✅ 244
   profiles/        # named bundles referencing packages      ✅ 16
   hardware/
     classes/       # device families with shared Linux needs ✅ 5
@@ -559,7 +560,7 @@ installs. Remaining M1 gap is the starter profile's name and contents, which
 - the starter profile is the last M1 item and is **awaiting the maintainer**:
   named `ham-core` when M1 was written, `docs/reference/profile-sizing.md`
   proposes **`station`** instead and a four-way split. The catalog it would
-  draw on is no longer the constraint — 222 manifests exist where M1 planned
+  draw on is no longer the constraint — 244 manifests exist where M1 planned
   about twenty
 - `install`, `list`, `status`, `show`, `--dry-run` ✅
 - Container test harness for Parrot and Debian ✅

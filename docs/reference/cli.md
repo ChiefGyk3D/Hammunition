@@ -75,7 +75,7 @@ A profile's documentation, its package list, and — for a gated profile — the
 full consent disclosure, printed without installing anything. This is how an
 operator reads a disclosure before deciding, rather than while being asked.
 
-### `hammunition install NAME... [--dry-run] [--yes] [--refresh] [--user NAME]`
+### `hammunition install NAME... [--dry-run] [--yes] [--refresh] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
 
 Names may be packages or profiles, mixed freely.
 
