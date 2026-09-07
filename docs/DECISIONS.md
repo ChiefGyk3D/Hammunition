@@ -2739,3 +2739,42 @@ version 2), not in its table. That is the D-041 problem statement in
 miniature, on the tool that exists to prevent it, and is fixed separately.
 The campaign reports are under `~/.local/state/hammunition-campaigns/`
 and the row-level evidence is in `docs/reference/kernel-ax25.md`.
+
+## D-014 addendum, 2026-09-06 — venv loses a user, and three install notes are corrected by the archive
+
+The landscape survey's Parrot probe (`docs/reference/coverage-matrix.md`)
+contradicted three manifests' stated reasons for not using the archive.
+Each was re-measured across the seven container targets and, where a
+manifest changed, the change was run on a VM the same day.
+
+- **`nanovna-saver` is apt on every target.** The manifest hash-pinned a
+  venv on the claim that *no distribution packages it*; every target does
+  (Debian 13 and Parrot 7 `0.7.3-1.1`, Kali and Ubuntu 26.04 `0.7.4~pre1-1`,
+  Ubuntu 24.04 and Pop `0.6.3-1`). Debian's `0.7.3-1.1` is missing its
+  PySide6 dependency (Debian #1112747, fixed in `0.7.3-2`, which trixie will
+  not receive): the package installs and `NanoVNASaver` dies with
+  `ModuleNotFoundError: No module named 'PySide6'`. The Debian/Parrot block
+  installs `python3-pyside6.qtwidgets` beside it — what `0.7.3-2`'s control
+  file adds — and cannot do so as a manifest-level `depends`, because Ubuntu
+  24.04's `0.6.3` is PyQt6 and its archive has no `python3-pyside6.qtwidgets`
+  (the plan refused on exactly that). Engine install and Xvfb launch on
+  Debian 13, Parrot 7.3 and Ubuntu 24.04. The venv block and the ARM-only
+  binary block the D-031 addendum above mentions are both gone; **venv's real
+  users are now `not1mm`, `supersdr` and the `radiosonde-auto-rx` REVIVE.**
+- **`qlog` is apt on Parrot and Kali** (`0.52.0-1~bpo13+1` from
+  echo-backports, `0.52.0-1`), the same tag it builds from git elsewhere.
+  The manifest had said only Kali packages it. Engine install and launch on
+  both.
+- **`wsjtx-improved` stays on the vendor `.deb`, and now says why.** Parrot
+  and Debian 13 offer `wsjtx-improved` `2.8.0+250501+repack-1`, Kali
+  `3.1.0+260522+repack-1`; the archive package carries `Provides: wsjtx`,
+  `Breaks: wsjtx`, and its `-data` breaks `wsjtx-data`. Installing it beside
+  the archive's `wsjtx` is exactly the D-022 displacement — and the engine
+  cannot see it: `backends/apt.py parse_simulation` reads only `Inst` lines,
+  `Remv` lines are ignored, and the runner is `apt-get install --yes` with
+  no `--no-remove`. An apt block here would remove `wsjtx` silently. That is
+  an engine gap, filed as its own issue; the manifest names the archive
+  package and waits on it.
+
+Same shape as D-025: each claim was true, or believed, when written, and
+became decisive only when a probe read the archive against it.

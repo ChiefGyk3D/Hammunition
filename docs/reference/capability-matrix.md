@@ -35,13 +35,13 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 186 | 7 | 49 | 2 | 0 |
-| ubuntu-26.04 | 187 | 5 | 50 | 2 | 0 |
-| ubuntu-24.04 | 180 | 14 | 48 | 2 | 0 |
-| kali-rolling | 189 | 9 | 46 | 0 | 0 |
-| parrot | 189 | 5 | 48 | 2 | 0 |
-| linuxmint-22.3 | 180 | 14 | 48 | 2 | 0 |
-| debian-13-arm64 | 185 | 8 | 46 | 5 | 0 |
+| debian-13 | 187 | 7 | 48 | 2 | 0 |
+| ubuntu-26.04 | 188 | 5 | 49 | 2 | 0 |
+| ubuntu-24.04 | 181 | 14 | 47 | 2 | 0 |
+| kali-rolling | 191 | 9 | 44 | 0 | 0 |
+| parrot | 191 | 5 | 46 | 2 | 0 |
+| linuxmint-22.3 | 181 | 14 | 47 | 2 | 0 |
+| debian-13-arm64 | 186 | 8 | 45 | 5 | 0 |
 
 **244 manifests** against **7 targets**.
 
@@ -259,7 +259,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `mshv` | source | source | source | source | source | source | source |
 | `multimon` | apt | apt | apt | apt | apt | apt | apt |
 | `multimon-ng` | apt | apt | apt | apt | apt | apt | apt |
-| `nanovna-saver` | venv | venv | venv | venv | venv | venv | binary |
+| `nanovna-saver` | apt | apt | apt | apt | apt | apt | apt |
 | `nec2c` | apt | apt | apt | apt | apt | apt | apt |
 | `noaa-apt` | binary | binary | binary | binary | binary | binary | binary |
 | `not1mm` | venv | venv | venv | venv | venv | venv | venv |
@@ -286,7 +286,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `qdmr` | apt | apt | apt | apt | apt | apt | apt |
 | `qflipper` | apt | apt | apt | apt | apt | apt | apt |
 | `qgrid` | source | source | source | source | source | source | source |
-| `qlog` | git | git | git | git | git | git | git |
+| `qlog` | git | git | git | apt | apt | git | git |
 | `qrq` | apt | apt | apt | apt | apt | apt | apt |
 | `qsstv` | apt | apt | apt | apt | apt | apt | apt |
 | `qtbpqaprs` | git | git | git | git | git | git | git |

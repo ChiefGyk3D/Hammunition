@@ -7,11 +7,27 @@ summary: Modern Qt station log with award tracking and online-service upload
 categories: [logging, rig-control]
 
 # The dispositions record QLog as AHRL's recommended logging default among
-# cqrlog, xlog and QLog. It is also one of only three Blend packages this
-# catalog could not reach from apt on the primary target -- Kali carries
-# 0.51.1 and nothing else does -- so this builds it, which closes Blend
-# coverage at 152 of 152.
+# cqrlog, xlog and QLog. When this manifest was written (2026-08-28) the
+# primary target could not reach it from apt, so it was a git build
+# everywhere; that closed Blend coverage at 152 of 152 and the header said
+# "Kali carries 0.51.1 and nothing else does". Re-measured 2026-09-06:
+# Parrot 7 offers 0.52.0-1~bpo13+1 from echo-backports, the release its
+# baseline already installs from (D-038), and Kali rolling 0.52.0-1 -- the
+# same version this manifest builds. Debian 13 proper, Ubuntu 24.04, Ubuntu
+# 26.04 and Pop!_OS 24.04 offer nothing, so the build stays for them.
 install:
+  - when:
+      distro: [parrot, kali]
+    install:
+      method: apt
+      packages: [qlog]
+    note: >-
+      Measured 2026-09-06 with `apt-cache policy` on the VM targets: Parrot 7
+      candidate 0.52.0-1~bpo13+1 from `echo-backports`, Kali rolling
+      0.52.0-1. Both are the version the git block below builds, from the
+      distribution's own packaging rather than a twenty-package Qt6
+      toolchain and a long compile. Installed through the engine on Kali
+      and on Parrot the same day.
   - install:
       method: git
       repo: https://github.com/foldynl/QLog
@@ -90,9 +106,11 @@ documentation:
     callsign certificate, which comes from TQSL -- this catalog carries
     `trustedqsl` for that, and QLog can call it.
   known_problems: >-
-    Only Kali packages it among our six targets, and at 0.51.1 rather than
-    0.52.0, so everywhere else this is a source build with a substantial Qt6
-    dependency set -- around twenty packages and a long compile. The binary the
+    Parrot (from its backports, which its baseline already uses) and Kali
+    package 0.52.0; Debian 13, Ubuntu 24.04, Ubuntu 26.04 and Pop!_OS 24.04
+    do not (measured 2026-09-06), so on those this is a source build with a
+    substantial Qt6 dependency set -- around twenty packages and a long
+    compile. The binary the
     build produces is large because it is unstripped; `make install` handles
     that. Award definitions and online-service APIs both change under it, so a
     build left alone for a year will start failing uploads rather than

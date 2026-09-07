@@ -751,7 +751,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [mshv](mshv.md) | Multi-mode weak-signal application with multi-stream FT8 decoding | source |
 | [multimon](multimon.md) | The original multimon decoder, kept for the modes its successor dropped | apt |
 | [multimon-ng](multimon-ng.md) | Decoder for POCSAG, FLEX, AFSK, DTMF and other audio-band digital modes | apt |
-| [nanovna-saver](nanovna-saver.md) | Sweep, chart and calibrate a NanoVNA from the computer | binary, venv |
+| [nanovna-saver](nanovna-saver.md) | Sweep, chart and calibrate a NanoVNA from the computer | apt |
 | [nec2c](nec2c.md) | The NEC2 antenna modelling engine as a C program, for scripting | apt |
 | [noaa-apt](noaa-apt.md) | Decoder for NOAA weather-satellite APT imagery | binary |
 | [not1mm](not1mm.md) | A contest logger that speaks to your rig, keyer and cluster | venv |
@@ -778,7 +778,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [qdmr](qdmr.md) | Codeplug editor for DMR handhelds — one codeplug, many radios | apt |
 | [qflipper](qflipper.md) | Desktop companion for the Flipper Zero — firmware, files, and CLI over USB | apt |
 | [qgrid](qgrid.md) | Maidenhead grid square calculator with a map and a compass | source |
-| [qlog](qlog.md) | Modern Qt station log with award tracking and online-service upload | git |
+| [qlog](qlog.md) | Modern Qt station log with award tracking and online-service upload | apt, git |
 | [qrq](qrq.md) | High-speed Morse trainer that pushes your callsign copy to its limit | apt |
 | [qsstv](qsstv.md) | Slow-scan television and radiofax — receive and transmit pictures | apt |
 | [qtbpqaprs](qtbpqaprs.md) | G8BPQ's Qt APRS client, the messaging-focused one | git |
