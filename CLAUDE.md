@@ -15,7 +15,7 @@ Binary: `hammunition`. Python package: `hammunition`.
 `docs/DECISIONS.md` is authoritative. Where this file or `docs/DESIGN.md`
 disagrees with it, DECISIONS wins and the disagreeing file is a bug.
 
-- `docs/SCOPE.md` — the five-source union and 1.0 staging (**D-017**)
+- `docs/SCOPE.md` — the six-source union and 1.0 staging (**D-017**, **D-042**)
 - `docs/PARITY-POLICY.md` — per-unit disposition and M5 exit criteria
 - `docs/QUESTIONS.md` — decisions awaiting the maintainer, with recommendations
 - `docs/reference/cli.md` — the CLI: verbs, flags, exit codes, what it refuses
@@ -107,6 +107,36 @@ also executable bash with a metadata header — five easy fields declarative, ev
 hard field trapped inside an imperative `INSTALL()` body. That is the architecture
 we exist to replace. See **D-001**.
 
+### EmComm Tools OS Community (KT7RUN)
+
+EmComm Tools OS Community, by Gaston Gonzalez (KT7RUN, The Tech Prepper LLC),
+is a set of shell scripts and an overlay that turn Ubuntu 22.10 into an
+EMCOMM station: Winlink, packet, fldigi, JS8Call, offline maps, offline
+Wikipedia. Same shape as AHRL and 73Linux — an installer on an existing OS.
+Code is Apache-2.0; the logos are under a separate non-commercial notice.
+Measured in `docs/reference/etc-inventory.md` (**D-042**): 62 units, **11
+delta**, 21 overlapping the catalog, 34 fetching from the network with **zero
+checksum verification**, and a base — Ubuntu kinetic — that has been
+end-of-life since 2023-07-20.
+
+**What we take:** the software delta (Paracon, Chattervox, Artemis, the offline
+map and reference tooling), and two *models* to reimplement as catalog data.
+Its rig layer — the operator selects a radio with `et-radio`, 21 per-radio
+JSON definitions, 40 `et-*` wrappers configure each application for it — is
+the plug-and-play a `rig` hardware class and station config should give. Its
+offline-data layer — maps, Wikipedia, dictionaries, a local tile server — is a
+category the other five sources lack.
+
+**What we do not take:** any code, although the licence would permit it. The
+scripts are install logic and package list intertwined in shell, which is the
+architecture we exist to replace (**D-001**); and its `/dev/et-cat`,
+`et-audio`, `et-gps`, `et-sdr` role symlinks are the D-028 trap — `10c4:ea70`
+names a CP2105 that is a Digirig DR-891, an FTX-1 *and* an FT-991A, and ETC
+disambiguates by asking which radio the operator selected, not the hardware.
+Not carried. Five sub-projects, one PR each, are listed under D-042.
+
+<https://github.com/thetechprepper/emcomm-tools-os-community>
+
 **Positioning.** We are not competing with AHRL or 73Linux and must not present
 ourselves as a replacement for either in README, docs, or commit messages. We cover a domain it does
 not — RF security and SIGINT alongside amateur radio — and we solve a governance
@@ -145,7 +175,8 @@ Do not re-litigate these without being asked:
 | Update tracking | `update` block on every manifest | AHRL has no update story — install once, rot forever (**D-010**) |
 | Backend selection | Measured, never conventional | We listed cargo/flatpak from habit and missed CPAN from data (**D-014**) |
 | 73Linux | Inventory source, never a base | No license file; `.bapp` is bash with a header (**D-001**) |
-| 1.0 scope | The five-source union | Staged by coverage-per-effort (**D-017**) |
+| 1.0 scope | The five-source union, six since D-042 | Staged by coverage-per-effort (**D-017**) |
+| EmComm Tools OS Community | Sixth inventory source; rig model reimplemented as catalog data, no code taken, role symlinks not carried | The code is the intertwined shell we replace; `/dev/et-cat` on a CP2105 is the D-028 trap (**D-042**) |
 | External claims | Tested before published | The HamClock retraction (**D-018**) |
 | Blend tasks | A category, not an install default | 155 of 160 entries are `Recommends` (**D-019**) |
 | Profile resolution | Consults detected hardware | 12 per-device Soapy modules; a user needs one (**D-020**) |
@@ -475,7 +506,7 @@ member deferred all still refuse. Deferrals are logged (`transaction_begin`
 version 2) and shown by `status`. `docs/reference/vm-campaign-ubuntu.md` is
 the evidence it was decided on.
 
-## Roadmap — 1.0 is the five-source union
+## Roadmap — 1.0 is the six-source union
 
 Parity is **not** "reproduce AHRL." Per `docs/PARITY-POLICY.md`, the goal is that
 a user who uninstalls AHRL and installs Hammunition is **strictly better off**:
@@ -489,8 +520,9 @@ ADD**. No unit is left unclassified. Never inherit a `broken` verdict without
 testing it ourselves.
 
 **1.0 = Debian Blend + AHRL parity + 73Linux packet core + Skywave listening
-delta + DragonOS Tier 1** (**D-017**; `docs/SCOPE.md` governs). Staged by
-coverage-per-effort, not by source:
+delta + DragonOS Tier 1 + the EmComm Tools OS delta** (**D-017**, sixth source
+by **D-042**; `docs/SCOPE.md` governs). Staged by coverage-per-effort, not by
+source:
 
 1. **Debian Blend** — 152 packages, team-governed, signed, machine-readable.
    Cheapest coverage and best provenance. **11 of AHRL's 35 source builds are
@@ -532,7 +564,7 @@ installs. Remaining M1 gap is the starter profile's name and contents, which
 - `install`, `list`, `status`, `show`, `--dry-run` ✅
 - Container test harness for Parrot and Debian ✅
 
-**M2 — inventory and coverage. ✅ All five sources are now measured.** Every
+**M2 — inventory and coverage. ✅ All six sources are now measured.** Every
 inventory is generated from upstream data and regenerable; none is hand-typed.
 
 | Source | Document | Headline |
@@ -542,12 +574,14 @@ inventory is generated from upstream data and regenerable; none is hand-typed.
 | 73Linux | `docs/reference/dispositions.md` | 28 delta units; 13 survive |
 | Skywave | `docs/reference/skywave-inventory.md` | 60 apps; **9 delta**, all absent from Debian stable *and* unstable |
 | DragonOS | `docs/reference/dragonos-tier1-inventory.md` | 99 README units; **24 Tier 1**, probed in all four targets |
+| EmComm Tools OS | `docs/reference/etc-inventory.md` | 62 units; **11 delta**; 34 fetch, 0 verify (**D-042**) |
 
-Dispositions are complete for **all five sources**
+Dispositions are complete for **the five sources of D-017**
 (`docs/reference/dispositions.md`): 150 units, none unclassified — AHRL,
 73Linux, the Skywave delta (9: 7 ADD, 1 SUPERSEDE, 1 NEEDS-DECISION), and
-DragonOS Tier 1 (8 new ADD, 16 CARRY by cross-reference). Sizing and naming
-are in `docs/reference/profile-sizing.md`.
+DragonOS Tier 1 (8 new ADD, 16 CARRY by cross-reference). The ETC delta's 11
+units carry *recommended* dispositions there; ETC sub-project 4 (**D-042**)
+decides them. Sizing and naming are in `docs/reference/profile-sizing.md`.
 
 **M3 — backend completeness.** Backends are justified by measurement, never by
 convention (**D-014**). Every backend names the unit requiring it.

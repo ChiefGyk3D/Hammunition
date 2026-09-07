@@ -2,7 +2,10 @@
 
 Applies `PARITY-POLICY.md` to `ahrl-inventory.md`, the 73Linux delta, the
 Skywave delta (`skywave-inventory.md`) and the DragonOS Tier-1 set
-(`dragonos-tier1-inventory.md`) — all five sources now dispositioned.
+(`dragonos-tier1-inventory.md`) — the five sources of **D-017**, all
+dispositioned. The sixth source, EmComm Tools OS Community
+(`etc-inventory.md`, **D-042**), has its 11-unit delta *recommended* below;
+its dispositions are decided by ETC sub-project 4 and are not in the index yet.
 
 **Scope:** 105 AHRL `INSTALL_*` toggles (95 executing + 9 disabled + 1 dead
 code), 28 73Linux delta units, 9 Skywave delta units, and the 8 genuinely-new
@@ -596,6 +599,43 @@ exactly as `SCOPE.md`'s staging predicted, and it is nearly done.
 **Profile placement.** All eight in `rf-security` (the opt-in SIGINT profile).
 Cellular/EW is deliberately **not** here — 20 units, transmit-capable, blocked on
 **Q-008**.
+
+---
+
+## EmComm Tools OS Community delta — 11 units, recommendations only
+
+Applies the policy to `etc-inventory.md`. These are **recommendations for ETC
+sub-project 4** (D-042), not dispositions: nothing here is in the index, no
+manifest has been written, and no unit has been installed on a target. What is
+measured: the licence and latest tag of every upstream, by `gh api` on
+2026-09-06, and `apt-cache policy` on the Debian 13 VM the same day. Nothing
+else is claimed.
+
+Two of ETC's delta units are offline **data**, not software, and are not
+dispositioned as units: `download-et-maps.sh` (an `.mbtiles` tileset from ETC's
+own release) and `download-wikipedia.sh` (a ZIM from `download.kiwix.org`).
+They are the offline-data layer, ETC sub-project 5, and need a category the
+catalog does not have before either can be carried.
+
+| Unit | Recommended | Route | Evidence | Note |
+|---|---|---|---|---|
+| **navit** (+ `maptool`, `osmium-tool`) | ADD | apt | `navit` and `maptool` have Debian 13 candidates | Offline turn-by-turn navigation. Useless without a map; pairs with sub-project 5. |
+| **paracon** (`install-bbs-client.sh`) | ADD | binary (`.pyz`, pinned, sha256) | MIT; 1.3.0 is current (2025-10-12), ETC pins 1.1.0 (2024-06) | A single-file Python packet terminal. Depends on AX.25 being up — the D-035 station-config gap applies. |
+| **chattervox** | NEEDS-DECISION | binary (Node bundle) | GPL-3.0-or-later; last tag 0.7.0 (2019-03-17), last push 2020-01-04 | Dormant six years. Carrying it means carrying a bundled Node runtime of that age. The policy's bar for dormant-but-working is a test on a target, not an inherited verdict — install it before deciding. |
+| **kiwix** (`install-wikipedia.sh`) | ADD | apt | `kiwix`, `kiwix-tools`, `zim-tools` have Debian 13 candidates; **`zimwriterfs` has none** | The offline reader. ETC's package list includes `zimwriterfs`, which Debian 13 does not carry; the manifest drops it or the apt step fails whole. |
+| **mbtileserver** | ADD | binary (Go, pinned, sha256) | ISC; 0.11.0 (2024-10-03) is current; no Debian 13 candidate | Serves the sub-project-5 tileset to a browser. Nothing to serve without it. |
+| **mbutil** | RETIRE | — | BSD-3-Clause; last tag 0.3.0 (2017-05-03); ETC runs `python setup.py install` under **python2**, which Debian 13 does not ship | Import/export for MBTiles. The maps ETC ships are already MBTiles; nothing in its own workflow calls it. Record the reason, do not carry. |
+| **gis-tools** (`qgis`, `sqlite3`, and `gpsbabel` + `gpsbabel-gui`) | ADD for `qgis`; the rest is already CARRY | apt | `qgis` and `gpsbabel-gui` have Debian 13 candidates | `gpsbabel` is in the catalog already. `qgis` is large; profile placement, not the manifest, is the question. |
+| **dict** (`dict`, `dictd`, `dict-gcide`) | ADD | apt | all three have Debian 13 candidates | Offline dictionary. Cheap; the offline-data profile's smallest member. |
+| **artemis** | ADD | binary (zip, pinned, sha256) | GPL-3.0; 4.2.0 is current (2026-07-18), ETC pins 4.1.0 | Signal-identification reference with the sigidwiki database offline. The one ETC delta unit that belongs in `listening`/`rf-security` rather than an EMCOMM profile. |
+| **gpa** | ADD, build-only | source (tarball from gnupg.org, pinned, sha256) | **no Debian 13 candidate** (measured 2026-09-06); ETC builds 0.11.1 | GNU Privacy Assistant, for AmRRON's signed-traffic workflow. Every target needs the build; check `apt-cache policy` on the others before assuming Debian 13's answer is theirs. |
+| **pfte** | RETIRE | — | proprietary `.deb` from `paranoiaworks.mobi`, no licence, no source, unsigned download | Paranoia Text Encryption. A closed binary from a vendor site fetched without verification is what the security requirements refuse by name; the AmRRON workflow it serves has GnuPG. Record the reason, do not carry. |
+
+**Tally.** 7 ADD (5 apt, 3 binary, 1 source — `gis-tools` counts once for
+`qgis`), 2 RETIRE, 1 NEEDS-DECISION, plus 2 data downloads deferred to
+sub-project 5. **Every ETC fetch is unverified upstream** (34 of 34); every
+binary and source route above is pinned and hashed under this project's rules
+or it is not written.
 
 ---
 

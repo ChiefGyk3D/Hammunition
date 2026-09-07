@@ -40,7 +40,7 @@ exactly where things stand:
 | Hardware catalog | 🟡 23 devices, 5 classes, 297 confirmed USB identifiers |
 | …of which **supported** / **run on hardware here** | **18** / **7** — [two different claims](docs/DECISIONS.md), kept apart on purpose |
 | Profiles | ✅ **all 12 of the 1.0 set**, plus 4 post-1.0 — every package installable, asserted by test; a member a target's archive lacks is deferred by name, never the whole profile (D-039) |
-| Inventories of all five upstream sources | ✅ complete and measured |
+| Inventories of all six upstream sources | ✅ complete and measured |
 | Consent gates for RF-research tooling | ✅ working |
 | Distro detection from `/etc/os-release` | ✅ working |
 | `install` / `uninstall` / `list` / `status` / `show` / `doctor` / `hardware` / `menus` / `station` CLI | ✅ working |
@@ -166,6 +166,16 @@ The SDR and SIGINT reference. Far larger than anything else in this space.
 
 <https://cemaxecuter.com/>
 
+### EmComm Tools OS Community — Gaston Gonzalez, KT7RUN
+
+The EMCOMM station done as a system: pick the radio once and every application
+is configured for it, with offline maps, Wikipedia and reference data for when
+the network is gone. Its rig model and offline-data layer are the two ideas we
+reimplement as catalog data; none of its code is taken, and its role symlinks
+are not carried. Apache-2.0 code; the logos are under a separate notice.
+
+<https://github.com/thetechprepper/emcomm-tools-os-community>
+
 ### The Debian Hamradio Blend
 
 Team-governed, signed and machine-readable — the best provenance in the
@@ -274,7 +284,7 @@ Everything below is written before the code it describes, deliberately.
 | | |
 |---|---|
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Authoritative decision record. Where anything disagrees with it, it wins. |
-| [`docs/SCOPE.md`](docs/SCOPE.md) | The five-source union and what 1.0 covers |
+| [`docs/SCOPE.md`](docs/SCOPE.md) | The six-source union and what 1.0 covers |
 | [`docs/PARITY-POLICY.md`](docs/PARITY-POLICY.md) | What we carry, replace, revive, retire and add |
 | [`docs/QUESTIONS.md`](docs/QUESTIONS.md) | Open questions, with recommendations |
 | [`docs/reference/`](docs/reference/) | The measured inventories everything rests on |

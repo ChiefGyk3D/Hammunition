@@ -1,6 +1,8 @@
-# Scope — The Five-Source Union
+# Scope — The Six-Source Union
 
-Hammunition's target coverage is the union of what these five projects serve:
+Hammunition's target coverage is the union of what these six projects serve
+(five when **D-017** was recorded; EmComm Tools OS Community was added by
+**D-042** on 2026-09-06):
 
 | Source | Domain | Approx. size | Cost to absorb |
 |---|---|---|---|
@@ -9,10 +11,11 @@ Hammunition's target coverage is the union of what these five projects serve:
 | 73Linux | Winlink / packet / EMCOMM | 47 apps, **28 delta, 13 surviving** (measured) | **Low-medium** — mostly apt or .deb |
 | Skywave Linux | Remote SDR, listening | 60 apps, **9 delta** (measured) | **Low** — heavy overlap, few unique |
 | DragonOS | SDR / SIGINT | 200+ | **Highest** — mostly source-built GNU Radio OOT modules |
+| EmComm Tools OS Community | EMCOMM, rig plug-and-play, offline data | 62 units, **11 delta** (measured) | **Low** for the software; the rig model and offline data are design work, not packages |
 
 **Union of coverage, not union of packages.** Where several sources ship
 different tools for the same job, we pick a recommended default, carry viable
-alternatives, and document the trade-off. Merging five inventories without
+alternatives, and document the trade-off. Merging six inventories without
 curation produces four ADS-B decoders and no opinion about any of them — the
 opposite of what this project is for.
 
@@ -156,6 +159,38 @@ is worth more than shipping one that breaks on the next GR release.
 
 **Do not attempt Tier 3 before the source backend and pin database are solid.**
 
+### EmComm Tools OS Community — the rig model and the offline layer
+**Measured** — `docs/reference/etc-inventory.md`, release 2026.04.01.R6, added
+as the sixth source by **D-042**. Of 62 units, **11 are delta**, 21 overlap a
+manifest the catalog already carries, 9 are ETC's own integration layer, 4 are
+offline data, and 17 are the Ubuntu 22.10 image it builds — a release that
+reached end of life on 2023-07-20 and is installed from
+`old-releases.ubuntu.com`.
+
+The software delta is small and cheap: the **offline cyberdeck** — Navit and
+`maptool`, kiwix and the zim tools, `dict`/`dictd`, QGIS, mbtileserver — plus
+two packet clients (Paracon, Chattervox), Artemis, and the AmRRON signed-traffic
+pair (GPA, Paranoia Text Encryption). Most of it is apt. Each unit is
+dispositioned on its own in `dispositions.md`; none is carried as a set.
+
+What ETC contributes that no other source does is not software. It is the
+**rig model** — the operator selects a radio, and udev rules, per-radio JSON
+and forty wrappers configure every application for it — and the **offline-data
+layer** of maps, Wikipedia and reference documents. Both are studied and
+reimplemented as catalog data, and none of ETC's code is taken, for the reason
+D-042 gives: the code is the intertwined shell architecture this project
+replaces, and its `/dev/et-cat` role symlinks are the D-028 trap with an
+operator-selection escape that works for one radio at a time. Five sub-projects,
+one pull request each, are listed under D-042. **The software delta is stage 6
+of 1.0**, after the five above; the rig model and the offline layer are approved
+work in D-042's order and are not 1.0 gates unless the maintainer stages them.
+
+**Two things ETC does that the security requirements refuse.** Thirty-four of
+its units download from the network and none verifies a checksum, although its
+own helper accepts one; and seven fetch at `latest`, `master` or `nightly`.
+Everything that arrives from this source arrives pinned and verified, as from
+any other.
+
 ---
 
 ## Consequences
@@ -165,8 +200,9 @@ At 400–600 packages nobody installs everything, and DragonOS-scale installs ar
 exactly what users complain about. Profile design *is* the user experience, and
 it needs its own attention — not a byproduct of the catalog.
 
-**Sized and named** in `docs/reference/profile-sizing.md`, now that all five
-sources are measured. No profile exceeds the 80-package threshold. Two names are
+**Sized and named** in `docs/reference/profile-sizing.md`, now that the five
+sources of D-017 are measured (ETC's delta, added by D-042, is not yet sized
+into a profile). No profile exceeds the 80-package threshold. Two names are
 **proposed and awaiting the maintainer**, because names are user-facing and
 effectively permanent:
 
