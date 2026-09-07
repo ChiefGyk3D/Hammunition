@@ -310,6 +310,19 @@ contribute to the catalog.
 Beyond parity with existing catalogs, these are gaps we intend to fill. Not
 promises with dates — priorities.
 
+### A dashboard that reads the station, not just the internet
+
+Already shipped, and the only entry here that is: **Hammunition Hill**, a
+separate project by the same maintainer, carried in the catalog as
+`hammunition-hill` in the `station` profile. HamClock answers "what is the
+band doing" on one screen; Hill answers it for a laptop or a second monitor
+with your own log in the picture, served on loopback from a collector that
+fetches on its own schedule so the page itself never talks to the internet
+and the offline parts keep working with the WAN unplugged. The plan is for it
+to show the shack in front of you — rig state, decodes, GPS fix, what this
+installer set up — as those local sources are wired in. It is carried on the
+same evidence as everything else, and its manifest says whose project it is.
+
 ### Digital voice and M17
 
 M17 is an open, patent-free digital voice standard, and Linux support for it is

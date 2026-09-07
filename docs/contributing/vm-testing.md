@@ -417,6 +417,7 @@ the maintainer. The pages so far, in the order they were run:
 | `vm-campaign-full-grind.md` | every unit by name on every target |
 | `vm-campaign-ubuntu.md` | Ubuntu 24.04 and 26.04 by unit; every profile whole on Kali, Parrot and Debian 13 (D-038, D-039, D-040) |
 | `vm-campaign-profiles.md` | every profile whole on Parrot and Debian 13 at the current engine, twelve profiles cumulatively on one machine, and the GUI smoke lane over the result |
+| `vm-campaign-pop.md` | every unit and every profile on Pop!_OS 24.04, an undeclared target — evidence for the `pop` declaration decision, read with the caveat above |
 
 Raw reports (`.md`, `.log`, `.evidence.jsonl`) stay out of git on the host
 under `~/.local/state/hammunition-campaigns/`; conclusions, versions and

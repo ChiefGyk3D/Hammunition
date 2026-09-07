@@ -83,10 +83,21 @@ hammunition install rf-security --dry-run
 ```
 
 The other thing that is usable today is the research. `docs/reference/` contains
-complete, generated inventories of five upstream projects, with per-package
+complete, generated inventories of six upstream projects, with per-package
 availability measured inside real containers rather than assumed — and,
 increasingly, with packages actually installed rather than merely reported as
 available, because those two turned out to disagree.
+
+**The family has a dashboard.** [Hammunition Hill](https://github.com/ChiefGyk3D/hammunition-hill)
+is a separate project by the same maintainer — a local-first operating-position
+dashboard (clocks, band plan, solar and propagation dials, DX spots coloured by
+your log, satellites, a CW trainer) served from your own machine to your own
+browser on loopback. It is carried in this catalog as
+[`hammunition-hill`](docs/packages/hammunition-hill.md), a member of the
+`station` profile, on exactly the same terms as everything else: a released,
+digest-pinned `.deb`, installed and removed on a VM before the manifest was
+written, and disclosed in the manifest as the one unit whose upstream is this
+project's own maintainer.
 
 **There is one thing you can help with right now**, and it needs no code:
 [contributing hardware identifiers](docs/contributing/hardware.md). Eleven of
@@ -128,8 +139,7 @@ We **augment** an existing system and use upstream packages wherever they exist.
 ## Credit
 
 Hammunition is built on other people's curation. These are inventory sources and
-prior art, not things we are replacing — several of them work today and this one
-does not.
+prior art, not things we are replacing — they worked long before this one did.
 
 ### Andy's Ham Radio Linux — Andy Stewart, KB1OIQ
 
