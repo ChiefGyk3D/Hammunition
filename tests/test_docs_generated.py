@@ -510,3 +510,66 @@ def test_the_readme_parity_coverage_matches_the_generated_page() -> None:
     readme = (REPO_ROOT / "README.md").read_text()
     claim = f"**{covered} of the {owed} units that owe a manifest**"
     assert claim in readme, f"README no longer says {claim!r}"
+
+
+# ---------------------------------------------------------------------------
+# The udev identifier inventory
+#
+# Found stale on 2026-09-07: eleven identifiers had gone into the hardware
+# catalog since the page was last written and nothing said so, because the
+# generator had no --check and every other no-op test here skips it. Its
+# header also read "Swept: <today>" on every regeneration — the date the page
+# was written, labelled as the date the archive was measured (D-031).
+# ---------------------------------------------------------------------------
+
+UDEV_INVENTORY = REPO_ROOT / "docs" / "reference" / "udev-inventory.md"
+
+
+def _gen_udev_inventory() -> object:
+    spec = importlib.util.spec_from_file_location(
+        "gen_udev_inventory", REPO_ROOT / "scripts" / "gen_udev_inventory.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_udev_inventory_swept_date_is_the_sweep_files_not_todays() -> None:
+    import datetime
+
+    gen = _gen_udev_inventory()
+    # One enabled librtlsdr0 row in the sweep's own column order.
+    values = (
+        *("librtlsdr0", "libs", "60-librtlsdr0.rules", "0bda", "2838", "", ""),
+        *("Realtek", "RTL2838 DVB-T", "1", "", "usb"),
+    )
+    fields: tuple[str, ...] = gen.FIELDS  # type: ignore[attr-defined]
+    row = dict(zip(fields, values, strict=True))
+    page = gen.render(  # type: ignore[attr-defined]
+        "debian-13", [row], set(), swept=datetime.date(2026, 8, 27)
+    )
+    assert "**Swept:** 2026-08-27, `debian-13`" in page
+    assert datetime.date.today().isoformat() not in page
+
+
+@pytest.mark.skipif(
+    not list(PROBES.glob("udev-*.tsv")),
+    reason="needs the udev sweep in reference/probes/ — see the generator's docstring",
+)
+def test_regenerating_the_udev_inventory_is_a_no_op() -> None:
+    import subprocess
+
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "gen_udev_inventory.py"), "--check"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    assert result.returncode == 0, (
+        f"{result.stdout}{result.stderr}\n"
+        "docs/reference/udev-inventory.md is stale — run scripts/gen_udev_inventory.py. "
+        "Either the hardware catalog gained identifiers the sweep also carries, "
+        "or the sweep was re-run."
+    )
