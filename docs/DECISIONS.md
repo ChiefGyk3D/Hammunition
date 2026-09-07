@@ -2778,3 +2778,141 @@ manifest changed, the change was run on a VM the same day.
 
 Same shape as D-025: each claim was true, or believed, when written, and
 became decisive only when a probe read the archive against it.
+
+---
+
+## D-042 — EmComm Tools OS Community is the sixth inventory source: its delta is measured, its rig model is studied and reimplemented as catalog data, and none of its code is taken
+
+**Date:** 2026-09-06. **Status:** accepted (maintainer, from the landscape
+survey in `docs/reference/prior-art.md`); the inventory is built and this
+record accompanies it on the pull request. The four follow-on sub-projects
+named under *Consequences* are each their own pull request and are not
+decided by this record beyond their order.
+**Depends on:** D-001 (an inventory source is never a base), D-011
+(provenance rules), D-014 (backends by measurement), D-018 (external claims
+tested before published), D-024 (pin what a distribution packages), D-028
+(an identifier naming a chip may not name a `/dev` node), D-029 (the
+hardware role), D-033 (weigh adoption, state the position).
+**Amends:** D-017. "The five-source union" becomes six. Nothing in D-017's
+staging moves: ETC's software delta is a sixth stage after the five it
+lists — eleven units, most of them apt — and the 1.0 scope table in
+`docs/SCOPE.md` gains a row. The rig model and the offline-data layer are
+approved work in the order below and are not 1.0 gates unless the
+maintainer stages them.
+
+**What was measured.** EmComm Tools OS Community (ETC), by Gaston Gonzalez
+(KT7RUN, The Tech Prepper LLC), studied at commit `4ec08ce` (2026-05-02),
+release 2026.04.01.R6 (6.0.0), from a clone in the gitignored
+`reference/` tree. `scripts/gen_etc_inventory.py` reads every script the
+installer can run and renders `docs/reference/etc-inventory.md`; the
+numbers below are that page's.
+
+- **62 units** in `scripts/`; `install.sh` runs 59, one only with
+  `ET_EXPERT` set. Curated: **11 delta, 21 overlap, 9 glue, 4 data, 17
+  base**. The delta is the offline-cyberdeck layer — Navit with
+  `maptool`, kiwix and the zim tools, `dict`/`dictd`/GCIDE, QGIS,
+  mbtileserver, mbutil — plus two packet clients (Paracon, Chattervox),
+  Artemis, GPA and Paranoia Text Encryption for the AmRRON signed-traffic
+  workflow. Every overlap unit resolves to a manifest the catalog already
+  carries; the inventory names the 24.
+- **The base is Ubuntu 22.10 (kinetic).** `update-apt.sh` repoints apt at
+  `old-releases.ubuntu.com`; kinetic reached end of life on 2023-07-20.
+  ETC is an ISO built with Cubic on a release that receives no security
+  updates, and the 140 apt package names it installs are that release's.
+- **34 units fetch from the network; none verifies what it fetched.**
+  `download_with_retries` in `et-common` accepts a sha256 as its third
+  argument. Sixteen scripts call it; all sixteen pass two arguments.
+  Seven fetch at `latest`, `master`, `nightly` or with no version at all —
+  `linbpq` and `QtTermTCP` from cantab.net's download directory,
+  `YAAC.zip`, SDR++'s nightly `.deb`, ETC's own dump1090 fork at
+  `master.zip`, osmocom `rtl-sdr` at the branch head (after purging and
+  `rm -rf`-ing the archive's `librtlsdr` — the D-022 pattern done harder),
+  and the unused `install-qttermtcp-from-source.sh`.
+- **The licence is split.** `LICENSE` carries Apache-2.0 for the scripts
+  and overlay (Copyright 2024 The Tech Prepper LLC) behind a separate
+  non-commercial, no-modification notice for the logos and images.
+- **The rig model is not the naive symlink trap.** Sixteen udev rule files
+  write four role symlinks: `/dev/et-cat` (11 rules), `et-audio` (13),
+  `et-gps` (4), `et-sdr` (3). Chip identifiers repeat across rigs —
+  `0d8c:0012` in four files, `08bb:2901` in four, `10c4:ea70` in three —
+  and the rules disambiguate by `PROGRAM="udev-tester.sh <radio>"`, which
+  reads `conf/radios.d/active-radio.json`: **the operator has said which
+  radio is connected, and udev trusts the operator.** Twenty-one radio
+  definitions, 40 `et-*` wrappers that configure each application for the
+  active radio, and `et-radio`/`et-mode` to select them. An empty
+  `85-brltty.rules` shadows the system one and `brltty-udev.service` is
+  masked, because brltty claims serial adapters ETC's operators use.
+
+**The rule.**
+
+1. **ETC is an inventory source under D-001**, credited in the README and
+   listed in `docs/SCOPE.md` and `CLAUDE.md` beside the five. Its
+   inventory is generated and regenerable, never typed; the generator's
+   curation is tested against the clone both ways — every shipped script
+   curated, every catalog name real.
+2. **No code is taken.** Apache-2.0 permits it, and `prior-art.md`'s survey
+   called `et-radio`/`et-mode` the best borrow available. It is the best
+   *idea* available. The code is 40 bash wrappers, each of which knows
+   which application it wraps and where that application keeps its
+   configuration — install logic and package list intertwined, the AHRL
+   architecture this project exists to replace (D-001 gave the same answer
+   for 73Linux for a different reason). What is reimplemented is the
+   model: a radio is data (`catalog/hardware/devices/`, a `rig` class), an
+   operator's selection is station configuration (the open question the
+   D-004 amendment records), and an application's rig settings are a
+   templated `config_files` block on the manifest that already carries
+   its install. The reimplementation is sub-project 3 below and is not
+   decided here.
+3. **The role symlinks are not carried.** `/dev/et-cat` on `10c4:ea70` is a
+   CP2105 claim, and the same identifier is a Digirig DR-891, an FTX-1 and
+   an FT-991A in ETC's own rules (`08bb:2901` is four Icoms). ETC's answer — trust the operator's
+   selection — is a real answer, and it is one radio at a time by
+   construction. D-028's answer is the by-id path systemd already
+   provides, plus permissions, plus a label only where the evidence
+   supports one. The operator-selection idea survives in the station
+   configuration, where it can name a `/dev/serial/by-id/` path without a
+   symlink that lies when a second radio is plugged in.
+4. **The delta is dispositioned one unit at a time**, not carried as a
+   set, and every unit that arrives arrives pinned and verified (the
+   security requirements are unchanged by the source having none). GPA is
+   the first that cannot arrive by apt: Debian 13 offers no `gpa`
+   candidate (measured 2026-09-06 on the campaign VM), so it is a tarball
+   build or nothing. `mbutil` needs python2, which left Debian with
+   bullseye; its disposition is not CARRY as it stands.
+5. **The offline-data layer is a category of its own.** Maps, Wikipedia
+   ZIMs and reference PDFs are not packages; they are large, versioned
+   downloads with their own licences (Geofabrik ODbL, Wikimedia CC BY-SA)
+   that belong in `/etc/skel` for ETC because ETC ships an image. What
+   they are here — a `data` backend, a profile, or documentation that
+   names the sources — is sub-project 5.
+
+**Why the source is worth a decision.** ETC is the only project in the
+landscape that treats *the rig* as the thing being configured rather than
+the application, and the only one with an offline-data story. Both are the
+questions this project's hardware role (D-029) and station configuration
+(D-035) are circling, answered by someone who has shipped five recorded releases of
+an answer. Reading it cost a clone and a parser; not reading it would have
+meant rediscovering, in the field, that brltty claims a MicroFox-50.
+
+**Consequences.** Five sub-projects, in order, one pull request each:
+
+1. *This record and the inventory* — `gen_etc_inventory.py`,
+   `etc-inventory.md`, the SCOPE row, the README credit, the `CLAUDE.md`
+   source section, the dispositions section.
+2. *brltty* — measure first whether any of the seven targets ships a
+   brltty rule that claims a catalogued identifier, then decide whether a
+   `file_shadow` system modification (an empty rule file in
+   `/etc/udev/rules.d/` masking `/lib/udev/rules.d/`'s) is the right
+   shape or whether the existing `distribution_disabled` basis covers it.
+3. *Rig plug-and-play* — a `rig` hardware class, the FT-991A first because
+   it is owned and on the bench, station configuration carrying the
+   operator's selection.
+4. *The software delta* — Paracon, Chattervox, Artemis, GPA and the
+   `et-*` ideas as `config_files`, each dispositioned in
+   `dispositions.md` with its licence and liveness re-verified (D-018,
+   D-032: Chattervox's last tag is 2019-03 and its last push 2020-01).
+5. *The offline-data layer.*
+
+`docs/reference/prior-art.md`'s recommendation 4 ("lift `et-radio`
+under Apache-2.0") is superseded by rule 2: same finding, different
+conclusion, and this record says why.

@@ -398,9 +398,12 @@ VARA and HAMRS are post-1.0. Novel capability layers on top, never substitutes.
   outgrew the original ~20-package / one-`ham-core`-profile sketch — it is 77
   packages and 4 profiles now — but the skeleton is what M1 named: apt-only,
   with every other backend refused by name until M3.
-- **M2 — inventory and coverage.** *Done* — all five sources measured (see
-  `reference/`), and dispositions are complete for **all five**: 150 units, none
-  unclassified (`reference/dispositions.md`).
+- **M2 — inventory and coverage.** *Done* — all five D-017 sources measured
+  (see `reference/`), and dispositions are complete for **all five**: 150
+  units, none unclassified (`reference/dispositions.md`). The sixth source,
+  EmComm Tools OS Community (D-042, 2026-09-06), is measured in
+  `reference/etc-inventory.md`; its 11-unit delta carries recommendations,
+  not dispositions, until its own sub-project decides them.
 - **M3 — backend completeness.** *Begun.* The verified-artifact fetcher and the
   source-from-tarball and source-from-git backends are written, so `source` and
   `git` manifests plan and build end to end; the build systems implemented are
