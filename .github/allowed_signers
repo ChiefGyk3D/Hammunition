@@ -1,0 +1,16 @@
+# Release signing keys, in ssh-keygen(1) ALLOWED SIGNERS format.
+#
+# One line per key the maintainer has ever signed a release with, kept for
+# as long as any tag it signed exists. Retire a key by adding valid-before,
+# never by deleting its line: git verifies a tag against the tag's own date
+# (git 2.35+, OpenSSH 8.8+), so an old tag keeps verifying after the key
+# that signed it is gone. docs/contributing/releasing.md is the procedure.
+#
+# Trust this file only after comparing it with the account's published
+# signing keys: https://api.github.com/users/ChiefGyk3D/ssh_signing_keys
+#
+# Use:  git config gpg.ssh.allowedSignersFile "$PWD/.github/allowed_signers"
+#       git verify-tag <tag>
+#
+# No key exists yet (2026-09-03). v0.7.0 is annotated and unsigned. The first
+# line below is written by the maintainer on the day the key is generated.
