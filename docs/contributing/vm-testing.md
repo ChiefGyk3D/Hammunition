@@ -226,6 +226,24 @@ unrecorded test result rots into an inherited verdict within weeks.
    fails there by design until `station.cfg` exists, exactly as its
    manifest says. "It launched" is still the weaker claim; the main window
    is a human's call.
+   The lane owns its deadline. `timeout(1)` bounds the *child*; it does not
+   bound the pipe. On Parrot (2026-09-05) `timeout 12 xvfb-run … gpredict`
+   returned 124 as designed, gpredict was reparented to PID 1 still holding
+   the lane's stderr, and `subprocess.run(capture_output=True)` waited for
+   EOF for twenty-four hours until a TERM sent by hand killed it -- the run
+   then resumed at the next entry. Each entry now runs in its own session;
+   at `--timeout` plus a five-second grace the lane SIGKILLs the whole
+   session and reports what it had. A process that leaves the session
+   (`setsid`) is out of that reach: the lane says so in the tail and stops
+   waiting rather than trade the verdict for a hang. `tests/test_gui_smoke.py`
+   runs both cases against real orphans; the pre-fix call blocked on the
+   first one in eight seconds on the dev machine. The old lane hung a
+   second time the same night, on `satdump-ui`, which ignored the TERM
+   and needed a SIGKILL by hand -- which is why the lane's own kill is
+   SIGKILL and not TERM. The fixed lane then ran the same 52 entries on
+   the same Parrot VM unattended: 9.5 minutes, no hand kills, no orphans
+   left behind, and the same 45/2/0/5 verdicts the old lane had reached
+   in a day and two kills.
 6. **Hardware, on Parrot only at first.** USB-passthrough a real device
    (HackRF, Proxmark3, T-Deck), run detection, apply udev rules, replug,
    check group membership after re-login. This exercises the M4 code that

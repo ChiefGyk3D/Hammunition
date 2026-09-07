@@ -53,8 +53,11 @@ Usage, on the VM, from the repo checkout:
 from __future__ import annotations
 
 import argparse
+import contextlib
+import os
 import re
 import shlex
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -185,6 +188,62 @@ def classify(rc: int, stderr: str) -> tuple[str, str]:
     return "failed", tail
 
 
+# Seconds the lane allows past timeout(1)'s own deadline for Xvfb to start,
+# TERM to land and the pipes to drain, before it kills the whole session.
+GRACE = 5
+
+
+def _text(partial: str | bytes | None) -> str:
+    if partial is None:
+        return ""
+    return partial if isinstance(partial, str) else partial.decode(errors="replace")
+
+
+def run_bounded(argv: list[str], deadline: float) -> tuple[int, str, str]:
+    """Run argv in its own session; (rc, stdout, stderr) within the deadline.
+
+    ``subprocess.run(capture_output=True)`` waits for EOF on the pipes, and
+    EOF comes only when every process holding them has gone -- not when the
+    child has. On Parrot (2026-09-05) ``timeout 12 xvfb-run … gpredict``
+    returned 124 as designed, gpredict was reparented to PID 1 still holding
+    stderr, and the lane sat on that pipe for twenty-four hours until a TERM
+    sent by hand killed it. The lane owns its deadline here: the command runs
+    as a new session, and when the deadline passes the whole session is
+    SIGKILLed, orphans included. A process that left the session (setsid)
+    is outside that reach; the lane reports it and stops waiting, rather
+    than trading a verdict for a hang.
+    """
+    proc = subprocess.Popen(
+        argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True
+    )
+    try:
+        out, err = proc.communicate(timeout=deadline)
+    except subprocess.TimeoutExpired:
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(proc.pid, signal.SIGKILL)
+        try:
+            out, err = proc.communicate(timeout=GRACE)
+        except subprocess.TimeoutExpired as exc:
+            proc.kill()
+            assert proc.stdout is not None and proc.stderr is not None
+            proc.stdout.close()
+            proc.stderr.close()
+            proc.wait()
+            # communicate() hands back what it had read when it gave up --
+            # as bytes, even in text mode.
+            out = _text(exc.stdout)
+            err = _text(exc.stderr)
+            return (
+                proc.returncode,
+                out,
+                err + "\n<lane deadline passed: a process outside the session still holds"
+                " the pipe; the rest of its output is withheld>",
+            )
+        if proc.returncode == -signal.SIGKILL:
+            err += "\n<lane deadline passed: session killed by the lane>"
+    return proc.returncode, out, err
+
+
 def smoke(cmd: str, timeout: int) -> tuple[str, int, str]:
     """('alive'|'exited-clean'|'suspect'|'failed', rc, stderr tail)."""
     argv = [
@@ -199,9 +258,9 @@ def smoke(cmd: str, timeout: int) -> tuple[str, int, str]:
         "--",
         *shlex.split(cmd),
     ]
-    result = subprocess.run(argv, capture_output=True, text=True)
-    verdict, tail = classify(result.returncode, result.stderr)
-    return verdict, result.returncode, tail
+    rc, _, stderr = run_bounded(argv, deadline=timeout + GRACE)
+    verdict, tail = classify(rc, stderr)
+    return verdict, rc, tail
 
 
 def main() -> int:
