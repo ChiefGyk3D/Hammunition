@@ -405,7 +405,20 @@ nobody trusts is worse than none.
 
 ## Recording results
 
-One file per campaign under `docs/reference/` once results exist (shape to be
-settled by the first campaign — likely `vm-verification-<target>.md`,
-mirroring install-verification.md). Raw logs stay out of git; conclusions,
-versions and failure text go in.
+One page per campaign under `docs/reference/`, named `vm-campaign-<what>.md`:
+the standing table first, then what was refused and why each refusal is
+honest, then what the run found and what was fixed, then what is left with
+the maintainer. The pages so far, in the order they were run:
+
+| Page | What it records |
+|---|---|
+| `vm-campaign-packet-debian13.md` | the first campaign: `packet` whole on Debian 13, and the git-on-a-fresh-baseline finding |
+| `vm-campaign-digital-modes.md` | `digital-modes` by unit |
+| `vm-campaign-full-grind.md` | every unit by name on every target |
+| `vm-campaign-ubuntu.md` | Ubuntu 24.04 and 26.04 by unit; every profile whole on Kali, Parrot and Debian 13 (D-038, D-039, D-040) |
+| `vm-campaign-profiles.md` | every profile whole on Parrot and Debian 13 at the current engine, twelve profiles cumulatively on one machine, and the GUI smoke lane over the result |
+
+Raw reports (`.md`, `.log`, `.evidence.jsonl`) stay out of git on the host
+under `~/.local/state/hammunition-campaigns/`; conclusions, versions and
+failure text go in the page, and the page names the report files it was
+written from.
