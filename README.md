@@ -289,7 +289,9 @@ requirements, not aspirations:
 
 ## Documentation
 
-Everything below is written before the code it describes, deliberately.
+The decision record and the policies below were written before the code
+they describe, deliberately; the reference pages are generated from the
+catalog and the measurements, so they cannot say what the code does not.
 
 | | |
 |---|---|
