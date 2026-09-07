@@ -8,8 +8,8 @@ comes from `apt-cache policy` measured inside each target container.
 **Base:** New ground-up build on Ubuntu 26.04 / kernel 7.0.0-29  
 **Source:** <https://sourceforge.net/projects/dragonos-focal/files/README.txt/download>  
 **Project:** <https://cemaxecuter.com/>  
-**apt probes:** debian-13, ubuntu-26.04, kali-rolling, parrot — measured 2026-08-26  
-**Generated:** 2026-08-26
+**apt probes:** debian-13, ubuntu-26.04, kali-rolling, parrot — measured 2026-08-25  
+**Generated:** 2026-09-07
 
 DragonOS is written and curated by **cemaxecuter**. Like AHRL, 73Linux and
 Skywave it is an inventory source, never a base (**D-001**). It is by a wide

@@ -24,6 +24,8 @@ which an operator cannot tell from a broken cable.
 
 from __future__ import annotations
 
+import argparse
+import re
 import sys
 from datetime import date
 from pathlib import Path
@@ -40,6 +42,7 @@ from hammunition.manifest.hardware import (  # noqa: E402
 from hammunition.manifest.load import load_hardware  # noqa: E402
 
 OUT = REPO_ROOT / "docs" / "reference" / "hardware-gaps.md"
+DATE_LINE = re.compile(r"^\*\*Generated:\*\*")
 
 HEADING = {
     "maintainer_hardware": (
@@ -366,9 +369,30 @@ def render(classes: dict[str, DeviceClass], devices: dict[str, DeviceManifest]) 
     return "\n".join(lines)
 
 
+def _without_date(text: str) -> list[str]:
+    # The date line records when the page was written, which is not what the
+    # check is for; the rows are.
+    return [line for line in text.splitlines() if not DATE_LINE.match(line)]
+
+
+def _check_or_write(body: str) -> int:
+    if not OUT.exists() or _without_date(OUT.read_text()) != _without_date(body):
+        print(f"{OUT.relative_to(REPO_ROOT)} is out of date; regenerate it")
+        return 1
+    print(f"{OUT.relative_to(REPO_ROOT)} is up to date")
+    return 0
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true", help="fail if out of date")
+    args = parser.parse_args()
+
     classes, devices = load_hardware(REPO_ROOT / "catalog" / "hardware")
-    OUT.write_text(render(classes, devices))
+    body = render(classes, devices)
+    if args.check:
+        return _check_or_write(body)
+    OUT.write_text(body)
     print(f"wrote {OUT.relative_to(REPO_ROOT)}")
     return 0
 

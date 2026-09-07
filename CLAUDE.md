@@ -345,11 +345,17 @@ head.
   from `gen_programmer_class.py`, because five packages name **180 distinct
   identifiers** between them and transcribing 180 evidence strings by hand is a
   long opportunity to make the mistakes this project keeps writing checks for.
-  Run `gen_usb_ambiguity.py` first: the class reads its output. A test asserts
-  the class regenerates as a no-op; `ambiguous-ids.yaml` has no such test
-  yet, and neither do six other generators (they have no `--check` either) —
-  `docs/reference/udev-inventory.md` sat eleven identifiers stale for ten days
-  that way, found 2026-09-07.
+  Run `gen_usb_ambiguity.py` first: the class reads its output. **Every page
+  generator takes `--check`** and `tests/test_docs_generated.py` runs each one,
+  skipping only where the gitignored measurement it reads is absent; the
+  test also asserts `--check` wrote nothing, because six generators used to
+  ignore their argv and rewrite the page. `docs/reference/udev-inventory.md`
+  sat eleven identifiers stale for ten days without that (found 2026-09-07,
+  issues #45 and #48). A missing probe is an error naming the file and the
+  sweep, never an empty measurement — `profile-sizing.md` once rendered every
+  profile as "0 installable" from a checkout without `reference/probes/`,
+  exit 0. A "measured" or "fetched" date is the input file's mtime, not the
+  day the page was regenerated (D-031).
 - **Upstream project metadata is mined the same way.** Meshtastic and MeshCore
   publish a PlatformIO board file per product naming its USB identifiers;
   `scripts/lora-sweep.sh` reads them. 107 boards, 26 identifiers, the top one

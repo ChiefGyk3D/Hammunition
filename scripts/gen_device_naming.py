@@ -29,6 +29,7 @@ and by-id addresses exactly one of those four.
 
 from __future__ import annotations
 
+import argparse
 import sys
 from datetime import date
 from pathlib import Path
@@ -40,6 +41,7 @@ from hammunition.manifest.hardware import DeviceClass, DeviceManifest, UsbId  # 
 from hammunition.manifest.load import load_hardware  # noqa: E402
 
 OUT = REPO_ROOT / "docs" / "reference" / "device-naming.md"
+DATE_LINE = "Generated "
 
 # Why by-id does not settle a device, most severe first. Ordered so a device
 # reports the strongest reason it is not covered.
@@ -138,7 +140,15 @@ def ours_answer(dev: DeviceManifest, cls: DeviceClass | None) -> tuple[str, list
     return ("yes" if adds else "no"), adds
 
 
+def _without_date(text: str) -> list[str]:
+    return [line for line in text.splitlines() if not line.startswith(DATE_LINE)]
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true", help="fail if out of date")
+    args = parser.parse_args()
+
     classes, devices = load_hardware(REPO_ROOT / "catalog" / "hardware")
     rows = []
     for dev in sorted(devices.values(), key=lambda d: d.name):
@@ -271,7 +281,14 @@ def main() -> int:
     w("solves. Symlinks are one tactic, used where the evidence supports one —")
     w("which, so far, is exactly where by-id cannot reach.")
     w("")
-    OUT.write_text("\n".join(out))
+    body = "\n".join(out)
+    if args.check:
+        if not OUT.exists() or _without_date(OUT.read_text()) != _without_date(body):
+            print(f"{OUT.relative_to(REPO_ROOT)} is out of date; regenerate it")
+            return 1
+        print(f"{OUT.relative_to(REPO_ROOT)} is up to date")
+        return 0
+    OUT.write_text(body)
     print(
         f"wrote {OUT.relative_to(REPO_ROOT)}: {n} devices, "
         f"{len(insufficient)} where by-id is insufficient, "

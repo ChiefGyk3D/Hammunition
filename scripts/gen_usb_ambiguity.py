@@ -32,6 +32,7 @@ Writes `catalog/hardware/ambiguous-ids.yaml` (data, CC0) and
 
 from __future__ import annotations
 
+import argparse
 import re
 import sys
 from collections import defaultdict
@@ -43,6 +44,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PROBES = REPO_ROOT / "reference" / "probes"
 DATA_OUT = REPO_ROOT / "catalog" / "hardware" / "ambiguous-ids.yaml"
 DOC_OUT = REPO_ROOT / "docs" / "reference" / "usb-ambiguity.md"
+DATE_LINE = re.compile(r"^(generated: |\*\*Generated:\*\*)")
 
 # Kernel drivers that bind a pair because of the BRIDGE CHIP on the board, not
 # because of what the board is. A pair in one of these tables identifies
@@ -146,7 +148,15 @@ def read_tsv(path: Path, fields: int) -> list[list[str]]:
     return rows
 
 
+def _without_date(text: str) -> list[str]:
+    return [line for line in text.splitlines() if not DATE_LINE.match(line)]
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true", help="fail if out of date")
+    args = parser.parse_args()
+
     aliases = read_tsv(PROBES / "modules-alias-debian-13.tsv", 4)
     sweep = read_tsv(PROBES / "udev-debian-13.tsv", 12)
     lora = read_tsv(PROBES / "lora-identifiers.tsv", 6)
@@ -279,8 +289,24 @@ def main() -> int:
             names=tuple(sorted(names_of[key])),
         )
 
-    write_data(findings)
-    write_doc(findings, len(aliases), len(sweep), vendor_specific, len(lora))
+    rendered = {
+        DATA_OUT: render_data(findings),
+        DOC_OUT: render_doc(findings, len(aliases), len(sweep), vendor_specific, len(lora)),
+    }
+    if args.check:
+        stale = [
+            out
+            for out, body in rendered.items()
+            if not out.exists() or _without_date(out.read_text()) != _without_date(body)
+        ]
+        if stale:
+            names = " and ".join(str(p.relative_to(REPO_ROOT)) for p in stale)
+            print(f"{names} out of date; regenerate")
+            return 1
+        print(f"{DATA_OUT.relative_to(REPO_ROOT)} and {DOC_OUT.relative_to(REPO_ROOT)} up to date")
+        return 0
+    for out, body in rendered.items():
+        out.write_text(body)
     print(
         f"wrote {DATA_OUT.relative_to(REPO_ROOT)} and {DOC_OUT.relative_to(REPO_ROOT)}: "
         f"{len(findings)} ambiguous identifiers"
@@ -288,7 +314,7 @@ def main() -> int:
     return 0
 
 
-def write_data(findings: dict[tuple[str, str], Finding]) -> None:
+def render_data(findings: dict[tuple[str, str], Finding]) -> str:
     lines = [
         "# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC",
         "# SPDX-License-Identifier: CC0-1.0",
@@ -320,16 +346,16 @@ def write_data(findings: dict[tuple[str, str], Finding]) -> None:
             lines.append(f"    seen_in: [{', '.join(info.packages)}]")
         for name in info.names:
             lines.append(f"    # named: {name}")
-    DATA_OUT.write_text("\n".join(lines) + "\n")
+    return "\n".join(lines) + "\n"
 
 
-def write_doc(
+def render_doc(
     findings: dict[tuple[str, str], Finding],
     aliases: int,
     sweep: int,
     vendor_specific: int,
     lora: int,
-) -> None:
+) -> str:
     by_basis: dict[str, int] = defaultdict(int)
     for info in findings.values():
         by_basis[info.basis] += 1
@@ -477,7 +503,7 @@ def write_doc(
         "D-028 rather than re-derived per entry.",
         "",
     ]
-    DOC_OUT.write_text("\n".join(lines) + "\n")
+    return "\n".join(lines) + "\n"
 
 
 if __name__ == "__main__":

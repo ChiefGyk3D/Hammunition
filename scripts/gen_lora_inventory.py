@@ -20,6 +20,8 @@ Input: `reference/probes/lora-identifiers.tsv` from `scripts/lora-sweep.sh`.
 
 from __future__ import annotations
 
+import argparse
+import re
 import sys
 from collections import defaultdict
 from datetime import date
@@ -36,6 +38,7 @@ PROBE = REPO_ROOT / "reference" / "probes" / "lora-identifiers.tsv"
 AMBIGUITY = REPO_ROOT / "catalog" / "hardware" / "ambiguous-ids.yaml"
 HARDWARE = REPO_ROOT / "catalog" / "hardware"
 OUT = REPO_ROOT / "docs" / "reference" / "lora-inventory.md"
+DATE_LINE = re.compile(r"^\*\*Generated:\*\*")
 
 FIELDS = ("project", "board_file", "board_name", "vendor", "product", "source")
 
@@ -66,7 +69,15 @@ def ambiguous_ids() -> set[str]:
     return {str(e["id"]) for e in data.get("identifiers") or []}
 
 
+def _without_date(text: str) -> list[str]:
+    return [line for line in text.splitlines() if not DATE_LINE.match(line)]
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true", help="fail if out of date")
+    args = parser.parse_args()
+
     if not PROBE.is_file():
         print("no LoRa sweep output; run scripts/lora-sweep.sh", file=sys.stderr)
         return 1
@@ -214,7 +225,14 @@ def main() -> int:
         "`.github/ISSUE_TEMPLATE/lora-product-string.yml` asks for.",
         "",
     ]
-    OUT.write_text("\n".join(lines) + "\n")
+    body = "\n".join(lines) + "\n"
+    if args.check:
+        if not OUT.exists() or _without_date(OUT.read_text()) != _without_date(body):
+            print(f"{OUT.relative_to(REPO_ROOT)} is out of date; regenerate it")
+            return 1
+        print(f"{OUT.relative_to(REPO_ROOT)} is up to date")
+        return 0
+    OUT.write_text(body)
     print(f"wrote {OUT.relative_to(REPO_ROOT)}: {total_boards} boards, {len(boards)} identifiers")
     return 0
 

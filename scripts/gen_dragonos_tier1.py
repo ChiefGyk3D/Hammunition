@@ -34,8 +34,10 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SRC = REPO_ROOT / "reference" / "dragonos"
+PROBES = REPO_ROOT / "reference" / "probes"
 README = SRC / "README.txt"
 OUT = REPO_ROOT / "docs" / "reference" / "dragonos-tier1-inventory.md"
+DATE_LINE = re.compile(r"^\*\*Generated:\*\*")
 
 README_URL = "https://sourceforge.net/projects/dragonos-focal/files/README.txt/download"
 PROJECT_URL = "https://cemaxecuter.com/"
@@ -229,9 +231,16 @@ def parse_readme() -> tuple[str, str, list[tuple[str, str, str]]]:
 
 
 def parse_probe(target: str) -> dict[str, str]:
-    path = REPO_ROOT / "reference" / "probes" / f"dragonos-{target}.tsv"
+    path = PROBES / f"dragonos-{target}.tsv"
     if not path.exists():
-        return {}
+        # An absent probe is not an empty archive. Rendered as one, every
+        # Tier 1 unit reads as unavailable everywhere and the page says so
+        # with exit 0 (issue #45).
+        sys.exit(
+            f"missing {path}: the apt-cache policy probe for {target}. Sweep the "
+            "Tier 1 candidate names with scripts/apt-policy-sweep.sh against that "
+            "target's image and save the output under that name."
+        )
     out: dict[str, str] = {}
     for line in path.read_text().splitlines():
         if "\t" in line:
@@ -246,6 +255,13 @@ DEB_UPSTREAM = {
     "SatDump": "`SatDump/SatDump` publishes `satdump_1.2.2_ubuntu_24.04_amd64.deb`",
     "AIS-Catcher": "`jvde-github/AIS-catcher` publishes `ais-catcher_debian_bookworm_amd64.deb`",
 }
+
+
+def measured_on(*paths: Path) -> str:
+    """The newest input's mtime: the date the measurement was taken, which is
+    not the date this page happens to be regenerated (D-031)."""
+    files = [f for p in paths for f in (sorted(p.iterdir()) if p.is_dir() else [p])]
+    return date.fromtimestamp(max(f.stat().st_mtime for f in files)).isoformat()
 
 
 def render() -> str:
@@ -286,7 +302,10 @@ def render() -> str:
     add(f"**Base:** {base}  ")
     add(f"**Source:** <{README_URL}>  ")
     add(f"**Project:** <{PROJECT_URL}>  ")
-    add(f"**apt probes:** {', '.join(TARGETS)} — measured {date.today().isoformat()}  ")
+    add(
+        f"**apt probes:** {', '.join(TARGETS)} — measured "
+        f"{measured_on(*(PROBES / f'dragonos-{t}.tsv' for t in TARGETS))}  "
+    )
     add(f"**Generated:** {date.today().isoformat()}")
     add("")
     add(SCOPE_NOTE)
@@ -577,15 +596,33 @@ absence above was confirmed with `apt-cache search` on the name stem, not just
 `apt-cache policy` on a guess."""
 
 
+def _without_date(text: str) -> list[str]:
+    # The date line records when the page was written, which is not what the
+    # check is for; the rows are.
+    return [line for line in text.splitlines() if not DATE_LINE.match(line)]
+
+
+def _check_or_write(body: str) -> int:
+    if not OUT.exists() or _without_date(OUT.read_text()) != _without_date(body):
+        print(f"{OUT.relative_to(REPO_ROOT)} is out of date; regenerate it")
+        return 1
+    print(f"{OUT.relative_to(REPO_ROOT)} is up to date")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fetch", action="store_true", help="refresh the README")
+    parser.add_argument("--check", action="store_true", help="fail if out of date")
     args = parser.parse_args()
     if args.fetch:
         fetch()
     if not README.exists():
         sys.exit(f"missing {README}; run with --fetch")
-    OUT.write_text(render())
+    body = render()
+    if args.check:
+        return _check_or_write(body)
+    OUT.write_text(body)
     print(f"wrote {OUT.relative_to(REPO_ROOT)}")
     return 0
 
