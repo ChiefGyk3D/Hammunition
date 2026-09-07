@@ -18,21 +18,28 @@ after: [wsjtx]
 # mid-transaction dpkg collision into a plan-time refusal naming the remedy.
 conflicts_with_repo_package: [wsjtx-data, wsjtx]
 
-# The archive packages this too, and this manifest does not use it yet.
-# Measured 2026-09-06 on the six VM targets: Parrot 7 and Debian 13 offer
-# `wsjtx-improved` 2.8.0+250501+repack-1, Kali rolling 3.1.0+260522+repack-1;
-# Ubuntu 24.04, Ubuntu 26.04 and Pop!_OS 24.04 offer nothing. The Debian
-# package declares `Provides: wsjtx`, `Breaks: wsjtx`, and its -data package
-# `Breaks: wsjtx-data`, so `apt-get install --yes wsjtx-improved` on a
-# machine with stock WSJT-X installed REMOVES it. The engine's apt
-# simulation reads only `Inst` lines (backends/apt.py, parse_simulation),
-# so that removal would happen unseen -- the silent displacement D-022
-# forbids. An apt block for those three targets waits on the engine
-# reading `Remv` lines and refusing, or disclosing, what apt would take
-# out; until then the vendor .deb below, whose collision the plan already
-# refuses by name, is the honest path. The 2.8.0 in the stable archives is
-# also a year behind upstream's 3.2.0.
+# The archive packages this too. Measured 2026-09-06 on the six VM targets:
+# Parrot 7 and Debian 13 offer `wsjtx-improved` 2.8.0+250501+repack-1, Kali
+# rolling 3.1.0+260522+repack-1; Ubuntu 24.04, Ubuntu 26.04 and Pop!_OS
+# 24.04 offer nothing. The Debian package declares `Provides: wsjtx`,
+# `Breaks: wsjtx`, and its -data package `Breaks: wsjtx-data`, so apt
+# installs it on a machine with stock WSJT-X by REMOVING stock WSJT-X.
+# Since 2026-09-07 the plan reads what apt would remove and refuses it by
+# name (D-022 amendment, issue #42), which is what let the block below exist.
+#
+# Kali takes the archive package, first block so it wins. The vendor .deb
+# cannot install there at all: it depends on `libboost-log1.83.0`, and
+# Kali's archive has moved to 1.90 (issue #24, measured 2026-09-04). A
+# vendor .deb is built against one release's libraries; on a rolling
+# target the archive's own build is the one that follows the libraries.
+# Parrot and Debian 13 stay on the vendor .deb: it is measured installing
+# and launching there, and their archive's 2.8.0 is a year behind it.
 install:
+  - when:
+      distro: [kali]
+    install:
+      method: apt
+      packages: [wsjtx-improved]
   - when:
       arch: [x86_64]
     install:
@@ -91,13 +98,16 @@ documentation:
     depends on `libboost-log1.83.0`, and Kali's archive has moved past that
     boost, so apt refuses it with "none of the choices are installable".
     A vendor .deb is built against one release's libraries, and this is
-    what that looks like on a rolling one; a newer upstream build, or the
-    Debian 13 and Ubuntu targets, are the answer. Parrot, Debian 13 and
-    Kali also carry a `wsjtx-improved` package in their archives (2.8.0
-    on the first two, 3.1.0 on Kali, measured 2026-09-06) that this
-    manifest does not yet install: the archive package `Breaks: wsjtx`
-    and would remove stock WSJT-X on install, and the engine cannot yet
-    see an apt removal to refuse or disclose it. Installing it by hand
-    with apt is possible on those targets; know that it replaces `wsjtx`
-    rather than sitting beside it.
+    what that looks like on a rolling one, so on Kali this manifest
+    installs the archive's own `wsjtx-improved` (3.1.0, measured
+    2026-09-07 from clean) instead. **The archive package does not sit
+    beside stock WSJT-X**: it `Breaks: wsjtx` and its data package breaks
+    `wsjtx-data`, so on a Kali machine with stock WSJT-X (or jtdx, which
+    depends on `wsjtx-data`) installed, apt can only install it by removing
+    them. The plan sees that and refuses, naming each package and version
+    and the `apt-get remove` that takes them off deliberately; the engine
+    never removes them for you (D-022). Parrot and Debian 13 also carry
+    an archive `wsjtx-improved` (2.8.0, a year behind the vendor build);
+    this manifest keeps the vendor .deb there, where it is measured
+    working and newer.
   upstream_url: https://sourceforge.net/projects/wsjt-x-improved/
