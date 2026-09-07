@@ -14,8 +14,12 @@ the exit status and not the effect is the D-031 mistake again.
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import os
+import signal
 import sys
+import time
 from pathlib import Path
 from types import ModuleType
 
@@ -119,3 +123,69 @@ def test_a_word_that_merely_contains_error_is_not_a_fault(smoke: ModuleType) -> 
     # mention of the word would be ignored inside a week.
     verdict, _ = smoke.classify(0, "loaded ErrorDialog.class\nINFO no errors\n")
     assert verdict == "exited-clean"
+
+
+# --- the lane's own deadline ------------------------------------------------
+#
+# Parrot, 2026-09-05/06: `timeout 12 xvfb-run … gpredict` TERM'd its child,
+# gpredict was reparented to PID 1 still holding the lane's stderr pipe, and
+# `subprocess.run(capture_output=True)` waited for EOF for twenty-four hours.
+# The lane has to own the deadline, not lend it to timeout(1).
+
+
+def _orphan_holding_the_pipe(prefix: str = "") -> list[str]:
+    # The child exits 0 at once; its background grandchild inherits our
+    # stderr pipe and keeps it open. `prefix` lets the grandchild leave the
+    # session first (setsid), which is the one case a group kill cannot reach.
+    return ["sh", "-c", f"{prefix} sleep 300 </dev/null >/dev/null & echo $! ; exit 0"]
+
+
+def _alive(pid: int) -> bool:
+    # A killed orphan is a zombie until PID 1 reaps it, and kill(pid, 0) still
+    # succeeds on a zombie; read the state rather than race the reaper.
+    try:
+        state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
+    except OSError:
+        return False
+    return state != "Z"
+
+
+def test_a_grandchild_holding_the_pipe_does_not_stall_the_lane(smoke: ModuleType) -> None:
+    started = time.monotonic()
+    rc, out, _ = smoke.run_bounded(_orphan_holding_the_pipe(), deadline=2)
+    elapsed = time.monotonic() - started
+    orphan = int(out.strip())
+    try:
+        assert rc == 0
+        assert elapsed < 10, f"lane waited {elapsed:.0f}s on an orphan's pipe"
+        assert not _alive(orphan), "the orphan survived the lane's deadline"
+    finally:
+        with contextlib.suppress(ProcessLookupError):
+            os.kill(orphan, signal.SIGKILL)
+
+
+def test_a_grandchild_that_left_the_session_is_reported_not_waited_for(
+    smoke: ModuleType,
+) -> None:
+    started = time.monotonic()
+    rc, out, err = smoke.run_bounded(_orphan_holding_the_pipe("setsid"), deadline=2)
+    elapsed = time.monotonic() - started
+    orphan = int(out.strip())
+    try:
+        assert rc == 0
+        assert elapsed < 15, f"lane waited {elapsed:.0f}s on an escaped orphan's pipe"
+        assert "still holds" in err, err
+    finally:
+        with contextlib.suppress(ProcessLookupError):
+            os.kill(orphan, signal.SIGKILL)
+
+
+def test_a_command_that_finishes_returns_its_status_and_stderr(smoke: ModuleType) -> None:
+    rc, out, err = smoke.run_bounded(["sh", "-c", "echo hi; echo oops >&2; exit 3"], deadline=5)
+    assert (rc, out, err) == (3, "hi\n", "oops\n")
+
+
+def test_a_command_that_outlives_the_deadline_is_killed_and_says_so(smoke: ModuleType) -> None:
+    rc, _, err = smoke.run_bounded(["sleep", "300"], deadline=1)
+    assert rc == -signal.SIGKILL
+    assert "deadline" in err
