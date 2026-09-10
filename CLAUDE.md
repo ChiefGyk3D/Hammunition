@@ -498,8 +498,11 @@ longer a design question in the abstract; a shipped manifest depends on it. See
 `DESIGN.md` §15.3 and the D-004 amendment.
 
 **Open questions awaiting the maintainer** are in `docs/QUESTIONS.md`.
-**Q-018** (refresh apt lists by default) and **Q-019** (retire `z8530-utils2`;
-is the packet core userspace-primary now that Linux 7.1 has no AX.25) are open.
+**Q-018** (refresh apt lists by default), **Q-019** (retire `z8530-utils2`;
+is the packet core userspace-primary now that Linux 7.1 has no AX.25) and
+**Q-020** (the two post-1.0 tracks — trunked/digital-voice listening and
+repeater/hotspot — their order, profile placement, the G4KLX pin source and
+ASL3 under D-040; `docs/SCOPE.md` stages 9 and 10) are open.
 **Q-001 through Q-016 are all resolved.** Q-006, Q-007 and Q-008 closed on
 2026-08-29: HamClock carries both clients defaulting to `openhamclock` with
 `ohb.works` as the backend; SuperSDR is carried under **D-033**; cellular
