@@ -24,6 +24,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TASK_DIR = REPO_ROOT / "reference" / "blend-tasks"
 OUT = REPO_ROOT / "docs" / "reference" / "blend-inventory.md"
+DATE_LINE = re.compile(r"^\*\*Generated:\*\*")
 BASE_URL = "https://salsa.debian.org/blends-team/hamradio/-/raw/master/tasks"
 
 TASKS = [
@@ -181,6 +182,13 @@ def _crossref(blend_pkgs: set[str]) -> list[str]:
     return out
 
 
+def measured_on(*paths: Path) -> str:
+    """The newest input's mtime: the date the measurement was taken, which is
+    not the date this page happens to be regenerated (D-031)."""
+    files = [f for p in paths for f in (sorted(p.iterdir()) if p.is_dir() else [p])]
+    return date.fromtimestamp(max(f.stat().st_mtime for f in files)).isoformat()
+
+
 def render(tasks: list[Task]) -> str:
     all_pkgs = {e.package for t in tasks for e in t.entries}
     entries = sum(len(t.entries) for t in tasks)
@@ -198,7 +206,7 @@ def render(tasks: list[Task]) -> str:
     add("files. Do not edit by hand — regenerate.")
     add("")
     add(f"**Source:** <{BASE_URL}>  ")
-    add(f"**Fetched:** {date.today().isoformat()}  ")
+    add(f"**Fetched:** {measured_on(TASK_DIR)}  ")
     add("**Format:** `https://blends.debian.org/blends/1.1`")
     add("")
     add("Per `docs/SCOPE.md` this is the cheapest coverage in the project and the")
@@ -280,9 +288,24 @@ def render(tasks: list[Task]) -> str:
     return "\n".join(out) + "\n"
 
 
+def _without_date(text: str) -> list[str]:
+    # The date line records when the page was written, which is not what the
+    # check is for; the rows are.
+    return [line for line in text.splitlines() if not DATE_LINE.match(line)]
+
+
+def _check_or_write(body: str) -> int:
+    if not OUT.exists() or _without_date(OUT.read_text()) != _without_date(body):
+        print(f"{OUT.relative_to(REPO_ROOT)} is out of date; regenerate it")
+        return 1
+    print(f"{OUT.relative_to(REPO_ROOT)} is up to date")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fetch", action="store_true", help="re-fetch task files first")
+    parser.add_argument("--check", action="store_true", help="fail if out of date")
     args = parser.parse_args()
 
     if args.fetch:
@@ -298,7 +321,10 @@ def main() -> int:
         print(f"missing task files: {sorted(missing)}", file=sys.stderr)
         return 1
 
-    OUT.write_text(render(tasks))
+    body = render(tasks)
+    if args.check:
+        return _check_or_write(body)
+    OUT.write_text(body)
     total = len({e.package for t in tasks for e in t.entries})
     print(f"wrote {OUT.relative_to(REPO_ROOT)}: {len(tasks)} tasks, {total} unique packages")
     return 0

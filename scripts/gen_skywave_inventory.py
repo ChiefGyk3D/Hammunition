@@ -40,6 +40,7 @@ APT_SID_TSV = PROBES / "skywave-debian-sid.tsv"
 BLEND_TSV = PROBES / "blend-debian-13.tsv"
 BLEND_SID_TSV = PROBES / "blend-debian-sid.tsv"
 OUT = REPO_ROOT / "docs" / "reference" / "skywave-inventory.md"
+DATE_LINE = re.compile(r"^\*\*Generated:\*\*")
 
 PAGE_URL = "https://skywavelinux.com/"
 SCRIPTS_URL = "https://github.com/AB9IL/SDR-Scripts"
@@ -213,9 +214,19 @@ def parse_methods() -> dict[str, tuple[str, str]]:
     return found
 
 
-def parse_apt(path: Path = APT_TSV) -> dict[str, str]:
+def parse_apt(path: Path = APT_TSV, *, required: bool = True) -> dict[str, str]:
     if not path.exists():
-        return {}
+        if not required:
+            return {}
+        # An absent probe is not an empty archive: rendered as one, every
+        # featured application reads as unavailable and the page says so with
+        # exit 0 (issue #45).
+        sys.exit(
+            f"missing {path}: the apt-cache policy probe this page rests on. Sweep "
+            "the featured applications' package names with scripts/apt-policy-sweep.sh "
+            "against debian:13 (and debian:sid for the sibling) and save the output "
+            "under that name."
+        )
     out: dict[str, str] = {}
     for line in path.read_text().splitlines():
         if "\t" in line:
@@ -244,6 +255,13 @@ def method_for(unit: str, methods: dict[str, tuple[str, str]]) -> tuple[str, str
         if re.sub(r"[^a-z0-9]", "", candidate) == key:
             return value
     return ("not-in-scripts", "")
+
+
+def measured_on(*paths: Path) -> str:
+    """The newest input's mtime: the date the measurement was taken, which is
+    not the date this page happens to be regenerated (D-031)."""
+    files = [f for p in paths for f in (sorted(p.iterdir()) if p.is_dir() else [p])]
+    return date.fromtimestamp(max(f.stat().st_mtime for f in files)).isoformat()
 
 
 def render() -> str:
@@ -294,7 +312,7 @@ def render() -> str:
     add(f"**Kernel:** {kernel}  ")
     add(f"**Applications page:** <{PAGE_URL}>  ")
     add(f"**Install scripts:** <{SCRIPTS_URL}>  ")
-    add(f"**apt availability:** measured in a `debian:13` container, {date.today().isoformat()}  ")
+    add(f"**apt availability:** measured in a `debian:13` container, {measured_on(APT_TSV)}  ")
     add(f"**Generated:** {date.today().isoformat()}")
     add("")
     add("Skywave Linux is written and curated by Philip Collier, **AB9IL**. Like AHRL")
@@ -784,8 +802,8 @@ belong to the M4 hardware work rather than the catalog."""
 
 def blend_gap_prose() -> str:
     """The apt probe was pointed at the Blend's own package list as a control."""
-    trixie = parse_apt(BLEND_TSV)
-    sid = parse_apt(BLEND_SID_TSV)
+    trixie = parse_apt(BLEND_TSV, required=False)
+    sid = parse_apt(BLEND_SID_TSV, required=False)
     if not trixie:
         return "*(not measured — run the Blend probe)*"
     total = len(trixie)
@@ -874,15 +892,33 @@ observation that the remote-receiver *directory* is the product for a user who
 owns no hardware."""
 
 
+def _without_date(text: str) -> list[str]:
+    # The date line records when the page was written, which is not what the
+    # check is for; the rows are.
+    return [line for line in text.splitlines() if not DATE_LINE.match(line)]
+
+
+def _check_or_write(body: str) -> int:
+    if not OUT.exists() or _without_date(OUT.read_text()) != _without_date(body):
+        print(f"{OUT.relative_to(REPO_ROOT)} is out of date; regenerate it")
+        return 1
+    print(f"{OUT.relative_to(REPO_ROOT)} is up to date")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fetch", action="store_true", help="refresh page and scripts")
+    parser.add_argument("--check", action="store_true", help="fail if out of date")
     args = parser.parse_args()
     if args.fetch:
         fetch()
     if not PAGE.exists():
         sys.exit(f"missing {PAGE}; run with --fetch")
-    OUT.write_text(render())
+    body = render()
+    if args.check:
+        return _check_or_write(body)
+    OUT.write_text(body)
     print(f"wrote {OUT.relative_to(REPO_ROOT)}")
     return 0
 

@@ -25,6 +25,7 @@ argued in the generated document rather than asserted.
 
 from __future__ import annotations
 
+import argparse
 import re
 import sys
 from datetime import date
@@ -34,6 +35,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 REF = REPO_ROOT / "docs" / "reference"
 PROBES = REPO_ROOT / "reference" / "probes"
 OUT = REF / "profile-sizing.md"
+DATE_LINE = re.compile(r"^\*\*Generated:\*\*")
 
 THRESHOLD = 80
 
@@ -257,7 +259,15 @@ def blend_tasks() -> dict[str, list[str]]:
 def probe(name: str) -> dict[str, str]:
     path = PROBES / name
     if not path.exists():
-        return {}
+        # An absent probe is not an empty measurement. Rendered as one, every
+        # profile sized here reads "0 installable", the Blend "152 do not
+        # install", and the page is written with exit 0 (issue #45).
+        sys.exit(
+            f"missing {path}: the container probe of the Blend's packages. Sweep the "
+            "package column of docs/reference/blend-inventory.md with "
+            "scripts/apt-policy-sweep.sh against the matching image and save the "
+            "output under that name."
+        )
     return {
         k.strip(): v.strip()
         for k, _, v in (line.partition("\t") for line in path.read_text().splitlines())
@@ -591,8 +601,29 @@ DAB, GNSS and utility decoding. It also contains `dump1090-mutability`, which
 anyway."""
 
 
+def _without_date(text: str) -> list[str]:
+    # The date line records when the page was written, which is not what the
+    # check is for; the rows are.
+    return [line for line in text.splitlines() if not DATE_LINE.match(line)]
+
+
+def _check_or_write(body: str) -> int:
+    if not OUT.exists() or _without_date(OUT.read_text()) != _without_date(body):
+        print(f"{OUT.relative_to(REPO_ROOT)} is out of date; regenerate it")
+        return 1
+    print(f"{OUT.relative_to(REPO_ROOT)} is up to date")
+    return 0
+
+
 def main() -> int:
-    OUT.write_text(render())
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true", help="fail if out of date")
+    args = parser.parse_args()
+
+    body = render()
+    if args.check:
+        return _check_or_write(body)
+    OUT.write_text(body)
     print(f"wrote {OUT.relative_to(REPO_ROOT)}")
     return 0
 

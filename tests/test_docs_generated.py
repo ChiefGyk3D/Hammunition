@@ -573,3 +573,177 @@ def test_regenerating_the_udev_inventory_is_a_no_op() -> None:
         "Either the hardware catalog gained identifiers the sweep also carries, "
         "or the sweep was re-run."
     )
+
+
+# ---------------------------------------------------------------------------
+# Every other page generator (issues #45 and #48)
+#
+# Nine generators had neither --check nor a test that ran them, which is how
+# the udev inventory above sat stale for ten days. Each now takes --check,
+# renders in memory and compares without the generated-date line. The test
+# also asserts --check WROTE NOTHING: six of the nine ignored their argv and
+# rewrote the page unconditionally, so a test that only read the exit status
+# would have been green on every one of them before the flag existed.
+#
+# Generators that read a gitignored measurement skip where it is absent, the
+# way the capability matrix does. Two read nothing but the catalog and run
+# everywhere.
+# ---------------------------------------------------------------------------
+
+REFERENCE = REPO_ROOT / "reference"
+
+# (script, outputs it writes, inputs it needs before it can render at all)
+CHECKED_GENERATORS: list[tuple[str, list[str], list[Path]]] = [
+    (
+        "gen_blend_inventory.py",
+        ["docs/reference/blend-inventory.md"],
+        [REFERENCE / "blend-tasks"],
+    ),
+    (
+        "gen_dragonos_tier1.py",
+        ["docs/reference/dragonos-tier1-inventory.md"],
+        [REFERENCE / "dragonos" / "README.txt", PROBES / "dragonos-debian-13.tsv"],
+    ),
+    (
+        "gen_skywave_inventory.py",
+        ["docs/reference/skywave-inventory.md"],
+        [REFERENCE / "skywave" / "skywavelinux-index.html", PROBES / "skywave-debian-13.tsv"],
+    ),
+    (
+        "gen_install_verification.py",
+        ["docs/reference/install-verification.md"],
+        [REFERENCE / "install-tests" / "tier1-debian-13.tsv"],
+    ),
+    (
+        "gen_lora_inventory.py",
+        ["docs/reference/lora-inventory.md"],
+        [PROBES / "lora-identifiers.tsv"],
+    ),
+    (
+        "gen_usb_ambiguity.py",
+        ["catalog/hardware/ambiguous-ids.yaml", "docs/reference/usb-ambiguity.md"],
+        [PROBES / "modules-alias-debian-13.tsv", PROBES / "udev-debian-13.tsv"],
+    ),
+    (
+        "gen_profile_sizing.py",
+        ["docs/reference/profile-sizing.md"],
+        [PROBES / "blend-debian-13.tsv"],
+    ),
+    ("gen_device_naming.py", ["docs/reference/device-naming.md"], []),
+    ("gen_hardware_gaps.py", ["docs/reference/hardware-gaps.md"], []),
+]
+
+
+@pytest.mark.parametrize(
+    ("script", "outputs", "needs"),
+    CHECKED_GENERATORS,
+    ids=[g[0] for g in CHECKED_GENERATORS],
+)
+def test_check_reports_the_page_current_and_writes_nothing(
+    script: str, outputs: list[str], needs: list[Path]
+) -> None:
+    import subprocess
+
+    missing = [p for p in needs if not p.exists()]
+    if missing:
+        pytest.skip(f"needs the gitignored measurement {missing[0].relative_to(REPO_ROOT)}")
+    paths = [REPO_ROOT / o for o in outputs]
+    before = {p: p.stat().st_mtime_ns for p in paths}
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / script), "--check"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    assert result.returncode == 0, (
+        f"{result.stdout}{result.stderr}\n{', '.join(outputs)} is stale — run scripts/{script}"
+    )
+    assert "up to date" in result.stdout, result.stdout
+    rewritten = [
+        o for p, o in zip(paths, outputs, strict=True) if p.stat().st_mtime_ns != before[p]
+    ]
+    assert not rewritten, f"scripts/{script} --check wrote {rewritten}; a check must not write"
+
+
+def _load_script(name: str) -> object:
+    spec = importlib.util.spec_from_file_location(
+        name.removesuffix(".py"), REPO_ROOT / "scripts" / name
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+# Issue #45: a missing probe rendered as an empty measurement. profile-sizing
+# reported every profile as "0 installable" from a checkout without the
+# probes, exit 0, "wrote docs/reference/profile-sizing.md". dragonos and
+# skywave read their probes the same way.
+@pytest.mark.parametrize(
+    ("script", "constant", "call"),
+    [
+        ("gen_profile_sizing.py", "PROBES", lambda m, d: m.probe("blend-debian-13.tsv")),
+        ("gen_dragonos_tier1.py", "PROBES", lambda m, d: m.parse_probe("debian-13")),
+        (
+            "gen_skywave_inventory.py",
+            "PROBES",
+            lambda m, d: m.parse_apt(d / "skywave-debian-13.tsv"),
+        ),
+    ],
+    ids=["profile_sizing", "dragonos", "skywave"],
+)
+def test_a_missing_probe_is_an_error_that_names_the_file_and_the_sweep(
+    tmp_path: Path, script: str, constant: str, call: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _load_script(script)
+    monkeypatch.setattr(module, constant, tmp_path)
+    with pytest.raises(SystemExit) as raised:
+        call(module, tmp_path)  # type: ignore[operator]
+    message = str(raised.value)
+    assert str(tmp_path) in message, message
+    assert "apt-policy-sweep.sh" in message, message
+
+
+# Four of them also stamped today's date where the page says "measured" or
+# "fetched" -- the date the page was written, labelled as the date the
+# archive was asked (D-031; the udev inventory had the same defect until
+# PR #47). The date is the input file's now, so a regeneration cannot move it.
+@pytest.mark.parametrize(
+    ("script", "inputs", "label"),
+    [
+        ("gen_blend_inventory.py", [REFERENCE / "blend-tasks"], "**Fetched:**"),
+        ("gen_dragonos_tier1.py", [PROBES / "dragonos-debian-13.tsv"], "— measured"),
+        ("gen_skywave_inventory.py", [PROBES / "skywave-debian-13.tsv"], "container,"),
+        (
+            "gen_install_verification.py",
+            [
+                REFERENCE / "install-tests" / f"{n}.tsv"
+                for n in ("tier1-debian-13", "debs-debian-13", "debs-ubuntu-26.04")
+            ],
+            "**Measured:**",
+        ),
+    ],
+    ids=["blend", "dragonos", "skywave", "install_verification"],
+)
+def test_the_measured_date_is_the_inputs_not_todays(
+    script: str, inputs: list[Path], label: str
+) -> None:
+    import datetime
+
+    if not all(p.exists() for p in inputs):
+        pytest.skip(f"needs the gitignored measurement {inputs[0].relative_to(REPO_ROOT)}")
+    files = [f for p in inputs for f in (p.iterdir() if p.is_dir() else [p])]
+    measured = datetime.date.fromtimestamp(max(f.stat().st_mtime for f in files))
+    today = datetime.date.today()
+    if measured == today:
+        pytest.skip("the measurement was taken today, so the two dates agree")
+    module = _load_script(script)
+    if script == "gen_blend_inventory.py":
+        tasks = [module.parse(module.TASK_DIR / n) for n in module.TASKS]  # type: ignore[attr-defined]
+        text: str = module.render(tasks)  # type: ignore[attr-defined]
+    else:
+        text = module.render()  # type: ignore[attr-defined]
+    line = next(ln for ln in text.splitlines() if label in ln)
+    assert measured.isoformat() in line, line
+    assert today.isoformat() not in line, line

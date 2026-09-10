@@ -9,8 +9,8 @@ install methods, and apt availability below are all read from source data.
 **Kernel:** 6.18.5-x64v2-xanmod1  
 **Applications page:** <https://skywavelinux.com/>  
 **Install scripts:** <https://github.com/AB9IL/SDR-Scripts>  
-**apt availability:** measured in a `debian:13` container, 2026-08-28  
-**Generated:** 2026-08-28
+**apt availability:** measured in a `debian:13` container, 2026-08-25  
+**Generated:** 2026-09-07
 
 Skywave Linux is written and curated by Philip Collier, **AB9IL**. Like AHRL
 and 73Linux it is an inventory source, never a base (**D-001**). Unlike
