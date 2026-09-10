@@ -26,6 +26,12 @@ A display: YAAC is a graphical Java application and needs the full JRE (default-
 - prebuilt zip from https://www.ka2ddo.org/ka2ddo/YAAC.zip
   - The zip is loose-rooted (YAAC.jar, lib/, images/, plugins/ at top level) and lands whole under the shared prefix; YAAC reads everything relative to its jar.
 
+## What it changes on your machine
+
+- **installed tree** — `/usr/local/share/hammunition/yaac` is created and handed to the operator who ran the install by an explicit `chown` step in the plan (**D-043**): the software keeps settings, logs or data beside its executable, so the tree has to be writable by whoever runs it. On a shared machine that means anyone who can act as that user can change what the launcher runs.
+  - `/usr/local/share/hammunition` stays root-owned; the tree itself is replaced whole on every install, so anything the software wrote inside it is lost then
+  - undo: `hammunition uninstall yaac` removes the tree
+
 ## Known problems
 
 Unaffected by Linux 7.1's removal of the kernel AX.25 stack: it speaks KISS and AGW to Direwolf directly. See `docs/reference/kernel-ax25.md`. First run opens a setup wizard; give it a moment on the first tile download. The single-roll pin above means an upstream roll turns into a hash-mismatch refusal until this manifest is re-pinned -- deliberate, and the cadence hint says why. YAAC's own Help > Check for Updates reports the same roll, and its in-app upgrader can write the tree (measured on Debian 13, 2026-09-05: the tree lands owned by the installing operator, not root, so nothing stops it) -- but an upgrade applied that way is invisible to the transaction log and is silently replaced by the next install of this manifest. Leave the in-app upgrade to installs YAAC manages itself; here, re-pin.

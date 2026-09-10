@@ -26,6 +26,12 @@ An RTL-SDR dongle and antenna for ~400 MHz, and a station.cfg -- copy station.cf
   - build dependencies: `build-essential`, `cmake`, `libusb-1.0-0-dev`, `rtl-sdr`, `sox`
   - Requirements resolved with uv pip compile --universal --generate-hashes from the tag's auto_rx/requirements.txt (2026-08-30). build.sh compiles the per-sonde C demodulators inside the verified tree before it installs; rtl-sdr and sox are runtime tools auto_rx shells out to.
 
+## What it changes on your machine
+
+- **installed tree** — `/usr/local/share/hammunition/radiosonde-auto-rx` is created and handed to the operator who ran the install by an explicit `chown` step in the plan (**D-043**): the software keeps settings, logs or data beside its executable, so the tree has to be writable by whoever runs it. On a shared machine that means anyone who can act as that user can change what the launcher runs.
+  - `/usr/local/share/hammunition` stays root-owned; the tree itself is replaced whole on every install, so anything the software wrote inside it is lost then
+  - undo: `hammunition uninstall radiosonde-auto-rx` removes the tree
+
 ## Known problems
 
 station.cfg is hand-edited for now (its values go beyond the station file's callsign/grid trio). Runs in a terminal via the generated launcher; upstream's systemd service files are in the tree for anyone wanting it as a daemon, pointed at the venv's python.

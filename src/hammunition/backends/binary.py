@@ -79,6 +79,9 @@ class BinaryBackend:
 
     prefix: Path
 
+    owner: str | None = None
+    """The operator an installed tree is handed to (D-043); None keeps it root's."""
+
     method = "binary"
 
     def layout(self, manifest: PackageManifest, block: BinaryInstall) -> SourceLayout:
@@ -167,7 +170,10 @@ class BinaryBackend:
             if block.install_tree:
                 steps.extend(
                     tree_install_commands(
-                        name=manifest.name, source_tree=layout.src, prefix=self.prefix
+                        name=manifest.name,
+                        source_tree=layout.src,
+                        prefix=self.prefix,
+                        owner=self.owner,
                     )
                 )
             return steps

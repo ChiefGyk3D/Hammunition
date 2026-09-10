@@ -198,6 +198,7 @@ Do not re-litigate these without being asked:
 | Third-party apt repos | Manifest pins the key fingerprint; added only when the archive offers nothing; consent is the fingerprint itself, never `1` or `--yes`; both files come out on uninstall | `code`/`codium` refused on every target and withheld all of `workstation` (**D-040**) |
 | Profile members a target lacks | Deferred by name, the rest installs; a name the operator typed, an engine gap or a manifest defect still refuses | `listening` withheld nineteen units on Ubuntu 24.04 over four the archive lacks (**D-039**) |
 | Kernel subsystems | `requires_kernel` on the manifest; the plan reads `/lib/modules/<uname -r>` and refuses or defers by name; never in the capability matrix, never a module we build | Linux 7.1 removed AX.25; Kali and the maintainer's own laptop have no `ax25.ko`, and `packet` had "installed whole" on Pop!_OS (**D-041**) |
+| Installed trees | Handed to the operator by an explicit `chown -R -h` step the plan prints and the log records; root keeps the tree when there is no operator; the parent stays root's | MSHV and radiosonde-auto-rx write beside their executables and ran only because `cp -a` under root preserved whoever unpacked the build (**D-043**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
 

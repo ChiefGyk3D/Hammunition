@@ -224,3 +224,20 @@ def test_a_sha_with_a_pin_review_is_accepted() -> None:
     block = manifest.install[0].install
     assert block.pin_review is not None  # type: ignore[union-attr]
     assert block.pin_review.basis == "distribution_pin"  # type: ignore[union-attr]
+
+
+def test_the_git_backend_passes_the_operator_to_the_tree_install(tmp_path: Path) -> None:
+    """Issue #38, D-043: a git tree unit hands its tree to the operator by an
+    explicit, logged step, the same as source, binary and venv."""
+    backend = GitBackend(
+        runner=RecordingRunner(),
+        build_root=tmp_path / "build",
+        prefix=Path("/usr/local"),
+        jobs=2,
+        owner="alice",
+    )
+    manifest = _manifest(install_tree=True, tree_marker="thing")
+    steps = backend.steps(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+    last = steps[-1]
+    assert isinstance(last, Command)
+    assert last.argv[:5] == ("chown", "-R", "-h", "--", "alice:")

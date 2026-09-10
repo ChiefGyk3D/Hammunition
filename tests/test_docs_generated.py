@@ -74,6 +74,22 @@ def test_a_kernel_requirement_is_rendered_on_the_page(rendered: dict[str, str]) 
     assert "Needs from the kernel" not in rendered["direwolf.md"]
 
 
+def test_an_installed_tree_is_disclosed_as_a_change_to_the_machine(
+    rendered: dict[str, str],
+) -> None:
+    """Issue #38, D-043: a tree unit's page says the tree is handed to the
+    operator and why, under the same heading as every other modification, so
+    that a reader on a shared machine learns it before installing. All five
+    tree units get the bullet from the manifest, never by hand."""
+    for name in ("yaac", "mshv", "js8spotter", "radiosonde-auto-rx", "supersdr"):
+        page = rendered[f"{name}.md"]
+        assert "## What it changes on your machine" in page, name
+        assert f"`/usr/local/share/hammunition/{name}`" in page, name
+        assert "D-043" in page, name
+        assert f"undo: `hammunition uninstall {name}`" in page, name
+    assert "What it changes on your machine" not in rendered["direwolf.md"]
+
+
 def test_regenerating_is_a_no_op(rendered: dict[str, str]) -> None:
     on_disk = {p.name: p.read_text() for p in PACKAGES.glob("*.md")}
     stale = sorted(set(on_disk) - set(rendered))

@@ -293,11 +293,14 @@ class SourceBackend:
         build_root: Path,
         prefix: Path = DEFAULT_PREFIX,
         jobs: int | None = None,
+        owner: str | None = None,
     ) -> None:
         self.fetcher = fetcher
         self.build_root = build_root
         self.prefix = prefix
         self.jobs = jobs if jobs is not None else default_jobs()
+        #: The operator an installed tree is handed to (D-043); None keeps it root's.
+        self.owner = owner
 
     def layout(self, manifest: PackageManifest, block: SourceInstall) -> SourceLayout:
         """Where this package builds. Pure — touches no disk, so the plan can
@@ -368,7 +371,10 @@ class SourceBackend:
         if block.install_tree:
             commands.extend(
                 tree_install_commands(
-                    name=manifest.name, source_tree=layout.src, prefix=self.prefix
+                    name=manifest.name,
+                    source_tree=layout.src,
+                    prefix=self.prefix,
+                    owner=self.owner,
                 )
             )
         return commands
@@ -466,7 +472,9 @@ def install_binary_commands(
     ]
 
 
-def tree_install_commands(*, name: str, source_tree: Path, prefix: Path) -> list[Command]:
+def tree_install_commands(
+    *, name: str, source_tree: Path, prefix: Path, owner: str | None = None
+) -> list[Command]:
     """Install the whole tree to ``<prefix>/share/hammunition/<name>``.
 
     For software that reads settings, resources or data beside its executable
@@ -474,10 +482,22 @@ def tree_install_commands(*, name: str, source_tree: Path, prefix: Path) -> list
     trees). ``cp -aT`` replaces content in place; the target is wholly ours,
     under our own share/ namespace, so clearing it first is safe and keeps a
     re-run from accumulating files upstream deleted.
+
+    The tree belongs to *owner*, the operator the run is on behalf of, and
+    says so (D-043). Two of these units write beside their executable --
+    MSHV its settings and logs, radiosonde-auto-rx its ``log/`` -- so they
+    only run because the tree is theirs. The first version got that by
+    accident: ``cp -a`` under root preserves the build tree's owner, which is
+    whoever unpacked it, and nothing in the log said so (issue #38). The copy
+    now preserves nothing about ownership and the hand-over is its own step,
+    so the transaction log records it and ``uninstall`` has nothing extra to
+    undo. Without an owner root keeps the tree, as with any ``make install``.
+    A prefix that needs no root is written as the operator already, so no
+    hand-over is planned there.
     """
     destination = prefix / "share" / "hammunition" / name
     privileged = needs_root_for(prefix)
-    return [
+    commands = [
         Command(
             argv=("rm", "-rf", "--", str(destination)),
             description=f"Clear any previous {name} tree",
@@ -489,11 +509,26 @@ def tree_install_commands(*, name: str, source_tree: Path, prefix: Path) -> list
             requires_root=privileged,
         ),
         Command(
-            argv=("cp", "-aT", str(source_tree), str(destination)),
+            argv=("cp", "-aT", "--no-preserve=ownership", str(source_tree), str(destination)),
             description=f"Install the {name} tree into {destination}",
             requires_root=privileged,
         ),
     ]
+    if privileged and owner:
+        # -h changes the tree's own symlinks and never follows one: a link
+        # pointing outside the tree cannot hand root's files to the operator
+        # (measured on Debian 13, 2026-09-07).
+        commands.append(
+            Command(
+                argv=("chown", "-R", "-h", "--", f"{owner}:", str(destination)),
+                description=(
+                    f"Hand the {name} tree to {owner}, who runs it and whose "
+                    f"settings and logs it keeps beside its executable"
+                ),
+                requires_root=True,
+            )
+        )
+    return commands
 
 
 def tree_destination(prefix: Path, name: str) -> Path:

@@ -37,6 +37,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 import yaml  # noqa: E402
 
+from hammunition.backends.source import DEFAULT_PREFIX, tree_destination  # noqa: E402
 from hammunition.manifest.load import load_catalog  # noqa: E402
 from hammunition.manifest.schema import (  # noqa: E402
     AptInstall,
@@ -193,13 +194,30 @@ def page(m: PackageManifest) -> str:
             + " (**D-022**: coexist, disclose, never remove silently).\n"
         )
 
-    if m.system_modifications:
+    # The schema makes `tree_marker` mandatory exactly when a block installs
+    # a tree, so its presence on any block is the whole test.
+    installs_tree = any(getattr(b.install, "tree_marker", None) for b in m.install)
+    if m.system_modifications or installs_tree:
         out.append("## What it changes on your machine\n")
         for mod in m.system_modifications:
             reverse = mod.reverse_hint or "not reversible"
             out.append(f"- **{mod.kind}** — {mod.description.strip()}")
             out.append(f"  - {mod.detail.strip()}")
             out.append(f"  - undo: {reverse}")
+        if installs_tree:
+            tree = tree_destination(DEFAULT_PREFIX, m.name)
+            out.append(
+                f"- **installed tree** — `{tree}` is created and handed to the operator "
+                f"who ran the install by an explicit `chown` step in the plan (**D-043**): "
+                f"the software keeps settings, logs or data beside its executable, so the "
+                f"tree has to be writable by whoever runs it. On a shared machine that "
+                f"means anyone who can act as that user can change what the launcher runs."
+            )
+            out.append(
+                f"  - `{tree.parent}` stays root-owned; the tree itself is replaced whole "
+                f"on every install, so anything the software wrote inside it is lost then"
+            )
+            out.append(f"  - undo: `hammunition uninstall {m.name}` removes the tree")
         out.append("")
 
     if m.config_files:

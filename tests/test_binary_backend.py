@@ -347,3 +347,45 @@ def test_a_changed_artifact_unpacks_somewhere_new(tmp_path: Path) -> None:
     a, b = first.install[0].install, second.install[0].install
     assert isinstance(a, BinaryInstall) and isinstance(b, BinaryInstall)
     assert backend.layout(first, a).root != backend.layout(second, b).root
+
+
+def test_the_binary_backend_passes_the_operator_to_the_tree_install(tmp_path: Path) -> None:
+    """Issue #38, D-043: YAAC's tree under /usr/local is the operator's by an
+    explicit, logged step rather than by `cp -a` preserving the unpacker."""
+    backend = BinaryBackend(
+        fetcher=Fetcher(tmp_path / "cache"),
+        runner=RecordingRunner(),
+        build_root=tmp_path / "build",
+        prefix=Path("/usr/local"),
+        owner="alice",
+    )
+    manifest = PackageManifest.model_validate(
+        {
+            "name": "prebuilt",
+            "version": "1.0",
+            "summary": "A prebuilt tree that runs in place",
+            "categories": ["packet"],
+            "install": [
+                {
+                    "install": {
+                        "method": "binary",
+                        "artifact": {"url": "https://example.invalid/t.zip", "sha256": "1" * 64},
+                        "format": "zip",
+                        "install_tree": True,
+                        "tree_marker": "run.sh",
+                    }
+                }
+            ],
+            "update": {"probe": {"method": "none"}},
+            "documentation": {
+                "what_it_does": "Stands in for YAAC, a Java tree that runs in place.",
+                "why_you_want_it": "Because the tree units are the ones this touches.",
+                "upstream_url": "https://example.invalid/",
+            },
+        }
+    )
+    block = manifest.install[0].install
+    assert isinstance(block, BinaryInstall)
+    last = backend.steps(manifest, block)[-1]
+    assert isinstance(last, Command)
+    assert last.argv[:5] == ("chown", "-R", "-h", "--", "alice:")

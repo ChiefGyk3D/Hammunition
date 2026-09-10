@@ -722,10 +722,23 @@ def cmd_install(args: argparse.Namespace) -> int:
     # asked for the build and re-downloaded on their next unprivileged run. Same
     # reasoning as the transaction log, and the same helper resolves both.
     builds = build_root(user or None)
-    source = SourceBackend(Fetcher(owner=user or None), build_root=builds)
-    git = GitBackend(runner=runner, build_root=builds, prefix=source.prefix, jobs=source.jobs)
+    # An installed tree is handed to the same operator (D-043): MSHV and
+    # radiosonde-auto-rx write beside their executables, and the hand-over is a
+    # planned, logged step rather than a side effect of who unpacked the build.
+    source = SourceBackend(Fetcher(owner=user or None), build_root=builds, owner=user or None)
+    git = GitBackend(
+        runner=runner,
+        build_root=builds,
+        prefix=source.prefix,
+        jobs=source.jobs,
+        owner=source.owner,
+    )
     binary = BinaryBackend(
-        fetcher=source.fetcher, runner=runner, build_root=builds, prefix=source.prefix
+        fetcher=source.fetcher,
+        runner=runner,
+        build_root=builds,
+        prefix=source.prefix,
+        owner=source.owner,
     )
     venv = VenvBackend(
         venv_root=venv_root(user or None),
@@ -733,6 +746,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         fetcher=source.fetcher,
         build_root=builds,
         prefix=source.prefix,
+        owner=source.owner,
     )
     node = NodeBackend(
         fetcher=source.fetcher,
