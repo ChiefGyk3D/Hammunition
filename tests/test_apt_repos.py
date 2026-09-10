@@ -442,7 +442,7 @@ def test_our_repository_with_no_candidate_points_at_refresh(tmp_path: Path) -> N
     with pytest.raises(PlanError) as excinfo:
         _plan(tmp_path, backend)
     assert "already configured" in excinfo.value.blockers[0].reason
-    assert "--refresh" in (excinfo.value.blockers[0].remedy or "")
+    assert "apt-get update" in (excinfo.value.blockers[0].remedy or "")
 
 
 def test_a_missing_dependency_is_never_a_reason_to_add_a_repository(tmp_path: Path) -> None:

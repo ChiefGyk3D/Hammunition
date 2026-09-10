@@ -3079,3 +3079,72 @@ deployment ever becomes a target. It is not one now.
 the step, its absence, and all four backends; `docs/packages/` is
 regenerated; `source-build-gaps.md` #6 records the closure. Issue #38 is
 closed by this record.
+
+## D-044 — `install` refreshes the apt lists by default, when the transaction has apt work; `--no-refresh` is the opt-out
+
+**Date:** 2026-09-10. **Status:** accepted (maintainer, Q-018, option A as
+recommended). **Depends on:** D-016 (the plan resolves before anything runs),
+D-038 (one automatic retry of the *plan* is the precedent; a retry of a
+*command* the dry run never printed is not), D-010 (install-once-and-rot is
+the pattern to refuse, at every scale). **Amends:** nothing. `--refresh`
+existed; this makes it the default.
+
+**What was measured.** On the Parrot whole-profile campaign of 2026-09-03
+(`docs/reference/vm-campaign-profiles.md`), the guest's `clean-baseline`
+was four days old. Its lists named `glib2.0 2.84.4-3~deb13u3`; the pool
+had moved to the next revision; and six of fifteen profiles — `digital-modes`,
+`electronics`, `listening`, `logging`, `packet`, `propagation` — passed
+the plan and died four commands in with `404 Not Found` on the pool. The
+catalog was right and the machine was unchanged, because apt fetches every
+archive before it unpacks any. Four days is an ordinary age for an
+operator's lists. AHRL and 73Linux both run `apt update` unconditionally
+before anything else, which is why neither has ever reported this failure.
+
+Whether the lists are stale is **not measurable on Debian**: list files
+carry the archive's own `Last-Modified` as their mtime, an `apt-get update`
+that finds nothing changed touches nothing, and the
+`/var/lib/apt/periodic/update-success-stamp` that Ubuntu writes comes from
+a conf.d snippet Debian does not ship. So "refresh when old" (Q-018 option
+B) was rejected on the evidence, and "retry on 404" (option C) was rejected
+because it would run a command `--dry-run` never printed.
+
+**Decision.**
+
+1. **The refresh is the default.** `hammunition install` puts `apt-get
+   update` at the head of the transaction. It is disclosed in the plan
+   like every other command, so `--dry-run` shows it and the real run
+   cannot differ.
+2. **Only when apt will be asked to resolve something.** The update runs
+   when the plan has an apt step or a vendor `.deb` (whose dependencies apt
+   resolves from the lists). A re-run with everything already installed
+   stays a no-op, and a source-only plan on a station with no uplink never
+   opens with a network command. A just-added third-party repository
+   (D-040) always gets the update, whatever the flag says — apt has no
+   index for it until one runs.
+3. **`--no-refresh` turns it off.** For a local mirror, or a field station
+   with no uplink that knows its lists are current. `--refresh` still
+   parses, so every documented example from before this record still runs.
+4. **Empty lists under `--no-refresh` still refuse**, and the blocker
+   names the flag to drop rather than one to add. Without the flag, empty
+   lists are a sequencing fact: the plan says the candidate check cannot
+   be done before the update, and proceeds.
+
+**What this does not do.** The plan's candidate check still resolves
+against the lists as they are when the plan is built; the refresh runs
+after the plan is shown and confirmed. A package the fresh lists would
+newly offer is still refused at plan time, and one they would newly lack
+still fails at the fetch, one step later, with the stale-lists diagnosis
+that already exists. Re-planning against the fresh lists — a second,
+better plan, disclosed as such — is the follow-on Q-018 named, and it is
+worth doing; it is not this record. The stale-lists diagnosis keeps the
+two cases it can still reach: a `--no-refresh` run, and a mirror that
+moved between the run's own update and the fetch.
+
+**Consequences.** `--refresh` became `argparse.BooleanOptionalAction`
+defaulting to true; `commands_for` emits the update only when
+`apt_to_install` or a `.deb` is present, or a repository is added; the
+empty-lists blocker and note, the stale-lists diagnosis and the
+already-configured-repository remedy say what is now true; five tests
+cover the default, the opt-out, the no-apt-work skip, and both empty-lists
+paths through `main()`. `docs/reference/cli.md` documents `--no-refresh`
+and the step order. Q-018 is closed by this record.

@@ -781,7 +781,7 @@ def _plan_repos(
       cannot see a repository apt does not have yet;
     * ours -- both files carry exactly what this engine writes, so the
       candidate should exist and does not: the archive index is stale, and
-      the fix is ``--refresh``, never a second copy of the file;
+      the fix is a refresh of the lists, never a second copy of the file;
     * foreign -- a file of the same name with anybody else's content, which
       is never overwritten.
     """
@@ -819,8 +819,9 @@ def _plan_repos(
                 ),
                 remedy=(
                     "the package index is stale or the repository does not carry the "
-                    "package for this release; run `hammunition install --refresh` "
-                    "(apt-get update) and read what apt says about the source"
+                    "package for this release; run `sudo apt-get update`, read what apt "
+                    "says about the source, and plan again (this run's own refresh comes "
+                    "after the plan, so it cannot answer this)"
                 ),
             )
         additions.append(
@@ -998,16 +999,17 @@ def resolve(
     if all_apt or all_conflicts:
         if not apt.lists_populated():
             if refresh:
-                # --refresh puts `apt-get update` at the head of this same run,
-                # so empty lists are a sequencing fact, not a blocker -- refusing
-                # here would tell the operator to pass the flag they just passed.
+                # The refresh (the default, D-044) puts `apt-get update` at the
+                # head of this same run, so empty lists are a sequencing fact, not
+                # a blocker -- refusing here would tell the operator to pass a
+                # flag that is already on.
                 # What is genuinely lost is the pre-flight candidate check:
                 # nothing can know what apt will offer until update has run, so
                 # the plan discloses the gap instead of silently skipping the
                 # check (D-016 wants the resolution honest, not decorative).
                 notes.append(
-                    "apt has no package lists yet; --refresh runs apt-get update "
-                    "first, so which packages actually have candidates cannot be "
+                    "apt has no package lists yet; this run's refresh runs apt-get "
+                    "update first, so which packages actually have candidates cannot be "
                     "known before this plan executes. A package apt does not "
                     "offer will fail the apt-get install step rather than being "
                     "caught here."
@@ -1020,7 +1022,7 @@ def resolve(
                             "has no package lists, so every package would resolve as unknown. "
                             "Reporting them all as unobtainable would be a confident lie"
                         ),
-                        remedy="run `sudo apt-get update`, or pass --refresh to do it as part of this run",
+                        remedy="run `sudo apt-get update`, or drop --no-refresh so this run does it first",
                     )
                 )
         else:

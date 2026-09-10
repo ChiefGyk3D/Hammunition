@@ -75,7 +75,7 @@ A profile's documentation, its package list, and — for a gated profile — the
 full consent disclosure, printed without installing anything. This is how an
 operator reads a disclosure before deciding, rather than while being asked.
 
-### `hammunition install NAME... [--dry-run] [--yes] [--refresh] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
+### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
 
 Names may be packages or profiles, mixed freely.
 
@@ -83,7 +83,7 @@ Names may be packages or profiles, mixed freely.
 |---|---|
 | `--dry-run` | Resolve everything, print exactly what would run, change nothing |
 | `--yes` | Skip the confirmation. **Does not satisfy a consent gate** (D-021). Also suppresses the station prompt |
-| `--refresh` | Run `apt-get update` as the transaction's first command |
+| `--no-refresh` | Skip the `apt-get update` that otherwise opens every transaction with apt work (**D-044**). For a local mirror, or a station with no uplink. `--refresh` is the default and still parses |
 | `--user NAME` | Who to add to groups. Defaults to `$SUDO_USER`, then `$USER` |
 | `--callsign CALL` | Station callsign for this run. Overrides the saved value |
 | `--grid-square LOC` | Maidenhead locator, four or six characters |
@@ -354,7 +354,9 @@ Resolution is a distinct phase that finishes before anything is executed
    downloads, verified against the manifest's pinned fingerprint instead of
    a sha256 (**D-040**); then, when the plan adds a repository, its two
    files are written as root (`install -D -m 0644`); then `apt-get update`
-   if `--refresh` was given or a repository was added; then, when the plan
+   when the transaction has apt work — an apt step or a vendor `.deb` — and
+   `--no-refresh` was not given, or whenever a repository was added
+   (**D-044**); then, when the plan
    holds a vendor `.deb` or added a repository, one more `apt-get install
    --simulate` over the apt packages and the downloaded file together,
    because apt can only resolve a `.deb` from its file and can only see a
@@ -391,7 +393,7 @@ capability matrix that reports coverage the engine does not have is the shim
 | A package whose status is `broken` or `retired` | the recorded reason, verdict and date |
 | A dependency apt has no candidate for | which name, and whether it came from `install` or `depends`. A *profile* member whose own `install` packages are the ones missing is deferred instead (**D-039**), and the row above still applies to its `depends` |
 | A profile every member of which this target cannot install | the profile by name, with each member's reason — installing nothing and reporting success is not an outcome (**D-039**) |
-| No apt package lists at all | that this is a stale-lists problem, with `--refresh` as the remedy |
+| No apt package lists at all, and `--no-refresh` | that this is a stale-lists problem, and that dropping `--no-refresh` lets this run fix it. Without the flag, the run's own `apt-get update` comes first and the plan says instead that the candidate check cannot be done before it |
 | A group membership with no identifiable operator | that `--user` is needed |
 | A unit whose `requires_kernel` names a subsystem the running kernel's module tree lacks | the unit, the kernel release and the merge that removed the subsystem, with the remedies that exist: a distribution kernel that still carries it, or the userspace path (Direwolf's KISS/AGW ports serve pat, LinBPQ, YAAC and Xastir without kernel AX.25). Never an offer to build the module — no distribution packages one, and Hammunition builds no kernel modules (**D-041**). A *profile* member is deferred instead, the D-039 shape. No module tree for the running kernel at all — a container — is disclosed as *cannot be checked* and the unit plans |
 
@@ -639,10 +641,13 @@ fails with `404 Not Found` on files in the pool, the package lists on the
 machine are older than the archive: the plan resolved against those lists,
 so the catalog is not at fault, and apt downloads every archive before it
 unpacks any, so the command installed nothing. The message says so, names
-the files by version, and gives the remedy — `sudo apt-get update`, or
-`--refresh` on the same run. Six of fifteen profiles on a four-day-old Parrot
-guest died this way (2026-09-03), each report ending in seven URLs and
-apt's own hint under them. A `5xx` or a timeout is a mirror problem and gets
+the files by version, and gives the remedy — `sudo apt-get update`, or the
+same run without `--no-refresh`. Six of fifteen profiles on a four-day-old
+Parrot guest died this way (2026-09-03), each report ending in seven URLs and
+apt's own hint under them; that campaign is why the refresh became the
+default (**D-044**). The diagnosis still exists for the two runs it can
+reach: one under `--no-refresh`, and one where the mirror moved between the
+run's own update and the fetch. A `5xx` or a timeout is a mirror problem and gets
 no such diagnosis; sending an operator to refresh lists that are fine would
 be a wrong answer with a confident tone.
 

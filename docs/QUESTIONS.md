@@ -889,7 +889,18 @@ and refuses the pairing by name, and the profile no longer lists
 
 ---
 
-## Q-018 🟡 — Should `install` refresh the apt lists by default?
+## Q-018 ✅ — Should `install` refresh the apt lists by default? — **RESOLVED 2026-09-10**
+
+**A, as recommended, recorded as D-044.** `apt-get update` opens every
+transaction that has apt work — an apt step or a vendor `.deb` — and is
+shown in the plan like every other command; `--no-refresh` is the opt-out
+for a local mirror or a station with no uplink; a plan with nothing for apt
+to resolve stays a no-op; a just-added repository always gets the update.
+The candidate check still resolves against the lists as found — re-planning
+after the refresh is the follow-on the recommendation named, and it is still
+open. `--refresh` still parses.
+
+## Q-018 (original) — Should `install` refresh the apt lists by default?
 
 **Raised 2026-09-04**, from the whole-profile campaign on Parrot
 (`~/.local/state/hammunition-campaigns/profiles-parrot-2026-09-03.md`, the
