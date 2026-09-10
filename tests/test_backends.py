@@ -195,7 +195,15 @@ def test_installation_is_one_transaction_deduplicated_and_ordered() -> None:
     reported before anything is unpacked."""
     commands = AptBackend(RecordingRunner()).install_commands(["tcpdump", "rtl-sdr", "tcpdump"])
     assert len(commands) == 1
-    assert commands[0].argv == ("apt-get", "install", "--yes", "--", "rtl-sdr", "tcpdump")
+    assert commands[0].argv == (
+        "apt-get",
+        "install",
+        "--yes",
+        "--no-remove",
+        "--",
+        "rtl-sdr",
+        "tcpdump",
+    )
 
 
 def test_installing_nothing_produces_no_command() -> None:

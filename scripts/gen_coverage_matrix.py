@@ -551,7 +551,7 @@ CURATION: dict[int, Curated] = {
         "wsjtx_improved",
         manifest="wsjtx-improved",
         licence="GPL-3.0",
-        note="Parrot packages `wsjtx-improved` (2.8.0, a minor behind AHRL's 3.1.0) where the manifest fetches SourceForge's vendor `.deb`; the archive package `Breaks: wsjtx` and the engine cannot yet see an apt removal, so the manifest names it and does not use it (2026-09-06)",
+        note="Parrot packages `wsjtx-improved` (2.8.0, a minor behind AHRL's 3.1.0) where the manifest fetches SourceForge's vendor `.deb`, measured installing there and a year newer; the archive package `Breaks: wsjtx`, which the plan has refused by name since 2026-09-07 (D-022 amendment), and Kali -- where the vendor `.deb` cannot install -- takes its archive's 3.1.0 (2026-09-07)",
     ),
     72: Curated("xlog", manifest="xlog"),
     73: Curated("xnec2c", manifest="xnec2c"),

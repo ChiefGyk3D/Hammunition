@@ -201,7 +201,7 @@ class BinaryBackend:
             raise BackendError(f"{name}: the .deb was not fetched before the install step")
         result = self.runner.run(
             Command(
-                argv=("apt-get", "install", "--yes", "--", str(path)),
+                argv=("apt-get", "install", "--yes", "--no-remove", "--", str(path)),
                 description=f"Install {name} from {path.name}",
                 env={"DEBIAN_FRONTEND": "noninteractive"},
                 requires_root=True,

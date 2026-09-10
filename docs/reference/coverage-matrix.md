@@ -124,7 +124,7 @@ or `—` where none exists.
 | 68 | TQSL | 2.8.4 | `2.8.1` (echo) as `trustedqsl` | `logging` | `COVERED` | `trustedqsl` (apt) | — | <https://deb.parrot.sh/parrot/pool/main/t/trustedqsl/> |
 | 69 | wfview | 2.11 | `2.03` (echo) | `rigcontrol` | `COVERED_STALE` | `wfview` (apt) | — | <https://deb.parrot.sh/parrot/pool/main/w/wfview/> |
 | 70 | WSJT-X | 3.0.0 | `2.7.0` (echo) as `wsjtx` | `datamodes` | `COVERED_STALE` | `wsjtx` (git) | GPL-3.0 | <https://deb.parrot.sh/parrot/pool/main/w/wsjtx/> — the catalog builds 3.0.0 from git and purges the archive's 2.7.0 first |
-| 71 | WSJT-X improved | 3.1.0 | `2.8.0+250501` (echo) as `wsjtx-improved` | — | `DELTA_APT` | `wsjtx-improved` (binary:deb) | GPL-3.0 | <https://deb.parrot.sh/parrot/pool/main/w/wsjtx-improved/> — Parrot packages `wsjtx-improved` (2.8.0, a minor behind AHRL's 3.1.0) where the manifest fetches SourceForge's vendor `.deb`; the archive package `Breaks: wsjtx` and the engine cannot yet see an apt removal, so the manifest names it and does not use it (2026-09-06) |
+| 71 | WSJT-X improved | 3.1.0 | `2.8.0+250501` (echo) as `wsjtx-improved` | — | `DELTA_APT` | `wsjtx-improved` (apt) | GPL-3.0 | <https://deb.parrot.sh/parrot/pool/main/w/wsjtx-improved/> — Parrot packages `wsjtx-improved` (2.8.0, a minor behind AHRL's 3.1.0) where the manifest fetches SourceForge's vendor `.deb`, measured installing there and a year newer; the archive package `Breaks: wsjtx`, which the plan has refused by name since 2026-09-07 (D-022 amendment), and Kali -- where the vendor `.deb` cannot install -- takes its archive's 3.1.0 (2026-09-07) |
 | 72 | xlog | 2.0.25 | `2.0.24` (echo) | `logging` | `COVERED` | `xlog` (apt) | — | <https://deb.parrot.sh/parrot/pool/main/x/xlog/> |
 | 73 | xnec2c | 4.4.18 | `4.4.16` (echo) | `antenna` | `COVERED` | `xnec2c` (apt) | — | <https://deb.parrot.sh/parrot/pool/main/x/xnec2c/> |
 | 74 | xwefax | 2.4.4 | — | — | `DELTA_SOURCE` | `xwefax` (source) | GPL-3.0 | <https://www.qsl.net/5b4az/> |
@@ -187,8 +187,8 @@ FoxTelem and the country files are post-1.0 by Q-015, and Morse Runner
 is a Windows binary. They are classified by what AHRL does with them,
 not by what the catalog does.
 
-3 units the archive carries are built or fetched by the
-catalog anyway (fldigi, WSJT-X, WSJT-X improved).
+2 units the archive carries are built or fetched by the
+catalog anyway (fldigi, WSJT-X).
 Each row's note says why. When this probe first ran (2026-09-06) it
 contradicted three manifests — that no distribution packages
 NanoVNA-Saver, that only Kali packages QLog, that the archive's WSJT-X

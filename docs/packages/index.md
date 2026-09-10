@@ -847,7 +847,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [wireshark](wireshark.md) | Protocol analyser — decodes captured traffic across two thousand protocols | apt |
 | [wordsworth](wordsworth.md) | Generate Morse practice text the Wordsworth way — words, not characters | binary |
 | [wsjtx](wsjtx.md) | Weak-signal digital modes — FT8, FT4, JT65, JT9, WSPR, Q65 | git |
-| [wsjtx-improved](wsjtx-improved.md) | Community fork of WSJT-X with additional decoding and UI features | binary |
+| [wsjtx-improved](wsjtx-improved.md) | Community fork of WSJT-X with additional decoding and UI features | apt, binary |
 | [wwl](wwl.md) | Distance and bearing between two Maidenhead locators, from the command line | apt |
 | [xastir](xastir.md) | APRS client with real maps — see and be seen on the packet network | apt |
 | [xcwcp](xcwcp.md) | Qt Morse tutor that both sends practice and reads your keying | apt |

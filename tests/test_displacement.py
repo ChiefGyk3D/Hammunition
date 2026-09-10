@@ -12,11 +12,13 @@ These assert the rule rather than the instance.
 from __future__ import annotations
 
 import re
+import shlex
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from hammunition.backends.base import Command
 from hammunition.manifest.load import load_catalog
 from hammunition.manifest.schema import PackageManifest
 
@@ -333,3 +335,159 @@ def test_parse_simulation_reads_every_archive_a_version_is_offered_from() -> Non
     assert installs["wsjtx-data"] == {"stable"}
     assert AptSimulation(ok=True, installs=installs).from_archive("parrot-backports") == ("cmake",)
     assert AptSimulation(ok=True, installs=installs).from_archive("parrot") == ()
+
+
+# ---------------------------------------------------------------------------
+# What apt would REMOVE (issue #42, D-022)
+# ---------------------------------------------------------------------------
+
+# `apt-get install --simulate --yes -- wsjtx-improved` on a Kali guest with
+# the archive's `wsjtx 3.0.2+dfsg-2` installed, 2026-09-07. The archive's
+# `wsjtx-improved` carries `Breaks: wsjtx` and its `-data` breaks
+# `wsjtx-data`, so apt resolves the request by removing all three.
+KALI_REMV = (
+    "NOTE: This is only a simulation!\n"
+    "Remv wsjtx [3.0.2+dfsg-2]\n"
+    "Remv wsjtx-data [3.0.2+dfsg-2]\n"
+    "Remv wsjtx-doc [3.0.2+dfsg-2]\n"
+    "Inst wsjtx-improved-data (3.1.0+260522+repack-1 kali-rolling [all])\n"
+    "Inst wsjtx-improved (3.1.0+260522+repack-1 kali-rolling [amd64])\n"
+    "Inst wsjtx-improved-doc (3.1.0+260522+repack-1 kali-rolling [all])\n"
+    "Conf wsjtx-improved-data (3.1.0+260522+repack-1 kali-rolling [all])\n"
+)
+
+
+def test_parse_removals_reads_the_recorded_remv_lines_and_drops_the_arch() -> None:
+    """The parser read only `Inst` lines and said so in its docstring; the
+    exact transcript above passed through it with the three removals unseen."""
+    from hammunition.backends.apt import parse_removals
+
+    assert parse_removals(KALI_REMV) == {
+        "wsjtx": "3.0.2+dfsg-2",
+        "wsjtx-data": "3.0.2+dfsg-2",
+        "wsjtx-doc": "3.0.2+dfsg-2",
+    }
+    assert parse_removals("Remv jtdx:i386 [2.2.159]\n") == {"jtdx": "2.2.159"}
+    assert parse_removals("Inst x (1 a [all])\nConf x (1 a [all])\n") == {}
+
+
+def test_simulate_carries_what_apt_would_remove() -> None:
+    from hammunition.backends import AptBackend, CommandResult
+    from hammunition.backends.base import RecordingRunner
+
+    argv = ("apt-get", "install", "--simulate", "--yes", "--", "wsjtx-improved")
+    runner = RecordingRunner(
+        {shlex.join(argv): CommandResult(argv=argv, returncode=0, stdout=KALI_REMV, stderr="")}
+    )
+    simulation = AptBackend(runner).simulate(["wsjtx-improved"])
+    assert simulation.ok
+    assert set(simulation.installs) == {
+        "wsjtx-improved",
+        "wsjtx-improved-data",
+        "wsjtx-improved-doc",
+    }
+    assert simulation.removes == {
+        "wsjtx": "3.0.2+dfsg-2",
+        "wsjtx-data": "3.0.2+dfsg-2",
+        "wsjtx-doc": "3.0.2+dfsg-2",
+    }
+
+
+def _plan_with_removal(tmp_path: Path, removes: dict[str, str], *, declared: bool) -> Any:
+    from hammunition.distro import Target
+    from hammunition.plan import resolve
+    from test_plan import _apt, _manifest
+
+    displacer = _manifest(
+        name="displacer",
+        install=[{"install": {"method": "apt", "packages": ["displacer"]}}],
+        conflicts_with_repo_package=["distro-owned"] if declared else [],
+    )
+    apt = _apt(tmp_path, {"displacer": None, "distro-owned": "1.0-1"})
+
+    class SimulatingApt(type(apt)):  # type: ignore[misc]
+        def simulate(self, packages: Any, *, release: str | None = None) -> Any:
+            from hammunition.backends.apt import AptSimulation
+
+            return AptSimulation(
+                ok=True, installs={"displacer": frozenset({"stable"})}, removes=dict(removes)
+            )
+
+    apt.__class__ = SimulatingApt
+    return resolve(
+        ["displacer"],
+        catalog={"displacer": displacer},
+        profiles={},
+        target=Target(distro="kali", version="rolling", arch="x86_64"),
+        apt=apt,
+        user="op",
+    )
+
+
+def test_an_apt_step_that_would_remove_an_installed_package_is_refused(tmp_path: Path) -> None:
+    """D-022: coexist, disclose, never remove silently. The archive's
+    `wsjtx-improved` cannot coexist with `wsjtx` (`Breaks:`), so apt removes
+    it; the plan says which package, which version, and which unit, and stops
+    on an untouched machine. The operator removes it, or leaves the unit out."""
+    from hammunition.plan import PlanError
+
+    with pytest.raises(PlanError) as excinfo:
+        _plan_with_removal(tmp_path, {"distro-owned": "1.0-1"}, declared=True)
+    text = str(excinfo.value)
+    assert "displacer" in text
+    assert "distro-owned (1.0-1)" in text
+    assert "sudo apt-get remove distro-owned" in text
+
+
+def test_a_removal_no_manifest_declares_is_refused_and_named_as_a_manifest_gap(
+    tmp_path: Path,
+) -> None:
+    """The same refusal when nothing in the transaction declared the conflict:
+    the removal is still named, and so is the field that should have named it."""
+    from hammunition.plan import PlanError
+
+    with pytest.raises(PlanError) as excinfo:
+        _plan_with_removal(tmp_path, {"distro-owned": "1.0-1"}, declared=False)
+    text = str(excinfo.value)
+    assert "distro-owned (1.0-1)" in text
+    assert "conflicts_with_repo_package" in text
+
+
+def test_an_apt_step_that_removes_nothing_is_silent(tmp_path: Path) -> None:
+    plan = _plan_with_removal(tmp_path, {}, declared=True)
+    assert [p.name for p in plan.packages] == ["displacer"]
+
+
+def test_the_apt_install_step_never_lets_apt_remove(tmp_path: Path) -> None:
+    """Belt to the plan's braces: if the real solve disagrees with the
+    simulation, apt errors (`Packages need to be removed but remove is
+    disabled`, exit 100) instead of removing."""
+    from hammunition.backends import AptBackend
+    from hammunition.backends.base import RecordingRunner
+
+    (command,) = AptBackend(RecordingRunner()).install_commands(["wsjtx-improved"])
+    assert "--no-remove" in command.argv
+    assert command.argv.index("--no-remove") < command.argv.index("--")
+
+
+def test_the_post_fetch_simulate_never_lets_apt_remove(tmp_path: Path) -> None:
+    """The executor's second simulate runs over the fetched .deb and the apt
+    step together, after the plan has already refused every named removal;
+    it asks the resolver the same question the install step will, so it is
+    asked with the same flag."""
+    from hammunition.backends import AptBackend
+    from hammunition.backends.base import RecordingRunner
+    from hammunition.execute import commands_for
+    from hammunition.plan import InstallPlan, PlannedPackage
+    from test_binary_backend import TARGET, _backend, _manifest
+
+    manifest = _manifest("https://example.invalid/x.deb", "0" * 64, "deb", binaries=[])
+    plan = InstallPlan(
+        target=TARGET,
+        packages=(
+            PlannedPackage(manifest=manifest, block=manifest.install[0], apt_packages=("libdep",)),
+        ),
+    )
+    steps = commands_for(plan, AptBackend(RecordingRunner()), binary=_backend(tmp_path))
+    simulate = next(s for s in steps if isinstance(s, Command) and "--simulate" in s.argv)
+    assert "--no-remove" in simulate.argv
