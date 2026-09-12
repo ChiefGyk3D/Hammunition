@@ -10,13 +10,13 @@ Named bundles of software that belong together. Flat tags with overlap, never ne
 | [digital-modes](digital-modes.md) | 1.0 | 20 | FT8, JS8, PSK31, SSTV, digital voice and the rest of the keyboard modes |
 | [editors](editors.md) | post-1.0 | 2 | VS Code and VSCodium, opt-in, each behind its publisher's apt repository |
 | [electronics](electronics.md) | 1.0 | 11 | Bench electronics, instruments and device programmers |
-| [listening](listening.md) | 1.0 | 23 | Shortwave, utility and aeronautical listening — no licence, no transmitter |
+| [listening](listening.md) | 1.0 | 24 | Shortwave, utility and aeronautical listening — no licence, no transmitter |
 | [logging](logging.md) | 1.0 | 11 | Station logs, contest logging and award tracking |
 | [morse](morse.md) | 1.0 | 17 | Morse code — sending, decoding, learning, and licence exam practice |
-| [packet](packet.md) | 1.0 | 21 | AX.25, APRS, Winlink and the EMCOMM stack |
+| [packet](packet.md) | 1.0 | 22 | AX.25, APRS, Winlink and the EMCOMM stack |
 | [propagation](propagation.md) | 1.0 | 12 | Band conditions, grey line, beacons and DX spotting |
 | [rf-research](rf-research.md) 🔒 | post-1.0 | 2 | Transmit-capable and interception-capable RF tooling — affirmative opt-in required |
-| [rf-security](rf-security.md) | 1.0 | 9 | Spectrum analysis, wireless auditing and protocol inspection |
+| [rf-security](rf-security.md) | 1.0 | 10 | Spectrum analysis, wireless auditing and protocol inspection |
 | [rfid](rfid.md) | post-1.0 | 6 | RFID and NFC — card protocols, readers, and the tooling to study them |
 | [satellite](satellite.md) | 1.0 | 4 | Tracking, working and decoding amateur and weather satellites |
 | [sdr](sdr.md) | 1.0 | 14 | Software-defined radio — receivers, GNU Radio, and the driver layer |

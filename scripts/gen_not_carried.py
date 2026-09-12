@@ -57,6 +57,22 @@ RETIRED: dict[str, tuple[str, str]] = {
         "This unit keeps a manifest with `status: retired` so the verdict and "
         "its provenance are findable where an operator would look (D-005).",
     ),
+    # EmComm Tools OS Community (D-042 sub-project 4, D-048)
+    "mbutil": (
+        "EmComm Tools OS",
+        "Never worked here — ETC runs its `setup.py install` under python2, "
+        "which no target ships; last tag 0.3.0 (2017). Nothing in ETC's own "
+        "workflow calls it: the maps it ships are already MBTiles. Import and "
+        "export of MBTiles, if ever needed, is a job for the sub-project 5 "
+        "tooling, not for a 2017 python2 script.",
+    ),
+    "pfte": (
+        "EmComm Tools OS",
+        "Out of scope by the security requirements, by name: a proprietary "
+        "`.deb` from a vendor site with no licence, no source and no "
+        "signature, fetched unverified. The AmRRON signed-traffic workflow it "
+        "served has GnuPG, and `gpa` (carried) is its window.",
+    ),
     "wine": (
         "AHRL",
         "Ruled out of the 1.0 core 2026-08-30 (Q-015 decision 5): its only "

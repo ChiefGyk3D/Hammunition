@@ -2976,6 +2976,9 @@ meant rediscovering, in the field, that brltty claims a MicroFox-50.
    `et-*` ideas as `config_files`, each dispositioned in
    `dispositions.md` with its licence and liveness re-verified (D-018,
    D-032: Chattervox's last tag is 2019-03 and its last push 2020-01).
+   **Software done 2026-09-12, D-048:** three manifests, two retirements,
+   Chattervox left to the maintainer with its test results. The `et-*`
+   config ideas wait on station config and the rig class (sub-project 3).
 5. *The offline-data layer.*
 
 `docs/reference/prior-art.md`'s recommendation 4 ("lift `et-radio`
@@ -3408,3 +3411,90 @@ target does today, and the page will say when one does.
 `udev-inventory.md`, `usb-ambiguity.md`, `ambiguous-ids.yaml` and
 `programmer.yaml` regenerated from it; the troubleshooting entry; the class
 note. D-042 sub-project 2 is closed by this record.
+
+## D-048 — The EmComm Tools software delta: Paracon, Artemis and GPA carried on measured routes; Artemis's vendor `.deb` refused by name; Chattervox left to the maintainer with its test results
+
+**Date:** 2026-09-12. **Status:** accepted; built the same day, awaiting
+the maintainer's review on the pull request. **Depends on:** D-042
+(sub-project 4), D-018 (claims tested before published), D-024 (never
+build what apt provides; own pins only when nothing packages it), D-032
+(liveness is the head commit), D-037 (Node only from the distribution,
+never fetched), D-045 (the packet core is userspace-primary), D-022
+(coexist, never displace silently), `PARITY-POLICY.md`. **Amends:**
+nothing.
+
+**What was measured, 2026-09-12.** Every upstream re-read by API (licence,
+default-branch head, releases and their assets); every artifact fetched
+and hashed from the download itself; `apt-cache policy` for every apt name
+the three manifests use, on all seven targets; and each unit exercised on
+a Debian 13 container.
+
+1. **Paracon** (MIT, head 2025-10-12, release 1.3.0 the same day) is one
+   `.pyz` with its dependencies inside. `paracon --version` printed
+   `Paracon 1.3.0` on Python 3.13.5. It speaks AGWPE to Direwolf and never
+   opens an `AF_AX25` socket, so it is the packet terminal that works on a
+   7.1 kernel — the reason D-045 needed one.
+2. **Artemis** (GPL-3.0, head 2026-07-22, release 4.2.0) stopped shipping
+   the Linux zip ETC used; 4.2.0's Linux assets are a `.deb`, an Arch
+   package and an RPM. The `.deb` was fetched (190 MB) and read: its
+   control file says `Package: artemis`, and **every target's archive
+   already has an `artemis`** — the Sanger genome browser, at 18.2.0.
+   Installing the vendor file would put this program under that name one
+   version *below* the archive's, and the next `apt upgrade` would replace
+   it with a genome browser. It also Depends on `libpython3.12`, which
+   Debian 13, Parrot, Kali and Ubuntu 26.04 do not carry. The upstream
+   tree is a plain Python package with four PyPI dependencies, so it is
+   carried as a venv — the 4.2.0 source tarball as payload, requirements
+   compiled with hashes by uv — and the pinned set installed and
+   `import artemis` succeeded on Python 3.13.5. The window has not been
+   opened from that install; the manifest says so.
+3. **GPA** 0.11.1 (2026-02-12, the release that builds against gpgme 2.x)
+   is in Ubuntu 24.04 and Mint at 0.10.0 and Ubuntu 26.04 at 0.11.0, and in
+   no Debian-family archive. The gnupg.org tarball's detached signature
+   verified against the GnuPG distribution signing key; the four `-dev`
+   packages configure.ac names have candidates on all seven targets;
+   configure and make exit 0 on Debian 13 and `gpa --version` prints
+   0.11.1.
+4. **Chattervox** (GPL-3.0 by its LICENSE file, head 2019-03-17, every
+   release a prerelease): the 0.7.0 bundle runs `--help`; the source
+   builds on Debian 13's Node 20 with `npm ci --ignore-scripts` and runs
+   `--version`; `kiss-tnc` loads without serialport's native build.
+   Whether a KISS port *opens* without that build is untested — the
+   container has no TNC — and two of its dependencies are git commits
+   rather than registry packages.
+
+**Decision.**
+
+1. **Paracon, Artemis and GPA are ADD**, with manifests, on the routes
+   above. GPA takes the archive's package where one exists and the tarball
+   elsewhere, so its version differs by target and the manifest says why.
+   Paracon joins `packet`; Artemis joins `listening` and `rf-security`
+   (D-046's split, applied: a reference is for both); GPA joins no profile
+   — `workstation`'s contents were fixed at acceptance (Q-011), and which
+   EMCOMM profile a PGP front end belongs to is a placement question for
+   the maintainer, so it installs by name.
+2. **Artemis's vendor `.deb` is refused by name**, for the two reasons
+   measured, and the refusal is written into the manifest so the next
+   person to find the asset does not re-derive it.
+3. **mbutil and pfte are RETIRE**, `not-carried.md` carries the reasons:
+   a python2 script nothing calls, and a proprietary unsigned binary the
+   security requirements refuse by name.
+4. **Chattervox stays NEEDS-DECISION**, and the index says so. Both
+   routes to it cross a rule: the bundle is a fetched Node runtime, which
+   D-037 refuses; the source is the node backend fetching two git commits
+   the registry does not carry, with a native serial layer the
+   `--ignore-scripts` rule will not build. It is dormant six and a half
+   years with only prereleases. The recommendation is not to carry it in
+   1.0; the test results are recorded so the maintainer decides from
+   evidence rather than from the dormancy alone.
+5. **The five offline-data units keep their ADD and stay outstanding**
+   with a recorded reason each, until sub-project 5 gives them a category.
+
+**Consequences.** `paracon.yaml`, `artemis.yaml`, `gpa.yaml`; `packet`,
+`listening` and `rf-security` gain a member each; the dispositions index
+gains an `EmComm Tools OS delta (11)` block and the summary table a
+column (the hygiene test holds both to each other); `not-carried.md` and
+`parity-coverage.md` regenerated with the two retirements and five
+reasons; the apt policy sweep re-run for the new names and the capability
+matrix regenerated. D-042 sub-project 4's software half is closed by this
+record; the `et-*` config ideas wait on station config and sub-project 3.

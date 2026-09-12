@@ -202,6 +202,7 @@ Do not re-litigate these without being asked:
 | Installed trees | Handed to the operator by an explicit `chown -R -h` step the plan prints and the log records; root keeps the tree when there is no operator; the parent stays root's | MSHV and radiosonde-auto-rx write beside their executables and ran only because `cp -a` under root preserved whoever unpacked the build (**D-043**) |
 | apt lists | `apt-get update` opens every transaction with apt work, disclosed in the plan; `--no-refresh` opts out; nothing to resolve means no update | Six of fifteen Parrot profiles passed the plan and died at the first fetch on four-day-old lists, and staleness is not measurable on Debian (**D-044**) |
 | Post-1.0 DV tracks | Listening (OP25, Trunk Recorder, SDRTrunk, DSD-FME) before repeaters; decoders in `listening`, recorders in `rf-security`; Pi-Star's shipped binaries are a D-024 pin source; ASL3's repository is the D-040 case with no gate beyond the fingerprint | Two of seventeen names exist in any archive and both are carried; nothing in Track A transmits or needs station config (**D-046**) |
+| ETC software delta | Paracon (zipapp), Artemis (venv from source; the vendor `.deb` refused: its name is Debian's genome browser and it wants libpython3.12), GPA (apt where the archive has it, signed tarball elsewhere); Chattervox left to the maintainer with test results | Every route measured on all seven targets and exercised on Debian 13 (**D-048**) |
 | brltty | Measured per target, never purged or shadowed; four of seven ship no rules, the Ubuntu family's enabled lines are vendor-string or parent-hub qualified; the fix is a troubleshooting entry, and a targeted `udev_rule` only if a default file regresses | AHRL purges and ETC shadows accessibility software machine-wide over one chip behind one hub on two targets (**D-047**) |
 | Packet core | Userspace-primary: Direwolf/QtSoundModem over KISS or AGW to pat, LinBPQ, YAAC, Xastir; the kernel stack is the fuller station where the kernel has it; `z8530-utils2` retired; the out-of-tree module (`mod-orphan`) measured — it builds against 7.1 — and not built by us until a distribution packages it | The whole station installs on Kali 7.1.5 without `ax25.ko`; the module has no tags and no packager, and `ax25-tools` is leaving the archives anyway (**D-045**) |
 
@@ -451,7 +452,7 @@ in their own install notes.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 244
+  packages/        # one YAML per piece of software          ✅ 247
   profiles/        # named bundles referencing packages      ✅ 16
   hardware/
     classes/       # device families with shared Linux needs ✅ 5
@@ -509,8 +510,10 @@ longer a design question in the abstract; a shipped manifest depends on it. See
 `DESIGN.md` §15.3 and the D-004 amendment.
 
 **Open questions awaiting the maintainer** are in `docs/QUESTIONS.md`.
-**None is open as of 2026-09-12**: Q-018 is D-044, Q-019 is D-045, and
-Q-020 (the two post-1.0 tracks) is D-046.
+**Q-021** (the offline-data layer: a `data` install method, a profile
+block, or documentation — five ETC units and `country_files` wait on it)
+is open. Q-018 is D-044, Q-019 is D-045, Q-020 (the two post-1.0 tracks)
+is D-046.
 **Q-001 through Q-016 are all resolved.** Q-006, Q-007 and Q-008 closed on
 2026-08-29: HamClock carries both clients defaulting to `openhamclock` with
 `ohb.works` as the backend; SuperSDR is carried under **D-033**; cellular
@@ -578,7 +581,7 @@ installs. Remaining M1 gap is the starter profile's name and contents, which
 - the starter profile is the last M1 item and is **awaiting the maintainer**:
   named `ham-core` when M1 was written, `docs/reference/profile-sizing.md`
   proposes **`station`** instead and a four-way split. The catalog it would
-  draw on is no longer the constraint — 244 manifests exist where M1 planned
+  draw on is no longer the constraint — 247 manifests exist where M1 planned
   about twenty
 - `install`, `list`, `status`, `show`, `--dry-run` ✅
 - Container test harness for Parrot and Debian ✅
