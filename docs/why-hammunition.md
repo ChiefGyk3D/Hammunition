@@ -76,6 +76,17 @@ needs configured. A Python engine reads those files and does the work. The catal
 is plain data — you can read it, diff it, validate it, or write your own tool that
 consumes it without asking us.
 
+It is meant to be **the one place for everything radio**. Ham radio, SDR,
+packet and Winlink, satellites, mesh networking, RFID, cellular, detecting the
+people surveilling cellular — if it is radio, it belongs here, and nothing is
+too odd to ask for. What changes from one thing to the next is how it is
+carried: the tools that can transmit or intercept sit behind a consent gate
+that tells you what they can do before you say yes; the things nobody here has
+run yet say so; and the things that cannot work yet are still in the record,
+with the reason they cannot and the route to making them work. A project this
+broad will hit problems. The commitment is that every one gets written down and
+worked through rather than quietly dropped.
+
 ---
 
 ## What makes it different

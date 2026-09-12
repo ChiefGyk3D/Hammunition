@@ -10,6 +10,17 @@ Debian, Ubuntu, Kali, Raspberry Pi OS.
 
 Binary: `hammunition`. Python package: `hammunition`.
 
+**It is a one-stop shop for everything radio** (maintainer, 2026-09-12). Nothing
+radio is too odd or out of scope — ham, SDR, packet, satellites, mesh, RFID,
+cellular, IMSI-catcher detection, whatever comes next. What varies is *how* a
+thing is carried, never *whether*: transmit-capable and interception-capable
+tooling sits behind a consent gate (**D-021**, **D-034** — the line is transmit,
+not topic), a thing nobody has measured is marked unmeasured, and a thing that
+cannot work yet is carried as a documented gap with the reason and the route to
+it named (Rayhunter on the laptop's own modem, issue #69, is the model). The
+project is broad on purpose, so problems are expected; the rule is that each one
+is written down and worked out, never dropped because it was awkward.
+
 ## Document authority
 
 `docs/DECISIONS.md` is authoritative. Where this file or `docs/DESIGN.md`
