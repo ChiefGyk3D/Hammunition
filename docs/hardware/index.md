@@ -20,6 +20,7 @@ One page per catalogued device: what it is, how it identifies itself on USB, wha
 | [limesdr](limesdr.md) | supported | — | LimeSDR USB and Mini — full-duplex transmit-capable SDR |
 | [meshtastic](meshtastic.md) | supported | — | Meshtastic LoRa nodes — T-Deck, T-Echo, RAK and WisMesh boards |
 | [minino](minino.md) | supported | ✅ | Electronic Cats Minino — 802.15.4 and Zigbee analysis board |
+| [orbic-rc400l](orbic-rc400l.md) | untested | — | Orbic RC400L (also Kajeet RC400L) — the mobile hotspot Rayhunter's IMSI-catcher detector runs on |
 | [plutosdr](plutosdr.md) | untested | — | ADALM-Pluto — inexpensive full-duplex learning and development SDR |
 | [portapack-h4m](portapack-h4m.md) | planned | — | PortaPack H4M — add-on board giving a HackRF a screen, controls and standalone operation |
 | [proxmark3](proxmark3.md) | supported | ✅ | Proxmark3 v3 and v5 — RFID and NFC research tool (RDV4 not covered) |

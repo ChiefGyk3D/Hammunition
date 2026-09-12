@@ -1,0 +1,81 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+kind: device
+name: orbic-rc400l
+summary: Orbic RC400L (also Kajeet RC400L) — the mobile hotspot Rayhunter's IMSI-catcher detector runs on
+vendor: Orbic
+status: untested
+gap_closure: maintainer_hardware
+identification_gap: >-
+  The identifiers below come from upstream's installer source, not from this
+  device on a bench: EFForg/rayhunter installer/src/orbic.rs (commit
+  15630ed9c7ac, 2026-09-10) waits for 05c6:f601 and opens 05c6:f626, and
+  speaks to both directly over USB (nusb). Neither has a product string on
+  record here, and 05c6 is Qualcomm's vendor id used by every Qualcomm-based
+  reference design, so a rule on the bare pair over-matches other Qualcomm
+  hotspots and modems. The maintainer owns a Rayhunter unit: one
+  scripts/identify-device.sh run with it attached closes this with the product
+  and serial strings, and the rule then matches on them (D-028). The TP-Link
+  M7350/M7310 route is not USB-identified in the installer at all and gets no
+  entry until one is measured.
+usb_ids:
+  - vendor: "05c6"
+    product: "f601"
+    description: Orbic RC400L in its normal composition, as the installer waits for it
+    evidence: >-
+      EFForg/rayhunter installer/src/orbic.rs L45-46 at 15630ed9c7ac:
+      `const VENDOR_ID: u16 = 0x05c6; const PRODUCT_ID: u16 = 0xf601;`, used by
+      wait_for_usb_device(). Not in usb.ids on Parrot 7.3 (05c6 lists no f601).
+      Unconfirmed here: not captured from hardware, not yet seen on a bench here.
+    confirmed: false
+    node_kind: libusb
+    ambiguity:
+      basis: vendor_chip_default
+      evidence: >-
+        05c6 is Qualcomm, Inc. and f601 carries no product name in usb.ids;
+        Qualcomm reference designs ship with the chip vendor's identifiers and
+        several hotspots and modems present the same pair. Nothing but a product
+        or serial string can tell the RC400L from them, and neither is measured.
+      also_used_by:
+        - other Qualcomm-based hotspots and USB modems in their default composition
+  - vendor: "05c6"
+    product: "f626"
+    description: The composition the installer opens on the device (open_usb_device(VENDOR_ID, 0xf626))
+    evidence: >-
+      EFForg/rayhunter installer/src/orbic.rs L496 at 15630ed9c7ac. Same
+      caveats as f601. Unconfirmed here: not captured from hardware, not yet seen on a bench here.
+    confirmed: false
+    node_kind: libusb
+    ambiguity:
+      basis: vendor_chip_default
+      evidence: >-
+        Qualcomm vendor id, no product name in usb.ids, no product string
+        measured; see f601.
+      also_used_by:
+        - other Qualcomm-based devices presenting this composition
+groups: [plugdev]
+packages: [rayhunter]
+documentation:
+  what_it_is: >-
+    A cheap Qualcomm-based 4G mobile hotspot that the EFF's Rayhunter project
+    turns into an IMSI-catcher detector: its daemon runs on the hotspot and
+    watches the cellular control traffic the device already sees. The RC400L
+    is upstream's recommended device for the Americas.
+  what_you_can_do_with_it: >-
+    Detect cell-site simulators in the field, on a device that fits in a
+    pocket, and review its captures later with rayhunter-check on this
+    machine. Defensive only: it transmits nothing and collects nothing of
+    anyone else's (docs/guides/rayhunter.md).
+  setup_steps: >-
+    Install the `rayhunter` unit, connect the hotspot over USB, and run
+    `rayhunter-installer orbic --admin-password <the device's admin password>`;
+    the device reboots itself when the installer finishes. Until this entry's
+    identifiers are confirmed and a product-string rule exists, the installer
+    may need root to reach the device.
+  known_problems: >-
+    The identifiers here are from upstream's source, not measured; the udev
+    rule that would give the operator access without root waits on one
+    lsusb from the maintainer's own unit. Upstream supports a short list of
+    hotspots on purpose and takes new hardware through GitHub discussions.
+  upstream_url: https://github.com/EFForg/rayhunter

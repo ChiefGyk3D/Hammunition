@@ -2,7 +2,7 @@
 
 # Device naming: what `/dev/serial/by-id/` covers, and what it does not
 
-Generated 2026-08-28 from `catalog/hardware/`. 23 devices.
+Generated 2026-09-12 from `catalog/hardware/`. 24 devices.
 
 This project's stated highest-value hardware feature was persistent udev
 symlinks by serial. A Proxmark3 capture put that in doubt, because
@@ -20,8 +20,8 @@ device, and the third column is the one that changed the plan.
 | Get a `/dev/serial/by-id/` path for every confirmed identifier | **5** |
 | Get one for some identifiers and not others | **3** |
 | Get none at all — nothing they present is a serial interface | **11** |
-| Not yet recorded either way | **4** |
-| **Where by-id is insufficient for at least one reason** | **19 of 23** |
+| Not yet recorded either way | **5** |
+| **Where by-id is insufficient for at least one reason** | **20 of 24** |
 | Carry a udev symlink from this catalog | **5** |
 | …of which duplicate a path by-id would have given anyway | **0** |
 
@@ -41,7 +41,7 @@ A device can hit more than one, so these do not sum to the row above.
 | `no-serial-subsystem` | 14 | No `/dev/serial/` entry exists. The device is claimed by libusb, or by a storage/HID class driver, and systemd's serial rule never sees it. |
 | `no-unit-serial` | 1 | It is a serial device, but supplies no per-unit serial. by-id composes its path from manufacturer, product and serial, so two of these collide *there* exactly as they would under a naive symlink. |
 | `unlabelled-ports` | 1 | One interface presents several ports. by-id hands out a stable path for each and labels none of them; a stable path to a port you cannot identify is not an answer. |
-| `unrecorded` | 4 | Nobody has recorded what kind of interface this is, so the question cannot be answered yet. Counted as uncovered rather than assumed away. |
+| `unrecorded` | 5 | Nobody has recorded what kind of interface this is, so the question cannot be answered yet. Counted as uncovered rather than assumed away. |
 
 ## Per device
 
@@ -65,6 +65,7 @@ and we should not be inventing work.
 | `limesdr` | no | access, packages, documented gap | `no-serial-subsystem` |
 | `meshtastic` | partly | access, packages, firmware mode, documented gap | `no-serial-subsystem` |
 | `minino` | yes | access, packages, firmware mode | — |
+| `orbic-rc400l` | unknown | access, packages, documented gap | `unrecorded` |
 | `plutosdr` | unknown | access, packages, documented gap | `unrecorded` |
 | `portapack-h4m` | unknown | access, packages, documented gap | `unrecorded` |
 | `proxmark3` | yes | access, firmware mode, documented gap | `no-unit-serial` |

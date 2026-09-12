@@ -469,7 +469,7 @@ catalog/
   profiles/        # named bundles referencing packages      ✅ 16
   hardware/
     classes/       # device families with shared Linux needs ✅ 5
-    devices/       # one YAML per device                     ✅ 23
+    devices/       # one YAML per device                     ✅ 24
 src/hammunition/
   cli/             # argparse entry points; install/list/status/show ✅
   manifest/        # schema, loader, validation              ✅
