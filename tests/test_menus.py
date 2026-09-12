@@ -777,3 +777,23 @@ def test_parrot_replacements_may_be_several_per_package_named_by_tool(tmp_path: 
     )
     assert found.missing == ()
     assert ("gnuradio-grc.desktop", "parrot-gnuradio.desktop") in found.replaced
+
+
+def test_parrot_extras_are_placed_even_when_the_shipped_entry_still_exists(tmp_path: Path) -> None:
+    """The measurement that corrected the previous test's assumption: on the
+    field laptop gnuradio-grc.desktop is still on disk AND Parrot added
+    fifteen parrot-gnuradio-<tool>.desktop beside it. They are the
+    distribution's entries for this package, replacements or not, and
+    belong under its categories -- otherwise they fall to the top level."""
+    from hammunition.menus import on_disk
+
+    _entry(tmp_path, "gnuradio-grc.desktop")
+    _entry(tmp_path, "parrot-gnuradio-companion.desktop")
+    _entry(tmp_path, "parrot-gnuradio-plot_fft.desktop")
+    found = on_disk("gnuradio", ["gnuradio-grc.desktop"], tmp_path)
+    assert found.ids == (
+        "gnuradio-grc.desktop",
+        "parrot-gnuradio-companion.desktop",
+        "parrot-gnuradio-plot_fft.desktop",
+    )
+    assert found.replaced == () and found.missing == ()
