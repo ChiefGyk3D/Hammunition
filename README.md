@@ -26,7 +26,7 @@ group membership they need; launchers and curated desktop menus generate for
 Xfce and GNOME. What remains for 1.0: the Pop!_OS declaration decision now
 that its VM has run, COSMIC menus, real-hardware checks on the bench (the
 field target is a Dell Latitude 5430 Rugged; [its first session](docs/reference/bench-verification-5430.md)
-ran the read-only ladder, every profile's dry run, and the first real `station` install), what a
+ran the read-only ladder and then the whole catalog: 164 units, verified, on 2026-09-12 — the attached-hardware ladder is what remains there), what a
 packet station means on a kernel without AX.25 (D-041), and release
 engineering — the first signed tag waits on a key that does not exist yet.
 
@@ -52,7 +52,8 @@ exactly where things stand:
 | Builds from a pinned git revision, with the pin verified after checkout | ✅ working |
 | Prebuilt binaries: `.deb`, tarball, zip, executable | ✅ working — `.deb` through apt, never `dpkg -i` |
 | Per-user venv installs, hash-pinned end to end (`--require-hashes`) | ✅ working — not1mm and NanoVNASaver run from them |
-| Launcher + desktop-entry generation from manifests (D-036) | ✅ engine written, first units verified; per-DE curated submenus still to measure |
+| Launcher + desktop-entry generation from manifests (D-036) | ✅ working — 24 units carry launchers; terminal launchers hold their window; a wrapper never shadows its own tool (found and fixed 2026-09-12) |
+| Idempotent re-runs for builds (D-051) | ✅ a source, git or prebuilt unit already installed at its pin is skipped; measured on the field laptop: 143 of 165 units plan nothing on a re-run |
 | AppImage backend | ❌ post-1.0 (SCOPE.md) — refused by name |
 | pipx / CPAN backends | ⚪ re-measured to **zero users** and dropped from 1.0 (D-014 amendment) |
 | Templated config files, from station values | ✅ working — a missing value defers one file, not the transaction |
