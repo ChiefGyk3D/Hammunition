@@ -33,7 +33,9 @@ from .source import SourceBackend
 from .venv import VenvBackend
 
 #: Install methods this engine build can actually perform.
-IMPLEMENTED_METHODS: frozenset[str] = frozenset({"apt", "binary", "data", "git", "node", "source", "venv"})
+IMPLEMENTED_METHODS: frozenset[str] = frozenset(
+    {"apt", "binary", "data", "git", "node", "source", "venv"}
+)
 
 #: `system_modifications` kinds this engine build can actually perform.
 #: Everything else is a declared, named gap — never a silent skip.

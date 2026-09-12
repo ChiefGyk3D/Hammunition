@@ -109,12 +109,15 @@ def _backend(tmp_path: Path) -> DataBackend:
     return DataBackend(fetcher=Fetcher(tmp_path / "cache"), prefix=tmp_path / "prefix")
 
 
-def _run(steps: list[Any]) -> list[str]:
-    outcomes = []
-    for step in steps:
-        assert isinstance(step, Action)
-        outcomes.append(step.perform())
-    return outcomes
+def _actions(steps: list[Any]) -> list[Action]:
+    """Every step a data block yields is an in-process Action; say so once."""
+    actions = [step for step in steps if isinstance(step, Action)]
+    assert len(actions) == len(steps), "the data backend never yields a Command"
+    return actions
+
+
+def _run(steps: list[Action]) -> list[str]:
+    return [step.perform() for step in steps]
 
 
 # ---------------------------------------------------------------------------
@@ -178,7 +181,7 @@ def test_a_file_is_fetched_verified_and_installed_0644(
         [{"url": f"{base}/cty.dat", "sha256": sha, "size": size, "install_as": "cty.dat"}]
     )
     backend = _backend(tmp_path)
-    steps = backend.steps(m, m.install[0].install)  # type: ignore[arg-type]
+    steps = _actions(backend.steps(m, m.install[0].install))  # type: ignore[arg-type]
     assert [s.kind for s in steps] == ["fetch", "install-data"]
     assert f"{size} bytes" in steps[0].detail and "licence" not in steps[0].detail
     dest = tmp_path / "prefix" / "share" / "hammunition" / "data" / "country-files" / "cty.dat"
@@ -196,7 +199,7 @@ def test_an_archive_is_extracted_into_the_data_directory(
     sha, size = facts["bigcty.zip"]
     m = _manifest([{"url": f"{base}/bigcty.zip", "sha256": sha, "size": size, "format": "zip"}])
     backend = _backend(tmp_path)
-    steps = backend.steps(m, m.install[0].install)  # type: ignore[arg-type]
+    steps = _actions(backend.steps(m, m.install[0].install))  # type: ignore[arg-type]
     _run(steps)
     data_dir = tmp_path / "prefix" / "share" / "hammunition" / "data" / "country-files"
     assert steps[1].detail == str(data_dir)
@@ -213,7 +216,7 @@ def test_a_wrong_declared_size_refuses_after_the_digest_matched(
     m = _manifest(
         [{"url": f"{base}/cty.dat", "sha256": sha, "size": size + 1, "install_as": "cty.dat"}]
     )
-    steps = _backend(tmp_path).steps(m, m.install[0].install)  # type: ignore[arg-type]
+    steps = _actions(_backend(tmp_path).steps(m, m.install[0].install))  # type: ignore[arg-type]
     with pytest.raises(BackendError, match="declares"):
         steps[0].perform()
 
@@ -226,7 +229,7 @@ def test_a_wrong_digest_refuses_before_anything_is_installed(
     m = _manifest(
         [{"url": f"{base}/cty.dat", "sha256": "b" * 64, "size": size, "install_as": "cty.dat"}]
     )
-    steps = _backend(tmp_path).steps(m, m.install[0].install)  # type: ignore[arg-type]
+    steps = _actions(_backend(tmp_path).steps(m, m.install[0].install))  # type: ignore[arg-type]
     with pytest.raises(BackendError):
         steps[0].perform()
     assert not (tmp_path / "prefix").exists()
