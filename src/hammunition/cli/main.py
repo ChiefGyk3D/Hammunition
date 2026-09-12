@@ -830,6 +830,10 @@ def cmd_install(args: argparse.Namespace) -> int:
     ):
         print(line)
 
+    print(
+        "\nAfterwards: the Hammunition menu is re-applied for this user "
+        "(per-user files, unprivileged, D-050)."
+    )
     if args.dry_run:
         print("\nDry run: nothing above was executed.")
         return EXIT_OK
@@ -930,6 +934,8 @@ def cmd_install(args: argparse.Namespace) -> int:
         return EXIT_FAILED
     if report.ok:
         print(f"\nDone. {len(report.completed)} command(s) completed and confirmed.")
+        for line in refresh_menus_after_install(catalog_root):
+            print(line)
         if plan.group_memberships:
             print(
                 "Group membership does not apply to a session that is already open — "
@@ -1143,6 +1149,74 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
     return EXIT_FAILED
 
 
+def refresh_menus_after_install(catalog_root: Path) -> list[str]:
+    """Re-apply the Hammunition menu for this user, quietly. D-050, round 3.
+
+    After the full install on the field laptop, 42 of 60 tagged entries sat
+    directly under *Hammunition*: placement happens at apply time, and the
+    last apply predated the install. So a real install ends here. Per-user
+    files only, unprivileged; a machine where no root menu can be decided
+    gets a line saying so, never a failed install.
+    """
+    from hammunition.menus import (
+        APPLICATIONS_DIR,
+        MenuPaths,
+        MenuPrefixError,
+        cli_entries,
+        cli_entry_steps,
+        decorate_entries,
+        load_vocabulary,
+        menu_steps,
+        place_installed_entries,
+        refresh_command,
+        resolve_menu_prefix,
+    )
+
+    home = Path.home()
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME") or home / ".config")
+    data_home = Path(os.environ.get("XDG_DATA_HOME") or home / ".local" / "share")
+    config_dirs = [
+        Path(d) for d in (os.environ.get("XDG_CONFIG_DIRS") or "/etc/xdg").split(":") if d
+    ]
+    try:
+        prefix = resolve_menu_prefix(None, os.environ.get("XDG_MENU_PREFIX"), config_dirs)
+    except MenuPrefixError as exc:
+        return [
+            f"Menu: not re-applied -- {exc}. Run `hammunition menus apply` in your desktop session."
+        ]
+    vocabulary = load_vocabulary(catalog_root / "categories.yaml")
+    manifests, _ = load_all(catalog_root)
+    hidden = vocabulary.hidden_categories
+    placement = place_installed_entries(
+        manifests.values(), applications_dir=APPLICATIONS_DIR, hidden=hidden
+    )
+    generated = cli_entries(manifests.values(), placement, hidden=hidden)
+    paths = MenuPaths(
+        menus_dir=config_home / "menus", directories_dir=data_home / "desktop-directories"
+    )
+    applications = data_home / "applications"
+    steps = menu_steps(
+        vocabulary.categories,
+        paths,
+        menu_prefix=prefix,
+        placement=placement,
+        groups=vocabulary.groups,
+    )
+    steps += cli_entry_steps(generated, applications, vocabulary.icons)
+    steps += decorate_entries(applications, vocabulary.icons)
+    for step in steps:
+        step.perform()
+    refresh = refresh_command(prefix)
+    if refresh is not None:
+        SubprocessRunner().run(refresh)
+    placed = sum(len(v) for v in placement.by_category.values())
+    return [
+        f"Menu: re-applied for this user -- {len(placement.claimed)} entries placed "
+        f"{placed} times, {len(generated.entries)} generated, {len(generated.skipped)} "
+        f"without one (`hammunition menus apply` lists them)"
+    ]
+
+
 def cmd_menus_apply(args: argparse.Namespace) -> int:
 
     from hammunition.menus import (
@@ -1151,6 +1225,7 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
         MenuPrefixError,
         cli_entries,
         cli_entry_steps,
+        decorate_entries,
         gnome_commands,
         load_vocabulary,
         menu_steps,
@@ -1189,7 +1264,10 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
         print(f"Refusing to write a menu that nothing would read: {exc}", file=sys.stderr)
         return EXIT_FAILED
     steps = menu_steps(categories, paths, menu_prefix=prefix, placement=placement, groups=groups)
-    steps.extend(cli_entry_steps(generated, paths.directories_dir.parent / "applications"))
+    steps.extend(
+        cli_entry_steps(generated, paths.directories_dir.parent / "applications", vocabulary.icons)
+    )
+    steps.extend(decorate_entries(paths.directories_dir.parent / "applications", vocabulary.icons))
 
     desktop = os.environ.get("XDG_CURRENT_DESKTOP", "")
     wants_gnome = "GNOME" in desktop.upper() or args.gnome

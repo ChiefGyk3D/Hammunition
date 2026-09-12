@@ -141,3 +141,17 @@ def test_groups_are_numbered_contiguously_titled_and_summarised(
         assert str(group["title"]).strip(), group
         assert str(group["summary"]).strip(), group
         assert len(group["categories"]) >= 1, group
+
+
+def test_every_category_and_group_names_an_icon(
+    declared: dict[str, str], groups: list[dict[str, Any]]
+) -> None:
+    """D-050, icons: generated entries and directory files carried no Icon=
+    and rendered generic on the field laptop's Plasma (2026-09-12). The
+    vocabulary carries a freedesktop icon name per category and per group;
+    the names were checked against the Breeze and Adwaita themes there."""
+    data = yaml.safe_load(VOCABULARY.read_text())
+    for c in data["categories"]:
+        assert str(c.get("icon", "")).strip(), f"{c['name']} has no icon"
+    for g in groups:
+        assert str(g.get("icon", "")).strip(), f"group {g['name']} has no icon"
