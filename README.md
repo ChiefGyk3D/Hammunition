@@ -26,7 +26,7 @@ group membership they need; launchers and curated desktop menus generate for
 Xfce and GNOME. What remains for 1.0: the Pop!_OS declaration decision now
 that its VM has run, COSMIC menus, real-hardware checks on the bench (the
 field target is a Dell Latitude 5430 Rugged; [its first session](docs/reference/bench-verification-5430.md)
-ran the read-only ladder and every profile's dry run), what a
+ran the read-only ladder, every profile's dry run, and the first real `station` install), what a
 packet station means on a kernel without AX.25 (D-041), and release
 engineering — the first signed tag waits on a key that does not exist yet.
 
@@ -57,7 +57,7 @@ exactly where things stand:
 | pipx / CPAN backends | ⚪ re-measured to **zero users** and dropped from 1.0 (D-014 amendment) |
 | Templated config files, from station values | ✅ working — a missing value defers one file, not the transaction |
 | Third-party apt repos | ✅ working — manifest pins the key fingerprint, consent is that fingerprint and `--yes` cannot give it, both files reversed by `uninstall` (D-040); `code`/`codium` in the opt-in `editors` profile |
-| udev rule generation from the hardware catalog | ✅ generated and applied by `hammunition hardware apply`; dry-run on the field laptop, not yet applied there or exercised against an attached device |
+| udev rule generation from the hardware catalog | ✅ generated and applied by `hammunition hardware apply`; applied on the field laptop and byte-identical to the catalog's set; not yet exercised against an attached device |
 | `uninstall` | ✅ working — reverses apt, venv, binary, .deb, trees and launchers; marker-verified, VM-proven; a real `make install` is refused by name |
 | End-to-end VM verification (install / configure / remove) | ✅ Parrot, Kali, Debian 13, Ubuntu 24.04, Ubuntu 26.04, and [Pop!_OS 24.04](docs/reference/vm-campaign-pop.md) as an undeclared target |
 | M5 install-success across the full catalog, six targets | ✅ **zero hard failures**; every unit installs on ≥1 target or is refused with a reason |

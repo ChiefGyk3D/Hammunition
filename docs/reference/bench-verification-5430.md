@@ -22,11 +22,12 @@ sourced. Nothing catalogued was attached during this session.
 **OS:** Parrot Security 7.3 "echo" (`ID=parrot`, `VERSION_ID=7.3`), kernel
 `7.0.13+parrot7-amd64`, Python 3.13.5, a KDE session, `parrot-backports`
 already in use by the machine (cmake and pipewire come from it)
-**Method:** the read-only ladder only. `sudo` was not exercised this
-session, so nothing below installed, removed, or wrote outside the user's
-home; every dry run was `--dry-run --no-refresh`. The station values were
-set on this machine after the session, in `~/.config/hammunition/`, and are
-not recorded here or anywhere else: the maintainer's callsign and grid
+**Method:** session 1 was the read-only ladder only. `sudo` was not
+exercised by the engine session, so nothing in it installed, removed, or
+wrote outside the user's home; every dry run was `--dry-run --no-refresh`.
+Session 2 (below) is the operator's own first real commands, verified
+afterwards. The station values were set on this machine in
+`~/.config/hammunition/`, and are not recorded here or anywhere else: the maintainer's callsign and grid
 square are private (CLAUDE.md, hardware context), and bench pages carry
 `N0CALL`-style placeholders only. This laptop is a separate
 machine from the development host and its hypervisor — the bench, not the
@@ -110,27 +111,42 @@ without Recommends or declare the conflict so the dry run discloses it — and
 it is filed as issue #61 rather than fixed here, because it needs a decision
 about whether the catalog has, or wants, a per-unit no-Recommends switch.
 
+## Session 2, same day: the first real changes to the field target
+
+The operator ran these at the keyboard; the engine session that followed
+verified the effect of each (D-031), never the exit status alone.
+
+| Step | Result |
+|---|---|
+| `hammunition station set` | Set. `doctor` moved from 10/1/0 to **11 ok, 0 to look at, 0 blocking**. The values are private and not recorded (see above). |
+| `hammunition hardware apply` | Applied. `/etc/udev/rules.d/65-hammunition.rules` is root-owned, mode 0644, 58 lines, and **byte-identical** to what `apply --dry-run` stages from the catalog. `apply --dry-run` afterwards: *Nothing to do: the rules file already matches and you are in every access group.* No catalogued device has been plugged in yet, so the rules are installed but not exercised. |
+| `hammunition install station` | **Completed and confirmed, 25 s wall clock** for the whole transaction. The log shows the `hammunition-hill` `.deb` fetched and its sha256 verified, `apt-get update`, the combined `--simulate` of the `.deb` plus the ten apt units, the real `apt-get install` of the ten, then the `.deb` through apt — every command `returncode: 0`. Verified independently: all eleven at `ii` via `dpkg-query` — chirp (Parrot's own `1:20250530-1parrot1`), flrig, gpsbabel, gpsd, gpsd-clients, gpsd-tools, libhamlib-utils, pipx, twclock, tzwatch, hammunition-hill 1.0.0. |
+| `hammunition-hill` on a real desktop | The `.deb` installs a system unit; `hammunition-hill.service` is **active and running**, listening on `127.0.0.1:8073` only, and answers `200 text/html` on `/`. First time the maintainer's own dashboard has been installed by this engine outside a VM. |
+| gpsd after install | `gpsd.socket` enabled and active, `gpsd.service` inactive until a client connects, `USBAUTO="true"` with `DEVICES=""` — Debian's default, which is the right default for a machine whose receiver is not fitted yet. Listening on `2947` on both loopback addresses. |
+| `install station --dry-run` again | Plans the same transaction again rather than *Nothing to do*: the ten apt units are already installed, and the `.deb` step is re-planned. Whether that is the binary backend not consulting attribution on re-plan, or by design, is not yet decided — worth a look before the next `.deb` unit lands. |
+| `uninstall station --dry-run` | Attributes all **11** units to Hammunition, including the `.deb`, and plans one `apt-get remove`; states what is not reversed (apt's pulled-in dependencies, groups, config files). Not run. |
+| Launchers | `flrig.desktop`, `twclock.desktop` and Parrot's `parrot-chirp.desktop` are in `/usr/share/applications/`, from the packages themselves. No engine-generated launcher was needed for this profile. |
+
 ## Not yet run (this rung's remaining ladder)
 
 In order, and every one needs the operator at the keyboard for `sudo`:
 
-1. `hammunition hardware apply` for real, then re-run `hardware list` and
-   confirm the rules file re-reads clean. Then plug in the HackRF Pro, a
-   Proxmark3, a Meshtastic node and the C5 Wardriver one at a time and
-   confirm each is recognised, permitted, and symlinked as
-   `docs/reference/device-naming.md` says it should be. This is the "not
-   yet exercised against real hardware on the bench" line in the README.
-2. `hammunition station set`, then `install station --yes` — the same
-   sequence the Parrot VM ran first, on the real target. Check the
-   `hammunition-hill` `.deb` fetch and install here, since this machine has
-   a browser to open it in.
+1. Plug in the HackRF Pro, a Proxmark3, a Meshtastic node and the C5
+   Wardriver one at a time and confirm each is recognised by
+   `hardware list`, permitted, and symlinked as
+   `docs/reference/device-naming.md` says it should be. The rules are
+   installed; this is what exercises them, and the "not yet exercised
+   against an attached device" line in the README closes here.
+2. Open `http://127.0.0.1:8073/` in this machine's browser and check the
+   dashboard against the station values — by eye, not by pasting.
 3. `install sdr --yes` and `install rf-security --yes`, then the GUI smoke
    lane by hand: gqrx and SDR++ opening against the RTL-SDR and the HackRF
    Pro on this machine's USB topology (two Realtek hubs in the path).
 4. `install packet --yes` — three source builds (ardopcf, linbpq,
    qtsoundmodem) on the i7, timed, on battery and on AC.
 5. `uninstall` of each of the above, with the attribution check that
-   Parrot's preinstalls stay.
+   Parrot's preinstalls stay — `station` first, since its dry run already
+   plans correctly.
 6. The GPS and WWAN questions, once the modules exist: the catalog's
    `gps-receiver` class is USB-serial (`/dev/serial/by-id/`); an internal
    GNSS on a WWAN card usually surfaces through ModemManager's location API
