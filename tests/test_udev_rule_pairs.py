@@ -74,5 +74,5 @@ def test_the_sweep_script_imports_this_module_rather_than_inlining_it() -> None:
     # died on `import udev_rule_pairs` from the day the parser became a module.
     ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text()
     assert "run: scripts/run-udev-sweep.sh debian-13" in ci
-    assert "udev-sweep.sh\":/sweep.sh" not in ci
+    assert 'udev-sweep.sh":/sweep.sh' not in ci
     assert "PAIR = re.compile" not in sweep, "the inline copy is back; it cannot be tested there"
