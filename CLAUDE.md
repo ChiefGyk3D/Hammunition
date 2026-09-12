@@ -690,7 +690,27 @@ authoritative:
 - **Owned:** HackRF Pro, CatSniffer V3, Electronic Cats Minino, Free-WiLi 2,
   nRF52840, Proxmark3 v3 and v5, Clip-Boy, C5 Wardriver v1.1 (unflashed), EFF Rayhunter, ClockworkPi uConsole with Hacker Gadgets AIO v2,
   Meshtastic devices (T-Deck, T-Echo, RAK/WisMesh), Yaesu FT-991A, BTECH
-  UV-50PRO, Panasonic Toughbook FZ-55.
+  UV-50PRO, Panasonic Toughbook FZ-55, **Dell Latitude 5430 Rugged**.
+- **The field target and showcase machine is the Latitude 5430 Rugged**
+  (from 2026-09-12): Core i7-1185G7, 32 GB, 512 GB NVMe, Parrot Security
+  7.3. GPS and a 5G WWAN module (4G at minimum) are planned for it once
+  antennas and cabling for the chassis are sourced; neither is fitted, so
+  nothing in the catalog assumes an onboard modem or GNSS. It is the last
+  rung of the testing ladder — the bench where real-hardware checks happen,
+  and a separate machine from the development host. What has actually run on
+  it is recorded in `docs/reference/bench-verification-5430.md`; a claim
+  about hardware behaviour on the field target that page does not carry is
+  not yet a claim.
+- **The maintainer's callsign and grid square are never made public.** The
+  station values are set on the field target (`~/.config/hammunition/`,
+  mode 0600, outside every checkout) and they stay there: never in a
+  commit, a doc page, a campaign or bench page, a session log, an issue, a
+  PR, or pasted tool output. Docs and tests use placeholders — `N0CALL`,
+  `N0TST`, `FN31pr` — as the VM pages already do. Output from `doctor`,
+  `status`, `station show` or a rendered config file on a machine where the
+  station is set is summarised, not quoted. A callsign resolves to a name
+  and a licence address; it is the same class of identifier as a hostname
+  or a serial.
 - **Planned, not owned:** PortaPack H4M, Proxmark3 RDV4. Catalogued, never
   marked maintainer-verified.
 - **Not owned:** LimeSDR, PlutoSDR, KrakenSDR, SDRplay RSP. Carried because
