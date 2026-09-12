@@ -335,12 +335,18 @@ def test_every_catalog_launcher_working_directory_is_under_the_shared_prefix() -
         "ais-catcher",
         "artemis",
         "gpa",
+        "gpsd-tools",
+        "hackrf",
         "hamclock-next",
         "js8spotter",
+        "libhamlib-utils",
+        "libnfc-bin",
         "mshv",
         "openhamclock",
         "radiosonde-auto-rx",
+        "rtl-sdr",
         "supersdr",
+        "ubertooth",
         "yaac",
     }, "a unit gained or lost launchers; update this pin"
     for name in launcher_units:

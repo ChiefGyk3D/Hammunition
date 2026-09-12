@@ -11,6 +11,16 @@ install:
       method: apt
       packages: [rtl-sdr]
 
+
+# D-050: the unit ships several command-line tools and no desktop entry, so
+# `menus apply` could not pick one without guessing. This is the pick: the
+# entry an operator opens first. Terminal launchers hold their window.
+launchers:
+  - name: rtl_test
+    exec: rtl_test -t
+    terminal: true
+    # Is the dongle working: rtl_test probes the attached RTL-SDR and reports its tuner and gain range
+
 update:
   probe:
     method: apt_policy

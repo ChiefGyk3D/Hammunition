@@ -250,3 +250,36 @@ def test_campaign_prepare_refreshes_apt_lists_and_keeps_its_failure_text(
     with pytest.raises(SystemExit, match="could not be prepared after 2 attempts"):
         mod.prepare(["ssh"], "user@guest")
     assert "venv: command not found" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# D-050 follow-up (2026-09-12): a terminal launcher holds its window open.
+# A menu entry that runs `hackrf_info` in a terminal and closes the window
+# the instant it exits shows the operator nothing; Parrot's own tool menu
+# keeps the window. The wrapper does the holding, so the desktop entry and
+# the manifest stay plain.
+# ---------------------------------------------------------------------------
+
+
+def test_a_terminal_launcher_waits_for_enter_after_the_command_exits() -> None:
+    m = manifest(launchers=[{"name": "l", "exec": "hackrf_info", "terminal": True}])
+    body = wrapper_body(m, m.launchers[0])
+    lines = body.splitlines()
+    assert "hackrf_info" in lines
+    assert any("read" in line for line in lines[lines.index("hackrf_info") :]), body
+    assert "exit" in body.lower() and "Enter" in body
+
+
+def test_a_gui_launcher_does_not_hold() -> None:
+    m = manifest(launchers=[{"name": "l", "exec": "exec gqrx"}])
+    body = wrapper_body(m, m.launchers[0])
+    assert body.splitlines()[-1] == "exec gqrx"
+
+
+def test_a_terminal_launcher_may_not_exec_away_the_shell_that_would_hold() -> None:
+    from pydantic import ValidationError
+
+    from hammunition.manifest.schema import ManifestError
+
+    with pytest.raises((ValidationError, ManifestError), match="terminal"):
+        manifest(launchers=[{"name": "l", "exec": "exec hackrf_info", "terminal": True}])

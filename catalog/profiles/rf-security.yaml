@@ -25,6 +25,7 @@ packages:
   - ubertooth
   - wireshark
   - artemis
+  - rayhunter
 
 documentation:
   what_it_installs: >-

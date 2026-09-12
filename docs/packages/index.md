@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**248 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**249 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -154,7 +154,7 @@ Emergency and public-service communications.
 - [xastir](xastir.md) — APRS client with real maps — see and be seen on the packet network
 - [xygrib](xygrib.md) — Views GRIB weather files — wind, pressure, waves, on a map
 
-### `hardware` — 52
+### `hardware` — 53
 
 Device support rather than an application: drivers, firmware, udev permissions, and the tools for talking to a device at all.
 
@@ -187,6 +187,7 @@ Device support rather than an application: drivers, firmware, udev permissions, 
 - [qflipper](qflipper.md) — Desktop companion for the Flipper Zero — firmware, files, and CLI over USB
 - [qthid-fcd-controller](qthid-fcd-controller.md) — Sets frequency and gain on a FUNcube Dongle
 - [qttinysa](qttinysa.md) — Desktop front end for the tinySA and tinySA Ultra spectrum analysers
+- [rayhunter](rayhunter.md) — EFF's IMSI-catcher detector — the installer for a supported hotspot, and the offline capture analyser
 - [rtl-sdr](rtl-sdr.md) — Host tools and library for RTL2832U-based receivers
 - [soapyremote-server](soapyremote-server.md) — Serves a local SDR over the network to software on another machine
 - [soapysdr-module-airspy](soapysdr-module-airspy.md) — SoapySDR driver module for Airspy hardware
@@ -365,7 +366,7 @@ Research tooling whose lawful use is jurisdiction-dependent. Consent-gated (D-02
 
 - [gr-gsm](gr-gsm.md) — GNU Radio blocks for receiving and analysing GSM signalling
 
-### `rf-security` — 15
+### `rf-security` — 16
 
 RF security and SIGINT tooling. Opt-in by profile, never installed by default.
 
@@ -378,6 +379,7 @@ RF security and SIGINT tooling. Opt-in by profile, never installed by default.
 - [hcxtools](hcxtools.md) — Converts captured Wi-Fi frames into hash formats analysis tools read
 - [inspectrum](inspectrum.md) — Offline visualiser for captured radio signals — read a waveform by eye
 - [qflipper](qflipper.md) — Desktop companion for the Flipper Zero — firmware, files, and CLI over USB
+- [rayhunter](rayhunter.md) — EFF's IMSI-catcher detector — the installer for a supported hotspot, and the offline capture analyser
 - [rtl-433](rtl-433.md) — Decoder for the unlicensed ISM bands — weather stations, sensors, tyre monitors
 - [sdrangel](sdrangel.md) — SDR transceiver and analyser that does several things at once
 - [tcpdump](tcpdump.md) — Command-line packet capture — the tool that works when nothing else does
@@ -803,6 +805,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [quisk](quisk.md) | SDR transceiver software with a real front panel, driving hardware or a dongle | apt |
 | [radioclk](radioclk.md) | Disciplines the system clock from an MSF, WWVB or DCF77 time signal | apt |
 | [radiosonde-auto-rx](radiosonde-auto-rx.md) | Automatically receive, decode and map weather-balloon radiosondes | venv |
+| [rayhunter](rayhunter.md) | EFF's IMSI-catcher detector — the installer for a supported hotspot, and the offline capture analyser | binary |
 | [readsb](readsb.md) | Efficient Mode S and ADS-B decoder — the maintained dump1090 successor | apt |
 | [remotetrx](remotetrx.md) | Puts an SvxLink receiver or transceiver at the end of a network link | apt |
 | [rtl-433](rtl-433.md) | Decoder for the unlicensed ISM bands — weather stations, sensors, tyre monitors | apt |

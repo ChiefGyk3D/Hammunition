@@ -832,6 +832,18 @@ class Launcher(Strict):
     working_directory: str | None = None
     terminal: bool = False
 
+    @model_validator(mode="after")
+    def _terminal_launchers_keep_their_shell(self) -> Launcher:
+        # The wrapper holds a terminal window open after the command exits;
+        # `exec` would replace the shell and the hold would never run.
+        if self.terminal and self.exec.lstrip().startswith("exec "):
+            raise ManifestError(
+                f"launcher {self.name!r} is a terminal launcher and starts with `exec`; "
+                f"the wrapper must outlive the command to hold the window, so drop the "
+                f"`exec`"
+            )
+        return self
+
 
 # ---------------------------------------------------------------------------
 # System modifications and config.  D-012, D-016.
