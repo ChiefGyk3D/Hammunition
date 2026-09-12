@@ -11,7 +11,11 @@ packages:
   - cwcp
   - xcwcp
   - qrq
-  - morse-classic
+  # morse-classic is deliberately not a member: Debian's `morse` Recommends
+  # pulseaudio, which Conflicts with pipewire-alsa, so apt would remove a
+  # PipeWire desktop's audio routing to install it and the engine refuses the
+  # whole transaction (field laptop, Parrot 7.3 + KDE, 2026-09-12, #61). It
+  # stays installable by name; the dry run discloses the conflict.
   - ebook2cw
   - ebook2cwgui
   - cwwav
@@ -44,8 +48,12 @@ documentation:
   deliberately_excludes: >-
     fldigi, which decodes CW among twenty other modes and belongs in
     `digital-modes`. Contest loggers, which key CW through `cwdaemon` and live
-    in `logging`. Nothing here needs a radio: every trainer generates its own
-    audio, which is the point.
+    in `logging`. morse-classic, the long-lived Unix `morse` sounder: Debian's
+    package Recommends pulseaudio, which cannot coexist with pipewire-alsa, so
+    on a PipeWire desktop apt would remove your audio routing to install it
+    and the engine refuses the whole profile (#61). Install it by name if you
+    want it and are not on PipeWire. Nothing here needs a radio: every trainer
+    generates its own audio, which is the point.
   manual_configuration: >-
     **`cwdaemon` needs a keying interface and a group you are not in.** Serial
     keying needs `dialout`, parallel needs `lp`, and this profile adds neither

@@ -14,6 +14,14 @@ summary: Text-to-Morse sounder and trainer, Eric Raymond's morse-classic
 # The apt package below is unchanged — Debian's name is Debian's to choose.
 categories: [cw, training]
 
+# Debian's `morse` Recommends pulseaudio; pulseaudio Conflicts pipewire-alsa.
+# On a PipeWire desktop apt resolves that by removing pipewire-alsa (measured:
+# `apt-get install -s morse` on Parrot 7.3 + KDE, 2026-09-12, #61). Declared
+# so the plan names this unit as the reason rather than the whole
+# transaction; the engine never removes it (D-022). Not a member of the
+# `morse` profile for the same reason.
+conflicts_with_repo_package: [pipewire-alsa]
+
 install:
   - install:
       method: apt

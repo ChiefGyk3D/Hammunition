@@ -24,6 +24,8 @@ A sound device for audio output; it can also print the dots and dashes, which is
 
 - apt: `morse`
 
+This displaces the distribution's own `pipewire-alsa` (**D-022**: coexist, disclose, never remove silently).
+
 ## Known problems
 
 Its teaching model is the plain speed-up approach rather than Koch, so as a learning tool it is weaker than aldo. As a converter and a sounder it is fine, and that is the use to keep it for.
