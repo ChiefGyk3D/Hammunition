@@ -620,3 +620,30 @@ def test_an_sbin_sibling_does_not_stop_the_bin_executable_named_like_the_unit() 
         _exes({"hcxdumptool": ["/usr/sbin/hcxdumptool-helper", "/usr/bin/hcxdumptool"]}),
     )
     assert [e.exec for e in result.entries] == ["/usr/bin/hcxdumptool"]
+
+
+def test_kde_merges_the_unprefixed_directory_whatever_the_prefix_says() -> None:
+    """Measured on the field laptop (Plasma 6, XDG_MENU_PREFIX=plasma-,
+    2026-09-12): kbuildsycoca6 reported "Found menu file
+    /etc/xdg/menus/applications-merged/parrot-applications.menu" and never
+    opened plasma-applications-merged/, where the tree had been written and
+    where nothing read it -- no Ham Radio menu, and every generated entry
+    in Lost & Found. Xfce's garcon honours the prefix (Kali, 2026-09-02);
+    KDE's kservice does not."""
+    from hammunition.menus import merge_dir
+
+    assert merge_dir("plasma-") == "applications-merged"
+    assert merge_dir("kf5-") == "applications-merged"
+    assert merge_dir("xfce-") == "xfce-applications-merged"
+    assert merge_dir("") == "applications-merged"
+
+
+def test_steps_write_where_kde_reads_and_remove_the_copy_nothing_read(tmp_path: Path) -> None:
+    paths = MenuPaths(menus_dir=tmp_path / "menus", directories_dir=tmp_path / "dirs")
+    stale = tmp_path / "menus" / "plasma-applications-merged" / "hammunition.menu"
+    stale.parent.mkdir(parents=True)
+    stale.write_text("<Menu/>")
+    for step in menu_steps(CATS, paths, menu_prefix="plasma-"):
+        step.perform()
+    assert (tmp_path / "menus" / "applications-merged" / "hammunition.menu").exists()
+    assert not stale.exists(), "the file from the earlier, unread location is removed"

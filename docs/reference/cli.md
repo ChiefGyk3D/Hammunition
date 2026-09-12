@@ -190,6 +190,13 @@ Two mechanisms, both per-user and unprivileged:
   silently. That silence was measured: no machine in the VM set nor the
   maintainer's laptop has a bare `applications.menu`, so every run made
   without the variable had written a file nothing read (2026-09-02).
+  **Which directory the root merges is measured per desktop, not read from
+  the spec:** Xfce's garcon reads `<prefix>applications-merged/`; **KDE's
+  kservice ignores the prefix and reads `applications-merged/`** — on the
+  field laptop (Plasma 6, 2026-09-12) `kbuildsycoca6` never opened
+  `plasma-applications-merged/`, the tree written there produced no menu,
+  and every generated entry sat in *Lost & Found*. The file goes where the
+  desktop reads, and a copy left in a directory it does not read is removed.
 - **GNOME:** an app-folder named *Ham Radio* populated by
   `categories=['HamRadio']` — no app list to maintain — plus the same
   measured entries unioned into its `apps` list, for the ones a

@@ -64,6 +64,7 @@ __all__ = [
     "gnome_commands",
     "load_vocabulary",
     "menu_steps",
+    "merge_dir",
     "place_installed_entries",
     "refresh_command",
     "render_cli_entry",
@@ -86,8 +87,8 @@ def root_menu_prefixes(config_dirs: Iterable[Path]) -> list[str]:
 
     The root menus a machine carries are the measurement of which DEs can
     read a merged file: each is a ``menus/<prefix>applications.menu`` under
-    ``$XDG_CONFIG_DIRS`` and merges ``<prefix>applications-merged/`` and
-    nothing else. Measured 2026-09-02: no machine in the VM set nor the
+    ``$XDG_CONFIG_DIRS`` and merges one directory -- which one is
+    :func:`merge_dir`'s measurement. Measured 2026-09-02: no machine in the VM set nor the
     maintainer's laptop has a bare ``applications.menu``; Parrot has four
     prefixed roots (``kf5-``, ``mate-``, ``plasma-``, ``xfce-``), Debian and
     the laptop ``gnome-``, Kali ``xfce-``, a server image none.
@@ -97,6 +98,24 @@ def root_menu_prefixes(config_dirs: Iterable[Path]) -> list[str]:
         for root in sorted((config_dir / "menus").glob("*applications.menu")):
             found[root.name[: -len("applications.menu")]] = None
     return list(found)
+
+
+def merge_dir(menu_prefix: str) -> str:
+    """The directory the root menu's ``<DefaultMergeDirs/>`` actually reads.
+
+    The spec says ``<prefix>applications-merged``, and Xfce's garcon does
+    that (Kali, 2026-09-02). **KDE's kservice ignores the prefix**: on the
+    field laptop (Plasma 6, ``XDG_MENU_PREFIX=plasma-``, 2026-09-12)
+    ``kbuildsycoca6`` reported *Found menu file
+    /etc/xdg/menus/applications-merged/parrot-applications.menu* and never
+    opened ``plasma-applications-merged/``, where this tree had been written
+    and where nothing read it -- no Ham Radio menu, every generated entry
+    in Lost & Found. Parrot's own menu ships in ``applications-merged`` for
+    the same reason.
+    """
+    if menu_prefix in ("plasma-", "kf5-"):
+        return "applications-merged"
+    return f"{menu_prefix}applications-merged"
 
 
 def resolve_menu_prefix(
@@ -660,6 +679,7 @@ def menu_steps(
     not a guess.
     """
     placed = sum(len(v) for v in (placement or Placement.empty()).by_category.values())
+    target = paths.menus_dir / merge_dir(menu_prefix) / "hammunition.menu"
     steps = [
         Action(
             kind="menu",
@@ -667,13 +687,24 @@ def menu_steps(
                 f"Write the {MENU_NAME} menu tree ({len(categories)} categories, "
                 f"{placed} installed-package entries placed)"
             ),
-            detail=str(paths.menus_dir / f"{menu_prefix}applications-merged" / "hammunition.menu"),
-            perform=partial(
-                _write,
-                paths.menus_dir / f"{menu_prefix}applications-merged" / "hammunition.menu",
-                render_menu(categories, placement, groups),
-            ),
+            detail=str(target),
+            perform=partial(_write, target, render_menu(categories, placement, groups)),
         ),
+    ]
+    # A copy left where an earlier engine wrote it and nothing read it (the
+    # prefixed directory on KDE) is removed, or it lingers as a second file
+    # some future desktop might merge twice.
+    for stale in sorted(paths.menus_dir.glob("*applications-merged/hammunition.menu")):
+        if stale != target:
+            steps.append(
+                Action(
+                    kind="menu",
+                    description="Remove the tree from a directory this desktop does not read",
+                    detail=str(stale),
+                    perform=partial(_remove, stale),
+                )
+            )
+    steps += [
         Action(
             kind="menu",
             description=f"Name the top-level {MENU_NAME} directory entry",

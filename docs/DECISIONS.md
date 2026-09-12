@@ -3621,9 +3621,18 @@ Parrot Security 7.3, KDE Plasma, 2026-09-12, `docs/reference/bench-verification-
    `parrot-<package>.desktop` when that exists, otherwise it is reported,
    never counted. `dpkg -L` is what a package shipped, not what a
    distribution's hook left.
-4. **KDE gets its cache rebuilt.** On a `plasma-` or `kf5-` prefix,
-   `kbuildsycoca6` (or 5) runs afterwards as a disclosed, unprivileged
-   command, so the tree shows now.
+4. **KDE gets its cache rebuilt, and its file where KDE reads.** On a
+   `plasma-` or `kf5-` prefix, `kbuildsycoca6` (or 5) runs afterwards as a
+   disclosed, unprivileged command, so the tree shows now. And the merged
+   file goes to `applications-merged/`, **not** `plasma-applications-merged/`:
+   the spec says the prefixed directory and Xfce's garcon reads it, but
+   KDE's kservice ignores the prefix — measured on the field laptop the
+   same day, when the first apply of this rule wrote the prefixed file,
+   `kbuildsycoca6` reported only `/etc/xdg/menus/applications-merged/*`
+   as found, no *Ham Radio* menu appeared, and every generated entry sat in
+   Kickoff's *Lost & Found* (an entry no menu allocates). Parrot's own menu
+   ships in `applications-merged` for the same reason. A copy left in a
+   directory the desktop does not read is removed on the next apply.
 5. **Not taken from Parrot:** a *Most Used* group. Parrot curates it by
    hand; this project has no measurement to build one from, and a
    hand-kept list is the second taxonomy D-036 refuses.
