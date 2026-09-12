@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: paracon
+version: "1.3.0"
+summary: Packet radio terminal that talks AGWPE to Direwolf, with no kernel AX.25
+categories: [packet, emcomm]
+
+# ADD from EmComm Tools OS Community (D-042 sub-project 4, D-048). ETC pins
+# 1.1.0 (2024-06) and fetches it unverified; upstream is at 1.3.0
+# (2025-10-12, head commit the same day), MIT. A single-file Python zipapp
+# with every dependency inside it -- pyham_ax25, pyham_pe, urwid -- so the
+# only thing it needs from the machine is python3. Fetched and hashed
+# 2026-09-12; `paracon --version` printed "Paracon 1.3.0" on Debian 13
+# (Python 3.13.5) the same day.
+install:
+  - install:
+      method: binary
+      artifact:
+        url: https://github.com/mfncooper/paracon/releases/download/v1.3.0/paracon_1.3.0.pyz
+        sha256: 44679cedff613c0c52c1691cf0c047796345ac54890c6a8325afb4d31885999b
+      format: executable
+
+binaries:
+  - produced: paracon_1.3.0.pyz
+    install_as: paracon
+
+depends: [python3]
+
+update:
+  probe:
+    method: github_release
+    repo: mfncooper/paracon
+  strategy: reinstall
+  cadence_hint: >-
+    Tagged releases with the .pyz attached; a release or two a year. Bump the
+    URL, the hash and `produced` together.
+
+documentation:
+  what_it_does: >-
+    A full-screen packet radio terminal: connect to a BBS or node, keep
+    several sessions open, monitor the channel, and transfer text -- the
+    keyboard end of an AX.25 station. It speaks the AGWPE protocol to a
+    software TNC rather than driving a radio itself.
+  why_you_want_it: >-
+    It is the packet terminal that needs nothing from the kernel. Direwolf's
+    AGW port is the only thing it talks to, so it works on a Linux 7.1 machine
+    that has no AX.25 stack at all (D-045) -- where `ax25-apps`' `call` and
+    `axcall` cannot. QtTermTCP is the same idea for LinBPQ's TCP port; Paracon
+    is the one to reach for with Direwolf alone.
+  prerequisites: >-
+    Direwolf (or another AGWPE server -- ldsped, LinBPQ 6.0.24.73 or later)
+    running with its AGW port enabled, on this machine or one reachable over
+    the network. Python 3.9 or later, which every target ships. Your callsign
+    goes into Paracon's own config on first run; it is not templated from the
+    station file (D-035) yet.
+  known_problems: >-
+    Runs in a terminal and draws with urwid, so it wants a real terminal
+    emulator, not a pipe. The file is a Python zipapp installed as
+    `/usr/local/bin/paracon` with the interpreter line inside it; if
+    `python3` is not on PATH it fails at exec, which is why python3 is a
+    declared dependency. The GUI-less shape is deliberate upstream.
+  upstream_url: https://github.com/mfncooper/paracon
+  upstream_support: >-
+    GitHub issues on the repository; the README documents configuration
+    and the AGWPE servers it is tested against.

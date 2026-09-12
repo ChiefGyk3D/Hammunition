@@ -8,7 +8,7 @@
 
 ## What it installs
 
-The aeronautical decoder cluster — ACARS, VDL Mode 2 and HFDL, with the shared library that turns their raw text into structured messages and a database to keep what was heard. Aircraft transponder decoding with a multilateration feeder. Marine AIS three ways. DAB in a window and in a pipe. A multi-channel airband scanner, digital voice protocol decoding, paging and classic mode decoding, weather satellite imaging, and two Morse decoders.
+The aeronautical decoder cluster — ACARS, VDL Mode 2 and HFDL, with the shared library that turns their raw text into structured messages and a database to keep what was heard. Aircraft transponder decoding with a multilateration feeder. Marine AIS three ways. DAB in a window and in a pipe. A multi-channel airband scanner, digital voice protocol decoding, paging and classic mode decoding, weather satellite imaging, two Morse decoders, and an offline signal-identification reference (Artemis, the sigidwiki database in a window) for the moment you see something on the waterfall and do not know what it is.
 
 **Disk footprint:** Around 400 MB. Six of these are source or pinned-git builds — the whole aeronautical cluster plus kalibrate-rtl — so the install takes longer than the size suggests.
 
@@ -17,9 +17,9 @@ The aeronautical decoder cluster — ACARS, VDL Mode 2 and HFDL, with the shared
 **This is the profile that needs no licence and no transmitter**, which makes it the best on-ramp this project has. Someone with a twenty-pound dongle and a wire can have aircraft on a map within an hour, and that is usually what turns an interest into a hobby.
 It is also where the Skywave delta lands. The aeronautical cluster in particular is a genuine hole in Debian — libacars, acarsdec, dumpvdl2 and dumphfdl are absent from stable *and* unstable, measured in containers — so it is the clearest case of the thing this project exists to do: install what a person cannot easily install themselves.
 
-## Packages (23)
+## Packages (24)
 
-[`libacars`](../packages/libacars.md), [`acarsdec`](../packages/acarsdec.md), [`acarsserv`](../packages/acarsserv.md), [`dumpvdl2`](../packages/dumpvdl2.md), [`dumphfdl`](../packages/dumphfdl.md), [`rtlsdr-airband`](../packages/rtlsdr-airband.md), [`multimon-ng`](../packages/multimon-ng.md), [`multimon`](../packages/multimon.md), [`dsdcc`](../packages/dsdcc.md), [`readsb`](../packages/readsb.md), [`mlat-client-adsbfi`](../packages/mlat-client-adsbfi.md), [`gr-air-modes`](../packages/gr-air-modes.md), [`rtl-ais`](../packages/rtl-ais.md), [`ais-catcher`](../packages/ais-catcher.md), [`gnuais`](../packages/gnuais.md), [`gnuaisgui`](../packages/gnuaisgui.md), [`welle-io`](../packages/welle-io.md), [`dablin`](../packages/dablin.md), [`satdump`](../packages/satdump.md), [`kalibrate-rtl`](../packages/kalibrate-rtl.md), [`morse2ascii`](../packages/morse2ascii.md), [`xdemorse`](../packages/xdemorse.md), [`gqrx-sdr`](../packages/gqrx-sdr.md)
+[`libacars`](../packages/libacars.md), [`acarsdec`](../packages/acarsdec.md), [`acarsserv`](../packages/acarsserv.md), [`dumpvdl2`](../packages/dumpvdl2.md), [`dumphfdl`](../packages/dumphfdl.md), [`rtlsdr-airband`](../packages/rtlsdr-airband.md), [`multimon-ng`](../packages/multimon-ng.md), [`multimon`](../packages/multimon.md), [`dsdcc`](../packages/dsdcc.md), [`readsb`](../packages/readsb.md), [`mlat-client-adsbfi`](../packages/mlat-client-adsbfi.md), [`gr-air-modes`](../packages/gr-air-modes.md), [`rtl-ais`](../packages/rtl-ais.md), [`ais-catcher`](../packages/ais-catcher.md), [`gnuais`](../packages/gnuais.md), [`gnuaisgui`](../packages/gnuaisgui.md), [`welle-io`](../packages/welle-io.md), [`dablin`](../packages/dablin.md), [`satdump`](../packages/satdump.md), [`kalibrate-rtl`](../packages/kalibrate-rtl.md), [`morse2ascii`](../packages/morse2ascii.md), [`xdemorse`](../packages/xdemorse.md), [`gqrx-sdr`](../packages/gqrx-sdr.md), [`artemis`](../packages/artemis.md)
 
 ## What it deliberately excludes
 

@@ -8,17 +8,17 @@
 
 ## What it installs
 
-Tools for looking at radio and network traffic you are entitled to look at: a protocol analyser, Wi-Fi and Bluetooth capture tooling, an offline signal visualiser, and a decoder for the unlicensed ISM bands.
+Tools for looking at radio and network traffic you are entitled to look at: a protocol analyser, Wi-Fi and Bluetooth capture tooling, an offline signal visualiser, a decoder for the unlicensed ISM bands, and an offline signal-identification reference (Artemis) for naming what the visualiser shows.
 
 **Disk footprint:** Roughly 300 MB with dependencies, dominated by Wireshark.
 
 ## Why these belong together
 
-All of it is receive-and-analyse. None of it transmits, none of it is specific to protected communications, and all of it is packaged by at least one of our target distributions, so it installs from apt with no ceremony.
+All of it is receive-and-analyse. None of it transmits, none of it is specific to protected communications, and all but one unit is packaged by at least one of our target distributions, so it installs from apt with no ceremony; Artemis is a venv from its source tarball, because its vendor package collides with an unrelated Debian package of the same name (D-048).
 
-## Packages (9)
+## Packages (10)
 
-[`aircrack-ng`](../packages/aircrack-ng.md), [`esptool`](../packages/esptool.md), [`hcxdumptool`](../packages/hcxdumptool.md), [`hcxtools`](../packages/hcxtools.md), [`inspectrum`](../packages/inspectrum.md), [`rtl-433`](../packages/rtl-433.md), [`tcpdump`](../packages/tcpdump.md), [`ubertooth`](../packages/ubertooth.md), [`wireshark`](../packages/wireshark.md)
+[`aircrack-ng`](../packages/aircrack-ng.md), [`esptool`](../packages/esptool.md), [`hcxdumptool`](../packages/hcxdumptool.md), [`hcxtools`](../packages/hcxtools.md), [`inspectrum`](../packages/inspectrum.md), [`rtl-433`](../packages/rtl-433.md), [`tcpdump`](../packages/tcpdump.md), [`ubertooth`](../packages/ubertooth.md), [`wireshark`](../packages/wireshark.md), [`artemis`](../packages/artemis.md)
 
 ## What it deliberately excludes
 

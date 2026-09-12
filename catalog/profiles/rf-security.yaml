@@ -24,16 +24,22 @@ packages:
   - tcpdump
   - ubertooth
   - wireshark
+  - artemis
 
 documentation:
   what_it_installs: >-
     Tools for looking at radio and network traffic you are entitled to look at:
     a protocol analyser, Wi-Fi and Bluetooth capture tooling, an offline signal
-    visualiser, and a decoder for the unlicensed ISM bands.
+    visualiser, a decoder for the unlicensed ISM bands, and an offline
+    signal-identification reference (Artemis) for naming what the visualiser
+    shows.
   why_together: >-
     All of it is receive-and-analyse. None of it transmits, none of it is
-    specific to protected communications, and all of it is packaged by at least
-    one of our target distributions, so it installs from apt with no ceremony.
+    specific to protected communications, and all but one unit is packaged by
+    at least one of our target distributions, so it installs from apt with no
+    ceremony; Artemis is a venv from its source tarball, because its vendor
+    package collides with an unrelated Debian package of the same name
+    (D-048).
   deliberately_excludes: >-
     Anything that transmits, and anything aimed at cellular. `esptool` is the
     edge case D-026 was written for and is included: it writes bytes to a serial

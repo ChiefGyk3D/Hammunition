@@ -1,0 +1,96 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: gpa
+version: "0.11.1"
+summary: GNU Privacy Assistant — a GTK front end to GnuPG for signed and encrypted traffic
+categories: [emcomm, workstation]
+
+# ADD from EmComm Tools OS Community (D-042 sub-project 4, D-048), where it
+# serves the AmRRON signed-traffic workflow. Measured 2026-09-12 with
+# `apt-cache policy` on all seven targets: Ubuntu 24.04 and Mint 22.3 carry
+# 0.10.0, Ubuntu 26.04 carries 0.11.0, and Debian 13, Parrot and Kali carry
+# nothing -- Debian dropped the package. So the archive's package where
+# there is one (never build what apt provides), and the gnupg.org tarball
+# everywhere else: fetched, sha256'd, and its detached signature verified
+# against the GnuPG distribution signing key (Werner Koch, dist signing
+# 2020, 6DAA 6E64 A76D 2840 571B 4902 5288 97B8 2640 3ADA) the same day.
+# Built on Debian 13: configure and make exit 0, `gpa --version` prints
+# 0.11.1. 0.11.1 (2026-02-12) is the release that builds against gpgme 2.x,
+# which Kali and Ubuntu 26.04 ship.
+install:
+  - when:
+      distro: [ubuntu, linuxmint]
+    install:
+      method: apt
+      packages: [gpa]
+  - install:
+      method: source
+      source:
+        url: https://www.gnupg.org/ftp/gcrypt/gpa/gpa-0.11.1.tar.bz2
+        sha256: 0bc5b2cd3e0641d07a2d8af372a09659decd918bee22fdfbefd2133d7c4d5d0b
+      build_system: autotools
+    build_depends:
+      - pkg-config
+      # configure.ac: gtk+-3.0, gpg-error >= 1.27, libassuan >= 2.4.2,
+      # gpgme >= 1.9.0. All four -dev packages have candidates on every
+      # target (policy sweep, 2026-09-12).
+      - libgtk-3-dev
+      - libgpg-error-dev
+      - libassuan-dev
+      - libgpgme-dev
+      - gettext
+
+binaries:
+  - produced: src/gpa
+    install_as: gpa
+
+# It is a front end; without gpg there is nothing behind it. The GTK and
+# gpgme runtime libraries arrive with the -dev packages on the source
+# targets and with the archive package on the apt ones, so they are not
+# named here -- naming a soname package by hand is how D-016's stale
+# dependency lines happened.
+depends: [gnupg]
+
+launchers:
+  - name: gpa
+    exec: exec gpa
+
+update:
+  probe:
+    method: binary_version
+    command: gpa --version
+    pattern: 'gpa ([0-9.]+)'
+  strategy: rebuild
+  cadence_hint: >-
+    Releases are rare (0.10.0 in 2018, 0.11.0 in 2024, 0.11.1 in 2026) and
+    announced on gnupg-announce; each ships a detached signature beside the
+    tarball. Verify the signature before bumping the hash.
+
+documentation:
+  what_it_does: >-
+    A graphical front end to GnuPG: manage keys, sign, verify, encrypt and
+    decrypt files and clipboard text without the gpg command line. The
+    key manager, file manager and clipboard windows are the whole program.
+  why_you_want_it: >-
+    Signed traffic. EMCOMM nets that authenticate messages -- AmRRON's
+    workflow is the one EmComm Tools built this in for -- sign and verify
+    with PGP keys, and an operator handling traffic at a keyboard under
+    pressure wants a window, not a man page. Kleopatra is the KDE
+    alternative and pulls in much more; Seahorse is GNOME's key manager
+    and does less with files.
+  prerequisites: >-
+    GnuPG installed (it is, as a dependency) and a keypair, which GPA can
+    generate. Nothing radio-specific: the signed text goes over whatever
+    mode you use.
+  known_problems: >-
+    Debian dropped the package, so on Debian 13, Parrot and Kali it is
+    built from the gnupg.org tarball; on the Ubuntu family the archive's
+    older 0.10.0 or 0.11.0 is used instead, and the version differs by
+    target for that reason. The source build installs the `gpa` binary and
+    a generated launcher; upstream's own desktop file and icons are not
+    installed. GTK 3.
+  upstream_url: https://www.gnupg.org/related_software/gpa/
+  upstream_support: >-
+    The gnupg-users list and dev.gnupg.org; GPA is maintained inside the
+    GnuPG project.

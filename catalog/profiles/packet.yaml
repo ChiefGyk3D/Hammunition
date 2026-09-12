@@ -9,6 +9,7 @@ packages:
   - direwolf
   - qtsoundmodem
   - qttermtcp
+  - paracon
   - ax25-tools
   - ax25-apps
   - ax25-xtools
@@ -54,8 +55,9 @@ suggests_one_of:
 
 documentation:
   what_it_installs: >-
-    Two soundcard TNCs — one headless and one with a scope — two packet
-    terminals, a node front end, a BBS and Winlink gateway, the Winlink
+    Two soundcard TNCs — one headless and one with a scope — three packet
+    terminals (one of them, Paracon, speaking AGWPE to Direwolf and needing
+    no kernel stack at all), a node front end, a BBS and Winlink gateway, the Winlink
     client, an HF data modem, the full-featured APRS client, a digipeater and
     an internet gateway, mail tools, AMPRnet routing, a GRIB weather viewer,
     and, where the running kernel still carries it, the kernel AX.25 stack's

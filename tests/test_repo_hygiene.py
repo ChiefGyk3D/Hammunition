@@ -241,6 +241,7 @@ _SOURCES = (
     ("73Linux delta", "**73Linux delta (28):**", 28),
     ("Skywave delta", "**Skywave delta (9):**", 9),
     ("DragonOS Tier-1 — new units", "**DragonOS Tier-1 — new units (8):**", 8),
+    ("EmComm Tools OS delta", "**EmComm Tools OS delta (11):**", 11),
 )
 
 

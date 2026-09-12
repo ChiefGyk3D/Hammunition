@@ -310,9 +310,14 @@ def test_every_catalog_tree_names_its_marker() -> None:
         for name, manifest in catalog.items()
         if any(_installs_a_tree(block.install) for block in manifest.install)
     }
-    assert tree_units == {"js8spotter", "mshv", "yaac", "radiosonde-auto-rx", "supersdr"}, (
-        "a unit started or stopped installing a tree; update this pin and check its marker"
-    )
+    assert tree_units == {
+        "artemis",
+        "js8spotter",
+        "mshv",
+        "yaac",
+        "radiosonde-auto-rx",
+        "supersdr",
+    }, "a unit started or stopped installing a tree; update this pin and check its marker"
     for name in tree_units:
         for block in catalog[name].install:
             if _installs_a_tree(block.install):
@@ -328,6 +333,8 @@ def test_every_catalog_launcher_working_directory_is_under_the_shared_prefix() -
     launcher_units = {name for name, m in catalog.items() if m.launchers}
     assert launcher_units == {
         "ais-catcher",
+        "artemis",
+        "gpa",
         "hamclock-next",
         "js8spotter",
         "mshv",
