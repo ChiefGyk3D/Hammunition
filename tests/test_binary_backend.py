@@ -413,3 +413,56 @@ def test_a_deb_this_engine_already_installed_plans_no_fetch_and_no_install(tmp_p
     )
     steps = commands_for(plan, AptBackend(RecordingRunner()), binary=_backend(tmp_path))
     assert steps == []
+
+
+# ---------------------------------------------------------------------------
+# Field laptop, 2026-09-12: the full-catalog install failed at paracon --
+# `[install-binary] /usr/local/bin/paracon: Permission denied`. A single
+# prebuilt executable was copied into the prefix in-process, as the operator;
+# every other install form goes through a privileged command. 165 steps in,
+# the transaction stopped there.
+# ---------------------------------------------------------------------------
+
+
+def test_a_single_executable_into_a_root_prefix_is_installed_by_a_privileged_command(
+    tmp_path: Path,
+) -> None:
+    from hammunition.backends import RecordingRunner as _RR
+
+    runner = _RR()
+    backend = BinaryBackend(
+        fetcher=Fetcher(tmp_path / "cache"),
+        runner=runner,
+        build_root=tmp_path / "build",
+        prefix=Path("/usr/local"),
+    )
+    fetched_file = tmp_path / "paracon"
+    fetched_file.write_bytes(b"#!/bin/sh\n")
+    backend._install_executable({"path": fetched_file}, Path("/usr/local/bin/paracon"))
+    command = runner.commands[-1]
+    assert command.argv == (
+        "install",
+        "-D",
+        "-m",
+        "0755",
+        str(fetched_file),
+        "/usr/local/bin/paracon",
+    )
+    assert command.requires_root, "a root-owned prefix is written by a privileged command"
+
+
+def test_a_single_executable_into_a_user_prefix_lands_executable(tmp_path: Path) -> None:
+    from hammunition.backends.base import SubprocessRunner
+
+    backend = BinaryBackend(
+        fetcher=Fetcher(tmp_path / "cache"),
+        runner=SubprocessRunner(),
+        build_root=tmp_path / "build",
+        prefix=tmp_path / "prefix",
+    )
+    fetched_file = tmp_path / "tool"
+    fetched_file.write_bytes(b"#!/bin/sh\necho ok\n")
+    target = tmp_path / "prefix" / "bin" / "tool"
+    outcome = backend._install_executable({"path": fetched_file}, target)
+    assert target.exists() and target.stat().st_mode & 0o755 == 0o755
+    assert str(target) in outcome

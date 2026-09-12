@@ -39,7 +39,6 @@ refused by name so the gap stays visible (D-014).
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -226,9 +225,21 @@ class BinaryBackend:
         path = fetched.get("path")
         if path is None:  # pragma: no cover
             raise BackendError("the executable was not fetched before the install step")
-        target.parent.mkdir(parents=True, exist_ok=True)
-        # Copy rather than move: the fetch cache is content-addressed and shared,
-        # and moving out of it would make the next run re-download.
-        target.write_bytes(path.read_bytes())
-        os.chmod(target, 0o755)
+        # `install -D` copies (the fetch cache is content-addressed and shared;
+        # moving out of it would make the next run re-download), creates the
+        # parent, and sets the mode -- and it runs through the runner, which
+        # elevates it for a root-owned prefix. The in-process copy this
+        # replaced wrote /usr/local/bin/paracon as the operator and failed
+        # with EACCES 165 steps into the field laptop's first full install
+        # (2026-09-12); every other install form already went through a
+        # privileged command.
+        result = self.runner.run(
+            Command(
+                argv=("install", "-D", "-m", "0755", str(path), str(target)),
+                description=f"Install {target.name} as {target}",
+                requires_root=needs_root_for(self.prefix),
+            )
+        )
+        if not result.ok:
+            raise BackendError(f"could not install {target}: {result.stderr.strip()[:400]}")
         return f"installed {target} (mode 0755)"
