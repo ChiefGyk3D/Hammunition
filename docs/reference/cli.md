@@ -105,6 +105,21 @@ licence and where it is stated, and the install directory, under the heading
 *Offline data that will be downloaded and installed*. `uninstall` removes
 the directory whole; it is namespaced, so it can only be ours.
 
+**Recommends, per unit (D-052).** Recommends are not suppressed globally —
+that would deviate from what every target distribution does, and several ham
+applications get their runtime data that way. A single manifest may opt its
+own packages out with `install_recommends: false`, for the measured case
+where a package's Recommends conflict with the target's desktop stack:
+Debian's `morse` Recommends `pulseaudio`, which `Conflicts: pipewire-alsa`,
+so on a PipeWire desktop apt would satisfy the transaction by removing the
+machine's audio routing and the plan refuses it (**D-022**, issue #61). Such
+a unit's packages become a second apt set, simulated with
+`--no-install-recommends` and installed by a second `apt-get install`
+carrying it. The plan prints the set under *apt packages installed without
+Recommends*, naming the units that asked, and both apt commands appear under
+*Commands*. `--no-remove` is on both: the flag buys a unit its own apt
+invocation, never an exemption from **D-022**.
+
 **Suggestion groups.** A profile may suggest one-of-several optional
 companions (the packet profile's mail client is the first): the run
 *detects* first — any of the group's known commands on PATH means the
@@ -373,7 +388,14 @@ Resolution is a distinct phase that finishes before anything is executed
    same simulate is read for what apt would **remove** (`Remv` lines): a
    package that `Breaks:` an installed one is "resolved" by apt removing
    the installed one, and the plan refuses that by name rather than let
-   the apt step do it unseen (**D-022**, issue #42).
+   the apt step do it unseen (**D-022**, issue #42). A unit whose manifest
+   sets `install_recommends: false` makes this two questions rather than
+   one: its packages are a second set, asked with
+   `--no-install-recommends` and installed by a second `apt-get install`
+   carrying the same flag, so the `Remv` lines the plan refuses on are the
+   ones the command that runs would produce (**D-052**). Both commands
+   carry `--no-remove`, both appear under *Commands*, and a measured
+   `--target-release` governs both.
 7. **Defer what the target does not offer** — but only for a member that
    reached the plan through a *profile*, and only for one of three reasons
    that are facts about the target: no install block matches this

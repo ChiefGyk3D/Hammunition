@@ -236,6 +236,53 @@ class RepoAddition:
     """The apt packages this repository is expected to supply."""
 
 
+def _opts_out_of_recommends(block: InstallBlock) -> bool:
+    """Whether this block asked for ``--no-install-recommends``. D-052.
+
+    True only of an apt block that said so in the manifest. A source or binary
+    unit's ``build_depends`` are ordinary apt packages installed the ordinary
+    way; nothing but an apt block can opt its own packages out."""
+    install = block.install
+    return isinstance(install, AptInstall) and not install.install_recommends
+
+
+def _split_apt_sets(
+    packages: Sequence[PlannedPackage],
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """The outstanding apt work, split into the two commands that will do it.
+
+    One set per apt invocation, because that is what the plan simulates and
+    what it prints. The opted-out set is narrowed by the default one: a
+    package two units want, one of them normally, is installed normally."""
+    default: set[str] = set()
+    opted_out: set[str] = set()
+    for planned in packages:
+        target = opted_out if _opts_out_of_recommends(planned.block) else default
+        target.update(planned.outstanding)
+    return tuple(sorted(default)), tuple(sorted(opted_out - default))
+
+
+def _merge_simulations(first: AptSimulation, second: AptSimulation) -> AptSimulation:
+    """One reading of the whole apt step, from the per-set simulations.
+
+    The removal check (D-022) and the vendor-`.deb` collision check both read
+    a single simulation, and both must see everything the apt step does, so
+    the two sets' answers are merged: refused if either was, every ``Remv``
+    line from both, and the installs unioned per package so
+    :meth:`AptSimulation.from_archive` still measures the target release the
+    same way."""
+    installs = dict(first.installs)
+    for name, archives in second.installs.items():
+        installs[name] = installs.get(name, frozenset()) | archives
+    return AptSimulation(
+        ok=first.ok and second.ok,
+        installs=installs,
+        removes={**first.removes, **second.removes},
+        error="\n".join(e for e in (first.error, second.error) if e),
+        release=first.release if first.release is not None else second.release,
+    )
+
+
 @dataclass(frozen=True)
 class InstallPlan:
     """Everything that will happen, before any of it does."""
@@ -274,11 +321,40 @@ class InstallPlan:
 
     @property
     def apt_to_install(self) -> tuple[str, ...]:
-        """The union of outstanding apt packages, sorted and de-duplicated."""
-        seen: set[str] = set()
-        for planned in self.packages:
-            seen.update(planned.outstanding)
-        return tuple(sorted(seen))
+        """Outstanding apt packages for the **default** apt command, sorted and
+        de-duplicated: everything apt installs the way the distribution does,
+        Recommends included."""
+        return _split_apt_sets(self.packages)[0]
+
+    @property
+    def apt_to_install_no_recommends(self) -> tuple[str, ...]:
+        """Outstanding apt packages for the second apt command, the one that
+        carries ``--no-install-recommends``. D-052.
+
+        A package named by an opted-out unit *and* by a unit that did not opt
+        out stays in the default set: apt's defaults are what the catalog
+        deviates from, never the other way round, and the narrower command is
+        for packages nothing else in the transaction asked for normally."""
+        return _split_apt_sets(self.packages)[1]
+
+    @property
+    def apt_no_recommends_units(self) -> tuple[str, ...]:
+        """The units that asked for the second command, for the disclosure."""
+        return tuple(
+            sorted(
+                planned.name
+                for planned in self.packages
+                if _opts_out_of_recommends(planned.block) and planned.outstanding
+            )
+        )
+
+    @property
+    def apt_packages_all(self) -> tuple[str, ...]:
+        """Both apt sets together -- what this transaction installs with apt,
+        whichever command does it. What needs lists fetched, what the log
+        records, and what the effect check asks apt about afterwards."""
+        default, no_recommends = _split_apt_sets(self.packages)
+        return tuple(sorted({*default, *no_recommends}))
 
     @property
     def debconf_selections(self) -> tuple[str, ...]:
@@ -309,7 +385,7 @@ class InstallPlan:
     @property
     def is_empty(self) -> bool:
         """Nothing to install and nothing to change — a legitimate outcome."""
-        return not self.apt_to_install and not self.group_memberships and not self.apt_repos
+        return not self.apt_packages_all and not self.group_memberships and not self.apt_repos
 
 
 # ---------------------------------------------------------------------------
@@ -699,7 +775,11 @@ def _check_node_floor(
 
 
 def _resolve_from_installed_release(
-    apt: AptBackend, packages: Sequence[str], failed: AptSimulation
+    apt: AptBackend,
+    packages: Sequence[str],
+    failed: AptSimulation,
+    *,
+    no_recommends: bool = False,
 ) -> tuple[AptSimulation, str, tuple[str, ...]] | Blocker:
     """The D-038 retry: when apt refuses because it would have to downgrade
     something already installed, ask again from the release that installed it.
@@ -737,7 +817,7 @@ def _resolve_from_installed_release(
     if len(releases) != 1:
         return refusal
     release = releases[0]
-    retried = apt.simulate(packages, release=release)
+    retried = apt.simulate(packages, release=release, no_recommends=no_recommends)
     if not retried.ok:
         return refusal
     return retried, release, retried.from_archive(release)
@@ -1287,21 +1367,101 @@ def resolve(
     # came after -- and one `--simulate` of the outstanding set answers both.
     # It is asked only when everything else has resolved: a simulation of a
     # set with a missing candidate fails for the reason already listed.
+    #
+    # A unit whose Recommends conflict with the target's desktop stack sets
+    # `install_recommends: false` and its packages form a second set, asked
+    # and installed with `--no-install-recommends` (D-052, issue #61). Two
+    # sets are two apt commands, so they are two simulations: the plan may
+    # only print, and refuse on, what will actually be run.
     from_repos = {p for addition in repo_additions for p in addition.packages}
-    outstanding_apt = [
-        p for p in all_apt if not (p in states and states[p].is_installed) and p not in from_repos
-    ]
+    opted_out_names = {
+        p for _, block, packages, _ in resolved if _opts_out_of_recommends(block) for p in packages
+    }
+    default_names = {
+        p
+        for _, block, packages, _ in resolved
+        if not _opts_out_of_recommends(block)
+        for p in packages
+    }
+    opted_out_names -= default_names
+
+    def _outstanding(names: set[str]) -> list[str]:
+        return [
+            p
+            for p in all_apt
+            if p in names and not (p in states and states[p].is_installed) and p not in from_repos
+        ]
+
+    apt_sets = ((_outstanding(default_names), False), (_outstanding(opted_out_names), True))
+    outstanding_apt = [p for set_packages, _ in apt_sets for p in set_packages]
     apt_release: str | None = None
     apt_from_release: tuple[str, ...] = ()
     simulation = AptSimulation(ok=True)
     if outstanding_apt and states and not blockers:
-        simulation = apt.simulate(outstanding_apt)
-        if not simulation.ok:
-            retried = _resolve_from_installed_release(apt, outstanding_apt, simulation)
-            if isinstance(retried, Blocker):
-                blockers.append(retried)
-            else:
-                simulation, apt_release, apt_from_release = retried
+        results: list[AptSimulation] = []
+        for set_packages, no_recommends in apt_sets:
+            if not set_packages:
+                results.append(AptSimulation(ok=True))
+                continue
+            result = apt.simulate(set_packages, no_recommends=no_recommends)
+            if not result.ok:
+                retried = _resolve_from_installed_release(
+                    apt, set_packages, result, no_recommends=no_recommends
+                )
+                if isinstance(retried, Blocker):
+                    blockers.append(retried)
+                else:
+                    result, _, _ = retried
+            results.append(result)
+        # `--target-release` is apt's, not one command's: a release measured
+        # for either set governs the whole apt step, so the other set is asked
+        # again with it rather than the plan disclosing a simulation of
+        # something the machine will not be asked to do. Two releases is the
+        # D-038 refusal for the same reason none is: nothing is guessed.
+        releases = sorted({r.release for r in results if r.release is not None})
+        if not blockers and len(releases) > 1:
+            blockers.append(
+                Blocker(
+                    subject="apt",
+                    reason=(
+                        f"the two apt sets in this transaction resolve from different "
+                        f"releases ({', '.join(releases)}), and one apt step cannot run "
+                        f"with both"
+                    ),
+                    remedy=(
+                        "install them in separate runs, or leave out the unit whose "
+                        "packages need the other release -- the plan will not pick one "
+                        "release over the other for you (D-038)"
+                    ),
+                )
+            )
+        elif not blockers and releases:
+            apt_release = releases[0]
+            for index, (set_packages, no_recommends) in enumerate(apt_sets):
+                if not set_packages or results[index].release is not None:
+                    continue
+                again = apt.simulate(set_packages, release=apt_release, no_recommends=no_recommends)
+                results[index] = again
+                if not again.ok:
+                    blockers.append(
+                        Blocker(
+                            subject="apt",
+                            reason=(
+                                f"cannot resolve this transaction as one apt-get install: "
+                                f"the rest of it needs --target-release {apt_release}, and "
+                                f"these packages do not resolve from there:\n"
+                                f"{_indent(again.error)}"
+                            ),
+                            remedy=(
+                                "leave out the unit that needs the other release, or "
+                                "install the two in separate runs -- the plan will not "
+                                "start a transaction apt has already refused (D-016)"
+                            ),
+                        )
+                    )
+        simulation = _merge_simulations(results[0], results[1])
+        if apt_release is not None:
+            apt_from_release = simulation.from_archive(apt_release)
 
     # -- what the apt step would REMOVE (D-022) ---------------------------
     # apt "resolves" a `Breaks:` against an installed package by removing

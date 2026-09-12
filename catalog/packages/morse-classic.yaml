@@ -26,6 +26,14 @@ install:
   - install:
       method: apt
       packages: [morse]
+      # `morse` needs libpulse0, which is a Depends and which pipewire-pulse
+      # satisfies; pulseaudio itself is only a Recommends, and installing it
+      # is what evicts pipewire-alsa (measured: `apt-get install -s morse` on
+      # Parrot 7.3 + KDE planned `Remv pipewire-alsa [1.4.9-1~bpo13+2]`,
+      # 2026-09-12, #61). So this unit alone is installed with
+      # --no-install-recommends, in its own apt command, disclosed in the plan
+      # (D-052). Nothing else in any transaction changes.
+      install_recommends: false
 
 update:
   probe:

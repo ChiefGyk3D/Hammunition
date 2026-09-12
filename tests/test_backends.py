@@ -224,6 +224,42 @@ def test_recommends_are_not_suppressed() -> None:
     assert "--no-install-recommends" not in command.argv
 
 
+def test_a_unit_may_opt_out_of_recommends_for_its_own_command() -> None:
+    """D-052: the opt-out is per unit and per command, never global. Debian's
+    `morse` Recommends pulseaudio, which Conflicts pipewire-alsa, so on a
+    PipeWire desktop the default command removes the machine's audio routing
+    (#61). `--no-remove` stays on, because D-022 does not bend for it."""
+    (command,) = AptBackend(RecordingRunner()).install_commands(["morse"], recommends=False)
+    assert command.argv == (
+        "apt-get",
+        "install",
+        "--yes",
+        "--no-remove",
+        "--no-install-recommends",
+        "--",
+        "morse",
+    )
+    assert "without Recommends" in command.description
+
+
+def test_the_opted_out_simulate_asks_the_question_the_install_will_ask() -> None:
+    """A simulation that does not carry the flag is a simulation of a different
+    transaction, and the `Remv` lines read from it would be the wrong ones."""
+    command = AptBackend(RecordingRunner()).simulate_command(
+        ["morse"], no_recommends=True, no_remove=True
+    )
+    assert command.argv == (
+        "apt-get",
+        "install",
+        "--simulate",
+        "--yes",
+        "--no-remove",
+        "--no-install-recommends",
+        "--",
+        "morse",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Privilege, which the type carries rather than the call site
 # ---------------------------------------------------------------------------

@@ -498,7 +498,7 @@ def commands_for(
     # to install stays a no-op, and a source-only plan on a station with no
     # uplink never starts with a network command. A just-added repository
     # always needs it, whatever the flag says: apt has no index for it yet.
-    needs_lists = bool(plan.apt_to_install) or bool(debs)
+    needs_lists = bool(plan.apt_packages_all) or bool(debs)
     if (refresh and needs_lists) or plan.apt_repos:
         commands.append(apt.refresh_command())
     # The same question again for a just-added repository: the plan-time
@@ -532,7 +532,7 @@ def commands_for(
             )
         )
 
-    if plan.debconf_selections and plan.apt_to_install:
+    if plan.debconf_selections and plan.apt_packages_all:
         # Before the apt install, never after: a package's postinst reads its
         # preseeded answers as it configures, so wireshark-common creates the
         # wireshark group and grants dumpcap its capabilities in one pass. Fed
@@ -546,8 +546,20 @@ def commands_for(
             )
         )
     commands.extend(apt.install_commands(plan.apt_to_install, release=plan.apt_release))
+    # The second apt command, for the units whose manifests asked for
+    # `--no-install-recommends` (D-052). After the default one, because it is
+    # the deviation: the ordinary transaction settles first, and the operator
+    # reading the plan sees the narrower command as the exception it is. Both
+    # carry --no-remove and both were simulated the way they will run.
+    commands.extend(
+        apt.install_commands(
+            plan.apt_to_install_no_recommends,
+            release=plan.apt_release,
+            recommends=False,
+        )
+    )
 
-    if plan.reconfigure_after and plan.apt_to_install:
+    if plan.reconfigure_after and plan.apt_packages_all:
         # After the whole apt transaction is settled, so a postinst action that
         # needs another just-installed package (wireshark-common's setcap needs
         # libcap2-bin) re-runs with everything present. Non-interactive: the
@@ -767,7 +779,7 @@ def verify_effects(
             }
         )
     )
-    wanted = tuple(sorted({*plan.apt_to_install, *deb_packages}))
+    wanted = tuple(sorted({*plan.apt_packages_all, *deb_packages}))
     if wanted and prober is not None:
         states = prober.probe(wanted)
         for name in wanted:
@@ -910,7 +922,7 @@ def execute(
             "timestamp": datetime.now(UTC).isoformat(),
             "target": plan.target.to_log_entry(),
             "packages": [p.name for p in plan.packages],
-            "apt_packages": list(plan.apt_to_install),
+            "apt_packages": list(plan.apt_packages_all),
             "deferred": [d.to_log_entry() for d in plan.deferrals],
         }
     )

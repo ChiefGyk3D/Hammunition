@@ -832,7 +832,7 @@ def _mock_apt(monkeypatch: pytest.MonkeyPatch, *, populated: bool) -> None:
     monkeypatch.setattr(
         AptBackend,
         "simulate",
-        lambda self, pkgs, *, release=None: AptSimulation(
+        lambda self, pkgs, *, release=None, no_recommends=False: AptSimulation(
             ok=True, installs={p: frozenset({"stable"}) for p in pkgs}, release=release
         ),
     )
@@ -1309,3 +1309,56 @@ def test_plan_state_says_already_installed_for_a_deb_this_engine_installed() -> 
     text = "\n".join(render_plan(plan, (), euid=1000))
     assert "already installed" in text
     assert "will fetch+install" not in text
+
+
+# ---------------------------------------------------------------------------
+# The second apt command is disclosed, and says whose it is (D-052, #61)
+# ---------------------------------------------------------------------------
+
+
+def test_the_plan_names_the_units_that_asked_for_no_recommends() -> None:
+    """Two apt commands are two things happening to the machine, and the
+    second deviates from what the distribution does by default. An operator
+    reading the plan sees which unit asked and why, before confirming."""
+    manifest = PackageManifest.model_validate(
+        {
+            "name": "morse-classic",
+            "version": "2.6",
+            "summary": "A Morse sounder",
+            "categories": ["cw"],
+            "install": [
+                {"install": {"method": "apt", "packages": ["morse"], "install_recommends": False}}
+            ],
+            "update": {"probe": {"method": "apt_policy"}},
+            "documentation": {
+                "what_it_does": "Sounds text as Morse for the purposes of testing.",
+                "why_you_want_it": "Because the test suite requires a valid manifest.",
+                "upstream_url": "https://example.invalid/",
+            },
+        }
+    )
+    plan = _plan(
+        packages=(
+            PlannedPackage(
+                manifest=_manifest(),
+                block=_manifest().install[0],
+                apt_packages=("example",),
+            ),
+            PlannedPackage(
+                manifest=manifest,
+                block=manifest.install[0],
+                apt_packages=("morse",),
+            ),
+        )
+    )
+    apt = AptBackend(RecordingRunner())
+    commands = commands_for(plan, apt, current_groups=frozenset())
+    text = "\n".join(render_plan(plan, commands, euid=0))
+    assert "without Recommends" in text
+    assert "morse-classic" in text
+    installs = [
+        c for c in commands if isinstance(c, Command) and c.argv[:2] == ("apt-get", "install")
+    ]
+    assert len(installs) == 2
+    for command in installs:
+        assert command.display(euid=0) in text

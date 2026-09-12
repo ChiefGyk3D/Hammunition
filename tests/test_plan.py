@@ -845,3 +845,108 @@ def test_a_vendor_deb_with_no_log_to_consult_is_planned_again(tmp_path: Path) ->
     plan = _resolve(tmp_path, ["hill"], catalog={"hill": _deb_manifest()}, known={"hill": "1.0.0"})
     [planned] = plan.packages
     assert planned.deb_installed is False
+
+
+# ---------------------------------------------------------------------------
+# Recommends, per unit: two apt sets, both simulated (D-052, issue #61)
+# ---------------------------------------------------------------------------
+
+
+def _no_recommends_manifest() -> PackageManifest:
+    """morse-classic's shape: Debian's `morse`, whose Recommends (pulseaudio)
+    Conflicts the desktop's pipewire-alsa."""
+    return _manifest(
+        name="morse-classic",
+        install=[
+            {
+                "install": {
+                    "method": "apt",
+                    "packages": ["morse"],
+                    "install_recommends": False,
+                }
+            }
+        ],
+        conflicts_with_repo_package=["pipewire-alsa"],
+    )
+
+
+def _mixed_catalog() -> dict[str, PackageManifest]:
+    return {"example": _manifest(), "morse-classic": _no_recommends_manifest()}
+
+
+def _simulates(apt: Any) -> list[str]:
+    import shlex
+
+    return [shlex.join(c.argv) for c in apt.runner.commands if "--simulate" in c.argv]
+
+
+def test_an_opted_out_unit_leaves_the_default_apt_set(tmp_path: Path) -> None:
+    plan = _resolve(
+        tmp_path,
+        ["morse-classic"],
+        catalog={"morse-classic": _no_recommends_manifest()},
+        known={"morse": None},
+    )
+    assert plan.apt_to_install == ()
+    assert plan.apt_to_install_no_recommends == ("morse",)
+    assert plan.apt_no_recommends_units == ("morse-classic",)
+    assert plan.apt_packages_all == ("morse",)
+    assert not plan.is_empty
+
+
+def test_each_set_is_simulated_the_way_it_will_be_installed(tmp_path: Path) -> None:
+    """D-016 and D-022 both rest on the simulation being of the transaction
+    that will actually run: one `--simulate` per set, the second carrying the
+    flag the second install carries."""
+    apt = _apt(tmp_path, {"example": None, "morse": None})
+    plan = _resolve(tmp_path, ["example", "morse-classic"], apt=apt, catalog=_mixed_catalog())
+    assert plan.apt_to_install == ("example",)
+    assert plan.apt_to_install_no_recommends == ("morse",)
+    assert _simulates(apt) == [
+        "apt-get install --simulate --yes -- example",
+        "apt-get install --simulate --yes --no-install-recommends -- morse",
+    ]
+
+
+def test_the_two_sets_become_two_apt_commands_in_order(tmp_path: Path) -> None:
+    from hammunition.backends.base import Command
+    from hammunition.execute import commands_for
+
+    apt = _apt(tmp_path, {"example": None, "morse": None})
+    plan = _resolve(tmp_path, ["example", "morse-classic"], apt=apt, catalog=_mixed_catalog())
+    steps = commands_for(plan, apt=apt, refresh=False)
+    installs = [s for s in steps if isinstance(s, Command) and s.argv[:2] == ("apt-get", "install")]
+    assert [s.argv for s in installs] == [
+        ("apt-get", "install", "--yes", "--no-remove", "--", "example"),
+        ("apt-get", "install", "--yes", "--no-remove", "--no-install-recommends", "--", "morse"),
+    ]
+
+
+def test_a_removal_in_the_opted_out_simulate_still_refuses(tmp_path: Path) -> None:
+    """The flag is not an escape from D-022. If apt still plans a removal with
+    Recommends suppressed, the plan refuses it and names the unit whose
+    conflicts_with_repo_package declared it."""
+    from hammunition.backends.base import CommandResult
+
+    apt = _apt(tmp_path, {"morse": None})
+    apt.runner = RecordingRunner(
+        {
+            "apt-get install --simulate --yes --no-install-recommends -- morse": CommandResult(
+                argv=(),
+                returncode=0,
+                stdout="Remv pipewire-alsa [1.4.9-1~bpo13+2]\nInst morse (2.6-2 x:parrot [amd64])\n",
+                stderr="",
+            )
+        }
+    )
+    with pytest.raises(PlanError) as excinfo:
+        _resolve(
+            tmp_path,
+            ["morse-classic"],
+            apt=apt,
+            catalog={"morse-classic": _no_recommends_manifest()},
+        )
+    text = str(excinfo.value)
+    assert "morse-classic" in text
+    assert "pipewire-alsa (1.4.9-1~bpo13+2)" in text
+    assert "--no-remove" in text

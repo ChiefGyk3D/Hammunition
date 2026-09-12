@@ -3744,3 +3744,70 @@ moved rebuilds, and that is the point: *at its pin*, not *at some pin*.
 `docs/reference/bench-verification-5430.md` once the laptop's second
 resume ends with a verified transaction): a dry run of the profiles that
 carry the 21 builds should plan launcher steps only.
+
+---
+
+## D-052 — A unit whose Recommends conflict with the target's desktop may opt itself out; the global default does not move, and the opt-out is a second apt command, simulated like the first
+
+**Date:** 2026-09-12. **Status:** accepted. **Depends on:** D-022 (never
+remove what the operator did not ask to remove), D-016 (resolution completes
+before anything runs), D-038 (a measured `--target-release` governs the apt
+step). **Closes:** issue #61, option A.
+
+**What was measured.** On the field laptop — Parrot Security 7.3, KDE,
+`pipewire-alsa 1.4.9-1~bpo13+2` installed — `hammunition install morse
+--dry-run --no-refresh` refused the whole profile, correctly, because:
+
+```
+$ apt-get install -s morse | grep -E '^(Inst|Remv)'
+Remv pipewire-alsa [1.4.9-1~bpo13+2]
+Inst morse (2.6-2 Parrot 7 Echo Parakeet:parrot [amd64])
+Inst libasound2-plugins (...)
+Inst pulseaudio (17.0+dfsg1-2+b1 ...)
+
+$ apt-cache depends morse | grep Recommends
+  Recommends: pulseaudio
+$ apt-cache show pipewire-alsa | grep Conflicts
+Conflicts: pulseaudio
+```
+
+`morse` *Depends* `libpulse0`, which `pipewire-pulse` satisfies; PulseAudio
+itself is only a Recommends. So the software does not need PulseAudio —
+Debian's metadata prefers it, and apt's default of installing Recommends turns
+that preference into the removal of the desktop's audio routing.
+
+**Rule.** An apt install block may carry `install_recommends: false`. It is a
+per-unit opt-out and nothing else:
+
+1. **The global default is untouched.** Recommends are still installed for
+   every other unit, on every target, exactly as the distribution does. The
+   apt backend's module docstring remains the authority on why.
+2. **The opted-out packages are a second set**, and two sets are two
+   `apt-get install` commands: the default one first, then one carrying
+   `--no-install-recommends` for the units that asked. A package named by an
+   opted-out unit *and* by a unit that did not opt out stays in the default
+   set — apt's defaults are what a manifest deviates from, never the reverse.
+3. **Both sets are simulated the way they will be installed**, the second
+   with `--no-install-recommends` on the `--simulate`. The two `AptSimulation`
+   results are merged — refused if either was, `Remv` lines from both — so the
+   D-022 removal check reads exactly what apt will do and not a simulation of
+   a different transaction. A `--target-release` measured for either set under
+   D-038 governs the whole apt step, so the other set is simulated again with
+   it; two different releases is a refusal, because one apt step cannot run
+   with both and nothing is guessed.
+4. **`--no-remove` stays on both commands.** The flag buys a unit its own apt
+   invocation, never an exemption from D-022: if apt still plans a removal
+   with Recommends suppressed, the plan refuses by name as before.
+5. **It is disclosed.** The plan prints the second set under *apt packages
+   installed without Recommends*, naming the units that asked and why, and
+   both commands appear under *Commands* before the confirmation.
+
+**Carried in the catalog by:** `morse-classic`, the case that produced the
+rule. Its `conflicts_with_repo_package: [pipewire-alsa]` declaration stays:
+the flag is what avoids the removal, the declaration is what names this unit
+as the reason if a future apt plans one anyway. Whether it returns to the
+`morse` profile is the maintainer's call and is not decided here.
+
+**Not decided here.** Nothing global, and no second use: a manifest that wants
+this flag needs the same shape of measurement — the Recommends named, the
+conflict named, the `apt-get install -s` output that shows the removal.

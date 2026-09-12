@@ -230,7 +230,9 @@ def _plan_with_in_transaction_conflict(tmp_path: Path, pulled_in: set[str]) -> A
     apt = _apt(tmp_path, known)
 
     class SimulatingApt(type(apt)):  # type: ignore[misc]
-        def simulate(self, packages: Any, *, release: str | None = None) -> Any:
+        def simulate(
+            self, packages: Any, *, release: str | None = None, no_recommends: bool = False
+        ) -> Any:
             from hammunition.backends.apt import AptSimulation
 
             assert "puller" in packages
@@ -406,7 +408,9 @@ def _plan_with_removal(tmp_path: Path, removes: dict[str, str], *, declared: boo
     apt = _apt(tmp_path, {"displacer": None, "distro-owned": "1.0-1"})
 
     class SimulatingApt(type(apt)):  # type: ignore[misc]
-        def simulate(self, packages: Any, *, release: str | None = None) -> Any:
+        def simulate(
+            self, packages: Any, *, release: str | None = None, no_recommends: bool = False
+        ) -> Any:
             from hammunition.backends.apt import AptSimulation
 
             return AptSimulation(
