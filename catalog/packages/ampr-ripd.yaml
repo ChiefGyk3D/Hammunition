@@ -11,6 +11,8 @@ install:
       method: apt
       packages: [ampr-ripd]
 
+# D-050: no menu entry, deliberately. The unit's only executable is
+# /usr/sbin/ampr-ripd, a daemon systemd runs; there is nothing to open.
 update:
   probe:
     method: apt_policy

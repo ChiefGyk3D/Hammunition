@@ -11,6 +11,15 @@ install:
       method: apt
       packages: [stlink-tools]
 
+# D-050: the unit ships several command-line tools and no desktop entry, so
+# `menus apply` could not pick one without guessing. This is the pick: the
+# entry an operator opens first. Terminal launchers hold their window.
+launchers:
+  - name: st-info
+    exec: st-info --probe
+    terminal: true
+    # Is the probe there: identifies the ST-Link and the target behind it -- the first thing to run before blaming the board (known_problems below)
+
 update:
   probe:
     method: apt_policy

@@ -11,6 +11,9 @@ install:
       method: apt
       packages: [libfreefare-bin]
 
+# D-050: no menu entry, deliberately. Every tool is a per-card operation and
+# most of them write (format, write-ndef, create-ndef, configure-ats); the
+# "what does the reader see" question is nfc-list, libnfc-bin's launcher.
 update:
   probe:
     method: apt_policy

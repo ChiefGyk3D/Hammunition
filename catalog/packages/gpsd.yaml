@@ -11,6 +11,15 @@ install:
       method: apt
       packages: [gpsd]
 
+# D-050: the unit ships several command-line tools and no desktop entry, so
+# `menus apply` could not pick one without guessing. This is the pick: the
+# entry an operator opens first. Terminal launchers hold their window.
+launchers:
+  - name: gpsctl
+    exec: gpsctl
+    terminal: true
+    # Which receiver gpsd owns: with no arguments gpsctl asks the running daemon and names the device, or reports that none is connected. The live fix itself is cgps, gpsd-tools' launcher
+
 update:
   probe:
     method: apt_policy

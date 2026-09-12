@@ -14,6 +14,8 @@ install:
       method: apt
       packages: [axmail]
 
+# D-050: no menu entry, deliberately. /usr/sbin/axmail is what the node
+# spawns for a connecting caller; the operator never opens it.
 update:
   probe:
     method: apt_policy

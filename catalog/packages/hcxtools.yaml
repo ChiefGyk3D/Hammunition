@@ -11,6 +11,9 @@ install:
       method: apt
       packages: [hcxtools]
 
+# D-050: no menu entry, deliberately. A converter set: every tool takes a
+# capture file and writes a hash file; none is interactive or informational
+# without arguments.
 update:
   probe:
     method: apt_policy

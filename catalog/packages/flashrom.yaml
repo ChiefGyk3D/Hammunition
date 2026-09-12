@@ -11,6 +11,9 @@ install:
       method: apt
       packages: [flashrom]
 
+# D-050: no menu entry, deliberately. /usr/sbin/flashrom needs a programmer
+# argument, a chip on the bus and usually root; opened bare it can only
+# print usage, and a flasher is not a thing to reach for from a menu.
 update:
   probe:
     method: apt_policy

@@ -18,6 +18,15 @@ install:
 
 depends: [gnuradio]
 
+# D-050: the unit ships several command-line tools and no desktop entry, so
+# `menus apply` could not pick one without guessing. This is the pick: the
+# entry an operator opens first. Terminal launchers hold their window.
+launchers:
+  - name: grgsm_livemon
+    exec: grgsm_livemon
+    terminal: true
+    # The live GSM monitor: grgsm_livemon's own window, tuned from its controls; the terminal behind it keeps the GNU Radio log, where a missing device or an unlocked RTL-SDR is reported
+
 update:
   probe:
     method: apt_policy

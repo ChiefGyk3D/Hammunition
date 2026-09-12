@@ -18,6 +18,8 @@ install:
       tracker and Kali's archive on 2026-09-04; this is a packaging bug, not
       a dead upstream, and `tlf`'s keying still expects it.
 
+# D-050: no menu entry, deliberately. /usr/sbin/cwdaemon is a network
+# service other programs (tlf) key through, not an application to open.
 update:
   probe:
     method: apt_policy

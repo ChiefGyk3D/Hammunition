@@ -11,6 +11,8 @@ install:
       method: apt
       packages: [aprx]
 
+# D-050: no menu entry, deliberately. /usr/sbin/aprx is a daemon systemd
+# runs and aprx-stat reads its counters; neither is an application to open.
 update:
   probe:
     method: apt_policy
