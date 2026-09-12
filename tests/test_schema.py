@@ -831,3 +831,23 @@ def test_a_probe_url_belongs_to_a_label_file_probe_only() -> None:
     data = _minimal(update={"probe": {"method": "none", "url": "https://example.invalid/x.txt"}})
     with pytest.raises((ManifestError, ValidationError), match="only a label_file probe"):
         PackageManifest.model_validate(data)
+
+
+# ---------------------------------------------------------------------------
+# Recommends, per unit (D-052, issue #61)
+# ---------------------------------------------------------------------------
+
+
+def test_an_apt_unit_installs_recommends_by_default() -> None:
+    """The global default is what every target distribution does, and this
+    field does not touch it."""
+    block = AptInstall.model_validate({"method": "apt", "packages": ["morse"]})
+    assert block.install_recommends is True
+
+
+def test_an_apt_unit_may_opt_out_of_recommends() -> None:
+    """Debian's `morse` Recommends pulseaudio, which Conflicts pipewire-alsa."""
+    block = AptInstall.model_validate(
+        {"method": "apt", "packages": ["morse"], "install_recommends": False}
+    )
+    assert block.install_recommends is False

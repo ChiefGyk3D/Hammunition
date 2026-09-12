@@ -74,11 +74,17 @@ def _failed(stderr: str) -> CommandResult:
     return CommandResult(argv=(), returncode=100, stdout="Reading package lists...", stderr=stderr)
 
 
-def _parrot_apt(tmp_path: Path, *, retry_succeeds: bool = True, culprit_known: bool = True) -> Any:
+def _parrot_apt(
+    tmp_path: Path,
+    *,
+    retry_succeeds: bool = True,
+    culprit_known: bool = True,
+    also_known: dict[str, str | None] | None = None,
+) -> Any:
     """An apt whose default resolution refuses the way Parrot's did."""
     from test_plan import _apt
 
-    apt = _apt(tmp_path, {"curl-unit": None, "libcurl4-openssl-dev": None})
+    apt = _apt(tmp_path, {"curl-unit": None, "libcurl4-openssl-dev": None, **(also_known or {})})
     packages = "curl-unit libcurl4-openssl-dev"
     responses = {
         f"apt-get install --simulate --yes -- {packages}": _failed(PARROT_REFUSAL),
@@ -261,3 +267,52 @@ def test_the_install_failure_says_stale_lists_installed_nothing_and_names_the_fi
     assert stale_lists_diagnosis(remove, PARROT_STALE_LISTS) is None
     unpack = Action(kind="unpack", description="unpack", detail="", perform=lambda: "")
     assert stale_lists_diagnosis(unpack, PARROT_STALE_LISTS) is None
+
+
+# ---------------------------------------------------------------------------
+# D-038 meets D-052: a measured release governs both apt sets
+# ---------------------------------------------------------------------------
+
+
+def test_a_measured_release_is_carried_by_both_apt_sets(tmp_path: Path) -> None:
+    """The retry measures the release for the set that failed, and the other
+    set's install command runs with it too -- so that set is simulated again
+    with it, rather than the plan disclosing a simulation of something else."""
+    from hammunition.backends.base import Command
+    from hammunition.execute import commands_for
+    from test_plan import _manifest, _resolve
+
+    apt = _parrot_apt(tmp_path, also_known={"morse": None})
+    catalog = {
+        "curl-unit": _manifest(
+            name="curl-unit",
+            install=[
+                {
+                    "install": {
+                        "method": "apt",
+                        "packages": ["libcurl4-openssl-dev", "curl-unit"],
+                    }
+                }
+            ],
+        ),
+        "morse-classic": _manifest(
+            name="morse-classic",
+            install=[
+                {"install": {"method": "apt", "packages": ["morse"], "install_recommends": False}}
+            ],
+        ),
+    }
+    plan = _resolve(tmp_path, ["curl-unit", "morse-classic"], apt=apt, catalog=catalog)
+    assert plan.apt_release == "parrot-backports"
+    argvs = _argvs(apt)
+    assert (
+        "apt-get install --simulate --yes --no-install-recommends "
+        "--target-release parrot-backports -- morse"
+    ) in argvs
+
+    steps = commands_for(plan, apt=apt, refresh=False)
+    installs = [s for s in steps if isinstance(s, Command) and s.argv[:2] == ("apt-get", "install")]
+    assert len(installs) == 2
+    for command in installs:
+        assert "--target-release" in command.argv
+    assert "--no-install-recommends" in installs[1].argv

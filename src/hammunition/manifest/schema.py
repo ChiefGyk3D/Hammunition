@@ -191,6 +191,23 @@ def _check_tree_marker(installs_tree: bool, marker: str | None, how: str) -> Non
 class AptInstall(Strict):
     method: Literal["apt"] = "apt"
     packages: list[str] = Field(min_length=1)
+    install_recommends: bool = Field(
+        default=True,
+        description=(
+            "Whether apt installs this unit's Recommends. The global default "
+            "stays what every target distribution does -- Recommends are not "
+            "suppressed catalog-wide -- and this is a per-unit opt-out for a "
+            "package whose Recommends conflict with the target's desktop "
+            "stack. Debian's `morse` Recommends pulseaudio, which Conflicts "
+            "pipewire-alsa, so on a PipeWire desktop apt satisfies the "
+            "transaction by removing the machine's audio routing and the plan "
+            "refuses it (D-022, issue #61, measured on Parrot 7.3 + KDE "
+            "2026-09-12). Set false and this unit's packages are installed by "
+            "a second `apt-get install --no-install-recommends`, simulated "
+            "separately and disclosed in the plan (D-052); everything else in "
+            "the transaction keeps apt's defaults."
+        ),
+    )
 
     @model_validator(mode="after")
     def _check(self) -> AptInstall:

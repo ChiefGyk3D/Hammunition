@@ -41,6 +41,18 @@ ham applications get their runtime data and codecs that way. D-019 is about not
 treating Debian Blend *task metapackages* — which are almost entirely
 Recommends — as an install default; that is a catalog membership question and
 is settled in the catalog, not by a global apt flag applied to everything.
+
+That global default is untouched by the per-unit opt-out (D-052, issue #61). A
+manifest whose Recommends conflict with the target's desktop stack — Debian's
+``morse`` Recommends ``pulseaudio``, which ``Conflicts: pipewire-alsa``, so on
+a PipeWire desktop the default transaction removes the machine's audio routing
+and the plan refuses it under D-022 — sets ``install_recommends: false`` on its
+apt block. Its packages then form a **second** set: a second
+:meth:`AptBackend.simulate` with ``no_recommends=True``, whose ``Remv`` lines
+are read exactly like the first set's, and a second
+:meth:`AptBackend.install_commands` carrying ``--no-install-recommends``. Both
+keep ``--no-remove``; the flag buys a unit its own apt invocation, never an
+exemption from D-022.
 """
 
 from __future__ import annotations
@@ -368,7 +380,13 @@ class AptBackend:
         states = self.probe(packages)
         return sorted(p for p in packages if p not in states or not states[p].known)
 
-    def simulate(self, packages: Sequence[str], *, release: str | None = None) -> AptSimulation:
+    def simulate(
+        self,
+        packages: Sequence[str],
+        *,
+        release: str | None = None,
+        no_recommends: bool = False,
+    ) -> AptSimulation:
         """Run apt's resolver over the whole transaction without touching
         anything.
 
@@ -383,10 +401,17 @@ class AptBackend:
 
         A failed simulation is a result, not an exception: the plan reads
         apt's account and decides what it means.
+
+        *no_recommends* asks the question the way the second apt set's install
+        command will ask it (D-052). A simulation run without the flag is a
+        simulation of a different transaction, and its ``Remv`` lines would be
+        the wrong ones to refuse on.
         """
         if not set(packages):
             return AptSimulation(ok=True, release=release)
-        result = self.runner.run(self.simulate_command(packages, release=release))
+        result = self.runner.run(
+            self.simulate_command(packages, release=release, no_recommends=no_recommends)
+        )
         if not result.ok:
             # apt puts the E: lines and the solver's explanation on stderr;
             # stdout is "Reading package lists..." and worth nothing to a
@@ -407,6 +432,7 @@ class AptBackend:
         release: str | None = None,
         description: str = "",
         no_remove: bool = False,
+        no_recommends: bool = False,
     ) -> Command:
         """The ``--simulate`` invocation itself, for :meth:`simulate` and for a
         plan that wants it as a step. A local ``.deb`` may be among *packages*
@@ -416,12 +442,25 @@ class AptBackend:
 
         :meth:`simulate` asks *without* ``--no-remove`` so that the ``Remv``
         lines exist to be read and named; a step that stands in for the
-        install command asks *with* it, the way the install command will."""
+        install command asks *with* it, the way the install command will.
+        *no_recommends* is the same principle for the second apt set (D-052):
+        the question matches the command."""
         ordered = sorted(set(packages))
         target = ("--target-release", release) if release is not None else ()
         flags = ("--no-remove",) if no_remove else ()
+        recommends = ("--no-install-recommends",) if no_recommends else ()
         return Command(
-            argv=("apt-get", "install", "--simulate", "--yes", *flags, *target, "--", *ordered),
+            argv=(
+                "apt-get",
+                "install",
+                "--simulate",
+                "--yes",
+                *flags,
+                *recommends,
+                *target,
+                "--",
+                *ordered,
+            ),
             description=description or f"Ask apt how it would install {len(ordered)} package(s)",
             requires_root=False,
             env=dict(NONINTERACTIVE),
@@ -528,7 +567,7 @@ class AptBackend:
         )
 
     def install_commands(
-        self, packages: Iterable[str], *, release: str | None = None
+        self, packages: Iterable[str], *, release: str | None = None, recommends: bool = True
     ) -> list[Command]:
         """One apt-get invocation for the whole set.
 
@@ -546,16 +585,32 @@ class AptBackend:
         if the real solve disagrees with the simulation, apt exits 100 with
         ``Packages need to be removed but remove is disabled`` (Kali,
         2026-09-07) rather than removing an installed package unseen.
+
+        *recommends* is false only for the second apt set, whose units asked
+        for ``--no-install-recommends`` in their manifests (D-052). It changes
+        this invocation and no other, and ``--no-remove`` stays on: a unit may
+        buy its own apt command, never an exemption from D-022.
         """
         ordered = sorted(set(packages))
         if not ordered:
             return []
         target = ("--target-release", release) if release is not None else ()
+        suppress = ("--no-install-recommends",) if not recommends else ()
         where = f" from {release}" if release is not None else ""
+        without = " without Recommends" if not recommends else ""
         return [
             Command(
-                argv=("apt-get", "install", "--yes", "--no-remove", *target, "--", *ordered),
-                description=f"Install {len(ordered)} package(s) with apt{where}",
+                argv=(
+                    "apt-get",
+                    "install",
+                    "--yes",
+                    "--no-remove",
+                    *suppress,
+                    *target,
+                    "--",
+                    *ordered,
+                ),
+                description=f"Install {len(ordered)} package(s) with apt{where}{without}",
                 requires_root=True,
                 env=dict(NONINTERACTIVE),
             )

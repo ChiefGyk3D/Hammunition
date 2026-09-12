@@ -261,6 +261,27 @@ def render_plan(
             lines.append(f"      {apt_package}")
         lines.append("")
 
+    if plan.apt_to_install_no_recommends:
+        # A second apt command is a second thing happening to the machine, and
+        # it deviates from what the distribution does by default. Name the
+        # units that asked, so the deviation is attributable rather than a flag
+        # that appeared in an argv. D-052.
+        units = ", ".join(plan.apt_no_recommends_units)
+        lines.append("apt packages installed without Recommends (D-052):")
+        lines.extend(
+            _wrap(
+                f"{units} asked for --no-install-recommends in the manifest, because the "
+                f"Recommends of these packages conflict with software this target installs; "
+                f"a second apt-get install carries the flag for them alone. Everything else "
+                f"in this transaction keeps apt's defaults, and both commands run with "
+                f"--no-remove:",
+                indent="  ",
+            )
+        )
+        for apt_package in plan.apt_to_install_no_recommends:
+            lines.append(f"      {apt_package}")
+        lines.append("")
+
     if plan.apt_repos:
         # Before group membership and the consent gates, because it is the
         # largest thing the transaction does to the machine: a repository
