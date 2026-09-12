@@ -953,7 +953,20 @@ taken.
 
 ---
 
-## Q-019 🟡 — Kernel AX.25 is gone from Linux 7.1: retire `z8530-utils2`, and does the packet core become userspace-primary?
+## Q-019 ✅ — Kernel AX.25 is gone from Linux 7.1: retire `z8530-utils2`, and does the packet core become userspace-primary? — **RESOLVED 2026-09-10**
+
+**A and A, as recommended, recorded as D-045.** `z8530-utils2` is retired
+(`world_changed`, verdict tested against merge 64edfa65 and seven module
+trees); D-008 is amended to say the packet core is the userspace path, with
+the kernel stack the fuller station where the kernel carries it. The
+maintainer also asked whether the stack can come back as a module: it can —
+`linux-netdev/mod-orphan`, published by the maintainer who removed it, builds
+out of tree — and it is measured in `docs/reference/kernel-ax25.md` and not
+carried, because no distribution packages it, it has no tags to pin, and
+`ax25-tools` is leaving the archives regardless. A distribution packaging it
+reopens the question; D-045 says so.
+
+## Q-019 (original) — Kernel AX.25 is gone from Linux 7.1: retire `z8530-utils2`, and does the packet core become userspace-primary?
 
 **Raised 2026-09-04**, from the Kali campaign's `ax25-tools` gap, which
 turned out to be a kernel removal rather than an archive accident

@@ -8,14 +8,15 @@
 
 ## What it installs
 
-Two soundcard TNCs — one headless and one with a scope — the kernel AX.25 stack's configuration and user tools, two packet terminals, a node front end, a BBS and Winlink gateway, the Winlink client, an HF data modem, the full-featured APRS client, a digipeater and an internet gateway, mail tools, AMPRnet routing, and a GRIB weather viewer.
+Two soundcard TNCs — one headless and one with a scope — two packet terminals, a node front end, a BBS and Winlink gateway, the Winlink client, an HF data modem, the full-featured APRS client, a digipeater and an internet gateway, mail tools, AMPRnet routing, a GRIB weather viewer, and, where the running kernel still carries it, the kernel AX.25 stack's configuration and user tools.
+**The station is userspace-primary (D-045).** Direwolf or QtSoundModem turns the radio into a modem; pat, LinBPQ, YAAC and Xastir talk to it over KISS or AGW and never touch the kernel. That is the whole station on every kernel, and the path a new operator should learn first. The kernel stack — `axports`, `kissattach`, `ax25d`, NET/ROM, and packet connections as sockets — is the fuller station where the kernel has it, and a bonus rather than the foundation.
 **On a kernel without AX.25 the kernel-side members are withheld, by name.** Linux 7.1 removed the AX.25 stack (2026-04-24); Kali rolling and Pop!_OS on their 7.1 kernels no longer have it, measured 2026-09-04. The plan reads the running kernel and defers `ax25-tools`, `ax25-apps`, `ax25-xtools`, `ax25mail-utils`, `axmail`, `aprsdigi`, `linpac` and `uronode` with the reason, and the rest installs: Direwolf, pat over `ax25+agwpe`, LinBPQ, YAAC and Xastir's AGWPE interface work with no kernel stack. What such a machine cannot have is a kernel port — no `axports`, `kissattach`, `ax25d` or NET/ROM. `docs/reference/kernel-ax25.md` has the measurements.
 
 **Disk footprint:** Around 500 MB. LinBPQ and ardopcf are source builds from pinned upstream tags; everything else is apt.
 
 ## Why these belong together
 
-This is a network, not a set of programs. Direwolf turns a radio into a modem, ax25-tools brings the port up, and everything above that speaks over it. Installing half of it gives you something that connects to nothing.
+This is a network, not a set of programs. Direwolf turns a radio into a modem, the applications speak to it over KISS or AGW, and ax25-tools brings a kernel port up where there is a kernel to bring it up on. Installing half of it gives you something that connects to nothing.
 **The weather viewer belongs here and looks like it does not.** A GRIB file for one region is small enough to move over HF where a weather website is not, which is why sailors and emergency operators request them over Winlink. It is the thing the link is often carrying.
 Most of the 73Linux delta lands in this profile whole, and AHRL has none of it — this is the clearest example of what the five-source union bought.
 

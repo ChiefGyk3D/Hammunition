@@ -287,6 +287,21 @@ belong together.
 filename. The `.bapp` `Comment=` field carried the correct answer the whole time
 and cost one HTTP request to read.
 
+### Amendment, 2026-09-10 — the packet core is userspace-primary (D-045)
+
+The resolution above names "the AX.25 stack" as a member of the packet core
+and the profile prose described the station as the kernel stack with Direwolf
+feeding it. Linux 7.1 removed the kernel stack (**D-041**), and on every 7.1
+kernel — Kali today, the maintainer's own laptop, Ubuntu 24.04 the day its
+HWE kernel moves — the userspace half is the whole station: Direwolf or
+QtSoundModem as the modem, pat, LinBPQ, YAAC and Xastir over KISS or AGW.
+**The packet core is that userspace path.** The kernel stack — `ax25-tools`
+and what sits on it: `axports`, `kissattach`, `ax25d`, NET/ROM, packet
+connections as sockets — is the fuller station where the kernel carries it,
+and is planned or deferred by name per D-041. The eight units are unchanged;
+what changed is which of them is the foundation. `z8530-utils2`, never a
+core member, is retired by the same record.
+
 ---
 
 ## D-009 — Community side-loading, with review tiers, from day one
@@ -3148,3 +3163,88 @@ already-configured-repository remedy say what is now true; five tests
 cover the default, the opt-out, the no-apt-work skip, and both empty-lists
 paths through `main()`. `docs/reference/cli.md` documents `--no-refresh`
 and the step order. Q-018 is closed by this record.
+## D-045 — The packet core is userspace-primary; `z8530-utils2` is retired on tested evidence; the out-of-tree AX.25 module is measured, named, and not built until a distribution packages it
+
+**Date:** 2026-09-10. **Status:** accepted (maintainer, Q-019: both
+recommendations taken, with the module question asked and answered).
+**Depends on:** D-041 (the plan reads the running kernel; never a module we
+build), D-024 (carry what a distribution packages), D-018 (external claims
+tested before published), D-032 (liveness is the head commit, never
+`updated_at`), `PARITY-POLICY.md` (every unit gets a verdict we tested).
+**Amends:** D-008 (the packet-core statement; amendment recorded there).
+
+**What was measured.** Two things Q-019 rested on and one it did not ask.
+
+1. `z8530-utils2` configures the `scc` driver for Z8530 HDLC cards. The
+   driver left the kernel in the same merge as `net/ax25`
+   (`64edfa65`, 2026-04-24; `git show --stat` lists
+   `drivers/net/hamradio/scc.c`), the cards are ISA and early PCI, and the
+   manifest already called both \"museum conditions\". Seven machines' module
+   trees were read on 2026-09-04 (`docs/reference/kernel-ax25.md`). That is
+   a verdict tested by us, not an AHRL comment inherited.
+2. On every kernel this project has that is 7.1 or newer, the userspace
+   packet path — Direwolf or QtSoundModem as the modem; pat, LinBPQ, YAAC
+   and Xastir over KISS or AGW — installs and is the whole station. The
+   `packet` profile was installed whole on Kali 7.1.5 and Debian 13 6.12 on
+   2026-09-05 with that result (D-041's table). D-008 and the profile prose
+   still described the core as the kernel stack fed by Direwolf.
+3. The maintainer asked whether the kernel stack can be added back as a
+   module. **It can, and it was measured on 2026-09-10** rather than
+   assumed either way. The netdev maintainer who removed the subsystem
+   publishes it as an out-of-tree tree, `linux-netdev/mod-orphan`, created
+   2026-04-20: one `Kbuild` covering `net/ax25`, `net/netrom`, `net/rose`,
+   `drivers/net/hamradio` and the merge's other orphans; `make` against
+   the running kernel's headers with a force-included compatibility header;
+   sources keep their kernel SPDX headers (GPL-2.0-or-later on `af_ax25.c`);
+   **no tags, no releases, no README, no top-level licence file**; head
+   commit 2026-06-16, last AX.25-family change 2026-06-01 (two ROSE fixes,
+   Bernard Pidoux); **packaged by no distribution** — not Debian, not
+   Ubuntu, not the AUR, on that date. **Built here, not loaded:** against
+   the maintainer's laptop's 7.1.1 headers, `ax25.ko`, `netrom.ko` and all
+   ten `drivers/net/hamradio` modules — `mkiss`, `6pack`, `bpqether`,
+   `scc` among them — compile and link with a matching `vermagic`; the
+   whole tree's `make` fails, because `net/rose` calls a kernel function
+   whose signature changed and `net/atm` needs a header 7.1 no longer
+   ships. Nothing was `insmod`ed and no socket was opened; the measurement
+   is that the code compiles, not that it works.
+
+**Decision.**
+
+1. **`z8530-utils2` is retired**, `retire_reason: world_changed`,
+   `status_verdict: tested`, with the merge as the evidence. The manifest
+   stays in the catalog so an operator who looks finds the reason (D-005's
+   shape, as `noaa-apt`); a 6.12 machine with an ISA slot can still install
+   it by hand, and the manifest says so. That `scc.ko` compiles out of tree
+   (point 3) does not move this: the driver is packaged by nobody and the
+   cards have no modern host.
+2. **D-008 is amended: the packet core is userspace-primary.** The kernel
+   stack is the fuller station where the kernel carries it, planned or
+   deferred by name per D-041, and a bonus rather than the foundation. The
+   getting-started packet guide, when written, teaches Direwolf-to-pat first
+   and `kissattach` second.
+3. **The out-of-tree module is noted, not carried.** D-041's \"never a
+   module we build\" stands, for three reasons that survive the module
+   existing: a kernel module is the one artefact this project has said it
+   will never build, and building one that has to be rebuilt for every
+   kernel the machine boots means a DKMS wrapper that would be *our*
+   packaging of code nobody else packages — precisely what D-024 refuses,
+   and the tree's own `make` already fails on 7.1.1 without a `Kbuild` we
+   would have to edit, which is the first patch of a fork;
+   the code's own maintainers removed it for lack of maintenance, and a
+   tree with no tags and no releases offers nothing to pin (D-024's review
+   signal is absent by construction); and `ax25-tools` is leaving the
+   archives regardless (#1143282), so the module would restore the sockets
+   and not the tools that use them. **The condition that reopens this** is
+   a distribution packaging the module — a `-dkms` package in Debian is the
+   obvious shape. That is the signal D-024 asks for, and the day it exists
+   the `requires_kernel` refusal gains a third remedy and this record is
+   amended. Nobody watches GitHub for it; `kernel-ax25.md` says where to
+   look.
+
+**Consequences.** `z8530-utils2.yaml` carries the retired status block;
+`catalog/profiles/packet.yaml` describes the station userspace-first;
+`docs/reference/kernel-ax25.md` carries the module measurement and the
+reopening condition; generated pages regenerated. Q-019 is closed by this
+record. The remaining kernel-side question — the `scc`/`netrom`/`rose`
+vocabulary — stays closed by D-041 until a manifest needs an entry `ax25`
+does not settle.

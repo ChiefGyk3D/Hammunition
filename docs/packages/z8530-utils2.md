@@ -4,10 +4,13 @@
 
 **Configures Z8530-based HDLC cards for high-speed packet**
 
+> **Status: retired.** The `scc` driver these tools configure left the kernel with the rest of drivers/net/hamradio in Linux 7.1 (merge 64edfa65, 2026-04-24), and the cards it drove are ISA and early PCI with no modern host. Verified by us: the merge's --stat, and the module trees of seven machines read on 2026-09-04 (docs/reference/kernel-ax25.md). Not inherited from anyone's shell comment. A 6.12 kernel on a machine with an ISA slot can still `apt install z8530-utils2` by hand. Recorded 2026-04-24. Verdict tested by us.
+
 - **Version recorded:** 3.0-1
 - **Categories:** `hardware`, `packet`
 - **Upstream:** <https://tracker.debian.org/pkg/z8530-utils2>
 - **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)
+- **Not a recommended default** — installed only when asked for.
 
 ## What it does
 
@@ -27,7 +30,7 @@ A Z8530-based card in an ISA or PCI slot, and a kernel with the matching driver.
 
 ## Known problems
 
-Needs the kernel AX.25 stack and the `scc` driver, both of which Linux 7.1 removed with the rest of drivers/net/hamradio (merge 64edfa65, 2026-04-24); the plan refuses or defers this unit by name on a 7.1 or newer kernel, and Q-019 asks whether to retire it. See `docs/reference/kernel-ax25.md`. The hardware predates PCI Express and most of it is ISA, so a modern machine cannot host it at all. Carried for completeness and for anyone maintaining an existing installation, not as a route to build a new one. Suggests rather than Recommends in the Blend, marked hardware-specific.
+Needs the kernel AX.25 stack and the `scc` driver, both of which Linux 7.1 removed with the rest of drivers/net/hamradio (merge 64edfa65, 2026-04-24); the plan refuses or defers this unit by name on a 7.1 or newer kernel. Retired on that evidence (D-045). See `docs/reference/kernel-ax25.md`. The hardware predates PCI Express and most of it is ISA, so a modern machine cannot host it at all. Carried for completeness and for anyone maintaining an existing installation, not as a route to build a new one. Suggests rather than Recommends in the Blend, marked hardware-specific.
 
 ## Keeping it current
 

@@ -29,10 +29,38 @@ Two consequences follow for a Debian-family machine:
   archive gap is the symptom the Kali campaign reported; the kernel is the
   cause, and it reaches machines whose archives are untouched.
 
-An out-of-tree module (`mod-orphan`) was suggested upstream when the
-subsystem was removed. **No distribution packages it**, and Hammunition
-never builds a kernel module of its own: a custom kernel is on the rejected
-list, and **D-024** carries only what a distribution already packages.
+## The out-of-tree module, measured
+
+The removed code did not vanish. The netdev maintainer who removed it
+published it the same week as an out-of-tree tree,
+<https://github.com/linux-netdev/mod-orphan> (created 2026-04-20,
+description: *"Linux networking modules removed from the kernel due to
+lack of maintenance and high bug count"*). Read on **2026-09-10**:
+
+| What | Measured |
+|---|---|
+| Contents | `net/ax25`, `net/netrom`, `net/rose`, `drivers/net/hamradio`, and the other orphans of the same merge — ATM, ISDN/mISDN, CAPI, Bluetooth CMTP, AppleTalk — under one `Kbuild` |
+| Build | `make` against `/lib/modules/$(uname -r)/build`; `make install` is `modules_install`. A compatibility header (`include/hamradio_compat.h`) is force-included, which is how it builds against a kernel whose headers no longer know it |
+| Licence | no top-level `LICENSE`; every source keeps its kernel SPDX header (`af_ax25.c`: GPL-2.0-or-later, Alan Cox GW4PTS and the G4KLX-era authors) |
+| Releases | **no tags, no releases, no README** |
+| Head commit | 2026-06-16, Jakub Kicinski, importing AppleTalk. The last AX.25-family change is 2026-06-01, two ROSE fixes by Bernard Pidoux |
+| Packaged by | **nobody.** Not in Debian (`packages.debian.org`, all suites), not in Ubuntu, not in the AUR, on the date above |
+| Builds against 7.1? | **Partly, and not as shipped.** On the maintainer's laptop (`7.1.1-76070101-generic`, its own `linux-headers`), the tree's `make` fails: `net/rose/rose_in.c` calls `sk_filter_trim_cap` with an argument count 7.1 no longer accepts, and `net/atm/clip.c` includes `net/atmclip.h`, which 7.1 does not ship. With `Kbuild` cut to `net/ax25`, `net/netrom` and `drivers/net/hamradio`, **`ax25.ko`, `netrom.ko` and all ten drivers — `mkiss`, `6pack`, `bpqether`, `baycom_*`, `hdlcdrv`, `scc`, `yam` — compile and link** with `vermagic: 7.1.1-76070101-generic`. Nothing was loaded; no `AF_AX25` socket was opened. A compile is not a test |
+
+So "add it back as a module" is technically possible on a 7.1 machine
+with its kernel headers installed, the maintainer of the removal is the one
+keeping the code buildable, and on the one machine it was tried the AX.25
+half built only after the `Kbuild` was edited to leave ROSE and ATM out. Hammunition still does not build it,
+for the reasons **D-041** and **D-045** record: a kernel module is the one
+artefact this project has said it will never build, it has to be rebuilt
+for every kernel the machine boots (a DKMS wrapper would be *our* packaging
+of code nobody else packages, the thing **D-024** exists to refuse), and
+`ax25-tools` is leaving the archives regardless — the module would bring
+back the sockets and not the tools. **What would change the answer** is a
+distribution packaging it, a `-dkms` package in Debian being the obvious
+shape: that is the review signal D-024 asks for, and the day it exists the
+`requires_kernel` refusal gains a third remedy. Until then the userspace
+path below is the packet core (**D-045**).
 
 ## What was measured
 
@@ -104,7 +132,7 @@ kernel stack and have no other mode:
 
 `ax25-tools`, `ax25-apps`, `ax25-xtools`, `ax25mail-utils`, `axmail`,
 `aprsdigi`, `fbb`, `linpac`, `uronode`, and `z8530-utils2` (whose `scc`
-driver left in the same merge; **Q-019** asks whether to retire it outright).
+driver left in the same merge; **retired** on that evidence, **D-045**).
 
 **Unaffected, and their manifests say so** — the userspace packet path,
 which is most of what an operator actually runs:
@@ -120,8 +148,9 @@ which is most of what an operator actually runs:
 So on a 7.1 kernel `packet` still installs a working Direwolf–pat–APRS
 station. What it cannot give you is a kernel port: no `axports`, no
 `kissattach`, no `ax25d`, no `listen`, no NET/ROM. The profile page and
-**D-008**'s packet-core statement both said "kernel AX.25 stack"; **Q-019**
-asks whether that statement should now read userspace-primary.
+**D-008**'s packet-core statement both said "kernel AX.25 stack"; since
+**D-045** both say userspace-primary, with the kernel stack the fuller
+station where the kernel carries it.
 
 ## Reproducing the measurement
 
