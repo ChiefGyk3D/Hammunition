@@ -128,6 +128,22 @@ def wrapper_body(
                 f"install method have diverged"
             )
         exec_line = exec_line.replace("{node}", str(node_wrapper))
+    if exec_line.split()[:1] == [launcher.name]:
+        # The wrapper is written to ~/.local/bin under the tool's own name,
+        # and Debian's .profile puts that directory first on PATH, so the
+        # command line below would resolve to this file again -- measured on
+        # the field laptop, where ubertooth-util forked itself until the
+        # process limit. Take this directory out of PATH first. Compared
+        # both as written and resolved, so a symlinked home matches either way.
+        # Shell builtins only: PATH is what is being edited.
+        lines += [
+            "case $0 in */*) here=${0%/*} ;; *) here=. ;; esac",
+            'real=$(cd -- "$here" && pwd -P)',
+            "rest=; IFS=:; for dir in $PATH; do",
+            '  [ "$dir" = "$here" ] || [ "$dir" = "$real" ] || rest="${rest:+$rest:}$dir"',
+            "done; unset IFS",
+            "PATH=$rest; export PATH",
+        ]
     lines.append(exec_line)
     if launcher.terminal:
         # A terminal launcher holds its window: the tool's output is the
