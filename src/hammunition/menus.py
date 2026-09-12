@@ -298,7 +298,8 @@ def on_disk(package: str, shipped: Iterable[str], applications_dir: Path) -> OnD
     replacements = sorted(
         p.name
         for p in applications_dir.glob(f"parrot-{package}*.desktop")
-        if p.name == f"parrot-{package}.desktop" or p.name.startswith(f"parrot-{package}-")
+        if p.name == f"parrot-{package}.desktop"
+        or p.name.startswith((f"parrot-{package}-", f"parrot-{package}_"))
     )
     for desktop_id in shipped:
         if (applications_dir / desktop_id).exists():
@@ -319,7 +320,10 @@ def on_disk(package: str, shipped: Iterable[str], applications_dir: Path) -> OnD
     # is placed only when the packaged one is gone (above); a duplicate of
     # a surviving entry would show twice.
     for replacement in replacements:
-        if replacement.startswith(f"parrot-{package}-") and replacement not in ids:
+        if (
+            replacement.startswith((f"parrot-{package}-", f"parrot-{package}_"))
+            and replacement not in ids
+        ):
             ids.append(replacement)
     return OnDisk(ids=tuple(ids), replaced=tuple(replaced), missing=tuple(missing))
 

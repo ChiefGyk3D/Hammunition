@@ -790,10 +790,12 @@ def test_parrot_extras_are_placed_even_when_the_shipped_entry_still_exists(tmp_p
     _entry(tmp_path, "gnuradio-grc.desktop")
     _entry(tmp_path, "parrot-gnuradio-companion.desktop")
     _entry(tmp_path, "parrot-gnuradio-plot_fft.desktop")
+    _entry(tmp_path, "parrot-gnuradio_filter_design.desktop")  # Parrot's own underscore variant
     found = on_disk("gnuradio", ["gnuradio-grc.desktop"], tmp_path)
     assert found.ids == (
         "gnuradio-grc.desktop",
         "parrot-gnuradio-companion.desktop",
         "parrot-gnuradio-plot_fft.desktop",
+        "parrot-gnuradio_filter_design.desktop",
     )
     assert found.replaced == () and found.missing == ()
