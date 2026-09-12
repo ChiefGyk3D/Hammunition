@@ -51,6 +51,16 @@ install:
       backend, which is NOT WRITTEN -- see the engine status in README.md. The
       manifest is data and is correct today; nothing can act on it yet.
 
+# What the install rule puts on PATH, measured on the field laptop after the
+# full install (2026-09-12). Declared so the post-run effect check has
+# something to confirm and a re-run can see the build is already installed
+# at its pin (D-051); without it the unit rebuilt on every run.
+binaries:
+  - produced: client/proxmark3
+    install_as: proxmark3
+  - produced: pm3
+    install_as: pm3
+
 update:
   probe:
     method: github_tags

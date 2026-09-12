@@ -29,6 +29,10 @@ An SDR and a VHF antenna. libacars must be installed first for application decod
   - build dependencies: `build-essential`, `cmake`, `git`, `pkg-config`, `libglib2.0-dev`, `librtlsdr-dev`, `libsoapysdr-dev`, `libsqlite3-dev`, `libprotobuf-c-dev`
   - Upstream lists librtlsdr, SoapySDR, sqlite3 and protobuf-c as optional and autodetects each. As with the rest of this cluster, a missing one removes a capability without failing the build, so the cmake summary is the thing to check.
 
+Binaries this produces:
+
+- `src/dumpvdl2`
+
 ## Known problems
 
 Skywave ships the archived `vdlm2dec` instead of this, and its published `decoders.sh` carries an `update_dumpvdl2` function with a missing leading slash in a `cd` path, so that build runs in whatever directory the previous job left. Neither affects us — we carry the maintained decoder and have no `cd` to get wrong — but it is why the version Skywave documents and the one it ships differ.

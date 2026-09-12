@@ -41,6 +41,14 @@ install:
       distribution package instead; if a V4 dongle is the target, see the
       `rtl_sdr_v4` disposition, which is a separate decision from this build.
 
+# What the install rule puts on PATH, measured on the field laptop after the
+# full install (2026-09-12). Declared so the post-run effect check has
+# something to confirm and a re-run can see the build is already installed
+# at its pin (D-051); without it the unit rebuilt on every run.
+binaries:
+  - produced: rtl_airband
+    install_as: rtl_airband
+
 update:
   probe:
     method: github_tags

@@ -66,6 +66,14 @@ install:
       from every target's apt, measured in containers. It is a source build, and
       that correction is recorded in dragonos-tier1-inventory.md.
 
+# What the install rule puts on PATH, measured on the field laptop after the
+# full install (2026-09-12). Declared so the post-run effect check has
+# something to confirm and a re-run can see the build is already installed
+# at its pin (D-051); without it the unit rebuilt on every run.
+binaries:
+  - produced: src/dumphfdl
+    install_as: dumphfdl
+
 update:
   probe:
     method: github_tags

@@ -28,6 +28,10 @@ An SDR (RTL-SDR, Airspy or anything SoapySDR reaches) and a VHF antenna. Install
   - build dependencies: `build-essential`, `cmake`, `pkg-config`, `librtlsdr-dev`, `libsoapysdr-dev`, `libairspy-dev`, `libsndfile1-dev`, `libasound2-dev`, `libcjson-dev`
   - Upstream autodetects each optional library and prints a summary of what was enabled. Missing one does not fail the build — it silently removes an input source or an output format, so the summary is the thing to read rather than the exit status (D-031).
 
+Binaries this produces:
+
+- `acarsdec`
+
 ## Known problems
 
 Optional libraries are autodetected and their absence is silent: without libsndfile there is no file input, without libasound no ALSA input, without libcjson no JSON output. The build prints which were enabled. SDRplay support is deliberately not built here because the vendor API cannot be fetched non-interactively and therefore cannot be verified against a checksum.
