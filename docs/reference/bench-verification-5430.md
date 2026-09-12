@@ -142,6 +142,27 @@ engine session, so this pass took the unprivileged, device-free rungs.
 | `flrig`, `twclock` desktop entries | Present under `/usr/share/applications/` from their packages and placed by the Plasma tree where their manifests' categories say: flrig under Rig Control and Station; twclock under CW, Station and Timing. CHIRP: see the row above. `hammunition-hill` has **no desktop entry at all** — the `.deb` ships none and the manifest declares no `launchers`, so the dashboard is invisible in the menu; a launcher opening `http://127.0.0.1:8073/` in the browser, the `ais-catcher-web` pattern, would place it under Station, HF Propagation and Satellite. Catalog change, not filed yet — it is a choice for the maintainer. |
 | Does the tree make sense? (asked by the maintainer) | Judgement, recorded so it can be disagreed with. **Structure:** *Ham Radio* is one flat, alphabetical list of 27 submenus; empty ones are hidden by the menu spec, so today nine show, but with the whole catalog installed it is 27 siblings — more than Plasma's own top level has — with visible overlap (Station / Timing / Tracking; CW / Training; Contest / Logging; Hardware / Programmer / Electronics). **Placements that read oddly:** a clock (`twclock`) under *CW* because its manifest carries `cw` for its CW-ID feature; GPS viewers (`xgps`, `xgpsspeed`) under *Hardware*, a title that says little next to *Programmer* and *Electronics*; VS Code under *Ham Radio → Workstation* because Parrot preinstalled it and the catalog knows it. **Duplication:** three of the seven placed entries appear in three submenus each. **Sound:** the vocabulary titles (`SDR`, `NBEMS`, `HF Propagation`) read correctly; flrig under Rig Control, wireshark under RF Security, gscriptor under RFID are right. The taxonomy is D-036's one-list rule working as designed; whether it wants a second level of grouping in `catalog/categories.yaml` is a decision, not a bug. |
 
+## Session 4, same day: the three findings fixed and re-measured here
+
+Each fix was written test-first in its own worktree and run from that
+worktree's engine against this laptop's real state before its PR was
+opened. Nothing privileged ran; every measurement is a dry run or an
+unprivileged command.
+
+| Finding | Fix | Re-measured on this machine |
+|---|---|---|
+| `morse` refuses on a PipeWire desktop (#61) | PR #65, catalog only: `morse-classic` leaves the profile with the reason in the file; the manifest declares `conflicts_with_repo_package: [pipewire-alsa]`. The per-unit no-Recommends switch stays open on #61 as engine work. | `install morse --dry-run`: **16 packages, 19 commands, no removal.** `install morse-classic --dry-run`: refuses with the unit as the subject and the declared conflict named. |
+| CHIRP and Wireshark missing from the Ham Radio tree (#64) | PR #66: `menus.on_disk()` places only entries that exist, uses `parrot-<package>.desktop` when the packaged one is gone, and reports what happened under the count. | `menus apply`: *chirp: chirp.desktop is not on disk; placed the distribution's parrot-chirp.desktop instead* — same for wireshark. The written `.menu` carries the two `parrot-*` ids and **zero dead filenames**; `kbuildsycoca6` rebuilt clean. Whether CHIRP now shows under *Rig Control* in the launcher is still the by-eye check. |
+| `station` re-plans the .deb on every run (#63) | PR #67: a vendor .deb dpkg still holds **and** the transaction log attributes to this engine is `already installed`; not ours stays with apt. | `install station --dry-run`: hammunition-hill *already installed*, **Commands (0)** — *everything this plan asks for is already in place*. `install wsjtx-improved --dry-run` (never installed here): still plans fetch+install. |
+
+Two harness notes from the session, recorded because they bit: a `make
+check` whose output is piped into `grep` and chained with `&&` reports the
+grep's exit status, not make's — one failing docs test and one
+`ruff format` refusal reached CI that way before the habit changed to
+`make check > log; echo $?`. And a shell whose working directory resets
+between commands put one worktree's edit into another; absolute paths
+from then on.
+
 ## Not yet run (this rung's remaining ladder)
 
 In order, and every one needs the operator at the keyboard for `sudo`:
