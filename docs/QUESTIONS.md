@@ -1077,7 +1077,16 @@ them.
 
 ---
 
-## Q-021 🟢 — The offline-data layer: what is a map, a Wikipedia ZIM or a dictionary to this catalog?
+## Q-021 ✅ — The offline-data layer: what is a map, a Wikipedia ZIM or a dictionary to this catalog? — **RESOLVED 2026-09-12**
+
+**A, as recommended, recorded as D-049**, with both rules: the plan prints
+every data artifact's size and licence before the confirmation, and the
+operator's selection (which state, which country) lives in station config,
+so a missing selection defers the data unit and never its reader. Built in
+the order the recommendation gave: the schema and fetcher first, proven on
+`country_files` (cty.dat), then the tileset, Navit's extract and the ZIM.
+
+## Q-021 (original) — The offline-data layer: what is a map, a Wikipedia ZIM or a dictionary to this catalog?
 
 **Raised 2026-09-12**, at the end of ETC sub-project 4 (**D-048**). Five
 units of the EmComm Tools OS delta — `navit`, `kiwix`, `mbtileserver`,

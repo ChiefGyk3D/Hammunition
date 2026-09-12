@@ -3498,3 +3498,56 @@ column (the hygiene test holds both to each other); `not-carried.md` and
 reasons; the apt policy sweep re-run for the new names and the capability
 matrix regenerated. D-042 sub-project 4's software half is closed by this
 record; the `et-*` config ideas wait on station config and sub-project 3.
+
+## D-049 — Offline data is a catalog unit: a `data` install method whose payload is the point, disclosed by size and licence before the confirmation, selected through station config
+
+**Date:** 2026-09-12. **Status:** accepted (maintainer, Q-021, option A as
+recommended, both rules). **Depends on:** D-042 (rule 5 named the layer),
+D-048 (five readers decided ADD and unwritable), D-018 (every fetch
+verified), D-035 (a missing station value defers one file, never the
+transaction), D-021 (disclose, never adjudicate), Q-015 decision 8
+(`country_files` deferred to exactly this question). **Amends:** nothing.
+
+**What was measured** is in Q-021: ETC's three interactive, unverified
+downloads into `/etc/skel`; its own tilesets at 0.69 GB (US) and 0.52 GB
+(Canada) under ODbL; Geofabrik extracts from 0.05 GB (Vermont) to 1.33 GB
+(California); the English Wikipedia ZIM unmeasured from here on the day.
+
+**Decision.**
+
+1. **A data artifact is a catalog unit**, on the package manifest, with
+   `method: data`: one or more pinned, sha256'd artifacts installed under
+   `<prefix>/share/hammunition/data/<name>/`, recorded in the transaction
+   log like every other artefact so `uninstall` removes them, with an
+   `update` block like every other unit. The reader (`kiwix`,
+   `mbtileserver`, the logger that reads cty.dat) names the data unit in
+   `depends`; the data unit names nothing.
+2. **Size and licence are printed in the plan, before the confirmation.**
+   Each artifact declares its `size` in bytes and the unit declares its
+   `licence` and a `licence_url`; `--dry-run` shows both, and the real run
+   shows the same text. A 1.33 GB download on a field connection is a
+   decision, and a dataset under ODbL or CC BY-SA carries obligations the
+   engine states and does not adjudicate (D-021's half).
+3. **The operator's selection lives in station config.** Which state,
+   which country, which language: a data unit whose artifact depends on a
+   station value is deferred by name when the value is missing, and its
+   reader installs regardless (D-035's shape). Nothing is guessed and no
+   default region is invented.
+4. **Built in this order**, each step its own measurement: the schema,
+   fetcher and plan disclosure, proven on `country_files` — cty.dat, about
+   200 KB, the smallest and oldest case; then ETC's tileset with
+   `mbtileserver`; then Navit's extract with the station selection; then
+   the ZIM with `kiwix`. `dict` is apt and needs none of this.
+
+**What this is not.** Not a mirror: every artifact is fetched from its
+publisher's own URL, never redistributed. Not `/etc/skel`: the data is
+installed once, system-wide, for the operator who asked. Not a backend for
+software — a `.pyz` is `binary`, a venv payload is `venv`; `data` is for
+files the reader opens and the engine never executes.
+
+**Consequences.** `DataInstall` in the schema (`artifacts`, each with
+`url`, `sha256`, `size`, `install_as`; `licence`, `licence_url`); a data
+backend that fetches, verifies and installs; the plan's disclosure; the
+docs generator's rendering; `capability_matrix.py` knows the method.
+`country_files.yaml` is the proof. Q-021 is closed by this record; Q-015
+decision 8's deferral ends with it.
