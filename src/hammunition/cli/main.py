@@ -1128,12 +1128,14 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
     import yaml
 
     from hammunition.menus import (
+        APPLICATIONS_DIR,
         Category,
         MenuPaths,
         MenuPrefixError,
         gnome_commands,
         menu_steps,
         place_installed_entries,
+        placement_summary,
         resolve_menu_prefix,
     )
 
@@ -1143,7 +1145,7 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
         Category(name=c["name"], summary=c["summary"], title=c.get("title", "")) for c in vocabulary
     ]
     manifests, _ = load_all(catalog_root)
-    placement = place_installed_entries(manifests.values())
+    placement = place_installed_entries(manifests.values(), applications_dir=APPLICATIONS_DIR)
 
     home = Path.home()
     paths = MenuPaths(
@@ -1169,8 +1171,10 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
     print(
         f"Menu tree: {len(categories)} categories, menu prefix {prefix!r}; "
         f"{len(placement.claimed)} desktop entries from installed catalog packages "
-        f"placed {placed} times by their manifests' categories (dpkg -L, this machine)"
+        f"placed {placed} times by their manifests' categories (dpkg -L, checked on disk)"
     )
+    for line in placement_summary(placement):
+        print(line)
     for step in steps:
         print(f"  {step.display()}")
         outcome = step.perform()

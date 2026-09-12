@@ -154,6 +154,14 @@ class Placement:
     by_category: dict[str, tuple[str, ...]]
     claimed: tuple[str, ...]
 
+    replaced: tuple[tuple[str, str, str], ...] = ()
+    """``(package, shipped id, id placed instead)`` — a packaged entry that is
+    gone from disk and was placed by the distribution's own copy (#64)."""
+
+    missing: tuple[tuple[str, str], ...] = ()
+    """``(package, shipped id)`` — gone from disk with nothing to place; the
+    summary names it rather than counting it as placed."""
+
     @classmethod
     def empty(cls) -> Placement:
         return cls(by_category={}, claimed=())
@@ -163,6 +171,59 @@ DesktopIdLister = Callable[[str], list[str]]
 """Given an installed package name, the desktop-file ids it ships (empty if
 the package is not installed). Injected so the placement is testable without
 dpkg; :func:`dpkg_desktop_ids` is the real one."""
+
+APPLICATIONS_DIR = Path("/usr/share/applications")
+
+
+@dataclass(frozen=True)
+class OnDisk:
+    """What a package's shipped desktop entries look like on *this* disk."""
+
+    ids: tuple[str, ...]
+    replaced: tuple[tuple[str, str], ...]
+    missing: tuple[str, ...]
+
+
+def on_disk(package: str, shipped: Iterable[str], applications_dir: Path) -> OnDisk:
+    """Reconcile ``dpkg -L``'s list with the files that exist.
+
+    ``dpkg -L`` is what the package *shipped*; it is not what is on disk after
+    a distribution has had its say. Parrot's ``parrot-menu`` runs from an apt
+    ``DPkg::Post-Invoke`` hook after every apt run and rewrites the launcher
+    set — removing the packaged ``chirp.desktop`` and writing
+    ``parrot-chirp.desktop`` in its place (field laptop, 2026-09-12, #64).
+    A ``<Filename>`` for a file that is not there places nothing and the
+    summary counted it anyway. So: an entry that exists is placed as shipped;
+    one that is gone is placed by ``parrot-<package>.desktop`` when that
+    exists; otherwise it is reported as missing, never counted.
+    """
+    ids: list[str] = []
+    replaced: list[tuple[str, str]] = []
+    missing: list[str] = []
+    replacement = f"parrot-{package}.desktop"
+    for desktop_id in shipped:
+        if (applications_dir / desktop_id).exists():
+            ids.append(desktop_id)
+        elif (applications_dir / replacement).exists():
+            if replacement not in ids:
+                ids.append(replacement)
+            replaced.append((desktop_id, replacement))
+        else:
+            missing.append(desktop_id)
+    return OnDisk(ids=tuple(ids), replaced=tuple(replaced), missing=tuple(missing))
+
+
+def placement_summary(placement: Placement) -> list[str]:
+    """The lines after the count, so the count cannot stand alone as a lie."""
+    lines = [
+        f"  {package}: {shipped} is not on disk; placed the distribution's {instead} instead"
+        for package, shipped, instead in placement.replaced
+    ]
+    lines.extend(
+        f"  {package}: {shipped} is not on disk and nothing replaces it -- not placed"
+        for package, shipped in placement.missing
+    )
+    return lines
 
 
 def dpkg_desktop_ids(package: str) -> list[str]:
@@ -185,7 +246,10 @@ def dpkg_desktop_ids(package: str) -> list[str]:
 
 
 def place_installed_entries(
-    manifests: Iterable[PackageManifest], lister: DesktopIdLister = dpkg_desktop_ids
+    manifests: Iterable[PackageManifest],
+    lister: DesktopIdLister = dpkg_desktop_ids,
+    *,
+    applications_dir: Path | None = None,
 ) -> Placement:
     """Map each installed catalog package's own desktop entries to its
     manifest's categories.
@@ -195,9 +259,15 @@ def place_installed_entries(
     operator who installed ``fldigi`` with apt last year is served by the
     same submenu. A package that is not installed lists nothing, so the
     result describes this machine.
+
+    ``applications_dir`` is where the entries must actually exist; ``None``
+    trusts the lister (the fixtures' case). The CLI passes the real directory,
+    because ``dpkg -L`` alone was wrong on Parrot (#64, :func:`on_disk`).
     """
     by_category: dict[str, set[str]] = {}
     claimed: set[str] = set()
+    replaced: list[tuple[str, str, str]] = []
+    missing: list[tuple[str, str]] = []
     for manifest in manifests:
         for launcher in manifest.launchers:
             claimed.add(f"hammunition-{launcher.name}.desktop")
@@ -208,7 +278,16 @@ def place_installed_entries(
                 packages.update(p for p in method.packages if not p.startswith("-"))
             elif isinstance(method, BinaryInstall) and method.deb_package:
                 packages.add(method.deb_package)
-        ids = {desktop_id for package in sorted(packages) for desktop_id in lister(package)}
+        ids: set[str] = set()
+        for package in sorted(packages):
+            shipped = lister(package)
+            if applications_dir is None:
+                ids.update(shipped)
+                continue
+            found = on_disk(package, shipped, applications_dir)
+            ids.update(found.ids)
+            replaced.extend((package, was, now) for was, now in found.replaced)
+            missing.extend((package, was) for was in found.missing)
         if not ids:
             continue
         claimed.update(ids)
@@ -217,6 +296,8 @@ def place_installed_entries(
     return Placement(
         by_category={k: tuple(sorted(v)) for k, v in sorted(by_category.items())},
         claimed=tuple(sorted(claimed)),
+        replaced=tuple(replaced),
+        missing=tuple(missing),
     )
 
 
