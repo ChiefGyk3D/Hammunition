@@ -268,7 +268,9 @@ shop" becomes literally true, and they should not hold up a release.
 Two tracks the six sources touch only at the edges, written down on
 2026-09-07 so that "does Hammunition do DMR, trunking, repeaters?" has an
 answer in the record rather than in a chat log. Neither is 1.0. Their ordering
-and the open calls in each are **Q-020**.
+and the calls in each were **Q-020**, decided as **D-046** (2026-09-12):
+Track A first, then B, with SvxLink's config block taken the day station
+config exists.
 
 **What the catalog already has**, so the tracks are measured against it and
 not against a blank page: DMR *radio programming* is covered by `qdmr` and
@@ -326,8 +328,10 @@ because nothing in it transmits and nothing in it needs station config.
   `docs/reference/overlaps.md` has no row for that collision yet — the
   manifest that adds DSD-FME writes one.
 
-Profiles: `listening` for the decoders, `rf-security` for OP25 and Trunk
-Recorder, or both in both — the split is a Q-020 call. **No consent gate.**
+Profiles: `listening` for the decoders (SDRTrunk, DSD-FME beside `dsdcc`),
+`rf-security` for OP25 and Trunk Recorder — decided, **D-046**; the
+SDRTrunk/Trunk Recorder overlap is one `overlaps.md` row, written by the
+first manifest of the pair. **No consent gate.**
 D-034 drew the line at *transmit, not topic*, and every unit here receives.
 What the profile prose owes the operator is the D-021 half: disclose plainly
 that these decode public-safety and commercial traffic and that what may be
@@ -351,7 +355,8 @@ rule the record already has:
   **D-040** gate exactly as `code` and `codium` exercise it: the manifest pins
   the signing-key fingerprint, the archive is added only on the operator
   typing that fingerprint, never on `--yes`, and both files come out on
-  uninstall. It also means ASL3 resolves only where its Debian 13 packages
+  uninstall — confirmed as the D-040 case by **D-046**, with no gate beyond
+  the fingerprint. It also means ASL3 resolves only where its Debian 13 packages
   install — Debian 13 and Parrot first; the Ubuntu targets are a measurement,
   not an assumption.
 - **The G4KLX hotspot suite** — MMDVMHost and the per-mode gateways. In no
@@ -359,8 +364,10 @@ rule the record already has:
   question: pin the commit a distribution already packages. The candidate
   distribution is Pi-Star (GPL-2.0, V4.3.7 2026-05-01), which is an image
   rather than an archive; WPSD is image-only and fork-hostile, so it is not a
-  pin source. Whether a Pi image's binary set counts as "a distribution
-  packages it" for D-024 is a Q-020 call. The modem side — ZUMspot,
+  pin source. A Pi image's binary set **does** count as "a distribution
+  packages it" for D-024 (**D-046**): the manifests pin the commits the
+  current Pi-Star release ships, read out of the image by a script that
+  records how. The modem side — ZUMspot,
   MMDVM_HS hats, USB MMDVM boards — is a hardware class under **D-026**
   (install the means of talking to the device) and **D-028** (a generic
   CP2102 or CH340 identifier does not get a `/dev/mmdvm` symlink).

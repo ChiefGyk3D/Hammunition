@@ -3248,3 +3248,64 @@ reopening condition; generated pages regenerated. Q-019 is closed by this
 record. The remaining kernel-side question — the `scc`/`netrom`/`rose`
 vocabulary — stays closed by D-041 until a manifest needs an entry `ax25`
 does not settle.
+
+## D-046 — Post-1.0: listening before repeaters; decoders in `listening`, recorders in `rf-security`; Pi-Star's binary set is a D-024 pin source; ASL3's repository is the D-040 case with no gate beyond the fingerprint
+
+**Date:** 2026-09-12. **Status:** accepted (maintainer, Q-020, all four
+calls as recommended). **Depends on:** D-003 (flat tags with overlap),
+D-021 (disclose, never adjudicate), D-024 (pin what a distribution
+packages), D-034 (the line is transmit, not topic), D-035 (a missing
+station value defers one file), D-040 (third-party archives on the
+fingerprint alone). **Amends:** nothing; it fills in the four blanks
+`docs/SCOPE.md` stages 9 and 10 left open on 2026-09-07.
+
+**What was measured** is in SCOPE.md's post-1.0 section and is not
+repeated here: seventeen names across seven targets, two in any archive,
+both already carried; OP25's live fork, Trunk Recorder, SDRTrunk and
+DSD-FME's liveness and licences; the G4KLX suite untagged and unpackaged;
+Pi-Star V4.3.7 (2026-05-01) as the one maintained thing that builds and
+ships it; AllStarLink ASL3 only from its own repository.
+
+**Decision.**
+
+1. **Track A before Track B.** Trunked and digital-voice listening — OP25,
+   Trunk Recorder, SDRTrunk, DSD-FME — is four units on backends 1.0
+   ships, in profiles that exist, with no station-config dependency and
+   nothing that transmits. Track B waits on station config (SvxLink), a
+   D-040 manifest (ASL3) and a pin source plus hardware (MMDVM). The one
+   piece of B that rides for free is SvxLink's `config_files` block, taken
+   the day station config exists rather than when B begins.
+2. **The decoders go in `listening`; OP25 and Trunk Recorder in
+   `rf-security`.** An operator with one dongle who wants to hear the local
+   P25 system belongs in the on-ramp profile; whole-network recording of
+   trunked systems is the posture `rf-security` already frames. D-003's
+   flat tags allow a unit in both where it fits both. SDRTrunk and Trunk
+   Recorder do the same job on different stacks, and that overlap is one
+   `overlaps.md` row, written by whichever manifest lands first.
+3. **Pi-Star's shipped binary set counts as "a distribution packages it"
+   for D-024.** The G4KLX suite pins the commits the current Pi-Star
+   release ships. Pi-Star chose those commits, built them, and shipped
+   them to the largest hotspot install base, which is the review signal
+   D-024 asks for; its successor is CI-built and accepts pull requests, so
+   the choice is reviewable. Reading the commits out of an image is a
+   measurement to script and record, not a field to cite, and the script
+   is part of the first G4KLX manifest. Pi-Star's ARM builds prove the
+   commits, not our x86 builds; those are measured on our targets as every
+   source unit is.
+4. **ASL3's own apt repository is the D-040 case**, and the landscape
+   survey's "never add a third-party APT archive" is read through D-040 as
+   CLAUDE.md already reads it: the distribution offers nothing, the
+   manifest pins the signing-key fingerprint, the archive is added only on
+   the operator typing that fingerprint, never on `--yes`, and both files
+   come out on uninstall. **No consent gate beyond the fingerprint.** A
+   node on the amateur bands is licensed operation, the same thing `flrig`
+   keying a transceiver is; the profile prose discloses coordination and
+   unattended-station conditions (D-021's half) and adjudicates nothing.
+   This is the second manifest family after `code`/`codium` to rely on the
+   D-040 reading and the first with transmit behind it, and that fact is
+   what this record exists to have written down.
+
+**Consequences.** SCOPE.md stages 9 and 10 carry the rulings in place. No
+manifest changes yet: everything here is post-1.0, and the first Track A
+manifest is where the work starts. Q-020 is closed by this record, and no
+question is open in `docs/QUESTIONS.md` on this date.
