@@ -168,6 +168,9 @@ class Placement:
 
 
 DesktopIdLister = Callable[[str], list[str]]
+"""Given an installed package name, the desktop-file ids it ships (empty if
+the package is not installed). Injected so the placement is testable without
+dpkg; :func:`dpkg_desktop_ids` is the real one."""
 
 APPLICATIONS_DIR = Path("/usr/share/applications")
 
@@ -221,9 +224,6 @@ def placement_summary(placement: Placement) -> list[str]:
         for package, shipped in placement.missing
     )
     return lines
-"""Given an installed package name, the desktop-file ids it ships (empty if
-the package is not installed). Injected so the placement is testable without
-dpkg; :func:`dpkg_desktop_ids` is the real one."""
 
 
 def dpkg_desktop_ids(package: str) -> list[str]:
