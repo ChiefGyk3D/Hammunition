@@ -72,7 +72,7 @@ def test_steps_write_menu_and_every_directory_entry(tmp_path: Path) -> None:
     menu = tmp_path / "menus" / "xfce-applications-merged" / "hammunition.menu"
     assert "X-Hammunition-packet" in menu.read_text()
     top = (tmp_path / "dirs" / "hammunition-hamradio.directory").read_text()
-    assert "Name=Ham Radio" in top
+    assert "Name=Hammunition" in top
     sub = (tmp_path / "dirs" / "hammunition-packet.directory").read_text()
     assert "Name=Packet" in sub and "AX.25" in sub
 
@@ -211,7 +211,7 @@ def test_gnome_commands_append_and_never_replace_the_folder_list() -> None:
     assert register.argv[0] == "python3"
     body = register.argv[2]
     assert "if name not in value" in body and "value.append" in body
-    assert name.argv[-1] == "Ham Radio"
+    assert name.argv[-1] == "Hammunition"
     assert categories.argv[-1] == "['HamRadio']"
     assert all(not c.requires_root for c in gnome_commands())
 
@@ -647,3 +647,111 @@ def test_steps_write_where_kde_reads_and_remove_the_copy_nothing_read(tmp_path: 
         step.perform()
     assert (tmp_path / "menus" / "applications-merged" / "hammunition.menu").exists()
     assert not stale.exists(), "the file from the earlier, unread location is removed"
+
+
+# ---------------------------------------------------------------------------
+# D-050, second round (maintainer, 2026-09-12): the menu is called Hammunition,
+# a group can be hidden (Workstation: git, tmux, VS Code are not radio), and
+# GNOME, which cannot nest, gets one folder per visible group.
+# ---------------------------------------------------------------------------
+
+
+def test_a_group_marked_menu_false_is_loaded_hidden(tmp_path: Path) -> None:
+    from hammunition.menus import load_vocabulary
+
+    (tmp_path / "categories.yaml").write_text(
+        "categories:\n  - name: sdr\n    summary: R\n  - name: workstation\n    summary: W\n"
+        "groups:\n"
+        "  - order: 1\n    name: sdr\n    title: SDR\n    summary: r\n    categories: [sdr]\n"
+        "  - order: 2\n    name: workstation\n    title: Workstation\n    summary: w\n"
+        "    categories: [workstation]\n    menu: false\n"
+    )
+    vocabulary = load_vocabulary(tmp_path / "categories.yaml")
+    assert [g.menu for g in vocabulary.groups] == [True, False]
+    assert vocabulary.hidden_categories == frozenset({"workstation"})
+
+
+def _groups_with_hidden() -> list[Any]:
+    from hammunition.menus import Group
+
+    return [
+        Group(order=1, name="station", title="Station", summary="d", categories=("sdr",)),
+        Group(
+            order=2, name="ws", title="Workstation", summary="w", categories=("packet",), menu=False
+        ),
+    ]
+
+
+def test_a_hidden_group_and_its_categories_are_not_rendered_anywhere() -> None:
+    xml = render_menu(CATS, groups=_groups_with_hidden())
+    assert "hammunition-group-ws" not in xml
+    assert "<Name>hammunition-packet</Name>" not in xml, "hidden, not demoted to the top level"
+    assert xml.count("<Menu>") == 1 + 1 + 1 + 1
+
+
+def test_steps_write_no_directory_entry_for_a_hidden_group(tmp_path: Path) -> None:
+    paths = MenuPaths(menus_dir=tmp_path / "menus", directories_dir=tmp_path / "dirs")
+    for step in menu_steps(CATS, paths, menu_prefix="", groups=_groups_with_hidden()):
+        step.perform()
+    assert not (tmp_path / "dirs" / "hammunition-group-ws.directory").exists()
+    assert not (tmp_path / "dirs" / "hammunition-packet.directory").exists()
+
+
+def test_units_with_only_hidden_categories_are_neither_placed_nor_claimed() -> None:
+    """git ships git-gui.desktop and is tagged workstation only: the desktop
+    keeps it under Development, and Hammunition says nothing about it."""
+    placement = place_installed_entries(
+        [_manifest("git", ["workstation"]), _manifest("wireshark", ["rf-security", "workstation"])],
+        _lister({"git": ["git-gui.desktop"], "wireshark": ["org.wireshark.Wireshark.desktop"]}),
+        hidden=frozenset({"workstation"}),
+    )
+    assert placement.by_category == {"rf-security": ("org.wireshark.Wireshark.desktop",)}
+    assert placement.claimed == ("org.wireshark.Wireshark.desktop",)
+    assert placement.units == ("wireshark",)
+
+
+def test_cli_entries_skip_units_with_only_hidden_categories_silently() -> None:
+    from hammunition.menus import cli_entries
+
+    result = cli_entries(
+        [_manifest("tmux", ["workstation"]), _manifest("tcpdump", ["rf-security", "workstation"])],
+        Placement.empty(),
+        _exes({"tmux": ["/usr/bin/tmux"], "tcpdump": ["/usr/bin/tcpdump"]}),
+        hidden=frozenset({"workstation"}),
+    )
+    assert [e.unit for e in result.entries] == ["tcpdump"]
+    assert result.entries[0].categories == ("rf-security",), "a hidden tag is not a keyword either"
+    assert result.skipped == ()
+
+
+def test_gnome_gets_one_folder_per_visible_group_populated_by_its_markers() -> None:
+    """GNOME cannot nest, so the groups become folders. Populated by the
+    X-Hammunition markers of the group's categories, so no app list to
+    maintain, plus the placed entries under those categories by name."""
+    placement = Placement(
+        by_category={"sdr": ("dk.gqrx.gqrx.desktop",)},
+        claimed=("dk.gqrx.gqrx.desktop",),
+        units=("gqrx",),
+    )
+    commands = gnome_commands(placement, groups=_groups_with_hidden())
+    text = "\n".join(" ".join(c.argv) for c in commands)
+    assert "hammunition-station" in text and "hammunition-ws" not in text
+    assert "Hammunition · Station" in text
+    assert "['X-Hammunition-sdr']" in text
+    assert "dk.gqrx.gqrx.desktop" in text
+    assert "['HamRadio']" not in text, "the single catch-all folder is replaced, not kept beside"
+
+
+def test_steps_prune_directory_entries_this_run_did_not_write(tmp_path: Path) -> None:
+    """Hiding Workstation left hammunition-workstation.directory and its
+    group's file behind on the field laptop: harmless, untidy, and a lie
+    about what the tree contains. Only hammunition-*.directory is ours."""
+    paths = MenuPaths(menus_dir=tmp_path / "menus", directories_dir=tmp_path / "dirs")
+    paths.directories_dir.mkdir(parents=True)
+    (paths.directories_dir / "hammunition-workstation.directory").write_text("[Desktop Entry]\n")
+    (paths.directories_dir / "kf5-more.directory").write_text("[Desktop Entry]\n")
+    for step in menu_steps(CATS, paths, menu_prefix="", groups=_groups_with_hidden()):
+        step.perform()
+    assert not (paths.directories_dir / "hammunition-workstation.directory").exists()
+    assert (paths.directories_dir / "kf5-more.directory").exists()
+    assert (paths.directories_dir / "hammunition-sdr.directory").exists()

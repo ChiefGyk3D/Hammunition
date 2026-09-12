@@ -213,3 +213,9 @@ groups:
     title: Workstation
     summary: The machine the station runs on.
     categories: [workstation]
+    # Not a menu: git, tmux, screen and VS Code are catalog units because a
+    # station needs them, not because they are radio software. A unit tagged
+    # workstation *and* a radio category (wireshark, esptool) still shows
+    # under the radio one; the desktop keeps these where it already puts
+    # them (maintainer, 2026-09-12).
+    menu: false

@@ -3647,6 +3647,40 @@ the unit; `gpsd` under the sbin rule), the earlier `gpsd` entry pruned,
 family's own dashboard is in *Station*, *HF Propagation* and *Satellite*
 rather than nowhere.
 
+**Second round, same day (maintainer, after seeing the tree in the
+launcher).** Three amendments to the rule above:
+
+6. **The menu is called *Hammunition*, not *Ham Radio*.** It is the
+   project's tree, the way Parrot's is *Parrot Security*.
+7. **A group can be hidden: `menu: false`.** *Workstation* is: git, tmux,
+   screen, VS Code and VSCodium are catalog units because a station needs
+   them, not because they are radio software, and the maintainer did not
+   want them under Hammunition. A hidden group gets no submenu, no folder,
+   no generated entry, and the packaged entries of a unit tagged only there
+   are left where the desktop already puts them (VS Code stays under
+   *Development*). A unit tagged workstation *and* a radio category
+   (wireshark, esptool, tcpdump) still shows under the radio one, and the
+   hidden tag is not a keyword on its entry. Measured on the laptop: 7
+   groups shown, the git, screen and tmux entries pruned, 9 generated
+   entries remain.
+8. **Desktop parity is per mechanism, measured where it can be.** What
+   Parrot already carries was measured too: under *Pentesting → Wireless
+   Attacks* it lists 71 RF entries in five submenus and 15 of those
+   packages are catalog units (gqrx, GNU Radio, the RTL-SDR and HackRF
+   tools, Ubertooth, inspectrum, the NFC tools, aircrack, Wireshark, CHIRP,
+   GPA, gr-air-modes); its KDE root has no `HamRadio` category at all, so
+   the ham side had nowhere to go. Both copies stay (D-022), the way
+   Parrot lists a tool in several places.
+
+   | Desktop | Mechanism | State |
+   |---|---|---|
+   | KDE Plasma (Parrot) | menu-spec merge into `applications-merged/` (KDE ignores the prefix), `kbuildsycoca6` after | **Measured on the field laptop** 2026-09-12: tree present, groups in order, Lost & Found emptied |
+   | Xfce (Kali, Parrot's alternative) | menu-spec merge into `<prefix>applications-merged/` | Measured on the Kali VM for the flat tree (2026-09-02); the grouped tree and `<Layout>` are the same mechanism and **await a re-run there** |
+   | GNOME (Debian 13, Ubuntu) | one app-folder per visible group, *Hammunition · <title>*, populated by the group's `X-Hammunition-*` markers plus placed entries by name; GNOME cannot nest | Code and tests written this round; **awaits the Debian 13 VM** — nothing asserted until it has run |
+   | COSMIC (Pop!_OS) | unknown; its app-library groups are not menu-spec | **Unmeasured.** The Pop VM exists; nothing is claimed until it is read |
+
+   The three VM checks run from the hypervisor host, not the field laptop.
+
 **Consequences.** The eleven skipped units on the laptop — `rtl-sdr`,
 `libhamlib-utils`, `hackrf`, `ubertooth`, `libnfc-bin`, `libfreefare-bin`,
 `hcxtools`, `gpsd-tools`, `pciutils`, `usbutils` and `gpsd`'s tools — are

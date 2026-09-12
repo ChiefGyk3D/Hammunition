@@ -1152,10 +1152,13 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
     vocabulary = load_vocabulary(catalog_root / "categories.yaml")
     categories, groups = vocabulary.categories, vocabulary.groups
     manifests, _ = load_all(catalog_root)
-    placement = place_installed_entries(manifests.values(), applications_dir=APPLICATIONS_DIR)
+    hidden = vocabulary.hidden_categories
+    placement = place_installed_entries(
+        manifests.values(), applications_dir=APPLICATIONS_DIR, hidden=hidden
+    )
     # D-050: every installed unit findable. Generated per user, beside the
     # launchers, from what dpkg says is on this machine's path.
-    generated = cli_entries(manifests.values(), placement)
+    generated = cli_entries(manifests.values(), placement, hidden=hidden)
 
     home = Path.home()
     paths = MenuPaths(
@@ -1180,7 +1183,8 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
     wants_gnome = "GNOME" in desktop.upper() or args.gnome
     placed = sum(len(v) for v in placement.by_category.values())
     print(
-        f"Menu tree: {len(groups)} groups, {len(categories)} categories, menu prefix {prefix!r}; "
+        f"Menu tree: {sum(g.menu for g in groups)} groups shown, {len(categories) - len(hidden)} categories, "
+        f"menu prefix {prefix!r}; "
         f"{len(placement.claimed)} desktop entries from installed catalog packages "
         f"placed {placed} times by their manifests' categories (dpkg -L, checked on disk); "
         f"{len(generated.entries)} entries generated for installed units that ship none"
@@ -1198,7 +1202,7 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
     if wants_gnome:
         runner = SubprocessRunner()
         print("GNOME app-folder (needs your session bus):")
-        for command in gnome_commands(placement):
+        for command in gnome_commands(placement, groups):
             # The two read-modify-write steps are python -c bodies; the
             # description says what they do and the body would fill a screen.
             shown = command.argv[:2] if command.argv[0] == "python3" else command.argv
@@ -1681,7 +1685,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_menus = sub.add_parser("menus", help="curated desktop menus from the catalog (D-036)")
     menus_sub = p_menus.add_subparsers(dest="menus_command", required=True)
     p_menus_apply = menus_sub.add_parser(
-        "apply", help="write the Ham Radio menu tree; on GNOME also the app-folder"
+        "apply", help="write the Hammunition menu tree; on GNOME one app-folder per group"
     )
     p_menus_apply.add_argument(
         "--gnome", action="store_true", help="apply the GNOME app-folder even if undetected"

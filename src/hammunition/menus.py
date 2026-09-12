@@ -74,7 +74,7 @@ __all__ = [
     "root_menu_prefixes",
 ]
 
-MENU_NAME = "Ham Radio"
+MENU_NAME = "Hammunition"
 GNOME_FOLDER = "HamRadio"
 
 
@@ -183,6 +183,12 @@ class Group:
     title: str
     summary: str
     categories: tuple[str, ...]
+    menu: bool = True
+    """``menu: false`` hides the group and its categories from every desktop
+    integration: no submenu, no folder, no generated entry, and the packaged
+    entries of a unit tagged only there are left where the desktop already
+    puts them. Workstation is the case -- git, tmux and VS Code are catalog
+    units, not radio software (maintainer, 2026-09-12)."""
 
 
 @dataclass(frozen=True)
@@ -190,6 +196,10 @@ class Vocabulary:
     categories: list[Category]
     groups: list[Group]
     """In ``order``. Empty when the file declares none, and the tree is flat."""
+
+    @property
+    def hidden_categories(self) -> frozenset[str]:
+        return frozenset(c for g in self.groups if not g.menu for c in g.categories)
 
 
 def load_vocabulary(path: Path) -> Vocabulary:
@@ -208,6 +218,7 @@ def load_vocabulary(path: Path) -> Vocabulary:
                 title=g["title"],
                 summary=g["summary"],
                 categories=tuple(g["categories"]),
+                menu=bool(g.get("menu", True)),
             )
             for g in data.get("groups", [])
         ),
@@ -330,6 +341,7 @@ def place_installed_entries(
     lister: DesktopIdLister = dpkg_desktop_ids,
     *,
     applications_dir: Path | None = None,
+    hidden: frozenset[str] = frozenset(),
 ) -> Placement:
     """Map each installed catalog package's own desktop entries to its
     manifest's categories.
@@ -350,6 +362,9 @@ def place_installed_entries(
     missing: list[tuple[str, str]] = []
     units: list[str] = []
     for manifest in manifests:
+        visible = [c for c in manifest.categories if c not in hidden]
+        if not visible:
+            continue
         for launcher in manifest.launchers:
             claimed.add(f"hammunition-{launcher.name}.desktop")
         packages = _packages_of(manifest)
@@ -367,7 +382,7 @@ def place_installed_entries(
             continue
         units.append(manifest.name)
         claimed.update(ids)
-        for category in manifest.categories:
+        for category in visible:
             by_category.setdefault(category, set()).update(ids)
     return Placement(
         by_category={k: tuple(sorted(v)) for k, v in sorted(by_category.items())},
@@ -438,6 +453,7 @@ def cli_entries(
     manifests: Iterable[PackageManifest],
     placement: Placement,
     executables: ExecutableLister = dpkg_executables,
+    hidden: frozenset[str] = frozenset(),
 ) -> CliEntries:
     """One generated entry per installed catalog unit that has none.
 
@@ -452,6 +468,9 @@ def cli_entries(
     skipped: list[tuple[str, str]] = []
     for manifest in manifests:
         if manifest.launchers or manifest.name in placement.units:
+            continue
+        visible = tuple(c for c in manifest.categories if c not in hidden)
+        if not visible:
             continue
         on_path = [e for package in sorted(_packages_of(manifest)) for e in executables(package)]
         if not on_path:
@@ -484,7 +503,7 @@ def cli_entries(
                 unit=manifest.name,
                 exec=chosen,
                 comment=manifest.summary,
-                categories=tuple(manifest.categories),
+                categories=visible,
             )
         )
     return CliEntries(entries=tuple(entries), skipped=tuple(skipped))
@@ -609,6 +628,8 @@ def render_menu(
     for group in groups:
         members = [by_name[n] for n in group.categories if n in by_name]
         grouped.update(c.name for c in members)
+        if not group.menu:
+            continue
         inner = "\n".join(submenu(c, "      ") for c in members)
         blocks.append(
             f"    <Menu>\n"
@@ -625,7 +646,9 @@ def render_menu(
     layout = ""
     if groups:
         names = "".join(
-            f"\n      <Menuname>hammunition-group-{escape(g.name)}</Menuname>" for g in groups
+            f"\n      <Menuname>hammunition-group-{escape(g.name)}</Menuname>"
+            for g in groups
+            if g.menu
         )
         layout = (
             f"    <Layout>{names}\n"
@@ -712,11 +735,14 @@ def menu_steps(
             perform=partial(
                 _write,
                 paths.directories_dir / "hammunition-hamradio.directory",
-                render_directory(MENU_NAME, "Amateur radio, SDR and RF tools from Hammunition"),
+                render_directory(MENU_NAME, "Amateur radio, SDR and RF tools"),
             ),
         ),
     ]
+    hidden = {c for g in groups or [] if not g.menu for c in g.categories}
     for group in groups or []:
+        if not group.menu:
+            continue
         target = paths.directories_dir / f"hammunition-group-{group.name}.directory"
         steps.append(
             Action(
@@ -727,6 +753,8 @@ def menu_steps(
             )
         )
     for category in categories:
+        if category.name in hidden:
+            continue
         target = paths.directories_dir / f"hammunition-{category.name}.directory"
         steps.append(
             Action(
@@ -740,11 +768,30 @@ def menu_steps(
                 ),
             )
         )
+    written = {Path(step.detail).name for step in steps if step.detail.endswith(".directory")}
+    for stale in sorted(paths.directories_dir.glob("hammunition-*.directory")):
+        if stale.name not in written:
+            steps.append(
+                Action(
+                    kind="menu",
+                    description=f"Remove a directory entry the tree no longer has: {stale.name}",
+                    detail=str(stale),
+                    perform=partial(_remove, stale),
+                )
+            )
     return steps
 
 
-def gnome_commands(placement: Placement | None = None) -> list[Command]:
-    """The GNOME half — an app-folder populated by category, via gsettings.
+def gnome_commands(
+    placement: Placement | None = None, groups: list[Group] | None = None
+) -> list[Command]:
+    """The GNOME half — app-folders populated by category, via gsettings.
+
+    With ``groups`` (D-050): GNOME cannot nest, so each visible group is one
+    folder, *Hammunition · <title>*, populated by the ``X-Hammunition-<cat>``
+    markers of its categories -- no app list to maintain -- plus the placed
+    entries under those categories by name. Without ``groups`` the original
+    single ``HamRadio`` folder is written, as first measured.
 
     ``categories=['HamRadio']`` already gathers every entry tagged HamRadio,
     including the ones distributions ship. The entries a catalog package
@@ -762,7 +809,29 @@ def gnome_commands(placement: Placement | None = None) -> list[Command]:
     and the folder list append is done by the small python -c below, the
     one place argv cannot express "append to a list setting".
     """
-    folder_path = f"/org/gnome/desktop/app-folders/folders/{GNOME_FOLDER}/"
+    if groups is not None:
+        commands: list[Command] = []
+        placement = placement or Placement.empty()
+        for group in groups:
+            if not group.menu:
+                continue
+            apps = sorted({i for c in group.categories for i in placement.by_category.get(c, ())})
+            commands.extend(
+                _gnome_folder(
+                    f"hammunition-{group.name}",
+                    f"{MENU_NAME} · {group.title}",
+                    [f"X-Hammunition-{c}" for c in group.categories],
+                    apps,
+                )
+            )
+        return commands
+    return _gnome_folder(
+        GNOME_FOLDER, MENU_NAME, ["HamRadio"], list(placement.claimed) if placement else []
+    )
+
+
+def _gnome_folder(folder: str, name: str, categories: list[str], apps: list[str]) -> list[Command]:
+    folder_path = f"/org/gnome/desktop/app-folders/folders/{folder}/"
     return [
         Command(
             argv=(
@@ -774,7 +843,7 @@ def gnome_commands(placement: Placement | None = None) -> list[Command]:
                     "'org.gnome.desktop.app-folders','folder-children'],"
                     "capture_output=True,text=True,check=True).stdout.strip()\n"
                     "value = ast.literal_eval(current.removeprefix('@as '))\n"
-                    f"name = {GNOME_FOLDER!r}\n"
+                    f"name = {folder!r}\n"
                     "if name not in value:\n"
                     "    value.append(name)\n"
                     "    subprocess.run(['gsettings','set',"
@@ -782,7 +851,7 @@ def gnome_commands(placement: Placement | None = None) -> list[Command]:
                     "print('folder-children:', value)\n"
                 ),
             ),
-            description=f"Register the {GNOME_FOLDER} app-folder with GNOME (append, never replace)",
+            description=f"Register the {folder} app-folder with GNOME (append, never replace)",
         ),
         Command(
             argv=(
@@ -790,9 +859,9 @@ def gnome_commands(placement: Placement | None = None) -> list[Command]:
                 "set",
                 f"org.gnome.desktop.app-folders.folder:{folder_path}",
                 "name",
-                MENU_NAME,
+                name,
             ),
-            description="Name the folder",
+            description=f"Name the folder {name}",
         ),
         Command(
             argv=(
@@ -800,7 +869,7 @@ def gnome_commands(placement: Placement | None = None) -> list[Command]:
                 "set",
                 f"org.gnome.desktop.app-folders.folder:{folder_path}",
                 "categories",
-                "['HamRadio']",
+                str(categories),
             ),
             description="Populate it by category — no app list to maintain",
         ),
@@ -816,7 +885,7 @@ def gnome_commands(placement: Placement | None = None) -> list[Command]:
                         "current = subprocess.run(['gsettings','get',schema,'apps'],"
                         "capture_output=True,text=True,check=True).stdout.strip()\n"
                         "value = ast.literal_eval(current.removeprefix('@as '))\n"
-                        f"wanted = {list(placement.claimed)!r}\n"
+                        f"wanted = {apps!r}\n"
                         "merged = value + [a for a in wanted if a not in value]\n"
                         "if merged != value:\n"
                         "    subprocess.run(['gsettings','set',schema,'apps',str(merged)],check=True)\n"
@@ -824,11 +893,11 @@ def gnome_commands(placement: Placement | None = None) -> list[Command]:
                     ),
                 ),
                 description=(
-                    f"Add the {len(placement.claimed)} installed-package entries by name "
-                    "(union, never replace) — the ones not tagged HamRadio need it"
+                    f"Add the {len(apps)} installed-package entries by name "
+                    "(union, never replace) — the ones not tagged by category need it"
                 ),
             )
         ]
-        if placement and placement.claimed
+        if apps
         else []
     )
