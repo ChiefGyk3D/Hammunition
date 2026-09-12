@@ -24,7 +24,9 @@ installs the engine in one command; `hammunition doctor` reports what is ready;
 `hammunition hardware` detects your radios and applies the udev rules and
 group membership they need; launchers and curated desktop menus generate for
 Xfce and GNOME. What remains for 1.0: the Pop!_OS declaration decision now
-that its VM has run, COSMIC menus, real-hardware checks on the bench, what a
+that its VM has run, COSMIC menus, real-hardware checks on the bench (the
+field target is a Dell Latitude 5430 Rugged; [its first session](docs/reference/bench-verification-5430.md)
+ran the read-only ladder and every profile's dry run), what a
 packet station means on a kernel without AX.25 (D-041), and release
 engineering — the first signed tag waits on a key that does not exist yet.
 
@@ -55,7 +57,7 @@ exactly where things stand:
 | pipx / CPAN backends | ⚪ re-measured to **zero users** and dropped from 1.0 (D-014 amendment) |
 | Templated config files, from station values | ✅ working — a missing value defers one file, not the transaction |
 | Third-party apt repos | ✅ working — manifest pins the key fingerprint, consent is that fingerprint and `--yes` cannot give it, both files reversed by `uninstall` (D-040); `code`/`codium` in the opt-in `editors` profile |
-| udev rule generation from the hardware catalog | ✅ generated and applied by `hammunition hardware apply`; not yet exercised against real hardware on the bench |
+| udev rule generation from the hardware catalog | ✅ generated and applied by `hammunition hardware apply`; dry-run on the field laptop, not yet applied there or exercised against an attached device |
 | `uninstall` | ✅ working — reverses apt, venv, binary, .deb, trees and launchers; marker-verified, VM-proven; a real `make install` is refused by name |
 | End-to-end VM verification (install / configure / remove) | ✅ Parrot, Kali, Debian 13, Ubuntu 24.04, Ubuntu 26.04, and [Pop!_OS 24.04](docs/reference/vm-campaign-pop.md) as an undeclared target |
 | M5 install-success across the full catalog, six targets | ✅ **zero hard failures**; every unit installs on ≥1 target or is refused with a reason |
@@ -310,6 +312,7 @@ catalog and the measurements, so they cannot say what the code does not.
 | [`docs/reference/hardware-gaps.md`](docs/reference/hardware-gaps.md) | Every USB identifier we don't have, who can close it, and what it blocks |
 | [`docs/reference/device-naming.md`](docs/reference/device-naming.md) | What `/dev/serial/by-id/` already covers, and the 19 of 23 devices where it does not |
 | [`docs/contributing/hardware.md`](docs/contributing/hardware.md) | How to send one, and what we do and don't store |
+| [`docs/reference/bench-verification-5430.md`](docs/reference/bench-verification-5430.md) | What has run on the field target itself, a Dell Latitude 5430 Rugged, and what has not |
 | [`docs/contributing/releasing.md`](docs/contributing/releasing.md) | How a release is cut and signed, and why v0.7.0 is not |
 
 The user-facing documentation site is *Hacker's Ham Shack*. Its standard: a

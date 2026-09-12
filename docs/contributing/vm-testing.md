@@ -25,6 +25,7 @@ Full KVM/QEMU desktop VMs, worked in priority order. Parrot is primary
 | 4 | Ubuntu 24.04 | `ubuntu-24.04` | Declared 2026-09-03 from this VM's full-catalog campaign; the LTS Mint 22.x and Pop!_OS 24.04 install from. |
 | 5 | Pop!_OS 24.04 | — none | See the caveat below before reading its results. |
 | 6 | Kali rolling | `kali-rolling` | A `Kali` domain already exists on the host. |
+| 7 | **The bench** — Dell Latitude 5430 Rugged, Parrot Security 7.3 | `parrot` | Real hardware, the field target and showcase machine. Not disposable: read-only ladder and dry runs first, real installs only with the operator present, and its page records both. |
 
 **The Pop!_OS caveat.** Pop!_OS is not a declared target. Its os-release says
 `ID=pop`, `ID_LIKE="ubuntu debian"`; the engine's family check consults
@@ -418,6 +419,15 @@ the maintainer. The pages so far, in the order they were run:
 | `vm-campaign-ubuntu.md` | Ubuntu 24.04 and 26.04 by unit; every profile whole on Kali, Parrot and Debian 13 (D-038, D-039, D-040) |
 | `vm-campaign-profiles.md` | every profile whole on Parrot and Debian 13 at the current engine, twelve profiles cumulatively on one machine, and the GUI smoke lane over the result |
 | `vm-campaign-pop.md` | every unit and every profile on Pop!_OS 24.04, an undeclared target — evidence for the `pop` declaration decision, read with the caveat above |
+
+The bench gets the same treatment under `bench-verification-<machine>.md`,
+with one difference: the machine is not reset between sessions, so the page
+must say what state it was in when the session started (what was already
+installed, which archives it draws from) and what the session left behind.
+
+| Page | What it records |
+|---|---|
+| `bench-verification-5430.md` | the field target's first session: bootstrap, `doctor`, `status`, hardware detection, the udev dry run, every profile's dry run, and the `morse`-on-PipeWire refusal |
 
 Raw reports (`.md`, `.log`, `.evidence.jsonl`) stay out of git on the host
 under `~/.local/state/hammunition-campaigns/`; conclusions, versions and
