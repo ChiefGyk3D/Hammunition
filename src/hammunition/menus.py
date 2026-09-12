@@ -36,9 +36,10 @@ mechanisms share and the launcher artifacts already have.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
@@ -61,6 +62,7 @@ __all__ = [
     "Vocabulary",
     "cli_entries",
     "cli_entry_steps",
+    "decorate_entries",
     "gnome_commands",
     "load_vocabulary",
     "menu_steps",
@@ -165,6 +167,9 @@ class Category:
     """How the tag reads on a menu — ``SDR``, not ``Sdr``. Falls back to a
     title-cased name, which is wrong for every acronym; the vocabulary carries
     the real one."""
+    icon: str = "folder"
+    """A freedesktop icon name for the submenu and for entries under it that
+    carry none. ``folder`` when the vocabulary says nothing."""
 
     @property
     def label(self) -> str:
@@ -183,6 +188,7 @@ class Group:
     title: str
     summary: str
     categories: tuple[str, ...]
+    icon: str = "folder"
     menu: bool = True
     """``menu: false`` hides the group and its categories from every desktop
     integration: no submenu, no folder, no generated entry, and the packaged
@@ -201,13 +207,23 @@ class Vocabulary:
     def hidden_categories(self) -> frozenset[str]:
         return frozenset(c for g in self.groups if not g.menu for c in g.categories)
 
+    @property
+    def icons(self) -> dict[str, str]:
+        """Category tag -> icon name, for entries that carry none."""
+        return {c.name: c.icon for c in self.categories}
+
 
 def load_vocabulary(path: Path) -> Vocabulary:
     """``catalog/categories.yaml`` as the menu needs it: the categories in
     file order, the groups sorted by their declared order."""
     data = yaml.safe_load(path.read_text())
     categories = [
-        Category(name=c["name"], summary=c["summary"], title=c.get("title", ""))
+        Category(
+            name=c["name"],
+            summary=c["summary"],
+            title=c.get("title", ""),
+            icon=c.get("icon", "folder"),
+        )
         for c in data["categories"]
     ]
     groups = sorted(
@@ -219,6 +235,7 @@ def load_vocabulary(path: Path) -> Vocabulary:
                 summary=g["summary"],
                 categories=tuple(g["categories"]),
                 menu=bool(g.get("menu", True)),
+                icon=g.get("icon", "folder"),
             )
             for g in data.get("groups", [])
         ),
@@ -533,12 +550,15 @@ def cli_entries(
     return CliEntries(entries=tuple(entries), skipped=tuple(skipped))
 
 
-def render_cli_entry(entry: CliEntry) -> str:
+def render_cli_entry(entry: CliEntry, icons: Mapping[str, str] | None = None) -> str:
     markers = ";".join(f"X-Hammunition-{c}" for c in entry.categories)
     keywords = ";".join((*entry.categories, entry.unit))
+    icon = next((icons[c] for c in entry.categories if icons and c in icons), None)
+    icon_line = f"Icon={icon}\n" if icon else ""
     return (
         "[Desktop Entry]\n"
         "Type=Application\n"
+        f"{icon_line}"
         f"Name={entry.unit}\n"
         f"Comment={entry.comment}\n"
         f"Exec={entry.exec}\n"
@@ -555,7 +575,9 @@ def _remove(path: Path) -> str:
     return f"removed {path}"
 
 
-def cli_entry_steps(result: CliEntries, applications_dir: Path) -> list[Action]:
+def cli_entry_steps(
+    result: CliEntries, applications_dir: Path, icons: Mapping[str, str] | None = None
+) -> list[Action]:
     """Write this run's entries; remove ours from earlier runs that this run
     did not produce (the unit was uninstalled, or now ships an entry).
     Only ``hammunition-cli-*.desktop`` is ours to prune — a launcher's
@@ -566,7 +588,9 @@ def cli_entry_steps(result: CliEntries, applications_dir: Path) -> list[Action]:
             kind="menu",
             description=f"Write a menu entry for {entry.unit} ({entry.exec})",
             detail=str(applications_dir / entry.desktop_id),
-            perform=partial(_write, applications_dir / entry.desktop_id, render_cli_entry(entry)),
+            perform=partial(
+                _write, applications_dir / entry.desktop_id, render_cli_entry(entry, icons)
+            ),
         )
         for entry in result.entries
     ]
@@ -580,6 +604,46 @@ def cli_entry_steps(result: CliEntries, applications_dir: Path) -> list[Action]:
                     perform=partial(_remove, stale),
                 )
             )
+    return steps
+
+
+_MARKER = re.compile(r"X-Hammunition-([a-z0-9-]+)")
+
+
+def _decorate(path: Path, icon: str) -> str:
+    text = path.read_text()
+    lines = text.split("\n")
+    at = next((i for i, line in enumerate(lines) if line.startswith("Type=")), 0)
+    lines.insert(at + 1, f"Icon={icon}")
+    path.write_text("\n".join(lines))
+    return f"added Icon={icon} to {path.name}"
+
+
+def decorate_entries(applications_dir: Path, icons: Mapping[str, str]) -> list[Action]:
+    """Give our bare entries an icon from their first marker's category.
+
+    Launchers are written at install time by code that has no vocabulary in
+    hand, so they carried no ``Icon=`` and rendered generic (field laptop,
+    2026-09-12). Only ``hammunition-*.desktop`` is ours to touch; the
+    distribution's entries are never edited (D-022). An entry that already
+    has an icon keeps it.
+    """
+    steps: list[Action] = []
+    for path in sorted(applications_dir.glob("hammunition-*.desktop")):
+        text = path.read_text()
+        if re.search(r"^Icon=", text, re.M):
+            continue
+        icon = next((icons[m] for m in _MARKER.findall(text) if m in icons), None)
+        if icon is None:
+            continue
+        steps.append(
+            Action(
+                kind="menu",
+                description=f"Give {path.name} the {icon} icon",
+                detail=str(path),
+                perform=partial(_decorate, path, icon),
+            )
+        )
     return steps
 
 
@@ -699,8 +763,8 @@ def render_menu(
 """
 
 
-def render_directory(name: str, comment: str) -> str:
-    return f"[Desktop Entry]\nType=Directory\nName={name}\nComment={comment}\nIcon=folder\n"
+def render_directory(name: str, comment: str, icon: str = "folder") -> str:
+    return f"[Desktop Entry]\nType=Directory\nName={name}\nComment={comment}\nIcon={icon}\n"
 
 
 def _write(path: Path, body: str) -> str:
@@ -773,7 +837,9 @@ def menu_steps(
                 kind="menu",
                 description=f"Name the {group.title} group",
                 detail=str(target),
-                perform=partial(_write, target, render_directory(group.title, group.summary)),
+                perform=partial(
+                    _write, target, render_directory(group.title, group.summary, group.icon)
+                ),
             )
         )
     for category in categories:
@@ -788,7 +854,7 @@ def menu_steps(
                 perform=partial(
                     _write,
                     target,
-                    render_directory(category.label, category.summary),
+                    render_directory(category.label, category.summary, category.icon),
                 ),
             )
         )

@@ -27,6 +27,8 @@ from hammunition.menus import (
     root_menu_prefixes,
 )
 
+REPO_CATALOG = Path(__file__).resolve().parent.parent / "catalog"
+
 CATS = [
     Category(name="packet", summary="AX.25, Winlink and friends"),
     Category(name="sdr", summary="Software-defined receivers", title="SDR"),
@@ -799,3 +801,105 @@ def test_parrot_extras_are_placed_even_when_the_shipped_entry_still_exists(tmp_p
         "parrot-gnuradio_filter_design.desktop",
     )
     assert found.replaced == () and found.missing == ()
+
+
+# ---------------------------------------------------------------------------
+# Icons, and an install that ends by re-applying the menu (D-050, round 3).
+# ---------------------------------------------------------------------------
+
+
+def test_the_vocabulary_loads_icons_for_categories_and_groups(tmp_path: Path) -> None:
+    from hammunition.menus import load_vocabulary
+
+    (tmp_path / "categories.yaml").write_text(
+        "categories:\n  - name: sdr\n    summary: R\n    icon: applications-science\n"
+        "groups:\n  - order: 1\n    name: sdr\n    title: SDR\n    summary: r\n"
+        "    icon: radio\n    categories: [sdr]\n"
+    )
+    v = load_vocabulary(tmp_path / "categories.yaml")
+    assert v.categories[0].icon == "applications-science"
+    assert v.groups[0].icon == "radio"
+
+
+def test_directory_entries_carry_the_vocabulary_icon(tmp_path: Path) -> None:
+    from hammunition.menus import Group, render_directory
+
+    assert "Icon=radio\n" in render_directory("Station", "d", icon="radio")
+    assert "Icon=folder\n" in render_directory("Station", "d")
+    cats = [Category(name="sdr", summary="R", title="SDR", icon="applications-science")]
+    groups = [Group(order=1, name="g", title="G", summary="s", categories=("sdr",), icon="radio")]
+    paths = MenuPaths(menus_dir=tmp_path / "menus", directories_dir=tmp_path / "dirs")
+    for step in menu_steps(cats, paths, menu_prefix="", groups=groups):
+        step.perform()
+    assert "Icon=radio" in (tmp_path / "dirs" / "hammunition-group-g.directory").read_text()
+    assert (
+        "Icon=applications-science" in (tmp_path / "dirs" / "hammunition-sdr.directory").read_text()
+    )
+
+
+def test_a_generated_entry_carries_its_first_categorys_icon() -> None:
+    from hammunition.menus import CliEntry, render_cli_entry
+
+    entry = CliEntry(
+        unit="tcpdump", exec="/usr/bin/tcpdump", comment="c", categories=("rf-security",)
+    )
+    body = render_cli_entry(entry, icons={"rf-security": "applications-utilities"})
+    assert "Icon=applications-utilities\n" in body
+    assert "Icon=" not in render_cli_entry(entry)
+
+
+def test_our_entries_without_an_icon_get_one_from_their_markers_and_others_are_left(
+    tmp_path: Path,
+) -> None:
+    """Launchers are written at install time, by code that has no vocabulary
+    in hand; `menus apply` has it and decorates what it finds bare."""
+    from hammunition.menus import decorate_entries
+
+    bare = tmp_path / "hammunition-flrig.desktop"
+    bare.write_text(
+        "[Desktop Entry]\nType=Application\nName=x\nCategories=HamRadio;X-Hammunition-rig-control;\n"
+    )
+    has = tmp_path / "hammunition-mshv.desktop"
+    has.write_text(
+        "[Desktop Entry]\nType=Application\nName=y\nIcon=custom\nCategories=X-Hammunition-sdr;\n"
+    )
+    theirs = tmp_path / "flrig.desktop"
+    theirs.write_text("[Desktop Entry]\nType=Application\nName=z\nCategories=HamRadio;\n")
+    steps = decorate_entries(tmp_path, {"rig-control": "radio", "sdr": "applications-science"})
+    for step in steps:
+        step.perform()
+    assert "Icon=radio\n" in bare.read_text()
+    assert "Icon=custom" in has.read_text() and "Icon=applications-science" not in has.read_text()
+    assert "Icon=" not in theirs.read_text(), "the distribution's own entries are never edited"
+    assert len(steps) == 1
+
+
+def test_the_install_tail_re_applies_the_menu_quietly(tmp_path: Path, monkeypatch: Any) -> None:
+    """After the full install on the field laptop, 42 of 60 tagged entries sat
+    directly under Hammunition because the last apply predated the install.
+    A real install now ends by re-applying the menu, per-user, unprivileged."""
+    from hammunition.cli.main import refresh_menus_after_install
+
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.delenv("XDG_DATA_HOME", raising=False)
+    monkeypatch.setenv("XDG_MENU_PREFIX", "xfce-")
+    lines = refresh_menus_after_install(REPO_CATALOG)
+    assert any("Menu" in line for line in lines)
+    assert (home / ".config" / "menus" / "xfce-applications-merged" / "hammunition.menu").exists()
+
+
+def test_the_install_tail_reports_rather_than_fails_when_no_menu_can_be_decided(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    from hammunition.cli.main import refresh_menus_after_install
+
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("XDG_MENU_PREFIX", raising=False)
+    monkeypatch.setenv("XDG_CONFIG_DIRS", str(tmp_path / "nowhere"))
+    lines = refresh_menus_after_install(REPO_CATALOG)
+    assert any("not re-applied" in line for line in lines)
