@@ -334,8 +334,15 @@ def test_every_catalog_launcher_working_directory_is_under_the_shared_prefix() -
     assert launcher_units == {
         "ais-catcher",
         "artemis",
+        "ax25-apps",
+        "ax25-tools",
+        "bladerf",
         "gpa",
+        "gpsd",
         "gpsd-tools",
+        "gr-gsm",
+        "gr-osmosdr",
+        "gr-satellites",
         "hackrf",
         "hamclock-next",
         "hammunition-hill",
@@ -346,9 +353,11 @@ def test_every_catalog_launcher_working_directory_is_under_the_shared_prefix() -
         "openhamclock",
         "radiosonde-auto-rx",
         "rtl-sdr",
+        "stlink-tools",
         "supersdr",
         "ubertooth",
         "yaac",
+        "yagiuda",
     }, "a unit gained or lost launchers; update this pin"
     for name in launcher_units:
         for launcher in catalog[name].launchers:

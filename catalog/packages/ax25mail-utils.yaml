@@ -14,6 +14,9 @@ install:
       method: apt
       packages: [ax25mail-utils]
 
+# D-050: no menu entry, deliberately. Forwarding tools (axgetlist, axgetmail,
+# axgetmsg and the rest) that run against a configured BBS session from
+# ax25d or a schedule; none opens usefully on its own.
 update:
   probe:
     method: apt_policy

@@ -13,6 +13,15 @@ install:
       method: apt
       packages: [gr-osmosdr]
 
+# D-050: the unit ships several command-line tools and no desktop entry, so
+# `menus apply` could not pick one without guessing. This is the pick: the
+# entry an operator opens first. Terminal launchers hold their window.
+launchers:
+  - name: osmocom_fft
+    exec: osmocom_fft
+    terminal: true
+    # A spectrum from whatever SDR is attached: the osmocom source's own FFT display, and the first proof that a device string opens
+
 update:
   probe:
     method: apt_policy

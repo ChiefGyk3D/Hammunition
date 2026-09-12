@@ -11,6 +11,15 @@ install:
       method: apt
       packages: [yagiuda]
 
+# D-050: the unit ships several command-line tools and no desktop entry, so
+# `menus apply` could not pick one without guessing. This is the pick: the
+# entry an operator opens first. Terminal launchers hold their window.
+launchers:
+  - name: input
+    exec: input
+    terminal: true
+    # Where a design starts: input is the unit's interactive program, asking for element positions and the frequency span and writing the file yagi, output and optimise then read
+
 update:
   probe:
     method: apt_policy
