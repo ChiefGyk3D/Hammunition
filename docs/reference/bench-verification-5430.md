@@ -202,6 +202,26 @@ log, dpkg, or the files on disk, not from the exit status.
 | The menu after the install | 60 HamRadio-tagged entries on disk and, until `menus apply` was re-run, 42 of them sitting directly under *Hammunition* — placement happens at apply time and the last apply predated the install. After re-apply: 68 placed. The 20 left over were Parrot's per-tool `parrot-gnuradio-<tool>` entries, which the replacement rule did not cover; with #77, **90 entries placed 142 times, 47 generated, zero left at the top level**. The maintainer's "it's all just under Hammunition" was both of those things, and the second lesson is that an install should end by re-applying the menu (an open item). |
 | The read-only ladder after the reboot | doctor 11 ok / 0 / 0; `status` sees 249 packages; same kernel, AX.25 modules present. |
 
+## Session 7, same day: a launcher that called itself
+
+Found by the agent writing launchers for the units the menu could not
+guess (#82), before its own nine shipped the same defect: **a launcher
+wrapper named like its tool calls itself.** The wrapper lands at
+`~/.local/bin/<name>` and its command line names the tool bare;
+`~/.local/bin` is first on PATH here (Debian's `.profile`), so the
+wrapper resolves to itself and forks until the machine refuses. The six
+launchers merged the same afternoon (#71: rtl_test, rigctl, hackrf_info,
+ubertooth-util, nfc-list, cgps) all had it, and this page had never
+claimed a generated entry was opened by eye.
+
+| Step | Result |
+|---|---|
+| Exposure on this laptop | One wrapper on disk, `ubertooth-util`, written by the `rf-security` profile in the resume; the other five units were not in that run. `type -a rtl_test` resolved to `/bin/rtl_test`. So one menu entry was a fork bomb, and it had not been clicked. |
+| The fix (#82, engine commit) | A wrapper named like its tool takes its own directory out of PATH before the command; every other wrapper is byte-identical. Red on the unfixed engine, green after. |
+| Regenerated here | `install ubertooth` from the fixed engine: plan is exactly the two launcher steps, run unprivileged, wrapper rewritten with the PATH strip. |
+| Proven, not assumed | Run inside a systemd user scope with `TasksMax=48` (a plain `ulimit -u` cannot bound this: threads count and a desktop session already holds hundreds): the wrapper ran the real `ubertooth-util -v` exactly once — *could not open Ubertooth device*, no unit attached — printed the hold prompt, zero fork errors, no leftover processes once the scope stopped. |
+| Rule for the record | A wrapper never shares its tool's name without the PATH strip, and a launcher is not verified until it has been run once under a task ceiling. |
+
 ## Not yet run (this rung's remaining ladder)
 
 In order, and every one needs the operator at the keyboard for `sudo`:
