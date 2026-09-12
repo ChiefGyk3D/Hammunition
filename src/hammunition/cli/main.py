@@ -65,6 +65,7 @@ from hammunition.consent import (
 from hammunition.distro import DetectionError, Target
 from hammunition.execute import (
     Step,
+    already_built,
     artifact_removal_steps,
     commands_for,
     execute,
@@ -164,7 +165,7 @@ def load_all(
 # ---------------------------------------------------------------------------
 
 
-def _plan_state(planned: PlannedPackage) -> str:
+def _plan_state(planned: PlannedPackage, built: frozenset[str] = frozenset()) -> str:
     """What the plan will do to this unit, in two words.
 
     "already installed" is apt's answer and only apt's: it means every apt
@@ -180,6 +181,8 @@ def _plan_state(planned: PlannedPackage) -> str:
         return "already installed" if not planned.outstanding else "will install"
     if isinstance(method, BinaryInstall) and planned.deb_installed:
         return "already installed"
+    if planned.name in built:
+        return "already installed"  # built at this pin, D-051
     if isinstance(method, SourceInstall | GitInstall):
         return "will build"
     if isinstance(method, VenvInstall):
@@ -196,6 +199,7 @@ def render_plan(
     euid: int,
     log_destination: Path | None = None,
     hands_log_to: str | None = None,
+    built: frozenset[str] = frozenset(),
 ) -> list[str]:
     """The complete account of what will happen. Printed for every run.
 
@@ -218,7 +222,7 @@ def render_plan(
         lines.append(f"Packages ({len(plan.packages)}):")
         for planned in plan.packages:
             why = ", ".join(planned.requested_by)
-            lines.append(f"  {planned.name:<28} {_plan_state(planned):<18} [{why}]")
+            lines.append(f"  {planned.name:<28} {_plan_state(planned, built):<18} [{why}]")
             for apt_package in planned.apt_packages:
                 mark = "+" if apt_package in planned.outstanding else "="
                 # A build dependency is installed like any other apt package but
@@ -712,6 +716,7 @@ def cmd_install(args: argparse.Namespace) -> int:
     # before resolve; its cache is the operator's, like every other fetch.
     repos = AptRepoBackend(owner=user or None)
 
+    read_log = TransactionLog(owner=user or None)  # read-only until the plan is confirmed
     try:
         plan = resolve(
             [*args.names, *suggested],
@@ -728,7 +733,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             kernel=KernelProbe.detect(),
             # Read-only here: whether a vendor .deb already on the machine is
             # ours to skip (#63). The same log is written to after the plan.
-            log=TransactionLog(owner=user or None),
+            log=read_log,
         )
     except PlanError as exc:
         print(str(exc), file=sys.stderr)
@@ -781,10 +786,16 @@ def cmd_install(args: argparse.Namespace) -> int:
         bin_dir=user_bin_dir(user or None),
     )
     data = DataBackend(fetcher=source.fetcher, prefix=source.prefix)
+    # D-051: a build present on disk that the log attributes to this engine
+    # at the manifest's pin is already installed; its build steps are skipped.
+    built = already_built(
+        plan, log=read_log, prefix=source.prefix, source=source, git=git, binary=binary
+    )
     commands = commands_for(
         plan,
         apt,
         refresh=args.refresh,
+        skip_builds=built,
         source=source,
         git=git,
         binary=binary,
@@ -813,6 +824,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         plan,
         commands,
         euid=euid,
+        built=built,
         log_destination=log_destination,
         hands_log_to=hands_log_to,
     ):

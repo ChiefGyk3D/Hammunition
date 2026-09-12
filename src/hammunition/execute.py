@@ -267,6 +267,82 @@ def config_steps(plan: InstallPlan, *, staging_root: Path | None = None) -> list
     return steps
 
 
+def already_built(
+    plan: InstallPlan,
+    *,
+    log: TransactionLog | None,
+    prefix: Path,
+    source: SourceBackend | None = None,
+    git: GitBackend | None = None,
+    binary: BinaryBackend | None = None,
+) -> frozenset[str]:
+    """Units whose build is already installed at the manifest's pin. D-051.
+
+    Two halves, both required, mirroring the vendor-.deb rule (#67):
+
+    * **The effect is present.** Every declared binary is executable at
+      ``<prefix>/bin/<install_as>``; where a tree is installed, its marker
+      exists under the tree destination. A unit that declares neither cannot
+      be checked and is never decided here.
+    * **The log attributes it, at this pin.** A ``verify-pin`` or ``extract``
+      action for *exactly this build directory* -- whose name encodes the
+      pin, so a moved ref or a re-pinned digest is a different path --
+      followed in the same transaction by a verified ``transaction_end``
+      that confirmed one of this unit's checks. A transaction that failed
+      after the build steps (paracon, 2026-09-12) attributes nothing.
+
+    apt has its own answer and a .deb has #67's; venv and node units keep
+    their cheap idempotency (``pip`` over a satisfied venv verifies and
+    exits). Everything else was rebuilt on every re-run until this existed:
+    the field laptop rebuilt 21 units twice in one afternoon.
+    """
+    if log is None:
+        return frozenset()
+    wanted: dict[str, str] = {}
+    for planned in plan.packages:
+        method = planned.block.install
+        if isinstance(method, SourceInstall) and source is not None:
+            src = source.layout(planned.manifest, method).src
+        elif isinstance(method, GitInstall) and git is not None:
+            src = git.layout(planned.manifest, method).src
+        elif isinstance(method, BinaryInstall) and method.format != "deb" and binary is not None:
+            src = binary.layout(planned.manifest, method).src
+        else:
+            continue
+        present: list[bool] = []
+        for declared in planned.manifest.binaries:
+            path = prefix / "bin" / declared.install_as
+            present.append(path.is_file() and os.access(path, os.X_OK))
+        marker = _tree_marker(planned.block)
+        if marker is not None:
+            present.append((tree_destination(prefix, planned.name) / marker).exists())
+        if present and all(present):
+            wanted[planned.name] = str(src)
+    if not wanted:
+        return frozenset()
+    attributed: set[str] = set()
+    pending: set[str] = set()
+    for entry in log.read():
+        event = entry.get("event")
+        if event == "transaction_begin":
+            pending.clear()
+        elif event == "action_end" and entry.get("kind") in ("verify-pin", "extract"):
+            detail = str(entry.get("detail", ""))
+            pending.update(name for name, src in wanted.items() if src in detail)
+        elif event == "transaction_end":
+            if entry.get("verified") is True:
+                confirmed = {
+                    str(check.get("subject", "")).split(":", 1)[0]
+                    for check in entry.get("checks", ())
+                    if isinstance(check, dict) and check.get("confirmed")
+                }
+                attributed.update(name for name in pending if name in confirmed)
+            pending.clear()
+        elif event == "transaction_failed":
+            pending.clear()
+    return frozenset(attributed)
+
+
 def commands_for(
     plan: InstallPlan,
     apt: AptBackend,
@@ -283,6 +359,7 @@ def commands_for(
     config_staging: Path | None = None,
     launcher_bin: Path | None = None,
     launcher_applications: Path | None = None,
+    skip_builds: frozenset[str] = frozenset(),
 ) -> list[Step]:
     """Every step this plan implies, in the order it will run.
 
@@ -310,6 +387,12 @@ def commands_for(
     builds: list[Step] = []
     for planned in plan.packages:
         block = planned.block.install
+        if planned.name in skip_builds and isinstance(
+            block, SourceInstall | GitInstall | BinaryInstall
+        ):
+            # Already built at this pin (D-051, already_built): no fetch, no
+            # build, no install. Its launchers and config still run below.
+            continue
         if isinstance(block, SourceInstall):
             if source is None:
                 raise BackendError(

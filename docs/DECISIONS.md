@@ -3690,3 +3690,57 @@ entry should open. Whether every terminal entry *makes sense* to open
 entries; it is revisited only with a measurement of what operators
 actually open. COSMIC stays unmeasured. The GNOME app-folder is unchanged:
 it cannot nest, and one folder populated by `HamRadio` is what it can do.
+
+## D-051 — A build already installed at its pin is already installed: the effect on disk plus the log's attribution, never one without the other
+
+**Date:** 2026-09-12. **Status:** accepted (maintainer: "focus on delivering
+more features"; this was the gap that had just cost him two rebuild rounds).
+**Depends on:** D-031 (the effect, not the exit status), D-004 (the
+transaction log is the record), the #67 rule for vendor .debs, which this
+generalises. **Amends:** the Parrot VM page's finding 4 (2026-08-29), which
+queued exactly this as engine work.
+
+**What was measured.** The field laptop's first full-catalog install
+(2026-09-12) ran 21 source and git builds, then failed at paracon (#72). The
+resume rebuilt all 21, then failed at a virtualenv step (#74). The second
+resume rebuilt them a third time. apt units reported *already installed*
+throughout; every build unit reported *will build*, because
+`_plan_state`'s rule was "already installed is apt's answer and only apt's"
+and the executor had no way to know a build had happened.
+
+**Rule.** `execute.already_built()` names the units whose build steps are
+skipped, and it requires both halves:
+
+1. **The effect is present.** Every declared `binaries` entry is executable
+   at `<prefix>/bin/<install_as>`; where the block installs a tree, its
+   `tree_marker` exists under the tree destination. A unit declaring neither
+   cannot be checked and is never decided here -- it rebuilds.
+2. **The log attributes it, at this pin.** A `verify-pin` or `extract`
+   action whose detail names *exactly this build directory* -- the
+   backends' `layout()` puts the ref or the digest prefix in that
+   directory's name, so a moved ref or a re-pinned artifact is a different
+   path and does not match -- followed, in the same transaction, by a
+   `transaction_end` with `verified: true` that confirmed one of this unit's
+   checks. A transaction that failed after the build steps attributes
+   nothing: the paracon run's 21 builds are on disk and were still rebuilt
+   once more, correctly, because nothing ever verified them.
+
+Both halves come from what already existed: the effect checks are
+`verify_effects`'s own probes, and the log entries are the ones every build
+already writes. No log format change; the laptop's log from before this
+rule attributes builds the moment a verified transaction has covered them.
+
+A skipped unit keeps its launcher and config steps -- those are cheap,
+idempotent, and the reason a profile is re-run in the first place. The plan
+line reads *already installed*, the executor plans no fetch, unpack, build
+or install for it, and `verify_effects` still checks the binary at the end,
+so a unit deleted by hand between plan and run is caught there.
+
+**Not decided here.** apt has `already_installed`; a .deb has #67; venv and
+node units keep pip's and npm's own cheap idempotency. A unit whose pin
+moved rebuilds, and that is the point: *at its pin*, not *at some pin*.
+
+**Measured after the rule** (to be recorded on
+`docs/reference/bench-verification-5430.md` once the laptop's second
+resume ends with a verified transaction): a dry run of the profiles that
+carry the 21 builds should plan launcher steps only.

@@ -77,6 +77,13 @@ operator reads a disclosure before deciding, rather than while being asked.
 
 ### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
 
+**A re-run rebuilds nothing it has already built** (**D-051**): a source, git
+or prebuilt-archive unit whose binaries are on the machine *and* whose build
+the transaction log attributes to this engine at the manifest's current pin
+reads `already installed`, and only its launcher and config steps are
+planned. A build whose transaction never verified -- it failed after the
+build steps -- is rebuilt, because nothing confirmed it.
+
 Names may be packages or profiles, mixed freely.
 
 | Flag | Effect |
