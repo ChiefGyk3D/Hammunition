@@ -288,3 +288,97 @@ def test_no_root_menu_at_all_is_a_refusal(tmp_path: Path) -> None:
 
 def test_a_bare_root_menu_means_the_empty_prefix(tmp_path: Path) -> None:
     assert resolve_menu_prefix(None, None, [_roots(tmp_path, "")]) == ""
+
+
+# ---------------------------------------------------------------------------
+# Issue #64: Parrot's `parrot-menu` rewrites the launcher set from an apt
+# DPkg::Post-Invoke hook after every apt run, removing the packaged entry and
+# writing `parrot-<package>.desktop` in its place. `dpkg -L` still lists the
+# shipped file, so placing by that list put two filenames in the Plasma tree
+# that did not exist on the field laptop (chirp, wireshark; 2026-09-12).
+# ---------------------------------------------------------------------------
+
+
+def _entry(directory: Path, name: str) -> None:
+    (directory / name).write_text("[Desktop Entry]\nType=Application\n")
+
+
+def test_a_shipped_entry_absent_on_disk_is_placed_by_the_distribution_replacement(
+    tmp_path: Path,
+) -> None:
+    from hammunition.menus import on_disk
+
+    _entry(tmp_path, "parrot-chirp.desktop")
+    found = on_disk("chirp", ["chirp.desktop"], tmp_path)
+    assert found.ids == ("parrot-chirp.desktop",)
+    assert found.replaced == (("chirp.desktop", "parrot-chirp.desktop"),)
+    assert found.missing == ()
+
+
+def test_a_shipped_entry_absent_with_no_replacement_is_reported_not_placed(
+    tmp_path: Path,
+) -> None:
+    from hammunition.menus import on_disk
+
+    found = on_disk("chirp", ["chirp.desktop"], tmp_path)
+    assert found.ids == ()
+    assert found.replaced == ()
+    assert found.missing == ("chirp.desktop",)
+
+
+def test_entries_present_on_disk_pass_through_unchanged(tmp_path: Path) -> None:
+    from hammunition.menus import on_disk
+
+    _entry(tmp_path, "flrig.desktop")
+    _entry(tmp_path, "parrot-flrig.desktop")  # a replacement is irrelevant when the original exists
+    found = on_disk("flrig", ["flrig.desktop"], tmp_path)
+    assert found.ids == ("flrig.desktop",)
+    assert found.replaced == ()
+    assert found.missing == ()
+
+
+def test_placement_places_the_replacement_and_carries_what_happened(tmp_path: Path) -> None:
+    _entry(tmp_path, "parrot-chirp.desktop")
+    _entry(tmp_path, "flrig.desktop")
+    manifests = [
+        _manifest("chirp", ["rig-control"]),
+        _manifest("flrig", ["rig-control"]),
+        _manifest("gone", ["sdr"]),
+    ]
+    placement = place_installed_entries(
+        manifests,
+        _lister(
+            {
+                "chirp": ["chirp.desktop"],
+                "flrig": ["flrig.desktop"],
+                "gone": ["gone.desktop"],
+            }
+        ),
+        applications_dir=tmp_path,
+    )
+    assert placement.by_category == {"rig-control": ("flrig.desktop", "parrot-chirp.desktop")}
+    assert placement.claimed == ("flrig.desktop", "parrot-chirp.desktop")
+    assert placement.replaced == (("chirp", "chirp.desktop", "parrot-chirp.desktop"),)
+    assert placement.missing == (("gone", "gone.desktop"),)
+
+
+def test_the_summary_names_replacements_and_missing_entries_so_a_count_cannot_lie() -> None:
+    from hammunition.menus import placement_summary
+
+    placement = Placement(
+        by_category={"rig-control": ("flrig.desktop", "parrot-chirp.desktop")},
+        claimed=("flrig.desktop", "parrot-chirp.desktop"),
+        replaced=(("chirp", "chirp.desktop", "parrot-chirp.desktop"),),
+        missing=(("gone", "gone.desktop"),),
+    )
+    lines = placement_summary(placement)
+    assert any("chirp.desktop" in line and "parrot-chirp.desktop" in line for line in lines)
+    assert any("gone.desktop" in line and "not placed" in line for line in lines)
+
+
+def test_a_placement_without_a_disk_check_reports_nothing_replaced_or_missing() -> None:
+    placement = place_installed_entries(
+        [_manifest("flrig", ["rig-control"])], _lister({"flrig": ["flrig.desktop"]})
+    )
+    assert placement.replaced == ()
+    assert placement.missing == ()
