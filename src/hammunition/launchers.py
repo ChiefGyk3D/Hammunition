@@ -129,6 +129,17 @@ def wrapper_body(
             )
         exec_line = exec_line.replace("{node}", str(node_wrapper))
     lines.append(exec_line)
+    if launcher.terminal:
+        # A terminal launcher holds its window: the tool's output is the
+        # point, and a window that closes the instant `hackrf_info` exits
+        # shows the operator nothing. Parrot's own tool menu keeps the
+        # window; so does this. The schema refuses `exec ...` on a terminal
+        # launcher, or these lines would never run.
+        lines += [
+            "status=$?",
+            "printf '\\n[exit %s] press Enter to close ' \"$status\"",
+            "read _",
+        ]
     return "\n".join(lines) + "\n"
 
 

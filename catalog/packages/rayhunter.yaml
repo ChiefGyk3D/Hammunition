@@ -1,0 +1,79 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: rayhunter
+version: "0.12.0"
+summary: EFF's IMSI-catcher detector — the installer for a supported hotspot, and the offline capture analyser
+categories: [rf-security, hardware]
+
+# Defensive, and deliberately in rf-security, ungated: it detects cell-site
+# simulators, transmits nothing, emulates no network and collects no one
+# else's identifiers (docs/guides/rayhunter.md, PARITY-POLICY.md; issue #69).
+#
+# The release zip carries the host-side `installer` (which embeds the
+# on-device daemon and init scripts -- upstream `include_bytes!`) and one
+# `rayhunter-check` per host platform. Only those two are installed; the
+# daemon runs on the hotspot, not here.
+#
+# x86_64 only for now: the zip's rayhunter-check lives under a per-platform
+# directory (rayhunter-check-linux-x64/, -aarch64/, -armv7/) and `binaries`
+# is one list for the whole manifest, so an aarch64 block would install the
+# wrong one. Per-block binaries is the engine gap; recorded on #69.
+#
+# The digest is upstream's own, published as rayhunter-v0.12.0-linux-x64.zip.sha256
+# beside the asset and verified against the download (D-014 amendment,
+# 2026-08-26; re-verified 2026-09-12). First unit in the catalog with an
+# inherited rather than self-pinned hash.
+install:
+  - when:
+      arch: [x86_64]
+    install:
+      method: binary
+      artifact:
+        url: https://github.com/EFForg/rayhunter/releases/download/v0.12.0/rayhunter-v0.12.0-linux-x64.zip
+        sha256: 2472e86bcdc9fb6023996c06555365daee849a9fbbaa59900083ae3544bc54ee
+      format: zip
+
+binaries:
+  # `installer` is too generic a name to own on PATH.
+  - produced: installer
+    install_as: rayhunter-installer
+  - produced: rayhunter-check-linux-x64/rayhunter-check
+    install_as: rayhunter-check
+
+update:
+  probe:
+    method: github_release
+    repo: EFForg/rayhunter
+  strategy: reinstall
+  cadence_hint: >-
+    Tagged releases, each zip with a .sha256 beside it. A release is a new
+    digest; re-pin from upstream's published file, never from a download alone.
+
+documentation:
+  what_it_does: >-
+    Two host-side tools from the EFF's Rayhunter project. `rayhunter-installer`
+    puts the Rayhunter daemon onto a supported mobile hotspot over USB -- the
+    Orbic RC400L or a TP-Link M7350/M7310 -- where it watches the cellular
+    control traffic that device already sees and flags patterns characteristic
+    of an IMSI catcher (a cell-site simulator). `rayhunter-check` analyses the
+    QMDL captures such a device records, offline, on this machine.
+  why_you_want_it: >-
+    It is the only maintained, open, cheap way to detect cell-site simulators
+    in the field, and the analyser lets you review captures after the fact.
+    It is a detector: it transmits nothing and collects nothing of anyone
+    else's, which is why it sits in rf-security rather than behind the
+    rf-research consent gate.
+  prerequisites: >-
+    A supported hotspot, its admin password, and a USB cable; the installer
+    speaks USB directly (no adb needed) and today wants either root or a udev
+    rule for the hotspot's identifiers -- the hardware-catalog entry that would
+    supply the rule is the open item on issue #69. Running Rayhunter on this
+    machine's own cellular modem is not possible with upstream as shipped; the
+    same issue records why and the route.
+  known_problems: >-
+    Upstream supports a short list of hotspots on purpose and asks for new
+    hardware to go through its GitHub discussions, not issues. The daemon is
+    not run here; nothing in this unit listens or captures on its own.
+  upstream_url: https://github.com/EFForg/rayhunter
+  upstream_support: GitHub issues for bugs, GitHub discussions for new hardware.

@@ -16,9 +16,9 @@ Tools for looking at radio and network traffic you are entitled to look at: a pr
 
 All of it is receive-and-analyse. None of it transmits, none of it is specific to protected communications, and all but one unit is packaged by at least one of our target distributions, so it installs from apt with no ceremony; Artemis is a venv from its source tarball, because its vendor package collides with an unrelated Debian package of the same name (D-048).
 
-## Packages (10)
+## Packages (11)
 
-[`aircrack-ng`](../packages/aircrack-ng.md), [`esptool`](../packages/esptool.md), [`hcxdumptool`](../packages/hcxdumptool.md), [`hcxtools`](../packages/hcxtools.md), [`inspectrum`](../packages/inspectrum.md), [`rtl-433`](../packages/rtl-433.md), [`tcpdump`](../packages/tcpdump.md), [`ubertooth`](../packages/ubertooth.md), [`wireshark`](../packages/wireshark.md), [`artemis`](../packages/artemis.md)
+[`aircrack-ng`](../packages/aircrack-ng.md), [`esptool`](../packages/esptool.md), [`hcxdumptool`](../packages/hcxdumptool.md), [`hcxtools`](../packages/hcxtools.md), [`inspectrum`](../packages/inspectrum.md), [`rtl-433`](../packages/rtl-433.md), [`tcpdump`](../packages/tcpdump.md), [`ubertooth`](../packages/ubertooth.md), [`wireshark`](../packages/wireshark.md), [`artemis`](../packages/artemis.md), [`rayhunter`](../packages/rayhunter.md)
 
 ## What it deliberately excludes
 

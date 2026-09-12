@@ -16,7 +16,7 @@ Named bundles of software that belong together. Flat tags with overlap, never ne
 | [packet](packet.md) | 1.0 | 22 | AX.25, APRS, Winlink and the EMCOMM stack |
 | [propagation](propagation.md) | 1.0 | 12 | Band conditions, grey line, beacons and DX spotting |
 | [rf-research](rf-research.md) 🔒 | post-1.0 | 2 | Transmit-capable and interception-capable RF tooling — affirmative opt-in required |
-| [rf-security](rf-security.md) | 1.0 | 10 | Spectrum analysis, wireless auditing and protocol inspection |
+| [rf-security](rf-security.md) | 1.0 | 11 | Spectrum analysis, wireless auditing and protocol inspection |
 | [rfid](rfid.md) | post-1.0 | 6 | RFID and NFC — card protocols, readers, and the tooling to study them |
 | [satellite](satellite.md) | 1.0 | 4 | Tracking, working and decoding amateur and weather satellites |
 | [sdr](sdr.md) | 1.0 | 14 | Software-defined radio — receivers, GNU Radio, and the driver layer |

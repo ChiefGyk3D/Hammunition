@@ -61,9 +61,9 @@ install:
 
 launchers:
   - name: radiosonde-auto-rx
-    exec: exec {venv}/bin/python auto_rx.py
+    exec: "{venv}/bin/python auto_rx.py"
     working_directory: /usr/local/share/hammunition/radiosonde-auto-rx/auto_rx
-    terminal: true
+    terminal: true  # no `exec`: the wrapper holds the window after it exits (D-050)
 
 update:
   probe:
