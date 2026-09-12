@@ -150,7 +150,13 @@ def render(
         "**Nothing is filtered out of the sweep.** Every package in the archive "
         "that ships a udev rule is downloaded and read — a curated shortlist is "
         "how the `rtl-sdr` gap happened in the first place. The section split "
-        "below decides only what gets a detailed table.",
+        "below decides only what gets a detailed table. That claim was true of "
+        "packages and false of syntax until 2026-09-12: the parser read only "
+        '`ATTRS{idVendor}`, and a rule written as `ENV{PRODUCT}=="403/de58/*"` '
+        "or `ENV{ID_VENDOR_ID}` had no row — `brltty`'s whole file, among others. "
+        "All three syntaxes are read now (`scripts/udev_rule_pairs.py`, **D-047**); "
+        "brltty itself ships no rules on Debian 13, and "
+        "`docs/reference/brltty-inventory.md` measures it on the targets that do.",
         "",
         "## By archive section",
         "",

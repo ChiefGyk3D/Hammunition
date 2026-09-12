@@ -41,6 +41,7 @@ for target in "${@:-debian-13}"; do
     echo "==> $target ($image)"
     podman run --rm "${STORAGE_OPTS[@]}" \
         -v "$REPO_ROOT/scripts/udev-sweep.sh":/sweep.sh:ro \
+        -v "$REPO_ROOT/scripts/udev_rule_pairs.py":/udev_rule_pairs.py:ro \
         "$image" bash /sweep.sh > "$OUT_DIR/udev-$target.tsv"
     echo "    $(wc -l < "$OUT_DIR/udev-$target.tsv") identifiers -> reference/probes/udev-$target.tsv"
 done

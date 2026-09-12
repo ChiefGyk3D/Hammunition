@@ -566,7 +566,11 @@ def test_the_udev_inventory_swept_date_is_the_sweep_files_not_todays() -> None:
         "debian-13", [row], set(), swept=datetime.date(2026, 8, 27)
     )
     assert "**Swept:** 2026-08-27, `debian-13`" in page
-    assert datetime.date.today().isoformat() not in page
+    # The date line, specifically: the page's prose may legitimately name the
+    # day a finding was made (D-047's syntax note does), and a sweep run today
+    # is legitimately dated today. What must never happen is the line saying
+    # "today" when the file says otherwise.
+    assert f"**Swept:** {datetime.date.today().isoformat()}" not in page
 
 
 @pytest.mark.skipif(
@@ -644,6 +648,22 @@ CHECKED_GENERATORS: list[tuple[str, list[str], list[Path]]] = [
         "gen_profile_sizing.py",
         ["docs/reference/profile-sizing.md"],
         [PROBES / "blend-debian-13.tsv"],
+    ),
+    (
+        "gen_brltty_inventory.py",
+        ["docs/reference/brltty-inventory.md"],
+        [
+            PROBES / f"brltty-{t}.txt"
+            for t in (
+                "debian-13",
+                "debian-13-arm64",
+                "parrot",
+                "kali-rolling",
+                "ubuntu-24.04",
+                "ubuntu-26.04",
+                "linuxmint-22.3",
+            )
+        ],
     ),
     ("gen_device_naming.py", ["docs/reference/device-naming.md"], []),
     ("gen_hardware_gaps.py", ["docs/reference/hardware-gaps.md"], []),

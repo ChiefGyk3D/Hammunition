@@ -31,7 +31,8 @@ disagrees with it, DECISIONS wins and the disagreeing file is a bug.
 - `docs/reference/` — the measurements everything rests on: `ahrl-inventory.md`,
   `blend-inventory.md`, `dispositions.md`, `overlaps.md`, `profile-sizing.md`,
   `licence-verification.md`, `hardware-gaps.md`, `udev-inventory.md`,
-  `usb-ambiguity.md`, `lora-inventory.md`, `device-naming.md`
+  `usb-ambiguity.md`, `lora-inventory.md`, `device-naming.md`,
+  `brltty-inventory.md`
 
 ## What this project is NOT
 
@@ -201,6 +202,7 @@ Do not re-litigate these without being asked:
 | Installed trees | Handed to the operator by an explicit `chown -R -h` step the plan prints and the log records; root keeps the tree when there is no operator; the parent stays root's | MSHV and radiosonde-auto-rx write beside their executables and ran only because `cp -a` under root preserved whoever unpacked the build (**D-043**) |
 | apt lists | `apt-get update` opens every transaction with apt work, disclosed in the plan; `--no-refresh` opts out; nothing to resolve means no update | Six of fifteen Parrot profiles passed the plan and died at the first fetch on four-day-old lists, and staleness is not measurable on Debian (**D-044**) |
 | Post-1.0 DV tracks | Listening (OP25, Trunk Recorder, SDRTrunk, DSD-FME) before repeaters; decoders in `listening`, recorders in `rf-security`; Pi-Star's shipped binaries are a D-024 pin source; ASL3's repository is the D-040 case with no gate beyond the fingerprint | Two of seventeen names exist in any archive and both are carried; nothing in Track A transmits or needs station config (**D-046**) |
+| brltty | Measured per target, never purged or shadowed; four of seven ship no rules, the Ubuntu family's enabled lines are vendor-string or parent-hub qualified; the fix is a troubleshooting entry, and a targeted `udev_rule` only if a default file regresses | AHRL purges and ETC shadows accessibility software machine-wide over one chip behind one hub on two targets (**D-047**) |
 | Packet core | Userspace-primary: Direwolf/QtSoundModem over KISS or AGW to pat, LinBPQ, YAAC, Xastir; the kernel stack is the fuller station where the kernel has it; `z8530-utils2` retired; the out-of-tree module (`mod-orphan`) measured — it builds against 7.1 — and not built by us until a distribution packages it | The whole station installs on Kali 7.1.5 without `ax25.ko`; the module has no tags and no packager, and `ax25-tools` is leaving the archives anyway (**D-045**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
@@ -365,6 +367,12 @@ head.
   `scripts/lora-sweep.sh` reads them. 107 boards, 26 identifiers, the top one
   covering 49 — which is how the `meshtastic` entry was closed without any
   hardware, and had to be, since the maintainer's nodes were lost to flooding.
+- **A udev rule names a pair in one of three syntaxes**, and the sweep reads
+  all three: `ATTRS{idVendor}`, the kernel's `ENV{PRODUCT}=="403/de58/*"`
+  (hex without leading zeros), and `ENV{ID_VENDOR_ID}`. `brltty` writes the
+  second and had zero rows in a sweep that claimed to filter nothing; the
+  parser lives in `scripts/udev_rule_pairs.py` with its test (**D-047**).
+  `docs/reference/brltty-inventory.md` is the per-target measurement.
 - **Distribution udev rules are a primary source and are mined, not guessed.**
   `scripts/run-udev-sweep.sh` reads every package in the archive that ships one
   — no curated shortlist, because a curated shortlist is how `rtl-sdr` came to

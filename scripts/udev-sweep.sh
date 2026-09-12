@@ -136,8 +136,12 @@ for line in out.stdout.splitlines():
     elif line.startswith("Section: ") and current in SECTION and not SECTION[current]:
         SECTION[current] = line.split(" ", 1)[1].strip()
 
-PAIR = re.compile(
-    r"idVendor\}\s*==\s*\"([0-9a-fA-F]{4})\".*?idProduct\}\s*==\s*\"([0-9a-fA-F]{4})\"")
+# The pair a line names, in any of the three syntaxes a rule can use. Lives in
+# scripts/udev_rule_pairs.py (mounted at /udev_rule_pairs.py by the runner) so
+# that tests can exercise it; the inline version read one syntax of three.
+sys.path.insert(0, "/")
+from udev_rule_pairs import find_pair  # noqa: E402
+
 SYMLINK = re.compile(r'SYMLINK\+?=\s*"([^"]+)"')
 # Which subsystem the rule matches, which is the only thing in a rules file that
 # says what KIND of device it is. `tty` means a serial port; `usb` means the bus
@@ -190,7 +194,7 @@ for pkg_dir in sorted(Path("extracted").iterdir()):
             enabled = "1"
             if stripped.startswith("#"):
                 text = stripped.lstrip("#").strip()
-                if not PAIR.search(text):
+                if not find_pair(text):
                     match = DISABLED_REASON.match(text)
                     if match:
                         reason = match.group(1)
@@ -210,10 +214,10 @@ for pkg_dir in sorted(Path("extracted").iterdir()):
                 # available that an identifier does not name a device.
                 enabled = "0"
                 stripped = text
-            m = PAIR.search(stripped)
-            if not m:
+            pair = find_pair(stripped)
+            if not pair:
                 continue
-            vendor, product = m.group(1).lower(), m.group(2).lower()
+            vendor, product = pair
             link = SYMLINK.search(stripped)
             vname, pname = DB.get(vendor, ("", {}))[0], DB.get(vendor, ("", {}))[1].get(product, "")
             subsystem = SUBSYSTEM.search(stripped)
