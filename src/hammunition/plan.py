@@ -69,6 +69,7 @@ from hammunition.manifest.schema import (
     ProfileManifest,
     SourceInstall,
     Status,
+    effective_binaries,
 )
 from hammunition.state.log import TransactionLog
 from hammunition.state.uninstall import deb_attributed
@@ -528,7 +529,7 @@ def _check_engine_capability(
             )
         elif (
             block.install.format != "deb"
-            and not manifest.binaries
+            and not effective_binaries(manifest, block)
             and not block.install.install_tree
         ):
             found.append(

@@ -157,7 +157,7 @@ def test_the_pin_is_checked_after_the_checkout_and_before_the_build(tmp_path: Pa
     revision that had already been installed."""
     manifest = _manifest()
     backend = _backend(_HeadRunner(SHA), tmp_path)
-    steps = backend.steps(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+    steps = backend.steps(manifest, manifest.install[0])
 
     labels = [s.kind if isinstance(s, Action) else " ".join(s.argv[:2]) for s in steps]
     assert labels.index("verify-pin") > labels.index("git -C"), "the pin was checked too early"
@@ -170,7 +170,7 @@ def test_the_fetch_is_shallow_and_by_ref(tmp_path: Path) -> None:
     """A pinned commit should cost one object walk, not a project's history."""
     manifest = _manifest()
     backend = _backend(_HeadRunner(SHA), tmp_path)
-    steps = backend.steps(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+    steps = backend.steps(manifest, manifest.install[0])
 
     fetch = next(s for s in steps if isinstance(s, Command) and "fetch" in s.argv)
     assert "--depth" in fetch.argv and "1" in fetch.argv
@@ -180,7 +180,7 @@ def test_the_fetch_is_shallow_and_by_ref(tmp_path: Path) -> None:
 def test_only_the_install_step_is_privileged(tmp_path: Path) -> None:
     manifest = _manifest()
     backend = _backend(_HeadRunner(SHA), tmp_path)
-    steps = backend.steps(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+    steps = backend.steps(manifest, manifest.install[0])
 
     privileged = [s for s in steps if s.requires_root]
     assert len(privileged) == 1
@@ -237,7 +237,7 @@ def test_the_git_backend_passes_the_operator_to_the_tree_install(tmp_path: Path)
         owner="alice",
     )
     manifest = _manifest(install_tree=True, tree_marker="thing")
-    steps = backend.steps(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+    steps = backend.steps(manifest, manifest.install[0])
     last = steps[-1]
     assert isinstance(last, Command)
     assert last.argv[:5] == ("chown", "-R", "-h", "--", "alice:")

@@ -15,15 +15,19 @@ categories: [rf-security, hardware]
 # `rayhunter-check` per host platform. Only those two are installed; the
 # daemon runs on the hotspot, not here.
 #
-# x86_64 only for now: the zip's rayhunter-check lives under a per-platform
-# directory (rayhunter-check-linux-x64/, -aarch64/, -armv7/) and `binaries`
-# is one list for the whole manifest, so an aarch64 block would install the
-# wrong one. Per-block binaries is the engine gap; recorded on #69.
+# One block per architecture, each naming its own `binaries`: the zip's
+# rayhunter-check lives under a per-platform directory
+# (rayhunter-check-linux-x64/, -aarch64/, -armv7/) while `installer` sits at
+# the top level, so the produced path differs per arch and a single
+# manifest-level list could not describe all three. The maintainer's
+# ClockworkPi uConsole is aarch64 (docs/reference/hardware-gaps.md).
 #
-# The digest is upstream's own, published as rayhunter-v0.12.0-linux-x64.zip.sha256
-# beside the asset and verified against the download (D-014 amendment,
-# 2026-08-26; re-verified 2026-09-12). First unit in the catalog with an
-# inherited rather than self-pinned hash.
+# Each digest is upstream's own, published as
+# rayhunter-v0.12.0-linux-<platform>.zip.sha256 beside the asset and verified
+# against the download (D-014 amendment, 2026-08-26 for x64; aarch64 and
+# armv7 fetched and hashed 2026-09-12, and all three .sha256 files re-read
+# the same day). First unit in the catalog with an inherited rather than
+# self-pinned hash.
 install:
   - when:
       arch: [x86_64]
@@ -33,13 +37,38 @@ install:
         url: https://github.com/EFForg/rayhunter/releases/download/v0.12.0/rayhunter-v0.12.0-linux-x64.zip
         sha256: 2472e86bcdc9fb6023996c06555365daee849a9fbbaa59900083ae3544bc54ee
       format: zip
-
-binaries:
-  # `installer` is too generic a name to own on PATH.
-  - produced: installer
-    install_as: rayhunter-installer
-  - produced: rayhunter-check-linux-x64/rayhunter-check
-    install_as: rayhunter-check
+    binaries:
+      # `installer` is too generic a name to own on PATH.
+      - produced: installer
+        install_as: rayhunter-installer
+      - produced: rayhunter-check-linux-x64/rayhunter-check
+        install_as: rayhunter-check
+  - when:
+      arch: [aarch64]
+    install:
+      method: binary
+      artifact:
+        url: https://github.com/EFForg/rayhunter/releases/download/v0.12.0/rayhunter-v0.12.0-linux-aarch64.zip
+        sha256: 3759e44ef94259009d13967efc6931a076f1dad13aa173b8a83d09468989e9db
+      format: zip
+    binaries:
+      - produced: installer
+        install_as: rayhunter-installer
+      - produced: rayhunter-check-linux-aarch64/rayhunter-check
+        install_as: rayhunter-check
+  - when:
+      arch: [armv7l]
+    install:
+      method: binary
+      artifact:
+        url: https://github.com/EFForg/rayhunter/releases/download/v0.12.0/rayhunter-v0.12.0-linux-armv7.zip
+        sha256: 77cd66f99bd32bcd83300e799ebb8611871e7c01dbb957c0b408cf43b76033ee
+      format: zip
+    binaries:
+      - produced: installer
+        install_as: rayhunter-installer
+      - produced: rayhunter-check-linux-armv7/rayhunter-check
+        install_as: rayhunter-check
 
 update:
   probe:

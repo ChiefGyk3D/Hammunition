@@ -43,7 +43,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from hammunition.fetch import Fetcher
-from hammunition.manifest.schema import BinaryInstall, PackageManifest
+from hammunition.manifest.schema import (
+    BinaryInstall,
+    InstallBlock,
+    PackageManifest,
+    effective_binaries,
+)
 
 from .base import Action, BackendError, Command, CommandRunner
 from .source import (
@@ -91,7 +96,23 @@ class BinaryBackend:
         """
         return SourceLayout(self.build_root / f"{manifest.name}-{block.artifact.sha256[:12]}")
 
-    def steps(self, manifest: PackageManifest, block: BinaryInstall) -> list[Action | Command]:
+    def steps(
+        self, manifest: PackageManifest, install_block: InstallBlock
+    ) -> list[Action | Command]:
+        """The steps for one resolved block.
+
+        Takes the whole :class:`InstallBlock`, not just its method, because the
+        block may carry its own `binaries` overriding the manifest's: rayhunter
+        unpacks a different per-platform path on each architecture (issue #69).
+        """
+        block = install_block.install
+        if not isinstance(block, BinaryInstall):
+            raise BackendError(
+                f"{manifest.name} resolved to a {block.method} block and this backend "
+                f"installs prebuilt artifacts. Installing it anyway would install "
+                f"something the plan never named."
+            )
+        binaries = effective_binaries(manifest, install_block)
         if block.format not in IMPLEMENTED_BINARY_FORMATS:
             raise BackendError(
                 f"{manifest.name} is a {block.format!r} artifact and this backend does "
@@ -135,7 +156,7 @@ class BinaryBackend:
 
         if block.format in _ARCHIVE_FORMATS:
             layout = self.layout(manifest, block)
-            if not manifest.binaries and not block.install_tree:
+            if not binaries and not block.install_tree:
                 raise BackendError(
                     f"{manifest.name} is a prebuilt archive and names no `binaries` "
                     f"and no `install_tree`. Unpacking it would leave a directory in "
@@ -163,7 +184,7 @@ class BinaryBackend:
                     name=manifest.name,
                     produced_in=layout.src,
                     prefix=self.prefix,
-                    binaries=manifest.binaries,
+                    binaries=binaries,
                 )
             )
             if block.install_tree:
@@ -178,13 +199,13 @@ class BinaryBackend:
             return steps
 
         # `executable`: one file, installed under the name the manifest gives it.
-        if len(manifest.binaries) != 1:
+        if len(binaries) != 1:
             raise BackendError(
                 f"{manifest.name} is a single prebuilt executable, so it must declare "
                 f"exactly one `binaries` entry saying what to call it; it declares "
-                f"{len(manifest.binaries)}."
+                f"{len(binaries)}."
             )
-        target = self.prefix / "bin" / manifest.binaries[0].install_as
+        target = self.prefix / "bin" / binaries[0].install_as
         steps.append(
             Action(
                 kind="install-binary",

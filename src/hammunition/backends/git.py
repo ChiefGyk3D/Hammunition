@@ -32,7 +32,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from hammunition.manifest.schema import COMMIT_SHA, GitInstall, PackageManifest
+from hammunition.manifest.schema import (
+    COMMIT_SHA,
+    GitInstall,
+    InstallBlock,
+    PackageManifest,
+    effective_binaries,
+)
 
 from .base import Action, BackendError, Command, CommandRunner
 from .source import SourceLayout, build_commands, prepare_tree, tree_install_commands
@@ -65,7 +71,22 @@ class GitBackend:
         """
         return SourceLayout(self.build_root / f"{manifest.name}-{block.ref[:12]}")
 
-    def steps(self, manifest: PackageManifest, block: GitInstall) -> list[Action | Command]:
+    def steps(
+        self, manifest: PackageManifest, install_block: InstallBlock
+    ) -> list[Action | Command]:
+        """The steps for one resolved block.
+
+        Takes the whole :class:`InstallBlock` rather than its method alone: a
+        block may declare its own `binaries`, and the list this backend copies
+        must be the one the effect check reads back (issue #69).
+        """
+        block = install_block.install
+        if not isinstance(block, GitInstall):
+            raise BackendError(
+                f"{manifest.name} resolved to a {block.method} block and this backend "
+                f"builds from a git checkout. Building it anyway would install "
+                f"something the plan never named."
+            )
         layout = self.layout(manifest, block)
         src = layout.src
         steps: list[Action | Command] = [
@@ -126,7 +147,7 @@ class GitBackend:
                 project_file=block.project_file,
                 build_args=block.build_args,
                 provides_install_target=block.provides_install_target,
-                binaries=manifest.binaries,
+                binaries=effective_binaries(manifest, install_block),
                 autoreconf=block.autoreconf,
             )
         )

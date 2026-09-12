@@ -41,7 +41,7 @@ build HAS been run in a container say so in their own install notes.
 | kali-rolling *(unswept)* | 0 | 0 | 48 | 0 | 201 |
 | parrot *(unswept)* | 0 | 0 | 51 | 2 | 196 |
 | linuxmint-22.3 *(unswept)* | 0 | 0 | 51 | 2 | 196 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 49 | 6 | 194 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 50 | 5 | 194 |
 
 **249 manifests** against **7 targets**.
 
@@ -229,7 +229,7 @@ build HAS been run in a container say so in their own install notes.
 | `quisk` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `radioclk` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `radiosonde-auto-rx` | venv | venv | venv | venv | venv | venv | venv |
-| `rayhunter` | binary | binary | binary | binary | binary | binary | — |
+| `rayhunter` | binary | binary | binary | binary | binary | binary | binary |
 | `readsb` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `remotetrx` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `rtl-433` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |

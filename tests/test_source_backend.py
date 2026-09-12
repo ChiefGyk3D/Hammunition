@@ -241,7 +241,7 @@ def test_extraction_leaves_no_staging_directory(tmp_path: Path) -> None:
 def test_the_steps_run_in_the_order_a_build_needs(tmp_path: Path) -> None:
     backend = _backend(tmp_path)
     manifest = _manifest("autotools")
-    steps = backend.steps(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+    steps = backend.steps(manifest, manifest.install[0])
 
     kinds = [s.kind if isinstance(s, Action) else s.argv[0] for s in steps]
     assert kinds == ["fetch", "extract", "./configure", "make", "make"]
@@ -252,7 +252,7 @@ def test_only_the_install_step_is_privileged(tmp_path: Path) -> None:
     root leaves a tree of root-owned objects in the operator's cache."""
     backend = _backend(tmp_path)
     manifest = _manifest("cmake")
-    steps = backend.steps(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+    steps = backend.steps(manifest, manifest.install[0])
 
     privileged = [s for s in steps if s.requires_root]
     assert len(privileged) == 1
@@ -265,7 +265,7 @@ def test_the_plan_can_print_every_path_before_anything_is_fetched(tmp_path: Path
     renders real paths rather than describing them."""
     backend = _backend(tmp_path)
     manifest = _manifest("cmake")
-    steps = backend.steps(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+    steps = backend.steps(manifest, manifest.install[0])
 
     assert not (tmp_path / "build").exists()
     assert not (tmp_path / "cache").exists()
@@ -280,7 +280,7 @@ def test_compiler_flags_reach_the_compiler(tmp_path: Path) -> None:
     string-mangling; declaring them makes them reviewable catalog data."""
     manifest = _manifest("autotools", compiler_flags=["-Wno-incompatible-pointer-types"])
     backend = _backend(tmp_path)
-    steps = backend.steps(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+    steps = backend.steps(manifest, manifest.install[0])
 
     configure = next(s for s in steps if isinstance(s, Command) and s.argv[0] == "./configure")
     assert configure.env["CFLAGS"] == "-Wno-incompatible-pointer-types"
@@ -292,7 +292,7 @@ def test_the_qmake_project_file_is_passed_when_declared(tmp_path: Path) -> None:
     exists at all."""
     manifest = _manifest("qmake", project_file="MSHV_64.pro")
     backend = _backend(tmp_path)
-    steps = backend.steps(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+    steps = backend.steps(manifest, manifest.install[0])
 
     qmake = next(s for s in steps if isinstance(s, Command) and s.argv[0] == "qmake")
     assert "MSHV_64.pro" in qmake.argv
@@ -301,7 +301,7 @@ def test_the_qmake_project_file_is_passed_when_declared(tmp_path: Path) -> None:
 def test_the_install_prefix_is_usr_local(tmp_path: Path) -> None:
     manifest = _manifest("autotools")
     backend = _backend(tmp_path)
-    steps = backend.steps(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+    steps = backend.steps(manifest, manifest.install[0])
     configure = next(s for s in steps if isinstance(s, Command) and s.argv[0] == "./configure")
     assert f"--prefix={DEFAULT_PREFIX}" in configure.argv
 
@@ -311,7 +311,7 @@ def test_build_commands_carry_a_working_directory(tmp_path: Path) -> None:
     manifest = _manifest("autotools")
     backend = _backend(tmp_path)
     layout = backend.layout(manifest, manifest.install[0].install)  # type: ignore[arg-type]
-    steps = backend.steps(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+    steps = backend.steps(manifest, manifest.install[0])
 
     configure = next(s for s in steps if isinstance(s, Command) and s.argv[0] == "./configure")
     assert configure.cwd == layout.src
@@ -327,7 +327,7 @@ def test_a_custom_build_system_is_refused_by_name(tmp_path: Path) -> None:
     manifest = _manifest("custom")
     backend = _backend(tmp_path)
     with pytest.raises(BackendError, match="custom"):
-        backend.steps(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+        backend.steps(manifest, manifest.install[0])
 
 
 def test_patches_are_refused_by_name(tmp_path: Path) -> None:
@@ -339,7 +339,7 @@ def test_patches_are_refused_by_name(tmp_path: Path) -> None:
     )
     backend = _backend(tmp_path)
     with pytest.raises(BackendError, match="patch"):
-        backend.steps(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+        backend.steps(manifest, manifest.install[0])
 
 
 # ---------------------------------------------------------------------------
@@ -381,7 +381,7 @@ def test_the_install_step_stays_privileged_even_when_run_as_root(tmp_path: Path)
         prefix=DEFAULT_PREFIX,
         jobs=2,
     )
-    steps = backend.steps(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+    steps = backend.steps(manifest, manifest.install[0])
     install = next(
         s for s in steps if isinstance(s, Command) and s.argv[:2] == ("cmake", "--install")
     )
@@ -429,9 +429,12 @@ def test_a_project_with_no_install_rule_installs_its_declared_binaries(tmp_path:
     backend = SourceBackend(
         Fetcher(tmp_path / "cache"), build_root=tmp_path / "b", prefix=tmp_path / "p", jobs=2
     )
-    block = manifest.install[0].install
+    install_block = manifest.install[0]
+    block = install_block.install
     assert isinstance(block, SourceInstall)
-    commands = backend._build_commands(manifest, block, backend.layout(manifest, block))
+    commands = backend._build_commands(
+        manifest, install_block, block, backend.layout(manifest, block)
+    )
 
     argvs = [c.argv for c in commands]
     assert ("make", "install") not in argvs, "the failing install step is still there"
@@ -474,9 +477,12 @@ def test_a_cmake_project_with_no_install_rule_copies_from_its_build_dir(tmp_path
     backend = SourceBackend(
         Fetcher(tmp_path / "cache"), build_root=tmp_path / "b", prefix=tmp_path / "p", jobs=2
     )
-    block = manifest.install[0].install
+    install_block = manifest.install[0]
+    block = install_block.install
     assert isinstance(block, SourceInstall)
-    commands = backend._build_commands(manifest, block, backend.layout(manifest, block))
+    commands = backend._build_commands(
+        manifest, install_block, block, backend.layout(manifest, block)
+    )
 
     assert not any("--install" in c.argv for c in commands), "cmake --install would install nothing"
     last = commands[-1]
@@ -550,9 +556,12 @@ def test_the_default_still_runs_the_build_systems_own_install(tmp_path: Path) ->
     backend = SourceBackend(
         Fetcher(tmp_path / "cache"), build_root=tmp_path / "b", prefix=tmp_path / "p", jobs=2
     )
-    block = manifest.install[0].install
+    install_block = manifest.install[0]
+    block = install_block.install
     assert isinstance(block, SourceInstall)
-    commands = backend._build_commands(manifest, block, backend.layout(manifest, block))
+    commands = backend._build_commands(
+        manifest, install_block, block, backend.layout(manifest, block)
+    )
     assert commands[-1].argv == ("make", "install")
 
 
@@ -701,7 +710,7 @@ def test_the_source_backend_passes_the_operator_to_the_tree_install(tmp_path: Pa
 
     backend = _backend(tmp_path, prefix=P("/usr/local"), owner="alice")
     manifest = _manifest("qmake", install_tree=True, tree_marker="thing")
-    steps = backend.steps(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+    steps = backend.steps(manifest, manifest.install[0])
     last = steps[-1]
     assert isinstance(last, Command)
     assert last.argv[:5] == ("chown", "-R", "-h", "--", "alice:")

@@ -30,6 +30,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 __all__ = [
+    "Binary",
     "ConsentGate",
     "InstallBlock",
     "ManifestError",
@@ -40,6 +41,7 @@ __all__ = [
     "RiskCategory",
     "Selector",
     "Status",
+    "effective_binaries",
 ]
 
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -763,26 +765,9 @@ InstallMethod = Annotated[
 ]
 
 
-class InstallBlock(Strict):
-    """One (selector -> method) pair. The method itself varies, not just its
-    argument — js8call is apt on Linux Mint 22.3 and a cmake build elsewhere."""
-
-    when: Selector = Field(default_factory=Selector)
-    install: InstallMethod
-    build_depends: list[str] = Field(
-        default_factory=list,
-        description="apt packages needed to BUILD only. Never reported as installed.",
-    )
-    note: str | None = None
-
-    @model_validator(mode="after")
-    def _check(self) -> InstallBlock:
-        _check_package_names(self.build_depends, "build_depends")
-        return self
-
-
 # ---------------------------------------------------------------------------
-# Outputs: binaries, launchers, service endpoints.
+# Outputs: binaries, launchers, service endpoints.  `Binary` is defined here,
+# ahead of `InstallBlock`, because a block may override the manifest's list.
 # ---------------------------------------------------------------------------
 
 
@@ -805,6 +790,82 @@ class Binary(Strict):
     (AIS-catcher's rule installs `AIS-catcher`, whatever the manifest says),
     because the post-run effect check looks for `<prefix>/bin/<install_as>`."""
     install_as: str = Field(description="Final name in the install prefix.")
+
+
+class InstallBlock(Strict):
+    """One (selector -> method) pair. The method itself varies, not just its
+    argument — js8call is apt on Linux Mint 22.3 and a cmake build elsewhere."""
+
+    when: Selector = Field(default_factory=Selector)
+    install: InstallMethod
+    build_depends: list[str] = Field(
+        default_factory=list,
+        description="apt packages needed to BUILD only. Never reported as installed.",
+    )
+    binaries: list[Binary] | None = Field(
+        default=None,
+        description=(
+            "This block's own build outputs, replacing the manifest's "
+            "`binaries` wherever this block is the one that resolves. A "
+            "prebuilt archive selected by `arch` can carry a different path "
+            "per architecture -- rayhunter's zip has `installer` at the top "
+            "level and one `rayhunter-check` under a per-platform directory -- "
+            "and one manifest-level list cannot describe both. Omit the key to "
+            "use the manifest's list; an empty list is refused, because it "
+            "reads as an override to nothing."
+        ),
+    )
+    note: str | None = None
+
+    @model_validator(mode="after")
+    def _check(self) -> InstallBlock:
+        _check_package_names(self.build_depends, "build_depends")
+        self._check_binaries()
+        return self
+
+    def _check_binaries(self) -> None:
+        """A block's `binaries` is only meaningful where the engine copies files.
+
+        Source, git and non-deb binary blocks install each declared binary into
+        the prefix by name. apt and a vendor `.deb` place their own contents,
+        and a venv, node or data block installs something that is not a build
+        output at all -- a list there would be read by nothing, which is the
+        silent-no-op shape D-031 exists to refuse.
+        """
+        if self.binaries is None:
+            return
+        where = self._describe()
+        if not self.binaries:
+            raise ManifestError(
+                f"{where}: `binaries` is empty. An empty list overrides the manifest's "
+                f"`binaries` with nothing, so the block would install nothing while "
+                f"reporting success; omit the key to use the manifest's list."
+            )
+        method = self.install
+        installs_binaries = isinstance(method, SourceInstall | GitInstall) or (
+            isinstance(method, BinaryInstall) and method.format != "deb"
+        )
+        if not installs_binaries:
+            raise ManifestError(
+                f"{where}: `binaries` names build outputs the engine copies into the "
+                f"prefix, and a {method.method} block copies none -- apt places the "
+                f"package's own files. Drop the list."
+            )
+        names = [b.install_as for b in self.binaries]
+        dupes = {n for n in names if names.count(n) > 1}
+        if dupes:
+            raise ManifestError(f"{where}: duplicate install_as: {sorted(dupes)}")
+
+    def _describe(self) -> str:
+        """This block, named the way a manifest author sees it in the YAML."""
+        parts = [f"method={self.install.method}"]
+        if self.when.distro:
+            parts.append(f"distro={','.join(self.when.distro)}")
+        if self.when.distro_version:
+            parts.append(f"distro_version={','.join(self.when.distro_version)}")
+        if self.when.arch:
+            parts.append(f"arch={','.join(a.value for a in self.when.arch)}")
+        return f"install block ({', '.join(parts)})"
 
 
 class ServiceEndpoint(Strict):
@@ -1234,7 +1295,9 @@ class PackageManifest(Strict):
         for block in self.install:
             if getattr(block.install, "provides_install_target", True):
                 continue
-            if not self.binaries and not getattr(block.install, "install_tree", False):
+            if not effective_binaries(self, block) and not getattr(
+                block.install, "install_tree", False
+            ):
                 raise ManifestError(
                     f"{self.name}: provides_install_target is false, so nothing would "
                     f"be installed. Declare `binaries` naming what the build emits and "
@@ -1318,6 +1381,20 @@ class PackageManifest(Strict):
         for cfg in self.config_files:
             out |= cfg.station_variables
         return out
+
+
+def effective_binaries(manifest: PackageManifest, block: InstallBlock) -> Sequence[Binary]:
+    """The binaries *this* block installs: its own list, else the manifest's.
+
+    Every reader goes through here -- the three step builders, the post-run
+    effect check, ``already_built``, ``uninstall``'s removal planning and the
+    generated package reference -- because a manifest with per-block lists has
+    two answers to "what does this install" and they must not disagree. One
+    reader left on ``manifest.binaries`` would install the aarch64 block's
+    files and then confirm the x86_64 block's names, which is the D-031 shape
+    the block-level field exists to close (issue #69).
+    """
+    return block.binaries if block.binaries is not None else manifest.binaries
 
 
 # ---------------------------------------------------------------------------
