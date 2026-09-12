@@ -70,6 +70,8 @@ from hammunition.manifest.schema import (
     SourceInstall,
     Status,
 )
+from hammunition.state.log import TransactionLog
+from hammunition.state.uninstall import deb_attributed
 from hammunition.station import Station
 
 __all__ = [
@@ -196,6 +198,12 @@ class PlannedPackage:
     .deb that would collide at the dpkg file level is refused before anything
     runs -- that split is decided at planning, from the same probe as
     everything else."""
+
+    deb_installed: bool = False
+    """A vendor .deb unit whose package dpkg still holds AND whose digest the
+    transaction log attributes to this engine (#63). Nothing is planned for
+    it. Installed but not ours is left to apt, which no-ops or upgrades as
+    it sees fit; ours but removed by hand is installed again."""
 
     @property
     def name(self) -> str:
@@ -836,6 +844,19 @@ def _plan_repos(
     return additions
 
 
+def _deb_installed(
+    block: InstallBlock, states: Mapping[str, AptPackageState], log: TransactionLog | None
+) -> bool:
+    """dpkg holds the package now, and the log says this digest put it there."""
+    method = block.install
+    if not isinstance(method, BinaryInstall) or method.format != "deb" or not method.deb_package:
+        return False
+    state = states.get(method.deb_package)
+    if state is None or not state.is_installed or log is None:
+        return False
+    return deb_attributed(log, sha256=method.artifact.sha256, deb_package=method.deb_package)
+
+
 def resolve(
     names: Sequence[str],
     *,
@@ -848,6 +869,7 @@ def resolve(
     station: Station | None = None,
     repos: AptRepoBackend | None = None,
     kernel: KernelProbe | None = None,
+    log: TransactionLog | None = None,
 ) -> InstallPlan:
     """Build a complete plan, or raise :class:`PlanError` listing every blocker.
 
@@ -859,6 +881,10 @@ def resolve(
     ``kernel`` is the running kernel's module tree, consulted only for units
     that declare ``requires_kernel``; ``None`` means it was not read, which is
     disclosed on those units rather than assumed either way.
+
+    ``log`` is the transaction log, consulted only to attribute an installed
+    vendor .deb to this engine (#63); ``None`` means no unit can be already
+    installed that way, which is the conservative reading.
     """
     blockers: list[Blocker] = []
     deferrals: list[Deferral] = []
@@ -990,13 +1016,23 @@ def resolve(
         {c for manifest, _, _, _ in resolved for c in manifest.conflicts_with_repo_package}
     )
     all_apt = sorted({p for _, _, packages, _ in resolved for p in packages})
+    # Vendor .deb package names ride the same probe: whether each is installed
+    # NOW is half of "already installed" for that unit (#63). They are not in
+    # `all_apt`, so the no-candidate check never asks the archive for them.
+    all_debs = sorted(
+        {
+            block.install.deb_package
+            for _, block, _, _ in resolved
+            if isinstance(block.install, BinaryInstall) and block.install.deb_package
+        }
+    )
     states = {}
     notes: list[str] = []
     # `or all_conflicts`: a unit with nothing to apt-install (a pure vendor
     # .deb) still needs the probe to know whether its declared conflicts are
     # installed -- the gate that skipped it left the wsjtx-improved refusal
     # untested until this line existed.
-    if all_apt or all_conflicts:
+    if all_apt or all_conflicts or all_debs:
         if not apt.lists_populated():
             if refresh:
                 # The refresh (the default, D-044) puts `apt-get update` at the
@@ -1026,7 +1062,7 @@ def resolve(
                     )
                 )
         else:
-            states = apt.probe(sorted({*all_apt, *all_conflicts}))
+            states = apt.probe(sorted({*all_apt, *all_conflicts, *all_debs}))
             for manifest, block, packages, _ in resolved:
                 missing = [p for p in packages if p not in states or not states[p].known]
                 own = (
@@ -1360,6 +1396,7 @@ def resolve(
                 for c in manifest.conflicts_with_repo_package
                 if c in states and states[c].is_installed
             ),
+            deb_installed=_deb_installed(block, states, log),
         )
         for manifest, block, packages, build_only in resolved
     )

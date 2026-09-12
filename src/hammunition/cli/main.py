@@ -171,11 +171,15 @@ def _plan_state(planned: PlannedPackage) -> str:
     package the block names is present. A source or binary unit's apt list is
     its build dependencies, or nothing at all, so for those it was saying
     "already installed" one line above a build -- sdrangel's .deb block on
-    the Ubuntu 26.04 VM read that way (2026-09-02).
+    the Ubuntu 26.04 VM read that way (2026-09-02). The one carve-out is a
+    vendor .deb the plan has attributed to this engine and dpkg still holds
+    (#63): nothing is planned for it, and the line says so.
     """
     method = planned.block.install
     if isinstance(method, AptInstall):
         return "already installed" if not planned.outstanding else "will install"
+    if isinstance(method, BinaryInstall) and planned.deb_installed:
+        return "already installed"
     if isinstance(method, SourceInstall | GitInstall):
         return "will build"
     if isinstance(method, VenvInstall):
@@ -722,6 +726,9 @@ def cmd_install(args: argparse.Namespace) -> int:
             # The running kernel is a fact about this machine, not the target
             # (one Pop!_OS 24.04 VM has AX.25 under 7.0.11 and not under 7.1.5).
             kernel=KernelProbe.detect(),
+            # Read-only here: whether a vendor .deb already on the machine is
+            # ours to skip (#63). The same log is written to after the plan.
+            log=TransactionLog(owner=user or None),
         )
     except PlanError as exc:
         print(str(exc), file=sys.stderr)

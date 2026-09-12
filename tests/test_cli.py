@@ -1267,3 +1267,45 @@ def test_main_line_buffers_stdout_so_a_redirected_install_log_is_not_empty_until
             proc.stdin.write("\n")
             proc.stdin.close()
         proc.wait(timeout=10)
+
+
+def test_plan_state_says_already_installed_for_a_deb_this_engine_installed() -> None:
+    """Issue #63: the deb carve-out to "already installed is apt's answer and
+    only apt's". A vendor .deb the log attributes to us and dpkg still holds
+    is planned as nothing, and the summary line must say so rather than
+    'will fetch+install' above an empty command list."""
+    manifest = PackageManifest.model_validate(
+        {
+            "name": "hill",
+            "version": "1.0",
+            "summary": "A vendor .deb",
+            "categories": ["station"],
+            "install": [
+                {
+                    "install": {
+                        "method": "binary",
+                        "artifact": {"url": "https://example.invalid/h.deb", "sha256": "a" * 64},
+                        "format": "deb",
+                        "deb_package": "hill",
+                    }
+                }
+            ],
+            "update": {"probe": {"method": "none"}},
+            "documentation": {
+                "what_it_does": "Stands in for hammunition-hill.",
+                "why_you_want_it": "To prove the summary line follows the plan.",
+                "upstream_url": "https://example.invalid/",
+            },
+        }
+    )
+    plan = InstallPlan(
+        target=Target(distro="debian", version="13", arch="x86_64"),
+        packages=(
+            PlannedPackage(
+                manifest=manifest, block=manifest.install[0], apt_packages=(), deb_installed=True
+            ),
+        ),
+    )
+    text = "\n".join(render_plan(plan, (), euid=1000))
+    assert "already installed" in text
+    assert "will fetch+install" not in text

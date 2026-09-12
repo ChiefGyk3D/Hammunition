@@ -100,6 +100,7 @@ def _resolve(tmp_path: Path, names: list[str], **kwargs: Any) -> Any:
         apt=kwargs.pop("apt", None) or _apt(tmp_path, known),
         user=kwargs.pop("user", "operator"),
         kernel=kwargs.pop("kernel", None),
+        log=kwargs.pop("log", None),
     )
 
 
@@ -754,3 +755,93 @@ def test_a_compiled_build_pulls_its_toolchain_into_the_apt_set(tmp_path: Path) -
     plan = _resolve(tmp_path, ["makeunit"], catalog={"makeunit": make}, known=known)
     assert "cmake" not in plan.apt_to_install
     assert "build-essential" in plan.apt_to_install
+
+
+# ---------------------------------------------------------------------------
+# Issue #63: a vendor .deb this engine installed is "already installed" on the
+# next run, the way its apt siblings are -- field laptop, 2026-09-12, where
+# `install station --dry-run` re-planned hammunition-hill's fetch and a root
+# apt-get install minutes after both had completed and verified.
+# ---------------------------------------------------------------------------
+
+DEB_SHA = "a" * 64
+
+
+def _deb_manifest(name: str = "hill") -> PackageManifest:
+    return _manifest(
+        name=name,
+        install=[
+            {
+                "install": {
+                    "method": "binary",
+                    "artifact": {"url": f"https://example.invalid/{name}.deb", "sha256": DEB_SHA},
+                    "format": "deb",
+                    "deb_package": name,
+                }
+            }
+        ],
+    )
+
+
+def _log_that_installed(tmp_path: Path, sha256: str) -> Any:
+    from hammunition.state.log import TransactionLog
+
+    log = TransactionLog(path=tmp_path / "transactions.jsonl")
+    log.append(
+        {
+            "event": "action_end",
+            "kind": "install-deb",
+            "outcome": f"installed {sha256}-hill_1.0.0_all.deb through apt",
+        }
+    )
+    return log
+
+
+def test_a_vendor_deb_this_engine_installed_is_already_installed_while_dpkg_still_has_it(
+    tmp_path: Path,
+) -> None:
+    plan = _resolve(
+        tmp_path,
+        ["hill"],
+        catalog={"hill": _deb_manifest()},
+        known={"hill": "1.0.0"},
+        log=_log_that_installed(tmp_path, DEB_SHA),
+    )
+    [planned] = plan.packages
+    assert planned.deb_installed is True
+
+
+def test_a_vendor_deb_installed_by_someone_else_is_planned_again(tmp_path: Path) -> None:
+    """Installed, but the log never saw this digest go in: the operator's own
+    copy. Leave it to apt, which no-ops or upgrades as it sees fit (D-022)."""
+    from hammunition.state.log import TransactionLog
+
+    plan = _resolve(
+        tmp_path,
+        ["hill"],
+        catalog={"hill": _deb_manifest()},
+        known={"hill": "1.0.0"},
+        log=TransactionLog(path=tmp_path / "empty.jsonl"),
+    )
+    [planned] = plan.packages
+    assert planned.deb_installed is False
+
+
+def test_a_vendor_deb_removed_by_hand_is_planned_again_whatever_the_log_says(
+    tmp_path: Path,
+) -> None:
+    plan = _resolve(
+        tmp_path,
+        ["hill"],
+        catalog={"hill": _deb_manifest()},
+        known={"hill": None},
+        log=_log_that_installed(tmp_path, DEB_SHA),
+    )
+    [planned] = plan.packages
+    assert planned.deb_installed is False
+
+
+def test_a_vendor_deb_with_no_log_to_consult_is_planned_again(tmp_path: Path) -> None:
+    plan = _resolve(tmp_path, ["hill"], catalog={"hill": _deb_manifest()}, known={"hill": "1.0.0"})
+    [planned] = plan.packages
+    assert planned.deb_installed is False
