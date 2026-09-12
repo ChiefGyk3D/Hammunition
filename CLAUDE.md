@@ -691,6 +691,16 @@ authoritative:
   it is recorded in `docs/reference/bench-verification-5430.md`; a claim
   about hardware behaviour on the field target that page does not carry is
   not yet a claim.
+- **The maintainer's callsign and grid square are never made public.** The
+  station values are set on the field target (`~/.config/hammunition/`,
+  mode 0600, outside every checkout) and they stay there: never in a
+  commit, a doc page, a campaign or bench page, a session log, an issue, a
+  PR, or pasted tool output. Docs and tests use placeholders — `N0CALL`,
+  `N0TST`, `FN31pr` — as the VM pages already do. Output from `doctor`,
+  `status`, `station show` or a rendered config file on a machine where the
+  station is set is summarised, not quoted. A callsign resolves to a name
+  and a licence address; it is the same class of identifier as a hostname
+  or a serial.
 - **Planned, not owned:** PortaPack H4M, Proxmark3 RDV4. Catalogued, never
   marked maintainer-verified.
 - **Not owned:** LimeSDR, PlutoSDR, KrakenSDR, SDRplay RSP. Carried because

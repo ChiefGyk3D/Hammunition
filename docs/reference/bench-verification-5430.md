@@ -24,7 +24,11 @@ sourced. Nothing catalogued was attached during this session.
 already in use by the machine (cmake and pipewire come from it)
 **Method:** the read-only ladder only. `sudo` was not exercised this
 session, so nothing below installed, removed, or wrote outside the user's
-home; every dry run was `--dry-run --no-refresh`. This laptop is a separate
+home; every dry run was `--dry-run --no-refresh`. The station values were
+set on this machine after the session, in `~/.config/hammunition/`, and are
+not recorded here or anywhere else: the maintainer's callsign and grid
+square are private (CLAUDE.md, hardware context), and bench pages carry
+`N0CALL`-style placeholders only. This laptop is a separate
 machine from the development host and its hypervisor — the bench, not the
 dev machine CLAUDE.md forbids testing on.
 
