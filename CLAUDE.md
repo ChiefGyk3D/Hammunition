@@ -510,8 +510,10 @@ longer a design question in the abstract; a shipped manifest depends on it. See
 `DESIGN.md` §15.3 and the D-004 amendment.
 
 **Open questions awaiting the maintainer** are in `docs/QUESTIONS.md`.
-**None is open as of 2026-09-12**: Q-018 is D-044, Q-019 is D-045, and
-Q-020 (the two post-1.0 tracks) is D-046.
+**Q-021** (the offline-data layer: a `data` install method, a profile
+block, or documentation — five ETC units and `country_files` wait on it)
+is open. Q-018 is D-044, Q-019 is D-045, Q-020 (the two post-1.0 tracks)
+is D-046.
 **Q-001 through Q-016 are all resolved.** Q-006, Q-007 and Q-008 closed on
 2026-08-29: HamClock carries both clients defaulting to `openhamclock` with
 `ohb.works` as the backend; SuperSDR is carried under **D-033**; cellular
