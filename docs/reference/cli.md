@@ -89,6 +89,15 @@ Names may be packages or profiles, mixed freely.
 | `--grid-square LOC` | Maidenhead locator, four or six characters |
 | `--node-alias NAME` | Short packet node alias, up to six characters |
 
+**Offline data (D-049).** A unit whose `install` method is `data` — a map
+tileset, a Wikipedia ZIM, the DX-cluster `cty.dat` — is not software: the
+engine fetches and verifies its files like any other download and puts them
+under `<prefix>/share/hammunition/data/<name>/`, executing nothing. The plan
+prints, before the confirmation, every artifact's size and URL, the unit's
+licence and where it is stated, and the install directory, under the heading
+*Offline data that will be downloaded and installed*. `uninstall` removes
+the directory whole; it is namespaced, so it can only be ours.
+
 **Suggestion groups.** A profile may suggest one-of-several optional
 companions (the packet profile's mail client is the first): the run
 *detects* first — any of the group's known commands on PATH means the
@@ -381,6 +390,7 @@ capability matrix that reports coverage the engine does not have is the shim
 |---|---|
 | A `pipx` install block | the backend named — re-measured to zero users (D-014 amendment) and unwritten |
 | A `source` or `git` block whose `build_system` is `custom` | the build system named. No manifest uses it, so it is an unimplemented gap rather than a regression (**D-014**) |
+| A `data` artifact whose download is not the declared `size` | the URL, the declared and the received byte counts — the digest matched, so the manifest's declaration is what is wrong, and the plan printed a size that was not true (**D-049**) |
 | A `patches` entry with no `unified_diff` | a description alone cannot be applied — building unpatched source would produce a binary the manifest does not describe. (Declared diffs stage and apply with patch(1) since v0.4.0.) |
 | A `build_depends` package apt has no candidate for | which name, marked `build_depends`, **before** the toolchain is installed |
 | A manifest declaring third-party `apt_repos` whose `/etc/apt/sources.list.d/<name>.sources` or `/etc/apt/keyrings/<name>.gpg` already exists **with content this engine did not write** | the file by path, marked foreign — a source under our name that somebody else wrote is never overwritten (**D-040**). Both files present with our content and still no candidate means the lists are stale; that says `--refresh` instead |

@@ -22,12 +22,12 @@ decision. Only CARRY, SUPERSEDE, REVIVE and ADD owe a manifest.
 |---|---:|
 | Units in the six-source union | **161** |
 | …that owe a manifest (C, S, R, A) | **124** |
-| …covered | **105** |
-| …outstanding, with a recorded reason | **19** |
+| …covered | **106** |
+| …outstanding, with a recorded reason | **18** |
 | …outstanding, unexplained | **0** |
-| Manifests in the catalog | **247** |
+| Manifests in the catalog | **248** |
 
-Coverage of what is owed: **105/124** (84%).
+Coverage of what is owed: **106/124** (85%).
 
 The catalog is larger than the union because the Debian Blend contributes
 152 packages, most of which are not AHRL units, and because hardware
@@ -49,7 +49,6 @@ Absent on purpose. Each names what it waits on.
 | `ahrl_docs` | SUPERSEDE | SUPERSEDE #8-12 — replaced by our own engine, not by software |
 | `ahrl_menus` | SUPERSEDE | SUPERSEDE #8-12 — replaced by our own engine |
 | `ahrl_version` | SUPERSEDE | SUPERSEDE #8-12 — replaced by our own engine |
-| `country_files` | CARRY | post-1.0 — the first data-asset-with-an-update-cadence; a monthly fan-out file deserves a schema shape, not a shoehorn. The consuming apps bundle their own cty.dat meanwhile (Q-015 decision 8, 2026-08-30) |
 | `dict` | ADD | ETC sub-project 5 — the offline dictionary, the data layer's smallest member (D-042, D-048) |
 | `dream` | REVIVE | REVIVE blocked: libqt5webkit5-dev has no candidate on Debian 13 (measured) |
 | `gis-tools` | ADD | ETC sub-project 5 — `qgis`; profile placement is the question, and it belongs with the map layer (D-042, D-048) |
@@ -67,7 +66,7 @@ Absent on purpose. Each names what it waits on.
 
 | Disposition | Units | Covered |
 |---|---:|---:|
-| CARRY | 69 | 66 |
+| CARRY | 69 | 67 |
 | SUPERSEDE | 14 | 9 |
 | REVIVE | 6 | 4 |
 | ADD | 35 | 26 |
@@ -111,7 +110,7 @@ catalog is where an operator would look for it.
 | `claws-mail` | CARRY | `claws-mail` |
 | `Coil64` | CARRY | `coil64` |
 | `CONKY` | RETIRE | — |
-| `country_files` | CARRY | — *waiting, see above* |
+| `country_files` | CARRY | `country-files` |
 | `cqrlog` | CARRY | `cqrlog` |
 | `cwwav` | CARRY | `cwwav` |
 | `dict` | ADD | — *waiting, see above* |

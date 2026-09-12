@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**247 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**248 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -28,10 +28,11 @@ Antenna and transmission-line design, modelling, and measurement.
 - [xnec2c](xnec2c.md) — Interactive antenna modelling — NEC2 with a live graphical front end
 - [yagiuda](yagiuda.md) — Analyse and optimise Yagi-Uda arrays without writing a NEC model
 
-### `contest` — 4
+### `contest` — 5
 
 Contest operating -- scoring, duplicate checking, rate keeping, and keying under time pressure.
 
+- [country-files](country-files.md) — The DX-cluster country file (cty.dat) — callsign prefix to entity, zone and coordinates
 - [cwdaemon](cwdaemon.md) — Network service that keys a transmitter's Morse from a serial or parallel port
 - [not1mm](not1mm.md) — A contest logger that speaks to your rig, keyer and cluster
 - [tlf](tlf.md) — Console contest logger built for speed, driven from the keyboard
@@ -270,10 +271,11 @@ Receive-only monitoring and decoding. Needs no licence and often no transmitter,
 - [xwefax](xwefax.md) — Receives HF weather fax and draws the chart
 - [xygrib](xygrib.md) — Views GRIB weather files — wind, pressure, waves, on a map
 
-### `logging` — 13
+### `logging` — 14
 
 Contact logging, awards tracking, QSL and confirmation services.
 
+- [country-files](country-files.md) — The DX-cluster country file (cty.dat) — callsign prefix to entity, zone and coordinates
 - [cqrlog](cqrlog.md) — Full-featured station log with a database behind it and rig control in front
 - [fllog](fllog.md) — Logging server the W1HKJ programs write contacts into
 - [flnet](flnet.md) — Net control operator's list — who checked in, in what order
@@ -658,6 +660,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [coil64](coil64.md) | Calculates inductance for coils of almost any geometry | git |
 | [comptext](comptext.md) | Compares two text streams and scores how much of one arrived intact | apt |
 | [comptty](comptty.md) | The same accuracy comparison as comptext, for Baudot RTTY streams | apt |
+| [country-files](country-files.md) | The DX-cluster country file (cty.dat) — callsign prefix to entity, zone and coordinates | data |
 | [cqrlog](cqrlog.md) | Full-featured station log with a database behind it and rig control in front | apt |
 | [cubicsdr](cubicsdr.md) | Cross-platform SDR receiver with several demodulators running at once | apt |
 | [cutecom](cutecom.md) | A graphical serial terminal, Qt-native and simple | apt |

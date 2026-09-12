@@ -466,7 +466,7 @@ src/hammunition/
   state/           # transaction log, uninstall              ✅ apt removal, VM-verified
   plan.py          # pre-flight resolution (D-016)           ✅
   execute.py       # plan -> commands -> runner              ✅
-  backends/        # apt ✅ source ✅ git ✅ binary ✅ venv ✅ node ✅ apt_repo ✅; pipx/CPAN measured zeros
+  backends/        # apt ✅ source ✅ git ✅ binary ✅ venv ✅ node ✅ apt_repo ✅ data ✅ (D-049); pipx/CPAN measured zeros
   openpgp.py       # key fingerprints from packets, no gpg (D-040)     ✅
   fetch.py         # verified download, mandatory sha256          ✅
   paths.py         # owner-aware XDG dirs (log, cache, build)     ✅

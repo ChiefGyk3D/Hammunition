@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 187 | 7 | 51 | 2 | 0 |
-| ubuntu-26.04 | 189 | 5 | 51 | 2 | 0 |
-| ubuntu-24.04 | 182 | 14 | 49 | 2 | 0 |
-| kali-rolling | 192 | 9 | 46 | 0 | 0 |
-| parrot | 191 | 5 | 49 | 2 | 0 |
-| linuxmint-22.3 | 182 | 14 | 49 | 2 | 0 |
-| debian-13-arm64 | 186 | 8 | 48 | 5 | 0 |
+| debian-13 | 187 | 7 | 52 | 2 | 0 |
+| ubuntu-26.04 | 189 | 5 | 52 | 2 | 0 |
+| ubuntu-24.04 | 182 | 14 | 50 | 2 | 0 |
+| kali-rolling | 192 | 9 | 47 | 0 | 0 |
+| parrot | 191 | 5 | 50 | 2 | 0 |
+| linuxmint-22.3 | 182 | 14 | 50 | 2 | 0 |
+| debian-13-arm64 | 186 | 8 | 49 | 5 | 0 |
 
-**247 manifests** against **7 targets**.
+**248 manifests** against **7 targets**.
 
 ---
 
@@ -159,6 +159,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `coil64` | git | git | git | git | git | git | git |
 | `comptext` | apt | apt | apt | apt | apt | apt | apt |
 | `comptty` | apt | apt | apt | apt | apt | apt | apt |
+| `country-files` | data | data | data | data | data | data | data |
 | `cqrlog` | apt | apt | apt | apt | apt | apt | apt |
 | `cubicsdr` | apt | apt | apt | apt | apt | apt | apt |
 | `cutecom` | apt | apt | apt | apt | apt | apt | apt |

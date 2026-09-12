@@ -213,7 +213,7 @@ def render(catalog: dict[str, PackageManifest]) -> str:
         counts = {APT: 0, NO_CANDIDATE: 0, "build": 0, ABSENT: 0, UNMEASURED: 0}
         for cells in rows.values():
             value = cells[target_name]
-            if value in {"source", "git", "binary", "venv", "node", "pipx"}:
+            if value in {"source", "git", "binary", "venv", "node", "pipx", "data"}:
                 counts["build"] += 1
             else:
                 counts[value] += 1
