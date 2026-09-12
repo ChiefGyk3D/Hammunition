@@ -1007,7 +1007,19 @@ has it?
 the real work and belongs to the getting-started packet page whenever it
 is written.
 
-## Q-020 🟢 — Trunking, digital voice and repeaters: the order of the two post-1.0 tracks, and three calls inside them
+## Q-020 ✅ — Trunking, digital voice and repeaters: the order of the two post-1.0 tracks, and three calls inside them — **RESOLVED 2026-09-12**
+
+**All four as recommended, recorded as D-046.** Track A (trunked and
+digital-voice listening) before Track B (repeater and hotspot), with
+SvxLink's `config_files` block taken the day station config exists; the
+decoders in `listening` and OP25 and Trunk Recorder in `rf-security`;
+Pi-Star's shipped binary set counts as "a distribution packages it" for
+D-024, so the G4KLX suite pins the commits Pi-Star ships; ASL3's own apt
+repository is the D-040 case, with no consent gate beyond the fingerprint.
+Nothing here is 1.0 work; `docs/SCOPE.md` stages 9 and 10 carry the rulings
+in place.
+
+## Q-020 (original) — Trunking, digital voice and repeaters: the order of the two post-1.0 tracks, and three calls inside them
 
 **Raised 2026-09-07**, from the maintainer asking whether trunking, DMR and
 repeater setups are on the roadmap. They were not written anywhere; they are
