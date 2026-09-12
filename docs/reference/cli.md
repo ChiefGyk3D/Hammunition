@@ -209,6 +209,11 @@ second list. Per-user and unprivileged throughout.
   entry sat in *Lost & Found*. The file goes where the desktop reads, and a
   copy left in a directory it does not read is removed. On Plasma,
   `kbuildsycoca6` runs afterwards (disclosed) so the tree shows now.
+- **A real `install` ends by re-applying this**, quietly, for the user who
+  ran it: placement happens at apply time, and a tree applied before an
+  install left 42 of 60 new entries loose under *Hammunition* on the field
+  laptop. The plan discloses it before the confirmation; where no root menu
+  can be decided (bare SSH) the install says so in one line and succeeds.
 - **An entry for every installed radio unit (D-050).** Parrot's menu does
   this for 572 of its 671 entries, and the launcher's search is only as
   good as what has an entry. For each installed catalog unit that ships no
