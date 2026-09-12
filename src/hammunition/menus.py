@@ -291,14 +291,24 @@ def on_disk(package: str, shipped: Iterable[str], applications_dir: Path) -> OnD
     ids: list[str] = []
     replaced: list[tuple[str, str]] = []
     missing: list[str] = []
-    replacement = f"parrot-{package}.desktop"
+    # Parrot writes one parrot-<package>.desktop for a package with one tool
+    # and parrot-<package>-<tool>.desktop for each of several (gnuradio: 15,
+    # field laptop 2026-09-12). All of them are the distribution's copies of
+    # this package's entries.
+    replacements = sorted(
+        p.name
+        for p in applications_dir.glob(f"parrot-{package}*.desktop")
+        if p.name == f"parrot-{package}.desktop" or p.name.startswith(f"parrot-{package}-")
+    )
     for desktop_id in shipped:
         if (applications_dir / desktop_id).exists():
             ids.append(desktop_id)
-        elif (applications_dir / replacement).exists():
-            if replacement not in ids:
-                ids.append(replacement)
-            replaced.append((desktop_id, replacement))
+        elif replacements:
+            for replacement in replacements:
+                if replacement not in ids:
+                    ids.append(replacement)
+            primary = f"parrot-{package}.desktop"
+            replaced.append((desktop_id, primary if primary in replacements else replacements[0]))
         else:
             missing.append(desktop_id)
     return OnDisk(ids=tuple(ids), replaced=tuple(replaced), missing=tuple(missing))

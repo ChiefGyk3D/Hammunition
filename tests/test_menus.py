@@ -755,3 +755,25 @@ def test_steps_prune_directory_entries_this_run_did_not_write(tmp_path: Path) ->
     assert not (paths.directories_dir / "hammunition-workstation.directory").exists()
     assert (paths.directories_dir / "kf5-more.directory").exists()
     assert (paths.directories_dir / "hammunition-sdr.directory").exists()
+
+
+def test_parrot_replacements_may_be_several_per_package_named_by_tool(tmp_path: Path) -> None:
+    """Field laptop after the full install (2026-09-12): Parrot's hook replaced
+    gnuradio's entries with fifteen parrot-gnuradio-<tool>.desktop files, all
+    tagged HamRadio; the rule looked only for parrot-gnuradio.desktop, so all
+    fifteen fell through to the tree's top level as unplaced. Every
+    parrot-<package>-*.desktop is the distribution's copy of that package's
+    entries and is placed under the package's categories."""
+    from hammunition.menus import on_disk
+
+    for name in ("parrot-gnuradio-companion", "parrot-gnuradio-plot_fft", "parrot-gnuradio"):
+        _entry(tmp_path, f"{name}.desktop")
+    _entry(tmp_path, "parrot-gnuradiox-other.desktop")  # a different package's, not ours
+    found = on_disk("gnuradio", ["gnuradio-grc.desktop"], tmp_path)
+    assert found.ids == (
+        "parrot-gnuradio-companion.desktop",
+        "parrot-gnuradio-plot_fft.desktop",
+        "parrot-gnuradio.desktop",
+    )
+    assert found.missing == ()
+    assert ("gnuradio-grc.desktop", "parrot-gnuradio.desktop") in found.replaced
