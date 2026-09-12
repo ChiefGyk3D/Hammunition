@@ -47,6 +47,14 @@ install:
       input source or an output format, so the summary is the thing to read
       rather than the exit status (D-031).
 
+# What the install rule puts on PATH, measured on the field laptop after the
+# full install (2026-09-12). Declared so the post-run effect check has
+# something to confirm and a re-run can see the build is already installed
+# at its pin (D-051); without it the unit rebuilt on every run.
+binaries:
+  - produced: acarsdec
+    install_as: acarsdec
+
 update:
   probe:
     method: github_tags

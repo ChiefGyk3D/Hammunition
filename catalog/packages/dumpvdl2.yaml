@@ -48,6 +48,14 @@ install:
       a capability without failing the build, so the cmake summary is the thing
       to check.
 
+# What the install rule puts on PATH, measured on the field laptop after the
+# full install (2026-09-12). Declared so the post-run effect check has
+# something to confirm and a re-run can see the build is already installed
+# at its pin (D-051); without it the unit rebuilt on every run.
+binaries:
+  - produced: src/dumpvdl2
+    install_as: dumpvdl2
+
 update:
   probe:
     method: github_tags

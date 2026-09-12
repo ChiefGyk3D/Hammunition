@@ -28,6 +28,10 @@ An HF-capable SDR — an RTL dongle alone will not do, since HFDL lives between 
   - build dependencies: `patch`, `build-essential`, `cmake`, `pkg-config`, `libglib2.0-dev`, `libconfig++-dev`, `libliquid-dev`, `libfftw3-dev`, `libsoapysdr-dev`, `libsqlite3-dev`
   - `SCOPE.md` listed dumphfdl as DragonOS Tier 1 — "apt-installable or an upstream .deb". It is neither: absent from Debian stable and unstable and from every target's apt, measured in containers. It is a source build, and that correction is recorded in dragonos-tier1-inventory.md.
 
+Binaries this produces:
+
+- `src/dumphfdl`
+
 ## Known problems
 
 liquid-dsp is a hard requirement and the version matters — upstream needs 1.3.0 or newer. Skywave ships dumphfdl in its ISO but its published installer scripts do not build it at all, which is one of the clearest signs that those scripts and that image have diverged.

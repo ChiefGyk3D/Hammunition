@@ -26,6 +26,10 @@ An SDR and an antenna for the band of interest. A configuration file is required
   - build dependencies: `build-essential`, `cmake`, `pkg-config`, `librtlsdr-dev`, `libsoapysdr-dev`, `libairspy-dev`, `libmp3lame-dev`, `libshout3-dev`, `libconfig-dev`, `libfftw3-dev`, `libusb-1.0-0-dev`, `libpulse-dev`
   - Upstream's container build compiles rtl-sdr-blog from source for RTL-SDR V4 support rather than using the distribution's librtlsdr. We take the distribution package instead; if a V4 dongle is the target, see the `rtl_sdr_v4` disposition, which is a separate decision from this build.
 
+Binaries this produces:
+
+- `rtl_airband`
+
 ## Known problems
 
 CPU use scales with the number of channels and the sample rate; on a Pi this is the limiting factor rather than the radio. Upstream builds against rtl-sdr-blog rather than the distribution's librtlsdr in order to support RTL-SDR V4 dongles — with the distribution library a V4 may not tune correctly.

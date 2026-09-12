@@ -28,6 +28,11 @@ Proxmark3 hardware, membership of `dialout` and `plugdev`, and firmware matching
   - build dependencies: `build-essential`, `pkg-config`, `libreadline-dev`, `libpcsclite-dev`, `libssl-dev`, `libbz2-dev`, `liblz4-dev`, `libbluetooth-dev`, `libpython3-dev`, `libqt5svg5-dev`, `qtbase5-dev`, `gcc-arm-none-eabi`, `libnewlib-dev`
   - Pinned to the same release Kali packages so a client built here and a client installed there are the same version. This needs the source-from-git backend, which is NOT WRITTEN -- see the engine status in README.md. The manifest is data and is correct today; nothing can act on it yet.
 
+Binaries this produces:
+
+- `client/proxmark3`
+- `pm3`
+
 ## Known problems
 
 Client and firmware are version-locked and a mismatch produces confusing behaviour rather than a clear error. Several incompatible hardware generations share the name -- the original design, RDV4 and RDV5 -- and they differ in USB identifier and in what the firmware supports. Packaged only on Kali; the other three targets need a source build, and the ARM cross-compiler in the build dependencies is required even to build the client, because the client ships the firmware images it flashes.
