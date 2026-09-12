@@ -953,7 +953,20 @@ taken.
 
 ---
 
-## Q-019 🟡 — Kernel AX.25 is gone from Linux 7.1: retire `z8530-utils2`, and does the packet core become userspace-primary?
+## Q-019 ✅ — Kernel AX.25 is gone from Linux 7.1: retire `z8530-utils2`, and does the packet core become userspace-primary? — **RESOLVED 2026-09-10**
+
+**A and A, as recommended, recorded as D-045.** `z8530-utils2` is retired
+(`world_changed`, verdict tested against merge 64edfa65 and seven module
+trees); D-008 is amended to say the packet core is the userspace path, with
+the kernel stack the fuller station where the kernel carries it. The
+maintainer also asked whether the stack can come back as a module: it can —
+`linux-netdev/mod-orphan`, published by the maintainer who removed it, builds
+out of tree — and it is measured in `docs/reference/kernel-ax25.md` and not
+carried, because no distribution packages it, it has no tags to pin, and
+`ax25-tools` is leaving the archives regardless. A distribution packaging it
+reopens the question; D-045 says so.
+
+## Q-019 (original) — Kernel AX.25 is gone from Linux 7.1: retire `z8530-utils2`, and does the packet core become userspace-primary?
 
 **Raised 2026-09-04**, from the Kali campaign's `ax25-tools` gap, which
 turned out to be a kernel removal rather than an archive accident
@@ -994,7 +1007,19 @@ has it?
 the real work and belongs to the getting-started packet page whenever it
 is written.
 
-## Q-020 🟢 — Trunking, digital voice and repeaters: the order of the two post-1.0 tracks, and three calls inside them
+## Q-020 ✅ — Trunking, digital voice and repeaters: the order of the two post-1.0 tracks, and three calls inside them — **RESOLVED 2026-09-12**
+
+**All four as recommended, recorded as D-046.** Track A (trunked and
+digital-voice listening) before Track B (repeater and hotspot), with
+SvxLink's `config_files` block taken the day station config exists; the
+decoders in `listening` and OP25 and Trunk Recorder in `rf-security`;
+Pi-Star's shipped binary set counts as "a distribution packages it" for
+D-024, so the G4KLX suite pins the commits Pi-Star ships; ASL3's own apt
+repository is the D-040 case, with no consent gate beyond the fingerprint.
+Nothing here is 1.0 work; `docs/SCOPE.md` stages 9 and 10 carry the rulings
+in place.
+
+## Q-020 (original) — Trunking, digital voice and repeaters: the order of the two post-1.0 tracks, and three calls inside them
 
 **Raised 2026-09-07**, from the maintainer asking whether trunking, DMR and
 repeater setups are on the roadmap. They were not written anywhere; they are
@@ -1049,3 +1074,68 @@ capability behind it.
 node on the amateur bands is licensed operation, and D-021 discloses
 coordination and unattended-station conditions rather than adjudicating
 them.
+
+---
+
+## Q-021 ✅ — The offline-data layer: what is a map, a Wikipedia ZIM or a dictionary to this catalog? — **RESOLVED 2026-09-12**
+
+**A, as recommended, recorded as D-049**, with both rules: the plan prints
+every data artifact's size and licence before the confirmation, and the
+operator's selection (which state, which country) lives in station config,
+so a missing selection defers the data unit and never its reader. Built in
+the order the recommendation gave: the schema and fetcher first, proven on
+`country_files` (cty.dat), then the tileset, Navit's extract and the ZIM.
+
+## Q-021 (original) — The offline-data layer: what is a map, a Wikipedia ZIM or a dictionary to this catalog?
+
+**Raised 2026-09-12**, at the end of ETC sub-project 4 (**D-048**). Five
+units of the EmComm Tools OS delta — `navit`, `kiwix`, `mbtileserver`,
+`gis-tools` (`qgis`) and `dict` — are decided ADD and cannot be written,
+because each is a *reader* of data the catalog has no shape for. **D-042**
+rule 5 named the gap and deferred it to sub-project 5; **Q-015** decision 8
+(`country_files`, the DX-cluster `cty.dat`) deferred the same question the
+first time it appeared. It is now blocking two dispositioned groups, and it
+is a design question, not a measurement — so it is the maintainer's.
+
+**What ETC does, measured** (`docs/reference/etc-inventory.md`): three
+interactive downloads into `/etc/skel`, none verified, none pinned:
+
+| Data | Source | Size (measured 2026-09-12) | Licence |
+|---|---|---|---|
+| Map tiles for a browser or `mbtileserver` | ETC's own GitHub release: `osm-us-zoom0to11` **0.69 GB**, `osm-ca-zoom0to10` **0.52 GB**, `osm-world-zoom0to7` **0.08 GB** (2025-11-20 builds) | as listed | OpenStreetMap, ODbL 1.0 |
+| Turn-by-turn map for Navit | one US state's `.osm.pbf` from Geofabrik, converted with `maptool` | Vermont **0.05 GB**, California **1.33 GB** | ODbL 1.0, stated on Geofabrik's front page |
+| Wikipedia for Kiwix | one English `nopic` ZIM from download.kiwix.org, expert mode only | not measured — the kiwix.org directory listing did not answer from here on 2026-09-12; expected in the tens of GB | Wikimedia, CC BY-SA |
+| Dictionary | `dict-gcide` from apt | apt | GPL |
+
+Two things about that shape do not survive contact with this project's
+rules: nothing is verified (**34 of 34** ETC fetches, D-042), and
+`/etc/skel` is an image-builder's answer — it seeds *future* home
+directories and does nothing for the operator already logged in.
+
+**What the catalog has.** Packages, with `install` blocks per backend; a
+`config_files` block for station-templated files (**D-035**); a transaction
+log that records every artefact for `uninstall`; a fetcher that refuses
+anything without a sha256 (**D-018**). What it does not have is a unit whose
+*payload is the point* — large, versioned, separately licensed, refreshed
+on its own cadence, and useless to install without the reader that opens
+it (and vice versa).
+
+| Option | For | Against |
+|---|---|---|
+| **A. A `data` install method on the package manifest** ⭐ — `method: data`, one or more pinned, hashed artifacts, an `install_to` under the shared prefix (`/usr/local/share/hammunition/data/<name>/`), a `licence` field the plan discloses, and the reader named in `depends` | Everything existing applies unchanged: the fetcher verifies, the log records, `uninstall` removes, `update` has a cadence hint, the docs generator renders a page. A map is then a catalog unit like any other, and `mbtileserver` simply `depends` on the tileset it serves. `country_files` gets the same shape for free. | The manifest schema grows a method whose artifacts are gigabytes, so the plan must print the size before the confirmation — a new disclosure the plan does not make today. And the *choice* (which state, which country) is a selection the operator makes, which today only `suggests_one_of` on a profile expresses. |
+| B. A profile-level `data:` block, downloaded at profile install | Keeps the package manifests pure software. | Puts artifacts, hashes and licences in a profile — the one file type that is supposed to be a list of names. And a tileset wanted by two profiles is written twice. |
+| C. Documentation only: the guide names the sources, the operator downloads | Nothing to build; the licences stay entirely the operator's business. | Unverified downloads are the ETC shape this project exists to replace, and "it is in the docs" is how AHRL treated everything hard. The readers would ship pointed at nothing. |
+| D. Defer the whole layer post-1.0 | Five units and one open design question stop blocking a release. | ETC delta is stage 6 of 1.0 (**D-042**, SCOPE.md), and half its distinctive value is this layer. |
+
+**Recommendation: A**, with two rules written into the record when it is
+taken: **the plan prints each data artifact's size and licence before
+asking**, because a 1.33 GB download on a field connection is a decision;
+and **the operator's selection lives in station config** (which state,
+which country), the D-035 mechanism — a missing selection defers the data
+unit, never the reader. `dict` needs none of this: it is apt on every
+target and can be written today under either A or C; it waits only so the
+five land together.
+
+If A is taken, the order is: the schema and fetcher work (sizes, licence
+disclosure), `country_files` as the first and smallest data unit (a proof
+on a 200 KB file), then the tileset, then Navit's extract, then the ZIM.

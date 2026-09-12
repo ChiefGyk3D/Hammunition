@@ -7,7 +7,7 @@ regenerate. The reasons live in that script and are validated against
 the complete index in `docs/reference/dispositions.md`: a disposition
 added there without a reason here fails generation by name.
 
-**Generated:** 2026-08-31
+**Generated:** 2026-09-12
 
 If you came here from Andy's Ham Radio Linux or 73Linux and something
 you used is missing, this page says why. `PARITY-POLICY.md` promises
@@ -40,11 +40,13 @@ changed, it never worked, or it was never radio.
 | `GPSUPDATE` | 73Linux | KM4ACK's own script, unlicensed repository (D-001). GPS-driven time/position update for the Pi image workflow. |
 | `GRIDCALC` | 73Linux | KM4ACK's own grid-square calculator, unlicensed repository (D-001). Useful function; if wanted, we write our own or carry a licensed equivalent. |
 | `M0IAX` | 73Linux | Ruled 2026-08-30 (Q-015 decision 11): JS8Call companion utilities, third-party and unproblematic — but with no measured demand from any JS8 operator here. Not carried in 1.0; a post-1.0 candidate the moment a JS8 profile user asks. Retired with a reason, not retired as dead. |
+| `mbutil` | EmComm Tools OS | Never worked here — ETC runs its `setup.py install` under python2, which no target ships; last tag 0.3.0 (2017). Nothing in ETC's own workflow calls it: the maps it ships are already MBTiles. Import and export of MBTiles, if ever needed, is a job for the sub-project 5 tooling, not for a 2017 python2 script. |
 | `mfc_gpl` | AHRL | Never worked — an empty stub in AHRL v27 (the function body is comments), depending on the long-dead `libserial-0.1`. Byonics MicroFox config tool; AHRL's own SOFTWARE doc calls it obsolete and points at the Byonics website. |
 | `noaa-apt` | AHRL | World changed — the NOAA APT satellites went out of service on 2025-11-09. For today's weather satellites use **SatDump** (carried). This unit keeps a manifest with `status: retired` so the verdict and its provenance are findable where an operator would look (D-005). |
 | `notepadqq` | AHRL | Out of scope — a general-purpose text editor, present for AHRL's ARRL Teachers Institute menu rather than for radio. |
 | `PATMENU` | 73Linux | KM4ACK's own earlier PAT menu wrapper, unlicensed repository (D-001). Its successor PATMENU3 is a separate, still-open decision. |
 | `PATMENU3` | 73Linux | Ruled 2026-08-30 (Q-015 decision 12): doubly unneeded. KM4ACK's menu wrapper is licence-blocked (D-001) — and the interface it fronts ships with Pat itself: `pat http` serves the full Winlink web UI at localhost:8080, documented in the packet profile. Writing a licence-clean clone of a wrapper around a built-in feature would be work spent making the product worse. |
+| `pfte` | EmComm Tools OS | Out of scope by the security requirements, by name: a proprietary `.deb` from a vendor site with no licence, no source and no signature, fetched unverified. The AmRRON signed-traffic workflow it served has GnuPG, and `gpa` (carried) is its window. |
 | `PIQSO` | 73Linux | KM4ACK's own script, unlicensed repository (D-001). |
 | `PISTATS` | 73Linux | Out of scope — a system monitor, not radio. |
 | `pyautogui` | AHRL | Out of scope — AHRL's own menu-regression test harness, installed onto every user system. The equivalent here is CI, not a catalog entry. |

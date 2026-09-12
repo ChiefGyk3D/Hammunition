@@ -64,7 +64,7 @@ argument — js8call is apt on Linux Mint 22.3 and a cmake build elsewhere.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `when` | `Selector` | no |  |
-| `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| NodeInstall \| PipxInstall` | **yes** |  |
+| `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| NodeInstall \| PipxInstall \| DataInstall` | **yes** |  |
 | `build_depends` | `list[str]` | no | apt packages needed to BUILD only. Never reported as installed. |
 | `note` | `str \| None` | no |  |
 
@@ -434,6 +434,48 @@ direction — neither granting permission nor refusing on their behalf.
 | `env_var` | `str` | **yes** | Scripted path. Separate from --yes, and recorded when used. |
 | `disclosure` | `str` | **yes** | What the software can do. Capability, never legality. |
 | `affirmation` | `str` | **yes** | The question. Must ask about the operator's authorization. |
+
+### `DataArtifact`
+
+One file of an offline dataset: a map tileset, a Wikipedia ZIM, cty.dat.
+
+``size`` is declared so the plan can print it before the confirmation
+(D-049): a 1.33 GB Geofabrik extract on a field connection is a decision,
+and the number belongs in front of the operator, not in the download's
+progress bar. The fetch verifies the declared size against the bytes it
+received, so a wrong declaration is a refused manifest rather than a
+surprise.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `url` | `str` | **yes** |  |
+| `sha256` | `str` | **yes** | Mandatory. There is no unverified path. |
+| `signature_url` | `str \| None` | no |  |
+| `signing_key_fingerprint` | `str \| None` | no |  |
+| `size` | `int` | **yes** | Bytes, as published. Printed in the plan, verified on fetch. |
+| `format` | `Literal[file, zip, tarball]` | no (default `file`) |  |
+| `install_as` | `str \| None` | no | For format: file, the name the file is installed under inside the unit's data directory. Archives extract their members and take none. |
+
+### `DataInstall`
+
+Offline data whose payload is the point (D-049).
+
+Not software: the engine never executes what it installs here. The files
+land under ``<prefix>/share/hammunition/data/<name>/`` and the reader --
+``kiwix``, ``mbtileserver``, a logger reading cty.dat -- names the data
+unit in its own ``depends``. Every artifact is pinned and hashed like any
+other fetch; nothing is mirrored.
+
+``licence`` and ``licence_url`` are disclosed in the plan beside the
+size, because a dataset under ODbL or CC BY-SA carries obligations the
+engine states and does not adjudicate (D-021).
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `method` | `Literal[data]` | no (default `data`) |  |
+| `artifacts` | `list[DataArtifact]` | **yes** |  |
+| `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
+| `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
 
 ### `PipxInstall`
 

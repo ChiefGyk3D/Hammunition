@@ -44,6 +44,7 @@ from hammunition.backends import (
     BackendError,
     BinaryBackend,
     Command,
+    DataBackend,
     GitBackend,
     NodeBackend,
     SourceBackend,
@@ -51,6 +52,7 @@ from hammunition.backends import (
     VenvBackend,
 )
 from hammunition.backends.apt import stale_fetches
+from hammunition.backends.data import human_size
 from hammunition.backends.source import DEFAULT_PREFIX
 from hammunition.consent import (
     ConsentDeclined,
@@ -76,6 +78,7 @@ from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
 from hammunition.manifest.schema import (
     AptInstall,
     BinaryInstall,
+    DataInstall,
     GitInstall,
     NodeInstall,
     PackageManifest,
@@ -269,6 +272,22 @@ def render_plan(
             lines.append(
                 f"      consent: {repo_env_var(addition.repo)} must equal the key fingerprint"
             )
+        lines.append("")
+
+    data_units = [
+        (p, p.block.install) for p in plan.packages if isinstance(p.block.install, DataInstall)
+    ]
+    if data_units:
+        lines.append("Offline data that will be downloaded and installed (D-049):")
+        for planned, block in data_units:
+            total = sum(a.size for a in block.artifacts)
+            lines.append(
+                f"  {planned.name:<28} {human_size(total)} total, licence: {block.licence.strip()}"
+            )
+            lines.append(f"      stated at {block.licence_url}")
+            for artifact in block.artifacts:
+                lines.append(f"      {human_size(artifact.size):>9}  {artifact.url}")
+            lines.append(f"      installs under <prefix>/share/hammunition/data/{planned.name}/")
         lines.append("")
 
     if plan.group_memberships:
@@ -754,6 +773,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         node_root=node_root(user or None),
         bin_dir=user_bin_dir(user or None),
     )
+    data = DataBackend(fetcher=source.fetcher, prefix=source.prefix)
     commands = commands_for(
         plan,
         apt,
@@ -763,6 +783,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         binary=binary,
         venv=venv,
         node=node,
+        data=data,
         repos=repos,
         config_staging=builds,
         launcher_bin=user_bin_dir(user or None),

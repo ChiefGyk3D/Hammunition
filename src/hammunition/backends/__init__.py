@@ -26,13 +26,16 @@ from .base import (
     SubprocessRunner,
 )
 from .binary import IMPLEMENTED_BINARY_FORMATS, BinaryBackend
+from .data import DataBackend
 from .git import GitBackend
 from .node import NodeBackend
 from .source import SourceBackend
 from .venv import VenvBackend
 
 #: Install methods this engine build can actually perform.
-IMPLEMENTED_METHODS: frozenset[str] = frozenset({"apt", "binary", "git", "node", "source", "venv"})
+IMPLEMENTED_METHODS: frozenset[str] = frozenset(
+    {"apt", "binary", "data", "git", "node", "source", "venv"}
+)
 
 #: `system_modifications` kinds this engine build can actually perform.
 #: Everything else is a declared, named gap — never a silent skip.
@@ -52,6 +55,7 @@ __all__ = [
     "Command",
     "CommandResult",
     "CommandRunner",
+    "DataBackend",
     "GitBackend",
     "NodeBackend",
     "RecordingRunner",

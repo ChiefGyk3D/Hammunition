@@ -36,6 +36,9 @@ or field use), not imagined. Where a fix is distribution-specific it says so.
   `~/.local/bin` reaches PATH on next login; open a new shell.
 - **["Address family not supported by protocol" from a packet program](running.md#ax25)** —
   Linux 7.1 removed kernel AX.25; the userspace path still works.
+- **[A CH340 serial device vanishes the moment it is plugged in](running.md#brltty)** —
+  `brltty` claimed it as a braille display. Ubuntu 24.04 and Mint, behind one
+  kind of hub; measured per target.
 - **[The FT8 waterfall is silent](../getting-started/first-contact.md#when-the-waterfall-is-silent)** —
   audio routing, covered in first contact.
 

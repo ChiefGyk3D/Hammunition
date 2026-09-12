@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**244 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**248 packages** across **27 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -28,10 +28,11 @@ Antenna and transmission-line design, modelling, and measurement.
 - [xnec2c](xnec2c.md) — Interactive antenna modelling — NEC2 with a live graphical front end
 - [yagiuda](yagiuda.md) — Analyse and optimise Yagi-Uda arrays without writing a NEC model
 
-### `contest` — 4
+### `contest` — 5
 
 Contest operating -- scoring, duplicate checking, rate keeping, and keying under time pressure.
 
+- [country-files](country-files.md) — The DX-cluster country file (cty.dat) — callsign prefix to entity, zone and coordinates
 - [cwdaemon](cwdaemon.md) — Network service that keys a transmitter's Morse from a serial or parallel port
 - [not1mm](not1mm.md) — A contest logger that speaks to your rig, keyer and cluster
 - [tlf](tlf.md) — Console contest logger built for speed, driven from the keyboard
@@ -118,7 +119,7 @@ Bench electronics and EDA — circuit design, simulation, test gear.
 - [stlink-tools](stlink-tools.md) — Flash and debug STM32 targets through an ST-Link probe
 - [tempest-for-eliza](tempest-for-eliza.md) — Makes a monitor radiate music on an AM radio — a TEMPEST demonstration
 
-### `emcomm` — 28
+### `emcomm` — 30
 
 Emergency and public-service communications.
 
@@ -138,9 +139,11 @@ Emergency and public-service communications.
 - [flwrap](flwrap.md) — Wraps a file with a checksum so the far end knows it arrived intact
 - [garim](garim.md) — Graphical ARIM messaging over an ARDOP TNC
 - [geary](geary.md) — The minimal, conversation-view mail client
+- [gpa](gpa.md) — GNU Privacy Assistant — a GTK front end to GnuPG for signed and encrypted traffic
 - [js8spotter](js8spotter.md) — JS8Call's companion — spot tracking, forms, APRS and SMS gateways
 - [linbpq](linbpq.md) — BPQ32 packet-radio node, BBS and Winlink gateway
 - [linpac](linpac.md) — Terminal for AX.25 packet with a built-in mail client and macros
+- [paracon](paracon.md) — Packet radio terminal that talks AGWPE to Direwolf, with no kernel AX.25
 - [pat](pat.md) — Winlink client — radio email that works when the internet does not
 - [qtsoundmodem](qtsoundmodem.md) — Soundcard packet modem with a scope — an alternative to Direwolf
 - [qttermtcp](qttermtcp.md) — Packet terminal that connects over TCP to a BPQ node
@@ -226,13 +229,14 @@ Propagation prediction, solar indices, beacons and grey line.
 - [wwl](wwl.md) — Distance and bearing between two Maidenhead locators, from the command line
 - [xdx](xdx.md) — DX cluster client — see what other operators are hearing, right now
 
-### `listening` — 36
+### `listening` — 37
 
 Receive-only monitoring and decoding. Needs no licence and often no transmitter, which makes it the on-ramp for an operator who owns nothing but a dongle yet.
 
 - [acarsdec](acarsdec.md) — VHF ACARS decoder for aircraft datalink messages
 - [acarsserv](acarsserv.md) — Stores what acarsdec and dumpvdl2 decode into a SQLite database
 - [airspyhf](airspyhf.md) — Host tools and library for the Airspy HF+ HF and VHF receiver
+- [artemis](artemis.md) — Signal identification reference — the sigidwiki database, offline
 - [cubicsdr](cubicsdr.md) — Cross-platform SDR receiver with several demodulators running at once
 - [cutesdr](cutesdr.md) — Small demodulator and spectrum display for networked receivers
 - [dablin](dablin.md) — Lightweight DAB receiver for the command line or a small window
@@ -267,10 +271,11 @@ Receive-only monitoring and decoding. Needs no licence and often no transmitter,
 - [xwefax](xwefax.md) — Receives HF weather fax and draws the chart
 - [xygrib](xygrib.md) — Views GRIB weather files — wind, pressure, waves, on a map
 
-### `logging` — 13
+### `logging` — 14
 
 Contact logging, awards tracking, QSL and confirmation services.
 
+- [country-files](country-files.md) — The DX-cluster country file (cty.dat) — callsign prefix to entity, zone and coordinates
 - [cqrlog](cqrlog.md) — Full-featured station log with a database behind it and rig control in front
 - [fllog](fllog.md) — Logging server the W1HKJ programs write contacts into
 - [flnet](flnet.md) — Net control operator's list — who checked in, in what order
@@ -302,7 +307,7 @@ The NBEMS stack specifically — fldigi with flmsg, flamp and flwrap for formal 
 - [flmsg](flmsg.md) — Fills in and transmits the standard message forms EMCOMM runs on
 - [flwrap](flwrap.md) — Wraps a file with a checksum so the far end knows it arrived intact
 
-### `packet` — 27
+### `packet` — 28
 
 AX.25 and packet radio, including Winlink and BBS work.
 
@@ -324,6 +329,7 @@ AX.25 and packet radio, including Winlink and BBS work.
 - [linbpq](linbpq.md) — BPQ32 packet-radio node, BBS and Winlink gateway
 - [linpac](linpac.md) — Terminal for AX.25 packet with a built-in mail client and macros
 - [minimodem](minimodem.md) — General-purpose audio FSK modem — Bell 103, RTTY, AX.25 and anything else
+- [paracon](paracon.md) — Packet radio terminal that talks AGWPE to Direwolf, with no kernel AX.25
 - [pat](pat.md) — Winlink client — radio email that works when the internet does not
 - [qtbpqaprs](qtbpqaprs.md) — G8BPQ's Qt APRS client, the messaging-focused one
 - [qtsoundmodem](qtsoundmodem.md) — Soundcard packet modem with a scope — an alternative to Direwolf
@@ -359,11 +365,12 @@ Research tooling whose lawful use is jurisdiction-dependent. Consent-gated (D-02
 
 - [gr-gsm](gr-gsm.md) — GNU Radio blocks for receiving and analysing GSM signalling
 
-### `rf-security` — 14
+### `rf-security` — 15
 
 RF security and SIGINT tooling. Opt-in by profile, never installed by default.
 
 - [aircrack-ng](aircrack-ng.md) — Wi-Fi security auditing suite — capture, analysis and key recovery
+- [artemis](artemis.md) — Signal identification reference — the sigidwiki database, offline
 - [esptool](esptool.md) — Flash and inspect ESP8266 and ESP32 chips over their serial bootloader
 - [hackrf](hackrf.md) — Host tools for HackRF — transfer, sweep, spectrum and firmware utilities
 - [hacktv](hacktv.md) — Generates and transmits analogue television — a HackRF as a TV station
@@ -418,7 +425,7 @@ Amateur satellites and weather satellites — tracking, prediction, telemetry an
 - [noaa-apt](noaa-apt.md) — Decoder for NOAA weather-satellite APT imagery
 - [satdump](satdump.md) — Satellite data processing — receive, decode and image from weather and science satellites
 
-### `sdr` — 67
+### `sdr` — 68
 
 Software-defined radio — receivers, transceivers and the software.
 
@@ -426,6 +433,7 @@ Software-defined radio — receivers, transceivers and the software.
 - [airspy](airspy.md) — Host tools and library for Airspy R2 and Mini receivers
 - [airspyhf](airspyhf.md) — Host tools and library for the Airspy HF+ HF and VHF receiver
 - [ais-catcher](ais-catcher.md) — AIS receiver and decoder for marine vessel traffic, with a web map
+- [artemis](artemis.md) — Signal identification reference — the sigidwiki database, offline
 - [bladerf](bladerf.md) — Command-line tools for Nuand bladeRF transceivers
 - [cubicsdr](cubicsdr.md) — Cross-platform SDR receiver with several demodulators running at once
 - [cutesdr](cutesdr.md) — Small demodulator and spectrum display for networked receivers
@@ -585,7 +593,7 @@ Licence exam preparation and operating practice.
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `workstation` — 22
+### `workstation` — 23
 
 The machine the station runs on rather than the radio: editors, serial consoles, enumeration tools.
 
@@ -599,6 +607,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 - [evolution](evolution.md) — GNOME's integrated mail, calendar and groupware client
 - [geary](geary.md) — The minimal, conversation-view mail client
 - [git](git.md) — Distributed version control — the tool this project is distributed with
+- [gpa](gpa.md) — GNU Privacy Assistant — a GTK front end to GnuPG for signed and encrypted traffic
 - [minicom](minicom.md) — Full-screen serial communication program, the one everyone already knows
 - [pciutils](pciutils.md) — lspci — for the SDRs and capture cards that are not on USB
 - [picocom](picocom.md) — The minimal terminal-native serial console
@@ -631,6 +640,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [aprx](aprx.md) | APRS digipeater and internet gateway, small enough for a Pi | apt |
 | [ardopcf](ardopcf.md) | HF data modem for Winlink and packet over poor paths | git |
 | [arduino-cli](arduino-cli.md) | Command-line toolchain for compiling and uploading Arduino-framework firmware | apt |
+| [artemis](artemis.md) | Signal identification reference — the sigidwiki database, offline | venv |
 | [atlc](atlc.md) | Computes impedance of a transmission line of any cross-section, from a picture of it | apt |
 | [avrdude](avrdude.md) | Reads and writes AVR microcontroller memories through almost any programmer | apt |
 | [ax25-apps](ax25-apps.md) | The programs you actually use over AX.25 once a port is up | apt |
@@ -650,6 +660,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [coil64](coil64.md) | Calculates inductance for coils of almost any geometry | git |
 | [comptext](comptext.md) | Compares two text streams and scores how much of one arrived intact | apt |
 | [comptty](comptty.md) | The same accuracy comparison as comptext, for Baudot RTTY streams | apt |
+| [country-files](country-files.md) | The DX-cluster country file (cty.dat) — callsign prefix to entity, zone and coordinates | data |
 | [cqrlog](cqrlog.md) | Full-featured station log with a database behind it and rig control in front | apt |
 | [cubicsdr](cubicsdr.md) | Cross-platform SDR receiver with several demodulators running at once | apt |
 | [cutecom](cutecom.md) | A graphical serial terminal, Qt-native and simple | apt |
@@ -694,6 +705,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [gnuais](gnuais.md) | Decodes AIS from the discriminator output of a VHF receiver | apt |
 | [gnuaisgui](gnuaisgui.md) | Puts the vessels gnuais has heard on an OpenStreetMap display | apt |
 | [gnuradio](gnuradio.md) | Build a radio out of signal-processing blocks instead of hardware | apt |
+| [gpa](gpa.md) | GNU Privacy Assistant — a GTK front end to GnuPG for signed and encrypted traffic | apt, source |
 | [gpredict](gpredict.md) | Real-time satellite tracking and pass prediction, with radio control | apt |
 | [gpsbabel](gpsbabel.md) | Converts between GPS file formats and talks to the receiver | apt |
 | [gpsd](gpsd.md) | GPS service daemon — one process owns the receiver, everything else asks it | apt |
@@ -763,6 +775,7 @@ The machine the station runs on rather than the radio: editors, serial consoles,
 | [openhamclock](openhamclock.md) | Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites | node |
 | [openocd](openocd.md) | On-chip debugging and in-system programming over JTAG and SWD | apt |
 | [osmo-sdr](osmo-sdr.md) | Tools for the original OsmoSDR hardware | apt |
+| [paracon](paracon.md) | Packet radio terminal that talks AGWPE to Direwolf, with no kernel AX.25 | binary |
 | [pat](pat.md) | Winlink client — radio email that works when the internet does not | apt |
 | [pciutils](pciutils.md) | lspci — for the SDRs and capture cards that are not on USB | apt |
 | [pcsc-tools](pcsc-tools.md) | Smartcard reader diagnostics — is the reader even working? | apt |

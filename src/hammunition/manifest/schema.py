@@ -674,6 +674,76 @@ class NodeInstall(Strict):
         return self
 
 
+class DataArtifact(RemoteArtifact):
+    """One file of an offline dataset: a map tileset, a Wikipedia ZIM, cty.dat.
+
+    ``size`` is declared so the plan can print it before the confirmation
+    (D-049): a 1.33 GB Geofabrik extract on a field connection is a decision,
+    and the number belongs in front of the operator, not in the download's
+    progress bar. The fetch verifies the declared size against the bytes it
+    received, so a wrong declaration is a refused manifest rather than a
+    surprise.
+    """
+
+    size: int = Field(
+        gt=0, description="Bytes, as published. Printed in the plan, verified on fetch."
+    )
+    format: Literal["file", "zip", "tarball"] = "file"
+    install_as: str | None = Field(
+        default=None,
+        description=(
+            "For format: file, the name the file is installed under inside the "
+            "unit's data directory. Archives extract their members and take none."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _install_name(self) -> DataArtifact:
+        if self.format == "file":
+            if not self.install_as:
+                raise ManifestError("a data file needs install_as: the name it is kept under")
+            if "/" in self.install_as or self.install_as in {".", ".."}:
+                raise ManifestError(f"install_as must be a bare file name, got {self.install_as!r}")
+        elif self.install_as is not None:
+            raise ManifestError(
+                f"install_as is only meaningful for format: file, not {self.format}: an archive's "
+                f"members keep their own names"
+            )
+        return self
+
+
+class DataInstall(Strict):
+    """Offline data whose payload is the point (D-049).
+
+    Not software: the engine never executes what it installs here. The files
+    land under ``<prefix>/share/hammunition/data/<name>/`` and the reader --
+    ``kiwix``, ``mbtileserver``, a logger reading cty.dat -- names the data
+    unit in its own ``depends``. Every artifact is pinned and hashed like any
+    other fetch; nothing is mirrored.
+
+    ``licence`` and ``licence_url`` are disclosed in the plan beside the
+    size, because a dataset under ODbL or CC BY-SA carries obligations the
+    engine states and does not adjudicate (D-021).
+    """
+
+    method: Literal["data"] = "data"
+    artifacts: list[DataArtifact] = Field(min_length=1)
+    licence: str = Field(
+        min_length=2,
+        description="SPDX identifier where one exists, else the publisher's own words.",
+    )
+    licence_url: str = Field(description="Where the licence is stated, on the publisher's site.")
+
+    @model_validator(mode="after")
+    def _check(self) -> DataInstall:
+        if not self.licence_url.startswith("https://"):
+            raise ManifestError(f"licence_url must be https, got {self.licence_url!r}")
+        names = [a.install_as for a in self.artifacts if a.install_as]
+        if len(set(names)) != len(names):
+            raise ManifestError("two data artifacts would install under the same name")
+        return self
+
+
 class PipxInstall(Strict):
     method: Literal["pipx"] = "pipx"
     spec: str
@@ -687,7 +757,8 @@ InstallMethod = Annotated[
     | BinaryInstall
     | VenvInstall
     | NodeInstall
-    | PipxInstall,
+    | PipxInstall
+    | DataInstall,
     Field(discriminator="method"),
 ]
 

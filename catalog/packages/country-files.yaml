@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: country-files
+version: "20260906"
+summary: The DX-cluster country file (cty.dat) — callsign prefix to entity, zone and coordinates
+categories: [logging, contest]
+
+# CARRY from AHRL (`country_files`), deferred by Q-015 decision 8 until the
+# catalog had a shape for data whose payload is the point, and written the
+# day D-049 gave it one: the first and smallest data unit, the proof for the
+# tileset, the Navit extract and the Wikipedia ZIM that follow.
+#
+# AHRL fans one cty zip out into six application directories by hand. This
+# installs the published release once, under the shared data prefix, where
+# a logger that wants it names this unit in `depends` and reads it from
+# there. The bare https://www.country-files.com/bigcty/cty.dat changes
+# weekly under the same URL and cannot be pinned; the dated release zip
+# can, and was fetched and hashed 2026-09-12 (the cty.dat inside it is the
+# same bytes the bare URL served that day, VER20260906).
+install:
+  - install:
+      method: data
+      artifacts:
+        - url: https://www.country-files.com/bigcty/download/2026/bigcty-20260906.zip
+          sha256: 29880fde8ef3d9355d0602100354272b6d06353f0e064722f58c8974f92a1afd
+          size: 339004
+          format: zip
+      licence: >-
+        Jim Reisert AD1C's country files; free to use and redistribute
+        with the copyright notice kept (copyright.txt in the release)
+      licence_url: https://www.country-files.com/
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    A dated release most weeks, announced on country-files.com; each is a
+    zip under /bigcty/download/<year>/bigcty-<date>.zip. Bump the URL, the
+    hash, the size and `version` together.
+
+documentation:
+  what_it_does: >-
+    The lookup table every logger and contest program uses to turn a
+    callsign into a DXCC entity, CQ and ITU zone, continent and
+    coordinates: cty.dat and its siblings (cty.csv, swiftlog_cty.dat), as
+    published by AD1C, installed under the shared data directory.
+  why_you_want_it: >-
+    Loggers bundle a copy and it goes stale between their releases; new
+    prefixes and entity changes arrive weekly. One current copy on the
+    machine, updated like any other unit, is what AHRL's fan-out was trying
+    to achieve by hand.
+  prerequisites: >-
+    Nothing. A program that reads it has to be pointed at
+    /usr/local/share/hammunition/data/country-files/cty.dat, or names this
+    unit in its own manifest's depends; none does yet.
+  known_problems: >-
+    The first data unit (D-049). No reader in the catalog consumes it from
+    this path yet, so today it is a current cty.dat on disk and nothing
+    more; the loggers still read their bundled copies until their manifests
+    say otherwise. Installed as plain files, mode 0644, root-owned.
+  upstream_url: https://www.country-files.com/
+  upstream_support: >-
+    The country-files.com site and its contact page; AD1C maintains the
+    files and announces each release there.

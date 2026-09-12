@@ -62,6 +62,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from hammunition.manifest.schema import (
     AptInstall,
     BinaryInstall,
+    DataInstall,
     GitInstall,
     NodeInstall,
     PackageManifest,
@@ -139,11 +140,13 @@ def files_installed_by_hammunition(log: TransactionLog) -> frozenset[str]:
     attributed: set[str] = set()
     for entry in log.read():
         event = entry.get("event")
-        if event == "action_end" and entry.get("kind") == "install-binary":
+        if event == "action_end" and entry.get("kind") in ("install-binary", "install-data"):
             # The executable format installs in-process; its action_end
             # carries the destination as its detail (older logs carry no
             # detail field, and those installs stay unattributed — reported
             # and left in place rather than guessed at).
+            # A data unit's install-data action (D-049) carries its destination
+            # the same way: a file, or the unit's data directory for an archive.
             detail = entry.get("detail")
             if isinstance(detail, str) and detail.startswith("/"):
                 attributed.add(detail)
@@ -405,6 +408,18 @@ def plan_removal(
                         ),
                     )
 
+        elif isinstance(install, DataInstall):
+            # D-049: a data unit's files live only under its namespaced data
+            # directory, which nothing but this engine writes; removed whole.
+            add(
+                unit,
+                ArtifactRemoval(
+                    "tree",
+                    paths.prefix / "share" / "hammunition" / "data" / manifest.name,
+                    "namespaced",
+                    requires_root=True,
+                ),
+            )
         elif isinstance(install, SourceInstall | GitInstall):
             reversible = not install.provides_install_target or install.install_tree
             if not reversible:

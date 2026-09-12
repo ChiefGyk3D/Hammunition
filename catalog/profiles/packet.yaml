@@ -9,6 +9,7 @@ packages:
   - direwolf
   - qtsoundmodem
   - qttermtcp
+  - paracon
   - ax25-tools
   - ax25-apps
   - ax25-xtools
@@ -54,11 +55,21 @@ suggests_one_of:
 
 documentation:
   what_it_installs: >-
-    Two soundcard TNCs — one headless and one with a scope — the kernel AX.25
-    stack's configuration and user tools, two packet terminals, a node front
-    end, a BBS and Winlink gateway, the Winlink client, an HF data modem, the
-    full-featured APRS client, a digipeater and an internet gateway, mail
-    tools, AMPRnet routing, and a GRIB weather viewer.
+    Two soundcard TNCs — one headless and one with a scope — three packet
+    terminals (one of them, Paracon, speaking AGWPE to Direwolf and needing
+    no kernel stack at all), a node front end, a BBS and Winlink gateway, the Winlink
+    client, an HF data modem, the full-featured APRS client, a digipeater and
+    an internet gateway, mail tools, AMPRnet routing, a GRIB weather viewer,
+    and, where the running kernel still carries it, the kernel AX.25 stack's
+    configuration and user tools.
+
+    **The station is userspace-primary (D-045).** Direwolf or QtSoundModem
+    turns the radio into a modem; pat, LinBPQ, YAAC and Xastir talk to it
+    over KISS or AGW and never touch the kernel. That is the whole station on
+    every kernel, and the path a new operator should learn first. The kernel
+    stack — `axports`, `kissattach`, `ax25d`, NET/ROM, and packet
+    connections as sockets — is the fuller station where the kernel has it,
+    and a bonus rather than the foundation.
 
     **On a kernel without AX.25 the kernel-side members are withheld, by
     name.** Linux 7.1 removed the AX.25 stack (2026-04-24); Kali rolling and
@@ -72,8 +83,9 @@ documentation:
     has the measurements.
   why_together: >-
     This is a network, not a set of programs. Direwolf turns a radio into a
-    modem, ax25-tools brings the port up, and everything above that speaks over
-    it. Installing half of it gives you something that connects to nothing.
+    modem, the applications speak to it over KISS or AGW, and ax25-tools
+    brings a kernel port up where there is a kernel to bring it up on.
+    Installing half of it gives you something that connects to nothing.
 
     **The weather viewer belongs here and looks like it does not.** A GRIB file
     for one region is small enough to move over HF where a weather website is

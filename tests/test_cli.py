@@ -879,6 +879,23 @@ def test_install_refreshes_the_lists_by_default_and_no_refresh_turns_it_off(
     assert "apt-get install" in out
 
 
+def test_install_dry_run_discloses_offline_data_size_and_licence(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    """D-049 through main(): the shipped country-files unit is a data unit,
+    and the dry run prints what will be downloaded, how big, under what
+    licence and where, before anything is confirmed."""
+    _mock_apt(monkeypatch, populated=True)
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "country-files"])
+    out = capsys.readouterr().out
+    assert rc == EXIT_OK
+    assert "Offline data that will be downloaded and installed (D-049):" in out
+    assert "339 KB" in out and "https://www.country-files.com/" in out
+    assert "share/hammunition/data/country-files/" in out
+    assert "[fetch]" in out and "[install-data]" in out
+    assert "Dry run: nothing above was executed." in out
+
+
 def test_install_reads_the_running_kernel_and_refuses_ax25_tools_without_ax25(
     monkeypatch: pytest.MonkeyPatch, capsys: Any, tmp_path: Path
 ) -> None:

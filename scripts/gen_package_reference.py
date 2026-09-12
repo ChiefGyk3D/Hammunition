@@ -42,6 +42,7 @@ from hammunition.manifest.load import load_catalog  # noqa: E402
 from hammunition.manifest.schema import (  # noqa: E402
     AptInstall,
     BinaryInstall,
+    DataInstall,
     GitInstall,
     InstallBlock,
     NodeInstall,
@@ -72,6 +73,9 @@ def method_of(block: InstallBlock) -> str:
         return f"prebuilt {install.format} from {install.artifact.url}"
     if isinstance(install, VenvInstall):
         return "python venv: `" + "`, `".join(install.requirements) + "`"
+    if isinstance(install, DataInstall):
+        parts = ", ".join(f"{a.url} ({a.size:,} bytes)" for a in install.artifacts)
+        return f"data ({install.licence}, {install.licence_url}): {parts}"
     if isinstance(install, NodeInstall):
         return (
             f"node (needs Node {install.node_min_version}+ from the distribution; "

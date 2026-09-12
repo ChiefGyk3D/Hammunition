@@ -72,6 +72,12 @@ usb_ids:
         statement that the pair names silicon and not a product.
       also_used_by:
         - any board using a WCH CH340 bridge
+        - >-
+          brltty on Ubuntu 24.04 and Linux Mint 22.3 (6.6-4ubuntu5), which
+          claims this pair as a Baum NLS eReader Zoomax when it sits behind a
+          1a40:0101 hub and detaches the serial driver; commented out on
+          Ubuntu 26.04, no rules shipped on Debian 13, Parrot or Kali.
+          Measured in docs/reference/brltty-inventory.md (D-047)
   - vendor: "303a"
     product: "1001"
     description: Espressif ESP32-S3/C3 native USB CDC and JTAG-serial peripheral

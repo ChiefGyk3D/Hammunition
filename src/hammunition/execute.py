@@ -39,6 +39,7 @@ from hammunition.backends import (
     BinaryBackend,
     Command,
     CommandRunner,
+    DataBackend,
     GitBackend,
     NodeBackend,
     SourceBackend,
@@ -49,6 +50,7 @@ from hammunition.distro import Target
 from hammunition.launchers import launcher_steps
 from hammunition.manifest.schema import (
     BinaryInstall,
+    DataInstall,
     GitInstall,
     InstallBlock,
     NodeInstall,
@@ -276,6 +278,7 @@ def commands_for(
     binary: BinaryBackend | None = None,
     venv: VenvBackend | None = None,
     node: NodeBackend | None = None,
+    data: DataBackend | None = None,
     repos: AptRepoBackend | None = None,
     config_staging: Path | None = None,
     launcher_bin: Path | None = None,
@@ -345,6 +348,14 @@ def commands_for(
                     f"installed nothing."
                 )
             builds.extend(node.steps(planned.manifest, block))
+        elif isinstance(block, DataInstall):
+            if data is None:
+                raise BackendError(
+                    f"{planned.name} is an offline dataset and no data backend was "
+                    f"supplied. Skipping it would report a successful run that "
+                    f"installed nothing."
+                )
+            builds.extend(data.steps(planned.manifest, block))
 
     # A `fetch` is an in-process download into the cache, verified before it
     # is kept; it needs nothing apt installs and touches nothing outside the

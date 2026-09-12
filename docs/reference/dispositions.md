@@ -10,7 +10,7 @@ its dispositions are decided by ETC sub-project 4 and are not in the index yet.
 **Scope:** 105 AHRL `INSTALL_*` toggles (95 executing + 9 disabled + 1 dead
 code), 28 73Linux delta units, 9 Skywave delta units, and the 8 genuinely-new
 of DragonOS's 24 Tier-1 units (the other 16 are CARRY cross-references to AHRL
-or the Blend). **150 units, none unclassified.**
+or the Blend). **161 units, one awaiting the maintainer** (`chattervox`, D-048).
 
 **Method:** dispositions follow the policy's bars. Where the policy already
 settled a case, it is recorded here and **not re-argued**. Two clusters are
@@ -28,16 +28,16 @@ depending on distro package state is marked *(verify in container)*.
 
 ## Summary
 
-| Disposition | AHRL | 73Linux delta | Skywave delta | DragonOS T1* | Total |
-|---|---:|---:|---:|---:|---:|
-| CARRY | 67 | 2 | 0 | 0 | 69 |
-| SUPERSEDE | 13 | 0 | 1 | 0 | 14 |
-| REVIVE | 6 | 0 | 0 | 0 | 6 |
-| RETIRE | 13 | 15 | 0 | 0 | 28 |
-| ADD | — | 11 | 8 | 8 | 27 |
-| NEEDS-DECISION | 0 | 0 | 0 | 0 | 0 |
-| Reserved to maintainer | 6 | 0 | 0 | 0 | 6 |
-| **Total** | **105** | **28** | **9** | **8** | **150** |
+| Disposition | AHRL | 73Linux delta | Skywave delta | DragonOS T1* | ETC delta | Total |
+|---|---:|---:|---:|---:|---:|---:|
+| CARRY | 67 | 2 | 0 | 0 | 0 | 69 |
+| SUPERSEDE | 13 | 0 | 1 | 0 | 0 | 14 |
+| REVIVE | 6 | 0 | 0 | 0 | 0 | 6 |
+| RETIRE | 13 | 15 | 0 | 0 | 2 | 30 |
+| ADD | — | 11 | 8 | 8 | 8 | 35 |
+| NEEDS-DECISION | 0 | 0 | 0 | 0 | 1 | 1 |
+| Reserved to maintainer | 6 | 0 | 0 | 0 | 0 | 6 |
+| **Total** | **105** | **28** | **9** | **8** | **11** | **161** |
 
 \* **DragonOS Tier 1 is 24 units; only the 8 genuinely-new ones are counted
 here.** The other 16 arrive through AHRL parity or the Debian Blend — CARRY by
@@ -602,14 +602,28 @@ Cellular/EW is deliberately **not** here — 20 units, transmit-capable, blocked
 
 ---
 
-## EmComm Tools OS Community delta — 11 units, recommendations only
+## EmComm Tools OS Community delta — 11 units
 
-Applies the policy to `etc-inventory.md`. These are **recommendations for ETC
-sub-project 4** (D-042), not dispositions: nothing here is in the index, no
-manifest has been written, and no unit has been installed on a target. What is
-measured: the licence and latest tag of every upstream, by `gh api` on
-2026-09-06, and `apt-cache policy` on the Debian 13 VM the same day. Nothing
-else is claimed.
+Applies the policy to `etc-inventory.md`. Recommended on 2026-09-06 and
+**decided on 2026-09-12 by ETC sub-project 4 (D-048)**: the software units
+are dispositioned below and indexed at the foot of this document; the five
+offline-data units keep their ADD and wait for sub-project 5's category.
+What is measured: the licence and latest tag of every upstream, by `gh api`
+on 2026-09-06 and again on 2026-09-12, and `apt-cache policy` on all seven
+targets on 2026-09-12. The four software units were exercised on a Debian 13
+container that day; the verdicts say what was seen.
+
+| Unit | Decided | How | What was seen (2026-09-12) |
+|---|---|---|---|
+| **paracon** | ADD — `catalog/packages/paracon.yaml` | binary, the 1.3.0 `.pyz` hashed | `paracon --version` → `Paracon 1.3.0` on Debian 13, Python 3.13.5. AGWPE to Direwolf; no kernel AX.25 needed, which is the point (D-045). |
+| **artemis** | ADD — `catalog/packages/artemis.yaml` | venv from the 4.2.0 source tarball, hash-pinned requirements | The vendor `.deb` is refused: its Package name is `artemis`, which every target's archive already gives to a Sanger genome browser at 18.2.0, and it Depends on libpython3.12. The pinned set installs and `import artemis` succeeds on Debian 13; the GUI is not yet opened from this install. |
+| **gpa** | ADD — `catalog/packages/gpa.yaml` | apt on Ubuntu 24.04, 26.04 and Mint (0.10.0 / 0.11.0 / 0.10.0); autotools from the gnupg.org tarball on Debian 13, Parrot, Kali | Tarball signature verified against the GnuPG distribution key; configure and make exit 0 on Debian 13; `gpa 0.11.1`. |
+| **chattervox** | NEEDS-DECISION — kept, with evidence | — | The 0.7.0 bundle runs `--help` on Debian 13; the source builds on Node 20 with `npm ci --ignore-scripts` and runs `--version`; `kiss-tnc` loads without serialport's native build, and whether a KISS port *opens* without it is untested. Only prereleases exist, head 2019-03-17, and two dependencies are git commits rather than registry packages. Carrying the bundle is a fetched Node runtime (refused by D-037); carrying the source is the node backend with two git fetches. The maintainer's call, as recommended. |
+| **mbutil** | RETIRE (`not-carried.md`) | — | python2 `setup.py install`; nothing in ETC's own workflow calls it. |
+| **pfte** | RETIRE (`not-carried.md`) | — | Proprietary, unsigned, no source. GnuPG covers the workflow. |
+| navit, kiwix, mbtileserver, gis-tools, dict | ADD, outstanding | — | Sub-project 5: the offline-data layer needs a category first. `parity-coverage.md` carries the reason. |
+
+The table the recommendations were made from:
 
 Two of ETC's delta units are offline **data**, not software, and are not
 dispositioned as units: `download-et-maps.sh` (an `.mbtiles` tileset from ETC's
@@ -691,14 +705,15 @@ the venv backend by design.
 
 ---
 
-## Complete index — all 150 units
+## Complete index — all 161 units
 
 Sorted for completeness-checking. `S` = SUPERSEDE, `R` = REVIVE, `X` = RETIRE,
 `C` = CARRY, `A` = ADD, `?` = NEEDS-DECISION, `M` = reserved to maintainer.
 
-133 AHRL + 73Linux units, plus **9 Skywave delta** and **8 new DragonOS Tier-1**
-units. The other 16 DragonOS Tier-1 units are cross-references to units already
-listed under AHRL or covered by the Blend, and are not re-indexed here.
+133 AHRL + 73Linux units, plus **9 Skywave delta**, **8 new DragonOS Tier-1**
+units and **11 EmComm Tools OS delta** units (D-042, indexed by D-048). The
+other 16 DragonOS Tier-1 units are cross-references to units already listed
+under AHRL or covered by the Blend, and are not re-indexed here.
 
 **AHRL (105):**
 
@@ -740,6 +755,11 @@ listed under AHRL or covered by the Blend, and are not re-indexed here.
 
 `aircrack-ng` A · `hcxdumptool` A · `hcxtools` A · `inspectrum` A · `rtl-433` A ·
 `sdrangel` A · `ubertooth` A · `wireshark` A
+
+**EmComm Tools OS delta (11):**
+
+`artemis` A · `chattervox` ? · `dict` A · `gis-tools` A · `gpa` A · `kiwix` A ·
+`mbtileserver` A · `mbutil` X · `navit` A · `paracon` A · `pfte` X
 
 *(The 16 already-covered Tier-1 units — `fldigi`, `js8call`, `wsjtx`, `qsstv`,
 `gpredict`, `gnuradio`, `gqrx`, `cubicsdr`, `direwolf`, `satdump`, `AIS-catcher`,

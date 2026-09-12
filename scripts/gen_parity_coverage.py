@@ -6,7 +6,7 @@
 """Generate docs/reference/parity-coverage.md — every dispositioned unit, and
 whether the catalog has it yet.
 
-`PARITY-POLICY.md` gives each of the 150 units in `dispositions.md` exactly one
+`PARITY-POLICY.md` gives each of the 161 units in `dispositions.md` exactly one
 disposition. That says what SHOULD happen to each. Nothing until now said what
 HAS happened, so "how far along is the catalog" was a question answered by
 counting files — which measures effort rather than coverage, and cannot tell a
@@ -103,7 +103,6 @@ EXPLAINED: dict[str, str] = {
     "ahrl_menus": "SUPERSEDE #8-12 — replaced by our own engine",
     "ahrl_version": "SUPERSEDE #8-12 — replaced by our own engine",
     "FoxTelem": "post-1.0 — pending an AMSAT constellation census: a partial world-changed case, and neither blocking 1.0 on a satellite survey nor quietly carrying a decoder for re-entered spacecraft serves anybody (Q-015 decision 10, 2026-08-30)",
-    "country_files": "post-1.0 — the first data-asset-with-an-update-cadence; a monthly fan-out file deserves a schema shape, not a shoehorn. The consuming apps bundle their own cty.dat meanwhile (Q-015 decision 8, 2026-08-30)",
     "source_libs": "SUPERSEDE #8-12 — replaced by our own engine",
     "libhamlib4": "SUPERSEDE #8-12 — a dependency, not a unit; apt `depends` carries it and `libhamlib-utils` is the operator-facing manifest (Q-015 decision 3, 2026-08-30)",
     "dream": "REVIVE blocked: libqt5webkit5-dev has no candidate on Debian 13 (measured)",
@@ -113,6 +112,14 @@ EXPLAINED: dict[str, str] = {
     "VARIM": "post-1.0 — VARA's messaging client, same constraint",
     "HAMRS": "post-1.0 — AppImage",
     "reticulum-meshchat": "post-1.0 — AppImage, lands in the mesh profile",
+    # EmComm Tools OS delta (D-042): the offline-data layer is sub-project 5,
+    # and needs a category the catalog does not have before any of these can
+    # be carried. Decided ADD by D-048; outstanding until that category exists.
+    "navit": "ETC sub-project 5 — offline navigation is useless without the map layer, which needs its own category (D-042, D-048)",
+    "kiwix": "ETC sub-project 5 — the offline Wikipedia reader; the ZIM it reads is the data layer (D-042, D-048)",
+    "mbtileserver": "ETC sub-project 5 — serves the map tileset; nothing to serve until the data layer exists (D-042, D-048)",
+    "gis-tools": "ETC sub-project 5 — `qgis`; profile placement is the question, and it belongs with the map layer (D-042, D-048)",
+    "dict": "ETC sub-project 5 — the offline dictionary, the data layer's smallest member (D-042, D-048)",
 }
 
 
@@ -189,7 +196,7 @@ def render(catalog: dict[str, PackageManifest]) -> str:
         "",
         "| | |",
         "|---|---:|",
-        f"| Units in the five-source union | **{len(units)}** |",
+        f"| Units in the six-source union | **{len(units)}** |",
         f"| …that owe a manifest (C, S, R, A) | **{len(owed)}** |",
         f"| …covered | **{len(covered)}** |",
         f"| …outstanding, with a recorded reason | **{len(explained)}** |",

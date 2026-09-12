@@ -287,6 +287,21 @@ belong together.
 filename. The `.bapp` `Comment=` field carried the correct answer the whole time
 and cost one HTTP request to read.
 
+### Amendment, 2026-09-10 — the packet core is userspace-primary (D-045)
+
+The resolution above names "the AX.25 stack" as a member of the packet core
+and the profile prose described the station as the kernel stack with Direwolf
+feeding it. Linux 7.1 removed the kernel stack (**D-041**), and on every 7.1
+kernel — Kali today, the maintainer's own laptop, Ubuntu 24.04 the day its
+HWE kernel moves — the userspace half is the whole station: Direwolf or
+QtSoundModem as the modem, pat, LinBPQ, YAAC and Xastir over KISS or AGW.
+**The packet core is that userspace path.** The kernel stack — `ax25-tools`
+and what sits on it: `axports`, `kissattach`, `ax25d`, NET/ROM, packet
+connections as sockets — is the fuller station where the kernel carries it,
+and is planned or deferred by name per D-041. The eight units are unchanged;
+what changed is which of them is the foundation. `z8530-utils2`, never a
+core member, is retired by the same record.
+
 ---
 
 ## D-009 — Community side-loading, with review tiers, from day one
@@ -2952,6 +2967,8 @@ meant rediscovering, in the field, that brltty claims a MicroFox-50.
    `file_shadow` system modification (an empty rule file in
    `/etc/udev/rules.d/` masking `/lib/udev/rules.d/`'s) is the right
    shape or whether the existing `distribution_disabled` basis covers it.
+   **Done 2026-09-12, D-047:** neither; measured on all seven targets in
+   `docs/reference/brltty-inventory.md`.
 3. *Rig plug-and-play* — a `rig` hardware class, the FT-991A first because
    it is owned and on the bench, station configuration carrying the
    operator's selection.
@@ -2959,6 +2976,9 @@ meant rediscovering, in the field, that brltty claims a MicroFox-50.
    `et-*` ideas as `config_files`, each dispositioned in
    `dispositions.md` with its licence and liveness re-verified (D-018,
    D-032: Chattervox's last tag is 2019-03 and its last push 2020-01).
+   **Software done 2026-09-12, D-048:** three manifests, two retirements,
+   Chattervox left to the maintainer with its test results. The `et-*`
+   config ideas wait on station config and the rig class (sub-project 3).
 5. *The offline-data layer.*
 
 `docs/reference/prior-art.md`'s recommendation 4 ("lift `et-radio`
@@ -3148,3 +3168,386 @@ already-configured-repository remedy say what is now true; five tests
 cover the default, the opt-out, the no-apt-work skip, and both empty-lists
 paths through `main()`. `docs/reference/cli.md` documents `--no-refresh`
 and the step order. Q-018 is closed by this record.
+## D-045 — The packet core is userspace-primary; `z8530-utils2` is retired on tested evidence; the out-of-tree AX.25 module is measured, named, and not built until a distribution packages it
+
+**Date:** 2026-09-10. **Status:** accepted (maintainer, Q-019: both
+recommendations taken, with the module question asked and answered).
+**Depends on:** D-041 (the plan reads the running kernel; never a module we
+build), D-024 (carry what a distribution packages), D-018 (external claims
+tested before published), D-032 (liveness is the head commit, never
+`updated_at`), `PARITY-POLICY.md` (every unit gets a verdict we tested).
+**Amends:** D-008 (the packet-core statement; amendment recorded there).
+
+**What was measured.** Two things Q-019 rested on and one it did not ask.
+
+1. `z8530-utils2` configures the `scc` driver for Z8530 HDLC cards. The
+   driver left the kernel in the same merge as `net/ax25`
+   (`64edfa65`, 2026-04-24; `git show --stat` lists
+   `drivers/net/hamradio/scc.c`), the cards are ISA and early PCI, and the
+   manifest already called both \"museum conditions\". Seven machines' module
+   trees were read on 2026-09-04 (`docs/reference/kernel-ax25.md`). That is
+   a verdict tested by us, not an AHRL comment inherited.
+2. On every kernel this project has that is 7.1 or newer, the userspace
+   packet path — Direwolf or QtSoundModem as the modem; pat, LinBPQ, YAAC
+   and Xastir over KISS or AGW — installs and is the whole station. The
+   `packet` profile was installed whole on Kali 7.1.5 and Debian 13 6.12 on
+   2026-09-05 with that result (D-041's table). D-008 and the profile prose
+   still described the core as the kernel stack fed by Direwolf.
+3. The maintainer asked whether the kernel stack can be added back as a
+   module. **It can, and it was measured on 2026-09-10** rather than
+   assumed either way. The netdev maintainer who removed the subsystem
+   publishes it as an out-of-tree tree, `linux-netdev/mod-orphan`, created
+   2026-04-20: one `Kbuild` covering `net/ax25`, `net/netrom`, `net/rose`,
+   `drivers/net/hamradio` and the merge's other orphans; `make` against
+   the running kernel's headers with a force-included compatibility header;
+   sources keep their kernel SPDX headers (GPL-2.0-or-later on `af_ax25.c`);
+   **no tags, no releases, no README, no top-level licence file**; head
+   commit 2026-06-16, last AX.25-family change 2026-06-01 (two ROSE fixes,
+   Bernard Pidoux); **packaged by no distribution** — not Debian, not
+   Ubuntu, not the AUR, on that date. **Built here, not loaded:** against
+   the maintainer's laptop's 7.1.1 headers, `ax25.ko`, `netrom.ko` and all
+   ten `drivers/net/hamradio` modules — `mkiss`, `6pack`, `bpqether`,
+   `scc` among them — compile and link with a matching `vermagic`; the
+   whole tree's `make` fails, because `net/rose` calls a kernel function
+   whose signature changed and `net/atm` needs a header 7.1 no longer
+   ships. Nothing was `insmod`ed and no socket was opened; the measurement
+   is that the code compiles, not that it works.
+
+**Decision.**
+
+1. **`z8530-utils2` is retired**, `retire_reason: world_changed`,
+   `status_verdict: tested`, with the merge as the evidence. The manifest
+   stays in the catalog so an operator who looks finds the reason (D-005's
+   shape, as `noaa-apt`); a 6.12 machine with an ISA slot can still install
+   it by hand, and the manifest says so. That `scc.ko` compiles out of tree
+   (point 3) does not move this: the driver is packaged by nobody and the
+   cards have no modern host.
+2. **D-008 is amended: the packet core is userspace-primary.** The kernel
+   stack is the fuller station where the kernel carries it, planned or
+   deferred by name per D-041, and a bonus rather than the foundation. The
+   getting-started packet guide, when written, teaches Direwolf-to-pat first
+   and `kissattach` second.
+3. **The out-of-tree module is noted, not carried.** D-041's \"never a
+   module we build\" stands, for three reasons that survive the module
+   existing: a kernel module is the one artefact this project has said it
+   will never build, and building one that has to be rebuilt for every
+   kernel the machine boots means a DKMS wrapper that would be *our*
+   packaging of code nobody else packages — precisely what D-024 refuses,
+   and the tree's own `make` already fails on 7.1.1 without a `Kbuild` we
+   would have to edit, which is the first patch of a fork;
+   the code's own maintainers removed it for lack of maintenance, and a
+   tree with no tags and no releases offers nothing to pin (D-024's review
+   signal is absent by construction); and `ax25-tools` is leaving the
+   archives regardless (#1143282), so the module would restore the sockets
+   and not the tools that use them. **The condition that reopens this** is
+   a distribution packaging the module — a `-dkms` package in Debian is the
+   obvious shape. That is the signal D-024 asks for, and the day it exists
+   the `requires_kernel` refusal gains a third remedy and this record is
+   amended. Nobody watches GitHub for it; `kernel-ax25.md` says where to
+   look.
+
+**Consequences.** `z8530-utils2.yaml` carries the retired status block;
+`catalog/profiles/packet.yaml` describes the station userspace-first;
+`docs/reference/kernel-ax25.md` carries the module measurement and the
+reopening condition; generated pages regenerated. Q-019 is closed by this
+record. The remaining kernel-side question — the `scc`/`netrom`/`rose`
+vocabulary — stays closed by D-041 until a manifest needs an entry `ax25`
+does not settle.
+
+## D-046 — Post-1.0: listening before repeaters; decoders in `listening`, recorders in `rf-security`; Pi-Star's binary set is a D-024 pin source; ASL3's repository is the D-040 case with no gate beyond the fingerprint
+
+**Date:** 2026-09-12. **Status:** accepted (maintainer, Q-020, all four
+calls as recommended). **Depends on:** D-003 (flat tags with overlap),
+D-021 (disclose, never adjudicate), D-024 (pin what a distribution
+packages), D-034 (the line is transmit, not topic), D-035 (a missing
+station value defers one file), D-040 (third-party archives on the
+fingerprint alone). **Amends:** nothing; it fills in the four blanks
+`docs/SCOPE.md` stages 9 and 10 left open on 2026-09-07.
+
+**What was measured** is in SCOPE.md's post-1.0 section and is not
+repeated here: seventeen names across seven targets, two in any archive,
+both already carried; OP25's live fork, Trunk Recorder, SDRTrunk and
+DSD-FME's liveness and licences; the G4KLX suite untagged and unpackaged;
+Pi-Star V4.3.7 (2026-05-01) as the one maintained thing that builds and
+ships it; AllStarLink ASL3 only from its own repository.
+
+**Decision.**
+
+1. **Track A before Track B.** Trunked and digital-voice listening — OP25,
+   Trunk Recorder, SDRTrunk, DSD-FME — is four units on backends 1.0
+   ships, in profiles that exist, with no station-config dependency and
+   nothing that transmits. Track B waits on station config (SvxLink), a
+   D-040 manifest (ASL3) and a pin source plus hardware (MMDVM). The one
+   piece of B that rides for free is SvxLink's `config_files` block, taken
+   the day station config exists rather than when B begins.
+2. **The decoders go in `listening`; OP25 and Trunk Recorder in
+   `rf-security`.** An operator with one dongle who wants to hear the local
+   P25 system belongs in the on-ramp profile; whole-network recording of
+   trunked systems is the posture `rf-security` already frames. D-003's
+   flat tags allow a unit in both where it fits both. SDRTrunk and Trunk
+   Recorder do the same job on different stacks, and that overlap is one
+   `overlaps.md` row, written by whichever manifest lands first.
+3. **Pi-Star's shipped binary set counts as "a distribution packages it"
+   for D-024.** The G4KLX suite pins the commits the current Pi-Star
+   release ships. Pi-Star chose those commits, built them, and shipped
+   them to the largest hotspot install base, which is the review signal
+   D-024 asks for; its successor is CI-built and accepts pull requests, so
+   the choice is reviewable. Reading the commits out of an image is a
+   measurement to script and record, not a field to cite, and the script
+   is part of the first G4KLX manifest. Pi-Star's ARM builds prove the
+   commits, not our x86 builds; those are measured on our targets as every
+   source unit is.
+4. **ASL3's own apt repository is the D-040 case**, and the landscape
+   survey's "never add a third-party APT archive" is read through D-040 as
+   CLAUDE.md already reads it: the distribution offers nothing, the
+   manifest pins the signing-key fingerprint, the archive is added only on
+   the operator typing that fingerprint, never on `--yes`, and both files
+   come out on uninstall. **No consent gate beyond the fingerprint.** A
+   node on the amateur bands is licensed operation, the same thing `flrig`
+   keying a transceiver is; the profile prose discloses coordination and
+   unattended-station conditions (D-021's half) and adjudicates nothing.
+   This is the second manifest family after `code`/`codium` to rely on the
+   D-040 reading and the first with transmit behind it, and that fact is
+   what this record exists to have written down.
+
+**Consequences.** SCOPE.md stages 9 and 10 carry the rulings in place. No
+manifest changes yet: everything here is post-1.0, and the first Track A
+manifest is where the work starts. Q-020 is closed by this record, and no
+question is open in `docs/QUESTIONS.md` on this date.
+
+## D-047 — brltty is measured per target, not purged or shadowed; the sweep reads every syntax a rule can name a pair in
+
+**Date:** 2026-09-12. **Status:** accepted; built the same day, awaiting
+the maintainer's review on the pull request. **Depends on:** D-042
+(sub-project 2 asked this), D-028 (an identifier naming a chip may not name
+a device), D-029 (the hardware role includes honest documentation of what
+nothing solves), D-031 (verify the effect, not the exit status), D-022
+(coexist, disclose, never remove silently), CLAUDE.md's rejected-list entry
+*anything that reconfigures the user's OS wholesale*. **Amends:** the
+udev-inventory page's "nothing is filtered" claim, which was true of
+packages and false of syntax.
+
+**What was measured.** `scripts/run-brltty-probe.sh` downloaded each
+target's `brltty` (never installed it) and read what it ships;
+`scripts/gen_brltty_inventory.py` renders `docs/reference/brltty-inventory.md`
+from the probes, with the catalog intersection computed live.
+
+1. **Four of seven targets ship no brltty udev rules at all.** Debian 13
+   (6.7-3.1+deb13u3, amd64 and arm64), Parrot 7.3 (the same package) and
+   Kali (6.9.1+repack-1) put only *examples* under `/usr/share/doc/brltty/`.
+   Nothing in those archives Depends on or Recommends brltty; `orca` and
+   `speechd-el` Suggest it. There is nothing to shadow and nothing arrives
+   by default.
+2. **The Ubuntu family ships `85-brltty.rules` and installs brltty by
+   default** — Recommends of `ubuntu-desktop`, `ubuntu-desktop-minimal`,
+   `xubuntu-desktop` and six more desktops (Mint's own `mint-meta-*`
+   metapackages do not name it; the rules arrive there through Ubuntu's).
+   Ubuntu commented out the generic-bridge lines in 2022 (bug #1958224) and
+   the file says so beside each one.
+3. **What is still enabled and in our catalog.** On Ubuntu 24.04 and Mint
+   22.3 (brltty 6.6-4ubuntu5): `0403:6001` only when the USB manufacturer
+   string is `Hedo Reha Technik GmbH` or `Tivomatic Oy` — an FTDI rig
+   cable's string is `FTDI` and never matches — and **`1a86:7523`, the
+   CH340, only behind a `1a40:0101` parent hub.** That hub is the Terminus
+   FE 1.1 inside the Zoomax display, and also inside a great many cheap
+   four-port hubs. A CH340 cable through such a hub is claimed. On Ubuntu
+   26.04 (6.7-1ubuntu6) the CH340 line is commented out too, and the two
+   vendor-string FTDI lines are all that remain.
+4. **The maintainer's own laptop** (Pop!_OS 22.04, brltty 6.4-4ubuntu3,
+   not a target) carries the unqualified `ENV{PRODUCT}=="1a86/7523/*"`
+   line, enabled: every CH340 on that machine is claimed, hub or no hub.
+   Its `brltty-udev.service` is a static unit started by the rule.
+5. **The udev sweep could not have seen any of this.** brltty writes
+   `ENV{PRODUCT}=="403/de58/*"`; the sweep's parser read only
+   `ATTRS{idVendor}`, and brltty had zero rows in an inventory that said
+   nothing was filtered. Reading the two other syntaxes added 25 rows from
+   six Debian 13 packages (tlp-rdw, udisks2, libhackrf0's rad1o lines among
+   them), none touching a catalogued identifier — and one precedence bug
+   caught by its own test: brltty's CH340 line names the device by
+   `PRODUCT` and its *hub* by `ATTRS`, and a parser that tried `ATTRS`
+   first filed the hub as a braille display.
+
+**Decision.**
+
+1. **No `file_shadow`, no `package_purge`, no engine change.** ETC's empty
+   `85-brltty.rules` and AHRL's unconditional purge each remove a blind
+   operator's braille support from every machine to fix a collision that
+   exists on two of seven targets, for one chip, behind one hub. On the four
+   Debian-family targets there is no file to shadow. A project that augments
+   an existing system does not delete accessibility software as a side
+   effect of installing a rig-control program.
+2. **`distribution_disabled` does not cover it either.** That basis says an
+   identifier does not name a device, citing a rule a distribution
+   commented out. The colliding rule is *enabled*; the basis is the wrong
+   shape for it, and D-028 already carries `1a86:7523` as
+   `kernel_generic_driver`.
+3. **The answer is the measurement and the troubleshooting entry.**
+   `brltty-inventory.md` is generated and `--check`ed like every other
+   reference page, so the day Ubuntu changes the file the page goes stale by
+   name. `docs/troubleshooting/running.md` tells an operator whose CH340
+   vanished on Ubuntu 24.04 or Mint what happened and the two fixes that
+   exist — unplug from the hub, or remove `brltty` *if no one on the
+   machine needs it*, which is the operator's call and never the engine's.
+   The `badgelife` class entry for `1a86:7523` names brltty among the
+   claimants.
+4. **The sweep parser is a module with a test.** `scripts/udev_rule_pairs.py`
+   reads `ATTRS{idVendor}`, `ENV{PRODUCT}` and `ENV{ID_VENDOR_ID}`, device
+   syntaxes before parent-walking ones, mounted into the sweep container by
+   the runner. Its tests carry the brltty lines that proved each case and
+   the falsification that the old regex returns nothing for them.
+
+**What would change this.** A target whose *default* brltty carries an
+unqualified generic-bridge line again — the 2022 state — is the case for
+carrying a targeted rule of our own that unsets what brltty's set for the
+catalogued device, file-ordered after `85-brltty.rules`; a `udev_rule`
+modification the schema already has, never a shadow of the whole file. No
+target does today, and the page will say when one does.
+
+**Consequences.** `scripts/brltty-probe.sh`, `scripts/run-brltty-probe.sh`,
+`scripts/gen_brltty_inventory.py` (`--check`, in the no-op test),
+`docs/reference/brltty-inventory.md`, seven probe files under
+`reference/probes/`; `scripts/udev_rule_pairs.py` and
+`tests/test_udev_rule_pairs.py`; the Debian 13 sweep re-run and
+`udev-inventory.md`, `usb-ambiguity.md`, `ambiguous-ids.yaml` and
+`programmer.yaml` regenerated from it; the troubleshooting entry; the class
+note. D-042 sub-project 2 is closed by this record.
+
+## D-048 — The EmComm Tools software delta: Paracon, Artemis and GPA carried on measured routes; Artemis's vendor `.deb` refused by name; Chattervox left to the maintainer with its test results
+
+**Date:** 2026-09-12. **Status:** accepted; built the same day, awaiting
+the maintainer's review on the pull request. **Depends on:** D-042
+(sub-project 4), D-018 (claims tested before published), D-024 (never
+build what apt provides; own pins only when nothing packages it), D-032
+(liveness is the head commit), D-037 (Node only from the distribution,
+never fetched), D-045 (the packet core is userspace-primary), D-022
+(coexist, never displace silently), `PARITY-POLICY.md`. **Amends:**
+nothing.
+
+**What was measured, 2026-09-12.** Every upstream re-read by API (licence,
+default-branch head, releases and their assets); every artifact fetched
+and hashed from the download itself; `apt-cache policy` for every apt name
+the three manifests use, on all seven targets; and each unit exercised on
+a Debian 13 container.
+
+1. **Paracon** (MIT, head 2025-10-12, release 1.3.0 the same day) is one
+   `.pyz` with its dependencies inside. `paracon --version` printed
+   `Paracon 1.3.0` on Python 3.13.5. It speaks AGWPE to Direwolf and never
+   opens an `AF_AX25` socket, so it is the packet terminal that works on a
+   7.1 kernel — the reason D-045 needed one.
+2. **Artemis** (GPL-3.0, head 2026-07-22, release 4.2.0) stopped shipping
+   the Linux zip ETC used; 4.2.0's Linux assets are a `.deb`, an Arch
+   package and an RPM. The `.deb` was fetched (190 MB) and read: its
+   control file says `Package: artemis`, and **every target's archive
+   already has an `artemis`** — the Sanger genome browser, at 18.2.0.
+   Installing the vendor file would put this program under that name one
+   version *below* the archive's, and the next `apt upgrade` would replace
+   it with a genome browser. It also Depends on `libpython3.12`, which
+   Debian 13, Parrot, Kali and Ubuntu 26.04 do not carry. The upstream
+   tree is a plain Python package with four PyPI dependencies, so it is
+   carried as a venv — the 4.2.0 source tarball as payload, requirements
+   compiled with hashes by uv — and the pinned set installed and
+   `import artemis` succeeded on Python 3.13.5. The window has not been
+   opened from that install; the manifest says so.
+3. **GPA** 0.11.1 (2026-02-12, the release that builds against gpgme 2.x)
+   is in Ubuntu 24.04 and Mint at 0.10.0 and Ubuntu 26.04 at 0.11.0, and in
+   no Debian-family archive. The gnupg.org tarball's detached signature
+   verified against the GnuPG distribution signing key; the four `-dev`
+   packages configure.ac names have candidates on all seven targets;
+   configure and make exit 0 on Debian 13 and `gpa --version` prints
+   0.11.1.
+4. **Chattervox** (GPL-3.0 by its LICENSE file, head 2019-03-17, every
+   release a prerelease): the 0.7.0 bundle runs `--help`; the source
+   builds on Debian 13's Node 20 with `npm ci --ignore-scripts` and runs
+   `--version`; `kiss-tnc` loads without serialport's native build.
+   Whether a KISS port *opens* without that build is untested — the
+   container has no TNC — and two of its dependencies are git commits
+   rather than registry packages.
+
+**Decision.**
+
+1. **Paracon, Artemis and GPA are ADD**, with manifests, on the routes
+   above. GPA takes the archive's package where one exists and the tarball
+   elsewhere, so its version differs by target and the manifest says why.
+   Paracon joins `packet`; Artemis joins `listening` and `rf-security`
+   (D-046's split, applied: a reference is for both); GPA joins no profile
+   — `workstation`'s contents were fixed at acceptance (Q-011), and which
+   EMCOMM profile a PGP front end belongs to is a placement question for
+   the maintainer, so it installs by name.
+2. **Artemis's vendor `.deb` is refused by name**, for the two reasons
+   measured, and the refusal is written into the manifest so the next
+   person to find the asset does not re-derive it.
+3. **mbutil and pfte are RETIRE**, `not-carried.md` carries the reasons:
+   a python2 script nothing calls, and a proprietary unsigned binary the
+   security requirements refuse by name.
+4. **Chattervox stays NEEDS-DECISION**, and the index says so. Both
+   routes to it cross a rule: the bundle is a fetched Node runtime, which
+   D-037 refuses; the source is the node backend fetching two git commits
+   the registry does not carry, with a native serial layer the
+   `--ignore-scripts` rule will not build. It is dormant six and a half
+   years with only prereleases. The recommendation is not to carry it in
+   1.0; the test results are recorded so the maintainer decides from
+   evidence rather than from the dormancy alone.
+5. **The five offline-data units keep their ADD and stay outstanding**
+   with a recorded reason each, until sub-project 5 gives them a category.
+
+**Consequences.** `paracon.yaml`, `artemis.yaml`, `gpa.yaml`; `packet`,
+`listening` and `rf-security` gain a member each; the dispositions index
+gains an `EmComm Tools OS delta (11)` block and the summary table a
+column (the hygiene test holds both to each other); `not-carried.md` and
+`parity-coverage.md` regenerated with the two retirements and five
+reasons; the apt policy sweep re-run for the new names and the capability
+matrix regenerated. D-042 sub-project 4's software half is closed by this
+record; the `et-*` config ideas wait on station config and sub-project 3.
+
+## D-049 — Offline data is a catalog unit: a `data` install method whose payload is the point, disclosed by size and licence before the confirmation, selected through station config
+
+**Date:** 2026-09-12. **Status:** accepted (maintainer, Q-021, option A as
+recommended, both rules). **Depends on:** D-042 (rule 5 named the layer),
+D-048 (five readers decided ADD and unwritable), D-018 (every fetch
+verified), D-035 (a missing station value defers one file, never the
+transaction), D-021 (disclose, never adjudicate), Q-015 decision 8
+(`country_files` deferred to exactly this question). **Amends:** nothing.
+
+**What was measured** is in Q-021: ETC's three interactive, unverified
+downloads into `/etc/skel`; its own tilesets at 0.69 GB (US) and 0.52 GB
+(Canada) under ODbL; Geofabrik extracts from 0.05 GB (Vermont) to 1.33 GB
+(California); the English Wikipedia ZIM unmeasured from here on the day.
+
+**Decision.**
+
+1. **A data artifact is a catalog unit**, on the package manifest, with
+   `method: data`: one or more pinned, sha256'd artifacts installed under
+   `<prefix>/share/hammunition/data/<name>/`, recorded in the transaction
+   log like every other artefact so `uninstall` removes them, with an
+   `update` block like every other unit. The reader (`kiwix`,
+   `mbtileserver`, the logger that reads cty.dat) names the data unit in
+   `depends`; the data unit names nothing.
+2. **Size and licence are printed in the plan, before the confirmation.**
+   Each artifact declares its `size` in bytes and the unit declares its
+   `licence` and a `licence_url`; `--dry-run` shows both, and the real run
+   shows the same text. A 1.33 GB download on a field connection is a
+   decision, and a dataset under ODbL or CC BY-SA carries obligations the
+   engine states and does not adjudicate (D-021's half).
+3. **The operator's selection lives in station config.** Which state,
+   which country, which language: a data unit whose artifact depends on a
+   station value is deferred by name when the value is missing, and its
+   reader installs regardless (D-035's shape). Nothing is guessed and no
+   default region is invented.
+4. **Built in this order**, each step its own measurement: the schema,
+   fetcher and plan disclosure, proven on `country_files` — cty.dat, about
+   200 KB, the smallest and oldest case; then ETC's tileset with
+   `mbtileserver`; then Navit's extract with the station selection; then
+   the ZIM with `kiwix`. `dict` is apt and needs none of this.
+
+**What this is not.** Not a mirror: every artifact is fetched from its
+publisher's own URL, never redistributed. Not `/etc/skel`: the data is
+installed once, system-wide, for the operator who asked. Not a backend for
+software — a `.pyz` is `binary`, a venv payload is `venv`; `data` is for
+files the reader opens and the engine never executes.
+
+**Consequences.** `DataInstall` in the schema (`artifacts`, each with
+`url`, `sha256`, `size`, `install_as`; `licence`, `licence_url`); a data
+backend that fetches, verifies and installs; the plan's disclosure; the
+docs generator's rendering; `capability_matrix.py` knows the method.
+`country_files.yaml` is the proof. Q-021 is closed by this record; Q-015
+decision 8's deferral ends with it.
