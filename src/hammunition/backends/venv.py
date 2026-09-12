@@ -114,7 +114,12 @@ class VenvBackend:
                 # built on 3.10 cannot install a modern hash-pinned tree
                 # (numpy 2.5 dropped 3.10). Found deploying to a Pop 22.04
                 # laptop, where nanovna-saver's numpy pin had no 3.10 wheel.
-                argv=(sys.executable, "-m", "venv", str(venv)),
+                # Resolved, not the engine venv's own symlink: on the field
+                # laptop (2026-09-12) the engine ran from a worktree's .venv
+                # that was removed mid-transaction, and 118 steps later this
+                # spawned `<gone>/.venv/bin/python3 -m venv` and the run died.
+                # The symlink pointed at /usr/bin/python3.13 the whole time.
+                argv=(str(Path(sys.executable).resolve()), "-m", "venv", str(venv)),
                 description=f"Create (or reuse) {manifest.name}'s virtualenv",
                 requires_root=False,
             ),

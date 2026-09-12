@@ -66,7 +66,7 @@ def test_the_steps_are_staged_venv_pip_wrapper_in_that_order(tmp_path: Path) -> 
     assert kinds[0] == "requirements"
     # The venv is built with the engine's own interpreter (>=3.11 guaranteed),
     # never bare python3 which is 3.10 on Ubuntu/Pop 22.04.
-    assert kinds[1] == (sys.executable, "-m", "venv")
+    assert kinds[1] == (str(Path(sys.executable).resolve()), "-m", "venv")
     assert "--require-hashes" in steps[2].argv  # type: ignore[union-attr]
     assert kinds[3] == "wrapper"
     assert all(not getattr(s, "requires_root", False) for s in steps), (
@@ -190,7 +190,7 @@ def test_payload_plans_fetch_extract_build_and_tree_install(tmp_path: Path) -> N
     kinds = [s.kind if isinstance(s, Action) else s.argv[0] for s in steps]
     assert kinds[:3] == [
         "requirements",
-        sys.executable,
+        str(Path(sys.executable).resolve()),
         str(tmp_path / "venvs" / "hybridunit" / "bin" / "pip"),
     ]
     assert "fetch" in kinds and "extract" in kinds
