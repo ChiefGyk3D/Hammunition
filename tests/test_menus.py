@@ -6,7 +6,9 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -70,7 +72,7 @@ def test_steps_write_menu_and_every_directory_entry(tmp_path: Path) -> None:
     menu = tmp_path / "menus" / "xfce-applications-merged" / "hammunition.menu"
     assert "X-Hammunition-packet" in menu.read_text()
     top = (tmp_path / "dirs" / "hammunition-hamradio.directory").read_text()
-    assert "Name=Ham Radio" in top
+    assert "Name=Hammunition" in top
     sub = (tmp_path / "dirs" / "hammunition-packet.directory").read_text()
     assert "Name=Packet" in sub and "AX.25" in sub
 
@@ -209,7 +211,7 @@ def test_gnome_commands_append_and_never_replace_the_folder_list() -> None:
     assert register.argv[0] == "python3"
     body = register.argv[2]
     assert "if name not in value" in body and "value.append" in body
-    assert name.argv[-1] == "Ham Radio"
+    assert name.argv[-1] == "Hammunition"
     assert categories.argv[-1] == "['HamRadio']"
     assert all(not c.requires_root for c in gnome_commands())
 
@@ -382,3 +384,374 @@ def test_a_placement_without_a_disk_check_reports_nothing_replaced_or_missing() 
     )
     assert placement.replaced == ()
     assert placement.missing == ()
+
+
+# ---------------------------------------------------------------------------
+# D-050: a two-level tree in a declared order (Parrot's shape), and an entry
+# for every installed unit so the launcher's search finds all of it.
+# ---------------------------------------------------------------------------
+
+
+def _groups() -> list[Any]:
+    from hammunition.menus import Group
+
+    return [
+        Group(order=1, name="station", title="Station", summary="The desk", categories=("sdr",)),
+        Group(
+            order=2, name="packet", title="Packet & EMCOMM", summary="Air", categories=("packet",)
+        ),
+    ]
+
+
+def test_the_vocabulary_loads_groups_in_declared_order_with_their_categories(
+    tmp_path: Path,
+) -> None:
+    from hammunition.menus import load_vocabulary
+
+    (tmp_path / "categories.yaml").write_text(
+        "categories:\n"
+        "  - name: sdr\n    title: SDR\n    summary: Receivers\n"
+        "  - name: packet\n    summary: AX.25\n"
+        "groups:\n"
+        "  - order: 2\n    name: packet\n    title: Packet\n    summary: Air\n"
+        "    categories: [packet]\n"
+        "  - order: 1\n    name: station\n    title: Station\n    summary: Desk\n"
+        "    categories: [sdr]\n"
+    )
+    vocabulary = load_vocabulary(tmp_path / "categories.yaml")
+    assert [g.name for g in vocabulary.groups] == ["station", "packet"]
+    assert vocabulary.groups[0].categories == ("sdr",)
+    assert [c.name for c in vocabulary.categories] == ["sdr", "packet"]
+    assert vocabulary.categories[0].title == "SDR"
+
+
+def test_the_tree_nests_each_category_under_its_group_in_the_declared_order() -> None:
+    xml = render_menu(CATS, groups=_groups())
+    # root, Ham Radio, one per group, one per category
+    assert xml.count("<Menu>") == 1 + 1 + 2 + len(CATS)
+    station = xml.index("<Name>hammunition-group-station</Name>")
+    packet_group = xml.index("<Name>hammunition-group-packet</Name>")
+    assert station < packet_group, "groups appear in declared order"
+    sdr = xml.index("<Name>hammunition-sdr</Name>")
+    assert station < sdr < packet_group, "sdr is nested inside the station group"
+    assert "hammunition-group-station.directory" in xml
+    layout = xml[xml.index("<Layout>") : xml.index("</Layout>")]
+    assert layout.index("hammunition-group-station") < layout.index("hammunition-group-packet")
+
+
+def test_a_category_in_no_group_renders_at_the_top_level_beside_the_groups() -> None:
+    """The vocabulary test forbids it in the shipped file; the renderer must
+    still put the entry somewhere visible rather than drop it."""
+    only_station = [_groups()[0]]
+    xml = render_menu(CATS, groups=only_station)
+    assert xml.count("<Menu>") == 1 + 1 + 1 + len(CATS)
+    assert "<Name>hammunition-packet</Name>" in xml
+
+
+def test_steps_write_a_directory_entry_per_group(tmp_path: Path) -> None:
+    paths = MenuPaths(menus_dir=tmp_path / "menus", directories_dir=tmp_path / "dirs")
+    for step in menu_steps(CATS, paths, menu_prefix="plasma-", groups=_groups()):
+        step.perform()
+    body = (tmp_path / "dirs" / "hammunition-group-packet.directory").read_text()
+    assert "Name=Packet & EMCOMM" in body and "Comment=Air" in body
+
+
+def _exes(table: dict[str, list[str]]) -> Callable[[str], list[str]]:
+    return lambda package: table.get(package, [])
+
+
+def test_an_installed_unit_with_no_entry_gets_one_from_its_sole_executable() -> None:
+    from hammunition.menus import cli_entries
+
+    result = cli_entries(
+        [_manifest("tcpdump", ["rf-security"])],
+        Placement.empty(),
+        _exes({"tcpdump": ["/usr/bin/tcpdump"]}),
+    )
+    [entry] = result.entries
+    assert entry.unit == "tcpdump"
+    assert entry.exec == "/usr/bin/tcpdump"
+    assert entry.desktop_id == "hammunition-cli-tcpdump.desktop"
+    assert result.skipped == ()
+
+
+def test_the_executable_named_like_the_unit_wins_over_its_siblings() -> None:
+    from hammunition.menus import cli_entries
+
+    result = cli_entries(
+        [_manifest("aircrack-ng", ["rf-security"])],
+        Placement.empty(),
+        _exes(
+            {
+                "aircrack-ng": [
+                    "/usr/bin/airodump-ng",
+                    "/usr/bin/aircrack-ng",
+                    "/usr/bin/aireplay-ng",
+                ]
+            }
+        ),
+    )
+    assert [e.exec for e in result.entries] == ["/usr/bin/aircrack-ng"]
+
+
+def test_several_executables_and_none_named_like_the_unit_is_skipped_and_said() -> None:
+    """rtl-sdr on the field laptop: six tools, none called rtl-sdr. Guessing
+    rtl_sdr over rtl_fm is a coin toss; a `launchers` block in the manifest
+    is the fix, and the summary names the unit so someone writes one."""
+    from hammunition.menus import cli_entries
+
+    result = cli_entries(
+        [_manifest("rtl-sdr", ["sdr"])],
+        Placement.empty(),
+        _exes({"rtl-sdr": ["/usr/bin/rtl_fm", "/usr/bin/rtl_sdr", "/usr/bin/rtl_power"]}),
+    )
+    assert result.entries == ()
+    [(unit, why)] = result.skipped
+    assert unit == "rtl-sdr" and "3 executables" in why
+
+
+def test_units_that_already_have_an_entry_or_a_launcher_get_no_cli_entry() -> None:
+    from hammunition.menus import cli_entries
+
+    placed = Placement(by_category={"sdr": ("x.desktop",)}, claimed=("x.desktop",), units=("gqrx",))
+    with_launcher = _manifest(
+        "hamclock", ["station"], launchers=[{"name": "hamclock", "exec": "hamclock"}]
+    )
+    result = cli_entries(
+        [_manifest("gqrx", ["sdr"]), with_launcher],
+        placed,
+        _exes({"gqrx": ["/usr/bin/gqrx"], "hamclock": ["/usr/bin/hamclock"]}),
+    )
+    assert result.entries == () and result.skipped == ()
+
+
+def test_a_unit_that_is_not_installed_is_neither_an_entry_nor_a_skip() -> None:
+    from hammunition.menus import cli_entries
+
+    result = cli_entries([_manifest("absent", ["sdr"])], Placement.empty(), _exes({}))
+    assert result.entries == () and result.skipped == ()
+
+
+def test_the_generated_entry_is_searchable_and_carries_the_catalog_markers() -> None:
+    from hammunition.menus import cli_entries, render_cli_entry
+
+    [entry] = cli_entries(
+        [_manifest("tcpdump", ["rf-security", "workstation"])],
+        Placement.empty(),
+        _exes({"tcpdump": ["/usr/bin/tcpdump"]}),
+    ).entries
+    body = render_cli_entry(entry)
+    assert "Name=tcpdump\n" in body
+    assert "Comment=Fixture tcpdump\n" in body
+    assert "Exec=/usr/bin/tcpdump\n" in body
+    assert "Terminal=true\n" in body
+    assert "X-Hammunition-rf-security" in body and "X-Hammunition-workstation" in body
+    assert "Keywords=" in body and "rf-security" in body.split("Keywords=")[1]
+    assert "X-Hammunition-Package=tcpdump\n" in body
+
+
+def test_cli_entry_steps_write_the_new_and_prune_the_stale(tmp_path: Path) -> None:
+    from hammunition.menus import cli_entries, cli_entry_steps
+
+    apps = tmp_path / "applications"
+    apps.mkdir()
+    (apps / "hammunition-cli-gone.desktop").write_text(
+        "[Desktop Entry]\n"
+    )  # from a unit since removed
+    (apps / "hammunition-mshv.desktop").write_text(
+        "[Desktop Entry]\n"
+    )  # a launcher: not ours to prune
+    result = cli_entries(
+        [_manifest("tcpdump", ["rf-security"])],
+        Placement.empty(),
+        _exes({"tcpdump": ["/usr/bin/tcpdump"]}),
+    )
+    for step in cli_entry_steps(result, apps):
+        step.perform()
+    assert (apps / "hammunition-cli-tcpdump.desktop").exists()
+    assert not (apps / "hammunition-cli-gone.desktop").exists()
+    assert (apps / "hammunition-mshv.desktop").exists()
+
+
+def test_placement_records_which_units_received_an_entry() -> None:
+    placement = place_installed_entries(
+        [_manifest("flrig", ["rig-control"]), _manifest("cli-only", ["packet"])],
+        _lister({"flrig": ["flrig.desktop"], "cli-only": []}),
+    )
+    assert placement.units == ("flrig",)
+
+
+def test_plasma_gets_its_cache_rebuilt_and_other_desktops_get_the_hint() -> None:
+    from hammunition.menus import refresh_command
+
+    found = {"kbuildsycoca6": "/usr/bin/kbuildsycoca6"}
+    command = refresh_command("plasma-", which=lambda n: found.get(n))
+    assert command is not None and command.argv == ("/usr/bin/kbuildsycoca6",)
+    assert not command.requires_root
+    assert refresh_command("kf5-", which=lambda n: found.get(n)) is not None
+    assert refresh_command("xfce-", which=lambda n: found.get(n)) is None
+    assert refresh_command("plasma-", which=lambda n: None) is None
+
+
+def test_a_unit_whose_only_executables_live_in_sbin_is_a_service_not_an_entry() -> None:
+    """gpsd on the field laptop: the generated entry ran /usr/sbin/gpsd in a
+    terminal, which is a daemon systemd already owns, not an application.
+    sbin is for the system; a unit with nothing outside it gets no entry,
+    and the summary says why rather than counting a launcher that would
+    only ever fail."""
+    from hammunition.menus import cli_entries
+
+    result = cli_entries(
+        [_manifest("gpsd", ["station"])],
+        Placement.empty(),
+        _exes({"gpsd": ["/usr/sbin/gpsd", "/usr/sbin/gpsdctl"]}),
+    )
+    assert result.entries == ()
+    [(unit, why)] = result.skipped
+    assert unit == "gpsd" and "sbin" in why and "service" in why
+
+
+def test_an_sbin_sibling_does_not_stop_the_bin_executable_named_like_the_unit() -> None:
+    from hammunition.menus import cli_entries
+
+    result = cli_entries(
+        [_manifest("hcxdumptool", ["rf-security"])],
+        Placement.empty(),
+        _exes({"hcxdumptool": ["/usr/sbin/hcxdumptool-helper", "/usr/bin/hcxdumptool"]}),
+    )
+    assert [e.exec for e in result.entries] == ["/usr/bin/hcxdumptool"]
+
+
+def test_kde_merges_the_unprefixed_directory_whatever_the_prefix_says() -> None:
+    """Measured on the field laptop (Plasma 6, XDG_MENU_PREFIX=plasma-,
+    2026-09-12): kbuildsycoca6 reported "Found menu file
+    /etc/xdg/menus/applications-merged/parrot-applications.menu" and never
+    opened plasma-applications-merged/, where the tree had been written and
+    where nothing read it -- no Ham Radio menu, and every generated entry
+    in Lost & Found. Xfce's garcon honours the prefix (Kali, 2026-09-02);
+    KDE's kservice does not."""
+    from hammunition.menus import merge_dir
+
+    assert merge_dir("plasma-") == "applications-merged"
+    assert merge_dir("kf5-") == "applications-merged"
+    assert merge_dir("xfce-") == "xfce-applications-merged"
+    assert merge_dir("") == "applications-merged"
+
+
+def test_steps_write_where_kde_reads_and_remove_the_copy_nothing_read(tmp_path: Path) -> None:
+    paths = MenuPaths(menus_dir=tmp_path / "menus", directories_dir=tmp_path / "dirs")
+    stale = tmp_path / "menus" / "plasma-applications-merged" / "hammunition.menu"
+    stale.parent.mkdir(parents=True)
+    stale.write_text("<Menu/>")
+    for step in menu_steps(CATS, paths, menu_prefix="plasma-"):
+        step.perform()
+    assert (tmp_path / "menus" / "applications-merged" / "hammunition.menu").exists()
+    assert not stale.exists(), "the file from the earlier, unread location is removed"
+
+
+# ---------------------------------------------------------------------------
+# D-050, second round (maintainer, 2026-09-12): the menu is called Hammunition,
+# a group can be hidden (Workstation: git, tmux, VS Code are not radio), and
+# GNOME, which cannot nest, gets one folder per visible group.
+# ---------------------------------------------------------------------------
+
+
+def test_a_group_marked_menu_false_is_loaded_hidden(tmp_path: Path) -> None:
+    from hammunition.menus import load_vocabulary
+
+    (tmp_path / "categories.yaml").write_text(
+        "categories:\n  - name: sdr\n    summary: R\n  - name: workstation\n    summary: W\n"
+        "groups:\n"
+        "  - order: 1\n    name: sdr\n    title: SDR\n    summary: r\n    categories: [sdr]\n"
+        "  - order: 2\n    name: workstation\n    title: Workstation\n    summary: w\n"
+        "    categories: [workstation]\n    menu: false\n"
+    )
+    vocabulary = load_vocabulary(tmp_path / "categories.yaml")
+    assert [g.menu for g in vocabulary.groups] == [True, False]
+    assert vocabulary.hidden_categories == frozenset({"workstation"})
+
+
+def _groups_with_hidden() -> list[Any]:
+    from hammunition.menus import Group
+
+    return [
+        Group(order=1, name="station", title="Station", summary="d", categories=("sdr",)),
+        Group(
+            order=2, name="ws", title="Workstation", summary="w", categories=("packet",), menu=False
+        ),
+    ]
+
+
+def test_a_hidden_group_and_its_categories_are_not_rendered_anywhere() -> None:
+    xml = render_menu(CATS, groups=_groups_with_hidden())
+    assert "hammunition-group-ws" not in xml
+    assert "<Name>hammunition-packet</Name>" not in xml, "hidden, not demoted to the top level"
+    assert xml.count("<Menu>") == 1 + 1 + 1 + 1
+
+
+def test_steps_write_no_directory_entry_for_a_hidden_group(tmp_path: Path) -> None:
+    paths = MenuPaths(menus_dir=tmp_path / "menus", directories_dir=tmp_path / "dirs")
+    for step in menu_steps(CATS, paths, menu_prefix="", groups=_groups_with_hidden()):
+        step.perform()
+    assert not (tmp_path / "dirs" / "hammunition-group-ws.directory").exists()
+    assert not (tmp_path / "dirs" / "hammunition-packet.directory").exists()
+
+
+def test_units_with_only_hidden_categories_are_neither_placed_nor_claimed() -> None:
+    """git ships git-gui.desktop and is tagged workstation only: the desktop
+    keeps it under Development, and Hammunition says nothing about it."""
+    placement = place_installed_entries(
+        [_manifest("git", ["workstation"]), _manifest("wireshark", ["rf-security", "workstation"])],
+        _lister({"git": ["git-gui.desktop"], "wireshark": ["org.wireshark.Wireshark.desktop"]}),
+        hidden=frozenset({"workstation"}),
+    )
+    assert placement.by_category == {"rf-security": ("org.wireshark.Wireshark.desktop",)}
+    assert placement.claimed == ("org.wireshark.Wireshark.desktop",)
+    assert placement.units == ("wireshark",)
+
+
+def test_cli_entries_skip_units_with_only_hidden_categories_silently() -> None:
+    from hammunition.menus import cli_entries
+
+    result = cli_entries(
+        [_manifest("tmux", ["workstation"]), _manifest("tcpdump", ["rf-security", "workstation"])],
+        Placement.empty(),
+        _exes({"tmux": ["/usr/bin/tmux"], "tcpdump": ["/usr/bin/tcpdump"]}),
+        hidden=frozenset({"workstation"}),
+    )
+    assert [e.unit for e in result.entries] == ["tcpdump"]
+    assert result.entries[0].categories == ("rf-security",), "a hidden tag is not a keyword either"
+    assert result.skipped == ()
+
+
+def test_gnome_gets_one_folder_per_visible_group_populated_by_its_markers() -> None:
+    """GNOME cannot nest, so the groups become folders. Populated by the
+    X-Hammunition markers of the group's categories, so no app list to
+    maintain, plus the placed entries under those categories by name."""
+    placement = Placement(
+        by_category={"sdr": ("dk.gqrx.gqrx.desktop",)},
+        claimed=("dk.gqrx.gqrx.desktop",),
+        units=("gqrx",),
+    )
+    commands = gnome_commands(placement, groups=_groups_with_hidden())
+    text = "\n".join(" ".join(c.argv) for c in commands)
+    assert "hammunition-station" in text and "hammunition-ws" not in text
+    assert "Hammunition · Station" in text
+    assert "['X-Hammunition-sdr']" in text
+    assert "dk.gqrx.gqrx.desktop" in text
+    assert "['HamRadio']" not in text, "the single catch-all folder is replaced, not kept beside"
+
+
+def test_steps_prune_directory_entries_this_run_did_not_write(tmp_path: Path) -> None:
+    """Hiding Workstation left hammunition-workstation.directory and its
+    group's file behind on the field laptop: harmless, untidy, and a lie
+    about what the tree contains. Only hammunition-*.directory is ours."""
+    paths = MenuPaths(menus_dir=tmp_path / "menus", directories_dir=tmp_path / "dirs")
+    paths.directories_dir.mkdir(parents=True)
+    (paths.directories_dir / "hammunition-workstation.directory").write_text("[Desktop Entry]\n")
+    (paths.directories_dir / "kf5-more.directory").write_text("[Desktop Entry]\n")
+    for step in menu_steps(CATS, paths, menu_prefix="", groups=_groups_with_hidden()):
+        step.perform()
+    assert not (paths.directories_dir / "hammunition-workstation.directory").exists()
+    assert (paths.directories_dir / "kf5-more.directory").exists()
+    assert (paths.directories_dir / "hammunition-sdr.directory").exists()

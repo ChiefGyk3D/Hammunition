@@ -336,6 +336,7 @@ def test_every_catalog_launcher_working_directory_is_under_the_shared_prefix() -
         "artemis",
         "gpa",
         "hamclock-next",
+        "hammunition-hill",
         "js8spotter",
         "mshv",
         "openhamclock",

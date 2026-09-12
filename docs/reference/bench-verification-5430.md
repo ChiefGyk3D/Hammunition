@@ -163,6 +163,27 @@ grep's exit status, not make's — one failing docs test and one
 between commands put one worktree's edit into another; absolute paths
 from then on.
 
+## Session 5, same day: the menu rebuilt in Parrot's shape (D-050)
+
+The maintainer's verdict on the session-3 tree: fix it, and look at how
+Parrot lays out its own tools. Parrot's menu was measured on this machine
+(one top menu, 14 numbered groups, numbered subcategories, a `<Layout>`
+order, 671 entries of which 670 have a Comment and 572 open a terminal),
+the design was approved in chat, and D-050 records the rule. Re-measured
+here, from the branch engine, all of it unprivileged:
+
+| Step | Result |
+|---|---|
+| `menus apply` | **8 groups, 27 categories**, prefix `plasma-`; 20 placed entries (CHIRP and Wireshark by Parrot's own entries, zero dead filenames); **12 entries generated** for installed units that ship none; **12 skipped with the reason named** — eleven with several executables and none named like the unit, and `gpsd`, whose only application-shaped executables are the daemon's tools. `kbuildsycoca6` run by the engine. |
+| The written tree | Well-formed (`xmllint`); `<Layout>` lists the eight groups in declared order; each category sits under exactly its group — Station holds station, rig-control, timing, logging, contest; SDR & Listening holds sdr, listening, satellite, tracking, hf-propagation; and so on. 8 group `.directory` files, 27 category ones. |
+| A generated entry | `hammunition-cli-tcpdump.desktop`: Name, the manifest summary as Comment, `Keywords=rf-security;workstation;tcpdump;`, `Terminal=true`, `Exec=/usr/bin/tcpdump`, the `X-Hammunition-*` markers. Searchable by name, by category word, and by what it does. |
+| Pruning | The first apply of the session generated `hammunition-cli-gpsd.desktop` running `/usr/sbin/gpsd` in a terminal — a daemon, not an application. The sbin rule was written from that, and the next apply **removed** the stale entry, which is the pruning path proving itself on a real mistake. |
+| `install hammunition-hill` (re-run, unprivileged) | With #67 merged the `.deb` is *already installed* and the plan is exactly the two launcher steps: the wrapper (`x-www-browser http://127.0.0.1:8073`) and the desktop entry, both written and confirmed. The dashboard is in the tree under Station, HF Propagation and Satellite. |
+| By eye, first look | **No Ham Radio menu, and the generated entries in Kickoff's *Lost & Found*.** The maintainer's report from the launcher, and the measurement that followed: `QT_LOGGING_RULES='kf.service.sycoca=true' kbuildsycoca6 --noincremental` lists every menu file it reads — `/etc/xdg/menus/plasma-applications.menu`, then `/etc/xdg/menus/applications-merged/{parrot-applications,privacy,services}.menu` — and never `plasma-applications-merged/`, where the tree had been written. KDE's kservice ignores `XDG_MENU_PREFIX` for `<DefaultMergeDirs/>`; Xfce's garcon, where the prefix rule was first measured, honours it. An entry no menu allocates is what *Lost & Found* holds; that was every `hammunition-cli-*` entry. |
+| The fix, re-measured | `merge_dir()` sends the file to `applications-merged/` on a `plasma-`/`kf5-` prefix and removes the copy in the directory nothing read. Re-applied: *wrote ~/.config/menus/applications-merged/hammunition.menu*, *removed ~/.config/menus/plasma-applications-merged/hammunition.menu*, `kbuildsycoca6` run — and the verbose rebuild now reports **Found menu file ~/.config/menus/applications-merged/hammunition.menu**. |
+| Second round, from the launcher | The maintainer saw the tree and asked for three things: the name *Hammunition*, no general tools under it (git, VS Code), and a parity plan for GNOME, Xfce and COSMIC. Measured first: Parrot's own menu carries 71 RF entries under *Pentesting → Wireless Attacks*, 15 of them catalog units, and its KDE root has no `HamRadio` category at all. Then: *Workstation* declared `menu: false`; re-applied here — **7 groups shown, 26 categories, 9 generated entries**, the git, screen and tmux entries and the Workstation directory files **removed** by the pruning paths, the top entry now reads `Name=Hammunition`. GNOME's per-group folders are code and tests only until the Debian VM runs them; Xfce needs the Kali VM; COSMIC is unmeasured. |
+| By eye, second look | The operator's: open the Plasma launcher, find *Ham Radio → Station → Rig Control → CHIRP*, confirm *Lost & Found* has emptied of `hammunition-cli-*` entries, and type `tcpdump` into search. `rigctl` will find nothing until `libhamlib-utils` gets its `launchers` block, exactly as the summary says. |
+
 ## Not yet run (this rung's remaining ladder)
 
 In order, and every one needs the operator at the keyboard for `sudo`:

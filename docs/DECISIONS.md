@@ -3551,3 +3551,142 @@ backend that fetches, verifies and installs; the plan's disclosure; the
 docs generator's rendering; `capability_matrix.py` knows the method.
 `country_files.yaml` is the proof. Q-021 is closed by this record; Q-015
 decision 8's deferral ends with it.
+
+## D-050 — The menu is shaped like Parrot's: one top menu, ordered groups, one submenu per category, and an entry for every installed unit
+
+**Date:** 2026-09-12. **Status:** accepted (maintainer, in the field-laptop
+session: "that solution for menus looks correct"). **Depends on:** D-036
+(curated submenus generated from `categories`), D-003 (categories are flat
+tags and stay so), D-022 (the distribution's own entries are untouched),
+D-031 (a count is not evidence; the file on disk is). **Amends:** the
+D-036 addendum's measured menu-spec tree, which was one level.
+
+**What was measured.** On the field target (Dell Latitude 5430 Rugged,
+Parrot Security 7.3, KDE Plasma, 2026-09-12, `docs/reference/bench-verification-5430.md`):
+
+- The D-036 tree rendered *Ham Radio* as **27 sibling submenus** in
+  alphabetical order — more than Plasma's own top level carries — with
+  visible overlap (Station / Timing / Tracking; CW / Training; Contest /
+  Logging; Hardware / Programmer / Electronics). The maintainer's words:
+  nobody can find anything in it.
+- **Parrot's own tool menu**, the thing the rest of that desktop already
+  uses: one top menu (*Parrot Security*), **14 numbered groups**
+  (*01 Information Gathering* … *14 AI Tools*), numbered subcategories
+  under each, the order fixed by a menu-spec `<Layout>` with separators,
+  a hand-curated *Most Used Tools* group at the top, and entries free to
+  appear in several places. **671 entries; 670 carry a `Comment`, 572
+  launch in a terminal**, 6 carry `Keywords`. Categories in its desktop
+  files are the group and subcategory tags (`01-info-gathering`,
+  `01-04-network-scanners`).
+- Of the **32 catalog units installed** on the laptop, **25 had no menu
+  entry at all** — gpsd, rigctl, the RTL-SDR tools, tcpdump. An entry is
+  what the launcher's search indexes; a unit without one is unfindable by
+  name or by what it does, whatever the tree looks like.
+- `parrot-menu` had removed the packaged `chirp.desktop` and
+  `org.wireshark.Wireshark.desktop` from an apt `DPkg::Post-Invoke` hook
+  and written `parrot-chirp.desktop` / `parrot-wireshark.desktop`; the tree
+  placed the dead filenames and the summary counted them (#64).
+
+**Rule.**
+
+1. **Two levels, in a declared order.** `catalog/categories.yaml` gains a
+   `groups:` list — `order`, `name`, `title`, `summary`, `categories` —
+   and the tree is *Ham Radio* → group → category submenu. Eight groups:
+   Station; Digital Modes; Packet & EMCOMM; SDR & Listening; RF Security;
+   Hardware & Bench; Learning; Workstation (48 / 46 / 43 / 109 / 22 / 77 /
+   13 / 23 catalog units respectively, measured 2026-09-12). Every category
+   belongs to **exactly one** group (`tests/test_categories.py`); the
+   order is a `<Layout>`, never the alphabet. A category no group claims
+   still renders, beside the groups — the vocabulary test forbids the
+   state, and the renderer is not a second place that silently drops it.
+   **A group is where a submenu sits, not what a package is**: manifests
+   keep tagging categories (D-003), and no other reader of the vocabulary
+   consults groups.
+2. **An entry for every installed unit.** `hammunition menus apply`
+   generates, per user, `hammunition-cli-<unit>.desktop` for each
+   installed catalog unit that ships no desktop entry and declares no
+   `launchers`: the unit's name, the manifest summary as `Comment`, the
+   categories as `Keywords`, `Terminal=true`, the `X-Hammunition-<category>`
+   markers, and the executable. **The executable is the one named like the
+   unit, else the package's only one; anything else is not guessed.**
+   Several and none named like the unit (`rtl-sdr`: eight tools) is
+   reported under the count with the fix named — a `launchers` block in
+   the manifest. A unit whose executables are all under `/usr/sbin` is a
+   service, not an application, and is skipped with that reason (`gpsd`'s
+   generated entry ran the daemon in a terminal before this rule existed).
+   Entries from an earlier run whose unit is gone are removed; a
+   launcher's `hammunition-<name>.desktop` is never touched.
+3. **Placed filenames are checked on disk** (#64): an entry that exists is
+   placed as shipped, one that is gone is placed by
+   `parrot-<package>.desktop` when that exists, otherwise it is reported,
+   never counted. `dpkg -L` is what a package shipped, not what a
+   distribution's hook left.
+4. **KDE gets its cache rebuilt, and its file where KDE reads.** On a
+   `plasma-` or `kf5-` prefix, `kbuildsycoca6` (or 5) runs afterwards as a
+   disclosed, unprivileged command, so the tree shows now. And the merged
+   file goes to `applications-merged/`, **not** `plasma-applications-merged/`:
+   the spec says the prefixed directory and Xfce's garcon reads it, but
+   KDE's kservice ignores the prefix — measured on the field laptop the
+   same day, when the first apply of this rule wrote the prefixed file,
+   `kbuildsycoca6` reported only `/etc/xdg/menus/applications-merged/*`
+   as found, no *Ham Radio* menu appeared, and every generated entry sat in
+   Kickoff's *Lost & Found* (an entry no menu allocates). Parrot's own menu
+   ships in `applications-merged` for the same reason. A copy left in a
+   directory the desktop does not read is removed on the next apply.
+5. **Not taken from Parrot:** a *Most Used* group. Parrot curates it by
+   hand; this project has no measurement to build one from, and a
+   hand-kept list is the second taxonomy D-036 refuses.
+
+**Measured after the rule, same machine, same day.** `menus apply`: 8
+groups, 27 categories, 20 placed entries (CHIRP and Wireshark by Parrot's
+replacements, zero dead filenames), **12 entries generated, 12 skipped
+with the reason named** (11 with several executables and none named like
+the unit; `gpsd` under the sbin rule), the earlier `gpsd` entry pruned,
+`kbuildsycoca6` run. `hammunition-hill` gained a `service_endpoints` +
+`launchers` pair (the browser at the loopback dashboard), so the
+family's own dashboard is in *Station*, *HF Propagation* and *Satellite*
+rather than nowhere.
+
+**Second round, same day (maintainer, after seeing the tree in the
+launcher).** Three amendments to the rule above:
+
+6. **The menu is called *Hammunition*, not *Ham Radio*.** It is the
+   project's tree, the way Parrot's is *Parrot Security*.
+7. **A group can be hidden: `menu: false`.** *Workstation* is: git, tmux,
+   screen, VS Code and VSCodium are catalog units because a station needs
+   them, not because they are radio software, and the maintainer did not
+   want them under Hammunition. A hidden group gets no submenu, no folder,
+   no generated entry, and the packaged entries of a unit tagged only there
+   are left where the desktop already puts them (VS Code stays under
+   *Development*). A unit tagged workstation *and* a radio category
+   (wireshark, esptool, tcpdump) still shows under the radio one, and the
+   hidden tag is not a keyword on its entry. Measured on the laptop: 7
+   groups shown, the git, screen and tmux entries pruned, 9 generated
+   entries remain.
+8. **Desktop parity is per mechanism, measured where it can be.** What
+   Parrot already carries was measured too: under *Pentesting → Wireless
+   Attacks* it lists 71 RF entries in five submenus and 15 of those
+   packages are catalog units (gqrx, GNU Radio, the RTL-SDR and HackRF
+   tools, Ubertooth, inspectrum, the NFC tools, aircrack, Wireshark, CHIRP,
+   GPA, gr-air-modes); its KDE root has no `HamRadio` category at all, so
+   the ham side had nowhere to go. Both copies stay (D-022), the way
+   Parrot lists a tool in several places.
+
+   | Desktop | Mechanism | State |
+   |---|---|---|
+   | KDE Plasma (Parrot) | menu-spec merge into `applications-merged/` (KDE ignores the prefix), `kbuildsycoca6` after | **Measured on the field laptop** 2026-09-12: tree present, groups in order, Lost & Found emptied |
+   | Xfce (Kali, Parrot's alternative) | menu-spec merge into `<prefix>applications-merged/` | Measured on the Kali VM for the flat tree (2026-09-02); the grouped tree and `<Layout>` are the same mechanism and **await a re-run there** |
+   | GNOME (Debian 13, Ubuntu) | one app-folder per visible group, *Hammunition · <title>*, populated by the group's `X-Hammunition-*` markers plus placed entries by name; GNOME cannot nest | Code and tests written this round; **awaits the Debian 13 VM** — nothing asserted until it has run |
+   | COSMIC (Pop!_OS) | unknown; its app-library groups are not menu-spec | **Unmeasured.** The Pop VM exists; nothing is claimed until it is read |
+
+   The three VM checks run from the hypervisor host, not the field laptop.
+
+**Consequences.** The eleven skipped units on the laptop — `rtl-sdr`,
+`libhamlib-utils`, `hackrf`, `ubertooth`, `libnfc-bin`, `libfreefare-bin`,
+`hcxtools`, `gpsd-tools`, `pciutils`, `usbutils` and `gpsd`'s tools — are
+the next `launchers` work, one manifest each, choosing which tool a menu
+entry should open. Whether every terminal entry *makes sense* to open
+(`git`, `tmux`) is the same question Parrot answered yes to for 572
+entries; it is revisited only with a measurement of what operators
+actually open. COSMIC stays unmeasured. The GNOME app-folder is unchanged:
+it cannot nest, and one folder populated by `HamRadio` is what it can do.

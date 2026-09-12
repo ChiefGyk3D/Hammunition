@@ -23,6 +23,13 @@
 # This file is data, not logic. The install path never reads it; the checker,
 # the docs generator, the person adding the next manifest, and
 # `hammunition menus apply` (D-036, which renders one submenu per entry) do.
+#
+# `groups` (D-050) is the menu's second level and nothing else: Parrot's own
+# tool menu is one top menu, numbered groups, then subcategories, and the
+# flat 27-sibling tree was the thing nobody could find anything in. Every
+# category belongs to exactly one group (tests/test_categories.py), `order`
+# is the menu's order, and a category stays a flat tag for every other
+# reader -- a group is where a submenu sits, not what a package is.
 
 categories:
   - name: antenna
@@ -164,3 +171,51 @@ categories:
     summary: >-
       The machine the station runs on rather than the radio: editors, serial
       consoles, enumeration tools.
+
+groups:
+  - order: 1
+    name: station
+    title: Station
+    summary: The operating position — rig control, time and position, logs and contests.
+    categories: [station, rig-control, timing, logging, contest]
+  - order: 2
+    name: digital-modes
+    title: Digital Modes
+    summary: Keyboard modes, NBEMS and Morse.
+    categories: [digital-modes, nbems, cw]
+  - order: 3
+    name: packet
+    title: Packet & EMCOMM
+    summary: AX.25, APRS, Winlink, mesh and the emergency-communications stack.
+    categories: [packet, emcomm, mesh]
+  - order: 4
+    name: sdr
+    title: SDR & Listening
+    summary: Software-defined radio, receivers, satellites, tracking and propagation.
+    categories: [sdr, listening, satellite, tracking, hf-propagation]
+  - order: 5
+    name: rf-security
+    title: RF Security
+    summary: Spectrum analysis, wireless auditing, RFID and consent-gated research tooling.
+    categories: [rf-security, rf-research, rfid]
+  - order: 6
+    name: hardware
+    title: Hardware & Bench
+    summary: Devices, radio programming, programmers, electronics and antennas.
+    categories: [hardware, radio-programming, dmr, programmer, electronics, antenna]
+  - order: 7
+    name: learning
+    title: Learning
+    summary: Training and licence exam practice.
+    categories: [training]
+  - order: 8
+    name: workstation
+    title: Workstation
+    summary: The machine the station runs on.
+    categories: [workstation]
+    # Not a menu: git, tmux, screen and VS Code are catalog units because a
+    # station needs them, not because they are radio software. A unit tagged
+    # workstation *and* a radio category (wireshark, esptool) still shows
+    # under the radio one; the desktop keeps these where it already puts
+    # them (maintainer, 2026-09-12).
+    menu: false
