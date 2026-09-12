@@ -123,9 +123,22 @@ verified the effect of each (D-031), never the exit status alone.
 | `hammunition install station` | **Completed and confirmed, 25 s wall clock** for the whole transaction. The log shows the `hammunition-hill` `.deb` fetched and its sha256 verified, `apt-get update`, the combined `--simulate` of the `.deb` plus the ten apt units, the real `apt-get install` of the ten, then the `.deb` through apt — every command `returncode: 0`. Verified independently: all eleven at `ii` via `dpkg-query` — chirp (Parrot's own `1:20250530-1parrot1`), flrig, gpsbabel, gpsd, gpsd-clients, gpsd-tools, libhamlib-utils, pipx, twclock, tzwatch, hammunition-hill 1.0.0. |
 | `hammunition-hill` on a real desktop | The `.deb` installs a system unit; `hammunition-hill.service` is **active and running**, listening on `127.0.0.1:8073` only, and answers `200 text/html` on `/`. First time the maintainer's own dashboard has been installed by this engine outside a VM. |
 | gpsd after install | `gpsd.socket` enabled and active, `gpsd.service` inactive until a client connects, `USBAUTO="true"` with `DEVICES=""` — Debian's default, which is the right default for a machine whose receiver is not fitted yet. Listening on `2947` on both loopback addresses. |
-| `install station --dry-run` again | Plans the same transaction again rather than *Nothing to do*: the ten apt units are already installed, and the `.deb` step is re-planned. Whether that is the binary backend not consulting attribution on re-plan, or by design, is not yet decided — worth a look before the next `.deb` unit lands. |
+| `install station --dry-run` again | Plans the same transaction again rather than *Nothing to do*: the ten apt units are already installed, and the `.deb` step is re-planned — fetch (a cache hit) plus a root `apt-get install` that apt itself turns into *already the newest version*. Outcome idempotent, work not: the `deb` instance of the already-installed-at-pin gap `vm-verification-parrot.md` queued for git and source builds. Filed as #63 with a dpkg-plus-attribution fix that needs no design decision. |
 | `uninstall station --dry-run` | Attributes all **11** units to Hammunition, including the `.deb`, and plans one `apt-get remove`; states what is not reversed (apt's pulled-in dependencies, groups, config files). Not run. |
 | Launchers | `flrig.desktop`, `twclock.desktop` and Parrot's `parrot-chirp.desktop` are in `/usr/share/applications/`, from the packages themselves. No engine-generated launcher was needed for this profile. |
+
+## Session 3, same day: what runs without the radios and without root
+
+The hardware is in the lab downstairs and `sudo` was not exercised by the
+engine session, so this pass took the unprivileged, device-free rungs.
+
+| Step | Result |
+|---|---|
+| Is the applied rules file actually loaded? | **Yes.** `udevadm verify` on `65-hammunition.rules`: 1 checked, 1 success, 0 fail. `udevadm test` on an unrelated existing device (the webcam) lists `/etc/udev/rules.d/65-hammunition.rules` among the 134 rules files it reads. So the rules are parsed and in udev's working set; matching against a real device is still item 1 below. |
+| `hammunition menus apply` on **KDE Plasma** | **Works, and Plasma was unmeasured until now** — the README names Xfce and GNOME and calls COSMIC unmeasured. `XDG_MENU_PREFIX=plasma-` was honoured; 27 category submenus, 17 desktop entries from installed catalog packages placed 18 times by their manifests' categories. Wrote `~/.config/menus/plasma-applications-merged/hammunition.menu` (well-formed XML, `xmllint`) and 28 `.directory` files under `~/.local/share/desktop-directories/`. GNOME app-folder correctly skipped. `chirp.desktop` in the tree resolves: Parrot's `chirp` ships both `chirp.desktop` and `parrot-chirp.desktop`. |
+| Menu refresh on Plasma | The engine's closing line names `xfce4-panel -r` and a GNOME Shell reload; on Plasma the equivalent is `kbuildsycoca6`, which ran clean (exit 0). Not a defect; one line of the closing hint could name it. Whether the *Ham Radio* menu renders correctly in the launcher is a by-eye check, still open. |
+| GUI smoke lane (`scripts/vm_gui_smoke.py`) | **Not run.** It wants `xvfb-run`, which this machine does not have, and its own docstring warns it can wedge behind a live display session. Launching the station GUIs on the operator's logged-in desktop from an unattended session was judged the wrong way to do it. Belongs with item 3 below, eyes on. |
+| `chirp`, `flrig`, `twclock` desktop entries | Present under `/usr/share/applications/` from their packages, and each now placed by the Plasma menu tree under the submenus its manifest's categories say (chirp under Radio Programming and Rig Control; flrig under Rig Control). |
 
 ## Not yet run (this rung's remaining ladder)
 
@@ -138,7 +151,9 @@ In order, and every one needs the operator at the keyboard for `sudo`:
    installed; this is what exercises them, and the "not yet exercised
    against an attached device" line in the README closes here.
 2. Open `http://127.0.0.1:8073/` in this machine's browser and check the
-   dashboard against the station values — by eye, not by pasting.
+   dashboard against the station values — by eye, not by pasting. And
+   open the Plasma launcher and confirm the *Ham Radio* menu is there with
+   its three station entries under the right submenus.
 3. `install sdr --yes` and `install rf-security --yes`, then the GUI smoke
    lane by hand: gqrx and SDR++ opening against the RTL-SDR and the HackRF
    Pro on this machine's USB topology (two Realtek hubs in the path).
