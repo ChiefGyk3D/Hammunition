@@ -43,6 +43,22 @@ install:
       from the moment the install completes; see known_problems for what it
       listens on and how to stop it.
 
+# The dashboard is a page served on loopback, so its menu entry is the
+# browser pointed at it (the ais-catcher-web pattern). Without this the
+# showcase laptop's own dashboard was invisible in the launcher (D-050).
+service_endpoints:
+  - name: dashboard
+    default_url: http://127.0.0.1:8073
+    description: >-
+      The dashboard itself, served by hammunition-hill.service on loopback.
+      Change it here if the service is configured onto another port.
+    user_configurable: true
+
+launchers:
+  - name: hammunition-hill
+    exec: x-www-browser {endpoint:dashboard}
+    terminal: false
+
 update:
   probe:
     method: github_release

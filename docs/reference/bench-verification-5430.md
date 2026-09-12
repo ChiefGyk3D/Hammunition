@@ -163,6 +163,24 @@ grep's exit status, not make's — one failing docs test and one
 between commands put one worktree's edit into another; absolute paths
 from then on.
 
+## Session 5, same day: the menu rebuilt in Parrot's shape (D-050)
+
+The maintainer's verdict on the session-3 tree: fix it, and look at how
+Parrot lays out its own tools. Parrot's menu was measured on this machine
+(one top menu, 14 numbered groups, numbered subcategories, a `<Layout>`
+order, 671 entries of which 670 have a Comment and 572 open a terminal),
+the design was approved in chat, and D-050 records the rule. Re-measured
+here, from the branch engine, all of it unprivileged:
+
+| Step | Result |
+|---|---|
+| `menus apply` | **8 groups, 27 categories**, prefix `plasma-`; 20 placed entries (CHIRP and Wireshark by Parrot's own entries, zero dead filenames); **12 entries generated** for installed units that ship none; **12 skipped with the reason named** — eleven with several executables and none named like the unit, and `gpsd`, whose only application-shaped executables are the daemon's tools. `kbuildsycoca6` run by the engine. |
+| The written tree | Well-formed (`xmllint`); `<Layout>` lists the eight groups in declared order; each category sits under exactly its group — Station holds station, rig-control, timing, logging, contest; SDR & Listening holds sdr, listening, satellite, tracking, hf-propagation; and so on. 8 group `.directory` files, 27 category ones. |
+| A generated entry | `hammunition-cli-tcpdump.desktop`: Name, the manifest summary as Comment, `Keywords=rf-security;workstation;tcpdump;`, `Terminal=true`, `Exec=/usr/bin/tcpdump`, the `X-Hammunition-*` markers. Searchable by name, by category word, and by what it does. |
+| Pruning | The first apply of the session generated `hammunition-cli-gpsd.desktop` running `/usr/sbin/gpsd` in a terminal — a daemon, not an application. The sbin rule was written from that, and the next apply **removed** the stale entry, which is the pruning path proving itself on a real mistake. |
+| `install hammunition-hill` (re-run, unprivileged) | With #67 merged the `.deb` is *already installed* and the plan is exactly the two launcher steps: the wrapper (`x-www-browser http://127.0.0.1:8073`) and the desktop entry, both written and confirmed. The dashboard is in the tree under Station, HF Propagation and Satellite. |
+| By eye | Still the operator's: open the Plasma launcher, find *Ham Radio → Station → Rig Control → CHIRP*, and type `rigctl` into search — which will find nothing until `libhamlib-utils` gets its `launchers` block, exactly as the summary says. |
+
 ## Not yet run (this rung's remaining ladder)
 
 In order, and every one needs the operator at the keyboard for `sudo`:

@@ -36,6 +36,7 @@ mechanisms share and the launcher artifacts already have.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -43,18 +44,29 @@ from functools import partial
 from pathlib import Path
 from xml.sax.saxutils import escape
 
+import yaml
+
 from hammunition.backends.base import Action, Command
 from hammunition.manifest.schema import AptInstall, BinaryInstall, PackageManifest
 
 __all__ = [
     "Category",
+    "CliEntries",
+    "CliEntry",
     "DesktopIdLister",
+    "Group",
     "MenuPaths",
     "MenuPrefixError",
     "Placement",
+    "Vocabulary",
+    "cli_entries",
+    "cli_entry_steps",
     "gnome_commands",
+    "load_vocabulary",
     "menu_steps",
     "place_installed_entries",
+    "refresh_command",
+    "render_cli_entry",
     "render_directory",
     "render_menu",
     "resolve_menu_prefix",
@@ -141,6 +153,51 @@ class Category:
 
 
 @dataclass(frozen=True)
+class Group:
+    """One of the tree's second-level headings (D-050): Parrot's own tool
+    menu is one top menu, numbered groups, then subcategories, and the flat
+    27-sibling tree was the thing the maintainer could not find anything in.
+    ``order`` is the menu's order — a ``<Layout>``, not the alphabet."""
+
+    order: int
+    name: str
+    title: str
+    summary: str
+    categories: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class Vocabulary:
+    categories: list[Category]
+    groups: list[Group]
+    """In ``order``. Empty when the file declares none, and the tree is flat."""
+
+
+def load_vocabulary(path: Path) -> Vocabulary:
+    """``catalog/categories.yaml`` as the menu needs it: the categories in
+    file order, the groups sorted by their declared order."""
+    data = yaml.safe_load(path.read_text())
+    categories = [
+        Category(name=c["name"], summary=c["summary"], title=c.get("title", ""))
+        for c in data["categories"]
+    ]
+    groups = sorted(
+        (
+            Group(
+                order=int(g["order"]),
+                name=g["name"],
+                title=g["title"],
+                summary=g["summary"],
+                categories=tuple(g["categories"]),
+            )
+            for g in data.get("groups", [])
+        ),
+        key=lambda g: g.order,
+    )
+    return Vocabulary(categories=categories, groups=groups)
+
+
+@dataclass(frozen=True)
 class Placement:
     """Where the installed catalog packages' own desktop entries go.
 
@@ -161,6 +218,10 @@ class Placement:
     missing: tuple[tuple[str, str], ...] = ()
     """``(package, shipped id)`` — gone from disk with nothing to place; the
     summary names it rather than counting it as placed."""
+
+    units: tuple[str, ...] = ()
+    """Catalog units that received at least one placed entry — the ones
+    :func:`cli_entries` must not generate a second entry for."""
 
     @classmethod
     def empty(cls) -> Placement:
@@ -268,16 +329,11 @@ def place_installed_entries(
     claimed: set[str] = set()
     replaced: list[tuple[str, str, str]] = []
     missing: list[tuple[str, str]] = []
+    units: list[str] = []
     for manifest in manifests:
         for launcher in manifest.launchers:
             claimed.add(f"hammunition-{launcher.name}.desktop")
-        packages: set[str] = set()
-        for block in manifest.install:
-            method = block.install
-            if isinstance(method, AptInstall):
-                packages.update(p for p in method.packages if not p.startswith("-"))
-            elif isinstance(method, BinaryInstall) and method.deb_package:
-                packages.add(method.deb_package)
+        packages = _packages_of(manifest)
         ids: set[str] = set()
         for package in sorted(packages):
             shipped = lister(package)
@@ -290,6 +346,7 @@ def place_installed_entries(
             missing.extend((package, was) for was in found.missing)
         if not ids:
             continue
+        units.append(manifest.name)
         claimed.update(ids)
         for category in manifest.categories:
             by_category.setdefault(category, set()).update(ids)
@@ -298,7 +355,189 @@ def place_installed_entries(
         claimed=tuple(sorted(claimed)),
         replaced=tuple(replaced),
         missing=tuple(missing),
+        units=tuple(units),
     )
+
+
+def _packages_of(manifest: PackageManifest) -> set[str]:
+    """The distribution packages a manifest's install blocks name."""
+    packages: set[str] = set()
+    for block in manifest.install:
+        method = block.install
+        if isinstance(method, AptInstall):
+            packages.update(method.packages)
+        elif isinstance(method, BinaryInstall) and method.deb_package:
+            packages.add(method.deb_package)
+    return packages
+
+
+# ---------------------------------------------------------------------------
+# D-050: an entry for every installed unit, so the launcher's search finds it.
+# ---------------------------------------------------------------------------
+
+ExecutableLister = Callable[[str], list[str]]
+"""Given an installed package name, the executables it put on the system
+path (empty if not installed). Injected like :data:`DesktopIdLister`."""
+
+_BIN_DIRS = ("/usr/bin/", "/usr/sbin/", "/usr/local/bin/")
+
+
+def dpkg_executables(package: str) -> list[str]:
+    result = subprocess.run(
+        ["dpkg-query", "-L", package], capture_output=True, text=True, check=False
+    )
+    if result.returncode != 0:
+        return []
+    return sorted(
+        line
+        for line in result.stdout.splitlines()
+        if line.startswith(_BIN_DIRS) and os.path.isfile(line) and os.access(line, os.X_OK)
+    )
+
+
+@dataclass(frozen=True)
+class CliEntry:
+    unit: str
+    exec: str
+    comment: str
+    categories: tuple[str, ...]
+
+    @property
+    def desktop_id(self) -> str:
+        return f"hammunition-cli-{self.unit}.desktop"
+
+
+@dataclass(frozen=True)
+class CliEntries:
+    entries: tuple[CliEntry, ...]
+    skipped: tuple[tuple[str, str], ...]
+    """``(unit, why)`` — installed, no entry, and no executable this can name
+    without guessing. A ``launchers`` block in the manifest is the fix."""
+
+
+def cli_entries(
+    manifests: Iterable[PackageManifest],
+    placement: Placement,
+    executables: ExecutableLister = dpkg_executables,
+) -> CliEntries:
+    """One generated entry per installed catalog unit that has none.
+
+    Parrot's own menu does this for 572 of its 671 entries: a terminal
+    launcher with a Comment, so the launcher's search finds ``gpsd`` by
+    name or by what it does. The executable is the one named like the unit,
+    else the package's only one; several and none named like the unit is a
+    guess this refuses to make (``rtl-sdr``: six tools), and the summary
+    names the unit so a ``launchers`` block gets written instead.
+    """
+    entries: list[CliEntry] = []
+    skipped: list[tuple[str, str]] = []
+    for manifest in manifests:
+        if manifest.launchers or manifest.name in placement.units:
+            continue
+        on_path = [e for package in sorted(_packages_of(manifest)) for e in executables(package)]
+        if not on_path:
+            continue
+        # sbin is the system's: a daemon systemd owns (gpsd) or an admin
+        # tool, not an application to open from a menu.
+        found = [e for e in on_path if not e.startswith("/usr/sbin/")]
+        if not found:
+            skipped.append(
+                (
+                    manifest.name,
+                    f"only /usr/sbin executables ({', '.join(Path(e).name for e in on_path[:4])}): "
+                    f"a service, not an application",
+                )
+            )
+            continue
+        named = [e for e in found if Path(e).name == manifest.name]
+        if len(named) == 1:
+            chosen = named[0]
+        elif len(found) == 1:
+            chosen = found[0]
+        else:
+            names = ", ".join(Path(e).name for e in found[:6]) + (", …" if len(found) > 6 else "")
+            skipped.append(
+                (manifest.name, f"{len(found)} executables, none named {manifest.name}: {names}")
+            )
+            continue
+        entries.append(
+            CliEntry(
+                unit=manifest.name,
+                exec=chosen,
+                comment=manifest.summary,
+                categories=tuple(manifest.categories),
+            )
+        )
+    return CliEntries(entries=tuple(entries), skipped=tuple(skipped))
+
+
+def render_cli_entry(entry: CliEntry) -> str:
+    markers = ";".join(f"X-Hammunition-{c}" for c in entry.categories)
+    keywords = ";".join((*entry.categories, entry.unit))
+    return (
+        "[Desktop Entry]\n"
+        "Type=Application\n"
+        f"Name={entry.unit}\n"
+        f"Comment={entry.comment}\n"
+        f"Exec={entry.exec}\n"
+        "Terminal=true\n"
+        f"Categories={markers};\n"
+        f"Keywords={keywords};\n"
+        f"X-Hammunition-Package={entry.unit}\n"
+        "X-Hammunition-Generated=cli\n"
+    )
+
+
+def _remove(path: Path) -> str:
+    path.unlink()
+    return f"removed {path}"
+
+
+def cli_entry_steps(result: CliEntries, applications_dir: Path) -> list[Action]:
+    """Write this run's entries; remove ours from earlier runs that this run
+    did not produce (the unit was uninstalled, or now ships an entry).
+    Only ``hammunition-cli-*.desktop`` is ours to prune — a launcher's
+    ``hammunition-<name>.desktop`` belongs to the install that wrote it."""
+    wanted = {entry.desktop_id for entry in result.entries}
+    steps = [
+        Action(
+            kind="menu",
+            description=f"Write a menu entry for {entry.unit} ({entry.exec})",
+            detail=str(applications_dir / entry.desktop_id),
+            perform=partial(_write, applications_dir / entry.desktop_id, render_cli_entry(entry)),
+        )
+        for entry in result.entries
+    ]
+    for stale in sorted(applications_dir.glob("hammunition-cli-*.desktop")):
+        if stale.name not in wanted:
+            steps.append(
+                Action(
+                    kind="menu",
+                    description=f"Remove the entry of a unit no longer installed: {stale.name}",
+                    detail=str(stale),
+                    perform=partial(_remove, stale),
+                )
+            )
+    return steps
+
+
+def refresh_command(
+    menu_prefix: str, which: Callable[[str], str | None] = shutil.which
+) -> Command | None:
+    """KDE reads its application cache, not the files: without a rebuild the
+    new tree appears at next login. Measured on the field laptop (Plasma,
+    2026-09-12); other desktops re-read on their own or are told to."""
+    if menu_prefix not in ("plasma-", "kf5-"):
+        return None
+    for tool in ("kbuildsycoca6", "kbuildsycoca5"):
+        path = which(tool)
+        if path:
+            return Command(
+                argv=(path,),
+                description="Rebuild KDE's application cache so the menu shows now",
+                requires_root=False,
+            )
+    return None
 
 
 @dataclass(frozen=True)
@@ -312,7 +551,11 @@ class MenuPaths:
     """``~/.local/share/desktop-directories`` — the .directory entries."""
 
 
-def render_menu(categories: list[Category], placement: Placement | None = None) -> str:
+def render_menu(
+    categories: list[Category],
+    placement: Placement | None = None,
+    groups: list[Group] | None = None,
+) -> str:
     """The merged ``.menu`` XML: one tree, one submenu per category.
 
     Each submenu includes by the ``X-Hammunition-<category>`` marker (the
@@ -323,32 +566,67 @@ def render_menu(categories: list[Category], placement: Placement | None = None) 
     the DE's own organization", with the DE's own copies untouched.
     """
     placement = placement or Placement.empty()
+    groups = groups or []
 
     def filenames(ids: tuple[str, ...], indent: str) -> str:
         return "".join(f"\n{indent}<Filename>{escape(i)}</Filename>" for i in ids)
 
-    submenus = "\n".join(
-        f"""    <Menu>
-      <Name>hammunition-{escape(c.name)}</Name>
-      <Directory>hammunition-{escape(c.name)}.directory</Directory>
-      <Include>
-        <Category>X-Hammunition-{escape(c.name)}</Category>{filenames(placement.by_category.get(c.name, ()), "        ")}
-      </Include>
-    </Menu>"""
-        for c in categories
-    )
+    def submenu(c: Category, indent: str) -> str:
+        i = indent
+        return (
+            f"{i}<Menu>\n"
+            f"{i}  <Name>hammunition-{escape(c.name)}</Name>\n"
+            f"{i}  <Directory>hammunition-{escape(c.name)}.directory</Directory>\n"
+            f"{i}  <Include>\n"
+            f"{i}    <Category>X-Hammunition-{escape(c.name)}</Category>"
+            f"{filenames(placement.by_category.get(c.name, ()), i + '    ')}\n"
+            f"{i}  </Include>\n"
+            f"{i}</Menu>"
+        )
+
+    by_name = {c.name: c for c in categories}
+    grouped: set[str] = set()
+    blocks: list[str] = []
+    for group in groups:
+        members = [by_name[n] for n in group.categories if n in by_name]
+        grouped.update(c.name for c in members)
+        inner = "\n".join(submenu(c, "      ") for c in members)
+        blocks.append(
+            f"    <Menu>\n"
+            f"      <Name>hammunition-group-{escape(group.name)}</Name>\n"
+            f"      <Directory>hammunition-group-{escape(group.name)}.directory</Directory>\n"
+            f"{inner}\n"
+            f"    </Menu>"
+        )
+    # A category no group claims is still rendered, beside the groups: the
+    # vocabulary test forbids it in the shipped file, and the renderer must
+    # not be the second place that silently drops something.
+    blocks.extend(submenu(c, "    ") for c in categories if c.name not in grouped)
+    submenus = "\n".join(blocks)
+    layout = ""
+    if groups:
+        names = "".join(
+            f"\n      <Menuname>hammunition-group-{escape(g.name)}</Menuname>" for g in groups
+        )
+        layout = (
+            f"    <Layout>{names}\n"
+            f'      <Merge type="menus"/>\n'
+            f"      <Separator/>\n"
+            f'      <Merge type="files"/>\n'
+            f"    </Layout>\n"
+        )
     catch_all = "    <Include><Category>HamRadio</Category></Include>"
     if placement.claimed:
         catch_all += f"\n    <Exclude>{filenames(placement.claimed, '      ')}\n    </Exclude>"
     return f"""<!DOCTYPE Menu PUBLIC "-//freedesktop//DTD Menu 1.0//EN"
  "http://www.freedesktop.org/standards/menu-spec/menu-1.0.dtd">
-<!-- generated by hammunition (D-036); regenerate with `hammunition menus apply` -->
+<!-- generated by hammunition (D-036, D-050); regenerate with `hammunition menus apply` -->
 <Menu>
   <Name>Applications</Name>
   <Menu>
     <Name>{MENU_NAME}</Name>
     <Directory>hammunition-hamradio.directory</Directory>
-{catch_all}
+{layout}{catch_all}
 {submenus}
   </Menu>
 </Menu>
@@ -372,6 +650,7 @@ def menu_steps(
     *,
     menu_prefix: str,
     placement: Placement | None = None,
+    groups: list[Group] | None = None,
 ) -> list[Action]:
     """The file half — inert data any menu-spec DE picks up on next login.
 
@@ -392,7 +671,7 @@ def menu_steps(
             perform=partial(
                 _write,
                 paths.menus_dir / f"{menu_prefix}applications-merged" / "hammunition.menu",
-                render_menu(categories, placement),
+                render_menu(categories, placement, groups),
             ),
         ),
         Action(
@@ -406,6 +685,16 @@ def menu_steps(
             ),
         ),
     ]
+    for group in groups or []:
+        target = paths.directories_dir / f"hammunition-group-{group.name}.directory"
+        steps.append(
+            Action(
+                kind="menu",
+                description=f"Name the {group.title} group",
+                detail=str(target),
+                perform=partial(_write, target, render_directory(group.title, group.summary)),
+            )
+        )
     for category in categories:
         target = paths.directories_dir / f"hammunition-{category.name}.directory"
         steps.append(

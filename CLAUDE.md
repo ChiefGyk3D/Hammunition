@@ -193,6 +193,7 @@ Do not re-litigate these without being asked:
 | Station config | A missing value defers one file, never the transaction. Nothing is invented | 19 packages refused over one unknown callsign (**D-035**) |
 | udev symlinks | An identifier naming a chip may not name a `/dev` node | `/dev/badge` on a CP2102 claims the rig cable (**D-028**) |
 | Desktop menus | Curated submenus, generated per DE from `categories` | GNOME folders ≠ Xfce `.menu` ≠ COSMIC; one unmeasured mechanism each (**D-036**) |
+| Menu shape | Parrot's: one top menu, eight ordered groups from the vocabulary's `groups:`, one submenu per category, and a generated terminal entry for every installed unit that ships none; placed filenames checked on disk, never trusted from `dpkg -L` | The flat 27-sibling tree was unfindable, and Parrot's hook had removed CHIRP's entry under it (**D-050**) |
 | Upstream liveness | The default branch's head commit, never GitHub's `updated_at`/`pushed_at` | `updated_at` moves when somebody *stars* a repo; it reported two dead projects as active (**D-032**) |
 | Node builds | Disclosed as a requirement; refused at plan time when Node is absent or too old; never fetched | openhamclock is a Vite app and `curl | bash` for Node is the habit we refuse (**D-037**) |
 | Mixed-release targets | Resolve from the release the machine already installs from, disclosed by name; never downgrade, never guess a release | Parrot's baseline takes 197 packages from backports and five profiles died at the first apt command (**D-038**) |

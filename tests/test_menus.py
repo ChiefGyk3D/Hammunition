@@ -6,7 +6,9 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -382,3 +384,239 @@ def test_a_placement_without_a_disk_check_reports_nothing_replaced_or_missing() 
     )
     assert placement.replaced == ()
     assert placement.missing == ()
+
+
+# ---------------------------------------------------------------------------
+# D-050: a two-level tree in a declared order (Parrot's shape), and an entry
+# for every installed unit so the launcher's search finds all of it.
+# ---------------------------------------------------------------------------
+
+
+def _groups() -> list[Any]:
+    from hammunition.menus import Group
+
+    return [
+        Group(order=1, name="station", title="Station", summary="The desk", categories=("sdr",)),
+        Group(
+            order=2, name="packet", title="Packet & EMCOMM", summary="Air", categories=("packet",)
+        ),
+    ]
+
+
+def test_the_vocabulary_loads_groups_in_declared_order_with_their_categories(
+    tmp_path: Path,
+) -> None:
+    from hammunition.menus import load_vocabulary
+
+    (tmp_path / "categories.yaml").write_text(
+        "categories:\n"
+        "  - name: sdr\n    title: SDR\n    summary: Receivers\n"
+        "  - name: packet\n    summary: AX.25\n"
+        "groups:\n"
+        "  - order: 2\n    name: packet\n    title: Packet\n    summary: Air\n"
+        "    categories: [packet]\n"
+        "  - order: 1\n    name: station\n    title: Station\n    summary: Desk\n"
+        "    categories: [sdr]\n"
+    )
+    vocabulary = load_vocabulary(tmp_path / "categories.yaml")
+    assert [g.name for g in vocabulary.groups] == ["station", "packet"]
+    assert vocabulary.groups[0].categories == ("sdr",)
+    assert [c.name for c in vocabulary.categories] == ["sdr", "packet"]
+    assert vocabulary.categories[0].title == "SDR"
+
+
+def test_the_tree_nests_each_category_under_its_group_in_the_declared_order() -> None:
+    xml = render_menu(CATS, groups=_groups())
+    # root, Ham Radio, one per group, one per category
+    assert xml.count("<Menu>") == 1 + 1 + 2 + len(CATS)
+    station = xml.index("<Name>hammunition-group-station</Name>")
+    packet_group = xml.index("<Name>hammunition-group-packet</Name>")
+    assert station < packet_group, "groups appear in declared order"
+    sdr = xml.index("<Name>hammunition-sdr</Name>")
+    assert station < sdr < packet_group, "sdr is nested inside the station group"
+    assert "hammunition-group-station.directory" in xml
+    layout = xml[xml.index("<Layout>") : xml.index("</Layout>")]
+    assert layout.index("hammunition-group-station") < layout.index("hammunition-group-packet")
+
+
+def test_a_category_in_no_group_renders_at_the_top_level_beside_the_groups() -> None:
+    """The vocabulary test forbids it in the shipped file; the renderer must
+    still put the entry somewhere visible rather than drop it."""
+    only_station = [_groups()[0]]
+    xml = render_menu(CATS, groups=only_station)
+    assert xml.count("<Menu>") == 1 + 1 + 1 + len(CATS)
+    assert "<Name>hammunition-packet</Name>" in xml
+
+
+def test_steps_write_a_directory_entry_per_group(tmp_path: Path) -> None:
+    paths = MenuPaths(menus_dir=tmp_path / "menus", directories_dir=tmp_path / "dirs")
+    for step in menu_steps(CATS, paths, menu_prefix="plasma-", groups=_groups()):
+        step.perform()
+    body = (tmp_path / "dirs" / "hammunition-group-packet.directory").read_text()
+    assert "Name=Packet & EMCOMM" in body and "Comment=Air" in body
+
+
+def _exes(table: dict[str, list[str]]) -> Callable[[str], list[str]]:
+    return lambda package: table.get(package, [])
+
+
+def test_an_installed_unit_with_no_entry_gets_one_from_its_sole_executable() -> None:
+    from hammunition.menus import cli_entries
+
+    result = cli_entries(
+        [_manifest("tcpdump", ["rf-security"])],
+        Placement.empty(),
+        _exes({"tcpdump": ["/usr/bin/tcpdump"]}),
+    )
+    [entry] = result.entries
+    assert entry.unit == "tcpdump"
+    assert entry.exec == "/usr/bin/tcpdump"
+    assert entry.desktop_id == "hammunition-cli-tcpdump.desktop"
+    assert result.skipped == ()
+
+
+def test_the_executable_named_like_the_unit_wins_over_its_siblings() -> None:
+    from hammunition.menus import cli_entries
+
+    result = cli_entries(
+        [_manifest("aircrack-ng", ["rf-security"])],
+        Placement.empty(),
+        _exes(
+            {
+                "aircrack-ng": [
+                    "/usr/bin/airodump-ng",
+                    "/usr/bin/aircrack-ng",
+                    "/usr/bin/aireplay-ng",
+                ]
+            }
+        ),
+    )
+    assert [e.exec for e in result.entries] == ["/usr/bin/aircrack-ng"]
+
+
+def test_several_executables_and_none_named_like_the_unit_is_skipped_and_said() -> None:
+    """rtl-sdr on the field laptop: six tools, none called rtl-sdr. Guessing
+    rtl_sdr over rtl_fm is a coin toss; a `launchers` block in the manifest
+    is the fix, and the summary names the unit so someone writes one."""
+    from hammunition.menus import cli_entries
+
+    result = cli_entries(
+        [_manifest("rtl-sdr", ["sdr"])],
+        Placement.empty(),
+        _exes({"rtl-sdr": ["/usr/bin/rtl_fm", "/usr/bin/rtl_sdr", "/usr/bin/rtl_power"]}),
+    )
+    assert result.entries == ()
+    [(unit, why)] = result.skipped
+    assert unit == "rtl-sdr" and "3 executables" in why
+
+
+def test_units_that_already_have_an_entry_or_a_launcher_get_no_cli_entry() -> None:
+    from hammunition.menus import cli_entries
+
+    placed = Placement(by_category={"sdr": ("x.desktop",)}, claimed=("x.desktop",), units=("gqrx",))
+    with_launcher = _manifest(
+        "hamclock", ["station"], launchers=[{"name": "hamclock", "exec": "hamclock"}]
+    )
+    result = cli_entries(
+        [_manifest("gqrx", ["sdr"]), with_launcher],
+        placed,
+        _exes({"gqrx": ["/usr/bin/gqrx"], "hamclock": ["/usr/bin/hamclock"]}),
+    )
+    assert result.entries == () and result.skipped == ()
+
+
+def test_a_unit_that_is_not_installed_is_neither_an_entry_nor_a_skip() -> None:
+    from hammunition.menus import cli_entries
+
+    result = cli_entries([_manifest("absent", ["sdr"])], Placement.empty(), _exes({}))
+    assert result.entries == () and result.skipped == ()
+
+
+def test_the_generated_entry_is_searchable_and_carries_the_catalog_markers() -> None:
+    from hammunition.menus import cli_entries, render_cli_entry
+
+    [entry] = cli_entries(
+        [_manifest("tcpdump", ["rf-security", "workstation"])],
+        Placement.empty(),
+        _exes({"tcpdump": ["/usr/bin/tcpdump"]}),
+    ).entries
+    body = render_cli_entry(entry)
+    assert "Name=tcpdump\n" in body
+    assert "Comment=Fixture tcpdump\n" in body
+    assert "Exec=/usr/bin/tcpdump\n" in body
+    assert "Terminal=true\n" in body
+    assert "X-Hammunition-rf-security" in body and "X-Hammunition-workstation" in body
+    assert "Keywords=" in body and "rf-security" in body.split("Keywords=")[1]
+    assert "X-Hammunition-Package=tcpdump\n" in body
+
+
+def test_cli_entry_steps_write_the_new_and_prune_the_stale(tmp_path: Path) -> None:
+    from hammunition.menus import cli_entries, cli_entry_steps
+
+    apps = tmp_path / "applications"
+    apps.mkdir()
+    (apps / "hammunition-cli-gone.desktop").write_text(
+        "[Desktop Entry]\n"
+    )  # from a unit since removed
+    (apps / "hammunition-mshv.desktop").write_text(
+        "[Desktop Entry]\n"
+    )  # a launcher: not ours to prune
+    result = cli_entries(
+        [_manifest("tcpdump", ["rf-security"])],
+        Placement.empty(),
+        _exes({"tcpdump": ["/usr/bin/tcpdump"]}),
+    )
+    for step in cli_entry_steps(result, apps):
+        step.perform()
+    assert (apps / "hammunition-cli-tcpdump.desktop").exists()
+    assert not (apps / "hammunition-cli-gone.desktop").exists()
+    assert (apps / "hammunition-mshv.desktop").exists()
+
+
+def test_placement_records_which_units_received_an_entry() -> None:
+    placement = place_installed_entries(
+        [_manifest("flrig", ["rig-control"]), _manifest("cli-only", ["packet"])],
+        _lister({"flrig": ["flrig.desktop"], "cli-only": []}),
+    )
+    assert placement.units == ("flrig",)
+
+
+def test_plasma_gets_its_cache_rebuilt_and_other_desktops_get_the_hint() -> None:
+    from hammunition.menus import refresh_command
+
+    found = {"kbuildsycoca6": "/usr/bin/kbuildsycoca6"}
+    command = refresh_command("plasma-", which=lambda n: found.get(n))
+    assert command is not None and command.argv == ("/usr/bin/kbuildsycoca6",)
+    assert not command.requires_root
+    assert refresh_command("kf5-", which=lambda n: found.get(n)) is not None
+    assert refresh_command("xfce-", which=lambda n: found.get(n)) is None
+    assert refresh_command("plasma-", which=lambda n: None) is None
+
+
+def test_a_unit_whose_only_executables_live_in_sbin_is_a_service_not_an_entry() -> None:
+    """gpsd on the field laptop: the generated entry ran /usr/sbin/gpsd in a
+    terminal, which is a daemon systemd already owns, not an application.
+    sbin is for the system; a unit with nothing outside it gets no entry,
+    and the summary says why rather than counting a launcher that would
+    only ever fail."""
+    from hammunition.menus import cli_entries
+
+    result = cli_entries(
+        [_manifest("gpsd", ["station"])],
+        Placement.empty(),
+        _exes({"gpsd": ["/usr/sbin/gpsd", "/usr/sbin/gpsdctl"]}),
+    )
+    assert result.entries == ()
+    [(unit, why)] = result.skipped
+    assert unit == "gpsd" and "sbin" in why and "service" in why
+
+
+def test_an_sbin_sibling_does_not_stop_the_bin_executable_named_like_the_unit() -> None:
+    from hammunition.menus import cli_entries
+
+    result = cli_entries(
+        [_manifest("hcxdumptool", ["rf-security"])],
+        Placement.empty(),
+        _exes({"hcxdumptool": ["/usr/sbin/hcxdumptool-helper", "/usr/bin/hcxdumptool"]}),
+    )
+    assert [e.exec for e in result.entries] == ["/usr/bin/hcxdumptool"]

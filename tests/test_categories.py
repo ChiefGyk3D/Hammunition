@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -102,3 +103,41 @@ def test_every_manifest_carries_at_least_one_category(
     """The schema enforces min_length=1; this asserts it against the real
     catalog rather than against a constructed manifest."""
     assert all(m.categories for m in catalog.values())
+
+
+# ---------------------------------------------------------------------------
+# D-050: the vocabulary also declares the menu's groups -- the second level
+# Parrot's own tool menu has and the flat 27-sibling tree did not.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def groups() -> list[dict[str, Any]]:
+    data = yaml.safe_load(VOCABULARY.read_text())
+    return list(data["groups"])
+
+
+def test_every_category_belongs_to_exactly_one_group(
+    declared: dict[str, str], groups: list[dict[str, Any]]
+) -> None:
+    """A category in no group would render at the tree's top level beside
+    the groups; one in two would show its entries twice. Both are silent."""
+    membership: dict[str, list[str]] = {name: [] for name in declared}
+    for group in groups:
+        for category in group["categories"]:
+            assert category in declared, f"group {group['name']} names undeclared {category!r}"
+            membership[str(category)].append(str(group["name"]))
+    assert {c: g for c, g in membership.items() if len(g) != 1} == {}
+
+
+def test_groups_are_numbered_contiguously_titled_and_summarised(
+    groups: list[dict[str, Any]],
+) -> None:
+    """The order is the menu's order (a Layout, not the alphabet), so it is
+    declared, contiguous from 1, and each group reads as a title."""
+    orders = [int(g["order"]) for g in groups]
+    assert orders == list(range(1, len(groups) + 1))
+    for group in groups:
+        assert str(group["title"]).strip(), group
+        assert str(group["summary"]).strip(), group
+        assert len(group["categories"]) >= 1, group

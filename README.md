@@ -61,7 +61,7 @@ exactly where things stand:
 | `uninstall` | ✅ working — reverses apt, venv, binary, .deb, trees and launchers; marker-verified, VM-proven; a real `make install` is refused by name |
 | End-to-end VM verification (install / configure / remove) | ✅ Parrot, Kali, Debian 13, Ubuntu 24.04, Ubuntu 26.04, and [Pop!_OS 24.04](docs/reference/vm-campaign-pop.md) as an undeclared target |
 | M5 install-success across the full catalog, six targets | ✅ **zero hard failures**; every unit installs on ≥1 target or is refused with a reason |
-| Curated desktop menus (Xfce menu-spec + GNOME app-folders) | ✅ generated from category tags; the menu-spec layer applied on KDE Plasma on the field laptop (2026-09-12), where it exposed that Parrot's own menu hook replaces packaged desktop entries and the tree places filenames that are no longer there (#64); COSMIC unmeasured — the Pop VM exists now, its desktop has not been looked at |
+| Curated desktop menus (Xfce/KDE menu-spec + GNOME app-folders) | ✅ Parrot's shape (D-050): *Ham Radio*, eight ordered groups, one submenu per category, and a generated entry for every installed unit that ships none, so the launcher's search finds all of it; measured on the field laptop's Plasma 2026-09-12; COSMIC unmeasured — the Pop VM exists now, its desktop has not been looked at |
 | Profile companion offers (mail client, serial terminal) | ✅ detect → respect → offer, never silent |
 | Getting-started, profile, troubleshooting docs | ✅ written and generated |
 

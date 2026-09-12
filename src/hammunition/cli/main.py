@@ -1132,27 +1132,30 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
 
 
 def cmd_menus_apply(args: argparse.Namespace) -> int:
-    import yaml
 
     from hammunition.menus import (
         APPLICATIONS_DIR,
-        Category,
         MenuPaths,
         MenuPrefixError,
+        cli_entries,
+        cli_entry_steps,
         gnome_commands,
+        load_vocabulary,
         menu_steps,
         place_installed_entries,
         placement_summary,
+        refresh_command,
         resolve_menu_prefix,
     )
 
     catalog_root = find_catalog(args.catalog)
-    vocabulary = yaml.safe_load((catalog_root / "categories.yaml").read_text())["categories"]
-    categories = [
-        Category(name=c["name"], summary=c["summary"], title=c.get("title", "")) for c in vocabulary
-    ]
+    vocabulary = load_vocabulary(catalog_root / "categories.yaml")
+    categories, groups = vocabulary.categories, vocabulary.groups
     manifests, _ = load_all(catalog_root)
     placement = place_installed_entries(manifests.values(), applications_dir=APPLICATIONS_DIR)
+    # D-050: every installed unit findable. Generated per user, beside the
+    # launchers, from what dpkg says is on this machine's path.
+    generated = cli_entries(manifests.values(), placement)
 
     home = Path.home()
     paths = MenuPaths(
@@ -1170,18 +1173,24 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
     except MenuPrefixError as exc:
         print(f"Refusing to write a menu that nothing would read: {exc}", file=sys.stderr)
         return EXIT_FAILED
-    steps = menu_steps(categories, paths, menu_prefix=prefix, placement=placement)
+    steps = menu_steps(categories, paths, menu_prefix=prefix, placement=placement, groups=groups)
+    steps.extend(cli_entry_steps(generated, paths.directories_dir.parent / "applications"))
 
     desktop = os.environ.get("XDG_CURRENT_DESKTOP", "")
     wants_gnome = "GNOME" in desktop.upper() or args.gnome
     placed = sum(len(v) for v in placement.by_category.values())
     print(
-        f"Menu tree: {len(categories)} categories, menu prefix {prefix!r}; "
+        f"Menu tree: {len(groups)} groups, {len(categories)} categories, menu prefix {prefix!r}; "
         f"{len(placement.claimed)} desktop entries from installed catalog packages "
-        f"placed {placed} times by their manifests' categories (dpkg -L, checked on disk)"
+        f"placed {placed} times by their manifests' categories (dpkg -L, checked on disk); "
+        f"{len(generated.entries)} entries generated for installed units that ship none"
     )
     for line in placement_summary(placement):
         print(line)
+    for unit, why in generated.skipped:
+        print(
+            f"  {unit}: no entry generated -- {why}; a `launchers` block in its manifest is the fix"
+        )
     for step in steps:
         print(f"  {step.display()}")
         outcome = step.perform()
@@ -1209,7 +1218,17 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
             "(pass --gnome to force). The menu-spec files above serve Xfce and "
             "friends either way."
         )
-    print("Done. Menus refresh on next login (or `xfce4-panel -r` / GNOME Shell reload).")
+    refresh = refresh_command(prefix)
+    if refresh is not None:
+        print(f"  # {refresh.description}\n  $ {' '.join(refresh.argv)}")
+        result = SubprocessRunner().run(refresh)
+        if result.returncode != 0:
+            print(
+                f"warning: {refresh.argv[0]} exited {result.returncode}; the menu shows at next login"
+            )
+        print("Done.")
+    else:
+        print("Done. Menus refresh on next login (or `xfce4-panel -r` / GNOME Shell reload).")
     return EXIT_OK
 
 
