@@ -389,3 +389,27 @@ def test_the_binary_backend_passes_the_operator_to_the_tree_install(tmp_path: Pa
     last = backend.steps(manifest, block)[-1]
     assert isinstance(last, Command)
     assert last.argv[:5] == ("chown", "-R", "-h", "--", "alice:")
+
+
+def test_a_deb_this_engine_already_installed_plans_no_fetch_and_no_install(tmp_path: Path) -> None:
+    """Issue #63: the plan has decided the vendor .deb is already installed
+    (dpkg still has it, and the transaction log attributes this digest to
+    us). The executor must then emit nothing for it -- not a cached fetch,
+    not a root apt-get that apt turns into 'already the newest version'."""
+    from hammunition.backends import AptBackend
+    from hammunition.execute import commands_for
+
+    manifest = _manifest("https://example.invalid/x.deb", "0" * 64, "deb", binaries=[])
+    plan = InstallPlan(
+        target=TARGET,
+        packages=(
+            PlannedPackage(
+                manifest=manifest,
+                block=manifest.install[0],
+                apt_packages=(),
+                deb_installed=True,
+            ),
+        ),
+    )
+    steps = commands_for(plan, AptBackend(RecordingRunner()), binary=_backend(tmp_path))
+    assert steps == []

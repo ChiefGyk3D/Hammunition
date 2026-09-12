@@ -325,6 +325,11 @@ def commands_for(
                 )
             builds.extend(git.steps(planned.manifest, block))
         elif isinstance(block, BinaryInstall):
+            if planned.deb_installed:
+                # The plan attributed this .deb to us and dpkg still holds it
+                # (#63): the fetch would be a cache hit and the root apt-get
+                # a no-op. Nothing to do is nothing planned.
+                continue
             if binary is None:
                 raise BackendError(
                     f"{planned.name} installs a prebuilt artifact and no binary backend "
@@ -399,6 +404,7 @@ def commands_for(
         if binary is not None
         and isinstance(planned.block.install, BinaryInstall)
         and planned.block.install.format == "deb"
+        and not planned.deb_installed  # ours and still installed: nothing to ask (#63)
     ]
 
     # The refresh is the default (D-044): six of fifteen profiles on a
