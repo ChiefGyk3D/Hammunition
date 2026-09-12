@@ -319,7 +319,7 @@ head.
   first workflow was a real commit and two major versions stale, and one failed
   outright against the runner's newer CLI. `git ls-remote --tags` is the check.
   This repository's pins were resolved the same way (e5c8260): `checkout`,
-  `setup-python` and `setup-qemu-action` sit on their current majors as of
+  `setup-python` sit on their current majors as of
   2026-09-05, and the check is worth re-running whenever a workflow is touched.
 
 ## Conventions

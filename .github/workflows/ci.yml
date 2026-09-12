@@ -111,7 +111,8 @@ jobs:
   # -------------------------------------------------------------------------
   targets:
     name: ${{ matrix.target.name }}
-    runs-on: ubuntu-latest
+    # The arm64 target names its own runner; everything else takes the default.
+    runs-on: ${{ matrix.target.runner || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
@@ -127,16 +128,20 @@ jobs:
           # Mint's own from its own repo so os-release reads linuxmint (Q-014).
           - { name: linuxmint-22.3, image: "linuxmintd/mint22.3-amd64:latest", platform: linux/amd64, identity_package: "base-files/zena" }
           # NOT Raspberry Pi OS — exercises aarch64 selectors only (Q-003).
-          - { name: debian-13-arm64, image: "debian:13",                    platform: linux/arm64 }
+          # Runs natively on GitHub's hosted arm64 runner (ubuntu-24.04-arm,
+          # free for public repositories; Podman 4.9.3 on its image, verified
+          # against actions/runner-images 2026-09-12). Under QEMU user-mode
+          # emulation on an x64 runner this job took 13-16 min against 1 min
+          # for every amd64 target, every run.
+          - { name: debian-13-arm64, image: "debian:13",                    platform: linux/arm64, runner: ubuntu-24.04-arm }
     steps:
       - uses: actions/checkout@v7
 
       # Rootless Podman, not Docker. Docker group membership is
       # root-equivalent host access; a security-adjacent project should not
-      # require it to run its own CI. See containers/targets.yaml.
-      - name: Set up QEMU (arm64 targets only)
-        if: matrix.target.platform == 'linux/arm64'
-        uses: docker/setup-qemu-action@v4
+      # require it to run its own CI. See containers/targets.yaml. No QEMU:
+      # the one foreign-architecture target runs on a runner of that
+      # architecture (above), so every build here is native.
 
       - name: Build target container
         run: |
