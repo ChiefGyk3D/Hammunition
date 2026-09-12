@@ -41,6 +41,7 @@ from hammunition.backends.source import DEFAULT_PREFIX, tree_destination  # noqa
 from hammunition.manifest.load import load_catalog  # noqa: E402
 from hammunition.manifest.schema import (  # noqa: E402
     AptInstall,
+    Binary,
     BinaryInstall,
     DataInstall,
     GitInstall,
@@ -89,6 +90,13 @@ def method_of(block: InstallBlock) -> str:
     # failing to compile when one is added.
     assert isinstance(install, PipxInstall)
     return f"pipx: `{install.spec}`"
+
+
+def _binary_line(b: Binary) -> str:
+    """One `produced -> install_as` row, the arrow dropped when they agree."""
+    if b.produced.split("/")[-1] == b.install_as:
+        return f"`{b.produced}`"
+    return f"`{b.produced}` → `{b.install_as}`"
 
 
 def selector_of(block: InstallBlock) -> str:
@@ -180,6 +188,14 @@ def page(m: PackageManifest) -> str:
                 "  - the project's build system has no install rule; the binaries "
                 "listed below are copied into the prefix instead"
             )
+        if block.binaries is not None:
+            # A block with its own `binaries` overrides the manifest's list for
+            # the targets it matches, so the page has to say so here rather
+            # than once at the bottom: rayhunter's zip carries a different
+            # `rayhunter-check` path per architecture (issue #69).
+            out.append("  - binaries, this block only:")
+            for b in block.binaries:
+                out.append(f"    - {_binary_line(b)}")
         if block.note:
             out.append("  - " + " ".join(block.note.split()))
     out.append("")
@@ -187,8 +203,7 @@ def page(m: PackageManifest) -> str:
     if m.binaries:
         out.append("Binaries this produces:\n")
         for b in m.binaries:
-            same = " " if b.produced.split("/")[-1] == b.install_as else " installed as "
-            out.append(f"- `{b.produced}`" + ("" if same == " " else f" → `{b.install_as}`"))
+            out.append(f"- {_binary_line(b)}")
         out.append("")
 
     if m.conflicts_with_repo_package:

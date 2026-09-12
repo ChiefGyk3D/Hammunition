@@ -23,11 +23,17 @@ A supported hotspot, its admin password, and a USB cable; the installer speaks U
 ## How it installs
 
 - prebuilt zip from https://github.com/EFForg/rayhunter/releases/download/v0.12.0/rayhunter-v0.12.0-linux-x64.zip — *arch x86_64*
-
-Binaries this produces:
-
-- `installer` → `rayhunter-installer`
-- `rayhunter-check-linux-x64/rayhunter-check`
+  - binaries, this block only:
+    - `installer` → `rayhunter-installer`
+    - `rayhunter-check-linux-x64/rayhunter-check`
+- prebuilt zip from https://github.com/EFForg/rayhunter/releases/download/v0.12.0/rayhunter-v0.12.0-linux-aarch64.zip — *arch aarch64*
+  - binaries, this block only:
+    - `installer` → `rayhunter-installer`
+    - `rayhunter-check-linux-aarch64/rayhunter-check`
+- prebuilt zip from https://github.com/EFForg/rayhunter/releases/download/v0.12.0/rayhunter-v0.12.0-linux-armv7.zip — *arch armv7l*
+  - binaries, this block only:
+    - `installer` → `rayhunter-installer`
+    - `rayhunter-check-linux-armv7/rayhunter-check`
 
 ## Known problems
 

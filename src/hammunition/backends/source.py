@@ -57,7 +57,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from hammunition.fetch import Fetcher
-from hammunition.manifest.schema import Binary, PackageManifest, Patch, SourceInstall
+from hammunition.manifest.schema import (
+    Binary,
+    InstallBlock,
+    PackageManifest,
+    Patch,
+    SourceInstall,
+    effective_binaries,
+)
 
 from .base import Action, BackendError, Command
 
@@ -307,13 +314,26 @@ class SourceBackend:
         print every path before anything is fetched."""
         return SourceLayout(self.build_root / f"{manifest.name}-{block.source.sha256[:8]}")
 
-    def steps(self, manifest: PackageManifest, block: SourceInstall) -> list[Action | Command]:
+    def steps(
+        self, manifest: PackageManifest, install_block: InstallBlock
+    ) -> list[Action | Command]:
         """Fetch, verify, unpack, configure, build, install — in that order.
 
         Only the final install needs root. CLAUDE.md drops to the operator
         wherever possible, and a build that ran wholly as root would leave a
         tree of root-owned objects in the operator's cache for no benefit.
+
+        Takes the whole :class:`InstallBlock` rather than its method alone: a
+        block may declare its own `binaries`, and the list this backend copies
+        must be the one the effect check reads back (issue #69).
         """
+        block = install_block.install
+        if not isinstance(block, SourceInstall):
+            raise BackendError(
+                f"{manifest.name} resolved to a {block.method} block and this backend "
+                f"builds from a source archive. Building it anyway would install "
+                f"something the plan never named."
+            )
         if block.build_system not in IMPLEMENTED_BUILD_SYSTEMS:
             raise BackendError(
                 f"{manifest.name} declares build_system {block.build_system!r}, which "
@@ -340,7 +360,7 @@ class SourceBackend:
             ),
         ]
         steps.extend(patch_steps(manifest.name, block.patches, layout))
-        steps.extend(self._build_commands(manifest, block, layout))
+        steps.extend(self._build_commands(manifest, install_block, block, layout))
         return steps
 
     def _fetch(self, manifest: PackageManifest, block: SourceInstall) -> str:
@@ -351,6 +371,7 @@ class SourceBackend:
     def _build_commands(
         self,
         manifest: PackageManifest,
+        install_block: InstallBlock,
         block: SourceInstall,
         layout: SourceLayout,
     ) -> list[Command]:
@@ -365,7 +386,7 @@ class SourceBackend:
             project_file=block.project_file,
             build_args=block.build_args,
             provides_install_target=block.provides_install_target,
-            binaries=manifest.binaries,
+            binaries=effective_binaries(manifest, install_block),
             autoreconf=block.autoreconf,
         )
         if block.install_tree:

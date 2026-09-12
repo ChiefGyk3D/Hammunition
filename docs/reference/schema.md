@@ -66,6 +66,7 @@ argument — js8call is apt on Linux Mint 22.3 and a cmake build elsewhere.
 | `when` | `Selector` | no |  |
 | `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| NodeInstall \| PipxInstall \| DataInstall` | **yes** |  |
 | `build_depends` | `list[str]` | no | apt packages needed to BUILD only. Never reported as installed. |
+| `binaries` | `list[Binary] \| None` | no | This block's own build outputs, replacing the manifest's `binaries` wherever this block is the one that resolves. A prebuilt archive selected by `arch` can carry a different path per architecture -- rayhunter's zip has `installer` at the top level and one `rayhunter-check` under a per-platform directory -- and one manifest-level list cannot describe both. Omit the key to use the manifest's list; an empty list is refused, because it reads as an override to nothing. |
 | `note` | `str \| None` | no |  |
 
 ### `AptInstall`

@@ -64,11 +64,13 @@ from hammunition.manifest.schema import (
     BinaryInstall,
     DataInstall,
     GitInstall,
+    InstallBlock,
     NodeInstall,
     PackageManifest,
     ProfileManifest,
     SourceInstall,
     VenvInstall,
+    effective_binaries,
 )
 
 if TYPE_CHECKING:
@@ -310,9 +312,15 @@ def plan_removal(
                 if Path(path).name in names:
                     add(unit, ArtifactRemoval("apt-repo", Path(path), "log", requires_root=True))
 
-    def plan_binaries(unit: str, manifest: PackageManifest) -> None:
-        """Prefix binaries the engine copied — removable only on log evidence."""
-        for binary in manifest.binaries:
+    def plan_binaries(unit: str, manifest: PackageManifest, block: InstallBlock) -> None:
+        """Prefix binaries the engine copied — removable only on log evidence.
+
+        Read from the resolved block, because the block may name its own
+        (issue #69): removing the manifest-level names on a machine that
+        installed the block's would leave the installed files behind and
+        report the removal done.
+        """
+        for binary in effective_binaries(manifest, block):
             dest = paths.prefix / "bin" / binary.install_as
             if str(dest) in attributed_files:
                 add(unit, ArtifactRemoval("binary", dest, "log", requires_root=True))
@@ -396,7 +404,7 @@ def plan_removal(
                 else:
                     already_absent.setdefault(unit, []).append(deb_pkg)
             else:
-                plan_binaries(unit, manifest)
+                plan_binaries(unit, manifest, block)
                 if install.install_tree:
                     add(
                         unit,
@@ -431,7 +439,7 @@ def plan_removal(
                 )
                 continue
             if not install.provides_install_target:
-                plan_binaries(unit, manifest)
+                plan_binaries(unit, manifest, block)
             if install.install_tree:
                 add(
                     unit,

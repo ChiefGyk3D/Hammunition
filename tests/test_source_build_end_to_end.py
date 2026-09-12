@@ -146,7 +146,7 @@ def test_a_source_package_is_fetched_verified_built_and_installed(
     assert not needs_root_for(prefix), "a writable prefix must not ask for root"
 
     manifest = _manifest(url, digest)
-    block = manifest.install[0].install
+    block = manifest.install[0]
     backend = SourceBackend(
         Fetcher(tmp_path / "cache"),
         build_root=tmp_path / "build",
@@ -157,7 +157,7 @@ def test_a_source_package_is_fetched_verified_built_and_installed(
         target=TARGET,
         packages=(PlannedPackage(manifest=manifest, block=manifest.install[0], apt_packages=()),),
     )
-    steps = backend.steps(manifest, block)  # type: ignore[arg-type]
+    steps = backend.steps(manifest, block)
     log = TransactionLog(tmp_path / "log.jsonl")
 
     report = execute(steps, SubprocessRunner(), log=log, plan=plan)
@@ -197,7 +197,7 @@ def test_a_tampered_archive_stops_the_build_before_it_starts(
         target=TARGET,
         packages=(PlannedPackage(manifest=manifest, block=manifest.install[0], apt_packages=()),),
     )
-    steps = backend.steps(manifest, manifest.install[0].install)  # type: ignore[arg-type]
+    steps = backend.steps(manifest, manifest.install[0])
     log = TransactionLog(tmp_path / "log.jsonl")
 
     report = execute(steps, SubprocessRunner(), log=log, plan=plan)

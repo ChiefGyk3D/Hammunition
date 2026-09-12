@@ -146,8 +146,8 @@ def test_an_appimage_is_refused_by_name(tmp_path: Path) -> None:
         "appimage",
         binaries=[{"produced": "x", "install_as": "x"}],
     )
-    block = manifest.install[0].install
-    assert isinstance(block, BinaryInstall)
+    block = manifest.install[0]
+    assert isinstance(block.install, BinaryInstall)
     with pytest.raises(BackendError, match="appimage"):
         _backend(tmp_path).steps(manifest, block)
 
@@ -155,8 +155,8 @@ def test_an_appimage_is_refused_by_name(tmp_path: Path) -> None:
 def test_an_archive_naming_no_binaries_is_refused(tmp_path: Path) -> None:
     """Unpacking it would leave a directory in a cache and install nothing."""
     manifest = _manifest("https://example.invalid/x.zip", "0" * 64, "zip", binaries=[])
-    block = manifest.install[0].install
-    assert isinstance(block, BinaryInstall)
+    block = manifest.install[0]
+    assert isinstance(block.install, BinaryInstall)
     with pytest.raises(BackendError, match="names no `binaries`"):
         _backend(tmp_path).steps(manifest, block)
 
@@ -168,8 +168,8 @@ def test_a_single_executable_needs_exactly_one_name(tmp_path: Path) -> None:
         "executable",
         binaries=[{"produced": "a", "install_as": "a"}, {"produced": "b", "install_as": "b"}],
     )
-    block = manifest.install[0].install
-    assert isinstance(block, BinaryInstall)
+    block = manifest.install[0]
+    assert isinstance(block.install, BinaryInstall)
     with pytest.raises(BackendError, match="exactly one"):
         _backend(tmp_path).steps(manifest, block)
 
@@ -189,8 +189,8 @@ def test_a_deb_goes_through_apt_and_not_dpkg(tmp_path: Path) -> None:
         "deb",
         binaries=[],
     )
-    block = manifest.install[0].install
-    assert isinstance(block, BinaryInstall)
+    block = manifest.install[0]
+    assert isinstance(block.install, BinaryInstall)
     runner = RecordingRunner()
     backend = _backend(tmp_path, runner)
     steps = backend.steps(manifest, block)
@@ -232,9 +232,9 @@ def test_a_deb_is_simulated_with_the_apt_step_after_its_fetch_and_before_apt_ins
     assert labels == ["fetch", "apt-get", "apt-get", "install-deb"]
     simulate = steps[1]
     assert isinstance(simulate, Command)
-    block = manifest.install[0].install
-    assert isinstance(block, BinaryInstall)
-    deb = str(backend.fetcher.path_for(block.artifact))
+    block = manifest.install[0]
+    assert isinstance(block.install, BinaryInstall)
+    deb = str(backend.fetcher.path_for(block.install.artifact))
     assert simulate.argv == (
         "apt-get",
         "install",
@@ -284,8 +284,8 @@ def test_a_prebuilt_archive_is_fetched_verified_unpacked_and_installed(
     manifest = _manifest(
         url, digest, "zip", binaries=[{"produced": "bin/prebuilt", "install_as": "prebuilt"}]
     )
-    block = manifest.install[0].install
-    assert isinstance(block, BinaryInstall)
+    block = manifest.install[0]
+    assert isinstance(block.install, BinaryInstall)
     backend = _backend(tmp_path)
     plan = InstallPlan(
         target=TARGET,
@@ -311,8 +311,8 @@ def test_a_tampered_artifact_installs_nothing(tmp_path: Path, served_zip: tuple[
     manifest = _manifest(
         url, wrong, "zip", binaries=[{"produced": "bin/prebuilt", "install_as": "prebuilt"}]
     )
-    block = manifest.install[0].install
-    assert isinstance(block, BinaryInstall)
+    block = manifest.install[0]
+    assert isinstance(block.install, BinaryInstall)
     backend = _backend(tmp_path)
     plan = InstallPlan(
         target=TARGET,
@@ -384,8 +384,8 @@ def test_the_binary_backend_passes_the_operator_to_the_tree_install(tmp_path: Pa
             },
         }
     )
-    block = manifest.install[0].install
-    assert isinstance(block, BinaryInstall)
+    block = manifest.install[0]
+    assert isinstance(block.install, BinaryInstall)
     last = backend.steps(manifest, block)[-1]
     assert isinstance(last, Command)
     assert last.argv[:5] == ("chown", "-R", "-h", "--", "alice:")

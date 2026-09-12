@@ -56,6 +56,7 @@ from hammunition.manifest.schema import (
     NodeInstall,
     SourceInstall,
     VenvInstall,
+    effective_binaries,
 )
 from hammunition.plan import InstallPlan
 from hammunition.state import RemovalPlan, TransactionLog
@@ -310,7 +311,7 @@ def already_built(
         else:
             continue
         present: list[bool] = []
-        for declared in planned.manifest.binaries:
+        for declared in effective_binaries(planned.manifest, planned.block):
             path = prefix / "bin" / declared.install_as
             present.append(path.is_file() and os.access(path, os.X_OK))
         marker = _tree_marker(planned.block)
@@ -399,14 +400,14 @@ def commands_for(
                     f"{planned.name} is a source build and no source backend was supplied. "
                     f"Skipping it would report a successful run that installed nothing."
                 )
-            builds.extend(source.steps(planned.manifest, block))
+            builds.extend(source.steps(planned.manifest, planned.block))
         elif isinstance(block, GitInstall):
             if git is None:
                 raise BackendError(
                     f"{planned.name} builds from git and no git backend was supplied. "
                     f"Skipping it would report a successful run that installed nothing."
                 )
-            builds.extend(git.steps(planned.manifest, block))
+            builds.extend(git.steps(planned.manifest, planned.block))
         elif isinstance(block, BinaryInstall):
             if planned.deb_installed:
                 # The plan attributed this .deb to us and dpkg still holds it
@@ -419,7 +420,7 @@ def commands_for(
                     f"was supplied. Skipping it would report a successful run that "
                     f"installed nothing."
                 )
-            builds.extend(binary.steps(planned.manifest, block))
+            builds.extend(binary.steps(planned.manifest, planned.block))
         elif isinstance(block, VenvInstall):
             if venv is None:
                 raise BackendError(
@@ -743,7 +744,7 @@ def verify_effects(
         for planned in plan.packages:
             if not _declares_installed_binaries(planned.block):
                 continue
-            for binary in planned.manifest.binaries:
+            for binary in effective_binaries(planned.manifest, planned.block):
                 path = prefix / "bin" / binary.install_as
                 present = path.is_file() and os.access(path, os.X_OK)
                 checks.append(
