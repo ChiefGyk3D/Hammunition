@@ -8,7 +8,7 @@
 
 ## What it installs
 
-Four ways to learn — Koch method training, high-speed callsign drilling, the three unixcw front ends, and a converter that turns any text you were going to read into Morse audio at a speed you choose. Two decoders, one live from a receiver and one offline from a recording. Two ways to send: a daemon that keys a transmitter for a logging program, and a control panel for a Winkeyer. A beacon monitor. And practice tests for the US and Canadian licence exams.
+Five ways to learn — Koch method training, high-speed callsign drilling, the three unixcw front ends, the long-lived Unix `morse` sounder that drills you on random groups, and a converter that turns any text you were going to read into Morse audio at a speed you choose. Two decoders, one live from a receiver and one offline from a recording. Two ways to send: a daemon that keys a transmitter for a logging program, and a control panel for a Winkeyer. A beacon monitor. And practice tests for the US and Canadian licence exams.
 
 **Disk footprint:** Under 100 MB. Everything here is small; the largest single item is the wxWidgets front end for ebook2cw.
 
@@ -16,13 +16,13 @@ Four ways to learn — Koch method training, high-speed callsign drilling, the t
 
 Morse is a skill before it is a mode, and everything here is either practice, sending or copying. The licence exam tools are here because the Debian Hamradio Blend groups its `morse` and `training` tasks together and the same person wants both at the same stage — this is the profile someone installs while they are still learning. If the exam tools look out of place in something called `morse`, that is a fair reading and they are three packages you can remove.
 
-## Packages (16)
+## Packages (17)
 
-[`aldo`](../packages/aldo.md), [`cw`](../packages/cw.md), [`cwcp`](../packages/cwcp.md), [`xcwcp`](../packages/xcwcp.md), [`qrq`](../packages/qrq.md), [`ebook2cw`](../packages/ebook2cw.md), [`ebook2cwgui`](../packages/ebook2cwgui.md), [`cwwav`](../packages/cwwav.md), [`cwdaemon`](../packages/cwdaemon.md), [`flwkey`](../packages/flwkey.md), [`morse2ascii`](../packages/morse2ascii.md), [`xdemorse`](../packages/xdemorse.md), [`ibp`](../packages/ibp.md), [`hamexam`](../packages/hamexam.md), [`canadian-ham-exam`](../packages/canadian-ham-exam.md), [`fccexam`](../packages/fccexam.md)
+[`aldo`](../packages/aldo.md), [`cw`](../packages/cw.md), [`cwcp`](../packages/cwcp.md), [`xcwcp`](../packages/xcwcp.md), [`qrq`](../packages/qrq.md), [`morse-classic`](../packages/morse-classic.md), [`ebook2cw`](../packages/ebook2cw.md), [`ebook2cwgui`](../packages/ebook2cwgui.md), [`cwwav`](../packages/cwwav.md), [`cwdaemon`](../packages/cwdaemon.md), [`flwkey`](../packages/flwkey.md), [`morse2ascii`](../packages/morse2ascii.md), [`xdemorse`](../packages/xdemorse.md), [`ibp`](../packages/ibp.md), [`hamexam`](../packages/hamexam.md), [`canadian-ham-exam`](../packages/canadian-ham-exam.md), [`fccexam`](../packages/fccexam.md)
 
 ## What it deliberately excludes
 
-fldigi, which decodes CW among twenty other modes and belongs in `digital-modes`. Contest loggers, which key CW through `cwdaemon` and live in `logging`. morse-classic, the long-lived Unix `morse` sounder: Debian's package Recommends pulseaudio, which cannot coexist with pipewire-alsa, so on a PipeWire desktop apt would remove your audio routing to install it and the engine refuses the whole profile (#61). Install it by name if you want it and are not on PipeWire. Nothing here needs a radio: every trainer generates its own audio, which is the point.
+fldigi, which decodes CW among twenty other modes and belongs in `digital-modes`. Contest loggers, which key CW through `cwdaemon` and live in `logging`. Nothing here needs a radio: every trainer generates its own audio, which is the point.
 
 ## What you configure by hand afterward
 
