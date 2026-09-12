@@ -104,3 +104,62 @@ measurements, and which units are affected, are in
 kernel port, boot a kernel that still carries the stack: Debian 13's 6.12,
 Parrot 7.3's 7.0, Ubuntu 26.04's 7.0. Hammunition does not build kernel
 modules.
+
+## <a name="brltty"></a>A CH340 serial device vanishes the moment it is plugged in
+
+```
+usb 1-3.2: ch341-uart converter now attached to ttyUSB0
+usb 1-3.2: ch341-uart converter now disconnected from ttyUSB0
+systemd[1]: Started brltty-udev.service - Braille Device Support.
+```
+
+`brltty`, the braille-display daemon, has claimed the device. Ubuntu and
+Linux Mint install it by default (it is a Recommends of `ubuntu-desktop`,
+`xubuntu-desktop` and the other desktop metapackages), and its udev rules
+start it for the USB identifiers braille displays are built on. Once
+started, brltty opens the "display" through libusb and detaches the kernel's
+serial driver from it: the `/dev/ttyUSB*` node you were about to point
+`flrig` or a Meshtastic client at is gone.
+
+**Which machines, measured on the archive's own package** — the whole table
+is [`docs/reference/brltty-inventory.md`](../reference/brltty-inventory.md):
+
+- **Debian 13, Parrot, Kali:** brltty ships no udev rules at all. This
+  cannot happen there.
+- **Ubuntu 24.04 and Linux Mint 22.3** (brltty 6.6): one enabled rule
+  names a chip in our catalog — the WCH CH340, `1a86:7523`, **only when it
+  sits behind a `1a40:0101` hub** (the Terminus chip inside many cheap
+  four-port hubs; it is what the Zoomax braille display is built on). The
+  FTDI and CP210x lines that took every cable in 2022 are commented out,
+  with the reason and the bug number beside them.
+- **Ubuntu 26.04** (brltty 6.7): the CH340 line is commented out too.
+- **Pop!_OS 22.04** (brltty 6.4, not a Hammunition target): the CH340 line
+  is unqualified — every CH340 is claimed, hub or no hub.
+
+Confirm it is this and not something else:
+
+```
+lsusb -t                              # is the CH340 under a 1a40:0101 hub?
+journalctl -b -u brltty-udev.service  # did it start when you plugged in?
+grep -n '1a86/7523' /usr/lib/udev/rules.d/85-brltty.rules /lib/udev/rules.d/85-brltty.rules 2>/dev/null
+```
+
+An uncommented `1a86/7523` line is the rule; a leading `#` means your brltty
+does not do this and the cause is elsewhere.
+
+**Fixes, in order of how little they change:**
+
+1. **Plug the device straight into the machine**, or into a different hub.
+   The rule needs the `1a40:0101` parent; without it, it does not fire.
+2. **If nobody on this machine uses a braille display**, remove the package:
+   `sudo apt remove brltty`. That is your call, not Hammunition's — the
+   engine never removes accessibility software as a side effect of
+   installing a radio program (**D-047**), and it never shadows the rules
+   file the way some ham installers do, because that takes braille support
+   away from a blind operator to fix a collision that exists for one chip
+   behind one hub on two distributions.
+
+Hammunition does not carry a rule against this today, because no target's
+*default* brltty claims a catalogued identifier unconditionally. The day one
+does again, the generated page above goes stale by name, and the shape of
+the fix is a targeted rule for that one identifier, never the whole file.

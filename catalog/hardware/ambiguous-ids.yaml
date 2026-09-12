@@ -13,7 +13,7 @@
 #                           packages' rules naming different devices
 
 kind: ambiguity-list
-generated: 2026-08-28
+generated: 2026-09-12
 source: debian-13
 identifiers:
   - id: "0104:00be"
@@ -1030,6 +1030,12 @@ identifiers:
   - id: "045b:024d"
     basis: kernel_generic_driver
     kernel_drivers: [cdc_acm]
+  - id: "046a:0010"
+    basis: shared_across_products
+    usb_ids_name: SmartBoard XX44
+    seen_in: [scdaemon, x2gothinclient-smartcardrules]
+    # named: CHERRY
+    # named: Cherry GmbH (XX33, ST2000)
   - id: "0471:066a"
     basis: kernel_generic_driver
     kernel_drivers: [cp210x]
@@ -1203,6 +1209,12 @@ identifiers:
   - id: "04dd:91ac"
     basis: kernel_generic_driver
     kernel_drivers: [ipaq]
+  - id: "04e6:5116"
+    basis: shared_across_products
+    usb_ids_name: SCR331-LC1 / SCR3310 SmartCard Reader
+    seen_in: [scdaemon, x2gothinclient-smartcardrules]
+    # named: SCM Microsystems, Inc (SCR331-DI, SCR335, SCR3320, SCR331, SCR3310 and SPR532)
+    # named: SCM SCR331-LC1 SmartCard Reader
   - id: "04e7:6651"
     basis: kernel_generic_driver
     kernel_drivers: [cdc_acm]

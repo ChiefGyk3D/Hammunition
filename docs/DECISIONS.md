@@ -2967,6 +2967,8 @@ meant rediscovering, in the field, that brltty claims a MicroFox-50.
    `file_shadow` system modification (an empty rule file in
    `/etc/udev/rules.d/` masking `/lib/udev/rules.d/`'s) is the right
    shape or whether the existing `distribution_disabled` basis covers it.
+   **Done 2026-09-12, D-047:** neither; measured on all seven targets in
+   `docs/reference/brltty-inventory.md`.
 3. *Rig plug-and-play* — a `rig` hardware class, the FT-991A first because
    it is owned and on the bench, station configuration carrying the
    operator's selection.
@@ -3309,3 +3311,100 @@ ships it; AllStarLink ASL3 only from its own repository.
 manifest changes yet: everything here is post-1.0, and the first Track A
 manifest is where the work starts. Q-020 is closed by this record, and no
 question is open in `docs/QUESTIONS.md` on this date.
+
+## D-047 — brltty is measured per target, not purged or shadowed; the sweep reads every syntax a rule can name a pair in
+
+**Date:** 2026-09-12. **Status:** accepted; built the same day, awaiting
+the maintainer's review on the pull request. **Depends on:** D-042
+(sub-project 2 asked this), D-028 (an identifier naming a chip may not name
+a device), D-029 (the hardware role includes honest documentation of what
+nothing solves), D-031 (verify the effect, not the exit status), D-022
+(coexist, disclose, never remove silently), CLAUDE.md's rejected-list entry
+*anything that reconfigures the user's OS wholesale*. **Amends:** the
+udev-inventory page's "nothing is filtered" claim, which was true of
+packages and false of syntax.
+
+**What was measured.** `scripts/run-brltty-probe.sh` downloaded each
+target's `brltty` (never installed it) and read what it ships;
+`scripts/gen_brltty_inventory.py` renders `docs/reference/brltty-inventory.md`
+from the probes, with the catalog intersection computed live.
+
+1. **Four of seven targets ship no brltty udev rules at all.** Debian 13
+   (6.7-3.1+deb13u3, amd64 and arm64), Parrot 7.3 (the same package) and
+   Kali (6.9.1+repack-1) put only *examples* under `/usr/share/doc/brltty/`.
+   Nothing in those archives Depends on or Recommends brltty; `orca` and
+   `speechd-el` Suggest it. There is nothing to shadow and nothing arrives
+   by default.
+2. **The Ubuntu family ships `85-brltty.rules` and installs brltty by
+   default** — Recommends of `ubuntu-desktop`, `ubuntu-desktop-minimal`,
+   `xubuntu-desktop` and six more desktops (Mint's own `mint-meta-*`
+   metapackages do not name it; the rules arrive there through Ubuntu's).
+   Ubuntu commented out the generic-bridge lines in 2022 (bug #1958224) and
+   the file says so beside each one.
+3. **What is still enabled and in our catalog.** On Ubuntu 24.04 and Mint
+   22.3 (brltty 6.6-4ubuntu5): `0403:6001` only when the USB manufacturer
+   string is `Hedo Reha Technik GmbH` or `Tivomatic Oy` — an FTDI rig
+   cable's string is `FTDI` and never matches — and **`1a86:7523`, the
+   CH340, only behind a `1a40:0101` parent hub.** That hub is the Terminus
+   FE 1.1 inside the Zoomax display, and also inside a great many cheap
+   four-port hubs. A CH340 cable through such a hub is claimed. On Ubuntu
+   26.04 (6.7-1ubuntu6) the CH340 line is commented out too, and the two
+   vendor-string FTDI lines are all that remain.
+4. **The maintainer's own laptop** (Pop!_OS 22.04, brltty 6.4-4ubuntu3,
+   not a target) carries the unqualified `ENV{PRODUCT}=="1a86/7523/*"`
+   line, enabled: every CH340 on that machine is claimed, hub or no hub.
+   Its `brltty-udev.service` is a static unit started by the rule.
+5. **The udev sweep could not have seen any of this.** brltty writes
+   `ENV{PRODUCT}=="403/de58/*"`; the sweep's parser read only
+   `ATTRS{idVendor}`, and brltty had zero rows in an inventory that said
+   nothing was filtered. Reading the two other syntaxes added 25 rows from
+   six Debian 13 packages (tlp-rdw, udisks2, libhackrf0's rad1o lines among
+   them), none touching a catalogued identifier — and one precedence bug
+   caught by its own test: brltty's CH340 line names the device by
+   `PRODUCT` and its *hub* by `ATTRS`, and a parser that tried `ATTRS`
+   first filed the hub as a braille display.
+
+**Decision.**
+
+1. **No `file_shadow`, no `package_purge`, no engine change.** ETC's empty
+   `85-brltty.rules` and AHRL's unconditional purge each remove a blind
+   operator's braille support from every machine to fix a collision that
+   exists on two of seven targets, for one chip, behind one hub. On the four
+   Debian-family targets there is no file to shadow. A project that augments
+   an existing system does not delete accessibility software as a side
+   effect of installing a rig-control program.
+2. **`distribution_disabled` does not cover it either.** That basis says an
+   identifier does not name a device, citing a rule a distribution
+   commented out. The colliding rule is *enabled*; the basis is the wrong
+   shape for it, and D-028 already carries `1a86:7523` as
+   `kernel_generic_driver`.
+3. **The answer is the measurement and the troubleshooting entry.**
+   `brltty-inventory.md` is generated and `--check`ed like every other
+   reference page, so the day Ubuntu changes the file the page goes stale by
+   name. `docs/troubleshooting/running.md` tells an operator whose CH340
+   vanished on Ubuntu 24.04 or Mint what happened and the two fixes that
+   exist — unplug from the hub, or remove `brltty` *if no one on the
+   machine needs it*, which is the operator's call and never the engine's.
+   The `badgelife` class entry for `1a86:7523` names brltty among the
+   claimants.
+4. **The sweep parser is a module with a test.** `scripts/udev_rule_pairs.py`
+   reads `ATTRS{idVendor}`, `ENV{PRODUCT}` and `ENV{ID_VENDOR_ID}`, device
+   syntaxes before parent-walking ones, mounted into the sweep container by
+   the runner. Its tests carry the brltty lines that proved each case and
+   the falsification that the old regex returns nothing for them.
+
+**What would change this.** A target whose *default* brltty carries an
+unqualified generic-bridge line again — the 2022 state — is the case for
+carrying a targeted rule of our own that unsets what brltty's set for the
+catalogued device, file-ordered after `85-brltty.rules`; a `udev_rule`
+modification the schema already has, never a shadow of the whole file. No
+target does today, and the page will say when one does.
+
+**Consequences.** `scripts/brltty-probe.sh`, `scripts/run-brltty-probe.sh`,
+`scripts/gen_brltty_inventory.py` (`--check`, in the no-op test),
+`docs/reference/brltty-inventory.md`, seven probe files under
+`reference/probes/`; `scripts/udev_rule_pairs.py` and
+`tests/test_udev_rule_pairs.py`; the Debian 13 sweep re-run and
+`udev-inventory.md`, `usb-ambiguity.md`, `ambiguous-ids.yaml` and
+`programmer.yaml` regenerated from it; the troubleshooting entry; the class
+note. D-042 sub-project 2 is closed by this record.

@@ -6,7 +6,7 @@
 # identifiers between them, which is past the point where transcribing
 # evidence by hand is careful work.
 #
-# Generated: 2026-08-28
+# Generated: 2026-09-12
 # Sources: avrdude, flashrom, openfpgaloader, openocd, stlink-tools
 # Identifiers: 180, of which 39
 #   are on the generated ambiguity list and carry its verdict verbatim.
