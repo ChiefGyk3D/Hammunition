@@ -199,6 +199,7 @@ Do not re-litigate these without being asked:
 | Profile members a target lacks | Deferred by name, the rest installs; a name the operator typed, an engine gap or a manifest defect still refuses | `listening` withheld nineteen units on Ubuntu 24.04 over four the archive lacks (**D-039**) |
 | Kernel subsystems | `requires_kernel` on the manifest; the plan reads `/lib/modules/<uname -r>` and refuses or defers by name; never in the capability matrix, never a module we build | Linux 7.1 removed AX.25; Kali and the maintainer's own laptop have no `ax25.ko`, and `packet` had "installed whole" on Pop!_OS (**D-041**) |
 | Installed trees | Handed to the operator by an explicit `chown -R -h` step the plan prints and the log records; root keeps the tree when there is no operator; the parent stays root's | MSHV and radiosonde-auto-rx write beside their executables and ran only because `cp -a` under root preserved whoever unpacked the build (**D-043**) |
+| apt lists | `apt-get update` opens every transaction with apt work, disclosed in the plan; `--no-refresh` opts out; nothing to resolve means no update | Six of fifteen Parrot profiles passed the plan and died at the first fetch on four-day-old lists, and staleness is not measurable on Debian (**D-044**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
 
@@ -498,7 +499,7 @@ longer a design question in the abstract; a shipped manifest depends on it. See
 `DESIGN.md` §15.3 and the D-004 amendment.
 
 **Open questions awaiting the maintainer** are in `docs/QUESTIONS.md`.
-**Q-018** (refresh apt lists by default), **Q-019** (retire `z8530-utils2`;
+**Q-019** (retire `z8530-utils2`;
 is the packet core userspace-primary now that Linux 7.1 has no AX.25) and
 **Q-020** (the two post-1.0 tracks — trunked/digital-voice listening and
 repeater/hotspot — their order, profile placement, the G4KLX pin source and

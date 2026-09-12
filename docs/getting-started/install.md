@@ -84,3 +84,8 @@ Read `hammunition install <profile> --dry-run` before every real install. It
 prints every command, every group you will join, every config file that will
 be written, and every consent gate you will meet — the same text the real run
 shows, so nothing about the real run is a surprise.
+
+The first command of any run that installs from apt is `apt-get update`.
+Stale package lists are the commonest way a correct plan fails — apt asks
+the mirror for a file the pool has replaced — so the refresh is on by
+default. Pass `--no-refresh` on a local mirror or a station with no uplink.

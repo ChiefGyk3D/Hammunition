@@ -374,16 +374,14 @@ def commands_for(
         commands.extend(s for s in repo_steps if isinstance(s, Action) and s.kind == "fetch")
         commands.extend(s for s in repo_steps if not (isinstance(s, Action) and s.kind == "fetch"))
 
-    if refresh or plan.apt_repos:
-        commands.append(apt.refresh_command())
-
     # A vendor .deb is resolved by apt from its file, and the file does not
     # exist until its fetch has run -- so the plan's own simulate (D-038)
-    # could not include it. This one can: it runs after every fetch and
-    # before the apt step, over the apt packages and the downloaded .debs
-    # together, and a refusal here is a refusal on an untouched machine.
-    # `apt-get install ./file.deb` is what the binary backend runs later;
-    # asking the same resolver the same question first is the whole idea.
+    # could not include it. The simulate below can: it runs after every
+    # fetch and before the apt step, over the apt packages and the downloaded
+    # .debs together, and a refusal there is a refusal on an untouched
+    # machine. `apt-get install ./file.deb` is what the binary backend runs
+    # later; asking the same resolver the same question first is the whole
+    # idea.
     debs = [
         str(binary.fetcher.path_for(planned.block.install.artifact))
         for planned in plan.packages
@@ -391,6 +389,18 @@ def commands_for(
         and isinstance(planned.block.install, BinaryInstall)
         and planned.block.install.format == "deb"
     ]
+
+    # The refresh is the default (D-044): six of fifteen profiles on a
+    # four-day-old Parrot guest passed the plan and died at the first fetch
+    # because the pool had moved past the lists. It runs only when apt will
+    # be asked to resolve something -- the apt step, or a vendor .deb whose
+    # dependencies apt resolves from the lists -- so a re-run with nothing
+    # to install stays a no-op, and a source-only plan on a station with no
+    # uplink never starts with a network command. A just-added repository
+    # always needs it, whatever the flag says: apt has no index for it yet.
+    needs_lists = bool(plan.apt_to_install) or bool(debs)
+    if (refresh and needs_lists) or plan.apt_repos:
+        commands.append(apt.refresh_command())
     # The same question again for a just-added repository: the plan-time
     # simulate left its packages out because apt had no index for them.
     # After the update, the resolver is asked about the whole apt step.

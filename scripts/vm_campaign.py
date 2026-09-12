@@ -292,7 +292,7 @@ class Provenance:
 # lists still named glib2.0 2.84.4-3~deb13u3 and the pool had moved on, and
 # six of fifteen profiles failed at the first fetch with a 404 (2026-09-03).
 # So the lists are refreshed here, once per prepare, before anything is
-# measured -- the engine's own ``--refresh`` would do it per unit, and the
+# measured -- the engine's own default refresh would do it per unit, and the
 # campaign is measuring the catalog, not the age of a snapshot. The retry
 # loop is for a guest that runs its own apt at boot: Pop!_OS 24.04's did,
 # and a prepare that started 30 s after the restore lost the lists lock to

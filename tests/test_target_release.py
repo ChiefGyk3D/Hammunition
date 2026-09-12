@@ -254,7 +254,7 @@ def test_the_install_failure_says_stale_lists_installed_nothing_and_names_the_fi
     assert "girepository-tools_2.84.4-3~deb13u3_amd64.deb" in text and "and 1 more" in text
     assert "libglib2.0-dev_2.84.4-3~deb13u3_amd64.deb" not in text  # the elided fourth
     assert "installed nothing" in text
-    assert "sudo apt-get update" in text and "--refresh" in text
+    assert "sudo apt-get update" in text and "--no-refresh" in text
     # Not every apt-get failure is this one, and not every 404 is apt's.
     assert stale_lists_diagnosis(install, PARROT_REFUSAL) is None
     remove = Command(argv=("apt-get", "remove", "--yes", "foo"), description="")

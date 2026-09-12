@@ -162,6 +162,22 @@ def test_refresh_runs_before_anything_else() -> None:
     assert _argv(commands[0]) == ("apt-get", "update")
 
 
+def test_refresh_is_skipped_when_nothing_asks_apt_to_resolve() -> None:
+    """The refresh is the default (D-044), and a default that starts every
+    run with a privileged network command would make the idempotent re-run
+    -- everything already installed, nothing to do -- a network operation.
+    No apt step and no vendor .deb means no lists are consulted, so no
+    update runs, whatever the flag says."""
+    empty = InstallPlan(target=TARGET, packages=())
+    commands = commands_for(empty, AptBackend(RecordingRunner()), refresh=True)
+    assert all(_argv(c)[:2] != ("apt-get", "update") for c in commands)
+
+
+def test_no_refresh_leaves_the_update_out() -> None:
+    commands = commands_for(_plan(), AptBackend(RecordingRunner()), refresh=False)
+    assert all(_argv(c)[:2] != ("apt-get", "update") for c in commands)
+
+
 # ---------------------------------------------------------------------------
 # Execution
 # ---------------------------------------------------------------------------
@@ -841,6 +857,28 @@ def test_install_dry_run_prints_the_plan_and_executes_nothing(
     assert "transaction log written to" in out
 
 
+def test_install_refreshes_the_lists_by_default_and_no_refresh_turns_it_off(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    """Q-018, D-044: six of fifteen profiles on a four-day-old Parrot guest
+    passed the plan and died at the first fetch with a 404 (2026-09-03).
+    AHRL and 73Linux both run apt update unconditionally; so does this, by
+    default, disclosed in the dry run like every other command. The opt-out
+    is for a local mirror or a station with no uplink."""
+    _mock_apt(monkeypatch, populated=True)
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "git"])
+    out = capsys.readouterr().out
+    assert rc == EXIT_OK
+    assert "apt-get update" in out
+    assert out.index("apt-get update") < out.index("apt-get install")
+
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "--no-refresh", "git"])
+    out = capsys.readouterr().out
+    assert rc == EXIT_OK
+    assert "apt-get update" not in out
+    assert "apt-get install" in out
+
+
 def test_install_reads_the_running_kernel_and_refuses_ax25_tools_without_ax25(
     monkeypatch: pytest.MonkeyPatch, capsys: Any, tmp_path: Path
 ) -> None:
@@ -861,13 +899,16 @@ def test_install_reads_the_running_kernel_and_refuses_ax25_tools_without_ax25(
     assert "Nothing was changed" in err
 
 
-def test_install_refresh_on_empty_lists_is_plannable_through_main(
-    monkeypatch: pytest.MonkeyPatch, capsys: Any
+@pytest.mark.parametrize("flags", [(), ("--refresh",)])
+def test_install_on_empty_lists_is_plannable_through_main(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any, flags: tuple[str, ...]
 ) -> None:
-    """--refresh on a fresh machine must produce a plan, not the blocker that
-    tells you to pass the flag you just passed. End to end, the bug #1 shape."""
+    """A fresh machine must produce a plan, not the blocker that tells you to
+    pass a flag that is already on. End to end, the bug #1 shape; the
+    explicit --refresh spelling still parses after the default flipped
+    (D-044), so a documented example from before it does not break."""
     _mock_apt(monkeypatch, populated=False)
-    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "--refresh", "git"])
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", *flags, "git"])
     out = capsys.readouterr().out
     assert rc == EXIT_OK
     assert "apt-get update" in out  # the refresh command is in the plan
@@ -875,15 +916,16 @@ def test_install_refresh_on_empty_lists_is_plannable_through_main(
     assert "Dry run: nothing above was executed." in out
 
 
-def test_install_without_refresh_on_empty_lists_is_blocked_through_main(
+def test_install_no_refresh_on_empty_lists_is_blocked_through_main(
     monkeypatch: pytest.MonkeyPatch, capsys: Any
 ) -> None:
-    """The other side: no --refresh on empty lists is still a blocker."""
+    """The other side: --no-refresh on empty lists is still a blocker, and the
+    blocker names the flag to drop rather than one to add."""
     _mock_apt(monkeypatch, populated=False)
-    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "git"])
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "--no-refresh", "git"])
     err = capsys.readouterr().err
     assert rc == EXIT_UNPLANNABLE
-    assert "apt-get update" in err
+    assert "apt-get update" in err and "--no-refresh" in err
 
 
 def test_the_log_destination_is_disclosed_and_a_bad_owner_is_not_silent(

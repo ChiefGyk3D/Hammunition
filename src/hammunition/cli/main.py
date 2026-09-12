@@ -937,8 +937,9 @@ def stale_lists_diagnosis(failed: Command | Action, stderr: str) -> str | None:
         f"{len(missing)} file(s) the mirror no longer has ({shown}). The plan resolved "
         f"against those lists, so the catalog is not at fault, and apt downloads every "
         f"archive before unpacking any, so this command installed nothing. Refresh the "
-        f"lists and run the same install again: `sudo apt-get update`, or add --refresh "
-        f"to do it as the first step of the run."
+        f"lists and run the same install again: `sudo apt-get update`, or run without "
+        f"--no-refresh so the transaction's own refresh does it first. If the refresh "
+        f"did run, the mirror moved between the update and this fetch; run it again."
     )
 
 
@@ -1587,8 +1588,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_install.add_argument(
         "--refresh",
-        action="store_true",
-        help="run `apt-get update` as the first command of the transaction",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "run `apt-get update` as the first command of the transaction, when the "
+            "transaction has apt work (the default; D-044). --no-refresh skips it: a "
+            "local mirror, or a station with no uplink"
+        ),
     )
     p_install.add_argument(
         "--user",
