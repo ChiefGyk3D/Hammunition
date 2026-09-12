@@ -184,6 +184,44 @@ here, from the branch engine, all of it unprivileged:
 | Second round, from the launcher | The maintainer saw the tree and asked for three things: the name *Hammunition*, no general tools under it (git, VS Code), and a parity plan for GNOME, Xfce and COSMIC. Measured first: Parrot's own menu carries 71 RF entries under *Pentesting → Wireless Attacks*, 15 of them catalog units, and its KDE root has no `HamRadio` category at all. Then: *Workstation* declared `menu: false`; re-applied here — **7 groups shown, 26 categories, 9 generated entries**, the git, screen and tmux entries and the Workstation directory files **removed** by the pruning paths, the top entry now reads `Name=Hammunition`. GNOME's per-group folders are code and tests only until the Debian VM runs them; Xfce needs the Kali VM; COSMIC is unmeasured. |
 | By eye, second look | The operator's: open the Plasma launcher, find *Ham Radio → Station → Rig Control → CHIRP*, confirm *Lost & Found* has emptied of `hammunition-cli-*` entries, and type `tcpdump` into search. `rigctl` will find nothing until `libhamlib-utils` gets its `launchers` block, exactly as the summary says. |
 
+## Session 6, same day: the full catalog, installed
+
+The maintainer ran the whole thing himself: fifteen profiles in one
+transaction (everything but `editors`), then two resumes. Engine at the
+main of the moment for each run. Every number below is from the transaction
+log, dpkg, or the files on disk, not from the exit status.
+
+| Step | Result |
+|---|---|
+| `install <15 profiles>` (16:56) | Plan: **164 units, 267 commands, 32 source builds**, no blocker, morse included, rf-research consent given at the prompt. One apt step of **1027 .debs (965 MB)**, 1013 packages configured by 17:06 with no error, then 21 builds — and **a failure at paracon**: `[install-binary] /usr/local/bin/paracon: Permission denied`. The `executable` binary format copied the file in-process as the operator; every other install form went through sudo. Engine defect, fixed as #72 (the install now goes through a privileged `install -D`). 165 commands completed and recorded; nothing rolled back (D-004). |
+| Resume 1 (17:21, from the fix's worktree) | The remaining 11 builds plus the launcher-bearing units re-ran; paracon installed at mode 0755 through the fixed path. **Then a failure at the first virtualenv unit**, `radiosonde-auto-rx`: the engine spawned `<worktree>/.venv/bin/python3 -m venv` and that path no longer existed — the worktree had been removed after its PR merged, mid-transaction, by the assistant. Self-inflicted, and it produced #74: the venv backend now spawns the resolved interpreter (`/usr/bin/python3.13`), which the symlink pointed at all along. 118 commands completed. |
+| Resume 2 (18:20, from the main checkout, after a firmware reboot on the same `7.0.13+parrot7` kernel with AX.25 still present) | **Done. 234 commands completed and confirmed**; `transaction_end` `verified: true`, **33 effect checks, none unconfirmed**. On disk afterwards: 3 unit venvs (artemis, radiosonde-auto-rx, supersdr), 59 `hammunition-*` desktop entries, the operator in the `wireshark` group in the group database (applies at next login), and wsjtx, fldigi, js8call, proxmark3, linbpq and direwolf all on PATH. |
+| What was deferred | `linbpq`'s `/etc/bpq32.cfg`: the station has a callsign and grid but no node alias, so D-035 deferred that one file and installed the other 20 units of `packet`. `hammunition station set --node-alias …` and a re-run of `install linbpq` writes it. |
+| The cost of the two failures | 21 source and git builds ran **three times**. The engine knew "already installed" only for apt and, since #67, vendor .debs; a build had no such notion. That is D-051, written the same evening (#75). |
+| D-051 measured against this log | Dry run of the same fifteen profiles from the D-051 engine: **143 already installed, 21 will build**, 186 commands instead of 267. Of the 21: fourteen were built only in the two failed transactions, which never verified them — correct, they rebuild once more and then never again; seven were built and verified in resume 2 but **declare no `binaries` and no tree marker** (proxmark3, libacars, rtlsdr-airband, acarsdec, dumphfdl, dumpvdl2; openhamclock is a node unit and outside the rule by design), so the engine has no effect to check and cannot decide them. That is the same gap issue #27 named for verification, and the fix is catalog data: declare what those builds install. |
+| The menu after the install | 60 HamRadio-tagged entries on disk and, until `menus apply` was re-run, 42 of them sitting directly under *Hammunition* — placement happens at apply time and the last apply predated the install. After re-apply: 68 placed. The 20 left over were Parrot's per-tool `parrot-gnuradio-<tool>` entries, which the replacement rule did not cover; with #77, **90 entries placed 142 times, 47 generated, zero left at the top level**. The maintainer's "it's all just under Hammunition" was both of those things, and the second lesson is that an install should end by re-applying the menu (an open item). |
+| The read-only ladder after the reboot | doctor 11 ok / 0 / 0; `status` sees 249 packages; same kernel, AX.25 modules present. |
+
+## Session 7, same day: a launcher that called itself
+
+Found by the agent writing launchers for the units the menu could not
+guess (#82), before its own nine shipped the same defect: **a launcher
+wrapper named like its tool calls itself.** The wrapper lands at
+`~/.local/bin/<name>` and its command line names the tool bare;
+`~/.local/bin` is first on PATH here (Debian's `.profile`), so the
+wrapper resolves to itself and forks until the machine refuses. The six
+launchers merged the same afternoon (#71: rtl_test, rigctl, hackrf_info,
+ubertooth-util, nfc-list, cgps) all had it, and this page had never
+claimed a generated entry was opened by eye.
+
+| Step | Result |
+|---|---|
+| Exposure on this laptop | One wrapper on disk, `ubertooth-util`, written by the `rf-security` profile in the resume; the other five units were not in that run. `type -a rtl_test` resolved to `/bin/rtl_test`. So one menu entry was a fork bomb, and it had not been clicked. |
+| The fix (#82, engine commit) | A wrapper named like its tool takes its own directory out of PATH before the command; every other wrapper is byte-identical. Red on the unfixed engine, green after. |
+| Regenerated here | `install ubertooth` from the fixed engine: plan is exactly the two launcher steps, run unprivileged, wrapper rewritten with the PATH strip. |
+| Proven, not assumed | Run inside a systemd user scope with `TasksMax=48` (a plain `ulimit -u` cannot bound this: threads count and a desktop session already holds hundreds): the wrapper ran the real `ubertooth-util -v` exactly once — *could not open Ubertooth device*, no unit attached — printed the hold prompt, zero fork errors, no leftover processes once the scope stopped. |
+| Rule for the record | A wrapper never shares its tool's name without the PATH strip, and a launcher is not verified until it has been run once under a task ceiling. |
+
 ## Not yet run (this rung's remaining ladder)
 
 In order, and every one needs the operator at the keyboard for `sudo`:
