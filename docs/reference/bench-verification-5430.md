@@ -239,6 +239,23 @@ the full install, measured from the log and the disk rather than remembered.
 | The flaky orphan test, measured (#81) | `test_a_grandchild_holding_the_pipe_does_not_stall_the_lane` read the orphan's `/proc` state the instant the lane returned. The lane returns on pipe EOF, and the kernel closes a dying process's files before it marks the process a zombie. Under twelve busy threads on this i7: at that instant the orphan read Z 10 times, gone 19, X once, and **R 30 times** out of 60, every one a zombie or gone within 6.4 ms; the single read failed **21 of 40** runs, a bounded 2 s poll **0 of 40** (#88). The lane was never at fault. |
 | The weekly udev citation job | Found by the #86 agent's dispatched run: the job restated the sweep runner's podman line by hand and mounted only the script, so from the day the pair parser became a module (D-047) it died on import. Only the schedule runs it and the last schedule predated the split; tomorrow's would have been the first red. CI now calls the runner (#88), and the dispatched proof run passed that job on the first attempt. |
 
+## Session 9, into the small hours: the catalog answers back
+
+The engine could say what it installed; it could not say whether any of it
+was current. Every manifest has carried an `update` block since D-010 and
+nothing read it. This session is the two halves of D-053 written and
+measured here, and what the second half found the first time it ran.
+
+| Step | Result |
+|---|---|
+| `hammunition update` (#91, D-053) | Offline, 0.7 s, against the **171 units the log has ever named**: **145 up to date, 17 behind the catalog's pin, 2 unknown, 4 re-checked on install, 3 manual, 0 with a different apt candidate**; apt lists last refreshed 06:38 that morning, printed rather than refreshed. The 17 + 2 unknown + 2 manual-strategy builds are exactly the 21 units the same evening's fifteen-profile dry run planned to build, which is the consistency the command needs to be trusted. A default set that read only clean transaction endings showed 70 units and hid ninety this machine has, because the first full install failed after its apt step; the default is now every unit ever named, and the comparison looks at apt and the disk. |
+| The two unknowns, decided (#92) | `libacars` is a library: its install rule leaves a `.so`, a symlink and a pkg-config file and no executable, so nothing could be checked. `installed_files` names them; `fl-moxgen`'s Makefile installs `fl_moxgen`, declared in `binaries`. Both read off this disk. `update libacars fl-moxgen` then reads *behind the pin* for both, which is right: they were built before the manifests declared anything, and they build once more and are attributed from then on. |
+| `update --upstream` (#94) | Opt-in and the only network the report uses. **25 probes answered in 7.5 s, none unanswered**: 11 GitHub latest-release tags, 13 `git ls-remote` tag lists (the highest by numeric parts; LinBPQ has 112 tags), one PyPI JSON, YAAC's one-line label compared verbatim. **22 current, 3 with a newer upstream**: hamclock-next 1.5 → 1.6, linbpq 25.39 → 25.40, openhamclock 26.7.0 → 26.7.3. Issue #95. |
+| openhamclock re-pinned and installed (#97) | The loopback-bind patch's hunk moved three lines and applies. Installed through the engine from the branch, **unprivileged** (nodejs and npm already here): 12 commands confirmed in 32 s. Server started from its wrapper: HTTP 200 on `localhost:3001`, `/proc/net/tcp6` shows one listener on `::1` and nothing on `0.0.0.0`. The patch holds at 26.7.3. |
+| hamclock-next 1.6 built (#97) | The CMake alias patch applies at the same lines; regenerated exact from the 1.6 tree. `cmake` + `make -j8` on the patched tree: exit 0, 21 MB binary, starts. **Not installed**: `cmake --install` into `/usr/local` is the operator's sudo. |
+| linbpq 25.40, and the finding (#96, #97) | The tag compiles clean and then the makefile's `linbpq` target runs **`sudo setcap`** for three capabilities, in 25.39 as well. The engine never printed it, and session 6's build passed only because the apt step had just warmed this operator's sudo timestamp. Outside a warm timestamp: `sudo: a terminal is required`, `make: Error 1`, binary already linked. Git blocks may now carry `patches`; linbpq's deletes the line, `known_problems` names the ports that need the capabilities and the one `setcap` to grant them. With the patch: `make -j8` exits 0, no sudo. The 25.40 binary still prints `6.0.25.39`; upstream's version string lags its tag. |
+| The Parrot mirror, four times (#93) | Between 23:30 and 00:40 the target container build for CI's `parrot` job failed four times on `deb.parrot.sh` 404s: the index named `python3.13 3.13.5-2+deb13u4` and the pool no longer had it, from two mirror addresses, each green on a plain re-run. The Dockerfile's apt steps now retry up to three times a minute apart, clearing the lists between attempts; a package that really is missing still fails three times. Driven locally with a fake `apt-get` before it went to CI. |
+
 ## Not yet run (this rung's remaining ladder)
 
 In order, and every one needs the operator at the keyboard for `sudo`:
@@ -260,18 +277,22 @@ In order, and every one needs the operator at the keyboard for `sudo`:
    the path). The units are installed (session 6); nothing has been opened
    against a radio.
 4. Time the three `packet` source builds (ardopcf, linbpq, qtsoundmodem)
-   on the i7, on battery and on AC. They built once in session 6, untimed,
-   and D-051 will skip them now; `--force` or a cleared prefix is needed to
-   measure. And `station set --node-alias …` then `install linbpq` to write
-   the one deferred file.
+   on the i7, on battery and on AC. They built once in session 6, untimed;
+   linbpq rebuilds at 25.40 regardless (session 9), ardopcf and
+   qtsoundmodem need `--force` or a cleared prefix to measure. And
+   `station set --node-alias …` then `install linbpq` to write the one
+   deferred file. `install hamclock-next` at 1.6 is the same shape: built
+   here, not installed, one sudo away.
 5. `uninstall` for real, `station` first, then `rf-security` and `packet`,
    against the dry runs in session 8: the two apt removals, the eight and
    nine artifacts, and the seven Parrot preinstalls that must still be
    there afterwards.
-6. A second full-profile run to attribute the 21 remaining builds under
-   D-051, then a third that plans none of them. The second is the one that
-   proves the rule; the first re-measurement (session 8) could only show
-   why the count had not moved yet.
+6. A second full-profile run to attribute the 19 remaining builds under
+   D-051 (21 in session 8, less openhamclock re-installed and attributed in
+   session 9, less libacars now decidable), then a third that plans none
+   of them. The second is the one that proves the rule; `hammunition
+   update` afterwards should read them all *up to date* and is the cheaper
+   check than a dry run.
 7. The GPS and WWAN questions, once the modules exist: the catalog's
    `gps-receiver` class is USB-serial (`/dev/serial/by-id/`); an internal
    GNSS on a WWAN card usually surfaces through ModemManager's location API
