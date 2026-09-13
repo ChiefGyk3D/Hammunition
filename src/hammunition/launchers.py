@@ -150,11 +150,16 @@ def wrapper_body(
         # point, and a window that closes the instant `hackrf_info` exits
         # shows the operator nothing. Parrot's own tool menu keeps the
         # window; so does this. The schema refuses `exec ...` on a terminal
-        # launcher, or these lines would never run.
+        # launcher, or these lines would never run. The wrapper then exits
+        # with the tool's status, not `read`'s: without a keyboard (the
+        # headless GUI smoke lane, 2026-09-12) `read` fails at end-of-input,
+        # and a wrapper ending there reported rc=1 for an st-info that had
+        # printed "[exit 0]".
         lines += [
             "status=$?",
             "printf '\\n[exit %s] press Enter to close ' \"$status\"",
             "read _",
+            'exit "$status"',
         ]
     return "\n".join(lines) + "\n"
 
