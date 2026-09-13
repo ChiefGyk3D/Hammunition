@@ -243,9 +243,9 @@ jobs:
           python-version: "3.11"
       - run: pip install -e ".[dev]"
       - name: Sweep every udev rule in the archive
-        run: |
-          mkdir -p reference/probes
-          podman run --rm -v "$PWD/scripts/udev-sweep.sh":/sweep.sh:ro debian:13 \
-            bash /sweep.sh > reference/probes/udev-debian-13.tsv
-          wc -l reference/probes/udev-debian-13.tsv
+        # The same runner a developer uses, so the mounts the sweep needs
+        # (the script and its parser module) live in one place. A hand-written
+        # podman line here fell behind when the parser became a module and the
+        # job died on import, unnoticed because only the schedule runs it.
+        run: scripts/run-udev-sweep.sh debian-13
       - run: python scripts/check_rule_citations.py
