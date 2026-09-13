@@ -1360,8 +1360,10 @@ def refresh_menus_after_install(catalog_root: Path) -> list[str]:
         decorate_entries,
         load_vocabulary,
         menu_steps,
+        missing_launcher_steps,
         place_installed_entries,
         refresh_command,
+        refresh_launcher_entries,
         resolve_menu_prefix,
     )
 
@@ -1386,7 +1388,7 @@ def refresh_menus_after_install(catalog_root: Path) -> list[str]:
         hidden=hidden,
         built_applications_dir=LOCAL_APPLICATIONS_DIR,
     )
-    generated = cli_entries(manifests.values(), placement, hidden=hidden)
+    generated = cli_entries(manifests.values(), placement, hidden=hidden, prefix=DEFAULT_PREFIX)
     paths = MenuPaths(
         menus_dir=config_home / "menus", directories_dir=data_home / "desktop-directories"
     )
@@ -1399,6 +1401,13 @@ def refresh_menus_after_install(catalog_root: Path) -> list[str]:
         groups=vocabulary.groups,
     )
     steps += cli_entry_steps(generated, applications, vocabulary.icons)
+    steps += missing_launcher_steps(
+        manifests.values(),
+        bin_dir=user_bin_dir(None),
+        applications_dir=applications,
+        prefix=DEFAULT_PREFIX,
+    )
+    steps += refresh_launcher_entries(manifests.values(), applications)
     steps += decorate_entries(applications, vocabulary.icons)
     for step in steps:
         step.perform()
@@ -1426,9 +1435,11 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
         gnome_commands,
         load_vocabulary,
         menu_steps,
+        missing_launcher_steps,
         place_installed_entries,
         placement_summary,
         refresh_command,
+        refresh_launcher_entries,
         resolve_menu_prefix,
     )
 
@@ -1445,7 +1456,7 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
     )
     # D-050: every installed unit findable. Generated per user, beside the
     # launchers, from what dpkg says is on this machine's path.
-    generated = cli_entries(manifests.values(), placement, hidden=hidden)
+    generated = cli_entries(manifests.values(), placement, hidden=hidden, prefix=DEFAULT_PREFIX)
 
     home = Path.home()
     paths = MenuPaths(
@@ -1467,7 +1478,17 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
     steps.extend(
         cli_entry_steps(generated, paths.directories_dir.parent / "applications", vocabulary.icons)
     )
-    steps.extend(decorate_entries(paths.directories_dir.parent / "applications", vocabulary.icons))
+    applications = paths.directories_dir.parent / "applications"
+    steps.extend(
+        missing_launcher_steps(
+            manifests.values(),
+            bin_dir=user_bin_dir(None),
+            applications_dir=applications,
+            prefix=DEFAULT_PREFIX,
+        )
+    )
+    steps.extend(refresh_launcher_entries(manifests.values(), applications))
+    steps.extend(decorate_entries(applications, vocabulary.icons))
 
     desktop = os.environ.get("XDG_CURRENT_DESKTOP", "")
     wants_gnome = "GNOME" in desktop.upper() or args.gnome
