@@ -74,6 +74,7 @@ disappears; until then, it is the one manual step a bare Debian needs.
 | Command | What it does | Needs root |
 |---|---|---|
 | `hammunition status` | What this machine is, and what has been done to it | no |
+| `hammunition update [NAME...]` | Installed versus the catalog, as a report; nothing runs and nothing is fetched | no |
 | `hammunition list [packages\|profiles]` | Everything in the catalog, with each package's method **on this machine** | no |
 | `hammunition show PROFILE` | A profile's docs, package list, and any consent disclosure | no |
 | `hammunition install NAME... --dry-run` | The complete plan, changing nothing | no |
