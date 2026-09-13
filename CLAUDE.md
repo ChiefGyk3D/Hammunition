@@ -474,7 +474,7 @@ catalog/
     classes/       # device families with shared Linux needs ✅ 5
     devices/       # one YAML per device                     ✅ 24
 src/hammunition/
-  cli/             # argparse entry points; install/list/status/show ✅
+  cli/             # install/uninstall/update/list/status/show/doctor/hardware/menus/station ✅
   manifest/        # schema, loader, validation              ✅
     hardware.py    # device catalog schema (D-020)           ✅
   consent/         # affirmative consent gates (D-021)       ✅
@@ -486,22 +486,21 @@ src/hammunition/
   fetch.py         # verified download, mandatory sha256          ✅
   paths.py         # owner-aware XDG dirs (log, cache, build)     ✅
   distro/          # /etc/os-release detection               ✅
-  hardware/        # USB/serial detection, udev generation   ✅ written; not hardware-verified
+  hardware/        # USB/serial detection, udev generation   ✅ rules applied on the field laptop; attached-device ladder not yet run
 docs/              # "Hacker's Ham Shack" — guides and labs (section title, not a brand)
   contributing/    # how to contribute; hardware.md is the live ask   ✅
   reference/cli.md # the CLI reference                       ✅
 tests/
 ```
 
-Ticks mark what exists. **M1's walking skeleton runs** — detect, resolve, print,
-install, log — and **M3 has begun**: the verified fetcher and the
-source-from-tarball and source-from-git backends are written, so `source` and
-`git` manifests now plan and build end to end, and binary, venv and node
-followed. What it cannot do it still refuses by name: pipx and templated config
-files are measured, named and absent. Do not let this read as a
-working installer: **57 of AHRL's 95 units cannot be satisfied by apt**, and
-while source-from-tarball is the largest single slice of that 57 (35 units), the
-rest of the 60% is still the hard part (**D-004**).
+Ticks mark what exists. Every backend 1.0 needs is written and VM-verified,
+`uninstall` reverses all of them, and the whole catalog installed on the field
+laptop with every effect confirmed (2026-09-12). What is still refused by name
+is refused on purpose: AppImage and a Wine prefix are post-1.0 (SCOPE.md), and
+pipx and CPAN were measured at zero users. **57 of AHRL's 95 units cannot be
+satisfied by apt** (D-004); that 60% is what the seven backends exist for, and
+they cover it. What separates this from a 1.0 tag is verification and one
+decision, listed with owners in `docs/reference/release-1.0-checklist.md`.
 
 ## Closed questions
 
@@ -582,10 +581,9 @@ exists, document the gap rather than carry a fork we cannot sustain.
 VARA and HAMRS are post-1.0. Novel capability (RF security, mesh) layers on top,
 never substitutes.
 
-**M1 — walking skeleton. ✅ It runs.** `hammunition install <profile> --dry-run`
+**M1 — walking skeleton. ✅ Complete.** `hammunition install <profile> --dry-run`
 resolves the whole transaction and prints every command; without `--dry-run` it
-installs. Remaining M1 gap is the starter profile's name and contents, which
-`docs/reference/profile-sizing.md` still has awaiting the maintainer.
+installs. The starter profile question closed as `station` (16 profiles ship).
 - Manifest schema + validator ✅
 - apt backend ✅ — with real resolution: `depends` goes through
   `apt-cache policy`, which is what D-016's four suspected-stale AHRL
@@ -593,11 +591,6 @@ installs. Remaining M1 gap is the starter profile's name and contents, which
   in M3; see below
 - `/etc/os-release` detection ✅ — shared with `scripts/capability_matrix.py`
   rather than duplicated, so `--check` verifies the parser the engine uses
-- the starter profile is the last M1 item and is **awaiting the maintainer**:
-  named `ham-core` when M1 was written, `docs/reference/profile-sizing.md`
-  proposes **`station`** instead and a four-way split. The catalog it would
-  draw on is no longer the constraint — 247 manifests exist where M1 planned
-  about twenty
 - `install`, `list`, `status`, `show`, `--dry-run` ✅
 - Container test harness for Parrot and Debian ✅
 
@@ -671,14 +664,17 @@ prefix are **post-1.0**, required by HAMRS and VARA respectively. `snap` appears
 11 times and is an **anti-dependency** — every occurrence is removal — so it
 belongs in `system_modifications`, never as a backend.
 
-**M4 — profiles and hardware.** Full profile set. udev rules, group membership,
-firmware. Persistent device symlinks.
+**M4 — profiles and hardware. ✅ Profiles complete; hardware applied, not yet
+exercised.** All 12 profiles of the 1.0 set plus 4 post-1.0 ship, every member
+installable and asserted by test. udev rules and group membership are generated
+from the hardware catalog and were applied on the field laptop, byte-identical to
+the catalog's set; the ladder against attached devices is the open item, and
+D-029 says what the hardware role actually is.
 
-**M5 — parity verified.** Every unit either **installs successfully on at least
-one supported distro**, or carries a `broken`/`retired` status **verified by us**
-— never inherited from an AHRL shell comment. Re-attempt `ardop`,
-`radiosonde_auto_rx`, and the compiler-flag-fragile set before accepting any
-verdict, and record what was tested: date, version, distro, actual failure.
+**M5 — parity verified. ✅ Met on six VMs** (`docs/reference/m5-parity-verified.md`):
+every unit either installs on at least one supported distro or carries a verdict
+tested here, never inherited, with zero hard install failures across the whole
+catalog on Parrot, Kali, Debian 13, Ubuntu 24.04, Ubuntu 26.04 and Pop!_OS 24.04.
 
 **Exit criterion: our install-success fraction must be at least as good as
 AHRL's own.** AHRL ships 95 units with 9 disabled. Shipping 95 manifests with 40

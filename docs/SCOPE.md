@@ -256,6 +256,8 @@ Ordered by coverage-per-effort, not by source.
 9. **Trunked and digital-voice listening** — post-1.0, receive-only; see below
 10. **Repeater and hotspot** — post-1.0, transmit infrastructure; waits on
     station config; see below
+11. **Mesh and Reticulum** — post-1.0; a vibrant, varied ecosystem is the
+    goal, not two clients; see below
 
 **1.0 = stages 1 through 6.** That is already more coverage than any single
 existing project, and it is achievable. Stages 7 through 10 are where "one stop
@@ -394,3 +396,34 @@ already ships, profiles that already exist, and no dependency on station
 config. Track B's SvxLink sub-stack is one `config_files` block away once
 D-004's station config lands; ASL3 is a D-040 manifest; the G4KLX suite is
 last, because it needs the pin decision and hardware nobody here owns yet.
+
+### Track C — mesh and Reticulum (stage 11)
+
+Asked for by the maintainer on 2026-09-13: "Reticulum, Meshtastic, MeshCore
+and the rest aren't included; we want an extremely vibrant and varied
+Reticulum ecosystem and apps available to get people diving in." Today the
+catalog carries two Meshtastic units (`python3-meshtastic`,
+`gtk-meshtastic-client`) under the `mesh` tag and nothing of Reticulum or
+MeshCore; `reticulum-meshchat` is dispositioned ADD (post-1.0) and waits on
+the AppImage backend. The track is receive-and-mesh, not repeater
+infrastructure, so it does not wait on station config; it waits on
+measurement, and on 1.0 shipping first.
+
+What a vibrant ecosystem means here, each a unit with a measured pin:
+
+- **Reticulum** — the stack (`rns`) and its daemon, LXMF, Nomad Network,
+  Sideband, MeshChat, the RNode firmware flasher, and the transports that
+  make it interesting on radio: LoRa through RNode, packet through a KISS
+  TNC, and the interfaces that ride on the rest of this catalog.
+- **Meshtastic** — `meshtasticd` for a Linux node with a LoRa HAT (never
+  in Debian; the openSUSE OBS repository is the D-040 case with a
+  fingerprint to pin), the web client, the flashers, and the existing CLI
+  and GTK client.
+- **MeshCore** — the companion clients, the web flasher's firmware pins,
+  and whatever the board definitions the LoRa sweep already reads turn out
+  to need (`docs/reference/lora-inventory.md`: 107 boards, 26 identifiers).
+
+Every one of these is installable per-user (venv, node, AppImage post-1.0)
+or through a pinned repository, which is why the track can be cheap; what it
+must not do is arrive as a list of names. A `mesh` profile ships when its
+units have run against a node on the bench, and the tracking issue is #105.
