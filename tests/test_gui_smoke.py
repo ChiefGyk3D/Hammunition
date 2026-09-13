@@ -142,12 +142,29 @@ def _orphan_holding_the_pipe(prefix: str = "") -> list[str]:
 
 def _alive(pid: int) -> bool:
     # A killed orphan is a zombie until PID 1 reaps it, and kill(pid, 0) still
-    # succeeds on a zombie; read the state rather than race the reaper.
+    # succeeds on a zombie; read the state rather than race the reaper. X is
+    # the state between zombie and gone.
     try:
         state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
     except OSError:
         return False
-    return state != "Z"
+    return state not in ("Z", "X")
+
+
+def _dies_within(pid: int, grace: float) -> bool:
+    # The lane returns on EOF, and the kernel closes a dying process's files
+    # before it marks the process a zombie, so the instant the pipe closes the
+    # orphan can still read as R. Measured on the field laptop under a
+    # twelve-thread load, 2026-09-12: 30 of 60 runs saw R for up to 6 ms
+    # after run_bounded returned, every one a zombie or gone within 7 ms;
+    # reading once lost 21 of 40 runs (#81). A bounded poll is the honest
+    # assertion: the orphan must die because of the deadline, not by it.
+    end = time.monotonic() + grace
+    while time.monotonic() < end:
+        if not _alive(pid):
+            return True
+        time.sleep(0.005)
+    return not _alive(pid)
 
 
 def test_a_grandchild_holding_the_pipe_does_not_stall_the_lane(smoke: ModuleType) -> None:
@@ -158,7 +175,7 @@ def test_a_grandchild_holding_the_pipe_does_not_stall_the_lane(smoke: ModuleType
     try:
         assert rc == 0
         assert elapsed < 10, f"lane waited {elapsed:.0f}s on an orphan's pipe"
-        assert not _alive(orphan), "the orphan survived the lane's deadline"
+        assert _dies_within(orphan, 2.0), "the orphan survived the lane's deadline"
     finally:
         with contextlib.suppress(ProcessLookupError):
             os.kill(orphan, signal.SIGKILL)
