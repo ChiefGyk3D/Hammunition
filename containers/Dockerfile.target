@@ -36,17 +36,39 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PYTHONDONTWRITEBYTECODE=1
 
+# `apt_step` runs `apt-get update` and one install, and retries the pair up
+# to three times a minute apart. The retry is for one measured failure and
+# nothing else: deb.parrot.sh served a Packages index naming python3.13
+# builds its pool no longer had, so update succeeded and install 404'd --
+# four times in two hours on 2026-09-12/13 (runs 34725601481, 34726708880,
+# 34727268076, 34728009036), every one green on a plain re-run minutes
+# later. A mirror mid-sync is a transient; a package that really is missing
+# still fails three times and the build still fails. The lists are removed
+# between attempts so the next update fetches the resynced index rather
+# than trusting the stale one.
+RUN printf '%s\n' \
+      '#!/bin/sh' \
+      'set -eu' \
+      'attempt=1' \
+      'while :; do' \
+      '  if apt-get -o APT::Sandbox::User="${APT_SANDBOX_USER:-_apt}" update \' \
+      '     && apt-get -o APT::Sandbox::User="${APT_SANDBOX_USER:-_apt}" install -y "$@"; then' \
+      '    rm -rf /var/lib/apt/lists/*; exit 0' \
+      '  fi' \
+      '  rm -rf /var/lib/apt/lists/*' \
+      '  if [ "$attempt" -ge 3 ]; then echo "apt_step: failed $attempt times" >&2; exit 1; fi' \
+      '  echo "apt_step: attempt $attempt failed; the mirror may be mid-sync, retrying in 60s" >&2' \
+      '  attempt=$((attempt + 1)); sleep 60' \
+      'done' > /usr/local/bin/apt_step \
+ && chmod 0755 /usr/local/bin/apt_step
+
 RUN if [ -n "${IDENTITY_PACKAGE}" ]; then \
-      apt-get -o APT::Sandbox::User=${APT_SANDBOX_USER} update \
-   && apt-get -o APT::Sandbox::User=${APT_SANDBOX_USER} install -y --allow-downgrades "${IDENTITY_PACKAGE}" \
-   && rm -rf /var/lib/apt/lists/*; \
+      apt_step --allow-downgrades "${IDENTITY_PACKAGE}"; \
     fi
 
 # python3-venv gives us a vendored virtualenv; we never touch system site-packages.
-RUN apt-get -o APT::Sandbox::User=${APT_SANDBOX_USER} update \
- && apt-get -o APT::Sandbox::User=${APT_SANDBOX_USER} install -y --no-install-recommends \
-      python3 python3-venv python3-pip ca-certificates apt-utils \
- && rm -rf /var/lib/apt/lists/*
+RUN apt_step --no-install-recommends \
+      python3 python3-venv python3-pip ca-certificates apt-utils
 
 # Vendored virtualenv, exactly as the shipped .deb will do (DESIGN.md §5).
 RUN python3 -m venv /opt/hammunition-venv
