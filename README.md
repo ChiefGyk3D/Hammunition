@@ -24,13 +24,20 @@ installs the engine in one command; `hammunition doctor` reports what is ready;
 `hammunition hardware` detects your radios and applies the udev rules and
 group membership they need; `hammunition update` reports what is installed
 against the catalog and, with `--upstream`, the catalog against what
-upstream publishes; launchers and curated desktop menus generate for
-Xfce and GNOME. What remains for 1.0: the Pop!_OS declaration decision now
-that its VM has run, COSMIC menus, real-hardware checks on the bench (the
-field target is a Dell Latitude 5430 Rugged; [its first session](docs/reference/bench-verification-5430.md)
-ran the read-only ladder and then the whole catalog: 164 units, verified, on 2026-09-12 — the attached-hardware ladder is what remains there), what a
-packet station means on a kernel without AX.25 (D-041), and release
-engineering — the first signed tag waits on a key that does not exist yet.
+upstream publishes; launchers and a curated desktop menu generate from the
+catalog — eight activity groups, 55 submenus named for the thing a person
+looks for, a toolkit nested as one line, every generated entry titled by
+what it does (D-050, D-054, D-055) — measured on the field laptop's KDE
+Plasma, written for Xfce through the menu spec and for GNOME through its
+app-folders, and not yet looked at on either of those desktops since the
+rebuild. **What remains for 1.0** is listed with owners in
+[the 1.0 checklist](docs/reference/release-1.0-checklist.md): the Pop!_OS
+declaration decision, the rebuilt menu seen on GNOME, Xfce and COSMIC,
+the attached-hardware ladder on the bench (the field target is a Dell
+Latitude 5430 Rugged; [nine sessions](docs/reference/bench-verification-5430.md)
+have run there, the whole catalog installed and verified, the radios not
+yet plugged in), and a signing key — the first signed tag waits on one
+that does not exist yet.
 
 Being honest about this up front matters more than looking finished, so here is
 exactly where things stand:
@@ -54,7 +61,7 @@ exactly where things stand:
 | Builds from a pinned git revision, with the pin verified after checkout | ✅ working |
 | Prebuilt binaries: `.deb`, tarball, zip, executable | ✅ working — `.deb` through apt, never `dpkg -i` |
 | Per-user venv installs, hash-pinned end to end (`--require-hashes`) | ✅ working — not1mm and NanoVNASaver run from them |
-| Launcher + desktop-entry generation from manifests (D-036) | ✅ working — 24 units carry launchers; terminal launchers hold their window; a wrapper never shadows its own tool (found and fixed 2026-09-12) |
+| Launcher + desktop-entry generation from manifests (D-036) | ✅ working — 26 units carry launchers; terminal launchers hold their window; a wrapper never shadows its own tool (found and fixed 2026-09-12) |
 | Idempotent re-runs for builds (D-051) | ✅ a source, git or prebuilt unit already installed at its pin is skipped; measured on the field laptop: 143 of 165 units plan nothing on a re-run |
 | AppImage backend | ❌ post-1.0 (SCOPE.md) — refused by name |
 | pipx / CPAN backends | ⚪ re-measured to **zero users** and dropped from 1.0 (D-014 amendment) |
@@ -64,7 +71,8 @@ exactly where things stand:
 | `uninstall` | ✅ working — reverses apt, venv, binary, .deb, trees and launchers; marker-verified, VM-proven; a real `make install` is refused by name |
 | End-to-end VM verification (install / configure / remove) | ✅ Parrot, Kali, Debian 13, Ubuntu 24.04, Ubuntu 26.04, and [Pop!_OS 24.04](docs/reference/vm-campaign-pop.md) as an undeclared target |
 | M5 install-success across the full catalog, six targets | ✅ **zero hard failures**; every unit installs on ≥1 target or is refused with a reason |
-| Curated desktop menus (Xfce/KDE menu-spec + GNOME app-folders) | ✅ Parrot's shape (D-050): *Hammunition*, seven ordered groups (Workstation hidden — git and VS Code are not radio), one submenu per category, and a generated entry for every installed radio unit that ships none; measured on the field laptop's Plasma 2026-09-12; GNOME's per-group folders written and awaiting the Debian VM; Xfce awaiting a Kali re-run; COSMIC unmeasured — the Pop VM exists now, its desktop has not been looked at |
+| Curated desktop menus (Xfce/KDE menu-spec + GNOME app-folders) | ✅ *Hammunition*, eight activity groups in a newcomer's reading order, 55 submenus named for the thing a person looks for, a toolkit unit nested as one line (GNU Radio's 21 entries), a titled entry for every installed unit that ships none, and a source build's own entry placed from the local prefix (D-050, D-054, D-055); measured on the field laptop's Plasma 2026-09-13: 108 entries placed, largest submenu 11; GNOME's eight folders written and read back from gsettings on the same machine; Xfce and COSMIC not yet looked at since the rebuild |
+| `update` and `update --upstream` (D-053) | ✅ installed against the catalog offline, the catalog against upstream on request; measured on the field laptop: 171 units in 0.7 s, 25 upstream probes in 7.5 s, three pins found behind and re-pinned the same night |
 | Profile companion offers (mail client, serial terminal) | ✅ detect → respect → offer, never silent |
 | Getting-started, profile, troubleshooting docs | ✅ written and generated |
 
@@ -316,6 +324,7 @@ catalog and the measurements, so they cannot say what the code does not.
 | [`docs/reference/device-naming.md`](docs/reference/device-naming.md) | What `/dev/serial/by-id/` already covers, and the 19 of 23 devices where it does not |
 | [`docs/contributing/hardware.md`](docs/contributing/hardware.md) | How to send one, and what we do and don't store |
 | [`docs/reference/bench-verification-5430.md`](docs/reference/bench-verification-5430.md) | What has run on the field target itself, a Dell Latitude 5430 Rugged, and what has not |
+| [`docs/reference/release-1.0-checklist.md`](docs/reference/release-1.0-checklist.md) | What stands between here and a 1.0 tag, each item with its owner and its measurement |
 | [`docs/contributing/releasing.md`](docs/contributing/releasing.md) | How a release is cut and signed, and why v0.7.0 is not |
 
 The user-facing documentation site is *Hacker's Ham Shack*. Its standard: a
