@@ -8,9 +8,9 @@ targeting Debian, Ubuntu, Kali, Linux Mint and Raspberry Pi OS.
 
 ---
 
-## ⚠️ Alpha — it installs, configures and removes; the hard 40% is still ahead
+## Beta, v0.9.0 — feature-complete for 1.0; what remains is verification on the bench
 
-**Status: alpha, v0.7.0 — ready to deploy and shake out.** The core cycle —
+**Status: beta, v0.9.0 — every 1.0 stage is in the catalog; the 0.1 that is missing is measured, not written.** The core cycle —
 resolve, disclose, install, configure, verify, remove — runs end to end and is
 **VM-verified on Parrot, Kali, Debian 13, Ubuntu 24.04, Ubuntu 26.04 and
 Pop!_OS 24.04**, with **zero hard install failures across the whole catalog on
@@ -76,14 +76,15 @@ exactly where things stand:
 | Profile companion offers (mail client, serial terminal) | ✅ detect → respect → offer, never silent |
 | Getting-started, profile, troubleshooting docs | ✅ written and generated |
 
-**Much of the catalog is still out of reach.** Of AHRL's 95 units, **57 cannot
-be satisfied by apt at all** — that missing 60% is the hard part and is precisely
-what users cannot install themselves, which is the reason the project exists. The
-source, git, prebuilt-binary, venv and node backends now cover it; what
-remains out of reach is AppImage and a configured Wine prefix, both post-1.0
-and each refused by name. If you want a working ham radio Linux setup today,
-use one of the projects in [Credit](#credit) below — they work now, and this
-project exists because of them, not instead of them.
+**The hard part is covered.** Of AHRL's 95 units, **57 cannot be satisfied
+by apt at all** — that 60% is precisely what users cannot install themselves,
+which is the reason the project exists — and the source, git, prebuilt-binary,
+venv and node backends now cover it, verified on six VMs and on the field
+target. What remains out of reach is AppImage and a configured Wine prefix,
+both post-1.0 and each refused by name. Until the bench ladder has run against
+attached radios ([the checklist](docs/reference/release-1.0-checklist.md)),
+the projects in [Credit](#credit) below are the ones with years of field use
+behind them; this project exists because of them, not instead of them.
 
 What it does do, it does completely: `--dry-run` prints every command and every
 system change before anything happens, resolution finishes before installation
@@ -302,8 +303,8 @@ requirements, not aspirations:
   release key with the dates it was trusted. Check that file against
   `https://api.github.com/users/ChiefGyk3D/ssh_signing_keys` before trusting
   it; [`docs/contributing/releasing.md`](docs/contributing/releasing.md) is
-  the procedure. **No key exists yet**: `v0.7.0` is annotated and unsigned,
-  and the file says so.
+  the procedure. **No key exists yet**: `v0.7.0` and `v0.9.0` are annotated
+  and unsigned, and the file says so; the first signed tag is 1.0.
 
 ---
 
@@ -326,7 +327,7 @@ catalog and the measurements, so they cannot say what the code does not.
 | [`docs/reference/bench-verification-5430.md`](docs/reference/bench-verification-5430.md) | What has run on the field target itself, a Dell Latitude 5430 Rugged, and what has not |
 | [`docs/reference/release-1.0-checklist.md`](docs/reference/release-1.0-checklist.md) | What stands between here and a 1.0 tag, each item with its owner and its measurement |
 | [`CHANGELOG.md`](CHANGELOG.md) | One entry per release, from the merged pull requests, each line naming the decision it rests on |
-| [`docs/contributing/releasing.md`](docs/contributing/releasing.md) | How a release is cut and signed, and why v0.7.0 is not |
+| [`docs/contributing/releasing.md`](docs/contributing/releasing.md) | How a release is cut and signed, and why v0.7.0 and v0.9.0 are not |
 
 The user-facing documentation site is *Hacker's Ham Shack*. Its standard: a
 licensed ham with moderate Linux experience should get from a fresh install to a

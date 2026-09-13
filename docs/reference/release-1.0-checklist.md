@@ -36,7 +36,7 @@ them need either the maintainer's hardware or the maintainer's key.
 | 5 | **A signing key.** `releasing.md` documents SSH-signed tags and `.github/allowed_signers`; no key exists | maintainer generates it (nobody else may) | the first signed tag is 1.0 |
 | 6 | **The second full-profile run on the field target**, which attributes the 19 builds D-051 cannot yet decide, then `hammunition update` reads them all up to date | maintainer (sudo) | ladder item 6 on the bench page |
 | 7 | **Real uninstalls on the field target**: `station`, `rf-security`, `packet`, against their dry runs | maintainer (sudo) | ladder item 5 on the bench page |
-| 8 | **Version and tag.** `pyproject.toml` says 0.7.0; the README says alpha | this repository, last | bump, changelog from the merged PRs, annotated and signed tag |
+| 8 | **Version and tag.** 0.9.0 (beta) is the version on `main` from 2026-09-13, with its changelog entry; the 1.0 bump and the first signed tag come last | this repository, last | bump to 1.0.0, changelog entry, annotated and signed tag |
 
 Issues open and not blocking: #96 (a declared capability step for linbpq;
 route 1 shipped in #97), #76 (the wiki, post-1.0), #105 (the mesh and
