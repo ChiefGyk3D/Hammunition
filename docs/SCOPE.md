@@ -258,6 +258,9 @@ Ordered by coverage-per-effort, not by source.
     station config; see below
 11. **Mesh and Reticulum** — post-1.0; a vibrant, varied ecosystem is the
     goal, not two clients; see below
+12. **COSMIC desktop menus** — post-1.0; D-036's third mechanism, unmeasured
+    on the Pop!_OS 24.04 VM that exists for it; the menu-spec tree and the
+    GNOME folders are the 1.0 desktops (proposed 2026-09-13, checklist item 3)
 
 **1.0 = stages 1 through 6.** That is already more coverage than any single
 existing project, and it is achievable. Stages 7 through 10 are where "one stop
