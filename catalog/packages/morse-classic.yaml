@@ -18,8 +18,9 @@ categories: [cw, training]
 # On a PipeWire desktop apt resolves that by removing pipewire-alsa (measured:
 # `apt-get install -s morse` on Parrot 7.3 + KDE, 2026-09-12, #61). Declared
 # so the plan names this unit as the reason rather than the whole
-# transaction; the engine never removes it (D-022). Not a member of the
-# `morse` profile for the same reason.
+# transaction; the engine never removes it (D-022). With Recommends off
+# (below, D-052) the conflict never arises in practice, and the unit is a
+# member of the `morse` profile again.
 conflicts_with_repo_package: [pipewire-alsa]
 
 install:
