@@ -9,11 +9,18 @@ One entry per release, written from the merged pull requests, each line
 naming the PR and the decision it rests on. Decisions are authoritative in
 `docs/DECISIONS.md`; this file is the map from a version to them.
 
-## Unreleased — the road to 1.0 (since v0.7.0, 2026-09-02)
+## Unreleased
 
-79 pull requests merged between 2026-09-02 and 2026-09-13. What separates
-this from the 1.0 tag is listed with owners in
-`docs/reference/release-1.0-checklist.md`.
+Nothing yet.
+
+## v0.9.0 — 2026-09-13 — beta: feature-complete for 1.0, verification remains
+
+79 pull requests merged between 2026-09-02 and 2026-09-13. Every 1.0 stage
+of SCOPE.md is in the catalog, the seven backends are written and reversed
+by `uninstall`, M5 is met on six VMs, and the whole catalog installed and
+verified on the field target. What separates this from the 1.0 tag is
+verification and one decision, listed with owners in
+`docs/reference/release-1.0-checklist.md`; that is the 0.1 that is missing.
 
 ### Engine
 

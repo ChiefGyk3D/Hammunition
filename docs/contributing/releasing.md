@@ -295,7 +295,8 @@ after checking the file against the maintainer's profile as described in
 [More than one key](#more-than-one-key). A `key has expired` or `No
 principal matched` from a tag *older* than the key's `valid-before` is the
 git 2.34 behaviour, not a bad tag; run it on a machine with git 2.35 or
-later. Until a key exists, `v0.7.0` is what there is, and it is unsigned.
+later. Until a key exists, `v0.7.0` and `v0.9.0` are what there is, and they
+are unsigned; the first signed tag is 1.0.
 
 ## Before the tag
 

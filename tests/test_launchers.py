@@ -257,7 +257,7 @@ def test_campaign_prepare_refreshes_apt_lists_and_keeps_its_failure_text(
             subprocess.CompletedProcess(
                 [], 1, stdout="", stderr="ERROR: Could not fetch URL https://pypi.org/simple/"
             ),
-            subprocess.CompletedProcess([], 0, stdout="hammunition 0.7.0\n", stderr=""),
+            subprocess.CompletedProcess([], 0, stdout="hammunition 0.9.0\n", stderr=""),
         ]
     )
 
