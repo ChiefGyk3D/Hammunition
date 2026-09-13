@@ -4,6 +4,7 @@
 name: mfoc
 version: "0.10.7"
 summary: Key recovery for MIFARE Classic cards with at least one known key
+menu_title: MIFARE Classic key recovery, needs one key (mfoc)
 categories: [rfid]
 
 install:

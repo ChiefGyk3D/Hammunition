@@ -4,6 +4,7 @@
 name: gnuaisgui
 version: "0.3.3"
 summary: Puts the vessels gnuais has heard on an OpenStreetMap display
+menu_title: AIS ship map (gnuaisgui)
 categories: [tracking, listening]
 
 depends: [gnuais]

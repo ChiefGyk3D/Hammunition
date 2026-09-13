@@ -4,6 +4,7 @@
 name: aldo
 version: "0.7.8"
 summary: Morse trainer with four teaching methods, including Koch
+menu_title: Morse code trainer (aldo)
 categories: [cw, training]
 
 install:

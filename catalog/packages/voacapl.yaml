@@ -4,6 +4,7 @@
 name: voacapl
 version: "0.7.6"
 summary: The VOACAP HF propagation prediction engine, ported to Linux
+menu_title: HF propagation predictor (voacapl)
 categories: [hf-propagation]
 
 install:

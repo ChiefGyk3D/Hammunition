@@ -4,6 +4,7 @@
 name: cassbeam
 version: "1.1"
 summary: Models Cassegrain dish antennas — the microwave and radio-astronomy case
+menu_title: Cassegrain dish antenna modeller (cassbeam)
 categories: [antenna]
 
 install:

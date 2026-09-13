@@ -4,6 +4,7 @@
 name: hacktv
 version: "0+git20250218"
 summary: Generates and transmits analogue television — a HackRF as a TV station
+menu_title: Analogue TV transmitter (hacktv)
 categories: [sdr, rf-security]
 
 # Not a default install anywhere. It reaches an operator through a profile

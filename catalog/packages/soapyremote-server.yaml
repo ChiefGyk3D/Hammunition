@@ -4,6 +4,7 @@
 name: soapyremote-server
 version: "0.5.2"
 summary: Serves a local SDR over the network to software on another machine
+menu_title: Network SDR server (SoapySDRServer)
 categories: [sdr, hardware]
 
 install:

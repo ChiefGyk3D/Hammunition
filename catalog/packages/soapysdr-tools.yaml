@@ -4,6 +4,7 @@
 name: soapysdr-tools
 version: "0.8.1"
 summary: Command-line tools for the SoapySDR hardware abstraction layer
+menu_title: SoapySDR device probe (SoapySDRUtil)
 categories: [sdr, hardware]
 
 install:

@@ -4,6 +4,7 @@
 name: mfcuk
 version: "0.3.8"
 summary: MIFARE Classic key recovery with no known key — the slow path
+menu_title: MIFARE Classic key recovery, no key needed (mfcuk)
 categories: [rfid]
 
 install:
