@@ -163,3 +163,46 @@ def test_the_shipped_groups_read_in_plain_words_and_cover_every_category() -> No
 def test_gnuradio_is_the_one_measured_toolkit_and_declares_its_submenu() -> None:
     catalog = load_catalog(REPO_ROOT / "catalog" / "packages")
     assert catalog["gnuradio"].menu_submenu == "GNU Radio"
+
+
+# --- a source build's own entry lives in the local prefix -------------------------
+
+
+def test_a_built_units_entry_in_the_local_prefix_is_placed_by_its_declared_names(
+    tmp_path: Path,
+) -> None:
+    local = tmp_path / "local"
+    local.mkdir()
+    for name in ("fldigi", "flarq", "wsjtx", "message_aggregator"):
+        (local / f"{name}.desktop").write_text("[Desktop Entry]\nType=Application\n")
+    fldigi = _manifest(
+        "fldigi",
+        ["keyboard-modes"],
+        binaries=[{"produced": "fldigi", "install_as": "fldigi"}],
+        provides=["flarq"],
+    )
+    wsjtx = _manifest("wsjtx", ["weak-signal"])
+    placement = place_installed_entries(
+        [fldigi, wsjtx], lambda _p: [], built_applications_dir=local
+    )
+    assert placement.by_category == {
+        "keyboard-modes": ("flarq.desktop", "fldigi.desktop"),
+        "weak-signal": ("wsjtx.desktop",),
+    }
+    assert placement.built == (
+        ("fldigi", "flarq.desktop"),
+        ("fldigi", "fldigi.desktop"),
+        ("wsjtx", "wsjtx.desktop"),
+    )
+    assert "wsjtx" in placement.units, "no generated entry on top of the real one"
+    assert not any("message_aggregator" in i for i in placement.claimed), "nothing names it"
+    assert any(
+        "wsjtx.desktop placed from the local prefix" in line
+        for line in placement_summary(placement)
+    )
+
+
+def test_without_a_local_prefix_nothing_changes(tmp_path: Path) -> None:
+    wsjtx = _manifest("wsjtx", ["weak-signal"])
+    placement = place_installed_entries([wsjtx], lambda _p: [])
+    assert placement.by_category == {} and placement.built == ()

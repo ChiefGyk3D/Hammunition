@@ -270,6 +270,11 @@ class Placement:
     """Catalog units that received at least one placed entry — the ones
     :func:`cli_entries` must not generate a second entry for."""
 
+    built: tuple[tuple[str, str], ...] = ()
+    """``(unit, desktop id)`` placed from the local prefix rather than from
+    ``dpkg -L``: a source build's own entry, matched by the unit's name, a
+    declared binary or a ``provides`` entry."""
+
     submenus: tuple[UnitSubmenu, ...] = ()
     """Units whose manifest says ``menu_submenu``: their entries sit in one
     nested submenu under the unit's first visible category and nowhere
@@ -305,6 +310,9 @@ the package is not installed). Injected so the placement is testable without
 dpkg; :func:`dpkg_desktop_ids` is the real one."""
 
 APPLICATIONS_DIR = Path("/usr/share/applications")
+LOCAL_APPLICATIONS_DIR = Path("/usr/local/share/applications")
+"""Where a source build's own install rule puts its desktop entry. ``dpkg -L``
+knows nothing about it, so it is read by name (D-055's finding)."""
 
 
 @dataclass(frozen=True)
@@ -380,6 +388,10 @@ def placement_summary(placement: Placement) -> list[str]:
         for package, shipped in placement.missing
     )
     lines.extend(
+        f"  {unit}: {desktop_id} placed from the local prefix (a build's own install rule)"
+        for unit, desktop_id in placement.built
+    )
+    lines.extend(
         f"  {unit.unit}: {len(unit.ids)} entries gathered into the {unit.title!r} submenu "
         f"under {unit.category}"
         for unit in placement.submenus
@@ -412,9 +424,18 @@ def place_installed_entries(
     *,
     applications_dir: Path | None = None,
     hidden: frozenset[str] = frozenset(),
+    built_applications_dir: Path | None = None,
 ) -> Placement:
     """Map each installed catalog package's own desktop entries to its
     manifest's categories.
+
+    ``built_applications_dir`` is the local prefix's ``share/applications``:
+    a source build's install rule writes its entry there and ``dpkg -L``
+    never sees it, so ten entries on the field laptop (the fldigi family,
+    wsjtx) were never placed (D-055). An entry there is claimed for a unit
+    when its id is the unit's name, one of its declared binaries'
+    ``install_as``, or a ``provides`` entry -- names the manifest already
+    states, never a guess from the file's contents.
 
     The whole catalog is consulted, not only what the transaction log says
     Hammunition installed: being in the catalog *is* the curation, and an
@@ -432,6 +453,7 @@ def place_installed_entries(
     missing: list[tuple[str, str]] = []
     units: list[str] = []
     submenus: list[UnitSubmenu] = []
+    built: list[tuple[str, str]] = []
     for manifest in manifests:
         visible = [c for c in manifest.categories if c not in hidden]
         if not visible:
@@ -449,6 +471,13 @@ def place_installed_entries(
             ids.update(found.ids)
             replaced.extend((package, was, now) for was, now in found.replaced)
             missing.extend((package, was) for was in found.missing)
+        if built_applications_dir is not None:
+            names = {manifest.name, *(b.install_as for b in manifest.binaries), *manifest.provides}
+            for candidate in sorted(names):
+                desktop_id = f"{candidate}.desktop"
+                if desktop_id not in ids and (built_applications_dir / desktop_id).is_file():
+                    ids.add(desktop_id)
+                    built.append((manifest.name, desktop_id))
         if not ids:
             continue
         units.append(manifest.name)
@@ -474,6 +503,7 @@ def place_installed_entries(
         replaced=tuple(replaced),
         missing=tuple(missing),
         units=tuple(units),
+        built=tuple(built),
         submenus=tuple(submenus),
     )
 
