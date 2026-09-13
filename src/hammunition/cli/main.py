@@ -113,6 +113,13 @@ from hammunition.station import (
     save_station,
 )
 from hammunition.update import render, report, requested_units
+from hammunition.upstream import (
+    NOT_UPSTREAM,
+    http_get,
+    parse_ls_remote,
+    probe_upstream,
+)
+from hammunition.upstream import render as render_upstream
 
 __all__ = ["build_parser", "main"]
 
@@ -714,9 +721,45 @@ def cmd_update(args: argparse.Namespace) -> int:
         render(
             report(plan, apt_states=states, present=present, built=built),
             lists_note=_apt_lists_note(apt),
+            upstream_asked=bool(args.upstream),
         )
     )
+    if args.upstream:
+        print()
+        print(_upstream_report(plan, runner))
     return EXIT_OK
+
+
+def _upstream_report(plan: InstallPlan, runner: SubprocessRunner) -> str:
+    """D-053's second half: the catalog's pin against what upstream publishes.
+
+    Opt-in because it is the one thing the engine does that talks to someone
+    else's server. A GITHUB_TOKEN in the environment is sent to GitHub's API
+    only, for the rate limit; tags come from `git ls-remote`, which needs no
+    token on any host.
+    """
+    token = os.environ.get("GITHUB_TOKEN") or None
+
+    def http(url: str) -> str:
+        return http_get(url, token=token)
+
+    def ls_remote(url: str) -> list[str]:
+        result = runner.run(
+            Command(
+                argv=("git", "ls-remote", "--tags", "--refs", "--", url),
+                description=f"List the tags at {url}",
+                requires_root=False,
+            )
+        )
+        if not result.ok:
+            raise BackendError(f"git ls-remote exited {result.returncode}: {result.stderr.strip()}")
+        return parse_ls_remote(result.stdout)
+
+    rows = [
+        probe_upstream(planned.manifest, http=http, ls_remote=ls_remote)
+        for planned in plan.packages
+    ]
+    return render_upstream([r for r in rows if r.state != NOT_UPSTREAM])
 
 
 def _station_for(
@@ -1874,6 +1917,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="units or profiles to compare; default: everything the log says was installed here",
     )
     p_update.add_argument("--user", default=None, help="whose log and builds to read")
+    p_update.add_argument(
+        "--upstream",
+        action="store_true",
+        help=(
+            "also ask upstream (GitHub, git tags, PyPI, a version file) whether the "
+            "catalog's pin is current; the only network the report uses"
+        ),
+    )
     p_update.set_defaults(func=cmd_update)
 
     p_show = sub.add_parser("show", help="describe a profile, disclosure included")

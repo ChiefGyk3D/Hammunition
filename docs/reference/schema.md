@@ -362,6 +362,7 @@ so an engine can make the same comparison; one measured user, like ``pypi``.
 | `command` | `str \| None` | no |  |
 | `pattern` | `str \| None` | no |  |
 | `url` | `str \| None` | no | For `label_file`: the plain-text file whose content is upstream's current version label, compared verbatim against `version`. |
+| `package` | `str \| None` | no | For `pypi`: the PyPI project name when it is not the unit's name. `update --upstream` asks pypi.org for it. |
 
 ### `Documentation`
 

@@ -3864,9 +3864,29 @@ build, which is the consistency the command has to have to be trusted.
 6. **Nothing is executed, and the report says so** on its last line. The
    commands it prints are the operator's to run.
 
-**Not decided here.** Comparing the catalog's pin to upstream. Twenty-seven
-of the laptop's units declare `github_release`, `github_tags`, `pypi`,
-`label_file` or `binary_version` probes; using them means network calls,
-rate limits and a per-probe parser each, and the answer is about the catalog
-rather than the machine. That is a maintainer's tool, and it will be
-`update --upstream` or a separate verb, decided when it is measured.
+**Second half, decided the same night: `update --upstream`.** Opt-in,
+because it is the one thing the engine does that talks to someone else's
+server, and additive: the offline report prints first, unchanged.
+
+7. **One place per probe, nothing else.** `github_release` reads the latest
+   release's tag from GitHub's API; `github_tags` lists tags with
+   `git ls-remote --tags --refs` on any host and takes the highest by its
+   numeric parts; `pypi` reads the project's JSON (the unit's name, or the
+   probe's `package`); `label_file` fetches one line and compares it
+   verbatim, as the schema always said. `binary_version` reads the installed
+   program and is not an upstream question. Nothing is downloaded beyond the
+   answer and nothing is written.
+8. **A token goes to GitHub only.** `GITHUB_TOKEN`, if set, is sent to
+   `api.github.com` for the rate limit and to no other host; tags need none.
+9. **Newer is said only when the numbers say it.** The comparison strips a
+   `v` or `release-` prefix, calls equal strings and substrings *current*,
+   orders by numeric parts where both sides have them, and calls everything
+   else *differs* with both versions shown. An older upstream is *differs*,
+   never *newer*.
+10. **Unanswered is a row.** A timeout, a 404, a repository that cannot be
+    derived: the row says which, the rest of the report stands.
+
+Measured on the field laptop, 2026-09-13, 25 probes answered in 7.5 s, none
+unanswered, and three pins found behind upstream on the first run
+(hamclock-next 1.5 → 1.6, linbpq 25.39 → 25.40, openhamclock 26.7.0 →
+26.7.3), which is the maintainer's re-pin queue and the tool's reason to exist.

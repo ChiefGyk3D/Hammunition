@@ -197,6 +197,8 @@ def test_upstream_probes_are_named_but_not_consulted() -> None:
     text = render(rep, lists_note="x")
     assert "Upstream was not consulted: 1 unit(s)" in text
     assert "Nothing above was executed." in text.splitlines()[-1]
+    # and under --upstream the line gives way to the upstream section
+    assert "not consulted" not in render(rep, lists_note="x", upstream_asked=True)
 
 
 # --- other strategies --------------------------------------------------------
