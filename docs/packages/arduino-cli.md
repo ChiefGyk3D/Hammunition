@@ -5,7 +5,7 @@
 **Command-line toolchain for compiling and uploading Arduino-framework firmware**
 
 - **Version recorded:** 1.5.1
-- **Categories:** `hardware`, `workstation`
+- **Categories:** `programmer`, `workstation`
 - **Upstream:** <https://github.com/arduino/arduino-cli>
 
 ## What it does

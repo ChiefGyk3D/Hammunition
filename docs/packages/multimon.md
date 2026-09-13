@@ -5,7 +5,7 @@
 **The original multimon decoder, kept for the modes its successor dropped**
 
 - **Version recorded:** 1.0
-- **Categories:** `listening`, `tracking`
+- **Categories:** `pagers-decoders`
 - **Upstream:** <https://tracker.debian.org/pkg/multimon>
 
 ## What it does

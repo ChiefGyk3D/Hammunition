@@ -5,7 +5,7 @@
 **BPQ32 packet-radio node, BBS and Winlink gateway**
 
 - **Version recorded:** 25.40
-- **Categories:** `emcomm`, `packet`
+- **Categories:** `packet-nodes`, `winlink`
 - **Upstream:** <https://github.com/g8bpq/LinBPQ>
 
 ## What it does

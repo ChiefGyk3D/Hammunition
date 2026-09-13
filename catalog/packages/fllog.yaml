@@ -4,7 +4,7 @@
 name: fllog
 version: "1.2.9"
 summary: Logging server the W1HKJ programs write contacts into
-categories: [logging, station]
+categories: [logging]
 
 install:
   - install:

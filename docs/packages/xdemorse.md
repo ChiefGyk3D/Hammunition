@@ -5,7 +5,7 @@
 **Live Morse decoder with a GTK waterfall, from a sound card**
 
 - **Version recorded:** 3.6.7
-- **Categories:** `cw`, `listening`
+- **Categories:** `cw`
 - **Upstream:** <https://www.qsl.net/5b4az/pkg/morse/xdemorse/xdemorse.html>
 
 ## What it does

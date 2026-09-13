@@ -5,7 +5,7 @@
 **Installs Python applications in their own environments, on the PATH**
 
 - **Version recorded:** 1.7.1
-- **Categories:** `station`, `workstation`
+- **Categories:** `workstation`
 - **Upstream:** <https://github.com/pypa/pipx>
 
 ## What it does

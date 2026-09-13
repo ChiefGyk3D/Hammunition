@@ -5,7 +5,7 @@
 **Command-line packet capture — the tool that works when nothing else does**
 
 - **Version recorded:** 4.99.5
-- **Categories:** `rf-security`, `workstation`
+- **Categories:** `capture-analysis`, `workstation`
 - **Upstream:** <https://www.tcpdump.org/>
 
 ## What it does

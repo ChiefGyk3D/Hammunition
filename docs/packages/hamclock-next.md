@@ -5,7 +5,7 @@
 **Maintained SDL2 rewrite of HamClock — grey line, propagation, DX cluster**
 
 - **Version recorded:** 1.6
-- **Categories:** `hf-propagation`
+- **Categories:** `dashboards`, `propagation`
 - **Upstream:** <https://github.com/k4drw/hamclock-next>
 - **Supersedes:** `esphamclock`
 

@@ -5,7 +5,7 @@
 **lsusb — step one of every hardware problem in this catalog**
 
 - **Version recorded:** 018
-- **Categories:** `hardware`, `workstation`
+- **Categories:** `device-support`, `workstation`
 - **Upstream:** <https://github.com/gregkh/usbutils>
 
 ## What it does

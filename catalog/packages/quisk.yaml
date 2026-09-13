@@ -4,7 +4,7 @@
 name: quisk
 version: "4.2.32"
 summary: SDR transceiver software with a real front panel, driving hardware or a dongle
-categories: [sdr, digital-modes, rig-control]
+categories: [sdr-receivers, rig-control]
 
 install:
   - install:

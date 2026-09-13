@@ -4,7 +4,7 @@
 name: spectools
 version: "201601r1"
 summary: Spectrum display for MetaGeek Wi-Spy dongles and the Ubertooth One
-categories: [sdr, hardware]
+categories: [spectrum-analysers, bluetooth]
 
 install:
   - install:

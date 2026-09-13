@@ -4,7 +4,7 @@
 name: soapysdr-module-hackrf
 version: "0.3.4"
 summary: SoapySDR driver module for HackRF hardware
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 install:
   - install:

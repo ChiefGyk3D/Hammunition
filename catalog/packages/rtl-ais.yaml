@@ -5,7 +5,7 @@ name: rtl-ais
 version: "0.3"
 summary: Receives both AIS channels at once from one cheap dongle
 menu_title: Dual-channel AIS receiver (rtl_ais)
-categories: [tracking, listening, sdr]
+categories: [ships]
 
 install:
   - install:

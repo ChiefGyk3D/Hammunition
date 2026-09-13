@@ -5,7 +5,7 @@
 **RigExpert's own analyzer software, for their antenna analyzers**
 
 - **Version recorded:** 2.0.2
-- **Categories:** `antenna`
+- **Categories:** `antenna-analysers`
 - **Upstream:** <https://rigexpert.com/software/antscope2/>
 
 ## What it does

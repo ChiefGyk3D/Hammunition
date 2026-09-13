@@ -5,7 +5,7 @@
 **cgps and gpsmon — the two programs you actually reach for when a receiver misbehaves**
 
 - **Version recorded:** 3.25
-- **Categories:** `hardware`, `station`, `timing`
+- **Categories:** `gps-gnss`
 - **Upstream:** <https://gpsd.io/>
 - **Needs first:** `gpsd`
 

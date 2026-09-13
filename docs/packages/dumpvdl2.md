@@ -5,7 +5,7 @@
 **VDL Mode 2 decoder for aircraft datalink**
 
 - **Version recorded:** 2.7.0
-- **Categories:** `listening`
+- **Categories:** `aircraft`
 - **Upstream:** <https://github.com/szpajder/dumpvdl2>
 - **Needs first:** `libacars`
 - **Install after:** `libacars`

@@ -5,7 +5,7 @@
 **Sweep, chart and calibrate a NanoVNA from the computer**
 
 - **Version recorded:** 0.7.3
-- **Categories:** `antenna`, `electronics`
+- **Categories:** `antenna-analysers`
 - **Upstream:** <https://github.com/NanoVNA-Saver/nanovna-saver>
 
 ## What it does

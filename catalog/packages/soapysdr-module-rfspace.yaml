@@ -4,7 +4,7 @@
 name: soapysdr-module-rfspace
 version: "0.2.5"
 summary: SoapySDR driver module for RFSpace networked receivers
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 install:
   - install:

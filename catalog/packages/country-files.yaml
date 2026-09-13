@@ -4,7 +4,7 @@
 name: country-files
 version: "20260906"
 summary: The DX-cluster country file (cty.dat) — callsign prefix to entity, zone and coordinates
-categories: [logging, contest]
+categories: [contest, logging]
 
 # CARRY from AHRL (`country_files`), deferred by Q-015 decision 8 until the
 # catalog had a shape for data whose payload is the point, and written the

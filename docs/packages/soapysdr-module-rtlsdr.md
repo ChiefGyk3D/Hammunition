@@ -5,7 +5,7 @@
 **SoapySDR driver module for RTL-SDR hardware**
 
 - **Version recorded:** 0.3.3
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://github.com/pothosware/SoapySDR/wiki>
 
 ## What it does

@@ -4,7 +4,7 @@
 name: python3-pyhamtools
 version: "0.11.0"
 summary: Python library for callsign lookup, locators and DXCC data
-categories: [logging, hf-propagation]
+categories: [references, logging]
 
 install:
   - install:

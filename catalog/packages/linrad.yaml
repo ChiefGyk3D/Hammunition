@@ -4,7 +4,7 @@
 name: linrad
 version: "05.02"
 summary: SM5BSZ's DSP receiver — the deep-toolbox SDR for weak-signal work
-categories: [sdr, listening]
+categories: [sdr-receivers]
 
 # CARRY from AHRL, and the unit that ended three measured zeros at once
 # (source-build-gaps #1, #2, #4): its build is ./configure then a *named*

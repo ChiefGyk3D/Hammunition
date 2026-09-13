@@ -4,7 +4,7 @@
 name: paracon
 version: "1.3.0"
 summary: Packet radio terminal that talks AGWPE to Direwolf, with no kernel AX.25
-categories: [packet, emcomm]
+categories: [packet-terminals]
 
 # ADD from EmComm Tools OS Community (D-042 sub-project 4, D-048). ETC pins
 # 1.1.0 (2024-06) and fetches it unverified; upstream is at 1.3.0

@@ -5,7 +5,7 @@
 **Configures the built-in TNC on Kenwood TM-D710 and TH-D72 radios**
 
 - **Version recorded:** 1.13.1
-- **Categories:** `packet`, `radio-programming`, `tracking`
+- **Categories:** `radio-programming`, `soundcard-modems`
 - **Upstream:** <https://github.com/fmarier/tmd710_tncsetup>
 
 ## What it does

@@ -4,7 +4,7 @@
 name: a2d
 version: "2.0.5"
 summary: Bridges APRS messages to DAPNET pagers
-categories: [tracking, packet, emcomm]
+categories: [aprs, emcomm]
 
 install:
   - install:

@@ -4,7 +4,7 @@
 name: tempest-for-eliza
 version: "1.0.5"
 summary: Makes a monitor radiate music on an AM radio — a TEMPEST demonstration
-categories: [rf-security, electronics]
+categories: [rf-research, electronics]
 
 install:
   - install:

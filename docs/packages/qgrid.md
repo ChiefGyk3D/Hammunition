@@ -5,7 +5,7 @@
 **Maidenhead grid square calculator with a map and a compass**
 
 - **Version recorded:** 3.2
-- **Categories:** `antenna`, `hf-propagation`, `station`
+- **Categories:** `locators`
 - **Upstream:** <https://www.qsl.net/on4qz/qgrid/index.html>
 
 ## What it does

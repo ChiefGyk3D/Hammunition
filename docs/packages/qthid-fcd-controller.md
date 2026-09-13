@@ -5,7 +5,7 @@
 **Sets frequency and gain on a FUNcube Dongle**
 
 - **Version recorded:** 4.1
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://oz9aec.net/radios/funcube-dongle/updated-fcdctl-for-the-funcube-dongle-pro-and-pro>
 
 ## What it does

@@ -5,7 +5,7 @@
 **HFDL decoder for long-range oceanic aircraft datalink**
 
 - **Version recorded:** 1.7.0
-- **Categories:** `listening`
+- **Categories:** `aircraft`
 - **Upstream:** <https://github.com/szpajder/dumphfdl>
 - **Needs first:** `libacars`
 - **Install after:** `libacars`

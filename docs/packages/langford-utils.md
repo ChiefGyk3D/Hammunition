@@ -5,7 +5,7 @@
 **Control programs for the Per Vices Noctar board**
 
 - **Version recorded:** 0.0.20130228
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://www.pervices.com/>
 
 ## What it does

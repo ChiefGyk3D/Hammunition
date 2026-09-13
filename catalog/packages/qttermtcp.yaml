@@ -4,7 +4,7 @@
 name: qttermtcp
 version: "0.81"
 summary: Packet terminal that connects over TCP to a BPQ node
-categories: [packet, emcomm]
+categories: [packet-terminals]
 
 after: [linbpq]
 

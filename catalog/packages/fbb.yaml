@@ -4,7 +4,7 @@
 name: fbb
 version: "7.011"
 summary: The classic packet radio BBS and mailbox
-categories: [packet, emcomm]
+categories: [packet-nodes]
 requires_kernel: [ax25]
 
 after: [ax25-tools]

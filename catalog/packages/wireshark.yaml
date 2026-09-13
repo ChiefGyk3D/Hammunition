@@ -4,7 +4,7 @@
 name: wireshark
 version: "4.4.16"
 summary: Protocol analyser — decodes captured traffic across two thousand protocols
-categories: [rf-security, workstation]
+categories: [capture-analysis, workstation]
 
 install:
   - install:

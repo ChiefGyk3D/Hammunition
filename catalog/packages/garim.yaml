@@ -4,7 +4,7 @@
 name: garim
 version: "1.7"
 summary: Graphical ARIM messaging over an ARDOP TNC
-categories: [emcomm, packet]
+categories: [winlink, emcomm]
 
 # ADD from the 73Linux delta (D-008 EMCOMM file transfer; dispositions:
 # "GARIM is open"). 73Linux's packaging habits made this look like a binary

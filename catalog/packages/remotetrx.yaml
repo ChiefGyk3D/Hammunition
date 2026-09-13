@@ -4,7 +4,7 @@
 name: remotetrx
 version: "24.02"
 summary: Puts an SvxLink receiver or transceiver at the end of a network link
-categories: [digital-modes, station]
+categories: [echolink-repeaters]
 
 install:
   - install:

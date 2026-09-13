@@ -4,7 +4,7 @@
 name: flwkey
 version: "1.2.4"
 summary: Control panel for the Winkeyer hardware CW keyer
-categories: [cw, rig-control, station]
+categories: [cw, rig-control]
 
 install:
   - install:

@@ -5,7 +5,7 @@
 **Sets the audio levels an SvxLink node needs to work properly**
 
 - **Version recorded:** 24.02
-- **Categories:** `digital-modes`, `station`
+- **Categories:** `echolink-repeaters`
 - **Upstream:** <https://www.svxlink.org>
 - **Install after:** `svxlink-server`
 

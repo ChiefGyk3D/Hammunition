@@ -5,7 +5,7 @@
 **Bridges browser-based logging software to the radio hardware on your desk**
 
 - **Version recorded:** 0.4.6
-- **Categories:** `logging`, `rig-control`, `station`
+- **Categories:** `logging`, `rig-control`
 - **Upstream:** <https://github.com/k0swe/kel-agent>
 
 ## What it does

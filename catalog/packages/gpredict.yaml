@@ -4,7 +4,7 @@
 name: gpredict
 version: "2.3-115-g0f3beb6"
 summary: Real-time satellite tracking and pass prediction, with radio control
-categories: [satellite, station]
+categories: [satellite-tracking]
 
 install:
   - install:

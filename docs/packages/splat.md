@@ -5,7 +5,7 @@
 **Terrain-aware path analysis for VHF and above, from real elevation data**
 
 - **Version recorded:** 1.4.2
-- **Categories:** `antenna`, `hf-propagation`
+- **Categories:** `antenna`, `propagation`
 - **Upstream:** <http://www.qsl.net/kd2bd/splat.html>
 
 ## What it does

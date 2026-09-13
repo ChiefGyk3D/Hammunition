@@ -4,7 +4,7 @@
 name: odr-padenc
 version: "3.0.0"
 summary: Encodes the text and images that ride alongside a DAB service
-categories: [sdr]
+categories: [sdr-toolkits, broadcast]
 
 recommended_default: false
 

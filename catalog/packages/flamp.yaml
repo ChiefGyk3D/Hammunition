@@ -4,7 +4,7 @@
 name: flamp
 version: "2.2.14"
 summary: Sends files over radio in numbered blocks that can be filled in later
-categories: [digital-modes, nbems, emcomm]
+categories: [nbems, emcomm]
 
 # The NBEMS stack is a set, not a list of alternatives: fldigi is the modem,
 # flmsg the forms editor, flamp the file mover, flwrap the envelope. Ordering

@@ -5,7 +5,7 @@
 **Makes SoapySDR devices visible to software written for UHD**
 
 - **Version recorded:** 0.4.1
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://github.com/pothosware/SoapyUHD/wiki>
 
 ## What it does

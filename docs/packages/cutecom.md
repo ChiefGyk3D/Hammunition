@@ -5,7 +5,7 @@
 **A graphical serial terminal, Qt-native and simple**
 
 - **Version recorded:** 0.51.0
-- **Categories:** `workstation`
+- **Categories:** `serial-terminals`, `workstation`
 - **Upstream:** <https://gitlab.com/cutecom/cutecom>
 
 ## What it does

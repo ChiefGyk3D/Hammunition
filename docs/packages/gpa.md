@@ -5,7 +5,7 @@
 **GNU Privacy Assistant — a GTK front end to GnuPG for signed and encrypted traffic**
 
 - **Version recorded:** 0.11.1
-- **Categories:** `emcomm`, `workstation`
+- **Categories:** `email-clients`, `workstation`
 - **Upstream:** <https://www.gnupg.org/related_software/gpa/>
 - **Needs first:** `gnupg`
 

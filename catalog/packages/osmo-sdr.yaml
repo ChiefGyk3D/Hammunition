@@ -4,7 +4,7 @@
 name: osmo-sdr
 version: "0.1.8"
 summary: Tools for the original OsmoSDR hardware
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 install:
   - install:

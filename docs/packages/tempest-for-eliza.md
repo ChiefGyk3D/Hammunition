@@ -5,7 +5,7 @@
 **Makes a monitor radiate music on an AM radio — a TEMPEST demonstration**
 
 - **Version recorded:** 1.0.5
-- **Categories:** `electronics`, `rf-security`
+- **Categories:** `electronics`, `rf-research`
 - **Upstream:** <http://www.erikyyy.de/tempest/>
 
 ## What it does

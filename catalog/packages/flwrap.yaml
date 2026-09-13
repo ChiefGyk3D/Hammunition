@@ -4,7 +4,7 @@
 name: flwrap
 version: "1.3.6"
 summary: Wraps a file with a checksum so the far end knows it arrived intact
-categories: [digital-modes, nbems, emcomm]
+categories: [nbems, emcomm]
 
 after: [fldigi]
 

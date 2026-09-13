@@ -5,7 +5,7 @@
 **Wi-Fi security auditing suite — capture, analysis and key recovery**
 
 - **Version recorded:** 1.7
-- **Categories:** `rf-security`
+- **Categories:** `wifi`
 - **Upstream:** <https://www.aircrack-ng.org/>
 
 ## What it does

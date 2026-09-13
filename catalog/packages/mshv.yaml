@@ -4,7 +4,7 @@
 name: mshv
 version: 2.76.5
 summary: Multi-mode weak-signal application with multi-stream FT8 decoding
-categories: [digital-modes]
+categories: [weak-signal]
 
 # SHAPE 4 — same source archive, same build system, different project file per
 # architecture. The selector carries the arch; project_file carries the variant.

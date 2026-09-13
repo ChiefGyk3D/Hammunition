@@ -4,7 +4,7 @@
 name: comptext
 version: "1.0.1"
 summary: Compares two text streams and scores how much of one arrived intact
-categories: [digital-modes, nbems]
+categories: [keyboard-modes, nbems]
 
 install:
   - install:

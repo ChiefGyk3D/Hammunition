@@ -5,7 +5,7 @@
 **Decoders for the telemetry of hundreds of amateur satellites**
 
 - **Version recorded:** 5.5.0
-- **Categories:** `listening`, `satellite`, `sdr`
+- **Categories:** `satellite-decoding`, `sdr-toolkits`
 - **Upstream:** <https://github.com/daniestevez/gr-satellites>
 - **Needs first:** `gnuradio`
 

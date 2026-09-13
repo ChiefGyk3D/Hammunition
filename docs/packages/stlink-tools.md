@@ -5,7 +5,7 @@
 **Flash and debug STM32 targets through an ST-Link probe**
 
 - **Version recorded:** 1.8.0
-- **Categories:** `electronics`, `programmer`
+- **Categories:** `programmer`
 - **Upstream:** <https://github.com/stlink-org/stlink>
 
 ## What it does

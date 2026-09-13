@@ -5,7 +5,7 @@ name: picocom
 # Debian 13 candidate at time of writing; apt tracks the real version.
 version: "3.1"
 summary: The minimal terminal-native serial console
-categories: [workstation]
+categories: [serial-terminals, workstation]
 
 # One of the workstation profile's serial-terminal options (Q-015 #2,
 # resolved 2026-08-30): detect an existing terminal, respect it, and offer

@@ -5,7 +5,7 @@
 **Spectrum display for MetaGeek Wi-Spy dongles and the Ubertooth One**
 
 - **Version recorded:** 201601r1
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `bluetooth`, `spectrum-analysers`
 - **Upstream:** <https://www.kismetwireless.net/static/spectools/>
 
 ## What it does

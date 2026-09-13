@@ -5,7 +5,7 @@
 **lspci — for the SDRs and capture cards that are not on USB**
 
 - **Version recorded:** 3.13.0
-- **Categories:** `hardware`, `workstation`
+- **Categories:** `device-support`, `workstation`
 - **Upstream:** <https://mj.ucw.cz/sw/pciutils/>
 
 ## What it does

@@ -5,7 +5,7 @@
 **Drives a RigExpert antenna analyser from the desktop**
 
 - **Version recorded:** 1.0.2
-- **Categories:** `antenna`, `station`
+- **Categories:** `antenna-analysers`
 - **Upstream:** <https://w1hkj.org/>
 
 ## What it does

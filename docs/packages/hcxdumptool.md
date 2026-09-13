@@ -5,7 +5,7 @@
 **Wi-Fi frame capture aimed at producing hash files for offline analysis**
 
 - **Version recorded:** 6.3.5
-- **Categories:** `rf-security`
+- **Categories:** `wifi`
 - **Upstream:** <https://github.com/ZerBea/hcxdumptool>
 
 ## What it does

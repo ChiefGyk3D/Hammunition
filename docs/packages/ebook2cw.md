@@ -5,7 +5,7 @@
 **Converts a text file or ebook into Morse code audio at a chosen speed**
 
 - **Version recorded:** 0.8.5
-- **Categories:** `cw`, `training`
+- **Categories:** `cw`, `morse-training`
 - **Upstream:** <https://fkurz.net/ham/ebook2cw.html>
 
 ## What it does

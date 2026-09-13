@@ -5,7 +5,7 @@
 **Host tools and library for Airspy R2 and Mini receivers**
 
 - **Version recorded:** 1.0.10
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://github.com/airspy/airspyone_host>
 
 ## What it does

@@ -5,7 +5,7 @@ name: cwcp
 version: "3.6.1"
 summary: Curses Morse tutor — unixcw with a menu instead of a command line
 menu_title: Morse code tutor (cwcp)
-categories: [cw, training]
+categories: [morse-training, cw]
 
 install:
   - install:

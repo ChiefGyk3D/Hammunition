@@ -4,7 +4,7 @@
 name: kappanhang
 version: "1.3"
 summary: Opens an Icom network radio as an ordinary sound card and serial port
-categories: [rig-control, station]
+categories: [rig-control]
 
 install:
   - install:

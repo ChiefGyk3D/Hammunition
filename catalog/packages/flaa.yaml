@@ -4,7 +4,7 @@
 name: flaa
 version: "1.0.2"
 summary: Drives a RigExpert antenna analyser from the desktop
-categories: [antenna, station]
+categories: [antenna-analysers]
 
 install:
   - install:

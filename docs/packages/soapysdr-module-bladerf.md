@@ -5,7 +5,7 @@
 **SoapySDR driver module for bladeRF hardware**
 
 - **Version recorded:** 0.4.2
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://github.com/pothosware/SoapySDR/wiki>
 
 ## What it does

@@ -4,7 +4,7 @@
 name: xdemorse
 version: "3.6.7"
 summary: Live Morse decoder with a GTK waterfall, from a sound card
-categories: [cw, listening]
+categories: [cw]
 
 install:
   - install:

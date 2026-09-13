@@ -4,7 +4,7 @@
 name: xastir
 version: "2.2.0"
 summary: APRS client with real maps — see and be seen on the packet network
-categories: [tracking, packet, emcomm]
+categories: [aprs]
 
 install:
   - install:

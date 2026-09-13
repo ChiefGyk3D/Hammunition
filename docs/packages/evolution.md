@@ -5,7 +5,7 @@
 **GNOME's integrated mail, calendar and groupware client**
 
 - **Version recorded:** 3.56.2
-- **Categories:** `emcomm`, `workstation`
+- **Categories:** `email-clients`, `workstation`
 - **Upstream:** <https://wiki.gnome.org/Apps/Evolution>
 
 ## What it does

@@ -7,7 +7,7 @@
 > **Status: retired.** All NOAA APT satellites were taken out of service on 2025-11-09. The software is not broken; the signals it decodes no longer exist. Verified by us against NOAA service notices rather than inherited from AHRL's shell comment. Recorded 2025-11-09. Verdict tested by us.
 
 - **Version recorded:** 1.4.1
-- **Categories:** `satellite`, `sdr`
+- **Categories:** `satellite-decoding`
 - **Upstream:** <https://noaa-apt.mbernardi.com.ar/>
 - **Superseded by:** `satdump`
 - **Not a recommended default** — installed only when asked for.

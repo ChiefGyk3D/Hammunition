@@ -5,7 +5,7 @@
 **SoapySDR driver module for HackRF hardware**
 
 - **Version recorded:** 0.3.4
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://github.com/pothosware/SoapySDR/wiki>
 
 ## What it does

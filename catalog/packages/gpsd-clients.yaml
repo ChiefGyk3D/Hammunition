@@ -4,7 +4,7 @@
 name: gpsd-clients
 version: "3.25"
 summary: Clients that consume what gpsd serves — xgps, gpspipe, gpxlogger, gpsdecode
-categories: [hardware, station, timing]
+categories: [gps-gnss]
 
 depends: [gpsd]
 

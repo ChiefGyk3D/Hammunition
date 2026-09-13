@@ -4,7 +4,7 @@
 name: ampr-ripd
 version: "2.4.1"
 summary: Keeps a gateway's routes current on the amateur radio IP network
-categories: [packet, station]
+categories: [packet-nodes]
 
 install:
   - install:

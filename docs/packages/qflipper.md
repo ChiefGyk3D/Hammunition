@@ -5,7 +5,7 @@
 **Desktop companion for the Flipper Zero — firmware, files, and CLI over USB**
 
 - **Version recorded:** 1.3.3
-- **Categories:** `hardware`, `rf-security`
+- **Categories:** `device-support`, `ism-subghz`
 - **Upstream:** <https://github.com/flipperdevices/qFlipper>
 
 ## What it does

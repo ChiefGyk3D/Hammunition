@@ -5,7 +5,7 @@
 **General-purpose audio FSK modem — Bell 103, RTTY, AX.25 and anything else**
 
 - **Version recorded:** 0.24
-- **Categories:** `digital-modes`, `listening`, `packet`
+- **Categories:** `keyboard-modes`, `soundcard-modems`
 - **Upstream:** <http://www.whence.com/minimodem>
 
 ## What it does

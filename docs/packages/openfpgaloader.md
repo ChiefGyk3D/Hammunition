@@ -5,7 +5,7 @@
 **Universal bitstream loader for FPGAs, over JTAG and SPI**
 
 - **Version recorded:** 0.13.1
-- **Categories:** `electronics`, `programmer`
+- **Categories:** `programmer`
 - **Upstream:** <https://github.com/trabucayre/openFPGALoader>
 
 ## What it does

@@ -4,7 +4,7 @@
 name: chirp
 version: "20250530"
 summary: Reads, edits and writes the memory channels of hundreds of radios
-categories: [radio-programming, rig-control]
+categories: [radio-programming]
 
 # SUPERSEDE, per docs/reference/dispositions.md #2: AHRL carries `owx`, Open
 # Wouxun, a 2022-dated source build supporting one manufacturer. CHIRP supports

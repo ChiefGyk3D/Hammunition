@@ -5,7 +5,7 @@
 **Offline visualiser for captured radio signals — read a waveform by eye**
 
 - **Version recorded:** 0.3.1
-- **Categories:** `rf-security`, `sdr`
+- **Categories:** `signal-analysis`
 - **Upstream:** <https://github.com/miek/inspectrum>
 
 ## What it does

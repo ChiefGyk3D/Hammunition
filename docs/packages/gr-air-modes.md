@@ -5,7 +5,7 @@
 **Decodes aircraft transponder replies with GNU Radio**
 
 - **Version recorded:** 0.0.20210211
-- **Categories:** `listening`, `sdr`, `tracking`
+- **Categories:** `aircraft`, `sdr-toolkits`
 - **Upstream:** <https://github.com/bistromath/gr-air-modes>
 - **Needs first:** `gnuradio`
 

@@ -5,7 +5,7 @@
 **Codeplug editor for DMR handhelds — one codeplug, many radios**
 
 - **Version recorded:** 0.12.1
-- **Categories:** `dmr`, `radio-programming`, `station`
+- **Categories:** `dmr`, `radio-programming`
 - **Upstream:** <https://dm3mat.darc.de/qdmr/>
 
 ## What it does

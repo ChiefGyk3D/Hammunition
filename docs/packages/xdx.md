@@ -5,7 +5,7 @@
 **DX cluster client — see what other operators are hearing, right now**
 
 - **Version recorded:** 2.91
-- **Categories:** `hf-propagation`, `station`
+- **Categories:** `dx-cluster`
 - **Upstream:** <https://sourceforge.net/projects/xdxclusterclient/>
 
 ## What it does

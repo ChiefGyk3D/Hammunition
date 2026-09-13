@@ -4,7 +4,7 @@
 name: wfview
 version: "2.03"
 summary: Control a modern Icom radio, waterfall and all, over USB or the network
-categories: [rig-control, sdr, station]
+categories: [rig-control, sdr-receivers]
 
 install:
   - install:

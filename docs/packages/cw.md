@@ -5,7 +5,7 @@
 **Sounds text as Morse from the command line — the unixcw core tool**
 
 - **Version recorded:** 3.6.1
-- **Categories:** `cw`, `training`
+- **Categories:** `cw`, `morse-training`
 - **Upstream:** <https://unixcw.sourceforge.net/>
 
 ## What it does

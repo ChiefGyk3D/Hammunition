@@ -5,7 +5,7 @@
 **Node front end that lets other stations reach services on your machine**
 
 - **Version recorded:** 2.15
-- **Categories:** `emcomm`, `packet`
+- **Categories:** `packet-nodes`
 - **Upstream:** <https://uronode.sourceforge.net/>
 - **Install after:** `ax25-tools`
 - **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)

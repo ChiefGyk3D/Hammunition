@@ -4,7 +4,7 @@
 name: welle-io
 version: "2.4"
 summary: DAB and DAB+ digital radio receiver with a modern interface
-categories: [listening, sdr]
+categories: [broadcast]
 
 install:
   - install:

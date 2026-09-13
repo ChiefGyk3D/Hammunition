@@ -4,7 +4,7 @@
 name: satdump
 version: "1.2.2"
 summary: Satellite data processing — receive, decode and image from weather and science satellites
-categories: [satellite, sdr, listening]
+categories: [satellite-decoding]
 
 # Tier 1 by apt, not by upstream .deb, and that is a correction rather than a
 # preference. `docs/reference/install-verification.md` measured the published

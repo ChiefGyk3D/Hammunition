@@ -5,7 +5,7 @@
 **Desktop front end for the tinySA and tinySA Ultra spectrum analysers**
 
 - **Version recorded:** 1.0.2
-- **Categories:** `electronics`, `hardware`, `sdr`
+- **Categories:** `spectrum-analysers`
 - **Upstream:** <https://github.com/g4ixt/QtTinySA/>
 
 ## What it does

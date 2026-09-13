@@ -5,7 +5,7 @@
 **On-chip debugging and in-system programming over JTAG and SWD**
 
 - **Version recorded:** 0.12.0
-- **Categories:** `electronics`, `programmer`
+- **Categories:** `programmer`
 - **Upstream:** <https://openocd.org/>
 
 ## What it does

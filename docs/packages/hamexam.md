@@ -5,7 +5,7 @@
 **Practice tests for the United States amateur radio licence exams**
 
 - **Version recorded:** 1.11.2
-- **Categories:** `training`
+- **Categories:** `exams`
 - **Upstream:** <https://tracker.debian.org/pkg/hamexam>
 
 ## What it does

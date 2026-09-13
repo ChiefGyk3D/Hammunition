@@ -5,7 +5,7 @@ name: gr-air-modes
 version: "0.0.20210211"
 summary: Decodes aircraft transponder replies with GNU Radio
 menu_title: Aircraft ADS-B decoder (modes_rx)
-categories: [tracking, sdr, listening]
+categories: [aircraft, sdr-toolkits]
 
 depends: [gnuradio]
 

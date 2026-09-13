@@ -5,7 +5,7 @@
 **QRSS and DFCW receiver for extremely slow narrowband CW on LF/MF**
 
 - **Version recorded:** 0.4.2
-- **Categories:** `digital-modes`
+- **Categories:** `weak-signal`
 - **Upstream:** <https://www.qsl.net/in3otd/glfer.html>
 
 ## What it does

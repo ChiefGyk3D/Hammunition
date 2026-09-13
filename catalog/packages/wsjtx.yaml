@@ -4,7 +4,7 @@
 name: wsjtx
 version: "3.0.2"
 summary: Weak-signal digital modes — FT8, FT4, JT65, JT9, WSPR, Q65
-categories: [digital-modes]
+categories: [weak-signal]
 
 conflicts_with_repo_package: [wsjtx]
 

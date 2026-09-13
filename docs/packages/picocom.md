@@ -5,7 +5,7 @@
 **The minimal terminal-native serial console**
 
 - **Version recorded:** 3.1
-- **Categories:** `workstation`
+- **Categories:** `serial-terminals`, `workstation`
 - **Upstream:** <https://github.com/npat-efault/picocom>
 
 ## What it does

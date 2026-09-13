@@ -4,7 +4,7 @@
 name: gpa
 version: "0.11.1"
 summary: GNU Privacy Assistant — a GTK front end to GnuPG for signed and encrypted traffic
-categories: [emcomm, workstation]
+categories: [email-clients, workstation]
 
 # ADD from EmComm Tools OS Community (D-042 sub-project 4, D-048), where it
 # serves the AmRRON signed-traffic workflow. Measured 2026-09-12 with

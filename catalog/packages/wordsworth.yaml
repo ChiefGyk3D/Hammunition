@@ -4,7 +4,7 @@
 name: wordsworth
 version: "0.3"
 summary: Generate Morse practice text the Wordsworth way — words, not characters
-categories: [cw, training]
+categories: [morse-training, cw]
 
 # CARRY from AHRL. source-build-gaps #5 recorded "no build step and a data
 # file to install"; reading the scripts (2026-08-30) softened the second

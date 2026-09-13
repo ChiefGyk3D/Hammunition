@@ -5,7 +5,7 @@
 **GPS service daemon — one process owns the receiver, everything else asks it**
 
 - **Version recorded:** 3.25
-- **Categories:** `hardware`, `station`, `timing`
+- **Categories:** `gps-gnss`
 - **Upstream:** <https://gpsd.io/>
 
 ## What it does

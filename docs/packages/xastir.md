@@ -5,7 +5,7 @@
 **APRS client with real maps — see and be seen on the packet network**
 
 - **Version recorded:** 2.2.0
-- **Categories:** `emcomm`, `packet`, `tracking`
+- **Categories:** `aprs`
 - **Upstream:** <https://github.com/Xastir/Xastir>
 
 ## What it does

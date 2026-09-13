@@ -5,7 +5,7 @@
 **Command-line control of the ADALM2000 lab instrument**
 
 - **Version recorded:** 0.9.0
-- **Categories:** `electronics`, `hardware`
+- **Categories:** `electronics`
 - **Upstream:** <https://github.com/analogdevicesinc/libm2k>
 
 ## What it does

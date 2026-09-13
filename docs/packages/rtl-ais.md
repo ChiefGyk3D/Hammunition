@@ -5,7 +5,7 @@
 **Receives both AIS channels at once from one cheap dongle**
 
 - **Version recorded:** 0.3
-- **Categories:** `listening`, `sdr`, `tracking`
+- **Categories:** `ships`
 - **Upstream:** <https://github.com/dgiardini/rtl-ais>
 
 ## What it does

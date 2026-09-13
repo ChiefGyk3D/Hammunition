@@ -5,7 +5,7 @@
 **PSK31 in a terminal, with no desktop and no waterfall**
 
 - **Version recorded:** 2.2
-- **Categories:** `digital-modes`
+- **Categories:** `keyboard-modes`
 - **Upstream:** <https://tracker.debian.org/pkg/psk31lx>
 
 ## What it does

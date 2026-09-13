@@ -5,7 +5,7 @@
 **Conference server that links many SvxLink nodes into one talk group**
 
 - **Version recorded:** 24.02
-- **Categories:** `digital-modes`, `emcomm`
+- **Categories:** `echolink-repeaters`
 - **Upstream:** <https://www.svxlink.org>
 
 ## What it does

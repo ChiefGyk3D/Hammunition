@@ -5,7 +5,7 @@
 **Command-line tools for the SoapySDR hardware abstraction layer**
 
 - **Version recorded:** 0.8.1
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://github.com/pothosware/SoapySDR/wiki>
 
 ## What it does

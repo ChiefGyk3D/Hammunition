@@ -5,7 +5,7 @@
 **Packet terminal that connects over TCP to a BPQ node**
 
 - **Version recorded:** 0.81
-- **Categories:** `emcomm`, `packet`
+- **Categories:** `packet-terminals`
 - **Upstream:** <https://github.com/g8bpq/QtTermTCP>
 - **Install after:** `linbpq`
 

@@ -5,7 +5,7 @@
 **Shows which NCDXF/IARU beacon is transmitting right now, on which band**
 
 - **Version recorded:** 0.21
-- **Categories:** `cw`, `hf-propagation`
+- **Categories:** `cw`, `propagation`
 - **Upstream:** <http://www.pa3fwm.nl/software/ibp/>
 
 ## What it does

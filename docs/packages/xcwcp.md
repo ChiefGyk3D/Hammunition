@@ -5,7 +5,7 @@
 **Qt Morse tutor that both sends practice and reads your keying**
 
 - **Version recorded:** 3.6.1
-- **Categories:** `cw`, `training`
+- **Categories:** `cw`, `morse-training`
 - **Upstream:** <https://unixcw.sourceforge.net/>
 
 ## What it does

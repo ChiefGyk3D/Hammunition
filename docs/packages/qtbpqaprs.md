@@ -5,7 +5,7 @@
 **G8BPQ's Qt APRS client, the messaging-focused one**
 
 - **Version recorded:** 00.13
-- **Categories:** `packet`, `tracking`
+- **Categories:** `aprs`
 - **Upstream:** <https://github.com/g8bpq/QtBPQAPRS>
 
 ## What it does

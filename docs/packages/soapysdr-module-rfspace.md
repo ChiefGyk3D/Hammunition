@@ -5,7 +5,7 @@
 **SoapySDR driver module for RFSpace networked receivers**
 
 - **Version recorded:** 0.2.5
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://github.com/pothosware/SoapyOsmo/wiki>
 
 ## What it does

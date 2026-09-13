@@ -4,7 +4,7 @@
 name: sdrangel
 version: "7.27.2"
 summary: SDR transceiver and analyser that does several things at once
-categories: [sdr, listening, rf-security]
+categories: [sdr-receivers]
 
 install:
   - when:

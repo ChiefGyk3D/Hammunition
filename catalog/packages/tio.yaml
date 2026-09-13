@@ -5,7 +5,7 @@ name: tio
 version: "3.9"
 summary: Serial device terminal — the modern replacement for screen on a TTY
 menu_title: Serial terminal (tio)
-categories: [workstation, hardware]
+categories: [serial-terminals]
 
 install:
   - install:

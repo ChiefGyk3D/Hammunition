@@ -4,7 +4,7 @@
 name: dump1090-mutability
 version: "1.15"
 summary: The older dump1090 fork, kept because two targets still carry it
-categories: [tracking, sdr, listening]
+categories: [aircraft]
 
 # `readsb` is the maintained line and the SUPERSEDE the dispositions record.
 # This is not a competing default.

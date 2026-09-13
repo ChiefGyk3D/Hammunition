@@ -4,7 +4,7 @@
 name: twclock
 version: "3.5"
 summary: World clock for the operating position, with a CW station-ID timer
-categories: [station, timing, cw]
+categories: [time-frequency, cw]
 
 install:
   - install:

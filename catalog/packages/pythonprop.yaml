@@ -4,7 +4,7 @@
 name: pythonprop
 version: "0.30.1"
 summary: Graphical front end that makes VOACAP predictions readable
-categories: [hf-propagation]
+categories: [propagation]
 
 # voacapl is the engine; this package depends on it in Debian too. Declared
 # rather than assumed, so a plan that installs only the front end is refused

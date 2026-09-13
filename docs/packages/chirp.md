@@ -5,7 +5,7 @@
 **Reads, edits and writes the memory channels of hundreds of radios**
 
 - **Version recorded:** 20250530
-- **Categories:** `radio-programming`, `rig-control`
+- **Categories:** `radio-programming`
 - **Upstream:** <https://chirpmyradio.com/>
 - **Supersedes:** `owx`
 

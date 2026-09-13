@@ -4,7 +4,7 @@
 name: cwwav
 version: "0.4.1"
 summary: Turns text into a Morse audio file, from the command line
-categories: [cw, training]
+categories: [morse-training, cw]
 
 install:
   - install:

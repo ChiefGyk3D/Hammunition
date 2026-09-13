@@ -4,7 +4,7 @@
 name: soapysdr-module-audio
 version: "0.1.1"
 summary: SoapySDR driver module for sound-card SDRs and Airspy HF hardware
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 install:
   - install:

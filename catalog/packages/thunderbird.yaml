@@ -5,7 +5,7 @@ name: thunderbird
 # Debian 13 candidate at time of writing; apt tracks the real version.
 version: "140.14.0esr"
 summary: Mozilla's full-featured mail client — the household name
-categories: [emcomm, workstation]
+categories: [email-clients, workstation]
 
 # One of the packet profile's mail-client options (Q-015 #1, resolved
 # 2026-08-30): the engine detects an existing mail client first and installs

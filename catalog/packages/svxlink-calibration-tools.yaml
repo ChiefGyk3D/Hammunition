@@ -4,7 +4,7 @@
 name: svxlink-calibration-tools
 version: "24.02"
 summary: Sets the audio levels an SvxLink node needs to work properly
-categories: [digital-modes, station]
+categories: [echolink-repeaters]
 
 after: [svxlink-server]
 

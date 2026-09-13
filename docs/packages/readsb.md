@@ -5,7 +5,7 @@
 **Efficient Mode S and ADS-B decoder — the maintained dump1090 successor**
 
 - **Version recorded:** 3.14.1630
-- **Categories:** `listening`, `sdr`, `tracking`
+- **Categories:** `aircraft`
 - **Upstream:** <https://github.com/adsbfi/readsb>
 - **Supersedes:** `dump1090`
 

@@ -4,7 +4,7 @@
 name: axmail
 version: "2.13"
 summary: Mail reader that packet callers reach through a node
-categories: [packet, emcomm]
+categories: [packet-nodes]
 requires_kernel: [ax25]
 
 after: [ax25-tools]

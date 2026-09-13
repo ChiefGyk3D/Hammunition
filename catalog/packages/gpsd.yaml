@@ -4,7 +4,7 @@
 name: gpsd
 version: "3.25"
 summary: GPS service daemon — one process owns the receiver, everything else asks it
-categories: [hardware, station, timing]
+categories: [gps-gnss]
 
 install:
   - install:

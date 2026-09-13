@@ -5,7 +5,7 @@
 **Bridges APRS messages to DAPNET pagers**
 
 - **Version recorded:** 2.0.5
-- **Categories:** `emcomm`, `packet`, `tracking`
+- **Categories:** `aprs`, `emcomm`
 - **Upstream:** <https://github.com/NGC2023/a2d>
 
 ## What it does

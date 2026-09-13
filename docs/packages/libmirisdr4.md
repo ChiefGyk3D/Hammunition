@@ -5,7 +5,7 @@
 **Open driver for Mirics-based receivers, including SDRplay RSP hardware**
 
 - **Version recorded:** 2.0.0
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://github.com/f4exb/libmirisdr-4>
 
 ## What it does

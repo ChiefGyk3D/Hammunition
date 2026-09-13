@@ -5,7 +5,7 @@
 **GNU Radio source blocks for the FUNcube Dongle Pro and Pro+**
 
 - **Version recorded:** 3.10.0~rc3
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`, `sdr-toolkits`
 - **Upstream:** <https://github.com/dl1ksv/gr-funcube>
 
 ## What it does

@@ -4,7 +4,7 @@
 name: dumpvdl2
 version: 2.7.0
 summary: VDL Mode 2 decoder for aircraft datalink
-categories: [listening]
+categories: [aircraft]
 
 # SUPERSEDES the archived vdlm2dec, which Skywave still ships as 2.3. All four
 # PARITY-POLICY bars are met: same core function, actively maintained, installs

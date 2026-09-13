@@ -4,7 +4,7 @@
 name: cwdaemon
 version: "0.10.2"
 summary: Network service that keys a transmitter's Morse from a serial or parallel port
-categories: [cw, rig-control, contest]
+categories: [cw, contest]
 
 install:
   - install:

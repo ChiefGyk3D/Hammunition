@@ -5,7 +5,7 @@
 **Opens an Icom network radio as an ordinary sound card and serial port**
 
 - **Version recorded:** 1.3
-- **Categories:** `rig-control`, `station`
+- **Categories:** `rig-control`
 - **Upstream:** <https://github.com/nonoo/kappanhang>
 
 ## What it does

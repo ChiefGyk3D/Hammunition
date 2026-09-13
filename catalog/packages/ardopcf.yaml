@@ -4,7 +4,7 @@
 name: ardopcf
 version: "1.0.4.1.3"
 summary: HF data modem for Winlink and packet over poor paths
-categories: [packet, digital-modes, emcomm]
+categories: [soundcard-modems, winlink]
 
 # REVIVE, per docs/reference/dispositions.md and PARITY-POLICY. AHRL disabled
 # ardop in v27 with the comment "compiler error on Xubuntu 26.04 / in function

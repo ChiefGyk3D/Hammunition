@@ -5,7 +5,7 @@
 **Receives HF weather fax and draws the chart**
 
 - **Version recorded:** 2.4.4
-- **Categories:** `digital-modes`, `listening`
+- **Categories:** `sstv-atv`, `weather-sensors`
 - **Upstream:** <https://www.qsl.net/5b4az/pages/wefax.html>
 - **Not a recommended default** — installed only when asked for.
 

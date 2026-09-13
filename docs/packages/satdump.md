@@ -5,7 +5,7 @@
 **Satellite data processing — receive, decode and image from weather and science satellites**
 
 - **Version recorded:** 1.2.2
-- **Categories:** `listening`, `satellite`, `sdr`
+- **Categories:** `satellite-decoding`
 - **Upstream:** <https://github.com/SatDump/SatDump>
 
 ## What it does

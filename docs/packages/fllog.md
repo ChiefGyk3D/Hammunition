@@ -5,7 +5,7 @@
 **Logging server the W1HKJ programs write contacts into**
 
 - **Version recorded:** 1.2.9
-- **Categories:** `logging`, `station`
+- **Categories:** `logging`
 - **Upstream:** <https://w1hkj.org/>
 
 ## What it does

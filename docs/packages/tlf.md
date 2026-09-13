@@ -5,7 +5,7 @@
 **Console contest logger built for speed, driven from the keyboard**
 
 - **Version recorded:** 1.4.1
-- **Categories:** `contest`, `cw`, `logging`
+- **Categories:** `contest`, `cw`
 - **Upstream:** <https://tlf.github.io/>
 
 ## What it does

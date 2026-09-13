@@ -4,7 +4,7 @@
 name: z8530-utils2
 version: "3.0-1"
 summary: Configures Z8530-based HDLC cards for high-speed packet
-categories: [packet, hardware]
+categories: [device-support, soundcard-modems]
 requires_kernel: [ax25]
 
 # Retired, and the catalog still carries it, so an operator who goes

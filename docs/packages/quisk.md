@@ -5,7 +5,7 @@
 **SDR transceiver software with a real front panel, driving hardware or a dongle**
 
 - **Version recorded:** 4.2.32
-- **Categories:** `digital-modes`, `rig-control`, `sdr`
+- **Categories:** `rig-control`, `sdr-receivers`
 - **Upstream:** <https://pypi.org/project/quisk/>
 
 ## What it does

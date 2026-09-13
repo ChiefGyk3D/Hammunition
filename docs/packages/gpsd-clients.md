@@ -5,7 +5,7 @@
 **Clients that consume what gpsd serves — xgps, gpspipe, gpxlogger, gpsdecode**
 
 - **Version recorded:** 3.25
-- **Categories:** `hardware`, `station`, `timing`
+- **Categories:** `gps-gnss`
 - **Upstream:** <https://gpsd.io/>
 - **Needs first:** `gpsd`
 

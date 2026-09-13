@@ -4,7 +4,7 @@
 name: gqrx-sdr
 version: "2.17.6"
 summary: Graphical SDR receiver — waterfall, demodulators and a bookmark list
-categories: [sdr, listening]
+categories: [sdr-receivers]
 
 install:
   - install:

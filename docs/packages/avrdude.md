@@ -5,7 +5,7 @@
 **Reads and writes AVR microcontroller memories through almost any programmer**
 
 - **Version recorded:** 7.1
-- **Categories:** `electronics`, `programmer`
+- **Categories:** `programmer`
 - **Upstream:** <https://github.com/avrdudes/avrdude>
 
 ## What it does

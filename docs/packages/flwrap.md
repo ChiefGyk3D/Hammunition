@@ -5,7 +5,7 @@
 **Wraps a file with a checksum so the far end knows it arrived intact**
 
 - **Version recorded:** 1.3.6
-- **Categories:** `digital-modes`, `emcomm`, `nbems`
+- **Categories:** `emcomm`, `nbems`
 - **Upstream:** <https://w1hkj.org/flwrap-help/>
 - **Install after:** `fldigi`
 

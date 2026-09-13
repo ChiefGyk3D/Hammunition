@@ -5,7 +5,7 @@
 **SoapySDR driver module for Red Pitaya boards used as an SDR**
 
 - **Version recorded:** 0.1.1
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://github.com/pothosware/SoapyRedPitaya/wiki>
 
 ## What it does

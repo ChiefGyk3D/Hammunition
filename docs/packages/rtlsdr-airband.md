@@ -5,7 +5,7 @@
 **Multi-channel AM/NFM voice receiver with streaming output**
 
 - **Version recorded:** 5.3.1
-- **Categories:** `listening`
+- **Categories:** `aircraft`
 - **Upstream:** <https://github.com/rtl-airband/RTLSDR-Airband>
 
 ## What it does

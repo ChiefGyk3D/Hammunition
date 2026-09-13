@@ -5,7 +5,7 @@ name: ax25-xtools
 version: "0.0.10"
 summary: X11 versions of the AX.25 monitoring tools
 menu_title: Packet soundmodem tuning scope (smdiag)
-categories: [packet]
+categories: [packet-terminals]
 requires_kernel: [ax25]
 
 after: [ax25-tools]

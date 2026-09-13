@@ -5,7 +5,7 @@
 **Lightweight DAB receiver for the command line or a small window**
 
 - **Version recorded:** 1.16.0
-- **Categories:** `listening`, `sdr`
+- **Categories:** `broadcast`
 - **Upstream:** <https://github.com/Opendigitalradio/dablin>
 
 ## What it does

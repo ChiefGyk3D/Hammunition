@@ -9,7 +9,7 @@ summary: Build a radio out of signal-processing blocks instead of hardware
 # and Digital Modes menus unreadable on the field laptop (2026-09-13); one
 # submenu under SDR holds them all (D-054).
 menu_submenu: GNU Radio
-categories: [sdr, digital-modes]
+categories: [sdr-toolkits]
 
 install:
   - install:

@@ -4,7 +4,7 @@
 name: hammunition-hill
 version: "1.0.0"
 summary: Local-first ham radio dashboard — the Hammunition family's own
-categories: [station, hf-propagation, satellite]
+categories: [dashboards]
 
 # ADD, and the one unit in this catalog whose upstream is this project's own
 # maintainer. That is disclosed here rather than left for someone to notice:

@@ -5,7 +5,7 @@
 **Reads, writes and verifies SPI, LPC and parallel flash chips in place**
 
 - **Version recorded:** 1.4.0
-- **Categories:** `electronics`, `programmer`
+- **Categories:** `programmer`
 - **Upstream:** <https://flashrom.org/>
 
 ## What it does

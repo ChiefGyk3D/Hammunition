@@ -4,7 +4,7 @@
 name: twpsk
 version: "4.3"
 summary: PSK31 in an X11 window, the graphical companion to psk31lx
-categories: [digital-modes]
+categories: [keyboard-modes]
 
 install:
   - install:

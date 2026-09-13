@@ -4,7 +4,7 @@
 name: qtbpqaprs
 version: "00.13"
 summary: G8BPQ's Qt APRS client, the messaging-focused one
-categories: [packet, tracking]
+categories: [aprs]
 
 # ADD from the 73Linux delta, where it ships as "PIAPRS" -- the same rename
 # habit that hid QtTermTCP behind PITERM. GPL-3.0 by LICENSE, tagged source
