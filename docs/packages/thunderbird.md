@@ -5,7 +5,7 @@
 **Mozilla's full-featured mail client — the household name**
 
 - **Version recorded:** 140.14.0esr
-- **Categories:** `emcomm`, `workstation`
+- **Categories:** `email-clients`, `workstation`
 - **Upstream:** <https://www.thunderbird.net/>
 
 ## What it does

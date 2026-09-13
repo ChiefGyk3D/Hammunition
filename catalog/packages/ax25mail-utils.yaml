@@ -4,7 +4,7 @@
 name: ax25mail-utils
 version: "0.15"
 summary: Utilities for exchanging mail with an FBB packet BBS
-categories: [packet, emcomm]
+categories: [packet-nodes]
 requires_kernel: [ax25]
 
 after: [ax25-tools]

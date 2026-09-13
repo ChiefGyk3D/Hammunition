@@ -5,7 +5,7 @@
 **Live map of FT8/JS8 activity, fed by WSJT-X and JS8Call**
 
 - **Version recorded:** 2.260812.0
-- **Categories:** `digital-modes`
+- **Categories:** `weak-signal`
 - **Upstream:** <https://gridtracker.org/>
 
 ## What it does

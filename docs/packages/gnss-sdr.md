@@ -5,7 +5,7 @@
 **A complete GPS and GNSS receiver built entirely in software**
 
 - **Version recorded:** 0.0.20
-- **Categories:** `sdr`, `station`, `timing`
+- **Categories:** `gps-gnss`, `sdr-toolkits`
 - **Upstream:** <https://gnss-sdr.org>
 
 ## What it does

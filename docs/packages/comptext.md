@@ -5,7 +5,7 @@
 **Compares two text streams and scores how much of one arrived intact**
 
 - **Version recorded:** 1.0.1
-- **Categories:** `digital-modes`, `nbems`
+- **Categories:** `keyboard-modes`, `nbems`
 - **Upstream:** <https://w1hkj.org/>
 
 ## What it does

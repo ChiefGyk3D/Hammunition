@@ -5,7 +5,7 @@
 **World map showing the day-night terminator and where the sun is now**
 
 - **Version recorded:** 3.57
-- **Categories:** `hf-propagation`, `station`
+- **Categories:** `dashboards`, `propagation`
 - **Upstream:** <https://github.com/nongiach/Sunclock>
 
 ## What it does

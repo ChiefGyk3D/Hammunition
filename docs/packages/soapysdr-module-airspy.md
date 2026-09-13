@@ -5,7 +5,7 @@
 **SoapySDR driver module for Airspy hardware**
 
 - **Version recorded:** 0.2.0
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://github.com/pothosware/SoapySDR/wiki>
 
 ## What it does

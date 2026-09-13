@@ -4,7 +4,7 @@
 name: xygrib
 version: "1.2.6.1"
 summary: Views GRIB weather files — wind, pressure, waves, on a map
-categories: [emcomm, station, listening]
+categories: [weather-sensors, emcomm]
 
 install:
   - install:

@@ -5,7 +5,7 @@
 **Disciplines the system clock from an MSF, WWVB or DCF77 time signal**
 
 - **Version recorded:** 1.0
-- **Categories:** `station`, `timing`
+- **Categories:** `time-frequency`
 - **Upstream:** <http://www.buzzard.me.uk/jonathan/radioclock.html>
 
 ## What it does

@@ -4,7 +4,7 @@
 name: flmsg
 version: "4.0.23"
 summary: Fills in and transmits the standard message forms EMCOMM runs on
-categories: [digital-modes, nbems, emcomm]
+categories: [nbems, emcomm]
 
 after: [fldigi]
 

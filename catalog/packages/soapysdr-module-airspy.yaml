@@ -4,7 +4,7 @@
 name: soapysdr-module-airspy
 version: "0.2.0"
 summary: SoapySDR driver module for Airspy hardware
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 install:
   - install:

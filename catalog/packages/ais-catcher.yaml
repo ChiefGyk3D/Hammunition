@@ -4,7 +4,7 @@
 name: ais-catcher
 version: "0.70"
 summary: AIS receiver and decoder for marine vessel traffic, with a web map
-categories: [tracking, sdr]
+categories: [ships]
 
 # SHAPE 6 — AHRL installs this with:
 #   bash -c "$(wget -qO- https://raw.githubusercontent.com/.../aiscatcher-install)"

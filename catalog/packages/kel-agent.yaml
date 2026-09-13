@@ -4,7 +4,7 @@
 name: kel-agent
 version: "0.4.6"
 summary: Bridges browser-based logging software to the radio hardware on your desk
-categories: [logging, rig-control, station]
+categories: [logging, rig-control]
 
 install:
   - install:

@@ -5,7 +5,7 @@
 **VHF ACARS decoder for aircraft datalink messages**
 
 - **Version recorded:** 4.6
-- **Categories:** `listening`
+- **Categories:** `aircraft`
 - **Upstream:** <https://github.com/f00b4r0/acarsdec>
 - **Needs first:** `libacars`
 - **Install after:** `libacars`

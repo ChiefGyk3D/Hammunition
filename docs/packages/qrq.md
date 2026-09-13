@@ -5,7 +5,7 @@
 **High-speed Morse trainer that pushes your callsign copy to its limit**
 
 - **Version recorded:** 0.3.5
-- **Categories:** `cw`, `training`
+- **Categories:** `cw`, `morse-training`
 - **Upstream:** <https://fkurz.net/ham/qrq.html>
 
 ## What it does

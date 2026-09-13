@@ -5,7 +5,7 @@ name: aircrack-ng
 version: "1.7"
 summary: Wi-Fi security auditing suite — capture, analysis and key recovery
 menu_title: Wi-Fi capture and cracking suite (aircrack-ng)
-categories: [rf-security]
+categories: [wifi]
 
 install:
   - install:

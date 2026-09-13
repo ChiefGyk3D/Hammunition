@@ -4,7 +4,7 @@
 name: soapysdr-module-remote
 version: "0.5.2"
 summary: The client half of SoapyRemote — uses an SDR served by another machine
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 install:
   - install:

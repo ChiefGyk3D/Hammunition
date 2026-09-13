@@ -4,7 +4,7 @@
 name: jtdx
 version: "2.2.159"
 summary: WSJT-X derivative tuned for DX working and crowded FT8 conditions
-categories: [digital-modes]
+categories: [weak-signal]
 
 # The FT8 family overlaps heavily -- wsjtx, wsjtx-improved, jtdx, mshv and
 # js8call all decode FT8 -- and PARITY-POLICY requires exactly one recommended

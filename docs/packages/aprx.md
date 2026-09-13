@@ -5,7 +5,7 @@
 **APRS digipeater and internet gateway, small enough for a Pi**
 
 - **Version recorded:** 2.9.1
-- **Categories:** `packet`, `tracking`
+- **Categories:** `aprs`, `packet-nodes`
 - **Upstream:** <https://thelifeofkenneth.com/aprx/>
 
 ## What it does

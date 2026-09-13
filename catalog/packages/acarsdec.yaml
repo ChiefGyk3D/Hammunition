@@ -4,7 +4,7 @@
 name: acarsdec
 version: "4.6"
 summary: VHF ACARS decoder for aircraft datalink messages
-categories: [listening]
+categories: [aircraft]
 
 depends:
   # Our own manifest, not an apt package: acarsdec links libacars to decode the

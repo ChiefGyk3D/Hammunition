@@ -5,7 +5,7 @@
 **Encodes audio into the DAB and DAB+ formats a multiplexer expects**
 
 - **Version recorded:** 3.6.0
-- **Categories:** `sdr`
+- **Categories:** `broadcast`, `sdr-toolkits`
 - **Upstream:** <https://github.com/Opendigitalradio/ODR-AudioEnc>
 - **Not a recommended default** — installed only when asked for.
 

@@ -4,7 +4,7 @@
 name: qrq
 version: "0.3.5"
 summary: High-speed Morse trainer that pushes your callsign copy to its limit
-categories: [cw, training]
+categories: [morse-training, cw]
 
 install:
   - install:

@@ -5,7 +5,7 @@
 **Lets SvxLink key a radio and read squelch through GPIO pins**
 
 - **Version recorded:** 24.02
-- **Categories:** `digital-modes`, `hardware`, `station`
+- **Categories:** `echolink-repeaters`
 - **Upstream:** <https://www.svxlink.org>
 - **Install after:** `svxlink-server`
 

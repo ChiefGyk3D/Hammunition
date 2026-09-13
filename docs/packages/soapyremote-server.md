@@ -5,7 +5,7 @@
 **Serves a local SDR over the network to software on another machine**
 
 - **Version recorded:** 0.5.2
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://github.com/pothosware/SoapyRemote/wiki>
 
 ## What it does

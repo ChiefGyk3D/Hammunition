@@ -5,7 +5,7 @@
 **Utilities for exchanging mail with an FBB packet BBS**
 
 - **Version recorded:** 0.15
-- **Categories:** `emcomm`, `packet`
+- **Categories:** `packet-nodes`
 - **Upstream:** <https://sourceforge.net/projects/ax25mail/>
 - **Install after:** `ax25-tools`
 - **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)

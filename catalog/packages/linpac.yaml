@@ -5,7 +5,7 @@ name: linpac
 version: "0.28"
 summary: Terminal for AX.25 packet with a built-in mail client and macros
 menu_title: AX.25 packet terminal (linpac)
-categories: [packet, emcomm]
+categories: [packet-terminals]
 requires_kernel: [ax25]
 
 install:

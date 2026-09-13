@@ -4,7 +4,7 @@
 name: soapysdr-module-rtlsdr
 version: "0.3.3"
 summary: SoapySDR driver module for RTL-SDR hardware
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 install:
   - install:

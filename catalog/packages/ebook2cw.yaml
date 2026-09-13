@@ -5,7 +5,7 @@ name: ebook2cw
 version: "0.8.5"
 summary: Converts a text file or ebook into Morse code audio at a chosen speed
 menu_title: Text-to-Morse audio converter (ebook2cw)
-categories: [cw, training]
+categories: [morse-training, cw]
 
 install:
   - install:

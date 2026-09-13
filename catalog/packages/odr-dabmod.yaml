@@ -4,7 +4,7 @@
 name: odr-dabmod
 version: "3.0.0"
 summary: Turns a DAB ensemble into a transmittable OFDM signal
-categories: [sdr]
+categories: [sdr-toolkits, broadcast]
 
 recommended_default: false
 

@@ -4,7 +4,7 @@
 name: rayhunter
 version: "0.12.0"
 summary: EFF's IMSI-catcher detector — the installer for a supported hotspot, and the offline capture analyser
-categories: [rf-security, hardware]
+categories: [cellular]
 
 # Defensive, and deliberately in rf-security, ungated: it detects cell-site
 # simulators, transmits nothing, emulates no network and collects no one

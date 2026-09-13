@@ -4,7 +4,7 @@
 name: arduino-cli
 version: "1.5.1"
 summary: Command-line toolchain for compiling and uploading Arduino-framework firmware
-categories: [hardware, workstation]
+categories: [programmer, workstation]
 
 # Same honest gap as soapysdr-module-plutosdr, different cause. Measured
 # 2026-08-26: Kali 1.5.1-4; absent from Debian 13 and Parrot.

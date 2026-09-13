@@ -4,7 +4,7 @@
 name: radioclk
 version: "1.0"
 summary: Disciplines the system clock from an MSF, WWVB or DCF77 time signal
-categories: [timing, station]
+categories: [time-frequency]
 
 install:
   - install:

@@ -5,7 +5,7 @@
 **Graphical front end for ebook2cw**
 
 - **Version recorded:** 0.1.2
-- **Categories:** `cw`, `training`
+- **Categories:** `cw`, `morse-training`
 - **Upstream:** <https://fkurz.net/ham/ebook2cw.html#gui>
 - **Needs first:** `ebook2cw`
 

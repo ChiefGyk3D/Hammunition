@@ -4,7 +4,7 @@
 name: glfer
 version: 0.4.2
 summary: QRSS and DFCW receiver for extremely slow narrowband CW on LF/MF
-categories: [digital-modes]
+categories: [weak-signal]
 
 # Carried with attention per PARITY-POLICY: builds only with warning
 # suppressions on a modern toolchain. Recorded rather than rediscovered.

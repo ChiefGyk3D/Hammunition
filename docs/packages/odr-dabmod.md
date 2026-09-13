@@ -5,7 +5,7 @@
 **Turns a DAB ensemble into a transmittable OFDM signal**
 
 - **Version recorded:** 3.0.0
-- **Categories:** `sdr`
+- **Categories:** `broadcast`, `sdr-toolkits`
 - **Upstream:** <https://github.com/Opendigitalradio/ODR-DabMod>
 - **Not a recommended default** — installed only when asked for.
 

@@ -4,7 +4,7 @@
 name: hamexam
 version: "1.11.2"
 summary: Practice tests for the United States amateur radio licence exams
-categories: [training]
+categories: [exams]
 
 install:
   - install:

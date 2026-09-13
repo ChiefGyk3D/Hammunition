@@ -4,7 +4,7 @@
 name: baycomusb
 version: "0.10"
 summary: Driver for the HB9JNX USB packet modem
-categories: [packet, hardware]
+categories: [device-support, soundcard-modems]
 
 install:
   - install:

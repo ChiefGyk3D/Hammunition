@@ -5,7 +5,7 @@ name: multimon
 version: "1.0"
 summary: The original multimon decoder, kept for the modes its successor dropped
 menu_title: Legacy audio mode decoder (multimon)
-categories: [listening, tracking]
+categories: [pagers-decoders]
 
 install:
   - install:

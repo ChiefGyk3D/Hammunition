@@ -5,7 +5,7 @@
 **Flash and inspect ESP8266 and ESP32 chips over their serial bootloader**
 
 - **Version recorded:** 4.7.0
-- **Categories:** `hardware`, `rf-security`, `workstation`
+- **Categories:** `programmer`, `workstation`
 - **Upstream:** <https://github.com/espressif/esptool>
 
 ## What it does

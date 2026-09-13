@@ -5,7 +5,7 @@ name: esptool
 version: "4.7.0"
 summary: Flash and inspect ESP8266 and ESP32 chips over their serial bootloader
 menu_title: ESP8266 and ESP32 flasher (esptool)
-categories: [workstation, hardware, rf-security]
+categories: [programmer, workstation]
 
 # D-026, worked example. This copies bytes to a serial port. Some of the images
 # people write with it do things that fall inside the D-021 taxonomy; that is a

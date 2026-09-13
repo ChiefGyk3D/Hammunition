@@ -5,7 +5,7 @@
 **Graphical SDR receiver — waterfall, demodulators and a bookmark list**
 
 - **Version recorded:** 2.17.6
-- **Categories:** `listening`, `sdr`
+- **Categories:** `sdr-receivers`
 - **Upstream:** <https://gqrx.dk/>
 
 ## What it does

@@ -4,7 +4,7 @@
 name: airspy
 version: "1.0.10"
 summary: Host tools and library for Airspy R2 and Mini receivers
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 install:
   - install:

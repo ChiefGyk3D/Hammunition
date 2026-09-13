@@ -4,7 +4,7 @@
 name: yaac
 version: "1.0-beta230(03-Sep-2026)"
 summary: Yet Another APRS Client — the deep, portable Java one
-categories: [packet, tracking]
+categories: [aprs]
 
 # CARRY from AHRL. Upstream publishes one binary artifact, an unversioned
 # rolling YAAC.zip -- the same shape 73Linux's Beta directory had, but with

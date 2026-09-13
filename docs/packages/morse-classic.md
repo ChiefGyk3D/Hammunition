@@ -5,7 +5,7 @@
 **Text-to-Morse sounder and trainer, Eric Raymond's morse-classic**
 
 - **Version recorded:** 2.6
-- **Categories:** `cw`, `training`
+- **Categories:** `cw`, `morse-training`
 - **Upstream:** <https://gitlab.com/esr/morse-classic>
 
 ## What it does

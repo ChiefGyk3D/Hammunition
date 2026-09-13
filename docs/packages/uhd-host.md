@@ -5,7 +5,7 @@
 **USRP Hardware Driver — host tools and firmware images for Ettus USRP radios**
 
 - **Version recorded:** 4.8.0.0
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://github.com/EttusResearch/uhd>
 
 ## What it does

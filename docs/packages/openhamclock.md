@@ -5,7 +5,7 @@
 **Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites**
 
 - **Version recorded:** 26.7.3
-- **Categories:** `hf-propagation`
+- **Categories:** `dashboards`, `propagation`
 - **Upstream:** <https://github.com/accius/openhamclock>
 
 ## What it does

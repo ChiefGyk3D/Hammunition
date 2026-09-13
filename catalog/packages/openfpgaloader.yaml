@@ -5,7 +5,7 @@ name: openfpgaloader
 version: "0.13.1"
 summary: Universal bitstream loader for FPGAs, over JTAG and SPI
 menu_title: FPGA bitstream loader (openFPGALoader)
-categories: [electronics, programmer]
+categories: [programmer]
 
 install:
   - install:

@@ -5,7 +5,7 @@
 **Host tools and library for RTL2832U-based receivers**
 
 - **Version recorded:** 2.0.2
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://gitea.osmocom.org/sdr/rtl-sdr>
 
 ## What it does

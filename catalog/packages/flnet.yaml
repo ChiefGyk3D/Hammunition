@@ -4,7 +4,7 @@
 name: flnet
 version: "7.5.0"
 summary: Net control operator's list — who checked in, in what order
-categories: [logging, emcomm, station]
+categories: [emcomm, logging]
 
 install:
   - install:

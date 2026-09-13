@@ -5,7 +5,7 @@
 **Distance and bearing between two Maidenhead locators, from the command line**
 
 - **Version recorded:** 1.3
-- **Categories:** `antenna`, `hf-propagation`
+- **Categories:** `locators`
 - **Upstream:** <http://www.db.net/downloads/>
 
 ## What it does

@@ -5,7 +5,7 @@
 **Decodes the data carried alongside broadcast FM — station names, traffic**
 
 - **Version recorded:** 3.10
-- **Categories:** `listening`, `sdr`
+- **Categories:** `broadcast`, `signal-analysis`
 - **Upstream:** <https://github.com/bastibl/gr-rds>
 - **Needs first:** `gnuradio`
 

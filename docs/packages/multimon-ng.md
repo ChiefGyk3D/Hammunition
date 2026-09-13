@@ -5,7 +5,7 @@
 **Decoder for POCSAG, FLEX, AFSK, DTMF and other audio-band digital modes**
 
 - **Version recorded:** 1.3.1
-- **Categories:** `listening`, `tracking`
+- **Categories:** `pagers-decoders`
 - **Upstream:** <https://github.com/EliasOenal/multimon-ng>
 
 ## What it does

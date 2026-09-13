@@ -4,7 +4,7 @@
 name: libacars
 version: 2.2.1
 summary: Shared library that decodes ACARS application-layer messages
-categories: [listening]
+categories: [aircraft]
 
 # The Skywave delta's foundation: acarsdec, dumpvdl2 and dumphfdl all link it,
 # so it installs before any of them. Absent from Debian stable *and* unstable

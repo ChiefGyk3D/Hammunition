@@ -5,7 +5,7 @@ name: avrdude
 version: "7.1"
 summary: Reads and writes AVR microcontroller memories through almost any programmer
 menu_title: AVR microcontroller programmer (avrdude)
-categories: [electronics, programmer]
+categories: [programmer]
 
 install:
   - install:

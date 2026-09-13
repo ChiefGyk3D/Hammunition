@@ -4,7 +4,7 @@
 name: ax25-apps
 version: "0.0.8"
 summary: The programs you actually use over AX.25 once a port is up
-categories: [packet, emcomm]
+categories: [packet-terminals]
 requires_kernel: [ax25]
 
 # ax25-tools brings the port up; these speak over it. Ordering, not dependency

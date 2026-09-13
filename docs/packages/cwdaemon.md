@@ -5,7 +5,7 @@
 **Network service that keys a transmitter's Morse from a serial or parallel port**
 
 - **Version recorded:** 0.10.2
-- **Categories:** `contest`, `cw`, `rig-control`
+- **Categories:** `contest`, `cw`
 - **Upstream:** <https://cwdaemon.sourceforge.net/>
 
 ## What it does

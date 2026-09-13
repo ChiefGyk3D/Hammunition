@@ -5,7 +5,7 @@
 **Tools for the original OsmoSDR hardware**
 
 - **Version recorded:** 0.1.8
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://osmocom.org/projects/osmosdr>
 
 ## What it does

@@ -21,7 +21,7 @@ def manifest(**overrides: Any) -> PackageManifest:
         "name": "launchable",
         "version": "1.0",
         "summary": "Fixture with a launcher",
-        "categories": ["sdr", "tracking"],
+        "categories": ["sdr-receivers", "aprs"],
         "install": [{"install": {"method": "apt", "packages": ["launchable"]}}],
         "launchers": [{"name": "launchable", "exec": "launchable --serve"}],
         "update": {"probe": {"method": "none"}, "strategy": "manual"},

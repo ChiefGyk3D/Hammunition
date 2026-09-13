@@ -4,7 +4,7 @@
 name: qttinysa
 version: "1.0.2"
 summary: Desktop front end for the tinySA and tinySA Ultra spectrum analysers
-categories: [electronics, sdr, hardware]
+categories: [spectrum-analysers]
 
 install:
   - install:

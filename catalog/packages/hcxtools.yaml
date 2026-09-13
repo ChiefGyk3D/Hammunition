@@ -4,7 +4,7 @@
 name: hcxtools
 version: "6.3.5"
 summary: Converts captured Wi-Fi frames into hash formats analysis tools read
-categories: [rf-security]
+categories: [wifi]
 
 install:
   - install:

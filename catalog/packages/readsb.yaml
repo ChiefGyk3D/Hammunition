@@ -5,7 +5,7 @@ name: readsb
 version: "3.14.1630"
 summary: Efficient Mode S and ADS-B decoder — the maintained dump1090 successor
 menu_title: ADS-B and Mode S decoder (readsb)
-categories: [tracking, sdr, listening]
+categories: [aircraft]
 
 # SUPERSEDE, per docs/reference/dispositions.md #4 and the dump1090 entry in
 # PARITY-POLICY: AHRL builds dump1090 from a FlightAware zip with a long

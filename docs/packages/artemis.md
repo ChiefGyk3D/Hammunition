@@ -5,7 +5,7 @@
 **Signal identification reference — the sigidwiki database, offline**
 
 - **Version recorded:** 4.2.0
-- **Categories:** `listening`, `rf-security`, `sdr`
+- **Categories:** `references`, `signal-analysis`
 - **Upstream:** <https://github.com/AresValley/Artemis>
 - **Needs first:** `libgl1`, `libxcb-cursor0`, `libxcb-icccm4`, `libxcb-keysyms1`, `libxcb-shape0`, `libxkbcommon-x11-0`
 

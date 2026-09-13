@@ -4,7 +4,7 @@
 name: flrig
 version: "2.0.05"
 summary: Rig control with a real front panel, shared between programs over XML-RPC
-categories: [rig-control, station]
+categories: [rig-control]
 
 # SUPERSEDE, per docs/reference/dispositions.md #5: AHRL carries `grig`, a
 # hamlib demonstration front end that has not moved in years. flrig does the

@@ -4,7 +4,7 @@
 name: psk31lx
 version: "2.2"
 summary: PSK31 in a terminal, with no desktop and no waterfall
-categories: [digital-modes]
+categories: [keyboard-modes]
 
 install:
   - install:

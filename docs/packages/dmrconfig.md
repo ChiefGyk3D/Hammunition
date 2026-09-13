@@ -5,7 +5,7 @@
 **Command-line DMR codeplug tool — the text-file approach to the same job**
 
 - **Version recorded:** 1.1+git20230126
-- **Categories:** `dmr`, `radio-programming`, `station`
+- **Categories:** `dmr`, `radio-programming`
 - **Upstream:** <https://github.com/sergev/dmrconfig>
 
 ## What it does

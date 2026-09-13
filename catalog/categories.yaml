@@ -33,228 +33,396 @@
 # category belongs to exactly one group (tests/test_categories.py), `order`
 # is the menu's order, and a category stays a flat tag for every other
 # reader -- a group is where a submenu sits, not what a package is.
+#
+# The vocabulary was recut fine on 2026-09-13 (D-055): 55 tags where there
+# were 26, because the maintainer's read of the menu was that "Ham Radio TV"
+# had nowhere to be, and a wiki will need the same places. A tag is the
+# smallest thing a person looks for -- APRS, Winlink, ships, aircraft, SSTV
+# and amateur TV -- and a group is the activity it belongs to.
+
 
 categories:
-  - name: antenna
-    icon: applications-engineering
-    title: Antenna Design
+  - name: rig-control
+    icon: preferences-system
+    title: Rig Control (CAT)
     summary: >-
-      Antenna and transmission-line design, modelling, and measurement.
+      CAT control of a transceiver while operating: frequency, mode, PTT and the panel on the screen.
+
+  - name: logging
+    icon: x-office-address-book
+    title: Logbooks & QSL
+    summary: >-
+      Contact logging, awards tracking, Logbook of the World and the lookups a log needs.
 
   - name: contest
-    icon: applications-utilities
+    icon: view-statistics
     title: Contesting
     summary: >-
-      Contest operating -- scoring, duplicate checking, rate keeping,
-      and keying under time pressure.
+      Contest loggers, scoring, duplicate checking, keying and the country file.
+
+  - name: dx-cluster
+    icon: network-server
+    title: DX Cluster & Spots
+    summary: >-
+      Cluster clients: what other operators are hearing right now.
+
+  - name: dashboards
+    icon: view-media-visualization
+    title: Station Dashboards
+    summary: >-
+      HamClock-style boards: grey line, propagation, spots and the day at a glance.
+
+  - name: time-frequency
+    icon: clock
+    title: Time & Frequency
+    summary: >-
+      Clocks, radio time signals and time-zone displays for the operating position.
+
+  - name: gps-gnss
+    icon: mark-location
+    title: GPS & GNSS
+    summary: >-
+      GPS receivers and the daemon that shares one, format converters, and a GNSS receiver in software.
+
+  - name: locators
+    icon: flag
+    title: Locators & Bearings
+    summary: >-
+      Maidenhead grid squares, distance and bearing between two places.
+
+  - name: weak-signal
+    icon: audio-volume-low
+    title: FT8, JS8 & Weak Signal
+    summary: >-
+      WSJT-X and its family, JS8Call, QRSS: contacts at signal levels you cannot hear.
+
+  - name: keyboard-modes
+    icon: input-keyboard
+    title: PSK, RTTY & Keyboard Modes
+    summary: >-
+      Fldigi and the keyboard-to-keyboard modes: PSK31, RTTY, Olivia, MT63 and their accuracy checkers.
+
+  - name: nbems
+    icon: mail-send
+    title: NBEMS Messaging
+    summary: >-
+      Forms, files and checksums over radio: flmsg, flamp, flwrap.
+
+  - name: digital-voice
+    icon: audio-input-microphone
+    title: Digital Voice
+    summary: >-
+      FreeDV over HF and decoders for the digital voice protocols heard on VHF and UHF.
+
+  - name: sstv-atv
+    icon: camera-photo
+    title: SSTV, Fax & Amateur TV
+    summary: >-
+      Pictures over radio: slow-scan television, weather fax, and analogue television transmission.
+
+  - name: echolink-repeaters
+    icon: network-connect
+    title: EchoLink & Repeaters
+    summary: >-
+      EchoLink clients, SvxLink repeater and node software, and their link and calibration tools.
 
   - name: cw
     icon: preferences-desktop-keyboard
     title: CW (Morse)
     summary: >-
-      Morse code -- keying, decoding, and learning to hear it.
+      Keying, decoding and sending Morse on the air, keyers and beacons.
 
-  - name: digital-modes
-    icon: audio-x-generic
-    title: Digital Modes
+  - name: packet-terminals
+    icon: utilities-terminal
+    title: Packet Terminals & AX.25
     summary: >-
-      Keyboard-to-keyboard and weak-signal modes worked with a transceiver:
-      PSK31, RTTY, FT8, JS8, SSTV and the rest.
+      AX.25 configuration and the terminals you connect with once a port is up.
 
-  - name: dmr
-    icon: radio
-    title: DMR
-    summary: DMR — codeplugs, talkgroups, and the radios that use them.
-
-  - name: electronics
-    icon: applications-engineering
-    title: Electronics & Test Gear
-    summary: Bench electronics and EDA — circuit design, simulation, test gear.
-
-  - name: emcomm
-    icon: network-wireless
-    title: Emergency Comms
-    summary: Emergency and public-service communications.
-
-  - name: hardware
-    icon: applications-engineering
-    title: Devices & Drivers
+  - name: soundcard-modems
+    icon: audio-card
+    title: Soundcard Modems & TNCs
     summary: >-
-      Device support rather than an application: drivers, firmware, udev
-      permissions, and the tools for talking to a device at all.
+      Direwolf, QtSoundModem, ARDOP and the TNCs built into radios.
 
-  - name: hf-propagation
-    icon: map-globe
-    title: HF Propagation
-    summary: Propagation prediction, solar indices, beacons and grey line.
-
-  - name: listening
-    icon: audio-input-microphone
-    title: Listening & Decoding
+  - name: packet-nodes
+    icon: network-server
+    title: Nodes, BBS & Gateways
     summary: >-
-      Receive-only monitoring and decoding. Needs no licence and often no
-      transmitter, which makes it the on-ramp for an operator who owns nothing
-      but a dongle yet.
+      BPQ32, URONode, FBB, packet mail and the routing that ties them together.
 
-  - name: logging
-    icon: applications-utilities
-    title: Logging & QSL
+  - name: winlink
+    icon: mail-message
+    title: Winlink Email
     summary: >-
-      Contact logging, awards tracking, QSL and confirmation services.
+      Radio email when the internet is down: pat, ARDOP, gateways.
+
+  - name: aprs
+    icon: mark-location
+    title: APRS
+    summary: >-
+      Position reporting and messaging: clients with maps, digipeaters, iGates and pager bridges.
 
   - name: mesh
     icon: network-wireless
     title: LoRa Mesh
-    summary: LoRa and mesh networking — Meshtastic, MeshCore, Reticulum.
-
-  - name: nbems
-    icon: audio-x-generic
-    title: NBEMS Messaging
     summary: >-
-      The NBEMS stack specifically — fldigi with flmsg, flamp and flwrap for
-      formal message handling without an internet connection.
+      Meshtastic, MeshCore and Reticulum: off-grid text over LoRa.
 
-  - name: packet
-    icon: network-wireless
-    title: Packet (AX.25, Winlink)
-    summary: AX.25 and packet radio, including Winlink and BBS work.
+  - name: emcomm
+    icon: dialog-warning
+    title: Emergency Comms
+    summary: >-
+      Net control, message forms, weather charts and the rest of the public-service stack.
+
+  - name: email-clients
+    icon: mail-message
+    title: Mail Clients
+    summary: >-
+      Desktop mail clients and PGP, carried for stations that move traffic by mail.
+
+  - name: sdr-receivers
+    icon: radio
+    title: SDR Receivers & Transceivers
+    summary: >-
+      Gqrx, SDR++, CubicSDR, SDRangel, Quisk, Linrad: the programs a dongle turns into a radio.
+
+  - name: sdr-toolkits
+    icon: applications-science
+    title: GNU Radio & DSP Toolkits
+    summary: >-
+      Build a radio out of blocks: GNU Radio and its hardware sources, DAB encoders and modulators.
+
+  - name: signal-analysis
+    icon: view-media-visualization
+    title: Signal Analysis & Identification
+    summary: >-
+      Look at a capture and work out what it is: inspectrum, the sigidwiki reference, RDS, frequency calibration.
+
+  - name: sdr-hardware
+    icon: drive-removable-media
+    title: SDR Device Support
+    summary: >-
+      Host tools, libraries, udev rules and SoapySDR modules for every supported receiver and transceiver.
+
+  - name: broadcast
+    icon: audio-headphones
+    title: Broadcast Radio & DAB
+    summary: >-
+      DAB and DAB+ receivers and the data alongside broadcast FM.
+
+  - name: aircraft
+    icon: network-flightmode-on
+    title: Aircraft (ADS-B, ACARS, Airband)
+    summary: >-
+      Transponder and datalink decoders, multilateration feeders, airband voice.
+
+  - name: ships
+    icon: mark-location
+    title: Ships (AIS)
+    summary: >-
+      AIS receivers and decoders with maps of vessel traffic.
+
+  - name: weather-sensors
+    icon: weather-showers
+    title: Weather, Sensors & Radiosondes
+    summary: >-
+      ISM-band sensors, weather balloons, weather fax and GRIB charts.
+
+  - name: pagers-decoders
+    icon: audio-x-generic
+    title: Pagers & Audio Decoders
+    summary: >-
+      POCSAG, FLEX, DTMF and the other audio-band modes multimon reads.
+
+  - name: satellite-tracking
+    icon: weather-clear-night
+    title: Satellite Tracking
+    summary: >-
+      Pass prediction and antenna and radio control for amateur and weather satellites.
+
+  - name: satellite-decoding
+    icon: image-x-generic
+    title: Satellite Decoding & Imagery
+    summary: >-
+      Weather-satellite images and cubesat telemetry from a recording or a live receiver.
+
+  - name: propagation
+    icon: weather-clear
+    title: HF & VHF Propagation
+    summary: >-
+      VOACAP predictions, terrain path analysis, beacons, grey line and the solar picture.
+
+  - name: antenna
+    icon: applications-engineering
+    title: Antenna Design & Modelling
+    summary: >-
+      NEC2, Yagi and Moxon design, dish modelling, coil and line calculators.
+
+  - name: antenna-analysers
+    icon: measure
+    title: VNA & Antenna Analysers
+    summary: >-
+      NanoVNA and RigExpert analysers from the computer.
+
+  - name: spectrum-analysers
+    icon: view-media-visualization
+    title: Spectrum Analysers
+    summary: >-
+      tinySA, Wi-Spy and the Ubertooth as a spectrum display.
+
+  - name: electronics
+    icon: applications-engineering
+    title: Electronics & EDA
+    summary: >-
+      Circuit design, matching networks, lab instruments and the Blend's RF design tools.
+
+  - name: radio-programming
+    icon: preferences-system
+    title: Radio Memories (Codeplugs)
+    summary: >-
+      Writing channels and settings into a transceiver: CHIRP and the TNC built into Kenwood radios.
+
+  - name: dmr
+    icon: audio-input-microphone
+    title: DMR Codeplugs
+    summary: >-
+      Codeplug editors for DMR radios.
 
   - name: programmer
     icon: applications-development
-    title: Flashers & Programmers
-    summary: Device programmers and flashers for microcontrollers and memories.
-
-  - name: radio-programming
-    icon: radio
-    title: Radio Memories (Codeplugs)
+    title: Flashers & Debuggers
     summary: >-
-      Writing memories and settings into a transceiver — codeplugs and channel
-      lists, as distinct from controlling a radio while operating it.
+      AVR, ESP, STM32, FPGA and flash-chip programmers, DFU, JTAG and SWD.
 
-  - name: rf-research
-    icon: applications-science
-    title: RF Research (consent-gated)
+  - name: serial-terminals
+    icon: utilities-terminal
+    title: Serial Terminals
     summary: >-
-      Research tooling whose lawful use is jurisdiction-dependent. Consent-gated
-      (D-021).
+      tio, minicom, picocom, PuTTY, CuteCom: talking to a radio or a board over a serial port.
 
-  - name: rf-security
-    icon: applications-utilities
-    title: RF Security
+  - name: device-support
+    icon: drive-removable-media
+    title: Device Support & Drivers
     summary: >-
-      RF security and SIGINT tooling. Opt-in by profile, never installed by
-      default.
+      lsusb, lspci, packet-modem drivers and companions for devices that need one.
+
+  - name: wifi
+    icon: network-wireless
+    title: Wi-Fi
+    summary: >-
+      Capture, handshake extraction and key recovery for Wi-Fi networks.
+
+  - name: bluetooth
+    icon: network-bluetooth
+    title: Bluetooth & BLE
+    summary: >-
+      Ubertooth sniffing and spectrum.
+
+  - name: cellular
+    icon: network-mobile
+    title: Cellular & IMSI-Catcher Detection
+    summary: >-
+      Rayhunter, GSM analysis and dongle calibration against base stations.
 
   - name: rfid
-    icon: applications-engineering
+    icon: security-high
     title: RFID & NFC
-    summary: RFID and NFC — readers, transponders, and the cards themselves.
-
-  - name: rig-control
-    icon: radio
-    title: Rig Control (CAT)
     summary: >-
-      CAT control of a transceiver while operating: frequency, mode, PTT
-      and the panadapter that rides on them, as distinct from writing its
-      memories.
+      Proxmark3, libnfc, MIFARE key recovery and smartcard reader checks.
 
-  - name: satellite
-    icon: map-globe
-    title: Satellites
+  - name: ism-subghz
+    icon: network-wireless
+    title: Sub-GHz, ISM & Remotes
     summary: >-
-      Amateur satellites and weather satellites — tracking, prediction,
-      telemetry and image decoding.
+      The unlicensed bands: sensors, remotes, Flipper Zero, HackRF utilities.
 
-  - name: sdr
-    icon: applications-science
-    title: SDR Receivers & Toolkits
-    summary: Software-defined radio — receivers, transceivers and the software.
-
-  - name: station
-    icon: radio
-    title: Station Utilities
+  - name: capture-analysis
+    icon: edit-find
+    title: Packet Capture & Analysis
     summary: >-
-      Station infrastructure that is not itself a radio application: time,
-      position, and the plumbing an operating position needs.
+      Capture traffic on any interface and decode it: Wireshark for the desktop,
+      tcpdump for the terminal, two thousand protocols between them.
 
-  - name: timing
-    icon: preferences-system
-    title: Time & Frequency
-    summary: Time and frequency — clocks, disciplining, and stable references.
-
-  - name: tracking
-    icon: gps
-    title: Tracking (APRS, ADS-B, AIS)
+  - name: rf-research
+    icon: dialog-warning
+    title: RF Research (consent-gated)
     summary: >-
-      Position reporting and target tracking: APRS, ADS-B, AIS, and the
-      map that shows them.
+      Research tooling whose lawful use is jurisdiction-dependent; installed only through the consent-gated profile.
 
-  - name: training
+  - name: exams
     icon: applications-education
-    title: Exams & Practice
+    title: Licence Exams
     summary: >-
-      Licence exam preparation and operating practice.
+      Practice tests for the US, Canadian and commercial licence exams.
+
+  - name: morse-training
+    icon: preferences-desktop-keyboard
+    title: Morse Training
+    summary: >-
+      Koch trainers, callsign drills, text-to-Morse converters and practice generators.
+
+  - name: references
+    icon: help-contents
+    title: References & Guides
+    summary: >-
+      Offline reference material: the sigidwiki signal database, callsign and DXCC data.
 
   - name: workstation
     icon: utilities-terminal
     title: Workstation
     summary: >-
-      The machine the station runs on rather than the radio: editors, serial
-      consoles, enumeration tools.
+      The machine the station runs on rather than the radio: editors, multiplexers, version control.
 
 groups:
-  # The order is the order a newcomer reads the menu in: what you do at the
-  # radio first, then how you listen, then the bench, then the tools whose
-  # use is gated, then learning. Titles say what is inside in plain words;
-  # the category submenus carry the ham vocabulary (D-054).
+  # The order is the order a newcomer reads the menu in (D-054).
   - order: 1
     name: station
     icon: radio
     title: Operate the Station
-    summary: Control the rig, keep the log, run a contest, set the clock.
-    categories: [rig-control, logging, contest, station, timing]
+    summary: Control the rig, keep the log, work the cluster, set the clock and the position.
+    categories: [rig-control, logging, contest, dx-cluster, dashboards, time-frequency, gps-gnss, locators]
   - order: 2
     name: digital-modes
     icon: audio-x-generic
     title: Digital Modes & Morse
-    summary: Keyboard modes, weak-signal modes, NBEMS messaging and CW.
-    categories: [digital-modes, nbems, cw]
+    summary: FT8 and the weak-signal modes, keyboard modes, NBEMS, digital voice, SSTV and amateur TV, EchoLink, CW.
+    categories: [weak-signal, keyboard-modes, nbems, digital-voice, sstv-atv, echolink-repeaters, cw]
   - order: 3
     name: packet
     icon: network-wireless
     title: Packet, Mesh & Emergency Comms
-    summary: AX.25 packet, APRS, Winlink, LoRa mesh and the EMCOMM stack.
-    categories: [packet, emcomm, mesh]
+    summary: AX.25 packet, soundcard modems, nodes and BBS, Winlink, APRS, LoRa mesh and the EMCOMM stack.
+    categories: [packet-terminals, soundcard-modems, packet-nodes, winlink, aprs, mesh, emcomm, email-clients]
   - order: 4
     name: sdr
     icon: applications-science
     title: SDR & Listening
-    summary: Software-defined radio, receive-only decoders, and position tracking on a map.
-    categories: [sdr, listening, tracking]
+    summary: SDR receivers and toolkits, device support, and receive-only decoders for aircraft, ships, broadcast, weather and pagers.
+    categories: [sdr-receivers, sdr-toolkits, signal-analysis, sdr-hardware, broadcast, aircraft, ships, weather-sensors, pagers-decoders]
   - order: 5
     name: space
     icon: weather-clear-night
     title: Satellites & Propagation
-    summary: Satellite passes and telemetry, HF propagation and the solar picture.
-    categories: [satellite, hf-propagation]
+    summary: Satellite passes, satellite imagery and telemetry, HF propagation and the solar picture.
+    categories: [satellite-tracking, satellite-decoding, propagation]
   - order: 6
     name: hardware
     icon: applications-engineering
     title: Antennas, Bench & Programming
-    summary: Antenna design, test gear, radio memories, device flashers and drivers.
-    categories: [antenna, electronics, radio-programming, dmr, programmer, hardware]
+    summary: Antenna design and analysers, spectrum analysers, electronics, radio memories, flashers, serial terminals and drivers.
+    categories: [antenna, antenna-analysers, spectrum-analysers, electronics, radio-programming, dmr, programmer, serial-terminals, device-support]
   - order: 7
     name: rf-security
     icon: applications-utilities
     title: RF Security & Research
-    summary: Wireless auditing, RFID, and consent-gated research tooling.
-    categories: [rf-security, rfid, rf-research]
+    summary: Wi-Fi, Bluetooth, cellular, RFID, sub-GHz, packet capture, and consent-gated research tooling.
+    categories: [wifi, bluetooth, cellular, rfid, ism-subghz, capture-analysis, rf-research]
   - order: 8
     name: learning
     icon: applications-education
     title: Learn & Practise
-    summary: Licence exam practice and Morse training.
-    categories: [training]
+    summary: Licence exam practice, Morse training and reference material.
+    categories: [exams, morse-training, references]
   - order: 9
     name: workstation
     icon: utilities-terminal
@@ -263,7 +431,6 @@ groups:
     categories: [workstation]
     # Not a menu: git, tmux, screen and VS Code are catalog units because a
     # station needs them, not because they are radio software. A unit tagged
-    # workstation *and* a radio category (wireshark, esptool) still shows
-    # under the radio one; the desktop keeps these where it already puts
-    # them (maintainer, 2026-09-12).
+    # workstation *and* a radio category still shows under the radio one; the
+    # desktop keeps these where it already puts them (maintainer, 2026-09-12).
     menu: false

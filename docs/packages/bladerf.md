@@ -5,7 +5,7 @@
 **Command-line tools for Nuand bladeRF transceivers**
 
 - **Version recorded:** 0.2024.05
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://www.nuand.com/bladeRF>
 
 ## What it does

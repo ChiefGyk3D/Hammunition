@@ -5,7 +5,7 @@
 **Generate Morse practice text the Wordsworth way — words, not characters**
 
 - **Version recorded:** 0.3
-- **Categories:** `cw`, `training`
+- **Categories:** `cw`, `morse-training`
 - **Upstream:** <https://sourceforge.net/projects/kb1oiq-k1ig-wordsworth/>
 
 ## What it does

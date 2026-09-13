@@ -4,7 +4,7 @@
 name: js8spotter
 version: "1.20"
 summary: JS8Call's companion — spot tracking, forms, APRS and SMS gateways
-categories: [digital-modes, emcomm]
+categories: [weak-signal, emcomm]
 
 # CARRY from AHRL, which unpacks the source zip into the *user's home* and
 # generates a per-user installer, menu script and desktop entry by hand --

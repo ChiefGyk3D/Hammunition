@@ -4,7 +4,7 @@
 name: soapysdr-module-mirisdr
 version: "0.2.5"
 summary: SoapySDR driver module for Mirics hardware
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 install:
   - install:

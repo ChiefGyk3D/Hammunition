@@ -156,7 +156,8 @@ def test_the_shipped_groups_read_in_plain_words_and_cover_every_category() -> No
     by_name = {c.name: c for c in vocabulary.categories}
     # the jargon tags carry a gloss a newcomer can read
     assert by_name["cw"].title == "CW (Morse)"
-    assert by_name["tracking"].title == "Tracking (APRS, ADS-B, AIS)"
+    assert by_name["aircraft"].title == "Aircraft (ADS-B, ACARS, Airband)"
+    assert by_name["sstv-atv"].title == "SSTV, Fax & Amateur TV"
     assert by_name["nbems"].title == "NBEMS Messaging"
 
 

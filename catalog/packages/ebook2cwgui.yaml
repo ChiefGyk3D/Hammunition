@@ -4,7 +4,7 @@
 name: ebook2cwgui
 version: "0.1.2"
 summary: Graphical front end for ebook2cw
-categories: [cw, training]
+categories: [morse-training, cw]
 
 # AHRL installs this from apt (unit 14) and not ebook2cw itself, which is why
 # the dependency is declared rather than assumed: the GUI is a front end that

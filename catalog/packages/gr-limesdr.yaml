@@ -4,7 +4,7 @@
 name: gr-limesdr
 version: "3.0.1.10.69"
 summary: GNU Radio blocks for LimeSDR hardware
-categories: [sdr, hardware]
+categories: [sdr-hardware, sdr-toolkits]
 
 depends: [gnuradio]
 

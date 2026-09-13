@@ -4,7 +4,7 @@
 name: sunclock
 version: "3.57"
 summary: World map showing the day-night terminator and where the sun is now
-categories: [hf-propagation, station]
+categories: [dashboards, propagation]
 
 install:
   - install:

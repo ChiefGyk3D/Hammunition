@@ -4,7 +4,7 @@
 name: uhd-host
 version: "4.8.0.0"
 summary: USRP Hardware Driver — host tools and firmware images for Ettus USRP radios
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 install:
   - install:

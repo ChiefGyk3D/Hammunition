@@ -5,7 +5,7 @@
 **Host tools for the Ubertooth One Bluetooth sniffer**
 
 - **Version recorded:** 2020.12.R1
-- **Categories:** `rf-security`
+- **Categories:** `bluetooth`
 - **Upstream:** <https://github.com/greatscottgadgets/ubertooth>
 
 ## What it does

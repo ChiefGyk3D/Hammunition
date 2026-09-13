@@ -4,7 +4,7 @@
 name: kalibrate-rtl
 version: 0.4.1+git20191125
 summary: Measures an SDR dongle's frequency error against GSM base stations
-categories: [listening]
+categories: [signal-analysis, cellular]
 
 install:
   # Kali packages it; nowhere else does. Measured 2026-08-28 across the four x86

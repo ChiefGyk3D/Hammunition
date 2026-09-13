@@ -5,7 +5,7 @@
 **The classic packet radio BBS and mailbox**
 
 - **Version recorded:** 7.011
-- **Categories:** `emcomm`, `packet`
+- **Categories:** `packet-nodes`
 - **Upstream:** <https://sourceforge.net/projects/linfbb/>
 - **Install after:** `ax25-tools`
 - **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)

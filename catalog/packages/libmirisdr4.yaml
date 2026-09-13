@@ -4,7 +4,7 @@
 name: libmirisdr4
 version: "2.0.0"
 summary: Open driver for Mirics-based receivers, including SDRplay RSP hardware
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 install:
   - install:

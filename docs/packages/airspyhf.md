@@ -5,7 +5,7 @@
 **Host tools and library for the Airspy HF+ HF and VHF receiver**
 
 - **Version recorded:** 1.6.8
-- **Categories:** `hardware`, `listening`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://github.com/airspy/airspyhf>
 
 ## What it does

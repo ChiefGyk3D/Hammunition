@@ -5,7 +5,7 @@
 **Control a modern Icom radio, waterfall and all, over USB or the network**
 
 - **Version recorded:** 2.03
-- **Categories:** `rig-control`, `sdr`, `station`
+- **Categories:** `rig-control`, `sdr-receivers`
 - **Upstream:** <https://wfview.org/>
 
 ## What it does

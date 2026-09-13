@@ -5,7 +5,7 @@
 **SoapySDR driver module for Ettus USRP hardware**
 
 - **Version recorded:** 0.4.1
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://github.com/pothosware/SoapyUHD/wiki>
 
 ## What it does

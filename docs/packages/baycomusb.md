@@ -5,7 +5,7 @@
 **Driver for the HB9JNX USB packet modem**
 
 - **Version recorded:** 0.10
-- **Categories:** `hardware`, `packet`
+- **Categories:** `device-support`, `soundcard-modems`
 - **Upstream:** <https://tracker.debian.org/pkg/baycomusb>
 
 ## What it does

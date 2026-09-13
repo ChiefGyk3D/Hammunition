@@ -5,7 +5,7 @@
 **Configures the kernel AX.25 stack — ports, interfaces, NET/ROM, Rose**
 
 - **Version recorded:** 0.0.10
-- **Categories:** `emcomm`, `packet`
+- **Categories:** `packet-terminals`
 - **Upstream:** <https://linux-ax25.in-berlin.de/wiki/Main_Page>
 - **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)
 

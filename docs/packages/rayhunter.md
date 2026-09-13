@@ -5,7 +5,7 @@
 **EFF's IMSI-catcher detector — the installer for a supported hotspot, and the offline capture analyser**
 
 - **Version recorded:** 0.12.0
-- **Categories:** `hardware`, `rf-security`
+- **Categories:** `cellular`
 - **Upstream:** <https://github.com/EFForg/rayhunter>
 
 ## What it does

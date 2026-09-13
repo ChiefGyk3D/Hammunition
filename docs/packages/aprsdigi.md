@@ -5,7 +5,7 @@
 **APRS digipeater — repeats packets so they reach further than one hop**
 
 - **Version recorded:** 3.11.0
-- **Categories:** `packet`, `tracking`
+- **Categories:** `aprs`, `packet-nodes`
 - **Upstream:** <https://github.com/n2ygk/aprsdigi/>
 - **Install after:** `ax25-tools`
 - **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)

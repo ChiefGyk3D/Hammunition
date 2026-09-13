@@ -5,7 +5,7 @@
 **SoapySDR driver module for the ADALM-Pluto**
 
 - **Version recorded:** 0.2.2
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://github.com/pothosware/SoapyPlutoSDR>
 
 ## What it does

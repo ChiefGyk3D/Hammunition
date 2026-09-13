@@ -4,7 +4,7 @@
 name: langford-utils
 version: "0.0.20130228"
 summary: Control programs for the Per Vices Noctar board
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 install:
   - install:

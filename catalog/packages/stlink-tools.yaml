@@ -4,7 +4,7 @@
 name: stlink-tools
 version: "1.8.0"
 summary: Flash and debug STM32 targets through an ST-Link probe
-categories: [electronics, programmer]
+categories: [programmer]
 
 install:
   - install:

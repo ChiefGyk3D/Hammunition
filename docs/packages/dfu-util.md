@@ -5,7 +5,7 @@
 **Device Firmware Upgrade tool — flash devices that expose a standard DFU mode**
 
 - **Version recorded:** 0.11
-- **Categories:** `hardware`, `workstation`
+- **Categories:** `programmer`, `workstation`
 - **Upstream:** <https://dfu-util.sourceforge.net/>
 
 ## What it does

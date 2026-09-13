@@ -5,7 +5,7 @@
 **Packet radio terminal that talks AGWPE to Direwolf, with no kernel AX.25**
 
 - **Version recorded:** 1.3.0
-- **Categories:** `emcomm`, `packet`
+- **Categories:** `packet-terminals`
 - **Upstream:** <https://github.com/mfncooper/paracon>
 - **Needs first:** `python3`
 

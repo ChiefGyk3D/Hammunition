@@ -5,7 +5,7 @@
 **Puts the vessels gnuais has heard on an OpenStreetMap display**
 
 - **Version recorded:** 0.3.3
-- **Categories:** `listening`, `tracking`
+- **Categories:** `ships`
 - **Upstream:** <http://gnuais.sourceforge.net/>
 - **Needs first:** `gnuais`
 

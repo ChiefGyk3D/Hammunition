@@ -5,7 +5,7 @@
 **Cross-platform SDR receiver with several demodulators running at once**
 
 - **Version recorded:** 0.2.7
-- **Categories:** `listening`, `sdr`
+- **Categories:** `sdr-receivers`
 - **Upstream:** <https://cubicsdr.com/>
 
 ## What it does

@@ -4,7 +4,7 @@
 name: direwolf
 version: "1.7"
 summary: Software TNC — turns a sound card into an APRS and packet modem
-categories: [packet, tracking, emcomm]
+categories: [soundcard-modems, aprs]
 
 install:
   - install:

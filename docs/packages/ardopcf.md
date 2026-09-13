@@ -5,7 +5,7 @@
 **HF data modem for Winlink and packet over poor paths**
 
 - **Version recorded:** 1.0.4.1.3
-- **Categories:** `digital-modes`, `emcomm`, `packet`
+- **Categories:** `soundcard-modems`, `winlink`
 - **Upstream:** <https://github.com/pflarue/ardop>
 
 ## What it does

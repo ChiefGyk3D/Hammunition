@@ -5,7 +5,7 @@
 **Yet Another APRS Client — the deep, portable Java one**
 
 - **Version recorded:** 1.0-beta230(03-Sep-2026)
-- **Categories:** `packet`, `tracking`
+- **Categories:** `aprs`
 - **Upstream:** <https://www.ka2ddo.org/ka2ddo/YAAC.html>
 - **Needs first:** `default-jre`, `libjssc-java`
 

@@ -4,7 +4,7 @@
 name: soapysdr-module-redpitaya
 version: "0.1.1"
 summary: SoapySDR driver module for Red Pitaya boards used as an SDR
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 install:
   - install:

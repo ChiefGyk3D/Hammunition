@@ -5,7 +5,7 @@
 **WSJT-X derivative tuned for DX working and crowded FT8 conditions**
 
 - **Version recorded:** 2.2.159
-- **Categories:** `digital-modes`
+- **Categories:** `weak-signal`
 - **Upstream:** <https://sourceforge.net/projects/jtdx-improved/>
 - **Not a recommended default** — installed only when asked for.
 

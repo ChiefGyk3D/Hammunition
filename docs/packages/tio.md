@@ -5,7 +5,7 @@
 **Serial device terminal — the modern replacement for screen on a TTY**
 
 - **Version recorded:** 3.9
-- **Categories:** `hardware`, `workstation`
+- **Categories:** `serial-terminals`
 - **Upstream:** <https://github.com/tio/tio>
 
 ## What it does

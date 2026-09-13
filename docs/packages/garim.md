@@ -5,7 +5,7 @@
 **Graphical ARIM messaging over an ARDOP TNC**
 
 - **Version recorded:** 1.7
-- **Categories:** `emcomm`, `packet`
+- **Categories:** `emcomm`, `winlink`
 - **Upstream:** <https://www.whitemesa.net/garim/garim.html>
 - **Needs first:** `ardopcf`
 

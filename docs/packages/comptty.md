@@ -5,7 +5,7 @@
 **The same accuracy comparison as comptext, for Baudot RTTY streams**
 
 - **Version recorded:** 1.0.1
-- **Categories:** `digital-modes`
+- **Categories:** `keyboard-modes`
 - **Upstream:** <https://w1hkj.org/>
 
 ## What it does

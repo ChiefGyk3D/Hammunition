@@ -5,7 +5,7 @@
 **GNU Radio blocks for receiving and analysing GSM signalling**
 
 - **Version recorded:** 1.0.0
-- **Categories:** `rf-research`
+- **Categories:** `cellular`, `rf-research`
 - **Upstream:** <https://git.osmocom.org/gr-gsm>
 - **Needs first:** `gnuradio`
 

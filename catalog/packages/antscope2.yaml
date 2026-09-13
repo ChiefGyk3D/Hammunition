@@ -4,7 +4,7 @@
 name: antscope2
 version: "2.0.2"
 summary: RigExpert's own analyzer software, for their antenna analyzers
-categories: [antenna]
+categories: [antenna-analysers]
 
 # CARRY from AHRL, which installs the vendor .deb on x86_64 and skips
 # aarch64 outright ("I tried compiling this but it didn't work"). Upstream is

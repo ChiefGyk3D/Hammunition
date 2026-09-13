@@ -5,7 +5,7 @@
 **Prints the time in several time zones at once, in a terminal**
 
 - **Version recorded:** 1.4.4
-- **Categories:** `station`, `timing`
+- **Categories:** `time-frequency`
 - **Upstream:** <https://tracker.debian.org/pkg/tzwatch>
 
 ## What it does

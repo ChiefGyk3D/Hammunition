@@ -4,7 +4,7 @@
 name: cubicsdr
 version: "0.2.7"
 summary: Cross-platform SDR receiver with several demodulators running at once
-categories: [sdr, listening]
+categories: [sdr-receivers]
 
 install:
   - install:

@@ -4,7 +4,7 @@
 name: rtlsdr-airband
 version: 5.3.1
 summary: Multi-channel AM/NFM voice receiver with streaming output
-categories: [listening]
+categories: [aircraft]
 
 install:
   - install:

@@ -4,7 +4,7 @@
 name: flcluster
 version: "1.1.01"
 summary: DX cluster client that feeds the rest of the W1HKJ suite
-categories: [hf-propagation, station]
+categories: [dx-cluster]
 
 install:
   - install:

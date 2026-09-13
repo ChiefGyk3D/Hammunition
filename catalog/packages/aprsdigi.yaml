@@ -4,7 +4,7 @@
 name: aprsdigi
 version: "3.11.0"
 summary: APRS digipeater — repeats packets so they reach further than one hop
-categories: [tracking, packet]
+categories: [aprs, packet-nodes]
 requires_kernel: [ax25]
 
 after: [ax25-tools]

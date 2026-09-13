@@ -4,7 +4,7 @@
 name: xdx
 version: "2.91"
 summary: DX cluster client — see what other operators are hearing, right now
-categories: [hf-propagation, station]
+categories: [dx-cluster]
 
 install:
   - install:

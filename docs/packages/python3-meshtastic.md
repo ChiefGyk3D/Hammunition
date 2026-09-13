@@ -5,7 +5,7 @@
 **Meshtastic command-line client and Python API**
 
 - **Version recorded:** 2.6.0
-- **Categories:** `hardware`, `mesh`
+- **Categories:** `mesh`
 - **Upstream:** <https://github.com/meshtastic/python>
 
 ## What it does

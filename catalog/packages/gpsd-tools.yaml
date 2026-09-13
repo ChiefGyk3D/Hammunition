@@ -4,7 +4,7 @@
 name: gpsd-tools
 version: "3.25"
 summary: cgps and gpsmon — the two programs you actually reach for when a receiver misbehaves
-categories: [hardware, station, timing]
+categories: [gps-gnss]
 
 depends: [gpsd]
 

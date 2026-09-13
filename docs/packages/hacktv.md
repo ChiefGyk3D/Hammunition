@@ -5,7 +5,7 @@
 **Generates and transmits analogue television — a HackRF as a TV station**
 
 - **Version recorded:** 0+git20250218
-- **Categories:** `rf-security`, `sdr`
+- **Categories:** `rf-research`, `sstv-atv`
 - **Upstream:** <https://github.com/fsphil/hacktv>
 - **Not a recommended default** — installed only when asked for.
 

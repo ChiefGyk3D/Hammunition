@@ -5,7 +5,7 @@
 **Stores what acarsdec and dumpvdl2 decode into a SQLite database**
 
 - **Version recorded:** 0+git20181219
-- **Categories:** `listening`
+- **Categories:** `aircraft`
 - **Upstream:** <https://github.com/TLeconte/acarsserv>
 - **Install after:** `acarsdec`
 

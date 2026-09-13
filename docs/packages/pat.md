@@ -5,7 +5,7 @@
 **Winlink client — radio email that works when the internet does not**
 
 - **Version recorded:** 0.16.0
-- **Categories:** `emcomm`, `packet`
+- **Categories:** `winlink`
 - **Upstream:** <https://getpat.io>
 
 ## What it does

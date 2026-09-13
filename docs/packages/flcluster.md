@@ -5,7 +5,7 @@
 **DX cluster client that feeds the rest of the W1HKJ suite**
 
 - **Version recorded:** 1.1.01
-- **Categories:** `hf-propagation`, `station`
+- **Categories:** `dx-cluster`
 - **Upstream:** <https://w1hkj.org/>
 
 ## What it does

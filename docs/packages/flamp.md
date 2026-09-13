@@ -5,7 +5,7 @@
 **Sends files over radio in numbered blocks that can be filled in later**
 
 - **Version recorded:** 2.2.14
-- **Categories:** `digital-modes`, `emcomm`, `nbems`
+- **Categories:** `emcomm`, `nbems`
 - **Upstream:** <https://w1hkj.org/flamp-help/>
 - **Install after:** `fldigi`
 

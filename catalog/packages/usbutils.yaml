@@ -4,7 +4,7 @@
 name: usbutils
 version: "018"
 summary: lsusb — step one of every hardware problem in this catalog
-categories: [workstation, hardware]
+categories: [device-support, workstation]
 
 install:
   - install:

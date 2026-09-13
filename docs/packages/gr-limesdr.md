@@ -5,7 +5,7 @@
 **GNU Radio blocks for LimeSDR hardware**
 
 - **Version recorded:** 3.0.1.10.69
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`, `sdr-toolkits`
 - **Upstream:** <https://wiki.myriadrf.org/Gr-limesdr_Plugin_for_GNURadio>
 - **Needs first:** `gnuradio`
 
