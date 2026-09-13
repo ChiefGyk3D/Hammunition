@@ -115,7 +115,7 @@ project's own maintainer.
 
 **There is one thing you can help with right now**, and it needs no code:
 [contributing hardware identifiers](docs/contributing/hardware.md). Eleven of
-the 23 catalogued devices still have something unknown about them, and seven of
+the 24 catalogued devices still have something unknown about them, and seven of
 those are waiting on somebody who owns the hardware — the maintainer does not.
 Sixty-seven Meshtastic and MeshCore boards are waiting on one line each. It
 takes thirty seconds, there is a read-only script for it, and there are
@@ -237,13 +237,13 @@ systemd's `60-serial.rules` already gives every USB-*serial* device a stable
 `/dev/serial/by-id/` path, per unit, with no help from anybody. Stable naming
 was never the hard part.
 
-Of 23 catalogued devices, **19 are ones `by-id` does not settle**, and the
+Of 24 catalogued devices, **20 are ones `by-id` does not settle**, and the
 reasons are the work:
 
 | What `by-id` cannot do | Where it bites |
 |---|---|
 | **Permissions** | A device only root can open is unusable however stable its path. This is what actually stops people. |
-| **Non-serial devices** | 11 of 23 present nothing serial at all — every SDR, the Ubertooth, the Proxmark in client mode. `libusb` devices get no `/dev/serial/` entry to name. |
+| **Non-serial devices** | 14 of 24 present nothing serial at all — every SDR, the Ubertooth, the Proxmark in client mode. `libusb` devices get no `/dev/serial/` entry to name. |
 | **Identical units** | A Proxmark3 ships no product string and no serial. `by-id` builds its path from exactly those, so two of them collide there too. Only `by-path` separates them, and `by-path` changes when you move the cable. |
 | **Which interface is which** | A Free-WiLi 2 is six USB devices behind an internal hub, four serial ports on one of them. `by-id` gives each a stable path and labels none. |
 
@@ -430,7 +430,7 @@ Everything is also collected at **[support.chiefgyk3d.com](https://support.chief
   </tr>
   <tr>
     <td align="center" width="60"><img src="media/icons/monero.svg" width="28" height="28" alt="Monero"></td>
-    <td><b>ɱ Monero</b><br><code>84Y34QubRwQYK2HNviezeH9r6aRcPvgWmKtDkN3EwiuVbp6sNLhm9ffRgs6BA9X1n9jY7wEN16ZEpiEngZbecXseUrW8SeQ</code></td>
+    <td><b>ɱ Monero</b><br><code>84Y34QubRwQYK2HNviezeH9r6aRcPvgW<wbr>mKtDkN3EwiuVbp6sNLhm9ffRgs6BA9X1<wbr>n9jY7wEN16ZEpiEngZbecXseUrW8SeQ</code></td>
   </tr>
   <tr>
     <td align="center" width="60"><img src="media/icons/ethereum.svg" width="28" height="28" alt="Ethereum"></td>
