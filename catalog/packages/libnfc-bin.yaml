@@ -18,6 +18,7 @@ install:
 launchers:
   - name: nfc-list
     exec: nfc-list
+    title: NFC reader and tag check (nfc-list)
     terminal: true
     # What the NFC reader sees: lists the reader and any tag in its field
 

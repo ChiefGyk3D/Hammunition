@@ -17,6 +17,7 @@ install:
 launchers:
   - name: input
     exec: input
+    title: Yagi-Uda design input (input)
     terminal: true
     # Where a design starts: input is the unit's interactive program, asking for element positions and the frequency span and writing the file yagi, output and optimise then read
 

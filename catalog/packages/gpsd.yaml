@@ -17,6 +17,7 @@ install:
 launchers:
   - name: gpsctl
     exec: gpsctl
+    title: GPS receiver control (gpsctl)
     terminal: true
     # Which receiver gpsd owns: with no arguments gpsctl asks the running daemon and names the device, or reports that none is connected. The live fix itself is cgps, gpsd-tools' launcher
 

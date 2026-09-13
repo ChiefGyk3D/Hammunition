@@ -24,6 +24,7 @@ depends: [gnuradio]
 launchers:
   - name: grgsm_livemon
     exec: grgsm_livemon
+    title: GSM live monitor (grgsm_livemon)
     terminal: true
     # The live GSM monitor: grgsm_livemon's own window, tuned from its controls; the terminal behind it keeps the GNU Radio log, where a missing device or an unlocked RTL-SDR is reported
 

@@ -18,6 +18,7 @@ install:
 launchers:
   - name: hackrf_info
     exec: hackrf_info
+    title: HackRF board info (hackrf_info)
     terminal: true
     # Is the HackRF there: firmware, serial and board revision of every attached unit
 

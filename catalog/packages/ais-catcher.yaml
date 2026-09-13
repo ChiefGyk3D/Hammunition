@@ -59,6 +59,7 @@ service_endpoints:
 launchers:
   - name: ais-catcher-web
     exec: (sleep 2; x-www-browser {endpoint:webmap}) & exec AIS-catcher -N 8100
+    title: AIS-catcher web map (ais-catcher-web)
     terminal: false
 
 update:

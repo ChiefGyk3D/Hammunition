@@ -17,6 +17,7 @@ install:
 launchers:
   - name: bladeRF-cli
     exec: bladeRF-cli -i
+    title: bladeRF interactive shell (bladeRF-cli)
     terminal: true
     # The bladeRF at the keyboard: an interactive session; `probe` and `info` inside it answer whether the board is seen before any FPGA is loaded
 

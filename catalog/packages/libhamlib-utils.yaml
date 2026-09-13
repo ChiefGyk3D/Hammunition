@@ -18,6 +18,7 @@ install:
 launchers:
   - name: rigctl
     exec: rigctl -m 1
+    title: Rig control shell (rigctl)
     terminal: true
     # Rig control at the keyboard: an interactive rigctl session against the dummy rig (model 1); `rigctl -l` lists the real ones
 

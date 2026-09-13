@@ -17,6 +17,7 @@ install:
 launchers:
   - name: st-info
     exec: st-info --probe
+    title: ST-Link probe (st-info)
     terminal: true
     # Is the probe there: identifies the ST-Link and the target behind it -- the first thing to run before blaming the board (known_problems below)
 

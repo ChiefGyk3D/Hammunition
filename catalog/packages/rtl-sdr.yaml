@@ -18,6 +18,7 @@ install:
 launchers:
   - name: rtl_test
     exec: rtl_test -t
+    title: RTL-SDR device test (rtl_test)
     terminal: true
     # Is the dongle working: rtl_test probes the attached RTL-SDR and reports its tuner and gain range
 

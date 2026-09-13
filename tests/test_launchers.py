@@ -13,7 +13,7 @@ from typing import Any
 import pytest
 
 from hammunition.launchers import desktop_entry, launcher_steps, wrapper_body
-from hammunition.manifest.schema import PackageManifest
+from hammunition.manifest.schema import ManifestError, PackageManifest
 
 
 def manifest(**overrides: Any) -> PackageManifest:
@@ -64,6 +64,33 @@ def test_desktop_entry_carries_mapped_categories_and_the_marker(tmp_path: Path) 
         assert category in entry, entry
     assert "X-Hammunition-Package=launchable" in entry
     assert "Terminal=false" in entry
+
+
+def test_desktop_entry_name_is_the_title_when_one_is_given(tmp_path: Path) -> None:
+    # yagiuda's interactive program is called `input`; a menu entry called
+    # "input" tells nobody what it is. The title is what the menu shows and
+    # the name stays the wrapper's filename, so `type input` still finds it.
+    m = manifest(
+        launchers=[
+            {"name": "input", "exec": "input", "terminal": True, "title": "Yagi-Uda design (input)"}
+        ]
+    )
+    entry = desktop_entry(m, m.launchers[0], tmp_path / "bin" / "input")
+    assert "Name=Yagi-Uda design (input)\n" in entry
+    assert "Exec=" + str(tmp_path / "bin" / "input") in entry
+
+
+def test_desktop_entry_name_falls_back_to_the_launcher_name(tmp_path: Path) -> None:
+    m = manifest()
+    entry = desktop_entry(m, m.launchers[0], tmp_path / "bin" / "launchable")
+    assert "Name=launchable\n" in entry
+
+
+def test_a_blank_title_is_refused_rather_than_rendering_an_unnamed_entry() -> None:
+    from pydantic import ValidationError
+
+    with pytest.raises((ValidationError, ManifestError), match="title"):
+        manifest(launchers=[{"name": "l", "exec": "l", "title": "  "}])
 
 
 def test_steps_write_both_artifacts_and_they_are_real(tmp_path: Path) -> None:
