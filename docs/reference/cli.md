@@ -62,7 +62,7 @@ The target line reports what `/etc/os-release` said, not what we concluded from
 it. A system that declares no `ID` is an error, never a guess — see
 `docs/DESIGN.md` §8.
 
-### `hammunition update [NAME...] [--user NAME]`
+### `hammunition update [NAME...] [--user NAME] [--upstream]`
 
 Installed versus the catalog, as a report. Nothing runs, nothing is fetched,
 and no network is used (**D-053**). With no names it compares every unit
@@ -109,10 +109,41 @@ refresh them: a report that ran `apt-get update` would be changing the
 machine, and a laptop that last updated before a trip is told which day it
 is comparing against.
 
-What it deliberately does not do is ask upstream. Twenty-seven of this
+Without `--upstream` it does not ask upstream. Twenty-seven of this
 laptop's units declare a GitHub, PyPI or version-file probe; whether the
 catalog's *pin* is behind upstream is a question about the catalog, answered
-over the network, and the second half of D-053, not this one.
+over the network, and that is what the flag adds:
+
+```
+$ hammunition update --upstream
+…
+Upstream (25 asked):
+  ais-catcher         current          catalog 0.70  upstream v0.70  (latest release of jvde-github/AIS-catcher)
+  hamclock-next       newer upstream   catalog 1.5  upstream v1.6  (latest release of k4drw/hamclock-next)
+  linbpq              newer upstream   catalog 25.39  upstream 25.40  (highest of 112 tag(s) at https://github.com/g8bpq/LinBPQ)
+  yaac                current          catalog 1.0-beta230(03-Sep-2026)  upstream 1.0-beta230(03-Sep-2026)  (label at …, compared verbatim)
+  …
+22 current, 3 with a newer upstream, 0 differing in a way the numbers do not order, 0 unanswered.
+A newer upstream is a catalog question: re-pin the manifest, measure the build, then
+`hammunition install hamclock-next linbpq openhamclock` on a machine rebuilds at the new pin.
+Answers came from GitHub, git hosts, PyPI or a version file; nothing was downloaded or written.
+```
+
+Each probe method asks one place: `github_release` reads the latest
+release's tag from GitHub's API (a `GITHUB_TOKEN` in the environment is sent
+there and nowhere else, for the rate limit); `github_tags` lists the tags
+with `git ls-remote`, which needs no token on any host, and takes the highest
+by its numeric parts; `pypi` reads the project's JSON; `label_file` fetches
+the one-line label and compares it verbatim. The repository comes from the
+probe's `repo`, else the git block, else a GitHub source URL. *Newer
+upstream* is said only when the numbers order that way; anything else the
+numbers cannot order is *differs*, with both versions shown. A probe that
+cannot be answered (a timeout, a 404, nothing derivable) is an *unanswered*
+row, never a crash. `apt_policy` and `binary_version` are not upstream
+questions and are not asked.
+
+Measured on the field laptop, 25 probes answered in 7.5 s, none
+unanswered, and three pins found behind upstream the first time it ran.
 
 ### `hammunition list [all|packages|profiles]`
 

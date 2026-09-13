@@ -1129,6 +1129,13 @@ class UpdateProbe(Strict):
             "current version label, compared verbatim against `version`."
         ),
     )
+    package: str | None = Field(
+        default=None,
+        description=(
+            "For `pypi`: the PyPI project name when it is not the unit's name. "
+            "`update --upstream` asks pypi.org for it."
+        ),
+    )
 
     @model_validator(mode="after")
     def _label_file_has_a_url(self) -> UpdateProbe:
@@ -1140,6 +1147,11 @@ class UpdateProbe(Strict):
             raise ManifestError(
                 f"probe url {self.url!r} is set on a {self.method!r} probe; "
                 "only a label_file probe reads a url"
+            )
+        if self.method != "pypi" and self.package is not None:
+            raise ManifestError(
+                f"probe package {self.package!r} is set on a {self.method!r} probe; "
+                "only a pypi probe names a project"
             )
         return self
 

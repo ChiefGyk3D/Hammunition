@@ -274,7 +274,7 @@ def requested_units(entries: Iterable[Mapping[str, Any]]) -> tuple[str, ...]:
     return tuple(seen)
 
 
-def render(report: UpdateReport, *, lists_note: str) -> str:
+def render(report: UpdateReport, *, lists_note: str, upstream_asked: bool = False) -> str:
     """The report as the terminal shows it."""
     width = max((len(row.unit) for row in report.rows), default=8)
     out: list[str] = [f"Units ({len(report.rows)}):"]
@@ -301,7 +301,7 @@ def render(report: UpdateReport, *, lists_note: str) -> str:
         out.append("")
         out.append("To rebuild at the catalog's pin:")
         out.append(f"  $ hammunition install {' '.join(report.behind)}")
-    if report.upstream_declared:
+    if report.upstream_declared and not upstream_asked:
         out.append("")
         out.append(
             f"Upstream was not consulted: {len(report.upstream_declared)} unit(s) declare a "
