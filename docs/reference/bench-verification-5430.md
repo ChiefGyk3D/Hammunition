@@ -222,6 +222,23 @@ claimed a generated entry was opened by eye.
 | Proven, not assumed | Run inside a systemd user scope with `TasksMax=48` (a plain `ulimit -u` cannot bound this: threads count and a desktop session already holds hundreds): the wrapper ran the real `ubertooth-util -v` exactly once — *could not open Ubertooth device*, no unit attached — printed the hold prompt, zero fork errors, no leftover processes once the scope stopped. |
 | Rule for the record | A wrapper never shares its tool's name without the PATH strip, and a launcher is not verified until it has been run once under a task ceiling. |
 
+## Session 8, same day, into the night: the log read back, uninstall planned, Rayhunter in hand
+
+No radio was attached and nothing privileged ran except one launcher
+re-apply. This session is what the engine can say about this laptop after
+the full install, measured from the log and the disk rather than remembered.
+
+| Step | Result |
+|---|---|
+| The transaction log | **1117 entries**: 9 `transaction_begin`, 7 `transaction_end` every one `verified: true` (checks confirmed per transaction: 2, 33, 1, 9, 1, 1, 1), 2 `transaction_failed` (session 6's paracon and venv failures), 210 actions, 340 commands. `status` reports the most recent transaction as 2 commands, 0 packages intended, 1 check passed: a launcher re-apply for `ax25-apps`, which is what those numbers say. |
+| Rayhunter, for real | The `rf-security` resume put `rayhunter-installer` (14.2 MB) and `rayhunter-check` (6.1 MB) in `/usr/local/bin`, root-owned, mode 0755, at 18:29; `rayhunter-check --help` answers. No Orbic hotspot was on the bench, so the daemon side stays where #69 left it: the host-modem route through the DW5930e's DIAG channel, once the card is fitted. From #86 the manifest carries aarch64 and armv7l blocks with their own digests and `binaries`, so the same unit resolves on the uConsole; the dry run here reads *already installed* and, against an empty prefix, each architecture renders its own fetch and two installs. |
+| `uninstall rf-security --dry-run` | Attribution by source, every artifact labelled with how the engine knows it is ours: 2 units apt-removed (esptool, rtl-433); 8 artifacts, the `ubertooth` wrapper and entry `[marker]`, `artemis`'s venv, requirements file, wrapper and entry `[namespaced]`/`[marker]`, Rayhunter's two binaries `[log]`; **7 units left in place** as Parrot's own preinstalls (aircrack-ng, hcxdumptool, hcxtools, inspectrum, tcpdump, ubertooth, wireshark); 9 commands. `uninstall packet --dry-run`: 9 artifacts, 10 commands. Neither was run for real; that is the operator's, and item 5 below. |
+| `morse` back in the profile | D-052 (#85) gives `morse-classic` its own apt command with `--no-install-recommends`, so the profile refusal from session 1 is gone and the unit is a member again (#87). From main: `install morse --dry-run` plans **20 commands**, one apt-get for `morse` alone carrying the flag, everything else on apt's defaults, no removal, and the plan names the unit that asked. |
+| D-051 re-measured from main | The same fifteen profiles: **142 already installed, 21 will build, 2 will install** (morse-classic, newly a member; and artemis, a venv unit, which always re-plans because pip over a satisfied venv is its own cheap check), 203 commands. The 21 are the same 21 as session 6: fourteen never verified, and the seven with no effect to check. Declaring `binaries` on five of those (#79) did not change the count, and it should not have: attribution needs a verified `transaction_end` that confirmed one of *this unit's* checks, and resume 2 could not confirm a check the manifest did not declare. They build once more under the new manifests and are decided from then on. libacars and openhamclock still declare nothing and stay outside the rule. |
+| A menu entry called "input" | Read out of the log, not the menu: the launcher agent's `yagiuda` launcher put an entry named **input** under Antenna, with a comment about Yagi-Uda arrays. The name is right for the wrapper, since a shell finds it by that name, and wrong for a menu. Launchers now carry a `title` for the entry (#89); seventeen gained one in the shape *what it does, then the command*. `install yagiuda --yes` from that branch on this laptop: two unprivileged steps, `Name=Yagi-Uda design input (input)` on disk, wrapper unchanged, 99 entries placed. |
+| The flaky orphan test, measured (#81) | `test_a_grandchild_holding_the_pipe_does_not_stall_the_lane` read the orphan's `/proc` state the instant the lane returned. The lane returns on pipe EOF, and the kernel closes a dying process's files before it marks the process a zombie. Under twelve busy threads on this i7: at that instant the orphan read Z 10 times, gone 19, X once, and **R 30 times** out of 60, every one a zombie or gone within 6.4 ms; the single read failed **21 of 40** runs, a bounded 2 s poll **0 of 40** (#88). The lane was never at fault. |
+| The weekly udev citation job | Found by the #86 agent's dispatched run: the job restated the sweep runner's podman line by hand and mounted only the script, so from the day the pair parser became a module (D-047) it died on import. Only the schedule runs it and the last schedule predated the split; tomorrow's would have been the first red. CI now calls the runner (#88), and the dispatched proof run passed that job on the first attempt. |
+
 ## Not yet run (this rung's remaining ladder)
 
 In order, and every one needs the operator at the keyboard for `sudo`:
@@ -233,20 +250,32 @@ In order, and every one needs the operator at the keyboard for `sudo`:
    installed; this is what exercises them, and the "not yet exercised
    against an attached device" line in the README closes here.
 2. Open `http://127.0.0.1:8073/` in this machine's browser and check the
-   dashboard against the station values — by eye, not by pasting. And
-   open the Plasma launcher and confirm the *Ham Radio* menu is there with
-   its three station entries under the right submenus.
-3. `install sdr --yes` and `install rf-security --yes`, then the GUI smoke
-   lane by hand: gqrx and SDR++ opening against the RTL-SDR and the HackRF
-   Pro on this machine's USB topology (two Realtek hubs in the path).
-4. `install packet --yes` — three source builds (ardopcf, linbpq,
-   qtsoundmodem) on the i7, timed, on battery and on AC.
-5. `uninstall` of each of the above, with the attribution check that
-   Parrot's preinstalls stay — `station` first, since its dry run already
-   plans correctly.
-6. The GPS and WWAN questions, once the modules exist: the catalog's
+   dashboard against the station values — by eye, not by pasting. Open the
+   Plasma launcher and walk the *Hammunition* menu group by group: every
+   entry is placed (session 6), none has been opened by eye except the
+   Ubertooth launcher under a task ceiling (session 7), and the seventeen
+   retitled entries (session 8) have been read on disk, not on screen.
+3. The GUI smoke lane by hand: gqrx and SDR++ opening against the RTL-SDR
+   and the HackRF Pro on this machine's USB topology (two Realtek hubs in
+   the path). The units are installed (session 6); nothing has been opened
+   against a radio.
+4. Time the three `packet` source builds (ardopcf, linbpq, qtsoundmodem)
+   on the i7, on battery and on AC. They built once in session 6, untimed,
+   and D-051 will skip them now; `--force` or a cleared prefix is needed to
+   measure. And `station set --node-alias …` then `install linbpq` to write
+   the one deferred file.
+5. `uninstall` for real, `station` first, then `rf-security` and `packet`,
+   against the dry runs in session 8: the two apt removals, the eight and
+   nine artifacts, and the seven Parrot preinstalls that must still be
+   there afterwards.
+6. A second full-profile run to attribute the 21 remaining builds under
+   D-051, then a third that plans none of them. The second is the one that
+   proves the rule; the first re-measurement (session 8) could only show
+   why the count had not moved yet.
+7. The GPS and WWAN questions, once the modules exist: the catalog's
    `gps-receiver` class is USB-serial (`/dev/serial/by-id/`); an internal
    GNSS on a WWAN card usually surfaces through ModemManager's location API
    or `/dev/wwan*`, not a tty, and `gpsd` will need a different source line.
    Nothing is written for that yet, and nothing should be until the
-   hardware is on the bench to measure.
+   hardware is on the bench to measure. Rayhunter's host-modem route (#69)
+   waits on the same service session.
