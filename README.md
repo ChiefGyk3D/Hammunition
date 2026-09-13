@@ -325,6 +325,7 @@ catalog and the measurements, so they cannot say what the code does not.
 | [`docs/contributing/hardware.md`](docs/contributing/hardware.md) | How to send one, and what we do and don't store |
 | [`docs/reference/bench-verification-5430.md`](docs/reference/bench-verification-5430.md) | What has run on the field target itself, a Dell Latitude 5430 Rugged, and what has not |
 | [`docs/reference/release-1.0-checklist.md`](docs/reference/release-1.0-checklist.md) | What stands between here and a 1.0 tag, each item with its owner and its measurement |
+| [`CHANGELOG.md`](CHANGELOG.md) | One entry per release, from the merged pull requests, each line naming the decision it rests on |
 | [`docs/contributing/releasing.md`](docs/contributing/releasing.md) | How a release is cut and signed, and why v0.7.0 is not |
 
 The user-facing documentation site is *Hacker's Ham Shack*. Its standard: a

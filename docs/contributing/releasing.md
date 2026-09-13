@@ -296,3 +296,11 @@ after checking the file against the maintainer's profile as described in
 principal matched` from a tag *older* than the key's `valid-before` is the
 git 2.34 behaviour, not a bad tag; run it on a machine with git 2.35 or
 later. Until a key exists, `v0.7.0` is what there is, and it is unsigned.
+
+## Before the tag
+
+`CHANGELOG.md` gets the release's entry first, written from the merged pull
+requests since the last tag (`gh pr list --state merged`), each line naming
+the PR and the decision it rests on; the version in `pyproject.toml` moves
+in the same commit. A tag that the changelog does not describe is a tag
+nobody can review.
