@@ -34,6 +34,7 @@ import sys
 import tempfile
 import textwrap
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from importlib import metadata
 from pathlib import Path
 
@@ -67,6 +68,8 @@ from hammunition.execute import (
     Step,
     already_built,
     artifact_removal_steps,
+    build_dir,
+    build_effects_present,
     commands_for,
     execute,
     run_removal,
@@ -109,6 +112,7 @@ from hammunition.station import (
     prompt_for,
     save_station,
 )
+from hammunition.update import render, report, requested_units
 
 __all__ = ["build_parser", "main"]
 
@@ -588,6 +592,130 @@ def cmd_station_set(args: argparse.Namespace) -> int:
     print(f"Saved to {path} (mode 0600).")
     for field in sorted(overrides):
         print(f"  {field:<14} {station.get(field)}")
+    return EXIT_OK
+
+
+def _apt_lists_note(apt: AptBackend) -> str:
+    """When the local package lists were last fetched, as a disclosure.
+
+    The report compares against the archive as those lists describe it; a
+    laptop that last ran `apt-get update` before a trip is comparing against
+    the archive of that day, and the line says which day.
+    """
+    if not apt.lists_populated():
+        return "no package lists fetched; every apt row above is comparing against nothing"
+    newest = max(
+        (entry.stat().st_mtime for entry in apt.lists_dir.iterdir() if "_Packages" in entry.name),
+        default=None,
+    )
+    if newest is None:
+        return "no package lists fetched; every apt row above is comparing against nothing"
+    when = datetime.fromtimestamp(newest, tz=UTC).astimezone().strftime("%Y-%m-%d %H:%M %Z")
+    return f"last refreshed {when} (`sudo apt-get update` refreshes them; this report does not)"
+
+
+def cmd_update(args: argparse.Namespace) -> int:
+    """Installed versus the catalog, as a report. D-053: nothing runs."""
+    try:
+        target = Target.detect()
+    except DetectionError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    if not target.is_debian_family:
+        print(f"error: {target.describe()} is not Debian-family.", file=sys.stderr)
+        return EXIT_FAILED
+
+    catalog_root = find_catalog(args.catalog)
+    packages, profiles = load_all(catalog_root)
+    runner = SubprocessRunner()
+    apt = AptBackend(runner)
+    user = operator(args)
+    read_log = TransactionLog(owner=user or None)
+
+    names = list(dict.fromkeys(args.names))
+    if not names:
+        names = list(requested_units(read_log.read()))
+        if not names:
+            print(f"Target: {target.describe()}")
+            print(
+                "Nothing to compare: the transaction log records no install request here "
+                f"({read_log.path}). Name units or profiles to compare them anyway."
+            )
+            return EXIT_OK
+        print(f"Comparing the {len(names)} unit(s) the transaction log has ever named here.")
+
+    try:
+        station = load_station(owner=user)
+    except StationError:
+        station = Station()
+    repos = AptRepoBackend(owner=user or None)
+    try:
+        plan = resolve(
+            names,
+            catalog=packages,
+            profiles=profiles,
+            target=target,
+            apt=apt,
+            user=user,
+            station=station,
+            repos=repos,
+            kernel=KernelProbe.detect(),
+            log=read_log,
+        )
+    except PlanError as exc:
+        print(str(exc), file=sys.stderr)
+        print(
+            "\nNothing was compared. The report resolves the request the way install "
+            "would, so a blocker here is the same blocker install would meet.",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
+    except BackendError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+
+    builds = build_root(user or None)
+    source = SourceBackend(Fetcher(owner=user or None), build_root=builds, owner=user or None)
+    git = GitBackend(
+        runner=runner,
+        build_root=builds,
+        prefix=source.prefix,
+        jobs=source.jobs,
+        owner=source.owner,
+    )
+    binary = BinaryBackend(
+        fetcher=source.fetcher,
+        runner=runner,
+        build_root=builds,
+        prefix=source.prefix,
+        owner=source.owner,
+    )
+    built = already_built(
+        plan, log=read_log, prefix=source.prefix, source=source, git=git, binary=binary
+    )
+    present = {
+        planned.name: build_effects_present(planned, prefix=source.prefix)
+        for planned in plan.packages
+        if build_dir(planned, source=source, git=git, binary=binary) is not None
+    }
+    apt_names: list[str] = []
+    for planned in plan.packages:
+        method = planned.block.install
+        if isinstance(method, AptInstall):
+            apt_names.extend(method.packages)
+    try:
+        states = apt.probe(list(dict.fromkeys(apt_names)))
+    except BackendError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+
+    print(f"Target: {target.describe()}")
+    print(
+        render(
+            report(plan, apt_states=states, present=present, built=built),
+            lists_note=_apt_lists_note(apt),
+        )
+    )
     return EXIT_OK
 
 
@@ -1735,6 +1863,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_status = sub.add_parser("status", help="what this machine is, and what has been done to it")
     p_status.set_defaults(func=cmd_status)
+
+    p_update = sub.add_parser(
+        "update",
+        help="installed versus the catalog, as a report; nothing runs (D-053)",
+    )
+    p_update.add_argument(
+        "names",
+        nargs="*",
+        help="units or profiles to compare; default: everything the log says was installed here",
+    )
+    p_update.add_argument("--user", default=None, help="whose log and builds to read")
+    p_update.set_defaults(func=cmd_update)
 
     p_show = sub.add_parser("show", help="describe a profile, disclosure included")
     p_show.add_argument("profile")

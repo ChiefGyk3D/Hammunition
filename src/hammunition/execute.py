@@ -58,7 +58,7 @@ from hammunition.manifest.schema import (
     VenvInstall,
     effective_binaries,
 )
-from hammunition.plan import InstallPlan
+from hammunition.plan import InstallPlan, PlannedPackage
 from hammunition.state import RemovalPlan, TransactionLog
 
 #: One entry in a plan: a process to run, or something the engine does itself.
@@ -268,6 +268,50 @@ def config_steps(plan: InstallPlan, *, staging_root: Path | None = None) -> list
     return steps
 
 
+def build_dir(
+    planned: PlannedPackage,
+    *,
+    source: SourceBackend | None = None,
+    git: GitBackend | None = None,
+    binary: BinaryBackend | None = None,
+) -> Path | None:
+    """Where this unit's build lives, or None for a unit that has no build.
+
+    The directory name encodes the manifest's pin (digest or ref), which is
+    what lets a log entry naming it attribute a build to *this* pin and not
+    an earlier one. Pure: the backends' ``layout`` touches no disk.
+    """
+    method = planned.block.install
+    if isinstance(method, SourceInstall) and source is not None:
+        return source.layout(planned.manifest, method).src
+    if isinstance(method, GitInstall) and git is not None:
+        return git.layout(planned.manifest, method).src
+    if isinstance(method, BinaryInstall) and method.format != "deb" and binary is not None:
+        return binary.layout(planned.manifest, method).src
+    return None
+
+
+def build_effects_present(planned: PlannedPackage, *, prefix: Path) -> bool | None:
+    """Whether every effect this build declares is on disk under ``prefix``.
+
+    ``True`` when every declared binary is executable at ``<prefix>/bin/`` and
+    the tree marker, where a tree is installed, exists. ``False`` when any is
+    missing. ``None`` when the unit declares neither, so nothing can be
+    checked: the D-051 rule never decides such a unit, and ``update`` reports
+    it as unknown rather than as either installed or not.
+    """
+    present: list[bool] = []
+    for declared in effective_binaries(planned.manifest, planned.block):
+        path = prefix / "bin" / declared.install_as
+        present.append(path.is_file() and os.access(path, os.X_OK))
+    marker = _tree_marker(planned.block)
+    if marker is not None:
+        present.append((tree_destination(prefix, planned.name) / marker).exists())
+    if not present:
+        return None
+    return all(present)
+
+
 def already_built(
     plan: InstallPlan,
     *,
@@ -301,23 +345,10 @@ def already_built(
         return frozenset()
     wanted: dict[str, str] = {}
     for planned in plan.packages:
-        method = planned.block.install
-        if isinstance(method, SourceInstall) and source is not None:
-            src = source.layout(planned.manifest, method).src
-        elif isinstance(method, GitInstall) and git is not None:
-            src = git.layout(planned.manifest, method).src
-        elif isinstance(method, BinaryInstall) and method.format != "deb" and binary is not None:
-            src = binary.layout(planned.manifest, method).src
-        else:
+        src = build_dir(planned, source=source, git=git, binary=binary)
+        if src is None:
             continue
-        present: list[bool] = []
-        for declared in effective_binaries(planned.manifest, planned.block):
-            path = prefix / "bin" / declared.install_as
-            present.append(path.is_file() and os.access(path, os.X_OK))
-        marker = _tree_marker(planned.block)
-        if marker is not None:
-            present.append((tree_destination(prefix, planned.name) / marker).exists())
-        if present and all(present):
+        if build_effects_present(planned, prefix=prefix):
             wanted[planned.name] = str(src)
     if not wanted:
         return frozenset()

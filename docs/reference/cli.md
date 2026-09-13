@@ -62,6 +62,58 @@ The target line reports what `/etc/os-release` said, not what we concluded from
 it. A system that declares no `ID` is an error, never a guess — see
 `docs/DESIGN.md` §8.
 
+### `hammunition update [NAME...] [--user NAME]`
+
+Installed versus the catalog, as a report. Nothing runs, nothing is fetched,
+and no network is used (**D-053**). With no names it compares every unit
+the transaction log has ever named here; with names it resolves them the
+way `install` does, profiles included, and compares those.
+
+```
+Comparing the 171 unit(s) the transaction log has ever named here.
+Target: Parrot Security 7.3 (echo) (ID=parrot, version=7.3, arch=x86_64)
+Units (171):
+  a2d                     up to date             a2d 2.0.5-2
+  acarsdec                behind the pin         on disk, but not attributed at ref v4.6: built at an earlier pin, or never verified here; `install acarsdec` rebuilds
+  artemis                 re-checked on install  pip resolves the venv on every install; nothing to compare offline
+  libacars                unknown                declares no binaries and no tree marker, so nothing on disk can be checked
+  mshv                    manual                 Upstream posts numbered zips; re-pin by hand. (more in the manifest)
+  …
+145 up to date, 0 with a different apt candidate, 17 behind the catalog's pin, 0 not installed, 2 unknown, 4 re-checked on install, 3 manual.
+apt lists: last refreshed 2026-09-12 06:38 EDT (`sudo apt-get update` refreshes them; this report does not)
+
+To rebuild at the catalog's pin:
+  $ hammunition install coil64 cwwav flaa … dumpvdl2
+
+Upstream was not consulted: 27 unit(s) declare a probe that would ask GitHub, PyPI or a version file. …
+
+Nothing above was executed.
+```
+
+Each row is one of seven states, and each state is a comparison against a
+fact the engine already has:
+
+| State | Which units | What it compared |
+|---|---|---|
+| `up to date` | apt units; built units | Every apt package installed at apt's candidate; or the build on disk and attributed by the log at the catalog's pin (**D-051**); or a vendor `.deb` this engine installed (#67) |
+| `candidate differs` | apt units | An installed version that is not apt's candidate, both printed. The exact `apt-get install --only-upgrade --no-remove` command follows, never run: apt decides, and it never removes or downgrades through that command |
+| `behind the pin` | built units; vendor `.deb`s | The effect is on disk but the log does not attribute it at the current pin: built at an earlier pin, or never verified here. `install NAME` rebuilds, and the command is printed |
+| `not installed` | any | An apt package missing, or nothing declared is on disk |
+| `unknown` | built units | The manifest declares no `binaries` and no tree marker, so there is nothing to check; the same units **D-051** cannot decide |
+| `re-checked on install` | venv and node units | pip and npm resolve on every install; there is nothing to compare offline |
+| `manual` | strategy `manual` | The first sentence of the manifest's cadence hint |
+
+The apt comparison is against the archive **as the local lists describe
+it**, and the report says when those lists were last fetched. It does not
+refresh them: a report that ran `apt-get update` would be changing the
+machine, and a laptop that last updated before a trip is told which day it
+is comparing against.
+
+What it deliberately does not do is ask upstream. Twenty-seven of this
+laptop's units declare a GitHub, PyPI or version-file probe; whether the
+catalog's *pin* is behind upstream is a question about the catalog, answered
+over the network, and the second half of D-053, not this one.
+
 ### `hammunition list [all|packages|profiles]`
 
 Everything in the catalog, with each package's install method **on this

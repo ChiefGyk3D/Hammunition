@@ -3811,3 +3811,62 @@ as the reason if a future apt plans one anyway. Whether it returns to the
 **Not decided here.** Nothing global, and no second use: a manifest that wants
 this flag needs the same shape of measurement — the Recommends named, the
 conflict named, the `apt-get install -s` output that shows the removal.
+
+---
+
+## D-053 — `update` is a report: installed versus the catalog, from facts the engine already has, with nothing run and nothing asked over the network
+
+**Decided:** `hammunition update` compares what is installed with what the
+catalog describes and prints the result. It runs no command that changes the
+machine, fetches nothing, and does not consult upstream. The first release of
+the command; the second half, comparing the catalog's pin to upstream through
+the probes D-010 declared, is deferred and named.
+
+**Evidence:** Every manifest has carried an `update` block since D-010 — a
+probe and a strategy — and until 2026-09-13 nothing in the engine read it.
+D-010's own justification was that AHRL had no update story ("install once,
+rot forever") and that answering *installed versus upstream* is what keeps a
+project maintainable past 1.0. Measured on the field laptop the night the
+command was written, against 171 units the log had ever named: 145 up to
+date, 17 behind the catalog's pin, 2 unknown, 4 re-checked on install, 3
+manual, 0 with a different apt candidate — and the 17 + 2 + 2 manual builds
+are exactly the 21 units the same evening's `install --dry-run` planned to
+build, which is the consistency the command has to have to be trusted.
+
+**Rule.**
+
+1. **Two comparisons, both offline.** An apt unit is compared against apt's
+   candidate in the local lists, through the same `apt-cache policy` call
+   resolution makes; a built unit is compared against the catalog's pin
+   through D-051's attribution (effect on disk, and a verified transaction
+   that built exactly this pin). A vendor `.deb` uses #67's attribution. A
+   venv or node unit is *re-checked on install*, because pip and npm resolve
+   every time and there is nothing to compare without running them.
+2. **The lists' age is disclosed, not refreshed.** The report prints when
+   the local package lists were last fetched. D-044 refreshes them at the
+   start of an install because an install is about to act on them; a report
+   that refreshed would be changing the machine to describe it.
+3. **A different candidate is not called an upgrade.** apt's candidate can
+   be lower than the installed version (a backport, a pin, a removed
+   repository). The row prints both versions, and the command the report
+   offers is `apt-get install --only-upgrade --no-remove`, which never
+   removes and never downgrades. apt decides; the report describes.
+4. **Unknown is a state.** A build that declares no `binaries` and no tree
+   marker is reported as unknown, the same units D-051 cannot decide, rather
+   than guessed at from the log. The fix is catalog data, as it was for
+   D-051.
+5. **The default set is everything the log ever named**, including units
+   from transactions that failed or were interrupted. The field laptop's
+   first full install failed after its apt step and still installed a
+   thousand packages; a default that read only clean endings hid ninety
+   units the machine has. The comparison looks at apt and the disk, so a
+   unit that never landed reads *not installed*.
+6. **Nothing is executed, and the report says so** on its last line. The
+   commands it prints are the operator's to run.
+
+**Not decided here.** Comparing the catalog's pin to upstream. Twenty-seven
+of the laptop's units declare `github_release`, `github_tags`, `pypi`,
+`label_file` or `binary_version` probes; using them means network calls,
+rate limits and a per-probe parser each, and the answer is about the catalog
+rather than the machine. That is a maintainer's tool, and it will be
+`update --upstream` or a separate verb, decided when it is measured.
