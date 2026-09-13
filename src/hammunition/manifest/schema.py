@@ -419,6 +419,15 @@ class GitInstall(Strict):
             "Requires a launcher (or binaries) so the tree is reachable."
         ),
     )
+    patches: list[Patch] = Field(
+        default_factory=list,
+        description=(
+            "Unified diffs applied after the checkout and before the build, in "
+            "order, exactly as a source block's. linbpq's makefile runs `sudo "
+            "setcap` inside the build (#96); the patch that removes it is the "
+            "first use."
+        ),
+    )
     tree_marker: str | None = Field(default=None, description=TREE_MARKER_DESCRIPTION)
     pin_review: PinReview | None = Field(
         default=None,

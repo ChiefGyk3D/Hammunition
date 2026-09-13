@@ -402,7 +402,8 @@ def test_bpq_builds_from_a_pinned_tag_not_a_mirror(catalog: Catalog) -> None:
     `unverifiable` status is warranted."""
     block = catalog["linbpq"].install[0]
     assert isinstance(block.install, GitInstall)
-    assert block.install.ref == "25.39"
+    # A tag, not a branch or a mirror path: the pin moves on purpose (#95).
+    assert re.fullmatch(r"\d+\.\d+", block.install.ref), block.install.ref
     assert "cantab.net" not in block.install.repo
     assert catalog["linbpq"].status is Status.supported
 

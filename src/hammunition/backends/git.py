@@ -41,7 +41,13 @@ from hammunition.manifest.schema import (
 )
 
 from .base import Action, BackendError, Command, CommandRunner
-from .source import SourceLayout, build_commands, prepare_tree, tree_install_commands
+from .source import (
+    SourceLayout,
+    build_commands,
+    patch_steps,
+    prepare_tree,
+    tree_install_commands,
+)
 
 __all__ = ["GitBackend"]
 
@@ -135,6 +141,10 @@ class GitBackend:
                 perform=lambda: self.verify_pin(src, block.ref),
             ),
         ]
+        # After the pin is confirmed and before anything is compiled, the same
+        # way a source block is patched: the checkout is cleared and re-fetched
+        # every run, so a patch never applies twice.
+        steps.extend(patch_steps(manifest.name, block.patches, layout))
         steps.extend(
             build_commands(
                 name=manifest.name,

@@ -568,7 +568,7 @@ def _check_engine_capability(
                     ),
                 )
             )
-        if isinstance(source, SourceInstall):
+        if isinstance(source, SourceInstall | GitInstall):
             undiffed = [p.file for p in source.patches if not p.unified_diff]
             if undiffed:
                 found.append(
@@ -1053,6 +1053,8 @@ def resolve(
         tool_depends: tuple[str, ...] = ()
         if block.install.method == "git":
             tool_depends = ("git",)
+            if getattr(block.install, "patches", None):
+                tool_depends = ("git", "patch")
         elif block.install.method == "source" and getattr(block.install, "patches", None):
             tool_depends = ("patch",)
         elif block.install.method == "node":
