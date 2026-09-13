@@ -1223,6 +1223,26 @@ class PackageManifest(Strict):
         ),
     )
 
+    menu_title: str | None = Field(
+        default=None,
+        description=(
+            "What the desktop menu shows for the entry the engine generates when "
+            "this unit ships none of its own: what it does, then the command in "
+            "parentheses (`Contest logger (tlf)`). Defaults to the unit's name, "
+            "which is fine for a name people know (gqrx) and not for one they do "
+            "not (wwl). Ignored for a unit that ships its own desktop entries."
+        ),
+    )
+    menu_submenu: str | None = Field(
+        default=None,
+        description=(
+            "Gather every desktop entry this unit ships into one submenu of this "
+            "title, under the unit's first category only, instead of listing them "
+            "beside everything else in every category it carries. For a unit that "
+            "ships a toolkit: GNU Radio puts 21 entries into a submenu, and the "
+            "SDR and Digital Modes menus were unreadable with them inline."
+        ),
+    )
     binaries: list[Binary] = Field(default_factory=list)
     installed_files: list[str] = Field(
         default_factory=list,
@@ -1282,6 +1302,14 @@ class PackageManifest(Strict):
     documentation: Documentation
 
     # -- validators ---------------------------------------------------------
+
+    @model_validator(mode="after")
+    def _menu_fields_are_readable(self) -> PackageManifest:
+        for field in ("menu_title", "menu_submenu"):
+            value = getattr(self, field)
+            if value is not None and not value.strip():
+                raise ManifestError(f"{field} is blank; omit it or give the menu something to show")
+        return self
 
     @model_validator(mode="after")
     def _installed_files_are_relative_effects(self) -> PackageManifest:
