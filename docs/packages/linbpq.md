@@ -4,7 +4,7 @@
 
 **BPQ32 packet-radio node, BBS and Winlink gateway**
 
-- **Version recorded:** 25.39
+- **Version recorded:** 25.40
 - **Categories:** `emcomm`, `packet`
 - **Upstream:** <https://github.com/g8bpq/LinBPQ>
 
@@ -22,10 +22,10 @@ A configured AX.25 stack, a TNC or soundmodem such as Direwolf or QtSoundModem, 
 
 ## How it installs
 
-- git (make) — https://github.com/g8bpq/LinBPQ at `25.39`
+- git (make) — https://github.com/g8bpq/LinBPQ at `25.40`
   - build dependencies: `build-essential`, `libpaho-mqtt-dev`, `libjansson-dev`, `libminiupnpc-dev`, `libconfig-dev`, `libpcap-dev`, `zlib1g-dev`, `libi2c-dev`
   - the project's build system has no install rule; the binaries listed below are copied into the prefix instead
-  - Dependency list derived from the LIBS line of upstream's makefile (-lpaho-mqtt3a -ljansson -lminiupnpc -lm -lz -lpthread -lconfig -lpcap) and verified present on Debian 13 by querying the target container, not by guessing package names. Upstream supports `make noi2c` to drop the I2C dependency on hardware without it.
+  - Dependency list derived from the LIBS line of upstream's makefile (-lpaho-mqtt3a -ljansson -lminiupnpc -lm -lz -lpthread -lconfig -lpcap) and verified present on Debian 13 by querying the target container, not by guessing package names. Upstream supports `make noi2c` to drop the I2C dependency on hardware without it. Re-pinned 25.39 -> 25.40 on 2026-09-13 (#95): the tag built clean on the field laptop with the makefile patch above, and the resulting binary still prints "Version 6.0.25.39" -- upstream's version string lags its tag by one, so a binary_version probe would read wrong here and the tag is the pin.
 
 Binaries this produces:
 
@@ -43,7 +43,7 @@ Binaries this produces:
 
 ## Known problems
 
-Unaffected by Linux 7.1's removal of the kernel AX.25 stack: it carries its own AX.25 implementation and drives Direwolf over KISS or AGW, so no AF_AX25 socket is involved. See `docs/reference/kernel-ax25.md`. Upstream publishes prebuilt binaries in a directory named Beta with no versioning or checksums; we ignore those and build from a tagged source revision instead. The generated configuration is a minimum viable node and is meant to be edited — read it before transmitting.
+Unaffected by Linux 7.1's removal of the kernel AX.25 stack: it carries its own AX.25 implementation and drives Direwolf over KISS or AGW, so no AF_AX25 socket is involved. See `docs/reference/kernel-ax25.md`. Upstream publishes prebuilt binaries in a directory named Beta with no versioning or checksums; we ignore those and build from a tagged source revision instead. The generated configuration is a minimum viable node and is meant to be edited — read it before transmitting. The build does not grant the binary any capabilities: upstream's makefile would run `sudo setcap` for CAP_NET_ADMIN, CAP_NET_RAW and CAP_NET_BIND_SERVICE, and the engine removes that line (#96). A node on AX.25 over KISS with the web interface on 8008 needs none of them. If you use BPQ's Ethernet or tun ports, or bind a port below 1024, grant them yourself once: `sudo setcap "CAP_NET_ADMIN=ep CAP_NET_RAW=ep CAP_NET_BIND_SERVICE=ep" /usr/local/bin/linbpq`, and again after every rebuild, since a new file carries no capabilities.
 
 ## Keeping it current
 

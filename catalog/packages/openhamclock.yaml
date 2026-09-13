@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: CC0-1.0
 
 name: openhamclock
-version: "26.7.0"
+version: "26.7.3"
 summary: Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites
 categories: [hf-propagation]
 
@@ -25,8 +25,8 @@ install:
   - install:
       method: node
       artifact:
-        url: https://github.com/accius/openhamclock/archive/refs/tags/v26.7.0.tar.gz
-        sha256: 0c179ab1cf1e42bddda53933fc0417d18c5b3ff5c09ae9ffa747714670d2c943
+        url: https://github.com/accius/openhamclock/archive/refs/tags/v26.7.3.tar.gz
+        sha256: c83029faaab0b2a114b668f685d934c5e39fdf209e2988bf6421f1a8f4c5adaf
       # Not 18, whatever Vite's `^18 || ^20 || >=22` says. Measured on the
       # Ubuntu 24.04 VM (Node 18.19.1): the build succeeds, `npm ci` takes the
       # lock file, and the server dies at start with ERR_REQUIRE_ESM --
@@ -48,7 +48,7 @@ install:
       patches:
         - file: server.js
           description: >-
-            v26.7.0 reads HOST from the environment and its .env, prints it in
+            v26.7.3 (and v26.7.0 before it) reads HOST from the environment and its .env, prints it in
             the startup banner, and then calls `app.listen(PORT, '0.0.0.0')`
             regardless -- so the dashboard, with its unauthenticated write
             API, listens on every interface whatever HOST says. Measured on
@@ -60,7 +60,7 @@ install:
           unified_diff: |
             --- a/server.js
             +++ b/server.js
-            @@ -361,7 +361,7 @@
+            @@ -364,7 +364,7 @@
              });
              
              // ── Start server ──

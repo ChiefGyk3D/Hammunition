@@ -4,7 +4,7 @@
 
 **Maintained SDL2 rewrite of HamClock — grey line, propagation, DX cluster**
 
-- **Version recorded:** 1.5
+- **Version recorded:** 1.6
 - **Categories:** `hf-propagation`
 - **Upstream:** <https://github.com/k4drw/hamclock-next>
 - **Supersedes:** `esphamclock`
@@ -23,7 +23,7 @@ A working network connection and a reachable data backend. Set your latitude, lo
 
 ## How it installs
 
-- source (cmake) from https://github.com/k4drw/hamclock-next/archive/refs/tags/v1.5.tar.gz
+- source (cmake) from https://github.com/k4drw/hamclock-next/archive/refs/tags/v1.6.tar.gz
   - build dependencies: `patch`, `libsdl2-dev`, `libsdl2-ttf-dev`, `libsdl2-image-dev`, `libcurl4-openssl-dev`, `libsqlite3-dev`, `cmake`, `build-essential`
 
 Binaries this produces:

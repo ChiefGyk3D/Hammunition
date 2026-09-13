@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: CC0-1.0
 
 name: linbpq
-version: "25.39"
+version: "25.40"
 summary: BPQ32 packet-radio node, BBS and Winlink gateway
 categories: [packet, emcomm]
 
@@ -21,13 +21,36 @@ install:
   - install:
       method: git
       repo: https://github.com/g8bpq/LinBPQ
-      ref: "25.39"
+      ref: "25.40"
       build_system: make
       # Measured, not assumed: the first real build (Parrot 7.3 VM,
       # 2026-08-29) compiled clean and then failed on `make install` — the
       # makefile's only target is `all:` and the word "install" does not
       # appear in it. The declared binary below is what gets installed.
       provides_install_target: false
+      patches:
+        - file: makefile
+          description: >-
+            The `linbpq` target ends with `sudo setcap CAP_NET_ADMIN,CAP_NET_RAW,
+            CAP_NET_BIND_SERVICE linbpq` (line 78 in 25.39 and 25.40 alike). The
+            engine builds unprivileged and prints every privileged command before
+            the confirmation; a sudo inside make is neither, and it passed on the
+            field laptop only because the apt step had just warmed the operator's
+            sudo timestamp (#96). The line is removed: compilation is unchanged,
+            the binary is the same file, and the capabilities -- needed only for
+            BPQ's Ethernet and tun ports, not for KISS or the 8008 web port -- are
+            the operator's to grant, as known_problems says.
+          unified_diff: |
+            --- a/makefile
+            +++ b/makefile
+            @@ -75,7 +75,6 @@
+             
+             linbpq: $(OBJS)
+             	cc $(OBJS) $(CFLAGS) $(LDFLAGS) $(LIBS) -o linbpq
+            -	sudo setcap "CAP_NET_ADMIN=ep CAP_NET_RAW=ep CAP_NET_BIND_SERVICE=ep" linbpq		
+             
+             -include *.d
+             
     build_depends:
       - build-essential
       - libpaho-mqtt-dev
@@ -42,7 +65,11 @@ install:
       (-lpaho-mqtt3a -ljansson -lminiupnpc -lm -lz -lpthread -lconfig -lpcap)
       and verified present on Debian 13 by querying the target container, not
       by guessing package names. Upstream supports `make noi2c` to drop the I2C
-      dependency on hardware without it.
+      dependency on hardware without it. Re-pinned 25.39 -> 25.40 on
+      2026-09-13 (#95): the tag built clean on the field laptop with the
+      makefile patch above, and the resulting binary still prints "Version
+      6.0.25.39" -- upstream's version string lags its tag by one, so a
+      binary_version probe would read wrong here and the tag is the pin.
 
 binaries:
   - produced: linbpq
@@ -111,5 +138,13 @@ documentation:
     versioning or checksums; we ignore those and build from a tagged source
     revision instead. The generated configuration is a minimum viable node and
     is meant to be edited — read it before transmitting.
+    The build does not grant the binary any capabilities: upstream's makefile
+    would run `sudo setcap` for CAP_NET_ADMIN, CAP_NET_RAW and
+    CAP_NET_BIND_SERVICE, and the engine removes that line (#96). A node on
+    AX.25 over KISS with the web interface on 8008 needs none of them. If you
+    use BPQ's Ethernet or tun ports, or bind a port below 1024, grant them
+    yourself once: `sudo setcap "CAP_NET_ADMIN=ep CAP_NET_RAW=ep
+    CAP_NET_BIND_SERVICE=ep" /usr/local/bin/linbpq`, and again after every
+    rebuild, since a new file carries no capabilities.
   upstream_url: https://github.com/g8bpq/LinBPQ
   upstream_support: BPQ32 support group at groups.io/g/BPQ32

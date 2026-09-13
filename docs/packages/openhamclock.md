@@ -4,7 +4,7 @@
 
 **Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites**
 
-- **Version recorded:** 26.7.0
+- **Version recorded:** 26.7.3
 - **Categories:** `hf-propagation`
 - **Upstream:** <https://github.com/accius/openhamclock>
 
@@ -22,7 +22,7 @@ It is the at-a-glance answer to "which band should I be on right now", and the m
 
 ## How it installs
 
-- node (needs Node 20.19+ from the distribution; dependencies fetched from registry.npmjs.org against the lock file) from https://github.com/accius/openhamclock/archive/refs/tags/v26.7.0.tar.gz
+- node (needs Node 20.19+ from the distribution; dependencies fetched from registry.npmjs.org against the lock file) from https://github.com/accius/openhamclock/archive/refs/tags/v26.7.3.tar.gz
   - build dependencies: `nodejs`, `npm`, `patch`
   - Needs Node.js 20.19 or newer from the distribution's own `nodejs` package — the engine never fetches Node from NodeSource or nodejs.org, and refuses at plan time when the archive's Node is absent or too old. Ubuntu 24.04's 18.19 is too old: it builds, then the server dies at start (ERR_REQUIRE_ESM; measured 2026-09-02), so that target is refused. The build downloads its dependency closure from registry.npmjs.org, verified against the lock file. Built and run 2026-09-02 on Debian 13 (Node 20.19.2, npm 9.2).
 
