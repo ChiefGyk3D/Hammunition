@@ -292,7 +292,12 @@ second list. Per-user and unprivileged throughout.
   submenu under its first category instead of listing it inline in every
   category it carries; a generated entry shows its manifest's
   `menu_title` (*Contest logger (tlf)*) with the unit's name kept in
-  `Keywords=` for the launcher's search. Each
+  `Keywords=` for the launcher's search. Every apply also brings the
+  launcher entries up to their manifests as they are now (categories,
+  title, comment; the wrapper path is kept), generates an entry for a
+  built unit from the binaries its manifest declares and the prefix holds,
+  and writes a launcher a unit gained in the catalog after it was installed
+  (D-050 amendment, 2026-09-13). Each
   submenu includes the `X-Hammunition-<category>` markers every generated
   desktop entry carries **and, by `<Filename>`, the desktop entries the
   installed catalog packages ship themselves** — mapped at apply time from

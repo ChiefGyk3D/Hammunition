@@ -575,6 +575,7 @@ def cli_entries(
     placement: Placement,
     executables: ExecutableLister = dpkg_executables,
     hidden: frozenset[str] = frozenset(),
+    prefix: Path | None = None,
 ) -> CliEntries:
     """One generated entry per installed catalog unit that has none.
 
@@ -594,6 +595,15 @@ def cli_entries(
         if not visible:
             continue
         on_path = [e for package in sorted(_packages_of(manifest)) for e in executables(package)]
+        # A built unit has no dpkg package to list; what it installed is what
+        # its manifest declares, checked on disk (D-050's promise is *every*
+        # installed unit, and 14 built units had nothing on the field laptop).
+        if prefix is not None:
+            on_path += [
+                str(prefix / "bin" / b.install_as)
+                for b in manifest.binaries
+                if (prefix / "bin" / b.install_as).is_file()
+            ]
         if not on_path:
             continue
         # sbin is the system's: a daemon systemd owns (gpsd) or an admin
@@ -698,6 +708,104 @@ def _decorate(path: Path, icon: str) -> str:
     lines.insert(at + 1, f"Icon={icon}")
     path.write_text("\n".join(lines))
     return f"added Icon={icon} to {path.name}"
+
+
+PackagePresence = Callable[[str], bool]
+"""Whether a distribution package is installed; injected for the tests."""
+
+
+def dpkg_installed(package: str) -> bool:
+    result = subprocess.run(
+        ["dpkg-query", "-W", "-f=${db:Status-Status}", package], capture_output=True, text=True
+    )
+    return result.returncode == 0 and result.stdout.strip() == "installed"
+
+
+def missing_launcher_steps(
+    manifests: Iterable[PackageManifest],
+    *,
+    bin_dir: Path,
+    applications_dir: Path,
+    prefix: Path,
+    installed: PackagePresence = dpkg_installed,
+) -> list[Action]:
+    """Write the launcher a manifest declares for a unit that is installed
+    here and has none on disk.
+
+    A launcher is written by `install`; a unit installed before its manifest
+    gained one never gets it (rtl-sdr, libhamlib-utils, libnfc-bin and
+    gpsd-tools on the field laptop, 2026-09-13). The unit counts as installed
+    when one of its apt packages is, or a declared binary is under the
+    prefix. venv and node units are left alone: their wrappers need the
+    virtualenv or node tree that only `install` knows.
+    """
+    from hammunition.launchers import launcher_steps
+    from hammunition.manifest.schema import NodeInstall, VenvInstall
+
+    steps: list[Action] = []
+    for manifest in manifests:
+        if not manifest.launchers:
+            continue
+        if any(isinstance(b.install, VenvInstall | NodeInstall) for b in manifest.install):
+            continue
+        present = any(installed(p) for p in _packages_of(manifest)) or any(
+            (prefix / "bin" / b.install_as).is_file() for b in manifest.binaries
+        )
+        if not present:
+            continue
+        if all(
+            (bin_dir / launcher.name).is_file()
+            and (applications_dir / f"hammunition-{launcher.name}.desktop").is_file()
+            for launcher in manifest.launchers
+        ):
+            continue
+        steps.extend(launcher_steps(manifest, bin_dir=bin_dir, applications_dir=applications_dir))
+    return steps
+
+
+def _rerender(path: Path, body: str) -> str:
+    path.write_text(body)
+    return f"re-rendered {path.name} from its manifest"
+
+
+def refresh_launcher_entries(
+    manifests: Iterable[PackageManifest], applications_dir: Path
+) -> list[Action]:
+    """Re-render every launcher's desktop entry from the manifest as it is now.
+
+    A launcher entry is written once, at install time, and carries the
+    categories, title and comment of that day's manifest. The vocabulary was
+    recut on 2026-09-13 (D-055) and fourteen entries on the field laptop --
+    Hammunition Hill among them -- kept markers no submenu includes any more,
+    so the menu lost them without a word. The wrapper path is read from the
+    entry's own ``Exec=`` line; only the text the manifest owns is renewed,
+    and only when it differs. The icon is left to :func:`decorate_entries`.
+    """
+    from hammunition.launchers import desktop_entry
+
+    steps: list[Action] = []
+    for manifest in manifests:
+        for launcher in manifest.launchers:
+            path = applications_dir / f"hammunition-{launcher.name}.desktop"
+            if not path.is_file():
+                continue
+            text = path.read_text()
+            exec_line = next((ln for ln in text.splitlines() if ln.startswith("Exec=")), None)
+            if exec_line is None:
+                continue
+            fresh = desktop_entry(manifest, launcher, Path(exec_line.removeprefix("Exec=")))
+            current = "\n".join(ln for ln in text.splitlines() if not ln.startswith("Icon=")) + "\n"
+            if current == fresh:
+                continue
+            steps.append(
+                Action(
+                    kind="menu",
+                    description=f"Re-render {path.name} from {manifest.name}'s manifest",
+                    detail=str(path),
+                    perform=partial(_rerender, path, fresh),
+                )
+            )
+    return steps
 
 
 def decorate_entries(applications_dir: Path, icons: Mapping[str, str]) -> list[Action]:

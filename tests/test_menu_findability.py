@@ -207,3 +207,139 @@ def test_without_a_local_prefix_nothing_changes(tmp_path: Path) -> None:
     wsjtx = _manifest("wsjtx", ["weak-signal"])
     placement = place_installed_entries([wsjtx], lambda _p: [])
     assert placement.by_category == {} and placement.built == ()
+
+
+# --- a launcher entry follows its manifest, not the day it was installed ----------
+
+
+def test_a_launcher_entry_with_stale_markers_is_re_rendered_from_the_manifest(
+    tmp_path: Path,
+) -> None:
+    from hammunition.menus import refresh_launcher_entries
+
+    apps = tmp_path / "apps"
+    apps.mkdir()
+    hill = _manifest(
+        "hammunition-hill",
+        ["dashboards"],
+        launchers=[
+            {
+                "name": "hammunition-hill",
+                "exec": "x-www-browser http://127.0.0.1:8073",
+                "title": "Hammunition Hill dashboard",
+            }
+        ],
+    )
+    entry = apps / "hammunition-hammunition-hill.desktop"
+    entry.write_text(
+        "[Desktop Entry]\nType=Application\nIcon=map-globe\nName=hammunition-hill\n"
+        "Comment=old\nExec=/home/op/.local/bin/hammunition-hill\nTerminal=false\n"
+        "Categories=HamRadio;Science;X-Hammunition-station;\nX-Hammunition-Package=hammunition-hill\n"
+    )
+    steps = refresh_launcher_entries([hill], apps)
+    assert [s.detail for s in steps] == [str(entry)]
+    for s in steps:
+        s.perform()
+    text = entry.read_text()
+    assert "X-Hammunition-dashboards;" in text and "X-Hammunition-station" not in text
+    assert "Name=Hammunition Hill dashboard\n" in text
+    assert "Exec=/home/op/.local/bin/hammunition-hill\n" in text, "the wrapper path is kept"
+    # a second pass finds nothing to do, and a manifest with no entry on disk is skipped
+    assert refresh_launcher_entries([hill], apps) == []
+    assert (
+        refresh_launcher_entries(
+            [_manifest("ghost", ["aprs"], launchers=[{"name": "ghost", "exec": "ghost"}])], apps
+        )
+        == []
+    )
+
+
+# --- every installed unit, built ones included ----------------------------------
+
+
+def test_a_built_unit_gets_a_generated_entry_from_its_declared_binary(tmp_path: Path) -> None:
+    prefix = tmp_path / "prefix"
+    (prefix / "bin").mkdir(parents=True)
+    (prefix / "bin" / "linbpq").write_text("#!/bin/sh\n")
+    (prefix / "bin" / "acarsdec").write_text("#!/bin/sh\n")
+    (prefix / "bin" / "acars-extra").write_text("#!/bin/sh\n")
+    linbpq = _manifest(
+        "linbpq", ["packet-nodes"], binaries=[{"produced": "linbpq", "install_as": "linbpq"}]
+    )
+    acars = _manifest(
+        "acarsdec",
+        ["aircraft"],
+        binaries=[
+            {"produced": "acarsdec", "install_as": "acarsdec"},
+            {"produced": "extra", "install_as": "acars-extra"},
+        ],
+    )
+    ghost = _manifest("ghost", ["aprs"], binaries=[{"produced": "ghost", "install_as": "ghost"}])
+    placement = place_installed_entries([linbpq, acars, ghost], lambda _p: [])
+    generated = cli_entries(
+        [linbpq, acars, ghost], placement, executables=lambda _p: [], prefix=prefix
+    )
+    by_unit = {e.unit: e for e in generated.entries}
+    assert by_unit["linbpq"].exec == str(prefix / "bin" / "linbpq")
+    assert by_unit["acarsdec"].exec == str(prefix / "bin" / "acarsdec"), "named like the unit wins"
+    assert "ghost" not in by_unit, "declared but not on disk is not installed"
+
+
+def test_a_launcher_declared_after_install_is_written_at_apply_time(tmp_path: Path) -> None:
+    from hammunition.menus import missing_launcher_steps
+
+    bins, apps, prefix = tmp_path / "bin", tmp_path / "apps", tmp_path / "prefix"
+    rtl = _manifest(
+        "rtl-sdr",
+        ["sdr-hardware"],
+        launchers=[{"name": "rtl_test", "exec": "rtl_test -t", "terminal": True}],
+    )
+    absent = _manifest(
+        "absent", ["sdr-hardware"], launchers=[{"name": "absent_tool", "exec": "absent_tool"}]
+    )
+    steps = missing_launcher_steps(
+        [rtl, absent],
+        bin_dir=bins,
+        applications_dir=apps,
+        prefix=prefix,
+        installed=lambda p: p == "rtl-sdr",
+    )
+    assert [s.kind for s in steps] == ["wrapper", "desktop-entry"], "only the installed unit"
+    for s in steps:
+        s.perform()
+    assert (bins / "rtl_test").is_file() and (apps / "hammunition-rtl_test.desktop").is_file()
+    assert (
+        missing_launcher_steps(
+            [rtl], bin_dir=bins, applications_dir=apps, prefix=prefix, installed=lambda p: True
+        )
+        == []
+    )
+
+
+def test_a_venv_units_launcher_is_left_to_install(tmp_path: Path) -> None:
+    from hammunition.menus import missing_launcher_steps
+
+    venv_unit = _manifest(
+        "pyt",
+        ["sdr-receivers"],
+        install=[
+            {
+                "install": {
+                    "method": "venv",
+                    "python": ">=3.12",
+                    "requirements": ["pyt==1.0 --hash=sha256:" + "0" * 64],
+                }
+            }
+        ],
+        launchers=[{"name": "pyt", "exec": "exec {venv}/bin/python -m pyt"}],
+    )
+    assert (
+        missing_launcher_steps(
+            [venv_unit],
+            bin_dir=tmp_path,
+            applications_dir=tmp_path,
+            prefix=tmp_path,
+            installed=lambda p: True,
+        )
+        == []
+    )

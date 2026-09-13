@@ -4010,3 +4010,42 @@ a source build. Nine of the ten match a unit's name, a declared binary or a
 those names. That is the next change, and *FT8, JS8 & Weak Signal* showing
 one entry on a laptop with WSJT-X, JS8Call and JTDX built is the measurement
 that found it.
+
+---
+
+## D-050 amendment (2026-09-13) — the menu covers every installed unit on the day it is applied, not the day each unit was installed
+
+**Found:** the maintainer, reading the D-055 tree on the field laptop:
+"Hammunition Hill is missing from the menu." Measured: its launcher entry,
+written at install time, still carried `X-Hammunition-station`, a marker no
+submenu has included since the vocabulary was recut; thirteen other launcher
+entries were in the same state. Auditing every installed, visible unit against
+the menu found **46 of 168 with no presence at all**, in three classes.
+
+**Amended.** `hammunition menus apply`, and the install tail that calls the
+same code, now do three things D-050 left to install time:
+
+1. **Every launcher entry is re-rendered from its manifest as it is now** —
+   categories, title, comment — keeping the wrapper path from its own
+   `Exec=` line, and only when the text differs. The icon is left to the
+   decoration step. Fourteen entries changed on the field laptop; none on a
+   second pass.
+2. **A built unit generates an entry from its declared binaries.** The
+   generator read only dpkg's executable list, so a source, git or prebuilt
+   unit had nothing unless it shipped a desktop file or a launcher. The
+   binaries a manifest declares, present under the prefix, are read the same
+   way: the one named like the unit, else the sole one, else the unit is
+   reported and a `launchers` block is the fix. Twenty built units gained an
+   entry (46 generated entries became 66).
+3. **A launcher declared after a unit was installed is written at apply
+   time**, wrapper and entry, when one of the unit's apt packages is
+   installed or a declared binary is on disk, and not for venv or node units,
+   whose wrappers need what only `install` knows. Four units on the field
+   laptop (rtl-sdr, libhamlib-utils, libnfc-bin, gpsd-tools) had gained a
+   launcher in the catalog after they were installed and never had it.
+
+**Measured after:** 168 installed visible units, **19 without a menu
+presence**, every one an honest omission the summary names: seven services
+that ship only `/usr/sbin` programs, five toolkits with no executable named
+like the unit (`ax25mail-utils`, `hcxtools`, `libfreefare-bin`, `pciutils`,
+`usbutils`), seven libraries and driver modules with nothing to launch.
