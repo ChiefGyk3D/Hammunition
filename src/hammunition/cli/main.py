@@ -1352,6 +1352,7 @@ def refresh_menus_after_install(catalog_root: Path) -> list[str]:
     """
     from hammunition.menus import (
         APPLICATIONS_DIR,
+        LOCAL_APPLICATIONS_DIR,
         MenuPaths,
         MenuPrefixError,
         cli_entries,
@@ -1380,7 +1381,10 @@ def refresh_menus_after_install(catalog_root: Path) -> list[str]:
     manifests, _ = load_all(catalog_root)
     hidden = vocabulary.hidden_categories
     placement = place_installed_entries(
-        manifests.values(), applications_dir=APPLICATIONS_DIR, hidden=hidden
+        manifests.values(),
+        applications_dir=APPLICATIONS_DIR,
+        hidden=hidden,
+        built_applications_dir=LOCAL_APPLICATIONS_DIR,
     )
     generated = cli_entries(manifests.values(), placement, hidden=hidden)
     paths = MenuPaths(
@@ -1413,6 +1417,7 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
 
     from hammunition.menus import (
         APPLICATIONS_DIR,
+        LOCAL_APPLICATIONS_DIR,
         MenuPaths,
         MenuPrefixError,
         cli_entries,
@@ -1433,7 +1438,10 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
     manifests, _ = load_all(catalog_root)
     hidden = vocabulary.hidden_categories
     placement = place_installed_entries(
-        manifests.values(), applications_dir=APPLICATIONS_DIR, hidden=hidden
+        manifests.values(),
+        applications_dir=APPLICATIONS_DIR,
+        hidden=hidden,
+        built_applications_dir=LOCAL_APPLICATIONS_DIR,
     )
     # D-050: every installed unit findable. Generated per user, beside the
     # launchers, from what dpkg says is on this machine's path.
