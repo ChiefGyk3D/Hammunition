@@ -5,7 +5,7 @@
 **Host tools for HackRF — transfer, sweep, spectrum and firmware utilities**
 
 - **Version recorded:** 2024.02.1
-- **Categories:** `hardware`, `rf-security`, `sdr`
+- **Categories:** `ism-subghz`, `sdr-hardware`
 - **Upstream:** <https://github.com/greatscottgadgets/hackrf>
 
 ## What it does

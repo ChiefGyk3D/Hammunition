@@ -4,7 +4,7 @@
 name: libbladerf2
 version: "0.2024.05"
 summary: Library and udev rules for Nuand bladeRF boards
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 install:
   - install:

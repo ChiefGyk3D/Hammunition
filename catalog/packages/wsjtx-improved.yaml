@@ -4,7 +4,7 @@
 name: wsjtx-improved
 version: "3.2.0"
 summary: Community fork of WSJT-X with additional decoding and UI features
-categories: [digital-modes]
+categories: [weak-signal]
 
 # Ordering is declared for determinism, but correctness no longer depends on it:
 # install_as gives each build a distinct final name, so neither can overwrite

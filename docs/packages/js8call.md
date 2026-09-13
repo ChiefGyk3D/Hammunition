@@ -5,7 +5,7 @@
 **Weak-signal keyboard-to-keyboard messaging built on the FT8 modem**
 
 - **Version recorded:** 3.0.3
-- **Categories:** `digital-modes`
+- **Categories:** `weak-signal`
 - **Upstream:** <https://github.com/JS8Call-improved/JS8Call-improved>
 - **Needs first:** `libhamlib4t64`
 

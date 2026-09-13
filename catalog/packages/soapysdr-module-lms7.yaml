@@ -4,7 +4,7 @@
 name: soapysdr-module-lms7
 version: "23.11.0"
 summary: SoapySDR driver module for LimeSDR (LMS7002M) hardware
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 install:
   - install:

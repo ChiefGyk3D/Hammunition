@@ -5,7 +5,7 @@
 **Converts between GPS file formats and talks to the receiver**
 
 - **Version recorded:** 1.10.0
-- **Categories:** `station`, `timing`, `tracking`
+- **Categories:** `gps-gnss`
 - **Upstream:** <https://www.gpsbabel.org/>
 - **Supersedes:** `gpsman`
 

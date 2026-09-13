@@ -12,7 +12,7 @@ summary: Text-to-Morse sounder and trainer, Eric Raymond's morse-classic
 # the engine refuses a request that is ambiguous between a package and a
 # profile, which is correct and which made the profile uninstallable by name.
 # The apt package below is unchanged — Debian's name is Debian's to choose.
-categories: [cw, training]
+categories: [morse-training, cw]
 
 # Debian's `morse` Recommends pulseaudio; pulseaudio Conflicts pipewire-alsa.
 # On a PipeWire desktop apt resolves that by removing pipewire-alsa (measured:

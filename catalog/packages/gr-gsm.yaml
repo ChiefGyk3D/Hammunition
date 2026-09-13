@@ -4,7 +4,7 @@
 name: gr-gsm
 version: "1.0.0"
 summary: GNU Radio blocks for receiving and analysing GSM signalling
-categories: [rf-research]
+categories: [rf-research, cellular]
 
 # The only package in `rf-research`, which is the only consent-gated profile.
 # D-021: the gate discloses a capability and asks for an affirmation. It does

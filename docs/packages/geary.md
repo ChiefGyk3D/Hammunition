@@ -5,7 +5,7 @@
 **The minimal, conversation-view mail client**
 
 - **Version recorded:** 46.0
-- **Categories:** `emcomm`, `workstation`
+- **Categories:** `email-clients`, `workstation`
 - **Upstream:** <https://wiki.gnome.org/Apps/Geary>
 
 ## What it does

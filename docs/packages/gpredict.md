@@ -5,7 +5,7 @@
 **Real-time satellite tracking and pass prediction, with radio control**
 
 - **Version recorded:** 2.3-115-g0f3beb6
-- **Categories:** `satellite`, `station`
+- **Categories:** `satellite-tracking`
 - **Upstream:** <http://gpredict.oz9aec.net/>
 
 ## What it does

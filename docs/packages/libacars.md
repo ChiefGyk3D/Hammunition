@@ -5,7 +5,7 @@
 **Shared library that decodes ACARS application-layer messages**
 
 - **Version recorded:** 2.2.1
-- **Categories:** `listening`
+- **Categories:** `aircraft`
 - **Upstream:** <https://github.com/szpajder/libacars>
 
 ## What it does

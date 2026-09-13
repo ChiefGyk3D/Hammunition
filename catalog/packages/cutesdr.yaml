@@ -4,7 +4,7 @@
 name: cutesdr
 version: "1.20"
 summary: Small demodulator and spectrum display for networked receivers
-categories: [sdr, listening]
+categories: [sdr-receivers]
 
 install:
   - install:

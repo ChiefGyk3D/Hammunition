@@ -4,7 +4,7 @@
 name: gr-satellites
 version: "5.5.0"
 summary: Decoders for the telemetry of hundreds of amateur satellites
-categories: [satellite, sdr, listening]
+categories: [satellite-decoding, sdr-toolkits]
 
 depends: [gnuradio]
 

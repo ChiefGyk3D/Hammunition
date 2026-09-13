@@ -5,7 +5,7 @@
 **PSK31 in an X11 window, the graphical companion to psk31lx**
 
 - **Version recorded:** 4.3
-- **Categories:** `digital-modes`
+- **Categories:** `keyboard-modes`
 - **Upstream:** <https://tracker.debian.org/pkg/twpsk>
 
 ## What it does

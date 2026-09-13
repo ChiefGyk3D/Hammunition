@@ -5,7 +5,7 @@
 **Python library for callsign lookup, locators and DXCC data**
 
 - **Version recorded:** 0.11.0
-- **Categories:** `hf-propagation`, `logging`
+- **Categories:** `logging`, `references`
 - **Upstream:** <https://github.com/dh1tw/pyhamtools>
 
 ## What it does

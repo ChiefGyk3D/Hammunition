@@ -5,7 +5,7 @@
 **EchoLink client — work repeaters and stations over the internet**
 
 - **Version recorded:** 24.02
-- **Categories:** `digital-modes`
+- **Categories:** `echolink-repeaters`
 - **Upstream:** <https://www.svxlink.org>
 
 ## What it does

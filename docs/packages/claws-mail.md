@@ -5,7 +5,7 @@
 **The fast, plain-text-first mail client AHRL shipped**
 
 - **Version recorded:** 4.3.1
-- **Categories:** `emcomm`, `workstation`
+- **Categories:** `email-clients`, `workstation`
 - **Upstream:** <https://www.claws-mail.org/>
 
 ## What it does

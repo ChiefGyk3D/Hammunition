@@ -4,7 +4,7 @@
 name: odr-dabmux
 version: "5.1.0"
 summary: Assembles audio services into a DAB ensemble multiplex
-categories: [sdr]
+categories: [sdr-toolkits, broadcast]
 
 recommended_default: false
 

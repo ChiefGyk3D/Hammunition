@@ -5,7 +5,7 @@
 **World clock for the operating position, with a CW station-ID timer**
 
 - **Version recorded:** 3.5
-- **Categories:** `cw`, `station`, `timing`
+- **Categories:** `cw`, `time-frequency`
 - **Upstream:** <https://tracker.debian.org/pkg/twclock>
 
 ## What it does

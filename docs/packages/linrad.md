@@ -5,7 +5,7 @@
 **SM5BSZ's DSP receiver — the deep-toolbox SDR for weak-signal work**
 
 - **Version recorded:** 05.02
-- **Categories:** `listening`, `sdr`
+- **Categories:** `sdr-receivers`
 - **Upstream:** <http://www.sm5bsz.com/linuxdsp/linrad.htm>
 
 ## What it does

@@ -4,7 +4,7 @@
 name: artemis
 version: "4.2.0"
 summary: Signal identification reference — the sigidwiki database, offline
-categories: [listening, rf-security, sdr]
+categories: [references, signal-analysis]
 
 # ADD from EmComm Tools OS Community (D-042 sub-project 4, D-048). ETC
 # fetched a 4.1.0 Linux zip unverified; upstream (GPL-3.0, head 2026-07-22)

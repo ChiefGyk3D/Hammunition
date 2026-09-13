@@ -4,7 +4,7 @@
 name: comptty
 version: "1.0.1"
 summary: The same accuracy comparison as comptext, for Baudot RTTY streams
-categories: [digital-modes]
+categories: [keyboard-modes]
 
 install:
   - install:

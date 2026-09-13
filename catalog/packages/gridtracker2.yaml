@@ -4,7 +4,7 @@
 name: gridtracker2
 version: "2.260812.0"
 summary: Live map of FT8/JS8 activity, fed by WSJT-X and JS8Call
-categories: [digital-modes]
+categories: [weak-signal]
 
 # CARRY from AHRL, which ships two per-arch vendor .debs in its tarball
 # (2.260421.1). This manifest fetches the current release from the project's

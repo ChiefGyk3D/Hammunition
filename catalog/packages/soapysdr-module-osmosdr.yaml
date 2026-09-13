@@ -4,7 +4,7 @@
 name: soapysdr-module-osmosdr
 version: "0.2.5"
 summary: SoapySDR driver module for OsmoSDR and MiriSDR hardware
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 install:
   - install:

@@ -5,7 +5,7 @@
 **Slow-scan television and radiofax — receive and transmit pictures**
 
 - **Version recorded:** 9.5.8
-- **Categories:** `digital-modes`, `listening`
+- **Categories:** `sstv-atv`
 - **Upstream:** <https://www.qsl.net/on4qz/qsstv/>
 
 ## What it does

@@ -4,7 +4,7 @@
 name: airspyhf
 version: "1.6.8"
 summary: Host tools and library for the Airspy HF+ HF and VHF receiver
-categories: [sdr, hardware, listening]
+categories: [sdr-hardware]
 
 install:
   - install:

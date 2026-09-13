@@ -4,7 +4,7 @@
 name: hamclock-next
 version: "1.6"
 summary: Maintained SDL2 rewrite of HamClock — grey line, propagation, DX cluster
-categories: [hf-propagation]
+categories: [dashboards, propagation]
 
 # SHAPE 7 — the launcher needs a configurable service endpoint.
 #

@@ -5,7 +5,7 @@
 **Digital voice over HF in the bandwidth of an SSB signal**
 
 - **Version recorded:** 1.8.11
-- **Categories:** `digital-modes`
+- **Categories:** `digital-voice`
 - **Upstream:** <https://freedv.org/>
 
 ## What it does

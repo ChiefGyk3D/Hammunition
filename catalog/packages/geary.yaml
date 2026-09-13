@@ -5,7 +5,7 @@ name: geary
 # Debian 13 candidate at time of writing; apt tracks the real version.
 version: "46.0"
 summary: The minimal, conversation-view mail client
-categories: [emcomm, workstation]
+categories: [email-clients, workstation]
 
 # One of the packet profile's mail-client options (Q-015 #1, resolved
 # 2026-08-30): the engine detects an existing mail client first and installs

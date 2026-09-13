@@ -5,7 +5,7 @@
 **Local-first ham radio dashboard — the Hammunition family's own**
 
 - **Version recorded:** 1.0.0
-- **Categories:** `hf-propagation`, `satellite`, `station`
+- **Categories:** `dashboards`
 - **Upstream:** <https://github.com/ChiefGyk3D/hammunition-hill>
 
 ## What it does

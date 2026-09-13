@@ -5,7 +5,7 @@
 **The client half of SoapyRemote — uses an SDR served by another machine**
 
 - **Version recorded:** 0.5.2
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://github.com/pothosware/SoapyRemote/wiki>
 
 ## What it does

@@ -5,7 +5,7 @@
 **Encodes the text and images that ride alongside a DAB service**
 
 - **Version recorded:** 3.0.0
-- **Categories:** `sdr`
+- **Categories:** `broadcast`, `sdr-toolkits`
 - **Upstream:** <https://github.com/Opendigitalradio/ODR-PadEnc>
 - **Not a recommended default** — installed only when asked for.
 

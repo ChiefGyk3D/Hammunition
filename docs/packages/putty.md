@@ -5,7 +5,7 @@
 **The GUI serial terminal hams reach for, with saved sessions**
 
 - **Version recorded:** 0.83
-- **Categories:** `workstation`
+- **Categories:** `serial-terminals`, `workstation`
 - **Upstream:** <https://www.chiark.greenend.org.uk/~sgtatham/putty/>
 
 ## What it does

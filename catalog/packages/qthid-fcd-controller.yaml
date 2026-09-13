@@ -4,7 +4,7 @@
 name: qthid-fcd-controller
 version: "4.1"
 summary: Sets frequency and gain on a FUNcube Dongle
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 install:
   - install:

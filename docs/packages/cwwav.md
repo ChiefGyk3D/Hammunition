@@ -5,7 +5,7 @@
 **Turns text into a Morse audio file, from the command line**
 
 - **Version recorded:** 0.4.1
-- **Categories:** `cw`, `training`
+- **Categories:** `cw`, `morse-training`
 - **Upstream:** <https://github.com/oyvholm/cwwav>
 
 ## What it does

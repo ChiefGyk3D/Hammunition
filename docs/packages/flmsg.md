@@ -5,7 +5,7 @@
 **Fills in and transmits the standard message forms EMCOMM runs on**
 
 - **Version recorded:** 4.0.23
-- **Categories:** `digital-modes`, `emcomm`, `nbems`
+- **Categories:** `emcomm`, `nbems`
 - **Upstream:** <https://w1hkj.org/flmsg-help/>
 - **Install after:** `fldigi`
 

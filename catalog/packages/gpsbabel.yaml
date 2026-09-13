@@ -5,7 +5,7 @@ name: gpsbabel
 version: "1.10.0"
 summary: Converts between GPS file formats and talks to the receiver
 menu_title: GPS format converter (gpsbabel)
-categories: [station, tracking, timing]
+categories: [gps-gnss]
 
 # SUPERSEDE, per docs/reference/dispositions.md #7: AHRL carries `gpsman`, a
 # Tcl/Tk application whose upstream has been dormant for years. GPSBabel plus

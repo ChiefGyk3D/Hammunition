@@ -4,7 +4,7 @@
 name: libhamlib-utils
 version: "4.6.2"
 summary: The command-line tools for hamlib — test a radio before blaming software
-categories: [rig-control, station]
+categories: [rig-control]
 
 install:
   - install:

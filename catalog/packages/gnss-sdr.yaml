@@ -5,7 +5,7 @@ name: gnss-sdr
 version: "0.0.20"
 summary: A complete GPS and GNSS receiver built entirely in software
 menu_title: Software-defined GNSS receiver (gnss-sdr)
-categories: [sdr, timing, station]
+categories: [gps-gnss, sdr-toolkits]
 
 install:
   - install:

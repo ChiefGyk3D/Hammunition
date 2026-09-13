@@ -5,7 +5,7 @@
 **The programs you actually use over AX.25 once a port is up**
 
 - **Version recorded:** 0.0.8
-- **Categories:** `emcomm`, `packet`
+- **Categories:** `packet-terminals`
 - **Upstream:** <https://linux-ax25.in-berlin.de/wiki/Ax25-apps>
 - **Install after:** `ax25-tools`
 - **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)

@@ -5,7 +5,7 @@
 **Protocol analyser — decodes captured traffic across two thousand protocols**
 
 - **Version recorded:** 4.4.16
-- **Categories:** `rf-security`, `workstation`
+- **Categories:** `capture-analysis`, `workstation`
 - **Upstream:** <https://www.wireshark.org/>
 
 ## What it does

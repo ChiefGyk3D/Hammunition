@@ -5,7 +5,7 @@
 **Net control operator's list — who checked in, in what order**
 
 - **Version recorded:** 7.5.0
-- **Categories:** `emcomm`, `logging`, `station`
+- **Categories:** `emcomm`, `logging`
 - **Upstream:** <https://w1hkj.org/>
 
 ## What it does

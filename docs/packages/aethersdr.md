@@ -5,7 +5,7 @@
 **Linux client for FlexRadio transceivers**
 
 - **Version recorded:** 26.8.1
-- **Categories:** `rig-control`, `sdr`, `station`
+- **Categories:** `rig-control`, `sdr-receivers`
 - **Upstream:** <https://github.com/aethersdr/AetherSDR>
 
 ## What it does

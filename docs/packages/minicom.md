@@ -5,7 +5,7 @@
 **Full-screen serial communication program, the one everyone already knows**
 
 - **Version recorded:** 2.10
-- **Categories:** `hardware`, `workstation`
+- **Categories:** `serial-terminals`
 - **Upstream:** <https://salsa.debian.org/minicom-team/minicom>
 
 ## What it does

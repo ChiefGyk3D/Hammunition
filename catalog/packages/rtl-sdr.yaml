@@ -4,7 +4,7 @@
 name: rtl-sdr
 version: "2.0.2"
 summary: Host tools and library for RTL2832U-based receivers
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 install:
   - install:

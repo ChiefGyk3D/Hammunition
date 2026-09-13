@@ -5,7 +5,7 @@
 **Decodes Morse out of a recorded WAV file**
 
 - **Version recorded:** 0.2.1
-- **Categories:** `cw`, `listening`
+- **Categories:** `cw`
 - **Upstream:** <https://aluigi.altervista.org/mytoolz.htm>
 
 ## What it does

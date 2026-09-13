@@ -5,7 +5,7 @@
 **Multi-mode digital modem for PSK31, RTTY, Olivia, MT63 and more**
 
 - **Version recorded:** 4.2.13
-- **Categories:** `digital-modes`, `nbems`
+- **Categories:** `keyboard-modes`, `nbems`
 - **Upstream:** <https://sourceforge.net/projects/fldigi/>
 - **Also provides:** `flarq`
 - **Needs first:** `libhamlib4t64`

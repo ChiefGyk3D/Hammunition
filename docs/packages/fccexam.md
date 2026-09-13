@@ -5,7 +5,7 @@
 **Practice tests for the US FCC commercial radio licence exams**
 
 - **Version recorded:** 1.0.7
-- **Categories:** `training`
+- **Categories:** `exams`
 - **Upstream:** <https://tracker.debian.org/pkg/fccexam>
 
 ## What it does

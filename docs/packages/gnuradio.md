@@ -5,7 +5,7 @@
 **Build a radio out of signal-processing blocks instead of hardware**
 
 - **Version recorded:** 3.10.12.0
-- **Categories:** `digital-modes`, `sdr`
+- **Categories:** `sdr-toolkits`
 - **Upstream:** <https://www.gnuradio.org/>
 
 ## What it does

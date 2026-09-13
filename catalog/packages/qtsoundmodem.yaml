@@ -4,7 +4,7 @@
 name: qtsoundmodem
 version: "24.45"
 summary: Soundcard packet modem with a scope — an alternative to Direwolf
-categories: [packet, emcomm]
+categories: [soundcard-modems]
 
 install:
   - install:

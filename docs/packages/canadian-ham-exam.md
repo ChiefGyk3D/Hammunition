@@ -5,7 +5,7 @@
 **Practice tests for the Canadian amateur radio qualification exams**
 
 - **Version recorded:** 1.0.1
-- **Categories:** `training`
+- **Categories:** `exams`
 - **Upstream:** <https://launchpad.net/canadian-ham-exam>
 
 ## What it does

@@ -5,7 +5,7 @@
 **Puts an SvxLink receiver or transceiver at the end of a network link**
 
 - **Version recorded:** 24.02
-- **Categories:** `digital-modes`, `station`
+- **Categories:** `echolink-repeaters`
 - **Upstream:** <https://www.svxlink.org>
 
 ## What it does

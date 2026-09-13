@@ -5,7 +5,7 @@
 **Multi-mode weak-signal application with multi-stream FT8 decoding**
 
 - **Version recorded:** 2.76.5
-- **Categories:** `digital-modes`
+- **Categories:** `weak-signal`
 - **Upstream:** <http://lz2hv.org/node/10>
 
 ## What it does

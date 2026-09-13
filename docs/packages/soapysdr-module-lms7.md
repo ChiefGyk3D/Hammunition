@@ -5,7 +5,7 @@
 **SoapySDR driver module for LimeSDR (LMS7002M) hardware**
 
 - **Version recorded:** 23.11.0
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://github.com/myriadrf/LimeSuite>
 
 ## What it does

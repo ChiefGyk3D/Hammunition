@@ -5,7 +5,7 @@
 **SoapySDR driver module for sound-card SDRs and Airspy HF hardware**
 
 - **Version recorded:** 0.1.1
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://github.com/pothosware/SoapyAudio/wiki>
 
 ## What it does

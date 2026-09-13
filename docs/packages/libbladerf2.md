@@ -5,7 +5,7 @@
 **Library and udev rules for Nuand bladeRF boards**
 
 - **Version recorded:** 0.2024.05
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://github.com/Nuand/bladeRF>
 
 ## What it does

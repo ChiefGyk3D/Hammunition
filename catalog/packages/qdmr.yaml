@@ -4,7 +4,7 @@
 name: qdmr
 version: 0.12.1
 summary: Codeplug editor for DMR handhelds — one codeplug, many radios
-categories: [station, radio-programming, dmr]
+categories: [dmr, radio-programming]
 
 install:
   - install:

@@ -5,7 +5,7 @@
 **The older dump1090 fork, kept because two targets still carry it**
 
 - **Version recorded:** 1.15
-- **Categories:** `listening`, `sdr`, `tracking`
+- **Categories:** `aircraft`
 - **Upstream:** <https://github.com/mutability/dump1090>
 - **Superseded by:** `readsb`
 - **Not a recommended default** — installed only when asked for.

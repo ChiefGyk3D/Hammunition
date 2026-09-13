@@ -4,7 +4,7 @@
 name: pciutils
 version: "3.13.0"
 summary: lspci — for the SDRs and capture cards that are not on USB
-categories: [workstation, hardware]
+categories: [device-support, workstation]
 
 install:
   - install:

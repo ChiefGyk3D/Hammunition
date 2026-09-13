@@ -5,7 +5,7 @@
 **Terminal for AX.25 packet with a built-in mail client and macros**
 
 - **Version recorded:** 0.28
-- **Categories:** `emcomm`, `packet`
+- **Categories:** `packet-terminals`
 - **Upstream:** <https://sourceforge.net/projects/linpac/>
 - **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)
 

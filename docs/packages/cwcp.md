@@ -5,7 +5,7 @@
 **Curses Morse tutor — unixcw with a menu instead of a command line**
 
 - **Version recorded:** 3.6.1
-- **Categories:** `cw`, `training`
+- **Categories:** `cw`, `morse-training`
 - **Upstream:** <https://unixcw.sourceforge.net/>
 
 ## What it does

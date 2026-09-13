@@ -5,7 +5,7 @@
 **Morse trainer with four teaching methods, including Koch**
 
 - **Version recorded:** 0.7.8
-- **Categories:** `cw`, `training`
+- **Categories:** `cw`, `morse-training`
 - **Upstream:** <https://www.nongnu.org/aldo/>
 
 ## What it does

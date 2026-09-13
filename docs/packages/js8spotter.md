@@ -5,7 +5,7 @@
 **JS8Call's companion — spot tracking, forms, APRS and SMS gateways**
 
 - **Version recorded:** 1.20
-- **Categories:** `digital-modes`, `emcomm`
+- **Categories:** `emcomm`, `weak-signal`
 - **Upstream:** <https://kf7mix.com/js8spotter.html>
 - **Needs first:** `python3-tk`, `python3-pil`, `python3-pil.imagetk`
 

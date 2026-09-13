@@ -4,7 +4,7 @@
 name: freedv
 version: "1.8.11"
 summary: Digital voice over HF in the bandwidth of an SSB signal
-categories: [digital-modes]
+categories: [digital-voice]
 
 install:
   - install:

@@ -5,7 +5,7 @@ name: dsdcc
 version: "1.9.3"
 summary: Decodes digital voice protocols from demodulated audio
 menu_title: Digital voice decoder (dsdccx)
-categories: [listening, sdr]
+categories: [digital-voice, pagers-decoders]
 
 install:
   - install:

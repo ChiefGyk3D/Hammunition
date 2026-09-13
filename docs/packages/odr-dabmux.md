@@ -5,7 +5,7 @@
 **Assembles audio services into a DAB ensemble multiplex**
 
 - **Version recorded:** 5.1.0
-- **Categories:** `sdr`
+- **Categories:** `broadcast`, `sdr-toolkits`
 - **Upstream:** <https://github.com/Opendigitalradio/ODR-DabMux>
 - **Not a recommended default** — installed only when asked for.
 

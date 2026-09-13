@@ -4,7 +4,7 @@
 name: sdrpp
 version: "0.0~git20260520.36ea9a1"
 summary: SDR++ — cross-platform SDR receiver with a modular DSP chain
-categories: [sdr, listening]
+categories: [sdr-receivers]
 
 # First instance of D-024. Upstream stopped tagging: the newest release tag is
 # 1.0.4 from 2021-10-18, and master moved in July 2026 — 541+ commits later. The

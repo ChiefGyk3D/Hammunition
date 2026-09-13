@@ -5,7 +5,7 @@
 **Rig control with a real front panel, shared between programs over XML-RPC**
 
 - **Version recorded:** 2.0.05
-- **Categories:** `rig-control`, `station`
+- **Categories:** `rig-control`
 - **Upstream:** <https://w1hkj.org/flrig-help/>
 - **Supersedes:** `grig`
 

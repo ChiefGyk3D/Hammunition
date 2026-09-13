@@ -5,7 +5,7 @@
 **Mail reader that packet callers reach through a node**
 
 - **Version recorded:** 2.13
-- **Categories:** `emcomm`, `packet`
+- **Categories:** `packet-nodes`
 - **Upstream:** <https://sourceforge.net/projects/axmail/>
 - **Install after:** `ax25-tools`
 - **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)

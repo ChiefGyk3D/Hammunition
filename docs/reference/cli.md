@@ -279,9 +279,10 @@ second list. Per-user and unprivileged throughout.
   Station*, *Digital Modes & Morse*, *Packet, Mesh & Emergency Comms*,
   *SDR & Listening*, *Satellites & Propagation*, *Antennas, Bench &
   Programming*, *RF Security & Research*, *Learn & Practise*), then one
-  submenu per catalog category, titled from the vocabulary with a gloss
-  where the tag is jargon (*CW (Morse)*, *Tracking (APRS, ADS-B, AIS)*;
-  **D-054**). The groups are `catalog/categories.yaml`'s `groups:` list;
+  submenu per catalog category — 55 of them since **D-055**, each the thing
+  a person looks for (*APRS*, *Winlink Email*, *Ships (AIS)*, *SSTV, Fax &
+  Amateur TV*) — titled from the vocabulary with a gloss where the tag is
+  jargon (*CW (Morse)*, *Rig Control (CAT)*; **D-054**). The groups are `catalog/categories.yaml`'s `groups:` list;
   every category belongs to exactly one, and the order is a menu-spec
   `<Layout>`, not the alphabet. A ninth group, *Workstation*, is declared
   `menu: false`: git, tmux and VS Code are catalog units, not radio

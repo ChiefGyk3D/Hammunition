@@ -4,7 +4,7 @@
 name: soapysdr-module-plutosdr
 version: "0.2.2"
 summary: SoapySDR driver module for the ADALM-Pluto
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 # Honest capability gap, and the first manifest to carry one this cleanly.
 # Measured 2026-08-26:

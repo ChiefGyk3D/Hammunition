@@ -4,7 +4,7 @@
 name: fldigi
 version: "4.2.13"
 summary: Multi-mode digital modem for PSK31, RTTY, Olivia, MT63 and more
-categories: [digital-modes, nbems]
+categories: [keyboard-modes, nbems]
 
 # SHAPE 2 — one build emits two user-facing programs, and the source build must
 # displace the repository package first.

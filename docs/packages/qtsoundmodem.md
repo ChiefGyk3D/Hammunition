@@ -5,7 +5,7 @@
 **Soundcard packet modem with a scope — an alternative to Direwolf**
 
 - **Version recorded:** 24.45
-- **Categories:** `emcomm`, `packet`
+- **Categories:** `soundcard-modems`
 - **Upstream:** <https://github.com/g8bpq/QtSoundModem>
 
 ## What it does

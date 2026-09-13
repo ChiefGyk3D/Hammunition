@@ -3949,3 +3949,64 @@ its manifest carries or only the first: Parrot's own menu duplicates freely
 and the duplication is what makes a tool findable from two directions, so
 it stays until a measurement says otherwise. Titles for the distribution's
 own cryptic entries (`twclock`, `comptext`, `jtdx`) are Debian's to give.
+
+---
+
+## D-055 — The vocabulary is cut to the thing a person looks for: 55 tags under the eight activity groups, one place for each of APRS, Winlink, ships, aircraft, SSTV and amateur TV
+
+**Decided:** The category vocabulary is recut from 26 coarse tags to 55 fine
+ones. A tag is the smallest thing a person looks for; a group (D-054) is the
+activity it belongs to. Every unit is retagged under the fine set, by a
+mapping written from each manifest's own summary, and the coarse names that
+were really groups (`sdr`, `listening`, `tracking`, `packet`, `station`,
+`digital-modes`, `hf-propagation`, `rf-security` as a tag) are gone.
+
+**Evidence.** The maintainer, 2026-09-13, on the D-054 tree: "there is no
+Ham Radio TV; we should have things broken down as much as possible so
+people can find what they are looking for, especially as we build towards a
+wiki". Measured, he was right about the shape: `listening` held aircraft
+datalink, ship AIS, DAB radio, pagers, radiosondes and weather fax in one
+submenu of 19; `tracking` held APRS, ADS-B and AIS; `packet` held terminals,
+modems, nodes and Winlink; and SSTV sat inside a *Digital Modes* submenu of
+13 with nothing to say it was television. A wiki built on those tags would
+have the same sections and the same problem.
+
+**Rule.**
+
+1. **A tag names one thing a person would type into a search box**: *APRS*,
+   *Winlink Email*, *Ships (AIS)*, *Aircraft (ADS-B, ACARS, Airband)*,
+   *SSTV, Fax & Amateur TV*, *Soundcard Modems & TNCs*, *Nodes, BBS &
+   Gateways*, *Cellular & IMSI-Catcher Detection*. Where the name is an
+   acronym the title glosses it. The full list is `catalog/categories.yaml`;
+   every tag is used by at least one unit and every unit carries at least one
+   (`tests/test_categories.py`, unchanged).
+2. **The groups stay as D-054 cut them**, one per activity, and every tag
+   belongs to exactly one group. The tags under a group are the wiki's
+   sections under that chapter; the menu and the wiki read the same file.
+3. **A unit carries the tags that are true of it, usually one or two.**
+   Retagging halved the placements: on the field laptop the same 99 desktop
+   entries land 70 times where they landed 100 under the coarse tags, because
+   `direwolf` is a modem and an APRS tool and no longer also "tracking",
+   "packet" and "emcomm". The largest submenu is 11 entries (CW), where it
+   was 20 after D-054 and 33 before it.
+4. **The presentation map follows the tags**, not the reverse: the
+   freedesktop categories a generated entry carries are looked up per fine
+   tag, so a *Serial Terminals* entry says `TerminalEmulator` and an
+   *Aircraft* entry says `Geography`, and the desktop's own search improves
+   with the menu's.
+5. **An empty submenu is not an error.** Seven of the 55 are empty on the
+   field laptop tonight (*Nodes, BBS & Gateways*, *LoRa Mesh*, *Mail
+   Clients*, *DMR Codeplugs*, *Device Support & Drivers*, *Cellular &
+   IMSI-Catcher Detection*, *References & Guides*): the units exist and are
+   not installed, or ship no entry yet. The menu spec hides an empty submenu
+   on its own, and the vocabulary is not trimmed to one machine's install.
+
+**Found while measuring, not fixed here.** Ten desktop entries under
+`/usr/local/share/applications` — the fldigi family, `wsjtx`, `gpa`, and
+WSJT-X's message aggregator, every one a source build's own install rule —
+are never placed: D-050's placer reads `dpkg -L`, which knows nothing about
+a source build. Nine of the ten match a unit's name, a declared binary or a
+`provides` entry, so the fix is a second placer over the prefix keyed on
+those names. That is the next change, and *FT8, JS8 & Weak Signal* showing
+one entry on a laptop with WSJT-X, JS8Call and JTDX built is the measurement
+that found it.

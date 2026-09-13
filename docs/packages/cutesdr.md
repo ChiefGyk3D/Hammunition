@@ -5,7 +5,7 @@
 **Small demodulator and spectrum display for networked receivers**
 
 - **Version recorded:** 1.20
-- **Categories:** `listening`, `sdr`
+- **Categories:** `sdr-receivers`
 - **Upstream:** <http://www.rfspace.com/RFSPACE/OtherApps.html>
 
 ## What it does

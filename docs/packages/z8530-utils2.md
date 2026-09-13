@@ -7,7 +7,7 @@
 > **Status: retired.** The `scc` driver these tools configure left the kernel with the rest of drivers/net/hamradio in Linux 7.1 (merge 64edfa65, 2026-04-24), and the cards it drove are ISA and early PCI with no modern host. Verified by us: the merge's --stat, and the module trees of seven machines read on 2026-09-04 (docs/reference/kernel-ax25.md). Not inherited from anyone's shell comment. A 6.12 kernel on a machine with an ISA slot can still `apt install z8530-utils2` by hand. Recorded 2026-04-24. Verdict tested by us.
 
 - **Version recorded:** 3.0-1
-- **Categories:** `hardware`, `packet`
+- **Categories:** `device-support`, `soundcard-modems`
 - **Upstream:** <https://tracker.debian.org/pkg/z8530-utils2>
 - **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)
 - **Not a recommended default** — installed only when asked for.

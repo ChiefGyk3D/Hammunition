@@ -5,7 +5,7 @@
 **Software TNC — turns a sound card into an APRS and packet modem**
 
 - **Version recorded:** 1.7
-- **Categories:** `emcomm`, `packet`, `tracking`
+- **Categories:** `aprs`, `soundcard-modems`
 - **Upstream:** <https://github.com/wb2osz/direwolf>
 
 ## What it does

@@ -4,7 +4,7 @@
 name: xcwcp
 version: "3.6.1"
 summary: Qt Morse tutor that both sends practice and reads your keying
-categories: [cw, training]
+categories: [morse-training, cw]
 
 install:
   - install:

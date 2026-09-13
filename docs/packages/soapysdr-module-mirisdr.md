@@ -5,7 +5,7 @@
 **SoapySDR driver module for Mirics hardware**
 
 - **Version recorded:** 0.2.5
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`
 - **Upstream:** <https://github.com/pothosware/SoapySDR/wiki>
 
 ## What it does

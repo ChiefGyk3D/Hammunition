@@ -5,7 +5,7 @@
 **Decodes AIS from the discriminator output of a VHF receiver**
 
 - **Version recorded:** 0.3.3
-- **Categories:** `listening`, `tracking`
+- **Categories:** `ships`
 - **Upstream:** <http://gnuais.sourceforge.net/>
 
 ## What it does

@@ -4,7 +4,7 @@
 name: gr-funcube
 version: "3.10.0~rc3"
 summary: GNU Radio source blocks for the FUNcube Dongle Pro and Pro+
-categories: [sdr, hardware]
+categories: [sdr-hardware, sdr-toolkits]
 
 install:
   - install:

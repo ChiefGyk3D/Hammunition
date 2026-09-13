@@ -5,7 +5,7 @@
 **The VOACAP HF propagation prediction engine, ported to Linux**
 
 - **Version recorded:** 0.7.6
-- **Categories:** `hf-propagation`
+- **Categories:** `propagation`
 - **Upstream:** <https://www.qsl.net/hz1jw/voacapl/index.html>
 
 ## What it does

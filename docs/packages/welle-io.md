@@ -5,7 +5,7 @@
 **DAB and DAB+ digital radio receiver with a modern interface**
 
 - **Version recorded:** 2.4
-- **Categories:** `listening`, `sdr`
+- **Categories:** `broadcast`
 - **Upstream:** <https://www.welle.io/>
 
 ## What it does

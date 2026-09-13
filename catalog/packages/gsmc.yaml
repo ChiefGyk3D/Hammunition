@@ -4,7 +4,7 @@
 name: gsmc
 version: "1.2.1"
 summary: Interactive Smith chart for designing impedance matching networks
-categories: [antenna, electronics]
+categories: [electronics, antenna]
 
 install:
   - install:

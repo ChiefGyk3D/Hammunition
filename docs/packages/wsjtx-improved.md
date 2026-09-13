@@ -5,7 +5,7 @@
 **Community fork of WSJT-X with additional decoding and UI features**
 
 - **Version recorded:** 3.2.0
-- **Categories:** `digital-modes`
+- **Categories:** `weak-signal`
 - **Upstream:** <https://sourceforge.net/projects/wsjt-x-improved/>
 - **Install after:** `wsjtx`
 - **Not a recommended default** — installed only when asked for.

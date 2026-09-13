@@ -5,7 +5,7 @@ name: mlat-client-adsbfi
 version: "0.4.2"
 summary: Contributes ADS-B timing data so a network can locate aircraft by multilateration
 menu_title: ADS-B multilateration feeder (mlat-client-adsbfi)
-categories: [tracking, sdr]
+categories: [aircraft]
 
 install:
   - install:

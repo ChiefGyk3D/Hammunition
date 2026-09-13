@@ -4,7 +4,7 @@
 name: gr-hpsdr
 version: "3.0"
 summary: GNU Radio blocks for OpenHPSDR transceiver hardware
-categories: [sdr, hardware]
+categories: [sdr-hardware, sdr-toolkits]
 
 depends: [gnuradio]
 

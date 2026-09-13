@@ -5,7 +5,7 @@
 **AIS receiver and decoder for marine vessel traffic, with a web map**
 
 - **Version recorded:** 0.70
-- **Categories:** `sdr`, `tracking`
+- **Categories:** `ships`
 - **Upstream:** <https://github.com/jvde-github/AIS-catcher>
 
 ## What it does

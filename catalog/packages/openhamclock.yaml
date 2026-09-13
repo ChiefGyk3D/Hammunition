@@ -4,7 +4,7 @@
 name: openhamclock
 version: "26.7.3"
 summary: Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites
-categories: [hf-propagation]
+categories: [dashboards, propagation]
 
 # The first `node` unit in the catalog, and the one that justified the backend
 # (D-037, closing Q-016). Q-006 chose this as the default HamClock client on

@@ -4,7 +4,7 @@
 name: hackrf
 version: "2024.02.1"
 summary: Host tools for HackRF — transfer, sweep, spectrum and firmware utilities
-categories: [sdr, hardware, rf-security]
+categories: [sdr-hardware, ism-subghz]
 
 install:
   - install:

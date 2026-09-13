@@ -5,7 +5,7 @@ name: tmd710-tncsetup
 version: "1.13.1"
 summary: Configures the built-in TNC on Kenwood TM-D710 and TH-D72 radios
 menu_title: Kenwood TM-D710 TNC setup (tmd710_tncsetup)
-categories: [packet, tracking, radio-programming]
+categories: [soundcard-modems, radio-programming]
 
 install:
   - install:

@@ -5,7 +5,7 @@ name: claws-mail
 # Debian 13 candidate at time of writing; apt tracks the real version.
 version: "4.3.1"
 summary: The fast, plain-text-first mail client AHRL shipped
-categories: [emcomm, workstation]
+categories: [email-clients, workstation]
 
 # One of the packet profile's mail-client options (Q-015 #1, resolved
 # 2026-08-30): the engine detects an existing mail client first and installs

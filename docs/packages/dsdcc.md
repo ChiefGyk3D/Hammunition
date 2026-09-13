@@ -5,7 +5,7 @@
 **Decodes digital voice protocols from demodulated audio**
 
 - **Version recorded:** 1.9.3
-- **Categories:** `listening`, `sdr`
+- **Categories:** `digital-voice`, `pagers-decoders`
 - **Upstream:** <https://github.com/f4exb/dsdcc>
 
 ## What it does

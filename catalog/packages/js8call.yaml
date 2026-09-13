@@ -4,7 +4,7 @@
 name: js8call
 version: "3.0.3"
 summary: Weak-signal keyboard-to-keyboard messaging built on the FT8 modem
-categories: [digital-modes]
+categories: [weak-signal]
 
 # SHAPE 1 — the method itself varies, not merely its argument.
 # Linux Mint 22.3 ships Qt 6.4.2; JS8Call requires Qt 6.5. On that target we

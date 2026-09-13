@@ -5,7 +5,7 @@
 **Control panel for the Winkeyer hardware CW keyer**
 
 - **Version recorded:** 1.2.4
-- **Categories:** `cw`, `rig-control`, `station`
+- **Categories:** `cw`, `rig-control`
 - **Upstream:** <https://w1hkj.org/>
 
 ## What it does

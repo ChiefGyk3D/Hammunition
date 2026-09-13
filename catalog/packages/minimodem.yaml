@@ -5,7 +5,7 @@ name: minimodem
 version: "0.24"
 summary: General-purpose audio FSK modem — Bell 103, RTTY, AX.25 and anything else
 menu_title: Audio FSK modem (minimodem)
-categories: [digital-modes, packet, listening]
+categories: [keyboard-modes, soundcard-modems]
 
 install:
   - install:

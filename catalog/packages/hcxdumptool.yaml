@@ -5,7 +5,7 @@ name: hcxdumptool
 version: "6.3.5"
 summary: Wi-Fi frame capture aimed at producing hash files for offline analysis
 menu_title: Wi-Fi handshake capture tool (hcxdumptool)
-categories: [rf-security]
+categories: [wifi]
 
 install:
   - install:

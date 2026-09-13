@@ -5,7 +5,7 @@
 **Contributes ADS-B timing data so a network can locate aircraft by multilateration**
 
 - **Version recorded:** 0.4.2
-- **Categories:** `sdr`, `tracking`
+- **Categories:** `aircraft`
 - **Upstream:** <https://github.com/adsbfi/mlat-client-adsbfi>
 
 ## What it does

@@ -4,7 +4,7 @@
 name: radiosonde-auto-rx
 version: "1.8.2"
 summary: Automatically receive, decode and map weather-balloon radiosondes
-categories: [listening, tracking]
+categories: [weather-sensors]
 
 # REVIVE from AHRL, which disabled it because upstream's install model
 # hardcodes user "pi" and lives in $HOME -- "way too much work" (AHRL v27

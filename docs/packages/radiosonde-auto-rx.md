@@ -5,7 +5,7 @@
 **Automatically receive, decode and map weather-balloon radiosondes**
 
 - **Version recorded:** 1.8.2
-- **Categories:** `listening`, `tracking`
+- **Categories:** `weather-sensors`
 - **Upstream:** <https://github.com/projecthorus/radiosonde_auto_rx>
 
 ## What it does

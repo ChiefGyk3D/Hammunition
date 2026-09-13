@@ -5,7 +5,7 @@
 **SDR++ — cross-platform SDR receiver with a modular DSP chain**
 
 - **Version recorded:** 0.0~git20260520.36ea9a1
-- **Categories:** `listening`, `sdr`
+- **Categories:** `sdr-receivers`
 - **Upstream:** <https://github.com/AlexandreRouma/SDRPlusPlus>
 
 ## What it does

@@ -5,7 +5,7 @@
 **The command-line tools for hamlib — test a radio before blaming software**
 
 - **Version recorded:** 4.6.2
-- **Categories:** `rig-control`, `station`
+- **Categories:** `rig-control`
 - **Upstream:** <http://www.hamlib.org>
 
 ## What it does

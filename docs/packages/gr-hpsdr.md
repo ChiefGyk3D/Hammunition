@@ -5,7 +5,7 @@
 **GNU Radio blocks for OpenHPSDR transceiver hardware**
 
 - **Version recorded:** 3.0
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`, `sdr-toolkits`
 - **Upstream:** <https://github.com/Tom-McDermott/gr-hpsdr>
 - **Needs first:** `gnuradio`
 

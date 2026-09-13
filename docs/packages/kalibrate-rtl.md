@@ -5,7 +5,7 @@
 **Measures an SDR dongle's frequency error against GSM base stations**
 
 - **Version recorded:** 0.4.1+git20191125
-- **Categories:** `listening`
+- **Categories:** `cellular`, `signal-analysis`
 - **Upstream:** <https://github.com/steve-m/kalibrate-rtl>
 
 ## What it does

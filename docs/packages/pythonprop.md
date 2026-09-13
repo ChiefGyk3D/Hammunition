@@ -5,7 +5,7 @@
 **Graphical front end that makes VOACAP predictions readable**
 
 - **Version recorded:** 0.30.1
-- **Categories:** `hf-propagation`
+- **Categories:** `propagation`
 - **Upstream:** <https://www.qsl.net/hz1jw/pythonprop/index.html>
 - **Needs first:** `voacapl`
 

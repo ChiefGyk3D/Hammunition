@@ -4,7 +4,7 @@
 name: ubertooth
 version: "2020.12.R1"
 summary: Host tools for the Ubertooth One Bluetooth sniffer
-categories: [rf-security]
+categories: [bluetooth]
 
 install:
   - install:

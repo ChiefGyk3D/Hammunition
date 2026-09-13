@@ -5,7 +5,7 @@
 **X11 versions of the AX.25 monitoring tools**
 
 - **Version recorded:** 0.0.10
-- **Categories:** `packet`
+- **Categories:** `packet-terminals`
 - **Upstream:** <https://linux-ax25.in-berlin.de/wiki/Main_Page>
 - **Install after:** `ax25-tools`
 - **Needs from the kernel:** `ax25` — checked against the running kernel at plan time; see [kernel-ax25](../reference/kernel-ax25.md)

@@ -5,7 +5,7 @@ name: hacktv
 version: "0+git20250218"
 summary: Generates and transmits analogue television — a HackRF as a TV station
 menu_title: Analogue TV transmitter (hacktv)
-categories: [sdr, rf-security]
+categories: [sstv-atv, rf-research]
 
 # Not a default install anywhere. It reaches an operator through a profile
 # requiring explicit opt-in, which is where D-021's consent gate lives: this

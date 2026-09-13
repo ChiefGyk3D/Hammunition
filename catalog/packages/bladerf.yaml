@@ -4,7 +4,7 @@
 name: bladerf
 version: "0.2024.05"
 summary: Command-line tools for Nuand bladeRF transceivers
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 install:
   - install:

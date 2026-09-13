@@ -4,7 +4,7 @@
 name: minicom
 version: "2.10"
 summary: Full-screen serial communication program, the one everyone already knows
-categories: [workstation, hardware]
+categories: [serial-terminals]
 
 install:
   - install:

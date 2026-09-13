@@ -4,7 +4,7 @@
 name: linbpq
 version: "25.40"
 summary: BPQ32 packet-radio node, BBS and Winlink gateway
-categories: [packet, emcomm]
+categories: [packet-nodes, winlink]
 
 # Q-005, resolved: build from a pinned upstream tag.
 #

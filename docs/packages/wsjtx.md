@@ -5,7 +5,7 @@
 **Weak-signal digital modes — FT8, FT4, JT65, JT9, WSPR, Q65**
 
 - **Version recorded:** 3.0.2
-- **Categories:** `digital-modes`
+- **Categories:** `weak-signal`
 - **Upstream:** <https://wsjtx.github.io/wsjtx/index.html>
 - **Needs first:** `libhamlib4t64`
 

@@ -4,7 +4,7 @@
 name: supersdr
 version: "0+gabebfd0b"
 summary: Turn any KiwiSDR into your rig's panadapter, synchronized over CAT
-categories: [listening, sdr]
+categories: [sdr-receivers]
 
 # ADD from the Skywave delta, carried per Q-007 with both eyes open: no
 # licence file, no tags, last commit 2022-12-31 (pinned below by commit

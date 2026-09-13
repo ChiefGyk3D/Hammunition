@@ -5,7 +5,7 @@
 **One GNU Radio source block that speaks to nearly every SDR**
 
 - **Version recorded:** 0.2.6
-- **Categories:** `hardware`, `sdr`
+- **Categories:** `sdr-hardware`, `sdr-toolkits`
 - **Upstream:** <https://osmocom.org/projects/gr-osmosdr/wiki>
 - **Needs first:** `gnuradio`
 

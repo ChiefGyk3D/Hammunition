@@ -5,7 +5,7 @@
 **Keeps a gateway's routes current on the amateur radio IP network**
 
 - **Version recorded:** 2.4.1
-- **Categories:** `packet`, `station`
+- **Categories:** `packet-nodes`
 - **Upstream:** <http://www.yo2loj.ro/hamprojects/>
 
 ## What it does

@@ -5,7 +5,7 @@
 **Converts captured Wi-Fi frames into hash formats analysis tools read**
 
 - **Version recorded:** 6.3.5
-- **Categories:** `rf-security`
+- **Categories:** `wifi`
 - **Upstream:** <https://github.com/ZerBea/hcxtools>
 
 ## What it does

@@ -5,7 +5,7 @@
 **SDR transceiver and analyser that does several things at once**
 
 - **Version recorded:** 7.27.2
-- **Categories:** `listening`, `rf-security`, `sdr`
+- **Categories:** `sdr-receivers`
 - **Upstream:** <https://www.sdrangel.org/>
 
 ## What it does

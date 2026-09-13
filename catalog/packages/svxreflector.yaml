@@ -4,7 +4,7 @@
 name: svxreflector
 version: "24.02"
 summary: Conference server that links many SvxLink nodes into one talk group
-categories: [digital-modes, emcomm]
+categories: [echolink-repeaters]
 
 install:
   - install:

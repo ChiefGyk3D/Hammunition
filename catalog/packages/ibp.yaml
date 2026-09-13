@@ -4,7 +4,7 @@
 name: ibp
 version: "0.21"
 summary: Shows which NCDXF/IARU beacon is transmitting right now, on which band
-categories: [hf-propagation, cw]
+categories: [propagation, cw]
 
 # REVIVE, per PARITY-POLICY and docs/reference/dispositions.md. AHRL disabled
 # this in v27 with the comment "many, many compiler errors". Retested on

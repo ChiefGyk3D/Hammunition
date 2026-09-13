@@ -4,7 +4,7 @@
 name: qsstv
 version: "9.5.8"
 summary: Slow-scan television and radiofax — receive and transmit pictures
-categories: [digital-modes, listening]
+categories: [sstv-atv]
 
 install:
   - install:

@@ -4,7 +4,7 @@
 name: ax25-tools
 version: "0.0.10"
 summary: Configures the kernel AX.25 stack — ports, interfaces, NET/ROM, Rose
-categories: [packet, emcomm]
+categories: [packet-terminals]
 requires_kernel: [ax25]
 
 install:

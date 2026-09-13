@@ -5,7 +5,7 @@
 **Views GRIB weather files — wind, pressure, waves, on a map**
 
 - **Version recorded:** 1.2.6.1
-- **Categories:** `emcomm`, `listening`, `station`
+- **Categories:** `emcomm`, `weather-sensors`
 - **Upstream:** <https://www.opengribs.org/>
 
 ## What it does

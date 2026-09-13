@@ -4,7 +4,7 @@
 name: soapysdr-module-uhd
 version: "0.4.1"
 summary: SoapySDR driver module for Ettus USRP hardware
-categories: [sdr, hardware]
+categories: [sdr-hardware]
 
 install:
   - install:

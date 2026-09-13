@@ -5,7 +5,7 @@
 **Turn any KiwiSDR into your rig's panadapter, synchronized over CAT**
 
 - **Version recorded:** 0+gabebfd0b
-- **Categories:** `listening`, `sdr`
+- **Categories:** `sdr-receivers`
 - **Upstream:** <https://github.com/mcogoni/supersdr>
 
 ## What it does

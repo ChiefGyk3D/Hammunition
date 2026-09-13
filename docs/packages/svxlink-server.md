@@ -5,7 +5,7 @@
 **Repeater controller and EchoLink node in software**
 
 - **Version recorded:** 24.02
-- **Categories:** `digital-modes`, `emcomm`, `station`
+- **Categories:** `echolink-repeaters`, `emcomm`
 - **Upstream:** <https://www.svxlink.org>
 
 ## What it does

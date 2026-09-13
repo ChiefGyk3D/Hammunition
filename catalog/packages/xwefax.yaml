@@ -4,7 +4,7 @@
 name: xwefax
 version: "2.4.4"
 summary: Receives HF weather fax and draws the chart
-categories: [listening, digital-modes]
+categories: [sstv-atv, weather-sensors]
 
 # NEEDS-DECISION in docs/reference/dispositions.md: fldigi has a built-in
 # WEFAX mode, and whether xwefax does anything fldigi does not needs someone

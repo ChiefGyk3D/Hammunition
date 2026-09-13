@@ -4,7 +4,7 @@
 name: nanovna-saver
 version: "0.7.3"
 summary: Sweep, chart and calibrate a NanoVNA from the computer
-categories: [antenna, electronics]
+categories: [antenna-analysers]
 
 # CARRY from AHRL, which git-clones main unpinned into a home-dir venv. The
 # first version of this manifest (2026-08-30) built a hash-pinned commit

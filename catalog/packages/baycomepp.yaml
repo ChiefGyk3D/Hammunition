@@ -4,7 +4,7 @@
 name: baycomepp
 version: "0.10"
 summary: Driver for the HB9JNX parallel-port packet modem
-categories: [packet, hardware]
+categories: [device-support, soundcard-modems]
 
 install:
   - install:
