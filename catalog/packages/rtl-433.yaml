@@ -4,6 +4,7 @@
 name: rtl-433
 version: "25.02"
 summary: Decoder for the unlicensed ISM bands — weather stations, sensors, tyre monitors
+menu_title: ISM-band sensor decoder (rtl_433)
 categories: [rf-security, sdr, tracking]
 
 install:

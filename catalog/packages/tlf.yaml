@@ -4,6 +4,7 @@
 name: tlf
 version: "1.4.1"
 summary: Console contest logger built for speed, driven from the keyboard
+menu_title: Contest logger (tlf)
 categories: [contest, logging, cw]
 
 install:

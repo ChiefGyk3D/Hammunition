@@ -4,6 +4,7 @@
 name: atlc
 version: "4.6.1"
 summary: Computes impedance of a transmission line of any cross-section, from a picture of it
+menu_title: Transmission line impedance calculator (atlc)
 categories: [antenna, electronics]
 
 install:

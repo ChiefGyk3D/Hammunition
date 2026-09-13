@@ -4,6 +4,7 @@
 name: dablin
 version: "1.16.0"
 summary: Lightweight DAB receiver for the command line or a small window
+menu_title: DAB radio receiver (dablin)
 categories: [listening, sdr]
 
 install:

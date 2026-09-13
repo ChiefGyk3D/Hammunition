@@ -4,6 +4,7 @@
 name: pat
 version: "0.16.0"
 summary: Winlink client — radio email that works when the internet does not
+menu_title: Winlink radio email client (pat-winlink)
 categories: [packet, emcomm]
 
 install:

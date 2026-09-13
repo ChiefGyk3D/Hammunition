@@ -4,6 +4,7 @@
 name: tcpdump
 version: "4.99.5"
 summary: Command-line packet capture — the tool that works when nothing else does
+menu_title: Command-line packet capture (tcpdump)
 categories: [rf-security, workstation]
 
 install:

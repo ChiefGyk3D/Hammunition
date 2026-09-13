@@ -4,6 +4,7 @@
 name: splat
 version: "1.4.2"
 summary: Terrain-aware path analysis for VHF and above, from real elevation data
+menu_title: RF path and coverage modeller (splat)
 categories: [hf-propagation, antenna]
 
 install:

@@ -4,6 +4,7 @@
 name: cw
 version: "3.6.1"
 summary: Sounds text as Morse from the command line — the unixcw core tool
+menu_title: Morse code sender (cw)
 categories: [cw, training]
 
 install:

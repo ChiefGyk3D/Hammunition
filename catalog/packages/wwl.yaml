@@ -4,6 +4,7 @@
 name: wwl
 version: "1.3"
 summary: Distance and bearing between two Maidenhead locators, from the command line
+menu_title: Grid square and distance calculator (wwl)
 categories: [hf-propagation, antenna]
 
 install:
