@@ -23,6 +23,7 @@ A manifest is **strict**: an unknown field is an error, not ignored. That is del
 | `after` | `list[str]` | no | Ordering, not dependency. |
 | `requires_kernel` | `list[Literal[ax25]]` | no | Kernel subsystems the software cannot work without, checked against the running kernel at plan time. A machine whose kernel lacks one defers the unit in a profile and refuses it by name. Linux 7.1 removed AX.25 (merge 64edfa65, 2026-04-24); `hammunition.kernel` reads the module tree. The vocabulary is what has been measured. |
 | `binaries` | `list[Binary]` | no |  |
+| `installed_files` | `list[str]` | no | Files the build's own install rule puts under the prefix, as paths relative to it (`lib/libacars-2.so.2`, `lib/pkgconfig/libacars-2.pc`). Declared effects only: they are checked after the run (D-031) and are what lets a build with no executable be decided as already installed (D-051) or compared by `update`; the engine never copies or removes them. An executable belongs in `binaries`, not here. |
 | `launchers` | `list[Launcher]` | no |  |
 | `service_endpoints` | `list[ServiceEndpoint]` | no |  |
 | `apt_repos` | `list[AptRepo]` | no |  |

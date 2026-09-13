@@ -206,6 +206,15 @@ def page(m: PackageManifest) -> str:
             out.append(f"- {_binary_line(b)}")
         out.append("")
 
+    if m.installed_files:
+        out.append(
+            "Files its install rule leaves under the prefix, checked after the run "
+            "and never copied or removed by the engine:\n"
+        )
+        for declared in m.installed_files:
+            out.append(f"- `{declared}`")
+        out.append("")
+
     if m.conflicts_with_repo_package:
         out.append(
             "This displaces the distribution's own "

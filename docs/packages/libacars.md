@@ -26,6 +26,12 @@ None beyond a compiler and CMake. It is a library with no radio hardware require
   - build dependencies: `build-essential`, `cmake`, `zlib1g-dev`, `libxml2-dev`, `libjansson-dev`
   - Upstream's configuration summary prints which of the three were detected. If a target ever drops one, the build still succeeds and the library quietly loses a capability — the failure mode this project exists to make visible, so it is worth checking the summary rather than the exit status (D-031).
 
+Files its install rule leaves under the prefix, checked after the run and never copied or removed by the engine:
+
+- `lib/libacars-2.so.2`
+- `lib/libacars-2.so`
+- `lib/pkgconfig/libacars-2.pc`
+
 ## Known problems
 
 zlib, libxml2 and jansson are each optional at build time and each silently disables a feature when missing: no zlib means compressed MIAM and OHMA messages are left undecoded, no libxml2 means XML is not formatted, no jansson means OHMA JSON is not decoded at all. The build prints a configuration summary saying which were found; a decoder that appears to be receiving nothing useful is worth checking against that summary before blaming the antenna. All three are listed as build dependencies here so the question does not arise.

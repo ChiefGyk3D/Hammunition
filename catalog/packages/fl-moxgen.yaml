@@ -42,6 +42,13 @@ install:
       `SHAREDIR=/usr/local/share/fl_moxgen` rather than reading PREFIX. That
       matches our default prefix and would silently ignore any other.
 
+# The Makefile's install rule puts `fl_moxgen` in the prefix's bin (measured
+# on the field laptop, 2026-09-13, mode 0755). Declared so the effect is
+# checked after the run and the build can be decided as already installed.
+binaries:
+  - produced: fl_moxgen
+    install_as: fl_moxgen
+
 update:
   probe:
     method: none
