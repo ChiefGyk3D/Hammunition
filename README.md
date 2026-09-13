@@ -22,7 +22,9 @@ node, and third-party apt repositories against a pinned key), and
 `uninstall` reverses every one of them, not just apt. `./bootstrap.sh`
 installs the engine in one command; `hammunition doctor` reports what is ready;
 `hammunition hardware` detects your radios and applies the udev rules and
-group membership they need; launchers and curated desktop menus generate for
+group membership they need; `hammunition update` reports what is installed
+against the catalog and, with `--upstream`, the catalog against what
+upstream publishes; launchers and curated desktop menus generate for
 Xfce and GNOME. What remains for 1.0: the Pop!_OS declaration decision now
 that its VM has run, COSMIC menus, real-hardware checks on the bench (the
 field target is a Dell Latitude 5430 Rugged; [its first session](docs/reference/bench-verification-5430.md)
