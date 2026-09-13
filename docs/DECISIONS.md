@@ -3890,3 +3890,62 @@ Measured on the field laptop, 2026-09-13, 25 probes answered in 7.5 s, none
 unanswered, and three pins found behind upstream on the first run
 (hamclock-next 1.5 → 1.6, linbpq 25.39 → 25.40, openhamclock 26.7.0 →
 26.7.3), which is the maintainer's re-pin queue and the tool's reason to exist.
+
+---
+
+## D-054 — The menu is built for the person who does not know the vocabulary: activity groups in plain words, a toolkit is one line, a generated entry says what it does
+
+**Decided:** Three changes to the D-050 tree, all measured on the field
+laptop on 2026-09-13 after the maintainer's own read of it: "a great start,
+and we can organize them better so the average person can locate what they
+want".
+
+**Evidence.** The D-050 tree placed every installed entry under every
+category its manifest carries, named the top-level groups after the catalog's
+own vocabulary, and named each generated entry after its unit. On the field
+laptop that produced: GNU Radio's **21** desktop entries (`gr_plot_*`,
+`uhd_*`, `grcc`, `gr-modtool`, `tags_demo`) inline in *both* SDR and Digital
+Modes, so the two submenus a newcomer opens first were two-thirds developer
+utilities; **47** generated entries reading `tlf`, `wwl`, `atlc`, `splat`,
+`tio`, `m2kcli`; and groups called *Station* and *Hardware & Bench* that
+say nothing to someone who has not learned the words yet.
+
+**Rule.**
+
+1. **Groups are activities, titled in plain words, in the order a newcomer
+   reads them:** *Operate the Station*, *Digital Modes & Morse*, *Packet,
+   Mesh & Emergency Comms*, *SDR & Listening*, *Satellites & Propagation*,
+   *Antennas, Bench & Programming*, *RF Security & Research*, *Learn &
+   Practise*. The category submenus inside them keep the ham vocabulary and
+   carry a gloss where the tag is jargon: *CW (Morse)*, *Tracking (APRS,
+   ADS-B, AIS)*, *Rig Control (CAT)*, *Radio Memories (Codeplugs)*. Every
+   category sits in exactly one group; the vocabulary test enforces it.
+2. **A unit that ships a toolkit gathers it into one submenu.** A manifest's
+   `menu_submenu: <title>` puts every desktop entry the unit ships into a
+   nested submenu of that title under the unit's *first* category and
+   nowhere else. The category then lists the unit as one line. It is catalog
+   data, not a threshold: the one measured case is GNU Radio (21 entries),
+   the next largest unit ships 2, and a test pins that GNU Radio declares
+   it. GNOME cannot nest folders, so there the submenu flattens into its
+   group's folder, and the docstring says so.
+3. **A generated entry may carry a title.** A manifest's `menu_title` is the
+   `Name=` of the entry the engine generates for a unit that ships none, in
+   one shape: *what it does, then the command in parentheses* — `Contest
+   logger (tlf)`. The unit's name stays in `Keywords=`, so the launcher's
+   search still finds `tlf`. The same shape launchers' titles took the night
+   before (#89).
+4. **Nothing of the distribution's is renamed or moved.** The desktop's own
+   copies of every entry stay where the desktop puts them (D-036); this tree
+   is the additive one, and it is the only place the shape above exists.
+
+**Measured after the change**, same laptop, `hammunition menus apply`: 8
+groups, 26 categories, 99 placed entries placed **100** times (they were
+placed 142 times before; GNU Radio's 21 no longer land twice), 47 generated,
+GNU Radio one nested submenu under *SDR Receivers & Toolkits*, the largest
+submenu now 20 entries where it was 33.
+
+**Not decided here.** Whether an entry should appear under every category
+its manifest carries or only the first: Parrot's own menu duplicates freely
+and the duplication is what makes a tool findable from two directions, so
+it stays until a measurement says otherwise. Titles for the distribution's
+own cryptic entries (`twclock`, `comptext`, `jtdx`) are Debian's to give.

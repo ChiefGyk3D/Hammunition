@@ -274,15 +274,24 @@ generated from the catalog's own category vocabulary — one taxonomy, no
 second list. Per-user and unprivileged throughout.
 
 - **Menu-spec desktops (KDE Plasma, Xfce):** a merged `.menu` tree shaped
-  like Parrot's own tool menu — *Hammunition*, then seven groups in a
-  declared order (Station, Digital Modes, Packet & EMCOMM, SDR & Listening,
-  RF Security, Hardware & Bench, Learning), then one submenu per catalog
-  category, titled from the vocabulary (`SDR`, not `Sdr`). The groups are
-  `catalog/categories.yaml`'s `groups:` list; every category belongs to
-  exactly one, and the order is a menu-spec `<Layout>`, not the alphabet.
-  An eighth group, *Workstation*, is declared `menu: false`: git, tmux and
-  VS Code are catalog units, not radio software, so they get no submenu,
-  no generated entry, and stay where the desktop already puts them. Each
+  like Parrot's own tool menu — *Hammunition*, then eight groups in a
+  declared order, titled as activities in plain words (*Operate the
+  Station*, *Digital Modes & Morse*, *Packet, Mesh & Emergency Comms*,
+  *SDR & Listening*, *Satellites & Propagation*, *Antennas, Bench &
+  Programming*, *RF Security & Research*, *Learn & Practise*), then one
+  submenu per catalog category, titled from the vocabulary with a gloss
+  where the tag is jargon (*CW (Morse)*, *Tracking (APRS, ADS-B, AIS)*;
+  **D-054**). The groups are `catalog/categories.yaml`'s `groups:` list;
+  every category belongs to exactly one, and the order is a menu-spec
+  `<Layout>`, not the alphabet. A ninth group, *Workstation*, is declared
+  `menu: false`: git, tmux and VS Code are catalog units, not radio
+  software, so they get no submenu, no generated entry, and stay where the
+  desktop already puts them. A unit whose manifest says `menu_submenu`
+  (GNU Radio, 21 entries) gathers everything it ships into one nested
+  submenu under its first category instead of listing it inline in every
+  category it carries; a generated entry shows its manifest's
+  `menu_title` (*Contest logger (tlf)*) with the unit's name kept in
+  `Keywords=` for the launcher's search. Each
   submenu includes the `X-Hammunition-<category>` markers every generated
   desktop entry carries **and, by `<Filename>`, the desktop entries the
   installed catalog packages ship themselves** — mapped at apply time from
