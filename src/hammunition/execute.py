@@ -307,6 +307,9 @@ def build_effects_present(planned: PlannedPackage, *, prefix: Path) -> bool | No
     marker = _tree_marker(planned.block)
     if marker is not None:
         present.append((tree_destination(prefix, planned.name) / marker).exists())
+    if _declares_installed_binaries(planned.block):
+        for declared_file in planned.manifest.installed_files:
+            present.append((prefix / declared_file).exists())
     if not present:
         return None
     return all(present)
@@ -790,6 +793,28 @@ def verify_effects(
                                 f"the install step exited 0 but there is no executable at "
                                 f"{path} -- the build has no install rule for it, or installs "
                                 f"it under another name"
+                            )
+                        ),
+                    )
+                )
+
+        for planned in plan.packages:
+            if not _declares_installed_binaries(planned.block):
+                continue
+            for declared_file in planned.manifest.installed_files:
+                path = prefix / declared_file
+                present = path.exists()
+                checks.append(
+                    EffectCheck(
+                        kind="file",
+                        subject=f"{planned.name}:{declared_file}",
+                        confirmed=present,
+                        detail=(
+                            f"installed file present at {path}"
+                            if present
+                            else (
+                                f"the install step exited 0 but {path} does not exist -- the "
+                                f"build's install rule put it elsewhere, or installed nothing"
                             )
                         ),
                     )

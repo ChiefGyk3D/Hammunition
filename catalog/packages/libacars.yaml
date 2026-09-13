@@ -38,6 +38,17 @@ install:
       visible, so it is worth checking the summary rather than the exit status
       (D-031).
 
+# What cmake's install rule leaves under the prefix, read from the field
+# laptop after the build (2026-09-13): the versioned library, its unversioned
+# symlink and the pkg-config file the three decoders' builds look for. A
+# library has no executable to declare in `binaries`, so without these the
+# engine had no effect to check (D-031), could never decide it as already
+# installed (D-051), and `update` reported it as unknown.
+installed_files:
+  - lib/libacars-2.so.2
+  - lib/libacars-2.so
+  - lib/pkgconfig/libacars-2.pc
+
 update:
   probe:
     method: github_tags

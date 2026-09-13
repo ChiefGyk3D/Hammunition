@@ -26,6 +26,10 @@ A desktop session and a frequency. Nothing else -- the design work happens befor
   - build dependencies: `build-essential`, `pkg-config`, `libfltk1.3-dev`, `libhpdf-dev`
   - Built in a Debian 13 container on 2026-08-28 with the two overrides above: make exits 0, `fl_moxgen` is produced, and running it headless gets as far as "Can't open display", which is a GUI binary working. AHRL bundles 1.01; SourceForge offers only **1.00** and no 1.01 exists there, so this pins what upstream actually publishes. Its `install` target copies to a hardcoded `BINDIR=/usr/local/bin` and `SHAREDIR=/usr/local/share/fl_moxgen` rather than reading PREFIX. That matches our default prefix and would silently ignore any other.
 
+Binaries this produces:
+
+- `fl_moxgen`
+
 ## Known problems
 
 **Check that you got the PDF-capable build.** Without libharu found at build time the Makefile quietly builds `fl_moxgen_no_pdf` instead, which is the same program with the printing gone and no message saying so. The build arguments above prevent it, and it is worth knowing because printing to scale is most of the point. As with any modelled antenna, the numbers assume the thing is in free space; a Moxon two metres off the ground behaves differently and the null in particular will not be where the model says.

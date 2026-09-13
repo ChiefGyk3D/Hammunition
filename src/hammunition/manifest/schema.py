@@ -1203,6 +1203,17 @@ class PackageManifest(Strict):
     )
 
     binaries: list[Binary] = Field(default_factory=list)
+    installed_files: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Files the build's own install rule puts under the prefix, as paths "
+            "relative to it (`lib/libacars-2.so.2`, `lib/pkgconfig/libacars-2.pc`). "
+            "Declared effects only: they are checked after the run (D-031) and "
+            "are what lets a build with no executable be decided as already "
+            "installed (D-051) or compared by `update`; the engine never copies "
+            "or removes them. An executable belongs in `binaries`, not here."
+        ),
+    )
     launchers: list[Launcher] = Field(default_factory=list)
     service_endpoints: list[ServiceEndpoint] = Field(default_factory=list)
 
@@ -1250,6 +1261,30 @@ class PackageManifest(Strict):
     documentation: Documentation
 
     # -- validators ---------------------------------------------------------
+
+    @model_validator(mode="after")
+    def _installed_files_are_relative_effects(self) -> PackageManifest:
+        for declared in self.installed_files:
+            path = PurePosixPath(declared)
+            if path.is_absolute() or ".." in path.parts or not declared.strip():
+                raise ManifestError(
+                    f"installed_files entry {declared!r} must be a relative path under "
+                    f"the prefix with no `..`"
+                )
+            if path.parts[0] == "bin":
+                raise ManifestError(
+                    f"installed_files entry {declared!r} is under bin/; an executable is "
+                    f"declared in `binaries`, which checks it the same way"
+                )
+        if self.installed_files and not any(
+            isinstance(block.install, SourceInstall | GitInstall) for block in self.install
+        ):
+            raise ManifestError(
+                "installed_files declared but no source or git block installs anything "
+                "by its own rule; the field names what `make install` (or equivalent) "
+                "leaves under the prefix"
+            )
+        return self
 
     @model_validator(mode="after")
     def _name_is_slug(self) -> PackageManifest:
