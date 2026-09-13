@@ -295,6 +295,28 @@ def test_a_terminal_launcher_waits_for_enter_after_the_command_exits() -> None:
     assert "hackrf_info" in lines
     assert any("read" in line for line in lines[lines.index("hackrf_info") :]), body
     assert "exit" in body.lower() and "Enter" in body
+    # The hold must not replace the tool's exit status with its own. Run
+    # without a keyboard (the headless GUI smoke lane, 2026-09-12), `read`
+    # hits end-of-input and fails, and a wrapper that ends there exits 1
+    # whatever the tool did: st-info printed "[exit 0]" and the lane
+    # recorded rc=1.
+    assert lines[-1] == 'exit "$status"', body
+
+
+@pytest.mark.parametrize("command, expected", [("true", 0), ("sh -c 'exit 3'", 3)])
+def test_a_terminal_wrapper_run_without_a_keyboard_exits_with_the_tools_status(
+    tmp_path: Path, command: str, expected: int
+) -> None:
+    import subprocess
+
+    m = manifest(launchers=[{"name": "l", "exec": command, "terminal": True}])
+    wrapper = tmp_path / "l"
+    wrapper.write_text(wrapper_body(m, m.launchers[0]))
+    wrapper.chmod(0o755)
+    run = subprocess.run(
+        [str(wrapper)], stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=10
+    )
+    assert run.returncode == expected, (run.returncode, run.stdout, run.stderr)
 
 
 def test_a_gui_launcher_does_not_hold() -> None:
