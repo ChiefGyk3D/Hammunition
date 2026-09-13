@@ -175,7 +175,7 @@ def desktop_entry(manifest: PackageManifest, launcher: Launcher, wrapper: Path) 
     return (
         "[Desktop Entry]\n"
         "Type=Application\n"
-        f"Name={launcher.name}\n"
+        f"Name={launcher.display_name}\n"
         f"Comment={manifest.summary}\n"
         f"Exec={wrapper}\n"
         f"Terminal={'true' if launcher.terminal else 'false'}\n"

@@ -18,6 +18,7 @@ install:
 launchers:
   - name: mheard
     exec: mheard
+    title: AX.25 stations heard (mheard)
     terminal: true
     # Who has been heard: the stations mheardd logged on each port. The rest of the unit is per-port configuration (kissattach, axparms, sethdlc) typed at a shell, not opened from a menu
 

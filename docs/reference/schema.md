@@ -253,8 +253,9 @@ A generated wrapper script. 14 AHRL units need one.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `name` | `str` | **yes** |  |
+| `name` | `str` | **yes** | The wrapper's filename under <prefix>/bin, so the launcher is also what a shell finds by that name. |
 | `exec` | `str` | **yes** | Command template. May reference {endpoint:NAME}. |
+| `title` | `str \| None` | no | What the desktop menu shows for this launcher. Defaults to `name`, which is fine when the name is the tool's known name (rigctl, hackrf_info) and not when it is a bare word (yagiuda's `input`). The convention is what it does, then the command in parentheses. |
 | `working_directory` | `str \| None` | no |  |
 | `terminal` | `bool` | no (default `False`) |  |
 

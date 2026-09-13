@@ -18,6 +18,7 @@ install:
 launchers:
   - name: ubertooth-util
     exec: ubertooth-util -v
+    title: Ubertooth board check (ubertooth-util)
     terminal: true
     # Is the Ubertooth there: firmware revision of the attached unit
 

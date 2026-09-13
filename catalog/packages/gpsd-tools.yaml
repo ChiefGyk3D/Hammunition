@@ -20,6 +20,7 @@ install:
 launchers:
   - name: cgps
     exec: cgps
+    title: GPS fix monitor (cgps)
     terminal: true
     # The GPS fix, live, from the running gpsd
 

@@ -903,12 +903,39 @@ class ServiceEndpoint(Strict):
 class Launcher(Strict):
     """A generated wrapper script. 14 AHRL units need one."""
 
-    name: str
+    name: str = Field(
+        description=(
+            "The wrapper's filename under <prefix>/bin, so the launcher is also "
+            "what a shell finds by that name."
+        ),
+    )
     exec: str = Field(
         description="Command template. May reference {endpoint:NAME}.",
     )
+    title: str | None = Field(
+        default=None,
+        description=(
+            "What the desktop menu shows for this launcher. Defaults to `name`, "
+            "which is fine when the name is the tool's known name (rigctl, "
+            "hackrf_info) and not when it is a bare word (yagiuda's `input`). "
+            "The convention is what it does, then the command in parentheses."
+        ),
+    )
     working_directory: str | None = None
     terminal: bool = False
+
+    @property
+    def display_name(self) -> str:
+        return self.title if self.title is not None else self.name
+
+    @model_validator(mode="after")
+    def _title_is_not_blank(self) -> Launcher:
+        if self.title is not None and not self.title.strip():
+            raise ManifestError(
+                f"launcher {self.name!r} has a blank title; omit `title` to show the "
+                f"name, or give the entry a title someone can read"
+            )
+        return self
 
     @model_validator(mode="after")
     def _terminal_launchers_keep_their_shell(self) -> Launcher:

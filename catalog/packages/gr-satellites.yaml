@@ -19,6 +19,7 @@ install:
 launchers:
   - name: gr_satellites
     exec: gr_satellites --list_satellites
+    title: gr-satellites decoder list (gr_satellites)
     terminal: true
     # Which satellites it decodes: the supported list with each downlink. Every other invocation needs a satellite name and a recording or a live source, so this is the representative entry rather than a decoder session
 

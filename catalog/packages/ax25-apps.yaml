@@ -22,6 +22,7 @@ install:
 launchers:
   - name: axlisten
     exec: axlisten -a
+    title: AX.25 channel monitor (axlisten)
     terminal: true
     # What is on the air: raw AX.25 frames on every configured port, outgoing as well as incoming
 

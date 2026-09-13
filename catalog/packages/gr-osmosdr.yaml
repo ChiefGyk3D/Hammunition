@@ -19,6 +19,7 @@ install:
 launchers:
   - name: osmocom_fft
     exec: osmocom_fft
+    title: SDR spectrum display (osmocom_fft)
     terminal: true
     # A spectrum from whatever SDR is attached: the osmocom source's own FFT display, and the first proof that a device string opens
 
