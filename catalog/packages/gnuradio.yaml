@@ -4,6 +4,11 @@
 name: gnuradio
 version: "3.10.12.0"
 summary: Build a radio out of signal-processing blocks instead of hardware
+# The package ships 21 desktop entries -- the Companion and twenty
+# utilities (gr_plot_*, uhd_*, grcc, gr-modtool). Inline they made the SDR
+# and Digital Modes menus unreadable on the field laptop (2026-09-13); one
+# submenu under SDR holds them all (D-054).
+menu_submenu: GNU Radio
 categories: [sdr, digital-modes]
 
 install:

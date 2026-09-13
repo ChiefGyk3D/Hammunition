@@ -4,6 +4,7 @@
 name: tzwatch
 version: "1.4.4"
 summary: Prints the time in several time zones at once, in a terminal
+menu_title: Multi-timezone clock (tzwatch)
 categories: [station, timing]
 
 install:

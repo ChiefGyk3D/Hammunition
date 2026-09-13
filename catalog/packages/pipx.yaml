@@ -4,6 +4,7 @@
 name: pipx
 version: "1.7.1"
 summary: Installs Python applications in their own environments, on the PATH
+menu_title: Python application installer (pipx)
 categories: [workstation, station]
 
 install:

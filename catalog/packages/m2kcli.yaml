@@ -4,6 +4,7 @@
 name: m2kcli
 version: "0.9.0"
 summary: Command-line control of the ADALM2000 lab instrument
+menu_title: ADALM2000 instrument control (m2kcli)
 categories: [electronics, hardware]
 
 install:

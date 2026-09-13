@@ -4,6 +4,7 @@
 name: openocd
 version: "0.12.0"
 summary: On-chip debugging and in-system programming over JTAG and SWD
+menu_title: On-chip JTAG and SWD debugger (openocd)
 categories: [electronics, programmer]
 
 install:

@@ -4,6 +4,7 @@
 name: morse2ascii
 version: "0.2.1"
 summary: Decodes Morse out of a recorded WAV file
+menu_title: Morse decoder for WAV files (morse2ascii)
 categories: [cw, listening]
 
 install:

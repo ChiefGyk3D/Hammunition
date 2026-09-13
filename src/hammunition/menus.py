@@ -270,9 +270,33 @@ class Placement:
     """Catalog units that received at least one placed entry — the ones
     :func:`cli_entries` must not generate a second entry for."""
 
+    submenus: tuple[UnitSubmenu, ...] = ()
+    """Units whose manifest says ``menu_submenu``: their entries sit in one
+    nested submenu under the unit's first visible category and nowhere
+    else, so a toolkit of 21 entries reads as one line (D-054)."""
+
     @classmethod
     def empty(cls) -> Placement:
         return cls(by_category={}, claimed=())
+
+
+@dataclass(frozen=True)
+class UnitSubmenu:
+    """One unit's own submenu inside a category submenu."""
+
+    unit: str
+    title: str
+    summary: str
+    category: str
+    ids: tuple[str, ...]
+
+    @property
+    def menu_name(self) -> str:
+        return f"hammunition-unit-{self.unit}"
+
+    @property
+    def directory_id(self) -> str:
+        return f"{self.menu_name}.directory"
 
 
 DesktopIdLister = Callable[[str], list[str]]
@@ -355,6 +379,11 @@ def placement_summary(placement: Placement) -> list[str]:
         f"  {package}: {shipped} is not on disk and nothing replaces it -- not placed"
         for package, shipped in placement.missing
     )
+    lines.extend(
+        f"  {unit.unit}: {len(unit.ids)} entries gathered into the {unit.title!r} submenu "
+        f"under {unit.category}"
+        for unit in placement.submenus
+    )
     return lines
 
 
@@ -402,6 +431,7 @@ def place_installed_entries(
     replaced: list[tuple[str, str, str]] = []
     missing: list[tuple[str, str]] = []
     units: list[str] = []
+    submenus: list[UnitSubmenu] = []
     for manifest in manifests:
         visible = [c for c in manifest.categories if c not in hidden]
         if not visible:
@@ -423,6 +453,19 @@ def place_installed_entries(
             continue
         units.append(manifest.name)
         claimed.update(ids)
+        if manifest.menu_submenu:
+            # One submenu under the first category, and nothing inline: the
+            # category still lists the unit, as one line, not as 21 (D-054).
+            submenus.append(
+                UnitSubmenu(
+                    unit=manifest.name,
+                    title=manifest.menu_submenu,
+                    summary=manifest.summary,
+                    category=visible[0],
+                    ids=tuple(sorted(ids)),
+                )
+            )
+            continue
         for category in visible:
             by_category.setdefault(category, set()).update(ids)
     return Placement(
@@ -431,6 +474,7 @@ def place_installed_entries(
         replaced=tuple(replaced),
         missing=tuple(missing),
         units=tuple(units),
+        submenus=tuple(submenus),
     )
 
 
@@ -476,6 +520,12 @@ class CliEntry:
     exec: str
     comment: str
     categories: tuple[str, ...]
+    title: str = ""
+    """What the menu shows; the manifest's ``menu_title``, else the unit."""
+
+    @property
+    def name(self) -> str:
+        return self.title or self.unit
 
     @property
     def desktop_id(self) -> str:
@@ -545,6 +595,7 @@ def cli_entries(
                 exec=chosen,
                 comment=manifest.summary,
                 categories=visible,
+                title=manifest.menu_title or "",
             )
         )
     return CliEntries(entries=tuple(entries), skipped=tuple(skipped))
@@ -559,7 +610,7 @@ def render_cli_entry(entry: CliEntry, icons: Mapping[str, str] | None = None) ->
         "[Desktop Entry]\n"
         "Type=Application\n"
         f"{icon_line}"
-        f"Name={entry.unit}\n"
+        f"Name={entry.name}\n"
         f"Comment={entry.comment}\n"
         f"Exec={entry.exec}\n"
         "Terminal=true\n"
@@ -697,8 +748,20 @@ def render_menu(
     def filenames(ids: tuple[str, ...], indent: str) -> str:
         return "".join(f"\n{indent}<Filename>{escape(i)}</Filename>" for i in ids)
 
+    def nested(unit: UnitSubmenu, indent: str) -> str:
+        i = indent
+        return (
+            f"\n{i}<Menu>\n"
+            f"{i}  <Name>{escape(unit.menu_name)}</Name>\n"
+            f"{i}  <Directory>{escape(unit.directory_id)}</Directory>\n"
+            f"{i}  <Include>{filenames(unit.ids, i + '    ')}\n"
+            f"{i}  </Include>\n"
+            f"{i}</Menu>"
+        )
+
     def submenu(c: Category, indent: str) -> str:
         i = indent
+        units = "".join(nested(u, i + "  ") for u in placement.submenus if u.category == c.name)
         return (
             f"{i}<Menu>\n"
             f"{i}  <Name>hammunition-{escape(c.name)}</Name>\n"
@@ -706,7 +769,7 @@ def render_menu(
             f"{i}  <Include>\n"
             f"{i}    <Category>X-Hammunition-{escape(c.name)}</Category>"
             f"{filenames(placement.by_category.get(c.name, ()), i + '    ')}\n"
-            f"{i}  </Include>\n"
+            f"{i}  </Include>{units}\n"
             f"{i}</Menu>"
         )
 
@@ -789,7 +852,8 @@ def menu_steps(
     or nothing merges, which is a silent nothing — hence it is a parameter,
     not a guess.
     """
-    placed = sum(len(v) for v in (placement or Placement.empty()).by_category.values())
+    placement = placement or Placement.empty()
+    placed = sum(len(v) for v in placement.by_category.values())
     target = paths.menus_dir / merge_dir(menu_prefix) / "hammunition.menu"
     steps = [
         Action(
@@ -858,6 +922,23 @@ def menu_steps(
                 ),
             )
         )
+    icons = {c.name: c.icon for c in categories}
+    for unit in placement.submenus:
+        if unit.category in hidden:
+            continue
+        target = paths.directories_dir / unit.directory_id
+        steps.append(
+            Action(
+                kind="menu",
+                description=f"Name the {unit.title} submenu ({len(unit.ids)} entries of {unit.unit})",
+                detail=str(target),
+                perform=partial(
+                    _write,
+                    target,
+                    render_directory(unit.title, unit.summary, icons.get(unit.category, "folder")),
+                ),
+            )
+        )
     written = {Path(step.detail).name for step in steps if step.detail.endswith(".directory")}
     for stale in sorted(paths.directories_dir.glob("hammunition-*.directory")):
         if stale.name not in written:
@@ -905,7 +986,12 @@ def gnome_commands(
         for group in groups:
             if not group.menu:
                 continue
-            apps = sorted({i for c in group.categories for i in placement.by_category.get(c, ())})
+            apps = sorted(
+                {i for c in group.categories for i in placement.by_category.get(c, ())}
+                # GNOME folders cannot nest, so a unit's submenu flattens into
+                # its group's folder; the nesting is the menu-spec desktops'.
+                | {i for u in placement.submenus if u.category in group.categories for i in u.ids}
+            )
             commands.extend(
                 _gnome_folder(
                     f"hammunition-{group.name}",
