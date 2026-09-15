@@ -7,6 +7,7 @@
 - **Version recorded:** 3.0.2
 - **Categories:** `weak-signal`
 - **Upstream:** <https://wsjtx.github.io/wsjtx/index.html>
+- **Also provides:** `message_aggregator`
 - **Needs first:** `libhamlib4t64`
 
 ## What it does

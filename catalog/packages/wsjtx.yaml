@@ -55,6 +55,11 @@ depends: [libhamlib4t64]
 # renames around it: install wsjtx -> mv to wsjtx_orig -> install improved ->
 # mv to wsjtx_improved -> mv wsjtx_orig back. Run either half alone and a
 # binary is wrong. Declaring install_as makes the collision unrepresentable.
+# WSJT-X's build also installs its Message Aggregator utility and its own
+# desktop entry; naming it here is what places that entry under the unit
+# instead of loose at the top of the menu (measured 2026-09-13).
+provides: [message_aggregator]
+
 binaries:
   - produced: wsjtx
     install_as: wsjtx
