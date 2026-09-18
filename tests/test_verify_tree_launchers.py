@@ -317,6 +317,7 @@ def test_every_catalog_tree_names_its_marker() -> None:
         "yaac",
         "radiosonde-auto-rx",
         "supersdr",
+        "skid-finder",
     }, "a unit started or stopped installing a tree; update this pin and check its marker"
     for name in tree_units:
         for block in catalog[name].install:
@@ -353,6 +354,7 @@ def test_every_catalog_launcher_working_directory_is_under_the_shared_prefix() -
         "openhamclock",
         "radiosonde-auto-rx",
         "rtl-sdr",
+        "skid-finder",
         "stlink-tools",
         "supersdr",
         "ubertooth",
