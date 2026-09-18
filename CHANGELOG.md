@@ -15,7 +15,7 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   detector, carried as an ungated `rf-security` unit from its tagged
   pre-release tarball (install_tree, terminal launcher for its field
   menu). Alpha upstream; not yet installed through the engine on a target
-  (#115).
+  (#116).
 
 ## v0.9.0 — 2026-09-13 — beta: feature-complete for 1.0, verification remains
 
