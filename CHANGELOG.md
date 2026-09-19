@@ -13,7 +13,7 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 - `skid-finder`, the maintainer's passive BLE-spam and Wi-Fi-attack
   detector, carried as an ungated `rf-security` unit from its tagged
-  pre-release tarball, v0.5.0-alpha.1 (install_tree, terminal launcher for
+  pre-release tarball, v0.6.0-alpha.1 (install_tree, terminal launcher for
   its field menu). Alpha upstream; not yet installed through the engine on a target
   (#116).
 

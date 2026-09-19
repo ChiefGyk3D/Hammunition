@@ -4,7 +4,7 @@
 
 **Passive BLE-spam and Wi-Fi-attack detector with foxhunting, live alerts and a sensor-net collector**
 
-- **Version recorded:** 0.5.0-alpha.1
+- **Version recorded:** 0.6.0-alpha.1
 - **Categories:** `bluetooth`, `capture-analysis`, `wifi`
 - **Upstream:** <https://github.com/ChiefGyk3D/Skid-Finder>
 - **Needs first:** `bluez`, `python3`, `rfkill`, `tmux`, `whiptail`, `iw`, `tshark`, `python3-paho-mqtt`
@@ -23,8 +23,8 @@ A BlueZ-visible Bluetooth adapter for the BLE side; a monitor-mode capable Wi-Fi
 
 ## How it installs
 
-- prebuilt tarball from https://github.com/ChiefGyk3D/Skid-Finder/archive/refs/tags/v0.5.0-alpha.1.tar.gz
-  - Upstream is at 0.5.0-alpha.1 (2026-09-19): the whole BLE workflow (capture, field run, live alerting, foxhunt) runs without root on a laptop in the wireshark group and was exercised on real hardware; systemd units for a fixed sensor and the collector ship in the tree; the uConsole checklist is still open. Alpha means green in its own CI against synthetic captures and stubbed radios and not yet validated on the uConsole hardware; its docs/ROADMAP.md defines the stages. Re-pin URL and digest together at every tag. This unit has not yet been installed through the engine on any target container or VM; the first dry run and install are the open item on its PR.
+- prebuilt tarball from https://github.com/ChiefGyk3D/Skid-Finder/archive/refs/tags/v0.6.0-alpha.1.tar.gz
+  - Upstream is at 0.6.0-alpha.1 (2026-09-19): the whole BLE workflow runs without root on a laptop in the wireshark group (exercised on real hardware); incidents with a foxhunt handoff, an evidence bundle, Wi-Fi fingerprinting and systemd units ship in the tree; the uConsole checklist is still open. Alpha means green in its own CI against synthetic captures and stubbed radios and not yet validated on the uConsole hardware; its docs/ROADMAP.md defines the stages. Re-pin URL and digest together at every tag. This unit has not yet been installed through the engine on any target container or VM; the first dry run and install are the open item on its PR.
 
 ## What it changes on your machine
 
