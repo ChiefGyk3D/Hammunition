@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: CC0-1.0
 
 name: skid-finder
-version: "0.4.0-alpha.1"
+version: "0.5.0-alpha.1"
 summary: Passive BLE-spam and Wi-Fi-attack detector with foxhunting, live alerts and a sensor-net collector
 categories: [bluetooth, wifi, capture-analysis]
 
@@ -25,20 +25,22 @@ install:
   - install:
       method: binary
       artifact:
-        url: https://github.com/ChiefGyk3D/Skid-Finder/archive/refs/tags/v0.4.0-alpha.1.tar.gz
-        # Fetched twice from GitHub on 2026-09-18 and hashed identically;
-        # the tarball has one top directory (Skid-Finder-0.4.0-alpha.1/)
+        url: https://github.com/ChiefGyk3D/Skid-Finder/archive/refs/tags/v0.5.0-alpha.1.tar.gz
+        # Fetched twice from GitHub on 2026-09-19 and hashed identically;
+        # the tarball has one top directory (Skid-Finder-0.5.0-alpha.1/)
         # holding VERSION, scripts/, config/, tests/, docs/, nodes/.
-        sha256: 2cb40de139fcc5d23ac01aa02c007ebc4a6aefbddb0d59e86ef04d4dc3558bac
+        sha256: 33e9635cc07660c530447647da6e84b28d293121f088e2c21a99c5302977f350
       format: tarball
       install_tree: true
       # GitHub's tag tarballs have one top directory, which extraction
       # strips, leaving scripts/ at the root of the installed tree.
       tree_marker: scripts/skid-finder.sh
     note: >-
-      Upstream is at 0.4.0-alpha.1 (2026-09-18): the laptop paths (capture and
-      live alerting without root via the wireshark group) were exercised on
-      real hardware; the uConsole checklist is still open. Alpha means green in its
+      Upstream is at 0.5.0-alpha.1 (2026-09-19): the whole BLE workflow
+      (capture, field run, live alerting, foxhunt) runs without root on a
+      laptop in the wireshark group and was exercised on real hardware;
+      systemd units for a fixed sensor and the collector ship in the tree;
+      the uConsole checklist is still open. Alpha means green in its
       own CI against synthetic captures and stubbed radios and not yet
       validated on the uConsole hardware; its docs/ROADMAP.md defines the
       stages. Re-pin URL and digest together at every tag. This unit has
