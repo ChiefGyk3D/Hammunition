@@ -26,6 +26,7 @@ packages:
   - wireshark
   - artemis
   - rayhunter
+  - skid-finder
 
 documentation:
   what_it_installs: >-
