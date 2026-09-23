@@ -248,6 +248,20 @@ def test_plan_wake_writes_only_authorized(sysfs_root: Path) -> None:
     )
 
 
+def test_a_plan_records_whether_it_is_hushing_or_restoring(sysfs_root: Path) -> None:
+    """restore=not park is live code with nothing exercising it since the
+    quiet-verbs test it used to ride along on was replaced by the refusal
+    test below -- a device with an empty quiet list is the only shape that
+    still reaches a built PowerPlan to check it on."""
+    found, _ = parkable(
+        [Match(name="gps-receiver", attached=_bus(sysfs_root), ambiguous=False)],
+        _entries({"method": "usb_deauthorize", "quiet": [], "note": NOTE}),
+    )
+    assert plan_park(found[0]).restore is False
+    assert plan_wake(found[0]).restore is True
+    assert plan_park(found[0]).quiet == ()
+
+
 def test_a_quiet_verb_is_refused_until_a_device_needs_one(sysfs_root: Path) -> None:
     """Schema-valid, and refused, on the same grounds as pci_runtime: the only
     consumer is a WWAN modem whose own method ships refused."""
@@ -305,6 +319,39 @@ def test_guard_refuses_a_root_writable_node_that_is_not_ours() -> None:
             guard(sibling)
 
 
+def test_guard_refuses_a_leaf_reached_through_an_intermediate_segment() -> None:
+    """The bypass a bare suffix match allows. `driver` and `subsystem` are
+    kernel-made symlinks on every USB node, so a path ending in a permitted
+    leaf can still point clean out of the node it claims to be inside."""
+    for escape in (
+        "/sys/bus/usb/devices/1-4/driver/authorized",
+        "/sys/bus/usb/devices/1-4/subsystem/power/control",
+        "/sys/bus/usb/devices/1-4/foo/power/control",
+        "/sys/bus/usb/devices/1-4/driver/module/parameters/authorized",
+    ):
+        with pytest.raises(PowerError):
+            guard(escape)
+
+
+def test_guard_refuses_a_component_merely_ending_in_a_leaf_name() -> None:
+    for near_miss in (
+        "/sys/bus/usb/devices/1-4/notauthorized",
+        "/sys/bus/usb/devices/1-4/authorized_default",
+        "/sys/bus/usb/devices/authorized",
+    ):
+        with pytest.raises(PowerError):
+            guard(near_miss)
+
+
+def test_guard_still_accepts_exactly_the_two_real_writes() -> None:
+    assert guard("/sys/bus/usb/devices/1-4/authorized")
+    assert guard("/sys/bus/usb/devices/1-4/power/control")
+    assert guard("/sys/bus/pci/devices/0000:00:14.0/power/control")
+    # normpath collapses these to the same node, so they are the same write.
+    assert guard("/sys/bus/usb/devices//1-4/authorized")
+    assert guard("/sys/bus/usb/devices/./1-4/authorized")
+
+
 def test_guard_never_touches_the_filesystem(monkeypatch: pytest.MonkeyPatch) -> None:
     """The containment check is lexical, and this is the test that says so.
 
@@ -315,6 +362,14 @@ def test_guard_never_touches_the_filesystem(monkeypatch: pytest.MonkeyPatch) -> 
     exist on the test machine and a non-strict resolve() leaves a nonexistent
     component alone. Asserting that no resolution is attempted at all cannot
     pass against a resolving implementation on any machine.
+
+    Patches only `Path.resolve` and `os.path.realpath` -- the two functions
+    that actually follow a symlink, which is the property being pinned.
+    `os.path.abspath` does not follow symlinks and was never part of that
+    property; patching it too caught pytest's own traceback formatter (which
+    calls `os.path.abspath` while rendering a failure) in the same trap and
+    turned a real regression into a pytest INTERNALERROR instead of a clean
+    FAILED.
     """
 
     def forbidden(*args: object, **kwargs: object) -> object:
@@ -322,7 +377,6 @@ def test_guard_never_touches_the_filesystem(monkeypatch: pytest.MonkeyPatch) -> 
 
     monkeypatch.setattr(Path, "resolve", forbidden)
     monkeypatch.setattr(os.path, "realpath", forbidden)
-    monkeypatch.setattr(os.path, "abspath", forbidden)
     assert guard("/sys/bus/usb/devices/1-4/authorized")
 
 

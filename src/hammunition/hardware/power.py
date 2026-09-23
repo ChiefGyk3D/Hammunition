@@ -136,22 +136,36 @@ def guard(path: str) -> str:
     kernel-made symlinks -- ``driver``, ``subsystem``, ``remove`` -- and
     writing to what is reachable through them (``driver/unbind``,
     ``subsystem/drivers_probe``) is root-writable and has nothing to do with
-    parking a device. The normalised path must also end with one of
-    ``WRITABLE_LEAVES``, so a node's contents are not treated as safe merely
-    for being under an allowed root.
+    parking a device. A *suffix* test on ``WRITABLE_LEAVES`` is not enough
+    either: ``driver`` and ``subsystem`` are themselves symlinks, so
+    ``<address>/driver/authorized`` ends in a permitted leaf while pointing
+    clean out of the node it claims to be inside. The check below is
+    structural instead -- the path under the root must be *exactly* one
+    address component followed by one of ``WRITABLE_LEAVES``, nothing more
+    and nothing fewer, so no intermediate segment gets to ride a permitted
+    leaf name out of the node.
     """
     normalised = os.path.normpath(path)
     for root in ALLOWED_ROOTS:
         prefix = root.rstrip("/") + "/"
-        if normalised.startswith(prefix) and len(normalised) > len(prefix):
-            if any(normalised.endswith("/" + leaf) for leaf in WRITABLE_LEAVES):
+        if not normalised.startswith(prefix):
+            continue
+        rest = normalised[len(prefix) :].split("/")
+        # `rest` must be the node's address (one non-empty component -- a PCI
+        # address like `0000:00:14.0` is one component too, `:` and `.` are
+        # not separators) followed by exactly one of the two writable
+        # leaves. Anything shorter, longer, or with an empty component from
+        # a stray slash is not a shape this module ever writes to.
+        if len(rest) >= 2 and rest[0] and "" not in rest:
+            leaf = "/".join(rest[1:])
+            if leaf in WRITABLE_LEAVES:
                 return normalised
-            raise PowerError(
-                f"{path!r} is not one of the files this module writes "
-                f"({', '.join(WRITABLE_LEAVES)}). A device node carries kernel-made "
-                f"symlinks -- driver/unbind, subsystem/drivers_probe -- that sit "
-                f"under the same root and are not ours to write to."
-            )
+        raise PowerError(
+            f"{path!r} is not one of the files this module writes "
+            f"({', '.join(WRITABLE_LEAVES)}). A device node carries kernel-made "
+            f"symlinks -- driver/unbind, subsystem/drivers_probe -- that sit "
+            f"under the same root and are not ours to write to."
+        )
     raise PowerError(
         f"{path!r} is outside the device roots this may write to "
         f"({', '.join(ALLOWED_ROOTS)}). A power-control write goes to a device "
