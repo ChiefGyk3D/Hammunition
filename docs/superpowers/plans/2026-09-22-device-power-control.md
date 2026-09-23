@@ -157,9 +157,7 @@ def test_pci_runtime_is_schema_valid_so_a_wwan_class_can_carry_it() -> None:
 
 def test_an_unknown_method_is_refused_naming_the_field() -> None:
     with pytest.raises(ValidationError) as caught:
-        DeviceClass.model_validate(
-            _class({"method": "run_this_script", "note": NOTE})
-        )
+        DeviceClass.model_validate(_class({"method": "run_this_script", "note": NOTE}))
     assert "method" in str(caught.value)
 
 
@@ -439,9 +437,7 @@ def _bus(tmp_path: Path, address: str = "1-4", authorized: str = "1") -> Attache
     (node / "idProduct").write_text("01a7\n")
     (node / "authorized").write_text(f"{authorized}\n")
     (node / "power" / "control").write_text("on\n")
-    return AttachedDevice(
-        vendor="1546", product="01a7", sysfs_path=str(node)
-    )
+    return AttachedDevice(vendor="1546", product="01a7", sysfs_path=str(node))
 
 
 def _entries(power: dict[str, object] | None) -> dict[str, DeviceClass]:
@@ -968,8 +964,7 @@ def _nm_autoconnect(*, restore: bool, uid: int | None) -> str:
         return f"networkmanager_autoconnect: could not run nmcli ({exc}); nothing hushed"
     if listed.returncode != 0:
         return (
-            f"networkmanager_autoconnect: nmcli exited {listed.returncode}; "
-            f"no profile was changed"
+            f"networkmanager_autoconnect: nmcli exited {listed.returncode}; no profile was changed"
         )
     names = [n for n in listed.stdout.splitlines() if n.strip()]
     for name in names:
@@ -1019,7 +1014,17 @@ def execute(plan: PowerPlan, *, uid: int | None = None) -> list[str]:
 In `src/hammunition/hardware/__init__.py`, add to the imports and `__all__`:
 
 ```python
-from .power import Parkable, PowerError, PowerPlan, Write, execute, guard, parkable, plan_park, plan_wake
+from .power import (
+    Parkable,
+    PowerError,
+    PowerPlan,
+    Write,
+    execute,
+    guard,
+    parkable,
+    plan_park,
+    plan_wake,
+)
 ```
 
 with `"Parkable"`, `"PowerError"`, `"PowerPlan"`, `"Write"`, `"execute"`, `"guard"`, `"parkable"`, `"plan_park"`, `"plan_wake"` added to `__all__` in the existing sorted order.
@@ -1790,9 +1795,7 @@ def test_the_policy_prompts_once_then_stays_quiet_for_the_session() -> None:
 
 def test_the_policy_annotates_the_wrapper_path_it_authorises() -> None:
     root = ElementTree.fromstring(policy_xml())
-    annotations = {
-        a.get("key"): (a.text or "") for a in root.findall("action/annotate")
-    }
+    annotations = {a.get("key"): (a.text or "") for a in root.findall("action/annotate")}
     assert annotations["org.freedesktop.policykit.exec.path"] == HELPER_PATH
     assert annotations["org.freedesktop.policykit.exec.allow_gui"] == "true"
 
@@ -1856,6 +1859,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+
 def wrapper_script(interpreter: str) -> str:
     """A three-line shell wrapper that execs the helper's module.
 
@@ -1871,7 +1875,7 @@ def wrapper_script(interpreter: str) -> str:
         "# polkit action at "
         + POLICY_PATH
         + "\n# authorises this exact path, and the next apply rewrites this file.\n"
-        "exec " + shlex.quote(interpreter) + " -m hammunition.cli.devctl \"$@\"\n"
+        "exec " + shlex.quote(interpreter) + ' -m hammunition.cli.devctl "$@"\n'
     )
 
 
@@ -1969,41 +1973,39 @@ and in `plan_hardware`, compute and pass `polkit=plan_polkit()`, importing it at
 In `cmd_hardware_apply`, after the rules commands and before the group loop, add:
 
 ```python
-    staged_polkit = Path(tempfile.gettempdir()) / "hammunition"
-    if not plan.polkit.helper_current:
-        print(f"Will install the privileged helper to {plan.polkit.helper_path}")
-        commands.append(
-            Command(
-                argv=(
-                    "install",
-                    "-D",
-                    "-m",
-                    "0755",
-                    str(staged_polkit / "hammunition-devctl"),
-                    plan.polkit.helper_path,
-                ),
-                description=f"Install the power-control helper to {plan.polkit.helper_path}",
-                requires_root=True,
-            )
+staged_polkit = Path(tempfile.gettempdir()) / "hammunition"
+if not plan.polkit.helper_current:
+    print(f"Will install the privileged helper to {plan.polkit.helper_path}")
+    commands.append(
+        Command(
+            argv=(
+                "install",
+                "-D",
+                "-m",
+                "0755",
+                str(staged_polkit / "hammunition-devctl"),
+                plan.polkit.helper_path,
+            ),
+            description=f"Install the power-control helper to {plan.polkit.helper_path}",
+            requires_root=True,
         )
-    if not plan.polkit.policy_current:
-        print(f"Will install the polkit action to {plan.polkit.policy_path}")
-        commands.append(
-            Command(
-                argv=(
-                    "install",
-                    "-D",
-                    "-m",
-                    "0644",
-                    str(staged_polkit / "devctl.policy"),
-                    plan.polkit.policy_path,
-                ),
-                description=(
-                    f"Install the polkit action authorising {plan.polkit.helper_path}"
-                ),
-                requires_root=True,
-            )
+    )
+if not plan.polkit.policy_current:
+    print(f"Will install the polkit action to {plan.polkit.policy_path}")
+    commands.append(
+        Command(
+            argv=(
+                "install",
+                "-D",
+                "-m",
+                "0644",
+                str(staged_polkit / "devctl.policy"),
+                plan.polkit.policy_path,
+            ),
+            description=(f"Install the polkit action authorising {plan.polkit.helper_path}"),
+            requires_root=True,
         )
+    )
 ```
 
 Stage both files beside the udev staging write, verify both by readback in the D-031 block, and append a transaction-log entry after success:
@@ -2554,9 +2556,7 @@ def test_no_other_catalog_entry_is_parkable_yet() -> None:
 
     classes, devices = load_hardware(REPO_ROOT / "catalog" / "hardware")
     parkables = [
-        name
-        for name, entry in {**classes, **devices}.items()
-        if entry.power_control is not None
+        name for name, entry in {**classes, **devices}.items() if entry.power_control is not None
     ]
     assert parkables == ["gps-receiver"]
 ```
