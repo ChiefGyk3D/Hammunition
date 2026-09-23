@@ -12,6 +12,8 @@ from typing import Any
 
 import pytest
 
+from hammunition.hardware.power import Parkable
+from hammunition.manifest.hardware import DeviceClass
 from hammunition.manifest.schema import PackageManifest
 from hammunition.menus import (
     Category,
@@ -903,3 +905,153 @@ def test_the_install_tail_reports_rather_than_fails_when_no_menu_can_be_decided(
     monkeypatch.setenv("XDG_CONFIG_DIRS", str(tmp_path / "nowhere"))
     lines = refresh_menus_after_install(REPO_CATALOG)
     assert any("not re-applied" in line for line in lines)
+
+
+# --- D-056 Task 7: park/wake menu entries for attached parkable devices ---
+
+
+def _parkable_stub(name: str, address: str, summary: str) -> Parkable:
+    """A device the sysfs sweep found and matched, as `device_entries` sees it.
+
+    Method and identifier are fixtures only -- `device_entries` never plans a
+    write, it only reads `.name`, `.address` and `.summary`.
+    """
+    return Parkable(
+        name=name,
+        summary=summary,
+        method="usb_deauthorize",
+        quiet=(),
+        sysfs_path=f"/sys/bus/usb/devices/{address}",
+        identifier="1546:01a7",
+        parked=False,
+    )
+
+
+def _device_class_stub(packages: list[str]) -> DeviceClass:
+    """A minimal ``gps-receiver`` class carrying the given catalog packages.
+
+    Only ``packages`` varies across the Task 7 tests -- everything else here
+    exists to satisfy the schema's required fields.
+    """
+    return DeviceClass.model_validate(
+        {
+            "name": "gps-receiver",
+            "summary": "USB GNSS receivers",
+            "packages": packages,
+            "documentation": {
+                "what_it_is": "A USB GNSS receiver reporting position and time.",
+                "what_you_can_do_with_it": "Feed position and time to the station via gpsd.",
+                "setup_steps": "Install gpsd, join dialout, log out and back in, run cgps.",
+            },
+            "usb_ids": [
+                {
+                    "vendor": "1546",
+                    "product": "01a7",
+                    "description": "u-blox 7 GNSS module",
+                    "evidence": "Debian 13 /usr/lib/udev/rules.d/60-gpsd.rules, gpsd 3.25.",
+                    "confirmed": True,
+                    "node_kind": "serial",
+                }
+            ],
+        }
+    )
+
+
+def _manifest_stub(name: str, categories: list[str]) -> PackageManifest:
+    """A minimal package manifest carrying the given categories.
+
+    An alias onto this file's existing `_manifest` fixture builder, kept as
+    its own name because the Task 7 brief's tests call it that way.
+    """
+    return _manifest(name, categories)
+
+
+def test_a_parkable_device_gets_a_park_and_a_wake_entry() -> None:
+    from hammunition.menus import device_entries
+
+    entries = device_entries(
+        parkables=[_parkable_stub("gps-receiver", "1-4", "USB GNSS receivers")],
+        entries={"gps-receiver": _device_class_stub(["gpsd-clients"])},
+        manifests={"gpsd-clients": _manifest_stub("gpsd-clients", ["gps-gnss"])},
+        hidden=frozenset(),
+    )
+    assert [e.verb for e in entries] == ["park", "wake"]
+    assert all(e.categories == ("gps-gnss",) for e in entries)
+
+
+def test_the_titles_carry_what_the_entry_does_then_the_command() -> None:
+    """D-054: a generated entry reads `Title (command)`, because `tlf` told
+    an operator nothing about what tlf is."""
+    from hammunition.menus import device_entries
+
+    entries = device_entries(
+        parkables=[_parkable_stub("gps-receiver", "1-4", "USB GNSS receivers")],
+        entries={"gps-receiver": _device_class_stub(["gpsd-clients"])},
+        manifests={"gpsd-clients": _manifest_stub("gpsd-clients", ["gps-gnss"])},
+        hidden=frozenset(),
+    )
+    titles = [e.title for e in entries]
+    assert titles == [
+        "Park GPS receiver (hammunition hardware park gps-receiver)",
+        "Wake GPS receiver (hammunition hardware wake gps-receiver)",
+    ]
+
+
+def test_the_desktop_ids_are_their_own_family_not_the_cli_one() -> None:
+    """cli_entry_steps prunes every hammunition-cli-*.desktop it did not
+    produce this run. Device entries in that family would delete each other."""
+    from hammunition.menus import device_entries
+
+    entries = device_entries(
+        parkables=[_parkable_stub("gps-receiver", "1-4", "USB GNSS receivers")],
+        entries={"gps-receiver": _device_class_stub(["gpsd-clients"])},
+        manifests={"gpsd-clients": _manifest_stub("gpsd-clients", ["gps-gnss"])},
+        hidden=frozenset(),
+    )
+    ids = {e.desktop_id for e in entries}
+    assert ids == {
+        "hammunition-device-gps-receiver-park.desktop",
+        "hammunition-device-gps-receiver-wake.desktop",
+    }
+    assert not any(i.startswith("hammunition-cli-") for i in ids)
+
+
+def test_two_of_a_kind_get_addressed_entries() -> None:
+    from hammunition.menus import device_entries
+
+    entries = device_entries(
+        parkables=[
+            _parkable_stub("gps-receiver", "1-4", "USB GNSS receivers"),
+            _parkable_stub("gps-receiver", "1-5", "USB GNSS receivers"),
+        ],
+        entries={"gps-receiver": _device_class_stub(["gpsd-clients"])},
+        manifests={"gpsd-clients": _manifest_stub("gpsd-clients", ["gps-gnss"])},
+        hidden=frozenset(),
+    )
+    assert len({e.desktop_id for e in entries}) == 4
+    assert "gps-receiver@1-5" in [e.exec for e in entries][-1]
+
+
+def test_a_device_whose_packages_have_no_visible_category_gets_no_entry() -> None:
+    from hammunition.menus import device_entries
+
+    assert (
+        device_entries(
+            parkables=[_parkable_stub("gps-receiver", "1-4", "USB GNSS receivers")],
+            entries={"gps-receiver": _device_class_stub(["gpsd-clients"])},
+            manifests={"gpsd-clients": _manifest_stub("gpsd-clients", ["gps-gnss"])},
+            hidden=frozenset({"gps-gnss"}),
+        )
+        == ()
+    )
+
+
+def test_stale_device_entries_are_pruned(tmp_path: Path) -> None:
+    from hammunition.menus import device_entry_steps
+
+    stale = tmp_path / "hammunition-device-old-receiver-park.desktop"
+    stale.write_text("[Desktop Entry]\n")
+    steps = device_entry_steps((), tmp_path, None)
+    for step in steps:
+        step.perform()
+    assert not stale.exists()

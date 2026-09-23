@@ -1438,6 +1438,8 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
         cli_entries,
         cli_entry_steps,
         decorate_entries,
+        device_entries,
+        device_entry_steps,
         gnome_commands,
         load_vocabulary,
         menu_steps,
@@ -1496,6 +1498,19 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
     steps.extend(refresh_launcher_entries(manifests.values(), applications))
     steps.extend(decorate_entries(applications, vocabulary.icons))
 
+    # D-050: a park/wake entry per catalogued device attached *today*. Built
+    # from the same hardware match the CLI verbs use, so the menu never
+    # offers a device that is not plugged in.
+    classes, devices = _load_hardware_catalog(args)
+    hw_entries: dict[str, DeviceClass | DeviceManifest] = {**classes, **devices}
+    from hammunition.hardware.detect import match_catalog, read_usb_bus
+    from hammunition.hardware.power import parkable as parkable_devices
+
+    hw_matches, _ = match_catalog(read_usb_bus(), hw_entries)
+    found, _ = parkable_devices(hw_matches, hw_entries)
+    device_generated = device_entries(found, hw_entries, manifests, hidden)
+    steps.extend(device_entry_steps(device_generated, applications, vocabulary.icons))
+
     desktop = os.environ.get("XDG_CURRENT_DESKTOP", "")
     wants_gnome = "GNOME" in desktop.upper() or args.gnome
     placed = sum(len(v) for v in placement.by_category.values())
@@ -1504,7 +1519,8 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
         f"menu prefix {prefix!r}; "
         f"{len(placement.claimed)} desktop entries from installed catalog packages "
         f"placed {placed} times by their manifests' categories (dpkg -L, checked on disk); "
-        f"{len(generated.entries)} entries generated for installed units that ship none"
+        f"{len(generated.entries)} entries generated for installed units that ship none; "
+        f"{len(device_generated)} power-control entries for parkable devices attached now"
     )
     for line in placement_summary(placement):
         print(line)
