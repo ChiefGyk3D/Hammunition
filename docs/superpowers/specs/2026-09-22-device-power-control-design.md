@@ -19,7 +19,7 @@ surfaces that all run the same privileged helper:
 |---|---|
 | `hammunition hardware park NAME` / `wake NAME` / `state` | prints the exact writes, runs the helper, exits by the CLI's existing codes |
 | two generated menu entries per parkable attached device | `Park GPS receiver (hammunition hardware park gps-receiver)`, `Wake …`; under the device's first category |
-| a Plasma 6 applet, `com.chiefgyk3d.hammunition.devices` | one switch per parkable attached device; polls `state`; flips run the helper |
+| a Plasma 6 applet, `com.chiefgyk3d.hammunition.devices`, in its own repository `ChiefGyk3D/hammunition-tray` | one switch per parkable attached device; polls `state`; flips run the helper |
 
 Parked state is **not** persisted. A reboot resets sysfs, every device wakes, and
 `state` reports the truth from sysfs. There is nothing to reconcile.
@@ -33,7 +33,8 @@ Parked state is **not** persisted. A reboot resets sysfs, every device wakes, an
   A of three considered; C, a D-Bus service with live state, is the shape to
   grow into if Hammunition ever carries a dozen device controls).
 - Not a change to what `hardware apply` already does for udev rules and groups.
-  It adds three installed artefacts beside them.
+  It adds two installed artefacts beside them (helper and polkit action). The
+  applet is a separate repository with its own installer.
 
 ## 3. Catalog: the `power_control` block
 
@@ -101,7 +102,8 @@ as the invoking user where they are per-user (NetworkManager profiles) by
 honouring `PKEXEC_UID`. It never reads the operator's station config.
 
 **Installed by `hardware apply`, beside the udev rules** (each printed in the
-plan, logged in the transaction, removed by `uninstall`):
+plan, logged in the transaction, removed by `uninstall`). These two are the
+privileged surface and belong with the engine:
 1. `/usr/local/libexec/hammunition-devctl`: a wrapper that execs the package
    entry point from the interpreter that owns the package (the venv the
    engine was installed into), so a `pkexec` path is stable across upgrades.
@@ -109,9 +111,7 @@ plan, logged in the transaction, removed by `uninstall`):
    one action, `allow_active=auth_self_keep` (prompt once, then quiet for the
    session), `allow_inactive=auth_admin`, `allow_any=auth_admin`, annotated
    with the wrapper path. The battery applet's exact shape.
-3. The Plasma applet package, installed with `kpackagetool6 --type
-   Plasma/Applet` as the invoking user (never root), upgraded if present.
-   Skipped with a note when `kpackagetool6` is absent (not Plasma).
+The applet is **not** installed by Hammunition; see section 5.
 
 The optional polkit **rule** that removes the prompt entirely for the active
 user is documented on the hardware page and never installed.
@@ -133,8 +133,13 @@ path with the D-054 title shape, `Exec=` the CLI verb, placed under the
 entry's first category (`gps-gnss` for the receiver, beside `cgps`). No
 vocabulary change. GNOME gets the same two entries in the group folder.
 
-**Plasma applet.** `plasmoid/package/` in this repo, mirroring
-`dell-battery-balance`'s structure (GPL-3.0-or-later, same author): a
+**Plasma applet.** Its own repository, `ChiefGyk3D/hammunition-tray`
+(GPL-3.0-or-later, same author), mirroring `dell-battery-balance`'s layout:
+`plasmoid/package/`, `install.sh`/`uninstall.sh` that run `kpackagetool6
+--type Plasma/Applet` as the invoking user (never root), a package test, a
+README that says it requires Hammunition's `hardware apply` to have installed
+the helper and policy. Hammunition's hardware page links to it; nothing in
+the engine depends on it. Inside the package: a
 `Plasma5Support.DataSource` executable engine runs `hammunition-devctl state`
 on a 5 s timer and renders one `Switch` per parkable device, labelled with the
 catalog summary; toggling runs `pkexec /usr/local/libexec/hammunition-devctl
@@ -170,24 +175,36 @@ never touches sysfs and never runs as root.
   uninstall removes exactly what the log records.
 - Menus: two entries per parkable attached device, correct category, D-054
   title shape.
-- Applet: a package test like `dell-battery-balance`'s (metadata, required
-  QML files present, no hardcoded device names).
+- Applet (in `hammunition-tray`): a package test like `dell-battery-balance`'s
+  (metadata, required QML files present, no hardcoded device names); its own
+  CI, per the standing rule that every repository gets one.
 - Docs: the generated CLI reference and device page pass `--check`.
 
 ## 8. Documentation (the feature is not done without it)
 
-- `docs/hardware/power-control.md`: what changes on the machine (three files,
+- `docs/hardware/power-control.md`: what changes on the machine (two files,
   which sysfs writes), why, how to inspect (`hardware state`, `lsusb`,
-  `pkaction`), how to reverse (`wake`, `uninstall`), the optional polkit rule.
+  `pkaction`), how to reverse (`wake`, `uninstall`), the optional polkit rule,
+  and a pointer to `hammunition-tray` for the tray switch.
 - `docs/reference/cli.md`: the three verbs and their exit codes.
 - `docs/hardware/gps-receiver-class.md`: regenerated from the manifest.
-- `docs/DECISIONS.md`: **D-056**, the first resident component and the polkit
-  boundary (why a helper and not `sudo hammunition`, why not a D-Bus service
-  yet, why parked state is not persisted, why `pci_runtime` ships refused).
+- `docs/DECISIONS.md`: **D-056**, the polkit boundary (why a helper and not
+  `sudo hammunition`, why not a D-Bus service yet, why parked state is not
+  persisted, why `pci_runtime` ships refused, why the applet is a separate
+  repository: it is a client of the engine, not part of it, and a
+  non-Hammunition user can be pointed at it).
 - `docs/reference/bench-verification-5430.md`: one line, only after this has
   been run on the field laptop.
 
-## 9. Out of scope (named so they are not lost)
+## 9. Delivery: two repositories, two plans
+
+1. **Hammunition** (this branch): schema, `hardware.power`, the helper, apply
+   and uninstall changes, CLI verbs, menu entries, tests, docs, D-056.
+2. **hammunition-tray** (`ChiefGyk3D/hammunition-tray`, created empty
+   2026-09-22): the applet, installer, package test, CI, README. Depends on
+   1 being installed on the machine; developed against it, second.
+
+## 10. Out of scope (named so they are not lost)
 
 - The `wwan-modem` class and `pci_runtime` implementation: the branch that
   brings up the Quectel EM160R-GL.
