@@ -4068,8 +4068,11 @@ the action names the one program root may run and polkit checks nothing about
 what that program is then asked to do. Pointing it at the whole engine
 (`sudo hammunition`, or a polkit action wrapping it) would authorise every
 verb the CLI has ever grown or will grow — `install`, `uninstall`, arbitrary
-catalog-driven apt and source-build execution — through a session-scoped
-`auth_self_keep` grant meant for one two-line sysfs write. The engine is not
+catalog-driven apt and source-build execution — through an `auth_self_keep`
+grant meant for one two-line sysfs write. (`auth_self_keep` keeps that grant
+for a few minutes after the one authentication, per polkit's own manual
+page, not for the rest of the session — a claim this feature's own docs got
+wrong on the first pass and had to correct.) The engine is not
 a thing to authorise wholesale. `hammunition-devctl` is a separate,
 deliberately small program: three verbs, no argv that carries a path or a
 plan, no station config, nothing an unprivileged caller supplies except a

@@ -1,24 +1,49 @@
 # Device power control
 
-**Parking a catalogued device tells the kernel to forget it and lets its USB
-port suspend.** It is the reversible equivalent of unplugging something you
-are not using right now — a GPS receiver that draws power on battery whether
-anything is reading it or not, a device you want off until the next session.
-This page covers what it does to a machine, per CLAUDE.md's rule that every
-system modification says what changes, why, how to inspect it afterwards, and
-how to reverse it.
+**Parking a catalogued device tells the kernel to drop its interfaces and
+lets its USB port suspend.** It is the reversible equivalent of unplugging
+something you are not using right now — a GPS receiver that draws power on
+battery whether anything is reading it or not, a device you want off until
+the next session. This page covers what it does to a machine, per CLAUDE.md's
+rule that every system modification says what changes, why, how to inspect it
+afterwards, and how to reverse it.
+
+**What follows is a mix of two kinds of claim, and they are kept visibly
+apart.** What the engine writes to sysfs, and reads back to confirm, is
+measured — it is exercised by this branch's own test suite on every run.
+What a device is expected to *look like* to the rest of the system while
+parked — `lsusb`, `dmesg`, gpsd's own hot-unplug handling — is not: **no
+park or wake has been run against real hardware yet**, on the field laptop
+or anywhere else. `docs/reference/bench-verification-5430.md` gets a line
+only once that has actually happened; until then, treat every claim below
+about consumer-visible behaviour as an expectation from reading the kernel's
+own sysfs documentation, not a measurement, the same way
+`catalog/hardware/classes/gps-receiver.yaml`'s `power_control.note` already
+hedges it for the one device that carries this block today.
 
 ## What parking is, and what it is not
 
 Parking writes `0` to a device's own `authorized` file under
 `/sys/bus/usb/devices/<address>/` and `auto` to its `power/control`. The
-kernel drops every interface the device presented — the same thing that
-happens on an ordinary unplug, and every consumer sees exactly that: a serial
-port that goes away, `dmesg` logging a disconnect, `lsusb` no longer listing
-it. Waking writes `1` back to `authorized`; the kernel re-enumerates the
-device as if it had just been plugged in. `power/control` is left alone on
-wake, deliberately — restoring it to `on` would undo a runtime power-management
-setting a udev rule or the operator already owns.
+kernel drops every interface the device presented, the same as an ordinary
+unplug — but **the sysfs node itself stays**: `authorized` is a file on the
+*device*, not on any one interface, so it is still there to read and to
+write back to `1`, which is the whole mechanism `wake` and
+`hammunition hardware state` depend on. If the node disappeared along with
+the interfaces, `state` could never report a device as parked and `wake`
+would have nothing to write to — parking a device does not remove it from
+the bus, it deauthorizes it on the bus.
+
+What a parked device is expected to look like elsewhere is not measured:
+`dmesg` logging a disconnect, `lsusb` no longer listing it, a serial
+consumer like `cgps` losing its port. Every interface really is gone, so
+that is the expected shape, but it has not been checked against a real
+device here. Waking writes `1` back to `authorized`; the kernel
+re-enumerates the device as if it had just been plugged in — expected to
+produce a fresh `dmesg` attach and `lsusb` entry, again unmeasured.
+`power/control` is left alone on wake, deliberately — restoring it to `on`
+would undo a runtime power-management setting a udev rule or the operator
+already owns.
 
 It is **not** a low-power mode the device itself enters, not a driver unload,
 and not anything that survives past the device being physically unplugged and
@@ -137,18 +162,30 @@ engine into a new venv updates what root actually executes.
 ```
 
 `allow_active=auth_self_keep` means an active local session authenticates
-once and stays authorised for the rest of that session — the shape a tray
-switch needs, because one that demands a password on every flip is a switch
-nobody uses. A remote or inactive session (SSH, a login on another virtual
-terminal) always needs `auth_admin`: parking someone else's device over SSH is
-not a thing a single password prompt should make easy.
+once and stays authorised for a few minutes afterwards — polkit's own manual
+page documents the interval as "a brief period (e.g. five minutes)" without
+committing to an exact number, so read it as "a few minutes", not as "the
+session". A park followed by a wake a few minutes later is one password; one
+at breakfast and the next at lunch is two. It is still the shape a tray
+switch needs, because one that demands a password on *every* flip is a
+switch nobody uses — it just does not remove the prompt for good. A remote
+or inactive session (SSH, a login on another virtual terminal) always needs
+`auth_admin`: parking someone else's device over SSH is not a thing a single
+password prompt should make easy.
 
 `hardware apply` is idempotent here exactly as it is for the udev rules: if
 both files already match what it would write, it reports that and does
-nothing. If either the interpreter path or the `hammunition` package
-directory it imports from is writable by more than its owner, `apply` refuses
-outright before writing anything — see **D-056** for why, and for the second,
-narrower case it only asks you to confirm.
+nothing. Before writing either one, it checks who could tamper with what
+root is about to run — the interpreter path and the `hammunition` package
+directory it imports from, both as given and resolved through any symlink.
+Two things make it refuse outright, before anything is written: either
+component being writable by more than its own owner (any local account, not
+just the one that created it, could then replace what root runs), or either
+component failing to `stat` at all, which is treated as unsafe rather than
+assumed safe. A component that is merely owned by one non-root account — the
+ordinary shape of a venv under `$HOME` — is not refused; `apply` discloses it
+and asks you to type the path back before proceeding, a confirmation `--yes`
+cannot satisfy. See **D-056** for the reasoning behind the distinction.
 
 ## The verbs and their exit codes
 
@@ -204,20 +241,28 @@ permissions are not.
 
 ## How to inspect it afterwards
 
+- **`cat /sys/bus/usb/devices/<address>/authorized`** — the ground truth for
+  one device: `0` means parked, `1` means not. This is the exact file
+  `park`/`wake` write and read back to confirm their own effect (D-031), so
+  in the moment either command ran it agrees with what it reported — asked
+  again later, the address may now name a different device entirely if
+  something was unplugged and replugged in between, which is exactly why
+  the verbs re-resolve `NAME` fresh from the bus on every call rather than
+  trusting an address from a previous run.
 - **`hammunition hardware state`** — the read-only, no-privilege summary of
-  what is parkable and what is parked right now.
-- **`lsusb`** — a parked device disappears from its listing exactly as an
-  unplugged one would; a woken device reappears with a new enumeration.
+  what is parkable and what is parked right now, reading the same file above
+  for every catalogued, attached device in one pass.
 - **`pkaction --action-id com.chiefgyk3d.hammunition.devctl --verbose`** —
   prints the polkit action as the system currently sees it: the
   `allow_active`/`allow_inactive`/`allow_any` defaults above, and confirms
   the action is actually registered (an `apply` that was never run, or one
   whose policy file failed verification, leaves this command reporting
   nothing for that action id).
-- **`cat /sys/bus/usb/devices/<address>/authorized`** — the ground truth for
-  one device: `0` means parked, `1` means not. This is the exact file
-  `park`/`wake` write and read back to confirm their own effect (D-031), so
-  it is never out of step with what `hardware state` reports.
+- **`lsusb`** — expected, not yet confirmed here, to no longer list a parked
+  device (every interface really is dropped) and to list a woken one again
+  under a fresh enumeration. Useful as a second, independent view once it
+  has been checked against `authorized` at least once; not a substitute for
+  reading `authorized` directly, which is the file the engine itself trusts.
 
 ## How to reverse it
 
@@ -232,11 +277,14 @@ permissions are not.
 
 ## Removing the authentication prompt for the active session (optional, never installed by us)
 
-`allow_active=auth_self_keep` already means one password gets you the rest of
-an active session. If even that one prompt is unwelcome — for a single-user
-field laptop where the active session *is* the operator — polkit supports a
-local authorization rule that grants the action to the active session with no
-prompt at all. **Hammunition never installs this file.** It is root-owned
+`allow_active=auth_self_keep` already means one password covers a park and a
+wake done a few minutes apart, but the grant lapses well before a session
+does — a flip at breakfast and another at lunch are two separate prompts. If
+even the recurring prompt is unwelcome — for a single-user field laptop
+where the active session *is* the operator — polkit supports a local
+authorization rule that grants the action to the active session with no
+prompt at all, for as long as that session stays active. **Hammunition never
+installs this file.** It is root-owned
 policy that widens what an unattended process can do without a password, and
 this project's own rule is that a security posture like that is the
 operator's decision alone, made in full, not something an install script
@@ -279,13 +327,28 @@ only wants the tray switch can be pointed straight at it.
 dismissed; nothing was changed" for any `pkexec` exit of 126 or 127. Per
 `pkexec`'s own manual page, that pair of codes is not only "you clicked
 Cancel": 126 is specifically the dialog being dismissed, and 127 covers
-every other way authorisation did not happen — the calling process is not
-authorized at all (an outright policy denial, not merely "not yet given"),
-authentication failed, **or an error occurred**, which is the bucket a
-target that exists but is not marked executable falls into — the state
-`/usr/local/libexec/hammunition-devctl` would be in if its permissions were
-altered by hand after `apply` wrote it `0755`. Nothing is written to the
-device in any of these cases, so this is a message-accuracy issue rather
-than a correctness one — but if the dialog never appeared at all, check
-`ls -l /usr/local/libexec/hammunition-devctl` before assuming you dismissed
-a prompt you never saw.
+every other way authorisation did not happen.
+
+**The likeliest 127 on a real ham's machine is not a denial at all — it is
+no authentication agent being available to show a dialog in the first
+place.** That is the ordinary state of a bare SSH session or a plain TTY
+with no desktop session behind it, and it is the first thing anyone running
+this headless will hit. `pkexec` falls back to registering its own textual
+agent only when nothing else offers one, and on some setups that fallback
+still isn't enough. If `park`/`wake` reports the prompt was "dismissed" and
+you were never on a graphical session (or a terminal a graphical session's
+own polkit agent is attached to) to dismiss anything, install `policykit-1`
+— the same package `hammunition hardware park`/`wake` already names in
+their own error message when `pkexec` is missing outright — and make sure a
+polkit authentication agent is actually running for that session.
+
+127 also covers the calling process being outright denied (a policy
+decision, not merely "not yet given") and authentication failing, and folds
+in **any other error**, which is the bucket a target that exists but is not
+marked executable falls into — the state `/usr/local/libexec/hammunition-devctl`
+would be in if its permissions were altered by hand after `apply` wrote it
+`0755`. Nothing is written to the device in any of these cases, so this is a
+message-accuracy issue rather than a correctness one — but if the dialog
+never appeared at all and an authentication agent genuinely is running,
+check `ls -l /usr/local/libexec/hammunition-devctl` before assuming you
+dismissed a prompt you never saw.

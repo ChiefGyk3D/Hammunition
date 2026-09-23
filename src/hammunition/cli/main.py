@@ -1639,8 +1639,8 @@ def _confirm_unsafe_interpreter(paths: list[str]) -> bool:
         f"{joined}\n"
         f"The polkit action about to be installed lets root run code reached "
         f"through one of these. Any active local session can authenticate once "
-        f"and run it as root for the rest of that session. This is not refused, "
-        f"but `--yes` does not satisfy it."
+        f"and run it as root for a few minutes afterwards (auth_self_keep). "
+        f"This is not refused, but `--yes` does not satisfy it."
     )
     try:
         typed = input(f"Type {paths[0]!r} to confirm and proceed: ").strip()
@@ -1824,7 +1824,7 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             f"Will install the privileged helper to {plan.polkit.helper_path}\n"
             f"  It execs {plan.polkit.interpreter} as root, through a polkit "
             f"action any active local session may satisfy once and keep "
-            f"authorised for the rest of that session "
+            f"authorised for a few minutes afterwards "
             f"(allow_active=auth_self_keep)."
         )
     if not plan.polkit.policy_current:

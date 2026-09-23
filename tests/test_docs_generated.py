@@ -412,13 +412,13 @@ def test_every_device_has_a_generated_page() -> None:
 def test_regenerating_the_hardware_reference_is_a_no_op() -> None:
     gen = _hardware_generator()
     rendered: dict[str, str] = gen.render()  # type: ignore[attr-defined]
-    # HAND_WRITTEN pages (docs/hardware/power-control.md, D-056) are prose the
-    # generator does not own and must never flag as stale -- see its own
-    # docstring on HAND_WRITTEN for why that used to be unsafe.
-    hand_written: frozenset[str] = gen.HAND_WRITTEN  # type: ignore[attr-defined]
-    on_disk = {
-        p.name: p.read_text() for p in HARDWARE_DOCS.glob("*.md") if p.name not in hand_written
-    }
+    # A hand-written page (docs/hardware/power-control.md, D-056) is prose
+    # the generator does not own and must never flag as stale. It identifies
+    # itself by NOT carrying the generator's own HEADER stamp as its first
+    # line -- see gen_hardware_reference.py's `_is_generated()` docstring for
+    # why a filename allowlist was rejected in favour of this.
+    is_generated = gen._is_generated  # type: ignore[attr-defined]
+    on_disk = {p.name: p.read_text() for p in HARDWARE_DOCS.glob("*.md") if is_generated(p)}
     stale = sorted(set(on_disk) - set(rendered))
     absent = sorted(set(rendered) - set(on_disk))
     changed = sorted(n for n in set(rendered) & set(on_disk) if rendered[n] != on_disk[n])

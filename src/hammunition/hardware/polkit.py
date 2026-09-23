@@ -61,10 +61,12 @@ def policy_xml() -> str:
     """One action, authorising one executable. The battery applet's shape.
 
     ``auth_self_keep`` on an active session: the operator authenticates once
-    and the session stays authorised, because a tray switch that asks for a
-    password on every flip is a tray switch nobody uses. Inactive and remote
-    sessions get ``auth_admin``, because parking someone else's GPS over SSH
-    is not a thing a password prompt should make easy.
+    and stays authorised for a few minutes afterwards (polkit's own manual
+    page: "a brief period (e.g. five minutes)", not the rest of the
+    session), because a tray switch that asks for a password on every single
+    flip is a tray switch nobody uses. Inactive and remote sessions get
+    ``auth_admin``, because parking someone else's GPS over SSH is not a
+    thing a password prompt should make easy.
     """
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE policyconfig PUBLIC
@@ -138,9 +140,10 @@ def writable_by_non_root(
     answer against.
 
     D-056's ruling: the wrapper execs this path (or a path under the
-    ``hammunition`` package directory) *as root*, through a polkit action that
-    an active local session can satisfy once and keep for the rest of that
-    session. A component that is group- or other-writable is checked across
+    ``hammunition`` package directory) *as root*, through a polkit action
+    that an active local session can satisfy once and keep for a few minutes
+    afterwards (``auth_self_keep``, not the rest of the session). A
+    component that is group- or other-writable is checked across
     the *whole* chain first, and wins over a merely non-root-owned one
     regardless of which is nearer the leaf — the real escalation must never
     be masked by a nearer, milder finding. Only once nothing in the chain is

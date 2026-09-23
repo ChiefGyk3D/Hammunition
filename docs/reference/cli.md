@@ -391,22 +391,43 @@ Detection drives nothing: it reports, and you decide (**D-020**).
 ### `hammunition hardware apply [--dry-run] [--yes] [--user NAME]`
 
 Writes the whole catalog's udev rules to
-`/etc/udev/rules.d/65-hammunition.rules`, reloads and triggers udev, and adds
-you to the device-access groups the catalog needs (`plugdev`, `dialout`).
+`/etc/udev/rules.d/65-hammunition.rules`, reloads and triggers udev, adds
+you to the device-access groups the catalog needs (`plugdev`, `dialout`),
+and — since **D-056** — installs the two artefacts device power control
+needs: a root-owned helper at `/usr/local/libexec/hammunition-devctl`
+(`0755`) and a polkit action at
+`/usr/share/polkit-1/actions/com.chiefgyk3d.hammunition.devctl.policy`
+(`0644`), which is what lets `hardware park`/`wake` ask `pkexec` to run that
+helper as root. See `docs/hardware/power-control.md` for what those two
+files contain and what installing them means.
 
 - **All the rules, not only attached devices' —** a udev rule is declarative
   and harmless for a device that is not present, so applying the whole set
   means a supported device works the moment you plug it in, not only if it
   happened to be attached when you ran this.
-- **Idempotent.** A rules file that already matches is a no-op, and a group
-  you are already in is skipped. Re-running when nothing has changed reports
-  "nothing to do".
+- **Idempotent.** A rules file, helper or policy file that already matches
+  what would be written is a no-op, and a group you are already in is
+  skipped. Re-running when nothing has changed reports "nothing to do".
 - **Disclosed and verified.** Every privileged command is printed before it
-  runs (`--dry-run` prints and stops); afterwards the rules file is re-read
-  against what was written and each group re-checked (**D-031**) — an exit
-  code is not taken as proof. The rules file is refused a rule for any device
-  whose identifier is ambiguous without a distinguishing product string, and
-  each such omission is printed with why (`docs/reference/device-naming.md`).
+  runs (`--dry-run` prints and stops); afterwards the rules file and the
+  polkit artefacts are re-read against what was written and each group
+  re-checked (**D-031**) — an exit code is not taken as proof. The rules file
+  is refused a rule for any device whose identifier is ambiguous without a
+  distinguishing product string, and each such omission is printed with why
+  (`docs/reference/device-naming.md`).
+- **Can refuse outright, or ask for a typed confirmation, before installing
+  the helper or the policy.** Before writing either polkit artefact, `apply`
+  checks whether the Python interpreter it would bake into the helper, and
+  the `hammunition` package directory that helper imports, could be
+  tampered with by anyone other than root. If either is writable by more
+  than its own owner (or could not even be `stat`'d), `apply` refuses
+  outright — exit code `2` — because any local account could then replace
+  what root is about to run. If either is merely owned by one non-root
+  account — the ordinary shape of a venv under `$HOME`, and this project's
+  own documented install — `apply` is not refused, but it prints the path
+  and requires it to be **typed back** before proceeding; `--yes` does not
+  satisfy this (**D-021**, **D-056**), and declining or mistyping it exits
+  `3`.
 - **Group membership applies at next login.** The command says so; log out
   and back in before expecting device access.
 
