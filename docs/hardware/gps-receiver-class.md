@@ -18,7 +18,7 @@ Install `gpsd`, `gpsd-clients` and `gpsd-tools`, join `dialout`, then log out an
 
 This device can be parked and woken. Method: `usb_deauthorize`.
 
-gpsd handles hot-unplug itself — Debian ships USBAUTO="true" in /etc/default/gpsd, confirmed live on Parrot 7.3 — so nothing needs quieting before the port goes down. `cgps` reports no fix while the receiver is parked, which is what a parked receiver looks like from the outside. On wake, the receiver is expected to reappear at /dev/gpsN with no action from you, on that same USBAUTO mechanism — but that half has not yet been run against a receiver on the field laptop, so it is an expectation, not a measurement, until bench-verification-5430.md records a park/wake cycle.
+gpsd handles hot-unplug itself — Debian ships USBAUTO="true" in /etc/default/gpsd, confirmed live on Parrot 7.3 — so nothing needs quieting before the port goes down. What the operator should expect while the receiver is parked is what any unplugged serial GPS looks like: `cgps` showing no fix, and the receiver back at /dev/gpsN on wake with no action from you, on that same USBAUTO mechanism. Neither of those has been run against a receiver on the field laptop yet, so both are expectations rather than measurements until bench-verification-5430.md records a park/wake cycle.
 
 ## Shared tooling
 
