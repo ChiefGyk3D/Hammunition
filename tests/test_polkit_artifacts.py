@@ -19,10 +19,12 @@ from hammunition.hardware.polkit import (
     PolkitArtifacts,
     WritabilityFinding,
     WritabilityRisk,
+    describe_refusal,
     plan_polkit,
     policy_xml,
     wrapper_script,
     writable_by_non_root,
+    writable_including_symlink_target,
 )
 
 _BASE_ARTIFACTS = {
@@ -327,3 +329,103 @@ def test_writable_by_non_root_treats_an_unstattable_component_as_the_severe_clas
     offending = writable_by_non_root("/opt/hammunition/.venv/bin/python3", stat_fn=raising)
     assert offending is not None
     assert offending.risk is WritabilityRisk.GROUP_OR_OTHER_WRITABLE
+    assert offending.unstatable is True, (
+        "fix round 3, item 6: an unstat'd component is a different fact from "
+        "an actually-writable one, and must be flagged as such"
+    )
+
+
+def test_writable_by_non_root_a_real_writable_component_is_not_flagged_unstatable() -> None:
+    """The mirror of the test above: a component that really is group- or
+    other-writable (and stat'd successfully) must not carry the `unstatable`
+    flag, or `describe_refusal` would understate it."""
+    chain = {
+        "/opt/thing": _stat(0, 0o40777),
+        "/opt": _stat(0),
+        "/": _stat(0),
+    }
+    offending = writable_by_non_root("/opt/thing", stat_fn=lambda p: chain[p])
+    assert offending is not None
+    assert offending.unstatable is False
+
+
+def test_describe_refusal_distinguishes_writable_from_unstatable() -> None:
+    """Fix round 3, item 6: 'is writable by any local account' is simply
+    false of a component that could not be read at all -- different fact,
+    different sentence."""
+    writable = WritabilityFinding("/opt/thing", WritabilityRisk.GROUP_OR_OTHER_WRITABLE)
+    unstatable = WritabilityFinding(
+        "/opt/other", WritabilityRisk.GROUP_OR_OTHER_WRITABLE, unstatable=True
+    )
+
+    writable_text = describe_refusal([writable])
+    assert "writable" in writable_text.lower()
+    assert "could not be checked" not in writable_text.lower()
+
+    unstatable_text = describe_refusal([unstatable])
+    assert "could not be checked" in unstatable_text.lower()
+    assert "is writable by any local account" not in unstatable_text
+
+
+def test_writable_including_symlink_target_catches_a_writable_symlink_directory(
+    tmp_path: Path,
+) -> None:
+    """Fix round 3, item 1 (Critical): `plan_polkit` and the devctl runtime
+    check both checked only the *resolved* interpreter path, but the wrapper
+    ``exec``s the *unresolved* one. A world-writable directory holding a
+    symlink to an otherwise root-owned, clean-chain target disabled both
+    gates completely: resolving first hides exactly the directory an
+    attacker would use to retarget the symlink itself.
+
+    Reproduces the reviewer's exact tree, built for real under `tmp_path` --
+    a real 0777 directory holding a real symlink to a real root-owned
+    system binary -- not a synthetic `stat_fn`, because the bug was in how
+    two real filesystem calls (direct vs. resolved) were combined, not in
+    the single-chain scan itself.
+    """
+    target = Path("/usr/bin/python3.13")
+    if not target.is_file():
+        pytest.skip("this machine has no /usr/bin/python3.13 to symlink to")
+
+    bin_dir = tmp_path / "hamvenv" / "bin"
+    bin_dir.mkdir(parents=True)
+    os.chmod(bin_dir, 0o777)
+    symlink = bin_dir / "python3"
+    symlink.symlink_to(target)
+
+    # The regression, demonstrated directly: checking only the resolved path
+    # finds nothing wrong, because the target's own chain really is clean.
+    assert writable_by_non_root(os.path.realpath(str(symlink))) is None
+
+    # The fix: the union also checks the unresolved path and catches the
+    # writable directory the symlink itself sits in.
+    finding = writable_including_symlink_target(str(symlink))
+    assert finding is not None
+    assert finding.risk is WritabilityRisk.GROUP_OR_OTHER_WRITABLE
+    assert finding.path == str(bin_dir)
+
+
+def test_writable_including_symlink_target_falsification_resolved_only_misses_it(
+    tmp_path: Path,
+) -> None:
+    """Falsifies the exact round-2 regression: a version of the union that
+    checks only the resolved path (what every call site did before fix
+    round 3) must be shown finding nothing, over the same tree the test
+    above proves the real fix catches."""
+    target = Path("/usr/bin/python3.13")
+    if not target.is_file():
+        pytest.skip("this machine has no /usr/bin/python3.13 to symlink to")
+
+    bin_dir = tmp_path / "hamvenv" / "bin"
+    bin_dir.mkdir(parents=True)
+    os.chmod(bin_dir, 0o777)
+    symlink = bin_dir / "python3"
+    symlink.symlink_to(target)
+
+    def resolved_only(path: str) -> WritabilityFinding | None:
+        return writable_by_non_root(os.path.realpath(path))
+
+    assert resolved_only(str(symlink)) is None, (
+        "this is the bug fix round 3 closes, demonstrated directly: a "
+        "resolved-only check must find nothing on a tree the real fix flags"
+    )

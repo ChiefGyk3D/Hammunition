@@ -21,10 +21,12 @@ __all__ = [
     "PolkitArtifacts",
     "WritabilityFinding",
     "WritabilityRisk",
+    "describe_refusal",
     "plan_polkit",
     "policy_xml",
     "wrapper_script",
     "writable_by_non_root",
+    "writable_including_symlink_target",
 ]
 
 HELPER_PATH = "/usr/local/libexec/hammunition-devctl"
@@ -113,6 +115,14 @@ class WritabilityFinding:
 
     path: str
     risk: WritabilityRisk
+    unstatable: bool = False
+    """True when ``path`` was classified :attr:`WritabilityRisk.GROUP_OR_OTHER_WRITABLE`
+    only because it could not be `stat()`'d at all (fail-closed, since it
+    cannot be proven safe either) -- not because it is actually writable.
+    Different fact, and the message shown for it should say so (fix round
+    3): "is writable by any local account" is simply false of a component
+    that could not be read at all, typically a permission problem on the way
+    down rather than a loose one."""
 
 
 def writable_by_non_root(
@@ -136,7 +146,9 @@ def writable_by_non_root(
     be masked by a nearer, milder finding. Only once nothing in the chain is
     writable by everyone does the nearest merely-non-root-owned component
     become the (confirmable) answer. A component that cannot be stat'd at all
-    is treated as the severe case: it cannot be proven safe either.
+    is treated as the severe case (:attr:`WritabilityFinding.unstatable`):
+    it cannot be proven safe either, but it is a different fact from actually
+    being writable, and is reported as one.
     """
     current = Path(path)
     chain = [current, *current.parents]
@@ -148,7 +160,11 @@ def writable_by_non_root(
             stats.append((str(component), None))
 
     for name, info in stats:
-        if info is None or info.st_mode & (stat_module.S_IWGRP | stat_module.S_IWOTH):
+        if info is None:
+            return WritabilityFinding(
+                name, WritabilityRisk.GROUP_OR_OTHER_WRITABLE, unstatable=True
+            )
+        if info.st_mode & (stat_module.S_IWGRP | stat_module.S_IWOTH):
             return WritabilityFinding(name, WritabilityRisk.GROUP_OR_OTHER_WRITABLE)
 
     for name, info in stats:
@@ -156,6 +172,35 @@ def writable_by_non_root(
             return WritabilityFinding(name, WritabilityRisk.OWNED_BY_NON_ROOT)
 
     return None
+
+
+def writable_including_symlink_target(
+    path: str | Path, *, stat_fn: Callable[[str], os.stat_result] = os.stat
+) -> WritabilityFinding | None:
+    """:func:`writable_by_non_root` over ``path`` exactly as given, unioned
+    with the same check over its resolved real path -- the severe class
+    winning across both, exactly as it already wins within one chain.
+
+    Fix round 3's regression: every call site checked only
+    ``os.path.realpath(path)``, which resolves *through* a symlink and so
+    never looks at the directory the symlink itself sits in. The wrapper
+    ``exec``s (and the package is imported from) the path exactly as given,
+    unresolved -- if that path is a symlink, a 0777 directory holding a
+    clean symlink to an otherwise root-owned target passed the resolved-only
+    check as safe, because resolution hid the one directory an attacker
+    would actually use: retarget the symlink, not the root-owned file it
+    used to point to. Checking only the unresolved path would just as
+    wrongly miss a writable *target* the symlink already trusts (a clean
+    symlink pointing at a file someone else can overwrite). Both checked;
+    worse of the two wins.
+    """
+    direct = writable_by_non_root(path, stat_fn=stat_fn)
+    resolved = writable_by_non_root(os.path.realpath(path), stat_fn=stat_fn)
+    findings = [f for f in (direct, resolved) if f is not None]
+    for finding in findings:
+        if finding.risk is WritabilityRisk.GROUP_OR_OTHER_WRITABLE:
+            return finding
+    return findings[0] if findings else None
 
 
 @dataclass(frozen=True)
@@ -175,8 +220,9 @@ class PolkitArtifacts:
     will let root run."""
 
     unsafe_interpreter: WritabilityFinding | None
-    """:func:`writable_by_non_root` on the interpreter's resolved real path,
-    or ``None`` when every component up to ``/`` is closed to non-root."""
+    """:func:`writable_including_symlink_target` on the interpreter path --
+    both as given and its resolved real path -- or ``None`` when every
+    component of both chains is closed to non-root."""
 
     unsafe_package: WritabilityFinding | None
     """The same check against the ``hammunition`` package's own directory —
@@ -223,6 +269,31 @@ class PolkitArtifacts:
         """Every path flagged :attr:`WritabilityRisk.GROUP_OR_OTHER_WRITABLE`."""
         return [f.path for f in self._findings if f.risk is WritabilityRisk.GROUP_OR_OTHER_WRITABLE]
 
+    @property
+    def refusing_findings(self) -> list[WritabilityFinding]:
+        """The full findings behind :attr:`refusing_paths`, so a caller can
+        tell "actually writable" from "could not be checked at all" apart
+        when it renders the refusal (fix round 3, item 6) rather than
+        reporting the stronger claim for both."""
+        return [f for f in self._findings if f.risk is WritabilityRisk.GROUP_OR_OTHER_WRITABLE]
+
+
+def describe_refusal(findings: list[WritabilityFinding]) -> str:
+    """One clause per finding, said accurately: "writable by any local
+    account" only for a finding that really is, "could not be checked" for
+    one that is refused merely because it could not be proven safe (fix
+    round 3, item 6 -- the two are different facts, and were reported with
+    the same, stronger sentence for both)."""
+    clauses = []
+    for finding in findings:
+        if finding.unstatable:
+            clauses.append(
+                f"{finding.path} could not be checked (a stat failure), and is treated as unsafe until it can be"
+            )
+        else:
+            clauses.append(f"{finding.path} is writable by any local account, not only its owner")
+    return "; ".join(clauses)
+
 
 def _current(path: str, content: str) -> bool:
     try:
@@ -233,8 +304,13 @@ def _current(path: str, content: str) -> bool:
 
 def _package_dir() -> str:
     """The ``hammunition`` package's own directory — two parents up from this
-    file (``.../hammunition/hardware/polkit.py`` → ``.../hammunition``)."""
-    return str(Path(__file__).resolve().parent.parent)
+    file (``.../hammunition/hardware/polkit.py`` → ``.../hammunition``).
+
+    Deliberately *not* resolved here: :func:`writable_including_symlink_target`
+    checks this path and its resolved real path both, and resolving it first
+    would throw away exactly the symlink-holding directory that check exists
+    to catch."""
+    return str(Path(os.path.abspath(__file__)).parent.parent)
 
 
 def plan_polkit(interpreter: str | None = None) -> PolkitArtifacts:
@@ -243,9 +319,12 @@ def plan_polkit(interpreter: str | None = None) -> PolkitArtifacts:
     ``interpreter`` defaults to the interpreter running this process, which is
     by construction the one that can import the package. The wrapper bakes in
     exactly what is passed (or ``sys.executable``) unresolved — what actually
-    runs when the wrapper is exec'd — while the safety check below resolves
-    symlinks first, because a symlink is exactly the kind of component that
-    can make an unsafe target look closed.
+    runs when the wrapper is exec'd. The safety check below is not "resolve
+    symlinks first": it checks the unresolved path *and* its resolved real
+    path, and takes the worse answer, because checking only the resolved
+    path hides the directory a symlink itself sits in (fix round 3) and
+    checking only the unresolved one would just as wrongly miss an unsafe
+    resolved target.
     """
     python = interpreter or sys.executable
     helper = wrapper_script(python)
@@ -258,6 +337,6 @@ def plan_polkit(interpreter: str | None = None) -> PolkitArtifacts:
         helper_current=_current(HELPER_PATH, helper),
         policy_current=_current(POLICY_PATH, policy),
         interpreter=python,
-        unsafe_interpreter=writable_by_non_root(os.path.realpath(python)),
-        unsafe_package=writable_by_non_root(_package_dir()),
+        unsafe_interpreter=writable_including_symlink_target(python),
+        unsafe_package=writable_including_symlink_target(_package_dir()),
     )

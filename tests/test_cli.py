@@ -1781,6 +1781,77 @@ def test_hardware_apply_refuses_hard_when_the_interpreter_tree_is_group_or_other
     assert "refus" in err.lower()
 
 
+def test_hardware_apply_gates_a_policy_only_install_too(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fix round 3, item 2: the helper is already current (byte-identical
+    from an earlier apply) and only the polkit action is missing or stale --
+    the *worse* case, not a milder one, since installing the policy alone is
+    exactly what turns an already-present helper into a root-exec an active
+    session can authorise. Both prior tests exercised the opposite
+    combination (helper installing, policy already current), which is why a
+    gate keyed on `preview_helper is not None` alone was invisible to them."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    from hammunition.hardware.polkit import WritabilityRisk
+
+    polkit = _polkit_artifacts(
+        tmp_path,
+        helper_current=True,
+        policy_current=False,
+        unsafe_interpreter="/opt/hammunition/.venv",
+        risk=WritabilityRisk.GROUP_OR_OTHER_WRITABLE,
+    )
+    plan = _hardware_plan(tmp_path, polkit=polkit)
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+
+    class Exploding:
+        def run(self, command: Command) -> CommandResult:  # pragma: no cover
+            raise AssertionError("must not install the policy when refused outright")
+
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: Exploding())
+
+    assert cli.main(["hardware", "apply", "--yes"]) == EXIT_UNPLANNABLE
+    err = capsys.readouterr().err
+    assert "/opt/hammunition/.venv" in err
+    assert "refus" in err.lower()
+
+
+def test_hardware_apply_dry_run_discloses_a_refusal_instead_of_a_plan(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fix round 3, item 4: a dry run on a tree that a real run would refuse
+    must say so, not print "Dry run: nothing above was executed" and exit 0
+    as though everything were fine -- CLAUDE.md's "complete and accurate,
+    not approximate." """
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    from hammunition.hardware.polkit import WritabilityRisk
+
+    polkit = _polkit_artifacts(
+        tmp_path,
+        helper_current=False,
+        policy_current=True,
+        unsafe_interpreter="/opt/hammunition/.venv",
+        risk=WritabilityRisk.GROUP_OR_OTHER_WRITABLE,
+    )
+    plan = _hardware_plan(tmp_path, polkit=polkit)
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+
+    class Exploding:
+        def run(self, command: Command) -> CommandResult:  # pragma: no cover
+            raise AssertionError("a dry run executed something")
+
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: Exploding())
+
+    assert cli.main(["hardware", "apply", "--dry-run"]) == EXIT_UNPLANNABLE
+    out, err = capsys.readouterr()
+    assert "refus" in err.lower()
+    assert "Dry run: nothing above was executed" not in out
+
+
 def test_hardware_apply_discloses_both_offending_paths_when_both_are_flagged(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1819,12 +1890,16 @@ def test_hardware_apply_discloses_both_offending_paths_when_both_are_flagged(
     assert any("/opt/hammunition/.venv" in p for p in typed_prompts)
 
 
-def test_hardware_apply_dry_run_creates_no_staging_directory(
+def test_hardware_apply_dry_run_never_calls_mkdtemp(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Fix round 2, item 4: `--dry-run` must be a true no-op. `mkdtemp()` is a
-    real filesystem side effect, and the old code ran it before the dry-run
-    check even executed."""
+    """Fix round 2, item 4 / fix round 3, item 3: `--dry-run` must be a true
+    no-op. The round-2 test watched leftovers (`os.listdir(gettempdir())`
+    before and after), but round 1's code created *and removed* the staging
+    directory inside a `try/finally` even on the dry-run return path, so
+    `after - before` was already empty against the exact code this was
+    written to catch -- it passed without ever exercising the fix. This
+    instead asserts `mkdtemp` is never *called* in the first place."""
     import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
@@ -1833,7 +1908,13 @@ def test_hardware_apply_dry_run_creates_no_staging_directory(
     plan = _hardware_plan(tmp_path, polkit=polkit)
     _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
 
-    before = set(os.listdir(tempfile.gettempdir()))
+    calls: list[str] = []
+
+    def recording_mkdtemp(*args: object, **kwargs: object) -> str:
+        calls.append("called")
+        raise AssertionError("mkdtemp must not be called during a dry run")
+
+    monkeypatch.setattr(cli.tempfile, "mkdtemp", recording_mkdtemp)
 
     class Exploding:
         def run(self, command: Command) -> CommandResult:  # pragma: no cover
@@ -1842,10 +1923,7 @@ def test_hardware_apply_dry_run_creates_no_staging_directory(
     monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: Exploding())
 
     assert cli.main(["hardware", "apply", "--dry-run"]) == 0
-    after = set(os.listdir(tempfile.gettempdir()))
-    new_entries = after - before
-    staging_entries = [e for e in new_entries if e.startswith("hammunition-hardware-")]
-    assert staging_entries == [], f"dry-run left behind: {staging_entries}"
+    assert calls == []
 
 
 def test_hardware_apply_logs_the_helper_even_when_the_policy_install_then_fails(

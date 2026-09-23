@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import json
 import os
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -170,7 +172,7 @@ def test_refuses_to_run_as_root_when_the_tree_is_group_or_other_writable(
     monkeypatch.setattr(os, "geteuid", lambda: 0)
     monkeypatch.setattr(
         devctl,
-        "writable_by_non_root",
+        "writable_including_symlink_target",
         lambda path: WritabilityFinding(
             "/opt/hammunition/.venv", WritabilityRisk.GROUP_OR_OTHER_WRITABLE
         ),
@@ -192,7 +194,7 @@ def test_warns_but_proceeds_when_the_tree_is_merely_owned_by_non_root(
     monkeypatch.setattr(os, "geteuid", lambda: 0)
     monkeypatch.setattr(
         devctl,
-        "writable_by_non_root",
+        "writable_including_symlink_target",
         lambda path: WritabilityFinding(
             "/opt/hammunition/.venv", WritabilityRisk.OWNED_BY_NON_ROOT
         ),
@@ -216,10 +218,65 @@ def test_does_not_refuse_when_not_actually_running_as_root(
     monkeypatch.setattr(os, "geteuid", lambda: 1000)
     monkeypatch.setattr(
         devctl,
-        "writable_by_non_root",
+        "writable_including_symlink_target",
         lambda path: WritabilityFinding(
             "/opt/hammunition/.venv", WritabilityRisk.GROUP_OR_OTHER_WRITABLE
         ),
     )
     monkeypatch.setattr(devctl, "_survey", lambda: ([], []))
     assert main(["state"]) == 0
+
+
+def test_runtime_check_is_load_bearing_for_the_package_directory(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fix round 3, item 5: the three tests above stub
+    `writable_including_symlink_target` module-wide, so dropping either the
+    interpreter call or the package-dir call in `_runtime_writability_findings`
+    would fail none of them. This exercises the *real* helper against a real
+    `tmp_path` tree, with the interpreter pointed at a genuinely safe system
+    binary, so only the package-directory call site can be driving the
+    refusal."""
+    import hammunition.cli.devctl as devctl
+
+    unsafe_root = tmp_path / "pkg"
+    unsafe_root.mkdir()
+    os.chmod(unsafe_root, 0o777)
+    fake_file = unsafe_root / "hammunition" / "cli" / "devctl.py"
+    fake_file.parent.mkdir(parents=True)
+    fake_file.write_text("# stand-in for this module's own __file__")
+
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setattr(devctl, "__file__", str(fake_file))
+    monkeypatch.setattr(sys, "executable", "/usr/bin/python3")
+
+    assert main(["state"]) == 2
+    err = capsys.readouterr().err
+    assert str(unsafe_root) in err
+
+
+def test_runtime_check_is_load_bearing_for_the_interpreter(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The mirror of the test above: the package directory is pointed at a
+    real, safely root-owned system directory (`/usr`), so only the
+    interpreter call site can be driving the refusal here."""
+    import hammunition.cli.devctl as devctl
+
+    unsafe_root = tmp_path / "venv"
+    unsafe_root.mkdir()
+    os.chmod(unsafe_root, 0o777)
+    fake_python = unsafe_root / "bin" / "python3"
+    fake_python.parent.mkdir(parents=True)
+    fake_python.write_text("#!/bin/sh\n")
+    fake_python.chmod(0o755)
+
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    # /usr/fake/cli/devctl.py -> parent.parent is /usr, real and root-owned
+    # on any target this suite runs on.
+    monkeypatch.setattr(devctl, "__file__", "/usr/fake/cli/devctl.py")
+    monkeypatch.setattr(sys, "executable", str(fake_python))
+
+    assert main(["state"]) == 2
+    err = capsys.readouterr().err
+    assert str(unsafe_root) in err

@@ -78,7 +78,7 @@ from hammunition.execute import (
     user_groups,
 )
 from hammunition.fetch import Fetcher
-from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH
+from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH, describe_refusal
 from hammunition.kernel import KernelProbe
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
@@ -1816,41 +1816,52 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
     for group in plan.groups_to_add:
         print(f"Will add {user!r} to the {group!r} group")
 
-    preview_commands, preview_helper, _ = build_commands("<staging>")
+    preview_commands, preview_helper, preview_policy = build_commands("<staging>")
+    installing_polkit = preview_helper is not None or preview_policy is not None
+    """Whether this run installs *either* privileged artefact. Fix round 3:
+    the helper and the policy are both routes to the same root-exec, and a
+    policy-only apply (helper already current, only the action missing or
+    stale) is the *worse* case, not a milder one -- installing the policy is
+    exactly what turns an already-present helper into something an active
+    session can authorise. Both refusal and confirmation below must gate on
+    this, not on the helper alone."""
     euid = os.geteuid()
     print(f"\nCommands ({len(preview_commands)}):")
     for command in preview_commands:
         print(f"  # {command.description}")
         print(f"  $ {command.display(euid=euid)}")
 
-    if args.dry_run:
-        print("\nDry run: nothing above was executed.")
-        return EXIT_OK
-
+    # Fix round 3: evaluated *before* the dry-run return, not after, so a
+    # dry run on an unsafe tree reports the refusal a real run would give
+    # rather than printing the full plan and exiting 0 -- CLAUDE.md's
+    # "--dry-run must be complete and accurate, not approximate."
+    #
     # Fix round 2: round 1 conflated "any local account can write it" with
     # "one specific non-root account owns it" into a single refusal, and a
     # devctl startup check that hard-refused on either broke the project's
     # own documented install -- a venv under $HOME is *always* non-root-owned.
     # Only the group/other-writable case is the actual escalation, and only
     # that one is refused outright, here at apply time.
-    if preview_helper is not None and plan.polkit.must_refuse:
-        paths = ", ".join(sorted(set(plan.polkit.refusing_paths)))
+    if installing_polkit and plan.polkit.must_refuse:
         print(
-            f"error: refusing to install the helper: {paths} is writable by any "
-            f"local account, not only its owner. That is the escalation this "
-            f"project refuses outright rather than merely confirms -- fix its "
-            f"permissions, then re-run `hardware apply`.",
+            f"error: refusing to install: {describe_refusal(plan.polkit.refusing_findings)}. "
+            f"That is the escalation this project refuses outright rather than merely "
+            f"confirms -- fix it, then re-run `hardware apply`.",
             file=sys.stderr,
         )
         return EXIT_UNPLANNABLE
 
+    if args.dry_run:
+        print("\nDry run: nothing above was executed.")
+        return EXIT_OK
+
     # D-056's ruling: never refuse a wrapper that bakes in an interpreter or
     # package tree one non-root account owns — that is the normal shape of a
     # venv this project's own operator owns — but never let `--yes` wave it
-    # through either (D-021). Typed confirmation only, and only when the
-    # wrapper is actually about to be (re)written.
+    # through either (D-021). Typed confirmation only, and only when either
+    # privileged artefact is actually about to be (re)written.
     if (
-        preview_helper is not None
+        installing_polkit
         and plan.polkit.needs_confirmation
         and not _confirm_unsafe_interpreter(plan.polkit.confirmable_paths)
     ):

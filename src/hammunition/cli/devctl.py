@@ -27,7 +27,12 @@ import os
 import sys
 from pathlib import Path
 
-from hammunition.hardware.polkit import WritabilityFinding, WritabilityRisk, writable_by_non_root
+from hammunition.hardware.polkit import (
+    WritabilityFinding,
+    WritabilityRisk,
+    describe_refusal,
+    writable_including_symlink_target,
+)
 from hammunition.hardware.power import (
     Parkable,
     PowerError,
@@ -152,9 +157,14 @@ def _runtime_writability_findings() -> tuple[WritabilityFinding | None, Writabil
     permission loosened by hand), so this is not redundant with the
     apply-time gate; it is the defence for the gap between "we checked" and
     "we are now running".
+
+    Both paths passed unresolved, deliberately: :func:`writable_including_symlink_target`
+    checks the given path *and* its resolved real path, and resolving here
+    first would throw away exactly the symlink-holding directory that exists
+    to catch (fix round 3).
     """
-    interpreter = writable_by_non_root(os.path.realpath(sys.executable))
-    package = writable_by_non_root(str(Path(__file__).resolve().parent.parent))
+    interpreter = writable_including_symlink_target(sys.executable)
+    package = writable_including_symlink_target(str(Path(os.path.abspath(__file__)).parent.parent))
     return interpreter, package
 
 
@@ -179,11 +189,10 @@ def _refuse_or_warn_if_unsafe() -> int | None:
         if f is not None and f.risk is WritabilityRisk.GROUP_OR_OTHER_WRITABLE
     ]
     if refusing:
-        paths = ", ".join(sorted({f.path for f in refusing}))
         print(
-            f"error: refusing to run: {paths} is writable by any local account, and "
-            f"this process is running as root through it. Fix its permissions, then "
-            f"re-run `hammunition hardware apply`.",
+            f"error: refusing to run: {describe_refusal(refusing)}, and this process "
+            f"is running as root through it. Fix it, then re-run "
+            f"`hammunition hardware apply`.",
             file=sys.stderr,
         )
         return EXIT_UNPLANNABLE
