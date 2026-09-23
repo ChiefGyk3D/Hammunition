@@ -18,9 +18,12 @@ import os
 import pwd
 import sys
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
+
+if TYPE_CHECKING:
+    from hammunition.hardware.power import Parkable
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -1362,3 +1365,128 @@ def test_the_plan_names_the_units_that_asked_for_no_recommends() -> None:
     assert len(installs) == 2
     for command in installs:
         assert command.display(euid=0) in text
+
+
+# ---------------------------------------------------------------------------
+# hardware park / wake / state (D-056)
+# ---------------------------------------------------------------------------
+
+
+def _gps_receiver() -> Parkable:
+    """A stand-in attached device for park/wake tests that must get past
+    `resolve_parkable` to reach the code under test. The dev machine this
+    suite runs on carries no real GPS receiver, so `_survey_parkables` is
+    monkeypatched to return one — a real `Parkable`, not a duck-typed stub,
+    because `plan_park`/`plan_wake` read `method`, `quiet` and `sysfs_path`
+    off it. The sysfs path is fabricated but shaped like a real USB node
+    (`guard()` only checks the string, never the filesystem) so planning
+    succeeds without anything on disk actually existing at that path."""
+    from hammunition.hardware.power import Parkable
+
+    return Parkable(
+        name="gps-receiver",
+        summary="USB GNSS receivers",
+        method="usb_deauthorize",
+        quiet=(),
+        sysfs_path="/sys/bus/usb/devices/1-4",
+        identifier="1234:5678",
+        parked=False,
+    )
+
+
+def test_hardware_park_refuses_when_the_helper_is_not_installed(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exit 2, naming the missing artefact and the command that installs it.
+    A pkexec against a path that does not exist gives the operator an
+    authentication prompt followed by 'command not found', which is the worst
+    of both."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    monkeypatch.setattr(cli, "HELPER_PATH", "/nonexistent/hammunition-devctl")
+    assert cli.main(["hardware", "park", "gps-receiver"]) == 2
+    err = capsys.readouterr().err
+    assert "/nonexistent/hammunition-devctl" in err
+    assert "hardware apply" in err
+
+
+def test_hardware_park_prints_the_pkexec_line_and_stops_on_dry_run(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    helper = tmp_path / "hammunition-devctl"
+    helper.write_text("#!/bin/sh\n")
+    helper.chmod(0o755)
+    monkeypatch.setattr(cli, "HELPER_PATH", str(helper))
+    monkeypatch.setattr(cli, "_survey_parkables", lambda args: ([_gps_receiver()], []))
+
+    class Exploding:
+        def run(self, command: Command) -> CommandResult:  # pragma: no cover - must not be reached
+            raise AssertionError("a dry run executed something")
+
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: Exploding())
+    assert cli.main(["hardware", "park", "gps-receiver", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "pkexec" in out
+    assert str(helper) in out
+    assert "Dry run" in out
+
+
+def test_hardware_park_maps_a_dismissed_prompt_to_exit_3(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """pkexec exits 126 when the dialog is dismissed. That is a declined
+    consent, not a failure: nothing was written and exit 3 says so."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    helper = tmp_path / "hammunition-devctl"
+    helper.write_text("#!/bin/sh\n")
+    helper.chmod(0o755)
+    monkeypatch.setattr(cli, "HELPER_PATH", str(helper))
+    monkeypatch.setattr(cli, "_survey_parkables", lambda args: ([_gps_receiver()], []))
+
+    class Dismissing:
+        def run(self, command: Command) -> CommandResult:
+            return CommandResult(argv=tuple(command.argv), returncode=126, stdout="", stderr="")
+
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: Dismissing())
+    assert cli.main(["hardware", "park", "gps-receiver"]) == 3
+    assert "nothing was changed" in capsys.readouterr().err.lower()
+
+
+def test_hardware_state_needs_no_privilege_and_prints_a_table(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    monkeypatch.setattr(
+        cli,
+        "_survey_parkables",
+        lambda args: (
+            [
+                type(
+                    "P",
+                    (),
+                    {
+                        "name": "gps-receiver",
+                        "address": "1-4",
+                        "summary": "USB GNSS receivers",
+                        "parked": True,
+                    },
+                )()
+            ],
+            [],
+        ),
+    )
+    assert cli.main(["hardware", "state"]) == 0
+    out = capsys.readouterr().out
+    assert "gps-receiver" in out and "parked" in out.lower()

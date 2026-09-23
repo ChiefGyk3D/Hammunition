@@ -37,6 +37,7 @@ from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from importlib import metadata
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hammunition.backends import (
     Action,
@@ -76,6 +77,7 @@ from hammunition.execute import (
     user_groups,
 )
 from hammunition.fetch import Fetcher
+from hammunition.hardware.polkit import HELPER_PATH
 from hammunition.kernel import KernelProbe
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
@@ -120,6 +122,9 @@ from hammunition.upstream import (
     probe_upstream,
 )
 from hammunition.upstream import render as render_upstream
+
+if TYPE_CHECKING:
+    from hammunition.hardware.power import Parkable
 
 __all__ = ["build_parser", "main"]
 
@@ -1771,6 +1776,110 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _survey_parkables(args: argparse.Namespace) -> tuple[list[Parkable], list[tuple[str, str]]]:
+    """What is parkable, read unprivileged. The same survey the helper does.
+
+    Reading sysfs and the catalog needs no privilege; only *writing* does. So
+    `hardware state` answers without a prompt, and `park`/`wake` can refuse a
+    name before raising an authentication dialog for something that was never
+    going to work.
+    """
+    from hammunition.hardware.detect import match_catalog, read_usb_bus
+    from hammunition.hardware.power import parkable
+
+    classes, devices = _load_hardware_catalog(args)
+    entries: dict[str, DeviceClass | DeviceManifest] = {**classes, **devices}
+    matches, _ = match_catalog(read_usb_bus(), entries)
+    return parkable(matches, entries)
+
+
+def cmd_hardware_state(args: argparse.Namespace) -> int:
+    """Which catalogued devices can be parked, and which are parked now."""
+    found, skipped = _survey_parkables(args)
+    for unit, why in skipped:
+        print(f"  {unit}: not parkable right now — {why}")
+    if not found:
+        print(
+            "No parkable device is attached. A device is parkable when its catalog "
+            "entry carries a power_control block and it is plugged in now."
+        )
+        return EXIT_OK
+    print(f"{'device':24} {'address':10} {'state':8} summary")
+    for p in sorted(found, key=lambda p: (p.name, p.address)):
+        print(f"{p.name:24} {p.address:10} {'parked' if p.parked else 'awake':8} {p.summary}")
+    print("\n`hammunition hardware park NAME` / `wake NAME`. A reboot wakes everything.")
+    return EXIT_OK
+
+
+def _power_verb(args: argparse.Namespace, verb: str) -> int:
+    """Disclose the privileged call and every write it will cause, then run it."""
+    from hammunition.hardware.power import PowerError, plan_park, plan_wake
+
+    helper = Path(HELPER_PATH)
+    if not helper.is_file():
+        print(
+            f"error: the privileged helper is not installed at {HELPER_PATH}.\n"
+            f"`hammunition hardware apply` installs it, together with the polkit "
+            f"action that authorises it.",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
+
+    found, skipped = _survey_parkables(args)
+    for unit, why in skipped:
+        print(f"note: {unit} is not parkable right now — {why}", file=sys.stderr)
+    from hammunition.cli.devctl import resolve as resolve_parkable
+
+    try:
+        target = resolve_parkable(args.name, found)
+        plan = plan_park(target) if verb == "park" else plan_wake(target)
+    except PowerError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+
+    command = Command(
+        argv=("pkexec", HELPER_PATH, verb, f"{target.name}@{target.address}"),
+        description=f"{verb.capitalize()} {target.name} at {target.address}",
+    )
+    print(f"{verb.capitalize()}ing {target.name} ({target.summary}) at {target.address}\n")
+    print("Writes this will cause:")
+    for write in plan.writes:
+        print(f"  {write.path} <- {write.value}")
+    for verb_name in plan.quiet:
+        print(f"  {verb_name}: {'restore' if plan.restore else 'hush'} the consumer")
+    print(f"\n  # {command.description}\n  $ {command.display()}")
+
+    if args.dry_run:
+        print("\nDry run: nothing above was executed.")
+        return EXIT_OK
+
+    result = SubprocessRunner().run(command)
+    if result.returncode in (126, 127):
+        print(
+            "The authentication prompt was dismissed; nothing was changed.",
+            file=sys.stderr,
+        )
+        return EXIT_CONSENT
+    if result.returncode == EXIT_UNPLANNABLE:
+        print(result.stderr.strip() or "the helper refused the request", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    if result.returncode != 0:
+        print(result.stderr.strip()[:400] or f"helper exited {result.returncode}", file=sys.stderr)
+        return EXIT_FAILED
+    print(f"\nDone and verified. `hammunition hardware state` shows {target.name} now.")
+    return EXIT_OK
+
+
+def cmd_hardware_park(args: argparse.Namespace) -> int:
+    """Detach a device and let its port suspend. Reversed by `wake` or a reboot."""
+    return _power_verb(args, "park")
+
+
+def cmd_hardware_wake(args: argparse.Namespace) -> int:
+    """Bring a parked device back."""
+    return _power_verb(args, "wake")
+
+
 # ---------------------------------------------------------------------------
 # doctor — a read-only health check
 # ---------------------------------------------------------------------------
@@ -2052,6 +2161,28 @@ def build_parser() -> argparse.ArgumentParser:
     p_hw_apply.add_argument("--yes", action="store_true", help="skip the confirmation")
     p_hw_apply.add_argument("--user", default=None, help="whom to set up")
     p_hw_apply.set_defaults(func=cmd_hardware_apply)
+
+    p_hw_state = hardware_sub.add_parser(
+        "state", help="which devices can be parked, and which are parked now"
+    )
+    p_hw_state.set_defaults(func=cmd_hardware_state)
+
+    for verb, helptext in (
+        ("park", "detach a device and let its port suspend (D-056)"),
+        ("wake", "bring a parked device back"),
+    ):
+        p_verb = hardware_sub.add_parser(verb, help=helptext)
+        p_verb.add_argument(
+            "name",
+            metavar="NAME",
+            help="catalog name, or NAME@ADDRESS when two of a kind are attached",
+        )
+        p_verb.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="print the privileged call and every write it would cause, then stop",
+        )
+        p_verb.set_defaults(func=cmd_hardware_park if verb == "park" else cmd_hardware_wake)
 
     p_station = sub.add_parser("station", help="the values only you can supply")
     station_sub = p_station.add_subparsers(dest="station_command", required=True)
