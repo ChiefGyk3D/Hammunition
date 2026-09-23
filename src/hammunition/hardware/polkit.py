@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import enum
 import os
 import shlex
 import stat as stat_module
@@ -18,6 +19,8 @@ __all__ = [
     "HELPER_PATH",
     "POLICY_PATH",
     "PolkitArtifacts",
+    "WritabilityFinding",
+    "WritabilityRisk",
     "plan_polkit",
     "policy_xml",
     "wrapper_script",
@@ -84,11 +87,40 @@ def policy_xml() -> str:
 """
 
 
+class WritabilityRisk(enum.Enum):
+    """Two different facts, deliberately not collapsed into one boolean.
+
+    Fix round 2's ruling: the round 1 gate treated "owned by a non-root
+    account" and "writable by any local account" as the same risk, and a
+    devctl startup check that hard-refused on either broke the project's own
+    documented install -- a venv under ``$HOME`` is *always* owned by a
+    non-root account. Only one of these two facts is the actual escalation.
+    """
+
+    OWNED_BY_NON_ROOT = "owned_by_non_root"
+    """The tree belongs to one specific non-root account -- the ordinary
+    shape of a venv the operator's own account created. Confirmable, never
+    refused outright."""
+
+    GROUP_OR_OTHER_WRITABLE = "group_or_other_writable"
+    """*Any* local account, not just the owner, can modify the tree -- the
+    real escalation. Refused outright, never merely confirmed."""
+
+
+@dataclass(frozen=True)
+class WritabilityFinding:
+    """What :func:`writable_by_non_root` found, and how serious it is."""
+
+    path: str
+    risk: WritabilityRisk
+
+
 def writable_by_non_root(
     path: str | Path, *, stat_fn: Callable[[str], os.stat_result] = os.stat
-) -> str | None:
-    """The first component from ``path`` up to the filesystem root that a
-    non-root account could modify, or ``None`` if every one of them is closed.
+) -> WritabilityFinding | None:
+    """The first offending component from ``path`` up to the filesystem
+    root, classified by :class:`WritabilityRisk`, or ``None`` if every one of
+    them is closed to non-root.
 
     ``stat_fn`` defaults to :func:`os.stat` and exists so this can be proven
     against a synthetic tree in a test — an unprivileged dev machine and an
@@ -98,24 +130,31 @@ def writable_by_non_root(
     D-056's ruling: the wrapper execs this path (or a path under the
     ``hammunition`` package directory) *as root*, through a polkit action that
     an active local session can satisfy once and keep for the rest of that
-    session. If any component from the target up to ``/`` is owned by anyone
-    but root, or is group- or other-writable, that account can replace what
-    root runs the next time the action fires — which is the ordinary shape of
-    a venv this project's own operator owns, not an exotic attack. Checked
-    component by component, not only the leaf: a root-owned file inside a
-    directory somebody else can write to is exactly as replaceable as the
-    file itself.
+    session. A component that is group- or other-writable is checked across
+    the *whole* chain first, and wins over a merely non-root-owned one
+    regardless of which is nearer the leaf — the real escalation must never
+    be masked by a nearer, milder finding. Only once nothing in the chain is
+    writable by everyone does the nearest merely-non-root-owned component
+    become the (confirmable) answer. A component that cannot be stat'd at all
+    is treated as the severe case: it cannot be proven safe either.
     """
     current = Path(path)
     chain = [current, *current.parents]
+    stats: list[tuple[str, os.stat_result | None]] = []
     for component in chain:
         try:
-            info = stat_fn(str(component))
+            stats.append((str(component), stat_fn(str(component))))
         except OSError:
-            # Cannot be stat'd, so cannot be proven safe either.
-            return str(component)
-        if info.st_uid != 0 or info.st_mode & (stat_module.S_IWGRP | stat_module.S_IWOTH):
-            return str(component)
+            stats.append((str(component), None))
+
+    for name, info in stats:
+        if info is None or info.st_mode & (stat_module.S_IWGRP | stat_module.S_IWOTH):
+            return WritabilityFinding(name, WritabilityRisk.GROUP_OR_OTHER_WRITABLE)
+
+    for name, info in stats:
+        if info is not None and info.st_uid != 0:
+            return WritabilityFinding(name, WritabilityRisk.OWNED_BY_NON_ROOT)
+
     return None
 
 
@@ -135,11 +174,11 @@ class PolkitArtifacts:
     before it is ever written (D-056's ruling) — it is what the polkit action
     will let root run."""
 
-    unsafe_interpreter: str | None
+    unsafe_interpreter: WritabilityFinding | None
     """:func:`writable_by_non_root` on the interpreter's resolved real path,
     or ``None`` when every component up to ``/`` is closed to non-root."""
 
-    unsafe_package: str | None
+    unsafe_package: WritabilityFinding | None
     """The same check against the ``hammunition`` package's own directory —
     the code the wrapper imports and runs as root, independent of which
     interpreter runs it."""
@@ -149,15 +188,40 @@ class PolkitArtifacts:
         return self.helper_current and self.policy_current
 
     @property
+    def _findings(self) -> tuple[WritabilityFinding, ...]:
+        return tuple(f for f in (self.unsafe_interpreter, self.unsafe_package) if f is not None)
+
+    @property
+    def must_refuse(self) -> bool:
+        """True when any component is group- or other-writable: *any* local
+        account, not just the tree's owner, could replace what root runs
+        next. That is the actual escalation, refused outright (fix round 2)."""
+        return any(f.risk is WritabilityRisk.GROUP_OR_OTHER_WRITABLE for f in self._findings)
+
+    @property
     def needs_confirmation(self) -> bool:
         """True when installing the helper would authorise root to run code
-        from a tree a non-root account can modify.
+        from a tree owned by one specific non-root account -- the ordinary
+        shape of a venv the operator's own account created.
 
-        D-056's ruling is explicit: this is never refused outright — it is
-        the normal shape of a venv the operator owns — but it is never waved
-        through by ``--yes`` either (D-021).
+        D-056's ruling is explicit: never refused outright for this alone —
+        but never waved through by ``--yes`` either (D-021). Distinct from
+        :attr:`must_refuse`, which is the group/other-writable case: fix
+        round 1 conflated the two and broke the project's own documented
+        install, which is always non-root-owned.
         """
-        return self.unsafe_interpreter is not None or self.unsafe_package is not None
+        return any(f.risk is WritabilityRisk.OWNED_BY_NON_ROOT for f in self._findings)
+
+    @property
+    def confirmable_paths(self) -> list[str]:
+        """Every path flagged :attr:`WritabilityRisk.OWNED_BY_NON_ROOT`, for
+        disclosing all of them even though only the first is typed back."""
+        return [f.path for f in self._findings if f.risk is WritabilityRisk.OWNED_BY_NON_ROOT]
+
+    @property
+    def refusing_paths(self) -> list[str]:
+        """Every path flagged :attr:`WritabilityRisk.GROUP_OR_OTHER_WRITABLE`."""
+        return [f.path for f in self._findings if f.risk is WritabilityRisk.GROUP_OR_OTHER_WRITABLE]
 
 
 def _current(path: str, content: str) -> bool:

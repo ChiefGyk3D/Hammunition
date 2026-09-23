@@ -1602,26 +1602,36 @@ def _prompt(text: str) -> bool:
     return answer in {"yes", "y"}
 
 
-def _confirm_unsafe_interpreter(offending: str) -> bool:
+def _confirm_unsafe_interpreter(paths: list[str]) -> bool:
     """A typed path, never `y`, `1`, or `--yes` (D-021, D-056's ruling).
 
     Installing the helper is never refused for this — it is the normal shape
     of a venv the operator owns — but the consent has to be the fact itself,
     typed back, the same way D-040 makes the key fingerprint the consent for a
     third-party apt repo rather than a bare confirmation.
+
+    ``paths`` may name more than one offending component (the interpreter and
+    the package tree can both be non-root-owned at once). Fix round 2: every
+    one of them is disclosed, because a partial disclosure is not a
+    disclosure, but only the first is typed back -- consent stays one typed
+    fact, D-040's shape, not a compound one.
     """
+    joined = "\n".join(f"  {p}" for p in paths)
     print(
-        f"\n{offending} is writable by a non-root account, and the polkit action "
-        f"about to be installed lets root run code reached through it. Any active "
-        f"local session can authenticate once and run it as root for the rest of "
-        f"that session. This is not refused, but `--yes` does not satisfy it."
+        f"\nWritable only by the account that owns it, not by root (the ordinary "
+        f"shape of a venv the operator created; never refused for this alone):\n"
+        f"{joined}\n"
+        f"The polkit action about to be installed lets root run code reached "
+        f"through one of these. Any active local session can authenticate once "
+        f"and run it as root for the rest of that session. This is not refused, "
+        f"but `--yes` does not satisfy it."
     )
     try:
-        typed = input(f"Type {offending!r} to confirm and proceed: ").strip()
+        typed = input(f"Type {paths[0]!r} to confirm and proceed: ").strip()
     except (EOFError, KeyboardInterrupt):
         print()
         return False
-    return typed == offending
+    return typed == paths[0]
 
 
 # ---------------------------------------------------------------------------
@@ -1713,23 +1723,28 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
         )
         return EXIT_OK
 
-    # A fixed name under the shared /tmp is not safe here: a privileged
-    # `install` command reads back from this directory, and a predictable
-    # path lets a local attacker pre-create it — /tmp's sticky bit does not
-    # protect a subdirectory *they* own — and race our write, landing their
-    # own content 0755 at the exact path polkit authorises. The D-031
-    # readback further down would only ever catch that after the bad file
-    # was already installed as root. mkdtemp's name cannot be guessed in
-    # advance, and its 0700 mode keeps every other account out entirely.
-    staging_dir = Path(tempfile.mkdtemp(prefix="hammunition-hardware-"))
-    try:
-        staging = staging_dir / "udev-staging.rules"
-        commands: list[Command] = []
+    def build_commands(staging_root: str) -> tuple[list[Command], Command | None, Command | None]:
+        """Commands as they would look staged under ``staging_root``.
+
+        Called twice: once with a placeholder string for the disclosure and
+        ``--dry-run`` preview, before any staging directory exists, and once
+        for real with the actual `mkdtemp()` path once every gate below has
+        been passed. Fix round 2: `--dry-run` must be a true no-op, and the
+        old code called `mkdtemp()` -- a real filesystem side effect -- before
+        the dry-run check even ran.
+        """
+        built: list[Command] = []
         if not plan.rules_already_current:
-            print(f"Will write {len(plan.rules_content.splitlines())} lines to {plan.rules_path}")
-            commands += [
+            built += [
                 Command(
-                    argv=("install", "-D", "-m", "0644", str(staging), str(plan.rules_path)),
+                    argv=(
+                        "install",
+                        "-D",
+                        "-m",
+                        "0644",
+                        f"{staging_root}/udev-staging.rules",
+                        str(plan.rules_path),
+                    ),
                     description=f"Install the generated rules to {plan.rules_path}",
                     requires_root=True,
                 ),
@@ -1744,91 +1759,124 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
                     requires_root=True,
                 ),
             ]
-        else:
-            print(f"Rules file at {plan.rules_path} is already current.")
-
-        # Tracked by identity so the run loop below can verify and log each
-        # artefact as soon as its own command succeeds, rather than batching
-        # both into one entry after every command in the transaction has run.
-        helper_command: Command | None = None
-        policy_command: Command | None = None
+        helper_cmd: Command | None = None
+        policy_cmd: Command | None = None
         if not plan.polkit.helper_current:
-            print(
-                f"Will install the privileged helper to {plan.polkit.helper_path}\n"
-                f"  It execs {plan.polkit.interpreter} as root, through a polkit "
-                f"action any active local session may satisfy once and keep "
-                f"authorised for the rest of that session "
-                f"(allow_active=auth_self_keep)."
-            )
-            helper_command = Command(
+            helper_cmd = Command(
                 argv=(
                     "install",
                     "-D",
                     "-m",
                     "0755",
-                    str(staging_dir / "hammunition-devctl"),
+                    f"{staging_root}/hammunition-devctl",
                     plan.polkit.helper_path,
                 ),
                 description=f"Install the power-control helper to {plan.polkit.helper_path}",
                 requires_root=True,
             )
-            commands.append(helper_command)
+            built.append(helper_cmd)
         if not plan.polkit.policy_current:
-            print(f"Will install the polkit action to {plan.polkit.policy_path}")
-            policy_command = Command(
+            policy_cmd = Command(
                 argv=(
                     "install",
                     "-D",
                     "-m",
                     "0644",
-                    str(staging_dir / "devctl.policy"),
+                    f"{staging_root}/devctl.policy",
                     plan.polkit.policy_path,
                 ),
                 description=(f"Install the polkit action authorising {plan.polkit.helper_path}"),
                 requires_root=True,
             )
-            commands.append(policy_command)
-
+            built.append(policy_cmd)
         for group in plan.groups_to_add:
-            print(f"Will add {user!r} to the {group!r} group")
-            commands.append(
+            built.append(
                 Command(
                     argv=("gpasswd", "--add", user, group),
                     description=f"Add {user} to {group} for device access",
                     requires_root=True,
                 )
             )
+        return built, helper_cmd, policy_cmd
 
-        euid = os.geteuid()
-        print(f"\nCommands ({len(commands)}):")
-        for command in commands:
-            print(f"  # {command.description}")
-            print(f"  $ {command.display(euid=euid)}")
+    if not plan.rules_already_current:
+        print(f"Will write {len(plan.rules_content.splitlines())} lines to {plan.rules_path}")
+    else:
+        print(f"Rules file at {plan.rules_path} is already current.")
+    if not plan.polkit.helper_current:
+        print(
+            f"Will install the privileged helper to {plan.polkit.helper_path}\n"
+            f"  It execs {plan.polkit.interpreter} as root, through a polkit "
+            f"action any active local session may satisfy once and keep "
+            f"authorised for the rest of that session "
+            f"(allow_active=auth_self_keep)."
+        )
+    if not plan.polkit.policy_current:
+        print(f"Will install the polkit action to {plan.polkit.policy_path}")
+    for group in plan.groups_to_add:
+        print(f"Will add {user!r} to the {group!r} group")
 
-        if args.dry_run:
-            print("\nDry run: nothing above was executed.")
-            return EXIT_OK
+    preview_commands, preview_helper, _ = build_commands("<staging>")
+    euid = os.geteuid()
+    print(f"\nCommands ({len(preview_commands)}):")
+    for command in preview_commands:
+        print(f"  # {command.description}")
+        print(f"  $ {command.display(euid=euid)}")
 
-        # D-056's ruling: never refuse a wrapper that bakes in an interpreter
-        # or package tree a non-root account can write — that is the normal
-        # shape of a venv this project's own operator owns — but never let
-        # `--yes` wave it through either (D-021). Typed confirmation only,
-        # and only when the wrapper is actually about to be (re)written.
-        if helper_command is not None and plan.polkit.needs_confirmation:
-            offending = plan.polkit.unsafe_interpreter or plan.polkit.unsafe_package
-            assert offending is not None  # needs_confirmation guarantees one is set
-            if not _confirm_unsafe_interpreter(offending):
-                print(
-                    "Aborted: confirmation did not match. Nothing was changed.",
-                    file=sys.stderr,
-                )
-                return EXIT_CONSENT
+    if args.dry_run:
+        print("\nDry run: nothing above was executed.")
+        return EXIT_OK
 
-        if not args.yes and not _prompt("\nProceed with the commands above?"):
-            print("Aborted. Nothing was changed.")
-            return EXIT_OK
+    # Fix round 2: round 1 conflated "any local account can write it" with
+    # "one specific non-root account owns it" into a single refusal, and a
+    # devctl startup check that hard-refused on either broke the project's
+    # own documented install -- a venv under $HOME is *always* non-root-owned.
+    # Only the group/other-writable case is the actual escalation, and only
+    # that one is refused outright, here at apply time.
+    if preview_helper is not None and plan.polkit.must_refuse:
+        paths = ", ".join(sorted(set(plan.polkit.refusing_paths)))
+        print(
+            f"error: refusing to install the helper: {paths} is writable by any "
+            f"local account, not only its owner. That is the escalation this "
+            f"project refuses outright rather than merely confirms -- fix its "
+            f"permissions, then re-run `hardware apply`.",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
+
+    # D-056's ruling: never refuse a wrapper that bakes in an interpreter or
+    # package tree one non-root account owns — that is the normal shape of a
+    # venv this project's own operator owns — but never let `--yes` wave it
+    # through either (D-021). Typed confirmation only, and only when the
+    # wrapper is actually about to be (re)written.
+    if (
+        preview_helper is not None
+        and plan.polkit.needs_confirmation
+        and not _confirm_unsafe_interpreter(plan.polkit.confirmable_paths)
+    ):
+        print("Aborted: confirmation did not match. Nothing was changed.", file=sys.stderr)
+        return EXIT_CONSENT
+
+    if not args.yes and not _prompt("\nProceed with the commands above?"):
+        print("Aborted. Nothing was changed.")
+        return EXIT_OK
+
+    # Only now, past every gate that could still end the run with nothing
+    # written, does a staging directory actually get created. A fixed name
+    # under the shared /tmp is not safe here: a privileged `install` command
+    # reads back from this directory, and a predictable path lets a local
+    # attacker pre-create it — /tmp's sticky bit does not protect a
+    # subdirectory *they* own — and race our write, landing their own content
+    # 0755 at the exact path polkit authorises. The D-031 readback further
+    # down would only ever catch that after the bad file was already
+    # installed as root. mkdtemp's name cannot be guessed in advance, and its
+    # 0700 mode keeps every other account out entirely.
+    staging_dir = Path(tempfile.mkdtemp(prefix="hammunition-hardware-"))
+    try:
+        commands, helper_command, policy_command = build_commands(str(staging_dir))
 
         if not plan.rules_already_current:
+            staging = staging_dir / "udev-staging.rules"
             staging.write_text(plan.rules_content)
             os.chmod(staging, 0o644)
         if helper_command is not None:
@@ -1850,12 +1898,22 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
                 print("Stopped. What ran above is applied; the rest is not.", file=sys.stderr)
                 return EXIT_FAILED
 
-            # D-031, and recorded per artefact as soon as its own command
-            # succeeds: a later command in this same run (the policy install,
-            # a gpasswd call) can still fail without leaving an unrecorded
-            # root-owned file that `unapply` would then report as nothing to
-            # remove.
+            # Recorded per artefact as soon as its own command succeeds, not
+            # batched to the end: a later command in this same run (the
+            # policy install, a gpasswd call) can still fail without leaving
+            # an unrecorded root-owned file that `unapply` would then report
+            # as nothing to remove. Logged *before* the D-031 readback below,
+            # not after: a file the install really wrote but whose content we
+            # then failed to confirm is exactly the file `unapply` most needs
+            # to be able to remove -- fix round 2's residual on F4.
             if command is helper_command:
+                TransactionLog(owner=user).append(
+                    {
+                        "event": "hardware_artifacts",
+                        "version": 1,
+                        "files": [{"path": plan.polkit.helper_path, "mode": "0755"}],
+                    }
+                )
                 try:
                     matches = (
                         Path(plan.polkit.helper_path).read_text() == plan.polkit.helper_content
@@ -1873,14 +1931,14 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
                         file=sys.stderr,
                     )
                     return EXIT_FAILED
+            if command is policy_command:
                 TransactionLog(owner=user).append(
                     {
                         "event": "hardware_artifacts",
                         "version": 1,
-                        "files": [{"path": plan.polkit.helper_path, "mode": "0755"}],
+                        "files": [{"path": plan.polkit.policy_path, "mode": "0644"}],
                     }
                 )
-            if command is policy_command:
                 try:
                     matches = (
                         Path(plan.polkit.policy_path).read_text() == plan.polkit.policy_content
@@ -1898,13 +1956,6 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
                         file=sys.stderr,
                     )
                     return EXIT_FAILED
-                TransactionLog(owner=user).append(
-                    {
-                        "event": "hardware_artifacts",
-                        "version": 1,
-                        "files": [{"path": plan.polkit.policy_path, "mode": "0644"}],
-                    }
-                )
 
         # D-031 for the rules file and group membership. The polkit
         # artefacts were already verified — and logged — individually above,

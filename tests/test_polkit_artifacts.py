@@ -17,6 +17,8 @@ from hammunition.hardware.polkit import (
     HELPER_PATH,
     POLICY_PATH,
     PolkitArtifacts,
+    WritabilityFinding,
+    WritabilityRisk,
     plan_polkit,
     policy_xml,
     wrapper_script,
@@ -34,6 +36,14 @@ _BASE_ARTIFACTS = {
 
 def _stat(uid: int, mode: int = 0o40755) -> os.stat_result:
     return os.stat_result((mode, 0, 0, 1, uid, 0, 0, 0, 0, 0))
+
+
+def _owned(path: str) -> WritabilityFinding:
+    return WritabilityFinding(path, WritabilityRisk.OWNED_BY_NON_ROOT)
+
+
+def _writable(path: str) -> WritabilityFinding:
+    return WritabilityFinding(path, WritabilityRisk.GROUP_OR_OTHER_WRITABLE)
 
 
 def test_the_policy_is_well_formed_xml() -> None:
@@ -163,7 +173,11 @@ def test_is_noop_is_a_property_of_both_flags_together() -> None:
     assert policy_only.is_noop is False
 
 
-def test_needs_confirmation_when_either_check_finds_something_unsafe() -> None:
+def test_needs_confirmation_true_only_for_the_owned_by_non_root_class() -> None:
+    """Fix round 2: `needs_confirmation` must fire for the confirmable class
+    (OWNED_BY_NON_ROOT) and never for the refused class
+    (GROUP_OR_OTHER_WRITABLE) -- round 1 collapsed the two into one
+    boolean and broke the project's own documented install."""
     safe = PolkitArtifacts(
         **_BASE_ARTIFACTS,
         helper_current=True,
@@ -172,24 +186,70 @@ def test_needs_confirmation_when_either_check_finds_something_unsafe() -> None:
         unsafe_package=None,
     )
     assert safe.needs_confirmation is False
+    assert safe.must_refuse is False
 
-    unsafe_interpreter = PolkitArtifacts(
+    owned_interpreter = PolkitArtifacts(
         **_BASE_ARTIFACTS,
         helper_current=True,
         policy_current=True,
-        unsafe_interpreter="/opt/hammunition/.venv",
+        unsafe_interpreter=_owned("/opt/hammunition/.venv"),
         unsafe_package=None,
     )
-    assert unsafe_interpreter.needs_confirmation is True
+    assert owned_interpreter.needs_confirmation is True
+    assert owned_interpreter.must_refuse is False
+    assert owned_interpreter.confirmable_paths == ["/opt/hammunition/.venv"]
 
-    unsafe_package = PolkitArtifacts(
+    owned_package = PolkitArtifacts(
         **_BASE_ARTIFACTS,
         helper_current=True,
         policy_current=True,
         unsafe_interpreter=None,
-        unsafe_package="/opt/hammunition",
+        unsafe_package=_owned("/opt/hammunition"),
     )
-    assert unsafe_package.needs_confirmation is True
+    assert owned_package.needs_confirmation is True
+    assert owned_package.must_refuse is False
+    assert owned_package.confirmable_paths == ["/opt/hammunition"]
+
+
+def test_must_refuse_true_only_for_the_group_or_other_writable_class() -> None:
+    writable_interpreter = PolkitArtifacts(
+        **_BASE_ARTIFACTS,
+        helper_current=True,
+        policy_current=True,
+        unsafe_interpreter=_writable("/opt/hammunition/.venv"),
+        unsafe_package=None,
+    )
+    assert writable_interpreter.must_refuse is True
+    assert writable_interpreter.needs_confirmation is False
+    assert writable_interpreter.refusing_paths == ["/opt/hammunition/.venv"]
+
+    writable_package = PolkitArtifacts(
+        **_BASE_ARTIFACTS,
+        helper_current=True,
+        policy_current=True,
+        unsafe_interpreter=None,
+        unsafe_package=_writable("/opt/hammunition"),
+    )
+    assert writable_package.must_refuse is True
+    assert writable_package.needs_confirmation is False
+    assert writable_package.refusing_paths == ["/opt/hammunition"]
+
+
+def test_must_refuse_wins_when_both_classes_are_present_at_once() -> None:
+    """A tree can have one component merely non-root-owned and another,
+    elsewhere in the same chain, group-writable. The severe fact must never
+    be silently outvoted by the milder one."""
+    both = PolkitArtifacts(
+        **_BASE_ARTIFACTS,
+        helper_current=True,
+        policy_current=True,
+        unsafe_interpreter=_owned("/opt/hammunition/.venv"),
+        unsafe_package=_writable("/opt/hammunition"),
+    )
+    assert both.must_refuse is True
+    assert both.needs_confirmation is True  # both facts are still true and disclosed
+    assert both.refusing_paths == ["/opt/hammunition"]
+    assert both.confirmable_paths == ["/opt/hammunition/.venv"]
 
 
 def test_writable_by_non_root_finds_the_first_offending_component_from_the_leaf_up() -> None:
@@ -206,7 +266,7 @@ def test_writable_by_non_root_finds_the_first_offending_component_from_the_leaf_
     offending = writable_by_non_root(
         "/opt/hammunition/.venv/bin/python3", stat_fn=lambda p: chain[p]
     )
-    assert offending == "/opt/hammunition/.venv"
+    assert offending == _owned("/opt/hammunition/.venv")
 
 
 def test_writable_by_non_root_is_none_when_every_component_is_closed() -> None:
@@ -227,11 +287,43 @@ def test_writable_by_non_root_is_none_when_every_component_is_closed() -> None:
 def test_writable_by_non_root_flags_a_root_owned_but_world_writable_component() -> None:
     """Ownership alone is not the whole check: a root-owned directory that is
     group- or other-writable is exactly as replaceable as one somebody else
-    owns outright."""
+    owns outright -- and it is the severe class, not the confirmable one."""
     chain = {
         "/opt/thing": _stat(0, 0o40777),
         "/opt": _stat(0),
         "/": _stat(0),
     }
     offending = writable_by_non_root("/opt/thing", stat_fn=lambda p: chain[p])
-    assert offending == "/opt/thing"
+    assert offending == _writable("/opt/thing")
+
+
+def test_writable_by_non_root_group_or_other_writable_wins_over_a_nearer_owned_component() -> None:
+    """Fix round 2: the two-pass scan must not stop at the first (leaf-most)
+    finding regardless of class. A merely non-root-owned leaf must not mask
+    a group-writable component further up the same chain -- the severe fact
+    always wins, wherever it sits."""
+    chain = {
+        "/opt/hammunition/.venv/bin/python3": _stat(1000, 0o100755),
+        "/opt/hammunition/.venv/bin": _stat(1000),
+        "/opt/hammunition/.venv": _stat(1000),
+        "/opt/hammunition": _stat(0, 0o40777),  # group/other-writable, further up
+        "/opt": _stat(0),
+        "/": _stat(0),
+    }
+    offending = writable_by_non_root(
+        "/opt/hammunition/.venv/bin/python3", stat_fn=lambda p: chain[p]
+    )
+    assert offending == _writable("/opt/hammunition")
+
+
+def test_writable_by_non_root_treats_an_unstattable_component_as_the_severe_class() -> None:
+    """A component that cannot be stat'd cannot be proven safe either, and
+    the conservative answer is the one that gets refused, not the one that
+    gets merely confirmed."""
+
+    def raising(path: str) -> os.stat_result:
+        raise OSError("permission denied")
+
+    offending = writable_by_non_root("/opt/hammunition/.venv/bin/python3", stat_fn=raising)
+    assert offending is not None
+    assert offending.risk is WritabilityRisk.GROUP_OR_OTHER_WRITABLE

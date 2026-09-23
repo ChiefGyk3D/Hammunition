@@ -1556,9 +1556,15 @@ def _polkit_artifacts(
     policy_current: bool = True,
     unsafe_interpreter: str | None = None,
     unsafe_package: str | None = None,
+    risk: Any = None,
 ) -> Any:
-    from hammunition.hardware.polkit import PolkitArtifacts
+    """``risk`` defaults to ``OWNED_BY_NON_ROOT`` (the confirmable class) when
+    either offending path is given, matching every pre-existing caller's
+    intent; pass ``WritabilityRisk.GROUP_OR_OTHER_WRITABLE`` explicitly for
+    the refused class."""
+    from hammunition.hardware.polkit import PolkitArtifacts, WritabilityFinding, WritabilityRisk
 
+    chosen_risk = risk if risk is not None else WritabilityRisk.OWNED_BY_NON_ROOT
     return PolkitArtifacts(
         helper_path=str(tmp_path / "hammunition-devctl"),
         helper_content="helper-body\n",
@@ -1567,8 +1573,14 @@ def _polkit_artifacts(
         helper_current=helper_current,
         policy_current=policy_current,
         interpreter="/usr/bin/python3",
-        unsafe_interpreter=unsafe_interpreter,
-        unsafe_package=unsafe_package,
+        unsafe_interpreter=(
+            WritabilityFinding(unsafe_interpreter, chosen_risk)
+            if unsafe_interpreter is not None
+            else None
+        ),
+        unsafe_package=(
+            WritabilityFinding(unsafe_package, chosen_risk) if unsafe_package is not None else None
+        ),
     )
 
 
@@ -1731,6 +1743,109 @@ def test_hardware_apply_proceeds_once_the_offending_path_is_typed_back(
 
     assert cli.main(["hardware", "apply", "--yes"]) == 0
     assert len(runner.ran) == 1
+
+
+def test_hardware_apply_refuses_hard_when_the_interpreter_tree_is_group_or_other_writable(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fix round 2, item 1: the escalation class (any local account, not
+    just the tree's owner, can write it) is refused outright -- no typed
+    confirmation, no `--yes`, nothing to type back. `input()` is never
+    monkeypatched here on purpose: if the code asked for one, the real
+    `input()` would raise in pytest's captured-output mode and the test
+    would fail loudly rather than silently pass."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    from hammunition.hardware.polkit import WritabilityRisk
+
+    polkit = _polkit_artifacts(
+        tmp_path,
+        helper_current=False,
+        policy_current=True,
+        unsafe_interpreter="/opt/hammunition/.venv",
+        risk=WritabilityRisk.GROUP_OR_OTHER_WRITABLE,
+    )
+    plan = _hardware_plan(tmp_path, polkit=polkit)
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+
+    class Exploding:
+        def run(self, command: Command) -> CommandResult:  # pragma: no cover
+            raise AssertionError("must not install anything when refused outright")
+
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: Exploding())
+
+    assert cli.main(["hardware", "apply", "--yes"]) == EXIT_UNPLANNABLE
+    err = capsys.readouterr().err
+    assert "/opt/hammunition/.venv" in err
+    assert "refus" in err.lower()
+
+
+def test_hardware_apply_discloses_both_offending_paths_when_both_are_flagged(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fix round 2, item 5: a partial disclosure is not a disclosure. Both
+    the interpreter's and the package's offending paths are printed even
+    though only the first is required to be typed back."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    polkit = _polkit_artifacts(
+        tmp_path,
+        helper_current=False,
+        policy_current=True,
+        unsafe_interpreter="/opt/hammunition/.venv",
+        unsafe_package="/opt/hammunition",
+    )
+    plan = _hardware_plan(tmp_path, polkit=polkit)
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+
+    runner = _InstallingRunner()
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: runner)
+    typed_prompts: list[str] = []
+
+    def fake_input(prompt: str = "") -> str:
+        typed_prompts.append(prompt)
+        return "/opt/hammunition/.venv"
+
+    monkeypatch.setattr("builtins.input", fake_input)
+
+    assert cli.main(["hardware", "apply", "--yes"]) == 0
+    out = capsys.readouterr().out
+    assert "/opt/hammunition/.venv" in out
+    assert "/opt/hammunition" in out
+    # Only the first path is what gets typed back.
+    assert any("/opt/hammunition/.venv" in p for p in typed_prompts)
+
+
+def test_hardware_apply_dry_run_creates_no_staging_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fix round 2, item 4: `--dry-run` must be a true no-op. `mkdtemp()` is a
+    real filesystem side effect, and the old code ran it before the dry-run
+    check even executed."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    polkit = _polkit_artifacts(tmp_path, helper_current=False, policy_current=True)
+    plan = _hardware_plan(tmp_path, polkit=polkit)
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+
+    before = set(os.listdir(tempfile.gettempdir()))
+
+    class Exploding:
+        def run(self, command: Command) -> CommandResult:  # pragma: no cover
+            raise AssertionError("a dry run executed something")
+
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: Exploding())
+
+    assert cli.main(["hardware", "apply", "--dry-run"]) == 0
+    after = set(os.listdir(tempfile.gettempdir()))
+    new_entries = after - before
+    staging_entries = [e for e in new_entries if e.startswith("hammunition-hardware-")]
+    assert staging_entries == [], f"dry-run left behind: {staging_entries}"
 
 
 def test_hardware_apply_logs_the_helper_even_when_the_policy_install_then_fails(

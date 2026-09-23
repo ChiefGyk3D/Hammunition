@@ -27,7 +27,7 @@ import os
 import sys
 from pathlib import Path
 
-from hammunition.hardware.polkit import writable_by_non_root
+from hammunition.hardware.polkit import WritabilityFinding, WritabilityRisk, writable_by_non_root
 from hammunition.hardware.power import (
     Parkable,
     PowerError,
@@ -139,38 +139,76 @@ def _state() -> int:
     return EXIT_OK
 
 
-def _unsafe_at_runtime() -> str | None:
+def _runtime_writability_findings() -> tuple[WritabilityFinding | None, WritabilityFinding | None]:
     """The same D-056 check ``hardware apply`` runs before install, run again
     here, at the moment this process is actually about to act as root.
 
-    Gated on really being root: an unprivileged invocation (every test in
-    this repository, and a developer running this module directly to see
-    what it prints) reading its own writable checkout is not the privilege
-    escalation the check exists to catch -- only pkexec's elevated process
-    is. A tree that was safe at apply time can still have become writable
-    since (a package reinstalled somewhere looser, a permission loosened by
-    hand), so this is not redundant with the apply-time gate; it is the
-    defence for the gap between "we checked" and "we are now running".
+    Gated on really being root by the caller: an unprivileged invocation
+    (every test in this repository, and a developer running this module
+    directly to see what it prints) reading its own writable checkout is not
+    the privilege escalation the check exists to catch -- only pkexec's
+    elevated process is. A tree that was safe at apply time can still have
+    become writable since (a package reinstalled somewhere looser, a
+    permission loosened by hand), so this is not redundant with the
+    apply-time gate; it is the defence for the gap between "we checked" and
+    "we are now running".
     """
-    if os.geteuid() != 0:
-        return None
-    unsafe = writable_by_non_root(os.path.realpath(sys.executable))
-    if unsafe is not None:
-        return unsafe
-    return writable_by_non_root(str(Path(__file__).resolve().parent.parent))
+    interpreter = writable_by_non_root(os.path.realpath(sys.executable))
+    package = writable_by_non_root(str(Path(__file__).resolve().parent.parent))
+    return interpreter, package
 
 
-def main(argv: list[str] | None = None) -> int:
-    unsafe = _unsafe_at_runtime()
-    if unsafe is not None:
+def _refuse_or_warn_if_unsafe() -> int | None:
+    """Returns an exit code this process should return immediately, or
+    ``None`` to continue. Only called once the caller has confirmed this
+    process is really running as root.
+
+    Fix round 2: round 1 refused outright on *either* fact, which broke the
+    project's own documented install -- a venv under `$HOME` is always
+    owned by one specific non-root account, never by root, so the check
+    fired on every single privileged invocation in the worktree the review
+    measured. Only a component writable by *any* local account (not just its
+    owner) is the real escalation and gets refused; a component merely owned
+    by one non-root account is disclosed with a warning and the process
+    proceeds, the same distinction `hardware apply` makes at install time.
+    """
+    interpreter, package = _runtime_writability_findings()
+    refusing = [
+        f
+        for f in (interpreter, package)
+        if f is not None and f.risk is WritabilityRisk.GROUP_OR_OTHER_WRITABLE
+    ]
+    if refusing:
+        paths = ", ".join(sorted({f.path for f in refusing}))
         print(
-            f"error: refusing to run: {unsafe} is writable by a non-root account, and "
-            f"this process is running as root through it. Fix its ownership or "
-            f"permissions, or re-run `hammunition hardware apply` from a location "
-            f"that is not writable by a non-root account.",
+            f"error: refusing to run: {paths} is writable by any local account, and "
+            f"this process is running as root through it. Fix its permissions, then "
+            f"re-run `hammunition hardware apply`.",
             file=sys.stderr,
         )
         return EXIT_UNPLANNABLE
+
+    warnings = [
+        f
+        for f in (interpreter, package)
+        if f is not None and f.risk is WritabilityRisk.OWNED_BY_NON_ROOT
+    ]
+    for finding in warnings:
+        print(
+            f"warning: {finding.path} is owned by a non-root account, and this "
+            f"process is running as root through it. This is the documented "
+            f"install (a venv under $HOME); if that account should not be trusted "
+            f"with root, fix its ownership.",
+            file=sys.stderr,
+        )
+    return None
+
+
+def main(argv: list[str] | None = None) -> int:
+    if os.geteuid() == 0:
+        exit_code = _refuse_or_warn_if_unsafe()
+        if exit_code is not None:
+            return exit_code
 
     parser = argparse.ArgumentParser(
         prog="hammunition-devctl",
