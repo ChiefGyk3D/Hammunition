@@ -474,8 +474,6 @@ def test_no_other_catalog_entry_is_parkable_yet() -> None:
 
     classes, devices = load_hardware(REPO_ROOT / "catalog" / "hardware")
     parkables = [
-        name
-        for name, entry in {**classes, **devices}.items()
-        if entry.power_control is not None
+        name for name, entry in {**classes, **devices}.items() if entry.power_control is not None
     ]
     assert parkables == ["gps-receiver"]

@@ -410,6 +410,69 @@ you to the device-access groups the catalog needs (`plugdev`, `dialout`).
 - **Group membership applies at next login.** The command says so; log out
   and back in before expecting device access.
 
+### `hammunition hardware unapply [--dry-run] [--yes] [--user NAME]`
+
+Removes the power-control helper and its polkit action — the two files
+`hardware apply` installs at `/usr/local/libexec/hammunition-devctl` and
+`/usr/share/polkit-1/actions/com.chiefgyk3d.hammunition.devctl.policy` — and
+nothing else (**D-056**).
+
+- **Not part of `uninstall`.** `uninstall` resolves the names it is given
+  against the package and profile catalogs; there is no unit named
+  `hardware` to give it. This is its own verb for that reason.
+- **Removes only what the transaction log says this engine installed for the
+  given operator**, never a path merely expected to exist and never anything
+  a log entry names besides those two exact paths — a `path` the log
+  contains that is not one of them is reported and skipped, not removed.
+- **The udev rules file is never touched.** It is declarative, harmless for a
+  device that is not attached, and removing it would take away device access
+  still in use — power control is the reversible half of this feature,
+  device permissions are not.
+- **Disclosed and verified**, the same as `apply`: every command is printed
+  before it runs (`--dry-run` prints and stops), and `rm` exiting 0 is not
+  trusted — each path is re-checked for absence afterwards (**D-031**).
+
+Exit codes: `0` for a removal that verified absent, nothing recorded to
+remove, every recorded artefact already gone, a `--dry-run`, or declining the
+confirmation prompt; `1` if the operator could not be determined, a removal
+command failed, or a path is still present after the run.
+
+### `hammunition hardware park NAME [--dry-run]`
+
+Detaches a catalogued, attached device and lets its port suspend — writes `0`
+to its sysfs `authorized` file, the same effect as unplugging it, reversible
+with `wake` or a reboot. `NAME` is the catalog name (`gps-receiver`), or
+`NAME@ADDRESS` when two of the same kind are attached and the plain name
+would be a guess. Only a device whose catalog entry carries a
+`power_control` block is ever offered (**D-056**); see
+`docs/hardware/power-control.md` for what parking does and does not do, and
+which devices carry that block today.
+
+The privileged write goes through one polkit action,
+`com.chiefgyk3d.hammunition.devctl`, `hardware apply` installs the helper it
+authorises. `--dry-run` prints every write it would make and the `pkexec`
+call itself, then stops.
+
+Exit codes: `0` parked and verified (or a `--dry-run`); `1` a write did not
+verify, or the command otherwise failed to run; `2` unplannable — the helper
+is not installed, `pkexec` is not on `PATH`, or `NAME` does not resolve to a
+parkable attached device; `3` the authentication prompt was declined or
+denied and nothing was changed.
+
+### `hammunition hardware wake NAME [--dry-run]`
+
+The reverse of `park`: writes `1` back to the device's `authorized` file so
+the kernel re-enumerates it. Same `NAME` syntax, same `--dry-run`, same exit
+codes as `park`. A reboot does the same thing to every parked device on the
+machine, with no command needed.
+
+### `hammunition hardware state`
+
+Lists every catalogued device that is both attached now and parkable, and
+whether each one is parked — read fresh from `/sys/bus/usb/devices` on every
+call, never cached. Needs no privilege: reading sysfs is unprivileged, only
+writing to it is. Always exits `0`; an empty report is not a failure.
+
 ### `hammunition station show` / `hammunition station set`
 
 The values only you can supply — callsign, grid square, packet node alias. Some

@@ -412,7 +412,13 @@ def test_every_device_has_a_generated_page() -> None:
 def test_regenerating_the_hardware_reference_is_a_no_op() -> None:
     gen = _hardware_generator()
     rendered: dict[str, str] = gen.render()  # type: ignore[attr-defined]
-    on_disk = {p.name: p.read_text() for p in HARDWARE_DOCS.glob("*.md")}
+    # HAND_WRITTEN pages (docs/hardware/power-control.md, D-056) are prose the
+    # generator does not own and must never flag as stale -- see its own
+    # docstring on HAND_WRITTEN for why that used to be unsafe.
+    hand_written: frozenset[str] = gen.HAND_WRITTEN  # type: ignore[attr-defined]
+    on_disk = {
+        p.name: p.read_text() for p in HARDWARE_DOCS.glob("*.md") if p.name not in hand_written
+    }
     stale = sorted(set(on_disk) - set(rendered))
     absent = sorted(set(rendered) - set(on_disk))
     changed = sorted(n for n in set(rendered) & set(on_disk) if rendered[n] != on_disk[n])
@@ -783,3 +789,27 @@ def test_the_measured_date_is_the_inputs_not_todays(
     line = next(ln for ln in text.splitlines() if label in ln)
     assert measured.isoformat() in line, line
     assert today.isoformat() not in line, line
+
+
+def test_the_cli_reference_documents_the_power_verbs() -> None:
+    text = (REPO_ROOT / "docs" / "reference" / "cli.md").read_text()
+    for verb in ("hardware park", "hardware wake", "hardware state", "hardware unapply"):
+        assert verb in text, f"{verb} is undocumented"
+
+
+def test_the_power_control_page_covers_the_four_required_things() -> None:
+    """CLAUDE.md: every system modification says what changes, why, how to
+    inspect it afterwards, and how to reverse it."""
+    text = (REPO_ROOT / "docs" / "hardware" / "power-control.md").read_text()
+    for needle in (
+        "/usr/local/libexec/hammunition-devctl",
+        "/usr/share/polkit-1/actions/com.chiefgyk3d.hammunition.devctl.policy",
+        "pkaction",
+        "hardware unapply",
+        "hammunition-tray",
+    ):
+        assert needle in text, f"power-control.md does not mention {needle}"
+
+
+def test_d056_is_recorded() -> None:
+    assert "D-056" in (REPO_ROOT / "docs" / "DECISIONS.md").read_text()
