@@ -442,6 +442,40 @@ def test_execute_shells_out_to_nothing_when_there_are_no_quiet_verbs(
     assert execute(plan) == []
 
 
+def test_execute_stops_after_the_first_failed_write_and_never_writes_the_next(
+    sysfs_root: Path,
+) -> None:
+    """MINOR fix. `plan_park` orders its writes `authorized` then
+    `power/control`, and `_usb_writes` deliberately never restores
+    `power/control` on wake -- so if the `authorized` write fails and
+    `execute()` carried on to write `power/control` anyway, the device would
+    be left with runtime PM enabled while still authorized and live, and no
+    shipped verb undoes it. Only `authorized` exists here at all: if
+    `execute()` reached the second write, it would raise `FileNotFoundError`
+    for a missing `power/control` file rather than silently succeeding,
+    which is what proves the second write was never attempted.
+    """
+    node = sysfs_root / "1-4"
+    node.mkdir()
+    # Deliberately not writable: the first write fails with OSError, and
+    # `power/control` (asserted absent below) would raise on write if the
+    # loop reached it at all.
+    authorized = node / "authorized"
+    authorized.mkdir()  # writing text to a directory raises IsADirectoryError, an OSError
+    plan = PowerPlan(
+        writes=(
+            Write(path=str(authorized), value="0"),
+            Write(path=str(node / "power" / "control"), value="auto"),
+        ),
+        quiet=(),
+        restore=False,
+    )
+    problems = execute(plan)
+    assert len(problems) == 1
+    assert "authorized" in problems[0]
+    assert not (node / "power").exists(), "the second write must never be attempted"
+
+
 def test_execute_refuses_a_write_outside_the_device_roots(tmp_path: Path) -> None:
     """The guard is called at the write, not only where the plan was built.
     This test fails if execute() stops calling guard() -- which is how the

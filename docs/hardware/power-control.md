@@ -126,7 +126,8 @@ is short enough to read in full:
 # Installed by `hammunition hardware apply` (D-056). Do not edit: the
 # polkit action at /usr/share/polkit-1/actions/com.chiefgyk3d.hammunition.devctl.policy
 # authorises this exact path, and the next apply rewrites this file.
-exec /path/to/your/interpreter -m hammunition.cli.devctl "$@"
+cd /
+exec /path/to/your/interpreter -I -m hammunition.cli.devctl "$@"
 ```
 
 The interpreter path is whichever Python ran `hardware apply` — normally the
@@ -134,6 +135,20 @@ venv's own `.venv/bin/python`, since that is the documented install
 (`docs/getting-started/install.md`). It is disclosed in the plan before it is
 ever written, and re-baked every time `apply` runs, so reinstalling the
 engine into a new venv updates what root actually executes.
+
+**The `-I` is load-bearing, not tidiness.** `python -m <pkg>` inserts
+`os.getcwd()` at `sys.path[0]`. `pkexec` normally masks that by `chdir()`-ing
+to the target user's home before it execs the authorised program — but
+`pkexec --keep-cwd` does not, and the polkit action above pins an *executable
+path*, not an argument list, so nothing stops a caller from adding that flag.
+Without `-I`, a local user with an active session could `cd` to a directory
+holding their own `src/hammunition/cli/devctl.py`, run `pkexec --keep-cwd
+/usr/local/libexec/hammunition-devctl state`, authenticate with their own
+password (`auth_self_keep`), and have their module imported and run as root
+instead of the real one. `-I` drops `sys.path[0]`, `PYTHONPATH`, `PYTHONHOME`
+and user site-packages while still resolving `hammunition` from the
+interpreter's own venv, so the hijack import fails instead of succeeding. The
+`cd /` above it is defence in depth on top of that.
 
 **The polkit action** authorises exactly that one path, for exactly the
 `com.chiefgyk3d.hammunition.devctl` action id, nothing wider:

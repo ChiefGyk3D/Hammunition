@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shlex
 from pathlib import Path
 from xml.etree import ElementTree
@@ -89,6 +90,31 @@ def test_the_wrapper_execs_the_interpreter_that_owns_the_package() -> None:
 def test_the_wrapper_quotes_an_interpreter_path_with_a_space() -> None:
     body = wrapper_script("/home/op/my venv/bin/python3")
     assert shlex.quote("/home/op/my venv/bin/python3") in body
+
+
+def test_the_wrapper_runs_the_interpreter_isolated() -> None:
+    """CRITICAL fix: `python -m <pkg>` inserts `os.getcwd()` at `sys.path[0]`.
+    `pkexec` normally masks that by `chdir()`-ing to the target user's home,
+    but `pkexec --keep-cwd` does not, and the polkit action pins an
+    executable *path*, not an argument list -- nothing stops a caller from
+    adding that flag. Without `-I`, a local user could `cd` to a directory
+    holding their own `hammunition/cli/devctl.py` and have it imported and
+    run as root instead of the real one. `-I` must sit between the
+    interpreter and `-m`, exactly where it takes effect for the module
+    import that follows.
+
+    Falsified: removing ` -I` from the wrapper's exec line turns this red
+    (confirmed by hand before this test was written); restoring it turns it
+    green again.
+    """
+    body = wrapper_script("/opt/hammunition/.venv/bin/python3")
+    match = re.search(
+        r"exec\s+"
+        + re.escape(shlex.quote("/opt/hammunition/.venv/bin/python3"))
+        + r"\s+(-I)\s+-m\s",
+        body,
+    )
+    assert match is not None, f"expected ' -I' between the interpreter and -m; got: {body!r}"
 
 
 def test_the_plan_names_both_artefacts_at_their_fixed_paths() -> None:

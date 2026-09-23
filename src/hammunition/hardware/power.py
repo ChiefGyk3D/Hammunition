@@ -296,6 +296,17 @@ def execute(plan: PowerPlan) -> list[str]:
     is not a guarantee about how a plan is built tomorrow, and a check that
     fires only where the plan happened to be assembled is a check with an
     escape hatch built in.
+
+    **A failed write stops the plan; it does not move on to the next one.**
+    ``plan_park`` orders its writes ``authorized`` then ``power/control``,
+    and ``_usb_writes`` deliberately never restores ``power/control`` on
+    wake -- doing so would clobber a runtime-PM setting the operator or a
+    udev rule may already own. If the ``authorized`` write raised or did not
+    read back and the loop carried on to write ``power/control`` anyway, the
+    device would be left with runtime PM enabled while still authorized and
+    live -- a side effect no shipped verb undoes, since `wake` only ever
+    writes ``authorized``. Stopping at the first problem leaves every write
+    after it untouched instead.
     """
     problems: list[str] = []
     for write in plan.writes:
@@ -304,11 +315,12 @@ def execute(plan: PowerPlan) -> list[str]:
             target.write_text(write.value)
         except OSError as exc:
             problems.append(f"{write.path}: could not write {write.value!r} ({exc})")
-            continue
+            break
         seen = _read(target)
         if seen != write.value:
             problems.append(
                 f"{write.path}: wrote {write.value!r} and read back {seen!r} — "
                 f"the write reported success and did not take"
             )
+            break
     return problems

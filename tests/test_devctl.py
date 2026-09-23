@@ -80,8 +80,23 @@ def test_resolve_accepts_an_address_to_disambiguate() -> None:
 
 
 def test_resolve_refuses_an_address_that_is_not_attached() -> None:
-    with pytest.raises(PowerError, match="1-9"):
+    """The address-specific refusal, not the generic one -- both happen to
+    contain the substring '1-9' (`resolve()` formats the generic message
+    with the unsplit `name`, which is `gps-receiver@1-9`), so a `match="1-9"`
+    assertion alone passes even if the address-specific `raise` in
+    `resolve()` is deleted outright. Pin the wording that only the
+    address-specific branch produces, and assert the attached listing
+    (`1-4`) is present too -- that is the part that actually makes the
+    refusal useful to the operator typing the wrong address.
+    """
+    with pytest.raises(PowerError, match=r"at address '1-9' is attached"):
         resolve("gps-receiver@1-9", [_parkable("gps-receiver", "1-4")])
+
+
+def test_resolve_names_what_is_attached_when_the_address_is_wrong() -> None:
+    with pytest.raises(PowerError) as caught:
+        resolve("gps-receiver@1-9", [_parkable("gps-receiver", "1-4")])
+    assert "1-4" in str(caught.value)
 
 
 def test_state_prints_json_a_tray_can_read(

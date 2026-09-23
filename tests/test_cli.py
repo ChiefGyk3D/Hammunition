@@ -1603,15 +1603,25 @@ def _hardware_plan(tmp_path: Path, *, polkit: Any, groups_to_add: list[str] | No
 
 def _stub_hardware_apply_scaffolding(monkeypatch: pytest.MonkeyPatch, cli: Any, plan: Any) -> None:
     """Everything `cmd_hardware_apply` needs besides the thing under test in a
-    given test: a plan that does not read sysfs or the real catalog, an
-    operator name, group membership that needs no real `grp` lookup, and a
-    transaction log that writes nothing to disk."""
+    given test: a detected target that does not read the host's
+    `/etc/os-release`, a plan that does not read sysfs or the real catalog,
+    an operator name, group membership that needs no real `grp` lookup, and a
+    transaction log that writes nothing to disk.
+
+    `Target.detect` is stubbed here for the same reason `_status_log` above
+    stubs it: `cmd_hardware_apply` calls it unguarded early on, and every
+    test that shares this fixture would otherwise depend on the host's own
+    `/etc/os-release` existing, which the seven current containers all
+    happen to provide and an image without one would not (CLAUDE.md: "test
+    the matrix, not your machine").
+    """
 
     class _NullLog:
         def __init__(self, **kwargs: object) -> None: ...
 
         def append(self, entry: dict[str, Any]) -> None: ...
 
+    monkeypatch.setattr(Target, "detect", classmethod(lambda cls: TARGET))
     monkeypatch.setattr("hammunition.hardware.plan_hardware", lambda *a, **k: plan)
     monkeypatch.setattr(cli, "_load_hardware_catalog", lambda args: ({}, {}))
     monkeypatch.setattr(cli, "operator", lambda args: "op")

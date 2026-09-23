@@ -4183,6 +4183,33 @@ gate. Authorising root to run code from a tree one non-root account controls
 is a decision to record deliberately, the same way an unlicensed-transmission
 consent gate is.
 
+### Why the wrapper execs the interpreter with `-I`
+
+The wrapper's exec line is `exec <interpreter> -I -m hammunition.cli.devctl
+"$@"`, and `-I` is load-bearing, not a stray flag a future edit should tidy
+away. `python -m <pkg>` inserts `os.getcwd()` at `sys.path[0]` before
+resolving the module. `pkexec` ordinarily hides that by `chdir()`-ing to the
+target user's home directory before it execs the authorised program — but
+`pkexec --keep-cwd` does not, and the polkit action above authorises an
+*executable path*, not an argument list, so nothing about the action stops a
+caller from adding that flag. A local user with an active session, calling
+`pkexec --keep-cwd /usr/local/libexec/hammunition-devctl state` from a
+directory holding their own `src/hammunition/cli/devctl.py`, authenticates with
+**their own** password under `auth_self_keep` and gets their module imported
+and run as root in place of the real one — the two-class writability gate
+above never runs, because it lives inside the module that just got replaced.
+This was reproduced end to end against the generated wrapper before the fix
+was written, and it is exactly the property this decision's own opening
+promises and the two-class gate exists to hold: "nothing an unprivileged
+caller supplies except a device *name*." The working directory is a second
+value crossing that boundary, missed because `pkexec`'s ordinary `chdir()`
+made it look closed. `-I` (Python's isolated mode) drops `sys.path[0]`
+entirely, along with `PYTHONPATH`, `PYTHONHOME`, and user site-packages,
+while still resolving `hammunition` from the interpreter's own venv — the
+hijack import fails instead of succeeding, confirmed against the real
+generated wrapper both ways. `cd /` immediately before the `exec` is added as
+defence in depth on top of it.
+
 ### Why removal is `hardware unapply` and not `uninstall`
 
 `hammunition uninstall NAME...` resolves every name it is given against the

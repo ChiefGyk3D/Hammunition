@@ -46,6 +46,25 @@ def wrapper_script(interpreter: str) -> str:
     nothing about, at a path that changes when the engine is reinstalled.
     The wrapper is the fixed thing the policy names; the interpreter inside it
     is rewritten by the next ``apply``.
+
+    ``-I`` (isolated mode) is load-bearing, not tidiness — do not remove it
+    for looking like noise. ``python -m <pkg>`` inserts ``os.getcwd()`` at
+    ``sys.path[0]``. ``pkexec`` normally masks that by ``chdir()``-ing to the
+    target user's home before it execs the authorised program, **but
+    ``pkexec --keep-cwd`` does not**, and the polkit action here pins an
+    executable *path*, not an argument list — nothing stops a caller from
+    adding that flag. Without ``-I``, a local user with an active session can
+    ``cd`` to a directory holding their own ``hammunition/cli/devctl.py``,
+    run ``pkexec --keep-cwd /usr/local/libexec/hammunition-devctl state``,
+    authenticate with *their own* password (``auth_self_keep``), and have
+    their module imported and run as root instead of the real one — the
+    working directory is a second value crossing the privilege boundary
+    that D-056 says nothing but a device name should cross. ``-I`` drops
+    ``sys.path[0]`` entirely (and ``PYTHONPATH``, ``PYTHONHOME`` and user
+    site-packages with it) while still resolving ``hammunition`` from the
+    interpreter's own venv, so the hijack import fails instead of
+    succeeding. ``cd /`` before the ``exec`` is defence in depth on top of
+    it, in case a future edit ever runs something cwd-sensitive first.
     """
     return (
         "#!/bin/sh\n"
@@ -53,7 +72,8 @@ def wrapper_script(interpreter: str) -> str:
         "# polkit action at "
         + POLICY_PATH
         + "\n# authorises this exact path, and the next apply rewrites this file.\n"
-        "exec " + shlex.quote(interpreter) + ' -m hammunition.cli.devctl "$@"\n'
+        "cd /\n"
+        "exec " + shlex.quote(interpreter) + ' -I -m hammunition.cli.devctl "$@"\n'
     )
 
 
