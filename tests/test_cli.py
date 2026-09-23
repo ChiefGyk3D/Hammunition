@@ -1446,6 +1446,9 @@ def test_hardware_park_prints_the_pkexec_line_and_stops_on_dry_run(
     helper.write_text("#!/bin/sh\n")
     helper.chmod(0o755)
     monkeypatch.setattr(cli, "HELPER_PATH", str(helper))
+    monkeypatch.setattr(
+        cli.shutil, "which", lambda name: "/usr/bin/pkexec" if name == "pkexec" else None
+    )
     monkeypatch.setattr(cli, "_survey_parkables", lambda args: ([_gps_receiver()], []))
 
     class Exploding:
@@ -1473,6 +1476,9 @@ def test_hardware_park_maps_a_dismissed_prompt_to_exit_3(
     helper.write_text("#!/bin/sh\n")
     helper.chmod(0o755)
     monkeypatch.setattr(cli, "HELPER_PATH", str(helper))
+    monkeypatch.setattr(
+        cli.shutil, "which", lambda name: "/usr/bin/pkexec" if name == "pkexec" else None
+    )
     monkeypatch.setattr(cli, "_survey_parkables", lambda args: ([_gps_receiver()], []))
 
     class Dismissing:
