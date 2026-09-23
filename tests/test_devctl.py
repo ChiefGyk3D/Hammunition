@@ -11,6 +11,7 @@ name and derives every path itself.
 from __future__ import annotations
 
 import json
+import os
 
 import pytest
 
@@ -133,3 +134,34 @@ def test_park_refuses_a_device_whose_node_now_holds_something_else(
 def test_an_unknown_verb_is_refused() -> None:
     with pytest.raises(SystemExit):
         main(["incinerate", "gps-receiver"])
+
+
+def test_refuses_to_run_as_root_through_a_writable_tree(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-056's ruling: the install-time check in `hardware apply` is repeated
+    here, at the moment this process is actually about to act as root, in
+    case the tree became writable since. Gated on ``geteuid() == 0`` so every
+    other test in this file -- which all run unprivileged -- is untouched;
+    this one fakes being root to reach the branch at all."""
+    import hammunition.cli.devctl as devctl
+
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setattr(devctl, "writable_by_non_root", lambda path: "/opt/hammunition/.venv")
+    assert main(["state"]) == 2
+    err = capsys.readouterr().err
+    assert "/opt/hammunition/.venv" in err
+    assert "refusing" in err
+
+
+def test_does_not_refuse_when_not_actually_running_as_root(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Falsifies a check that fired unconditionally: every other test in this
+    file runs unprivileged and would break the moment the gate stopped
+    checking ``geteuid()`` first."""
+    import hammunition.cli.devctl as devctl
+
+    monkeypatch.setattr(devctl, "writable_by_non_root", lambda path: "/opt/hammunition/.venv")
+    monkeypatch.setattr(devctl, "_survey", lambda: ([], []))
+    assert main(["state"]) == 0

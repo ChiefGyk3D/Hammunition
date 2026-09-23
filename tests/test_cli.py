@@ -17,6 +17,7 @@ import argparse
 import os
 import pwd
 import sys
+import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -1533,3 +1534,487 @@ def test_hardware_unapply_removes_nothing_the_log_does_not_record(
     monkeypatch.setattr(cli, "operator", lambda args: "op")
     assert cli.main(["hardware", "unapply"]) == 0
     assert "Nothing to remove" in capsys.readouterr().out
+
+
+def _log_with(entries: list[dict[str, Any]]) -> type:
+    """A fake ``TransactionLog`` class whose ``.read()`` replays ``entries``,
+    for tests that need a populated log rather than the empty one above."""
+
+    class _FakeLog:
+        def __init__(self, **kwargs: object) -> None: ...
+
+        def read(self) -> Iterator[dict[str, Any]]:
+            return iter(entries)
+
+    return _FakeLog
+
+
+def _polkit_artifacts(
+    tmp_path: Path,
+    *,
+    helper_current: bool = True,
+    policy_current: bool = True,
+    unsafe_interpreter: str | None = None,
+    unsafe_package: str | None = None,
+) -> Any:
+    from hammunition.hardware.polkit import PolkitArtifacts
+
+    return PolkitArtifacts(
+        helper_path=str(tmp_path / "hammunition-devctl"),
+        helper_content="helper-body\n",
+        policy_path=str(tmp_path / "devctl.policy"),
+        policy_content="policy-body\n",
+        helper_current=helper_current,
+        policy_current=policy_current,
+        interpreter="/usr/bin/python3",
+        unsafe_interpreter=unsafe_interpreter,
+        unsafe_package=unsafe_package,
+    )
+
+
+def _hardware_plan(tmp_path: Path, *, polkit: Any, groups_to_add: list[str] | None = None) -> Any:
+    from hammunition.hardware import HardwarePlan
+
+    return HardwarePlan(
+        user="op",
+        rules_path=tmp_path / "65-hammunition.rules",
+        rules_content="# rules\n",
+        rules_already_current=True,
+        groups_to_add=groups_to_add or [],
+        groups_present=[],
+        omissions=[],
+        detected=[],
+        unrecognised=[],
+        polkit=polkit,
+    )
+
+
+def _stub_hardware_apply_scaffolding(monkeypatch: pytest.MonkeyPatch, cli: Any, plan: Any) -> None:
+    """Everything `cmd_hardware_apply` needs besides the thing under test in a
+    given test: a plan that does not read sysfs or the real catalog, an
+    operator name, group membership that needs no real `grp` lookup, and a
+    transaction log that writes nothing to disk."""
+
+    class _NullLog:
+        def __init__(self, **kwargs: object) -> None: ...
+
+        def append(self, entry: dict[str, Any]) -> None: ...
+
+    monkeypatch.setattr("hammunition.hardware.plan_hardware", lambda *a, **k: plan)
+    monkeypatch.setattr(cli, "_load_hardware_catalog", lambda args: ({}, {}))
+    monkeypatch.setattr(cli, "operator", lambda args: "op")
+    monkeypatch.setattr(cli, "user_groups", lambda user: frozenset())
+    monkeypatch.setattr(cli, "TransactionLog", _NullLog)
+
+
+class _InstallingRunner:
+    """Simulates the privileged `install`/`gpasswd`/`udevadm` commands
+    succeeding, by actually performing the `install` copy for real — D-031's
+    readback needs a real file on disk to compare against — while never
+    touching anything outside the test's own tmp_path. `fail_on` names a
+    command description substring whose command instead fails without doing
+    anything, so a test can exercise a partial run.
+    """
+
+    def __init__(self, *, fail_on: str | None = None) -> None:
+        self.fail_on = fail_on
+        self.ran: list[Command] = []
+
+    def run(self, command: Command) -> CommandResult:
+        self.ran.append(command)
+        if self.fail_on is not None and self.fail_on in command.description:
+            return CommandResult(argv=tuple(command.argv), returncode=1, stdout="", stderr="boom")
+        if command.argv and command.argv[0] == "install":
+            src, dest = Path(command.argv[-2]), Path(command.argv[-1])
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(src.read_bytes())
+        return CommandResult(argv=tuple(command.argv), returncode=0, stdout="", stderr="")
+
+
+def test_hardware_apply_stages_in_an_unpredictable_directory_and_cleans_up(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Falsifies the pre-fix behaviour: a fixed `$TMPDIR/hammunition` staging
+    directory that a local attacker could pre-create and race. The real
+    staging directory must have an unguessable name and must be gone once
+    `apply` returns, whether it succeeds or not."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    polkit = _polkit_artifacts(tmp_path, helper_current=False, policy_current=True)
+    plan = _hardware_plan(tmp_path, polkit=polkit)
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+
+    runner = _InstallingRunner()
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: runner)
+
+    assert cli.main(["hardware", "apply", "--yes"]) == 0
+    assert len(runner.ran) == 1
+    staged_from = Path(runner.ran[0].argv[-2])
+    staging_dir = staged_from.parent
+
+    assert staging_dir != Path(tempfile.gettempdir()) / "hammunition"
+    assert staging_dir.parent == Path(tempfile.gettempdir())
+    assert "hammunition-hardware-" in staging_dir.name
+    assert not staging_dir.exists(), "the staging directory must be removed once apply returns"
+
+
+def test_hardware_apply_discloses_the_interpreter_above_the_install_commands(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    polkit = _polkit_artifacts(tmp_path, helper_current=False, policy_current=True)
+    plan = _hardware_plan(tmp_path, polkit=polkit)
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: _InstallingRunner())
+
+    assert cli.main(["hardware", "apply", "--yes"]) == 0
+    out = capsys.readouterr().out
+    assert "/usr/bin/python3" in out
+    assert out.index("/usr/bin/python3") < out.index("Commands (")
+
+
+def test_hardware_apply_refuses_yes_alone_when_the_interpreter_tree_is_unsafe(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-056's ruling: never refused outright, but never satisfied by --yes
+    either (D-021). No stdin answer at all -- the same as a dismissed
+    prompt -- must decline, not hang or default to proceeding."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    polkit = _polkit_artifacts(
+        tmp_path,
+        helper_current=False,
+        policy_current=True,
+        unsafe_interpreter="/opt/hammunition/.venv",
+    )
+    plan = _hardware_plan(tmp_path, polkit=polkit)
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+
+    class Exploding:
+        def run(self, command: Command) -> CommandResult:  # pragma: no cover
+            raise AssertionError("must not install anything while unconfirmed")
+
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: Exploding())
+    monkeypatch.setattr("builtins.input", lambda *a, **k: "")
+
+    assert cli.main(["hardware", "apply", "--yes"]) == EXIT_CONSENT
+    err = capsys.readouterr().err
+    assert "did not match" in err.lower()
+
+
+def test_hardware_apply_proceeds_once_the_offending_path_is_typed_back(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    polkit = _polkit_artifacts(
+        tmp_path,
+        helper_current=False,
+        policy_current=True,
+        unsafe_interpreter="/opt/hammunition/.venv",
+    )
+    plan = _hardware_plan(tmp_path, polkit=polkit)
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+
+    runner = _InstallingRunner()
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: runner)
+    monkeypatch.setattr("builtins.input", lambda *a, **k: "/opt/hammunition/.venv")
+
+    assert cli.main(["hardware", "apply", "--yes"]) == 0
+    assert len(runner.ran) == 1
+
+
+def test_hardware_apply_logs_the_helper_even_when_the_policy_install_then_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fix round 1, item 4: a log entry is written as soon as its own install
+    command succeeds, not batched to the end. A failed policy install must
+    not erase the record that the helper already landed."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    polkit = _polkit_artifacts(tmp_path, helper_current=False, policy_current=False)
+    plan = _hardware_plan(tmp_path, polkit=polkit)
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+
+    logged: list[dict[str, Any]] = []
+
+    class _RecordingLog:
+        def __init__(self, **kwargs: object) -> None: ...
+
+        def append(self, entry: dict[str, Any]) -> None:
+            logged.append(entry)
+
+    monkeypatch.setattr(cli, "TransactionLog", _RecordingLog)
+    runner = _InstallingRunner(fail_on="polkit action")
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: runner)
+
+    assert cli.main(["hardware", "apply", "--yes"]) == EXIT_FAILED
+    assert len(logged) == 1
+    assert logged[0]["files"] == [{"path": polkit.helper_path, "mode": "0755"}]
+    assert Path(polkit.helper_path).read_text() == polkit.helper_content
+    assert not Path(polkit.policy_path).exists()
+
+
+def test_hardware_apply_is_noop_message_mentions_the_polkit_artefacts(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fix round 1, item 7: `is_noop` covers the helper and policy too, and
+    the message printed when it fires must say so, not just the rules file
+    and group membership."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    polkit = _polkit_artifacts(tmp_path, helper_current=True, policy_current=True)
+    plan = _hardware_plan(tmp_path, polkit=polkit)
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+
+    assert cli.main(["hardware", "apply"]) == 0
+    out = capsys.readouterr().out.lower()
+    assert "helper" in out or "polkit" in out
+
+
+def test_hardware_unapply_only_removes_paths_it_owns(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fix round 1, item 2 (confirmed twice, incl. by the security review):
+    falsifies an unapply that `rm -f`s any path the log names. `--user` lets
+    an operator read *another* account's log, which that account can append
+    to freely, so only the two paths this command actually owns may ever be
+    removed -- everything else is reported and skipped."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    helper = tmp_path / "hammunition-devctl"
+    policy = tmp_path / "devctl.policy"
+    unowned = tmp_path / "etc" / "not-ours"
+    unowned.parent.mkdir(parents=True, exist_ok=True)
+    for p in (helper, policy, unowned):
+        p.write_text("x")
+
+    monkeypatch.setattr(cli, "HELPER_PATH", str(helper))
+    monkeypatch.setattr(cli, "POLICY_PATH", str(policy))
+    monkeypatch.setattr(cli, "operator", lambda args: "op")
+    monkeypatch.setattr(
+        cli,
+        "TransactionLog",
+        _log_with(
+            [
+                {
+                    "event": "hardware_artifacts",
+                    "version": 1,
+                    "files": [
+                        {"path": str(helper), "mode": "0755"},
+                        {"path": str(policy), "mode": "0644"},
+                        {"path": str(unowned), "mode": "0644"},
+                    ],
+                }
+            ]
+        ),
+    )
+
+    class _Removing:
+        def run(self, command: Command) -> CommandResult:
+            Path(command.argv[-1]).unlink(missing_ok=True)
+            return CommandResult(argv=tuple(command.argv), returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: _Removing())
+
+    assert cli.main(["hardware", "unapply", "--yes"]) == 0
+    assert not helper.exists()
+    assert not policy.exists()
+    assert unowned.exists(), "a path the log names but this command does not own must survive"
+    out = capsys.readouterr().out
+    assert str(unowned) in out
+    assert "does not own" in out
+
+
+def test_hardware_unapply_tolerates_a_files_field_that_is_a_string(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fix round 1, item 2: `entry.get("files", [])` iterated a string
+    character by character and then crashed on `item.get`. A malformed
+    *known* event must be tolerated, not raise."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    monkeypatch.setattr(cli, "operator", lambda args: "op")
+    monkeypatch.setattr(
+        cli,
+        "TransactionLog",
+        _log_with([{"event": "hardware_artifacts", "version": 1, "files": "not-a-list"}]),
+    )
+    assert cli.main(["hardware", "unapply", "--yes"]) == 0
+
+
+def test_hardware_unapply_tolerates_files_entries_that_are_not_dicts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    monkeypatch.setattr(cli, "operator", lambda args: "op")
+    monkeypatch.setattr(
+        cli,
+        "TransactionLog",
+        _log_with(
+            [
+                {
+                    "event": "hardware_artifacts",
+                    "version": 1,
+                    "files": ["/usr/local/libexec/hammunition-devctl"],
+                }
+            ]
+        ),
+    )
+    assert cli.main(["hardware", "unapply", "--yes"]) == 0
+
+
+def test_hardware_unapply_dry_run_removes_nothing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Falsifies an implementation that hardcodes the `rm -f` whenever the
+    log is non-empty without checking `--dry-run` at all: the stubbed runner
+    here raises if it is ever invoked."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    helper = tmp_path / "hammunition-devctl"
+    policy = tmp_path / "devctl.policy"
+    helper.write_text("x")
+    policy.write_text("x")
+
+    monkeypatch.setattr(cli, "HELPER_PATH", str(helper))
+    monkeypatch.setattr(cli, "POLICY_PATH", str(policy))
+    monkeypatch.setattr(cli, "operator", lambda args: "op")
+    monkeypatch.setattr(
+        cli,
+        "TransactionLog",
+        _log_with(
+            [
+                {
+                    "event": "hardware_artifacts",
+                    "version": 1,
+                    "files": [
+                        {"path": str(helper), "mode": "0755"},
+                        {"path": str(policy), "mode": "0644"},
+                    ],
+                }
+            ]
+        ),
+    )
+
+    class Exploding:
+        def run(self, command: Command) -> CommandResult:  # pragma: no cover
+            raise AssertionError("a dry run executed something")
+
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: Exploding())
+
+    assert cli.main(["hardware", "unapply", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "Dry run" in out
+    assert helper.exists() and policy.exists()
+
+
+def test_hardware_unapply_fails_when_a_path_survives_a_stubbed_successful_rm(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-031: `rm` exiting 0 is not evidence the file is gone."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    helper = tmp_path / "hammunition-devctl"
+    helper.write_text("x")
+
+    monkeypatch.setattr(cli, "HELPER_PATH", str(helper))
+    monkeypatch.setattr(cli, "POLICY_PATH", str(tmp_path / "does-not-exist.policy"))
+    monkeypatch.setattr(cli, "operator", lambda args: "op")
+    monkeypatch.setattr(
+        cli,
+        "TransactionLog",
+        _log_with(
+            [
+                {
+                    "event": "hardware_artifacts",
+                    "version": 1,
+                    "files": [{"path": str(helper), "mode": "0755"}],
+                }
+            ]
+        ),
+    )
+
+    class ClaimsSuccessButDoesNothing:
+        def run(self, command: Command) -> CommandResult:
+            return CommandResult(argv=tuple(command.argv), returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: ClaimsSuccessButDoesNothing())
+
+    assert cli.main(["hardware", "unapply", "--yes"]) == EXIT_FAILED
+    err = capsys.readouterr().err
+    assert "unverified" in err.lower()
+    assert helper.exists()
+
+
+def test_hardware_unapply_removes_both_recorded_owned_paths(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The positive path #3 in fix round 1 was entirely untested: two
+    entries, each naming one owned file, both removed and both verified."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    helper = tmp_path / "hammunition-devctl"
+    policy = tmp_path / "devctl.policy"
+    helper.write_text("x")
+    policy.write_text("x")
+
+    monkeypatch.setattr(cli, "HELPER_PATH", str(helper))
+    monkeypatch.setattr(cli, "POLICY_PATH", str(policy))
+    monkeypatch.setattr(cli, "operator", lambda args: "op")
+    monkeypatch.setattr(
+        cli,
+        "TransactionLog",
+        _log_with(
+            [
+                {
+                    "event": "hardware_artifacts",
+                    "version": 1,
+                    "files": [{"path": str(helper), "mode": "0755"}],
+                },
+                {
+                    "event": "hardware_artifacts",
+                    "version": 1,
+                    "files": [{"path": str(policy), "mode": "0644"}],
+                },
+            ]
+        ),
+    )
+
+    class _Removing:
+        def run(self, command: Command) -> CommandResult:
+            Path(command.argv[-1]).unlink(missing_ok=True)
+            return CommandResult(argv=tuple(command.argv), returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: _Removing())
+
+    assert cli.main(["hardware", "unapply", "--yes"]) == 0
+    assert not helper.exists()
+    assert not policy.exists()
+    assert "Done and verified" in capsys.readouterr().out

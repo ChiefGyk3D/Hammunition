@@ -97,12 +97,20 @@ def plan_hardware(
     attached: list[AttachedDevice] | None = None,
     rules_path: str = RULES_PATH,
     sysfs_root: Path | None = None,
+    polkit: PolkitArtifacts | None = None,
 ) -> HardwarePlan:
     """Resolve a hardware plan. Reads sysfs and the current rules file; writes nothing.
 
     ``attached`` overrides bus detection (for tests and for a caller that has
     already read it); otherwise sysfs is read here. ``user_groups_now`` is the
     operator's current membership, so the plan adds only what is missing.
+
+    ``polkit`` overrides :func:`plan_polkit`'s own resolution the same way
+    ``attached`` overrides bus detection: its real inputs are root-owned
+    system paths (``/usr/local/libexec/...``, ``/usr/share/polkit-1/...``), so
+    a test that wants a plan whose ``is_noop`` is predictable passes one in
+    instead of depending on whatever happens to be on the machine running the
+    test.
     """
     all_entries: list[DeviceClass | DeviceManifest] = [*classes.values(), *devices.values()]
     content, omissions = rules_file(all_entries)
@@ -131,5 +139,5 @@ def plan_hardware(
         omissions=omissions,
         detected=matches,
         unrecognised=unrecognised,
-        polkit=plan_polkit(),
+        polkit=polkit if polkit is not None else plan_polkit(),
     )

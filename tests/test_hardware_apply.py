@@ -13,8 +13,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from hammunition.hardware import plan_hardware, rules_file
 from hammunition.hardware.detect import AttachedDevice
 from hammunition.hardware.polkit import PolkitArtifacts
@@ -27,13 +25,18 @@ _NOOP_POLKIT = PolkitArtifacts(
     policy_content="",
     helper_current=True,
     policy_current=True,
+    interpreter="/usr/bin/python3",
+    unsafe_interpreter=None,
+    unsafe_package=None,
 )
 """A stand-in for a machine where the power-control artefacts are already
-installed. Real plan_polkit() reads fixed system paths (D-056) that do not
-exist on the dev machine or in CI, so its own idempotence is proven in
+installed and safe. Real plan_polkit() reads fixed system paths (D-056) that
+do not exist on the dev machine or in CI, so its own idempotence is proven in
 test_polkit_artifacts.py; here it is only ever noise for a plan whose subject
-is the udev rules and group membership, so tests that assert `is_noop` patch
-it out rather than depending on the real filesystem."""
+is the udev rules and group membership. plan_hardware() takes `polkit` as an
+injectable input for exactly this reason (the same way it already takes
+`attached`, `rules_path` and `sysfs_root`), so tests pass this in explicitly
+rather than depending on, or monkeypatching around, the real filesystem."""
 
 DOCS = HardwareDocumentation(
     what_it_is="A software defined radio receiver used for wideband reception.",
@@ -81,12 +84,7 @@ def test_the_rules_content_is_the_whole_catalog() -> None:
     assert plan.rules_content, "a catalog with udev bindings must produce rules"
 
 
-def test_already_current_when_the_file_matches(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(
-        "hammunition.hardware.apply.plan_polkit", lambda interpreter=None: _NOOP_POLKIT
-    )
+def test_already_current_when_the_file_matches(tmp_path: Path) -> None:
     classes, devices = _catalog()
     content, _ = rules_file([*devices.values()])
     rules = tmp_path / "65-hammunition.rules"
@@ -98,6 +96,7 @@ def test_already_current_when_the_file_matches(
         user_groups_now=frozenset({"plugdev", "dialout"}),
         attached=[],
         rules_path=str(rules),
+        polkit=_NOOP_POLKIT,
     )
     assert plan.rules_already_current
     assert plan.groups_to_add == []

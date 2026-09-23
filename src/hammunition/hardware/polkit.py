@@ -5,8 +5,11 @@
 
 from __future__ import annotations
 
+import os
 import shlex
+import stat as stat_module
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -18,6 +21,7 @@ __all__ = [
     "plan_polkit",
     "policy_xml",
     "wrapper_script",
+    "writable_by_non_root",
 ]
 
 HELPER_PATH = "/usr/local/libexec/hammunition-devctl"
@@ -30,7 +34,7 @@ POLICY_PATH = f"/usr/share/polkit-1/actions/{ACTION_ID}.policy"
 
 
 def wrapper_script(interpreter: str) -> str:
-    """A three-line shell wrapper that execs the helper's module.
+    """A small POSIX shell wrapper that execs the helper's module.
 
     Needed because polkit annotates an *absolute executable path* and the
     package's own entry point may live in a venv that root's PATH knows
@@ -80,6 +84,41 @@ def policy_xml() -> str:
 """
 
 
+def writable_by_non_root(
+    path: str | Path, *, stat_fn: Callable[[str], os.stat_result] = os.stat
+) -> str | None:
+    """The first component from ``path`` up to the filesystem root that a
+    non-root account could modify, or ``None`` if every one of them is closed.
+
+    ``stat_fn`` defaults to :func:`os.stat` and exists so this can be proven
+    against a synthetic tree in a test — an unprivileged dev machine and an
+    unprivileged CI run both lack any real root-owned file to test the "safe"
+    answer against.
+
+    D-056's ruling: the wrapper execs this path (or a path under the
+    ``hammunition`` package directory) *as root*, through a polkit action that
+    an active local session can satisfy once and keep for the rest of that
+    session. If any component from the target up to ``/`` is owned by anyone
+    but root, or is group- or other-writable, that account can replace what
+    root runs the next time the action fires — which is the ordinary shape of
+    a venv this project's own operator owns, not an exotic attack. Checked
+    component by component, not only the leaf: a root-owned file inside a
+    directory somebody else can write to is exactly as replaceable as the
+    file itself.
+    """
+    current = Path(path)
+    chain = [current, *current.parents]
+    for component in chain:
+        try:
+            info = stat_fn(str(component))
+        except OSError:
+            # Cannot be stat'd, so cannot be proven safe either.
+            return str(component)
+        if info.st_uid != 0 or info.st_mode & (stat_module.S_IWGRP | stat_module.S_IWOTH):
+            return str(component)
+    return None
+
+
 @dataclass(frozen=True)
 class PolkitArtifacts:
     """The two files power control needs on the machine, and whether they are current."""
@@ -91,9 +130,34 @@ class PolkitArtifacts:
     helper_current: bool
     policy_current: bool
 
+    interpreter: str
+    """The interpreter path baked into the wrapper. Disclosed in the plan
+    before it is ever written (D-056's ruling) — it is what the polkit action
+    will let root run."""
+
+    unsafe_interpreter: str | None
+    """:func:`writable_by_non_root` on the interpreter's resolved real path,
+    or ``None`` when every component up to ``/`` is closed to non-root."""
+
+    unsafe_package: str | None
+    """The same check against the ``hammunition`` package's own directory —
+    the code the wrapper imports and runs as root, independent of which
+    interpreter runs it."""
+
     @property
     def is_noop(self) -> bool:
         return self.helper_current and self.policy_current
+
+    @property
+    def needs_confirmation(self) -> bool:
+        """True when installing the helper would authorise root to run code
+        from a tree a non-root account can modify.
+
+        D-056's ruling is explicit: this is never refused outright — it is
+        the normal shape of a venv the operator owns — but it is never waved
+        through by ``--yes`` either (D-021).
+        """
+        return self.unsafe_interpreter is not None or self.unsafe_package is not None
 
 
 def _current(path: str, content: str) -> bool:
@@ -103,11 +167,21 @@ def _current(path: str, content: str) -> bool:
         return False
 
 
+def _package_dir() -> str:
+    """The ``hammunition`` package's own directory — two parents up from this
+    file (``.../hammunition/hardware/polkit.py`` → ``.../hammunition``)."""
+    return str(Path(__file__).resolve().parent.parent)
+
+
 def plan_polkit(interpreter: str | None = None) -> PolkitArtifacts:
     """What an apply would install, and whether it is already installed.
 
     ``interpreter`` defaults to the interpreter running this process, which is
-    by construction the one that can import the package.
+    by construction the one that can import the package. The wrapper bakes in
+    exactly what is passed (or ``sys.executable``) unresolved — what actually
+    runs when the wrapper is exec'd — while the safety check below resolves
+    symlinks first, because a symlink is exactly the kind of component that
+    can make an unsafe target look closed.
     """
     python = interpreter or sys.executable
     helper = wrapper_script(python)
@@ -119,4 +193,7 @@ def plan_polkit(interpreter: str | None = None) -> PolkitArtifacts:
         policy_content=policy,
         helper_current=_current(HELPER_PATH, helper),
         policy_current=_current(POLICY_PATH, policy),
+        interpreter=python,
+        unsafe_interpreter=writable_by_non_root(os.path.realpath(python)),
+        unsafe_package=writable_by_non_root(_package_dir()),
     )

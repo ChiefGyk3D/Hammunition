@@ -23,8 +23,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+from pathlib import Path
 
+from hammunition.hardware.polkit import writable_by_non_root
 from hammunition.hardware.power import (
     Parkable,
     PowerError,
@@ -136,7 +139,39 @@ def _state() -> int:
     return EXIT_OK
 
 
+def _unsafe_at_runtime() -> str | None:
+    """The same D-056 check ``hardware apply`` runs before install, run again
+    here, at the moment this process is actually about to act as root.
+
+    Gated on really being root: an unprivileged invocation (every test in
+    this repository, and a developer running this module directly to see
+    what it prints) reading its own writable checkout is not the privilege
+    escalation the check exists to catch -- only pkexec's elevated process
+    is. A tree that was safe at apply time can still have become writable
+    since (a package reinstalled somewhere looser, a permission loosened by
+    hand), so this is not redundant with the apply-time gate; it is the
+    defence for the gap between "we checked" and "we are now running".
+    """
+    if os.geteuid() != 0:
+        return None
+    unsafe = writable_by_non_root(os.path.realpath(sys.executable))
+    if unsafe is not None:
+        return unsafe
+    return writable_by_non_root(str(Path(__file__).resolve().parent.parent))
+
+
 def main(argv: list[str] | None = None) -> int:
+    unsafe = _unsafe_at_runtime()
+    if unsafe is not None:
+        print(
+            f"error: refusing to run: {unsafe} is writable by a non-root account, and "
+            f"this process is running as root through it. Fix its ownership or "
+            f"permissions, or re-run `hammunition hardware apply` from a location "
+            f"that is not writable by a non-root account.",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
+
     parser = argparse.ArgumentParser(
         prog="hammunition-devctl",
         description=(

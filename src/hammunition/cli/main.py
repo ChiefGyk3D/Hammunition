@@ -78,7 +78,7 @@ from hammunition.execute import (
     user_groups,
 )
 from hammunition.fetch import Fetcher
-from hammunition.hardware.polkit import HELPER_PATH
+from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH
 from hammunition.kernel import KernelProbe
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
@@ -1602,6 +1602,28 @@ def _prompt(text: str) -> bool:
     return answer in {"yes", "y"}
 
 
+def _confirm_unsafe_interpreter(offending: str) -> bool:
+    """A typed path, never `y`, `1`, or `--yes` (D-021, D-056's ruling).
+
+    Installing the helper is never refused for this — it is the normal shape
+    of a venv the operator owns — but the consent has to be the fact itself,
+    typed back, the same way D-040 makes the key fingerprint the consent for a
+    third-party apt repo rather than a bare confirmation.
+    """
+    print(
+        f"\n{offending} is writable by a non-root account, and the polkit action "
+        f"about to be installed lets root run code reached through it. Any active "
+        f"local session can authenticate once and run it as root for the rest of "
+        f"that session. This is not refused, but `--yes` does not satisfy it."
+    )
+    try:
+        typed = input(f"Type {offending!r} to confirm and proceed: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
+    return typed == offending
+
+
 # ---------------------------------------------------------------------------
 # hardware — the permissions and udev half of the device role (D-029)
 # ---------------------------------------------------------------------------
@@ -1685,165 +1707,233 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
 
     if plan.is_noop:
         print(
-            "Nothing to do: the rules file already matches and you are in every "
-            "access group. Hardware setup is complete."
+            "Nothing to do: the rules file already matches, you are in every access "
+            "group, and the power-control helper and its polkit action are already "
+            "installed. Hardware setup is complete."
         )
         return EXIT_OK
 
-    staging = Path(tempfile.gettempdir()) / "hammunition" / "udev-staging.rules"
-    commands: list[Command] = []
-    if not plan.rules_already_current:
-        print(f"Will write {len(plan.rules_content.splitlines())} lines to {plan.rules_path}")
-        commands += [
-            Command(
-                argv=("install", "-D", "-m", "0644", str(staging), str(plan.rules_path)),
-                description=f"Install the generated rules to {plan.rules_path}",
-                requires_root=True,
-            ),
-            Command(
-                argv=("udevadm", "control", "--reload-rules"),
-                description="Reload udev so the new rules take effect",
-                requires_root=True,
-            ),
-            Command(
-                argv=("udevadm", "trigger"),
-                description="Apply the rules to devices already attached",
-                requires_root=True,
-            ),
-        ]
-    else:
-        print(f"Rules file at {plan.rules_path} is already current.")
+    # A fixed name under the shared /tmp is not safe here: a privileged
+    # `install` command reads back from this directory, and a predictable
+    # path lets a local attacker pre-create it — /tmp's sticky bit does not
+    # protect a subdirectory *they* own — and race our write, landing their
+    # own content 0755 at the exact path polkit authorises. The D-031
+    # readback further down would only ever catch that after the bad file
+    # was already installed as root. mkdtemp's name cannot be guessed in
+    # advance, and its 0700 mode keeps every other account out entirely.
+    staging_dir = Path(tempfile.mkdtemp(prefix="hammunition-hardware-"))
+    try:
+        staging = staging_dir / "udev-staging.rules"
+        commands: list[Command] = []
+        if not plan.rules_already_current:
+            print(f"Will write {len(plan.rules_content.splitlines())} lines to {plan.rules_path}")
+            commands += [
+                Command(
+                    argv=("install", "-D", "-m", "0644", str(staging), str(plan.rules_path)),
+                    description=f"Install the generated rules to {plan.rules_path}",
+                    requires_root=True,
+                ),
+                Command(
+                    argv=("udevadm", "control", "--reload-rules"),
+                    description="Reload udev so the new rules take effect",
+                    requires_root=True,
+                ),
+                Command(
+                    argv=("udevadm", "trigger"),
+                    description="Apply the rules to devices already attached",
+                    requires_root=True,
+                ),
+            ]
+        else:
+            print(f"Rules file at {plan.rules_path} is already current.")
 
-    staged_polkit = Path(tempfile.gettempdir()) / "hammunition"
-    if not plan.polkit.helper_current:
-        print(f"Will install the privileged helper to {plan.polkit.helper_path}")
-        commands.append(
-            Command(
+        # Tracked by identity so the run loop below can verify and log each
+        # artefact as soon as its own command succeeds, rather than batching
+        # both into one entry after every command in the transaction has run.
+        helper_command: Command | None = None
+        policy_command: Command | None = None
+        if not plan.polkit.helper_current:
+            print(
+                f"Will install the privileged helper to {plan.polkit.helper_path}\n"
+                f"  It execs {plan.polkit.interpreter} as root, through a polkit "
+                f"action any active local session may satisfy once and keep "
+                f"authorised for the rest of that session "
+                f"(allow_active=auth_self_keep)."
+            )
+            helper_command = Command(
                 argv=(
                     "install",
                     "-D",
                     "-m",
                     "0755",
-                    str(staged_polkit / "hammunition-devctl"),
+                    str(staging_dir / "hammunition-devctl"),
                     plan.polkit.helper_path,
                 ),
                 description=f"Install the power-control helper to {plan.polkit.helper_path}",
                 requires_root=True,
             )
-        )
-    if not plan.polkit.policy_current:
-        print(f"Will install the polkit action to {plan.polkit.policy_path}")
-        commands.append(
-            Command(
+            commands.append(helper_command)
+        if not plan.polkit.policy_current:
+            print(f"Will install the polkit action to {plan.polkit.policy_path}")
+            policy_command = Command(
                 argv=(
                     "install",
                     "-D",
                     "-m",
                     "0644",
-                    str(staged_polkit / "devctl.policy"),
+                    str(staging_dir / "devctl.policy"),
                     plan.polkit.policy_path,
                 ),
                 description=(f"Install the polkit action authorising {plan.polkit.helper_path}"),
                 requires_root=True,
             )
-        )
+            commands.append(policy_command)
 
-    for group in plan.groups_to_add:
-        print(f"Will add {user!r} to the {group!r} group")
-        commands.append(
-            Command(
-                argv=("gpasswd", "--add", user, group),
-                description=f"Add {user} to {group} for device access",
-                requires_root=True,
+        for group in plan.groups_to_add:
+            print(f"Will add {user!r} to the {group!r} group")
+            commands.append(
+                Command(
+                    argv=("gpasswd", "--add", user, group),
+                    description=f"Add {user} to {group} for device access",
+                    requires_root=True,
+                )
             )
-        )
 
-    euid = os.geteuid()
-    print(f"\nCommands ({len(commands)}):")
-    for command in commands:
-        print(f"  # {command.description}")
-        print(f"  $ {command.display(euid=euid)}")
+        euid = os.geteuid()
+        print(f"\nCommands ({len(commands)}):")
+        for command in commands:
+            print(f"  # {command.description}")
+            print(f"  $ {command.display(euid=euid)}")
 
-    if args.dry_run:
-        print("\nDry run: nothing above was executed.")
-        return EXIT_OK
-    if not args.yes and not _prompt("\nProceed with the commands above?"):
-        print("Aborted. Nothing was changed.")
-        return EXIT_OK
+        if args.dry_run:
+            print("\nDry run: nothing above was executed.")
+            return EXIT_OK
 
-    if not plan.rules_already_current:
-        staging.parent.mkdir(parents=True, exist_ok=True)
-        staging.write_text(plan.rules_content)
-        os.chmod(staging, 0o644)
-    if not plan.polkit.helper_current:
-        staged_polkit.mkdir(parents=True, exist_ok=True)
-        helper_staging = staged_polkit / "hammunition-devctl"
-        helper_staging.write_text(plan.polkit.helper_content)
-        os.chmod(helper_staging, 0o755)
-    if not plan.polkit.policy_current:
-        staged_polkit.mkdir(parents=True, exist_ok=True)
-        policy_staging = staged_polkit / "devctl.policy"
-        policy_staging.write_text(plan.polkit.policy_content)
-        os.chmod(policy_staging, 0o644)
+        # D-056's ruling: never refuse a wrapper that bakes in an interpreter
+        # or package tree a non-root account can write — that is the normal
+        # shape of a venv this project's own operator owns — but never let
+        # `--yes` wave it through either (D-021). Typed confirmation only,
+        # and only when the wrapper is actually about to be (re)written.
+        if helper_command is not None and plan.polkit.needs_confirmation:
+            offending = plan.polkit.unsafe_interpreter or plan.polkit.unsafe_package
+            assert offending is not None  # needs_confirmation guarantees one is set
+            if not _confirm_unsafe_interpreter(offending):
+                print(
+                    "Aborted: confirmation did not match. Nothing was changed.",
+                    file=sys.stderr,
+                )
+                return EXIT_CONSENT
 
-    runner = SubprocessRunner()
-    print("\nRunning:")
-    for command in commands:
-        print(f"  $ {command.display(euid=euid)}")
-        result = runner.run(command)
-        if result.returncode != 0:
-            print(f"error: {result.stderr.strip()[:300]}", file=sys.stderr)
-            print("Stopped. What ran above is applied; the rest is not.", file=sys.stderr)
+        if not args.yes and not _prompt("\nProceed with the commands above?"):
+            print("Aborted. Nothing was changed.")
+            return EXIT_OK
+
+        if not plan.rules_already_current:
+            staging.write_text(plan.rules_content)
+            os.chmod(staging, 0o644)
+        if helper_command is not None:
+            helper_staging = staging_dir / "hammunition-devctl"
+            helper_staging.write_text(plan.polkit.helper_content)
+            os.chmod(helper_staging, 0o755)
+        if policy_command is not None:
+            policy_staging = staging_dir / "devctl.policy"
+            policy_staging.write_text(plan.polkit.policy_content)
+            os.chmod(policy_staging, 0o644)
+
+        runner = SubprocessRunner()
+        print("\nRunning:")
+        for command in commands:
+            print(f"  $ {command.display(euid=euid)}")
+            result = runner.run(command)
+            if result.returncode != 0:
+                print(f"error: {result.stderr.strip()[:300]}", file=sys.stderr)
+                print("Stopped. What ran above is applied; the rest is not.", file=sys.stderr)
+                return EXIT_FAILED
+
+            # D-031, and recorded per artefact as soon as its own command
+            # succeeds: a later command in this same run (the policy install,
+            # a gpasswd call) can still fail without leaving an unrecorded
+            # root-owned file that `unapply` would then report as nothing to
+            # remove.
+            if command is helper_command:
+                try:
+                    matches = (
+                        Path(plan.polkit.helper_path).read_text() == plan.polkit.helper_content
+                    )
+                except OSError as exc:
+                    print(
+                        f"  unverified: could not read back {plan.polkit.helper_path}: {exc}",
+                        file=sys.stderr,
+                    )
+                    return EXIT_FAILED
+                if not matches:
+                    print(
+                        f"  unverified: {plan.polkit.helper_path} on disk does not match "
+                        f"what we wrote",
+                        file=sys.stderr,
+                    )
+                    return EXIT_FAILED
+                TransactionLog(owner=user).append(
+                    {
+                        "event": "hardware_artifacts",
+                        "version": 1,
+                        "files": [{"path": plan.polkit.helper_path, "mode": "0755"}],
+                    }
+                )
+            if command is policy_command:
+                try:
+                    matches = (
+                        Path(plan.polkit.policy_path).read_text() == plan.polkit.policy_content
+                    )
+                except OSError as exc:
+                    print(
+                        f"  unverified: could not read back {plan.polkit.policy_path}: {exc}",
+                        file=sys.stderr,
+                    )
+                    return EXIT_FAILED
+                if not matches:
+                    print(
+                        f"  unverified: {plan.polkit.policy_path} on disk does not match "
+                        f"what we wrote",
+                        file=sys.stderr,
+                    )
+                    return EXIT_FAILED
+                TransactionLog(owner=user).append(
+                    {
+                        "event": "hardware_artifacts",
+                        "version": 1,
+                        "files": [{"path": plan.polkit.policy_path, "mode": "0644"}],
+                    }
+                )
+
+        # D-031 for the rules file and group membership. The polkit
+        # artefacts were already verified — and logged — individually above,
+        # as soon as their own command ran.
+        problems: list[str] = []
+        if not plan.rules_already_current:
+            try:
+                if Path(plan.rules_path).read_text() != plan.rules_content:
+                    problems.append(f"{plan.rules_path} on disk does not match what we wrote")
+            except OSError as exc:
+                problems.append(f"could not read back {plan.rules_path}: {exc}")
+        after = user_groups(user)
+        for group in plan.groups_to_add:
+            if group not in after:
+                problems.append(f"{user} is still not in {group}")
+        if problems:
+            for problem in problems:
+                print(f"  unverified: {problem}", file=sys.stderr)
             return EXIT_FAILED
 
-    # D-031: verify the effect, not the exit status.
-    problems: list[str] = []
-    if not plan.rules_already_current:
-        try:
-            if Path(plan.rules_path).read_text() != plan.rules_content:
-                problems.append(f"{plan.rules_path} on disk does not match what we wrote")
-        except OSError as exc:
-            problems.append(f"could not read back {plan.rules_path}: {exc}")
-    if not plan.polkit.helper_current:
-        try:
-            if Path(plan.polkit.helper_path).read_text() != plan.polkit.helper_content:
-                problems.append(f"{plan.polkit.helper_path} on disk does not match what we wrote")
-        except OSError as exc:
-            problems.append(f"could not read back {plan.polkit.helper_path}: {exc}")
-    if not plan.polkit.policy_current:
-        try:
-            if Path(plan.polkit.policy_path).read_text() != plan.polkit.policy_content:
-                problems.append(f"{plan.polkit.policy_path} on disk does not match what we wrote")
-        except OSError as exc:
-            problems.append(f"could not read back {plan.polkit.policy_path}: {exc}")
-    after = user_groups(user)
-    for group in plan.groups_to_add:
-        if group not in after:
-            problems.append(f"{user} is still not in {group}")
-    if problems:
-        for problem in problems:
-            print(f"  unverified: {problem}", file=sys.stderr)
-        return EXIT_FAILED
-
-    if not plan.polkit.is_noop:
-        TransactionLog(owner=user).append(
-            {
-                "event": "hardware_artifacts",
-                "version": 1,
-                "files": [
-                    {"path": plan.polkit.helper_path, "mode": "0755"},
-                    {"path": plan.polkit.policy_path, "mode": "0644"},
-                ],
-            }
-        )
-
-    print("\nDone and verified.")
-    if plan.groups_to_add:
-        print(
-            f"Group membership ({', '.join(plan.groups_to_add)}) takes effect at your "
-            f"next login — log out and back in before expecting device access."
-        )
-    return EXIT_OK
+        print("\nDone and verified.")
+        if plan.groups_to_add:
+            print(
+                f"Group membership ({', '.join(plan.groups_to_add)}) takes effect at "
+                f"your next login — log out and back in before expecting device access."
+            )
+        return EXIT_OK
+    finally:
+        shutil.rmtree(staging_dir, ignore_errors=True)
 
 
 def cmd_hardware_unapply(args: argparse.Namespace) -> int:
@@ -1855,6 +1945,14 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     there -- never a path we merely expect to exist, because a file at the
     helper's path that we did not write belongs to whoever did.
 
+    **Narrower still: only a path this command owns.** ``--user`` lets an
+    operator read *another* account's transaction log, which that account can
+    append to freely -- so a log is data, not an instruction, and a `path`
+    entry in it is honoured only when it is exactly the helper or the policy
+    path. Anything else the log names is reported and skipped, never removed,
+    because a root ``rm -f`` for an arbitrary string an unprivileged account
+    once wrote into its own log file is not a promise this command makes.
+
     The udev rules file is deliberately left alone. It is declarative, it is
     harmless for a device that is not attached, and removing it would take
     away device access an operator is still using. Power control is the
@@ -1865,20 +1963,45 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         print("error: could not determine whose transaction log to read.", file=sys.stderr)
         return EXIT_FAILED
 
+    owned = {HELPER_PATH, POLICY_PATH}
     recorded: list[str] = []
+    skipped: list[str] = []
     for entry in TransactionLog(owner=user).read():
         if entry.get("event") != "hardware_artifacts":
             continue
-        for item in entry.get("files", []):
+        files = entry.get("files")
+        if not isinstance(files, list):
+            # A malformed *known* event, not an unknown one -- state/log.py's
+            # tolerance promise covers readers skipping events they don't
+            # recognise, not a reader trusting the shape of one it does.
+            continue
+        for item in files:
+            if not isinstance(item, dict):
+                continue
             path = item.get("path")
-            if isinstance(path, str) and path not in recorded:
+            if not isinstance(path, str):
+                continue
+            if path not in owned:
+                if path not in recorded and path not in skipped:
+                    skipped.append(path)
+                continue
+            if path not in recorded:
                 recorded.append(path)
 
-    if not recorded:
+    if not recorded and not skipped:
         print(
             "Nothing to remove: the transaction log records no hardware artefacts "
             "installed by Hammunition for this user."
         )
+        return EXIT_OK
+
+    for path in skipped:
+        print(
+            f"Skipped: the log names {path!r}, which this command does not own "
+            f"(only the power-control helper and its polkit action are ever removed)."
+        )
+    if not recorded:
+        print("Nothing to do: no artefact this command owns is recorded.")
         return EXIT_OK
 
     present = [p for p in recorded if Path(p).exists()]
