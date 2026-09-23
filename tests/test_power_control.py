@@ -41,6 +41,21 @@ DOCS = HardwareDocumentation(
 NOTE = "gpsd handles hot-unplug itself, so nothing else needs quieting here."
 
 
+@pytest.fixture
+def sysfs_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A synthetic device tree that guard() will accept.
+
+    The planner and executor call guard() on every path they write, which is
+    the point of it -- so a test tree outside the real bus roots has to be
+    named as a root rather than the check removed. guard()'s own tests still
+    run against the real ALLOWED_ROOTS, so the shipped behaviour stays pinned.
+    """
+    from hammunition.hardware import power
+
+    monkeypatch.setattr(power, "ALLOWED_ROOTS", (*power.ALLOWED_ROOTS, str(tmp_path)))
+    return tmp_path
+
+
 def _class(power: dict[str, object] | None) -> dict[str, object]:
     entry: dict[str, object] = {
         "name": "gps-receiver",
@@ -210,31 +225,31 @@ def test_two_of_the_same_class_both_appear_with_their_own_addresses(tmp_path: Pa
     assert {p.sysfs_path for p in found} == {str(tmp_path / "1-4"), str(tmp_path / "1-5")}
 
 
-def test_plan_park_writes_authorized_then_power_control(tmp_path: Path) -> None:
+def test_plan_park_writes_authorized_then_power_control(sysfs_root: Path) -> None:
     found, _ = parkable(
-        [Match(name="gps-receiver", attached=_bus(tmp_path), ambiguous=False)],
+        [Match(name="gps-receiver", attached=_bus(sysfs_root), ambiguous=False)],
         _entries({"method": "usb_deauthorize", "quiet": [], "note": NOTE}),
     )
-    node = tmp_path / "1-4"
+    node = sysfs_root / "1-4"
     assert plan_park(found[0]).writes == (
         Write(path=str(node / "authorized"), value="0"),
         Write(path=str(node / "power" / "control"), value="auto"),
     )
 
 
-def test_plan_wake_writes_only_authorized(tmp_path: Path) -> None:
+def test_plan_wake_writes_only_authorized(sysfs_root: Path) -> None:
     found, _ = parkable(
-        [Match(name="gps-receiver", attached=_bus(tmp_path, authorized="0"), ambiguous=False)],
+        [Match(name="gps-receiver", attached=_bus(sysfs_root, authorized="0"), ambiguous=False)],
         _entries({"method": "usb_deauthorize", "note": NOTE}),
     )
     assert plan_wake(found[0]).writes == (
-        Write(path=str(tmp_path / "1-4" / "authorized"), value="1"),
+        Write(path=str(sysfs_root / "1-4" / "authorized"), value="1"),
     )
 
 
-def test_the_quiet_verbs_ride_on_the_plan(tmp_path: Path) -> None:
+def test_the_quiet_verbs_ride_on_the_plan(sysfs_root: Path) -> None:
     found, _ = parkable(
-        [Match(name="gps-receiver", attached=_bus(tmp_path), ambiguous=False)],
+        [Match(name="gps-receiver", attached=_bus(sysfs_root), ambiguous=False)],
         _entries(
             {
                 "method": "usb_deauthorize",
@@ -284,8 +299,8 @@ def test_guard_accepts_the_symlinked_node_every_real_device_is(tmp_path: Path) -
     assert guard("/sys/bus/usb/devices/1-4/power/control")
 
 
-def test_execute_writes_and_reads_back(tmp_path: Path) -> None:
-    node = tmp_path / "1-4"
+def test_execute_writes_and_reads_back(sysfs_root: Path) -> None:
+    node = sysfs_root / "1-4"
     (node / "power").mkdir(parents=True)
     (node / "authorized").write_text("1\n")
     plan = PowerPlan(
@@ -296,10 +311,10 @@ def test_execute_writes_and_reads_back(tmp_path: Path) -> None:
 
 
 def test_execute_fails_when_the_readback_does_not_match(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    sysfs_root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """D-031. A write that returned without raising is not evidence."""
-    node = tmp_path / "1-4"
+    node = sysfs_root / "1-4"
     node.mkdir()
     target = node / "authorized"
     target.write_text("1\n")
@@ -318,7 +333,7 @@ def test_execute_fails_when_the_readback_does_not_match(
 
 
 def test_execute_reports_a_missing_pkexec_uid_rather_than_crashing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    sysfs_root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Review Focus 3. Under sudo rather than pkexec, PKEXEC_UID is simply not
     set. Taking the whole park down after the hardware write already happened
@@ -339,7 +354,7 @@ def test_execute_reports_a_missing_pkexec_uid_rather_than_crashing(
 
     monkeypatch.setattr("hammunition.hardware.power.subprocess.run", fake_run)
 
-    node = tmp_path / "1-4"
+    node = sysfs_root / "1-4"
     node.mkdir()
     (node / "authorized").write_text("1\n")
     plan = PowerPlan(
@@ -355,7 +370,7 @@ def test_execute_reports_a_missing_pkexec_uid_rather_than_crashing(
 
 
 def test_execute_shells_out_to_nothing_when_there_are_no_quiet_verbs(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    sysfs_root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The GPS receiver's quiet list is empty, which is the shipped case. It
     must reach no subprocess at all -- a park on a machine with no
@@ -365,10 +380,22 @@ def test_execute_shells_out_to_nothing_when_there_are_no_quiet_verbs(
         raise AssertionError("execute() shelled out with an empty quiet list")
 
     monkeypatch.setattr("hammunition.hardware.power.subprocess.run", exploding_run)
-    node = tmp_path / "1-4"
+    node = sysfs_root / "1-4"
     node.mkdir()
     (node / "authorized").write_text("1\n")
     plan = PowerPlan(
         writes=(Write(path=str(node / "authorized"), value="0"),), quiet=(), restore=False
     )
     assert execute(plan) == []
+
+
+def test_execute_refuses_a_write_outside_the_device_roots(tmp_path: Path) -> None:
+    """The guard is called at the write, not only where the plan was built.
+    This test fails if execute() stops calling guard() -- which is how the
+    check silently became dead code once already."""
+    escape = tmp_path / "shadow"
+    escape.write_text("original\n")
+    plan = PowerPlan(writes=(Write(path=str(escape), value="pwned"),), quiet=(), restore=False)
+    with pytest.raises(PowerError, match="outside"):
+        execute(plan)
+    assert escape.read_text() == "original\n", "nothing may be written before the refusal"

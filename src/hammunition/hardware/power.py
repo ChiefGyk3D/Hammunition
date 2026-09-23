@@ -192,14 +192,14 @@ def _usb_writes(p: Parkable, *, park: bool) -> tuple[Write, ...]:
     node = Path(p.sysfs_path)
     if park:
         return (
-            Write(path=str(node / "authorized"), value="0"),
-            Write(path=str(node / "power" / "control"), value="auto"),
+            Write(path=guard(str(node / "authorized")), value="0"),
+            Write(path=guard(str(node / "power" / "control")), value="auto"),
         )
     # Waking writes `authorized` alone. Restoring power/control to "on" would
     # undo a runtime-PM setting the operator or a udev rule may own -- the
     # DW5930e on the field laptop has exactly such a rule -- and an authorized
     # device is not suspended in any case.
-    return (Write(path=str(node / "authorized"), value="1"),)
+    return (Write(path=guard(str(node / "authorized")), value="1"),)
 
 
 def _plan(p: Parkable, *, park: bool) -> PowerPlan:
@@ -289,18 +289,17 @@ def execute(plan: PowerPlan, *, uid: int | None = None) -> list[str]:
     Every write is read back and compared. D-031: ``write_text`` returning a
     byte count is not evidence that a byte reached the device.
 
-    **This does not call** :func:`guard`. A plan built by :func:`plan_park` or
-    :func:`plan_wake` already carries a :class:`Parkable`'s ``sysfs_path``,
-    which is only ever set from :func:`hammunition.hardware.detect.read_usb_bus`
-    reading the real bus -- there is nothing left to contain by the time a
-    plan reaches here. The privileged boundary (:mod:`hammunition.cli.devctl`)
-    is the place a path might instead come from an untrusted caller across
-    polkit, and it is *there* that :func:`guard` belongs, on whatever it
-    resolves before ever building a :class:`Write`.
+    **Every path is re-checked by** :func:`guard` **here, at the write, not
+    only at whoever assembled the plan.** This is the function that runs as
+    root behind a polkit action, so it is the last place containment can be
+    enforced before a byte reaches a device node -- a plan built safely today
+    is not a guarantee about how a plan is built tomorrow, and a check that
+    fires only where the plan happened to be assembled is a check with an
+    escape hatch built in.
     """
     problems: list[str] = []
     for write in plan.writes:
-        target = Path(write.path)
+        target = Path(guard(write.path))
         try:
             target.write_text(write.value)
         except OSError as exc:
