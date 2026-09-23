@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from hammunition.hardware.detect import AttachedDevice, Match, match_catalog, read_usb_bus
+from hammunition.hardware.polkit import PolkitArtifacts, plan_polkit
 from hammunition.hardware.udev import RULES_PATH, Omission, rules_file
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 
@@ -62,9 +63,12 @@ class HardwarePlan:
     unrecognised: list[AttachedDevice]
     """Attached devices the catalog does not know — a contributing prompt."""
 
+    polkit: PolkitArtifacts
+    """The helper wrapper and polkit action power control needs (D-056)."""
+
     @property
     def is_noop(self) -> bool:
-        return self.rules_already_current and not self.groups_to_add
+        return self.rules_already_current and not self.groups_to_add and self.polkit.is_noop
 
 
 def _device_groups(
@@ -93,12 +97,20 @@ def plan_hardware(
     attached: list[AttachedDevice] | None = None,
     rules_path: str = RULES_PATH,
     sysfs_root: Path | None = None,
+    polkit: PolkitArtifacts | None = None,
 ) -> HardwarePlan:
     """Resolve a hardware plan. Reads sysfs and the current rules file; writes nothing.
 
     ``attached`` overrides bus detection (for tests and for a caller that has
     already read it); otherwise sysfs is read here. ``user_groups_now`` is the
     operator's current membership, so the plan adds only what is missing.
+
+    ``polkit`` overrides :func:`plan_polkit`'s own resolution the same way
+    ``attached`` overrides bus detection: its real inputs are root-owned
+    system paths (``/usr/local/libexec/...``, ``/usr/share/polkit-1/...``), so
+    a test that wants a plan whose ``is_noop`` is predictable passes one in
+    instead of depending on whatever happens to be on the machine running the
+    test.
     """
     all_entries: list[DeviceClass | DeviceManifest] = [*classes.values(), *devices.values()]
     content, omissions = rules_file(all_entries)
@@ -127,4 +139,5 @@ def plan_hardware(
         omissions=omissions,
         detected=matches,
         unrecognised=unrecognised,
+        polkit=polkit if polkit is not None else plan_polkit(),
     )

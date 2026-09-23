@@ -4049,3 +4049,194 @@ presence**, every one an honest omission the summary names: seven services
 that ship only `/usr/sbin` programs, five toolkits with no executable named
 like the unit (`ax25mail-utils`, `hcxtools`, `libfreefare-bin`, `pciutils`,
 `usbutils`), seven libraries and driver modules with nothing to launch.
+
+---
+
+## D-056 — Device power control: one helper behind one polkit action, nothing persisted, and every unbuilt capability ships schema-valid and refused
+
+**Decided:** A catalogued device can be **parked** (detached so its port
+suspends) and **woken** (brought back) through a `power_control` block on its
+manifest naming a fixed method. Three callers — the CLI, generated menu
+entries, and the Plasma applet in a separate repository — all reach the
+kernel through one small root-owned helper, authorised by one polkit action.
+Nothing about which devices are parked is ever written to disk.
+
+### Why a helper behind polkit, not `sudo hammunition`
+
+`pkexec` authorises an **absolute executable path**, not an argument list —
+the action names the one program root may run and polkit checks nothing about
+what that program is then asked to do. Pointing it at the whole engine
+(`sudo hammunition`, or a polkit action wrapping it) would authorise every
+verb the CLI has ever grown or will grow — `install`, `uninstall`, arbitrary
+catalog-driven apt and source-build execution — through an `auth_self_keep`
+grant meant for one two-line sysfs write. (`auth_self_keep` keeps that grant
+for a few minutes after the one authentication, per polkit's own manual
+page, not for the rest of the session — a claim this feature's own docs got
+wrong on the first pass and had to correct.) The engine is not
+a thing to authorise wholesale. `hammunition-devctl` is a separate,
+deliberately small program: three verbs, no argv that carries a path or a
+plan, no station config, nothing an unprivileged caller supplies except a
+device *name* it re-resolves for itself against a bus it re-reads fresh. What
+runs as root is reviewable in one file.
+
+### Why not a D-Bus service yet
+
+Three callers and one action is small enough that the helper's shape —
+re-derive everything from a name, on every call, with no held state — is
+simpler than a long-running service with a socket to secure and a state
+machine to keep honest. A D-Bus service is the shape to grow into if this
+ever needs to carry more than a handful of device controls with genuinely
+live state (a service watching for hot-plug and pushing signals, say); for
+one action and three small writes it would be infrastructure the feature does
+not need yet.
+
+### Why parked state is not persisted
+
+sysfs is already the single source of truth: `authorized` reads back `0` or
+`1` right now, on the device, and a reboot resets every device to woken
+regardless of anything recorded elsewhere. A state file would only ever be
+able to disagree with sysfs — after an unplug and replug, after a firmware
+crash, after `apply` has never been run at all — and reconciling "the file
+says parked but the device is not" is a whole failure mode this design has no
+reason to build. `hammunition hardware state` answers by reading the bus, not
+a cache.
+
+### Why `pci_runtime` ships refused
+
+`PowerMethod` is `Literal["usb_deauthorize", "pci_runtime"]` so a future
+`wwan-modem` class can carry `pci_runtime` in its manifest today and be
+schema-valid, but no manifest in the catalog declares it, and the engine
+raises `PowerError` the moment a plan is asked for one. The project's
+standing rule (this file, throughout) is that nothing ships that has not been
+run — an MHI/PCIe power-control path has no card here to prove it against,
+so it is carried as a named, documented gap rather than shipped on the
+strength of reading a kernel doc.
+
+### Why the quiet verbs ship refused too
+
+`QuietVerb` carries `networkmanager_autoconnect` for the same reason:
+schema-valid, refused at plan time, `PowerError` naming why. This one changed
+shape during implementation. The verb was first written to set
+`connection.autoconnect no` on every NetworkManager profile before a park and
+restore it on wake — and a review round caught that "every profile" includes
+ones the operator had deliberately set to `no` for reasons of their own, so a
+park/wake cycle was not reversible; it silently turned autoconnect back on
+for something the operator had turned off. The spec's actual intent — hush
+only the profiles *bound to the device's own interface* — cannot be
+implemented honestly yet: `Parkable` carries no interface at all, because the
+one device parkable today is a USB GPS receiver, which has no interface to
+bind to. The only device that would need this verb is a WWAN modem, and that
+device's own method (`pci_runtime`) is already refused above for want of a
+card. So the enum value stays, the implementation waits for the card that
+would prove both halves together, and nothing is shipped that quietly
+mishandles a setting the operator made on purpose.
+
+### Why `guard()` is lexical, not `resolve()`
+
+`hammunition.hardware.power.guard()` checks that every path it is asked to
+write sits inside `/sys/bus/usb/devices` or `/sys/bus/pci/devices`, at
+exactly `<address>/authorized` or `<address>/power/control` — but it does the
+containment check with `os.path.normpath`, textual `..`-collapsing, and
+never with `Path.resolve()`. A real USB device node **is itself a symlink**
+— `/sys/bus/usb/devices/1-4` points into `/sys/devices/pci0000:00/…` — so
+the obvious-looking check, `path.resolve().is_relative_to(root)`, refuses
+every device on the machine, because the resolved path never sits under
+`/sys/bus/...` at all. The equally obvious alternative, comparing the path as
+given with no normalisation whatsoever, accepts
+`/sys/bus/usb/devices/../../../etc/shadow`. Neither is safe; normalising the
+literal path without following it is the one check that is.
+
+**Sitting under a root is not the whole guard.** Every USB device node also
+carries kernel-made symlinks of its own — `driver`, `subsystem`, `remove` —
+and `<address>/driver/unbind` sits under the same allowed root while having
+nothing to do with power control. So `guard()` also pins the **leaf**: the
+path under the root must be exactly one address component followed by
+`authorized` or `power/control`, structurally, not merely ending in one of
+those names — `<address>/driver/authorized` ends in a permitted leaf while
+riding `driver`'s symlink clean out of the node. `guard()` is called again
+inside `execute()`, the function that actually runs as root, not only by
+whoever assembled the plan — a plan built safely today is not a guarantee
+about how one is built tomorrow.
+
+### Why the wrapper's writability gate has two classes, not one
+
+`hardware apply` checks, before installing the helper, whether the
+interpreter it will bake in and the `hammunition` package directory it
+imports are safe for root to run. An early version treated "owned by a
+non-root account" and "writable by *any* local account" as the same finding
+and refused on either — which broke the project's own documented install,
+because a venv under `$HOME` (`docs/getting-started/install.md`'s own
+instructions) is *always* owned by one specific non-root account, never by
+root. The two facts are not the same risk. `WritabilityRisk.GROUP_OR_OTHER_WRITABLE`
+— any local account, not only the owner, can replace what root is about to
+run — is the actual escalation and is refused outright, at both `apply` time
+and again at the moment `hammunition-devctl` itself starts running as root.
+`WritabilityRisk.OWNED_BY_NON_ROOT` — the tree belongs to one account, the
+ordinary shape of an operator's own venv — is never refused; it is disclosed
+by path and requires a **typed confirmation** at `apply` (retype the exact
+path shown) and prints a warning at runtime.
+
+**The typed confirmation cannot be satisfied by `--yes`.** This is D-021's
+rule pointed at a different subsystem: `--yes` means "skip routine
+confirmations", and a gate that a convenience flag walks through is not a
+gate. Authorising root to run code from a tree one non-root account controls
+is a decision to record deliberately, the same way an unlicensed-transmission
+consent gate is.
+
+### Why the wrapper execs the interpreter with `-I`
+
+The wrapper's exec line is `exec <interpreter> -I -m hammunition.cli.devctl
+"$@"`, and `-I` is load-bearing, not a stray flag a future edit should tidy
+away. `python -m <pkg>` inserts `os.getcwd()` at `sys.path[0]` before
+resolving the module. `pkexec` ordinarily hides that by `chdir()`-ing to the
+target user's home directory before it execs the authorised program — but
+`pkexec --keep-cwd` does not, and the polkit action above authorises an
+*executable path*, not an argument list, so nothing about the action stops a
+caller from adding that flag. A local user with an active session, calling
+`pkexec --keep-cwd /usr/local/libexec/hammunition-devctl state` from a
+directory holding their own `src/hammunition/cli/devctl.py`, authenticates with
+**their own** password under `auth_self_keep` and gets their module imported
+and run as root in place of the real one — the two-class writability gate
+above never runs, because it lives inside the module that just got replaced.
+This was reproduced end to end against the generated wrapper before the fix
+was written, and it is exactly the property this decision's own opening
+promises and the two-class gate exists to hold: "nothing an unprivileged
+caller supplies except a device *name*." The working directory is a second
+value crossing that boundary, missed because `pkexec`'s ordinary `chdir()`
+made it look closed. `-I` (Python's isolated mode) drops `sys.path[0]`
+entirely, along with `PYTHONPATH`, `PYTHONHOME`, and user site-packages,
+while still resolving `hammunition` from the interpreter's own venv — the
+hijack import fails instead of succeeding, confirmed against the real
+generated wrapper both ways. `cd /` immediately before the `exec` is added as
+defence in depth on top of it.
+
+### Why removal is `hardware unapply` and not `uninstall`
+
+`hammunition uninstall NAME...` resolves every name it is given against the
+package catalog and the profile catalog; there is no unit named `hardware`
+to hand it, and teaching `uninstall` to also understand a third, hardware-only
+namespace would be a special case bent into a command whose whole contract is
+"resolve a catalog name." `hardware unapply` is the symmetric counterpart to
+`hardware apply` instead — same subcommand family, same disclosure and
+verification shape, and it removes precisely what the transaction log records
+`apply` having installed for the operator, never a path it merely expects to
+find. It deliberately never touches the udev rules file: those are
+declarative, harmless for a device that is not attached, and removing them
+would take away device access the operator may still be using. Power control
+is the reversible half of this feature; device permissions are not.
+
+### Why the applet is a separate repository
+
+`hammunition-tray` is a client of the engine, exactly as the CLI and the
+generated menu entries are: it calls `pkexec
+/usr/local/libexec/hammunition-devctl park|wake|state`, the same helper
+through the same one polkit action, and needs nothing installed as root that
+`hardware apply` does not already provide. Keeping it out of this repository
+means a KDE-specific dependency never enters this engine's own dependency
+tree, and — more to the point — a Plasma user who has no interest in the rest
+of Hammunition's catalog can be pointed straight at a small, single-purpose
+tray applet without being handed a 249-package ham-radio catalog to get one
+power switch.
+
+**See also:** `docs/hardware/power-control.md` for the operator-facing page
+— what parking changes, how to inspect it, and how to reverse it.

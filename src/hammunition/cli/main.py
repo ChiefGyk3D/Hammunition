@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import sys
 import tempfile
 import textwrap
@@ -37,6 +38,7 @@ from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from importlib import metadata
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hammunition.backends import (
     Action,
@@ -76,6 +78,7 @@ from hammunition.execute import (
     user_groups,
 )
 from hammunition.fetch import Fetcher
+from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH, describe_refusal
 from hammunition.kernel import KernelProbe
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
@@ -120,6 +123,9 @@ from hammunition.upstream import (
     probe_upstream,
 )
 from hammunition.upstream import render as render_upstream
+
+if TYPE_CHECKING:
+    from hammunition.hardware.power import Parkable
 
 __all__ = ["build_parser", "main"]
 
@@ -1432,6 +1438,8 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
         cli_entries,
         cli_entry_steps,
         decorate_entries,
+        device_entries,
+        device_entry_steps,
         gnome_commands,
         load_vocabulary,
         menu_steps,
@@ -1490,6 +1498,19 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
     steps.extend(refresh_launcher_entries(manifests.values(), applications))
     steps.extend(decorate_entries(applications, vocabulary.icons))
 
+    # D-050: a park/wake entry per catalogued device attached *today*. Built
+    # from the same hardware match the CLI verbs use, so the menu never
+    # offers a device that is not plugged in.
+    classes, devices = _load_hardware_catalog(args)
+    hw_entries: dict[str, DeviceClass | DeviceManifest] = {**classes, **devices}
+    from hammunition.hardware.detect import match_catalog, read_usb_bus
+    from hammunition.hardware.power import parkable as parkable_devices
+
+    hw_matches, _ = match_catalog(read_usb_bus(), hw_entries)
+    found, _ = parkable_devices(hw_matches, hw_entries)
+    device_generated = device_entries(found, hw_entries, manifests, hidden)
+    steps.extend(device_entry_steps(device_generated, applications, vocabulary.icons))
+
     desktop = os.environ.get("XDG_CURRENT_DESKTOP", "")
     wants_gnome = "GNOME" in desktop.upper() or args.gnome
     placed = sum(len(v) for v in placement.by_category.values())
@@ -1498,7 +1519,8 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
         f"menu prefix {prefix!r}; "
         f"{len(placement.claimed)} desktop entries from installed catalog packages "
         f"placed {placed} times by their manifests' categories (dpkg -L, checked on disk); "
-        f"{len(generated.entries)} entries generated for installed units that ship none"
+        f"{len(generated.entries)} entries generated for installed units that ship none; "
+        f"{len(device_generated)} power-control entries for parkable devices attached now"
     )
     for line in placement_summary(placement):
         print(line)
@@ -1596,6 +1618,38 @@ def _prompt(text: str) -> bool:
     return answer in {"yes", "y"}
 
 
+def _confirm_unsafe_interpreter(paths: list[str]) -> bool:
+    """A typed path, never `y`, `1`, or `--yes` (D-021, D-056's ruling).
+
+    Installing the helper is never refused for this — it is the normal shape
+    of a venv the operator owns — but the consent has to be the fact itself,
+    typed back, the same way D-040 makes the key fingerprint the consent for a
+    third-party apt repo rather than a bare confirmation.
+
+    ``paths`` may name more than one offending component (the interpreter and
+    the package tree can both be non-root-owned at once). Fix round 2: every
+    one of them is disclosed, because a partial disclosure is not a
+    disclosure, but only the first is typed back -- consent stays one typed
+    fact, D-040's shape, not a compound one.
+    """
+    joined = "\n".join(f"  {p}" for p in paths)
+    print(
+        f"\nWritable only by the account that owns it, not by root (the ordinary "
+        f"shape of a venv the operator created; never refused for this alone):\n"
+        f"{joined}\n"
+        f"The polkit action about to be installed lets root run code reached "
+        f"through one of these. Any active local session can authenticate once "
+        f"and run it as root for a few minutes afterwards (auth_self_keep). "
+        f"This is not refused, but `--yes` does not satisfy it."
+    )
+    try:
+        typed = input(f"Type {paths[0]!r} to confirm and proceed: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
+    return typed == paths[0]
+
+
 # ---------------------------------------------------------------------------
 # hardware — the permissions and udev half of the device role (D-029)
 # ---------------------------------------------------------------------------
@@ -1679,49 +1733,381 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
 
     if plan.is_noop:
         print(
-            "Nothing to do: the rules file already matches and you are in every "
-            "access group. Hardware setup is complete."
+            "Nothing to do: the rules file already matches, you are in every access "
+            "group, and the power-control helper and its polkit action are already "
+            "installed. Hardware setup is complete."
         )
         return EXIT_OK
 
-    staging = Path(tempfile.gettempdir()) / "hammunition" / "udev-staging.rules"
-    commands: list[Command] = []
-    if not plan.rules_already_current:
-        print(f"Will write {len(plan.rules_content.splitlines())} lines to {plan.rules_path}")
-        commands += [
-            Command(
-                argv=("install", "-D", "-m", "0644", str(staging), str(plan.rules_path)),
-                description=f"Install the generated rules to {plan.rules_path}",
-                requires_root=True,
-            ),
-            Command(
-                argv=("udevadm", "control", "--reload-rules"),
-                description="Reload udev so the new rules take effect",
-                requires_root=True,
-            ),
-            Command(
-                argv=("udevadm", "trigger"),
-                description="Apply the rules to devices already attached",
-                requires_root=True,
-            ),
-        ]
-    else:
-        print(f"Rules file at {plan.rules_path} is already current.")
-    for group in plan.groups_to_add:
-        print(f"Will add {user!r} to the {group!r} group")
-        commands.append(
-            Command(
-                argv=("gpasswd", "--add", user, group),
-                description=f"Add {user} to {group} for device access",
+    def build_commands(staging_root: str) -> tuple[list[Command], Command | None, Command | None]:
+        """Commands as they would look staged under ``staging_root``.
+
+        Called twice: once with a placeholder string for the disclosure and
+        ``--dry-run`` preview, before any staging directory exists, and once
+        for real with the actual `mkdtemp()` path once every gate below has
+        been passed. Fix round 2: `--dry-run` must be a true no-op, and the
+        old code called `mkdtemp()` -- a real filesystem side effect -- before
+        the dry-run check even ran.
+        """
+        built: list[Command] = []
+        if not plan.rules_already_current:
+            built += [
+                Command(
+                    argv=(
+                        "install",
+                        "-D",
+                        "-m",
+                        "0644",
+                        f"{staging_root}/udev-staging.rules",
+                        str(plan.rules_path),
+                    ),
+                    description=f"Install the generated rules to {plan.rules_path}",
+                    requires_root=True,
+                ),
+                Command(
+                    argv=("udevadm", "control", "--reload-rules"),
+                    description="Reload udev so the new rules take effect",
+                    requires_root=True,
+                ),
+                Command(
+                    argv=("udevadm", "trigger"),
+                    description="Apply the rules to devices already attached",
+                    requires_root=True,
+                ),
+            ]
+        helper_cmd: Command | None = None
+        policy_cmd: Command | None = None
+        if not plan.polkit.helper_current:
+            helper_cmd = Command(
+                argv=(
+                    "install",
+                    "-D",
+                    "-m",
+                    "0755",
+                    f"{staging_root}/hammunition-devctl",
+                    plan.polkit.helper_path,
+                ),
+                description=f"Install the power-control helper to {plan.polkit.helper_path}",
                 requires_root=True,
             )
-        )
+            built.append(helper_cmd)
+        if not plan.polkit.policy_current:
+            policy_cmd = Command(
+                argv=(
+                    "install",
+                    "-D",
+                    "-m",
+                    "0644",
+                    f"{staging_root}/devctl.policy",
+                    plan.polkit.policy_path,
+                ),
+                description=(f"Install the polkit action authorising {plan.polkit.helper_path}"),
+                requires_root=True,
+            )
+            built.append(policy_cmd)
+        for group in plan.groups_to_add:
+            built.append(
+                Command(
+                    argv=("gpasswd", "--add", user, group),
+                    description=f"Add {user} to {group} for device access",
+                    requires_root=True,
+                )
+            )
+        return built, helper_cmd, policy_cmd
 
+    if not plan.rules_already_current:
+        print(f"Will write {len(plan.rules_content.splitlines())} lines to {plan.rules_path}")
+    else:
+        print(f"Rules file at {plan.rules_path} is already current.")
+    if not plan.polkit.helper_current:
+        print(
+            f"Will install the privileged helper to {plan.polkit.helper_path}\n"
+            f"  It execs {plan.polkit.interpreter} as root, through a polkit "
+            f"action any active local session may satisfy once and keep "
+            f"authorised for a few minutes afterwards "
+            f"(allow_active=auth_self_keep)."
+        )
+    if not plan.polkit.policy_current:
+        print(f"Will install the polkit action to {plan.polkit.policy_path}")
+    for group in plan.groups_to_add:
+        print(f"Will add {user!r} to the {group!r} group")
+
+    preview_commands, preview_helper, preview_policy = build_commands("<staging>")
+    installing_polkit = preview_helper is not None or preview_policy is not None
+    """Whether this run installs *either* privileged artefact. Fix round 3:
+    the helper and the policy are both routes to the same root-exec, and a
+    policy-only apply (helper already current, only the action missing or
+    stale) is the *worse* case, not a milder one -- installing the policy is
+    exactly what turns an already-present helper into something an active
+    session can authorise. Both refusal and confirmation below must gate on
+    this, not on the helper alone."""
+    euid = os.geteuid()
+    print(f"\nCommands ({len(preview_commands)}):")
+    for command in preview_commands:
+        print(f"  # {command.description}")
+        print(f"  $ {command.display(euid=euid)}")
+
+    # Fix round 3: evaluated *before* the dry-run return, not after, so a
+    # dry run on an unsafe tree reports the refusal a real run would give
+    # rather than printing the full plan and exiting 0 -- CLAUDE.md's
+    # "--dry-run must be complete and accurate, not approximate."
+    #
+    # Fix round 2: round 1 conflated "any local account can write it" with
+    # "one specific non-root account owns it" into a single refusal, and a
+    # devctl startup check that hard-refused on either broke the project's
+    # own documented install -- a venv under $HOME is *always* non-root-owned.
+    # Only the group/other-writable case is the actual escalation, and only
+    # that one is refused outright, here at apply time.
+    if installing_polkit and plan.polkit.must_refuse:
+        print(
+            f"error: refusing to install: {describe_refusal(plan.polkit.refusing_findings)}. "
+            f"That is the escalation this project refuses outright rather than merely "
+            f"confirms -- fix it, then re-run `hardware apply`.",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
+
+    if args.dry_run:
+        print("\nDry run: nothing above was executed.")
+        return EXIT_OK
+
+    # D-056's ruling: never refuse a wrapper that bakes in an interpreter or
+    # package tree one non-root account owns — that is the normal shape of a
+    # venv this project's own operator owns — but never let `--yes` wave it
+    # through either (D-021). Typed confirmation only, and only when either
+    # privileged artefact is actually about to be (re)written.
+    if (
+        installing_polkit
+        and plan.polkit.needs_confirmation
+        and not _confirm_unsafe_interpreter(plan.polkit.confirmable_paths)
+    ):
+        print("Aborted: confirmation did not match. Nothing was changed.", file=sys.stderr)
+        return EXIT_CONSENT
+
+    if not args.yes and not _prompt("\nProceed with the commands above?"):
+        print("Aborted. Nothing was changed.")
+        return EXIT_OK
+
+    # Only now, past every gate that could still end the run with nothing
+    # written, does a staging directory actually get created. A fixed name
+    # under the shared /tmp is not safe here: a privileged `install` command
+    # reads back from this directory, and a predictable path lets a local
+    # attacker pre-create it — /tmp's sticky bit does not protect a
+    # subdirectory *they* own — and race our write, landing their own content
+    # 0755 at the exact path polkit authorises. The D-031 readback further
+    # down would only ever catch that after the bad file was already
+    # installed as root. mkdtemp's name cannot be guessed in advance, and its
+    # 0700 mode keeps every other account out entirely.
+    staging_dir = Path(tempfile.mkdtemp(prefix="hammunition-hardware-"))
+    try:
+        commands, helper_command, policy_command = build_commands(str(staging_dir))
+
+        if not plan.rules_already_current:
+            staging = staging_dir / "udev-staging.rules"
+            staging.write_text(plan.rules_content)
+            os.chmod(staging, 0o644)
+        if helper_command is not None:
+            helper_staging = staging_dir / "hammunition-devctl"
+            helper_staging.write_text(plan.polkit.helper_content)
+            os.chmod(helper_staging, 0o755)
+        if policy_command is not None:
+            policy_staging = staging_dir / "devctl.policy"
+            policy_staging.write_text(plan.polkit.policy_content)
+            os.chmod(policy_staging, 0o644)
+
+        runner = SubprocessRunner()
+        print("\nRunning:")
+        for command in commands:
+            print(f"  $ {command.display(euid=euid)}")
+            result = runner.run(command)
+            if result.returncode != 0:
+                print(f"error: {result.stderr.strip()[:300]}", file=sys.stderr)
+                print("Stopped. What ran above is applied; the rest is not.", file=sys.stderr)
+                return EXIT_FAILED
+
+            # Recorded per artefact as soon as its own command succeeds, not
+            # batched to the end: a later command in this same run (the
+            # policy install, a gpasswd call) can still fail without leaving
+            # an unrecorded root-owned file that `unapply` would then report
+            # as nothing to remove. Logged *before* the D-031 readback below,
+            # not after: a file the install really wrote but whose content we
+            # then failed to confirm is exactly the file `unapply` most needs
+            # to be able to remove -- fix round 2's residual on F4.
+            if command is helper_command:
+                TransactionLog(owner=user).append(
+                    {
+                        "event": "hardware_artifacts",
+                        "version": 1,
+                        "files": [{"path": plan.polkit.helper_path, "mode": "0755"}],
+                    }
+                )
+                try:
+                    matches = (
+                        Path(plan.polkit.helper_path).read_text() == plan.polkit.helper_content
+                    )
+                except OSError as exc:
+                    print(
+                        f"  unverified: could not read back {plan.polkit.helper_path}: {exc}",
+                        file=sys.stderr,
+                    )
+                    return EXIT_FAILED
+                if not matches:
+                    print(
+                        f"  unverified: {plan.polkit.helper_path} on disk does not match "
+                        f"what we wrote",
+                        file=sys.stderr,
+                    )
+                    return EXIT_FAILED
+            if command is policy_command:
+                TransactionLog(owner=user).append(
+                    {
+                        "event": "hardware_artifacts",
+                        "version": 1,
+                        "files": [{"path": plan.polkit.policy_path, "mode": "0644"}],
+                    }
+                )
+                try:
+                    matches = (
+                        Path(plan.polkit.policy_path).read_text() == plan.polkit.policy_content
+                    )
+                except OSError as exc:
+                    print(
+                        f"  unverified: could not read back {plan.polkit.policy_path}: {exc}",
+                        file=sys.stderr,
+                    )
+                    return EXIT_FAILED
+                if not matches:
+                    print(
+                        f"  unverified: {plan.polkit.policy_path} on disk does not match "
+                        f"what we wrote",
+                        file=sys.stderr,
+                    )
+                    return EXIT_FAILED
+
+        # D-031 for the rules file and group membership. The polkit
+        # artefacts were already verified — and logged — individually above,
+        # as soon as their own command ran.
+        problems: list[str] = []
+        if not plan.rules_already_current:
+            try:
+                if Path(plan.rules_path).read_text() != plan.rules_content:
+                    problems.append(f"{plan.rules_path} on disk does not match what we wrote")
+            except OSError as exc:
+                problems.append(f"could not read back {plan.rules_path}: {exc}")
+        after = user_groups(user)
+        for group in plan.groups_to_add:
+            if group not in after:
+                problems.append(f"{user} is still not in {group}")
+        if problems:
+            for problem in problems:
+                print(f"  unverified: {problem}", file=sys.stderr)
+            return EXIT_FAILED
+
+        print("\nDone and verified.")
+        if plan.groups_to_add:
+            print(
+                f"Group membership ({', '.join(plan.groups_to_add)}) takes effect at "
+                f"your next login — log out and back in before expecting device access."
+            )
+        return EXIT_OK
+    finally:
+        shutil.rmtree(staging_dir, ignore_errors=True)
+
+
+def cmd_hardware_unapply(args: argparse.Namespace) -> int:
+    """Remove the privileged artefacts an apply installed, and nothing else.
+
+    Not part of ``uninstall``: that command resolves names against the package
+    and profile catalogs and there is no unit named ``hardware`` to give it
+    (D-056). This removes exactly what the transaction log records *we* put
+    there -- never a path we merely expect to exist, because a file at the
+    helper's path that we did not write belongs to whoever did.
+
+    **Narrower still: only a path this command owns.** ``--user`` lets an
+    operator read *another* account's transaction log, which that account can
+    append to freely -- so a log is data, not an instruction, and a `path`
+    entry in it is honoured only when it is exactly the helper or the policy
+    path. Anything else the log names is reported and skipped, never removed,
+    because a root ``rm -f`` for an arbitrary string an unprivileged account
+    once wrote into its own log file is not a promise this command makes.
+
+    The udev rules file is deliberately left alone. It is declarative, it is
+    harmless for a device that is not attached, and removing it would take
+    away device access an operator is still using. Power control is the
+    reversible part; permissions are not.
+    """
+    user = operator(args)
+    if not user:
+        print("error: could not determine whose transaction log to read.", file=sys.stderr)
+        return EXIT_FAILED
+
+    owned = {HELPER_PATH, POLICY_PATH}
+    recorded: list[str] = []
+    skipped: list[str] = []
+    for entry in TransactionLog(owner=user).read():
+        if entry.get("event") != "hardware_artifacts":
+            continue
+        files = entry.get("files")
+        if not isinstance(files, list):
+            # A malformed *known* event, not an unknown one -- state/log.py's
+            # tolerance promise covers readers skipping events they don't
+            # recognise, not a reader trusting the shape of one it does.
+            continue
+        for item in files:
+            if not isinstance(item, dict):
+                continue
+            path = item.get("path")
+            if not isinstance(path, str):
+                continue
+            if path not in owned:
+                if path not in recorded and path not in skipped:
+                    skipped.append(path)
+                continue
+            if path not in recorded:
+                recorded.append(path)
+
+    if not recorded and not skipped:
+        print(
+            "Nothing to remove: the transaction log records no hardware artefacts "
+            "installed by Hammunition for this user."
+        )
+        return EXIT_OK
+
+    for path in skipped:
+        print(
+            f"Skipped: the log names {path!r}, which this command does not own "
+            f"(only the power-control helper and its polkit action are ever removed)."
+        )
+    if not recorded:
+        print("Nothing to do: no artefact this command owns is recorded.")
+        return EXIT_OK
+
+    present = [p for p in recorded if Path(p).exists()]
+    gone = [p for p in recorded if p not in present]
+    for path in gone:
+        print(f"Already absent: {path}")
+    if not present:
+        print("Nothing to do: every recorded artefact is already gone.")
+        return EXIT_OK
+
+    commands = [
+        Command(
+            argv=("rm", "-f", path),
+            description=f"Remove the power-control artefact at {path}",
+            requires_root=True,
+        )
+        for path in present
+    ]
     euid = os.geteuid()
     print(f"\nCommands ({len(commands)}):")
     for command in commands:
         print(f"  # {command.description}")
         print(f"  $ {command.display(euid=euid)}")
+    print(
+        "\nThe udev rules file is not touched: it is declarative, harmless for a "
+        "device that is not attached, and removing it would take away device "
+        "access you are still using."
+    )
 
     if args.dry_run:
         print("\nDry run: nothing above was executed.")
@@ -1730,11 +2116,6 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
         print("Aborted. Nothing was changed.")
         return EXIT_OK
 
-    if not plan.rules_already_current:
-        staging.parent.mkdir(parents=True, exist_ok=True)
-        staging.write_text(plan.rules_content)
-        os.chmod(staging, 0o644)
-
     runner = SubprocessRunner()
     print("\nRunning:")
     for command in commands:
@@ -1742,33 +2123,133 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
         result = runner.run(command)
         if result.returncode != 0:
             print(f"error: {result.stderr.strip()[:300]}", file=sys.stderr)
-            print("Stopped. What ran above is applied; the rest is not.", file=sys.stderr)
             return EXIT_FAILED
 
-    # D-031: verify the effect, not the exit status.
-    problems: list[str] = []
-    if not plan.rules_already_current:
-        try:
-            if Path(plan.rules_path).read_text() != plan.rules_content:
-                problems.append(f"{plan.rules_path} on disk does not match what we wrote")
-        except OSError as exc:
-            problems.append(f"could not read back {plan.rules_path}: {exc}")
-    after = user_groups(user)
-    for group in plan.groups_to_add:
-        if group not in after:
-            problems.append(f"{user} is still not in {group}")
-    if problems:
-        for problem in problems:
-            print(f"  unverified: {problem}", file=sys.stderr)
+    # D-031: `rm` exiting 0 is not evidence the file is gone.
+    still_there = [p for p in present if Path(p).exists()]
+    if still_there:
+        for path in still_there:
+            print(f"  unverified: {path} is still present", file=sys.stderr)
         return EXIT_FAILED
 
-    print("\nDone and verified.")
-    if plan.groups_to_add:
-        print(
-            f"Group membership ({', '.join(plan.groups_to_add)}) takes effect at your "
-            f"next login — log out and back in before expecting device access."
-        )
+    print("\nDone and verified. `hammunition hardware apply` reinstalls them.")
     return EXIT_OK
+
+
+def _survey_parkables(args: argparse.Namespace) -> tuple[list[Parkable], list[tuple[str, str]]]:
+    """What is parkable, read unprivileged. The same survey the helper does.
+
+    Reading sysfs and the catalog needs no privilege; only *writing* does. So
+    `hardware state` answers without a prompt, and `park`/`wake` can refuse a
+    name before raising an authentication dialog for something that was never
+    going to work.
+    """
+    from hammunition.hardware.detect import match_catalog, read_usb_bus
+    from hammunition.hardware.power import parkable
+
+    classes, devices = _load_hardware_catalog(args)
+    entries: dict[str, DeviceClass | DeviceManifest] = {**classes, **devices}
+    matches, _ = match_catalog(read_usb_bus(), entries)
+    return parkable(matches, entries)
+
+
+def cmd_hardware_state(args: argparse.Namespace) -> int:
+    """Which catalogued devices can be parked, and which are parked now."""
+    found, skipped = _survey_parkables(args)
+    for unit, why in skipped:
+        print(f"  {unit}: not parkable right now — {why}")
+    if not found:
+        print(
+            "No parkable device is attached. A device is parkable when its catalog "
+            "entry carries a power_control block and it is plugged in now."
+        )
+        return EXIT_OK
+    print(f"{'device':24} {'address':10} {'state':8} summary")
+    for p in sorted(found, key=lambda p: (p.name, p.address)):
+        print(f"{p.name:24} {p.address:10} {'parked' if p.parked else 'awake':8} {p.summary}")
+    print("\n`hammunition hardware park NAME` / `wake NAME`. A reboot wakes everything.")
+    return EXIT_OK
+
+
+def _power_verb(args: argparse.Namespace, verb: str) -> int:
+    """Disclose the privileged call and every write it will cause, then run it."""
+    from hammunition.hardware.power import PowerError, plan_park, plan_wake
+
+    helper = Path(HELPER_PATH)
+    if not helper.is_file():
+        print(
+            f"error: the privileged helper is not installed at {HELPER_PATH}.\n"
+            f"`hammunition hardware apply` installs it, together with the polkit "
+            f"action that authorises it.",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
+    if shutil.which("pkexec") is None:
+        print(
+            "error: pkexec is not on PATH, so the privileged helper cannot be "
+            "authorised. It comes from the `polkit` package (`pkexec` is in "
+            "`policykit-1` on Debian-family targets). Without it, park and wake "
+            "have no way to escalate; `hammunition hardware state` still works, "
+            "because reading sysfs needs no privilege.",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
+
+    found, skipped = _survey_parkables(args)
+    for unit, why in skipped:
+        print(f"note: {unit} is not parkable right now — {why}", file=sys.stderr)
+    from hammunition.cli.devctl import resolve as resolve_parkable
+
+    try:
+        target = resolve_parkable(args.name, found)
+        plan = plan_park(target) if verb == "park" else plan_wake(target)
+    except PowerError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+
+    command = Command(
+        argv=("pkexec", HELPER_PATH, verb, f"{target.name}@{target.address}"),
+        description=f"{verb.capitalize()} {target.name} at {target.address}",
+    )
+    print(f"{verb.capitalize()}ing {target.name} ({target.summary}) at {target.address}\n")
+    print("Writes this will cause:")
+    for write in plan.writes:
+        print(f"  {write.path} <- {write.value}")
+    print(f"\n  # {command.description}\n  $ {command.display()}")
+
+    if args.dry_run:
+        print("\nDry run: nothing above was executed.")
+        return EXIT_OK
+
+    try:
+        result = SubprocessRunner().run(command)
+    except BackendError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    if result.returncode in (126, 127):
+        print(
+            "The authentication prompt was dismissed; nothing was changed.",
+            file=sys.stderr,
+        )
+        return EXIT_CONSENT
+    if result.returncode == EXIT_UNPLANNABLE:
+        print(result.stderr.strip() or "the helper refused the request", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    if result.returncode != 0:
+        print(result.stderr.strip()[:400] or f"helper exited {result.returncode}", file=sys.stderr)
+        return EXIT_FAILED
+    print(f"\nDone and verified. `hammunition hardware state` shows {target.name} now.")
+    return EXIT_OK
+
+
+def cmd_hardware_park(args: argparse.Namespace) -> int:
+    """Detach a device and let its port suspend. Reversed by `wake` or a reboot."""
+    return _power_verb(args, "park")
+
+
+def cmd_hardware_wake(args: argparse.Namespace) -> int:
+    """Bring a parked device back."""
+    return _power_verb(args, "wake")
 
 
 # ---------------------------------------------------------------------------
@@ -2052,6 +2533,42 @@ def build_parser() -> argparse.ArgumentParser:
     p_hw_apply.add_argument("--yes", action="store_true", help="skip the confirmation")
     p_hw_apply.add_argument("--user", default=None, help="whom to set up")
     p_hw_apply.set_defaults(func=cmd_hardware_apply)
+
+    p_hw_unapply = hardware_sub.add_parser(
+        "unapply", help="remove the power-control helper and polkit action (D-056)"
+    )
+    p_hw_unapply.add_argument(
+        "--dry-run", action="store_true", help="print what would be removed, then stop"
+    )
+    p_hw_unapply.add_argument("--yes", action="store_true", help="skip the confirmation")
+    p_hw_unapply.add_argument(
+        "--user",
+        default=None,
+        help="operator whose transaction log to read (default: $SUDO_USER, else $USER)",
+    )
+    p_hw_unapply.set_defaults(func=cmd_hardware_unapply)
+
+    p_hw_state = hardware_sub.add_parser(
+        "state", help="which devices can be parked, and which are parked now"
+    )
+    p_hw_state.set_defaults(func=cmd_hardware_state)
+
+    for verb, helptext in (
+        ("park", "detach a device and let its port suspend (D-056)"),
+        ("wake", "bring a parked device back"),
+    ):
+        p_verb = hardware_sub.add_parser(verb, help=helptext)
+        p_verb.add_argument(
+            "name",
+            metavar="NAME",
+            help="catalog name, or NAME@ADDRESS when two of a kind are attached",
+        )
+        p_verb.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="print the privileged call and every write it would cause, then stop",
+        )
+        p_verb.set_defaults(func=cmd_hardware_park if verb == "park" else cmd_hardware_wake)
 
     p_station = sub.add_parser("station", help="the values only you can supply")
     station_sub = p_station.add_subparsers(dest="station_command", required=True)
