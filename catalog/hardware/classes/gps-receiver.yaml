@@ -266,6 +266,20 @@ rejected_ids:
 groups: [dialout]
 packages: [gpsd, gpsd-clients, gpsd-tools]
 
+# D-056. The receiver draws power whether or not anything is reading it, and on
+# a laptop that matters. Parking it writes 0 to the device's `authorized` and
+# lets the port suspend; the kernel drops the interfaces and every consumer
+# sees an ordinary unplug. Nothing is persisted: a reboot wakes it again.
+power_control:
+  method: usb_deauthorize
+  quiet: []
+  note: >-
+    gpsd handles hot-unplug itself — Debian ships USBAUTO="true" in
+    /etc/default/gpsd — so nothing needs quieting before the port goes down,
+    and the receiver reappears at /dev/gpsN on wake with no action from you.
+    `cgps` will report no fix while it is parked, which is what a parked
+    receiver looks like from the outside.
+
 documentation:
   what_it_is: >-
     USB GNSS receivers as a family rather than as products: a dongle, a puck, a

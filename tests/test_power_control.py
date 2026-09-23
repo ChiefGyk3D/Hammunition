@@ -33,6 +33,8 @@ from hammunition.manifest.hardware import (
     PowerControl,
 )
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
 DOCS = HardwareDocumentation(
     what_it_is="A USB GNSS receiver reporting position and time over a serial port.",
     what_you_can_do_with_it="Feed position and time to the whole station through gpsd.",
@@ -450,3 +452,30 @@ def test_execute_refuses_a_write_outside_the_device_roots(tmp_path: Path) -> Non
     with pytest.raises(PowerError, match="outside"):
         execute(plan)
     assert escape.read_text() == "original\n", "nothing may be written before the refusal"
+
+
+def test_the_shipped_gps_receiver_class_is_parkable() -> None:
+    """The one catalog entry this branch marks parkable. A branch that adds
+    the machinery and marks nothing has shipped nothing."""
+    from hammunition.manifest.load import load_hardware
+
+    classes, _ = load_hardware(REPO_ROOT / "catalog" / "hardware")
+    control = classes["gps-receiver"].power_control
+    assert control is not None
+    assert control.method == "usb_deauthorize"
+    assert control.quiet == []
+    assert len(control.note) >= 10
+
+
+def test_no_other_catalog_entry_is_parkable_yet() -> None:
+    """pci_runtime ships refused and no wwan-modem class exists on this
+    branch. A second parkable entry appearing here is a thing to notice."""
+    from hammunition.manifest.load import load_hardware
+
+    classes, devices = load_hardware(REPO_ROOT / "catalog" / "hardware")
+    parkables = [
+        name
+        for name, entry in {**classes, **devices}.items()
+        if entry.power_control is not None
+    ]
+    assert parkables == ["gps-receiver"]
