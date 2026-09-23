@@ -415,6 +415,7 @@ MSG
 Append to `tests/test_power_control.py`:
 
 ```python
+import subprocess
 from pathlib import Path
 
 from hammunition.hardware.detect import AttachedDevice, Match
@@ -634,8 +635,23 @@ def test_execute_reports_a_missing_pkexec_uid_rather_than_crashing(
 ) -> None:
     """Review Focus 3. Under sudo rather than pkexec, PKEXEC_UID is simply not
     set. Taking the whole park down after the hardware write already happened
-    would be the worst possible moment to raise."""
+    would be the worst possible moment to raise.
+
+    **subprocess.run is stubbed, and that is not optional.** Unstubbed, this
+    test runs `nmcli connection modify <every profile> connection.autoconnect
+    no` against whatever machine runs the suite -- which on this project is
+    the maintainer's own laptop. A test that disables autoconnect on every
+    network profile is a destructive side effect, not a test.
+    """
     monkeypatch.delenv("PKEXEC_UID", raising=False)
+    calls: list[list[str]] = []
+
+    def fake_run(argv, *args, **kwargs):
+        calls.append(list(argv))
+        return subprocess.CompletedProcess(argv, 0, stdout="Wired\n", stderr="")
+
+    monkeypatch.setattr("hammunition.hardware.power.subprocess.run", fake_run)
+
     node = tmp_path / "1-4"
     node.mkdir()
     (node / "authorized").write_text("1\n")
@@ -646,7 +662,29 @@ def test_execute_reports_a_missing_pkexec_uid_rather_than_crashing(
     )
     problems = execute(plan)
     assert (node / "authorized").read_text().strip() == "0", "the hardware step still ran"
-    assert all("Traceback" not in p for p in problems)
+    assert problems == [], "a missing PKEXEC_UID is a normal invocation, not a problem"
+    assert calls, "the quiet verb should still have been attempted"
+    assert not any("setpriv" in c[0] for c in calls), "no uid to drop to, so no setpriv"
+
+
+def test_execute_shells_out_to_nothing_when_there_are_no_quiet_verbs(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """The GPS receiver's quiet list is empty, which is the shipped case. It
+    must reach no subprocess at all -- a park on a machine with no
+    NetworkManager is the common one, not the exception."""
+
+    def exploding_run(*args: object, **kwargs: object) -> object:
+        raise AssertionError("execute() shelled out with an empty quiet list")
+
+    monkeypatch.setattr("hammunition.hardware.power.subprocess.run", exploding_run)
+    node = tmp_path / "1-4"
+    node.mkdir()
+    (node / "authorized").write_text("1\n")
+    plan = PowerPlan(
+        writes=(Write(path=str(node / "authorized"), value="0"),), quiet=(), restore=False
+    )
+    assert execute(plan) == []
 ```
 
 Add `PowerPlan` to the `from hammunition.hardware.power import ...` line.
@@ -1497,7 +1535,17 @@ First create `src/hammunition/hardware/polkit.py` with only its constants (Task 
 
 from __future__ import annotations
 
-__all__ = ["ACTION_ID", "HELPER_PATH", "POLICY_PATH"]
+# Declared whole here although Task 6 supplies the last four names: ruff's
+# RUF022 wants one sorted literal, and `__all__ += [...]` later is not one.
+__all__ = [
+    "ACTION_ID",
+    "HELPER_PATH",
+    "POLICY_PATH",
+    "PolkitArtifacts",
+    "plan_polkit",
+    "policy_xml",
+    "wrapper_script",
+]
 
 HELPER_PATH = "/usr/local/libexec/hammunition-devctl"
 """Where pkexec is pointed. A fixed path under the shared prefix, because a
@@ -1807,9 +1855,6 @@ import shlex
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-
-__all__ += ["PolkitArtifacts", "plan_polkit", "policy_xml", "wrapper_script"]
-
 
 def wrapper_script(interpreter: str) -> str:
     """A three-line shell wrapper that execs the helper's module.
@@ -2486,7 +2531,7 @@ MSG
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `tests/test_power_control.py`:
+Append to `tests/test_power_control.py` (add `REPO_ROOT = Path(__file__).resolve().parent.parent` near the top of the file if it is not already there — the convention at `tests/test_cli.py:25`; a CWD-relative path passes from the repo root and fails from anywhere else):
 
 ```python
 def test_the_shipped_gps_receiver_class_is_parkable() -> None:
@@ -2494,7 +2539,7 @@ def test_the_shipped_gps_receiver_class_is_parkable() -> None:
     the machinery and marks nothing has shipped nothing."""
     from hammunition.manifest.load import load_hardware
 
-    classes, _ = load_hardware(Path("catalog/hardware"))
+    classes, _ = load_hardware(REPO_ROOT / "catalog" / "hardware")
     control = classes["gps-receiver"].power_control
     assert control is not None
     assert control.method == "usb_deauthorize"
@@ -2507,7 +2552,7 @@ def test_no_other_catalog_entry_is_parkable_yet() -> None:
     branch. A second parkable entry appearing here is a thing to notice."""
     from hammunition.manifest.load import load_hardware
 
-    classes, devices = load_hardware(Path("catalog/hardware"))
+    classes, devices = load_hardware(REPO_ROOT / "catalog" / "hardware")
     parkables = [
         name
         for name, entry in {**classes, **devices}.items()
@@ -2590,11 +2635,11 @@ MSG
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `tests/test_docs_generated.py`:
+Append to `tests/test_docs_generated.py` (the file already defines `REPO_ROOT` at line 27 — use it, never a CWD-relative path):
 
 ```python
 def test_the_cli_reference_documents_the_power_verbs() -> None:
-    text = Path("docs/reference/cli.md").read_text()
+    text = (REPO_ROOT / "docs" / "reference" / "cli.md").read_text()
     for verb in ("hardware park", "hardware wake", "hardware state", "hardware unapply"):
         assert verb in text, f"{verb} is undocumented"
 
@@ -2602,7 +2647,7 @@ def test_the_cli_reference_documents_the_power_verbs() -> None:
 def test_the_power_control_page_covers_the_four_required_things() -> None:
     """CLAUDE.md: every system modification says what changes, why, how to
     inspect it afterwards, and how to reverse it."""
-    text = Path("docs/hardware/power-control.md").read_text()
+    text = (REPO_ROOT / "docs" / "hardware" / "power-control.md").read_text()
     for needle in (
         "/usr/local/libexec/hammunition-devctl",
         "/usr/share/polkit-1/actions/com.chiefgyk3d.hammunition.devctl.policy",
@@ -2614,7 +2659,7 @@ def test_the_power_control_page_covers_the_four_required_things() -> None:
 
 
 def test_d056_is_recorded() -> None:
-    assert "D-056" in Path("docs/DECISIONS.md").read_text()
+    assert "D-056" in (REPO_ROOT / "docs" / "DECISIONS.md").read_text()
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
