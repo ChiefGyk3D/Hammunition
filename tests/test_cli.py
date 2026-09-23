@@ -1412,6 +1412,27 @@ def test_hardware_park_refuses_when_the_helper_is_not_installed(
     assert "hardware apply" in err
 
 
+def test_hardware_park_refuses_when_pkexec_is_not_installed(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A headless target may have the helper and no polkit at all. The CLI
+    reference promises an exit code for every refusal; a traceback is not one."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    helper = tmp_path / "hammunition-devctl"
+    helper.write_text("#!/bin/sh\n")
+    helper.chmod(0o755)
+    monkeypatch.setattr(cli, "HELPER_PATH", str(helper))
+    monkeypatch.setattr(cli.shutil, "which", lambda _name: None)
+
+    assert cli.main(["hardware", "park", "gps-receiver"]) == 2
+    err = capsys.readouterr().err
+    assert "pkexec" in err
+    assert "state" in err, "the message should say what still works without it"
+
+
 def test_hardware_park_prints_the_pkexec_line_and_stops_on_dry_run(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

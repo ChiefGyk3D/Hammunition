@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import sys
 import tempfile
 import textwrap
@@ -1824,6 +1825,16 @@ def _power_verb(args: argparse.Namespace, verb: str) -> int:
             file=sys.stderr,
         )
         return EXIT_UNPLANNABLE
+    if shutil.which("pkexec") is None:
+        print(
+            "error: pkexec is not on PATH, so the privileged helper cannot be "
+            "authorised. It comes from the `polkit` package (`pkexec` is in "
+            "`policykit-1` on Debian-family targets). Without it, park and wake "
+            "have no way to escalate; `hammunition hardware state` still works, "
+            "because reading sysfs needs no privilege.",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
 
     found, skipped = _survey_parkables(args)
     for unit, why in skipped:
@@ -1845,15 +1856,17 @@ def _power_verb(args: argparse.Namespace, verb: str) -> int:
     print("Writes this will cause:")
     for write in plan.writes:
         print(f"  {write.path} <- {write.value}")
-    for verb_name in plan.quiet:
-        print(f"  {verb_name}: {'restore' if plan.restore else 'hush'} the consumer")
     print(f"\n  # {command.description}\n  $ {command.display()}")
 
     if args.dry_run:
         print("\nDry run: nothing above was executed.")
         return EXIT_OK
 
-    result = SubprocessRunner().run(command)
+    try:
+        result = SubprocessRunner().run(command)
+    except BackendError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
     if result.returncode in (126, 127):
         print(
             "The authentication prompt was dismissed; nothing was changed.",
