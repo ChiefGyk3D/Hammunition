@@ -175,7 +175,10 @@ def writable_by_non_root(
 
 
 def writable_including_symlink_target(
-    path: str | Path, *, stat_fn: Callable[[str], os.stat_result] = os.stat
+    path: str | Path,
+    *,
+    stat_fn: Callable[[str], os.stat_result] = os.stat,
+    realpath_fn: Callable[[str], str] = os.path.realpath,
 ) -> WritabilityFinding | None:
     """:func:`writable_by_non_root` over ``path`` exactly as given, unioned
     with the same check over its resolved real path -- the severe class
@@ -193,9 +196,17 @@ def writable_including_symlink_target(
     wrongly miss a writable *target* the symlink already trusts (a clean
     symlink pointing at a file someone else can overwrite). Both checked;
     worse of the two wins.
+
+    ``realpath_fn`` defaults to :func:`os.path.realpath` and, like
+    ``stat_fn``, exists so this can be proven against a synthetic tree
+    without touching the real filesystem at all (fix round 4: a test that
+    depended on a real system path's real ownership measured the host it
+    happened to run on, not the code -- true here, false inside an
+    unprivileged user namespace, and would have been just as environment-
+    dependent inside the seven target containers).
     """
     direct = writable_by_non_root(path, stat_fn=stat_fn)
-    resolved = writable_by_non_root(os.path.realpath(path), stat_fn=stat_fn)
+    resolved = writable_by_non_root(realpath_fn(str(path)), stat_fn=stat_fn)
     findings = [f for f in (direct, resolved) if f is not None]
     for finding in findings:
         if finding.risk is WritabilityRisk.GROUP_OR_OTHER_WRITABLE:

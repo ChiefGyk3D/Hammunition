@@ -367,65 +367,83 @@ def test_describe_refusal_distinguishes_writable_from_unstatable() -> None:
     assert "is writable by any local account" not in unstatable_text
 
 
-def test_writable_including_symlink_target_catches_a_writable_symlink_directory(
-    tmp_path: Path,
-) -> None:
-    """Fix round 3, item 1 (Critical): `plan_polkit` and the devctl runtime
-    check both checked only the *resolved* interpreter path, but the wrapper
-    ``exec``s the *unresolved* one. A world-writable directory holding a
-    symlink to an otherwise root-owned, clean-chain target disabled both
-    gates completely: resolving first hides exactly the directory an
-    attacker would use to retarget the symlink itself.
+_SYMLINK_BYPASS_TREE = {
+    # The direct (unresolved) chain from the symlink itself. `os.stat`
+    # follows a symlink, so the leaf entry carries the target's own (clean)
+    # attributes -- the *directory holding the symlink* is the one that is
+    # actually unsafe here, one level up.
+    "/opt/hamvenv/bin/python3": _stat(0, 0o100755),
+    "/opt/hamvenv/bin": _stat(0, 0o40777),  # the bypass: world-writable
+    "/opt/hamvenv": _stat(0),
+    "/opt": _stat(0),
+    "/": _stat(0),
+    # The resolved chain: a clean target with a clean chain all the way up,
+    # which is exactly why checking only this side missed the bypass.
+    "/usr/bin/python3.13": _stat(0, 0o100755),
+    "/usr/bin": _stat(0),
+    "/usr": _stat(0),
+}
 
-    Reproduces the reviewer's exact tree, built for real under `tmp_path` --
-    a real 0777 directory holding a real symlink to a real root-owned
-    system binary -- not a synthetic `stat_fn`, because the bug was in how
-    two real filesystem calls (direct vs. resolved) were combined, not in
-    the single-chain scan itself.
+
+def _symlink_bypass_realpath(path: str) -> str:
+    """Stands in for :func:`os.path.realpath`: the one path this tree cares
+    about resolves through the symlink; anything else (the calls
+    ``writable_by_non_root`` makes against an already-resolved path) is the
+    identity, matching what ``os.path.realpath`` does to a path with no
+    further symlinks to follow."""
+    if path == "/opt/hamvenv/bin/python3":
+        return "/usr/bin/python3.13"
+    return path
+
+
+def test_writable_including_symlink_target_catches_a_writable_symlink_directory() -> None:
+    """Fix round 3, item 1 (Critical) / fix round 4: `plan_polkit` and the
+    devctl runtime check both checked only the *resolved* interpreter path,
+    but the wrapper ``exec``s the *unresolved* one. A world-writable
+    directory holding a symlink to an otherwise root-owned, clean-chain
+    target disabled both gates completely: resolving first hides exactly
+    the directory an attacker would use to retarget the symlink itself.
+
+    Fix round 4: the round-3 version of this test built the tree for real
+    under `tmp_path`, symlinked to the real `/usr/bin/python3.13`, and
+    skipped if that path did not exist. That made the test's result a
+    property of the machine running it (root-owned there, uid 65534 inside
+    an unprivileged user namespace, unknown-and-varying across the seven
+    target containers) rather than of the code -- exactly what CLAUDE.md's
+    "test the matrix, not your machine" forbids. Both `stat_fn` and
+    `realpath_fn` are injected here, so nothing touches the real filesystem
+    and the tree's shape is the only thing under test.
     """
-    target = Path("/usr/bin/python3.13")
-    if not target.is_file():
-        pytest.skip("this machine has no /usr/bin/python3.13 to symlink to")
-
-    bin_dir = tmp_path / "hamvenv" / "bin"
-    bin_dir.mkdir(parents=True)
-    os.chmod(bin_dir, 0o777)
-    symlink = bin_dir / "python3"
-    symlink.symlink_to(target)
+    stat_fn = _SYMLINK_BYPASS_TREE.__getitem__
 
     # The regression, demonstrated directly: checking only the resolved path
     # finds nothing wrong, because the target's own chain really is clean.
-    assert writable_by_non_root(os.path.realpath(str(symlink))) is None
+    assert (
+        writable_by_non_root(_symlink_bypass_realpath("/opt/hamvenv/bin/python3"), stat_fn=stat_fn)
+        is None
+    )
 
     # The fix: the union also checks the unresolved path and catches the
     # writable directory the symlink itself sits in.
-    finding = writable_including_symlink_target(str(symlink))
+    finding = writable_including_symlink_target(
+        "/opt/hamvenv/bin/python3", stat_fn=stat_fn, realpath_fn=_symlink_bypass_realpath
+    )
     assert finding is not None
     assert finding.risk is WritabilityRisk.GROUP_OR_OTHER_WRITABLE
-    assert finding.path == str(bin_dir)
+    assert finding.path == "/opt/hamvenv/bin"
 
 
-def test_writable_including_symlink_target_falsification_resolved_only_misses_it(
-    tmp_path: Path,
-) -> None:
-    """Falsifies the exact round-2 regression: a version of the union that
-    checks only the resolved path (what every call site did before fix
-    round 3) must be shown finding nothing, over the same tree the test
+def test_writable_including_symlink_target_falsification_resolved_only_misses_it() -> None:
+    """Falsifies the exact round-3 fix: a version of the union that checks
+    only the resolved path (what every call site did before fix round 3)
+    must be shown finding nothing, over the same synthetic tree the test
     above proves the real fix catches."""
-    target = Path("/usr/bin/python3.13")
-    if not target.is_file():
-        pytest.skip("this machine has no /usr/bin/python3.13 to symlink to")
-
-    bin_dir = tmp_path / "hamvenv" / "bin"
-    bin_dir.mkdir(parents=True)
-    os.chmod(bin_dir, 0o777)
-    symlink = bin_dir / "python3"
-    symlink.symlink_to(target)
+    stat_fn = _SYMLINK_BYPASS_TREE.__getitem__
 
     def resolved_only(path: str) -> WritabilityFinding | None:
-        return writable_by_non_root(os.path.realpath(path))
+        return writable_by_non_root(_symlink_bypass_realpath(path), stat_fn=stat_fn)
 
-    assert resolved_only(str(symlink)) is None, (
+    assert resolved_only("/opt/hamvenv/bin/python3") is None, (
         "this is the bug fix round 3 closes, demonstrated directly: a "
         "resolved-only check must find nothing on a tree the real fix flags"
     )
