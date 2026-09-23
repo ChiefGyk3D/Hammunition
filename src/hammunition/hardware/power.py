@@ -22,8 +22,6 @@ disclose the same thing.
 from __future__ import annotations
 
 import os
-import pwd
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -49,12 +47,28 @@ __all__ = [
     "plan_wake",
 ]
 
-ALLOWED_ROOTS = ("/sys/bus/usb/devices", "/sys/bus/pci/devices")
+ALLOWED_ROOTS: tuple[str, ...] = ("/sys/bus/usb/devices", "/sys/bus/pci/devices")
 """The only directories a device node may sit directly beneath.
 
 Two, not one, because ``pci_runtime`` is schema-valid now and its helper
 support lands with the card that proves it. A root added here without a
 method that uses it widens the guard for nothing.
+
+Annotated as ``tuple[str, ...]`` rather than left to inference: a
+``tuple[str, str]`` would make ``monkeypatch.setattr(power, "ALLOWED_ROOTS",
+(*power.ALLOWED_ROOTS, str(tmp_path)))`` in the test fixture a type error the
+moment anyone runs mypy over the tests, for a widening this module's own
+tests need to do honestly.
+"""
+
+WRITABLE_LEAVES = ("authorized", "power/control")
+"""The only files this module ever writes under a device node.
+
+guard() pins the leaf as well as the root because a node's own contents are
+not safe by virtue of being under it: every USB node carries kernel-made
+symlinks -- driver/unbind, subsystem/drivers_probe, driver/module/parameters
+-- that are root-writable and would otherwise pass a root-only check. Two
+filenames is the whole legitimate surface, so naming them closes the class.
 """
 
 
@@ -103,7 +117,8 @@ class Parkable:
 
 
 def guard(path: str) -> str:
-    """Refuse any path that is not a file inside a device node under an allowed root.
+    """Refuse any path that is not one of ``WRITABLE_LEAVES`` inside a device
+    node under an allowed root.
 
     **The trap this exists for is that a real device node is itself a
     symlink.** ``/sys/bus/usb/devices/1-4`` points into
@@ -116,12 +131,27 @@ def guard(path: str) -> str:
     filesystem (``os.path.normpath`` collapses ``..`` textually), and the
     result must sit strictly below one of the roots. What the node is a
     symlink to is then irrelevant, because we never followed it.
+
+    **Sitting under a root is not enough on its own.** Every USB node carries
+    kernel-made symlinks -- ``driver``, ``subsystem``, ``remove`` -- and
+    writing to what is reachable through them (``driver/unbind``,
+    ``subsystem/drivers_probe``) is root-writable and has nothing to do with
+    parking a device. The normalised path must also end with one of
+    ``WRITABLE_LEAVES``, so a node's contents are not treated as safe merely
+    for being under an allowed root.
     """
     normalised = os.path.normpath(path)
     for root in ALLOWED_ROOTS:
         prefix = root.rstrip("/") + "/"
         if normalised.startswith(prefix) and len(normalised) > len(prefix):
-            return normalised
+            if any(normalised.endswith("/" + leaf) for leaf in WRITABLE_LEAVES):
+                return normalised
+            raise PowerError(
+                f"{path!r} is not one of the files this module writes "
+                f"({', '.join(WRITABLE_LEAVES)}). A device node carries kernel-made "
+                f"symlinks -- driver/unbind, subsystem/drivers_probe -- that sit "
+                f"under the same root and are not ours to write to."
+            )
     raise PowerError(
         f"{path!r} is outside the device roots this may write to "
         f"({', '.join(ALLOWED_ROOTS)}). A power-control write goes to a device "
@@ -210,6 +240,15 @@ def _plan(p: Parkable, *, park: bool) -> PowerPlan:
             f"refused until a card has proved it here: nothing is shipped that has "
             f"not been run."
         )
+    if p.quiet:
+        raise PowerError(
+            f"{p.name!r} declares quiet verbs {list(p.quiet)}, which are not "
+            f"implemented. The verb vocabulary is schema-valid so a manifest can "
+            f"carry it, and it ships refused for the same reason 'pci_runtime' "
+            f"does: the only device that needs hushing a consumer is a WWAN "
+            f"modem, whose method is itself refused until a card proves it here. "
+            f"Nothing is shipped that has not been run."
+        )
     return PowerPlan(writes=_usb_writes(p, park=park), quiet=p.quiet, restore=not park)
 
 
@@ -223,68 +262,15 @@ def plan_wake(p: Parkable) -> PowerPlan:
     return _plan(p, park=False)
 
 
-def _invoking_uid() -> int | None:
-    """The user behind ``pkexec``, or None when there is no such user.
+def execute(plan: PowerPlan) -> list[str]:
+    """Perform the plan's hardware writes. Returns the problems; an empty list is success.
 
-    ``PKEXEC_UID`` is set by pkexec and by nothing else, so under ``sudo`` or a
-    direct root invocation it is simply absent. That is a normal way to run the
-    helper, not an error, and it must never raise: by the time the quiet verbs
-    run the hardware write has already happened, which is the worst moment in
-    the whole operation to take an exception.
-    """
-    raw = os.environ.get("PKEXEC_UID")
-    if not raw:
-        return None
-    try:
-        uid = int(raw)
-    except ValueError:
-        return None
-    try:
-        pwd.getpwuid(uid)
-    except KeyError:
-        return None
-    return uid
-
-
-def _nm_autoconnect(*, restore: bool, uid: int | None) -> str:
-    """Set ``connection.autoconnect`` on the profiles NetworkManager would
-    bring up, so a parked device is not woken by an autoconnect a second later.
-
-    Runs as the invoking user where there is one: NetworkManager profiles are
-    per-user for a user-owned connection, and doing this as root would edit the
-    system's rather than the operator's.
-    """
-    value = "yes" if restore else "no"
-    argv = ["nmcli", "--terse", "--fields", "NAME", "connection", "show"]
-    prefix: list[str] = []
-    if uid is not None:
-        prefix = ["setpriv", "--reuid", str(uid), "--regid", str(uid), "--clear-groups", "--"]
-    try:
-        listed = subprocess.run([*prefix, *argv], capture_output=True, text=True, check=False)
-    except (FileNotFoundError, PermissionError) as exc:
-        return f"networkmanager_autoconnect: could not run nmcli ({exc}); nothing hushed"
-    if listed.returncode != 0:
-        return (
-            f"networkmanager_autoconnect: nmcli exited {listed.returncode}; no profile was changed"
-        )
-    names = [n for n in listed.stdout.splitlines() if n.strip()]
-    for name in names:
-        subprocess.run(
-            [*prefix, "nmcli", "connection", "modify", name, "connection.autoconnect", value],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    return f"networkmanager_autoconnect: set autoconnect {value} on {len(names)} profile(s)"
-
-
-def execute(plan: PowerPlan, *, uid: int | None = None) -> list[str]:
-    """Perform the plan. Returns the problems; an empty list is success.
-
-    **The hardware writes come first and the quiet verbs after** (or, on a
-    wake, the verbs after too). A verb is a courtesy to a consumer, not a
-    precondition of the hardware step, so a machine with no NetworkManager
-    still parks its GPS.
+    **This covers the hardware writes only.** There is no quiet-verb step:
+    ``PowerPlan.quiet`` is refused non-empty at plan time (see :func:`_plan`),
+    so by the time a plan reaches here it is always empty, and what this
+    function returns means one thing -- whether the sysfs writes took, not
+    also whether some other command's human-readable stdout happened to
+    contain a recognised word.
 
     Every write is read back and compared. D-031: ``write_text`` returning a
     byte count is not evidence that a byte reached the device.
@@ -311,10 +297,4 @@ def execute(plan: PowerPlan, *, uid: int | None = None) -> list[str]:
                 f"{write.path}: wrote {write.value!r} and read back {seen!r} — "
                 f"the write reported success and did not take"
             )
-    resolved = _invoking_uid() if uid is None else uid
-    for verb in plan.quiet:
-        if verb == "networkmanager_autoconnect":
-            outcome = _nm_autoconnect(restore=plan.restore, uid=resolved)
-            if "could not" in outcome or "exited" in outcome:
-                problems.append(outcome)
     return problems

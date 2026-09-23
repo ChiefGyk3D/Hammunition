@@ -9,6 +9,7 @@ are fixed enums, so a manifest cannot smuggle a shell line through them.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -247,7 +248,9 @@ def test_plan_wake_writes_only_authorized(sysfs_root: Path) -> None:
     )
 
 
-def test_the_quiet_verbs_ride_on_the_plan(sysfs_root: Path) -> None:
+def test_a_quiet_verb_is_refused_until_a_device_needs_one(sysfs_root: Path) -> None:
+    """Schema-valid, and refused, on the same grounds as pci_runtime: the only
+    consumer is a WWAN modem whose own method ships refused."""
     found, _ = parkable(
         [Match(name="gps-receiver", attached=_bus(sysfs_root), ambiguous=False)],
         _entries(
@@ -258,9 +261,8 @@ def test_the_quiet_verbs_ride_on_the_plan(sysfs_root: Path) -> None:
             }
         ),
     )
-    assert plan_park(found[0]).quiet == ("networkmanager_autoconnect",)
-    assert plan_park(found[0]).restore is False
-    assert plan_wake(found[0]).restore is True
+    with pytest.raises(PowerError, match="not implemented"):
+        plan_park(found[0])
 
 
 def test_pci_runtime_is_refused_until_a_card_proves_it(tmp_path: Path) -> None:
@@ -291,12 +293,37 @@ def test_guard_refuses_a_traversal() -> None:
             guard(escape)
 
 
-def test_guard_accepts_the_symlinked_node_every_real_device_is(tmp_path: Path) -> None:
-    """Review Focus 1, the over-matching half. `/sys/bus/usb/devices/1-4` is a
-    symlink into /sys/devices/pci..., so a containment check that resolves the
-    candidate and demands the result still sit under the bus root refuses
-    every device there is. This test fails against that implementation."""
-    assert guard("/sys/bus/usb/devices/1-4/power/control")
+def test_guard_refuses_a_root_writable_node_that_is_not_ours() -> None:
+    """Under the right root and still not ours. Every USB node carries
+    driver/ and subsystem/ symlinks the kernel made, and they are writable."""
+    for sibling in (
+        "/sys/bus/usb/devices/1-4/driver/unbind",
+        "/sys/bus/usb/devices/1-4/subsystem/drivers_probe",
+        "/sys/bus/usb/devices/1-4/remove",
+    ):
+        with pytest.raises(PowerError):
+            guard(sibling)
+
+
+def test_guard_never_touches_the_filesystem(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The containment check is lexical, and this is the test that says so.
+
+    A real device node is a symlink into /sys/devices, so a guard that
+    resolved its argument would refuse every device on the machine. The
+    previous version of this test asserted that by naming a bus address and
+    expecting it to pass -- which proved nothing, because the address did not
+    exist on the test machine and a non-strict resolve() leaves a nonexistent
+    component alone. Asserting that no resolution is attempted at all cannot
+    pass against a resolving implementation on any machine.
+    """
+
+    def forbidden(*args: object, **kwargs: object) -> object:
+        raise AssertionError("guard() resolved a path; it must stay lexical")
+
+    monkeypatch.setattr(Path, "resolve", forbidden)
+    monkeypatch.setattr(os.path, "realpath", forbidden)
+    monkeypatch.setattr(os.path, "abspath", forbidden)
+    assert guard("/sys/bus/usb/devices/1-4/authorized")
 
 
 def test_execute_writes_and_reads_back(sysfs_root: Path) -> None:
@@ -332,54 +359,24 @@ def test_execute_fails_when_the_readback_does_not_match(
     assert problems and "authorized" in problems[0]
 
 
-def test_execute_reports_a_missing_pkexec_uid_rather_than_crashing(
-    sysfs_root: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Review Focus 3. Under sudo rather than pkexec, PKEXEC_UID is simply not
-    set. Taking the whole park down after the hardware write already happened
-    would be the worst possible moment to raise.
-
-    **subprocess.run is stubbed, and that is not optional.** Unstubbed, this
-    test runs `nmcli connection modify <every profile> connection.autoconnect
-    no` against whatever machine runs the suite -- which on this project is
-    the maintainer's own laptop. A test that disables autoconnect on every
-    network profile is a destructive side effect, not a test.
-    """
-    monkeypatch.delenv("PKEXEC_UID", raising=False)
-    calls: list[list[str]] = []
-
-    def fake_run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
-        calls.append(list(argv))
-        return subprocess.CompletedProcess(argv, 0, stdout="Wired\n", stderr="")
-
-    monkeypatch.setattr("hammunition.hardware.power.subprocess.run", fake_run)
-
-    node = sysfs_root / "1-4"
-    node.mkdir()
-    (node / "authorized").write_text("1\n")
-    plan = PowerPlan(
-        writes=(Write(path=str(node / "authorized"), value="0"),),
-        quiet=("networkmanager_autoconnect",),
-        restore=False,
-    )
-    problems = execute(plan)
-    assert (node / "authorized").read_text().strip() == "0", "the hardware step still ran"
-    assert problems == [], "a missing PKEXEC_UID is a normal invocation, not a problem"
-    assert calls, "the quiet verb should still have been attempted"
-    assert not any("setpriv" in c[0] for c in calls), "no uid to drop to, so no setpriv"
-
-
 def test_execute_shells_out_to_nothing_when_there_are_no_quiet_verbs(
     sysfs_root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The GPS receiver's quiet list is empty, which is the shipped case. It
-    must reach no subprocess at all -- a park on a machine with no
-    NetworkManager is the common one, not the exception."""
+    """This is now a permanent guarantee rather than a case that depends on an
+    empty quiet list: the networkmanager_autoconnect verb is refused at plan
+    time (see test_a_quiet_verb_is_refused_until_a_device_needs_one), so
+    execute() has no quiet-verb step left and can never reach subprocess for
+    any reason. Patching the real subprocess.run, not
+    hammunition.hardware.power.subprocess.run, because that name no longer
+    exists -- power.py does not import subprocess at all any more, and this
+    test would otherwise pass vacuously against a module that had regained
+    the import without regaining a caller.
+    """
 
     def exploding_run(*args: object, **kwargs: object) -> object:
-        raise AssertionError("execute() shelled out with an empty quiet list")
+        raise AssertionError("execute() shelled out; there is no quiet-verb step left")
 
-    monkeypatch.setattr("hammunition.hardware.power.subprocess.run", exploding_run)
+    monkeypatch.setattr(subprocess, "run", exploding_run)
     node = sysfs_root / "1-4"
     node.mkdir()
     (node / "authorized").write_text("1\n")
