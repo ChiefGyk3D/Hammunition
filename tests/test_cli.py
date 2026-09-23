@@ -17,6 +17,7 @@ import argparse
 import os
 import pwd
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -1511,3 +1512,24 @@ def test_hardware_state_needs_no_privilege_and_prints_a_table(
     assert cli.main(["hardware", "state"]) == 0
     out = capsys.readouterr().out
     assert "gps-receiver" in out and "parked" in out.lower()
+
+
+def test_hardware_unapply_removes_nothing_the_log_does_not_record(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A file sitting at the helper's path that we did not write belongs to
+    whoever did. An empty log means an empty removal, not a guess."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    class EmptyLog:
+        def __init__(self, **kwargs: object) -> None: ...
+
+        def read(self) -> Iterator[dict[str, Any]]:
+            return iter(())
+
+    monkeypatch.setattr(cli, "TransactionLog", EmptyLog)
+    monkeypatch.setattr(cli, "operator", lambda args: "op")
+    assert cli.main(["hardware", "unapply"]) == 0
+    assert "Nothing to remove" in capsys.readouterr().out

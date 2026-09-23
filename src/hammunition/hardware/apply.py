@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from hammunition.hardware.detect import AttachedDevice, Match, match_catalog, read_usb_bus
+from hammunition.hardware.polkit import PolkitArtifacts, plan_polkit
 from hammunition.hardware.udev import RULES_PATH, Omission, rules_file
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 
@@ -62,9 +63,12 @@ class HardwarePlan:
     unrecognised: list[AttachedDevice]
     """Attached devices the catalog does not know — a contributing prompt."""
 
+    polkit: PolkitArtifacts
+    """The helper wrapper and polkit action power control needs (D-056)."""
+
     @property
     def is_noop(self) -> bool:
-        return self.rules_already_current and not self.groups_to_add
+        return self.rules_already_current and not self.groups_to_add and self.polkit.is_noop
 
 
 def _device_groups(
@@ -127,4 +131,5 @@ def plan_hardware(
         omissions=omissions,
         detected=matches,
         unrecognised=unrecognised,
+        polkit=plan_polkit(),
     )

@@ -1713,6 +1713,41 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
         ]
     else:
         print(f"Rules file at {plan.rules_path} is already current.")
+
+    staged_polkit = Path(tempfile.gettempdir()) / "hammunition"
+    if not plan.polkit.helper_current:
+        print(f"Will install the privileged helper to {plan.polkit.helper_path}")
+        commands.append(
+            Command(
+                argv=(
+                    "install",
+                    "-D",
+                    "-m",
+                    "0755",
+                    str(staged_polkit / "hammunition-devctl"),
+                    plan.polkit.helper_path,
+                ),
+                description=f"Install the power-control helper to {plan.polkit.helper_path}",
+                requires_root=True,
+            )
+        )
+    if not plan.polkit.policy_current:
+        print(f"Will install the polkit action to {plan.polkit.policy_path}")
+        commands.append(
+            Command(
+                argv=(
+                    "install",
+                    "-D",
+                    "-m",
+                    "0644",
+                    str(staged_polkit / "devctl.policy"),
+                    plan.polkit.policy_path,
+                ),
+                description=(f"Install the polkit action authorising {plan.polkit.helper_path}"),
+                requires_root=True,
+            )
+        )
+
     for group in plan.groups_to_add:
         print(f"Will add {user!r} to the {group!r} group")
         commands.append(
@@ -1740,6 +1775,16 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
         staging.parent.mkdir(parents=True, exist_ok=True)
         staging.write_text(plan.rules_content)
         os.chmod(staging, 0o644)
+    if not plan.polkit.helper_current:
+        staged_polkit.mkdir(parents=True, exist_ok=True)
+        helper_staging = staged_polkit / "hammunition-devctl"
+        helper_staging.write_text(plan.polkit.helper_content)
+        os.chmod(helper_staging, 0o755)
+    if not plan.polkit.policy_current:
+        staged_polkit.mkdir(parents=True, exist_ok=True)
+        policy_staging = staged_polkit / "devctl.policy"
+        policy_staging.write_text(plan.polkit.policy_content)
+        os.chmod(policy_staging, 0o644)
 
     runner = SubprocessRunner()
     print("\nRunning:")
@@ -1759,6 +1804,18 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
                 problems.append(f"{plan.rules_path} on disk does not match what we wrote")
         except OSError as exc:
             problems.append(f"could not read back {plan.rules_path}: {exc}")
+    if not plan.polkit.helper_current:
+        try:
+            if Path(plan.polkit.helper_path).read_text() != plan.polkit.helper_content:
+                problems.append(f"{plan.polkit.helper_path} on disk does not match what we wrote")
+        except OSError as exc:
+            problems.append(f"could not read back {plan.polkit.helper_path}: {exc}")
+    if not plan.polkit.policy_current:
+        try:
+            if Path(plan.polkit.policy_path).read_text() != plan.polkit.policy_content:
+                problems.append(f"{plan.polkit.policy_path} on disk does not match what we wrote")
+        except OSError as exc:
+            problems.append(f"could not read back {plan.polkit.policy_path}: {exc}")
     after = user_groups(user)
     for group in plan.groups_to_add:
         if group not in after:
@@ -1768,12 +1825,113 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             print(f"  unverified: {problem}", file=sys.stderr)
         return EXIT_FAILED
 
+    if not plan.polkit.is_noop:
+        TransactionLog(owner=user).append(
+            {
+                "event": "hardware_artifacts",
+                "version": 1,
+                "files": [
+                    {"path": plan.polkit.helper_path, "mode": "0755"},
+                    {"path": plan.polkit.policy_path, "mode": "0644"},
+                ],
+            }
+        )
+
     print("\nDone and verified.")
     if plan.groups_to_add:
         print(
             f"Group membership ({', '.join(plan.groups_to_add)}) takes effect at your "
             f"next login — log out and back in before expecting device access."
         )
+    return EXIT_OK
+
+
+def cmd_hardware_unapply(args: argparse.Namespace) -> int:
+    """Remove the privileged artefacts an apply installed, and nothing else.
+
+    Not part of ``uninstall``: that command resolves names against the package
+    and profile catalogs and there is no unit named ``hardware`` to give it
+    (D-056). This removes exactly what the transaction log records *we* put
+    there -- never a path we merely expect to exist, because a file at the
+    helper's path that we did not write belongs to whoever did.
+
+    The udev rules file is deliberately left alone. It is declarative, it is
+    harmless for a device that is not attached, and removing it would take
+    away device access an operator is still using. Power control is the
+    reversible part; permissions are not.
+    """
+    user = operator(args)
+    if not user:
+        print("error: could not determine whose transaction log to read.", file=sys.stderr)
+        return EXIT_FAILED
+
+    recorded: list[str] = []
+    for entry in TransactionLog(owner=user).read():
+        if entry.get("event") != "hardware_artifacts":
+            continue
+        for item in entry.get("files", []):
+            path = item.get("path")
+            if isinstance(path, str) and path not in recorded:
+                recorded.append(path)
+
+    if not recorded:
+        print(
+            "Nothing to remove: the transaction log records no hardware artefacts "
+            "installed by Hammunition for this user."
+        )
+        return EXIT_OK
+
+    present = [p for p in recorded if Path(p).exists()]
+    gone = [p for p in recorded if p not in present]
+    for path in gone:
+        print(f"Already absent: {path}")
+    if not present:
+        print("Nothing to do: every recorded artefact is already gone.")
+        return EXIT_OK
+
+    commands = [
+        Command(
+            argv=("rm", "-f", path),
+            description=f"Remove the power-control artefact at {path}",
+            requires_root=True,
+        )
+        for path in present
+    ]
+    euid = os.geteuid()
+    print(f"\nCommands ({len(commands)}):")
+    for command in commands:
+        print(f"  # {command.description}")
+        print(f"  $ {command.display(euid=euid)}")
+    print(
+        "\nThe udev rules file is not touched: it is declarative, harmless for a "
+        "device that is not attached, and removing it would take away device "
+        "access you are still using."
+    )
+
+    if args.dry_run:
+        print("\nDry run: nothing above was executed.")
+        return EXIT_OK
+    if not args.yes and not _prompt("\nProceed with the commands above?"):
+        print("Aborted. Nothing was changed.")
+        return EXIT_OK
+
+    runner = SubprocessRunner()
+    print("\nRunning:")
+    for command in commands:
+        print(f"  $ {command.display(euid=euid)}")
+        result = runner.run(command)
+        if result.returncode != 0:
+            print(f"error: {result.stderr.strip()[:300]}", file=sys.stderr)
+            return EXIT_FAILED
+
+    # D-031: `rm` exiting 0 is not evidence the file is gone.
+    still_there = [p for p in present if Path(p).exists()]
+    if still_there:
+        for path in still_there:
+            print(f"  unverified: {path} is still present", file=sys.stderr)
+        return EXIT_FAILED
+
+    print("\nDone and verified. `hammunition hardware apply` reinstalls them.")
     return EXIT_OK
 
 
@@ -2174,6 +2332,20 @@ def build_parser() -> argparse.ArgumentParser:
     p_hw_apply.add_argument("--yes", action="store_true", help="skip the confirmation")
     p_hw_apply.add_argument("--user", default=None, help="whom to set up")
     p_hw_apply.set_defaults(func=cmd_hardware_apply)
+
+    p_hw_unapply = hardware_sub.add_parser(
+        "unapply", help="remove the power-control helper and polkit action (D-056)"
+    )
+    p_hw_unapply.add_argument(
+        "--dry-run", action="store_true", help="print what would be removed, then stop"
+    )
+    p_hw_unapply.add_argument("--yes", action="store_true", help="skip the confirmation")
+    p_hw_unapply.add_argument(
+        "--user",
+        default=None,
+        help="operator whose transaction log to read (default: $SUDO_USER, else $USER)",
+    )
+    p_hw_unapply.set_defaults(func=cmd_hardware_unapply)
 
     p_hw_state = hardware_sub.add_parser(
         "state", help="which devices can be parked, and which are parked now"

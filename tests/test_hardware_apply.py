@@ -13,9 +13,27 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from hammunition.hardware import plan_hardware, rules_file
 from hammunition.hardware.detect import AttachedDevice
+from hammunition.hardware.polkit import PolkitArtifacts
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest, HardwareDocumentation
+
+_NOOP_POLKIT = PolkitArtifacts(
+    helper_path="/usr/local/libexec/hammunition-devctl",
+    helper_content="",
+    policy_path="/usr/share/polkit-1/actions/com.chiefgyk3d.hammunition.devctl.policy",
+    policy_content="",
+    helper_current=True,
+    policy_current=True,
+)
+"""A stand-in for a machine where the power-control artefacts are already
+installed. Real plan_polkit() reads fixed system paths (D-056) that do not
+exist on the dev machine or in CI, so its own idempotence is proven in
+test_polkit_artifacts.py; here it is only ever noise for a plan whose subject
+is the udev rules and group membership, so tests that assert `is_noop` patch
+it out rather than depending on the real filesystem."""
 
 DOCS = HardwareDocumentation(
     what_it_is="A software defined radio receiver used for wideband reception.",
@@ -63,7 +81,12 @@ def test_the_rules_content_is_the_whole_catalog() -> None:
     assert plan.rules_content, "a catalog with udev bindings must produce rules"
 
 
-def test_already_current_when_the_file_matches(tmp_path: Path) -> None:
+def test_already_current_when_the_file_matches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "hammunition.hardware.apply.plan_polkit", lambda interpreter=None: _NOOP_POLKIT
+    )
     classes, devices = _catalog()
     content, _ = rules_file([*devices.values()])
     rules = tmp_path / "65-hammunition.rules"
