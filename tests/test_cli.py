@@ -1734,12 +1734,11 @@ def test_hardware_apply_refuses_yes_alone_when_the_interpreter_tree_is_unsafe(
 
     assert cli.main(["hardware", "apply", "--yes"]) == EXIT_CONSENT
     err = capsys.readouterr().err
-    assert "did not match" in err.lower()
+    assert "not confirmed" in err.lower()
 
 
-def test_hardware_apply_proceeds_once_the_offending_path_is_typed_back(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_hardware_apply_proceeds_on_yes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """2026-09-27 amendment: the answer is `yes`, not the path typed back."""
     import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
@@ -1755,9 +1754,70 @@ def test_hardware_apply_proceeds_once_the_offending_path_is_typed_back(
 
     runner = _InstallingRunner()
     monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: runner)
-    monkeypatch.setattr("builtins.input", lambda *a, **k: "/opt/hammunition/.venv")
+    monkeypatch.setattr("builtins.input", lambda *a, **k: "yes")
 
     assert cli.main(["hardware", "apply", "--yes"]) == 0
+    assert len(runner.ran) == 1
+
+
+@pytest.mark.parametrize("answer", ["no", "", "/opt/hammunition/.venv"])
+def test_hardware_apply_declines_anything_but_yes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, answer: str
+) -> None:
+    """The old answer, the path typed back, is now just another non-yes."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    polkit = _polkit_artifacts(
+        tmp_path,
+        helper_current=False,
+        policy_current=True,
+        unsafe_interpreter="/opt/hammunition/.venv",
+    )
+    plan = _hardware_plan(tmp_path, polkit=polkit)
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+
+    class Exploding:
+        def run(self, command: Command) -> CommandResult:  # pragma: no cover
+            raise AssertionError("must not install anything while unconfirmed")
+
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: Exploding())
+    monkeypatch.setattr("builtins.input", lambda *a, **k: answer)
+
+    assert cli.main(["hardware", "apply"]) == EXIT_CONSENT
+
+
+def test_hardware_apply_asks_once_without_yes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without `--yes` the operator is asked one question, not the gate's
+    and then the generic "Proceed?" as well."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    polkit = _polkit_artifacts(
+        tmp_path,
+        helper_current=False,
+        policy_current=True,
+        unsafe_interpreter="/opt/hammunition/.venv",
+    )
+    plan = _hardware_plan(tmp_path, polkit=polkit)
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+
+    runner = _InstallingRunner()
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: runner)
+    prompts: list[str] = []
+
+    def fake_input(prompt: str = "") -> str:
+        prompts.append(prompt)
+        return "yes"
+
+    monkeypatch.setattr("builtins.input", fake_input)
+
+    assert cli.main(["hardware", "apply"]) == 0
+    assert prompts == ["Proceed? [yes/no]: "]
     assert len(runner.ran) == 1
 
 
@@ -1872,8 +1932,8 @@ def test_hardware_apply_discloses_both_offending_paths_when_both_are_flagged(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Fix round 2, item 5: a partial disclosure is not a disclosure. Both
-    the interpreter's and the package's offending paths are printed even
-    though only the first is required to be typed back."""
+    the interpreter's and the package's offending paths are printed before
+    the one yes/no question."""
     import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
@@ -1894,7 +1954,7 @@ def test_hardware_apply_discloses_both_offending_paths_when_both_are_flagged(
 
     def fake_input(prompt: str = "") -> str:
         typed_prompts.append(prompt)
-        return "/opt/hammunition/.venv"
+        return "yes"
 
     monkeypatch.setattr("builtins.input", fake_input)
 
@@ -1902,8 +1962,7 @@ def test_hardware_apply_discloses_both_offending_paths_when_both_are_flagged(
     out = capsys.readouterr().out
     assert "/opt/hammunition/.venv" in out
     assert "/opt/hammunition" in out
-    # Only the first path is what gets typed back.
-    assert any("/opt/hammunition/.venv" in p for p in typed_prompts)
+    assert typed_prompts == ["Proceed? [yes/no]: "]
 
 
 def test_hardware_apply_dry_run_never_calls_mkdtemp(

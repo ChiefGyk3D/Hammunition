@@ -1619,18 +1619,19 @@ def _prompt(text: str) -> bool:
 
 
 def _confirm_unsafe_interpreter(paths: list[str]) -> bool:
-    """A typed path, never `y`, `1`, or `--yes` (D-021, D-056's ruling).
+    """A typed `yes`, never `--yes` (D-021, D-056's ruling as amended).
 
     Installing the helper is never refused for this — it is the normal shape
-    of a venv the operator owns — but the consent has to be the fact itself,
-    typed back, the same way D-040 makes the key fingerprint the consent for a
-    third-party apt repo rather than a bare confirmation.
+    of a venv the operator owns — but it is asked at the keyboard every time,
+    and a convenience flag cannot answer it.
 
     ``paths`` may name more than one offending component (the interpreter and
-    the package tree can both be non-root-owned at once). Fix round 2: every
-    one of them is disclosed, because a partial disclosure is not a
-    disclosure, but only the first is typed back -- consent stays one typed
-    fact, D-040's shape, not a compound one.
+    the package tree can both be non-root-owned at once). Every one of them is
+    disclosed, because a partial disclosure is not a disclosure. The answer is
+    `yes`, not the path typed back: the path is printed directly above the
+    prompt, so retyping it proved nothing a `yes` does not (2026-09-27
+    amendment; D-040's fingerprint stays typed, because checking it against
+    the vendor's published value is the point there).
     """
     joined = "\n".join(f"  {p}" for p in paths)
     print(
@@ -1643,11 +1644,11 @@ def _confirm_unsafe_interpreter(paths: list[str]) -> bool:
         f"This is not refused, but `--yes` does not satisfy it."
     )
     try:
-        typed = input(f"Type {paths[0]!r} to confirm and proceed: ").strip()
+        answer = input("Proceed? [yes/no]: ").strip().lower()
     except (EOFError, KeyboardInterrupt):
         print()
         return False
-    return typed == paths[0]
+    return answer in {"yes", "y"}
 
 
 # ---------------------------------------------------------------------------
@@ -1874,17 +1875,15 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
     # D-056's ruling: never refuse a wrapper that bakes in an interpreter or
     # package tree one non-root account owns — that is the normal shape of a
     # venv this project's own operator owns — but never let `--yes` wave it
-    # through either (D-021). Typed confirmation only, and only when either
-    # privileged artefact is actually about to be (re)written.
-    if (
-        installing_polkit
-        and plan.polkit.needs_confirmation
-        and not _confirm_unsafe_interpreter(plan.polkit.confirmable_paths)
-    ):
-        print("Aborted: confirmation did not match. Nothing was changed.", file=sys.stderr)
+    # through either (D-021). Asked at the keyboard, and only when either
+    # privileged artefact is actually about to be (re)written. A yes here is
+    # also the yes to the commands, so the operator is asked once, not twice.
+    asked = installing_polkit and plan.polkit.needs_confirmation
+    if asked and not _confirm_unsafe_interpreter(plan.polkit.confirmable_paths):
+        print("Aborted: not confirmed. Nothing was changed.", file=sys.stderr)
         return EXIT_CONSENT
 
-    if not args.yes and not _prompt("\nProceed with the commands above?"):
+    if not asked and not args.yes and not _prompt("\nProceed with the commands above?"):
         print("Aborted. Nothing was changed.")
         return EXIT_OK
 

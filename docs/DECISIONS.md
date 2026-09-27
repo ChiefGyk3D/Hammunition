@@ -4173,8 +4173,9 @@ run — is the actual escalation and is refused outright, at both `apply` time
 and again at the moment `hammunition-devctl` itself starts running as root.
 `WritabilityRisk.OWNED_BY_NON_ROOT` — the tree belongs to one account, the
 ordinary shape of an operator's own venv — is never refused; it is disclosed
-by path and requires a **typed confirmation** at `apply` (retype the exact
-path shown) and prints a warning at runtime.
+by path and requires a **typed confirmation** at `apply` (originally the
+exact path retyped; `yes` since the amendment below) and prints a warning at
+runtime.
 
 **The typed confirmation cannot be satisfied by `--yes`.** This is D-021's
 rule pointed at a different subsystem: `--yes` means "skip routine
@@ -4182,6 +4183,15 @@ confirmations", and a gate that a convenience flag walks through is not a
 gate. Authorising root to run code from a tree one non-root account controls
 is a decision to record deliberately, the same way an unlicensed-transmission
 consent gate is.
+
+**Amended 2026-09-27: the answer is `yes`, not the path.** The maintainer,
+on running it: retyping a path printed directly above the prompt proves
+nothing a `yes` does not, and it was the one step of the install that felt
+like a hoop. The prompt is now `Proceed? [yes/no]:`, asked at the keyboard,
+still unanswerable by `--yes`, and it replaces the generic "Proceed?" rather
+than adding to it, so the operator is asked once. D-040's typed fingerprint
+is unchanged: there the operator checks the value against the vendor's
+published one, and typing it is that check.
 
 ### Amendment (2026-09-27): group write by the owner's private group is not "any local account"
 
