@@ -1187,15 +1187,15 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 Runs after `hammunition-tray`'s Debian-package plan has landed, so the new dependency goes into its control file.
 
 **Files:**
-- Modify: `plasmoid/package/contents/ui/main.qml`, `plasmoid/package/contents/ui/FullRepresentation.qml`, `packaging/debian/build.sh` (Depends), `plasmoid/package/metadata.json` (Version `0.2.0`), `CHANGELOG.md`, `README.md`
-- Test: `tests/test_applet_package.py`
+- Modify: in hammunition-tray: `main.qml` and `FullRepresentation.qml` (under plasmoid/package/contents/ui), `build.sh` (under packaging/debian; its Depends), `metadata.json` (Version `0.2.0`), `CHANGELOG.md`, `README.md`
+- Test: hammunition-tray's `test_applet_package.py` (under tests)
 
 **Interfaces:**
 - Consumes: the helper's `state` JSON from Task 3 (`kept`, `attached`, `parked: null`).
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `tests/test_applet_package.py`:
+Append to hammunition-tray's `test_applet_package.py`:
 
 ```python
 class KeptOff(unittest.TestCase):
@@ -1280,7 +1280,7 @@ and change the footer label to `i18n("Off stays off across reboots until you tur
 
 - [ ] **Step 4: Run, reinstall, look at it**
 
-Run: `python3 -m unittest discover -s tests`, then `./install.sh` and `systemctl --user restart plasma-plasmashell`; open the applet and check a kept device reads "kept off", and log out and in to see the notice once.
+Run: `python3 -m unittest discover -s tests`, then the tray's `install.sh` and `systemctl --user restart plasma-plasmashell`; open the applet and check a kept device reads "kept off", and log out and in to see the notice once.
 
 - [ ] **Step 5: Commit**
 
