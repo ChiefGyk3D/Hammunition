@@ -266,6 +266,25 @@ rejected_ids:
 groups: [dialout]
 packages: [gpsd, gpsd-clients, gpsd-tools]
 
+# D-056. The receiver draws power whether or not anything is reading it, and on
+# a laptop that matters. Parking it writes 0 to the device's `authorized` and
+# lets the port suspend; the kernel drops the interfaces and every consumer
+# sees an ordinary unplug. Nothing is persisted: a reboot wakes it again.
+power_control:
+  method: usb_deauthorize
+  quiet: []
+  note: >-
+    gpsd handles hot-unplug itself — Debian ships USBAUTO="true" in
+    /etc/default/gpsd, confirmed live on Parrot 7.3 — so nothing needs
+    quieting before the port goes down. Measured on the field laptop with a
+    u-blox 9 (bench-verification-5430.md, session 10): on park,
+    gpsdctl@ttyACM0 removed the device from a running gpsd within a second and
+    /dev/ttyACM0 was gone; on wake, the kernel re-created ttyACM0 and
+    /dev/gps0 and gpsdctl handed it back to gpsd within a second, with no
+    action from the operator. A 3D fix was back by 74 s after the wake (the
+    first poll to see one; polled every 15 s or so). The receiver keeps its USB entry while parked, so lsusb still
+    lists it.
+
 documentation:
   what_it_is: >-
     USB GNSS receivers as a family rather than as products: a dongle, a puck, a

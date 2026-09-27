@@ -33,6 +33,9 @@ __all__ = [
     "GapClosure",
     "MaintainerVerification",
     "NodeKind",
+    "PowerControl",
+    "PowerMethod",
+    "QuietVerb",
     "RejectedId",
     "UdevBinding",
     "UsbAmbiguity",
@@ -422,6 +425,47 @@ class UdevBinding(Strict):
         return self
 
 
+PowerMethod = Literal["usb_deauthorize", "pci_runtime"]
+"""How the engine parks a device. A name, never a command.
+
+``usb_deauthorize`` writes ``0`` to the device's ``authorized`` and ``auto`` to
+its ``power/control``; the kernel drops the interfaces and every consumer sees
+an ordinary unplug. ``pci_runtime`` is reserved for MHI/PCIe cards and is
+refused at runtime until a card has proved it here (D-056).
+"""
+
+QuietVerb = Literal["networkmanager_autoconnect"]
+"""A consumer to hush before parking and restore on wake.
+
+A closed set for the same reason ``PowerMethod`` is one: the catalog is data,
+and an open string here would be a place to put a command. Each verb is
+implemented by the engine and named by the manifest.
+"""
+
+
+class PowerControl(Strict):
+    """What it takes to park this device, and what the operator will observe.
+
+    The whole point of the fixed enums is that a manifest cannot describe *how*
+    to park something -- only *which* of the ways the engine already implements
+    applies to it. A catalog that could carry a shell line would be the
+    intertwined install logic this project exists to replace (D-001).
+    """
+
+    method: PowerMethod
+    quiet: list[QuietVerb] = Field(
+        default_factory=list,
+        description="Consumers to hush before parking and restore on wake, in order.",
+    )
+    note: str = Field(
+        min_length=10,
+        description=(
+            "Prose for the generated device page: what the operator will observe "
+            "when this device is parked, and why nothing further is needed."
+        ),
+    )
+
+
 class Firmware(Strict):
     """Flashing or firmware-management tooling for a device."""
 
@@ -480,6 +524,15 @@ class _DeviceCommon(Strict):
     )
     firmware: list[Firmware] = Field(default_factory=list)
     udev: UdevBinding | None = None
+    power_control: PowerControl | None = Field(
+        default=None,
+        description=(
+            "Present when this device can be parked and woken (D-056). Absent "
+            "means it appears on no power-control surface at all -- there is no "
+            "'parkable by default', because parking a rig cable mid-QSO is not "
+            "a thing to discover by accident."
+        ),
+    )
     documentation: HardwareDocumentation
 
 

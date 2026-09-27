@@ -17,6 +17,11 @@ dependencies = [
 # The console script. `hammunition` is the binary name (CLAUDE.md).
 [project.scripts]
 hammunition = "hammunition.cli.main:main"
+# The privileged half, reached through one polkit action (D-056). Separate
+# from `hammunition` so the thing pkexec is pointed at is three verbs over
+# sysfs, not the whole engine with its installer, its network fetches and its
+# station config.
+hammunition-devctl = "hammunition.cli.devctl:main"
 
 [project.optional-dependencies]
 dev = [
