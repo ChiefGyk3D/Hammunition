@@ -256,6 +256,25 @@ measured here, and what the second half found the first time it ran.
 | linbpq 25.40, and the finding (#96, #97) | The tag compiles clean and then the makefile's `linbpq` target runs **`sudo setcap`** for three capabilities, in 25.39 as well. The engine never printed it, and session 6's build passed only because the apt step had just warmed this operator's sudo timestamp. Outside a warm timestamp: `sudo: a terminal is required`, `make: Error 1`, binary already linked. Git blocks may now carry `patches`; linbpq's deletes the line, `known_problems` names the ports that need the capabilities and the one `setcap` to grant them. With the patch: `make -j8` exits 0, no sudo. The 25.40 binary still prints `6.0.25.39`; upstream's version string lags its tag. |
 | The Parrot mirror, four times (#93) | Between 23:30 and 00:40 the target container build for CI's `parrot` job failed four times on `deb.parrot.sh` 404s: the index named `python3.13 3.13.5-2+deb13u4` and the pool no longer had it, from two mirror addresses, each green on a plain re-run. The Dockerfile's apt steps now retry up to three times a minute apart, clearing the lists between attempts; a package that really is missing still fails three times. Driven locally with a fake `apt-get` before it went to CI. |
 
+## Session 10, 2026-09-27: the GPS receiver parked and woken (D-056)
+
+The first time device power control ran against hardware. The u-blox 9
+receiver (`1546:01a9`, `/dev/ttyACM0`) fitted on 2026-09-21 was the target;
+the engine was PR #117's branch, installed from its worktree venv.
+
+| Step | Result |
+|---|---|
+| The applet showed no switch | Nothing was installed: no helper, no polkit action, no applet. `hardware apply` **refused** the helper: the stock session umask here is `0002` with `USERGROUPS_ENAB yes`, so the checkout and venv are group-writable, and the gate read that as "writable by any local account". The group is the operator's user-private group, with no member and no other account holding it. Fixed by the D-056 amendment (`group_is_private_to()`); the dry run then planned both files and nothing else. |
+| `hardware apply`, by the operator | Helper at `/usr/local/libexec/hammunition-devctl` (root, 0755, `-I`), policy registered; `pkaction` shows `auth_self_keep` for the active session and `auth_admin` otherwise. A second dry run: nothing to do. |
+| Applet installed and placed | `hammunition-tray`'s `install.sh`, unprivileged, into `~/.local`. `devctl state` returned the receiver at its bus address, awake, and the applet drew one switch for it. |
+| Park, from the applet | One KDE password prompt; `pkexec` ran `park gps-receiver@<address>` as root, cwd the operator's home. Within a second `gpsdctl@ttyACM0` removed the device from the running gpsd and `/dev/ttyACM0` was gone. `authorized=0`, the port `suspended`, `devctl state` `parked: true`. `lsusb` still lists the receiver: deauthorising drops its interfaces, not its USB entry. |
+| Wake, from the applet | No prompt (inside the `auth_self_keep` window). The kernel logged `authorized to connect` and re-created `ttyACM0` and `/dev/gps0` within a second; `gpsdctl` handed it back to gpsd. `power/control` stays `auto` by design, and the port read `active` once gpsd had it open. |
+| The fix | 44 satellites in view and none used straight after the wake; a 3D fix was back by 74 s after the wake, on the first poll that saw one. No position is recorded here. |
+
+Not measured: a reboot while parked (the design says it wakes everything and
+nothing is persisted), park and wake from the CLI and menu callers, and any
+second parkable device.
+
 ## Not yet run (this rung's remaining ladder)
 
 In order, and every one needs the operator at the keyboard for `sudo`:
@@ -293,7 +312,8 @@ In order, and every one needs the operator at the keyboard for `sudo`:
    of them. The second is the one that proves the rule; `hammunition
    update` afterwards should read them all *up to date* and is the cheaper
    check than a dry run.
-7. The GPS and WWAN questions, once the modules exist: the catalog's
+7. The WWAN GNSS question (the USB receiver is fitted and was measured in
+   session 10), once a working WWAN module exists: the catalog's
    `gps-receiver` class is USB-serial (`/dev/serial/by-id/`); an internal
    GNSS on a WWAN card usually surfaces through ModemManager's location API
    or `/dev/wwan*`, not a tty, and `gpsd` will need a different source line.

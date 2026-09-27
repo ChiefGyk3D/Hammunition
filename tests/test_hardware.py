@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from hammunition.hardware.detect import AttachedDevice, read_usb_bus
 from hammunition.manifest.hardware import (
     CONTRADICTS_CONFIRMED,
     DeviceClass,
@@ -1070,3 +1071,33 @@ def test_the_catalog_claims_a_suffix_only_where_a_capture_backs_it() -> None:
         assert any(i.reports_serial is True for i in entry.usb_ids if i.confirmed), (
             f"{name} claims serial_suffix with no confirmed reports_serial evidence"
         )
+
+
+def test_read_usb_bus_records_the_node_it_read_each_device_from(tmp_path: Path) -> None:
+    for address, product in (("1-4", "01a7"), ("2-1", "6089")):
+        node = tmp_path / address
+        node.mkdir()
+        (node / "idVendor").write_text("1546\n")
+        (node / "idProduct").write_text(f"{product}\n")
+
+    by_id = {d.identifier: d for d in read_usb_bus(tmp_path)}
+    assert by_id["1546:01a7"].sysfs_path == str(tmp_path / "1-4")
+    assert by_id["1546:6089"].sysfs_path == str(tmp_path / "2-1")
+
+
+def test_a_hand_built_attached_device_has_no_sysfs_path() -> None:
+    assert AttachedDevice(vendor="1546", product="01a7").sysfs_path is None
+
+
+def test_two_identical_dongles_keep_their_own_addresses(tmp_path: Path) -> None:
+    """Deduplication is by (vendor, product, serial); two with *different*
+    serials are two devices and each must remember its own node."""
+    for address, serial in (("1-4", "AAAA"), ("1-5", "BBBB")):
+        node = tmp_path / address
+        node.mkdir()
+        (node / "idVendor").write_text("1546\n")
+        (node / "idProduct").write_text("01a7\n")
+        (node / "serial").write_text(f"{serial}\n")
+
+    paths = sorted(d.sysfs_path or "" for d in read_usb_bus(tmp_path))
+    assert paths == [str(tmp_path / "1-4"), str(tmp_path / "1-5")]

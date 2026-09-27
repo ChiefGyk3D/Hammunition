@@ -48,6 +48,14 @@ class AttachedDevice:
     manufacturer: str | None = None
     product_string: str | None = None
     serial: str | None = None
+    sysfs_path: str | None = None
+    """The ``/sys/bus/usb/devices/<addr>`` node this record was read from.
+
+    Kept because the power planner must write to *the node it read*, not to one
+    re-found by identifier: two identical dongles share an identifier and
+    differ only in address, so re-deriving would park whichever the search hit
+    first. ``None`` when a caller supplied the record rather than the bus.
+    """
 
     @property
     def identifier(self) -> str:
@@ -92,6 +100,7 @@ def read_usb_bus(root: Path | None = None) -> list[AttachedDevice]:
             manufacturer=_read(entry / "manufacturer"),
             product_string=_read(entry / "product"),
             serial=_read(entry / "serial"),
+            sysfs_path=str(entry),
         )
         seen.setdefault((device.vendor, device.product, device.serial), device)
     return list(seen.values())

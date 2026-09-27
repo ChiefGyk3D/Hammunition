@@ -39,10 +39,11 @@ import os
 import re
 import shutil
 import subprocess
-from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass, replace
 from functools import partial
 from pathlib import Path
+from typing import TYPE_CHECKING
 from xml.sax.saxutils import escape
 
 import yaml
@@ -50,11 +51,16 @@ import yaml
 from hammunition.backends.base import Action, Command
 from hammunition.manifest.schema import AptInstall, BinaryInstall, PackageManifest
 
+if TYPE_CHECKING:  # pragma: no cover
+    from hammunition.hardware.power import Parkable
+    from hammunition.manifest.hardware import DeviceClass, DeviceManifest
+
 __all__ = [
     "Category",
     "CliEntries",
     "CliEntry",
     "DesktopIdLister",
+    "DeviceEntry",
     "Group",
     "MenuPaths",
     "MenuPrefixError",
@@ -63,6 +69,8 @@ __all__ = [
     "cli_entries",
     "cli_entry_steps",
     "decorate_entries",
+    "device_entries",
+    "device_entry_steps",
     "gnome_commands",
     "load_vocabulary",
     "menu_steps",
@@ -70,6 +78,7 @@ __all__ = [
     "place_installed_entries",
     "refresh_command",
     "render_cli_entry",
+    "render_device_entry",
     "render_directory",
     "render_menu",
     "resolve_menu_prefix",
@@ -691,6 +700,206 @@ def cli_entry_steps(
                 Action(
                     kind="menu",
                     description=f"Remove the entry of a unit no longer installed: {stale.name}",
+                    detail=str(stale),
+                    perform=partial(_remove, stale),
+                )
+            )
+    return steps
+
+
+@dataclass(frozen=True)
+class DeviceEntry:
+    """A park or wake entry for one attached parkable device.
+
+    Its own desktop-id family, not ``hammunition-cli-*``: that family's prune
+    removes every entry the current run did not produce, so a device entry
+    living there would be deleted by the next ``menus apply`` as a stale CLI
+    entry -- and a park entry is not a CLI entry for a *unit* in any case.
+    """
+
+    device: str
+    address: str
+    verb: str
+    title: str
+    comment: str
+    categories: tuple[str, ...]
+    qualified: bool
+    """True when two of this device are attached, so the entry must name the
+    address; a single device's entry stays typeable."""
+
+    @property
+    def target(self) -> str:
+        return f"{self.device}@{self.address}" if self.qualified else self.device
+
+    @property
+    def exec(self) -> str:
+        return f"hammunition hardware {self.verb} {self.target}"
+
+    @property
+    def desktop_id(self) -> str:
+        suffix = f"-{self.address}" if self.qualified else ""
+        return f"hammunition-device-{self.device}{suffix}-{self.verb}.desktop"
+
+
+def _device_categories(
+    entry: DeviceClass | DeviceManifest,
+    manifests: Mapping[str, PackageManifest],
+    hidden: frozenset[str],
+) -> tuple[str, ...]:
+    """Where a device's entries go: its first package that has a visible category.
+
+    A device class carries no ``categories`` of its own -- that is a package
+    field -- so the placement comes from what the device is *for*.
+    ``gps-receiver`` declares gpsd, gpsd-clients and gpsd-tools, and
+    gpsd-clients is in ``gps-gnss``, which is where ``cgps`` already sits and
+    so where somebody looking for their GPS will look.
+    """
+    for package in entry.packages:
+        manifest = manifests.get(package)
+        if manifest is None:
+            continue
+        visible = tuple(c for c in manifest.categories if c not in hidden)
+        if visible:
+            return visible[:1]
+    return ()
+
+
+_DEVICE_ACRONYMS = frozenset(
+    {
+        "gps",
+        "gnss",
+        "sdr",
+        "rf",
+        "usb",
+        "hf",
+        "vhf",
+        "uhf",
+        "aprs",
+        "wwan",
+        "dfu",
+        "uf2",
+        "nfc",
+        "ble",
+        "pci",
+    }
+)
+
+
+def _title_case(name: str) -> str:
+    """A device's catalog slug as a menu label, e.g. ``gps-receiver`` -> ``GPS receiver``.
+
+    The catalog slug, not the free-text summary: a summary is a sentence
+    written for documentation prose (``"USB GNSS receivers — position for
+    APRS..."``) and has no reliable first clause to lift out for a menu
+    label, where the slug is short and already one device. ``str.title()``
+    alone would read ``Gps Receiver`` -- every word capitalised -- which is
+    not how a GPS receiver is written; the domain's own acronyms
+    (``_DEVICE_ACRONYMS``) are kept upper-case instead.
+    """
+    words = name.replace("_", "-").split("-")
+    parts = [word.upper() if word.lower() in _DEVICE_ACRONYMS else word for word in words]
+    label = " ".join(p for p in parts if p)
+    return label[0].upper() + label[1:] if label else label
+
+
+def device_entries(
+    parkables: Sequence[Parkable],
+    entries: Mapping[str, DeviceClass | DeviceManifest],
+    manifests: Mapping[str, PackageManifest],
+    hidden: frozenset[str],
+) -> tuple[DeviceEntry, ...]:
+    """A park entry and a wake entry for each parkable device attached now.
+
+    Attached *now*, because an entry for a device that is not plugged in would
+    fail the moment it was clicked, and a menu full of entries that cannot
+    work is the unfindable menu D-050 and D-054 were written to fix.
+    """
+    counts: dict[str, int] = {}
+    for p in parkables:
+        counts[p.name] = counts.get(p.name, 0) + 1
+
+    built: list[DeviceEntry] = []
+    for p in sorted(parkables, key=lambda p: (p.name, p.address)):
+        entry = entries.get(p.name)
+        if entry is None:
+            continue
+        categories = _device_categories(entry, manifests, hidden)
+        if not categories:
+            continue
+        label = _title_case(p.name)
+        qualified = counts[p.name] > 1
+        for verb in ("park", "wake"):
+            candidate = DeviceEntry(
+                device=p.name,
+                address=p.address,
+                verb=verb,
+                title="",
+                comment=p.summary,
+                categories=categories,
+                qualified=qualified,
+            )
+            # D-054: what it does, then the command. `tlf` told an operator
+            # nothing; `Park GPS receiver (hammunition hardware park ...)`
+            # says what will happen and what to type to repeat it.
+            built.append(
+                replace(
+                    candidate,
+                    title=f"{verb.capitalize()} {label} ({candidate.exec})",
+                )
+            )
+    return tuple(built)
+
+
+def render_device_entry(entry: DeviceEntry, icons: Mapping[str, str] | None = None) -> str:
+    markers = ";".join(f"X-Hammunition-{c}" for c in entry.categories)
+    keywords = ";".join((*entry.categories, entry.device, entry.verb, "power"))
+    icon = next((icons[c] for c in entry.categories if icons and c in icons), None)
+    icon_line = f"Icon={icon}\n" if icon else ""
+    return (
+        "[Desktop Entry]\n"
+        "Type=Application\n"
+        f"{icon_line}"
+        f"Name={entry.title}\n"
+        f"Comment={entry.comment}\n"
+        f"Exec={entry.exec}\n"
+        "Terminal=true\n"
+        f"Categories={markers};\n"
+        f"Keywords={keywords};\n"
+        f"X-Hammunition-Device={entry.device}\n"
+        "X-Hammunition-Generated=device\n"
+    )
+
+
+def device_entry_steps(
+    entries: Sequence[DeviceEntry],
+    applications_dir: Path,
+    icons: Mapping[str, str] | None = None,
+) -> list[Action]:
+    """Write this run's device entries; prune ours that this run did not produce.
+
+    Same rule as :func:`cli_entry_steps` and a separate family, so the two
+    prunes cannot delete each other's entries. A device that is no longer
+    attached loses its entries at the next ``menus apply``, which is correct:
+    the entry would not have worked.
+    """
+    wanted = {entry.desktop_id for entry in entries}
+    steps = [
+        Action(
+            kind="menu",
+            description=f"Write the {entry.verb} entry for {entry.device} ({entry.address})",
+            detail=str(applications_dir / entry.desktop_id),
+            perform=partial(
+                _write, applications_dir / entry.desktop_id, render_device_entry(entry, icons)
+            ),
+        )
+        for entry in entries
+    ]
+    for stale in sorted(applications_dir.glob("hammunition-device-*.desktop")):
+        if stale.name not in wanted:
+            steps.append(
+                Action(
+                    kind="menu",
+                    description=f"Remove a power-control entry no longer applicable: {stale.name}",
                     detail=str(stale),
                     perform=partial(_remove, stale),
                 )

@@ -15,7 +15,28 @@ from pathlib import Path
 
 from hammunition.hardware import plan_hardware, rules_file
 from hammunition.hardware.detect import AttachedDevice
+from hammunition.hardware.polkit import PolkitArtifacts
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest, HardwareDocumentation
+
+_NOOP_POLKIT = PolkitArtifacts(
+    helper_path="/usr/local/libexec/hammunition-devctl",
+    helper_content="",
+    policy_path="/usr/share/polkit-1/actions/com.chiefgyk3d.hammunition.devctl.policy",
+    policy_content="",
+    helper_current=True,
+    policy_current=True,
+    interpreter="/usr/bin/python3",
+    unsafe_interpreter=None,
+    unsafe_package=None,
+)
+"""A stand-in for a machine where the power-control artefacts are already
+installed and safe. Real plan_polkit() reads fixed system paths (D-056) that
+do not exist on the dev machine or in CI, so its own idempotence is proven in
+test_polkit_artifacts.py; here it is only ever noise for a plan whose subject
+is the udev rules and group membership. plan_hardware() takes `polkit` as an
+injectable input for exactly this reason (the same way it already takes
+`attached`, `rules_path` and `sysfs_root`), so tests pass this in explicitly
+rather than depending on, or monkeypatching around, the real filesystem."""
 
 DOCS = HardwareDocumentation(
     what_it_is="A software defined radio receiver used for wideband reception.",
@@ -75,6 +96,7 @@ def test_already_current_when_the_file_matches(tmp_path: Path) -> None:
         user_groups_now=frozenset({"plugdev", "dialout"}),
         attached=[],
         rules_path=str(rules),
+        polkit=_NOOP_POLKIT,
     )
     assert plan.rules_already_current
     assert plan.groups_to_add == []

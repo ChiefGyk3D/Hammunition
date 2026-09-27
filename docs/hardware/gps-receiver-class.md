@@ -14,6 +14,14 @@ USB GNSS receivers as a family rather than as products: a dongle, a puck, a modu
 
 Install `gpsd`, `gpsd-clients` and `gpsd-tools`, join `dialout`, then log out and back in — group membership does not apply to a session already open. Attach the receiver and run `cgps`; a fix takes a minute or two from cold with a clear view of the sky. There is no udev rule to write: gpsd ships one and it already gives you /dev/gps0.
 
+## Power control
+
+This device can be parked and woken. Method: `usb_deauthorize`.
+
+gpsd handles hot-unplug itself — Debian ships USBAUTO="true" in /etc/default/gpsd, confirmed live on Parrot 7.3 — so nothing needs quieting before the port goes down. Measured on the field laptop with a u-blox 9 (bench-verification-5430.md, session 10): on park, gpsdctl@ttyACM0 removed the device from a running gpsd within a second and /dev/ttyACM0 was gone; on wake, the kernel re-created ttyACM0 and /dev/gps0 and gpsdctl handed it back to gpsd within a second, with no action from the operator. A 3D fix was back by 74 s after the wake (the first poll to see one; polled every 15 s or so). The receiver keeps its USB entry while parked, so lsusb still lists it.
+
+See [device power control](power-control.md) for what parking does to a machine, how to inspect it and how to reverse it.
+
 ## Shared tooling
 
 [`gpsd`](../packages/gpsd.md), [`gpsd-clients`](../packages/gpsd-clients.md), [`gpsd-tools`](../packages/gpsd-tools.md)
