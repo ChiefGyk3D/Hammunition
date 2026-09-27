@@ -427,9 +427,8 @@ files contain and what installing them means.
   account — the ordinary shape of a venv under `$HOME`, and this project's
   own documented install, including one group-writable only by the owner's
   own user-private group under a `0002` umask — `apply` is not refused, but it prints the path
-  and requires it to be **typed back** before proceeding; `--yes` does not
-  satisfy this (**D-021**, **D-056**), and declining or mistyping it exits
-  `3`.
+  and asks `Proceed? [yes/no]:` once; `--yes` does not answer it (**D-021**,
+  **D-056**), and anything but `yes` exits `3`.
 - **Group membership applies at next login.** The command says so; log out
   and back in before expecting device access.
 

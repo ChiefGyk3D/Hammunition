@@ -200,12 +200,11 @@ then replace what root runs), or either
 component failing to `stat` at all, which is treated as unsafe rather than
 assumed safe. A component that is merely owned by one non-root account — the
 ordinary shape of a venv under `$HOME` — is not refused; `apply` discloses it
-and asks you to type the path back before proceeding, a confirmation `--yes`
-cannot satisfy. Group write by your own user-private group — the group named
-after you that nobody else is in, which a `0002` umask makes the default on
-Parrot 7 — counts as owner-only and gets the same typed confirmation. See
-**D-056** and its 2026-09-27 amendment for the reasoning behind the
-distinction.
+and asks `Proceed? [yes/no]:` once, a question `--yes` cannot answer. Group
+write by your own user-private group — the group named after you that nobody
+else is in, which a `0002` umask makes the default on Parrot 7 — counts as
+owner-only and gets the same question. See **D-056** and its 2026-09-27
+amendments for the reasoning behind the distinction.
 
 ## The verbs and their exit codes
 
