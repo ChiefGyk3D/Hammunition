@@ -34,9 +34,9 @@ rebuild. **What remains for 1.0** is listed with owners in
 [the 1.0 checklist](docs/reference/release-1.0-checklist.md): the Pop!_OS
 declaration decision, the rebuilt menu seen on GNOME, Xfce and COSMIC,
 the attached-hardware ladder on the bench (the field target is a Dell
-Latitude 5430 Rugged; [nine sessions](docs/reference/bench-verification-5430.md)
-have run there, the whole catalog installed and verified, the radios not
-yet plugged in), and a signing key — the first signed tag waits on one
+Latitude 5430 Rugged; [ten sessions](docs/reference/bench-verification-5430.md)
+have run there, the whole catalog installed and verified, its GPS receiver
+parked and woken from the tray, the radios not yet plugged in), and a signing key — the first signed tag waits on one
 that does not exist yet.
 
 Being honest about this up front matters more than looking finished, so here is
@@ -67,6 +67,7 @@ exactly where things stand:
 | pipx / CPAN backends | ⚪ re-measured to **zero users** and dropped from 1.0 (D-014 amendment) |
 | Templated config files, from station values | ✅ working — a missing value defers one file, not the transaction |
 | Third-party apt repos | ✅ working — manifest pins the key fingerprint, consent is that fingerprint and `--yes` cannot give it, both files reversed by `uninstall` (D-040); `code`/`codium` in the opt-in `editors` profile |
+| Device power control: park and wake a catalogued device (D-056) | ✅ working — `hammunition hardware park`/`wake`, generated menu entries, and the [hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) Plasma applet, all through one root helper behind one polkit action; measured on the field laptop's GPS receiver 2026-09-27; staying parked across a reboot is [designed in #119](https://github.com/ChiefGyk3D/Hammunition/pull/119), not built |
 | udev rule generation from the hardware catalog | ✅ generated and applied by `hammunition hardware apply`; applied on the field laptop and byte-identical to the catalog's set; not yet exercised against an attached device |
 | `uninstall` | ✅ working — reverses apt, venv, binary, .deb, trees and launchers; marker-verified, VM-proven; a real `make install` is refused by name |
 | End-to-end VM verification (install / configure / remove) | ✅ Parrot, Kali, Debian 13, Ubuntu 24.04, Ubuntu 26.04, and [Pop!_OS 24.04](docs/reference/vm-campaign-pop.md) as an undeclared target |
@@ -102,16 +103,17 @@ availability measured inside real containers rather than assumed — and,
 increasingly, with packages actually installed rather than merely reported as
 available, because those two turned out to disagree.
 
-**The family has a dashboard.** [Hammunition Hill](https://github.com/ChiefGyk3D/hammunition-hill)
-is a separate project by the same maintainer — a local-first operating-position
-dashboard (clocks, band plan, solar and propagation dials, DX spots coloured by
-your log, satellites, a CW trainer) served from your own machine to your own
-browser on loopback. It is carried in this catalog as
-[`hammunition-hill`](docs/packages/hammunition-hill.md), a member of the
-`station` profile, on exactly the same terms as everything else: a released,
-digest-pinned `.deb`, installed and removed on a VM before the manifest was
-written, and disclosed in the manifest as the one unit whose upstream is this
-project's own maintainer.
+**The family.** Three separate projects by the same maintainer sit beside
+this one. Two are carried in the catalog on exactly the same terms as
+everything else — a released, pinned artefact, installed through the engine
+before the manifest merged — and each manifest discloses that its upstream is
+this project's own maintainer.
+
+| Project | What it is | How you get it |
+|---|---|---|
+| [Hammunition Hill](https://github.com/ChiefGyk3D/hammunition-hill) | A local-first operating-position dashboard — clocks, band plan, solar and propagation dials, DX spots coloured by your log, satellites, a CW trainer — served from your own machine to your own browser on loopback. | [`hammunition-hill`](docs/packages/hammunition-hill.md), in the `station` profile: a digest-pinned `.deb`. |
+| [Skid Finder](https://github.com/ChiefGyk3D/Skid-Finder) | A passive detector for BLE-spam and Wi-Fi attacks, built for foxhunting at a con. It listens and never transmits. Upstream is alpha. | [`skid-finder`](docs/packages/skid-finder.md), in the `rf-security` profile: a sha256-pinned tag tarball. |
+| [hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) | A KDE Plasma tray applet: a switch per parkable device, calling this project's power-control helper (D-056). | Not in the catalog yet: its own `install.sh`, after `hammunition hardware apply`. |
 
 **There is one thing you can help with right now**, and it needs no code:
 [contributing hardware identifiers](docs/contributing/hardware.md). Eleven of
