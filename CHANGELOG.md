@@ -11,7 +11,11 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
-Nothing yet.
+- `skid-finder`, the maintainer's passive BLE-spam and Wi-Fi-attack
+  detector, carried as an ungated `rf-security` unit from its tagged
+  pre-release tarball, v0.6.0-alpha.1 (install_tree, terminal launcher for
+  its field menu). Alpha upstream; not yet installed through the engine on a target
+  (#116).
 
 ## v0.9.0 — 2026-09-13 — beta: feature-complete for 1.0, verification remains
 

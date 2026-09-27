@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**249 packages** across **55 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**250 packages** across **55 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -58,10 +58,11 @@ Position reporting and messaging: clients with maps, digipeaters, iGates and pag
 - [xastir](xastir.md) — APRS client with real maps — see and be seen on the packet network
 - [yaac](yaac.md) — Yet Another APRS Client — the deep, portable Java one
 
-### `bluetooth` — 2
+### `bluetooth` — 3
 
 Ubertooth sniffing and spectrum.
 
+- [skid-finder](skid-finder.md) — Passive BLE-spam and Wi-Fi-attack detector with foxhunting, live alerts and a sensor-net collector
 - [spectools](spectools.md) — Spectrum display for MetaGeek Wi-Spy dongles and the Ubertooth One
 - [ubertooth](ubertooth.md) — Host tools for the Ubertooth One Bluetooth sniffer
 
@@ -77,10 +78,11 @@ DAB and DAB+ receivers and the data alongside broadcast FM.
 - [odr-padenc](odr-padenc.md) — Encodes the text and images that ride alongside a DAB service
 - [welle-io](welle-io.md) — DAB and DAB+ digital radio receiver with a modern interface
 
-### `capture-analysis` — 2
+### `capture-analysis` — 3
 
 Capture traffic on any interface and decode it: Wireshark for the desktop, tcpdump for the terminal, two thousand protocols between them.
 
+- [skid-finder](skid-finder.md) — Passive BLE-spam and Wi-Fi-attack detector with foxhunting, live alerts and a sensor-net collector
 - [tcpdump](tcpdump.md) — Command-line packet capture — the tool that works when nothing else does
 - [wireshark](wireshark.md) — Protocol analyser — decodes captured traffic across two thousand protocols
 
@@ -584,13 +586,14 @@ ISM-band sensors, weather balloons, weather fax and GRIB charts.
 - [xwefax](xwefax.md) — Receives HF weather fax and draws the chart
 - [xygrib](xygrib.md) — Views GRIB weather files — wind, pressure, waves, on a map
 
-### `wifi` — 3
+### `wifi` — 4
 
 Capture, handshake extraction and key recovery for Wi-Fi networks.
 
 - [aircrack-ng](aircrack-ng.md) — Wi-Fi security auditing suite — capture, analysis and key recovery
 - [hcxdumptool](hcxdumptool.md) — Wi-Fi frame capture aimed at producing hash files for offline analysis
 - [hcxtools](hcxtools.md) — Converts captured Wi-Fi frames into hash formats analysis tools read
+- [skid-finder](skid-finder.md) — Passive BLE-spam and Wi-Fi-attack detector with foxhunting, live alerts and a sensor-net collector
 
 ### `winlink` — 4
 
@@ -820,6 +823,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [screen](screen.md) | Terminal multiplexer, and the serial console of last resort | apt |
 | [sdrangel](sdrangel.md) | SDR transceiver and analyser that does several things at once | apt, binary |
 | [sdrpp](sdrpp.md) | SDR++ — cross-platform SDR receiver with a modular DSP chain | apt, git |
+| [skid-finder](skid-finder.md) | Passive BLE-spam and Wi-Fi-attack detector with foxhunting, live alerts and a sensor-net collector | binary |
 | [soapyremote-server](soapyremote-server.md) | Serves a local SDR over the network to software on another machine | apt |
 | [soapysdr-module-airspy](soapysdr-module-airspy.md) | SoapySDR driver module for Airspy hardware | apt |
 | [soapysdr-module-audio](soapysdr-module-audio.md) | SoapySDR driver module for sound-card SDRs and Airspy HF hardware | apt |
