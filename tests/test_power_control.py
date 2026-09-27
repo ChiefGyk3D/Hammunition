@@ -29,8 +29,10 @@ from hammunition.hardware.power import (
     kept_entry,
     parkable,
     parse_kept,
+    plan_forget,
     plan_park,
     plan_wake,
+    read_kept,
     render_kept,
 )
 from hammunition.manifest.hardware import (
@@ -62,6 +64,8 @@ def sysfs_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     from hammunition.hardware import power
 
     monkeypatch.setattr(power, "ALLOWED_ROOTS", (*power.ALLOWED_ROOTS, str(tmp_path)))
+    monkeypatch.setattr(power, "KEPT_RULES", str(tmp_path / "66-hammunition-kept.rules"))
+    monkeypatch.setattr(power, "_reload_udev", lambda: None)
     return tmp_path
 
 
@@ -602,3 +606,107 @@ def test_guard_admits_the_kept_rules_file_and_nothing_beside_it() -> None:
     ):
         with pytest.raises(PowerError):
             guard(other)
+
+
+def _node(root: Path, address: str = "3-5.1") -> Parkable:
+    node = root / address
+    (node / "power").mkdir(parents=True)
+    (node / "authorized").write_text("1\n")
+    (node / "power" / "control").write_text("on\n")
+    return Parkable(
+        name="gps-receiver",
+        summary="USB GNSS receivers",
+        method="usb_deauthorize",
+        quiet=(),
+        sysfs_path=str(node),
+        identifier="1546:01a9",
+        parked=False,
+    )
+
+
+def _kept_path() -> Path:
+    from hammunition.hardware import power
+
+    return Path(power.KEPT_RULES)
+
+
+def test_park_keeps_by_default_and_writes_the_rule(sysfs_root: Path) -> None:
+    p = _node(sysfs_root)
+    assert execute(plan_park(p)) == []
+    assert (Path(p.sysfs_path) / "authorized").read_text().strip() == "0"
+    assert read_kept() == [kept_entry(p)]
+    assert oct(_kept_path().stat().st_mode & 0o777) == "0o644"
+
+
+def test_park_until_reboot_writes_no_rule(sysfs_root: Path) -> None:
+    p = _node(sysfs_root)
+    assert plan_park(p, keep=False).keep is None
+    assert execute(plan_park(p, keep=False)) == []
+    assert not _kept_path().exists()
+
+
+def test_wake_removes_only_that_devices_entry(sysfs_root: Path) -> None:
+    a, b = _node(sysfs_root, "3-5.1"), _node(sysfs_root, "3-6")
+    assert execute(plan_park(a)) == [] and execute(plan_park(b)) == []
+    assert execute(plan_wake(a)) == []
+    assert read_kept() == [kept_entry(b)]
+
+
+def test_waking_the_last_kept_device_deletes_the_file(sysfs_root: Path) -> None:
+    p = _node(sysfs_root)
+    execute(plan_park(p))
+    assert execute(plan_wake(p)) == []
+    assert not _kept_path().exists()
+
+
+def test_parking_twice_keeps_one_entry(sysfs_root: Path) -> None:
+    p = _node(sysfs_root)
+    execute(plan_park(p))
+    (Path(p.sysfs_path) / "authorized").write_text("1\n")
+    execute(plan_park(p))
+    assert read_kept() == [kept_entry(p)]
+
+
+def test_forget_clears_an_absent_device_without_touching_sysfs(sysfs_root: Path) -> None:
+    p = _node(sysfs_root)
+    execute(plan_park(p))
+    plan = plan_forget(kept_entry(p))
+    assert plan.writes == ()
+    assert execute(plan) == []
+    assert read_kept() == []
+
+
+def test_a_foreign_line_leaves_the_file_alone_and_says_the_park_will_not_stay(
+    sysfs_root: Path,
+) -> None:
+    p = _node(sysfs_root)
+    foreign = 'ACTION=="add", RUN+="/usr/bin/true"\n'
+    _kept_path().write_text(foreign)
+    problems = execute(plan_park(p))
+    assert (Path(p.sysfs_path) / "authorized").read_text().strip() == "0"
+    assert _kept_path().read_text() == foreign
+    assert len(problems) == 1
+    assert "parked now but will not stay parked" in problems[0]
+    assert "line 1" in problems[0]
+
+
+def test_a_failed_reload_is_reported_and_the_rule_is_still_written(
+    sysfs_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hammunition.hardware import power
+
+    monkeypatch.setattr(power, "_reload_udev", lambda: "udevadm: not found")
+    p = _node(sysfs_root)
+    problems = execute(plan_park(p))
+    assert read_kept() == [kept_entry(p)]
+    assert problems == [
+        "udev did not reload its rules (udevadm: not found); the entry applies from the next boot"
+    ]
+
+
+def test_no_kept_change_when_the_sysfs_write_failed(sysfs_root: Path) -> None:
+    p = _node(sysfs_root)
+    (Path(p.sysfs_path) / "authorized").unlink()
+    (Path(p.sysfs_path) / "authorized").mkdir()  # write_text now raises
+    assert execute(plan_park(p)) != []
+    assert not _kept_path().exists()

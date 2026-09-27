@@ -7,10 +7,11 @@ Turning a ``power_control`` block into the exact sysfs writes it means, and
 performing them with the effect verified afterwards rather than the exit
 status trusted (D-031).
 
-**Nothing here is persisted.** A reboot resets sysfs, every device wakes, and
-:func:`parkable` reads the truth back from the bus. There is no state file to
-go stale and nothing to reconcile at boot, which is the whole reason this is
-three small functions rather than a daemon.
+**What persists is intent, not state.** A parked device stays parked through
+one udev rule per device in `KEPT_RULES`, applied by udev as the device
+appears. Whether a device *is* parked is still read from sysfs by
+:func:`parkable`; the file only says what the operator asked for, and `state`
+reports both.
 
 **Nothing here knows about polkit, argparse or the tray.** It is given matched
 devices and returns writes. The privileged boundary is
@@ -23,6 +24,8 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -48,8 +51,10 @@ __all__ = [
     "kept_entry",
     "parkable",
     "parse_kept",
+    "plan_forget",
     "plan_park",
     "plan_wake",
+    "read_kept",
     "render_kept",
 ]
 
@@ -202,6 +207,10 @@ class PowerPlan:
     quiet: tuple[QuietVerb, ...]
     restore: bool
     """False on a park (hush the consumer), True on a wake (restore it)."""
+    keep: KeptEntry | None = None
+    """On a park: the entry to add so the device stays parked. None with --until-reboot."""
+    forget: KeptEntry | None = None
+    """On a wake or a forget: the entry to remove, if it is there."""
 
 
 @dataclass(frozen=True)
@@ -378,14 +387,81 @@ def _plan(p: Parkable, *, park: bool) -> PowerPlan:
     return PowerPlan(writes=_usb_writes(p, park=park), quiet=p.quiet, restore=not park)
 
 
-def plan_park(p: Parkable) -> PowerPlan:
-    """The writes that detach ``p`` and let its port suspend."""
-    return _plan(p, park=True)
+def plan_park(p: Parkable, *, keep: bool = True) -> PowerPlan:
+    """The writes that detach ``p`` and let its port suspend, and, unless
+    ``keep`` is false, the entry that keeps it parked across reboots."""
+    base = _plan(p, park=True)
+    return PowerPlan(base.writes, base.quiet, base.restore, keep=kept_entry(p) if keep else None)
 
 
 def plan_wake(p: Parkable) -> PowerPlan:
-    """The writes that bring ``p`` back."""
-    return _plan(p, park=False)
+    """The writes that bring ``p`` back, and removal of its kept entry."""
+    base = _plan(p, park=False)
+    return PowerPlan(base.writes, base.quiet, base.restore, forget=kept_entry(p))
+
+
+def plan_forget(entry: KeptEntry) -> PowerPlan:
+    """Remove a kept entry for a device that is not attached. No sysfs writes:
+    there is no node to write to, and the entry is all that is left of it."""
+    return PowerPlan(writes=(), quiet=(), restore=True, forget=entry)
+
+
+def read_kept() -> list[KeptEntry]:
+    path = Path(KEPT_RULES)
+    if not path.exists():
+        return []
+    return parse_kept(path.read_text())
+
+
+def _reload_udev() -> str | None:
+    if shutil.which("udevadm") is None:
+        return "udevadm is not on PATH"
+    result = subprocess.run(
+        ["udevadm", "control", "--reload"], capture_output=True, text=True, check=False
+    )
+    return (
+        None if result.returncode == 0 else (result.stderr.strip() or f"exit {result.returncode}")
+    )
+
+
+def _write_kept(entries: list[KeptEntry]) -> None:
+    path = Path(guard(KEPT_RULES))
+    if not entries:
+        path.unlink(missing_ok=True)
+        return
+    tmp = path.with_name(path.name + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write(render_kept(entries))
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.chmod(tmp, 0o644)
+    os.replace(tmp, path)
+
+
+def _apply_kept(plan: PowerPlan) -> list[str]:
+    who = plan.keep or plan.forget
+    assert who is not None
+    try:
+        current = read_kept()
+        wanted = [e for e in current if not (plan.forget and e.same_device(plan.forget))]
+        if plan.keep and not any(e.same_device(plan.keep) for e in wanted):
+            wanted.append(plan.keep)
+        if wanted == current:
+            return []
+        _write_kept(wanted)
+        after = read_kept()
+    except (OSError, PowerError) as exc:
+        if plan.keep:
+            return [f"{who.name} is parked now but will not stay parked: {exc}"]
+        return [f"{who.name}'s kept entry could not be removed: {exc}"]
+    if plan.keep and not any(e.same_device(plan.keep) for e in after):
+        return [f"{who.name} is parked now but will not stay parked: the entry did not read back"]
+    if plan.forget and any(e.same_device(plan.forget) for e in after):
+        return [f"{who.name}'s kept entry is still in {KEPT_RULES} after removing it"]
+    reason = _reload_udev()
+    if reason is not None:
+        return [f"udev did not reload its rules ({reason}); the entry applies from the next boot"]
+    return []
 
 
 def execute(plan: PowerPlan) -> list[str]:
@@ -435,4 +511,6 @@ def execute(plan: PowerPlan) -> list[str]:
                 f"the write reported success and did not take"
             )
             break
-    return problems
+    if problems or (plan.keep is None and plan.forget is None):
+        return problems
+    return _apply_kept(plan)
