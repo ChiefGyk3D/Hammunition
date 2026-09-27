@@ -21,6 +21,7 @@ from hammunition.hardware.polkit import (
     WritabilityFinding,
     WritabilityRisk,
     describe_refusal,
+    group_is_private_to,
     plan_polkit,
     policy_xml,
     wrapper_script,
@@ -37,8 +38,8 @@ _BASE_ARTIFACTS = {
 }
 
 
-def _stat(uid: int, mode: int = 0o40755) -> os.stat_result:
-    return os.stat_result((mode, 0, 0, 1, uid, 0, 0, 0, 0, 0))
+def _stat(uid: int, mode: int = 0o40755, gid: int = 0) -> os.stat_result:
+    return os.stat_result((mode, 0, 0, 1, uid, gid, 0, 0, 0, 0))
 
 
 def _owned(path: str) -> WritabilityFinding:
@@ -473,3 +474,123 @@ def test_writable_including_symlink_target_falsification_resolved_only_misses_it
         "this is the bug fix round 3 closes, demonstrated directly: a "
         "resolved-only check must find nothing on a tree the real fix flags"
     )
+
+
+# -- A user-private group is not "any local account" -------------------------
+#
+# Measured on the field laptop, 2026-09-27: Parrot 7's stock session umask is
+# 0002 with USERGROUPS_ENAB, so every checkout and venv the operator creates is
+# group-writable -- by the operator's own group, which has no other member.
+# The gate refused that as "writable by any local account", which was false,
+# and the helper could not be installed at all. Group-write is the escalation
+# only when somebody other than the owner is in the group.
+
+_OPERATOR = 1000
+_PRIVATE_GID = 1002
+_SHARED_GID = 1003
+
+
+def _only_private(gid: int, uid: int) -> bool:
+    return gid == _PRIVATE_GID and uid == _OPERATOR
+
+
+def _venv_chain(bin_mode: int, bin_gid: int) -> dict[str, os.stat_result]:
+    return {
+        "/home/op/src/ham/.venv/bin/python3": _stat(0, 0o100755),
+        "/home/op/src/ham/.venv/bin": _stat(_OPERATOR, bin_mode, bin_gid),
+        "/home/op/src/ham/.venv": _stat(_OPERATOR, 0o40755, _PRIVATE_GID),
+        "/home/op/src/ham": _stat(_OPERATOR, 0o40755, _PRIVATE_GID),
+        "/home/op/src": _stat(_OPERATOR, 0o40755, _PRIVATE_GID),
+        "/home/op": _stat(_OPERATOR, 0o40700, _PRIVATE_GID),
+        "/home": _stat(0),
+        "/": _stat(0),
+    }
+
+
+def test_group_write_by_the_owners_private_group_is_only_confirmable() -> None:
+    chain = _venv_chain(0o40775, _PRIVATE_GID)
+    finding = writable_by_non_root(
+        "/home/op/src/ham/.venv/bin/python3",
+        stat_fn=chain.__getitem__,
+        private_group_fn=_only_private,
+    )
+    assert finding == _owned("/home/op/src/ham/.venv/bin")
+
+
+def test_group_write_by_a_group_with_other_members_still_refuses() -> None:
+    chain = _venv_chain(0o40775, _SHARED_GID)
+    finding = writable_by_non_root(
+        "/home/op/src/ham/.venv/bin/python3",
+        stat_fn=chain.__getitem__,
+        private_group_fn=_only_private,
+    )
+    assert finding == _writable("/home/op/src/ham/.venv/bin")
+
+
+def test_other_write_refuses_even_when_the_group_is_private() -> None:
+    chain = _venv_chain(0o40777, _PRIVATE_GID)
+    finding = writable_by_non_root(
+        "/home/op/src/ham/.venv/bin/python3",
+        stat_fn=chain.__getitem__,
+        private_group_fn=_only_private,
+    )
+    assert finding == _writable("/home/op/src/ham/.venv/bin")
+
+
+def test_the_symlink_union_passes_the_private_group_answer_through() -> None:
+    chain = _venv_chain(0o40775, _PRIVATE_GID)
+    finding = writable_including_symlink_target(
+        "/home/op/src/ham/.venv/bin/python3",
+        stat_fn=chain.__getitem__,
+        realpath_fn=lambda p: p,
+        private_group_fn=_only_private,
+    )
+    assert finding == _owned("/home/op/src/ham/.venv/bin")
+
+
+class _Group:
+    def __init__(self, members: list[str]) -> None:
+        self.gr_mem = members
+
+
+class _Passwd:
+    def __init__(self, uid: int, gid: int) -> None:
+        self.pw_uid = uid
+        self.pw_gid = gid
+
+
+def _lookups(members: list[str], accounts: list[tuple[int, int]]) -> dict[str, object]:
+    groups = {_PRIVATE_GID: _Group(members)}
+
+    def getgrgid(gid: int) -> _Group:
+        return groups[gid]  # KeyError for an unknown gid, as grp does
+
+    return {
+        "getgrgid": getgrgid,
+        "getpwall": lambda: [_Passwd(u, g) for u, g in accounts],
+    }
+
+
+def test_a_group_is_private_when_only_its_owner_holds_it() -> None:
+    lookups = _lookups([], [(0, 0), (_OPERATOR, _PRIVATE_GID)])
+    assert group_is_private_to(_PRIVATE_GID, _OPERATOR, **lookups)  # type: ignore[arg-type]
+
+
+def test_a_supplementary_member_makes_the_group_shared() -> None:
+    lookups = _lookups(["someone"], [(0, 0), (_OPERATOR, _PRIVATE_GID)])
+    assert not group_is_private_to(_PRIVATE_GID, _OPERATOR, **lookups)  # type: ignore[arg-type]
+
+
+def test_another_account_with_it_as_primary_group_makes_it_shared() -> None:
+    lookups = _lookups([], [(_OPERATOR, _PRIVATE_GID), (1001, _PRIVATE_GID)])
+    assert not group_is_private_to(_PRIVATE_GID, _OPERATOR, **lookups)  # type: ignore[arg-type]
+
+
+def test_a_group_the_owner_does_not_hold_as_primary_is_not_private_to_them() -> None:
+    lookups = _lookups([], [(_OPERATOR, 100)])
+    assert not group_is_private_to(_PRIVATE_GID, _OPERATOR, **lookups)  # type: ignore[arg-type]
+
+
+def test_an_unknown_gid_fails_closed() -> None:
+    lookups = _lookups([], [(_OPERATOR, _PRIVATE_GID)])
+    assert not group_is_private_to(4242, _OPERATOR, **lookups)  # type: ignore[arg-type]

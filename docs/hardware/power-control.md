@@ -194,13 +194,18 @@ nothing. Before writing either one, it checks who could tamper with what
 root is about to run — the interpreter path and the `hammunition` package
 directory it imports from, both as given and resolved through any symlink.
 Two things make it refuse outright, before anything is written: either
-component being writable by more than its own owner (any local account, not
-just the one that created it, could then replace what root runs), or either
+component being writable by more than its own owner (world-writable, or
+group-writable by a group someone else can hold, so another account could
+then replace what root runs), or either
 component failing to `stat` at all, which is treated as unsafe rather than
 assumed safe. A component that is merely owned by one non-root account — the
 ordinary shape of a venv under `$HOME` — is not refused; `apply` discloses it
 and asks you to type the path back before proceeding, a confirmation `--yes`
-cannot satisfy. See **D-056** for the reasoning behind the distinction.
+cannot satisfy. Group write by your own user-private group — the group named
+after you that nobody else is in, which a `0002` umask makes the default on
+Parrot 7 — counts as owner-only and gets the same typed confirmation. See
+**D-056** and its 2026-09-27 amendment for the reasoning behind the
+distinction.
 
 ## The verbs and their exit codes
 

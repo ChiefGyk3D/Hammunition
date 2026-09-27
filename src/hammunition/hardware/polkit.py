@@ -6,7 +6,9 @@
 from __future__ import annotations
 
 import enum
+import grp
 import os
+import pwd
 import shlex
 import stat as stat_module
 import sys
@@ -22,6 +24,7 @@ __all__ = [
     "WritabilityFinding",
     "WritabilityRisk",
     "describe_refusal",
+    "group_is_private_to",
     "plan_polkit",
     "policy_xml",
     "wrapper_script",
@@ -147,8 +150,42 @@ class WritabilityFinding:
     down rather than a loose one."""
 
 
+def group_is_private_to(
+    gid: int,
+    uid: int,
+    *,
+    getgrgid: Callable[[int], grp.struct_group] = grp.getgrgid,
+    getpwall: Callable[[], list[pwd.struct_passwd]] = pwd.getpwall,
+) -> bool:
+    """True when ``gid`` is ``uid``'s user-private group: nobody is listed in
+    it, and ``uid`` is the only account holding it as a primary group. Group
+    write on such a group grants nobody anything the owner lacks.
+
+    Measured on the field laptop, 2026-09-27: Parrot 7's stock session umask
+    is 0002 with ``USERGROUPS_ENAB``, so every checkout and venv the operator
+    makes is group-writable by exactly this kind of group, and the gate that
+    read group-write as "any local account" refused the documented install.
+
+    Fails closed: an unknown gid is not private. ``getpwall`` sees the local
+    account database and whatever NSS enumerates; a directory service that
+    does not enumerate could hold an account this cannot see, which is the
+    residual risk the D-056 amendment records.
+    """
+    try:
+        group = getgrgid(gid)
+    except KeyError:
+        return False
+    if group.gr_mem:
+        return False
+    holders = {account.pw_uid for account in getpwall() if account.pw_gid == gid}
+    return holders == {uid}
+
+
 def writable_by_non_root(
-    path: str | Path, *, stat_fn: Callable[[str], os.stat_result] = os.stat
+    path: str | Path,
+    *,
+    stat_fn: Callable[[str], os.stat_result] = os.stat,
+    private_group_fn: Callable[[int, int], bool] = group_is_private_to,
 ) -> WritabilityFinding | None:
     """The first offending component from ``path`` up to the filesystem
     root, classified by :class:`WritabilityRisk`, or ``None`` if every one of
@@ -172,6 +209,11 @@ def writable_by_non_root(
     is treated as the severe case (:attr:`WritabilityFinding.unstatable`):
     it cannot be proven safe either, but it is a different fact from actually
     being writable, and is reported as one.
+
+    Group write by the owner's own user-private group (``private_group_fn``,
+    :func:`group_is_private_to` by default) is not the severe class: nobody
+    but the owner is in that group, so the component falls through to the
+    ownership pass and is confirmable like any other operator-owned tree.
     """
     current = Path(path)
     chain = [current, *current.parents]
@@ -187,7 +229,9 @@ def writable_by_non_root(
             return WritabilityFinding(
                 name, WritabilityRisk.GROUP_OR_OTHER_WRITABLE, unstatable=True
             )
-        if info.st_mode & (stat_module.S_IWGRP | stat_module.S_IWOTH):
+        if info.st_mode & stat_module.S_IWOTH:
+            return WritabilityFinding(name, WritabilityRisk.GROUP_OR_OTHER_WRITABLE)
+        if info.st_mode & stat_module.S_IWGRP and not private_group_fn(info.st_gid, info.st_uid):
             return WritabilityFinding(name, WritabilityRisk.GROUP_OR_OTHER_WRITABLE)
 
     for name, info in stats:
@@ -202,6 +246,7 @@ def writable_including_symlink_target(
     *,
     stat_fn: Callable[[str], os.stat_result] = os.stat,
     realpath_fn: Callable[[str], str] = os.path.realpath,
+    private_group_fn: Callable[[int, int], bool] = group_is_private_to,
 ) -> WritabilityFinding | None:
     """:func:`writable_by_non_root` over ``path`` exactly as given, unioned
     with the same check over its resolved real path -- the severe class
@@ -228,8 +273,10 @@ def writable_including_symlink_target(
     unprivileged user namespace, and would have been just as environment-
     dependent inside the seven target containers).
     """
-    direct = writable_by_non_root(path, stat_fn=stat_fn)
-    resolved = writable_by_non_root(realpath_fn(str(path)), stat_fn=stat_fn)
+    direct = writable_by_non_root(path, stat_fn=stat_fn, private_group_fn=private_group_fn)
+    resolved = writable_by_non_root(
+        realpath_fn(str(path)), stat_fn=stat_fn, private_group_fn=private_group_fn
+    )
     findings = [f for f in (direct, resolved) if f is not None]
     for finding in findings:
         if finding.risk is WritabilityRisk.GROUP_OR_OTHER_WRITABLE:

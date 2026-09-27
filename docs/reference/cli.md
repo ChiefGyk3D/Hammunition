@@ -420,11 +420,13 @@ files contain and what installing them means.
   checks whether the Python interpreter it would bake into the helper, and
   the `hammunition` package directory that helper imports, could be
   tampered with by anyone other than root. If either is writable by more
-  than its own owner (or could not even be `stat`'d), `apply` refuses
-  outright — exit code `2` — because any local account could then replace
+  than its own owner — world-writable, or group-writable by a group another
+  account can hold — or could not even be `stat`'d, `apply` refuses
+  outright — exit code `2` — because another account could then replace
   what root is about to run. If either is merely owned by one non-root
   account — the ordinary shape of a venv under `$HOME`, and this project's
-  own documented install — `apply` is not refused, but it prints the path
+  own documented install, including one group-writable only by the owner's
+  own user-private group under a `0002` umask — `apply` is not refused, but it prints the path
   and requires it to be **typed back** before proceeding; `--yes` does not
   satisfy this (**D-021**, **D-056**), and declining or mistyping it exits
   `3`.

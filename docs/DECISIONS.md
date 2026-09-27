@@ -4183,6 +4183,35 @@ gate. Authorising root to run code from a tree one non-root account controls
 is a decision to record deliberately, the same way an unlicensed-transmission
 consent gate is.
 
+### Amendment (2026-09-27): group write by the owner's private group is not "any local account"
+
+Measured on the field laptop: Parrot 7's stock session umask is `0002` with
+`USERGROUPS_ENAB yes` and no override anywhere in the profile, so every
+checkout and venv the operator creates is group-writable — by the
+operator's own user-private group, which lists no member and is nobody
+else's primary group. The gate read that as `GROUP_OR_OTHER_WRITABLE` and
+refused, with a sentence ("writable by any local account") that was false of
+the machine it ran on, so the helper could not be installed on the field
+target at all and the tray applet had no switch to show.
+
+Group write now counts as the severe class only when somebody other than
+the owner can hold the group. `group_is_private_to()` in
+`src/hammunition/hardware/polkit.py` calls a group private to the
+component's owner when it lists no member and the owner is the only account
+holding it as a primary group; such a component falls through to the
+ownership pass and is `OWNED_BY_NON_ROOT`, the typed confirmation, exactly as
+an owner-only tree is. Other-write still refuses whatever the group. A group
+with a member, a group another account holds as primary, a group the owner
+does not hold as primary, and an unknown gid all still refuse — the check
+fails closed. The same rule applies at runtime, when `hammunition-devctl`
+starts as root.
+
+What it cannot see: `getpwall()` reads the local account database and
+whatever NSS enumerates. A directory service configured not to enumerate
+could hold an account with that primary gid that this check never sees.
+Adding anyone to the group needs root in any case, and root is already
+past every gate this protects.
+
 ### Why the wrapper execs the interpreter with `-I`
 
 The wrapper's exec line is `exec <interpreter> -I -m hammunition.cli.devctl
