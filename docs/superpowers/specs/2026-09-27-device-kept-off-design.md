@@ -60,7 +60,7 @@ works (§7).
 
 ## 4. Engine
 
-**`hardware/power.py`**
+**`src/hammunition/hardware/power.py`**
 - `kept_rule_line(p: Parkable) -> str`: builds the line from `p.address`,
   `p.identifier`. The address must match `^\d+-\d+(\.\d+)*$` and the IDs
   `^[0-9a-f]{4}$`, or it raises. Nothing else reaches the file.
@@ -75,14 +75,14 @@ works (§7).
 - `guard()` gains the one absolute path `KEPT_RULES`. It stays lexical and
   leaf-pinned, as D-056 requires; no other path under `/etc` is writable.
 
-**`cli/devctl.py` (the root helper)**
+**`src/hammunition/cli/devctl.py` (the root helper)**
 - `park NAME` keeps by default; `park --until-reboot NAME` does not.
 - `wake NAME` removes the device's line. `wake NAME@ADDRESS` also works for a
   kept device that is not attached, so a stale line can be cleared.
 - `state` JSON gains `"kept": bool` per device, plus kept entries whose device
   is absent (`"attached": false`).
 
-**`cli/main.py`**
+**`src/hammunition/cli/main.py`**
 - `hammunition hardware park [--until-reboot]`, `wake`, `state` pass through.
 - `hardware unapply` removes `66-hammunition-kept.rules` and reloads udev, and
   says so in its plan.
