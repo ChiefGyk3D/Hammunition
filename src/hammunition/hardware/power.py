@@ -22,6 +22,7 @@ disclose the same thing.
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -29,22 +30,27 @@ from typing import TYPE_CHECKING
 from hammunition.manifest.hardware import PowerMethod, QuietVerb
 
 if TYPE_CHECKING:  # pragma: no cover
-    from collections.abc import Mapping
+    from collections.abc import Iterable, Mapping
 
     from hammunition.hardware.detect import Match
     from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 
 __all__ = [
     "ALLOWED_ROOTS",
+    "KEPT_RULES",
+    "KeptEntry",
     "Parkable",
     "PowerError",
     "PowerPlan",
     "Write",
     "execute",
     "guard",
+    "kept_entry",
     "parkable",
+    "parse_kept",
     "plan_park",
     "plan_wake",
+    "render_kept",
 ]
 
 ALLOWED_ROOTS: tuple[str, ...] = ("/sys/bus/usb/devices", "/sys/bus/pci/devices")
@@ -70,6 +76,110 @@ symlinks -- driver/unbind, subsystem/drivers_probe, driver/module/parameters
 -- that are root-writable and would otherwise pass a root-only check. Two
 filenames is the whole legitimate surface, so naming them closes the class.
 """
+
+
+KEPT_RULES = "/etc/udev/rules.d/66-hammunition-kept.rules"
+"""The one file outside sysfs this module writes: devices kept parked across
+reboots. udev applies it as a device appears, so nothing runs at boot. Named
+66 to run after Hammunition's own 65-hammunition.rules."""
+
+KEPT_HEADER = (
+    "# Written by hammunition-devctl (D-056): devices kept parked across reboots.\n"
+    "# Change it with `hammunition hardware park` and `wake`, not by hand.\n"
+)
+
+_ADDRESS = re.compile(r"\d+-\d+(\.\d+)*")
+_HEX4 = re.compile(r"[0-9a-f]{4}")
+_NAME = re.compile(r"[a-z0-9][a-z0-9-]*")
+_RULE = re.compile(
+    r'ACTION=="add", SUBSYSTEM=="usb", ENV\{DEVTYPE\}=="usb_device", '
+    r'KERNEL=="(?P<address>[^"]*)", ATTR\{idVendor\}=="(?P<vendor>[^"]*)", '
+    r'ATTR\{idProduct\}=="(?P<product>[^"]*)", ATTR\{authorized\}="0"'
+)
+_NAME_LINE = "# kept: "
+
+
+@dataclass(frozen=True)
+class KeptEntry:
+    """One device kept parked: the port it sits in and what it is."""
+
+    name: str
+    address: str
+    vendor: str
+    product: str
+
+    def rule(self) -> str:
+        return (
+            f'ACTION=="add", SUBSYSTEM=="usb", ENV{{DEVTYPE}}=="usb_device", '
+            f'KERNEL=="{self.address}", ATTR{{idVendor}}=="{self.vendor}", '
+            f'ATTR{{idProduct}}=="{self.product}", ATTR{{authorized}}="0"'
+        )
+
+    def same_device(self, other: KeptEntry) -> bool:
+        """Port and model together. The name is a label, not identity."""
+        return (self.address, self.vendor, self.product) == (
+            other.address,
+            other.vendor,
+            other.product,
+        )
+
+
+def _validated(entry: KeptEntry) -> KeptEntry:
+    for field, value, pattern in (
+        ("name", entry.name, _NAME),
+        ("address", entry.address, _ADDRESS),
+        ("vendor", entry.vendor, _HEX4),
+        ("product", entry.product, _HEX4),
+    ):
+        if not pattern.fullmatch(value):
+            raise PowerError(
+                f"refusing to keep {entry.name!r} parked: its {field} {value!r} is not "
+                f"the shape a USB {field} has, and nothing else may reach a udev rule "
+                f"that root applies"
+            )
+    return entry
+
+
+def kept_entry(p: Parkable) -> KeptEntry:
+    """The entry that keeps ``p`` parked, from values read off the device."""
+    vendor, _, product = p.identifier.lower().partition(":")
+    return _validated(KeptEntry(p.name, p.address, vendor, product))
+
+
+def render_kept(entries: Iterable[KeptEntry]) -> str:
+    body = "".join(
+        f"{_NAME_LINE}{e.name}\n{e.rule()}\n"
+        for e in sorted(set(entries), key=lambda e: (e.address, e.vendor, e.product, e.name))
+    )
+    return KEPT_HEADER + body
+
+
+def parse_kept(text: str) -> list[KeptEntry]:
+    """Read the file back. A line this module did not write is a refusal, never
+    skipped: rewriting a file that holds somebody else's rule would delete it."""
+    header = set(KEPT_HEADER.splitlines())
+    entries: list[KeptEntry] = []
+    pending: str | None = None
+    for number, line in enumerate(text.splitlines(), start=1):
+        if not line.strip() or line in header:
+            continue
+        if line.startswith(_NAME_LINE) and pending is None:
+            pending = line[len(_NAME_LINE) :]
+            continue
+        match = _RULE.fullmatch(line)
+        if pending is None or match is None:
+            raise PowerError(
+                f"{KEPT_RULES} line {number} was not written by Hammunition: {line!r}. "
+                f"Refusing to rewrite a file holding a rule it does not own; move that "
+                f"line to a file of its own and try again."
+            )
+        entries.append(
+            _validated(KeptEntry(pending, match["address"], match["vendor"], match["product"]))
+        )
+        pending = None
+    if pending is not None:
+        raise PowerError(f"{KEPT_RULES} ends with '# kept: {pending}' and no rule after it")
+    return entries
 
 
 class PowerError(Exception):
@@ -146,6 +256,8 @@ def guard(path: str) -> str:
     leaf name out of the node.
     """
     normalised = os.path.normpath(path)
+    if normalised == KEPT_RULES and path == KEPT_RULES:
+        return normalised
     for root in ALLOWED_ROOTS:
         prefix = root.rstrip("/") + "/"
         if not normalised.startswith(prefix):

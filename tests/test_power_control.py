@@ -9,6 +9,7 @@ are fixed enums, so a manifest cannot smuggle a shell line through them.
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import subprocess
 from pathlib import Path
@@ -18,14 +19,19 @@ from pydantic import ValidationError
 
 from hammunition.hardware.detect import AttachedDevice, Match
 from hammunition.hardware.power import (
+    KEPT_RULES,
+    Parkable,
     PowerError,
     PowerPlan,
     Write,
     execute,
     guard,
+    kept_entry,
     parkable,
+    parse_kept,
     plan_park,
     plan_wake,
+    render_kept,
 )
 from hammunition.manifest.hardware import (
     DeviceClass,
@@ -511,3 +517,88 @@ def test_no_other_catalog_entry_is_parkable_yet() -> None:
         name for name, entry in {**classes, **devices}.items() if entry.power_control is not None
     ]
     assert parkables == ["gps-receiver"]
+
+
+def _gps(address: str = "3-5.1", identifier: str = "1546:01a9") -> Parkable:
+    return Parkable(
+        name="gps-receiver",
+        summary="USB GNSS receivers",
+        method="usb_deauthorize",
+        quiet=(),
+        sysfs_path=f"/sys/bus/usb/devices/{address}",
+        identifier=identifier,
+        parked=False,
+    )
+
+
+RULE = (
+    'ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", KERNEL=="3-5.1", '
+    'ATTR{idVendor}=="1546", ATTR{idProduct}=="01a9", ATTR{authorized}="0"'
+)
+
+
+def test_kept_entry_builds_the_exact_rule_line() -> None:
+    assert kept_entry(_gps()).rule() == RULE
+
+
+@pytest.mark.parametrize(
+    "address",
+    ["3-5.1\n", '3-5.1",RUN+="x', "3-5..1", "usb3", "3-", "3-5.1 "],
+)
+def test_kept_entry_refuses_an_address_that_is_not_a_usb_port(address: str) -> None:
+    # No "/" in any of these: `Parkable.address` is the path's last component,
+    # so a slash would test Path.name, not the validator.
+    bad = dataclasses.replace(_gps(), sysfs_path=f"/sys/bus/usb/devices/{address}")
+    assert bad.address == address
+    with pytest.raises(PowerError):
+        kept_entry(bad)
+
+
+@pytest.mark.parametrize("identifier", ["1546:01A9x", "1546", "15a:01a9", '1546:01a9"'])
+def test_kept_entry_refuses_an_identifier_that_is_not_two_hex_quads(identifier: str) -> None:
+    with pytest.raises(PowerError):
+        kept_entry(_gps(identifier=identifier))
+
+
+def test_kept_entry_lowercases_the_identifier() -> None:
+    assert kept_entry(_gps(identifier="1546:01A9")).product == "01a9"
+
+
+def test_two_ports_are_two_entries() -> None:
+    a, b = kept_entry(_gps("3-5.1")), kept_entry(_gps("3-6"))
+    assert not a.same_device(b)
+    assert parse_kept(render_kept([a, b])) == [a, b]
+
+
+def test_render_then_parse_round_trips() -> None:
+    entry = kept_entry(_gps())
+    text = render_kept([entry])
+    assert f"# kept: gps-receiver\n{RULE}\n" in text
+    assert parse_kept(text) == [entry]
+
+
+def test_parse_refuses_a_line_hammunition_did_not_write() -> None:
+    text = render_kept([kept_entry(_gps())]) + 'ACTION=="add", RUN+="/bin/sh -c evil"\n'
+    with pytest.raises(PowerError, match="line 5"):
+        parse_kept(text)
+
+
+def test_parse_refuses_a_rule_without_its_name_line() -> None:
+    with pytest.raises(PowerError):
+        parse_kept(RULE + "\n")
+
+
+def test_parse_of_an_empty_file_is_no_entries() -> None:
+    assert parse_kept("") == []
+
+
+def test_guard_admits_the_kept_rules_file_and_nothing_beside_it() -> None:
+    assert guard(KEPT_RULES) == KEPT_RULES
+    for other in (
+        "/etc/udev/rules.d/65-hammunition.rules",
+        "/etc/udev/rules.d/66-hammunition-kept.rules.d/x",
+        "/etc/udev/rules.d/../../shadow",
+        "/etc/udev/rules.d/66-hammunition-kept.rules/../../../shadow",
+    ):
+        with pytest.raises(PowerError):
+            guard(other)
