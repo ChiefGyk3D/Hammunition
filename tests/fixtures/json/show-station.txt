@@ -1,0 +1,17 @@
+fixture-station — Both fixture units, as a profile
+stage: 1.0
+
+The two fixture units, one from apt and one built from source.
+
+Why together:
+  One of each install method the golden documents need to show.
+
+Deliberately excludes:
+  Everything real.
+
+You still configure by hand:
+  Nothing; it is a fixture.
+
+Packages (2):
+  fixture-apt
+  fixture-source

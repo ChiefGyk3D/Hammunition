@@ -42,9 +42,324 @@ chat: a callsign resolves to a name and a licence address. `doctor` and
 
 | kind | document |
 |---|---|
+| `catalog` | [`CatalogDocument`](#catalog) |
 | `doctor` | [`DoctorDocument`](#doctor) |
 | `error` | [`ErrorDocument`](#error) |
+| `profile` | [`ProfileDocument`](#profile) |
 | `status` | [`StatusDocument`](#status) |
+| `unit` | [`UnitDocument`](#unit) |
+
+### catalog
+
+Every profile and unit the catalog offers, and what resolves here.
+
+| field | type | meaning |
+|---|---|---|
+| `what` | string | `all`, `packages` or `profiles`, as asked |
+| `target` | [`TargetView`](#targetview) or null | the system; null when /etc/os-release is unreadable |
+| `profiles` | list of [`ProfileEntry`](#profileentry) | by name; empty when `what` is `packages` |
+| `packages` | list of [`PackageEntry`](#packageentry) | by name; empty when `what` is `profiles` |
+
+#### `TargetView`
+
+What `/etc/os-release` said, verbatim, with the one line the text prints.
+
+| field | type | meaning |
+|---|---|---|
+| `distro` | string | `ID` from /etc/os-release |
+| `version` | string | `VERSION_ID`; empty when the file declares none |
+| `arch` | string | the machine architecture install blocks are selected by |
+| `id_like` | list of string | `ID_LIKE`, split on whitespace |
+| `pretty_name` | string or null | `PRETTY_NAME`, when declared |
+| `description` | string | exactly what the text prints after `Target:` |
+| `debian_family` | boolean | whether the engine will install on this system |
+
+#### `ProfileEntry`
+
+One profile in the catalog.
+
+| field | type | meaning |
+|---|---|---|
+| `name` | string | the profile |
+| `summary` | string | one line |
+| `stage` | string | `1.0` or `post-1.0` |
+| `packages` | list of string | its member units |
+| `consent_gated` | boolean | installing it presents a consent gate (D-021) |
+| `documentation` | [`ProfileDocs`](#profiledocs) | its documentation |
+
+#### `ProfileDocs`
+
+The documentation every profile carries (CLAUDE.md).
+
+| field | type | meaning |
+|---|---|---|
+| `what_it_installs` | string | what the profile installs |
+| `why_together` | string | why those things belong together |
+| `deliberately_excludes` | string | what it leaves out, and why |
+| `manual_configuration` | string | what the operator still sets up by hand |
+| `disk_footprint_hint` | string or null | a disk estimate, when the profile states one |
+
+#### `PackageEntry`
+
+One unit in the catalog.
+
+| field | type | meaning |
+|---|---|---|
+| `name` | string | the unit |
+| `version` | string | the manifest's version |
+| `summary` | string | one line |
+| `categories` | list of string | its tags |
+| `status` | string | `supported`, `broken`, `retired` or `unverifiable` |
+| `methods` | list of string | the install method of every block, in manifest order |
+| `resolves_here` | string or null | the method that resolves on this target; null when none does or the target is unknown |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "PackageEntry": {
+      "additionalProperties": false,
+      "description": "One unit in the catalog.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "categories": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Categories",
+          "type": "array"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "methods": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Methods",
+          "type": "array"
+        },
+        "resolves_here": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Resolves Here"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "summary",
+        "categories",
+        "status",
+        "methods",
+        "resolves_here"
+      ],
+      "title": "PackageEntry",
+      "type": "object"
+    },
+    "ProfileDocs": {
+      "additionalProperties": false,
+      "description": "The documentation every profile carries (CLAUDE.md).",
+      "properties": {
+        "what_it_installs": {
+          "title": "What It Installs",
+          "type": "string"
+        },
+        "why_together": {
+          "title": "Why Together",
+          "type": "string"
+        },
+        "deliberately_excludes": {
+          "title": "Deliberately Excludes",
+          "type": "string"
+        },
+        "manual_configuration": {
+          "title": "Manual Configuration",
+          "type": "string"
+        },
+        "disk_footprint_hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Disk Footprint Hint"
+        }
+      },
+      "required": [
+        "what_it_installs",
+        "why_together",
+        "deliberately_excludes",
+        "manual_configuration",
+        "disk_footprint_hint"
+      ],
+      "title": "ProfileDocs",
+      "type": "object"
+    },
+    "ProfileEntry": {
+      "additionalProperties": false,
+      "description": "One profile in the catalog.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "packages": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Packages",
+          "type": "array"
+        },
+        "consent_gated": {
+          "title": "Consent Gated",
+          "type": "boolean"
+        },
+        "documentation": {
+          "$ref": "#/$defs/ProfileDocs"
+        }
+      },
+      "required": [
+        "name",
+        "summary",
+        "stage",
+        "packages",
+        "consent_gated",
+        "documentation"
+      ],
+      "title": "ProfileEntry",
+      "type": "object"
+    },
+    "TargetView": {
+      "additionalProperties": false,
+      "description": "What `/etc/os-release` said, verbatim, with the one line the text prints.",
+      "properties": {
+        "distro": {
+          "title": "Distro",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "arch": {
+          "title": "Arch",
+          "type": "string"
+        },
+        "id_like": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Id Like",
+          "type": "array"
+        },
+        "pretty_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pretty Name"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "debian_family": {
+          "title": "Debian Family",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "distro",
+        "version",
+        "arch",
+        "id_like",
+        "pretty_name",
+        "description",
+        "debian_family"
+      ],
+      "title": "TargetView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Every profile and unit the catalog offers, and what resolves here.",
+  "properties": {
+    "what": {
+      "title": "What",
+      "type": "string"
+    },
+    "target": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TargetView"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "profiles": {
+      "items": {
+        "$ref": "#/$defs/ProfileEntry"
+      },
+      "title": "Profiles",
+      "type": "array"
+    },
+    "packages": {
+      "items": {
+        "$ref": "#/$defs/PackageEntry"
+      },
+      "title": "Packages",
+      "type": "array"
+    }
+  },
+  "required": [
+    "what",
+    "target",
+    "profiles",
+    "packages"
+  ],
+  "title": "CatalogDocument",
+  "type": "object"
+}
+```
+
+</details>
 
 ### doctor
 
@@ -192,6 +507,225 @@ an unreadable target). The exit code is the one the text run returns.
 
 </details>
 
+### profile
+
+One profile, everything `show` prints, disclosure included.
+
+| field | type | meaning |
+|---|---|---|
+| `name` | string | the profile |
+| `summary` | string | one line |
+| `stage` | string | `1.0` or `post-1.0` |
+| `documentation` | [`ProfileDocs`](#profiledocs) | its documentation |
+| `consent` | [`ConsentView`](#consentview) or null | its consent gate; null when ungated |
+| `packages` | list of string | its member units |
+| `suggests_one_of` | list of [`SuggestionView`](#suggestionview) | choices it offers |
+
+#### `ConsentView`
+
+A profile's consent gate, as `show` discloses it.
+
+| field | type | meaning |
+|---|---|---|
+| `env_var` | string | the scripted-consent variable |
+| `risk_categories` | list of string | the capabilities disclosed |
+| `disclosure` | string | the exact text the gate shows |
+
+#### `SuggestionView`
+
+A choice the profile offers when nothing already answers it.
+
+| field | type | meaning |
+|---|---|---|
+| `name` | string | what is suggested, e.g. a logger |
+| `reason` | string | why |
+| `options` | list of string | the units offered |
+| `recommended` | string or null | the default choice |
+| `detect_commands` | list of string | commands whose presence means one is installed |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "ConsentView": {
+      "additionalProperties": false,
+      "description": "A profile's consent gate, as `show` discloses it.",
+      "properties": {
+        "env_var": {
+          "title": "Env Var",
+          "type": "string"
+        },
+        "risk_categories": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Risk Categories",
+          "type": "array"
+        },
+        "disclosure": {
+          "title": "Disclosure",
+          "type": "string"
+        }
+      },
+      "required": [
+        "env_var",
+        "risk_categories",
+        "disclosure"
+      ],
+      "title": "ConsentView",
+      "type": "object"
+    },
+    "ProfileDocs": {
+      "additionalProperties": false,
+      "description": "The documentation every profile carries (CLAUDE.md).",
+      "properties": {
+        "what_it_installs": {
+          "title": "What It Installs",
+          "type": "string"
+        },
+        "why_together": {
+          "title": "Why Together",
+          "type": "string"
+        },
+        "deliberately_excludes": {
+          "title": "Deliberately Excludes",
+          "type": "string"
+        },
+        "manual_configuration": {
+          "title": "Manual Configuration",
+          "type": "string"
+        },
+        "disk_footprint_hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Disk Footprint Hint"
+        }
+      },
+      "required": [
+        "what_it_installs",
+        "why_together",
+        "deliberately_excludes",
+        "manual_configuration",
+        "disk_footprint_hint"
+      ],
+      "title": "ProfileDocs",
+      "type": "object"
+    },
+    "SuggestionView": {
+      "additionalProperties": false,
+      "description": "A choice the profile offers when nothing already answers it.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Options",
+          "type": "array"
+        },
+        "recommended": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Recommended"
+        },
+        "detect_commands": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Detect Commands",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "reason",
+        "options",
+        "recommended",
+        "detect_commands"
+      ],
+      "title": "SuggestionView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One profile, everything `show` prints, disclosure included.",
+  "properties": {
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "summary": {
+      "title": "Summary",
+      "type": "string"
+    },
+    "stage": {
+      "title": "Stage",
+      "type": "string"
+    },
+    "documentation": {
+      "$ref": "#/$defs/ProfileDocs"
+    },
+    "consent": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ConsentView"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "packages": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Packages",
+      "type": "array"
+    },
+    "suggests_one_of": {
+      "items": {
+        "$ref": "#/$defs/SuggestionView"
+      },
+      "title": "Suggests One Of",
+      "type": "array"
+    }
+  },
+  "required": [
+    "name",
+    "summary",
+    "stage",
+    "documentation",
+    "consent",
+    "packages",
+    "suggests_one_of"
+  ],
+  "title": "ProfileDocument",
+  "type": "object"
+}
+```
+
+</details>
+
 ### status
 
 What this machine is, what the catalog holds, and what has been done here.
@@ -204,20 +738,6 @@ What this machine is, what the catalog holds, and what has been done here.
 | `log_entries` | integer | events in the log |
 | `latest` | [`LatestTransaction`](#latesttransaction) or null | the most recent transaction; null when the log records none |
 | `recorded_units` | list of [`RecordedUnit`](#recordedunit) | every unit a transaction here named, first-seen order |
-
-#### `TargetView`
-
-What `/etc/os-release` said, verbatim, with the one line the text prints.
-
-| field | type | meaning |
-|---|---|---|
-| `distro` | string | `ID` from /etc/os-release |
-| `version` | string | `VERSION_ID`; empty when the file declares none |
-| `arch` | string | the machine architecture install blocks are selected by |
-| `id_like` | list of string | `ID_LIKE`, split on whitespace |
-| `pretty_name` | string or null | `PRETTY_NAME`, when declared |
-| `description` | string | exactly what the text prints after `Target:` |
-| `debian_family` | boolean | whether the engine will install on this system |
 
 #### `CatalogSummary`
 
@@ -614,6 +1134,56 @@ machine. A unit the catalog no longer carries has null method and pin.
     "recorded_units"
   ],
   "title": "StatusDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### unit
+
+One unit's manifest. JSON only: the text `show` describes profiles.
+
+| field | type | meaning |
+|---|---|---|
+| `name` | string | the unit |
+| `resolves_here` | string or null | the method that resolves on this target |
+| `manifest` | object | the manifest as its YAML sets it, unset fields left out; every field is documented in docs/reference/schema.md |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "description": "One unit's manifest. JSON only: the text `show` describes profiles.",
+  "properties": {
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "resolves_here": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Resolves Here"
+    },
+    "manifest": {
+      "additionalProperties": true,
+      "title": "Manifest",
+      "type": "object"
+    }
+  },
+  "required": [
+    "name",
+    "resolves_here",
+    "manifest"
+  ],
+  "title": "UnitDocument",
   "type": "object"
 }
 ```
