@@ -160,7 +160,34 @@ def test_no_session_files_is_information_naming_what_it_defers() -> None:
     desktops = _by_name(checks)["desktops"]
     assert desktops.status == "info"
     assert "no desktop session files" in desktops.detail
-    assert "deferred" in desktops.detail
+    assert "deferred from a profile and refused by name" in desktops.detail
+
+
+def test_session_files_naming_no_known_desktop_are_not_a_server() -> None:
+    """A COSMIC or Sway machine is graphical. ASSUMPTION, not measured: COSMIC's
+    session file is `cosmic.desktop` with `DesktopNames=COSMIC`."""
+    checks = _with(
+        desktops_installed=frozenset(),
+        sessions_unrecognised=("cosmic.desktop",),
+        desktop_current=None,
+    )
+    detail = _by_name(checks)["desktops"].detail
+    assert "server" not in detail and "container" not in detail
+    assert "none of the desktops the catalog knows (read: cosmic.desktop)" in detail
+
+
+def test_unrecognised_files_beside_known_desktops_are_named() -> None:
+    from hammunition.desktop import Desktop
+
+    checks = _with(
+        desktops_installed=frozenset({Desktop.xfce}),
+        sessions_unrecognised=("sway.desktop",),
+        desktop_current=Desktop.xfce,
+    )
+    assert _by_name(checks)["desktops"].detail == (
+        "session files offer Xfce; also sway.desktop, which names no desktop the catalog "
+        "knows; this session is Xfce"
+    )
 
 
 def test_desktops_not_read_add_no_check() -> None:

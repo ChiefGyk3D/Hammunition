@@ -929,17 +929,44 @@ def test_install_station_on_xfce_defers_the_plasma_tray_and_says_what_it_read(
     are read by the CLI and handed to the planner, which defers the Plasma
     applet from `station` on a machine whose only desktop is Xfce."""
     cli = importlib.import_module("hammunition.cli.main")
-    from hammunition.desktop import Desktop
+    from hammunition.desktop import Desktop, SessionScan
 
     _mock_apt(monkeypatch, populated=True)
-    monkeypatch.setattr(cli, "installed_desktops", lambda: frozenset({Desktop.xfce}))
+    monkeypatch.setattr(
+        cli, "scan_sessions", lambda: SessionScan(desktops=frozenset({Desktop.xfce}))
+    )
     rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "station"])
     out = capsys.readouterr().out
     assert rc == EXIT_OK
     assert "Desktops read from session files" in out
     assert "hammunition-tray: will not be installed (profile station)" in out
     assert "no KDE Plasma session (it has: Xfce)" in out
-    assert "plasma-workspace" not in out
+    # The applet's .deb URL is printed whenever it is planned (the fetch step);
+    # its Depends, plasma-workspace among them, never are, so asserting on
+    # that name could not fail. The control test below shows this one can.
+    assert TRAY_DEB not in out
+
+
+TRAY_DEB = "hammunition-tray_0.1.0_all.deb"
+
+
+def test_install_station_on_plasma_plans_the_tray_deb(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    """The control for the test above: with a Plasma session the same dry run
+    prints the applet's .deb, so its absence there is evidence."""
+    cli = importlib.import_module("hammunition.cli.main")
+    from hammunition.desktop import Desktop, SessionScan
+
+    _mock_apt(monkeypatch, populated=True)
+    monkeypatch.setattr(
+        cli, "scan_sessions", lambda: SessionScan(desktops=frozenset({Desktop.kde}))
+    )
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "station"])
+    out = capsys.readouterr().out
+    assert rc == EXIT_OK
+    assert TRAY_DEB in out
+    assert "hammunition-tray: will not be installed" not in out
 
 
 def test_install_hammunition_tray_by_name_with_no_sessions_is_refused(
@@ -947,15 +974,17 @@ def test_install_hammunition_tray_by_name_with_no_sessions_is_refused(
 ) -> None:
     """A container or a server: no session files at all. Typed by name, the
     applet is refused (D-039's rule for a name the operator typed)."""
+    from hammunition.desktop import SessionScan
+
     cli = importlib.import_module("hammunition.cli.main")
 
     _mock_apt(monkeypatch, populated=True)
-    monkeypatch.setattr(cli, "installed_desktops", lambda: frozenset())
+    monkeypatch.setattr(cli, "scan_sessions", lambda: SessionScan(desktops=frozenset()))
     rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "hammunition-tray"])
     err = capsys.readouterr().err
     assert rc == EXIT_UNPLANNABLE
     assert "hammunition-tray: is for KDE Plasma" in err
-    assert "(it has none)" in err
+    assert "(it has no session files)" in err
 
 
 @pytest.mark.parametrize("flags", [(), ("--refresh",)])
