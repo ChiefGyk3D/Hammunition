@@ -40,6 +40,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
 
+from ..country_boundaries import BoundarySource
 from ..fetch import Fetcher
 from ..geofabrik import RegionFile
 from ..manifest.schema import PackageManifest, RegionalDataInstall, RemoteArtifact
@@ -64,6 +65,10 @@ BIN_FACTOR = 0.9
 #: region wrote more than 12 GB of them. Freed when it finishes, but needed
 #: while it runs. Measured on that one region only.
 SCRATCH_FACTOR = 2
+#: The region merged with its country's border, which maptool reads in place
+#: of the download (the address-search fix): the download plus a few MB of
+#: border, in the staging directory until the map is built.
+MERGE_FACTOR = 1
 ESTIMATE = "estimate, measured on three regions, scratch on one"
 
 
@@ -76,13 +81,29 @@ def data_root(prefix: Path) -> Path:
     return prefix / "share" / "hammunition" / "data"
 
 
-def installed_snapshot(path: Path) -> str | None:
-    """The snapshot recorded beside *path*, or None when there is no record."""
-    sidecar = path.with_name(path.name + SOURCE)
+def _sidecar_lines(path: Path) -> list[str]:
     try:
-        return sidecar.read_text().strip() or None
+        return path.with_name(path.name + SOURCE).read_text().splitlines()
     except OSError:
-        return None
+        return []
+
+
+def installed_snapshot(path: Path) -> str | None:
+    """The snapshot recorded beside *path* (the sidecar's first line), or None
+    when there is no record."""
+    lines = _sidecar_lines(path)
+    return (lines[0].strip() or None) if lines else None
+
+
+def installed_converter(path: Path) -> str | None:
+    """The converter a ``.bin`` sidecar records (``converter: navit-maptool 2``),
+    or None: a sidecar from before converters were recorded has only the
+    snapshot line."""
+    for line in _sidecar_lines(path)[1:]:
+        key, _, value = line.partition(":")
+        if key.strip() == "converter" and value.strip():
+            return value.strip()
+    return None
 
 
 def region_current(dest: Path, region: RegionFile) -> bool:
@@ -200,16 +221,17 @@ def disk_needs(
 ) -> dict[Path, int]:
     """Bytes each location needs: each download once in the fetch cache and
     once under the prefix; each conversion's scratch
-    (:data:`SCRATCH_FACTOR`) and staged ``.bin`` (:data:`BIN_FACTOR`) in the
-    staging directory, and its ``.bin`` again under the prefix. A region
-    already downloaded but not yet converted counts as a conversion only."""
+    (:data:`SCRATCH_FACTOR`), merged copy (:data:`MERGE_FACTOR`) and staged
+    ``.bin`` (:data:`BIN_FACTOR`) in the staging directory, and its ``.bin``
+    again under the prefix. A region already downloaded but not yet
+    converted counts as a conversion only."""
     fetched = sum(f.size for f in downloads)
     converted = sum(f.size for f in conversions)
     bins = sum(bin_estimate(f.size) for f in conversions)
     needs: dict[Path, int] = {}
     for where, amount in (
         (cache, fetched),
-        (staging, SCRATCH_FACTOR * converted + bins),
+        (staging, (SCRATCH_FACTOR + MERGE_FACTOR) * converted + bins),
         (prefix, fetched + bins),
     ):
         needs[where] = needs.get(where, 0) + amount
@@ -261,7 +283,8 @@ def disk_shortfall(
         return None
     return (
         "not enough disk space for the map regions (the downloads, their cached copy, "
-        f"maptool's scratch at {SCRATCH_FACTOR}x and Navit's maps at {BIN_FACTOR}x the "
+        f"maptool's scratch at {SCRATCH_FACTOR}x, each region merged with its country's "
+        f"border at {MERGE_FACTOR}x and Navit's maps at {BIN_FACTOR}x the "
         f"input -- an {ESTIMATE}):\n  " + "\n  ".join(short)
     )
 
@@ -290,6 +313,12 @@ class MapDisclosure:
     """Could not be checked; the installed copy stays."""
     convert: Sequence[RegionFile] = ()
     """Converted for Navit this run: newly downloaded, or installed but not yet converted."""
+    boundaries: BoundarySource | None = None
+    """The country-border file merged into each region before conversion."""
+    countries: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    """Region path -> the countries whose border is merged into it."""
+    converter_changed: frozenset[str] = frozenset()
+    """Slugs converted again only because an older converter built them."""
 
 
 @dataclass(frozen=True)
@@ -301,7 +330,13 @@ class MapResolution:
     notes: tuple[str, ...] = ()
 
     def disclosure(
-        self, pending: Sequence[RegionFile], conversions: Sequence[RegionFile] = ()
+        self,
+        pending: Sequence[RegionFile],
+        conversions: Sequence[RegionFile] = (),
+        *,
+        boundaries: BoundarySource | None = None,
+        countries: Mapping[str, tuple[str, ...]] | None = None,
+        converter_changed: frozenset[str] = frozenset(),
     ) -> MapDisclosure:
         waiting = {f.slug for f in pending}
         return MapDisclosure(
@@ -309,6 +344,9 @@ class MapResolution:
             current=tuple(f for f in self.files if f.slug not in waiting),
             kept=self.kept,
             convert=tuple(conversions),
+            boundaries=boundaries,
+            countries=dict(countries or {}),
+            converter_changed=converter_changed,
         )
 
 

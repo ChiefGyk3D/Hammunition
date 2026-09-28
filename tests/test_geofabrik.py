@@ -16,7 +16,9 @@ from hammunition.geofabrik import (
     Pin,
     RegionFile,
     _previous,
+    countries_from_index,
     current_pinned_snapshots,
+    load_countries,
     load_pins,
     newest_snapshots,
     region_ids,
@@ -328,3 +330,118 @@ def test_region_ids_parses_the_real_nogeom_shape() -> None:
         "australia-oceania/australia/act",
         "north-america/us/vermont",
     ]
+
+
+# --- countries_from_index (the address-search fix, D-057 amendment) ----------
+
+
+def _feature(fid: str, path: str, parent: str | None = None, **codes: list[str]) -> str:
+    import json
+
+    props: dict[str, object] = {
+        "id": fid,
+        "urls": {"pbf": f"https://download.geofabrik.de/{path}-latest.osm.pbf"},
+    }
+    if parent is not None:
+        props["parent"] = parent
+    if "alpha2" in codes:
+        props["iso3166-1:alpha2"] = codes["alpha2"]
+    if "sub" in codes:
+        props["iso3166-2"] = codes["sub"]
+    return json.dumps({"type": "Feature", "properties": props})
+
+
+def _index(*features: str) -> str:
+    return '{"features": [' + ",".join(features) + "]}"
+
+
+def test_a_sub_country_region_takes_its_country_from_the_iso3166_2_prefix() -> None:
+    index = _index(
+        _feature("us/vermont", "north-america/us/vermont", "north-america", sub=["US-VT"])
+    )
+    assert countries_from_index(index) == {"north-america/us/vermont": ("US",)}
+
+
+def test_a_country_region_takes_its_alpha2_and_several_codes_are_all_kept() -> None:
+    index = _index(
+        _feature("germany", "europe/germany", "europe", alpha2=["DE"]),
+        _feature("haiti-and-domrep", "central-america/haiti-and-domrep", alpha2=["HT", "DO"]),
+    )
+    assert countries_from_index(index) == {
+        "central-america/haiti-and-domrep": ("HT", "DO"),
+        "europe/germany": ("DE",),
+    }
+
+
+def test_both_kinds_of_code_are_merged_without_duplicates() -> None:
+    index = _index(
+        _feature("us/puerto-rico", "north-america/us/puerto-rico", alpha2=["PR"], sub=["US-PR"]),
+        _feature("quebec", "north-america/canada/quebec", "canada", sub=["CA-QC", "CA-QC"]),
+    )
+    assert countries_from_index(index) == {
+        "north-america/canada/quebec": ("CA",),
+        "north-america/us/puerto-rico": ("PR", "US"),
+    }
+
+
+def test_a_region_with_no_codes_inherits_its_nearest_ancestor_s() -> None:
+    """Geofabrik tags Germany, not Bayern or its Regierungsbezirke: every
+    level below a country inherits that country."""
+    index = _index(
+        _feature("europe", "europe"),
+        _feature("germany", "europe/germany", "europe", alpha2=["DE"]),
+        _feature("bayern", "europe/germany/bayern", "germany"),
+        _feature("oberbayern", "europe/germany/bayern/oberbayern", "bayern"),
+    )
+    assert countries_from_index(index) == {
+        "europe/germany": ("DE",),
+        "europe/germany/bayern": ("DE",),
+        "europe/germany/bayern/oberbayern": ("DE",),
+    }
+
+
+def test_a_region_with_no_country_anywhere_above_it_is_left_out() -> None:
+    """A continent, or a group like `dach` or `us-northeast`, names no one
+    country; it gets no merge, and the conversion step says so."""
+    index = _index(
+        _feature("europe", "europe"),
+        _feature("dach", "europe/dach", "europe"),
+        _feature("north-america", "north-america"),
+        _feature("us-northeast", "north-america/us-northeast", "north-america"),
+    )
+    assert countries_from_index(index) == {}
+
+
+def test_a_parent_cycle_is_refused_by_name() -> None:
+    index = _index(_feature("a", "x/a", "b"), _feature("b", "x/b", "a"))
+    with pytest.raises(GeofabrikError, match="cycle"):
+        countries_from_index(index)
+
+
+def test_a_malformed_code_is_refused_by_name() -> None:
+    index = _index(_feature("x", "x", alpha2=["usa"]))
+    with pytest.raises(GeofabrikError, match="'usa'"):
+        countries_from_index(index)
+
+
+def test_countries_from_the_real_nogeom_shape() -> None:
+    assert countries_from_index(_NOGEOM_SAMPLE) == {"north-america/us/vermont": ("US",)}
+
+
+def test_the_committed_country_table_loads_and_names_the_states() -> None:
+    table = load_countries(
+        Path(__file__).parent.parent / "catalog" / "data" / "geofabrik-countries.yaml"
+    )
+    assert table["north-america/us/vermont"] == ("US",)
+    assert table["europe/germany/bayern"] == ("DE",)
+    assert "europe" not in table
+
+
+def test_a_country_table_row_that_is_not_a_code_list_is_refused(tmp_path: Path) -> None:
+    bad = tmp_path / "c.yaml"
+    bad.write_text("regions:\n  x/y: [usa]\n")
+    with pytest.raises(GeofabrikError, match="x/y"):
+        load_countries(bad)
+    bad.write_text("regions: []\n")
+    with pytest.raises(GeofabrikError, match="regions"):
+        load_countries(bad)
