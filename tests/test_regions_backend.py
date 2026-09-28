@@ -54,9 +54,14 @@ from hammunition.manifest.schema import (
     RegionalDataInstall,
     RemoteArtifact,
 )
+from test_osm_pbf import pbf
 
 FIXTURE = Path(__file__).parent / "fixtures" / "navit.xml"
 BODY = b"p" * 10
+#: Synthetic boxes, nowhere in particular: (left, right, top, bottom).
+VT_BOX = (-73.0, -71.0, 45.0, 43.0)
+NH_BOX = (-72.0, -70.0, 46.0, 42.0)
+BOXES = {"north-america-us-vermont": VT_BOX, "north-america-us-new-hampshire": NH_BOX}
 
 VT = RegionFile(
     "north-america/us/vermont",
@@ -199,10 +204,14 @@ def _derived(tmp_path: Path, files: Sequence[RegionFile], **kw: Any) -> DerivedB
     return DerivedBackend(prefix=tmp_path, files=files, staging=tmp_path / "staging", **kw)
 
 
-def _install_region(tmp_path: Path, region: RegionFile) -> None:
+def _install_region(tmp_path: Path, region: RegionFile, body: bytes | None = None) -> None:
+    """An installed region whose ``.osm.pbf`` is a synthetic header (the centre
+    Navit opens on is read from it), or *body*."""
     out = _data(tmp_path, "osm-regions")
     out.mkdir(parents=True, exist_ok=True)
-    (out / f"{region.slug}.osm.pbf").write_bytes(BODY)
+    if body is None:
+        body = pbf(BOXES.get(region.slug, VT_BOX))
+    (out / f"{region.slug}.osm.pbf").write_bytes(body)
     (out / f"{region.slug}.osm.pbf.source").write_text(f"{region.snapshot}\n")
 
 
@@ -321,7 +330,7 @@ def test_a_cache_file_swapped_for_a_symlink_is_not_installed(
 def test_a_region_already_installed_at_this_snapshot_is_not_fetched_again(
     tmp_path: Path, manifest_regions: PackageManifest, block_regions: RegionalDataInstall
 ) -> None:
-    _install_region(tmp_path, VT)
+    _install_region(tmp_path, VT, BODY)  # current means its size too
     steps: list[Any] = _regions(tmp_path, [VT, NH]).steps(manifest_regions, block_regions)
     out = _data(tmp_path, "osm-regions")
     assert [s.detail for s in _kinds(steps, "install-data")] == [
@@ -743,6 +752,73 @@ def test_a_dropped_region_loses_its_navit_map_and_a_kept_one_does_not(
     assert list(out.glob("north-america-us-maine*")) == []
     config = (out / "navit.xml").read_text()
     assert f"{VT.slug}.bin" in config and f"{NH.slug}.bin" in config
+
+
+def _navit_center(config: str) -> str:
+    start = config.index("<navit ")
+    tag = config[start : config.index(">", start)]
+    return tag.split('center="', 1)[1].split('"', 1)[0]
+
+
+def test_navit_opens_on_the_first_region_s_bbox_midpoint(
+    tmp_path: Path, manifest_navit: PackageManifest, block_navit: DerivedDataInstall
+) -> None:
+    """Bench, 2026-09-28: Navit opened on the stock centre, Munich, and showed nothing."""
+    for region in (VT, NH):
+        _install_region(tmp_path, region)
+        _converted(tmp_path, region)
+    steps: list[Any] = _derived(tmp_path, [VT, NH]).steps(manifest_navit, block_navit)
+    assert "centred on the first region" in steps[-1].description
+    assert "follow" in steps[-1].description
+    steps[-1].perform()
+    config = (_data(tmp_path, "osm-navit") / "navit.xml").read_text()
+    assert _navit_center(config) == "-72.0000 44.0000"
+    assert 'follow="1" source="gpsd://' in config
+
+
+def test_a_first_region_that_did_not_convert_gives_way_to_the_next(
+    tmp_path: Path,
+    manifest_navit: PackageManifest,
+    block_navit: DerivedDataInstall,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fake_maptool(monkeypatch, write=b"navit-bin", fail_for=VT.slug)
+    _install_region(tmp_path, VT)
+    _install_region(tmp_path, NH)
+    backend = _derived(tmp_path, [VT, NH])
+    for step in _acts(backend.steps(manifest_navit, block_navit)):
+        step.perform()
+    config = (_data(tmp_path, "osm-navit") / "navit.xml").read_text()
+    assert _navit_center(config) == "-71.0000 44.0000"
+
+
+def test_a_region_header_without_a_bbox_keeps_the_stock_centre_and_says_so(
+    tmp_path: Path, manifest_navit: PackageManifest, block_navit: DerivedDataInstall
+) -> None:
+    _install_region(tmp_path, VT, pbf(None))
+    _converted(tmp_path, VT)
+    steps: list[Any] = _derived(tmp_path, [VT]).steps(manifest_navit, block_navit)
+    result = steps[-1].perform()
+    assert "stock centre" in result
+    config = (_data(tmp_path, "osm-navit") / "navit.xml").read_text()
+    assert _navit_center(config) == "11.5666 48.1333"
+
+
+def test_a_malformed_region_header_is_named_and_passed_over_not_fatal(
+    tmp_path: Path, manifest_navit: PackageManifest, block_navit: DerivedDataInstall
+) -> None:
+    """The config still loads every map; failing the step would leave Navit none,
+    and would hide the ledger's report of a region that did fail."""
+    _install_region(tmp_path, VT, BODY)
+    _install_region(tmp_path, NH)
+    for region in (VT, NH):
+        _converted(tmp_path, region)
+    steps: list[Any] = _derived(tmp_path, [VT, NH]).steps(manifest_navit, block_navit)
+    result = steps[-1].perform()
+    assert f"passed over {_data(tmp_path, 'osm-regions') / f'{VT.slug}.osm.pbf'}" in result
+    config = (_data(tmp_path, "osm-navit") / "navit.xml").read_text()
+    assert _navit_center(config) == "-71.0000 44.0000"
+    assert f"{VT.slug}.bin" in config
 
 
 # ---------------------------------------------------------------------------

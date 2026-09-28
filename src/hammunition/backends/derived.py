@@ -25,7 +25,11 @@ A region already converted from the same snapshot is not converted again; a
 region no longer in station config loses its ``.bin`` (one the plan kept
 because it could not be checked for a newer map does not). Last,
 ``navit.xml`` is written beside the maps from the installed stock config
-(:mod:`hammunition.navit_config`), listing every map that exists then.
+(:mod:`hammunition.navit_config`), listing every map that exists then,
+opening on the first of them -- the midpoint of the bbox in its source
+``.osm.pbf``'s header (:mod:`hammunition.osm_pbf`) -- and following the
+gpsd vehicle. The stock centre is Munich; Navit opened there, on a blank
+screen, on the field laptop (2026-09-28).
 
 A region that failed -- to download, to verify, to convert -- is recorded in
 the shared :class:`~hammunition.backends.regions.MapLedger`, the others
@@ -45,7 +49,7 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
-from .. import navit_config
+from .. import navit_config, osm_pbf
 from ..geofabrik import RegionFile
 from ..manifest.schema import DerivedDataInstall, PackageManifest
 from ..paths import operator_dir_problem
@@ -190,11 +194,16 @@ class DerivedBackend:
                 kind="install-data",
                 description=(
                     f"Write Navit's config for these maps, built from {self.stock} "
-                    f"(speech through espeak-ng, one mapset of the regions above)"
+                    f"(speech through espeak-ng, one mapset of the regions above, "
+                    f"centred on the first region's bounding box, the GPS vehicle "
+                    f'with follow="1")'
                 ),
                 detail=str(config),
                 perform=partial(
-                    self._write_config, tuple(out / f"{s}{BIN}" for s in slugs), config, writer
+                    self._write_config,
+                    tuple((out / f"{s}{BIN}", source_dir / f"{s}{PBF}") for s in slugs),
+                    config,
+                    writer,
                 ),
                 requires_root=writer.privileged,
             )
@@ -388,8 +397,37 @@ class DerivedBackend:
                 _remove_as(drop, staged)
         return f"installed {dest}"
 
-    def _write_config(self, bins: Sequence[Path], dest: Path, writer: PrefixWriter) -> str:
-        present = [b for b in bins if b.is_file()]
+    @staticmethod
+    def _center(sources: Sequence[Path]) -> tuple[tuple[float, float] | None, list[str]]:
+        """(lon, lat) Navit opens on, and why any region was passed over.
+
+        The first region whose ``.osm.pbf`` header has a bbox. One no longer
+        installed, one whose header carries no bbox (the format allows it)
+        and one that cannot be read give way to the next. An unreadable one
+        is named in the step's outcome rather than failing it: a map config
+        opening on the stock centre is still a working config, where a failed
+        step would leave Navit none and hide the ledger's own report."""
+        passed: list[str] = []
+        for pbf in sources:
+            try:
+                bbox = osm_pbf.header_bbox(pbf)
+            except FileNotFoundError:
+                continue
+            except OSError as exc:
+                passed.append(f"cannot read {pbf}: {exc.strerror or exc}")
+                continue
+            except osm_pbf.OsmPbfError as exc:
+                passed.append(str(exc))
+                continue
+            if bbox is not None:
+                return osm_pbf.bbox_center(bbox), passed
+        return None, passed
+
+    def _write_config(
+        self, maps: Sequence[tuple[Path, Path]], dest: Path, writer: PrefixWriter
+    ) -> str:
+        present_maps = [(b, pbf) for b, pbf in maps if b.is_file()]
+        present = [b for b, _ in present_maps]
         if not present and self.ledger.failed:
             # Nothing converted; the ledger's step fails the run naming why.
             return "not written: no region has a Navit map"
@@ -400,9 +438,16 @@ class DerivedBackend:
                 f"cannot read Navit's stock config {self.stock}: {exc.strerror or exc}. "
                 f"It comes from the navit package; install it and run this again."
             ) from exc
+        center, passed = self._center([pbf for _, pbf in present_maps])
         try:
-            body = navit_config.rewrite(text, present)
+            body = navit_config.rewrite(text, present, center=center)
         except navit_config.NavitConfigError as exc:
             raise BackendError(f"{self.stock}: {exc}") from exc
         writer.write_text(dest, body)
-        return f"wrote {dest} ({len(present)} map(s))"
+        where = (
+            f"opening on {navit_config.format_center(center)}"
+            if center is not None
+            else "no region's header gave a bounding box, so Navit keeps the stock centre"
+        )
+        skipped = "".join(f"; passed over {p}" for p in passed)
+        return f"wrote {dest} ({len(present)} map(s); {where}{skipped})"
