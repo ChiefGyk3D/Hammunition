@@ -54,8 +54,10 @@ In `tests/test_station.py`:
 def test_map_regions_round_trip(tmp_path: Path) -> None:
     path = tmp_path / "station.yaml"
     save_station(
-        Station(map_regions=("north-america/us/vermont", "north-america/us/new-hampshire"),
-                map_freshness="monthly"),
+        Station(
+            map_regions=("north-america/us/vermont", "north-america/us/new-hampshire"),
+            map_freshness="monthly",
+        ),
         path,
     )
     loaded = load_station(path)
@@ -67,7 +69,9 @@ def test_freshness_defaults_to_yearly() -> None:
     assert Station().freshness == "yearly"
 
 
-@pytest.mark.parametrize("bad", ["North-America/us", "north-america/../etc", "us vermont", "a//b", ""])
+@pytest.mark.parametrize(
+    "bad", ["North-America/us", "north-america/../etc", "us vermont", "a//b", ""]
+)
 def test_a_region_that_is_not_a_geofabrik_path_is_refused(bad: str) -> None:
     with pytest.raises(StationError):
         Station(map_regions=(bad,))
@@ -87,17 +91,27 @@ def test_template_variables_are_unchanged_by_map_fields() -> None:
 In `tests/test_cli.py`, beside the existing `station set` tests (reuse their `tmp_path`/`HOME` or `config_path` stubbing):
 
 ```python
-def test_station_set_map_regions_and_freshness(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_station_set_map_regions_and_freshness(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
     target = tmp_path / "station.yaml"
     monkeypatch.setattr("hammunition.station.config_path", lambda owner=None: target)
-    assert cli.main([
-        "station", "set",
-        "--map-regions", "north-america/us/vermont,north-america/us/new-hampshire",
-        "--map-freshness", "latest",
-    ]) == 0
+    assert (
+        cli.main(
+            [
+                "station",
+                "set",
+                "--map-regions",
+                "north-america/us/vermont,north-america/us/new-hampshire",
+                "--map-freshness",
+                "latest",
+            ]
+        )
+        == 0
+    )
     from hammunition.station import load_station
 
     s = load_station(target)
@@ -150,11 +164,12 @@ In `__post_init__`, after the existing checks:
 `src/hammunition/cli/main.py`: add to the `station set` parser
 
 ```python
-    p_station_set.add_argument(
-        "--map-regions", default=None,
-        help="comma-separated Geofabrik regions to carry offline maps for",
-    )
-    p_station_set.add_argument("--map-freshness", default=None, choices=("yearly", "monthly", "latest"))
+p_station_set.add_argument(
+    "--map-regions",
+    default=None,
+    help="comma-separated Geofabrik regions to carry offline maps for",
+)
+p_station_set.add_argument("--map-freshness", default=None, choices=("yearly", "monthly", "latest"))
 ```
 
 In `cmd_station_set`, merge `map_regions=tuple(r for r in args.map_regions.split(",") if r)` when given and `map_freshness` when given, and update the "nothing to set" message to list the two new flags. `cmd_station_show` prints `map regions: <n> set` and the freshness — **the count, not the names**, because `station show` output is the kind of thing that gets pasted into issues (the regions reveal where the operator lives; CLAUDE.md treats that like the grid square).
@@ -281,7 +296,9 @@ def test_a_snapshot_not_yet_published_falls_back_to_the_previous_one() -> None:
 def test_an_unknown_region_is_refused_naming_the_file() -> None:
     probe = FakeProbe({}, {})
     with pytest.raises(GeofabrikError, match="north-america/us/atlantis-260101.osm.pbf"):
-        resolve("north-america/us/atlantis", "yearly", today=date(2026, 9, 27), pins={}, probe=probe)
+        resolve(
+            "north-america/us/atlantis", "yearly", today=date(2026, 9, 27), pins={}, probe=probe
+        )
 
 
 def test_an_md5_file_that_is_not_an_md5_is_refused() -> None:
@@ -296,8 +313,7 @@ def test_an_md5_file_that_is_not_an_md5_is_refused() -> None:
 def test_load_pins(tmp_path: Path) -> None:
     f = tmp_path / "pins.yaml"
     f.write_text(
-        "pins:\n"
-        f"  - region: {VT}\n    snapshot: '260101'\n    size: 45000000\n    sha256: {SHA}\n"
+        f"pins:\n  - region: {VT}\n    snapshot: '260101'\n    size: 45000000\n    sha256: {SHA}\n"
     )
     assert load_pins(f) == {(VT, "260101"): Pin(VT, "260101", 45_000_000, SHA)}
 
@@ -511,7 +527,9 @@ def test_fetch_md5_refuses_a_size_that_is_not_the_published_one(tmp_path: Path) 
         fetcher.fetch_md5("https://x/v.osm.pbf", hashlib.md5(body).hexdigest(), expected_size=11)
 
 
-def test_a_declared_size_above_the_default_cap_raises_the_cap_not_removes_it(tmp_path: Path) -> None:
+def test_a_declared_size_above_the_default_cap_raises_the_cap_not_removes_it(
+    tmp_path: Path,
+) -> None:
     body = b"y" * 2048
     fetcher = Fetcher(tmp_path, transport=_Serve({"https://x/big": body}), max_bytes=1024)
     ok = fetcher.fetch_md5("https://x/big", hashlib.md5(body).hexdigest(), expected_size=len(body))
@@ -603,16 +621,28 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>"
 
 ```python
 def test_osm_regions_block_parses() -> None:
-    m = PackageManifest.model_validate(_minimal("osm-regions", {
-        "method": "osm-regions", "provider": "geofabrik",
-        "licence": "ODbL-1.0", "licence_url": "https://www.openstreetmap.org/copyright",
-    }))
+    m = PackageManifest.model_validate(
+        _minimal(
+            "osm-regions",
+            {
+                "method": "osm-regions",
+                "provider": "geofabrik",
+                "licence": "ODbL-1.0",
+                "licence_url": "https://www.openstreetmap.org/copyright",
+            },
+        )
+    )
     assert m.install[0].install.method == "osm-regions"
 
 
 def test_derived_block_needs_its_source_in_depends() -> None:
-    block = {"method": "derived", "converter": "navit-maptool", "source": "osm-regions",
-             "licence": "ODbL-1.0", "licence_url": "https://www.openstreetmap.org/copyright"}
+    block = {
+        "method": "derived",
+        "converter": "navit-maptool",
+        "source": "osm-regions",
+        "licence": "ODbL-1.0",
+        "licence_url": "https://www.openstreetmap.org/copyright",
+    }
     with pytest.raises(ValidationError, match="depends"):
         PackageManifest.model_validate(_minimal("osm-navit", block))
     ok = _minimal("osm-navit", block)
@@ -621,8 +651,13 @@ def test_derived_block_needs_its_source_in_depends() -> None:
 
 
 def test_a_converter_outside_the_enum_is_refused() -> None:
-    block = {"method": "derived", "converter": "sh -c 'rm -rf /'", "source": "osm-regions",
-             "licence": "ODbL-1.0", "licence_url": "https://www.openstreetmap.org/copyright"}
+    block = {
+        "method": "derived",
+        "converter": "sh -c 'rm -rf /'",
+        "source": "osm-regions",
+        "licence": "ODbL-1.0",
+        "licence_url": "https://www.openstreetmap.org/copyright",
+    }
     bad = _minimal("osm-navit", block)
     bad["depends"] = ["osm-regions"]
     with pytest.raises(ValidationError):
@@ -740,7 +775,7 @@ def rewrite(stock: str, maps: Sequence[Path]) -> str:
     if not maps:
         raise NavitConfigError("no converted maps to point Navit at")
     if not _SPEECH.search(stock):
-        raise NavitConfigError(f"{STOCK} has no <speech type=\"cmdline\"> element to replace")
+        raise NavitConfigError(f'{STOCK} has no <speech type="cmdline"> element to replace')
     if not _ENABLED_MAPSET.search(stock):
         raise NavitConfigError(f"{STOCK} has no enabled <mapset> to replace")
     out = _SPEECH.sub('<speech type="cmdline" data="espeak-ng \'%s\'" cps="15"/>', stock, count=1)
@@ -796,41 +831,63 @@ from hammunition.backends.derived import DerivedBackend
 from hammunition.backends.regions import RegionsBackend
 from hammunition.geofabrik import RegionFile
 
-VT = RegionFile("north-america/us/vermont", "260101",
-                "https://download.geofabrik.de/north-america/us/vermont-260101.osm.pbf",
-                10, "a" * 64, None)
-NH = RegionFile("north-america/us/new-hampshire", "260101",
-                "https://download.geofabrik.de/north-america/us/new-hampshire-260101.osm.pbf",
-                10, None, "b" * 32)
+VT = RegionFile(
+    "north-america/us/vermont",
+    "260101",
+    "https://download.geofabrik.de/north-america/us/vermont-260101.osm.pbf",
+    10,
+    "a" * 64,
+    None,
+)
+NH = RegionFile(
+    "north-america/us/new-hampshire",
+    "260101",
+    "https://download.geofabrik.de/north-america/us/new-hampshire-260101.osm.pbf",
+    10,
+    None,
+    "b" * 32,
+)
 
 
-def test_each_region_is_fetched_and_says_how_it_is_verified(tmp_path: Path, manifest_regions, block_regions) -> None:
-    steps = RegionsBackend(fetcher=None, prefix=tmp_path, files=[VT, NH]).steps(manifest_regions, block_regions)  # type: ignore[arg-type]
+def test_each_region_is_fetched_and_says_how_it_is_verified(
+    tmp_path: Path, manifest_regions, block_regions
+) -> None:
+    steps = RegionsBackend(fetcher=None, prefix=tmp_path, files=[VT, NH]).steps(
+        manifest_regions, block_regions
+    )  # type: ignore[arg-type]
     fetches = [s for s in steps if getattr(s, "kind", None) == "fetch"]
     assert len(fetches) == 2
     assert fetches[0].description.endswith("sha256, pinned by Hammunition")
     assert fetches[1].description.endswith("MD5 from Geofabrik only; not pinned")
 
 
-def test_a_region_dropped_from_station_config_is_removed(tmp_path: Path, manifest_regions, block_regions) -> None:
+def test_a_region_dropped_from_station_config_is_removed(
+    tmp_path: Path, manifest_regions, block_regions
+) -> None:
     old = tmp_path / "share/hammunition/data/osm-regions/north-america-us-maine.osm.pbf"
     old.parent.mkdir(parents=True)
     old.write_bytes(b"x")
-    steps = RegionsBackend(fetcher=None, prefix=tmp_path, files=[VT]).steps(manifest_regions, block_regions)  # type: ignore[arg-type]
+    steps = RegionsBackend(fetcher=None, prefix=tmp_path, files=[VT]).steps(
+        manifest_regions, block_regions
+    )  # type: ignore[arg-type]
     removals = [s for s in steps if getattr(s, "kind", None) == "remove-data"]
     assert [s.detail for s in removals] == [str(old)]
     removals[0].perform()
     assert not old.exists()
 
 
-def test_derived_skips_a_region_already_converted_from_the_same_snapshot(tmp_path: Path, manifest_navit, block_navit, monkeypatch) -> None:
+def test_derived_skips_a_region_already_converted_from_the_same_snapshot(
+    tmp_path: Path, manifest_navit, block_navit, monkeypatch
+) -> None:
     out = tmp_path / "share/hammunition/data/osm-navit"
     out.mkdir(parents=True)
     (out / "north-america-us-vermont.bin").write_bytes(b"bin")
     (out / "north-america-us-vermont.bin.source").write_text("260101\n")
     stock = tmp_path / "navit.xml"
     stock.write_text((Path(__file__).parent / "fixtures/navit.xml").read_text())
-    steps = DerivedBackend(prefix=tmp_path, files=[VT], stock=stock).steps(manifest_navit, block_navit)
+    steps = DerivedBackend(prefix=tmp_path, files=[VT], stock=stock).steps(
+        manifest_navit, block_navit
+    )
     converts = [s for s in steps if "maptool" in getattr(s, "detail", "")]
     assert converts == []
 ```
@@ -851,7 +908,9 @@ written with the existing `resolve()` test helpers in that file (read two existi
 ```python
 result = subprocess.run(
     ["maptool", "--protobuf", "-i", str(pbf), str(tmp_bin)],
-    capture_output=True, text=True, check=False,
+    capture_output=True,
+    text=True,
+    check=False,
 )
 if result.returncode != 0 or not tmp_bin.exists() or tmp_bin.stat().st_size == 0:
     tmp_bin.unlink(missing_ok=True)
