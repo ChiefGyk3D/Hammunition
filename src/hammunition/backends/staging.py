@@ -18,6 +18,14 @@ measured (:meth:`PrefixWriter.install_stream`).
 Every command is ``env -C <dir> [NAME=VALUE...] <argv>``: the chdir is the
 child's own, after the drop, never root's before it; and the argv is fixed
 by the converter that calls this, never read from a manifest.
+
+Two conversions never share a working directory. maptool writes fixed-name
+temporary files into its cwd, and two runs in one directory crash each other
+(measured 2026-09-28: two parallel runs segfaulted). :meth:`Staging.workdir`
+gives each conversion its own subdirectory, named by the conversion and this
+process, so two engines on one staging directory do not collide either; and
+:meth:`Staging.run` refuses, without starting it, a run in a directory
+another run of this process is still using.
 """
 
 from __future__ import annotations
@@ -26,6 +34,7 @@ import os
 import pwd
 import stat
 import subprocess
+import threading
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -38,6 +47,10 @@ from .verified import PrefixWriter, digest_of
 __all__ = ["Staging", "staging_refusal"]
 
 EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+#: Working directories a run of this process is using now.
+_BUSY: set[str] = set()
+_BUSY_LOCK = threading.Lock()
 
 
 def staging_refusal(staging: Path) -> str | None:
@@ -99,10 +112,41 @@ class Staging:
             return f"could not create {self.directory}: {made.stderr.strip()[-300:]}"
         return None
 
+    def workdir(self, name: str) -> Path:
+        """This conversion's own working directory under the staging directory.
+
+        *name* is one plain path component naming the conversion (a region's
+        slug, a tile); the process id keeps two engines apart. The caller
+        creates it with :meth:`prepare` and removes it with :meth:`remove_tree`.
+        """
+        if not name or name in (".", "..") or "/" in name or "\0" in name:
+            raise ValueError(f"not a plain working-directory name: {name!r}")
+        return self.directory / f"{name}.{os.getpid()}.work"
+
     def run(self, argv: Sequence[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
-        """*argv* in *cwd*, as the operator when the engine is root."""
+        """*argv* in *cwd*, as the operator when the engine is root.
+
+        Refused, with a non-zero result and nothing started, while another run
+        of this process is using *cwd*.
+        """
         assignments = [f"{name}={value}" for name, value in self.environ.items()]
-        return self._subprocess(["env", "-C", str(cwd), *assignments, *argv])
+        command = ["env", "-C", str(cwd), *assignments, *argv]
+        key = os.path.normpath(os.path.abspath(cwd))
+        with _BUSY_LOCK:
+            if key in _BUSY:
+                return subprocess.CompletedProcess(
+                    command,
+                    125,
+                    "",
+                    f"{cwd} is already the working directory of another conversion; "
+                    f"two conversions never share one",
+                )
+            _BUSY.add(key)
+        try:
+            return self._subprocess(command)
+        finally:
+            with _BUSY_LOCK:
+                _BUSY.discard(key)
 
     def _subprocess(self, argv: Sequence[str]) -> subprocess.CompletedProcess[str]:
         try:

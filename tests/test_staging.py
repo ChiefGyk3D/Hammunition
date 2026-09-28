@@ -146,3 +146,79 @@ def test_staging_refusal_names_a_regular_file(tmp_path: Path) -> None:
     (tmp_path / "f").write_text("")
     assert "not a directory" in (staging_refusal(tmp_path / "f") or "")
     assert staging_refusal(tmp_path / "absent") is None
+
+
+# maptool writes fixed-name temp files into its working directory, so two
+# conversions sharing one crash each other: two parallel runs segfaulted on
+# 2026-09-28. Every conversion gets its own directory, and a run is refused
+# rather than started in a directory another run is still using.
+
+
+def test_each_conversion_gets_its_own_working_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fake_tools import calls, install_fakes
+
+    log = install_fakes(
+        monkeypatch, tmp_path / "bin", {"converter": 'printf "%s" "$1" > scratch.tmp'}
+    )
+    staging = Staging(tmp_path / "staging")
+    first, second = staging.workdir("region-a"), staging.workdir("region-b")
+    assert first != second
+    assert first.parent == second.parent and first.is_relative_to(staging.directory)
+    assert staging.workdir("region-a") == first
+    assert staging.prepare(first, second) is None
+    assert staging.run(["converter", "a"], cwd=first).returncode == 0
+    assert staging.run(["converter", "b"], cwd=second).returncode == 0
+    assert (first / "scratch.tmp").read_text() == "a"
+    assert (second / "scratch.tmp").read_text() == "b"
+    assert [where for where, _ in calls(log)] == [str(first), str(second)]
+
+
+@pytest.mark.parametrize("name", ["", ".", "..", "a/b", "../escape"])
+def test_a_working_directory_name_is_one_plain_component(tmp_path: Path, name: str) -> None:
+    with pytest.raises(ValueError):
+        Staging(tmp_path).workdir(name)
+
+
+def test_a_second_run_in_a_busy_working_directory_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import threading
+    import time
+
+    from fake_tools import calls, install_fakes
+
+    release = tmp_path / "release"
+    log = install_fakes(
+        monkeypatch,
+        tmp_path / "bin",
+        {
+            "converter": (
+                f'n=0; while [ ! -e "{release}" ] && [ $n -lt 1000 ]; '
+                "do sleep 0.01; n=$((n+1)); done"
+            )
+        },
+    )
+    staging = Staging(tmp_path / "staging")
+    work = staging.workdir("region")
+    assert staging.prepare(work) is None
+    results: list[int] = []
+    first = threading.Thread(
+        target=lambda: results.append(staging.run(["converter"], cwd=work).returncode)
+    )
+    first.start()
+    try:
+        deadline = time.monotonic() + 10
+        while not calls(log) and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert calls(log), "the first run never started"
+        second = staging.run(["converter"], cwd=work)
+        assert second.returncode != 0 and "already" in second.stderr
+    finally:
+        release.write_text("")
+        first.join(timeout=15)
+    assert results == [0]
+    assert len(calls(log)) == 1
+    # Released: the directory can be used again.
+    assert staging.run(["converter"], cwd=work).returncode == 0
