@@ -43,6 +43,7 @@ chat: a callsign resolves to a name and a licence address. `doctor` and
 | kind | document |
 |---|---|
 | `error` | [`ErrorDocument`](#error) |
+| `update` | [`UpdateDocument`](#update) |
 
 ### error
 
@@ -83,6 +84,352 @@ an unreadable target). The exit code is the one the text run returns.
     "message"
   ],
   "title": "ErrorDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### update
+
+Installed versus the catalog, as a report. Nothing runs (D-053).
+
+| field | type | meaning |
+|---|---|---|
+| `target` | [`TargetView`](#targetview) | the system |
+| `from_log` | boolean | the units compared are every unit the transaction log names |
+| `rows` | list of [`UpdateRowView`](#updaterowview) | one per unit compared |
+| `counts` | [`UpdateCounts`](#updatecounts) | rows per state |
+| `lists_note` | string | how old the local apt lists are; the report compares against them |
+| `upgrade_command` | string or null | takes apt's differing candidates; null when none |
+| `rebuild_command` | string or null | rebuilds every unit behind the pin; null when none |
+| `upstream_declared` | list of string | units whose probe would ask upstream |
+| `upstream` | list of [`UpstreamRowView`](#upstreamrowview) or null | the upstream comparison; null unless `--upstream` asked for it |
+
+#### `TargetView`
+
+What `/etc/os-release` said, verbatim, with the one line the text prints.
+
+| field | type | meaning |
+|---|---|---|
+| `distro` | string | `ID` from /etc/os-release |
+| `version` | string | `VERSION_ID`; empty when the file declares none |
+| `arch` | string | the machine architecture install blocks are selected by |
+| `id_like` | list of string | `ID_LIKE`, split on whitespace |
+| `pretty_name` | string or null | `PRETTY_NAME`, when declared |
+| `description` | string | exactly what the text prints after `Target:` |
+| `debian_family` | boolean | whether the engine will install on this system |
+
+#### `UpdateRowView`
+
+One unit: installed versus the catalog.
+
+| field | type | meaning |
+|---|---|---|
+| `unit` | string | the catalog unit |
+| `state` | string | `up to date`, `candidate differs`, `behind the pin`, `not installed`, `unknown`, `re-checked on install` or `manual` |
+| `detail` | string | what was compared, as the text prints it |
+| `strategy` | string | the manifest's update strategy |
+| `upgradable` | list of string | apt packages whose candidate differs |
+
+#### `UpdateCounts`
+
+How many rows are in each state.
+
+| field | type | meaning |
+|---|---|---|
+| `up_to_date` | integer | up to date |
+| `candidate_differs` | integer | apt would change them on its next upgrade |
+| `behind_pin` | integer | built at an earlier pin, or never verified here |
+| `not_installed` | integer | not on this machine |
+| `unknown` | integer | nothing on disk can be checked |
+| `on_install` | integer | resolved again on every install |
+| `manual` | integer | re-pinned by hand |
+
+#### `UpstreamRowView`
+
+The catalog's pin against what upstream publishes (`--upstream` only).
+
+| field | type | meaning |
+|---|---|---|
+| `unit` | string | the catalog unit |
+| `method` | string | the probe used |
+| `catalog` | string | the catalog's pin |
+| `upstream` | string or null | what upstream publishes; null when it could not be read |
+| `state` | string | the verdict |
+| `detail` | string | what was found |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "TargetView": {
+      "additionalProperties": false,
+      "description": "What `/etc/os-release` said, verbatim, with the one line the text prints.",
+      "properties": {
+        "distro": {
+          "title": "Distro",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "arch": {
+          "title": "Arch",
+          "type": "string"
+        },
+        "id_like": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Id Like",
+          "type": "array"
+        },
+        "pretty_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pretty Name"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "debian_family": {
+          "title": "Debian Family",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "distro",
+        "version",
+        "arch",
+        "id_like",
+        "pretty_name",
+        "description",
+        "debian_family"
+      ],
+      "title": "TargetView",
+      "type": "object"
+    },
+    "UpdateCounts": {
+      "additionalProperties": false,
+      "description": "How many rows are in each state.",
+      "properties": {
+        "up_to_date": {
+          "title": "Up To Date",
+          "type": "integer"
+        },
+        "candidate_differs": {
+          "title": "Candidate Differs",
+          "type": "integer"
+        },
+        "behind_pin": {
+          "title": "Behind Pin",
+          "type": "integer"
+        },
+        "not_installed": {
+          "title": "Not Installed",
+          "type": "integer"
+        },
+        "unknown": {
+          "title": "Unknown",
+          "type": "integer"
+        },
+        "on_install": {
+          "title": "On Install",
+          "type": "integer"
+        },
+        "manual": {
+          "title": "Manual",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "up_to_date",
+        "candidate_differs",
+        "behind_pin",
+        "not_installed",
+        "unknown",
+        "on_install",
+        "manual"
+      ],
+      "title": "UpdateCounts",
+      "type": "object"
+    },
+    "UpdateRowView": {
+      "additionalProperties": false,
+      "description": "One unit: installed versus the catalog.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "strategy": {
+          "title": "Strategy",
+          "type": "string"
+        },
+        "upgradable": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Upgradable",
+          "type": "array"
+        }
+      },
+      "required": [
+        "unit",
+        "state",
+        "detail",
+        "strategy",
+        "upgradable"
+      ],
+      "title": "UpdateRowView",
+      "type": "object"
+    },
+    "UpstreamRowView": {
+      "additionalProperties": false,
+      "description": "The catalog's pin against what upstream publishes (`--upstream` only).",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "method": {
+          "title": "Method",
+          "type": "string"
+        },
+        "catalog": {
+          "title": "Catalog",
+          "type": "string"
+        },
+        "upstream": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Upstream"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "unit",
+        "method",
+        "catalog",
+        "upstream",
+        "state",
+        "detail"
+      ],
+      "title": "UpstreamRowView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Installed versus the catalog, as a report. Nothing runs (D-053).",
+  "properties": {
+    "target": {
+      "$ref": "#/$defs/TargetView"
+    },
+    "from_log": {
+      "title": "From Log",
+      "type": "boolean"
+    },
+    "rows": {
+      "items": {
+        "$ref": "#/$defs/UpdateRowView"
+      },
+      "title": "Rows",
+      "type": "array"
+    },
+    "counts": {
+      "$ref": "#/$defs/UpdateCounts"
+    },
+    "lists_note": {
+      "title": "Lists Note",
+      "type": "string"
+    },
+    "upgrade_command": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Upgrade Command"
+    },
+    "rebuild_command": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Rebuild Command"
+    },
+    "upstream_declared": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Upstream Declared",
+      "type": "array"
+    },
+    "upstream": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/UpstreamRowView"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Upstream"
+    }
+  },
+  "required": [
+    "target",
+    "from_log",
+    "rows",
+    "counts",
+    "lists_note",
+    "upgrade_command",
+    "rebuild_command",
+    "upstream_declared",
+    "upstream"
+  ],
+  "title": "UpdateDocument",
   "type": "object"
 }
 ```

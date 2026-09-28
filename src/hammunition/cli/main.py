@@ -159,6 +159,7 @@ from hammunition.upstream import render as render_upstream
 
 if TYPE_CHECKING:
     from hammunition.hardware.power import KeptEntry, Parkable
+    from hammunition.upstream import UpstreamRow
 
 __all__ = ["build_parser", "main"]
 
@@ -752,8 +753,11 @@ def _apt_lists_note(apt: AptBackend) -> str:
     return f"last refreshed {when} (`sudo apt-get update` refreshes them; this report does not)"
 
 
+@envelope.json_capable()
 def cmd_update(args: argparse.Namespace) -> int:
     """Installed versus the catalog, as a report. D-053: nothing runs."""
+    from hammunition.interface.update import build_update
+
     try:
         target = Target.detect()
     except DetectionError as exc:
@@ -771,9 +775,26 @@ def cmd_update(args: argparse.Namespace) -> int:
     read_log = TransactionLog(owner=user or None)
 
     names = list(dict.fromkeys(args.names))
+    from_log = not names
     if not names:
         names = list(requested_units(read_log.read()))
         if not names:
+            if envelope.wanted(args):
+                envelope.emit(
+                    build_update(
+                        target,
+                        report(
+                            InstallPlan(target=target, packages=()),
+                            apt_states={},
+                            present={},
+                            built=(),
+                        ),
+                        lists_note=_apt_lists_note(apt),
+                        from_log=True,
+                        upstream=None,
+                    )
+                )
+                return EXIT_OK
             print(f"Target: {target.describe()}")
             print(
                 "Nothing to compare: the transaction log records no install request here "
@@ -869,27 +890,25 @@ def cmd_update(args: argparse.Namespace) -> int:
         if isinstance(planned.block.install, RegionalDataInstall)
     }
 
-    print(f"Target: {target.describe()}")
-    print(
-        render(
-            report(
-                plan,
-                apt_states=states,
-                present=present,
-                built=built,
-                regions=regions_by_unit,
-            ),
-            lists_note=_apt_lists_note(apt),
-            upstream_asked=bool(args.upstream),
+    result = report(plan, apt_states=states, present=present, built=built, regions=regions_by_unit)
+    lists_note = _apt_lists_note(apt)
+    upstream = _upstream_rows(plan, runner) if args.upstream else None
+    if envelope.wanted(args):
+        envelope.emit(
+            build_update(
+                target, result, lists_note=lists_note, from_log=from_log, upstream=upstream
+            )
         )
-    )
-    if args.upstream:
+        return EXIT_OK
+    print(f"Target: {target.describe()}")
+    print(render(result, lists_note=lists_note, upstream_asked=bool(args.upstream)))
+    if upstream is not None:
         print()
-        print(_upstream_report(plan, runner))
+        print(render_upstream(upstream))
     return EXIT_OK
 
 
-def _upstream_report(plan: InstallPlan, runner: SubprocessRunner) -> str:
+def _upstream_rows(plan: InstallPlan, runner: SubprocessRunner) -> list[UpstreamRow]:
     """D-053's second half: the catalog's pin against what upstream publishes.
 
     Opt-in because it is the one thing the engine does that talks to someone
@@ -918,7 +937,7 @@ def _upstream_report(plan: InstallPlan, runner: SubprocessRunner) -> str:
         probe_upstream(planned.manifest, http=http, ls_remote=ls_remote)
         for planned in plan.packages
     ]
-    return render_upstream([r for r in rows if r.state != NOT_UPSTREAM])
+    return [r for r in rows if r.state != NOT_UPSTREAM]
 
 
 def _station_for(
