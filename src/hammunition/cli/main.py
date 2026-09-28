@@ -1124,11 +1124,19 @@ def resolve_map_regions(
         if not region_current(pbf, resolved):
             try:
                 status, _, _ = probe.head(resolved.url)
+                problem = (
+                    None if status == 200 else f"{resolved.url} answered HTTP {status}, not 200"
+                )
             except (GeofabrikError, OSError) as exc:
-                refused.append(f"  {region}: {resolved.url} could not be reached: {exc}")
-                continue
-            if status != 200:
-                refused.append(f"  {region}: {resolved.url} answered HTTP {status}, not 200")
+                # The probe's message already names the URL; not repeated.
+                problem = str(exc)
+            if problem is not None:
+                # Spec §8: offline, an installed region stays installed. Only
+                # a region with nothing installed is refused.
+                if pbf.is_file():
+                    kept.append(KeptRegion(region, resolved.slug, installed_snapshot(pbf), problem))
+                else:
+                    refused.append(f"  {region}: {problem}")
                 continue
         files.append(resolved)
     if refused:

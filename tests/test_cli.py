@@ -2771,3 +2771,32 @@ def test_maps_regions_a_network_failure_is_a_named_error(
     err = capsys.readouterr().err
     assert "error:" in err
     assert "could not be reached" in err
+
+
+def test_offline_a_pinned_region_installed_at_an_older_snapshot_is_kept(tmp_path: Path) -> None:
+    """Final review, item 1: the up-front HEAD failing must not refuse a region
+    whose .osm.pbf is installed; it is kept, as any offline region is."""
+    from hammunition.station import Station
+
+    catalog = tmp_path / "catalog"
+    (catalog / "data").mkdir(parents=True)
+    (catalog / "data" / "geofabrik-pins.yaml").write_text(
+        "pins:\n"
+        "  - region: north-america/us/vermont\n"
+        "    snapshot: '260101'\n"
+        "    size: 10\n"
+        f"    sha256: {'a' * 64}\n"
+    )
+    installed = tmp_path / "installed"
+    installed.mkdir()
+    (installed / "north-america-us-vermont.osm.pbf").write_bytes(b"x")
+    (installed / "north-america-us-vermont.osm.pbf.source").write_text("250101\n")
+    maps = _resolve_maps(
+        tmp_path, Station(map_regions=("north-america/us/vermont",)), catalog, _Offline()
+    )
+    assert maps.files == ()
+    assert [(k.region, k.snapshot) for k in maps.kept] == [("north-america/us/vermont", "250101")]
+    text = "\n".join(render_plan(_map_plan(), [], euid=0, maps=maps.disclosure([])))
+    assert "could not check for a newer map; keeping the installed 250101" in text
+    # The probe's own message names the URL once; it is not wrapped in a second.
+    assert maps.kept[0].reason.count("could not be reached") == 1
