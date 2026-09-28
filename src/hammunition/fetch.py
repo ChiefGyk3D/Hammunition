@@ -65,7 +65,7 @@ from typing import IO, Protocol
 
 from hammunition.backends.base import BackendError
 from hammunition.manifest.schema import RemoteArtifact
-from hammunition.paths import artifact_cache_dir
+from hammunition.paths import OperatorDirError, artifact_cache_dir, ensure_operator_dir
 
 __all__ = [
     "DEFAULT_MAX_BYTES",
@@ -224,6 +224,16 @@ def signature_gap(artifact: RemoteArtifact) -> str | None:
     )
 
 
+def make_dir(path: Path) -> None:
+    """``mkdir -p`` that keeps the operator's directories the operator's under
+    sudo (:func:`hammunition.paths.ensure_operator_dir`); a refusal is a
+    :class:`BackendError` naming the path and the fix."""
+    try:
+        ensure_operator_dir(path)
+    except OperatorDirError as exc:
+        raise BackendError(str(exc)) from exc
+
+
 class Fetcher:
     """Downloads artifacts into a content-addressed cache, verifying each one."""
 
@@ -281,7 +291,7 @@ class Fetcher:
             # than failing -- and never serve it.
             final.unlink()
 
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        make_dir(self.cache_dir)
         # Same directory as the destination so the final move is a rename
         # within one filesystem, which is atomic. A temp file in /tmp would
         # make it a copy, and a copy can be interrupted half-written.
@@ -314,7 +324,7 @@ class Fetcher:
         publisher's server reported, and the cap is that size plus 1 MiB, so a
         server that keeps sending is still stopped.
         """
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        make_dir(self.cache_dir)
         final = self.md5_path_for(url, md5)
 
         if final.exists() and final.stat().st_size == expected_size:

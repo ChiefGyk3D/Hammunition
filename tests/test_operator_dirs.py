@@ -1,0 +1,206 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+"""Directories under the operator's home are the operator's, even under sudo.
+
+Found by review (Task 6, fix round 3): on a fresh machine ``sudo hammunition
+install`` fetched first, as root, and ``Fetcher`` created
+``~/.cache/hammunition/artifacts`` root-owned; the operator's own
+``install -d ~/.cache/hammunition/build/osm-navit`` then failed with EACCES
+and every map region failed. Root now creates a missing directory under the
+operator's home one component at a time, through ``O_NOFOLLOW`` descriptors,
+and hands each one it made to the operator with ``fchown``; an existing
+component the operator does not own is refused by name, with the fix.
+
+Not root in the suite: ``geteuid`` is pinned to 0 and the "operator" is the
+test user, whose home is a temporary directory. ``fchown`` to oneself is
+permitted, so it is real and recorded.
+"""
+
+from __future__ import annotations
+
+import os
+import pwd
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from hammunition.paths import OperatorDirError, ensure_operator_dir, operator_dir_problem
+
+
+@pytest.fixture
+def operator(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
+    me = pwd.getpwuid(os.getuid())
+    home = tmp_path / "home" / "operator"
+    home.mkdir(parents=True)
+    fake = pwd.struct_passwd(("operator", "x", me.pw_uid, me.pw_gid, "", str(home), "/bin/sh"))
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setattr(pwd, "getpwnam", lambda name: fake)
+    monkeypatch.setattr(pwd, "getpwall", lambda: [fake])
+    chowned: list[tuple[int, int]] = []
+    real = os.fchown
+
+    def fchown(fd: int, uid: int, gid: int) -> None:
+        chowned.append((uid, gid))
+        real(fd, uid, gid)
+
+    monkeypatch.setattr(os, "fchown", fchown)
+    return fake, home, chowned
+
+
+def test_root_creates_missing_operator_dirs_and_hands_each_one_over(operator: Any) -> None:
+    fake, home, chowned = operator
+    target = home / ".cache" / "hammunition" / "artifacts"
+    ensure_operator_dir(target)
+    assert target.is_dir()
+    # .cache, hammunition, artifacts: every directory root made, and nothing else.
+    assert chowned == [(fake.pw_uid, fake.pw_gid)] * 3
+
+
+def test_existing_operator_dirs_are_left_alone(operator: Any) -> None:
+    _, home, chowned = operator
+    (home / ".cache").mkdir()
+    ensure_operator_dir(home / ".cache" / "hammunition")
+    assert len(chowned) == 1
+
+
+def test_a_root_owned_ancestor_is_refused_by_name_with_the_fix(
+    operator: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, home, chowned = operator
+    left = home / ".cache" / "hammunition"
+    left.mkdir(parents=True)
+    real_stat = os.stat
+
+    def stat(path: Any, *args: Any, **kwargs: Any) -> Any:
+        result = real_stat(path, *args, **kwargs)
+        if str(path) == "hammunition":  # the component, read by dir_fd
+            fields = list(result)
+            fields[4] = 0  # st_uid: as an older sudo run left it
+            return os.stat_result(fields)
+        return result
+
+    monkeypatch.setattr(os, "stat", stat)
+    with pytest.raises(OperatorDirError) as excinfo:
+        ensure_operator_dir(left / "build" / "osm-navit")
+    message = str(excinfo.value)
+    assert str(left) in message
+    assert f"sudo chown -R operator: {left}" in message
+    assert chowned == []
+    assert operator_dir_problem(left / "build", "operator") == message
+
+
+def test_a_symlinked_component_is_refused_not_followed(operator: Any, tmp_path: Path) -> None:
+    _, home, chowned = operator
+    elsewhere = tmp_path / "sudoers.d"
+    elsewhere.mkdir()
+    (home / ".cache").symlink_to(elsewhere)
+    with pytest.raises(OperatorDirError, match="symlink"):
+        ensure_operator_dir(home / ".cache" / "hammunition")
+    assert list(elsewhere.iterdir()) == []
+    assert chowned == []
+
+
+def test_outside_any_operator_home_it_is_a_plain_mkdir(operator: Any, tmp_path: Path) -> None:
+    _, _, chowned = operator
+    target = tmp_path / "srv" / "cache"
+    ensure_operator_dir(target)
+    assert target.is_dir() and chowned == []
+
+
+def test_the_fetcher_makes_its_cache_the_operator_s(operator: Any) -> None:
+    import hashlib
+    import io
+    from collections.abc import Iterator
+    from contextlib import contextmanager
+    from typing import IO
+
+    from hammunition.fetch import Fetcher
+
+    fake, home, chowned = operator
+    body = b"region"
+
+    class Transport:
+        @contextmanager
+        def open(self, url: str) -> Iterator[IO[bytes]]:
+            yield io.BytesIO(body)
+
+    cache = home / ".cache" / "hammunition" / "artifacts"
+    fetcher = Fetcher(cache, transport=Transport())
+    md5 = hashlib.md5(body, usedforsecurity=False).hexdigest()
+    fetcher.fetch_md5("https://download.geofabrik.de/x-260101.osm.pbf", md5, expected_size=6)
+    assert cache.is_dir()
+    assert chowned == [(fake.pw_uid, fake.pw_gid)] * 3
+
+
+def test_a_build_tree_under_sudo_leaves_the_build_root_the_operator_s(operator: Any) -> None:
+    """prepare_tree and extract create the build root; it must stay the operator's."""
+    from hammunition.backends.source import prepare_tree
+
+    fake, home, chowned = operator
+    build = home / ".cache" / "hammunition" / "build"
+    prepare_tree(build / "wsjtx-0123abcd" / "src")
+    # .cache, hammunition, build, the unit's directory: the operator's. The
+    # tree itself is the build's (D-043 hands it over when installed).
+    assert chowned == [(fake.pw_uid, fake.pw_gid)] * 4
+    assert (build / "wsjtx-0123abcd" / "src").is_dir()
+
+
+def test_a_root_owned_cache_fails_the_fetch_by_name(
+    operator: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hammunition.backends import BackendError
+    from hammunition.fetch import Fetcher
+
+    _, home, _ = operator
+    cache = home / ".cache"
+    cache.symlink_to(home.parent)  # anything the walk refuses
+    fetcher = Fetcher(cache / "hammunition" / "artifacts")
+    with pytest.raises(BackendError, match="symlink"):
+        fetcher.fetch_md5("https://download.geofabrik.de/x.osm.pbf", "0" * 32, expected_size=1)
+
+
+def test_a_root_owned_ancestor_of_staging_fails_the_region_with_the_fix(
+    operator: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Fix round 3, item 1: named, not a bare EACCES from the operator's install -d."""
+    from hammunition.backends.derived import DerivedBackend
+    from hammunition.manifest.schema import DerivedDataInstall
+    from test_regions_backend import VT, _AsOperator, _install_region, _stock, navit_manifest
+
+    fake, home, _ = operator
+    left = home / ".cache" / "hammunition"
+    left.mkdir(parents=True)
+    real_stat = os.stat
+
+    def stat(path: Any, *args: Any, **kwargs: Any) -> Any:
+        result = real_stat(path, *args, **kwargs)
+        if str(path) == "hammunition":
+            fields = list(result)
+            fields[4] = 0
+            return os.stat_result(fields)
+        return result
+
+    monkeypatch.setattr(os, "stat", stat)
+    calls = _AsOperator(monkeypatch).calls
+    prefix = tmp_path / "prefix"
+    _install_region(prefix, VT)
+    manifest = navit_manifest()
+    backend = DerivedBackend(
+        prefix=prefix,
+        files=[VT],
+        staging=left / "build" / "osm-navit",
+        stock=_stock(tmp_path),
+        euid=0,
+        owner="operator",
+        privileged=False,
+    )
+    block = manifest.install[0].install
+    assert isinstance(block, DerivedDataInstall)
+    steps: list[Any] = backend.steps(manifest, block)
+    convert = next(s for s in steps if s.kind == "convert")
+    assert "FAILED" in convert.perform()
+    assert f"sudo chown -R operator: {left}" in backend.ledger.failed[VT.slug]
+    assert calls == []
+    del fake

@@ -56,7 +56,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from hammunition.fetch import Fetcher
+from hammunition.fetch import Fetcher, make_dir
 from hammunition.manifest.schema import (
     Binary,
     InstallBlock,
@@ -210,7 +210,10 @@ def prepare_tree(destination: Path) -> str:
     existed = destination.exists()
     if existed:
         shutil.rmtree(destination)
-    destination.mkdir(parents=True)
+    # The build root and the unit's directory are the operator's even under
+    # sudo, or the operator's own later steps there fail with EACCES.
+    make_dir(destination.parent)
+    destination.mkdir()
     return f"{'cleared and recreated' if existed else 'created'} {destination}"
 
 
@@ -235,7 +238,8 @@ def extract(archive: Path, destination: Path) -> str:
     staging = destination.parent / (destination.name + ".unpack")
     if staging.exists():
         shutil.rmtree(staging)
-    staging.mkdir(parents=True)
+    make_dir(destination.parent)
+    staging.mkdir()
 
     try:
         kind = _sniff(archive)

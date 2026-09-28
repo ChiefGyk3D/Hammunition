@@ -26,9 +26,19 @@ from __future__ import annotations
 import contextlib
 import os
 import pwd
+import stat
 from pathlib import Path
 
-__all__ = ["APP", "artifact_cache_dir", "build_root", "owner_aware_dir", "state_dir"]
+__all__ = [
+    "APP",
+    "OperatorDirError",
+    "artifact_cache_dir",
+    "build_root",
+    "ensure_operator_dir",
+    "operator_dir_problem",
+    "owner_aware_dir",
+    "state_dir",
+]
 
 APP = "hammunition"
 
@@ -154,3 +164,131 @@ def applications_dir(owner: str | None = None) -> Path:
             return Path(entry.pw_dir) / ".local" / "share" / "applications"
     base = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
     return Path(base) / "applications"
+
+
+# ---------------------------------------------------------------------------
+# Creating the operator's directories as root
+# ---------------------------------------------------------------------------
+
+
+class OperatorDirError(Exception):
+    """A directory under the operator's home that root must not use or create through."""
+
+
+_DIR_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+
+
+def _operator_home(path: Path, owner: str | None) -> pwd.struct_passwd | None:
+    """The operator whose home *path* lies under, when this process is root.
+
+    Named by *owner* when the caller knows it; otherwise the account whose home
+    contains *path* (the deepest, should homes nest). None when not root, or
+    when *path* is under no other account's home -- root's own, or a system
+    directory -- which is a plain mkdir.
+    """
+    if os.geteuid() != 0:
+        return None
+    if owner:
+        with contextlib.suppress(KeyError):
+            entry = pwd.getpwnam(owner)
+            if entry.pw_uid != 0 and _under(path, Path(entry.pw_dir)):
+                return entry
+        return None
+    best: pwd.struct_passwd | None = None
+    for entry in pwd.getpwall():
+        if entry.pw_uid == 0 or entry.pw_dir in ("", "/"):
+            continue
+        if _under(path, Path(entry.pw_dir)) and (
+            best is None or len(entry.pw_dir) > len(best.pw_dir)
+        ):
+            best = entry
+    return best
+
+
+def _under(path: Path, home: Path) -> bool:
+    return path != home and home in path.parents
+
+
+def _refusal(where: Path, st: os.stat_result, entry: pwd.struct_passwd) -> str | None:
+    if stat.S_ISLNK(st.st_mode):
+        return (
+            f"{where} is a symlink; root will not create or write through it on "
+            f"{entry.pw_name}'s behalf. Remove it and run the install again."
+        )
+    if not stat.S_ISDIR(st.st_mode):
+        return f"{where} is not a directory; move it aside and run the install again."
+    if st.st_uid != entry.pw_uid:
+        return (
+            f"{where} is not owned by {entry.pw_name} (an earlier run under sudo can leave "
+            f"it root-owned), so {entry.pw_name}'s own processes cannot write under it. "
+            f"Fix: sudo chown -R {entry.pw_name}: {where}"
+        )
+    return None
+
+
+def _walk(path: Path, entry: pwd.struct_passwd, *, create: bool) -> str | None:
+    """Walk *path* from the operator's home by descriptor, never following a link.
+
+    Each existing component must be a directory the operator owns; a missing
+    one is created when *create* (0755, handed to the operator with fchown on
+    the descriptor root just opened on it) and ends the check otherwise.
+    Returns the first refusal, or None.
+    """
+    home = Path(entry.pw_dir)
+    fd = os.open(home, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        where = home
+        for part in path.relative_to(home).parts:
+            where = where / part
+            try:
+                st = os.stat(part, dir_fd=fd, follow_symlinks=False)
+            except FileNotFoundError:
+                if not create:
+                    return None
+                os.mkdir(part, 0o755, dir_fd=fd)
+                child = os.open(part, _DIR_FLAGS, dir_fd=fd)
+                os.fchown(child, entry.pw_uid, entry.pw_gid)
+            else:
+                refusal = _refusal(where, st, entry)
+                if refusal is not None:
+                    return refusal
+                child = os.open(part, _DIR_FLAGS, dir_fd=fd)
+            os.close(fd)
+            fd = child
+        return None
+    finally:
+        os.close(fd)
+
+
+def ensure_operator_dir(path: Path, owner: str | None = None) -> None:
+    """``mkdir -p`` that leaves the operator's directories the operator's.
+
+    As root on an operator's behalf, a directory under their home is created a
+    component at a time through ``O_NOFOLLOW`` descriptors and each one root
+    made is handed over with ``fchown``: a root-owned ``~/.cache/hammunition``
+    left by a fetch under sudo made the operator's own later ``install -d``
+    fail with EACCES. An existing component that is a symlink, not a
+    directory, or not the operator's raises :class:`OperatorDirError` naming it
+    and the fix. Anywhere else, and when not root, it is a plain mkdir.
+    """
+    entry = _operator_home(path, owner)
+    if entry is None:
+        path.mkdir(parents=True, exist_ok=True)
+        return
+    refusal = _walk(path, entry, create=True)
+    if refusal is not None:
+        raise OperatorDirError(refusal)
+
+
+def operator_dir_problem(path: Path, owner: str | None = None) -> str | None:
+    """Why the operator could not create or use *path*, read-only; None if nothing.
+
+    The same checks as :func:`ensure_operator_dir` on the components that
+    exist, creating nothing -- for a path the operator's own process will
+    create, where root only looks first so a failure is named rather than a
+    bare EACCES.
+    """
+    entry = _operator_home(path, owner)
+    if entry is None:
+        return None
+    return _walk(path, entry, create=False)

@@ -48,6 +48,7 @@ from typing import Any
 from .. import navit_config
 from ..geofabrik import RegionFile
 from ..manifest.schema import DerivedDataInstall, PackageManifest
+from ..paths import operator_dir_problem
 from .base import Action, BackendError, Command, CommandRunner
 from .data import human_size
 from .regions import (
@@ -279,7 +280,11 @@ class DerivedBackend:
         lstat, which refuses a staging directory that is a symlink or not a
         directory before anything runs.
         """
-        refusal = _staging_refusal(self.staging)
+        # Every existing component from the operator's home down must be the
+        # operator's own directory: a root-owned ~/.cache/hammunition left by
+        # an older sudo run would make the operator's install -d fail with a
+        # bare EACCES, so it is named here with its fix instead.
+        refusal = _staging_refusal(self.staging) or operator_dir_problem(self.staging, self.owner)
         if refusal is not None:
             return self.ledger.fail(region.slug, f"{region.region}: {refusal}")
         as_operator = _as(drop)
