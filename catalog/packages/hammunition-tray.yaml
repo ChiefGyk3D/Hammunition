@@ -1,0 +1,79 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: hammunition-tray
+version: "0.1.0"
+summary: KDE Plasma tray switches for parking and waking radio devices — the Hammunition family's own
+categories: [device-support]
+
+# ADD. Like hammunition-hill and skid-finder, a unit whose upstream is this
+# project's own maintainer, disclosed here: a separate repository (GPL-3.0),
+# its own release process and tests, carried on the same terms as everything
+# else -- a published, digest-pinned artifact, measured before it was written
+# down.
+#
+# Upstream publishes an arch-independent .deb per release beside SHA256SUMS.
+# Fetched from the v0.1.0 release on 2026-09-28: the digest below is what
+# sha256sum printed for the downloaded file and what SHA256SUMS lists for it
+# (8088 bytes). `dpkg-deb -f` gave Package hammunition-tray, Version 0.1.0,
+# Architecture all, Depends plasma-workspace (>= 4:6),
+# qml6-module-org-kde-plasma-plasma5support, qml6-module-org-kde-kirigami --
+# each measured on Parrot 7.3 as the package shipping a QML module the applet
+# imports. The release workflow installed and removed this exact .deb in a
+# docker.io/parrotsec/core container before publishing it.
+install:
+  - install:
+      method: binary
+      artifact:
+        url: https://github.com/ChiefGyk3D/hammunition-tray/releases/download/v0.1.0/hammunition-tray_0.1.0_all.deb
+        sha256: 6cd248c93e0135d8dd47b56313479c20b4d293af99e3e6b4342b4f9f44ad43e4
+      format: deb
+      deb_package: hammunition-tray
+    note: >-
+      Installs the applet system-wide under /usr/share/plasma/plasmoids and its
+      icon under /usr/share/icons/hicolor. It runs nothing as root itself; it
+      calls the helper `hammunition hardware apply` installs.
+
+update:
+  probe:
+    method: github_release
+    repo: ChiefGyk3D/hammunition-tray
+  strategy: reinstall
+  cadence_hint: >-
+    Tagged releases with a .deb and SHA256SUMS attached to each. A release is
+    a new digest; re-pin both.
+
+documentation:
+  what_it_does: >-
+    A KDE Plasma applet that puts a switch in the system tray for each
+    catalogued device Hammunition can park -- a GPS receiver today, a WWAN
+    modem when one is catalogued. Turning a switch off detaches the device
+    so the kernel drops it and its port can suspend; turning it on brings it
+    back. The tray icon is a penguin holding a handheld radio, and goes grey
+    while anything is parked.
+  why_you_want_it: >-
+    Parking a GPS or a modem you are not using saves battery on a field
+    laptop, and doing it from the tray is one click and one password prompt
+    rather than a command line. It is a front end for `hammunition hardware
+    park` and `wake` (D-056), so it does exactly what those do and nothing
+    else.
+  prerequisites: >-
+    KDE Plasma 6. `hammunition hardware apply` must have been run: it
+    installs the root helper and the polkit action the switches call. Without
+    them the applet says "Device control is not installed" instead of showing
+    switches. A device only gets a switch when its catalog entry carries a
+    power_control block and it is plugged in.
+  known_problems: >-
+    **KDE only**; there is no applet for GNOME, Xfce or COSMIC yet. Plasma
+    keeps the old version of an applet loaded after an install or upgrade
+    until `systemctl --user restart plasma-plasmashell` or a new login. A
+    per-user copy installed from the repository's own install.sh
+    (~/.local/share/plasma/plasmoids) shadows this system-wide one; run that
+    repository's uninstall.sh once after switching to this package. After
+    installing, add *Hammunition Devices* to the panel or set it to shown in
+    the System Tray's settings: nothing places it for you.
+  upstream_url: https://github.com/ChiefGyk3D/hammunition-tray
+  upstream_support: >-
+    Issues on the GitHub repository. For "the switch does nothing", run
+    `hammunition hardware state` first: the applet shows what that command
+    reports.

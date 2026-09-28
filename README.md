@@ -45,7 +45,7 @@ exactly where things stand:
 | | Status |
 |---|---|
 | Catalog schema (Pydantic, `mypy --strict`) | ✅ working |
-| Package manifests | 🟡 **250**, up from 71 |
+| Package manifests | 🟡 **251**, up from 71 |
 | …Debian Blend coverage | ✅ **152 of 152** — SCOPE.md's first 1.0 stage, complete |
 | …parity coverage | 🟡 **106 of the 124 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
 | Hardware catalog | 🟡 24 devices, 5 classes, 297 confirmed USB identifiers |
@@ -104,7 +104,7 @@ increasingly, with packages actually installed rather than merely reported as
 available, because those two turned out to disagree.
 
 **The family.** Three separate projects by the same maintainer sit beside
-this one. Two are carried in the catalog on exactly the same terms as
+this one. All three are carried in the catalog on exactly the same terms as
 everything else — a released, pinned artefact, installed through the engine
 before the manifest merged — and each manifest discloses that its upstream is
 this project's own maintainer.
@@ -113,7 +113,7 @@ this project's own maintainer.
 |---|---|---|
 | [Hammunition Hill](https://github.com/ChiefGyk3D/hammunition-hill) | A local-first operating-position dashboard — clocks, band plan, solar and propagation dials, DX spots coloured by your log, satellites, a CW trainer — served from your own machine to your own browser on loopback. | [`hammunition-hill`](docs/packages/hammunition-hill.md), in the `station` profile: a digest-pinned `.deb`. |
 | [Skid Finder](https://github.com/ChiefGyk3D/Skid-Finder) | A passive detector for BLE-spam and Wi-Fi attacks, built for foxhunting at a con. It listens and never transmits. Upstream is alpha. | [`skid-finder`](docs/packages/skid-finder.md), in the `rf-security` profile: a sha256-pinned tag tarball. |
-| [hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) | A KDE Plasma tray applet: a switch per parkable device, calling this project's power-control helper (D-056). | Not in the catalog yet: its own `install.sh`, after `hammunition hardware apply`. |
+| [hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) | A KDE Plasma tray applet: a switch per parkable device, calling this project's power-control helper (D-056). | [`hammunition-tray`](docs/packages/hammunition-tray.md), in the `station` profile: a digest-pinned `.deb`. KDE Plasma 6 only; run `hammunition hardware apply` first. |
 
 **There is one thing you can help with right now**, and it needs no code:
 [contributing hardware identifiers](docs/contributing/hardware.md). Eleven of
