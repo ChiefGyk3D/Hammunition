@@ -846,7 +846,7 @@ def test_map_data_is_deferred_by_name_without_regions(...) -> None:
 
 written with the existing `resolve()` test helpers in that file (read two existing deferral tests first and copy their setup).
 
-- [ ] **Step 2: Run to verify they fail**, then **Step 3: implement** both backends in the style of `backends/data.py` (read it first: `Action(kind=..., description=..., detail=..., perform=partial(...), requires_root=needs_root_for(prefix))`). The `maptool` call:
+- [ ] **Step 2: Run to verify they fail**, then **Step 3: implement** both backends in the style of `src/hammunition/backends/data.py` (read it first: `Action(kind=..., description=..., detail=..., perform=partial(...), requires_root=needs_root_for(prefix))`). The `maptool` call:
 
 ```python
 result = subprocess.run(

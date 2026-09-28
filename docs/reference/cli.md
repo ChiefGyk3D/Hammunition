@@ -145,6 +145,15 @@ questions and are not asked.
 Measured on the field laptop, 25 probes answered in 7.5 s, none
 unanswered, and three pins found behind upstream the first time it ran.
 
+**Map data (D-057).** For `osm-regions` the report also prints each
+installed region's snapshot, read from the `<slug>.osm.pbf.source` record
+the install writes beside the region file, and, when
+`catalog/data/geofabrik-pins.yaml` holds a newer yearly or monthly snapshot
+for that region, the line `newer map data pinned: <snapshot>`. Like the rest
+of the report it asks no network: the pin list is part of the catalog.
+`hammunition install navigation` (or `osm-regions osm-navit`) fetches and
+converts the newer file.
+
 ### `hammunition list [all|packages|profiles]`
 
 Everything in the catalog, with each package's install method **on this
@@ -187,6 +196,50 @@ prints, before the confirmation, every artifact's size and URL, the unit's
 licence and where it is stated, and the install directory, under the heading
 *Offline data that will be downloaded and installed*. `uninstall` removes
 the directory whole; it is namespaced, so it can only be ours.
+
+**Map regions (D-057).** `osm-regions` and `osm-navit` take their regions
+from station config (`station set --map-regions`, below), so before the
+plan prints it asks Geofabrik which dated file each region resolves to and
+how large it is, and discloses them under *Map regions, from station
+config*:
+
+```
+Map regions, from station config (D-057):
+  will be downloaded and installed:
+    north-america/us/vermont        260101    44.4 MB  sha256, pinned by Hammunition
+    north-america/us/new-hampshire  260101    68.1 MB  sha256, pinned by Hammunition
+  will be converted for Navit (map sizes an estimate, measured on one region):
+    north-america/us/vermont        260101  about 35.5 MB
+    north-america/us/new-hampshire  260101  about 54.5 MB
+      licence: ODbL-1.0, stated at https://www.openstreetmap.org/copyright
+      download total: 0.11 GB; about 0.20 GB of disk with Navit's maps (estimate, measured on one region)
+      installs under <prefix>/share/hammunition/data/
+```
+
+Each region line is the region, the snapshot (`YYMMDD`), the size, and how
+the download is verified: **`sha256, pinned by Hammunition`** when the
+region and snapshot have a row in `catalog/data/geofabrik-pins.yaml`,
+otherwise **`MD5 from Geofabrik only; not pinned`**. `--yes` does not change
+it. A region already installed at its snapshot is listed under *already
+installed, current* and not downloaded again; one that could not be checked
+(no network, Geofabrik down) but is installed is kept as it is, with a line
+saying so and why. The commands section shows each fetch, each `maptool`
+conversion (run as the operator in `~/.cache/hammunition/build/osm-navit/`,
+with its output and scratch estimates), each install into the prefix, the
+removal of any region no longer in station config, and Navit's
+configuration written last.
+
+It refuses at plan time, exit 2, changing nothing, when a region cannot be
+resolved and is not already installed (named, with `maps regions` as the
+way to check it), when `/etc/navit/navit.xml` is missing and navit is not
+in the transaction, and when a file system is short of the estimated space
+(the download in the cache and the prefix, the converted map at 0.8× and
+maptool's scratch at 2× the download, both factors measured on one region;
+the refusal prints the estimate and what is free). With no regions set the
+two units are deferred by name and the rest installs (**D-035**). A region
+that fails during the run — a download that does not verify, a conversion
+that writes nothing — does not stop the others; the run ends exit 1 naming
+every region that did not install.
 
 **Recommends, per unit (D-052).** Recommends are not suppressed globally —
 that would deviate from what every target distribution does, and several ham
@@ -495,9 +548,26 @@ whether each one is parked — read fresh from `/sys/bus/usb/devices` on every
 call, never cached. Needs no privilege: reading sysfs is unprivileged, only
 writing to it is. Always exits `0`; an empty report is not a failure.
 
+### `hammunition maps regions [FILTER]`
+
+Geofabrik's regions, one path per line, sorted — the values
+`station set --map-regions` accepts. With `FILTER`, only the paths that
+contain it:
+
+```
+$ hammunition maps regions vermont
+north-america/us/vermont
+```
+
+The list comes from Geofabrik's published index
+(`https://download.geofabrik.de/index-v1.json`), fetched when this command
+runs and at no other time; nothing is written. It is the one command besides
+`install` that asks Geofabrik anything (**D-057**).
+
 ### `hammunition station show` / `hammunition station set`
 
-The values only you can supply — callsign, grid square, packet node alias. Some
+The values only you can supply — callsign, grid square, packet node alias,
+and the regions to carry offline maps for. Some
 manifests write configuration files templated with them: `linbpq` needs a node
 callsign, AX.25 needs one in `/etc/ax25/axports`, Direwolf needs one in its
 own configuration.
@@ -506,6 +576,19 @@ own configuration.
 hammunition station set --callsign M0ABC --grid-square IO91wm
 hammunition station show
 ```
+
+| Flag | Effect |
+|---|---|
+| `--callsign CALL` | Station callsign |
+| `--grid-square LOC` | Maidenhead locator |
+| `--node-alias NAME` | Short packet node alias |
+| `--map-regions R[,R…]` | Geofabrik region paths for offline maps, e.g. `north-america/us/vermont,north-america/us/new-hampshire`. Replaces the whole list. Checked for shape only (lowercase words joined by `/`); whether Geofabrik has the region is checked at plan time (**D-057**) |
+| `--map-freshness MODE` | `yearly` (the default when unset), `monthly` or `latest`: which dated file each region resolves to, and so how it can be verified |
+
+A region list says where the operator lives or travels, so `station show`
+and `station set` print how many regions are set, never their names; the
+install plan is the one place they are printed. `docs/guides/offline-navigation.md`
+is the operator's walk-through.
 
 Saved to `$XDG_CONFIG_HOME/hammunition/station.yml`, mode 0600, resolved
 owner-aware so that running under `sudo` still writes to the invoking user's

@@ -4404,8 +4404,9 @@ of those is a process dropped to the operator, and root's one look is an
 `lstat` that refuses a staging directory which is a symlink. The effect is
 checked, not the exit status (D-031): the output must exist and be
 non-empty, and its sha256 is taken. Root then publishes it into
-`<prefix>/share/hammunition/data/osm-navit/<slug>.bin`, re-hashing the
-bytes as it copies them and opening nothing through a symlink. The same
+`<prefix>/share/hammunition/data/osm-navit/<slug>.bin`, and the copy is
+verified against that sha256 before it replaces anything, without following
+a symlink to make it. The same
 boundary for the source backend's builds, which under `sudo` still run as
 root in an operator-owned build directory, was found during this work and
 is issue #125; it is not changed here.
