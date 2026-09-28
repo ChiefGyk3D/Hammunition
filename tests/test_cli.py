@@ -1508,6 +1508,7 @@ def test_hardware_state_needs_no_privilege_and_prints_a_table(
                     {
                         "name": "gps-receiver",
                         "address": "1-4",
+                        "identifier": "1546:01a7",
                         "summary": "USB GNSS receivers",
                         "parked": True,
                     },
@@ -1516,6 +1517,7 @@ def test_hardware_state_needs_no_privilege_and_prints_a_table(
             [],
         ),
     )
+    monkeypatch.setattr("hammunition.hardware.power.read_kept", lambda: [])
     assert cli.main(["hardware", "state"]) == 0
     out = capsys.readouterr().out
     assert "gps-receiver" in out and "parked" in out.lower()
@@ -2364,7 +2366,13 @@ def test_hardware_park_until_reboot_passes_the_flag_and_writes_no_entry(
     _stub_power_verb(monkeypatch, cli, tmp_path, [_gps_parkable()])
     assert cli.main(["hardware", "park", "--until-reboot", "--dry-run", "gps-receiver"]) == 0
     out = capsys.readouterr().out
-    assert "66-hammunition-kept.rules" not in out
+    assert 'ATTR{authorized}="0"' not in out, "no rule is added"
+    assert "A reboot wakes it" in out
+    # Final review finding 4: an entry from an earlier keeping park would
+    # re-park it at boot, so --until-reboot removes it and says so.
+    assert "any kept entry for it is removed from" in out
+    assert "66-hammunition-kept.rules" in out
+    assert "This will also remove" not in out, "the removal is disclosed once"
     assert "park --until-reboot gps-receiver@3-5.1" in out
 
 
@@ -2425,3 +2433,102 @@ def test_hardware_unapply_removes_the_kept_rules_file(
     out = capsys.readouterr().out
     assert f"rm -f {kept}" in out
     assert "udevadm control --reload" in out
+
+
+def test_hardware_wake_dry_run_of_an_ambiguous_attached_name_is_refused(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Final review finding 1, the CLI half: an attached device is never
+    disclosed as "not attached" because its name was ambiguous."""
+    import dataclasses
+    import importlib
+
+    from hammunition.hardware.power import KeptEntry
+
+    cli = importlib.import_module("hammunition.cli.main")
+    a = dataclasses.replace(_gps_parkable(parked=True), sysfs_path="/sys/bus/usb/devices/1-4")
+    b = dataclasses.replace(_gps_parkable(), sysfs_path="/sys/bus/usb/devices/1-5")
+    _stub_power_verb(monkeypatch, cli, tmp_path, [a, b])
+    monkeypatch.setattr(
+        "hammunition.hardware.power.read_kept",
+        lambda: [KeptEntry("gps-receiver", "1-4", "1546", "01a9")],
+    )
+    assert cli.main(["hardware", "wake", "--dry-run", "gps-receiver"]) == 2
+    out, err = capsys.readouterr()
+    assert "would be a guess" in err
+    assert "not attached" not in out
+
+
+def test_hardware_state_survives_a_device_whose_identity_is_not_a_kept_shape(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Final review finding 7: kept_entry() raising for one attached device was
+    a traceback out of `hardware state`."""
+    import dataclasses
+    import importlib
+
+    from hammunition.hardware.power import KeptEntry
+
+    cli = importlib.import_module("hammunition.cli.main")
+    odd = dataclasses.replace(_gps_parkable(), identifier="1546:01a9x")
+    monkeypatch.setattr(cli, "_survey_parkables", lambda args: ([odd], []))
+    monkeypatch.setattr(
+        "hammunition.hardware.power.read_kept",
+        lambda: [KeptEntry("gps-receiver", "3-6", "1546", "01a9")],
+    )
+    assert cli.main(["hardware", "state"]) == 0
+    out = capsys.readouterr().out
+    assert "gps-receiver@3-6" in out
+
+
+def test_kept_split_skips_only_the_device_that_will_not_validate() -> None:
+    """Final review finding 7, doctor's half: one bad attached device drops
+    that device from the kept checks, never all of them."""
+    import dataclasses
+    import importlib
+
+    from hammunition.hardware.power import KeptEntry
+
+    cli = importlib.import_module("hammunition.cli.main")
+    good = _gps_parkable(parked=True)
+    odd = dataclasses.replace(
+        _gps_parkable(), sysfs_path="/sys/bus/usb/devices/3-7", identifier="1546:01a9x"
+    )
+    kept = [
+        KeptEntry("gps-receiver", "3-5.1", "1546", "01a9"),
+        KeptEntry("gps-receiver", "3-6", "1546", "01a9"),
+    ]
+    rows, absent = cli._kept_split([good, odd], kept)
+    assert rows == [(good, True), (odd, False)]
+    assert absent == [kept[1]]
+
+
+def test_hardware_unapply_names_what_it_leaves_and_how_kept_entries_return(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Final review finding 6: the listing that removes the kept file said
+    "the udev rules file is not touched", and the closing line said `apply`
+    reinstalls what it removed -- which apply never does for kept entries."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    kept = tmp_path / "66-hammunition-kept.rules"
+    kept.write_text("# kept: gps-receiver\n")
+    monkeypatch.setattr("hammunition.hardware.power.KEPT_RULES", str(kept))
+    _stub_unapply_with_nothing_logged(monkeypatch, cli)
+
+    class _Removing:
+        def run(self, command: Command) -> CommandResult:
+            if command.argv[0] == "rm":
+                Path(command.argv[-1]).unlink(missing_ok=True)
+            return CommandResult(argv=tuple(command.argv), returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: _Removing())
+    assert cli.main(["hardware", "unapply", "--yes"]) == 0
+    out = capsys.readouterr().out
+    assert not kept.exists()
+    assert "The udev rules file is not touched" not in out
+    assert "65-hammunition.rules" in out and "is not touched" in out
+    assert "including any line in it that Hammunition did not write" in out
+    assert "`hammunition hardware apply` reinstalls them" not in out
+    assert "Kept entries come back with `hammunition hardware park`" in out

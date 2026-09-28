@@ -47,7 +47,7 @@ from hammunition.hardware.power import (
     read_kept,
 )
 
-__all__ = ["main", "resolve", "resolve_kept"]
+__all__ = ["attached_named", "main", "resolve", "resolve_kept"]
 
 EXIT_OK = 0
 EXIT_FAILED = 1
@@ -108,6 +108,18 @@ def _listing(found: list[Parkable]) -> str:
     return ", ".join(f"{p.name}@{p.address}" for p in sorted(found, key=lambda p: p.address))
 
 
+def attached_named(name: str, found: list[Parkable]) -> bool:
+    """Whether any attached parkable device answers to ``NAME`` or ``NAME@ADDRESS``.
+
+    ``wake`` falls back to a kept entry only when this is false. When it is
+    true and :func:`resolve` still refused, the refusal is about the attached
+    devices -- two of them under one name -- and turning it into a forget of
+    a kept entry would remove the entry and leave that device parked.
+    """
+    wanted, _, address = name.partition("@")
+    return any(p.name == wanted and (not address or p.address == address) for p in found)
+
+
 def resolve_kept(name: str, kept: list[KeptEntry]) -> KeptEntry:
     """A kept entry named ``NAME`` or ``NAME@ADDRESS``, for a device not attached."""
     wanted, _, address = name.partition("@")
@@ -128,7 +140,7 @@ def _do(verb: str, name: str, *, keep: bool = True) -> int:
         try:
             target = resolve(name, found)
         except PowerError:
-            if verb != "wake":
+            if verb != "wake" or attached_named(name, found):
                 raise
             plan = plan_forget(resolve_kept(name, read_kept()))
         else:

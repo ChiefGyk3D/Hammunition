@@ -22,10 +22,13 @@ disclose the same thing.
 
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import os
 import re
 import shutil
 import subprocess
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -33,7 +36,7 @@ from typing import TYPE_CHECKING
 from hammunition.manifest.hardware import PowerMethod, QuietVerb
 
 if TYPE_CHECKING:  # pragma: no cover
-    from collections.abc import Iterable, Mapping
+    from collections.abc import Iterable, Iterator, Mapping
 
     from hammunition.hardware.detect import Match
     from hammunition.manifest.hardware import DeviceClass, DeviceManifest
@@ -210,7 +213,7 @@ class PowerPlan:
     keep: KeptEntry | None = None
     """On a park: the entry to add so the device stays parked. None with --until-reboot."""
     forget: KeptEntry | None = None
-    """On a wake or a forget: the entry to remove, if it is there."""
+    """On a wake, a forget or a park --until-reboot: the entry to remove, if it is there."""
 
 
 @dataclass(frozen=True)
@@ -265,8 +268,6 @@ def guard(path: str) -> str:
     leaf name out of the node.
     """
     normalised = os.path.normpath(path)
-    if normalised == KEPT_RULES and path == KEPT_RULES:
-        return normalised
     for root in ALLOWED_ROOTS:
         prefix = root.rstrip("/") + "/"
         if not normalised.startswith(prefix):
@@ -292,6 +293,22 @@ def guard(path: str) -> str:
         f"({', '.join(ALLOWED_ROOTS)}). A power-control write goes to a device "
         f"node and nowhere else; refusing before any write, not after."
     )
+
+
+def _guard_kept(path: str) -> str:
+    """The rules file and nothing else: an exact match against `KEPT_RULES`.
+
+    Deliberately not a branch of :func:`guard`. guard() is also the check
+    :func:`execute` runs on every sysfs write, so admitting the rules file
+    there would let a plan carrying ``Write(KEPT_RULES, 'RUN+=...')`` put a
+    rule of its choosing where root's udev applies it. This check is called by
+    :func:`_write_kept` alone, whose content is only ever :func:`render_kept`.
+    """
+    if path != KEPT_RULES:
+        raise PowerError(
+            f"{path!r} is not {KEPT_RULES}, the one file outside sysfs this module writes"
+        )
+    return path
 
 
 def _read(path: Path) -> str | None:
@@ -389,9 +406,16 @@ def _plan(p: Parkable, *, park: bool) -> PowerPlan:
 
 def plan_park(p: Parkable, *, keep: bool = True) -> PowerPlan:
     """The writes that detach ``p`` and let its port suspend, and, unless
-    ``keep`` is false, the entry that keeps it parked across reboots."""
+    ``keep`` is false, the entry that keeps it parked across reboots.
+
+    With ``keep`` false (``--until-reboot``) any entry already kept for ``p``
+    is removed: the promise is that a reboot wakes it, and an entry left from
+    an earlier keeping park would re-park it at boot instead."""
     base = _plan(p, park=True)
-    return PowerPlan(base.writes, base.quiet, base.restore, keep=kept_entry(p) if keep else None)
+    entry = kept_entry(p)
+    if keep:
+        return PowerPlan(base.writes, base.quiet, base.restore, keep=entry)
+    return PowerPlan(base.writes, base.quiet, base.restore, forget=entry)
 
 
 def plan_wake(p: Parkable) -> PowerPlan:
@@ -425,31 +449,54 @@ def _reload_udev() -> str | None:
 
 
 def _write_kept(entries: list[KeptEntry]) -> None:
-    path = Path(guard(KEPT_RULES))
+    path = Path(_guard_kept(KEPT_RULES))
     if not entries:
         path.unlink(missing_ok=True)
         return
-    tmp = path.with_name(path.name + ".tmp")
-    with open(tmp, "w", encoding="utf-8") as fh:
-        fh.write(render_kept(entries))
-        fh.flush()
-        os.fsync(fh.fileno())
-    os.chmod(tmp, 0o644)
-    os.replace(tmp, path)
+    # A unique temp name in the same directory, never a fixed one: two helper
+    # runs sharing `<name>.tmp` can interleave into one spliced file that
+    # parse_kept then refuses forever. Hidden and not `*.rules`, so udev never
+    # reads it; unlinked on any failure so nothing is left behind.
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.stem}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(render_kept(entries))
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.chmod(tmp, 0o644)
+        os.replace(tmp, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
+
+
+@contextlib.contextmanager
+def _kept_lock() -> Iterator[None]:
+    """Hold an exclusive flock on the rules directory for one read-modify-write,
+    so a second helper run reads the first run's result instead of losing it.
+    The directory itself is locked, so no lock file is left in rules.d."""
+    fd = os.open(Path(_guard_kept(KEPT_RULES)).parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
 
 
 def _apply_kept(plan: PowerPlan) -> list[str]:
     who = plan.keep or plan.forget
     assert who is not None
     try:
-        current = read_kept()
-        wanted = [e for e in current if not (plan.forget and e.same_device(plan.forget))]
-        if plan.keep and not any(e.same_device(plan.keep) for e in wanted):
-            wanted.append(plan.keep)
-        if wanted == current:
-            return []
-        _write_kept(wanted)
-        after = read_kept()
+        with _kept_lock():
+            current = read_kept()
+            wanted = [e for e in current if not (plan.forget and e.same_device(plan.forget))]
+            if plan.keep and not any(e.same_device(plan.keep) for e in wanted):
+                wanted.append(plan.keep)
+            if wanted == current:
+                return []
+            _write_kept(wanted)
+            after = read_kept()
     except (OSError, PowerError) as exc:
         if plan.keep:
             return [f"{who.name} is parked now but will not stay parked: {exc}"]
@@ -460,7 +507,14 @@ def _apply_kept(plan: PowerPlan) -> list[str]:
         return [f"{who.name}'s kept entry is still in {KEPT_RULES} after removing it"]
     reason = _reload_udev()
     if reason is not None:
-        return [f"udev did not reload its rules ({reason}); the entry applies from the next boot"]
+        if plan.keep:
+            return [
+                f"udev did not reload its rules ({reason}); the entry applies from the next boot"
+            ]
+        return [
+            f"udev did not reload its rules ({reason}); the removed entry still applies "
+            f"to a replug until udev reloads or the machine reboots"
+        ]
     return []
 
 

@@ -398,3 +398,41 @@ def test_resolve_kept_refuses_a_bare_name_matching_two_ports() -> None:
     with pytest.raises(PowerError, match=r"3-5\.1"):
         resolve_kept("gps-receiver", [GPS_KEPT, other])
     assert resolve_kept("gps-receiver@3-6", [GPS_KEPT, other]) == other
+
+
+def test_wake_of_an_ambiguous_attached_name_is_refused_even_with_a_kept_entry(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Final review finding 1: two attached, one of them kept. A bare name is
+    ambiguous among *attached* devices, so it is refused as ambiguous -- never
+    turned into a forget of the kept one, which would leave it parked."""
+    seen: list[object] = []
+    monkeypatch.setattr(
+        "hammunition.cli.devctl._survey",
+        lambda: (
+            [_parkable("gps-receiver", "1-4", parked=True), _parkable("gps-receiver", "1-5")],
+            [],
+        ),
+    )
+    monkeypatch.setattr(
+        "hammunition.cli.devctl.read_kept",
+        lambda: [KeptEntry("gps-receiver", "1-4", "1546", "01a7")],
+    )
+    monkeypatch.setattr("hammunition.cli.devctl.execute", _recording(seen))
+    assert main(["wake", "gps-receiver"]) == 2
+    assert seen == []
+    assert "would be a guess" in capsys.readouterr().err
+
+
+def test_wake_of_an_ambiguous_name_with_nothing_kept_keeps_the_ambiguity_message(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "hammunition.cli.devctl._survey",
+        lambda: ([_parkable("gps-receiver", "1-4"), _parkable("gps-receiver", "1-5")], []),
+    )
+    monkeypatch.setattr("hammunition.cli.devctl.read_kept", lambda: [])
+    assert main(["wake", "gps-receiver"]) == 2
+    err = capsys.readouterr().err
+    assert "would be a guess" in err
+    assert "neither attached nor kept" not in err
