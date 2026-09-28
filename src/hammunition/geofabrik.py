@@ -20,7 +20,7 @@ import json
 import re
 import urllib.error
 import urllib.request
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -232,25 +232,51 @@ def load_pins(path: Path) -> dict[tuple[str, str], Pin]:
 
 
 def region_ids(index_json: str) -> list[str]:
-    """Every region path Geofabrik's ``index-v1.json`` names, sorted and
+    """Every region path Geofabrik's region index names, sorted and
     deduplicated.
 
     Pure: takes the index's raw JSON text, never fetches it -- ``hammunition
-    maps regions`` reads it once through :class:`Probe.text`. Each feature's
-    ``properties.urls.pbf`` is the region's ``-latest.osm.pbf`` URL; the
-    region id is the path between :data:`BASE` and that suffix, exactly what
-    :func:`resolve` and station config's ``map_regions`` take.
+    maps regions`` reads it once through :class:`Probe.text`, from
+    ``index-v1-nogeom.json`` (0.51 MB, measured 2026-09-28) rather than the
+    3.79 MB ``index-v1.json``: both carry the same
+    ``properties.urls.pbf`` shape this function reads, and the nogeom one
+    just drops the ``geometry`` key neither this function nor `maps regions`
+    uses. Each feature's ``properties.urls.pbf`` is the region's
+    ``-latest.osm.pbf`` URL; the region id is the path between :data:`BASE`
+    and that suffix, exactly what :func:`resolve` and station config's
+    ``map_regions`` take.
+
+    Fails loudly (fix round 1, M6): a feature whose ``properties`` or
+    ``urls`` is null or missing is a shape Geofabrik has never published,
+    and raising :class:`GeofabrikError` here -- naming the problem -- beats
+    an ``AttributeError`` from calling ``.get`` on ``None``, which is what a
+    bare ``feature.get("properties", {}).get("urls", {})`` chain did before:
+    the ``{}`` default only ever fires when the key is *absent*, never when
+    it is present and ``null``. A feature whose ``urls`` exists but simply
+    has no ``pbf`` key is not malformed -- some Geofabrik entries offer no
+    ``.osm.pbf`` -- and is skipped, not raised.
     """
     try:
         data = json.loads(index_json)
     except json.JSONDecodeError as exc:
         raise GeofabrikError(f"Geofabrik's index is not valid JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise GeofabrikError("Geofabrik's index is not a JSON object")
     ids: set[str] = set()
-    features = data.get("features", []) if isinstance(data, dict) else []
-    for feature in features:
+    for feature in data.get("features", []):
         if not isinstance(feature, dict):
-            continue
-        pbf = feature.get("properties", {}).get("urls", {}).get("pbf")
+            raise GeofabrikError(f"a feature in Geofabrik's index is not an object: {feature!r}")
+        properties = feature.get("properties")
+        if not isinstance(properties, dict):
+            raise GeofabrikError(
+                f"a feature in Geofabrik's index has no properties object: {feature!r}"
+            )
+        urls = properties.get("urls")
+        if not isinstance(urls, dict):
+            raise GeofabrikError(
+                f"{properties.get('id', '?')!r} in Geofabrik's index has no urls object"
+            )
+        pbf = urls.get("pbf")
         if not isinstance(pbf, str):
             continue
         match = _REGION_ID.fullmatch(pbf)
@@ -275,3 +301,46 @@ def newest_snapshots(pins: Mapping[tuple[str, str], Pin]) -> dict[str, str]:
         if pin.snapshot > newest.get(slug, ""):
             newest[slug] = pin.snapshot
     return newest
+
+
+def current_pinned_snapshots(
+    freshness: str,
+    today: date,
+    pins: Mapping[tuple[str, str], Pin],
+    regions: Iterable[str],
+) -> dict[str, str]:
+    """The pinned snapshot *freshness* would resolve *regions* to today,
+    keyed by slug, restricted to what the pin list actually carries.
+
+    Fix round 1 (7+9), I1: comparing an installed region against
+    :func:`newest_snapshots` -- the newest pin of *any* snapshot -- reported
+    a yearly install at ``260101`` behind a ``260901`` pin forever, because a
+    yearly install never resolves to a monthly-shaped snapshot and so never
+    clears it. This asks the same question :func:`resolve` asks: the
+    snapshot ``freshness`` names for *today* (:func:`snapshot_for`), falling
+    back one period when that snapshot has no pin yet, exactly
+    :func:`resolve`'s own fallback. A region whose resolved-today snapshot
+    (nor its one-period-back fallback) has no pin compares against nothing --
+    it is unpinned today, verified by Geofabrik's MD5 only, and `update` has
+    no pinned opinion on it.
+
+    ``latest`` has no fixed-format snapshot to resolve -- Geofabrik's
+    ``-latest`` redirect names whatever file is newest, arbitrarily, so
+    there is no "today's" candidate to compute -- and every region's newest
+    pinned snapshot (:func:`newest_snapshots`) stands in instead, per
+    region, since different regions can have different newest pins.
+    """
+    if freshness == "latest":
+        newest = newest_snapshots(pins)
+        return {
+            slug: newest[slug] for region in regions if (slug := region.replace("/", "-")) in newest
+        }
+    first = snapshot_for(freshness, today)
+    previous = _previous(freshness, first)
+    out: dict[str, str] = {}
+    for region in regions:
+        for snapshot in (first, previous):
+            if (region, snapshot) in pins:
+                out[region.replace("/", "-")] = snapshot
+                break
+    return out

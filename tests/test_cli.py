@@ -2316,6 +2316,62 @@ def test_station_set_map_regions_and_freshness(
     assert s.freshness == "latest"
 
 
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["station", "set", "--map-regions", ""],
+        ["station", "set", "--map-regions", ","],
+        ["station", "set", "--map-regions", "", "--map-freshness", "monthly"],
+        ["station", "set", "--map-regions", " , , "],
+    ],
+)
+def test_station_set_map_regions_with_nothing_after_splitting_is_refused(
+    argv: list[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Fix round 1 (7+9), M1: an empty result after splitting on ',' and
+    stripping is refused with a clear message, whether or not other flags
+    are given -- not silently saved as "no regions"."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    target = tmp_path / "station.yaml"
+    monkeypatch.setattr("hammunition.station.config_path", lambda owner=None: target)
+    result = cli.main(argv)
+    assert result != 0
+    assert not target.exists()
+    err = capsys.readouterr().err
+    assert "give at least one region" in err
+    assert "uninstall osm-navit and osm-regions" in err
+
+
+def test_station_set_map_regions_strips_whitespace_around_commas(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    from hammunition.station import load_station
+
+    cli = importlib.import_module("hammunition.cli.main")
+    target = tmp_path / "station.yaml"
+    monkeypatch.setattr("hammunition.station.config_path", lambda owner=None: target)
+    assert (
+        cli.main(
+            [
+                "station",
+                "set",
+                "--map-regions",
+                " north-america/us/vermont , north-america/us/new-hampshire ",
+            ]
+        )
+        == 0
+    )
+    s = load_station(target)
+    assert s.map_regions == ("north-america/us/vermont", "north-america/us/new-hampshire")
+
+
 # ---------------------------------------------------------------------------
 # Map regions (D-057): resolved before the plan prints, disclosed per region
 # ---------------------------------------------------------------------------
@@ -2383,6 +2439,57 @@ def test_map_regions_resolve_against_the_pin_list_and_geofabrik(tmp_path: Path) 
         ("north-america/us/new-hampshire", "260101", "MD5 from Geofabrik only; not pinned"),
     ]
     assert maps.notes == () and maps.kept == ()
+
+
+def test_a_pinned_region_not_installed_is_refused_when_unreachable(tmp_path: Path) -> None:
+    """Fix round 1 (7+9), I3: a pinned region resolves from the pin list with
+    no network at all (no HEAD, no MD5 fetch), so without an explicit
+    reachability check at plan time, the plan would pass offline and the
+    fetch would fail later, mid-transaction, after apt already ran. Guide
+    :263 already promised this refusal; the code did not do it."""
+    from hammunition.geofabrik import GeofabrikError
+    from hammunition.station import Station
+
+    catalog = tmp_path / "catalog"
+    (catalog / "data").mkdir(parents=True)
+    (catalog / "data" / "geofabrik-pins.yaml").write_text(
+        "pins:\n"
+        "  - region: north-america/us/vermont\n"
+        "    snapshot: '260101'\n"
+        "    size: 10\n"
+        f"    sha256: {'a' * 64}\n"
+    )
+    station = Station(map_regions=("north-america/us/vermont",))
+    with pytest.raises(GeofabrikError) as excinfo:
+        _resolve_maps(tmp_path, station, catalog, _Offline())
+    assert "north-america/us/vermont" in str(excinfo.value)
+
+
+def test_a_pinned_region_already_installed_is_not_probed(tmp_path: Path) -> None:
+    """Installed regions keep today's offline behaviour (I3): no HEAD is
+    attempted for a region that is already current, pinned or not."""
+    from hammunition.station import Station
+
+    catalog = tmp_path / "catalog"
+    (catalog / "data").mkdir(parents=True)
+    (catalog / "data" / "geofabrik-pins.yaml").write_text(
+        "pins:\n"
+        "  - region: north-america/us/vermont\n"
+        "    snapshot: '260101'\n"
+        "    size: 1\n"
+        f"    sha256: {'a' * 64}\n"
+    )
+    installed = tmp_path / "installed"
+    installed.mkdir()
+    (installed / "north-america-us-vermont.osm.pbf").write_bytes(b"x")
+    (installed / "north-america-us-vermont.osm.pbf.source").write_text("260101\n")
+    station = Station(map_regions=("north-america/us/vermont",))
+    probe = _Offline()
+    # resolve() itself never calls the probe for a pinned region; a HEAD
+    # here would come only from the new reachability check, and must not
+    # happen for a region already current offline.
+    maps = _resolve_maps(tmp_path, station, catalog, probe)
+    assert [(f.region, f.snapshot) for f in maps.files] == [("north-america/us/vermont", "260101")]
 
 
 def test_no_pin_list_means_every_region_is_md5_and_the_plan_says_so(tmp_path: Path) -> None:
@@ -2587,11 +2694,13 @@ class _MapsProbe:
     def __init__(self, *, text: str | None = None, error: str | None = None) -> None:
         self._text = text
         self._error = error
+        self.asked: list[str] = []
 
     def head(self, url: str) -> tuple[int, int, str | None]:  # pragma: no cover - unused here
         raise NotImplementedError
 
     def text(self, url: str) -> str:
+        self.asked.append(url)
         if self._error is not None:
             from hammunition.geofabrik import GeofabrikError
 
@@ -2617,6 +2726,21 @@ def test_maps_regions_filters_case_insensitively(
     monkeypatch.setattr(cli, "UrllibProbe", lambda: _MapsProbe(text=_MAPS_INDEX))
     assert cli.main(["maps", "regions", "VERMONT"]) == EXIT_OK
     assert capsys.readouterr().out == "north-america/us/vermont\n"
+
+
+def test_maps_regions_fetches_the_smaller_nogeom_index(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fix round 1 (7+9), M6: index-v1-nogeom.json (0.51 MB, measured live
+    2026-09-28) carries the same `properties.urls.pbf` shape as
+    index-v1.json (3.79 MB); fetch the smaller one."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    probe = _MapsProbe(text=_MAPS_INDEX)
+    monkeypatch.setattr(cli, "UrllibProbe", lambda: probe)
+    assert cli.main(["maps", "regions"]) == EXIT_OK
+    assert probe.asked == ["https://download.geofabrik.de/index-v1-nogeom.json"]
 
 
 def test_maps_regions_with_no_filter_lists_everything_sorted(

@@ -241,6 +241,9 @@ def test_region_snapshots_of_an_unpinned_region_compares_against_nothing() -> No
 
 
 def test_an_osm_regions_unit_with_a_newer_pin_is_reported_behind() -> None:
+    """Fix round 1 (7+9), I2: a count, never the region's slug or path --
+    D-057 argues region names stay out of pasteable output, and `update`'s
+    report is exactly that."""
     rep = report(
         _plan(_regions_unit()),
         apt_states={},
@@ -248,14 +251,23 @@ def test_an_osm_regions_unit_with_a_newer_pin_is_reported_behind() -> None:
         built=(),
         regions={
             "osm-regions": region_snapshots(
-                {"north-america-us-vermont": "250101"},
-                {"north-america-us-vermont": "260101"},
+                {
+                    "north-america-us-vermont": "250101",
+                    "north-america-us-new-hampshire": "260101",
+                },
+                {
+                    "north-america-us-vermont": "260101",
+                    "north-america-us-new-hampshire": "260101",
+                },
             )
         },
     )
     (row,) = rep.rows
     assert row.state == BEHIND_PIN
-    assert "newer map data pinned: 260101" in row.detail
+    assert row.detail == "2 regions installed; 1 behind the pin (newer map data pinned: 260101)"
+    assert "north-america-us-vermont" not in row.detail
+    assert "north-america-us-new-hampshire" not in row.detail
+    assert "vermont" not in row.detail
 
 
 def test_an_osm_regions_unit_up_to_date_with_the_pin_list() -> None:
@@ -273,7 +285,8 @@ def test_an_osm_regions_unit_up_to_date_with_the_pin_list() -> None:
     )
     (row,) = rep.rows
     assert row.state == UP_TO_DATE
-    assert "newer map data pinned" not in row.detail
+    assert row.detail == "1 region installed"
+    assert "vermont" not in row.detail
 
 
 def test_an_osm_regions_unit_with_nothing_installed_is_not_installed() -> None:
@@ -281,6 +294,69 @@ def test_an_osm_regions_unit_with_nothing_installed_is_not_installed() -> None:
     (row,) = rep.rows
     assert row.state == NOT_INSTALLED
     assert "no map regions installed" in row.detail
+
+
+def test_an_osm_regions_unit_behind_several_pins_lists_each_newer_snapshot_once() -> None:
+    """`latest` mode can put different regions behind different snapshots;
+    the count format still names no region, but does not hide that the
+    snapshots differ."""
+    rep = report(
+        _plan(_regions_unit()),
+        apt_states={},
+        present={},
+        built=(),
+        regions={
+            "osm-regions": region_snapshots(
+                {"a": "250101", "b": "250101"},
+                {"a": "260101", "b": "260901"},
+            )
+        },
+    )
+    (row,) = rep.rows
+    assert row.state == BEHIND_PIN
+    assert "260101" in row.detail and "260901" in row.detail
+
+
+# --- the rebuild footer pairs osm-regions with osm-navit (fix round 1, M2) ---
+
+
+def test_the_rebuild_footer_pairs_osm_regions_with_osm_navit() -> None:
+    """`install osm-regions` alone never reconverts the derived maps;
+    the footer's command must also name `osm-navit`."""
+    rep = report(
+        _plan(_regions_unit()),
+        apt_states={},
+        present={},
+        built=(),
+        regions={
+            "osm-regions": region_snapshots(
+                {"north-america-us-vermont": "250101"},
+                {"north-america-us-vermont": "260101"},
+            )
+        },
+    )
+    text = render(rep, lists_note="x")
+    assert "$ hammunition install osm-regions osm-navit" in text
+
+
+def test_the_rebuild_footer_does_not_duplicate_osm_navit_if_already_named() -> None:
+    rep = report(
+        _plan(_regions_unit(), _git("osm-navit")),
+        apt_states={},
+        present={"osm-navit": True},
+        built=(),
+        regions={
+            "osm-regions": region_snapshots(
+                {"north-america-us-vermont": "250101"},
+                {"north-america-us-vermont": "260101"},
+            )
+        },
+    )
+    text = render(rep, lists_note="x")
+    footer = next(
+        line for line in text.splitlines() if line.strip().startswith("$ hammunition install")
+    )
+    assert footer.count("osm-navit") == 1
 
 
 # --- other strategies --------------------------------------------------------

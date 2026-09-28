@@ -16,6 +16,7 @@ from hammunition.geofabrik import (
     Pin,
     RegionFile,
     _previous,
+    current_pinned_snapshots,
     load_pins,
     newest_snapshots,
     region_ids,
@@ -195,3 +196,135 @@ def test_newest_snapshots_keys_by_slug_and_keeps_the_greatest() -> None:
         (VT, "260901"): Pin(VT, "260901", 1, SHA),
     }
     assert newest_snapshots(pins) == {"north-america-us-vermont": "260901"}
+
+
+# --- current_pinned_snapshots (fix round 1, I1) -------------------------------
+#
+# `update` must compare an installed region against the snapshot the
+# station's freshness mode would resolve *today*, restricted to what the
+# pin list actually carries -- not the newest pin of any snapshot. Comparing
+# against the newest pin of any snapshot reported a yearly install at
+# 260101 behind 260901 (a pin from a different period) forever, since
+# `install` never chases a monthly-shaped pin under yearly mode.
+
+
+def test_current_pinned_snapshots_yearly_ignores_a_pin_from_another_period() -> None:
+    pins = {
+        (VT, "260101"): Pin(VT, "260101", 1, SHA),
+        (VT, "260901"): Pin(VT, "260901", 1, SHA),
+    }
+    got = current_pinned_snapshots("yearly", date(2026, 9, 28), pins, [VT])
+    assert got == {"north-america-us-vermont": "260101"}
+
+
+def test_current_pinned_snapshots_yearly_follows_the_year_over() -> None:
+    pins = {(VT, "270101"): Pin(VT, "270101", 1, SHA)}
+    got = current_pinned_snapshots("yearly", date(2027, 1, 2), pins, [VT])
+    assert got == {"north-america-us-vermont": "270101"}
+
+
+def test_current_pinned_snapshots_monthly_falls_back_one_period_like_resolve() -> None:
+    """No October pin yet: falls back to September, same as `resolve()`."""
+    pins = {(VT, "260901"): Pin(VT, "260901", 1, SHA)}
+    got = current_pinned_snapshots("monthly", date(2026, 10, 2), pins, [VT])
+    assert got == {"north-america-us-vermont": "260901"}
+
+
+def test_current_pinned_snapshots_latest_takes_the_newest_pin_overall() -> None:
+    pins = {
+        (VT, "260101"): Pin(VT, "260101", 1, SHA),
+        (VT, "260901"): Pin(VT, "260901", 1, SHA),
+    }
+    got = current_pinned_snapshots("latest", date(2026, 9, 28), pins, [VT])
+    assert got == {"north-america-us-vermont": "260901"}
+
+
+def test_current_pinned_snapshots_a_region_with_no_matching_pin_is_absent() -> None:
+    # Neither today's yearly candidate (260101) nor its one-period-back
+    # fallback (250101) is pinned; a two-year-stale 240101 pin does not count.
+    pins = {(VT, "240101"): Pin(VT, "240101", 1, SHA)}
+    got = current_pinned_snapshots("yearly", date(2026, 9, 28), pins, [VT])
+    assert got == {}
+
+
+# --- region_ids: fail loudly on a malformed feature, not AttributeError -------
+# (fix round 1, M6)
+
+
+def test_region_ids_raises_geofabrik_error_on_null_properties() -> None:
+    index = '{"features": [{"properties": null}]}'
+    with pytest.raises(GeofabrikError, match="properties"):
+        region_ids(index)
+
+
+def test_region_ids_raises_geofabrik_error_on_missing_properties() -> None:
+    index = '{"features": [{"type": "Feature"}]}'
+    with pytest.raises(GeofabrikError, match="properties"):
+        region_ids(index)
+
+
+def test_region_ids_raises_geofabrik_error_on_null_urls() -> None:
+    index = '{"features": [{"properties": {"id": "x", "urls": null}}]}'
+    with pytest.raises(GeofabrikError, match="urls"):
+        region_ids(index)
+
+
+def test_region_ids_raises_geofabrik_error_on_missing_urls() -> None:
+    index = '{"features": [{"properties": {"id": "x"}}]}'
+    with pytest.raises(GeofabrikError, match="urls"):
+        region_ids(index)
+
+
+# A trimmed sample of the real index-v1-nogeom.json (fetched live 2026-09-28,
+# https://download.geofabrik.de/index-v1-nogeom.json, two of its 555
+# features): extra fields (`iso3166-2`, `parent`, `name`, `shp`,
+# `pbf-internal`, `taginfo`, `updates`) alongside `urls.pbf`, and no
+# `geometry` key -- the shape `maps regions` now fetches instead of the
+# 3.79 MB `index-v1.json` (M6).
+_NOGEOM_SAMPLE = """
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "act",
+        "parent": "australia",
+        "name": "Australian Capital Territory",
+        "urls": {
+          "pbf": "https://download.geofabrik.de/australia-oceania/australia/act-latest.osm.pbf",
+          "shp": "https://download.geofabrik.de/australia-oceania/australia/act-latest-free.shp.zip",
+          "pbf-internal": "https://osm-internal.download.geofabrik.de/australia-oceania/australia/act-latest-internal.osm.pbf",
+          "history": "https://osm-internal.download.geofabrik.de/australia-oceania/australia/act-internal.osh.pbf",
+          "taginfo": "https://taginfo.geofabrik.de/australia-oceania:australia:act",
+          "updates": "https://download.geofabrik.de/australia-oceania/australia/act-updates"
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "us/vermont",
+        "parent": "north-america",
+        "iso3166-2": ["US-VT"],
+        "name": "us/vermont",
+        "urls": {
+          "pbf": "https://download.geofabrik.de/north-america/us/vermont-latest.osm.pbf",
+          "shp": "https://download.geofabrik.de/north-america/us/vermont-latest-free.shp.zip",
+          "pbf-internal": "https://osm-internal.download.geofabrik.de/north-america/us/vermont-latest-internal.osm.pbf",
+          "history": "https://osm-internal.download.geofabrik.de/north-america/us/vermont-internal.osh.pbf",
+          "taginfo": "https://taginfo.geofabrik.de/north-america:us:vermont",
+          "updates": "https://download.geofabrik.de/north-america/us/vermont-updates"
+        }
+      }
+    }
+  ]
+}
+"""
+
+
+def test_region_ids_parses_the_real_nogeom_shape() -> None:
+    assert region_ids(_NOGEOM_SAMPLE) == [
+        "australia-oceania/australia/act",
+        "north-america/us/vermont",
+    ]

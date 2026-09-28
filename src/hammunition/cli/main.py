@@ -71,6 +71,7 @@ from hammunition.backends.regions import (
     disk_shortfall,
     installed_slugs,
     installed_snapshot,
+    region_current,
     region_lines,
 )
 from hammunition.backends.source import DEFAULT_PREFIX
@@ -101,8 +102,8 @@ from hammunition.geofabrik import (
     Probe,
     RegionFile,
     UrllibProbe,
+    current_pinned_snapshots,
     load_pins,
-    newest_snapshots,
     region_ids,
 )
 from hammunition.geofabrik import resolve as resolve_region
@@ -671,6 +672,24 @@ def cmd_station_set(args: argparse.Namespace) -> int:
         current = load_station(owner=user)
     except StationError:
         current = Station()
+    # Checked before "nothing to set" and whether or not other flags are
+    # given (fix round 1, M1): splitting "," or "" on ',' and stripping each
+    # piece can legitimately produce zero regions -- a trailing comma, a
+    # stray space, an empty string typed by habit -- and saving that
+    # silently as "no regions" is indistinguishable from having meant it.
+    # `--map-regions` is for setting regions, never for clearing them.
+    if args.map_regions is not None:
+        map_regions = tuple(r for r in (p.strip() for p in args.map_regions.split(",")) if r)
+        if not map_regions:
+            print(
+                "error: --map-regions gave no regions after splitting on ',' and "
+                "stripping whitespace; give at least one region, or to remove the "
+                "maps, uninstall osm-navit and osm-regions.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+    else:
+        map_regions = current.map_regions
     set_fields = [
         field
         for field, value in (
@@ -689,11 +708,6 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return EXIT_FAILED
-    map_regions = (
-        tuple(r for r in args.map_regions.split(",") if r)
-        if args.map_regions
-        else current.map_regions
-    )
     try:
         station = Station(
             callsign=args.callsign or current.callsign,
@@ -832,13 +846,22 @@ def cmd_update(args: argparse.Namespace) -> int:
         return EXIT_FAILED
 
     # osm-regions, offline (D-053): each installed region's `.source`
-    # sidecar against the pin list's newest snapshot for it. No fetch, no
-    # probe -- just what is on disk and what the catalog carries.
+    # sidecar against the pinned snapshot the station's own freshness mode
+    # would resolve to today (fix round 1, I1) -- not the newest pin of any
+    # snapshot, which reported a yearly install behind a monthly-shaped pin
+    # forever. No fetch, no probe -- just what is on disk and what the
+    # catalog carries.
     pins_path = catalog_root / "data" / "geofabrik-pins.yaml"
-    newest_pinned = newest_snapshots(load_pins(pins_path)) if pins_path.is_file() else {}
+    current_pinned = (
+        current_pinned_snapshots(
+            station.freshness, date.today(), load_pins(pins_path), station.map_regions
+        )
+        if pins_path.is_file()
+        else {}
+    )
     regions_by_unit = {
         planned.name: region_snapshots(
-            installed_slugs(data_root(source.prefix) / planned.name), newest_pinned
+            installed_slugs(data_root(source.prefix) / planned.name), current_pinned
         )
         for planned in plan.packages
         if isinstance(planned.block.install, RegionalDataInstall)
@@ -1013,15 +1036,18 @@ def _apply_suggestions(
 
 
 def cmd_maps_regions(args: argparse.Namespace) -> int:
-    """Every region Geofabrik's index-v1.json names, filtered by a substring.  D-057.
+    """Every region Geofabrik's region index names, filtered by a substring.  D-057.
 
     Fetches the index only when this command runs -- network on request,
     like `update --upstream`, never as a side effect of any other command
-    and never at import time.
+    and never at import time. ``index-v1-nogeom.json`` (0.51 MB, measured
+    2026-09-28) carries the same ``properties.urls.pbf`` shape
+    :func:`hammunition.geofabrik.region_ids` reads as ``index-v1.json``
+    (3.79 MB); fetching the smaller one is free (fix round 1, M6).
     """
     probe = UrllibProbe()
     try:
-        index_json = probe.text(f"{BASE}/index-v1.json")
+        index_json = probe.text(f"{BASE}/index-v1-nogeom.json")
         ids = region_ids(index_json)
     except GeofabrikError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -1054,6 +1080,14 @@ def resolve_map_regions(
     so (spec §8: no network leaves installed regions untouched). One that is
     not installed cannot be kept; every such region is named together in one
     :class:`GeofabrikError`.
+
+    A **pinned** region resolves entirely from the pin list, no network
+    asked at all (fix round 1, I3): offline, that looked like success, apt
+    ran, and only then did the actual fetch fail, mid-transaction. So every
+    region about to be fetched -- not already installed at its resolved
+    snapshot, pinned or not -- is also HEAD-checked here, before the plan
+    ever prints; a region already installed keeps today's behaviour and is
+    never probed.
     """
     wanted = any(
         isinstance(p.block.install, RegionalDataInstall | DerivedDataInstall) for p in plan.packages
@@ -1075,8 +1109,8 @@ def resolve_map_regions(
     refused: list[str] = []
     for region in station.map_regions:
         try:
-            files.append(
-                resolve_region(region, station.freshness, today=today, pins=pins, probe=probe)
+            resolved = resolve_region(
+                region, station.freshness, today=today, pins=pins, probe=probe
             )
         except (GeofabrikError, OSError) as exc:
             slug = region.replace("/", "-")
@@ -1085,6 +1119,18 @@ def resolve_map_regions(
                 kept.append(KeptRegion(region, slug, installed_snapshot(pbf), str(exc)))
             else:
                 refused.append(f"  {region}: {exc}")
+            continue
+        pbf = installed / f"{resolved.slug}.osm.pbf"
+        if not region_current(pbf, resolved):
+            try:
+                status, _, _ = probe.head(resolved.url)
+            except (GeofabrikError, OSError) as exc:
+                refused.append(f"  {region}: {resolved.url} could not be reached: {exc}")
+                continue
+            if status != 200:
+                refused.append(f"  {region}: {resolved.url} answered HTTP {status}, not 200")
+                continue
+        files.append(resolved)
     if refused:
         raise GeofabrikError(
             f"{len(refused)} map region(s) could not be resolved and are not installed "

@@ -81,6 +81,20 @@ def installed_snapshot(path: Path) -> str | None:
         return None
 
 
+def region_current(dest: Path, region: RegionFile) -> bool:
+    """Whether *dest* already holds *region* at its resolved snapshot and size.
+
+    Public (fix round 1, I3) so :func:`hammunition.cli.main.resolve_map_regions`
+    can tell, before a plan-time reachability check, whether a region is
+    already installed and so needs no network at all.
+    """
+    return (
+        dest.is_file()
+        and dest.stat().st_size == region.size
+        and installed_snapshot(dest) == region.snapshot
+    )
+
+
 def installed_slugs(directory: Path) -> dict[str, str]:
     """slug -> installed snapshot for every ``<slug>.osm.pbf`` under
     *directory* that carries a ``.source`` sidecar.
@@ -297,8 +311,11 @@ class MapResolution:
 def region_lines(files: Sequence[RegionFile]) -> list[str]:
     """One line per region for the plan: region, snapshot, size, how it is verified.
 
-    Printed to the operator's own terminal. The regions are station data and
-    this is the only place they are shown.
+    Printed to the operator's own terminal. The regions are station data,
+    the same class of fact as a grid square (D-057), and the install plan is
+    the *only* place they are shown: ``station show`` prints a count, and so
+    does :func:`hammunition.update.report`'s ``osm-regions`` row (fix round
+    1, I2) -- a region's name or path must never reach either.
     """
     width = max((len(f.region) for f in files), default=0)
     return [
@@ -337,11 +354,7 @@ class RegionsBackend:
 
     @staticmethod
     def _current(dest: Path, region: RegionFile) -> bool:
-        return (
-            dest.is_file()
-            and dest.stat().st_size == region.size
-            and installed_snapshot(dest) == region.snapshot
-        )
+        return region_current(dest, region)
 
     def cache_path(self, region: RegionFile) -> Path:
         if region.sha256 is not None:

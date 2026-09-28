@@ -188,11 +188,14 @@ def region_snapshots(
 
     *installed* is slug -> the snapshot recorded in its ``.source`` sidecar
     (:func:`hammunition.backends.regions.installed_slugs`); *newest_pinned*
-    is slug -> the newest snapshot the pin list carries for it
-    (:func:`hammunition.geofabrik.newest_snapshots`). A slug the pin list
-    does not carry compares against nothing and is never reported behind --
-    it is verified by Geofabrik's MD5 only, and the pin list has no opinion
-    on it.
+    is slug -> the pinned snapshot the station's freshness mode would
+    resolve to today, restricted to pins that exist
+    (:func:`hammunition.geofabrik.current_pinned_snapshots`, fix round 1
+    I1 -- comparing against the newest pin of *any* snapshot reported a
+    yearly install behind a monthly-shaped pin it would never chase). A
+    slug the pin list does not carry compares against nothing and is never
+    reported behind -- it is verified by Geofabrik's MD5 only, and the pin
+    list has no opinion on it.
     """
     out: list[RegionSnapshot] = []
     for slug in sorted(installed):
@@ -204,22 +207,26 @@ def region_snapshots(
 
 
 def _regions_row(planned: PlannedPackage, snapshots: Sequence[RegionSnapshot]) -> UpdateRow:
+    """A count, never a region's slug or path (fix round 1, I2; controller
+    ruling): D-057 argues a region list says where somebody lives or
+    travels, the same class of fact as a grid square, and keeps it out of
+    pasteable output everywhere but the install plan. `region_lines` prints
+    names for the plan; this never does.
+    """
     strategy = planned.manifest.update.strategy
     if not snapshots:
         return UpdateRow(planned.name, NOT_INSTALLED, "no map regions installed", strategy)
-    lines: list[str] = []
-    behind = False
-    for snap in snapshots:
-        if snap.newer_pinned is not None:
-            lines.append(
-                f"{snap.slug} installed {snap.installed}; "
-                f"newer map data pinned: {snap.newer_pinned}"
-            )
-            behind = True
-        else:
-            lines.append(f"{snap.slug} installed {snap.installed}")
-    state = BEHIND_PIN if behind else UP_TO_DATE
-    return UpdateRow(planned.name, state, "; ".join(lines), strategy)
+    count = len(snapshots)
+    noun = "region" if count == 1 else "regions"
+    behind = [s for s in snapshots if s.newer_pinned is not None]
+    if not behind:
+        return UpdateRow(planned.name, UP_TO_DATE, f"{count} {noun} installed", strategy)
+    newer = sorted({s.newer_pinned for s in behind if s.newer_pinned is not None})
+    detail = (
+        f"{count} {noun} installed; {len(behind)} behind the pin "
+        f"(newer map data pinned: {', '.join(newer)})"
+    )
+    return UpdateRow(planned.name, BEHIND_PIN, detail, strategy)
 
 
 def _first_sentence(manifest: PackageManifest) -> str:
@@ -360,7 +367,13 @@ def render(report: UpdateReport, *, lists_note: str, upstream_asked: bool = Fals
     if report.behind:
         out.append("")
         out.append("To rebuild at the catalog's pin:")
-        out.append(f"  $ hammunition install {' '.join(report.behind)}")
+        names = list(report.behind)
+        # osm-regions behind its pin needs osm-navit named too (fix round 1,
+        # M2): `install osm-regions` alone never reconverts the derived
+        # maps, since osm-navit's dependency is one-directional.
+        if "osm-regions" in names and "osm-navit" not in names:
+            names.append("osm-navit")
+        out.append(f"  $ hammunition install {' '.join(names)}")
     if report.upstream_declared and not upstream_asked:
         out.append("")
         out.append(
