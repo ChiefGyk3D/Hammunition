@@ -468,7 +468,8 @@ def render_plan(
         # decided it is on disk rather than in the caller's environment, so
         # the plan names both the files and what they said.
         lines.append(
-            "Desktops read from session files (/usr/share/xsessions, /usr/share/wayland-sessions):"
+            "Desktops read from session files (/usr/share/xsessions, /usr/share/wayland-sessions "
+            "and the same under /usr/local/share):"
         )
         lines.append(f"  {_describe_sessions(plan.desktops_read, plan.sessions_unrecognised)}")
         lines.append("")
