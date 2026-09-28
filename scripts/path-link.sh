@@ -76,7 +76,7 @@ if [ -L "$link" ]; then
     ln -sfn -- "$want" "$link"
   elif [[ "$current" == */.venv/bin/hammunition ]]; then
     warn "$link points at another checkout ($current); left as it is."
-    warn "To use this checkout instead: ln -sfn '$want' '$link'"
+    warn "To use this checkout instead: ln -sfn $(printf '%q' "$want") $(printf '%q' "$link")"
     status=1
   else
     warn "$link is a symlink to $current, which this script did not create; left as it is."

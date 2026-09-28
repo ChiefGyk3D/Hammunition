@@ -113,6 +113,22 @@ def test_another_checkouts_link_is_left_and_the_switch_is_printed(tmp_path: Path
     assert "ln -sfn" in result.stderr
 
 
+def test_the_printed_switch_runs_as_printed_from_a_path_with_a_quote(tmp_path: Path) -> None:
+    """Final review Minor 6: the switch was single-quoted by hand, so a
+    checkout path holding `'` broke the pasted command. Paste it and look."""
+    first = _checkout(tmp_path / "Hammunition")
+    second = _checkout(tmp_path / "it's Hammunition")
+    home = tmp_path / "home"
+    _run(first, home)
+    result = _run(second, home)
+    (line,) = [ln for ln in result.stderr.splitlines() if "ln -sfn" in ln]
+    command = line.split("instead: ", 1)[1]
+    ran = subprocess.run(["bash", "-c", command], capture_output=True, text=True, check=False)
+    assert ran.returncode == 0, ran.stderr
+    link = home / ".local" / "bin" / "hammunition"
+    assert os.readlink(link) == str(second.resolve() / ".venv" / "bin" / "hammunition")
+
+
 def test_a_dangling_link_of_ours_is_replaced(tmp_path: Path) -> None:
     checkout = _checkout(tmp_path / "Hammunition")
     home = tmp_path / "home"
