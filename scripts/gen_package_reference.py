@@ -44,11 +44,13 @@ from hammunition.manifest.schema import (  # noqa: E402
     Binary,
     BinaryInstall,
     DataInstall,
+    DerivedDataInstall,
     GitInstall,
     InstallBlock,
     NodeInstall,
     PackageManifest,
     PipxInstall,
+    RegionalDataInstall,
     SourceInstall,
     Status,
     VenvInstall,
@@ -77,6 +79,16 @@ def method_of(block: InstallBlock) -> str:
     if isinstance(install, DataInstall):
         parts = ", ".join(f"{a.url} ({a.size:,} bytes)" for a in install.artifacts)
         return f"data ({install.licence}, {install.licence_url}): {parts}"
+    if isinstance(install, RegionalDataInstall):
+        return (
+            f"OpenStreetMap regions from Geofabrik (chosen in station config) "
+            f"({install.licence}, {install.licence_url})"
+        )
+    if isinstance(install, DerivedDataInstall):
+        return (
+            f"converted from {install.source} by {install.converter} "
+            f"({install.licence}, {install.licence_url})"
+        )
     if isinstance(install, NodeInstall):
         return (
             f"node (needs Node {install.node_min_version}+ from the distribution; "
