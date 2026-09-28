@@ -752,7 +752,7 @@ def test_the_plan_prints_one_line_per_region() -> None:
 
 def test_disk_needs_count_the_cache_the_staging_and_the_prefix(tmp_path: Path) -> None:
     """Fix round 1, item 2: the cache holds a copy too. Fix round 2, item 2:
-    maptool's scratch (2x the input) and its .bin (0.8x), measured on Canada."""
+    maptool's scratch (2x the input) and its .bin (0.8x), measured on one region."""
     big = RegionFile("x/big", "260101", "https://x/big.osm.pbf", 1000, None, "c" * 32)
     needs = disk_needs([big], [big], cache=tmp_path / "c", staging=tmp_path / "s", prefix=tmp_path)
     assert needs == {tmp_path / "c": 1000, tmp_path / "s": 2800, tmp_path: 1800}

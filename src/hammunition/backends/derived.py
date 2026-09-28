@@ -238,7 +238,7 @@ class DerivedBackend:
         staged.unlink(missing_ok=True)
         try:
             # cwd: maptool writes its *.tmp scratch into its working
-            # directory -- more than 12 GB for Canada -- and aborts in a
+            # directory -- more than 12 GB for a 6.1 GB country-sized region -- and aborts in a
             # read-only one (measured: exit 134, buffer.c:39).
             result = subprocess.run(
                 _maptool_argv(pbf, staged),

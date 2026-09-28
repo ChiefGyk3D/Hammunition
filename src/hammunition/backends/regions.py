@@ -52,13 +52,14 @@ MIB = 1024 * 1024
 PBF = ".osm.pbf"
 SOURCE = ".source"
 
-#: Navit's converted map, relative to its ``.osm.pbf``: Canada's 6.1 GB
-#: became a 4.7 GB ``.bin`` on the field laptop. One region, so the plan
+#: Navit's converted map, relative to its ``.osm.pbf``: a 6.1 GB country-sized
+#: region became a 4.7 GB ``.bin`` on the field laptop. One region, so the plan
 #: calls it an estimate (:data:`ESTIMATE`).
 BIN_FACTOR = 0.8
 #: maptool's scratch files (``*.tmp``, ``coords.tmp``) in its working
-#: directory while it converts, relative to the input: Canada wrote more
-#: than 12 GB of them. Freed when it finishes, but needed while it runs.
+#: directory while it converts, relative to the input: the same region
+#: wrote more than 12 GB of them. Freed when it finishes, but needed while
+#: it runs.
 SCRATCH_FACTOR = 2
 ESTIMATE = "estimate, measured on one region"
 
