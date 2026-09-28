@@ -139,3 +139,32 @@ def test_the_desktops_check_reaches_the_document_with_no_code_of_its_own(
     )
     assert check["detail"] in text
     assert_text_values_in_json(text, doc, render_doctor)
+
+
+def test_a_fresh_install_with_local_bin_off_path_is_not_sent_back_to_bootstrap(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Final review I2, end to end in a scratch HOME: bootstrap has linked
+    ~/.local/bin/hammunition to this checkout, and ~/.local/bin is not on PATH
+    yet. Doctor's remedy is the PATH one, in text and JSON alike."""
+    home = tmp_path / "home"
+    local_bin = home / ".local" / "bin"
+    local_bin.mkdir(parents=True)
+    checkout = Path(cli.__file__).resolve().parents[3]
+    (local_bin / "hammunition").symlink_to(checkout / ".venv" / "bin" / "hammunition")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+    monkeypatch.setattr(Target, "detect", classmethod(lambda cls: TARGET))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    monkeypatch.delenv("SUDO_USER", raising=False)
+    cli.main(["--catalog", str(FIXTURE_CATALOG), "doctor"])
+    text = capsys.readouterr().out
+    cli.main(["--catalog", str(FIXTURE_CATALOG), "doctor", "--json"])
+    doc = parse_one(capsys.readouterr().out)
+    (check,) = [c for c in doc["checks"] if c["name"] == "hammunition"]
+    assert check["status"] == "warn"
+    assert "log out and back in" in check["fix"]
+    assert 'export PATH="$HOME/.local/bin:$PATH"' in check["fix"]
+    assert "bootstrap" not in check["fix"]
+    assert "bootstrap" not in "".join(ln for ln in text.splitlines() if "hammunition" in ln)

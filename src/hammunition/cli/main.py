@@ -2590,6 +2590,11 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         os.readlink(found_engine) if found_engine and Path(found_engine).is_symlink() else None
     )
 
+    # bootstrap's own link in ~/.local/bin, whether or not that is on PATH yet:
+    # a fresh account has the link before its next login puts the dir on PATH.
+    linked = Path(local_bin) / "hammunition"
+    engine_linked_in_local_bin = linked.is_symlink() and str(linked.resolve()) == engine_expected
+
     kept_attached: tuple[str, ...] = ()
     kept_absent: tuple[str, ...] = ()
     try:
@@ -2624,6 +2629,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         engine_found=found_engine,
         engine_found_in_local_bin=engine_found_in_local_bin,
         engine_found_link=engine_found_link,
+        engine_linked_in_local_bin=engine_linked_in_local_bin,
         kept_attached=kept_attached,
         kept_absent=kept_absent,
         desktops_installed=sessions.desktops,

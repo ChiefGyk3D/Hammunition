@@ -72,6 +72,7 @@ def run_checks(
     engine_found: str | None,
     engine_found_in_local_bin: bool,
     engine_found_link: str | None,
+    engine_linked_in_local_bin: bool = False,
     kept_attached: tuple[str, ...] = (),
     kept_absent: tuple[str, ...] = (),
     desktops_installed: frozenset[Desktop] | None = None,
@@ -145,6 +146,18 @@ def run_checks(
     # checkout, a fix made here is not the engine that runs.
     if engine_on_path == engine_expected:
         checks.append(Check("hammunition", "ok", f"on PATH: {engine_expected}"))
+    elif engine_on_path is None and engine_linked_in_local_bin and not path_has_local_bin:
+        # A fresh account: bootstrap made the link, and ~/.local/bin reaches
+        # PATH only at the next login. Re-running bootstrap changes nothing.
+        checks.append(
+            Check(
+                "hammunition",
+                "warn",
+                "~/.local/bin/hammunition links to this checkout, "
+                "but ~/.local/bin is not on PATH yet",
+                'log out and back in, or run export PATH="$HOME/.local/bin:$PATH" for this shell',
+            )
+        )
     elif engine_on_path is None:
         checks.append(
             Check(

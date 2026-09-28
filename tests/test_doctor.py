@@ -206,6 +206,28 @@ def test_hammunition_missing_from_path_is_a_warn_naming_bootstrap() -> None:
     assert check.fix is not None and "bootstrap.sh" in check.fix
 
 
+def test_our_link_with_local_bin_off_path_says_log_in_again_not_bootstrap() -> None:
+    """Final review I2: a fresh account gets the link from bootstrap before
+    ~/.local/bin reaches PATH. Re-running bootstrap changes nothing then."""
+    checks = run_checks(
+        **{  # type: ignore[arg-type]
+            **HEALTHY,
+            "engine_on_path": None,
+            "engine_found": None,
+            "engine_found_link": None,
+            "engine_found_in_local_bin": False,
+            "path_has_local_bin": False,
+            "engine_linked_in_local_bin": True,
+        }
+    )
+    check = _by_name(checks)["hammunition"]
+    assert check.status == "warn"
+    assert check.fix is not None
+    assert "log out and back in" in check.fix
+    assert 'export PATH="$HOME/.local/bin:$PATH"' in check.fix
+    assert "bootstrap" not in check.fix
+
+
 def test_hammunition_from_another_checkout_is_a_warn_with_the_quoted_switch() -> None:
     # Plan-mandated test, amended in review (I1): the switch is offered only for
     # our own link, and both paths are shell-quoted so a space pastes correctly.
