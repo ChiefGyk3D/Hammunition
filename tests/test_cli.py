@@ -2314,3 +2314,115 @@ def test_station_set_map_regions_and_freshness(
     s = load_station(target)
     assert s.map_regions == ("north-america/us/vermont", "north-america/us/new-hampshire")
     assert s.freshness == "latest"
+
+
+# ---------------------------------------------------------------------------
+# Map regions (D-057): resolved before the plan prints, disclosed per region
+# ---------------------------------------------------------------------------
+
+
+class _Probe:
+    """Geofabrik as far as resolve() asks: every dated file exists, 10 bytes."""
+
+    def __init__(self) -> None:
+        self.asked: list[str] = []
+
+    def head(self, url: str) -> tuple[int, int, str | None]:
+        self.asked.append(url)
+        return 200, 10, None
+
+    def text(self, url: str) -> str:
+        self.asked.append(url)
+        return "b" * 32 + "  " + url.rsplit("/", 1)[-1].removesuffix(".md5") + "\n"
+
+
+def _map_plan() -> InstallPlan:
+    from test_regions_backend import navit_manifest, regions_manifest
+
+    regions, navit = regions_manifest(), navit_manifest()
+    return InstallPlan(
+        target=Target(distro="debian", version="13", arch="x86_64"),
+        packages=(
+            PlannedPackage(manifest=navit, block=navit.install[0], apt_packages=("maptool",)),
+            PlannedPackage(manifest=regions, block=regions.install[0], apt_packages=()),
+        ),
+    )
+
+
+def test_map_regions_resolve_against_the_pin_list_and_geofabrik(tmp_path: Path) -> None:
+    from datetime import date
+
+    from hammunition.cli.main import map_region_files
+    from hammunition.station import Station
+
+    catalog = tmp_path / "catalog"
+    (catalog / "data").mkdir(parents=True)
+    (catalog / "data" / "geofabrik-pins.yaml").write_text(
+        "pins:\n"
+        "  - region: north-america/us/vermont\n"
+        "    snapshot: '260101'\n"
+        "    size: 10\n"
+        f"    sha256: {'a' * 64}\n"
+    )
+    station = Station(map_regions=("north-america/us/vermont", "north-america/us/new-hampshire"))
+    files, notes = map_region_files(
+        _map_plan(), station, catalog, probe=_Probe(), today=date(2026, 9, 28)
+    )
+    assert [(f.region, f.snapshot, f.verified_by) for f in files] == [
+        ("north-america/us/vermont", "260101", "sha256, pinned by Hammunition"),
+        ("north-america/us/new-hampshire", "260101", "MD5 from Geofabrik only; not pinned"),
+    ]
+    assert notes == []
+
+
+def test_no_pin_list_means_every_region_is_md5_and_the_plan_says_so(tmp_path: Path) -> None:
+    from datetime import date
+
+    from hammunition.cli.main import map_region_files
+    from hammunition.station import Station
+
+    files, notes = map_region_files(
+        _map_plan(),
+        Station(map_regions=("north-america/us/vermont",)),
+        tmp_path,
+        probe=_Probe(),
+        today=date(2026, 9, 28),
+    )
+    assert [f.verified_by for f in files] == ["MD5 from Geofabrik only; not pinned"]
+    assert len(notes) == 1 and "geofabrik-pins.yaml" in notes[0]
+
+
+def test_a_plan_without_map_units_asks_geofabrik_nothing(tmp_path: Path) -> None:
+    from datetime import date
+
+    from hammunition.cli.main import map_region_files
+    from hammunition.station import Station
+
+    probe = _Probe()
+    files, _ = map_region_files(
+        _plan(),
+        Station(map_regions=("north-america/us/vermont",)),
+        tmp_path,
+        probe=probe,
+        today=date(2026, 9, 28),
+    )
+    assert files == [] and probe.asked == []
+
+
+def test_the_plan_discloses_each_region_its_size_and_how_it_is_verified() -> None:
+    from test_regions_backend import NH, VT
+
+    text = "\n".join(render_plan(_map_plan(), [], euid=0, regions=[VT, NH]))
+    assert "Map regions" in text
+    assert "ODbL-1.0" in text
+    vt = next(line for line in text.splitlines() if "north-america/us/vermont" in line)
+    assert "260101" in vt and "sha256, pinned by Hammunition" in vt
+    nh = next(line for line in text.splitlines() if "north-america/us/new-hampshire" in line)
+    assert "MD5 from Geofabrik only; not pinned" in nh
+    assert "estimate" in text
+
+
+def test_free_space_is_read_from_the_nearest_existing_directory(tmp_path: Path) -> None:
+    from hammunition.cli.main import free_bytes_at
+
+    assert free_bytes_at(tmp_path / "not" / "yet" / "made") > 0

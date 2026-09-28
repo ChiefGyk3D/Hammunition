@@ -35,7 +35,7 @@ import sys
 import tempfile
 import textwrap
 from collections.abc import Mapping, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from importlib import metadata
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -48,14 +48,17 @@ from hammunition.backends import (
     BinaryBackend,
     Command,
     DataBackend,
+    DerivedBackend,
     GitBackend,
     NodeBackend,
+    RegionsBackend,
     SourceBackend,
     SubprocessRunner,
     VenvBackend,
 )
 from hammunition.backends.apt import stale_fetches
 from hammunition.backends.data import human_size
+from hammunition.backends.regions import disk_shortfall, estimated_bytes, region_lines
 from hammunition.backends.source import DEFAULT_PREFIX
 from hammunition.consent import (
     ConsentDeclined,
@@ -78,6 +81,14 @@ from hammunition.execute import (
     user_groups,
 )
 from hammunition.fetch import Fetcher
+from hammunition.geofabrik import (
+    GeofabrikError,
+    Probe,
+    RegionFile,
+    UrllibProbe,
+    load_pins,
+)
+from hammunition.geofabrik import resolve as resolve_region
 from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH, describe_refusal
 from hammunition.kernel import KernelProbe
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
@@ -86,10 +97,12 @@ from hammunition.manifest.schema import (
     AptInstall,
     BinaryInstall,
     DataInstall,
+    DerivedDataInstall,
     GitInstall,
     NodeInstall,
     PackageManifest,
     ProfileManifest,
+    RegionalDataInstall,
     SourceInstall,
     Status,
     VenvInstall,
@@ -206,6 +219,8 @@ def _plan_state(planned: PlannedPackage, built: frozenset[str] = frozenset()) ->
         return "will install"  # into its own venv, reported by the venv step
     if isinstance(method, NodeInstall):
         return "will build"
+    if isinstance(method, DerivedDataInstall):
+        return "will convert"
     return "will fetch+install"
 
 
@@ -217,6 +232,7 @@ def render_plan(
     log_destination: Path | None = None,
     hands_log_to: str | None = None,
     built: frozenset[str] = frozenset(),
+    regions: Sequence[RegionFile] = (),
 ) -> list[str]:
     """The complete account of what will happen. Printed for every run.
 
@@ -334,6 +350,26 @@ def render_plan(
             for artifact in block.artifacts:
                 lines.append(f"      {human_size(artifact.size):>9}  {artifact.url}")
             lines.append(f"      installs under <prefix>/share/hammunition/data/{planned.name}/")
+        lines.append("")
+
+    map_units = [
+        p.block.install for p in plan.packages if isinstance(p.block.install, RegionalDataInstall)
+    ]
+    if map_units and regions:
+        # The station's regions, on the operator's own terminal: resolved
+        # before this plan printed, so the dated file, its size and how it
+        # is checked are known before anything is confirmed (D-057).
+        total = sum(f.size for f in regions)
+        lines.append("Map regions that will be downloaded and installed (D-057):")
+        lines.extend(region_lines(regions))
+        lines.append(
+            f"      licence: {map_units[0].licence.strip()}, stated at {map_units[0].licence_url}"
+        )
+        lines.append(
+            f"      {human_size(total)} to download; about {human_size(estimated_bytes(regions))} "
+            f"of disk with Navit's maps (an estimate until measured)"
+        )
+        lines.append("      installs under <prefix>/share/hammunition/data/")
         lines.append("")
 
     if plan.group_memberships:
@@ -911,6 +947,52 @@ def _apply_suggestions(
     return extra, notes
 
 
+def map_region_files(
+    plan: InstallPlan,
+    station: Station,
+    catalog_root: Path,
+    *,
+    probe: Probe,
+    today: date,
+) -> tuple[list[RegionFile], list[str]]:
+    """The station's map regions as dated, verifiable Geofabrik files.  D-057.
+
+    Asked only when the plan holds a map unit -- the plan has already
+    deferred them when no regions are set -- and before the plan prints,
+    because the dated file, its size and how it is verified are the
+    disclosure. Raises :class:`GeofabrikError` naming a region that cannot
+    be resolved. Returns the files and any notes for the plan.
+    """
+    wanted = any(
+        isinstance(p.block.install, RegionalDataInstall | DerivedDataInstall) for p in plan.packages
+    )
+    if not wanted or not station.map_regions:
+        return [], []
+    notes: list[str] = []
+    pins_path = catalog_root / "data" / "geofabrik-pins.yaml"
+    if pins_path.is_file():
+        pins = load_pins(pins_path)
+    else:
+        pins = {}
+        notes.append(
+            f"no Geofabrik pin list at {pins_path}; every map region is verified by "
+            f"Geofabrik's MD5 only, and the plan says so beside each one."
+        )
+    files = [
+        resolve_region(region, station.freshness, today=today, pins=pins, probe=probe)
+        for region in station.map_regions
+    ]
+    return files, notes
+
+
+def free_bytes_at(path: Path) -> int:
+    """Free space on the file system that *path* is, or will be, created on."""
+    for candidate in (path, *path.parents):
+        if candidate.exists():
+            return shutil.disk_usage(candidate).free
+    return shutil.disk_usage("/").free  # pragma: no cover - "/" always exists
+
+
 def cmd_install(args: argparse.Namespace) -> int:
     try:
         target = Target.detect()
@@ -972,6 +1054,15 @@ def cmd_install(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_FAILED
 
+    try:
+        region_files, region_notes = map_region_files(
+            plan, station, catalog_root, probe=UrllibProbe(), today=date.today()
+        )
+    except GeofabrikError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        print("\nNothing was changed.", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+
     euid = os.geteuid()
     # The artifact cache and the build tree belong to the operator, not to root:
     # under sudo they would otherwise land in /root, invisible to the person who
@@ -1011,6 +1102,22 @@ def cmd_install(args: argparse.Namespace) -> int:
         bin_dir=user_bin_dir(user or None),
     )
     data = DataBackend(fetcher=source.fetcher, prefix=source.prefix)
+    regions = RegionsBackend(fetcher=source.fetcher, prefix=source.prefix, files=region_files)
+    derived = DerivedBackend(prefix=source.prefix, files=region_files)
+    if region_files:
+        # Refused at plan time, before anything is confirmed, with both
+        # numbers. Only regions not already installed at their snapshot count.
+        pending = [
+            f
+            for p in plan.packages
+            if isinstance(p.block.install, RegionalDataInstall)
+            for f in regions.pending(p.manifest)
+        ]
+        short = disk_shortfall(pending, free=free_bytes_at(source.prefix))
+        if short is not None:
+            print(f"error: not enough disk space under {source.prefix}: {short}", file=sys.stderr)
+            print("\nNothing was changed.", file=sys.stderr)
+            return EXIT_UNPLANNABLE
     # D-051: a build present on disk that the log attributes to this engine
     # at the manifest's pin is already installed; its build steps are skipped.
     built = already_built(
@@ -1027,6 +1134,8 @@ def cmd_install(args: argparse.Namespace) -> int:
         venv=venv,
         node=node,
         data=data,
+        regions=regions,
+        derived=derived,
         repos=repos,
         config_staging=builds,
         launcher_bin=user_bin_dir(user or None),
@@ -1043,7 +1152,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         if (log_owner and euid == 0 and str(log_destination).startswith("/home"))
         else None
     )
-    for note in suggestion_notes:
+    for note in (*suggestion_notes, *region_notes):
         print(f"note: {note}")
     for line in render_plan(
         plan,
@@ -1052,6 +1161,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         built=built,
         log_destination=log_destination,
         hands_log_to=hands_log_to,
+        regions=region_files,
     ):
         print(line)
 
