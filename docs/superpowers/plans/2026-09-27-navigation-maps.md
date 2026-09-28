@@ -147,7 +147,7 @@ In `__post_init__`, after the existing checks:
 
 (`__post_init__` already exists; add the block at its end and the property after it.) `as_dict()`: include `map_regions` as a list and `map_freshness` only when set, and keep `get()` returning only template string values (it reads the string fields by name, so it is unaffected; leave `STATION_VARIABLES` unchanged — map settings are not template variables). Change `as_dict`'s return annotation to `dict[str, str | list[str]]` and check its other callers with `grep -n "as_dict()" -r src` (`save_station` dumps it to YAML; any caller that assumes `str` values must skip list values). `load_station`: read `map_regions` as a list of strings (or absent → `()`), and `map_freshness`.
 
-`cli/main.py`: add to the `station set` parser
+`src/hammunition/cli/main.py`: add to the `station set` parser
 
 ```python
     p_station_set.add_argument(
@@ -860,7 +860,7 @@ os.replace(tmp_bin, dest)
 source_file.write_text(f"{region.snapshot}\n")
 ```
 
-Wire planning: in `resolve()`, after catalog expansion, if any planned package's block is `RegionalDataInstall` or a `DerivedDataInstall` whose `source` is such a package, and `station.map_regions` is empty, move both to `deferred` with the `Deferral` described above. Region resolution (`geofabrik.resolve` for each region with `today=date.today()`, the loaded pins from `catalog/data/geofabrik-pins.yaml` via `find_catalog`, and a real `UrllibProbe`) happens in `cli/main.py` before the backends are built, because it needs the network and the plan's disclosure must print it before the confirmation. Write `UrllibProbe` in `geofabrik.py` using `urllib.request` with a no-redirect handler for `head` (so the 302's `Location` is visible) and a 30 s timeout; it is the one part of Task 2's module that touches the network and has no unit test beyond construction.
+Wire planning: in `resolve()`, after catalog expansion, if any planned package's block is `RegionalDataInstall` or a `DerivedDataInstall` whose `source` is such a package, and `station.map_regions` is empty, move both to `deferred` with the `Deferral` described above. Region resolution (`geofabrik.resolve` for each region with `today=date.today()`, the loaded pins from `catalog/data/geofabrik-pins.yaml` via `find_catalog`, and a real `UrllibProbe`) happens in `src/hammunition/cli/main.py` before the backends are built, because it needs the network and the plan's disclosure must print it before the confirmation. Write `UrllibProbe` in `geofabrik.py` using `urllib.request` with a no-redirect handler for `head` (so the 302's `Location` is visible) and a 30 s timeout; it is the one part of Task 2's module that touches the network and has no unit test beyond construction.
 
 Disk space: before confirming, sum the region sizes plus 2× that for Navit output (an estimate until Task 10 measures the real ratio), compare with `shutil.disk_usage(prefix).free`, and refuse with both numbers if short.
 
