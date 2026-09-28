@@ -12,9 +12,14 @@ operator's home one component at a time, through ``O_NOFOLLOW`` descriptors,
 and hands each one it made to the operator with ``fchown``; an existing
 component the operator does not own is refused by name, with the fix.
 
-Not root in the suite: ``geteuid`` is pinned to 0 and the "operator" is the
-test user, whose home is a temporary directory. ``fchown`` to oneself is
-permitted, so it is real and recorded.
+The suite runs as an ordinary user on a laptop and as real root in the CI
+containers, and must mean the same thing in both ("test the matrix, not your
+machine"). So nothing here reads the real uid: ``geteuid`` is pinned to 0,
+the operator is a fixed non-root account (uid/gid :data:`OPERATOR_ID`) whose
+home is a temporary directory, ``fstat`` reports every directory under that
+home as the operator's unless a test says otherwise, and ``fchown`` is
+recorded, never performed -- a real chown to 4242 is refused to a user and
+would succeed for root, which is exactly the difference to keep out.
 """
 
 from __future__ import annotations
@@ -27,6 +32,8 @@ from typing import Any
 import pytest
 
 from hammunition.paths import OperatorDirError, ensure_operator_dir, operator_dir_problem
+
+OPERATOR_ID = 4242
 
 
 def _root_owned(monkeypatch: pytest.MonkeyPatch, directory: Path) -> None:
@@ -47,21 +54,30 @@ def _root_owned(monkeypatch: pytest.MonkeyPatch, directory: Path) -> None:
 
 @pytest.fixture
 def operator(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
-    me = pwd.getpwuid(os.getuid())
     home = tmp_path / "home" / "operator"
     home.mkdir(parents=True)
-    fake = pwd.struct_passwd(("operator", "x", me.pw_uid, me.pw_gid, "", str(home), "/bin/sh"))
+    fake = pwd.struct_passwd(("operator", "x", OPERATOR_ID, OPERATOR_ID, "", str(home), "/bin/sh"))
     monkeypatch.setattr(os, "geteuid", lambda: 0)
     monkeypatch.setattr(pwd, "getpwnam", lambda name: fake)
     monkeypatch.setattr(pwd, "getpwall", lambda: [fake])
     chowned: list[tuple[int, int]] = []
-    real = os.fchown
 
     def fchown(fd: int, uid: int, gid: int) -> None:
-        chowned.append((uid, gid))
-        real(fd, uid, gid)
+        chowned.append((uid, gid))  # recorded; ownership is what fstat says below
+
+    real_fstat = os.fstat
+
+    def fstat(fd: int) -> os.stat_result:
+        result = real_fstat(fd)
+        where = os.readlink(f"/proc/self/fd/{fd}")
+        if where == str(home) or where.startswith(str(home) + os.sep):
+            fields = list(result)
+            fields[4], fields[5] = OPERATOR_ID, OPERATOR_ID  # st_uid, st_gid
+            return os.stat_result(fields)
+        return result
 
     monkeypatch.setattr(os, "fchown", fchown)
+    monkeypatch.setattr(os, "fstat", fstat)
     return fake, home, chowned
 
 

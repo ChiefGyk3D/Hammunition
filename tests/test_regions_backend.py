@@ -514,6 +514,21 @@ def test_conversion_is_unprivileged_and_only_the_install_needs_root(
     assert not any(s.requires_root for s in steps)
 
 
+#: A fixed non-root operator, whoever runs the suite: as real root in CI the
+#: real uid is 0, and an "operator" copied from it would be root, whom the
+#: engine rightly never drops to.
+OPERATOR = pwd.struct_passwd(("operator", "x", 4242, 4242, "", "/nonexistent", "/bin/sh"))
+
+
+def _as_root_for_operator(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The engine is root (pinned, not read) acting for :data:`OPERATOR`."""
+    home = tmp_path / "home" / "operator"
+    operator = pwd.struct_passwd((*OPERATOR[:5], str(home), OPERATOR.pw_shell))
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setattr(pwd, "getpwnam", lambda name: operator)
+    monkeypatch.setattr(pwd, "getpwall", lambda: [operator])
+
+
 class _AsOperator:
     """``subprocess`` under root, faked: records each call and its drop, then
     runs it for real without the drop (a test cannot setgroups) -- except
@@ -552,10 +567,9 @@ class _AsOperator:
         monkeypatch.setattr("hammunition.backends.derived.subprocess.Popen", popen)
 
     def dropped(self) -> bool:
-        me = pwd.getpwuid(os.getuid())
         return all(
-            k.get("user") == me.pw_uid
-            and k.get("group") == me.pw_gid
+            k.get("user") == OPERATOR.pw_uid
+            and k.get("group") == OPERATOR.pw_gid
             and k.get("extra_groups") == []
             for _, k in self.calls
         )
@@ -577,11 +591,11 @@ def test_under_root_every_staging_step_runs_as_the_operator(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Fix round 2, item 1: root does no filesystem work on the operator's staging path."""
-    me = pwd.getpwuid(os.getuid())
+    _as_root_for_operator(monkeypatch, tmp_path)
     fake = _AsOperator(monkeypatch)
     touched = _no_root_filesystem_writes(monkeypatch)
     _install_region(tmp_path, VT)
-    backend = _derived(tmp_path, [VT], euid=0, owner=me.pw_name, privileged=False)
+    backend = _derived(tmp_path, [VT], euid=0, owner=OPERATOR.pw_name, privileged=False)
     for step in _acts(backend.steps(manifest_navit, block_navit)):
         step.perform()
     assert backend.ledger.failed == {}
@@ -607,14 +621,14 @@ def test_under_root_a_symlinked_staging_directory_fails_the_region_and_is_not_us
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Fix round 2, item 1: `osm-navit -> /etc/sudoers.d` must not become a root chown."""
-    me = pwd.getpwuid(os.getuid())
+    _as_root_for_operator(monkeypatch, tmp_path)
     fake = _AsOperator(monkeypatch)
     touched = _no_root_filesystem_writes(monkeypatch)
     target = tmp_path / "sudoers.d"
     target.mkdir()
     (tmp_path / "staging").symlink_to(target)
     _install_region(tmp_path, VT)
-    backend = _derived(tmp_path, [VT], euid=0, owner=me.pw_name, privileged=False)
+    backend = _derived(tmp_path, [VT], euid=0, owner=OPERATOR.pw_name, privileged=False)
     (convert,) = _kinds(backend.steps(manifest_navit, block_navit), "convert")
     assert "FAILED" in convert.perform()
     assert "north-america/us/vermont" in backend.ledger.failed[VT.slug]
