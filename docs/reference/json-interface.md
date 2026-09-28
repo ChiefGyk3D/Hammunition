@@ -2,7 +2,8 @@
 
 # The JSON interface
 
-Every command in the table below takes `--json`, before or after the verb:
+Every command listed under *Commands*, below, takes `--json`, before or after
+the verb:
 `hammunition --json status` and `hammunition status --json` are the same run.
 With it, the command prints **one JSON document on stdout and nothing else
 there**. Everything else it would have printed -- notes, warnings, the reason
@@ -32,11 +33,30 @@ consent gate (D-021) and every disclosure are the CLI's, then reads
 
 **These documents are for local programs, not for pasting.** `station` carries
 the callsign, grid square and every other station value, because a local front
-end needs them to fill a form. Do not paste one into an issue, a forum or a
-chat: a callsign resolves to a name and a licence address. `doctor` and
-`update` keep the count-only rule their text follows.
+end needs them to fill a form. `plan` carries what the text plan prints: the
+operator's account, paths in their home, and the station's map regions by
+name. It never carries a rendered configuration file, so the callsign in one is
+not in it. Do not paste either into an issue, a forum or a chat: a callsign
+resolves to a name and a licence address, and a grid square or a map region
+says where the station is. `doctor` and `update` keep the count-only rule
+their text follows.
 
 `--help` and `--version` under `--json` print to stderr and emit no document.
+
+## Commands
+
+- `hammunition doctor`
+- `hammunition hardware state`
+- `hammunition install` (with `--dry-run` only)
+- `hammunition list`
+- `hammunition maps regions`
+- `hammunition show`
+- `hammunition station show`
+- `hammunition status`
+- `hammunition uninstall` (with `--dry-run` only)
+- `hammunition update`
+
+`docs/reference/cli.md` names the document each one prints, in its own section.
 
 ## Kinds
 

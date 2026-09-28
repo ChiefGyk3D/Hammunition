@@ -29,8 +29,19 @@ location, so running it from a checkout needs no configuration.
 ```
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
-.venv/bin/hammunition status
+scripts/path-link.sh "$PWD"
+hammunition status
 ```
+
+`scripts/path-link.sh` is what `./bootstrap.sh` runs to put `hammunition`
+on the PATH: it links `~/.local/bin/hammunition` to this checkout's
+`.venv/bin/hammunition`, and the rules it follows are under `doctor` below.
+Every example on this page is written `hammunition ...`. Where the shell
+says `command not found` (bootstrap has not run, `~/.local/bin` is not on
+the PATH until your next login, or the link was refused), run the checkout's
+`.venv/bin/hammunition` by its full path, e.g.
+`~/src/Hammunition/.venv/bin/hammunition status`.
+`docs/getting-started/install.md` covers each case.
 
 Override the catalog location with `--catalog DIR` or `HAMMUNITION_CATALOG`.
 A directory with no `packages/` inside it is an error rather than an empty
@@ -49,6 +60,11 @@ unchanged. Every document, and which commands have one, is in
 `install` and `uninstall` accept it only with `--dry-run`: a real install is
 never driven through JSON. A command with no JSON form refuses it and runs
 nothing.
+
+No long option is accepted abbreviated, with or without `--json`:
+`--dry` is `unrecognized arguments`, never `--dry-run` (**D-059**). A CLI
+that guards installs and consent gates behind exact flags does not guess
+which one was meant.
 
 ## Verbs
 
@@ -69,6 +85,11 @@ Transaction log: /home/op/.local/state/hammunition/transactions.jsonl
 The target line reports what `/etc/os-release` said, not what we concluded from
 it. A system that declares no `ID` is an error, never a guess — see
 `docs/DESIGN.md` §8.
+
+With `--json`, prints a `status` document
+([json-interface.md](json-interface.md)): the same target, catalog and log,
+and every unit a transaction here has named. A front end derives which
+profiles those units belong to from `list --json`.
 
 ### `hammunition update [NAME...] [--user NAME] [--upstream]`
 
@@ -168,6 +189,11 @@ behind is `up to date`. `hammunition install osm-regions osm-navit` (the
 footer's own command, since `install osm-regions` alone never reconverts
 the derived maps) fetches and converts the newer file.
 
+With `--json`, prints an `update` document
+([json-interface.md](json-interface.md)) with the same rows, counts and
+commands. It keeps the text's count-only rule: `osm-regions` is a count
+there too, never a region name.
+
 ### `hammunition maps regions [FILTER]`
 
 Every region path Geofabrik's region index names, one per line, sorted.
@@ -188,6 +214,10 @@ comma-separated, and what `catalog/data/geofabrik-pins.yaml` pins. A
 network failure (unreachable, a non-2xx response) is a named error and a
 non-zero exit; nothing is downloaded or written.
 
+With `--json`, prints a `regions` document
+([json-interface.md](json-interface.md)): the filter and the matching region
+paths. It is Geofabrik's list, nothing of yours.
+
 ### `hammunition list [all|packages|profiles]`
 
 Everything in the catalog, with each package's install method **on this
@@ -195,11 +225,21 @@ machine**. A package that does not resolve here says `unsupported here` rather
 than being hidden; a package with a recorded `broken` or `retired` status is
 flagged with it.
 
+With `--json`, prints a `catalog` document
+([json-interface.md](json-interface.md)): every profile and package it
+lists, with each package's method on this machine.
+
 ### `hammunition show PROFILE`
 
 A profile's documentation, its package list, and — for a gated profile — the
 full consent disclosure, printed without installing anything. This is how an
 operator reads a disclosure before deciding, rather than while being asked.
+
+With `--json`, prints a `profile` document
+([json-interface.md](json-interface.md)), the disclosure included. Under
+`--json` only, `show` also accepts a unit's name and prints a `unit`
+document carrying its manifest; the text `show` still describes profiles
+only.
 
 ### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
 
@@ -305,6 +345,18 @@ open-source catalog manifest, with skip always an answer. Non-interactive
 runs note the skip and never block (the D-035 shape). Nothing from a
 suggestion group is ever installed silently.
 
+**With `--json` and `--dry-run`**, prints the plan as a `plan` document
+([json-interface.md](json-interface.md)): exactly what the text plan prints,
+section by section. A plan that refuses is still a `plan`, with `outcome:
+"refused"`, every blocker, and exit code 2. **Without `--dry-run`, `--json`
+is refused** with an `error` document and nothing runs: a real install is
+never driven through JSON (**D-059**). A front end runs the ordinary command
+in your terminal, where sudo, every consent gate and every disclosure are
+this CLI's, then reads `status --json`. The plan names your account, paths
+in your home and the station's map regions, so the document is for a local
+program, not for pasting into an issue. It never carries a rendered
+configuration file, so the callsign in one is not in it.
+
 ### `hammunition uninstall NAME... [--dry-run] [--yes] [--user NAME]`
 
 Removes what Hammunition itself installed, and only that (**D-004**). Names
@@ -359,6 +411,11 @@ After the commands complete, the removal is **verified** the same way an
 install is (**D-031**): apt is re-probed, every removed artifact path is
 re-checked absent, and the run is only reported clean when both confirm. A
 removal apt quietly declined exits 1 with `verified: false` in the log.
+
+With `--json` and `--dry-run`, prints the removal as a `plan` document
+([json-interface.md](json-interface.md)), the same shape as an install's
+with `removal` filled in. Without `--dry-run`, `--json` is refused and
+nothing is removed, as for `install`.
 
 ### `hammunition menus apply [--gnome] [--menu-prefix PREFIX]`
 
@@ -501,6 +558,12 @@ line to add to `~/.profile`. Remove the link with
 The closing line counts each, and the exit code is non-zero only when
 something is **blocking**. It is the natural first command after installing
 from the checkout, and the one to paste when asking for help.
+
+With `--json`, prints a `doctor` document
+([json-interface.md](json-interface.md)): each check's name, severity,
+detail and fix, and the counts. The exit code is the text run's. It keeps
+the count-only rule the text follows: no callsign, grid square or region
+name.
 
 ### `hammunition hardware list`
 
@@ -649,6 +712,10 @@ tray applet polls) gives one object per row with `"kept": bool` alongside
 `"parked"`; a kept device with nothing attached gets `"attached": false` and
 `"parked": null`, since there is no sysfs node to read a live answer from.
 
+With `--json`, prints a `hardware` document
+([json-interface.md](json-interface.md)): one object per row with the same
+keys the helper prints, plus any error reading the kept-off rules.
+
 ### `hammunition station show` / `hammunition station set`
 
 The values only you can supply — callsign, grid square, packet node alias,
@@ -672,7 +739,8 @@ hammunition station show
 
 A region list says where the operator lives or travels, so `station show`
 and `station set` print how many regions are set, never their names; the
-install plan is the one place they are printed. `docs/guides/offline-navigation.md`
+install plan is the one place the text prints them, and `station show
+--json` carries them for a local front end. `docs/guides/offline-navigation.md`
 is the operator's walk-through.
 
 Saved to `$XDG_CONFIG_HOME/hammunition/station.yml`, mode 0600, resolved
@@ -689,6 +757,14 @@ needed a callsign got an operator nowhere.
 because a configuration file written with a made-up callsign would transmit
 it. An interactive run offers to prompt for what the request actually needs;
 `--yes`, a pipe, or a value that is already known all skip the question.
+
+`station show --json` prints a `station` document
+([json-interface.md](json-interface.md)) carrying the values themselves:
+callsign, grid square, node alias, and every map region by name, because a
+local front end needs them to fill in a form. It is for local programs, not
+for pasting into an issue, a forum or a chat: a callsign resolves to a name
+and a licence address, and a grid square or a region says where the station
+is. `station set` has no JSON form.
 
 ## Launchers and menu entries
 

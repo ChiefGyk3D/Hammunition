@@ -20,7 +20,8 @@ not a declared target yet). Seven backends are
 written (apt, source, git, binary, venv — including a venv+payload hybrid —
 node, and third-party apt repositories against a pinned key), and
 `uninstall` reverses every one of them, not just apt. `./bootstrap.sh`
-installs the engine in one command; `hammunition doctor` reports what is ready;
+installs the engine in one command and links `hammunition` onto your PATH;
+`hammunition doctor` reports what is ready;
 `hammunition hardware` detects your radios and applies the udev rules and
 group membership they need; `hammunition update` reports what is installed
 against the catalog and, with `--upstream`, the catalog against what
@@ -95,11 +96,21 @@ What it does do, it does completely: `--dry-run` prints every command and every
 system change before anything happens, resolution finishes before installation
 begins so a failure is a report rather than a half-installed machine, and a
 package this engine cannot handle is **refused by name with the reason**, never
-skipped. See [`docs/reference/cli.md`](docs/reference/cli.md).
+skipped. See [`docs/reference/cli.md`](docs/reference/cli.md). The
+commands a front end reads (`status`, `list`, `show`, `update`, `doctor`,
+`station show`, `hardware state`, `maps regions`, and the `install` and
+`uninstall` plans under `--dry-run`) also print JSON with `--json`; see
+[`docs/reference/json-interface.md`](docs/reference/json-interface.md)
+(D-059).
 
 ```
 hammunition install rf-security --dry-run
 ```
+
+If the shell answers `command not found`, `./bootstrap.sh` has not run yet,
+or `~/.local/bin` is not on your PATH until you next log in. Run the
+checkout's `.venv/bin/hammunition` by its full path meanwhile;
+[installing the engine](docs/getting-started/install.md) covers each case.
 
 The other thing that is usable today is the research. `docs/reference/` contains
 complete, generated inventories of six upstream projects, with per-package

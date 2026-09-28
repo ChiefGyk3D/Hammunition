@@ -67,10 +67,10 @@ def test_the_privacy_rule_is_in_the_prose_docs() -> None:
     station = next(b for h, b in sections.items() if h.startswith("`hammunition station show"))
     install = next(b for h, b in sections.items() if h.startswith("`hammunition install"))
     for body in (station, install):
-        assert "not for pasting" in body
+        assert "not for pasting" in " ".join(body.split())
     decisions = (REPO_ROOT / "docs" / "DECISIONS.md").read_text()
-    d059 = decisions[decisions.index("## D-059") :]
-    assert "not for pasting" in d059
+    d059 = decisions[decisions.index("## D-059") : decisions.index("## D-060")]
+    assert "not for pasting" in " ".join(d059.split())
 
 
 def test_getting_started_says_bootstrap_puts_hammunition_on_the_path() -> None:
