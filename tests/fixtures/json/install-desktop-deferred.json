@@ -4,7 +4,7 @@
   "engine": "<engine>",
   "action": "install",
   "requested": [
-    "fixture-apt"
+    "fixture-desk"
   ],
   "outcome": "planned",
   "target": {
@@ -20,15 +20,15 @@
   "install": {
     "packages": [
       {
-        "name": "fixture-apt",
+        "name": "fixture-gps",
         "method": "apt",
         "state": "will install",
         "requested_by": [
-          "requested"
+          "profile fixture-desk"
         ],
         "apt": [
           {
-            "package": "fixture-apt",
+            "package": "fixture-gps",
             "outstanding": true,
             "build_only": false
           }
@@ -44,8 +44,24 @@
     "memberships": [],
     "consent_gates": [],
     "config_files": [],
-    "desktops_read": null,
-    "deferrals": [],
+    "desktops_read": {
+      "desktops": [
+        "xfce"
+      ],
+      "unrecognised": [
+        "sway.desktop"
+      ],
+      "summary": "Xfce; also sway.desktop, which names no desktop the catalog knows"
+    },
+    "deferrals": [
+      {
+        "kind": "package",
+        "subject": "fixture-tray",
+        "what": "will not be installed (profile fixture-desk)",
+        "why": "for KDE Plasma; this machine has no KDE Plasma session (it has: Xfce)",
+        "remedy": "the rest installs without it; on a machine that gains a KDE Plasma session, `hammunition install fixture-desk` again picks it up"
+      }
+    ],
     "notes": [],
     "records": {
       "log": "<tmp>/xdg_state_home/hammunition/transactions.jsonl",
@@ -67,7 +83,7 @@
       },
       {
         "description": "Install 1 package(s) with apt",
-        "display": "sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-remove -- fixture-apt",
+        "display": "sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-remove -- fixture-gps",
         "argv": [
           "sudo",
           "env",
@@ -77,7 +93,7 @@
           "--yes",
           "--no-remove",
           "--",
-          "fixture-apt"
+          "fixture-gps"
         ],
         "action": null,
         "requires_root": true

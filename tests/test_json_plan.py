@@ -18,6 +18,7 @@ from typing import Any
 import pytest
 
 from hammunition.backends import Action, Command
+from hammunition.desktop import Desktop
 from hammunition.distro import Target
 from hammunition.manifest.schema import AptRepo, ConfigFile, ConsentGate, PackageManifest
 from hammunition.plan import Deferral, GroupMembership, InstallPlan, PlannedPackage, RepoAddition
@@ -140,7 +141,17 @@ def rich_plan() -> tuple[InstallPlan, list[Any]]:
                 why="no callsign set",
                 remedy="hammunition station set --callsign N0TST",
             ),
+            Deferral(
+                subject="fixture-tray",
+                what="will not be installed (profile fixture-station)",
+                why="for KDE Plasma; this machine has no KDE Plasma session (it has: Xfce)",
+                remedy="the rest installs without it; on a machine that gains a KDE Plasma "
+                "session, `hammunition install fixture-station` again picks it up",
+                kind="package",
+            ),
         ),
+        desktops_read=frozenset({Desktop.xfce}),
+        sessions_unrecognised=("sway.desktop",),
         config_files=(
             (
                 "fixture-apt",
@@ -333,3 +344,29 @@ def test_the_plan_document_never_carries_a_rendered_config_file() -> None:
     assert "/etc/fixture-apt.conf" in text
     assert rendered not in text
     assert "template" not in text
+
+
+def test_the_navit_config_step_reads_the_same_in_the_text_and_the_json(tmp_path: Path) -> None:
+    """#130's Navit step names the centre and the follow; it is a step
+    description, so the view carries it verbatim and the text prints it."""
+    from hammunition.geofabrik import RegionFile
+    from hammunition.interface.envelope import target_view
+    from hammunition.interface.plan import build_install_view, render_plan_view
+    from test_regions_backend import _converted, _derived, _install_region, navit_manifest
+
+    region = RegionFile(
+        "test-land/region-one", "260101", "https://example.invalid/r.osm.pbf", 10, None, None
+    )
+    _install_region(tmp_path, region)
+    _converted(tmp_path, region)
+    navit = navit_manifest()
+    block = navit.install[0].install
+    steps: list[Any] = _derived(tmp_path, [region]).steps(navit, block)  # type: ignore[arg-type]
+    config_step = steps[-1]
+    assert "centred on the first region" in config_step.description
+    assert 'follow="1"' in config_step.description
+    plan, _maps = maps_plan()
+    view = build_install_view(plan, steps, euid=1000)
+    assert view.commands[-1].description == config_step.description
+    text = "\n".join(render_plan_view(view, target=target_view(plan.target)))
+    assert f"  # {config_step.description}" in text

@@ -13,6 +13,50 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 Nothing yet.
 
+## v0.11.0 — 2026-09-28 — lighter desktops welcomed, and Navit opens on your maps
+
+Two pull requests merged since v0.10.0. Parrot and KDE Plasma stay first;
+Xfce and LXQt (Lubuntu) are welcomed, and nothing about them is claimed
+until the VM runs.
+
+### Engine
+
+- Desktop detection from the session files a display manager lists
+  (`DesktopNames=`, with a measured fallback for LXDE and Cinnamon, whose
+  files carry none). A new `desktops` / `desktop_alternative` manifest pair
+  lets a unit serve particular desktops: a profile member for a desktop the
+  machine lacks is deferred by name and the rest installs; typed by name, it
+  is refused with the alternative named. `doctor` reports the desktops read
+  (#129, D-060).
+- Navit opens on the maps and follows the GPS. The generated config used to
+  keep Navit's stock start point, Munich, and never followed the gpsd
+  vehicle, so it showed a blank screen even with a 3D fix. It now centres on
+  the first region's bounding box, read from the PBF header (bounded, and
+  only the header), and adds `follow="1"`. Both are soft: when either cannot
+  be done, the config is still written and the step says why (#130, D-057
+  amendment).
+- Navit's map size estimate goes from 0.8x to 0.9x of the download, after
+  two US-state-sized regions converted at 0.874x and 0.856x on the field
+  laptop. maptool's scratch files are removed once a region's map is
+  installed (#130).
+
+### Catalog
+
+- `hammunition-tray-qt`, the tray for Xfce, LXQt, LXDE, MATE and Cinnamon,
+  pinned from hammunition-tray v0.3.0, and `hammunition-tray` re-pinned to
+  v0.3.0 with `desktops: [kde]`; both in `station`, each naming the other.
+  `station` no longer pulls the Plasma shell onto a machine without it
+  (#129).
+
+### Documentation
+
+- `docs/desktops.md`: every desktop's menu mechanism, tray and weight,
+  unmeasured marked unmeasured; Lubuntu is LXQt, not LXDE.
+  `docs/reference/vm-campaign-desktops.md` is the Xubuntu and Lubuntu
+  checklist, not yet run (#129).
+- `docs/guides/offline-navigation.md`: "Navit opens on a blank map", and
+  that scratch stays after a failed conversion (#130).
+
 ## v0.10.0 — 2026-09-28 — device power control, offline navigation, the family's own units
 
 14 pull requests merged between 2026-09-13 and 2026-09-28. Still beta: the

@@ -54,9 +54,14 @@ from hammunition.manifest.schema import (
     RegionalDataInstall,
     RemoteArtifact,
 )
+from test_osm_pbf import pbf
 
 FIXTURE = Path(__file__).parent / "fixtures" / "navit.xml"
 BODY = b"p" * 10
+#: Synthetic boxes, nowhere in particular: (left, right, top, bottom).
+VT_BOX = (-73.0, -71.0, 45.0, 43.0)
+NH_BOX = (-72.0, -70.0, 46.0, 42.0)
+BOXES = {"north-america-us-vermont": VT_BOX, "north-america-us-new-hampshire": NH_BOX}
 
 VT = RegionFile(
     "north-america/us/vermont",
@@ -199,10 +204,14 @@ def _derived(tmp_path: Path, files: Sequence[RegionFile], **kw: Any) -> DerivedB
     return DerivedBackend(prefix=tmp_path, files=files, staging=tmp_path / "staging", **kw)
 
 
-def _install_region(tmp_path: Path, region: RegionFile) -> None:
+def _install_region(tmp_path: Path, region: RegionFile, body: bytes | None = None) -> None:
+    """An installed region whose ``.osm.pbf`` is a synthetic header (the centre
+    Navit opens on is read from it), or *body*."""
     out = _data(tmp_path, "osm-regions")
     out.mkdir(parents=True, exist_ok=True)
-    (out / f"{region.slug}.osm.pbf").write_bytes(BODY)
+    if body is None:
+        body = pbf(BOXES.get(region.slug, VT_BOX))
+    (out / f"{region.slug}.osm.pbf").write_bytes(body)
     (out / f"{region.slug}.osm.pbf.source").write_text(f"{region.snapshot}\n")
 
 
@@ -321,7 +330,7 @@ def test_a_cache_file_swapped_for_a_symlink_is_not_installed(
 def test_a_region_already_installed_at_this_snapshot_is_not_fetched_again(
     tmp_path: Path, manifest_regions: PackageManifest, block_regions: RegionalDataInstall
 ) -> None:
-    _install_region(tmp_path, VT)
+    _install_region(tmp_path, VT, BODY)  # current means its size too
     steps: list[Any] = _regions(tmp_path, [VT, NH]).steps(manifest_regions, block_regions)
     out = _data(tmp_path, "osm-regions")
     assert [s.detail for s in _kinds(steps, "install-data")] == [
@@ -448,7 +457,7 @@ def test_each_conversion_states_an_output_size_estimate(
     """Fix round 1, item 8 (spec §5)."""
     (convert,) = _kinds(_derived(tmp_path, [VT]).steps(manifest_navit, block_navit), "convert")
     assert "0 KB" in convert.description
-    assert "estimate, measured on one region" in convert.description
+    assert "estimate, measured on three regions" in convert.description
 
 
 def _fake_maptool(
@@ -676,6 +685,131 @@ def test_maptool_that_writes_nothing_or_fails_fails_that_region_and_leaves_no_te
     assert list((tmp_path / "staging").glob("*")) == []
 
 
+#: What maptool left in the staging directory after a successful conversion
+#: on the bench (2026-09-28): its per-country boundary scratch.
+SCRATCH = ("country_840_broken_.tmp", "country_US_poly_.tmp")
+
+
+def _litter(staging: Path, outside: Path) -> dict[str, Path]:
+    """Scratch to remove, and look-alikes that must stay."""
+    staging.mkdir(parents=True, exist_ok=True)
+    for name in SCRATCH:
+        (staging / name).write_bytes(b"scratch")
+    outside.write_bytes(b"not maptool's")
+    keep = {
+        # a symlink named like scratch: removing it is harmless, but only a
+        # regular file is maptool's, and the target must never be touched
+        "link": staging / "country_124_poly_.tmp",
+        "dir": staging / "country_484_broken_.tmp",
+        "other-region": staging / f"{NH.slug}.bin.part",
+        "other-tmp": staging / "coords.tmp",
+        "near-miss": staging / "country_840.tmp",
+        # fullmatch, not match or search: a scratch name with more around it
+        # is not maptool's (fix round 1, M7)
+        "suffixed": staging / "country_US_poly_.tmp.keep",
+        "prefixed": staging / "old-country_US_poly_.tmp",
+    }
+    keep["link"].symlink_to(outside)
+    keep["dir"].mkdir()
+    for name in ("other-region", "other-tmp", "near-miss", "suffixed", "prefixed"):
+        keep[name].write_bytes(b"keep")
+    return keep
+
+
+def test_maptool_scratch_is_removed_once_the_map_is_installed(
+    tmp_path: Path,
+    manifest_navit: PackageManifest,
+    block_navit: DerivedDataInstall,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Bench, 2026-09-28: country_*_broken_.tmp and country_*_poly_.tmp stayed behind."""
+    _fake_maptool(monkeypatch, write=b"navit-bin")
+    _install_region(tmp_path, VT)
+    staging = tmp_path / "staging"
+    outside = tmp_path / "precious"
+    keep = _litter(staging, outside)
+    steps: list[Any] = _derived(tmp_path, [VT]).steps(manifest_navit, block_navit)
+    convert, install = _kinds(steps, "convert")[0], _kinds(steps, "install-data")[0]
+    assert "country_*_broken_.tmp" in install.description
+    assert str(staging) in install.description
+    convert.perform()
+    # Nothing is removed before the map is installed.
+    assert all((staging / name).exists() for name in SCRATCH)
+    result = install.perform()
+    assert "removed 2 maptool scratch file(s)" in result
+    assert not any((staging / name).exists() for name in SCRATCH)
+    assert all(p.is_symlink() or p.exists() for p in keep.values())
+    assert outside.read_bytes() == b"not maptool's"
+
+
+def test_scratch_is_left_when_the_map_did_not_install(
+    tmp_path: Path,
+    manifest_navit: PackageManifest,
+    block_navit: DerivedDataInstall,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fake_maptool(monkeypatch, write=None)
+    _install_region(tmp_path, VT)
+    staging = tmp_path / "staging"
+    _litter(staging, tmp_path / "precious")
+    steps: list[Any] = _derived(tmp_path, [VT]).steps(manifest_navit, block_navit)
+    for step in _acts(steps)[:2]:
+        step.perform()
+    assert all((staging / name).exists() for name in SCRATCH)
+
+
+def test_under_root_scratch_is_removed_through_the_operator_dir_helper(
+    tmp_path: Path,
+    manifest_navit: PackageManifest,
+    block_navit: DerivedDataInstall,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Root removes by name through a descriptor the helper proved the
+    operator's, O_NOFOLLOW from their home; never by path."""
+    _as_root_for_operator(monkeypatch, tmp_path)
+    _AsOperator(monkeypatch)
+    staging = tmp_path / "staging"
+    _litter(staging, tmp_path / "precious")
+    asked: list[tuple[Path, str | None]] = []
+
+    def helper(path: Path, owner: str | None = None) -> int:
+        asked.append((path, owner))
+        return os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+
+    monkeypatch.setattr("hammunition.backends.derived.open_operator_dir", helper)
+    _install_region(tmp_path, VT)
+    backend = _derived(tmp_path, [VT], euid=0, owner=OPERATOR.pw_name, privileged=False)
+    for step in _acts(backend.steps(manifest_navit, block_navit))[:2]:
+        step.perform()
+    assert asked == [(staging, OPERATOR.pw_name)]
+    assert not any((staging / name).exists() for name in SCRATCH)
+
+
+def test_a_staging_directory_refused_by_the_helper_is_named_and_not_cleared(
+    tmp_path: Path,
+    manifest_navit: PackageManifest,
+    block_navit: DerivedDataInstall,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from hammunition.paths import OperatorDirError
+
+    _fake_maptool(monkeypatch, write=b"navit-bin")
+    _install_region(tmp_path, VT)
+    staging = tmp_path / "staging"
+    _litter(staging, tmp_path / "precious")
+
+    def refuse(path: Path, owner: str | None = None) -> int:
+        raise OperatorDirError(f"{path} is a symlink")
+
+    monkeypatch.setattr("hammunition.backends.derived.open_operator_dir", refuse)
+    steps: list[Any] = _derived(tmp_path, [VT]).steps(manifest_navit, block_navit)
+    _acts(steps)[0].perform()
+    result = _acts(steps)[1].perform()
+    assert result.startswith("installed ")
+    assert "scratch not cleared" in result and "is a symlink" in result
+    assert all((staging / name).exists() for name in SCRATCH)
+
+
 def test_one_failed_conversion_leaves_navit_the_others(
     tmp_path: Path,
     manifest_navit: PackageManifest,
@@ -745,6 +879,131 @@ def test_a_dropped_region_loses_its_navit_map_and_a_kept_one_does_not(
     assert f"{VT.slug}.bin" in config and f"{NH.slug}.bin" in config
 
 
+def _navit_center(config: str) -> str:
+    start = config.index("<navit ")
+    tag = config[start : config.index(">", start)]
+    return tag.split('center="', 1)[1].split('"', 1)[0]
+
+
+def test_navit_opens_on_the_first_region_s_bbox_midpoint(
+    tmp_path: Path, manifest_navit: PackageManifest, block_navit: DerivedDataInstall
+) -> None:
+    """Bench, 2026-09-28: Navit opened on the stock centre, Munich, and showed nothing."""
+    for region in (VT, NH):
+        _install_region(tmp_path, region)
+        _converted(tmp_path, region)
+    steps: list[Any] = _derived(tmp_path, [VT, NH]).steps(manifest_navit, block_navit)
+    assert (
+        "centred on the first region whose header gives a bounding box, "
+        "else the stock centre" in steps[-1].description
+    )
+    assert "follow" in steps[-1].description
+    steps[-1].perform()
+    config = (_data(tmp_path, "osm-navit") / "navit.xml").read_text()
+    assert _navit_center(config) == "-72.0000 44.0000"
+    assert 'follow="1" source="gpsd://' in config
+
+
+def test_a_first_region_that_did_not_convert_gives_way_to_the_next(
+    tmp_path: Path,
+    manifest_navit: PackageManifest,
+    block_navit: DerivedDataInstall,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fake_maptool(monkeypatch, write=b"navit-bin", fail_for=VT.slug)
+    _install_region(tmp_path, VT)
+    _install_region(tmp_path, NH)
+    backend = _derived(tmp_path, [VT, NH])
+    for step in _acts(backend.steps(manifest_navit, block_navit)):
+        step.perform()
+    config = (_data(tmp_path, "osm-navit") / "navit.xml").read_text()
+    assert _navit_center(config) == "-71.0000 44.0000"
+
+
+def test_a_region_header_without_a_bbox_keeps_the_stock_centre_and_says_so(
+    tmp_path: Path, manifest_navit: PackageManifest, block_navit: DerivedDataInstall
+) -> None:
+    _install_region(tmp_path, VT, pbf(None))
+    _converted(tmp_path, VT)
+    steps: list[Any] = _derived(tmp_path, [VT]).steps(manifest_navit, block_navit)
+    result = steps[-1].perform()
+    assert "stock centre" in result
+    config = (_data(tmp_path, "osm-navit") / "navit.xml").read_text()
+    assert _navit_center(config) == "11.5666 48.1333"
+
+
+def test_the_outcome_names_the_region_the_centre_came_from(
+    tmp_path: Path, manifest_navit: PackageManifest, block_navit: DerivedDataInstall
+) -> None:
+    for region in (VT, NH):
+        _install_region(tmp_path, region)
+        _converted(tmp_path, region)
+    steps: list[Any] = _derived(tmp_path, [VT, NH]).steps(manifest_navit, block_navit)
+    assert f"opening on -72.0000 44.0000 (from {VT.slug})" in steps[-1].perform()
+
+
+def test_a_first_region_whose_pbf_is_gone_is_named_not_silently_skipped(
+    tmp_path: Path, manifest_navit: PackageManifest, block_navit: DerivedDataInstall
+) -> None:
+    """Fix round 1, M4: a kept region's .bin with no .osm.pbf beside it."""
+    _install_region(tmp_path, NH)
+    for region in (VT, NH):
+        _converted(tmp_path, region)
+    steps: list[Any] = _derived(tmp_path, [VT, NH]).steps(manifest_navit, block_navit)
+    result = steps[-1].perform()
+    gone = _data(tmp_path, "osm-regions") / f"{VT.slug}.osm.pbf"
+    assert f"passed over {gone}: not installed" in result
+    assert f"(from {NH.slug})" in result
+
+
+def test_not_exactly_one_gpsd_vehicle_writes_the_config_and_says_navit_will_not_follow(
+    tmp_path: Path, manifest_navit: PackageManifest, block_navit: DerivedDataInstall
+) -> None:
+    """Fix round 1, I2: soft, like the centre."""
+    # Not _stock()'s path: _derived() rewrites that one from the fixture.
+    stock = tmp_path / "serial-navit.xml"
+    stock.write_text(
+        FIXTURE.read_text().replace(
+            'enabled="yes" active="1" source="gpsd://', 'enabled="no" active="1" source="gpsd://'
+        )
+    )
+    _install_region(tmp_path, VT)
+    _converted(tmp_path, VT)
+    steps: list[Any] = _derived(tmp_path, [VT], stock=stock).steps(manifest_navit, block_navit)
+    result = steps[-1].perform()
+    assert "Navit will not follow the GPS: " in result
+    assert "0 enabled" in result
+    config = (_data(tmp_path, "osm-navit") / "navit.xml").read_text()
+    assert f"{VT.slug}.bin" in config
+    assert 'follow="1" source="gpsd://' not in config
+
+
+def test_one_gpsd_vehicle_says_nothing_about_not_following(
+    tmp_path: Path, manifest_navit: PackageManifest, block_navit: DerivedDataInstall
+) -> None:
+    _install_region(tmp_path, VT)
+    _converted(tmp_path, VT)
+    steps: list[Any] = _derived(tmp_path, [VT]).steps(manifest_navit, block_navit)
+    assert "will not follow" not in steps[-1].perform()
+
+
+def test_a_malformed_region_header_is_named_and_passed_over_not_fatal(
+    tmp_path: Path, manifest_navit: PackageManifest, block_navit: DerivedDataInstall
+) -> None:
+    """The config still loads every map; failing the step would leave Navit none,
+    and would hide the ledger's report of a region that did fail."""
+    _install_region(tmp_path, VT, BODY)
+    _install_region(tmp_path, NH)
+    for region in (VT, NH):
+        _converted(tmp_path, region)
+    steps: list[Any] = _derived(tmp_path, [VT, NH]).steps(manifest_navit, block_navit)
+    result = steps[-1].perform()
+    assert f"passed over {_data(tmp_path, 'osm-regions') / f'{VT.slug}.osm.pbf'}" in result
+    config = (_data(tmp_path, "osm-navit") / "navit.xml").read_text()
+    assert _navit_center(config) == "-71.0000 44.0000"
+    assert f"{VT.slug}.bin" in config
+
+
 # ---------------------------------------------------------------------------
 # Disclosure and disk space
 # ---------------------------------------------------------------------------
@@ -766,10 +1025,12 @@ def test_the_plan_prints_one_line_per_region() -> None:
 
 def test_disk_needs_count_the_cache_the_staging_and_the_prefix(tmp_path: Path) -> None:
     """Fix round 1, item 2: the cache holds a copy too. Fix round 2, item 2:
-    maptool's scratch (2x the input) and its .bin (0.8x), measured on one region."""
+    maptool's scratch (2x the input) and its .bin (0.9x). The .bin factor was
+    0.8 from one country-sized region; two US-state-sized regions on the field
+    laptop, 2026-09-28, converted at 0.874x and 0.856x, so it was raised."""
     big = RegionFile("x/big", "260101", "https://x/big.osm.pbf", 1000, None, "c" * 32)
     needs = disk_needs([big], [big], cache=tmp_path / "c", staging=tmp_path / "s", prefix=tmp_path)
-    assert needs == {tmp_path / "c": 1000, tmp_path / "s": 2800, tmp_path: 1800}
+    assert needs == {tmp_path / "c": 1000, tmp_path / "s": 2900, tmp_path: 1900}
 
 
 def test_a_region_installed_but_not_converted_still_needs_conversion_space(
@@ -778,7 +1039,7 @@ def test_a_region_installed_but_not_converted_still_needs_conversion_space(
     """Fix round 2, item 3: an osm-navit-only run is disk-checked too."""
     big = RegionFile("x/big", "260101", "https://x/big.osm.pbf", 1000, None, "c" * 32)
     needs = disk_needs([], [big], cache=tmp_path / "c", staging=tmp_path / "s", prefix=tmp_path)
-    assert needs == {tmp_path / "c": 0, tmp_path / "s": 2800, tmp_path: 800}
+    assert needs == {tmp_path / "c": 0, tmp_path / "s": 2900, tmp_path: 900}
 
 
 def test_derived_pending_names_the_regions_it_will_convert(
@@ -796,7 +1057,7 @@ def test_disk_needs_on_one_file_system_are_summed_against_one_free_figure(
     assert disk_shortfall(needs, free_at=lambda _p: 120, **same) is None
     message = disk_shortfall(needs, free_at=lambda _p: 119, **same)
     assert message is not None
-    assert "estimate, measured on one region" in message
+    assert "estimate, measured on three regions" in message
     assert "120" in message and "119" in message
     # On separate file systems each is compared with its own free space.
     split = {"device_of": lambda p: hash(str(p))}

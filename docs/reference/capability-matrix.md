@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 57 | 2 | 195 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 57 | 2 | 195 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 55 | 2 | 197 |
-| kali-rolling *(unswept)* | 0 | 0 | 52 | 0 | 202 |
-| parrot *(unswept)* | 0 | 0 | 55 | 2 | 197 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 55 | 2 | 197 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 54 | 5 | 195 |
+| debian-13 *(unswept)* | 0 | 0 | 58 | 2 | 195 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 58 | 2 | 195 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 56 | 2 | 197 |
+| kali-rolling *(unswept)* | 0 | 0 | 53 | 0 | 202 |
+| parrot *(unswept)* | 0 | 0 | 56 | 2 | 197 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 56 | 2 | 197 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 55 | 5 | 195 |
 
-**254 manifests** against **7 targets**.
+**255 manifests** against **7 targets**.
 
 ---
 
@@ -155,6 +155,7 @@ build HAS been run in a container say so in their own install notes.
 | `hamexam` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `hammunition-hill` | binary | binary | binary | binary | binary | binary | binary |
 | `hammunition-tray` | binary | binary | binary | binary | binary | binary | binary |
+| `hammunition-tray-qt` | binary | binary | binary | binary | binary | binary | binary |
 | `hcxdumptool` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `hcxtools` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `ibp` | source | source | source | source | source | source | source |

@@ -242,11 +242,11 @@ Map regions, from station config (D-057):
   will be downloaded and installed:
     north-america/us/vermont        260101    44.4 MB  sha256, pinned by Hammunition
     north-america/us/new-hampshire  260101    68.1 MB  sha256, pinned by Hammunition
-  will be converted for Navit (map sizes an estimate, measured on one region):
-    north-america/us/vermont        260101  about 35.5 MB
-    north-america/us/new-hampshire  260101  about 54.5 MB
+  will be converted for Navit (map sizes an estimate, measured on three regions, scratch on one):
+    north-america/us/vermont        260101  about 40.0 MB
+    north-america/us/new-hampshire  260101  about 61.3 MB
       licence: ODbL-1.0, stated at https://www.openstreetmap.org/copyright
-      download total: 0.11 GB; about 0.20 GB of disk with Navit's maps (estimate, measured on one region)
+      download total: 0.11 GB; about 0.21 GB of disk with Navit's maps (estimate, measured on three regions, scratch on one)
       installs under <prefix>/share/hammunition/data/
 ```
 
@@ -271,8 +271,10 @@ no network at all, so this is checked explicitly rather than discovered
 mid-transaction after apt has already run; an already-installed region is
 never probed), when `/etc/navit/navit.xml` is missing and navit is not
 in the transaction, and when a file system is short of the estimated space
-(the download in the cache and the prefix, the converted map at 0.8× and
-maptool's scratch at 2× the download, both factors measured on one region;
+(the download in the cache and the prefix, the converted map at 0.9× and
+maptool's scratch at 2× the download; the map factor measured on three
+regions — 0.77× on a country-sized one, 0.874× and 0.856× on two
+US-state-sized ones — and the scratch factor on one;
 the refusal prints the estimate and what is free). With no regions set the
 two units are deferred by name and the rest installs (**D-035**). A region
 that fails during the run — a download that does not verify, a conversion
@@ -452,7 +454,7 @@ A **read-only** health check: is this machine ready, and what is not yet set
 up. It changes nothing, and it is the first thing to run on a fresh machine
 or when something misbehaves — it turns the failures the engine would
 otherwise hit mid-transaction into a report you read up front, each with the
-one command that fixes it. Twelve checks across four severities:
+one command that fixes it. Thirteen checks across four severities:
 
 - **fail** — the engine cannot work until fixed (not a Debian-family system;
   no catalog). Exits non-zero.
@@ -462,6 +464,16 @@ one command that fixes it. Twelve checks across four severities:
 - **info** — a true fact that is not a problem (no ham hardware attached
   right now; udev rules not yet applied on a machine with no radios).
 - **ok** — checked and healthy.
+
+The **desktops** check is always information (**D-060**): the desktops
+the session files in `/usr/share/xsessions` and `/usr/share/wayland-sessions`
+(and the same under `/usr/local/share`) offer, which is what `install` decides a unit for one desktop against, and
+the desktop of the session you are in, from `$XDG_CURRENT_DESKTOP`. Under
+`sudo` that variable is usually gone, and the line says the session's
+desktop is not known rather than guessing. A machine with no session files
+(a server, a container) is reported as such. Session files that name no
+desktop the catalog knows (COSMIC, Sway) are named as read, so a graphical
+machine is never reported as a server. See `docs/desktops.md`.
 
 The closing line counts each, and the exit code is non-zero only when
 something is **blocking**. It is the natural first command after installing
@@ -719,7 +731,17 @@ Resolution is a distinct phase that finishes before anything is executed
    *own* packages, or the distribution's Node is below the manifest's floor
    — and for one fact about the *machine*: the running kernel lacks a
    subsystem the manifest's `requires_kernel` names (**D-041**; Linux 7.1
-   removed AX.25, and Kali on 7.1.5 defers eight `packet` members).
+   removed AX.25, and Kali on 7.1.5 defers eight `packet` members) — and
+   for another: the unit's `desktops` names none of the desktops the
+   session files under `/usr/share/xsessions` and
+   `/usr/share/wayland-sessions` (and the same under `/usr/local/share`)
+   offer (**D-060**; `station` defers the
+   Plasma applet `hammunition-tray` on an Xfce or LXQt machine rather than
+   pull in `plasma-workspace`). When a unit declares `desktops`, the plan
+   prints *Desktops read from session files* with what they offered, and
+   any file it read that named no desktop the catalog knows. A dependent of
+   a unit deferred this way, and a profile of nothing else, name the
+   desktop as the cause rather than the target.
    The member and its catalog dependents are listed under *Will NOT happen*
    with the reason, and the rest of the profile installs (**D-039**). A
    name you typed is never deferred: `hammunition install satdump` on
@@ -777,6 +799,7 @@ capability matrix that reports coverage the engine does not have is the shim
 | No apt package lists at all, and `--no-refresh` | that this is a stale-lists problem, and that dropping `--no-refresh` lets this run fix it. Without the flag, the run's own `apt-get update` comes first and the plan says instead that the candidate check cannot be done before it |
 | A group membership with no identifiable operator | that `--user` is needed |
 | A unit whose `requires_kernel` names a subsystem the running kernel's module tree lacks | the unit, the kernel release and the merge that removed the subsystem, with the remedies that exist: a distribution kernel that still carries it, or the userspace path (Direwolf's KISS/AGW ports serve pat, LinBPQ, YAAC and Xastir without kernel AX.25). Never an offer to build the module — no distribution packages one, and Hammunition builds no kernel modules (**D-041**). A *profile* member is deferred instead, the D-039 shape. No module tree for the running kernel at all — a container — is disclosed as *cannot be checked* and the unit plans |
+| A unit whose `desktops` names none of the desktops this machine's session files offer | the unit, the desktops it is for and the ones the machine has (`(it has no session files)` on a server or container, and `(its session files name none the catalog knows: …)` on a machine whose only desktop the catalog does not name), and the remedy: the unit its manifest names in `desktop_alternative` when that one serves a desktop the machine has, otherwise installing a session for the unit's desktop first. A *profile* member is deferred instead, the D-039 shape (**D-060**) |
 
 The dependency check is the one that earns its keep. **D-016** names four AHRL
 dependency lines suspected of failing silently for years — `fftw2` (FFTW

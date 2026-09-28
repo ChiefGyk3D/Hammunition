@@ -74,6 +74,12 @@ def test_a_kernel_requirement_is_rendered_on_the_page(rendered: dict[str, str]) 
     assert "Needs from the kernel" not in rendered["direwolf.md"]
 
 
+def test_a_desktop_restriction_is_rendered_on_the_page(rendered: dict[str, str]) -> None:
+    """`desktops` is why the tray is deferred on an Xfce machine (D-060)."""
+    assert "- **Desktops:** KDE Plasma only" in rendered["hammunition-tray.md"]
+    assert "**Desktops:**" not in rendered["direwolf.md"]
+
+
 def test_an_installed_tree_is_disclosed_as_a_change_to_the_machine(
     rendered: dict[str, str],
 ) -> None:

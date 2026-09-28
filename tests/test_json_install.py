@@ -180,3 +180,110 @@ def test_a_refusal_after_resolution_is_a_refused_plan_with_its_reason(
     assert doc["blockers"] == [
         {"subject": "navit configuration", "reason": "the stock file is missing", "remedy": None}
     ]
+
+
+# D-060: a unit for one desktop, on a machine whose session files name another.
+# A throwaway catalog, so the shared fixture catalog's goldens do not move.
+
+_DESK_UNIT = """name: {name}
+version: "1.0"
+summary: The {name} fixture
+categories: [digital-modes]
+{extra}install:
+  - install:
+      method: apt
+      packages: [{name}]
+update:
+  probe:
+    method: apt_policy
+documentation:
+  what_it_does: Stands in for a unit in the desktop plan golden test.
+  why_you_want_it: The desktop deferral needs a profile to be deferred from.
+  upstream_url: https://example.invalid/{name}
+"""
+
+
+def _desktop_catalog(root: Path) -> Path:
+    (root / "packages").mkdir(parents=True)
+    (root / "profiles").mkdir()
+    (root / "packages" / "fixture-gps.yaml").write_text(
+        _DESK_UNIT.format(name="fixture-gps", extra="")
+    )
+    (root / "packages" / "fixture-tray.yaml").write_text(
+        _DESK_UNIT.format(name="fixture-tray", extra="desktops: [kde]\n")
+    )
+    (root / "profiles" / "fixture-desk.yaml").write_text(
+        """name: fixture-desk
+summary: A GPS unit and a Plasma tray, as a profile
+packages: [fixture-gps, fixture-tray]
+documentation:
+  what_it_installs: A fixture unit for any desktop and one for KDE Plasma only.
+  why_together: The desktop deferral needs a profile member it can defer.
+  deliberately_excludes: Everything real.
+  manual_configuration: Nothing; it is a fixture.
+"""
+    )
+    return root
+
+
+def test_the_plasma_tray_deferred_on_an_xfce_machine(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The session files name Xfce: the desktops read and the tray's deferral,
+    with its reason and remedy, are in the document as the text prints them."""
+    from hammunition.desktop import Desktop, SessionScan
+    from hammunition.interface.plan import describe_sessions, render_plan_view
+
+    paths = _machine(monkeypatch, tmp_path)
+    catalog = _desktop_catalog(tmp_path / "catalog")
+    paths[str(catalog)] = "<catalog>"
+    monkeypatch.setattr(
+        cli,
+        "scan_sessions",
+        lambda: SessionScan(desktops=frozenset({Desktop.xfce}), unrecognised=("sway.desktop",)),
+    )
+
+    def run(*argv: str) -> tuple[int, str]:
+        rc = cli.main(["--catalog", str(catalog), *argv])
+        return rc, capsys.readouterr().out
+
+    rc, out = run("install", "--dry-run", "--json", "fixture-desk")
+    doc = parse_one(out)
+    assert rc == 0 and doc["outcome"] == "planned"
+    validate(doc)
+    install = doc["install"]
+    assert install["desktops_read"] == {
+        "desktops": ["xfce"],
+        "unrecognised": ["sway.desktop"],
+        "summary": "Xfce; also sway.desktop, which names no desktop the catalog knows",
+    }
+    (tray,) = [d for d in install["deferrals"] if d["subject"] == "fixture-tray"]
+    assert tray["kind"] == "package"
+    assert "no KDE Plasma session (it has: Xfce)" in tray["why"]
+    assert [p["name"] for p in install["packages"]] == ["fixture-gps"]
+    assert_golden("install-desktop-deferred", doc, paths)
+
+    _rc, text = run("install", "--dry-run", "fixture-desk")
+    assert_golden_text("install-desktop-deferred", _placeholders(text, paths))
+    assert "Desktops read from session files" in text
+    assert_text_values_in_json(text, doc, render_plan_view, describe_sessions, cli.cmd_install)
+
+
+def test_the_plasma_tray_typed_by_name_is_refused_with_the_desktop_reason(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from hammunition.desktop import Desktop, SessionScan
+
+    _machine(monkeypatch, tmp_path)
+    catalog = _desktop_catalog(tmp_path / "catalog")
+    monkeypatch.setattr(
+        cli, "scan_sessions", lambda: SessionScan(desktops=frozenset({Desktop.xfce}))
+    )
+    rc = cli.main(["--catalog", str(catalog), "install", "--dry-run", "--json", "fixture-tray"])
+    doc = parse_one(capsys.readouterr().out)
+    assert rc == cli.EXIT_UNPLANNABLE and doc["outcome"] == "refused"
+    validate(doc)
+    (blocker,) = doc["blockers"]
+    assert blocker["subject"] == "fixture-tray"
+    assert "no KDE Plasma session (it has: Xfce)" in blocker["reason"]
+    assert blocker["remedy"].startswith("fixture-tray does nothing without a KDE Plasma session")

@@ -123,3 +123,72 @@ def test_doctor_warns_about_a_kept_entry_with_nothing_attached() -> None:
 
 def test_doctor_says_nothing_about_kept_when_none_is_kept() -> None:
     assert not [c for c in run_checks(**HEALTHY) if c.name == "kept off"]  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# Desktops (D-060): what the session files offer, and the session's own
+# ---------------------------------------------------------------------------
+
+
+def _with(**extra: object) -> list[Check]:
+    return run_checks(**{**HEALTHY, **extra})  # type: ignore[arg-type]
+
+
+def test_desktops_are_reported_from_session_files_and_the_session() -> None:
+    from hammunition.desktop import Desktop
+
+    checks = _with(
+        desktops_installed=frozenset({Desktop.kde, Desktop.xfce}), desktop_current=Desktop.kde
+    )
+    desktops = _by_name(checks)["desktops"]
+    assert desktops.status == "info"
+    assert desktops.detail == "session files offer KDE Plasma, Xfce; this session is KDE Plasma"
+
+
+def test_an_unknown_session_says_why_it_is_unknown() -> None:
+    """Under sudo XDG_CURRENT_DESKTOP is usually gone; say so rather than guess."""
+    from hammunition.desktop import Desktop
+
+    checks = _with(desktops_installed=frozenset({Desktop.xfce}), desktop_current=None)
+    detail = _by_name(checks)["desktops"].detail
+    assert detail.startswith("session files offer Xfce; this session's desktop is not known")
+    assert "XDG_CURRENT_DESKTOP" in detail and "sudo" in detail
+
+
+def test_no_session_files_is_information_naming_what_it_defers() -> None:
+    checks = _with(desktops_installed=frozenset(), desktop_current=None)
+    desktops = _by_name(checks)["desktops"]
+    assert desktops.status == "info"
+    assert "no desktop session files" in desktops.detail
+    assert "deferred from a profile and refused by name" in desktops.detail
+
+
+def test_session_files_naming_no_known_desktop_are_not_a_server() -> None:
+    """A COSMIC or Sway machine is graphical. ASSUMPTION, not measured: COSMIC's
+    session file is `cosmic.desktop` with `DesktopNames=COSMIC`."""
+    checks = _with(
+        desktops_installed=frozenset(),
+        sessions_unrecognised=("cosmic.desktop",),
+        desktop_current=None,
+    )
+    detail = _by_name(checks)["desktops"].detail
+    assert "server" not in detail and "container" not in detail
+    assert "none of the desktops the catalog knows (read: cosmic.desktop)" in detail
+
+
+def test_unrecognised_files_beside_known_desktops_are_named() -> None:
+    from hammunition.desktop import Desktop
+
+    checks = _with(
+        desktops_installed=frozenset({Desktop.xfce}),
+        sessions_unrecognised=("sway.desktop",),
+        desktop_current=Desktop.xfce,
+    )
+    assert _by_name(checks)["desktops"].detail == (
+        "session files offer Xfce; also sway.desktop, which names no desktop the catalog "
+        "knows; this session is Xfce"
+    )
+
+
+def test_desktops_not_read_add_no_check() -> None:
+    assert "desktops" not in _by_name(run_checks(**HEALTHY))  # type: ignore[arg-type]

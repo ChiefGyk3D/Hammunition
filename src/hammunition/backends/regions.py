@@ -52,16 +52,19 @@ MIB = 1024 * 1024
 PBF = ".osm.pbf"
 SOURCE = ".source"
 
-#: Navit's converted map, relative to its ``.osm.pbf``: a 6.1 GB country-sized
-#: region became a 4.7 GB ``.bin`` on the field laptop. One region, so the plan
-#: calls it an estimate (:data:`ESTIMATE`).
-BIN_FACTOR = 0.8
+#: Navit's converted map, relative to its ``.osm.pbf``, measured on the field
+#: laptop: a 6.1 GB country-sized region became a 4.7 GB ``.bin`` (about
+#: 0.77x), and two US-state-sized regions on 2026-09-28 converted at 0.874x
+#: and 0.856x. 0.8 was set from the first alone and was low for both of the
+#: others, so this is 0.9: an estimate that errs above. Three regions, so the
+#: plan still calls it an estimate (:data:`ESTIMATE`).
+BIN_FACTOR = 0.9
 #: maptool's scratch files (``*.tmp``, ``coords.tmp``) in its working
-#: directory while it converts, relative to the input: the same region
-#: wrote more than 12 GB of them. Freed when it finishes, but needed while
-#: it runs.
+#: directory while it converts, relative to the input: the country-sized
+#: region wrote more than 12 GB of them. Freed when it finishes, but needed
+#: while it runs. Measured on that one region only.
 SCRATCH_FACTOR = 2
-ESTIMATE = "estimate, measured on one region"
+ESTIMATE = "estimate, measured on three regions, scratch on one"
 
 
 def bin_estimate(size: int) -> int:

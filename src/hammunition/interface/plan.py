@@ -21,6 +21,7 @@ from hammunition.backends import Action
 from hammunition.backends.data import human_size
 from hammunition.backends.regions import ESTIMATE, MapDisclosure, bin_estimate
 from hammunition.consent import repo_env_var
+from hammunition.desktop import Desktop, describe_set
 from hammunition.execute import Step
 from hammunition.geofabrik import RegionFile
 from hammunition.interface.envelope import Strict, TargetView, described
@@ -253,10 +254,26 @@ class ConfigLine(Strict):
 
 
 @dataclass(frozen=True)
-class DeferralLine(Strict):
-    """Part of the request that will not happen; the rest still does (D-035, D-039)."""
+class DesktopsReadView(Strict):
+    """What the session files said, when a unit in the request is for particular desktops (D-060)."""
 
-    kind: str = described("`config` (a file not written) or `package` (a member not installed)")
+    desktops: tuple[str, ...] = described(
+        "the desktops the catalog knows that the session files offer (`kde`, `xfce`, ...)"
+    )
+    unrecognised: tuple[str, ...] = described(
+        "session files read that named no desktop the catalog knows (`cosmic.desktop`)"
+    )
+    summary: str = described("the line the text prints under the heading")
+
+
+@dataclass(frozen=True)
+class DeferralLine(Strict):
+    """Part of the request that will not happen; the rest still does (D-035, D-039, D-060)."""
+
+    kind: str = described(
+        "`config` (a file not written) or `package` (a member not installed: the target lacks it, "
+        "or, D-060, the machine has no session for the desktop it is for)"
+    )
     subject: str = described("what is deferred")
     what: str = described("what will not happen")
     why: str = described("what is missing")
@@ -304,6 +321,10 @@ class InstallPlanView(Strict):
     memberships: tuple[MembershipLine, ...] = described("group membership changes")
     consent_gates: tuple[GateLine, ...] = described("gates the real run presents")
     config_files: tuple[ConfigLine, ...] = described("configuration written")
+    desktops_read: DesktopsReadView | None = described(
+        "present when a unit in the request is for particular desktops and the session files "
+        "were read (D-060); null otherwise"
+    )
     deferrals: tuple[DeferralLine, ...] = described("what will NOT happen")
     notes: tuple[str, ...] = described("the plan's notes")
     records: RecordsLine | None = described("where the transaction log goes")
@@ -386,6 +407,32 @@ class PlanDocument(Strict):
     )
     removal: RemovalPlanView | None = described(
         "the removal plan; null for an install or a refusal"
+    )
+
+
+def describe_sessions(desktops: frozenset[Desktop], unrecognised: tuple[str, ...]) -> str:
+    """One line for what the session files said (D-060): the desktops the
+    catalog knows, and any file read that named none of them, so a COSMIC or
+    Sway machine is not reported as having no sessions."""
+    files = ", ".join(unrecognised)
+    names = "names" if len(unrecognised) == 1 else "name"
+    if desktops:
+        line = describe_set(desktops)
+        if unrecognised:
+            line += f"; also {files}, which {names} no desktop the catalog knows"
+        return line
+    if unrecognised:
+        return f"none the catalog knows (read: {files})"
+    return "none (no session files)"
+
+
+def _desktops_read(plan: InstallPlan) -> DesktopsReadView | None:
+    if plan.desktops_read is None:
+        return None
+    return DesktopsReadView(
+        desktops=tuple(d.value for d in Desktop if d in plan.desktops_read),
+        unrecognised=tuple(plan.sessions_unrecognised),
+        summary=describe_sessions(plan.desktops_read, plan.sessions_unrecognised),
     )
 
 
@@ -557,6 +604,7 @@ def build_install_view(
             )
             for unit, config, _body in plan.config_files
         ),
+        desktops_read=_desktops_read(plan),
         deferrals=tuple(
             DeferralLine(kind=d.kind, subject=d.subject, what=d.what, why=d.why, remedy=d.remedy)
             for d in plan.deferrals
@@ -720,6 +768,17 @@ def render_plan_view(view: InstallPlanView, *, target: TargetView) -> list[str]:
             lines.append(
                 f"  {config.path}  ({verb}, mode {config.mode}, {backup})  [{config.unit}]"
             )
+        lines.append("")
+
+    if view.desktops_read is not None:
+        # D-060: a unit in this request is for particular desktops, and what
+        # decided it is on disk rather than in the caller's environment, so
+        # the plan names both the files and what they said.
+        lines.append(
+            "Desktops read from session files (/usr/share/xsessions, /usr/share/wayland-sessions "
+            "and the same under /usr/local/share):"
+        )
+        lines.append(f"  {view.desktops_read.summary}")
         lines.append("")
 
     if view.deferrals:

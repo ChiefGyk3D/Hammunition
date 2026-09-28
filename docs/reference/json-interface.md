@@ -717,6 +717,7 @@ Everything an install will do, section by section as the text prints it.
 | `memberships` | list of [`MembershipLine`](#membershipline) | group membership changes |
 | `consent_gates` | list of [`GateLine`](#gateline) | gates the real run presents |
 | `config_files` | list of [`ConfigLine`](#configline) | configuration written |
+| `desktops_read` | [`DesktopsReadView`](#desktopsreadview) or null | present when a unit in the request is for particular desktops and the session files were read (D-060); null otherwise |
 | `deferrals` | list of [`DeferralLine`](#deferralline) | what will NOT happen |
 | `notes` | list of string | the plan's notes |
 | `records` | [`RecordsLine`](#recordsline) or null | where the transaction log goes |
@@ -900,13 +901,23 @@ A configuration file the transaction writes.
 | `append` | boolean | appended to rather than written |
 | `backup_existing` | boolean | an existing file is backed up first |
 
-#### `DeferralLine`
+#### `DesktopsReadView`
 
-Part of the request that will not happen; the rest still does (D-035, D-039).
+What the session files said, when a unit in the request is for particular desktops (D-060).
 
 | field | type | meaning |
 |---|---|---|
-| `kind` | string | `config` (a file not written) or `package` (a member not installed) |
+| `desktops` | list of string | the desktops the catalog knows that the session files offer (`kde`, `xfce`, ...) |
+| `unrecognised` | list of string | session files read that named no desktop the catalog knows (`cosmic.desktop`) |
+| `summary` | string | the line the text prints under the heading |
+
+#### `DeferralLine`
+
+Part of the request that will not happen; the rest still does (D-035, D-039, D-060).
+
+| field | type | meaning |
+|---|---|---|
+| `kind` | string | `config` (a file not written) or `package` (a member not installed: the target lacks it, or, D-060, the machine has no session for the desktop it is for) |
 | `subject` | string | what is deferred |
 | `what` | string | what will not happen |
 | `why` | string | what is missing |
@@ -1208,7 +1219,7 @@ A unit and files.
     },
     "DeferralLine": {
       "additionalProperties": false,
-      "description": "Part of the request that will not happen; the rest still does (D-035, D-039).",
+      "description": "Part of the request that will not happen; the rest still does (D-035, D-039, D-060).",
       "properties": {
         "kind": {
           "title": "Kind",
@@ -1239,6 +1250,37 @@ A unit and files.
         "remedy"
       ],
       "title": "DeferralLine",
+      "type": "object"
+    },
+    "DesktopsReadView": {
+      "additionalProperties": false,
+      "description": "What the session files said, when a unit in the request is for particular desktops (D-060).",
+      "properties": {
+        "desktops": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Desktops",
+          "type": "array"
+        },
+        "unrecognised": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unrecognised",
+          "type": "array"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "desktops",
+        "unrecognised",
+        "summary"
+      ],
+      "title": "DesktopsReadView",
       "type": "object"
     },
     "DisplacedLine": {
@@ -1372,6 +1414,16 @@ A unit and files.
           "title": "Config Files",
           "type": "array"
         },
+        "desktops_read": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DesktopsReadView"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "deferrals": {
           "items": {
             "$ref": "#/$defs/DeferralLine"
@@ -1429,6 +1481,7 @@ A unit and files.
         "memberships",
         "consent_gates",
         "config_files",
+        "desktops_read",
         "deferrals",
         "notes",
         "records",

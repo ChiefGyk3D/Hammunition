@@ -54,10 +54,17 @@ Consent gates that will be presented:
 Configuration that will be written:
   /etc/fixture-apt.conf  (written, mode 0644, existing file backed up)  [fixture-apt]
 
+Desktops read from session files (/usr/share/xsessions, /usr/share/wayland-sessions and the same under /usr/local/share):
+  Xfce; also sway.desktop, which names no desktop the catalog knows
+
 Will NOT happen (the rest of the transaction still will):
   fixture-apt: /etc/fixture.conf not written
       why: no callsign set
       → hammunition station set --callsign N0TST
+  fixture-tray: will not be installed (profile fixture-station)
+      why: for KDE Plasma; this machine has no KDE Plasma session (it has: Xfce)
+      → the rest installs without it; on a machine that gains a KDE Plasma session,
+      `hammunition install fixture-station` again picks it up
 
 Notes:
   - fixture-source shadows nothing on PATH; this note is here to be wrapped fixture-

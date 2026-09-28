@@ -4575,3 +4575,233 @@ regions* section; `catalog/packages/navit.yaml`,
 `catalog/profiles/navigation.yaml`; the generated
 `catalog/data/geofabrik-pins.yaml` and its generator; the weekly `--check`.
 The operator's page is `docs/guides/offline-navigation.md`.
+
+### Amendment (2026-09-28): Navit opens on the maps and follows the GPS; the map factor is 0.9
+
+The maintainer installed two US-state-sized regions on the field laptop
+with `hammunition install navigation`. Every step verified, and Navit
+opened on a blank screen. Three findings, each fixed where it arose:
+
+**Navit opened on Munich.** The generated configuration kept the stock
+`<navit center="11.5666 48.1333">`, and no map existed there. The two
+anchored changes above are now four. The configuration step reads the
+bounding box from the first installed region's `.osm.pbf` header and
+centres Navit on its midpoint, written as the stock file writes it
+(`"lon lat"`, four decimals). `src/hammunition/osm_pbf.py` reads only the
+file's first blob, the `OSMHeader`: a 4-byte length, a `BlobHeader` that
+must say `OSMHeader`, and a raw or zlib `Blob`. It uses the standard
+library only, and both the packed and the inflated size are capped at
+1 MiB. A region is gigabytes and its header a few hundred bytes. A region
+that did not convert gives way to the next. So does one whose `.osm.pbf`
+is gone, one whose header has no bbox (the format allows that), and one
+whose header cannot be read or gives a bbox off the globe. Each is named in
+the step's outcome, with the region the centre came from, and none fails
+the step: a configuration that opens on the stock centre still loads every
+map, and failing the step would leave Navit no configuration and hide the
+ledger's report of a region that did fail. The stock centre is used only on Navit's
+first start. After that Navit restores its last view from
+`~/.navit/center.txt`. A machine that has already opened on Munich goes
+back there until that file is removed, which the guide's troubleshooting
+entry says, with the command.
+
+**The view never moved to the GPS**, even with a 3D fix. The gpsd
+`<vehicle>` lacked `follow="1"`, which Navit's own stock comment says to
+add "to have the view centered on your position". It is added to the one
+enabled vehicle reading `gpsd://`. Anchors are matched outside comments,
+because the stock file comments out two vehicles of its own, one of them on
+gpsd. A vehicle that already says `follow=` is left as it is. Not exactly
+one enabled gpsd vehicle does not fail the step: the configuration is
+written without `follow`, and the outcome says "Navit will not follow the
+GPS" and why. An operator who pointed the conffile at a serial receiver, or
+added a second gpsd vehicle, loses following, never the configuration. The
+mapset refusal stays hard, because two enabled mapsets are mis-loaded.
+
+**The disk estimate was low.** The two regions converted at **0.874×** and
+**0.856×** the download, against the 0.8× set above from the country-sized
+region's 0.77×. The factor is now **0.9×**, which is above all three. The plan's wording
+is "an estimate, measured on three regions, scratch on one", because the
+2× scratch factor still comes from the country-sized region alone.
+
+**maptool left scratch behind** after a successful conversion:
+`country_*_broken_.tmp` and `country_*_poly_.tmp` in
+`~/.cache/hammunition/build/osm-navit/`. Once a region's `.bin` is
+installed, exactly those are removed: regular files whose whole name has
+one of the two shapes, in the staging directory only. They are removed by
+name through a descriptor from `open_operator_dir`, which walks
+`O_NOFOLLOW` from the operator's home. A symlink or directory with such a
+name, any other `.tmp`, and another region's `.bin.part` stay. The plan
+line for each map install says this. A failure to clear is named in the
+outcome and does not fail the run, because the map is installed and the
+files are the operator's.
+
+Not yet measured: a configuration written by this change, on the field
+laptop. The maintainer is testing a hand-edited copy with the same two
+edits.
+
+## D-060 — A unit may be for particular desktops: read from the session files, deferred from a profile on a machine with none of them, refused by name; Plasma first, Xfce and LXQt welcomed
+
+**Date:** 2026-09-28. **Status:** accepted (maintainer, 2026-09-28, on the
+design in `docs/superpowers/specs/2026-09-28-desktops-design.md`: "work
+through 1-3"; the VM runs come later, on his word). **Depends on:** D-039
+(a profile member the machine cannot use is deferred by name, a typed name
+refuses), D-036 and D-050 (menus per mechanism, per desktop), D-056 (the
+tray is a client of one helper), D-031 (verify the effect). **Amends:**
+D-039's list of deferrable reasons, with one more fact about the machine.
+
+**Why.** The maintainer, 2026-09-28: "Do we have Xfce and lxde support
+built in? Maybe we should add those in so we have lower powered systems be
+able to use this project … for simplicity while we test against those we
+are Parrot OS and KDE first … but we want to welcome more environments."
+Read against the engine, almost nothing depends on the desktop. Three
+things do: the menu (per mechanism, D-036/D-050), the tray (a Plasma applet
+only, D-056), and `station`, which included `hammunition-tray`
+unconditionally. That applet's `.deb` depends on `plasma-workspace`, so on
+Xubuntu or Lubuntu `station` pulled the whole Plasma shell onto the machine
+chosen for being light. That was a defect, and this decision fixes it.
+
+**Lubuntu is LXQt, not LXDE**, and has been since 18.10. Testing Lubuntu
+tests LXQt. Plain LXDE is still in Debian (`openbox-lxde-session`); no
+current Ubuntu flavour ships it.
+
+### What was measured
+
+Which desktops a machine has is readable from the session files every
+display manager lists, `/usr/share/xsessions/*.desktop` and
+`/usr/share/wayland-sessions/*.desktop`. They are files, so they survive
+`sudo`, which `XDG_CURRENT_DESKTOP` does not. Read from the Debian 13
+packages (`apt-get download`, then `dpkg-deb -x`, 2026-09-28) and from the
+field laptop:
+
+| Session file | Package | `DesktopNames=` |
+|---|---|---|
+| `plasma.desktop`, `plasmax11.desktop` | plasma-workspace | `KDE` (field laptop) |
+| `xfce.desktop`, `xfce-wayland.desktop` | xfce4-session | `XFCE` |
+| `lxqt.desktop` | lxqt-session | `LXQt` |
+| `mate.desktop` | mate-session-manager | `MATE` |
+| `gnome.desktop`, `gnome-wayland.desktop` | gnome-session(-xsession) | `GNOME` |
+| `LXDE.desktop` | openbox-lxde-session | **none** (Exec `/usr/bin/startlxde`) |
+| `cinnamon.desktop`, `cinnamon2d.desktop`, `cinnamon-wayland.desktop` | cinnamon-common | **none** |
+
+The menu roots the four newly listed desktops ship were read the same way:
+`lxqt-menu-data` ships `lxqt-applications.menu`, `lxmenu-data`
+`lxde-applications.menu`, `mate-menus` `mate-applications.menu` (plus an
+explicit `applications-merged` merge directory), `cinnamon-common`
+`cinnamon-applications.menu`, and all four carry `<DefaultMergeDirs/>`.
+That is which file the spec says each reads; what each panel draws is
+unmeasured.
+
+### The rule
+
+1. **Detection.** `src/hammunition/desktop.py` reads `DesktopNames` first,
+   `;`-separated and case-insensitive (`GNOME;GNOME-Classic`: any element
+   recognised counts). A file without the key falls back to a table keyed
+   by its filename stem, holding exactly the two measured gaps: `LXDE` →
+   lxde; `cinnamon`, `cinnamon2d`, `cinnamon-wayland` → cinnamon. Anything
+   else without the key (`lightdm-xsession`, `openbox`) is ignored rather
+   than guessed at. `/usr/local/share/xsessions` and
+   `/usr/local/share/wayland-sessions` are read too, since SDDM and LightDM
+   search them. Only regular files are read, after following a symlink,
+   and at most 64 KiB each, with a UTF-8 BOM stripped: a FIFO or device
+   node named `*.desktop` would otherwise block the planner. A missing
+   directory is an empty set: a container or a server has none. A file
+   read that names no desktop listed here (COSMIC, Sway, Budgie) is
+   reported as **read but unrecognised**, never dropped, so a graphical
+   machine running one is not described as a server. `XDG_CURRENT_DESKTOP` is read only where the session
+   matters (menus, `doctor`), **never by the planner**.
+2. **A manifest may name its desktops.** `desktops:` is a non-empty list
+   of `kde`, `gnome`, `xfce`, `lxqt`, `lxde`, `mate`, `cinnamon` with no
+   duplicates; omitted means any desktop, which is every unit but one
+   today. `desktop_alternative:` optionally names the unit that does the
+   same job elsewhere; the catalog refuses to load unless that unit exists
+   and its `desktops` share none with this one's.
+3. **The plan decides from what it is handed.** `resolve()` takes the
+   installed desktops as an argument; the CLI passes what the session
+   files say. A unit whose `desktops` shares nothing with them is, as a
+   **profile member, deferred by name** with the reason `for KDE Plasma;
+   this machine has no KDE Plasma session (it has: Xfce)` (or `(it has no
+   session files)`, or `(its session files name none the catalog knows:
+   cosmic.desktop)`) and the rest of the profile installs; **typed by name, it is
+   refused** with that reason and a remedy that names the alternative when
+   one serves a desktop the machine has. Both follow D-039: logged, shown
+   by `status`, a dependent deferring with it, a profile of nothing but
+   deferrals refused. A dependent deferred through such a unit, and a
+   profile whose members are all deferred this way, give the desktop as
+   the cause and not D-039's "this target does not offer", which would be
+   false. Desktops that were not read (a caller passing none)
+   are disclosed as a note and the unit plans, the way an unreadable
+   kernel is.
+4. **The dry run shows it.** Whenever a unit in the request declares
+   `desktops`, the plan prints *Desktops read from session files* with
+   what they offered and any file read that named none, so the decision is
+   visible before anything runs. `doctor` reports the same, and the
+   current session's desktop.
+5. **Installing a desktop later needs nothing special.** Re-running
+   `hammunition install station` picks the unit up; that is the whole
+   story, because install is idempotent.
+
+### Order and scope
+
+Parrot OS with KDE Plasma stays first: it is the field laptop, and it is
+where things are measured. Xfce (Xubuntu 26.04) and LXQt (Lubuntu 26.04)
+are next; their checklist is `docs/reference/vm-campaign-desktops.md`,
+**not yet run**. `docs/desktops.md` is the user-facing
+account, and says *unmeasured* wherever nothing has run.
+
+### D-050 amendment (2026-09-28): four more rows for the per-desktop table
+
+D-050 item 8's table is left as it was accepted. These rows extend it,
+dated here rather than written into it. The menu root each desktop ships
+was read from the Debian 13 package on 2026-09-28; nothing has been
+rendered on any of them.
+
+| Desktop | Mechanism | State |
+|---|---|---|
+| LXQt (Lubuntu) | menu-spec merge into `lxqt-applications-merged/`; `lxqt-applications.menu` carries `<DefaultMergeDirs/>` | **Unmeasured.** The Lubuntu 26.04 run is its checklist |
+| LXDE | menu-spec merge into `lxde-applications-merged/`; `lxde-applications.menu` carries `<DefaultMergeDirs/>` | **Unmeasured** |
+| MATE | menu-spec merge into `mate-applications-merged/`; Parrot carries a `mate-` root | **Unmeasured** |
+| Cinnamon (Linux Mint) | menu-spec merge into `cinnamon-applications-merged/`; `cinnamon-applications.menu` carries `<DefaultMergeDirs/>` | **Unmeasured** |
+
+### The machine that already ran `station`
+
+A machine that ran `station` at v0.10.0 or earlier got the applet and
+`plasma-workspace` with it, and `plasma-workspace` ships `plasma.desktop`.
+Detection now reads KDE Plasma as installed there, which is true of the
+disk, and the applet stays planned. The engine does not remove a desktop
+on a guess about why it is there. `docs/desktops.md` gives the operator the
+two commands (`hammunition uninstall hammunition-tray`, then `apt
+autoremove`) and says to read the list before agreeing.
+
+### The Qt tray
+
+`hammunition-tray-qt` is the same switch for the other panels: a PyQt6
+`QSystemTrayIcon`, a second binary package from the tray's own repository,
+released with the applet as hammunition-tray v0.3.0 (2026-09-28) and pinned
+here from that release's `SHA256SUMS` (13784 bytes). It lists `xfce`,
+`lxqt`, `lxde`, `mate` and `cinnamon`. Its autostart entry carries
+`NotShowIn=KDE;`, so a machine with Plasma and another desktop shows one tray
+in each. The two units name each other in `desktop_alternative`, so a
+refusal names the one to install instead. Both front ends run
+`/usr/bin/pkexec` by its absolute path, and both say when no polkit
+authentication agent is running. The same release fixed a bug the second
+front end exposed: the applet cleared a failed park's error on the poll that
+follows every action. The release workflow installed and removed both
+packages on Parrot; **neither has run on the desktops the Qt tray lists**,
+and `docs/reference/vm-campaign-desktops.md` is that check.
+
+**Rejected.** Reading `XDG_CURRENT_DESKTOP` in the planner: `sudo` drops
+it, and the plan would answer differently under `sudo` than in the dry
+run. Wider filename matching for files without `DesktopNames`: the two
+packages measured are the whole of the gap, and a pattern would tell a
+machine it has a desktop it does not. Removing `hammunition-tray` from
+`station`: Plasma is the first desktop, and the unit is right there.
+
+**Consequences.** `src/hammunition/desktop.py`; `desktops` and
+`desktop_alternative` in `src/hammunition/manifest/schema.py`, the
+cross-manifest check in `src/hammunition/manifest/load.py`; the deferral,
+refusal and `desktops_read` in `src/hammunition/plan.py`; the *desktops*
+check in `src/hammunition/doctor.py`; `desktops: [kde]` on
+`catalog/packages/hammunition-tray.yaml`. Tests:
+`tests/test_desktop.py`, `tests/test_desktop_units.py`, and the two
+`station`/`hammunition-tray` cases in `tests/test_cli.py`, which set the
+desktops explicitly so they answer the same on a desktop and in a
+container.

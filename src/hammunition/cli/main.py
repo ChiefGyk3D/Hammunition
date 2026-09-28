@@ -77,6 +77,7 @@ from hammunition.consent import (
     resolve_consent,
     resolve_repo_consent,
 )
+from hammunition.desktop import current_desktop, scan_sessions
 from hammunition.distro import DetectionError, Target
 from hammunition.execute import (
     Step,
@@ -485,6 +486,7 @@ def cmd_update(args: argparse.Namespace) -> int:
             station=station,
             repos=repos,
             kernel=KernelProbe.detect(),
+            desktops=scan_sessions(),
             log=read_log,
         )
     except PlanError as exc:
@@ -958,6 +960,9 @@ def cmd_install(args: argparse.Namespace) -> int:
             # The running kernel is a fact about this machine, not the target
             # (one Pop!_OS 24.04 VM has AX.25 under 7.0.11 and not under 7.1.5).
             kernel=KernelProbe.detect(),
+            # Which desktops the session files offer (D-060): files on disk,
+            # so the answer under sudo is the answer outside it.
+            desktops=scan_sessions(),
             # Read-only here: whether a vendor .deb already on the machine is
             # ours to skip (#63). The same log is written to after the plan.
             log=read_log,
@@ -2576,6 +2581,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     except (OSError, PowerError, CatalogError, SystemExit):
         kept_attached, kept_absent = (), ()
 
+    sessions = scan_sessions()
     checks = run_checks(
         target_describe=target_describe,
         is_debian_family=is_debian,
@@ -2591,6 +2597,9 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         log_dir_writable=log_dir_writable,
         kept_attached=kept_attached,
         kept_absent=kept_absent,
+        desktops_installed=sessions.desktops,
+        sessions_unrecognised=sessions.unrecognised,
+        desktop_current=current_desktop(os.environ),
     )
 
     from hammunition.interface.doctor import build_doctor, render_doctor
