@@ -685,6 +685,127 @@ def test_maptool_that_writes_nothing_or_fails_fails_that_region_and_leaves_no_te
     assert list((tmp_path / "staging").glob("*")) == []
 
 
+#: What maptool left in the staging directory after a successful conversion
+#: on the bench (2026-09-28): its per-country boundary scratch.
+SCRATCH = ("country_840_broken_.tmp", "country_US_poly_.tmp")
+
+
+def _litter(staging: Path, outside: Path) -> dict[str, Path]:
+    """Scratch to remove, and look-alikes that must stay."""
+    staging.mkdir(parents=True, exist_ok=True)
+    for name in SCRATCH:
+        (staging / name).write_bytes(b"scratch")
+    outside.write_bytes(b"not maptool's")
+    keep = {
+        # a symlink named like scratch: removing it is harmless, but only a
+        # regular file is maptool's, and the target must never be touched
+        "link": staging / "country_124_poly_.tmp",
+        "dir": staging / "country_484_broken_.tmp",
+        "other-region": staging / f"{NH.slug}.bin.part",
+        "other-tmp": staging / "coords.tmp",
+        "near-miss": staging / "country_840.tmp",
+    }
+    keep["link"].symlink_to(outside)
+    keep["dir"].mkdir()
+    for name in ("other-region", "other-tmp", "near-miss"):
+        keep[name].write_bytes(b"keep")
+    return keep
+
+
+def test_maptool_scratch_is_removed_once_the_map_is_installed(
+    tmp_path: Path,
+    manifest_navit: PackageManifest,
+    block_navit: DerivedDataInstall,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Bench, 2026-09-28: country_*_broken_.tmp and country_*_poly_.tmp stayed behind."""
+    _fake_maptool(monkeypatch, write=b"navit-bin")
+    _install_region(tmp_path, VT)
+    staging = tmp_path / "staging"
+    outside = tmp_path / "precious"
+    keep = _litter(staging, outside)
+    steps: list[Any] = _derived(tmp_path, [VT]).steps(manifest_navit, block_navit)
+    convert, install = _kinds(steps, "convert")[0], _kinds(steps, "install-data")[0]
+    assert "country_*_broken_.tmp" in install.description
+    assert str(staging) in install.description
+    convert.perform()
+    # Nothing is removed before the map is installed.
+    assert all((staging / name).exists() for name in SCRATCH)
+    result = install.perform()
+    assert "removed 2 maptool scratch file(s)" in result
+    assert not any((staging / name).exists() for name in SCRATCH)
+    assert all(p.is_symlink() or p.exists() for p in keep.values())
+    assert outside.read_bytes() == b"not maptool's"
+
+
+def test_scratch_is_left_when_the_map_did_not_install(
+    tmp_path: Path,
+    manifest_navit: PackageManifest,
+    block_navit: DerivedDataInstall,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fake_maptool(monkeypatch, write=None)
+    _install_region(tmp_path, VT)
+    staging = tmp_path / "staging"
+    _litter(staging, tmp_path / "precious")
+    steps: list[Any] = _derived(tmp_path, [VT]).steps(manifest_navit, block_navit)
+    for step in _acts(steps)[:2]:
+        step.perform()
+    assert all((staging / name).exists() for name in SCRATCH)
+
+
+def test_under_root_scratch_is_removed_through_the_operator_dir_helper(
+    tmp_path: Path,
+    manifest_navit: PackageManifest,
+    block_navit: DerivedDataInstall,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Root removes by name through a descriptor the helper proved the
+    operator's, O_NOFOLLOW from their home; never by path."""
+    _as_root_for_operator(monkeypatch, tmp_path)
+    _AsOperator(monkeypatch)
+    staging = tmp_path / "staging"
+    _litter(staging, tmp_path / "precious")
+    asked: list[tuple[Path, str | None]] = []
+
+    def helper(path: Path, owner: str | None = None) -> int:
+        asked.append((path, owner))
+        return os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+
+    monkeypatch.setattr("hammunition.backends.derived.open_operator_dir", helper)
+    _install_region(tmp_path, VT)
+    backend = _derived(tmp_path, [VT], euid=0, owner=OPERATOR.pw_name, privileged=False)
+    for step in _acts(backend.steps(manifest_navit, block_navit))[:2]:
+        step.perform()
+    assert asked == [(staging, OPERATOR.pw_name)]
+    assert not any((staging / name).exists() for name in SCRATCH)
+
+
+def test_a_staging_directory_refused_by_the_helper_is_named_and_not_cleared(
+    tmp_path: Path,
+    manifest_navit: PackageManifest,
+    block_navit: DerivedDataInstall,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from hammunition.paths import OperatorDirError
+
+    _fake_maptool(monkeypatch, write=b"navit-bin")
+    _install_region(tmp_path, VT)
+    staging = tmp_path / "staging"
+    _litter(staging, tmp_path / "precious")
+
+    def refuse(path: Path, owner: str | None = None) -> int:
+        raise OperatorDirError(f"{path} is a symlink")
+
+    monkeypatch.setattr("hammunition.backends.derived.open_operator_dir", refuse)
+    steps: list[Any] = _derived(tmp_path, [VT]).steps(manifest_navit, block_navit)
+    _acts(steps)[0].perform()
+    result = _acts(steps)[1].perform()
+    assert result.startswith("installed ")
+    assert "scratch not cleared" in result and "is a symlink" in result
+    assert all((staging / name).exists() for name in SCRATCH)
+
+
 def test_one_failed_conversion_leaves_navit_the_others(
     tmp_path: Path,
     manifest_navit: PackageManifest,
