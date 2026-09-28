@@ -454,7 +454,7 @@ A **read-only** health check: is this machine ready, and what is not yet set
 up. It changes nothing, and it is the first thing to run on a fresh machine
 or when something misbehaves — it turns the failures the engine would
 otherwise hit mid-transaction into a report you read up front, each with the
-one command that fixes it. Thirteen checks across four severities:
+one command that fixes it. Fourteen checks across four severities:
 
 - **fail** — the engine cannot work until fixed (not a Debian-family system;
   no catalog). Exits non-zero.
@@ -474,6 +474,19 @@ desktop is not known rather than guessing. A machine with no session files
 (a server, a container) is reported as such. Session files that name no
 desktop the catalog knows (COSMIC, Sway) are named as read, so a graphical
 machine is never reported as a server. See `docs/desktops.md`.
+
+The **hammunition** check (**D-059**) asks whether `hammunition` resolves on
+your `PATH`, and to the checkout `doctor` is running from. `./bootstrap.sh`
+puts it there as a link, `~/.local/bin/hammunition` pointing at the
+checkout's `.venv/bin/hammunition`, made by `scripts/path-link.sh`: it prints
+each change before making it, creates `~/.local/bin` (mode 0755) only when
+it is absent, never edits a shell rc file, and never replaces a file, or a
+link it did not create. A link to a *different* checkout is left alone and
+the check warns with the one `ln -sfn` command that switches it; a warning
+that it is not on `PATH` at all names re-running `./bootstrap.sh`. When
+`~/.local/bin` is itself missing from `PATH`, the bootstrap prints the one
+line to add to `~/.profile`. Remove the link with
+`rm ~/.local/bin/hammunition`.
 
 The closing line counts each, and the exit code is non-zero only when
 something is **blocking**. It is the natural first command after installing

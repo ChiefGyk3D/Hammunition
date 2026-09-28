@@ -2566,6 +2566,14 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     log_dir = state_dir(user or None)
     log_dir_writable = writable_or_creatable(log_dir)
 
+    # This checkout's entry point: src/hammunition/cli/main.py -> the checkout
+    # root is three parents above the package. Resolved, so a ~/.local/bin
+    # link to it compares equal (D-059).
+    checkout = Path(__file__).resolve().parents[3]
+    engine_expected = str((checkout / ".venv" / "bin" / "hammunition").resolve())
+    found_engine = shutil.which("hammunition")
+    engine_on_path = str(Path(found_engine).resolve()) if found_engine else None
+
     kept_attached: tuple[str, ...] = ()
     kept_absent: tuple[str, ...] = ()
     try:
@@ -2595,6 +2603,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         rules_applied=rules_applied,
         attached_recognised=attached_recognised,
         log_dir_writable=log_dir_writable,
+        engine_on_path=engine_on_path,
+        engine_expected=engine_expected,
         kept_attached=kept_attached,
         kept_absent=kept_absent,
         desktops_installed=sessions.desktops,

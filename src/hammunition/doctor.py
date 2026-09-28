@@ -63,6 +63,8 @@ def run_checks(
     rules_applied: bool,
     attached_recognised: int,
     log_dir_writable: bool,
+    engine_on_path: str | None,
+    engine_expected: str,
     kept_attached: tuple[str, ...] = (),
     kept_absent: tuple[str, ...] = (),
     desktops_installed: frozenset[Desktop] | None = None,
@@ -127,6 +129,31 @@ def run_checks(
                 "warn",
                 "~/.local/bin is not on PATH — venv-installed programs will look missing",
                 "log out and back in, or add ~/.local/bin to PATH; it is added when the dir first appears",
+            )
+        )
+
+    # `hammunition` itself on the PATH, and resolving to this checkout (D-059).
+    # Without it every short command in the docs says "command not found",
+    # which is how the field laptop met it; with it pointing at a different
+    # checkout, a fix made here is not the engine that runs.
+    if engine_on_path == engine_expected:
+        checks.append(Check("hammunition", "ok", f"on PATH: {engine_expected}"))
+    elif engine_on_path is None:
+        checks.append(
+            Check(
+                "hammunition",
+                "warn",
+                "`hammunition` is not on PATH — commands in the docs will say command not found",
+                "re-run ./bootstrap.sh, which links ~/.local/bin/hammunition to this checkout",
+            )
+        )
+    else:
+        checks.append(
+            Check(
+                "hammunition",
+                "warn",
+                f"`hammunition` on PATH runs {engine_on_path}, not this checkout's {engine_expected}",
+                f"ln -sfn {engine_expected} ~/.local/bin/hammunition",
             )
         )
 
