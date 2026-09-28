@@ -17,6 +17,8 @@ without the network.
 from __future__ import annotations
 
 import re
+import urllib.error
+import urllib.request
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
@@ -64,6 +66,78 @@ class RegionFile:
 class Probe(Protocol):
     def head(self, url: str) -> tuple[int, int, str | None]: ...
     def text(self, url: str) -> str: ...
+
+
+class UrllibProbe:
+    """The real :class:`Probe`: HTTPS to Geofabrik via :mod:`urllib`.  The one
+    part of this module that touches the network.
+
+    ``head`` is built with no redirect handler and no error processor, so a
+    302's status and ``Location`` come back as they are -- that redirect is how
+    ``latest`` names its dated file -- and a 404 is a status, not an exception.
+    ``text`` follows redirects and refuses a non-2xx answer by name. Built from
+    :class:`~urllib.request.OpenerDirector` with only the HTTP handlers, as
+    :class:`hammunition.fetch.UrllibTransport` is, so no ``file:`` URL is ever
+    served. Nothing fetched here is trusted: sizes and MD5s become what the
+    download is checked against, and a wrong one fails that check.
+    """
+
+    #: Enough for an ``.md5`` line or Geofabrik's region index; bounded so a
+    #: misbehaving server cannot be read into memory without limit.
+    MAX_TEXT = 8 * 1024 * 1024
+
+    def __init__(self, *, timeout: float = 30.0) -> None:
+        self.timeout = timeout
+        head = urllib.request.OpenerDirector()
+        head.add_handler(urllib.request.HTTPHandler())
+        head.add_handler(urllib.request.HTTPSHandler())
+        self._head = head
+        text = urllib.request.OpenerDirector()
+        for handler in (
+            urllib.request.HTTPHandler(),
+            urllib.request.HTTPSHandler(),
+            urllib.request.HTTPRedirectHandler(),
+            urllib.request.HTTPErrorProcessor(),
+            urllib.request.HTTPDefaultErrorHandler(),
+        ):
+            text.add_handler(handler)
+        self._text = text
+
+    @staticmethod
+    def _checked(url: str) -> urllib.request.Request:
+        if not url.startswith(BASE + "/"):
+            raise GeofabrikError(f"refusing {url!r}: only {BASE} is asked about map regions")
+        return urllib.request.Request(url, headers={"User-Agent": "hammunition"})
+
+    def head(self, url: str) -> tuple[int, int, str | None]:
+        request = self._checked(url)
+        request.method = "HEAD"
+        try:
+            response = self._head.open(request, timeout=self.timeout)
+        except (urllib.error.URLError, OSError) as exc:
+            raise GeofabrikError(f"{url} could not be reached: {exc}") from exc
+        if response is None:  # pragma: no cover - no handler claimed the scheme
+            raise GeofabrikError(f"no handler would ask {url!r}")
+        with response:
+            length = response.headers.get("Content-Length")
+            size = int(length) if length and length.isdigit() else 0
+            return response.status, size, response.headers.get("Location")
+
+    def text(self, url: str) -> str:
+        request = self._checked(url)
+        try:
+            response = self._text.open(request, timeout=self.timeout)
+        except urllib.error.HTTPError as exc:
+            raise GeofabrikError(f"{url} returned HTTP {exc.code} ({exc.reason})") from exc
+        except (urllib.error.URLError, OSError) as exc:
+            raise GeofabrikError(f"{url} could not be fetched: {exc}") from exc
+        if response is None:  # pragma: no cover
+            raise GeofabrikError(f"no handler would fetch {url!r}")
+        with response:
+            body: bytes = response.read(self.MAX_TEXT + 1)
+        if len(body) > self.MAX_TEXT:
+            raise GeofabrikError(f"{url} is larger than {self.MAX_TEXT} bytes; refusing to read it")
+        return body.decode("utf-8", errors="replace")
 
 
 def snapshot_for(freshness: str, today: date) -> str:

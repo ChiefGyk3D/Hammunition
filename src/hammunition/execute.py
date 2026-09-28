@@ -40,8 +40,10 @@ from hammunition.backends import (
     Command,
     CommandRunner,
     DataBackend,
+    DerivedBackend,
     GitBackend,
     NodeBackend,
+    RegionsBackend,
     SourceBackend,
     VenvBackend,
 )
@@ -51,9 +53,11 @@ from hammunition.launchers import launcher_steps
 from hammunition.manifest.schema import (
     BinaryInstall,
     DataInstall,
+    DerivedDataInstall,
     GitInstall,
     InstallBlock,
     NodeInstall,
+    RegionalDataInstall,
     SourceInstall,
     VenvInstall,
     effective_binaries,
@@ -390,6 +394,8 @@ def commands_for(
     venv: VenvBackend | None = None,
     node: NodeBackend | None = None,
     data: DataBackend | None = None,
+    regions: RegionsBackend | None = None,
+    derived: DerivedBackend | None = None,
     repos: AptRepoBackend | None = None,
     config_staging: Path | None = None,
     launcher_bin: Path | None = None,
@@ -420,6 +426,10 @@ def commands_for(
     """
     # Each backend's steps in build order; the fetches are lifted out below.
     builds: list[Step] = []
+    # A conversion reads data another unit installs in this same run, and
+    # plan order is `after`, not `depends` -- osm-navit sorts before
+    # osm-regions. So every conversion runs after every other build.
+    conversions: list[Step] = []
     for planned in plan.packages:
         block = planned.block.install
         if planned.name in skip_builds and isinstance(
@@ -479,6 +489,23 @@ def commands_for(
                     f"installed nothing."
                 )
             builds.extend(data.steps(planned.manifest, block))
+        elif isinstance(block, RegionalDataInstall):
+            if regions is None:
+                raise BackendError(
+                    f"{planned.name} installs the station's map regions and no regions "
+                    f"backend was supplied. Skipping it would report a successful run "
+                    f"that installed nothing."
+                )
+            builds.extend(regions.steps(planned.manifest, block))
+        elif isinstance(block, DerivedDataInstall):
+            if derived is None:
+                raise BackendError(
+                    f"{planned.name} converts another unit's data and no derived "
+                    f"backend was supplied. Skipping it would report a successful run "
+                    f"that installed nothing."
+                )
+            conversions.extend(derived.steps(planned.manifest, block))
+    builds.extend(conversions)
 
     # A `fetch` is an in-process download into the cache, verified before it
     # is kept; it needs nothing apt installs and touches nothing outside the
