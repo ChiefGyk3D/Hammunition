@@ -39,6 +39,9 @@
 # had nowhere to be, and a wiki will need the same places. A tag is the
 # smallest thing a person looks for -- APRS, Winlink, ships, aircraft, SSTV
 # and amateur TV -- and a group is the activity it belongs to.
+#
+# One tag has been added since: `navigation-maps` (2026-09-28), offline maps
+# and turn-by-turn navigation, which had no place among the 55 (D-057).
 
 
 categories:
@@ -83,6 +86,12 @@ categories:
     title: GPS & GNSS
     summary: >-
       GPS receivers and the daemon that shares one, format converters, and a GNSS receiver in software.
+
+  - name: navigation-maps
+    icon: find-location
+    title: Navigation & Maps
+    summary: >-
+      Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
 
   - name: locators
     icon: flag
@@ -380,7 +389,7 @@ groups:
     icon: radio
     title: Operate the Station
     summary: Control the rig, keep the log, work the cluster, set the clock and the position.
-    categories: [rig-control, logging, contest, dx-cluster, dashboards, time-frequency, gps-gnss, locators]
+    categories: [rig-control, logging, contest, dx-cluster, dashboards, time-frequency, gps-gnss, navigation-maps, locators]
   - order: 2
     name: digital-modes
     icon: audio-x-generic

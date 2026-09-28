@@ -1,0 +1,79 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: osm-regions
+version: "station"
+summary: OpenStreetMap region extracts from Geofabrik, the regions you choose, verified
+categories: [navigation-maps]
+
+# From the EmComm Tools OS delta (download-osm-maps.sh, D-042), which
+# scrapes Geofabrik's index and downloads one state unverified into
+# /etc/skel. Here the regions are the operator's, from station config, and
+# nothing is pinned in this manifest: which file a region means, and how it
+# is verified, is resolved at plan time (catalog/data/geofabrik-pins.yaml
+# for the pinned regions, Geofabrik's MD5 for every other). `version` is not
+# a release: the installed data is whatever the freshness mode resolved to,
+# and the plan prints each dated file.
+install:
+  - install:
+      method: osm-regions
+      provider: geofabrik
+      licence: ODbL-1.0
+      licence_url: https://www.openstreetmap.org/copyright
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    Set by the freshness mode in station config: `yearly` moves on 1
+    January, `monthly` on the 1st of each month, `latest` whenever
+    Geofabrik publishes (daily). Reinstalling fetches the current file for
+    each region and replaces the old one.
+
+documentation:
+  what_it_does: >-
+    Downloads OpenStreetMap map data for the regions you have chosen, as
+    Geofabrik's `.osm.pbf` extracts, verifies each file, and keeps it under
+    /usr/local/share/hammunition/data/osm-regions/, one file per region.
+    These are the raw map data; `osm-navit` converts them for Navit, and
+    later readers reuse the same files without a second download.
+  why_you_want_it: >-
+    Offline maps have to be on the disk before the network goes away. This
+    is the one place they are fetched, sized in the plan before anything
+    downloads, verified, and removed again by `hammunition uninstall`,
+    rather than downloaded by hand into a home directory and never checked.
+    It is the verified alternative to fetching extracts from Geofabrik by
+    hand.
+  prerequisites: >-
+    Your regions, set in station config with Geofabrik's own region paths,
+    for example `hammunition station set --map-regions
+    north-america/us/vermont,north-america/us/new-hampshire`. With no
+    regions set this unit is deferred by name and the rest of the install
+    goes ahead; the plan names the command to run. Optionally a freshness
+    mode, `hammunition station set --map-freshness yearly|monthly|latest`,
+    which defaults to `yearly`.
+  known_problems: >-
+    Freshness decides both which file is fetched and how it is verified.
+    `yearly` (the default) fetches the region's 1 January snapshot of the
+    current year and `monthly` the 1st of the current month. A region and
+    snapshot with a row in catalog/data/geofabrik-pins.yaml (its generator
+    lists the 50 US states and DC) is checked against the sha256
+    Hammunition measured, and the plan says "sha256, pinned by
+    Hammunition". Any other region or snapshot, and every region in
+    `latest` mode (the dated file Geofabrik's -latest name points to,
+    resolved when the plan is made), is checked only against the MD5
+    Geofabrik publishes beside it, and the plan says "MD5 from Geofabrik
+    only; not pinned". MD5 catches a damaged download, not a deliberately
+    altered one. The data is under the Open Database License: you may use
+    it freely, but a map or anything else you publish from it must credit
+    "© OpenStreetMap contributors" and say the data is available under the
+    ODbL, and a database you share derived from it must be offered under
+    the ODbL too. Hammunition states that obligation and does not judge
+    your use. A large region is a large download (California is about
+    1.3 GB), and the size is printed in the plan before it starts.
+  upstream_url: https://download.geofabrik.de/
+  upstream_support: >-
+    Geofabrik's download server FAQ (https://download.geofabrik.de/technical.html)
+    for the files themselves; problems in the map data are fixed in
+    OpenStreetMap (https://www.openstreetmap.org/fixthemap).

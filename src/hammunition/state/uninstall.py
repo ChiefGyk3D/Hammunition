@@ -63,11 +63,13 @@ from hammunition.manifest.schema import (
     AptInstall,
     BinaryInstall,
     DataInstall,
+    DerivedDataInstall,
     GitInstall,
     InstallBlock,
     NodeInstall,
     PackageManifest,
     ProfileManifest,
+    RegionalDataInstall,
     SourceInstall,
     VenvInstall,
     effective_binaries,
@@ -152,6 +154,13 @@ def files_installed_by_hammunition(log: TransactionLog) -> frozenset[str]:
             detail = entry.get("detail")
             if isinstance(detail, str) and detail.startswith("/"):
                 attributed.add(detail)
+            continue
+        if event == "action_end" and entry.get("kind") == "remove-data":
+            # A map region dropped from station config (D-057): the engine
+            # removed the file it installed, so it is no longer ours.
+            detail = entry.get("detail")
+            if isinstance(detail, str):
+                attributed.discard(detail)
             continue
         if event != "command_end" or entry.get("returncode") != 0:
             continue
@@ -416,9 +425,10 @@ def plan_removal(
                         ),
                     )
 
-        elif isinstance(install, DataInstall):
+        elif isinstance(install, DataInstall | RegionalDataInstall | DerivedDataInstall):
             # D-049: a data unit's files live only under its namespaced data
             # directory, which nothing but this engine writes; removed whole.
+            # Map regions and their converted maps (D-057) live the same way.
             add(
                 unit,
                 ArtifactRemoval(

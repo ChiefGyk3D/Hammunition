@@ -261,6 +261,19 @@ Ordered by coverage-per-effort, not by source.
 12. **COSMIC desktop menus** — post-1.0; D-036's third mechanism, unmeasured
     on the Pop!_OS 24.04 VM that exists for it; the menu-spec tree and the
     GNOME folders are the 1.0 desktops (proposed 2026-09-13, checklist item 3)
+13. **Offline navigation** — post-1.0; the `navigation` profile (**D-057**):
+    Navit over the operator's own OpenStreetMap regions, verified and
+    converted by the engine. Piece 1 (driving and "where am I") is built and
+    not yet measured end to end on hardware; piece 2 (hiking: QMapShack,
+    contours) and piece 3 (Kiwix, a tile server) follow, each with its own
+    specification. `docs/guides/offline-navigation.md` is the operator's page
+14. **Offline EMCOMM knowledge base** — post-1.0, advanced, optional; not
+    designed yet (issue #126). An offline library for emergency and survival
+    work (Wikipedia and reference ZIMs through Kiwix, building on stage 13's
+    piece 3), and an opt-in small local language model that searches it and
+    always shows the source article, never a bare answer. Content choice,
+    the packaged runtime, field-laptop and Pi performance, and model licences
+    are measured before anything is written
 
 **1.0 = stages 1 through 6.** That is already more coverage than any single
 existing project, and it is achievable. Stages 7 through 10 are where "one stop

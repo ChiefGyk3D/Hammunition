@@ -30,6 +30,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from hammunition.manifest.load import CatalogError, load_catalog  # noqa: E402
 from hammunition.manifest.schema import (  # noqa: E402
     AptInstall,
+    DerivedDataInstall,
     GitInstall,
     ManifestError,
     PackageManifest,
@@ -95,6 +96,10 @@ def test_every_remote_artifact_is_verified(catalog: Catalog) -> None:
     for name, m in catalog.items():
         for block in m.install:
             inst = block.install
+            if isinstance(inst, DerivedDataInstall):
+                # Its `source` names the catalog unit it converts, not a download;
+                # that unit's own fetch is what gets verified.
+                continue
             artifact = getattr(inst, "source", None) or getattr(inst, "artifact", None)
             if artifact is not None:
                 assert len(artifact.sha256) == 64, f"{name} has an unverified artifact"
@@ -852,3 +857,56 @@ def test_an_apt_unit_may_opt_out_of_recommends() -> None:
         {"method": "apt", "packages": ["morse"], "install_recommends": False}
     )
     assert block.install_recommends is False
+
+
+# ===========================================================================
+# osm-regions and derived (navigation piece 1, Task 4)
+# ===========================================================================
+
+
+def test_osm_regions_block_parses() -> None:
+    m = PackageManifest.model_validate(
+        _minimal(
+            name="osm-regions",
+            install=[
+                {
+                    "install": {
+                        "method": "osm-regions",
+                        "provider": "geofabrik",
+                        "licence": "ODbL-1.0",
+                        "licence_url": "https://www.openstreetmap.org/copyright",
+                    }
+                }
+            ],
+        )
+    )
+    assert m.install[0].install.method == "osm-regions"
+
+
+def test_derived_block_needs_its_source_in_depends() -> None:
+    block = {
+        "method": "derived",
+        "converter": "navit-maptool",
+        "source": "osm-regions",
+        "licence": "ODbL-1.0",
+        "licence_url": "https://www.openstreetmap.org/copyright",
+    }
+    with pytest.raises(ValidationError, match="depends"):
+        PackageManifest.model_validate(_minimal(name="osm-navit", install=[{"install": block}]))
+    ok = _minimal(name="osm-navit", install=[{"install": block}])
+    ok["depends"] = ["osm-regions", "maptool"]
+    assert PackageManifest.model_validate(ok).install[0].install.method == "derived"
+
+
+def test_a_converter_outside_the_enum_is_refused() -> None:
+    block = {
+        "method": "derived",
+        "converter": "sh -c 'rm -rf /'",
+        "source": "osm-regions",
+        "licence": "ODbL-1.0",
+        "licence_url": "https://www.openstreetmap.org/copyright",
+    }
+    bad = _minimal(name="osm-navit", install=[{"install": block}])
+    bad["depends"] = ["osm-regions"]
+    with pytest.raises(ValidationError):
+        PackageManifest.model_validate(bad)

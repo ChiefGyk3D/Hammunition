@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?><!--
+	Trimmed excerpt of Debian's /etc/navit/navit.xml (the navit-mapnik-... /
+	navit package's stock config), kept for tests/test_navit_config.py.
+
+	Navit is licensed GPL-2.0-or-later. This excerpt carries only the two
+	anchors hammunition.navit_config.rewrite() edits — the <speech
+	type="cmdline"> element and the enabled <mapset> with the
+	$NAVIT_SHAREDIR/maps/*.xml XInclude — plus the minimum surrounding
+	structure (<config><navit>...) to keep them well formed. It is not a
+	copy of the whole file.
+
+	SPDX-FileCopyrightText: The Navit authors
+	SPDX-License-Identifier: GPL-2.0-or-later
+-->
+<!DOCTYPE config
+  SYSTEM "navit.dtd">
+<config xmlns:xi="http://www.w3.org/2001/XInclude">
+	<navit center="11.5666 48.1333" zoom="256" tracking="1" orientation="-1" recent_dest="250" drag_bitmap="0" default_layout="Car">
+		<!--
+		Navit provides speech output in text format.
+		If you have a speech synthesizer like festival lite installed, you can get turn by turn directions out of navit. Please set the "cps"-value to how many characters your tts engine approximately speaks per second.
+		The default is text output to the shell
+		-->
+		<speech type="cmdline" data="echo 'Fix the speech tag in navit.xml to let navit say:' '%s'" cps="15"/>
+
+		<!-- You can only have enabled only one mapset at time, but with as much maps enabled as you want -->
+
+		<!-- If you have the reiseplaner maps installed, set enabled="yes" in the next line and set the path correctly -->
+		<mapset enabled="no">
+			<map type="mg" enabled="yes" data="/opt/reiseplaner/travel/DE.map"/>
+		</mapset>
+
+		<!-- If you dont want to use the sample map, either set enabled="no" in the next line or remove the xml file from the maps directory -->
+		<mapset enabled="yes">
+			<xi:include href="$NAVIT_SHAREDIR/maps/*.xml"/>
+		</mapset>
+
+		<!-- Mapset template for OpenStreetMap -->
+		<mapset enabled="no">
+			<map type="binfile" enabled="yes" data="/media/mmc2/MapsNavit/osm_europe.bin"/>
+		</mapset>
+	</navit>
+</config>

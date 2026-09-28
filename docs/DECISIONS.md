@@ -4345,3 +4345,233 @@ power switch.
 
 **See also:** `docs/hardware/power-control.md` for the operator-facing page
 — what parking changes, how to inspect it, and how to reverse it.
+
+---
+
+## D-057 — Offline navigation: map regions are station data, fetched at a chosen freshness with the check named per region, and converted for Navit by a converter the engine owns
+
+**Date:** 2026-09-28. **Status:** accepted (maintainer, 2026-09-27, on the
+design in `docs/superpowers/specs/2026-09-27-navigation-maps-design.md`).
+**Depends on:** D-049 (offline data is a catalog unit), D-035 (a missing
+station value defers, never refuses), D-039 (one member failing does not
+withhold the rest), D-031 (verify the effect), D-043 (the operator owns
+what is built on their behalf), D-021 (state the licence, never adjudicate
+it). **Amends:** D-049, whose `data` method installs fixed, pinned
+artifacts only, with two new install methods; D-055, whose vocabulary was
+fixed at 55 tags, with a 56th.
+
+**Why.** The maintainer, 2026-09-27: turn the field laptop into a GPS
+navigator "for pure emergency situations, phone and everything is down",
+and "for daily use as well as EMCOMM". Maps have to be on the machine
+before anything goes wrong, so the daily path and the emergency path are
+the same path: install ahead of time, refresh as routine, and nothing at
+the moment of use needs a network. D-049 had already named Navit's extract
+as its third case, and the extract did not fit D-049's shape twice over:
+which file to fetch depends on the operator's region and on the date, so
+it cannot be pinned in a manifest; and Navit cannot read what Geofabrik
+publishes, so the file that is useful is one the engine has to make.
+
+### Regions are station data, and printed only where the operator sees them
+
+`hammunition station set --map-regions` takes Geofabrik's own region paths
+(`north-america/us/vermont`), comma-separated, and replaces the list;
+`--map-freshness` takes `yearly`, `monthly` or `latest`. Both are stored in
+station config beside the callsign, mode 0600. A region list says where
+somebody lives or travels, which is the same class of fact as a grid
+square, so `station show` and `station set` print how many regions are set
+and never their names. The install plan prints them, because the plan is
+the disclosure and is on the operator's own terminal.
+
+With no regions set, `osm-regions` and `osm-navit` are deferred by name and
+Navit and gpsd install (D-035's shape, D-049 rule 3); the plan names the
+command to run. No region is guessed or defaulted.
+
+### Three freshness modes, and why yearly is the default
+
+Measured on Geofabrik 2026-09-27: a dated extract every 1 January back to
+2014, the 1st of each of the last three months, the last seven days, and a
+`-latest` name that is a 302 to today's dated file.
+
+| Mode | File | How long it stays published |
+|---|---|---|
+| `yearly` (default) | `<region>-YY0101.osm.pbf`, this year's 1 January | Years |
+| `monthly` | `<region>-YYMM01.osm.pbf`, this month's 1st | About three months |
+| `latest` | the dated file `-latest` redirects to, resolved when the plan is made | About a week |
+
+Yearly is the default because it is the only one that can be pinned for
+long enough to matter, and because the roads a navigator needs change
+slowly: a map from 1 January is a good map for a year, and a file that
+stays published for years can be checked against a hash measured once. A
+snapshot not yet published is looked for one period back, so a machine on
+2 January is not refused while Geofabrik catches up. `monthly` and `latest`
+are there for the operator who wants newer data and accepts the weaker
+check that comes with it most of the time.
+
+### MD5 is the weaker path, and it is disclosed, not refused
+
+Geofabrik publishes an MD5 beside every file and nothing stronger. For a
+region and snapshot the catalog pins (`catalog/data/geofabrik-pins.yaml`),
+the file is checked against the sha256 Hammunition measured, and the plan
+says **"sha256, pinned by Hammunition"**. For every other region, every
+snapshot not in the pin list, and every region in `latest` mode, it is
+checked against Geofabrik's MD5, and the plan says **"MD5 from Geofabrik
+only; not pinned"**, on that region's line, every time. `--yes` does not
+change what is printed.
+
+MD5 fetched from the same server as the file catches a damaged or
+truncated download. It does not catch a deliberately altered file, because
+whoever can alter the file can alter the MD5 beside it. The alternatives
+were to refuse every unpinned region, which makes the feature US-only and
+`latest` impossible, or to mirror the files, which this project does not
+do. The maintainer approved the MD5 path on the condition that it is never
+silent (2026-09-27). The project's rule that a non-apt
+download is checked or refused still holds: every region is checked, and
+the plan says by what.
+
+### The pin list is generated, measured, and regenerated on a calendar
+
+`scripts/gen_geofabrik_pins.py` streams each pinned region's current yearly
+and monthly file, hashes and sizes it, and discards the bytes; nothing is
+kept or mirrored. The first pass, 2026-09-28, pinned the 50 US states and
+DC at `260101` and `260901`: 102 rows, about 10 GB downloaded. Adding a
+region is one line in the generator's list and a regeneration, so the
+pinned set is always what the generator says it is.
+
+A pin names one dated file, so it is only current while that file is the
+one a mode resolves to. The yearly pins cover the whole of 2026 and are
+regenerated once a year, after 1 January; until they are, a yearly region
+in the new year resolves to a file with no pin and is checked by MD5, which
+its plan line says. A monthly pin is current for one month; monthly mode
+falls back to MD5 on the 1st of the next month unless the list has been
+regenerated. The weekly CI pin-review job runs `--check`, which asks each
+pinned URL for its `HEAD` and goes red when one no longer answers 200 or
+its size has changed; a monthly pin that Geofabrik has aged out fails
+there, with the command to regenerate.
+
+### Derived data: a converter named by enum, run as the operator
+
+Navit reads its own binary format, not `.osm.pbf`. A new install method,
+`derived`, produces files by running a converter over another unit's
+installed data; the manifest names the converter by enum
+(`converter: navit-maptool`) and the source unit (`source: osm-regions`,
+which must also be in `depends`), and the engine owns the command line
+(`maptool --protobuf -i <input> <output>`), exactly as
+`build_system: cmake` is an enum the source backend implements. No command line comes
+from the catalog, and a new converter is implemented in the engine before a
+manifest can name it.
+
+maptool parses downloaded data, and a parser of downloaded data does not
+run as root where it need not. It runs as the operator, in a staging
+directory under the operator's cache
+(`~/.cache/hammunition/build/osm-navit/`), and writes its scratch files
+there. Under `sudo`, root never
+creates, reads, hashes or removes anything in that directory itself: each
+of those is a process dropped to the operator, and root's one look is an
+`lstat` that refuses a staging directory which is a symlink. The effect is
+checked, not the exit status (D-031): the output must exist and be
+non-empty, and its sha256 is taken. Root then publishes it into
+`<prefix>/share/hammunition/data/osm-navit/<slug>.bin`, and the copy is
+verified against that sha256 before it replaces anything, without following
+a symlink to make it. The same
+boundary for the source backend's builds, which under `sudo` still run as
+root in an operator-owned build directory, was found during this work and
+is issue #125; it is not changed here.
+
+A region already converted from the same snapshot is not converted again. A
+region dropped from station config has its `.osm.pbf` and `.bin` removed on
+the next install, each as its own disclosed step. Navit's configuration is
+written last, beside the maps, from the installed `/etc/navit/navit.xml`
+with two anchored changes: speech through `espeak-ng`, and one enabled
+mapset listing the maps that exist. It lives in the data directory, not in
+`~/.config` as the spec first had it, so it is system-wide and `uninstall`
+removes it with the maps. The launcher is `navit-offline`, so plain `navit`
+still runs Debian's own configuration, and `~/.navit` is never touched.
+
+### One region failing does not stop the others
+
+A region whose download does not verify, whose install fails, or whose
+conversion fails is recorded, its later steps are skipped, and every other
+region installs and converts; Navit's configuration lists only the maps
+that exist. The last step of the transaction then fails the run by name,
+exit 1, listing each region that did not install. A partial map install is
+never reported as a success.
+
+With no network, a region already installed is kept as it is and the plan
+says it could not check for a newer map; a region not installed and not
+resolvable refuses the plan, naming it, exit 2. A **pinned** region
+resolves entirely from the pin list with no network asked at all, so a
+region about to be fetched — pinned or not, not already installed at its
+resolved snapshot — is also HEAD-checked before the plan prints; one that
+cannot be reached refuses the same way, named, rather than surfacing later
+as a fetch failure after apt has already run (fix round 1, I3). Not enough
+disk space refuses the plan too, with the estimate and what is free, for
+each file system that is short — one with enough room is not named.
+
+### The disk estimate is measured on one region, and says so
+
+Per region the plan counts the download twice (the verified cache copy and
+the installed copy), Navit's map at **0.8×** the download (staged, then
+installed), and **2×** the download of maptool's scratch while it runs.
+Measured on one region on the field laptop, 2026-09-28: a 6.1 GB
+country-sized region, converted to a 4.7 GB `.bin` in 75 minutes on an
+i7-1185G7, peak memory about 2.4 GB, more than 12 GB of scratch. The plan
+calls its figures "an estimate, measured on one region" until more regions
+are measured.
+
+### The `navigation-maps` tag, amending D-055
+
+D-055 cut the vocabulary to 55 tags and meant it to be fixed. Offline maps
+and turn-by-turn navigation had no place among them: `gps-gnss` is
+receivers and the daemon that shares one, not the thing a person looking
+for a map would search for. One tag is added, `navigation-maps`
+(*Navigation & Maps*), in the *Operate the Station* group beside
+`gps-gnss`. The rule that a tag is added by a decision, not in passing,
+stands.
+
+### The profile is post-1.0
+
+`navigation` (`gpsd`, `gpsd-clients`, `navit`, `osm-regions`, `osm-navit`)
+ships at `stage: post-1.0`. The 1.0 profile set is the one the maintainer
+accepted and the tests assert; adding to it is his decision, not a side
+effect of a new profile.
+
+### What is measured, and what is not yet
+
+Measured: Geofabrik's snapshot layout and redirects (2026-09-27); every
+tool in Parrot 7.3's archive (`navit` and `maptool` 0.5.6, `espeak-ng`
+1.52.0); the 102 pins (2026-09-28, `--check` passing); one conversion (a
+6.1 GB country-sized region, above), by hand, not through the engine;
+`UrllibProbe.text` against Geofabrik's live region index (2026-09-28,
+`index-v1-nogeom.json`, 555 regions parsed by `region_ids`).
+
+Not yet measured, and not claimed until the field laptop's bench page
+records it:
+
+- the whole install through the engine, with the maintainer's regions;
+- Navit routing across two separately converted regions, a trip from one
+  state into the next (if it does not, routing gets one merged map and the
+  display keeps per-region files);
+- the whole path with networking off: launch, position from gpsd, a route,
+  voice;
+- voice with a street name containing an apostrophe, which Navit's stock
+  `'%s'` quoting may break;
+- `UrllibProbe.head` against the live server, which a fetch and the I3
+  plan-time reachability check both depend on; the tests replace it.
+
+### Deferred
+
+Hiking and topographic maps (QMapShack, `mkgmap`, contours, GPSPrune) are
+the next piece; Kiwix with a Wikipedia ZIM and ETC's tileset with a tile
+server are the one after, and D-049's order changes to put Navit's extract
+before the tileset. Each gets its own specification.
+
+**Consequences.** `RegionalDataInstall` (`method: osm-regions`) and
+`DerivedDataInstall` (`method: derived`) in the schema;
+`src/hammunition/geofabrik.py`, `src/hammunition/backends/regions.py`,
+`src/hammunition/backends/derived.py`, `src/hammunition/navit_config.py`;
+`map_regions` and `map_freshness` in station config; the plan's *Map
+regions* section; `catalog/packages/navit.yaml`,
+`catalog/packages/osm-regions.yaml`, `catalog/packages/osm-navit.yaml`,
+`catalog/profiles/navigation.yaml`; the generated
+`catalog/data/geofabrik-pins.yaml` and its generator; the weekly `--check`.
+The operator's page is `docs/guides/offline-navigation.md`.

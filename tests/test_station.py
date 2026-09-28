@@ -86,6 +86,53 @@ def test_an_empty_station_invents_nothing() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Map regions and freshness — offline map data, not a template variable
+# ---------------------------------------------------------------------------
+
+
+def test_map_regions_round_trip(tmp_path: Path) -> None:
+    path = tmp_path / "station.yaml"
+    save_station(
+        Station(
+            map_regions=("north-america/us/vermont", "north-america/us/new-hampshire"),
+            map_freshness="monthly",
+        ),
+        path,
+    )
+    loaded = load_station(path)
+    assert loaded.map_regions == ("north-america/us/vermont", "north-america/us/new-hampshire")
+    assert loaded.freshness == "monthly"
+
+
+def test_freshness_defaults_to_yearly() -> None:
+    assert Station().freshness == "yearly"
+
+
+@pytest.mark.parametrize(
+    "bad", ["North-America/us", "north-america/../etc", "us vermont", "a//b", ""]
+)
+def test_a_region_that_is_not_a_geofabrik_path_is_refused(bad: str) -> None:
+    with pytest.raises(StationError):
+        Station(map_regions=(bad,))
+
+
+def test_an_unknown_freshness_is_refused() -> None:
+    with pytest.raises(StationError):
+        Station(map_freshness="daily")
+
+
+def test_template_variables_are_unchanged_by_map_fields() -> None:
+    # M0ABC, not the brief's literal N0CALL: CALLSIGN's suffix group allows at
+    # most 3 characters and N0CALL's is 4 ("CALL"), so the placeholder used
+    # elsewhere in CLAUDE.md as an anonymised example does not itself pass
+    # this project's existing callsign shape check. Pre-existing and out of
+    # this task's scope; M0ABC exercises the same property.
+    s = Station(callsign="M0ABC", map_regions=("north-america/us/vermont",))
+    assert s.get("callsign") == "M0ABC"
+    assert "map_regions" not in s.as_dict() or isinstance(s.as_dict()["map_regions"], list)
+
+
+# ---------------------------------------------------------------------------
 # The file
 # ---------------------------------------------------------------------------
 
