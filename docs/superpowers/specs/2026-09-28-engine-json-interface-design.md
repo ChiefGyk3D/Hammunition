@@ -101,8 +101,9 @@ command, that every value the text shows is present in the JSON.
 
 ## 6. Privacy
 
-`station show --json` and `plan` include the operator's regions and callsign,
-because a local front end needs them. The reference says plainly that these
+`station show --json` includes the operator's regions and callsign, because a
+local front end needs them; `plan` carries exactly what the text plan prints
+(the regions, never rendered config contents). The reference says plainly that these
 documents are for local programs, not for pasting into an issue, and `doctor
 --json` and `update --json` keep the count-only rule the text output follows.
 
