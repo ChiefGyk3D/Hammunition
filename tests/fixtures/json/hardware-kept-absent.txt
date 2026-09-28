@@ -1,0 +1,6 @@
+  fixture-radio: not parkable right now — its port has no power control
+
+Kept parked, not attached (cleared with `hammunition hardware wake NAME@ADDRESS`):
+  gps-receiver@1-9  1234:5678
+
+`hammunition hardware park NAME` keeps it parked across reboots; `park --until-reboot NAME` lets a reboot wake it; `wake NAME` brings it back.

@@ -1493,30 +1493,15 @@ def test_hardware_park_maps_a_dismissed_prompt_to_exit_3(
 def test_hardware_state_needs_no_privilege_and_prints_a_table(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    import dataclasses
     import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
-    monkeypatch.setattr(
-        cli,
-        "_survey_parkables",
-        lambda args: (
-            [
-                type(
-                    "P",
-                    (),
-                    {
-                        "name": "gps-receiver",
-                        "address": "1-4",
-                        "identifier": "1546:01a7",
-                        "summary": "USB GNSS receivers",
-                        "parked": True,
-                    },
-                )()
-            ],
-            [],
-        ),
-    )
+    # A real Parkable, not a duck-typed stub: `hardware state` builds its
+    # document (D-059) from every field the helper reports.
+    parked = dataclasses.replace(_gps_receiver(), parked=True)
+    monkeypatch.setattr(cli, "_survey_parkables", lambda args: ([parked], []))
     monkeypatch.setattr("hammunition.hardware.power.read_kept", lambda: [])
     assert cli.main(["hardware", "state"]) == 0
     out = capsys.readouterr().out

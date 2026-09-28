@@ -1,0 +1,12 @@
+{
+  "schema": "hammunition/1",
+  "kind": "station",
+  "engine": "<engine>",
+  "path": "<config>/hammunition/station.yml",
+  "file_exists": false,
+  "callsign": null,
+  "grid_square": null,
+  "node_alias": null,
+  "map_regions": [],
+  "map_freshness": null
+}

@@ -1,0 +1,7 @@
+Station configuration: <config>/hammunition/station.yml
+
+  callsign       N0TST
+  grid_square    FN31pr
+  node_alias     (not set)
+  map regions    (not set)
+  map freshness  yearly

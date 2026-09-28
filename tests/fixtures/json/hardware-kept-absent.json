@@ -1,0 +1,24 @@
+{
+  "schema": "hammunition/1",
+  "kind": "hardware",
+  "engine": "<engine>",
+  "devices": [
+    {
+      "name": "gps-receiver",
+      "summary": "",
+      "address": "1-9",
+      "identifier": "1234:5678",
+      "method": "",
+      "parked": true,
+      "kept": true,
+      "attached": false
+    }
+  ],
+  "skipped": [
+    {
+      "unit": "fixture-radio",
+      "why": "its port has no power control"
+    }
+  ],
+  "kept_error": null
+}
