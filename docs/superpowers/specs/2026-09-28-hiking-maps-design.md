@@ -61,9 +61,14 @@ why. Routino's `foot` profile from `routino-common` is used unchanged.
 
 ### `dem-copernicus` (data, method `dem-tiles`, provider `copernicus-glo30`)
 
-Elevation tiles for the bounding box of every installed region, read from
-each `.osm.pbf` header (piece 1's `osm_pbf.header_bbox`): one 1°×1° Cloud
-Optimised GeoTIFF per square, about **39 MB each**, from
+Elevation tiles for every 1°×1° square a region's **outline** touches: the
+region's published Geofabrik `.poly` outline, fetched once per region and
+saved beside the region record so later plans need no network. (The spec
+first said the `.osm.pbf` header's bounding box; measured on two installed
+regions, that box covers hundreds of squares where the outline touches tens,
+does not even contain the outline's own box, and does not exist before the
+first download, which is when the plan must print the tiles. Amended
+2026-09-28.) One Cloud Optimised GeoTIFF per square, about **39 MB each**, from
 `https://copernicus-dem-30m.s3.amazonaws.com/`. Licence: the Copernicus DEM
 licence, free worldwide with attribution, printed in the plan beside the size.
 
