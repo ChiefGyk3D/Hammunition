@@ -126,7 +126,6 @@ from hammunition.state import (
     plan_removal,
 )
 from hammunition.station import (
-    STATION_FIELDS,
     Station,
     StationError,
     config_path,
@@ -315,37 +314,24 @@ def cmd_status(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+@envelope.json_capable()
 def cmd_station_show(args: argparse.Namespace) -> int:
     """What is saved, and where. Says plainly when nothing is."""
+    from hammunition.interface.station import build_station, render_station
+
     user = operator(args)
-    path = config_path(user)
     try:
         station = load_station(owner=user)
     except StationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_FAILED
 
-    print(f"Station configuration: {path}")
-    if not path.exists():
-        print("  (no file yet)")
-    values = station.as_dict()
-    if not values:
-        print("\nNothing set. `hammunition station set --callsign <yours>` starts it off.")
-        print("Nothing is invented on your behalf: a configuration file needing a value")
-        print("you have not given is reported as not written, and the package still installs.")
+    doc = build_station(config_path(user), station)
+    if envelope.wanted(args):
+        envelope.emit(doc)
         return EXIT_OK
-    print()
-    for field in sorted(STATION_FIELDS):
-        value = station.get(field)
-        print(f"  {field:<14} {value if value else '(not set)'}")
-    # Region names reveal where the operator lives, so only a count is ever
-    # printed here -- `station show` output is the kind of thing that gets
-    # pasted into an issue.
-    if station.map_regions:
-        print(f"  {'map regions':<14} {len(station.map_regions)} set")
-    else:
-        print(f"  {'map regions':<14} (not set)")
-    print(f"  {'map freshness':<14} {station.freshness}")
+    for line in render_station(doc):
+        print(line)
     return EXIT_OK
 
 
@@ -2358,48 +2344,27 @@ def _kept_split(
     return rows, absent
 
 
+@envelope.json_capable()
 def cmd_hardware_state(args: argparse.Namespace) -> int:
     """Which catalogued devices can be parked, which are parked now, and which
     are kept parked across reboots — attached or not."""
     from hammunition.hardware.power import PowerError, read_kept
+    from hammunition.interface.hardware import build_hardware, render_hardware
 
     found, skipped = _survey_parkables(args)
-    for unit, why in skipped:
-        print(f"  {unit}: not parkable right now — {why}")
-
+    kept_error: str | None = None
     try:
         kept = read_kept()
     except (OSError, PowerError) as exc:
-        print(f"\nKept-off entries could not be read: {exc}")
-        kept = []
+        kept_error, kept = str(exc), []
 
     rows, absent = _kept_split(sorted(found, key=lambda p: (p.name, p.address)), kept)
-    if rows:
-        print(f"{'device':24} {'address':10} {'state':8} {'kept':5} summary")
-        for p, is_kept in rows:
-            print(
-                f"{p.name:24} {p.address:10} {'parked' if p.parked else 'awake':8} "
-                f"{'yes' if is_kept else 'no':5} {p.summary}"
-            )
-
-    if absent:
-        print(
-            "\nKept parked, not attached (cleared with `hammunition hardware wake NAME@ADDRESS`):"
-        )
-        for e in absent:
-            print(f"  {e.name}@{e.address}  {e.vendor}:{e.product}")
-
-    if not found and not absent:
-        print(
-            "No parkable device is attached. A device is parkable when its catalog "
-            "entry carries a power_control block and it is plugged in now."
-        )
+    doc = build_hardware(rows, absent, skipped, kept_error)
+    if envelope.wanted(args):
+        envelope.emit(doc)
         return EXIT_OK
-
-    print(
-        "\n`hammunition hardware park NAME` keeps it parked across reboots; "
-        "`park --until-reboot NAME` lets a reboot wake it; `wake NAME` brings it back."
-    )
+    for line in render_hardware(doc):
+        print(line)
     return EXIT_OK
 
 

@@ -1,0 +1,13 @@
+{
+  "schema": "hammunition/1",
+  "kind": "hardware",
+  "engine": "<engine>",
+  "devices": [],
+  "skipped": [
+    {
+      "unit": "fixture-radio",
+      "why": "its port has no power control"
+    }
+  ],
+  "kept_error": null
+}

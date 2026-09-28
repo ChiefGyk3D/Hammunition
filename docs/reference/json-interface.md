@@ -45,8 +45,10 @@ chat: a callsign resolves to a name and a licence address. `doctor` and
 | `catalog` | [`CatalogDocument`](#catalog) |
 | `doctor` | [`DoctorDocument`](#doctor) |
 | `error` | [`ErrorDocument`](#error) |
+| `hardware` | [`HardwareDocument`](#hardware) |
 | `plan` | [`PlanDocument`](#plan) |
 | `profile` | [`ProfileDocument`](#profile) |
+| `station` | [`StationDocument`](#station) |
 | `status` | [`StatusDocument`](#status) |
 | `unit` | [`UnitDocument`](#unit) |
 | `update` | [`UpdateDocument`](#update) |
@@ -503,6 +505,168 @@ an unreadable target). The exit code is the one the text run returns.
     "message"
   ],
   "title": "ErrorDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### hardware
+
+Which catalogued devices can be parked, which are parked now, and
+which are kept parked across reboots -- attached or not.
+
+Read fresh from sysfs (and the kept-off rules file) on every call,
+unprivileged.
+
+| field | type | meaning |
+|---|---|---|
+| `devices` | list of [`DeviceView`](#deviceview) | attached devices first, then kept-but-absent ones |
+| `skipped` | list of [`SkippedView`](#skippedview) | attached but not parkable right now |
+| `kept_error` | string or null | why the kept-off entries could not be read; null when they were |
+
+#### `DeviceView`
+
+A catalogued, parkable device -- attached now, or kept parked and not.
+
+| field | type | meaning |
+|---|---|---|
+| `name` | string | the catalog entry |
+| `summary` | string | one line; empty for a kept entry with nothing attached |
+| `address` | string | the USB bus address, e.g. `1-4`: what tells two of a kind apart |
+| `identifier` | string | `vendor:product` as the bus reported it |
+| `method` | string | how it is parked, e.g. `usb_deauthorize` |
+| `parked` | boolean or null | parked now; null for a kept entry with nothing attached -- there is nothing on the bus to read a state off |
+| `kept` | boolean | kept parked across reboots |
+| `attached` | boolean | plugged in now; a kept entry may name a device that is not |
+
+#### `SkippedView`
+
+A catalogued device that is attached but cannot be parked right now.
+
+| field | type | meaning |
+|---|---|---|
+| `unit` | string | the catalog entry |
+| `why` | string | why not |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "DeviceView": {
+      "additionalProperties": false,
+      "description": "A catalogued, parkable device -- attached now, or kept parked and not.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "address": {
+          "title": "Address",
+          "type": "string"
+        },
+        "identifier": {
+          "title": "Identifier",
+          "type": "string"
+        },
+        "method": {
+          "title": "Method",
+          "type": "string"
+        },
+        "parked": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parked"
+        },
+        "kept": {
+          "title": "Kept",
+          "type": "boolean"
+        },
+        "attached": {
+          "title": "Attached",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "summary",
+        "address",
+        "identifier",
+        "method",
+        "parked",
+        "kept",
+        "attached"
+      ],
+      "title": "DeviceView",
+      "type": "object"
+    },
+    "SkippedView": {
+      "additionalProperties": false,
+      "description": "A catalogued device that is attached but cannot be parked right now.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "why": {
+          "title": "Why",
+          "type": "string"
+        }
+      },
+      "required": [
+        "unit",
+        "why"
+      ],
+      "title": "SkippedView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Which catalogued devices can be parked, which are parked now, and\nwhich are kept parked across reboots -- attached or not.\n\nRead fresh from sysfs (and the kept-off rules file) on every call,\nunprivileged.",
+  "properties": {
+    "devices": {
+      "items": {
+        "$ref": "#/$defs/DeviceView"
+      },
+      "title": "Devices",
+      "type": "array"
+    },
+    "skipped": {
+      "items": {
+        "$ref": "#/$defs/SkippedView"
+      },
+      "title": "Skipped",
+      "type": "array"
+    },
+    "kept_error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Kept Error"
+    }
+  },
+  "required": [
+    "devices",
+    "skipped",
+    "kept_error"
+  ],
+  "title": "HardwareDocument",
   "type": "object"
 }
 ```
@@ -2140,6 +2304,108 @@ A choice the profile offers when nothing already answers it.
     "suggests_one_of"
   ],
   "title": "ProfileDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### station
+
+The saved station values, the values themselves included -- map
+regions among them, per D-057.
+
+For a local front end filling in a form. Not for pasting into an issue,
+a forum or a chat: a callsign resolves to a name and a licence address,
+and a grid square or a map region says where the station is.
+
+| field | type | meaning |
+|---|---|---|
+| `path` | string | the station file |
+| `file_exists` | boolean | whether that file exists yet |
+| `callsign` | string or null | the callsign; null when not set |
+| `grid_square` | string or null | the Maidenhead locator; null when not set |
+| `node_alias` | string or null | the packet node alias; null when not set |
+| `map_regions` | list of string | Geofabrik region paths carrying offline map data; empty when none are set |
+| `map_freshness` | string or null | how often map data is refreshed: yearly, monthly or latest; null means the yearly default applies |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "description": "The saved station values, the values themselves included -- map\nregions among them, per D-057.\n\nFor a local front end filling in a form. Not for pasting into an issue,\na forum or a chat: a callsign resolves to a name and a licence address,\nand a grid square or a map region says where the station is.",
+  "properties": {
+    "path": {
+      "title": "Path",
+      "type": "string"
+    },
+    "file_exists": {
+      "title": "File Exists",
+      "type": "boolean"
+    },
+    "callsign": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Callsign"
+    },
+    "grid_square": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Grid Square"
+    },
+    "node_alias": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Node Alias"
+    },
+    "map_regions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Map Regions",
+      "type": "array"
+    },
+    "map_freshness": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Map Freshness"
+    }
+  },
+  "required": [
+    "path",
+    "file_exists",
+    "callsign",
+    "grid_square",
+    "node_alias",
+    "map_regions",
+    "map_freshness"
+  ],
+  "title": "StationDocument",
   "type": "object"
 }
 ```
