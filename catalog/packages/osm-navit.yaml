@@ -10,13 +10,18 @@ categories: [navigation-maps]
 # implements, never a command line in the catalog) over each region
 # osm-regions installed. `navit` is a dependency because it installs
 # `maptool` and because the configuration written here is Navit's.
-depends: [osm-regions, navit]
+# `country-boundaries` and `osmium-tool` are the address-search fix (D-057
+# amendment, 2026-09-28): before maptool runs, each region is merged with a
+# closed border for its country, built from the boundary file, with
+# `osmium merge`; `osmium-tool` is not a catalog unit, so apt installs it.
+depends: [osm-regions, navit, country-boundaries, osmium-tool]
 
 install:
   - install:
       method: derived
       converter: navit-maptool
       source: osm-regions
+      boundaries: country-boundaries
       licence: ODbL-1.0
       licence_url: https://www.openstreetmap.org/copyright
 
@@ -35,6 +40,10 @@ documentation:
     /usr/local/share/hammunition/data/osm-navit/, and writes the Navit
     configuration the `navit-offline` launcher opens there too: Debian's
     /etc/navit/navit.xml with speech set to espeak-ng and these maps added.
+    Before converting, it merges a closed border for the region's country
+    (from `country-boundaries`) into a copy of the region with `osmium
+    merge`, so maptool can file every town under its country and Navit's
+    address search can find it; the copy is deleted afterwards.
   why_you_want_it: >-
     Navit cannot read OpenStreetMap's `.osm.pbf` files directly, so without
     this step the downloaded regions are no use to it. Doing it here means
@@ -42,9 +51,10 @@ documentation:
     region's data changed, and undone by `hammunition uninstall`, instead of
     being a hand-run command whose output nobody tracks.
   prerequisites: >-
-    `osm-regions` with at least one region set in station config, and
-    `navit` for `maptool`; both install first. With no regions set this
-    unit is deferred by name along with `osm-regions`, and Navit still
+    `osm-regions` with at least one region set in station config, `navit`
+    for `maptool`, `country-boundaries` for the borders and `osmium-tool`
+    from the archive for the merge; all install first. With no regions set
+    this unit is deferred by name along with `osm-regions`, and Navit still
     installs.
   known_problems: >-
     Conversion has been measured on three regions on the field laptop: a
@@ -56,6 +66,18 @@ documentation:
     needs about twice the download of scratch space while it converts,
     measured on the country-sized region only. The plan calls both an
     estimate.
+    A state extract's own copy of its country's border is incomplete, and
+    maptool built from it alone indexed about a dozen towns for a region
+    that draws a few thousand; with the closed border merged, over four
+    thousand, a few hundred times as many. The border is
+    Natural Earth's, about 1 km coarse, so maptool runs with -U: a town the
+    border misses is still indexed, under "* Unknown" in Navit's country
+    list, not lost. maptool's log still warns "Broken country polygon" for
+    the region's own partial border; that warning is expected, and only one
+    for the merged border fails the conversion. Maps converted before this
+    fix are converted again on the next install; the plan says "converter
+    changed" beside each. maptool writes fixed-name scratch files into its
+    working directory, so regions convert one at a time, never in parallel.
     Whether Navit routes across two separately converted regions has not
     yet been measured. A region removed from station config has its
     converted map removed on the next install. The converted maps carry
