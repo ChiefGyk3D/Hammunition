@@ -17,9 +17,9 @@ Hamlib's command-line tools, a rig control panel that other programs can share, 
 This is what every other profile quietly assumes is already there. A digital-modes setup needs something to key the radio; a logger needs to know the frequency; anything timed needs the clock to be right. Installing it once and by name is better than each profile pulling in half of it.
 Two pieces earn their place beyond the obvious. **flrig runs an XML-RPC server**, which is what lets fldigi, WSJT-X and a logger share one CAT port instead of the second program to start finding it busy — that is the normal digital-modes setup, and without something in the middle it does not work. **`rigctl` is the diagnostic** that separates a radio problem from a program problem: when fldigi will not key the transmitter, one command answers whether hamlib can.
 
-## Packages (11)
+## Packages (12)
 
-[`libhamlib-utils`](../packages/libhamlib-utils.md), [`flrig`](../packages/flrig.md), [`chirp`](../packages/chirp.md), [`gpsd`](../packages/gpsd.md), [`gpsd-clients`](../packages/gpsd-clients.md), [`gpsd-tools`](../packages/gpsd-tools.md), [`gpsbabel`](../packages/gpsbabel.md), [`twclock`](../packages/twclock.md), [`tzwatch`](../packages/tzwatch.md), [`pipx`](../packages/pipx.md), [`hammunition-hill`](../packages/hammunition-hill.md)
+[`libhamlib-utils`](../packages/libhamlib-utils.md), [`flrig`](../packages/flrig.md), [`chirp`](../packages/chirp.md), [`gpsd`](../packages/gpsd.md), [`gpsd-clients`](../packages/gpsd-clients.md), [`gpsd-tools`](../packages/gpsd-tools.md), [`gpsbabel`](../packages/gpsbabel.md), [`twclock`](../packages/twclock.md), [`tzwatch`](../packages/tzwatch.md), [`pipx`](../packages/pipx.md), [`hammunition-hill`](../packages/hammunition-hill.md), [`hammunition-tray`](../packages/hammunition-tray.md)
 
 ## What it deliberately excludes
 
