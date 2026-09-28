@@ -1,9 +1,9 @@
 # GPS time: the laptop keeps its own clock when the network is gone
 
-**Status:** design written from the maintainer's rules (2026-09-28); awaiting
-the maintainer's read of this document. The ntpsec mechanism in §4 is being
-measured by a read-only spike; its findings replace any line below marked
-*to confirm*.
+**Status:** design written from the maintainer's rules (2026-09-28), updated
+with a read-only measurement of ntpsec 1.2.3 and gpsd on the field laptop
+(§4b); awaiting the maintainer's read. Two behaviours remain for the bench
+(§8), named where they are used.
 **Decision record:** D-058, written with the implementation. It extends D-056
 (device power control) to the time source that depends on the device.
 **Origin:** the maintainer, 2026-09-28: "a configuration to use the GPS for
@@ -77,30 +77,82 @@ Measured on Parrot 7.3 (2026-09-28):
   USB, tens of milliseconds, fine for FT8 and logging, not for lab timing. The
   docs say so.
 
+### 4b. Measured 2026-09-28 (ntpsec 1.2.3, read-only)
+
+- **ntpd reads `/etc/ntpsec/ntp.d/*.conf` automatically, after `ntp.conf`**,
+  if the directory exists (`ntpd(8)` FILES and parsing rules). It is not
+  shipped by the package. So Hammunition's settings go in
+  `/etc/ntpsec/ntp.d/hammunition-gps.conf` with no `includefile` edit.
+- **gpsd writes the first device's time to SHM units 0 and 1, root 0600**
+  (`gpsd(8)`, and `ipcs -m`). ntpd drops to `ntpsec:ntpsec` with only
+  `cap_net_bind_service,cap_sys_nice,cap_sys_time` (measured from
+  `/proc/<pid>/status`), so it **cannot attach unit 0**. ntpsec's own
+  `README.Debian` documents the AppArmor half of the fix
+  (`capability ipc_owner,` in `/etc/apparmor.d/local/usr.sbin.ntpd`). The
+  process also needs the capability itself: a systemd drop-in
+  `AmbientCapabilities=CAP_IPC_OWNER` for `ntpsec.service`. **That widens a
+  network-facing daemon's privilege**: `CAP_IPC_OWNER` bypasses permission
+  checks on all System V IPC. It is disclosed in the plan as such, and reversed
+  by `unapply`. This build has no gpsd socket driver (drivers compiled in:
+  NMEA, LOCAL, GENERIC and SHM), and the NMEA driver would contend with gpsd
+  for the serial port, so SHM with this grant is the route.
+- **No refclock line means gpsd's SHM is ignored** (measured: `ntpq -p` has no
+  SHM peer today). `ntp-only` is today's unmodified state.
+- **`tos minclock 4 minsane 3` stops a lone GPS disciplining the clock**
+  (documented, with Debian's comment above the line). *Bench*: whether a later
+  `tos minsane 1` in `ntp.d/` overrides it, which would avoid editing the
+  conffile. If it does not, the line is commented out with a Hammunition
+  marker and restored exactly by `unapply`. The documented cost of minsane 1
+  is quoted in §6.
+- **"Network preferred" is not guaranteed by the docs.** `prefer` is a tie
+  breaker ("all other things being equal"), and a stratum-0 refclock may win
+  over stratum-2 servers. *Bench*: measure the selection with the refclock
+  `stratum` raised (e.g. to 10) and the pools `prefer`red, network up and down.
+  If the documented options cannot make the network win while it is
+  reachable, `auto` becomes "GPS and network together, the daemon choosing",
+  and the docs say so rather than claiming a preference that is not there.
+- **`gps-only` must disable the `pool` lines themselves.** `restrict nopeer`
+  no longer blocks pool associations (documented: "they now poke a hole in any
+  restrictions"), and nothing in an include file can mark an existing pool
+  `noselect`. `gps-only` comments them out with the marker; any other mode
+  restores them exactly.
+- **A config change needs `systemctl restart ntpsec`.** SIGHUP does not reread
+  the configuration (documented). The runtime `ntpq :config` path is marked
+  experimental with a silent-failure mode, so it is not used.
+- **Readable unprivileged:** `ntpq -p` (peers, `reach`, `when`) and
+  `ntpq -c rv` (`reftime`, `clock`, the `sync_*`/`sys_peer` status). Time
+  since the last sync is `clock − reftime`. That is what `time` and `doctor`
+  report.
+
 Therefore:
 
-1. **One file of Hammunition's own**, `/etc/ntpsec/hammunition-gps.conf`,
-   holding the refclock line and the selection options for the current
-   preference, rewritten whole by the root helper when the preference changes.
-   Its content is generated from the preference only, never from free text.
-2. **One line added to `ntp.conf`**: `includefile /etc/ntpsec/hammunition-gps.conf`,
-   and the `tos minclock 4 minsane 3` line commented out with a Hammunition
-   marker, both disclosed in `hardware apply`'s plan as a change to a
-   conffile (dpkg will ask about the file on an ntpsec upgrade, and the docs say
-   what to answer). `hardware unapply` restores both lines exactly.
-3. **`auto`** (default): the refclock present, the network servers
-   `prefer`red, the refclock ranked below them — *to confirm by the spike*:
-   the exact options (`stratum`, `prefer`, `time1` for NMEA latency) that make
-   ntpsec follow the network when reachable and the GPS when it is not.
+1. **One file of Hammunition's own**,
+   `/etc/ntpsec/ntp.d/hammunition-gps.conf` (the directory created if absent),
+   holding the refclock line and the selection options for the current mode,
+   rewritten whole by the root helper when the mode changes. Its content is
+   generated from the mode only, never from free text.
+2. **Two small grants, installed by `hardware apply` and reversed by
+   `unapply`**, both disclosed: the systemd drop-in
+   `/etc/systemd/system/ntpsec.service.d/hammunition-gps.conf`
+   (`AmbientCapabilities=CAP_IPC_OWNER`) and the AppArmor local rule
+   `capability ipc_owner,` in `/etc/apparmor.d/local/usr.sbin.ntpd` (the file
+   Debian reserves for local additions; reloaded with `apparmor_parser -r`).
+   The `ntp.conf` conffile is edited only where §4b's bench result requires it,
+   each edit marked and reversed exactly.
+3. **`auto`** (default): the refclock present with its `stratum` raised and
+   a `time1` for NMEA latency, the network servers `prefer`red. Whether that
+   makes ntpsec follow the network while reachable is a *bench* measurement
+   (§4b); the docs claim only what it shows.
 4. **`prefer-gps`**: the refclock `prefer`red, the network servers kept.
 5. **`ntp-only`**: the file holds no refclock.
 6. **`gps-only`**: the refclock, and the `pool` lines in `ntp.conf` disabled
    while the mode holds (commented with the Hammunition marker, restored
-   exactly when the mode changes or on `unapply`) — *to confirm by the spike*
-   whether a `noselect` or `tos` route avoids touching the pool lines.
+   exactly when the mode changes or on `unapply`). Measured: no include-file
+   route exists (§4b).
 7. **Device parked**: nothing is rewritten. A parked receiver's SHM segment
-   goes stale and ntpd stops using it (*to confirm by the spike*: no restart
-   needed). On wake it resumes. The rule "GPS off → GPS time no" holds by
+   stops updating; ntpd's reach register for it decays and it drops out of
+   selection with no restart (inferred from the documented reachability model;
+   *bench*: confirmed with the receiver parked). On wake it resumes. The rule "GPS off → GPS time no" holds by
    construction, without ntpd being touched on every park.
 8. A mode change restarts ntpsec (`systemctl restart ntpsec`), disclosed,
    unless the spike finds a runtime path.
@@ -150,10 +202,15 @@ D-022 question for later, not a silent swap.
 
 ## 5. Privilege
 
-The helper `hammunition-devctl` gains one verb, `time prefer ntp|gps|off`: a
-fixed enum, the file content generated from it, the path a constant admitted
-by its own exact-path guard (the kept-off pattern, `_guard_kept`), a fixed
-argv for the ntpsec restart. No new polkit action. Reading state needs none.
+The helper `hammunition-devctl` gains one verb,
+`time mode auto|prefer-gps|ntp-only|gps-only`: a fixed enum; the ntp.d file's
+content generated from it; the `pool`-line edit for `gps-only` done by an
+anchored, marker-tagged rewrite of `/etc/ntpsec/ntp.conf` that refuses if the
+anchors are not found; each path a constant admitted by its own exact-path
+guard (the kept-off pattern, `_guard_kept`); a fixed argv for the ntpsec
+restart. No new polkit action. The capability drop-in and AppArmor rule are
+installed by `hardware apply` (sudo, disclosed), not by the helper, so the
+helper never widens a daemon's privileges. Reading state needs none.
 
 ## 6. Security, said plainly
 
