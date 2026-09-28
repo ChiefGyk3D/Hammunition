@@ -470,8 +470,8 @@ in their own install notes.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 251
-  profiles/        # named bundles referencing packages      ✅ 16
+  packages/        # one YAML per piece of software          ✅ 254
+  profiles/        # named bundles referencing packages      ✅ 17
   hardware/
     classes/       # device families with shared Linux needs ✅ 5
     devices/       # one YAML per device                     ✅ 24
@@ -588,7 +588,7 @@ never substitutes.
 
 **M1 — walking skeleton. ✅ Complete.** `hammunition install <profile> --dry-run`
 resolves the whole transaction and prints every command; without `--dry-run` it
-installs. The starter profile question closed as `station` (16 profiles ship).
+installs. The starter profile question closed as `station` (17 profiles ship).
 - Manifest schema + validator ✅
 - apt backend ✅ — with real resolution: `depends` goes through
   `apt-cache policy`, which is what D-016's four suspected-stale AHRL
@@ -670,7 +670,7 @@ prefix are **post-1.0**, required by HAMRS and VARA respectively. `snap` appears
 belongs in `system_modifications`, never as a backend.
 
 **M4 — profiles and hardware. ✅ Profiles complete; hardware applied, not yet
-exercised.** All 12 profiles of the 1.0 set plus 4 post-1.0 ship, every member
+exercised.** All 12 profiles of the 1.0 set plus 5 post-1.0 ship, every member
 installable and asserted by test. udev rules and group membership are generated
 from the hardware catalog and were applied on the field laptop, byte-identical to
 the catalog's set; the ladder against attached devices is the open item, and
