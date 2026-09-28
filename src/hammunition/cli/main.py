@@ -2413,6 +2413,28 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     log_dir = state_dir(user or None)
     log_dir_writable = writable_or_creatable(log_dir)
 
+    kept_attached: tuple[str, ...] = ()
+    kept_absent: tuple[str, ...] = ()
+    try:
+        from hammunition.hardware.power import PowerError, kept_entry, read_kept
+
+        found, _skipped = _survey_parkables(args)
+        kept = read_kept()
+        attached_now = [
+            f"{e.name}@{e.address}"
+            for e in kept
+            if any(e.same_device(kept_entry(p)) for p in found)
+        ]
+        absent_now = [
+            f"{e.name}@{e.address}"
+            for e in kept
+            if not any(e.same_device(kept_entry(p)) for p in found)
+        ]
+        kept_attached = tuple(attached_now)
+        kept_absent = tuple(absent_now)
+    except (OSError, PowerError, CatalogError, SystemExit):
+        kept_attached, kept_absent = (), ()
+
     checks = run_checks(
         target_describe=target_describe,
         is_debian_family=is_debian,
@@ -2426,6 +2448,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         rules_applied=rules_applied,
         attached_recognised=attached_recognised,
         log_dir_writable=log_dir_writable,
+        kept_attached=kept_attached,
+        kept_absent=kept_absent,
     )
 
     glyph = {"ok": "✓", "warn": "!", "fail": "✗", "info": "·"}
