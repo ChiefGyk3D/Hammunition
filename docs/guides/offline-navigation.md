@@ -64,7 +64,10 @@ hammunition station set --map-regions north-america/us/vermont,north-america/us/
 `--map-regions` replaces the whole list each time, so to add a region, give
 the full list again with the new one in it; to drop one, give the list
 without it. The next install removes the dropped region's files and says so
-in the plan before it does.
+in the plan before it does. An empty `--map-regions` is refused; to remove
+every region, uninstall `osm-navit` and `osm-regions` (see
+[Removing it](#removing-it)), and the station file keeps the list until you
+set a new one.
 
 The regions are stored in your station config
 (`~/.config/hammunition/station.yml`, readable only by you) beside your
