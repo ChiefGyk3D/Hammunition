@@ -772,6 +772,59 @@ class DataInstall(Strict):
         return self
 
 
+class RegionalDataInstall(Strict):
+    """An offline map region, fetched by the station's own selection.
+
+    Unlike `DataInstall`, no artifact is pinned in the manifest: a Geofabrik
+    extract is one of hundreds of regions, and the operator's choice lives in
+    station config (D-035), not the catalog. The catalog states the provider
+    and the licence; the engine resolves the region and its checksum at plan
+    time from the operator's selection, the same "a missing value defers one
+    file, never the transaction" rule as any other station-dependent unit.
+    """
+
+    method: Literal["osm-regions"] = "osm-regions"
+    provider: Literal["geofabrik"] = "geofabrik"
+    licence: str = Field(
+        min_length=2,
+        description="SPDX identifier where one exists, else the publisher's own words.",
+    )
+    licence_url: str = Field(description="Where the licence is stated, on the publisher's site.")
+
+    @model_validator(mode="after")
+    def _check(self) -> RegionalDataInstall:
+        if not self.licence_url.startswith("https://"):
+            raise ManifestError(f"licence_url must be https, got {self.licence_url!r}")
+        return self
+
+
+class DerivedDataInstall(Strict):
+    """Data produced by running a converter over another catalog unit's data.
+
+    `converter` names the transformation by enum, never a command line --
+    the catalog stays pure data (CLAUDE.md's founding invariant) and the
+    engine owns what each enum member means. `source` names the catalog
+    package whose data this is derived from; the manifest's own validator
+    requires it to also appear in `depends`, so the plan always installs the
+    source data before running the converter over it.
+    """
+
+    method: Literal["derived"] = "derived"
+    converter: Literal["navit-maptool"]
+    source: str = Field(description="The catalog package name this is derived from.")
+    licence: str = Field(
+        min_length=2,
+        description="SPDX identifier where one exists, else the publisher's own words.",
+    )
+    licence_url: str = Field(description="Where the licence is stated, on the publisher's site.")
+
+    @model_validator(mode="after")
+    def _check(self) -> DerivedDataInstall:
+        if not self.licence_url.startswith("https://"):
+            raise ManifestError(f"licence_url must be https, got {self.licence_url!r}")
+        return self
+
+
 class PipxInstall(Strict):
     method: Literal["pipx"] = "pipx"
     spec: str
@@ -786,7 +839,9 @@ InstallMethod = Annotated[
     | VenvInstall
     | NodeInstall
     | PipxInstall
-    | DataInstall,
+    | DataInstall
+    | RegionalDataInstall
+    | DerivedDataInstall,
     Field(discriminator="method"),
 ]
 
@@ -1373,6 +1428,19 @@ class PackageManifest(Strict):
         _check_package_names(
             self.conflicts_with_repo_package, f"{self.name}: conflicts_with_repo_package"
         )
+        return self
+
+    @model_validator(mode="after")
+    def _derived_source_is_in_depends(self) -> PackageManifest:
+        """A `derived` block reads another unit's data at run time (D-049-adjacent);
+        `depends` is what makes the plan install that unit first."""
+        for entry in self.install:
+            block = entry.install
+            if isinstance(block, DerivedDataInstall) and block.source not in self.depends:
+                raise ManifestError(
+                    f"{self.name}: a derived block reads {block.source!r}, which must be "
+                    f"in depends so it is installed first"
+                )
         return self
 
     @model_validator(mode="after")

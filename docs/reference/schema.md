@@ -67,7 +67,7 @@ argument — js8call is apt on Linux Mint 22.3 and a cmake build elsewhere.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `when` | `Selector` | no |  |
-| `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| NodeInstall \| PipxInstall \| DataInstall` | **yes** |  |
+| `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| NodeInstall \| PipxInstall \| DataInstall \| RegionalDataInstall \| DerivedDataInstall` | **yes** |  |
 | `build_depends` | `list[str]` | no | apt packages needed to BUILD only. Never reported as installed. |
 | `binaries` | `list[Binary] \| None` | no | This block's own build outputs, replacing the manifest's `binaries` wherever this block is the one that resolves. A prebuilt archive selected by `arch` can carry a different path per architecture -- rayhunter's zip has `installer` at the top level and one `rayhunter-check` under a per-platform directory -- and one manifest-level list cannot describe both. Omit the key to use the manifest's list; an empty list is refused, because it reads as an override to nothing. |
 | `note` | `str \| None` | no |  |
@@ -485,6 +485,25 @@ engine states and does not adjudicate (D-021).
 | `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
 | `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
 
+### `DerivedDataInstall`
+
+Data produced by running a converter over another catalog unit's data.
+
+`converter` names the transformation by enum, never a command line --
+the catalog stays pure data (CLAUDE.md's founding invariant) and the
+engine owns what each enum member means. `source` names the catalog
+package whose data this is derived from; the manifest's own validator
+requires it to also appear in `depends`, so the plan always installs the
+source data before running the converter over it.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `method` | `Literal[derived]` | no (default `derived`) |  |
+| `converter` | `Literal[navit-maptool]` | **yes** |  |
+| `source` | `str` | **yes** | The catalog package name this is derived from. |
+| `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
+| `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
+
 ### `PipxInstall`
 
 | Field | Type | Required | Description |
@@ -492,3 +511,21 @@ engine states and does not adjudicate (D-021).
 | `method` | `Literal[pipx]` | no (default `pipx`) |  |
 | `spec` | `str` | **yes** |  |
 | `system_site_packages` | `bool` | no (default `False`) |  |
+
+### `RegionalDataInstall`
+
+An offline map region, fetched by the station's own selection.
+
+Unlike `DataInstall`, no artifact is pinned in the manifest: a Geofabrik
+extract is one of hundreds of regions, and the operator's choice lives in
+station config (D-035), not the catalog. The catalog states the provider
+and the licence; the engine resolves the region and its checksum at plan
+time from the operator's selection, the same "a missing value defers one
+file, never the transaction" rule as any other station-dependent unit.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `method` | `Literal[osm-regions]` | no (default `osm-regions`) |  |
+| `provider` | `Literal[geofabrik]` | no (default `geofabrik`) |  |
+| `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
+| `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |

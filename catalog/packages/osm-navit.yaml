@@ -1,0 +1,65 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: osm-navit
+version: "station"
+summary: Navit's binary maps, converted from your OpenStreetMap regions, and its configuration
+categories: [navigation-maps]
+
+# Derived data: the engine runs the `navit-maptool` converter (an enum it
+# implements, never a command line in the catalog) over each region
+# osm-regions installed. `navit` is a dependency because it installs
+# `maptool` and because the configuration written here is Navit's.
+depends: [osm-regions, navit]
+
+install:
+  - install:
+      method: derived
+      converter: navit-maptool
+      source: osm-regions
+      licence: ODbL-1.0
+      licence_url: https://www.openstreetmap.org/copyright
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    Follows osm-regions: a region whose downloaded file changed is
+    converted again on the next install, and one that did not is skipped.
+
+documentation:
+  what_it_does: >-
+    Converts each region `osm-regions` downloaded into Navit's own binary
+    map format with `maptool`, one `.bin` per region under
+    /usr/local/share/hammunition/data/osm-navit/, and writes the Navit
+    configuration the `navit-offline` launcher opens there too: Debian's
+    /etc/navit/navit.xml with speech set to espeak-ng and these maps added.
+  why_you_want_it: >-
+    Navit cannot read OpenStreetMap's `.osm.pbf` files directly, so without
+    this step the downloaded regions are no use to it. Doing it here means
+    the conversion is recorded like any other install, repeated only when a
+    region's data changed, and undone by `hammunition uninstall`, instead of
+    being a hand-run command whose output nobody tracks.
+  prerequisites: >-
+    `osm-regions` with at least one region set in station config, and
+    `navit` for `maptool`; both install first. With no regions set this
+    unit is deferred by name along with `osm-regions`, and Navit still
+    installs.
+  known_problems: >-
+    Conversion has been measured on one region only: a 6.1 GB
+    country-sized region, which became a 4.7 GB `.bin` in 75 minutes on
+    an i7-1185G7, with a peak of about 2.4 GB of memory. From that, the
+    converted map is about 0.8 times the download, and maptool needs
+    about twice the download of scratch space while it converts. The
+    plan's disk estimate uses those factors and calls them an estimate.
+    Whether Navit routes across two separately converted regions has not
+    yet been measured. A region removed from station config has its
+    converted map removed on the next install. The converted maps carry
+    the same Open Database License obligations as the data they came
+    from.
+  upstream_url: https://www.navit-project.org/
+  upstream_support: >-
+    The Navit wiki (https://wiki.navit-project.org/), which documents
+    maptool, and the project's GitHub issues
+    (https://github.com/navit-gps/navit/issues).

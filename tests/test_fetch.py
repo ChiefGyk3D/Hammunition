@@ -279,3 +279,102 @@ def test_the_suite_blocks_the_network() -> None:
     falsified is a check nobody should trust)."""
     with pytest.raises(Exception, match="blocked a connection"):
         socket.create_connection(("example.com", 80), timeout=1)
+
+
+# ---------------------------------------------------------------------------
+# MD5-verified fetch (D-057): the disclosed, weaker path for map data the
+# catalog carries no sha256 pin for. `sha256`-pinned `fetch()` above must stay
+# exactly as strict as it already is; these tests are only about the second,
+# clearly-separate method.
+# ---------------------------------------------------------------------------
+
+
+def test_fetch_md5_accepts_a_matching_file(tmp_path: Path) -> None:
+    body = b"osm" * 1000
+    fetcher = Fetcher(tmp_path, transport=FakeTransport(body))
+    result = fetcher.fetch_md5(
+        "https://x/v.osm.pbf", hashlib.md5(body).hexdigest(), expected_size=len(body)
+    )
+    assert result.path.read_bytes() == body
+    assert result.sha256 == hashlib.sha256(body).hexdigest()
+
+
+def test_fetch_md5_refuses_a_mismatch_and_keeps_nothing(tmp_path: Path) -> None:
+    fetcher = Fetcher(tmp_path, transport=FakeTransport(b"evil"))
+    with pytest.raises(VerificationError, match="md5"):
+        fetcher.fetch_md5("https://x/v.osm.pbf", "0" * 32, expected_size=4)
+    assert _cache_files(tmp_path) == []
+
+
+def test_fetch_md5_refuses_a_size_that_is_not_the_published_one(tmp_path: Path) -> None:
+    body = b"x" * 10
+    fetcher = Fetcher(tmp_path, transport=FakeTransport(body))
+    with pytest.raises(VerificationError, match="size"):
+        fetcher.fetch_md5("https://x/v.osm.pbf", hashlib.md5(body).hexdigest(), expected_size=11)
+    assert _cache_files(tmp_path) == []
+
+
+def test_a_declared_size_above_the_default_cap_raises_the_cap_not_removes_it(
+    tmp_path: Path,
+) -> None:
+    """`fetch_md5`'s cap is the declared size plus 1 MiB, applied per call, not
+    the instance's `max_bytes` (here deliberately set below the declared size)
+    and never removed outright. The first half proves the cap was *raised*
+    high enough to let a legitimately large, pinned-by-size file through; the
+    second proves a server that keeps sending past that raised cap is still
+    stopped, by a body that overruns `expected_size + 1 MiB` -- three bytes
+    over `expected_size` alone would still fit comfortably under the +1 MiB
+    allowance and prove nothing about the cap itself."""
+    body = b"y" * 2048
+    fetcher = Fetcher(tmp_path, transport=FakeTransport(body), max_bytes=1024)
+    ok = fetcher.fetch_md5("https://x/big", hashlib.md5(body).hexdigest(), expected_size=len(body))
+    assert ok.size == len(body)
+
+    overflow = body + b"y" * (1024 * 1024 + 1)  # 1 byte past expected_size + 1 MiB
+    liar = Fetcher(tmp_path / "b", transport=FakeTransport(overflow), max_bytes=1024)
+    with pytest.raises(BackendError, match="byte limit"):
+        liar.fetch_md5("https://x/big", hashlib.md5(overflow).hexdigest(), expected_size=len(body))
+
+
+# ---------------------------------------------------------------------------
+# Final review, item 2: the download temporary never follows a planted link
+# ---------------------------------------------------------------------------
+
+
+class _Bytes:
+    def __init__(self, body: bytes) -> None:
+        self.body = body
+
+    @contextmanager
+    def open(self, url: str) -> Iterator[IO[bytes]]:
+        yield BytesIO(self.body)
+
+
+@pytest.mark.parametrize("method", ["sha256", "md5"])
+def test_a_symlink_planted_at_the_temporary_is_refused_and_its_target_untouched(
+    tmp_path: Path, method: str
+) -> None:
+    import hashlib
+    import os
+
+    body = b"map bytes"
+    url = "https://download.geofabrik.de/x-260101.osm.pbf"
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    fetcher = Fetcher(cache, transport=_Bytes(body))
+    victim = tmp_path / "shadow"
+    victim.write_text("root:secret\n")
+    if method == "sha256":
+        artifact = RemoteArtifact(url=url, sha256=hashlib.sha256(body).hexdigest())
+        final = fetcher.path_for(artifact)
+    else:
+        md5 = hashlib.md5(body, usedforsecurity=False).hexdigest()
+        final = fetcher.md5_path_for(url, md5)
+    final.with_name(final.name + f".part.{os.getpid()}").symlink_to(victim)
+    with pytest.raises(BackendError, match="temporary"):
+        if method == "sha256":
+            fetcher.fetch(artifact)
+        else:
+            fetcher.fetch_md5(url, md5, expected_size=len(body))
+    assert victim.read_text() == "root:secret\n"
+    assert not final.exists()

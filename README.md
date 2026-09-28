@@ -8,9 +8,9 @@ targeting Debian, Ubuntu, Kali, Linux Mint and Raspberry Pi OS.
 
 ---
 
-## Beta, v0.9.0 — feature-complete for 1.0; what remains is verification on the bench
+## Beta, v0.10.0 — feature-complete for 1.0; what remains is verification on the bench
 
-**Status: beta, v0.9.0 — every 1.0 stage is in the catalog; the 0.1 that is missing is measured, not written.** The core cycle —
+**Status: beta, v0.10.0 — every 1.0 stage is in the catalog; the 0.1 that is missing is measured, not written.** The core cycle —
 resolve, disclose, install, configure, verify, remove — runs end to end and is
 **VM-verified on Parrot, Kali, Debian 13, Ubuntu 24.04, Ubuntu 26.04 and
 Pop!_OS 24.04**, with **zero hard install failures across the whole catalog on
@@ -45,12 +45,12 @@ exactly where things stand:
 | | Status |
 |---|---|
 | Catalog schema (Pydantic, `mypy --strict`) | ✅ working |
-| Package manifests | 🟡 **251**, up from 71 |
+| Package manifests | 🟡 **254**, up from 71 |
 | …Debian Blend coverage | ✅ **152 of 152** — SCOPE.md's first 1.0 stage, complete |
-| …parity coverage | 🟡 **106 of the 124 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
+| …parity coverage | 🟡 **107 of the 124 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
 | Hardware catalog | 🟡 24 devices, 5 classes, 297 confirmed USB identifiers |
 | …of which **supported** / **run on hardware here** | **18** / **7** — [two different claims](docs/DECISIONS.md), kept apart on purpose |
-| Profiles | ✅ **all 12 of the 1.0 set**, plus 4 post-1.0 — every package installable, asserted by test; a member a target's archive lacks is deferred by name, never the whole profile (D-039) |
+| Profiles | ✅ **all 12 of the 1.0 set**, plus 5 post-1.0 — every package installable, asserted by test; a member a target's archive lacks is deferred by name, never the whole profile (D-039) |
 | Inventories of all six upstream sources | ✅ complete and measured |
 | Consent gates for RF-research tooling | ✅ working |
 | Distro detection from `/etc/os-release` | ✅ working |
@@ -67,7 +67,8 @@ exactly where things stand:
 | pipx / CPAN backends | ⚪ re-measured to **zero users** and dropped from 1.0 (D-014 amendment) |
 | Templated config files, from station values | ✅ working — a missing value defers one file, not the transaction |
 | Third-party apt repos | ✅ working — manifest pins the key fingerprint, consent is that fingerprint and `--yes` cannot give it, both files reversed by `uninstall` (D-040); `code`/`codium` in the opt-in `editors` profile |
-| Device power control: park and wake a catalogued device (D-056) | ✅ working — `hammunition hardware park`/`wake`, generated menu entries, and the [hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) Plasma applet, all through one root helper behind one polkit action; measured on the field laptop's GPS receiver 2026-09-27; staying parked across a reboot is [designed in #119](https://github.com/ChiefGyk3D/Hammunition/pull/119), not built |
+| Device power control: park and wake a catalogued device (D-056) | ✅ working — `hammunition hardware park`/`wake`, generated menu entries, and the [hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) Plasma applet, all through one root helper behind one polkit action; measured on the field laptop's GPS receiver 2026-09-27; staying parked across a reboot (one udev rule per device, D-056 amended) is built; reboot not yet measured |
+| Offline navigation: Navit over your own OpenStreetMap regions (D-057) | 🟡 built, not yet measured on hardware end to end — regions from station config; each download checked by a sha256 Hammunition pinned (the 50 US states and DC) or by Geofabrik's MD5, and the plan says which; converted for Navit as the operator; post-1.0 `navigation` profile, [guide](docs/guides/offline-navigation.md) |
 | udev rule generation from the hardware catalog | ✅ generated and applied by `hammunition hardware apply`; applied on the field laptop and byte-identical to the catalog's set; not yet exercised against an attached device |
 | `uninstall` | ✅ working — reverses apt, venv, binary, .deb, trees and launchers; marker-verified, VM-proven; a real `make install` is refused by name |
 | End-to-end VM verification (install / configure / remove) | ✅ Parrot, Kali, Debian 13, Ubuntu 24.04, Ubuntu 26.04, and [Pop!_OS 24.04](docs/reference/vm-campaign-pop.md) as an undeclared target |
@@ -305,7 +306,7 @@ requirements, not aspirations:
   release key with the dates it was trusted. Check that file against
   `https://api.github.com/users/ChiefGyk3D/ssh_signing_keys` before trusting
   it; [`docs/contributing/releasing.md`](docs/contributing/releasing.md) is
-  the procedure. **No key exists yet**: `v0.7.0` and `v0.9.0` are annotated
+  the procedure. **No key exists yet**: `v0.7.0`, `v0.9.0` and `v0.10.0` are annotated
   and unsigned, and the file says so; the first signed tag is 1.0.
 
 ---

@@ -5,7 +5,8 @@
 
 ``apt``, ``source``, ``git``, ``binary``, ``venv`` and ``node`` are
 implemented — every method the 1.0 measurement requires (DESIGN.md §6,
-D-014; ``node`` by D-037). ``pipx`` is a measured zero, declared in the
+D-014; ``node`` by D-037) — with ``data`` (D-049) and the map methods
+``osm-regions`` and ``derived`` (D-057) beside them. ``pipx`` is a measured zero, declared in the
 schema and refused here. The planner refuses a manifest whose method has no
 backend, by name, rather than skipping it; a capability matrix that reports
 coverage the engine does not have is the shim CLAUDE.md forbids.
@@ -27,14 +28,16 @@ from .base import (
 )
 from .binary import IMPLEMENTED_BINARY_FORMATS, BinaryBackend
 from .data import DataBackend
+from .derived import DerivedBackend
 from .git import GitBackend
 from .node import NodeBackend
+from .regions import RegionsBackend
 from .source import SourceBackend
 from .venv import VenvBackend
 
 #: Install methods this engine build can actually perform.
 IMPLEMENTED_METHODS: frozenset[str] = frozenset(
-    {"apt", "binary", "data", "git", "node", "source", "venv"}
+    {"apt", "binary", "data", "derived", "git", "node", "osm-regions", "source", "venv"}
 )
 
 #: `system_modifications` kinds this engine build can actually perform.
@@ -56,9 +59,11 @@ __all__ = [
     "CommandResult",
     "CommandRunner",
     "DataBackend",
+    "DerivedBackend",
     "GitBackend",
     "NodeBackend",
     "RecordingRunner",
+    "RegionsBackend",
     "RepoState",
     "SourceBackend",
     "SubprocessRunner",

@@ -223,6 +223,12 @@ jobs:
       # re-cut tag, or a wrong SHA, which is still 40 hex characters and so
       # passes every offline check there is.
       - run: python scripts/check_pin_reviews.py --verify-refs
+      # The Geofabrik sha256 pins: HEAD each pinned URL and compare its size.
+      # Geofabrik keeps about three monthly snapshots, so a monthly pin ages
+      # out on the calendar and this goes red naming it and the command to
+      # regenerate. HEAD only; the ~10 GB regeneration runs on a maintainer's
+      # machine.
+      - run: python scripts/gen_geofabrik_pins.py --check
 
   # -------------------------------------------------------------------------
   # D-031. Every identifier citing a distribution's udev rule is checked

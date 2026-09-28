@@ -192,6 +192,29 @@ def test_a_file_is_fetched_verified_and_installed_0644(
     assert oct(dest.stat().st_mode & 0o777) == "0o644"
 
 
+def test_a_cache_file_swapped_for_a_symlink_after_the_fetch_is_refused(
+    served: tuple[str, dict[str, tuple[str, int]]], tmp_path: Path
+) -> None:
+    """Fix round 1, item 7: root must not copy a cache entry it has not re-verified."""
+    base, facts = served
+    sha, size = facts["cty.dat"]
+    m = _manifest(
+        [{"url": f"{base}/cty.dat", "sha256": sha, "size": size, "install_as": "cty.dat"}]
+    )
+    backend = _backend(tmp_path)
+    fetch, install = _actions(backend.steps(m, m.install[0].install))  # type: ignore[arg-type]
+    fetch.perform()
+    cached = backend.fetcher.path_for(m.install[0].install.artifacts[0])  # type: ignore[union-attr]
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.write_bytes(CTY)
+    cached.unlink()
+    cached.symlink_to(elsewhere)
+    with pytest.raises(BackendError, match="symlink"):
+        install.perform()
+    dest = tmp_path / "prefix" / "share" / "hammunition" / "data" / "country-files" / "cty.dat"
+    assert not dest.exists()
+
+
 def test_an_archive_is_extracted_into_the_data_directory(
     served: tuple[str, dict[str, tuple[str, int]]], tmp_path: Path
 ) -> None:

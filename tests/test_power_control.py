@@ -9,6 +9,7 @@ are fixed enums, so a manifest cannot smuggle a shell line through them.
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import subprocess
 from pathlib import Path
@@ -18,14 +19,21 @@ from pydantic import ValidationError
 
 from hammunition.hardware.detect import AttachedDevice, Match
 from hammunition.hardware.power import (
+    KEPT_RULES,
+    Parkable,
     PowerError,
     PowerPlan,
     Write,
     execute,
     guard,
+    kept_entry,
     parkable,
+    parse_kept,
+    plan_forget,
     plan_park,
     plan_wake,
+    read_kept,
+    render_kept,
 )
 from hammunition.manifest.hardware import (
     DeviceClass,
@@ -56,6 +64,8 @@ def sysfs_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     from hammunition.hardware import power
 
     monkeypatch.setattr(power, "ALLOWED_ROOTS", (*power.ALLOWED_ROOTS, str(tmp_path)))
+    monkeypatch.setattr(power, "KEPT_RULES", str(tmp_path / "66-hammunition-kept.rules"))
+    monkeypatch.setattr(power, "_reload_udev", lambda: None)
     return tmp_path
 
 
@@ -511,3 +521,314 @@ def test_no_other_catalog_entry_is_parkable_yet() -> None:
         name for name, entry in {**classes, **devices}.items() if entry.power_control is not None
     ]
     assert parkables == ["gps-receiver"]
+
+
+def _gps(address: str = "3-5.1", identifier: str = "1546:01a9") -> Parkable:
+    return Parkable(
+        name="gps-receiver",
+        summary="USB GNSS receivers",
+        method="usb_deauthorize",
+        quiet=(),
+        sysfs_path=f"/sys/bus/usb/devices/{address}",
+        identifier=identifier,
+        parked=False,
+    )
+
+
+RULE = (
+    'ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", KERNEL=="3-5.1", '
+    'ATTR{idVendor}=="1546", ATTR{idProduct}=="01a9", ATTR{authorized}="0"'
+)
+
+
+def test_kept_entry_builds_the_exact_rule_line() -> None:
+    assert kept_entry(_gps()).rule() == RULE
+
+
+@pytest.mark.parametrize(
+    "address",
+    ["3-5.1\n", '3-5.1",RUN+="x', "3-5..1", "usb3", "3-", "3-5.1 "],
+)
+def test_kept_entry_refuses_an_address_that_is_not_a_usb_port(address: str) -> None:
+    # No "/" in any of these: `Parkable.address` is the path's last component,
+    # so a slash would test Path.name, not the validator.
+    bad = dataclasses.replace(_gps(), sysfs_path=f"/sys/bus/usb/devices/{address}")
+    assert bad.address == address
+    with pytest.raises(PowerError):
+        kept_entry(bad)
+
+
+@pytest.mark.parametrize("identifier", ["1546:01A9x", "1546", "15a:01a9", '1546:01a9"'])
+def test_kept_entry_refuses_an_identifier_that_is_not_two_hex_quads(identifier: str) -> None:
+    with pytest.raises(PowerError):
+        kept_entry(_gps(identifier=identifier))
+
+
+def test_kept_entry_lowercases_the_identifier() -> None:
+    assert kept_entry(_gps(identifier="1546:01A9")).product == "01a9"
+
+
+def test_two_ports_are_two_entries() -> None:
+    a, b = kept_entry(_gps("3-5.1")), kept_entry(_gps("3-6"))
+    assert not a.same_device(b)
+    assert parse_kept(render_kept([a, b])) == [a, b]
+
+
+def test_render_then_parse_round_trips() -> None:
+    entry = kept_entry(_gps())
+    text = render_kept([entry])
+    assert f"# kept: gps-receiver\n{RULE}\n" in text
+    assert parse_kept(text) == [entry]
+
+
+def test_parse_refuses_a_line_hammunition_did_not_write() -> None:
+    text = render_kept([kept_entry(_gps())]) + 'ACTION=="add", RUN+="/bin/sh -c evil"\n'
+    with pytest.raises(PowerError, match="line 5"):
+        parse_kept(text)
+
+
+def test_parse_refuses_a_rule_without_its_name_line() -> None:
+    with pytest.raises(PowerError):
+        parse_kept(RULE + "\n")
+
+
+def test_parse_of_an_empty_file_is_no_entries() -> None:
+    assert parse_kept("") == []
+
+
+def test_guard_stays_sysfs_only_and_refuses_the_kept_rules_file() -> None:
+    """Final review finding 2: guard() is the containment check execute() runs
+    on every sysfs write, so it may not admit the rules file -- a plan carrying
+    Write(KEPT_RULES, 'RUN+=...') would otherwise be written by root. The
+    rules file has its own exact-path check, _guard_kept()."""
+    for other in (
+        KEPT_RULES,
+        "/etc/udev/rules.d/65-hammunition.rules",
+        "/etc/udev/rules.d/66-hammunition-kept.rules.d/x",
+        "/etc/udev/rules.d/../../shadow",
+        "/etc/udev/rules.d/66-hammunition-kept.rules/../../../shadow",
+    ):
+        with pytest.raises(PowerError):
+            guard(other)
+
+
+def test_guard_kept_admits_exactly_the_rules_file() -> None:
+    from hammunition.hardware.power import _guard_kept
+
+    assert _guard_kept(KEPT_RULES) == KEPT_RULES
+    for other in (
+        "/etc/udev/rules.d/65-hammunition.rules",
+        "/etc/udev/rules.d/66-hammunition-kept.rules/../66-hammunition-kept.rules",
+        "/etc/udev/rules.d//66-hammunition-kept.rules",
+        "/sys/bus/usb/devices/1-4/authorized",
+    ):
+        with pytest.raises(PowerError):
+            _guard_kept(other)
+
+
+def test_execute_refuses_a_sysfs_write_aimed_at_the_kept_rules_file(sysfs_root: Path) -> None:
+    rules = _kept_path()
+    plan = PowerPlan(
+        writes=(Write(path=str(rules), value='ACTION=="add", RUN+="/bin/sh"'),),
+        quiet=(),
+        restore=False,
+    )
+    with pytest.raises(PowerError):
+        execute(plan)
+    assert not rules.exists(), "nothing may be written before the refusal"
+
+
+def _node(root: Path, address: str = "3-5.1") -> Parkable:
+    node = root / address
+    (node / "power").mkdir(parents=True)
+    (node / "authorized").write_text("1\n")
+    (node / "power" / "control").write_text("on\n")
+    return Parkable(
+        name="gps-receiver",
+        summary="USB GNSS receivers",
+        method="usb_deauthorize",
+        quiet=(),
+        sysfs_path=str(node),
+        identifier="1546:01a9",
+        parked=False,
+    )
+
+
+def _kept_path() -> Path:
+    from hammunition.hardware import power
+
+    return Path(power.KEPT_RULES)
+
+
+def test_park_keeps_by_default_and_writes_the_rule(sysfs_root: Path) -> None:
+    p = _node(sysfs_root)
+    assert execute(plan_park(p)) == []
+    assert (Path(p.sysfs_path) / "authorized").read_text().strip() == "0"
+    assert read_kept() == [kept_entry(p)]
+    assert oct(_kept_path().stat().st_mode & 0o777) == "0o644"
+
+
+def test_park_until_reboot_writes_no_rule(sysfs_root: Path) -> None:
+    p = _node(sysfs_root)
+    assert plan_park(p, keep=False).keep is None
+    assert execute(plan_park(p, keep=False)) == []
+    assert not _kept_path().exists()
+
+
+def test_wake_removes_only_that_devices_entry(sysfs_root: Path) -> None:
+    a, b = _node(sysfs_root, "3-5.1"), _node(sysfs_root, "3-6")
+    assert execute(plan_park(a)) == [] and execute(plan_park(b)) == []
+    assert execute(plan_wake(a)) == []
+    assert read_kept() == [kept_entry(b)]
+
+
+def test_waking_the_last_kept_device_deletes_the_file(sysfs_root: Path) -> None:
+    p = _node(sysfs_root)
+    execute(plan_park(p))
+    assert execute(plan_wake(p)) == []
+    assert not _kept_path().exists()
+
+
+def test_parking_twice_keeps_one_entry(sysfs_root: Path) -> None:
+    p = _node(sysfs_root)
+    execute(plan_park(p))
+    (Path(p.sysfs_path) / "authorized").write_text("1\n")
+    execute(plan_park(p))
+    assert read_kept() == [kept_entry(p)]
+
+
+def test_forget_clears_an_absent_device_without_touching_sysfs(sysfs_root: Path) -> None:
+    p = _node(sysfs_root)
+    execute(plan_park(p))
+    plan = plan_forget(kept_entry(p))
+    assert plan.writes == ()
+    assert execute(plan) == []
+    assert read_kept() == []
+
+
+def test_a_foreign_line_leaves_the_file_alone_and_says_the_park_will_not_stay(
+    sysfs_root: Path,
+) -> None:
+    p = _node(sysfs_root)
+    foreign = 'ACTION=="add", RUN+="/usr/bin/true"\n'
+    _kept_path().write_text(foreign)
+    problems = execute(plan_park(p))
+    assert (Path(p.sysfs_path) / "authorized").read_text().strip() == "0"
+    assert _kept_path().read_text() == foreign
+    assert len(problems) == 1
+    assert "parked now but will not stay parked" in problems[0]
+    assert "line 1" in problems[0]
+
+
+def test_a_failed_reload_is_reported_and_the_rule_is_still_written(
+    sysfs_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hammunition.hardware import power
+
+    monkeypatch.setattr(power, "_reload_udev", lambda: "udevadm: not found")
+    p = _node(sysfs_root)
+    problems = execute(plan_park(p))
+    assert read_kept() == [kept_entry(p)]
+    assert problems == [
+        "udev did not reload its rules (udevadm: not found); the entry applies from the next boot"
+    ]
+
+
+def test_no_kept_change_when_the_sysfs_write_failed(sysfs_root: Path) -> None:
+    p = _node(sysfs_root)
+    (Path(p.sysfs_path) / "authorized").unlink()
+    (Path(p.sysfs_path) / "authorized").mkdir()  # write_text now raises
+    assert execute(plan_park(p)) != []
+    assert not _kept_path().exists()
+
+
+def test_the_kept_temp_file_is_unique_never_the_fixed_name(
+    sysfs_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Final review finding 3: a fixed temp name lets two interleaved helper
+    runs splice one file that parse_kept then refuses forever."""
+
+    seen: list[str] = []
+    real_replace = os.replace
+
+    def recording(src: str | os.PathLike[str], dst: str | os.PathLike[str]) -> None:
+        seen.append(os.fspath(src))
+        real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", recording)
+    assert execute(plan_park(_node(sysfs_root))) == []
+    [tmp] = seen
+    name = Path(tmp).name
+    assert name != "66-hammunition-kept.rules.tmp"
+    assert name.startswith(".66-hammunition-kept.") and name.endswith(".tmp")
+    assert Path(tmp).parent == sysfs_root
+
+
+def test_a_failed_kept_write_leaves_no_temp_file_behind(
+    sysfs_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+
+    def refusing(src: object, dst: object) -> None:
+        raise OSError("read-only file system")
+
+    monkeypatch.setattr(os, "replace", refusing)
+    problems = execute(plan_park(_node(sysfs_root)))
+    assert problems and "will not stay parked" in problems[0]
+    assert not _kept_path().exists()
+    assert [p.name for p in sysfs_root.iterdir() if p.name.endswith(".tmp")] == []
+
+
+def test_the_kept_read_modify_write_waits_for_the_directory_lock(sysfs_root: Path) -> None:
+    """Two helper runs each reading the file, then each writing its own view,
+    lose one entry. The read-modify-write holds an flock on the rules
+    directory, so a second run waits for the first."""
+    import fcntl
+    import threading
+    import time
+
+    p = _node(sysfs_root)
+    fd = os.open(sysfs_root, os.O_RDONLY | os.O_DIRECTORY)
+    fcntl.flock(fd, fcntl.LOCK_EX)
+    problems: list[list[str]] = []
+    worker = threading.Thread(target=lambda: problems.append(execute(plan_park(p))))
+    try:
+        worker.start()
+        time.sleep(0.3)
+        assert not _kept_path().exists(), "the kept file was written while the lock was held"
+    finally:
+        os.close(fd)
+    worker.join(timeout=5)
+    assert problems == [[]]
+    assert read_kept() == [kept_entry(p)]
+
+
+def test_park_until_reboot_of_a_kept_device_removes_its_entry(sysfs_root: Path) -> None:
+    """Final review finding 4: --until-reboot means a reboot wakes it. An entry
+    left from an earlier keeping park would re-park it at boot instead."""
+    p = _node(sysfs_root)
+    assert execute(plan_park(p)) == []
+    assert read_kept() == [kept_entry(p)]
+    (Path(p.sysfs_path) / "authorized").write_text("1\n")
+    plan = plan_park(p, keep=False)
+    assert plan.keep is None and plan.forget == kept_entry(p)
+    assert execute(plan) == []
+    assert (Path(p.sysfs_path) / "authorized").read_text().strip() == "0"
+    assert not _kept_path().exists()
+
+
+def test_a_failed_reload_after_a_removal_says_the_old_rule_still_applies(
+    sysfs_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Final review finding 8: after a removal udev still holds the old rule,
+    so "applies from the next boot" is the wrong way round."""
+    from hammunition.hardware import power
+
+    p = _node(sysfs_root)
+    assert execute(plan_park(p)) == []
+    monkeypatch.setattr(power, "_reload_udev", lambda: "udevadm: not found")
+    problems = execute(plan_wake(p))
+    assert read_kept() == []
+    assert problems == [
+        "udev did not reload its rules (udevadm: not found); the removed entry "
+        "still applies to a replug until udev reloads or the machine reboots"
+    ]

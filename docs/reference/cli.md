@@ -145,6 +145,41 @@ questions and are not asked.
 Measured on the field laptop, 25 probes answered in 7.5 s, none
 unanswered, and three pins found behind upstream the first time it ran.
 
+For `osm-regions`, every installed region's `.source` sidecar is compared
+to the pinned snapshot the station's own freshness mode would resolve to
+*today* — the same one-period-back fallback `resolve()` itself uses when
+this year's or this month's file is not yet pinned — never the newest pin
+of any snapshot: that reported a yearly install at `260101` behind a
+`260901` pin forever, since a yearly install never resolves to a
+monthly-shaped snapshot and so never clears it. Offline, like the rest of
+this report (D-053). The row is a count, never a region name or path — the
+same reason `station show` prints a count (D-057; a region list says where
+somebody lives or travels): `2 regions installed; 1 behind the pin (newer
+map data pinned: 260101)`. Nothing installed is `not installed`; nothing
+behind is `up to date`. `hammunition install osm-regions osm-navit` (the
+footer's own command, since `install osm-regions` alone never reconverts
+the derived maps) fetches and converts the newer file.
+
+### `hammunition maps regions [FILTER]`
+
+Every region path Geofabrik's region index names, one per line, sorted.
+`FILTER` is an optional case-insensitive substring; with none, every region
+prints. The index (`index-v1-nogeom.json`, 0.51 MB, measured live
+2026-09-28: 555 regions — smaller than `index-v1.json`'s 3.79 MB for the
+same `properties.urls.pbf` shape) is fetched only when this command runs —
+network on request, the same as `update --upstream`, never as a side
+effect of any other command.
+
+```
+$ hammunition maps regions vermont
+north-america/us/vermont
+```
+
+A region path here is what `hammunition station set --map-regions` takes,
+comma-separated, and what `catalog/data/geofabrik-pins.yaml` pins. A
+network failure (unreachable, a non-2xx response) is a named error and a
+non-zero exit; nothing is downloaded or written.
+
 ### `hammunition list [all|packages|profiles]`
 
 Everything in the catalog, with each package's install method **on this
@@ -187,6 +222,54 @@ prints, before the confirmation, every artifact's size and URL, the unit's
 licence and where it is stated, and the install directory, under the heading
 *Offline data that will be downloaded and installed*. `uninstall` removes
 the directory whole; it is namespaced, so it can only be ours.
+
+**Map regions (D-057).** `osm-regions` and `osm-navit` take their regions
+from station config (`station set --map-regions`, below), so before the
+plan prints it asks Geofabrik which dated file each region resolves to and
+how large it is, and discloses them under *Map regions, from station
+config*:
+
+```
+Map regions, from station config (D-057):
+  will be downloaded and installed:
+    north-america/us/vermont        260101    44.4 MB  sha256, pinned by Hammunition
+    north-america/us/new-hampshire  260101    68.1 MB  sha256, pinned by Hammunition
+  will be converted for Navit (map sizes an estimate, measured on one region):
+    north-america/us/vermont        260101  about 35.5 MB
+    north-america/us/new-hampshire  260101  about 54.5 MB
+      licence: ODbL-1.0, stated at https://www.openstreetmap.org/copyright
+      download total: 0.11 GB; about 0.20 GB of disk with Navit's maps (estimate, measured on one region)
+      installs under <prefix>/share/hammunition/data/
+```
+
+Each region line is the region, the snapshot (`YYMMDD`), the size, and how
+the download is verified: **`sha256, pinned by Hammunition`** when the
+region and snapshot have a row in `catalog/data/geofabrik-pins.yaml`,
+otherwise **`MD5 from Geofabrik only; not pinned`**. `--yes` does not change
+it. A region already installed at its snapshot is listed under *already
+installed, current* and not downloaded again; one that could not be checked
+(no network, Geofabrik down) but is installed is kept as it is, with a line
+saying so and why. The commands section shows each fetch, each `maptool`
+conversion (run as the operator in `~/.cache/hammunition/build/osm-navit/`,
+with its output and scratch estimates), each install into the prefix, the
+removal of any region no longer in station config, and Navit's
+configuration written last.
+
+It refuses at plan time, exit 2, changing nothing, when a region cannot be
+resolved and is not already installed (named, with `maps regions` as the
+way to check it), when a region that is about to be fetched — pinned or
+not — cannot be reached (a pinned region resolves from the pin list with
+no network at all, so this is checked explicitly rather than discovered
+mid-transaction after apt has already run; an already-installed region is
+never probed), when `/etc/navit/navit.xml` is missing and navit is not
+in the transaction, and when a file system is short of the estimated space
+(the download in the cache and the prefix, the converted map at 0.8× and
+maptool's scratch at 2× the download, both factors measured on one region;
+the refusal prints the estimate and what is free). With no regions set the
+two units are deferred by name and the rest installs (**D-035**). A region
+that fails during the run — a download that does not verify, a conversion
+that writes nothing — does not stop the others; the run ends exit 1 naming
+every region that did not install.
 
 **Recommends, per unit (D-052).** Recommends are not suppressed globally —
 that would deviate from what every target distribution does, and several ham
@@ -279,7 +362,7 @@ second list. Per-user and unprivileged throughout.
   Station*, *Digital Modes & Morse*, *Packet, Mesh & Emergency Comms*,
   *SDR & Listening*, *Satellites & Propagation*, *Antennas, Bench &
   Programming*, *RF Security & Research*, *Learn & Practise*), then one
-  submenu per catalog category — 55 of them since **D-055**, each the thing
+  submenu per catalog category — 56 of them (**D-055**'s 55, plus *Navigation & Maps*), each the thing
   a person looks for (*APRS*, *Winlink Email*, *Ships (AIS)*, *SSTV, Fax &
   Amateur TV*) — titled from the vocabulary with a gloss where the tag is
   jargon (*CW (Morse)*, *Rig Control (CAT)*; **D-054**). The groups are `catalog/categories.yaml`'s `groups:` list;
@@ -436,8 +519,11 @@ files contain and what installing them means.
 
 Removes the power-control helper and its polkit action — the two files
 `hardware apply` installs at `/usr/local/libexec/hammunition-devctl` and
-`/usr/share/polkit-1/actions/com.chiefgyk3d.hammunition.devctl.policy` — and
-nothing else (**D-056**).
+`/usr/share/polkit-1/actions/com.chiefgyk3d.hammunition.devctl.policy` — and,
+if present, `/etc/udev/rules.d/66-hammunition-kept.rules`, the kept-off rules
+file `park` writes to by default (**D-056**, amended 2026-09-28). Removing it
+reloads udev, so every device it was holding parked wakes from the next boot
+on. Nothing else is touched.
 
 - **Not part of `uninstall`.** `uninstall` resolves the names it is given
   against the package and profile catalogs; there is no unit named
@@ -459,21 +545,33 @@ remove, every recorded artefact already gone, a `--dry-run`, or declining the
 confirmation prompt; `1` if the operator could not be determined, a removal
 command failed, or a path is still present after the run.
 
-### `hammunition hardware park NAME [--dry-run]`
+### `hammunition hardware park NAME [--until-reboot] [--dry-run]`
 
 Detaches a catalogued, attached device and lets its port suspend — writes `0`
-to its sysfs `authorized` file, the same effect as unplugging it, reversible
-with `wake` or a reboot. `NAME` is the catalog name (`gps-receiver`), or
-`NAME@ADDRESS` when two of the same kind are attached and the plain name
-would be a guess. Only a device whose catalog entry carries a
-`power_control` block is ever offered (**D-056**); see
-`docs/hardware/power-control.md` for what parking does and does not do, and
-which devices carry that block today.
+to its sysfs `authorized` file, the same effect as unplugging it. `NAME` is
+the catalog name (`gps-receiver`), or `NAME@ADDRESS` when two of the same
+kind are attached and the plain name would be a guess. Only a device whose
+catalog entry carries a `power_control` block is ever offered (**D-056**);
+see `docs/hardware/power-control.md` for what parking does and does not do,
+and which devices carry that block today.
+
+**Kept parked by default (D-056, amended 2026-09-28).** Alongside the sysfs
+write, `park` adds two lines to `/etc/udev/rules.d/66-hammunition-kept.rules`
+— a `# kept: NAME` comment, then a rule naming the device's port and
+vendor/product pair; udev re-applies `authorized=0` when the device is added
+— at boot, and on a replug into the same port — with nothing of
+Hammunition's needing to run. A suspend/resume is not claimed: a resume is
+normally not a udev `add` event. That mechanism is built; whether the device
+actually comes back parked across a real reboot has not yet been measured on
+hardware — see "Kept off across reboots" in `docs/hardware/power-control.md`.
+`--until-reboot` adds no rule and removes any kept entry an earlier `park`
+wrote for the device: it parks now and a reboot wakes it, the pre-amendment
+behaviour. `wake` (below) removes the kept entry.
 
 The privileged write goes through one polkit action,
 `com.chiefgyk3d.hammunition.devctl`, `hardware apply` installs the helper it
-authorises. `--dry-run` prints every write it would make and the `pkexec`
-call itself, then stops.
+authorises. `--dry-run` prints every write it would make, whether a kept
+entry is added, and the `pkexec` call itself, then stops.
 
 Exit codes: `0` parked and verified (or a `--dry-run`); `1` a write did not
 verify, or the command otherwise failed to run; `2` unplannable — the helper
@@ -484,20 +582,34 @@ denied and nothing was changed.
 ### `hammunition hardware wake NAME [--dry-run]`
 
 The reverse of `park`: writes `1` back to the device's `authorized` file so
-the kernel re-enumerates it. Same `NAME` syntax, same `--dry-run`, same exit
-codes as `park`. A reboot does the same thing to every parked device on the
-machine, with no command needed.
+the kernel re-enumerates it, and removes the device's kept entry from
+`66-hammunition-kept.rules`, if it has one, so a later reboot does not park
+it again. Same `NAME` syntax, same `--dry-run`, same exit codes as `park`.
+`NAME@ADDRESS` also resolves a kept entry whose device is **not** currently
+attached, so a stale entry for something already unplugged can be cleared
+without plugging it back in.
 
 ### `hammunition hardware state`
 
 Lists every catalogued device that is both attached now and parkable, and
 whether each one is parked — read fresh from `/sys/bus/usb/devices` on every
-call, never cached. Needs no privilege: reading sysfs is unprivileged, only
-writing to it is. Always exits `0`; an empty report is not a failure.
+call, never cached — plus any device kept parked (**D-056**) whose entry
+names a port nothing answers on right now. Needs no privilege: reading
+sysfs is unprivileged, only writing to it is. Always exits `0`; an empty
+report is not a failure.
+
+The table shown by the CLI adds a `kept` column next to `state`
+(`parked`/`awake`), and lists devices kept-but-absent separately under "Kept
+parked, not attached", with the `wake NAME@ADDRESS` command that clears each
+one. The JSON the root helper prints (`hammunition-devctl state`, what the
+tray applet polls) gives one object per row with `"kept": bool` alongside
+`"parked"`; a kept device with nothing attached gets `"attached": false` and
+`"parked": null`, since there is no sysfs node to read a live answer from.
 
 ### `hammunition station show` / `hammunition station set`
 
-The values only you can supply — callsign, grid square, packet node alias. Some
+The values only you can supply — callsign, grid square, packet node alias,
+and the regions to carry offline maps for. Some
 manifests write configuration files templated with them: `linbpq` needs a node
 callsign, AX.25 needs one in `/etc/ax25/axports`, Direwolf needs one in its
 own configuration.
@@ -506,6 +618,19 @@ own configuration.
 hammunition station set --callsign M0ABC --grid-square IO91wm
 hammunition station show
 ```
+
+| Flag | Effect |
+|---|---|
+| `--callsign CALL` | Station callsign |
+| `--grid-square LOC` | Maidenhead locator |
+| `--node-alias NAME` | Short packet node alias |
+| `--map-regions R[,R…]` | Geofabrik region paths for offline maps, e.g. `north-america/us/vermont,north-america/us/new-hampshire`. Replaces the whole list. Checked for shape only (lowercase words joined by `/`); whether Geofabrik has the region is checked at plan time (**D-057**) |
+| `--map-freshness MODE` | `yearly` (the default when unset), `monthly` or `latest`: which dated file each region resolves to, and so how it can be verified |
+
+A region list says where the operator lives or travels, so `station show`
+and `station set` print how many regions are set, never their names; the
+install plan is the one place they are printed. `docs/guides/offline-navigation.md`
+is the operator's walk-through.
 
 Saved to `$XDG_CONFIG_HOME/hammunition/station.yml`, mode 0600, resolved
 owner-aware so that running under `sudo` still writes to the invoking user's
