@@ -1,0 +1,92 @@
+{
+  "schema": "hammunition/1",
+  "kind": "plan",
+  "engine": "<engine>",
+  "action": "uninstall",
+  "requested": [
+    "fixture-apt"
+  ],
+  "outcome": "planned",
+  "target": {
+    "distro": "debian",
+    "version": "13",
+    "arch": "x86_64",
+    "id_like": [],
+    "pretty_name": "Debian GNU/Linux 13 (trixie)",
+    "description": "Debian GNU/Linux 13 (trixie) (ID=debian, version=13, arch=x86_64)",
+    "debian_family": true
+  },
+  "blockers": [],
+  "install": null,
+  "removal": {
+    "to_remove": [
+      {
+        "unit": "fixture-apt",
+        "packages": [
+          "fixture-apt"
+        ]
+      }
+    ],
+    "artifacts": [
+      {
+        "unit": "fixture-source",
+        "kind": "binary",
+        "path": "/usr/local/bin/fixture-source",
+        "basis": "log"
+      }
+    ],
+    "left_unattributed": [
+      {
+        "unit": "fixture-source",
+        "paths": [
+          "/usr/local/share/fixture-source/extra"
+        ]
+      }
+    ],
+    "left_foreign": [
+      {
+        "unit": "fixture-station",
+        "packages": [
+          "libfixture1"
+        ]
+      }
+    ],
+    "already_absent": [
+      {
+        "unit": "fixture-source",
+        "packages": []
+      }
+    ],
+    "not_reversed": "Not reversed, by design: dependencies apt pulled in (run `sudo apt autoremove` to clear orphans), group memberships, and any config files written — all recorded in the transaction log (D-004).",
+    "commands": [
+      {
+        "description": "Remove 1 package(s) with apt",
+        "display": "sudo env DEBIAN_FRONTEND=noninteractive apt-get remove --yes -- fixture-apt",
+        "argv": [
+          "sudo",
+          "env",
+          "DEBIAN_FRONTEND=noninteractive",
+          "apt-get",
+          "remove",
+          "--yes",
+          "--",
+          "fixture-apt"
+        ],
+        "action": null,
+        "requires_root": true
+      },
+      {
+        "description": "Remove fixture-source's installed binary (log)",
+        "display": "rm -f -- /usr/local/bin/fixture-source",
+        "argv": [
+          "rm",
+          "-f",
+          "--",
+          "/usr/local/bin/fixture-source"
+        ],
+        "action": null,
+        "requires_root": false
+      }
+    ]
+  }
+}

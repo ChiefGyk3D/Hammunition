@@ -1,0 +1,89 @@
+{
+  "schema": "hammunition/1",
+  "kind": "plan",
+  "engine": "<engine>",
+  "action": "install",
+  "requested": [
+    "fixture-apt"
+  ],
+  "outcome": "planned",
+  "target": {
+    "distro": "debian",
+    "version": "13",
+    "arch": "x86_64",
+    "id_like": [],
+    "pretty_name": "Debian GNU/Linux 13 (trixie)",
+    "description": "Debian GNU/Linux 13 (trixie) (ID=debian, version=13, arch=x86_64)",
+    "debian_family": true
+  },
+  "blockers": [],
+  "install": {
+    "packages": [
+      {
+        "name": "fixture-apt",
+        "method": "apt",
+        "state": "will install",
+        "requested_by": [
+          "requested"
+        ],
+        "apt": [
+          {
+            "package": "fixture-apt",
+            "outstanding": true,
+            "build_only": false
+          }
+        ]
+      }
+    ],
+    "displaced": [],
+    "apt_release": null,
+    "no_recommends": null,
+    "repos": [],
+    "data": [],
+    "maps": null,
+    "memberships": [],
+    "consent_gates": [],
+    "config_files": [],
+    "deferrals": [],
+    "notes": [],
+    "records": {
+      "log": "<tmp>/xdg_state_home/hammunition/transactions.jsonl",
+      "handed_to": null
+    },
+    "commands": [
+      {
+        "description": "Refresh apt package lists",
+        "display": "sudo env DEBIAN_FRONTEND=noninteractive apt-get update",
+        "argv": [
+          "sudo",
+          "env",
+          "DEBIAN_FRONTEND=noninteractive",
+          "apt-get",
+          "update"
+        ],
+        "action": null,
+        "requires_root": true
+      },
+      {
+        "description": "Install 1 package(s) with apt",
+        "display": "sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-remove -- fixture-apt",
+        "argv": [
+          "sudo",
+          "env",
+          "DEBIAN_FRONTEND=noninteractive",
+          "apt-get",
+          "install",
+          "--yes",
+          "--no-remove",
+          "--",
+          "fixture-apt"
+        ],
+        "action": null,
+        "requires_root": true
+      }
+    ],
+    "suggestion_notes": [],
+    "region_notes": []
+  },
+  "removal": null
+}

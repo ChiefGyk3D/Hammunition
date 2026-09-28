@@ -58,27 +58,22 @@ from hammunition.backends import (
     VenvBackend,
 )
 from hammunition.backends.apt import stale_fetches
-from hammunition.backends.data import human_size
 from hammunition.backends.regions import (
-    ESTIMATE,
     KeptRegion,
     MapDisclosure,
     MapLedger,
     MapResolution,
-    bin_estimate,
     data_root,
     disk_needs,
     disk_shortfall,
     installed_slugs,
     installed_snapshot,
     region_current,
-    region_lines,
 )
 from hammunition.backends.source import DEFAULT_PREFIX
 from hammunition.consent import (
     ConsentDeclined,
     ConsentUnavailable,
-    repo_env_var,
     resolve_consent,
     resolve_repo_consent,
 )
@@ -108,25 +103,19 @@ from hammunition.geofabrik import (
 from hammunition.geofabrik import resolve as resolve_region
 from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH, describe_refusal
 from hammunition.interface import envelope
-from hammunition.interface.text import wrap as _wrap
 from hammunition.kernel import KernelProbe
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
 from hammunition.manifest.schema import (
     AptInstall,
     BinaryInstall,
-    DataInstall,
     DerivedDataInstall,
-    GitInstall,
-    NodeInstall,
     PackageManifest,
     ProfileManifest,
     RegionalDataInstall,
-    SourceInstall,
-    VenvInstall,
 )
 from hammunition.paths import applications_dir, build_root, node_root, user_bin_dir, venv_root
-from hammunition.plan import NO_MAP_REGIONS, InstallPlan, PlanError, PlannedPackage, resolve
+from hammunition.plan import NO_MAP_REGIONS, Blocker, InstallPlan, PlanError, resolve
 from hammunition.state import (
     RemovalError,
     RemovalPaths,
@@ -213,35 +202,6 @@ def load_all(
 # ---------------------------------------------------------------------------
 
 
-def _plan_state(planned: PlannedPackage, built: frozenset[str] = frozenset()) -> str:
-    """What the plan will do to this unit, in two words.
-
-    "already installed" is apt's answer and only apt's: it means every apt
-    package the block names is present. A source or binary unit's apt list is
-    its build dependencies, or nothing at all, so for those it was saying
-    "already installed" one line above a build -- sdrangel's .deb block on
-    the Ubuntu 26.04 VM read that way (2026-09-02). The one carve-out is a
-    vendor .deb the plan has attributed to this engine and dpkg still holds
-    (#63): nothing is planned for it, and the line says so.
-    """
-    method = planned.block.install
-    if isinstance(method, AptInstall):
-        return "already installed" if not planned.outstanding else "will install"
-    if isinstance(method, BinaryInstall) and planned.deb_installed:
-        return "already installed"
-    if planned.name in built:
-        return "already installed"  # built at this pin, D-051
-    if isinstance(method, SourceInstall | GitInstall):
-        return "will build"
-    if isinstance(method, VenvInstall):
-        return "will install"  # into its own venv, reported by the venv step
-    if isinstance(method, NodeInstall):
-        return "will build"
-    if isinstance(method, DerivedDataInstall):
-        return "will convert"
-    return "will fetch+install"
-
-
 def render_plan(
     plan: InstallPlan,
     commands: Sequence[Step],
@@ -266,222 +226,23 @@ def render_plan(
     path also makes a wrong one visible: if the operator does not resolve and
     the log falls back to ``/root``, the plan now says so instead of the
     fallback happening in silence.
+
+    Rendered from :class:`hammunition.interface.plan.InstallPlanView`, the same
+    object ``install --dry-run --json`` emits (D-059), so the two cannot drift.
     """
-    lines = [f"Target: {plan.target.describe()}", ""]
+    from hammunition.interface.envelope import target_view
+    from hammunition.interface.plan import build_install_view, render_plan_view
 
-    if plan.packages:
-        lines.append(f"Packages ({len(plan.packages)}):")
-        for planned in plan.packages:
-            why = ", ".join(planned.requested_by)
-            lines.append(f"  {planned.name:<28} {_plan_state(planned, built):<18} [{why}]")
-            for apt_package in planned.apt_packages:
-                mark = "+" if apt_package in planned.outstanding else "="
-                # A build dependency is installed like any other apt package but
-                # is not the software that was asked for, and saying so is the
-                # difference between "glfer needs GTK2" and "glfer is GTK2".
-                note = "  (to build)" if apt_package in planned.build_only else ""
-                lines.append(f"      {mark} {apt_package}{note}")
-        lines.append("")
-
-    displacing = [(p.name, c) for p in plan.packages for c in p.displaces]
-    if displacing:
-        lines.append("Installed distribution packages displaced or shadowed (D-022):")
-        for name, conflict in displacing:
-            lines.append(
-                f"  {conflict}  — declared by {name}; the distribution package stays "
-                f"installed, see that manifest's notes"
-            )
-        lines.append("")
-
-    if plan.apt_release is not None:
-        # apt would not resolve the transaction from the default release
-        # because a package already installed from another archive would have
-        # to be downgraded, so the whole apt step is resolved from that archive
-        # instead. Which packages that changes is the disclosure. D-038.
-        lines.append(f"apt packages resolved from {plan.apt_release} (D-038):")
-        lines.extend(
-            _wrap(
-                f"apt refused the default release because a package this machine "
-                f"already installs from {plan.apt_release} would have been "
-                f"downgraded; the apt step runs with --target-release "
-                f"{plan.apt_release}, which takes these from there:",
-                indent="  ",
-            )
-        )
-        for apt_package in plan.apt_from_release:
-            lines.append(f"      {apt_package}")
-        lines.append("")
-
-    if plan.apt_to_install_no_recommends:
-        # A second apt command is a second thing happening to the machine, and
-        # it deviates from what the distribution does by default. Name the
-        # units that asked, so the deviation is attributable rather than a flag
-        # that appeared in an argv. D-052.
-        units = ", ".join(plan.apt_no_recommends_units)
-        lines.append("apt packages installed without Recommends (D-052):")
-        lines.extend(
-            _wrap(
-                f"{units} asked for --no-install-recommends in the manifest, because the "
-                f"Recommends of these packages conflict with software this target installs; "
-                f"a second apt-get install carries the flag for them alone. Everything else "
-                f"in this transaction keeps apt's defaults, and both commands run with "
-                f"--no-remove:",
-                indent="  ",
-            )
-        )
-        for apt_package in plan.apt_to_install_no_recommends:
-            lines.append(f"      {apt_package}")
-        lines.append("")
-
-    if plan.apt_repos:
-        # Before group membership and the consent gates, because it is the
-        # largest thing the transaction does to the machine: a repository
-        # keeps shipping updates after this run is over. Each one has its own
-        # gate below. D-040.
-        lines.append("Third-party apt repositories that will be added (D-040):")
-        for addition in plan.apt_repos:
-            lines.append(
-                f"  {addition.repo.name}  [{addition.unit}: {', '.join(addition.packages)}]"
-            )
-            lines.append(
-                f"      {addition.repo.uri}  {' '.join(addition.repo.suites)}  {' '.join(addition.repo.components)}"
-            )
-            lines.append(f"      key {addition.repo.key_fingerprint}")
-            lines.append(f"      writes {addition.sources}")
-            lines.append(f"      writes {addition.keyring}")
-            lines.append(
-                f"      consent: {repo_env_var(addition.repo)} must equal the key fingerprint"
-            )
-        lines.append("")
-
-    data_units = [
-        (p, p.block.install) for p in plan.packages if isinstance(p.block.install, DataInstall)
-    ]
-    if data_units:
-        lines.append("Offline data that will be downloaded and installed (D-049):")
-        for planned, block in data_units:
-            total = sum(a.size for a in block.artifacts)
-            lines.append(
-                f"  {planned.name:<28} {human_size(total)} total, licence: {block.licence.strip()}"
-            )
-            lines.append(f"      stated at {block.licence_url}")
-            for artifact in block.artifacts:
-                lines.append(f"      {human_size(artifact.size):>9}  {artifact.url}")
-            lines.append(f"      installs under <prefix>/share/hammunition/data/{planned.name}/")
-        lines.append("")
-
-    map_units = [
-        p.block.install
-        for p in plan.packages
-        if isinstance(p.block.install, RegionalDataInstall | DerivedDataInstall)
-    ]
-    if map_units and maps is not None and (maps.fetch or maps.current or maps.kept or maps.convert):
-        # A current region still being converted is not "nothing to do".
-        converting = {f.slug for f in maps.convert}
-        # The station's regions, on the operator's own terminal: resolved
-        # before this plan printed, so the dated file, its size and how it
-        # is checked are known before anything is confirmed (D-057). Only
-        # what will actually be fetched is listed as a download.
-        total = sum(f.size for f in maps.fetch)
-        lines.append("Map regions, from station config (D-057):")
-        if maps.fetch:
-            lines.append("  will be downloaded and installed:")
-            lines.extend(region_lines(maps.fetch))
-        if maps.current:
-            lines.append("  already installed, current:")
-            width = max(len(f.region) for f in maps.current)
-            lines.extend(
-                f"    {f.region:<{width}}  {f.snapshot}"
-                + ("" if f.slug in converting else "  (nothing to do)")
-                for f in maps.current
-            )
-        if maps.convert:
-            lines.append(f"  will be converted for Navit (map sizes an {ESTIMATE}):")
-            width = max(len(f.region) for f in maps.convert)
-            lines.extend(
-                f"    {f.region:<{width}}  {f.snapshot}  about {human_size(bin_estimate(f.size))}"
-                for f in maps.convert
-            )
-        for kept in maps.kept:
-            lines.append(
-                f"  {kept.region}: could not check for a newer map; keeping the installed "
-                f"{kept.snapshot or '(snapshot not recorded)'}"
-            )
-            lines.extend(_wrap(kept.reason, indent="      "))
-        lines.append(
-            f"      licence: {map_units[0].licence.strip()}, stated at {map_units[0].licence_url}"
-        )
-        lines.append(
-            f"      download total: {human_size(total)}; about "
-            f"{human_size(total + sum(bin_estimate(f.size) for f in maps.convert))} "
-            f"of disk with Navit's maps ({ESTIMATE})"
-        )
-        lines.append("      installs under <prefix>/share/hammunition/data/")
-        lines.append("")
-
-    if plan.group_memberships:
-        lines.append("Group membership changes:")
-        for membership in plan.group_memberships:
-            lines.append(f"  {membership.user} → {membership.group}  ({membership.package})")
-            lines.extend(_wrap(membership.detail, indent="      "))
-            if membership.reverse_hint:
-                lines.append(f"      reverse: {membership.reverse_hint.strip()}")
-        lines.append("")
-
-    if plan.consent_gates:
-        lines.append("Consent gates that will be presented:")
-        for profile_name, gate in plan.consent_gates:
-            lines.append(f"  {profile_name} ({gate.env_var})")
-            for risk in gate.risk_lines:
-                wrapped = _wrap(risk, indent="        ")
-                lines.append("      - " + wrapped[0].strip())
-                lines.extend(wrapped[1:])
-        lines.append("")
-
-    if plan.config_files:
-        lines.append("Configuration that will be written:")
-        for package, config, _body in plan.config_files:
-            backup = "existing file backed up" if config.backup_existing else "NOT backed up"
-            verb = "appended to" if config.append else "written"
-            lines.append(f"  {config.path}  ({verb}, mode {config.mode}, {backup})  [{package}]")
-        lines.append("")
-
-    if plan.deferrals:
-        # Deliberately after the packages and before the notes: this is the
-        # part of the request that will NOT happen, and burying it under a
-        # heading called "notes" is how it stops being read. D-035.
-        lines.append("Will NOT happen (the rest of the transaction still will):")
-        for deferral in plan.deferrals:
-            lines.append(f"  {deferral.subject}: {deferral.what}")
-            lines.extend(_wrap(f"why: {deferral.why}", indent="      "))
-            lines.extend(_wrap(f"→ {deferral.remedy}", indent="      "))
-        lines.append("")
-
-    if plan.notes:
-        lines.append("Notes:")
-        for note in plan.notes:
-            wrapped = _wrap(note, indent="      ")
-            lines.append("  - " + wrapped[0].strip())
-            lines.extend(wrapped[1:])
-        lines.append("")
-
-    if log_destination is not None:
-        lines.append("Records:")
-        lines.append(f"  transaction log written to {log_destination}")
-        if hands_log_to is not None:
-            lines.append(
-                f"  the log and any directories created for it are given to "
-                f"{hands_log_to!r} (chown), since root is writing into their home"
-            )
-        lines.append("")
-
-    lines.append(f"Commands ({len(commands)}):")
-    if not commands:
-        lines.append("  (none — everything this plan asks for is already in place)")
-    for command in commands:
-        lines.append(f"  # {command.description}")
-        lines.append(f"  $ {command.display(euid=euid)}")
-    return lines
+    view = build_install_view(
+        plan,
+        commands,
+        euid=euid,
+        log_destination=log_destination,
+        hands_log_to=hands_log_to,
+        built=built,
+        maps=maps,
+    )
+    return render_plan_view(view, target=target_view(plan.target))
 
 
 # ---------------------------------------------------------------------------
@@ -1130,7 +891,24 @@ def navit_config_blocker(plan: InstallPlan, stock: Path = navit_config.STOCK) ->
     )
 
 
+@envelope.json_capable(dry_run_only=True)
 def cmd_install(args: argparse.Namespace) -> int:
+    from hammunition.interface.envelope import target_view
+    from hammunition.interface.plan import (
+        PlanDocument,
+        build_install_view,
+        refused_plan,
+        render_plan_view,
+    )
+
+    def refused(subject: str, reason: str) -> None:
+        # A refusal after resolution is still a plan document, with the
+        # reason the text printed (D-059); the exit code is unchanged.
+        if envelope.wanted(args):
+            envelope.emit(
+                refused_plan("install", args.names, target_view(target), [Blocker(subject, reason)])
+            )
+
     try:
         target = Target.detect()
     except DetectionError as exc:
@@ -1186,6 +964,8 @@ def cmd_install(args: argparse.Namespace) -> int:
             "failure is a report rather than a half-installed machine (D-016).",
             file=sys.stderr,
         )
+        if envelope.wanted(args):
+            envelope.emit(refused_plan("install", args.names, target_view(target), exc.blockers))
         return EXIT_UNPLANNABLE
     except BackendError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -1195,6 +975,7 @@ def cmd_install(args: argparse.Namespace) -> int:
     if blocked is not None:
         print(f"error: {blocked}", file=sys.stderr)
         print("\nNothing was changed.", file=sys.stderr)
+        refused("navit configuration", blocked)
         return EXIT_UNPLANNABLE
 
     euid = os.geteuid()
@@ -1250,6 +1031,7 @@ def cmd_install(args: argparse.Namespace) -> int:
     except GeofabrikError as exc:
         print(f"error: {exc}", file=sys.stderr)
         print("\nNothing was changed.", file=sys.stderr)
+        refused("map regions", str(exc))
         return EXIT_UNPLANNABLE
     region_files = list(resolution.files)
     kept = frozenset(k.slug for k in resolution.kept)
@@ -1306,6 +1088,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         if short is not None:
             print(f"error: {short}", file=sys.stderr)
             print("\nNothing was changed.", file=sys.stderr)
+            refused("disk space", short)
             return EXIT_UNPLANNABLE
     # D-051: a build present on disk that the log attributes to this engine
     # at the manifest's pin is already installed; its build steps are skipped.
@@ -1341,17 +1124,35 @@ def cmd_install(args: argparse.Namespace) -> int:
         if (log_owner and euid == 0 and str(log_destination).startswith("/home"))
         else None
     )
-    for note in (*suggestion_notes, *region_notes):
-        print(f"note: {note}")
-    for line in render_plan(
+    view = build_install_view(
         plan,
         commands,
         euid=euid,
         built=built,
         log_destination=log_destination,
         hands_log_to=hands_log_to,
+        suggestion_notes=suggestion_notes,
         maps=maps,
-    ):
+        region_notes=region_notes,
+    )
+    if envelope.wanted(args):
+        # Reached only with --dry-run: main() refuses a real install under
+        # --json before this command runs (D-059).
+        envelope.emit(
+            PlanDocument(
+                action="install",
+                requested=tuple(args.names),
+                outcome="planned",
+                target=target_view(target),
+                blockers=(),
+                install=view,
+                removal=None,
+            )
+        )
+        return EXIT_OK
+    for note in (*suggestion_notes, *region_notes):
+        print(f"note: {note}")
+    for line in render_plan_view(view, target=target_view(plan.target)):
         print(line)
 
     print(
@@ -1513,7 +1314,16 @@ def stale_lists_diagnosis(failed: Command | Action, stderr: str) -> str | None:
     )
 
 
+@envelope.json_capable(dry_run_only=True)
 def cmd_uninstall(args: argparse.Namespace) -> int:
+    from hammunition.interface.envelope import target_view
+    from hammunition.interface.plan import (
+        BlockerLine,
+        PlanDocument,
+        build_removal_view,
+        render_removal_view,
+    )
+
     try:
         target = Target.detect()
     except DetectionError as exc:
@@ -1574,6 +1384,18 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
     except RemovalError as exc:
         print(str(exc), file=sys.stderr)
         print("\nNothing was changed.", file=sys.stderr)
+        if envelope.wanted(args):
+            envelope.emit(
+                PlanDocument(
+                    action="uninstall",
+                    requested=tuple(args.names),
+                    outcome="refused",
+                    target=target_view(target),
+                    blockers=(BlockerLine(subject="uninstall", reason=str(exc), remedy=None),),
+                    install=None,
+                    removal=None,
+                )
+            )
         return EXIT_UNPLANNABLE
     except BackendError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -1588,43 +1410,24 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
         # the state it found it (D-040).
         commands.append(apt.refresh_command())
 
-    print(f"Target: {target.describe()}\n")
-    if plan.to_remove:
-        print(f"Removing ({len(plan.to_remove)} unit(s)):")
-        for unit, unit_packages in plan.to_remove.items():
-            print(f"  {unit:28} - {' '.join(unit_packages)}")
-    if plan.artifacts:
-        print(f"\nRemoving artifacts ({sum(len(a) for a in plan.artifacts.values())}):")
-        for unit, removals in plan.artifacts.items():
-            for removal in removals:
-                print(f"  {unit:28} {removal.kind:14} {removal.path}  [{removal.basis}]")
-    if plan.left_unattributed:
-        print("\nLeft in place — present, but the transaction log does not attribute it:")
-        for unit, files in plan.left_unattributed.items():
-            for path in files:
-                print(f"  {unit:28} {path}")
-    for label, mapping in (
-        ("Left in place — installed, but not installed by Hammunition:", plan.left_foreign),
-        ("Already absent:", plan.already_absent),
-    ):
-        flat = {unit: pkgs for unit, pkgs in mapping.items() if pkgs or unit not in plan.to_remove}
-        if flat:
-            print(f"\n{label}")
-            for unit, unit_packages in flat.items():
-                print(f"  {unit:28} {' '.join(unit_packages) or '(nothing resolves here)'}")
-    print(
-        "\nNot reversed, by design: dependencies apt pulled in (run "
-        "`sudo apt autoremove` to clear orphans), group memberships, and any "
-        "config files written — all recorded in the transaction log (D-004)."
-    )
-
-    if commands:
-        print(f"\nCommands ({len(commands)}):")
-        for command in commands:
-            print(f"  # {command.description}")
-            print(f"  $ {command.display(euid=euid)}")
-    else:
-        print("\nNothing to do: none of this is installed, or none of it was ours.")
+    view = build_removal_view(plan, commands, euid=euid)
+    if envelope.wanted(args):
+        # Reached only with --dry-run (D-059).
+        envelope.emit(
+            PlanDocument(
+                action="uninstall",
+                requested=tuple(args.names),
+                outcome="planned",
+                target=target_view(target),
+                blockers=(),
+                install=None,
+                removal=view,
+            )
+        )
+        return EXIT_OK
+    for line in render_removal_view(view, target=target_view(target)):
+        print(line)
+    if not commands:
         return EXIT_OK
 
     if args.dry_run:

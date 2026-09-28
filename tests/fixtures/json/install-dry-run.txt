@@ -1,0 +1,18 @@
+Target: Debian GNU/Linux 13 (trixie) (ID=debian, version=13, arch=x86_64)
+
+Packages (1):
+  fixture-apt                  will install       [requested]
+      + fixture-apt
+
+Records:
+  transaction log written to <tmp>/xdg_state_home/hammunition/transactions.jsonl
+
+Commands (2):
+  # Refresh apt package lists
+  $ sudo env DEBIAN_FRONTEND=noninteractive apt-get update
+  # Install 1 package(s) with apt
+  $ sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-remove -- fixture-apt
+
+Afterwards: the Hammunition menu is re-applied for this user (per-user files, unprivileged, D-050).
+
+Dry run: nothing above was executed.
