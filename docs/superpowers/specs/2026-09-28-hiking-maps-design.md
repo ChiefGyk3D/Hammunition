@@ -138,7 +138,7 @@ defers by name, the viewers still install (D-035, D-049 rule 3).
   `gdal-dem`; `source` may name a `dem-tiles` unit as well as `osm-regions`.
 - A new `DemTilesInstall` (`method: dem-tiles`, `provider: copernicus-glo30`,
   `licence`, `licence_url`), whose selection is the installed regions'
-  bounding boxes; nothing is set by the operator beyond what D-057 already
+  outlines (the Geofabrik `.poly`, see §2); nothing is set by the operator beyond what D-057 already
   stores.
 
 ## 4. The plan, disk and time
@@ -154,11 +154,11 @@ and says "measured on one region". The disk check counts all of it.
 Tile names encode latitude and longitude, so they identify a region as
 plainly as its name: they appear in the plan (local output, beside the region
 names it already prints) and never in `update`, `doctor`, the bench page or a
-commit. The tests use synthetic bounding boxes and tile names.
+commit. The tests use synthetic outlines and tile names.
 
 ## 6. Tests
 
-- Tile selection from a bounding box, including a box crossing 0° and the
+- Tile selection from an outline, including one crossing 0°, one with a hole, a refused antimeridian edge, and the
   sea rule.
 - Pin mode against MD5 mode per tile, and the plan's wording for each.
 - Each converter's argv, staging, failure containment, scratch removal.
