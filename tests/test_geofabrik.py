@@ -15,6 +15,7 @@ from hammunition.geofabrik import (
     GeofabrikError,
     Pin,
     RegionFile,
+    _previous,
     load_pins,
     resolve,
     snapshot_for,
@@ -87,6 +88,27 @@ def test_a_snapshot_not_yet_published_falls_back_to_the_previous_one() -> None:
     )
     got = resolve(VT, "monthly", today=date(2026, 10, 1), pins={}, probe=probe)
     assert got.snapshot == "260901"
+
+
+def test_previous_yearly_crosses_the_century() -> None:
+    assert _previous("yearly", "000101") == "990101"
+
+
+def test_previous_monthly_crosses_the_century() -> None:
+    assert _previous("monthly", "000101") == "991201"
+
+
+def test_previous_monthly_ordinary_month() -> None:
+    assert _previous("monthly", "270101") == "261201"
+
+
+def test_a_dead_rtc_falls_back_across_the_century() -> None:
+    probe = FakeProbe(
+        {_url("000101"): (404, 0, None), _url("990101"): (200, 44_000_000, None)},
+        {_url("990101") + ".md5": f"{MD5}  vermont-990101.osm.pbf\n"},
+    )
+    got = resolve(VT, "yearly", today=date(2000, 1, 5), pins={}, probe=probe)
+    assert got.snapshot == "990101"
 
 
 def test_an_unknown_region_is_refused_naming_the_file() -> None:

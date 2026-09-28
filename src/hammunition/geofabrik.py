@@ -75,13 +75,22 @@ def snapshot_for(freshness: str, today: date) -> str:
 
 
 def _previous(freshness: str, snapshot: str) -> str:
-    yy, mm = int(snapshot[:2]), int(snapshot[2:4])
+    # Real date arithmetic, not string slicing: a two-digit year of '00' is
+    # 2000, and 2000 - 1 must be 1999 ('99'), not the digit -1.
+    when = date(2000 + int(snapshot[:2]), int(snapshot[2:4]), int(snapshot[4:6]))
     if freshness == "yearly":
-        return f"{yy - 1:02d}0101"
-    return f"{yy - 1:02d}1201" if mm == 1 else f"{yy:02d}{mm - 1:02d}01"
+        previous = when.replace(year=when.year - 1)
+    elif when.month == 1:
+        previous = when.replace(year=when.year - 1, month=12)
+    else:
+        previous = when.replace(month=when.month - 1)
+    return f"{previous:%y%m%d}"
 
 
 def _url(region: str, snapshot: str) -> str:
+    # `region` is interpolated as given; callers must pass an
+    # already-validated region (station config validates it) since the host
+    # is fixed and a bad region only ever 404s here, never anything worse.
     return f"{BASE}/{region}-{snapshot}.osm.pbf"
 
 
