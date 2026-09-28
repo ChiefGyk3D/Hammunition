@@ -444,7 +444,7 @@ A **read-only** health check: is this machine ready, and what is not yet set
 up. It changes nothing, and it is the first thing to run on a fresh machine
 or when something misbehaves — it turns the failures the engine would
 otherwise hit mid-transaction into a report you read up front, each with the
-one command that fixes it. Twelve checks across four severities:
+one command that fixes it. Thirteen checks across four severities:
 
 - **fail** — the engine cannot work until fixed (not a Debian-family system;
   no catalog). Exits non-zero.
@@ -454,6 +454,14 @@ one command that fixes it. Twelve checks across four severities:
 - **info** — a true fact that is not a problem (no ham hardware attached
   right now; udev rules not yet applied on a machine with no radios).
 - **ok** — checked and healthy.
+
+The **desktops** check is always information (**D-060**): the desktops
+the session files in `/usr/share/xsessions` and `/usr/share/wayland-sessions`
+offer, which is what `install` decides a unit for one desktop against, and
+the desktop of the session you are in, from `$XDG_CURRENT_DESKTOP`. Under
+`sudo` that variable is usually gone, and the line says the session's
+desktop is not known rather than guessing. A machine with no session files
+(a server, a container) is reported as such. See `docs/desktops.md`.
 
 The closing line counts each, and the exit code is non-zero only when
 something is **blocking**. It is the natural first command after installing

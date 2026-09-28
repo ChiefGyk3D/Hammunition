@@ -83,6 +83,7 @@ from hammunition.consent import (
     resolve_consent,
     resolve_repo_consent,
 )
+from hammunition.desktop import current_desktop, installed_desktops
 from hammunition.distro import DetectionError, Target
 from hammunition.execute import (
     Step,
@@ -2887,6 +2888,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         log_dir_writable=log_dir_writable,
         kept_attached=kept_attached,
         kept_absent=kept_absent,
+        desktops_installed=installed_desktops(),
+        desktop_current=current_desktop(os.environ),
     )
 
     glyph = {"ok": "✓", "warn": "!", "fail": "✗", "info": "·"}

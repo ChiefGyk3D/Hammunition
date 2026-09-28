@@ -32,6 +32,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from hammunition.desktop import Desktop, describe, describe_set
+
 __all__ = ["Check", "Status", "run_checks", "summarize", "writable_or_creatable"]
 
 Status = Literal["ok", "warn", "fail", "info"]
@@ -63,6 +65,8 @@ def run_checks(
     log_dir_writable: bool,
     kept_attached: tuple[str, ...] = (),
     kept_absent: tuple[str, ...] = (),
+    desktops_installed: frozenset[Desktop] | None = None,
+    desktop_current: Desktop | None = None,
 ) -> list[Check]:
     """Every check, in the order a person should read them. Pure; see module docstring."""
     checks: list[Check] = []
@@ -213,6 +217,28 @@ def run_checks(
         )
     else:
         checks.append(Check("hardware", "info", "no catalogued devices attached right now"))
+
+    # D-060. Information either way: which desktops is a fact, not a fault.
+    # The session files are what the planner decides against; the session's
+    # own desktop is what the menu and the tray are about, and sudo drops it.
+    if desktops_installed is not None:
+        if not desktops_installed:
+            detail = (
+                "no desktop session files (a server or a container); a unit for one "
+                "desktop, such as the Plasma tray, is deferred here"
+            )
+        elif desktop_current is not None:
+            detail = (
+                f"session files offer {describe_set(desktops_installed)}; "
+                f"this session is {describe(desktop_current)}"
+            )
+        else:
+            detail = (
+                f"session files offer {describe_set(desktops_installed)}; this session's "
+                f"desktop is not known (XDG_CURRENT_DESKTOP is unset or unrecognised, "
+                f"and sudo usually drops it)"
+            )
+        checks.append(Check("desktops", "info", detail))
 
     if log_dir_writable:
         checks.append(Check("state dir", "ok", "the transaction log directory is writable"))
