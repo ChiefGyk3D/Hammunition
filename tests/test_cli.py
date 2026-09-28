@@ -14,6 +14,7 @@ against a fixture of expected text.
 from __future__ import annotations
 
 import argparse
+import importlib
 import os
 import pwd
 import sys
@@ -919,6 +920,85 @@ def test_install_reads_the_running_kernel_and_refuses_ax25_tools_without_ax25(
     assert rc == EXIT_UNPLANNABLE
     assert "ax25-tools" in err and release in err and "AX.25" in err
     assert "Nothing was changed" in err
+
+
+def test_install_station_on_xfce_defers_the_plasma_tray_and_says_what_it_read(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    """D-060 through main(), against the shipped catalog: the session files
+    are read by the CLI and handed to the planner, which defers the Plasma
+    applet from `station` on a machine whose only desktop is Xfce."""
+    cli = importlib.import_module("hammunition.cli.main")
+    from hammunition.desktop import Desktop, SessionScan
+
+    _mock_apt(monkeypatch, populated=True)
+    monkeypatch.setattr(
+        cli, "scan_sessions", lambda: SessionScan(desktops=frozenset({Desktop.xfce}))
+    )
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "station"])
+    out = capsys.readouterr().out
+    assert rc == EXIT_OK
+    assert "Desktops read from session files" in out
+    assert "hammunition-tray: will not be installed (profile station)" in out
+    assert "no KDE Plasma session (it has: Xfce)" in out
+    # The applet's .deb URL is printed whenever it is planned (the fetch step);
+    # its Depends, plasma-workspace among them, never are, so asserting on
+    # that name could not fail. The control test below shows this one can.
+    assert TRAY_DEB not in out
+
+
+# Read from the manifest, never typed: a re-pin moves the filename, and a
+# typed copy broke this test on the first one (0.1.0 -> 0.3.0).
+def _tray_deb() -> str:
+    from hammunition.manifest.load import load_manifest
+    from hammunition.manifest.schema import BinaryInstall
+
+    manifest = load_manifest(
+        Path(__file__).resolve().parents[1] / "catalog/packages/hammunition-tray.yaml"
+    )
+    install = manifest.install[0].install
+    assert isinstance(install, BinaryInstall)
+    return install.artifact.url.rsplit("/", 1)[1]
+
+
+TRAY_DEB = _tray_deb()
+
+
+def test_install_station_on_plasma_plans_the_tray_deb(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    """The control for the test above: with a Plasma session the same dry run
+    prints the applet's .deb, so its absence there is evidence."""
+    cli = importlib.import_module("hammunition.cli.main")
+    from hammunition.desktop import Desktop, SessionScan
+
+    _mock_apt(monkeypatch, populated=True)
+    monkeypatch.setattr(
+        cli, "scan_sessions", lambda: SessionScan(desktops=frozenset({Desktop.kde}))
+    )
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "station"])
+    out = capsys.readouterr().out
+    assert rc == EXIT_OK
+    assert TRAY_DEB in out
+    assert "hammunition-tray: will not be installed" not in out
+
+
+def test_install_hammunition_tray_by_name_with_no_sessions_is_refused(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    """A container or a server: no session files at all. Typed by name, the
+    applet is refused (D-039's rule for a name the operator typed)."""
+    from hammunition.desktop import SessionScan
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    _mock_apt(monkeypatch, populated=True)
+    monkeypatch.setattr(cli, "scan_sessions", lambda: SessionScan(desktops=frozenset()))
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "hammunition-tray"])
+    err = capsys.readouterr().err
+    assert rc == EXIT_UNPLANNABLE
+    assert "hammunition-tray: is for KDE Plasma" in err
+    assert "(it has no session files)" in err
 
 
 @pytest.mark.parametrize("flags", [(), ("--refresh",)])

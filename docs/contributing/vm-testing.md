@@ -419,6 +419,7 @@ the maintainer. The pages so far, in the order they were run:
 | `vm-campaign-ubuntu.md` | Ubuntu 24.04 and 26.04 by unit; every profile whole on Kali, Parrot and Debian 13 (D-038, D-039, D-040) |
 | `vm-campaign-profiles.md` | every profile whole on Parrot and Debian 13 at the current engine, twelve profiles cumulatively on one machine, and the GUI smoke lane over the result |
 | `vm-campaign-pop.md` | every unit and every profile on Pop!_OS 24.04, an undeclared target — evidence for the `pop` declaration decision, read with the caveat above |
+| `vm-campaign-desktops.md` | **not yet run**: the checklist for Xubuntu 26.04 (Xfce) and Lubuntu 26.04 (LXQt) — the Plasma applet deferred, the menu, the Qt tray once it exists, idle memory before and after `station` (D-060) |
 
 The bench gets the same treatment under `bench-verification-<machine>.md`,
 with one difference: the machine is not reset between sessions, so the page

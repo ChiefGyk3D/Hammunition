@@ -83,6 +83,7 @@ from hammunition.consent import (
     resolve_consent,
     resolve_repo_consent,
 )
+from hammunition.desktop import Desktop, current_desktop, describe_set, scan_sessions
 from hammunition.distro import DetectionError, Target
 from hammunition.execute import (
     Step,
@@ -240,6 +241,22 @@ def _plan_state(planned: PlannedPackage, built: frozenset[str] = frozenset()) ->
     if isinstance(method, DerivedDataInstall):
         return "will convert"
     return "will fetch+install"
+
+
+def _describe_sessions(desktops: frozenset[Desktop], unrecognised: tuple[str, ...]) -> str:
+    """One line for what the session files said (D-060): the desktops the
+    catalog knows, and any file read that named none of them, so a COSMIC or
+    Sway machine is not reported as having no sessions."""
+    files = ", ".join(unrecognised)
+    names = "names" if len(unrecognised) == 1 else "name"
+    if desktops:
+        line = describe_set(desktops)
+        if unrecognised:
+            line += f"; also {files}, which {names} no desktop the catalog knows"
+        return line
+    if unrecognised:
+        return f"none the catalog knows (read: {files})"
+    return "none (no session files)"
 
 
 def render_plan(
@@ -444,6 +461,17 @@ def render_plan(
             backup = "existing file backed up" if config.backup_existing else "NOT backed up"
             verb = "appended to" if config.append else "written"
             lines.append(f"  {config.path}  ({verb}, mode {config.mode}, {backup})  [{package}]")
+        lines.append("")
+
+    if plan.desktops_read is not None:
+        # D-060: a unit in this request is for particular desktops, and what
+        # decided it is on disk rather than in the caller's environment, so
+        # the plan names both the files and what they said.
+        lines.append(
+            "Desktops read from session files (/usr/share/xsessions, /usr/share/wayland-sessions "
+            "and the same under /usr/local/share):"
+        )
+        lines.append(f"  {_describe_sessions(plan.desktops_read, plan.sessions_unrecognised)}")
         lines.append("")
 
     if plan.deferrals:
@@ -796,6 +824,7 @@ def cmd_update(args: argparse.Namespace) -> int:
             station=station,
             repos=repos,
             kernel=KernelProbe.detect(),
+            desktops=scan_sessions(),
             log=read_log,
         )
     except PlanError as exc:
@@ -1254,6 +1283,9 @@ def cmd_install(args: argparse.Namespace) -> int:
             # The running kernel is a fact about this machine, not the target
             # (one Pop!_OS 24.04 VM has AX.25 under 7.0.11 and not under 7.1.5).
             kernel=KernelProbe.detect(),
+            # Which desktops the session files offer (D-060): files on disk,
+            # so the answer under sudo is the answer outside it.
+            desktops=scan_sessions(),
             # Read-only here: whether a vendor .deb already on the machine is
             # ours to skip (#63). The same log is written to after the plan.
             log=read_log,
@@ -2872,6 +2904,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     except (OSError, PowerError, CatalogError, SystemExit):
         kept_attached, kept_absent = (), ()
 
+    sessions = scan_sessions()
     checks = run_checks(
         target_describe=target_describe,
         is_debian_family=is_debian,
@@ -2887,6 +2920,9 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         log_dir_writable=log_dir_writable,
         kept_attached=kept_attached,
         kept_absent=kept_absent,
+        desktops_installed=sessions.desktops,
+        sessions_unrecognised=sessions.unrecognised,
+        desktop_current=current_desktop(os.environ),
     )
 
     glyph = {"ok": "✓", "warn": "!", "fail": "✗", "info": "·"}

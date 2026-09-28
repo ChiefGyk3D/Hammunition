@@ -32,6 +32,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from hammunition.desktop import Desktop, describe, describe_set
+
 __all__ = ["Check", "Status", "run_checks", "summarize", "writable_or_creatable"]
 
 Status = Literal["ok", "warn", "fail", "info"]
@@ -63,6 +65,9 @@ def run_checks(
     log_dir_writable: bool,
     kept_attached: tuple[str, ...] = (),
     kept_absent: tuple[str, ...] = (),
+    desktops_installed: frozenset[Desktop] | None = None,
+    desktop_current: Desktop | None = None,
+    sessions_unrecognised: tuple[str, ...] = (),
 ) -> list[Check]:
     """Every check, in the order a person should read them. Pure; see module docstring."""
     checks: list[Check] = []
@@ -213,6 +218,38 @@ def run_checks(
         )
     else:
         checks.append(Check("hardware", "info", "no catalogued devices attached right now"))
+
+    # D-060. Information either way: which desktops is a fact, not a fault.
+    # The session files are what the planner decides against; the session's
+    # own desktop is what the menu and the tray are about, and sudo drops it.
+    # Files that name no desktop the catalog knows (COSMIC, Sway) are named,
+    # so a graphical machine is never described as a server.
+    if desktops_installed is not None:
+        consequence = (
+            "a unit for one desktop, such as the Plasma tray, is deferred from a "
+            "profile and refused by name here"
+        )
+        files = ", ".join(sessions_unrecognised)
+        if not desktops_installed and sessions_unrecognised:
+            detail = (
+                f"session files name none of the desktops the catalog knows "
+                f"(read: {files}); {consequence}"
+            )
+        elif not desktops_installed:
+            detail = f"no desktop session files (a server or a container); {consequence}"
+        else:
+            offer = f"session files offer {describe_set(desktops_installed)}"
+            if sessions_unrecognised:
+                names = "names" if len(sessions_unrecognised) == 1 else "name"
+                offer += f"; also {files}, which {names} no desktop the catalog knows"
+            if desktop_current is not None:
+                detail = f"{offer}; this session is {describe(desktop_current)}"
+            else:
+                detail = (
+                    f"{offer}; this session's desktop is not known (XDG_CURRENT_DESKTOP "
+                    f"is unset or unrecognised, and sudo usually drops it)"
+                )
+        checks.append(Check("desktops", "info", detail))
 
     if log_dir_writable:
         checks.append(Check("state dir", "ok", "the transaction log directory is writable"))

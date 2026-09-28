@@ -30,7 +30,10 @@ looks for, a toolkit nested as one line, every generated entry titled by
 what it does (D-050, D-054, D-055) — measured on the field laptop's KDE
 Plasma, written for Xfce through the menu spec and for GNOME through its
 app-folders, and not yet looked at on either of those desktops since the
-rebuild. **What remains for 1.0** is listed with owners in
+rebuild. Parrot with KDE Plasma comes first, and Xfce and LXQt are welcome
+next; [the desktops page](docs/desktops.md) says what is measured on each,
+and on a machine with no Plasma session `station` now defers the Plasma
+tray by name instead of pulling Plasma in (D-060). **What remains for 1.0** is listed with owners in
 [the 1.0 checklist](docs/reference/release-1.0-checklist.md): the Pop!_OS
 declaration decision, the rebuilt menu seen on GNOME, Xfce and COSMIC,
 the attached-hardware ladder on the bench (the field target is a Dell
@@ -45,7 +48,7 @@ exactly where things stand:
 | | Status |
 |---|---|
 | Catalog schema (Pydantic, `mypy --strict`) | ✅ working |
-| Package manifests | 🟡 **254**, up from 71 |
+| Package manifests | 🟡 **255**, up from 71 |
 | …Debian Blend coverage | ✅ **152 of 152** — SCOPE.md's first 1.0 stage, complete |
 | …parity coverage | 🟡 **107 of the 124 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
 | Hardware catalog | 🟡 24 devices, 5 classes, 297 confirmed USB identifiers |
@@ -114,7 +117,7 @@ this project's own maintainer.
 |---|---|---|
 | [Hammunition Hill](https://github.com/ChiefGyk3D/hammunition-hill) | A local-first operating-position dashboard — clocks, band plan, solar and propagation dials, DX spots coloured by your log, satellites, a CW trainer — served from your own machine to your own browser on loopback. | [`hammunition-hill`](docs/packages/hammunition-hill.md), in the `station` profile: a digest-pinned `.deb`. |
 | [Skid Finder](https://github.com/ChiefGyk3D/Skid-Finder) | A passive detector for BLE-spam and Wi-Fi attacks, built for foxhunting at a con. It listens and never transmits. Upstream is alpha. | [`skid-finder`](docs/packages/skid-finder.md), in the `rf-security` profile: a sha256-pinned tag tarball. |
-| [hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) | A KDE Plasma tray applet: a switch per parkable device, calling this project's power-control helper (D-056). | [`hammunition-tray`](docs/packages/hammunition-tray.md), in the `station` profile: a digest-pinned `.deb`. KDE Plasma 6 only; run `hammunition hardware apply` first. |
+| [hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) | A KDE Plasma tray applet: a switch per parkable device, calling this project's power-control helper (D-056). | [`hammunition-tray`](docs/packages/hammunition-tray.md), in the `station` profile: a digest-pinned `.deb`. KDE Plasma 6 only, deferred from `station` on a machine with no Plasma session ([desktops](docs/desktops.md)); run `hammunition hardware apply` first. |
 
 **There is one thing you can help with right now**, and it needs no code:
 [contributing hardware identifiers](docs/contributing/hardware.md). Eleven of

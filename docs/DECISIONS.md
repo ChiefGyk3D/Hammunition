@@ -4575,3 +4575,171 @@ regions* section; `catalog/packages/navit.yaml`,
 `catalog/profiles/navigation.yaml`; the generated
 `catalog/data/geofabrik-pins.yaml` and its generator; the weekly `--check`.
 The operator's page is `docs/guides/offline-navigation.md`.
+
+## D-060 — A unit may be for particular desktops: read from the session files, deferred from a profile on a machine with none of them, refused by name; Plasma first, Xfce and LXQt welcomed
+
+**Date:** 2026-09-28. **Status:** accepted (maintainer, 2026-09-28, on the
+design in `docs/superpowers/specs/2026-09-28-desktops-design.md`: "work
+through 1-3"; the VM runs come later, on his word). **Depends on:** D-039
+(a profile member the machine cannot use is deferred by name, a typed name
+refuses), D-036 and D-050 (menus per mechanism, per desktop), D-056 (the
+tray is a client of one helper), D-031 (verify the effect). **Amends:**
+D-039's list of deferrable reasons, with one more fact about the machine.
+
+**Why.** The maintainer, 2026-09-28: "Do we have Xfce and lxde support
+built in? Maybe we should add those in so we have lower powered systems be
+able to use this project … for simplicity while we test against those we
+are Parrot OS and KDE first … but we want to welcome more environments."
+Read against the engine, almost nothing depends on the desktop. Three
+things do: the menu (per mechanism, D-036/D-050), the tray (a Plasma applet
+only, D-056), and `station`, which included `hammunition-tray`
+unconditionally. That applet's `.deb` depends on `plasma-workspace`, so on
+Xubuntu or Lubuntu `station` pulled the whole Plasma shell onto the machine
+chosen for being light. That was a defect, and this decision fixes it.
+
+**Lubuntu is LXQt, not LXDE**, and has been since 18.10. Testing Lubuntu
+tests LXQt. Plain LXDE is still in Debian (`openbox-lxde-session`); no
+current Ubuntu flavour ships it.
+
+### What was measured
+
+Which desktops a machine has is readable from the session files every
+display manager lists, `/usr/share/xsessions/*.desktop` and
+`/usr/share/wayland-sessions/*.desktop`. They are files, so they survive
+`sudo`, which `XDG_CURRENT_DESKTOP` does not. Read from the Debian 13
+packages (`apt-get download`, then `dpkg-deb -x`, 2026-09-28) and from the
+field laptop:
+
+| Session file | Package | `DesktopNames=` |
+|---|---|---|
+| `plasma.desktop`, `plasmax11.desktop` | plasma-workspace | `KDE` (field laptop) |
+| `xfce.desktop`, `xfce-wayland.desktop` | xfce4-session | `XFCE` |
+| `lxqt.desktop` | lxqt-session | `LXQt` |
+| `mate.desktop` | mate-session-manager | `MATE` |
+| `gnome.desktop`, `gnome-wayland.desktop` | gnome-session(-xsession) | `GNOME` |
+| `LXDE.desktop` | openbox-lxde-session | **none** (Exec `/usr/bin/startlxde`) |
+| `cinnamon.desktop`, `cinnamon2d.desktop`, `cinnamon-wayland.desktop` | cinnamon-common | **none** |
+
+The menu roots the four newly listed desktops ship were read the same way:
+`lxqt-menu-data` ships `lxqt-applications.menu`, `lxmenu-data`
+`lxde-applications.menu`, `mate-menus` `mate-applications.menu` (plus an
+explicit `applications-merged` merge directory), `cinnamon-common`
+`cinnamon-applications.menu`, and all four carry `<DefaultMergeDirs/>`.
+That is which file the spec says each reads; what each panel draws is
+unmeasured.
+
+### The rule
+
+1. **Detection.** `src/hammunition/desktop.py` reads `DesktopNames` first,
+   `;`-separated and case-insensitive (`GNOME;GNOME-Classic`: any element
+   recognised counts). A file without the key falls back to a table keyed
+   by its filename stem, holding exactly the two measured gaps: `LXDE` →
+   lxde; `cinnamon`, `cinnamon2d`, `cinnamon-wayland` → cinnamon. Anything
+   else without the key (`lightdm-xsession`, `openbox`) is ignored rather
+   than guessed at. `/usr/local/share/xsessions` and
+   `/usr/local/share/wayland-sessions` are read too, since SDDM and LightDM
+   search them. Only regular files are read, after following a symlink,
+   and at most 64 KiB each, with a UTF-8 BOM stripped: a FIFO or device
+   node named `*.desktop` would otherwise block the planner. A missing
+   directory is an empty set: a container or a server has none. A file
+   read that names no desktop listed here (COSMIC, Sway, Budgie) is
+   reported as **read but unrecognised**, never dropped, so a graphical
+   machine running one is not described as a server. `XDG_CURRENT_DESKTOP` is read only where the session
+   matters (menus, `doctor`), **never by the planner**.
+2. **A manifest may name its desktops.** `desktops:` is a non-empty list
+   of `kde`, `gnome`, `xfce`, `lxqt`, `lxde`, `mate`, `cinnamon` with no
+   duplicates; omitted means any desktop, which is every unit but one
+   today. `desktop_alternative:` optionally names the unit that does the
+   same job elsewhere; the catalog refuses to load unless that unit exists
+   and its `desktops` share none with this one's.
+3. **The plan decides from what it is handed.** `resolve()` takes the
+   installed desktops as an argument; the CLI passes what the session
+   files say. A unit whose `desktops` shares nothing with them is, as a
+   **profile member, deferred by name** with the reason `for KDE Plasma;
+   this machine has no KDE Plasma session (it has: Xfce)` (or `(it has no
+   session files)`, or `(its session files name none the catalog knows:
+   cosmic.desktop)`) and the rest of the profile installs; **typed by name, it is
+   refused** with that reason and a remedy that names the alternative when
+   one serves a desktop the machine has. Both follow D-039: logged, shown
+   by `status`, a dependent deferring with it, a profile of nothing but
+   deferrals refused. A dependent deferred through such a unit, and a
+   profile whose members are all deferred this way, give the desktop as
+   the cause and not D-039's "this target does not offer", which would be
+   false. Desktops that were not read (a caller passing none)
+   are disclosed as a note and the unit plans, the way an unreadable
+   kernel is.
+4. **The dry run shows it.** Whenever a unit in the request declares
+   `desktops`, the plan prints *Desktops read from session files* with
+   what they offered and any file read that named none, so the decision is
+   visible before anything runs. `doctor` reports the same, and the
+   current session's desktop.
+5. **Installing a desktop later needs nothing special.** Re-running
+   `hammunition install station` picks the unit up; that is the whole
+   story, because install is idempotent.
+
+### Order and scope
+
+Parrot OS with KDE Plasma stays first: it is the field laptop, and it is
+where things are measured. Xfce (Xubuntu 26.04) and LXQt (Lubuntu 26.04)
+are next; their checklist is `docs/reference/vm-campaign-desktops.md`,
+**not yet run**. `docs/desktops.md` is the user-facing
+account, and says *unmeasured* wherever nothing has run.
+
+### D-050 amendment (2026-09-28): four more rows for the per-desktop table
+
+D-050 item 8's table is left as it was accepted. These rows extend it,
+dated here rather than written into it. The menu root each desktop ships
+was read from the Debian 13 package on 2026-09-28; nothing has been
+rendered on any of them.
+
+| Desktop | Mechanism | State |
+|---|---|---|
+| LXQt (Lubuntu) | menu-spec merge into `lxqt-applications-merged/`; `lxqt-applications.menu` carries `<DefaultMergeDirs/>` | **Unmeasured.** The Lubuntu 26.04 run is its checklist |
+| LXDE | menu-spec merge into `lxde-applications-merged/`; `lxde-applications.menu` carries `<DefaultMergeDirs/>` | **Unmeasured** |
+| MATE | menu-spec merge into `mate-applications-merged/`; Parrot carries a `mate-` root | **Unmeasured** |
+| Cinnamon (Linux Mint) | menu-spec merge into `cinnamon-applications-merged/`; `cinnamon-applications.menu` carries `<DefaultMergeDirs/>` | **Unmeasured** |
+
+### The machine that already ran `station`
+
+A machine that ran `station` at v0.10.0 or earlier got the applet and
+`plasma-workspace` with it, and `plasma-workspace` ships `plasma.desktop`.
+Detection now reads KDE Plasma as installed there, which is true of the
+disk, and the applet stays planned. The engine does not remove a desktop
+on a guess about why it is there. `docs/desktops.md` gives the operator the
+two commands (`hammunition uninstall hammunition-tray`, then `apt
+autoremove`) and says to read the list before agreeing.
+
+### The Qt tray
+
+`hammunition-tray-qt` is the same switch for the other panels: a PyQt6
+`QSystemTrayIcon`, a second binary package from the tray's own repository,
+released with the applet as hammunition-tray v0.3.0 (2026-09-28) and pinned
+here from that release's `SHA256SUMS` (13784 bytes). It lists `xfce`,
+`lxqt`, `lxde`, `mate` and `cinnamon`. Its autostart entry carries
+`NotShowIn=KDE;`, so a machine with Plasma and another desktop shows one tray
+in each. The two units name each other in `desktop_alternative`, so a
+refusal names the one to install instead. Both front ends run
+`/usr/bin/pkexec` by its absolute path, and both say when no polkit
+authentication agent is running. The same release fixed a bug the second
+front end exposed: the applet cleared a failed park's error on the poll that
+follows every action. The release workflow installed and removed both
+packages on Parrot; **neither has run on the desktops the Qt tray lists**,
+and `docs/reference/vm-campaign-desktops.md` is that check.
+
+**Rejected.** Reading `XDG_CURRENT_DESKTOP` in the planner: `sudo` drops
+it, and the plan would answer differently under `sudo` than in the dry
+run. Wider filename matching for files without `DesktopNames`: the two
+packages measured are the whole of the gap, and a pattern would tell a
+machine it has a desktop it does not. Removing `hammunition-tray` from
+`station`: Plasma is the first desktop, and the unit is right there.
+
+**Consequences.** `src/hammunition/desktop.py`; `desktops` and
+`desktop_alternative` in `src/hammunition/manifest/schema.py`, the
+cross-manifest check in `src/hammunition/manifest/load.py`; the deferral,
+refusal and `desktops_read` in `src/hammunition/plan.py`; the *desktops*
+check in `src/hammunition/doctor.py`; `desktops: [kde]` on
+`catalog/packages/hammunition-tray.yaml`. Tests:
+`tests/test_desktop.py`, `tests/test_desktop_units.py`, and the two
+`station`/`hammunition-tray` cases in `tests/test_cli.py`, which set the
+desktops explicitly so they answer the same on a desktop and in a
+container.
