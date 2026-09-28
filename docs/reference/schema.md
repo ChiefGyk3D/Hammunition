@@ -515,12 +515,14 @@ the catalog stays pure data (CLAUDE.md's founding invariant) and the
 engine owns what each enum member means. `source` names the catalog
 package whose data this is derived from; the manifest's own validator
 requires it to also appear in `depends`, so the plan always installs the
-source data before running the converter over it.
+source data before running the converter over it. Which install method
+`source` must actually be is `CONVERTER_SOURCE_METHOD`, checked catalog-
+wide because only the catalog knows what `source` resolves to (D-061).
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `method` | `Literal[derived]` | no (default `derived`) |  |
-| `converter` | `Literal[navit-maptool, mkgmap, routino-planetsplitter, gdal-dem]` | **yes** |  |
+| `converter` | `Literal[navit-maptool, mkgmap, routino-planetsplitter, gdal-dem]` | **yes** | The transformation to run. Each needs a `source` of one particular install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): `navit-maptool`, `mkgmap` and `routino-planetsplitter` need an `osm-regions` source; `gdal-dem` needs a `dem-tiles` source. |
 | `source` | `str` | **yes** | The catalog package name this is derived from: an `osm-regions` unit, or for `gdal-dem` a `dem-tiles` unit. |
 | `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
 | `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
