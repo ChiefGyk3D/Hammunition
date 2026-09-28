@@ -6,7 +6,8 @@
 Three verbs, ``park NAME``, ``wake NAME`` and ``state``, reached through one
 polkit action. Every caller -- the CLI, a menu entry, the Plasma applet in
 ``hammunition-tray`` -- runs *this*, so there is one privileged path to review
-rather than three.
+rather than three. ``park`` also keeps the device parked across reboots
+unless called with ``--until-reboot``.
 
 **It takes a name and derives everything else itself.** It re-reads the USB
 bus and the catalog in this process and computes the paths it writes; an argv
@@ -34,15 +35,19 @@ from hammunition.hardware.polkit import (
     writable_including_symlink_target,
 )
 from hammunition.hardware.power import (
+    KeptEntry,
     Parkable,
     PowerError,
     execute,
+    kept_entry,
     parkable,
+    plan_forget,
     plan_park,
     plan_wake,
+    read_kept,
 )
 
-__all__ = ["main", "resolve"]
+__all__ = ["main", "resolve", "resolve_kept"]
 
 EXIT_OK = 0
 EXIT_FAILED = 1
@@ -103,13 +108,31 @@ def _listing(found: list[Parkable]) -> str:
     return ", ".join(f"{p.name}@{p.address}" for p in sorted(found, key=lambda p: p.address))
 
 
-def _do(verb: str, name: str) -> int:
+def resolve_kept(name: str, kept: list[KeptEntry]) -> KeptEntry:
+    """A kept entry named ``NAME`` or ``NAME@ADDRESS``, for a device not attached."""
+    wanted, _, address = name.partition("@")
+    candidates = [e for e in kept if e.name == wanted and (not address or e.address == address)]
+    if not candidates:
+        raise PowerError(f"{name!r} is neither attached nor kept parked")
+    if len(candidates) > 1:
+        ports = ", ".join(f"{e.name}@{e.address}" for e in candidates)
+        raise PowerError(f"{wanted!r} is kept at {len(candidates)} ports: {ports}. Name one.")
+    return candidates[0]
+
+
+def _do(verb: str, name: str, *, keep: bool = True) -> int:
     found, skipped = _survey()
     for unit, why in skipped:
         print(f"note: {unit} is not parkable right now: {why}", file=sys.stderr)
     try:
-        target = resolve(name, found)
-        plan = plan_park(target) if verb == "park" else plan_wake(target)
+        try:
+            target = resolve(name, found)
+        except PowerError:
+            if verb != "wake":
+                raise
+            plan = plan_forget(resolve_kept(name, read_kept()))
+        else:
+            plan = plan_park(target, keep=keep) if verb == "park" else plan_wake(target)
     except PowerError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_UNPLANNABLE
@@ -123,24 +146,53 @@ def _state() -> int:
     found, skipped = _survey()
     for unit, why in skipped:
         print(f"note: {unit} is not parkable right now: {why}", file=sys.stderr)
+
+    try:
+        kept = read_kept()
+    except (OSError, PowerError) as exc:
+        print(f"note: kept-off entries unreadable: {exc}", file=sys.stderr)
+        kept = []
+
+    def is_kept(p: Parkable) -> bool:
+        try:
+            mine = kept_entry(p)
+        except PowerError:
+            return False
+        return any(e.same_device(mine) for e in kept)
+
+    rows: list[dict[str, object]] = [
+        {
+            "name": p.name,
+            "summary": p.summary,
+            "address": p.address,
+            "identifier": p.identifier,
+            "method": p.method,
+            "parked": p.parked,
+            "kept": is_kept(p),
+            "attached": True,
+        }
+        for p in sorted(found, key=lambda p: (p.name, p.address))
+    ]
+    attached = {(p.address, p.identifier.lower()) for p in found}
+    for e in sorted(kept, key=lambda e: (e.name, e.address)):
+        if (e.address, f"{e.vendor}:{e.product}") in attached:
+            continue
+        rows.append(
+            {
+                "name": e.name,
+                "summary": "",
+                "address": e.address,
+                "identifier": f"{e.vendor}:{e.product}",
+                "method": "usb_deauthorize",
+                "parked": None,
+                "kept": True,
+                "attached": False,
+            }
+        )
     # Always a JSON array, including when it is empty: the applet parses this
     # every five seconds and a human sentence here is a parse error every five
     # seconds.
-    print(
-        json.dumps(
-            [
-                {
-                    "name": p.name,
-                    "summary": p.summary,
-                    "address": p.address,
-                    "identifier": p.identifier,
-                    "method": p.method,
-                    "parked": p.parked,
-                }
-                for p in sorted(found, key=lambda p: (p.name, p.address))
-            ]
-        )
-    )
+    print(json.dumps(rows))
     return EXIT_OK
 
 
@@ -238,13 +290,21 @@ def main(argv: list[str] | None = None) -> int:
             metavar="NAME",
             help="catalog name, or NAME@ADDRESS when two of a kind are attached",
         )
-    sub.add_parser("state", help="JSON: every parkable attached device and whether it is parked")
+        if verb_name == "park":
+            p.add_argument(
+                "--until-reboot",
+                action="store_true",
+                help="park now without keeping it parked across reboots",
+            )
+    sub.add_parser(
+        "state", help="JSON: every parkable device, attached or kept, and whether it is parked"
+    )
 
     args = parser.parse_args(argv)
     if args.verb == "state":
         return _state()
     verb: str = args.verb
-    return _do(verb, args.name)
+    return _do(verb, args.name, keep=not getattr(args, "until_reboot", False))
 
 
 if __name__ == "__main__":  # pragma: no cover
