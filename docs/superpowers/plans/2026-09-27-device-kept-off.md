@@ -719,53 +719,55 @@ def _do(verb: str, name: str, *, keep: bool = True) -> int:
 Replace the body of `_state` after the skipped loop with:
 
 ```python
+try:
+    kept = read_kept()
+except (OSError, PowerError) as exc:
+    print(f"note: kept-off entries unreadable: {exc}", file=sys.stderr)
+    kept = []
+
+
+def is_kept(p: Parkable) -> bool:
     try:
-        kept = read_kept()
-    except (OSError, PowerError) as exc:
-        print(f"note: kept-off entries unreadable: {exc}", file=sys.stderr)
-        kept = []
+        mine = kept_entry(p)
+    except PowerError:
+        return False
+    return any(e.same_device(mine) for e in kept)
 
-    def is_kept(p: Parkable) -> bool:
-        try:
-            mine = kept_entry(p)
-        except PowerError:
-            return False
-        return any(e.same_device(mine) for e in kept)
 
-    rows: list[dict[str, object]] = [
+rows: list[dict[str, object]] = [
+    {
+        "name": p.name,
+        "summary": p.summary,
+        "address": p.address,
+        "identifier": p.identifier,
+        "method": p.method,
+        "parked": p.parked,
+        "kept": is_kept(p),
+        "attached": True,
+    }
+    for p in sorted(found, key=lambda p: (p.name, p.address))
+]
+attached = {(p.address, p.identifier.lower()) for p in found}
+for e in sorted(kept, key=lambda e: (e.name, e.address)):
+    if (e.address, f"{e.vendor}:{e.product}") in attached:
+        continue
+    rows.append(
         {
-            "name": p.name,
-            "summary": p.summary,
-            "address": p.address,
-            "identifier": p.identifier,
-            "method": p.method,
-            "parked": p.parked,
-            "kept": is_kept(p),
-            "attached": True,
+            "name": e.name,
+            "summary": "",
+            "address": e.address,
+            "identifier": f"{e.vendor}:{e.product}",
+            "method": "usb_deauthorize",
+            "parked": None,
+            "kept": True,
+            "attached": False,
         }
-        for p in sorted(found, key=lambda p: (p.name, p.address))
-    ]
-    attached = {(p.address, p.identifier.lower()) for p in found}
-    for e in sorted(kept, key=lambda e: (e.name, e.address)):
-        if (e.address, f"{e.vendor}:{e.product}") in attached:
-            continue
-        rows.append(
-            {
-                "name": e.name,
-                "summary": "",
-                "address": e.address,
-                "identifier": f"{e.vendor}:{e.product}",
-                "method": "usb_deauthorize",
-                "parked": None,
-                "kept": True,
-                "attached": False,
-            }
-        )
-    # Always a JSON array, including when it is empty: the applet parses this
-    # every five seconds and a human sentence here is a parse error every five
-    # seconds.
-    print(json.dumps(rows))
-    return EXIT_OK
+    )
+# Always a JSON array, including when it is empty: the applet parses this
+# every five seconds and a human sentence here is a parse error every five
+# seconds.
+print(json.dumps(rows))
+return EXIT_OK
 ```
 
 In `main()`: add to the `park` subparser only:
@@ -1083,20 +1085,18 @@ Expected: TypeError on the unknown keyword.
 Add the two keyword parameters to `run_checks` and, after the udev-rules check:
 
 ```python
-    if kept_absent:
-        names = ", ".join(kept_absent)
-        checks.append(
-            Check(
-                "kept off",
-                "warn",
-                f"kept parked but not attached: {names}",
-                fix="; ".join(f"`hammunition hardware wake {n}` clears it" for n in kept_absent),
-            )
+if kept_absent:
+    names = ", ".join(kept_absent)
+    checks.append(
+        Check(
+            "kept off",
+            "warn",
+            f"kept parked but not attached: {names}",
+            fix="; ".join(f"`hammunition hardware wake {n}` clears it" for n in kept_absent),
         )
-    elif kept_attached:
-        checks.append(
-            Check("kept off", "info", f"parked across reboots: {', '.join(kept_attached)}")
-        )
+    )
+elif kept_attached:
+    checks.append(Check("kept off", "info", f"parked across reboots: {', '.join(kept_attached)}"))
 ```
 
 (Match `Check`'s actual constructor; if `fix` is positional, pass it positionally.) In `cmd_doctor`, compute both tuples with `read_kept()` and the survey, inside `try/except (OSError, PowerError, CatalogError, SystemExit)` falling back to empty tuples, and pass them.
