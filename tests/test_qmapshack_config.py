@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -102,12 +103,65 @@ def test_a_file_without_a_final_newline_gains_one_only_when_something_is_added()
     [
         "[General]\nthis is not a setting\n",
         '[General]\nmapPath="/a, b"\n',
-        "[General]\ndemPaths=@Invalid()\n",
+        "[General]\ndemPaths=@Variant(\\0\\0\\0\\x7f)\n",
+        "[General]\nmapPath=@ByteArray(/a)\n",
+        "[General]\nmapPath=@Invalid\n",
     ],
 )
 def test_a_config_it_cannot_read_is_refused_by_name(text: str) -> None:
     with pytest.raises(QmsConfigError):
         ensure_paths(text, wanted(DATA))
+
+
+@pytest.mark.parametrize(
+    ("text", "key"),
+    [
+        ("[General]\ndemPaths=@Variant(\\0\\0\\0\\x7f)\n", "demPaths"),
+        (
+            "[Route]\nroutino\\paths=@ByteArray(/a)\n",
+            "routino\\paths",
+        ),
+    ],
+)
+def test_a_typed_value_is_refused_naming_its_key(text: str, key: str) -> None:
+    with pytest.raises(QmsConfigError, match=re.escape(key)):
+        ensure_paths(text, wanted(DATA))
+
+
+#: What Qt itself writes for three empty QStringLists and one int: PyQt6's
+#: QSettings(IniFormat), setValue(..., []), measured 2026-09-28. Qt's
+#: iniEscapedStringList writes an empty list as @Invalid() on purpose.
+QT_WROTE_EMPTY_LISTS = (
+    "[General]\n"
+    "demPaths=@Invalid()\n"
+    "mapPath=@Invalid()\n"
+    "\n"
+    "[Route]\n"
+    "routino\\paths=@Invalid()\n"
+    "\n"
+    "[Units]\n"
+    "type=1\n"
+)
+
+
+def test_qts_empty_list_is_an_empty_list_and_gains_our_paths() -> None:
+    """A QMapShack run once with no maps has exactly this file (D-061)."""
+    assert ensure_paths(QT_WROTE_EMPTY_LISTS, wanted(DATA)) == (
+        "[General]\n"
+        f"demPaths={DEM}\n"
+        f"mapPath={GARMIN}, {CONTOURS}\n"
+        "\n"
+        "[Route]\n"
+        f"routino\\paths={ROUTINO}\n"
+        "\n"
+        "[Units]\n"
+        "type=1\n"
+    )
+
+
+def test_an_invalid_marker_with_nothing_of_ours_to_add_is_left_as_qt_wrote_it() -> None:
+    text = "[General]\nmapPath=@Invalid()\n"
+    assert ensure_paths(text, [Wanted("General", "mapPath", ())]) == text
 
 
 def test_a_path_that_cannot_be_a_list_entry_is_refused() -> None:

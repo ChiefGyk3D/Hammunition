@@ -21,7 +21,9 @@ the DEM filter ``*.vrt|*.wcs``. A list value is Qt's comma-separated form.
 A file it cannot read as that shape -- a line that is neither a section, a
 comment nor ``key=value``, or one of our keys holding a quoted or ``@``-typed
 value -- is refused by name and left untouched, rather than rewritten on a
-guess.
+guess. The one ``@`` value read is ``@Invalid()``, which is how Qt writes an
+empty list: a QMapShack run once with no maps holds it in every key edited
+here, so it reads as the empty list and our paths replace it.
 """
 
 from __future__ import annotations
@@ -32,6 +34,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 __all__ = ["QmsConfigError", "Wanted", "config_path", "ensure_paths", "wanted"]
+
+
+#: How Qt writes an empty QStringList (``iniEscapedStringList``; measured with
+#: PyQt6's QSettings(IniFormat) on 2026-09-28). Every other ``@``-typed value
+#: (``@Variant(...)``, ``@ByteArray(...)``) is still refused by key.
+QT_EMPTY_LIST = "@Invalid()"
 
 
 class QmsConfigError(Exception):
@@ -65,6 +73,8 @@ def config_path(environ: Mapping[str, str] = os.environ, home: Path | None = Non
 
 def _items(value: str, section: str, key: str) -> list[str]:
     stripped = value.strip()
+    if stripped == QT_EMPTY_LIST:
+        return []
     if stripped.startswith("@") or '"' in stripped:
         raise QmsConfigError(
             f"[{section}] {key} holds {stripped[:80]!r}, a value this launcher does not "

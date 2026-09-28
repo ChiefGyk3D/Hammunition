@@ -69,11 +69,11 @@ def test_a_config_it_cannot_read_is_left_alone_and_qmapshack_not_started(
 ) -> None:
     conf = _as(monkeypatch, tmp_path)
     conf.parent.mkdir(parents=True)
-    conf.write_text("[General]\nmapPath=@Invalid()\n")
+    conf.write_text("[General]\nmapPath=@Variant(\\0)\n")
     seen = _record_exec(monkeypatch)
     assert cli.main(["maps", "qmapshack"]) == cli.EXIT_FAILED
     assert seen == []
-    assert conf.read_text() == "[General]\nmapPath=@Invalid()\n"
+    assert conf.read_text() == "[General]\nmapPath=@Variant(\\0)\n"
     assert "was not started" in capsys.readouterr().err
 
 
@@ -179,3 +179,17 @@ def test_json_is_refused_with_one_error_document_and_nothing_runs(
     assert doc["kind"] == "error" and doc["command"] == f"maps {verb}"
     assert "no --json form" in doc["message"]
     assert seen == [] and not conf.exists()
+
+
+def test_a_config_qt_wrote_with_empty_lists_is_edited_and_qmapshack_started(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``@Invalid()`` is Qt's empty list: the ordinary returning user (D-061)."""
+    conf = _as(monkeypatch, tmp_path)
+    conf.parent.mkdir(parents=True)
+    conf.write_text("[General]\ndemPaths=@Invalid()\nmapPath=@Invalid()\n")
+    seen = _record_exec(monkeypatch)
+    with pytest.raises(Exec):
+        cli.main(["maps", "qmapshack"])
+    assert seen == [["qmapshack", "qmapshack"]]
+    assert "@Invalid()" not in conf.read_text()
