@@ -30,6 +30,8 @@ from hammunition.update import (  # noqa: E402
     ON_INSTALL,
     UNKNOWN,
     UP_TO_DATE,
+    RegionSnapshot,
+    region_snapshots,
     render,
     report,
     requested_units,
@@ -199,6 +201,86 @@ def test_upstream_probes_are_named_but_not_consulted() -> None:
     assert "Nothing above was executed." in text.splitlines()[-1]
     # and under --upstream the line gives way to the upstream section
     assert "not consulted" not in render(rep, lists_note="x", upstream_asked=True)
+
+
+# --- osm-regions (D-057) ------------------------------------------------------
+
+
+def _regions_unit(name: str = "osm-regions") -> PackageManifest:
+    return _manifest(
+        name,
+        {
+            "method": "osm-regions",
+            "provider": "geofabrik",
+            "licence": "ODbL-1.0",
+            "licence_url": "https://www.openstreetmap.org/copyright",
+        },
+        update={"probe": {"method": "none"}, "strategy": "reinstall"},
+    )
+
+
+def test_region_snapshots_flags_a_region_behind_the_pin_list() -> None:
+    snaps = region_snapshots(
+        {"north-america-us-vermont": "250101"},
+        {"north-america-us-vermont": "260101"},
+    )
+    assert snaps == (RegionSnapshot("north-america-us-vermont", "250101", "260101"),)
+
+
+def test_region_snapshots_reports_nothing_newer_when_the_pin_is_not_ahead() -> None:
+    snaps = region_snapshots(
+        {"north-america-us-vermont": "260101"},
+        {"north-america-us-vermont": "260101"},
+    )
+    assert snaps == (RegionSnapshot("north-america-us-vermont", "260101", None),)
+
+
+def test_region_snapshots_of_an_unpinned_region_compares_against_nothing() -> None:
+    snaps = region_snapshots({"europe": "260101"}, {})
+    assert snaps == (RegionSnapshot("europe", "260101", None),)
+
+
+def test_an_osm_regions_unit_with_a_newer_pin_is_reported_behind() -> None:
+    rep = report(
+        _plan(_regions_unit()),
+        apt_states={},
+        present={},
+        built=(),
+        regions={
+            "osm-regions": region_snapshots(
+                {"north-america-us-vermont": "250101"},
+                {"north-america-us-vermont": "260101"},
+            )
+        },
+    )
+    (row,) = rep.rows
+    assert row.state == BEHIND_PIN
+    assert "newer map data pinned: 260101" in row.detail
+
+
+def test_an_osm_regions_unit_up_to_date_with_the_pin_list() -> None:
+    rep = report(
+        _plan(_regions_unit()),
+        apt_states={},
+        present={},
+        built=(),
+        regions={
+            "osm-regions": region_snapshots(
+                {"north-america-us-vermont": "260101"},
+                {"north-america-us-vermont": "260101"},
+            )
+        },
+    )
+    (row,) = rep.rows
+    assert row.state == UP_TO_DATE
+    assert "newer map data pinned" not in row.detail
+
+
+def test_an_osm_regions_unit_with_nothing_installed_is_not_installed() -> None:
+    rep = report(_plan(_regions_unit()), apt_states={}, present={}, built=())
+    (row,) = rep.rows
+    assert row.state == NOT_INSTALLED
+    assert "no map regions installed" in row.detail
 
 
 # --- other strategies --------------------------------------------------------

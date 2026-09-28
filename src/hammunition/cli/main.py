@@ -69,6 +69,7 @@ from hammunition.backends.regions import (
     data_root,
     disk_needs,
     disk_shortfall,
+    installed_slugs,
     installed_snapshot,
     region_lines,
 )
@@ -95,11 +96,14 @@ from hammunition.execute import (
 )
 from hammunition.fetch import Fetcher
 from hammunition.geofabrik import (
+    BASE,
     GeofabrikError,
     Probe,
     RegionFile,
     UrllibProbe,
     load_pins,
+    newest_snapshots,
+    region_ids,
 )
 from hammunition.geofabrik import resolve as resolve_region
 from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH, describe_refusal
@@ -141,7 +145,7 @@ from hammunition.station import (
     prompt_for,
     save_station,
 )
-from hammunition.update import render, report, requested_units
+from hammunition.update import region_snapshots, render, report, requested_units
 from hammunition.upstream import (
     NOT_UPSTREAM,
     http_get,
@@ -827,10 +831,29 @@ def cmd_update(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_FAILED
 
+    # osm-regions, offline (D-053): each installed region's `.source`
+    # sidecar against the pin list's newest snapshot for it. No fetch, no
+    # probe -- just what is on disk and what the catalog carries.
+    pins_path = catalog_root / "data" / "geofabrik-pins.yaml"
+    newest_pinned = newest_snapshots(load_pins(pins_path)) if pins_path.is_file() else {}
+    regions_by_unit = {
+        planned.name: region_snapshots(
+            installed_slugs(data_root(source.prefix) / planned.name), newest_pinned
+        )
+        for planned in plan.packages
+        if isinstance(planned.block.install, RegionalDataInstall)
+    }
+
     print(f"Target: {target.describe()}")
     print(
         render(
-            report(plan, apt_states=states, present=present, built=built),
+            report(
+                plan,
+                apt_states=states,
+                present=present,
+                built=built,
+                regions=regions_by_unit,
+            ),
             lists_note=_apt_lists_note(apt),
             upstream_asked=bool(args.upstream),
         )
@@ -987,6 +1010,27 @@ def _apply_suggestions(
             else:
                 notes.append(f"{group.name}: skipped by choice")
     return extra, notes
+
+
+def cmd_maps_regions(args: argparse.Namespace) -> int:
+    """Every region Geofabrik's index-v1.json names, filtered by a substring.  D-057.
+
+    Fetches the index only when this command runs -- network on request,
+    like `update --upstream`, never as a side effect of any other command
+    and never at import time.
+    """
+    probe = UrllibProbe()
+    try:
+        index_json = probe.text(f"{BASE}/index-v1.json")
+        ids = region_ids(index_json)
+    except GeofabrikError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    needle = (args.filter or "").casefold()
+    for region in ids:
+        if needle in region.casefold():
+            print(region)
+    return EXIT_OK
 
 
 def resolve_map_regions(
@@ -2742,6 +2786,21 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_update.set_defaults(func=cmd_update)
+
+    p_maps = sub.add_parser("maps", help="Geofabrik's OpenStreetMap regions (D-057)")
+    maps_sub = p_maps.add_subparsers(dest="maps_command", required=True)
+
+    p_maps_regions = maps_sub.add_parser(
+        "regions",
+        help="list Geofabrik's region paths; fetches the index only when run",
+    )
+    p_maps_regions.add_argument(
+        "filter",
+        nargs="?",
+        default=None,
+        help="case-insensitive substring to match; default: every region",
+    )
+    p_maps_regions.set_defaults(func=cmd_maps_regions)
 
     p_show = sub.add_parser("show", help="describe a profile, disclosure included")
     p_show.add_argument("profile")

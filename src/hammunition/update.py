@@ -42,6 +42,7 @@ from hammunition.manifest.schema import (
     GitInstall,
     NodeInstall,
     PackageManifest,
+    RegionalDataInstall,
     SourceInstall,
     VenvInstall,
 )
@@ -168,6 +169,59 @@ def _built_row(
     )
 
 
+@dataclass(frozen=True)
+class RegionSnapshot:
+    """One installed map region against the newest snapshot the pin list
+    carries for it.  D-057."""
+
+    slug: str
+    installed: str
+    newer_pinned: str | None
+    """A pinned snapshot newer than *installed*, or None when there is none
+    (the pin list has no row for this slug, or its newest is not newer)."""
+
+
+def region_snapshots(
+    installed: Mapping[str, str], newest_pinned: Mapping[str, str]
+) -> tuple[RegionSnapshot, ...]:
+    """Pure: compares what is on disk against the pin list, both keyed by slug.
+
+    *installed* is slug -> the snapshot recorded in its ``.source`` sidecar
+    (:func:`hammunition.backends.regions.installed_slugs`); *newest_pinned*
+    is slug -> the newest snapshot the pin list carries for it
+    (:func:`hammunition.geofabrik.newest_snapshots`). A slug the pin list
+    does not carry compares against nothing and is never reported behind --
+    it is verified by Geofabrik's MD5 only, and the pin list has no opinion
+    on it.
+    """
+    out: list[RegionSnapshot] = []
+    for slug in sorted(installed):
+        snapshot = installed[slug]
+        newer = newest_pinned.get(slug)
+        behind = newer if newer is not None and newer > snapshot else None
+        out.append(RegionSnapshot(slug, snapshot, behind))
+    return tuple(out)
+
+
+def _regions_row(planned: PlannedPackage, snapshots: Sequence[RegionSnapshot]) -> UpdateRow:
+    strategy = planned.manifest.update.strategy
+    if not snapshots:
+        return UpdateRow(planned.name, NOT_INSTALLED, "no map regions installed", strategy)
+    lines: list[str] = []
+    behind = False
+    for snap in snapshots:
+        if snap.newer_pinned is not None:
+            lines.append(
+                f"{snap.slug} installed {snap.installed}; "
+                f"newer map data pinned: {snap.newer_pinned}"
+            )
+            behind = True
+        else:
+            lines.append(f"{snap.slug} installed {snap.installed}")
+    state = BEHIND_PIN if behind else UP_TO_DATE
+    return UpdateRow(planned.name, state, "; ".join(lines), strategy)
+
+
 def _first_sentence(manifest: PackageManifest) -> str:
     """A manual unit's cadence hint, cut to its first sentence for the table;
     the manifest carries the rest, and the row says where to look."""
@@ -184,14 +238,18 @@ def report(
     apt_states: Mapping[str, AptPackageState],
     present: Mapping[str, bool | None],
     built: Iterable[str],
+    regions: Mapping[str, Sequence[RegionSnapshot]] | None = None,
 ) -> UpdateReport:
     """One row per planned unit. Pure: every fact arrives as an argument.
 
     ``apt_states`` is the policy probe for every apt package the plan names;
     ``present`` is :func:`hammunition.execute.build_effects_present` per built
-    unit; ``built`` is :func:`hammunition.execute.already_built` for the plan.
+    unit; ``built`` is :func:`hammunition.execute.already_built` for the plan;
+    ``regions`` is an ``osm-regions`` unit's name to its installed regions
+    against the pin list (:func:`region_snapshots`), offline (D-053).
     """
     attributed = frozenset(built)
+    region_report = regions or {}
     rows: list[UpdateRow] = []
     upstream: list[str] = []
     for planned in plan.packages:
@@ -233,6 +291,8 @@ def report(
                     attributed=planned.name in attributed,
                 )
             )
+        elif isinstance(method, RegionalDataInstall):
+            rows.append(_regions_row(planned, region_report.get(planned.name, ())))
         elif isinstance(method, VenvInstall):
             rows.append(
                 UpdateRow(

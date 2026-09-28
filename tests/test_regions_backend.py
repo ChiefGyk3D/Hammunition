@@ -43,6 +43,7 @@ from hammunition.backends.regions import (
     RegionsBackend,
     disk_needs,
     disk_shortfall,
+    installed_slugs,
     region_lines,
 )
 from hammunition.fetch import Fetcher, FetchResult, VerificationError
@@ -203,6 +204,31 @@ def _install_region(tmp_path: Path, region: RegionFile) -> None:
     out.mkdir(parents=True, exist_ok=True)
     (out / f"{region.slug}.osm.pbf").write_bytes(BODY)
     (out / f"{region.slug}.osm.pbf.source").write_text(f"{region.snapshot}\n")
+
+
+# ---------------------------------------------------------------------------
+# installed_slugs -- what `update` reads back, offline
+# ---------------------------------------------------------------------------
+
+
+def test_installed_slugs_reads_the_source_sidecar(tmp_path: Path) -> None:
+    _install_region(tmp_path, VT)
+    _install_region(tmp_path, NH)
+    assert installed_slugs(_data(tmp_path, "osm-regions")) == {
+        "north-america-us-vermont": "260101",
+        "north-america-us-new-hampshire": "260101",
+    }
+
+
+def test_installed_slugs_skips_a_pbf_with_no_sidecar(tmp_path: Path) -> None:
+    out = _data(tmp_path, "osm-regions")
+    out.mkdir(parents=True)
+    (out / f"{VT.slug}.osm.pbf").write_bytes(BODY)
+    assert installed_slugs(out) == {}
+
+
+def test_installed_slugs_of_a_missing_directory_is_empty(tmp_path: Path) -> None:
+    assert installed_slugs(_data(tmp_path, "osm-regions")) == {}
 
 
 # ---------------------------------------------------------------------------

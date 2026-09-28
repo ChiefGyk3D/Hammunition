@@ -145,6 +145,33 @@ questions and are not asked.
 Measured on the field laptop, 25 probes answered in 7.5 s, none
 unanswered, and three pins found behind upstream the first time it ran.
 
+For `osm-regions`, each installed map region is compared to
+`catalog/data/geofabrik-pins.yaml` by its `.source` sidecar's recorded
+snapshot — offline, like the rest of this report (D-053). A region whose
+installed snapshot is older than the pin list's newest for it is `behind
+the pin`, with the line `newer map data pinned: <snapshot>`; nothing
+installed is `not installed`; everything else is `up to date`. A region the
+pin list does not carry (verified by Geofabrik's MD5 only) is never
+reported behind — there is nothing to compare it against.
+
+### `hammunition maps regions [FILTER]`
+
+Every region path Geofabrik's `index-v1.json` names, one per line, sorted.
+`FILTER` is an optional case-insensitive substring; with none, every region
+prints. The index is fetched only when this command runs — network on
+request, the same as `update --upstream`, never as a side effect of any
+other command.
+
+```
+$ hammunition maps regions vermont
+north-america/us/vermont
+```
+
+A region path here is what `hammunition station set --map-regions` takes,
+comma-separated, and what `catalog/data/geofabrik-pins.yaml` pins. A
+network failure (unreachable, a non-2xx response) is a named error and a
+non-zero exit; nothing is downloaded or written.
+
 ### `hammunition list [all|packages|profiles]`
 
 Everything in the catalog, with each package's install method **on this

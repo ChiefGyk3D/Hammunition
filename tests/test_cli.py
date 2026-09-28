@@ -2573,3 +2573,77 @@ def test_the_plan_lists_regions_that_will_be_converted() -> None:
     text = "\n".join(render_plan(_map_plan(), [], euid=0, maps=maps))
     assert "will be converted for Navit" in text
     assert "estimate, measured on one region" in text
+
+
+# ---------------------------------------------------------------------------
+# `hammunition maps regions` -- Geofabrik's index, fetched on request (D-057)
+# ---------------------------------------------------------------------------
+
+
+class _MapsProbe:
+    """A :class:`hammunition.geofabrik.Probe` stand-in for `maps regions`:
+    only `text` is ever called for this command."""
+
+    def __init__(self, *, text: str | None = None, error: str | None = None) -> None:
+        self._text = text
+        self._error = error
+
+    def head(self, url: str) -> tuple[int, int, str | None]:  # pragma: no cover - unused here
+        raise NotImplementedError
+
+    def text(self, url: str) -> str:
+        if self._error is not None:
+            from hammunition.geofabrik import GeofabrikError
+
+            raise GeofabrikError(self._error)
+        assert self._text is not None
+        return self._text
+
+
+_MAPS_INDEX = (
+    '{"features": [{"properties": {"urls": {"pbf": '
+    '"https://download.geofabrik.de/north-america/us/vermont-latest.osm.pbf"}}}, '
+    '{"properties": {"urls": {"pbf": '
+    '"https://download.geofabrik.de/europe-latest.osm.pbf"}}}]}'
+)
+
+
+def test_maps_regions_filters_case_insensitively(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    monkeypatch.setattr(cli, "UrllibProbe", lambda: _MapsProbe(text=_MAPS_INDEX))
+    assert cli.main(["maps", "regions", "VERMONT"]) == EXIT_OK
+    assert capsys.readouterr().out == "north-america/us/vermont\n"
+
+
+def test_maps_regions_with_no_filter_lists_everything_sorted(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    monkeypatch.setattr(cli, "UrllibProbe", lambda: _MapsProbe(text=_MAPS_INDEX))
+    assert cli.main(["maps", "regions"]) == EXIT_OK
+    assert capsys.readouterr().out.splitlines() == ["europe", "north-america/us/vermont"]
+
+
+def test_maps_regions_a_network_failure_is_a_named_error(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    monkeypatch.setattr(
+        cli,
+        "UrllibProbe",
+        lambda: _MapsProbe(
+            error="https://download.geofabrik.de/index-v1.json could not be reached"
+        ),
+    )
+    assert cli.main(["maps", "regions"]) != EXIT_OK
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "could not be reached" in err

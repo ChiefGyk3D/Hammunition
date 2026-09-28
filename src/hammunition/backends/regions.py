@@ -81,6 +81,23 @@ def installed_snapshot(path: Path) -> str | None:
         return None
 
 
+def installed_slugs(directory: Path) -> dict[str, str]:
+    """slug -> installed snapshot for every ``<slug>.osm.pbf`` under
+    *directory* that carries a ``.source`` sidecar.
+
+    Read by ``update`` to report regions behind the pin list (D-053):
+    nothing is fetched and nothing is probed, only what is on disk now.
+    """
+    if not directory.is_dir():
+        return {}
+    out: dict[str, str] = {}
+    for path in sorted(directory.glob(f"*{PBF}")):
+        snapshot = installed_snapshot(path)
+        if snapshot is not None:
+            out[path.name[: -len(PBF)]] = snapshot
+    return out
+
+
 @dataclass
 class MapLedger:
     """Which regions failed this run, shared by the regions and derived backends.

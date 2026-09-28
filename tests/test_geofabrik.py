@@ -17,6 +17,8 @@ from hammunition.geofabrik import (
     RegionFile,
     _previous,
     load_pins,
+    newest_snapshots,
+    region_ids,
     resolve,
     snapshot_for,
 )
@@ -145,3 +147,51 @@ def test_a_head_with_no_content_length_is_refused_naming_the_file() -> None:
     probe = FakeProbe({_url("260101"): (200, 0, None)}, {_url("260101") + ".md5": f"{MD5}  x\n"})
     with pytest.raises(GeofabrikError, match=re.escape(f"{VT}-260101.osm.pbf")):
         resolve(VT, "yearly", today=date(2026, 9, 27), pins={}, probe=probe)
+
+
+# --- region_ids --------------------------------------------------------------
+
+
+def test_region_ids_from_the_index() -> None:
+    index = (
+        '{"features": [{"properties": {"urls": {"pbf": '
+        '"https://download.geofabrik.de/north-america/us/vermont-latest.osm.pbf"}}}, '
+        '{"properties": {"urls": {"pbf": '
+        '"https://download.geofabrik.de/europe-latest.osm.pbf"}}}]}'
+    )
+    assert region_ids(index) == ["europe", "north-america/us/vermont"]
+
+
+def test_region_ids_deduplicates_and_sorts() -> None:
+    index = (
+        '{"features": ['
+        '{"properties": {"urls": {"pbf": '
+        '"https://download.geofabrik.de/north-america/us/vermont-latest.osm.pbf"}}},'
+        '{"properties": {"urls": {"pbf": '
+        '"https://download.geofabrik.de/north-america/us/vermont-latest.osm.pbf"}}},'
+        '{"properties": {"urls": {"pbf": '
+        '"https://download.geofabrik.de/africa-latest.osm.pbf"}}}'
+        "]}"
+    )
+    assert region_ids(index) == ["africa", "north-america/us/vermont"]
+
+
+def test_region_ids_ignores_a_feature_with_no_pbf_url() -> None:
+    index = '{"features": [{"properties": {"urls": {}}}]}'
+    assert region_ids(index) == []
+
+
+def test_region_ids_refuses_invalid_json() -> None:
+    with pytest.raises(GeofabrikError, match="not valid JSON"):
+        region_ids("not json")
+
+
+# --- newest_snapshots ---------------------------------------------------------
+
+
+def test_newest_snapshots_keys_by_slug_and_keeps_the_greatest() -> None:
+    pins = {
+        (VT, "260101"): Pin(VT, "260101", 1, SHA),
+        (VT, "260901"): Pin(VT, "260901", 1, SHA),
+    }
+    assert newest_snapshots(pins) == {"north-america-us-vermont": "260901"}

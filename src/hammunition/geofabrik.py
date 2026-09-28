@@ -16,6 +16,7 @@ without the network.
 
 from __future__ import annotations
 
+import json
 import re
 import urllib.error
 import urllib.request
@@ -31,6 +32,7 @@ BASE = "https://download.geofabrik.de"
 PINNED = "sha256, pinned by Hammunition"
 UNPINNED = "MD5 from Geofabrik only; not pinned"
 _MD5 = re.compile(r"([0-9a-f]{32})\s+\S+\s*")
+_REGION_ID = re.compile(rf"{re.escape(BASE)}/(.+)-latest\.osm\.pbf")
 
 
 class GeofabrikError(Exception):
@@ -227,3 +229,49 @@ def load_pins(path: Path) -> dict[tuple[str, str], Pin]:
         pin = Pin(str(row["region"]), str(row["snapshot"]), int(row["size"]), str(row["sha256"]))
         pins[(pin.region, pin.snapshot)] = pin
     return pins
+
+
+def region_ids(index_json: str) -> list[str]:
+    """Every region path Geofabrik's ``index-v1.json`` names, sorted and
+    deduplicated.
+
+    Pure: takes the index's raw JSON text, never fetches it -- ``hammunition
+    maps regions`` reads it once through :class:`Probe.text`. Each feature's
+    ``properties.urls.pbf`` is the region's ``-latest.osm.pbf`` URL; the
+    region id is the path between :data:`BASE` and that suffix, exactly what
+    :func:`resolve` and station config's ``map_regions`` take.
+    """
+    try:
+        data = json.loads(index_json)
+    except json.JSONDecodeError as exc:
+        raise GeofabrikError(f"Geofabrik's index is not valid JSON: {exc}") from exc
+    ids: set[str] = set()
+    features = data.get("features", []) if isinstance(data, dict) else []
+    for feature in features:
+        if not isinstance(feature, dict):
+            continue
+        pbf = feature.get("properties", {}).get("urls", {}).get("pbf")
+        if not isinstance(pbf, str):
+            continue
+        match = _REGION_ID.fullmatch(pbf)
+        if match is not None:
+            ids.add(match.group(1))
+    return sorted(ids)
+
+
+def newest_snapshots(pins: Mapping[tuple[str, str], Pin]) -> dict[str, str]:
+    """The newest pinned snapshot for each region, keyed by slug.
+
+    Slug-keyed because a slug is what ``update`` reads back from an
+    installed region's ``.source`` sidecar
+    (:func:`hammunition.backends.regions.installed_slugs`); comparing by
+    slug is how it learns a newer map is pinned without asking the network.
+    Snapshots are fixed-width ``YYMMDD``, so the newest compares as the
+    greatest string.
+    """
+    newest: dict[str, str] = {}
+    for pin in pins.values():
+        slug = pin.region.replace("/", "-")
+        if pin.snapshot > newest.get(slug, ""):
+            newest[slug] = pin.snapshot
+    return newest
