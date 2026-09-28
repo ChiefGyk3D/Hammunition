@@ -182,3 +182,124 @@ def test_describe_names_each_desktop_the_way_people_do() -> None:
         "MATE",
         "Cinnamon",
     }
+
+
+# ---------------------------------------------------------------------------
+# What was seen but not recognised, and files that are not what they seem
+# ---------------------------------------------------------------------------
+
+
+def test_a_session_the_catalog_does_not_name_is_reported_as_seen(tmp_path: Path) -> None:
+    """A graphical machine whose only desktop the catalog does not name is not
+    a server. ASSUMPTION, not measured: COSMIC's session file is taken to be
+    `cosmic.desktop` with `DesktopNames=COSMIC`; nobody has read Pop!_OS's."""
+    from hammunition.desktop import scan_sessions
+
+    _session(tmp_path, WAYLAND, "cosmic.desktop", _entry("COSMIC", "start-cosmic", "COSMIC"))
+    scan = scan_sessions(tmp_path)
+    assert scan.desktops == frozenset()
+    assert scan.unrecognised == ("cosmic.desktop",)
+    assert installed_desktops(tmp_path) == frozenset()
+
+
+def test_recognised_files_are_not_listed_as_unrecognised(tmp_path: Path) -> None:
+    from hammunition.desktop import scan_sessions
+
+    _session(tmp_path, X, "xfce.desktop", _entry("Xfce", "startxfce4", "XFCE"))
+    _session(tmp_path, WAYLAND, "sway.desktop", _entry("Sway", "sway", "sway"))
+    scan = scan_sessions(tmp_path)
+    assert scan.desktops == {Desktop.xfce}
+    assert scan.unrecognised == ("sway.desktop",)
+
+
+def test_no_session_files_at_all_is_distinguishable(tmp_path: Path) -> None:
+    from hammunition.desktop import scan_sessions
+
+    scan = scan_sessions(tmp_path)
+    assert scan.desktops == frozenset() and scan.unrecognised == ()
+    assert not scan.any_files
+
+
+def test_usr_local_session_directories_are_read(tmp_path: Path) -> None:
+    """SDDM and LightDM both search /usr/local/share for sessions."""
+    _session(tmp_path, "usr/local/share/xsessions", "xfce.desktop", _entry("X", "x", "XFCE"))
+    _session(tmp_path, "usr/local/share/wayland-sessions", "lxqt.desktop", _entry("L", "l", "LXQt"))
+    assert installed_desktops(tmp_path) == {Desktop.xfce, Desktop.lxqt}
+
+
+def test_a_leading_byte_order_mark_is_stripped(tmp_path: Path) -> None:
+    path = tmp_path / X / "xfce.desktop"
+    path.parent.mkdir(parents=True)
+    path.write_bytes(b"\xef\xbb\xbf" + _entry("Xfce", "startxfce4", "XFCE").encode())
+    assert installed_desktops(tmp_path) == {Desktop.xfce}
+
+
+def _within_seconds(seconds: int, root: Path) -> frozenset[Desktop]:
+    """Reading a FIFO blocks forever. An alarm turns that hang into a failure."""
+    import signal
+
+    def _timeout(signum: int, frame: object) -> None:
+        raise AssertionError("installed_desktops blocked: it opened something that is not a file")
+
+    previous = signal.signal(signal.SIGALRM, _timeout)
+    signal.alarm(seconds)
+    try:
+        return installed_desktops(root)
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous)
+
+
+def test_a_fifo_named_like_a_session_is_not_read(tmp_path: Path) -> None:
+    import os
+
+    (tmp_path / X).mkdir(parents=True)
+    os.mkfifo(tmp_path / X / "plasma.desktop")
+    assert _within_seconds(3, tmp_path) == frozenset()
+
+
+def test_a_symlink_to_a_fifo_is_not_read(tmp_path: Path) -> None:
+    import os
+
+    (tmp_path / X).mkdir(parents=True)
+    os.mkfifo(tmp_path / "pipe")
+    (tmp_path / X / "plasma.desktop").symlink_to(tmp_path / "pipe")
+    assert _within_seconds(3, tmp_path) == frozenset()
+
+
+def test_a_symlink_to_a_real_session_file_is_read(tmp_path: Path) -> None:
+    (tmp_path / X).mkdir(parents=True)
+    (tmp_path / "real").write_text(_entry("Xfce", "startxfce4", "XFCE"))
+    (tmp_path / X / "xfce.desktop").symlink_to(tmp_path / "real")
+    assert installed_desktops(tmp_path) == {Desktop.xfce}
+
+
+def test_a_directory_named_like_a_session_is_skipped(tmp_path: Path) -> None:
+    (tmp_path / X / "plasma.desktop").mkdir(parents=True)
+    assert installed_desktops(tmp_path) == frozenset()
+
+
+def test_an_unreadable_session_file_is_skipped(tmp_path: Path) -> None:
+    import os
+
+    if os.geteuid() == 0:
+        pytest.skip("root reads a mode-000 file; CI runs as uid 0")
+    _session(tmp_path, X, "xfce.desktop", _entry("Xfce", "startxfce4", "XFCE"))
+    (tmp_path / X / "xfce.desktop").chmod(0)
+    try:
+        assert installed_desktops(tmp_path) == frozenset()
+    finally:
+        (tmp_path / X / "xfce.desktop").chmod(0o644)
+
+
+def test_non_utf8_content_does_not_raise(tmp_path: Path) -> None:
+    path = tmp_path / X / "odd.desktop"
+    path.parent.mkdir(parents=True)
+    path.write_bytes(b"[Desktop Entry]\nName=\xff\xfe\nDesktopNames=XFCE\n")
+    assert installed_desktops(tmp_path) == {Desktop.xfce}
+
+
+def test_an_empty_desktop_names_value_is_no_desktop_and_skips_the_stem(tmp_path: Path) -> None:
+    """`DesktopNames=` present but empty: the file said something, and it was nothing."""
+    _session(tmp_path, X, "LXDE.desktop", _entry("LXDE", "/usr/bin/startlxde", ""))
+    assert installed_desktops(tmp_path) == frozenset()

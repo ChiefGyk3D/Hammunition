@@ -11,6 +11,16 @@ does not: sudo resets the environment, and the variable is gone. The planner
 reads only these (and only through an argument, so tests and containers are
 deterministic).
 
+``/usr/local/share/xsessions`` and ``/usr/local/share/wayland-sessions`` are
+read too: SDDM and LightDM both search them. Only regular files are read,
+after following a symlink, and at most 64 KiB of each: a FIFO or a device
+node named ``*.desktop`` would otherwise block or exhaust the planner.
+
+A session file that names no desktop this module knows (COSMIC, Sway,
+Budgie) is reported as *seen but unrecognised* rather than dropped, so a
+graphical machine running one is never described as a server with no
+sessions at all.
+
 Each file's ``DesktopNames=`` key is read first -- ``;``-separated, as in the
 desktop-entry spec (``GNOME;GNOME-Classic``). Two packages were measured
 shipping session files without the key (Debian 13, 2026-09-28):
@@ -27,6 +37,7 @@ the session matters -- menus and ``doctor`` -- never for the plan.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 from types import MappingProxyType
@@ -35,10 +46,12 @@ from typing import Final
 __all__ = [
     "SESSION_DIRS",
     "Desktop",
+    "SessionScan",
     "current_desktop",
     "describe",
     "describe_set",
     "installed_desktops",
+    "scan_sessions",
 ]
 
 
@@ -55,7 +68,15 @@ class Desktop(StrEnum):
 
 
 # Session directories, relative to the root the caller passes.
-SESSION_DIRS: Final = ("usr/share/xsessions", "usr/share/wayland-sessions")
+SESSION_DIRS: Final = (
+    "usr/share/xsessions",
+    "usr/share/wayland-sessions",
+    "usr/local/share/xsessions",
+    "usr/local/share/wayland-sessions",
+)
+
+# More than any session file measured by two orders of magnitude.
+_READ_LIMIT: Final = 64 * 1024
 
 # `DesktopNames` / `XDG_CURRENT_DESKTOP` element, lower-cased -> Desktop.
 _BY_NAME: Final = MappingProxyType(
@@ -127,13 +148,19 @@ def _desktop_names(text: str) -> list[str] | None:
     return None
 
 
-def _from_file(path: Path) -> set[Desktop]:
+def _from_file(path: Path) -> set[Desktop] | None:
+    """The desktops one session file names; None when it is not a regular
+    file that could be read (skipped, not reported as seen)."""
     try:
-        text = path.read_text(encoding="utf-8", errors="replace")
+        if not path.resolve().is_file():
+            return None
+        with path.open("rb") as handle:
+            raw = handle.read(_READ_LIMIT)
     except OSError:
         # Unreadable is not a desktop we can name. The effect is visible: a
         # unit for that desktop is deferred by name, never installed blind.
-        return set()
+        return None
+    text = raw.decode("utf-8-sig", errors="replace")
     names = _desktop_names(text)
     if names is None:
         stem = _BY_STEM.get(path.stem)
@@ -141,20 +168,50 @@ def _from_file(path: Path) -> set[Desktop]:
     return {_BY_NAME[n.lower()] for n in names if n.lower() in _BY_NAME}
 
 
-def installed_desktops(root: Path = Path("/")) -> frozenset[Desktop]:
-    """Every desktop a session file under ``root`` offers.
+@dataclass(frozen=True)
+class SessionScan:
+    """What the session directories held: the desktops recognised, and the
+    session files read that named none of them."""
 
-    An absent directory is not an error: a container or a server has neither,
-    and the answer there is the empty set.
+    desktops: frozenset[Desktop]
+    unrecognised: tuple[str, ...] = ()
+    """File names (``cosmic.desktop``), sorted, of readable session files
+    that named no desktop this module knows."""
+
+    @property
+    def any_files(self) -> bool:
+        """Whether any session file was read at all. False on a server or in a
+        container; True on a machine whose only desktop is one not named here."""
+        return bool(self.desktops) or bool(self.unrecognised)
+
+
+def scan_sessions(root: Path = Path("/")) -> SessionScan:
+    """Every desktop a session file under ``root`` offers, and every readable
+    session file that offered none.
+
+    An absent directory is not an error: a container or a server has none,
+    and the answer there is an empty scan.
     """
     found: set[Desktop] = set()
+    unrecognised: set[str] = set()
     for relative in SESSION_DIRS:
         directory = root / relative
         if not directory.is_dir():
             continue
         for path in sorted(directory.glob("*.desktop")):
-            found |= _from_file(path)
-    return frozenset(found)
+            named = _from_file(path)
+            if named is None:
+                continue
+            if named:
+                found |= named
+            else:
+                unrecognised.add(path.name)
+    return SessionScan(desktops=frozenset(found), unrecognised=tuple(sorted(unrecognised)))
+
+
+def installed_desktops(root: Path = Path("/")) -> frozenset[Desktop]:
+    """The recognised desktops of :func:`scan_sessions`."""
+    return scan_sessions(root).desktops
 
 
 def current_desktop(environ: Mapping[str, str]) -> Desktop | None:
