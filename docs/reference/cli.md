@@ -436,8 +436,11 @@ files contain and what installing them means.
 
 Removes the power-control helper and its polkit action — the two files
 `hardware apply` installs at `/usr/local/libexec/hammunition-devctl` and
-`/usr/share/polkit-1/actions/com.chiefgyk3d.hammunition.devctl.policy` — and
-nothing else (**D-056**).
+`/usr/share/polkit-1/actions/com.chiefgyk3d.hammunition.devctl.policy` — and,
+if present, `/etc/udev/rules.d/66-hammunition-kept.rules`, the kept-off rules
+file `park` writes to by default (**D-056**, amended 2026-09-28). Removing it
+reloads udev, so every device it was holding parked wakes from the next boot
+on. Nothing else is touched.
 
 - **Not part of `uninstall`.** `uninstall` resolves the names it is given
   against the package and profile catalogs; there is no unit named
@@ -459,21 +462,29 @@ remove, every recorded artefact already gone, a `--dry-run`, or declining the
 confirmation prompt; `1` if the operator could not be determined, a removal
 command failed, or a path is still present after the run.
 
-### `hammunition hardware park NAME [--dry-run]`
+### `hammunition hardware park NAME [--until-reboot] [--dry-run]`
 
 Detaches a catalogued, attached device and lets its port suspend — writes `0`
-to its sysfs `authorized` file, the same effect as unplugging it, reversible
-with `wake` or a reboot. `NAME` is the catalog name (`gps-receiver`), or
-`NAME@ADDRESS` when two of the same kind are attached and the plain name
-would be a guess. Only a device whose catalog entry carries a
-`power_control` block is ever offered (**D-056**); see
-`docs/hardware/power-control.md` for what parking does and does not do, and
-which devices carry that block today.
+to its sysfs `authorized` file, the same effect as unplugging it. `NAME` is
+the catalog name (`gps-receiver`), or `NAME@ADDRESS` when two of the same
+kind are attached and the plain name would be a guess. Only a device whose
+catalog entry carries a `power_control` block is ever offered (**D-056**);
+see `docs/hardware/power-control.md` for what parking does and does not do,
+and which devices carry that block today.
+
+**Kept parked across reboots by default (D-056, amended 2026-09-28).**
+Alongside the sysfs write, `park` adds one line to
+`/etc/udev/rules.d/66-hammunition-kept.rules` naming the device's port and
+vendor/product pair; udev re-applies `authorized=0` as the device is added
+from then on — at boot, after suspend/resume, after a replug into the same
+port — with nothing of Hammunition's needing to run. `--until-reboot` skips
+that: the device parks now and a reboot wakes it, the pre-amendment
+behaviour. `wake` (below) removes the kept entry.
 
 The privileged write goes through one polkit action,
 `com.chiefgyk3d.hammunition.devctl`, `hardware apply` installs the helper it
-authorises. `--dry-run` prints every write it would make and the `pkexec`
-call itself, then stops.
+authorises. `--dry-run` prints every write it would make, whether a kept
+entry is added, and the `pkexec` call itself, then stops.
 
 Exit codes: `0` parked and verified (or a `--dry-run`); `1` a write did not
 verify, or the command otherwise failed to run; `2` unplannable — the helper
@@ -484,16 +495,29 @@ denied and nothing was changed.
 ### `hammunition hardware wake NAME [--dry-run]`
 
 The reverse of `park`: writes `1` back to the device's `authorized` file so
-the kernel re-enumerates it. Same `NAME` syntax, same `--dry-run`, same exit
-codes as `park`. A reboot does the same thing to every parked device on the
-machine, with no command needed.
+the kernel re-enumerates it, and removes the device's kept entry from
+`66-hammunition-kept.rules`, if it has one, so a later reboot does not park
+it again. Same `NAME` syntax, same `--dry-run`, same exit codes as `park`.
+`NAME@ADDRESS` also resolves a kept entry whose device is **not** currently
+attached, so a stale entry for something already unplugged can be cleared
+without plugging it back in.
 
 ### `hammunition hardware state`
 
 Lists every catalogued device that is both attached now and parkable, and
 whether each one is parked — read fresh from `/sys/bus/usb/devices` on every
-call, never cached. Needs no privilege: reading sysfs is unprivileged, only
-writing to it is. Always exits `0`; an empty report is not a failure.
+call, never cached — plus any device kept parked (**D-056**) whose entry
+names a port nothing answers on right now. Needs no privilege: reading
+sysfs is unprivileged, only writing to it is. Always exits `0`; an empty
+report is not a failure.
+
+The table shown by the CLI adds a `kept` column next to `state`
+(`parked`/`awake`), and lists devices kept-but-absent separately under "Kept
+parked, not attached", with the `wake NAME@ADDRESS` command that clears each
+one. The JSON the root helper prints (`hammunition-devctl state`, what the
+tray applet polls) gives one object per row with `"kept": bool` alongside
+`"parked"`; a kept device with nothing attached gets `"attached": false` and
+`"parked": null`, since there is no sysfs node to read a live answer from.
 
 ### `hammunition station show` / `hammunition station set`
 

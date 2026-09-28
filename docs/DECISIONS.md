@@ -4101,6 +4101,65 @@ says parked but the device is not" is a whole failure mode this design has no
 reason to build. `hammunition hardware state` answers by reading the bus, not
 a cache.
 
+### Amendment (2026-09-28): parked is kept, as intent, in one udev rule per device
+
+The maintainer, once park and wake had proven out on the field laptop's GPS
+receiver, asked for the switch to *stay* where it is set: "we may not always
+want GPS but maybe cell, or maybe we want cell off and GPS to save battery or
+whatever for an extended period." The reasoning just above still holds for
+what it actually argued: sysfs remains the single place that answers "is this
+device parked right now", and there is still no cache of that answer to go
+stale. What it did not anticipate is that an operator might want a second
+thing recorded alongside it — not "is it parked" but "should it come back
+parked" — and that a reboot resetting every device is a loss for a device
+someone deliberately left off, not a simplification. This amendment adds
+exactly that second thing, and only that.
+
+**The mechanism.** `park` now writes one line, by default, to
+`/etc/udev/rules.d/66-hammunition-kept.rules` — after Hammunition's own
+`65-hammunition.rules`, so the permission rules have already run. The line
+names the device's port and its vendor/product pair together
+(`KERNEL=="3-5.1", ATTR{idVendor}=="1546", ATTR{idProduct}=="01a9"`), each
+value checked against the shape a USB port address and a USB ID actually
+have before it is written; nothing else reaches the file. The file is
+rewritten whole from scratch on every change, by the helper alone, never
+appended to by hand — a line it did not write refuses the entire rewrite,
+naming the offending line and the file, rather than discarding whatever put
+it there. The write itself is atomic (temp file in the same directory,
+`fsync`, rename) and mode `0644`, followed by `udevadm control --reload` —
+never `trigger`, because the park that led to the write already happened
+through the sysfs write a moment earlier, and re-triggering would re-run
+every udev rule against every device on the bus for a change that only
+concerns one of them. `hammunition hardware park --until-reboot NAME` is the
+way back to this decision's original behaviour: the sysfs write happens and
+nothing is added to the file, so the device parks now and a reboot wakes it,
+exactly as first specified above.
+
+**The disagreement this section worried about is now shown, not avoided.**
+Reconciling "the file says parked but the device is not" was the whole
+failure mode the original decision declined to build a state file for. That
+problem has not gone away — a kept device authorised by hand while its rule
+still exists is now a real state — but the answer is not a reconciliation
+step; it is `hammunition hardware state` reporting `kept` and the live sysfs
+`parked` reading as two separate fields, so a disagreement between intent and
+reality is visible in one line instead of hidden behind a single boolean that
+would have to pick a side. The next time the device is added, udev applies
+the rule again regardless of what a hand-authorisation left behind.
+
+**What the mechanism does not yet answer, stated as unmeasured, not assumed.**
+The rule is a udev `ACTION=="add"` rule, which fires once the kernel has
+already enumerated the device, not before — so the belief that it beats every
+consumer to the device, before a tty node like `/dev/ttyACM0` can appear at
+all, is not yet checked against real hardware. Whether the field laptop's GPS
+receiver ever shows a fleeting `/dev/ttyACM0` across a reboot before the rule
+reasserts `authorized=0`, and whether the port address a kept entry names
+(`3-5.1`) is actually stable across reboots on that machine, are exactly what
+this design's own bench test (Task 7, recorded in
+`docs/reference/bench-verification-5430.md`) measures — not a claim this
+amendment or `docs/hardware/power-control.md` makes ahead of it. See
+`docs/superpowers/specs/2026-09-27-device-kept-off-design.md` §3, which is
+corrected alongside this amendment for the same reason.
+
 ### Why `pci_runtime` ships refused
 
 `PowerMethod` is `Literal["usb_deauthorize", "pci_runtime"]` so a future

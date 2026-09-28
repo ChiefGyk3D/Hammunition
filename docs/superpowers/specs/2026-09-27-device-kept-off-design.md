@@ -43,10 +43,18 @@ ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", KERNEL=="3-5.1", AT
   touched, and another receiver of the same model elsewhere is not either.
   Moving the kept device to another port brings it back on, which errs toward
   not losing a device.
-- **Why udev, not a state file and a unit.** The rule acts as the device is
-  added, before its interfaces bind, so gpsd and ModemManager never see it. A
-  unit applying a state file after boot would let them grab the device and then
-  lose it: the retry churn the DW5930e showed on 2026-09-22.
+- **Why udev, not a state file and a unit.** The rule is applied by udev as
+  the device appears, so nothing has to run at boot for gpsd and
+  ModemManager to be kept off it. A unit applying a state file after boot
+  would let them grab the device and then lose it: the retry churn the
+  DW5930e showed on 2026-09-22. Whether the rule wins outright — whether a
+  tty node like `/dev/ttyACM0` never appears at all, or appears briefly
+  before the rule's `authorized=0` lands — is not established by this
+  reasoning: a udev `ACTION=="add"` rule fires once the kernel has already
+  enumerated the device's interfaces, not before them, so "before its
+  interfaces bind" was this design's assumption, not a measured fact. The
+  moment before the rule applies is exactly what the field-laptop reboot
+  test in §7 measures.
 - **D-056's objection, answered.** Live state is still read from sysfs
   (`authorized`). The rule records only intent. `state` reports both, so a
   disagreement (a kept device someone authorised by hand) is shown, not hidden,
