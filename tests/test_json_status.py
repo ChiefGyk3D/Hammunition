@@ -43,6 +43,13 @@ BEGIN: dict[str, Any] = {
         }
     ],
 }
+UNINSTALL_BEGIN: dict[str, Any] = {
+    "event": "uninstall_begin",
+    "version": 1,
+    "timestamp": "2026-09-28T13:00:00+00:00",
+    "packages": ["fixture-apt"],
+    "apt_packages": ["fixture-apt"],
+}
 SCENARIOS: dict[str, list[dict[str, Any]]] = {
     "empty": [],
     "unverified": [
@@ -64,6 +71,20 @@ SCENARIOS: dict[str, list[dict[str, Any]]] = {
     ],
     "failed": [BEGIN, {"event": "transaction_failed", "version": 1, "completed": 2}],
     "interrupted": [BEGIN, {"event": "command_begin", "version": 1, "argv": ["apt-get"]}],
+    "uninstalled": [
+        BEGIN,
+        {"event": "transaction_end", "version": 1, "completed": 4},
+        UNINSTALL_BEGIN,
+        {"event": "uninstall_end", "version": 1, "completed": 1, "verified": True, "checks": []},
+    ],
+    "reinstalled": [
+        BEGIN,
+        {"event": "transaction_end", "version": 1, "completed": 4},
+        UNINSTALL_BEGIN,
+        {"event": "uninstall_end", "version": 1, "completed": 1, "verified": True, "checks": []},
+        {**BEGIN, "timestamp": "2026-09-28T14:00:00+00:00", "packages": ["fixture-apt"]},
+        {"event": "transaction_end", "version": 1, "completed": 1},
+    ],
 }
 
 
@@ -138,6 +159,52 @@ def test_recorded_units_say_how_the_last_transaction_naming_them_ended(
     assert units["fixture-apt"]["method"] == "apt" and units["fixture-apt"]["pin"] is None
     assert units["fixture-source"]["pin"].startswith("sha256 30cf6db1a2b4")
     assert units["gone-unit"]["method"] is None, "a unit the catalog no longer has is not guessed"
+
+
+@pytest.mark.parametrize(
+    ("scenario", "outcome", "when"),
+    [
+        ("uninstalled", "removed", "2026-09-28T13:00:00+00:00"),
+        ("reinstalled", "completed", "2026-09-28T14:00:00+00:00"),
+    ],
+)
+def test_an_uninstall_is_folded_into_the_recorded_units(
+    scenario: str,
+    outcome: str,
+    when: str,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Final review I1: an uninstalled unit read `completed`. Removal is the
+    latest word on it until a later install names it again."""
+    _rc, out = _run(monkeypatch, tmp_path, capsys, SCENARIOS[scenario], "--json")
+    units = {u["name"]: u for u in parse_one(out)["recorded_units"]}
+    assert units["fixture-apt"]["last_outcome"] == outcome
+    assert units["fixture-apt"]["last_named"] == when
+    assert units["fixture-source"]["last_outcome"] == "completed", "not named by the uninstall"
+
+
+@pytest.mark.parametrize(
+    ("end", "outcome"),
+    [
+        ({"event": "uninstall_failed", "version": 1, "completed": 0}, "removal failed"),
+        (None, "removal interrupted"),
+    ],
+)
+def test_a_removal_that_did_not_finish_says_so(
+    end: dict[str, Any] | None,
+    outcome: str,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    entries = [BEGIN, {"event": "transaction_end", "version": 1, "completed": 4}, UNINSTALL_BEGIN]
+    if end is not None:
+        entries.append(end)
+    _rc, out = _run(monkeypatch, tmp_path, capsys, entries, "--json")
+    units = {u["name"]: u for u in parse_one(out)["recorded_units"]}
+    assert units["fixture-apt"]["last_outcome"] == outcome
 
 
 def test_an_unreadable_target_is_an_error_document_with_exit_1(

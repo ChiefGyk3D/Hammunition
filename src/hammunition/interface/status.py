@@ -67,14 +67,17 @@ class LatestTransaction(Strict):
 
 @dataclass(frozen=True)
 class RecordedUnit(Strict):
-    """A unit some transaction here named, and how the latest such one ended.
+    """A unit some install or uninstall here named, and how the latest one ended.
 
     Not a claim that the unit is installed now: `update --json` compares the
     machine. A unit the catalog no longer carries has null method and pin."""
 
     name: str = described("the catalog unit")
-    last_named: str | None = described("when the latest transaction naming it began")
-    last_outcome: str = described("`completed`, `failed` or `interrupted`")
+    last_named: str | None = described("when the latest install or uninstall naming it began")
+    last_outcome: str = described(
+        "an install's `completed`, `failed` or `interrupted`; an uninstall's "
+        "`removed`, `removal failed` or `removal interrupted`"
+    )
     catalog_version: str | None = described("the manifest's version today")
     method: str | None = described("the install method that resolves on this target")
     pin: str | None = described("the catalog's pin for a built unit; null for apt")
@@ -94,7 +97,7 @@ class StatusDocument(Strict):
         "the most recent transaction; null when the log records none"
     )
     recorded_units: tuple[RecordedUnit, ...] = described(
-        "every unit a transaction here named, first-seen order"
+        "every unit an install or uninstall here named, first-seen order"
     )
 
 
@@ -146,28 +149,51 @@ def _latest(entries: Sequence[Mapping[str, Any]]) -> LatestTransaction | None:
     )
 
 
+#: For each opening event, the outcome its ending gives the units it names;
+#: the key "" is the outcome when no ending was recorded.
+_OUTCOMES: Mapping[str, Mapping[str, str]] = {
+    "transaction_begin": {
+        "transaction_end": "completed",
+        "transaction_failed": "failed",
+        "": "interrupted",
+    },
+    "uninstall_begin": {
+        "uninstall_end": "removed",
+        "uninstall_failed": "removal failed",
+        "": "removal interrupted",
+    },
+}
+
+
 def _recorded(
     entries: Sequence[Mapping[str, Any]], packages: Mapping[str, PackageManifest], target: Target
 ) -> tuple[RecordedUnit, ...]:
     last: dict[str, tuple[str | None, str]] = {}
-    current: tuple[str | None, list[str]] | None = None
+    # The open transaction: its start, the units it names, and the outcome
+    # each ending gives them. An uninstall is the latest word on a unit until
+    # a later install names it again (final review I1).
+    current: tuple[str | None, list[str], Mapping[str, str]] | None = None
 
-    def close(outcome: str) -> None:
+    def close(event: str) -> None:
         if current is not None:
             for name in current[1]:
-                last[name] = (current[0], outcome)
+                last[name] = (current[0], current[2][event])
 
     for entry in entries:
         event = entry.get("event")
-        if event == "transaction_begin":
-            close("interrupted")
-            current = (entry.get("timestamp"), [str(p) for p in entry.get("packages", [])])
+        if event in _OUTCOMES:
+            close("")
+            current = (
+                entry.get("timestamp"),
+                [str(p) for p in entry.get("packages", [])],
+                _OUTCOMES[str(event)],
+            )
             for name in current[1]:
-                last.setdefault(name, (current[0], "interrupted"))
-        elif event in ("transaction_end", "transaction_failed") and current is not None:
-            close("completed" if event == "transaction_end" else "failed")
+                last[name] = (current[0], current[2][""])
+        elif current is not None and event in current[2]:
+            close(str(event))
             current = None
-    close("interrupted")
+    close("")
 
     units: list[RecordedUnit] = []
     for name, (when, outcome) in last.items():

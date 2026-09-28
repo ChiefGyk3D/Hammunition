@@ -2544,7 +2544,7 @@ What this machine is, what the catalog holds, and what has been done here.
 | `log_path` | string | the transaction log file |
 | `log_entries` | integer | events in the log |
 | `latest` | [`LatestTransaction`](#latesttransaction) or null | the most recent transaction; null when the log records none |
-| `recorded_units` | list of [`RecordedUnit`](#recordedunit) | every unit a transaction here named, first-seen order |
+| `recorded_units` | list of [`RecordedUnit`](#recordedunit) | every unit an install or uninstall here named, first-seen order |
 
 #### `CatalogSummary`
 
@@ -2594,7 +2594,7 @@ Something that transaction deferred by design (D-035, D-039).
 
 #### `RecordedUnit`
 
-A unit some transaction here named, and how the latest such one ended.
+A unit some install or uninstall here named, and how the latest one ended.
 
 Not a claim that the unit is installed now: `update --json` compares the
 machine. A unit the catalog no longer carries has null method and pin.
@@ -2602,8 +2602,8 @@ machine. A unit the catalog no longer carries has null method and pin.
 | field | type | meaning |
 |---|---|---|
 | `name` | string | the catalog unit |
-| `last_named` | string or null | when the latest transaction naming it began |
-| `last_outcome` | string | `completed`, `failed` or `interrupted` |
+| `last_named` | string or null | when the latest install or uninstall naming it began |
+| `last_outcome` | string | an install's `completed`, `failed` or `interrupted`; an uninstall's `removed`, `removal failed` or `removal interrupted` |
 | `catalog_version` | string or null | the manifest's version today |
 | `method` | string or null | the install method that resolves on this target |
 | `pin` | string or null | the catalog's pin for a built unit; null for apt |
@@ -2775,7 +2775,7 @@ machine. A unit the catalog no longer carries has null method and pin.
     },
     "RecordedUnit": {
       "additionalProperties": false,
-      "description": "A unit some transaction here named, and how the latest such one ended.\n\nNot a claim that the unit is installed now: `update --json` compares the\nmachine. A unit the catalog no longer carries has null method and pin.",
+      "description": "A unit some install or uninstall here named, and how the latest one ended.\n\nNot a claim that the unit is installed now: `update --json` compares the\nmachine. A unit the catalog no longer carries has null method and pin.",
       "properties": {
         "name": {
           "title": "Name",
