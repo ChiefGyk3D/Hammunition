@@ -31,14 +31,21 @@ def rewrite(stock: str, maps: Sequence[Path]) -> str:
     """Return *stock* with speech routed to espeak-ng and one enabled mapset of *maps*.
 
     Raises :class:`NavitConfigError` naming what is missing: no maps, no
-    ``<speech type="cmdline">`` element, or no enabled ``<mapset>``.
+    ``<speech type="cmdline">`` element, or not exactly one enabled
+    ``<mapset>``. Navit's own comment says only one mapset may be enabled at
+    a time; if the stock file ever violates that, replacing just the first
+    match would silently leave a second one enabled alongside ours, which
+    Navit would mis-load. Fail loudly instead of guessing which one to keep.
     """
     if not maps:
         raise NavitConfigError("no converted maps to point Navit at")
     if not _SPEECH.search(stock):
         raise NavitConfigError(f'{STOCK} has no <speech type="cmdline"> element to replace')
-    if not _ENABLED_MAPSET.search(stock):
-        raise NavitConfigError(f"{STOCK} has no enabled <mapset> to replace")
+    enabled_mapsets = list(_ENABLED_MAPSET.finditer(stock))
+    if len(enabled_mapsets) != 1:
+        raise NavitConfigError(
+            f"{STOCK} has {len(enabled_mapsets)} enabled <mapset> elements, need exactly 1"
+        )
 
     out = _SPEECH.sub(
         lambda _: '<speech type="cmdline" data="espeak-ng \'%s\'" cps="15"/>', stock, count=1

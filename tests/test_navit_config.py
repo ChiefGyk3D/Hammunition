@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from hammunition.navit_config import NavitConfigError, rewrite
+from hammunition.navit_config import STOCK, NavitConfigError, rewrite
 
 FIXTURE = (Path(__file__).parent / "fixtures" / "navit.xml").read_text()
 MAPS = [Path("/usr/local/share/hammunition/data/osm-navit/north-america-us-vermont.bin")]
@@ -40,6 +40,24 @@ def test_no_maps_is_refused() -> None:
 def test_a_stock_file_without_the_anchors_is_refused_by_name() -> None:
     with pytest.raises(NavitConfigError, match="speech"):
         rewrite("<config><navit></navit></config>", MAPS)
+
+
+def test_two_enabled_mapsets_is_refused_by_name() -> None:
+    # A hypothetical stock file that violates Navit's own "only one mapset
+    # enabled at a time" convention. Silently keeping the second one enabled
+    # alongside ours would produce a config Navit mis-loads; refuse instead.
+    stock = (
+        "<config><navit>"
+        '<speech type="cmdline" data="echo %s" cps="15"/>'
+        '<mapset enabled="yes"><map type="binfile" enabled="yes" data="/a.bin"/></mapset>'
+        '<mapset enabled="yes"><map type="binfile" enabled="yes" data="/b.bin"/></mapset>'
+        "</navit></config>"
+    )
+    with pytest.raises(NavitConfigError) as exc_info:
+        rewrite(stock, MAPS)
+    message = str(exc_info.value)
+    assert str(STOCK) in message
+    assert "2" in message
 
 
 def test_the_output_is_well_formed_xml() -> None:
