@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import re
 import sys
 import urllib.error
@@ -135,8 +136,15 @@ HEADER = f"""\
 # Check:      scripts/gen_geofabrik_pins.py --check (HEAD sizes only)
 """
 
-Stream = Callable[[str], Iterable[bytes]]
+#: ``stream(url)`` returns the response's declared Content-Length (None when
+#: the server sent none) and the body in chunks. It raises NotPublished for a
+#: 404 and anything else for any other failure.
+Stream = Callable[[str], tuple[int | None, Iterable[bytes]]]
 Head = Callable[[str], tuple[int, int | None]]
+
+
+class NotPublished(Exception):
+    """The dated file answered 404: not cut yet, or aged out."""
 
 
 def url_for(region: str, snapshot: str) -> str:
@@ -150,26 +158,57 @@ def snapshots(today: date) -> list[str]:
 
 
 def measure(url: str, stream: Stream) -> tuple[int, str]:
+    """Size and sha256 of *url*'s body, checked against its Content-Length.
+
+    A connection that closes early without an error would otherwise pin the
+    hash of a truncated file, and that region would fail verification for
+    every operator until regenerated. The same rule as
+    ``hammunition.fetch.Fetcher.fetch_md5``: the bytes received must be the
+    size the server declared, and a server that declares none is refused.
+    NotPublished (a 404) propagates to the caller, which skips the file.
+    """
     digest = hashlib.sha256()
     size = 0
     try:
-        for chunk in stream(url):
+        declared, chunks = stream(url)
+        for chunk in chunks:
             digest.update(chunk)
             size += len(chunk)
-    except OSError as exc:
+    except NotPublished:
+        raise
+    except Exception as exc:
         raise SystemExit(f"{url}: could not be downloaded: {exc}") from exc
+    if declared is None:
+        raise SystemExit(
+            f"{url}: the server sent no Content-Length, so a truncated download "
+            f"cannot be told from a whole one; nothing pinned"
+        )
+    if size != declared:
+        raise SystemExit(
+            f"{url}: received {size} bytes, Content-Length declared {declared}; "
+            f"the download is incomplete and nothing was pinned"
+        )
     if size == 0:
         raise SystemExit(f"{url}: the server sent no bytes; nothing to pin")
     return size, digest.hexdigest()
 
 
-def generate(regions: Sequence[str], *, today: date, stream: Stream) -> list[dict[str, Any]]:
+def generate(
+    regions: Sequence[str], *, today: date, stream: Stream
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Rows for every file measured, and the URLs skipped because they 404."""
     rows: list[dict[str, Any]] = []
+    skipped: list[str] = []
     for region in regions:
         for snapshot in snapshots(today):
             url = url_for(region, snapshot)
             print(f"measuring {url}", file=sys.stderr, flush=True)
-            size, sha256 = measure(url, stream)
+            try:
+                size, sha256 = measure(url, stream)
+            except NotPublished:
+                print(f"skipped {url}: HTTP 404, not published", file=sys.stderr, flush=True)
+                skipped.append(url)
+                continue
             rows.append(
                 {
                     "region": region,
@@ -179,7 +218,7 @@ def generate(regions: Sequence[str], *, today: date, stream: Stream) -> list[dic
                     "measured": today.isoformat(),
                 }
             )
-    return rows
+    return rows, skipped
 
 
 def render(rows: Sequence[dict[str, Any]]) -> str:
@@ -251,11 +290,22 @@ def _opener(*, follow_redirects: bool) -> urllib.request.OpenerDirector:
     return director
 
 
-def real_stream(url: str) -> Iterator[bytes]:
+def real_stream(url: str) -> tuple[int | None, Iterator[bytes]]:
     request = urllib.request.Request(url, headers={"User-Agent": "hammunition"})
-    with _opener(follow_redirects=False).open(request, timeout=TIMEOUT) as response:
-        while chunk := response.read(CHUNK):
-            yield chunk
+    try:
+        response = _opener(follow_redirects=False).open(request, timeout=TIMEOUT)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            raise NotPublished(f"{url} returned HTTP 404") from exc
+        raise
+    length = response.headers.get("Content-Length")
+
+    def chunks() -> Iterator[bytes]:
+        with response:
+            while chunk := response.read(CHUNK):
+                yield chunk
+
+    return (int(length) if length is not None else None), chunks()
 
 
 def real_head(url: str) -> tuple[int, int | None]:
@@ -323,10 +373,18 @@ def main(
     kept: list[dict[str, Any]] = []
     if args.region and out.exists():
         kept = [r for r in parse(out.read_text()) if r["region"] not in regions]
-    rows = generate(regions, today=today or date.today(), stream=stream or real_stream)
+    # A non-404 failure raises out of generate() before anything is written.
+    rows, skipped = generate(regions, today=today or date.today(), stream=stream or real_stream)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render(kept + rows))
+    temporary = out.with_name(f".{out.name}.tmp")
+    temporary.write_text(render(kept + rows))
+    os.replace(temporary, out)
     print(f"wrote {shown}: {len(kept) + len(rows)} pin(s)")
+    if skipped:
+        print(f"{len(skipped)} file(s) skipped, answered 404 and not pinned:")
+        for url in skipped:
+            print(f"  {url}")
+        return 1
     return 0
 
 

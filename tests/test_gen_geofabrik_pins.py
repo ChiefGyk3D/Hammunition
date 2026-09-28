@@ -12,6 +12,7 @@ non-loopback sockets and nothing in this file may reach Geofabrik.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import importlib.util
 import sys
@@ -32,7 +33,10 @@ NH = "north-america/us/new-hampshire"
 TODAY = date(2026, 9, 27)
 
 
+@functools.cache
 def _gen() -> Any:
+    # One module instance for the whole file, so the fake server raises the
+    # same NotPublished class the generator catches.
     spec = importlib.util.spec_from_file_location("gen_geofabrik_pins", GENERATOR)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
@@ -46,20 +50,39 @@ def _url(region: str, snapshot: str) -> str:
 
 
 class FakeServer:
-    """Serves bytes by URL in chunks; records every URL asked for."""
+    """Serves bytes by URL in chunks with a declared Content-Length; records
+    every URL asked for. A URL not in ``files`` is a 404 (NotPublished);
+    ``declared`` overrides the Content-Length the server announces (None for
+    no header); ``broken`` URLs fail with a non-404 error."""
 
-    def __init__(self, files: dict[str, bytes], heads: dict[str, tuple[int, int | None]]) -> None:
+    def __init__(
+        self,
+        files: dict[str, bytes],
+        heads: dict[str, tuple[int, int | None]],
+        *,
+        declared: dict[str, int | None] | None = None,
+        broken: frozenset[str] = frozenset(),
+    ) -> None:
         self.files, self.heads = files, heads
+        self.declared = declared or {}
+        self.broken = broken
         self.streamed: list[str] = []
         self.headed: list[str] = []
 
-    def stream(self, url: str) -> Iterator[bytes]:
+    def stream(self, url: str) -> tuple[int | None, Iterator[bytes]]:
         self.streamed.append(url)
+        if url in self.broken:
+            raise OSError(f"{url}: connection reset")
         if url not in self.files:
-            raise OSError(f"{url} returned HTTP 404")
+            raise _gen().NotPublished(f"{url} returned HTTP 404")
         data = self.files[url]
-        for i in range(0, len(data), 7):
-            yield data[i : i + 7]
+        length = self.declared.get(url, len(data))
+
+        def chunks() -> Iterator[bytes]:
+            for i in range(0, len(data), 7):
+                yield data[i : i + 7]
+
+        return length, chunks()
 
     def head(self, url: str) -> tuple[int, int | None]:
         self.headed.append(url)
@@ -112,7 +135,8 @@ def test_generate_streams_hashes_and_records_each_snapshot() -> None:
     gen = _gen()
     files = _files([VT])
     server = FakeServer(files, {})
-    rows = gen.generate([VT], today=TODAY, stream=server.stream)
+    rows, skipped = gen.generate([VT], today=TODAY, stream=server.stream)
+    assert skipped == []
     assert rows == [
         {
             "region": VT,
@@ -126,12 +150,88 @@ def test_generate_streams_hashes_and_records_each_snapshot() -> None:
     assert server.streamed == [_url(VT, "260101"), _url(VT, "260901")]
 
 
-def test_a_file_that_will_not_download_is_an_error_naming_the_url() -> None:
+def test_a_non_404_failure_aborts_naming_the_url() -> None:
     gen = _gen()
-    server = FakeServer({_url(VT, "260101"): b"x"}, {})
+    broken = _url(VT, "260901")
+    server = FakeServer(_files([VT]), {}, broken=frozenset({broken}))
     with pytest.raises(SystemExit) as raised:
         gen.generate([VT], today=TODAY, stream=server.stream)
-    assert _url(VT, "260901") in str(raised.value)
+    assert broken in str(raised.value)
+
+
+def test_a_404_skips_that_snapshot_and_measures_the_rest(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A monthly snapshot not yet cut just after the 1st is a 404; the run
+    goes on and says which file it skipped."""
+    gen = _gen()
+    files = _files([VT, NH])
+    missing = _url(VT, "260901")
+    del files[missing]
+    rows, skipped = gen.generate([VT, NH], today=TODAY, stream=FakeServer(files, {}).stream)
+    assert skipped == [missing]
+    assert {(r["region"], r["snapshot"]) for r in rows} == {
+        (VT, "260101"),
+        (NH, "260101"),
+        (NH, "260901"),
+    }
+    assert missing in capsys.readouterr().err
+
+
+def test_a_stream_shorter_than_its_content_length_is_refused(tmp_path: Path) -> None:
+    """A connection that ends early without an error would otherwise pin the
+    hash of a truncated file. Refused naming the URL and both sizes; the run
+    writes nothing."""
+    gen = _gen()
+    files = _files([VT])
+    short = _url(VT, "260101")
+    server = FakeServer(files, {}, declared={short: len(files[short]) + 100})
+    out = tmp_path / "pins.yaml"
+    with pytest.raises(SystemExit) as raised:
+        gen.main(["--region", VT], stream=server.stream, today=TODAY, out=out)
+    message = str(raised.value)
+    assert short in message
+    assert str(len(files[short])) in message and str(len(files[short]) + 100) in message
+    assert not out.exists()
+
+
+def test_a_stream_with_no_content_length_is_refused() -> None:
+    gen = _gen()
+    files = _files([VT])
+    url = _url(VT, "260101")
+    server = FakeServer(files, {}, declared={url: None})
+    with pytest.raises(SystemExit) as raised:
+        gen.generate([VT], today=TODAY, stream=server.stream)
+    assert url in str(raised.value) and "Content-Length" in str(raised.value)
+
+
+def test_main_writes_what_it_measured_and_exits_non_zero_after_a_404(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    gen = _gen()
+    files = _files([VT])
+    missing = _url(VT, "260901")
+    del files[missing]
+    out = tmp_path / "pins.yaml"
+    assert (
+        gen.main(["--region", VT], stream=FakeServer(files, {}).stream, today=TODAY, out=out) == 1
+    )
+    pins = yaml.safe_load(out.read_text())["pins"]
+    assert [(p["region"], p["snapshot"]) for p in pins] == [(VT, "260101")]
+    assert missing in capsys.readouterr().out
+    assert list(tmp_path.iterdir()) == [out]  # no temporary file left behind
+
+
+def test_a_non_404_failure_in_main_leaves_the_file_untouched(tmp_path: Path) -> None:
+    gen = _gen()
+    out = tmp_path / "pins.yaml"
+    out.write_text(gen.render([]))
+    before = out.read_text()
+    broken = _url(NH, "260101")
+    server = FakeServer(_files([VT, NH]), {}, broken=frozenset({broken}))
+    with pytest.raises(SystemExit):
+        gen.main(["--region", VT, "--region", NH], stream=server.stream, today=TODAY, out=out)
+    assert out.read_text() == before
 
 
 def test_an_empty_download_is_refused() -> None:
@@ -145,7 +245,7 @@ def test_an_empty_download_is_refused() -> None:
 
 def test_render_carries_the_header_and_round_trips(tmp_path: Path) -> None:
     gen = _gen()
-    rows = gen.generate([VT], today=TODAY, stream=FakeServer(_files([VT]), {}).stream)
+    rows, _ = gen.generate([VT], today=TODAY, stream=FakeServer(_files([VT]), {}).stream)
     text = gen.render(rows)
     assert "SPDX-License-Identifier: CC0-1.0" in text
     assert "GENERATED by scripts/gen_geofabrik_pins.py" in text
@@ -218,7 +318,7 @@ def test_region_flag_refuses_a_region_not_in_the_list(tmp_path: Path) -> None:
 
 def _pinned(tmp_path: Path) -> tuple[Any, Path, list[dict[str, Any]]]:
     gen = _gen()
-    rows = gen.generate([VT, NH], today=TODAY, stream=FakeServer(_files([VT, NH]), {}).stream)
+    rows, _ = gen.generate([VT, NH], today=TODAY, stream=FakeServer(_files([VT, NH]), {}).stream)
     out = tmp_path / "pins.yaml"
     out.write_text(gen.render(rows))
     return gen, out, rows
