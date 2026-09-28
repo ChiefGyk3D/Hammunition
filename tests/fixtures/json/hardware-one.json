@@ -1,0 +1,24 @@
+{
+  "schema": "hammunition/1",
+  "kind": "hardware",
+  "engine": "<engine>",
+  "devices": [
+    {
+      "name": "gps-receiver",
+      "summary": "USB GNSS receivers",
+      "address": "1-4",
+      "identifier": "1234:5678",
+      "method": "usb_deauthorize",
+      "parked": true,
+      "kept": false,
+      "attached": true
+    }
+  ],
+  "skipped": [
+    {
+      "unit": "fixture-radio",
+      "why": "its port has no power control"
+    }
+  ],
+  "kept_error": null
+}

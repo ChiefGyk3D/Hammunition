@@ -23,6 +23,7 @@ correctness and would make the build flaky.
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -127,7 +128,30 @@ def scanned_docs() -> list[Path]:
         if rel.parts[0] in SKIP_ROOTS or any(p in SKIP_ANYWHERE for p in rel.parts):
             continue
         out.append(rel)
-    return out
+    ignored = _git_ignored(out)
+    return [rel for rel in out if rel not in ignored]
+
+
+def _git_ignored(paths: list[Path]) -> set[Path]:
+    """Which of *paths* git ignores: a local working file (a session ledger, a
+    scratch report) that no CI checkout has. Checking it made `make docs` fail
+    on one machine and pass on another. Outside a git checkout nothing is
+    skipped, so a tarball is checked whole rather than silently less."""
+    if not paths:
+        return set()
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "check-ignore", "-z", "--stdin"],
+            input="\0".join(p.as_posix() for p in paths) + "\0",
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return set()
+    if result.returncode not in (0, 1):  # 128: not a git checkout
+        return set()
+    return {Path(p) for p in result.stdout.split("\0") if p}
 
 
 def check() -> int:

@@ -1,0 +1,2 @@
+  fixture-radio: not parkable right now — its port has no power control
+No parkable device is attached. A device is parkable when its catalog entry carries a power_control block and it is plugged in now.

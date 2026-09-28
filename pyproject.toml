@@ -84,6 +84,11 @@ ignore = [
     "E501",    # line length handled by formatter
 ]
 
+# `described()` is `dataclasses.field(metadata=...)` under a name (D-059); tell
+# RUF009 so, rather than silencing it per line.
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["hammunition.interface.envelope.described"]
+
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["ANN001", "ANN201"]  # fixtures are inferred
 

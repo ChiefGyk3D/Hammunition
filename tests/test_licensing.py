@@ -125,6 +125,20 @@ def test_reuse_toml_exists() -> None:
     assert (REPO_ROOT / "REUSE.toml").is_file()
 
 
+def test_a_fixture_with_its_own_header_keeps_it() -> None:
+    """Final review Minor 7: the fixtures annotation was `aggregate`, so a
+    YAML fixture headed CC0-1.0 read as CC0 *and* GPL at once. `closest`
+    lets a header win and covers only the files that carry none."""
+    import tomllib
+
+    reuse = tomllib.loads((REPO_ROOT / "REUSE.toml").read_text())
+    (fixtures,) = [a for a in reuse["annotations"] if a["path"] == "tests/fixtures/**"]
+    assert fixtures["precedence"] == "closest", (
+        'tests/fixtures/** must be precedence = "closest" in REUSE.toml, or the '
+        "CC0-1.0 headers on its YAML fixtures are aggregated with GPL-3.0-or-later"
+    )
+
+
 HOLDER = "Copyright (C) 2026 Renegade Penguin LLC"
 
 

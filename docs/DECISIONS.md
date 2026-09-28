@@ -4638,6 +4638,196 @@ Not yet measured: a configuration written by this change, on the field
 laptop. The maintainer is testing a hand-edited copy with the same two
 edits.
 
+## D-059 — The engine has a machine-readable interface: one JSON document per command on stdout, rendered from the same objects as the text; a real install is never driven through JSON; and `hammunition` is put on the PATH
+
+**Date:** 2026-09-28. **Status:** accepted (maintainer, 2026-09-28: option A
+of the console design, front ends are separate projects driving the engine
+through a stable interface). **Spec:**
+`docs/superpowers/specs/2026-09-28-engine-json-interface-design.md`, piece 1
+of 4. **Depends on:** D-021 (consent is never answered by a flag), D-053
+and D-057 (`update` and `station` print a count of map regions, never their
+names), D-056 (the helper's `state` array the tray already reads).
+
+**Why.** The maintainer, 2026-09-28: "we will need to make it easier with
+like an ncurses or whatever menu … the whole point of the project is to
+make it easier. And the installer should be able to track the ones already
+installed when we open it again to add more." That console
+(`hammunition-console`) is its own project, as `hammunition-tray` is, and a
+client of the engine, never part of it. It needs to read what the engine
+knows. Parsing the text would make every change of wording a break for a
+front end, and a second code path producing "the same" data would drift
+from what the operator reads.
+
+The second half came from the field laptop: `bootstrap.sh` installed the
+engine into the checkout's `.venv` and only suggested
+`source .venv/bin/activate`. `hammunition` was not on the PATH, and a short
+command copied from the docs failed with "command not found".
+
+### The rule
+
+1. **One flag, one document.** `--json` is accepted before or after the
+   verb, on every subcommand; it is added by walking the parser, so a verb
+   added later carries it. With it a command prints one JSON document on
+   stdout and nothing else there. Under `--json` both `sys.stdout` and
+   `sys.stderr` point at a recording tee over the real stderr, so a note, a
+   warning or a stray line of text is a diagnostic, never a second thing on
+   stdout. The tee answers "not a terminal", so a `--json` run never
+   prompts. The exit code is the text run's.
+2. **A run that refuses still prints a document.** Its own kind when it got
+   far enough to have one (a refused plan is a `plan` with
+   `outcome: "refused"`, every blocker, exit 2), otherwise an `error`
+   document carrying the exit code and everything written to stderr. That
+   covers arguments that do not parse, a command with no JSON form (exit 2,
+   nothing run), a missing catalog, and an unexpected exception, whose
+   traceback goes to stderr. `--help` and `--version` print to stderr and
+   emit no document.
+3. **The envelope.** Every document is
+   `{"schema": "hammunition/1", "kind": ..., "engine": ...}` plus the
+   fields of one dataclass under `src/hammunition/interface/`. `schema`
+   versions the whole interface: a field may be added within a major
+   version; removing one or changing what it means bumps the major, and a
+   front end refuses a major it does not know, by name. The published
+   schema forbids a field it does not name.
+4. **The text and the document render from the same object.** Each command
+   builds one dataclass instance, and both the text renderer and the JSON
+   encoder read it. Every text refactor this needed was held byte for byte
+   by a golden captured from the code before it moved. A shared check,
+   `tests/json_support.py`, asserts per command that every value the text
+   shows is in the document; it was made to fail on purpose before it was
+   trusted, and it splits tokens at `@` so `NAME@ADDRESS` rows are checked
+   as the two values they are.
+5. **A real install is never driven through JSON.** `install` and
+   `uninstall` accept `--json` only with `--dry-run`, and the document is
+   the plan. Without `--dry-run` the run is refused with an `error`
+   document and nothing runs. A front end runs the ordinary command in the
+   operator's terminal, where sudo, every consent gate (D-021) and every
+   disclosure are the CLI's own, then reads `status --json` again.
+6. **Privacy.** `station show --json` carries the station values
+   themselves, the callsign, grid square, node alias and every map region
+   by name, because a local front end needs them to fill in a form. `plan`
+   carries exactly what the text plan prints: the operator's account, paths
+   in their home, and the map regions. It never carries a rendered
+   configuration file, so the callsign in one is not in it (the spec's §6
+   was amended to match: less leaves the machine by accident). Both are for
+   local programs, not for pasting into an issue, and
+   `docs/reference/json-interface.md` and `docs/reference/cli.md` say so.
+   `doctor --json` and `update --json` keep the count-only rule their text
+   follows; a test runs `update` end to end with regions installed and
+   asserts that neither form names one.
+7. **The reference is generated.** `scripts/gen_json_reference.py` finds
+   every document class by its `KIND`, not from a list, and writes
+   `docs/reference/json-interface.md`: the commands that have a JSON form
+   (from the `@envelope.json_capable()` registry), each kind's fields with
+   their descriptions, and the JSON Schema pydantic derives from the same
+   class. Every golden document validates against that schema, and
+   `tests/test_docs_generated.py` runs the generator's `--check`.
+8. **No abbreviated flags.** `allow_abbrev` is off on every parser, text
+   runs included: `--js` is not `--json` and `--dry` is not `--dry-run`. A
+   CLI that guards a real install and every consent gate behind an exact
+   flag does not guess.
+9. **`hammunition` on the PATH.** `bootstrap.sh` runs
+   `scripts/path-link.sh`, which links `~/.local/bin/hammunition` to the
+   checkout's `.venv/bin/hammunition`. It prints each change before making
+   it, creates `~/.local/bin` (mode 0755) only when it is absent, judges a
+   link by what it says and never follows it, and never edits a shell rc
+   file: when `~/.local/bin` is not on the PATH it prints the line to add.
+   It never replaces a file, or a link, it did not make. A link to another
+   checkout is also left alone, so two worktrees do not fight over the PATH,
+   and the one `ln -sfn` command that switches it is printed. The only link
+   it replaces is its own whose checkout is gone. `doctor` gains a
+   *hammunition* check: on the PATH, and resolving to this checkout; its fix
+   never offers to overwrite what the link script would refuse to.
+10. **The docs say `hammunition …`.** Every current example runs the
+    engine by that bare name, and a test keeps it so. The pages a reader
+    meets first say what to run when the shell says "command not found":
+    the checkout's `.venv/bin/hammunition` by its full path. Historical
+    records (this file, bench and campaign pages, the changelog) keep what
+    was typed at the time.
+
+### What landed
+
+| Command | Document `kind` |
+|---|---|
+| `status` | `status`: target, catalog, the log, every unit a transaction here named |
+| `list` | `catalog`: every profile and package, and what resolves here |
+| `show NAME` | `profile`; under `--json` only, a unit's name gives `unit`, its manifest |
+| `install … --dry-run` | `plan`, with `install` filled in |
+| `uninstall … --dry-run` | `plan`, with `removal` filled in |
+| `station show` | `station`, values included |
+| `hardware state` | `hardware`: the helper's keys, `kept` and `attached` real (D-056 amended) |
+| `maps regions [FILTER]` | `regions`: Geofabrik's list, nothing of the operator's |
+| `update` | `update`: the same rows and counts, regions counted |
+| `doctor` | `doctor`: each check, severity, detail and fix; D-060's *desktops* check included with no per-check code |
+
+Eleven kinds with `error`. The plan's map section (D-057) and the desktops
+read from session files (D-060, merged from `main` during this work) are in
+the plan document, and `render_plan` is now a wrapper over the view; the
+text of both plan fixtures was compared with `main`'s own renderer and is
+byte identical.
+
+### What changed in the text, and why
+
+The spec kept every command's text as it was. Five things moved:
+
+- `status` with no catalog no longer prints its `Target:` and
+  `Debian family:` lines before the error. Every successful run is byte
+  identical.
+- `osm-regions` and `osm-navit` read `already installed` in the plan's
+  package list when the *Map regions* section says there is nothing to
+  fetch or convert, where they read `will fetch+install` or
+  `will convert` before. A region that could not be checked (*kept*) keeps
+  the old wording, because it is not known to be current. That last
+  choice is open to the maintainer: nothing is fetched for a kept region
+  either.
+- Abbreviated long options are refused (rule 8).
+- `usage:` and `--help` show the global `[--json]` flag, on every verb.
+- `doctor` gains its *hammunition* check (rule 9), which also moves the
+  summary counts and the Ready line. On a fresh account whose
+  `~/.local/bin` is linked but not yet on the PATH, its fix is to log out
+  and back in, not to re-run bootstrap.
+
+### Rulings made on the way
+
+- `show NAME --json` accepts a package name while the text `show` refuses
+  one: accepted, JSON only, documented, because the spec forbids changing
+  the text.
+- `status --json` lists recorded units, not requested profiles. The
+  transaction log format does not change here; a front end derives profile
+  membership from `list --json`. Recording profiles is a separate,
+  log-versioned change if the console needs it.
+- The plan's Task 10 (`hardware state`'s `kept` and `attached`) was done
+  inside the `station`/`hardware` task, because the kept-off work (D-056
+  amended) had already reached `main`.
+
+### What has run
+
+The test suite: a golden per command against a fixture catalog and a fake
+target, schema validation of each, one-document-on-stdout on every refusal
+path, the link script against a scratch home (created, idempotent, every
+refusal, mode 0755 under umask 077, rc files untouched), and `doctor`'s
+four shadow cases. `doctor --json` was run by hand against a scratch home
+for each. No run on the field laptop or a VM is recorded yet.
+
+**Rejected.** Parsing the text in the console: every wording change would
+break it. A separate JSON code path: it would drift from what the operator
+reads. Driving a real install through JSON with consent passed in: that is
+the flag D-021 says cannot answer a gate. A network API: the interface is a
+local process's stdout. Editing `~/.profile` from bootstrap: a tool that
+augments a system does not rewrite a person's shell setup; it prints the
+line.
+
+**Consequences.** A new command gets a document by adding a module to
+`src/hammunition/interface/` and `@envelope.json_capable()` to its
+function; the reference page, the `--json` flag and the page's command list
+follow with no list to edit. `docs/reference/cli.md` names each command's
+document in its own section, and `tests/test_docs_json_interface.py` fails
+when one is missing. Files: `src/hammunition/interface/` (`envelope.py`,
+`text.py`, one module per command), `src/hammunition/cli/main.py`,
+`src/hammunition/doctor.py`, `scripts/gen_json_reference.py`,
+`scripts/path-link.sh`, `bootstrap.sh`; tests `tests/test_json_*.py`,
+`tests/test_path_link.py`, `tests/test_doctor.py`,
+`tests/test_docs_json_interface.py`, goldens under `tests/fixtures/json/`.
+
 ## D-060 — A unit may be for particular desktops: read from the session files, deferred from a profile on a machine with none of them, refused by name; Plasma first, Xfce and LXQt welcomed
 
 **Date:** 2026-09-28. **Status:** accepted (maintainer, 2026-09-28, on the

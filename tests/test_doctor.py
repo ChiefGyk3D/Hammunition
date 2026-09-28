@@ -30,6 +30,11 @@ HEALTHY: dict[str, object] = {
     "rules_applied": True,
     "attached_recognised": 1,
     "log_dir_writable": True,
+    "engine_on_path": "/home/op/Hammunition/.venv/bin/hammunition",
+    "engine_expected": "/home/op/Hammunition/.venv/bin/hammunition",
+    "engine_found": "/home/op/.local/bin/hammunition",
+    "engine_found_in_local_bin": True,
+    "engine_found_link": "/home/op/Hammunition/.venv/bin/hammunition",
 }
 
 
@@ -192,3 +197,103 @@ def test_unrecognised_files_beside_known_desktops_are_named() -> None:
 
 def test_desktops_not_read_add_no_check() -> None:
     assert "desktops" not in _by_name(run_checks(**HEALTHY))  # type: ignore[arg-type]
+
+
+def test_hammunition_missing_from_path_is_a_warn_naming_bootstrap() -> None:
+    checks = run_checks(**{**HEALTHY, "engine_on_path": None})  # type: ignore[arg-type]
+    check = _by_name(checks)["hammunition"]
+    assert check.status == "warn"
+    assert check.fix is not None and "bootstrap.sh" in check.fix
+
+
+def test_our_link_with_local_bin_off_path_says_log_in_again_not_bootstrap() -> None:
+    """Final review I2: a fresh account gets the link from bootstrap before
+    ~/.local/bin reaches PATH. Re-running bootstrap changes nothing then."""
+    checks = run_checks(
+        **{  # type: ignore[arg-type]
+            **HEALTHY,
+            "engine_on_path": None,
+            "engine_found": None,
+            "engine_found_link": None,
+            "engine_found_in_local_bin": False,
+            "path_has_local_bin": False,
+            "engine_linked_in_local_bin": True,
+        }
+    )
+    check = _by_name(checks)["hammunition"]
+    assert check.status == "warn"
+    assert check.fix is not None
+    assert "log out and back in" in check.fix
+    assert 'export PATH="$HOME/.local/bin:$PATH"' in check.fix
+    assert "bootstrap" not in check.fix
+
+
+def test_hammunition_from_another_checkout_is_a_warn_with_the_quoted_switch() -> None:
+    # Plan-mandated test, amended in review (I1): the switch is offered only for
+    # our own link, and both paths are shell-quoted so a space pastes correctly.
+    other = "/home/op/Hammunition old/.venv/bin/hammunition"
+    expected = "/home/op/My Radio/Hammunition/.venv/bin/hammunition"
+    local = "/home/op/.local/bin/hammunition"
+    checks = run_checks(
+        **{  # type: ignore[arg-type]
+            **HEALTHY,
+            "engine_on_path": other,
+            "engine_expected": expected,
+            "engine_found_link": other,
+        }
+    )
+    check = _by_name(checks)["hammunition"]
+    assert check.status == "warn" and other in check.detail
+    assert check.fix == f"ln -sfn '{expected}' {local}"
+
+
+def test_a_foreign_file_in_local_bin_is_named_never_replaced() -> None:
+    """A pipx install or a wrapper at ~/.local/bin/hammunition: no command that clobbers it."""
+    local = "/home/op/.local/bin/hammunition"
+    checks = run_checks(
+        **{  # type: ignore[arg-type]
+            **HEALTHY,
+            "engine_on_path": local,
+            "engine_found_link": None,
+        }
+    )
+    check = _by_name(checks)["hammunition"]
+    assert check.status == "warn" and local in check.detail
+    assert check.fix is not None
+    assert "ln " not in check.fix and "rm " not in check.fix and "mv " not in check.fix
+    assert f"ls -l {local}" in check.fix
+
+
+def test_a_foreign_symlink_in_local_bin_is_named_never_replaced() -> None:
+    local = "/home/op/.local/bin/hammunition"
+    checks = run_checks(
+        **{  # type: ignore[arg-type]
+            **HEALTHY,
+            "engine_on_path": "/home/op/.local/share/pipx/venvs/x/bin/hammunition",
+            "engine_found_link": "/home/op/.local/share/pipx/venvs/x/bin/hammunition",
+        }
+    )
+    check = _by_name(checks)["hammunition"]
+    assert check.status == "warn" and local in check.detail
+    assert check.fix is not None and "ln " not in check.fix
+
+
+def test_a_hammunition_earlier_on_path_is_named_and_relinking_is_not_offered() -> None:
+    earlier = "/usr/local/bin/hammunition"
+    checks = run_checks(
+        **{  # type: ignore[arg-type]
+            **HEALTHY,
+            "engine_on_path": earlier,
+            "engine_found": earlier,
+            "engine_found_in_local_bin": False,
+            "engine_found_link": None,
+        }
+    )
+    check = _by_name(checks)["hammunition"]
+    assert check.status == "warn"
+    assert earlier in check.detail and "before ~/.local/bin" in check.detail
+    assert check.fix is not None and "ln " not in check.fix and "bootstrap" not in check.fix
+
+
+def test_hammunition_resolving_to_this_checkout_is_ok() -> None:
+    assert _by_name(run_checks(**HEALTHY))["hammunition"].status == "ok"  # type: ignore[arg-type]

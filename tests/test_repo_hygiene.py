@@ -361,6 +361,46 @@ def test_link_checker_scans_docs_reference() -> None:
     )
 
 
+def test_link_checker_skips_what_git_ignores_and_checks_what_it_tracks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A local, git-ignored working file (a session ledger, a scratch report)
+    is not in any CI checkout, so checking it made `make docs` answer
+    differently on one machine. A tracked file matching an ignore pattern is
+    still checked: git never ignores a tracked file."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "check_doc_links", REPO_ROOT / "scripts" / "check_doc_links.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    def git(*args: str) -> None:
+        subprocess.run(
+            ["git", "-C", str(tmp_path), "-c", "user.name=t", "-c", "user.email=t@t", *args],
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q")
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "page.md").write_text("x\n")
+    (tmp_path / "scratch").mkdir()
+    (tmp_path / "scratch" / ".gitignore").write_text("*\n")
+    (tmp_path / "scratch" / "ledger.md").write_text("x\n")
+    (tmp_path / "docs" / "kept.md").write_text("x\n")
+    git("add", "docs/kept.md")
+    (tmp_path / ".gitignore").write_text("/docs/kept.md\n")
+
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+    scanned = {p.as_posix() for p in module.scanned_docs()}
+    assert "docs/page.md" in scanned
+    assert "docs/kept.md" in scanned, "a tracked file is checked even if a pattern matches it"
+    assert "scratch/ledger.md" not in scanned, "a git-ignored local file must not be checked"
+
+
 # ---------------------------------------------------------------------------
 # Every source package must be tracked
 #

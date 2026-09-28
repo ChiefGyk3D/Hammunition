@@ -51,6 +51,12 @@ precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright (C) 2026 Renegade Penguin LLC"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+[[annotations]]
+path = "tests/fixtures/**"
+precedence = "closest"
+SPDX-FileCopyrightText = "Copyright (C) 2026 Renegade Penguin LLC"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 # Verbatim licence texts, copied from Debian base-files
 # (/usr/share/common-licenses) rather than transcribed. sha256:
 #   GPL-3    8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903

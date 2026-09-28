@@ -312,22 +312,6 @@ class MapResolution:
         )
 
 
-def region_lines(files: Sequence[RegionFile]) -> list[str]:
-    """One line per region for the plan: region, snapshot, size, how it is verified.
-
-    Printed to the operator's own terminal. The regions are station data,
-    the same class of fact as a grid square (D-057), and the install plan is
-    the *only* place they are shown: ``station show`` prints a count, and so
-    does :func:`hammunition.update.report`'s ``osm-regions`` row (fix round
-    1, I2) -- a region's name or path must never reach either.
-    """
-    width = max((len(f.region) for f in files), default=0)
-    return [
-        f"    {f.region:<{width}}  {f.snapshot}  {human_size(f.size):>9}  {f.verified_by}"
-        for f in files
-    ]
-
-
 @dataclass(frozen=True)
 class RegionsBackend:
     """Turns an ``osm-regions`` block and the resolved regions into steps."""

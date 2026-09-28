@@ -1,0 +1,106 @@
+{
+  "schema": "hammunition/1",
+  "kind": "plan",
+  "engine": "<engine>",
+  "action": "install",
+  "requested": [
+    "fixture-desk"
+  ],
+  "outcome": "planned",
+  "target": {
+    "distro": "debian",
+    "version": "13",
+    "arch": "x86_64",
+    "id_like": [],
+    "pretty_name": "Debian GNU/Linux 13 (trixie)",
+    "description": "Debian GNU/Linux 13 (trixie) (ID=debian, version=13, arch=x86_64)",
+    "debian_family": true
+  },
+  "blockers": [],
+  "install": {
+    "packages": [
+      {
+        "name": "fixture-gps",
+        "method": "apt",
+        "state": "will install",
+        "requested_by": [
+          "profile fixture-desk"
+        ],
+        "apt": [
+          {
+            "package": "fixture-gps",
+            "outstanding": true,
+            "build_only": false
+          }
+        ]
+      }
+    ],
+    "displaced": [],
+    "apt_release": null,
+    "no_recommends": null,
+    "repos": [],
+    "data": [],
+    "maps": null,
+    "memberships": [],
+    "consent_gates": [],
+    "config_files": [],
+    "desktops_read": {
+      "desktops": [
+        "xfce"
+      ],
+      "unrecognised": [
+        "sway.desktop"
+      ],
+      "summary": "Xfce; also sway.desktop, which names no desktop the catalog knows"
+    },
+    "deferrals": [
+      {
+        "kind": "package",
+        "subject": "fixture-tray",
+        "what": "will not be installed (profile fixture-desk)",
+        "why": "for KDE Plasma; this machine has no KDE Plasma session (it has: Xfce)",
+        "remedy": "the rest installs without it; on a machine that gains a KDE Plasma session, `hammunition install fixture-desk` again picks it up"
+      }
+    ],
+    "notes": [],
+    "records": {
+      "log": "<tmp>/xdg_state_home/hammunition/transactions.jsonl",
+      "handed_to": null
+    },
+    "commands": [
+      {
+        "description": "Refresh apt package lists",
+        "display": "sudo env DEBIAN_FRONTEND=noninteractive apt-get update",
+        "argv": [
+          "sudo",
+          "env",
+          "DEBIAN_FRONTEND=noninteractive",
+          "apt-get",
+          "update"
+        ],
+        "action": null,
+        "requires_root": true
+      },
+      {
+        "description": "Install 1 package(s) with apt",
+        "display": "sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-remove -- fixture-gps",
+        "argv": [
+          "sudo",
+          "env",
+          "DEBIAN_FRONTEND=noninteractive",
+          "apt-get",
+          "install",
+          "--yes",
+          "--no-remove",
+          "--",
+          "fixture-gps"
+        ],
+        "action": null,
+        "requires_root": true
+      }
+    ],
+    "suggestion_notes": [],
+    "region_notes": []
+  },
+  "removal": null
+}

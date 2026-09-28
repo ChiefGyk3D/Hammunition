@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+#
+# Test fixture for the --json golden documents (D-059). Not part of the catalog.
+
+name: fixture-gated
+summary: A consent-gated fixture profile
+stage: post-1.0
+consent:
+  env_var: HAMMUNITION_ACCEPT_FIXTURE_GATED
+  risk_categories: [identifier_collection]
+  disclosure: >-
+    This fixture profile stands in for software that can receive and store
+    identifiers belonging to people and their devices.
+  affirmation: >-
+    Do you affirm that you have the authorization you need for this fixture?
+packages: [fixture-apt]
+documentation:
+  what_it_installs: The apt fixture unit, behind a consent gate.
+  why_together: A gated profile is the shape `show --json` must carry a disclosure for.
+  deliberately_excludes: Everything real.
+  manual_configuration: Nothing; it is a fixture.
