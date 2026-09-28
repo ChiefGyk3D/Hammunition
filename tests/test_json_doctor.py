@@ -105,3 +105,37 @@ def test_the_station_values_never_reach_the_document(
     doc: dict[str, Any] = parse_one(out)
     assert doc["kind"] == "doctor"
     assert "N0TST" not in out and "FN31pr" not in out and "atlantis/oceania" not in out
+
+
+def test_the_desktops_check_reaches_the_document_with_no_code_of_its_own(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """D-060's check came from main after the JSON view was built; doctor's
+    view is generic over run_checks, so it is carried as the text shows it."""
+    from hammunition.desktop import Desktop, SessionScan
+    from hammunition.interface.doctor import render_doctor
+
+    monkeypatch.setattr(Target, "detect", classmethod(lambda cls: TARGET))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    monkeypatch.setenv("XDG_CURRENT_DESKTOP", "XFCE")
+    monkeypatch.delenv("SUDO_USER", raising=False)
+    monkeypatch.setattr(
+        cli,
+        "scan_sessions",
+        lambda: SessionScan(desktops=frozenset({Desktop.xfce}), unrecognised=("sway.desktop",)),
+    )
+    text_rc = cli.main(["--catalog", str(FIXTURE_CATALOG), "doctor"])
+    text = capsys.readouterr().out
+    rc = cli.main(["--catalog", str(FIXTURE_CATALOG), "doctor", "--json"])
+    doc = parse_one(capsys.readouterr().out)
+    assert rc == text_rc
+    validate(doc)
+    (check,) = [c for c in doc["checks"] if c["name"] == "desktops"]
+    assert check["status"] == "info"
+    assert check["detail"] == (
+        "session files offer Xfce; also sway.desktop, which names no desktop the catalog "
+        "knows; this session is Xfce"
+    )
+    assert check["detail"] in text
+    assert_text_values_in_json(text, doc, render_doctor)
