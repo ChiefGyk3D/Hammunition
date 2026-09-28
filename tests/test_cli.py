@@ -2761,7 +2761,7 @@ def test_the_plan_lists_regions_that_will_be_converted() -> None:
     maps = MapDisclosure(fetch=(), current=(VT,), kept=(), convert=(VT,))
     text = "\n".join(render_plan(_map_plan(), [], euid=0, maps=maps))
     assert "will be converted for Navit" in text
-    assert "estimate, measured on one region" in text
+    assert "estimate, measured on three regions" in text
 
 
 # ---------------------------------------------------------------------------

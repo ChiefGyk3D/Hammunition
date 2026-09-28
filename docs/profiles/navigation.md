@@ -10,7 +10,7 @@
 
 gpsd and its clients to read the GPS receiver; Navit, an offline turn-by-turn navigator with spoken directions through espeak-ng; the OpenStreetMap regions you choose, downloaded from Geofabrik and verified (`osm-regions`); and those regions converted into Navit's format with a Navit configuration that loads all of them and follows the GPS (`osm-navit`, opened by the `navit-offline` launcher).
 
-**Disk footprint:** Navit, espeak-ng and gpsd from the archive (size not yet measured). Per region: the download, plus Navit's converted map at about 0.8 times the download, plus about twice the download of temporary space while it converts (measured on one region: a 6.1 GB country-sized region, converted to 4.7 GB in 75 minutes on an i7-1185G7). A single US state's download ranges from about 20 MB (District of Columbia) to 1.3 GB (California).
+**Disk footprint:** Navit, espeak-ng and gpsd from the archive (size not yet measured). Per region: the download, plus Navit's converted map at about 0.9 times the download, plus about twice the download of temporary space while it converts (the map factor measured on three regions: a 6.1 GB country-sized region converted to 4.7 GB, about 0.77 times, in 75 minutes on an i7-1185G7, and two US-state-sized regions at 0.874 and 0.856 times; the scratch on the country-sized region only). A single US state's download ranges from about 20 MB (District of Columbia) to 1.3 GB (California).
 
 ## Why these belong together
 

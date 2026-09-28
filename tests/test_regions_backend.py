@@ -457,7 +457,7 @@ def test_each_conversion_states_an_output_size_estimate(
     """Fix round 1, item 8 (spec §5)."""
     (convert,) = _kinds(_derived(tmp_path, [VT]).steps(manifest_navit, block_navit), "convert")
     assert "0 KB" in convert.description
-    assert "estimate, measured on one region" in convert.description
+    assert "estimate, measured on three regions" in convert.description
 
 
 def _fake_maptool(
@@ -842,10 +842,12 @@ def test_the_plan_prints_one_line_per_region() -> None:
 
 def test_disk_needs_count_the_cache_the_staging_and_the_prefix(tmp_path: Path) -> None:
     """Fix round 1, item 2: the cache holds a copy too. Fix round 2, item 2:
-    maptool's scratch (2x the input) and its .bin (0.8x), measured on one region."""
+    maptool's scratch (2x the input) and its .bin (0.9x). The .bin factor was
+    0.8 from one country-sized region; two US-state-sized regions on the field
+    laptop, 2026-09-28, converted at 0.874x and 0.856x, so it was raised."""
     big = RegionFile("x/big", "260101", "https://x/big.osm.pbf", 1000, None, "c" * 32)
     needs = disk_needs([big], [big], cache=tmp_path / "c", staging=tmp_path / "s", prefix=tmp_path)
-    assert needs == {tmp_path / "c": 1000, tmp_path / "s": 2800, tmp_path: 1800}
+    assert needs == {tmp_path / "c": 1000, tmp_path / "s": 2900, tmp_path: 1900}
 
 
 def test_a_region_installed_but_not_converted_still_needs_conversion_space(
@@ -854,7 +856,7 @@ def test_a_region_installed_but_not_converted_still_needs_conversion_space(
     """Fix round 2, item 3: an osm-navit-only run is disk-checked too."""
     big = RegionFile("x/big", "260101", "https://x/big.osm.pbf", 1000, None, "c" * 32)
     needs = disk_needs([], [big], cache=tmp_path / "c", staging=tmp_path / "s", prefix=tmp_path)
-    assert needs == {tmp_path / "c": 0, tmp_path / "s": 2800, tmp_path: 800}
+    assert needs == {tmp_path / "c": 0, tmp_path / "s": 2900, tmp_path: 900}
 
 
 def test_derived_pending_names_the_regions_it_will_convert(
@@ -872,7 +874,7 @@ def test_disk_needs_on_one_file_system_are_summed_against_one_free_figure(
     assert disk_shortfall(needs, free_at=lambda _p: 120, **same) is None
     message = disk_shortfall(needs, free_at=lambda _p: 119, **same)
     assert message is not None
-    assert "estimate, measured on one region" in message
+    assert "estimate, measured on three regions" in message
     assert "120" in message and "119" in message
     # On separate file systems each is compared with its own free space.
     split = {"device_of": lambda p: hash(str(p))}
