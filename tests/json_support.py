@@ -29,9 +29,10 @@ FIXTURE_CATALOG = GOLDEN / "catalog"
 UPDATE_ENV = "HAMMUNITION_UPDATE_GOLDEN"
 
 #: A value as the text shows it: two or more word characters, dots, slashes,
-#: at-signs, pluses, tildes or hyphens. A single character (a one-digit count)
-#: is too common to attribute and is not checked.
-TOKEN = re.compile(r"[\w./@+~-]{2,}")
+#: pluses, tildes or hyphens. A single character (a one-digit count) is too
+#: common to attribute and is not checked. `@` separates: the text joins
+#: `NAME@ADDRESS` where the JSON carries two fields, and each half is checked.
+TOKEN = re.compile(r"[\w./+~-]{2,}")
 
 
 def parse_one(stdout: str) -> dict[str, Any]:

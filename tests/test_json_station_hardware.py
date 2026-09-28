@@ -187,18 +187,10 @@ def test_hardware_document_matches_its_golden_and_its_schema(
     validate(doc)
     assert_golden(name, doc)
     _rc, text = _hardware(monkeypatch, capsys, found, kept=kept)
-    # The kept-but-absent row renders "NAME@ADDRESS" (unchanged D-056 text,
-    # shipped on `main` before this task). The shared token checker
-    # (tests/json_support.py, Task 1's `TOKEN` regex) treats `@` as an
-    # ordinary token character, so unmodified it reads that run as one
-    # token, e.g. "gps-receiver@1-9", which never occurs verbatim in the
-    # JSON -- name and address are separate fields there, not joined.
-    # Splitting on `@` here checks the same text against the same JSON one
-    # token narrower, rather than exempting the whole scenario (which would
-    # also stop catching a future column added to that row with no matching
-    # field) or reformatting the shipped text or editing the shared checker
-    # (out of this task's scope -- Task 1's to revisit).
-    assert_text_values_in_json(text.replace("@", " "), doc, render_hardware)
+    # The kept-but-absent row renders "NAME@ADDRESS" (D-056 text); the
+    # shared checker splits tokens at `@`, so name and address are checked
+    # as the two fields the JSON carries them in.
+    assert_text_values_in_json(text, doc, render_hardware)
 
 
 def test_a_device_carries_every_key_and_value_the_helper_prints(

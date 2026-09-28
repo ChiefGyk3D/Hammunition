@@ -292,6 +292,15 @@ def test_the_parity_check_goes_red_when_the_json_drops_a_value() -> None:
         assert_text_values_in_json(text, {"target": "Parrot-7.3"}, _chrome)
 
 
+def test_the_parity_check_splits_name_at_address() -> None:
+    """`NAME@ADDRESS` in the text is two fields in the JSON; `@` separates
+    tokens, and each half is still checked on its own."""
+    text = "Target: fixture-dev@1-9"
+    assert_text_values_in_json(text, {"name": "fixture-dev", "address": "1-9"}, _chrome)
+    with pytest.raises(AssertionError, match="1-9"):
+        assert_text_values_in_json(text, {"name": "fixture-dev"}, _chrome)
+
+
 def test_document_refuses_a_class_without_a_kind() -> None:
     @dataclass(frozen=True)
     class NoKind:
