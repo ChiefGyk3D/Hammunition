@@ -61,6 +61,8 @@ def run_checks(
     rules_applied: bool,
     attached_recognised: int,
     log_dir_writable: bool,
+    kept_attached: tuple[str, ...] = (),
+    kept_absent: tuple[str, ...] = (),
 ) -> list[Check]:
     """Every check, in the order a person should read them. Pure; see module docstring."""
     checks: list[Check] = []
@@ -184,6 +186,21 @@ def run_checks(
                 "udev rules not yet applied (fine until you connect a supported device)",
                 "hammunition hardware apply",
             )
+        )
+
+    if kept_absent:
+        names = ", ".join(kept_absent)
+        checks.append(
+            Check(
+                "kept off",
+                "warn",
+                f"kept parked but not attached: {names}",
+                "; ".join(f"`hammunition hardware wake {n}` clears it" for n in kept_absent),
+            )
+        )
+    elif kept_attached:
+        checks.append(
+            Check("kept off", "info", f"parked across reboots: {', '.join(kept_attached)}")
         )
 
     if attached_recognised > 0:

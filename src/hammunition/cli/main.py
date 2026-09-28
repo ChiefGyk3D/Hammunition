@@ -156,7 +156,7 @@ from hammunition.upstream import (
 from hammunition.upstream import render as render_upstream
 
 if TYPE_CHECKING:
-    from hammunition.hardware.power import Parkable
+    from hammunition.hardware.power import KeptEntry, Parkable
 
 __all__ = ["build_parser", "main"]
 
@@ -2435,16 +2435,27 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     because a root ``rm -f`` for an arbitrary string an unprivileged account
     once wrote into its own log file is not a promise this command makes.
 
-    The udev rules file is deliberately left alone. It is declarative, it is
-    harmless for a device that is not attached, and removing it would take
-    away device access an operator is still using. Power control is the
-    reversible part; permissions are not.
+    The device-access udev rules file (D-029) is deliberately left alone. It
+    is declarative, it is harmless for a device that is not attached, and
+    removing it would take away device access an operator is still using.
+    Power control is the reversible part; permissions are not.
+
+    **The kept-off rules file (D-056) is different and is removed here.** It
+    exists only because ``park`` was told to keep a device parked, and its
+    entries are power-control intent, not permissions -- so if it is present
+    it is removed along with the helper and the policy action, and udev is
+    told to reload so every device it was holding parked wakes from the next
+    boot.
     """
+    from hammunition.hardware import RULES_PATH
+    from hammunition.hardware.power import KEPT_RULES
+
     user = operator(args)
     if not user:
         print("error: could not determine whose transaction log to read.", file=sys.stderr)
         return EXIT_FAILED
 
+    kept_present = Path(KEPT_RULES).exists()
     owned = {HELPER_PATH, POLICY_PATH}
     recorded: list[str] = []
     skipped: list[str] = []
@@ -2470,7 +2481,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             if path not in recorded:
                 recorded.append(path)
 
-    if not recorded and not skipped:
+    if not recorded and not skipped and not kept_present:
         print(
             "Nothing to remove: the transaction log records no hardware artefacts "
             "installed by Hammunition for this user."
@@ -2482,7 +2493,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             f"Skipped: the log names {path!r}, which this command does not own "
             f"(only the power-control helper and its polkit action are ever removed)."
         )
-    if not recorded:
+    if not recorded and not kept_present:
         print("Nothing to do: no artefact this command owns is recorded.")
         return EXIT_OK
 
@@ -2490,7 +2501,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     gone = [p for p in recorded if p not in present]
     for path in gone:
         print(f"Already absent: {path}")
-    if not present:
+    if not present and not kept_present:
         print("Nothing to do: every recorded artefact is already gone.")
         return EXIT_OK
 
@@ -2502,15 +2513,36 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         )
         for path in present
     ]
+    if kept_present:
+        commands.append(
+            Command(
+                argv=("rm", "-f", KEPT_RULES),
+                description="Remove the kept-off entries, so every device wakes from the next boot",
+                requires_root=True,
+            )
+        )
+        commands.append(
+            Command(
+                argv=("udevadm", "control", "--reload"),
+                description="Reload udev's rules",
+                requires_root=True,
+            )
+        )
+        present.append(KEPT_RULES)
     euid = os.geteuid()
     print(f"\nCommands ({len(commands)}):")
     for command in commands:
         print(f"  # {command.description}")
         print(f"  $ {command.display(euid=euid)}")
+    if kept_present:
+        print(
+            f"\nRemoving {KEPT_RULES} removes the whole file, including any line in it "
+            f"that Hammunition did not write."
+        )
     print(
-        "\nThe udev rules file is not touched: it is declarative, harmless for a "
-        "device that is not attached, and removing it would take away device "
-        "access you are still using."
+        f"\nThe device-access rules file, {RULES_PATH}, is not touched: it is "
+        f"declarative, harmless for a device that is not attached, and removing it "
+        f"would take away device access you are still using."
     )
 
     if args.dry_run:
@@ -2536,7 +2568,12 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             print(f"  unverified: {path} is still present", file=sys.stderr)
         return EXIT_FAILED
 
-    print("\nDone and verified. `hammunition hardware apply` reinstalls them.")
+    after = []
+    if any(p != KEPT_RULES for p in present):
+        after.append("`hammunition hardware apply` reinstalls the helper and its polkit action.")
+    if kept_present:
+        after.append("Kept entries come back with `hammunition hardware park`.")
+    print("\nDone and verified. " + " ".join(after))
     return EXIT_OK
 
 
@@ -2557,27 +2594,87 @@ def _survey_parkables(args: argparse.Namespace) -> tuple[list[Parkable], list[tu
     return parkable(matches, entries)
 
 
+def _kept_split(
+    found: list[Parkable], kept: list[KeptEntry]
+) -> tuple[list[tuple[Parkable, bool]], list[KeptEntry]]:
+    """Each attached parkable with whether it is kept, and the kept entries
+    with nothing attached.
+
+    A device whose values will not validate as an entry is reported not kept
+    and matched against nothing -- one odd device never drops the rest, the
+    way devctl's ``state`` treats it.
+    """
+    from hammunition.hardware.power import PowerError, kept_entry
+
+    rows: list[tuple[Parkable, bool]] = []
+    mine: list[KeptEntry] = []
+    for p in found:
+        try:
+            entry = kept_entry(p)
+        except PowerError:
+            rows.append((p, False))
+            continue
+        mine.append(entry)
+        rows.append((p, any(e.same_device(entry) for e in kept)))
+    absent = [e for e in kept if not any(e.same_device(m) for m in mine)]
+    return rows, absent
+
+
 def cmd_hardware_state(args: argparse.Namespace) -> int:
-    """Which catalogued devices can be parked, and which are parked now."""
+    """Which catalogued devices can be parked, which are parked now, and which
+    are kept parked across reboots — attached or not."""
+    from hammunition.hardware.power import PowerError, read_kept
+
     found, skipped = _survey_parkables(args)
     for unit, why in skipped:
         print(f"  {unit}: not parkable right now — {why}")
-    if not found:
+
+    try:
+        kept = read_kept()
+    except (OSError, PowerError) as exc:
+        print(f"\nKept-off entries could not be read: {exc}")
+        kept = []
+
+    rows, absent = _kept_split(sorted(found, key=lambda p: (p.name, p.address)), kept)
+    if rows:
+        print(f"{'device':24} {'address':10} {'state':8} {'kept':5} summary")
+        for p, is_kept in rows:
+            print(
+                f"{p.name:24} {p.address:10} {'parked' if p.parked else 'awake':8} "
+                f"{'yes' if is_kept else 'no':5} {p.summary}"
+            )
+
+    if absent:
+        print(
+            "\nKept parked, not attached (cleared with `hammunition hardware wake NAME@ADDRESS`):"
+        )
+        for e in absent:
+            print(f"  {e.name}@{e.address}  {e.vendor}:{e.product}")
+
+    if not found and not absent:
         print(
             "No parkable device is attached. A device is parkable when its catalog "
             "entry carries a power_control block and it is plugged in now."
         )
         return EXIT_OK
-    print(f"{'device':24} {'address':10} {'state':8} summary")
-    for p in sorted(found, key=lambda p: (p.name, p.address)):
-        print(f"{p.name:24} {p.address:10} {'parked' if p.parked else 'awake':8} {p.summary}")
-    print("\n`hammunition hardware park NAME` / `wake NAME`. A reboot wakes everything.")
+
+    print(
+        "\n`hammunition hardware park NAME` keeps it parked across reboots; "
+        "`park --until-reboot NAME` lets a reboot wake it; `wake NAME` brings it back."
+    )
     return EXIT_OK
 
 
 def _power_verb(args: argparse.Namespace, verb: str) -> int:
     """Disclose the privileged call and every write it will cause, then run it."""
-    from hammunition.hardware.power import PowerError, plan_park, plan_wake
+    from hammunition.hardware.power import (
+        KEPT_RULES,
+        PowerError,
+        plan_forget,
+        plan_park,
+        plan_wake,
+        read_kept,
+    )
 
     helper = Path(HELPER_PATH)
     if not helper.is_file():
@@ -2602,23 +2699,49 @@ def _power_verb(args: argparse.Namespace, verb: str) -> int:
     found, skipped = _survey_parkables(args)
     for unit, why in skipped:
         print(f"note: {unit} is not parkable right now — {why}", file=sys.stderr)
+    from hammunition.cli.devctl import attached_named, resolve_kept
     from hammunition.cli.devctl import resolve as resolve_parkable
 
+    keep = not getattr(args, "until_reboot", False)
+    absent = False
     try:
-        target = resolve_parkable(args.name, found)
-        plan = plan_park(target) if verb == "park" else plan_wake(target)
+        try:
+            target = resolve_parkable(args.name, found)
+        except PowerError:
+            if verb != "wake" or attached_named(args.name, found):
+                raise
+            entry = resolve_kept(args.name, read_kept())
+            plan = plan_forget(entry)
+            absent = True
+            label, address, summary = entry.name, entry.address, "not attached"
+        else:
+            plan = plan_park(target, keep=keep) if verb == "park" else plan_wake(target)
+            label, address, summary = target.name, target.address, target.summary
     except PowerError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_UNPLANNABLE
 
-    command = Command(
-        argv=("pkexec", HELPER_PATH, verb, f"{target.name}@{target.address}"),
-        description=f"{verb.capitalize()} {target.name} at {target.address}",
-    )
-    print(f"{verb.capitalize()}ing {target.name} ({target.summary}) at {target.address}\n")
-    print("Writes this will cause:")
-    for write in plan.writes:
-        print(f"  {write.path} <- {write.value}")
+    argv = ["pkexec", HELPER_PATH, verb]
+    if verb == "park" and not keep:
+        argv.append("--until-reboot")
+    argv.append(f"{label}@{address}")
+    command = Command(argv=tuple(argv), description=f"{verb.capitalize()} {label} at {address}")
+    print(f"{verb.capitalize()}ing {label} ({summary}) at {address}\n")
+    if plan.writes:
+        print("Writes this will cause:")
+        for write in plan.writes:
+            print(f"  {write.path} <- {write.value}")
+    if plan.keep is not None:
+        print(f"\nIt stays parked across reboots. Added to {KEPT_RULES}:")
+        print(f"  {plan.keep.rule()}")
+    elif verb == "park":
+        print(
+            f"\nA reboot wakes it (--until-reboot): no kept entry is written, and "
+            f"any kept entry for it is removed from {KEPT_RULES}."
+        )
+    elif plan.forget is not None:
+        note = "It is not attached, so this will only" if absent else "This will also"
+        print(f"\n{note} remove its kept entry from {KEPT_RULES}, if present.")
     print(f"\n  # {command.description}\n  $ {command.display()}")
 
     if args.dry_run:
@@ -2642,12 +2765,12 @@ def _power_verb(args: argparse.Namespace, verb: str) -> int:
     if result.returncode != 0:
         print(result.stderr.strip()[:400] or f"helper exited {result.returncode}", file=sys.stderr)
         return EXIT_FAILED
-    print(f"\nDone and verified. `hammunition hardware state` shows {target.name} now.")
+    print(f"\nDone and verified. `hammunition hardware state` shows {label} now.")
     return EXIT_OK
 
 
 def cmd_hardware_park(args: argparse.Namespace) -> int:
-    """Detach a device and let its port suspend. Reversed by `wake` or a reboot."""
+    """Detach a device and keep it parked across reboots, unless --until-reboot."""
     return _power_verb(args, "park")
 
 
@@ -2734,6 +2857,21 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     log_dir = state_dir(user or None)
     log_dir_writable = writable_or_creatable(log_dir)
 
+    kept_attached: tuple[str, ...] = ()
+    kept_absent: tuple[str, ...] = ()
+    try:
+        from hammunition.hardware.power import PowerError, read_kept
+
+        found, _skipped = _survey_parkables(args)
+        kept = read_kept()
+        _rows, absent = _kept_split(found, kept)
+        attached_now = [f"{e.name}@{e.address}" for e in kept if e not in absent]
+        absent_now = [f"{e.name}@{e.address}" for e in absent]
+        kept_attached = tuple(attached_now)
+        kept_absent = tuple(absent_now)
+    except (OSError, PowerError, CatalogError, SystemExit):
+        kept_attached, kept_absent = (), ()
+
     checks = run_checks(
         target_describe=target_describe,
         is_debian_family=is_debian,
@@ -2747,6 +2885,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         rules_applied=rules_applied,
         attached_recognised=attached_recognised,
         log_dir_writable=log_dir_writable,
+        kept_attached=kept_attached,
+        kept_absent=kept_absent,
     )
 
     glyph = {"ok": "✓", "warn": "!", "fail": "✗", "info": "·"}
@@ -2987,6 +3127,12 @@ def build_parser() -> argparse.ArgumentParser:
             action="store_true",
             help="print the privileged call and every write it would cause, then stop",
         )
+        if verb == "park":
+            p_verb.add_argument(
+                "--until-reboot",
+                action="store_true",
+                help="park now, but let a reboot wake it (no kept entry)",
+            )
         p_verb.set_defaults(func=cmd_hardware_park if verb == "park" else cmd_hardware_wake)
 
     p_station = sub.add_parser("station", help="the values only you can supply")

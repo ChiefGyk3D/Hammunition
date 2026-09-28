@@ -45,15 +45,27 @@ produce a fresh `dmesg` attach and `lsusb` entry, again unmeasured.
 would undo a runtime power-management setting a udev rule or the operator
 already owns.
 
-It is **not** a low-power mode the device itself enters, not a driver unload,
-and not anything that survives past the device being physically unplugged and
-replugged — a park is a statement about the port, not the hardware. It is
-**not persisted** anywhere: there is no state file recording which devices are
-parked. `/sys` itself is the only record, a reboot wakes every device the
-kernel re-probes, and `hammunition hardware state` reads the live answer back
-from the bus on every call rather than trusting a cache that could go stale.
-That is a deliberate simplification (**D-056**): sysfs is already the truth,
-so there is nothing to reconcile at boot.
+It is **not** a low-power mode the device itself enters and not a driver
+unload — a park is a statement about the port, not the hardware. `/sys`
+itself is still the only record of whether a device *is* parked right now:
+`hammunition hardware state` reads the live answer back from the bus on
+every call rather than trusting a cache that could go stale (**D-056**).
+
+**What changed since D-056 was first decided:** `park` now also records, by
+default, that the operator asked for this device to *stay* off — one udev
+rule per device, in a file the engine owns — so that when the device is next
+added, at boot or replugged into the same port, udev parks it again instead
+of it waking on its own. That is the design; neither the reboot nor the
+replug has been measured on hardware yet. That record is intent, never a
+second copy of the live answer: it does not override what `state` reports,
+and a device authorised by hand while its rule still exists shows up as
+*awake, kept* rather than the file winning the argument. `hammunition
+hardware park --until-reboot NAME` skips writing the rule and gets you the
+original behaviour above — parked now, and a reboot wakes it — and removes
+any kept entry the device already had, so an earlier `park` does not re-park
+it at boot. See "Kept off
+across reboots" below, and the 2026-09-28 amendment to **D-056** for why the
+design changed and what it does not yet answer.
 
 Two things the catalog can schema-validate but that are **refused at runtime**
 until hardware proves them:
@@ -208,13 +220,17 @@ amendments for the reasoning behind the distinction.
 
 ## The verbs and their exit codes
 
-### `hammunition hardware park NAME [--dry-run]`
+### `hammunition hardware park NAME [--until-reboot] [--dry-run]`
 
-Detaches the named device and lets its port suspend. `NAME` is the catalog
-name (`gps-receiver`), or `NAME@ADDRESS` (`gps-receiver@1-4`) when two of the
-same kind are attached and the plain name would be a guess. `--dry-run`
-prints the writes and the `pkexec` call it would make, then stops — nothing
-is executed.
+Detaches the named device and lets its port suspend, and — by default —
+keeps it parked across reboots (see "Kept off across reboots" below).
+`NAME` is the catalog name (`gps-receiver`), or `NAME@ADDRESS`
+(`gps-receiver@1-4`) when two of the same kind are attached and the plain
+name would be a guess. `--until-reboot` parks the device without adding the
+kept entry, and removes the device's kept entry if an earlier `park` wrote
+one, so a reboot alone wakes it. `--dry-run` prints the writes,
+whether a kept entry is added, and the `pkexec` call it would make, then
+stops — nothing is executed.
 
 | Exit code | Meaning |
 |---|---|
@@ -226,37 +242,108 @@ is executed.
 ### `hammunition hardware wake NAME [--dry-run]`
 
 The reverse of `park`, same `NAME` syntax, same flags, same exit codes. Also
-reversed by a reboot: every parked device wakes on its own once the kernel
-re-probes the bus.
+removes the device's kept-off entry, if it has one, so a reboot after `wake`
+does not park it again. `wake NAME@ADDRESS` also works for a device that is
+not currently attached, to clear a stale kept entry for something already
+unplugged and put away — see "Kept off across reboots" below. A device
+parked with `--until-reboot` has no kept entry to remove; a reboot alone
+already wakes it.
 
 ### `hammunition hardware state`
 
 Read-only, needs no privilege: lists every catalogued device that is both
-attached now and parkable, and whether each one is parked. Always exits `0`
-— it is a report, and an empty report ("no parkable device is attached") is
-not a failure.
+attached now and parkable, and whether each one is parked, plus any device
+kept parked whose entry names a port nothing is attached to right now.
+Always exits `0` — it is a report, and an empty report ("no parkable device
+is attached") is not a failure.
 
 ### `hammunition hardware unapply [--dry-run] [--yes] [--user NAME]`
 
-Removes the helper wrapper and the polkit action — **and only those two
-files**. It is not part of `uninstall` and is invoked separately for a
-reason recorded in **D-056**: `uninstall` resolves the names it is given
-against the package and profile catalogs, and there is no unit named
-`hardware` to give it.
+Removes the helper wrapper and the polkit action, and — since **D-056**'s
+2026-09-28 amendment — the kept-off rules file too, if it exists. It is not
+part of `uninstall` and is invoked separately for a reason recorded in
+**D-056**: `uninstall` resolves the names it is given against the package
+and profile catalogs, and there is no unit named `hardware` to give it.
 
 `unapply` removes exactly what the transaction log records `hardware apply`
 put there for the given operator — never a path it merely expects to exist,
 and never anything the log names that is not the helper or the policy path,
-even if a hand-edited log claimed otherwise. **It deliberately never touches
-the udev rules file.** Those rules are declarative, harmless for a device
-that is not attached, and removing them would take away device access you are
-still using — power control is the reversible part of this feature; device
-permissions are not.
+even if a hand-edited log claimed otherwise — plus the kept-off rules file,
+which is not something `apply` installs but `park` writes; removing it
+reloads udev, so every device it was holding parked wakes from the next boot
+on. **It deliberately never touches the device-access udev rules file.**
+Those rules (`65-hammunition.rules`) are declarative, harmless for a device
+that is not attached, and removing them would take away device access you
+are still using — power control is the reversible part of this feature;
+device permissions are not.
 
 | Exit code | Meaning |
 |---|---|
 | 0 | Removed and verified, nothing recorded to remove, everything already absent, a `--dry-run`, or the operator declined the confirmation prompt |
 | 1 | The operator could not be determined, a removal command failed, or a file the run tried to remove is still present afterwards |
+
+## Kept off across reboots
+
+By default, `park` does more than the sysfs write above: it also adds two
+lines to `/etc/udev/rules.d/66-hammunition-kept.rules` — a `# kept: NAME`
+comment, then a rule naming the device's exact port and its vendor/product
+pair. udev applies that rule when the device is added — at boot, and on an
+unplug and replug into the *same* port — so udev itself writes
+`authorized=0`, with nothing of Hammunition's running to do it. A
+suspend/resume is not claimed: a resume is normally not a udev `add` event,
+so the rule has no reason to fire then, and nothing here has measured it.
+Nor has the reboot been measured yet. `hammunition hardware park
+--until-reboot NAME` skips that: the device parks now, exactly as described
+above, any kept entry an earlier `park` wrote for it is removed, and a reboot
+wakes it, because nothing is left to reapply.
+
+Whether the rule actually beats every consumer to the device — whether a tty
+node like `/dev/ttyACM0` never appears at all across a reboot, or appears
+briefly before the rule reasserts `authorized=0` — has not been measured
+against real hardware yet; that is `docs/reference/bench-verification-5430.md`'s
+job (this design's Task 7), not a claim this page makes ahead of it. See the
+2026-09-28 amendment to **D-056**.
+
+**Inspecting it.**
+
+```
+$ cat /etc/udev/rules.d/66-hammunition-kept.rules
+# Written by hammunition-devctl (D-056): devices kept parked across reboots.
+# Change it with `hammunition hardware park` and `wake`, not by hand.
+# kept: gps-receiver
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", KERNEL=="3-5.1", ATTR{idVendor}=="1546", ATTR{idProduct}=="01a9", ATTR{authorized}="0"
+```
+
+`hammunition hardware state` reports the same thing alongside the live sysfs
+answer — a `kept` field next to `parked` — including a kept device that is
+currently unplugged, shown with `attached: false`.
+
+**Removing one.** `hammunition hardware wake NAME` removes the kept entry for
+an attached device and wakes it in the same step. `wake NAME@ADDRESS` also
+works for a kept device that is **not** attached — resolved from the port and
+address the rules file itself names — so a stale line for something already
+unplugged and put away can be cleared without plugging it back in first.
+
+**Removing all of them.** `hammunition hardware unapply` deletes
+`66-hammunition-kept.rules` along with the power-control helper and its
+polkit action, and reloads udev, so every device it was holding parked wakes
+from the next boot on (see above). The device-access rules file
+(`65-hammunition.rules`) is untouched, as always.
+
+**Moving a kept device to another port brings it back on.** The rule names
+the port (`KERNEL=="3-5.1"`) and the model together; the same device plugged
+into a different port is, as far as the rule is concerned, a line that does
+not exist yet, so it comes up awake there. This errs toward not losing access
+to a device over a cable swap, at the cost of the kept state not following
+the device — re-park it in its new port if you still want it off, and clear
+the old line with `wake NAME@<old-address>`.
+
+**A line the engine did not write makes it refuse the whole file.** The file
+is rewritten whole on every change, never appended to. If it finds a line
+that is not exactly a `# kept: NAME` comment followed by the fixed rule shape
+`park`/`wake` generate, it refuses to touch the file at all, naming the line
+and the file, rather than discard whatever put that line there. Move the
+foreign line to a file of its own and try again.
 
 ## How to inspect it afterwards
 
@@ -285,14 +372,21 @@ permissions are not.
 
 ## How to reverse it
 
-- **`hammunition hardware wake NAME`** brings one parked device back.
-- **A reboot** wakes every device on the machine — nothing is persisted, so
-  there is nothing for a reboot to leave behind.
+- **`hammunition hardware wake NAME`** brings one parked device back, and
+  removes its kept entry (if any) so a later reboot does not park it again.
+- **A reboot** wakes a device parked with `--until-reboot`. A device kept
+  parked (the default since D-056's 2026-09-28 amendment) is meant to come
+  back parked instead — that is the point of keeping it, and it has not yet
+  been measured on hardware — so `wake NAME` or
+  `hammunition hardware unapply` first if you want everything awake before
+  rebooting. See "Kept off across reboots" above.
 - **`hammunition hardware unapply`** removes the helper and the polkit action
-  themselves, so no CLI verb, menu entry or tray switch can park or wake
-  anything on this machine until `hammunition hardware apply` reinstalls
-  them. It does not wake anything that is currently parked — do that with
-  `wake` or a reboot first if you want a clean state.
+  themselves, and also deletes the kept-off rules file so every device it was
+  holding parked wakes from the next boot on. No CLI verb, menu entry or tray
+  switch can park or wake anything on this machine until `hammunition
+  hardware apply` reinstalls the helper. It does not wake a device that is
+  currently parked in sysfs right now — do that with `wake` or a reboot
+  first if you want a clean state immediately.
 
 ## Removing the authentication prompt for the active session (optional, never installed by us)
 
