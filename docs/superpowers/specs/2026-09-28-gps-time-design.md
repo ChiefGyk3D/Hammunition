@@ -1,8 +1,8 @@
 # GPS time: the laptop keeps its own clock when the network is gone
 
-**Status:** design written from the maintainer's rules (2026-09-28), updated
-with a read-only measurement of ntpsec 1.2.3 and gpsd on the field laptop
-(§4b); awaiting the maintainer's read. Two behaviours remain for the bench
+**Status:** approved by the maintainer 2026-09-28 ("#124 works"), with the
+tray as a first-class part of it (§3a). Updated with a read-only measurement
+of ntpsec 1.2.3 and gpsd on the field laptop (§4b). Two behaviours remain for the bench
 (§8), named where they are used.
 **Decision record:** D-058, written with the implementation. It extends D-056
 (device power control) to the time source that depends on the device.
@@ -51,9 +51,27 @@ hammunition time mode auto|prefer-gps|ntp-only|gps-only
 `hammunition time` reads without privilege: the mode, whether a GPS
 receiver is attached and awake, and ntpsec's own view (which source it has
 selected, the offset), in plain words. `mode` discloses the one file it
-writes and asks polkit, like park and wake. The tray applet gains a small
-"Time: network / GPS / holdover" line and the same four-way choice
-(hammunition-tray, its own PR).
+writes and asks polkit, like park and wake.
+
+### 3a. In the tray (hammunition-tray)
+
+The maintainer wants this in the tray, installable from Hammunition, which
+it already is (`hammunition install hammunition-tray`, in `station`). The
+applet gains a **Time** section under the device switches:
+
+- a line saying what the clock is following now: *network*, *GPS*, or
+  *holdover since HH:MM*, read unprivileged from `hammunition-devctl time
+  state` (JSON), polled with the device state;
+- the four modes as a selector, the current one checked; choosing one calls
+  `pkexec hammunition-devctl time mode <mode>` — the same helper and polkit
+  prompt as the switches, so the applet still runs nothing as root;
+- the line greys and says why when the GPS is parked ("GPS time off: the
+  receiver is parked") and when the target's time daemon cannot use a GPS;
+- a tooltip note when the machine has no RTC (§4a).
+
+It ships as the next tray release after the engine side merges, and
+Hammunition's `hammunition-tray` manifest is re-pinned to it, so one
+`hammunition install` brings both.
 
 `doctor` gains a line: the time source in use, and a warning when the clock is
 following nothing — offline in `ntp-only`, or `gps-only` with the receiver
@@ -203,7 +221,8 @@ D-022 question for later, not a silent swap.
 ## 5. Privilege
 
 The helper `hammunition-devctl` gains one verb,
-`time mode auto|prefer-gps|ntp-only|gps-only`: a fixed enum; the ntp.d file's
+`time mode auto|prefer-gps|ntp-only|gps-only`, plus `time state` (read
+only, JSON for the tray): a fixed enum; the ntp.d file's
 content generated from it; the `pool`-line edit for `gps-only` done by an
 anchored, marker-tagged rewrite of `/etc/ntpsec/ntp.conf` that refuses if the
 anchors are not found; each path a constant admitted by its own exact-path
