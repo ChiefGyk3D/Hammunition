@@ -473,15 +473,17 @@ see `docs/hardware/power-control.md` for what parking does and does not do,
 and which devices carry that block today.
 
 **Kept parked by default (D-056, amended 2026-09-28).** Alongside the sysfs
-write, `park` adds one line to `/etc/udev/rules.d/66-hammunition-kept.rules`
-naming the device's port and vendor/product pair; udev re-applies
-`authorized=0` as the device is added from then on — at boot, after
-suspend/resume, after a replug into the same port — with nothing of
-Hammunition's needing to run. That mechanism is built; whether the device
+write, `park` adds two lines to `/etc/udev/rules.d/66-hammunition-kept.rules`
+— a `# kept: NAME` comment, then a rule naming the device's port and
+vendor/product pair; udev re-applies `authorized=0` when the device is added
+— at boot, and on a replug into the same port — with nothing of
+Hammunition's needing to run. A suspend/resume is not claimed: a resume is
+normally not a udev `add` event. That mechanism is built; whether the device
 actually comes back parked across a real reboot has not yet been measured on
 hardware — see "Kept off across reboots" in `docs/hardware/power-control.md`.
-`--until-reboot` skips the rule entirely: the device parks now and a reboot
-wakes it, the pre-amendment behaviour. `wake` (below) removes the kept entry.
+`--until-reboot` adds no rule and removes any kept entry an earlier `park`
+wrote for the device: it parks now and a reboot wakes it, the pre-amendment
+behaviour. `wake` (below) removes the kept entry.
 
 The privileged write goes through one polkit action,
 `com.chiefgyk3d.hammunition.devctl`, `hardware apply` installs the helper it

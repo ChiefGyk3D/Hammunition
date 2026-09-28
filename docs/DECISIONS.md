@@ -4119,25 +4119,28 @@ parked" — and that a reboot resetting every device is a loss for a device
 someone deliberately left off, not a simplification. This amendment adds
 exactly that second thing, and only that.
 
-**The mechanism.** `park` now writes one line, by default, to
+**The mechanism.** `park` now writes two lines, by default, to
 `/etc/udev/rules.d/66-hammunition-kept.rules` — after Hammunition's own
-`65-hammunition.rules`, so the permission rules have already run. The line
-names the device's port and its vendor/product pair together
+`65-hammunition.rules`, so the permission rules have already run: a
+`# kept: NAME` comment, then the rule. The rule names the device's port and its vendor/product pair together
 (`KERNEL=="3-5.1", ATTR{idVendor}=="1546", ATTR{idProduct}=="01a9"`), each
 value checked against the shape a USB port address and a USB ID actually
 have before it is written; nothing else reaches the file. The file is
 rewritten whole from scratch on every change, by the helper alone, never
 appended to by hand — a line it did not write refuses the entire rewrite,
 naming the offending line and the file, rather than discarding whatever put
-it there. The write itself is atomic (temp file in the same directory,
-`fsync`, rename) and mode `0644`, followed by `udevadm control --reload` —
+it there. The write itself is atomic (a uniquely named temp file in the same
+directory, `fsync`, rename, the temp file removed on any failure) and mode
+`0644`, the whole read-modify-write held under an `flock` on the rules
+directory so two helper runs cannot lose each other's entry, followed by `udevadm control --reload` —
 never `trigger`, because the park that led to the write already happened
 through the sysfs write a moment earlier, and re-triggering would re-run
 every udev rule against every device on the bus for a change that only
 concerns one of them. `hammunition hardware park --until-reboot NAME` is the
-way back to this decision's original behaviour: the sysfs write happens and
-nothing is added to the file, so the device parks now and a reboot wakes it,
-exactly as first specified above.
+way back to this decision's original behaviour: the sysfs write happens,
+nothing is added to the file, and any entry an earlier `park` wrote for the
+device is removed, so the device parks now and a reboot wakes it, exactly as
+first specified above.
 
 **The disagreement this section worried about is now shown, not avoided.**
 Reconciling "the file says parked but the device is not" was the whole

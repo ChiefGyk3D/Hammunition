@@ -53,14 +53,17 @@ every call rather than trusting a cache that could go stale (**D-056**).
 
 **What changed since D-056 was first decided:** `park` now also records, by
 default, that the operator asked for this device to *stay* off — one udev
-rule per device, in a file the engine owns — so that a reboot, a
-suspend/resume cycle, or the same device replugged into the same port comes
-back parked instead of waking on its own. That record is intent, never a
+rule per device, in a file the engine owns — so that when the device is next
+added, at boot or replugged into the same port, udev parks it again instead
+of it waking on its own. That is the design; neither the reboot nor the
+replug has been measured on hardware yet. That record is intent, never a
 second copy of the live answer: it does not override what `state` reports,
 and a device authorised by hand while its rule still exists shows up as
 *awake, kept* rather than the file winning the argument. `hammunition
 hardware park --until-reboot NAME` skips writing the rule and gets you the
-original behaviour above — parked now, and a reboot wakes it. See "Kept off
+original behaviour above — parked now, and a reboot wakes it — and removes
+any kept entry the device already had, so an earlier `park` does not re-park
+it at boot. See "Kept off
 across reboots" below, and the 2026-09-28 amendment to **D-056** for why the
 design changed and what it does not yet answer.
 
@@ -224,7 +227,8 @@ keeps it parked across reboots (see "Kept off across reboots" below).
 `NAME` is the catalog name (`gps-receiver`), or `NAME@ADDRESS`
 (`gps-receiver@1-4`) when two of the same kind are attached and the plain
 name would be a guess. `--until-reboot` parks the device without adding the
-kept entry, so a reboot alone wakes it. `--dry-run` prints the writes,
+kept entry, and removes the device's kept entry if an earlier `park` wrote
+one, so a reboot alone wakes it. `--dry-run` prints the writes,
 whether a kept entry is added, and the `pkexec` call it would make, then
 stops — nothing is executed.
 
@@ -280,14 +284,18 @@ device permissions are not.
 
 ## Kept off across reboots
 
-By default, `park` does more than the sysfs write above: it also adds one
-line to `/etc/udev/rules.d/66-hammunition-kept.rules` naming the device's
-exact port and its vendor/product pair. udev applies that rule the next time
-the device is added — at boot, after a suspend/resume, after an unplug and
-replug into the *same* port — so the kernel writes `authorized=0` itself,
-with nothing of Hammunition's running to do it. `hammunition hardware park
+By default, `park` does more than the sysfs write above: it also adds two
+lines to `/etc/udev/rules.d/66-hammunition-kept.rules` — a `# kept: NAME`
+comment, then a rule naming the device's exact port and its vendor/product
+pair. udev applies that rule when the device is added — at boot, and on an
+unplug and replug into the *same* port — so udev itself writes
+`authorized=0`, with nothing of Hammunition's running to do it. A
+suspend/resume is not claimed: a resume is normally not a udev `add` event,
+so the rule has no reason to fire then, and nothing here has measured it.
+Nor has the reboot been measured yet. `hammunition hardware park
 --until-reboot NAME` skips that: the device parks now, exactly as described
-above, and a reboot wakes it, because nothing was recorded to reapply.
+above, any kept entry an earlier `park` wrote for it is removed, and a reboot
+wakes it, because nothing is left to reapply.
 
 Whether the rule actually beats every consumer to the device — whether a tty
 node like `/dev/ttyACM0` never appears at all across a reboot, or appears
@@ -367,8 +375,9 @@ foreign line to a file of its own and try again.
 - **`hammunition hardware wake NAME`** brings one parked device back, and
   removes its kept entry (if any) so a later reboot does not park it again.
 - **A reboot** wakes a device parked with `--until-reboot`. A device kept
-  parked (the default since D-056's 2026-09-28 amendment) comes back parked
-  instead — that is the point of keeping it — so `wake NAME` or
+  parked (the default since D-056's 2026-09-28 amendment) is meant to come
+  back parked instead — that is the point of keeping it, and it has not yet
+  been measured on hardware — so `wake NAME` or
   `hammunition hardware unapply` first if you want everything awake before
   rebooting. See "Kept off across reboots" above.
 - **`hammunition hardware unapply`** removes the helper and the polkit action
