@@ -48,6 +48,7 @@ chat: a callsign resolves to a name and a licence address. `doctor` and
 | `hardware` | [`HardwareDocument`](#hardware) |
 | `plan` | [`PlanDocument`](#plan) |
 | `profile` | [`ProfileDocument`](#profile) |
+| `regions` | [`RegionsDocument`](#regions) |
 | `station` | [`StationDocument`](#station) |
 | `status` | [`StatusDocument`](#status) |
 | `unit` | [`UnitDocument`](#unit) |
@@ -2357,6 +2358,53 @@ A choice the profile offers when nothing already answers it.
     "suggests_one_of"
   ],
   "title": "ProfileDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### regions
+
+Geofabrik's region paths, filtered. Fetched from Geofabrik's index when
+this command runs, and only then; nothing here is the operator's.
+
+| field | type | meaning |
+|---|---|---|
+| `filter` | string or null | the case-insensitive substring asked for; null for every region |
+| `regions` | list of string | the matching region paths, in the index's order |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "description": "Geofabrik's region paths, filtered. Fetched from Geofabrik's index when\nthis command runs, and only then; nothing here is the operator's.",
+  "properties": {
+    "filter": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Filter"
+    },
+    "regions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Regions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "filter",
+    "regions"
+  ],
+  "title": "RegionsDocument",
   "type": "object"
 }
 ```

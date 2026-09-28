@@ -724,6 +724,7 @@ def _apply_suggestions(
     return extra, notes
 
 
+@envelope.json_capable()
 def cmd_maps_regions(args: argparse.Namespace) -> int:
     """Every region Geofabrik's region index names, filtered by a substring.  D-057.
 
@@ -742,9 +743,14 @@ def cmd_maps_regions(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_FAILED
     needle = (args.filter or "").casefold()
-    for region in ids:
-        if needle in region.casefold():
-            print(region)
+    matched = tuple(region for region in ids if needle in region.casefold())
+    if envelope.wanted(args):
+        from hammunition.interface.regions import RegionsDocument
+
+        envelope.emit(RegionsDocument(filter=args.filter, regions=matched))
+        return EXIT_OK
+    for region in matched:
+        print(region)
     return EXIT_OK
 
 

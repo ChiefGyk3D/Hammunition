@@ -210,8 +210,9 @@ def _regions_row(planned: PlannedPackage, snapshots: Sequence[RegionSnapshot]) -
     """A count, never a region's slug or path (fix round 1, I2; controller
     ruling): D-057 argues a region list says where somebody lives or
     travels, the same class of fact as a grid square, and keeps it out of
-    pasteable output everywhere but the install plan. `region_lines` prints
-    names for the plan; this never does.
+    pasteable output everywhere but the install plan. The install plan's own
+    Map regions section (`render_plan_view`) is the one place a region's
+    name or path is shown; this never does.
     """
     strategy = planned.manifest.update.strategy
     if not snapshots:

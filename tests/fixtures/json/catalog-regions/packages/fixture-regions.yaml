@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+#
+# Test fixture for the --json golden documents (D-059). Not part of the
+# catalog, and deliberately its own tiny catalog directory rather than a
+# member of tests/fixtures/json/catalog/ -- that one is enumerated whole by
+# `list --json`'s goldens, and a fourth package there would change them for
+# a reason that has nothing to do with what they test.
+#
+# Stands in for `osm-regions` so `update` can be exercised end to end
+# without naming a real Geofabrik region (D-057: placeholders only).
+
+name: fixture-regions
+version: "station"
+summary: A fixture map-region unit
+categories: [digital-modes]
+install:
+  - install:
+      method: osm-regions
+      provider: geofabrik
+      licence: ODbL-1.0
+      licence_url: https://example.invalid/licence
+update:
+  probe:
+    method: none
+  strategy: reinstall
+documentation:
+  what_it_does: Stands in for an osm-regions unit in the JSON interface tests.
+  why_you_want_it: >-
+    The golden documents need a map-region unit to exercise the count-only
+    rule (D-057) end to end through `update`.
+  upstream_url: https://example.invalid/fixture-regions

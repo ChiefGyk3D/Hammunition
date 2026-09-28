@@ -44,7 +44,6 @@ from hammunition.backends.regions import (
     disk_needs,
     disk_shortfall,
     installed_slugs,
-    region_lines,
 )
 from hammunition.fetch import Fetcher, FetchResult, VerificationError
 from hammunition.geofabrik import RegionFile, UrllibProbe
@@ -1007,20 +1006,6 @@ def test_a_malformed_region_header_is_named_and_passed_over_not_fatal(
 # ---------------------------------------------------------------------------
 # Disclosure and disk space
 # ---------------------------------------------------------------------------
-
-
-def test_the_plan_prints_one_line_per_region() -> None:
-    lines = region_lines([VT, NH])
-    assert any(
-        "north-america/us/vermont" in line
-        and "260101" in line
-        and "sha256, pinned by Hammunition" in line
-        for line in lines
-    )
-    assert any(
-        "north-america/us/new-hampshire" in line and "MD5 from Geofabrik only; not pinned" in line
-        for line in lines
-    )
 
 
 def test_disk_needs_count_the_cache_the_staging_and_the_prefix(tmp_path: Path) -> None:
