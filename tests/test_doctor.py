@@ -130,13 +130,15 @@ def test_doctor_says_nothing_about_kept_when_none_is_kept() -> None:
 # ---------------------------------------------------------------------------
 
 
+def _with(**extra: object) -> list[Check]:
+    return run_checks(**{**HEALTHY, **extra})  # type: ignore[arg-type]
+
+
 def test_desktops_are_reported_from_session_files_and_the_session() -> None:
     from hammunition.desktop import Desktop
 
-    checks = run_checks(  # type: ignore[arg-type]
-        **HEALTHY,
-        desktops_installed=frozenset({Desktop.kde, Desktop.xfce}),
-        desktop_current=Desktop.kde,
+    checks = _with(
+        desktops_installed=frozenset({Desktop.kde, Desktop.xfce}), desktop_current=Desktop.kde
     )
     desktops = _by_name(checks)["desktops"]
     assert desktops.status == "info"
@@ -147,18 +149,14 @@ def test_an_unknown_session_says_why_it_is_unknown() -> None:
     """Under sudo XDG_CURRENT_DESKTOP is usually gone; say so rather than guess."""
     from hammunition.desktop import Desktop
 
-    checks = run_checks(  # type: ignore[arg-type]
-        **HEALTHY, desktops_installed=frozenset({Desktop.xfce}), desktop_current=None
-    )
+    checks = _with(desktops_installed=frozenset({Desktop.xfce}), desktop_current=None)
     detail = _by_name(checks)["desktops"].detail
     assert detail.startswith("session files offer Xfce; this session's desktop is not known")
     assert "XDG_CURRENT_DESKTOP" in detail and "sudo" in detail
 
 
 def test_no_session_files_is_information_naming_what_it_defers() -> None:
-    checks = run_checks(  # type: ignore[arg-type]
-        **HEALTHY, desktops_installed=frozenset(), desktop_current=None
-    )
+    checks = _with(desktops_installed=frozenset(), desktop_current=None)
     desktops = _by_name(checks)["desktops"]
     assert desktops.status == "info"
     assert "no desktop session files" in desktops.detail
