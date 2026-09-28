@@ -421,7 +421,8 @@ def test_each_conversion_states_an_output_size_estimate(
 ) -> None:
     """Fix round 1, item 8 (spec §5)."""
     (convert,) = _kinds(_derived(tmp_path, [VT]).steps(manifest_navit, block_navit), "convert")
-    assert "0 KB" in convert.description and "estimate" in convert.description
+    assert "0 KB" in convert.description
+    assert "estimate, measured on one region" in convert.description
 
 
 def _fake_maptool(
@@ -487,27 +488,121 @@ def test_conversion_is_unprivileged_and_only_the_install_needs_root(
     assert not any(s.requires_root for s in steps)
 
 
-def test_under_root_maptool_drops_to_the_operator(
+class _AsOperator:
+    """``subprocess`` under root, faked: records each call and its drop, then
+    runs it for real without the drop (a test cannot setgroups) -- except
+    maptool, which writes *write* to its output inside its cwd."""
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch, write: bytes = b"navit-bin") -> None:
+        self.calls: list[tuple[list[str], dict[str, Any]]] = []
+        self.write = write
+        real_popen = subprocess.Popen
+
+        def strip(kwargs: dict[str, Any]) -> dict[str, Any]:
+            return {k: v for k, v in kwargs.items() if k not in ("user", "group", "extra_groups")}
+
+        def run(argv: list[str], **kwargs: Any) -> Any:
+            self.calls.append((list(argv), kwargs))
+            if argv[0] == "maptool":
+                Path(kwargs["cwd"], argv[-1]).write_bytes(self.write)
+                return subprocess.CompletedProcess(argv, 0, "", "")
+            # Not real_run: it calls subprocess.Popen, which is patched below.
+            kept = strip(kwargs)
+            text = kept.pop("text", False)
+            kept.pop("check", None)
+            kept.pop("capture_output", None)
+            with real_popen(
+                argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=text, **kept
+            ) as proc:
+                out, err = proc.communicate()
+            return subprocess.CompletedProcess(argv, proc.returncode, out, err)
+
+        def popen(argv: list[str], **kwargs: Any) -> Any:
+            self.calls.append((list(argv), kwargs))
+            return real_popen(argv, **strip(kwargs))
+
+        monkeypatch.setattr("hammunition.backends.derived.subprocess.run", run)
+        monkeypatch.setattr("hammunition.backends.derived.subprocess.Popen", popen)
+
+    def dropped(self) -> bool:
+        me = pwd.getpwuid(os.getuid())
+        return all(
+            k.get("user") == me.pw_uid
+            and k.get("group") == me.pw_gid
+            and k.get("extra_groups") == []
+            for _, k in self.calls
+        )
+
+
+def _no_root_filesystem_writes(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Root-side chown/mkdir/unlink on the staging side would show up here."""
+    touched: list[str] = []
+    monkeypatch.setattr(
+        "hammunition.backends.derived.os.chown", lambda *a, **k: touched.append(f"chown {a}")
+    )
+    return touched
+
+
+def test_under_root_every_staging_step_runs_as_the_operator(
     tmp_path: Path,
     manifest_navit: PackageManifest,
     block_navit: DerivedDataInstall,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Fix round 2, item 1: root does no filesystem work on the operator's staging path."""
     me = pwd.getpwuid(os.getuid())
-    chowned: list[tuple[str, int, int]] = []
-    monkeypatch.setattr(
-        "hammunition.backends.derived.os.chown",
-        lambda path, uid, gid: chowned.append((str(path), uid, gid)),
-    )
+    fake = _AsOperator(monkeypatch)
+    touched = _no_root_filesystem_writes(monkeypatch)
+    _install_region(tmp_path, VT)
+    backend = _derived(tmp_path, [VT], euid=0, owner=me.pw_name, privileged=False)
+    for step in _acts(backend.steps(manifest_navit, block_navit)):
+        step.perform()
+    assert backend.ledger.failed == {}
+    assert touched == []
+    assert fake.calls and fake.dropped()
+    assert any(argv[0] == "maptool" for argv, _ in fake.calls)
+    out = _data(tmp_path, "osm-navit")
+    assert (out / f"{VT.slug}.bin").read_bytes() == b"navit-bin"
+    assert list((tmp_path / "staging").iterdir()) == []
+
+
+def test_under_root_a_symlinked_staging_directory_fails_the_region_and_is_not_used(
+    tmp_path: Path,
+    manifest_navit: PackageManifest,
+    block_navit: DerivedDataInstall,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fix round 2, item 1: `osm-navit -> /etc/sudoers.d` must not become a root chown."""
+    me = pwd.getpwuid(os.getuid())
+    fake = _AsOperator(monkeypatch)
+    touched = _no_root_filesystem_writes(monkeypatch)
+    target = tmp_path / "sudoers.d"
+    target.mkdir()
+    (tmp_path / "staging").symlink_to(target)
+    _install_region(tmp_path, VT)
+    backend = _derived(tmp_path, [VT], euid=0, owner=me.pw_name, privileged=False)
+    (convert,) = _kinds(backend.steps(manifest_navit, block_navit), "convert")
+    assert "FAILED" in convert.perform()
+    assert "north-america/us/vermont" in backend.ledger.failed[VT.slug]
+    assert "symlink" in backend.ledger.failed[VT.slug]
+    assert touched == []
+    assert list(target.iterdir()) == []
+    assert not any(argv[0] == "maptool" for argv, _ in fake.calls)
+
+
+def test_maptool_runs_in_the_staging_directory(
+    tmp_path: Path,
+    manifest_navit: PackageManifest,
+    block_navit: DerivedDataInstall,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fix round 2, item 2: its *.tmp scratch goes to staging, never the caller's cwd."""
     seen = _fake_maptool(monkeypatch, write=b"navit-bin")
     _install_region(tmp_path, VT)
-    backend = _derived(tmp_path, [VT], euid=0, owner=me.pw_name)
-    (convert,) = _kinds(backend.steps(manifest_navit, block_navit), "convert")
+    (convert,) = _kinds(_derived(tmp_path, [VT]).steps(manifest_navit, block_navit), "convert")
     convert.perform()
     ((_, kwargs),) = seen
-    assert kwargs["user"] == me.pw_uid and kwargs["group"] == me.pw_gid
-    assert kwargs["extra_groups"] == []
-    assert (str(tmp_path / "staging"), me.pw_uid, me.pw_gid) in chowned
+    assert kwargs["cwd"] == tmp_path / "staging"
 
 
 @pytest.mark.parametrize(("write", "returncode"), [(None, 0), (b"", 0), (b"half", 1)])
@@ -622,9 +717,27 @@ def test_the_plan_prints_one_line_per_region() -> None:
 
 
 def test_disk_needs_count_the_cache_the_staging_and_the_prefix(tmp_path: Path) -> None:
-    """Fix round 1, item 2: the cache holds a copy too."""
-    needs = disk_needs([VT, NH], cache=tmp_path / "c", staging=tmp_path / "s", prefix=tmp_path)
-    assert needs == {tmp_path / "c": 20, tmp_path / "s": 40, tmp_path: 60}
+    """Fix round 1, item 2: the cache holds a copy too. Fix round 2, item 2:
+    maptool's scratch (2x the input) and its .bin (0.8x), measured on Canada."""
+    big = RegionFile("x/big", "260101", "https://x/big.osm.pbf", 1000, None, "c" * 32)
+    needs = disk_needs([big], [big], cache=tmp_path / "c", staging=tmp_path / "s", prefix=tmp_path)
+    assert needs == {tmp_path / "c": 1000, tmp_path / "s": 2800, tmp_path: 1800}
+
+
+def test_a_region_installed_but_not_converted_still_needs_conversion_space(
+    tmp_path: Path,
+) -> None:
+    """Fix round 2, item 3: an osm-navit-only run is disk-checked too."""
+    big = RegionFile("x/big", "260101", "https://x/big.osm.pbf", 1000, None, "c" * 32)
+    needs = disk_needs([], [big], cache=tmp_path / "c", staging=tmp_path / "s", prefix=tmp_path)
+    assert needs == {tmp_path / "c": 0, tmp_path / "s": 2800, tmp_path: 800}
+
+
+def test_derived_pending_names_the_regions_it_will_convert(
+    tmp_path: Path, manifest_navit: PackageManifest
+) -> None:
+    _converted(tmp_path, VT)
+    assert _derived(tmp_path, [VT, NH]).pending(manifest_navit) == [NH]
 
 
 def test_disk_needs_on_one_file_system_are_summed_against_one_free_figure(
@@ -635,7 +748,8 @@ def test_disk_needs_on_one_file_system_are_summed_against_one_free_figure(
     assert disk_shortfall(needs, free_at=lambda _p: 120, **same) is None
     message = disk_shortfall(needs, free_at=lambda _p: 119, **same)
     assert message is not None
-    assert "estimate" in message and "120" in message and "119" in message
+    assert "estimate, measured on one region" in message
+    assert "120" in message and "119" in message
     # On separate file systems each is compared with its own free space.
     split = {"device_of": lambda p: hash(str(p))}
     assert disk_shortfall(needs, free_at=lambda _p: 60, **split) is None

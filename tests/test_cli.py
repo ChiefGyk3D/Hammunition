@@ -2546,3 +2546,30 @@ def test_free_space_is_read_from_the_nearest_existing_directory(tmp_path: Path) 
     from hammunition.backends.regions import free_bytes_at
 
     assert free_bytes_at(tmp_path / "not" / "yet" / "made") > 0
+
+
+def test_an_osm_navit_only_run_still_counts_its_conversions(tmp_path: Path) -> None:
+    """Fix round 2, item 3: no download does not mean no disk to check."""
+    from hammunition.backends import DerivedBackend, RegionsBackend
+    from hammunition.cli.main import map_work
+    from test_regions_backend import VT, navit_manifest
+
+    navit = navit_manifest()
+    plan = InstallPlan(
+        target=Target(distro="debian", version="13", arch="x86_64"),
+        packages=(PlannedPackage(manifest=navit, block=navit.install[0], apt_packages=()),),
+    )
+    regions = RegionsBackend(fetcher=Fetcher(tmp_path / "c"), prefix=tmp_path, files=[VT])
+    derived = DerivedBackend(prefix=tmp_path, files=[VT], staging=tmp_path / "s")
+    downloads, conversions = map_work(plan, regions, derived)
+    assert downloads == [] and conversions == [VT]
+
+
+def test_the_plan_lists_regions_that_will_be_converted() -> None:
+    from hammunition.backends.regions import MapDisclosure
+    from test_regions_backend import VT
+
+    maps = MapDisclosure(fetch=(), current=(VT,), kept=(), convert=(VT,))
+    text = "\n".join(render_plan(_map_plan(), [], euid=0, maps=maps))
+    assert "will be converted for Navit" in text
+    assert "estimate, measured on one region" in text

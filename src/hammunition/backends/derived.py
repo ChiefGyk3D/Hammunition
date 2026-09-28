@@ -34,13 +34,16 @@ continue, and the ledger fails the transaction by name at its end.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import pwd
+import stat
 import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
+from typing import Any
 
 from .. import navit_config
 from ..geofabrik import RegionFile
@@ -48,10 +51,13 @@ from ..manifest.schema import DerivedDataInstall, PackageManifest
 from .base import Action, BackendError, Command, CommandRunner
 from .data import human_size
 from .regions import (
-    DERIVED_FACTOR,
+    BIN_FACTOR,
+    ESTIMATE,
     PBF,
+    SCRATCH_FACTOR,
     SOURCE,
     MapLedger,
+    bin_estimate,
     data_root,
     installed_snapshot,
     prefix_writer,
@@ -60,6 +66,51 @@ from .regions import (
 from .verified import PrefixWriter, digest_of
 
 BIN = ".bin"
+_EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+
+def _maptool_argv(pbf: Path, staged: Path) -> list[str]:
+    """The fixed argv ``navit-maptool`` means. Nothing in it comes from a manifest."""
+    return ["maptool", "--protobuf", "-i", str(pbf), str(staged)]
+
+
+def _maptool_failure(
+    region: RegionFile, pbf: Path, result: subprocess.CompletedProcess[str]
+) -> str:
+    return (
+        f"{region.region}: maptool did not convert {pbf.name} "
+        f"(exit {result.returncode}): {result.stderr.strip()[-300:]}"
+    )
+
+
+def _as(drop: tuple[int, int]) -> dict[str, Any]:
+    """subprocess arguments that run a child as the operator, with no extra groups."""
+    return {"user": drop[0], "group": drop[1], "extra_groups": []}
+
+
+def _remove_as(drop: tuple[int, int], path: Path) -> None:
+    """Remove *path* as the operator; root never unlinks through the operator's path."""
+    # rm missing is not worth failing over: the staged file is the operator's.
+    with contextlib.suppress(OSError):
+        subprocess.run(["rm", "-f", "--", str(path)], capture_output=True, check=False, **_as(drop))
+
+
+def _staging_refusal(staging: Path) -> str | None:
+    """Why root must not use *staging*: a symlink, or something not a directory."""
+    try:
+        mode = staging.lstat().st_mode
+    except FileNotFoundError:
+        return None  # the operator creates it
+    except OSError as exc:
+        return f"cannot inspect the staging directory {staging}: {exc.strerror or exc}"
+    if stat.S_ISLNK(mode):
+        return (
+            f"the staging directory {staging} is a symlink; refusing to convert through it "
+            f"as root. Remove it and run the install again."
+        )
+    if not stat.S_ISDIR(mode):
+        return f"the staging directory {staging} is not a directory"
+    return None
 
 
 @dataclass(frozen=True)
@@ -99,18 +150,21 @@ class DerivedBackend:
         for region in self.files:
             pbf = source_dir / f"{region.slug}{PBF}"
             dest = out / f"{region.slug}{BIN}"
-            if dest.is_file() and installed_snapshot(dest) == region.snapshot:
+            if self._current(dest, region):
                 continue
             staged = self.staging / f"{region.slug}{BIN}.part"
             converted: dict[str, str] = {}
-            estimate = human_size(region.size * DERIVED_FACTOR)
+            estimate = human_size(bin_estimate(region.size))
             steps.append(
                 Action(
                     kind="convert",
                     description=(
                         f"Convert map region {region.region} ({region.snapshot}) for Navit, "
-                        f"as the operator: maptool --protobuf -i {pbf} {staged}; output about "
-                        f"{estimate} (an estimate: {DERIVED_FACTOR}x the download, until measured)"
+                        f"as the operator, in {self.staging}: maptool --protobuf -i {pbf} "
+                        f"{staged}; output about "
+                        f"{estimate} ({BIN_FACTOR}x the download) and up to "
+                        f"{human_size(region.size * SCRATCH_FACTOR)} of scratch while it runs, "
+                        f"in the staging directory ({ESTIMATE})"
                     ),
                     detail=str(staged),
                     perform=partial(self._convert, region, pbf, staged, converted),
@@ -146,6 +200,15 @@ class DerivedBackend:
         )
         return steps
 
+    def pending(self, manifest: PackageManifest) -> list[RegionFile]:
+        """Regions this run converts: no ``.bin``, or one from another snapshot."""
+        out = self.data_dir(manifest)
+        return [f for f in self.files if not self._current(out / f"{f.slug}{BIN}", f)]
+
+    @staticmethod
+    def _current(dest: Path, region: RegionFile) -> bool:
+        return dest.is_file() and installed_snapshot(dest) == region.snapshot
+
     def _as_operator(self) -> tuple[int, int] | None:
         """(uid, gid) to drop to, when the engine is root on an operator's behalf."""
         euid = os.geteuid() if self.euid is None else self.euid
@@ -162,24 +225,27 @@ class DerivedBackend:
         if not pbf.is_file():
             return self.ledger.fail(region.slug, f"{region.region}: {pbf} is not installed")
         drop = self._as_operator()
+        if drop is None:
+            return self._convert_here(region, pbf, staged, converted)
+        return self._convert_as_operator(region, pbf, staged, converted, drop)
+
+    def _convert_here(
+        self, region: RegionFile, pbf: Path, staged: Path, converted: dict[str, str]
+    ) -> str:
+        """The engine is the operator (or root with nobody to drop to)."""
         self.staging.mkdir(parents=True, exist_ok=True)
-        if drop is not None:
-            os.chown(self.staging, *drop)
         staged.unlink(missing_ok=True)
-        argv = ["maptool", "--protobuf", "-i", str(pbf), str(staged)]
         try:
-            if drop is not None:
-                result = subprocess.run(
-                    argv,
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                    user=drop[0],
-                    group=drop[1],
-                    extra_groups=[],
-                )
-            else:
-                result = subprocess.run(argv, capture_output=True, text=True, check=False)
+            # cwd: maptool writes its *.tmp scratch into its working
+            # directory -- more than 12 GB for Canada -- and aborts in a
+            # read-only one (measured: exit 134, buffer.c:39).
+            result = subprocess.run(
+                _maptool_argv(pbf, staged),
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=self.staging,
+            )
         except OSError as exc:
             staged.unlink(missing_ok=True)
             return self.ledger.fail(
@@ -187,17 +253,86 @@ class DerivedBackend:
             )
         if result.returncode != 0 or not staged.is_file() or staged.stat().st_size == 0:
             staged.unlink(missing_ok=True)
-            return self.ledger.fail(
-                region.slug,
-                f"{region.region}: maptool did not convert {pbf.name} "
-                f"(exit {result.returncode}): {result.stderr.strip()[-300:]}",
-            )
+            return self.ledger.fail(region.slug, _maptool_failure(region, pbf, result))
         try:
             converted["sha256"] = digest_of(staged)
         except BackendError as exc:
             staged.unlink(missing_ok=True)
             return self.ledger.fail(region.slug, f"{region.region}: {exc}")
         return f"converted {pbf.name} ({staged.stat().st_size} bytes, staged)"
+
+    def _convert_as_operator(
+        self,
+        region: RegionFile,
+        pbf: Path,
+        staged: Path,
+        converted: dict[str, str],
+        drop: tuple[int, int],
+    ) -> str:
+        """The engine is root: every staging-side step runs as the operator.
+
+        The staging directory is under the operator's home, so any path in it
+        is the operator's to point elsewhere -- ``osm-navit -> /etc/sudoers.d``.
+        Root therefore creates, writes, reads, hashes and removes nothing
+        there itself: each is a process dropped to the operator, who can only
+        do to that path what they could already do. Root's one look is an
+        lstat, which refuses a staging directory that is a symlink or not a
+        directory before anything runs.
+        """
+        refusal = _staging_refusal(self.staging)
+        if refusal is not None:
+            return self.ledger.fail(region.slug, f"{region.region}: {refusal}")
+        as_operator = _as(drop)
+        try:
+            made = subprocess.run(
+                ["install", "-d", "-m", "0755", "--", str(self.staging)],
+                capture_output=True,
+                text=True,
+                check=False,
+                **as_operator,
+            )
+            if made.returncode != 0:
+                return self.ledger.fail(
+                    region.slug,
+                    f"{region.region}: could not create {self.staging} as the operator: "
+                    f"{made.stderr.strip()[-300:]}",
+                )
+            _remove_as(drop, staged)
+            result = subprocess.run(
+                _maptool_argv(pbf, staged),
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=self.staging,
+                **as_operator,
+            )
+            if result.returncode != 0:
+                _remove_as(drop, staged)
+                return self.ledger.fail(region.slug, _maptool_failure(region, pbf, result))
+            hashed = subprocess.run(
+                ["sha256sum", "--", str(staged)],
+                capture_output=True,
+                text=True,
+                check=False,
+                **as_operator,
+            )
+        except OSError as exc:
+            _remove_as(drop, staged)
+            return self.ledger.fail(
+                region.slug, f"{region.region}: maptool could not be run on {pbf.name}: {exc}"
+            )
+        digest = hashed.stdout.split()[0] if hashed.stdout.split() else ""
+        if hashed.returncode != 0 or digest in ("", _EMPTY_SHA256):
+            # sha256sum fails on a missing file; an empty one hashes to the
+            # empty digest. Either way maptool wrote nothing (D-031).
+            _remove_as(drop, staged)
+            return self.ledger.fail(
+                region.slug,
+                f"{region.region}: maptool did not convert {pbf.name} (exit "
+                f"{result.returncode}): it wrote no output",
+            )
+        converted["sha256"] = digest
+        return f"converted {pbf.name} (staged, as the operator)"
 
     def _install(
         self,
@@ -209,13 +344,42 @@ class DerivedBackend:
     ) -> str:
         if region.slug in self.ledger.failed or "sha256" not in converted:
             return f"skipped: {region.region} was not converted"
+        drop = self._as_operator()
         try:
-            writer.install_verified(staged, dest, algorithm="sha256", digest=converted["sha256"])
+            if drop is None:
+                writer.install_verified(
+                    staged, dest, algorithm="sha256", digest=converted["sha256"]
+                )
+            else:
+                # Root never opens the operator's path: the operator's own
+                # process reads it into a pipe, and root publishes the bytes
+                # only if they hash to what the conversion step measured.
+                reader = subprocess.Popen(
+                    ["cat", "--", str(staged)],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    **_as(drop),
+                )
+                assert reader.stdout is not None
+                try:
+                    writer.install_stream(
+                        reader.stdout,
+                        dest,
+                        algorithm="sha256",
+                        digest=converted["sha256"],
+                        what=str(staged),
+                    )
+                finally:
+                    reader.stdout.close()
+                    reader.wait()
             writer.write_text(dest.with_name(dest.name + SOURCE), f"{region.snapshot}\n")
         except (BackendError, OSError) as exc:
             return self.ledger.fail(region.slug, f"{region.region}: {exc}")
         finally:
-            staged.unlink(missing_ok=True)
+            if drop is None:
+                staged.unlink(missing_ok=True)
+            else:
+                _remove_as(drop, staged)
         return f"installed {dest}"
 
     def _write_config(self, bins: Sequence[Path], dest: Path, writer: PrefixWriter) -> str:

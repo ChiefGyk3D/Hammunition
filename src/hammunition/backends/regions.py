@@ -52,9 +52,19 @@ MIB = 1024 * 1024
 PBF = ".osm.pbf"
 SOURCE = ".source"
 
-#: Navit's converted maps, relative to the downloads. An estimate until the
-#: ratio is measured on real regions (the plan's Task 10); the plan says so.
-DERIVED_FACTOR = 2
+#: Navit's converted map, relative to its ``.osm.pbf``: Canada's 6.1 GB
+#: became a 4.7 GB ``.bin`` on the field laptop. One region, so the plan
+#: calls it an estimate (:data:`ESTIMATE`).
+BIN_FACTOR = 0.8
+#: maptool's scratch files (``*.tmp``, ``coords.tmp``) in its working
+#: directory while it converts, relative to the input: Canada wrote more
+#: than 12 GB of them. Freed when it finishes, but needed while it runs.
+SCRATCH_FACTOR = 2
+ESTIMATE = "estimate, measured on one region"
+
+
+def bin_estimate(size: int) -> int:
+    return round(size * BIN_FACTOR)
 
 
 def data_root(prefix: Path) -> Path:
@@ -146,17 +156,26 @@ def removal_steps(
 
 
 def disk_needs(
-    pending: Sequence[RegionFile], *, cache: Path, staging: Path, prefix: Path
+    downloads: Sequence[RegionFile],
+    conversions: Sequence[RegionFile],
+    *,
+    cache: Path,
+    staging: Path,
+    prefix: Path,
 ) -> dict[Path, int]:
-    """Bytes each location needs for *pending*: a copy in the fetch cache, the
-    conversion staged at :data:`DERIVED_FACTOR` in the staging directory, and
-    both under the prefix. An estimate until the ratio is measured."""
-    total = sum(f.size for f in pending)
+    """Bytes each location needs: each download once in the fetch cache and
+    once under the prefix; each conversion's scratch
+    (:data:`SCRATCH_FACTOR`) and staged ``.bin`` (:data:`BIN_FACTOR`) in the
+    staging directory, and its ``.bin`` again under the prefix. A region
+    already downloaded but not yet converted counts as a conversion only."""
+    fetched = sum(f.size for f in downloads)
+    converted = sum(f.size for f in conversions)
+    bins = sum(bin_estimate(f.size) for f in conversions)
     needs: dict[Path, int] = {}
     for where, amount in (
-        (cache, total),
-        (staging, DERIVED_FACTOR * total),
-        (prefix, total + DERIVED_FACTOR * total),
+        (cache, fetched),
+        (staging, SCRATCH_FACTOR * converted + bins),
+        (prefix, fetched + bins),
     ):
         needs[where] = needs.get(where, 0) + amount
     return needs
@@ -206,9 +225,9 @@ def disk_shortfall(
     if not short:
         return None
     return (
-        "not enough disk space for the map regions (the downloads, their cached copy "
-        f"and Navit's maps at {DERIVED_FACTOR}x, an estimate until measured):\n  "
-        + "\n  ".join(short)
+        "not enough disk space for the map regions (the downloads, their cached copy, "
+        f"maptool's scratch at {SCRATCH_FACTOR}x and Navit's maps at {BIN_FACTOR}x the "
+        f"input -- an {ESTIMATE}):\n  " + "\n  ".join(short)
     )
 
 
@@ -234,6 +253,8 @@ class MapDisclosure:
     """Already installed at the resolved snapshot; nothing happens to them."""
     kept: Sequence[KeptRegion]
     """Could not be checked; the installed copy stays."""
+    convert: Sequence[RegionFile] = ()
+    """Converted for Navit this run: newly downloaded, or installed but not yet converted."""
 
 
 @dataclass(frozen=True)
@@ -244,12 +265,15 @@ class MapResolution:
     kept: tuple[KeptRegion, ...] = ()
     notes: tuple[str, ...] = ()
 
-    def disclosure(self, pending: Sequence[RegionFile]) -> MapDisclosure:
+    def disclosure(
+        self, pending: Sequence[RegionFile], conversions: Sequence[RegionFile] = ()
+    ) -> MapDisclosure:
         waiting = {f.slug for f in pending}
         return MapDisclosure(
             fetch=tuple(f for f in self.files if f.slug in waiting),
             current=tuple(f for f in self.files if f.slug not in waiting),
             kept=self.kept,
+            convert=tuple(conversions),
         )
 
 

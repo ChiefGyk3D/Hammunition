@@ -60,11 +60,12 @@ from hammunition.backends import (
 from hammunition.backends.apt import stale_fetches
 from hammunition.backends.data import human_size
 from hammunition.backends.regions import (
-    DERIVED_FACTOR,
+    ESTIMATE,
     KeptRegion,
     MapDisclosure,
     MapLedger,
     MapResolution,
+    bin_estimate,
     data_root,
     disk_needs,
     disk_shortfall,
@@ -365,9 +366,13 @@ def render_plan(
         lines.append("")
 
     map_units = [
-        p.block.install for p in plan.packages if isinstance(p.block.install, RegionalDataInstall)
+        p.block.install
+        for p in plan.packages
+        if isinstance(p.block.install, RegionalDataInstall | DerivedDataInstall)
     ]
-    if map_units and maps is not None and (maps.fetch or maps.current or maps.kept):
+    if map_units and maps is not None and (maps.fetch or maps.current or maps.kept or maps.convert):
+        # A current region still being converted is not "nothing to do".
+        converting = {f.slug for f in maps.convert}
         # The station's regions, on the operator's own terminal: resolved
         # before this plan printed, so the dated file, its size and how it
         # is checked are known before anything is confirmed (D-057). Only
@@ -378,9 +383,20 @@ def render_plan(
             lines.append("  will be downloaded and installed:")
             lines.extend(region_lines(maps.fetch))
         if maps.current:
-            lines.append("  already installed, current (nothing to do):")
+            lines.append("  already installed, current:")
             width = max(len(f.region) for f in maps.current)
-            lines.extend(f"    {f.region:<{width}}  {f.snapshot}" for f in maps.current)
+            lines.extend(
+                f"    {f.region:<{width}}  {f.snapshot}"
+                + ("" if f.slug in converting else "  (nothing to do)")
+                for f in maps.current
+            )
+        if maps.convert:
+            lines.append(f"  will be converted for Navit (map sizes an {ESTIMATE}):")
+            width = max(len(f.region) for f in maps.convert)
+            lines.extend(
+                f"    {f.region:<{width}}  {f.snapshot}  about {human_size(bin_estimate(f.size))}"
+                for f in maps.convert
+            )
         for kept in maps.kept:
             lines.append(
                 f"  {kept.region}: could not check for a newer map; keeping the installed "
@@ -392,8 +408,8 @@ def render_plan(
         )
         lines.append(
             f"      download total: {human_size(total)}; about "
-            f"{human_size(total * (1 + DERIVED_FACTOR))} "
-            f"of disk with Navit's maps (an estimate until measured)"
+            f"{human_size(total + sum(bin_estimate(f.size) for f in maps.convert))} "
+            f"of disk with Navit's maps ({ESTIMATE})"
         )
         lines.append("      installs under <prefix>/share/hammunition/data/")
         lines.append("")
@@ -1033,6 +1049,25 @@ def resolve_map_regions(
     return MapResolution(files=tuple(files), kept=tuple(kept), notes=tuple(notes))
 
 
+def map_work(
+    plan: InstallPlan, regions: RegionsBackend, derived: DerivedBackend
+) -> tuple[list[RegionFile], list[RegionFile]]:
+    """(regions to download, regions to convert) for this plan."""
+    downloads = [
+        f
+        for p in plan.packages
+        if isinstance(p.block.install, RegionalDataInstall)
+        for f in regions.pending(p.manifest)
+    ]
+    conversions = [
+        f
+        for p in plan.packages
+        if isinstance(p.block.install, DerivedDataInstall)
+        for f in derived.pending(p.manifest)
+    ]
+    return downloads, conversions
+
+
 def leftover_maps_note(plan: InstallPlan, prefix: Path) -> str | None:
     """Map data still installed while no map regions are set, named with its removal."""
     units = sorted(d.subject for d in plan.deferrals if d.why == NO_MAP_REGIONS)
@@ -1227,14 +1262,26 @@ def cmd_install(args: argparse.Namespace) -> int:
         runner=runner,
     )
     # Only regions not already installed at their snapshot are downloaded,
-    # counted and listed as downloads (the dry run is the run).
-    pending = [f for p in map_units for f in regions.pending(p.manifest)]
-    maps = resolution.disclosure(pending) if map_units else None
-    if pending:
+    # counted and listed as downloads (the dry run is the run); a region
+    # installed but not yet converted still needs conversion space.
+    pending, conversions = map_work(plan, regions, derived)
+    maps = (
+        resolution.disclosure(pending, conversions)
+        if any(
+            isinstance(p.block.install, RegionalDataInstall | DerivedDataInstall)
+            for p in plan.packages
+        )
+        else None
+    )
+    if pending or conversions:
         # Refused at plan time, before anything is confirmed, with both numbers.
         short = disk_shortfall(
             disk_needs(
-                pending, cache=source.fetcher.cache_dir, staging=map_staging, prefix=source.prefix
+                pending,
+                conversions,
+                cache=source.fetcher.cache_dir,
+                staging=map_staging,
+                prefix=source.prefix,
             )
         )
         if short is not None:
