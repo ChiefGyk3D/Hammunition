@@ -204,6 +204,14 @@ def resolve(
         url = _url(region, snapshot)
         status, size, _ = probe.head(url)
         if status == 200:
+            if size <= 0:
+                # No Content-Length: the size the fetch is capped and checked
+                # by would be 0, and the failure would surface as a cap hit
+                # partway through a download. Refused here, naming the file.
+                raise GeofabrikError(
+                    f"{region}-{snapshot}.osm.pbf: Geofabrik's server reported no size "
+                    f"for it, so the download cannot be bounded or checked; try again later"
+                )
             return RegionFile(region, snapshot, url, size, None, _md5(probe, url))
     raise GeofabrikError(
         f"no {freshness} extract for {region!r}: tried "

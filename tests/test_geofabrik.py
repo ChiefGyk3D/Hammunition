@@ -138,3 +138,10 @@ def test_load_pins(tmp_path: Path) -> None:
 
 def test_slug() -> None:
     assert RegionFile(VT, "260101", _url("260101"), 1, SHA, None).slug == "north-america-us-vermont"
+
+
+def test_a_head_with_no_content_length_is_refused_naming_the_file() -> None:
+    """Fix round 1, item 9: size 0 would otherwise surface only at the 1 MiB cap."""
+    probe = FakeProbe({_url("260101"): (200, 0, None)}, {_url("260101") + ".md5": f"{MD5}  x\n"})
+    with pytest.raises(GeofabrikError, match=re.escape(f"{VT}-260101.osm.pbf")):
+        resolve(VT, "yearly", today=date(2026, 9, 27), pins={}, probe=probe)
