@@ -17,6 +17,7 @@ from __future__ import annotations
 import struct
 import zlib
 from pathlib import Path
+from typing import IO, Any
 
 import pytest
 
@@ -103,10 +104,41 @@ def test_a_header_without_a_bbox_is_none(tmp_path: Path) -> None:
     assert header_bbox(write(tmp_path, pbf(None))) is None
 
 
-def test_only_the_first_blob_is_read(tmp_path: Path) -> None:
-    """Whatever follows the header -- gigabytes, in a real extract -- is never read."""
-    path = write(tmp_path, pbf(trailing=b"\xff" * 4096))
+def test_only_the_first_blob_is_read(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Whatever follows the header -- gigabytes, in a real extract -- is never
+    read: every read through the file object is counted, and a byte past the
+    header blob fails the test (fix round 1, M3)."""
+    header = pbf()
+    path = write(tmp_path, header + b"\xff" * 65536)
+    real_open = Path.open
+    reads: list[int] = []
+
+    class Guarded:
+        def __init__(self, handle: IO[bytes]) -> None:
+            self.handle = handle
+            self.at = 0
+
+        def read(self, size: int = -1) -> bytes:
+            if size < 0 or self.at + size > len(header):
+                raise AssertionError(f"read({size}) at {self.at} runs past the header")
+            data = self.handle.read(size)
+            self.at += len(data)
+            reads.append(len(data))
+            return data
+
+        def __enter__(self) -> Guarded:
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            self.handle.close()
+
+    def guarded_open(self: Path, mode: str = "r", *args: Any, **kwargs: Any) -> Any:
+        handle = real_open(self, mode, *args, **kwargs)
+        return Guarded(handle) if self == path else handle
+
+    monkeypatch.setattr(Path, "open", guarded_open)
     assert header_bbox(path) == pytest.approx((-73.5, -71.4, 45.1, 42.7))
+    assert sum(reads) == len(header)
 
 
 def test_a_first_blob_that_is_not_the_header_is_refused_by_name(tmp_path: Path) -> None:
@@ -125,6 +157,41 @@ def test_a_truncated_file_is_refused_naming_it(tmp_path: Path, cut: int) -> None
 def test_an_oversized_header_length_is_refused_without_reading_it(tmp_path: Path) -> None:
     path = write(tmp_path, struct.pack(">I", HEADER_CAP + 1) + b"\x00" * 16)
     with pytest.raises(OsmPbfError, match="too large"):
+        header_bbox(path)
+
+
+def test_an_oversized_header_blob_is_refused_without_reading_it(tmp_path: Path) -> None:
+    """Fix round 1, M2: a datasize past the cap is refused before any read of it."""
+    blob_header = field_bytes(1, b"OSMHeader") + field_varint(3, HEADER_CAP + 1)
+    path = write(tmp_path, struct.pack(">I", len(blob_header)) + blob_header + b"\x00" * 16)
+    with pytest.raises(OsmPbfError, match="header blob is too large"):
+        header_bbox(path)
+
+
+@pytest.mark.parametrize(
+    "bbox",
+    [
+        (-181.0, -71.0, 45.0, 43.0),
+        (-73.0, 180.5, 45.0, 43.0),
+        (-73.0, -71.0, 90.5, 43.0),
+        (-73.0, -71.0, 45.0, -91.0),
+    ],
+)
+def test_a_bbox_outside_the_globe_is_refused(
+    tmp_path: Path, bbox: tuple[float, float, float, float]
+) -> None:
+    """Fix round 1, M1: a centre of -9223372036 degrees is a blank map again."""
+    with pytest.raises(OsmPbfError, match="out of range"):
+        header_bbox(write(tmp_path, pbf(bbox)))
+
+
+def test_a_huge_varint_side_is_refused_not_wrapped(tmp_path: Path) -> None:
+    box = b"".join(field_varint(n, 2**64 - 1) for n in (1, 2, 3, 4))
+    block = field_bytes(1, box) + field_bytes(4, b"OsmSchema-V0.6")
+    blob = field_bytes(1, block)
+    blob_header = field_bytes(1, b"OSMHeader") + field_varint(3, len(blob))
+    path = write(tmp_path, struct.pack(">I", len(blob_header)) + blob_header + blob)
+    with pytest.raises(OsmPbfError, match="out of range"):
         header_bbox(path)
 
 

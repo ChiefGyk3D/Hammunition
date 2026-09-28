@@ -155,7 +155,8 @@ def header_bbox(path: Path) -> BBox | None:
 
     None when the header carries no bbox, which the format allows. Raises
     :class:`OsmPbfError` naming *path* on a malformed or truncated file, and
-    lets an ``OSError`` opening it through unchanged."""
+    lets an ``OSError`` opening it through unchanged. A bbox outside
+    -180..180 and -90..90 is malformed."""
     try:
         block = _fields(_header_block(path))
         box = _bytes(block, 1)
@@ -168,6 +169,15 @@ def header_bbox(path: Path) -> BBox | None:
     if any(v is None for v in values):
         raise OsmPbfError(f"{path}: the header bbox is missing a side")
     left, right, top, bottom = (_unzigzag(v) * _NANO for v in values if v is not None)
+    # A corrupt writer or a bad pin, not an attacker (the file is hash-checked),
+    # but a centre of billions of degrees is a blank map again.
+    if not all(-180.0 <= x <= 180.0 for x in (left, right)) or not all(
+        -90.0 <= y <= 90.0 for y in (top, bottom)
+    ):
+        raise OsmPbfError(
+            f"{path}: the header bbox is out of range "
+            f"(left {left}, right {right}, top {top}, bottom {bottom})"
+        )
     return left, right, top, bottom
 
 
