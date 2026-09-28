@@ -4767,7 +4767,7 @@ byte identical.
 
 ### What changed in the text, and why
 
-The spec kept every command's text as it was. Three things moved:
+The spec kept every command's text as it was. Five things moved:
 
 - `status` with no catalog no longer prints its `Target:` and
   `Debian family:` lines before the error. Every successful run is byte
@@ -4780,6 +4780,11 @@ The spec kept every command's text as it was. Three things moved:
   choice is open to the maintainer: nothing is fetched for a kept region
   either.
 - Abbreviated long options are refused (rule 8).
+- `usage:` and `--help` show the global `[--json]` flag, on every verb.
+- `doctor` gains its *hammunition* check (rule 9), which also moves the
+  summary counts and the Ready line. On a fresh account whose
+  `~/.local/bin` is linked but not yet on the PATH, its fix is to log out
+  and back in, not to re-run bootstrap.
 
 ### Rulings made on the way
 

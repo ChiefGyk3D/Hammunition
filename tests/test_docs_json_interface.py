@@ -23,6 +23,16 @@ def test_d059_is_recorded() -> None:
     assert "never driven through JSON" in text
 
 
+def test_d059_lists_every_text_change() -> None:
+    """Final review Minor 8: the list claims to be complete, and omitted
+    doctor's new check and the `[--json]` usage and help gained."""
+    text = (REPO_ROOT / "docs" / "DECISIONS.md").read_text()
+    start = text.index("### What changed in the text, and why")
+    section = text[start : text.index("\n### ", start + 1)]
+    assert "`doctor` gains its *hammunition* check" in section
+    assert "`[--json]`" in section
+
+
 def test_every_json_capable_verb_says_so_in_the_cli_reference() -> None:
     importlib.import_module("hammunition.cli.main")  # registers the decorators
     text = CLI_DOC.read_text()
