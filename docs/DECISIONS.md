@@ -3678,10 +3678,6 @@ launcher).** Three amendments to the rule above:
    | Xfce (Kali, Parrot's alternative) | menu-spec merge into `<prefix>applications-merged/` | Measured on the Kali VM for the flat tree (2026-09-02); the grouped tree and `<Layout>` are the same mechanism and **await a re-run there** |
    | GNOME (Debian 13, Ubuntu) | one app-folder per visible group, *Hammunition · <title>*, populated by the group's `X-Hammunition-*` markers plus placed entries by name; GNOME cannot nest | Code and tests written this round; **awaits the Debian 13 VM** — nothing asserted until it has run |
    | COSMIC (Pop!_OS) | unknown; its app-library groups are not menu-spec | **Unmeasured.** The Pop VM exists; nothing is claimed until it is read |
-   | LXQt (Lubuntu) | menu-spec merge into `lxqt-applications-merged/`; `lxqt-applications.menu` carries `<DefaultMergeDirs/>` (Debian 13 package, 2026-09-28) | **Unmeasured** (D-060). The Lubuntu 26.04 run is its checklist |
-   | LXDE | menu-spec merge into `lxde-applications-merged/`; `lxde-applications.menu` carries `<DefaultMergeDirs/>` | **Unmeasured** (D-060) |
-   | MATE | menu-spec merge into `mate-applications-merged/`; Parrot carries a `mate-` root | **Unmeasured** (D-060) |
-   | Cinnamon (Linux Mint) | menu-spec merge into `cinnamon-applications-merged/`; `cinnamon-applications.menu` carries `<DefaultMergeDirs/>` | **Unmeasured** (D-060) |
 
    The three VM checks run from the hypervisor host, not the field laptop.
 
@@ -4640,8 +4636,15 @@ unmeasured.
    by its filename stem, holding exactly the two measured gaps: `LXDE` →
    lxde; `cinnamon`, `cinnamon2d`, `cinnamon-wayland` → cinnamon. Anything
    else without the key (`lightdm-xsession`, `openbox`) is ignored rather
-   than guessed at. A missing directory is an empty set: a container or a
-   server has none. `XDG_CURRENT_DESKTOP` is read only where the session
+   than guessed at. `/usr/local/share/xsessions` and
+   `/usr/local/share/wayland-sessions` are read too, since SDDM and LightDM
+   search them. Only regular files are read, after following a symlink,
+   and at most 64 KiB each, with a UTF-8 BOM stripped: a FIFO or device
+   node named `*.desktop` would otherwise block the planner. A missing
+   directory is an empty set: a container or a server has none. A file
+   read that names no desktop listed here (COSMIC, Sway, Budgie) is
+   reported as **read but unrecognised**, never dropped, so a graphical
+   machine running one is not described as a server. `XDG_CURRENT_DESKTOP` is read only where the session
    matters (menus, `doctor`), **never by the planner**.
 2. **A manifest may name its desktops.** `desktops:` is a non-empty list
    of `kde`, `gnome`, `xfce`, `lxqt`, `lxde`, `mate`, `cinnamon` with no
@@ -4653,18 +4656,23 @@ unmeasured.
    installed desktops as an argument; the CLI passes what the session
    files say. A unit whose `desktops` shares nothing with them is, as a
    **profile member, deferred by name** with the reason `for KDE Plasma;
-   this machine has no KDE Plasma session (it has: Xfce)` (or `(it has
-   none)`) and the rest of the profile installs; **typed by name, it is
+   this machine has no KDE Plasma session (it has: Xfce)` (or `(it has no
+   session files)`, or `(its session files name none the catalog knows:
+   cosmic.desktop)`) and the rest of the profile installs; **typed by name, it is
    refused** with that reason and a remedy that names the alternative when
    one serves a desktop the machine has. Both follow D-039: logged, shown
    by `status`, a dependent deferring with it, a profile of nothing but
-   deferrals refused. Desktops that were not read (a caller passing none)
+   deferrals refused. A dependent deferred through such a unit, and a
+   profile whose members are all deferred this way, give the desktop as
+   the cause and not D-039's "this target does not offer", which would be
+   false. Desktops that were not read (a caller passing none)
    are disclosed as a note and the unit plans, the way an unreadable
    kernel is.
 4. **The dry run shows it.** Whenever a unit in the request declares
    `desktops`, the plan prints *Desktops read from session files* with
-   what they offered, so the decision is visible before anything runs.
-   `doctor` reports the same set and the current session's desktop.
+   what they offered and any file read that named none, so the decision is
+   visible before anything runs. `doctor` reports the same, and the
+   current session's desktop.
 5. **Installing a desktop later needs nothing special.** Re-running
    `hammunition install station` picks the unit up; that is the whole
    story, because install is idempotent.
@@ -4674,9 +4682,34 @@ unmeasured.
 Parrot OS with KDE Plasma stays first: it is the field laptop, and it is
 where things are measured. Xfce (Xubuntu 26.04) and LXQt (Lubuntu 26.04)
 are next; their checklist is `docs/reference/vm-campaign-desktops.md`,
-**not yet run**. D-050's per-desktop table gains LXQt, LXDE, MATE and
-Cinnamon rows, all unmeasured. `docs/desktops.md` is the user-facing
+**not yet run**. `docs/desktops.md` is the user-facing
 account, and says *unmeasured* wherever nothing has run.
+
+### D-050 amendment (2026-09-28): four more rows for the per-desktop table
+
+D-050 item 8's table is left as it was accepted. These rows extend it,
+dated here rather than written into it. The menu root each desktop ships
+was read from the Debian 13 package on 2026-09-28; nothing has been
+rendered on any of them.
+
+| Desktop | Mechanism | State |
+|---|---|---|
+| LXQt (Lubuntu) | menu-spec merge into `lxqt-applications-merged/`; `lxqt-applications.menu` carries `<DefaultMergeDirs/>` | **Unmeasured.** The Lubuntu 26.04 run is its checklist |
+| LXDE | menu-spec merge into `lxde-applications-merged/`; `lxde-applications.menu` carries `<DefaultMergeDirs/>` | **Unmeasured** |
+| MATE | menu-spec merge into `mate-applications-merged/`; Parrot carries a `mate-` root | **Unmeasured** |
+| Cinnamon (Linux Mint) | menu-spec merge into `cinnamon-applications-merged/`; `cinnamon-applications.menu` carries `<DefaultMergeDirs/>` | **Unmeasured** |
+
+### The machine that already ran `station`
+
+A machine that ran `station` at v0.10.0 or earlier got the applet and
+`plasma-workspace` with it, and `plasma-workspace` ships `plasma.desktop`.
+Detection now reads KDE Plasma as installed there, which is true of the
+disk, and the applet stays planned. The engine does not remove a desktop
+on a guess about why it is there. `docs/desktops.md` gives the operator the
+two commands (`hammunition uninstall hammunition-tray`, then `apt
+autoremove`) and says to read the list before agreeing.
+
+### The Qt tray
 
 A Qt tray for the other panels (`hammunition-tray-qt`, a second binary
 package from the tray's own repository) is the design's next piece. It is

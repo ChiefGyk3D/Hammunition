@@ -28,7 +28,7 @@ placeholders (`N0CALL`, `FN31pr`), as on every VM page.
 | # | Step | Xubuntu 26.04 | Lubuntu 26.04 |
 |---|---|---|---|
 | 1 | Record the image, kernel and desktop version | | |
-| 2 | `ls /usr/share/xsessions /usr/share/wayland-sessions`, and the `DesktopNames=` line of each file | | |
+| 2 | `ls /usr/share/xsessions /usr/share/wayland-sessions /usr/local/share/xsessions /usr/local/share/wayland-sessions`, and the `DesktopNames=` line of each file | | |
 | 3 | `hammunition doctor`: the *desktops* line names Xfce (or LXQt) and the current session | | |
 | 4 | Idle memory after login, nothing else started: `free -m` three times a minute apart, and the median | | |
 
@@ -37,8 +37,9 @@ placeholders (`N0CALL`, `FN31pr`), as on every VM page.
 | # | Step | Xubuntu 26.04 | Lubuntu 26.04 |
 |---|---|---|---|
 | 5 | `hammunition install station --dry-run`: *Desktops read from session files* shows only this desktop, and `hammunition-tray` is under *Will NOT happen* with the reason `for KDE Plasma; this machine has no KDE Plasma session` | | |
-| 6 | Neither `plasma-workspace` nor any `plasma-*` package appears anywhere in the plan | | |
+| 6 | The plan does not fetch the applet: `hammunition-tray_*_all.deb` appears nowhere in it (its Depends are never printed, so looking for `plasma-workspace` in the plan proves nothing) | | |
 | 7 | `hammunition install station`: every other member installs and confirms | | |
+| 7a | The effect, after step 7 (D-031): `apt-cache policy plasma-workspace` shows `Installed: (none)`, `dpkg -l 'plasma*'` lists nothing installed, and no `plasma*.desktop` is in any of the four session directories | | |
 | 8 | `hammunition status` shows the deferral | | |
 | 9 | `hammunition install hammunition-tray` is refused, and the refusal names the remedy | | |
 | 10 | Once `hammunition-tray-qt` is in the catalog: it installs with `station` here, and its autostart entry exists | | |

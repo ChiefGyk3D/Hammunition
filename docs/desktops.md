@@ -29,7 +29,9 @@ The decision record behind this page is **D-060** in `docs/DECISIONS.md`.
 ## How Hammunition tells which desktops you have
 
 It reads the session files your login screen lists, in
-`/usr/share/xsessions/` and `/usr/share/wayland-sessions/`. Each one names
+`/usr/share/xsessions/` and `/usr/share/wayland-sessions/`, and the same two
+directories under `/usr/local/share/`, which SDDM and LightDM also search.
+Only regular files are read (a symlink is followed to one). Each one names
 its desktop in a `DesktopNames=` line (`KDE`, `XFCE`, `LXQt` and so on).
 LXDE's and Cinnamon's session files carry no such line, so those two are
 recognised by file name instead: `LXDE.desktop`, and `cinnamon.desktop`,
@@ -47,8 +49,13 @@ $ hammunition doctor
 ...
 ```
 
-A container or a server has no session files at all, and that is reported
-as none.
+A container or a server has no session files at all, and `doctor` says
+exactly that. A machine whose session files name only desktops this page
+does not list, such as COSMIC or Sway, is a different case, and it is
+reported as one: `doctor` names the files it read (for example
+`session files name none of the desktops the catalog knows (read:
+cosmic.desktop)`), and a plan's reason ends `(its session files name none
+the catalog knows: cosmic.desktop)` instead of claiming there are none.
 
 ### A unit for one desktop
 
@@ -65,7 +72,7 @@ So when a machine has no session for any desktop the unit is for:
   *Will NOT happen*, with the desktops it read:
 
   ```text
-  Desktops read from session files (/usr/share/xsessions, /usr/share/wayland-sessions):
+  Desktops read from session files (/usr/share/xsessions, /usr/share/wayland-sessions and the same under /usr/local/share):
     Xfce
 
   Will NOT happen (the rest of the transaction still will):
@@ -83,6 +90,28 @@ So when a machine has no session for any desktop the unit is for:
 If you install Plasma later, run the same `hammunition install station`
 again. It picks the applet up and leaves everything else as it is.
 
+### A machine that ran `station` before this change
+
+Up to v0.10.0, `station` installed the Plasma applet on every machine, and
+the applet's package pulled in `plasma-workspace`. That package ships the
+Plasma session files. So an Xfce or LXQt machine that ran `station` then
+now *has* a Plasma session as far as detection can tell: it reads KDE
+Plasma as installed, and the applet stays planned. That answer is true of
+the disk, and Hammunition does not second-guess it.
+
+If you do not want Plasma there, take the applet out and let apt remove
+what came in with it:
+
+```console
+$ hammunition uninstall hammunition-tray
+$ sudo apt autoremove
+```
+
+Read the list `apt autoremove` prints before you agree. It removes only
+packages nothing asked for by name, so a Plasma you installed on purpose
+stays. After that, `hammunition doctor` should no longer list KDE Plasma,
+and the next `hammunition install station` defers the applet.
+
 ---
 
 ## The desktops
@@ -92,7 +121,7 @@ again. It picks the applet up and leaves everything else as it is.
 | | |
 |---|---|
 | **Menu** | Measured on the field laptop, 2026-09-12. `menus apply` writes the tree to `applications-merged/` (KDE ignores the menu prefix) and runs `kbuildsycoca6` so it shows immediately (D-050). |
-| **Tray** | `hammunition-tray`, a Plasma applet. Measured on the field laptop. It installs with `station` on a machine that has a Plasma session. |
+| **Tray** | `hammunition-tray`, a Plasma applet. On the field laptop it was installed from its repository's own `install.sh` into `~/.local` and drew a switch for the GPS receiver (`docs/reference/bench-verification-5430.md`). The `.deb` that `station` installs was installed and removed in the tray release workflow's Parrot container. `station` plans it on a machine that has a Plasma session. |
 | **Lightweight notes** | Plasma is the heaviest desktop on this page, and the one everything is tested on first. |
 
 ### Xfce (Xubuntu, Kali, Parrot's alternative)
@@ -101,7 +130,7 @@ again. It picks the applet up and leaves everything else as it is.
 |---|---|
 | **Menu** | The menu-spec path, into `xfce-applications-merged/`. Measured on the Kali VM for the earlier one-level tree (2026-09-02). The grouped tree is the same mechanism and **has not been re-run there**. |
 | **Tray** | **None yet.** The Plasma applet is deferred. A Qt tray for this panel is planned (`hammunition-tray-qt`), and nothing is claimed about it until it exists and has run. |
-| **Lightweight notes** | `station` no longer pulls in Plasma here (D-060). Idle memory before and after `station` is **unmeasured**, and is on the Xubuntu 26.04 checklist. |
+| **Lightweight notes** | On a fresh machine `station` no longer pulls in Plasma here (D-060). A machine that ran `station` at v0.10.0 or earlier already has it; see above. Idle memory before and after `station` is **unmeasured**, and is on the Xubuntu 26.04 checklist. |
 
 ### LXQt (Lubuntu)
 
@@ -130,7 +159,7 @@ flavour ships it.
 | | |
 |---|---|
 | **Menu** | GNOME cannot nest menus. The equivalent is one app folder per visible group. The code and tests exist, and the Debian 13 VM run **has not happened yet** (D-050). |
-| **Tray** | **None.** GNOME's panel has no system tray without an extension. The planned Qt tray does not list GNOME, because an icon that never appears is worse than saying so. |
+| **Tray** | **None from Hammunition.** Debian's GNOME has no system tray without an extension. Ubuntu enables its AppIndicator extension by default, so a Qt tray icon may well show there, but nobody has run one. The planned Qt tray does not list GNOME until that is measured. |
 | **Lightweight notes** | Not a lightweight desktop. |
 
 ### MATE
@@ -154,6 +183,7 @@ flavour ships it.
 | | |
 |---|---|
 | **Menu** | **Unmeasured.** COSMIC's app library does not use the menu spec, and nobody has read how it groups apps (D-036, D-050). |
+| **Detection** | COSMIC is not one of the desktops a manifest can name. Its session file is reported as read but unrecognised, so `doctor` names the file instead of calling the machine a server. What the file is called and what it says on Pop!_OS has **not been read**. |
 | **Tray** | **None.** |
 | **Lightweight notes** | **Unmeasured.** |
 
