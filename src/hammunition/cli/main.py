@@ -539,98 +539,38 @@ def operator(args: argparse.Namespace) -> str:
     )
 
 
+@envelope.json_capable()
 def cmd_status(args: argparse.Namespace) -> int:
+    """What this machine is, what the catalog holds, and what has been done here.
+
+    The most recent transaction is reported by how it actually ended, not by
+    what it intended: reading only transaction_begin once reported a run that
+    died on package 3 of 20 as if all 20 landed.
+    """
+    from hammunition.interface.status import build_status, render_status
+
     try:
         target = Target.detect()
     except DetectionError as exc:
         print(f"Target: unidentified — {exc}", file=sys.stderr)
         return EXIT_FAILED
 
-    print(f"Target: {target.describe()}")
-    print(
-        "Debian family: "
-        + ("yes" if target.is_debian_family else "no — installation is refused here")
-    )
-
     catalog_root = find_catalog(args.catalog)
     packages, profiles = load_all(catalog_root)
-    resolvable = sum(
-        1
-        for manifest in packages.values()
-        if manifest.resolve(target.distro, target.version, target.arch) is not None
-    )
-    print(f"Catalog: {catalog_root}")
-    print(f"  {len(packages)} packages, {resolvable} of which resolve on this target")
-    print(f"  {len(profiles)} profiles")
-
     log = TransactionLog(owner=operator(args) or None)
-    entries = list(log.read())
-    print(f"Transaction log: {log.path}")
-    if not entries:
-        print("  no transactions recorded")
-        return EXIT_OK
-
-    # The most recent transaction, and how it actually ended. Reading only
-    # transaction_begin and calling its packages "covered" reported a run that
-    # died on package 3 of 20 as if all 20 landed — the one command whose job
-    # is honest reporting, lying by omission. So find the last begin and the
-    # first terminal event after it.
-    begin_index = max(
-        (i for i, e in enumerate(entries) if e.get("event") == "transaction_begin"),
-        default=None,
+    doc = build_status(
+        target=target,
+        catalog_root=catalog_root,
+        packages=packages,
+        profiles=profiles,
+        log_path=log.path,
+        entries=list(log.read()),
     )
-    print(f"  {len(entries)} entries")
-    if begin_index is None:
-        print("  no transaction start recorded (log holds only other events)")
+    if envelope.wanted(args):
+        envelope.emit(doc)
         return EXIT_OK
-
-    begin = entries[begin_index]
-    intended = [str(p) for p in begin.get("apt_packages", [])]
-    tail = entries[begin_index + 1 :]
-    ended = next((e for e in tail if e.get("event") == "transaction_end"), None)
-    failed = next((e for e in tail if e.get("event") == "transaction_failed"), None)
-
-    if failed is not None:
-        done = failed.get("completed", 0)
-        print(
-            f"  most recent transaction FAILED after {done} command(s); "
-            f"{len(intended)} package(s) were intended, not necessarily installed"
-        )
-    elif ended is not None:
-        print(
-            f"  most recent transaction completed {ended.get('completed', 0)} "
-            f"command(s); {len(intended)} package(s) intended"
-        )
-        # transaction_end version 2 carries the D-031 effect check. An older
-        # log (version 1) has no `verified` key; treat its absence as "not
-        # recorded" rather than inventing a verdict.
-        if "verified" in ended:
-            checks = ended.get("checks", [])
-            unconfirmed = [c for c in checks if not c.get("confirmed", False)]
-            if ended.get("verified"):
-                print(f"  effects confirmed afterwards: {len(checks)} check(s) passed (D-031)")
-            else:
-                print(f"  UNVERIFIED: {len(unconfirmed)} effect(s) could not be confirmed:")
-                for check in unconfirmed:
-                    print(f"    {check.get('subject', '?')}: {check.get('detail', '')}")
-    else:
-        print(
-            f"  most recent transaction did not record an ending (interrupted or "
-            f"still running); {len(intended)} package(s) were intended"
-        )
-    for name in intended:
-        print(f"    {name}")
-    # transaction_begin version 2 records what the plan deferred (D-039): a
-    # profile member this target's archive does not carry, or a station value
-    # a config file needed and did not have. A version 1 entry has no key and
-    # nothing is inferred from its absence.
-    deferred = begin.get("deferred", [])
-    if deferred:
-        print(f"  deferred in that transaction, by design ({len(deferred)}):")
-        for entry in deferred:
-            print(
-                f"    {entry.get('subject', '?')}: {entry.get('what', '')} -- {entry.get('why', '')}"
-            )
+    for line in render_status(doc):
+        print(line)
     return EXIT_OK
 
 
