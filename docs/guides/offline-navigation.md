@@ -297,6 +297,12 @@ For each region, the plan estimates and checks, before anything downloads:
 | Navit's converted map | about 0.9× the region | `/usr/local/share/hammunition/data/osm-navit/` | Until uninstall or the region is dropped |
 | Conversion scratch | about 2× the region, plus the converted map staged | `~/.cache/hammunition/build/osm-navit/` | Only while it converts |
 
+If a conversion fails, maptool's scratch stays in
+`~/.cache/hammunition/build/osm-navit/`, so the failure can be looked at.
+Its `country_*_broken_.tmp` and `country_*_poly_.tmp` files are cleared the
+next time a region's map installs; anything else it left is not. All of it
+is safe to delete by hand whenever no install is running.
+
 So while a region converts, allow about 5.8 times its download
 size if the cache and `/usr/local` are on the same disk; afterwards it takes
 about 2.9 times (1.9 if you clear the download cache). A single US state

@@ -704,10 +704,14 @@ def _litter(staging: Path, outside: Path) -> dict[str, Path]:
         "other-region": staging / f"{NH.slug}.bin.part",
         "other-tmp": staging / "coords.tmp",
         "near-miss": staging / "country_840.tmp",
+        # fullmatch, not match or search: a scratch name with more around it
+        # is not maptool's (fix round 1, M7)
+        "suffixed": staging / "country_US_poly_.tmp.keep",
+        "prefixed": staging / "old-country_US_poly_.tmp",
     }
     keep["link"].symlink_to(outside)
     keep["dir"].mkdir()
-    for name in ("other-region", "other-tmp", "near-miss"):
+    for name in ("other-region", "other-tmp", "near-miss", "suffixed", "prefixed"):
         keep[name].write_bytes(b"keep")
     return keep
 
