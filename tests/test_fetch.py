@@ -334,3 +334,47 @@ def test_a_declared_size_above_the_default_cap_raises_the_cap_not_removes_it(
     liar = Fetcher(tmp_path / "b", transport=FakeTransport(overflow), max_bytes=1024)
     with pytest.raises(BackendError, match="byte limit"):
         liar.fetch_md5("https://x/big", hashlib.md5(overflow).hexdigest(), expected_size=len(body))
+
+
+# ---------------------------------------------------------------------------
+# Final review, item 2: the download temporary never follows a planted link
+# ---------------------------------------------------------------------------
+
+
+class _Bytes:
+    def __init__(self, body: bytes) -> None:
+        self.body = body
+
+    @contextmanager
+    def open(self, url: str) -> Iterator[IO[bytes]]:
+        yield BytesIO(self.body)
+
+
+@pytest.mark.parametrize("method", ["sha256", "md5"])
+def test_a_symlink_planted_at_the_temporary_is_refused_and_its_target_untouched(
+    tmp_path: Path, method: str
+) -> None:
+    import hashlib
+    import os
+
+    body = b"map bytes"
+    url = "https://download.geofabrik.de/x-260101.osm.pbf"
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    fetcher = Fetcher(cache, transport=_Bytes(body))
+    victim = tmp_path / "shadow"
+    victim.write_text("root:secret\n")
+    if method == "sha256":
+        artifact = RemoteArtifact(url=url, sha256=hashlib.sha256(body).hexdigest())
+        final = fetcher.path_for(artifact)
+    else:
+        md5 = hashlib.md5(body, usedforsecurity=False).hexdigest()
+        final = fetcher.md5_path_for(url, md5)
+    final.with_name(final.name + f".part.{os.getpid()}").symlink_to(victim)
+    with pytest.raises(BackendError, match="temporary"):
+        if method == "sha256":
+            fetcher.fetch(artifact)
+        else:
+            fetcher.fetch_md5(url, md5, expected_size=len(body))
+    assert victim.read_text() == "root:secret\n"
+    assert not final.exists()

@@ -230,6 +230,26 @@ def signature_gap(artifact: RemoteArtifact) -> str | None:
     )
 
 
+def create_temporary(path: Path) -> IO[bytes]:
+    """A new file at *path* for writing, created -- never opened.
+
+    ``O_CREAT|O_EXCL|O_NOFOLLOW``, mode 0600: under sudo the cache is the
+    operator's, and a ``<name>.part.<pid>`` planted there as a symlink to
+    ``/etc/shadow`` must not have root's download written through it. Any
+    existing entry at *path* (a link, a file) is a refusal naming it."""
+    try:
+        fd = os.open(
+            path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600
+        )
+    except OSError as exc:
+        raise BackendError(
+            f"cannot create the download temporary {path}: {exc.strerror or exc}. Something "
+            f"already exists at that name (a link planted there is refused, never followed); "
+            f"remove it and run the install again."
+        ) from exc
+    return os.fdopen(fd, "wb")
+
+
 def make_dir(path: Path) -> None:
     """``mkdir -p`` that keeps the operator's directories the operator's under
     sudo (:func:`hammunition.paths.ensure_operator_dir`); a refusal is a
@@ -435,7 +455,7 @@ class Fetcher:
         digest = hashlib.sha256()
         md5_digest = hashlib.md5(usedforsecurity=False) if md5 else None
         size = 0
-        with self.transport.open(url) as stream, destination.open("wb") as handle:
+        with create_temporary(destination) as handle, self.transport.open(url) as stream:
             while True:
                 chunk = stream.read(_CHUNK)
                 if not chunk:
