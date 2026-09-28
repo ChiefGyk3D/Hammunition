@@ -1010,16 +1010,38 @@ def test_map_data_is_deferred_by_name_without_regions(tmp_path: Path) -> None:
         assert "hammunition station set --map-regions <region>" in deferral.remedy
 
 
-def test_a_map_unit_typed_by_name_is_deferred_too(tmp_path: Path) -> None:
-    """D-035: a missing station value defers, it does not refuse -- by name or not."""
+@pytest.mark.parametrize("typed", ["osm-regions", "osm-navit"])
+def test_a_map_unit_typed_by_name_without_regions_is_refused(tmp_path: Path, typed: str) -> None:
+    """Fix round 1, item 5: asking for map data by name with no regions set
+    is not a successful run that did nothing (D-031); it refuses, naming the
+    station command."""
     from hammunition.station import Station
 
     catalog, _ = _navigation()
-    plan = _resolve(
-        tmp_path, ["osm-navit"], catalog=catalog, known={"maptool": None}, station=Station()
-    )
-    assert plan.packages == ()
-    assert sorted(d.subject for d in plan.deferrals) == ["osm-navit", "osm-regions"]
+    with pytest.raises(PlanError) as excinfo:
+        _resolve(tmp_path, [typed], catalog=catalog, known={"maptool": None}, station=Station())
+    text = str(excinfo.value)
+    assert typed in text and "no map regions set" in text
+    assert "hammunition station set --map-regions" in text
+
+
+def test_a_profile_of_only_map_units_says_no_regions_not_unavailable(tmp_path: Path) -> None:
+    from hammunition.station import Station
+
+    catalog, _ = _navigation()
+    maps = _profile(name="maps", packages=["osm-regions", "osm-navit"])
+    with pytest.raises(PlanError) as excinfo:
+        _resolve(
+            tmp_path,
+            ["maps"],
+            catalog=catalog,
+            profiles={"maps": maps},
+            known={"maptool": None},
+            station=Station(),
+        )
+    text = str(excinfo.value)
+    assert "no map regions set" in text and "hammunition station set --map-regions" in text
+    assert "unavailable on" not in text
 
 
 def test_map_data_is_planned_once_regions_are_set(tmp_path: Path) -> None:

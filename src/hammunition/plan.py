@@ -868,16 +868,19 @@ def _reads_map_regions(
     return False
 
 
+NO_MAP_REGIONS = "no map regions set"
+MAP_REGIONS_REMEDY = (
+    "run `hammunition station set --map-regions <region>[,<region>…]` and install again"
+)
+
+
 def _map_regions_deferral(name: str) -> Deferral:
     """D-057: the shape `_plan_config` uses for a missing station value."""
     return Deferral(
         subject=name,
         what="will not be installed: it is map data for regions you have not chosen",
-        why="no map regions set",
-        remedy=(
-            "run `hammunition station set --map-regions <region>[,<region>…]` and "
-            "install again. Everything else installs either way."
-        ),
+        why=NO_MAP_REGIONS,
+        remedy=f"{MAP_REGIONS_REMEDY}. Everything else installs either way.",
         kind="package",
     )
 
@@ -1059,10 +1062,20 @@ def resolve(
             continue
 
         # D-057: map data is station data. With no regions set there is
-        # nothing to fetch or convert, so the unit is deferred -- by name,
-        # typed or not, the D-035 rule -- and the rest installs.
+        # nothing to fetch or convert. A profile member is deferred and the
+        # rest installs (D-035); a unit the operator typed is refused -- a
+        # run that was asked for map data and did nothing is not a success.
         if not station.map_regions and _reads_map_regions(block, catalog, target):
-            deferred[name] = _map_regions_deferral(name)
+            if name in deferrable:
+                deferred[name] = _map_regions_deferral(name)
+            else:
+                blockers.append(
+                    Blocker(
+                        subject=name,
+                        reason=f"{NO_MAP_REGIONS}, so there is no map data to install",
+                        remedy=MAP_REGIONS_REMEDY,
+                    )
+                )
             continue
 
         writable, unwritable = _plan_config(manifest, station)
@@ -1347,6 +1360,19 @@ def resolve(
             continue
         members = [p for p in profile.packages if p in catalog]
         if members and all(m in deferred for m in members):
+            if all(deferred[m].why == NO_MAP_REGIONS for m in members):
+                # Not the target's gap: the station has chosen no regions.
+                blockers.append(
+                    Blocker(
+                        subject=name,
+                        reason=(
+                            f"every member of this profile is map data and {NO_MAP_REGIONS}: "
+                            f"{', '.join(members)}"
+                        ),
+                        remedy=MAP_REGIONS_REMEDY,
+                    )
+                )
+                continue
             blockers.append(
                 Blocker(
                     subject=name,
