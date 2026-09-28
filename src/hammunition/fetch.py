@@ -54,6 +54,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import shutil
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -65,7 +66,12 @@ from typing import IO, Protocol
 
 from hammunition.backends.base import BackendError
 from hammunition.manifest.schema import RemoteArtifact
-from hammunition.paths import OperatorDirError, artifact_cache_dir, ensure_operator_dir
+from hammunition.paths import (
+    OperatorDirError,
+    artifact_cache_dir,
+    ensure_operator_dir,
+    open_operator_dir,
+)
 
 __all__ = [
     "DEFAULT_MAX_BYTES",
@@ -232,6 +238,45 @@ def make_dir(path: Path) -> None:
         ensure_operator_dir(path)
     except OperatorDirError as exc:
         raise BackendError(str(exc)) from exc
+
+
+@contextmanager
+def operator_dir(path: Path) -> Iterator[int | None]:
+    """:func:`make_dir`, holding a descriptor on *path* while the block runs.
+
+    The descriptor is None where :func:`make_dir` is a plain mkdir; otherwise
+    it is the directory proven the operator's through ``O_NOFOLLOW`` from
+    their home, for removing and creating entries by ``dir_fd``."""
+    try:
+        fd = open_operator_dir(path)
+    except OperatorDirError as exc:
+        raise BackendError(str(exc)) from exc
+    try:
+        yield fd
+    finally:
+        if fd is not None:
+            os.close(fd)
+
+
+def remove_tree(parent: Path, parent_fd: int | None, name: str) -> bool:
+    """Remove *parent*/*name* if present; True if it was.
+
+    Through *parent_fd* when there is one: ``rmtree(name, dir_fd=...)`` walks
+    by descriptor and refuses a symlink, so neither *parent* nor anything
+    below it can redirect the removal. Without one it is the path-based
+    rmtree it always was (the engine is not root on anyone's behalf)."""
+    if parent_fd is None:
+        target = parent / name
+        if not (target.exists() or target.is_symlink()):
+            return False
+        shutil.rmtree(target)
+        return True
+    try:
+        os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        return False
+    shutil.rmtree(name, dir_fd=parent_fd)
+    return True
 
 
 class Fetcher:

@@ -207,6 +207,61 @@ def test_a_root_owned_ancestor_of_staging_fails_the_region_with_the_fix(
 # ---------------------------------------------------------------------------
 
 
+def _victim(tmp_path: Path, home: Path) -> tuple[Path, Path]:
+    """The reviewer's reproduction: build/unit-abc -> a victim holding src/."""
+    victim = tmp_path / "victim"
+    (victim / "src").mkdir(parents=True)
+    (victim / "src" / "precious").write_text("keep me\n")
+    (victim / "src.unpack").mkdir()
+    build = home / ".cache" / "hammunition" / "build"
+    build.mkdir(parents=True)
+    (build / "unit-abc").symlink_to(victim)
+    return build / "unit-abc" / "src", victim
+
+
+def test_prepare_tree_refuses_a_symlinked_parent_before_removing_anything(
+    operator: Any, tmp_path: Path
+) -> None:
+    from hammunition.backends import BackendError
+    from hammunition.backends.source import prepare_tree
+
+    _, home, _ = operator
+    destination, victim = _victim(tmp_path, home)
+    with pytest.raises(BackendError, match="symlink"):
+        prepare_tree(destination)
+    assert (victim / "src" / "precious").read_text() == "keep me\n"
+
+
+def test_extract_refuses_a_symlinked_parent_before_removing_anything(
+    operator: Any, tmp_path: Path
+) -> None:
+    import tarfile
+
+    from hammunition.backends import BackendError
+    from hammunition.backends.source import extract
+
+    _, home, _ = operator
+    destination, victim = _victim(tmp_path, home)
+    archive = tmp_path / "a.tar"
+    with tarfile.open(archive, "w"):
+        pass
+    with pytest.raises(BackendError, match="symlink"):
+        extract(archive, destination)
+    assert (victim / "src" / "precious").read_text() == "keep me\n"
+    assert (victim / "src.unpack").is_dir()
+
+
+def test_prepare_tree_clears_an_existing_tree_through_the_parent(operator: Any) -> None:
+    from hammunition.backends.source import prepare_tree
+
+    _, home, _ = operator
+    src = home / ".cache" / "hammunition" / "build" / "unit-abc" / "src"
+    (src / "old").mkdir(parents=True)
+    (src / "old" / "stale.o").write_bytes(b"x")
+    assert prepare_tree(src).startswith("cleared and recreated")
+    assert src.is_dir() and list(src.iterdir()) == []
+
+
 def test_a_directory_that_appears_mid_walk_is_a_named_refusal(
     operator: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
