@@ -10,49 +10,50 @@ stage: post-1.0
 
 # The navigation profile, piece 1 (docs/superpowers/specs/
 # 2026-09-27-navigation-maps-design.md): Navit over Geofabrik regions.
-# `osm-regions` and `osm-navit` are catalog units already, and join this
-# list when the engine can install their methods (`osm-regions`,
-# `derived`): tests/test_schema.py refuses a profile member no backend can
-# perform. Pieces 2 and 3 add to it.
+# Pieces 2 (hiking) and 3 (Kiwix, tile servers) add to it.
 packages:
   - gpsd
   - gpsd-clients
   - navit
+  - osm-regions
+  - osm-navit
 
 documentation:
   what_it_installs: >-
-    gpsd and its clients to read the GPS receiver, and Navit, an offline
-    turn-by-turn navigator with spoken directions through espeak-ng, with
-    `maptool`, the program that converts OpenStreetMap data into Navit's
-    map format.
+    gpsd and its clients to read the GPS receiver; Navit, an offline
+    turn-by-turn navigator with spoken directions through espeak-ng; the
+    OpenStreetMap regions you choose, downloaded from Geofabrik and verified
+    (`osm-regions`); and those regions converted into Navit's format with a
+    Navit configuration that loads all of them and follows the GPS
+    (`osm-navit`, opened by the `navit-offline` launcher).
   why_together: >-
     A navigator is only useful with a position and a map, and offline it
     needs both already on the machine. Navit without gpsd does not know
     where you are, and gpsd alone is a position with nothing to show it on.
     The same install serves daily driving and an EMCOMM deployment with the
-    phone network down.
+    phone network down: the maps are on the laptop before anything goes
+    wrong, and `hammunition update` says when newer map data is pinned.
   deliberately_excludes: >-
-    The maps themselves, for now: `osm-regions` (the OpenStreetMap regions
-    you choose, downloaded from Geofabrik and verified) and `osm-navit`
-    (those regions converted for Navit, and the configuration the
-    `navit-offline` launcher opens) are catalog units whose install methods
-    the engine does not perform yet, so they are not members until it
-    does. Hiking and topographic maps, tile servers and other map readers
-    are the next piece of this work. Navit's GTK interface
-    (`navit-gui-gtk`) is left out in favour of the internal one, which
-    suits a touch screen and a small panel. Grid-square readouts belong to
-    the station and dashboard tools.
+    Hiking and topographic maps, tile servers and other map readers are the
+    next pieces of this work. Navit's GTK interface (`navit-gui-gtk`) is
+    left out in favour of the internal one, which suits a touch screen and a
+    small panel. Grid-square readouts belong to the station and dashboard
+    tools.
   manual_configuration: >-
-    A GPS receiver must be attached and seen by gpsd; `xgps`, from
-    gpsd-clients, shows whether it has a fix. Navit needs maps before it
-    shows anything: until `osm-regions` and `osm-navit` join this profile,
-    plain `navit` runs Debian's own configuration and the `navit-offline`
-    launcher has no configuration to open. The map regions will come from
-    station config, set with Geofabrik's region paths, for example
-    `hammunition station set --map-regions
-    north-america/us/vermont,north-america/us/new-hampshire`.
+    Choose your map regions first, with Geofabrik's region paths, for
+    example `hammunition station set --map-regions
+    north-america/us/vermont,north-america/us/new-hampshire`; without them
+    the map units are deferred and only Navit and gpsd install. Optionally
+    `hammunition station set --map-freshness yearly|monthly|latest`
+    (yearly is the default and, for the 50 US states and DC, is checked
+    against a sha256 Hammunition measured; other regions and modes are
+    checked against Geofabrik's MD5, and the plan says which for every
+    region). A GPS receiver must be attached and seen by gpsd; `xgps`, from
+    gpsd-clients, shows whether it has a fix.
   disk_footprint_hint: >-
     Navit, espeak-ng and gpsd from the archive (size not yet measured).
-    With maps, add the regions you choose, plus Navit's converted copy of
-    each (size not yet measured); a single US state's download ranges from
-    tens of megabytes to about 1.3 GB for California.
+    Per region: the download, plus Navit's converted map at about 0.8 times
+    the download, plus about twice the download of temporary space while it
+    converts (measured on one region: Canada, a 6.1 GB download, converted
+    to 4.7 GB in 75 minutes on an i7-1185G7). A single US state's download
+    ranges from about 20 MB (District of Columbia) to 1.3 GB (California).
