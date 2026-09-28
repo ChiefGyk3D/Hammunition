@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from hammunition.navit_config import STOCK, NavitConfigError, rewrite
+from hammunition.navit_config import STOCK, NavitConfigError, follow_problem, rewrite
 
 FIXTURE = (Path(__file__).parent / "fixtures" / "navit.xml").read_text()
 MAPS = [Path("/usr/local/share/hammunition/data/osm-navit/north-america-us-vermont.bin")]
@@ -127,23 +127,44 @@ def test_a_vehicle_that_already_follows_is_not_touched() -> None:
     assert 'follow="1"' not in _gpsd_vehicle(out)
 
 
-def test_no_enabled_gpsd_vehicle_is_refused_by_name() -> None:
-    stock = FIXTURE.replace(
+def _no_gpsd() -> str:
+    return FIXTURE.replace(
         'enabled="yes" active="1" source="gpsd://', 'enabled="no" active="1" source="gpsd://'
     )
-    with pytest.raises(NavitConfigError, match="gpsd") as exc_info:
-        rewrite(stock, MAPS)
-    assert "0" in str(exc_info.value)
 
 
-def test_two_enabled_gpsd_vehicles_are_refused_by_name() -> None:
-    stock = FIXTURE.replace(
+def _two_gpsd() -> str:
+    return FIXTURE.replace(
         '<vehicle name="Demo" profilename="car" enabled="no" source="demo://"/>',
         '<vehicle name="Second" enabled="yes" source="gpsd://otherhost"/>',
     )
-    with pytest.raises(NavitConfigError, match="gpsd") as exc_info:
-        rewrite(stock, MAPS)
-    assert "2" in str(exc_info.value)
+
+
+def test_one_gpsd_vehicle_has_no_follow_problem() -> None:
+    assert follow_problem(FIXTURE) is None
+
+
+@pytest.mark.parametrize(("stock", "count"), [(_no_gpsd(), "0"), (_two_gpsd(), "2")])
+def test_not_exactly_one_gpsd_vehicle_still_writes_the_config_without_follow(
+    stock: str, count: str
+) -> None:
+    """Soft, like the centre (fix round 1, I2): an operator's serial receiver or
+    second gpsd vehicle costs them follow, never the whole configuration."""
+    problem = follow_problem(stock)
+    assert problem is not None
+    assert "gpsd" in problem and count in problem
+    out = rewrite(stock, MAPS, center=CENTER)
+    assert out.count('follow="1"') == stock.count('follow="1"')
+    assert f'data="{MAPS[0]}"' in out
+    assert 'center="-72.5000 44.0000"' in out
+
+
+def test_feeding_the_output_back_in_changes_nothing() -> None:
+    """Fix round 1, M6: rewriting a rewritten file is a no-op, centre or not."""
+    once = rewrite(FIXTURE, MAPS, center=CENTER)
+    assert rewrite(once, MAPS, center=CENTER) == once
+    plain = rewrite(FIXTURE, MAPS)
+    assert rewrite(plain, MAPS) == plain
 
 
 def test_the_centred_following_output_is_still_well_formed_xml() -> None:

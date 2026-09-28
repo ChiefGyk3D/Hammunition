@@ -8,9 +8,11 @@ Debian's version; only four things change: speech, the mapset, where Navit
 opens (``center=``, on the maps it has rather than the stock Munich) and the
 gpsd vehicle's ``follow="1"``, which moves the view with the GPS. Anchored
 string edits rather than an XML round-trip, which would drop Navit's comments
-and its XInclude namespace; every anchor is looked for outside comments,
-because the stock file's comments carry commented-out ``<vehicle>`` elements
-of their own."""
+and its XInclude namespace. The ``<vehicle>`` and ``center=`` anchors are
+looked for outside comments, because the stock file's comments carry
+commented-out ``<vehicle>`` elements and a line starting ``center=`` of their
+own; the speech and mapset anchors match over the whole text, as they always
+have, and the stock file comments out neither."""
 
 from __future__ import annotations
 
@@ -58,6 +60,21 @@ def format_center(center: tuple[float, float]) -> str:
     return f"{lon:.4f} {lat:.4f}"
 
 
+def follow_problem(stock: str) -> str | None:
+    """Why ``follow="1"`` cannot be set in *stock*, or None when it can.
+
+    Soft, like the centre: an operator who switched the conffile to a serial
+    receiver, or added a second gpsd vehicle, loses following the GPS, never
+    the whole configuration (fix round 1, I2). The caller names it."""
+    count = len(_gpsd_vehicles(stock))
+    if count == 1:
+        return None
+    return (
+        f'{STOCK} has {count} enabled <vehicle source="gpsd://..."> elements, '
+        f"need exactly 1 to follow"
+    )
+
+
 def rewrite(stock: str, maps: Sequence[Path], center: tuple[float, float] | None = None) -> str:
     """Return *stock* for *maps*: speech through espeak-ng, one enabled mapset
     of *maps*, the gpsd vehicle following the position and, given *center*
@@ -65,12 +82,13 @@ def rewrite(stock: str, maps: Sequence[Path], center: tuple[float, float] | None
 
     Raises :class:`NavitConfigError` naming what is missing: no maps, no
     ``<speech type="cmdline">`` element, not exactly one enabled
-    ``<mapset>``, not exactly one enabled gpsd ``<vehicle>``, or -- with a
-    *center* -- no ``<navit center=>``. Navit's own comment says only one
-    mapset may be enabled at a time; if the stock file ever violates that,
-    replacing just the first match would silently leave a second one enabled
-    alongside ours, which Navit would mis-load. Fail loudly instead of
-    guessing which one to keep; the vehicle is refused on the same reasoning.
+    ``<mapset>``, or -- with a *center* -- no ``<navit center=>``. Navit's
+    own comment says only one mapset may be enabled at a time; if the stock
+    file ever violates that, replacing just the first match would silently
+    leave a second one enabled alongside ours, which Navit would mis-load.
+    Fail loudly instead of guessing which one to keep. Not exactly one
+    enabled gpsd vehicle is not refused: the config is written without
+    ``follow``, and :func:`follow_problem` says why for the caller to name.
 
     ``follow="1"`` is what Navit's own stock comment says to add "to have the
     view centered on your position"; without it the view never moved to the
@@ -86,12 +104,6 @@ def rewrite(stock: str, maps: Sequence[Path], center: tuple[float, float] | None
         raise NavitConfigError(
             f"{STOCK} has {len(enabled_mapsets)} enabled <mapset> elements, need exactly 1"
         )
-    vehicles = _gpsd_vehicles(stock)
-    if len(vehicles) != 1:
-        raise NavitConfigError(
-            f'{STOCK} has {len(vehicles)} enabled <vehicle source="gpsd://..."> elements, '
-            f"need exactly 1 to follow the GPS"
-        )
     if center is not None and not _outside_comments(_NAVIT_CENTER, stock):
         raise NavitConfigError(f'{STOCK} has no <navit center="..."> attribute to replace')
 
@@ -105,9 +117,10 @@ def rewrite(stock: str, maps: Sequence[Path], center: tuple[float, float] | None
     mapset = f'<mapset enabled="yes">\n{ours}\n\t\t</mapset>'
     out = _ENABLED_MAPSET.sub(lambda _: mapset, out, count=1)
 
-    (vehicle,) = _gpsd_vehicles(out)
-    tag = vehicle.group()
-    if not _FOLLOW.search(tag):
+    vehicles = _gpsd_vehicles(out)
+    if len(vehicles) == 1 and not _FOLLOW.search(vehicles[0].group()):
+        (vehicle,) = vehicles
+        tag = vehicle.group()
         source = _GPSD_SOURCE.search(tag)
         assert source is not None  # _gpsd_vehicles matched on it
         tag = f'{tag[: source.start()]} follow="1"{tag[source.start() :]}'

@@ -889,7 +889,10 @@ def test_navit_opens_on_the_first_region_s_bbox_midpoint(
         _install_region(tmp_path, region)
         _converted(tmp_path, region)
     steps: list[Any] = _derived(tmp_path, [VT, NH]).steps(manifest_navit, block_navit)
-    assert "centred on the first region" in steps[-1].description
+    assert (
+        "centred on the first region whose header gives a bounding box, "
+        "else the stock centre" in steps[-1].description
+    )
     assert "follow" in steps[-1].description
     steps[-1].perform()
     config = (_data(tmp_path, "osm-navit") / "navit.xml").read_text()
@@ -923,6 +926,61 @@ def test_a_region_header_without_a_bbox_keeps_the_stock_centre_and_says_so(
     assert "stock centre" in result
     config = (_data(tmp_path, "osm-navit") / "navit.xml").read_text()
     assert _navit_center(config) == "11.5666 48.1333"
+
+
+def test_the_outcome_names_the_region_the_centre_came_from(
+    tmp_path: Path, manifest_navit: PackageManifest, block_navit: DerivedDataInstall
+) -> None:
+    for region in (VT, NH):
+        _install_region(tmp_path, region)
+        _converted(tmp_path, region)
+    steps: list[Any] = _derived(tmp_path, [VT, NH]).steps(manifest_navit, block_navit)
+    assert f"opening on -72.0000 44.0000 (from {VT.slug})" in steps[-1].perform()
+
+
+def test_a_first_region_whose_pbf_is_gone_is_named_not_silently_skipped(
+    tmp_path: Path, manifest_navit: PackageManifest, block_navit: DerivedDataInstall
+) -> None:
+    """Fix round 1, M4: a kept region's .bin with no .osm.pbf beside it."""
+    _install_region(tmp_path, NH)
+    for region in (VT, NH):
+        _converted(tmp_path, region)
+    steps: list[Any] = _derived(tmp_path, [VT, NH]).steps(manifest_navit, block_navit)
+    result = steps[-1].perform()
+    gone = _data(tmp_path, "osm-regions") / f"{VT.slug}.osm.pbf"
+    assert f"passed over {gone}: not installed" in result
+    assert f"(from {NH.slug})" in result
+
+
+def test_not_exactly_one_gpsd_vehicle_writes_the_config_and_says_navit_will_not_follow(
+    tmp_path: Path, manifest_navit: PackageManifest, block_navit: DerivedDataInstall
+) -> None:
+    """Fix round 1, I2: soft, like the centre."""
+    # Not _stock()'s path: _derived() rewrites that one from the fixture.
+    stock = tmp_path / "serial-navit.xml"
+    stock.write_text(
+        FIXTURE.read_text().replace(
+            'enabled="yes" active="1" source="gpsd://', 'enabled="no" active="1" source="gpsd://'
+        )
+    )
+    _install_region(tmp_path, VT)
+    _converted(tmp_path, VT)
+    steps: list[Any] = _derived(tmp_path, [VT], stock=stock).steps(manifest_navit, block_navit)
+    result = steps[-1].perform()
+    assert "Navit will not follow the GPS: " in result
+    assert "0 enabled" in result
+    config = (_data(tmp_path, "osm-navit") / "navit.xml").read_text()
+    assert f"{VT.slug}.bin" in config
+    assert 'follow="1" source="gpsd://' not in config
+
+
+def test_one_gpsd_vehicle_says_nothing_about_not_following(
+    tmp_path: Path, manifest_navit: PackageManifest, block_navit: DerivedDataInstall
+) -> None:
+    _install_region(tmp_path, VT)
+    _converted(tmp_path, VT)
+    steps: list[Any] = _derived(tmp_path, [VT]).steps(manifest_navit, block_navit)
+    assert "will not follow" not in steps[-1].perform()
 
 
 def test_a_malformed_region_header_is_named_and_passed_over_not_fatal(

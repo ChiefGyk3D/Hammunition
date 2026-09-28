@@ -209,8 +209,9 @@ class DerivedBackend:
                 description=(
                     f"Write Navit's config for these maps, built from {self.stock} "
                     f"(speech through espeak-ng, one mapset of the regions above, "
-                    f"centred on the first region's bounding box, the GPS vehicle "
-                    f'with follow="1")'
+                    f"centred on the first region whose header gives a bounding box, else "
+                    f'the stock centre; the GPS vehicle with follow="1" where the stock '
+                    f"file has exactly one)"
                 ),
                 detail=str(config),
                 perform=partial(
@@ -454,30 +455,36 @@ class DerivedBackend:
         return f"removed {removed} maptool scratch file(s) from {self.staging}"
 
     @staticmethod
-    def _center(sources: Sequence[Path]) -> tuple[tuple[float, float] | None, list[str]]:
-        """(lon, lat) Navit opens on, and why any region was passed over.
+    def _center(
+        sources: Sequence[Path],
+    ) -> tuple[tuple[float, float] | None, str | None, list[str]]:
+        """(lon, lat) Navit opens on, the region it came from, and why any
+        region before it was passed over.
 
         The first region whose ``.osm.pbf`` header has a bbox. One no longer
         installed, one whose header carries no bbox (the format allows it)
-        and one that cannot be read give way to the next. An unreadable one
-        is named in the step's outcome rather than failing it: a map config
-        opening on the stock centre is still a working config, where a failed
-        step would leave Navit none and hide the ledger's own report."""
+        and one that cannot be read give way to the next, and each is named
+        in the step's outcome rather than failing it: a map config opening on
+        the stock centre is still a working config, where a failed step would
+        leave Navit none and hide the ledger's own report."""
         passed: list[str] = []
         for pbf in sources:
             try:
                 bbox = osm_pbf.header_bbox(pbf)
             except FileNotFoundError:
+                passed.append(f"{pbf}: not installed")
                 continue
             except OSError as exc:
-                passed.append(f"cannot read {pbf}: {exc.strerror or exc}")
+                passed.append(f"{pbf}: cannot read it: {exc.strerror or exc}")
                 continue
             except osm_pbf.OsmPbfError as exc:
                 passed.append(str(exc))
                 continue
-            if bbox is not None:
-                return osm_pbf.bbox_center(bbox), passed
-        return None, passed
+            if bbox is None:
+                passed.append(f"{pbf}: its header has no bounding box")
+                continue
+            return osm_pbf.bbox_center(bbox), pbf.name.removesuffix(PBF), passed
+        return None, None, passed
 
     def _write_config(
         self, maps: Sequence[tuple[Path, Path]], dest: Path, writer: PrefixWriter
@@ -494,16 +501,20 @@ class DerivedBackend:
                 f"cannot read Navit's stock config {self.stock}: {exc.strerror or exc}. "
                 f"It comes from the navit package; install it and run this again."
             ) from exc
-        center, passed = self._center([pbf for _, pbf in present_maps])
+        center, origin, passed = self._center([pbf for _, pbf in present_maps])
+        not_following = navit_config.follow_problem(text)
         try:
             body = navit_config.rewrite(text, present, center=center)
         except navit_config.NavitConfigError as exc:
             raise BackendError(f"{self.stock}: {exc}") from exc
         writer.write_text(dest, body)
         where = (
-            f"opening on {navit_config.format_center(center)}"
+            f"opening on {navit_config.format_center(center)} (from {origin})"
             if center is not None
             else "no region's header gave a bounding box, so Navit keeps the stock centre"
         )
         skipped = "".join(f"; passed over {p}" for p in passed)
-        return f"wrote {dest} ({len(present)} map(s); {where}{skipped})"
+        follow = (
+            "" if not_following is None else f"; Navit will not follow the GPS: {not_following}"
+        )
+        return f"wrote {dest} ({len(present)} map(s); {where}{skipped}{follow})"
