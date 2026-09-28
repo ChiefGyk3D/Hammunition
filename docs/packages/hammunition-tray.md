@@ -4,7 +4,7 @@
 
 **KDE Plasma tray switches for parking and waking radio devices — the Hammunition family's own**
 
-- **Version recorded:** 0.1.0
+- **Version recorded:** 0.2.0
 - **Categories:** `device-support`
 - **Upstream:** <https://github.com/ChiefGyk3D/hammunition-tray>
 - **Desktops:** KDE Plasma only — read from the session files at plan time; deferred from a profile on a machine with none of them, refused by name (see [desktops](../desktops.md))
@@ -23,7 +23,7 @@ KDE Plasma 6. `hammunition hardware apply` must have been run: it installs the r
 
 ## How it installs
 
-- prebuilt deb from https://github.com/ChiefGyk3D/hammunition-tray/releases/download/v0.1.0/hammunition-tray_0.1.0_all.deb
+- prebuilt deb from https://github.com/ChiefGyk3D/hammunition-tray/releases/download/v0.2.0/hammunition-tray_0.2.0_all.deb
   - Installs the applet system-wide under /usr/share/plasma/plasmoids and its icon under /usr/share/icons/hicolor. It runs nothing as root itself; it calls the helper `hammunition hardware apply` installs.
 
 ## Known problems

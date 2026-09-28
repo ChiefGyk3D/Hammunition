@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: CC0-1.0
 
 name: hammunition-tray
-version: "0.1.0"
+version: "0.2.0"
 summary: KDE Plasma tray switches for parking and waking radio devices — the Hammunition family's own
 categories: [device-support]
 
@@ -20,20 +20,22 @@ desktops: [kde]
 # down.
 #
 # Upstream publishes an arch-independent .deb per release beside SHA256SUMS.
-# Fetched from the v0.1.0 release on 2026-09-28: the digest below is what
+# Fetched from the v0.2.0 release on 2026-09-28: the digest below is what
 # sha256sum printed for the downloaded file and what SHA256SUMS lists for it
-# (8088 bytes). `dpkg-deb -f` gave Package hammunition-tray, Version 0.1.0,
+# (9144 bytes). `dpkg-deb -f` gave Package hammunition-tray, Version 0.2.0,
 # Architecture all, Depends plasma-workspace (>= 4:6),
-# qml6-module-org-kde-plasma-plasma5support, qml6-module-org-kde-kirigami --
-# each measured on Parrot 7.3 as the package shipping a QML module the applet
-# imports. The release workflow installed and removed this exact .deb in a
-# docker.io/parrotsec/core container before publishing it.
+# qml6-module-org-kde-plasma-plasma5support, qml6-module-org-kde-kirigami,
+# qml6-module-org-kde-notifications -- each measured on Parrot 7.3 as the
+# package shipping a QML module the applet imports; the last is new in 0.2.0,
+# for the once-per-login notice that a device is kept off. The release
+# workflow installed and removed this exact .deb in a docker.io/parrotsec/core
+# container before publishing it.
 install:
   - install:
       method: binary
       artifact:
-        url: https://github.com/ChiefGyk3D/hammunition-tray/releases/download/v0.1.0/hammunition-tray_0.1.0_all.deb
-        sha256: 6cd248c93e0135d8dd47b56313479c20b4d293af99e3e6b4342b4f9f44ad43e4
+        url: https://github.com/ChiefGyk3D/hammunition-tray/releases/download/v0.2.0/hammunition-tray_0.2.0_all.deb
+        sha256: 5c4891cc141b1497789dcc94209bb5d3b020714ae75a9d5ed85bc517d16faa70
       format: deb
       deb_package: hammunition-tray
     note: >-

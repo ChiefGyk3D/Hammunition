@@ -11,11 +11,63 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.10.0 — 2026-09-28 — device power control, offline navigation, the family's own units
+
+14 pull requests merged between 2026-09-13 and 2026-09-28. Still beta: the
+1.0 checklist in `docs/reference/release-1.0-checklist.md` is unchanged in
+kind. What is new is the station switching its own radios off, finding its
+way with no network, and carrying the other Hammunition projects as ordinary
+pinned units.
+
+### Engine
+
+- Device power control: park and wake a catalogued device from the CLI,
+  generated menu entries and a tray applet, through one root helper at
+  `/usr/local/libexec/hammunition-devctl` behind one polkit action;
+  `power_control` on a manifest names a method from a fixed enum, so the
+  catalog never carries a command (#117, D-056). Installing the helper asks
+  one `yes` that `--yes` cannot answer (#118), and refuses a tree another
+  account can write, the owner's private group excepted.
+- Kept off: a parked device stays parked across reboots, one rewritten-whole
+  udev rule per device; `--until-reboot` opts out; `state` shows intent and
+  reality side by side (#119, D-056 amendment). The reboot itself is not yet
+  measured on the bench.
+- Offline navigation: `osm-regions` fetches OpenStreetMap extracts from
+  Geofabrik, pinned by sha256 for the yearly snapshot of every US state and
+  DC, MD5-checked from Geofabrik for anything else the operator picks;
+  `osm-navit` converts them with Navit's `maptool` as the operator, one
+  region at a time, a failed region never taking the others with it; the
+  selection lives in station config (#121, D-057). `hammunition maps
+  regions` lists what can be chosen.
+- Menus: every installed unit is placed on the day the menu is applied, not
+  only those installed through the engine (#114, D-050 amendment).
+
+### Catalog
+
 - `skid-finder`, the maintainer's passive BLE-spam and Wi-Fi-attack
   detector, carried as an ungated `rf-security` unit from its tagged
-  pre-release tarball, v0.6.0-alpha.1 (install_tree, terminal launcher for
-  its field menu). Alpha upstream; not yet installed through the engine on a target
-  (#116).
+  pre-release tarball, v0.6.0-alpha.1 (#116).
+- `hammunition-tray`, the Plasma applet for park and wake, carried as a
+  pinned `.deb` in `station` (#122); re-pinned to v0.2.0 here, which adds
+  the kept-off label, Forget, and one notice per login.
+- `navit`, `osm-regions`, `osm-navit`, and a post-1.0 `navigation` profile
+  under a new `navigation-maps` category (#121).
+- `wsjtx` claims its aggregator entry in the menu (#115).
+
+### Documentation
+
+- The Hammunition family (hill, tray, skid-finder) described from the main
+  README, and power control in the status (#120).
+- `docs/guides/offline-navigation.md`: choosing regions, disk and time
+  measured on a 6.1 GB country-sized region, and what works with the network
+  off (#121). `docs/hardware/power-control.md` for park, wake and kept off
+  (#117, #119).
+- The rebuilt menu verified as data on GNOME and Xfce (no one has opened
+  either on a VM yet), and COSMIC and Pop!_OS
+  recommendations toward 1.0 (#115).
+- README: socials and donation rows (#109–#113).
 
 ## v0.9.0 — 2026-09-13 — beta: feature-complete for 1.0, verification remains
 
