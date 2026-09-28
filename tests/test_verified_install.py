@@ -15,11 +15,12 @@ into a root-only temporary, hashes *that* as root, and only then publishes.
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 
 import pytest
 
-from hammunition.backends import BackendError, SubprocessRunner
+from hammunition.backends import BackendError, Command, CommandResult, SubprocessRunner
 from hammunition.backends.verified import PrefixWriter
 
 BODY = b"verified bytes\n"
@@ -100,3 +101,42 @@ def test_the_privileged_path_without_a_runner_is_refused(tmp_path: Path) -> None
         PrefixWriter(privileged=True, euid=1000).install_verified(
             src, tmp_path / "d", algorithm="sha256", digest=SHA
         )
+
+
+class _FailingOn:
+    """Runs commands as the test user, failing the first whose argv[0] is *tool*."""
+
+    def __init__(self, tool: str) -> None:
+        self.tool = tool
+        self.inner = SubprocessRunner(euid=0)
+
+    def run(self, command: Command) -> CommandResult:
+        if command.argv[0] == self.tool:
+            return CommandResult(command.argv, 1, "", f"{self.tool}: refused")
+        return self.inner.run(command)
+
+
+@pytest.mark.parametrize("tool", ["chmod", "mv"])
+def test_a_failed_publish_removes_the_root_temporary(tmp_path: Path, tool: str) -> None:
+    """Fix round 2, item 3."""
+    src = tmp_path / "x"
+    src.write_bytes(BODY)
+    dest = tmp_path / "prefix" / "x"
+    writer = PrefixWriter(privileged=True, euid=1000, runner=_FailingOn(tool))
+    with pytest.raises(BackendError, match=tool):
+        writer.install_verified(src, dest, algorithm="sha256", digest=SHA)
+    assert list(dest.parent.iterdir()) == []
+
+
+def test_a_failed_mkdir_does_not_leak_the_source_descriptor(tmp_path: Path) -> None:
+    """Fix round 2, item 3."""
+    src = tmp_path / "x"
+    src.write_bytes(BODY)
+    blocker = tmp_path / "file"
+    blocker.write_bytes(b"not a directory")
+    before = len(os.listdir("/proc/self/fd"))
+    with pytest.raises(OSError):
+        PrefixWriter(privileged=False).install_verified(
+            src, blocker / "sub" / "x", algorithm="sha256", digest=SHA
+        )
+    assert len(os.listdir("/proc/self/fd")) == before

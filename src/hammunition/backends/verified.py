@@ -37,6 +37,7 @@ import stat
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import IO
 
 from .base import BackendError, Command, CommandRunner
 
@@ -124,8 +125,34 @@ class PrefixWriter:
     def _install_direct(
         self, src: Path, dest: Path, *, algorithm: str, digest: str, mode: int
     ) -> None:
-        fd = _open_regular(src)
         dest.parent.mkdir(parents=True, exist_ok=True)
+        with os.fdopen(_open_regular(src), "rb") as reader:
+            self._publish(reader, src, dest, algorithm=algorithm, digest=digest, mode=mode)
+
+    def install_stream(
+        self,
+        reader: IO[bytes],
+        dest: Path,
+        *,
+        algorithm: str,
+        digest: str,
+        what: str,
+        mode: int = 0o644,
+    ) -> None:
+        """Publish bytes read from *reader* (a pipe from a process running as the
+        operator) at *dest*, only if their digest is *digest*. For an engine that
+        can write the prefix itself: root reading an operator's file through a
+        pipe the operator's own process fills never opens the operator's path."""
+        if not self.direct:
+            raise BackendError(
+                f"{what}: a stream is published only by an engine that can write {dest}"
+            )
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        self._publish(reader, Path(what), dest, algorithm=algorithm, digest=digest, mode=mode)
+
+    def _publish(
+        self, reader: IO[bytes], src: Path, dest: Path, *, algorithm: str, digest: str, mode: int
+    ) -> None:
         temporary = self._temporary(dest)
         hasher = _hasher(algorithm)
         try:
@@ -134,7 +161,7 @@ class PrefixWriter:
                 os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
                 0o600,
             )
-            with os.fdopen(fd, "rb") as reader, os.fdopen(out, "wb") as writer:
+            with os.fdopen(out, "wb") as writer:
                 while chunk := reader.read(_CHUNK):
                     hasher.update(chunk)
                     writer.write(chunk)
@@ -172,11 +199,12 @@ class PrefixWriter:
                     f"(expected {digest}, copied {got}); it changed after the fetch. "
                     f"Nothing was installed."
                 )
+            self._run(("chmod", f"{mode:04o}", "--", str(temporary)), f"Set the mode of {dest}")
+            self._run(("mv", "-f", "-T", "--", str(temporary), str(dest)), f"Install {dest}")
         except BackendError:
+            # The root-only temporary never outlives a refusal or a failed publish.
             self._run(("rm", "-f", "--", str(temporary)), f"Remove {temporary}")
             raise
-        self._run(("chmod", f"{mode:04o}", "--", str(temporary)), f"Set the mode of {dest}")
-        self._run(("mv", "-f", "-T", "--", str(temporary), str(dest)), f"Install {dest}")
 
     def write_text(self, dest: Path, text: str, *, mode: int = 0o644) -> None:
         """Write a small text file (a snapshot sidecar) into the prefix."""
