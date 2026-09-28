@@ -7,6 +7,7 @@
 - **Version recorded:** 0.1.0
 - **Categories:** `device-support`
 - **Upstream:** <https://github.com/ChiefGyk3D/hammunition-tray>
+- **Desktops:** KDE Plasma only — read from the session files at plan time; deferred from a profile on a machine with none of them, refused by name (see [desktops](../desktops.md))
 
 ## What it does
 
@@ -27,7 +28,7 @@ KDE Plasma 6. `hammunition hardware apply` must have been run: it installs the r
 
 ## Known problems
 
-**KDE only**; there is no applet for GNOME, Xfce or COSMIC yet. Plasma keeps the old version of an applet loaded after an install or upgrade until `systemctl --user restart plasma-plasmashell` or a new login. A per-user copy installed from the repository's own install.sh (~/.local/share/plasma/plasmoids) shadows this system-wide one; run that repository's uninstall.sh once after switching to this package. After installing, add *Hammunition Devices* to the panel or set it to shown in the System Tray's settings: nothing places it for you.
+**KDE only.** On a machine with no Plasma session, `station` defers it by name and installs the rest, and `hammunition install hammunition-tray` refuses, so a lightweight desktop is never handed the Plasma shell (D-060, docs/desktops.md). A Qt tray for Xfce, LXQt, LXDE, MATE and Cinnamon is planned; GNOME and COSMIC have none yet. Plasma keeps the old version of an applet loaded after an install or upgrade until `systemctl --user restart plasma-plasmashell` or a new login. A per-user copy installed from the repository's own install.sh (~/.local/share/plasma/plasmoids) shadows this system-wide one; run that repository's uninstall.sh once after switching to this package. After installing, add *Hammunition Devices* to the panel or set it to shown in the System Tray's settings: nothing places it for you.
 
 ## Keeping it current
 

@@ -6,6 +6,13 @@ version: "0.1.0"
 summary: KDE Plasma tray switches for parking and waking radio devices — the Hammunition family's own
 categories: [device-support]
 
+# A Plasma applet, and its .deb depends on plasma-workspace: on a machine with
+# no Plasma session it is deferred from a profile and refused by name rather
+# than pulling the whole Plasma shell onto an Xfce or LXQt machine (D-060).
+# The Qt tray for the other panels, hammunition-tray-qt, is named here as
+# desktop_alternative once its release exists to pin.
+desktops: [kde]
+
 # ADD. Like hammunition-hill and skid-finder, a unit whose upstream is this
 # project's own maintainer, disclosed here: a separate repository (GPL-3.0),
 # its own release process and tests, carried on the same terms as everything
@@ -64,7 +71,11 @@ documentation:
     switches. A device only gets a switch when its catalog entry carries a
     power_control block and it is plugged in.
   known_problems: >-
-    **KDE only**; there is no applet for GNOME, Xfce or COSMIC yet. Plasma
+    **KDE only.** On a machine with no Plasma session, `station` defers it
+    by name and installs the rest, and `hammunition install
+    hammunition-tray` refuses, so a lightweight desktop is never handed the
+    Plasma shell (D-060, docs/desktops.md). A Qt tray for Xfce, LXQt, LXDE,
+    MATE and Cinnamon is planned; GNOME and COSMIC have none yet. Plasma
     keeps the old version of an applet loaded after an install or upgrade
     until `systemctl --user restart plasma-plasmashell` or a new login. A
     per-user copy installed from the repository's own install.sh

@@ -29,6 +29,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from hammunition.desktop import Desktop
+
 __all__ = [
     "Binary",
     "ConsentGate",
@@ -1278,6 +1280,31 @@ class PackageManifest(Strict):
         ),
     )
 
+    desktops: list[Desktop] | None = Field(
+        default=None,
+        description=(
+            "The desktops this unit is for, when it is for some and not others: "
+            "`kde`, `gnome`, `xfce`, `lxqt`, `lxde`, `mate`, `cinnamon`. Omitted "
+            "means any desktop, which is every unit that is not a panel applet or "
+            "the like. Decided at plan time against the session files under "
+            "/usr/share/xsessions and /usr/share/wayland-sessions, never "
+            "XDG_CURRENT_DESKTOP (sudo drops it): a machine with no session for "
+            "any listed desktop defers the unit in a profile and refuses it by "
+            "name (D-060). The case it exists for is `hammunition-tray`, a Plasma "
+            "applet whose .deb pulls plasma-workspace onto an Xfce machine."
+        ),
+    )
+    desktop_alternative: str | None = Field(
+        default=None,
+        description=(
+            "The unit that does this job on the desktops this one is not for, "
+            "named in the refusal and the deferral so the operator is told what "
+            "to install instead. It must exist in the catalog, and its "
+            "`desktops` must share none with this unit's (checked when the "
+            "catalog loads). Requires `desktops`."
+        ),
+    )
+
     menu_title: str | None = Field(
         default=None,
         description=(
@@ -1364,6 +1391,28 @@ class PackageManifest(Strict):
             value = getattr(self, field)
             if value is not None and not value.strip():
                 raise ManifestError(f"{field} is blank; omit it or give the menu something to show")
+        return self
+
+    @model_validator(mode="after")
+    def _desktops_are_a_real_list(self) -> PackageManifest:
+        """D-060. An empty list would be a unit for no desktop -- never
+        installable, and silently so -- and a duplicate is a typo."""
+        if self.desktops is not None:
+            if not self.desktops:
+                raise ManifestError(
+                    f"{self.name}: desktops is empty; omit it for a unit that works on any desktop"
+                )
+            dupes = sorted({d.value for d in self.desktops if self.desktops.count(d) > 1})
+            if dupes:
+                raise ManifestError(f"{self.name}: desktops lists {', '.join(dupes)} twice")
+        if self.desktop_alternative is not None:
+            if self.desktops is None:
+                raise ManifestError(
+                    f"{self.name}: desktop_alternative needs desktops; a unit for every "
+                    f"desktop has no desktop for an alternative to serve"
+                )
+            if self.desktop_alternative == self.name:
+                raise ManifestError(f"{self.name}: desktop_alternative names the unit itself")
         return self
 
     @model_validator(mode="after")

@@ -719,7 +719,13 @@ Resolution is a distinct phase that finishes before anything is executed
    *own* packages, or the distribution's Node is below the manifest's floor
    — and for one fact about the *machine*: the running kernel lacks a
    subsystem the manifest's `requires_kernel` names (**D-041**; Linux 7.1
-   removed AX.25, and Kali on 7.1.5 defers eight `packet` members).
+   removed AX.25, and Kali on 7.1.5 defers eight `packet` members) — and
+   for another: the unit's `desktops` names none of the desktops the
+   session files under `/usr/share/xsessions` and
+   `/usr/share/wayland-sessions` offer (**D-060**; `station` defers the
+   Plasma applet `hammunition-tray` on an Xfce or LXQt machine rather than
+   pull in `plasma-workspace`). When a unit declares `desktops`, the plan
+   prints *Desktops read from session files* with what they offered.
    The member and its catalog dependents are listed under *Will NOT happen*
    with the reason, and the rest of the profile installs (**D-039**). A
    name you typed is never deferred: `hammunition install satdump` on
@@ -777,6 +783,7 @@ capability matrix that reports coverage the engine does not have is the shim
 | No apt package lists at all, and `--no-refresh` | that this is a stale-lists problem, and that dropping `--no-refresh` lets this run fix it. Without the flag, the run's own `apt-get update` comes first and the plan says instead that the candidate check cannot be done before it |
 | A group membership with no identifiable operator | that `--user` is needed |
 | A unit whose `requires_kernel` names a subsystem the running kernel's module tree lacks | the unit, the kernel release and the merge that removed the subsystem, with the remedies that exist: a distribution kernel that still carries it, or the userspace path (Direwolf's KISS/AGW ports serve pat, LinBPQ, YAAC and Xastir without kernel AX.25). Never an offer to build the module — no distribution packages one, and Hammunition builds no kernel modules (**D-041**). A *profile* member is deferred instead, the D-039 shape. No module tree for the running kernel at all — a container — is disclosed as *cannot be checked* and the unit plans |
+| A unit whose `desktops` names none of the desktops this machine's session files offer | the unit, the desktops it is for and the ones the machine has (`(it has none)` on a server or container), and the remedy: the unit its manifest names in `desktop_alternative` when that one serves a desktop the machine has, otherwise installing a session for the unit's desktop first. A *profile* member is deferred instead, the D-039 shape (**D-060**) |
 
 The dependency check is the one that earns its keep. **D-016** names four AHRL
 dependency lines suspected of failing silently for years — `fftw2` (FFTW

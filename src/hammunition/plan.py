@@ -48,6 +48,7 @@ from hammunition.backends import (
 from hammunition.backends.apt import downgrades_refused
 from hammunition.backends.apt_repo import AptRepoBackend, RepoState
 from hammunition.backends.source import IMPLEMENTED_BUILD_SYSTEMS
+from hammunition.desktop import Desktop, describe_set
 from hammunition.distro import Target
 from hammunition.kernel import (
     DESCRIBE,
@@ -297,6 +298,11 @@ class InstallPlan:
     notes: tuple[str, ...] = field(default_factory=tuple)
     deferrals: tuple[Deferral, ...] = ()
     """Parts of the request that will not happen, and why. D-035."""
+
+    desktops_read: frozenset[Desktop] | None = None
+    """The desktops the session files offered, when a unit in the request is
+    for particular desktops and they were read (D-060). None otherwise: the
+    plan says nothing about desktops it did not decide anything against."""
 
     config_files: tuple[tuple[str, ConfigFile, str], ...] = ()
     """(package, config file, rendered body) for every file that WILL be written."""
@@ -852,6 +858,80 @@ def _target_deferral(name: str, wanted: Mapping[str, Sequence[str]], why: str) -
     )
 
 
+def _desktop_reason(manifest: PackageManifest, have: frozenset[Desktop]) -> str:
+    """``for KDE Plasma; this machine has no KDE Plasma session (it has: Xfce)``."""
+    want = frozenset(manifest.desktops or ())
+    listed = describe_set(want)
+    either = " or ".join(listed.split(", "))
+    it_has = f"it has: {describe_set(have)}" if have else "it has none"
+    return f"for {listed}; this machine has no {either} session ({it_has})"
+
+
+def _serving_alternative(
+    manifest: PackageManifest, have: frozenset[Desktop], catalog: Mapping[str, PackageManifest]
+) -> tuple[str, frozenset[Desktop]] | None:
+    """The declared alternative and the desktops of this machine it serves, if any."""
+    name = manifest.desktop_alternative
+    other = catalog.get(name) if name is not None else None
+    if name is None or other is None:
+        return None
+    serves = have if other.desktops is None else have & frozenset(other.desktops)
+    return (name, serves) if serves else None
+
+
+def _desktop_deferral(
+    manifest: PackageManifest,
+    have: frozenset[Desktop],
+    catalog: Mapping[str, PackageManifest],
+    wanted: Mapping[str, Sequence[str]],
+) -> Deferral:
+    """D-060: a profile member for a desktop this machine has no session for.
+
+    The D-039 shape, with its own remedy: the generic one says a release that
+    carries the unit needs no change, and a release is not what is missing.
+    """
+    via = [w for w in wanted[manifest.name] if w != REQUESTED_DIRECTLY]
+    profiles = [w.removeprefix("profile ") for w in via if w.startswith("profile ")]
+    again = f"`hammunition install {profiles[0]}`" if profiles else "the same install"
+    remedy = (
+        f"the rest installs without it; on a machine that gains a "
+        f"{' or '.join(describe_set(frozenset(manifest.desktops or ())).split(', '))} session, "
+        f"{again} again picks it up"
+    )
+    alternative = _serving_alternative(manifest, have, catalog)
+    if alternative is not None:
+        remedy += f". For {describe_set(alternative[1])}, `hammunition install {alternative[0]}`"
+    return Deferral(
+        subject=manifest.name,
+        what=f"will not be installed ({', '.join(via)})",
+        why=_desktop_reason(manifest, have),
+        remedy=remedy,
+        kind="package",
+    )
+
+
+def _desktop_blocker(
+    manifest: PackageManifest, have: frozenset[Desktop], catalog: Mapping[str, PackageManifest]
+) -> Blocker:
+    """D-060: the same condition, for a unit the operator typed (D-039)."""
+    want = describe_set(frozenset(manifest.desktops or ()))
+    alternative = _serving_alternative(manifest, have, catalog)
+    if alternative is not None:
+        remedy = (
+            f"`hammunition install {alternative[0]}` is the one for "
+            f"{describe_set(alternative[1])}; {manifest.name} needs a {want} session "
+            f"installed first"
+        )
+    else:
+        remedy = (
+            f"{manifest.name} does nothing without a {want} session; install one first "
+            f"and plan again, or leave {manifest.name} out"
+        )
+    return Blocker(
+        subject=manifest.name, reason=f"is {_desktop_reason(manifest, have)}", remedy=remedy
+    )
+
+
 def _reads_map_regions(
     block: InstallBlock, catalog: Mapping[str, PackageManifest], target: Target
 ) -> bool:
@@ -985,6 +1065,7 @@ def resolve(
     station: Station | None = None,
     repos: AptRepoBackend | None = None,
     kernel: KernelProbe | None = None,
+    desktops: frozenset[Desktop] | None = None,
     log: TransactionLog | None = None,
 ) -> InstallPlan:
     """Build a complete plan, or raise :class:`PlanError` listing every blocker.
@@ -997,6 +1078,12 @@ def resolve(
     ``kernel`` is the running kernel's module tree, consulted only for units
     that declare ``requires_kernel``; ``None`` means it was not read, which is
     disclosed on those units rather than assumed either way.
+
+    ``desktops`` is what the session files offer (:func:`hammunition.desktop.
+    installed_desktops`), consulted only for units that declare ``desktops``;
+    ``None`` means they were not read, disclosed on those units the way an
+    unreadable kernel is. Passed in, never read here: the planner must answer
+    the same in a test, a container and under sudo (D-060).
 
     ``log`` is the transaction log, consulted only to attribute an installed
     vendor .deb to this engine (#63); ``None`` means no unit can be already
@@ -1023,6 +1110,7 @@ def resolve(
     # asking to see the refusal.
     deferrable = {name for name in ordered if REQUESTED_DIRECTLY not in wanted[name]}
     deferred: dict[str, Deferral] = {}
+    notes_early: list[str] = []
     repo_additions: list[RepoAddition] = []
     target_name = target.pretty_name or f"{target.distro} {target.version}".strip()
 
@@ -1035,6 +1123,25 @@ def resolve(
         if status is not None:
             blockers.append(status)
             continue
+
+        # D-060: a unit for particular desktops, on a machine whose session
+        # files offer none of them. A fact about the machine, so a profile
+        # member defers (D-039) and a typed name refuses. Checked before the
+        # archive, so the reason given is the one that matters: an Xfce
+        # machine is told the tray is for Plasma, not what apt thinks of it.
+        if manifest.desktops is not None:
+            want = frozenset(manifest.desktops)
+            if desktops is None:
+                notes_early.append(
+                    f"{name} is for {describe_set(want)}, and this machine's session files "
+                    f"were not read, so whether it has one is not known; it is planned as asked."
+                )
+            elif not want & desktops:
+                if name in deferrable:
+                    deferred[name] = _desktop_deferral(manifest, desktops, catalog, wanted)
+                else:
+                    blockers.append(_desktop_blocker(manifest, desktops, catalog))
+                continue
 
         block = manifest.resolve(target.distro, target.version, target.arch)
         if block is None:
@@ -1162,7 +1269,7 @@ def resolve(
         }
     )
     states = {}
-    notes: list[str] = []
+    notes: list[str] = notes_early
     # `or all_conflicts`: a unit with nothing to apt-install (a pure vendor
     # .deb) still needs the probe to know whether its declared conflicts are
     # installed -- the gate that skipped it left the wsjtx-improved refusal
@@ -1697,6 +1804,12 @@ def resolve(
         group_memberships=memberships,
         consent_gates=tuple(gates),
         notes=tuple(notes),
+        desktops_read=(
+            desktops
+            if desktops is not None
+            and any(catalog[n].desktops is not None for n in ordered if n in catalog)
+            else None
+        ),
         deferrals=tuple(deferrals),
         config_files=tuple(config_files),
         apt_release=apt_release,

@@ -26,6 +26,8 @@ packages:
   # tool: the plan is for it to show what this installer set up.
   - hammunition-hill
   # Its tray applet: switches for parking the GPS and the modem, KDE only.
+  # A machine with no Plasma session defers it by name and the rest of the
+  # profile installs, rather than pulling in plasma-workspace (D-060).
   - hammunition-tray
 
 documentation:

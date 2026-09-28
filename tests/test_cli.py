@@ -14,6 +14,7 @@ against a fixture of expected text.
 from __future__ import annotations
 
 import argparse
+import importlib
 import os
 import pwd
 import sys
@@ -919,6 +920,42 @@ def test_install_reads_the_running_kernel_and_refuses_ax25_tools_without_ax25(
     assert rc == EXIT_UNPLANNABLE
     assert "ax25-tools" in err and release in err and "AX.25" in err
     assert "Nothing was changed" in err
+
+
+def test_install_station_on_xfce_defers_the_plasma_tray_and_says_what_it_read(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    """D-060 through main(), against the shipped catalog: the session files
+    are read by the CLI and handed to the planner, which defers the Plasma
+    applet from `station` on a machine whose only desktop is Xfce."""
+    cli = importlib.import_module("hammunition.cli.main")
+    from hammunition.desktop import Desktop
+
+    _mock_apt(monkeypatch, populated=True)
+    monkeypatch.setattr(cli, "installed_desktops", lambda: frozenset({Desktop.xfce}))
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "station"])
+    out = capsys.readouterr().out
+    assert rc == EXIT_OK
+    assert "Desktops read from session files" in out
+    assert "hammunition-tray: will not be installed (profile station)" in out
+    assert "no KDE Plasma session (it has: Xfce)" in out
+    assert "plasma-workspace" not in out
+
+
+def test_install_hammunition_tray_by_name_with_no_sessions_is_refused(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    """A container or a server: no session files at all. Typed by name, the
+    applet is refused (D-039's rule for a name the operator typed)."""
+    cli = importlib.import_module("hammunition.cli.main")
+
+    _mock_apt(monkeypatch, populated=True)
+    monkeypatch.setattr(cli, "installed_desktops", lambda: frozenset())
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "hammunition-tray"])
+    err = capsys.readouterr().err
+    assert rc == EXIT_UNPLANNABLE
+    assert "hammunition-tray: is for KDE Plasma" in err
+    assert "(it has none)" in err
 
 
 @pytest.mark.parametrize("flags", [(), ("--refresh",)])

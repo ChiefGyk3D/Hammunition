@@ -83,7 +83,7 @@ from hammunition.consent import (
     resolve_consent,
     resolve_repo_consent,
 )
-from hammunition.desktop import current_desktop, installed_desktops
+from hammunition.desktop import current_desktop, describe_set, installed_desktops
 from hammunition.distro import DetectionError, Target
 from hammunition.execute import (
     Step,
@@ -447,6 +447,16 @@ def render_plan(
             lines.append(f"  {config.path}  ({verb}, mode {config.mode}, {backup})  [{package}]")
         lines.append("")
 
+    if plan.desktops_read is not None:
+        # D-060: a unit in this request is for particular desktops, and what
+        # decided it is on disk rather than in the caller's environment, so
+        # the plan names both the files and what they said.
+        lines.append(
+            "Desktops read from session files (/usr/share/xsessions, /usr/share/wayland-sessions):"
+        )
+        lines.append(f"  {describe_set(plan.desktops_read)}")
+        lines.append("")
+
     if plan.deferrals:
         # Deliberately after the packages and before the notes: this is the
         # part of the request that will NOT happen, and burying it under a
@@ -797,6 +807,7 @@ def cmd_update(args: argparse.Namespace) -> int:
             station=station,
             repos=repos,
             kernel=KernelProbe.detect(),
+            desktops=installed_desktops(),
             log=read_log,
         )
     except PlanError as exc:
@@ -1255,6 +1266,9 @@ def cmd_install(args: argparse.Namespace) -> int:
             # The running kernel is a fact about this machine, not the target
             # (one Pop!_OS 24.04 VM has AX.25 under 7.0.11 and not under 7.1.5).
             kernel=KernelProbe.detect(),
+            # Which desktops the session files offer (D-060): files on disk,
+            # so the answer under sudo is the answer outside it.
+            desktops=installed_desktops(),
             # Read-only here: whether a vendor .deb already on the machine is
             # ours to skip (#63). The same log is written to after the plan.
             log=read_log,

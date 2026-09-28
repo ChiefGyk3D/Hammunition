@@ -38,6 +38,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 import yaml  # noqa: E402
 
 from hammunition.backends.source import DEFAULT_PREFIX, tree_destination  # noqa: E402
+from hammunition.desktop import describe_set  # noqa: E402
 from hammunition.manifest.load import load_catalog  # noqa: E402
 from hammunition.manifest.schema import (  # noqa: E402
     AptInstall,
@@ -160,6 +161,15 @@ def page(m: PackageManifest) -> str:
             + " — checked against the running kernel at plan time; "
             "see [kernel-ax25](../reference/kernel-ax25.md)"
         )
+    if m.desktops is not None:
+        line = (
+            f"- **Desktops:** {describe_set(frozenset(m.desktops))} only — read from the "
+            "session files at plan time; deferred from a profile on a machine with none of "
+            "them, refused by name (see [desktops](../desktops.md))"
+        )
+        if m.desktop_alternative:
+            line += f"; elsewhere, [`{m.desktop_alternative}`]({m.desktop_alternative}.md)"
+        out.append(line)
     if m.supersedes:
         out.append("- **Supersedes:** " + ", ".join(f"`{p}`" for p in m.supersedes))
     if m.superseded_by:
