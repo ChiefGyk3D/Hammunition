@@ -572,6 +572,14 @@ def cmd_station_show(args: argparse.Namespace) -> int:
     for field in sorted(STATION_FIELDS):
         value = station.get(field)
         print(f"  {field:<14} {value if value else '(not set)'}")
+    # Region names reveal where the operator lives, so only a count is ever
+    # printed here -- `station show` output is the kind of thing that gets
+    # pasted into an issue.
+    if station.map_regions:
+        print(f"  {'map regions':<14} {len(station.map_regions)} set")
+    else:
+        print(f"  {'map regions':<14} (not set)")
+    print(f"  {'map freshness':<14} {station.freshness}")
     return EXIT_OK
 
 
@@ -581,30 +589,49 @@ def cmd_station_set(args: argparse.Namespace) -> int:
         current = load_station(owner=user)
     except StationError:
         current = Station()
-    overrides = {
-        field: value
+    set_fields = [
+        field
         for field, value in (
             ("callsign", args.callsign),
             ("grid_square", args.grid_square),
             ("node_alias", args.node_alias),
+            ("map_regions", args.map_regions),
+            ("map_freshness", args.map_freshness),
         )
         if value
-    }
-    if not overrides:
+    ]
+    if not set_fields:
         print(
-            "error: nothing to set. Pass at least one of --callsign, --grid-square, --node-alias.",
+            "error: nothing to set. Pass at least one of --callsign, --grid-square, "
+            "--node-alias, --map-regions, --map-freshness.",
             file=sys.stderr,
         )
         return EXIT_FAILED
+    map_regions = (
+        tuple(r for r in args.map_regions.split(",") if r)
+        if args.map_regions
+        else current.map_regions
+    )
     try:
-        station = Station(**{**current.as_dict(), **overrides})
+        station = Station(
+            callsign=args.callsign or current.callsign,
+            grid_square=args.grid_square or current.grid_square,
+            node_alias=args.node_alias or current.node_alias,
+            map_regions=map_regions,
+            map_freshness=args.map_freshness or current.map_freshness,
+        )
     except StationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_FAILED
     path = save_station(station, owner=user)
     print(f"Saved to {path} (mode 0600).")
-    for field in sorted(overrides):
-        print(f"  {field:<14} {station.get(field)}")
+    for field in sorted(set_fields):
+        if field == "map_regions":
+            print(f"  {field:<14} {len(station.map_regions)} set")
+        elif field == "map_freshness":
+            print(f"  {field:<14} {station.freshness}")
+        else:
+            print(f"  {field:<14} {station.get(field)}")
     return EXIT_OK
 
 
@@ -2580,6 +2607,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_station_set.add_argument("--callsign", default=None)
     p_station_set.add_argument("--grid-square", default=None)
     p_station_set.add_argument("--node-alias", default=None)
+    p_station_set.add_argument(
+        "--map-regions",
+        default=None,
+        help="comma-separated Geofabrik regions to carry offline maps for",
+    )
+    p_station_set.add_argument(
+        "--map-freshness", default=None, choices=("yearly", "monthly", "latest")
+    )
     p_station_set.add_argument("--user", default=None, help="whose configuration to write")
     p_station_set.set_defaults(func=cmd_station_set)
 

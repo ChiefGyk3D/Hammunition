@@ -75,6 +75,21 @@ CALLSIGN = re.compile(r"^[A-Z0-9]{1,3}[0-9][A-Z0-9]{0,3}(?:/[A-Z0-9]{1,4})*$")
 #: extended pairs some software wants. Case is normalised before matching.
 GRID_SQUARE = re.compile(r"^[A-R]{2}[0-9]{2}(?:[A-X]{2}(?:[0-9]{2})?)?$")
 
+#: How often a downloaded map region is refreshed. ``yearly`` is the default
+#: applied when nothing is set, never invented as a stored value.
+FRESHNESS = ("yearly", "monthly", "latest")
+
+#: A Geofabrik download path: lowercase words joined by ``/``, e.g.
+#: ``north-america/us/vermont``. No leading/trailing slash, no ``..``, no
+#: whitespace -- the shape a URL path segment needs, not a check that the
+#: region exists in Geofabrik's index.
+REGION = re.compile(r"[a-z0-9-]+(/[a-z0-9-]+)*")
+
+#: Station fields not named in this set are also `Station` dataclass fields,
+#: but map settings are data the maps subsystem reads directly -- never a
+#: `{station.*}` template variable -- so they are excluded here.
+_MAP_FIELDS = frozenset({"map_regions", "map_freshness"})
+
 
 @dataclass(frozen=True)
 class Station:
@@ -89,6 +104,12 @@ class Station:
     grid_square: str | None = None
     node_alias: str | None = None
     """A short name a packet node answers to, distinct from the callsign."""
+    map_regions: tuple[str, ...] = ()
+    """Geofabrik region paths to carry offline maps for, e.g.
+    ``north-america/us/vermont``. Several at once; none means the map data
+    units are deferred (D-035)."""
+    map_freshness: str | None = None
+    """``yearly`` (the default when unset), ``monthly`` or ``latest``."""
 
     def __post_init__(self) -> None:
         if self.callsign is not None:
@@ -117,6 +138,24 @@ class Station:
                     f"characters — packet node aliases are short by protocol."
                 )
             object.__setattr__(self, "node_alias", alias)
+        regions = tuple(r.strip() for r in self.map_regions)
+        for region in regions:
+            if not REGION.fullmatch(region):
+                raise StationError(
+                    f"map region {region!r} is not a Geofabrik region path "
+                    f"(lowercase words joined by '/', e.g. north-america/us/vermont). "
+                    f"`hammunition maps regions` lists them."
+                )
+        object.__setattr__(self, "map_regions", regions)
+        if self.map_freshness is not None and self.map_freshness not in FRESHNESS:
+            raise StationError(
+                f"map freshness {self.map_freshness!r} is not one of {', '.join(FRESHNESS)}"
+            )
+
+    @property
+    def freshness(self) -> str:
+        """The effective freshness: what is stored, or ``yearly`` if unset."""
+        return self.map_freshness or "yearly"
 
     def get(self, variable: str) -> str | None:
         """The value a `{station.<variable>}` reference resolves to, or None."""
@@ -126,14 +165,28 @@ class Station:
         """Of *variables*, the ones this station cannot supply."""
         return tuple(sorted(v for v in variables if not self.get(v)))
 
-    def as_dict(self) -> dict[str, str]:
-        return {f.name: v for f in fields(self) if (v := getattr(self, f.name))}
+    def as_dict(self) -> dict[str, str | list[str]]:
+        result: dict[str, str | list[str]] = {
+            f.name: v
+            for f in fields(self)
+            if f.name not in _MAP_FIELDS and (v := getattr(self, f.name))
+        }
+        if self.map_regions:
+            result["map_regions"] = list(self.map_regions)
+        if self.map_freshness is not None:
+            result["map_freshness"] = self.map_freshness
+        return result
 
 
 #: The variables a manifest may reference. Kept beside the dataclass so a
 #: template naming something unknown is a reportable error rather than an
-#: empty substitution.
-STATION_FIELDS: frozenset[str] = frozenset(f.name for f in fields(Station))
+#: empty substitution. Map settings are excluded -- they are read directly by
+#: the maps subsystem, never templated into a config file.
+STATION_FIELDS: frozenset[str] = frozenset(f.name for f in fields(Station)) - _MAP_FIELDS
+
+#: Every value the station file may hold, template variable or not -- what
+#: `load_station` accepts without raising "sets values nothing can use".
+_KNOWN_KEYS: frozenset[str] = frozenset(f.name for f in fields(Station))
 
 PROMPTS: dict[str, str] = {
     "callsign": "Your callsign (transmitted, so it must be yours)",
@@ -169,13 +222,25 @@ def load_station(path: Path | None = None, owner: str | None = None) -> Station:
         raise StationError(f"{target} is not valid YAML: {exc}") from exc
     if not isinstance(data, dict):
         raise StationError(f"{target} must contain a mapping, not {type(data).__name__}")
-    unknown = sorted(set(data) - STATION_FIELDS)
+    unknown = sorted(set(data) - _KNOWN_KEYS)
     if unknown:
         raise StationError(
             f"{target} sets values nothing can use: {', '.join(unknown)}. "
-            f"Known values: {', '.join(sorted(STATION_FIELDS))}."
+            f"Known values: {', '.join(sorted(_KNOWN_KEYS))}."
         )
-    return Station(**{k: str(v) for k, v in data.items() if v is not None})
+
+    def _str(key: str) -> str | None:
+        value = data.get(key)
+        return str(value) if value is not None else None
+
+    regions = data.get("map_regions")
+    return Station(
+        callsign=_str("callsign"),
+        grid_square=_str("grid_square"),
+        node_alias=_str("node_alias"),
+        map_regions=tuple(str(r) for r in regions) if regions is not None else (),
+        map_freshness=_str("map_freshness"),
+    )
 
 
 def save_station(station: Station, path: Path | None = None, owner: str | None = None) -> Path:
@@ -200,7 +265,10 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
     Returns a new Station. Only called when standard input is a terminal --
     a non-interactive run defers instead, which is the whole point.
     """
-    values = station.as_dict()
+    # Map settings are not template variables (`variable` only ever names one
+    # of STATION_FIELDS -- `station.get` gates on that), so they are carried
+    # through unchanged rather than passed through this dict of strings.
+    values: dict[str, str] = {f: v for f in STATION_FIELDS if (v := station.get(f)) is not None}
     for variable in variables:
         if station.get(variable):
             continue
@@ -211,13 +279,17 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
                 print("  (skipped — the configuration needing it will not be written)")
                 break
             try:
-                Station(**{**values, variable: answer})
+                Station(
+                    map_regions=station.map_regions,
+                    map_freshness=station.map_freshness,
+                    **{**values, variable: answer},
+                )
             except StationError as exc:
                 print(f"  {exc}")
                 continue
             values[variable] = answer
             break
-    return Station(**values)
+    return Station(map_regions=station.map_regions, map_freshness=station.map_freshness, **values)
 
 
 def is_interactive() -> bool:

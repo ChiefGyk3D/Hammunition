@@ -2286,3 +2286,31 @@ def test_hardware_unapply_removes_both_recorded_owned_paths(
     assert not helper.exists()
     assert not policy.exists()
     assert "Done and verified" in capsys.readouterr().out
+
+
+def test_station_set_map_regions_and_freshness(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    target = tmp_path / "station.yaml"
+    monkeypatch.setattr("hammunition.station.config_path", lambda owner=None: target)
+    assert (
+        cli.main(
+            [
+                "station",
+                "set",
+                "--map-regions",
+                "north-america/us/vermont,north-america/us/new-hampshire",
+                "--map-freshness",
+                "latest",
+            ]
+        )
+        == 0
+    )
+    from hammunition.station import load_station
+
+    s = load_station(target)
+    assert s.map_regions == ("north-america/us/vermont", "north-america/us/new-hampshire")
+    assert s.freshness == "latest"
