@@ -2770,11 +2770,12 @@ def cmd_hardware_wake(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+@envelope.json_capable()
 def cmd_doctor(args: argparse.Namespace) -> int:
     """Report what is ready and what is not yet set up. Changes nothing."""
     import shutil
 
-    from hammunition.doctor import run_checks, summarize, writable_or_creatable
+    from hammunition.doctor import run_checks, writable_or_creatable
     from hammunition.hardware import RULES_PATH, plan_hardware, rules_file
     from hammunition.manifest.load import load_hardware
     from hammunition.paths import state_dir
@@ -2875,22 +2876,15 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         kept_absent=kept_absent,
     )
 
-    glyph = {"ok": "✓", "warn": "!", "fail": "✗", "info": "·"}
-    print("Hammunition health check\n")
-    for check in checks:
-        print(f"  [{glyph[check.status]}] {check.name:14} {check.detail}")
-        if check.fix and check.status in ("fail", "warn"):
-            print(f"      → {check.fix}")
-    fails, warns, healthy = summarize(checks)
-    print(f"\n{healthy} ok, {warns} to look at, {fails} blocking.")
-    if fails:
-        print("Fix the blocking items above before installing.")
-        return EXIT_FAILED
-    if warns:
-        print("The engine works; the items marked ! limit what you can install until fixed.")
+    from hammunition.interface.doctor import build_doctor, render_doctor
+
+    doc = build_doctor(checks)
+    if envelope.wanted(args):
+        envelope.emit(doc)
     else:
-        print("Ready.")
-    return EXIT_OK
+        for line in render_doctor(doc):
+            print(line)
+    return EXIT_FAILED if doc.fails else EXIT_OK
 
 
 # ---------------------------------------------------------------------------

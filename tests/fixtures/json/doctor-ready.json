@@ -1,0 +1,22 @@
+{
+  "schema": "hammunition/1",
+  "kind": "doctor",
+  "engine": "<engine>",
+  "checks": [
+    {
+      "name": "system",
+      "status": "ok",
+      "detail": "Debian GNU/Linux 13",
+      "fix": null
+    },
+    {
+      "name": "udev rules",
+      "status": "info",
+      "detail": "udev rules not yet applied",
+      "fix": "hammunition hardware apply"
+    }
+  ],
+  "fails": 0,
+  "warns": 0,
+  "healthy": 2
+}
