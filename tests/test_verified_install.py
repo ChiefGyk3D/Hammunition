@@ -140,3 +140,16 @@ def test_a_failed_mkdir_does_not_leak_the_source_descriptor(tmp_path: Path) -> N
             src, blocker / "sub" / "x", algorithm="sha256", digest=SHA
         )
     assert len(os.listdir("/proc/self/fd")) == before
+
+
+def test_write_text_never_writes_through_a_planted_temporary(tmp_path: Path) -> None:
+    """Final review, item 3: the direct path creates its temporary O_EXCL|O_NOFOLLOW."""
+    victim = tmp_path / "victim"
+    victim.write_text("keep\n")
+    dest = tmp_path / "prefix" / "x.source"
+    dest.parent.mkdir()
+    dest.with_name(dest.name + f".part.{os.getpid()}").symlink_to(victim)
+    with pytest.raises(BackendError, match="temporary"):
+        PrefixWriter(privileged=False).write_text(dest, "260101\n")
+    assert victim.read_text() == "keep\n"
+    assert not dest.exists()

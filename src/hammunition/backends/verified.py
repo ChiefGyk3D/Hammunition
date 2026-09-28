@@ -211,8 +211,22 @@ class PrefixWriter:
         temporary = self._temporary(dest)
         if self.direct:
             dest.parent.mkdir(parents=True, exist_ok=True)
+            # Created, never opened: O_EXCL|O_NOFOLLOW as _publish does, so a
+            # link planted at the temporary's name is refused, not written through.
             try:
-                temporary.write_text(text)
+                out = os.open(
+                    temporary,
+                    os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+                    0o600,
+                )
+            except OSError as exc:
+                raise BackendError(
+                    f"cannot create the temporary {temporary}: {exc.strerror or exc}; "
+                    f"something already exists at that name"
+                ) from exc
+            try:
+                with os.fdopen(out, "w") as writer:
+                    writer.write(text)
                 os.chmod(temporary, mode)
                 os.replace(temporary, dest)
             except BaseException:
