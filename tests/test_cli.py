@@ -947,7 +947,21 @@ def test_install_station_on_xfce_defers_the_plasma_tray_and_says_what_it_read(
     assert TRAY_DEB not in out
 
 
-TRAY_DEB = "hammunition-tray_0.1.0_all.deb"
+# Read from the manifest, never typed: a re-pin moves the filename, and a
+# typed copy broke this test on the first one (0.1.0 -> 0.3.0).
+def _tray_deb() -> str:
+    from hammunition.manifest.load import load_manifest
+    from hammunition.manifest.schema import BinaryInstall
+
+    manifest = load_manifest(
+        Path(__file__).resolve().parents[1] / "catalog/packages/hammunition-tray.yaml"
+    )
+    install = manifest.install[0].install
+    assert isinstance(install, BinaryInstall)
+    return install.artifact.url.rsplit("/", 1)[1]
+
+
+TRAY_DEB = _tray_deb()
 
 
 def test_install_station_on_plasma_plans_the_tray_deb(

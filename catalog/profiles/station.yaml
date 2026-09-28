@@ -29,6 +29,9 @@ packages:
   # A machine with no Plasma session defers it by name and the rest of the
   # profile installs, rather than pulling in plasma-workspace (D-060).
   - hammunition-tray
+  # The same switch for Xfce, LXQt, LXDE, MATE and Cinnamon; deferred by
+  # name on a machine with none of those, as the applet is without Plasma.
+  - hammunition-tray-qt
 
 documentation:
   what_it_installs: >-

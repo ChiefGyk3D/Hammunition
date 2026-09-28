@@ -129,7 +129,7 @@ and the next `hammunition install station` defers the applet.
 | | |
 |---|---|
 | **Menu** | The menu-spec path, into `xfce-applications-merged/`. Measured on the Kali VM for the earlier one-level tree (2026-09-02). The grouped tree is the same mechanism and **has not been re-run there**. |
-| **Tray** | **None yet.** The Plasma applet is deferred. A Qt tray for this panel is planned (`hammunition-tray-qt`), and nothing is claimed about it until it exists and has run. |
+| **Tray** | `hammunition-tray-qt` (v0.3.0), installed by `station` in place of the deferred Plasma applet. Released and installed in a Parrot container by its release workflow; **not yet run on this panel**. |
 | **Lightweight notes** | On a fresh machine `station` no longer pulls in Plasma here (D-060). A machine that ran `station` at v0.10.0 or earlier already has it; see above. Idle memory before and after `station` is **unmeasured**, and is on the Xubuntu 26.04 checklist. |
 
 ### LXQt (Lubuntu)
@@ -140,7 +140,7 @@ LXQt.
 | | |
 |---|---|
 | **Menu** | **Unmeasured.** Debian 13's `lxqt-menu-data` ships `/etc/xdg/menus/lxqt-applications.menu` with `<DefaultMergeDirs/>`, so the file `menus apply` writes to `lxqt-applications-merged/` is one the spec says it reads. Whether LXQt's panel menu shows it is what the Lubuntu 26.04 run will find out. |
-| **Tray** | **None yet.** The Plasma applet is deferred. The planned Qt tray is meant for this panel. |
+| **Tray** | `hammunition-tray-qt` (v0.3.0), installed by `station` in place of the deferred Plasma applet. **Not yet run on this panel.** |
 | **Lightweight notes** | Qt is already installed, so a Qt tray adds little. Idle memory is **unmeasured**, and is on the Lubuntu 26.04 checklist. |
 
 ### LXDE
@@ -151,7 +151,7 @@ flavour ships it.
 | | |
 |---|---|
 | **Menu** | **Unmeasured.** `lxmenu-data` ships `/etc/xdg/menus/lxde-applications.menu` with `<DefaultMergeDirs/>`. |
-| **Tray** | **None yet.** lxpanel's tray is the older XEmbed kind, which the planned Qt tray is meant to fall back to. Nothing has run. |
+| **Tray** | `hammunition-tray-qt` (v0.3.0). lxpanel's tray is the older XEmbed kind, which Qt falls back to. **Not yet run.** |
 | **Lightweight notes** | The lightest desktop on this page. **Unmeasured** here. |
 
 ### GNOME (Debian 13, Ubuntu)
@@ -159,7 +159,7 @@ flavour ships it.
 | | |
 |---|---|
 | **Menu** | GNOME cannot nest menus. The equivalent is one app folder per visible group. The code and tests exist, and the Debian 13 VM run **has not happened yet** (D-050). |
-| **Tray** | **None from Hammunition.** Debian's GNOME has no system tray without an extension. Ubuntu enables its AppIndicator extension by default, so a Qt tray icon may well show there, but nobody has run one. The planned Qt tray does not list GNOME until that is measured. |
+| **Tray** | **None from Hammunition.** Debian's GNOME has no system tray without an extension. Ubuntu enables its AppIndicator extension by default, so a Qt tray icon may well show there, but nobody has run one. `hammunition-tray-qt` does not list GNOME until that is measured. |
 | **Lightweight notes** | Not a lightweight desktop. |
 
 ### MATE
@@ -167,7 +167,7 @@ flavour ships it.
 | | |
 |---|---|
 | **Menu** | **Unmeasured.** `mate-menus` ships `/etc/xdg/menus/mate-applications.menu` with `<DefaultMergeDirs/>`, and Parrot's `/etc/xdg/menus` carries a `mate-` root. |
-| **Tray** | **None yet.** The planned Qt tray lists MATE. |
+| **Tray** | `hammunition-tray-qt` (v0.3.0) lists MATE. **Not yet run.** |
 | **Lightweight notes** | **Unmeasured.** |
 
 ### Cinnamon (Linux Mint)
@@ -175,7 +175,7 @@ flavour ships it.
 | | |
 |---|---|
 | **Menu** | **Unmeasured.** `cinnamon-common` ships `/etc/xdg/menus/cinnamon-applications.menu` with `<DefaultMergeDirs/>`. |
-| **Tray** | **None yet.** The planned Qt tray lists Cinnamon. |
+| **Tray** | `hammunition-tray-qt` (v0.3.0) lists Cinnamon. **Not yet run.** |
 | **Lightweight notes** | **Unmeasured.** |
 
 ### COSMIC (Pop!_OS)

@@ -4711,10 +4711,20 @@ autoremove`) and says to read the list before agreeing.
 
 ### The Qt tray
 
-A Qt tray for the other panels (`hammunition-tray-qt`, a second binary
-package from the tray's own repository) is the design's next piece. It is
-not in the catalog until its release exists to pin and measure, so
-`hammunition-tray` names no `desktop_alternative` yet.
+`hammunition-tray-qt` is the same switch for the other panels: a PyQt6
+`QSystemTrayIcon`, a second binary package from the tray's own repository,
+released with the applet as hammunition-tray v0.3.0 (2026-09-28) and pinned
+here from that release's `SHA256SUMS` (13784 bytes). It lists `xfce`,
+`lxqt`, `lxde`, `mate` and `cinnamon`. Its autostart entry carries
+`NotShowIn=KDE;`, so a machine with Plasma and another desktop shows one tray
+in each. The two units name each other in `desktop_alternative`, so a
+refusal names the one to install instead. Both front ends run
+`/usr/bin/pkexec` by its absolute path, and both say when no polkit
+authentication agent is running. The same release fixed a bug the second
+front end exposed: the applet cleared a failed park's error on the poll that
+follows every action. The release workflow installed and removed both
+packages on Parrot; **neither has run on the desktops the Qt tray lists**,
+and `docs/reference/vm-campaign-desktops.md` is that check.
 
 **Rejected.** Reading `XDG_CURRENT_DESKTOP` in the planner: `sudo` drops
 it, and the plan would answer differently under `sudo` than in the dry
