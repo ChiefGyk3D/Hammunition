@@ -212,6 +212,47 @@ def disk_shortfall(
     )
 
 
+@dataclass(frozen=True)
+class KeptRegion:
+    """An installed region the plan could not check for a newer map (offline).
+
+    Kept as installed: its files are neither replaced nor removed."""
+
+    region: str
+    slug: str
+    snapshot: str | None
+    reason: str
+
+
+@dataclass(frozen=True)
+class MapDisclosure:
+    """What the plan says about the station's regions, split the way it happens."""
+
+    fetch: Sequence[RegionFile]
+    """Will be downloaded and installed this run."""
+    current: Sequence[RegionFile]
+    """Already installed at the resolved snapshot; nothing happens to them."""
+    kept: Sequence[KeptRegion]
+    """Could not be checked; the installed copy stays."""
+
+
+@dataclass(frozen=True)
+class MapResolution:
+    """The station's regions, resolved at plan time."""
+
+    files: tuple[RegionFile, ...] = ()
+    kept: tuple[KeptRegion, ...] = ()
+    notes: tuple[str, ...] = ()
+
+    def disclosure(self, pending: Sequence[RegionFile]) -> MapDisclosure:
+        waiting = {f.slug for f in pending}
+        return MapDisclosure(
+            fetch=tuple(f for f in self.files if f.slug in waiting),
+            current=tuple(f for f in self.files if f.slug not in waiting),
+            kept=self.kept,
+        )
+
+
 def region_lines(files: Sequence[RegionFile]) -> list[str]:
     """One line per region for the plan: region, snapshot, size, how it is verified.
 

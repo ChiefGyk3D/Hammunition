@@ -40,6 +40,7 @@ from importlib import metadata
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hammunition import navit_config
 from hammunition.backends import (
     Action,
     AptBackend,
@@ -60,9 +61,14 @@ from hammunition.backends.apt import stale_fetches
 from hammunition.backends.data import human_size
 from hammunition.backends.regions import (
     DERIVED_FACTOR,
+    KeptRegion,
+    MapDisclosure,
     MapLedger,
+    MapResolution,
+    data_root,
     disk_needs,
     disk_shortfall,
+    installed_snapshot,
     region_lines,
 )
 from hammunition.backends.source import DEFAULT_PREFIX
@@ -114,7 +120,7 @@ from hammunition.manifest.schema import (
     VenvInstall,
 )
 from hammunition.paths import applications_dir, build_root, node_root, user_bin_dir, venv_root
-from hammunition.plan import InstallPlan, PlanError, PlannedPackage, resolve
+from hammunition.plan import NO_MAP_REGIONS, InstallPlan, PlanError, PlannedPackage, resolve
 from hammunition.state import (
     RemovalError,
     RemovalPaths,
@@ -238,7 +244,7 @@ def render_plan(
     log_destination: Path | None = None,
     hands_log_to: str | None = None,
     built: frozenset[str] = frozenset(),
-    regions: Sequence[RegionFile] = (),
+    maps: MapDisclosure | None = None,
 ) -> list[str]:
     """The complete account of what will happen. Printed for every run.
 
@@ -361,18 +367,31 @@ def render_plan(
     map_units = [
         p.block.install for p in plan.packages if isinstance(p.block.install, RegionalDataInstall)
     ]
-    if map_units and regions:
+    if map_units and maps is not None and (maps.fetch or maps.current or maps.kept):
         # The station's regions, on the operator's own terminal: resolved
         # before this plan printed, so the dated file, its size and how it
-        # is checked are known before anything is confirmed (D-057).
-        total = sum(f.size for f in regions)
-        lines.append("Map regions that will be downloaded and installed (D-057):")
-        lines.extend(region_lines(regions))
+        # is checked are known before anything is confirmed (D-057). Only
+        # what will actually be fetched is listed as a download.
+        total = sum(f.size for f in maps.fetch)
+        lines.append("Map regions, from station config (D-057):")
+        if maps.fetch:
+            lines.append("  will be downloaded and installed:")
+            lines.extend(region_lines(maps.fetch))
+        if maps.current:
+            lines.append("  already installed, current (nothing to do):")
+            width = max(len(f.region) for f in maps.current)
+            lines.extend(f"    {f.region:<{width}}  {f.snapshot}" for f in maps.current)
+        for kept in maps.kept:
+            lines.append(
+                f"  {kept.region}: could not check for a newer map; keeping the installed "
+                f"{kept.snapshot or '(snapshot not recorded)'}"
+            )
+            lines.extend(_wrap(kept.reason, indent="      "))
         lines.append(
             f"      licence: {map_units[0].licence.strip()}, stated at {map_units[0].licence_url}"
         )
         lines.append(
-            f"      {human_size(total)} to download; about "
+            f"      download total: {human_size(total)}; about "
             f"{human_size(total * (1 + DERIVED_FACTOR))} "
             f"of disk with Navit's maps (an estimate until measured)"
         )
@@ -954,27 +973,33 @@ def _apply_suggestions(
     return extra, notes
 
 
-def map_region_files(
+def resolve_map_regions(
     plan: InstallPlan,
     station: Station,
     catalog_root: Path,
     *,
     probe: Probe,
     today: date,
-) -> tuple[list[RegionFile], list[str]]:
+    installed: Path,
+) -> MapResolution:
     """The station's map regions as dated, verifiable Geofabrik files.  D-057.
 
     Asked only when the plan holds a map unit -- the plan has already
-    deferred them when no regions are set -- and before the plan prints,
-    because the dated file, its size and how it is verified are the
-    disclosure. Raises :class:`GeofabrikError` naming a region that cannot
-    be resolved. Returns the files and any notes for the plan.
+    deferred or refused them when no regions are set -- and before the plan
+    prints, because the dated file, its size and how it is verified are the
+    disclosure.
+
+    A region that cannot be resolved (offline, Geofabrik down, a 404) but is
+    already installed under *installed* is kept as it is, and the plan says
+    so (spec §8: no network leaves installed regions untouched). One that is
+    not installed cannot be kept; every such region is named together in one
+    :class:`GeofabrikError`.
     """
     wanted = any(
         isinstance(p.block.install, RegionalDataInstall | DerivedDataInstall) for p in plan.packages
     )
     if not wanted or not station.map_regions:
-        return [], []
+        return MapResolution()
     notes: list[str] = []
     pins_path = catalog_root / "data" / "geofabrik-pins.yaml"
     if pins_path.is_file():
@@ -985,11 +1010,70 @@ def map_region_files(
             f"no Geofabrik pin list at {pins_path}; every map region is verified by "
             f"Geofabrik's MD5 only, and the plan says so beside each one."
         )
-    files = [
-        resolve_region(region, station.freshness, today=today, pins=pins, probe=probe)
-        for region in station.map_regions
+    files: list[RegionFile] = []
+    kept: list[KeptRegion] = []
+    refused: list[str] = []
+    for region in station.map_regions:
+        try:
+            files.append(
+                resolve_region(region, station.freshness, today=today, pins=pins, probe=probe)
+            )
+        except (GeofabrikError, OSError) as exc:
+            slug = region.replace("/", "-")
+            pbf = installed / f"{slug}.osm.pbf"
+            if pbf.is_file():
+                kept.append(KeptRegion(region, slug, installed_snapshot(pbf), str(exc)))
+            else:
+                refused.append(f"  {region}: {exc}")
+    if refused:
+        raise GeofabrikError(
+            f"{len(refused)} map region(s) could not be resolved and are not installed "
+            f"already:\n" + "\n".join(refused)
+        )
+    return MapResolution(files=tuple(files), kept=tuple(kept), notes=tuple(notes))
+
+
+def leftover_maps_note(plan: InstallPlan, prefix: Path) -> str | None:
+    """Map data still installed while no map regions are set, named with its removal."""
+    units = sorted(d.subject for d in plan.deferrals if d.why == NO_MAP_REGIONS)
+    found = [
+        data_root(prefix) / unit
+        for unit in units
+        if any((data_root(prefix) / unit).glob("*.osm.pbf"))
+        or any((data_root(prefix) / unit).glob("*.bin"))
     ]
-    return files, notes
+    if not found:
+        return None
+    return (
+        f"no map regions are set, and map data from an earlier install is still installed "
+        f"under {', '.join(map(str, found))}. `hammunition uninstall {' '.join(units)}` "
+        f"removes it; setting regions again keeps it current."
+    )
+
+
+def navit_config_blocker(plan: InstallPlan, stock: Path = navit_config.STOCK) -> str | None:
+    """A Navit conversion with no Navit config to write from, found before it runs.
+
+    The conversion can take hours; discovering at its end that
+    ``/etc/navit/navit.xml`` is missing is the shape D-016 exists to prevent.
+    Satisfied by the file being there, or by navit in this same transaction
+    (apt runs before any conversion).
+    """
+    converting = [
+        p.name
+        for p in plan.packages
+        if isinstance(p.block.install, DerivedDataInstall)
+        and p.block.install.converter == "navit-maptool"
+    ]
+    if not converting or stock.is_file():
+        return None
+    if any(p.name == "navit" or "navit" in p.apt_packages for p in plan.packages):
+        return None
+    return (
+        f"{', '.join(converting)} writes Navit's config from {stock}, which is not on this "
+        f"machine, and navit is not in this transaction. Install navit first "
+        f"(`hammunition install navit`), or ask for it in the same run."
+    )
 
 
 def cmd_install(args: argparse.Namespace) -> int:
@@ -1053,12 +1137,9 @@ def cmd_install(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_FAILED
 
-    try:
-        region_files, region_notes = map_region_files(
-            plan, station, catalog_root, probe=UrllibProbe(), today=date.today()
-        )
-    except GeofabrikError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+    blocked = navit_config_blocker(plan)
+    if blocked is not None:
+        print(f"error: {blocked}", file=sys.stderr)
         print("\nNothing was changed.", file=sys.stderr)
         return EXIT_UNPLANNABLE
 
@@ -1101,6 +1182,27 @@ def cmd_install(args: argparse.Namespace) -> int:
         bin_dir=user_bin_dir(user or None),
     )
     data = DataBackend(fetcher=source.fetcher, prefix=source.prefix, runner=runner)
+    map_units = [p for p in plan.packages if isinstance(p.block.install, RegionalDataInstall)]
+    try:
+        resolution = resolve_map_regions(
+            plan,
+            station,
+            catalog_root,
+            probe=UrllibProbe(),
+            today=date.today(),
+            installed=data_root(source.prefix)
+            / (map_units[0].name if map_units else "osm-regions"),
+        )
+    except GeofabrikError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        print("\nNothing was changed.", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    region_files = list(resolution.files)
+    kept = frozenset(k.slug for k in resolution.kept)
+    region_notes = list(resolution.notes)
+    leftover = leftover_maps_note(plan, source.prefix)
+    if leftover is not None:
+        region_notes.append(leftover)
     # One ledger for both map backends: a region that did not install is not
     # converted, and the transaction ends naming every region that failed.
     ledger = MapLedger()
@@ -1108,6 +1210,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         fetcher=source.fetcher,
         prefix=source.prefix,
         files=region_files,
+        keep=kept,
         ledger=ledger,
         runner=runner,
     )
@@ -1117,20 +1220,18 @@ def cmd_install(args: argparse.Namespace) -> int:
     derived = DerivedBackend(
         prefix=source.prefix,
         files=region_files,
+        keep=kept,
         staging=map_staging,
         ledger=ledger,
         owner=user or None,
         runner=runner,
     )
-    if region_files:
-        # Refused at plan time, before anything is confirmed, with both
-        # numbers. Only regions not already installed at their snapshot count.
-        pending = [
-            f
-            for p in plan.packages
-            if isinstance(p.block.install, RegionalDataInstall)
-            for f in regions.pending(p.manifest)
-        ]
+    # Only regions not already installed at their snapshot are downloaded,
+    # counted and listed as downloads (the dry run is the run).
+    pending = [f for p in map_units for f in regions.pending(p.manifest)]
+    maps = resolution.disclosure(pending) if map_units else None
+    if pending:
+        # Refused at plan time, before anything is confirmed, with both numbers.
         short = disk_shortfall(
             disk_needs(
                 pending, cache=source.fetcher.cache_dir, staging=map_staging, prefix=source.prefix
@@ -1183,7 +1284,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         built=built,
         log_destination=log_destination,
         hands_log_to=hands_log_to,
-        regions=region_files,
+        maps=maps,
     ):
         print(line)
 

@@ -2349,10 +2349,22 @@ def _map_plan() -> InstallPlan:
     )
 
 
-def test_map_regions_resolve_against_the_pin_list_and_geofabrik(tmp_path: Path) -> None:
+def _resolve_maps(tmp_path: Path, station: Any, catalog: Path, probe: Any, plan: Any = None) -> Any:
     from datetime import date
 
-    from hammunition.cli.main import map_region_files
+    from hammunition.cli.main import resolve_map_regions
+
+    return resolve_map_regions(
+        plan if plan is not None else _map_plan(),
+        station,
+        catalog,
+        probe=probe,
+        today=date(2026, 9, 28),
+        installed=tmp_path / "installed",
+    )
+
+
+def test_map_regions_resolve_against_the_pin_list_and_geofabrik(tmp_path: Path) -> None:
     from hammunition.station import Station
 
     catalog = tmp_path / "catalog"
@@ -2365,61 +2377,169 @@ def test_map_regions_resolve_against_the_pin_list_and_geofabrik(tmp_path: Path) 
         f"    sha256: {'a' * 64}\n"
     )
     station = Station(map_regions=("north-america/us/vermont", "north-america/us/new-hampshire"))
-    files, notes = map_region_files(
-        _map_plan(), station, catalog, probe=_Probe(), today=date(2026, 9, 28)
-    )
-    assert [(f.region, f.snapshot, f.verified_by) for f in files] == [
+    maps = _resolve_maps(tmp_path, station, catalog, _Probe())
+    assert [(f.region, f.snapshot, f.verified_by) for f in maps.files] == [
         ("north-america/us/vermont", "260101", "sha256, pinned by Hammunition"),
         ("north-america/us/new-hampshire", "260101", "MD5 from Geofabrik only; not pinned"),
     ]
-    assert notes == []
+    assert maps.notes == () and maps.kept == ()
 
 
 def test_no_pin_list_means_every_region_is_md5_and_the_plan_says_so(tmp_path: Path) -> None:
-    from datetime import date
-
-    from hammunition.cli.main import map_region_files
     from hammunition.station import Station
 
-    files, notes = map_region_files(
-        _map_plan(),
-        Station(map_regions=("north-america/us/vermont",)),
-        tmp_path,
-        probe=_Probe(),
-        today=date(2026, 9, 28),
+    maps = _resolve_maps(
+        tmp_path, Station(map_regions=("north-america/us/vermont",)), tmp_path, _Probe()
     )
-    assert [f.verified_by for f in files] == ["MD5 from Geofabrik only; not pinned"]
-    assert len(notes) == 1 and "geofabrik-pins.yaml" in notes[0]
+    assert [f.verified_by for f in maps.files] == ["MD5 from Geofabrik only; not pinned"]
+    assert len(maps.notes) == 1 and "geofabrik-pins.yaml" in maps.notes[0]
 
 
 def test_a_plan_without_map_units_asks_geofabrik_nothing(tmp_path: Path) -> None:
-    from datetime import date
-
-    from hammunition.cli.main import map_region_files
     from hammunition.station import Station
 
     probe = _Probe()
-    files, _ = map_region_files(
-        _plan(),
-        Station(map_regions=("north-america/us/vermont",)),
-        tmp_path,
-        probe=probe,
-        today=date(2026, 9, 28),
+    maps = _resolve_maps(
+        tmp_path, Station(map_regions=("north-america/us/vermont",)), tmp_path, probe, _plan()
     )
-    assert files == [] and probe.asked == []
+    assert maps.files == () and probe.asked == []
+
+
+class _Offline:
+    def head(self, url: str) -> tuple[int, int, str | None]:
+        from hammunition.geofabrik import GeofabrikError
+
+        raise GeofabrikError(f"{url} could not be reached: no route to host")
+
+    def text(self, url: str) -> str:
+        return self.head(url)  # type: ignore[return-value]
+
+
+def test_offline_installed_regions_are_kept_and_the_plan_says_so(tmp_path: Path) -> None:
+    """Fix round 1, item 4 (spec §8): no network leaves installed regions untouched."""
+    from hammunition.station import Station
+
+    installed = tmp_path / "installed"
+    installed.mkdir()
+    for slug in ("north-america-us-vermont", "north-america-us-new-hampshire"):
+        (installed / f"{slug}.osm.pbf").write_bytes(b"x")
+        (installed / f"{slug}.osm.pbf.source").write_text("250101\n")
+    station = Station(map_regions=("north-america/us/vermont", "north-america/us/new-hampshire"))
+    maps = _resolve_maps(tmp_path, station, tmp_path, _Offline())
+    assert maps.files == ()
+    assert [(k.region, k.snapshot) for k in maps.kept] == [
+        ("north-america/us/vermont", "250101"),
+        ("north-america/us/new-hampshire", "250101"),
+    ]
+    text = "\n".join(render_plan(_map_plan(), [], euid=0, maps=maps.disclosure([])))
+    assert text.count("could not check for a newer map; keeping the installed 250101") == 2
+
+
+def test_every_unresolvable_region_not_installed_is_named_together(tmp_path: Path) -> None:
+    from hammunition.geofabrik import GeofabrikError
+    from hammunition.station import Station
+
+    station = Station(map_regions=("north-america/us/vermont", "north-america/us/new-hampshire"))
+    with pytest.raises(GeofabrikError) as excinfo:
+        _resolve_maps(tmp_path, station, tmp_path, _Offline())
+    assert "north-america/us/vermont" in str(excinfo.value)
+    assert "north-america/us/new-hampshire" in str(excinfo.value)
 
 
 def test_the_plan_discloses_each_region_its_size_and_how_it_is_verified() -> None:
+    from hammunition.backends.regions import MapDisclosure
     from test_regions_backend import NH, VT
 
-    text = "\n".join(render_plan(_map_plan(), [], euid=0, regions=[VT, NH]))
-    assert "Map regions" in text
+    maps = MapDisclosure(fetch=(VT, NH), current=(), kept=())
+    text = "\n".join(render_plan(_map_plan(), [], euid=0, maps=maps))
+    assert "Map regions" in text and "will be downloaded and installed" in text
     assert "ODbL-1.0" in text
     vt = next(line for line in text.splitlines() if "north-america/us/vermont" in line)
     assert "260101" in vt and "sha256, pinned by Hammunition" in vt
     nh = next(line for line in text.splitlines() if "north-america/us/new-hampshire" in line)
     assert "MD5 from Geofabrik only; not pinned" in nh
     assert "estimate" in text
+
+
+def test_regions_already_current_are_not_listed_as_downloads() -> None:
+    """Fix round 1, item 3: the dry run lists only what will be fetched."""
+    from hammunition.backends.regions import MapDisclosure
+    from hammunition.geofabrik import RegionFile
+    from test_regions_backend import NH, VT
+
+    me = RegionFile("north-america/us/maine", "260101", "https://x/m.osm.pbf", 10, None, "c" * 32)
+    maps = MapDisclosure(fetch=(), current=(VT, NH, me), kept=())
+    text = "\n".join(render_plan(_map_plan(), [], euid=0, maps=maps))
+    assert "will be downloaded" not in text
+    assert "download total: 0 KB" in text
+    assert "already installed, current" in text
+    for region in ("north-america/us/vermont", "north-america/us/new-hampshire", "maine"):
+        assert region in text
+
+
+def test_leftover_map_data_is_named_when_no_regions_are_set(tmp_path: Path) -> None:
+    """Fix round 1, item 5: not left behind in silence."""
+    from hammunition.cli.main import leftover_maps_note
+    from hammunition.plan import Deferral
+
+    plan = InstallPlan(
+        target=Target(distro="debian", version="13", arch="x86_64"),
+        packages=(),
+        deferrals=tuple(
+            Deferral(subject=s, what="x", why="no map regions set", remedy="y", kind="package")
+            for s in ("osm-navit", "osm-regions")
+        ),
+    )
+    assert leftover_maps_note(plan, tmp_path) is None
+    data = tmp_path / "share" / "hammunition" / "data"
+    (data / "osm-regions").mkdir(parents=True)
+    (data / "osm-regions" / "north-america-us-vermont.osm.pbf").write_bytes(b"x")
+    note = leftover_maps_note(plan, tmp_path)
+    assert note is not None
+    assert "still installed" in note
+    assert "hammunition uninstall osm-navit osm-regions" in note
+
+
+def test_osm_navit_without_navit_is_refused_before_hours_of_conversion(tmp_path: Path) -> None:
+    """Fix round 1, item 10."""
+    from hammunition.cli.main import navit_config_blocker
+
+    stock = tmp_path / "etc" / "navit" / "navit.xml"
+    message = navit_config_blocker(_map_plan(), stock)
+    assert message is not None and str(stock) in message and "navit" in message
+    # navit in the same transaction installs the file before conversion.
+    navit = PackageManifest.model_validate(
+        {
+            **_manifest_dict("navit"),
+            "install": [{"install": {"method": "apt", "packages": ["navit"]}}],
+        }
+    )
+    with_navit = InstallPlan(
+        target=_map_plan().target,
+        packages=(
+            *_map_plan().packages,
+            PlannedPackage(manifest=navit, block=navit.install[0], apt_packages=("navit",)),
+        ),
+    )
+    assert navit_config_blocker(with_navit, stock) is None
+    stock.parent.mkdir(parents=True)
+    stock.write_text("<config/>")
+    assert navit_config_blocker(_map_plan(), stock) is None
+
+
+def _manifest_dict(name: str) -> dict[str, Any]:
+    return {
+        "name": name,
+        "version": "1",
+        "summary": "x",
+        "categories": ["digital-modes"],
+        "update": {"probe": {"method": "apt_policy"}},
+        "documentation": {
+            "what_it_does": "Does an example thing for the purposes of testing.",
+            "why_you_want_it": "Because the test suite requires a valid manifest.",
+            "upstream_url": "https://example.invalid/",
+        },
+    }
 
 
 def test_free_space_is_read_from_the_nearest_existing_directory(tmp_path: Path) -> None:
