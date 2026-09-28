@@ -203,14 +203,28 @@ def test_every_subcommand_accepts_the_flag() -> None:
 def test_a_second_document_is_a_bug_not_a_second_line(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """emit()'s own RuntimeError is exactly the "bug in a command" class
+    review round 1's fix now catches at the `_main_json` boundary: the
+    first, already-written document is what stdout legitimately has --
+    `emit()` writes to the real stdout before the second call is even
+    reached -- so it stays there rather than being replaced or duplicated,
+    the exit code still reports the failure, and the traceback names the
+    bug loudly on stderr. `cli.main` therefore never raises this out to its
+    caller; it always returns an int, which is what let this scenario be
+    told apart from "wrote nothing" at all (Important 1)."""
+
     def body(args: argparse.Namespace) -> int:
         envelope.emit(_Probe(value="one"))
         envelope.emit(_Probe(value="two"))
         return 0
 
     _install_probe(monkeypatch, body)
-    with pytest.raises(RuntimeError, match="exactly one document"):
-        cli.main(["status", "--json"])
+    assert cli.main(["status", "--json"]) == cli.EXIT_FAILED
+    captured = capsys.readouterr()
+    doc = parse_one(captured.out)
+    assert doc == {"schema": SCHEMA, "kind": "probe", "engine": doc["engine"], "value": "one"}
+    assert "a --json run prints exactly one document" in captured.err
+    assert "RuntimeError" in captured.err
 
 
 def test_non_ascii_is_written_as_utf8_not_escaped(
@@ -286,3 +300,89 @@ def test_document_refuses_a_class_without_a_kind() -> None:
     with pytest.raises(TypeError, match="not a document kind"):
         envelope.document(NoKind(1))
     assert json.loads(envelope.dumps(_Probe(value="v")))["kind"] == "probe"
+
+
+# --- Review round 1: two Important findings in shared code (task-1-review.md) ---
+
+
+def test_an_unexpected_exception_still_gets_exactly_one_document(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`_dispatch` only catches CatalogError, StationError and
+    KeyboardInterrupt. Anything else -- a BackendError, a bug in a Task 2-7
+    command -- must still leave exactly one document on stdout (D-059's own
+    promise: "stdout parses as exactly one document on every path")."""
+
+    def body(args: argparse.Namespace) -> int:
+        raise ValueError("boom")
+
+    _install_probe(monkeypatch, body)
+    assert cli.main(["status", "--json"]) == cli.EXIT_FAILED
+    captured = capsys.readouterr()
+    doc = parse_one(captured.out)
+    assert doc["kind"] == "error" and doc["exit_code"] == cli.EXIT_FAILED
+    assert doc["command"] == "status"
+    assert "ValueError: boom" in captured.err
+    assert "Traceback" in captured.err
+    validate(doc)
+
+
+@dataclass(frozen=True)
+class _UnserialisableProbe(Strict):
+    """A document whose field `json.dumps` refuses, on purpose."""
+
+    KIND: ClassVar[str] = "probe"
+    value: Path = described("a Path -- not JSON-serialisable")
+
+
+def test_a_document_that_cannot_serialise_still_gets_an_error_document(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`emit()` raises TypeError out of `json.dumps` before it writes
+    anything, so `_SINK.emitted` never becomes True. Without the fix that
+    TypeError propagates out of `_main_json` uncaught and stdout stays
+    empty -- the same failure mode as a raising command body, reached a
+    different way."""
+
+    def body(args: argparse.Namespace) -> int:
+        envelope.emit(_UnserialisableProbe(value=Path("/no/such/thing")))
+        return 0
+
+    _install_probe(monkeypatch, body)
+    assert cli.main(["status", "--json"]) == cli.EXIT_FAILED
+    captured = capsys.readouterr()
+    doc = parse_one(captured.out)
+    assert doc["kind"] == "error" and doc["exit_code"] == cli.EXIT_FAILED
+    assert "Traceback" in captured.err
+
+
+def test_an_abbreviated_json_flag_is_rejected_not_silently_matched() -> None:
+    """`allow_abbrev=False`, everywhere (D-059): `--js` must never resolve
+    to `--json`. Reproduced against this worktree before the fix: `--js`
+    matched `--json` (default allow_abbrev), main()'s routing keyed off the
+    literal token `"--json" in arguments` which `--js` does not contain, so
+    the run took the plain-text path with args.json already True -- no Tee,
+    no refusal() gate -- and a real `install` proceeded to its confirmation
+    prompt. It must now fail to parse instead."""
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main(["--js", "install", "fixture-station"])
+    assert excinfo.value.code == 2
+
+
+def test_the_dry_run_only_guard_applies_whenever_json_is_true(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """refusal()'s dry_run_only gate (D-021, D-059) must hold for every path
+    that ends with args.json True, not merely the literal token main() used
+    to route on."""
+
+    @envelope.json_capable(dry_run_only=True)
+    def probe(args: argparse.Namespace) -> int:
+        envelope.emit(_Probe(value="should never run"))
+        return 0
+
+    monkeypatch.setattr(cli, "cmd_status", probe)
+    assert cli.main(["status", "--json"]) == cli.EXIT_UNPLANNABLE
+    doc = parse_one(capsys.readouterr().out)
+    assert doc["kind"] == "error"
+    assert "never driven through --json" in doc["message"]

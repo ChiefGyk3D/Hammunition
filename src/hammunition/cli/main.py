@@ -34,6 +34,7 @@ import shutil
 import sys
 import tempfile
 import textwrap
+import traceback
 from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -2923,6 +2924,45 @@ def _add_json_flag(parser: argparse.ArgumentParser, *, top: bool) -> None:
                 _add_json_flag(child, top=False)
 
 
+def _disallow_abbrev(parser: argparse.ArgumentParser) -> None:
+    """No abbreviated long option is ever accepted, here or on any
+    subcommand, recursively.  D-059 (review round 1, Important 2).
+
+    ``allow_abbrev`` defaults to True, so without this `--js` or `--dr`
+    would silently stand in for `--json` or `--dry-run`. That is a real gate
+    to defeat: `main()` separately routes on the *parsed* value of
+    ``args.json`` rather than a text scan of argv, but a CLI that guards a
+    real install and every consent gate behind an exact flag should not
+    depend on that alone. ``allow_abbrev`` is a plain instance attribute
+    argparse reads at parse time, so setting it after construction (as every
+    subparser here is already built) works the same as passing it in.
+    """
+    parser.allow_abbrev = False
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            for child in action.choices.values():
+                _disallow_abbrev(child)
+
+
+def _json_requested(arguments: list[str]) -> bool:
+    """Whether ``--json`` was actually given -- immune to abbreviation, and
+    to every other flag this CLI defines -- with no side effect (no help
+    text, no version, no exit).  D-059 (review round 1, Important 2).
+
+    Used by `main()` to route before touching stdout, so it must not risk
+    printing anything: a full parse of ``--help``/``--version`` writes to
+    stdout before this function could know whether to redirect it. A tiny
+    parser that knows only ``--json`` (`add_help=False`, so `-h`/`--help`
+    is not even registered; `allow_abbrev=False`, so `--js` matches
+    nothing) is the actual parsed answer to "did the operator ask for
+    JSON", not a guess from scanning the raw tokens the old code used.
+    """
+    probe = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+    probe.add_argument("--json", action="store_true", default=False)
+    parsed, _ = probe.parse_known_args(arguments)
+    return bool(parsed.json)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="hammunition",
@@ -3161,6 +3201,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_station_set.set_defaults(func=cmd_station_set)
 
     _add_json_flag(parser, top=True)
+    _disallow_abbrev(parser)
     return parser
 
 
@@ -3231,6 +3272,17 @@ def _main_json(arguments: list[str]) -> int:
             code = _exit_code(exc)
             if isinstance(exc.code, str):
                 print(exc.code, file=sys.stderr)
+        except Exception:
+            # A bug in a command, or emit() itself raising -- json.dumps on
+            # a non-serialisable field, say -- must not leave stdout empty
+            # (review round 1, Important 1): the module's own promise is
+            # "stdout parses as exactly one document on every path", and
+            # `_dispatch` only catches CatalogError, StationError and
+            # KeyboardInterrupt. The traceback goes to the real stderr
+            # through the tee, loud rather than silently swallowed;
+            # KeyboardInterrupt keeps its existing handling in `_dispatch`.
+            traceback.print_exc(file=sys.stderr)
+            code = EXIT_FAILED
         if not envelope.emitted():
             envelope.emit(
                 envelope.ErrorDocument(command=command, exit_code=code, message=tee.text().strip())
@@ -3254,7 +3306,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if reconfigure is not None:
         reconfigure(line_buffering=True)
     arguments = list(sys.argv[1:] if argv is None else argv)
-    if "--json" in arguments:
+    if _json_requested(arguments):
         return _main_json(arguments)
     parser = build_parser()
     args = parser.parse_args(arguments)
