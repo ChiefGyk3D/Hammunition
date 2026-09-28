@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 
 from hammunition.backends import BackendError
-from hammunition.backends.staging import Staging, staging_refusal
+from hammunition.backends.staging import ROOT_NO_OPERATOR, Staging, staging_refusal
 from hammunition.backends.verified import PrefixWriter, digest_of
 
 #: A fixed non-root operator, whoever runs the suite.
@@ -315,10 +315,67 @@ def test_under_root_with_no_owner_the_operator_is_found_from_the_directory(
     assert fake.dropped()
 
 
+def _owned_by(monkeypatch: pytest.MonkeyPatch, uid: int) -> None:
+    """Every path reads as owned by *uid*: a test cannot chown to root, and
+    under ``unshare -r`` everything the suite made already reads as root's."""
+    monkeypatch.setattr("hammunition.backends.staging._owner_uid", lambda path: uid)
+
+
+def test_under_root_with_no_operator_a_root_owned_directory_is_worked_as_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _as_root(monkeypatch, tmp_path)
+    _owned_by(monkeypatch, 0)
+    fake = Recorder(monkeypatch)
+    directory = tmp_path / "root" / ".cache" / "staging"
+    staging = Staging(directory, euid=0, environ={"JAVA_OPTS": "-Xmx4000m"})
+    assert staging.drop() is None
+    assert staging.who() == ROOT_NO_OPERATOR == "as root: no operator"
+    assert staging.prepare() is None
+    work = staging.workdir("region")
+    assert staging.prepare(work) is None
+    assert staging.run(["sh", "-c", "printf data > out.part"], cwd=work).returncode == 0
+    staged = work / "out.part"
+    digest = staging.digest(staged)
+    assert digest == digest_of(staged)
+    dest = tmp_path / "prefix" / "out"
+    staging.publish(staged, dest, digest=digest, writer=PrefixWriter(privileged=False, euid=0))
+    assert dest.read_text() == "data"
+    staging.remove_tree(work)
+    assert not work.exists()
+    assert fake.calls and all("user" not in k and "env" not in k for _, k in fake.calls)
+
+
+def test_under_root_with_no_operator_a_cwd_outside_the_staging_directory_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _as_root(monkeypatch, tmp_path)
+    _owned_by(monkeypatch, 0)
+    fake = Recorder(monkeypatch)
+    staging = Staging(tmp_path / "root" / ".cache" / "staging", euid=0)
+    result = staging.run(["true"], cwd=tmp_path / "home" / "operator")
+    assert result.returncode == 125 and "outside" in result.stderr
+    assert fake.calls == []
+
+
+def test_under_root_with_no_operator_a_symlink_on_the_way_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _as_root(monkeypatch, tmp_path)
+    _owned_by(monkeypatch, 0)
+    fake = Recorder(monkeypatch)
+    (tmp_path / "real").mkdir()
+    (tmp_path / "cache").symlink_to(tmp_path / "real")
+    refusal = Staging(tmp_path / "cache" / "staging", euid=0).prepare()
+    assert refusal is not None and "symlink" in refusal
+    assert fake.calls == []
+
+
 def test_under_root_with_nobody_to_drop_to_nothing_runs_as_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _as_root(monkeypatch, tmp_path)
+    _owned_by(monkeypatch, 4242)
     fake = Recorder(monkeypatch)
     directory = tmp_path / "elsewhere" / "staging"
     staging = Staging(directory, euid=0)

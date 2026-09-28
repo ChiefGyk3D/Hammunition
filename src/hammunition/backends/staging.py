@@ -15,15 +15,21 @@ reads the staged file through a pipe the operator's own ``cat`` fills, and
 installs the bytes only when they hash to what the operator's ``sha256sum``
 measured (:meth:`PrefixWriter.install_stream`).
 
-Root never runs a converter as root. With no ``owner`` named, the operator is
-the account whose home the staging directory is under; with nobody there,
-every operation is refused by name. A dropped process gets a minimal
+Root never runs a converter as root for a directory another account can
+touch. With no ``owner`` named, the operator is the account whose home the
+staging directory is under. With nobody there, root does the work itself
+(D-043's "as root: no operator", :data:`ROOT_NO_OPERATOR`) only when the
+staging directory is root's own -- every existing component of its path
+root-owned and none a symlink -- and only in a working directory under it;
+otherwise every operation is refused by name. A dropped process gets a minimal
 environment -- ``PATH``, the operator's ``HOME``, ``USER``, ``LOGNAME``, the
 locale when set, and the converter's own ``environ`` -- never root's.
 
 Every command is ``env -C <dir> [NAME=VALUE...] flock ... <argv>``: the chdir
 is the child's own, after the drop, never root's before it; and the argv is
-fixed by the converter that calls this, never read from a manifest.
+fixed by the converter that calls this, never read from a manifest. ``env``
+is coreutils and ``flock`` util-linux, both Essential (Priority: required) on
+every Debian-family target, so neither is ever absent.
 
 Two conversions never share a working directory. maptool writes fixed-name
 temporary files into its cwd, and two runs in one directory crash each other
@@ -51,7 +57,10 @@ from ..paths import _operator_home, operator_dir_problem
 from .base import BackendError
 from .verified import PrefixWriter, digest_of
 
-__all__ = ["Staging", "staging_refusal"]
+__all__ = ["ROOT_NO_OPERATOR", "Staging", "staging_refusal"]
+
+#: What a step says when root does the work itself (D-043).
+ROOT_NO_OPERATOR = "as root: no operator"
 
 EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
@@ -62,6 +71,36 @@ REFUSED = 125
 #: ``flock --verbose``'s own lines on success, removed from the converter's stderr.
 _FLOCK_CHATTER = re.compile(r"^flock: (getting lock took .* seconds|executing .*)$")
 _FLOCK_BUSY = "flock: failed to get lock"
+
+
+def _owner_uid(path: Path) -> int:
+    """The uid owning *path* itself, never a symlink's target."""
+    return path.lstat().st_uid
+
+
+def root_own_refusal(directory: Path) -> str | None:
+    """Why root may not work in *directory* as itself: a component of its path
+    that exists and is a symlink or is not root's. None when it is root's own."""
+    here = Path(os.path.abspath(directory))
+    for component in (here, *here.parents):
+        try:
+            mode = component.lstat().st_mode
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            return f"cannot inspect {component}: {exc.strerror or exc}"
+        if stat.S_ISLNK(mode):
+            return (
+                f"{component} is a symlink; refusing to run a converter in {directory} "
+                f"as root with no operator"
+            )
+        if _owner_uid(component) != 0:
+            return (
+                f"{component} is not root's and no operator was found for {directory}; "
+                f"refusing to run a converter there as root. Run the install with sudo "
+                f"from the operator's account."
+            )
+    return None
 
 
 def staging_refusal(staging: Path) -> str | None:
@@ -111,13 +150,25 @@ class Staging:
             if entry.pw_uid != 0:
                 return entry, None
         found = _operator_home(self.directory, None)
-        if found is None:
-            return None, (
-                f"{self.directory} is under no operator's home and no operator was named; "
-                f"refusing to run a converter as root. Run the install with sudo from "
-                f"the operator's account."
-            )
-        return found, None
+        if found is not None:
+            return found, None
+        # Nobody to drop to: root works as itself, in its own directory only.
+        return None, root_own_refusal(self.directory)
+
+    def _root_self(self) -> bool:
+        euid = os.geteuid() if self.euid is None else self.euid
+        return euid == 0 and self._operator() == (None, None)
+
+    def who(self) -> str:
+        """Who the converters run as, for a step's outcome text: ``as <operator>``,
+        :data:`ROOT_NO_OPERATOR`, or "" when the engine is not root."""
+        entry, refusal = self._operator()
+        if entry is not None:
+            return f"as {entry.pw_name}"
+        euid = os.geteuid() if self.euid is None else self.euid
+        if euid == 0 and refusal is None:
+            return ROOT_NO_OPERATOR
+        return ""
 
     def drop(self) -> tuple[int, int] | None:
         """(uid, gid) to run as, when the engine is root on an operator's behalf.
@@ -185,6 +236,16 @@ class Staging:
         """
         assignments = [f"{name}={value}" for name, value in self.environ.items()]
         lock = cwd.with_name(cwd.name + ".lock")
+        if self._root_self():
+            here, base = Path(os.path.abspath(cwd)), Path(os.path.abspath(self.directory))
+            if here != base and base not in here.parents:
+                return subprocess.CompletedProcess(
+                    ["env", "-C", str(cwd), *argv],
+                    REFUSED,
+                    "",
+                    f"{cwd} is outside the staging directory {self.directory}; refusing "
+                    f"to run a converter there {ROOT_NO_OPERATOR}",
+                )
         command = [
             "env",
             "-C",
