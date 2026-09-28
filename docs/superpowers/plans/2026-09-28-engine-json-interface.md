@@ -1288,7 +1288,7 @@ if __name__ == "__main__":
 Register it in `tests/test_docs_generated.py`, as the last entry of `CHECKED_GENERATORS`:
 
 ````python
-    ("gen_json_reference.py", ["docs/reference/json-interface.md"], []),
+(("gen_json_reference.py", ["docs/reference/json-interface.md"], []),)
 ````
 
 Document the flag in `docs/reference/cli.md` under `## Global flags`, after the `--catalog` paragraph (`test_every_install_flag_is_documented` requires a `` `--json `` mention now that `install` accepts it):
@@ -3796,26 +3796,25 @@ In `except RemovalError as exc:`, before `return EXIT_UNPLANNABLE`, add:
 Replace everything from `    print(f"Target: {target.describe()}\n")` (line 1265) through `        return EXIT_OK` after `print("\nNothing to do: ...")` (line 1302) with:
 
 ````python
-    view = build_removal_view(plan, commands, euid=euid)
-    if envelope.wanted(args):
-        # Reached only with --dry-run (D-059).
-        envelope.emit(
-            PlanDocument(
-                action="uninstall",
-                requested=tuple(args.names),
-                outcome="planned",
-                target=target_view(target),
-                blockers=(),
-                install=None,
-                removal=view,
-            )
+view = build_removal_view(plan, commands, euid=euid)
+if envelope.wanted(args):
+    # Reached only with --dry-run (D-059).
+    envelope.emit(
+        PlanDocument(
+            action="uninstall",
+            requested=tuple(args.names),
+            outcome="planned",
+            target=target_view(target),
+            blockers=(),
+            install=None,
+            removal=view,
         )
-        return EXIT_OK
-    for line in render_removal_view(view, target=target_view(target)):
-        print(line)
-    if not commands:
-        return EXIT_OK
-
+    )
+    return EXIT_OK
+for line in render_removal_view(view, target=target_view(target)):
+    print(line)
+if not commands:
+    return EXIT_OK
 ````
 
 The `if args.dry_run:` block that follows is unchanged.
@@ -4514,18 +4513,16 @@ def rebuild_command(report: UpdateReport) -> str | None:
 In `render`, replace the `if report.upgradable:` and `if report.behind:` blocks with:
 
 ````python
-    upgrade = upgrade_command(report)
-    if upgrade is not None:
-        out.append("")
-        out.append(
-            "To take apt's candidates (upgrade only, never a removal; apt decides the rest):"
-        )
-        out.append(f"  $ {upgrade}")
-    rebuild = rebuild_command(report)
-    if rebuild is not None:
-        out.append("")
-        out.append("To rebuild at the catalog's pin:")
-        out.append(f"  $ {rebuild}")
+upgrade = upgrade_command(report)
+if upgrade is not None:
+    out.append("")
+    out.append("To take apt's candidates (upgrade only, never a removal; apt decides the rest):")
+    out.append(f"  $ {upgrade}")
+rebuild = rebuild_command(report)
+if rebuild is not None:
+    out.append("")
+    out.append("To rebuild at the catalog's pin:")
+    out.append(f"  $ {rebuild}")
 ````
 
 Run: `.venv/bin/pytest tests/test_update.py tests/test_json_update.py -q -k "not document and not nothing and not upstream and not station"`
@@ -5715,7 +5712,9 @@ class RegionsDocument(Strict):
 
     KIND: ClassVar[str] = "regions"
 
-    filter: str | None = described("the case-insensitive substring asked for; null for every region")
+    filter: str | None = described(
+        "the case-insensitive substring asked for; null for every region"
+    )
     regions: tuple[str, ...] = described("the matching region paths, in the index's order")
 ````
 
@@ -5838,7 +5837,9 @@ def _map_section(plan: InstallPlan, maps: MapDisclosure | None) -> MapSectionVie
             )
             for f in maps.convert
         ),
-        kept=tuple(KeptLine(region=k.region, snapshot=k.snapshot, reason=k.reason) for k in maps.kept),
+        kept=tuple(
+            KeptLine(region=k.region, snapshot=k.snapshot, reason=k.reason) for k in maps.kept
+        ),
         licence=units[0].licence.strip(),
         licence_url=units[0].licence_url,
         download_total=total,
@@ -5851,44 +5852,43 @@ def _map_section(plan: InstallPlan, maps: MapDisclosure | None) -> MapSectionVie
 In `render_plan_view`, directly after the offline-data block and before `if view.memberships:`, render it exactly as #121's `render_plan` did:
 
 ````python
-    if view.maps is not None:
-        maps = view.maps
-        lines.append("Map regions, from station config (D-057):")
-        if maps.fetch:
-            lines.append("  will be downloaded and installed:")
-            width = max(len(f.region) for f in maps.fetch)
-            lines.extend(
-                f"    {f.region:<{width}}  {f.snapshot}  {f.size_human:>9}  {f.verified_by}"
-                for f in maps.fetch
-            )
-        if maps.current:
-            lines.append("  already installed, current:")
-            width = max(len(f.region) for f in maps.current)
-            lines.extend(
-                f"    {f.region:<{width}}  {f.snapshot}"
-                + ("  (nothing to do)" if f.nothing_to_do else "")
-                for f in maps.current
-            )
-        if maps.convert:
-            lines.append(f"  will be converted for Navit (map sizes an {maps.estimate_note}):")
-            width = max(len(f.region) for f in maps.convert)
-            lines.extend(
-                f"    {f.region:<{width}}  {f.snapshot}  about {f.estimate_human}"
-                for f in maps.convert
-            )
-        for kept in maps.kept:
-            lines.append(
-                f"  {kept.region}: could not check for a newer map; keeping the installed "
-                f"{kept.snapshot or '(snapshot not recorded)'}"
-            )
-            lines.extend(wrap(kept.reason, indent="      "))
-        lines.append(f"      licence: {maps.licence}, stated at {maps.licence_url}")
-        lines.append(
-            f"      download total: {maps.download_total_human}; about "
-            f"{maps.disk_total_human} of disk with Navit's maps ({maps.estimate_note})"
+if view.maps is not None:
+    maps = view.maps
+    lines.append("Map regions, from station config (D-057):")
+    if maps.fetch:
+        lines.append("  will be downloaded and installed:")
+        width = max(len(f.region) for f in maps.fetch)
+        lines.extend(
+            f"    {f.region:<{width}}  {f.snapshot}  {f.size_human:>9}  {f.verified_by}"
+            for f in maps.fetch
         )
-        lines.append("      installs under <prefix>/share/hammunition/data/")
-        lines.append("")
+    if maps.current:
+        lines.append("  already installed, current:")
+        width = max(len(f.region) for f in maps.current)
+        lines.extend(
+            f"    {f.region:<{width}}  {f.snapshot}"
+            + ("  (nothing to do)" if f.nothing_to_do else "")
+            for f in maps.current
+        )
+    if maps.convert:
+        lines.append(f"  will be converted for Navit (map sizes an {maps.estimate_note}):")
+        width = max(len(f.region) for f in maps.convert)
+        lines.extend(
+            f"    {f.region:<{width}}  {f.snapshot}  about {f.estimate_human}" for f in maps.convert
+        )
+    for kept in maps.kept:
+        lines.append(
+            f"  {kept.region}: could not check for a newer map; keeping the installed "
+            f"{kept.snapshot or '(snapshot not recorded)'}"
+        )
+        lines.extend(wrap(kept.reason, indent="      "))
+    lines.append(f"      licence: {maps.licence}, stated at {maps.licence_url}")
+    lines.append(
+        f"      download total: {maps.download_total_human}; about "
+        f"{maps.disk_total_human} of disk with Navit's maps ({maps.estimate_note})"
+    )
+    lines.append("      installs under <prefix>/share/hammunition/data/")
+    lines.append("")
 ````
 
 `render_plan` in `cli/main.py` gains `maps: MapDisclosure | None = None` and passes `maps=maps` to `build_install_view`. In `cmd_install`, pass `maps=maps, region_notes=region_notes` to `build_install_view`, and print `for note in (*suggestion_notes, *region_notes): print(f"note: {note}")` in the text branch as #121 does.
