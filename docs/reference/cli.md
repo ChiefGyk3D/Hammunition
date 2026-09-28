@@ -234,11 +234,11 @@ Map regions, from station config (D-057):
   will be downloaded and installed:
     north-america/us/vermont        260101    44.4 MB  sha256, pinned by Hammunition
     north-america/us/new-hampshire  260101    68.1 MB  sha256, pinned by Hammunition
-  will be converted for Navit (map sizes an estimate, measured on one region):
-    north-america/us/vermont        260101  about 35.5 MB
-    north-america/us/new-hampshire  260101  about 54.5 MB
+  will be converted for Navit (map sizes an estimate, measured on three regions, scratch on one):
+    north-america/us/vermont        260101  about 40.0 MB
+    north-america/us/new-hampshire  260101  about 61.3 MB
       licence: ODbL-1.0, stated at https://www.openstreetmap.org/copyright
-      download total: 0.11 GB; about 0.20 GB of disk with Navit's maps (estimate, measured on one region)
+      download total: 0.11 GB; about 0.21 GB of disk with Navit's maps (estimate, measured on three regions, scratch on one)
       installs under <prefix>/share/hammunition/data/
 ```
 
@@ -263,8 +263,10 @@ no network at all, so this is checked explicitly rather than discovered
 mid-transaction after apt has already run; an already-installed region is
 never probed), when `/etc/navit/navit.xml` is missing and navit is not
 in the transaction, and when a file system is short of the estimated space
-(the download in the cache and the prefix, the converted map at 0.8× and
-maptool's scratch at 2× the download, both factors measured on one region;
+(the download in the cache and the prefix, the converted map at 0.9× and
+maptool's scratch at 2× the download; the map factor measured on three
+regions — 0.77× on a country-sized one, 0.874× and 0.856× on two
+US-state-sized ones — and the scratch factor on one;
 the refusal prints the estimate and what is free). With no regions set the
 two units are deferred by name and the rest installs (**D-035**). A region
 that fails during the run — a download that does not verify, a conversion

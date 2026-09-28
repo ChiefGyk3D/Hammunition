@@ -19,13 +19,19 @@ For ``navit-maptool``, each region takes two steps:
 * **install**, as root only where the prefix needs it: the staged map is
   copied into ``<data>/<unit>/<slug>.bin`` re-verified against that digest
   without following a symlink, with a ``<slug>.bin.source`` sidecar holding
-  the snapshot.
+  the snapshot. maptool's leftover per-country scratch is then removed from
+  the staging directory, by name through a descriptor that never follows a
+  link (a successful conversion left it there on the field laptop).
 
 A region already converted from the same snapshot is not converted again; a
 region no longer in station config loses its ``.bin`` (one the plan kept
 because it could not be checked for a newer map does not). Last,
 ``navit.xml`` is written beside the maps from the installed stock config
-(:mod:`hammunition.navit_config`), listing every map that exists then.
+(:mod:`hammunition.navit_config`), listing every map that exists then,
+opening on the first of them -- the midpoint of the bbox in its source
+``.osm.pbf``'s header (:mod:`hammunition.osm_pbf`) -- and following the
+gpsd vehicle. The stock centre is Munich; Navit opened there, on a blank
+screen, on the field laptop (2026-09-28).
 
 A region that failed -- to download, to verify, to convert -- is recorded in
 the shared :class:`~hammunition.backends.regions.MapLedger`, the others
@@ -37,6 +43,7 @@ from __future__ import annotations
 import contextlib
 import os
 import pwd
+import re
 import stat
 import subprocess
 from collections.abc import Sequence
@@ -45,10 +52,10 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
-from .. import navit_config
+from .. import navit_config, osm_pbf
 from ..geofabrik import RegionFile
 from ..manifest.schema import DerivedDataInstall, PackageManifest
-from ..paths import operator_dir_problem
+from ..paths import OperatorDirError, open_operator_dir, operator_dir_problem
 from .base import Action, BackendError, Command, CommandRunner
 from .data import human_size
 from .regions import (
@@ -68,6 +75,13 @@ from .verified import PrefixWriter, digest_of
 
 BIN = ".bin"
 _EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+#: maptool's per-country boundary scratch, the files it left in the staging
+#: directory after a successful conversion on the field laptop (2026-09-28):
+#: ``country_<id>_broken_.tmp`` and ``country_<id>_poly_.tmp``. Exactly these
+#: two shapes; nothing else in the directory is removed, least of all another
+#: region's ``.bin.part``.
+_SCRATCH = re.compile(r"country_[A-Za-z0-9]+_(?:broken|poly)_\.tmp")
+SCRATCH_PATTERNS = "country_*_broken_.tmp, country_*_poly_.tmp"
 
 
 def _maptool_argv(pbf: Path, staged: Path) -> list[str]:
@@ -174,7 +188,11 @@ class DerivedBackend:
             steps.append(
                 Action(
                     kind="install-data",
-                    description=f"Install the Navit map of {region.region} ({region.snapshot})",
+                    description=(
+                        f"Install the Navit map of {region.region} ({region.snapshot}), then "
+                        f"remove maptool's leftover scratch ({SCRATCH_PATTERNS}) from "
+                        f"{self.staging}"
+                    ),
                     # The destination, verbatim, for uninstall's attribution replay.
                     detail=str(dest),
                     perform=partial(self._install, region, staged, dest, converted, writer),
@@ -190,11 +208,17 @@ class DerivedBackend:
                 kind="install-data",
                 description=(
                     f"Write Navit's config for these maps, built from {self.stock} "
-                    f"(speech through espeak-ng, one mapset of the regions above)"
+                    f"(speech through espeak-ng, one mapset of the regions above, "
+                    f"centred on the first region whose header gives a bounding box, else "
+                    f'the stock centre; the GPS vehicle with follow="1" where the stock '
+                    f"file has exactly one)"
                 ),
                 detail=str(config),
                 perform=partial(
-                    self._write_config, tuple(out / f"{s}{BIN}" for s in slugs), config, writer
+                    self._write_config,
+                    tuple((out / f"{s}{BIN}", source_dir / f"{s}{PBF}") for s in slugs),
+                    config,
+                    writer,
                 ),
                 requires_root=writer.privileged,
             )
@@ -386,10 +410,87 @@ class DerivedBackend:
                 staged.unlink(missing_ok=True)
             else:
                 _remove_as(drop, staged)
-        return f"installed {dest}"
+        return f"installed {dest}; {self._clear_scratch()}"
 
-    def _write_config(self, bins: Sequence[Path], dest: Path, writer: PrefixWriter) -> str:
-        present = [b for b in bins if b.is_file()]
+    def _clear_scratch(self) -> str:
+        """Remove maptool's leftover scratch from the staging directory.
+
+        Only regular files whose whole name matches :data:`_SCRATCH`, only in
+        the staging directory itself, and only by name through a descriptor on
+        it: :func:`~hammunition.paths.open_operator_dir` walks from the
+        operator's home ``O_NOFOLLOW`` and proves each component theirs, so a
+        symlink planted anywhere in the path cannot redirect the removal, and
+        ``unlinkat`` on a name removes that entry, never what a link points
+        at. A symlink named like scratch is not maptool's and is left. Not
+        clearing is named in the outcome, never a failure: the map is
+        installed, and the files are the operator's, in their cache."""
+        try:
+            self.staging.lstat()
+        except FileNotFoundError:
+            return "no maptool scratch to remove"
+        except OSError as exc:
+            return f"scratch not cleared: cannot inspect {self.staging}: {exc.strerror or exc}"
+        try:
+            fd = open_operator_dir(self.staging, self.owner)
+            if fd is None:
+                # Not root on someone's behalf: the plain case, still no link followed.
+                fd = os.open(self.staging, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OperatorDirError as exc:
+            return f"scratch not cleared: {exc}"
+        except OSError as exc:
+            return f"scratch not cleared: cannot open {self.staging}: {exc.strerror or exc}"
+        removed = 0
+        try:
+            for name in os.listdir(fd):
+                if not _SCRATCH.fullmatch(name):
+                    continue
+                with contextlib.suppress(FileNotFoundError):
+                    if stat.S_ISREG(os.stat(name, dir_fd=fd, follow_symlinks=False).st_mode):
+                        os.unlink(name, dir_fd=fd)
+                        removed += 1
+        except OSError as exc:
+            return f"scratch not cleared: {self.staging}: {exc.strerror or exc}"
+        finally:
+            os.close(fd)
+        return f"removed {removed} maptool scratch file(s) from {self.staging}"
+
+    @staticmethod
+    def _center(
+        sources: Sequence[Path],
+    ) -> tuple[tuple[float, float] | None, str | None, list[str]]:
+        """(lon, lat) Navit opens on, the region it came from, and why any
+        region before it was passed over.
+
+        The first region whose ``.osm.pbf`` header has a bbox. One no longer
+        installed, one whose header carries no bbox (the format allows it)
+        and one that cannot be read give way to the next, and each is named
+        in the step's outcome rather than failing it: a map config opening on
+        the stock centre is still a working config, where a failed step would
+        leave Navit none and hide the ledger's own report."""
+        passed: list[str] = []
+        for pbf in sources:
+            try:
+                bbox = osm_pbf.header_bbox(pbf)
+            except FileNotFoundError:
+                passed.append(f"{pbf}: not installed")
+                continue
+            except OSError as exc:
+                passed.append(f"{pbf}: cannot read it: {exc.strerror or exc}")
+                continue
+            except osm_pbf.OsmPbfError as exc:
+                passed.append(str(exc))
+                continue
+            if bbox is None:
+                passed.append(f"{pbf}: its header has no bounding box")
+                continue
+            return osm_pbf.bbox_center(bbox), pbf.name.removesuffix(PBF), passed
+        return None, None, passed
+
+    def _write_config(
+        self, maps: Sequence[tuple[Path, Path]], dest: Path, writer: PrefixWriter
+    ) -> str:
+        present_maps = [(b, pbf) for b, pbf in maps if b.is_file()]
+        present = [b for b, _ in present_maps]
         if not present and self.ledger.failed:
             # Nothing converted; the ledger's step fails the run naming why.
             return "not written: no region has a Navit map"
@@ -400,9 +501,20 @@ class DerivedBackend:
                 f"cannot read Navit's stock config {self.stock}: {exc.strerror or exc}. "
                 f"It comes from the navit package; install it and run this again."
             ) from exc
+        center, origin, passed = self._center([pbf for _, pbf in present_maps])
+        not_following = navit_config.follow_problem(text)
         try:
-            body = navit_config.rewrite(text, present)
+            body = navit_config.rewrite(text, present, center=center)
         except navit_config.NavitConfigError as exc:
             raise BackendError(f"{self.stock}: {exc}") from exc
         writer.write_text(dest, body)
-        return f"wrote {dest} ({len(present)} map(s))"
+        where = (
+            f"opening on {navit_config.format_center(center)} (from {origin})"
+            if center is not None
+            else "no region's header gave a bounding box, so Navit keeps the stock centre"
+        )
+        skipped = "".join(f"; passed over {p}" for p in passed)
+        follow = (
+            "" if not_following is None else f"; Navit will not follow the GPS: {not_following}"
+        )
+        return f"wrote {dest} ({len(present)} map(s); {where}{skipped}{follow})"
