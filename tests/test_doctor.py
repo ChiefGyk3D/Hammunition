@@ -297,3 +297,13 @@ def test_a_hammunition_earlier_on_path_is_named_and_relinking_is_not_offered() -
 
 def test_hammunition_resolving_to_this_checkout_is_ok() -> None:
     assert _by_name(run_checks(**HEALTHY))["hammunition"].status == "ok"  # type: ignore[arg-type]
+
+
+def test_qmapshack_without_routino_translations_warns_with_the_fix() -> None:
+    """D-061: QMapShack stops at startup without routino-common's file."""
+    checks = run_checks(**HEALTHY, qmapshack_without_translations=True)  # type: ignore[arg-type]
+    (check,) = [c for c in checks if c.name == "qmapshack"]
+    assert check.status == "warn"
+    assert "/usr/share/routino/translations.xml" in check.detail
+    assert check.fix == "sudo apt-get install --reinstall routino-common"
+    assert not [c for c in run_checks(**HEALTHY) if c.name == "qmapshack"]  # type: ignore[arg-type]

@@ -29,8 +29,10 @@ Exit codes, because scripts read them:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import shutil
+import stat
 import sys
 import tempfile
 import textwrap
@@ -752,6 +754,146 @@ def cmd_maps_regions(args: argparse.Namespace) -> int:
     for region in matched:
         print(region)
     return EXIT_OK
+
+
+def _read_config_nofollow(path: Path) -> tuple[str, int | None]:
+    """*path*'s text and mode, or ``("", None)`` when absent.
+
+    Opened with ``O_NOFOLLOW``: a symbolic link in place of the file is
+    refused, never read through and never renamed over, because what it
+    points at is not a file this command created (the path-link.sh rule).
+    Anything but a regular file is refused too. Raises :class:`OSError`
+    with a message naming what was found.
+    """
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except FileNotFoundError:
+        if path.is_symlink():  # a dangling link: still not ours to replace
+            raise OSError(f"{path} is a symbolic link; left as it is") from None
+        return "", None
+    except OSError as exc:
+        if path.is_symlink():
+            raise OSError(f"{path} is a symbolic link; left as it is") from None
+        raise OSError(f"cannot read {path}: {exc.strerror or exc}") from None
+    with os.fdopen(fd, "rb") as handle:
+        info = os.fstat(handle.fileno())
+        if not stat.S_ISREG(info.st_mode):
+            raise OSError(f"{path} is not a regular file; left as it is")
+        raw = handle.read()
+    try:
+        return raw.decode("utf-8"), stat.S_IMODE(info.st_mode)
+    except UnicodeDecodeError:
+        raise OSError(f"{path} is not UTF-8 text; left as it is") from None
+
+
+def _replace_atomically(path: Path, text: str, mode: int | None) -> None:
+    """Write *text* to a new file beside *path* and rename it over *path*.
+
+    The temporary file is created exclusively (``mkstemp``) in the same
+    directory, so the rename is atomic and nothing pre-planted at a fixed
+    name is written through. An existing file's mode is kept; a new one is
+    0600, as mkstemp creates it.
+    """
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            if mode is not None:
+                os.fchmod(handle.fileno(), mode)
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    except BaseException:
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(temporary)
+        raise
+
+
+def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
+    """Name Hammunition's maps in QMapShack's own configuration, then start it.  D-061.
+
+    What the ``qmapshack-offline`` launcher runs. Per-user: refused under
+    root, whose configuration is not the operator's. Additive: a key is
+    added or extended only with our directories, existing values stay where
+    they are, and nothing else in the file changes; a file it cannot read,
+    a symbolic link or anything but a regular file in its place is refused
+    and left untouched, and QMapShack is then not started. No ``--json``
+    form: it replaces itself with a GUI (D-059).
+    """
+    from hammunition.qmapshack_config import QmsConfigError, config_path, ensure_paths, wanted
+
+    if os.geteuid() == 0:
+        print(
+            "error: QMapShack's configuration is per user; run this as yourself, not as root.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    path = config_path()
+    not_started = "Nothing was changed and QMapShack was not started"
+    try:
+        text, mode = _read_config_nofollow(path)
+    except OSError as exc:
+        print(f"error: {exc}. {not_started}.", file=sys.stderr)
+        return EXIT_FAILED
+    try:
+        updated = ensure_paths(text, wanted(data_root(DEFAULT_PREFIX)))
+    except QmsConfigError as exc:
+        print(
+            f"error: {path}: {exc}. {not_started}; "
+            f"add the directories in QMapShack's own setup, or move the file aside.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    if updated != text:
+        print(
+            f"adding Hammunition's map, elevation and routing directories to {path} "
+            f"(existing entries kept)",
+            file=sys.stderr,
+        )
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _replace_atomically(path, updated, mode)
+        except OSError as exc:
+            print(
+                f"error: cannot write {path}: {exc.strerror or exc}. QMapShack was not started.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+    if args.configure_only:
+        return EXIT_OK
+    sys.stdout.flush()
+    sys.stderr.flush()  # execvp discards whatever Python still buffers
+    try:
+        os.execvp("qmapshack", ["qmapshack"])
+    except OSError as exc:
+        print(
+            f"error: cannot start qmapshack: {exc.strerror or exc}. "
+            f"`hammunition install qmapshack` installs it.",
+            file=sys.stderr,
+        )
+    return EXIT_FAILED
+
+
+def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
+    """Serve gpsd's NMEA on 127.0.0.1:10110 for QMapShack's GPS Tether.  D-061.
+
+    Loopback only, one client at a time, and only while the operator runs
+    it; the argv is a fixed list, never a shell line. No ``--json`` form:
+    it replaces itself with ``socat`` (D-059).
+    """
+    from hammunition.gps_tether import instructions, tether_argv
+
+    print(instructions())
+    sys.stdout.flush()  # execvp discards whatever Python still buffers
+    try:
+        os.execvp("socat", tether_argv())
+    except OSError as exc:
+        print(
+            f"error: cannot start socat: {exc.strerror or exc}. "
+            f"`hammunition install socat gpsd-clients` installs it and gpspipe.",
+            file=sys.stderr,
+        )
+    return EXIT_FAILED
 
 
 def resolve_map_regions(
@@ -2503,7 +2645,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     """Report what is ready and what is not yet set up. Changes nothing."""
     import shutil
 
-    from hammunition.doctor import run_checks, writable_or_creatable
+    from hammunition.doctor import ROUTINO_TRANSLATIONS, run_checks, writable_or_creatable
     from hammunition.hardware import RULES_PATH, plan_hardware, rules_file
     from hammunition.manifest.load import load_hardware
     from hammunition.paths import state_dir
@@ -2635,6 +2777,9 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         desktops_installed=sessions.desktops,
         sessions_unrecognised=sessions.unrecognised,
         desktop_current=current_desktop(os.environ),
+        qmapshack_without_translations=(
+            shutil.which("qmapshack") is not None and not Path(ROUTINO_TRANSLATIONS).is_file()
+        ),
     )
 
     from hammunition.interface.doctor import build_doctor, render_doctor
@@ -2797,7 +2942,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_update.set_defaults(func=cmd_update)
 
-    p_maps = sub.add_parser("maps", help="Geofabrik's OpenStreetMap regions (D-057)")
+    p_maps = sub.add_parser(
+        "maps", help="offline maps: Geofabrik's regions (D-057), QMapShack and its GPS (D-061)"
+    )
     maps_sub = p_maps.add_subparsers(dest="maps_command", required=True)
 
     p_maps_regions = maps_sub.add_parser(
@@ -2811,6 +2958,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="case-insensitive substring to match; default: every region",
     )
     p_maps_regions.set_defaults(func=cmd_maps_regions)
+
+    p_maps_qms = maps_sub.add_parser(
+        "qmapshack",
+        help="add Hammunition's maps to your QMapShack configuration, then start it (D-061)",
+    )
+    p_maps_qms.add_argument(
+        "--configure-only",
+        action="store_true",
+        help="edit the configuration and do not start QMapShack",
+    )
+    p_maps_qms.set_defaults(func=cmd_maps_qmapshack)
+
+    p_maps_tether = maps_sub.add_parser(
+        "gps-tether",
+        help="serve gpsd's NMEA on 127.0.0.1:10110 for QMapShack's GPS Tether (D-061)",
+    )
+    p_maps_tether.set_defaults(func=cmd_maps_gps_tether)
 
     p_show = sub.add_parser("show", help="describe a profile, disclosure included")
     p_show.add_argument("profile")
