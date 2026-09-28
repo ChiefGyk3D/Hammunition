@@ -136,6 +136,14 @@ def bbox_ring(left: float, right: float, top: float, bottom: float) -> Ring:
 
 
 def _edge_squares(a: Point, b: Point, out: set[Square]) -> None:
+    if abs(a[0] - b[0]) > 180.0:
+        raise CopernicusError(
+            f"an outline edge spans more than 180 degrees of longitude, from "
+            f"{a!r} to {b!r}; whether Geofabrik ever writes an antimeridian "
+            f"outline as this kind of jump (rather than unwrapped past +/-180, "
+            f"which squares_touching already folds back) is unmeasured, so it "
+            f"is refused rather than guessed at"
+        )
     (x1, y1), (x2, y2) = sorted((a, b))
     for column in range(math.floor(x1), math.floor(x2) + 1):
         if x2 == x1:
@@ -179,6 +187,12 @@ def squares_touching(outer: Sequence[Ring], holes: Sequence[Ring] = ()) -> froze
 
 def select(squares: Iterable[Square], tile_list: frozenset[str]) -> tuple[tuple[str, ...], int]:
     """(the tiles that exist for *squares*, sorted; how many squares are sea)."""
+    if not tile_list:
+        raise CopernicusError(
+            "the tile list is empty; refusing to plan every square as sea rather "
+            "than risk a truncated or emptied "
+            "catalog/data/copernicus-glo30-tiles.txt going unnoticed"
+        )
     names = {tile_name(s) for s in squares}
     tiles = tuple(sorted(names & tile_list))
     return tiles, len(names) - len(tiles)
@@ -194,6 +208,12 @@ def parse_tile_list(text: str) -> frozenset[str]:
         if TILE.fullmatch(line) is None:
             raise CopernicusError(f"line {number} is not a tile name: {line[:80]!r}")
         names.add(line)
+    if not names:
+        raise CopernicusError(
+            "the tile list names no tiles; an empty or comment-only "
+            "catalog/data/copernicus-glo30-tiles.txt would otherwise make every "
+            "square sea with no warning"
+        )
     return frozenset(names)
 
 
@@ -228,7 +248,13 @@ class TileFile:
 
     @property
     def verified_by(self) -> str:
-        return PINNED if self.sha256 else UNPINNED
+        if self.sha256:
+            return PINNED
+        if self.md5:
+            return UNPINNED
+        raise CopernicusError(
+            f"{self.name}: has neither a sha256 pin nor an MD5; nothing verifies it"
+        )
 
 
 class TileProbe(Protocol):

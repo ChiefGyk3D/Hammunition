@@ -137,6 +137,37 @@ def test_the_tile_list_skips_comments_and_refuses_a_stray_line() -> None:
         parse_tile_list(f"{A}\nnot-a-tile\n")
 
 
+def test_an_empty_tile_list_is_refused_not_treated_as_all_sea() -> None:
+    with pytest.raises(CopernicusError, match="empty"):
+        parse_tile_list("")
+    with pytest.raises(CopernicusError, match="empty"):
+        parse_tile_list("# only comments\n\n# nothing else\n")
+
+
+def test_select_refuses_an_empty_tile_list_not_all_sea() -> None:
+    with pytest.raises(CopernicusError, match="empty"):
+        select({(0, 0), (1, 1)}, frozenset())
+
+
+def test_an_outline_edge_that_jumps_the_antimeridian_is_refused_by_name() -> None:
+    # 179.5 to -179.5 written as a direct jump, not unwrapped past 180 the
+    # way an already-folded outline is (test_an_outline_past_180_is_folded_
+    # back): this is the split-ring shape an Alaska/Fiji-style Geofabrik
+    # outline might use, and it is unmeasured, so it is refused by name
+    # rather than guessed at.
+    ring = ((179.5, 10.2), (-179.5, 10.2), (-179.5, 10.5), (179.5, 10.5))
+    with pytest.raises(CopernicusError, match="180") as excinfo:
+        squares_touching([ring])
+    message = str(excinfo.value)
+    assert "179.5" in message
+    assert "-179.5" in message
+
+
+def test_a_tile_file_with_neither_hash_refuses_to_say_how_it_is_verified() -> None:
+    with pytest.raises(CopernicusError):
+        _ = TileFile(A, tile_url(A), 1, None, None).verified_by
+
+
 def test_a_pinned_tile_resolves_from_its_pin_and_asks_nothing() -> None:
     probe = FakeProbe({})
     got = resolve_tile(A, pins={A: TilePin(A, 39_000_000, SHA, MD5)}, probe=probe)
