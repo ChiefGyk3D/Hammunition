@@ -344,3 +344,106 @@ def current_pinned_snapshots(
                 out[region.replace("/", "-")] = snapshot
                 break
     return out
+
+
+_ISO_ALPHA2 = re.compile(r"[A-Z]{2}")
+
+
+def _codes_of(properties: Mapping[str, object]) -> tuple[str, ...]:
+    """A feature's own country codes: ``iso3166-1:alpha2``, then the country
+    prefix of each ``iso3166-2`` (``US-VT`` -> ``US``), first seen first."""
+    found: list[str] = []
+    for key in ("iso3166-1:alpha2", "iso3166-2"):
+        values = properties.get(key) or []
+        if not isinstance(values, list):
+            raise GeofabrikError(f"{properties.get('id', '?')!r}: {key} is not a list")
+        for value in values:
+            code = str(value).split("-", 1)[0] if key == "iso3166-2" else str(value)
+            if not _ISO_ALPHA2.fullmatch(code):
+                raise GeofabrikError(
+                    f"{properties.get('id', '?')!r}: {key} holds {value!r}, which does not "
+                    f"name an ISO 3166-1 alpha-2 country"
+                )
+            if code not in found:
+                found.append(code)
+    return tuple(found)
+
+
+def countries_from_index(index_json: str) -> dict[str, tuple[str, ...]]:
+    """Region path -> the ISO 3166-1 alpha-2 countries it lies in, from
+    Geofabrik's region index.  The address-search fix (D-057 amendment).
+
+    Pure, like :func:`region_ids`: ``scripts/gen_geofabrik_countries.py``
+    reads the index once and writes the result to
+    ``catalog/data/geofabrik-countries.yaml``, which the engine reads at plan
+    time with no network.
+
+    A region's codes are its own ``iso3166-1:alpha2`` list plus the country
+    prefix of each ``iso3166-2`` code (``US-VT`` is the US). A region with
+    neither -- Bayern, an English county, most of what sits below a country
+    -- takes its nearest ancestor's through ``parent``. A region with no
+    country anywhere above it (a continent, a group such as ``dach`` or
+    ``us-northeast``) is left out, and its conversion merges no boundary.
+    """
+    try:
+        data = json.loads(index_json)
+    except json.JSONDecodeError as exc:
+        raise GeofabrikError(f"Geofabrik's index is not valid JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise GeofabrikError("Geofabrik's index is not a JSON object")
+    own: dict[str, tuple[str, ...]] = {}
+    parent: dict[str, str] = {}
+    path: dict[str, str] = {}
+    for feature in data.get("features", []):
+        properties = feature.get("properties") if isinstance(feature, dict) else None
+        if not isinstance(properties, dict) or not isinstance(properties.get("id"), str):
+            raise GeofabrikError(f"a feature in Geofabrik's index has no id: {feature!r}")
+        fid = properties["id"]
+        own[fid] = _codes_of(properties)
+        if isinstance(properties.get("parent"), str):
+            parent[fid] = properties["parent"]
+        urls = properties.get("urls")
+        pbf = urls.get("pbf") if isinstance(urls, dict) else None
+        match = _REGION_ID.fullmatch(pbf) if isinstance(pbf, str) else None
+        if match is not None:
+            path[fid] = match.group(1)
+    out: dict[str, tuple[str, ...]] = {}
+    for fid, region in path.items():
+        seen: list[str] = []
+        at: str | None = fid
+        codes: tuple[str, ...] = ()
+        while at is not None and at in own:
+            if at in seen:
+                raise GeofabrikError(
+                    f"Geofabrik's index has a parent cycle: {' -> '.join([*seen, at])}"
+                )
+            seen.append(at)
+            if own[at]:
+                codes = own[at]
+                break
+            at = parent.get(at)
+        if codes:
+            out[region] = codes
+    return dict(sorted(out.items()))
+
+
+def load_countries(path: Path) -> dict[str, tuple[str, ...]]:
+    """``catalog/data/geofabrik-countries.yaml``, validated: region path ->
+    ISO 3166-1 alpha-2 codes. Refused by name when a row is malformed, never
+    read as an empty table."""
+    data = yaml.safe_load(path.read_text()) or {}
+    regions = data.get("regions") if isinstance(data, dict) else None
+    if not isinstance(regions, dict):
+        raise GeofabrikError(f"{path} has no `regions:` mapping")
+    table: dict[str, tuple[str, ...]] = {}
+    for region, codes in regions.items():
+        if not (
+            isinstance(codes, list)
+            and codes
+            and all(isinstance(c, str) and _ISO_ALPHA2.fullmatch(c) for c in codes)
+        ):
+            raise GeofabrikError(
+                f"{path}: {region}: {codes!r} is not a list of ISO 3166-1 alpha-2 codes"
+            )
+        table[str(region)] = tuple(codes)
+    return table

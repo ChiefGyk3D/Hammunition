@@ -503,6 +503,7 @@ source data before running the converter over it.
 | `method` | `Literal[derived]` | no (default `derived`) |  |
 | `converter` | `Literal[navit-maptool]` | **yes** |  |
 | `source` | `str` | **yes** | The catalog package name this is derived from. |
+| `boundaries` | `str \| None` | no | The catalog data unit holding country boundaries (one GeoJSON file) that `navit-maptool` merges into each region before conversion, so maptool files towns under a country and address search finds them (D-057 amendment, 2026-09-28). Must also be in `depends`. |
 | `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
 | `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
 

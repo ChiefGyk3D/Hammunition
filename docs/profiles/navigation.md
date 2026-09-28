@@ -8,17 +8,17 @@
 
 ## What it installs
 
-gpsd and its clients to read the GPS receiver; Navit, an offline turn-by-turn navigator with spoken directions through espeak-ng; the OpenStreetMap regions you choose, downloaded from Geofabrik and verified (`osm-regions`); and those regions converted into Navit's format with a Navit configuration that loads all of them and follows the GPS (`osm-navit`, opened by the `navit-offline` launcher).
+gpsd and its clients to read the GPS receiver; Navit, an offline turn-by-turn navigator with spoken directions through espeak-ng; the OpenStreetMap regions you choose, downloaded from Geofabrik and verified (`osm-regions`); Natural Earth's country borders (`country-boundaries`), which let address search find towns on a part-of-a-country map; and those regions converted into Navit's format with a Navit configuration that loads all of them and follows the GPS (`osm-navit`, opened by the `navit-offline` launcher).
 
-**Disk footprint:** Navit, espeak-ng and gpsd from the archive (size not yet measured). Per region: the download, plus Navit's converted map at about 0.9 times the download, plus about twice the download of temporary space while it converts (the map factor measured on three regions: a 6.1 GB country-sized region converted to 4.7 GB, about 0.77 times, in 75 minutes on an i7-1185G7, and two US-state-sized regions at 0.874 and 0.856 times; the scratch on the country-sized region only). A single US state's download ranges from about 20 MB (District of Columbia) to 1.3 GB (California).
+**Disk footprint:** Navit, espeak-ng, osmium-tool and gpsd from the archive (size not yet measured), and the 13.3 MB country-border file once. Per region: the download, plus Navit's converted map at about 0.9 times the download, plus about twice the download of temporary space while it converts (the map factor measured on three regions: a 6.1 GB country-sized region converted to 4.7 GB, about 0.77 times, in 75 minutes on an i7-1185G7, and two US-state-sized regions at 0.874 and 0.856 times; the scratch on the country-sized region only). A single US state's download ranges from about 20 MB (District of Columbia) to 1.3 GB (California).
 
 ## Why these belong together
 
 A navigator is only useful with a position and a map, and offline it needs both already on the machine. Navit without gpsd does not know where you are, and gpsd alone is a position with nothing to show it on. The same install serves daily driving and an EMCOMM deployment with the phone network down: the maps are on the laptop before anything goes wrong, and `hammunition update` says when newer map data is pinned.
 
-## Packages (5)
+## Packages (6)
 
-[`gpsd`](../packages/gpsd.md), [`gpsd-clients`](../packages/gpsd-clients.md), [`navit`](../packages/navit.md), [`osm-regions`](../packages/osm-regions.md), [`osm-navit`](../packages/osm-navit.md)
+[`gpsd`](../packages/gpsd.md), [`gpsd-clients`](../packages/gpsd-clients.md), [`navit`](../packages/navit.md), [`osm-regions`](../packages/osm-regions.md), [`country-boundaries`](../packages/country-boundaries.md), [`osm-navit`](../packages/osm-navit.md)
 
 ## What it deliberately excludes
 

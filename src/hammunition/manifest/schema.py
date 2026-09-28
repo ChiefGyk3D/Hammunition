@@ -814,6 +814,15 @@ class DerivedDataInstall(Strict):
     method: Literal["derived"] = "derived"
     converter: Literal["navit-maptool"]
     source: str = Field(description="The catalog package name this is derived from.")
+    boundaries: str | None = Field(
+        default=None,
+        description=(
+            "The catalog data unit holding country boundaries (one GeoJSON file) "
+            "that `navit-maptool` merges into each region before conversion, so "
+            "maptool files towns under a country and address search finds them "
+            "(D-057 amendment, 2026-09-28). Must also be in `depends`."
+        ),
+    )
     licence: str = Field(
         min_length=2,
         description="SPDX identifier where one exists, else the publisher's own words.",
@@ -1486,11 +1495,14 @@ class PackageManifest(Strict):
         `depends` is what makes the plan install that unit first."""
         for entry in self.install:
             block = entry.install
-            if isinstance(block, DerivedDataInstall) and block.source not in self.depends:
-                raise ManifestError(
-                    f"{self.name}: a derived block reads {block.source!r}, which must be "
-                    f"in depends so it is installed first"
-                )
+            if not isinstance(block, DerivedDataInstall):
+                continue
+            for unit in (block.source, block.boundaries):
+                if unit is not None and unit not in self.depends:
+                    raise ManifestError(
+                        f"{self.name}: a derived block reads {unit!r}, which must be "
+                        f"in depends so it is installed first"
+                    )
         return self
 
     @model_validator(mode="after")

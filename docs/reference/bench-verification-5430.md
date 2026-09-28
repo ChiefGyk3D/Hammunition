@@ -275,6 +275,28 @@ Not measured: a reboot while parked (the design says it wakes everything and
 nothing is persisted), park and wake from the CLI and menu callers, and any
 second parkable device.
 
+## Session 11, 2026-09-28: Navit on the operator's own maps, and address search
+
+The first run of the `navigation` profile (D-057) on the field laptop,
+with two US-state-sized regions set in station config. Region names, file
+sizes and positions are not recorded here.
+
+| Step | Result |
+|---|---|
+| `hammunition install navigation` | Every step verified: both regions downloaded and checked against their pins, both converted as the operator, Navit's configuration written. |
+| First start of `navit-offline` | A blank screen. The generated configuration kept Navit's stock centre, Munich, where no map exists, and the gpsd vehicle had no `follow="1"`, so the view never moved to the receiver. Fixed by #130: the configuration now opens on the first region's bounding box and follows the GPS (the D-057 amendment of the same day). |
+| Reinstall, then `rm -f ~/.navit/center.txt` | Navit opens on the maps and follows the receiver. The file matters: after its first start Navit restores its last view from it, and it still held the Munich view. The guide's troubleshooting entry carries the command. |
+| Address search | Found almost nothing. Actions → Town, with the US chosen, listed a handful of towns, and not the largest city in the first region. Measured in scratch, from the installed `.osm.pbf` read-only: the search index of one region held about a dozen items for a map that draws a few thousand places. The cause is the state extract's open copy of the US border: maptool files towns under a country only inside a closed `admin_level=2` boundary, and dropped the rest. |
+| The maintainer's stopgap | The maps rebuilt by hand with `maptool -U`, which files every unassigned town under the pseudo-country "Unknown": searchable, with no state or county, and only after choosing "* Unknown" as the country. |
+| The fix, measured in scratch | A closed US border from Natural Earth merged into the extract with `osmium merge` before `maptool -U`: over four thousand index items on the same region under the USA, a few hundred times as many, almost all with state and county; a handful of edge places in the neighbouring states with no state (those states' own borders are incomplete in the extract); a handful more under Unknown: a few places on the wrong side of the coarse border, and the places across the national border that the extract carries, correctly not filed under the US. The largest missing places were each found under the US flag, with their streets. |
+
+The fix is the `country-boundaries` unit and the converter's merge step
+(D-057 amendment, 2026-09-28). Not yet run here: `hammunition install
+navigation` with it. Both regions' maps carry the old one-line sidecar, so
+the plan should mark each `(converter changed)` and `border: US`, convert
+both again from the regions already on disk, and download only the 13.3 MB
+border file; then Actions → Town should find the towns the stock maps lost.
+
 ## Not yet run (this rung's remaining ladder)
 
 In order, and every one needs the operator at the keyboard for `sudo`:

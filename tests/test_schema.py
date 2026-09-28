@@ -910,3 +910,23 @@ def test_a_converter_outside_the_enum_is_refused() -> None:
     bad["depends"] = ["osm-regions"]
     with pytest.raises(ValidationError):
         PackageManifest.model_validate(bad)
+
+
+def test_derived_block_needs_its_boundaries_unit_in_depends_too() -> None:
+    """The address-search fix (D-057 amendment): the boundary file is another
+    unit's data, read at conversion time, so the plan must install it first."""
+    block = {
+        "method": "derived",
+        "converter": "navit-maptool",
+        "source": "osm-regions",
+        "boundaries": "country-boundaries",
+        "licence": "ODbL-1.0",
+        "licence_url": "https://www.openstreetmap.org/copyright",
+    }
+    bad = _minimal(name="osm-navit", install=[{"install": block}])
+    bad["depends"] = ["osm-regions"]
+    with pytest.raises(ValidationError, match="country-boundaries"):
+        PackageManifest.model_validate(bad)
+    bad["depends"] = ["osm-regions", "country-boundaries"]
+    parsed = PackageManifest.model_validate(bad).install[0].install
+    assert isinstance(parsed, DerivedDataInstall) and parsed.boundaries == "country-boundaries"

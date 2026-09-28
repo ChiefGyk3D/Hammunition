@@ -16,6 +16,7 @@ packages:
   - gpsd-clients
   - navit
   - osm-regions
+  - country-boundaries
   - osm-navit
 
 documentation:
@@ -23,9 +24,11 @@ documentation:
     gpsd and its clients to read the GPS receiver; Navit, an offline
     turn-by-turn navigator with spoken directions through espeak-ng; the
     OpenStreetMap regions you choose, downloaded from Geofabrik and verified
-    (`osm-regions`); and those regions converted into Navit's format with a
-    Navit configuration that loads all of them and follows the GPS
-    (`osm-navit`, opened by the `navit-offline` launcher).
+    (`osm-regions`); Natural Earth's country borders (`country-boundaries`),
+    which let address search find towns on a part-of-a-country map; and
+    those regions converted into Navit's format with a Navit configuration
+    that loads all of them and follows the GPS (`osm-navit`, opened by the
+    `navit-offline` launcher).
   why_together: >-
     A navigator is only useful with a position and a map, and offline it
     needs both already on the machine. Navit without gpsd does not know
@@ -51,7 +54,8 @@ documentation:
     region). A GPS receiver must be attached and seen by gpsd; `xgps`, from
     gpsd-clients, shows whether it has a fix.
   disk_footprint_hint: >-
-    Navit, espeak-ng and gpsd from the archive (size not yet measured).
+    Navit, espeak-ng, osmium-tool and gpsd from the archive (size not yet
+    measured), and the 13.3 MB country-border file once.
     Per region: the download, plus Navit's converted map at about 0.9 times
     the download, plus about twice the download of temporary space while it
     converts (the map factor measured on three regions: a 6.1 GB

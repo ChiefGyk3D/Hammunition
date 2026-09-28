@@ -23,7 +23,7 @@ from hammunition.backends.regions import ESTIMATE, MapDisclosure, bin_estimate
 from hammunition.consent import repo_env_var
 from hammunition.desktop import Desktop, describe_set
 from hammunition.execute import Step
-from hammunition.geofabrik import RegionFile
+from hammunition.geofabrik import PINNED, RegionFile
 from hammunition.interface.envelope import Strict, TargetView, described
 from hammunition.interface.text import wrap
 from hammunition.manifest.schema import (
@@ -212,6 +212,25 @@ class ConvertLine(Strict):
     snapshot: str = described("the dated snapshot")
     estimate: int = described("bytes the converted map is estimated to take")
     estimate_human: str = described("that estimate as the text prints it")
+    countries: tuple[str, ...] = described(
+        "ISO 3166-1 alpha-2 codes whose closed border is merged into the region first; "
+        "empty when none is known or there is no boundary file"
+    )
+    converter_changed: bool = described(
+        "converted again only because an older converter built the installed map"
+    )
+
+
+@dataclass(frozen=True)
+class BoundaryLine(Strict):
+    """The country-border file merged into each region before conversion."""
+
+    title: str = described("what the file is")
+    url: str = described("where it is fetched from")
+    size: int = described("bytes, as declared and verified on fetch")
+    size_human: str = described("the size as the text prints it")
+    licence: str = described("the licence the data is under")
+    verified_by: str = described("how the download is checked")
 
 
 @dataclass(frozen=True)
@@ -238,6 +257,14 @@ class MapSectionView(Strict):
     disk_total: int = described("bytes: the download plus the estimated converted maps")
     disk_total_human: str = described("as the text prints it")
     estimate_note: str = described("how the conversion estimate was measured")
+    boundaries: BoundaryLine | None = described(
+        "the country-border file merged into each region with osmium merge before "
+        "maptool; null when the converter has none"
+    )
+    unknown_country: bool = described(
+        "maptool runs with -U: a town outside every country boundary is indexed under "
+        "the pseudo-country Unknown instead of being dropped"
+    )
 
 
 @dataclass(frozen=True)
@@ -504,6 +531,10 @@ def _map_section(plan: InstallPlan, maps: MapDisclosure | None) -> MapSectionVie
                 snapshot=f.snapshot,
                 estimate=bin_estimate(f.size),
                 estimate_human=human_size(bin_estimate(f.size)),
+                countries=tuple(maps.countries.get(f.region, ()))
+                if maps.boundaries is not None
+                else (),
+                converter_changed=f.slug in maps.converter_changed,
             )
             for f in maps.convert
         ),
@@ -517,6 +548,17 @@ def _map_section(plan: InstallPlan, maps: MapDisclosure | None) -> MapSectionVie
         disk_total=disk,
         disk_total_human=human_size(disk),
         estimate_note=ESTIMATE,
+        boundaries=None
+        if maps.boundaries is None
+        else BoundaryLine(
+            title=maps.boundaries.title,
+            url=maps.boundaries.url,
+            size=maps.boundaries.size,
+            size_human=human_size(maps.boundaries.size),
+            licence=maps.boundaries.licence,
+            verified_by=PINNED,
+        ),
+        unknown_country=True,
     )
 
 
@@ -741,10 +783,42 @@ def render_plan_view(view: InstallPlanView, *, target: TargetView) -> list[str]:
         if maps.convert:
             lines.append(f"  will be converted for Navit (map sizes an {maps.estimate_note}):")
             width = max(len(f.region) for f in maps.convert)
-            lines.extend(
-                f"    {f.region:<{width}}  {f.snapshot}  about {f.estimate_human}"
-                for f in maps.convert
-            )
+            for f in maps.convert:
+                border = ""
+                if maps.boundaries is not None:
+                    border = f"  border: {', '.join(f.countries) or 'none known'}"
+                changed = "  (converter changed)" if f.converter_changed else ""
+                lines.append(
+                    f"    {f.region:<{width}}  {f.snapshot}  about {f.estimate_human}"
+                    f"{border}{changed}"
+                )
+            if maps.boundaries is not None:
+                lines.extend(
+                    wrap(
+                        "each region is first merged with its country's closed border "
+                        "(osmium merge, in the staging directory, removed afterwards), so "
+                        "maptool files its towns under the country and address search "
+                        "finds them; maptool runs with -U, so a town the border misses is "
+                        "indexed under the country Unknown, not dropped",
+                        indent="      ",
+                    )
+                )
+                border_file = maps.boundaries
+                lines.extend(
+                    wrap(
+                        f"country borders: {border_file.title}, {border_file.size_human}, "
+                        f"{border_file.licence}, {border_file.verified_by}",
+                        indent="      ",
+                    )
+                )
+            else:
+                lines.extend(
+                    wrap(
+                        "maptool runs with -U, so a town outside every country boundary "
+                        "is indexed under the country Unknown, not dropped",
+                        indent="      ",
+                    )
+                )
         for kept in maps.kept:
             lines.append(
                 f"  {kept.region}: could not check for a newer map; keeping the installed "

@@ -7,11 +7,11 @@
 - **Version recorded:** station
 - **Categories:** `navigation-maps`
 - **Upstream:** <https://www.navit-project.org/>
-- **Needs first:** `osm-regions`, `navit`
+- **Needs first:** `osm-regions`, `navit`, `country-boundaries`, `osmium-tool`
 
 ## What it does
 
-Converts each region `osm-regions` downloaded into Navit's own binary map format with `maptool`, one `.bin` per region under /usr/local/share/hammunition/data/osm-navit/, and writes the Navit configuration the `navit-offline` launcher opens there too: Debian's /etc/navit/navit.xml with speech set to espeak-ng and these maps added.
+Converts each region `osm-regions` downloaded into Navit's own binary map format with `maptool`, one `.bin` per region under /usr/local/share/hammunition/data/osm-navit/, and writes the Navit configuration the `navit-offline` launcher opens there too: Debian's /etc/navit/navit.xml with speech set to espeak-ng and these maps added. Before converting, it merges a closed border for the region's country (from `country-boundaries`) into a copy of the region with `osmium merge`, so maptool can file every town under its country and Navit's address search can find it; the copy is deleted afterwards.
 
 ## Why you would want it
 
@@ -19,7 +19,7 @@ Navit cannot read OpenStreetMap's `.osm.pbf` files directly, so without this ste
 
 ## Before it will work
 
-`osm-regions` with at least one region set in station config, and `navit` for `maptool`; both install first. With no regions set this unit is deferred by name along with `osm-regions`, and Navit still installs.
+`osm-regions` with at least one region set in station config, `navit` for `maptool`, `country-boundaries` for the borders and `osmium-tool` from the archive for the merge; all install first. With no regions set this unit is deferred by name along with `osm-regions`, and Navit still installs.
 
 ## How it installs
 
@@ -27,7 +27,7 @@ Navit cannot read OpenStreetMap's `.osm.pbf` files directly, so without this ste
 
 ## Known problems
 
-Conversion has been measured on three regions on the field laptop: a 6.1 GB country-sized region became a 4.7 GB `.bin` (about 0.77 times the download) in 75 minutes on an i7-1185G7, with a peak of about 2.4 GB of memory, and two US-state-sized regions converted at 0.874 and 0.856 times (2026-09-28). The plan takes the converted map as 0.9 times the download, so the estimate errs above all three; maptool needs about twice the download of scratch space while it converts, measured on the country-sized region only. The plan calls both an estimate. Whether Navit routes across two separately converted regions has not yet been measured. A region removed from station config has its converted map removed on the next install. The converted maps carry the same Open Database License obligations as the data they came from.
+Conversion has been measured on three regions on the field laptop: a 6.1 GB country-sized region became a 4.7 GB `.bin` (about 0.77 times the download) in 75 minutes on an i7-1185G7, with a peak of about 2.4 GB of memory, and two US-state-sized regions converted at 0.874 and 0.856 times (2026-09-28). The plan takes the converted map as 0.9 times the download, so the estimate errs above all three; maptool needs about twice the download of scratch space while it converts, measured on the country-sized region only. The plan calls both an estimate. A state extract's own copy of its country's border is incomplete, and maptool built from it alone indexed about a dozen towns for a region that draws a few thousand; with the closed border merged, over four thousand, a few hundred times as many. The border is Natural Earth's, about 1 km coarse, so maptool runs with -U: a town the border misses is still indexed, under "* Unknown" in Navit's country list, not lost. maptool's log still warns "Broken country polygon" for the region's own partial border; that warning is expected, and only one for the merged border fails the conversion. Maps converted before this fix are converted again on the next install; the plan says "converter changed" beside each. maptool writes fixed-name scratch files into its working directory, so regions convert one at a time, never in parallel. Whether Navit routes across two separately converted regions has not yet been measured. A region removed from station config has its converted map removed on the next install. The converted maps carry the same Open Database License obligations as the data they came from.
 
 ## Keeping it current
 

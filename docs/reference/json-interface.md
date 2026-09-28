@@ -853,6 +853,8 @@ The station's map regions (D-057). Names where the operator is: local only.
 | `disk_total` | integer | bytes: the download plus the estimated converted maps |
 | `disk_total_human` | string | as the text prints it |
 | `estimate_note` | string | how the conversion estimate was measured |
+| `boundaries` | [`BoundaryLine`](#boundaryline) or null | the country-border file merged into each region with osmium merge before maptool; null when the converter has none |
+| `unknown_country` | boolean | maptool runs with -U: a town outside every country boundary is indexed under the pseudo-country Unknown instead of being dropped |
 
 #### `RegionLine`
 
@@ -877,6 +879,8 @@ A region converted for Navit this run.
 | `snapshot` | string | the dated snapshot |
 | `estimate` | integer | bytes the converted map is estimated to take |
 | `estimate_human` | string | that estimate as the text prints it |
+| `countries` | list of string | ISO 3166-1 alpha-2 codes whose closed border is merged into the region first; empty when none is known or there is no boundary file |
+| `converter_changed` | boolean | converted again only because an older converter built the installed map |
 
 #### `KeptLine`
 
@@ -887,6 +891,19 @@ An installed region that could not be checked for a newer map; kept.
 | `region` | string | the Geofabrik region path |
 | `snapshot` | string or null | the installed snapshot, when recorded |
 | `reason` | string | why it could not be checked |
+
+#### `BoundaryLine`
+
+The country-border file merged into each region before conversion.
+
+| field | type | meaning |
+|---|---|---|
+| `title` | string | what the file is |
+| `url` | string | where it is fetched from |
+| `size` | integer | bytes, as declared and verified on fetch |
+| `size_human` | string | the size as the text prints it |
+| `licence` | string | the licence the data is under |
+| `verified_by` | string | how the download is checked |
 
 #### `MembershipLine`
 
@@ -1100,6 +1117,46 @@ A unit and files.
       "title": "BlockerLine",
       "type": "object"
     },
+    "BoundaryLine": {
+      "additionalProperties": false,
+      "description": "The country-border file merged into each region before conversion.",
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "size_human": {
+          "title": "Size Human",
+          "type": "string"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "verified_by": {
+          "title": "Verified By",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "url",
+        "size",
+        "size_human",
+        "licence",
+        "verified_by"
+      ],
+      "title": "BoundaryLine",
+      "type": "object"
+    },
     "ConfigLine": {
       "additionalProperties": false,
       "description": "A configuration file the transaction writes.",
@@ -1154,13 +1211,26 @@ A unit and files.
         "estimate_human": {
           "title": "Estimate Human",
           "type": "string"
+        },
+        "countries": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Countries",
+          "type": "array"
+        },
+        "converter_changed": {
+          "title": "Converter Changed",
+          "type": "boolean"
         }
       },
       "required": [
         "region",
         "snapshot",
         "estimate",
-        "estimate_human"
+        "estimate_human",
+        "countries",
+        "converter_changed"
       ],
       "title": "ConvertLine",
       "type": "object"
@@ -1604,6 +1674,20 @@ A unit and files.
         "estimate_note": {
           "title": "Estimate Note",
           "type": "string"
+        },
+        "boundaries": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BoundaryLine"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unknown_country": {
+          "title": "Unknown Country",
+          "type": "boolean"
         }
       },
       "required": [
@@ -1617,7 +1701,9 @@ A unit and files.
         "download_total_human",
         "disk_total",
         "disk_total_human",
-        "estimate_note"
+        "estimate_note",
+        "boundaries",
+        "unknown_country"
       ],
       "title": "MapSectionView",
       "type": "object"

@@ -18,6 +18,7 @@ from typing import Any
 import pytest
 
 from hammunition.backends import Action, Command
+from hammunition.country_boundaries import BoundarySource
 from hammunition.desktop import Desktop
 from hammunition.distro import Target
 from hammunition.manifest.schema import AptRepo, ConfigFile, ConsentGate, PackageManifest
@@ -245,6 +246,15 @@ def _region(region: str, size: int, *, pinned: bool) -> Any:
     )
 
 
+BOUNDARY = BoundarySource(
+    path=Path("/usr/local/share/hammunition/data/country-boundaries/ne.geojson"),
+    url="https://example.invalid/ne_10m_admin_0_countries.geojson",
+    size=13_287_234,
+    sha256="239eec57ac17f100a11e2536cffc56752c318b50ae765b0918ff7aab4ce8f255",
+    licence="Public domain (Natural Earth's terms of use)",
+)
+
+
 def maps_plan() -> tuple[InstallPlan, Any]:
     from hammunition.backends.regions import KeptRegion, MapDisclosure
 
@@ -273,6 +283,12 @@ def maps_plan() -> tuple[InstallPlan, Any]:
             ),
         ),
         convert=(fetched, current),
+        # The address-search fix: region-one's country is known and its
+        # border is merged; region-current's is not, and it was built by an
+        # older converter.
+        boundaries=BOUNDARY,
+        countries={"test-land/region-one": ("TL",)},
+        converter_changed=frozenset({"test-land-region-current"}),
     )
     plan = InstallPlan(
         target=TARGET,
@@ -288,6 +304,44 @@ def test_the_map_section_text_is_unchanged_byte_for_byte() -> None:
     plan, maps = maps_plan()
     lines = cli.render_plan(plan, [], euid=1000, maps=maps)
     assert_golden_text("plan-maps-text", "\n".join(lines) + "\n")
+
+
+def test_the_map_section_discloses_the_border_merge_and_minus_u() -> None:
+    """D-057 amendment: the boundary download (size, licence, how it is
+    checked), the merge step, maptool's -U, and a converter-changed rebuild
+    are all in the plan, in the view and in the text rendered from it."""
+    from hammunition.interface.envelope import target_view
+    from hammunition.interface.plan import build_install_view, render_plan_view
+
+    plan, maps = maps_plan()
+    view = build_install_view(plan, [], euid=1000, maps=maps)
+    assert view.maps is not None and view.maps.boundaries is not None
+    border = view.maps.boundaries
+    assert (border.size, border.size_human) == (13_287_234, "13.3 MB")
+    assert border.verified_by == "sha256, pinned by Hammunition"
+    assert border.licence.startswith("Public domain")
+    assert view.maps.unknown_country is True
+    one, current = view.maps.convert
+    assert (one.countries, one.converter_changed) == (("TL",), False)
+    assert (current.countries, current.converter_changed) == ((), True)
+    text = "\n".join(render_plan_view(view, target=target_view(plan.target)))
+    assert "about 47.2 MB  border: TL" in text
+    assert "about 9.4 MB  border: none known  (converter changed)" in text
+    assert "osmium merge" in text and "-U" in text
+    assert "13.3 MB" in text and "sha256, pinned by Hammunition" in text
+
+
+def test_without_a_boundary_file_the_plan_still_says_minus_u() -> None:
+    import dataclasses
+
+    from hammunition.interface.plan import build_install_view
+
+    plan, maps = maps_plan()
+    bare = dataclasses.replace(maps, boundaries=None, countries={})
+    view = build_install_view(plan, [], euid=1000, maps=bare)
+    assert view.maps is not None and view.maps.boundaries is None
+    text = "\n".join(cli.render_plan(plan, [], euid=1000, maps=bare))
+    assert "-U" in text and "border:" not in text and "osmium" not in text
 
 
 def test_no_map_section_without_a_disclosure() -> None:
