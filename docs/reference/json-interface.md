@@ -43,6 +43,7 @@ chat: a callsign resolves to a name and a licence address. `doctor` and
 | kind | document |
 |---|---|
 | `error` | [`ErrorDocument`](#error) |
+| `plan` | [`PlanDocument`](#plan) |
 
 ### error
 
@@ -83,6 +84,1438 @@ an unreadable target). The exit code is the one the text run returns.
     "message"
   ],
   "title": "ErrorDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### plan
+
+The plan `install --dry-run` or `uninstall --dry-run` prints, as data.
+
+A refused transaction is still a `plan`, with `outcome: "refused"`, every
+blocker, and exit code 2. Includes the paths of files written for the
+operator; for local programs, not for pasting.
+
+| field | type | meaning |
+|---|---|---|
+| `action` | string | `install` or `uninstall` |
+| `requested` | list of string | the names given on the command line |
+| `outcome` | string | `planned`, or `refused` with the blockers |
+| `target` | [`TargetView`](#targetview) | the system planned against |
+| `blockers` | list of [`BlockerLine`](#blockerline) | empty unless refused |
+| `install` | [`InstallPlanView`](#installplanview) or null | the install plan; null for an uninstall or a refusal |
+| `removal` | [`RemovalPlanView`](#removalplanview) or null | the removal plan; null for an install or a refusal |
+
+#### `TargetView`
+
+What `/etc/os-release` said, verbatim, with the one line the text prints.
+
+| field | type | meaning |
+|---|---|---|
+| `distro` | string | `ID` from /etc/os-release |
+| `version` | string | `VERSION_ID`; empty when the file declares none |
+| `arch` | string | the machine architecture install blocks are selected by |
+| `id_like` | list of string | `ID_LIKE`, split on whitespace |
+| `pretty_name` | string or null | `PRETTY_NAME`, when declared |
+| `description` | string | exactly what the text prints after `Target:` |
+| `debian_family` | boolean | whether the engine will install on this system |
+
+#### `BlockerLine`
+
+One reason the transaction cannot be planned.
+
+| field | type | meaning |
+|---|---|---|
+| `subject` | string | what is blocked |
+| `reason` | string | why |
+| `remedy` | string or null | what to do about it |
+
+#### `InstallPlanView`
+
+Everything an install will do, section by section as the text prints it.
+
+| field | type | meaning |
+|---|---|---|
+| `packages` | list of [`PackageLine`](#packageline) | every unit, in the order it installs |
+| `displaced` | list of [`DisplacedLine`](#displacedline) | distribution packages displaced or shadowed |
+| `apt_release` | [`ReleaseSection`](#releasesection) or null | present when apt resolves from another release |
+| `no_recommends` | [`NoRecommendsSection`](#norecommendssection) or null | present when a unit opted out of Recommends |
+| `repos` | list of [`RepoLine`](#repoline) | third-party repositories added |
+| `data` | list of [`DataLine`](#dataline) | offline data downloaded |
+| `maps` | [`MapSectionView`](#mapsectionview) or null | the station's map regions (D-057); null when no map unit or nothing to disclose |
+| `memberships` | list of [`MembershipLine`](#membershipline) | group membership changes |
+| `consent_gates` | list of [`GateLine`](#gateline) | gates the real run presents |
+| `config_files` | list of [`ConfigLine`](#configline) | configuration written |
+| `deferrals` | list of [`DeferralLine`](#deferralline) | what will NOT happen |
+| `notes` | list of string | the plan's notes |
+| `records` | [`RecordsLine`](#recordsline) or null | where the transaction log goes |
+| `commands` | list of [`StepView`](#stepview) | every step, in order |
+| `suggestion_notes` | list of string | what happened to the profiles' suggestion groups; the text prints these as `note:` lines |
+| `region_notes` | list of string | notes from resolving the map regions; the text prints these as `note:` lines |
+
+#### `PackageLine`
+
+One catalog unit in the plan.
+
+| field | type | meaning |
+|---|---|---|
+| `name` | string | the catalog unit |
+| `method` | string | the install method of the block that resolved here |
+| `state` | string | `will install`, `will build`, `will fetch+install` or `already installed` |
+| `requested_by` | list of string | `requested`, or the profiles and units that pulled it in |
+| `apt` | list of [`AptLine`](#aptline) | the apt packages it resolves to, build dependencies included |
+
+#### `AptLine`
+
+One apt package a unit resolves to.
+
+| field | type | meaning |
+|---|---|---|
+| `package` | string | the apt package name |
+| `outstanding` | boolean | not installed yet; `+` in the text, `=` when already present |
+| `build_only` | boolean | a build dependency, not the software asked for |
+
+#### `DisplacedLine`
+
+An installed distribution package a unit displaces or shadows (D-022).
+
+| field | type | meaning |
+|---|---|---|
+| `package` | string | the distribution package, which stays installed |
+| `declared_by` | string | the unit whose manifest declares the conflict |
+
+#### `ReleaseSection`
+
+apt packages taken from another release this machine installs from (D-038).
+
+| field | type | meaning |
+|---|---|---|
+| `release` | string | the `--target-release` the apt step runs with |
+| `packages` | list of string | the packages that come from that release |
+
+#### `NoRecommendsSection`
+
+apt packages installed by a second command without Recommends (D-052).
+
+| field | type | meaning |
+|---|---|---|
+| `units` | list of string | the units whose manifests asked for it |
+| `packages` | list of string | the packages that second command installs |
+
+#### `RepoLine`
+
+A third-party apt repository the transaction adds, behind its own gate (D-040).
+
+| field | type | meaning |
+|---|---|---|
+| `name` | string | the repository's name, which names its two files |
+| `unit` | string | the unit that needs it |
+| `packages` | list of string | the apt packages it is expected to supply |
+| `uri` | string | the archive URI |
+| `suites` | list of string | apt suites |
+| `components` | list of string | apt components |
+| `key_fingerprint` | string | the pinned signing-key fingerprint |
+| `sources` | string | the .sources file written |
+| `keyring` | string | the keyring file written |
+| `consent_env_var` | string | must equal the key fingerprint for a scripted run |
+
+#### `DataLine`
+
+An offline-data unit: sizes and licence, before anything downloads (D-049).
+
+| field | type | meaning |
+|---|---|---|
+| `unit` | string | the data unit |
+| `total_size` | integer | bytes, every artifact together |
+| `total_human` | string | the total as the text prints it |
+| `licence` | string | the licence the data is under |
+| `licence_url` | string | where that licence is stated |
+| `artifacts` | list of [`DataArtifactLine`](#dataartifactline) | each file fetched |
+| `installs_under` | string | where it is installed, relative to the prefix |
+
+#### `DataArtifactLine`
+
+One file of an offline dataset.
+
+| field | type | meaning |
+|---|---|---|
+| `url` | string | where it is fetched from |
+| `size` | integer | bytes, as declared and verified on fetch |
+| `size_human` | string | the size as the text prints it |
+
+#### `MapSectionView`
+
+The station's map regions (D-057). Names where the operator is: local only.
+
+| field | type | meaning |
+|---|---|---|
+| `fetch` | list of [`RegionLine`](#regionline) | downloaded and installed this run |
+| `current` | list of [`RegionLine`](#regionline) | already installed at the resolved snapshot |
+| `convert` | list of [`ConvertLine`](#convertline) | converted for Navit this run |
+| `kept` | list of [`KeptLine`](#keptline) | could not be checked; the installed copy stays |
+| `licence` | string | the map data's licence |
+| `licence_url` | string | where it is stated |
+| `download_total` | integer | bytes downloaded |
+| `download_total_human` | string | as the text prints it |
+| `disk_total` | integer | bytes: the download plus the estimated converted maps |
+| `disk_total_human` | string | as the text prints it |
+| `estimate_note` | string | how the conversion estimate was measured |
+
+#### `RegionLine`
+
+One map region file.
+
+| field | type | meaning |
+|---|---|---|
+| `region` | string | the Geofabrik region path |
+| `snapshot` | string | the dated snapshot |
+| `size` | integer | bytes |
+| `size_human` | string | the size as the text prints it |
+| `verified_by` | string | how the download is checked |
+| `nothing_to_do` | boolean | already installed and not being converted |
+
+#### `ConvertLine`
+
+A region converted for Navit this run.
+
+| field | type | meaning |
+|---|---|---|
+| `region` | string | the Geofabrik region path |
+| `snapshot` | string | the dated snapshot |
+| `estimate` | integer | bytes the converted map is estimated to take |
+| `estimate_human` | string | that estimate as the text prints it |
+
+#### `KeptLine`
+
+An installed region that could not be checked for a newer map; kept.
+
+| field | type | meaning |
+|---|---|---|
+| `region` | string | the Geofabrik region path |
+| `snapshot` | string or null | the installed snapshot, when recorded |
+| `reason` | string | why it could not be checked |
+
+#### `MembershipLine`
+
+A group the operator is added to, and what it grants.
+
+| field | type | meaning |
+|---|---|---|
+| `user` | string | the account added |
+| `group` | string | the group |
+| `package` | string | the unit that needs it |
+| `detail` | string | what membership grants |
+| `reverse_hint` | string or null | how to undo it by hand, when the manifest says |
+
+#### `GateLine`
+
+A consent gate the real run will present (D-021). Never answered through JSON.
+
+| field | type | meaning |
+|---|---|---|
+| `profile` | string | the gated profile |
+| `env_var` | string | the scripted-consent variable the gate reads |
+| `risk_lines` | list of string | one line per disclosed capability |
+
+#### `ConfigLine`
+
+A configuration file the transaction writes.
+
+| field | type | meaning |
+|---|---|---|
+| `unit` | string | the unit whose manifest templates it |
+| `path` | string | the file written |
+| `mode` | string | its octal mode |
+| `append` | boolean | appended to rather than written |
+| `backup_existing` | boolean | an existing file is backed up first |
+
+#### `DeferralLine`
+
+Part of the request that will not happen; the rest still does (D-035, D-039).
+
+| field | type | meaning |
+|---|---|---|
+| `kind` | string | `config` (a file not written) or `package` (a member not installed) |
+| `subject` | string | what is deferred |
+| `what` | string | what will not happen |
+| `why` | string | what is missing |
+| `remedy` | string | what the operator can do about it |
+
+#### `RecordsLine`
+
+Where the transaction log is written.
+
+| field | type | meaning |
+|---|---|---|
+| `log` | string | the transaction log file |
+| `handed_to` | string or null | the operator it is chowned to, under sudo |
+
+#### `StepView`
+
+One step, exactly as the real run performs it.
+
+| field | type | meaning |
+|---|---|---|
+| `description` | string | why the step runs |
+| `display` | string | the line the text prints after `$`, copy-pasteable |
+| `argv` | list of string | the argv executed, escalation applied; empty for an in-process step |
+| `action` | string or null | the in-process step's kind (`fetch`, `extract`, ...); null for a command |
+| `requires_root` | boolean | whether it runs as root |
+
+#### `RemovalPlanView`
+
+Everything an uninstall will do, section by section as the text prints it.
+
+| field | type | meaning |
+|---|---|---|
+| `to_remove` | list of [`UnitPackages`](#unitpackages) | apt packages removed, per unit |
+| `artifacts` | list of [`ArtifactLine`](#artifactline) | files and trees removed |
+| `left_unattributed` | list of [`UnitFiles`](#unitfiles) | present, but the log does not attribute it |
+| `left_foreign` | list of [`UnitPackages`](#unitpackages) | installed, but not by this engine |
+| `already_absent` | list of [`UnitPackages`](#unitpackages) | nothing to remove |
+| `not_reversed` | string | what uninstall does not undo, by design (D-004) |
+| `commands` | list of [`StepView`](#stepview) | every step, in order |
+
+#### `UnitPackages`
+
+A unit and apt packages.
+
+| field | type | meaning |
+|---|---|---|
+| `unit` | string | the catalog unit |
+| `packages` | list of string | apt packages |
+
+#### `ArtifactLine`
+
+A file or tree the removal deletes, and why it is this engine's to delete.
+
+| field | type | meaning |
+|---|---|---|
+| `unit` | string | the catalog unit |
+| `kind` | string | `venv`, `tree`, `binary`, `wrapper`, `desktop-entry` or `apt-repo` |
+| `path` | string | what is removed |
+| `basis` | string | `namespaced`, `log` or `marker`: how it is known to be ours |
+
+#### `UnitFiles`
+
+A unit and files.
+
+| field | type | meaning |
+|---|---|---|
+| `unit` | string | the catalog unit |
+| `paths` | list of string | files on disk |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "AptLine": {
+      "additionalProperties": false,
+      "description": "One apt package a unit resolves to.",
+      "properties": {
+        "package": {
+          "title": "Package",
+          "type": "string"
+        },
+        "outstanding": {
+          "title": "Outstanding",
+          "type": "boolean"
+        },
+        "build_only": {
+          "title": "Build Only",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "package",
+        "outstanding",
+        "build_only"
+      ],
+      "title": "AptLine",
+      "type": "object"
+    },
+    "ArtifactLine": {
+      "additionalProperties": false,
+      "description": "A file or tree the removal deletes, and why it is this engine's to delete.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "basis": {
+          "title": "Basis",
+          "type": "string"
+        }
+      },
+      "required": [
+        "unit",
+        "kind",
+        "path",
+        "basis"
+      ],
+      "title": "ArtifactLine",
+      "type": "object"
+    },
+    "BlockerLine": {
+      "additionalProperties": false,
+      "description": "One reason the transaction cannot be planned.",
+      "properties": {
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "remedy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Remedy"
+        }
+      },
+      "required": [
+        "subject",
+        "reason",
+        "remedy"
+      ],
+      "title": "BlockerLine",
+      "type": "object"
+    },
+    "ConfigLine": {
+      "additionalProperties": false,
+      "description": "A configuration file the transaction writes.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "mode": {
+          "title": "Mode",
+          "type": "string"
+        },
+        "append": {
+          "title": "Append",
+          "type": "boolean"
+        },
+        "backup_existing": {
+          "title": "Backup Existing",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "unit",
+        "path",
+        "mode",
+        "append",
+        "backup_existing"
+      ],
+      "title": "ConfigLine",
+      "type": "object"
+    },
+    "ConvertLine": {
+      "additionalProperties": false,
+      "description": "A region converted for Navit this run.",
+      "properties": {
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "snapshot": {
+          "title": "Snapshot",
+          "type": "string"
+        },
+        "estimate": {
+          "title": "Estimate",
+          "type": "integer"
+        },
+        "estimate_human": {
+          "title": "Estimate Human",
+          "type": "string"
+        }
+      },
+      "required": [
+        "region",
+        "snapshot",
+        "estimate",
+        "estimate_human"
+      ],
+      "title": "ConvertLine",
+      "type": "object"
+    },
+    "DataArtifactLine": {
+      "additionalProperties": false,
+      "description": "One file of an offline dataset.",
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "size_human": {
+          "title": "Size Human",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "size",
+        "size_human"
+      ],
+      "title": "DataArtifactLine",
+      "type": "object"
+    },
+    "DataLine": {
+      "additionalProperties": false,
+      "description": "An offline-data unit: sizes and licence, before anything downloads (D-049).",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "total_size": {
+          "title": "Total Size",
+          "type": "integer"
+        },
+        "total_human": {
+          "title": "Total Human",
+          "type": "string"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "licence_url": {
+          "title": "Licence Url",
+          "type": "string"
+        },
+        "artifacts": {
+          "items": {
+            "$ref": "#/$defs/DataArtifactLine"
+          },
+          "title": "Artifacts",
+          "type": "array"
+        },
+        "installs_under": {
+          "title": "Installs Under",
+          "type": "string"
+        }
+      },
+      "required": [
+        "unit",
+        "total_size",
+        "total_human",
+        "licence",
+        "licence_url",
+        "artifacts",
+        "installs_under"
+      ],
+      "title": "DataLine",
+      "type": "object"
+    },
+    "DeferralLine": {
+      "additionalProperties": false,
+      "description": "Part of the request that will not happen; the rest still does (D-035, D-039).",
+      "properties": {
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        },
+        "what": {
+          "title": "What",
+          "type": "string"
+        },
+        "why": {
+          "title": "Why",
+          "type": "string"
+        },
+        "remedy": {
+          "title": "Remedy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "subject",
+        "what",
+        "why",
+        "remedy"
+      ],
+      "title": "DeferralLine",
+      "type": "object"
+    },
+    "DisplacedLine": {
+      "additionalProperties": false,
+      "description": "An installed distribution package a unit displaces or shadows (D-022).",
+      "properties": {
+        "package": {
+          "title": "Package",
+          "type": "string"
+        },
+        "declared_by": {
+          "title": "Declared By",
+          "type": "string"
+        }
+      },
+      "required": [
+        "package",
+        "declared_by"
+      ],
+      "title": "DisplacedLine",
+      "type": "object"
+    },
+    "GateLine": {
+      "additionalProperties": false,
+      "description": "A consent gate the real run will present (D-021). Never answered through JSON.",
+      "properties": {
+        "profile": {
+          "title": "Profile",
+          "type": "string"
+        },
+        "env_var": {
+          "title": "Env Var",
+          "type": "string"
+        },
+        "risk_lines": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Risk Lines",
+          "type": "array"
+        }
+      },
+      "required": [
+        "profile",
+        "env_var",
+        "risk_lines"
+      ],
+      "title": "GateLine",
+      "type": "object"
+    },
+    "InstallPlanView": {
+      "additionalProperties": false,
+      "description": "Everything an install will do, section by section as the text prints it.",
+      "properties": {
+        "packages": {
+          "items": {
+            "$ref": "#/$defs/PackageLine"
+          },
+          "title": "Packages",
+          "type": "array"
+        },
+        "displaced": {
+          "items": {
+            "$ref": "#/$defs/DisplacedLine"
+          },
+          "title": "Displaced",
+          "type": "array"
+        },
+        "apt_release": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReleaseSection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "no_recommends": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NoRecommendsSection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "repos": {
+          "items": {
+            "$ref": "#/$defs/RepoLine"
+          },
+          "title": "Repos",
+          "type": "array"
+        },
+        "data": {
+          "items": {
+            "$ref": "#/$defs/DataLine"
+          },
+          "title": "Data",
+          "type": "array"
+        },
+        "maps": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MapSectionView"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "memberships": {
+          "items": {
+            "$ref": "#/$defs/MembershipLine"
+          },
+          "title": "Memberships",
+          "type": "array"
+        },
+        "consent_gates": {
+          "items": {
+            "$ref": "#/$defs/GateLine"
+          },
+          "title": "Consent Gates",
+          "type": "array"
+        },
+        "config_files": {
+          "items": {
+            "$ref": "#/$defs/ConfigLine"
+          },
+          "title": "Config Files",
+          "type": "array"
+        },
+        "deferrals": {
+          "items": {
+            "$ref": "#/$defs/DeferralLine"
+          },
+          "title": "Deferrals",
+          "type": "array"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "records": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RecordsLine"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "commands": {
+          "items": {
+            "$ref": "#/$defs/StepView"
+          },
+          "title": "Commands",
+          "type": "array"
+        },
+        "suggestion_notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Suggestion Notes",
+          "type": "array"
+        },
+        "region_notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Region Notes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "packages",
+        "displaced",
+        "apt_release",
+        "no_recommends",
+        "repos",
+        "data",
+        "maps",
+        "memberships",
+        "consent_gates",
+        "config_files",
+        "deferrals",
+        "notes",
+        "records",
+        "commands",
+        "suggestion_notes",
+        "region_notes"
+      ],
+      "title": "InstallPlanView",
+      "type": "object"
+    },
+    "KeptLine": {
+      "additionalProperties": false,
+      "description": "An installed region that could not be checked for a newer map; kept.",
+      "properties": {
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "snapshot": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Snapshot"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "region",
+        "snapshot",
+        "reason"
+      ],
+      "title": "KeptLine",
+      "type": "object"
+    },
+    "MapSectionView": {
+      "additionalProperties": false,
+      "description": "The station's map regions (D-057). Names where the operator is: local only.",
+      "properties": {
+        "fetch": {
+          "items": {
+            "$ref": "#/$defs/RegionLine"
+          },
+          "title": "Fetch",
+          "type": "array"
+        },
+        "current": {
+          "items": {
+            "$ref": "#/$defs/RegionLine"
+          },
+          "title": "Current",
+          "type": "array"
+        },
+        "convert": {
+          "items": {
+            "$ref": "#/$defs/ConvertLine"
+          },
+          "title": "Convert",
+          "type": "array"
+        },
+        "kept": {
+          "items": {
+            "$ref": "#/$defs/KeptLine"
+          },
+          "title": "Kept",
+          "type": "array"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "licence_url": {
+          "title": "Licence Url",
+          "type": "string"
+        },
+        "download_total": {
+          "title": "Download Total",
+          "type": "integer"
+        },
+        "download_total_human": {
+          "title": "Download Total Human",
+          "type": "string"
+        },
+        "disk_total": {
+          "title": "Disk Total",
+          "type": "integer"
+        },
+        "disk_total_human": {
+          "title": "Disk Total Human",
+          "type": "string"
+        },
+        "estimate_note": {
+          "title": "Estimate Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fetch",
+        "current",
+        "convert",
+        "kept",
+        "licence",
+        "licence_url",
+        "download_total",
+        "download_total_human",
+        "disk_total",
+        "disk_total_human",
+        "estimate_note"
+      ],
+      "title": "MapSectionView",
+      "type": "object"
+    },
+    "MembershipLine": {
+      "additionalProperties": false,
+      "description": "A group the operator is added to, and what it grants.",
+      "properties": {
+        "user": {
+          "title": "User",
+          "type": "string"
+        },
+        "group": {
+          "title": "Group",
+          "type": "string"
+        },
+        "package": {
+          "title": "Package",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "reverse_hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reverse Hint"
+        }
+      },
+      "required": [
+        "user",
+        "group",
+        "package",
+        "detail",
+        "reverse_hint"
+      ],
+      "title": "MembershipLine",
+      "type": "object"
+    },
+    "NoRecommendsSection": {
+      "additionalProperties": false,
+      "description": "apt packages installed by a second command without Recommends (D-052).",
+      "properties": {
+        "units": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Units",
+          "type": "array"
+        },
+        "packages": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Packages",
+          "type": "array"
+        }
+      },
+      "required": [
+        "units",
+        "packages"
+      ],
+      "title": "NoRecommendsSection",
+      "type": "object"
+    },
+    "PackageLine": {
+      "additionalProperties": false,
+      "description": "One catalog unit in the plan.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "method": {
+          "title": "Method",
+          "type": "string"
+        },
+        "state": {
+          "title": "State",
+          "type": "string"
+        },
+        "requested_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Requested By",
+          "type": "array"
+        },
+        "apt": {
+          "items": {
+            "$ref": "#/$defs/AptLine"
+          },
+          "title": "Apt",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "method",
+        "state",
+        "requested_by",
+        "apt"
+      ],
+      "title": "PackageLine",
+      "type": "object"
+    },
+    "RecordsLine": {
+      "additionalProperties": false,
+      "description": "Where the transaction log is written.",
+      "properties": {
+        "log": {
+          "title": "Log",
+          "type": "string"
+        },
+        "handed_to": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Handed To"
+        }
+      },
+      "required": [
+        "log",
+        "handed_to"
+      ],
+      "title": "RecordsLine",
+      "type": "object"
+    },
+    "RegionLine": {
+      "additionalProperties": false,
+      "description": "One map region file.",
+      "properties": {
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "snapshot": {
+          "title": "Snapshot",
+          "type": "string"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "size_human": {
+          "title": "Size Human",
+          "type": "string"
+        },
+        "verified_by": {
+          "title": "Verified By",
+          "type": "string"
+        },
+        "nothing_to_do": {
+          "title": "Nothing To Do",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "region",
+        "snapshot",
+        "size",
+        "size_human",
+        "verified_by",
+        "nothing_to_do"
+      ],
+      "title": "RegionLine",
+      "type": "object"
+    },
+    "ReleaseSection": {
+      "additionalProperties": false,
+      "description": "apt packages taken from another release this machine installs from (D-038).",
+      "properties": {
+        "release": {
+          "title": "Release",
+          "type": "string"
+        },
+        "packages": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Packages",
+          "type": "array"
+        }
+      },
+      "required": [
+        "release",
+        "packages"
+      ],
+      "title": "ReleaseSection",
+      "type": "object"
+    },
+    "RemovalPlanView": {
+      "additionalProperties": false,
+      "description": "Everything an uninstall will do, section by section as the text prints it.",
+      "properties": {
+        "to_remove": {
+          "items": {
+            "$ref": "#/$defs/UnitPackages"
+          },
+          "title": "To Remove",
+          "type": "array"
+        },
+        "artifacts": {
+          "items": {
+            "$ref": "#/$defs/ArtifactLine"
+          },
+          "title": "Artifacts",
+          "type": "array"
+        },
+        "left_unattributed": {
+          "items": {
+            "$ref": "#/$defs/UnitFiles"
+          },
+          "title": "Left Unattributed",
+          "type": "array"
+        },
+        "left_foreign": {
+          "items": {
+            "$ref": "#/$defs/UnitPackages"
+          },
+          "title": "Left Foreign",
+          "type": "array"
+        },
+        "already_absent": {
+          "items": {
+            "$ref": "#/$defs/UnitPackages"
+          },
+          "title": "Already Absent",
+          "type": "array"
+        },
+        "not_reversed": {
+          "title": "Not Reversed",
+          "type": "string"
+        },
+        "commands": {
+          "items": {
+            "$ref": "#/$defs/StepView"
+          },
+          "title": "Commands",
+          "type": "array"
+        }
+      },
+      "required": [
+        "to_remove",
+        "artifacts",
+        "left_unattributed",
+        "left_foreign",
+        "already_absent",
+        "not_reversed",
+        "commands"
+      ],
+      "title": "RemovalPlanView",
+      "type": "object"
+    },
+    "RepoLine": {
+      "additionalProperties": false,
+      "description": "A third-party apt repository the transaction adds, behind its own gate (D-040).",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "packages": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Packages",
+          "type": "array"
+        },
+        "uri": {
+          "title": "Uri",
+          "type": "string"
+        },
+        "suites": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Suites",
+          "type": "array"
+        },
+        "components": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Components",
+          "type": "array"
+        },
+        "key_fingerprint": {
+          "title": "Key Fingerprint",
+          "type": "string"
+        },
+        "sources": {
+          "title": "Sources",
+          "type": "string"
+        },
+        "keyring": {
+          "title": "Keyring",
+          "type": "string"
+        },
+        "consent_env_var": {
+          "title": "Consent Env Var",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "unit",
+        "packages",
+        "uri",
+        "suites",
+        "components",
+        "key_fingerprint",
+        "sources",
+        "keyring",
+        "consent_env_var"
+      ],
+      "title": "RepoLine",
+      "type": "object"
+    },
+    "StepView": {
+      "additionalProperties": false,
+      "description": "One step, exactly as the real run performs it.",
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "display": {
+          "title": "Display",
+          "type": "string"
+        },
+        "argv": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Argv",
+          "type": "array"
+        },
+        "action": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Action"
+        },
+        "requires_root": {
+          "title": "Requires Root",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "description",
+        "display",
+        "argv",
+        "action",
+        "requires_root"
+      ],
+      "title": "StepView",
+      "type": "object"
+    },
+    "TargetView": {
+      "additionalProperties": false,
+      "description": "What `/etc/os-release` said, verbatim, with the one line the text prints.",
+      "properties": {
+        "distro": {
+          "title": "Distro",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "arch": {
+          "title": "Arch",
+          "type": "string"
+        },
+        "id_like": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Id Like",
+          "type": "array"
+        },
+        "pretty_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pretty Name"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "debian_family": {
+          "title": "Debian Family",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "distro",
+        "version",
+        "arch",
+        "id_like",
+        "pretty_name",
+        "description",
+        "debian_family"
+      ],
+      "title": "TargetView",
+      "type": "object"
+    },
+    "UnitFiles": {
+      "additionalProperties": false,
+      "description": "A unit and files.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Paths",
+          "type": "array"
+        }
+      },
+      "required": [
+        "unit",
+        "paths"
+      ],
+      "title": "UnitFiles",
+      "type": "object"
+    },
+    "UnitPackages": {
+      "additionalProperties": false,
+      "description": "A unit and apt packages.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "packages": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Packages",
+          "type": "array"
+        }
+      },
+      "required": [
+        "unit",
+        "packages"
+      ],
+      "title": "UnitPackages",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The plan `install --dry-run` or `uninstall --dry-run` prints, as data.\n\nA refused transaction is still a `plan`, with `outcome: \"refused\"`, every\nblocker, and exit code 2. Includes the paths of files written for the\noperator; for local programs, not for pasting.",
+  "properties": {
+    "action": {
+      "title": "Action",
+      "type": "string"
+    },
+    "requested": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Requested",
+      "type": "array"
+    },
+    "outcome": {
+      "title": "Outcome",
+      "type": "string"
+    },
+    "target": {
+      "$ref": "#/$defs/TargetView"
+    },
+    "blockers": {
+      "items": {
+        "$ref": "#/$defs/BlockerLine"
+      },
+      "title": "Blockers",
+      "type": "array"
+    },
+    "install": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/InstallPlanView"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "removal": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RemovalPlanView"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "action",
+    "requested",
+    "outcome",
+    "target",
+    "blockers",
+    "install",
+    "removal"
+  ],
+  "title": "PlanDocument",
   "type": "object"
 }
 ```

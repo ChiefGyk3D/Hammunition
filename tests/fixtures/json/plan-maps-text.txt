@@ -1,0 +1,27 @@
+Target: Debian GNU/Linux 13 (trixie) (ID=debian, version=13, arch=x86_64)
+
+Packages (2):
+  osm-regions                  will fetch+install [requested]
+  osm-navit                    will convert       [requested]
+
+Map regions, from station config (D-057):
+  will be downloaded and installed:
+    test-land/region-one            260101    52.4 MB  sha256, pinned by Hammunition
+    test-land/a-longer-region-name  260101     3.1 MB  MD5 from Geofabrik only; not pinned
+  already installed, current:
+    test-land/region-current  260101
+    test-land/idle            260101  (nothing to do)
+  will be converted for Navit (map sizes an estimate, measured on one region):
+    test-land/region-one      260101  about 41.9 MB
+    test-land/region-current  260101  about 8.4 MB
+  test-land/region-kept: could not check for a newer map; keeping the installed 250101
+      The index did not answer; the installed map stays as it is, and this reason is
+      long enough to be wrapped onto a second line.
+  test-land/region-unrecorded: could not check for a newer map; keeping the installed (snapshot not recorded)
+      No snapshot was recorded for it.
+      licence: ODbL-1.0, stated at https://www.openstreetmap.org/copyright
+      download total: 55.6 MB; about 0.11 GB of disk with Navit's maps (estimate, measured on one region)
+      installs under <prefix>/share/hammunition/data/
+
+Commands (0):
+  (none — everything this plan asks for is already in place)
