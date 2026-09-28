@@ -403,6 +403,21 @@ def test_an_abbreviation_given_a_value_is_still_not_a_json_request(
     assert capsys.readouterr().out == ""
 
 
+def test_bare_json_is_one_document_with_the_bare_commands_exit_code(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Final review Minor 2: bare `hammunition` prints help and exits 0, so
+    bare `hammunition --json` exits 0 too, with one document naming why no
+    command ran."""
+    text_rc = cli.main([])
+    capsys.readouterr()
+    assert cli.main(["--json"]) == text_rc == 0
+    doc = parse_one(capsys.readouterr().out)
+    validate(doc)
+    assert doc["kind"] == "error" and doc["exit_code"] == 0 and doc["command"] == ""
+    assert "name a command" in doc["message"]
+
+
 def test_the_dry_run_only_guard_applies_whenever_json_is_true(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

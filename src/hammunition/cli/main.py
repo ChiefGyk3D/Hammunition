@@ -3032,13 +3032,14 @@ def _main_json(arguments: list[str]) -> int:
         command = envelope.command_name(args)
         why = envelope.refusal(args)
         if why is not None:
+            # Bare `hammunition --json` keeps bare `hammunition`'s exit 0
+            # (final review, Minor 2): no command is not a refused command.
+            code = EXIT_OK if getattr(args, "func", None) is None else EXIT_UNPLANNABLE
             print(f"error: {why}", file=sys.stderr)
             envelope.emit(
-                envelope.ErrorDocument(
-                    command=command, exit_code=EXIT_UNPLANNABLE, message=tee.text().strip()
-                )
+                envelope.ErrorDocument(command=command, exit_code=code, message=tee.text().strip())
             )
-            return EXIT_UNPLANNABLE
+            return code
         try:
             code = _dispatch(args)
         except SystemExit as exc:
