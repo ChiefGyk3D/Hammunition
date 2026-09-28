@@ -36,7 +36,7 @@ from typing import Any
 import pytest
 
 from hammunition.backends import BackendError
-from hammunition.backends.derived import DerivedBackend
+from hammunition.backends.derived import CONVERTER, DerivedBackend
 from hammunition.backends.regions import (
     MIB,
     MapLedger,
@@ -419,11 +419,20 @@ def _stock(tmp_path: Path) -> Path:
     return stock
 
 
-def _converted(tmp_path: Path, region: RegionFile, snapshot: str | None = None) -> None:
+def _converted(
+    tmp_path: Path,
+    region: RegionFile,
+    snapshot: str | None = None,
+    converter: str | None = CONVERTER,
+) -> None:
+    """A converted region; *converter* None is a sidecar from before it was recorded."""
     out = _data(tmp_path, "osm-navit")
     out.mkdir(parents=True, exist_ok=True)
     (out / f"{region.slug}.bin").write_bytes(b"bin")
-    (out / f"{region.slug}.bin.source").write_text(f"{snapshot or region.snapshot}\n")
+    body = f"{snapshot or region.snapshot}\n"
+    if converter is not None:
+        body += f"converter: {converter}\n"
+    (out / f"{region.slug}.bin.source").write_text(body)
 
 
 def test_derived_skips_a_region_already_converted_from_the_same_snapshot(
@@ -471,7 +480,7 @@ def _fake_maptool(
     def run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
         seen.append((list(argv), kwargs))
         assert kwargs.get("shell", False) is False
-        if fail_for is not None and fail_for in argv[3]:
+        if fail_for is not None and any(fail_for in a for a in argv):
             return subprocess.CompletedProcess(argv, 1, "", "maptool: boom")
         if write is not None:
             Path(argv[-1]).write_bytes(write)
@@ -497,12 +506,16 @@ def test_conversion_runs_the_fixed_argv_as_the_operator_and_records_the_snapshot
     pbf = _data(tmp_path, "osm-regions") / "north-america-us-vermont.osm.pbf"
     bin_ = out / "north-america-us-vermont.bin"
     ((argv, _),) = seen
-    assert argv[:4] == ["maptool", "--protobuf", "-i", str(pbf)]
+    # -U always: a town outside every country boundary is indexed under
+    # "Unknown" rather than dropped (the address-search fix).
+    assert argv[:5] == ["maptool", "--protobuf", "-U", "-i", str(pbf)]
     # Written into the operator's staging directory, never straight into the prefix.
-    assert Path(argv[4]).parent == tmp_path / "staging"
-    assert len(argv) == 5
+    assert Path(argv[5]).parent == tmp_path / "staging"
+    assert len(argv) == 6
     assert bin_.read_bytes() == b"navit-bin"
-    assert (out / "north-america-us-vermont.bin.source").read_text() == "260101\n"
+    assert (out / "north-america-us-vermont.bin.source").read_text() == (
+        f"260101\nconverter: {CONVERTER}\n"
+    )
     config = (out / "navit.xml").read_text()
     assert f'data="{bin_}"' in config
     assert "espeak-ng" in config
@@ -571,6 +584,7 @@ class _AsOperator:
             self.calls.append((list(argv), kwargs))
             return real_popen(argv, **strip(kwargs))
 
+        self.run_real = run
         monkeypatch.setattr("hammunition.backends.derived.subprocess.run", run)
         monkeypatch.setattr("hammunition.backends.derived.subprocess.Popen", popen)
 
@@ -1015,7 +1029,8 @@ def test_disk_needs_count_the_cache_the_staging_and_the_prefix(tmp_path: Path) -
     laptop, 2026-09-28, converted at 0.874x and 0.856x, so it was raised."""
     big = RegionFile("x/big", "260101", "https://x/big.osm.pbf", 1000, None, "c" * 32)
     needs = disk_needs([big], [big], cache=tmp_path / "c", staging=tmp_path / "s", prefix=tmp_path)
-    assert needs == {tmp_path / "c": 1000, tmp_path / "s": 2900, tmp_path: 1900}
+    # Staging also holds the region merged with its country's border (1x).
+    assert needs == {tmp_path / "c": 1000, tmp_path / "s": 3900, tmp_path: 1900}
 
 
 def test_a_region_installed_but_not_converted_still_needs_conversion_space(
@@ -1024,7 +1039,7 @@ def test_a_region_installed_but_not_converted_still_needs_conversion_space(
     """Fix round 2, item 3: an osm-navit-only run is disk-checked too."""
     big = RegionFile("x/big", "260101", "https://x/big.osm.pbf", 1000, None, "c" * 32)
     needs = disk_needs([], [big], cache=tmp_path / "c", staging=tmp_path / "s", prefix=tmp_path)
-    assert needs == {tmp_path / "c": 0, tmp_path / "s": 2900, tmp_path: 900}
+    assert needs == {tmp_path / "c": 0, tmp_path / "s": 3900, tmp_path: 900}
 
 
 def test_derived_pending_names_the_regions_it_will_convert(
@@ -1203,3 +1218,463 @@ def test_a_failed_region_ends_the_transaction_non_zero_naming_it(
     assert (navit / f"{VT.slug}.bin").read_bytes() == b"navit-bin"
     assert not (navit / f"{NH.slug}.bin").exists()
     assert f"{VT.slug}.bin" in (navit / "navit.xml").read_text()
+
+
+# ---------------------------------------------------------------------------
+# The address-search fix (D-057 amendment, 2026-09-28): each region merged
+# with a closed border for its country before maptool, and -U always.
+# ---------------------------------------------------------------------------
+
+#: A synthetic Natural Earth file: one square country, "US" by code only.
+_NE = {
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {"NAME": "Testland", "ISO_A2_EH": "US", "ADM0_A3": "TST"},
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[-75, 40], [-65, 40], [-65, 48], [-75, 48], [-75, 40]]],
+            },
+        }
+    ],
+}
+OUR_RELATION = "9000000000000001"
+#: What maptool logs for the extract's own, partial, US relation: expected.
+REAL_BROKEN = (
+    "OSM Warning:http://www.openstreetmap.org/relation/148838 Broken country polygon 'US'\n"
+)
+#: What maptool logs when it takes the merged border as a country: the
+#: positive half of the success check (measured in scratch, 2026-09-28).
+OUR_INFO = (
+    f"OSM Info:http://www.openstreetmap.org/relation/{OUR_RELATION} Country Boundary for 'US'\n"
+)
+OUR_BROKEN = (
+    f"OSM Warning:http://www.openstreetmap.org/relation/{OUR_RELATION} "
+    "Broken country polygon 'US'\n"
+)
+
+
+def _boundaries(tmp_path: Path) -> Any:
+    import json
+
+    from hammunition.country_boundaries import BoundarySource
+
+    path = tmp_path / "ne.geojson"
+    path.write_text(json.dumps(_NE))
+    return BoundarySource(
+        path=path,
+        url="https://example.invalid/ne.geojson",
+        size=path.stat().st_size,
+        sha256="0" * 64,
+        licence="Public domain",
+    )
+
+
+def _navit_with_boundaries() -> PackageManifest:
+    data = navit_manifest().model_dump(mode="json", exclude_none=True)
+    data["depends"] = ["osm-regions", "maptool", "country-boundaries"]
+    data["install"][0]["install"]["boundaries"] = "country-boundaries"
+    return PackageManifest.model_validate(data)
+
+
+def _merging(tmp_path: Path, files: Sequence[RegionFile], **kw: Any) -> DerivedBackend:
+    kw.setdefault("boundaries", _boundaries(tmp_path))
+    kw.setdefault("countries", {VT.region: ("US",), NH.region: ("US",)})
+    return _derived(tmp_path, files, **kw)
+
+
+class _Toolchain:
+    """osmium and maptool, faked in-process: each writes its ``-o`` or last
+    argument into the staging directory; maptool's log is *log*."""
+
+    def __init__(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        log: str = REAL_BROKEN + OUR_INFO,
+        fail: str | None = None,
+    ) -> None:
+        self.calls: list[tuple[list[str], dict[str, Any]]] = []
+        self.inputs: list[str] = []
+        self.log = log
+        self.fail = fail
+        self.active = 0
+        self.overlapped = False
+
+        def run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+            if self.active:
+                self.overlapped = True
+            self.active += 1
+            try:
+                return self._run(list(argv), kwargs)
+            finally:
+                self.active -= 1
+
+        monkeypatch.setattr("hammunition.backends.derived.subprocess.run", run)
+
+    def _run(self, argv: list[str], kwargs: dict[str, Any]) -> subprocess.CompletedProcess[str]:
+        self.calls.append((argv, kwargs))
+        tool = argv[0] if argv[0] != "env" else argv[3]
+        body = argv if argv[0] != "env" else argv[3:]
+        if kwargs.get("input") is not None:
+            self.inputs.append(kwargs["input"])
+        if self.fail is not None and self.fail in " ".join(body):
+            return subprocess.CompletedProcess(argv, 1, "", f"{tool}: failed on purpose")
+        if tool == "osmium":
+            out = body[body.index("-o") + 1]
+            Path(out).write_bytes(b"pbf")
+            return subprocess.CompletedProcess(argv, 0, "", "")
+        if tool == "maptool":
+            Path(body[-1]).write_bytes(b"navit-bin")
+            return subprocess.CompletedProcess(argv, 0, "", self.log)
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    def tools(self) -> list[list[str]]:
+        return [argv if argv[0] != "env" else argv[3:] for argv, _ in self.calls]
+
+
+def _perform(backend: DerivedBackend, manifest: PackageManifest) -> list[str]:
+    block = manifest.install[0].install
+    assert isinstance(block, DerivedDataInstall)
+    return [str(step.perform()) for step in _acts(backend.steps(manifest, block))]
+
+
+def test_a_region_is_merged_with_its_country_s_closed_border_before_maptool(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake = _Toolchain(monkeypatch)
+    _install_region(tmp_path, VT)
+    backend = _merging(tmp_path, [VT])
+    outcomes = _perform(backend, _navit_with_boundaries())
+    assert backend.ledger.failed == {}
+    staging = tmp_path / "staging"
+    pbf = _data(tmp_path, "osm-regions") / f"{VT.slug}.osm.pbf"
+    boundary = staging / f"{VT.slug}.boundary.osm.pbf"
+    merged = staging / f"{VT.slug}.merged.osm.pbf"
+    cat, merge, maptool = fake.tools()
+    # The synthesised XML goes in on stdin: nothing of root's is written in
+    # the operator's staging directory.
+    assert cat == ["osmium", "cat", "-F", "osm", "-o", str(boundary), "--overwrite", "-"]
+    (xml,) = fake.inputs
+    assert 'k="ISO3166-1" v="US"' in xml and 'k="admin_level" v="2"' in xml
+    assert merge == ["osmium", "merge", str(pbf), str(boundary), "-o", str(merged), "--overwrite"]
+    assert maptool[:5] == ["maptool", "--protobuf", "-U", "-i", str(merged)]
+    assert all(k["cwd"] == staging for _, k in fake.calls)
+    # The merged copies are gone once the map is built.
+    assert not boundary.exists() and not merged.exists()
+    assert any("merged the border of US" in o for o in outcomes)
+    assert (_data(tmp_path, "osm-navit") / f"{VT.slug}.bin").read_bytes() == b"navit-bin"
+
+
+def test_the_conversion_step_discloses_the_merge_and_minus_u(tmp_path: Path) -> None:
+    manifest = _navit_with_boundaries()
+    block = manifest.install[0].install
+    assert isinstance(block, DerivedDataInstall)
+    (convert,) = _kinds(_merging(tmp_path, [VT]).steps(manifest, block), "convert")
+    assert "merge the country border of US" in convert.description
+    assert "osmium merge" in convert.description
+    assert "maptool --protobuf -U -i" in convert.description
+
+
+@pytest.mark.parametrize(
+    ("log", "why"),
+    [
+        (REAL_BROKEN + OUR_INFO, None),
+        (OUR_INFO, None),
+        ("", "not recognised"),
+        (REAL_BROKEN, "not recognised"),
+        (OUR_INFO + OUR_BROKEN, "did not close"),
+        (OUR_INFO + REAL_BROKEN + OUR_BROKEN, "did not close"),
+    ],
+    ids=[
+        "info-and-real-broken",
+        "info-only",
+        "clean-log",
+        "real-broken-only",
+        "info-and-ours-broken",
+        "all-three",
+    ],
+)
+def test_the_merged_border_must_be_recognised_and_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, log: str, why: str | None
+) -> None:
+    """Review I-1 (D-031): the effect, not the absence of a warning. maptool
+    must say it took our relation as a country ("Country Boundary for"),
+    and must not call it broken. The extract's own partial relation is
+    always "broken", and that is expected. Without the positive half, a
+    border maptool ignored would pass, and -U would hide every town under
+    Unknown -- the stopgap, not the fix."""
+    _Toolchain(monkeypatch, log=log)
+    _install_region(tmp_path, VT)
+    backend = _merging(tmp_path, [VT])
+    _perform(backend, _navit_with_boundaries())
+    out = _data(tmp_path, "osm-navit")
+    if why is None:
+        assert backend.ledger.failed == {}
+        assert (out / f"{VT.slug}.bin.source").is_file()
+        return
+    message = backend.ledger.failed[VT.slug]
+    assert why in message and OUR_RELATION in message and "north-america/us/vermont" in message
+    assert not (out / f"{VT.slug}.bin").exists()
+    assert not (out / f"{VT.slug}.bin.source").exists()
+    assert list((tmp_path / "staging").glob("*.osm.pbf")) == []
+
+
+def test_a_region_with_no_known_country_converts_unmerged_and_says_so(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake = _Toolchain(monkeypatch)
+    _install_region(tmp_path, VT)
+    backend = _merging(tmp_path, [VT], countries={})
+    manifest = _navit_with_boundaries()
+    block = manifest.install[0].install
+    assert isinstance(block, DerivedDataInstall)
+    (convert,) = _kinds(backend.steps(manifest, block), "convert")
+    assert "no country is known for north-america/us/vermont" in convert.description
+    outcome = convert.perform()
+    assert "no country is known" in outcome
+    assert [argv[0] for argv in fake.tools()] == ["maptool"]
+    assert "-U" in fake.tools()[0]
+
+
+def test_a_code_natural_earth_lacks_is_named_and_the_rest_merged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake = _Toolchain(monkeypatch)
+    _install_region(tmp_path, VT)
+    backend = _merging(tmp_path, [VT], countries={VT.region: ("US", "ZZ")})
+    outcomes = _perform(backend, _navit_with_boundaries())
+    assert backend.ledger.failed == {}
+    assert any("Natural Earth has no border for ZZ" in o for o in outcomes)
+    assert [argv[1] for argv in fake.tools()[:2]] == ["cat", "merge"]
+
+
+def test_osmium_failing_fails_that_region_only_and_leaves_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _Toolchain(monkeypatch, fail=VT.slug + ".boundary")
+    _install_region(tmp_path, VT)
+    _install_region(tmp_path, NH)
+    backend = _merging(tmp_path, [VT, NH])
+    _perform(backend, _navit_with_boundaries())
+    assert list(backend.ledger.failed) == [VT.slug]
+    assert "osmium" in backend.ledger.failed[VT.slug]
+    assert (_data(tmp_path, "osm-navit") / f"{NH.slug}.bin").is_file()
+    assert list((tmp_path / "staging").glob("*.osm.pbf")) == []
+
+
+def test_osmium_missing_names_the_package_that_provides_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def run(argv: list[str], **kwargs: Any) -> Any:
+        raise FileNotFoundError(2, "No such file or directory", argv[0])
+
+    monkeypatch.setattr("hammunition.backends.derived.subprocess.run", run)
+    _install_region(tmp_path, VT)
+    backend = _merging(tmp_path, [VT])
+    _perform(backend, _navit_with_boundaries())
+    assert "osmium-tool" in backend.ledger.failed[VT.slug]
+
+
+def test_a_missing_boundary_file_fails_the_region_naming_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _Toolchain(monkeypatch)
+    _install_region(tmp_path, VT)
+    backend = _merging(tmp_path, [VT])
+    assert backend.boundaries is not None
+    backend.boundaries.path.unlink()
+    _perform(backend, _navit_with_boundaries())
+    assert str(backend.boundaries.path) in backend.ledger.failed[VT.slug]
+
+
+def test_a_block_naming_boundaries_needs_them_given_to_the_backend(tmp_path: Path) -> None:
+    manifest = _navit_with_boundaries()
+    block = manifest.install[0].install
+    assert isinstance(block, DerivedDataInstall)
+    with pytest.raises(BackendError, match="country-boundaries"):
+        _derived(tmp_path, [VT]).steps(manifest, block)
+
+
+def test_under_root_the_merge_runs_as_the_operator_with_the_xml_on_stdin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _as_root_for_operator(monkeypatch, tmp_path)
+    fake = _Toolchain(monkeypatch)
+    popen = _AsOperator(monkeypatch)  # the install step reads the staged map as the operator
+    monkeypatch.setattr("hammunition.backends.derived.subprocess.run", _dispatch(fake, popen))
+    touched = _no_root_filesystem_writes(monkeypatch)
+    _install_region(tmp_path, VT)
+    backend = _merging(tmp_path, [VT], euid=0, owner=OPERATOR.pw_name, privileged=False)
+    _perform(backend, _navit_with_boundaries())
+    assert backend.ledger.failed == {}, backend.ledger.failed
+    assert touched == []
+    staged = [argv for argv, _ in fake.calls]
+    assert [argv[:4] for argv in staged] == [
+        ["env", "-C", str(tmp_path / "staging"), "osmium"],
+        ["env", "-C", str(tmp_path / "staging"), "osmium"],
+        ["env", "-C", str(tmp_path / "staging"), "maptool"],
+    ]
+    assert all(k.get("user") == OPERATOR.pw_uid and "cwd" not in k for _, k in fake.calls)
+    assert list((tmp_path / "staging").glob("*.osm.pbf")) == []
+
+
+def _dispatch(fake: _Toolchain, other: _AsOperator) -> Any:
+    """osmium and maptool to *fake*; everything else (install -d, rm,
+    sha256sum) run for real, as :class:`_AsOperator` does."""
+    toolchain_run = fake._run
+    real_run = other.run_real
+
+    def run(argv: list[str], **kwargs: Any) -> Any:
+        if argv[:2] == ["env", "-C"] and argv[3] in ("osmium", "maptool"):
+            return toolchain_run(list(argv), kwargs)
+        return real_run(argv, **kwargs)
+
+    return run
+
+
+# ---------------------------------------------------------------------------
+# Rebuild on converter change
+# ---------------------------------------------------------------------------
+
+
+def test_a_map_from_an_older_converter_is_converted_again(
+    tmp_path: Path, manifest_navit: PackageManifest, block_navit: DerivedDataInstall
+) -> None:
+    """Every .bin built before the border merge has a one-line sidecar; the
+    same snapshot is not "current" any more, and the plan can say why."""
+    _converted(tmp_path, VT, converter=None)
+    _converted(tmp_path, NH)
+    backend = _derived(tmp_path, [VT, NH])
+    assert backend.pending(manifest_navit) == [VT]
+    assert backend.converter_changed(manifest_navit) == {VT.slug}
+    steps: list[Any] = backend.steps(manifest_navit, block_navit)
+    (convert,) = _kinds(steps, "convert")
+    assert "converter changed" in convert.description
+
+
+def test_a_map_from_another_snapshot_is_not_called_a_converter_change(
+    tmp_path: Path, manifest_navit: PackageManifest
+) -> None:
+    _converted(tmp_path, VT, snapshot="250101", converter=None)
+    backend = _derived(tmp_path, [VT])
+    assert backend.pending(manifest_navit) == [VT]
+    assert backend.converter_changed(manifest_navit) == set()
+
+
+def test_the_snapshot_still_reads_from_a_two_line_sidecar(tmp_path: Path) -> None:
+    from hammunition.backends.regions import installed_converter, installed_snapshot
+
+    _converted(tmp_path, VT)
+    bin_ = _data(tmp_path, "osm-navit") / f"{VT.slug}.bin"
+    assert installed_snapshot(bin_) == VT.snapshot
+    assert installed_converter(bin_) == CONVERTER
+    _converted(tmp_path, VT, converter=None)
+    assert installed_converter(bin_) is None
+
+
+# ---------------------------------------------------------------------------
+# One maptool at a time
+# ---------------------------------------------------------------------------
+
+
+def test_regions_convert_one_at_a_time_in_one_staging_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """maptool writes fixed-name scratch (coords.tmp, ways_.tmp, ...) into its
+    working directory, and two runs in one directory segfault (measured
+    2026-09-28). Every run is in the same staging directory, so none may
+    overlap another. The fake runs in one thread, so `overlapped` could only
+    turn True if the backend itself started threads: the guard against that
+    is the structural test below, not this one (review M-7)."""
+    fake = _Toolchain(monkeypatch)
+    for region in (VT, NH):
+        _install_region(tmp_path, region)
+    _perform(_merging(tmp_path, [VT, NH]), _navit_with_boundaries())
+    maptools = [k for argv, k in fake.calls if argv[0] == "maptool"]
+    assert len(maptools) == 2
+    assert {k["cwd"] for k in maptools} == {tmp_path / "staging"}
+    assert fake.overlapped is False
+
+
+def test_the_converter_has_no_way_to_run_in_parallel() -> None:
+    """The structural half: nothing in the backend could start a second
+    maptool while one runs -- no thread, pool, process pool or event loop,
+    and no Popen for a converter (subprocess.run blocks until it exits)."""
+    import ast
+
+    source = (
+        Path(__file__).parent.parent / "src" / "hammunition" / "backends" / "derived.py"
+    ).read_text()
+    tree = ast.parse(source)
+    imported = {
+        alias.name.split(".")[0]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import | ast.ImportFrom)
+        for alias in (
+            node.names if isinstance(node, ast.Import) else [ast.alias(node.module or "")]
+        )
+    }
+    assert not imported & {"threading", "concurrent", "multiprocessing", "asyncio"}
+    popens = [
+        ast.unparse(node)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and ast.unparse(node.func).endswith("Popen")
+    ]
+    assert popens and all("'cat'" in call for call in popens), popens
+    assert "never in parallel" in source
+
+
+# ---------------------------------------------------------------------------
+# Encoding (review M-1): UTF-8 in and out, whatever the locale
+# ---------------------------------------------------------------------------
+
+
+def test_the_border_file_is_read_and_piped_as_utf8_whatever_the_locale(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import json
+
+    fake = _Toolchain(monkeypatch)
+    _install_region(tmp_path, VT)
+    backend = _merging(tmp_path, [VT])
+    assert backend.boundaries is not None
+    named = json.loads(json.dumps(_NE))
+    named["features"][0]["properties"]["NAME"] = "Côte d'Ivoire, Curaçao"
+    backend.boundaries.path.write_bytes(json.dumps(named, ensure_ascii=False).encode("utf-8"))
+    # A Latin-1 locale: without explicit encodings the read and the pipe
+    # would follow it and mis-encode the name.
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *a, **k: "ISO-8859-1")
+    _perform(backend, _navit_with_boundaries())
+    assert backend.ledger.failed == {}
+    (xml,) = fake.inputs
+    assert "Côte d'Ivoire, Curaçao" in xml
+    assert all(k.get("encoding") == "utf-8" for _, k in fake.calls)
+
+
+def test_a_border_file_that_is_not_utf8_fails_each_region_not_the_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake = _Toolchain(monkeypatch)
+    for region in (VT, NH):
+        _install_region(tmp_path, region)
+    backend = _merging(tmp_path, [VT, NH])
+    assert backend.boundaries is not None
+    backend.boundaries.path.write_bytes(b'{"type": "FeatureCollection", "features": [\xff]}')
+    outcomes = _perform(backend, _navit_with_boundaries())  # raises nothing
+    assert sorted(backend.ledger.failed) == sorted([VT.slug, NH.slug])
+    assert all("UTF-8" in m for m in backend.ledger.failed.values())
+    assert fake.calls == []
+    assert outcomes[-1].startswith("not written")
+
+
+def test_a_region_newer_than_the_table_takes_its_parent_path_s_country(tmp_path: Path) -> None:
+    """Review M-3: Geofabrik adds a sub-region after the table was generated;
+    its parent path is in the table, so it is not "no country known"."""
+    newer = RegionFile(
+        "north-america/us/vermont/chittenden", "260101", "https://x", 10, None, "c" * 32
+    )
+    backend = _merging(tmp_path, [newer], countries={"north-america/us/vermont": ("US",)})
+    assert backend.codes_for(newer) == ("US",)
+    assert _merging(tmp_path, [newer], countries={}).codes_for(newer) == ()

@@ -229,6 +229,12 @@ jobs:
       # regenerate. HEAD only; the ~10 GB regeneration runs on a maintainer's
       # machine.
       - run: python scripts/gen_geofabrik_pins.py --check
+      # The region -> country table the Navit converter merges borders by
+      # (D-057 amendment). Geofabrik adds and re-parents regions; a region
+      # with no row converts with no border and its towns land under
+      # "Unknown". Fetches the 0.5 MB index and compares the regions only:
+      # the `measured` date moves on every fetch and is not compared.
+      - run: python scripts/gen_geofabrik_countries.py --fetch --check
 
   # -------------------------------------------------------------------------
   # D-031. Every identifier citing a distribution's udev rule is checked

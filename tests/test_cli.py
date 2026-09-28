@@ -2739,6 +2739,49 @@ def test_an_osm_navit_only_run_still_counts_its_conversions(tmp_path: Path) -> N
     assert downloads == [] and conversions == [VT]
 
 
+def _catalog_navit_plan() -> tuple[InstallPlan, dict[str, Any]]:
+    from hammunition.manifest.load import load_catalog
+
+    catalog = load_catalog(REPO_ROOT / "catalog" / "packages")
+    navit = catalog["osm-navit"]
+    plan = InstallPlan(
+        target=Target(distro="debian", version="13", arch="x86_64"),
+        packages=(PlannedPackage(manifest=navit, block=navit.install[0], apt_packages=()),),
+    )
+    return plan, catalog
+
+
+def test_the_plan_finds_the_border_file_and_the_country_table(tmp_path: Path) -> None:
+    """The address-search fix: osm-navit names country-boundaries; the plan
+    reads where it installs and the committed region -> country table."""
+    from hammunition.cli.main import map_borders
+
+    plan, catalog = _catalog_navit_plan()
+    border, countries, notes = map_borders(plan, catalog, REPO_ROOT / "catalog", tmp_path)
+    assert border is not None
+    assert border.path == (
+        tmp_path / "share/hammunition/data/country-boundaries/ne_10m_admin_0_countries.geojson"
+    )
+    assert countries["north-america/us/vermont"] == ("US",)
+    assert notes == []
+
+
+def test_a_missing_country_table_is_a_note_not_a_silent_empty_one(tmp_path: Path) -> None:
+    from hammunition.cli.main import map_borders
+
+    plan, catalog = _catalog_navit_plan()
+    border, countries, notes = map_borders(plan, catalog, tmp_path / "no-catalog", tmp_path)
+    assert border is not None and countries == {}
+    (note,) = notes
+    assert "geofabrik-countries.yaml" in note and "no country border is merged" in note
+
+
+def test_no_derived_unit_means_no_border(tmp_path: Path) -> None:
+    from hammunition.cli.main import map_borders
+
+    assert map_borders(_map_plan(), {}, REPO_ROOT / "catalog", tmp_path) == (None, {}, [])
+
+
 def test_the_plan_lists_regions_that_will_be_converted() -> None:
     from hammunition.backends.regions import MapDisclosure
     from test_regions_backend import VT

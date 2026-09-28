@@ -124,8 +124,14 @@ Map regions, from station config (D-057):
     north-america/us/vermont        260101    44.4 MB  sha256, pinned by Hammunition
     north-america/us/new-hampshire  260101    68.1 MB  sha256, pinned by Hammunition
   will be converted for Navit (map sizes an estimate, measured on three regions, scratch on one):
-    north-america/us/vermont        260101  about 40.0 MB
-    north-america/us/new-hampshire  260101  about 61.3 MB
+    north-america/us/vermont        260101  about 40.0 MB  border: US
+    north-america/us/new-hampshire  260101  about 61.3 MB  border: US
+      each region is first merged with its country's closed border (osmium merge, in the
+      staging directory, removed afterwards), so maptool files its towns under the
+      country and address search finds them; maptool runs with -U, so a town the border
+      misses is indexed under the country Unknown, not dropped
+      country borders: Natural Earth 1:10m admin-0 countries, 13.3 MB, Public domain
+      (Natural Earth's terms of use), sha256, pinned by Hammunition
       licence: ODbL-1.0, stated at https://www.openstreetmap.org/copyright
       download total: 0.11 GB; about 0.21 GB of disk with Navit's maps (estimate, measured on three regions, scratch on one)
       installs under <prefix>/share/hammunition/data/
@@ -136,6 +142,17 @@ Each region's line is the dated file it will fetch (`260101` is 1 January
 that date says `already installed, current` and is not downloaded again. The
 commands section shows each download and each conversion, including where
 the conversion runs and how much scratch space it needs.
+
+Each line to convert also says whose country border is merged into it
+first (`border: US`), which is what makes address search work (see
+[Find an address](#5-find-an-address)). The border file itself, Natural
+Earth's world country outlines, is the `country-boundaries` unit: it is
+listed once under *Offline data that will be downloaded and installed*,
+13.3 MB, public domain, checked against a sha256 Hammunition measured. A
+region whose country is not known (a whole continent, or a group such as
+`us-northeast`) says `border: none known` and converts without one. A map
+built by an older Hammunition says `(converter changed)` and is converted
+again even though its download has not changed.
 
 That "0.20 GB of disk with Navit's maps" line is narrower than the 2.8×
 figure in [Disk planning](#disk-planning) below: it is only the download
@@ -204,7 +221,50 @@ documents the menus.
 
 ---
 
-## 5. "Where am I?"
+## 5. Find an address
+
+Navit searches by town, then street, then house number, all offline. With
+the internal interface on this install:
+
+1. **Tap or click anywhere on the map.** The main menu opens.
+2. Choose **Actions**, then **Town**.
+3. The country is already chosen, from your language setting (`LANG`
+   ending in `_US` picks the United States). To search another country,
+   press the **flag button** at the left of the text field and pick it.
+4. **Type the town's name.** Results appear from the first letter, and
+   narrow as you type. Pick the town.
+5. For a street, use the **street icon** to the right of the text field
+   instead of picking the town, and type the street's name.
+6. For a house number, pick the street, or use the **house-number icon**,
+   and type the number. Numbers are there wherever OpenStreetMap has them,
+   which in rural areas is not everywhere.
+7. From a result, choose **Set as destination** to route there, or **Set
+   as position** to look at it.
+
+**A town you know is there, and the search does not find it**, may be
+filed under the pseudo-country *Unknown*. The country borders merged into
+the maps are about 1 km coarse, and a few places close to a national
+border fall on the wrong side of the line. They are
+still indexed, just not under their country. Press the flag button, type
+`*`, and pick **\* Unknown, add is_in tags to those cities**; then search
+for the town as above. Places there have no state or county beside their
+name.
+
+Why it works: Navit's map converter, `maptool`, files every town under a
+country by testing it against that country's border, and a state extract
+from Geofabrik carries only the pieces of the US border that lie inside
+the state. Without a closed border maptool dropped almost every town from
+the search index: on one US-state-sized region the index held about a
+dozen items for a map that draws a few thousand places. Hammunition now
+merges a closed border into each region before converting it, and the
+same region's index held over four thousand, a few hundred times as many,
+all under the USA and almost all with their state and county; house numbers are indexed wherever OpenStreetMap has them. Maps converted
+by Hammunition before this fix are converted again on the next
+`hammunition install navigation`; see [Troubleshooting](#troubleshooting).
+
+---
+
+## 6. "Where am I?"
 
 Situational awareness is a mode of its own, and it needs nothing extra:
 
@@ -225,7 +285,7 @@ dashboards carry that.
 
 ---
 
-## 6. Keep the maps fresh
+## 7. Keep the maps fresh
 
 Refresh as routine, on an ordinary day with a network, not when you need
 the map. `hammunition update` is the reminder:
@@ -267,7 +327,7 @@ refresh whenever you like; every run fetches Geofabrik's newest file.
 
 ---
 
-## 7. With no network
+## 8. With no network
 
 Everything the maps need at the moment of use is already on the laptop:
 Navit, the converted maps, the configuration, gpsd and the voice. Nothing
@@ -296,6 +356,8 @@ For each region, the plan estimates and checks, before anything downloads:
 | The installed region file | the region's size | `/usr/local/share/hammunition/data/osm-regions/` | Until uninstall or the region is dropped |
 | Navit's converted map | about 0.9× the region | `/usr/local/share/hammunition/data/osm-navit/` | Until uninstall or the region is dropped |
 | Conversion scratch | about 2× the region, plus the converted map staged | `~/.cache/hammunition/build/osm-navit/` | Only while it converts |
+| The region merged with its country's border | about 1× the region | `~/.cache/hammunition/build/osm-navit/` | Only while it converts; removed afterwards whether it worked or not |
+| Natural Earth's country borders | 13.3 MB, once | `/usr/local/share/hammunition/data/country-boundaries/` | Until uninstall |
 
 If a conversion fails, maptool's scratch stays in
 `~/.cache/hammunition/build/osm-navit/`, so the failure can be looked at.
@@ -303,7 +365,7 @@ Its `country_*_broken_.tmp` and `country_*_poly_.tmp` files are cleared the
 next time a region's map installs; anything else it left is not. All of it
 is safe to delete by hand whenever no install is running.
 
-So while a region converts, allow about 5.8 times its download
+So while a region converts, allow about 6.8 times its download
 size if the cache and `/usr/local` are on the same disk; afterwards it takes
 about 2.9 times (1.9 if you clear the download cache). A single US state
 ranges from 20.3 MB (District of Columbia) to 1.29 GB (California); Vermont
@@ -386,16 +448,36 @@ are in other files in `~/.navit/` and are not affected.
 and that the fix is inside one of your regions: a map of one state shows
 nothing while you are in another.
 
+### Address search finds almost nothing
+
+Maps converted by Hammunition 0.12.0 and earlier were built without a
+closed country border, and their search index holds only a handful of
+towns. Run the install again:
+
+```
+hammunition install navigation
+```
+
+The plan marks each such map `(converter changed)` and converts it again
+from the region already on disk; nothing is downloaded but the 13.3 MB
+border file. If one town is still missing, look under the *Unknown*
+country, as [Find an address](#5-find-an-address) describes.
+
+maptool's log for a conversion always warns `Broken country polygon` for
+the region's own, partial copy of its country's border. That is expected
+and harmless. A warning for the merged border itself fails the conversion,
+and the run ends naming the region.
+
 ---
 
 ## Removing it
 
 ```
-hammunition uninstall osm-navit osm-regions
+hammunition uninstall osm-navit osm-regions country-boundaries
 ```
 
-removes the converted maps, Navit's generated configuration and the region
-files, and leaves Navit installed; `--dry-run` shows what it will remove
+removes the converted maps, Navit's generated configuration, the region
+files and the country-border file, and leaves Navit installed; `--dry-run` shows what it will remove
 first. Your station config keeps its regions until you
 change them; the download cache in `~/.cache/hammunition/artifacts/` is
 yours to clear.
@@ -411,6 +493,11 @@ laptop and been recorded in `docs/reference/bench-verification-5430.md`:
   time and scratch figures above come from one region converted by hand;
   the map-size factor also rests on two US-state-sized regions converted on
   the field laptop on 2026-09-28.
+- **Address search on maps built by the engine.** The index figures
+  above comes from a build made by hand, in the spike that chose this fix,
+  with the same steps the converter now runs (a Natural Earth border merged
+  with `osmium merge`, then `maptool -U`); a map converted through
+  `hammunition install` has not yet been searched on the field laptop.
 - **Routing from one region into the next.** Each region is converted into
   its own map. Whether Navit routes across the border between two of them,
   a trip from Vermont into New Hampshire, has not been tested. Until it has,

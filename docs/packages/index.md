@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**255 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**256 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -300,10 +300,11 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `navigation-maps` — 3
+### `navigation-maps` — 4
 
 Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
 
+- [country-boundaries](country-boundaries.md) — Natural Earth's world country borders, which let Navit's address search find towns
 - [navit](navit.md) — Offline turn-by-turn navigation that follows the GPS, with spoken directions
 - [osm-navit](osm-navit.md) — Navit's binary maps, converted from your OpenStreetMap regions, and its configuration
 - [osm-regions](osm-regions.md) — OpenStreetMap region extracts from Geofabrik, the regions you choose, verified
@@ -680,6 +681,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [coil64](coil64.md) | Calculates inductance for coils of almost any geometry | git |
 | [comptext](comptext.md) | Compares two text streams and scores how much of one arrived intact | apt |
 | [comptty](comptty.md) | The same accuracy comparison as comptext, for Baudot RTTY streams | apt |
+| [country-boundaries](country-boundaries.md) | Natural Earth's world country borders, which let Navit's address search find towns | data |
 | [country-files](country-files.md) | The DX-cluster country file (cty.dat) — callsign prefix to entity, zone and coordinates | data |
 | [cqrlog](cqrlog.md) | Full-featured station log with a database behind it and rig control in front | apt |
 | [cubicsdr](cubicsdr.md) | Cross-platform SDR receiver with several demodulators running at once | apt |

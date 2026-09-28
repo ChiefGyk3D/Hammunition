@@ -79,6 +79,7 @@ from hammunition.consent import (
     resolve_consent,
     resolve_repo_consent,
 )
+from hammunition.country_boundaries import BoundarySource, CountryBoundaryError, boundary_source
 from hammunition.desktop import current_desktop, scan_sessions
 from hammunition.distro import DetectionError, Target
 from hammunition.execute import (
@@ -100,6 +101,7 @@ from hammunition.geofabrik import (
     RegionFile,
     UrllibProbe,
     current_pinned_snapshots,
+    load_countries,
     load_pins,
     region_ids,
 )
@@ -984,6 +986,52 @@ def resolve_map_regions(
     return MapResolution(files=tuple(files), kept=tuple(kept), notes=tuple(notes))
 
 
+def map_borders(
+    plan: InstallPlan,
+    catalog: Mapping[str, PackageManifest],
+    catalog_root: Path,
+    prefix: Path,
+) -> tuple[BoundarySource | None, dict[str, tuple[str, ...]], list[str]]:
+    """The country-border file and the region -> country table the Navit
+    converter merges with (the address-search fix, D-057 amendment).
+
+    Read at plan time with no network: the file is where the plan's
+    ``boundaries`` unit installs it, and the table is
+    ``catalog/data/geofabrik-countries.yaml``. A missing table is a note in
+    the plan, and every region converts unmerged under -U; a boundaries
+    unit of the wrong shape raises :class:`CountryBoundaryError`, which
+    refuses the plan by name.
+    """
+    named = [
+        p.block.install.boundaries
+        for p in plan.packages
+        if isinstance(p.block.install, DerivedDataInstall) and p.block.install.boundaries
+    ]
+    if not named:
+        return None, {}, []
+    unit = catalog.get(named[0])
+    if unit is None:
+        raise CountryBoundaryError(
+            f"{named[0]} is named for country borders and is not in the catalog"
+        )
+    border = boundary_source(unit, prefix)
+    table = catalog_root / "data" / "geofabrik-countries.yaml"
+    if not table.is_file():
+        return (
+            border,
+            {},
+            [
+                f"no region-to-country table at {table}, so no country border is merged: "
+                f"every map converts with maptool -U alone, and address search files "
+                f"its towns under Unknown."
+            ],
+        )
+    try:
+        return border, load_countries(table), []
+    except GeofabrikError as exc:
+        raise CountryBoundaryError(str(exc)) from exc
+
+
 def map_work(
     plan: InstallPlan, regions: RegionsBackend, derived: DerivedBackend
 ) -> tuple[list[RegionFile], list[RegionFile]]:
@@ -1194,6 +1242,14 @@ def cmd_install(args: argparse.Namespace) -> int:
     region_files = list(resolution.files)
     kept = frozenset(k.slug for k in resolution.kept)
     region_notes = list(resolution.notes)
+    try:
+        border, countries, border_notes = map_borders(plan, packages, catalog_root, source.prefix)
+    except CountryBoundaryError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        print("\nNothing was changed.", file=sys.stderr)
+        refused("country borders", str(exc))
+        return EXIT_UNPLANNABLE
+    region_notes.extend(border_notes)
     leftover = leftover_maps_note(plan, source.prefix)
     if leftover is not None:
         region_notes.append(leftover)
@@ -1219,13 +1275,28 @@ def cmd_install(args: argparse.Namespace) -> int:
         ledger=ledger,
         owner=user or None,
         runner=runner,
+        boundaries=border,
+        countries=countries,
     )
     # Only regions not already installed at their snapshot are downloaded,
     # counted and listed as downloads (the dry run is the run); a region
     # installed but not yet converted still needs conversion space.
     pending, conversions = map_work(plan, regions, derived)
+    changed = frozenset(
+        slug
+        for p in plan.packages
+        if isinstance(p.block.install, DerivedDataInstall)
+        for slug in derived.converter_changed(p.manifest)
+    )
     maps = (
-        resolution.disclosure(pending, conversions)
+        resolution.disclosure(
+            pending,
+            conversions,
+            boundaries=border,
+            # As the converter will resolve them, parent paths included.
+            countries={f.region: derived.codes_for(f) for f in region_files},
+            converter_changed=changed,
+        )
         if any(
             isinstance(p.block.install, RegionalDataInstall | DerivedDataInstall)
             for p in plan.packages

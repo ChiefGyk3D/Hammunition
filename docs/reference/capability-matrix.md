@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 58 | 2 | 195 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 58 | 2 | 195 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 56 | 2 | 197 |
-| kali-rolling *(unswept)* | 0 | 0 | 53 | 0 | 202 |
-| parrot *(unswept)* | 0 | 0 | 56 | 2 | 197 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 56 | 2 | 197 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 55 | 5 | 195 |
+| debian-13 *(unswept)* | 0 | 0 | 59 | 2 | 195 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 59 | 2 | 195 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 57 | 2 | 197 |
+| kali-rolling *(unswept)* | 0 | 0 | 54 | 0 | 202 |
+| parrot *(unswept)* | 0 | 0 | 57 | 2 | 197 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 57 | 2 | 197 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 56 | 5 | 195 |
 
-**255 manifests** against **7 targets**.
+**256 manifests** against **7 targets**.
 
 ---
 
@@ -86,6 +86,7 @@ build HAS been run in a container say so in their own install notes.
 | `coil64` | git | git | git | git | git | git | git |
 | `comptext` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `comptty` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `country-boundaries` | data | data | data | data | data | data | data |
 | `country-files` | data | data | data | data | data | data | data |
 | `cqrlog` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `cubicsdr` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |

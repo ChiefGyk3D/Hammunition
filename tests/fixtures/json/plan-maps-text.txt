@@ -12,8 +12,14 @@ Map regions, from station config (D-057):
     test-land/region-current  260101
     test-land/idle            260101  (nothing to do)
   will be converted for Navit (map sizes an estimate, measured on three regions, scratch on one):
-    test-land/region-one      260101  about 47.2 MB
-    test-land/region-current  260101  about 9.4 MB
+    test-land/region-one      260101  about 47.2 MB  border: TL
+    test-land/region-current  260101  about 9.4 MB  border: none known  (converter changed)
+      each region is first merged with its country's closed border (osmium merge, in the
+      staging directory, removed afterwards), so maptool files its towns under the
+      country and address search finds them; maptool runs with -U, so a town the border
+      misses is indexed under the country Unknown, not dropped
+      country borders: Natural Earth 1:10m admin-0 countries, 13.3 MB, Public domain
+      (Natural Earth's terms of use), sha256, pinned by Hammunition
   test-land/region-kept: could not check for a newer map; keeping the installed 250101
       The index did not answer; the installed map stays as it is, and this reason is
       long enough to be wrapped onto a second line.

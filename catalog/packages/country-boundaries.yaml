@@ -1,0 +1,81 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: country-boundaries
+version: "5.1.2"
+summary: Natural Earth's world country borders, which let Navit's address search find towns
+categories: [navigation-maps]
+
+# The address-search fix (D-057 amendment, 2026-09-28). A Geofabrik state
+# extract carries only the in-state pieces of its country's border, so
+# maptool could not file towns under a country and dropped them from the
+# search index: about a dozen index items for a region that draws a few
+# thousand places. The osm-navit converter merges a closed border from this
+# file into each region first; the same region's index then held over four
+# thousand, a few hundred times as many.
+#
+# Natural Earth publishes no release assets and no checksum: every release,
+# v5.1.2 included, has none. The file is pinned by the v5.1.2 tag's commit
+# (f1890d9f), whose raw files cannot change, and its git blob (5ebc66e2...)
+# matches the tree at that commit. The sha256 below is Hammunition's own,
+# measured on 2026-09-28 by the spike that chose this file and again by a
+# separate download when this manifest was written: the same digest both
+# times. The naciscdn.org zip is
+# not used: its URL is unversioned and it has no published checksum either.
+install:
+  - install:
+      method: data
+      artifacts:
+        - url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/geojson/ne_10m_admin_0_countries.geojson
+          sha256: 239eec57ac17f100a11e2536cffc56752c318b50ae765b0918ff7aab4ce8f255
+          size: 13287234
+          format: file
+          install_as: ne_10m_admin_0_countries.geojson
+      licence: Public domain (Natural Earth's terms of use)
+      licence_url: https://www.naturalearthdata.com/about/terms-of-use/
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    Natural Earth releases rarely (v5.1.2 was 2022). A new release is a new
+    tag on github.com/nvkelso/natural-earth-vector: pin its commit in the
+    URL, download the file, measure its sha256 and size, and bump all three
+    with `version`. Country borders move seldom, so there is no hurry.
+
+documentation:
+  what_it_does: >-
+    Installs one file, the 1:10m admin-0 countries of Natural Earth v5.1.2
+    (about 13.3 MB of GeoJSON), under
+    /usr/local/share/hammunition/data/country-boundaries/. It is the outline
+    of every country in the world at a scale of about 1 km. Nothing reads it
+    directly: `osm-navit` uses it when it converts your map regions for
+    Navit.
+  why_you_want_it: >-
+    Without it, Navit's address search finds almost nothing on a map of one
+    US state or any other part of a country. maptool, which builds Navit's
+    maps, sorts every town under its country by testing it against the
+    country's border, and a part-of-a-country extract only has part of that
+    border. With this file merged in first, the towns land under their
+    country, with their state and county, and search by town, street and
+    house number works. The alternative is downloading the whole country's
+    map (12.2 GB for the US) for the sake of its border.
+  prerequisites: >-
+    Nothing. It is installed as a dependency of `osm-navit`, in the
+    `navigation` profile.
+  known_problems: >-
+    The borders are coarse, about 1 km at 1:10m, so a few places close to
+    a national border can fall on the wrong side of it. The conversion
+    runs maptool with -U, so those are still found, under the
+    pseudo-country "* Unknown" in Navit's country list. A handful of places
+    at the edges of a state extract, in the neighbouring states, are filed
+    under their country with no state, because those states' own borders
+    are incomplete in the extract. Natural Earth draws de facto borders, which is its own stated
+    policy (https://www.naturalearthdata.com/about/disputed-boundaries-policy/),
+    not Hammunition's judgement. Installed as a plain file, mode 0644, root-owned.
+  upstream_url: https://www.naturalearthdata.com/
+  upstream_support: >-
+    Natural Earth's issue tracker on GitHub
+    (https://github.com/nvkelso/natural-earth-vector/issues) for problems
+    in the data itself.
