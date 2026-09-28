@@ -4,7 +4,7 @@
 
 **Goal:** Give every read-only engine command a `--json` form that prints exactly one versioned document on stdout, rendered from the same dataclass the text is rendered from, and make `bootstrap.sh` put `hammunition` on the PATH with `doctor` checking it.
 
-**Architecture:** A new package `src/hammunition/interface/` holds one module per document kind (a frozen dataclass with a `KIND` class variable, its builder, and its text renderer) plus `envelope.py` (the `{"schema","kind","engine"}` envelope, the `--json` plumbing, the error document) and `text.py`. `cli/main.py` gains a global `--json` flag walked onto every subparser, and a JSON path in `main()` that points both standard streams at a recording tee over stderr so only `envelope.emit()` can reach stdout. Each command builds its document once and either emits it or prints the renderer's lines. `scripts/gen_json_reference.py` generates `docs/reference/json-interface.md` from the dataclasses (tables plus the pydantic-derived JSON Schema), and golden fixtures pin every document and every text output.
+**Architecture:** A new package `src/hammunition/interface/` holds one module per document kind (a frozen dataclass with a `KIND` class variable, its builder, and its text renderer) plus `envelope.py` (the `{"schema","kind","engine"}` envelope, the `--json` plumbing, the error document) and `text.py`. `src/hammunition/cli/main.py` gains a global `--json` flag walked onto every subparser, and a JSON path in `main()` that points both standard streams at a recording tee over stderr so only `envelope.emit()` can reach stdout. Each command builds its document once and either emits it or prints the renderer's lines. `scripts/gen_json_reference.py` generates `docs/reference/json-interface.md` from the dataclasses (tables plus the pydantic-derived JSON Schema), and golden fixtures pin every document and every text output.
 
 **Tech Stack:** Python 3.11+, stdlib `dataclasses`/`json`/`argparse`, pydantic 2 `TypeAdapter` (already a dependency) for the published schema and validation, pytest, mypy `--strict`, ruff 0.16.5, bash for the PATH link.
 
@@ -1297,11 +1297,13 @@ Document the flag in `docs/reference/cli.md` under `## Global flags`, after the 
 `--json`, before or after the verb, prints one JSON document on stdout instead
 of text, for a front end to read; diagnostics go to stderr and the exit code is
 unchanged. Every document, and which commands have one, is in
-[json-interface.md](json-interface.md), generated from the code (**D-059**).
+[json-interface.md](../../reference/json-interface.md), generated from the code (**D-059**).
 `install` and `uninstall` accept it only with `--dry-run`: a real install is
 never driven through JSON. A command with no JSON form refuses it and runs
 nothing.
 ````
+
+*Note (Task 11): the link above is written relative to this plan so the link checker resolves it; in `docs/reference/cli.md` it is `json-interface.md`.*
 
 - [ ] **Step 10: Generate the page and run the gates**
 
@@ -5521,7 +5523,9 @@ EOF
 
 - [ ] **Step 1: Capture the goldens from #121's own rendering, before moving anything**
 
-Create a throwaway worktree at #121's merge commit, where `render_plan` still renders the map block itself: `git worktree add ../Hammunition-golden <#121 merge sha>`. In it, add this test file as `tests/test_json_maps_golden.py`, copy `tests/json_support.py` and `tests/fixtures/json/` from this branch, and run `HAMMUNITION_UPDATE_GOLDEN=1 .venv/bin/pytest tests/test_json_maps_golden.py -q` (use this checkout's venv: `../Hammunition-json/.venv/bin/pytest`). Copy the two `.txt` files it writes back here, then `git worktree remove ../Hammunition-golden`.
+*Note (Task 11): Task 9 was trimmed. This step was done in Task 4, and the throwaway test file it names below was never created, so its name is left unquoted.*
+
+Create a throwaway worktree at #121's merge commit, where `render_plan` still renders the map block itself: `git worktree add ../Hammunition-golden <#121 merge sha>`. In it, add this test file as tests/test_json_maps_golden.py, copy `tests/json_support.py` and `tests/fixtures/json/` from this branch, and run `HAMMUNITION_UPDATE_GOLDEN=1 .venv/bin/pytest tests/test_json_maps_golden.py -q` (use this checkout's venv: `../Hammunition-json/.venv/bin/pytest`). Copy the two `.txt` files it writes back here, then `git worktree remove ../Hammunition-golden`.
 
 ````python
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
@@ -5607,7 +5611,7 @@ Expected in the throwaway worktree: `2 passed`; `plan-maps-text.txt` contains `M
 
 - [ ] **Step 2: Write the failing tests here**
 
-Copy `tests/test_json_maps_golden.py` into this branch as `tests/test_json_maps.py` and append:
+Copy tests/test_json_maps_golden.py into this branch as `tests/test_json_maps.py` and append:
 
 ````python
 def test_the_plan_map_section_is_in_the_document() -> None:
@@ -5680,7 +5684,7 @@ def test_update_and_doctor_json_never_name_a_region(
         assert "vermont" not in out, f"{argv[0]} --json named a region"
 ````
 
-Delete `tests/test_json_maps_golden.py` from this branch if you copied it (the two capture tests now live in `tests/test_json_maps.py`).
+Delete tests/test_json_maps_golden.py from this branch if you copied it (the two capture tests now live in `tests/test_json_maps.py`).
 
 Run: `.venv/bin/pytest tests/test_json_maps.py -q`
 Expected: the two text tests FAIL (the map block is not in `render_plan_view` yet: no `Map regions` line) or PASS if the merge kept #121's block in `render_plan`; the four new tests FAIL (`build_install_view() got an unexpected keyword argument 'maps'`, `KeyError: 'map_regions'`, `kind == "error"`).
@@ -5891,7 +5895,7 @@ if view.maps is not None:
     lines.append("")
 ````
 
-`render_plan` in `cli/main.py` gains `maps: MapDisclosure | None = None` and passes `maps=maps` to `build_install_view`. In `cmd_install`, pass `maps=maps, region_notes=region_notes` to `build_install_view`, and print `for note in (*suggestion_notes, *region_notes): print(f"note: {note}")` in the text branch as #121 does.
+`render_plan` in `src/hammunition/cli/main.py` gains `maps: MapDisclosure | None = None` and passes `maps=maps` to `build_install_view`. In `cmd_install`, pass `maps=maps, region_notes=region_notes` to `build_install_view`, and print `for note in (*suggestion_notes, *region_notes): print(f"note: {note}")` in the text branch as #121 does.
 
 - [ ] **Step 5: Add the map fields to the station document**
 
@@ -6259,7 +6263,7 @@ which `hammunition` your PATH finds.
 
 and change the three `.venv/bin/hammunition` lines under "Or by hand" to end with `ln -s "$PWD/.venv/bin/hammunition" ~/.local/bin/hammunition` followed by `hammunition doctor`.
 
-In `docs/reference/cli.md`, at the end of each of these verb sections add one sentence naming its document kind and linking the page, e.g. for `status`: ``With `--json`, prints a `status` document ([json-interface.md](json-interface.md)).`` Do it for `status` (`status`), `update` (`update`), `list` (`catalog`), `show` (`profile`, or `unit` for a unit's name), `install` (`plan`, `--dry-run` only), `uninstall` (`plan`, `--dry-run` only), `doctor` (`doctor`), `hardware state` (`hardware`), `station show` (`station`, with "for local programs, not for pasting"). In `README.md`, add one line to the paragraph describing the CLI: ``Every read-only command also speaks JSON (`--json`) for front ends; see `docs/reference/json-interface.md`.`` In `CLAUDE.md`, add `docs/reference/json-interface.md` to the Document authority list and a row to the decisions table: `| Engine interface | One JSON document per command under --json, from the same dataclasses as the text; installs never driven through JSON | A console and the tray need a stable interface, not parsed text (**D-059**) |`.
+In `docs/reference/cli.md`, at the end of each of these verb sections add one sentence naming its document kind and linking the page, e.g. for `status`: ``With `--json`, prints a `status` document ([json-interface.md](../../reference/json-interface.md)).`` (Note, Task 11: that link is written relative to this plan; in `docs/reference/cli.md` it is `json-interface.md`.) Do it for `status` (`status`), `update` (`update`), `list` (`catalog`), `show` (`profile`, or `unit` for a unit's name), `install` (`plan`, `--dry-run` only), `uninstall` (`plan`, `--dry-run` only), `doctor` (`doctor`), `hardware state` (`hardware`), `station show` (`station`, with "for local programs, not for pasting"). In `README.md`, add one line to the paragraph describing the CLI: ``Every read-only command also speaks JSON (`--json`) for front ends; see `docs/reference/json-interface.md`.`` In `CLAUDE.md`, add `docs/reference/json-interface.md` to the Document authority list and a row to the decisions table: `| Engine interface | One JSON document per command under --json, from the same dataclasses as the text; installs never driven through JSON | A console and the tray need a stable interface, not parsed text (**D-059**) |`.
 
 - [ ] **Step 4: Run the doc tests and the gates**
 

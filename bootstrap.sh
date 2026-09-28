@@ -124,10 +124,25 @@ say "Installed. Health check:"
 echo
 .venv/bin/hammunition doctor || true   # doctor's non-zero exit is a report, not a bootstrap failure
 
-cat <<'NEXT'
+# --- 6. Next steps, runnable exactly as printed ------------------------------
+#
+# Bare `hammunition` only when this shell finds this checkout's link by that
+# name. Otherwise (the link was refused, or ~/.local/bin is not on PATH until
+# the next login) the full path, so nothing printed here is "command not
+# found" (D-059).
 
-Next:
-  hammunition station set --callsign YOURCALL --grid-square AB12cd
-  hammunition list profiles
-  hammunition install station --dry-run
-NEXT
+engine="$(cd "$here" && pwd -P)/.venv/bin/hammunition"
+if [ "$(command -v hammunition 2>/dev/null || true)" = "$HOME/.local/bin/hammunition" ] \
+   && [ "$(readlink -- "$HOME/.local/bin/hammunition" 2>/dev/null || true)" = "$engine" ]; then
+  hm=hammunition
+else
+  hm="$(printf '%q' "$engine")"
+  echo
+  warn "this shell does not find this checkout's engine as \`hammunition\` yet (why is above);"
+  warn "until it does, run it by its full path, as below."
+fi
+
+printf '\nNext:\n'
+printf '  %s station set --callsign YOURCALL --grid-square AB12cd\n' "$hm"
+printf '  %s list profiles\n' "$hm"
+printf '  %s install station --dry-run\n' "$hm"

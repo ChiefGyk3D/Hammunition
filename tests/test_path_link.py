@@ -230,3 +230,47 @@ def test_the_scripts_parse() -> None:
 
 def test_bootstrap_calls_it() -> None:
     assert 'scripts/path-link.sh" "$here"' in (REPO_ROOT / "bootstrap.sh").read_text()
+
+
+def _next_steps(checkout: Path, home: Path, *, on_path: bool) -> str:
+    """Run bootstrap's closing section alone: the lines it tells you to type."""
+    text = (REPO_ROOT / "bootstrap.sh").read_text()
+    tail = text[text.index("# --- 6.") :]
+    path = f"{home / '.local' / 'bin'}:/usr/bin:/bin" if on_path else "/usr/bin:/bin"
+    prelude = 'warn() { printf \'%s\\n\' "$*" >&2; }\nhere="$1"\n'
+    result = subprocess.run(
+        ["bash", "-c", prelude + tail, "bootstrap-tail", str(checkout)],
+        env={"HOME": str(home), "PATH": path},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout
+
+
+def test_bootstrap_prints_bare_hammunition_only_when_the_shell_finds_it(
+    tmp_path: Path,
+) -> None:
+    checkout = _checkout(tmp_path / "Hammunition")
+    home = tmp_path / "home"
+    assert _run(checkout, home).returncode == 0
+    found = _next_steps(checkout, home, on_path=True)
+    assert "\n  hammunition install station --dry-run\n" in found
+    # ~/.local/bin not on PATH yet: "hammunition" would be "command not found".
+    missing = _next_steps(checkout, home, on_path=False)
+    full = str(checkout.resolve() / ".venv" / "bin" / "hammunition")
+    assert f"\n  {full} install station --dry-run\n" in missing
+    assert "\n  hammunition " not in missing
+
+
+def test_bootstrap_prints_the_full_path_when_the_link_was_refused(tmp_path: Path) -> None:
+    checkout = _checkout(tmp_path / "Hammunition")
+    home = tmp_path / "home"
+    bindir = home / ".local" / "bin"
+    bindir.mkdir(parents=True)
+    (bindir / "hammunition").write_text("#!/bin/sh\n")
+    (bindir / "hammunition").chmod(0o755)
+    assert _run(checkout, home).returncode == 1
+    out = _next_steps(checkout, home, on_path=True)
+    assert "\n  hammunition " not in out
+    assert str(checkout.resolve() / ".venv" / "bin" / "hammunition") in out
