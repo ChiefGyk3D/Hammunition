@@ -303,12 +303,13 @@ class DerivedBackend:
                     f"{made.stderr.strip()[-300:]}",
                 )
             _remove_as(drop, staged)
+            # No cwd=: subprocess would chdir there as root, before the drop.
+            # env -C makes the chdir the operator's own.
             result = subprocess.run(
-                _maptool_argv(pbf, staged),
+                ["env", "-C", str(self.staging), *_maptool_argv(pbf, staged)],
                 capture_output=True,
                 text=True,
                 check=False,
-                cwd=self.staging,
                 **as_operator,
             )
             if result.returncode != 0:

@@ -503,8 +503,9 @@ class _AsOperator:
 
         def run(argv: list[str], **kwargs: Any) -> Any:
             self.calls.append((list(argv), kwargs))
-            if argv[0] == "maptool":
-                Path(kwargs["cwd"], argv[-1]).write_bytes(self.write)
+            if argv[:2] == ["env", "-C"] and argv[3] == "maptool":
+                # The chdir is env's, as the operator (fix round 3, item 2).
+                Path(argv[2], argv[-1]).write_bytes(self.write)
                 return subprocess.CompletedProcess(argv, 0, "", "")
             # Not real_run: it calls subprocess.Popen, which is patched below.
             kept = strip(kwargs)
@@ -560,7 +561,14 @@ def test_under_root_every_staging_step_runs_as_the_operator(
     assert backend.ledger.failed == {}
     assert touched == []
     assert fake.calls and fake.dropped()
-    assert any(argv[0] == "maptool" for argv, _ in fake.calls)
+    maptool = [(argv, k) for argv, k in fake.calls if "maptool" in argv]
+    assert len(maptool) == 1
+    ((argv, kwargs),) = maptool
+    # Fix round 3, item 2: the chdir happens as the operator, inside env, and
+    # no cwd= makes the child chdir as root before it drops.
+    assert argv[:4] == ["env", "-C", str(tmp_path / "staging"), "maptool"]
+    assert "cwd" not in kwargs
+    assert all("cwd" not in k for _, k in fake.calls)
     out = _data(tmp_path, "osm-navit")
     assert (out / f"{VT.slug}.bin").read_bytes() == b"navit-bin"
     assert list((tmp_path / "staging").iterdir()) == []
@@ -587,7 +595,7 @@ def test_under_root_a_symlinked_staging_directory_fails_the_region_and_is_not_us
     assert "symlink" in backend.ledger.failed[VT.slug]
     assert touched == []
     assert list(target.iterdir()) == []
-    assert not any(argv[0] == "maptool" for argv, _ in fake.calls)
+    assert not any("maptool" in argv for argv, _ in fake.calls)
 
 
 def test_maptool_runs_in_the_staging_directory(
