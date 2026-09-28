@@ -1,0 +1,7 @@
+Hammunition health check
+
+  [✗] catalog        the catalog could not be found or loaded
+      → pass --catalog
+
+0 ok, 0 to look at, 1 blocking.
+Fix the blocking items above before installing.

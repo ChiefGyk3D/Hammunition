@@ -42,7 +42,109 @@ chat: a callsign resolves to a name and a licence address. `doctor` and
 
 | kind | document |
 |---|---|
+| `doctor` | [`DoctorDocument`](#doctor) |
 | `error` | [`ErrorDocument`](#error) |
+
+### doctor
+
+The read-only health check: is this machine ready? Exit 1 when blocking.
+
+| field | type | meaning |
+|---|---|---|
+| `checks` | list of [`CheckView`](#checkview) | in the order a person should read them |
+| `fails` | integer | blocking |
+| `warns` | integer | to look at |
+| `healthy` | integer | ok or info |
+
+#### `CheckView`
+
+One thing looked at, its verdict, and how to fix it.
+
+| field | type | meaning |
+|---|---|---|
+| `name` | string | the check |
+| `status` | string | `ok`, `info`, `warn` (limits what installs) or `fail` (blocking) |
+| `detail` | string | what was found |
+| `fix` | string or null | the one command or step that fixes it |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "CheckView": {
+      "additionalProperties": false,
+      "description": "One thing looked at, its verdict, and how to fix it.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "fix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Fix"
+        }
+      },
+      "required": [
+        "name",
+        "status",
+        "detail",
+        "fix"
+      ],
+      "title": "CheckView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The read-only health check: is this machine ready? Exit 1 when blocking.",
+  "properties": {
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/CheckView"
+      },
+      "title": "Checks",
+      "type": "array"
+    },
+    "fails": {
+      "title": "Fails",
+      "type": "integer"
+    },
+    "warns": {
+      "title": "Warns",
+      "type": "integer"
+    },
+    "healthy": {
+      "title": "Healthy",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "checks",
+    "fails",
+    "warns",
+    "healthy"
+  ],
+  "title": "DoctorDocument",
+  "type": "object"
+}
+```
+
+</details>
 
 ### error
 

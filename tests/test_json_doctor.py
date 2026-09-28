@@ -1,0 +1,107 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+"""``doctor --json``.  D-059."""
+
+from __future__ import annotations
+
+import importlib
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from hammunition import doctor
+from hammunition.distro import Target
+from hammunition.doctor import Check
+from hammunition.station import Station, save_station
+from json_support import (
+    FIXTURE_CATALOG,
+    assert_golden,
+    assert_golden_text,
+    assert_text_values_in_json,
+    parse_one,
+    validate,
+)
+
+cli = importlib.import_module("hammunition.cli.main")
+
+TARGET = Target(distro="debian", version="13", arch="x86_64", pretty_name="Debian GNU/Linux 13")
+
+CHECKS = {
+    "doctor-ready": [
+        Check("system", "ok", "Debian GNU/Linux 13"),
+        Check("udev rules", "info", "udev rules not yet applied", "hammunition hardware apply"),
+    ],
+    "doctor-warn": [
+        Check("system", "ok", "Debian GNU/Linux 13"),
+        Check("compiler", "warn", "no C compiler found", "sudo apt install build-essential"),
+    ],
+    "doctor-blocking": [
+        Check("catalog", "fail", "the catalog could not be found or loaded", "pass --catalog"),
+    ],
+}
+
+
+def _run(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    checks: list[Check],
+    *flags: str,
+) -> tuple[int, str]:
+    monkeypatch.setattr(Target, "detect", classmethod(lambda cls: TARGET))
+    monkeypatch.setattr(doctor, "run_checks", lambda **kwargs: checks)
+    rc = cli.main(["--catalog", str(FIXTURE_CATALOG), "doctor", *flags])
+    return rc, capsys.readouterr().out
+
+
+@pytest.mark.parametrize("name", sorted(CHECKS))
+def test_the_text_is_unchanged(
+    name: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _rc, out = _run(monkeypatch, capsys, CHECKS[name])
+    assert_golden_text(name, out)
+
+
+@pytest.mark.parametrize("name", sorted(CHECKS))
+def test_the_document_matches_its_golden_schema_and_exit_code(
+    name: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from hammunition.interface.doctor import render_doctor
+
+    text_rc, text = _run(monkeypatch, capsys, CHECKS[name])
+    rc, out = _run(monkeypatch, capsys, CHECKS[name], "--json")
+    assert rc == text_rc, "--json changed the exit code"
+    doc = parse_one(out)
+    validate(doc)
+    assert_golden(name, doc)
+    assert_text_values_in_json(text, doc, render_doctor)
+
+
+def test_the_station_values_never_reach_the_document(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Count-only, as the text: doctor output is what people paste.
+
+    Includes a placeholder map region (never a real one, per the global rule)
+    to pin that a pinned region name is as absent from the document as the
+    callsign and grid: doctor's station check is ok/not-set only, never the
+    values or the regions a station is carrying.
+    """
+    monkeypatch.setattr(Target, "detect", classmethod(lambda cls: TARGET))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    monkeypatch.delenv("SUDO_USER", raising=False)
+    save_station(
+        Station(
+            callsign="N0TST",
+            grid_square="FN31pr",
+            map_regions=("atlantis/oceania",),
+        ),
+        path=tmp_path / "hammunition" / "station.yml",
+    )
+    cli.main(["--catalog", str(FIXTURE_CATALOG), "doctor", "--json"])
+    out = capsys.readouterr().out
+    doc: dict[str, Any] = parse_one(out)
+    assert doc["kind"] == "doctor"
+    assert "N0TST" not in out and "FN31pr" not in out and "atlantis/oceania" not in out
