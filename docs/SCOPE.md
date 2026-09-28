@@ -279,6 +279,14 @@ Ordered by coverage-per-effort, not by source.
 existing project, and it is achievable. Stages 7 through 10 are where "one stop
 shop" becomes literally true, and they should not hold up a release.
 
+**Desktops are not a stage.** Almost nothing in the catalog depends on the
+desktop; the menu, the tray and what `station` costs do. Parrot OS with KDE
+Plasma is first, Xfce (Xubuntu) and LXQt (Lubuntu) are welcomed next so that
+a low-powered machine can run the project, and a unit for one desktop is
+deferred on the others rather than dragging that desktop in (**D-060**).
+`docs/desktops.md` records what is measured on each and says *unmeasured*
+everywhere else.
+
 ---
 
 ## Post-1.0 tracks — trunking, digital voice, repeaters
