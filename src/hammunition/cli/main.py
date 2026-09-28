@@ -38,7 +38,7 @@ import traceback
 from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, TextIO, cast
+from typing import TYPE_CHECKING, NoReturn, TextIO, cast
 
 from hammunition import navit_config
 from hammunition.backends import (
@@ -2712,10 +2712,28 @@ def _json_requested(arguments: list[str]) -> bool:
     nothing) is the actual parsed answer to "did the operator ask for
     JSON", not a guess from scanning the raw tokens the old code used.
     """
-    probe = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+    probe = _Probe(add_help=False, allow_abbrev=False)
     probe.add_argument("--json", action="store_true", default=False)
-    parsed, _ = probe.parse_known_args(arguments)
+    try:
+        parsed, _ = probe.parse_known_args(arguments)
+    except _ProbeError:
+        # `--json=VALUE`: the exact flag with a value it does not take. It is
+        # a request for JSON all the same, so `_main_json` reports the full
+        # parser's own error as a document (final review, Minor 1) rather
+        # than the probe exiting 2 with nothing on stdout.
+        return True
     return bool(parsed.json)
+
+
+class _ProbeError(Exception):
+    """The `--json` probe could not parse its one flag."""
+
+
+class _Probe(argparse.ArgumentParser):
+    """A parser whose errors raise instead of printing usage and exiting."""
+
+    def error(self, message: str) -> NoReturn:
+        raise _ProbeError(message)
 
 
 def build_parser() -> argparse.ArgumentParser:

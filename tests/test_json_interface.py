@@ -378,6 +378,31 @@ def test_an_abbreviated_json_flag_is_rejected_not_silently_matched() -> None:
     assert excinfo.value.code == 2
 
 
+def test_json_given_a_value_is_one_error_document_not_an_empty_stdout(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Final review Minor 1: `--json=1` names the flag exactly, so it is a
+    JSON request; the probe used to exit 2 on it before any document. It is
+    refused with argparse's own code and message, and the probe prints
+    nothing of its own."""
+    assert cli.main(["status", "--json=1"]) == 2
+    captured = capsys.readouterr()
+    doc = parse_one(captured.out)
+    assert doc["kind"] == "error" and doc["exit_code"] == 2
+    assert "--json" in doc["message"] and "ignored explicit argument" in doc["message"]
+    assert captured.err.count("usage:") == 1, "the probe printed a usage of its own"
+
+
+def test_an_abbreviation_given_a_value_is_still_not_a_json_request(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The probe's allow_abbrev=False holds for the `=VALUE` form too."""
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main(["status", "--js=1"])
+    assert excinfo.value.code == 2
+    assert capsys.readouterr().out == ""
+
+
 def test_the_dry_run_only_guard_applies_whenever_json_is_true(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
