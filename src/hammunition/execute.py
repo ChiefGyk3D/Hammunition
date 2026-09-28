@@ -47,6 +47,7 @@ from hammunition.backends import (
     SourceBackend,
     VenvBackend,
 )
+from hammunition.backends.regions import MapLedger
 from hammunition.backends.source import tree_destination
 from hammunition.distro import Target
 from hammunition.launchers import launcher_steps
@@ -430,6 +431,9 @@ def commands_for(
     # plan order is `after`, not `depends` -- osm-navit sorts before
     # osm-regions. So every conversion runs after every other build.
     conversions: list[Step] = []
+    # One map region failing does not stop the others (spec §8); the ledger
+    # the map backends share fails the transaction by name, as its last step.
+    ledgers: dict[int, MapLedger] = {}
     for planned in plan.packages:
         block = planned.block.install
         if planned.name in skip_builds and isinstance(
@@ -497,6 +501,7 @@ def commands_for(
                     f"that installed nothing."
                 )
             builds.extend(regions.steps(planned.manifest, block))
+            ledgers.setdefault(id(regions.ledger), regions.ledger)
         elif isinstance(block, DerivedDataInstall):
             if derived is None:
                 raise BackendError(
@@ -505,6 +510,7 @@ def commands_for(
                     f"that installed nothing."
                 )
             conversions.extend(derived.steps(planned.manifest, block))
+            ledgers.setdefault(id(derived.ledger), derived.ledger)
     builds.extend(conversions)
 
     # A `fetch` is an in-process download into the cache, verified before it
@@ -685,6 +691,9 @@ def commands_for(
                 requires_root=True,
             )
         )
+    # Last of all, so every other region, the launchers and the group
+    # changes have happened before a partial map install fails the run.
+    commands.extend(ledger.step() for ledger in ledgers.values())
     return commands
 
 

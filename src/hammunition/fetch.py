@@ -248,6 +248,10 @@ class Fetcher:
         """
         return self.cache_dir / f"{artifact.sha256}-{_safe_name(artifact.url)}"
 
+    def md5_path_for(self, url: str, md5: str) -> Path:
+        """Where an MD5-verified file lives once verified (:meth:`fetch_md5`). Pure."""
+        return self.cache_dir / f"md5-{md5}-{_safe_name(url)}"
+
     def fetch(self, artifact: RemoteArtifact, *, max_bytes: int | None = None) -> FetchResult:
         """Return a verified local copy of *artifact*, downloading if needed.
 
@@ -311,7 +315,7 @@ class Fetcher:
         server that keeps sending is still stopped.
         """
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        final = self.cache_dir / f"md5-{md5}-{_safe_name(url)}"
+        final = self.md5_path_for(url, md5)
 
         if final.exists() and final.stat().st_size == expected_size:
             digest = hashlib.md5(usedforsecurity=False)

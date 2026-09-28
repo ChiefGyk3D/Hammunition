@@ -2423,6 +2423,6 @@ def test_the_plan_discloses_each_region_its_size_and_how_it_is_verified() -> Non
 
 
 def test_free_space_is_read_from_the_nearest_existing_directory(tmp_path: Path) -> None:
-    from hammunition.cli.main import free_bytes_at
+    from hammunition.backends.regions import free_bytes_at
 
     assert free_bytes_at(tmp_path / "not" / "yet" / "made") > 0

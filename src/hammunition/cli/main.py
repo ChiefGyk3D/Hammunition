@@ -58,7 +58,13 @@ from hammunition.backends import (
 )
 from hammunition.backends.apt import stale_fetches
 from hammunition.backends.data import human_size
-from hammunition.backends.regions import disk_shortfall, estimated_bytes, region_lines
+from hammunition.backends.regions import (
+    DERIVED_FACTOR,
+    MapLedger,
+    disk_needs,
+    disk_shortfall,
+    region_lines,
+)
 from hammunition.backends.source import DEFAULT_PREFIX
 from hammunition.consent import (
     ConsentDeclined,
@@ -366,7 +372,8 @@ def render_plan(
             f"      licence: {map_units[0].licence.strip()}, stated at {map_units[0].licence_url}"
         )
         lines.append(
-            f"      {human_size(total)} to download; about {human_size(estimated_bytes(regions))} "
+            f"      {human_size(total)} to download; about "
+            f"{human_size(total * (1 + DERIVED_FACTOR))} "
             f"of disk with Navit's maps (an estimate until measured)"
         )
         lines.append("      installs under <prefix>/share/hammunition/data/")
@@ -985,14 +992,6 @@ def map_region_files(
     return files, notes
 
 
-def free_bytes_at(path: Path) -> int:
-    """Free space on the file system that *path* is, or will be, created on."""
-    for candidate in (path, *path.parents):
-        if candidate.exists():
-            return shutil.disk_usage(candidate).free
-    return shutil.disk_usage("/").free  # pragma: no cover - "/" always exists
-
-
 def cmd_install(args: argparse.Namespace) -> int:
     try:
         target = Target.detect()
@@ -1102,8 +1101,27 @@ def cmd_install(args: argparse.Namespace) -> int:
         bin_dir=user_bin_dir(user or None),
     )
     data = DataBackend(fetcher=source.fetcher, prefix=source.prefix, runner=runner)
-    regions = RegionsBackend(fetcher=source.fetcher, prefix=source.prefix, files=region_files)
-    derived = DerivedBackend(prefix=source.prefix, files=region_files)
+    # One ledger for both map backends: a region that did not install is not
+    # converted, and the transaction ends naming every region that failed.
+    ledger = MapLedger()
+    regions = RegionsBackend(
+        fetcher=source.fetcher,
+        prefix=source.prefix,
+        files=region_files,
+        ledger=ledger,
+        runner=runner,
+    )
+    # maptool runs as the operator into the operator's build tree; only the
+    # install of its verified output into the prefix is privileged.
+    map_staging = builds / "osm-navit"
+    derived = DerivedBackend(
+        prefix=source.prefix,
+        files=region_files,
+        staging=map_staging,
+        ledger=ledger,
+        owner=user or None,
+        runner=runner,
+    )
     if region_files:
         # Refused at plan time, before anything is confirmed, with both
         # numbers. Only regions not already installed at their snapshot count.
@@ -1113,9 +1131,13 @@ def cmd_install(args: argparse.Namespace) -> int:
             if isinstance(p.block.install, RegionalDataInstall)
             for f in regions.pending(p.manifest)
         ]
-        short = disk_shortfall(pending, free=free_bytes_at(source.prefix))
+        short = disk_shortfall(
+            disk_needs(
+                pending, cache=source.fetcher.cache_dir, staging=map_staging, prefix=source.prefix
+            )
+        )
         if short is not None:
-            print(f"error: not enough disk space under {source.prefix}: {short}", file=sys.stderr)
+            print(f"error: {short}", file=sys.stderr)
             print("\nNothing was changed.", file=sys.stderr)
             return EXIT_UNPLANNABLE
     # D-051: a build present on disk that the log attributes to this engine

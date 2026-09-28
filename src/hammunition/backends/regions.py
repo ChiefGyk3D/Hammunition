@@ -13,8 +13,19 @@ step's description says which, every time.
 Installed as ``<prefix>/share/hammunition/data/<unit>/<slug>.osm.pbf`` with
 a ``<slug>.osm.pbf.source`` sidecar holding the snapshot, which is how a
 re-run knows the region is current and how ``update`` reports a newer one.
-A ``.osm.pbf`` in that directory whose region is no longer in station config
-is removed on the next install, as its own disclosed step.
+The copy into the prefix is re-verified on the way in, without following a
+symlink (:class:`~hammunition.backends.verified.PrefixWriter`). A
+``.osm.pbf`` in that directory whose region is no longer in station config
+is removed on the next install, as its own disclosed step; one the plan
+kept because it could not check for a newer map (offline) is not. After a
+region is installed at a new snapshot, its older cached snapshots are
+deleted, disclosed by name.
+
+**One region failing does not stop the others** (spec §8). A download that
+does not verify, or an install that cannot be done, is recorded in the
+:class:`MapLedger` and that region's later steps are skipped; the rest
+install and convert. The ledger's own step, last in the transaction, then
+fails it by name -- a partial map install is never reported as a success.
 
 Nothing is derived from a region string except its validated slug.
 """
@@ -22,18 +33,20 @@ Nothing is derived from a region string except its validated slug.
 from __future__ import annotations
 
 import os
+import re
 import shutil
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
 
 from ..fetch import Fetcher
 from ..geofabrik import RegionFile
 from ..manifest.schema import PackageManifest, RegionalDataInstall, RemoteArtifact
-from .base import Action, BackendError, Command
+from .base import Action, BackendError, Command, CommandRunner
 from .data import human_size
 from .source import needs_root_for
+from .verified import PrefixWriter
 
 MIB = 1024 * 1024
 PBF = ".osm.pbf"
@@ -58,15 +71,57 @@ def installed_snapshot(path: Path) -> str | None:
         return None
 
 
-def remove_with_sidecar(path: Path) -> str:
-    """Unlink a data file and its snapshot sidecar. Missing is not an error."""
-    path.unlink(missing_ok=True)
-    path.with_name(path.name + SOURCE).unlink(missing_ok=True)
+@dataclass
+class MapLedger:
+    """Which regions failed this run, shared by the regions and derived backends.
+
+    Keyed by slug. A region recorded here has its later steps skipped --
+    no install of a download that did not verify, no conversion of a region
+    that did not install -- and :meth:`check`, run last, fails the
+    transaction naming every one.
+    """
+
+    failed: dict[str, str] = field(default_factory=dict)
+
+    def fail(self, slug: str, message: str) -> str:
+        self.failed.setdefault(slug, message)
+        return f"FAILED, the other regions continue: {message}"
+
+    def check(self) -> str:
+        if not self.failed:
+            return "every map region installed"
+        lines = "\n".join(f"  {message}" for message in self.failed.values())
+        raise BackendError(
+            f"{len(self.failed)} map region(s) did not install; every other region "
+            f"did, and Navit's config lists only the maps that exist:\n{lines}"
+        )
+
+    def step(self) -> Action:
+        return Action(
+            kind="check-map-regions",
+            description="Fail the transaction by name if any map region did not install",
+            detail="map regions",
+            perform=self.check,
+        )
+
+
+def prefix_writer(
+    prefix: Path, privileged: bool | None, runner: CommandRunner | None, euid: int | None
+) -> PrefixWriter:
+    return PrefixWriter(
+        privileged=needs_root_for(prefix) if privileged is None else privileged,
+        runner=runner,
+        euid=euid,
+    )
+
+
+def _remove(writer: PrefixWriter, path: Path) -> str:
+    writer.remove([path, path.with_name(path.name + SOURCE)])
     return f"removed {path}"
 
 
 def removal_steps(
-    directory: Path, suffix: str, keep: set[str], *, requires_root: bool
+    directory: Path, suffix: str, keep: set[str], writer: PrefixWriter
 ) -> list[Action | Command]:
     """A ``remove-data`` step for each ``<slug><suffix>`` in *directory* not in *keep*."""
     if not directory.is_dir():
@@ -83,28 +138,77 @@ def removal_steps(
                 # The path, verbatim: uninstall's attribution replay reads a
                 # removed path back and stops attributing it.
                 detail=str(path),
-                perform=partial(remove_with_sidecar, path),
-                requires_root=requires_root,
+                perform=partial(_remove, writer, path),
+                requires_root=writer.privileged,
             )
         )
     return steps
 
 
-def estimated_bytes(files: Sequence[RegionFile]) -> int:
-    """The downloads plus Navit's converted maps, at :data:`DERIVED_FACTOR`."""
-    total = sum(f.size for f in files)
-    return total + DERIVED_FACTOR * total
+def disk_needs(
+    pending: Sequence[RegionFile], *, cache: Path, staging: Path, prefix: Path
+) -> dict[Path, int]:
+    """Bytes each location needs for *pending*: a copy in the fetch cache, the
+    conversion staged at :data:`DERIVED_FACTOR` in the staging directory, and
+    both under the prefix. An estimate until the ratio is measured."""
+    total = sum(f.size for f in pending)
+    needs: dict[Path, int] = {}
+    for where, amount in (
+        (cache, total),
+        (staging, DERIVED_FACTOR * total),
+        (prefix, total + DERIVED_FACTOR * total),
+    ):
+        needs[where] = needs.get(where, 0) + amount
+    return needs
 
 
-def disk_shortfall(files: Sequence[RegionFile], *, free: int) -> str | None:
-    """A refusal naming both numbers when *free* is below the estimate, else None."""
-    need = estimated_bytes(files)
-    if free >= need:
+def _existing(path: Path) -> Path:
+    for candidate in (path, *path.parents):
+        if candidate.exists():
+            return candidate
+    return Path("/")  # pragma: no cover - "/" always exists
+
+
+def free_bytes_at(path: Path) -> int:
+    """Free space on the file system that *path* is, or will be, created on."""
+    return shutil.disk_usage(_existing(path)).free
+
+
+def device_at(path: Path) -> int:
+    """The file system *path* is, or will be, created on."""
+    return os.stat(_existing(path)).st_dev
+
+
+def disk_shortfall(
+    needs: Mapping[Path, int],
+    *,
+    free_at: Callable[[Path], int] = free_bytes_at,
+    device_of: Callable[[Path], int] = device_at,
+) -> str | None:
+    """A refusal naming both numbers for every file system short of space, else None.
+
+    Locations on one file system are summed against that file system's one
+    free-space figure; the cache and the prefix are often the same disk.
+    """
+    by_device: dict[int, tuple[list[Path], int]] = {}
+    for path, amount in needs.items():
+        paths, total = by_device.get(device_of(path), ([], 0))
+        by_device[device_of(path)] = ([*paths, path], total + amount)
+    short: list[str] = []
+    for paths, need in by_device.values():
+        free = free_at(paths[0])
+        if free < need:
+            where = ", ".join(str(p) for p in paths)
+            short.append(
+                f"{where}: an estimated {human_size(need)} ({need} bytes) is needed and "
+                f"{human_size(free)} ({free} bytes) is free"
+            )
+    if not short:
         return None
     return (
-        f"the map regions need an estimated {human_size(need)} ({need} bytes: the "
-        f"downloads plus {DERIVED_FACTOR}x that for Navit's maps, an estimate until "
-        f"measured) and {human_size(free)} ({free} bytes) is free"
+        "not enough disk space for the map regions (the downloads, their cached copy "
+        f"and Navit's maps at {DERIVED_FACTOR}x, an estimate until measured):\n  "
+        + "\n  ".join(short)
     )
 
 
@@ -116,7 +220,7 @@ def region_lines(files: Sequence[RegionFile]) -> list[str]:
     """
     width = max((len(f.region) for f in files), default=0)
     return [
-        f"  {f.region:<{width}}  {f.snapshot}  {human_size(f.size):>9}  {f.verified_by}"
+        f"    {f.region:<{width}}  {f.snapshot}  {human_size(f.size):>9}  {f.verified_by}"
         for f in files
     ]
 
@@ -128,7 +232,18 @@ class RegionsBackend:
     fetcher: Fetcher
     prefix: Path
     files: Sequence[RegionFile]
+    keep: frozenset[str] = frozenset()
+    """Slugs kept as installed because a newer map could not be checked for."""
+    ledger: MapLedger = field(default_factory=MapLedger)
+    runner: CommandRunner | None = None
+    euid: int | None = None
+    privileged: bool | None = None
+    """Whether the prefix needs root; None decides from the path."""
     method = "osm-regions"
+
+    @property
+    def writer(self) -> PrefixWriter:
+        return prefix_writer(self.prefix, self.privileged, self.runner, self.euid)
 
     def data_dir(self, manifest: PackageManifest) -> Path:
         return data_root(self.prefix) / manifest.name
@@ -146,11 +261,41 @@ class RegionsBackend:
             and installed_snapshot(dest) == region.snapshot
         )
 
+    def cache_path(self, region: RegionFile) -> Path:
+        if region.sha256 is not None:
+            return self.fetcher.path_for(RemoteArtifact(url=region.url, sha256=region.sha256))
+        return self.fetcher.md5_path_for(region.url, region.md5 or "")
+
+    def stale_cache(self, region: RegionFile) -> list[Path]:
+        """Older cached snapshots of *region*: same URL-derived name, another date.
+
+        The cache names a file by its basename only, so two regions with one
+        basename (a US state and a country) look alike here; every file a
+        region of this run needs is kept whatever it looks like, and the rest
+        is a cache -- deleting one re-downloads it, nothing more.
+        """
+        cache = self.fetcher.cache_dir
+        if not cache.is_dir():
+            return []
+        current = self.cache_path(region).name
+        stem = re.sub(r"-\d{6}\.osm\.pbf$", "", current.split("-", 1)[1])
+        if current.startswith("md5-"):
+            stem = stem.split("-", 1)[1]
+        pattern = re.compile(
+            rf"(?:[0-9a-f]{{64}}|md5-[0-9a-f]{{32}})-{re.escape(stem)}-\d{{6}}\.osm\.pbf"
+        )
+        needed = {self.cache_path(f).name for f in self.files}
+        return sorted(
+            p
+            for p in cache.iterdir()
+            if pattern.fullmatch(p.name) and p.name not in needed and p.is_file()
+        )
+
     def steps(
         self, manifest: PackageManifest, block: RegionalDataInstall
     ) -> list[Action | Command]:
         out = self.data_dir(manifest)
-        root = needs_root_for(self.prefix)
+        writer = self.writer
         steps: list[Action | Command] = []
         for region in self.files:
             dest = out / f"{region.slug}{PBF}"
@@ -179,52 +324,75 @@ class RegionsBackend:
                     description=f"Install map region {region.region} ({region.snapshot})",
                     # The destination, verbatim, for uninstall's attribution replay.
                     detail=str(dest),
-                    perform=partial(self._install, region, fetched, dest),
-                    requires_root=root,
+                    perform=partial(self._install, region, fetched, dest, writer),
+                    requires_root=writer.privileged,
                 )
             )
-        steps.extend(removal_steps(out, PBF, {f.slug for f in self.files}, requires_root=root))
+            stale = self.stale_cache(region)
+            if stale:
+                steps.append(
+                    Action(
+                        kind="prune-cache",
+                        description=(
+                            f"Delete older cached snapshots of {region.region} once "
+                            f"{region.snapshot} is installed"
+                        ),
+                        detail=", ".join(str(p) for p in stale),
+                        perform=partial(self._prune, region, stale),
+                    )
+                )
+        keep = {f.slug for f in self.files} | set(self.keep)
+        steps.extend(removal_steps(out, PBF, keep, writer))
         return steps
 
     def _fetch(self, region: RegionFile, fetched: dict[str, Path]) -> str:
-        if region.sha256 is not None:
-            # The cap is raised to the declared size plus a margin, never
-            # removed: California is 1.33 GB against the fetcher's 512 MB.
-            result = self.fetcher.fetch(
-                RemoteArtifact(url=region.url, sha256=region.sha256),
-                max_bytes=region.size + MIB,
-            )
-            how = f"sha256 {result.sha256[:12]}… verified against the pin"
-        elif region.md5 is not None:
-            result = self.fetcher.fetch_md5(region.url, region.md5, expected_size=region.size)
-            how = f"md5 {region.md5[:12]}… matched Geofabrik's (not pinned)"
-        else:  # pragma: no cover - geofabrik.resolve always sets one
-            raise BackendError(f"{region.url}: neither a sha256 pin nor an MD5 to verify it by")
-        if result.size != region.size:
-            raise BackendError(
-                f"{region.url}: {region.size} bytes were expected and {result.size} "
-                f"arrived; the digest matched, so the size the plan printed was wrong"
-            )
+        try:
+            if region.sha256 is not None:
+                # The cap is raised to the declared size plus a margin, never
+                # removed: California is 1.33 GB against the fetcher's 512 MB.
+                result = self.fetcher.fetch(
+                    RemoteArtifact(url=region.url, sha256=region.sha256),
+                    max_bytes=region.size + MIB,
+                )
+                how = f"sha256 {result.sha256[:12]}… verified against the pin"
+            elif region.md5 is not None:
+                result = self.fetcher.fetch_md5(region.url, region.md5, expected_size=region.size)
+                how = f"md5 {region.md5[:12]}… matched Geofabrik's (not pinned)"
+            else:  # pragma: no cover - geofabrik.resolve always sets one
+                raise BackendError(f"{region.url}: neither a sha256 pin nor an MD5 to verify it by")
+            if result.size != region.size:
+                raise BackendError(
+                    f"{region.url}: {region.size} bytes were expected and {result.size} "
+                    f"arrived; the digest matched, so the size the plan printed was wrong"
+                )
+        except (BackendError, OSError) as exc:
+            return self.ledger.fail(region.slug, f"{region.region}: {exc}")
         fetched["path"] = result.path
         where = "cached" if result.from_cache else "downloaded"
         return f"{where} {result.size} bytes, {how}"
 
-    def _install(self, region: RegionFile, fetched: dict[str, Path], dest: Path) -> str:
+    def _install(
+        self, region: RegionFile, fetched: dict[str, Path], dest: Path, writer: PrefixWriter
+    ) -> str:
+        if region.slug in self.ledger.failed:
+            return f"skipped: {region.region} did not verify"
         path = fetched.get("path")
         if path is None:  # pragma: no cover
-            raise BackendError("the map region was not fetched before the install step")
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        # Copy, never move: the cache is content-addressed and shared. Through
-        # a temporary so a half-copied region never sits under its real name.
-        temporary = dest.with_name(dest.name + f".part.{os.getpid()}")
+            return self.ledger.fail(region.slug, f"{region.region}: not fetched before install")
+        algorithm, digest = (
+            ("sha256", region.sha256) if region.sha256 else ("md5", region.md5 or "")
+        )
         try:
-            shutil.copyfile(path, temporary)
-            os.chmod(temporary, 0o644)
-            os.replace(temporary, dest)
-        except BaseException:
-            temporary.unlink(missing_ok=True)
-            raise
-        sidecar = dest.with_name(dest.name + SOURCE)
-        sidecar.write_text(f"{region.snapshot}\n")
-        os.chmod(sidecar, 0o644)
+            # Copy, never move: the cache is content-addressed and shared.
+            writer.install_verified(path, dest, algorithm=algorithm, digest=digest)
+            writer.write_text(dest.with_name(dest.name + SOURCE), f"{region.snapshot}\n")
+        except (BackendError, OSError) as exc:
+            return self.ledger.fail(region.slug, f"{region.region}: {exc}")
         return f"installed {dest} ({human_size(region.size)}, snapshot {region.snapshot})"
+
+    def _prune(self, region: RegionFile, stale: Sequence[Path]) -> str:
+        if region.slug in self.ledger.failed:
+            return f"kept: {region.region} did not install, so its older copies stay"
+        for path in stale:
+            path.unlink(missing_ok=True)
+        return f"deleted {len(stale)} older cached snapshot(s)"
