@@ -4592,12 +4592,13 @@ file's first blob, the `OSMHeader`: a 4-byte length, a `BlobHeader` that
 must say `OSMHeader`, and a raw or zlib `Blob`. It uses the standard
 library only, and both the packed and the inflated size are capped at
 1 MiB. A region is gigabytes and its header a few hundred bytes. A region
-that did not convert gives way to the next. So does one whose header has
-no bbox (the format allows that) and one whose header cannot be read. That
-last case is named in the step's outcome and does not fail the step: a
-configuration that opens on the stock centre still loads every map, and
-failing the step would leave Navit no configuration and hide the ledger's
-report of a region that did fail. The stock centre is used only on Navit's
+that did not convert gives way to the next. So does one whose `.osm.pbf`
+is gone, one whose header has no bbox (the format allows that), and one
+whose header cannot be read or gives a bbox off the globe. Each is named in
+the step's outcome, with the region the centre came from, and none fails
+the step: a configuration that opens on the stock centre still loads every
+map, and failing the step would leave Navit no configuration and hide the
+ledger's report of a region that did fail. The stock centre is used only on Navit's
 first start. After that Navit restores its last view from
 `~/.navit/center.txt`. A machine that has already opened on Munich goes
 back there until that file is removed, which the guide's troubleshooting
@@ -4608,8 +4609,12 @@ entry says, with the command.
 add "to have the view centered on your position". It is added to the one
 enabled vehicle reading `gpsd://`. Anchors are matched outside comments,
 because the stock file comments out two vehicles of its own, one of them on
-gpsd. The step refuses unless there is exactly one, and leaves a vehicle
-that already says `follow=` as it is.
+gpsd. A vehicle that already says `follow=` is left as it is. Not exactly
+one enabled gpsd vehicle does not fail the step: the configuration is
+written without `follow`, and the outcome says "Navit will not follow the
+GPS" and why. An operator who pointed the conffile at a serial receiver, or
+added a second gpsd vehicle, loses following, never the configuration. The
+mapset refusal stays hard, because two enabled mapsets are mis-loaded.
 
 **The disk estimate was low.** The two regions converted at **0.874×** and
 **0.856×** the download, against the 0.8× set above from the country-sized
