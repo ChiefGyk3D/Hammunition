@@ -1,0 +1,167 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+"""What piece 2's maps, routing and terrain cost, and how their failures are
+reported.  D-061.
+
+The factors were measured on 2026-09-28 on one US-state-sized region on the
+development host (docs/superpowers/specs/2026-09-28-hiking-maps-design.md);
+every place the plan prints one says "measured on one region".
+
+A failure here -- a tile that did not verify, a Garmin map mkgmap did not
+build, a Routino database planetsplitter did not finish -- is recorded in the
+:class:`TerrainLedger`, the rest of the transaction continues, and the
+ledger's own step, last, fails the transaction naming every one. It is a
+ledger of its own and not piece 1's :class:`~hammunition.backends.regions.MapLedger`:
+a region that installed and whose Garmin map did not build is still a region
+Navit converts, so a converter's failure must never read as the region's.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from .base import Action, BackendError
+from .data import human_size
+from .regions import device_at, disk_shortfall, free_bytes_at
+
+MEASURED = "measured on one region"
+
+#: ``gmapsupp.img`` against its ``.osm.pbf``: 0.85.
+GARMIN_FACTOR = 0.85
+#: mkgmap's staging while it runs, against the ``.osm.pbf``: the splitter's
+#: tiles (1.13) and mkgmap's tile images with ``gmapsupp.img`` (1.70), 2.83,
+#: rounded up. Removed once the map is installed, before the next region.
+GARMIN_SCRATCH_FACTOR = 3
+#: The Routino database against the sum of its ``.osm.pbf`` files: 0.67.
+ROUTINO_FACTOR = 0.67
+#: planetsplitter's staging directory at its peak, output included, against
+#: the same sum: 5.02 sampled once a second over ``--parse-only`` (22 s) then
+#: ``--process-only`` (83 s) on one region, rounded up to 6 because a
+#: once-a-second sample can miss the top. Its intermediate files are gone
+#: when ``--process-only`` finishes.
+ROUTINO_SCRATCH_FACTOR = 6
+#: One tile's rasterised contours, a DEFLATE Byte GeoTIFF: 5,439,059 bytes
+#: measured on one mountain tile at a 20 m interval.
+CONTOUR_BYTES = 5_500_000
+#: One tile's contour GeoPackage, removed once rasterised: 97,812,480 bytes
+#: on that tile, the largest a tile is expected to need.
+CONTOUR_SCRATCH_BYTES = 98_000_000
+
+TERRAIN_NOTE = (
+    f"QMapShack's maps at {GARMIN_FACTOR}x each download with "
+    f"{GARMIN_SCRATCH_FACTOR}x of scratch, the Routino database at {ROUTINO_FACTOR}x "
+    f"of every download together with up to {ROUTINO_SCRATCH_FACTOR}x of scratch, and "
+    f"contours at about {human_size(CONTOUR_BYTES)} a tile with up to "
+    f"{human_size(CONTOUR_SCRATCH_BYTES)} of scratch, {MEASURED}"
+)
+
+
+def garmin_estimate(size: int) -> int:
+    return round(size * GARMIN_FACTOR)
+
+
+def routino_estimate(total: int) -> int:
+    return round(total * ROUTINO_FACTOR)
+
+
+def tile_key(name: str) -> str:
+    """The ledger key of a terrain tile: its name, which no slug can be."""
+    return f"tile {name}"
+
+
+@dataclass
+class TerrainLedger:
+    """Which of piece 2's steps failed this run, keyed by what failed."""
+
+    failed: dict[str, str] = field(default_factory=dict)
+
+    def fail(self, key: str, message: str) -> str:
+        self.failed.setdefault(key, message)
+        return f"FAILED, the rest continues: {message}"
+
+    def check(self) -> str:
+        if not self.failed:
+            return "every QMapShack map, routing database and terrain tile installed"
+        lines = "\n".join(f"  {message}" for message in self.failed.values())
+        raise BackendError(
+            f"{len(self.failed)} part(s) of QMapShack's maps, routing or terrain did not "
+            f"install; everything else did:\n{lines}"
+        )
+
+    def step(self) -> Action:
+        return Action(
+            kind="check-terrain",
+            description=(
+                "Fail the transaction by name if any QMapShack map, routing database "
+                "or terrain tile did not install"
+            ),
+            detail="terrain",
+            perform=self.check,
+        )
+
+
+@dataclass(frozen=True)
+class TerrainWork:
+    """Bytes piece 2 moves this run, for the disk check."""
+
+    tiles: int = 0
+    """Bytes of tiles downloaded."""
+    garmin: tuple[int, ...] = ()
+    """The ``.osm.pbf`` size of each region mkgmap builds a map from."""
+    routino: int = 0
+    """The sum of every ``.osm.pbf`` when the database is rebuilt, else 0."""
+    contour_tiles: int = 0
+    """How many tiles have contours drawn."""
+
+    def any(self) -> bool:
+        return bool(self.tiles or self.garmin or self.routino or self.contour_tiles)
+
+
+def terrain_needs(
+    work: TerrainWork,
+    *,
+    cache: Path,
+    garmin_staging: Path,
+    routino_staging: Path,
+    contour_staging: Path,
+    prefix: Path,
+) -> dict[Path, int]:
+    """Bytes each location needs: each tile in the fetch cache and under the
+    prefix; the largest Garmin build's scratch (they run one at a time and
+    each is removed before the next); the Routino build's scratch and output;
+    one tile's contour scratch plus every rasterised tile; and every output
+    again under the prefix."""
+    garmin_out = sum(garmin_estimate(size) for size in work.garmin)
+    routino_out = routino_estimate(work.routino)
+    contours = work.contour_tiles * CONTOUR_BYTES
+    needs: dict[Path, int] = {}
+    for where, amount in (
+        (cache, work.tiles),
+        (garmin_staging, GARMIN_SCRATCH_FACTOR * max(work.garmin, default=0)),
+        (routino_staging, ROUTINO_SCRATCH_FACTOR * work.routino),
+        (contour_staging, (CONTOUR_SCRATCH_BYTES if work.contour_tiles else 0) + contours),
+        (prefix, work.tiles + garmin_out + routino_out + contours),
+    ):
+        needs[where] = needs.get(where, 0) + round(amount)
+    return needs
+
+
+def combined_shortfall(
+    map_needs: Mapping[Path, int],
+    terrain: Mapping[Path, int],
+    *,
+    free_at: Callable[[Path], int] = free_bytes_at,
+    device_of: Callable[[Path], int] = device_at,
+) -> str | None:
+    """Piece 1's disk refusal over piece 1's and piece 2's needs together,
+    saying what the terrain part was estimated from when it counted."""
+    merged = dict(map_needs)
+    for path, amount in terrain.items():
+        merged[path] = merged.get(path, 0) + amount
+    short = disk_shortfall(merged, free_at=free_at, device_of=device_of)
+    if short is None or not any(terrain.values()):
+        return short
+    return f"{short}\n  The estimate includes {TERRAIN_NOTE}."
