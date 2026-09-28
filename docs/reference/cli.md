@@ -481,9 +481,19 @@ puts it there as a link, `~/.local/bin/hammunition` pointing at the
 checkout's `.venv/bin/hammunition`, made by `scripts/path-link.sh`: it prints
 each change before making it, creates `~/.local/bin` (mode 0755) only when
 it is absent, never edits a shell rc file, and never replaces a file, or a
-link it did not create. A link to a *different* checkout is left alone and
-the check warns with the one `ln -sfn` command that switches it; a warning
-that it is not on `PATH` at all names re-running `./bootstrap.sh`. When
+link it did not create. The check's fix follows the same rule:
+
+- **Not on `PATH` at all:** re-run `./bootstrap.sh`.
+- **The bootstrap's link, pointing at a *different* checkout:** the one
+  `ln -sfn` command that switches it, with both paths shell-quoted.
+- **Something else at `~/.local/bin/hammunition`** (a pipx install, a
+  wrapper): it is named with how to inspect it, and no command that would
+  replace it is printed.
+- **Another `hammunition` earlier on `PATH`:** that path is named; relinking
+  `~/.local/bin` would not clear it, so it is not offered.
+
+Paths are compared resolved, so in a git worktree whose `.venv` is a symlink
+to another checkout's, the check names that checkout's venv. When
 `~/.local/bin` is itself missing from `PATH`, the bootstrap prints the one
 line to add to `~/.profile`. Remove the link with
 `rm ~/.local/bin/hammunition`.

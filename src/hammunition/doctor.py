@@ -28,11 +28,15 @@ Severity has four levels, and the distinction is the point:
 from __future__ import annotations
 
 import os
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 from hammunition.desktop import Desktop, describe, describe_set
+
+# What scripts/path-link.sh links to: a link ending here is ours (D-059).
+ENGINE_LINK_SUFFIX = "/.venv/bin/hammunition"
 
 __all__ = ["Check", "Status", "run_checks", "summarize", "writable_or_creatable"]
 
@@ -65,6 +69,9 @@ def run_checks(
     log_dir_writable: bool,
     engine_on_path: str | None,
     engine_expected: str,
+    engine_found: str | None,
+    engine_found_in_local_bin: bool,
+    engine_found_link: str | None,
     kept_attached: tuple[str, ...] = (),
     kept_absent: tuple[str, ...] = (),
     desktops_installed: frozenset[Desktop] | None = None,
@@ -147,13 +154,41 @@ def run_checks(
                 "re-run ./bootstrap.sh, which links ~/.local/bin/hammunition to this checkout",
             )
         )
-    else:
+    elif engine_found is not None and not engine_found_in_local_bin:
+        # Shadowed from earlier on PATH: relinking ~/.local/bin would not clear it.
+        where = "before ~/.local/bin on PATH" if path_has_local_bin else "on PATH"
+        checks.append(
+            Check(
+                "hammunition",
+                "warn",
+                f"`hammunition` is {engine_found}, found {where}, "
+                f"and runs {engine_on_path}, not this checkout's {engine_expected}",
+                f"inspect it with `ls -l {shlex.quote(engine_found)}`; remove or rename it "
+                "yourself, or put ~/.local/bin ahead of its directory on PATH",
+            )
+        )
+    elif engine_found is not None and (engine_found_link or "").endswith(ENGINE_LINK_SUFFIX):
+        # Our own link, to another checkout: the one case where switching is safe.
         checks.append(
             Check(
                 "hammunition",
                 "warn",
                 f"`hammunition` on PATH runs {engine_on_path}, not this checkout's {engine_expected}",
-                f"ln -sfn {engine_expected} ~/.local/bin/hammunition",
+                f"ln -sfn {shlex.quote(engine_expected)} {shlex.quote(engine_found)}",
+            )
+        )
+    else:
+        # A file or link bootstrap did not make (a pipx install, a wrapper):
+        # named, never replaced, exactly as scripts/path-link.sh leaves it.
+        shown = engine_found or "~/.local/bin/hammunition"
+        runs = "" if engine_on_path == shown else f" (it runs {engine_on_path})"
+        checks.append(
+            Check(
+                "hammunition",
+                "warn",
+                f"{shown} is not a link bootstrap made and shadows this checkout{runs}",
+                f"inspect it with `ls -l {shlex.quote(shown)}`; if you no longer want it, "
+                "move it aside yourself, then re-run ./bootstrap.sh",
             )
         )
 

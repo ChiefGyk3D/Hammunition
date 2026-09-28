@@ -179,6 +179,36 @@ def test_a_checkout_without_the_entry_point_changes_nothing(tmp_path: Path) -> N
     assert not (home / ".local").exists()
 
 
+def test_a_file_at_dot_local_is_refused_before_anything_is_announced(tmp_path: Path) -> None:
+    checkout = _checkout(tmp_path / "Hammunition")
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / ".local").write_text("not a directory\n")
+    result = _run(checkout, home)
+    assert result.returncode == 1
+    assert "creating" not in result.stdout
+    assert f"{home / '.local'} exists and is not a directory" in result.stderr
+    assert (home / ".local").read_text() == "not a directory\n"
+
+
+def test_an_exported_cdpath_does_not_redirect_a_relative_checkout(tmp_path: Path) -> None:
+    here = _checkout(tmp_path / "work" / "Hammunition")
+    decoy = tmp_path / "decoy" / "Hammunition"
+    decoy.mkdir(parents=True)
+    home = tmp_path / "home"
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "Hammunition"],
+        cwd=here.parent,
+        env={"HOME": str(home), "PATH": "/usr/bin:/bin", "CDPATH": str(decoy.parent)},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    link = home / ".local" / "bin" / "hammunition"
+    assert os.readlink(link) == str(here.resolve() / ".venv" / "bin" / "hammunition")
+
+
 def test_usage_is_exit_2(tmp_path: Path) -> None:
     result = subprocess.run(
         ["bash", str(SCRIPT)],

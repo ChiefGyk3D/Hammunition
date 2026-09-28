@@ -26,7 +26,7 @@ say()  { printf '==> %s\n' "$*"; }
 warn() { printf '!   %s\n' "$*" >&2; }
 
 [ $# -eq 1 ] || { warn "usage: $0 CHECKOUT"; exit 2; }
-checkout="$(cd -- "$1" && pwd -P)"
+checkout="$(CDPATH='' cd -- "$1" && pwd -P)"  # CDPATH could send cd elsewhere
 want="$checkout/.venv/bin/hammunition"
 bindir="$HOME/.local/bin"
 link="$bindir/hammunition"
@@ -56,6 +56,10 @@ if [ -L "$bindir" ] || [ -e "$bindir" ]; then
     exit 1
   fi
 else
+  if [ -e "$HOME/.local" ] && [ ! -d "$HOME/.local" ]; then
+    warn "$HOME/.local exists and is not a directory; left as it is."
+    exit 1
+  fi
   say "creating $bindir (mode 0755)"
   mkdir -p -- "$HOME/.local"
   mkdir -m 0755 -- "$bindir"
