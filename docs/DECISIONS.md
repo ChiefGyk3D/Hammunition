@@ -4052,14 +4052,18 @@ like the unit (`ax25mail-utils`, `hcxtools`, `libfreefare-bin`, `pciutils`,
 
 ---
 
-## D-056 — Device power control: one helper behind one polkit action, nothing persisted, and every unbuilt capability ships schema-valid and refused
+## D-056 — Device power control: one helper behind one polkit action, parked kept as intent in one udev rule per device (amended 2026-09-28), and every unbuilt capability ships schema-valid and refused
 
 **Decided:** A catalogued device can be **parked** (detached so its port
 suspends) and **woken** (brought back) through a `power_control` block on its
 manifest naming a fixed method. Three callers — the CLI, generated menu
 entries, and the Plasma applet in a separate repository — all reach the
 kernel through one small root-owned helper, authorised by one polkit action.
-Nothing about which devices are parked is ever written to disk.
+Whether a device *is* parked right now is always read from sysfs, never from
+a cache. What *is* written to disk, by default and only as of the amendment
+below, is intent — one udev rule per kept device, naming its port and model,
+so udev reapplies the park the next time that device is added; `--until-reboot`
+opts out and nothing is written for that park.
 
 ### Why a helper behind polkit, not `sudo hammunition`
 

@@ -269,9 +269,11 @@ packages: [gpsd, gpsd-clients, gpsd-tools]
 # D-056. The receiver draws power whether or not anything is reading it, and on
 # a laptop that matters. Parking it writes 0 to the device's `authorized` and
 # lets the port suspend; the kernel drops the interfaces and every consumer
-# sees an ordinary unplug. It stays parked across a reboot by default, kept by
-# one udev rule per device (D-056, amended 2026-09-28); `hammunition hardware
-# park --until-reboot` skips that and a reboot wakes it, as before.
+# sees an ordinary unplug. By default, parking also adds one udev rule that
+# reapplies authorized=0 the next time the device is added (D-056, amended
+# 2026-09-28) — built, but staying parked across an actual reboot has not yet
+# been measured on hardware; `hammunition hardware park --until-reboot` skips
+# the rule and a reboot wakes it, as before the amendment.
 power_control:
   method: usb_deauthorize
   quiet: []
