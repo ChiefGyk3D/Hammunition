@@ -813,3 +813,48 @@ def test_the_power_control_page_covers_the_four_required_things() -> None:
 
 def test_d056_is_recorded() -> None:
     assert "D-056" in (REPO_ROOT / "docs" / "DECISIONS.md").read_text()
+
+
+# ---------------------------------------------------------------------------
+# The Geofabrik pin list (catalog/data/geofabrik-pins.yaml)
+#
+# Its --check re-probes each pinned URL's HEAD size, which is the network, and
+# this suite blocks every non-loopback socket (tests/conftest.py). An empty pin
+# list needs no probe and is checked everywhere; a populated one is checked by
+# the weekly CI job, and here skips with the reason rather than failing.
+# ---------------------------------------------------------------------------
+
+GEOFABRIK_PINS = REPO_ROOT / "catalog" / "data" / "geofabrik-pins.yaml"
+
+
+def _network_reaches(host: str) -> bool:
+    import socket
+
+    try:
+        with socket.create_connection((host, 443), timeout=5):
+            return True
+    except Exception:  # conftest's NetworkBlocked, DNS failure, timeout
+        return False
+
+
+def test_the_geofabrik_pin_check_reports_current_and_writes_nothing() -> None:
+    import subprocess
+
+    pins = (yaml.safe_load(GEOFABRIK_PINS.read_text()) or {}).get("pins") or []
+    if pins and not _network_reaches("download.geofabrik.de"):
+        pytest.skip(
+            "the pin list is populated and its --check HEADs every pinned URL on "
+            "download.geofabrik.de; the network is unavailable here (this suite "
+            "blocks non-loopback sockets). The weekly pin-reviews CI job runs it."
+        )
+    before = GEOFABRIK_PINS.stat().st_mtime_ns
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "gen_geofabrik_pins.py"), "--check"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    assert result.returncode == 0, f"{result.stdout}{result.stderr}"
+    assert "up to date" in result.stdout, result.stdout
+    assert GEOFABRIK_PINS.stat().st_mtime_ns == before, "--check wrote the pin file"

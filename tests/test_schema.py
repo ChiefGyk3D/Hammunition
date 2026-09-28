@@ -30,6 +30,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from hammunition.manifest.load import CatalogError, load_catalog  # noqa: E402
 from hammunition.manifest.schema import (  # noqa: E402
     AptInstall,
+    DerivedDataInstall,
     GitInstall,
     ManifestError,
     PackageManifest,
@@ -95,6 +96,10 @@ def test_every_remote_artifact_is_verified(catalog: Catalog) -> None:
     for name, m in catalog.items():
         for block in m.install:
             inst = block.install
+            if isinstance(inst, DerivedDataInstall):
+                # Its `source` names the catalog unit it converts, not a download;
+                # that unit's own fetch is what gets verified.
+                continue
             artifact = getattr(inst, "source", None) or getattr(inst, "artifact", None)
             if artifact is not None:
                 assert len(artifact.sha256) == 64, f"{name} has an unverified artifact"

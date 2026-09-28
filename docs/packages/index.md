@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**251 packages** across **55 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**254 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -222,7 +222,7 @@ Practice tests for the US, Canadian and commercial licence exams.
 - [fccexam](fccexam.md) — Practice tests for the US FCC commercial radio licence exams
 - [hamexam](hamexam.md) — Practice tests for the United States amateur radio licence exams
 
-### `gps-gnss` — 5
+### `gps-gnss` — 6
 
 GPS receivers and the daemon that shares one, format converters, and a GNSS receiver in software.
 
@@ -231,6 +231,7 @@ GPS receivers and the daemon that shares one, format converters, and a GNSS rece
 - [gpsd](gpsd.md) — GPS service daemon — one process owns the receiver, everything else asks it
 - [gpsd-clients](gpsd-clients.md) — Clients that consume what gpsd serves — xgps, gpspipe, gpxlogger, gpsdecode
 - [gpsd-tools](gpsd-tools.md) — cgps and gpsmon — the two programs you actually reach for when a receiver misbehaves
+- [navit](navit.md) — Offline turn-by-turn navigation that follows the GPS, with spoken directions
 
 ### `ism-subghz` — 3
 
@@ -297,6 +298,14 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [qrq](qrq.md) — High-speed Morse trainer that pushes your callsign copy to its limit
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
+
+### `navigation-maps` — 3
+
+Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
+
+- [navit](navit.md) — Offline turn-by-turn navigation that follows the GPS, with spoken directions
+- [osm-navit](osm-navit.md) — Navit's binary maps, converted from your OpenStreetMap regions, and its configuration
+- [osm-regions](osm-regions.md) — OpenStreetMap region extracts from Geofabrik, the regions you choose, verified
 
 ### `nbems` — 5
 
@@ -775,6 +784,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [multimon](multimon.md) | The original multimon decoder, kept for the modes its successor dropped | apt |
 | [multimon-ng](multimon-ng.md) | Decoder for POCSAG, FLEX, AFSK, DTMF and other audio-band digital modes | apt |
 | [nanovna-saver](nanovna-saver.md) | Sweep, chart and calibrate a NanoVNA from the computer | apt |
+| [navit](navit.md) | Offline turn-by-turn navigation that follows the GPS, with spoken directions | apt |
 | [nec2c](nec2c.md) | The NEC2 antenna modelling engine as a C program, for scripting | apt |
 | [noaa-apt](noaa-apt.md) | Decoder for NOAA weather-satellite APT imagery | binary |
 | [not1mm](not1mm.md) | A contest logger that speaks to your rig, keyer and cluster | venv |
@@ -785,6 +795,8 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [openfpgaloader](openfpgaloader.md) | Universal bitstream loader for FPGAs, over JTAG and SPI | apt |
 | [openhamclock](openhamclock.md) | Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites | node |
 | [openocd](openocd.md) | On-chip debugging and in-system programming over JTAG and SWD | apt |
+| [osm-navit](osm-navit.md) | Navit's binary maps, converted from your OpenStreetMap regions, and its configuration | derived |
+| [osm-regions](osm-regions.md) | OpenStreetMap region extracts from Geofabrik, the regions you choose, verified | osm-regions |
 | [osmo-sdr](osmo-sdr.md) | Tools for the original OsmoSDR hardware | apt |
 | [paracon](paracon.md) | Packet radio terminal that talks AGWPE to Direwolf, with no kernel AX.25 | binary |
 | [pat](pat.md) | Winlink client — radio email that works when the internet does not | apt |
