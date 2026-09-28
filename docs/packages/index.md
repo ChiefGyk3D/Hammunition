@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**250 packages** across **55 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**251 packages** across **55 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -135,12 +135,13 @@ HamClock-style boards: grey line, propagation, spots and the day at a glance.
 - [openhamclock](openhamclock.md) — Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites
 - [sunclock](sunclock.md) — World map showing the day-night terminator and where the sun is now
 
-### `device-support` — 6
+### `device-support` — 7
 
 lsusb, lspci, packet-modem drivers and companions for devices that need one.
 
 - [baycomepp](baycomepp.md) — Driver for the HB9JNX parallel-port packet modem
 - [baycomusb](baycomusb.md) — Driver for the HB9JNX USB packet modem
+- [hammunition-tray](hammunition-tray.md) — KDE Plasma tray switches for parking and waking radio devices — the Hammunition family's own
 - [pciutils](pciutils.md) — lspci — for the SDRs and capture cards that are not on USB
 - [qflipper](qflipper.md) — Desktop companion for the Flipper Zero — firmware, files, and CLI over USB
 - [usbutils](usbutils.md) — lsusb — step one of every hardware problem in this catalog
@@ -737,6 +738,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [hamclock-next](hamclock-next.md) | Maintained SDL2 rewrite of HamClock — grey line, propagation, DX cluster | source |
 | [hamexam](hamexam.md) | Practice tests for the United States amateur radio licence exams | apt |
 | [hammunition-hill](hammunition-hill.md) | Local-first ham radio dashboard — the Hammunition family's own | binary |
+| [hammunition-tray](hammunition-tray.md) | KDE Plasma tray switches for parking and waking radio devices — the Hammunition family's own | binary |
 | [hcxdumptool](hcxdumptool.md) | Wi-Fi frame capture aimed at producing hash files for offline analysis | apt |
 | [hcxtools](hcxtools.md) | Converts captured Wi-Fi frames into hash formats analysis tools read | apt |
 | [ibp](ibp.md) | Shows which NCDXF/IARU beacon is transmitting right now, on which band | source |

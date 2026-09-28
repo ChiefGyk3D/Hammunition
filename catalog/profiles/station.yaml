@@ -25,6 +25,8 @@ packages:
   # because it is the station's front page, not one more propagation
   # tool: the plan is for it to show what this installer set up.
   - hammunition-hill
+  # Its tray applet: switches for parking the GPS and the modem, KDE only.
+  - hammunition-tray
 
 documentation:
   what_it_installs: >-
