@@ -13,6 +13,49 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 Nothing yet.
 
+## v0.12.0 — 2026-09-28 — the engine speaks JSON, and `hammunition` is on the PATH
+
+One pull request since v0.11.0: piece 1 of the console. The front ends that
+follow (`hammunition-console`, its own project) drive the engine through
+this interface and never import it.
+
+### Engine
+
+- A global `--json` flag: with it a command prints exactly one document on
+  stdout (`schema: hammunition/1`, a `kind`, the engine version), diagnostics
+  go to stderr, and the exit code is the text form's. That holds on success,
+  on a refusal, on an argparse error and on an unexpected exception. Covered:
+  `status`, `list`, `show`, `install`/`uninstall --dry-run`, `station show`,
+  `hardware state`, `maps regions`, `update`, `doctor`. Text and JSON are
+  rendered from one object per command, so they cannot drift; golden tests
+  pin both (#127, D-059).
+- A real install is never driven through `--json`; only `--dry-run` is
+  accepted. Abbreviated flags are refused on every parser, because `--js`
+  used to route around that guard (#127).
+- `status --json` records removals: `removed`, `removal failed`,
+  `removal interrupted`; a reinstall reads `completed` again (#127).
+- Privacy: the `plan` document never carries rendered config or the
+  callsign; `update` and `doctor` never name a map region in either output,
+  and tests fail if they do; `station show --json` carries station values
+  for local front ends and the reference says it is not for pasting (#127).
+- `bootstrap.sh` links `~/.local/bin/hammunition` to the checkout's venv
+  through `scripts/path-link.sh`: every change printed first, nothing it did
+  not create replaced, no shell rc file touched. `doctor` checks where
+  `hammunition` resolves; it offers a quoted switch only for our own link,
+  names a foreign file or an earlier PATH entry without touching it, and on
+  a fresh install says to log out and back in (#127).
+- The Packages list and the Map regions section agree: `osm-regions` and
+  `osm-navit` read "already installed" when nothing is left to fetch or
+  convert (#127).
+
+### Documentation
+
+- `docs/reference/json-interface.md`, generated from the dataclasses and
+  checked in CI; D-059; examples written as bare `hammunition`, with the
+  full `.venv/bin/hammunition` path wherever a reader could meet the command
+  before bootstrap has linked it; a "command not found" section in
+  getting-started (#127).
+
 ## v0.11.0 — 2026-09-28 — lighter desktops welcomed, and Navit opens on your maps
 
 Two pull requests merged since v0.10.0. Parrot and KDE Plasma stay first;
