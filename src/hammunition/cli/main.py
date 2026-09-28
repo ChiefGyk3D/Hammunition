@@ -78,7 +78,6 @@ from hammunition.backends.source import DEFAULT_PREFIX
 from hammunition.consent import (
     ConsentDeclined,
     ConsentUnavailable,
-    render_disclosure,
     repo_env_var,
     resolve_consent,
     resolve_repo_consent,
@@ -124,7 +123,6 @@ from hammunition.manifest.schema import (
     ProfileManifest,
     RegionalDataInstall,
     SourceInstall,
-    Status,
     VenvInstall,
 )
 from hammunition.paths import applications_dir, build_root, node_root, user_bin_dir, venv_root
@@ -491,37 +489,18 @@ def render_plan(
 # ---------------------------------------------------------------------------
 
 
+@envelope.json_capable()
 def cmd_list(args: argparse.Namespace) -> int:
+    from hammunition.interface.catalog import build_catalog, detect_target, render_catalog
+
     catalog_root = find_catalog(args.catalog)
     packages, profiles = load_all(catalog_root)
-
-    target: Target | None
-    try:
-        target = Target.detect()
-    except DetectionError:
-        target = None
-
-    if args.what in {"profiles", "all"}:
-        print(f"Profiles ({len(profiles)}):")
-        for name in sorted(profiles):
-            profile = profiles[name]
-            gate = "  [consent gate]" if profile.consent else ""
-            print(f"  {name:<16} {profile.stage:<9} {len(profile.packages):>3} pkg{gate}")
-            print(f"      {profile.summary}")
-        print()
-
-    if args.what in {"packages", "all"}:
-        print(f"Packages ({len(packages)}):")
-        for name in sorted(packages):
-            manifest = packages[name]
-            if target is None:
-                where = "?"
-            else:
-                block = manifest.resolve(target.distro, target.version, target.arch)
-                where = block.install.method if block else "unsupported here"
-            flag = "" if manifest.status is Status.supported else f"  [{manifest.status.value}]"
-            print(f"  {name:<28} {where:<18}{flag}")
-            print(f"      {manifest.summary}")
+    doc = build_catalog(args.what, packages, profiles, detect_target())
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return EXIT_OK
+    for line in render_catalog(doc):
+        print(line)
     return EXIT_OK
 
 
@@ -1976,25 +1955,36 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+@envelope.json_capable()
 def cmd_show(args: argparse.Namespace) -> int:
-    """Print the consent disclosure for a gated profile without installing it."""
+    """Print a profile, its consent disclosure included, without installing it.
+
+    Under --json a unit's name is accepted too, and emits its manifest (D-059);
+    the text form describes profiles only, as it always has.
+    """
+    from hammunition.interface.catalog import (
+        build_profile,
+        build_unit,
+        detect_target,
+        render_profile,
+    )
+
     catalog_root = find_catalog(args.catalog)
-    _, profiles = load_all(catalog_root)
+    packages, profiles = load_all(catalog_root)
     profile = profiles.get(args.profile)
     if profile is None:
+        manifest = packages.get(args.profile)
+        if manifest is not None and envelope.wanted(args):
+            envelope.emit(build_unit(manifest, detect_target()))
+            return EXIT_OK
         print(f"error: no profile named {args.profile!r}", file=sys.stderr)
         return EXIT_UNPLANNABLE
-    print(f"{profile.name} — {profile.summary}")
-    print(f"stage: {profile.stage}")
-    print(f"\n{profile.documentation.what_it_installs.strip()}")
-    print(f"\nWhy together:\n  {profile.documentation.why_together.strip()}")
-    print(f"\nDeliberately excludes:\n  {profile.documentation.deliberately_excludes.strip()}")
-    print(f"\nYou still configure by hand:\n  {profile.documentation.manual_configuration.strip()}")
-    if profile.consent is not None:
-        print("\n" + render_disclosure(profile.consent, profile.name))
-    print(f"\nPackages ({len(profile.packages)}):")
-    for name in profile.packages:
-        print(f"  {name}")
+    doc = build_profile(profile)
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return EXIT_OK
+    for line in render_profile(doc):
+        print(line)
     return EXIT_OK
 
 

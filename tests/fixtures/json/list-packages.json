@@ -1,0 +1,44 @@
+{
+  "schema": "hammunition/1",
+  "kind": "catalog",
+  "engine": "<engine>",
+  "what": "packages",
+  "target": {
+    "distro": "debian",
+    "version": "13",
+    "arch": "x86_64",
+    "id_like": [],
+    "pretty_name": "Debian GNU/Linux 13 (trixie)",
+    "description": "Debian GNU/Linux 13 (trixie) (ID=debian, version=13, arch=x86_64)",
+    "debian_family": true
+  },
+  "profiles": [],
+  "packages": [
+    {
+      "name": "fixture-apt",
+      "version": "1.0",
+      "summary": "A fixture unit installed with apt — em dash kept on purpose",
+      "categories": [
+        "digital-modes"
+      ],
+      "status": "supported",
+      "methods": [
+        "apt"
+      ],
+      "resolves_here": "apt"
+    },
+    {
+      "name": "fixture-source",
+      "version": "2.1",
+      "summary": "A fixture unit built from a pinned tarball",
+      "categories": [
+        "digital-modes"
+      ],
+      "status": "supported",
+      "methods": [
+        "source"
+      ],
+      "resolves_here": "source"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "schema": "hammunition/1",
+  "kind": "profile",
+  "engine": "<engine>",
+  "name": "fixture-gated",
+  "summary": "A consent-gated fixture profile",
+  "stage": "post-1.0",
+  "documentation": {
+    "what_it_installs": "The apt fixture unit, behind a consent gate.",
+    "why_together": "A gated profile is the shape `show --json` must carry a disclosure for.",
+    "deliberately_excludes": "Everything real.",
+    "manual_configuration": "Nothing; it is a fixture.",
+    "disk_footprint_hint": null
+  },
+  "consent": {
+    "env_var": "HAMMUNITION_ACCEPT_FIXTURE_GATED",
+    "risk_categories": [
+      "identifier_collection"
+    ],
+    "disclosure": "Profile 'fixture-gated' is consent-gated.\n\nThis fixture profile stands in for software that can receive and store identifiers belonging to people and their devices.\n\nWhat this software can do:\n  - identifier_collection: Can collect identifiers associated with people or their devices, such as IMSI, IMEI, MAC addresses, or subscriber records.\n\nHammunition cannot know your location, licence class, or the terms of any\nauthorization you hold, and does not give legal advice. You are being asked\nto affirm your own authorization, not to be told what applies to you.\n\nDo you affirm that you have the authorization you need for this fixture?"
+  },
+  "packages": [
+    "fixture-apt"
+  ],
+  "suggests_one_of": []
+}

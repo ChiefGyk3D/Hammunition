@@ -1,0 +1,35 @@
+{
+  "schema": "hammunition/1",
+  "kind": "unit",
+  "engine": "<engine>",
+  "name": "fixture-apt",
+  "resolves_here": "apt",
+  "manifest": {
+    "name": "fixture-apt",
+    "version": "1.0",
+    "summary": "A fixture unit installed with apt — em dash kept on purpose",
+    "categories": [
+      "digital-modes"
+    ],
+    "install": [
+      {
+        "install": {
+          "method": "apt",
+          "packages": [
+            "fixture-apt"
+          ]
+        }
+      }
+    ],
+    "update": {
+      "probe": {
+        "method": "apt_policy"
+      }
+    },
+    "documentation": {
+      "what_it_does": "Stands in for an apt unit in the JSON interface tests.",
+      "why_you_want_it": "The golden documents need a catalog that never changes under them.",
+      "upstream_url": "https://example.invalid/fixture-apt"
+    }
+  }
+}

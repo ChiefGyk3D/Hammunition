@@ -1,0 +1,5 @@
+Packages (2):
+  fixture-apt                  apt               
+      A fixture unit installed with apt — em dash kept on purpose
+  fixture-source               source            
+      A fixture unit built from a pinned tarball
