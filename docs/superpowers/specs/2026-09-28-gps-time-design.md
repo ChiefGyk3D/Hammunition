@@ -128,6 +128,15 @@ only has to show it: `hammunition time` and `doctor` report "holdover since
 after a day without a source (the error grows with the drift file's figure;
 the docs say how much, measured on the bench).
 
+**The docs recommend a battery-backed hardware clock (RTC), strongly and
+up front** (the maintainer, 2026-09-28): it is what carries the time across a
+power-off with neither the network nor the GPS, and nothing in software
+replaces it. The operator guide says so first, and `doctor` flags a machine
+with no RTC as a timekeeping weakness, naming the fix: fit an RTC module
+(Raspberry Pi: a supported RTC HAT or the Pi 5's own battery connector with a
+battery fitted). `fake-hwclock` is a fallback, not a substitute: it restores
+the last saved time, which is wrong by however long the machine was off.
+
 **A machine with no hardware clock** (a Raspberry Pi, one of the targets)
 boots with a wrong date and nothing to correct it offline. `fake-hwclock`
 (in the archive) saves the time at shutdown and hourly and restores it at
