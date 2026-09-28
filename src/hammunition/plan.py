@@ -62,11 +62,13 @@ from hammunition.manifest.schema import (
     BinaryInstall,
     ConfigFile,
     ConsentGate,
+    DerivedDataInstall,
     GitInstall,
     InstallBlock,
     NodeInstall,
     PackageManifest,
     ProfileManifest,
+    RegionalDataInstall,
     SourceInstall,
     Status,
     effective_binaries,
@@ -850,6 +852,36 @@ def _target_deferral(name: str, wanted: Mapping[str, Sequence[str]], why: str) -
     )
 
 
+def _reads_map_regions(
+    block: InstallBlock, catalog: Mapping[str, PackageManifest], target: Target
+) -> bool:
+    """An ``osm-regions`` block, or a ``derived`` one converting such a unit's data."""
+    install = block.install
+    if isinstance(install, RegionalDataInstall):
+        return True
+    if isinstance(install, DerivedDataInstall):
+        source = catalog.get(install.source)
+        if source is None:
+            return False
+        source_block = source.resolve(target.distro, target.version, target.arch)
+        return source_block is not None and isinstance(source_block.install, RegionalDataInstall)
+    return False
+
+
+def _map_regions_deferral(name: str) -> Deferral:
+    """D-057: the shape `_plan_config` uses for a missing station value."""
+    return Deferral(
+        subject=name,
+        what="will not be installed: it is map data for regions you have not chosen",
+        why="no map regions set",
+        remedy=(
+            "run `hammunition station set --map-regions <region>[,<region>…]` and "
+            "install again. Everything else installs either way."
+        ),
+        kind="package",
+    )
+
+
 def _plan_repos(
     manifest: PackageManifest,
     install: AptInstall,
@@ -1024,6 +1056,13 @@ def resolve(
         capability = _check_engine_capability(manifest, block, repos_supported=repos is not None)
         if capability:
             blockers.extend(capability)
+            continue
+
+        # D-057: map data is station data. With no regions set there is
+        # nothing to fetch or convert, so the unit is deferred -- by name,
+        # typed or not, the D-035 rule -- and the rest installs.
+        if not station.map_regions and _reads_map_regions(block, catalog, target):
+            deferred[name] = _map_regions_deferral(name)
             continue
 
         writable, unwritable = _plan_config(manifest, station)

@@ -101,6 +101,7 @@ def _resolve(tmp_path: Path, names: list[str], **kwargs: Any) -> Any:
         user=kwargs.pop("user", "operator"),
         kernel=kwargs.pop("kernel", None),
         log=kwargs.pop("log", None),
+        station=kwargs.pop("station", None),
     )
 
 
@@ -950,3 +951,92 @@ def test_a_removal_in_the_opted_out_simulate_still_refuses(tmp_path: Path) -> No
     assert "morse-classic" in text
     assert "pipewire-alsa (1.4.9-1~bpo13+2)" in text
     assert "--no-remove" in text
+
+
+# ---------------------------------------------------------------------------
+# Map data without map regions (D-057): deferred by name, Navit installs
+# ---------------------------------------------------------------------------
+
+_OSM_LICENCE = {"licence": "ODbL-1.0", "licence_url": "https://www.openstreetmap.org/copyright"}
+
+
+def _navigation() -> tuple[dict[str, PackageManifest], dict[str, ProfileManifest]]:
+    catalog = {
+        "navit": _manifest(
+            name="navit", install=[{"install": {"method": "apt", "packages": ["navit"]}}]
+        ),
+        "osm-regions": _manifest(
+            name="osm-regions",
+            install=[
+                {"install": {"method": "osm-regions", "provider": "geofabrik", **_OSM_LICENCE}}
+            ],
+        ),
+        "osm-navit": _manifest(
+            name="osm-navit",
+            depends=["osm-regions", "maptool"],
+            install=[
+                {
+                    "install": {
+                        "method": "derived",
+                        "converter": "navit-maptool",
+                        "source": "osm-regions",
+                        **_OSM_LICENCE,
+                    }
+                }
+            ],
+        ),
+    }
+    profile = _profile(name="navigation", packages=["navit", "osm-regions", "osm-navit"])
+    return catalog, {"navigation": profile}
+
+
+def test_map_data_is_deferred_by_name_without_regions(tmp_path: Path) -> None:
+    from hammunition.station import Station
+
+    catalog, profiles = _navigation()
+    plan = _resolve(
+        tmp_path,
+        ["navigation"],
+        catalog=catalog,
+        profiles=profiles,
+        known={"navit": None, "maptool": None},
+        station=Station(),
+    )
+    assert [p.name for p in plan.packages] == ["navit"]
+    deferred = {d.subject: d for d in plan.deferrals}
+    assert sorted(deferred) == ["osm-navit", "osm-regions"]
+    for deferral in deferred.values():
+        assert deferral.why == "no map regions set"
+        assert "hammunition station set --map-regions <region>" in deferral.remedy
+
+
+def test_a_map_unit_typed_by_name_is_deferred_too(tmp_path: Path) -> None:
+    """D-035: a missing station value defers, it does not refuse -- by name or not."""
+    from hammunition.station import Station
+
+    catalog, _ = _navigation()
+    plan = _resolve(
+        tmp_path, ["osm-navit"], catalog=catalog, known={"maptool": None}, station=Station()
+    )
+    assert plan.packages == ()
+    assert sorted(d.subject for d in plan.deferrals) == ["osm-navit", "osm-regions"]
+
+
+def test_map_data_is_planned_once_regions_are_set(tmp_path: Path) -> None:
+    from hammunition.station import Station
+
+    catalog, profiles = _navigation()
+    plan = _resolve(
+        tmp_path,
+        ["navigation"],
+        catalog=catalog,
+        profiles=profiles,
+        known={"navit": None, "maptool": None},
+        station=Station(map_regions=("north-america/us/vermont",)),
+    )
+    # Planned in `after` order, which is alphabetical here: osm-navit before
+    # osm-regions. commands_for runs every conversion after every other
+    # build, which is what makes that order safe.
+    assert sorted(p.name for p in plan.packages) == ["navit", "osm-navit", "osm-regions"]
+    assert plan.deferrals == ()
+    assert plan.apt_to_install == ("maptool", "navit")
