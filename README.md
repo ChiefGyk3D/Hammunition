@@ -8,9 +8,9 @@ targeting Debian, Ubuntu, Kali, Linux Mint and Raspberry Pi OS.
 
 ---
 
-## Beta, v0.10.0 — feature-complete for 1.0; what remains is verification on the bench
+## Beta, v0.11.0 — feature-complete for 1.0; what remains is verification on the bench
 
-**Status: beta, v0.10.0 — every 1.0 stage is in the catalog; the 0.1 that is missing is measured, not written.** The core cycle —
+**Status: beta, v0.11.0 — every 1.0 stage is in the catalog; the 0.1 that is missing is measured, not written.** The core cycle —
 resolve, disclose, install, configure, verify, remove — runs end to end and is
 **VM-verified on Parrot, Kali, Debian 13, Ubuntu 24.04, Ubuntu 26.04 and
 Pop!_OS 24.04**, with **zero hard install failures across the whole catalog on
@@ -309,7 +309,7 @@ requirements, not aspirations:
   release key with the dates it was trusted. Check that file against
   `https://api.github.com/users/ChiefGyk3D/ssh_signing_keys` before trusting
   it; [`docs/contributing/releasing.md`](docs/contributing/releasing.md) is
-  the procedure. **No key exists yet**: `v0.7.0`, `v0.9.0` and `v0.10.0` are annotated
+  the procedure. **No key exists yet**: `v0.7.0`, `v0.9.0`, `v0.10.0` and `v0.11.0` are annotated
   and unsigned, and the file says so; the first signed tag is 1.0.
 
 ---
