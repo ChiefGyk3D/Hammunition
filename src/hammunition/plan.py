@@ -63,6 +63,7 @@ from hammunition.manifest.schema import (
     BinaryInstall,
     ConfigFile,
     ConsentGate,
+    DemTilesInstall,
     DerivedDataInstall,
     GitInstall,
     InstallBlock,
@@ -953,16 +954,19 @@ def _desktop_blocker(
 def _reads_map_regions(
     block: InstallBlock, catalog: Mapping[str, PackageManifest], target: Target
 ) -> bool:
-    """An ``osm-regions`` block, or a ``derived`` one converting such a unit's data."""
+    """An ``osm-regions`` or ``dem-tiles`` block (D-061: its tiles follow the
+    regions), or a ``derived`` one converting such a unit's data."""
     install = block.install
-    if isinstance(install, RegionalDataInstall):
+    if isinstance(install, RegionalDataInstall | DemTilesInstall):
         return True
     if isinstance(install, DerivedDataInstall):
         source = catalog.get(install.source)
         if source is None:
             return False
         source_block = source.resolve(target.distro, target.version, target.arch)
-        return source_block is not None and isinstance(source_block.install, RegionalDataInstall)
+        return source_block is not None and isinstance(
+            source_block.install, RegionalDataInstall | DemTilesInstall
+        )
     return False
 
 

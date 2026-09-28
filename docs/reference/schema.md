@@ -69,7 +69,7 @@ argument — js8call is apt on Linux Mint 22.3 and a cmake build elsewhere.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `when` | `Selector` | no |  |
-| `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| NodeInstall \| PipxInstall \| DataInstall \| RegionalDataInstall \| DerivedDataInstall` | **yes** |  |
+| `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| NodeInstall \| PipxInstall \| DataInstall \| RegionalDataInstall \| DemTilesInstall \| DerivedDataInstall` | **yes** |  |
 | `build_depends` | `list[str]` | no | apt packages needed to BUILD only. Never reported as installed. |
 | `binaries` | `list[Binary] \| None` | no | This block's own build outputs, replacing the manifest's `binaries` wherever this block is the one that resolves. A prebuilt archive selected by `arch` can carry a different path per architecture -- rayhunter's zip has `installer` at the top level and one `rayhunter-check` under a per-platform directory -- and one manifest-level list cannot describe both. Omit the key to use the manifest's list; an empty list is refused, because it reads as an override to nothing. |
 | `note` | `str \| None` | no |  |
@@ -487,6 +487,25 @@ engine states and does not adjudicate (D-021).
 | `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
 | `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
 
+### `DemTilesInstall`
+
+Elevation tiles for the squares the station's map regions cover (D-061).
+
+Like `RegionalDataInstall`, nothing is pinned in the manifest: which
+tiles are needed follows the operator's regions in station config, and
+each tile is resolved at plan time and verified by a sha256 the catalog
+carries (``catalog/data/copernicus-glo30-pins.yaml``) or by the MD5 in
+the publisher's object metadata, the plan saying which, tile by tile.
+`provider` is an enum so another source (USGS 3DEP) is a new member the
+engine implements, never a URL in the catalog.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `method` | `Literal[dem-tiles]` | no (default `dem-tiles`) |  |
+| `provider` | `Literal[copernicus-glo30]` | no (default `copernicus-glo30`) |  |
+| `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
+| `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
+
 ### `DerivedDataInstall`
 
 Data produced by running a converter over another catalog unit's data.
@@ -501,8 +520,8 @@ source data before running the converter over it.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `method` | `Literal[derived]` | no (default `derived`) |  |
-| `converter` | `Literal[navit-maptool]` | **yes** |  |
-| `source` | `str` | **yes** | The catalog package name this is derived from. |
+| `converter` | `Literal[navit-maptool, mkgmap, routino-planetsplitter, gdal-dem]` | **yes** |  |
+| `source` | `str` | **yes** | The catalog package name this is derived from: an `osm-regions` unit, or for `gdal-dem` a `dem-tiles` unit. |
 | `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
 | `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
 

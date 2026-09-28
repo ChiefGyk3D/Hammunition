@@ -910,3 +910,111 @@ def test_a_converter_outside_the_enum_is_refused() -> None:
     bad["depends"] = ["osm-regions"]
     with pytest.raises(ValidationError):
         PackageManifest.model_validate(bad)
+
+
+# ===========================================================================
+# dem-tiles and piece 2's converters (D-061)
+# ===========================================================================
+
+_COP = {
+    "licence": "Copernicus DEM licence",
+    "licence_url": "https://copernicus-dem-30m.s3.amazonaws.com/readme.html",
+}
+
+
+def test_dem_tiles_block_parses_and_names_its_provider_by_enum() -> None:
+    m = PackageManifest.model_validate(
+        _minimal(
+            name="dem-copernicus",
+            install=[{"install": {"method": "dem-tiles", "provider": "copernicus-glo30", **_COP}}],
+        )
+    )
+    assert m.install[0].install.method == "dem-tiles"
+    with pytest.raises(ValidationError):
+        PackageManifest.model_validate(
+            _minimal(
+                name="dem-copernicus",
+                install=[{"install": {"method": "dem-tiles", "provider": "srtm", **_COP}}],
+            )
+        )
+
+
+def test_a_dem_tiles_licence_url_must_be_https() -> None:
+    with pytest.raises(ValidationError, match="https"):
+        PackageManifest.model_validate(
+            _minimal(
+                name="dem-copernicus",
+                install=[
+                    {
+                        "install": {
+                            "method": "dem-tiles",
+                            "licence": "Copernicus DEM licence",
+                            "licence_url": "http://example.invalid/",
+                        }
+                    }
+                ],
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    ("converter", "source"),
+    [
+        ("mkgmap", "osm-regions"),
+        ("routino-planetsplitter", "osm-regions"),
+        ("gdal-dem", "dem-copernicus"),
+    ],
+)
+def test_piece_2_converters_are_enum_members(converter: str, source: str) -> None:
+    data = _minimal(
+        name="derived-unit",
+        install=[
+            {
+                "install": {
+                    "method": "derived",
+                    "converter": converter,
+                    "source": source,
+                    "licence": "ODbL-1.0",
+                    "licence_url": "https://www.openstreetmap.org/copyright",
+                }
+            }
+        ],
+    )
+    data["depends"] = [source]
+    block = PackageManifest.model_validate(data).install[0].install
+    assert isinstance(block, DerivedDataInstall) and block.converter == converter
+
+
+def test_dem_tiles_is_an_implemented_method_and_uninstall_removes_its_tree(
+    tmp_path: Path,
+) -> None:
+    from hammunition.backends import IMPLEMENTED_METHODS
+    from hammunition.distro import Target
+    from hammunition.state.uninstall import RemovalPaths, plan_removal
+
+    assert "dem-tiles" in IMPLEMENTED_METHODS
+    manifest = PackageManifest.model_validate(
+        _minimal(
+            name="dem-copernicus",
+            install=[{"install": {"method": "dem-tiles", "provider": "copernicus-glo30", **_COP}}],
+        )
+    )
+    paths = RemovalPaths(
+        prefix=tmp_path / "prefix",
+        venv_root=tmp_path / "venvs",
+        bin_dir=tmp_path / "bin",
+        applications_dir=tmp_path / "applications",
+    )
+    directory = paths.prefix / "share" / "hammunition" / "data" / "dem-copernicus"
+    directory.mkdir(parents=True)
+    (directory / "Copernicus_DSM_COG_10_N00_00_E000_00_DEM.tif").write_bytes(b"x")
+    plan = plan_removal(
+        ["dem-copernicus"],
+        catalog={"dem-copernicus": manifest},
+        profiles={},
+        target=Target(distro="debian", version="13", arch="x86_64"),
+        attributed=frozenset(),
+        states={},
+        paths=paths,
+    )
+    assert [(a.kind, a.path) for a in plan.artifacts["dem-copernicus"]] == [("tree", directory)]

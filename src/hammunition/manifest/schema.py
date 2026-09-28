@@ -800,6 +800,33 @@ class RegionalDataInstall(Strict):
         return self
 
 
+class DemTilesInstall(Strict):
+    """Elevation tiles for the squares the station's map regions cover (D-061).
+
+    Like `RegionalDataInstall`, nothing is pinned in the manifest: which
+    tiles are needed follows the operator's regions in station config, and
+    each tile is resolved at plan time and verified by a sha256 the catalog
+    carries (``catalog/data/copernicus-glo30-pins.yaml``) or by the MD5 in
+    the publisher's object metadata, the plan saying which, tile by tile.
+    `provider` is an enum so another source (USGS 3DEP) is a new member the
+    engine implements, never a URL in the catalog.
+    """
+
+    method: Literal["dem-tiles"] = "dem-tiles"
+    provider: Literal["copernicus-glo30"] = "copernicus-glo30"
+    licence: str = Field(
+        min_length=2,
+        description="SPDX identifier where one exists, else the publisher's own words.",
+    )
+    licence_url: str = Field(description="Where the licence is stated, on the publisher's site.")
+
+    @model_validator(mode="after")
+    def _check(self) -> DemTilesInstall:
+        if not self.licence_url.startswith("https://"):
+            raise ManifestError(f"licence_url must be https, got {self.licence_url!r}")
+        return self
+
+
 class DerivedDataInstall(Strict):
     """Data produced by running a converter over another catalog unit's data.
 
@@ -812,8 +839,13 @@ class DerivedDataInstall(Strict):
     """
 
     method: Literal["derived"] = "derived"
-    converter: Literal["navit-maptool"]
-    source: str = Field(description="The catalog package name this is derived from.")
+    converter: Literal["navit-maptool", "mkgmap", "routino-planetsplitter", "gdal-dem"]
+    source: str = Field(
+        description=(
+            "The catalog package name this is derived from: an `osm-regions` unit, "
+            "or for `gdal-dem` a `dem-tiles` unit."
+        )
+    )
     licence: str = Field(
         min_length=2,
         description="SPDX identifier where one exists, else the publisher's own words.",
@@ -843,6 +875,7 @@ InstallMethod = Annotated[
     | PipxInstall
     | DataInstall
     | RegionalDataInstall
+    | DemTilesInstall
     | DerivedDataInstall,
     Field(discriminator="method"),
 ]

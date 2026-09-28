@@ -1063,3 +1063,58 @@ def test_map_data_is_planned_once_regions_are_set(tmp_path: Path) -> None:
     assert sorted(p.name for p in plan.packages) == ["navit", "osm-navit", "osm-regions"]
     assert plan.deferrals == ()
     assert plan.apt_to_install == ("maptool", "navit")
+
+
+_COP_LICENCE = {
+    "licence": "Copernicus DEM licence",
+    "licence_url": "https://copernicus-dem-30m.s3.amazonaws.com/readme.html",
+}
+
+
+def test_terrain_and_what_is_drawn_from_it_defer_with_the_regions(tmp_path: Path) -> None:
+    """D-061: the tiles follow the regions, so no regions defers them by name,
+    and a unit derived from the tiles with them."""
+    from hammunition.station import Station
+
+    catalog, profiles = _navigation()
+    catalog["dem-copernicus"] = _manifest(
+        name="dem-copernicus",
+        depends=["osm-regions"],
+        install=[
+            {"install": {"method": "dem-tiles", "provider": "copernicus-glo30", **_COP_LICENCE}}
+        ],
+    )
+    catalog["dem-qmapshack"] = _manifest(
+        name="dem-qmapshack",
+        depends=["dem-copernicus"],
+        install=[
+            {
+                "install": {
+                    "method": "derived",
+                    "converter": "gdal-dem",
+                    "source": "dem-copernicus",
+                    **_COP_LICENCE,
+                }
+            }
+        ],
+    )
+    profiles["navigation"] = _profile(
+        name="navigation",
+        packages=["navit", "osm-regions", "osm-navit", "dem-copernicus", "dem-qmapshack"],
+    )
+    plan = _resolve(
+        tmp_path,
+        ["navigation"],
+        catalog=catalog,
+        profiles=profiles,
+        known={"navit": None, "maptool": None},
+        station=Station(),
+    )
+    assert [p.name for p in plan.packages] == ["navit"]
+    assert sorted(d.subject for d in plan.deferrals) == [
+        "dem-copernicus",
+        "dem-qmapshack",
+        "osm-navit",
+        "osm-regions",
+    ]
+    assert {d.why for d in plan.deferrals} == {"no map regions set"}
