@@ -27,7 +27,7 @@ Navit cannot read OpenStreetMap's `.osm.pbf` files directly, so without this ste
 
 ## Known problems
 
-Conversion has been measured on one region only: Canada, a 6.1 GB download, became a 4.7 GB `.bin` in 75 minutes on an i7-1185G7, with a peak of about 2.4 GB of memory. From that, the converted map is about 0.8 times the download, and maptool needs about twice the download of scratch space while it converts. The plan's disk estimate uses those factors and calls them an estimate. Whether Navit routes across two separately converted regions has not yet been measured. A region removed from station config has its converted map removed on the next install. The converted maps carry the same Open Database License obligations as the data they came from.
+Conversion has been measured on one region only: a 6.1 GB country-sized region, which became a 4.7 GB `.bin` in 75 minutes on an i7-1185G7, with a peak of about 2.4 GB of memory. From that, the converted map is about 0.8 times the download, and maptool needs about twice the download of scratch space while it converts. The plan's disk estimate uses those factors and calls them an estimate. Whether Navit routes across two separately converted regions has not yet been measured. A region removed from station config has its converted map removed on the next install. The converted maps carry the same Open Database License obligations as the data they came from.
 
 ## Keeping it current
 

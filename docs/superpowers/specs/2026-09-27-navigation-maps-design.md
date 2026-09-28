@@ -41,8 +41,8 @@ hammunition station set --map-freshness yearly        # yearly (default) | month
 ```
 
 - **Regions** are Geofabrik's own paths, and any region Geofabrik offers is
-  accepted. `hammunition maps regions [FILTER]` lists them with sizes from
-  Geofabrik's published index (`index-v1.json`), fetched on request only.
+  accepted. `hammunition maps regions [FILTER]` lists them, from
+  Geofabrik's published index, fetched on request only.
 - **Freshness** is one setting for every region.
 - **Unset:** the map data unit is deferred by name and Navit still installs
   (D-035, D-049 rule 3). The plan names the command to run.

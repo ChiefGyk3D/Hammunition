@@ -145,24 +145,30 @@ questions and are not asked.
 Measured on the field laptop, 25 probes answered in 7.5 s, none
 unanswered, and three pins found behind upstream the first time it ran.
 
-For `osm-regions`, each installed map region is compared to
-`catalog/data/geofabrik-pins.yaml` by its `.source` sidecar's recorded
-snapshot — offline, like the rest of this report (D-053). A region whose
-installed snapshot is older than the pin list's newest for it is `behind
-the pin`, with the line `newer map data pinned: <snapshot>`; nothing
-installed is `not installed`; everything else is `up to date`. A region the
-pin list does not carry (verified by Geofabrik's MD5 only) is never
-reported behind — there is nothing to compare it against.
-`hammunition install navigation` (or `osm-regions osm-navit`) fetches and
-converts the newer file.
+For `osm-regions`, every installed region's `.source` sidecar is compared
+to the pinned snapshot the station's own freshness mode would resolve to
+*today* — the same one-period-back fallback `resolve()` itself uses when
+this year's or this month's file is not yet pinned — never the newest pin
+of any snapshot: that reported a yearly install at `260101` behind a
+`260901` pin forever, since a yearly install never resolves to a
+monthly-shaped snapshot and so never clears it. Offline, like the rest of
+this report (D-053). The row is a count, never a region name or path — the
+same reason `station show` prints a count (D-057; a region list says where
+somebody lives or travels): `2 regions installed; 1 behind the pin (newer
+map data pinned: 260101)`. Nothing installed is `not installed`; nothing
+behind is `up to date`. `hammunition install osm-regions osm-navit` (the
+footer's own command, since `install osm-regions` alone never reconverts
+the derived maps) fetches and converts the newer file.
 
 ### `hammunition maps regions [FILTER]`
 
-Every region path Geofabrik's `index-v1.json` names, one per line, sorted.
+Every region path Geofabrik's region index names, one per line, sorted.
 `FILTER` is an optional case-insensitive substring; with none, every region
-prints. The index is fetched only when this command runs — network on
-request, the same as `update --upstream`, never as a side effect of any
-other command.
+prints. The index (`index-v1-nogeom.json`, 0.51 MB, measured live
+2026-09-28: 555 regions — smaller than `index-v1.json`'s 3.79 MB for the
+same `properties.urls.pbf` shape) is fetched only when this command runs —
+network on request, the same as `update --upstream`, never as a side
+effect of any other command.
 
 ```
 $ hammunition maps regions vermont
@@ -251,7 +257,11 @@ configuration written last.
 
 It refuses at plan time, exit 2, changing nothing, when a region cannot be
 resolved and is not already installed (named, with `maps regions` as the
-way to check it), when `/etc/navit/navit.xml` is missing and navit is not
+way to check it), when a region that is about to be fetched — pinned or
+not — cannot be reached (a pinned region resolves from the pin list with
+no network at all, so this is checked explicitly rather than discovered
+mid-transaction after apt has already run; an already-installed region is
+never probed), when `/etc/navit/navit.xml` is missing and navit is not
 in the transaction, and when a file system is short of the estimated space
 (the download in the cache and the prefix, the converted map at 0.8× and
 maptool's scratch at 2× the download, both factors measured on one region;

@@ -54,6 +54,7 @@ documentation:
     Navit, espeak-ng and gpsd from the archive (size not yet measured).
     Per region: the download, plus Navit's converted map at about 0.8 times
     the download, plus about twice the download of temporary space while it
-    converts (measured on one region: Canada, a 6.1 GB download, converted
-    to 4.7 GB in 75 minutes on an i7-1185G7). A single US state's download
-    ranges from about 20 MB (District of Columbia) to 1.3 GB (California).
+    converts (measured on one region: a 6.1 GB country-sized region,
+    converted to 4.7 GB in 75 minutes on an i7-1185G7). A single US state's
+    download ranges from about 20 MB (District of Columbia) to 1.3 GB
+    (California).

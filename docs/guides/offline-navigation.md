@@ -29,9 +29,10 @@ The examples below use Vermont and New Hampshire. Use your own regions.
   version: be in the `dialout` group, plug it in, and run `cgps`). If you
   park the receiver with `hammunition hardware park` to save power, wake it
   again before you navigate.
-- **Disk space.** See [Disk planning](#disk-planning) below. One state is a
-  few hundred megabytes at most; a large country is tens of gigabytes while
-  it converts.
+- **Disk space.** See [Disk planning](#disk-planning) below. A US state's
+  download ranges from 20.3 MB (District of Columbia) to 1.29 GB
+  (California) — Texas, a mid-large state, is 681 MB; a large country is
+  gigabytes to tens of gigabytes while it converts.
 - **A network connection at install time**, and only then.
 - **Audio output**, for spoken directions.
 
@@ -44,14 +45,14 @@ measured yet](#what-has-not-been-measured-yet) lists exactly what that means.
 ## 1. Choose your regions
 
 Regions are Geofabrik's own download paths: `north-america/us/vermont`,
-`europe/germany/bayern`, `north-america/canada/quebec`. Any region Geofabrik
-offers is accepted, from a whole continent down to a state or province.
+`europe/germany/bayern`. Any region Geofabrik offers is accepted, from a
+whole continent down to a state or province.
 
 To find the path for a place, list Geofabrik's regions and filter them:
 
 ```
 hammunition maps regions vermont
-hammunition maps regions canada
+hammunition maps regions germany
 ```
 
 This fetches Geofabrik's region index when you run it, and only then. Then
@@ -135,6 +136,12 @@ Each region's line is the dated file it will fetch (`260101` is 1 January
 that date says `already installed, current` and is not downloaded again. The
 commands section shows each download and each conversion, including where
 the conversion runs and how much scratch space it needs.
+
+That "0.20 GB of disk with Navit's maps" line is narrower than the 2.8×
+figure in [Disk planning](#disk-planning) below: it is only the download
+and the converted map for the regions this run is about to fetch, and it
+does not count the verified copy that stays in the download cache (the
+Disk planning figures do, until you clear it).
 
 Then install for real:
 
@@ -226,13 +233,21 @@ the map. `hammunition update` is the reminder:
 hammunition update
 ```
 
-It reports, for `osm-regions`, the date of each installed region's map, and
-when Hammunition's pin list holds a newer one for it, a line saying
-`newer map data pinned: <date>`. It checks from the files on the laptop and
-the catalog; it downloads nothing. When it says a newer map is pinned:
+It reports, for `osm-regions`, how many regions are installed and how many
+have a newer date pinned for them — never the regions themselves, by the
+same rule that keeps a region list out of `station show`: it is the same
+class of fact as a grid square (D-057), and the install plan is the only
+place names appear. A report reads, for example:
 
 ```
-hammunition install navigation
+osm-regions  behind the pin  2 regions installed; 1 behind the pin (newer map data pinned: 260901)
+```
+
+It checks from the files on the laptop and the catalog; it downloads
+nothing. When it says a region is behind the pin:
+
+```
+hammunition install osm-regions osm-navit
 ```
 
 fetches the newer file for each region that has one, converts it again, and
@@ -286,7 +301,8 @@ size if the cache and `/usr/local` are on the same disk; afterwards it takes
 about 2.8 times (1.8 if you clear the download cache). A single US state
 ranges from 20.3 MB (District of Columbia) to 1.29 GB (California); Vermont
 is 44.4 MB. If there is not enough space, the plan refuses before anything
-is fetched and prints the estimate and what is free on each disk involved.
+is fetched and prints the estimate and what is free on each disk that is
+short — a disk with enough room is not named.
 
 The 0.8× and 2× factors were **measured on one region**, a 6.1 GB country
 that converted to a 4.7 GB map in 75 minutes on an i7-1185G7 with a peak of
@@ -354,8 +370,11 @@ laptop and been recorded in `docs/reference/bench-verification-5430.md`:
   voice.
 - Spoken directions for a street whose name contains an apostrophe, which
   Navit's own way of calling the speech program may break.
-- Hammunition's Geofabrik client against the live server; the tests stand
-  in for it.
+- `UrllibProbe.text` has run live against Geofabrik's region index
+  (2026-09-28: `index-v1-nogeom.json`, 555 regions parsed by `region_ids`).
+  `UrllibProbe.head` — the reachability check a fetch, and now a plan-time
+  region check, both depend on — remains unmeasured against the live
+  server; the tests stand in for it.
 
 Hiking and topographic maps (QMapShack, contours) and offline reference
 (Kiwix, a local tile server) are later pieces of this work and not in this

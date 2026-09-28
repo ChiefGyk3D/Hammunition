@@ -4432,19 +4432,25 @@ never reported as a success.
 
 With no network, a region already installed is kept as it is and the plan
 says it could not check for a newer map; a region not installed and not
-resolvable refuses the plan, naming it, exit 2. Not enough disk space
-refuses the plan too, with the estimate and what is free, for each file
-system involved.
+resolvable refuses the plan, naming it, exit 2. A **pinned** region
+resolves entirely from the pin list with no network asked at all, so a
+region about to be fetched — pinned or not, not already installed at its
+resolved snapshot — is also HEAD-checked before the plan prints; one that
+cannot be reached refuses the same way, named, rather than surfacing later
+as a fetch failure after apt has already run (fix round 1, I3). Not enough
+disk space refuses the plan too, with the estimate and what is free, for
+each file system that is short — one with enough room is not named.
 
 ### The disk estimate is measured on one region, and says so
 
 Per region the plan counts the download twice (the verified cache copy and
 the installed copy), Navit's map at **0.8×** the download (staged, then
 installed), and **2×** the download of maptool's scratch while it runs.
-Measured on one region on the field laptop, 2026-09-28: Canada, a 6.1 GB
-download, converted to a 4.7 GB `.bin` in 75 minutes on an i7-1185G7, peak
-memory about 2.4 GB, more than 12 GB of scratch. The plan calls its figures
-"an estimate, measured on one region" until more regions are measured.
+Measured on one region on the field laptop, 2026-09-28: a 6.1 GB
+country-sized region, converted to a 4.7 GB `.bin` in 75 minutes on an
+i7-1185G7, peak memory about 2.4 GB, more than 12 GB of scratch. The plan
+calls its figures "an estimate, measured on one region" until more regions
+are measured.
 
 ### The `navigation-maps` tag, amending D-055
 
@@ -4467,8 +4473,10 @@ effect of a new profile.
 
 Measured: Geofabrik's snapshot layout and redirects (2026-09-27); every
 tool in Parrot 7.3's archive (`navit` and `maptool` 0.5.6, `espeak-ng`
-1.52.0); the 102 pins (2026-09-28, `--check` passing); one conversion
-(Canada, above), by hand, not through the engine.
+1.52.0); the 102 pins (2026-09-28, `--check` passing); one conversion (a
+6.1 GB country-sized region, above), by hand, not through the engine;
+`UrllibProbe.text` against Geofabrik's live region index (2026-09-28,
+`index-v1-nogeom.json`, 555 regions parsed by `region_ids`).
 
 Not yet measured, and not claimed until the field laptop's bench page
 records it:
@@ -4481,7 +4489,8 @@ records it:
   voice;
 - voice with a street name containing an apostrophe, which Navit's stock
   `'%s'` quoting may break;
-- the real Geofabrik client (`UrllibProbe`), which the tests replace.
+- `UrllibProbe.head` against the live server, which a fetch and the I3
+  plan-time reachability check both depend on; the tests replace it.
 
 ### Deferred
 
