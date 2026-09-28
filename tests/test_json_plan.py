@@ -370,3 +370,102 @@ def test_the_navit_config_step_reads_the_same_in_the_text_and_the_json(tmp_path:
     assert view.commands[-1].description == config_step.description
     text = "\n".join(render_plan_view(view, target=target_view(plan.target)))
     assert f"  # {config_step.description}" in text
+
+
+# The Packages list and the Map regions section must agree (bench,
+# 2026-09-28): with every region installed and current and every Navit map
+# built, the Packages list said `will fetch+install` and `will convert` one
+# screen above "already installed, current". Synthetic regions only.
+
+
+def _state_plan(**disclosure: Any) -> tuple[InstallPlan, Any]:
+    from hammunition.backends.regions import MapDisclosure
+
+    plan, _maps = maps_plan()
+    fields = {"fetch": (), "current": (), "kept": (), "convert": ()}
+    return plan, MapDisclosure(**{**fields, **disclosure})
+
+
+def _states(plan: InstallPlan, maps: Any) -> tuple[dict[str, str], str]:
+    from hammunition.interface.envelope import target_view
+    from hammunition.interface.plan import build_install_view, render_plan_view
+
+    view = build_install_view(plan, [], euid=1000, maps=maps)
+    text = "\n".join(render_plan_view(view, target=target_view(plan.target)))
+    return {p.name: p.state for p in view.packages}, text
+
+
+def _line(name: str, state: str) -> str:
+    return f"  {name:<28} {state:<18} ["
+
+
+def test_every_region_current_and_every_map_built_reads_already_installed() -> None:
+    one = _region("test-land/region-one", 1_048_576, pinned=True)
+    two = _region("test-land/region-two", 2_097_152, pinned=True)
+    plan, maps = _state_plan(current=(one, two))
+    states, text = _states(plan, maps)
+    assert states == {"osm-regions": "already installed", "osm-navit": "already installed"}
+    assert _line("osm-regions", "already installed") in text
+    assert _line("osm-navit", "already installed") in text
+    assert "already installed, current:" in text
+    assert "will fetch+install" not in text and "will convert" not in text
+
+
+def test_a_region_to_fetch_keeps_the_fetch_and_convert_wording() -> None:
+    one = _region("test-land/region-one", 1_048_576, pinned=True)
+    two = _region("test-land/region-two", 2_097_152, pinned=True)
+    plan, maps = _state_plan(fetch=(two,), current=(one,), convert=(two,))
+    states, text = _states(plan, maps)
+    assert states == {"osm-regions": "will fetch+install", "osm-navit": "will convert"}
+    assert _line("osm-regions", "will fetch+install") in text
+    assert _line("osm-navit", "will convert") in text
+
+
+def test_current_regions_with_a_map_still_to_build_say_so_per_unit() -> None:
+    one = _region("test-land/region-one", 1_048_576, pinned=True)
+    plan, maps = _state_plan(current=(one,), convert=(one,))
+    states, _text = _states(plan, maps)
+    assert states == {"osm-regions": "already installed", "osm-navit": "will convert"}
+
+
+def test_a_region_that_could_not_be_checked_is_not_called_current() -> None:
+    from hammunition.backends.regions import KeptRegion
+
+    one = _region("test-land/region-one", 1_048_576, pinned=True)
+    kept = KeptRegion(
+        region="test-land/region-kept", slug="test-land-region-kept", snapshot="250101", reason="x"
+    )
+    plan, maps = _state_plan(current=(one,), kept=(kept,))
+    states, _text = _states(plan, maps)
+    assert states == {"osm-regions": "will fetch+install", "osm-navit": "will convert"}
+
+
+def test_no_disclosure_keeps_the_method_wording() -> None:
+    plan, _maps = maps_plan()
+    states, _text = _states(plan, None)
+    assert states == {"osm-regions": "will fetch+install", "osm-navit": "will convert"}
+
+
+def test_the_json_package_state_agrees_with_the_map_section() -> None:
+    from hammunition.interface.envelope import dumps, target_view
+    from hammunition.interface.plan import PlanDocument, build_install_view
+
+    one = _region("test-land/region-one", 1_048_576, pinned=True)
+    plan, maps = _state_plan(current=(one,))
+    doc = PlanDocument(
+        action="install",
+        requested=("navigation",),
+        outcome="planned",
+        target=target_view(plan.target),
+        blockers=(),
+        install=build_install_view(plan, [], euid=1000, maps=maps),
+        removal=None,
+    )
+    import json
+
+    body = json.loads(dumps(doc))["install"]
+    assert {p["name"]: p["state"] for p in body["packages"]} == {
+        "osm-regions": "already installed",
+        "osm-navit": "already installed",
+    }
+    assert [r["nothing_to_do"] for r in body["maps"]["current"]] == [True]

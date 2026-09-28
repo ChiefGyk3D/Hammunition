@@ -733,7 +733,7 @@ One catalog unit in the plan.
 |---|---|---|
 | `name` | string | the catalog unit |
 | `method` | string | the install method of the block that resolved here |
-| `state` | string | `will install`, `will build`, `will fetch+install` or `already installed` |
+| `state` | string | `will install`, `will build`, `will fetch+install`, `will convert` or `already installed`; a map unit reads `already installed` only when the map section says nothing is left to do |
 | `requested_by` | list of string | `requested`, or the profiles and units that pulled it in |
 | `apt` | list of [`AptLine`](#aptline) | the apt packages it resolves to, build dependencies included |
 

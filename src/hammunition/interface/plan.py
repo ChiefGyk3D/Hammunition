@@ -57,7 +57,11 @@ NOT_REVERSED = (
 )
 
 
-def plan_state(planned: PlannedPackage, built: frozenset[str] = frozenset()) -> str:
+def plan_state(
+    planned: PlannedPackage,
+    built: frozenset[str] = frozenset(),
+    maps: MapDisclosure | None = None,
+) -> str:
     """What the plan will do to this unit, in two words.
 
     "already installed" is apt's answer and only apt's: it means every apt
@@ -67,8 +71,21 @@ def plan_state(planned: PlannedPackage, built: frozenset[str] = frozenset()) -> 
     the Ubuntu 26.04 VM read that way (2026-09-02). The one carve-out is a
     vendor .deb the plan has attributed to this engine and dpkg still holds
     (#63): nothing is planned for it, and the line says so.
+
+    The map units answer from the map disclosure, so this line and the Map
+    regions section cannot disagree (bench, 2026-09-28): ``osm-regions`` is
+    "already installed" when every selected region is installed and current,
+    nothing to fetch and none that could not be checked; ``osm-navit`` when,
+    on top of that, no map is left to convert. With no disclosure the plan
+    knows nothing about the regions, and the method's wording stands.
     """
     method = planned.block.install
+    if maps is not None and (maps.current or maps.kept or maps.fetch):
+        regions_current = not maps.fetch and not maps.kept
+        if isinstance(method, RegionalDataInstall) and regions_current:
+            return "already installed"
+        if isinstance(method, DerivedDataInstall) and regions_current and not maps.convert:
+            return "already installed"
     if isinstance(method, AptInstall):
         return "already installed" if not planned.outstanding else "will install"
     if isinstance(method, BinaryInstall) and planned.deb_installed:
@@ -102,7 +119,8 @@ class PackageLine(Strict):
     name: str = described("the catalog unit")
     method: str = described("the install method of the block that resolved here")
     state: str = described(
-        "`will install`, `will build`, `will fetch+install` or `already installed`"
+        "`will install`, `will build`, `will fetch+install`, `will convert` or `already installed`; "
+        "a map unit reads `already installed` only when the map section says nothing is left to do"
     )
     requested_by: tuple[str, ...] = described(
         "`requested`, or the profiles and units that pulled it in"
@@ -539,7 +557,7 @@ def build_install_view(
             PackageLine(
                 name=p.name,
                 method=p.block.install.method,
-                state=plan_state(p, built),
+                state=plan_state(p, built, maps),
                 requested_by=tuple(p.requested_by),
                 apt=tuple(
                     AptLine(package=a, outstanding=a in p.outstanding, build_only=a in p.build_only)
