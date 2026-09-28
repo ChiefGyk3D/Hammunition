@@ -354,7 +354,53 @@ def test_under_root_with_no_operator_a_cwd_outside_the_staging_directory_is_refu
     fake = Recorder(monkeypatch)
     staging = Staging(tmp_path / "root" / ".cache" / "staging", euid=0)
     result = staging.run(["true"], cwd=tmp_path / "home" / "operator")
-    assert result.returncode == 125 and "outside" in result.stderr
+    assert result.returncode == 125 and "not strictly below" in result.stderr
+    assert fake.calls == []
+
+
+def test_under_root_with_no_operator_the_staging_directory_itself_is_no_working_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Its lock would land beside it, in the parent, outside root's tree.
+    _as_root(monkeypatch, tmp_path)
+    _owned_by(monkeypatch, 0)
+    fake = Recorder(monkeypatch)
+    directory = tmp_path / "root" / ".cache" / "staging"
+    result = Staging(directory, euid=0).run(["true"], cwd=directory)
+    assert result.returncode == 125 and "strictly below" in result.stderr
+    assert fake.calls == []
+
+
+def test_under_root_with_no_operator_a_dotdot_in_a_path_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # abspath folds link/.. as text; the kernel follows the link first.
+    _as_root(monkeypatch, tmp_path)
+    _owned_by(monkeypatch, 0)
+    fake = Recorder(monkeypatch)
+    directory = tmp_path / "root" / ".cache" / "staging"
+    staging = Staging(directory, euid=0)
+    result = staging.run(["true"], cwd=directory / "link" / ".." / "region.work")
+    assert result.returncode == 125 and ".." in result.stderr
+    refusal = Staging(tmp_path / "root" / "link" / ".." / "staging", euid=0).prepare()
+    assert refusal is not None and ".." in refusal
+    assert fake.calls == []
+
+
+def test_under_root_with_no_operator_one_foreign_component_partway_up_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _as_root(monkeypatch, tmp_path)
+    fake = Recorder(monkeypatch)
+    foreign = tmp_path / "root" / "shared"
+    directory = foreign / "cache" / "staging"
+    directory.mkdir(parents=True)
+    monkeypatch.setattr(
+        "hammunition.backends.staging._owner_uid",
+        lambda path: 4242 if path == foreign else 0,
+    )
+    refusal = Staging(directory, euid=0).prepare()
+    assert refusal is not None and str(foreign) in refusal and "not root's" in refusal
     assert fake.calls == []
 
 

@@ -81,6 +81,12 @@ def _owner_uid(path: Path) -> int:
 def root_own_refusal(directory: Path) -> str | None:
     """Why root may not work in *directory* as itself: a component of its path
     that exists and is a symlink or is not root's. None when it is root's own."""
+    if ".." in directory.parts:
+        # abspath folds link/.. as text; the kernel follows the link first.
+        return (
+            f"{directory} has a '..' component; refusing to run a converter there "
+            f"as root with no operator"
+        )
     here = Path(os.path.abspath(directory))
     for component in (here, *here.parents):
         try:
@@ -153,6 +159,8 @@ class Staging:
         if found is not None:
             return found, None
         # Nobody to drop to: root works as itself, in its own directory only.
+        # Deferred: a root-owned component writable by others (group or world,
+        # not sticky) is not refused yet.
         return None, root_own_refusal(self.directory)
 
     def _root_self(self) -> bool:
@@ -237,14 +245,21 @@ class Staging:
         assignments = [f"{name}={value}" for name, value in self.environ.items()]
         lock = cwd.with_name(cwd.name + ".lock")
         if self._root_self():
+            # Strictly below: the lock lands beside the working directory, so
+            # the staging directory itself would put it in the parent. No '..':
+            # abspath folds link/.. as text, where the kernel follows the link.
             here, base = Path(os.path.abspath(cwd)), Path(os.path.abspath(self.directory))
-            if here != base and base not in here.parents:
+            why = None
+            if ".." in cwd.parts:
+                why = f"{cwd} has a '..' component"
+            elif base not in here.parents:
+                why = f"{cwd} is not strictly below the staging directory {self.directory}"
+            if why is not None:
                 return subprocess.CompletedProcess(
                     ["env", "-C", str(cwd), *argv],
                     REFUSED,
                     "",
-                    f"{cwd} is outside the staging directory {self.directory}; refusing "
-                    f"to run a converter there {ROOT_NO_OPERATOR}",
+                    f"{why}; refusing to run a converter there {ROOT_NO_OPERATOR}",
                 )
         command = [
             "env",
