@@ -150,7 +150,7 @@ def test_a_fresh_install_with_local_bin_off_path_is_not_sent_back_to_bootstrap(
     home = tmp_path / "home"
     local_bin = home / ".local" / "bin"
     local_bin.mkdir(parents=True)
-    checkout = Path(cli.__file__).resolve().parents[3]
+    checkout = Path(__file__).resolve().parents[1]  # this checkout, as doctor derives it
     (local_bin / "hammunition").symlink_to(checkout / ".venv" / "bin" / "hammunition")
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("PATH", str(tmp_path / "empty"))
