@@ -29,6 +29,22 @@ import pytest
 from hammunition.paths import OperatorDirError, ensure_operator_dir, operator_dir_problem
 
 
+def _root_owned(monkeypatch: pytest.MonkeyPatch, directory: Path) -> None:
+    """Make *directory* read as root-owned, as an older sudo run leaves it,
+    through ``fstat`` on the descriptor the walk opened (fix round 4, item 2)."""
+    real_fstat = os.fstat
+
+    def fstat(fd: int) -> os.stat_result:
+        result = real_fstat(fd)
+        if os.readlink(f"/proc/self/fd/{fd}") == str(directory):
+            fields = list(result)
+            fields[4] = 0  # st_uid
+            return os.stat_result(fields)
+        return result
+
+    monkeypatch.setattr(os, "fstat", fstat)
+
+
 @pytest.fixture
 def operator(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
     me = pwd.getpwuid(os.getuid())
@@ -71,17 +87,7 @@ def test_a_root_owned_ancestor_is_refused_by_name_with_the_fix(
     _, home, chowned = operator
     left = home / ".cache" / "hammunition"
     left.mkdir(parents=True)
-    real_stat = os.stat
-
-    def stat(path: Any, *args: Any, **kwargs: Any) -> Any:
-        result = real_stat(path, *args, **kwargs)
-        if str(path) == "hammunition":  # the component, read by dir_fd
-            fields = list(result)
-            fields[4] = 0  # st_uid: as an older sudo run left it
-            return os.stat_result(fields)
-        return result
-
-    monkeypatch.setattr(os, "stat", stat)
+    _root_owned(monkeypatch, left)
     with pytest.raises(OperatorDirError) as excinfo:
         ensure_operator_dir(left / "build" / "osm-navit")
     message = str(excinfo.value)
@@ -172,17 +178,7 @@ def test_a_root_owned_ancestor_of_staging_fails_the_region_with_the_fix(
     fake, home, _ = operator
     left = home / ".cache" / "hammunition"
     left.mkdir(parents=True)
-    real_stat = os.stat
-
-    def stat(path: Any, *args: Any, **kwargs: Any) -> Any:
-        result = real_stat(path, *args, **kwargs)
-        if str(path) == "hammunition":
-            fields = list(result)
-            fields[4] = 0
-            return os.stat_result(fields)
-        return result
-
-    monkeypatch.setattr(os, "stat", stat)
+    _root_owned(monkeypatch, left)
     calls = _AsOperator(monkeypatch).calls
     prefix = tmp_path / "prefix"
     _install_region(prefix, VT)
@@ -204,3 +200,38 @@ def test_a_root_owned_ancestor_of_staging_fails_the_region_with_the_fix(
     assert f"sudo chown -R operator: {left}" in backend.ledger.failed[VT.slug]
     assert calls == []
     del fake
+
+
+# ---------------------------------------------------------------------------
+# Fix round 4: nothing is removed before the parent is proven the operator's
+# ---------------------------------------------------------------------------
+
+
+def test_a_directory_that_appears_mid_walk_is_a_named_refusal(
+    operator: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fix round 4, item 4: EEXIST from a race is OperatorDirError, not a raw OSError."""
+    _, home, _ = operator
+
+    def mkdir(*args: Any, **kwargs: Any) -> None:
+        raise FileExistsError(17, "File exists")
+
+    monkeypatch.setattr(os, "mkdir", mkdir)
+    with pytest.raises(OperatorDirError, match=r"\.cache"):
+        ensure_operator_dir(home / ".cache" / "hammunition")
+
+
+def test_a_failed_fchown_leaks_no_descriptor(
+    operator: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fix round 4, item 3."""
+    _, home, _ = operator
+
+    def fchown(fd: int, uid: int, gid: int) -> None:
+        raise PermissionError(1, "Operation not permitted")
+
+    monkeypatch.setattr(os, "fchown", fchown)
+    before = len(os.listdir("/proc/self/fd"))
+    with pytest.raises(OperatorDirError, match=r"\.cache"):
+        ensure_operator_dir(home / ".cache" / "hammunition")
+    assert len(os.listdir("/proc/self/fd")) == before
