@@ -13,13 +13,14 @@ from __future__ import annotations
 import json
 import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
-from hammunition.cli.devctl import main, resolve
+from hammunition.cli.devctl import main, resolve, resolve_kept
 from hammunition.hardware.polkit import WritabilityFinding, WritabilityRisk
-from hammunition.hardware.power import Parkable, PowerError
+from hammunition.hardware.power import KeptEntry, Parkable, PowerError
 
 
 @pytest.fixture(autouse=True)
@@ -106,6 +107,7 @@ def test_state_prints_json_a_tray_can_read(
         "hammunition.cli.devctl._survey",
         lambda: ([_parkable("gps-receiver", "1-4", parked=True)], []),
     )
+    monkeypatch.setattr("hammunition.cli.devctl.read_kept", lambda: [])
     assert main(["state"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload == [
@@ -116,6 +118,8 @@ def test_state_prints_json_a_tray_can_read(
             "identifier": "1546:01a7",
             "method": "usb_deauthorize",
             "parked": True,
+            "kept": False,
+            "attached": True,
         }
     ]
 
@@ -126,6 +130,7 @@ def test_state_is_valid_json_when_nothing_is_parkable(
     """The applet parses this on a 5 s timer. An empty survey printing a
     human sentence instead of `[]` is a parse error every five seconds."""
     monkeypatch.setattr("hammunition.cli.devctl._survey", lambda: ([], []))
+    monkeypatch.setattr("hammunition.cli.devctl.read_kept", lambda: [])
     assert main(["state"]) == 0
     assert json.loads(capsys.readouterr().out) == []
 
@@ -137,6 +142,7 @@ def test_state_reports_skipped_devices_on_stderr_not_in_the_json(
         "hammunition.cli.devctl._survey",
         lambda: ([], [("gps-receiver", "authorized could not be read")]),
     )
+    monkeypatch.setattr("hammunition.cli.devctl.read_kept", lambda: [])
     assert main(["state"]) == 0
     captured = capsys.readouterr()
     assert json.loads(captured.out) == []
@@ -192,6 +198,7 @@ def test_refuses_to_run_as_root_when_the_tree_is_group_or_other_writable(
             "/opt/hammunition/.venv", WritabilityRisk.GROUP_OR_OTHER_WRITABLE
         ),
     )
+    monkeypatch.setattr(devctl, "read_kept", lambda: [])
     assert main(["state"]) == 2
     err = capsys.readouterr().err
     assert "/opt/hammunition/.venv" in err
@@ -215,6 +222,7 @@ def test_warns_but_proceeds_when_the_tree_is_merely_owned_by_non_root(
         ),
     )
     monkeypatch.setattr(devctl, "_survey", lambda: ([], []))
+    monkeypatch.setattr(devctl, "read_kept", lambda: [])
     assert main(["state"]) == 0
     err = capsys.readouterr().err
     assert "/opt/hammunition/.venv" in err
@@ -239,6 +247,7 @@ def test_does_not_refuse_when_not_actually_running_as_root(
         ),
     )
     monkeypatch.setattr(devctl, "_survey", lambda: ([], []))
+    monkeypatch.setattr(devctl, "read_kept", lambda: [])
     assert main(["state"]) == 0
 
 
@@ -264,6 +273,7 @@ def test_runtime_check_is_load_bearing_for_the_package_directory(
     monkeypatch.setattr(os, "geteuid", lambda: 0)
     monkeypatch.setattr(devctl, "__file__", str(fake_file))
     monkeypatch.setattr(sys, "executable", "/usr/bin/python3")
+    monkeypatch.setattr(devctl, "read_kept", lambda: [])
 
     assert main(["state"]) == 2
     err = capsys.readouterr().err
@@ -291,7 +301,138 @@ def test_runtime_check_is_load_bearing_for_the_interpreter(
     # on any target this suite runs on.
     monkeypatch.setattr(devctl, "__file__", "/usr/fake/cli/devctl.py")
     monkeypatch.setattr(sys, "executable", str(fake_python))
+    monkeypatch.setattr(devctl, "read_kept", lambda: [])
 
     assert main(["state"]) == 2
     err = capsys.readouterr().err
     assert str(unsafe_root) in err
+
+
+GPS_KEPT = KeptEntry("gps-receiver", "3-5.1", "1546", "01a7")
+
+
+def _recording(seen: list[object]) -> Callable[[object], list[str]]:
+    def fake(plan: object) -> list[str]:
+        seen.append(plan)
+        return []
+
+    return fake
+
+
+def test_state_marks_an_attached_kept_device(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "hammunition.cli.devctl._survey",
+        lambda: ([_parkable("gps-receiver", "3-5.1", parked=True)], []),
+    )
+    monkeypatch.setattr("hammunition.cli.devctl.read_kept", lambda: [GPS_KEPT])
+    assert main(["state"]) == 0
+    [row] = json.loads(capsys.readouterr().out)
+    assert row["kept"] is True and row["attached"] is True and row["parked"] is True
+
+
+def test_state_lists_a_kept_device_that_is_not_attached(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("hammunition.cli.devctl._survey", lambda: ([], []))
+    monkeypatch.setattr("hammunition.cli.devctl.read_kept", lambda: [GPS_KEPT])
+    assert main(["state"]) == 0
+    assert json.loads(capsys.readouterr().out) == [
+        {
+            "name": "gps-receiver",
+            "summary": "",
+            "address": "3-5.1",
+            "identifier": "1546:01a7",
+            "method": "usb_deauthorize",
+            "parked": None,
+            "kept": True,
+            "attached": False,
+        }
+    ]
+
+
+def test_state_still_prints_json_when_the_kept_file_is_foreign(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken() -> list[KeptEntry]:
+        raise PowerError("line 1 was not written by Hammunition")
+
+    monkeypatch.setattr("hammunition.cli.devctl._survey", lambda: ([], []))
+    monkeypatch.setattr("hammunition.cli.devctl.read_kept", broken)
+    assert main(["state"]) == 0
+    out, err = capsys.readouterr()
+    assert json.loads(out) == []
+    assert "line 1" in err
+
+
+def test_park_until_reboot_plans_no_kept_entry(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[object] = []
+    monkeypatch.setattr(
+        "hammunition.cli.devctl._survey", lambda: ([_parkable("gps-receiver", "3-5.1")], [])
+    )
+    monkeypatch.setattr("hammunition.cli.devctl.execute", _recording(seen))
+    assert main(["park", "--until-reboot", "gps-receiver"]) == 0
+    assert seen[0].keep is None  # type: ignore[attr-defined]
+    assert main(["park", "gps-receiver"]) == 0
+    assert seen[1].keep is not None  # type: ignore[attr-defined]
+
+
+def test_wake_forgets_a_kept_device_that_is_not_attached(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[object] = []
+    monkeypatch.setattr("hammunition.cli.devctl._survey", lambda: ([], []))
+    monkeypatch.setattr("hammunition.cli.devctl.read_kept", lambda: [GPS_KEPT])
+    monkeypatch.setattr("hammunition.cli.devctl.execute", _recording(seen))
+    assert main(["wake", "gps-receiver@3-5.1"]) == 0
+    assert seen[0].writes == () and seen[0].forget == GPS_KEPT  # type: ignore[attr-defined]
+
+
+def test_park_of_an_absent_device_is_still_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("hammunition.cli.devctl._survey", lambda: ([], []))
+    monkeypatch.setattr("hammunition.cli.devctl.read_kept", lambda: [GPS_KEPT])
+    assert main(["park", "gps-receiver@3-5.1"]) == 2
+
+
+def test_resolve_kept_refuses_a_bare_name_matching_two_ports() -> None:
+    other = KeptEntry("gps-receiver", "3-6", "1546", "01a7")
+    with pytest.raises(PowerError, match=r"3-5\.1"):
+        resolve_kept("gps-receiver", [GPS_KEPT, other])
+    assert resolve_kept("gps-receiver@3-6", [GPS_KEPT, other]) == other
+
+
+def test_wake_of_an_ambiguous_attached_name_is_refused_even_with_a_kept_entry(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Final review finding 1: two attached, one of them kept. A bare name is
+    ambiguous among *attached* devices, so it is refused as ambiguous -- never
+    turned into a forget of the kept one, which would leave it parked."""
+    seen: list[object] = []
+    monkeypatch.setattr(
+        "hammunition.cli.devctl._survey",
+        lambda: (
+            [_parkable("gps-receiver", "1-4", parked=True), _parkable("gps-receiver", "1-5")],
+            [],
+        ),
+    )
+    monkeypatch.setattr(
+        "hammunition.cli.devctl.read_kept",
+        lambda: [KeptEntry("gps-receiver", "1-4", "1546", "01a7")],
+    )
+    monkeypatch.setattr("hammunition.cli.devctl.execute", _recording(seen))
+    assert main(["wake", "gps-receiver"]) == 2
+    assert seen == []
+    assert "would be a guess" in capsys.readouterr().err
+
+
+def test_wake_of_an_ambiguous_name_with_nothing_kept_keeps_the_ambiguity_message(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "hammunition.cli.devctl._survey",
+        lambda: ([_parkable("gps-receiver", "1-4"), _parkable("gps-receiver", "1-5")], []),
+    )
+    monkeypatch.setattr("hammunition.cli.devctl.read_kept", lambda: [])
+    assert main(["wake", "gps-receiver"]) == 2
+    err = capsys.readouterr().err
+    assert "would be a guess" in err
+    assert "neither attached nor kept" not in err

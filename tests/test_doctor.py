@@ -105,3 +105,21 @@ def test_a_state_dir_under_a_readonly_ancestor_is_not(tmp_path: Path) -> None:
         assert not writable_or_creatable(locked / "state" / "hammunition")
     finally:
         locked.chmod(0o700)
+
+
+def test_doctor_reports_kept_devices_as_info() -> None:
+    checks = run_checks(**HEALTHY, kept_attached=("gps-receiver@3-5.1",))  # type: ignore[arg-type]
+    kept = [c for c in checks if c.name == "kept off"]
+    assert kept and kept[0].status == "info"
+    assert "gps-receiver@3-5.1" in kept[0].detail
+
+
+def test_doctor_warns_about_a_kept_entry_with_nothing_attached() -> None:
+    checks = run_checks(**HEALTHY, kept_absent=("gps-receiver@3-6",))  # type: ignore[arg-type]
+    kept = [c for c in checks if c.name == "kept off"]
+    assert kept and kept[0].status == "warn"
+    assert "hammunition hardware wake gps-receiver@3-6" in (kept[0].fix or "")
+
+
+def test_doctor_says_nothing_about_kept_when_none_is_kept() -> None:
+    assert not [c for c in run_checks(**HEALTHY) if c.name == "kept off"]  # type: ignore[arg-type]
