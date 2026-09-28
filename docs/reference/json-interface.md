@@ -115,8 +115,8 @@ A catalogued, parkable device -- attached now, or kept parked and not.
 | `summary` | string | one line; empty for a kept entry with nothing attached |
 | `address` | string | the USB bus address, e.g. `1-4`: what tells two of a kind apart |
 | `identifier` | string | `vendor:product` as the bus reported it |
-| `method` | string | how it is parked, e.g. `usb_deauthorize`; empty when unknown |
-| `parked` | boolean | parked now; true for a kept entry with nothing attached |
+| `method` | string | how it is parked, e.g. `usb_deauthorize` |
+| `parked` | boolean or null | parked now; null for a kept entry with nothing attached -- there is nothing on the bus to read a state off |
 | `kept` | boolean | kept parked across reboots |
 | `attached` | boolean | plugged in now; a kept entry may name a device that is not |
 
@@ -159,8 +159,15 @@ A catalogued device that is attached but cannot be parked right now.
           "type": "string"
         },
         "parked": {
-          "title": "Parked",
-          "type": "boolean"
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parked"
         },
         "kept": {
           "title": "Kept",

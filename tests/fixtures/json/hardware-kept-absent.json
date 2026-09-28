@@ -8,8 +8,8 @@
       "summary": "",
       "address": "1-9",
       "identifier": "1234:5678",
-      "method": "",
-      "parked": true,
+      "method": "usb_deauthorize",
+      "parked": null,
       "kept": true,
       "attached": false
     }

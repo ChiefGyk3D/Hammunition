@@ -3,12 +3,15 @@
 
 """``hardware state`` as data.  D-059, D-056.
 
-Each device carries the same keys the privileged helper's ``state`` array
-does (name, summary, address, identifier, method, parked, kept, attached),
-so a front end reading either source reads one shape. ``kept`` and
+Each device carries the same keys, and the same values, the privileged
+helper's ``state`` array does (name, summary, address, identifier, method,
+parked, kept, attached), so a front end reading either source reads one
+shape -- a tray that switches source must see the same thing. ``kept`` and
 ``attached`` are real here, not placeholders: a device kept parked across a
 reboot but not currently on the bus is carried too, the way the helper and
-the kept-off text form (D-056) both already do.
+the kept-off text form (D-056) both already do, with the same ``parked:
+null`` / ``method: "usb_deauthorize"`` / name-sorted shape the helper uses
+for a row with nothing attached.
 """
 
 from __future__ import annotations
@@ -33,8 +36,11 @@ class DeviceView(Strict):
     summary: str = described("one line; empty for a kept entry with nothing attached")
     address: str = described("the USB bus address, e.g. `1-4`: what tells two of a kind apart")
     identifier: str = described("`vendor:product` as the bus reported it")
-    method: str = described("how it is parked, e.g. `usb_deauthorize`; empty when unknown")
-    parked: bool = described("parked now; true for a kept entry with nothing attached")
+    method: str = described("how it is parked, e.g. `usb_deauthorize`")
+    parked: bool | None = described(
+        "parked now; null for a kept entry with nothing attached -- there is "
+        "nothing on the bus to read a state off"
+    )
     kept: bool = described("kept parked across reboots")
     attached: bool = described("plugged in now; a kept entry may name a device that is not")
 
@@ -83,19 +89,27 @@ def build_hardware(
         )
         for p, is_kept in rows
     ]
-    # Same shape the helper prints for a kept entry with nothing attached.
+    # The same values the helper's `state` prints for a kept entry with
+    # nothing attached (devctl.py's `_state`): `parked` is null -- there is
+    # no device on the bus to read a state off -- `method` is always
+    # `usb_deauthorize`, kept persistence's only method (D-056), and rows
+    # are sorted by (name, address), same as the helper's own
+    # `sorted(kept, key=lambda e: (e.name, e.address))`. I1: the helper is
+    # the source of truth, so this must match it value for value, not only
+    # carry the same keys -- confirmed by
+    # test_a_device_carries_every_key_and_value_the_helper_prints.
     missing = [
         DeviceView(
             name=e.name,
             summary="",
             address=e.address,
             identifier=f"{e.vendor}:{e.product}",
-            method="",
-            parked=True,
+            method="usb_deauthorize",
+            parked=None,
             kept=True,
             attached=False,
         )
-        for e in absent
+        for e in sorted(absent, key=lambda e: (e.name, e.address))
     ]
     return HardwareDocument(
         devices=(*attached, *missing),

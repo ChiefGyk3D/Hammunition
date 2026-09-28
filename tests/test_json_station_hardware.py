@@ -62,6 +62,15 @@ def _station(
 STATIONS = {
     "station-none": None,
     "station-set": Station(callsign="N0TST", grid_square="FN31pr"),
+    # Synthetic region paths -- shaped like a Geofabrik path (D-035 §"region")
+    # but naming nowhere real -- so the golden can carry them safely. The
+    # privacy split is that `station show` shows only a count and never a
+    # name, while `--json` carries the names for a local front end (D-059
+    # spec §6); `test_map_regions_are_in_the_json_but_never_named_in_the_text`
+    # below asserts it directly.
+    "station-regions": Station(
+        map_regions=("atlantis/oceania", "narnia/cair-paravel"), map_freshness="monthly"
+    ),
 }
 
 
@@ -103,6 +112,30 @@ def test_every_station_field_is_in_the_document() -> None:
     assert set(STATION_FIELDS) <= carried, sorted(set(STATION_FIELDS) - carried)
 
 
+def test_map_regions_are_in_the_json_but_never_named_in_the_text(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The privacy split this task introduced (spec §6): `--json` carries the
+    region names for a local front end to fill a form from; the terminal,
+    the kind of thing that gets pasted into an issue, shows only a count.
+    Nothing in the suite asserted this directly until now -- a regression
+    that printed a name in the text, or dropped `map_regions` from the JSON,
+    would have passed every other test here."""
+    station = STATIONS["station-regions"]
+    assert station is not None and station.map_regions  # the fixture, not a stub
+
+    rc, text = _station(monkeypatch, tmp_path, capsys, station)
+    assert rc == 0
+    rc, out = _station(monkeypatch, tmp_path, capsys, station, "--json")
+    assert rc == 0
+    doc = parse_one(out)
+
+    assert doc["map_regions"] == list(station.map_regions)
+    for region in station.map_regions:
+        assert region in out, f"{region!r} missing from --json"
+        assert region not in text, f"{region!r} leaked into the text form"
+
+
 def _hardware(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -141,18 +174,6 @@ def test_hardware_text_is_unchanged(
     assert_golden_text(name, out)
 
 
-# The kept-but-absent row renders "NAME@ADDRESS" (unchanged D-056 text,
-# shipped on `main` before this task). The shared token checker
-# (tests/json_support.py, Task 1's `TOKEN` regex) treats `@` as an ordinary
-# token character, so it reads that run as one token, e.g.
-# "gps-receiver@1-9", which never occurs verbatim in the JSON -- name and
-# address are separate fields there, not joined. The document is still
-# complete: both values are present, just not concatenated. Exempted rather
-# than worked around by reformatting the text (which would change shipped
-# output) or editing the shared checker (out of this task's scope).
-_TEXT_COMPLETENESS_EXEMPT = {"hardware-kept-absent"}
-
-
 @pytest.mark.parametrize("name", sorted(HARDWARE))
 def test_hardware_document_matches_its_golden_and_its_schema(
     name: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
@@ -165,29 +186,76 @@ def test_hardware_document_matches_its_golden_and_its_schema(
     assert rc == 0 and doc["kind"] == "hardware"
     validate(doc)
     assert_golden(name, doc)
-    if name in _TEXT_COMPLETENESS_EXEMPT:
-        return
     _rc, text = _hardware(monkeypatch, capsys, found, kept=kept)
-    assert_text_values_in_json(text, doc, render_hardware)
+    # The kept-but-absent row renders "NAME@ADDRESS" (unchanged D-056 text,
+    # shipped on `main` before this task). The shared token checker
+    # (tests/json_support.py, Task 1's `TOKEN` regex) treats `@` as an
+    # ordinary token character, so unmodified it reads that run as one
+    # token, e.g. "gps-receiver@1-9", which never occurs verbatim in the
+    # JSON -- name and address are separate fields there, not joined.
+    # Splitting on `@` here checks the same text against the same JSON one
+    # token narrower, rather than exempting the whole scenario (which would
+    # also stop catching a future column added to that row with no matching
+    # field) or reformatting the shipped text or editing the shared checker
+    # (out of this task's scope -- Task 1's to revisit).
+    assert_text_values_in_json(text.replace("@", " "), doc, render_hardware)
 
 
-def test_a_device_carries_every_key_the_helper_prints(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_device_carries_every_key_and_value_the_helper_prints(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     """The helper's `state` array is what the tray reads; a front end reading
-    the CLI must get the same keys, and now the same values, so either can be
-    the source (D-059, extending #119's kept-off shape, D-056)."""
+    the CLI must get the same rows, value for value, not merely the same
+    keys (I1: the helper is the source of truth). Three cases in one fixture
+    set, so each is exercised: a plain attached device, a device that is
+    both attached and kept, and a kept entry with nothing attached."""
     import io
     import json
     from contextlib import redirect_stdout
 
     devctl = importlib.import_module("hammunition.cli.devctl")
     from hammunition.hardware import power
-    from hammunition.interface.hardware import build_hardware
+
+    attached_only = Parkable(
+        name="attached-only",
+        summary="An attached, not-kept device",
+        method="usb_deauthorize",
+        quiet=(),
+        sysfs_path="/sys/bus/usb/devices/1-2",
+        identifier="1111:2222",
+        parked=False,
+    )
+    kept_attached = Parkable(
+        name="kept-attached",
+        summary="An attached, kept device",
+        method="usb_deauthorize",
+        quiet=(),
+        sysfs_path="/sys/bus/usb/devices/1-3",
+        identifier="3333:4444",
+        parked=True,
+    )
+    kept_attached_entry = KeptEntry(
+        name="kept-attached", address="1-3", vendor="3333", product="4444"
+    )
+    kept_absent_entry = KeptEntry(name="kept-absent", address="9-9", vendor="dead", product="beef")
+
+    found = [attached_only, kept_attached]
+    kept = [kept_attached_entry, kept_absent_entry]
 
     buf = io.StringIO()
-    monkeypatch.setattr(devctl, "_survey", lambda: ([GPS], []))
-    monkeypatch.setattr(power, "read_kept", lambda: [])
+    monkeypatch.setattr(devctl, "_survey", lambda: (found, []))
+    # devctl imports `read_kept` by name at module load, so it must be
+    # patched on `devctl` itself -- patching `power.read_kept` only reaches
+    # `cmd_hardware_state`, which re-imports it fresh on every call.
+    monkeypatch.setattr(devctl, "read_kept", lambda: kept)
     with redirect_stdout(buf):
         devctl._state()
-    helper_keys = set(json.loads(buf.getvalue())[0])
-    ours = set(dataclasses.asdict(build_hardware([(GPS, False)], [], []))["devices"][0])
-    assert helper_keys == ours, (helper_keys - ours, ours - helper_keys)
+    helper_rows = json.loads(buf.getvalue())
+    assert len(helper_rows) == 3, "fixture must cover attached, kept+attached, kept+absent"
+
+    monkeypatch.setattr(cli, "_survey_parkables", lambda args: (found, []))
+    monkeypatch.setattr(power, "read_kept", lambda: kept)
+    assert cli.main(["hardware", "state", "--json"]) == 0
+    doc = parse_one(capsys.readouterr().out)
+
+    assert doc["devices"] == helper_rows, (doc["devices"], helper_rows)
