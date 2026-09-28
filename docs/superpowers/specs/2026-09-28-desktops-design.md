@@ -121,7 +121,7 @@ release and version. The Plasma applet is unchanged.
   crash loop.
 - **Package:** `hammunition-tray-qt_<version>_all.deb`, built by the same
   `build.sh` from tracked files only, umask 022. It depends on
-  `python3 (>= 3.11), python3-pyqt6, policykit-1 | pkexec`. The release
+  `python3 (>= 3.11), python3-pyqt6, pkexec | policykit-1` (pkexec first: `policykit-1` has no candidate on Debian 13, measured with `apt-cache policy`). The release
   workflow builds both, lists both in `SHA256SUMS`, and installs and removes
   both in the Parrot container before publishing.
 - **Tests without a display:** state parsing, `target()`, which icon and
