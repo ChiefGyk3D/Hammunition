@@ -1,0 +1,47 @@
+{
+  "schema": "hammunition/1",
+  "kind": "update",
+  "engine": "<engine>",
+  "target": {
+    "distro": "debian",
+    "version": "13",
+    "arch": "x86_64",
+    "id_like": [],
+    "pretty_name": "Debian GNU/Linux 13",
+    "description": "Debian GNU/Linux 13 (ID=debian, version=13, arch=x86_64)",
+    "debian_family": true
+  },
+  "from_log": false,
+  "rows": [
+    {
+      "unit": "fixture-apt",
+      "state": "candidate differs",
+      "detail": "fixture-apt 1.0 -> 1.1",
+      "strategy": "reinstall",
+      "upgradable": [
+        "fixture-apt"
+      ]
+    },
+    {
+      "unit": "fixture-source",
+      "state": "unknown",
+      "detail": "declares no binaries and no tree marker, so nothing on disk can be checked",
+      "strategy": "rebuild",
+      "upgradable": []
+    }
+  ],
+  "counts": {
+    "up_to_date": 0,
+    "candidate_differs": 1,
+    "behind_pin": 0,
+    "not_installed": 0,
+    "unknown": 1,
+    "on_install": 0,
+    "manual": 0
+  },
+  "lists_note": "last refreshed 2026-09-28 08:00 EDT (`sudo apt-get update` refreshes them; this report does not)",
+  "upgrade_command": "sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes --only-upgrade --no-remove -- fixture-apt",
+  "rebuild_command": null,
+  "upstream_declared": [],
+  "upstream": null
+}

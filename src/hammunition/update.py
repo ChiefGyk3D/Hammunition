@@ -341,6 +341,32 @@ def requested_units(entries: Iterable[Mapping[str, Any]]) -> tuple[str, ...]:
     return tuple(seen)
 
 
+def upgrade_command(report: UpdateReport) -> str | None:
+    """The command that takes apt's differing candidates, or None when none differ."""
+    if not report.upgradable:
+        return None
+    return (
+        "sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes --only-upgrade "
+        f"--no-remove -- {' '.join(report.upgradable)}"
+    )
+
+
+def rebuild_command(report: UpdateReport) -> str | None:
+    """The command that rebuilds every unit behind the pin, or None.
+
+    `install osm-regions` alone never reconverts the derived maps, since
+    osm-navit's dependency on it is one-directional (fix round 1, M2), so
+    `osm-navit` is named alongside it here too when it is not already in the
+    list.
+    """
+    if not report.behind:
+        return None
+    names = list(report.behind)
+    if "osm-regions" in names and "osm-navit" not in names:
+        names.append("osm-navit")
+    return f"hammunition install {' '.join(names)}"
+
+
 def render(report: UpdateReport, *, lists_note: str, upstream_asked: bool = False) -> str:
     """The report as the terminal shows it."""
     width = max((len(row.unit) for row in report.rows), default=8)
@@ -355,25 +381,18 @@ def render(report: UpdateReport, *, lists_note: str, upstream_asked: bool = Fals
         f"{report.count(ON_INSTALL)} re-checked on install, {report.count(MANUAL)} manual."
     )
     out.append(f"apt lists: {lists_note}")
-    if report.upgradable:
+    upgrade = upgrade_command(report)
+    if upgrade is not None:
         out.append("")
         out.append(
             "To take apt's candidates (upgrade only, never a removal; apt decides the rest):"
         )
-        out.append(
-            "  $ sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes --only-upgrade "
-            f"--no-remove -- {' '.join(report.upgradable)}"
-        )
-    if report.behind:
+        out.append(f"  $ {upgrade}")
+    rebuild = rebuild_command(report)
+    if rebuild is not None:
         out.append("")
         out.append("To rebuild at the catalog's pin:")
-        names = list(report.behind)
-        # osm-regions behind its pin needs osm-navit named too (fix round 1,
-        # M2): `install osm-regions` alone never reconverts the derived
-        # maps, since osm-navit's dependency is one-directional.
-        if "osm-regions" in names and "osm-navit" not in names:
-            names.append("osm-navit")
-        out.append(f"  $ hammunition install {' '.join(names)}")
+        out.append(f"  $ {rebuild}")
     if report.upstream_declared and not upstream_asked:
         out.append("")
         out.append(
