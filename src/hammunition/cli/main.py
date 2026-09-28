@@ -1101,7 +1101,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         node_root=node_root(user or None),
         bin_dir=user_bin_dir(user or None),
     )
-    data = DataBackend(fetcher=source.fetcher, prefix=source.prefix)
+    data = DataBackend(fetcher=source.fetcher, prefix=source.prefix, runner=runner)
     regions = RegionsBackend(fetcher=source.fetcher, prefix=source.prefix, files=region_files)
     derived = DerivedBackend(prefix=source.prefix, files=region_files)
     if region_files:

@@ -19,15 +19,15 @@ it whole from the log's ``install-data`` records without guessing.
 from __future__ import annotations
 
 import os
-import shutil
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 
 from ..fetch import Fetcher
 from ..manifest.schema import DataArtifact, DataInstall, PackageManifest
-from .base import Action, BackendError, Command
+from .base import Action, BackendError, Command, CommandRunner
 from .source import extract, needs_root_for
+from .verified import PrefixWriter
 
 
 def human_size(size: int) -> str:
@@ -46,6 +46,8 @@ class DataBackend:
 
     fetcher: Fetcher
     prefix: Path
+    runner: CommandRunner | None = None
+    """Escalates the copy into a root-owned prefix when the engine is not root."""
     method = "data"
 
     def data_dir(self, manifest: PackageManifest) -> Path:
@@ -103,11 +105,13 @@ class DataBackend:
         if path is None:  # pragma: no cover
             raise BackendError("the data artifact was not fetched before the install step")
         if artifact.format == "file":
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            # Copy, never move: the cache is content-addressed and shared.
-            shutil.copyfile(path, dest)
-            os.chmod(dest, 0o644)
-            return f"installed {dest} ({human_size(artifact.size)}, mode 0644)"
+            # Copy, never move: the cache is content-addressed and shared. And
+            # never trusted for having verified once -- the cache is the
+            # operator's and the prefix is root's, so the copy is opened
+            # without following a symlink and re-hashed on the way in.
+            writer = PrefixWriter(privileged=needs_root_for(self.prefix), runner=self.runner)
+            writer.install_verified(path, dest, algorithm="sha256", digest=artifact.sha256)
+            return f"installed {dest} ({human_size(artifact.size)}, mode 0644, sha256 re-verified)"
         outcome = extract(path, dest)
         installed = sorted(p for p in dest.rglob("*") if p.is_file())
         for p in installed:
