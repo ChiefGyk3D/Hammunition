@@ -36,9 +36,8 @@ import tempfile
 import textwrap
 from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime
-from importlib import metadata
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TextIO, cast
 
 from hammunition import navit_config
 from hammunition.backends import (
@@ -108,6 +107,8 @@ from hammunition.geofabrik import (
 )
 from hammunition.geofabrik import resolve as resolve_region
 from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH, describe_refusal
+from hammunition.interface import envelope
+from hammunition.interface.text import wrap as _wrap
 from hammunition.kernel import KernelProbe
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
@@ -1996,22 +1997,6 @@ def cmd_show(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def _wrap(text: str, *, indent: str, width: int = 88) -> list[str]:
-    """Wrap manifest prose to a readable width.
-
-    The `detail` on a system modification is a paragraph — it has to be, since
-    it is the operator's only account of what a group membership actually
-    grants — and printing it as one 400-column line is how a disclosure becomes
-    something nobody reads.
-    """
-    return textwrap.wrap(
-        " ".join(text.split()),
-        width=width,
-        initial_indent=indent,
-        subsequent_indent=indent,
-    )
-
-
 def _prompt(text: str) -> bool:
     """Yes/no on the terminal. Anything that is not an explicit yes is a no."""
     print(text)
@@ -2914,10 +2899,28 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
 def _engine_version() -> str:
     """The installed package version, or a marker when running uninstalled."""
-    try:
-        return metadata.version("hammunition")
-    except metadata.PackageNotFoundError:
-        return "0+uninstalled"
+    return envelope.engine_version()
+
+
+def _add_json_flag(parser: argparse.ArgumentParser, *, top: bool) -> None:
+    """``--json`` on the top-level parser and on every subcommand, recursively.
+
+    Accepted on both sides of the verb, ``hammunition --json status`` and
+    ``hammunition status --json``. A subcommand's copy defaults to SUPPRESS,
+    so an absent flag after the verb does not overwrite one given before it.
+    Walked rather than listed, so a verb added later carries it without
+    anyone remembering to (D-059).
+    """
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        default=False if top else argparse.SUPPRESS,
+        help="print one JSON document on stdout instead of text (docs/reference/json-interface.md)",
+    )
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            for child in action.choices.values():
+                _add_json_flag(child, top=False)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -3157,30 +3160,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_station_set.add_argument("--user", default=None, help="whose configuration to write")
     p_station_set.set_defaults(func=cmd_station_set)
 
+    _add_json_flag(parser, top=True)
     return parser
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    # Line-buffer stdout even when it is not a terminal. A whole-profile
-    # install redirected to a file showed 0 bytes for the forty minutes it
-    # ran (Kali VM, 2026-09-02): Python block-buffers a pipe, so every `$
-    # command` header sat in memory while the child processes, which write
-    # to the same descriptor directly, streamed past it -- a log that is
-    # empty until exit, and then out of order. An install that is killed
-    # mid-way loses the whole record. Line buffering costs nothing an
-    # installer notices.
-    reconfigure = getattr(sys.stdout, "reconfigure", None)
-    if reconfigure is not None:
-        reconfigure(line_buffering=True)
-    parser = build_parser()
-    args = parser.parse_args(argv)
-    if not getattr(args, "func", None):
-        # Bare `hammunition`: print the top-level help and exit cleanly, which
-        # is friendlier than argparse's "command is required" error for someone
-        # running it for the first time. (Group verbs keep required sub-verbs,
-        # so `hammunition hardware` still gets argparse's standard message.)
-        parser.print_help()
-        return EXIT_OK
+def _dispatch(args: argparse.Namespace) -> int:
+    """Run the chosen command, turning operator-input errors into exit codes."""
     try:
         result: int = args.func(args)
     except CatalogError as exc:
@@ -3196,6 +3181,91 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("\nInterrupted. Nothing further was run.", file=sys.stderr)
         return EXIT_FAILED
     return result
+
+
+def _exit_code(exc: SystemExit) -> int:
+    """The status the interpreter would exit with for *exc*."""
+    if exc.code is None:
+        return EXIT_OK
+    if isinstance(exc.code, int):
+        return exc.code
+    return EXIT_FAILED  # SystemExit("message") prints it and exits 1
+
+
+def _main_json(arguments: list[str]) -> int:
+    """``--json``: exactly one document on stdout, on every path.  D-059.
+
+    Both standard streams point at a recording tee over the real stderr
+    while the command runs, so nothing it prints can reach stdout; the
+    document goes to the real stdout through :func:`envelope.emit`. A run
+    that ends without one gets an error document with the same exit code.
+    """
+    real_stdout, real_stderr = sys.stdout, sys.stderr
+    tee = envelope.Tee(real_stderr)
+    sys.stdout = sys.stderr = cast(TextIO, tee)
+    envelope.begin(real_stdout)
+    try:
+        try:
+            args = build_parser().parse_args(arguments)
+        except SystemExit as exc:
+            code = _exit_code(exc)
+            if code == EXIT_OK:
+                return EXIT_OK  # --help or --version: printed to stderr, not a document
+            envelope.emit(
+                envelope.ErrorDocument(command="", exit_code=code, message=tee.text().strip())
+            )
+            return code
+        command = envelope.command_name(args)
+        why = envelope.refusal(args)
+        if why is not None:
+            print(f"error: {why}", file=sys.stderr)
+            envelope.emit(
+                envelope.ErrorDocument(
+                    command=command, exit_code=EXIT_UNPLANNABLE, message=tee.text().strip()
+                )
+            )
+            return EXIT_UNPLANNABLE
+        try:
+            code = _dispatch(args)
+        except SystemExit as exc:
+            code = _exit_code(exc)
+            if isinstance(exc.code, str):
+                print(exc.code, file=sys.stderr)
+        if not envelope.emitted():
+            envelope.emit(
+                envelope.ErrorDocument(command=command, exit_code=code, message=tee.text().strip())
+            )
+        return code
+    finally:
+        envelope.end()
+        sys.stdout, sys.stderr = real_stdout, real_stderr
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    # Line-buffer stdout even when it is not a terminal. A whole-profile
+    # install redirected to a file showed 0 bytes for the forty minutes it
+    # ran (Kali VM, 2026-09-02): Python block-buffers a pipe, so every `$
+    # command` header sat in memory while the child processes, which write
+    # to the same descriptor directly, streamed past it -- a log that is
+    # empty until exit, and then out of order. An install that is killed
+    # mid-way loses the whole record. Line buffering costs nothing an
+    # installer notices.
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is not None:
+        reconfigure(line_buffering=True)
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if "--json" in arguments:
+        return _main_json(arguments)
+    parser = build_parser()
+    args = parser.parse_args(arguments)
+    if not getattr(args, "func", None):
+        # Bare `hammunition`: print the top-level help and exit cleanly, which
+        # is friendlier than argparse's "command is required" error for someone
+        # running it for the first time. (Group verbs keep required sub-verbs,
+        # so `hammunition hardware` still gets argparse's standard message.)
+        parser.print_help()
+        return EXIT_OK
+    return _dispatch(args)
 
 
 if __name__ == "__main__":  # pragma: no cover

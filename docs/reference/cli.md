@@ -42,6 +42,14 @@ answer.
 `--version` prints the engine version and exits. `--catalog DIR` points at a
 catalog other than the checkout's own.
 
+`--json`, before or after the verb, prints one JSON document on stdout instead
+of text, for a front end to read; diagnostics go to stderr and the exit code is
+unchanged. Every document, and which commands have one, is in
+[json-interface.md](json-interface.md), generated from the code (**D-059**).
+`install` and `uninstall` accept it only with `--dry-run`: a real install is
+never driven through JSON. A command with no JSON form refuses it and runs
+nothing.
+
 ## Verbs
 
 ### `hammunition status`
