@@ -4576,6 +4576,63 @@ regions* section; `catalog/packages/navit.yaml`,
 `catalog/data/geofabrik-pins.yaml` and its generator; the weekly `--check`.
 The operator's page is `docs/guides/offline-navigation.md`.
 
+### Amendment (2026-09-28): Navit opens on the maps and follows the GPS; the map factor is 0.9
+
+The maintainer installed two US-state-sized regions on the field laptop
+with `hammunition install navigation`. Every step verified, and Navit
+opened on a blank screen. Three findings, each fixed where it arose:
+
+**Navit opened on Munich.** The generated configuration kept the stock
+`<navit center="11.5666 48.1333">`, and no map existed there. The two
+anchored changes above are now four. The configuration step reads the
+bounding box from the first installed region's `.osm.pbf` header and
+centres Navit on its midpoint, written as the stock file writes it
+(`"lon lat"`, four decimals). `src/hammunition/osm_pbf.py` reads only the
+file's first blob, the `OSMHeader`: a 4-byte length, a `BlobHeader` that
+must say `OSMHeader`, and a raw or zlib `Blob`. It uses the standard
+library only, and both the packed and the inflated size are capped at
+1 MiB. A region is gigabytes and its header a few hundred bytes. A region
+that did not convert gives way to the next. So does one whose header has
+no bbox (the format allows that) and one whose header cannot be read. That
+last case is named in the step's outcome and does not fail the step: a
+configuration that opens on the stock centre still loads every map, and
+failing the step would leave Navit no configuration and hide the ledger's
+report of a region that did fail. The stock centre is used only on Navit's
+first start. After that Navit restores its last view from
+`~/.navit/center.txt`. A machine that has already opened on Munich goes
+back there until that file is removed, which the guide's troubleshooting
+entry says, with the command.
+
+**The view never moved to the GPS**, even with a 3D fix. The gpsd
+`<vehicle>` lacked `follow="1"`, which Navit's own stock comment says to
+add "to have the view centered on your position". It is added to the one
+enabled vehicle reading `gpsd://`. Anchors are matched outside comments,
+because the stock file comments out two vehicles of its own, one of them on
+gpsd. The step refuses unless there is exactly one, and leaves a vehicle
+that already says `follow=` as it is.
+
+**The disk estimate was low.** The two regions converted at **0.874×** and
+**0.856×** the download, against the 0.8× set above from the country-sized
+region's 0.77×. The factor is now **0.9×**, which is above all three. The plan's wording
+is "an estimate, measured on three regions, scratch on one", because the
+2× scratch factor still comes from the country-sized region alone.
+
+**maptool left scratch behind** after a successful conversion:
+`country_*_broken_.tmp` and `country_*_poly_.tmp` in
+`~/.cache/hammunition/build/osm-navit/`. Once a region's `.bin` is
+installed, exactly those are removed: regular files whose whole name has
+one of the two shapes, in the staging directory only. They are removed by
+name through a descriptor from `open_operator_dir`, which walks
+`O_NOFOLLOW` from the operator's home. A symlink or directory with such a
+name, any other `.tmp`, and another region's `.bin.part` stay. The plan
+line for each map install says this. A failure to clear is named in the
+outcome and does not fail the run, because the map is installed and the
+files are the operator's.
+
+Not yet measured: a configuration written by this change, on the field
+laptop. The maintainer is testing a hand-edited copy with the same two
+edits.
+
 ## D-060 — A unit may be for particular desktops: read from the session files, deferred from a profile on a machine with none of them, refused by name; Plasma first, Xfce and LXQt welcomed
 
 **Date:** 2026-09-28. **Status:** accepted (maintainer, 2026-09-28, on the

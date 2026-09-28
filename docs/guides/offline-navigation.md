@@ -189,8 +189,9 @@ navit-offline
 ```
 
 It opens Navit with a configuration Hammunition writes: Debian's own
-`/etc/navit/navit.xml` with every installed region added and spoken
-directions through `espeak-ng`. That configuration lives at
+`/etc/navit/navit.xml` with every installed region added, the first start
+centred on the first of your regions, the view following your GPS receiver,
+and spoken directions through `espeak-ng`. That configuration lives at
 `/usr/local/share/hammunition/data/osm-navit/navit.xml` and is rewritten on
 every install, so do not edit it by hand. Plain `navit` still runs Debian's
 configuration, untouched, and your `~/.navit` directory (bookmarks, the last
@@ -345,6 +346,42 @@ list stays exactly what that script says.
 
 ---
 
+## Troubleshooting
+
+### Navit opens on a blank map
+
+A plain grey or black screen with no roads, even with a GPS fix, means
+Navit is looking at a place where you have no map.
+
+**Configurations written by Hammunition 0.10.0 and earlier** kept Navit's
+stock starting point, which is Munich, and did not tell Navit to follow the
+GPS: the view stayed in Germany whatever the receiver said. Run the install
+again and the configuration is rewritten to start on the first of your
+regions and to follow the receiver:
+
+```
+hammunition install navigation
+```
+
+**Navit remembers where you last looked.** The starting point in the
+configuration is only used the first time: after that, Navit restores its
+last view from `~/.navit/center.txt`. If that file was written while the
+view sat on Munich, Navit goes back there on every start, new configuration
+or not. Remove it, and the next start opens on your maps:
+
+```
+rm -f ~/.navit/center.txt
+```
+
+It holds nothing but that last position; your bookmarks and destinations
+are in other files in `~/.navit/` and are not affected.
+
+**If it is still blank**, check that you have a fix (`cgps` in a terminal)
+and that the fix is inside one of your regions: a map of one state shows
+nothing while you are in another.
+
+---
+
 ## Removing it
 
 ```
@@ -365,7 +402,9 @@ These are built, and are not claimed until they have run on the field
 laptop and been recorded in `docs/reference/bench-verification-5430.md`:
 
 - The whole install through Hammunition on real hardware. The conversion
-  figures above come from one region converted by hand.
+  time and scratch figures above come from one region converted by hand;
+  the map-size factor also rests on two US-state-sized regions converted on
+  the field laptop on 2026-09-28.
 - **Routing from one region into the next.** Each region is converted into
   its own map. Whether Navit routes across the border between two of them,
   a trip from Vermont into New Hampshire, has not been tested. Until it has,
