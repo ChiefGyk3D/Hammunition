@@ -60,7 +60,7 @@ from hammunition.backends import (
     VenvBackend,
 )
 from hammunition.backends.apt import stale_fetches
-from hammunition.backends.dem import TerrainDisclosure
+from hammunition.backends.dem import TIF, TerrainDisclosure
 from hammunition.backends.regions import (
     KeptRegion,
     MapDisclosure,
@@ -68,18 +68,19 @@ from hammunition.backends.regions import (
     MapResolution,
     data_root,
     disk_needs,
-    disk_shortfall,
     installed_slugs,
     installed_snapshot,
     region_current,
 )
 from hammunition.backends.source import DEFAULT_PREFIX
+from hammunition.backends.terrain import combined_shortfall
 from hammunition.consent import (
     ConsentDeclined,
     ConsentUnavailable,
     resolve_consent,
     resolve_repo_consent,
 )
+from hammunition.copernicus import CopernicusError, S3Probe
 from hammunition.country_boundaries import BoundarySource, CountryBoundaryError, boundary_source
 from hammunition.desktop import current_desktop, scan_sessions
 from hammunition.distro import DetectionError, Target
@@ -115,6 +116,7 @@ from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
 from hammunition.manifest.schema import (
     AptInstall,
     BinaryInstall,
+    DemTilesInstall,
     DerivedDataInstall,
     PackageManifest,
     ProfileManifest,
@@ -140,6 +142,7 @@ from hammunition.station import (
     prompt_for,
     save_station,
 )
+from hammunition.terrain_plan import build_terrain_run, resolve_station_terrain
 from hammunition.update import region_snapshots, render, report, requested_units
 from hammunition.upstream import (
     NOT_UPSTREAM,
@@ -565,7 +568,14 @@ def cmd_update(args: argparse.Namespace) -> int:
         if isinstance(planned.block.install, RegionalDataInstall)
     }
 
-    result = report(plan, apt_states=states, present=present, built=built, regions=regions_by_unit)
+    result = report(
+        plan,
+        apt_states=states,
+        present=present,
+        built=built,
+        regions=regions_by_unit,
+        tiles=installed_tile_counts(plan, source.prefix),
+    )
     lists_note = _apt_lists_note(apt)
     upstream = _upstream_rows(plan, runner) if args.upstream else None
     if envelope.wanted(args):
@@ -1035,6 +1045,17 @@ def map_borders(
         raise CountryBoundaryError(str(exc)) from exc
 
 
+def installed_tile_counts(plan: InstallPlan, prefix: Path) -> dict[str, int]:
+    """dem-tiles, offline (D-061): how many tiles each unit has installed,
+    never which. Counted from the ``.tif`` files on disk, not the regions'
+    ``.tiles`` records, which are written even when a tile failed."""
+    return {
+        planned.name: sum(1 for _ in (data_root(prefix) / planned.name).glob(f"*{TIF}"))
+        for planned in plan.packages
+        if isinstance(planned.block.install, DemTilesInstall)
+    }
+
+
 def map_work(
     plan: InstallPlan, regions: RegionsBackend, derived: DerivedBackend
 ) -> tuple[list[RegionFile], list[RegionFile]]:
@@ -1045,10 +1066,14 @@ def map_work(
         if isinstance(p.block.install, RegionalDataInstall)
         for f in regions.pending(p.manifest)
     ]
+    # Navit's conversions only: piece 2's converters count their own work
+    # (hammunition.terrain_plan.TerrainRun), and derived.pending() reads
+    # Navit's `.bin` files, which an osm-garmin unit has none of.
     conversions = [
         f
         for p in plan.packages
         if isinstance(p.block.install, DerivedDataInstall)
+        and p.block.install.converter == "navit-maptool"
         for f in derived.pending(p.manifest)
     ]
     return downloads, conversions
@@ -1057,11 +1082,13 @@ def map_work(
 def leftover_maps_note(plan: InstallPlan, prefix: Path) -> str | None:
     """Map data still installed while no map regions are set, named with its removal."""
     units = sorted(d.subject for d in plan.deferrals if d.why == NO_MAP_REGIONS)
+    # Piece 1's regions and Navit maps, and piece 2's Garmin maps, Routino
+    # database and terrain tiles (D-061).
+    patterns = ("*.osm.pbf", "*.bin", "*.img", "*.mem", f"*{TIF}")
     found = [
         data_root(prefix) / unit
         for unit in units
-        if any((data_root(prefix) / unit).glob("*.osm.pbf"))
-        or any((data_root(prefix) / unit).glob("*.bin"))
+        if any(any((data_root(prefix) / unit).glob(pattern)) for pattern in patterns)
     ]
     if not found:
         return None
@@ -1244,6 +1271,23 @@ def cmd_install(args: argparse.Namespace) -> int:
         return EXIT_UNPLANNABLE
     region_files = list(resolution.files)
     kept = frozenset(k.slug for k in resolution.kept)
+    # D-061: terrain tiles for the same regions, resolved before the plan
+    # prints for the same reason -- each tile's size and how it is verified
+    # are the disclosure.
+    try:
+        dem_resolution = resolve_station_terrain(
+            plan,
+            resolution,
+            catalog_root,
+            prefix=source.prefix,
+            region_probe=UrllibProbe(),
+            tile_probe=S3Probe(),
+        )
+    except CopernicusError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        print("\nNothing was changed.", file=sys.stderr)
+        refused("terrain", str(exc))
+        return EXIT_UNPLANNABLE
     region_notes = list(resolution.notes)
     try:
         border, countries, border_notes = map_borders(plan, packages, catalog_root, source.prefix)
@@ -1268,8 +1312,20 @@ def cmd_install(args: argparse.Namespace) -> int:
         runner=runner,
     )
     # maptool runs as the operator into the operator's build tree; only the
-    # install of its verified output into the prefix is privileged.
+    # install of its verified output into the prefix is privileged. Piece 2's
+    # converters (D-061) do the same, each in its own staging directory.
     map_staging = builds / "osm-navit"
+    terrain = build_terrain_run(
+        prefix=source.prefix,
+        builds=builds,
+        owner=user or None,
+        runner=runner,
+        fetcher=source.fetcher,
+        files=region_files,
+        keep=kept,
+        regions=ledger,
+        resolution=dem_resolution,
+    )
     derived = DerivedBackend(
         prefix=source.prefix,
         files=region_files,
@@ -1280,6 +1336,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         runner=runner,
         boundaries=border,
         countries=countries,
+        converters=terrain.converters,
     )
     # Only regions not already installed at their snapshot are downloaded,
     # counted and listed as downloads (the dry run is the run); a region
@@ -1306,16 +1363,20 @@ def cmd_install(args: argparse.Namespace) -> int:
         )
         else None
     )
-    if pending or conversions:
-        # Refused at plan time, before anything is confirmed, with both numbers.
-        short = disk_shortfall(
+    terrain_view = terrain.disclosure(plan)
+    terrain_disk = terrain.needs(plan, cache=source.fetcher.cache_dir, prefix=source.prefix)
+    if pending or conversions or any(terrain_disk.values()):
+        # Refused at plan time, before anything is confirmed, with both numbers:
+        # piece 1's and piece 2's needs together, per filesystem (D-061).
+        short = combined_shortfall(
             disk_needs(
                 pending,
                 conversions,
                 cache=source.fetcher.cache_dir,
                 staging=map_staging,
                 prefix=source.prefix,
-            )
+            ),
+            terrain_disk,
         )
         if short is not None:
             print(f"error: {short}", file=sys.stderr)
@@ -1340,6 +1401,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         data=data,
         regions=regions,
         derived=derived,
+        dem=terrain.dem,
         repos=repos,
         config_staging=builds,
         launcher_bin=user_bin_dir(user or None),
@@ -1366,6 +1428,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         suggestion_notes=suggestion_notes,
         maps=maps,
         region_notes=region_notes,
+        terrain=terrain_view,
     )
     if envelope.wanted(args):
         # Reached only with --dry-run: main() refuses a real install under

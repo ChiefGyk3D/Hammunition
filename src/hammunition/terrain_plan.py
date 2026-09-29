@@ -28,20 +28,42 @@ resolved, and every such one is named together in one
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
-from .backends.dem import TIF, TILES, DemResolution, RegionTiles, read_record
+from .backends.base import CommandRunner
+from .backends.dem import (
+    TIF,
+    TILES,
+    DemResolution,
+    DemTilesBackend,
+    RegionTiles,
+    TerrainDisclosure,
+    read_record,
+)
+from .backends.derived import Converter
+from .backends.garmin import MKGMAP_HEAP, SPLITTER_HEAP, GarminConverter
+from .backends.gdal_dem import GdalDemConverter
+from .backends.regions import MapLedger, MapResolution, data_root
+from .backends.routino import RoutinoConverter, Source
+from .backends.staging import Staging
+from .backends.terrain import TerrainLedger, TerrainWork, terrain_needs
 from .copernicus import (
     CopernicusError,
     TileFile,
     TilePin,
     TileProbe,
+    load_pins,
+    load_tile_list,
     parse_poly,
     resolve_tile,
     select,
     squares_touching,
 )
-from .geofabrik import BASE, GeofabrikError, Probe
+from .fetch import Fetcher
+from .geofabrik import BASE, GeofabrikError, Probe, RegionFile
+from .manifest.schema import DemTilesInstall, DerivedDataInstall
+from .plan import InstallPlan, PlannedPackage
 
 
 def poly_url(region: str) -> str:
@@ -110,3 +132,198 @@ def resolve_terrain(
             f"already:\n" + "\n".join(refused)
         )
     return DemResolution(regions=tuple(entries), fetch=tuple(fetch), current=tuple(current))
+
+
+# ---------------------------------------------------------------------------
+# The whole of piece 2 for one install run: which units the plan holds, the
+# backends that build them, what the plan discloses and what the disk needs.
+# ---------------------------------------------------------------------------
+
+TILE_LIST = Path("data") / "copernicus-glo30-tiles.txt"
+PINS = Path("data") / "copernicus-glo30-pins.yaml"
+#: The splitter's heap through ``JAVA_OPTS``, mkgmap's through
+#: ``JAVA_TOOL_OPTIONS``: Debian's mkgmap wrapper ignores ``JAVA_OPTS``
+#: (Task 6 review, I2), so one variable alone would leave mkgmap on the JVM's
+#: default heap.
+SPLITTER_ENV = {"JAVA_OPTS": SPLITTER_HEAP, "JAVA_TOOL_OPTIONS": MKGMAP_HEAP}
+
+
+def _planned(
+    plan: InstallPlan, method: type[object], converter: str | None = None
+) -> PlannedPackage | None:
+    for planned in plan.packages:
+        block = planned.block.install
+        if isinstance(block, method) and (
+            converter is None or getattr(block, "converter", None) == converter
+        ):
+            return planned
+    return None
+
+
+def resolve_station_terrain(
+    plan: InstallPlan,
+    maps: MapResolution,
+    catalog_root: Path,
+    *,
+    prefix: Path,
+    region_probe: Probe,
+    tile_probe: TileProbe,
+) -> DemResolution:
+    """The plan's terrain, or an empty resolution when it holds no dem-tiles unit.
+
+    The regions are this run's resolved files and the ones kept offline.
+    A missing tile list is refused by name: without it every square would
+    look like sea, and a region would silently get no terrain.
+
+    A region's record is written only when its terrain is installed, so until
+    then every plan -- a dry run included -- asks for its outline again; the
+    plan says so (Task 10's note, ruled at Task 13: no plan-time cache, which
+    under sudo would be a root-owned file in the operator's cache)."""
+    unit = _planned(plan, DemTilesInstall)
+    if unit is None:
+        return DemResolution()
+    listed = catalog_root / TILE_LIST
+    try:
+        tile_list = load_tile_list(listed)
+    except OSError as exc:
+        raise CopernicusError(
+            f"the Copernicus tile list {listed} cannot be read ({exc.strerror or exc}); "
+            f"it is carried in the catalog, and scripts/gen_copernicus_pins.py --refresh-list "
+            f"writes it"
+        ) from exc
+    pins_path = catalog_root / PINS
+    pins = load_pins(pins_path) if pins_path.is_file() else {}
+    regions = [(f.region, f.slug) for f in maps.files]
+    ours = {slug for _, slug in regions}
+    regions += [(k.region, k.slug) for k in maps.kept if k.slug not in ours]
+    return resolve_terrain(
+        regions,
+        installed=data_root(prefix) / unit.name,
+        tile_list=tile_list,
+        pins=pins,
+        region_probe=region_probe,
+        tile_probe=tile_probe,
+    )
+
+
+@dataclass(frozen=True)
+class TerrainRun:
+    """Piece 2's backends for one run, sharing one :class:`TerrainLedger`."""
+
+    ledger: TerrainLedger
+    dem: DemTilesBackend
+    garmin: GarminConverter
+    routino: RoutinoConverter
+    gdal: GdalDemConverter
+
+    @property
+    def converters(self) -> dict[str, Converter]:
+        return {
+            "mkgmap": self.garmin,
+            "routino-planetsplitter": self.routino,
+            "gdal-dem": self.gdal,
+        }
+
+    def disclosure(self, plan: InstallPlan) -> TerrainDisclosure | None:
+        """What the plan says about piece 2; None when it holds none of its units."""
+        dem = _planned(plan, DemTilesInstall)
+        garmin = _planned(plan, DerivedDataInstall, "mkgmap")
+        routino = _planned(plan, DerivedDataInstall, "routino-planetsplitter")
+        gdal = _planned(plan, DerivedDataInstall, "gdal-dem")
+        if not (dem or garmin or routino or gdal):
+            return None
+        sources = self._routino_sources(routino)
+        # Contours from the tiles still to draw; `drawing` from those and the
+        # record check -- not from a count of steps, which would count a
+        # removal as drawing (Task 12 review).
+        contours = self.gdal.pending(gdal.manifest) if gdal is not None else []
+        drawing = gdal is not None and (bool(contours) or not self.gdal.current(gdal.manifest))
+        licence = dem.block.install if dem is not None else None
+        return TerrainDisclosure(
+            resolution=self.dem.resolution if dem is not None else DemResolution(),
+            licence=licence.licence if isinstance(licence, DemTilesInstall) else "",
+            licence_url=licence.licence_url if isinstance(licence, DemTilesInstall) else "",
+            garmin=tuple(self.garmin.pending(garmin.manifest)) if garmin is not None else (),
+            routino_regions=len(sources),
+            routino_total=sum(s.size for s in sources),
+            contours=len(contours),
+            drawing=drawing,
+        )
+
+    def _routino_sources(self, routino: PlannedPackage | None) -> list[Source]:
+        if routino is None or not isinstance(routino.block.install, DerivedDataInstall):
+            return []
+        return self.routino.pending(routino.manifest, routino.block.install)
+
+    def needs(self, plan: InstallPlan, *, cache: Path, prefix: Path) -> dict[Path, int]:
+        """Bytes piece 2 needs per directory this run; empty when it has no units."""
+        disclosed = self.disclosure(plan)
+        if disclosed is None:
+            return {}
+        work = TerrainWork(
+            tiles=sum(t.size for t in disclosed.resolution.fetch),
+            garmin=tuple(f.size for f in disclosed.garmin),
+            routino=disclosed.routino_total,
+            contour_tiles=disclosed.contours,
+        )
+        return terrain_needs(
+            work,
+            cache=cache,
+            garmin_staging=self.garmin.staging.directory,
+            routino_staging=self.routino.staging.directory,
+            contour_staging=self.gdal.staging.directory,
+            prefix=prefix,
+        )
+
+
+def build_terrain_run(
+    *,
+    prefix: Path,
+    builds: Path,
+    owner: str | None,
+    runner: CommandRunner | None,
+    fetcher: Fetcher,
+    files: Sequence[RegionFile],
+    keep: frozenset[str],
+    regions: MapLedger,
+    resolution: DemResolution,
+) -> TerrainRun:
+    """Every piece-2 backend for one run. Each converter stages in its own
+    directory under the operator's build tree and runs as the operator."""
+    ledger = TerrainLedger()
+    return TerrainRun(
+        ledger=ledger,
+        dem=DemTilesBackend(
+            fetcher=fetcher,
+            prefix=prefix,
+            resolution=resolution,
+            keep=keep,
+            ledger=ledger,
+            runner=runner,
+        ),
+        garmin=GarminConverter(
+            prefix=prefix,
+            files=files,
+            staging=Staging(builds / "osm-garmin", owner=owner, environ=SPLITTER_ENV),
+            keep=keep,
+            regions=regions,
+            ledger=ledger,
+            runner=runner,
+        ),
+        routino=RoutinoConverter(
+            prefix=prefix,
+            files=files,
+            staging=Staging(builds / "osm-routino", owner=owner),
+            keep=keep,
+            regions=regions,
+            ledger=ledger,
+            runner=runner,
+        ),
+        gdal=GdalDemConverter(
+            prefix=prefix,
+            resolution=resolution,
+            staging=Staging(builds / "dem-qmapshack", owner=owner),
+            ledger=ledger,
+            runner=runner,
+        ),
+    )
