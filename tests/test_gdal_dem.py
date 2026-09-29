@@ -30,6 +30,9 @@ from hammunition.backends.staging import REFUSED, Staging
 from hammunition.backends.terrain import TerrainLedger, tile_key
 from hammunition.manifest.schema import DerivedDataInstall, PackageManifest
 
+#: The engine is not root, whoever runs the suite (``unshare -r`` included).
+NOT_ROOT = 1000
+
 A = "Copernicus_DSM_COG_10_N00_00_E000_00_DEM"
 B = "Copernicus_DSM_COG_10_S01_00_W001_00_DEM"
 RESOLUTION = DemResolution(
@@ -97,7 +100,9 @@ def _actions(steps: list[Action | Command]) -> list[Action]:
 
 def _converter(tmp_path: Path, **kw: Any) -> GdalDemConverter:
     kw.setdefault("resolution", RESOLUTION)
-    return GdalDemConverter(prefix=tmp_path, staging=Staging(tmp_path / "staging"), **kw)
+    return GdalDemConverter(
+        prefix=tmp_path, staging=Staging(tmp_path / "staging", euid=NOT_ROOT), **kw
+    )
 
 
 def _run(conv: GdalDemConverter) -> list[str]:
