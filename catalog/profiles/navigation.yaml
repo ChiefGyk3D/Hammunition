@@ -97,5 +97,6 @@ documentation:
     the Garmin map at 0.85 times the download with up to three times it of
     scratch, and the Routino database over every region at 0.67 times all
     the downloads together with up to six times of scratch. Terrain: about
-    39 MB per elevation tile, tens of tiles for a US state, and about 5.5 MB
-    of contours per tile.
+    39 MB per elevation tile, tens to hundreds of tiles a region (over 90,
+    about 3.6 GB, for the largest contiguous US states; 449, about 17.5 GB,
+    for Alaska), and about 5.5 MB of contours per tile.

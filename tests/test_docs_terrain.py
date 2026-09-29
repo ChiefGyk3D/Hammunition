@@ -119,3 +119,40 @@ def test_no_real_tile_name_in_prose() -> None:
     for path in (DECISIONS, GUIDE, CLI, REPO_ROOT / "README.md"):
         found = set(TILE.findall(path.read_text())) - SYNTHETIC
         assert not found, f"{path.name} names {sorted(found)}"
+
+
+MANIFEST = REPO_ROOT / "catalog" / "packages" / "dem-copernicus.yaml"
+
+
+def test_the_docs_say_what_was_measured_about_the_antimeridian_and_tile_counts() -> None:
+    """Final review, I2 (D-018, D-025): Alaska, Fiji, New Zealand and Russia's
+    far east were selected through the code with zero refusals, and a state's
+    terrain was measured at up to 449 tiles; the docs must say that."""
+    sources = {
+        "D-061": _d061(),
+        "the guide": GUIDE.read_text(),
+        "dem-copernicus": MANIFEST.read_text(),
+    }
+    for name, raw in sources.items():
+        text = " ".join(raw.split())
+        for stale in (
+            "Alaska and Fiji refuse",
+            "Alaska's Aleutians, Fiji) are refused",
+            "tens of them for a US state",
+            "tens for a US state",
+            "a little over a GB",
+            "A US state is tens of tiles",
+        ):
+            assert stale not in text, f"{name} still says {stale!r}"
+        for measured in ("449 tiles", "17.5 GB", "90 tiles", "3.6 GB", "1,447"):
+            assert measured in text, f"{name} does not state {measured!r}"
+    d061 = " ".join(_d061().split())
+    assert "jumps across ±180 as a single segment" in d061
+    guide = GUIDE.read_text()
+    planning = guide[guide.index("## Disk planning") :]
+    assert "449 tiles" in planning.split("\n---")[0], "the disk planning section lacks the range"
+
+
+def test_a_region_written_as_rings_meeting_at_180_is_documented_as_selected() -> None:
+    guide = " ".join(GUIDE.read_text().split())
+    assert "Alaska, Fiji, New Zealand and Russia's far east" in guide

@@ -48,9 +48,14 @@ documentation:
     Map regions set in station config; the tiles follow them. With none set
     this unit is deferred by name.
   known_problems: >-
-    A US state is tens of tiles, so hundreds of MB to a little over a GB;
-    the plan prints the count and size per region before anything
-    downloads. A tile with a row in catalog/data/copernicus-glo30-pins.yaml
+    A region is tens to hundreds of tiles. Measured on 2026-09-28: a
+    contiguous US state can exceed 90 tiles (about 3.6 GB), Alaska is 449
+    tiles (about 17.5 GB), and the 50 states and DC together are 1,447
+    tiles. The plan prints the count and size per region before anything
+    downloads. Regions reaching across the 180 degree meridian (Alaska,
+    Fiji, New Zealand, Russia's far east) select their tiles like any other;
+    only an outline edge that jumps across it in one segment would be
+    refused, and none measured does. A tile with a row in catalog/data/copernicus-glo30-pins.yaml
     is checked against a sha256 Hammunition measured ("sha256, pinned by
     Hammunition"); any other only against the MD5 in the publisher's object
     metadata ("MD5 from the publisher's object metadata; not pinned by

@@ -141,10 +141,10 @@ def _edge_squares(a: Point, b: Point, out: set[Square]) -> None:
     if abs(a[0] - b[0]) > 180.0:
         raise CopernicusError(
             f"an outline edge spans more than 180 degrees of longitude, from "
-            f"{a!r} to {b!r}; whether Geofabrik ever writes an antimeridian "
-            f"outline as this kind of jump (rather than unwrapped past +/-180, "
-            f"which squares_touching already folds back) is unmeasured, so it "
-            f"is refused rather than guessed at"
+            f"{a!r} to {b!r}; no Geofabrik outline measured jumps across +/-180 "
+            f"in one segment (Alaska, Fiji, New Zealand and Russia's far east are "
+            f"rings meeting it, D-061), so this one is refused rather than "
+            f"guessed at"
         )
     (x1, y1), (x2, y2) = sorted((a, b))
     for column in range(math.floor(x1), math.floor(x2) + 1):

@@ -5215,9 +5215,22 @@ answer is recorded in `data/dem-copernicus/<slug>.tiles` when the terrain
 installs. Until that first install, every plan fetches the outline again, a
 dry run included, and the plan says so. It is not cached at plan time,
 because a plan run under `sudo` would leave a root-owned file in the
-operator's cache. An outline edge that spans more than 180° of longitude is
-refused by name. How Geofabrik writes an outline across the antimeridian is
-unmeasured, so Alaska and Fiji refuse until it is measured.
+operator's cache.
+
+The antimeridian refusal applies only to an outline edge that jumps across
+±180 as a single segment, and no Geofabrik outline measured does that.
+Measured on 2026-09-28 through `parse_poly` and `squares_touching` on the
+live outlines: Geofabrik writes Alaska, Fiji, New Zealand and Russia's far
+east as separate rings that stop at ±180, and all four select their tiles
+with zero refusals (Alaska: 449 tiles, about 17.5 GB). An edge that does
+jump would still be refused by name, not unwrapped on a guess.
+
+A region's terrain is tens to hundreds of tiles, at about 39 MB a tile.
+Measured the same day over `gen_geofabrik_pins.REGIONS`: a contiguous US
+state can exceed 90 tiles (about 3.6 GB), Alaska is 449 tiles (about
+17.5 GB), and the 50 states and DC together touch 1,447 tiles. The plan
+prints each region's tile count and download size before anything is
+fetched, and the disk check counts them.
 
 ### Every tile is verified in one of D-057's two modes, and the plan names which
 
@@ -5244,7 +5257,7 @@ never says whose region was pinned first, and the generator has no
 
 Each tile is fetched into the shared cache, verified, installed and
 re-verified on the way in, and its cached copy is then deleted: a tile never
-changes, and a second copy of tens of tiles is gigabytes. A tile no region
+changes, and a second copy of tens to hundreds of tiles is gigabytes. A tile no region
 needs any more is removed.
 
 ### Converters run as the operator, one lock per build, and fail into their own ledger
@@ -5356,7 +5369,9 @@ or "hundreds".
   it.
 - **BRouter stays out**: its jar is pinnable, and its weekly routing data is
   not.
-- **An antimeridian outline is refused** until measured (above).
+- **An outline edge that jumps across ±180 as one segment is refused** by
+  name. None measured does (above): Alaska, Fiji, New Zealand and Russia's
+  far east select their tiles.
 - **Land Copernicus does not release at 30 m has no terrain.** The region's
   maps install, and the plan warns by name (above). The route is a second
   provider: Copernicus GLO-90, published separately at 90 m, is the

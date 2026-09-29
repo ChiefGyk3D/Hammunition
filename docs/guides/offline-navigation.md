@@ -361,7 +361,9 @@ walking rather than driving:
 - **one routing database** (`osm-routino`) over every region, so a route on
   foot can cross from one region into the next;
 - **elevation** (`dem-copernicus`): the Copernicus 30 m elevation tiles for
-  your regions, about 39 MB each, tens of them for a US state;
+  your regions, about 39 MB each: tens to hundreds of them a region, so
+  up to 17.5 GB for a US state (Alaska; see
+  [Disk planning](#disk-planning));
 - **hillshade, slope and contour lines** (`dem-qmapshack`) drawn from that
   elevation, with a contour line every 20 m.
 
@@ -481,9 +483,6 @@ If `cgps` shows no fix, the tether has nothing to pass on; see
   contours need a tool the archive does not carry.
 - **The Garmin maps have no address index**, and QMapShack would not read
   one anyway.
-- **Regions that cross the 180° meridian** (Alaska's Aleutians, Fiji) are
-  refused by name for terrain, until how Geofabrik draws such an outline
-  has been measured.
 - **No terrain where Copernicus publishes none.** Its public 30 m release
   leaves out some land as well as the open sea (Armenia and Azerbaijan, for
   example). A region inside it gets its maps and no terrain, and the plan
@@ -538,8 +537,19 @@ one US-state-sized region:
 | Its build scratch | up to 3× the region, one region at a time | `~/.cache/hammunition/build/osm-garmin/` | Only while it builds |
 | The routing database, all regions | about 0.67× all the regions together | `/usr/local/share/hammunition/data/osm-routino/` | Rebuilt when the regions change |
 | Its build scratch | up to 6× all the regions together | `~/.cache/hammunition/build/osm-routino/` | Only while it builds |
-| Elevation tiles | about 39 MB a tile; tens for a US state | `/usr/local/share/hammunition/data/dem-copernicus/` | Until uninstall, or no region needs the tile |
+| Elevation tiles | about 39 MB a tile; tens to hundreds a region | `/usr/local/share/hammunition/data/dem-copernicus/` | Until uninstall, or no region needs the tile |
 | Contours | about 5.5 MB a tile, with up to 98 MB of scratch at a time | `/usr/local/share/hammunition/data/dem-qmapshack/` | As long as the tiles |
+
+Terrain is the part that grows fastest with a region's area. Measured on
+2026-09-28 over Geofabrik's US state outlines: a region's terrain is tens
+to hundreds of tiles; a contiguous US state can exceed 90 tiles (about
+3.6 GB); Alaska is 449 tiles (about 17.5 GB); the 50 states and DC together
+are 1,447 tiles. Regions that reach across the 180° meridian, such as
+Alaska, Fiji, New Zealand and Russia's far east, select their tiles like any
+other. Your own figure is in the plan: the Terrain block prints each
+region's tile count and download size, and a dry run
+(`hammunition install navigation --dry-run`) shows it before anything is
+fetched.
 
 A tile's download is deleted from the cache as soon as it is installed: a
 tile never changes, so there is no reason to keep two copies. The plan

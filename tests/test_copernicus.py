@@ -152,9 +152,9 @@ def test_select_refuses_an_empty_tile_list_not_all_sea() -> None:
 def test_an_outline_edge_that_jumps_the_antimeridian_is_refused_by_name() -> None:
     # 179.5 to -179.5 written as a direct jump, not unwrapped past 180 the
     # way an already-folded outline is (test_an_outline_past_180_is_folded_
-    # back): this is the split-ring shape an Alaska/Fiji-style Geofabrik
-    # outline might use, and it is unmeasured, so it is refused by name
-    # rather than guessed at.
+    # back). No Geofabrik outline measured does this -- Alaska, Fiji, New
+    # Zealand and Russia's far east are rings meeting at +/-180 (the test
+    # below) -- but if one ever does, it is refused by name, not guessed at.
     ring = ((179.5, 10.2), (-179.5, 10.2), (-179.5, 10.5), (179.5, 10.5))
     with pytest.raises(CopernicusError, match="180") as excinfo:
         squares_touching([ring])
@@ -214,3 +214,12 @@ def test_pins_load_by_tile_name(tmp_path: Path) -> None:
     assert load_pins(path) == {A: TilePin(A, 39_000_000, SHA, MD5)}
     path.write_text("pins: []\n")
     assert load_pins(path) == {}
+
+
+def test_an_outline_written_as_two_rings_meeting_at_180_selects_both_sides() -> None:
+    """How Geofabrik writes Alaska, Fiji, New Zealand and Russia's far east
+    (final review, I2): separate rings that stop at +/-180, so no edge jumps
+    and nothing is refused. Synthetic open ocean near the equator."""
+    east = ((179.5, 10.2), (180.0, 10.2), (180.0, 10.5), (179.5, 10.5))
+    west = ((-180.0, 10.2), (-179.5, 10.2), (-179.5, 10.5), (-180.0, 10.5))
+    assert squares_touching([east, west]) >= {(10, 179), (10, -180)}
