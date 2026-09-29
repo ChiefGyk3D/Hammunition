@@ -16,6 +16,7 @@ import pytest
 
 from fake_tools import calls, install_fakes
 from hammunition.backends import Action, Command
+from hammunition.backends.base import BackendError
 from hammunition.backends.regions import MapLedger
 from hammunition.backends.routino import DB_FILES, RECORD, RoutinoConverter
 from hammunition.backends.staging import Staging
@@ -179,6 +180,77 @@ def test_a_region_that_did_not_install_skips_the_database_without_double_reporti
     assert all(o.startswith(("parsed", "skipped")) for o in outcomes)
     assert conv.ledger.failed == {}
     assert not any("--process-only" in c for _, c in calls(log))
+    assert not (tmp_path / "staging" / "routino.work").exists(), "this run's scratch removed"
+
+
+def test_a_later_region_missing_its_download_removes_this_runs_scratch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    log = install_fakes(monkeypatch, tmp_path / "bin", {"planetsplitter": PLANETSPLITTER})
+    _install_region(tmp_path, OCEANIA)
+    conv = _converter(tmp_path, [OCEANIA, LEMURIA])
+    _run(conv)
+    assert "atlantis/lemuria" in conv.ledger.failed["osm-routino"]
+    assert not any("--process-only" in c for _, c in calls(log))
+    assert not (tmp_path / "staging" / "routino.work").exists()
+
+
+def test_a_publish_failing_partway_leaves_the_previous_database_whole(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    install_fakes(monkeypatch, tmp_path / "bin", {"planetsplitter": PLANETSPLITTER})
+    _install_region(tmp_path, OCEANIA)
+    out = _data(tmp_path, "osm-routino")
+    out.mkdir(parents=True)
+    for name in DB_FILES:
+        (out / name).write_bytes(b"old")
+    (out / RECORD).write_text("atlantis-oceania 250101\n")
+    real = Staging.publish
+    count = {"n": 0}
+
+    def publish(self: Staging, staged: Path, dest: Path, **kw: Any) -> None:
+        count["n"] += 1
+        if count["n"] == 3:
+            raise BackendError(f"{dest}: no space left on device")
+        real(self, staged, dest, **kw)
+
+    monkeypatch.setattr(Staging, "publish", publish)
+    conv = _converter(tmp_path, [OCEANIA])
+    outcomes = _run(conv)
+    assert "no space left on device" in conv.ledger.failed["osm-routino"]
+    assert "no space left on device" in outcomes[-1]
+    assert sorted(p.name for p in out.iterdir()) == sorted([*DB_FILES, RECORD])
+    assert all((out / name).read_bytes() == b"old" for name in DB_FILES)
+    assert (out / RECORD).read_text() == "atlantis-oceania 250101\n"
+    assert not (tmp_path / "staging" / "routino.work").exists()
+
+
+def test_a_rename_failing_removes_the_database_rather_than_leave_it_mixed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import hammunition.backends.routino as routino
+
+    install_fakes(monkeypatch, tmp_path / "bin", {"planetsplitter": PLANETSPLITTER})
+    _install_region(tmp_path, OCEANIA)
+    out = _data(tmp_path, "osm-routino")
+    out.mkdir(parents=True)
+    for name in DB_FILES:
+        (out / name).write_bytes(b"old")
+    (out / RECORD).write_text("atlantis-oceania 250101\n")
+    real = routino._rename
+    count = {"n": 0}
+
+    def rename(writer: Any, source: Path, dest: Path) -> None:
+        count["n"] += 1
+        if count["n"] == 2:
+            raise OSError(f"{dest}: input/output error")
+        real(writer, source, dest)
+
+    monkeypatch.setattr(routino, "_rename", rename)
+    conv = _converter(tmp_path, [OCEANIA])
+    _run(conv)
+    assert "removed rather than left mixed" in conv.ledger.failed["osm-routino"]
+    assert list(out.iterdir()) == []
 
 
 def test_process_exiting_zero_without_every_file_fails_the_database(

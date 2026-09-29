@@ -21,9 +21,16 @@ installed database is left as it was.
 
 ``<data>/<unit>/hammunition.source`` records the regions and snapshots the
 database was built from; the database is current when that record matches
-this run's regions, and only then is nothing rebuilt. The record is removed
-before the new files are published, so a publish interrupted halfway is
-rebuilt on the next run rather than trusted.
+this run's regions, and only then is nothing rebuilt.
+
+The four ``.mem`` files are one database, so they install all four or none:
+each is published and verified under a temporary name beside its place
+(``<name>.new``), and only when all four are there is the old record
+removed, the four renamed into place and the new record written. A publish
+that fails partway removes the temporaries and leaves the previous database,
+record included, exactly as it was. A rename failing after that (one
+directory, so only a failing disk) removes the database and its record
+rather than leave QMapShack a mixed set, and the next run rebuilds.
 
 Routino's ``foot`` profile from ``routino-common`` is used unchanged; it
 does not read ``sac_scale`` (spec section 7).
@@ -31,6 +38,7 @@ does not read ``sac_scale`` (spec section 7).
 
 from __future__ import annotations
 
+import os
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from functools import partial
@@ -48,6 +56,8 @@ from .verified import PrefixWriter
 DB_PREFIX = "hammunition"
 DB_FILES = tuple(f"{DB_PREFIX}-{part}.mem" for part in ("nodes", "segments", "ways", "relations"))
 RECORD = f"{DB_PREFIX}.source"
+#: The suffix a database file is published under before all four are renamed in.
+NEW = ".new"
 TAGGING = Path("/usr/share/routino/tagging.xml")
 
 
@@ -204,16 +214,20 @@ class RoutinoConverter:
     ) -> str:
         if "failed" in state:
             return f"skipped: {state['failed']}"
+        work = self.work
         if source.slug in self.regions.failed:
             state["failed"] = (
                 f"{source.region} did not install, and the database is built over every "
                 f"region or none; the installed one is left as it was"
             )
+            if not first:
+                self.staging.remove_tree(work)  # this run's own parsed regions
             return f"skipped: {state['failed']}"
         if not source.pbf.is_file():
             state["failed"] = f"{source.region}: {source.pbf} is not installed"
+            if not first:
+                self.staging.remove_tree(work)
             return self.ledger.fail(key, f"Routino database not built: {state['failed']}")
-        work = self.work
         if first:
             self.staging.remove_tree(work)
             refusal = self.staging.prepare(work)
@@ -268,13 +282,54 @@ class RoutinoConverter:
         if "failed" in state or not all(name in state for name in DB_FILES):
             return "skipped: the Routino database was not built"
         work = self.work
+        temporaries = [out / f"{name}{NEW}" for name in DB_FILES]
         try:
-            writer.remove([out / RECORD])
-            for name in DB_FILES:
-                self.staging.publish(work / name, out / name, digest=state[name], writer=writer)
-            writer.write_text(out / RECORD, record_of(sources))
+            try:
+                for name, temporary in zip(DB_FILES, temporaries, strict=True):
+                    self.staging.publish(work / name, temporary, digest=state[name], writer=writer)
+            except (BackendError, OSError) as exc:
+                writer.remove(temporaries)
+                return self.ledger.fail(
+                    key,
+                    f"Routino database not installed, the previous one left as it was: {exc}",
+                )
+            try:
+                writer.remove([out / RECORD])
+                for name, temporary in zip(DB_FILES, temporaries, strict=True):
+                    _rename(writer, temporary, out / name)
+                writer.write_text(out / RECORD, record_of(sources))
+            except (BackendError, OSError) as exc:
+                writer.remove([*temporaries, *(out / name for name in DB_FILES), out / RECORD])
+                return self.ledger.fail(
+                    key,
+                    f"Routino database not installed, and removed rather than left "
+                    f"mixed; the next run rebuilds it: {exc}",
+                )
         except (BackendError, OSError) as exc:
             return self.ledger.fail(key, f"Routino database not installed: {exc}")
         finally:
             self.staging.remove_tree(work)
         return f"installed the Routino database under {out}; removed {work}"
+
+
+def _rename(writer: PrefixWriter, source: Path, dest: Path) -> None:
+    """Rename *source* over *dest* within one directory, escalated as the
+    writer is. :class:`PrefixWriter` publishes, writes and removes, and has no
+    rename of its own."""
+    if writer.direct:
+        os.replace(source, dest)
+        return
+    if writer.runner is None:
+        raise BackendError(
+            f"Install {dest}: the destination needs root and no runner was supplied "
+            f"to escalate the step"
+        )
+    result = writer.runner.run(
+        Command(
+            argv=("mv", "-f", "-T", "--", str(source), str(dest)),
+            description=f"Install {dest}",
+            requires_root=True,
+        )
+    )
+    if not result.ok:
+        raise BackendError(f"Install {dest} failed: {result.stderr.strip()[:300]}")
