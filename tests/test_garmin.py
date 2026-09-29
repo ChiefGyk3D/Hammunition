@@ -1,0 +1,317 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+"""The ``mkgmap`` converter: a Garmin map per region.  D-061.
+
+Synthetic regions only (``atlantis/oceania``, ``atlantis/lemuria``); the
+fakes in :mod:`fake_tools` stand in for mkgmap-splitter and mkgmap.
+"""
+
+from __future__ import annotations
+
+import fcntl
+import hashlib
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from fake_tools import arg, calls, install_fakes
+from hammunition.backends import Action, Command
+from hammunition.backends.garmin import SPLITTER_HEAP, GarminConverter
+from hammunition.backends.regions import MapLedger
+from hammunition.backends.staging import Staging
+from hammunition.geofabrik import RegionFile
+from hammunition.manifest.schema import DerivedDataInstall, PackageManifest
+
+#: The engine is not root, whoever runs the suite (``unshare -r`` included).
+NOT_ROOT = 1000
+
+BODY = b"p" * 10
+OCEANIA = RegionFile(
+    "atlantis/oceania",
+    "260101",
+    "https://download.geofabrik.de/atlantis/oceania-260101.osm.pbf",
+    10,
+    hashlib.sha256(BODY).hexdigest(),
+    None,
+)
+LEMURIA = RegionFile(
+    "atlantis/lemuria",
+    "260101",
+    "https://download.geofabrik.de/atlantis/lemuria-260101.osm.pbf",
+    10,
+    None,
+    hashlib.md5(BODY, usedforsecurity=False).hexdigest(),
+)
+
+SPLITTER_OK = 'd=$(echo "$*" | sed -n "s/.*--output-dir=\\([^ ]*\\).*/\\1/p"); echo "mapname: 1" > "$d/template.args"; echo tile > "$d/63240001.osm.pbf"'
+MKGMAP_OK = 'd=$(echo "$*" | sed -n "s/.*--output-dir=\\([^ ]*\\).*/\\1/p"); printf garmin > "$d/gmapsupp.img"'
+
+
+def manifest() -> PackageManifest:
+    return PackageManifest.model_validate(
+        {
+            "name": "osm-garmin",
+            "version": "station",
+            "summary": "Garmin maps for a test",
+            "categories": ["navigation-maps"],
+            "depends": ["osm-regions", "mkgmap"],
+            "install": [
+                {
+                    "install": {
+                        "method": "derived",
+                        "converter": "mkgmap",
+                        "source": "osm-regions",
+                        "licence": "ODbL-1.0",
+                        "licence_url": "https://www.openstreetmap.org/copyright",
+                    }
+                }
+            ],
+            "update": {"probe": {"method": "none"}},
+            "documentation": {
+                "what_it_does": "Garmin maps for a test, nothing more.",
+                "why_you_want_it": "Because the test suite needs a manifest.",
+                "upstream_url": "https://www.mkgmap.org.uk/",
+            },
+        }
+    )
+
+
+def _block(m: PackageManifest) -> DerivedDataInstall:
+    block = m.install[0].install
+    assert isinstance(block, DerivedDataInstall)
+    return block
+
+
+def _data(prefix: Path, unit: str) -> Path:
+    return prefix / "share" / "hammunition" / "data" / unit
+
+
+def _install_region(tmp_path: Path, region: RegionFile) -> Path:
+    out = _data(tmp_path, "osm-regions")
+    out.mkdir(parents=True, exist_ok=True)
+    pbf = out / f"{region.slug}.osm.pbf"
+    pbf.write_bytes(BODY)
+    return pbf
+
+
+def _converter(tmp_path: Path, files: list[RegionFile], **kw: Any) -> GarminConverter:
+    return GarminConverter(
+        prefix=tmp_path,
+        files=files,
+        staging=Staging(tmp_path / "staging", euid=NOT_ROOT),
+        jobs=4,
+        **kw,
+    )
+
+
+def _actions(steps: list[Action | Command]) -> list[Action]:
+    assert all(isinstance(s, Action) for s in steps)
+    return [s for s in steps if isinstance(s, Action)]
+
+
+def _run(conv: GarminConverter) -> list[str]:
+    m = manifest()
+    return [step.perform() for step in _actions(conv.steps(m, _block(m)))]
+
+
+def test_the_split_and_the_build_run_with_their_fixed_argv_in_staging(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    log = install_fakes(
+        monkeypatch, tmp_path / "bin", {"mkgmap-splitter": SPLITTER_OK, "mkgmap": MKGMAP_OK}
+    )
+    pbf = _install_region(tmp_path, OCEANIA)
+    conv = _converter(tmp_path, [OCEANIA])
+    _run(conv)
+    assert conv.ledger.failed == {}
+    work = tmp_path / "staging" / f"{OCEANIA.slug}.work"
+    (split_cwd, split), (build_cwd, build) = calls(log)
+    assert split_cwd == str(work)
+    assert split == (
+        f"mkgmap-splitter --output=pbf --max-nodes=1600000 --output-dir={work / 'split'} {pbf}"
+    )
+    assert build_cwd == str(work / "split")
+    assert build == (
+        f"mkgmap --output-dir={work / 'img'} --style=default --route --add-pois-to-areas "
+        f"--unicode --gmapsupp --max-jobs=4 -c {work / 'split' / 'template.args'}"
+    )
+    assert "--index" not in build and "--housenumbers" not in build
+    out = _data(tmp_path, "osm-garmin")
+    assert (out / f"{OCEANIA.slug}.img").read_bytes() == b"garmin"
+    assert (out / f"{OCEANIA.slug}.img.source").read_text() == "260101\n"
+    assert not work.exists(), "the scratch is removed after a successful build"
+
+
+def test_the_splitter_gets_its_heap_through_java_opts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    install_fakes(
+        monkeypatch,
+        tmp_path / "bin",
+        {
+            "mkgmap-splitter": f'echo "$JAVA_OPTS" > {tmp_path}/heap; {SPLITTER_OK}',
+            "mkgmap": MKGMAP_OK,
+        },
+    )
+    _install_region(tmp_path, OCEANIA)
+    conv = GarminConverter(
+        prefix=tmp_path,
+        files=[OCEANIA],
+        staging=Staging(tmp_path / "staging", euid=NOT_ROOT, environ={"JAVA_OPTS": SPLITTER_HEAP}),
+    )
+    _run(conv)
+    assert (tmp_path / "heap").read_text().strip() == "-Xmx4000m"
+
+
+def test_mkgmap_exiting_zero_with_no_map_fails_that_region_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    empty = 'd=$(echo "$*" | sed -n "s/.*--output-dir=\\([^ ]*\\).*/\\1/p"); case "$*" in *oceania*) : ;; *) printf garmin > "$d/gmapsupp.img";; esac'
+    install_fakes(monkeypatch, tmp_path / "bin", {"mkgmap-splitter": SPLITTER_OK, "mkgmap": empty})
+    _install_region(tmp_path, OCEANIA)
+    _install_region(tmp_path, LEMURIA)
+    conv = _converter(tmp_path, [OCEANIA, LEMURIA])
+    outcomes = _run(conv)
+    assert any("FAILED" in o and "atlantis/oceania" in o for o in outcomes)
+    assert list(conv.ledger.failed) == [f"osm-garmin:{OCEANIA.slug}"]
+    out = _data(tmp_path, "osm-garmin")
+    assert not (out / f"{OCEANIA.slug}.img").exists()
+    assert (out / f"{LEMURIA.slug}.img").exists()
+    assert not (tmp_path / "staging" / f"{OCEANIA.slug}.work").exists(), (
+        "a failed build's scratch goes too"
+    )
+
+
+def test_a_splitter_failure_names_the_region_and_skips_mkgmap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    log = install_fakes(
+        monkeypatch,
+        tmp_path / "bin",
+        {"mkgmap-splitter": "echo 'out of memory' >&2; exit 1", "mkgmap": MKGMAP_OK},
+    )
+    _install_region(tmp_path, OCEANIA)
+    conv = _converter(tmp_path, [OCEANIA])
+    _run(conv)
+    message = conv.ledger.failed[f"osm-garmin:{OCEANIA.slug}"]
+    assert "atlantis/oceania" in message and "out of memory" in message
+    assert [c for _, c in calls(log) if c.startswith("mkgmap ")] == []
+
+
+def test_a_region_that_did_not_install_is_not_built(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    log = install_fakes(
+        monkeypatch, tmp_path / "bin", {"mkgmap-splitter": SPLITTER_OK, "mkgmap": MKGMAP_OK}
+    )
+    regions = MapLedger()
+    regions.fail(OCEANIA.slug, "atlantis/oceania: md5 did not match")
+    conv = _converter(tmp_path, [OCEANIA], regions=regions)
+    outcomes = _run(conv)
+    assert outcomes[0].startswith("skipped")
+    assert conv.ledger.failed == {}, "the region's own ledger already names it"
+    assert calls(log) == []
+
+
+def test_a_current_map_is_not_rebuilt_and_a_dropped_one_is_removed(tmp_path: Path) -> None:
+    out = _data(tmp_path, "osm-garmin")
+    out.mkdir(parents=True)
+    (out / f"{OCEANIA.slug}.img").write_bytes(b"garmin")
+    (out / f"{OCEANIA.slug}.img.source").write_text("260101\n")
+    (out / "atlantis-sunk.img").write_bytes(b"old")
+    conv = _converter(tmp_path, [OCEANIA])
+    m = manifest()
+    assert conv.pending(m) == []
+    steps = _actions(conv.steps(m, _block(m)))
+    assert [s.kind for s in steps] == ["remove-data"]
+    for step in steps:
+        step.perform()
+    assert not (out / "atlantis-sunk.img").exists()
+    assert (out / f"{OCEANIA.slug}.img").exists()
+
+
+def test_the_step_states_the_factors_it_estimates_by(tmp_path: Path) -> None:
+    conv = _converter(tmp_path, [OCEANIA])
+    m = manifest()
+    (convert, install) = _actions(conv.steps(m, _block(m)))
+    assert "0.85x the download" in convert.description
+    assert "measured on one region" in convert.description
+    assert convert.requires_root is False
+    assert install.detail == str(_data(tmp_path, "osm-garmin") / f"{OCEANIA.slug}.img")
+    assert arg(convert.description, "--output-dir")
+
+
+def test_a_leftover_from_an_interrupted_build_is_cleared_first(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review focus: a build killed halfway leaves its tiles; the next run
+    must not hand them to mkgmap as this region's."""
+    install_fakes(
+        monkeypatch,
+        tmp_path / "bin",
+        {
+            "mkgmap-splitter": f"test ! -e {tmp_path}/staging/{OCEANIA.slug}.work/split/stale || exit 3; {SPLITTER_OK}",
+            "mkgmap": MKGMAP_OK,
+        },
+    )
+    stale = tmp_path / "staging" / f"{OCEANIA.slug}.work" / "split" / "stale"
+    stale.parent.mkdir(parents=True)
+    stale.write_text("from a killed run")
+    _install_region(tmp_path, OCEANIA)
+    conv = _converter(tmp_path, [OCEANIA])
+    _run(conv)
+    assert conv.ledger.failed == {}
+    assert (_data(tmp_path, "osm-garmin") / f"{OCEANIA.slug}.img").exists()
+
+
+def test_a_busy_working_directory_fails_that_region_by_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Another conversion holding the region's working directory: the run is
+    refused with 125 before anything starts, and the region fails by name."""
+    log = install_fakes(
+        monkeypatch, tmp_path / "bin", {"mkgmap-splitter": SPLITTER_OK, "mkgmap": MKGMAP_OK}
+    )
+    _install_region(tmp_path, OCEANIA)
+    conv = _converter(tmp_path, [OCEANIA])
+    lock = conv.staging.workdir(OCEANIA.slug).with_name(f"{OCEANIA.slug}.work.lock")
+    lock.parent.mkdir(parents=True)
+    with lock.open("w") as held:
+        fcntl.flock(held, fcntl.LOCK_EX)
+        _run(conv)
+    message = conv.ledger.failed[f"osm-garmin:{OCEANIA.slug}"]
+    assert "atlantis/oceania" in message and "was not started" in message
+    assert "another conversion" in message
+    assert calls(log) == []
+    assert not (_data(tmp_path, "osm-garmin") / f"{OCEANIA.slug}.img").exists()
+
+
+def test_the_outcome_says_who_built_it(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    install_fakes(
+        monkeypatch, tmp_path / "bin", {"mkgmap-splitter": SPLITTER_OK, "mkgmap": MKGMAP_OK}
+    )
+    _install_region(tmp_path, OCEANIA)
+    conv = _converter(tmp_path, [OCEANIA])
+    monkeypatch.setattr(Staging, "who", lambda self: "as operator")
+    built, _ = _run(conv)
+    assert built.startswith("built the Garmin map of atlantis/oceania as operator")
+
+
+def test_root_with_nobody_to_run_as_fails_the_region_and_runs_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Root, a staging directory under no home and not root's own: nothing is
+    run as root, and the region fails by name with the reason."""
+    log = install_fakes(
+        monkeypatch, tmp_path / "bin", {"mkgmap-splitter": SPLITTER_OK, "mkgmap": MKGMAP_OK}
+    )
+    _install_region(tmp_path, OCEANIA)
+    conv = GarminConverter(
+        prefix=tmp_path, files=[OCEANIA], staging=Staging(tmp_path / "staging", euid=0)
+    )
+    _run(conv)
+    message = conv.ledger.failed[f"osm-garmin:{OCEANIA.slug}"]
+    assert message.startswith("atlantis/oceania: ") and "refusing" in message
+    assert calls(log) == []
