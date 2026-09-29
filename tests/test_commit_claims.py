@@ -149,7 +149,6 @@ def test_the_commit_that_prompted_this_is_still_caught() -> None:
 
 
 @pytest.mark.skipif(not (REPO_ROOT / ".git").exists(), reason="not a git checkout")
-@pytest.mark.skipif(not (REPO_ROOT / ".git").exists(), reason="not a git checkout")
 def test_a_merge_commit_is_judged_by_what_it_brings_in() -> None:
     """A clean merge's own diff is empty, so ``git show`` found nothing for the
     decision that GitHub's merge title for #133 named, and the check failed on
@@ -171,6 +170,7 @@ def test_a_merge_commit_is_judged_by_what_it_brings_in() -> None:
     assert run_on(merge).returncode == 0, run_on(merge).stderr
 
 
+@pytest.mark.skipif(not (REPO_ROOT / ".git").exists(), reason="not a git checkout")
 def test_the_head_commit_passes_its_own_check() -> None:
     assert run_on("HEAD").returncode == 0, run_on("HEAD").stderr
 
