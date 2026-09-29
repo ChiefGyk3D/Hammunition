@@ -287,6 +287,22 @@ class Staging:
         )
         return result
 
+    def clear(self, cwd: Path) -> subprocess.CompletedProcess[str]:
+        """Empty the working directory *cwd*, under the lock :meth:`run` takes.
+
+        ``find . -xdev -mindepth 1 -delete`` in *cwd*, as the operator, holding
+        ``<cwd>.lock``: a directory another conversion is using returns
+        :data:`REFUSED` (125) and nothing in it is deleted. *cwd* itself stays,
+        created first the way :meth:`prepare` creates one when it is absent.
+        Root never removes a working directory itself: with nobody to run as,
+        this is refused like every other operation. ``-delete`` never follows a
+        symlink, and ``-xdev`` keeps it off any other filesystem mounted inside.
+        """
+        refusal = self.prepare(cwd)
+        if refusal is not None:
+            return subprocess.CompletedProcess(["find", str(cwd)], REFUSED, "", refusal)
+        return self.run(["find", ".", "-xdev", "-mindepth", "1", "-delete"], cwd=cwd)
+
     def _subprocess(self, argv: Sequence[str]) -> subprocess.CompletedProcess[str]:
         refusal = self._refusal()
         if refusal is not None:
