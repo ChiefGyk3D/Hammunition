@@ -59,15 +59,24 @@ def render_record(entry: RegionTiles) -> str:
 
 
 def read_record(path: Path, region: str, slug: str) -> RegionTiles | None:
-    """A region's recorded tiles, or None when there is no readable record."""
+    """A region's recorded tiles, or None when there is no readable record.
+
+    A region whose outline touches only sea squares records no tiles, just
+    its sea header; that is a complete record, not an unreadable one, or it
+    would be rewritten and its outline fetched again on every plan.
+    """
     try:
         text = path.read_text()
     except OSError:
         return None
-    sea = 0
+    header: int | None = None
     for line in text.splitlines():
         if line.startswith(_SEA) and line[len(_SEA) :].isdigit():
-            sea = int(line[len(_SEA) :])
+            header = int(line[len(_SEA) :])
+    names = [s for s in (line.strip() for line in text.splitlines()) if s and not s.startswith("#")]
+    if not names:
+        return None if header is None else RegionTiles(region, slug, (), header)
+    sea = header or 0
     try:
         tiles = tuple(sorted(parse_tile_list(text)))
     except CopernicusError:

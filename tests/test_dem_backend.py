@@ -365,3 +365,25 @@ def test_uninstall_removes_every_tile_with_the_directory(tmp_path: Path) -> None
     assert [(a.kind, a.path, a.basis) for a in plan.artifacts["dem-copernicus"]] == [
         ("tree", directory, "namespaced")
     ]
+
+
+ABYSS = RegionTiles("atlantis/abyss", "atlantis-abyss", (), 4)
+
+
+def test_an_all_sea_region_s_record_round_trips(tmp_path: Path) -> None:
+    path = tmp_path / "atlantis-abyss.tiles"
+    path.write_text(render_record(ABYSS))
+    assert read_record(path, ABYSS.region, ABYSS.slug) == ABYSS
+    path.write_text("")
+    assert read_record(path, ABYSS.region, ABYSS.slug) is None, "no header, no record"
+    path.write_text("# a comment, not the sea header\n")
+    assert read_record(path, ABYSS.region, ABYSS.slug) is None
+
+
+def test_an_all_sea_region_already_recorded_is_left_alone(tmp_path: Path) -> None:
+    out = _data(tmp_path)
+    out.mkdir(parents=True)
+    (out / "atlantis-abyss.tiles").write_text(render_record(ABYSS))
+    backend = _backend(tmp_path, DemResolution(regions=(ABYSS,)))
+    m = manifest()
+    assert backend.steps(m, _block(m)) == []
