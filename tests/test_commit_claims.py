@@ -149,6 +149,28 @@ def test_the_commit_that_prompted_this_is_still_caught() -> None:
 
 
 @pytest.mark.skipif(not (REPO_ROOT / ".git").exists(), reason="not a git checkout")
+def test_a_merge_commit_is_judged_by_what_it_brings_in() -> None:
+    """A clean merge's own diff is empty, so ``git show`` found nothing for the
+    decision that GitHub's merge title for #133 named, and the check failed on
+    main. A merge is answerable for its diff against its first parent."""
+    merge = subprocess.run(
+        ["git", "rev-list", "--merges", "-n1", "HEAD"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout.strip()
+    if not merge:
+        pytest.skip("no merge commit in this checkout's history")
+    from check_commit_claims import revision_changes
+
+    changed, diff = revision_changes(merge)
+    assert changed, "a merge's first-parent diff names the files it brought in"
+    assert diff
+    assert run_on(merge).returncode == 0, run_on(merge).stderr
+
+
+@pytest.mark.skipif(not (REPO_ROOT / ".git").exists(), reason="not a git checkout")
 def test_the_head_commit_passes_its_own_check() -> None:
     assert run_on("HEAD").returncode == 0, run_on("HEAD").stderr
 
