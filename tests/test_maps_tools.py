@@ -105,7 +105,8 @@ def _tether_calls(
         return Listener()  # type: ignore[return-value]
 
     def serve(listener: object, **kwargs: object) -> None:
-        calls.append("serve")
+        gpsd = kwargs.get("gpsd", tether.GPSD)
+        calls.append("serve" if gpsd == tether.GPSD else f"serve gpsd {gpsd}")
         if fail is not None:
             raise fail
 
@@ -148,6 +149,90 @@ def test_gps_tether_refuses_root(
     assert cli.main(["maps", "gps-tether"]) == cli.EXIT_FAILED
     assert calls == []
     assert "not as root" in capsys.readouterr().err
+
+
+def test_gps_tether_takes_another_port_and_a_remote_gpsd(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(os, "geteuid", lambda: 1000)
+    calls = _tether_calls(monkeypatch, fail=KeyboardInterrupt())
+    argv = ["maps", "gps-tether", "--port", "10111", "--gpsd", "[2001:db8::7]:3000"]
+    assert cli.main(argv) == cli.EXIT_OK
+    assert calls == ["listen 10111", "serve gpsd ('2001:db8::7', 3000)", "closed"]
+    out = capsys.readouterr().out
+    assert "host 127.0.0.1, port 10111" in out
+    assert "gpsd at [2001:db8::7] port 3000" in out
+
+
+@pytest.mark.parametrize(
+    ("argv", "words"),
+    [
+        (["--port", "1023"], "--port 1023"),
+        (["--port", "65536"], "--port 65536"),
+        (["--port", "ten"], "--port ten"),
+        (["--gpsd", "::1"], "in brackets"),
+        (["--gpsd", "pi.local:0"], "1 to 65535"),
+        (["--gpsd", ""], "needs a host"),
+    ],
+)
+def test_gps_tether_refuses_a_bad_option_by_name_and_opens_nothing(
+    argv: list[str],
+    words: str,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(os, "geteuid", lambda: 1000)
+    calls = _tether_calls(monkeypatch)
+    assert cli.main(["maps", "gps-tether", *argv]) == cli.EXIT_FAILED
+    assert calls == []
+    assert words in capsys.readouterr().err
+
+
+def test_gps_tether_reaches_a_fake_gpsd_through_the_gpsd_option(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The whole command, end to end: a fake gpsd on a random loopback port
+    named with --gpsd, the tether on a spare --port, a real client."""
+    import socket
+    import threading
+    import time
+
+    import hammunition.gps_tether as tether
+    from test_gps_tether import FIX_3D, FakeGpsd, _json
+
+    monkeypatch.setattr(os, "geteuid", lambda: 1000)
+    gpsd = FakeGpsd(_json({"class": "VERSION"}, FIX_3D), repeat=True)
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    stop = threading.Event()
+    real_serve = tether.serve
+    bound: list[tuple[str, int]] = []
+
+    def serve(listener: socket.socket, **kwargs: object) -> None:
+        bound.append(listener.getsockname())
+        real_serve(listener, stop=stop, poll=0.02, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(tether, "serve", serve)
+    argv = ["maps", "gps-tether", "--gpsd", f"127.0.0.1:{gpsd.address[1]}", "--port", str(port)]
+    result: list[int] = []
+    thread = threading.Thread(target=lambda: result.append(cli.main(argv)), daemon=True)
+    thread.start()
+    try:
+        for _ in range(250):
+            if bound:
+                break
+            time.sleep(0.02)
+        assert bound == [("127.0.0.1", port)], "still loopback only"
+        with socket.create_connection(("127.0.0.1", port), timeout=5) as client:
+            assert client.makefile("rb").readline().startswith(b"$GPRMC,140509.25,A,")
+    finally:
+        stop.set()
+        thread.join(timeout=5)
+        gpsd.close()
+    assert result == [cli.EXIT_OK]
+    assert gpsd.received == [tether.WATCH]
+    assert f"gpsd at 127.0.0.1 port {gpsd.address[1]}" in capsys.readouterr().out
 
 
 def test_a_symlink_in_place_of_the_config_is_refused_and_not_followed(
@@ -228,6 +313,30 @@ def test_json_is_refused_with_one_error_document_and_nothing_runs(
     assert doc["kind"] == "error" and doc["command"] == f"maps {verb}"
     assert "no --json form" in doc["message"]
     assert seen == [] and not conf.exists()
+
+
+@pytest.mark.parametrize(
+    "options",
+    [["--gpsd", "192.0.2.10:3000", "--port", "10111"], ["--port", "80"], ["--gpsd", "::1"]],
+)
+def test_gps_tether_json_is_one_refusal_whatever_the_options(
+    options: list[str],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The options change nothing about --json: the same one error document,
+    naming no option, and nothing opened (D-059)."""
+    import json
+
+    monkeypatch.setattr(os, "geteuid", lambda: 1000)
+    calls = _tether_calls(monkeypatch)
+    assert cli.main(["maps", "gps-tether", *options, "--json"]) == cli.EXIT_UNPLANNABLE
+    out = capsys.readouterr().out
+    doc = json.loads(out)  # the whole of stdout is one document
+    assert set(doc) == {"schema", "kind", "engine", "command", "exit_code", "message"}
+    assert doc["kind"] == "error" and doc["command"] == "maps gps-tether"
+    assert "--gpsd" not in doc["message"] and "--port" not in doc["message"]
+    assert calls == []
 
 
 def test_a_config_qt_wrote_with_empty_lists_is_edited_and_qmapshack_started(

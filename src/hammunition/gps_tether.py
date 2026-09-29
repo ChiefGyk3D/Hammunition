@@ -18,18 +18,24 @@ with a 2D or 3D fix. A field gpsd did not give is an empty field, with one
 exception: a TPV with no time (or one that does not parse) is stamped with
 the system clock in UTC, because a reader may drop a sentence without one.
 
-It listens on 127.0.0.1 port 10110, the conventional NMEA-0183 port, and
-nowhere else: a position is where the operator is, and it is not served to
-the network. One client at a time; a second is closed at once and the
-operator told. Each client gets its own gpsd watch, opened when it connects
-and closed when it leaves. It runs only while the operator runs it, in a
-terminal, and stops with Ctrl-C; nothing is installed as a service, nothing
-runs as root, and it is the standard library only. Navit needs none of
-this: it reads gpsd itself.
+It listens on 127.0.0.1 port 10110, the conventional NMEA-0183 port, or
+another port the operator names, and on loopback only whatever the port: a
+position is where the operator is, it is served without authentication, and
+it is not served to the network. Another machine reaches it through
+``ssh -L``. gpsd may be on this machine or another (a Pi, a phone, a shack
+computer). Any number of clients may connect at once, and each receives
+every sentence (fan-out): one gpsd watch is opened when the first client
+connects, shared while any is connected, and closed when the last leaves,
+so every client gets the same bytes and gpsd is not watched while nobody
+listens. A client that stops reading is dropped alone. It runs only while
+the operator runs it, in a terminal, and stops with Ctrl-C; nothing is
+installed as a service, nothing runs as root, and it is the standard
+library only. Navit needs none of this: it reads gpsd itself.
 """
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import math
 import selectors
@@ -47,10 +53,12 @@ __all__ = [
     "WATCH",
     "Feed",
     "checksum",
+    "gpsd_address",
     "instructions",
     "listen",
     "sentences",
     "serve",
+    "serve_port",
 ]
 
 HOST = "127.0.0.1"
@@ -221,51 +229,124 @@ class Feed:
             self.hdop = hdop
 
 
+def _port_number(text: str) -> int | None:
+    """*text* as a port number, or None; digits only, no sign or spaces."""
+    return int(text) if text.isascii() and text.isdigit() else None
+
+
+def serve_port(text: str) -> int:
+    """``--port``: 1024 to 65535, refused by name otherwise.
+
+    Below 1024 only root may bind, and the tether never runs as root.
+    """
+    stripped = text.strip()
+    number = _port_number(stripped.removeprefix("-"))
+    if number is None:
+        raise ValueError(f"--port {text}: not a number; give a port from 1024 to 65535")
+    if stripped.startswith("-") or number < 1024:
+        raise ValueError(
+            f"--port {text}: below 1024, where only root may listen, and the tether "
+            f"never runs as root; give a port from 1024 to 65535"
+        )
+    if number > 65535:
+        raise ValueError(
+            f"--port {text}: above 65535, the highest TCP port; give a port from 1024 to 65535"
+        )
+    return number
+
+
+def gpsd_address(text: str) -> tuple[str, int]:
+    """``--gpsd HOST[:PORT]``: a host name, an IPv4 address, or an IPv6
+    address in brackets, and gpsd's port, 2947 when none is given."""
+    where = text.strip()
+    rest = ""
+    if where.startswith("["):
+        close = where.find("]")
+        if close == -1:
+            raise ValueError(f"--gpsd {text}: an IPv6 address opened with [ is closed with ]")
+        host, rest = where[1:close], where[close + 1 :]
+        if not host:
+            raise ValueError(f"--gpsd {text}: needs a host, as HOST or HOST:PORT")
+        try:
+            ipaddress.IPv6Address(host)
+        except ValueError:
+            raise ValueError(
+                f"--gpsd {text}: {host} is not an IPv6 address; brackets are for one"
+            ) from None
+        if rest and not rest.startswith(":"):
+            raise ValueError(f"--gpsd {text}: after ] comes nothing, or :PORT")
+    elif where.count(":") > 1:
+        raise ValueError(f"--gpsd {text}: an IPv6 address goes in brackets, as [::1] or [::1]:2947")
+    else:
+        host, colon, port_text = where.partition(":")
+        rest = colon + port_text
+        if not host:
+            raise ValueError(f"--gpsd {text!r}: needs a host, as HOST or HOST:PORT")
+        if any(char.isspace() for char in host):
+            raise ValueError(f"--gpsd {text!r}: a host name has no whitespace")
+    if not rest:
+        return host, GPSD[1]
+    number = _port_number(rest[1:])
+    if number is None:
+        raise ValueError(f"--gpsd {text}: {rest[1:]!r} is not a port number")
+    if not 1 <= number <= 65535:
+        raise ValueError(f"--gpsd {text}: gpsd's port is 1 to 65535")
+    return host, number
+
+
+def _where(address: tuple[str, int]) -> str:
+    """``host port N``, an IPv6 address in brackets."""
+    host, port = address
+    return f"[{host}] port {port}" if ":" in host else f"{host} port {port}"
+
+
 def listen(port: int = PORT) -> socket.socket:
     """The listening socket, on 127.0.0.1 only; *port* 0 is for the tests."""
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         listener.bind((HOST, port))
-        listener.listen(1)
+        listener.listen(8)
     except OSError:
         listener.close()
         raise
     return listener
 
 
-class _Session:
-    """One client and its own gpsd watch.
-
-    Both sockets are non-blocking. What the client has not yet taken waits
-    in :attr:`pending`, and the loop never blocks on a send; a client that
-    lets more than :attr:`PENDING_LIMIT` pile up has stopped reading and is
-    dropped.
-    """
+class _Client:
+    """One NMEA client. What it has not yet taken waits in :attr:`pending`;
+    the loop never blocks on a send, and a client that lets more than
+    :attr:`PENDING_LIMIT` pile up has stopped reading and is dropped."""
 
     PENDING_LIMIT = 64 * 1024
 
-    def __init__(self, client: socket.socket, upstream: socket.socket) -> None:
-        self.client = client
-        self.upstream = upstream
-        self.feed = Feed()
+    def __init__(self, sock: socket.socket) -> None:
+        self.sock = sock
         self.pending = b""
-        self.started = time.monotonic()
-        self.sent = 0
-        self.warned = False
 
-    def client_gone(self) -> bool:
+    def gone(self) -> bool:
         """Whether the client has closed, asked without consuming anything."""
         try:
-            return self.client.recv(1, socket.MSG_PEEK | socket.MSG_DONTWAIT) == b""
+            return self.sock.recv(1, socket.MSG_PEEK | socket.MSG_DONTWAIT) == b""
         except BlockingIOError:
             return False
         except OSError:
             return True
 
-    def close(self) -> None:
-        self.client.close()
-        self.upstream.close()
+
+class _Upstream:
+    """The one gpsd watch every connected client shares."""
+
+    def __init__(self, sock: socket.socket) -> None:
+        self.sock = sock
+        self.feed = Feed()
+        self.started = time.monotonic()
+        self.sent = 0
+        self.warned = False
+
+
+def _connected(count: int) -> str:
+    return f"{count} connected"
 
 
 def serve(
@@ -277,131 +358,160 @@ def serve(
     poll: float = 0.5,
     quiet_after: float = 10.0,
 ) -> None:
-    """Serve NMEA to one client at a time until *stop* is set (or Ctrl-C).
+    """Serve NMEA to every connected client until *stop* is set (or Ctrl-C).
 
-    *log* gets one line per event the operator should see: a client served,
-    turned away or gone; gpsd unreachable, gone or silent.
+    *log* gets one line per event the operator should see: a client served
+    or gone, with how many are connected; a client dropped for not reading;
+    gpsd unreachable, gone or silent.
 
-    Every registration carries the session it belongs to, and an event for
-    a session that has ended is dropped: a file descriptor number reused by
-    the next client can never be mistaken for the last one. In each batch of
-    events the current session's are handled before a new connection, and a
-    new connection first checks whether the current client has already
-    closed, so a client that left is never counted as connected.
+    One gpsd connection is opened when the first client connects, shared by
+    every client while any is connected, and closed when the last one
+    leaves: each client gets the same sentences, and gpsd is watched only
+    while someone is listening. If gpsd closes it, every client is closed
+    and the next to connect opens a fresh watch.
+
+    Every registration carries the object it belongs to, and an event for
+    one that has ended is dropped: a file descriptor number reused by the
+    next client can never be mistaken for the last one. In each batch of
+    events the clients' and gpsd's are handled before a new connection, and
+    a new connection first drops any client that has already closed, so a
+    client that left is never counted as connected.
     """
     selector = selectors.DefaultSelector()
     listener.setblocking(False)
     selector.register(listener, selectors.EVENT_READ, None)
-    session: _Session | None = None
+    clients: list[_Client] = []
+    upstream: _Upstream | None = None
 
-    def end(current: _Session, why: str) -> None:
-        nonlocal session
-        if session is not current:
+    def close_upstream() -> None:
+        nonlocal upstream
+        if upstream is not None:
+            selector.unregister(upstream.sock)
+            upstream.sock.close()
+            upstream = None
+
+    def drop(client: _Client, why: str) -> None:
+        if client not in clients:
             return
-        selector.unregister(current.client)
-        selector.unregister(current.upstream)
-        current.close()
-        session = None
-        log(f"{why}; waiting for the next client.")
+        clients.remove(client)
+        selector.unregister(client.sock)
+        client.sock.close()
+        if not clients:
+            close_upstream()
+        log(f"{why}; {_connected(len(clients))}.")
 
-    def want_write(current: _Session) -> None:
-        events = selectors.EVENT_READ | (selectors.EVENT_WRITE if current.pending else 0)
-        selector.modify(current.client, events, current)
+    def want_write(client: _Client) -> None:
+        events = selectors.EVENT_READ | (selectors.EVENT_WRITE if client.pending else 0)
+        selector.modify(client.sock, events, client)
 
-    def flush(current: _Session) -> None:
+    def flush(client: _Client) -> None:
         try:
-            while current.pending:
-                count = current.client.send(current.pending)
-                current.pending = current.pending[count:]
+            while client.pending:
+                count = client.sock.send(client.pending)
+                client.pending = client.pending[count:]
         except BlockingIOError:
             pass
         except OSError:
-            end(current, "The client disconnected")
+            drop(client, "A client disconnected")
             return
-        want_write(current)
+        if len(client.pending) > client.PENDING_LIMIT:
+            drop(client, "A client is not reading and was dropped")
+            return
+        want_write(client)
+
+    def open_upstream() -> bool:
+        nonlocal upstream
+        try:
+            sock = socket.create_connection(gpsd, timeout=5)
+        except OSError as exc:
+            if gpsd[0] in ("127.0.0.1", "::1", "localhost"):
+                hint = "Is gpsd running? `systemctl status gpsd` says."
+            else:
+                hint = (
+                    "Is gpsd running there, listening beyond its own loopback, "
+                    "and reachable from here?"
+                )
+            log(f"cannot reach gpsd at {_where(gpsd)}: {exc.strerror or exc}. {hint}")
+            return False
+        try:
+            sock.sendall(WATCH)
+        except OSError as exc:
+            sock.close()
+            log(f"gpsd refused the watch request: {exc.strerror or exc}.")
+            return False
+        sock.setblocking(False)
+        upstream = _Upstream(sock)
+        selector.register(sock, selectors.EVENT_READ, upstream)
+        return True
 
     def accept() -> None:
-        nonlocal session
         try:
-            client, _ = listener.accept()
+            sock, _ = listener.accept()
         except BlockingIOError:
             return
-        if session is not None and session.client_gone():
-            end(session, "The client disconnected")
-        if session is not None:
-            client.close()
-            log("Turned away a second client: one at a time.")
+        for client in list(clients):
+            if client.gone():
+                drop(client, "A client disconnected")
+        if upstream is None and not open_upstream():
+            sock.close()
             return
-        try:
-            upstream = socket.create_connection(gpsd, timeout=5)
-        except OSError as exc:
-            client.close()
-            log(
-                f"cannot reach gpsd at {gpsd[0]} port {gpsd[1]}: {exc.strerror or exc}. "
-                f"Is gpsd running? `systemctl status gpsd` says."
-            )
-            return
-        try:
-            upstream.sendall(WATCH)
-        except OSError as exc:
-            client.close()
-            upstream.close()
-            log(f"gpsd refused the watch request: {exc.strerror or exc}.")
-            return
-        client.setblocking(False)
-        upstream.setblocking(False)
-        session = _Session(client, upstream)
-        selector.register(client, selectors.EVENT_READ, session)
-        selector.register(upstream, selectors.EVENT_READ, session)
-        log("A client connected; passing on gpsd's position.")
+        sock.setblocking(False)
+        client = _Client(sock)
+        clients.append(client)
+        selector.register(sock, selectors.EVENT_READ, client)
+        log(f"A client connected; {_connected(len(clients))}, each sent gpsd's position.")
 
-    def from_client(current: _Session) -> None:
+    def from_client(client: _Client) -> None:
         try:
-            data = current.client.recv(4096)  # what it sends is ignored
+            data = client.sock.recv(4096)  # what it sends is ignored
         except BlockingIOError:
             return
         except OSError:
             data = b""
         if not data:
-            end(current, "The client disconnected")
+            drop(client, "A client disconnected")
 
-    def from_gpsd(current: _Session) -> None:
+    def from_gpsd(current: _Upstream) -> None:
         try:
-            data = current.upstream.recv(65536)
+            data = current.sock.recv(65536)
         except BlockingIOError:
             return
         except OSError:
             data = b""
         if not data:
-            end(current, "gpsd closed the connection")
+            close_upstream()
+            for client in list(clients):
+                clients.remove(client)
+                selector.unregister(client.sock)
+                client.sock.close()
+            log("gpsd closed the connection; every client was closed, and may reconnect.")
             return
-        for line in current.feed.push(data):
-            current.pending += line
-            current.sent += 1
-        if len(current.pending) > current.PENDING_LIMIT:
-            end(current, "The client is not reading")
+        lines = current.feed.push(data)
+        if not lines:
             return
-        flush(current)
+        current.sent += len(lines)
+        batch = b"".join(lines)
+        for client in list(clients):
+            client.pending += batch
+            flush(client)
 
     try:
         while stop is None or not stop.is_set():
             events = selector.select(timeout=poll)
-            # The current session's events first, then any new connection.
+            # Clients' and gpsd's events first, then any new connection.
             for key, mask in sorted(events, key=lambda event: event[0].data is None):
-                owner: _Session | None = key.data
+                owner = key.data
                 if owner is None:
                     accept()
-                    continue
-                if owner is not session:
-                    continue  # left over from a session that has ended
-                if key.fileobj is owner.upstream:
-                    from_gpsd(owner)
-                    continue
-                if mask & selectors.EVENT_READ:
-                    from_client(owner)
-                if session is owner and mask & selectors.EVENT_WRITE:
-                    flush(owner)
-            current = session
+                elif isinstance(owner, _Upstream):
+                    if owner is upstream:
+                        from_gpsd(owner)
+                elif owner in clients:
+                    if mask & selectors.EVENT_READ:
+                        from_client(owner)
+                    if owner in clients and mask & selectors.EVENT_WRITE:
+                        flush(owner)
+            current = upstream
             if (
                 current is not None
                 and not current.warned
@@ -414,14 +524,19 @@ def serve(
                     f"`xgps` shows whether the receiver has one."
                 )
     finally:
-        if session is not None:
-            session.close()
+        for client in clients:
+            client.sock.close()
+        if upstream is not None:
+            upstream.sock.close()
         selector.close()
 
 
-def instructions(port: int = PORT) -> str:
+def instructions(port: int = PORT, *, gpsd: tuple[str, int] = GPSD) -> str:
     return (
         f"Serving gpsd's position as NMEA on {HOST} port {port}, to this machine only.\n"
         f"In QMapShack: Realtime, then GPS Tether; host {HOST}, port {port}.\n"
+        f"Reading gpsd at {_where(gpsd)}. Any number of NMEA programs may connect at once.\n"
+        f"Options: --gpsd HOST[:PORT] for a gpsd on another machine, "
+        f"--port N if {port} is taken.\n"
         f"Ctrl-C stops it. Navit reads gpsd directly and needs none of this."
     )

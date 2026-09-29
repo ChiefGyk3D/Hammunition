@@ -915,16 +915,24 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
 
 
 def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
-    """Serve gpsd's position as NMEA on 127.0.0.1:10110 for QMapShack.  D-061.
+    """Serve gpsd's position as NMEA on 127.0.0.1 for QMapShack.  D-061.
 
     The engine watches gpsd's JSON and writes RMC and GGA itself
-    (:mod:`hammunition.gps_tether`); nothing is executed. Loopback only, one
-    client at a time, only while the operator runs it, and never as root.
-    Ctrl-C stops it, exit 0. No ``--json`` form: it is a server, not a
-    document (D-059).
+    (:mod:`hammunition.gps_tether`); nothing is executed. ``--gpsd`` names
+    a gpsd on another machine, ``--port`` a port other than 10110; the
+    tether listens on loopback only whatever they say. Any number of clients
+    at once, each sent every sentence; only while the operator runs it, and
+    never as root. Ctrl-C stops it, exit 0. No ``--json`` form: it is a
+    server, not a document (D-059).
     """
     from hammunition import gps_tether
 
+    try:
+        port = gps_tether.PORT if args.port is None else gps_tether.serve_port(args.port)
+        gpsd = gps_tether.GPSD if args.gpsd is None else gps_tether.gpsd_address(args.gpsd)
+    except ValueError as exc:
+        print(f"error: {exc}.", file=sys.stderr)
+        return EXIT_FAILED
     if os.geteuid() == 0:
         print(
             "error: the GPS tether reads gpsd as any user can; run it as yourself, not as root.",
@@ -932,21 +940,22 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
         )
         return EXIT_FAILED
     try:
-        listener = gps_tether.listen()
+        listener = gps_tether.listen(port)
     except OSError as exc:
         print(
-            f"error: cannot listen on {gps_tether.HOST} port {gps_tether.PORT}: "
-            f"{exc.strerror or exc}. Is another tether already running?",
+            f"error: cannot listen on {gps_tether.HOST} port {port}: "
+            f"{exc.strerror or exc}. Is another tether already running? "
+            f"--port N serves another port.",
             file=sys.stderr,
         )
         return EXIT_FAILED
-    print(gps_tether.instructions(), flush=True)
+    print(gps_tether.instructions(port, gpsd=gpsd), flush=True)
 
     def log(line: str) -> None:
         print(line, file=sys.stderr, flush=True)
 
     try:
-        gps_tether.serve(listener, log=log)
+        gps_tether.serve(listener, gpsd=gpsd, log=log)
     except KeyboardInterrupt:
         log("Stopped.")
     finally:
@@ -3169,6 +3178,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_maps_tether = maps_sub.add_parser(
         "gps-tether",
         help="serve gpsd's position as NMEA on 127.0.0.1:10110 for QMapShack's GPS Tether (D-061)",
+    )
+    p_maps_tether.add_argument(
+        "--gpsd",
+        metavar="HOST[:PORT]",
+        default=None,
+        help="the gpsd to read: another machine's, an IPv6 address in brackets "
+        "(default 127.0.0.1:2947)",
+    )
+    p_maps_tether.add_argument(
+        "--port",
+        metavar="N",
+        default=None,
+        help="serve on 127.0.0.1 port N, 1024 to 65535, when 10110 is taken (default 10110)",
     )
     p_maps_tether.set_defaults(func=cmd_maps_gps_tether)
 
