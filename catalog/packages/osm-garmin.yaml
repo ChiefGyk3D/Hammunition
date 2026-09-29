@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: osm-garmin
+version: "station"
+summary: Garmin maps of your OpenStreetMap regions, with trails, for QMapShack
+categories: [navigation-maps]
+
+# Derived data (D-061): the engine runs the `mkgmap` converter, an enum it
+# implements (mkgmap-splitter, then mkgmap with its default style), over each
+# region osm-regions installed. Nothing is downloaded here.
+depends: [osm-regions, mkgmap, mkgmap-splitter]
+
+install:
+  - install:
+      method: derived
+      converter: mkgmap
+      source: osm-regions
+      licence: ODbL-1.0
+      licence_url: https://www.openstreetmap.org/copyright
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    Follows osm-regions: a region whose downloaded file changed is built
+    again on the next install, and one that did not is skipped.
+
+documentation:
+  what_it_does: >-
+    Builds one Garmin map per region `osm-regions` downloaded, as the
+    operator in a staging directory: mkgmap-splitter cuts the region into
+    tiles, mkgmap draws them with its default style, which already shows and
+    routes paths, footways, tracks and bridleways. The map lands under
+    /usr/local/share/hammunition/data/osm-garmin/, where QMapShack's
+    launcher points it.
+  why_you_want_it: >-
+    QMapShack cannot read OpenStreetMap's `.osm.pbf` directly. Building the
+    maps here means it happens once per region's data, is recorded like any
+    other install, and is undone by `hammunition uninstall`.
+  prerequisites: >-
+    `osm-regions` with at least one region set in station config, and
+    `mkgmap` with `mkgmap-splitter`; all install first. With no regions set
+    this unit is deferred by name.
+  known_problems: >-
+    Measured on one US-state-sized region on 2026-09-28: the split took 48 s,
+    the build 126 s, the map is 0.85 times the download, and the staging
+    directory peaks near 2.9 times the download while it runs, removed once
+    the map is installed. The plan uses those factors and says they were
+    measured on one region. There is no hiking cartography: the archive
+    carries no hiking style or TYP file, so trails are drawn as mkgmap's
+    default draws them. The address index is not built (its bounds files
+    have no published checksum), and QMapShack would not read it anyway.
+    The map carries the Open Database License obligations of the data.
+  upstream_url: https://www.mkgmap.org.uk/
+  upstream_support: >-
+    The mkgmap-dev mailing list (https://www.mkgmap.org.uk/mailman/listinfo/mkgmap-dev);
+    problems in the map data are fixed in OpenStreetMap
+    (https://www.openstreetmap.org/fixthemap).

@@ -29,8 +29,10 @@ Exit codes, because scripts read them:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import shutil
+import stat
 import sys
 import tempfile
 import textwrap
@@ -58,6 +60,7 @@ from hammunition.backends import (
     VenvBackend,
 )
 from hammunition.backends.apt import stale_fetches
+from hammunition.backends.dem import TIF, TILES, TerrainDisclosure, read_record
 from hammunition.backends.regions import (
     KeptRegion,
     MapDisclosure,
@@ -65,18 +68,19 @@ from hammunition.backends.regions import (
     MapResolution,
     data_root,
     disk_needs,
-    disk_shortfall,
     installed_slugs,
     installed_snapshot,
     region_current,
 )
 from hammunition.backends.source import DEFAULT_PREFIX
+from hammunition.backends.terrain import combined_shortfall
 from hammunition.consent import (
     ConsentDeclined,
     ConsentUnavailable,
     resolve_consent,
     resolve_repo_consent,
 )
+from hammunition.copernicus import CopernicusError, S3Probe
 from hammunition.country_boundaries import BoundarySource, CountryBoundaryError, boundary_source
 from hammunition.desktop import current_desktop, scan_sessions
 from hammunition.distro import DetectionError, Target
@@ -112,6 +116,7 @@ from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
 from hammunition.manifest.schema import (
     AptInstall,
     BinaryInstall,
+    DemTilesInstall,
     DerivedDataInstall,
     PackageManifest,
     ProfileManifest,
@@ -137,6 +142,7 @@ from hammunition.station import (
     prompt_for,
     save_station,
 )
+from hammunition.terrain_plan import build_terrain_run, resolve_station_terrain
 from hammunition.update import region_snapshots, render, report, requested_units
 from hammunition.upstream import (
     NOT_UPSTREAM,
@@ -214,6 +220,7 @@ def render_plan(
     hands_log_to: str | None = None,
     built: frozenset[str] = frozenset(),
     maps: MapDisclosure | None = None,
+    terrain: TerrainDisclosure | None = None,
 ) -> list[str]:
     """The complete account of what will happen. Printed for every run.
 
@@ -244,6 +251,7 @@ def render_plan(
         hands_log_to=hands_log_to,
         built=built,
         maps=maps,
+        terrain=terrain,
     )
     return render_plan_view(view, target=target_view(plan.target))
 
@@ -560,7 +568,15 @@ def cmd_update(args: argparse.Namespace) -> int:
         if isinstance(planned.block.install, RegionalDataInstall)
     }
 
-    result = report(plan, apt_states=states, present=present, built=built, regions=regions_by_unit)
+    result = report(
+        plan,
+        apt_states=states,
+        present=present,
+        built=built,
+        regions=regions_by_unit,
+        tiles=installed_tile_counts(plan, source.prefix),
+        no_terrain=no_terrain_counts(plan, source.prefix),
+    )
     lists_note = _apt_lists_note(apt)
     upstream = _upstream_rows(plan, runner) if args.upstream else None
     if envelope.wanted(args):
@@ -756,6 +772,146 @@ def cmd_maps_regions(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _read_config_nofollow(path: Path) -> tuple[str, int | None]:
+    """*path*'s text and mode, or ``("", None)`` when absent.
+
+    Opened with ``O_NOFOLLOW``: a symbolic link in place of the file is
+    refused, never read through and never renamed over, because what it
+    points at is not a file this command created (the path-link.sh rule).
+    Anything but a regular file is refused too. Raises :class:`OSError`
+    with a message naming what was found.
+    """
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except FileNotFoundError:
+        if path.is_symlink():  # a dangling link: still not ours to replace
+            raise OSError(f"{path} is a symbolic link; left as it is") from None
+        return "", None
+    except OSError as exc:
+        if path.is_symlink():
+            raise OSError(f"{path} is a symbolic link; left as it is") from None
+        raise OSError(f"cannot read {path}: {exc.strerror or exc}") from None
+    with os.fdopen(fd, "rb") as handle:
+        info = os.fstat(handle.fileno())
+        if not stat.S_ISREG(info.st_mode):
+            raise OSError(f"{path} is not a regular file; left as it is")
+        raw = handle.read()
+    try:
+        return raw.decode("utf-8"), stat.S_IMODE(info.st_mode)
+    except UnicodeDecodeError:
+        raise OSError(f"{path} is not UTF-8 text; left as it is") from None
+
+
+def _replace_atomically(path: Path, text: str, mode: int | None) -> None:
+    """Write *text* to a new file beside *path* and rename it over *path*.
+
+    The temporary file is created exclusively (``mkstemp``) in the same
+    directory, so the rename is atomic and nothing pre-planted at a fixed
+    name is written through. An existing file's mode is kept; a new one is
+    0600, as mkstemp creates it.
+    """
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            if mode is not None:
+                os.fchmod(handle.fileno(), mode)
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    except BaseException:
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(temporary)
+        raise
+
+
+def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
+    """Name Hammunition's maps in QMapShack's own configuration, then start it.  D-061.
+
+    What the ``qmapshack-offline`` launcher runs. Per-user: refused under
+    root, whose configuration is not the operator's. Additive: a key is
+    added or extended only with our directories, existing values stay where
+    they are, and nothing else in the file changes; a file it cannot read,
+    a symbolic link or anything but a regular file in its place is refused
+    and left untouched, and QMapShack is then not started. No ``--json``
+    form: it replaces itself with a GUI (D-059).
+    """
+    from hammunition.qmapshack_config import QmsConfigError, config_path, ensure_paths, wanted
+
+    if os.geteuid() == 0:
+        print(
+            "error: QMapShack's configuration is per user; run this as yourself, not as root.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    path = config_path()
+    not_started = "Nothing was changed and QMapShack was not started"
+    try:
+        text, mode = _read_config_nofollow(path)
+    except OSError as exc:
+        print(f"error: {exc}. {not_started}.", file=sys.stderr)
+        return EXIT_FAILED
+    try:
+        updated = ensure_paths(text, wanted(data_root(DEFAULT_PREFIX)))
+    except QmsConfigError as exc:
+        print(
+            f"error: {path}: {exc}. {not_started}; "
+            f"add the directories in QMapShack's own setup, or move the file aside.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    if updated != text:
+        print(
+            f"adding Hammunition's map, elevation and routing directories to {path} "
+            f"(existing entries kept)",
+            file=sys.stderr,
+        )
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _replace_atomically(path, updated, mode)
+        except OSError as exc:
+            print(
+                f"error: cannot write {path}: {exc.strerror or exc}. QMapShack was not started.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+    if args.configure_only:
+        return EXIT_OK
+    sys.stdout.flush()
+    sys.stderr.flush()  # execvp discards whatever Python still buffers
+    try:
+        os.execvp("qmapshack", ["qmapshack"])
+    except OSError as exc:
+        print(
+            f"error: cannot start qmapshack: {exc.strerror or exc}. "
+            f"`hammunition install qmapshack` installs it.",
+            file=sys.stderr,
+        )
+    return EXIT_FAILED
+
+
+def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
+    """Serve gpsd's NMEA on 127.0.0.1:10110 for QMapShack's GPS Tether.  D-061.
+
+    Loopback only, one client at a time, and only while the operator runs
+    it; the argv is a fixed list, never a shell line. No ``--json`` form:
+    it replaces itself with ``socat`` (D-059).
+    """
+    from hammunition.gps_tether import instructions, tether_argv
+
+    print(instructions())
+    sys.stdout.flush()  # execvp discards whatever Python still buffers
+    try:
+        os.execvp("socat", tether_argv())
+    except OSError as exc:
+        print(
+            f"error: cannot start socat: {exc.strerror or exc}. "
+            f"`hammunition install socat gpsd-clients` installs it and gpspipe.",
+            file=sys.stderr,
+        )
+    return EXIT_FAILED
+
+
 def resolve_map_regions(
     plan: InstallPlan,
     station: Station,
@@ -890,6 +1046,33 @@ def map_borders(
         raise CountryBoundaryError(str(exc)) from exc
 
 
+def installed_tile_counts(plan: InstallPlan, prefix: Path) -> dict[str, int]:
+    """dem-tiles, offline (D-061): how many tiles each unit has installed,
+    never which. Counted from the ``.tif`` files on disk, not the regions'
+    ``.tiles`` records, which are written even when a tile failed."""
+    return {
+        planned.name: sum(1 for _ in (data_root(prefix) / planned.name).glob(f"*{TIF}"))
+        for planned in plan.packages
+        if isinstance(planned.block.install, DemTilesInstall)
+    }
+
+
+def no_terrain_counts(plan: InstallPlan, prefix: Path) -> dict[str, int]:
+    """dem-tiles, offline (final review, I1): how many regions' records say
+    Copernicus publishes no tile for any of their squares, never which."""
+    counts: dict[str, int] = {}
+    for planned in plan.packages:
+        if not isinstance(planned.block.install, DemTilesInstall):
+            continue
+        records = sorted((data_root(prefix) / planned.name).glob(f"*{TILES}"))
+        counts[planned.name] = sum(
+            1
+            for path in records
+            if (entry := read_record(path, path.stem, path.stem)) is not None and entry.no_terrain
+        )
+    return counts
+
+
 def map_work(
     plan: InstallPlan, regions: RegionsBackend, derived: DerivedBackend
 ) -> tuple[list[RegionFile], list[RegionFile]]:
@@ -900,10 +1083,14 @@ def map_work(
         if isinstance(p.block.install, RegionalDataInstall)
         for f in regions.pending(p.manifest)
     ]
+    # Navit's conversions only: piece 2's converters count their own work
+    # (hammunition.terrain_plan.TerrainRun), and derived.pending() reads
+    # Navit's `.bin` files, which an osm-garmin unit has none of.
     conversions = [
         f
         for p in plan.packages
         if isinstance(p.block.install, DerivedDataInstall)
+        and p.block.install.converter == "navit-maptool"
         for f in derived.pending(p.manifest)
     ]
     return downloads, conversions
@@ -912,11 +1099,13 @@ def map_work(
 def leftover_maps_note(plan: InstallPlan, prefix: Path) -> str | None:
     """Map data still installed while no map regions are set, named with its removal."""
     units = sorted(d.subject for d in plan.deferrals if d.why == NO_MAP_REGIONS)
+    # Piece 1's regions and Navit maps, and piece 2's Garmin maps, Routino
+    # database and terrain tiles (D-061).
+    patterns = ("*.osm.pbf", "*.bin", "*.img", "*.mem", f"*{TIF}")
     found = [
         data_root(prefix) / unit
         for unit in units
-        if any((data_root(prefix) / unit).glob("*.osm.pbf"))
-        or any((data_root(prefix) / unit).glob("*.bin"))
+        if any(any((data_root(prefix) / unit).glob(pattern)) for pattern in patterns)
     ]
     if not found:
         return None
@@ -1099,6 +1288,23 @@ def cmd_install(args: argparse.Namespace) -> int:
         return EXIT_UNPLANNABLE
     region_files = list(resolution.files)
     kept = frozenset(k.slug for k in resolution.kept)
+    # D-061: terrain tiles for the same regions, resolved before the plan
+    # prints for the same reason -- each tile's size and how it is verified
+    # are the disclosure.
+    try:
+        dem_resolution = resolve_station_terrain(
+            plan,
+            resolution,
+            catalog_root,
+            prefix=source.prefix,
+            region_probe=UrllibProbe(),
+            tile_probe=S3Probe(),
+        )
+    except CopernicusError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        print("\nNothing was changed.", file=sys.stderr)
+        refused("terrain", str(exc))
+        return EXIT_UNPLANNABLE
     region_notes = list(resolution.notes)
     try:
         border, countries, border_notes = map_borders(plan, packages, catalog_root, source.prefix)
@@ -1123,8 +1329,20 @@ def cmd_install(args: argparse.Namespace) -> int:
         runner=runner,
     )
     # maptool runs as the operator into the operator's build tree; only the
-    # install of its verified output into the prefix is privileged.
+    # install of its verified output into the prefix is privileged. Piece 2's
+    # converters (D-061) do the same, each in its own staging directory.
     map_staging = builds / "osm-navit"
+    terrain = build_terrain_run(
+        prefix=source.prefix,
+        builds=builds,
+        owner=user or None,
+        runner=runner,
+        fetcher=source.fetcher,
+        files=region_files,
+        keep=kept,
+        regions=ledger,
+        resolution=dem_resolution,
+    )
     derived = DerivedBackend(
         prefix=source.prefix,
         files=region_files,
@@ -1135,6 +1353,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         runner=runner,
         boundaries=border,
         countries=countries,
+        converters=terrain.converters,
     )
     # Only regions not already installed at their snapshot are downloaded,
     # counted and listed as downloads (the dry run is the run); a region
@@ -1161,16 +1380,20 @@ def cmd_install(args: argparse.Namespace) -> int:
         )
         else None
     )
-    if pending or conversions:
-        # Refused at plan time, before anything is confirmed, with both numbers.
-        short = disk_shortfall(
+    terrain_view = terrain.disclosure(plan)
+    terrain_disk = terrain.needs(plan, cache=source.fetcher.cache_dir, prefix=source.prefix)
+    if pending or conversions or any(terrain_disk.values()):
+        # Refused at plan time, before anything is confirmed, with both numbers:
+        # piece 1's and piece 2's needs together, per filesystem (D-061).
+        short = combined_shortfall(
             disk_needs(
                 pending,
                 conversions,
                 cache=source.fetcher.cache_dir,
                 staging=map_staging,
                 prefix=source.prefix,
-            )
+            ),
+            terrain_disk,
         )
         if short is not None:
             print(f"error: {short}", file=sys.stderr)
@@ -1195,6 +1418,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         data=data,
         regions=regions,
         derived=derived,
+        dem=terrain.dem,
         repos=repos,
         config_staging=builds,
         launcher_bin=user_bin_dir(user or None),
@@ -1221,6 +1445,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         suggestion_notes=suggestion_notes,
         maps=maps,
         region_notes=region_notes,
+        terrain=terrain_view,
     )
     if envelope.wanted(args):
         # Reached only with --dry-run: main() refuses a real install under
@@ -2574,7 +2799,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     """Report what is ready and what is not yet set up. Changes nothing."""
     import shutil
 
-    from hammunition.doctor import run_checks, writable_or_creatable
+    from hammunition.doctor import ROUTINO_TRANSLATIONS, run_checks, writable_or_creatable
     from hammunition.hardware import RULES_PATH, plan_hardware, rules_file
     from hammunition.manifest.load import load_hardware
     from hammunition.paths import state_dir
@@ -2706,6 +2931,9 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         desktops_installed=sessions.desktops,
         sessions_unrecognised=sessions.unrecognised,
         desktop_current=current_desktop(os.environ),
+        qmapshack_without_translations=(
+            shutil.which("qmapshack") is not None and not Path(ROUTINO_TRANSLATIONS).is_file()
+        ),
     )
 
     from hammunition.interface.doctor import build_doctor, render_doctor
@@ -2868,7 +3096,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_update.set_defaults(func=cmd_update)
 
-    p_maps = sub.add_parser("maps", help="Geofabrik's OpenStreetMap regions (D-057)")
+    p_maps = sub.add_parser(
+        "maps", help="offline maps: Geofabrik's regions (D-057), QMapShack and its GPS (D-061)"
+    )
     maps_sub = p_maps.add_subparsers(dest="maps_command", required=True)
 
     p_maps_regions = maps_sub.add_parser(
@@ -2882,6 +3112,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="case-insensitive substring to match; default: every region",
     )
     p_maps_regions.set_defaults(func=cmd_maps_regions)
+
+    p_maps_qms = maps_sub.add_parser(
+        "qmapshack",
+        help="add Hammunition's maps to your QMapShack configuration, then start it (D-061)",
+    )
+    p_maps_qms.add_argument(
+        "--configure-only",
+        action="store_true",
+        help="edit the configuration and do not start QMapShack",
+    )
+    p_maps_qms.set_defaults(func=cmd_maps_qmapshack)
+
+    p_maps_tether = maps_sub.add_parser(
+        "gps-tether",
+        help="serve gpsd's NMEA on 127.0.0.1:10110 for QMapShack's GPS Tether (D-061)",
+    )
+    p_maps_tether.set_defaults(func=cmd_maps_gps_tether)
 
     p_show = sub.add_parser("show", help="describe a profile, disclosure included")
     p_show.add_argument("profile")

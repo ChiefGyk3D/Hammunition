@@ -10,7 +10,9 @@ stage: post-1.0
 
 # The navigation profile, piece 1 (docs/superpowers/specs/
 # 2026-09-27-navigation-maps-design.md): Navit over Geofabrik regions.
-# Pieces 2 (hiking) and 3 (Kiwix, tile servers) add to it.
+# Piece 2 (docs/superpowers/specs/2026-09-28-hiking-maps-design.md, D-061):
+# QMapShack with trails, terrain and routing on foot. Piece 3 (Kiwix, tile
+# servers) adds to it.
 packages:
   - gpsd
   - gpsd-clients
@@ -18,6 +20,16 @@ packages:
   - osm-regions
   - country-boundaries
   - osm-navit
+  - qmapshack
+  - routino
+  - gdal-bin
+  - mkgmap
+  - mkgmap-splitter
+  - socat
+  - osm-garmin
+  - osm-routino
+  - dem-copernicus
+  - dem-qmapshack
 
 documentation:
   what_it_installs: >-
@@ -28,7 +40,14 @@ documentation:
     which let address search find towns on a part-of-a-country map; and
     those regions converted into Navit's format with a Navit configuration
     that loads all of them and follows the GPS (`osm-navit`, opened by the
-    `navit-offline` launcher).
+    `navit-offline` launcher). For trails and
+    terrain: QMapShack, with Garmin maps built from the same regions
+    (`osm-garmin`), one Routino database over all of them for routes on foot
+    (`osm-routino`), Copernicus elevation tiles for the regions
+    (`dem-copernicus`) and the hillshade, slope and contours drawn from them
+    (`dem-qmapshack`), opened by the `qmapshack-offline` launcher; and
+    `gps-tether`, which serves gpsd's position to QMapShack on this machine
+    only.
   why_together: >-
     A navigator is only useful with a position and a map, and offline it
     needs both already on the machine. Navit without gpsd does not know
@@ -37,8 +56,11 @@ documentation:
     phone network down: the maps are on the laptop before anything goes
     wrong, and `hammunition update` says when newer map data is pinned.
   deliberately_excludes: >-
-    Hiking and topographic maps, tile servers and other map readers are the
-    next pieces of this work. Navit's GTK interface (`navit-gui-gtk`) is
+    Tile servers and Kiwix are the next piece of this work. Viking, Marble,
+    GPSPrune and JOSM were measured and left out: Debian's Viking renders
+    nothing offline, Marble's offline place index has no packaged builder,
+    and GPSPrune and JOSM use online tiles. BRouter is out because its
+    routing data is regenerated weekly with no checksum. Navit's GTK interface (`navit-gui-gtk`) is
     left out in favour of the internal one, which suits a touch screen and a
     small panel. Grid-square readouts belong to the station and dashboard
     tools.
@@ -52,7 +74,15 @@ documentation:
     against a sha256 Hammunition measured; other regions and modes are
     checked against Geofabrik's MD5, and the plan says which for every
     region). A GPS receiver must be attached and seen by gpsd; `xgps`, from
-    gpsd-clients, shows whether it has a fix.
+    gpsd-clients, shows whether it has a fix. For QMapShack: start it from
+    the `qmapshack-offline` launcher, which writes the map, elevation and
+    Routino directories into QMapShack's configuration; its Routino router
+    is then expected to offer the `hammunition` database, used with the
+    `foot` profile; for your position, run `gps-tether`, which serves NMEA on
+    127.0.0.1 port 10110, the host and port QMapShack's GPS Tether dialog is
+    expected to take. The QMapShack half of this has not yet been run on a
+    desktop; bench session 12 on the field laptop
+    (docs/reference/bench-verification-5430.md) is that check.
   disk_footprint_hint: >-
     Navit, espeak-ng, osmium-tool and gpsd from the archive (size not yet
     measured), and the 13.3 MB country-border file once.
@@ -63,4 +93,10 @@ documentation:
     minutes on an i7-1185G7, and two US-state-sized regions at 0.874 and
     0.856 times; the scratch on the country-sized region only). A single US state's
     download ranges from about 20 MB (District of Columbia) to 1.3 GB
-    (California).
+    (California). QMapShack's maps, measured on one US-state-sized region:
+    the Garmin map at 0.85 times the download with up to three times it of
+    scratch, and the Routino database over every region at 0.67 times all
+    the downloads together with up to six times of scratch. Terrain: about
+    39 MB per elevation tile, tens to hundreds of tiles a region (over 90,
+    about 3.6 GB, for the largest contiguous US states; 449, about 17.5 GB,
+    for Alaska), and about 5.5 MB of contours per tile.

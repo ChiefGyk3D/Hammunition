@@ -39,6 +39,7 @@ from hammunition.backends.apt import AptPackageState
 from hammunition.manifest.schema import (
     AptInstall,
     BinaryInstall,
+    DemTilesInstall,
     GitInstall,
     NodeInstall,
     PackageManifest,
@@ -230,6 +231,30 @@ def _regions_row(planned: PlannedPackage, snapshots: Sequence[RegionSnapshot]) -
     return UpdateRow(planned.name, BEHIND_PIN, detail, strategy)
 
 
+def _tiles_row(planned: PlannedPackage, count: int, no_terrain: int = 0) -> UpdateRow:
+    """Counts only (D-061): a tile's name is a latitude and longitude, as
+    telling as a region's. *no_terrain* is how many regions Copernicus
+    publishes no tile for at all (final review, I1), never called sea."""
+    strategy = planned.manifest.update.strategy
+    withheld = (
+        f"; {no_terrain} region(s) with no published tile at Copernicus GLO-30 "
+        f"(sea, or land it does not release)"
+        if no_terrain
+        else ""
+    )
+    if not count:
+        return UpdateRow(
+            planned.name, NOT_INSTALLED, f"no terrain tiles installed{withheld}", strategy
+        )
+    return UpdateRow(
+        planned.name,
+        UP_TO_DATE,
+        f"{count} terrain tile(s) installed; a tile changes only when the publisher's "
+        f"tile list does{withheld}",
+        strategy,
+    )
+
+
 def _first_sentence(manifest: PackageManifest) -> str:
     """A manual unit's cadence hint, cut to its first sentence for the table;
     the manifest carries the rest, and the row says where to look."""
@@ -247,6 +272,8 @@ def report(
     present: Mapping[str, bool | None],
     built: Iterable[str],
     regions: Mapping[str, Sequence[RegionSnapshot]] | None = None,
+    tiles: Mapping[str, int] | None = None,
+    no_terrain: Mapping[str, int] | None = None,
 ) -> UpdateReport:
     """One row per planned unit. Pure: every fact arrives as an argument.
 
@@ -255,6 +282,10 @@ def report(
     unit; ``built`` is :func:`hammunition.execute.already_built` for the plan;
     ``regions`` is an ``osm-regions`` unit's name to its installed regions
     against the pin list (:func:`region_snapshots`), offline (D-053).
+
+    ``tiles`` is a ``dem-tiles`` unit's name to how many tiles it has
+    installed (D-061), a count and nothing else; ``no_terrain`` is how many
+    of its regions Copernicus publishes no tile for, a count likewise.
     """
     attributed = frozenset(built)
     region_report = regions or {}
@@ -301,6 +332,14 @@ def report(
             )
         elif isinstance(method, RegionalDataInstall):
             rows.append(_regions_row(planned, region_report.get(planned.name, ())))
+        elif isinstance(method, DemTilesInstall):
+            rows.append(
+                _tiles_row(
+                    planned,
+                    (tiles or {}).get(planned.name, 0),
+                    (no_terrain or {}).get(planned.name, 0),
+                )
+            )
         elif isinstance(method, VenvInstall):
             rows.append(
                 UpdateRow(
@@ -365,6 +404,10 @@ def rebuild_command(report: UpdateReport) -> str | None:
     names = list(report.behind)
     if "osm-regions" in names and "osm-navit" not in names:
         names.append("osm-navit")
+    # D-061: QMapShack's maps and routing are derived from the same regions.
+    reported = {row.unit for row in report.rows}
+    if "osm-regions" in names:
+        names.extend(u for u in ("osm-garmin", "osm-routino") if u in reported and u not in names)
     return f"hammunition install {' '.join(names)}"
 
 

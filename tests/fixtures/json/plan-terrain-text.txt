@@ -1,0 +1,36 @@
+Target: Debian GNU/Linux 13 (trixie) (ID=debian, version=13, arch=x86_64)
+
+Packages (5):
+  osm-regions                  already installed  [requested]
+  osm-garmin                   will convert       [requested]
+  osm-routino                  will convert       [requested]
+  dem-copernicus               will fetch+install [requested]
+  dem-qmapshack                will convert       [requested]
+
+Map regions, from station config (D-057):
+  already installed, current:
+    atlantis/oceania  260101
+    atlantis/lemuria  260101
+      licence: ODbL-1.0, stated at https://www.openstreetmap.org/copyright
+      download total: 0 KB; about 0 KB of disk with Navit's maps (estimate, measured on three regions, scratch on one)
+      installs under <prefix>/share/hammunition/data/
+  Terrain, Copernicus GLO-30 elevation (D-061):
+    atlantis/oceania  2 tile(s), 2 square(s) with no published tile (sea, or land Copernicus does not release); 39.1 MB to download
+    atlantis/lemuria  1 tile(s); 25.2 MB to download
+    atlantis/mu       0 tile(s), 3 square(s) with no published tile (sea, or land Copernicus does not release)
+    warning: no terrain available for atlantis/mu from Copernicus GLO-30; its maps still install
+    (a region's tiles are read from its outline at Geofabrik, fetched again
+    by every plan until its terrain is installed and its record written)
+    will be downloaded (2 tile(s), 64.3 MB):
+      Copernicus_DSM_COG_10_N00_00_E000_00_DEM    39.1 MB  sha256, pinned by Hammunition
+      Copernicus_DSM_COG_10_S01_00_W001_00_DEM    25.2 MB  MD5 from the publisher's object metadata; not pinned by Hammunition
+    already installed: 1 tile(s)
+      licence: Copernicus DEM licence, stated at https://spacedata.copernicus.eu/
+  Built for QMapShack (sizes an estimate, measured on one region):
+    Garmin map  atlantis/oceania  260101  about 44.6 MB (0.85x the download)
+    Routino database over 2 region(s)  about 42.2 MB (0.67x the downloads together)
+    contours for 2 tile(s)  about 11.0 MB, with up to 98.0 MB of scratch at a time
+      about 0.16 GB of disk for terrain and QMapShack's maps (measured on one region)
+
+Commands (0):
+  (none — everything this plan asks for is already in place)

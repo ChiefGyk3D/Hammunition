@@ -45,6 +45,7 @@ from hammunition.manifest.schema import (  # noqa: E402
     Binary,
     BinaryInstall,
     DataInstall,
+    DemTilesInstall,
     DerivedDataInstall,
     GitInstall,
     InstallBlock,
@@ -83,6 +84,11 @@ def method_of(block: InstallBlock) -> str:
     if isinstance(install, RegionalDataInstall):
         return (
             f"OpenStreetMap regions from Geofabrik (chosen in station config) "
+            f"({install.licence}, {install.licence_url})"
+        )
+    if isinstance(install, DemTilesInstall):
+        return (
+            f"elevation tiles from {install.provider} for the regions in station config "
             f"({install.licence}, {install.licence_url})"
         )
     if isinstance(install, DerivedDataInstall):

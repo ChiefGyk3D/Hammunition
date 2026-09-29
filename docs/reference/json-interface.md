@@ -853,6 +853,7 @@ The station's map regions (D-057). Names where the operator is: local only.
 | `disk_total` | integer | bytes: the download plus the estimated converted maps |
 | `disk_total_human` | string | as the text prints it |
 | `estimate_note` | string | how the conversion estimate was measured |
+| `terrain` | [`TerrainSectionView`](#terrainsectionview) or null | terrain tiles and QMapShack's maps (D-061); null when no terrain unit is planned |
 | `boundaries` | [`BoundaryLine`](#boundaryline) or null | the country-border file merged into each region with osmium merge before maptool; null when the converter has none |
 | `unknown_country` | boolean | maptool runs with -U: a town outside every country boundary is indexed under the pseudo-country Unknown instead of being dropped |
 
@@ -891,6 +892,65 @@ An installed region that could not be checked for a newer map; kept.
 | `region` | string | the Geofabrik region path |
 | `snapshot` | string or null | the installed snapshot, when recorded |
 | `reason` | string | why it could not be checked |
+
+#### `TerrainSectionView`
+
+Terrain, and what is built for QMapShack (D-061). Names where the operator is: local only.
+
+| field | type | meaning |
+|---|---|---|
+| `regions` | list of [`TerrainRegionLine`](#terrainregionline) | tiles per region |
+| `fetch` | list of [`TileLine`](#tileline) | tiles downloaded this run |
+| `current` | integer | tiles already installed |
+| `licence` | string | the elevation data's licence |
+| `licence_url` | string | where it is stated |
+| `download_total` | integer | bytes of tiles downloaded |
+| `download_total_human` | string | as the text prints it |
+| `garmin` | list of [`GarminLine`](#garminline) | Garmin maps built this run |
+| `routino_regions` | integer | regions the Routino database is rebuilt over; 0 when current |
+| `routino_estimate` | integer | bytes the rebuilt database is estimated to take |
+| `routino_estimate_human` | string | as the text prints it |
+| `contours` | integer | tiles whose contours are drawn this run |
+| `contours_estimate` | integer | bytes those contours are estimated to take |
+| `contours_estimate_human` | string | as the text prints it |
+| `disk_total` | integer | bytes: the tiles plus everything estimated to be built |
+| `disk_total_human` | string | as the text prints it |
+| `estimate_note` | string | how the estimates were measured |
+
+#### `TerrainRegionLine`
+
+The terrain tiles one region needs (D-061).
+
+| field | type | meaning |
+|---|---|---|
+| `region` | string | the Geofabrik region path |
+| `tiles` | integer | tiles that exist for its outline |
+| `unpublished` | integer | squares of its outline Copernicus publishes no tile for: sea, or land it does not release; the tile list cannot say which |
+| `no_terrain` | boolean | true when its outline touches squares and every one is unpublished: no terrain is installed for this region, and the plan warns so; its maps still install |
+| `download` | integer | bytes of its tiles downloaded this run; a tile two regions share counts in both |
+| `download_human` | string | as the text prints it |
+
+#### `TileLine`
+
+One terrain tile downloaded this run.
+
+| field | type | meaning |
+|---|---|---|
+| `tile` | string | the Copernicus GLO-30 tile name; it encodes a latitude and longitude |
+| `size` | integer | bytes |
+| `size_human` | string | the size as the text prints it |
+| `verified_by` | string | how the download is checked |
+
+#### `GarminLine`
+
+A region mkgmap builds a Garmin map from this run.
+
+| field | type | meaning |
+|---|---|---|
+| `region` | string | the Geofabrik region path |
+| `snapshot` | string | the dated snapshot |
+| `estimate` | integer | bytes the map is estimated to take |
+| `estimate_human` | string | that estimate as the text prints it |
 
 #### `BoundaryLine`
 
@@ -1394,6 +1454,36 @@ A unit and files.
       "title": "DisplacedLine",
       "type": "object"
     },
+    "GarminLine": {
+      "additionalProperties": false,
+      "description": "A region mkgmap builds a Garmin map from this run.",
+      "properties": {
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "snapshot": {
+          "title": "Snapshot",
+          "type": "string"
+        },
+        "estimate": {
+          "title": "Estimate",
+          "type": "integer"
+        },
+        "estimate_human": {
+          "title": "Estimate Human",
+          "type": "string"
+        }
+      },
+      "required": [
+        "region",
+        "snapshot",
+        "estimate",
+        "estimate_human"
+      ],
+      "title": "GarminLine",
+      "type": "object"
+    },
     "GateLine": {
       "additionalProperties": false,
       "description": "A consent gate the real run will present (D-021). Never answered through JSON.",
@@ -1675,6 +1765,16 @@ A unit and files.
           "title": "Estimate Note",
           "type": "string"
         },
+        "terrain": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TerrainSectionView"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "boundaries": {
           "anyOf": [
             {
@@ -1702,6 +1802,7 @@ A unit and files.
         "disk_total",
         "disk_total_human",
         "estimate_note",
+        "terrain",
         "boundaries",
         "unknown_country"
       ],
@@ -2137,6 +2238,180 @@ A unit and files.
         "debian_family"
       ],
       "title": "TargetView",
+      "type": "object"
+    },
+    "TerrainRegionLine": {
+      "additionalProperties": false,
+      "description": "The terrain tiles one region needs (D-061).",
+      "properties": {
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "tiles": {
+          "title": "Tiles",
+          "type": "integer"
+        },
+        "unpublished": {
+          "title": "Unpublished",
+          "type": "integer"
+        },
+        "no_terrain": {
+          "title": "No Terrain",
+          "type": "boolean"
+        },
+        "download": {
+          "title": "Download",
+          "type": "integer"
+        },
+        "download_human": {
+          "title": "Download Human",
+          "type": "string"
+        }
+      },
+      "required": [
+        "region",
+        "tiles",
+        "unpublished",
+        "no_terrain",
+        "download",
+        "download_human"
+      ],
+      "title": "TerrainRegionLine",
+      "type": "object"
+    },
+    "TerrainSectionView": {
+      "additionalProperties": false,
+      "description": "Terrain, and what is built for QMapShack (D-061). Names where the operator is: local only.",
+      "properties": {
+        "regions": {
+          "items": {
+            "$ref": "#/$defs/TerrainRegionLine"
+          },
+          "title": "Regions",
+          "type": "array"
+        },
+        "fetch": {
+          "items": {
+            "$ref": "#/$defs/TileLine"
+          },
+          "title": "Fetch",
+          "type": "array"
+        },
+        "current": {
+          "title": "Current",
+          "type": "integer"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "licence_url": {
+          "title": "Licence Url",
+          "type": "string"
+        },
+        "download_total": {
+          "title": "Download Total",
+          "type": "integer"
+        },
+        "download_total_human": {
+          "title": "Download Total Human",
+          "type": "string"
+        },
+        "garmin": {
+          "items": {
+            "$ref": "#/$defs/GarminLine"
+          },
+          "title": "Garmin",
+          "type": "array"
+        },
+        "routino_regions": {
+          "title": "Routino Regions",
+          "type": "integer"
+        },
+        "routino_estimate": {
+          "title": "Routino Estimate",
+          "type": "integer"
+        },
+        "routino_estimate_human": {
+          "title": "Routino Estimate Human",
+          "type": "string"
+        },
+        "contours": {
+          "title": "Contours",
+          "type": "integer"
+        },
+        "contours_estimate": {
+          "title": "Contours Estimate",
+          "type": "integer"
+        },
+        "contours_estimate_human": {
+          "title": "Contours Estimate Human",
+          "type": "string"
+        },
+        "disk_total": {
+          "title": "Disk Total",
+          "type": "integer"
+        },
+        "disk_total_human": {
+          "title": "Disk Total Human",
+          "type": "string"
+        },
+        "estimate_note": {
+          "title": "Estimate Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "regions",
+        "fetch",
+        "current",
+        "licence",
+        "licence_url",
+        "download_total",
+        "download_total_human",
+        "garmin",
+        "routino_regions",
+        "routino_estimate",
+        "routino_estimate_human",
+        "contours",
+        "contours_estimate",
+        "contours_estimate_human",
+        "disk_total",
+        "disk_total_human",
+        "estimate_note"
+      ],
+      "title": "TerrainSectionView",
+      "type": "object"
+    },
+    "TileLine": {
+      "additionalProperties": false,
+      "description": "One terrain tile downloaded this run.",
+      "properties": {
+        "tile": {
+          "title": "Tile",
+          "type": "string"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "size_human": {
+          "title": "Size Human",
+          "type": "string"
+        },
+        "verified_by": {
+          "title": "Verified By",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tile",
+        "size",
+        "size_human",
+        "verified_by"
+      ],
+      "title": "TileLine",
       "type": "object"
     },
     "UnitFiles": {

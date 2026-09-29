@@ -19,7 +19,17 @@ from typing import ClassVar
 
 from hammunition.backends import Action
 from hammunition.backends.data import human_size
+from hammunition.backends.dem import TerrainDisclosure, no_terrain_line
 from hammunition.backends.regions import ESTIMATE, MapDisclosure, bin_estimate
+from hammunition.backends.terrain import (
+    CONTOUR_BYTES,
+    CONTOUR_SCRATCH_BYTES,
+    GARMIN_FACTOR,
+    MEASURED,
+    ROUTINO_FACTOR,
+    garmin_estimate,
+    routino_estimate,
+)
 from hammunition.consent import repo_env_var
 from hammunition.desktop import Desktop, describe_set
 from hammunition.execute import Step
@@ -30,6 +40,7 @@ from hammunition.manifest.schema import (
     AptInstall,
     BinaryInstall,
     DataInstall,
+    DemTilesInstall,
     DerivedDataInstall,
     GitInstall,
     NodeInstall,
@@ -61,6 +72,7 @@ def plan_state(
     planned: PlannedPackage,
     built: frozenset[str] = frozenset(),
     maps: MapDisclosure | None = None,
+    terrain: TerrainDisclosure | None = None,
 ) -> str:
     """What the plan will do to this unit, in two words.
 
@@ -78,14 +90,34 @@ def plan_state(
     nothing to fetch and none that could not be checked; ``osm-navit`` when,
     on top of that, no map is left to convert. With no disclosure the plan
     knows nothing about the regions, and the method's wording stands.
+
+    Piece 2's units (D-061) answer from the terrain disclosure the same way:
+    ``dem-copernicus`` when no tile is fetched, each converter when it has
+    nothing to build this run.
     """
     method = planned.block.install
     if maps is not None and (maps.current or maps.kept or maps.fetch):
         regions_current = not maps.fetch and not maps.kept
         if isinstance(method, RegionalDataInstall) and regions_current:
             return "already installed"
-        if isinstance(method, DerivedDataInstall) and regions_current and not maps.convert:
+        if (
+            isinstance(method, DerivedDataInstall)
+            and method.converter == "navit-maptool"
+            and regions_current
+            and not maps.convert
+        ):
             return "already installed"
+    if terrain is not None:
+        if isinstance(method, DemTilesInstall) and not terrain.resolution.fetch:
+            return "already installed"
+        if isinstance(method, DerivedDataInstall):
+            idle = {
+                "mkgmap": not terrain.garmin,
+                "routino-planetsplitter": not terrain.routino_regions,
+                "gdal-dem": not terrain.drawing,
+            }
+            if idle.get(method.converter, False):
+                return "already installed"
     if isinstance(method, AptInstall):
         return "already installed" if not planned.outstanding else "will install"
     if isinstance(method, BinaryInstall) and planned.deb_installed:
@@ -243,6 +275,69 @@ class KeptLine(Strict):
 
 
 @dataclass(frozen=True)
+class TerrainRegionLine(Strict):
+    """The terrain tiles one region needs (D-061)."""
+
+    region: str = described("the Geofabrik region path")
+    tiles: int = described("tiles that exist for its outline")
+    unpublished: int = described(
+        "squares of its outline Copernicus publishes no tile for: sea, or land it does not "
+        "release; the tile list cannot say which"
+    )
+    no_terrain: bool = described(
+        "true when its outline touches squares and every one is unpublished: no terrain is "
+        "installed for this region, and the plan warns so; its maps still install"
+    )
+    download: int = described(
+        "bytes of its tiles downloaded this run; a tile two regions share counts in both"
+    )
+    download_human: str = described("as the text prints it")
+
+
+@dataclass(frozen=True)
+class TileLine(Strict):
+    """One terrain tile downloaded this run."""
+
+    tile: str = described("the Copernicus GLO-30 tile name; it encodes a latitude and longitude")
+    size: int = described("bytes")
+    size_human: str = described("the size as the text prints it")
+    verified_by: str = described("how the download is checked")
+
+
+@dataclass(frozen=True)
+class GarminLine(Strict):
+    """A region mkgmap builds a Garmin map from this run."""
+
+    region: str = described("the Geofabrik region path")
+    snapshot: str = described("the dated snapshot")
+    estimate: int = described("bytes the map is estimated to take")
+    estimate_human: str = described("that estimate as the text prints it")
+
+
+@dataclass(frozen=True)
+class TerrainSectionView(Strict):
+    """Terrain, and what is built for QMapShack (D-061). Names where the operator is: local only."""
+
+    regions: tuple[TerrainRegionLine, ...] = described("tiles per region")
+    fetch: tuple[TileLine, ...] = described("tiles downloaded this run")
+    current: int = described("tiles already installed")
+    licence: str = described("the elevation data's licence")
+    licence_url: str = described("where it is stated")
+    download_total: int = described("bytes of tiles downloaded")
+    download_total_human: str = described("as the text prints it")
+    garmin: tuple[GarminLine, ...] = described("Garmin maps built this run")
+    routino_regions: int = described("regions the Routino database is rebuilt over; 0 when current")
+    routino_estimate: int = described("bytes the rebuilt database is estimated to take")
+    routino_estimate_human: str = described("as the text prints it")
+    contours: int = described("tiles whose contours are drawn this run")
+    contours_estimate: int = described("bytes those contours are estimated to take")
+    contours_estimate_human: str = described("as the text prints it")
+    disk_total: int = described("bytes: the tiles plus everything estimated to be built")
+    disk_total_human: str = described("as the text prints it")
+    estimate_note: str = described("how the estimates were measured")
+
+
+@dataclass(frozen=True)
 class MapSectionView(Strict):
     """The station's map regions (D-057). Names where the operator is: local only."""
 
@@ -257,6 +352,9 @@ class MapSectionView(Strict):
     disk_total: int = described("bytes: the download plus the estimated converted maps")
     disk_total_human: str = described("as the text prints it")
     estimate_note: str = described("how the conversion estimate was measured")
+    terrain: TerrainSectionView | None = described(
+        "terrain tiles and QMapShack's maps (D-061); null when no terrain unit is planned"
+    )
     boundaries: BoundaryLine | None = described(
         "the country-border file merged into each region with osmium merge before "
         "maptool; null when the converter has none"
@@ -499,16 +597,84 @@ def step_view(step: Step, *, euid: int) -> StepView:
     )
 
 
-def _map_section(plan: InstallPlan, maps: MapDisclosure | None) -> MapSectionView | None:
-    units = [
-        p.block.install
-        for p in plan.packages
-        if isinstance(p.block.install, RegionalDataInstall | DerivedDataInstall)
+def _terrain_section(terrain: TerrainDisclosure | None) -> TerrainSectionView | None:
+    if terrain is None:
+        return None
+    resolution = terrain.resolution
+    sizes = {t.name: t.size for t in resolution.fetch}
+    download = sum(sizes.values())
+    garmin = [
+        GarminLine(
+            region=f.region,
+            snapshot=f.snapshot,
+            estimate=garmin_estimate(f.size),
+            estimate_human=human_size(garmin_estimate(f.size)),
+        )
+        for f in terrain.garmin
     ]
+    routino = routino_estimate(terrain.routino_total)
+    contours = terrain.contours * CONTOUR_BYTES
+    disk = download + sum(g.estimate for g in garmin) + routino + contours
+    return TerrainSectionView(
+        regions=tuple(
+            TerrainRegionLine(
+                region=r.region,
+                tiles=len(r.tiles),
+                unpublished=r.unpublished,
+                no_terrain=r.no_terrain,
+                download=sum(sizes.get(name, 0) for name in r.tiles),
+                download_human=human_size(sum(sizes.get(name, 0) for name in r.tiles)),
+            )
+            for r in resolution.regions
+        ),
+        fetch=tuple(
+            TileLine(
+                tile=t.name, size=t.size, size_human=human_size(t.size), verified_by=t.verified_by
+            )
+            for t in resolution.fetch
+        ),
+        current=len(resolution.current),
+        licence=terrain.licence.strip(),
+        licence_url=terrain.licence_url,
+        download_total=download,
+        download_total_human=human_size(download),
+        garmin=tuple(garmin),
+        routino_regions=terrain.routino_regions,
+        routino_estimate=routino,
+        routino_estimate_human=human_size(routino),
+        contours=terrain.contours,
+        contours_estimate=contours,
+        contours_estimate_human=human_size(contours),
+        disk_total=disk,
+        disk_total_human=human_size(disk),
+        estimate_note=MEASURED,
+    )
+
+
+def _map_section(
+    plan: InstallPlan, maps: MapDisclosure | None, terrain: TerrainDisclosure | None = None
+) -> MapSectionView | None:
+    # The regions' own unit first: its licence is the map data's. A derived
+    # unit can sort ahead of it and carry another (gdal-dem's is Copernicus's,
+    # D-061), which the region lines would otherwise have been shown under.
+    units = sorted(
+        (
+            p.block.install
+            for p in plan.packages
+            if isinstance(p.block.install, RegionalDataInstall | DerivedDataInstall)
+        ),
+        key=lambda block: not isinstance(block, RegionalDataInstall),
+    )
     if not units or maps is None or not (maps.fetch or maps.current or maps.kept or maps.convert):
         return None
-    # A current region still being converted is not "nothing to do".
+    # A current region still being converted is not "nothing to do"; nor is
+    # one mkgmap builds from, or every region when Routino's database is
+    # rebuilt over them all (D-061).
     converting = {f.slug for f in maps.convert}
+    if terrain is not None:
+        converting |= {f.slug for f in terrain.garmin}
+        if terrain.routino_regions:
+            converting |= {f.slug for f in (*maps.fetch, *maps.current)}
 
     def line(f: RegionFile, *, current: bool) -> RegionLine:
         return RegionLine(
@@ -559,6 +725,7 @@ def _map_section(plan: InstallPlan, maps: MapDisclosure | None) -> MapSectionVie
             verified_by=PINNED,
         ),
         unknown_country=True,
+        terrain=_terrain_section(terrain),
     )
 
 
@@ -573,6 +740,7 @@ def build_install_view(
     suggestion_notes: Sequence[str] = (),
     maps: MapDisclosure | None = None,
     region_notes: Sequence[str] = (),
+    terrain: TerrainDisclosure | None = None,
 ) -> InstallPlanView:
     data: list[DataLine] = []
     for planned in plan.packages:
@@ -599,7 +767,7 @@ def build_install_view(
             PackageLine(
                 name=p.name,
                 method=p.block.install.method,
-                state=plan_state(p, built, maps),
+                state=plan_state(p, built, maps, terrain),
                 requested_by=tuple(p.requested_by),
                 apt=tuple(
                     AptLine(package=a, outstanding=a in p.outstanding, build_only=a in p.build_only)
@@ -639,7 +807,7 @@ def build_install_view(
             for a in plan.apt_repos
         ),
         data=tuple(data),
-        maps=_map_section(plan, maps),
+        maps=_map_section(plan, maps, terrain),
         memberships=tuple(
             MembershipLine(
                 user=m.user,
@@ -831,6 +999,8 @@ def render_plan_view(view: InstallPlanView, *, target: TargetView) -> list[str]:
             f"{maps.disk_total_human} of disk with Navit's maps ({maps.estimate_note})"
         )
         lines.append("      installs under <prefix>/share/hammunition/data/")
+        if maps.terrain is not None:
+            lines.extend(_render_terrain(maps.terrain))
         lines.append("")
 
     if view.memberships:
@@ -908,6 +1078,78 @@ def render_plan_view(view: InstallPlanView, *, target: TargetView) -> list[str]:
     for command in view.commands:
         lines.append(f"  # {command.description}")
         lines.append(f"  $ {command.display}")
+    return lines
+
+
+def _render_terrain(terrain: TerrainSectionView) -> list[str]:
+    """The Terrain block, inside the map section (D-061)."""
+    lines: list[str] = []
+    if terrain.regions or terrain.fetch or terrain.current:
+        lines.append("  Terrain, Copernicus GLO-30 elevation (D-061):")
+    if terrain.regions:
+        width = max(len(r.region) for r in terrain.regions)
+        for region in terrain.regions:
+            unpublished = (
+                f", {region.unpublished} square(s) with no published tile "
+                f"(sea, or land Copernicus does not release)"
+                if region.unpublished
+                else ""
+            )
+            fetch = f"; {region.download_human} to download" if region.download else ""
+            lines.append(
+                f"    {region.region:<{width}}  {region.tiles} tile(s){unpublished}{fetch}"
+            )
+        # Final review, I1: a region with squares and not one published tile
+        # gets no terrain. Said as a warning, never folded into success.
+        lines.extend(
+            f"    warning: {no_terrain_line(region.region)}; its maps still install"
+            for region in terrain.regions
+            if region.no_terrain
+        )
+        # A region's record is written only when its terrain is installed
+        # (Task 10's note, ruled at Task 13): until then every plan, a dry
+        # run included, asks Geofabrik for its outline again.
+        lines.append("    (a region's tiles are read from its outline at Geofabrik, fetched again")
+        lines.append("    by every plan until its terrain is installed and its record written)")
+    if terrain.fetch:
+        lines.append(
+            f"    will be downloaded ({len(terrain.fetch)} tile(s), "
+            f"{terrain.download_total_human}):"
+        )
+        width = max(len(t.tile) for t in terrain.fetch)
+        lines.extend(
+            f"      {t.tile:<{width}}  {t.size_human:>9}  {t.verified_by}" for t in terrain.fetch
+        )
+    if terrain.current:
+        lines.append(f"    already installed: {terrain.current} tile(s)")
+    if terrain.licence:
+        lines.append(f"      licence: {terrain.licence}, stated at {terrain.licence_url}")
+    built: list[str] = []
+    if terrain.garmin:
+        width = max(len(g.region) for g in terrain.garmin)
+        built.extend(
+            f"    Garmin map  {g.region:<{width}}  {g.snapshot}  about {g.estimate_human} "
+            f"({GARMIN_FACTOR}x the download)"
+            for g in terrain.garmin
+        )
+    if terrain.routino_regions:
+        built.append(
+            f"    Routino database over {terrain.routino_regions} region(s)  about "
+            f"{terrain.routino_estimate_human} ({ROUTINO_FACTOR}x the downloads together)"
+        )
+    if terrain.contours:
+        built.append(
+            f"    contours for {terrain.contours} tile(s)  about "
+            f"{terrain.contours_estimate_human}, with up to "
+            f"{human_size(CONTOUR_SCRATCH_BYTES)} of scratch at a time"
+        )
+    if built:
+        lines.append(f"  Built for QMapShack (sizes an estimate, {terrain.estimate_note}):")
+        lines.extend(built)
+    lines.append(
+        f"      about {terrain.disk_total_human} of disk for terrain and QMapShack's maps "
+        f"({terrain.estimate_note})"
+    )
     return lines
 
 

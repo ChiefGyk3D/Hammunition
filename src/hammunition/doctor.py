@@ -35,6 +35,9 @@ from typing import Literal
 
 from hammunition.desktop import Desktop, describe, describe_set
 
+#: routino-common's file QMapShack reads at startup (D-061).
+ROUTINO_TRANSLATIONS = "/usr/share/routino/translations.xml"
+
 # What scripts/path-link.sh links to: a link ending here is ours (D-059).
 ENGINE_LINK_SUFFIX = "/.venv/bin/hammunition"
 
@@ -78,6 +81,7 @@ def run_checks(
     desktops_installed: frozenset[Desktop] | None = None,
     desktop_current: Desktop | None = None,
     sessions_unrecognised: tuple[str, ...] = (),
+    qmapshack_without_translations: bool = False,
 ) -> list[Check]:
     """Every check, in the order a person should read them. Pure; see module docstring."""
     checks: list[Check] = []
@@ -325,6 +329,20 @@ def run_checks(
                     f"is unset or unrecognised, and sudo usually drops it)"
                 )
         checks.append(Check("desktops", "info", detail))
+
+    # D-061: QMapShack stops at startup with a modal "The specified
+    # translations XML file did not exist" when routino-common's file is
+    # missing. apt supplies it through libroutino0; this names it when not.
+    if qmapshack_without_translations:
+        checks.append(
+            Check(
+                "qmapshack",
+                "warn",
+                f"QMapShack is installed and {ROUTINO_TRANSLATIONS} is missing; QMapShack "
+                f"stops at startup until it is back",
+                "sudo apt-get install --reinstall routino-common",
+            )
+        )
 
     if log_dir_writable:
         checks.append(Check("state dir", "ok", "the transaction log directory is writable"))

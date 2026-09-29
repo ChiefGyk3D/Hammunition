@@ -47,13 +47,15 @@ from hammunition.backends import (
     SourceBackend,
     VenvBackend,
 )
-from hammunition.backends.regions import MapLedger
+from hammunition.backends.dem import DemTilesBackend
+from hammunition.backends.derived import Ledger
 from hammunition.backends.source import tree_destination
 from hammunition.distro import Target
 from hammunition.launchers import launcher_steps
 from hammunition.manifest.schema import (
     BinaryInstall,
     DataInstall,
+    DemTilesInstall,
     DerivedDataInstall,
     GitInstall,
     InstallBlock,
@@ -397,6 +399,7 @@ def commands_for(
     data: DataBackend | None = None,
     regions: RegionsBackend | None = None,
     derived: DerivedBackend | None = None,
+    dem: DemTilesBackend | None = None,
     repos: AptRepoBackend | None = None,
     config_staging: Path | None = None,
     launcher_bin: Path | None = None,
@@ -429,11 +432,13 @@ def commands_for(
     builds: list[Step] = []
     # A conversion reads data another unit installs in this same run, and
     # plan order is `after`, not `depends` -- osm-navit sorts before
-    # osm-regions. So every conversion runs after every other build.
+    # osm-regions, dem-qmapshack before dem-copernicus. So every conversion
+    # runs after every other build: the regions and the terrain tiles are
+    # installed before mkgmap, planetsplitter or GDAL reads them.
     conversions: list[Step] = []
     # One map region failing does not stop the others (spec §8); the ledger
     # the map backends share fails the transaction by name, as its last step.
-    ledgers: dict[int, MapLedger] = {}
+    ledgers: dict[int, Ledger] = {}
     for planned in plan.packages:
         block = planned.block.install
         if planned.name in skip_builds and isinstance(
@@ -510,7 +515,17 @@ def commands_for(
                     f"that installed nothing."
                 )
             conversions.extend(derived.steps(planned.manifest, block))
-            ledgers.setdefault(id(derived.ledger), derived.ledger)
+            for ledger in derived.ledgers(block):
+                ledgers.setdefault(id(ledger), ledger)
+        elif isinstance(block, DemTilesInstall):
+            if dem is None:
+                raise BackendError(
+                    f"{planned.name} installs the station's terrain tiles and no dem-tiles "
+                    f"backend was supplied. Skipping it would report a successful run "
+                    f"that installed nothing."
+                )
+            builds.extend(dem.steps(planned.manifest, block))
+            ledgers.setdefault(id(dem.ledger), dem.ledger)
     builds.extend(conversions)
 
     # A `fetch` is an in-process download into the cache, verified before it

@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from hammunition.desktop import describe_set
 
 from .hardware import DeviceClass, DeviceManifest
-from .schema import ManifestError, PackageManifest, ProfileManifest
+from .schema import ManifestError, PackageManifest, ProfileManifest, derived_source_method_problem
 
 __all__ = [
     "CatalogError",
@@ -62,6 +62,10 @@ def load_catalog(directory: Path) -> dict[str, PackageManifest]:
 
     for name, manifest in manifests.items():
         problem = _desktop_alternative_problem(manifest, manifests)
+        if problem is not None:
+            failures[paths[name]] = problem
+            continue
+        problem = derived_source_method_problem(manifest, manifests)
         if problem is not None:
             failures[paths[name]] = problem
 

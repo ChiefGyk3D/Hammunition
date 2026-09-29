@@ -63,6 +63,7 @@ from hammunition.manifest.schema import (
     AptInstall,
     BinaryInstall,
     DataInstall,
+    DemTilesInstall,
     DerivedDataInstall,
     GitInstall,
     InstallBlock,
@@ -425,10 +426,13 @@ def plan_removal(
                         ),
                     )
 
-        elif isinstance(install, DataInstall | RegionalDataInstall | DerivedDataInstall):
+        elif isinstance(
+            install, DataInstall | RegionalDataInstall | DemTilesInstall | DerivedDataInstall
+        ):
             # D-049: a data unit's files live only under its namespaced data
             # directory, which nothing but this engine writes; removed whole.
-            # Map regions and their converted maps (D-057) live the same way.
+            # Map regions and their converted maps (D-057), and terrain tiles
+            # with what is drawn from them (D-061), live the same way.
             add(
                 unit,
                 ArtifactRemoval(

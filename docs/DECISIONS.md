@@ -4565,6 +4565,11 @@ the next piece; Kiwix with a Wikipedia ZIM and ETC's tileset with a tile
 server are the one after, and D-049's order changes to put Navit's extract
 before the tileset. Each gets its own specification.
 
+(2026-09-28: the next piece is built as **D-061**: QMapShack, Garmin maps,
+one Routino database and Copernicus elevation from the same regions.
+GPSPrune was measured then and is not carried, because it uses online
+tiles.)
+
 **Consequences.** `RegionalDataInstall` (`method: osm-regions`) and
 `DerivedDataInstall` (`method: derived`) in the schema;
 `src/hammunition/geofabrik.py`, `src/hammunition/backends/regions.py`,
@@ -5109,3 +5114,318 @@ check in `src/hammunition/doctor.py`; `desktops: [kde]` on
 `station`/`hammunition-tray` cases in `tests/test_cli.py`, which set the
 desktops explicitly so they answer the same on a desktop and in a
 container.
+
+## D-061 — Trails, terrain and routing on foot: QMapShack over Garmin maps and one Routino database built from the station's regions, and Copernicus elevation checked tile by tile
+
+**Date:** 2026-09-28. **Status:** accepted (maintainer, 2026-09-28, "sounds
+good go for it", on `docs/superpowers/specs/2026-09-28-hiking-maps-design.md`),
+with one departure from that specification, measured and recorded in its
+own dated amendment: the tiles follow each region's outline, not its file's
+bounding box (below). **Depends on:** D-057 (regions are station data;
+derived data by a converter enum; MD5 disclosed, never silent), D-049
+(offline data is a catalog unit), D-035 and D-039 (a missing station value
+defers by name), D-031 (verify the effect), D-043 (the operator owns what is
+built on their behalf), D-021 (state the licence), D-059 (the launchers run
+`hammunition` from the `PATH`). **Amends:** D-057's converter enum, with
+three members (`mkgmap`, `routino-planetsplitter`, `gdal-dem`), and D-049's
+install methods, with `dem-tiles`.
+
+**Why.** The maintainer, 2026-09-28, after Navit ran on the field laptop:
+"need maps for trails, and such too. Think survival and EMCOMM." Navit is a
+road navigator. It has no terrain and draws trails as an afterthought. A
+search, a hike to a repeater site or a deployment off the road network
+needs trails, contours, a route on foot and the position on one map.
+
+### What is carried, and what was measured and left out
+
+All of it comes from the archive and none of it is built from source:
+QMapShack (Parrot echo 1.17.1; 1.21.1 in echo-backports, which D-038 takes
+where the machine already installs from there), Routino 3.4.3, GDAL 3.10.3,
+mkgmap r4923 with mkgmap-splitter r654, and socat. Viking, Marble, GPSPrune
+and JOSM were measured and are not carried. Debian's Viking links no Mapnik,
+so it renders nothing offline, and it routes only through web services.
+Marble's offline place index has no packaged builder. GPSPrune and JOSM use
+online tiles.
+
+| Unit | What | Where |
+|---|---|---|
+| `osm-garmin` | converter `mkgmap`: mkgmap-splitter, then mkgmap `--style=default --route --add-pois-to-areas --unicode --gmapsupp` | `data/osm-garmin/<slug>.img` |
+| `osm-routino` | converter `routino-planetsplitter`: `--parse-only` per region (`--append` after the first), then one `--process-only`, prefix `hammunition` | `data/osm-routino/hammunition-*.mem` |
+| `dem-copernicus` | method `dem-tiles`, provider `copernicus-glo30` | `data/dem-copernicus/<tile>.tif` |
+| `dem-qmapshack` | converter `gdal-dem`: per tile `gdal_contour -i 20`, then `gdal_rasterize -ts 7200 7200`; `gdalbuildvrt` over the tiles and over the contour rasters | `data/dem-qmapshack/{dem,contours}/` |
+
+The `navigation` profile gains the ten units: the six programs and the
+four data units. Piece 1's units are unchanged. With no regions set, the
+four data units are deferred by name with the rest of the map data, and the
+programs still install.
+
+`--index` and `--housenumbers` are not passed to mkgmap. They need its
+upstream bounds files, which have no published checksum, and QMapShack does
+not read that index.
+
+### One Routino database over every region, installed whole
+
+A route can cross from one region into the next only inside one database;
+QMapShack's own help says Routino cannot route across two. The trade is
+stated in the plan. A region that fails to parse fails the database, not
+only itself, and the step names the region and why. The four `.mem` files
+are one database, so they are published under temporary names and only
+renamed into place once all four verify. A publish that fails partway
+leaves the installed database and its record (`hammunition.source`, the
+regions and snapshots it was built from) exactly as they were. A rename
+failing after that removes the database and its record rather than leave
+QMapShack a mixed set, and the next run rebuilds it.
+
+### Tiles follow each region's outline
+
+A tile is one 1°×1° square named by its south-west corner. Which squares
+have a tile is the bucket's `tileList.txt`, carried as
+`catalog/data/copernicus-glo30-tiles.txt` (26,450 names, generated). A
+square not in it has **no published tile**, and the plan needs no network to
+know that. It does not know why. Such a square is ocean, or land the
+publisher withholds from the public 30 m release: measured against the
+carried list at the final review, the squares of Yerevan and Baku are absent
+while their neighbours to the north and south are listed. The list cannot
+tell the two apart, and Hammunition never guesses, so the plan counts these
+squares as "square(s) with no published tile (sea, or land Copernicus does
+not release)" and never calls them sea. An empty or comment-only list is an
+error naming the file, never "every square is unpublished", because a
+truncated file would otherwise take a region's terrain away with no warning.
+
+A region whose outline touches squares, none of them published, gets no
+terrain, and that is never silent. The plan prints **"warning: no terrain
+available for `<region>` from Copernicus GLO-30; its maps still install"**,
+nothing is fetched for it, and the step that records the region names it
+the same way. The transaction does not fail over it: the operator asked for
+the region's maps, not its terrain, and the maps install. The record's
+header is `# squares with no published tile: N`; a record written with the
+earlier `# sea squares: N` still reads as the same count, so it is not
+rewritten. `update` counts such regions, never naming one.
+
+The specification chose each region's squares from the bounding box in its
+`.osm.pbf` header. That was measured before the build on the two regions
+installed on the development host. For one of them the header box spans
+hundreds of squares where the region's Geofabrik outline touches tens, and
+it does not even contain the outline's own box. The header box also does
+not exist before a region's first download, and that is when the plan must
+print the tiles. So the squares are the ones the outline touches, edge or
+interior: `<region>.poly`, the file Geofabrik cut the extract with. The
+outline is fetched through the same probe that resolves the regions, and the
+answer is recorded in `data/dem-copernicus/<slug>.tiles` when the terrain
+installs. Until that first install, every plan fetches the outline again, a
+dry run included, and the plan says so. It is not cached at plan time,
+because a plan run under `sudo` would leave a root-owned file in the
+operator's cache.
+
+The antimeridian refusal applies only to an outline edge that jumps across
+±180 as a single segment, and no Geofabrik outline measured does that.
+Measured on 2026-09-28 through `parse_poly` and `squares_touching` on the
+live outlines: Geofabrik writes Alaska, Fiji, New Zealand and Russia's far
+east as separate rings that stop at ±180, and all four select their tiles
+with zero refusals (Alaska: 449 tiles, about 17.5 GB). An edge that does
+jump would still be refused by name, not unwrapped on a guess.
+
+A region's terrain is tens to hundreds of tiles, at about 39 MB a tile.
+Measured the same day over `gen_geofabrik_pins.REGIONS`: a contiguous US
+state can exceed 90 tiles (about 3.6 GB), Alaska is 449 tiles (about
+17.5 GB), and the 50 states and DC together touch 1,447 tiles. The plan
+prints each region's tile count and download size before anything is
+fetched, and the disk check counts them.
+
+### Every tile is verified in one of D-057's two modes, and the plan names which
+
+A tile with a row in `catalog/data/copernicus-glo30-pins.yaml` is checked
+against the sha256 Hammunition measured, and the plan says **"sha256, pinned
+by Hammunition"**. Any other tile is checked against the MD5 in the object's
+S3 ETag, and the plan says **"MD5 from the publisher's object metadata; not
+pinned by Hammunition"**, tile by tile. A single-part upload's ETag is its
+MD5, measured equal to `md5sum` on one tile. A multipart ETag is not an MD5,
+and such a tile is refused by name. A pinned tile is still asked for with a
+`HEAD` at plan time, so an unreachable bucket refuses the plan before apt
+runs rather than halfway through the transaction.
+
+**The pin file ships empty** (`pins: []`). Until the maintainer grows it,
+every tile gets the MD5 wording. Each pin costs a 39 MB download, and
+`scripts/gen_copernicus_pins.py --max-tiles N` pins the next N tiles of one
+fixed order: the 1,447 tiles that the outlines of the 50 US states and DC
+touch, state by state (counted on 2026-09-28, when one tile was also pinned
+live and its body's MD5 matched its ETag; that pin was not kept). The pin
+file is always a prefix of that order, whoever runs the generator, so it
+never says whose region was pinned first, and the generator has no
+`--region`. The weekly job diffs the carried list against the bucket's and
+`HEAD`s every pin for its size and ETag.
+
+Each tile is fetched into the shared cache, verified, installed and
+re-verified on the way in, and its cached copy is then deleted: a tile never
+changes, and a second copy of tens to hundreds of tiles is gigabytes. A tile no region
+needs any more is removed.
+
+### Converters run as the operator, one lock per build, and fail into their own ledger
+
+Every converter runs in a working directory under the operator's
+`~/.cache/hammunition/build/<unit>/`, through one `Staging` object
+(`src/hammunition/backends/staging.py`). Under `sudo`, every staging-side
+operation is a process dropped to the operator, with the operator's minimal
+environment (`PATH`, `HOME`, `USER`, `LOGNAME`, the locale, and the
+converter's own variables), never root's. The staged output is published
+into the prefix only if it still hashes to what the operator's process
+measured. That was piece 1's rule for maptool, and it is now one class. The
+same review found piece 1's maptool children inheriting root's environment,
+and they now get the same minimal one.
+
+The working directory is fixed per region (`<slug>.work`) or per build
+(`routino.work`, `dem.work`) and is held under one `flock` for every phase
+of that build. Scratch is cleared only under that lock, by the operator.
+Root never removes a working directory, and a run refused because another
+holds the lock removes nothing. The lock is there for the reason D-057's
+amendment found: maptool writes fixed-name temp files, and two runs in one
+directory crashed.
+
+Outputs are checked, not exit statuses (D-031). mkgmap exits 0 while it
+logs SEVERE, and `gdal_contour` exits 0 appending to an existing file, so
+the working directory is emptied before every tile. Debian's `mkgmap`
+wrapper ignores `JAVA_OPTS`, which the splitter's honours, so mkgmap's
+6000 MB heap arrives through `JAVA_TOOL_OPTIONS` and the splitter's 4000 MB
+through `JAVA_OPTS`. Each output carries a `.source` sidecar naming its
+input and its converter's version (`mkgmap 1`, `gdal-dem 1`), so a changed
+converter rebuilds, as `navit-maptool 2` does. `gdal_rasterize -ts 7200
+7200` draws each tile's contours at about 5.4 MB, measured.
+
+A failure is recorded in a terrain ledger separate from piece 1's: a region
+whose Garmin map did not build is still a region Navit converts. The run's
+last step fails it by name if anything terrain did not install.
+
+### QMapShack is told where the maps are, and nothing else changes
+
+`hammunition maps qmapshack` is what the `qmapshack-offline` launcher runs.
+It adds Hammunition's directories to QMapShack's own settings,
+`~/.config/QLandkarte/QMapShack.conf`, if they are absent. The keys are
+`mapPath` and `demPaths` under `[General]` and `routino\paths` under
+`[Route]`, read from QMapShack 1.17.1's binary. It keeps every existing
+value in its place and touches nothing else, byte for byte. A value of
+`@Invalid()` is how Qt writes an empty list, so it reads as empty and is
+replaced. Any other `@`-typed or quoted value in those keys is refused, and
+so is a line that is neither a section nor `key=value`, or a symbolic link
+in the file's place. A refusal changes nothing and does not start
+QMapShack. A new file is created 0600. The command refuses root, whose
+settings are not the operator's. It is per-user and unprivileged, like the
+menu files (D-050). A refusal from a menu click is not visible, so the
+guide tells the operator to run the launcher in a terminal to read it.
+
+QMapShack stops at startup when `/usr/share/routino/translations.xml` is
+missing. apt supplies it, and `doctor` gains a *qmapshack* warning naming
+it for the case where it is gone.
+
+### The GPS tether is loopback only
+
+QMapShack has no gpsd client; its GPS Tether reads NMEA over TCP.
+`hammunition maps gps-tether`, the `gps-tether` launcher, runs `gpspipe -r`
+behind `socat` listening on 127.0.0.1 port 10110 only, one client at a
+time, and only while the operator runs it. A position is where the operator
+is, so it is never served to the network, and nothing is installed as a
+service. The listening socket was measured on loopback only by
+`tests/test_gps_tether.py`, which runs the real `socat` where it is
+installed.
+
+### The plan, disk and privacy
+
+The plan's *Map regions* section gains a *Terrain* block. It shows tiles per
+region, how many squares have no published tile and what the region's tiles cost to
+download, each tile to fetch with its size and verification, and what is
+built for QMapShack with its estimate. Each factor is printed with
+"measured on one region":
+
+- Garmin map: 0.85× the download, with 3× scratch.
+- Routino database: 0.67× all the downloads together, with 6× scratch
+  (5.02× sampled at the peak once a second, rounded up).
+- Contours: about 5.5 MB a tile, with up to 98 MB of scratch at a time.
+
+The disk check counts piece 1 and piece 2 together and refuses before
+anything is fetched. Tile names encode latitude and longitude, so they are
+printed in the plan only. `update` prints how many tiles are installed and
+nothing else, and names `osm-garmin` and `osm-routino` in its command when
+`osm-regions` is behind. The tests use synthetic outlines and tile names,
+and no maintainer region, tile, size or digest is recorded in the
+repository: figures from his regions appear here as ratios and as "tens"
+or "hundreds".
+
+### Gaps, documented and carried
+
+- **Offline address search is Navit's.** QMapShack's search is online only,
+  and Routino takes coordinates. Find the address in Navit, then walk it in
+  QMapShack.
+- **Trail difficulty is not routed on.** Routino's foot profile ignores
+  `sac_scale`.
+- **No hiking cartography.** No hiking style or TYP file is in the archive.
+  OpenTopoMap's and Freizeitkarte's are unmeasured upstream projects.
+- **The Garmin address index is off**, because its bounds files are not
+  pinned.
+- **Labelled contours inside the map** need a DEM-to-OSM tool the archive
+  lacks (`pyhgtmap` on PyPI is the candidate). The raster overlay is legible,
+  not pretty.
+- **SRTM is refused** (it needs an Earthdata login). **viewfinderpanoramas
+  is not carried** (no checksum, unclear licence). **USGS 3DEP** is the
+  alternative provider if anyone asks, and the `provider` enum has room for
+  it.
+- **BRouter stays out**: its jar is pinnable, and its weekly routing data is
+  not.
+- **An outline edge that jumps across ±180 as one segment is refused** by
+  name. None measured does (above): Alaska, Fiji, New Zealand and Russia's
+  far east select their tiles.
+- **Land Copernicus does not release at 30 m has no terrain.** The region's
+  maps install, and the plan warns by name (above). The route is a second
+  provider: Copernicus GLO-90, published separately at 90 m, is the
+  candidate, unmeasured here, and the `provider` enum has room for it.
+
+### What is measured, and what is not yet
+
+Measured on the development host on 2026-09-28: every converter's argv and
+factor above, on one region or tile; the tile list; one live pin, not kept;
+the tether's loopback socket. Not yet run on a desktop, and not claimed
+until bench session 12 in `docs/reference/bench-verification-5430.md`
+records it:
+
+- QMapShack reading the directories the launcher writes under those keys;
+- listing the `hammunition` Routino database;
+- drawing hillshade and slope from `dem.vrt`;
+- a route on foot across the boundary between two regions;
+- the tether feeding QMapShack's GPS Tether from a real receiver;
+- the whole install on the field laptop.
+
+The guide's *What has not been measured yet* is the operator's copy of this
+list.
+
+**Rejected.** The `.osm.pbf` header box for tile selection (measured wrong,
+above). Caching the outline at plan time (root-owned files in the operator's
+cache under `sudo`). One Routino database per region (no route across a
+boundary). Unwrapping an antimeridian edge on a guess. A `--region` flag on
+the pin generator (the pin file would say whose region it was). A systemd
+service for the tether (a position served while nobody is using it). Garmin
+device export, and online maps of any kind, which are out of scope.
+
+**Consequences.** `DemTilesInstall` and the three converters in
+`src/hammunition/manifest/schema.py`; `src/hammunition/copernicus.py`,
+`src/hammunition/terrain_plan.py`, `src/hammunition/qmapshack_config.py`,
+`src/hammunition/gps_tether.py`; `src/hammunition/backends/staging.py`,
+`garmin.py`, `routino.py`, `dem.py`, `gdal_dem.py` and `terrain.py`; the
+*Terrain* block in the plan and its JSON form (`TerrainSectionView`,
+`docs/reference/json-interface.md`); the tile count in `update`; the
+*qmapshack* check in `src/hammunition/doctor.py`; `maps qmapshack` and
+`maps gps-tether` in `src/hammunition/cli/main.py`; the generated
+`catalog/data/copernicus-glo30-tiles.txt` and
+`catalog/data/copernicus-glo30-pins.yaml` and their generator
+`scripts/gen_copernicus_pins.py`, checked weekly;
+`catalog/packages/qmapshack.yaml`, `catalog/packages/osm-garmin.yaml`,
+`catalog/packages/osm-routino.yaml`, `catalog/packages/dem-copernicus.yaml`,
+`catalog/packages/dem-qmapshack.yaml` and the programs' manifests;
+`catalog/profiles/navigation.yaml`. The operator's page is
+`docs/guides/offline-navigation.md` (sections 9 to 11), and the CLI's is
+`docs/reference/cli.md`. Tests: `tests/test_copernicus.py`,
+`tests/test_terrain_plan.py`, `tests/test_staging.py`,
+`tests/test_garmin.py`, `tests/test_routino.py`,
+`tests/test_dem_backend.py`, `tests/test_gdal_dem.py`,
+`tests/test_terrain.py`, `tests/test_terrain_cli.py`,
+`tests/test_terrain_execute.py`, `tests/test_json_plan_terrain.py`,
+`tests/test_qmapshack_config.py`, `tests/test_gps_tether.py`,
+`tests/test_gen_copernicus_pins.py`, `tests/test_navigation_catalog.py`
+and `tests/test_docs_terrain.py`.

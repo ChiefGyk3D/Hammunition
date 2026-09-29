@@ -229,6 +229,11 @@ jobs:
       # regenerate. HEAD only; the ~10 GB regeneration runs on a maintainer's
       # machine.
       - run: python scripts/gen_geofabrik_pins.py --check
+      # The Copernicus tile list and tile pins (D-061): diff the carried list
+      # against the bucket's and HEAD every pinned tile. HEAD and a 1.1 MB
+      # list only; growing the pins downloads 39 MB a tile and runs on a
+      # maintainer's machine.
+      - run: python scripts/gen_copernicus_pins.py --check
       # The region -> country table the Navit converter merges borders by
       # (D-057 amendment). Geofabrik adds and re-parents regions; a region
       # with no row converts with no border and its towns land under

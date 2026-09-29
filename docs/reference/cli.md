@@ -189,6 +189,16 @@ behind is `up to date`. `hammunition install osm-regions osm-navit` (the
 footer's own command, since `install osm-regions` alone never reconverts
 the derived maps) fetches and converts the newer file.
 
+For `dem-copernicus` the row is a count, never a tile name, because a tile
+name is a latitude and longitude: `43 terrain tile(s) installed; a tile
+changes only when the publisher's tile list does`, or `no terrain tiles
+installed`. Regions whose records say Copernicus publishes no tile for any
+of their squares are counted on the end, again without a name: `; 1
+region(s) with no published tile at Copernicus GLO-30 (sea, or land it does
+not release)`. When `osm-regions` is behind, the footer's command also names
+`osm-garmin` and `osm-routino` if they are installed, since they are built
+from the same regions.
+
 With `--json`, prints an `update` document
 ([json-interface.md](json-interface.md)) with the same rows, counts and
 commands. It keeps the text's count-only rule: `osm-regions` is a count
@@ -217,6 +227,50 @@ non-zero exit; nothing is downloaded or written.
 With `--json`, prints a `regions` document
 ([json-interface.md](json-interface.md)): the filter and the matching region
 paths. It is Geofabrik's list, nothing of yours.
+
+### `hammunition maps qmapshack [--configure-only]`
+
+What the `qmapshack-offline` launcher runs (**D-061**). It adds
+Hammunition's map, elevation and routing directories to QMapShack's own
+settings, `$XDG_CONFIG_HOME/QLandkarte/QMapShack.conf` (by default
+`~/.config/QLandkarte/QMapShack.conf`), then starts `qmapshack`. The keys
+are `mapPath` (the Garmin maps and the contour map) and `demPaths` (the
+elevation) under `[General]`, and `Route/routino/paths` (the Routino
+database) under `[Route]`, read from QMapShack 1.17.1's binary. Each
+directory is added only if absent. Every value already there is kept in its
+place, and nothing else in the file changes. A key holding `@Invalid()`,
+which is how Qt writes an empty list, counts as empty. A new file is
+created mode 0600. `--configure-only` edits and does not start QMapShack.
+
+It refuses, exit 1, changing nothing and starting nothing:
+
+- under root, whose settings are not the operator's;
+- when the file holds a line that is neither a `[section]`, a comment nor
+  `key=value`;
+- when one of those keys holds a quoted value or any other `@`-typed one;
+- when the file is a symbolic link, not a regular file, or not UTF-8.
+
+It prints one line to stderr when it changed the file. A missing
+`qmapshack` is a named error, exit 1, after the edit. There is no `--json`
+form, because it replaces itself with a GUI (D-059).
+
+### `hammunition maps gps-tether`
+
+What the `gps-tether` launcher runs (**D-061**). It serves gpsd's raw NMEA
+(`gpspipe -r`) through `socat` on **127.0.0.1 port 10110 only**, one client
+at a time, for QMapShack's *Realtime → GPS Tether*, and prints the host and
+port to enter:
+
+```
+Serving gpsd's NMEA on 127.0.0.1 port 10110, to this machine only.
+In QMapShack: Realtime, then GPS Tether; host 127.0.0.1, port 10110.
+Ctrl-C stops it. Navit reads gpsd directly and needs none of this.
+```
+
+It runs in the foreground until Ctrl-C; nothing is installed as a service.
+It needs `socat` and `gpsd-clients` (for `gpspipe`); a missing `socat` is a
+named error, exit 1. There is no `--json` form, because it replaces itself
+with `socat` (D-059).
 
 ### `hammunition list [all|packages|profiles]`
 
@@ -320,6 +374,68 @@ two units are deferred by name and the rest installs (**D-035**). A region
 that fails during the run — a download that does not verify, a conversion
 that writes nothing — does not stop the others; the run ends exit 1 naming
 every region that did not install.
+
+**Terrain and QMapShack's maps (D-061).** When the plan holds
+`dem-copernicus`, `osm-garmin`, `osm-routino` or `dem-qmapshack`, the map
+section gains a *Terrain* block. Before the plan prints, each region's tiles
+are read from its record (`dem-copernicus/<slug>.tiles`) or, until its
+terrain is first installed, chosen from its Geofabrik outline
+(`<region>.poly`), fetched again by every plan until then and said so. Each
+tile not installed is resolved from its pin or, unpinned, by a `HEAD` to the
+bucket for its size and ETag; a pinned tile is asked with a `HEAD` too, so
+an unreachable bucket refuses the plan rather than the transaction. From the
+golden test's synthetic plan:
+
+```
+  Terrain, Copernicus GLO-30 elevation (D-061):
+    atlantis/oceania  2 tile(s), 2 square(s) with no published tile (sea, or land Copernicus does not release); 39.1 MB to download
+    atlantis/lemuria  1 tile(s); 25.2 MB to download
+    atlantis/mu       0 tile(s), 3 square(s) with no published tile (sea, or land Copernicus does not release)
+    warning: no terrain available for atlantis/mu from Copernicus GLO-30; its maps still install
+    (a region's tiles are read from its outline at Geofabrik, fetched again
+    by every plan until its terrain is installed and its record written)
+    will be downloaded (2 tile(s), 64.3 MB):
+      Copernicus_DSM_COG_10_N00_00_E000_00_DEM    39.1 MB  sha256, pinned by Hammunition
+      Copernicus_DSM_COG_10_S01_00_W001_00_DEM    25.2 MB  MD5 from the publisher's object metadata; not pinned by Hammunition
+    already installed: 1 tile(s)
+      licence: Copernicus DEM licence, stated at https://spacedata.copernicus.eu/
+  Built for QMapShack (sizes an estimate, measured on one region):
+    Garmin map  atlantis/oceania  260101  about 44.6 MB (0.85x the download)
+    Routino database over 2 region(s)  about 42.2 MB (0.67x the downloads together)
+    contours for 2 tile(s)  about 11.0 MB, with up to 98.0 MB of scratch at a time
+      about 0.16 GB of disk for terrain and QMapShack's maps (measured on one region)
+```
+
+Each tile line ends with how it is verified: **`sha256, pinned by
+Hammunition`** when it has a row in
+`catalog/data/copernicus-glo30-pins.yaml`, otherwise **`MD5 from the
+publisher's object metadata; not pinned by Hammunition`**. The pin file
+ships empty, so today every tile gets the second.
+
+A square with no published tile is counted as such and never called sea:
+the carried list cannot tell open sea from land Copernicus does not release.
+A region with no published tile at all gets the `warning:` line, fetches
+nothing and does not fail the run; its maps still install (D-061).
+
+The commands section shows each tile's fetch (all fetches first, as every
+download is), each install, each region's record, each Garmin build and the
+Routino build (as the operator, in `~/.cache/hammunition/build/osm-garmin/`
+and `.../osm-routino/`), each tile's contours (`.../dem-qmapshack/`), the two
+virtual rasters, and a last step that fails the run by name if any of this
+did not install. It refuses at plan time, exit 2, changing nothing:
+
+- when a region's outline or a tile not installed cannot be resolved (every
+  such one named together), including a tile whose ETag is not a
+  single-part MD5 and an outline edge that jumps across ±180 in one segment;
+- when the carried tile list is missing, empty or malformed;
+- when the carried pins file (`catalog/data/copernicus-glo30-pins.yaml`)
+  does not parse, has no `pins:` list, or has a row missing a key or
+  carrying a malformed value or a tile pinned twice; the refusal names the
+  file, and under `--json` it is one refused plan document;
+- when a disk is short of piece 1's and piece 2's estimates together.
+
+With no regions set, all four units are deferred by name with the rest of
+the map data.
 
 **Recommends, per unit (D-052).** Recommends are not suppressed globally —
 that would deviate from what every target distribution does, and several ham
@@ -511,7 +627,7 @@ A **read-only** health check: is this machine ready, and what is not yet set
 up. It changes nothing, and it is the first thing to run on a fresh machine
 or when something misbehaves — it turns the failures the engine would
 otherwise hit mid-transaction into a report you read up front, each with the
-one command that fixes it. Fourteen checks across four severities:
+one command that fixes it. Fifteen checks across four severities:
 
 - **fail** — the engine cannot work until fixed (not a Debian-family system;
   no catalog). Exits non-zero.
@@ -554,6 +670,12 @@ to another checkout's, the check names that checkout's venv. When
 `~/.local/bin` is itself missing from `PATH`, the bootstrap prints the one
 line to add to `~/.profile`. Remove the link with
 `rm ~/.local/bin/hammunition`.
+
+The **qmapshack** check (**D-061**) appears only when `qmapshack` is on the
+`PATH` and `/usr/share/routino/translations.xml` is missing: QMapShack stops
+at startup with "The specified translations XML file did not exist" until
+the file is back. It is a warn, with `sudo apt-get install --reinstall
+routino-common` as the fix.
 
 The closing line counts each, and the exit code is non-zero only when
 something is **blocking**. It is the natural first command after installing

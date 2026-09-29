@@ -37,7 +37,18 @@ from .venv import VenvBackend
 
 #: Install methods this engine build can actually perform.
 IMPLEMENTED_METHODS: frozenset[str] = frozenset(
-    {"apt", "binary", "data", "derived", "git", "node", "osm-regions", "source", "venv"}
+    {
+        "apt",
+        "binary",
+        "data",
+        "dem-tiles",
+        "derived",
+        "git",
+        "node",
+        "osm-regions",
+        "source",
+        "venv",
+    }
 )
 
 #: `system_modifications` kinds this engine build can actually perform.

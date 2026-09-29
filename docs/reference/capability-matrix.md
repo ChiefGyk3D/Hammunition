@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 59 | 2 | 195 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 59 | 2 | 195 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 57 | 2 | 197 |
-| kali-rolling *(unswept)* | 0 | 0 | 54 | 0 | 202 |
-| parrot *(unswept)* | 0 | 0 | 57 | 2 | 197 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 57 | 2 | 197 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 56 | 5 | 195 |
+| debian-13 *(unswept)* | 0 | 0 | 63 | 2 | 201 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 63 | 2 | 201 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 61 | 2 | 203 |
+| kali-rolling *(unswept)* | 0 | 0 | 58 | 0 | 208 |
+| parrot *(unswept)* | 0 | 0 | 61 | 2 | 203 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 61 | 2 | 203 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 60 | 5 | 201 |
 
-**256 manifests** against **7 targets**.
+**266 manifests** against **7 targets**.
 
 ---
 
@@ -97,6 +97,8 @@ build HAS been run in a container say so in their own install notes.
 | `cwdaemon` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `cwwav` | git | git | git | git | git | git | git |
 | `dablin` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `dem-copernicus` | dem-tiles | dem-tiles | dem-tiles | dem-tiles | dem-tiles | dem-tiles | dem-tiles |
+| `dem-qmapshack` | derived | derived | derived | derived | derived | derived | derived |
 | `dfu-util` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `direwolf` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `dmrconfig` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -125,6 +127,7 @@ build HAS been run in a container say so in their own install notes.
 | `flwrap` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `freedv` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `garim` | source | source | source | source | source | source | source |
+| `gdal-bin` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `geary` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `git` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `glfer` | source | source | source | source | source | source | source |
@@ -186,6 +189,8 @@ build HAS been run in a container say so in their own install notes.
 | `minicom` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `minimodem` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `miri-sdr` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `mkgmap` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `mkgmap-splitter` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `mlat-client-adsbfi` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `morse-classic` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `morse2ascii` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -204,8 +209,10 @@ build HAS been run in a container say so in their own install notes.
 | `openfpgaloader` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `openhamclock` | node | node | node | node | node | node | node |
 | `openocd` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `osm-garmin` | derived | derived | derived | derived | derived | derived | derived |
 | `osm-navit` | derived | derived | derived | derived | derived | derived | derived |
 | `osm-regions` | osm-regions | osm-regions | osm-regions | osm-regions | osm-regions | osm-regions | osm-regions |
+| `osm-routino` | derived | derived | derived | derived | derived | derived | derived |
 | `osmo-sdr` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `paracon` | binary | binary | binary | binary | binary | binary | binary |
 | `pat` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -224,6 +231,7 @@ build HAS been run in a container say so in their own install notes.
 | `qflipper` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `qgrid` | source | source | source | source | source | source | source |
 | `qlog` | git | git | git | apt ? | apt ? | git | git |
+| `qmapshack` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `qrq` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `qsstv` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `qtbpqaprs` | git | git | git | git | git | git | git |
@@ -238,6 +246,7 @@ build HAS been run in a container say so in their own install notes.
 | `rayhunter` | binary | binary | binary | binary | binary | binary | binary |
 | `readsb` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `remotetrx` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `routino` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `rtl-433` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `rtl-ais` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `rtl-sdr` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -262,6 +271,7 @@ build HAS been run in a container say so in their own install notes.
 | `soapysdr-module-rtlsdr` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `soapysdr-module-uhd` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `soapysdr-tools` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `socat` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `spectools` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `splat` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `stlink-tools` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
