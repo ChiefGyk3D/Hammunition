@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: osm-routino
+version: "station"
+summary: One Routino routing database over all your regions, for routes on foot
+categories: [navigation-maps]
+
+# Derived data (D-061): the `routino-planetsplitter` converter parses every
+# region osm-regions installed into one database, so a route may cross from
+# one region into the next.
+depends: [osm-regions, routino]
+
+install:
+  - install:
+      method: derived
+      converter: routino-planetsplitter
+      source: osm-regions
+      licence: ODbL-1.0
+      licence_url: https://www.openstreetmap.org/copyright
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    Rebuilt whenever the set of regions or any region's snapshot changes;
+    otherwise left as it is.
+
+documentation:
+  what_it_does: >-
+    Builds one Routino database, prefix `hammunition`, over every region you
+    have set: each region parsed in turn, then processed once, as the
+    operator in a staging directory. Installed under
+    /usr/local/share/hammunition/data/osm-routino/, where QMapShack's
+    launcher points its Routino router.
+  why_you_want_it: >-
+    Routing on trails with no network. One database over all regions is what
+    lets a route cross a region boundary, which Routino cannot do across two
+    databases.
+  prerequisites: >-
+    `osm-regions` with at least one region set, and `routino`. With no
+    regions set this unit is deferred by name.
+  known_problems: >-
+    One region that fails to parse fails the whole database, and the step
+    names the region and why; the database already installed is left as it
+    was. Measured on one region on 2026-09-28: parsing 22 s, processing
+    83 s, the database 0.67 times the download, and the staging directory
+    peaking near 5 times it. Routino's foot profile does not read
+    `sac_scale`. Whether a route across two regions' boundary works has not
+    yet been measured on hardware.
+  upstream_url: https://www.routino.org/
+  upstream_support: >-
+    The documentation at https://www.routino.org/documentation/.

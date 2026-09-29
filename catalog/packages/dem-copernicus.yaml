@@ -1,0 +1,67 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: dem-copernicus
+version: "station"
+summary: Copernicus GLO-30 elevation tiles for your map regions, verified
+categories: [navigation-maps]
+
+# Data (D-061): which tiles follows the station's regions -- the squares each
+# region's Geofabrik outline touches -- resolved at plan time. Each tile is
+# verified by a sha256 in catalog/data/copernicus-glo30-pins.yaml, or by its
+# object MD5, and the plan says which. `osm-regions` is a dependency so the
+# plan always carries the regions the tiles follow.
+depends: [osm-regions]
+
+install:
+  - install:
+      method: dem-tiles
+      provider: copernicus-glo30
+      licence: Copernicus DEM licence (free, with attribution)
+      licence_url: https://copernicus-dem-30m.s3.amazonaws.com/readme.html
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    A tile changes only when the publisher's tile list changes. New regions
+    bring their tiles on the next install; a tile no region needs is
+    removed.
+
+documentation:
+  what_it_does: >-
+    Downloads the 1 by 1 degree elevation tiles (about 39 MB each, at 30 m)
+    covering your map regions from the Copernicus DEM on AWS open data,
+    verifies each, and keeps them under
+    /usr/local/share/hammunition/data/dem-copernicus/. Squares of open sea
+    have no tile and are counted as sea. `dem-qmapshack` turns them into
+    QMapShack's hillshade, slope and contours.
+  why_you_want_it: >-
+    Terrain is the difference between a line on a map and a walk you can
+    judge: how steep, how high, which side of the ridge. Offline, it has to
+    be on the disk first; this is the one place it is fetched, sized in the
+    plan and verified.
+  prerequisites: >-
+    Map regions set in station config; the tiles follow them. With none set
+    this unit is deferred by name.
+  known_problems: >-
+    A US state is tens of tiles, so hundreds of MB to a little over a GB;
+    the plan prints the count and size per region before anything
+    downloads. A tile with a row in catalog/data/copernicus-glo30-pins.yaml
+    is checked against a sha256 Hammunition measured ("sha256, pinned by
+    Hammunition"); any other only against the MD5 in the publisher's object
+    metadata ("MD5 from the publisher's object metadata; not pinned by
+    Hammunition"), which catches a damaged download, not a deliberately
+    altered one. The first install of a region asks Geofabrik for its
+    outline to choose its tiles and remembers the answer, so later plans
+    need no network; until that first install, every plan, a dry run
+    included, asks again, so an offline dry run before it cannot choose
+    tiles. Tile names encode latitude and longitude, so they are
+    shown in the plan only. The licence requires attribution to the
+    Copernicus programme in anything you publish from the data.
+  upstream_url: https://registry.opendata.aws/copernicus-dem/
+  upstream_support: >-
+    The dataset's readme on the bucket
+    (https://copernicus-dem-30m.s3.amazonaws.com/readme.html) and the
+    Copernicus Space Data helpdesk.

@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: mkgmap-splitter
+version: "0.0.0+svn654"
+summary: Cuts OpenStreetMap data into tiles sized for mkgmap
+menu_title: OpenStreetMap tile splitter for mkgmap (mkgmap-splitter)
+categories: [navigation-maps]
+
+# `apt-cache policy mkgmap-splitter` on Parrot 7 (echo), 2026-09-28:
+# candidate 0.0.0+svn654-2 (echo/main), no backports version.
+
+install:
+  - install:
+      method: apt
+      packages: [mkgmap-splitter]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Splits an OpenStreetMap extract into tiles small enough for mkgmap and
+    writes the `template.args` file mkgmap reads to build them into one map.
+  why_you_want_it: >-
+    mkgmap cannot take a whole region at once; `osm-garmin` runs this first.
+  prerequisites: >-
+    None; `osm-garmin` runs it on your installed regions.
+  known_problems: >-
+    Debian's wrapper defaults to a 2000 MB Java heap; `osm-garmin` sets
+    4000 MB through JAVA_OPTS, the heap it was measured with. Run from an
+    extracted package rather than apt, it fails with NoClassDefFoundError
+    unless its Java libraries are on the classpath; apt installs them as
+    dependencies.
+  upstream_url: https://www.mkgmap.org.uk/doc/splitter.html
+  upstream_support: >-
+    The mkgmap-dev mailing list (https://www.mkgmap.org.uk/mailman/listinfo/mkgmap-dev).
