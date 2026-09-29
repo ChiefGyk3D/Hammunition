@@ -7,7 +7,7 @@
 - **Version recorded:** 1.17.1
 - **Categories:** `gps-gnss`, `navigation-maps`
 - **Upstream:** <https://github.com/Maproom/qmapshack>
-- **Needs first:** `routino`, `gdal-bin`, `socat`, `gpsd-clients`
+- **Needs first:** `routino`, `gdal-bin`, `gpsd-clients`
 
 ## What it does
 
@@ -19,7 +19,7 @@ A road navigator does not know trails and has no terrain. For a hike, a search, 
 
 ## Before it will work
 
-Your map regions set in station config, and the `navigation` profile's map units installed, so there are maps, elevation and a routing database to show; start it from the `qmapshack-offline` launcher, which writes their directories into QMapShack's own configuration first (`mapPath` and `demPaths` under [General], `routino\paths` under [Route]). For your position, gpsd with a receiver and the `gps-tether` launcher running, which serves NMEA on 127.0.0.1 port 10110 for QMapShack's GPS Tether dialog to take.
+Your map regions set in station config, and the `navigation` profile's map units installed, so there are maps, elevation and a routing database to show; start it from the `qmapshack-offline` launcher, which writes their directories into QMapShack's own configuration first (`mapPath` and `demPaths` under [Canvas], `routino\paths` under [Route]). For your position, gpsd with a receiver that has a fix, and the `gps-tether` launcher running, which makes NMEA from gpsd's position and serves it on 127.0.0.1 port 10110 for QMapShack's GPS Tether dialog to take.
 
 ## How it installs
 
@@ -27,7 +27,7 @@ Your map regions set in station config, and the `navigation` profile's map units
 
 ## Known problems
 
-QMapShack has no offline address search: its search asks online services, and Routino routes between points, not addresses. Find the address in Navit, then plan the walk here. Routino's foot profile does not read `sac_scale`, so an alpine path is routed like a footpath; judge the route yourself. It stops at startup with "The specified translations XML file did not exist" if /usr/share/routino/translations.xml is missing, which apt normally prevents; `hammunition doctor` names it. It has no gpsd client; `gps-tether` is meant to stand in for one. The launcher edits QMapShack's own settings file (~/.config/QLandkarte/QMapShack.conf) only to add Hammunition's directories when they are absent, and refuses to touch a file it cannot read; QMapShack's own setup dialogs change the rest. The launchers run `hammunition`, which must be on your PATH. Not yet confirmed on hardware: QMapShack reading the directories the launcher writes under those keys, listing the `hammunition` Routino database, taking a position from `gps-tether` through its GPS Tether dialog, and drawing hillshade. None of the four has yet been run on a desktop; bench session 12 on the field laptop (docs/reference/bench-verification-5430.md) is that check.
+QMapShack has no offline address search: its search asks online services, and Routino routes between points, not addresses. Find the address in Navit, then plan the walk here. Routino's foot profile does not read `sac_scale`, so an alpine path is routed like a footpath; judge the route yourself. It stops at startup with "The specified translations XML file did not exist" if /usr/share/routino/translations.xml is missing, which apt normally prevents; `hammunition doctor` names it. It has no gpsd client; `gps-tether` is meant to stand in for one. It reads gpsd's JSON, as xgps and Navit do, and writes RMC and GGA itself, bound to 127.0.0.1 in its own code, and says when gpsd has no fix. The first version relayed `gpspipe -r` through socat; on the bench on 2026-09-29 it sent nothing while gpsd was reporting no position at all, so why is not established. The launcher edits QMapShack's own settings file (~/.config/QLandkarte/QMapShack.conf) only to add Hammunition's directories when they are absent, and refuses to touch a file it cannot read; QMapShack's own setup dialogs change the rest. An earlier launcher wrote `mapPath` and `demPaths` under [General], where QMapShack does not read them (measured on the bench, 2026-09-29); it now moves its own directories from there to [Canvas]. The launchers run `hammunition`, which must be on your PATH. Not yet confirmed on hardware: QMapShack reading the directories the launcher now writes under [Canvas], listing the `hammunition` Routino database, taking a position from `gps-tether` through its GPS Tether dialog, and drawing hillshade. The first bench run (2026-09-29) found the [General] group wrong and the first tether silent; the new versions have not yet been run on a desktop, and bench session 12 on the field laptop (docs/reference/bench-verification-5430.md) is that check.
 
 ## Keeping it current
 

@@ -25,7 +25,6 @@ packages:
   - gdal-bin
   - mkgmap
   - mkgmap-splitter
-  - socat
   - osm-garmin
   - osm-routino
   - dem-copernicus
@@ -46,8 +45,8 @@ documentation:
     (`osm-routino`), Copernicus elevation tiles for the regions
     (`dem-copernicus`) and the hillshade, slope and contours drawn from them
     (`dem-qmapshack`), opened by the `qmapshack-offline` launcher; and
-    `gps-tether`, which serves gpsd's position to QMapShack on this machine
-    only.
+    `gps-tether`, which serves gpsd's position to QMapShack as NMEA on this
+    machine only.
   why_together: >-
     A navigator is only useful with a position and a map, and offline it
     needs both already on the machine. Navit without gpsd does not know
@@ -78,10 +77,13 @@ documentation:
     the `qmapshack-offline` launcher, which writes the map, elevation and
     Routino directories into QMapShack's configuration; its Routino router
     is then expected to offer the `hammunition` database, used with the
-    `foot` profile; for your position, run `gps-tether`, which serves NMEA on
-    127.0.0.1 port 10110, the host and port QMapShack's GPS Tether dialog is
-    expected to take. The QMapShack half of this has not yet been run on a
-    desktop; bench session 12 on the field laptop
+    `foot` profile; for your position, run `gps-tether`, which makes NMEA
+    from gpsd's position and serves it on 127.0.0.1 port 10110, the host and
+    port QMapShack's GPS Tether dialog is expected to take. QMapShack's
+    first run on the field laptop (2026-09-29) found the settings group
+    wrong and the first tether silent, and both are rewritten (D-061's
+    amendment); the new
+    versions have not yet been run on a desktop, and bench session 12
     (docs/reference/bench-verification-5430.md) is that check.
   disk_footprint_hint: >-
     Navit, espeak-ng, osmium-tool and gpsd from the archive (size not yet

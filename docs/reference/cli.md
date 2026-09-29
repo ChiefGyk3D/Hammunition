@@ -235,8 +235,12 @@ Hammunition's map, elevation and routing directories to QMapShack's own
 settings, `$XDG_CONFIG_HOME/QLandkarte/QMapShack.conf` (by default
 `~/.config/QLandkarte/QMapShack.conf`), then starts `qmapshack`. The keys
 are `mapPath` (the Garmin maps and the contour map) and `demPaths` (the
-elevation) under `[General]`, and `Route/routino/paths` (the Routino
-database) under `[Route]`, read from QMapShack 1.17.1's binary. Each
+elevation) under `[Canvas]`, and `Route/routino/paths` (the Routino
+database) under `[Route]`: the names read from QMapShack 1.17.1's binary,
+the groups measured on the field laptop (2026-09-29). An earlier version
+wrote the two lists under `[General]`, which QMapShack ignores; its own
+directories are taken out of those two `[General]` keys, a key left empty is
+removed, and any other value there stays. Each
 directory is added only if absent. Every value already there is kept in its
 place, and nothing else in the file changes. A key holding `@Invalid()`,
 which is how Qt writes an empty list, counts as empty. A new file is
@@ -256,21 +260,32 @@ form, because it replaces itself with a GUI (D-059).
 
 ### `hammunition maps gps-tether`
 
-What the `gps-tether` launcher runs (**D-061**). It serves gpsd's raw NMEA
-(`gpspipe -r`) through `socat` on **127.0.0.1 port 10110 only**, one client
-at a time, for QMapShack's *Realtime → GPS Tether*, and prints the host and
-port to enter:
+What the `gps-tether` launcher runs (**D-061**). It watches gpsd's JSON on
+127.0.0.1 port 2947, as `xgps` and Navit do, and writes `$GPRMC` and
+`$GPGGA` for every position with a 2D or 3D fix. It serves them on
+**127.0.0.1 port 10110 only**, one client at a time, for QMapShack's
+*Realtime → GPS Tether*, and prints the host and port to enter:
 
 ```
-Serving gpsd's NMEA on 127.0.0.1 port 10110, to this machine only.
+Serving gpsd's position as NMEA on 127.0.0.1 port 10110, to this machine only.
 In QMapShack: Realtime, then GPS Tether; host 127.0.0.1, port 10110.
 Ctrl-C stops it. Navit reads gpsd directly and needs none of this.
 ```
 
-It runs in the foreground until Ctrl-C; nothing is installed as a service.
-It needs `socat` and `gpsd-clients` (for `gpspipe`); a missing `socat` is a
-named error, exit 1. There is no `--json` form, because it replaces itself
-with `socat` (D-059).
+A field gpsd did not give is an empty field, except the time: with none
+from gpsd, the system clock in UTC is used. Altitude is given on a 3D fix
+only. Satellites and HDOP come from gpsd's latest `SKY`. Each client gets
+its own gpsd watch, closed when the client goes. A second client is closed
+at once; a client that has already gone is noticed first, so a reconnect
+is served. Sends never block: a client that stops reading is dropped. On stderr it prints
+a line when a client connects or goes, when gpsd cannot be reached or
+closes the connection, and once when no position with a fix has arrived in
+10 s.
+
+It runs in the foreground until Ctrl-C (exit 0); nothing is installed as a
+service, and nothing is executed. It refuses root, exit 1. A port already in
+use is a named error, exit 1. There is no `--json` form, because it is a
+server, not a document (D-059).
 
 ### `hammunition list [all|packages|profiles]`
 

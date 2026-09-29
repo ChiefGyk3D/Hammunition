@@ -405,7 +405,10 @@ qmapshack-offline
 
 The launcher adds the map, elevation and routing directories to QMapShack's
 own settings the first time, keeping anything you set there yourself, then
-starts it. If it says it cannot read your settings file, nothing was changed
+starts it. The map and elevation directories go under `[Canvas]`, where
+QMapShack reads them. An earlier launcher put them under `[General]`, where
+QMapShack ignores them; run once, the launcher takes its own directories out
+of `[General]` and says so. If it says it cannot read your settings file, nothing was changed
 and QMapShack was not started. Add the directories by hand in QMapShack's
 setup, or move the file (`~/.config/QLandkarte/QMapShack.conf`) aside and
 start it again. From the menu you will not see that message; see
@@ -454,22 +457,57 @@ QMapShack.
 
 ## 11. Your position in QMapShack: the GPS tether
 
-QMapShack does not talk to gpsd. Run the *GPS position for QMapShack* launcher,
-or in a terminal:
+QMapShack does not talk to gpsd. Its *GPS Tether* reads NMEA, the sentence
+format GPS receivers speak, from a network port. The tether makes that NMEA
+from gpsd's position and serves it on this machine only. Run the *GPS
+position for QMapShack* launcher, or in a terminal:
 
 ```
 hammunition maps gps-tether
 ```
 
-It serves gpsd's position on this machine only, 127.0.0.1 port 10110, and
-prints what to enter. In QMapShack open *Realtime*, add *GPS Tether*, and
-enter host `127.0.0.1` and port `10110`. It runs while that terminal stays
-open; Ctrl-C stops it. Nothing is installed as a service, nothing else on
-the network can connect to it, and one program at a time can. Navit reads
-gpsd directly and needs none of this.
+It prints what to enter:
 
-If `cgps` shows no fix, the tether has nothing to pass on; see
-["Where am I?"](#6-where-am-i).
+```
+Serving gpsd's position as NMEA on 127.0.0.1 port 10110, to this machine only.
+In QMapShack: Realtime, then GPS Tether; host 127.0.0.1, port 10110.
+Ctrl-C stops it. Navit reads gpsd directly and needs none of this.
+```
+
+In QMapShack open *Realtime*, add *GPS Tether*, and enter host `127.0.0.1`
+and port `10110`.
+
+How it works, so you know what you are running:
+
+- It asks gpsd for its position the way `xgps` and Navit do, as JSON, and
+  writes two NMEA sentences for every position with a fix: `$GPRMC` (time,
+  position, speed, heading) and `$GPGGA` (position, fix quality, satellites,
+  altitude). A value gpsd did not give is left empty, never made up; the
+  one exception is the time, which falls back to this machine's clock (in
+  UTC) if gpsd sent none. With
+  no fix, it sends nothing.
+- It listens on 127.0.0.1, port 10110, and nowhere else: nothing else on the
+  network can connect to it. One program at a time can. A second one is
+  closed at once, and the terminal says so.
+- It runs while that terminal stays open. Ctrl-C stops it. Nothing is
+  installed as a service, and it does not run as root.
+- The terminal shows a line when QMapShack connects and when it goes. If
+  gpsd has sent no position with a fix within 10 seconds, it says that too.
+
+If it says gpsd has sent no position with a fix, the tether has nothing to
+pass on. Check with `xgps`, and see ["Where am I?"](#6-where-am-i). If it
+says it cannot listen on port 10110, another tether is already running;
+stop that one first. If it says it cannot reach gpsd, gpsd is not running:
+`systemctl status gpsd` says why.
+
+The first version of the tether passed on gpsd's raw NMEA through `socat`.
+On the field laptop it sent nothing, at a time when gpsd itself was
+reporting no position at all, so why is not known. This version needs
+neither program and says plainly when gpsd has no fix. If you installed the
+first version,
+`socat` is no longer part of this profile; it is kept in the catalog as
+retired, so `hammunition uninstall socat` still removes it. Do that only
+if nothing else of yours uses it.
 
 ---
 
@@ -741,11 +779,18 @@ yet been run on a desktop; bench session 12 in
 `docs/reference/bench-verification-5430.md` is that check:
 
 - QMapShack reading the directories the launcher writes into its settings,
-  in 1.17.1 (or 1.21.1 from backports).
+  in 1.17.1 (or 1.21.1 from backports). The first run on the field laptop,
+  on 2026-09-29, found them in the wrong group (`[General]`); QMapShack
+  keeps them under `[Canvas]`, where the launcher now writes them. That
+  QMapShack then shows the maps is not yet measured.
 - QMapShack listing the `hammunition` routing database.
 - QMapShack drawing hillshade and slope from the elevation.
 - A route on foot across the boundary between two regions.
-- The GPS tether with a real receiver.
+- The GPS tether with a real receiver. Its first version, `gpspipe -r`
+  behind `socat`, gave QMapShack nothing on the field laptop on 2026-09-29,
+  while gpsd was reporting no position at all.
+  The version that makes its own NMEA from gpsd's JSON has not yet run with
+  a fix.
 - The whole install on the field laptop, with its build times.
 
 Offline reference (Kiwix, a local tile server) is the next piece of this

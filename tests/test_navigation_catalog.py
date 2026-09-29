@@ -35,7 +35,6 @@ PIECE_2 = {
     "gdal-bin",
     "mkgmap",
     "mkgmap-splitter",
-    "socat",
     "osm-garmin",
     "osm-routino",
     "dem-copernicus",
@@ -59,6 +58,35 @@ def test_dem_copernicus_keeps_osm_regions_as_a_dependency() -> None:
     """Without it the plan never carries the regions the tiles follow and the
     Terrain block never renders (ledger ruling, Task 13)."""
     assert "osm-regions" in load_catalog(CATALOG / "packages")["dem-copernicus"].depends
+
+
+def test_socat_is_retired_with_the_old_tether_and_still_uninstallable(tmp_path: Path) -> None:
+    """The tether makes its own NMEA (D-061, amended 2026-09-29). socat stays
+    in the catalog as retired, so a v0.14.0 machine can still remove it."""
+    from hammunition.backends.apt import AptPackageState
+    from hammunition.manifest.schema import Status
+    from hammunition.state import RemovalPaths, plan_removal
+    from test_plan import TARGET
+
+    catalog = load_catalog(CATALOG / "packages")
+    assert catalog["socat"].status is Status.retired
+    assert "socat" not in _profile().packages
+    assert not any("socat" in m.depends for m in catalog.values())
+    plan = plan_removal(
+        ["socat"],
+        catalog=catalog,
+        profiles={"navigation": _profile()},
+        target=TARGET,
+        attributed=frozenset({"socat"}),
+        states={"socat": AptPackageState("socat", installed="1.8.0.3", candidate="1.8.0.3")},
+        paths=RemovalPaths(
+            prefix=tmp_path / "prefix",
+            venv_root=tmp_path / "venvs",
+            bin_dir=tmp_path / "bin",
+            applications_dir=tmp_path / "apps",
+        ),
+    )
+    assert plan.apt_packages == ("socat",)
 
 
 def test_qmapshack_carries_both_launchers() -> None:

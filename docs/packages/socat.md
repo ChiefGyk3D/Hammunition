@@ -4,9 +4,12 @@
 
 **A relay between two data channels, sockets, files or programs**
 
+> **Status: retired.** Carried only for the first `gps-tether`, which ran `gpspipe -r` behind socat. The tether now writes NMEA from gpsd's JSON in the engine, with no socat (D-061, amended 2026-09-29). Nothing else in the catalog uses it. `apt install socat` still works for anyone who wants it for its own sake. Recorded 2026-09-29. Verdict tested by us.
+
 - **Version recorded:** 1.8.0.3
 - **Categories:** `navigation-maps`
 - **Upstream:** <http://www.dest-unreach.org/socat/>
+- **Not a recommended default** — installed only when asked for.
 
 ## What it does
 
@@ -14,7 +17,7 @@ Connects two data channels and copies between them: a TCP listener and a program
 
 ## Why you would want it
 
-The `gps-tether` launcher uses it to serve gpsd's NMEA to QMapShack on 127.0.0.1 port 10110, and it is the general tool for joining a program that speaks one channel to another that expects a different one.
+It is the general tool for joining a program that speaks one channel to another that expects a different one. Hammunition no longer needs it: the `gps-tether` launcher serves QMapShack its NMEA itself.
 
 ## Before it will work
 
@@ -26,7 +29,7 @@ None of its own.
 
 ## Known problems
 
-A listener with no `bind=` option listens on every interface; the `gps-tether` launcher binds 127.0.0.1 so a position is never served to the network.
+A listener with no `bind=` option listens on every interface; bind 127.0.0.1 for anything that should stay on this machine.
 
 ## Keeping it current
 
