@@ -11,6 +11,12 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.14.1 — 2026-09-29 — bench fixes: QMapShack's paths, the GPS tether
+
+One pull request since v0.14.0, from bench session 12 on the field laptop.
+
 - **The GPS tether makes its own NMEA** (D-061, amended 2026-09-29).
   `hammunition maps gps-tether` reads gpsd's JSON and writes `$GPRMC` and
   `$GPGGA` on 127.0.0.1:10110; no socat or gpspipe, the loopback bind
