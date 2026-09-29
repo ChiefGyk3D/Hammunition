@@ -9,11 +9,13 @@ fake on a random loopback port.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import socket
 import threading
 import time
 from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -224,16 +226,20 @@ def test_the_listener_is_bound_to_loopback_and_nowhere_else() -> None:
 
 
 class FakeGpsd:
-    """A gpsd on a random loopback port: records the first line each client
-    sends, then writes *script* and holds the connection open."""
+    """A gpsd on a random loopback port. Records the first line each client
+    sends, writes *script*, then (with *repeat*) keeps writing it every
+    *every* seconds, and counts the connections the tether closed."""
 
-    def __init__(self, script: bytes) -> None:
+    def __init__(self, script: bytes, *, repeat: bool = False, every: float = 0.05) -> None:
         self.script = script
+        self.repeat = repeat
+        self.every = every
         self.received: list[bytes] = []
         self.connections = 0
+        self.closed_by_tether = 0
         self.server = socket.socket()
         self.server.bind(("127.0.0.1", 0))
-        self.server.listen(4)
+        self.server.listen(8)
         self.server.settimeout(0.1)
         self.address: tuple[str, int] = self.server.getsockname()
         self.stop = threading.Event()
@@ -251,14 +257,31 @@ class FakeGpsd:
 
     def _client(self, conn: socket.socket) -> None:
         with conn:
-            conn.settimeout(5)
+            conn.settimeout(0.02)
+            line = b""
             try:
-                self.received.append(conn.makefile("rb").readline())
+                while not line.endswith(b"\n") and not self.stop.is_set():
+                    try:
+                        chunk = conn.recv(1)
+                    except TimeoutError:
+                        continue
+                    if not chunk:
+                        return
+                    line += chunk
+                self.received.append(line)
                 conn.sendall(self.script)
                 while not self.stop.is_set():
-                    time.sleep(0.02)
+                    try:
+                        if conn.recv(1) == b"":
+                            self.closed_by_tether += 1
+                            return
+                    except TimeoutError:
+                        pass
+                    if self.repeat:
+                        conn.sendall(self.script)
+                        time.sleep(self.every)
             except OSError:
-                pass
+                self.closed_by_tether += 1
 
     def close(self) -> None:
         self.stop.set()
@@ -288,20 +311,46 @@ def _run_tether(gpsd_address: tuple[str, int], logged: list[str]) -> tuple[Any, 
     return listener, stop, thread
 
 
-@pytest.fixture
-def tether(request: pytest.FixtureRequest) -> Iterator[Tether]:
-    script = getattr(request, "param", _json({"class": "VERSION"}, FIX_3D))
-    gpsd = FakeGpsd(script)
+@contextmanager
+def _tether_on(gpsd: FakeGpsd) -> Iterator[tuple[int, list[str]]]:
     logged: list[str] = []
     listener, stop, thread = _run_tether(gpsd.address, logged)
     try:
-        yield listener.getsockname()[1], gpsd, logged
+        yield listener.getsockname()[1], logged
     finally:
         stop.set()
         thread.join(timeout=5)
         assert not thread.is_alive(), "serve stops when asked"
         listener.close()
         gpsd.close()
+
+
+@pytest.fixture
+def tether(request: pytest.FixtureRequest) -> Iterator[Tether]:
+    script = getattr(request, "param", _json({"class": "VERSION"}, FIX_3D))
+    gpsd = FakeGpsd(script)
+    with _tether_on(gpsd) as (port, logged):
+        yield port, gpsd, logged
+
+
+def _until_rmc_and_gga(client: socket.socket, within: float = 3.0) -> set[bytes]:
+    """The sentence types seen until both have arrived; raw recv and no
+    makefile, so closing the socket really closes it."""
+    seen: set[bytes] = set()
+    buffer = b""
+    deadline = time.monotonic() + within
+    client.settimeout(0.1)
+    while not {b"$GPRMC", b"$GPGGA"} <= seen and time.monotonic() < deadline:
+        try:
+            data = client.recv(4096)
+        except TimeoutError:
+            continue
+        if not data:
+            break
+        buffer += data
+        *lines, buffer = buffer.split(b"\n")
+        seen.update(line[:6] for line in lines)
+    return seen
 
 
 def _read_lines(client: socket.socket, count: int) -> list[bytes]:
@@ -366,3 +415,101 @@ def test_an_unreachable_gpsd_is_named_and_the_client_closed() -> None:
             thread.join(timeout=5)
             listener.close()
     _wait_for(logged, "cannot reach gpsd")
+
+
+def test_a_client_can_reconnect_again_and_again_at_once() -> None:
+    """QMapShack reconnects; each client is served, none turned away."""
+    gpsd = FakeGpsd(_json({"class": "VERSION"}, FIX_3D), repeat=True)
+    with _tether_on(gpsd) as (port, logged):
+        for _ in range(5):
+            with socket.create_connection(("127.0.0.1", port), timeout=5) as client:
+                assert _until_rmc_and_gga(client) >= {b"$GPRMC", b"$GPGGA"}
+        assert not any("one at a time" in line for line in logged), logged
+
+
+def test_a_client_closing_mid_stream_ends_its_session_and_its_gpsd_watch() -> None:
+    gpsd = FakeGpsd(_json({"class": "VERSION"}, FIX_3D), repeat=True)
+    with _tether_on(gpsd) as (port, logged):
+        with socket.create_connection(("127.0.0.1", port), timeout=5) as client:
+            assert client.recv(7) == b"$GPRMC,"
+        _wait_for(logged, "disconnected")
+        for _ in range(250):
+            if gpsd.closed_by_tether == 1:
+                break
+            time.sleep(0.02)
+        assert gpsd.closed_by_tether == 1, "the session's gpsd socket is closed"
+        with socket.create_connection(("127.0.0.1", port), timeout=5) as again:
+            assert _until_rmc_and_gga(again) >= {b"$GPRMC", b"$GPGGA"}
+        assert gpsd.connections == 2
+
+
+def test_a_closed_client_is_noticed_before_the_next_is_turned_away() -> None:
+    """gpsd silent, so no send reveals the close: the next accept must still
+    find the old client gone rather than count it as connected."""
+    gpsd = FakeGpsd(_json({"class": "VERSION"}))
+    with _tether_on(gpsd) as (port, logged):
+        for _ in range(5):
+            with socket.create_connection(("127.0.0.1", port), timeout=5) as client:
+                client.settimeout(0.3)
+                with pytest.raises(TimeoutError):
+                    client.recv(64)  # held open, not closed on us
+        assert not any("one at a time" in line for line in logged), logged
+
+
+def test_a_client_that_stops_reading_does_not_hold_the_loop() -> None:
+    """gpsd floods and the first client never reads: a second connection is
+    still answered at once, and the reader-less client is dropped."""
+    flood = _json(*([{"class": "VERSION"}] + [FIX_3D] * 2000))
+    gpsd = FakeGpsd(flood, repeat=True, every=0.0)
+    with _tether_on(gpsd) as (port, logged):
+        idle = socket.create_connection(("127.0.0.1", port), timeout=5)
+        try:
+            time.sleep(0.3)
+            started = time.monotonic()
+            with socket.create_connection(("127.0.0.1", port), timeout=5) as second:
+                second.settimeout(2)
+                with contextlib.suppress(OSError):
+                    second.recv(64)
+            assert time.monotonic() - started < 1.0, "the loop answered promptly"
+            _wait_for(logged, "not reading")
+        finally:
+            idle.close()
+
+
+def test_a_close_and_a_new_connection_in_one_batch_serve_the_new_client() -> None:
+    """The loop is held (inside its own log line) while the first client
+    closes and the next connects, so one select returns both events. The
+    next client must be served, not turned away as a second."""
+    gpsd = FakeGpsd(_json({"class": "VERSION"}, FIX_3D), repeat=True)
+    release = threading.Event()
+    logged: list[str] = []
+
+    def log(line: str) -> None:
+        logged.append(line)
+        if line.startswith("A client connected") and len(logged) == 1:
+            release.wait(5)
+
+    stop = threading.Event()
+    with listen(port=0) as listener:
+        port = listener.getsockname()[1]
+        thread = threading.Thread(
+            target=serve,
+            args=(listener,),
+            kwargs={"gpsd": gpsd.address, "stop": stop, "log": log, "poll": 0.02},
+            daemon=True,
+        )
+        thread.start()
+        try:
+            first = socket.create_connection(("127.0.0.1", port), timeout=5)
+            _wait_for(logged, "A client connected")
+            first.close()
+            with socket.create_connection(("127.0.0.1", port), timeout=5) as second:
+                time.sleep(0.1)  # both events are now pending
+                release.set()
+                assert _until_rmc_and_gga(second) >= {b"$GPRMC", b"$GPGGA"}
+            assert not any("one at a time" in line for line in logged), logged
+        finally:
+            release.set()
+            stop.set()
+            thread.join(timeout=5)
+            gpsd.close()

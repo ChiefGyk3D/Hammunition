@@ -5500,9 +5500,28 @@ random loopback port, bound to 127.0.0.1 only and turning a second client
 away (`tests/test_gps_tether.py`, `tests/test_qmapshack_config.py`,
 `tests/test_maps_tools.py`). On the development host, against its own gpsd,
 which was sending only its header lines at the time, the tether logged the
-client and then "no position with a fix". Not yet measured, and still bench
-session 12's to record: QMapShack reading the lists under `[Canvas]`, and a
-position with a fix through the new tether into its GPS Tether.
+client and then "no position with a fix". Later the same day, with that
+gpsd streaming fixes, the controller's run counted one client served and
+every later one turned away as a second. That was not reproduced here, but
+the loop had the hazards review found, and they are fixed:
+- every socket is registered with the session it belongs to, and an event
+  for a session that has ended is dropped;
+- in each batch the current session's events come before a new connection;
+- a new connection first checks, without reading, whether the current
+  client has closed;
+- sends are non-blocking, with at most 64 KiB queued, so a client that
+  stops reading is dropped rather than holding the loop;
+- ending a session closes its gpsd socket.
+
+Each is tested against a fake gpsd: immediate reconnects, a close mid-stream
+with the gpsd watch seen closed, a close and a new connection in one batch,
+and a client that never reads. Run live through `hammunition maps gps-tether`
+on a spare port against that gpsd, 11 raw-socket connections were all
+served, with RMC and GGA arriving within about 1 s each time. They were
+three reconnects 2 s apart, six immediate ones, one closed mid-stream and
+the one after it. Not yet measured, and still bench session 12's to record:
+QMapShack reading the lists under `[Canvas]`, and QMapShack's own GPS Tether
+taking a position from the tether.
 
 **Rejected.** Keeping `gpspipe -r` behind `socat` (not shown to fail for
 want of a fix, but two external programs where the engine's own code can

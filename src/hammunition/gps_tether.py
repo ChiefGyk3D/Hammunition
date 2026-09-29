@@ -235,15 +235,33 @@ def listen(port: int = PORT) -> socket.socket:
 
 
 class _Session:
-    """One client and its own gpsd watch."""
+    """One client and its own gpsd watch.
+
+    Both sockets are non-blocking. What the client has not yet taken waits
+    in :attr:`pending`, and the loop never blocks on a send; a client that
+    lets more than :attr:`PENDING_LIMIT` pile up has stopped reading and is
+    dropped.
+    """
+
+    PENDING_LIMIT = 64 * 1024
 
     def __init__(self, client: socket.socket, upstream: socket.socket) -> None:
         self.client = client
         self.upstream = upstream
         self.feed = Feed()
+        self.pending = b""
         self.started = time.monotonic()
         self.sent = 0
         self.warned = False
+
+    def client_gone(self) -> bool:
+        """Whether the client has closed, asked without consuming anything."""
+        try:
+            return self.client.recv(1, socket.MSG_PEEK | socket.MSG_DONTWAIT) == b""
+        except BlockingIOError:
+            return False
+        except OSError:
+            return True
 
     def close(self) -> None:
         self.client.close()
@@ -263,19 +281,44 @@ def serve(
 
     *log* gets one line per event the operator should see: a client served,
     turned away or gone; gpsd unreachable, gone or silent.
+
+    Every registration carries the session it belongs to, and an event for
+    a session that has ended is dropped: a file descriptor number reused by
+    the next client can never be mistaken for the last one. In each batch of
+    events the current session's are handled before a new connection, and a
+    new connection first checks whether the current client has already
+    closed, so a client that left is never counted as connected.
     """
     selector = selectors.DefaultSelector()
     listener.setblocking(False)
-    selector.register(listener, selectors.EVENT_READ, "listen")
+    selector.register(listener, selectors.EVENT_READ, None)
     session: _Session | None = None
 
     def end(current: _Session, why: str) -> None:
         nonlocal session
+        if session is not current:
+            return
         selector.unregister(current.client)
         selector.unregister(current.upstream)
         current.close()
         session = None
         log(f"{why}; waiting for the next client.")
+
+    def want_write(current: _Session) -> None:
+        events = selectors.EVENT_READ | (selectors.EVENT_WRITE if current.pending else 0)
+        selector.modify(current.client, events, current)
+
+    def flush(current: _Session) -> None:
+        try:
+            while current.pending:
+                count = current.client.send(current.pending)
+                current.pending = current.pending[count:]
+        except BlockingIOError:
+            pass
+        except OSError:
+            end(current, "The client disconnected")
+            return
+        want_write(current)
 
     def accept() -> None:
         nonlocal session
@@ -283,11 +326,12 @@ def serve(
             client, _ = listener.accept()
         except BlockingIOError:
             return
+        if session is not None and session.client_gone():
+            end(session, "The client disconnected")
         if session is not None:
             client.close()
             log("Turned away a second client: one at a time.")
             return
-        client.settimeout(5)
         try:
             upstream = socket.create_connection(gpsd, timeout=5)
         except OSError as exc:
@@ -304,43 +348,59 @@ def serve(
             upstream.close()
             log(f"gpsd refused the watch request: {exc.strerror or exc}.")
             return
+        client.setblocking(False)
+        upstream.setblocking(False)
         session = _Session(client, upstream)
-        selector.register(client, selectors.EVENT_READ, "client")
-        selector.register(upstream, selectors.EVENT_READ, "gpsd")
+        selector.register(client, selectors.EVENT_READ, session)
+        selector.register(upstream, selectors.EVENT_READ, session)
         log("A client connected; passing on gpsd's position.")
 
     def from_client(current: _Session) -> None:
         try:
-            gone = current.client.recv(4096) == b""  # what it sends is ignored
+            data = current.client.recv(4096)  # what it sends is ignored
+        except BlockingIOError:
+            return
         except OSError:
-            gone = True
-        if gone:
+            data = b""
+        if not data:
             end(current, "The client disconnected")
 
     def from_gpsd(current: _Session) -> None:
         try:
             data = current.upstream.recv(65536)
+        except BlockingIOError:
+            return
         except OSError:
             data = b""
         if not data:
             end(current, "gpsd closed the connection")
             return
-        try:
-            for line in current.feed.push(data):
-                current.client.sendall(line)
-                current.sent += 1
-        except OSError:
-            end(current, "The client stopped reading")
+        for line in current.feed.push(data):
+            current.pending += line
+            current.sent += 1
+        if len(current.pending) > current.PENDING_LIMIT:
+            end(current, "The client is not reading")
+            return
+        flush(current)
 
     try:
         while stop is None or not stop.is_set():
-            for key, _ in selector.select(timeout=poll):
-                if key.data == "listen":
+            events = selector.select(timeout=poll)
+            # The current session's events first, then any new connection.
+            for key, mask in sorted(events, key=lambda event: event[0].data is None):
+                owner: _Session | None = key.data
+                if owner is None:
                     accept()
-                elif session is not None and key.data == "client":
-                    from_client(session)
-                elif session is not None and key.data == "gpsd":
-                    from_gpsd(session)
+                    continue
+                if owner is not session:
+                    continue  # left over from a session that has ended
+                if key.fileobj is owner.upstream:
+                    from_gpsd(owner)
+                    continue
+                if mask & selectors.EVENT_READ:
+                    from_client(owner)
+                if session is owner and mask & selectors.EVENT_WRITE:
+                    flush(owner)
             current = session
             if (
                 current is not None
