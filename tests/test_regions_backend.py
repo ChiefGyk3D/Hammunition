@@ -1678,3 +1678,54 @@ def test_a_region_newer_than_the_table_takes_its_parent_path_s_country(tmp_path:
     backend = _merging(tmp_path, [newer], countries={"north-america/us/vermont": ("US",)})
     assert backend.codes_for(newer) == ("US",)
     assert _merging(tmp_path, [newer], countries={}).codes_for(newer) == ()
+
+
+def _minimal(kwargs: dict[str, Any], home: Path) -> bool:
+    """The operator's minimal environment (staging.py's), never root's."""
+    env = kwargs.get("env")
+    return (
+        env is not None
+        and "HAMMUNITION_ROOT_SECRET" not in env
+        and env.get("HOME") == str(home)
+        and env.get("USER") == OPERATOR.pw_name
+        and env.get("LOGNAME") == OPERATOR.pw_name
+        and "PATH" in env
+    )
+
+
+def test_under_root_no_dropped_process_inherits_root_s_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Task 2's I2 for Navit: osmium, maptool, install -d, sha256sum, cat and
+    rm, dropped to the operator, get the minimal environment, not root's."""
+    monkeypatch.setenv("HAMMUNITION_ROOT_SECRET", "root's own")
+    _as_root_for_operator(monkeypatch, tmp_path)
+    fake = _Toolchain(monkeypatch)
+    other = _AsOperator(monkeypatch)
+    monkeypatch.setattr("hammunition.backends.derived.subprocess.run", _dispatch(fake, other))
+    _install_region(tmp_path, VT)
+    backend = _merging(tmp_path, [VT], euid=0, owner=OPERATOR.pw_name, privileged=False)
+    _perform(backend, _navit_with_boundaries())
+    assert backend.ledger.failed == {}, backend.ledger.failed
+    home = tmp_path / "home" / "operator"
+    everything = [*fake.calls, *other.calls]
+    tools = {argv[3] if argv[0] == "env" else argv[0] for argv, _ in everything}
+    assert {"osmium", "maptool", "install", "sha256sum", "cat", "rm"} <= tools
+    assert all(_minimal(k, home) for _, k in everything), [
+        (argv[:4], sorted(k.get("env") or ["<root's>"])) for argv, k in everything
+    ]
+
+
+def test_not_as_root_maptool_keeps_the_caller_s_environment(
+    tmp_path: Path,
+    manifest_navit: PackageManifest,
+    block_navit: DerivedDataInstall,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Nothing to drop: the engine is the operator, and its environment is theirs."""
+    seen = _fake_maptool(monkeypatch, write=b"navit-bin")
+    _install_region(tmp_path, VT)
+    (convert,) = _kinds(_derived(tmp_path, [VT]).steps(manifest_navit, block_navit), "convert")
+    convert.perform()
+    ((_, kwargs),) = seen
+    assert "env" not in kwargs
