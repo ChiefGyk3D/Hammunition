@@ -8,8 +8,9 @@
 Two files under ``catalog/data/``:
 
 * ``copernicus-glo30-tiles.txt`` -- every tile the bucket's ``tileList.txt``
-  names (about 26,000; ocean squares are absent), so the plan knows which
-  squares are sea with no network. ``--refresh-list`` rewrites it.
+  names (about 26,000; ocean squares, and land the publisher does not
+  release, are absent), so the plan knows which squares have no published
+  tile with no network. ``--refresh-list`` rewrites it.
 * ``copernicus-glo30-pins.yaml`` -- a sha256 Hammunition measured for each
   pinned tile, with its size and the MD5 its ETag carried. Each pin costs one
   39 MB download, so the file grows run by run: ``--max-tiles N`` measures
@@ -88,7 +89,8 @@ LIST_HEADER = f"""{LICENCE_HEADER}
 #
 # Every Copernicus GLO-30 tile that exists, one name per line, from
 # {LIST_URL}. A square whose tile is not listed
-# is sea: the plan counts it as such and never asks the network about it.
+# has no published tile (sea, or land Copernicus does not release; this list
+# cannot say which): the plan counts it and never asks the network about it.
 """
 
 PINS_HEADER = f"""{LICENCE_HEADER}

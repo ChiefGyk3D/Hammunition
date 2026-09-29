@@ -11,7 +11,7 @@
 
 ## What it does
 
-Downloads the 1 by 1 degree elevation tiles (about 39 MB each, at 30 m) covering your map regions from the Copernicus DEM on AWS open data, verifies each, and keeps them under /usr/local/share/hammunition/data/dem-copernicus/. Squares of open sea have no tile and are counted as sea. `dem-qmapshack` turns them into QMapShack's hillshade, slope and contours.
+Downloads the 1 by 1 degree elevation tiles (about 39 MB each, at 30 m) covering your map regions from the Copernicus DEM on AWS open data, verifies each, and keeps them under /usr/local/share/hammunition/data/dem-copernicus/. A square with no published tile (open sea, or land Copernicus does not release) is counted, never guessed at; a region with no published tile at all gets no terrain, and the plan warns by name. `dem-qmapshack` turns them into QMapShack's hillshade, slope and contours.
 
 ## Why you would want it
 

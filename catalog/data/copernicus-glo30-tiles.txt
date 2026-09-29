@@ -5,7 +5,8 @@
 #
 # Every Copernicus GLO-30 tile that exists, one name per line, from
 # https://copernicus-dem-30m.s3.amazonaws.com/tileList.txt. A square whose tile is not listed
-# is sea: the plan counts it as such and never asks the network about it.
+# has no published tile (sea, or land Copernicus does not release; this list
+# cannot say which): the plan counts it and never asks the network about it.
 Copernicus_DSM_COG_10_N00_00_E006_00_DEM
 Copernicus_DSM_COG_10_N00_00_E009_00_DEM
 Copernicus_DSM_COG_10_N00_00_E010_00_DEM

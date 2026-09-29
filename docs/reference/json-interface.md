@@ -925,7 +925,8 @@ The terrain tiles one region needs (D-061).
 |---|---|---|
 | `region` | string | the Geofabrik region path |
 | `tiles` | integer | tiles that exist for its outline |
-| `sea` | integer | squares of its outline with no tile: sea |
+| `unpublished` | integer | squares of its outline Copernicus publishes no tile for: sea, or land it does not release; the tile list cannot say which |
+| `no_terrain` | boolean | true when its outline touches squares and every one is unpublished: no terrain is installed for this region, and the plan warns so; its maps still install |
 | `download` | integer | bytes of its tiles downloaded this run; a tile two regions share counts in both |
 | `download_human` | string | as the text prints it |
 
@@ -2251,9 +2252,13 @@ A unit and files.
           "title": "Tiles",
           "type": "integer"
         },
-        "sea": {
-          "title": "Sea",
+        "unpublished": {
+          "title": "Unpublished",
           "type": "integer"
+        },
+        "no_terrain": {
+          "title": "No Terrain",
+          "type": "boolean"
         },
         "download": {
           "title": "Download",
@@ -2267,7 +2272,8 @@ A unit and files.
       "required": [
         "region",
         "tiles",
-        "sea",
+        "unpublished",
+        "no_terrain",
         "download",
         "download_human"
       ],

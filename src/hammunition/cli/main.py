@@ -60,7 +60,7 @@ from hammunition.backends import (
     VenvBackend,
 )
 from hammunition.backends.apt import stale_fetches
-from hammunition.backends.dem import TIF, TerrainDisclosure
+from hammunition.backends.dem import TIF, TILES, TerrainDisclosure, read_record
 from hammunition.backends.regions import (
     KeptRegion,
     MapDisclosure,
@@ -575,6 +575,7 @@ def cmd_update(args: argparse.Namespace) -> int:
         built=built,
         regions=regions_by_unit,
         tiles=installed_tile_counts(plan, source.prefix),
+        no_terrain=no_terrain_counts(plan, source.prefix),
     )
     lists_note = _apt_lists_note(apt)
     upstream = _upstream_rows(plan, runner) if args.upstream else None
@@ -1054,6 +1055,22 @@ def installed_tile_counts(plan: InstallPlan, prefix: Path) -> dict[str, int]:
         for planned in plan.packages
         if isinstance(planned.block.install, DemTilesInstall)
     }
+
+
+def no_terrain_counts(plan: InstallPlan, prefix: Path) -> dict[str, int]:
+    """dem-tiles, offline (final review, I1): how many regions' records say
+    Copernicus publishes no tile for any of their squares, never which."""
+    counts: dict[str, int] = {}
+    for planned in plan.packages:
+        if not isinstance(planned.block.install, DemTilesInstall):
+            continue
+        records = sorted((data_root(prefix) / planned.name).glob(f"*{TILES}"))
+        counts[planned.name] = sum(
+            1
+            for path in records
+            if (entry := read_record(path, path.stem, path.stem)) is not None and entry.no_terrain
+        )
+    return counts
 
 
 def map_work(

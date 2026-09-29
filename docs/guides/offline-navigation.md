@@ -367,8 +367,13 @@ walking rather than driving:
 
 The plan shows all of it before anything happens, in a *Terrain* block under
 *Map regions*. It says how many tiles each region needs, how many of its
-squares are open sea (no tile, nothing to download) and what its tiles cost
-to download. Then it lists each tile to fetch with its size and how it is
+squares have no published tile (nothing to download: open sea, or land
+Copernicus does not release, which the tile list cannot tell apart) and
+what its tiles cost to download. If none of a region's squares has a
+published tile, the plan says so as a warning, "no terrain available for
+*region* from Copernicus GLO-30", and the region gets no terrain. The rest
+of the install carries on: you asked for that region's maps, and they still
+install. Then it lists each tile to fetch with its size and how it is
 checked, and what will be built with its estimated size. Tile names encode
 a latitude and a longitude, so they appear in the plan on your own terminal
 and nowhere else.
@@ -479,6 +484,11 @@ If `cgps` shows no fix, the tether has nothing to pass on; see
 - **Regions that cross the 180° meridian** (Alaska's Aleutians, Fiji) are
   refused by name for terrain, until how Geofabrik draws such an outline
   has been measured.
+- **No terrain where Copernicus publishes none.** Its public 30 m release
+  leaves out some land as well as the open sea (Armenia and Azerbaijan, for
+  example). A region inside it gets its maps and no terrain, and the plan
+  warns by name. The 90 m Copernicus release is the candidate route; it has
+  not been measured here.
 - **Hillshade drawing** has not yet been confirmed on the field laptop.
 
 ---

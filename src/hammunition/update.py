@@ -231,17 +231,26 @@ def _regions_row(planned: PlannedPackage, snapshots: Sequence[RegionSnapshot]) -
     return UpdateRow(planned.name, BEHIND_PIN, detail, strategy)
 
 
-def _tiles_row(planned: PlannedPackage, count: int) -> UpdateRow:
-    """A count only (D-061): a tile's name is a latitude and longitude, as
-    telling as a region's."""
+def _tiles_row(planned: PlannedPackage, count: int, no_terrain: int = 0) -> UpdateRow:
+    """Counts only (D-061): a tile's name is a latitude and longitude, as
+    telling as a region's. *no_terrain* is how many regions Copernicus
+    publishes no tile for at all (final review, I1), never called sea."""
     strategy = planned.manifest.update.strategy
+    withheld = (
+        f"; {no_terrain} region(s) with no published tile at Copernicus GLO-30 "
+        f"(sea, or land it does not release)"
+        if no_terrain
+        else ""
+    )
     if not count:
-        return UpdateRow(planned.name, NOT_INSTALLED, "no terrain tiles installed", strategy)
+        return UpdateRow(
+            planned.name, NOT_INSTALLED, f"no terrain tiles installed{withheld}", strategy
+        )
     return UpdateRow(
         planned.name,
         UP_TO_DATE,
         f"{count} terrain tile(s) installed; a tile changes only when the publisher's "
-        f"tile list does",
+        f"tile list does{withheld}",
         strategy,
     )
 
@@ -264,6 +273,7 @@ def report(
     built: Iterable[str],
     regions: Mapping[str, Sequence[RegionSnapshot]] | None = None,
     tiles: Mapping[str, int] | None = None,
+    no_terrain: Mapping[str, int] | None = None,
 ) -> UpdateReport:
     """One row per planned unit. Pure: every fact arrives as an argument.
 
@@ -274,7 +284,8 @@ def report(
     against the pin list (:func:`region_snapshots`), offline (D-053).
 
     ``tiles`` is a ``dem-tiles`` unit's name to how many tiles it has
-    installed (D-061), a count and nothing else.
+    installed (D-061), a count and nothing else; ``no_terrain`` is how many
+    of its regions Copernicus publishes no tile for, a count likewise.
     """
     attributed = frozenset(built)
     region_report = regions or {}
@@ -322,7 +333,13 @@ def report(
         elif isinstance(method, RegionalDataInstall):
             rows.append(_regions_row(planned, region_report.get(planned.name, ())))
         elif isinstance(method, DemTilesInstall):
-            rows.append(_tiles_row(planned, (tiles or {}).get(planned.name, 0)))
+            rows.append(
+                _tiles_row(
+                    planned,
+                    (tiles or {}).get(planned.name, 0),
+                    (no_terrain or {}).get(planned.name, 0),
+                )
+            )
         elif isinstance(method, VenvInstall):
             rows.append(
                 UpdateRow(

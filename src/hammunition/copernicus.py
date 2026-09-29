@@ -8,8 +8,10 @@ One tile is one 1 x 1 degree square, named by its south-west corner
 (``Copernicus_DSM_COG_10_N01_00_E001_00_DEM`` covers latitude 1 to 2 and
 longitude 1 to 2), a Cloud Optimised GeoTIFF of about 39 MB at
 ``<bucket>/<name>/<name>.tif``. The bucket's ``tileList.txt`` names every tile
-that exists; ocean squares are absent, so a square not in that list is *sea*,
-never an error. The list is carried in the catalog
+that exists. A square not in that list has *no published tile*, never an
+error: it is ocean, or land the publisher withholds from the public release
+(the final review found Armenia and Azerbaijan absent), and the list cannot
+say which, so Hammunition never calls it either. The list is carried in the catalog
 (``catalog/data/copernicus-glo30-tiles.txt``) so the plan needs no network to
 know it.
 
@@ -186,10 +188,11 @@ def squares_touching(outer: Sequence[Ring], holes: Sequence[Ring] = ()) -> froze
 
 
 def select(squares: Iterable[Square], tile_list: frozenset[str]) -> tuple[tuple[str, ...], int]:
-    """(the tiles that exist for *squares*, sorted; how many squares are sea)."""
+    """(the tiles that exist for *squares*, sorted; how many squares have no
+    published tile -- sea, or land Copernicus does not release)."""
     if not tile_list:
         raise CopernicusError(
-            "the tile list is empty; refusing to plan every square as sea rather "
+            "the tile list is empty; refusing to plan every square as unpublished rather "
             "than risk a truncated or emptied "
             "catalog/data/copernicus-glo30-tiles.txt going unnoticed"
         )
@@ -212,7 +215,7 @@ def parse_tile_list(text: str) -> frozenset[str]:
         raise CopernicusError(
             "the tile list names no tiles; an empty or comment-only "
             "catalog/data/copernicus-glo30-tiles.txt would otherwise make every "
-            "square sea with no warning"
+            "square unpublished with no warning"
         )
     return frozenset(names)
 

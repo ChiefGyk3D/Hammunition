@@ -22,7 +22,7 @@ B = "Copernicus_DSM_COG_10_N00_00_E001_00_DEM"
 C = "Copernicus_DSM_COG_10_N01_00_E000_00_DEM"
 LIST = frozenset({A, B, C})
 MD5 = "0123456789abcdef0123456789abcdef"
-#: Covers squares (0,0), (0,1), (1,0) and (1,1); (1,1) is not in LIST: sea.
+#: Covers squares (0,0), (0,1), (1,0) and (1,1); (1,1) is not in LIST: no published tile.
 OUTLINE = "oceania\n1\n 0.5 0.5\n 1.5 0.5\n 1.5 1.5\n 0.5 1.5\nEND\nEND\n"
 
 

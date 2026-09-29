@@ -102,10 +102,10 @@ def test_a_square_wholly_inside_a_hole_is_not_selected() -> None:
     assert {(0, 0), (2, 2), (0, 2), (2, 0)} <= got
 
 
-def test_squares_missing_from_the_list_are_sea_not_an_error() -> None:
-    tiles, sea = select({(0, 0), (-1, -1), (5, 5)}, frozenset({A, B}))
+def test_squares_missing_from_the_list_are_unpublished_not_an_error() -> None:
+    tiles, unpublished = select({(0, 0), (-1, -1), (5, 5)}, frozenset({A, B}))
     assert tiles == tuple(sorted((A, B)))
-    assert sea == 1
+    assert unpublished == 1
 
 
 def test_a_poly_outline_is_read_with_its_holes() -> None:

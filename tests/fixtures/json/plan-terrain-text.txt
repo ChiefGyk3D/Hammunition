@@ -15,8 +15,10 @@ Map regions, from station config (D-057):
       download total: 0 KB; about 0 KB of disk with Navit's maps (estimate, measured on three regions, scratch on one)
       installs under <prefix>/share/hammunition/data/
   Terrain, Copernicus GLO-30 elevation (D-061):
-    atlantis/oceania  2 tile(s), 2 square(s) of sea; 39.1 MB to download
+    atlantis/oceania  2 tile(s), 2 square(s) with no published tile (sea, or land Copernicus does not release); 39.1 MB to download
     atlantis/lemuria  1 tile(s); 25.2 MB to download
+    atlantis/mu       0 tile(s), 3 square(s) with no published tile (sea, or land Copernicus does not release)
+    warning: no terrain available for atlantis/mu from Copernicus GLO-30; its maps still install
     (a region's tiles are read from its outline at Geofabrik, fetched again
     by every plan until its terrain is installed and its record written)
     will be downloaded (2 tile(s), 64.3 MB):

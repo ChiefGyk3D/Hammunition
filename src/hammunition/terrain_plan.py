@@ -11,7 +11,8 @@ For each region, in order:
 2. its Geofabrik outline, ``<region>.poly``, asked through the same
    :class:`~hammunition.geofabrik.Probe` that resolves the regions, turned
    into the squares it touches and filtered by the carried tile list (a
-   square not in it is sea).
+   square not in it has no published tile: sea, or land Copernicus does
+   not release).
 
 Then every tile not already installed is resolved to a verifiable download:
 from its pin, asking nothing, or from the bucket's ``HEAD`` for its size and
@@ -78,8 +79,8 @@ def region_tiles(
     if recorded is not None:
         return recorded
     outer, holes = parse_poly(probe.text(poly_url(region)))
-    tiles, sea = select(squares_touching(outer, holes), tile_list)
-    return RegionTiles(region, slug, tiles, sea)
+    tiles, unpublished = select(squares_touching(outer, holes), tile_list)
+    return RegionTiles(region, slug, tiles, unpublished)
 
 
 def resolve_terrain(
@@ -173,7 +174,7 @@ def resolve_station_terrain(
 
     The regions are this run's resolved files and the ones kept offline.
     A missing tile list is refused by name: without it every square would
-    look like sea, and a region would silently get no terrain.
+    look unpublished, and a region would silently get no terrain.
 
     A region's record is written only when its terrain is installed, so until
     then every plan -- a dry run included -- asks for its outline again; the

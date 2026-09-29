@@ -197,7 +197,7 @@ def test_a_kept_region_s_record_is_not_removed(tmp_path: Path) -> None:
     assert "remove-data" not in kinds
 
 
-def test_the_record_round_trips_with_its_sea_count(tmp_path: Path) -> None:
+def test_the_record_round_trips_with_its_unpublished_count(tmp_path: Path) -> None:
     path = tmp_path / "r.tiles"
     path.write_text(render_record(OCEANIA))
     assert read_record(path, OCEANIA.region, OCEANIA.slug) == OCEANIA
@@ -212,7 +212,7 @@ def test_the_resolution_lists_every_tile_once_sorted() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Resolution into the backend: pins, ETags, the sea, and refusals
+# Resolution into the backend: pins, ETags, unpublished squares, and refusals
 # ---------------------------------------------------------------------------
 
 
@@ -251,10 +251,10 @@ def test_offline_is_refused_naming_the_tile_s_url() -> None:
         resolve_tile(B, pins={}, probe=FakeProbe({}))
 
 
-def test_a_sea_square_is_skipped_and_counted() -> None:
+def test_a_square_with_no_published_tile_is_skipped_and_counted() -> None:
     squares = [square_of(A), square_of(B), square_of(C)]
-    tiles, sea = select(squares, frozenset({A, B}))
-    assert tiles == (A, B) and sea == 1
+    tiles, unpublished = select(squares, frozenset({A, B}))
+    assert tiles == (A, B) and unpublished == 1
 
 
 def test_a_tile_with_neither_digest_is_never_fetched() -> None:
@@ -370,20 +370,54 @@ def test_uninstall_removes_every_tile_with_the_directory(tmp_path: Path) -> None
 ABYSS = RegionTiles("atlantis/abyss", "atlantis-abyss", (), 4)
 
 
-def test_an_all_sea_region_s_record_round_trips(tmp_path: Path) -> None:
+def test_an_all_unpublished_region_s_record_round_trips(tmp_path: Path) -> None:
     path = tmp_path / "atlantis-abyss.tiles"
     path.write_text(render_record(ABYSS))
     assert read_record(path, ABYSS.region, ABYSS.slug) == ABYSS
     path.write_text("")
     assert read_record(path, ABYSS.region, ABYSS.slug) is None, "no header, no record"
-    path.write_text("# a comment, not the sea header\n")
+    path.write_text("# a comment, not the header\n")
     assert read_record(path, ABYSS.region, ABYSS.slug) is None
 
 
-def test_an_all_sea_region_already_recorded_is_left_alone(tmp_path: Path) -> None:
+def test_an_all_unpublished_region_already_recorded_is_left_alone(tmp_path: Path) -> None:
     out = _data(tmp_path)
     out.mkdir(parents=True)
     (out / "atlantis-abyss.tiles").write_text(render_record(ABYSS))
     backend = _backend(tmp_path, DemResolution(regions=(ABYSS,)))
     m = manifest()
     assert backend.steps(m, _block(m)) == []
+
+
+# ---------------------------------------------------------------------------
+# A square with no published tile is not "sea" (final review, I1): the carried
+# list says only that Copernicus publishes nothing there -- ocean, or land it
+# withholds -- and Hammunition never guesses which.
+# ---------------------------------------------------------------------------
+
+WITHHELD = RegionTiles("atlantis/mu", "atlantis-mu", (), 3)
+
+
+def test_the_record_names_squares_with_no_published_tile_never_sea(tmp_path: Path) -> None:
+    text = render_record(WITHHELD)
+    assert text == "# squares with no published tile: 3\n"
+    assert "sea" not in text
+    assert WITHHELD.unpublished == 3
+
+
+def test_a_record_written_with_the_old_sea_header_still_reads(tmp_path: Path) -> None:
+    path = tmp_path / "atlantis-mu.tiles"
+    path.write_text("# sea squares: 3\n")
+    assert read_record(path, WITHHELD.region, WITHHELD.slug) == WITHHELD
+    path.write_text(f"# sea squares: 2\n{A}\n")
+    assert read_record(path, "atlantis/oceania", "atlantis-oceania") == RegionTiles(
+        "atlantis/oceania", "atlantis-oceania", (A,), 2
+    )
+
+
+def test_a_region_with_no_published_tile_is_named_by_its_record_step(tmp_path: Path) -> None:
+    backend = _backend(tmp_path, DemResolution(regions=(WITHHELD,)))
+    m = manifest()
+    (step,) = _actions(backend.steps(m, _block(m)))
+    assert "no terrain available for atlantis/mu from Copernicus GLO-30" in step.description
+    assert "no terrain available for atlantis/mu" in step.perform()

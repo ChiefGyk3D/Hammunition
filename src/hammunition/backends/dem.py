@@ -41,29 +41,47 @@ from .verified import PrefixWriter
 
 TIF = ".tif"
 TILES = ".tiles"
-_SEA = "# sea squares: "
+_UNPUBLISHED = "# squares with no published tile: "
+#: The header records written before the final review's I1 carried. Still
+#: read, so a record already on disk is not rewritten and its outline asked for
+#: again; never written.
+_LEGACY = "# sea squares: "
 
 
 @dataclass(frozen=True)
 class RegionTiles:
-    """The tiles one region needs, and how many of its squares are sea."""
+    """The tiles one region needs, and how many of its squares have no
+    published tile: sea, or land Copernicus does not release. The tile list
+    cannot say which, so neither does anything that reads this."""
 
     region: str
     slug: str
     tiles: tuple[str, ...]
-    sea: int
+    unpublished: int
+
+    @property
+    def no_terrain(self) -> bool:
+        """Its outline touches squares and Copernicus publishes a tile for none."""
+        return not self.tiles and self.unpublished > 0
+
+
+def no_terrain_line(region: str) -> str:
+    """How a region with no published tile at all is named, in the plan and
+    its step alike."""
+    return f"no terrain available for {region} from Copernicus GLO-30"
 
 
 def render_record(entry: RegionTiles) -> str:
-    return f"{_SEA}{entry.sea}\n" + "".join(f"{name}\n" for name in entry.tiles)
+    return f"{_UNPUBLISHED}{entry.unpublished}\n" + "".join(f"{name}\n" for name in entry.tiles)
 
 
 def read_record(path: Path, region: str, slug: str) -> RegionTiles | None:
     """A region's recorded tiles, or None when there is no readable record.
 
-    A region whose outline touches only sea squares records no tiles, just
-    its sea header; that is a complete record, not an unreadable one, or it
-    would be rewritten and its outline fetched again on every plan.
+    A region whose outline touches no published tile records no tiles, just
+    its header; that is a complete record, not an unreadable one, or it
+    would be rewritten and its outline fetched again on every plan. The
+    header written before I1 (``# sea squares:``) is read as the same count.
     """
     try:
         text = path.read_text()
@@ -71,17 +89,18 @@ def read_record(path: Path, region: str, slug: str) -> RegionTiles | None:
         return None
     header: int | None = None
     for line in text.splitlines():
-        if line.startswith(_SEA) and line[len(_SEA) :].isdigit():
-            header = int(line[len(_SEA) :])
+        for prefix in (_UNPUBLISHED, _LEGACY):
+            if line.startswith(prefix) and line[len(prefix) :].isdigit():
+                header = int(line[len(prefix) :])
     names = [s for s in (line.strip() for line in text.splitlines()) if s and not s.startswith("#")]
     if not names:
         return None if header is None else RegionTiles(region, slug, (), header)
-    sea = header or 0
+    unpublished = header or 0
     try:
         tiles = tuple(sorted(parse_tile_list(text)))
     except CopernicusError:
         return None
-    return RegionTiles(region, slug, tiles, sea)
+    return RegionTiles(region, slug, tiles, unpublished)
 
 
 @dataclass(frozen=True)
@@ -185,13 +204,18 @@ class DemTilesBackend:
             record = out / f"{entry.slug}{TILES}"
             if read_record(record, entry.region, entry.slug) == entry:
                 continue
+            description = (
+                f"Record that {no_terrain_line(entry.region)}: Copernicus publishes no "
+                f"tile for any of its {entry.unpublished} square(s) (sea, or land it does "
+                f"not release), so nothing is installed for it; its maps still are"
+                if entry.no_terrain
+                else f"Record the {len(entry.tiles)} terrain tile(s) {entry.region} needs, "
+                f"so a later plan knows them offline"
+            )
             steps.append(
                 Action(
                     kind="install-data",
-                    description=(
-                        f"Record the {len(entry.tiles)} terrain tile(s) {entry.region} needs, "
-                        f"so a later plan knows them offline"
-                    ),
+                    description=description,
                     detail=str(record),
                     perform=partial(self._record, entry, record, writer),
                     requires_root=writer.privileged,
@@ -205,6 +229,8 @@ class DemTilesBackend:
     @staticmethod
     def _record(entry: RegionTiles, record: Path, writer: PrefixWriter) -> str:
         writer.write_text(record, render_record(entry))
+        if entry.no_terrain:
+            return f"wrote {record}; {no_terrain_line(entry.region)}"
         return f"wrote {record}"
 
     def _fetch(self, tile: TileFile, fetched: dict[str, Path]) -> str:

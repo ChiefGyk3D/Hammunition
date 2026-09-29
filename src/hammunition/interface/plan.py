@@ -19,7 +19,7 @@ from typing import ClassVar
 
 from hammunition.backends import Action
 from hammunition.backends.data import human_size
-from hammunition.backends.dem import TerrainDisclosure
+from hammunition.backends.dem import TerrainDisclosure, no_terrain_line
 from hammunition.backends.regions import ESTIMATE, MapDisclosure, bin_estimate
 from hammunition.backends.terrain import (
     CONTOUR_BYTES,
@@ -280,7 +280,14 @@ class TerrainRegionLine(Strict):
 
     region: str = described("the Geofabrik region path")
     tiles: int = described("tiles that exist for its outline")
-    sea: int = described("squares of its outline with no tile: sea")
+    unpublished: int = described(
+        "squares of its outline Copernicus publishes no tile for: sea, or land it does not "
+        "release; the tile list cannot say which"
+    )
+    no_terrain: bool = described(
+        "true when its outline touches squares and every one is unpublished: no terrain is "
+        "installed for this region, and the plan warns so; its maps still install"
+    )
     download: int = described(
         "bytes of its tiles downloaded this run; a tile two regions share counts in both"
     )
@@ -613,7 +620,8 @@ def _terrain_section(terrain: TerrainDisclosure | None) -> TerrainSectionView | 
             TerrainRegionLine(
                 region=r.region,
                 tiles=len(r.tiles),
-                sea=r.sea,
+                unpublished=r.unpublished,
+                no_terrain=r.no_terrain,
                 download=sum(sizes.get(name, 0) for name in r.tiles),
                 download_human=human_size(sum(sizes.get(name, 0) for name in r.tiles)),
             )
@@ -1081,9 +1089,23 @@ def _render_terrain(terrain: TerrainSectionView) -> list[str]:
     if terrain.regions:
         width = max(len(r.region) for r in terrain.regions)
         for region in terrain.regions:
-            sea = f", {region.sea} square(s) of sea" if region.sea else ""
+            unpublished = (
+                f", {region.unpublished} square(s) with no published tile "
+                f"(sea, or land Copernicus does not release)"
+                if region.unpublished
+                else ""
+            )
             fetch = f"; {region.download_human} to download" if region.download else ""
-            lines.append(f"    {region.region:<{width}}  {region.tiles} tile(s){sea}{fetch}")
+            lines.append(
+                f"    {region.region:<{width}}  {region.tiles} tile(s){unpublished}{fetch}"
+            )
+        # Final review, I1: a region with squares and not one published tile
+        # gets no terrain. Said as a warning, never folded into success.
+        lines.extend(
+            f"    warning: {no_terrain_line(region.region)}; its maps still install"
+            for region in terrain.regions
+            if region.no_terrain
+        )
         # A region's record is written only when its terrain is installed
         # (Task 10's note, ruled at Task 13): until then every plan, a dry
         # run included, asks Geofabrik for its outline again.

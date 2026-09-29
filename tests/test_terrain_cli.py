@@ -105,7 +105,7 @@ def test_the_plan_s_regions_and_kept_regions_are_resolved_to_tiles(tmp_path: Pat
     assert probe.asked == [poly_url(OCEANIA.region)]
 
 
-def test_a_missing_tile_list_is_refused_by_name_not_read_as_all_sea(tmp_path: Path) -> None:
+def test_a_missing_tile_list_is_refused_by_name_not_read_as_all_unpublished(tmp_path: Path) -> None:
     plan, _maps, _terrain = terrain_plan()
     with pytest.raises(CopernicusError, match=r"copernicus-glo30-tiles\.txt"):
         resolve_station_terrain(
@@ -472,3 +472,33 @@ def test_update_end_to_end_counts_tiles_and_names_none(
         out = capsys.readouterr().out
         assert "1 terrain tile(s)" in out, argv
         assert "Copernicus_DSM" not in out and "atlantis" not in out, argv
+
+
+def test_update_counts_regions_with_no_published_tile_and_names_none(tmp_path: Path) -> None:
+    """Final review, I1: a region Copernicus publishes nothing for is counted,
+    never called sea and never named."""
+    from hammunition.cli.main import installed_tile_counts, no_terrain_counts
+
+    plan = _plan(_dem())
+    out = data_root(tmp_path) / "dem-copernicus"
+    out.mkdir(parents=True)
+    (out / f"{OCEANIA.slug}.tiles").write_text(
+        render_record(RegionTiles(OCEANIA.region, OCEANIA.slug, (), 4))
+    )
+    assert no_terrain_counts(plan, tmp_path) == {"dem-copernicus": 1}
+    result = report(
+        plan,
+        apt_states={},
+        present={},
+        built=(),
+        tiles=installed_tile_counts(plan, tmp_path),
+        no_terrain=no_terrain_counts(plan, tmp_path),
+    )
+    (row,) = result.rows
+    assert row.state == NOT_INSTALLED
+    assert row.detail == (
+        "no terrain tiles installed; 1 region(s) with no published tile at "
+        "Copernicus GLO-30 (sea, or land it does not release)"
+    )
+    text = render(result, lists_note="fresh")
+    assert "atlantis" not in text and OCEANIA.slug not in text

@@ -192,7 +192,10 @@ the derived maps) fetches and converts the newer file.
 For `dem-copernicus` the row is a count, never a tile name, because a tile
 name is a latitude and longitude: `43 terrain tile(s) installed; a tile
 changes only when the publisher's tile list does`, or `no terrain tiles
-installed`. When `osm-regions` is behind, the footer's command also names
+installed`. Regions whose records say Copernicus publishes no tile for any
+of their squares are counted on the end, again without a name: `; 1
+region(s) with no published tile at Copernicus GLO-30 (sea, or land it does
+not release)`. When `osm-regions` is behind, the footer's command also names
 `osm-garmin` and `osm-routino` if they are installed, since they are built
 from the same regions.
 
@@ -385,8 +388,10 @@ golden test's synthetic plan:
 
 ```
   Terrain, Copernicus GLO-30 elevation (D-061):
-    atlantis/oceania  2 tile(s), 2 square(s) of sea; 39.1 MB to download
+    atlantis/oceania  2 tile(s), 2 square(s) with no published tile (sea, or land Copernicus does not release); 39.1 MB to download
     atlantis/lemuria  1 tile(s); 25.2 MB to download
+    atlantis/mu       0 tile(s), 3 square(s) with no published tile (sea, or land Copernicus does not release)
+    warning: no terrain available for atlantis/mu from Copernicus GLO-30; its maps still install
     (a region's tiles are read from its outline at Geofabrik, fetched again
     by every plan until its terrain is installed and its record written)
     will be downloaded (2 tile(s), 64.3 MB):
@@ -406,6 +411,11 @@ Hammunition`** when it has a row in
 `catalog/data/copernicus-glo30-pins.yaml`, otherwise **`MD5 from the
 publisher's object metadata; not pinned by Hammunition`**. The pin file
 ships empty, so today every tile gets the second.
+
+A square with no published tile is counted as such and never called sea:
+the carried list cannot tell open sea from land Copernicus does not release.
+A region with no published tile at all gets the `warning:` line, fetches
+nothing and does not fail the run; its maps still install (D-061).
 
 The commands section shows each tile's fetch (all fetches first, as every
 download is), each install, each region's record, each Garmin build and the

@@ -5181,10 +5181,26 @@ QMapShack a mixed set, and the next run rebuilds it.
 A tile is one 1°×1° square named by its south-west corner. Which squares
 have a tile is the bucket's `tileList.txt`, carried as
 `catalog/data/copernicus-glo30-tiles.txt` (26,450 names, generated). A
-square not in it is sea, and the plan needs no network to know that. An
-empty or comment-only list is an error naming the file, never "every square
-is sea", because a truncated file would otherwise take a region's terrain
-away with no warning.
+square not in it has **no published tile**, and the plan needs no network to
+know that. It does not know why. Such a square is ocean, or land the
+publisher withholds from the public 30 m release: measured against the
+carried list at the final review, the squares of Yerevan and Baku are absent
+while their neighbours to the north and south are listed. The list cannot
+tell the two apart, and Hammunition never guesses, so the plan counts these
+squares as "square(s) with no published tile (sea, or land Copernicus does
+not release)" and never calls them sea. An empty or comment-only list is an
+error naming the file, never "every square is unpublished", because a
+truncated file would otherwise take a region's terrain away with no warning.
+
+A region whose outline touches squares, none of them published, gets no
+terrain, and that is never silent. The plan prints **"warning: no terrain
+available for `<region>` from Copernicus GLO-30; its maps still install"**,
+nothing is fetched for it, and the step that records the region names it
+the same way. The transaction does not fail over it: the operator asked for
+the region's maps, not its terrain, and the maps install. The record's
+header is `# squares with no published tile: N`; a record written with the
+earlier `# sea squares: N` still reads as the same count, so it is not
+rewritten. `update` counts such regions, never naming one.
 
 The specification chose each region's squares from the bounding box in its
 `.osm.pbf` header. That was measured before the build on the two regions
@@ -5301,7 +5317,7 @@ installed.
 ### The plan, disk and privacy
 
 The plan's *Map regions* section gains a *Terrain* block. It shows tiles per
-region, how many squares are sea and what the region's tiles cost to
+region, how many squares have no published tile and what the region's tiles cost to
 download, each tile to fetch with its size and verification, and what is
 built for QMapShack with its estimate. Each factor is printed with
 "measured on one region":
@@ -5341,6 +5357,10 @@ or "hundreds".
 - **BRouter stays out**: its jar is pinnable, and its weekly routing data is
   not.
 - **An antimeridian outline is refused** until measured (above).
+- **Land Copernicus does not release at 30 m has no terrain.** The region's
+  maps install, and the plan warns by name (above). The route is a second
+  provider: Copernicus GLO-90, published separately at 90 m, is the
+  candidate, unmeasured here, and the `provider` enum has room for it.
 
 ### What is measured, and what is not yet
 

@@ -76,6 +76,7 @@ def _region(name: str, size: int) -> RegionFile:
 
 
 OCEANIA, LEMURIA = _region("oceania", 52_428_800), _region("lemuria", 10_485_760)
+MU = _region("mu", 1_048_576)
 
 
 def terrain_plan(*, idle: bool = False) -> tuple[InstallPlan, MapDisclosure, TerrainDisclosure]:
@@ -97,6 +98,8 @@ def terrain_plan(*, idle: bool = False) -> tuple[InstallPlan, MapDisclosure, Ter
         regions=(
             RegionTiles(OCEANIA.region, OCEANIA.slug, (A, B), 2),
             RegionTiles(LEMURIA.region, LEMURIA.slug, (C,), 0),
+            # Every square it touches has no published tile (final review, I1).
+            RegionTiles(MU.region, MU.slug, (), 3),
         ),
         fetch=()
         if idle
@@ -155,9 +158,18 @@ def test_the_json_carries_every_value_the_terrain_text_shows() -> None:
     assert body["regions"][0] == {
         "region": "atlantis/oceania",
         "tiles": 2,
-        "sea": 2,
+        "unpublished": 2,
+        "no_terrain": False,
         "download": 39_138_429,
         "download_human": "39.1 MB",
+    }
+    assert body["regions"][2] == {
+        "region": "atlantis/mu",
+        "tiles": 0,
+        "unpublished": 3,
+        "no_terrain": True,
+        "download": 0,
+        "download_human": "0 KB",
     }
     assert body["routino_regions"] == 2 and body["contours"] == 2
     assert body["estimate_note"] == "measured on one region"
@@ -184,3 +196,20 @@ def test_each_unit_reads_already_installed_only_when_it_has_nothing_to_do() -> N
         for p in build_install_view(plan, [], euid=1000, maps=maps, terrain=terrain).packages
     }
     assert set(idle.values()) == {"already installed"}
+
+
+def test_a_square_with_no_published_tile_is_never_called_sea() -> None:
+    """Final review, I1: the list says only that Copernicus publishes no tile
+    there. Ocean, or land it withholds, cannot be told from it."""
+    plan, maps, terrain = terrain_plan()
+    text = "\n".join(cli.render_plan(plan, [], euid=1000, maps=maps, terrain=terrain))
+    assert " of sea" not in text
+    assert "2 square(s) with no published tile (sea, or land Copernicus does not release)" in text
+
+
+def test_a_region_with_no_published_tile_at_all_is_warned_by_name() -> None:
+    plan, maps, terrain = terrain_plan()
+    lines = cli.render_plan(plan, [], euid=1000, maps=maps, terrain=terrain)
+    warnings = [line for line in lines if "no terrain available" in line]
+    assert len(warnings) == 1
+    assert "warning: no terrain available for atlantis/mu from Copernicus GLO-30" in warnings[0]
