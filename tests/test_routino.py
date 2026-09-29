@@ -98,9 +98,19 @@ def _install_region(tmp_path: Path, region: RegionFile) -> Path:
     return pbf
 
 
+#: The engine as the operator, never root, however the suite runs (it also
+#: runs under ``unshare -r``, where the real euid is 0).
+NOT_ROOT = 4242
+
+
 def _converter(tmp_path: Path, files: list[RegionFile], **kw: Any) -> RoutinoConverter:
     return RoutinoConverter(
-        prefix=tmp_path, files=files, staging=Staging(tmp_path / "staging"), **kw
+        prefix=tmp_path,
+        files=files,
+        staging=Staging(tmp_path / "staging", euid=NOT_ROOT),
+        euid=NOT_ROOT,
+        privileged=False,
+        **kw,
     )
 
 
