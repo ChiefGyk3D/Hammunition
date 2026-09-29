@@ -5433,10 +5433,12 @@ device export, and online maps of any kind, which are out of scope.
 `tests/test_gen_copernicus_pins.py`, `tests/test_navigation_catalog.py`
 and `tests/test_docs_terrain.py`.
 
-### Amendment (2026-09-29): measured on the bench, the settings group and the tether were both wrong
+### Amendment (2026-09-29): measured on the bench, the settings group was wrong and the tether is rewritten
 
 QMapShack 1.17.1 ran on the field laptop for the first time on 2026-09-29.
-Two things this decision shipped did not work, and both are fixed.
+The settings group this decision shipped was wrong, and is fixed. The
+tether gave QMapShack nothing, for a reason not established, and is
+rewritten on its own merits.
 
 **The map and elevation lists belong under `[Canvas]`.** After QMapShack
 exited, `~/.config/QLandkarte/QMapShack.conf` held `mapPath=@Invalid()` and
@@ -5452,14 +5454,17 @@ every other key stay, and a `[General]` value it cannot read is not ours and
 is left alone rather than refused. It says on stderr when it moved anything.
 
 **The tether makes its own NMEA.** The shipped tether was `gpspipe -r`, gpsd's
-raw NMEA watch, behind `socat`. On the bench it printed gpsd's three JSON
-header lines and then nothing for 12 s, and QMapShack's GPS Tether saw
-nothing. What is measured is this: the raw watch passes on only NMEA that
-gpsd is translating for the receiver, and it is empty whenever gpsd is not,
-while the JSON watch is what every gpsd client, `xgps` and Navit included,
-reads. (At the time, gpsd on the laptop was reporting nothing on its JSON
-watch either, so whether a u-blox receiver in binary mode yields raw NMEA is
-not established here.) The fix does not depend on the answer.
+raw NMEA watch, behind `socat`. What was measured on 2026-09-29: with it
+connected, `gpspipe -r` printed gpsd's three JSON header lines and then no
+NMEA for 12 s, and QMapShack's GPS Tether saw nothing; at the same time
+gpsd's JSON watch was sending no `TPV` either (`?POLL` answered
+`active: 0`). gpsd had nothing to report, so no cause for the old tether's
+silence is established, and `gpspipe(1)` says `-r` emits pseudo-NMEA built
+from binary data, so it may well have worked with a fix. The rewrite stands
+on its own merits: no `socat` or `gpspipe` dependency, the loopback bind
+made and tested in the engine's own code, `RMC` and `GGA` built from the
+JSON feed every gpsd client (`xgps`, Navit) uses, and a plain message when
+gpsd has no fix, which the old tether could not give.
 `hammunition maps gps-tether` now connects to gpsd at 127.0.0.1:2947 itself,
 sends `?WATCH={"enable":true,"json":true}`, and for every `TPV` with
 `mode` 2 or 3 writes `$GPRMC` then `$GPGGA`: the time, the position as
@@ -5499,8 +5504,9 @@ client and then "no position with a fix". Not yet measured, and still bench
 session 12's to record: QMapShack reading the lists under `[Canvas]`, and a
 position with a fix through the new tether into its GPS Tether.
 
-**Rejected.** Keeping `gpspipe -r` and asking gpsd to translate (it depends on
-the receiver and its mode, and the JSON is always there). Keeping `socat` in
+**Rejected.** Keeping `gpspipe -r` behind `socat` (not shown to fail for
+want of a fix, but two external programs where the engine's own code can
+bind loopback, be tested, and say when gpsd has no fix). Keeping `socat` in
 front of an engine-made stream (a second program for what the standard
 library does, with its comma-separated option syntax in the argv).
 Leaving the `[General]` keys where they were (harmless to QMapShack, but a

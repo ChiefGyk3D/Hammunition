@@ -14,8 +14,8 @@ status: retired
 retire_reason: out_of_scope
 status_reason: >-
   Carried only for the first `gps-tether`, which ran `gpspipe -r` behind
-  socat. On the field laptop on 2026-09-29 that gave QMapShack nothing, and
-  the tether now writes NMEA from gpsd's JSON in the engine, with no socat.
+  socat. The tether now writes NMEA from gpsd's JSON in the engine, with no
+  socat (D-061, amended 2026-09-29).
   Nothing else in the catalog uses it. `apt install socat` still works for
   anyone who wants it for its own sake.
 status_date: 2026-09-29

@@ -4,7 +4,7 @@
 
 **A relay between two data channels, sockets, files or programs**
 
-> **Status: retired.** Carried only for the first `gps-tether`, which ran `gpspipe -r` behind socat. On the field laptop on 2026-09-29 that gave QMapShack nothing, and the tether now writes NMEA from gpsd's JSON in the engine, with no socat. Nothing else in the catalog uses it. `apt install socat` still works for anyone who wants it for its own sake. Recorded 2026-09-29. Verdict tested by us.
+> **Status: retired.** Carried only for the first `gps-tether`, which ran `gpspipe -r` behind socat. The tether now writes NMEA from gpsd's JSON in the engine, with no socat (D-061, amended 2026-09-29). Nothing else in the catalog uses it. `apt install socat` still works for anyone who wants it for its own sake. Recorded 2026-09-29. Verdict tested by us.
 
 - **Version recorded:** 1.8.0.3
 - **Categories:** `navigation-maps`

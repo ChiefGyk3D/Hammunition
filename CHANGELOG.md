@@ -13,8 +13,9 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 - **The GPS tether makes its own NMEA** (D-061, amended 2026-09-29).
   `hammunition maps gps-tether` reads gpsd's JSON and writes `$GPRMC` and
-  `$GPGGA` on 127.0.0.1:10110; `gpspipe -r` behind `socat` gave QMapShack
-  nothing on the field laptop. `socat` leaves the `navigation`
+  `$GPGGA` on 127.0.0.1:10110; no socat or gpspipe, the loopback bind
+  in its own code, and a plain message when gpsd has no fix. The old
+  tether sent nothing on the field laptop while gpsd reported no position. `socat` leaves the `navigation`
   profile and is kept in the catalog as retired, so `hammunition uninstall
   socat` still works where v0.14.0 installed it.
 - **QMapShack's map and elevation lists go under `[Canvas]`** (D-061,

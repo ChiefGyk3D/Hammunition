@@ -501,8 +501,10 @@ stop that one first. If it says it cannot reach gpsd, gpsd is not running:
 `systemctl status gpsd` says why.
 
 The first version of the tether passed on gpsd's raw NMEA through `socat`.
-On the field laptop that stream was empty, because it carries only NMEA
-gpsd is translating for the receiver. If you installed that version,
+On the field laptop it sent nothing, at a time when gpsd itself was
+reporting no position at all, so why is not known. This version needs
+neither program and says plainly when gpsd has no fix. If you installed the
+first version,
 `socat` is no longer part of this profile; it is kept in the catalog as
 retired, so `hammunition uninstall socat` still removes it. Do that only
 if nothing else of yours uses it.
@@ -785,7 +787,8 @@ yet been run on a desktop; bench session 12 in
 - QMapShack drawing hillshade and slope from the elevation.
 - A route on foot across the boundary between two regions.
 - The GPS tether with a real receiver. Its first version, `gpspipe -r`
-  behind `socat`, gave QMapShack nothing on the field laptop on 2026-09-29.
+  behind `socat`, gave QMapShack nothing on the field laptop on 2026-09-29,
+  while gpsd was reporting no position at all.
   The version that makes its own NMEA from gpsd's JSON has not yet run with
   a fix.
 - The whole install on the field laptop, with its build times.

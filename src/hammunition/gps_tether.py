@@ -4,12 +4,15 @@
 """The GPS tether: NMEA made from gpsd's JSON, served on loopback.  D-061.
 
 QMapShack has no gpsd client. Its *Realtime -> GPS Tether* reads NMEA (RMC
-and GGA) from a TCP host. The first tether piped ``gpspipe -r``, gpsd's raw
-NMEA watch, through ``socat``; on the bench on 2026-09-29 that watch gave
-nothing past gpsd's three JSON header lines. It relays only the NMEA gpsd
-is translating for the receiver, and is empty whenever gpsd is not, while
-the JSON watch is what every gpsd client (xgps, Navit) reads. So the tether
-now asks gpsd for JSON itself, ``?WATCH={"enable":true,"json":true}`` on
+and GGA) from a TCP host. The first tether piped ``gpspipe -r`` through ``socat``.
+On the bench on 2026-09-29, with it connected, no NMEA reached the client;
+gpsd's JSON watch was sending no TPV at the same time (``?POLL`` answered
+``active: 0``), so no cause for that silence is established, and
+``gpspipe(1)`` says ``-r`` emits pseudo-NMEA built from binary data. This
+version stands on its own: no socat or gpspipe, the loopback bind made and
+tested in code, sentences built from the JSON feed every gpsd client (xgps,
+Navit) reads, and a plain message when gpsd has no fix. It asks gpsd for
+JSON itself, ``?WATCH={"enable":true,"json":true}`` on
 127.0.0.1 port 2947, and writes ``$GPRMC`` and ``$GPGGA`` for every ``TPV``
 with a 2D or 3D fix. A field gpsd did not give is an empty field, with one
 exception: a TPV with no time (or one that does not parse) is stamped with

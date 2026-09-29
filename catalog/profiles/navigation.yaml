@@ -80,8 +80,9 @@ documentation:
     `foot` profile; for your position, run `gps-tether`, which makes NMEA
     from gpsd's position and serves it on 127.0.0.1 port 10110, the host and
     port QMapShack's GPS Tether dialog is expected to take. QMapShack's
-    first run on the field laptop (2026-09-29) found the settings group and
-    the tether wrong, both since fixed (D-061's amendment); the fixed
+    first run on the field laptop (2026-09-29) found the settings group
+    wrong and the first tether silent, and both are rewritten (D-061's
+    amendment); the new
     versions have not yet been run on a desktop, and bench session 12
     (docs/reference/bench-verification-5430.md) is that check.
   disk_footprint_hint: >-
