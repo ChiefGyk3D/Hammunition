@@ -12,7 +12,9 @@ For ``navit-maptool``, each region takes two steps:
 * **convert**, unprivileged, as the operator in a staging directory the
   operator owns -- under root it drops to the operator first. maptool
   parses downloaded data, and a parser of downloaded data does not run as
-  root where it need not (the "drop to user where possible" rule). First
+  root where it need not (the "drop to user where possible" rule), and the
+  dropped child gets the operator's minimal environment
+  (:func:`~hammunition.backends.staging.operator_environ`), never root's. First
   the region is merged with a closed border for its country (the
   address-search fix, D-057 amendment, 2026-09-28): the border is written
   as OSM XML from the ``boundaries`` unit's Natural Earth file
@@ -58,7 +60,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, NamedTuple, Protocol
 
 from .. import navit_config, osm_pbf
 from ..country_boundaries import (
@@ -88,6 +90,7 @@ from .regions import (
     prefix_writer,
     removal_steps,
 )
+from .staging import operator_environ
 from .verified import PrefixWriter, digest_of
 
 BIN = ".bin"
@@ -162,12 +165,23 @@ def _maptool_failure(
     )
 
 
-def _as(drop: tuple[int, int]) -> dict[str, Any]:
-    """subprocess arguments that run a child as the operator, with no extra groups."""
-    return {"user": drop[0], "group": drop[1], "extra_groups": []}
+class _Drop(NamedTuple):
+    """Who a staging-side child runs as when the engine is root, and the
+    whole environment it gets: :func:`~hammunition.backends.staging.operator_environ`,
+    the minimal one the other converters' children get, never root's."""
+
+    uid: int
+    gid: int
+    env: Mapping[str, str]
 
 
-def _remove_as(drop: tuple[int, int], path: Path) -> None:
+def _as(drop: _Drop) -> dict[str, Any]:
+    """subprocess arguments that run a child as the operator, with no extra
+    groups and the operator's minimal environment."""
+    return {"user": drop.uid, "group": drop.gid, "extra_groups": [], "env": dict(drop.env)}
+
+
+def _remove_as(drop: _Drop, path: Path) -> None:
     """Remove *path* as the operator; root never unlinks through the operator's path."""
     # rm missing is not worth failing over: the staged file is the operator's.
     with contextlib.suppress(OSError):
@@ -383,16 +397,16 @@ class DerivedBackend:
             and installed_converter(dest) == CONVERTER
         )
 
-    def _as_operator(self) -> tuple[int, int] | None:
-        """(uid, gid) to drop to, when the engine is root on an operator's behalf."""
+    def _as_operator(self) -> _Drop | None:
+        """Who to drop to, when the engine is root on an operator's behalf."""
         euid = os.geteuid() if self.euid is None else self.euid
         if euid != 0 or not self.owner or self.owner == "root":
             return None
         entry = pwd.getpwnam(self.owner)
-        return entry.pw_uid, entry.pw_gid
+        return _Drop(entry.pw_uid, entry.pw_gid, operator_environ(entry))
 
     def _run(
-        self, argv: list[str], drop: tuple[int, int] | None, *, stdin: str | None = None
+        self, argv: list[str], drop: _Drop | None, *, stdin: str | None = None
     ) -> subprocess.CompletedProcess[str]:
         """One staging-side child, blocking until it exits (never in parallel:
         see the class docstring), in the staging directory.
@@ -425,7 +439,7 @@ class DerivedBackend:
             **_as(drop),
         )
 
-    def _discard(self, drop: tuple[int, int] | None, *paths: Path) -> None:
+    def _discard(self, drop: _Drop | None, *paths: Path) -> None:
         for path in paths:
             if drop is None:
                 path.unlink(missing_ok=True)
@@ -443,7 +457,7 @@ class DerivedBackend:
         return self._natural_earth["parsed"]
 
     def _merge(
-        self, region: RegionFile, pbf: Path, drop: tuple[int, int] | None
+        self, region: RegionFile, pbf: Path, drop: _Drop | None
     ) -> tuple[Path, dict[str, int], list[str]] | str:
         """(what maptool reads, our relation ids by code, notes), or why it failed.
 
@@ -542,7 +556,7 @@ class DerivedBackend:
         pbf: Path,
         staged: Path,
         converted: dict[str, str],
-        drop: tuple[int, int] | None,
+        drop: _Drop | None,
     ) -> str:
         merged = self._merge(region, pbf, drop)
         if isinstance(merged, str):
@@ -599,7 +613,7 @@ class DerivedBackend:
         who = "" if drop is None else ", as the operator"
         return f"converted {pbf.name} (staged{who}){said}"
 
-    def _staged_digest(self, staged: Path, drop: tuple[int, int] | None) -> str | None:
+    def _staged_digest(self, staged: Path, drop: _Drop | None) -> str | None:
         """sha256 of the staged map, or None when there is nothing there.
 
         Under root the operator's own ``sha256sum`` reads it: root never

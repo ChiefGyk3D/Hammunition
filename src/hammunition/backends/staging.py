@@ -57,7 +57,7 @@ from ..paths import _operator_home, operator_dir_problem
 from .base import BackendError
 from .verified import PrefixWriter, digest_of
 
-__all__ = ["ROOT_NO_OPERATOR", "Staging", "staging_refusal"]
+__all__ = ["ROOT_NO_OPERATOR", "Staging", "operator_environ", "staging_refusal"]
 
 #: What a step says when root does the work itself (D-043).
 ROOT_NO_OPERATOR = "as root: no operator"
@@ -71,6 +71,25 @@ REFUSED = 125
 #: ``flock --verbose``'s own lines on success, removed from the converter's stderr.
 _FLOCK_CHATTER = re.compile(r"^flock: (getting lock took .* seconds|executing .*)$")
 _FLOCK_BUSY = "flock: failed to get lock"
+
+
+def operator_environ(
+    entry: pwd.struct_passwd, extra: Mapping[str, str] | None = None
+) -> dict[str, str]:
+    """The whole environment a process dropped to *entry* gets, never root's:
+    ``PATH``, the operator's ``HOME``, ``USER`` and ``LOGNAME``, the locale
+    when set, and *extra* (a converter's own, such as ``JAVA_OPTS``)."""
+    env = {
+        "PATH": os.environ.get("PATH") or os.defpath,
+        "HOME": entry.pw_dir,
+        "USER": entry.pw_name,
+        "LOGNAME": entry.pw_name,
+    }
+    for name in ("LANG", "LC_ALL"):
+        if name in os.environ:
+            env[name] = os.environ[name]
+    env.update(extra or {})
+    return env
 
 
 def _owner_uid(path: Path) -> int:
@@ -191,17 +210,12 @@ class Staging:
         entry, _ = self._operator()
         if entry is None:
             return {}
-        env = {
-            "PATH": os.environ.get("PATH") or os.defpath,
-            "HOME": entry.pw_dir,
-            "USER": entry.pw_name,
-            "LOGNAME": entry.pw_name,
+        return {
+            "user": entry.pw_uid,
+            "group": entry.pw_gid,
+            "extra_groups": [],
+            "env": operator_environ(entry, self.environ),
         }
-        for name in ("LANG", "LC_ALL"):
-            if name in os.environ:
-                env[name] = os.environ[name]
-        env.update(self.environ)
-        return {"user": entry.pw_uid, "group": entry.pw_gid, "extra_groups": [], "env": env}
 
     def _refusal(self) -> str | None:
         return self._operator()[1]
