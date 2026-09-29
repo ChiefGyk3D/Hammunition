@@ -223,3 +223,30 @@ def test_an_outline_written_as_two_rings_meeting_at_180_selects_both_sides() -> 
     east = ((179.5, 10.2), (180.0, 10.2), (180.0, 10.5), (179.5, 10.5))
     west = ((-180.0, 10.2), (-179.5, 10.2), (-179.5, 10.5), (-180.0, 10.5))
     assert squares_touching([east, west]) >= {(10, 179), (10, -180)}
+
+
+# A malformed pins file is a refusal naming the file, never a traceback
+# (final review, M1).
+MALFORMED_PINS = {
+    "yaml-syntax": "pins: [\n  {tile: x\n",
+    "missing-key": f"pins:\n  - tile: {A}\n",
+    "not-a-list": "pins: 3\n",
+}
+
+
+@pytest.mark.parametrize("shape", sorted(MALFORMED_PINS))
+def test_a_malformed_pins_file_is_refused_by_name(shape: str, tmp_path: Path) -> None:
+    path = tmp_path / "copernicus-glo30-pins.yaml"
+    path.write_text(MALFORMED_PINS[shape])
+    with pytest.raises(CopernicusError, match=r"copernicus-glo30-pins\.yaml"):
+        load_pins(path)
+
+
+def test_a_well_formed_pins_file_still_loads(tmp_path: Path) -> None:
+    path = tmp_path / "copernicus-glo30-pins.yaml"
+    path.write_text(
+        f"pins:\n  - tile: {A}\n    size: 10\n    sha256: {'a' * 64}\n    md5: {'b' * 32}\n"
+    )
+    assert load_pins(path)[A].size == 10
+    path.write_text("pins: []\n")
+    assert load_pins(path) == {}

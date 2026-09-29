@@ -426,8 +426,12 @@ did not install. It refuses at plan time, exit 2, changing nothing:
 
 - when a region's outline or a tile not installed cannot be resolved (every
   such one named together), including a tile whose ETag is not a
-  single-part MD5 and an outline edge spanning more than 180° of longitude;
+  single-part MD5 and an outline edge that jumps across ±180 in one segment;
 - when the carried tile list is missing, empty or malformed;
+- when the carried pins file (`catalog/data/copernicus-glo30-pins.yaml`)
+  does not parse, has no `pins:` list, or has a row missing a key or
+  carrying a malformed value or a tile pinned twice; the refusal names the
+  file, and under `--json` it is one refused plan document;
 - when a disk is short of piece 1's and piece 2's estimates together.
 
 With no regions set, all four units are deferred by name with the rest of

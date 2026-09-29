@@ -232,11 +232,53 @@ class TilePin:
     md5: str
 
 
+_SHA256 = re.compile(r"[0-9a-f]{64}")
+_MD5 = re.compile(r"[0-9a-f]{32}")
+
+
+def _pin(path: Path, number: int, row: object) -> TilePin:
+    """One row of the pins file, or a refusal naming the file and the row."""
+    where = f"{path}: pin {number}"
+    if not isinstance(row, dict):
+        raise CopernicusError(f"{where} is not a mapping of tile, size, sha256 and md5")
+    missing = [key for key in ("tile", "size", "sha256", "md5") if key not in row]
+    if missing:
+        raise CopernicusError(f"{where} has no {', '.join(missing)}")
+    name, size, sha256, md5 = row["tile"], row["size"], row["sha256"], row["md5"]
+    if not isinstance(name, str) or TILE.fullmatch(name) is None:
+        raise CopernicusError(f"{where}: {name!r} is not a Copernicus GLO-30 tile name")
+    if not isinstance(size, int) or isinstance(size, bool) or size <= 0:
+        raise CopernicusError(f"{where}: size {size!r} is not a positive whole number of bytes")
+    if not isinstance(sha256, str) or _SHA256.fullmatch(sha256) is None:
+        raise CopernicusError(f"{where}: sha256 is not 64 lowercase hex digits")
+    if not isinstance(md5, str) or _MD5.fullmatch(md5) is None:
+        raise CopernicusError(f"{where}: md5 is not 32 lowercase hex digits")
+    return TilePin(name, size, sha256, md5)
+
+
 def load_pins(path: Path) -> dict[str, TilePin]:
-    data = yaml.safe_load(path.read_text()) or {}
+    """The carried sha256 pins, validated row by row.
+
+    Every way the file can be wrong -- unreadable, YAML that does not parse,
+    no ``pins`` list, a row missing a key or carrying a malformed value, a tile
+    pinned twice -- is a :class:`CopernicusError` naming the file, which the
+    plan turns into a refusal (final review, M1), never a traceback."""
+    try:
+        data = yaml.safe_load(path.read_text())
+    except OSError as exc:
+        raise CopernicusError(f"{path} cannot be read ({exc.strerror or exc})") from exc
+    except yaml.YAMLError as exc:
+        raise CopernicusError(f"{path} is not valid YAML: {exc}") from exc
+    if not isinstance(data, dict) or not isinstance(data.get("pins"), list):
+        raise CopernicusError(
+            f"{path} has no `pins:` list; scripts/gen_copernicus_pins.py writes it, "
+            f"with `pins: []` when nothing is pinned"
+        )
     pins: dict[str, TilePin] = {}
-    for row in data.get("pins") or []:
-        pin = TilePin(str(row["tile"]), int(row["size"]), str(row["sha256"]), str(row["md5"]))
+    for number, row in enumerate(data["pins"], 1):
+        pin = _pin(path, number, row)
+        if pin.name in pins:
+            raise CopernicusError(f"{path}: pin {number} pins {pin.name} a second time")
         pins[pin.name] = pin
     return pins
 

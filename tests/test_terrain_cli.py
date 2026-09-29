@@ -502,3 +502,33 @@ def test_update_counts_regions_with_no_published_tile_and_names_none(tmp_path: P
     )
     text = render(result, lists_note="fresh")
     assert "atlantis" not in text and OCEANIA.slug not in text
+
+
+@pytest.mark.parametrize(
+    "shape",
+    ["pins: [\n  {tile: x\n", f"pins:\n  - tile: {A}\n", "pins: 3\n"],
+    ids=["yaml-syntax", "missing-key", "not-a-list"],
+)
+def test_a_malformed_pins_file_refuses_the_plan_in_text_and_json(
+    shape: str,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Final review, M1: exit 2, "Nothing was changed", and under --json one
+    document -- never a traceback."""
+    import json
+
+    cli = _machine(monkeypatch, tmp_path)
+    catalog = _terrain_catalog(tmp_path)
+    (catalog / "data" / "copernicus-glo30-pins.yaml").write_text(shape)
+    argv = ["--catalog", str(catalog), "install", "--dry-run", "dem-qmapshack"]
+    assert cli.main(argv) == 2
+    err = capsys.readouterr().err
+    assert "copernicus-glo30-pins.yaml" in err and "Nothing was changed." in err
+    assert "Traceback" not in err
+    assert cli.main([*argv, "--json"]) == 2
+    captured = capsys.readouterr()
+    doc = json.loads(captured.out)  # one document, nothing else on stdout
+    assert doc["outcome"] == "refused"
+    assert any("copernicus-glo30-pins.yaml" in b["reason"] for b in doc["blockers"])
