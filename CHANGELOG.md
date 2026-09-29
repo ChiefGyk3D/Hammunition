@@ -13,6 +13,52 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 Nothing yet.
 
+## v0.14.0 — 2026-09-28 — trails, terrain and offline routing on foot
+
+One pull request since v0.13.0: navigation piece 2, for daily hiking and
+for the day nothing else works.
+
+### Engine
+
+- Three new converters, run as the operator under one lock per region or
+  per build, scratch cleared only by the operator under that lock, root
+  never removing a working directory: `mkgmap` (a Garmin image per region,
+  0.85× the extract), `routino-planetsplitter` (one Routino database over
+  every region, installed all-or-nothing, 0.67× of the sum) and `gdal-dem`
+  (a VRT for hillshade and slope, and a 20 m contour overlay, 5.4 MB per
+  tile measured). Converter versions in sidecars trigger exactly one
+  rebuild; mkgmap's heap arrives through `JAVA_TOOL_OPTIONS`, because
+  Debian's wrapper ignores `JAVA_OPTS` (#135, D-061).
+- A `dem-tiles` install method: Copernicus GLO-30 elevation tiles for every
+  square a region's Geofabrik outline touches, each verified by a sha256
+  pinned by Hammunition or by the publisher's single-part ETag MD5, said
+  which per tile in the plan; a carried tile list of 26,450 names with a
+  weekly check; a square with no published tile is reported as exactly
+  that, never "sea", and a region with no terrain available is warned
+  about while its maps still install (#135).
+- `hammunition maps qmapshack` (starts QMapShack after additively adding
+  our directories to its per-user config) and `hammunition maps
+  gps-tether` (gpsd → NMEA over TCP on 127.0.0.1:10110 only); a `doctor`
+  check for Routino's translations file (#135).
+- The plan's Terrain block, text and JSON from one object; the disk check
+  counts tiles, images, databases, contours and scratch; `update` reports
+  terrain as counts only (#135).
+- Navit's dropped children now get the operator's minimal environment,
+  not root's (#135).
+
+### Catalog
+
+- `qmapshack`, `routino`, `gdal-bin`, `mkgmap`, `mkgmap-splitter`, `socat`
+  from apt; `dem-copernicus`, `osm-garmin`, `osm-routino`, `dem-qmapshack`;
+  all in `navigation` (#135).
+
+### Documentation
+
+- D-061; the guide's trails-and-terrain sections, "find an address in
+  Navit, walk it in QMapShack", the bridge, and the gaps; the CLI
+  reference. What has not run on a desktop yet is marked so: bench
+  session 12 on the field laptop is the check (#135).
+
 ## v0.13.0 — 2026-09-28 — Navit finds your towns
 
 One pull request since v0.12.0, from the first address search on the bench.
