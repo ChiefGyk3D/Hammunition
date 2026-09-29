@@ -12,12 +12,15 @@ from __future__ import annotations
 import fcntl
 import hashlib
 import re
+import shlex
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+import hammunition
 from fake_tools import arg, calls, install_fakes
 from hammunition.backends import Action, Command
 from hammunition.backends.garmin import CONVERTER, MKGMAP_HEAP, SPLITTER_HEAP, GarminConverter
@@ -331,11 +334,11 @@ def _refuse(monkeypatch: pytest.MonkeyPatch, program: str, plant: Path) -> None:
     """*program*'s run is refused (125) after another conversion wrote *plant*."""
     real = Staging.run
 
-    def run(self: Staging, argv: Any, *, cwd: Path) -> subprocess.CompletedProcess[str]:
+    def run(self: Staging, argv: Any, *, cwd: Path, **kw: Any) -> subprocess.CompletedProcess[str]:
         if argv[0] == program:
             plant.write_text("another run's file")
             return subprocess.CompletedProcess(list(argv), REFUSED, "", "held by another")
-        return real(self, argv, cwd=cwd)
+        return real(self, argv, cwd=cwd, **kw)
 
     monkeypatch.setattr(Staging, "run", run)
 
@@ -395,3 +398,94 @@ def test_a_map_from_another_converter_version_is_rebuilt(tmp_path: Path) -> None
     (out / f"{OCEANIA.slug}.img").write_bytes(b"old garmin")
     (out / f"{OCEANIA.slug}.img.source").write_text("260101\nconverter: mkgmap 0\n")
     assert _converter(tmp_path, [OCEANIA]).pending(manifest()) == [OCEANIA]
+
+
+def test_nothing_can_clear_a_region_while_mkgmap_builds_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The re-review's probe: mkgmap runs in ``split/`` but holds the region's
+    one lock, ``<slug>.work.lock``, so a clear of the region during the build
+    is refused (125) and the build's tiles survive it."""
+    staging_dir = tmp_path / "staging"
+    work = staging_dir / f"{OCEANIA.slug}.work"
+    probe = (
+        "from pathlib import Path; from hammunition.backends.staging import Staging; "
+        f"print(Staging(Path({str(staging_dir)!r}), euid={NOT_ROOT})"
+        f".clear(Path({str(work)!r})).returncode)"
+    )
+    install_fakes(
+        monkeypatch,
+        tmp_path / "bin",
+        {
+            "mkgmap-splitter": SPLITTER_OK,
+            "mkgmap": f"{sys.executable} -c {shlex.quote(probe)} > {tmp_path}/probe; "
+            f"test -e 63240001.osm.pbf || exit 4; {MKGMAP_OK}",
+        },
+    )
+    monkeypatch.setenv("PYTHONPATH", str(Path(hammunition.__file__).parent.parent))
+    _install_region(tmp_path, OCEANIA)
+    conv = _converter(tmp_path, [OCEANIA])
+    _run(conv)
+    assert (tmp_path / "probe").read_text().strip() == str(REFUSED)
+    assert conv.ledger.failed == {}, "the tiles survived the refused clear"
+    assert not (work / "split.lock").exists(), "no second lock name for the region"
+
+
+def _clear_fails_from(monkeypatch: pytest.MonkeyPatch, call: int) -> None:
+    """Every :meth:`Staging.clear` from the *call*-th on fails (1-based)."""
+    real = Staging.clear
+    seen = [0]
+
+    def clear(self: Staging, cwd: Path, **kw: Any) -> subprocess.CompletedProcess[str]:
+        seen[0] += 1
+        if seen[0] >= call:
+            return subprocess.CompletedProcess(["find"], 1, "", "find: cannot delete: boom")
+        return real(self, cwd, **kw)
+
+    monkeypatch.setattr(Staging, "clear", clear)
+
+
+def test_an_install_whose_scratch_did_not_clear_says_so(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    install_fakes(
+        monkeypatch, tmp_path / "bin", {"mkgmap-splitter": SPLITTER_OK, "mkgmap": MKGMAP_OK}
+    )
+    _install_region(tmp_path, OCEANIA)
+    conv = _converter(tmp_path, [OCEANIA])
+    _clear_fails_from(monkeypatch, 2)
+    _, installed = _run(conv)
+    assert "cleared" not in installed.replace("not cleared", "")
+    message = conv.ledger.failed[f"osm-garmin:{OCEANIA.slug}"]
+    assert "atlantis/oceania" in message and "boom" in message and "not cleared" in message
+    assert (_data(tmp_path, "osm-garmin") / f"{OCEANIA.slug}.img").exists()
+
+
+def test_a_failed_build_whose_scratch_did_not_clear_names_both(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    install_fakes(
+        monkeypatch,
+        tmp_path / "bin",
+        {"mkgmap-splitter": "echo 'out of memory' >&2; exit 1", "mkgmap": MKGMAP_OK},
+    )
+    _install_region(tmp_path, OCEANIA)
+    conv = _converter(tmp_path, [OCEANIA])
+    _clear_fails_from(monkeypatch, 2)
+    _run(conv)
+    message = conv.ledger.failed[f"osm-garmin:{OCEANIA.slug}"]
+    assert "out of memory" in message and "not cleared" in message and "boom" in message
+
+
+def test_a_pre_clear_that_fails_fails_the_region_and_runs_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    log = install_fakes(
+        monkeypatch, tmp_path / "bin", {"mkgmap-splitter": SPLITTER_OK, "mkgmap": MKGMAP_OK}
+    )
+    _install_region(tmp_path, OCEANIA)
+    conv = _converter(tmp_path, [OCEANIA])
+    _clear_fails_from(monkeypatch, 1)
+    _run(conv)
+    assert "boom" in conv.ledger.failed[f"osm-garmin:{OCEANIA.slug}"]
+    assert calls(log) == []

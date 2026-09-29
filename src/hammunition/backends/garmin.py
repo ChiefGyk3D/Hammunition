@@ -22,8 +22,12 @@ snapshot, as Navit's are since #133.
 Scratch is only ever cleared by :meth:`Staging.clear`, which empties the
 working directory as the operator under the lock :meth:`Staging.run` takes,
 so a directory another conversion is using is left alone (125, nothing
-deleted). Root never removes a working directory itself, and a refused run
-(125) removes nothing: the refusal proves another conversion owns it.
+deleted). A region has one lock, ``<slug>.work.lock``: the splitter, the
+clear, and mkgmap -- though it runs in ``split/`` -- all hold it, so nothing
+clears a region while either phase is building it. Root never removes a
+working directory itself, and a refused run (125) removes nothing: the
+refusal proves another conversion owns it. A clear that fails fails the
+region by name with the reason; no step reports scratch cleared that was not.
 
 Not passed: ``--index`` and ``--housenumbers``. They need mkgmap's upstream
 bounds files, which have no published checksum, and QMapShack does not read
@@ -51,9 +55,10 @@ mkgmap runs in ``split/``, as the spike measured it. That was believed
 necessary because ``template.args`` names its tiles relatively
 (``input-file: 63240001.osm.pbf``), but mkgmap's ``options.txt`` says a
 relative ``input-file`` read through ``-c`` resolves against the args file's
-own location. The build may then be able to run in ``<slug>.work`` under the
-same lock as the split; that is unconfirmed on a real mkgmap, and Task 16
-checks it before anything changes.
+own location. The build may then be able to run in ``<slug>.work`` itself;
+that is unconfirmed on a real mkgmap, and Task 16 checks it before anything
+changes. The lock does not depend on it: mkgmap holds the region's lock
+whatever its working directory.
 """
 
 from __future__ import annotations
@@ -233,6 +238,9 @@ class GarminConverter:
         if not pbf.is_file():
             return self.ledger.fail(key, f"{region.region}: {pbf} is not installed")
         split, img = work / "split", work / "img"
+        refusal = self.staging.prepare(work)
+        if refusal is not None:
+            return self.ledger.fail(key, f"{region.region}: {refusal}")
         cleared = self.staging.clear(work)  # a failed run's leftovers, under the lock
         if cleared.returncode == REFUSED:
             return self.ledger.fail(key, f"{region.region}: {_refused('the build', cleared)}")
@@ -247,22 +255,26 @@ class GarminConverter:
         if cut.returncode == REFUSED:
             return self.ledger.fail(key, f"{region.region}: {_refused('mkgmap-splitter', cut)}")
         if cut.returncode != 0 or self.staging.digest(split / "template.args") is None:
-            self.staging.clear(work)
             return self.ledger.fail(
                 key,
                 f"{region.region}: mkgmap-splitter did not split {pbf.name} "
-                f"(exit {cut.returncode}): {_tail(cut.stderr or cut.stdout)}",
+                f"(exit {cut.returncode}): {_tail(cut.stderr or cut.stdout)}"
+                f"{self._scratch(work, '; ')}",
             )
-        made = self.staging.run(mkgmap_argv(split, img, self.jobs), cwd=split)
+        # In split/, as the spike ran it, under the region's one lock: nothing
+        # clears the region while either phase holds it.
+        made = self.staging.run(
+            mkgmap_argv(split, img, self.jobs), cwd=split, lock=self.staging.lockfile(work)
+        )
         if made.returncode == REFUSED:
             return self.ledger.fail(key, f"{region.region}: {_refused('mkgmap', made)}")
         digest = self.staging.digest(img / "gmapsupp.img")
         if made.returncode != 0 or digest is None:
-            self.staging.clear(work)
             return self.ledger.fail(
                 key,
                 f"{region.region}: mkgmap wrote no Garmin map from {pbf.name} "
-                f"(exit {made.returncode}): {_tail(made.stderr or made.stdout)}",
+                f"(exit {made.returncode}): {_tail(made.stderr or made.stdout)}"
+                f"{self._scratch(work, '; ')}",
             )
         built["sha256"] = digest
         who = self.staging.who()
@@ -282,6 +294,7 @@ class GarminConverter:
     ) -> str:
         if "sha256" not in built:
             return f"skipped: the Garmin map of {region.region} was not built"
+        failure = None
         try:
             self.staging.publish(
                 work / "img" / "gmapsupp.img", dest, digest=built["sha256"], writer=writer
@@ -290,7 +303,20 @@ class GarminConverter:
                 dest.with_name(dest.name + SOURCE), f"{region.snapshot}\nconverter: {CONVERTER}\n"
             )
         except (BackendError, OSError) as exc:
-            return self.ledger.fail(key, f"{region.region}: {exc}")
-        finally:
-            self.staging.clear(work)
+            failure = str(exc)
+        scratch = self._scratch(work, "")
+        if failure is not None:
+            return self.ledger.fail(
+                key, f"{region.region}: {failure}{'; ' + scratch if scratch else ''}"
+            )
+        if scratch:
+            return self.ledger.fail(key, f"{region.region}: installed {dest}, but {scratch}")
         return f"installed {dest}; cleared {work}"
+
+    def _scratch(self, work: Path, lead: str) -> str:
+        """Clear *work* under its lock: "" when it cleared, else *lead* and why
+        not, for the region's failure message (never a silent "cleared")."""
+        cleared = self.staging.clear(work)
+        if cleared.returncode == 0:
+            return ""
+        return f"{lead}its scratch {work} was not cleared: {_tail(cleared.stderr) or 'no reason given'}"
