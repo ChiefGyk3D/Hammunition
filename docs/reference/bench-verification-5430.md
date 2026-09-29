@@ -317,7 +317,7 @@ sizes, digests, positions and coordinates are not recorded here.
 | Routing, first try | `[Route] routino\paths` was read, and the `hammunition` database was loaded at startup: its four `.mem` files were mapped in the QMapShack process. The Routing dock's *Database* dropdown showed nothing selected, because the settings held `routino\database=-1`, and routing did nothing. Picking `hammunition` by hand made routing available. QMapShack 1.17.1's source (`CRouterRoutino`) selects the index in that key after loading, and writes the index back on exit, so `-1` persisted. Fixed on the branch that records this session: `maps qmapshack` now sets it to 0 when absent or negative. |
 | Where the path dialog is | The folder button beside the *Database* dropdown, with *Routino (offline)* chosen; its dialog is titled "Setup Routino database…". No menu item opens it. |
 | The *Database* dock | Its "Needs setup…" is QMapShack's own store for tracks and waypoints, unrelated to routing. The operator took it for the routing database twice; the guide now says so. |
-| A route on foot | Within one region, and across the boundary between the two: **not yet recorded.** The controller records the result at merge. |
+| A route on foot | Not attempted in this session: the routing database only became selectable at its end. It is the first item of the next session, within one region and across the boundary between the two. |
 
 The ten-region install (a Great Lakes cluster plus two eastern states) was
 started with the keep-alive line above; its result is a later session.

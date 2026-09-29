@@ -3,7 +3,7 @@
 
 """The GPS tether: NMEA made from gpsd's JSON, served on loopback.  D-061.
 
-QMapShack has no gpsd client. Its *Realtime -> GPS Tether* reads NMEA (RMC
+QMapShack has no gpsd client. Its Realtime source *GPS TCP/IP* (the source list's "Add source") reads NMEA (RMC
 and GGA) from a TCP host. The first tether piped ``gpspipe -r`` through ``socat``.
 On the bench on 2026-09-29, with it connected, no NMEA reached the client;
 gpsd's JSON watch was sending no TPV at the same time (``?POLL`` answered
@@ -422,6 +422,6 @@ def serve(
 def instructions(port: int = PORT) -> str:
     return (
         f"Serving gpsd's position as NMEA on {HOST} port {port}, to this machine only.\n"
-        f"In QMapShack: Realtime, then GPS Tether; host {HOST}, port {port}.\n"
+        f"In QMapShack: Realtime, Add source, GPS TCP/IP; host {HOST}, port {port}.\n"
         f"Ctrl-C stops it. Navit reads gpsd directly and needs none of this."
     )

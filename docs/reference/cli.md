@@ -273,11 +273,11 @@ What the `gps-tether` launcher runs (**D-061**). It watches gpsd's JSON on
 127.0.0.1 port 2947, as `xgps` and Navit do, and writes `$GPRMC` and
 `$GPGGA` for every position with a 2D or 3D fix. It serves them on
 **127.0.0.1 port 10110 only**, one client at a time, for QMapShack's
-*Realtime → GPS Tether*, and prints the host and port to enter:
+*Realtime → Add source → GPS TCP/IP*, and prints the host and port to enter:
 
 ```
 Serving gpsd's position as NMEA on 127.0.0.1 port 10110, to this machine only.
-In QMapShack: Realtime, then GPS Tether; host 127.0.0.1, port 10110.
+In QMapShack: Realtime, Add source, GPS TCP/IP; host 127.0.0.1, port 10110.
 Ctrl-C stops it. Navit reads gpsd directly and needs none of this.
 ```
 
