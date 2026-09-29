@@ -7819,8 +7819,10 @@ as the fix.
 `README.md`: after the *Offline navigation* row add
 
 ```markdown
-| Offline trails and terrain: QMapShack, routing on foot, Copernicus elevation (D-061) | 🟡 built, not yet measured on hardware — Garmin maps and one Routino database built from your regions as the operator; elevation tiles checked by a sha256 Hammunition pinned or by the object's MD5, and the plan says which; contours at 20 m; `gps-tether` serves the position on 127.0.0.1 only; post-1.0 `navigation` profile, [guide](docs/guides/offline-navigation.md) |
+| Offline trails and terrain: QMapShack, routing on foot, Copernicus elevation (D-061) | 🟡 built, not yet measured on hardware — Garmin maps and one Routino database built from your regions as the operator; elevation tiles checked by a sha256 Hammunition pinned or by the object's MD5, and the plan says which; contours at 20 m; `gps-tether` serves the position on 127.0.0.1 only; post-1.0 `navigation` profile, guide |
 ```
+
+(Note, Task 15: the row as committed links *guide* to `docs/guides/offline-navigation.md`, relative to the README; it is written here without the link, which the checker would resolve against this plan's directory.)
 
 - [ ] **Step 5: Check, then the gates**
 
