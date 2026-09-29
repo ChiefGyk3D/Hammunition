@@ -64,7 +64,7 @@ documentation:
     and `demPaths` under [Canvas], `routino\paths` under [Route]). For your
     position, gpsd with a receiver that has a fix, and the `gps-tether`
     launcher running, which makes NMEA from gpsd's position and serves it
-    on 127.0.0.1 port 10110 for QMapShack's GPS Tether dialog to take.
+    on 127.0.0.1 port 10110 for QMapShack's Realtime source "GPS TCP/IP" to take.
   known_problems: >-
     QMapShack has no offline address search: its search asks online
     services, and Routino routes between points, not addresses. Find the
@@ -73,24 +73,33 @@ documentation:
     the route yourself. It stops at startup with "The specified translations
     XML file did not exist" if /usr/share/routino/translations.xml is
     missing, which apt normally prevents; `hammunition doctor` names it.
-    It has no gpsd client; `gps-tether` is meant to stand in for one. It
-    reads gpsd's JSON, as xgps and Navit do, and writes RMC and GGA itself,
-    bound to 127.0.0.1 in its own code, and says when gpsd has no fix. The
-    first version relayed `gpspipe -r` through socat; on the bench on
-    2026-09-29 it sent nothing while gpsd was reporting no position at all,
-    so why is not established. The launcher edits QMapShack's own settings file (~/.config/QLandkarte/QMapShack.conf)
-    only to add Hammunition's directories when they are absent, and refuses
-    to touch a file it cannot read; QMapShack's own setup dialogs change the
-    rest. An earlier launcher wrote `mapPath` and `demPaths` under [General],
-    where QMapShack does not read them (measured on the bench, 2026-09-29);
-    it now moves its own directories from there to [Canvas]. The launchers run `hammunition`, which must be on your PATH.
-    Not yet confirmed on hardware: QMapShack reading the directories the
-    launcher now writes under [Canvas], listing the `hammunition` Routino
-    database, taking a position from `gps-tether` through its GPS Tether
-    dialog, and drawing hillshade. The first bench run (2026-09-29) found
-    the [General] group wrong and the first tether silent; the new versions
-    have not yet been run on a desktop, and bench session 12 on the field
-    laptop (docs/reference/bench-verification-5430.md) is that check.
+    It has no gpsd client; `gps-tether` stands in for one. It reads gpsd's
+    JSON, as xgps and Navit do, writes RMC and GGA itself, bound to
+    127.0.0.1 in its own code, and says when gpsd has no fix. On the field
+    laptop on 2026-09-29 it gave QMapShack's GPS source a position from a
+    real receiver. QMapShack reconnects to it by itself, so while QMapShack
+    is open a test client from a terminal is turned away as a second one.
+    The first version relayed `gpspipe -r` through socat and sent nothing,
+    at a time when gpsd itself had stopped reporting (restarting gpsd
+    brought a fix back within a second), so why is not established. The
+    launcher edits QMapShack's own settings file
+    (~/.config/QLandkarte/QMapShack.conf) only to add Hammunition's
+    directories when they are absent, and to select the first routing
+    database when none is selected; it refuses to touch a file it cannot
+    read, and QMapShack's own setup dialogs change the rest. An earlier
+    launcher wrote `mapPath` and `demPaths` under [General], where QMapShack
+    does not read them (measured on the bench, 2026-09-29); it now moves its
+    own directories from there to [Canvas], and QMapShack then lists the
+    maps, the contour map and the elevation, and draws hillshade. With
+    `[Route] routino\database=-1` in the settings, QMapShack 1.17.1 loads
+    the `hammunition` Routino database and selects nothing in the Routing
+    dock's Database list, and routing does nothing without a message; it
+    writes the -1 back on exit. The launcher now sets it to 0 when absent or
+    negative. If the list is blank, pick `hammunition` in it once. The
+    Database dock ("Needs setup...") is QMapShack's own store for tracks and
+    waypoints, not the routing database. The launchers run `hammunition`,
+    which must be on your PATH. Not yet confirmed on hardware: a route on
+    foot, within a region or across a boundary between two.
   upstream_url: https://github.com/Maproom/qmapshack
   upstream_support: >-
     The project's wiki (https://github.com/Maproom/qmapshack/wiki) and its

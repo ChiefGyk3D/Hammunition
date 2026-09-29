@@ -297,6 +297,31 @@ the plan should mark each `(converter changed)` and `border: US`, convert
 both again from the regions already on disk, and download only the 13.3 MB
 border file; then Actions → Town should find the towns the stock maps lost.
 
+## Session 12, 2026-09-29: trails, terrain and the GPS tether in QMapShack (D-061)
+
+The first run of piece 2 of the `navigation` profile (v0.14.0) on the field
+laptop, on the same two US-state-sized regions as session 11, then
+QMapShack 1.17.1 opened on what it built. Region names, tile names, file
+sizes, digests, positions and coordinates are not recorded here.
+
+| Step | Result |
+|---|---|
+| `hammunition install navigation` | Completed with every effect verified: **294 commands**. The work took about 30 minutes: the Navit maps rebuilt in 18.6 and 2.6 min, the Garmin maps in 3.5 and 3.2 min, the Routino database in 2.5 min. The run itself took far longer: it waited **7.8 hours** at a `sudo` prompt, because the cached credential from its first privileged step had expired during a long unprivileged conversion and nobody was at the keyboard. Issue #137. |
+| The workaround, used since | `sudo -v && (while sudo -n -v; do sleep 240; done &) && hammunition install navigation`, in the install's own terminal: on this machine sudo's credential is per terminal, so a keep-alive in another window does nothing for the install. |
+| QMapShack's map list, first start | Only the contour map was listed. The launcher had written `mapPath` and `demPaths` under `[General]`; QMapShack reads them under `[Canvas]`. Fixed in #138 (v0.14.1, the D-061 amendment of the same day). |
+| After the fix | Both region maps, `contours` and `dem` are listed; the operator activated them. |
+| Hillshade | Draws: confirmed on screen at the 3 km and 10 km scales. Slope shading was not tried. |
+| mkgmap's default style | Residential land use is drawn as hatching at close zoom. Cosmetic, and the "no hiking cartography" gap the guide already names. |
+| The GPS tether, shipped version | The `socat`/`gpspipe` tether delivered nothing, and at the time gpsd itself had stopped reporting: `?POLL` answered `active: 0`, and a JSON watcher got no `TPV` for 30 s. After `systemctl restart gpsd.socket gpsd`, gpsd streamed a 3D fix within 1 s. |
+| The GPS tether, rewritten (#138) | Serves `RMC` and `GGA`. QMapShack's *GPS TCP/IP* source showed the position, and "center to position" moved the map to it. QMapShack reconnects to 127.0.0.1:10110 by itself whenever a tether appears, so while it is open a test client from a terminal is always "turned away: one at a time": QMapShack is already the one client. |
+| Routing, first try | `[Route] routino\paths` was read, and the `hammunition` database was loaded at startup: its four `.mem` files were mapped in the QMapShack process. The Routing dock's *Database* dropdown showed nothing selected, because the settings held `routino\database=-1`, and routing did nothing. Picking `hammunition` by hand made routing available. QMapShack 1.17.1's source (`CRouterRoutino`) selects the index in that key after loading, and writes the index back on exit, so `-1` persisted. Fixed on the branch that records this session: `maps qmapshack` now sets it to 0 when absent or negative. |
+| Where the path dialog is | The folder button beside the *Database* dropdown, with *Routino (offline)* chosen; its dialog is titled "Setup Routino database…". No menu item opens it. |
+| The *Database* dock | Its "Needs setup…" is QMapShack's own store for tracks and waypoints, unrelated to routing. The operator took it for the routing database twice; the guide now says so. |
+| A route on foot | Not attempted in this session: the routing database only became selectable at its end. It is the first item of the next session, within one region and across the boundary between the two. |
+
+The ten-region install (a Great Lakes cluster plus two eastern states) was
+started with the keep-alive line above; its result is a later session.
+
 ## Not yet run (this rung's remaining ladder)
 
 In order, and every one needs the operator at the keyboard for `sudo`:

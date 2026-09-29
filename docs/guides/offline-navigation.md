@@ -408,7 +408,9 @@ own settings the first time, keeping anything you set there yourself, then
 starts it. The map and elevation directories go under `[Canvas]`, where
 QMapShack reads them. An earlier launcher put them under `[General]`, where
 QMapShack ignores them; run once, the launcher takes its own directories out
-of `[General]` and says so. If it says it cannot read your settings file, nothing was changed
+of `[General]` and says so. It also selects the routing database in the
+Routing dock when nothing is selected there (see *Route on foot* below), and
+says that too. If it says it cannot read your settings file, nothing was changed
 and QMapShack was not started. Add the directories by hand in QMapShack's
 setup, or move the file (`~/.config/QLandkarte/QMapShack.conf`) aside and
 start it again. From the menu you will not see that message; see
@@ -416,21 +418,40 @@ start it again. From the menu you will not see that message; see
 
 In QMapShack:
 
-- **Maps.** Your regions' Garmin maps and the contour map (`contours.vrt`)
-  are listed in the map dock. Activate a region's map, then the contour map
-  over it.
-- **Terrain.** The elevation (`dem.vrt`) is listed in the DEM dock; activate
+- **Maps.** Your regions' Garmin maps and the contour map (`contours.vrt`,
+  listed as `contours`) are listed in the map dock. Activate a region's map, then the contour map
+  over it. Close in, residential areas are drawn hatched: that is mkgmap's
+  default style, not a fault (see [What QMapShack does not do
+  (yet)](#what-qmapshack-does-not-do-yet)).
+- **Terrain.** The elevation (`dem.vrt`) is listed in the DEM dock as `dem`; activate
   it and turn on hillshade or slope there.
-- **Route on foot.** In the routing dock choose *Routino (offline)*, the
-  database `hammunition`, and the profile `foot`. Place a start and an end
-  on the map; the route follows trails. When Routino was run on one region
-  for this work, walks of 10 to 17 km came back in 5 to 39 ms.
+- **Route on foot.** In the *Routing* dock choose *Routino (offline)*, the
+  database `hammunition` in the *Database* list, and the profile `foot`.
+  Place a start and an end on the map; the route follows trails. When
+  Routino was run on one region for this work, walks of 10 to 17 km came
+  back in 5 to 39 ms.
+
+  If the *Database* list is blank, open it: `hammunition` is there, just
+  not selected, and nothing routes until it is. QMapShack remembers which
+  entry was selected when it last closed, and a QMapShack closed before
+  the maps existed remembers "none". The launcher now selects the first
+  database when none is, so this should only happen if you started
+  `qmapshack` directly. Pick `hammunition` once and it stays picked.
+
+  The folder button to the right of the *Database* list opens *Setup
+  Routino database…*, where the directories QMapShack searches are listed;
+  no menu item opens it. The launcher has already put ours there.
+
+  The *Database* **dock**, the one that says *Needs setup…*, is something
+  else: QMapShack's own store for your tracks, routes and waypoints. It has
+  nothing to do with routing, and routing does not need it set up.
 - **Tracks.** Record, load and edit GPX tracks and waypoints; any track
   shows an elevation profile from the elevation data.
 
-Those four steps are what QMapShack is expected to show with the launcher's
-settings; they have not yet been walked through on the field laptop. [What
-has not been measured yet](#what-has-not-been-measured-yet) says which.
+On the field laptop, on 2026-09-29, the maps, the contour map and the
+elevation were listed, and hillshade drew. A route on foot has not yet been
+recorded; [What has not been measured yet](#what-has-not-been-measured-yet)
+says what else has not.
 
 Routino's foot profile does not read trail difficulty (`sac_scale`): an
 alpine path counts the same as a pavement. Look at the contours and judge
@@ -457,7 +478,7 @@ QMapShack.
 
 ## 11. Your position in QMapShack: the GPS tether
 
-QMapShack does not talk to gpsd. Its *GPS Tether* reads NMEA, the sentence
+QMapShack does not talk to gpsd. Its Realtime source *GPS TCP/IP* reads NMEA, the sentence
 format GPS receivers speak, from a network port. The tether makes that NMEA
 from gpsd's position and serves it on this machine only. Run the *GPS
 position for QMapShack* launcher, or in a terminal:
@@ -470,12 +491,18 @@ It prints what to enter:
 
 ```
 Serving gpsd's position as NMEA on 127.0.0.1 port 10110, to this machine only.
-In QMapShack: Realtime, then GPS Tether; host 127.0.0.1, port 10110.
+In QMapShack: Realtime, Add source, GPS TCP/IP; host 127.0.0.1, port 10110.
 Ctrl-C stops it. Navit reads gpsd directly and needs none of this.
 ```
 
-In QMapShack open *Realtime*, add *GPS Tether*, and enter host `127.0.0.1`
+In QMapShack open the *Realtime* dock, right-click its list, *Add source*, choose *GPS TCP/IP* (measured on 1.17.1: that is the label, not "GPS Tether"), and enter host `127.0.0.1`
 and port `10110`.
+
+Once set up, QMapShack connects again by itself whenever a tether is
+running: start the tether after QMapShack and the position appears without
+touching QMapShack. That also means that while QMapShack is open it is the
+one client, so a test from a terminal (`nc 127.0.0.1 10110`, say) is turned
+away with "one at a time". Close QMapShack to test the tether that way.
 
 How it works, so you know what you are running:
 
@@ -498,7 +525,11 @@ If it says gpsd has sent no position with a fix, the tether has nothing to
 pass on. Check with `xgps`, and see ["Where am I?"](#6-where-am-i). If it
 says it cannot listen on port 10110, another tether is already running;
 stop that one first. If it says it cannot reach gpsd, gpsd is not running:
-`systemctl status gpsd` says why.
+`systemctl status gpsd` says why. If gpsd is running and `xgps` shows no
+position either, restarting it can help:
+`sudo systemctl restart gpsd.socket gpsd`. On the field laptop gpsd once
+stopped reporting altogether, and after that restart it gave a 3D fix
+within a second.
 
 The first version of the tether passed on gpsd's raw NMEA through `socat`.
 On the field laptop it sent nothing, at a time when gpsd itself was
@@ -516,7 +547,8 @@ if nothing else of yours uses it.
 - **No offline address search**: use Navit (section 10).
 - **Trail difficulty is not routed on** (section 9).
 - **No hiking map style.** Trails are drawn by mkgmap's default style; no
-  hiking style is packaged in the archive.
+  hiking style is packaged in the archive. One visible result: residential
+  land use is drawn as hatching when you zoom in close. It is cosmetic.
 - **Contours are unlabelled lines**, legible rather than pretty. Labelled
   contours need a tool the archive does not carry.
 - **The Garmin maps have no address index**, and QMapShack would not read
@@ -526,7 +558,6 @@ if nothing else of yours uses it.
   example). A region inside it gets its maps and no terrain, and the plan
   warns by name. The 90 m Copernicus release is the candidate route; it has
   not been measured here.
-- **Hillshade drawing** has not yet been confirmed on the field laptop.
 
 ---
 
@@ -778,20 +809,17 @@ measured on one region on the development host. None of the following has
 yet been run on a desktop; bench session 12 in
 `docs/reference/bench-verification-5430.md` is that check:
 
-- QMapShack reading the directories the launcher writes into its settings,
-  in 1.17.1 (or 1.21.1 from backports). The first run on the field laptop,
-  on 2026-09-29, found them in the wrong group (`[General]`); QMapShack
-  keeps them under `[Canvas]`, where the launcher now writes them. That
-  QMapShack then shows the maps is not yet measured.
-- QMapShack listing the `hammunition` routing database.
-- QMapShack drawing hillshade and slope from the elevation.
-- A route on foot across the boundary between two regions.
-- The GPS tether with a real receiver. Its first version, `gpspipe -r`
-  behind `socat`, gave QMapShack nothing on the field laptop on 2026-09-29,
-  while gpsd was reporting no position at all.
-  The version that makes its own NMEA from gpsd's JSON has not yet run with
-  a fix.
-- The whole install on the field laptop, with its build times.
+- A route on foot, within one region or across the boundary between two.
+  QMapShack 1.17.1 lists and loads the `hammunition` database (field
+  laptop, 2026-09-29); a route has not yet been recorded.
+- Slope shading. Hillshade draws; slope was not tried.
+- QMapShack 1.21.1 from backports. Everything above ran on 1.17.1.
+
+Measured on the field laptop on 2026-09-29, and recorded in bench session
+12: the whole install on two regions, with its build times; QMapShack
+listing the maps, the contour map and the elevation from the directories
+the launcher writes; hillshade; and the GPS tether giving QMapShack a
+position from a real receiver.
 
 Offline reference (Kiwix, a local tile server) is the next piece of this
 work and not in this profile.

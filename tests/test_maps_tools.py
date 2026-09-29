@@ -267,3 +267,35 @@ def test_an_earlier_launchers_general_keys_are_moved_to_canvas(
     assert f"mapPath={data}/osm-garmin, {data}/dem-qmapshack/contours\n" in canvas
     assert f"demPaths={data}/dem-qmapshack/dem\n" in canvas
     assert "moved from [General]" in capsys.readouterr().err
+
+
+def test_an_unselected_routing_database_is_selected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Bench, 2026-09-29: ``routino\\database=-1`` left the Database dropdown
+    blank and routing silent, with the database loaded (D-061)."""
+    data = "/usr/local/share/hammunition/data"
+    conf = _as(monkeypatch, tmp_path)
+    conf.parent.mkdir(parents=True)
+    conf.write_text(
+        "[Canvas]\n"
+        f"mapPath={data}/osm-garmin, {data}/dem-qmapshack/contours\n"
+        f"demPaths={data}/dem-qmapshack/dem\n"
+        "\n"
+        "[Route]\n"
+        f"routino\\paths={data}/osm-routino\n"
+        "routino\\database=-1\n"
+    )
+    assert cli.main(["maps", "qmapshack", "--configure-only"]) == cli.EXIT_OK
+    text = conf.read_text()
+    assert "routino\\database=0\n" in text and "=-1" not in text
+    err = capsys.readouterr().err
+    assert "Database" in err and "adding Hammunition" not in err
+
+
+def test_a_fresh_config_selects_the_routing_database(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    conf = _as(monkeypatch, tmp_path)
+    assert cli.main(["maps", "qmapshack", "--configure-only"]) == cli.EXIT_OK
+    assert "routino\\database=0\n" in conf.read_text()

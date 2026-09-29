@@ -11,7 +11,21 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
-Nothing yet.
+- **QMapShack's routing database is selected** (D-061, amended
+  2026-09-29). With `[Route] routino\database=-1` in its settings,
+  QMapShack 1.17.1 loaded the `hammunition` Routino database and selected
+  nothing, so routing did nothing without a message, and it wrote the `-1`
+  back on exit. `hammunition maps qmapshack` now sets the key to 0 when it
+  is absent or negative and leaves 0 or more alone.
+- **Bench session 12 recorded** in
+  `docs/reference/bench-verification-5430.md`: the two-region
+  `install navigation` verified whole (294 commands, a 7.8-hour wait at an
+  expired `sudo` prompt, issue #137), QMapShack listing the maps and
+  drawing hillshade, and the rewritten GPS tether giving QMapShack a
+  position from a real receiver. The guide's QMapShack section says where
+  the Routino path dialog is, that the *Database* dock is not the routing
+  database, that QMapShack reconnects to the tether by itself, and what
+  the hatching is. A route on foot is still not recorded.
 
 ## v0.14.1 — 2026-09-29 — bench fixes: QMapShack's paths, the GPS tether
 

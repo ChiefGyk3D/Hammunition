@@ -27,7 +27,7 @@ QMapShack does not draw contour lines from elevation itself, and needs its eleva
 
 ## Known problems
 
-The contours are unlabelled lines at a fixed resolution: legible, not pretty. Labelled contours inside the map need a tool the archive does not carry. Measured on one mountain tile on 2026-09-28: 4 s and a 97.8 MB GeoPackage to trace, 1.5 s and 5.4 MB to rasterise; the GeoPackage is removed once rasterised. Hillshade drawing has not yet been confirmed on hardware.
+The contours are unlabelled lines at a fixed resolution: legible, not pretty. Labelled contours inside the map need a tool the archive does not carry. Measured on one mountain tile on 2026-09-28: 4 s and a 97.8 MB GeoPackage to trace, 1.5 s and 5.4 MB to rasterise; the GeoPackage is removed once rasterised. QMapShack 1.17.1 draws hillshade from the elevation (confirmed on the field laptop on 2026-09-29, at the 3 km and 10 km scales); slope shading has not yet been tried there.
 
 ## Keeping it current
 

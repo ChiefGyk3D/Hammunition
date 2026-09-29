@@ -831,7 +831,9 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
     What the ``qmapshack-offline`` launcher runs. Per-user: refused under
     root, whose configuration is not the operator's. Additive: a key is
     added or extended only with our directories, existing values stay where
-    they are, and nothing else in the file changes; a file it cannot read,
+    they are, and nothing else in the file changes, except that an absent or
+    negative ``[Route] routino\\database`` becomes 0 so the Routing dock
+    selects the database it loaded (bench, 2026-09-29); a file it cannot read,
     a symbolic link or anything but a regular file in its place is refused
     and left untouched, and QMapShack is then not started. No ``--json``
     form: it replaces itself with a GUI (D-059).
@@ -840,6 +842,7 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
         QmsConfigError,
         config_path,
         ensure_paths,
+        select_database,
         superseded,
         wanted,
     )
@@ -859,7 +862,8 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
         return EXIT_FAILED
     try:
         data = data_root(DEFAULT_PREFIX)
-        updated = ensure_paths(text, wanted(data), remove=superseded(data))
+        with_paths = ensure_paths(text, wanted(data), remove=superseded(data))
+        updated = select_database(with_paths)
     except QmsConfigError as exc:
         print(
             f"error: {path}: {exc}. {not_started}; "
@@ -867,7 +871,7 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return EXIT_FAILED
-    if updated != text:
+    if with_paths != text:
         moved = ensure_paths(text, (), remove=superseded(data)) != text
         print(
             f"adding Hammunition's map, elevation and routing directories to {path} "
@@ -879,6 +883,13 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
             ),
             file=sys.stderr,
         )
+    if updated != with_paths:
+        print(
+            f"selecting the first routing database in {path}, so the Routing dock's "
+            f"Database list is not left blank",
+            file=sys.stderr,
+        )
+    if updated != text:
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             _replace_atomically(path, updated, mode)
@@ -3157,7 +3168,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_maps_tether = maps_sub.add_parser(
         "gps-tether",
-        help="serve gpsd's position as NMEA on 127.0.0.1:10110 for QMapShack's GPS Tether (D-061)",
+        help="serve gpsd's position as NMEA on 127.0.0.1:10110 for QMapShack's GPS TCP/IP source (D-061)",
     )
     p_maps_tether.set_defaults(func=cmd_maps_gps_tether)
 

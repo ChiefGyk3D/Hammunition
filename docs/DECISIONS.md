@@ -5398,6 +5398,25 @@ records it:
 The guide's *What has not been measured yet* is the operator's copy of this
 list.
 
+**Measured on the field laptop, 2026-09-29 (bench session 12).** The whole
+install on two regions, every effect verified, 294 commands. QMapShack
+lists both regions' maps, the contour map and the elevation once the lists
+are under `[Canvas]` (the amendment below). Hillshade draws, seen at the
+3 km and 10 km scales; slope was not tried. The rewritten tether fed
+QMapShack's GPS TCP/IP source from the fitted receiver, and "center to
+position" moved the map there. Still not measured: slope, and a route on
+foot, within a region or across a boundary.
+
+**Amended 2026-09-29 (bench session 12): the Routino database was loaded
+and not selected.** QMapShack 1.17.1 read `routino\paths`, loaded the
+`hammunition` database (its four `.mem` files were mapped in the process),
+and then selected the Database entry at the index in `[Route]
+routino\database`, which held `-1`: nothing selected, and routing gave up
+without a message. It writes the index back on exit, so the `-1` persisted.
+`hammunition maps qmapshack` now sets that key to 0 when it is absent or
+negative, and leaves 0 or more, the operator's choice, alone
+(`select_database()` in `src/hammunition/qmapshack_config.py`).
+
 **Rejected.** The `.osm.pbf` header box for tile selection (measured wrong,
 above). Caching the outline at plan time (root-owned files in the operator's
 cache under `sudo`). One Routino database per region (no route across a
@@ -5521,7 +5540,8 @@ served, with RMC and GGA arriving within about 1 s each time. They were
 three reconnects 2 s apart, six immediate ones, one closed mid-stream and
 the one after it. Not yet measured, and still bench session 12's to record:
 QMapShack reading the lists under `[Canvas]`, and QMapShack's own GPS Tether
-taking a position from the tether.
+taking a position from the tether. (Both measured in bench session 12 the same day;
+see *What is measured, and what is not yet* above.)
 
 **Rejected.** Keeping `gpspipe -r` behind `socat` (not shown to fail for
 want of a fix, but two external programs where the engine's own code can
