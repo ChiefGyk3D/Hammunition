@@ -269,6 +269,24 @@ def check(message: str, changed: set[str], diff: str, tracked: set[str]) -> list
     return problems
 
 
+def revision_changes(rev: str) -> tuple[set[str], str]:
+    """The files and diff a commit is answerable for.
+
+    A merge commit's own diff is the *combined* diff, which is empty for a
+    clean merge, so ``git show`` on GitHub's "Merge pull request #133 ..."
+    found no line for the decision its title named and the check failed on
+    main itself. What a merge brings in is its diff against its first parent;
+    that is what its message describes.
+    """
+    parents = git("rev-list", "--parents", "-n1", rev).split()[1:]
+    if len(parents) > 1:
+        base = f"{rev}^1"
+        changed = set(git("diff", "--name-only", base, rev).split())
+        return changed, git("diff", base, rev)
+    changed = set(git("diff-tree", "--no-commit-id", "--name-only", "-r", rev).split())
+    return changed, git("show", "--format=", rev)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("message_file", nargs="?", help="commit-msg hook argument")
@@ -277,8 +295,7 @@ def main() -> int:
 
     if args.rev:
         message = git("log", "-1", "--format=%B", args.rev)
-        changed = set(git("diff-tree", "--no-commit-id", "--name-only", "-r", args.rev).split())
-        diff = git("show", "--format=", args.rev)
+        changed, diff = revision_changes(args.rev)
     elif args.message_file:
         message = Path(args.message_file).read_text()
         changed = set(git("diff", "--cached", "--name-only").split())

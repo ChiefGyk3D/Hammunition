@@ -13,6 +13,42 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 Nothing yet.
 
+## v0.13.0 — 2026-09-28 — Navit finds your towns
+
+One pull request since v0.12.0, from the first address search on the bench.
+
+### Engine
+
+- Navit's town index was nearly empty on every Geofabrik sub-country extract:
+  the extract carries only the in-extract pieces of the country's boundary
+  relation, so `maptool` logged "Broken country polygon" and filed almost no
+  town while still drawing them. The `navit-maptool` converter now merges a
+  closed country border, synthesised from Natural Earth's admin-0 data for
+  the region's country, into the extract with `osmium` before running
+  `maptool -U`; a region passes only when maptool recognises each merged
+  border as a country. On one US-state-sized region the index went from
+  about a dozen items to over four thousand, nearly all with state and
+  county (#133, D-057 amendment).
+- Maps built by the old converter rebuild once: the sidecar records a
+  converter version, and the plan says "will convert (converter changed)"
+  (#133).
+- maptool runs stay sequential: its fixed-name temp files make two runs in
+  one directory crash, measured on the bench (#133).
+
+### Catalog
+
+- `country-boundaries`: Natural Earth 1:10m admin-0 countries, public
+  domain, sha256 computed and pinned by Hammunition because upstream
+  publishes none; a dependency of `osm-navit`, with `osmium-tool` (#133).
+- `catalog/data/geofabrik-countries.yaml`: each Geofabrik region's country,
+  generated from Geofabrik's index and checked weekly (#133).
+
+### Documentation
+
+- The guide's "Find an address" section (Actions → Town, the flag button,
+  street and house-number icons, Set as destination); bench session 11
+  (#133).
+
 ## v0.12.0 — 2026-09-28 — the engine speaks JSON, and `hammunition` is on the PATH
 
 One pull request since v0.11.0: piece 1 of the console. The front ends that
