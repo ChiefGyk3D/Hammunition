@@ -5141,7 +5141,8 @@ needs trails, contours, a route on foot and the position on one map.
 All of it comes from the archive and none of it is built from source:
 QMapShack (Parrot echo 1.17.1; 1.21.1 in echo-backports, which D-038 takes
 where the machine already installs from there), Routino 3.4.3, GDAL 3.10.3,
-mkgmap r4923 with mkgmap-splitter r654, and socat. Viking, Marble, GPSPrune
+mkgmap r4923 with mkgmap-splitter r654, and socat (removed 2026-09-29 by
+the amendment below). Viking, Marble, GPSPrune
 and JOSM were measured and are not carried. Debian's Viking links no Mapnik,
 so it renders nothing offline, and it routes only through web services.
 Marble's offline place index has no packaged builder. GPSPrune and JOSM use
@@ -5301,7 +5302,8 @@ last step fails it by name if anything terrain did not install.
 It adds Hammunition's directories to QMapShack's own settings,
 `~/.config/QLandkarte/QMapShack.conf`, if they are absent. The keys are
 `mapPath` and `demPaths` under `[General]` and `routino\paths` under
-`[Route]`, read from QMapShack 1.17.1's binary. It keeps every existing
+`[Route]`, read from QMapShack 1.17.1's binary. (Amended 2026-09-29, below:
+the first two belong under `[Canvas]`.) It keeps every existing
 value in its place and touches nothing else, byte for byte. A value of
 `@Invalid()` is how Qt writes an empty list, so it reads as empty and is
 replaced. Any other `@`-typed or quoted value in those keys is refused, and
@@ -5321,7 +5323,8 @@ it for the case where it is gone.
 QMapShack has no gpsd client; its GPS Tether reads NMEA over TCP.
 `hammunition maps gps-tether`, the `gps-tether` launcher, runs `gpspipe -r`
 behind `socat` listening on 127.0.0.1 port 10110 only, one client at a
-time, and only while the operator runs it. A position is where the operator
+time, and only while the operator runs it. (Amended 2026-09-29, below: the
+engine now writes the NMEA from gpsd's JSON itself, and `socat` is gone.) A position is where the operator
 is, so it is never served to the network, and nothing is installed as a
 service. The listening socket was measured on loopback only by
 `tests/test_gps_tether.py`, which runs the real `socat` where it is
@@ -5429,3 +5432,74 @@ device export, and online maps of any kind, which are out of scope.
 `tests/test_qmapshack_config.py`, `tests/test_gps_tether.py`,
 `tests/test_gen_copernicus_pins.py`, `tests/test_navigation_catalog.py`
 and `tests/test_docs_terrain.py`.
+
+### Amendment (2026-09-29): measured on the bench, the settings group and the tether were both wrong
+
+QMapShack 1.17.1 ran on the field laptop for the first time on 2026-09-29.
+Two things this decision shipped did not work, and both are fixed.
+
+**The map and elevation lists belong under `[Canvas]`.** After QMapShack
+exited, `~/.config/QLandkarte/QMapShack.conf` held `mapPath=@Invalid()` and
+`demPaths=@Invalid()` under `[Canvas]`: that is where QMapShack keeps them,
+and it had ignored the same keys the launcher wrote under `[General]`.
+`routino\paths` under `[Route]` it kept, so that one was right. The key
+names came from the binary; the group was inferred from it, and the
+inference was wrong. `hammunition maps qmapshack` now adds
+both lists under `[Canvas]`, creating the group if absent. Where an earlier
+run left them under `[General]`, it takes out exactly its own directories
+from those two keys and removes a key left empty; any other value there and
+every other key stay, and a `[General]` value it cannot read is not ours and
+is left alone rather than refused. It says on stderr when it moved anything.
+
+**The tether makes its own NMEA.** The shipped tether was `gpspipe -r`, gpsd's
+raw NMEA watch, behind `socat`. On the bench it printed gpsd's three JSON
+header lines and then nothing for 12 s, and QMapShack's GPS Tether saw
+nothing. What is measured is this: the raw watch passes on only NMEA that
+gpsd is translating for the receiver, and it is empty whenever gpsd is not,
+while the JSON watch is what every gpsd client, `xgps` and Navit included,
+reads. (At the time, gpsd on the laptop was reporting nothing on its JSON
+watch either, so whether a u-blox receiver in binary mode yields raw NMEA is
+not established here.) The fix does not depend on the answer.
+`hammunition maps gps-tether` now connects to gpsd at 127.0.0.1:2947 itself,
+sends `?WATCH={"enable":true,"json":true}`, and for every `TPV` with
+`mode` 2 or 3 writes `$GPRMC` then `$GPGGA`: the time, the position as
+`ddmm.mmmm` with its hemisphere, speed in knots, track, altitude (from
+`altMSL`, else `alt`) on a 3D fix only, fix quality 1 (2 and RMC mode `D`
+where gpsd's `status` says DGPS), and the satellites used and HDOP from the
+latest `SKY`. Every sentence ends with its XOR checksum and CRLF. A field
+gpsd did not give is an empty field; nothing is invented. It is the standard
+library in the engine, and nothing is executed: `socat` and `gpspipe` are no
+longer involved.
+
+What stays: 127.0.0.1 port 10110 only; one client at a time, now a second
+client closed at once with a line on the terminal rather than left waiting;
+only while the operator runs it; Ctrl-C stops it; no `--json` form; the
+`gps-tether` launcher. Each client gets its own gpsd watch, opened when it
+connects and closed when it goes. The terminal shows a line when a client
+comes or goes, when gpsd cannot be reached or closes the connection, and
+once when no position with a fix has arrived in 10 s, naming `xgps`. It
+refuses root.
+
+`socat` was carried only for the tether, and nothing else in the catalog
+uses it, so it leaves the catalog and the `navigation` profile. A machine
+that installed it under v0.14.0 keeps it: `hammunition uninstall` resolves
+names against the catalog, so it can no longer name it, and the guide says
+to remove it with apt if nothing else uses it. `qmapshack` keeps its
+dependency on `gpsd-clients`, for `xgps`.
+
+Measured: the sentence conversion against checksums computed by hand, both
+hemispheres, no fix and missing fields; the server against a fake gpsd on a
+random loopback port, bound to 127.0.0.1 only and turning a second client
+away (`tests/test_gps_tether.py`, `tests/test_qmapshack_config.py`,
+`tests/test_maps_tools.py`). On the development host, against its own gpsd,
+which was sending only its header lines at the time, the tether logged the
+client and then "no position with a fix". Not yet measured, and still bench
+session 12's to record: QMapShack reading the lists under `[Canvas]`, and a
+position with a fix through the new tether into its GPS Tether.
+
+**Rejected.** Keeping `gpspipe -r` and asking gpsd to translate (it depends on
+the receiver and its mode, and the JSON is always there). Keeping `socat` in
+front of an engine-made stream (a second program for what the standard
+library does, with its comma-separated option syntax in the argv).
+Leaving the `[General]` keys where they were (harmless to QMapShack, but a
+file that says two different things about where the maps are).
