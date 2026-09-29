@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: mkgmap
+version: "0.0.0+svn4923"
+summary: Builds Garmin-format maps from OpenStreetMap data
+menu_title: Garmin map builder (mkgmap)
+categories: [navigation-maps]
+
+# `apt-cache policy mkgmap` on Parrot 7 (echo), 2026-09-28: candidate
+# 0.0.0+svn4923-2 (echo/main), no backports version.
+
+depends: [mkgmap-splitter]
+
+install:
+  - install:
+      method: apt
+      packages: [mkgmap]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Turns OpenStreetMap data into a Garmin `.img` map, drawn and routable by
+    the rules of a style. Its `default` style already draws and routes
+    paths, footways, tracks and bridleways and reads `sac_scale` and
+    `tracktype`.
+  why_you_want_it: >-
+    It is how `osm-garmin` makes the maps QMapShack shows from your regions,
+    with no download beyond the regions themselves.
+  prerequisites: >-
+    `mkgmap-splitter` to cut a region into tiles first; `osm-garmin` runs
+    both.
+  known_problems: >-
+    It exits 0 while logging SEVERE errors, so `osm-garmin` checks for the
+    map it should have written rather than trusting the exit status. The
+    address index (`--index`, `--housenumbers`) needs upstream bounds files
+    that have no published checksum, so it is not built. Debian's wrapper
+    passes no Java options, so it runs on the JVM's default heap, a quarter
+    of the machine's memory.
+  upstream_url: https://www.mkgmap.org.uk/
+  upstream_support: >-
+    The mkgmap-dev mailing list (https://www.mkgmap.org.uk/mailman/listinfo/mkgmap-dev).
