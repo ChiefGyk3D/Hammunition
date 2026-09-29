@@ -11,12 +11,14 @@ categories: [navigation-maps, gps-gnss]
 # which D-038 resolves on a machine already installing from backports and
 # the plan names. It Depends on libroutino0 (Routino in-process) and
 # Recommends routino and gdal-bin, carried here as their own units.
-# `socat` and `gpsd-clients` are for the gps-tether launcher.
+# `gpsd-clients` is for the gps-tether launcher: the tether is the engine's
+# own (D-061, amended 2026-09-29), and `xgps` is what it names when gpsd
+# has no fix to pass on.
 #
 # `apt-cache policy qmapshack` on Parrot 7 (echo), 2026-09-28: candidate
 # 1.17.1-1+b6 (echo/main, pin 600); 1.21.1+ds-1~bpo13+1 in echo-backports
 # (pin 599). The plan names which one a machine resolves (D-038).
-depends: [routino, gdal-bin, socat, gpsd-clients]
+depends: [routino, gdal-bin, gpsd-clients]
 
 install:
   - install:
@@ -24,8 +26,8 @@ install:
       packages: [qmapshack]
 
 # Both run the engine on the PATH (D-059), so the configuration edit and the
-# loopback bridge are code the engine owns and tests, never a shell line in
-# the catalog.
+# loopback NMEA server are code the engine owns and tests, never a shell line
+# in the catalog.
 launchers:
   - name: qmapshack-offline
     exec: hammunition maps qmapshack
@@ -59,10 +61,10 @@ documentation:
     map units installed, so there are maps, elevation and a routing database
     to show; start it from the `qmapshack-offline` launcher, which writes
     their directories into QMapShack's own configuration first (`mapPath`
-    and `demPaths` under [General], `routino\paths` under [Route]). For your
-    position, gpsd with a receiver and the `gps-tether` launcher running,
-    which serves NMEA on 127.0.0.1 port 10110 for QMapShack's GPS Tether
-    dialog to take.
+    and `demPaths` under [Canvas], `routino\paths` under [Route]). For your
+    position, gpsd with a receiver that has a fix, and the `gps-tether`
+    launcher running, which makes NMEA from gpsd's position and serves it
+    on 127.0.0.1 port 10110 for QMapShack's GPS Tether dialog to take.
   known_problems: >-
     QMapShack has no offline address search: its search asks online
     services, and Routino routes between points, not addresses. Find the
@@ -71,17 +73,23 @@ documentation:
     the route yourself. It stops at startup with "The specified translations
     XML file did not exist" if /usr/share/routino/translations.xml is
     missing, which apt normally prevents; `hammunition doctor` names it.
-    It has no gpsd client; `gps-tether` is meant to stand in for one. The
-    launcher edits QMapShack's own settings file (~/.config/QLandkarte/QMapShack.conf)
+    It has no gpsd client; `gps-tether` is meant to stand in for one. It
+    reads gpsd's JSON, as xgps and Navit do, and writes RMC and GGA itself:
+    the first version relayed gpsd's raw NMEA watch, which on the bench on
+    2026-09-29 gave nothing, since that watch is empty whenever gpsd is not
+    translating for the receiver. The launcher edits QMapShack's own settings file (~/.config/QLandkarte/QMapShack.conf)
     only to add Hammunition's directories when they are absent, and refuses
     to touch a file it cannot read; QMapShack's own setup dialogs change the
-    rest. The launchers run `hammunition`, which must be on your PATH.
+    rest. An earlier launcher wrote `mapPath` and `demPaths` under [General],
+    where QMapShack does not read them (measured on the bench, 2026-09-29);
+    it now moves its own directories from there to [Canvas]. The launchers run `hammunition`, which must be on your PATH.
     Not yet confirmed on hardware: QMapShack reading the directories the
-    launcher writes under those keys, listing the `hammunition` Routino
+    launcher now writes under [Canvas], listing the `hammunition` Routino
     database, taking a position from `gps-tether` through its GPS Tether
-    dialog, and drawing hillshade. None of the four has yet been run on a
-    desktop; bench session 12 on the field laptop
-    (docs/reference/bench-verification-5430.md) is that check.
+    dialog, and drawing hillshade. The first bench run (2026-09-29) found
+    the [General] group and the raw-NMEA tether wrong; the fixed versions
+    have not yet been run on a desktop, and bench session 12 on the field
+    laptop (docs/reference/bench-verification-5430.md) is that check.
   upstream_url: https://github.com/Maproom/qmapshack
   upstream_support: >-
     The project's wiki (https://github.com/Maproom/qmapshack/wiki) and its

@@ -35,7 +35,6 @@ PIECE_2 = {
     "gdal-bin",
     "mkgmap",
     "mkgmap-splitter",
-    "socat",
     "osm-garmin",
     "osm-routino",
     "dem-copernicus",
@@ -59,6 +58,13 @@ def test_dem_copernicus_keeps_osm_regions_as_a_dependency() -> None:
     """Without it the plan never carries the regions the tiles follow and the
     Terrain block never renders (ledger ruling, Task 13)."""
     assert "osm-regions" in load_catalog(CATALOG / "packages")["dem-copernicus"].depends
+
+
+def test_socat_left_the_catalog_with_the_old_tether() -> None:
+    """The tether makes its own NMEA (D-061, amended 2026-09-29); nothing
+    else in the catalog used socat."""
+    assert "socat" not in load_catalog(CATALOG / "packages")
+    assert "socat" not in _profile().packages
 
 
 def test_qmapshack_carries_both_launchers() -> None:

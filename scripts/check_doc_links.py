@@ -90,6 +90,9 @@ SKIP_ANYWHERE = {".git", "node_modules", ".venv", "__pycache__"}
 # must be allowlisted by name rather than by existence — otherwise the docs
 # would have to stop citing their evidence, which is worse than this list.
 ALLOW_MISSING = {
+    # removed from the catalog by D-061's 2026-09-29 amendment; the dated
+    # piece-2 plan in docs/superpowers/plans/ is a record and still cites it
+    "catalog/packages/socat.yaml",
     # operator-local config, gitignored by construction
     "example.local.yml",
     "station.local.yml",

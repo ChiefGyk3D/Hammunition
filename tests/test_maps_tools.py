@@ -84,22 +84,70 @@ def test_qmapshack_refuses_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert seen == [] and not conf.exists()
 
 
-def test_gps_tether_prints_where_to_connect_and_runs_socat_on_loopback(
+def _tether_calls(
+    monkeypatch: pytest.MonkeyPatch, *, fail: BaseException | None = None
+) -> list[str]:
+    """Stand-ins for the listener and the server; no socket is opened."""
+    import socket
+
+    import hammunition.gps_tether as tether
+
+    calls: list[str] = []
+
+    class Listener:
+        def close(self) -> None:
+            calls.append("closed")
+
+    def listen(port: int = tether.PORT) -> socket.socket:
+        calls.append(f"listen {port}")
+        if isinstance(fail, OSError):
+            raise fail
+        return Listener()  # type: ignore[return-value]
+
+    def serve(listener: object, **kwargs: object) -> None:
+        calls.append("serve")
+        if fail is not None:
+            raise fail
+
+    monkeypatch.setattr(tether, "listen", listen)
+    monkeypatch.setattr(tether, "serve", serve)
+    return calls
+
+
+def test_gps_tether_prints_where_to_connect_and_serves_until_ctrl_c(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    monkeypatch.setattr(os, "geteuid", lambda: 1000)
     seen = _record_exec(monkeypatch)
-    with pytest.raises(Exec):
-        cli.main(["maps", "gps-tether"])
-    assert seen == [
-        [
-            "socat",
-            "socat",
-            "TCP-LISTEN:10110,bind=127.0.0.1,reuseaddr,fork,max-children=1",
-            "EXEC:gpspipe -r",
-        ]
-    ]
+    calls = _tether_calls(monkeypatch, fail=KeyboardInterrupt())
+    assert cli.main(["maps", "gps-tether"]) == cli.EXIT_OK
+    assert calls == ["listen 10110", "serve", "closed"]
+    assert seen == [], "no socat, no gpspipe: nothing is executed"
     out = capsys.readouterr().out
     assert "host 127.0.0.1, port 10110" in out
+
+
+def test_gps_tether_names_a_port_already_in_use(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import errno
+
+    monkeypatch.setattr(os, "geteuid", lambda: 1000)
+    calls = _tether_calls(monkeypatch, fail=OSError(errno.EADDRINUSE, "Address already in use"))
+    assert cli.main(["maps", "gps-tether"]) == cli.EXIT_FAILED
+    assert calls == ["listen 10110"]
+    err = capsys.readouterr().err
+    assert "Address already in use" in err and "127.0.0.1 port 10110" in err
+
+
+def test_gps_tether_refuses_root(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    calls = _tether_calls(monkeypatch)
+    assert cli.main(["maps", "gps-tether"]) == cli.EXIT_FAILED
+    assert calls == []
+    assert "not as root" in capsys.readouterr().err
 
 
 def test_a_symlink_in_place_of_the_config_is_refused_and_not_followed(
