@@ -27,7 +27,7 @@ It is how `osm-garmin` makes the maps QMapShack shows from your regions, with no
 
 ## Known problems
 
-It exits 0 while logging SEVERE errors, so `osm-garmin` checks for the map it should have written rather than trusting the exit status. The address index (`--index`, `--housenumbers`) needs upstream bounds files that have no published checksum, so it is not built. Debian's wrapper passes no Java options, so it runs on the JVM's default heap, a quarter of the machine's memory.
+It exits 0 while logging SEVERE errors, so `osm-garmin` checks for the map it should have written rather than trusting the exit status. The address index (`--index`, `--housenumbers`) needs upstream bounds files that have no published checksum, so it is not built. Debian's wrapper passes no Java options, so run by hand it gets the JVM's default heap, a quarter of the machine's memory; `osm-garmin` sets 6000 MB through JAVA_TOOL_OPTIONS, which the wrapper does not override.
 
 ## Keeping it current
 

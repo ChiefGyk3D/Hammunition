@@ -11,7 +11,7 @@
 
 ## What it does
 
-A map program for planning and recording trips on foot, by bike or on the water: it shows the Garmin maps `osm-garmin` builds from your regions, draws hillshade and slope from the elevation `dem-qmapshack` prepares, lays contour lines over them, plans a route on trails with the Routino database `osm-routino` builds, records and edits GPX tracks and waypoints, and shows an elevation profile for any track. Everything it needs is on the disk, so none of it needs a network.
+A map program for planning and recording trips on foot, by bike or on the water: it shows the Garmin maps `osm-garmin` builds from your regions, draws hillshade and slope from the elevation `dem-qmapshack` prepares, lays contour lines over them, plans a route on trails with the Routino database `osm-routino` builds, records and edits GPX tracks and waypoints, and shows an elevation profile for any track. Its maps, terrain and routing are on the disk, so none of those needs a network.
 
 ## Why you would want it
 
@@ -19,7 +19,7 @@ A road navigator does not know trails and has no terrain. For a hike, a search, 
 
 ## Before it will work
 
-Your map regions set in station config, and the `navigation` profile's map units installed, so there are maps, elevation and a routing database to show; start it from the `qmapshack-offline` launcher, which adds their directories to QMapShack's own configuration first. For your position on the map, gpsd with a receiver and the `gps-tether` launcher running.
+Your map regions set in station config, and the `navigation` profile's map units installed, so there are maps, elevation and a routing database to show; start it from the `qmapshack-offline` launcher, which writes their directories into QMapShack's own configuration first (`mapPath` and `demPaths` under [General], `routino\paths` under [Route]). For your position, gpsd with a receiver and the `gps-tether` launcher running, which serves NMEA on 127.0.0.1 port 10110 for QMapShack's GPS Tether dialog to take.
 
 ## How it installs
 
@@ -27,7 +27,7 @@ Your map regions set in station config, and the `navigation` profile's map units
 
 ## Known problems
 
-QMapShack has no offline address search: its search asks online services, and Routino routes between points, not addresses. Find the address in Navit, then plan the walk here. Routino's foot profile does not read `sac_scale`, so an alpine path is routed like a footpath; judge the route yourself. It stops at startup with "The specified translations XML file did not exist" if /usr/share/routino/translations.xml is missing, which apt normally prevents; `hammunition doctor` names it. It has no gpsd client, which is what `gps-tether` is for. The launcher edits QMapShack's own settings file (~/.config/QLandkarte/QMapShack.conf) only to add Hammunition's directories when they are absent, and refuses to touch a file it cannot read; QMapShack's own setup dialogs change the rest. The launchers run `hammunition`, which must be on your PATH. Hillshade drawing has not yet been confirmed on hardware.
+QMapShack has no offline address search: its search asks online services, and Routino routes between points, not addresses. Find the address in Navit, then plan the walk here. Routino's foot profile does not read `sac_scale`, so an alpine path is routed like a footpath; judge the route yourself. It stops at startup with "The specified translations XML file did not exist" if /usr/share/routino/translations.xml is missing, which apt normally prevents; `hammunition doctor` names it. It has no gpsd client; `gps-tether` is meant to stand in for one. The launcher edits QMapShack's own settings file (~/.config/QLandkarte/QMapShack.conf) only to add Hammunition's directories when they are absent, and refuses to touch a file it cannot read; QMapShack's own setup dialogs change the rest. The launchers run `hammunition`, which must be on your PATH. Not yet confirmed on hardware: QMapShack reading the directories the launcher writes under those keys, listing the `hammunition` Routino database, taking a position from `gps-tether` through its GPS Tether dialog, and drawing hillshade. None of the four has yet been run on a desktop; the Xubuntu/field-laptop bench (docs/reference/vm-campaign-desktops.md, bench session 12) is that check.
 
 ## Keeping it current
 

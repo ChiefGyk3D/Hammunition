@@ -55,7 +55,9 @@ documentation:
     Hammunition"), which catches a damaged download, not a deliberately
     altered one. The first install of a region asks Geofabrik for its
     outline to choose its tiles and remembers the answer, so later plans
-    need no network. Tile names encode latitude and longitude, so they are
+    need no network; until that first install, every plan, a dry run
+    included, asks again, so an offline dry run before it cannot choose
+    tiles. Tile names encode latitude and longitude, so they are
     shown in the plan only. The licence requires attribution to the
     Copernicus programme in anything you publish from the data.
   upstream_url: https://registry.opendata.aws/copernicus-dem/

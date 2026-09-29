@@ -39,8 +39,9 @@ documentation:
     map it should have written rather than trusting the exit status. The
     address index (`--index`, `--housenumbers`) needs upstream bounds files
     that have no published checksum, so it is not built. Debian's wrapper
-    passes no Java options, so it runs on the JVM's default heap, a quarter
-    of the machine's memory.
+    passes no Java options, so run by hand it gets the JVM's default heap,
+    a quarter of the machine's memory; `osm-garmin` sets 6000 MB through
+    JAVA_TOOL_OPTIONS, which the wrapper does not override.
   upstream_url: https://www.mkgmap.org.uk/
   upstream_support: >-
     The mkgmap-dev mailing list (https://www.mkgmap.org.uk/mailman/listinfo/mkgmap-dev).
