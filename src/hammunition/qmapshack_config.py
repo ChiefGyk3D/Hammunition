@@ -33,6 +33,23 @@ value -- is refused by name and left untouched, rather than rewritten on a
 guess. The one ``@`` value read is ``@Invalid()``, which is how Qt writes an
 empty list: a QMapShack run once with no maps holds it in every key edited
 here, so it reads as the empty list and our paths replace it.
+
+:func:`select_database` sets ``[Route] routino\\database`` to ``0`` when it
+is absent or negative. Measured on the bench on 2026-09-29, and in QMapShack
+1.17.1's source (``CRouterRoutino``): at startup it scans every
+``routino\\paths`` directory for ``*-segments.mem``, loads what it finds
+into the Routing dock's Database dropdown, and then selects the entry at the
+index ``routino\\database`` holds. The operator's file held ``-1``: the
+``hammunition`` database was loaded (its four ``.mem`` files were mapped in
+the process) and the dropdown showed nothing selected, so ``calcRoute()``
+found no database and gave up without a word. QMapShack writes the index
+back on exit, so a ``-1`` left by any run that exited with an empty
+dropdown -- one before the paths were set, say -- persists from then on.
+Index 0 is the first database found, and ``routino\\paths`` holds one of
+ours. A value of 0 or more is the operator's choice in QMapShack and stays;
+one that is not a number stays too, since Qt reads it as 0 anyway. Like
+every key here, it is written before QMapShack starts: a running QMapShack
+overwrites the file when it exits.
 """
 
 from __future__ import annotations
@@ -42,7 +59,19 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-__all__ = ["QmsConfigError", "Wanted", "config_path", "ensure_paths", "superseded", "wanted"]
+__all__ = [
+    "QmsConfigError",
+    "Wanted",
+    "config_path",
+    "ensure_paths",
+    "select_database",
+    "superseded",
+    "wanted",
+]
+
+#: Where QMapShack 1.17.1 keeps the Routing dock's Database index.
+DATABASE_SECTION = "Route"
+DATABASE_KEY = "routino\\database"
 
 
 #: How Qt writes an empty QStringList (``iniEscapedStringList``; measured with
@@ -118,22 +147,7 @@ def ensure_paths(text: str, wants: Sequence[Wanted], *, remove: Sequence[Wanted]
     lines = text.splitlines(keepends=True)
     if lines and not lines[-1].endswith("\n"):
         lines[-1] += "\n"  # only kept if something is added after it
-    section = "General"
-    headers: dict[str, int] = {}
-    keys: dict[tuple[str, str], int] = {}
-    for number, line in enumerate(lines):
-        stripped = line.strip()
-        if not stripped or stripped[0] in ";#":
-            continue
-        if stripped.startswith("[") and stripped.endswith("]"):
-            section = stripped[1:-1]
-            headers[section] = number
-            continue
-        if "=" not in stripped:
-            raise QmsConfigError(
-                f"line {number + 1} is neither a [section] nor key=value: {stripped[:80]!r}"
-            )
-        keys[(section, stripped.split("=", 1)[0].strip())] = number
+    headers, keys = _scan(lines)
     appended: dict[str, list[str]] = {}
     inserts: dict[int, list[str]] = {}
     changed = False
@@ -180,6 +194,57 @@ def ensure_paths(text: str, wants: Sequence[Wanted], *, remove: Sequence[Wanted]
     if not (changed or inserts or appended):
         return text
     return "".join(lines)
+
+
+def select_database(text: str) -> str:
+    """*text* with ``[Route] routino\\database`` at 0 where it is absent or
+    negative; nothing else changed, and *text* itself when nothing is."""
+    lines = text.splitlines(keepends=True)
+    if lines and not lines[-1].endswith("\n"):
+        lines[-1] += "\n"  # only kept if something is added after it
+    headers, keys = _scan(lines)
+    entry = f"{DATABASE_KEY}=0"
+    at = keys.get((DATABASE_SECTION, DATABASE_KEY))
+    if at is not None:
+        raw = lines[at]
+        try:
+            index = int(raw.split("=", 1)[1].strip())
+        except ValueError:
+            return text  # Qt reads it as 0; not ours to rewrite
+        if index >= 0:
+            return text
+        lines[at] = entry + raw[len(raw.rstrip("\r\n")) :]
+        if not text.endswith("\n"):
+            lines[-1] = lines[-1][:-1]  # a line changed in place: none added
+    elif DATABASE_SECTION in headers:
+        lines.insert(_section_end(lines, headers[DATABASE_SECTION]), entry + "\n")
+    else:
+        if lines and lines[-1].strip():
+            lines.append("\n")
+        lines.extend([f"[{DATABASE_SECTION}]\n", entry + "\n"])
+    return "".join(lines)
+
+
+def _scan(lines: Sequence[str]) -> tuple[dict[str, int], dict[tuple[str, str], int]]:
+    """Each section's header line and each ``(section, key)``'s line, or
+    :class:`QmsConfigError` for a line that is neither."""
+    section = "General"
+    headers: dict[str, int] = {}
+    keys: dict[tuple[str, str], int] = {}
+    for number, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped or stripped[0] in ";#":
+            continue
+        if stripped.startswith("[") and stripped.endswith("]"):
+            section = stripped[1:-1]
+            headers[section] = number
+            continue
+        if "=" not in stripped:
+            raise QmsConfigError(
+                f"line {number + 1} is neither a [section] nor key=value: {stripped[:80]!r}"
+            )
+        keys[(section, stripped.split("=", 1)[0].strip())] = number
+    return headers, keys
 
 
 def _section_end(lines: Sequence[str], header: int) -> int:

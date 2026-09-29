@@ -15,6 +15,7 @@ from hammunition.qmapshack_config import (
     Wanted,
     config_path,
     ensure_paths,
+    select_database,
     superseded,
     wanted,
 )
@@ -238,3 +239,60 @@ def test_only_our_values_leave_general_and_every_other_key_stays() -> None:
 def test_a_general_key_holding_nothing_of_ours_is_left_as_it_is(text: str) -> None:
     """Not ours, or not a shape we wrote: never refused, never rewritten."""
     assert ensure_paths(text, (), remove=superseded(DATA)) == text
+
+
+#: The Routing dock's Database dropdown, as QMapShack 1.17.1 left it on the
+#: bench (2026-09-29): the database was found and loaded, and the index was
+#: -1, so nothing was selected and routing gave up silently (D-061).
+ROUTE_UNSELECTED = (
+    "; kept\r\n"
+    "[Route]\r\n"
+    f"routino\\paths={ROUTINO}\r\n"
+    "routino\\database=-1\r\n"
+    "routino\\profile=3\r\n"
+    "\r\n"
+    "[Units]\r\n"
+    "type=1"
+)
+
+
+def test_a_negative_database_index_becomes_the_first_database() -> None:
+    assert select_database(ROUTE_UNSELECTED) == ROUTE_UNSELECTED.replace(
+        "routino\\database=-1\r\n", "routino\\database=0\r\n"
+    )
+
+
+def test_a_missing_database_index_is_added_at_the_end_of_route() -> None:
+    text = f"[Route]\nroutino\\paths={ROUTINO}\n\n[Units]\ntype=1\n"
+    assert select_database(text) == (
+        f"[Route]\nroutino\\paths={ROUTINO}\nroutino\\database=0\n\n[Units]\ntype=1\n"
+    )
+
+
+def test_a_file_without_route_gains_it_with_the_first_database() -> None:
+    assert select_database("") == "[Route]\nroutino\\database=0\n"
+    assert select_database("[Units]\ntype=1") == (
+        "[Units]\ntype=1\n\n[Route]\nroutino\\database=0\n"
+    )
+
+
+@pytest.mark.parametrize("value", ["0", "2", " 1 ", "abc"])
+def test_a_database_index_the_operator_chose_is_left_alone(value: str) -> None:
+    """0 or more is a choice made in QMapShack; a value that is not a number
+    Qt reads as 0 anyway, so it is not ours to rewrite."""
+    text = f"[Route]\nroutino\\database={value}\n"
+    assert select_database(text) == text
+
+
+def test_only_routes_database_index_is_read() -> None:
+    text = "[General]\nroutino\\database=-1\n"
+    assert select_database(text) == text + "\n[Route]\nroutino\\database=0\n"
+
+
+def test_selecting_the_database_refuses_a_file_it_cannot_read() -> None:
+    with pytest.raises(QmsConfigError):
+        select_database("[Route]\nthis is not a setting\n")
+
+
+def test_a_negative_index_on_a_last_line_without_a_newline_gains_none() -> None:
+    assert select_database("[Route]\nroutino\\database=-1") == "[Route]\nroutino\\database=0"

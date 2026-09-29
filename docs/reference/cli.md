@@ -246,6 +246,14 @@ place, and nothing else in the file changes. A key holding `@Invalid()`,
 which is how Qt writes an empty list, counts as empty. A new file is
 created mode 0600. `--configure-only` edits and does not start QMapShack.
 
+It also sets `routino\database=0` under `[Route]` when that key is absent
+or negative, and leaves a value of 0 or more alone, since that is a choice
+made in QMapShack. The key is the index of the database selected in the
+Routing dock's *Database* list. Measured on the field laptop on 2026-09-29:
+with `-1` there, QMapShack loaded the `hammunition` database and selected
+nothing, and routing gave up without a message. QMapShack writes the index
+back when it exits, so a `-1` stays until something changes it.
+
 It refuses, exit 1, changing nothing and starting nothing:
 
 - under root, whose settings are not the operator's;
@@ -254,7 +262,8 @@ It refuses, exit 1, changing nothing and starting nothing:
 - when one of those keys holds a quoted value or any other `@`-typed one;
 - when the file is a symbolic link, not a regular file, or not UTF-8.
 
-It prints one line to stderr when it changed the file. A missing
+It prints a line to stderr for each kind of change it made: the
+directories, and the database selection. A missing
 `qmapshack` is a named error, exit 1, after the edit. There is no `--json`
 form, because it replaces itself with a GUI (D-059).
 
