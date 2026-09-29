@@ -60,6 +60,7 @@ from hammunition.backends import (
     VenvBackend,
 )
 from hammunition.backends.apt import stale_fetches
+from hammunition.backends.dem import TerrainDisclosure
 from hammunition.backends.regions import (
     KeptRegion,
     MapDisclosure,
@@ -216,6 +217,7 @@ def render_plan(
     hands_log_to: str | None = None,
     built: frozenset[str] = frozenset(),
     maps: MapDisclosure | None = None,
+    terrain: TerrainDisclosure | None = None,
 ) -> list[str]:
     """The complete account of what will happen. Printed for every run.
 
@@ -246,6 +248,7 @@ def render_plan(
         hands_log_to=hands_log_to,
         built=built,
         maps=maps,
+        terrain=terrain,
     )
     return render_plan_view(view, target=target_view(plan.target))
 
