@@ -181,7 +181,8 @@ class GdalDemConverter:
             )
         ]
 
-    def _current(self, manifest: PackageManifest) -> bool:
+    def current(self, manifest: PackageManifest) -> bool:
+        """Whether both rasters exist and were built over exactly this run's tiles."""
         out = self.data_dir(manifest)
         try:
             recorded = (out / RECORD).read_text()
@@ -202,7 +203,7 @@ class GdalDemConverter:
         steps: list[Action | Command] = []
         pending = self.pending(manifest)
         removals = removal_steps(contours / "tiles", TIF, set(self.resolution.tiles), writer)
-        if not pending and not removals and self._current(manifest):
+        if not pending and not removals and self.current(manifest):
             return []
         for name in pending:
             tile = source / f"{name}{TIF}"

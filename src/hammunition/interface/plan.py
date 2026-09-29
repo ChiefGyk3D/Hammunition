@@ -646,11 +646,17 @@ def _terrain_section(terrain: TerrainDisclosure | None) -> TerrainSectionView | 
 def _map_section(
     plan: InstallPlan, maps: MapDisclosure | None, terrain: TerrainDisclosure | None = None
 ) -> MapSectionView | None:
-    units = [
-        p.block.install
-        for p in plan.packages
-        if isinstance(p.block.install, RegionalDataInstall | DerivedDataInstall)
-    ]
+    # The regions' own unit first: its licence is the map data's. A derived
+    # unit can sort ahead of it and carry another (gdal-dem's is Copernicus's,
+    # D-061), which the region lines would otherwise have been shown under.
+    units = sorted(
+        (
+            p.block.install
+            for p in plan.packages
+            if isinstance(p.block.install, RegionalDataInstall | DerivedDataInstall)
+        ),
+        key=lambda block: not isinstance(block, RegionalDataInstall),
+    )
     if not units or maps is None or not (maps.fetch or maps.current or maps.kept or maps.convert):
         return None
     # A current region still being converted is not "nothing to do"; nor is
@@ -1078,6 +1084,11 @@ def _render_terrain(terrain: TerrainSectionView) -> list[str]:
             sea = f", {region.sea} square(s) of sea" if region.sea else ""
             fetch = f"; {region.download_human} to download" if region.download else ""
             lines.append(f"    {region.region:<{width}}  {region.tiles} tile(s){sea}{fetch}")
+        # A region's record is written only when its terrain is installed
+        # (Task 10's note, ruled at Task 13): until then every plan, a dry
+        # run included, asks Geofabrik for its outline again.
+        lines.append("    (a region's tiles are read from its outline at Geofabrik, fetched again")
+        lines.append("    by every plan until its terrain is installed and its record written)")
     if terrain.fetch:
         lines.append(
             f"    will be downloaded ({len(terrain.fetch)} tile(s), "
