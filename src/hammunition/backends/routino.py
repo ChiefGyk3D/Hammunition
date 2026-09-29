@@ -32,6 +32,14 @@ record included, exactly as it was. A rename failing after that (one
 directory, so only a failing disk) removes the database and its record
 rather than leave QMapShack a mixed set, and the next run rebuilds.
 
+Scratch is only ever cleared by :meth:`Staging.clear`, which empties
+``routino.work`` as the operator under the build's one lock,
+``routino.work.lock`` -- the lock every parse and the process step hold --
+so nothing clears the database while a phase is building it. Root never
+removes a working directory itself; a refused run (125) removes nothing, the
+refusal proving another conversion owns it; and a clear that fails is named
+in the database's failure, never a silent "cleared".
+
 Routino's ``foot`` profile from ``routino-common`` is used unchanged; it
 does not read ``sac_scale`` (spec section 7).
 """
@@ -39,6 +47,7 @@ does not read ``sac_scale`` (spec section 7).
 from __future__ import annotations
 
 import os
+import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from functools import partial
@@ -95,6 +104,11 @@ def record_of(sources: Sequence[Source]) -> str:
 
 def _tail(result_text: str) -> str:
     return result_text.strip()[-300:]
+
+
+def _refused(result: subprocess.CompletedProcess[str]) -> str:
+    """A run :meth:`Staging.run` refused (125): nothing started, nothing removed."""
+    return f"planetsplitter was not started: {_tail(result.stderr) or 'refused'}"
 
 
 def _outcome(text: str, who: str) -> str:
@@ -155,6 +169,22 @@ class RoutinoConverter:
         """The one working directory every parse and the process step share."""
         return self.staging.workdir("routino")
 
+    @property
+    def lock(self) -> Path:
+        """The build's one lock, held by every parse, the process step and every clear."""
+        return self.staging.lockfile(self.work)
+
+    def _scratch(self, lead: str) -> str:
+        """Clear the working directory under the build's lock: "" when it
+        cleared, else *lead* and why not (never a silent "cleared")."""
+        cleared = self.staging.clear(self.work, lock=self.lock)
+        if cleared.returncode == 0:
+            return ""
+        return (
+            f"{lead}its scratch {self.work} was not cleared: "
+            f"{_tail(cleared.stderr) or 'no reason given'}"
+        )
+
     def steps(self, manifest: PackageManifest, block: DerivedDataInstall) -> list[Action | Command]:
         sources = self.pending(manifest, block)
         if not sources:
@@ -200,7 +230,7 @@ class RoutinoConverter:
                 kind="install-data",
                 description=(
                     f"Install the Routino database ({', '.join(DB_FILES)}) and its record "
-                    f"of regions, then remove {work}"
+                    f"of regions, then clear its scratch {work}"
                 ),
                 detail=str(out / RECORD),
                 perform=partial(self._install, sources, out, key, state, writer),
@@ -220,39 +250,54 @@ class RoutinoConverter:
                 f"{source.region} did not install, and the database is built over every "
                 f"region or none; the installed one is left as it was"
             )
-            if not first:
-                self.staging.remove_tree(work)  # this run's own parsed regions
+            # This run's own parsed regions; the regions ledger reports the
+            # region, so only a clear that failed is this ledger's to report.
+            scratch = "" if first else self._scratch("")
+            if scratch:
+                return self.ledger.fail(key, f"Routino database not built: {scratch}")
             return f"skipped: {state['failed']}"
         if not source.pbf.is_file():
             state["failed"] = f"{source.region}: {source.pbf} is not installed"
-            if not first:
-                self.staging.remove_tree(work)
-            return self.ledger.fail(key, f"Routino database not built: {state['failed']}")
+            scratch = "" if first else self._scratch("; ")
+            return self.ledger.fail(key, f"Routino database not built: {state['failed']}{scratch}")
         if first:
-            self.staging.remove_tree(work)
             refusal = self.staging.prepare(work)
             if refusal is not None:
                 state["failed"] = refusal
                 return self.ledger.fail(key, f"Routino database not built: {refusal}")
-        result = self.staging.run(argv, cwd=work)
+            # A crashed run's leftovers, under the lock: 125 means another
+            # conversion holds the directory, and nothing in it is deleted.
+            cleared = self.staging.clear(work, lock=self.lock)
+            if cleared.returncode != 0:
+                state["failed"] = (
+                    _refused(cleared)
+                    if cleared.returncode == REFUSED
+                    else f"could not clear {work}: {_tail(cleared.stderr) or 'no reason given'}"
+                )
+                return self.ledger.fail(
+                    key, f"Routino database not built: {source.region}: {state['failed']}"
+                )
+        result = self.staging.run(argv, cwd=work, lock=self.lock)
+        if result.returncode == REFUSED:
+            # 125 started nothing: the directory is another run's, left alone.
+            state["failed"] = f"{source.region}: {_refused(result)}"
+            return self.ledger.fail(key, f"Routino database not built: {state['failed']}")
         if result.returncode != 0:
             state["failed"] = (
                 f"planetsplitter could not parse {source.region} "
                 f"(exit {result.returncode}): {_tail(result.stderr or result.stdout)}"
             )
-            if result.returncode != REFUSED:
-                # 125 started nothing: the directory may be another run's.
-                self.staging.remove_tree(work)
-            return self.ledger.fail(key, f"Routino database not built: {state['failed']}")
+            scratch = self._scratch("; ")
+            return self.ledger.fail(key, f"Routino database not built: {state['failed']}{scratch}")
         return _outcome(f"parsed {source.region}", self.staging.who())
 
     def _process(self, key: str, state: dict[str, str]) -> str:
         if "failed" in state:
             return f"skipped: {state['failed']}"
         work = self.work
-        result = self.staging.run(process_argv(work), cwd=work)
+        result = self.staging.run(process_argv(work), cwd=work, lock=self.lock)
         if result.returncode == REFUSED:
-            state["failed"] = f"planetsplitter did not build the database: {_tail(result.stderr)}"
+            state["failed"] = f"planetsplitter did not build the database: {_refused(result)}"
             return self.ledger.fail(key, f"Routino database not built: {state['failed']}")
         digests = {name: self.staging.digest(work / name) for name in DB_FILES}
         missing = sorted(name for name, digest in digests.items() if digest is None)
@@ -262,8 +307,8 @@ class RoutinoConverter:
                 f"{', missing ' + ', '.join(missing) if missing else ''}): "
                 f"{_tail(result.stderr or result.stdout)}"
             )
-            self.staging.remove_tree(work)
-            return self.ledger.fail(key, f"Routino database not built: {state['failed']}")
+            scratch = self._scratch("; ")
+            return self.ledger.fail(key, f"Routino database not built: {state['failed']}{scratch}")
         for name, digest in digests.items():
             assert digest is not None
             state[name] = digest
@@ -281,6 +326,24 @@ class RoutinoConverter:
     ) -> str:
         if "failed" in state or not all(name in state for name in DB_FILES):
             return "skipped: the Routino database was not built"
+        failure = self._publish(sources, out, state, writer)
+        scratch = self._scratch("")
+        if failure is not None:
+            return self.ledger.fail(key, f"{failure}{'; ' + scratch if scratch else ''}")
+        if scratch:
+            return self.ledger.fail(
+                key, f"installed the Routino database under {out}, but {scratch}"
+            )
+        return f"installed the Routino database under {out}; cleared {self.work}"
+
+    def _publish(
+        self,
+        sources: Sequence[Source],
+        out: Path,
+        state: dict[str, str],
+        writer: PrefixWriter,
+    ) -> str | None:
+        """Install the four files and the record, all or none; why not, or None."""
         work = self.work
         temporaries = [out / f"{name}{NEW}" for name in DB_FILES]
         try:
@@ -289,10 +352,7 @@ class RoutinoConverter:
                     self.staging.publish(work / name, temporary, digest=state[name], writer=writer)
             except (BackendError, OSError) as exc:
                 writer.remove(temporaries)
-                return self.ledger.fail(
-                    key,
-                    f"Routino database not installed, the previous one left as it was: {exc}",
-                )
+                return f"Routino database not installed, the previous one left as it was: {exc}"
             try:
                 writer.remove([out / RECORD])
                 for name, temporary in zip(DB_FILES, temporaries, strict=True):
@@ -300,16 +360,13 @@ class RoutinoConverter:
                 writer.write_text(out / RECORD, record_of(sources))
             except (BackendError, OSError) as exc:
                 writer.remove([*temporaries, *(out / name for name in DB_FILES), out / RECORD])
-                return self.ledger.fail(
-                    key,
+                return (
                     f"Routino database not installed, and removed rather than left "
-                    f"mixed; the next run rebuilds it: {exc}",
+                    f"mixed; the next run rebuilds it: {exc}"
                 )
         except (BackendError, OSError) as exc:
-            return self.ledger.fail(key, f"Routino database not installed: {exc}")
-        finally:
-            self.staging.remove_tree(work)
-        return f"installed the Routino database under {out}; removed {work}"
+            return f"Routino database not installed: {exc}"
+        return None
 
 
 def _rename(writer: PrefixWriter, source: Path, dest: Path) -> None:

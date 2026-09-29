@@ -9,6 +9,7 @@ Synthetic regions only; a fake ``planetsplitter`` stands in for Routino's.
 from __future__ import annotations
 
 import hashlib
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -120,6 +121,11 @@ def _actions(steps: list[Action | Command]) -> list[Action]:
     return [s for s in steps if isinstance(s, Action)]
 
 
+def _empty(tmp_path: Path) -> bool:
+    """The working directory exists and holds nothing: cleared, not removed."""
+    return list((tmp_path / "staging" / "routino.work").iterdir()) == []
+
+
 def _run(conv: RoutinoConverter) -> list[str]:
     m = manifest()
     return [step.perform() for step in _actions(conv.steps(m, _block(m)))]
@@ -145,7 +151,7 @@ def test_every_region_is_parsed_into_one_database_then_processed_once(
     out = _data(tmp_path, "osm-routino")
     assert all((out / name).read_bytes() == b"db" for name in DB_FILES)
     assert (out / RECORD).read_text() == "atlantis-lemuria 260101\natlantis-oceania 260101\n"
-    assert not work.exists()
+    assert list(work.iterdir()) == [], "the scratch is cleared, the directory kept"
 
 
 def test_one_region_that_fails_to_parse_fails_the_database_by_name(
@@ -165,7 +171,7 @@ def test_one_region_that_fails_to_parse_fails_the_database_by_name(
     assert not any("--process-only" in c for _, c in calls(log))
     assert outcomes[-1].startswith("skipped")
     assert (out / "hammunition-nodes.mem").read_bytes() == b"old", "left as it was"
-    assert not (tmp_path / "staging" / "routino.work").exists()
+    assert _empty(tmp_path)
 
 
 def test_a_region_that_did_not_install_skips_the_database_without_double_reporting(
@@ -180,7 +186,7 @@ def test_a_region_that_did_not_install_skips_the_database_without_double_reporti
     assert all(o.startswith(("parsed", "skipped")) for o in outcomes)
     assert conv.ledger.failed == {}
     assert not any("--process-only" in c for _, c in calls(log))
-    assert not (tmp_path / "staging" / "routino.work").exists(), "this run's scratch removed"
+    assert _empty(tmp_path), "this run's scratch cleared"
 
 
 def test_a_later_region_missing_its_download_removes_this_runs_scratch(
@@ -192,7 +198,7 @@ def test_a_later_region_missing_its_download_removes_this_runs_scratch(
     _run(conv)
     assert "atlantis/lemuria" in conv.ledger.failed["osm-routino"]
     assert not any("--process-only" in c for _, c in calls(log))
-    assert not (tmp_path / "staging" / "routino.work").exists()
+    assert _empty(tmp_path)
 
 
 def test_a_publish_failing_partway_leaves_the_previous_database_whole(
@@ -222,7 +228,7 @@ def test_a_publish_failing_partway_leaves_the_previous_database_whole(
     assert sorted(p.name for p in out.iterdir()) == sorted([*DB_FILES, RECORD])
     assert all((out / name).read_bytes() == b"old" for name in DB_FILES)
     assert (out / RECORD).read_text() == "atlantis-oceania 250101\n"
-    assert not (tmp_path / "staging" / "routino.work").exists()
+    assert _empty(tmp_path)
 
 
 def test_a_rename_failing_removes_the_database_rather_than_leave_it_mixed(
@@ -333,4 +339,111 @@ def test_root_with_nobody_to_run_as_refuses_by_name(
     )
     _run(conv)
     assert "not root's" in conv.ledger.failed["osm-routino"]
+    assert calls(log) == []
+
+
+def test_a_refused_run_leaves_the_working_directory_alone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """125 proves another conversion owns the directory: nothing in it is removed."""
+    import fcntl
+
+    install_fakes(monkeypatch, tmp_path / "bin", {"planetsplitter": PLANETSPLITTER})
+    _install_region(tmp_path, OCEANIA)
+    work = tmp_path / "staging" / "routino.work"
+    work.mkdir(parents=True)
+    theirs = work / "hammunition-nodes.mem"
+    theirs.write_bytes(b"another run's")
+    conv = _converter(tmp_path, [OCEANIA])
+    with (tmp_path / "staging" / "routino.work.lock").open("w") as held:
+        fcntl.flock(held, fcntl.LOCK_EX)
+        _run(conv)
+    assert "another conversion" in conv.ledger.failed["osm-routino"]
+    assert theirs.read_bytes() == b"another run's"
+
+
+def test_scratch_is_only_cleared_under_the_build_s_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Root never removes the working directory: every clear is Staging.clear,
+    as the operator, holding the one lock the parses and the process hold."""
+    install_fakes(monkeypatch, tmp_path / "bin", {"planetsplitter": PLANETSPLITTER})
+    _install_region(tmp_path, OCEANIA)
+    removed: list[Path] = []
+    cleared: list[tuple[Path, Path | None]] = []
+    real = Staging.clear
+    monkeypatch.setattr(Staging, "remove_tree", lambda self, path: removed.append(path))
+
+    def clear(self: Staging, cwd: Path, *, lock: Path | None = None) -> Any:
+        cleared.append((cwd, lock))
+        return real(self, cwd, lock=lock)
+
+    monkeypatch.setattr(Staging, "clear", clear)
+    conv = _converter(tmp_path, [OCEANIA])
+    _run(conv)
+    work = tmp_path / "staging" / "routino.work"
+    assert removed == []
+    assert cleared == [(work, work.with_name("routino.work.lock"))] * 2, "before and after"
+
+
+def test_an_install_whose_scratch_did_not_clear_says_so(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    install_fakes(monkeypatch, tmp_path / "bin", {"planetsplitter": PLANETSPLITTER})
+    _install_region(tmp_path, OCEANIA)
+    real = Staging.clear
+    count = {"n": 0}
+
+    def clear(self: Staging, cwd: Path, *, lock: Path | None = None) -> Any:
+        count["n"] += 1
+        if count["n"] == 2:
+            return subprocess.CompletedProcess(["find"], 1, "", "find: permission denied")
+        return real(self, cwd, lock=lock)
+
+    monkeypatch.setattr(Staging, "clear", clear)
+    conv = _converter(tmp_path, [OCEANIA])
+    outcomes = _run(conv)
+    message = conv.ledger.failed["osm-routino"]
+    assert "installed" in message and "was not cleared" in message
+    assert "permission denied" in message
+    assert "FAILED" in outcomes[-1]
+    assert (_data(tmp_path, "osm-routino") / RECORD).is_file(), "the database is installed"
+
+
+def test_a_failed_parse_whose_scratch_did_not_clear_names_both(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FAIL_ON", "oceania")
+    install_fakes(monkeypatch, tmp_path / "bin", {"planetsplitter": PLANETSPLITTER})
+    _install_region(tmp_path, OCEANIA)
+    real = Staging.clear
+    count = {"n": 0}
+
+    def clear(self: Staging, cwd: Path, *, lock: Path | None = None) -> Any:
+        count["n"] += 1
+        if count["n"] == 2:
+            return subprocess.CompletedProcess(["find"], 1, "", "find: input/output error")
+        return real(self, cwd, lock=lock)
+
+    monkeypatch.setattr(Staging, "clear", clear)
+    conv = _converter(tmp_path, [OCEANIA])
+    _run(conv)
+    message = conv.ledger.failed["osm-routino"]
+    assert "cannot parse" in message and "was not cleared" in message
+    assert "input/output error" in message
+
+
+def test_a_pre_clear_that_fails_fails_the_database_and_runs_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    log = install_fakes(monkeypatch, tmp_path / "bin", {"planetsplitter": PLANETSPLITTER})
+    _install_region(tmp_path, OCEANIA)
+    monkeypatch.setattr(
+        Staging,
+        "clear",
+        lambda self, cwd, *, lock=None: subprocess.CompletedProcess(["find"], 1, "", "find: no"),
+    )
+    conv = _converter(tmp_path, [OCEANIA])
+    _run(conv)
+    assert "could not clear" in conv.ledger.failed["osm-routino"]
     assert calls(log) == []
