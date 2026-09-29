@@ -272,7 +272,8 @@ In QMapShack: Realtime, then GPS Tether; host 127.0.0.1, port 10110.
 Ctrl-C stops it. Navit reads gpsd directly and needs none of this.
 ```
 
-A field gpsd did not give is an empty field. Altitude is given on a 3D fix
+A field gpsd did not give is an empty field, except the time: with none
+from gpsd, the system clock in UTC is used. Altitude is given on a 3D fix
 only. Satellites and HDOP come from gpsd's latest `SKY`. Each client gets
 its own gpsd watch. A second client is closed at once. On stderr it prints
 a line when a client connects or goes, when gpsd cannot be reached or

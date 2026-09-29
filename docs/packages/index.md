@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**265 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**266 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -301,7 +301,7 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `navigation-maps` — 13
+### `navigation-maps` — 14
 
 Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
 
@@ -318,6 +318,7 @@ Offline maps, turn-by-turn navigation and the position on a moving map, with no 
 - [osm-routino](osm-routino.md) — One Routino routing database over all your regions, for routes on foot
 - [qmapshack](qmapshack.md) — Offline topographic maps, trails, GPX tracks, elevation profiles and routing on foot
 - [routino](routino.md) — Offline routing over OpenStreetMap data, on foot, by bike or by car
+- [socat](socat.md) — A relay between two data channels, sockets, files or programs
 
 ### `nbems` — 5
 
@@ -876,6 +877,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [soapysdr-module-rtlsdr](soapysdr-module-rtlsdr.md) | SoapySDR driver module for RTL-SDR hardware | apt |
 | [soapysdr-module-uhd](soapysdr-module-uhd.md) | SoapySDR driver module for Ettus USRP hardware | apt |
 | [soapysdr-tools](soapysdr-tools.md) | Command-line tools for the SoapySDR hardware abstraction layer | apt |
+| [socat](socat.md) | A relay between two data channels, sockets, files or programs | apt |
 | [spectools](spectools.md) | Spectrum display for MetaGeek Wi-Spy dongles and the Ubertooth One | apt |
 | [splat](splat.md) | Terrain-aware path analysis for VHF and above, from real elevation data | apt |
 | [stlink-tools](stlink-tools.md) | Flash and debug STM32 targets through an ST-Link probe | apt |

@@ -482,7 +482,9 @@ How it works, so you know what you are running:
 - It asks gpsd for its position the way `xgps` and Navit do, as JSON, and
   writes two NMEA sentences for every position with a fix: `$GPRMC` (time,
   position, speed, heading) and `$GPGGA` (position, fix quality, satellites,
-  altitude). A value gpsd did not give is left empty, never made up. With
+  altitude). A value gpsd did not give is left empty, never made up; the
+  one exception is the time, which falls back to this machine's clock (in
+  UTC) if gpsd sent none. With
   no fix, it sends nothing.
 - It listens on 127.0.0.1, port 10110, and nowhere else: nothing else on the
   network can connect to it. One program at a time can. A second one is
@@ -501,9 +503,9 @@ stop that one first. If it says it cannot reach gpsd, gpsd is not running:
 The first version of the tether passed on gpsd's raw NMEA through `socat`.
 On the field laptop that stream was empty, because it carries only NMEA
 gpsd is translating for the receiver. If you installed that version,
-`socat` is no longer part of this profile. `hammunition uninstall` cannot
-name it now, so remove it with `sudo apt remove socat` if nothing else of
-yours uses it.
+`socat` is no longer part of this profile; it is kept in the catalog as
+retired, so `hammunition uninstall socat` still removes it. Do that only
+if nothing else of yours uses it.
 
 ---
 

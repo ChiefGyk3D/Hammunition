@@ -14,6 +14,7 @@ import socket
 import threading
 import time
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -84,12 +85,25 @@ def test_southern_and_western_hemispheres_and_missing_fields_are_empty() -> None
     ]
 
 
-def test_no_time_is_an_empty_field_and_minutes_never_reach_60() -> None:
+def test_no_time_takes_the_system_clock_in_utc_and_minutes_never_reach_60(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import hammunition.gps_tether as tether
+
+    monkeypatch.setattr(tether, "_now", lambda: datetime(2026, 3, 4, 5, 6, 7, 890_000, UTC))
     tpv = {"class": "TPV", "mode": 2, "lat": 10.99999999, "lon": 0.0}
     assert sentences(tpv) == [
-        b"$GPRMC,,A,1100.0000,N,00000.0000,E,,,,,,A*70\r\n",
-        b"$GPGGA,,1100.0000,N,00000.0000,E,1,,,,M,,M,,*5C\r\n",
+        b"$GPRMC,050607.89,A,1100.0000,N,00000.0000,E,,,040326,,,A*58\r\n",
+        b"$GPGGA,050607.89,1100.0000,N,00000.0000,E,1,,,,M,,M,,*77\r\n",
     ]
+
+
+def test_the_clock_fallback_is_utc_whatever_the_local_zone() -> None:
+    import hammunition.gps_tether as tether
+
+    now = tether._now()
+    assert now.utcoffset() == timedelta(0)
+    assert abs((now - datetime.now(UTC)).total_seconds()) < 5
 
 
 def test_alt_is_used_when_altmsl_is_absent() -> None:
@@ -117,10 +131,15 @@ def test_no_fix_or_no_usable_position_gives_no_sentence(tpv: dict[str, Any]) -> 
     assert sentences(tpv) == []
 
 
-def test_a_malformed_time_or_speed_is_an_empty_field_not_an_error() -> None:
+def test_a_malformed_time_takes_the_clock_and_a_bad_speed_is_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import hammunition.gps_tether as tether
+
+    monkeypatch.setattr(tether, "_now", lambda: datetime(2026, 3, 4, 5, 6, 7, 890_000, UTC))
     rmc, gga = sentences({**FIX_3D, "time": "yesterday", "speed": "fast"})
-    assert rmc.startswith(b"$GPRMC,,A,1230.0000,N,03445.0000,E,,90.0,,")
-    assert gga.startswith(b"$GPGGA,,1230")
+    assert rmc.startswith(b"$GPRMC,050607.89,A,1230.0000,N,03445.0000,E,,90.0,040326,")
+    assert gga.startswith(b"$GPGGA,050607.89,1230")
 
 
 def test_every_sentence_is_crlf_terminated_and_its_checksum_verifies() -> None:

@@ -5141,7 +5141,7 @@ needs trails, contours, a route on foot and the position on one map.
 All of it comes from the archive and none of it is built from source:
 QMapShack (Parrot echo 1.17.1; 1.21.1 in echo-backports, which D-038 takes
 where the machine already installs from there), Routino 3.4.3, GDAL 3.10.3,
-mkgmap r4923 with mkgmap-splitter r654, and socat (removed 2026-09-29 by
+mkgmap r4923 with mkgmap-splitter r654, and socat (retired 2026-09-29 by
 the amendment below). Viking, Marble, GPSPrune
 and JOSM were measured and are not carried. Debian's Viking links no Mapnik,
 so it renders nothing offline, and it routes only through web services.
@@ -5324,7 +5324,7 @@ QMapShack has no gpsd client; its GPS Tether reads NMEA over TCP.
 `hammunition maps gps-tether`, the `gps-tether` launcher, runs `gpspipe -r`
 behind `socat` listening on 127.0.0.1 port 10110 only, one client at a
 time, and only while the operator runs it. (Amended 2026-09-29, below: the
-engine now writes the NMEA from gpsd's JSON itself, and `socat` is gone.) A position is where the operator
+engine now writes the NMEA from gpsd's JSON itself, and `socat` is retired.) A position is where the operator
 is, so it is never served to the network, and nothing is installed as a
 service. The listening socket was measured on loopback only by
 `tests/test_gps_tether.py`, which runs the real `socat` where it is
@@ -5467,7 +5467,9 @@ sends `?WATCH={"enable":true,"json":true}`, and for every `TPV` with
 `altMSL`, else `alt`) on a 3D fix only, fix quality 1 (2 and RMC mode `D`
 where gpsd's `status` says DGPS), and the satellites used and HDOP from the
 latest `SKY`. Every sentence ends with its XOR checksum and CRLF. A field
-gpsd did not give is an empty field; nothing is invented. It is the standard
+gpsd did not give is an empty field, except the time: a TPV with no time,
+or one that does not parse, is stamped with the system clock in UTC, since a
+reader may drop a sentence without one. It is the standard
 library in the engine, and nothing is executed: `socat` and `gpspipe` are no
 longer involved.
 
@@ -5481,11 +5483,11 @@ once when no position with a fix has arrived in 10 s, naming `xgps`. It
 refuses root.
 
 `socat` was carried only for the tether, and nothing else in the catalog
-uses it, so it leaves the catalog and the `navigation` profile. A machine
-that installed it under v0.14.0 keeps it: `hammunition uninstall` resolves
-names against the catalog, so it can no longer name it, and the guide says
-to remove it with apt if nothing else uses it. `qmapshack` keeps its
-dependency on `gpsd-clients`, for `xgps`.
+uses it, so it leaves the `navigation` profile and `qmapshack`'s
+dependencies. Its manifest stays, with status `retired` (`out_of_scope`):
+`hammunition uninstall` resolves names against the catalog, and a machine
+that installed socat under v0.14.0 must still be able to remove it by name.
+`qmapshack` keeps its dependency on `gpsd-clients`, for `xgps`.
 
 Measured: the sentence conversion against checksums computed by hand, both
 hemispheres, no fix and missing fields; the server against a fake gpsd on a

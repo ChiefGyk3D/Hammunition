@@ -11,8 +11,9 @@ is translating for the receiver, and is empty whenever gpsd is not, while
 the JSON watch is what every gpsd client (xgps, Navit) reads. So the tether
 now asks gpsd for JSON itself, ``?WATCH={"enable":true,"json":true}`` on
 127.0.0.1 port 2947, and writes ``$GPRMC`` and ``$GPGGA`` for every ``TPV``
-with a 2D or 3D fix. Nothing it does not have is invented: a field gpsd did
-not give is an empty field.
+with a 2D or 3D fix. A field gpsd did not give is an empty field, with one
+exception: a TPV with no time (or one that does not parse) is stamped with
+the system clock in UTC, because a reader may drop a sentence without one.
 
 It listens on 127.0.0.1 port 10110, the conventional NMEA-0183 port, and
 nowhere else: a position is where the operator is, and it is not served to
@@ -33,7 +34,7 @@ import socket
 import threading
 import time
 from collections.abc import Callable, Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 __all__ = [
@@ -91,14 +92,28 @@ def _degrees_minutes(value: float, width: int, positive: str, negative: str) -> 
     return f"{degrees:0{width}d}{minutes:02d}.{fraction:04d}", hemisphere
 
 
+def _now() -> datetime:
+    """The system clock in UTC; a seam for the tests."""
+    return datetime.now(UTC)
+
+
 def _time_fields(value: object) -> tuple[str, str]:
-    """``hhmmss.ss`` and ``ddmmyy`` from gpsd's ISO 8601 time, or empty."""
-    if not isinstance(value, str):
-        return "", ""
-    try:
-        when = datetime.fromisoformat(value)
-    except ValueError:
-        return "", ""
+    """``hhmmss.ss`` and ``ddmmyy`` in UTC from gpsd's ISO 8601 time.
+
+    A TPV with no time, or one that does not parse, takes the system clock
+    in UTC instead: a reader such as QMapShack may drop a sentence with an
+    empty time, and a fix without gpsd's time is rare and brief.
+    """
+    when = None
+    if isinstance(value, str):
+        try:
+            when = datetime.fromisoformat(value)
+        except ValueError:
+            when = None
+    if when is None:
+        when = _now()
+    elif when.tzinfo is not None:
+        when = when.astimezone(UTC)
     return f"{when:%H%M%S}.{when.microsecond // 10_000:02d}", f"{when:%d%m%y}"
 
 
