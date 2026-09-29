@@ -473,11 +473,88 @@ def test_clear_empties_a_working_directory_under_its_lock(tmp_path: Path) -> Non
     assert list(work.iterdir()) == []
 
 
-def test_clear_creates_a_working_directory_that_is_absent(tmp_path: Path) -> None:
+def test_clear_refuses_a_working_directory_that_is_absent(tmp_path: Path) -> None:
     staging = Staging(tmp_path / "staging", euid=NOT_ROOT)
     work = staging.workdir("region")
-    assert staging.clear(work).returncode == 0
-    assert work.is_dir() and list(work.iterdir()) == []
+    cleared = staging.clear(work)
+    assert cleared.returncode != 0
+    assert "does not exist" in cleared.stderr and str(work) in cleared.stderr
+    assert not work.exists()
+
+
+def _full(directory: Path) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "kept").write_text("x")
+    return directory / "kept"
+
+
+def test_clear_refuses_the_staging_directory_itself(tmp_path: Path) -> None:
+    """The review's probe: clearing the staging directory would empty every
+    region's working directory, a busy one included."""
+    staging = Staging(tmp_path / "staging", euid=NOT_ROOT)
+    kept = _full(staging.workdir("busy"))
+    cleared = staging.clear(staging.directory)
+    assert cleared.returncode != 0 and "strictly below" in cleared.stderr
+    assert kept.exists()
+
+
+def test_clear_refuses_a_directory_outside_staging(tmp_path: Path) -> None:
+    staging = Staging(tmp_path / "staging", euid=NOT_ROOT)
+    staging.directory.mkdir()
+    kept = _full(tmp_path / "outside")
+    cleared = staging.clear(tmp_path / "outside")
+    assert cleared.returncode != 0 and "strictly below" in cleared.stderr
+    assert kept.exists()
+
+
+def test_clear_refuses_a_dotdot_path_textually(tmp_path: Path) -> None:
+    staging = Staging(tmp_path / "staging", euid=NOT_ROOT)
+    staging.directory.mkdir()
+    kept = _full(tmp_path / "outside2")
+    cleared = staging.clear(staging.directory / ".." / "outside2")
+    assert cleared.returncode != 0 and "'..'" in cleared.stderr
+    assert kept.exists()
+
+
+def test_clear_refuses_a_symlink_out_of_staging(tmp_path: Path) -> None:
+    staging = Staging(tmp_path / "staging", euid=NOT_ROOT)
+    staging.directory.mkdir()
+    kept = _full(tmp_path / "outside3")
+    (staging.directory / "link.work").symlink_to(tmp_path / "outside3")
+    cleared = staging.clear(staging.directory / "link.work")
+    assert cleared.returncode != 0 and "strictly below" in cleared.stderr
+    assert kept.exists()
+
+
+def test_run_holds_the_lock_it_is_given(tmp_path: Path) -> None:
+    """One lock per region: a run in ``split/`` under the region's own lock is
+    refused while that lock is held, and so is a clear while the run holds it."""
+    staging = Staging(tmp_path / "staging", euid=NOT_ROOT)
+    work = staging.workdir("region")
+    (work / "split").mkdir(parents=True)
+    lock = staging.lockfile(work)
+    assert lock == staging.directory / "region.work.lock"
+    with lock.open("w") as held:
+        fcntl.flock(held, fcntl.LOCK_EX)
+        busy = staging.run(["true"], cwd=work / "split", lock=lock)
+    assert busy.returncode == REFUSED and str(lock) in busy.stderr
+    assert staging.run(["true"], cwd=work / "split", lock=lock).returncode == 0
+    assert not (work / "split.lock").exists(), "no second lock name for the region"
+
+
+@pytest.mark.parametrize("where", ["outside", "dotdot", "staging-itself"])
+def test_run_refuses_a_lock_outside_staging(tmp_path: Path, where: str) -> None:
+    staging = Staging(tmp_path / "staging", euid=NOT_ROOT)
+    work = staging.workdir("region")
+    work.mkdir(parents=True)
+    lock = {
+        "outside": tmp_path / "elsewhere.lock",
+        "dotdot": staging.directory / ".." / "up.lock",
+        "staging-itself": staging.directory,
+    }[where]
+    result = staging.run(["touch", "ran"], cwd=work, lock=lock)
+    assert result.returncode == REFUSED
+    assert not (work / "ran").exists()
 
 
 def test_clear_deletes_nothing_while_another_conversion_holds_the_directory(
