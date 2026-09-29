@@ -591,7 +591,15 @@ def test_clear_runs_as_the_operator_under_root(
     assert any(argv[:3] == ["env", "-C", str(work)] and "find" in argv for argv, _ in fake.calls)
 
 
-def test_clear_as_root_with_nobody_to_run_as_deletes_nothing(tmp_path: Path) -> None:
+def test_clear_as_root_with_nobody_to_run_as_deletes_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Deterministic, whoever runs the suite: in CI's container every component
+    # of tmp_path really is root's, and root would rightly work there itself.
+    monkeypatch.setattr(
+        "hammunition.backends.staging._owner_uid",
+        lambda path: 4242 if path == tmp_path else 0,
+    )
     staging = Staging(tmp_path / "staging", euid=0)
     work = staging.workdir("region")
     work.mkdir(parents=True)

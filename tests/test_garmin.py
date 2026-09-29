@@ -317,6 +317,12 @@ def test_root_with_nobody_to_run_as_fails_the_region_and_runs_nothing(
 ) -> None:
     """Root, a staging directory under no home and not root's own: nothing is
     run as root, and the region fails by name with the reason."""
+    # Deterministic, whoever runs the suite: in CI's container every component
+    # of tmp_path really is root's, and root would rightly work there itself.
+    monkeypatch.setattr(
+        "hammunition.backends.staging._owner_uid",
+        lambda path: 4242 if path == tmp_path else 0,
+    )
     log = install_fakes(
         monkeypatch, tmp_path / "bin", {"mkgmap-splitter": SPLITTER_OK, "mkgmap": MKGMAP_OK}
     )

@@ -371,6 +371,12 @@ def test_the_outcome_says_who_drew_it(tmp_path: Path, monkeypatch: pytest.Monkey
 def test_root_with_nobody_to_run_as_fails_and_runs_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # Deterministic, whoever runs the suite: in CI's container every component
+    # of tmp_path really is root's, and root would rightly work there itself.
+    monkeypatch.setattr(
+        "hammunition.backends.staging._owner_uid",
+        lambda path: 4242 if path == tmp_path else 0,
+    )
     log = install_fakes(monkeypatch, tmp_path / "bin", FAKES)
     _install_tiles(tmp_path, A, B)
     conv = GdalDemConverter(
