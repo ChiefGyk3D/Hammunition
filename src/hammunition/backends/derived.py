@@ -58,7 +58,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from .. import navit_config, osm_pbf
 from ..country_boundaries import (
@@ -113,6 +113,25 @@ _EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85
 #: region's ``.bin.part``.
 _SCRATCH = re.compile(r"country_[A-Za-z0-9]+_(?:broken|poly)_\.tmp")
 SCRATCH_PATTERNS = "country_*_broken_.tmp, country_*_poly_.tmp"
+
+
+class Ledger(Protocol):
+    """What a converter's failure ledger offers: its last, failing step."""
+
+    def step(self) -> Action: ...
+
+
+class Converter(Protocol):
+    """A converter other than ``navit-maptool`` (D-061): mkgmap, Routino's
+    planetsplitter, GDAL. Each owns its steps and reports failures in its
+    own ledger."""
+
+    @property
+    def ledger(self) -> Ledger: ...
+
+    def steps(
+        self, manifest: PackageManifest, block: DerivedDataInstall
+    ) -> list[Action | Command]: ...
 
 
 def _maptool_argv(pbf: Path, staged: Path) -> list[str]:
@@ -197,6 +216,8 @@ class DerivedBackend:
     runner: CommandRunner | None = None
     euid: int | None = None
     privileged: bool | None = None
+    converters: Mapping[str, Converter] = field(default_factory=dict)
+    """D-061's converters by enum value; ``navit-maptool`` is this class's own."""
     boundaries: BoundarySource | None = None
     """The installed country-border file, when the block names a boundaries unit."""
     countries: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
@@ -227,11 +248,25 @@ class DerivedBackend:
                 return tuple(codes)
         return ()
 
+    def ledgers(self, block: DerivedDataInstall) -> tuple[Ledger, ...]:
+        """The ledgers a block's steps report into, so the run ends on their checks."""
+        if block.converter == "navit-maptool":
+            return (self.ledger,)
+        converter = self.converters.get(block.converter)
+        return () if converter is None else (converter.ledger,)
+
     def steps(self, manifest: PackageManifest, block: DerivedDataInstall) -> list[Action | Command]:
-        # One converter today; the schema's enum refuses anything else, and a
-        # new member must be implemented here before a manifest can name it.
-        if block.converter != "navit-maptool":  # pragma: no cover
-            raise BackendError(f"{manifest.name}: converter {block.converter!r} is not implemented")
+        if block.converter != "navit-maptool":
+            # The schema's enum refuses a converter that does not exist; one
+            # that exists but was not built for this run is an engine error,
+            # never a silent skip that reports success having done nothing.
+            converter = self.converters.get(block.converter)
+            if converter is None:
+                raise BackendError(
+                    f"{manifest.name}: converter {block.converter!r} has no backend in this "
+                    f"run. Skipping it would report a successful run that installed nothing."
+                )
+            return converter.steps(manifest, block)
         if block.boundaries is not None and self.boundaries is None:
             raise BackendError(
                 f"{manifest.name}: the block merges country borders from "
