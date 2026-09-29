@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import fcntl
 import hashlib
+import re
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -18,9 +20,9 @@ import pytest
 
 from fake_tools import arg, calls, install_fakes
 from hammunition.backends import Action, Command
-from hammunition.backends.garmin import SPLITTER_HEAP, GarminConverter
+from hammunition.backends.garmin import CONVERTER, MKGMAP_HEAP, SPLITTER_HEAP, GarminConverter
 from hammunition.backends.regions import MapLedger
-from hammunition.backends.staging import Staging
+from hammunition.backends.staging import REFUSED, Staging
 from hammunition.geofabrik import RegionFile
 from hammunition.manifest.schema import DerivedDataInstall, PackageManifest
 
@@ -140,11 +142,11 @@ def test_the_split_and_the_build_run_with_their_fixed_argv_in_staging(
     assert "--index" not in build and "--housenumbers" not in build
     out = _data(tmp_path, "osm-garmin")
     assert (out / f"{OCEANIA.slug}.img").read_bytes() == b"garmin"
-    assert (out / f"{OCEANIA.slug}.img.source").read_text() == "260101\n"
-    assert not work.exists(), "the scratch is removed after a successful build"
+    assert (out / f"{OCEANIA.slug}.img.source").read_text() == f"260101\nconverter: {CONVERTER}\n"
+    assert list(work.iterdir()) == [], "the scratch is cleared after a successful build"
 
 
-def test_the_splitter_gets_its_heap_through_java_opts(
+def test_each_program_gets_its_heap_through_the_staging_environment(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     install_fakes(
@@ -152,17 +154,22 @@ def test_the_splitter_gets_its_heap_through_java_opts(
         tmp_path / "bin",
         {
             "mkgmap-splitter": f'echo "$JAVA_OPTS" > {tmp_path}/heap; {SPLITTER_OK}',
-            "mkgmap": MKGMAP_OK,
+            "mkgmap": f'echo "$JAVA_TOOL_OPTIONS" > {tmp_path}/mkgmap-heap; {MKGMAP_OK}',
         },
     )
     _install_region(tmp_path, OCEANIA)
     conv = GarminConverter(
         prefix=tmp_path,
         files=[OCEANIA],
-        staging=Staging(tmp_path / "staging", euid=NOT_ROOT, environ={"JAVA_OPTS": SPLITTER_HEAP}),
+        staging=Staging(
+            tmp_path / "staging",
+            euid=NOT_ROOT,
+            environ={"JAVA_OPTS": SPLITTER_HEAP, "JAVA_TOOL_OPTIONS": MKGMAP_HEAP},
+        ),
     )
     _run(conv)
     assert (tmp_path / "heap").read_text().strip() == "-Xmx4000m"
+    assert (tmp_path / "mkgmap-heap").read_text().strip() == "-Xmx6000m"
 
 
 def test_mkgmap_exiting_zero_with_no_map_fails_that_region_only(
@@ -179,7 +186,7 @@ def test_mkgmap_exiting_zero_with_no_map_fails_that_region_only(
     out = _data(tmp_path, "osm-garmin")
     assert not (out / f"{OCEANIA.slug}.img").exists()
     assert (out / f"{LEMURIA.slug}.img").exists()
-    assert not (tmp_path / "staging" / f"{OCEANIA.slug}.work").exists(), (
+    assert list((tmp_path / "staging" / f"{OCEANIA.slug}.work").iterdir()) == [], (
         "a failed build's scratch goes too"
     )
 
@@ -219,7 +226,7 @@ def test_a_current_map_is_not_rebuilt_and_a_dropped_one_is_removed(tmp_path: Pat
     out = _data(tmp_path, "osm-garmin")
     out.mkdir(parents=True)
     (out / f"{OCEANIA.slug}.img").write_bytes(b"garmin")
-    (out / f"{OCEANIA.slug}.img.source").write_text("260101\n")
+    (out / f"{OCEANIA.slug}.img.source").write_text(f"260101\nconverter: {CONVERTER}\n")
     (out / "atlantis-sunk.img").write_bytes(b"old")
     conv = _converter(tmp_path, [OCEANIA])
     m = manifest()
@@ -277,7 +284,9 @@ def test_a_busy_working_directory_fails_that_region_by_name(
     _install_region(tmp_path, OCEANIA)
     conv = _converter(tmp_path, [OCEANIA])
     lock = conv.staging.workdir(OCEANIA.slug).with_name(f"{OCEANIA.slug}.work.lock")
-    lock.parent.mkdir(parents=True)
+    tile = lock.parent / f"{OCEANIA.slug}.work" / "split" / "63240001.osm.pbf"
+    tile.parent.mkdir(parents=True)
+    tile.write_text("another run's tile")
     with lock.open("w") as held:
         fcntl.flock(held, fcntl.LOCK_EX)
         _run(conv)
@@ -285,6 +294,7 @@ def test_a_busy_working_directory_fails_that_region_by_name(
     assert "atlantis/oceania" in message and "was not started" in message
     assert "another conversion" in message
     assert calls(log) == []
+    assert tile.read_text() == "another run's tile", "a busy refusal deletes nothing"
     assert not (_data(tmp_path, "osm-garmin") / f"{OCEANIA.slug}.img").exists()
 
 
@@ -315,3 +325,73 @@ def test_root_with_nobody_to_run_as_fails_the_region_and_runs_nothing(
     message = conv.ledger.failed[f"osm-garmin:{OCEANIA.slug}"]
     assert message.startswith("atlantis/oceania: ") and "refusing" in message
     assert calls(log) == []
+
+
+def _refuse(monkeypatch: pytest.MonkeyPatch, program: str, plant: Path) -> None:
+    """*program*'s run is refused (125) after another conversion wrote *plant*."""
+    real = Staging.run
+
+    def run(self: Staging, argv: Any, *, cwd: Path) -> subprocess.CompletedProcess[str]:
+        if argv[0] == program:
+            plant.write_text("another run's file")
+            return subprocess.CompletedProcess(list(argv), REFUSED, "", "held by another")
+        return real(self, argv, cwd=cwd)
+
+    monkeypatch.setattr(Staging, "run", run)
+
+
+@pytest.mark.parametrize("program", ["mkgmap-splitter", "mkgmap"])
+def test_a_refused_run_leaves_the_working_directory_alone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, program: str
+) -> None:
+    install_fakes(
+        monkeypatch, tmp_path / "bin", {"mkgmap-splitter": SPLITTER_OK, "mkgmap": MKGMAP_OK}
+    )
+    _install_region(tmp_path, OCEANIA)
+    conv = _converter(tmp_path, [OCEANIA])
+    foreign = conv.staging.workdir(OCEANIA.slug) / "split" / "foreign-tile.osm.pbf"
+    _refuse(monkeypatch, program, foreign)
+    outcomes = _run(conv)
+    message = conv.ledger.failed[f"osm-garmin:{OCEANIA.slug}"]
+    assert "atlantis/oceania" in message and f"{program} was not started" in message
+    assert foreign.read_text() == "another run's file"
+    assert outcomes[1].startswith("skipped")
+
+
+def test_the_heaps_are_jvm_max_heap_options() -> None:
+    for heap in (SPLITTER_HEAP, MKGMAP_HEAP):
+        assert re.fullmatch(r"-Xmx[0-9]+[mg]", heap), heap
+    assert MKGMAP_HEAP == "-Xmx6000m"
+
+
+def test_the_step_states_mkgmaps_memory_need(tmp_path: Path) -> None:
+    conv = _converter(tmp_path, [OCEANIA])
+    m = manifest()
+    convert = _actions(conv.steps(m, _block(m)))[0]
+    assert "needs about 6 GB free for mkgmap" in convert.description
+
+
+def test_a_map_from_before_the_converter_was_recorded_is_rebuilt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    install_fakes(
+        monkeypatch, tmp_path / "bin", {"mkgmap-splitter": SPLITTER_OK, "mkgmap": MKGMAP_OK}
+    )
+    _install_region(tmp_path, OCEANIA)
+    out = _data(tmp_path, "osm-garmin")
+    out.mkdir(parents=True)
+    (out / f"{OCEANIA.slug}.img").write_bytes(b"old garmin")
+    (out / f"{OCEANIA.slug}.img.source").write_text("260101\n")
+    conv = _converter(tmp_path, [OCEANIA])
+    assert conv.pending(manifest()) == [OCEANIA]
+    _run(conv)
+    assert (out / f"{OCEANIA.slug}.img").read_bytes() == b"garmin"
+    assert (out / f"{OCEANIA.slug}.img.source").read_text() == f"260101\nconverter: {CONVERTER}\n"
+
+
+def test_a_map_from_another_converter_version_is_rebuilt(tmp_path: Path) -> None:
+    out = _data(tmp_path, "osm-garmin")
+    out.mkdir(parents=True)
+    (out / f"{OCEANIA.slug}.img").write_bytes(b"old garmin")
+    (out / f"{OCEANIA.slug}.img.source").write_text("260101\nconverter: mkgmap 0\n")
+    assert _converter(tmp_path, [OCEANIA]).pending(manifest()) == [OCEANIA]
