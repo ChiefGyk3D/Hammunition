@@ -264,8 +264,11 @@ Ordered by coverage-per-effort, not by source.
 13. **Offline navigation** — post-1.0; the `navigation` profile (**D-057**):
     Navit over the operator's own OpenStreetMap regions, verified and
     converted by the engine. Piece 1 (driving and "where am I") is built and
-    not yet measured end to end on hardware; piece 2 (hiking: QMapShack,
-    contours) and piece 3 (Kiwix, a tile server) follow, each with its own
+    not yet measured end to end on hardware. Piece 2 (**D-061**: trails,
+    terrain and routing on foot; QMapShack over Garmin maps and one Routino
+    database built from the same regions, verified Copernicus elevation
+    with contours, and a loopback GPS tether) is built and not yet measured
+    on hardware; piece 3 (Kiwix, a tile server) follows with its own
     specification. `docs/guides/offline-navigation.md` is the operator's page
 14. **Offline EMCOMM knowledge base** — post-1.0, advanced, optional; not
     designed yet (issue #126). An offline library for emergency and survival

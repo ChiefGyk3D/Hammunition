@@ -80,9 +80,8 @@ documentation:
     launcher writes under those keys, listing the `hammunition` Routino
     database, taking a position from `gps-tether` through its GPS Tether
     dialog, and drawing hillshade. None of the four has yet been run on a
-    desktop; the Xubuntu/field-laptop bench
-    (docs/reference/vm-campaign-desktops.md, bench session 12) is that
-    check.
+    desktop; bench session 12 on the field laptop
+    (docs/reference/bench-verification-5430.md) is that check.
   upstream_url: https://github.com/Maproom/qmapshack
   upstream_support: >-
     The project's wiki (https://github.com/Maproom/qmapshack/wiki) and its
