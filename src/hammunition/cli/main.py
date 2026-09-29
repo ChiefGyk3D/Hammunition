@@ -836,7 +836,13 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
     and left untouched, and QMapShack is then not started. No ``--json``
     form: it replaces itself with a GUI (D-059).
     """
-    from hammunition.qmapshack_config import QmsConfigError, config_path, ensure_paths, wanted
+    from hammunition.qmapshack_config import (
+        QmsConfigError,
+        config_path,
+        ensure_paths,
+        superseded,
+        wanted,
+    )
 
     if os.geteuid() == 0:
         print(
@@ -852,7 +858,8 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
         print(f"error: {exc}. {not_started}.", file=sys.stderr)
         return EXIT_FAILED
     try:
-        updated = ensure_paths(text, wanted(data_root(DEFAULT_PREFIX)))
+        data = data_root(DEFAULT_PREFIX)
+        updated = ensure_paths(text, wanted(data), remove=superseded(data))
     except QmsConfigError as exc:
         print(
             f"error: {path}: {exc}. {not_started}; "
@@ -861,9 +868,15 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
         )
         return EXIT_FAILED
     if updated != text:
+        moved = ensure_paths(text, (), remove=superseded(data)) != text
         print(
             f"adding Hammunition's map, elevation and routing directories to {path} "
-            f"(existing entries kept)",
+            f"(existing entries kept"
+            + (
+                "; ours moved from [General], where QMapShack does not read them, to [Canvas])"
+                if moved
+                else ")"
+            ),
             file=sys.stderr,
         )
         try:

@@ -11,12 +11,21 @@ its key if absent; a value already there is kept, in its place; nothing
 else in the file is touched, byte for byte. Per-user and unprivileged, like
 the menu files (D-050).
 
-The keys were read from QMapShack 1.17.1's own binary on 2026-09-28: the
-map and DEM lists are top-level settings (``mapPath``, ``demPaths``, which
-Qt writes under ``[General]``; the binary has no ``Canvas`` group string),
-the Routino list is ``Route/routino/paths`` (``[Route]`` ``routino\\paths``);
-the map file filter is ``*.vrt|*.jnx|*.img|*.rmap|*.wmts|*.tms|*.gemf`` and
-the DEM filter ``*.vrt|*.wcs``. A list value is Qt's comma-separated form.
+The key names were read from QMapShack 1.17.1's own binary on 2026-09-28,
+and their group measured on the bench on 2026-09-29: QMapShack keeps the
+map and DEM lists under ``[Canvas]`` (``mapPath``, ``demPaths``; on exit it
+wrote ``@Invalid()`` there and ignored the same keys under ``[General]``,
+where this launcher had first put them), and the Routino list under
+``[Route]`` (``Route/routino/paths``, ``routino\\paths`` in the file), which
+it kept. The map file filter is
+``*.vrt|*.jnx|*.img|*.rmap|*.wmts|*.tms|*.gemf`` and the DEM filter
+``*.vrt|*.wcs``. A list value is Qt's comma-separated form.
+
+:func:`superseded` names where an earlier launcher wrote the two lists.
+Given as ``remove=``, our own directories are taken out of those
+``[General]`` keys, and a key left holding nothing is removed; any other
+value in them, and every other key, stays. A ``[General]`` key this cannot
+read is not ours and is left alone, never refused.
 
 A file it cannot read as that shape -- a line that is neither a section, a
 comment nor ``key=value``, or one of our keys holding a quoted or ``@``-typed
@@ -33,7 +42,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-__all__ = ["QmsConfigError", "Wanted", "config_path", "ensure_paths", "wanted"]
+__all__ = ["QmsConfigError", "Wanted", "config_path", "ensure_paths", "superseded", "wanted"]
 
 
 #: How Qt writes an empty QStringList (``iniEscapedStringList``; measured with
@@ -56,14 +65,30 @@ class Wanted:
 def wanted(data: Path) -> tuple[Wanted, ...]:
     """The directories under *data* (``<prefix>/share/hammunition/data``)."""
     return (
-        Wanted(
-            "General",
-            "mapPath",
-            (str(data / "osm-garmin"), str(data / "dem-qmapshack" / "contours")),
-        ),
-        Wanted("General", "demPaths", (str(data / "dem-qmapshack" / "dem"),)),
+        Wanted("Canvas", "mapPath", _map_paths(data)),
+        Wanted("Canvas", "demPaths", _dem_paths(data)),
         Wanted("Route", "routino\\paths", (str(data / "osm-routino"),)),
     )
+
+
+def superseded(data: Path) -> tuple[Wanted, ...]:
+    """Where the launcher wrote the map and DEM lists before 2026-09-29.
+
+    QMapShack ignores them there; :func:`ensure_paths` takes them out when
+    these are passed as ``remove=``.
+    """
+    return (
+        Wanted("General", "mapPath", _map_paths(data)),
+        Wanted("General", "demPaths", _dem_paths(data)),
+    )
+
+
+def _map_paths(data: Path) -> tuple[str, ...]:
+    return (str(data / "osm-garmin"), str(data / "dem-qmapshack" / "contours"))
+
+
+def _dem_paths(data: Path) -> tuple[str, ...]:
+    return (str(data / "dem-qmapshack" / "dem"),)
 
 
 def config_path(environ: Mapping[str, str] = os.environ, home: Path | None = None) -> Path:
@@ -83,8 +108,9 @@ def _items(value: str, section: str, key: str) -> list[str]:
     return [item.strip() for item in stripped.split(",") if item.strip()]
 
 
-def ensure_paths(text: str, wants: Sequence[Wanted]) -> str:
-    """*text* with every wanted path present under its key; nothing else changed."""
+def ensure_paths(text: str, wants: Sequence[Wanted], *, remove: Sequence[Wanted] = ()) -> str:
+    """*text* with every wanted path present under its key, and every path in
+    *remove* taken out of its key; nothing else changed."""
     for want in wants:
         for path in want.paths:
             if "," in path or '"' in path or path.startswith("@") or "\n" in path:
@@ -111,6 +137,21 @@ def ensure_paths(text: str, wants: Sequence[Wanted]) -> str:
     appended: dict[str, list[str]] = {}
     inserts: dict[int, list[str]] = {}
     changed = False
+    for gone in remove:
+        at = keys.get((gone.section, gone.key))
+        if at is None:
+            continue
+        raw = lines[at]
+        try:
+            items = _items(raw.split("=", 1)[1], gone.section, gone.key)
+        except QmsConfigError:
+            continue  # not a value we wrote; left as it is
+        kept = [item for item in items if item not in gone.paths]
+        if len(kept) == len(items):
+            continue
+        ending = raw[len(raw.rstrip("\r\n")) :]
+        lines[at] = f"{gone.key}={', '.join(kept)}{ending}" if kept else ""
+        changed = True
     for want in wants:
         at = keys.get((want.section, want.key))
         if at is not None:

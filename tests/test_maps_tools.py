@@ -69,11 +69,11 @@ def test_a_config_it_cannot_read_is_left_alone_and_qmapshack_not_started(
 ) -> None:
     conf = _as(monkeypatch, tmp_path)
     conf.parent.mkdir(parents=True)
-    conf.write_text("[General]\nmapPath=@Variant(\\0)\n")
+    conf.write_text("[Canvas]\nmapPath=@Variant(\\0)\n")
     seen = _record_exec(monkeypatch)
     assert cli.main(["maps", "qmapshack"]) == cli.EXIT_FAILED
     assert seen == []
-    assert conf.read_text() == "[General]\nmapPath=@Variant(\\0)\n"
+    assert conf.read_text() == "[Canvas]\nmapPath=@Variant(\\0)\n"
     assert "was not started" in capsys.readouterr().err
 
 
@@ -150,6 +150,7 @@ def test_the_edit_is_a_rename_in_the_same_directory_and_leaves_nothing_behind(
     assert sorted(p.name for p in conf.parent.iterdir()) == ["QMapShack.conf"]
     err = capsys.readouterr().err
     assert str(conf) in err, "the change is announced"
+    assert "[General]" not in err, "nothing was moved, so no move is claimed"
 
 
 def test_a_config_already_naming_our_directories_is_not_rewritten(
@@ -187,9 +188,34 @@ def test_a_config_qt_wrote_with_empty_lists_is_edited_and_qmapshack_started(
     """``@Invalid()`` is Qt's empty list: the ordinary returning user (D-061)."""
     conf = _as(monkeypatch, tmp_path)
     conf.parent.mkdir(parents=True)
-    conf.write_text("[General]\ndemPaths=@Invalid()\nmapPath=@Invalid()\n")
+    conf.write_text("[Canvas]\ndemPaths=@Invalid()\nmapPath=@Invalid()\n")
     seen = _record_exec(monkeypatch)
     with pytest.raises(Exec):
         cli.main(["maps", "qmapshack"])
     assert seen == [["qmapshack", "qmapshack"]]
     assert "@Invalid()" not in conf.read_text()
+
+
+def test_an_earlier_launchers_general_keys_are_moved_to_canvas(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Bench, 2026-09-29: QMapShack reads the lists under [Canvas] only (D-061)."""
+    data = "/usr/local/share/hammunition/data"
+    conf = _as(monkeypatch, tmp_path)
+    conf.parent.mkdir(parents=True)
+    conf.write_text(
+        "[General]\n"
+        f"mapPath={data}/osm-garmin, {data}/dem-qmapshack/contours\n"
+        f"demPaths={data}/dem-qmapshack/dem\n"
+        "\n"
+        "[Canvas]\n"
+        "mapPath=@Invalid()\n"
+        "demPaths=@Invalid()\n"
+    )
+    assert cli.main(["maps", "qmapshack", "--configure-only"]) == cli.EXIT_OK
+    text = conf.read_text()
+    general, canvas = text.split("[Canvas]\n")
+    assert "mapPath" not in general and "demPaths" not in general
+    assert f"mapPath={data}/osm-garmin, {data}/dem-qmapshack/contours\n" in canvas
+    assert f"demPaths={data}/dem-qmapshack/dem\n" in canvas
+    assert "moved from [General]" in capsys.readouterr().err
