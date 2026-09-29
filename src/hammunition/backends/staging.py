@@ -235,15 +235,51 @@ class Staging:
             raise ValueError(f"not a plain working-directory name: {name!r}")
         return self.directory / f"{name}.work"
 
-    def run(self, argv: Sequence[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
+    @staticmethod
+    def lockfile(cwd: Path) -> Path:
+        """The lock a run in *cwd* holds by default: ``<cwd>.lock`` beside it."""
+        return cwd.with_name(cwd.name + ".lock")
+
+    def below(self, path: Path) -> str | None:
+        """Why *path* is not strictly below the staging directory, or None.
+
+        A ``..`` component is refused as text first (``realpath`` would fold
+        it); then both are resolved with ``os.path.realpath``, so a symlink out
+        of the staging directory is outside it.
+        """
+        if ".." in path.parts:
+            return f"{path} has a '..' component"
+        here = Path(os.path.realpath(path))
+        base = Path(os.path.realpath(self.directory))
+        if base not in here.parents:
+            return f"{path} is not strictly below the staging directory {self.directory}"
+        return None
+
+    def run(
+        self, argv: Sequence[str], *, cwd: Path, lock: Path | None = None
+    ) -> subprocess.CompletedProcess[str]:
         """*argv* in *cwd*, as the operator when the engine is root.
 
-        Holds an ``flock`` on ``<cwd>.lock`` for the run. Returns
-        :data:`REFUSED` (125) without starting *argv* when another run holds
-        it, or when root has nobody to run as.
+        Holds an ``flock`` on *lock* for the run, by default ``<cwd>.lock``
+        (:meth:`lockfile`). A converter whose phases run in different
+        directories passes one *lock* for all of them, so one conversion has
+        one lock; a *lock* given must be strictly below the staging directory,
+        with no ``..``, whoever the engine is. Returns :data:`REFUSED` (125)
+        without starting *argv* when another run holds it, when the lock is
+        refused, or when root has nobody to run as.
         """
         assignments = [f"{name}={value}" for name, value in self.environ.items()]
-        lock = cwd.with_name(cwd.name + ".lock")
+        if lock is None:
+            lock = self.lockfile(cwd)
+        else:
+            why = self.below(lock)
+            if why is not None:
+                return subprocess.CompletedProcess(
+                    ["env", "-C", str(cwd), *argv],
+                    REFUSED,
+                    "",
+                    f"the lock {why}; refusing to run a converter under it",
+                )
         if self._root_self():
             # Strictly below: the lock lands beside the working directory, so
             # the staging directory itself would put it in the parent. No '..':
@@ -286,6 +322,29 @@ class Staging:
             line for line in lines if not _FLOCK_CHATTER.match(line.rstrip("\n"))
         )
         return result
+
+    def clear(self, cwd: Path, *, lock: Path | None = None) -> subprocess.CompletedProcess[str]:
+        """Empty the working directory *cwd*, under the lock :meth:`run` takes.
+
+        ``find . -xdev -mindepth 1 -delete`` in *cwd*, as the operator, holding
+        *lock* (``<cwd>.lock`` by default): a directory another conversion is
+        using returns :data:`REFUSED` (125) and nothing in it is deleted. *cwd*
+        itself stays. Refused by name, whoever the engine is, with nothing
+        deleted: a *cwd* with a ``..`` component, one not strictly below the
+        staging directory (the staging directory itself would empty every
+        conversion's directory at once), and one that does not exist. Root
+        never removes a working directory itself: with nobody to run as, this
+        is refused like every other operation. ``-delete`` never follows a
+        symlink, and ``-xdev`` keeps it off any other filesystem mounted inside.
+        """
+        why = self.below(cwd)
+        if why is None and not os.path.isdir(cwd):
+            why = f"the working directory {cwd} does not exist"
+        if why is not None:
+            return subprocess.CompletedProcess(
+                ["find", str(cwd)], REFUSED, "", f"{why}; refusing to clear it"
+            )
+        return self.run(["find", ".", "-xdev", "-mindepth", "1", "-delete"], cwd=cwd, lock=lock)
 
     def _subprocess(self, argv: Sequence[str]) -> subprocess.CompletedProcess[str]:
         refusal = self._refusal()
