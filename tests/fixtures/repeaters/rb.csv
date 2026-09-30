@@ -1,0 +1,4 @@
+Callsign,Frequency,Input Freq,PL,TSQ,Nearest City,Landmark,Use,Operational Status,Last Update,Lat,Long
+N0CALL,146.94000,146.34000,100.0,100.0,Springfield,Water tower,OPEN,On-air,2026-01-02,39.8017,-89.6436
+N0TST,444.10000,449.10000,123.0,,Springfield,,CLOSED,Off-air,2025-06-01,39.75,-89.60
+N0TST,147.00000,147.60000,,,Springfield,,OPEN,On-air,,,

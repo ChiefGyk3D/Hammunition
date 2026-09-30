@@ -1,0 +1,2 @@
+Location,Name,Frequency,Duplex,Offset,Tone,rToneFreq,cToneFreq,DtcsCode,DtcsPolarity,RxDtcsCode,CrossMode,Mode,TStep,Skip,Power,Comment,URCALL,RPT1CALL,RPT2CALL,DVCODE
+0,N0CALL,146.940000,-,0.600000,Tone,100.0,100.0,023,NN,023,Tone->Tone,FM,5.00,,50W,N0CALL near Springfield,,,,

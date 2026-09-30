@@ -11,6 +11,24 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Repeaters on the offline maps** (**D-064**). `hammunition maps repeaters
+  import FILE...` converts your own export, with no network, into a GPX, a
+  QMapShack POI collection and a Navit layer in
+  `~/.local/share/hammunition/overlays/repeaters/` (mode 0600). It reads a
+  RepeaterBook GPX export, a RepeaterBook CSV export with Lat and Long,
+  hearham.com's JSON or a CSV you type; CHIRP files and CSVs without
+  positions are refused by name, since they carry no coordinates. Rows are
+  merged on callsign, output frequency and position to 0.01°, and the
+  merges are counted. RepeaterBook's attribution and terms are printed at
+  import; nothing is ever fetched from RepeaterBook. `maps repeaters
+  fetch-hearham` fetches hearham's open list on request, records the
+  sha256 it saw and marks the layer unverified. `maps repeaters remove`
+  undoes it. `import` and `remove` take `--json` (`repeaters`,
+  `repeaters-removed`), carrying counts and paths, never a callsign or a
+  position. The `navit-offline` launcher now runs `hammunition maps
+  navit`, which adds the layer to your own copy of Navit's configuration;
+  `hammunition menus apply` updates an installed launcher. Drawing on
+  screen is not yet measured.
 - **BRouter: a second offline router for QMapShack, with trail difficulty
   and climbs** (D-063, amending D-061's "BRouter stays out"). Three units
   join the `navigation` profile: `brouter` (upstream's v1.7.10 zip, checked
