@@ -11,6 +11,12 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.15.0 — 2026-09-29 — sudo asked once per run; launchers by absolute path
+
+Two pull requests since v0.14.3 (#146, #147).
+
 - **Generated launchers run Hammunition by its full path** (issue #145).
   `qmapshack-offline` and `gps-tether` said `hammunition maps ...`, and
   Plasma starts a menu entry as a systemd user service whose `PATH` has no
