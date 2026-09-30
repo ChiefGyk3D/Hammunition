@@ -18,16 +18,20 @@ It made hardware TNCs optional. A radio, a cheap sound interface and this is a c
 
 ## Before it will work
 
-Audio in and out to the radio, and a way to key the transmitter -- a serial control line, a GPIO pin on a Pi, or VOX. A configuration file naming your callsign, the audio device and the PTT method. That callsign is the station-configuration question this catalog has open; the file is yours to write for now, and the shipped example is heavily commented.
+Audio in and out to the radio, and a way to key the transmitter -- a serial control line, a GPIO pin on a Pi, or VOX. A configuration file naming your callsign, the audio device and the PTT method: Hammunition writes `/etc/direwolf.conf` with your callsign from station config (`hammunition station set --callsign <yours>`) and the KISS and AGW ports, and leaves the audio device and PTT to you, because they depend on your interface and nothing here can know them. With no callsign set the package installs and the file is reported as not written.
 
 ## How it installs
 
 - apt: `direwolf`
   - Version differs across targets and the gap is one minor release: Debian 13, Parrot and Mint carry 1.7, Ubuntu 26.04 and Kali carry 1.8.1 (measured 2026-08-28). AHRL builds 1.8.1 from a tarball with seven build dependencies (inventory unit 43). The packaged 1.7 is a complete, working TNC and the difference is not worth owning a build; where 1.8.1 matters is in newer AIS and IL2P support.
 
+## Configuration it writes
+
+- `/etc/direwolf.conf` (written, mode 0644, existing file backed up); filled from the station values `ax25_callsign`, and not written while one is unset (D-035)
+
 ## Known problems
 
-Unaffected by Linux 7.1's removal of the kernel AX.25 stack: it is the userspace modem, and its KISS and AGW ports are what the other packet programs talk to. Only attaching it to the kernel stack with `kissattach` needs `ax25`, and that is `ax25-tools`' problem, not this unit's. See `docs/reference/kernel-ax25.md`. Transmit audio level is the single biggest cause of a station that hears everyone and is heard by nobody -- overdriving the radio produces a signal that looks strong and does not decode. Direwolf will tell you its own receive levels, which is the place to start. Running it as a digipeater or an igate puts traffic on the network under your callsign, and the default example configuration is deliberately not a digipeater; turning that on is a decision about a shared resource.
+Unaffected by Linux 7.1's removal of the kernel AX.25 stack: it is the userspace modem, and its KISS and AGW ports are what the other packet programs talk to. Only attaching it to the kernel stack with `kissattach` needs `ax25`, and that is `ax25-tools`' problem, not this unit's. See `docs/reference/kernel-ax25.md`. Transmit audio level is the single biggest cause of a station that hears everyone and is heard by nobody -- overdriving the radio produces a signal that looks strong and does not decode. Direwolf will tell you its own receive levels, which is the place to start. Running it as a digipeater or an igate puts traffic on the network under your callsign, and the default example configuration is deliberately not a digipeater; turning that on is a decision about a shared resource. What the configuration block does: writes `/etc/direwolf.conf`, mode 0644, with `MYCALL` set to your callsign, `CHANNEL 0` and the AGW (8000) and KISS (8001) TCP ports. An existing file is copied first to `/etc/direwolf.conf.hammunition-backup`, once; a later install never replaces that backup. Nothing is enabled or started: Debian's `direwolf.service` reads this file (`sudo systemctl start direwolf`), and run by hand it is `direwolf -c /etc/direwolf.conf` -- without `-c` Direwolf looks only in the current directory and your home directory. The file is written only when the callsign is an AX.25 address (one to six letters and digits): a callsign such as `W1AW/4` is reported as unusable rather than trimmed, and the file is yours to write. Inspect it with `cat /etc/direwolf.conf`. `hammunition uninstall direwolf` does not remove it (config files are not reversed, and the plan says so); to undo, `sudo rm /etc/direwolf.conf`, then `sudo mv /etc/direwolf.conf.hammunition-backup /etc/direwolf.conf` if a backup was made. A later install rewrites the file from station config, so an edit you make to it is replaced then (the first backup is kept).
 
 ## Keeping it current
 
