@@ -58,7 +58,7 @@ exit does.
 | `command_begin` | Before each command | `argv`, `requires_root`, `description`. |
 | `command_end` | After each command that ran | `argv`, `returncode`. |
 | `action_begin` | Before each in-process step | `kind` (`fetch`, `extract`, `config`, `requirements`, `wrapper`, `desktop-entry`, `patch`, `prepare`, `install-binary`, `verify-pin`, `remove-venv`, `remove-wrapper`, `remove-desktop-entry`), `detail`, `description`. |
-| `action_end` | After each in-process step | `kind`, `detail`, `outcome` — one line saying what actually happened. `detail` (added 2026-08-31) is what uninstall's file-attribution replay reads back for `install-binary`; older entries without it leave those installs unattributed, reported and left in place. |
+| `action_end` | After each in-process step | `kind`, `detail`, `outcome` — one line saying what actually happened. `detail` (added 2026-08-31) is what uninstall's file-attribution replay reads back for `install-binary`; older entries without it leave those installs unattributed, reported and left in place. A step's own facts follow, never over one of those keys: a data download (a `data` unit's file, a map region, a terrain tile) adds `source` (`cache`, `mirror` or `publisher`), `fetched_from` (the URL the bytes came from, absent for `cache`) and, when a LAN mirror was passed over for the publisher, `mirror_failure` saying why (**D-070**). |
 | `transaction_failed` | Instead of the rest, on the first failure | the failing `argv`, its `returncode` (or `error` for a missing binary), and how many commands `completed` before it. For an in-process step, `kind` and `detail` in place of `argv`. |
 | `transaction_end` | Once, on the success path | `completed`, and the effect check below. |
 

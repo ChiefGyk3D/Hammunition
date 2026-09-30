@@ -2,7 +2,8 @@
 
 Status: the engine half of Hammunition Bunker, approved in conversation
 2026-09-29 as the section "The engine side" of
-`hammunition-bunker/docs/superpowers/specs/2026-09-29-bunker-design.md`.
+the Bunker repository's design spec, 2026-09-29
+(<https://github.com/ChiefGyk3D/hammunition-bunker>).
 This document restates that section in this repository's terms: the modules
 it touches, the names it adds, and the rulings taken where the Bunker spec
 left a choice. Decision number assigned: **D-070**.

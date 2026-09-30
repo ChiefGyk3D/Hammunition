@@ -4,7 +4,7 @@
 
 **Goal:** `hammunition artifacts --json` lists every remote data artifact for an explicit selection, and a `mirror` station key lets the verified fetch try a LAN mirror first, verified the same either way.
 
-**Architecture:** A pure `hammunition.artifacts` module resolves the selection through the existing `geofabrik`/`copernicus` resolvers (probes injected); `interface/artifacts.py` is its D-059 document; `cli.main.cmd_artifacts` wires the real probes. The mirror lives in `Fetcher`: an ordered source list, fallback on any mirror failure, the same digest checked. Backends pass `MirrorPath(unit, name)` and disclose the order; `Action.facts` carries the actual source into `action_end`.
+**Architecture:** A pure `hammunition.artifacts` module resolves the selection through the existing `geofabrik`/`copernicus` resolvers (probes injected); `src/hammunition/interface/artifacts.py` is its D-059 document; `cli.main.cmd_artifacts` wires the real probes. The mirror lives in `Fetcher`: an ordered source list, fallback on any mirror failure, the same digest checked. Backends pass `MirrorPath(unit, name)` and disclose the order; `Action.facts` carries the actual source into `action_end`.
 
 **Tech Stack:** Python 3.11+, stdlib `urllib`/`http.server`, pydantic dataclass schemas, pytest, mypy --strict, ruff.
 
@@ -85,7 +85,7 @@ FetchResult.mirror_failure: str | None = None
 
 **Files:** Modify `src/hammunition/backends/{data,regions,dem}.py`, `src/hammunition/interface/plan.py` (`StepView.sources`, `MirrorSection`, `InstallPlanView.mirror`, rendering), `src/hammunition/cli/main.py` (`cmd_install`, parser). Tests `tests/test_data_backend.py`, `tests/test_regions_backend.py`, `tests/test_dem_backend.py`, `tests/test_json_plan.py`; plan goldens regenerated.
 
-**Interfaces — Consumes:** Task 2's `MirrorPath`, `Fetcher.sources_for`, `FetchResult.source/url/mirror_failure`; Task 3's `Action.facts/sources`. **Produces:** `data_name(artifact) -> str` in `backends/data.py`; `fetch_outcome(result) -> str` and `fetch_facts(result, facts)` helpers in `fetch.py`; `MirrorSection(url: str, ignored: bool, text: str)`.
+**Interfaces — Consumes:** Task 2's `MirrorPath`, `Fetcher.sources_for`, `FetchResult.source/url/mirror_failure`; Task 3's `Action.facts/sources`. **Produces:** `data_name(artifact) -> str` in `src/hammunition/backends/data.py`; `fetch_outcome(result) -> str` and `fetch_facts(result, facts)` helpers in `fetch.py`; `MirrorSection(url: str, ignored: bool, text: str)`.
 
 - [ ] Failing tests: with a mirror set, each backend's fetch step description says the LAN mirror is tried first and the digest is checked either way, `sources == (mirror_url, publisher_url)`, and running it records `facts["source"]`; without one, descriptions and details are today's. Plan view: `mirror` section present with a mirror, `ignored=True` under `--no-mirror`, absent otherwise; text byte-identical with no mirror.
 - [ ] Implement; regenerate goldens; read the diffs.

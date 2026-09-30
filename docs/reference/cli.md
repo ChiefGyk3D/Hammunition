@@ -985,7 +985,8 @@ keys the helper prints, plus any error reading the kept-off rules.
 ### `hammunition station show` / `hammunition station set`
 
 The values only you can supply — callsign, grid square, packet node alias,
-and the regions to carry offline maps for. Some
+the regions to carry offline maps for, and the LAN mirror to take their data
+from. Some
 manifests write configuration files templated with them: `linbpq` needs a node
 callsign, AX.25 needs one in `/etc/ax25/axports`, Direwolf needs one in its
 own configuration.
@@ -1002,6 +1003,8 @@ hammunition station show
 | `--node-alias NAME` | Short packet node alias |
 | `--map-regions R[,R…]` | Geofabrik region paths for offline maps, e.g. `north-america/us/vermont,north-america/us/new-hampshire`. Replaces the whole list. Checked for shape only (lowercase words joined by `/`); whether Geofabrik has the region is checked at plan time (**D-057**) |
 | `--map-freshness MODE` | `yearly` (the default when unset), `monthly` or `latest`: which dated file each region resolves to, and so how it can be verified |
+| `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
+| `--clear-mirror` | Remove the saved mirror |
 
 A region list says where the operator lives or travels, so `station show`
 and `station set` print how many regions are set, never their names; the
@@ -1023,6 +1026,9 @@ needed a callsign got an operator nowhere.
 because a configuration file written with a made-up callsign would transmit
 it. An interactive run offers to prompt for what the request actually needs;
 `--yes`, a pipe, or a value that is already known all skip the question.
+
+`station show` prints the mirror URL in full: it is an address on your own
+network, and `--no-mirror` or `--clear-mirror` are the way to stop using it.
 
 `station show --json` prints a `station` document
 ([json-interface.md](json-interface.md)) carrying the values themselves:

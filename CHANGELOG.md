@@ -11,7 +11,21 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
-Nothing yet.
+- **A LAN mirror for offline data, and `hammunition artifacts`** (**D-070**,
+  branch `artifacts-mirror`). `hammunition station set --mirror URL` names a
+  machine on your own network; every data download (a `data` unit's files, a
+  map region, a terrain tile) asks it first at `<mirror>/<unit>/<name>` and
+  its publisher on any failure, the same sha256 or publisher MD5 checked
+  either way. The plan gains a *Data mirror* section and names both sources
+  per download; `install --no-mirror` ignores the mirror for a run;
+  `--clear-mirror` removes it; the transaction log records where each
+  download came from. `hammunition artifacts [--json]` lists every remote
+  data artifact for regions, a freshness and units given on the command
+  line, reading no station: the contract
+  [Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker)
+  mirrors from. `station show` gains a `mirror` line and its document a
+  `mirror` field; plan steps gain `sources`. Guide:
+  `docs/guides/lan-mirror.md`.
 
 ## v0.15.0 — 2026-09-29 — sudo asked once per run; launchers by absolute path
 
