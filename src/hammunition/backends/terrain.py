@@ -50,12 +50,31 @@ CONTOUR_BYTES = 5_500_000
 #: on that tile, the largest a tile is expected to need.
 CONTOUR_SCRATCH_BYTES = 98_000_000
 
+#: BRouter's routing files against the sum of the ``.osm.pbf`` files they are
+#: built from: Delaware's 3.3 MB of ``.rd5`` (with elevation) against its
+#: 22.1 MB download, 0.15, rounded up (D-063, the routing spike, 2026-09-29).
+BROUTER_FACTOR = 0.2
+#: The map creator's working files against the same sum. **Not measured**:
+#: an allowance, stated as one wherever it is printed.
+BROUTER_SCRATCH_FACTOR = 3
+#: One one-arc-second ``.hgt`` as gdalwarp writes it: 3601 x 3601 Int16,
+#: 25,934,402 bytes, measured.
+HGT_BYTES = 25_934_402
+#: A square's elevation scratch: its own 25 tiles as ``.hgt`` files at most,
+#: removed before the next square.
+ELEVATION_SCRATCH_BYTES = 25 * HGT_BYTES
+#: One square's ``.bef``, kept until the build ends: 7,987,865 bytes for
+#: Delaware's square, measured; rounded up.
+BEF_BYTES = 8_000_000
+
 TERRAIN_NOTE = (
     f"QMapShack's maps at {GARMIN_FACTOR}x each download with "
     f"{GARMIN_SCRATCH_FACTOR}x of scratch, the Routino database at {ROUTINO_FACTOR}x "
     f"of every download together with up to {ROUTINO_SCRATCH_FACTOR}x of scratch, and "
     f"contours at about {human_size(CONTOUR_BYTES)} a tile with up to "
-    f"{human_size(CONTOUR_SCRATCH_BYTES)} of scratch, {MEASURED}"
+    f"{human_size(CONTOUR_SCRATCH_BYTES)} of scratch, {MEASURED}; BRouter's routing "
+    f"files at {BROUTER_FACTOR}x of every download together ({MEASURED}), with "
+    f"{BROUTER_SCRATCH_FACTOR}x of scratch allowed, not measured"
 )
 
 
@@ -65,6 +84,10 @@ def garmin_estimate(size: int) -> int:
 
 def routino_estimate(total: int) -> int:
     return round(total * ROUTINO_FACTOR)
+
+
+def brouter_estimate(total: int) -> int:
+    return round(total * BROUTER_FACTOR)
 
 
 def tile_key(name: str) -> str:
@@ -115,9 +138,15 @@ class TerrainWork:
     """The sum of every ``.osm.pbf`` when the database is rebuilt, else 0."""
     contour_tiles: int = 0
     """How many tiles have contours drawn."""
+    brouter: int = 0
+    """The sum of every ``.osm.pbf`` when BRouter's routing files are rebuilt, else 0."""
+    brouter_regions: int = 0
+    """How many regions they are rebuilt over: two or more are merged first."""
+    brouter_squares: int = 0
+    """How many 5 degree squares get elevation built."""
 
     def any(self) -> bool:
-        return bool(self.tiles or self.garmin or self.routino or self.contour_tiles)
+        return bool(self.tiles or self.garmin or self.routino or self.contour_tiles or self.brouter)
 
 
 def terrain_needs(
@@ -128,22 +157,40 @@ def terrain_needs(
     routino_staging: Path,
     contour_staging: Path,
     prefix: Path,
+    brouter_staging: Path | None = None,
 ) -> dict[Path, int]:
     """Bytes each location needs: each tile in the fetch cache and under the
     prefix; the largest Garmin build's scratch (they run one at a time and
     each is removed before the next); the Routino build's scratch and output;
     one tile's contour scratch plus every rasterised tile; and every output
-    again under the prefix."""
+    again under the prefix. BRouter's build (D-063): its allowance of scratch,
+    the merged input when there are two regions or more, one square's
+    ``.hgt`` files and every square's ``.bef`` in its staging directory, and
+    its routing files under the prefix."""
     garmin_out = sum(garmin_estimate(size) for size in work.garmin)
     routino_out = routino_estimate(work.routino)
+    brouter_out = brouter_estimate(work.brouter)
     contours = work.contour_tiles * CONTOUR_BYTES
+    brouter_scratch = (
+        BROUTER_SCRATCH_FACTOR * work.brouter
+        + (work.brouter if work.brouter_regions > 1 else 0)
+        + (
+            ELEVATION_SCRATCH_BYTES + BEF_BYTES * work.brouter_squares
+            if work.brouter_squares
+            else 0
+        )
+        + brouter_out
+        if work.brouter
+        else 0
+    )
     needs: dict[Path, int] = {}
     for where, amount in (
         (cache, work.tiles),
         (garmin_staging, GARMIN_SCRATCH_FACTOR * max(work.garmin, default=0)),
         (routino_staging, ROUTINO_SCRATCH_FACTOR * work.routino),
         (contour_staging, (CONTOUR_SCRATCH_BYTES if work.contour_tiles else 0) + contours),
-        (prefix, work.tiles + garmin_out + routino_out + contours),
+        (brouter_staging or routino_staging, brouter_scratch),
+        (prefix, work.tiles + garmin_out + routino_out + contours + brouter_out),
     ):
         needs[where] = needs.get(where, 0) + round(amount)
     return needs

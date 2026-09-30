@@ -137,6 +137,15 @@ class TerrainDisclosure:
     drawing: bool = False
     """Whether ``gdal-dem`` has anything to do this run: contours, or its
     two virtual rasters rebuilt because the set of tiles changed."""
+    brouter_regions: int = 0
+    """How many regions BRouter's routing files are rebuilt over; 0 when
+    current (D-063)."""
+    brouter_total: int = 0
+    """The sum of those regions' ``.osm.pbf`` sizes."""
+    brouter_tiles: int = 0
+    """How many terrain tiles the rebuild folds in as elevation."""
+    brouter_squares: int = 0
+    """How many 5-degree squares those tiles fall in."""
 
 
 @dataclass(frozen=True)
