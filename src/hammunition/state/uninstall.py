@@ -67,6 +67,7 @@ from hammunition.manifest.schema import (
     DerivedDataInstall,
     GitInstall,
     InstallBlock,
+    KiwixBooksInstall,
     NodeInstall,
     PackageManifest,
     ProfileManifest,
@@ -427,7 +428,12 @@ def plan_removal(
                     )
 
         elif isinstance(
-            install, DataInstall | RegionalDataInstall | DemTilesInstall | DerivedDataInstall
+            install,
+            DataInstall
+            | RegionalDataInstall
+            | DemTilesInstall
+            | DerivedDataInstall
+            | KiwixBooksInstall,
         ):
             # D-049: a data unit's files live only under its namespaced data
             # directory, which nothing but this engine writes; removed whole.

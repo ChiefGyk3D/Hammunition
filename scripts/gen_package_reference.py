@@ -49,6 +49,7 @@ from hammunition.manifest.schema import (  # noqa: E402
     DerivedDataInstall,
     GitInstall,
     InstallBlock,
+    KiwixBooksInstall,
     NodeInstall,
     PackageManifest,
     PipxInstall,
@@ -90,6 +91,12 @@ def method_of(block: InstallBlock) -> str:
         return (
             f"elevation tiles from {install.provider} for the regions in station config "
             f"({install.licence}, {install.licence_url})"
+        )
+    if isinstance(install, KiwixBooksInstall):
+        return (
+            "Kiwix books chosen in station config, each pinned in "
+            "`catalog/data/kiwix-pins.yaml` and licensed as "
+            "`catalog/data/kiwix-books.yaml` states, printed in the plan"
         )
     if isinstance(install, DerivedDataInstall):
         return (

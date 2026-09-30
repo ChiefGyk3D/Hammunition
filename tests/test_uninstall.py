@@ -681,3 +681,23 @@ def test_deb_attribution_reads_the_install_deb_actions_outcome(tmp_path: Path) -
     )
     assert deb_attributed(log, sha256=DIGEST, deb_package="antscope2")
     assert not deb_attributed(log, sha256="cd" * 32, deb_package="antscope2")
+
+
+def test_the_book_unit_plans_its_data_directory_whole(tmp_path: Path) -> None:
+    """D-065: the chosen books live only under the unit's namespaced data
+    directory, removed whole like every data unit (D-049)."""
+    paths = paths_for(tmp_path)
+    books = manifest("kiwix-library", install_override={"method": "kiwix-books"})
+    (paths.prefix / "share" / "hammunition" / "data" / "kiwix-library").mkdir(parents=True)
+    plan = plan_removal(
+        ["kiwix-library"],
+        catalog={"kiwix-library": books},
+        profiles={},
+        target=TARGET,
+        attributed=frozenset(),
+        states={},
+        paths=paths,
+    )
+    [removal] = plan.artifacts["kiwix-library"]
+    assert (removal.kind, removal.basis) == ("tree", "namespaced")
+    assert removal.path == paths.prefix / "share" / "hammunition" / "data" / "kiwix-library"

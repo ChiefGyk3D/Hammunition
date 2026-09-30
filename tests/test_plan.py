@@ -1118,3 +1118,70 @@ def test_terrain_and_what_is_drawn_from_it_defer_with_the_regions(tmp_path: Path
         "osm-regions",
     ]
     assert {d.why for d in plan.deferrals} == {"no map regions set"}
+
+
+# ---------------------------------------------------------------------------
+# Reference books without a selection (D-065): deferred by name, readers install
+# ---------------------------------------------------------------------------
+
+
+def _reference() -> tuple[dict[str, PackageManifest], dict[str, ProfileManifest]]:
+    catalog = {
+        "kiwix-tools": _manifest(
+            name="kiwix-tools",
+            install=[{"install": {"method": "apt", "packages": ["kiwix-tools"]}}],
+        ),
+        "kiwix-library": _manifest(
+            name="kiwix-library",
+            install=[{"install": {"method": "kiwix-books", "provider": "kiwix"}}],
+        ),
+    }
+    profile = _profile(name="reference", packages=["kiwix-tools", "kiwix-library"])
+    return catalog, {"reference": profile}
+
+
+def test_books_are_deferred_by_name_when_none_are_chosen(tmp_path: Path) -> None:
+    from hammunition.station import Station
+
+    catalog, profiles = _reference()
+    plan = _resolve(
+        tmp_path,
+        ["reference"],
+        catalog=catalog,
+        profiles=profiles,
+        known={"kiwix-tools": None},
+        station=Station(),
+    )
+    assert [p.name for p in plan.packages] == ["kiwix-tools"]
+    [deferral] = plan.deferrals
+    assert deferral.subject == "kiwix-library"
+    assert deferral.why == "no reference books chosen"
+    assert "hammunition station set --reference-books" in deferral.remedy
+    assert "hammunition reference books" in deferral.remedy
+
+
+def test_the_book_unit_typed_by_name_with_no_books_is_refused(tmp_path: Path) -> None:
+    from hammunition.station import Station
+
+    catalog, _ = _reference()
+    with pytest.raises(PlanError) as excinfo:
+        _resolve(tmp_path, ["kiwix-library"], catalog=catalog, station=Station())
+    text = str(excinfo.value)
+    assert "kiwix-library" in text and "no reference books chosen" in text
+    assert "hammunition station set --reference-books" in text
+
+
+def test_books_are_planned_once_chosen(tmp_path: Path) -> None:
+    from hammunition.station import Station
+
+    catalog, profiles = _reference()
+    plan = _resolve(
+        tmp_path,
+        ["reference"],
+        catalog=catalog,
+        profiles=profiles,
+        known={"kiwix-tools": None},
+        station=Station(reference_books=("ham.stackexchange.com_en_all",)),
+    )
+    assert sorted(p.name for p in plan.packages) == ["kiwix-library", "kiwix-tools"]
+    assert not plan.deferrals
