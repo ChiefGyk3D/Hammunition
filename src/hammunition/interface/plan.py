@@ -27,9 +27,13 @@ from hammunition.backends.terrain import (
     GARMIN_FACTOR,
     MEASURED,
     ROUTINO_FACTOR,
+    WARP_FACTOR,
     garmin_estimate,
     routino_estimate,
 )
+from hammunition.backends.topo import TopoDisclosure, no_quads_line
+from hammunition.backends.topo_mosaic import MEASURED as TOPO_MEASURED
+from hammunition.backends.topo_mosaic import warp_estimate
 from hammunition.consent import repo_env_var
 from hammunition.desktop import Desktop, describe_set
 from hammunition.execute import Step
@@ -46,6 +50,7 @@ from hammunition.manifest.schema import (
     NodeInstall,
     RegionalDataInstall,
     SourceInstall,
+    TopoQuadsInstall,
     VenvInstall,
 )
 from hammunition.plan import Blocker, InstallPlan, PlannedPackage
@@ -111,6 +116,16 @@ def plan_state(
     if terrain is not None:
         if isinstance(method, DemTilesInstall) and not terrain.resolution.fetch:
             return "already installed"
+        topo = terrain.topo
+        if topo is not None:
+            if isinstance(method, TopoQuadsInstall) and not topo.resolution.fetch:
+                return "already installed"
+            if (
+                isinstance(method, DerivedDataInstall)
+                and method.converter == "ustopo-mosaic"
+                and not topo.building
+            ):
+                return "already installed"
         if isinstance(method, DerivedDataInstall):
             idle = {
                 "mkgmap": not terrain.garmin,
@@ -316,6 +331,52 @@ class GarminLine(Strict):
 
 
 @dataclass(frozen=True)
+class TopoRegionLine(Strict):
+    """The US Topo quads one region needs (D-068)."""
+
+    region: str = described("the Geofabrik region path")
+    quads: int = described("quads whose box its outline touches")
+    size: int = described("bytes of all its quads, installed or not")
+    size_human: str = described("as the text prints it")
+    download: int = described(
+        "bytes of its quads downloaded this run; a quad two regions share counts in both"
+    )
+    download_human: str = described("as the text prints it")
+
+
+@dataclass(frozen=True)
+class QuadLine(Strict):
+    """One US Topo quad downloaded this run."""
+
+    quad: str = described("the quad's file name without .tif: state, map name and edition date")
+    size: int = described("bytes")
+    size_human: str = described("the size as the text prints it")
+    verified_by: str = described("how the download is checked")
+
+
+@dataclass(frozen=True)
+class TopoSectionView(Strict):
+    """USGS US Topo sheets and QMapShack's mosaic of them (D-068). Local only."""
+
+    regions: tuple[TopoRegionLine, ...] = described("quads per region")
+    no_quads: tuple[str, ...] = described(
+        "regions no US Topo quad covers (outside the United States); nothing is fetched for them"
+    )
+    fetch: tuple[QuadLine, ...] = described("quads downloaded this run")
+    current: int = described("quads already installed")
+    licence: str = described("the sheets' licence")
+    licence_url: str = described("where it is stated")
+    download_total: int = described("bytes of quads downloaded")
+    download_total_human: str = described("as the text prints it")
+    warp: int = described("quads warped for QMapShack this run")
+    warp_estimate: int = described("bytes the warped quads are estimated to take")
+    warp_estimate_human: str = described("as the text prints it")
+    disk_total: int = described("bytes: the downloads plus the warped quads")
+    disk_total_human: str = described("as the text prints it")
+    estimate_note: str = described("how the estimate was measured")
+
+
+@dataclass(frozen=True)
 class TerrainSectionView(Strict):
     """Terrain, and what is built for QMapShack (D-061). Names where the operator is: local only."""
 
@@ -336,6 +397,9 @@ class TerrainSectionView(Strict):
     disk_total: int = described("bytes: the tiles plus everything estimated to be built")
     disk_total_human: str = described("as the text prints it")
     estimate_note: str = described("how the estimates were measured")
+    topo: TopoSectionView | None = described(
+        "USGS US Topo quads and their mosaic (D-068); null when neither unit is planned"
+    )
 
 
 @dataclass(frozen=True)
@@ -614,6 +678,47 @@ def step_view(step: Step, *, euid: int) -> StepView:
     )
 
 
+def _topo_section(topo: TopoDisclosure | None) -> TopoSectionView | None:
+    if topo is None:
+        return None
+    resolution = topo.resolution
+    sizes = {q.path: q.size for q in resolution.fetch}
+    download = sum(sizes.values())
+    warped = sum(warp_estimate(q.size) for q in topo.warp)
+    return TopoSectionView(
+        regions=tuple(
+            TopoRegionLine(
+                region=r.region,
+                quads=len(r.quads),
+                size=sum(q.size for q in r.quads),
+                size_human=human_size(sum(q.size for q in r.quads)),
+                download=sum(sizes.get(q.path, 0) for q in r.quads),
+                download_human=human_size(sum(sizes.get(q.path, 0) for q in r.quads)),
+            )
+            for r in resolution.regions
+            if r.quads
+        ),
+        no_quads=tuple(r.region for r in resolution.regions if not r.quads),
+        fetch=tuple(
+            QuadLine(
+                quad=q.name, size=q.size, size_human=human_size(q.size), verified_by=q.verified_by
+            )
+            for q in resolution.fetch
+        ),
+        current=len(resolution.current),
+        licence=topo.licence.strip(),
+        licence_url=topo.licence_url,
+        download_total=download,
+        download_total_human=human_size(download),
+        warp=len(topo.warp),
+        warp_estimate=warped,
+        warp_estimate_human=human_size(warped),
+        disk_total=download + warped,
+        disk_total_human=human_size(download + warped),
+        estimate_note=TOPO_MEASURED,
+    )
+
+
 def _terrain_section(terrain: TerrainDisclosure | None) -> TerrainSectionView | None:
     if terrain is None:
         return None
@@ -665,6 +770,7 @@ def _terrain_section(terrain: TerrainDisclosure | None) -> TerrainSectionView | 
         disk_total=disk,
         disk_total_human=human_size(disk),
         estimate_note=MEASURED,
+        topo=_topo_section(terrain.topo),
     )
 
 
@@ -1197,6 +1303,43 @@ def _render_terrain(terrain: TerrainSectionView) -> list[str]:
         f"      about {terrain.disk_total_human} of disk for terrain and QMapShack's maps "
         f"({terrain.estimate_note})"
     )
+    if terrain.topo is not None:
+        lines.extend(_render_topo(terrain.topo))
+    return lines
+
+
+def _render_topo(topo: TopoSectionView) -> list[str]:
+    """The US Topo block, after the terrain (D-068)."""
+    lines = ["  US Topo, USGS 7.5-minute quads (D-068):"]
+    if topo.regions:
+        width = max(len(r.region) for r in topo.regions)
+        for region in topo.regions:
+            fetch = f"; {region.download_human} to download" if region.download else ""
+            lines.append(
+                f"    {region.region:<{width}}  {region.quads} quad(s), {region.size_human}{fetch}"
+            )
+    lines.extend(f"    note: {no_quads_line(region)}" for region in topo.no_quads)
+    if topo.regions or topo.no_quads:
+        lines.append("    (a region's quads are read from its outline at Geofabrik until")
+        lines.append("    they are installed and its record written)")
+    if topo.fetch:
+        lines.append(
+            f"    will be downloaded ({len(topo.fetch)} quad(s), {topo.download_total_human}):"
+        )
+        width = max(len(q.quad) for q in topo.fetch)
+        lines.extend(
+            f"      {q.quad:<{width}}  {q.size_human:>9}  {q.verified_by}" for q in topo.fetch
+        )
+    if topo.current:
+        lines.append(f"    already installed: {topo.current} quad(s)")
+    if topo.licence:
+        lines.append(f"      licence: {topo.licence}, stated at {topo.licence_url}")
+    if topo.warp:
+        lines.append(
+            f"    warped for QMapShack: {topo.warp} quad(s), about "
+            f"{topo.warp_estimate_human} ({WARP_FACTOR}x each download, {topo.estimate_note})"
+        )
+    lines.append(f"      about {topo.disk_total_human} of disk for US Topo ({topo.estimate_note})")
     return lines
 
 

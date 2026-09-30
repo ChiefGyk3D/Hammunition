@@ -11,8 +11,9 @@ stage: post-1.0
 # The navigation profile, piece 1 (docs/superpowers/specs/
 # 2026-09-27-navigation-maps-design.md): Navit over Geofabrik regions.
 # Piece 2 (docs/superpowers/specs/2026-09-28-hiking-maps-design.md, D-061):
-# QMapShack with trails, terrain and routing on foot. Piece 3 (Kiwix, tile
-# servers) adds to it.
+# QMapShack with trails, terrain and routing on foot. D-068: USGS US Topo
+# sheets as a QMapShack map (docs/superpowers/specs/2026-09-29-official-topo-design.md).
+# Piece 3 (Kiwix, tile servers) adds to it.
 packages:
   - gpsd
   - gpsd-clients
@@ -29,6 +30,8 @@ packages:
   - osm-routino
   - dem-copernicus
   - dem-qmapshack
+  - usgs-ustopo
+  - ustopo-qmapshack
 
 documentation:
   what_it_installs: >-
@@ -44,7 +47,9 @@ documentation:
     (`osm-garmin`), one Routino database over all of them for routes on foot
     (`osm-routino`), Copernicus elevation tiles for the regions
     (`dem-copernicus`) and the hillshade, slope and contours drawn from them
-    (`dem-qmapshack`), opened by the `qmapshack-offline` launcher; and
+    (`dem-qmapshack`), and for US regions the official USGS US Topo map
+    sheets (`usgs-ustopo`) made into one seamless QMapShack map
+    (`ustopo-qmapshack`), opened by the `qmapshack-offline` launcher; and
     `gps-tether`, which serves gpsd's position to QMapShack as NMEA on this
     machine only.
   why_together: >-
@@ -55,7 +60,12 @@ documentation:
     phone network down: the maps are on the laptop before anything goes
     wrong, and `hammunition update` says when newer map data is pinned.
   deliberately_excludes: >-
-    Tile servers and Kiwix are the next piece of this work. Viking, Marble,
+    Tile servers and Kiwix are the next piece of this work. Official trail
+    lines from the Park Service, the Forest Service and the states are not
+    carried as a second layer, because OpenStreetMap already has nearly all
+    of them and a duplicate draws every trail twice; US Topo shows their
+    official names. Forest Service FSTopo sheets and USGS 3DEP bare-earth
+    elevation are the next US additions (D-068). Viking, Marble,
     GPSPrune and JOSM were measured and left out: Debian's Viking renders
     nothing offline, Marble's offline place index has no packaged builder,
     and GPSPrune and JOSM use online tiles. BRouter is out because its
@@ -101,4 +111,7 @@ documentation:
     the downloads together with up to six times of scratch. Terrain: about
     39 MB per elevation tile, tens to hundreds of tiles a region (over 90,
     about 3.6 GB, for the largest contiguous US states; 449, about 17.5 GB,
-    for Alaska), and about 5.5 MB of contours per tile.
+    for Alaska), and about 5.5 MB of contours per tile. US Topo, for US
+    regions: about 8 MB a sheet, twice over once warped for QMapShack
+    (Delaware about 220 MB of sheets, Vermont about 1.6 GB, Virginia about
+    6 GB, measured from the index on 2026-09-29).

@@ -32,7 +32,7 @@ from pathlib import Path
 
 from ..fetch import Fetcher
 from ..manifest.schema import PackageManifest, TopoQuadsInstall
-from ..ustopo import PATH, Quad
+from ..ustopo import Quad, UstopoError, parse_row, render_row
 from .base import Action, BackendError, Command, CommandRunner
 from .data import human_size
 from .regions import data_root, prefix_writer, removal_steps
@@ -56,15 +56,18 @@ def no_quads_line(region: str) -> str:
 
 @dataclass(frozen=True)
 class RegionQuads:
-    """The sheets one region needs, by index path (``<ST>/<stem>_<date>``)."""
+    """The sheets one region needs, sorted by index path."""
 
     region: str
     slug: str
-    quads: tuple[str, ...]
+    quads: tuple[Quad, ...]
 
 
 def render_record(entry: RegionQuads) -> str:
-    return f"{_HEADER}{len(entry.quads)}\n" + "".join(f"{path}\n" for path in entry.quads)
+    """The region's sheets as whole index rows, box, size and ETag included,
+    so an offline plan can warp and verify from the record alone even after
+    the carried index has moved on to a newer edition."""
+    return f"{_HEADER}{len(entry.quads)}\n" + "".join(f"{render_row(q)}\n" for q in entry.quads)
 
 
 def read_record(path: Path, region: str, slug: str) -> RegionQuads | None:
@@ -72,8 +75,8 @@ def read_record(path: Path, region: str, slug: str) -> RegionQuads | None:
 
     A region no sheet covers records a header and nothing else: a complete
     record, or its outline would be fetched again on every plan. A record
-    whose count does not match its lines, or that names something not a
-    sheet path, is not trusted."""
+    whose count does not match its rows, or with a row that is not an index
+    row, is not trusted."""
     try:
         text = path.read_text()
     except OSError:
@@ -82,12 +85,14 @@ def read_record(path: Path, region: str, slug: str) -> RegionQuads | None:
     if not lines or not lines[0].startswith(_HEADER):
         return None
     count = lines[0][len(_HEADER) :]
-    names = lines[1:]
-    if not count.isdigit() or int(count) != len(names):
+    rows = lines[1:]
+    if not count.isdigit() or int(count) != len(rows):
         return None
-    if any(PATH.fullmatch(name) is None for name in names):
+    try:
+        quads = [parse_row(row, number) for number, row in enumerate(rows, 2)]
+    except UstopoError:
         return None
-    return RegionQuads(region, slug, tuple(sorted(names)))
+    return RegionQuads(region, slug, tuple(sorted(quads, key=lambda q: q.path)))
 
 
 @dataclass(frozen=True)
@@ -105,6 +110,20 @@ class TopoResolution:
         """Every sheet any region needs, by path."""
         found = {q.path: q for q in (*self.fetch, *self.current)}
         return tuple(found[path] for path in sorted(found))
+
+
+@dataclass(frozen=True)
+class TopoDisclosure:
+    """What the plan says about the US Topo sheets (D-068)."""
+
+    resolution: TopoResolution
+    licence: str
+    licence_url: str
+    warp: tuple[Quad, ...] = ()
+    """Sheets ``ustopo-mosaic`` warps this run."""
+    building: bool = False
+    """Whether ``ustopo-mosaic`` has anything to do this run: a warp, a
+    removal, or the VRT rebuilt because the set of sheets changed."""
 
 
 @dataclass(frozen=True)

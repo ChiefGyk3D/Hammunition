@@ -68,6 +68,7 @@ from hammunition.ustopo import (  # noqa: E402
     UstopoError,
     parse_index,
     parse_row,
+    render_row,
 )
 
 INDEX = REPO_ROOT / "catalog" / "data" / "ustopo-quads.txt"
@@ -190,11 +191,7 @@ def build(csv_text: str, editions: Mapping[str, Sequence[Edition]]) -> Built:
 
 
 def render(built: Built, updated: str) -> str:
-    body = "".join(
-        f"{_degrees(str(q.south))} {_degrees(str(q.west))} {_degrees(str(q.north))} "
-        f"{_degrees(str(q.east))} {q.size} {q.etag} {q.path}\n"
-        for q in built.quads
-    )
+    body = "".join(f"{render_row(q)}\n" for q in built.quads)
     return (
         HEADER.format(
             mark=GENERATED_MARK,

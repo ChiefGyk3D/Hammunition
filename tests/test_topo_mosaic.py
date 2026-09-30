@@ -39,7 +39,7 @@ MD5 = "0123456789abcdef0123456789abcdef"
 ALPHA = Quad(0.0, 0.0, 0.125, 0.125, 9_000_000, MD5, "ZZ/ZZ_Alpha_20240101")
 BETA = Quad(-0.125, -0.125, 0.0, 0.0, 8_000_000, MD5, "ZZ/ZZ_Beta_20240101")
 RESOLUTION = TopoResolution(
-    regions=(RegionQuads("atlantis/oceania", "atlantis-oceania", (ALPHA.path, BETA.path)),),
+    regions=(RegionQuads("atlantis/oceania", "atlantis-oceania", (ALPHA, BETA)),),
     fetch=(ALPHA, BETA),
 )
 

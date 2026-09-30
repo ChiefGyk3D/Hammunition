@@ -31,7 +31,7 @@ BODY = b"q" * 10
 MD5 = hashlib.md5(BODY, usedforsecurity=False).hexdigest()
 ALPHA = Quad(0.0, 0.0, 0.125, 0.125, 10, MD5, "ZZ/ZZ_Alpha_20240101")
 BETA = Quad(0.0, 0.125, 0.125, 0.25, 10, f"{MD5}-2", "ZZ/ZZ_Beta_20240101")
-OCEANIA = RegionQuads("atlantis/oceania", "atlantis-oceania", (ALPHA.path, BETA.path))
+OCEANIA = RegionQuads("atlantis/oceania", "atlantis-oceania", (ALPHA, BETA))
 LEMURIA = RegionQuads("atlantis/lemuria", "atlantis-lemuria", ())
 
 
@@ -181,7 +181,7 @@ def test_a_sheet_and_a_record_no_region_needs_are_removed(tmp_path: Path) -> Non
     (data / "atlantis-gone.quads").write_text(render_record(LEMURIA))
     (data / "ZZ_Old_20100101.tif").write_bytes(BODY)
     (data / f"{ALPHA.name}{TIF}").write_bytes(BODY)
-    lone = RegionQuads("atlantis/oceania", "atlantis-oceania", (ALPHA.path,))
+    lone = RegionQuads("atlantis/oceania", "atlantis-oceania", (ALPHA,))
     backend = _backend(tmp_path, TopoResolution(regions=(lone,), current=(ALPHA,)))
     m = manifest()
     removals = [s for s in _actions(backend.steps(m, _block(m))) if s.kind == "remove-data"]
@@ -205,8 +205,8 @@ def test_a_record_that_is_not_a_record_is_not_trusted(tmp_path: Path) -> None:
     for text in (
         "",
         "ZZ/ZZ_Alpha_20240101\n",
-        "# US Topo quads: 2\nZZ/ZZ_Alpha_20240101\n",
-        "# US Topo quads: 1\n../../etc/passwd\n",
+        f"# US Topo quads: 2\n0 0 0.125 0.125 10 {MD5} ZZ/ZZ_Alpha_20240101\n",
+        f"# US Topo quads: 1\n0 0 0.125 0.125 10 {MD5} ../../etc/passwd\n",
     ):
         path.write_text(text)
         assert read_record(path, "r", "r") is None

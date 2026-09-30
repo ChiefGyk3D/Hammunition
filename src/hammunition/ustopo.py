@@ -38,7 +38,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import s3etag
-from .copernicus import UNPINNED, Ring, TileProbe, squares_touching
+from .copernicus import UNPINNED, Ring, S3Probe, TileProbe, squares_touching
 from .s3etag import MIB, etag_matches, part_sizes
 
 __all__ = [
@@ -51,6 +51,7 @@ __all__ = [
     "Quad",
     "QuadIndex",
     "UstopoError",
+    "bucket_probe",
     "check_quad",
     "etag_matches",
     "load_index",
@@ -58,6 +59,7 @@ __all__ = [
     "parse_index",
     "parse_row",
     "part_sizes",
+    "render_row",
 ]
 
 BUCKET = "https://prd-tnm.s3.amazonaws.com"
@@ -123,6 +125,19 @@ def parse_etag(etag: str) -> tuple[str, int | None]:
         return s3etag.parse_etag(etag)
     except s3etag.EtagError as exc:
         raise UstopoError(str(exc)) from exc
+
+
+def render_row(quad: Quad) -> str:
+    """*quad* as one index row, the form :func:`parse_row` reads back."""
+    return (
+        f"{_degrees(quad.south)} {_degrees(quad.west)} {_degrees(quad.north)} "
+        f"{_degrees(quad.east)} {quad.size} {quad.etag} {quad.path}"
+    )
+
+
+def _degrees(value: float) -> str:
+    text = f"{value:.7f}".rstrip("0").rstrip(".")
+    return "0" if text in ("-0", "") else text
 
 
 def parse_row(line: str, number: int = 1) -> Quad:
@@ -221,6 +236,11 @@ def load_index(path: Path) -> QuadIndex:
             f"carried in the catalog, and {INDEX_REMEDY}"
         ) from exc
     return parse_index(text)
+
+
+def bucket_probe() -> S3Probe:
+    """The real probe for sheets: a ``HEAD`` to :data:`BUCKET` and nowhere else."""
+    return S3Probe(bucket=BUCKET)
 
 
 def check_quad(quad: Quad, probe: TileProbe) -> None:

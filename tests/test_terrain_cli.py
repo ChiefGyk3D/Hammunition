@@ -169,7 +169,12 @@ def test_the_run_discloses_each_converter_s_pending_work(tmp_path: Path) -> None
     assert disclosed.licence == "Copernicus DEM licence"
     needs = run.needs(plan, cache=tmp_path / "cache", prefix=tmp_path)
     assert needs[tmp_path / "builds" / "osm-garmin"] > 0
-    assert set(run.converters) == {"mkgmap", "routino-planetsplitter", "gdal-dem"}
+    assert set(run.converters) == {
+        "mkgmap",
+        "routino-planetsplitter",
+        "gdal-dem",
+        "ustopo-mosaic",
+    }
 
 
 def _contours_installed(tmp_path: Path, *, rasters: bool) -> None:

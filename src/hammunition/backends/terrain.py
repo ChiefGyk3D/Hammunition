@@ -46,6 +46,12 @@ ROUTINO_SCRATCH_FACTOR = 6
 #: One tile's rasterised contours, a DEFLATE Byte GeoTIFF: 5,439,059 bytes
 #: measured on one mountain tile at a 20 m interval.
 CONTOUR_BYTES = 5_500_000
+#: A US Topo sheet warped with its overviews against its download, and the
+#: warp's scratch: 8.9 MB from 9.2 MB on one Delaware sheet, both rounded up
+#: to 1.0 (D-068). Here, not in ``topo_mosaic``, so the disk check needs no
+#: converter to count.
+WARP_FACTOR = 1.0
+WARP_SCRATCH_FACTOR = 1.0
 #: One tile's contour GeoPackage, removed once rasterised: 97,812,480 bytes
 #: on that tile, the largest a tile is expected to need.
 CONTOUR_SCRATCH_BYTES = 98_000_000
@@ -55,7 +61,9 @@ TERRAIN_NOTE = (
     f"{GARMIN_SCRATCH_FACTOR}x of scratch, the Routino database at {ROUTINO_FACTOR}x "
     f"of every download together with up to {ROUTINO_SCRATCH_FACTOR}x of scratch, and "
     f"contours at about {human_size(CONTOUR_BYTES)} a tile with up to "
-    f"{human_size(CONTOUR_SCRATCH_BYTES)} of scratch, {MEASURED}"
+    f"{human_size(CONTOUR_SCRATCH_BYTES)} of scratch, {MEASURED}; and US Topo quads "
+    f"warped at {WARP_FACTOR}x each download with as much again of scratch, measured "
+    f"on one quad"
 )
 
 
@@ -115,9 +123,20 @@ class TerrainWork:
     """The sum of every ``.osm.pbf`` when the database is rebuilt, else 0."""
     contour_tiles: int = 0
     """How many tiles have contours drawn."""
+    quads: int = 0
+    """Bytes of US Topo sheets downloaded (D-068)."""
+    warp: tuple[int, ...] = ()
+    """The download size of each sheet ``ustopo-mosaic`` warps."""
 
     def any(self) -> bool:
-        return bool(self.tiles or self.garmin or self.routino or self.contour_tiles)
+        return bool(
+            self.tiles
+            or self.garmin
+            or self.routino
+            or self.contour_tiles
+            or self.quads
+            or self.warp
+        )
 
 
 def terrain_needs(
@@ -128,22 +147,26 @@ def terrain_needs(
     routino_staging: Path,
     contour_staging: Path,
     prefix: Path,
+    mosaic_staging: Path | None = None,
 ) -> dict[Path, int]:
-    """Bytes each location needs: each tile in the fetch cache and under the
-    prefix; the largest Garmin build's scratch (they run one at a time and
-    each is removed before the next); the Routino build's scratch and output;
-    one tile's contour scratch plus every rasterised tile; and every output
+    """Bytes each location needs: each tile and sheet in the fetch cache and
+    under the prefix; the largest Garmin build's scratch (they run one at a
+    time and each is removed before the next); the Routino build's scratch
+    and output; one tile's contour scratch plus every rasterised tile; the
+    largest sheet's warp scratch (one at a time, D-068); and every output
     again under the prefix."""
     garmin_out = sum(garmin_estimate(size) for size in work.garmin)
     routino_out = routino_estimate(work.routino)
     contours = work.contour_tiles * CONTOUR_BYTES
+    warped = round(sum(work.warp) * WARP_FACTOR)
     needs: dict[Path, int] = {}
     for where, amount in (
-        (cache, work.tiles),
+        (cache, work.tiles + work.quads),
         (garmin_staging, GARMIN_SCRATCH_FACTOR * max(work.garmin, default=0)),
         (routino_staging, ROUTINO_SCRATCH_FACTOR * work.routino),
         (contour_staging, (CONTOUR_SCRATCH_BYTES if work.contour_tiles else 0) + contours),
-        (prefix, work.tiles + garmin_out + routino_out + contours),
+        (mosaic_staging or contour_staging, WARP_SCRATCH_FACTOR * max(work.warp, default=0)),
+        (prefix, work.tiles + garmin_out + routino_out + contours + work.quads + warped),
     ):
         needs[where] = needs.get(where, 0) + round(amount)
     return needs

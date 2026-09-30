@@ -45,6 +45,7 @@ from hammunition.manifest.schema import (
     PackageManifest,
     RegionalDataInstall,
     SourceInstall,
+    TopoQuadsInstall,
     VenvInstall,
 )
 from hammunition.plan import InstallPlan, PlannedPackage
@@ -255,6 +256,27 @@ def _tiles_row(planned: PlannedPackage, count: int, no_terrain: int = 0) -> Upda
     )
 
 
+def _quads_row(planned: PlannedPackage, count: int, stale: int) -> UpdateRow:
+    """Counts only (D-068): a sheet's name is a place, as telling as a region's."""
+    strategy = planned.manifest.update.strategy
+    if not count:
+        return UpdateRow(planned.name, NOT_INSTALLED, "no US Topo quads installed", strategy)
+    if stale:
+        return UpdateRow(
+            planned.name,
+            BEHIND_PIN,
+            f"{count} US Topo quad(s) installed; {stale} of them have a newer edition in "
+            f"the carried index",
+            strategy,
+        )
+    return UpdateRow(
+        planned.name,
+        UP_TO_DATE,
+        f"{count} US Topo quad(s) installed, each at the edition the carried index lists",
+        strategy,
+    )
+
+
 def _first_sentence(manifest: PackageManifest) -> str:
     """A manual unit's cadence hint, cut to its first sentence for the table;
     the manifest carries the rest, and the row says where to look."""
@@ -274,6 +296,7 @@ def report(
     regions: Mapping[str, Sequence[RegionSnapshot]] | None = None,
     tiles: Mapping[str, int] | None = None,
     no_terrain: Mapping[str, int] | None = None,
+    quads: Mapping[str, tuple[int, int]] | None = None,
 ) -> UpdateReport:
     """One row per planned unit. Pure: every fact arrives as an argument.
 
@@ -286,6 +309,10 @@ def report(
     ``tiles`` is a ``dem-tiles`` unit's name to how many tiles it has
     installed (D-061), a count and nothing else; ``no_terrain`` is how many
     of its regions Copernicus publishes no tile for, a count likewise.
+
+    ``quads`` is a ``topo-quads`` unit's name to (sheets installed, of those
+    the ones the carried index has since replaced with a newer edition),
+    counts only (D-068).
     """
     attributed = frozenset(built)
     region_report = regions or {}
@@ -340,6 +367,8 @@ def report(
                     (no_terrain or {}).get(planned.name, 0),
                 )
             )
+        elif isinstance(method, TopoQuadsInstall):
+            rows.append(_quads_row(planned, *(quads or {}).get(planned.name, (0, 0))))
         elif isinstance(method, VenvInstall):
             rows.append(
                 UpdateRow(
@@ -408,6 +437,13 @@ def rebuild_command(report: UpdateReport) -> str | None:
     reported = {row.unit for row in report.rows}
     if "osm-regions" in names:
         names.extend(u for u in ("osm-garmin", "osm-routino") if u in reported and u not in names)
+    # D-068: the US Topo mosaic is warped from the sheets.
+    if (
+        "usgs-ustopo" in names
+        and "ustopo-qmapshack" in reported
+        and "ustopo-qmapshack" not in names
+    ):
+        names.append("ustopo-qmapshack")
     return f"hammunition install {' '.join(names)}"
 
 

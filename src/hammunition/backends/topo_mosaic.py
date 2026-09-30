@@ -52,7 +52,7 @@ from .base import Action, BackendError, Command, CommandRunner
 from .data import human_size
 from .regions import SOURCE, data_root, installed_converter, prefix_writer, removal_steps
 from .staging import REFUSED, Staging
-from .terrain import TerrainLedger
+from .terrain import WARP_FACTOR, TerrainLedger
 from .topo import TIF, TopoResolution, quad_key
 from .verified import PrefixWriter
 
@@ -66,12 +66,6 @@ QUADS_DIR = "quads"
 WORKDIR = "ustopo"
 #: The ledger key of the VRT; a sheet's is ``ustopo-mosaic:<name>``.
 KEY = "ustopo-mosaic"
-#: A warped sheet with its overviews against its download: 8.9 MB from
-#: 9.2 MB, measured on one Delaware sheet, rounded up.
-WARP_FACTOR = 1.0
-#: The working directory's peak for one sheet against its download: the
-#: warped file and its overviews, 1.0 again, rounded up.
-WARP_SCRATCH_FACTOR = 1.0
 MEASURED = "measured on one quad"
 
 

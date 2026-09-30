@@ -917,6 +917,7 @@ Terrain, and what is built for QMapShack (D-061). Names where the operator is: l
 | `disk_total` | integer | bytes: the tiles plus everything estimated to be built |
 | `disk_total_human` | string | as the text prints it |
 | `estimate_note` | string | how the estimates were measured |
+| `topo` | [`TopoSectionView`](#toposectionview) or null | USGS US Topo quads and their mosaic (D-068); null when neither unit is planned |
 
 #### `TerrainRegionLine`
 
@@ -952,6 +953,51 @@ A region mkgmap builds a Garmin map from this run.
 | `snapshot` | string | the dated snapshot |
 | `estimate` | integer | bytes the map is estimated to take |
 | `estimate_human` | string | that estimate as the text prints it |
+
+#### `TopoSectionView`
+
+USGS US Topo sheets and QMapShack's mosaic of them (D-068). Local only.
+
+| field | type | meaning |
+|---|---|---|
+| `regions` | list of [`TopoRegionLine`](#toporegionline) | quads per region |
+| `no_quads` | list of string | regions no US Topo quad covers (outside the United States); nothing is fetched for them |
+| `fetch` | list of [`QuadLine`](#quadline) | quads downloaded this run |
+| `current` | integer | quads already installed |
+| `licence` | string | the sheets' licence |
+| `licence_url` | string | where it is stated |
+| `download_total` | integer | bytes of quads downloaded |
+| `download_total_human` | string | as the text prints it |
+| `warp` | integer | quads warped for QMapShack this run |
+| `warp_estimate` | integer | bytes the warped quads are estimated to take |
+| `warp_estimate_human` | string | as the text prints it |
+| `disk_total` | integer | bytes: the downloads plus the warped quads |
+| `disk_total_human` | string | as the text prints it |
+| `estimate_note` | string | how the estimate was measured |
+
+#### `TopoRegionLine`
+
+The US Topo quads one region needs (D-068).
+
+| field | type | meaning |
+|---|---|---|
+| `region` | string | the Geofabrik region path |
+| `quads` | integer | quads whose box its outline touches |
+| `size` | integer | bytes of all its quads, installed or not |
+| `size_human` | string | as the text prints it |
+| `download` | integer | bytes of its quads downloaded this run; a quad two regions share counts in both |
+| `download_human` | string | as the text prints it |
+
+#### `QuadLine`
+
+One US Topo quad downloaded this run.
+
+| field | type | meaning |
+|---|---|---|
+| `quad` | string | the quad's file name without .tif: state, map name and edition date |
+| `size` | integer | bytes |
+| `size_human` | string | the size as the text prints it |
+| `verified_by` | string | how the download is checked |
 
 #### `BoundaryLine`
 
@@ -1940,6 +1986,36 @@ A unit and files.
       "title": "PackageLine",
       "type": "object"
     },
+    "QuadLine": {
+      "additionalProperties": false,
+      "description": "One US Topo quad downloaded this run.",
+      "properties": {
+        "quad": {
+          "title": "Quad",
+          "type": "string"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "size_human": {
+          "title": "Size Human",
+          "type": "string"
+        },
+        "verified_by": {
+          "title": "Verified By",
+          "type": "string"
+        }
+      },
+      "required": [
+        "quad",
+        "size",
+        "size_human",
+        "verified_by"
+      ],
+      "title": "QuadLine",
+      "type": "object"
+    },
     "RecordsLine": {
       "additionalProperties": false,
       "description": "Where the transaction log is written.",
@@ -2407,6 +2483,16 @@ A unit and files.
         "estimate_note": {
           "title": "Estimate Note",
           "type": "string"
+        },
+        "topo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TopoSectionView"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -2426,7 +2512,8 @@ A unit and files.
         "contours_estimate_human",
         "disk_total",
         "disk_total_human",
-        "estimate_note"
+        "estimate_note",
+        "topo"
       ],
       "title": "TerrainSectionView",
       "type": "object"
@@ -2459,6 +2546,135 @@ A unit and files.
         "verified_by"
       ],
       "title": "TileLine",
+      "type": "object"
+    },
+    "TopoRegionLine": {
+      "additionalProperties": false,
+      "description": "The US Topo quads one region needs (D-068).",
+      "properties": {
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "quads": {
+          "title": "Quads",
+          "type": "integer"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "size_human": {
+          "title": "Size Human",
+          "type": "string"
+        },
+        "download": {
+          "title": "Download",
+          "type": "integer"
+        },
+        "download_human": {
+          "title": "Download Human",
+          "type": "string"
+        }
+      },
+      "required": [
+        "region",
+        "quads",
+        "size",
+        "size_human",
+        "download",
+        "download_human"
+      ],
+      "title": "TopoRegionLine",
+      "type": "object"
+    },
+    "TopoSectionView": {
+      "additionalProperties": false,
+      "description": "USGS US Topo sheets and QMapShack's mosaic of them (D-068). Local only.",
+      "properties": {
+        "regions": {
+          "items": {
+            "$ref": "#/$defs/TopoRegionLine"
+          },
+          "title": "Regions",
+          "type": "array"
+        },
+        "no_quads": {
+          "items": {
+            "type": "string"
+          },
+          "title": "No Quads",
+          "type": "array"
+        },
+        "fetch": {
+          "items": {
+            "$ref": "#/$defs/QuadLine"
+          },
+          "title": "Fetch",
+          "type": "array"
+        },
+        "current": {
+          "title": "Current",
+          "type": "integer"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "licence_url": {
+          "title": "Licence Url",
+          "type": "string"
+        },
+        "download_total": {
+          "title": "Download Total",
+          "type": "integer"
+        },
+        "download_total_human": {
+          "title": "Download Total Human",
+          "type": "string"
+        },
+        "warp": {
+          "title": "Warp",
+          "type": "integer"
+        },
+        "warp_estimate": {
+          "title": "Warp Estimate",
+          "type": "integer"
+        },
+        "warp_estimate_human": {
+          "title": "Warp Estimate Human",
+          "type": "string"
+        },
+        "disk_total": {
+          "title": "Disk Total",
+          "type": "integer"
+        },
+        "disk_total_human": {
+          "title": "Disk Total Human",
+          "type": "string"
+        },
+        "estimate_note": {
+          "title": "Estimate Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "regions",
+        "no_quads",
+        "fetch",
+        "current",
+        "licence",
+        "licence_url",
+        "download_total",
+        "download_total_human",
+        "warp",
+        "warp_estimate",
+        "warp_estimate_human",
+        "disk_total",
+        "disk_total_human",
+        "estimate_note"
+      ],
+      "title": "TopoSectionView",
       "type": "object"
     },
     "UnitFiles": {

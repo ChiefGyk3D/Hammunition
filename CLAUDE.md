@@ -478,7 +478,7 @@ in their own install notes.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 266
+  packages/        # one YAML per piece of software          ✅ 268
   profiles/        # named bundles referencing packages      ✅ 17
   hardware/
     classes/       # device families with shared Linux needs ✅ 5
