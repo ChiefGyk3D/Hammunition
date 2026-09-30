@@ -234,6 +234,11 @@ jobs:
       # list only; growing the pins downloads 39 MB a tile and runs on a
       # maintainer's machine.
       - run: python scripts/gen_copernicus_pins.py --check
+      # The US Topo quad index (D-068): list the bucket's GeoTIFF prefix and
+      # fail naming each carried quad that is gone or whose size or ETag
+      # changed, since that breaks an install. A newer edition is counted, not
+      # failed. A listing only (about 273 pages); nothing is downloaded.
+      - run: python scripts/gen_ustopo_index.py --check
       # The region -> country table the Navit converter merges borders by
       # (D-057 amendment). Geofabrik adds and re-parents regions; a region
       # with no row converts with no border and its towns land under

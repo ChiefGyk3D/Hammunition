@@ -917,3 +917,45 @@ def test_the_copernicus_check_reports_current_and_writes_nothing() -> None:
     result = _copernicus_check()
     assert result.returncode == 0, f"{result.stdout}{result.stderr}"
     assert "up to date" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# The US Topo quad index (D-068). `--check --offline` checks its shape and its
+# header's counts against its rows everywhere, and writes nothing. The full
+# `--check` lists the bucket and fails only on a carried quad that is gone or
+# changed: the weekly pin-reviews job runs it, and here it skips, since this
+# suite blocks every non-loopback socket.
+# ---------------------------------------------------------------------------
+
+USTOPO = REPO_ROOT / "catalog" / "data" / "ustopo-quads.txt"
+
+
+def _ustopo_check(*extra: str) -> subprocess.CompletedProcess[str]:
+    before = USTOPO.stat().st_mtime_ns
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "gen_ustopo_index.py"), "--check", *extra],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    assert USTOPO.stat().st_mtime_ns == before, "--check wrote a file"
+    return result
+
+
+def test_the_ustopo_index_is_well_formed_offline() -> None:
+    result = _ustopo_check("--offline")
+    assert result.returncode == 0, f"{result.stdout}{result.stderr}"
+    assert "well formed" in result.stdout
+
+
+def test_the_ustopo_check_lists_the_bucket_and_writes_nothing() -> None:
+    if not _network_reaches("prd-tnm.s3.amazonaws.com"):
+        pytest.skip(
+            "the check lists the prd-tnm bucket's GeoTIFF prefix (about 273 pages); the "
+            "network is unavailable here (this suite blocks non-loopback sockets). The "
+            "weekly pin-reviews CI job runs it."
+        )
+    result = _ustopo_check()
+    assert result.returncode == 0, f"{result.stdout}{result.stderr}"
+    assert "every carried quad" in result.stdout

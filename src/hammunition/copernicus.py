@@ -80,9 +80,10 @@ def tile_url(name: str) -> str:
     return f"{BUCKET}/{name}/{name}.tif"
 
 
-def _wrap(lon: int) -> int:
-    """A whole-degree longitude folded into -180..179."""
-    return (lon + 180) % 360 - 180
+def _wrap(lon: int, per_degree: int = 1) -> int:
+    """A whole-cell longitude folded into -180..179 degrees' worth of cells."""
+    half = 180 * per_degree
+    return (lon + half) % (2 * half) - half
 
 
 def parse_poly(text: str) -> tuple[list[Ring], list[Ring]]:
@@ -137,11 +138,12 @@ def bbox_ring(left: float, right: float, top: float, bottom: float) -> Ring:
     return ((left, bottom), (right, bottom), (right, top), (left, top))
 
 
-def _edge_squares(a: Point, b: Point, out: set[Square]) -> None:
-    if abs(a[0] - b[0]) > 180.0:
+def _edge_squares(a: Point, b: Point, out: set[Square], per_degree: int = 1) -> None:
+    if abs(a[0] - b[0]) > 180.0 * per_degree:
         raise CopernicusError(
             f"an outline edge spans more than 180 degrees of longitude, from "
-            f"{a!r} to {b!r}; no Geofabrik outline measured jumps across +/-180 "
+            f"{(a[0] / per_degree, a[1] / per_degree)!r} to "
+            f"{(b[0] / per_degree, b[1] / per_degree)!r}; no Geofabrik outline measured jumps across +/-180 "
             f"in one segment (Alaska, Fiji, New Zealand and Russia's far east are "
             f"rings meeting it, D-061), so this one is refused rather than "
             f"guessed at"
@@ -168,23 +170,42 @@ def _inside(x: float, y: float, rings: Sequence[Ring]) -> bool:
     return crossings
 
 
-def squares_touching(outer: Sequence[Ring], holes: Sequence[Ring] = ()) -> frozenset[Square]:
+def squares_touching(
+    outer: Sequence[Ring], holes: Sequence[Ring] = (), *, per_degree: int = 1
+) -> frozenset[Square]:
     """Every square the outline touches: those its edges pass through, and
     those whose centre lies inside it. Longitudes are folded into -180..179,
     so an outline written past the antimeridian selects the squares it
-    covers; latitudes are kept to -90..89, the squares that exist."""
+    covers; latitudes are kept to -90..89, the squares that exist.
+
+    *per_degree* cuts each degree into that many cells a side and returns
+    cell indices at that scale: 8 gives the 1/8-degree cells US Topo's
+    7.5-minute quads sit on (D-068), where cell ``(row, column)`` spans
+    latitude ``row/8`` to ``(row+1)/8``. Copernicus's tiles are the default, 1.
+    """
+    if per_degree < 1:
+        raise CopernicusError(f"per_degree must be at least 1, got {per_degree}")
+
+    def scaled(ring: Ring) -> Ring:
+        return tuple((x * per_degree, y * per_degree) for x, y in ring)
+
+    outer = [scaled(ring) for ring in outer]
+    holes = [scaled(ring) for ring in holes]
     found: set[Square] = set()
     rings = [*outer, *holes]
     for ring in rings:
         for a, b in zip(ring, ring[1:] + ring[:1], strict=True):
-            _edge_squares(a, b, found)
+            _edge_squares(a, b, found, per_degree)
     xs = [x for ring in outer for x, _ in ring]
     ys = [y for ring in outer for _, y in ring]
     for row in range(math.floor(min(ys)), math.floor(max(ys)) + 1):
         for column in range(math.floor(min(xs)), math.floor(max(xs)) + 1):
             if _inside(column + 0.5, row + 0.5, rings):
                 found.add((row, column))
-    return frozenset((row, _wrap(column)) for row, column in found if -90 <= row <= 89)
+    top = 90 * per_degree
+    return frozenset(
+        (row, _wrap(column, per_degree)) for row, column in found if -top <= row <= top - 1
+    )
 
 
 def select(squares: Iterable[Square], tile_list: frozenset[str]) -> tuple[tuple[str, ...], int]:
@@ -318,16 +339,17 @@ class S3Probe:
     trusted: the size and MD5 become what the download is checked against.
     """
 
-    def __init__(self, *, timeout: float = 30.0) -> None:
+    def __init__(self, *, timeout: float = 30.0, bucket: str = BUCKET) -> None:
         self.timeout = timeout
+        self.bucket = bucket
         opener = urllib.request.OpenerDirector()
         opener.add_handler(urllib.request.HTTPHandler())
         opener.add_handler(urllib.request.HTTPSHandler())
         self._opener = opener
 
     def head(self, url: str) -> tuple[int, int, str | None]:
-        if not url.startswith(BUCKET + "/"):
-            raise CopernicusError(f"refusing {url!r}: only {BUCKET} is asked about tiles")
+        if not url.startswith(self.bucket + "/"):
+            raise CopernicusError(f"refusing {url!r}: only {self.bucket} is asked about tiles")
         request = urllib.request.Request(url, headers={"User-Agent": "hammunition"})
         request.method = "HEAD"
         try:
