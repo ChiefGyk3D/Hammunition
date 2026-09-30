@@ -405,3 +405,217 @@ def test_a_wrapper_named_like_its_tool_runs_the_tool_and_not_itself(tmp_path: Pa
     assert "real tool ran -v" in out, out
     assert "[exit 0]" in out, out
     assert out.count("real tool ran") == 1, out
+
+
+# ---------------------------------------------------------------------------
+# Issue #145: a launcher runs the engine by absolute path.
+#
+# Plasma starts a menu entry as a systemd user service, whose PATH has no
+# ~/.local/bin. `qmapshack-offline` was the three lines `hammunition maps
+# qmapshack` and died with "hammunition: not found", status 127, on the dev
+# desktop 2026-09-29. The launcher now names the hammunition that wrote it.
+# ---------------------------------------------------------------------------
+
+
+def _engine_manifest(terminal: bool = False) -> PackageManifest:
+    return manifest(
+        name="qmapshack",
+        launchers=[
+            {
+                "name": "qmapshack-offline",
+                "exec": "hammunition maps qmapshack",
+                "terminal": terminal,
+            }
+        ],
+    )
+
+
+def _fake_engine(where: Path) -> Path:
+    where.parent.mkdir(parents=True, exist_ok=True)
+    where.write_text('#!/bin/sh\necho "engine ran $*"\n')
+    where.chmod(0o755)
+    return where
+
+
+def _only_argv0(monkeypatch: pytest.MonkeyPatch, argv0: str, tmp_path: Path) -> None:
+    """The running engine is argv[0] and nothing else can be found."""
+    import sys
+
+    monkeypatch.setattr(sys, "argv", [argv0, "install", "navigation"])
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "no-venv" / "bin" / "python3"))
+    monkeypatch.setattr("hammunition.launchers.shutil.which", lambda _name: None)
+
+
+def test_a_launcher_calling_the_engine_names_it_by_absolute_path() -> None:
+    m = _engine_manifest()
+    engine = Path("/home/op/Hammunition/.venv/bin/hammunition")
+    body = wrapper_body(m, m.launchers[0], engine=engine)
+    assert body.splitlines()[-1] == f"{engine} maps qmapshack", body
+    assert "\nhammunition " not in body
+
+
+def test_an_engine_path_with_a_space_is_quoted_for_the_shell() -> None:
+    m = _engine_manifest()
+    body = wrapper_body(m, m.launchers[0], engine=Path("/home/op/my checkout/hammunition"))
+    assert body.splitlines()[-1] == "'/home/op/my checkout/hammunition' maps qmapshack", body
+
+
+def test_a_launcher_calling_the_engine_refuses_without_one() -> None:
+    from hammunition.backends.base import BackendError
+
+    m = _engine_manifest()
+    with pytest.raises(BackendError, match="hammunition"):
+        wrapper_body(m, m.launchers[0])
+
+
+def test_a_launcher_not_calling_the_engine_is_unchanged() -> None:
+    m = manifest(launchers=[{"name": "l", "exec": "hammunition-tray --x"}])
+    assert wrapper_body(m, m.launchers[0]).splitlines()[-1] == "hammunition-tray --x"
+
+
+def test_the_engine_is_the_running_argv0_made_absolute(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hammunition.launchers import engine_path
+
+    engine = _fake_engine(tmp_path / "checkout" / ".venv" / "bin" / "hammunition")
+    monkeypatch.chdir(tmp_path / "checkout")
+    _only_argv0(monkeypatch, ".venv/bin/hammunition", tmp_path)
+    assert engine_path(tmp_path / "home" / ".local" / "bin") == engine
+
+
+def test_the_local_bin_link_is_preferred_when_it_runs_this_engine(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """So a venv that moves is fixed by re-running bootstrap, which relinks,
+    rather than by regenerating every launcher."""
+    from hammunition.launchers import engine_path
+
+    engine = _fake_engine(tmp_path / "checkout" / ".venv" / "bin" / "hammunition")
+    bin_dir = tmp_path / "home" / ".local" / "bin"
+    bin_dir.mkdir(parents=True)
+    (bin_dir / "hammunition").symlink_to(engine)
+    _only_argv0(monkeypatch, str(engine), tmp_path)
+    assert engine_path(bin_dir) == bin_dir / "hammunition"
+
+
+def test_a_local_bin_link_to_another_checkout_is_not_used(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hammunition.launchers import engine_path
+
+    engine = _fake_engine(tmp_path / "this" / ".venv" / "bin" / "hammunition")
+    other = _fake_engine(tmp_path / "other" / ".venv" / "bin" / "hammunition")
+    bin_dir = tmp_path / "home" / ".local" / "bin"
+    bin_dir.mkdir(parents=True)
+    (bin_dir / "hammunition").symlink_to(other)
+    _only_argv0(monkeypatch, str(engine), tmp_path)
+    assert engine_path(bin_dir) == engine
+
+
+def test_run_as_a_module_the_engine_is_the_venvs_entry_point(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`python -m hammunition` has __main__.py as argv[0]; the entry point
+    sits beside the interpreter in the venv."""
+    import sys
+
+    from hammunition.launchers import engine_path
+
+    engine = _fake_engine(tmp_path / "venv" / "bin" / "hammunition")
+    monkeypatch.setattr(sys, "argv", [str(tmp_path / "src" / "hammunition" / "__main__.py")])
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "venv" / "bin" / "python3"))
+    monkeypatch.setattr("hammunition.launchers.shutil.which", lambda _name: None)
+    assert engine_path(tmp_path / "bin") == engine
+
+
+def test_no_findable_engine_is_a_refusal_naming_bootstrap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hammunition.backends.base import BackendError
+    from hammunition.launchers import engine_path
+
+    _only_argv0(monkeypatch, str(tmp_path / "pytest"), tmp_path)
+    with pytest.raises(BackendError, match="bootstrap"):
+        engine_path(tmp_path / "bin")
+
+
+def test_launcher_steps_write_the_absolute_engine_and_the_plan_names_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    engine = _fake_engine(tmp_path / "checkout" / ".venv" / "bin" / "hammunition")
+    _only_argv0(monkeypatch, str(engine), tmp_path)
+    m = _engine_manifest()
+    steps = launcher_steps(m, bin_dir=tmp_path / "bin", applications_dir=tmp_path / "apps")
+    wrapper_step = steps[0]
+    assert str(engine) in wrapper_step.detail, "the dry run shows which engine the launcher runs"
+    for step in steps:
+        step.perform()
+    body = (tmp_path / "bin" / "qmapshack-offline").read_text()
+    assert f"{engine} maps qmapshack" in body
+    assert body.splitlines()[1] == "# generated by hammunition for qmapshack", (
+        "uninstall finds its wrappers by this marker"
+    )
+
+
+def test_the_launcher_runs_with_a_service_path_that_lacks_local_bin(tmp_path: Path) -> None:
+    """The property #145 is about: run with the PATH a systemd user service
+    gets, which has no ~/.local/bin, the launcher still reaches the engine."""
+    engine = _fake_engine(tmp_path / "home" / "Hammunition" / ".venv" / "bin" / "hammunition")
+    m = _engine_manifest()
+    wrapper = tmp_path / "home" / ".local" / "bin" / "qmapshack-offline"
+    wrapper.parent.mkdir(parents=True)
+    wrapper.write_text(wrapper_body(m, m.launchers[0], engine=engine))
+    wrapper.chmod(0o755)
+    run = subprocess.run(
+        [str(wrapper)],
+        env={"PATH": "/usr/local/bin:/usr/bin:/bin"},
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert run.returncode == 0, (run.returncode, run.stderr)
+    assert run.stdout.strip() == "engine ran maps qmapshack"
+
+
+def test_engine_call_reads_back_what_the_launcher_runs() -> None:
+    from hammunition.launchers import engine_call
+
+    m = _engine_manifest(terminal=True)
+    absolute = wrapper_body(m, m.launchers[0], engine=Path("/opt/x y/hammunition"))
+    assert engine_call(absolute) == "/opt/x y/hammunition"
+    legacy = "#!/bin/sh\n# generated by hammunition for qmapshack\nhammunition maps qmapshack\n"
+    assert engine_call(legacy) == "hammunition"
+    plain = wrapper_body(manifest(), manifest().launchers[0])
+    assert engine_call(plain) is None
+
+
+def test_survey_sorts_launchers_by_whether_their_engine_runs(tmp_path: Path) -> None:
+    from hammunition.launchers import survey_engine_launchers
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    engine = _fake_engine(tmp_path / "venv" / "hammunition")
+    m = _engine_manifest()
+    (bin_dir / "good").write_text(wrapper_body(m, m.launchers[0], engine=engine))
+    (bin_dir / "gone").write_text(
+        wrapper_body(m, m.launchers[0], engine=tmp_path / "moved" / "hammunition")
+    )
+    (bin_dir / "bare").write_text(
+        "#!/bin/sh\n# generated by hammunition for qmapshack\nhammunition maps qmapshack\n"
+    )
+    (bin_dir / "unrelated").write_text("#!/bin/sh\nhammunition maps qmapshack\n")
+    (bin_dir / "plain").write_text(wrapper_body(manifest(), manifest().launchers[0]))
+    (bin_dir / "hammunition").symlink_to(engine)
+    survey = survey_engine_launchers(bin_dir)
+    assert survey.ok == (str(bin_dir / "good"),)
+    assert survey.bare == (str(bin_dir / "bare"),)
+    assert survey.broken == ((str(bin_dir / "gone"), str(tmp_path / "moved" / "hammunition")),)
+
+
+def test_survey_of_a_missing_bin_dir_is_empty(tmp_path: Path) -> None:
+    from hammunition.launchers import survey_engine_launchers
+
+    survey = survey_engine_launchers(tmp_path / "absent")
+    assert survey.ok == () and survey.bare == () and survey.broken == ()

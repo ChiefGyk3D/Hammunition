@@ -2001,7 +2001,16 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
     hw_matches, _ = match_catalog(read_usb_bus(), hw_entries)
     found, _ = parkable_devices(hw_matches, hw_entries)
     device_generated = device_entries(found, hw_entries, manifests, hidden)
-    steps.extend(device_entry_steps(device_generated, applications, vocabulary.icons))
+    from hammunition.launchers import engine_path
+
+    try:
+        engine = engine_path(user_bin_dir(None))
+    except BackendError as exc:
+        print(f"Refusing to write menu entries that could not start: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    steps.extend(
+        device_entry_steps(device_generated, applications, vocabulary.icons, engine=engine)
+    )
 
     desktop = os.environ.get("XDG_CURRENT_DESKTOP", "")
     wants_gnome = "GNOME" in desktop.upper() or args.gnome
