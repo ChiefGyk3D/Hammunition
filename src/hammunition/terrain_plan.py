@@ -33,6 +33,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .backends.base import CommandRunner
+from .backends.brouter import BRouterConverter
+from .backends.brouter import Source as BRouterSource
 from .backends.dem import (
     TIF,
     TILES,
@@ -216,6 +218,7 @@ class TerrainRun:
     garmin: GarminConverter
     routino: RoutinoConverter
     gdal: GdalDemConverter
+    brouter: BRouterConverter
 
     @property
     def converters(self) -> dict[str, Converter]:
@@ -223,6 +226,7 @@ class TerrainRun:
             "mkgmap": self.garmin,
             "routino-planetsplitter": self.routino,
             "gdal-dem": self.gdal,
+            "brouter-mapcreator": self.brouter,
         }
 
     def disclosure(self, plan: InstallPlan) -> TerrainDisclosure | None:
@@ -231,9 +235,11 @@ class TerrainRun:
         garmin = _planned(plan, DerivedDataInstall, "mkgmap")
         routino = _planned(plan, DerivedDataInstall, "routino-planetsplitter")
         gdal = _planned(plan, DerivedDataInstall, "gdal-dem")
-        if not (dem or garmin or routino or gdal):
+        brouter = _planned(plan, DerivedDataInstall, "brouter-mapcreator")
+        if not (dem or garmin or routino or gdal or brouter):
             return None
         sources = self._routino_sources(routino)
+        rebuilt, tiles, squares = self._brouter_work(brouter)
         # Contours from the tiles still to draw; `drawing` from those and the
         # record check -- not from a count of steps, which would count a
         # removal as drawing (Task 12 review).
@@ -249,7 +255,22 @@ class TerrainRun:
             routino_total=sum(s.size for s in sources),
             contours=len(contours),
             drawing=drawing,
+            brouter_regions=len(rebuilt),
+            brouter_total=sum(s.size for s in rebuilt),
+            brouter_tiles=tiles,
+            brouter_squares=squares,
         )
+
+    def _brouter_work(self, brouter: PlannedPackage | None) -> tuple[list[BRouterSource], int, int]:
+        """The regions BRouter's routing files are rebuilt over this run, and
+        the tiles and squares folded in; nothing when they are current."""
+        if brouter is None or not isinstance(brouter.block.install, DerivedDataInstall):
+            return [], 0, 0
+        block = brouter.block.install
+        rebuilt = self.brouter.pending(brouter.manifest, block)
+        if not rebuilt:
+            return [], 0, 0
+        return rebuilt, len(self.brouter.wanted_tiles(block)), len(self.brouter.squares(block))
 
     def _routino_sources(self, routino: PlannedPackage | None) -> list[Source]:
         if routino is None or not isinstance(routino.block.install, DerivedDataInstall):
@@ -266,6 +287,9 @@ class TerrainRun:
             garmin=tuple(f.size for f in disclosed.garmin),
             routino=disclosed.routino_total,
             contour_tiles=disclosed.contours,
+            brouter=disclosed.brouter_total,
+            brouter_regions=disclosed.brouter_regions,
+            brouter_squares=disclosed.brouter_squares,
         )
         return terrain_needs(
             work,
@@ -274,6 +298,7 @@ class TerrainRun:
             routino_staging=self.routino.staging.directory,
             contour_staging=self.gdal.staging.directory,
             prefix=prefix,
+            brouter_staging=self.brouter.staging.directory,
         )
 
 
@@ -324,6 +349,16 @@ def build_terrain_run(
             prefix=prefix,
             resolution=resolution,
             staging=Staging(builds / "dem-qmapshack", owner=owner),
+            ledger=ledger,
+            runner=runner,
+        ),
+        brouter=BRouterConverter(
+            prefix=prefix,
+            files=files,
+            resolution=resolution,
+            staging=Staging(builds / "brouter-segments", owner=owner),
+            keep=keep,
+            regions=regions,
             ledger=ledger,
             runner=runner,
         ),
