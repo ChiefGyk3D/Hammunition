@@ -5839,6 +5839,21 @@ Outside the US, OSM stays the trail layer. OS OpenData publishes an MD5 per
 file, which is the pattern a UK source would follow; CanVec publishes none;
 the EU has no single source.
 
+**Final review (2026-09-29), fixed before merge.** An older edition was
+removed before its newer one had installed, so a failed fetch left a hole in
+the map until the next online run: it is now removed only once the new file
+is on disk, the step runs after the installs, and the mosaic keeps the older
+warped copy in the VRT meanwhile (I1). A current record now takes the
+index's size and ETag, so a re-uploaded object under the same name is not
+checked against a stale ETag forever (M1). A VRT whose every sheet failed to
+warp is removed (M3). `--check --offline` also checks the header's CSV row
+count (M5), and a GeoTIFF newer than the CSV's own edition is counted as
+current, not older (M6). Left as known gaps: a region's record never picks
+up a sheet USGS adds inside it while every recorded sheet is still indexed
+(rare; changing the region re-selects), and `usgs-ustopo` reads "already
+installed" in the plan when only a record or a removal is written, the
+`dem-tiles` rule of D-061.
+
 **Rejected.** The TNM Access API at plan time (online, and it lists only
 PDFs). A gzipped index (`*.gz` is ignored repository-wide, and a regenerated
 diff would be unreadable). Failing the weekly check on a newer edition.

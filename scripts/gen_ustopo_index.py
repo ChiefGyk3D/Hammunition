@@ -79,6 +79,7 @@ TIMEOUT = 60.0
 S3 = "{http://s3.amazonaws.com/doc/2006-03-01/}"
 _OBJECT = re.compile(rf"{re.escape(PREFIX)}([A-Z]{{2}})/(.+)_(\d{{8}}){re.escape(SUFFIX)}")
 _PRODUCT = re.compile(r"(.+)_(\d{8})_TM_geo\.pdf")
+_ROWS = re.compile(r"# index: ustopo_current\.csv, last updated \S+ \((\d+) current quads\)")
 _COUNTS = re.compile(
     r"# quads: (\d+) \(current edition: (\d+); older GeoTIFF edition, the current one "
     r"PDF only: (\d+)\); left out, no GeoTIFF at all: (\d+)"
@@ -175,7 +176,9 @@ def build(csv_text: str, editions: Mapping[str, Sequence[Edition]]) -> Built:
             continue
         exact = [e for e in found if e.date == date]
         edition = exact[0] if exact else found[0]
-        if exact:
+        # "older" is the GeoTIFF standing in for a PDF-only current edition;
+        # one newer than the CSV's own date is not older (review M6).
+        if exact or edition.date > date:
             current += 1
         else:
             older += 1
@@ -230,6 +233,12 @@ def check_shape(text: str) -> Built:
     if counts is None:
         raise GeneratorError(f"{INDEX} has no `# quads:` header line")
     total, current, older, missing = (int(g) for g in counts.groups())
+    rows = _ROWS.search(text)
+    if rows is None or int(rows.group(1)) != total + missing:
+        raise GeneratorError(
+            f"{INDEX}: the header's CSV row count is not the quads carried plus those left "
+            f"out; it was edited by hand. Regenerate it"
+        )
     try:
         quads = parse_index(text).quads
     except UstopoError as exc:
@@ -242,7 +251,7 @@ def check_shape(text: str) -> Built:
             f"{INDEX}: the header counts {total} quads ({current} current, {older} older) "
             f"and the file has {len(quads)}; it was edited by hand. Regenerate it"
         )
-    return Built(tuple(quads), 0, current, older, missing)
+    return Built(tuple(quads), total + missing, current, older, missing)
 
 
 def check_online(quads: Sequence[Quad], editions: Mapping[str, Sequence[Edition]]) -> list[str]:

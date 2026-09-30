@@ -328,3 +328,43 @@ def test_real_gdal_crops_a_transverse_mercator_page_to_its_box(tmp_path: Path) -
     assert min(lon) == pytest.approx(0.0, abs=1e-4) and max(lon) == pytest.approx(0.125, abs=1e-4)
     assert min(lat) == pytest.approx(0.0, abs=1e-4) and max(lat) == pytest.approx(0.125, abs=1e-4)
     assert info["bands"][0]["overviews"], "overviews were added"
+
+
+NEW_ALPHA = Quad(0.0, 0.0, 0.125, 0.125, 9_000_000, MD5, "ZZ/ZZ_Alpha_20260101")
+
+
+def test_a_warped_older_edition_stays_in_the_map_when_the_new_one_did_not_arrive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review I1, the converter's half: no hole in the map."""
+    install_fakes(monkeypatch, tmp_path / "bin", FAKES)
+    _install_sheets(tmp_path, ALPHA, BETA)
+    _run(_converter(tmp_path))
+    ledger = TerrainLedger()
+    ledger.fail(quad_key(NEW_ALPHA.name), "did not verify")
+    conv = _converter(
+        tmp_path, resolution=TopoResolution(fetch=(NEW_ALPHA,), current=(BETA,)), ledger=ledger
+    )
+    outcomes = _run(conv)
+    out = _data(tmp_path, "ustopo-qmapshack")
+    assert (out / "quads" / "ZZ_Alpha_20240101.tif").is_file()
+    assert any("kept" in o and "ZZ_Alpha_20240101" in o for o in outcomes)
+    assert "built" in outcomes[-1] and "(2 quad(s))" in outcomes[-1]
+    assert not (out / RECORD).read_text().startswith("ZZ_Alpha_20260101"), "not recorded as done"
+
+
+def test_a_vrt_is_removed_when_every_warp_failed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review M3: the VRT named sheets just removed."""
+    install_fakes(monkeypatch, tmp_path / "bin", FAKES)
+    _install_sheets(tmp_path, ALPHA, BETA)
+    _run(_converter(tmp_path))
+    install_fakes(monkeypatch, tmp_path / "bin", {**FAKES, "gdalwarp": "exit 1"})
+    other = Quad(1.0, 1.0, 1.125, 1.125, 1, MD5, "ZZ/ZZ_Gamma_20240101")
+    _install_sheets(tmp_path, other)
+    conv = _converter(tmp_path, resolution=TopoResolution(fetch=(other,)))
+    outcomes = _run(conv)
+    out = _data(tmp_path, "ustopo-qmapshack")
+    assert not (out / VRT).exists() and not (out / RECORD).exists()
+    assert outcomes[-1].startswith("no US Topo quad is warped; removed")

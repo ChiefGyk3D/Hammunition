@@ -53,7 +53,7 @@ from .data import human_size
 from .regions import SOURCE, data_root, installed_converter, prefix_writer, removal_steps
 from .staging import REFUSED, Staging
 from .terrain import WARP_FACTOR, TerrainLedger
-from .topo import TIF, TopoResolution, quad_key
+from .topo import TIF, TopoResolution, quad_key, replaced_steps, stem_of
 from .verified import PrefixWriter
 
 #: What a warped sheet and the VRT were built by: the last line of
@@ -203,7 +203,8 @@ class UstopoMosaicConverter:
         steps: list[Action | Command] = []
         pending = self.pending(manifest)
         keep = {q.name for q in self.resolution.quads}
-        removals = removal_steps(out / QUADS_DIR, TIF, keep, writer)
+        old, replacing = replaced_steps(out / QUADS_DIR, sorted(keep), writer, "warped quad")
+        removals = [*removal_steps(out / QUADS_DIR, TIF, keep | old, writer), *replacing]
         if not keep:
             # No region needs a sheet (every region outside the US, say): a
             # VRT left from before would name files just removed, a broken
@@ -351,12 +352,27 @@ class UstopoMosaicConverter:
 
     def _vrt(self, out: Path, writer: PrefixWriter) -> str:
         wanted = [q.name for q in self.resolution.quads]
-        warped = [
-            out / QUADS_DIR / f"{name}{TIF}"
-            for name in wanted
-            if (out / QUADS_DIR / f"{name}{TIF}").is_file()
-        ]
+        quads = out / QUADS_DIR
+        warped: list[Path] = []
+        exact = 0
+        for name in wanted:
+            if (quads / f"{name}{TIF}").is_file():
+                warped.append(quads / f"{name}{TIF}")
+                exact += 1
+                continue
+            # An older edition kept because this one did not arrive (review
+            # I1): the map keeps it rather than a hole.
+            older = sorted(
+                p for p in quads.glob(f"*{TIF}") if stem_of(p.name[: -len(TIF)]) == stem_of(name)
+            )
+            if older:
+                warped.append(older[-1])
         if not warped:
+            # Review M3: every warped sheet it named is gone; a VRT left
+            # behind would be a broken map.
+            if (out / VRT).is_file() or (out / RECORD).is_file():
+                self._remove_vrt(out, writer)
+                return f"no US Topo quad is warped; removed {out / VRT}"
             return "no US Topo quad is warped; QMapShack gets no US Topo map this run"
         refusal = self._begin()
         if refusal is not None:
@@ -377,8 +393,9 @@ class UstopoMosaicConverter:
         except (BackendError, OSError) as exc:
             return self.ledger.fail(KEY, f"{out / VRT}: {exc}{self._clear('; ')}")
         scratch = self._clear("")
-        # Recorded only when every sheet made it in: a missing one is built next run.
-        if len(warped) == len(wanted):
+        # Recorded only when every sheet made it in at its own edition: a
+        # missing one is built next run.
+        if exact == len(wanted):
             writer.write_text(out / RECORD, render_record(wanted))
         done = _with(f"built {out / VRT} ({len(warped)} quad(s))", self.staging.who())
         if scratch:

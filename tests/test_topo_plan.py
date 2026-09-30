@@ -205,3 +205,12 @@ def test_the_plan_names_each_sheet_its_size_and_how_it_is_verified() -> None:
     assert "about 18.0 MB of disk for US Topo (measured on one quad)" in text
     assert view.no_quads == ("atlantis/lemuria",)
     assert [r.region for r in view.regions] == ["atlantis/oceania"]
+
+
+def test_a_current_record_takes_the_index_s_size_and_etag(tmp_path: Path) -> None:
+    """Review M1: a re-uploaded object under the same name, index regenerated."""
+    stale = Quad(ALPHA.south, ALPHA.west, ALPHA.north, ALPHA.east, 1, "f" * 32, ALPHA.path)
+    (tmp_path / "atlantis-oceania.quads").write_text(render_record(RegionQuads(*OCEANIA, (stale,))))
+    quads = QuadProbe(_ok(ALPHA))
+    got, _ = _resolve(tmp_path, RegionProbe({}), quads)
+    assert got.fetch == (ALPHA,)

@@ -73,7 +73,9 @@ def region_quads(
     recorded = read_record(installed / f"{slug}{QUADS}", region, slug)
     listed = index.by_path()
     if recorded is not None and all(q.path in listed for q in recorded.quads):
-        return recorded
+        # The index's rows, not the record's (review M1): a regenerated index
+        # carries a re-uploaded object's new size and ETag under the same name.
+        return RegionQuads(region, slug, tuple(listed[q.path] for q in recorded.quads))
     try:
         outer, holes = parse_poly(probe.text(poly_url(region)))
     except (GeofabrikError, CopernicusError, OSError):

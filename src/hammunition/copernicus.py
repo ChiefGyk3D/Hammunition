@@ -349,7 +349,7 @@ class S3Probe:
 
     def head(self, url: str) -> tuple[int, int, str | None]:
         if not url.startswith(self.bucket + "/"):
-            raise CopernicusError(f"refusing {url!r}: only {self.bucket} is asked about tiles")
+            raise CopernicusError(f"refusing {url!r}: only {self.bucket} is asked")
         request = urllib.request.Request(url, headers={"User-Agent": "hammunition"})
         request.method = "HEAD"
         try:

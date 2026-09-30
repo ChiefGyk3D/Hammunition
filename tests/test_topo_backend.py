@@ -211,3 +211,37 @@ def test_a_record_that_is_not_a_record_is_not_trusted(tmp_path: Path) -> None:
         path.write_text(text)
         assert read_record(path, "r", "r") is None
     assert read_record(tmp_path / "missing.quads", "r", "r") is None
+
+
+NEW_ALPHA = Quad(0.0, 0.0, 0.125, 0.125, 10, MD5, "ZZ/ZZ_Alpha_20260101")
+
+
+def test_an_older_edition_is_kept_when_its_replacement_did_not_install(tmp_path: Path) -> None:
+    """Review I1: removing it first left a hole until the next online run."""
+    data = _data(tmp_path)
+    data.mkdir(parents=True)
+    (data / f"{ALPHA.name}{TIF}").write_bytes(BODY)
+    fetcher = FakeFetcher(tmp_path / "cache", bad=[NEW_ALPHA.url])
+    region = RegionQuads("atlantis/oceania", "atlantis-oceania", (NEW_ALPHA,))
+    backend = _backend(
+        tmp_path, TopoResolution(regions=(region,), fetch=(NEW_ALPHA,)), fetcher=fetcher
+    )
+    outcomes = _run(backend)
+    assert (data / f"{ALPHA.name}{TIF}").is_file()
+    assert any(o.startswith(f"kept {data / ALPHA.name}") for o in outcomes)
+
+
+def test_an_older_edition_goes_once_its_replacement_is_installed(tmp_path: Path) -> None:
+    data = _data(tmp_path)
+    data.mkdir(parents=True)
+    (data / f"{ALPHA.name}{TIF}").write_bytes(BODY)
+    region = RegionQuads("atlantis/oceania", "atlantis-oceania", (NEW_ALPHA,))
+    backend = _backend(tmp_path, TopoResolution(regions=(region,), fetch=(NEW_ALPHA,)))
+    m = manifest()
+    steps = _actions(backend.steps(m, _block(m)))
+    kinds = [s.kind for s in steps]
+    assert kinds.index("remove-data") > kinds.index("install-data"), "removed after the install"
+    for step in steps:
+        step.perform()
+    assert not (data / f"{ALPHA.name}{TIF}").exists()
+    assert (data / f"{NEW_ALPHA.name}{TIF}").is_file()

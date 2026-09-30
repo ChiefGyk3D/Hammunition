@@ -864,7 +864,8 @@ directories. In the *Maps* dock, `ustopo` is one map covering every sheet;
 tick it to show it, and drag it above or below the Garmin maps. Each sheet
 was reprojected and cropped to its own quadrangle when it was built, so the
 white margin and legend around a printed sheet are gone and neighbouring
-sheets meet edge to edge. The legend is not in the map: USGS's own
+sheets are meant to meet edge to edge (the crop was measured on one sheet;
+the seam between two has not been looked at). The legend is not in the map: USGS's own
 [US Topo symbol sheet](https://www.usgs.gov/programs/national-geospatial-program/us-topo-maps-america)
 explains the symbols.
 
@@ -878,7 +879,10 @@ stays blank for you, see
 index lists a newer edition than the one installed, `hammunition update`
 counts it (never naming the sheet), and
 `hammunition install usgs-ustopo ustopo-qmapshack` fetches the new edition,
-removes the old one and rebuilds the map.
+removes the old one once the new one is installed (if it does not arrive,
+the old one stays, in the map too) and rebuilds the map. A sheet USGS adds
+where it had none is picked up only when a region is added or changed,
+since a region's sheets are remembered after its first install.
 
 **Not carried, and why:**
 

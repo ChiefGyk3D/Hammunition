@@ -95,6 +95,10 @@ def test_rendering_is_sorted_and_reads_back_well_formed() -> None:
         (lambda t: t + f"1 1 1.125 1.125 5 {MD5} ZZ/ZZ_Zeta_20240101\n", "edited by hand"),
         (lambda t: "\n".join(reversed(t.splitlines())), "not sorted"),
         (lambda t: t.replace("# quads:", "# sheets:"), "quads:"),
+        (
+            lambda t: t.replace("left out, no GeoTIFF at all: 1", "left out, no GeoTIFF at all: 5"),
+            "row count",
+        ),
     ],
 )
 def test_a_hand_edited_index_is_refused(edit: Any, message: str) -> None:
