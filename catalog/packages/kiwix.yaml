@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: kiwix
+version: "2.4.1"
+summary: The Kiwix desktop reader for offline Wikipedia and other ZIM books
+categories: [references]
+
+# D-065. Debian's `kiwix` binary package *is* kiwix-desktop; there is no
+# package of that name. 2.4.1 on Debian 13, Parrot and Ubuntu 26.04, 2.3.1 on
+# Ubuntu 24.04 (measured 2026-09-29), built on Qt5 WebEngine, which is most of
+# what it adds to a desktop that does not already have it.
+install:
+  - install:
+      method: apt
+      packages: [kiwix]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A desktop application that opens ZIM files -- offline Wikipedia, WikiMed,
+    Stack Exchange sites and the rest of the Kiwix library -- in tabs, with
+    search and bookmarks, the way a browser opens web pages.
+  why_you_want_it: >-
+    It is the easiest way into a book on a laptop: open the file and read.
+    `hammunition reference serve` does the same in any browser and also shows
+    the ICS forms and dictionaries; this is for the operator who wants a
+    reader window rather than a local web page.
+  prerequisites: >-
+    A desktop session, and books: `kiwix-library` installs the ones you
+    choose under /usr/local/share/hammunition/data/kiwix-library/, which
+    you open by file from the reader.
+  known_problems: >-
+    It keeps its own library, so books installed by `kiwix-library` are
+    opened once by file and then remembered; it does not read Hammunition's
+    list. Its built-in downloader fetches books without the pin and sha256
+    check `kiwix-library` applies; prefer the catalog's books. Qt5 WebEngine
+    is a large dependency on a desktop without it.
+  upstream_url: https://github.com/kiwix/kiwix-desktop
+  upstream_support: >-
+    The Kiwix project's issue tracker on GitHub
+    (https://github.com/kiwix/kiwix-desktop/issues) and https://kiwix.org/.

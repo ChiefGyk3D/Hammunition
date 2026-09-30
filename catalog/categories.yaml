@@ -374,7 +374,7 @@ categories:
     icon: help-contents
     title: References & Guides
     summary: >-
-      Offline reference material: the sigidwiki signal database, callsign and DXCC data.
+      Offline reference material: Kiwix books, dictionaries, ICS forms, the sigidwiki signal database, callsign and DXCC data.
 
   - name: workstation
     icon: utilities-terminal

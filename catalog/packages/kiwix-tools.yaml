@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: kiwix-tools
+version: "3.7.0"
+summary: Kiwix's command-line reader, server and library manager for offline ZIM books
+categories: [references]
+
+# D-065. The reader half of the offline reference: `hammunition reference
+# serve` runs kiwix-serve from here, on 127.0.0.1 only. Measured 2026-09-29:
+# 3.7.0 on Debian 13 and Parrot, 3.5.0 on Ubuntu 24.04, 3.7.0 on Ubuntu 26.04;
+# upstream's latest tag is 3.8.2. The closure on a machine without it is 8
+# packages, 11.4 MB installed, 6.2 MB of it aria2, which libkiwix depends on
+# for a downloader Hammunition never calls (books are fetched and verified by
+# the engine, kiwix-library).
+install:
+  - install:
+      method: apt
+      packages: [kiwix-tools]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Reads ZIM files, the single-file offline copies of Wikipedia, Stack
+    Exchange sites, WikiMed and hundreds of other books that the Kiwix
+    project publishes. `kiwix-serve` serves them as web pages with full-text
+    search, `kiwix-search` searches one from a terminal, and `kiwix-manage`
+    keeps the library file that lists them.
+  why_you_want_it: >-
+    With the network down, an encyclopaedia, a medical reference and the
+    whole of Amateur Radio Stack Exchange are still on the laptop and
+    searchable. It is the reader for the books `kiwix-library` installs, and
+    for any ZIM you bring yourself. The alternative is the `kiwix` desktop
+    reader, which is heavier and needs a desktop session; this runs anywhere,
+    including over SSH to a Pi.
+  prerequisites: >-
+    Books to read: choose them with `hammunition station set
+    --reference-books`, or bring your own ZIM file. Nothing else.
+  known_problems: >-
+    kiwix-serve listens on every network address of the machine unless told
+    otherwise, and its default port, 80, needs root (both measured
+    2026-09-29). Run it through `hammunition reference serve`, which always
+    passes `-i 127.0.0.1` and a high port; if you run it by hand, pass
+    `-i 127.0.0.1 -p 8481` yourself, or anyone on the network can read your
+    library. Debian's libzim (9.2.3) is several releases behind upstream and
+    reads the format-6.3 ZIMs Kiwix publishes today. The package pulls aria2
+    as a dependency of libkiwix; nothing here uses it.
+  upstream_url: https://github.com/kiwix/kiwix-tools
+  upstream_support: >-
+    The Kiwix project's issue tracker on GitHub
+    (https://github.com/kiwix/kiwix-tools/issues) and https://kiwix.org/.

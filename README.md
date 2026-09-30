@@ -49,9 +49,9 @@ exactly where things stand:
 | | Status |
 |---|---|
 | Catalog schema (Pydantic, `mypy --strict`) | ✅ working |
-| Package manifests | 🟡 **266**, up from 71 |
+| Package manifests | 🟡 **272**, up from 71 |
 | …Debian Blend coverage | ✅ **152 of 152** — SCOPE.md's first 1.0 stage, complete |
-| …parity coverage | 🟡 **107 of the 124 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
+| …parity coverage | 🟡 **109 of the 124 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
 | Hardware catalog | 🟡 24 devices, 5 classes, 297 confirmed USB identifiers |
 | …of which **supported** / **run on hardware here** | **18** / **7** — [two different claims](docs/DECISIONS.md), kept apart on purpose |
 | Profiles | ✅ **all 12 of the 1.0 set**, plus 5 post-1.0 — every package installable, asserted by test; a member a target's archive lacks is deferred by name, never the whole profile (D-039) |

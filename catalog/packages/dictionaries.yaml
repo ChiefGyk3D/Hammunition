@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: dictionaries
+version: "1.13.1"
+summary: A local dictionary server with an English dictionary, a thesaurus, computing terms and acronyms
+categories: [references]
+
+# D-065. EmComm Tools OS installs `dict dictd dict-gcide`; this adds WordNet,
+# FOLDOC and VERA (acronyms, which radio traffic is full of). About 32 MB
+# installed (measured 2026-09-29). dictd's own /etc/dictd/dictd.conf, as the
+# package ships it, already says `listen_to 127.0.0.1` and `allow localhost`:
+# nothing is reconfigured, and the server answers this machine only.
+install:
+  - install:
+      method: apt
+      packages: [dictd, dict, dict-gcide, dict-wn, dict-foldoc, dict-vera]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Runs dictd, a dictionary server, with four databases: GCIDE (a large
+    English dictionary descended from Webster's 1913), WordNet (definitions
+    and synonyms), FOLDOC (computing terms) and VERA (acronyms). `dict WORD`
+    looks a word up in all of them from a terminal; goldendict-ng does the
+    same on the desktop.
+  why_you_want_it: >-
+    A word, a synonym or an acronym, answered with no network, in 32 MB
+    rather than the 9 GB of an offline Wiktionary. Acronyms especially: a
+    message passed on a net is full of them.
+  prerequisites: >-
+    Nothing. dictd starts as a system service when installed and listens on
+    127.0.0.1 port 2628 only.
+  known_problems: >-
+    dictd listens on loopback because Debian's shipped configuration says
+    so; if you edit /etc/dictd/dictd.conf to share it, you are opening a
+    server to the network. `dict -D` lists the databases. Translation
+    dictionaries are separate `dict-freedict-*` packages (253 of them in
+    Debian, 32 from English) and are not installed here: choose the ones for
+    the languages you serve.
+  upstream_url: https://sourceforge.net/projects/dict/
+  upstream_support: >-
+    The DICT development group (https://dict.org/); the Debian packages'
+    bug trackers for packaging problems.

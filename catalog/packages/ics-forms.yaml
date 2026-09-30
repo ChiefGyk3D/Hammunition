@@ -1,0 +1,220 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: ics-forms
+version: "2026-09-29"
+summary: FEMA's 39 fillable ICS forms, 205 radio communications plan and 213 general message among them
+categories: [references, emcomm]
+
+# D-065. Every PDF the ICS Resource Center lists under ICS Forms
+# (https://training.fema.gov/emiweb/is/icsresource/icsforms/), 8,046,865
+# bytes in all. FEMA publishes no checksum, no signature and no archive, so
+# each sha256 below is Hammunition's own: all 39 were fetched twice on
+# 2026-09-29 and were byte-identical both times, and the 205's digest matches
+# the spike's separate download of the same day. The files are static (the
+# 205 was last modified 2022-02-23). Both published versions of the 221 are
+# kept, as FEMA lists both. The URLs are FEMA's own, spaces percent-encoded
+# and the double slash in its path kept, since that is the path it serves.
+# Where one changes, the fetch refuses on the digest; re-measure and bump
+# `version`. The weekly artifact-URL review asks each URL.
+install:
+  - install:
+      method: data
+      artifacts:
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20201,%20Incident%20Briefing%20(v3).pdf
+          sha256: 7dbcaf686813397509b6ba08738809c560f03de87c5926e03c021d6a509a002e
+          size: 124725
+          install_as: ics-201-incident-briefing-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20202,%20Incident%20Objectives%20(v3.1).pdf
+          sha256: 36508936f551eb0557c6be3ffcdac5322618c05aa55561505da7d30b75282034
+          size: 351677
+          install_as: ics-202-incident-objectives-v3.1.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20203,%20Organization%20Assignment%20List%20(v3).pdf
+          sha256: bf00e4920f14cfe2edd0c64a6577a9f243fe0f98f959b124d011c273e83b4c7d
+          size: 63774
+          install_as: ics-203-organization-assignment-list-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20204,%20Assignment%20List%20(v3.1).pdf
+          sha256: b8f71e2bed6d1b00ce42281f906173c697ebd48066d95f3a3c052ebe13d30728
+          size: 364179
+          install_as: ics-204-assignment-list-v3.1.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20205,%20Incident%20Radio%20Communications%20Plan%20(v3.1).pdf
+          sha256: cbe54dc5ae6de7af1d01f5c84c68031645f5d92b095763b3667ed13efd872377
+          size: 258133
+          install_as: ics-205-incident-radio-communications-plan-v3.1.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20205A,%20Communications%20List%20(v3).pdf
+          sha256: f3900b90813d2f37f15c81e2a14e30b3ee4121239c27a895647b7c850330b36e
+          size: 55143
+          install_as: ics-205a-communications-list-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20206,%20Medical%20Plan%20(v3).pdf
+          sha256: c45b65c182fd5f002b9966fd7d494fb186c110d046bdd6ce60b3def1208ef7b4
+          size: 107649
+          install_as: ics-206-medical-plan-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20207,%20Incident%20Organization%20Chart%20(v3).pdf
+          sha256: e2ae9bde78241f4bc6000bd1b0b660a4eba69445f96e6c3091b3d52a9dc8d1bd
+          size: 37300
+          install_as: ics-207-incident-organization-chart-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20208,%20Safety%20Message-Plan%20(v3.1).pdf
+          sha256: 429f4db68a0899aca9752f9de73ffd33e418e40ed5c68a23aa65a3c58dc04eab
+          size: 143117
+          install_as: ics-208-safety-message-plan-v3.1.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20208HM,%20Site%20Safety%20and%20Control%20Plan%20(v3).pdf
+          sha256: b751a987754f15fec08963856aee996e903f7d7b83c1a1e4317a7694e2f570d3
+          size: 466462
+          install_as: ics-208hm-site-safety-and-control-plan-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20209,%20Incident%20Status%20Summary%20(v3).pdf
+          sha256: 827ab8bc11d8ba8358b984183d0b9671f82a2ae09db2d0c72beecd5e5b03c0b6
+          size: 307249
+          install_as: ics-209-incident-status-summary-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20210,%20Resource%20Status%20Change%20(v3).pdf
+          sha256: 32a0c73cc3823f75d6e906f45c5a134a01f17b8ed10ab9cf8d49d9b8bf0c48a9
+          size: 74934
+          install_as: ics-210-resource-status-change-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20211,%20Incident%20Check-In%20List%20(v3.1).pdf
+          sha256: b9c22c0768a547b3f6194ad505aebc1f431be472d4cfbdd35405df951a491977
+          size: 204316
+          install_as: ics-211-incident-check-in-list-v3.1.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20213,%20General%20Message%20(v3).pdf
+          sha256: e745a3a7b78bea3295e33b1efbc291011a9b78bdd1c937115c8c5301e7b9454f
+          size: 26863
+          install_as: ics-213-general-message-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20213RR,%20Resource%20Request%20Message%20(v3).pdf
+          sha256: 8aab341bb07ead3b903fd1527e26fca113c74d03a361254cd329b9464e47e798
+          size: 45225
+          install_as: ics-213rr-resource-request-message-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20214,%20Activity%20Log%20(v3.1).pdf
+          sha256: fe7d710eb7c188c9b114b6dad08ed4ee72bf0883fc5f7b59f2f519e4fec3b87b
+          size: 422115
+          install_as: ics-214-activity-log-v3.1.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20215,%20Operational%20Planning%20Worksheet%20(v3).pdf
+          sha256: 75088eebd3e8f55aa51eccd8ae9dd12d1101759a0b6e85647805602c1215a8de
+          size: 64013
+          install_as: ics-215-operational-planning-worksheet-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20215A,%20Incident%20Action%20Plan%20Safety%20Analysis%20(v3).pdf
+          sha256: 111da0a08446e5656079347efa22704aceaf259feae7b685a17b0acdff15e3fb
+          size: 39250
+          install_as: ics-215a-incident-action-plan-safety-analysis-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20217A,%20Comm%20Resource%20Avail%20Worksheet%20(v3).pdf
+          sha256: 0af48b029cd7f6ab3ccaaf8b7f2e6e7dcf68d04778e8cceba6ebb62f0849f6c9
+          size: 184075
+          install_as: ics-217a-comm-resource-avail-worksheet-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20218,%20Support%20Vehicle-Equipment%20Inventory%20(v3).pdf
+          sha256: 9100d1c72fc7f841fcd88778e86ad1eac8d3dc39e27708c3b7cd9c217b863e48
+          size: 72243
+          install_as: ics-218-support-vehicle-equipment-inventory-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20219-1,%20T-Card%20(Gray)%20(v3).pdf
+          sha256: bcff3d51d332b7058e0b71a582f7ee564d6eb49d73632ec00b0217fff5ae680c
+          size: 27816
+          install_as: ics-219-1-t-card-gray-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20219-10,%20T-Card%20(Purple)%20(v3).pdf
+          sha256: 7572e9dd9a445bb0c5f09608266f0482dcd4f4278e6e90f246d10ad566a60298
+          size: 75460
+          install_as: ics-219-10-t-card-purple-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20219-2,%20T-Card%20(Green)%20(v3).pdf
+          sha256: c63ae109d2472372a2f6577dce67a56a59843deb86629f690aa2c974cb9bed3a
+          size: 93021
+          install_as: ics-219-2-t-card-green-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20219-3,%20T-Card%20(Rose)%20(v3).pdf
+          sha256: 042b9368312a238bc1700f6906c35c047f40ec8ac9dbb776a9cd3bbbb2de99fc
+          size: 77129
+          install_as: ics-219-3-t-card-rose-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20219-4,%20T-Card%20(Blue)%20(v3).pdf
+          sha256: 3e7dd681a49e974a9de4075121c406e067c64ffebc09720bcc278504a2802015
+          size: 73802
+          install_as: ics-219-4-t-card-blue-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20219-5,%20T-Card%20(White)%20(v3).pdf
+          sha256: fc03128059bfceef4b498dc4847c63e257e36c6364e7030a95a16981d8eb13af
+          size: 82329
+          install_as: ics-219-5-t-card-white-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20219-6,%20T-Card%20(Orange)%20(v3).pdf
+          sha256: 7795aad0a3b36fbe99a13a0cc4a01fcc856df301a3852ab4e9cd83002d7366e6
+          size: 74523
+          install_as: ics-219-6-t-card-orange-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20219-7,%20T-Card%20(Yellow)%20(v3).pdf
+          sha256: 4ccb3fd4063026271f5733cc4427143d7b4af7f65db3e6c997c82f774b855c53
+          size: 77260
+          install_as: ics-219-7-t-card-yellow-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20219-8,%20T-Card%20(Tan)%20(v3).pdf
+          sha256: 855de55bc27a976359aad375b3572c018e35436d319934810d8c8fb5777e4f92
+          size: 77806
+          install_as: ics-219-8-t-card-tan-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20219,%20T-Card%20Instructions%20(v3).pdf
+          sha256: 1bc77e5d52f6a8cf2a0bef46ca49b564ff94628831c012b0b46382720518a66c
+          size: 22765
+          install_as: ics-219-t-card-instructions-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20220,%20Air%20Operations%20Summary%20(v3).pdf
+          sha256: 2d86f1e44393f927defb102f0631703c9d010a921c1c4778d1e26e2ef8b0a495
+          size: 102312
+          install_as: ics-220-air-operations-summary-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ics%20form%20221,%20demobilization%20check-out%20(v3.1).pdf
+          sha256: d9ebfe692bfee18a99963f737fd824ddaf6db26f3703405b2f921c79ffbdbd53
+          size: 99223
+          install_as: ics-221-demobilization-check-out-v3.1.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ics%20form%20221,%20demobilization%20check-out%20(v3).pdf
+          sha256: d9ebfe692bfee18a99963f737fd824ddaf6db26f3703405b2f921c79ffbdbd53
+          size: 99223
+          install_as: ics-221-demobilization-check-out-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20225,%20Incident%20Personnel%20Performance%20Rating%20(v3).pdf
+          sha256: deafc4d5d2f1dafb1b1c7fb6c0ab23fa43e3d5fe0cbe6f8aeda7abb84cb8b01b
+          size: 169025
+          install_as: ics-225-incident-personnel-performance-rating-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20230CG,%20Daily%20Meeting%20Schedule%20(v3).pdf
+          sha256: d82f59af5f6497ff98f664320ba72bc686687da664b7f69f07e45d37e7d8beac
+          size: 23565
+          install_as: ics-230cg-daily-meeting-schedule-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20233CG,%20Incident%20Open%20Action%20Tracker%20(v3).pdf
+          sha256: 0760cd74c6db276737052371abb006510cc58fceb8bd2d3f38d7ef42fd87e86c
+          size: 64006
+          install_as: ics-233cg-incident-open-action-tracker-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Form%20260,%20Resource%20Order.pdf
+          sha256: 5ad7fef26b59f01f72d21815669b7661f9751c4a50f8286aee4aaa52a9ac24b5
+          size: 297429
+          install_as: ics-260-resource-order.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//ICS%20Forms%20-%20Instructions%20(v3).pdf
+          sha256: a8c4751fa8fd6554d437d462e71cc89acb1b17e4f3a9665804befa10d9b60e21
+          size: 103164
+          install_as: ics-forms-instructions-v3.pdf
+        - url: https://training.fema.gov/EMIWeb/IS/ICSResource/assets/ICS%20Forms//NIMS%20ICS%20Forms%20Booklet%20(v3).pdf
+          sha256: 5821306717b7d1e0ff145f52a974773064121d3d01fee24fceacda40f2e3e55f
+          size: 2994565
+          install_as: nims-ics-forms-booklet-v3.pdf
+      licence: US federal work, public domain (17 USC 105)
+      licence_url: https://www.copyright.gov/title17/92chap1.html
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    FEMA revises the forms rarely (version 3 dates from 2018, 3.1 of some
+    forms later). When the list changes, re-fetch every PDF twice, compare,
+    and replace the artifacts with the new URLs, digests and sizes.
+
+documentation:
+  what_it_does: >-
+    Installs the 39 fillable PDF forms of the Incident Command System, as
+    FEMA publishes them, under /usr/local/share/hammunition/data/ics-forms/:
+    the 201 incident briefing, the 205 incident radio communications plan
+    and 205A communications list, the 213 general message, the 214 activity
+    log and the rest, with FEMA's
+    instructions and the NIMS forms booklet. `hammunition reference serve`
+    lists them on its page.
+  why_you_want_it: >-
+    A radio operator serving an agency is handed ICS paperwork: the 205 is
+    the communications plan, the 213 the message form, the 214 the log.
+    Having the blank forms and FEMA's instructions on the laptop means
+    filling them in, or printing them, with no network. Winlink users have
+    ICS-213 and friends inside pat's forms already; these are the originals
+    for everything else.
+  prerequisites: >-
+    A PDF reader that can fill in forms, or a printer.
+  known_problems: >-
+    FEMA publishes no checksum, so each file is checked against a digest
+    Hammunition measured; if FEMA revises a form, the install refuses it
+    until the catalog is re-measured. The files keep their own names only
+    in slug form (ics-205-incident-radio-communications-plan-v3.1.pdf). The
+    ICS 309 communications log many nets use is not among the 39 PDFs FEMA
+    lists, so it is not installed.
+  upstream_url: https://training.fema.gov/emiweb/is/icsresource/icsforms/
+  upstream_support: >-
+    FEMA's Emergency Management Institute, which maintains the ICS Resource
+    Center (https://training.fema.gov/emiweb/is/icsresource/).
