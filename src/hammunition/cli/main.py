@@ -174,6 +174,7 @@ from hammunition.station import (
 )
 from hammunition.sudo_ticket import SudoKeepalive, keepalive_wanted
 from hammunition.terrain_plan import brouter_pins, build_terrain_run, resolve_station_terrain
+from hammunition.tiles_plan import build_tiles_run
 from hammunition.topo_plan import INDEX as USTOPO_INDEX
 from hammunition.topo_plan import MemoProbe, resolve_station_topo
 from hammunition.update import (
@@ -1269,6 +1270,17 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
     try:
         port = gps_tether.PORT if args.port is None else gps_tether.serve_port(args.port)
         gpsd = gps_tether.GPSD if args.gpsd is None else gps_tether.gpsd_address(args.gpsd)
+        position_port = (
+            gps_tether.POSITION_PORT
+            if args.position_port is None
+            else gps_tether.serve_port(args.position_port, flag="--position-port")
+        )
+        if position_port == port:
+            raise ValueError(
+                f"--port {port} and --position-port {position_port} are the same port; "
+                f"the map's position stream is on {gps_tether.POSITION_PORT} unless "
+                f"--position-port names another"
+            )
     except ValueError as exc:
         print(f"error: {exc}.", file=sys.stderr)
         return EXIT_FAILED
@@ -1288,17 +1300,28 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return EXIT_FAILED
-    print(gps_tether.instructions(port, gpsd=gpsd), flush=True)
+    try:
+        http = gps_tether.listen(position_port)
+    except OSError as exc:
+        listener.close()
+        print(
+            f"error: cannot listen on {gps_tether.HOST} port {position_port} for the map's "
+            f"position: {exc.strerror or exc}. --position-port N serves it on another port.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    print(gps_tether.instructions(port, gpsd=gpsd, position_port=position_port), flush=True)
 
     def log(line: str) -> None:
         print(line, file=sys.stderr, flush=True)
 
     try:
-        gps_tether.serve(listener, gpsd=gpsd, log=log)
+        gps_tether.serve(listener, http=http, gpsd=gpsd, log=log)
     except KeyboardInterrupt:
         log("Stopped.")
     finally:
         listener.close()
+        http.close()
     return EXIT_OK
 
 
@@ -1750,11 +1773,17 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
     """
     import subprocess
 
-    from hammunition import reference
+    from hammunition import gps_tether, reference
+    from hammunition.map_page import find_map
     from hammunition.paths import owner_aware_dir
 
     try:
         port = reference.PORT if args.port is None else reference.serve_port(args.port)
+        position_port = (
+            reference.POSITION_PORT
+            if args.position_port is None
+            else gps_tether.serve_port(args.position_port, flag="--position-port")
+        )
     except ValueError as exc:
         print(f"error: {exc}.", file=sys.stderr)
         return EXIT_FAILED
@@ -1770,6 +1799,7 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
     except (KiwixError, SystemExit):
         books = {}  # the page still serves every file, named by its file name
     shelf = reference.find_shelf(data_root(DEFAULT_PREFIX), books)
+    map_shelf = find_map(data_root(DEFAULT_PREFIX))  # D-071
     if shelf.books:
         missing = [t for t in ("kiwix-serve", "kiwix-manage") if shutil.which(t) is None]
         if missing:
@@ -1806,7 +1836,14 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
 
     try:
         return reference.run(
-            port, shelf=shelf, library=library, spawn=spawn, manage=manage, log=log
+            port,
+            shelf=shelf,
+            library=library,
+            spawn=spawn,
+            manage=manage,
+            log=log,
+            map_shelf=map_shelf,
+            position_port=position_port,
         )
     except OSError as exc:
         print(
@@ -2027,8 +2064,9 @@ def leftover_maps_note(plan: InstallPlan, prefix: Path) -> str | None:
     """Map data still installed while no map regions are set, named with its removal."""
     units = sorted(d.subject for d in plan.deferrals if d.why == NO_MAP_REGIONS)
     # Piece 1's regions and Navit maps, piece 2's Garmin maps, Routino
-    # database and terrain tiles (D-061), and the phone files (D-067).
-    patterns = ("*.osm.pbf", "*.bin", "*.img", "*.mem", f"*{TIF}", "*.map", "*.poi")
+    # database and terrain tiles (D-061), the phone files (D-067), and the
+    # vector-tile maps (D-071).
+    patterns = ("*.osm.pbf", "*.bin", "*.img", "*.mem", f"*{TIF}", "*.map", "*.poi", "*.pmtiles")
     found = [
         data_root(prefix) / unit
         for unit in units
@@ -2352,6 +2390,16 @@ def cmd_install(args: argparse.Namespace) -> int:
         keep=kept,
         regions=ledger,
     )
+    # D-071: the vector-tile maps for the browser page, from the same regions.
+    tiles = build_tiles_run(
+        prefix=source.prefix,
+        builds=builds,
+        owner=user or None,
+        runner=runner,
+        files=region_files,
+        keep=kept,
+        regions=ledger,
+    )
     derived = DerivedBackend(
         prefix=source.prefix,
         files=region_files,
@@ -2362,7 +2410,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         runner=runner,
         boundaries=border,
         countries=countries,
-        converters={**terrain.converters, **phone.converters},
+        converters={**terrain.converters, **phone.converters, **tiles.converters},
     )
     # Only regions not already installed at their snapshot are downloaded,
     # counted and listed as downloads (the dry run is the run); a region
@@ -2392,7 +2440,14 @@ def cmd_install(args: argparse.Namespace) -> int:
     terrain_view = terrain.disclosure(plan)
     terrain_disk = terrain.needs(plan, cache=source.fetcher.cache_dir, prefix=source.prefix)
     phone_disk = phone.needs(plan, cache=source.fetcher.cache_dir, prefix=source.prefix)
-    if pending or conversions or any(terrain_disk.values()) or any(phone_disk.values()):
+    tiles_disk = tiles.needs(plan, prefix=source.prefix)
+    if (
+        pending
+        or conversions
+        or any(terrain_disk.values())
+        or any(phone_disk.values())
+        or any(tiles_disk.values())
+    ):
         # Refused at plan time, before anything is confirmed, with both numbers:
         # piece 1's and piece 2's needs together, per filesystem (D-061).
         short = combined_shortfall(
@@ -2405,6 +2460,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             ),
             terrain_disk,
             phone=phone_disk,
+            tiles=tiles_disk,
         )
         if short is not None:
             print(f"error: {short}", file=sys.stderr)
@@ -2516,7 +2572,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         sudo_keepalive=args.sudo_keepalive,
         mirror=station.mirror,
         mirror_ignored=args.no_mirror,
-        idle=phone.idle(plan),
+        idle=phone.idle(plan) | tiles.idle(plan),
     )
     if envelope.wanted(args):
         # Reached only with --dry-run: main() refuses a real install under
@@ -4311,7 +4367,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_maps_tether = maps_sub.add_parser(
         "gps-tether",
-        help="serve gpsd's position as NMEA on 127.0.0.1:10110 for QMapShack's GPS TCP/IP source (D-061)",
+        help="serve gpsd's position as NMEA on 127.0.0.1:10110 for QMapShack's GPS TCP/IP source "
+        "(D-061), and to the browser map on 127.0.0.1:10111 (D-071)",
     )
     p_maps_tether.add_argument(
         "--gpsd",
@@ -4325,6 +4382,13 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="N",
         default=None,
         help="serve on 127.0.0.1 port N, 1024 to 65535, when 10110 is taken (default 10110)",
+    )
+    p_maps_tether.add_argument(
+        "--position-port",
+        metavar="N",
+        default=None,
+        help="serve the browser map's position stream (GET /position) on 127.0.0.1 port N "
+        "(default 10111, D-071)",
     )
     p_maps_tether.set_defaults(func=cmd_maps_gps_tether)
 
@@ -4399,7 +4463,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_ref_books.set_defaults(func=cmd_reference_books)
     p_ref_serve = reference_sub.add_parser(
         "serve",
-        help="serve the books, forms and dictionaries on 127.0.0.1:8480 until Ctrl-C",
+        help="serve the books, forms, dictionaries and the offline map on 127.0.0.1:8480 "
+        "until Ctrl-C",
     )
     p_ref_serve.add_argument(
         "--port",
@@ -4407,6 +4472,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="serve the page on 127.0.0.1 port N (1024 to 65534); kiwix-serve takes N+1 "
         "(default 8480)",
+    )
+    p_ref_serve.add_argument(
+        "--position-port",
+        metavar="N",
+        default=None,
+        help="where the map page asks the GPS tether for your position: 127.0.0.1 port N "
+        "(default 10111, the tether's own default, D-071)",
     )
     p_ref_serve.set_defaults(func=cmd_reference_serve)
 

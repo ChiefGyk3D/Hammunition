@@ -27,12 +27,28 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   size in CoMaps' own index, which the plan says on every line, and from a
   LAN mirror first when one is set (D-070; `hammunition artifacts` lists
   them as `sha1-publisher`); an expired pin refuses the plan, and `update
-  --upstream` says `pin expiring` or `pin expired`. `hammunition maps comaps`, the `comaps-offline` launcher,
-  records CoMaps' licence answer and links your maps where it looks. CoMaps
+  --upstream` says `pin expiring` or `pin expired`. `hammunition maps
+  comaps`, the `comaps-offline` launcher, records CoMaps' licence answer and links your maps where it looks. CoMaps
   reads its position from GeoClue only, so there is no "you are here" on
   the laptop yet; the guide says what the route would be. Organic Maps and
   Flatpak are not carried. The build through the engine and US address
   search are owed by the bench.
+
+- **An offline map in the browser** (**D-071**, branch `map-server`).
+  `osm-pmtiles` turns each map region into vector tiles with the archive's
+  tilemaker (3.0 or newer; Ubuntu 24.04's 2.4 defers it by name), and
+  `vector-map-kit` pins the fixed files: tilemaker's OpenMapTiles profile,
+  Natural Earth's ocean and land cover, the OSM Bright style, sprite and
+  fonts, MapLibre GL JS 6.11.2 and pmtiles.js 4.5.0. Both join
+  `navigation`. `hammunition reference serve` now also serves the map at
+  `http://127.0.0.1:8480/map/`, with HTTP byte ranges, each file by its
+  installed name, and refuses any request that does not name 127.0.0.1 or
+  localhost. The page draws "© OpenMapTiles © OpenStreetMap contributors" on
+  the map. `hammunition maps gps-tether` also serves your position to it as
+  an event stream on 127.0.0.1:10111 (`--position-port`); a tether started
+  with `--port 10111` now needs `--position-port` as well. A `data` archive
+  can list its `members` and the subdirectory it goes `into`. Not yet run
+  with a real tilemaker; the bench owes it.
 
 - **Official topographic maps: USGS US Topo** (**D-068**). For US map
   regions, the `navigation` profile gains `usgs-ustopo` (the 7.5-minute

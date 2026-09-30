@@ -579,10 +579,14 @@ It prints what to enter:
 ```
 Serving gpsd's position as NMEA on 127.0.0.1 port 10110, to this machine only.
 In QMapShack: Realtime, Add source, GPS TCP/IP; host 127.0.0.1, port 10110.
+The offline browser map (`hammunition reference serve`) reads it from http://127.0.0.1:10111/position.
 Reading gpsd at 127.0.0.1 port 2947. Any number of NMEA programs may connect at once.
-Options: --gpsd HOST[:PORT] for a gpsd on another machine, --port N if 10110 is taken.
+Options: --gpsd HOST[:PORT] for a gpsd on another machine, --port N if 10110 is taken, --position-port N for the map's.
 Ctrl-C stops it. Navit reads gpsd directly and needs none of this.
 ```
+
+The same tether also feeds the browser map (section 16) on 127.0.0.1
+port 10111.
 
 In QMapShack open the *Realtime* dock, right-click its list, *Add source*, choose *GPS TCP/IP* (measured on 1.17.1: that is the label, not "GPS Tether"), and enter host `127.0.0.1`
 and port `10110`.
@@ -1225,7 +1229,93 @@ average, so its contours ride the treetops; 3DEP is the bare ground.
 
 ---
 
-## 16. CoMaps: search and routing like a phone app
+## 16. A map in the browser
+
+The same regions, drawn in any web browser on this machine with no program
+to learn and no network (**D-071**). `hammunition install navigation` builds
+it: `osm-pmtiles` turns each region into vector tiles with the archive's
+`tilemaker`, and `vector-map-kit` installs the fixed files the page needs.
+To build only this, `hammunition install osm-pmtiles`.
+
+Open it with the reference page's server, and your position with the
+tether, each in its own terminal:
+
+```
+hammunition reference serve
+hammunition maps gps-tether
+```
+
+Then open <http://127.0.0.1:8480/map/>. Choose a region at the top left;
+the map frames it. Zoom to 14 shows streets, buildings, water, parks and
+place names. With the tether running, a red marker shows where you are and
+*Centre on me* moves the map there; without it the bar says to start it.
+The corner of the map reads "© OpenMapTiles © OpenStreetMap contributors":
+the OpenMapTiles schema's CC-BY licence and OpenStreetMap's ODbL ask for
+that credit on the map, so it is never hidden.
+
+What it is made of, so you know what runs:
+
+- **The tiles** are built once per region, as you, in
+  `~/.cache/hammunition/build/osm-pmtiles/`, by tilemaker with tilemaker's
+  own OpenMapTiles profile at v3.0.0. tilemaker's `--store` keeps its memory
+  near 0.5 GB instead of 2.8 GB on a region the size of Delaware (measured
+  by the spike). They land in
+  `/usr/local/share/hammunition/data/osm-pmtiles/<region>.pmtiles`, about
+  0.91 times the download.
+- **The ocean** is Natural Earth's 1:10m polygon, clipped to each region
+  first with GDAL's `ogr2ogr`. The accurate ocean OpenStreetMap's tools use
+  (osmdata.openstreetmap.de's water polygons) is rebuilt every day with no
+  checksum: its simplified set changed size overnight between 2026-09-29
+  and 09-30, so no pin would last a day, and it is not carried. At street
+  zoom a coast may sit a little off OpenStreetMap's shoreline.
+- **The page** is served by `reference serve`'s own loopback server with
+  MapLibre GL JS 6.11.2, pmtiles.js 4.5.0 and the OSM Bright style, each
+  pinned by sha256 in `vector-map-kit`. Nothing is loaded from anywhere
+  else: the style as tilemaker ships it loads its sprite from GitHub and its
+  fonts from a local server of its own, and the page points both at this
+  machine. A headless browser with every non-loopback host blocked drew it
+  in the test suite with every request on 127.0.0.1.
+- **The position** comes from the tether's `GET /position` event stream on
+  127.0.0.1 port 10111 (`--position-port` on both commands if that port is
+  taken). A browser cannot read the NMEA port, and its own location service
+  on Linux is GeoClue's network guess, not your GPS. The tether refuses a
+  request that does not name 127.0.0.1 or localhost, and never hands the
+  stream to a page from another site.
+
+**Where tilemaker 3.0 is missing.** Ubuntu 24.04, and the releases built on
+it, carry tilemaker 2.4, which cannot write PMTiles. The plan says so and
+leaves `osm-pmtiles` out of `navigation` there, naming the version it found;
+everything else installs.
+
+**What else reads these maps.** Measured by the spike (2026-09-29):
+
+| Program | Reads | Here |
+|---|---|---|
+| This page | PMTiles vector tiles | yes |
+| AIS-catcher 0.70 | its own `.mbtiles` or a z/x/y folder, raster certain, vector not verified | no: tilemaker writes one file per run, and PMTiles is the one made |
+| QMapShack, Xastir, SDRangel | raster PNG tiles from a URL | no (below) |
+| YAAC | the `.osm.pbf` region itself (*File › OpenStreetMap › Import Raw OSM Map File*) | yes, from `/usr/local/share/hammunition/data/osm-regions/` |
+| pat, the Winlink standard forms | no maps at all | not needed |
+
+Raster tiles for QMapShack, Xastir or SDRangel need a whole stack:
+PostgreSQL with PostGIS, `osm2pgsql`, `renderd` with `mod_tile` and the
+openstreetmap-carto style, all in the archive. The spike imported Delaware
+into it (53 s, a 155 MB database) and did not measure the drawing, and the
+style wants the same unpinnable daily ocean again. A database service and a
+web server to draw PNGs on a field laptop is the heaviest route there is,
+so it is documented, not built.
+
+**Tile servers not carried**, each for its reason: martin, go-pmtiles
+(`pmtiles serve`) and mbtileserver are GitHub binaries with no checksum
+from their publishers, and the page needs nothing they add (go-pmtiles also
+listens on every address by default); tileserver-gl needs npm install
+scripts that fetch native binaries, which D-037 refuses; planetiler is not
+in any archive, needs Java 21 and about 1.45 GB of side downloads before
+the first tile, and is slower than tilemaker on a region.
+
+---
+
+## 17. CoMaps: search and routing like a phone app
 
 CoMaps is the desktop build of the CoMaps phone app, a community fork of
 Organic Maps. It draws vector maps on the machine, searches addresses,
@@ -1692,6 +1782,12 @@ delete:
 hammunition uninstall mapsforge-poi mapsforge-map
 ```
 
+The browser map's tiles and its kit go with:
+
+```
+hammunition uninstall osm-pmtiles vector-map-kit
+```
+
 CoMaps' maps go with `hammunition uninstall comaps-maps`. CoMaps itself is
 refused by `uninstall`, as every build is whose own install rule wrote into
 `/usr/local`: that rule leaves no list of files to reverse, and what it
@@ -1765,6 +1861,20 @@ overviews). Not yet run:
   single-instance socket is shared whatever `HOME` is set to.
 - The whole install of the sheets through Hammunition, on any machine.
 
+For the browser map (**D-071**), the page was drawn by headless Chromium in
+the test suite from the pinned kit and a synthetic tile, with every
+non-loopback host blocked and every request on 127.0.0.1; and the spike drew
+a real Delaware map the same way. Not yet measured, and owed by the bench:
+
+- **tilemaker through the engine.** tilemaker is not installed on the
+  development host, so the converter ran only against a stand-in. The first
+  real run, with Natural Earth's clipped ocean in place of the water
+  polygons the spike used, is the bench's, with its time, memory and the
+  `--store` scratch (the plan allows three times the download).
+- The page in a desktop browser, with the tether feeding a real receiver's
+  position.
+- tilemaker 3.1 (Ubuntu 26.04) and 3.2 (Debian forky) with the 3.0 profile.
+
 Measured on the field laptop on 2026-09-29, and recorded in bench session
 12: the whole install on two regions, with its build times; QMapShack
 listing the maps, the contour map and the elevation from the directories
@@ -1783,8 +1893,8 @@ For the phone files (**D-067**, section 14): none has been loaded on a
 phone, the converters have not run through Hammunition on real hardware,
 and their figures come from one region.
 
-For CoMaps (**D-069**), see section 16: US address search, the build
+For CoMaps (**D-069**), see section 17: US address search, the build
 through the engine and CoMaps reading the linked maps are all owed.
 
-Offline reference (Kiwix, a local tile server) is the next piece of this
-work and not in this profile.
+The offline reference (Kiwix books, dictionaries, ICS forms) is its own
+profile, `reference` (D-066). The browser map (section 16) is in this one.

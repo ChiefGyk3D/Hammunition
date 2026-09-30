@@ -8,8 +8,9 @@ is fetched into the shared cache and verified against its sha256 like every
 other download; the declared ``size`` is checked against the bytes received,
 so a manifest that says 0.69 GB and fetches something else is refused rather
 than trusted. A ``file`` is copied under the unit's data directory; a ``zip``
-or ``tarball`` is extracted into it, through the same guarded extraction the
-source backend uses. Nothing here is executed, ever.
+or ``tarball`` is extracted into it, or into its own subdirectory ``into``,
+through the same guarded extraction the source backend uses, and only its
+listed ``members`` when it lists any (D-071). Nothing here is executed, ever.
 
 The install directory is ``<prefix>/share/hammunition/data/<name>/`` -- a
 namespace only this engine writes, which is what lets ``uninstall`` remove
@@ -86,9 +87,15 @@ class DataBackend:
                 dest = target_dir / artifact.install_as
                 description = f"Install {manifest.name} data file {artifact.install_as}"
             else:
-                dest = target_dir
+                dest = target_dir if artifact.into is None else target_dir / artifact.into
+                target = "its data directory" if artifact.into is None else str(dest)
+                which = (
+                    f", only the listed members ({len(artifact.members)})"
+                    if artifact.members is not None
+                    else ""
+                )
                 description = (
-                    f"Extract {manifest.name} data ({artifact.format}) into its data directory"
+                    f"Extract {manifest.name} data ({artifact.format}) into {target}{which}"
                 )
             steps.append(
                 Action(
@@ -134,7 +141,11 @@ class DataBackend:
             writer = PrefixWriter(privileged=needs_root_for(self.prefix), runner=self.runner)
             writer.install_verified(path, dest, algorithm="sha256", digest=artifact.sha256)
             return f"installed {dest} ({human_size(artifact.size)}, mode 0644, sha256 re-verified)"
-        outcome = extract(path, dest)
+        if artifact.into is not None:
+            # The unit's own directory, which a first archive with `into` makes.
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            os.chmod(dest.parent, 0o755)
+        outcome = extract(path, dest, members=artifact.members)
         installed = sorted(p for p in dest.rglob("*") if p.is_file())
         for p in installed:
             os.chmod(p, 0o644)

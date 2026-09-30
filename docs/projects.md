@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**281 programs and packages** from the catalog, laid out the way the
+**283 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -111,6 +111,7 @@ Control the rig, keep the log, work the cluster, set the clock and the position.
 | [navit](packages/navit.md) | Offline turn-by-turn navigation that follows the GPS, with spoken directions | [navit-project.org](https://www.navit-project.org/) |
 | [osm-garmin](packages/osm-garmin.md) | Garmin maps of your OpenStreetMap regions, with trails, for QMapShack | [mkgmap.org.uk](https://www.mkgmap.org.uk/) |
 | [osm-navit](packages/osm-navit.md) | Navit's binary maps, converted from your OpenStreetMap regions, and its configuration | [navit-project.org](https://www.navit-project.org/) |
+| [osm-pmtiles](packages/osm-pmtiles.md) | Vector-tile maps of your OpenStreetMap regions, for the offline browser map | [github.com/systemed/tilemaker](https://github.com/systemed/tilemaker) |
 | [osm-regions](packages/osm-regions.md) | OpenStreetMap region extracts from Geofabrik, the regions you choose, verified | [download.geofabrik.de](https://download.geofabrik.de/) |
 | [osm-routino](packages/osm-routino.md) | One Routino routing database over all your regions, for routes on foot | [routino.org](https://www.routino.org/) |
 | [qmapshack](packages/qmapshack.md) | Offline topographic maps, trails, GPX tracks, elevation profiles and routing on foot | [github.com/Maproom/qmapshack](https://github.com/Maproom/qmapshack) |
@@ -118,6 +119,7 @@ Control the rig, keep the log, work the cluster, set the clock and the position.
 | [socat](packages/socat.md) *(retired)* | A relay between two data channels, sockets, files or programs | [dest-unreach.org/socat](http://www.dest-unreach.org/socat/) |
 | [usgs-ustopo](packages/usgs-ustopo.md) | USGS US Topo 7.5-minute map sheets for your US map regions, verified | [usgs.gov/programs/national-geospatial-program/us-topo-maps-america](https://www.usgs.gov/programs/national-geospatial-program/us-topo-maps-america) |
 | [ustopo-qmapshack](packages/ustopo-qmapshack.md) | The US Topo sheets as one seamless QMapShack map, collars cropped | [gdal.org](https://gdal.org/) |
+| [vector-map-kit](packages/vector-map-kit.md) | The fixed files the offline browser map needs, from their publishers, pinned | [openmaptiles.org](https://openmaptiles.org/) |
 
 ### Locators & Bearings
 

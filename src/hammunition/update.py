@@ -524,7 +524,8 @@ def rebuild_command(report: UpdateReport) -> str | None:
     if "osm-regions" in names and "osm-navit" not in names:
         names.append("osm-navit")
     # D-061: QMapShack's maps and routing are derived from the same regions;
-    # D-063: so are BRouter's routing files; D-067: so are the phone files.
+    # D-063: so are BRouter's routing files; D-067: so are the phone files;
+    # D-071: so are the vector-tile maps.
     reported = {row.unit for row in report.rows}
     if "osm-regions" in names:
         derived = (
@@ -533,6 +534,7 @@ def rebuild_command(report: UpdateReport) -> str | None:
             "brouter-segments",
             "mapsforge-map",
             "mapsforge-poi",
+            "osm-pmtiles",
         )
         names.extend(u for u in derived if u in reported and u not in names)
     # D-063: a new BRouter or new map-creator filters rebuild the routing files.

@@ -35,6 +35,7 @@ library only. Navit needs none of this: it reads gpsd itself.
 
 from __future__ import annotations
 
+import contextlib
 import ipaddress
 import json
 import math
@@ -50,6 +51,8 @@ __all__ = [
     "GPSD",
     "HOST",
     "PORT",
+    "POSITION_PATH",
+    "POSITION_PORT",
     "WATCH",
     "Feed",
     "checksum",
@@ -63,6 +66,15 @@ __all__ = [
 
 HOST = "127.0.0.1"
 PORT = 10110
+#: The browser map's position stream (D-071): Server-Sent Events on HTTP.
+POSITION_PORT = 10111
+POSITION_PATH = "/position"
+#: The most of a request head the position listener reads before it gives up.
+REQUEST_LIMIT = 8 * 1024
+#: Seconds a connection to the position listener has to send its request.
+REQUEST_DEADLINE = 5.0
+#: Unfinished requests held at once; a connection beyond it is closed at once.
+REQUEST_CAP = 16
 GPSD = ("127.0.0.1", 2947)
 WATCH = b'?WATCH={"enable":true,"json":true}\n'
 
@@ -185,6 +197,8 @@ class Feed:
         self._skipping = False
         self.satellites: int | None = None
         self.hdop: float | None = None
+        #: The latest fix, as the browser map's event carries it (D-071).
+        self.position: dict[str, Any] | None = None
 
     def push(self, data: bytes) -> list[bytes]:
         out: list[bytes] = []
@@ -213,7 +227,16 @@ class Feed:
             self._sky(message)
             return []
         if kind == "TPV":
-            return sentences(message, satellites=self.satellites, hdop=self.hdop)
+            out = sentences(message, satellites=self.satellites, hdop=self.hdop)
+            if out:
+                when = message.get("time")
+                self.position = {
+                    "lat": float(message["lat"]),
+                    "lon": float(message["lon"]),
+                    "mode": message["mode"],
+                    "time": when if isinstance(when, str) else None,
+                }
+            return out
         return []
 
     def _sky(self, sky: Mapping[str, Any]) -> None:
@@ -234,23 +257,23 @@ def _port_number(text: str) -> int | None:
     return int(text) if text.isascii() and text.isdigit() else None
 
 
-def serve_port(text: str) -> int:
-    """``--port``: 1024 to 65535, refused by name otherwise.
+def serve_port(text: str, *, flag: str = "--port") -> int:
+    """``--port`` (or *flag*): 1024 to 65535, refused by name otherwise.
 
     Below 1024 only root may bind, and the tether never runs as root.
     """
     stripped = text.strip()
     number = _port_number(stripped.removeprefix("-"))
     if number is None:
-        raise ValueError(f"--port {text}: not a number; give a port from 1024 to 65535")
+        raise ValueError(f"{flag} {text}: not a number; give a port from 1024 to 65535")
     if stripped.startswith("-") or number < 1024:
         raise ValueError(
-            f"--port {text}: below 1024, where only root may listen, and the tether "
+            f"{flag} {text}: below 1024, where only root may listen, and the tether "
             f"never runs as root; give a port from 1024 to 65535"
         )
     if number > 65535:
         raise ValueError(
-            f"--port {text}: above 65535, the highest TCP port; give a port from 1024 to 65535"
+            f"{flag} {text}: above 65535, the highest TCP port; give a port from 1024 to 65535"
         )
     return number
 
@@ -313,6 +336,94 @@ def listen(port: int = PORT) -> socket.socket:
     return listener
 
 
+def position_event(position: Mapping[str, Any]) -> bytes:
+    """One Server-Sent Event carrying *position* as JSON."""
+    return b"data: " + json.dumps(dict(position)).encode("ascii") + b"\n\n"
+
+
+def _loopback_origin(origin: str) -> bool:
+    """``http://127.0.0.1[:port]`` or ``http://localhost[:port]``: a page this
+    machine serves to itself. Any other origin is a web page from elsewhere."""
+    for base in (f"http://{HOST}", "http://localhost"):
+        if origin == base:
+            return True
+        if origin.startswith(base + ":") and origin[len(base) + 1 :].isdigit():
+            return True
+    return False
+
+
+def position_response(head: bytes, port: int) -> tuple[bytes, bool]:
+    """(what to send, whether it starts an event stream) for one request
+    *head* to the position listener on *port*.
+
+    Only ``GET /position`` is answered. A ``Host`` other than
+    ``127.0.0.1:port`` or ``localhost:port`` is refused, so a web page whose
+    name an attacker points at 127.0.0.1 (DNS rebinding) cannot read it; a
+    request carrying a non-loopback ``Origin`` is refused, and
+    ``Access-Control-Allow-Origin`` is sent only to a loopback one, so no
+    page on the internet can read the stream from the operator's own
+    browser. The position is where the operator is (D-061, D-071).
+    """
+
+    def reply(status: str, body: str) -> tuple[bytes, bool]:
+        data = body.encode("ascii")
+        return (
+            f"HTTP/1.1 {status}\r\nContent-Type: text/plain\r\n"
+            f"Content-Length: {len(data)}\r\nConnection: close\r\n\r\n".encode("ascii")
+            + data,
+            False,
+        )
+
+    text = head.decode("latin-1")
+    first, _, rest = text.partition("\r\n")
+    parts = first.split(" ")
+    if len(parts) != 3 or not parts[2].startswith("HTTP/1."):
+        return reply("400 Bad Request", "bad request\n")
+    method, target, _ = parts
+    headers: dict[str, str] = {}
+    for line in rest.split("\r\n"):
+        name, colon, value = line.partition(":")
+        if colon:
+            headers[name.strip().lower()] = value.strip()
+    if headers.get("host", "").lower() not in {f"{HOST}:{port}", f"localhost:{port}"}:
+        return reply("403 Forbidden", "refused: ask for 127.0.0.1 or localhost\n")
+    origin = headers.get("origin")
+    if origin is not None and not _loopback_origin(origin):
+        return reply("403 Forbidden", "refused: a page from elsewhere may not read the position\n")
+    if origin is None and "text/event-stream" not in headers.get("accept", ""):
+        # An <img> or <script> on any web page sends no Origin; it could not
+        # read the stream, but it would hold gpsd watched. The map page's
+        # EventSource always sends its Origin; `curl -H 'Accept:
+        # text/event-stream'` is the way to test from a terminal.
+        return reply(
+            "403 Forbidden",
+            "refused: ask as an event stream (Accept: text/event-stream) or from a loopback page\n",
+        )
+    if method != "GET":
+        return reply("405 Method Not Allowed", "GET only\n")
+    if target.split("?", 1)[0] != POSITION_PATH:
+        return reply("404 Not Found", "not found\n")
+    allow = f"Access-Control-Allow-Origin: {origin}\r\nVary: Origin\r\n" if origin else ""
+    return (
+        (
+            "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n"
+            "Cache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\n"
+            f"{allow}\r\n"
+        ).encode("ascii")
+        + b": gpsd's position, from hammunition maps gps-tether\n\n",
+        True,
+    )
+
+
+class _Request:
+    """A connection to the position listener that has not finished its request."""
+
+    def __init__(self, sock: socket.socket) -> None:
+        self.sock = sock
+        self.head = b""
+        self.since = time.monotonic()
+
+
 class _Client:
     """One NMEA client. What it has not yet taken waits in :attr:`pending`;
     the loop never blocks on a send, and a client that lets more than
@@ -320,9 +431,11 @@ class _Client:
 
     PENDING_LIMIT = 64 * 1024
 
-    def __init__(self, sock: socket.socket) -> None:
+    def __init__(self, sock: socket.socket, *, events: bool = False) -> None:
         self.sock = sock
         self.pending = b""
+        #: A browser map's event stream (D-071), sent positions, not NMEA.
+        self.events = events
 
     def gone(self) -> bool:
         """Whether the client has closed, asked without consuming anything."""
@@ -352,6 +465,7 @@ def _connected(count: int) -> str:
 def serve(
     listener: socket.socket,
     *,
+    http: socket.socket | None = None,
     gpsd: tuple[str, int] = GPSD,
     stop: threading.Event | None = None,
     log: Callable[[str], None] = print,
@@ -376,10 +490,21 @@ def serve(
     events the clients' and gpsd's are handled before a new connection, and
     a new connection first drops any client that has already closed, so a
     client that left is never counted as connected.
+
+    *http*, when given, is a second loopback listener for the browser map
+    (D-071): a ``GET /position`` there (:func:`position_response`) becomes a
+    client like any other, sent one Server-Sent Event per fix instead of NMEA,
+    and counted in the same fan-out, so gpsd is watched while the page is open.
     """
     selector = selectors.DefaultSelector()
     listener.setblocking(False)
     selector.register(listener, selectors.EVENT_READ, None)
+    http_port = 0
+    if http is not None:
+        http.setblocking(False)
+        http_port = http.getsockname()[1]
+        selector.register(http, selectors.EVENT_READ, "http")
+    requests: list[_Request] = []
     clients: list[_Client] = []
     upstream: _Upstream | None = None
 
@@ -444,22 +569,91 @@ def serve(
         selector.register(sock, selectors.EVENT_READ, upstream)
         return True
 
+    def admit(sock: socket.socket, *, events: bool = False, greeting: bytes = b"") -> None:
+        for client in list(clients):
+            if client.gone():
+                drop(client, "A client disconnected")
+        if upstream is None and not open_upstream():
+            if events:
+                # Say so, or the page would read it as no tether at all.
+                with contextlib.suppress(OSError):
+                    sock.setblocking(True)
+                    sock.settimeout(1)
+                    sock.sendall(
+                        b"HTTP/1.1 503 Service Unavailable\r\nContent-Type: text/plain\r\n"
+                        b"Content-Length: 24\r\nConnection: close\r\n\r\n"
+                        b"gpsd cannot be reached\r\n"
+                    )
+            sock.close()
+            return
+        sock.setblocking(False)
+        client = _Client(sock, events=events)
+        clients.append(client)
+        selector.register(sock, selectors.EVENT_READ, client)
+        what = "A map page" if events else "A client"
+        log(f"{what} connected; {_connected(len(clients))}, each sent gpsd's position.")
+        if greeting:
+            client.pending += greeting
+            flush(client)
+
     def accept() -> None:
         try:
             sock, _ = listener.accept()
         except BlockingIOError:
             return
-        for client in list(clients):
-            if client.gone():
-                drop(client, "A client disconnected")
-        if upstream is None and not open_upstream():
+        except OSError as exc:  # out of descriptors, say: the tether keeps running
+            log(f"could not accept a connection: {exc.strerror or exc}")
+            return
+        admit(sock)
+
+    def accept_http() -> None:
+        assert http is not None
+        try:
+            sock, _ = http.accept()
+        except BlockingIOError:
+            return
+        except OSError as exc:
+            log(f"could not accept a connection: {exc.strerror or exc}")
+            return
+        if len(requests) >= REQUEST_CAP:
             sock.close()
             return
         sock.setblocking(False)
-        client = _Client(sock)
-        clients.append(client)
-        selector.register(sock, selectors.EVENT_READ, client)
-        log(f"A client connected; {_connected(len(clients))}, each sent gpsd's position.")
+        request = _Request(sock)
+        requests.append(request)
+        selector.register(sock, selectors.EVENT_READ, request)
+
+    def end_request(request: _Request) -> None:
+        requests.remove(request)
+        selector.unregister(request.sock)
+
+    def from_request(request: _Request) -> None:
+        try:
+            data = request.sock.recv(4096)
+        except BlockingIOError:
+            return
+        except OSError:
+            data = b""
+        if not data:
+            end_request(request)
+            request.sock.close()
+            return
+        request.head += data
+        if b"\r\n\r\n" not in request.head:
+            if len(request.head) > REQUEST_LIMIT:
+                end_request(request)
+                request.sock.close()
+            return
+        end_request(request)
+        answer, stream = position_response(request.head.split(b"\r\n\r\n", 1)[0], http_port)
+        if not stream:
+            with contextlib.suppress(OSError):
+                request.sock.setblocking(True)
+                request.sock.settimeout(1)
+                request.sock.sendall(answer)
+            request.sock.close()
+            return
+        admit(request.sock, events=True, greeting=answer)
 
     def from_client(client: _Client) -> None:
         try:
@@ -491,18 +685,27 @@ def serve(
             return
         current.sent += len(lines)
         batch = b"".join(lines)
+        position = current.feed.position
+        event = position_event(position) if position is not None else b""
         for client in list(clients):
-            client.pending += batch
+            client.pending += event if client.events else batch
             flush(client)
 
     try:
         while stop is None or not stop.is_set():
             events = selector.select(timeout=poll)
             # Clients' and gpsd's events first, then any new connection.
-            for key, mask in sorted(events, key=lambda event: event[0].data is None):
+            for key, mask in sorted(
+                events, key=lambda event: event[0].data is None or event[0].data == "http"
+            ):
                 owner = key.data
                 if owner is None:
                     accept()
+                elif owner == "http":
+                    accept_http()
+                elif isinstance(owner, _Request):
+                    if owner in requests:
+                        from_request(owner)
                 elif isinstance(owner, _Upstream):
                     if owner is upstream:
                         from_gpsd(owner)
@@ -511,6 +714,10 @@ def serve(
                         from_client(owner)
                     if owner in clients and mask & selectors.EVENT_WRITE:
                         flush(owner)
+            now = time.monotonic()
+            for request in [r for r in requests if now - r.since > REQUEST_DEADLINE]:
+                end_request(request)
+                request.sock.close()
             current = upstream
             if (
                 current is not None
@@ -524,6 +731,8 @@ def serve(
                     f"`xgps` shows whether the receiver has one."
                 )
     finally:
+        for request in requests:
+            request.sock.close()
         for client in clients:
             client.sock.close()
         if upstream is not None:
@@ -531,12 +740,21 @@ def serve(
         selector.close()
 
 
-def instructions(port: int = PORT, *, gpsd: tuple[str, int] = GPSD) -> str:
+def instructions(
+    port: int = PORT, *, gpsd: tuple[str, int] = GPSD, position_port: int | None = POSITION_PORT
+) -> str:
+    page = (
+        f"The offline browser map (`hammunition reference serve`) reads it from "
+        f"http://{HOST}:{position_port}{POSITION_PATH}.\n"
+        if position_port is not None
+        else ""
+    )
     return (
         f"Serving gpsd's position as NMEA on {HOST} port {port}, to this machine only.\n"
         f"In QMapShack: Realtime, Add source, GPS TCP/IP; host {HOST}, port {port}.\n"
+        f"{page}"
         f"Reading gpsd at {_where(gpsd)}. Any number of NMEA programs may connect at once.\n"
         f"Options: --gpsd HOST[:PORT] for a gpsd on another machine, "
-        f"--port N if {port} is taken.\n"
+        f"--port N if {port} is taken, --position-port N for the map's.\n"
         f"Ctrl-C stops it. Navit reads gpsd directly and needs none of this."
     )

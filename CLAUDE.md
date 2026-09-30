@@ -238,6 +238,7 @@ Do not re-litigate these without being asked:
 | Phone maps | `mapsforge-map` and `mapsforge-poi` build a Mapsforge map and POI file per region as the operator, `java -cp` over the archive's osmosis jars; the POI writer, packaged nowhere, is the one pin, carried as the derived block's `tool` and installed beside the data, never in it; `maps phone` copies the phone files into one folder with a `SHA256SUMS` and prints routes it never runs, the web server bound to the hotspot's address; its own `phone-maps` profile; OsmAnd `.obf`, `.mwm`, PocketMaps and Transportr not carried, each with its route | Debian's osmosis does not load the packaged writer, and a map took 3:38 on a 22 MB region, hours on a large one; the spike's POI digest was the map writer's (**D-067**) |
 | Official topo maps | USGS US Topo sheets for the station's US regions, chosen offline from a carried generated index (`catalog/data/ustopo-quads.txt`), each checked against the publisher's S3 ETag (multipart reproduced by part size), disclosed as "not pinned by Hammunition"; warped to EPSG:3857 collar-cropped and one `ustopo.vrt` for QMapShack; FSTopo and 3DEP next; official trail lines as a second layer not carried | OSM already has 97.5 % of Shenandoah's official trail mileage; the sheet adds the official names and look. QMapShack drawing the mosaic is unmeasured and belongs in a VM (**D-068**) |
 | LAN mirror and `artifacts` | `station set --mirror URL` names a LAN machine each data download (data files, map regions, terrain tiles) asks first at `<mirror>/<unit>/<name>`, the publisher on any failure, the same digest checked either way; plain http allowed, LAN-only documented not enforced; the plan names both sources in order, `--no-mirror` ignores it for a run, `action_end` records the actual source; `hammunition artifacts --json` lists every data artifact for an explicit selection with no station read | Hammunition Bunker keeps a verified copy on a NAS and needs the engine to say what to keep and to take from it without trusting it (**D-070**) |
+| Offline browser map | `osm-pmtiles` builds one PMTiles file per region with the archive's tilemaker (floor 3.0 read from the probe: deferred or refused below it) and `vector-map-kit`'s pinned profile, Natural Earth layers, MapLibre, pmtiles.js and OSM Bright; `reference serve` serves `/map/` with byte ranges, by exact name, refusing any Host but 127.0.0.1/localhost; the page draws the OpenMapTiles/OSM credit; the tether's `GET /position` is an SSE stream on 127.0.0.1:10111 | The daily water polygons changed size overnight, so Natural Earth's ocean is clipped per region instead; `http.server` ignores `Range` and pmtiles.js fails on it; an event stream rides the tether's fan-out where a poll would need a gpsd watch of its own (**D-071**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
 
@@ -501,7 +502,7 @@ in their own install notes.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 281
+  packages/        # one YAML per piece of software          ✅ 283
   profiles/        # named bundles referencing packages      ✅ 19
   hardware/
     classes/       # device families with shared Linux needs ✅ 5

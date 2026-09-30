@@ -34,6 +34,8 @@ from __future__ import annotations
 
 import html
 import http.server
+import os
+import re
 import shutil
 import threading
 import time
@@ -41,12 +43,16 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
+from urllib.parse import quote, unquote
 
 from .kiwix import Book
+from .map_page import MAP, REGIONS, MapShelf, landing_section, map_page, regions_json
 
 HOST = "127.0.0.1"
 PORT = 8480
 WIKI = "/wiki"
+#: Where the GPS tether serves ``/position`` (D-071), the page's default.
+POSITION_PORT = 10111
 FORMS = "/forms/"
 LIBRARY_UNIT = "kiwix-library"
 FORMS_UNIT = "ics-forms"
@@ -142,7 +148,7 @@ def find_shelf(
     )
 
 
-def landing_page(shelf: Shelf, *, kiwix_port: int) -> str:
+def landing_page(shelf: Shelf, *, kiwix_port: int, map_shelf: MapShelf | None = None) -> str:
     """The page. Every name that came from the disk is escaped."""
     e = html.escape
     wiki = f"http://{HOST}:{kiwix_port}{WIKI}"
@@ -195,14 +201,64 @@ def landing_page(shelf: Shelf, *, kiwix_port: int) -> str:
         parts.append(
             "<p>On the desktop: goldendict-ng looks words up in the same dictionaries.</p>"
         )
+    if map_shelf is not None:
+        parts.append(landing_section(map_shelf))
     parts.append("</body></html>")
     return "\n".join(parts) + "\n"
+
+
+#: Content types by suffix for the map's files (D-071). A module script must be
+#: served as JavaScript or the browser refuses to run it.
+KINDS: dict[str, str] = {
+    ".mjs": "text/javascript",
+    ".js": "text/javascript",
+    ".css": "text/css",
+    ".json": "application/json",
+    ".png": "image/png",
+    ".pbf": "application/x-protobuf",
+    ".pmtiles": "application/octet-stream",
+    ".pdf": "application/pdf",
+}
+_RANGE = re.compile(r"bytes=(\d{0,19})-(\d{0,19})")
+CHUNK = 1 << 16
+
+
+def byte_range(header: str | None, size: int) -> tuple[int, int] | str | None:
+    """The (first, last) byte a ``Range`` header asks of a *size*-byte file.
+
+    None when there is no header, or one this does not read (a list of
+    ranges, another unit): the whole file is sent, which RFC 9110 allows.
+    ``"unsatisfiable"`` when it starts past the end, which is a 416.
+    """
+    if header is None:
+        return None
+    match = _RANGE.fullmatch(header.strip())
+    if match is not None and size == 0 and (match.group(1) or match.group(2)):
+        return "unsatisfiable"  # no byte of an empty file can be asked for
+    if match is None or not (match.group(1) or match.group(2)):
+        return None
+    first, last = match.group(1), match.group(2)
+    if not first:  # the last N bytes
+        count = int(last)
+        if count == 0:
+            return "unsatisfiable"
+        return max(0, size - count), size - 1
+    start = int(first)
+    end = int(last) if last else size - 1
+    if start >= size:
+        return "unsatisfiable"
+    if end < start:
+        return None
+    return start, min(end, size - 1)
 
 
 class _Server(http.server.ThreadingHTTPServer):
     daemon_threads = True
     page: bytes
     forms: dict[str, Path]
+    map_page: bytes | None
+    regions: bytes
+    files: dict[str, Path]
 
 
 class _Handler(http.server.BaseHTTPRequestHandler):
@@ -220,11 +276,77 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         if self.command != "HEAD":
             self.wfile.write(body)
 
+    def _host_ok(self) -> bool:
+        """The request names this server as 127.0.0.1 or localhost, on its
+        own port. A page on another site whose name an attacker points at
+        127.0.0.1 (DNS rebinding) sends its own name, and is refused: the map
+        files say where the operator's regions are (D-071)."""
+        port = self.server.server_address[1]
+        host = (self.headers.get("Host") or "").strip().lower()
+        return host in {f"{HOST}:{port}", f"localhost:{port}"}
+
+    def _send_file(self, path: Path) -> None:
+        """A file, whole or the one byte range asked for, and HEAD its size."""
+        kind = KINDS.get(path.suffix, "application/octet-stream")
+        try:
+            handle = path.open("rb")
+        except OSError:
+            self._send(404, b"not found\n", "text/plain")
+            return
+        with handle:
+            size = os.fstat(handle.fileno()).st_size
+            asked = byte_range(self.headers.get("Range"), size)
+            if asked == "unsatisfiable":
+                self.send_response(416)
+                self.send_header("Content-Range", f"bytes */{size}")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            if isinstance(asked, tuple):
+                first, last = asked
+                self.send_response(206)
+                self.send_header("Content-Range", f"bytes {first}-{last}/{size}")
+            else:
+                first, last = 0, size - 1
+                self.send_response(200)
+            length = last - first + 1 if size else 0
+            self.send_header("Content-Type", kind)
+            self.send_header("Content-Length", str(length))
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            if self.command == "HEAD":
+                return
+            handle.seek(first)
+            left = length
+            while left > 0:
+                chunk = handle.read(min(CHUNK, left))
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+                left -= len(chunk)
+
     def do_GET(self) -> None:
+        if not self._host_ok():
+            self._send(403, b"refused: ask for 127.0.0.1 or localhost\n", "text/plain")
+            return
         path = self.path.split("?", 1)[0]
         if path == "/":
             self._send(200, self.server.page, "text/html; charset=utf-8")
             return
+        if self.server.map_page is not None:
+            if path in (MAP, MAP.rstrip("/")):
+                self._send(200, self.server.map_page, "text/html; charset=utf-8")
+                return
+            if path == REGIONS:
+                self._send(200, self.server.regions, "application/json")
+                return
+            # By its exact installed name only: decoded, then looked up.
+            # Nothing is joined to a directory, so no path reaches anything else.
+            found = self.server.files.get(unquote(path))
+            if found is not None:
+                self._send_file(found)
+                return
         # A form is served only by its exact installed name: nothing is
         # decoded, joined or resolved, so no path can reach anything else.
         form = self.server.forms.get(path)
@@ -241,13 +363,26 @@ class _Handler(http.server.BaseHTTPRequestHandler):
     do_HEAD = do_GET
 
 
-def make_server(port: int, page: str, forms: Sequence[Path]) -> _Server:
-    """The landing server, bound to 127.0.0.1 and nothing else."""
-    from urllib.parse import quote
-
+def make_server(
+    port: int,
+    page: str,
+    forms: Sequence[Path],
+    *,
+    map_shelf: MapShelf | None = None,
+    position_port: int = POSITION_PORT,
+) -> _Server:
+    """The landing server, bound to 127.0.0.1 and nothing else; with
+    *map_shelf*, the offline map beside it (D-071)."""
     server = _Server((HOST, port), _Handler)
     server.page = page.encode("utf-8")
     server.forms = {f"{FORMS}{quote(p.name)}": p for p in forms}
+    server.map_page = None
+    server.regions = b"[]\n"
+    server.files = {}
+    if map_shelf is not None and map_shelf.ready:
+        server.map_page = map_page(position_port=position_port).encode("utf-8")
+        server.regions = regions_json(map_shelf)
+        server.files = dict(map_shelf.files)
     return server
 
 
@@ -278,6 +413,8 @@ def run(
     tick: Callable[[], None] = lambda: time.sleep(0.5),
     log: Callable[[str], None] = print,
     pid: int | None = None,
+    map_shelf: MapShelf | None = None,
+    position_port: int = POSITION_PORT,
 ) -> int:
     """Serve until Ctrl-C (exit 0) or until kiwix-serve exits (exit 1)."""
     import os
@@ -285,7 +422,13 @@ def run(
     child: Child | None = None
     thread: threading.Thread | None = None
     kiwix_port = port + 1
-    server = make_server(port, landing_page(shelf, kiwix_port=kiwix_port), shelf.forms)
+    server = make_server(
+        port,
+        landing_page(shelf, kiwix_port=kiwix_port, map_shelf=map_shelf),
+        shelf.forms,
+        map_shelf=map_shelf,
+        position_port=position_port,
+    )
     try:
         if shelf.books:
             library.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -300,6 +443,11 @@ def run(
         log(f"Offline reference: http://{HOST}:{bound}/  (this machine only; Ctrl-C stops it)")
         if child is not None:
             log(f"  books: kiwix-serve on http://{HOST}:{kiwix_port}{WIKI}/")
+        if server.map_page is not None and map_shelf is not None:
+            log(
+                f"  map: http://{HOST}:{bound}{MAP}  ({len(map_shelf.regions)} region(s); "
+                f"your position from `hammunition maps gps-tether` on port {position_port})"
+            )
         while True:
             if child is not None and (code := child.poll()) is not None:
                 log(f"kiwix-serve exited ({code}); the page is stopped too.")

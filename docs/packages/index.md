@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**281 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**283 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -302,7 +302,7 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `navigation-maps` — 23
+### `navigation-maps` — 25
 
 Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
 
@@ -322,6 +322,7 @@ Offline maps, turn-by-turn navigation and the position on a moving map, with no 
 - [navit](navit.md) — Offline turn-by-turn navigation that follows the GPS, with spoken directions
 - [osm-garmin](osm-garmin.md) — Garmin maps of your OpenStreetMap regions, with trails, for QMapShack
 - [osm-navit](osm-navit.md) — Navit's binary maps, converted from your OpenStreetMap regions, and its configuration
+- [osm-pmtiles](osm-pmtiles.md) — Vector-tile maps of your OpenStreetMap regions, for the offline browser map
 - [osm-regions](osm-regions.md) — OpenStreetMap region extracts from Geofabrik, the regions you choose, verified
 - [osm-routino](osm-routino.md) — One Routino routing database over all your regions, for routes on foot
 - [qmapshack](qmapshack.md) — Offline topographic maps, trails, GPX tracks, elevation profiles and routing on foot
@@ -329,6 +330,7 @@ Offline maps, turn-by-turn navigation and the position on a moving map, with no 
 - [socat](socat.md) — A relay between two data channels, sockets, files or programs
 - [usgs-ustopo](usgs-ustopo.md) — USGS US Topo 7.5-minute map sheets for your US map regions, verified
 - [ustopo-qmapshack](ustopo-qmapshack.md) — The US Topo sheets as one seamless QMapShack map, collars cropped
+- [vector-map-kit](vector-map-kit.md) — The fixed files the offline browser map needs, from their publishers, pinned
 
 ### `nbems` — 5
 
@@ -846,6 +848,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [openocd](openocd.md) | On-chip debugging and in-system programming over JTAG and SWD | apt |
 | [osm-garmin](osm-garmin.md) | Garmin maps of your OpenStreetMap regions, with trails, for QMapShack | derived |
 | [osm-navit](osm-navit.md) | Navit's binary maps, converted from your OpenStreetMap regions, and its configuration | derived |
+| [osm-pmtiles](osm-pmtiles.md) | Vector-tile maps of your OpenStreetMap regions, for the offline browser map | derived |
 | [osm-regions](osm-regions.md) | OpenStreetMap region extracts from Geofabrik, the regions you choose, verified | osm-regions |
 | [osm-routino](osm-routino.md) | One Routino routing database over all your regions, for routes on foot | derived |
 | [osmo-sdr](osmo-sdr.md) | Tools for the original OsmoSDR hardware | apt |
@@ -935,6 +938,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [usbutils](usbutils.md) | lsusb — step one of every hardware problem in this catalog | apt |
 | [usgs-ustopo](usgs-ustopo.md) | USGS US Topo 7.5-minute map sheets for your US map regions, verified | topo-quads |
 | [ustopo-qmapshack](ustopo-qmapshack.md) | The US Topo sheets as one seamless QMapShack map, collars cropped | derived |
+| [vector-map-kit](vector-map-kit.md) | The fixed files the offline browser map needs, from their publishers, pinned | data |
 | [voacapl](voacapl.md) | The VOACAP HF propagation prediction engine, ported to Linux | apt |
 | [welle-io](welle-io.md) | DAB and DAB+ digital radio receiver with a modern interface | apt |
 | [wfview](wfview.md) | Control a modern Icom radio, waterfall and all, over USB or the network | apt |
