@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**283 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**284 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -524,13 +524,14 @@ Gqrx, SDR++, CubicSDR, SDRangel, Quisk, Linrad: the programs a dongle turns into
 - [supersdr](supersdr.md) — Turn any KiwiSDR into your rig's panadapter, synchronized over CAT
 - [wfview](wfview.md) — Control a modern Icom radio, waterfall and all, over USB or the network
 
-### `sdr-toolkits` — 12
+### `sdr-toolkits` — 13
 
 Build a radio out of blocks: GNU Radio and its hardware sources, DAB encoders and modulators.
 
 - [gnss-sdr](gnss-sdr.md) — A complete GPS and GNSS receiver built entirely in software
 - [gnuradio](gnuradio.md) — Build a radio out of signal-processing blocks instead of hardware
 - [gr-air-modes](gr-air-modes.md) — Decodes aircraft transponder replies with GNU Radio
+- [gr-fosphor](gr-fosphor.md) — GPU-drawn real-time spectrum and waterfall display blocks for GNU Radio
 - [gr-funcube](gr-funcube.md) — GNU Radio source blocks for the FUNcube Dongle Pro and Pro+
 - [gr-hpsdr](gr-hpsdr.md) — GNU Radio blocks for OpenHPSDR transceiver hardware
 - [gr-limesdr](gr-limesdr.md) — GNU Radio blocks for LimeSDR hardware
@@ -774,6 +775,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [gpsd-tools](gpsd-tools.md) | cgps and gpsmon — the two programs you actually reach for when a receiver misbehaves | apt |
 | [gqrx-sdr](gqrx-sdr.md) | Graphical SDR receiver — waterfall, demodulators and a bookmark list | apt |
 | [gr-air-modes](gr-air-modes.md) | Decodes aircraft transponder replies with GNU Radio | apt |
+| [gr-fosphor](gr-fosphor.md) | GPU-drawn real-time spectrum and waterfall display blocks for GNU Radio | apt |
 | [gr-funcube](gr-funcube.md) | GNU Radio source blocks for the FUNcube Dongle Pro and Pro+ | apt |
 | [gr-gsm](gr-gsm.md) | GNU Radio blocks for receiving and analysing GSM signalling | apt |
 | [gr-hpsdr](gr-hpsdr.md) | GNU Radio blocks for OpenHPSDR transceiver hardware | apt |

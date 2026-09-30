@@ -11,7 +11,14 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
-Nothing yet.
+- **Apt units from the gap analysis** (section D.6, branch
+  `gap-06-apt-adds`). The eight candidates were swept on the seven targets
+  first; `catalog-gaps-2026-09.md` carries the table and corrects the
+  report where it was wrong. `predict` is in no archive (not in Debian 12,
+  13 or unstable either) and is not added. `gr-fosphor` joins `sdr`: GNU
+  Radio's GPU spectrum and waterfall blocks, offered on all seven targets;
+  its .deb pulls `gnuradio-dev` and only the OpenCL loader, so the page
+  says an OpenCL driver is the operator's to install. Not run on any GPU.
 
 ## v0.17.0 — 2026-09-30 — official topo sheets, CoMaps, and the offline browser map
 

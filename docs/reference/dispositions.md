@@ -653,6 +653,22 @@ or it is not written.
 
 ---
 
+## Beyond the six sources — the 2026-09 gap analysis
+
+Units the gap analysis (`catalog-gaps-2026-09.md`) found in the field rather
+than in any of the six inventories, recorded here so each has a disposition,
+and kept out of the six-source summary and index above, whose counts are the
+inventories'. The apt adds are ADD on the report's recommendation (section
+D, item 6), which Q-022 says needs no ruling once the seven-target sweep
+confirms a unit; a unit the sweep or the decision record rules out is listed
+with why.
+
+| Unit | Decided | How | What was measured (2026-09-30) |
+|---|---|---|---|
+| **gr-fosphor** | ADD — `catalog/packages/gr-fosphor.yaml`, `sdr` profile | apt | Offered on all seven targets. GPL-3.0 COPYING; default branch `master` head 2024-03-23 (D-032), the snapshot five targets package. The .deb Depends on `gnuradio-dev` and on the OpenCL loader only. No fosphor block was run; the field laptop's Iris Xe is unmeasured. |
+
+---
+
 ## REVIVE — verification log
 
 Three of the six REVIVE units were tested on **2026-08-28** in a Debian 13

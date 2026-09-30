@@ -97,6 +97,9 @@ What that changed below, each noted at its row:
   was last touched on 2018-12-30, with an upload marked UNRELEASED. Not
   added; `satellite-tracking` stays a one-member category until a
   maintained route is found.
+- **`gr-fosphor` is offered on all seven targets and is added**, but it is
+  not a Blend `sdr` task member: `blend-inventory.md`, generated from the
+  task files, does not list it. The row below said it was.
 
 ## A. Cross-cutting gaps — plans the catalog has not caught up with
 
@@ -370,7 +373,7 @@ before a manifest. Nothing here is transmit-capable except where said.
 | `sdr-hardware` | 33 | **HydraSDR RFOne** (`libhydrasdr` 1.1.1, `SoapyHydraSDR`, `hydrasdr_433`; the 2025–26 Airspy successor; not in any archive) | A device the catalog has no entry for at all: hardware class entry, host library, Soapy module | source (cmake) ×2 | ADD a device and two units when a unit of hardware is available to measure; `maintainer_verified: false` until then (D-027) |
 | `sdr-hardware` | | **Fobos SDR** (`rigexpert/libfobos`, `SoapyFobosSDR`; the vendor of `antscope2`, already carried) | Same shape as HydraSDR | source ×2 | Same |
 | `sdr-hardware` | | `libiio-utils`, `iio-oscilloscope` (apt; libiio is in trixie per the search result) | The PlutoSDR's own tools; the device page already says the Pluto is "reached through libiio" and nothing installs it | apt | ADD `libiio-utils` beside the Pluto device |
-| `sdr-toolkits` | 12 | `gr-fosphor` (trixie `3.9~0.974ab2f-1+b15` per the search result) | The GPU waterfall every GNU Radio demo uses; a Blend `sdr` task member that is not in the catalog | apt | ADD |
+| `sdr-toolkits` | 12 | `gr-fosphor` (trixie `3.9~0.974ab2f-1+b15` per the search result; measured 2026-09-30: `3.9~git20240323.74d54fc-1+b10`, all seven targets) | The GPU waterfall every GNU Radio demo uses; ~~a Blend `sdr` task member~~ not in the Blend's task files (`blend-inventory.md`), and not in the catalog | apt | ADD (added 2026-09-30) |
 | `sdr-toolkits` | | `gr-dab`, `gr-ais`, `gr-iqbal` (`unmeasured`) | Tier 3 governs the rest | apt where packaged | Measure; ADD only the packaged ones |
 | `signal-analysis` | 4 | URH, SigDigger | DragonOS Tier 2 (SCOPE.md stage 7) | | No change |
 | `signal-analysis`, `broadcast` | | `redsea` (RDS decoder, CLI; apt `unmeasured`) | The command-line RDS decoder beside `gr-rds` | apt | Measure; ADD if packaged |

@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**283 programs and packages** from the catalog, laid out the way the
+**284 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -297,6 +297,7 @@ SDR receivers and toolkits, device support, and receive-only decoders for aircra
 | Project | What it is | Its home |
 |---|---|---|
 | [gnuradio](packages/gnuradio.md) | Build a radio out of signal-processing blocks instead of hardware | [gnuradio.org](https://www.gnuradio.org/) |
+| [gr-fosphor](packages/gr-fosphor.md) | GPU-drawn real-time spectrum and waterfall display blocks for GNU Radio | [gitea.osmocom.org/sdr/gr-fosphor](https://gitea.osmocom.org/sdr/gr-fosphor) |
 | [odr-audioenc](packages/odr-audioenc.md) | Encodes audio into the DAB and DAB+ formats a multiplexer expects | [github.com/Opendigitalradio/ODR-AudioEnc](https://github.com/Opendigitalradio/ODR-AudioEnc) |
 | [odr-dabmod](packages/odr-dabmod.md) | Turns a DAB ensemble into a transmittable OFDM signal | [github.com/Opendigitalradio/ODR-DabMod](https://github.com/Opendigitalradio/ODR-DabMod) |
 | [odr-dabmux](packages/odr-dabmux.md) | Assembles audio services into a DAB ensemble multiplex | [github.com/Opendigitalradio/ODR-DabMux](https://github.com/Opendigitalradio/ODR-DabMux) |
