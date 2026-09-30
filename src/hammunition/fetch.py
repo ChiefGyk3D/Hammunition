@@ -485,7 +485,12 @@ class Fetcher:
                 verify(sha, size, got, where)
             except BaseException as exc:
                 temporary.unlink(missing_ok=True)
-                if source == "mirror" and isinstance(exc, BackendError | OSError):
+                # Any Exception from the mirror is a mirror failure: a
+                # truncated chunked body or a bad status line is an
+                # http.client.HTTPException, not an OSError, and must hand
+                # over to the publisher rather than abort the install. An
+                # interrupt (not an Exception) still stops the run.
+                if source == "mirror" and isinstance(exc, Exception):
                     passed_over = f"{where}: {exc}"
                     if isinstance(exc, TransportUnreachable):
                         self._mirror_down = (

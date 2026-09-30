@@ -49,3 +49,8 @@ def test_claude_md_and_the_changelog_carry_it() -> None:
     changelog = (REPO_ROOT / "CHANGELOG.md").read_text()
     unreleased = changelog[changelog.index("## Unreleased") : changelog.index("\n## v")]
     assert "D-070" in unreleased
+
+
+def test_the_guide_says_the_plan_still_needs_the_internet() -> None:
+    guide = _flat("docs/guides/lan-mirror.md")
+    assert "does not make an install work offline" in guide

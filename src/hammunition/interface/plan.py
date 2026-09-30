@@ -802,7 +802,8 @@ def _mirror_section(url: str | None, *, ignored: bool) -> MirrorSection | None:
             f"of the LAN mirror {url} first, as <mirror>/<unit>/<name>, and of its "
             f"publisher if the mirror fails in any way. The digest it is checked by is the "
             f"same whichever answers: the mirror is trusted for speed, never for content. "
-            f"The transaction log records which source each download came from."
+            f"A mirror that does not answer at all is not asked again in this run. The "
+            f"transaction log records which source each download came from."
         )
     return MirrorSection(url=url, ignored=ignored, text=text)
 
@@ -887,7 +888,12 @@ def build_install_view(
             )
             for a in plan.apt_repos
         ),
-        mirror=_mirror_section(mirror, ignored=mirror_ignored),
+        # Only when something in this plan is a data download: an apt-only
+        # plan never asks the mirror, and must not say it will.
+        mirror=_mirror_section(
+            mirror if any(isinstance(c, Action) and c.sources for c in commands) else None,
+            ignored=mirror_ignored,
+        ),
         data=tuple(data),
         maps=_map_section(plan, maps, terrain),
         memberships=tuple(

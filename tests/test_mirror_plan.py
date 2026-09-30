@@ -93,3 +93,24 @@ def test_with_no_mirror_set_there_is_no_section(
     assert rc == 0 and doc["install"]["mirror"] is None
     rc, text = _plan(monkeypatch, tmp_path, capsys, None, *flags)
     assert "Data mirror" not in text and "LAN mirror" not in text
+
+
+def test_a_plan_with_no_data_download_prints_no_mirror_section(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An apt-only request with a mirror set: nothing will ask the mirror,
+    so the plan must not say that each data download below will."""
+    _machine(monkeypatch, tmp_path)
+    save_station(
+        Station(mirror=MIRROR), path=tmp_path / "xdg_config_home" / "hammunition" / "station.yml"
+    )
+    rc = cli.main(["--catalog", str(CATALOG), "install", "--dry-run", "--json", "navit"])
+    doc = parse_one(capsys.readouterr().out)
+    assert rc == 0 and doc["install"]["mirror"] is None
+
+
+def test_the_mirror_section_says_a_silent_mirror_is_skipped_for_the_run(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rc, out = _plan(monkeypatch, tmp_path, capsys, Station(mirror=MIRROR))
+    assert rc == 0 and "not asked again" in " ".join(out.split())

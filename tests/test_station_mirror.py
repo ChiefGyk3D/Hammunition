@@ -125,3 +125,23 @@ def test_station_show_prints_the_mirror(
     out = capsys.readouterr().out
     assert "mirror" in out and MIRROR in out
     assert "Nothing set" not in out
+
+
+@pytest.mark.parametrize(
+    "bad", ["http://bunker.lan:abc/", "http://bunker.lan:99999/", "http://[fd00::5/"]
+)
+def test_a_mirror_with_a_bad_port_or_host_is_a_station_error_not_a_crash(bad: str) -> None:
+    with pytest.raises(StationError, match="mirror"):
+        Station(mirror=bad)
+
+
+def test_a_hand_edited_bad_mirror_is_a_named_error_not_a_traceback(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = _env(monkeypatch, tmp_path)
+    path.parent.mkdir(parents=True)
+    path.write_text("callsign: N0TST\nmirror: 'http://[fd00::5/'\n")
+    with pytest.raises(StationError):
+        load_station(path=path)
+    assert cli.main(["station", "show"]) == 1  # a named error, not a traceback
+    assert "mirror" in capsys.readouterr().err

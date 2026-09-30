@@ -211,3 +211,61 @@ def test_md5_when_both_fail_nothing_is_left(tmp_path: Path) -> None:
             PUBLISHER, MD5, expected_size=len(PAYLOAD), mirror=PATH
         )
     assert _cache(tmp_path) == []
+
+
+class Broken:
+    """A mirror whose stream raises what http.client raises on a truncated
+    chunked body, or whose open raises what a bad port raises."""
+
+    def __init__(self, fail: Exception, *, on_open: bool = False) -> None:
+        self.fail = fail
+        self.on_open = on_open
+        self.requested: list[str] = []
+
+    @contextmanager
+    def open(self, url: str) -> Iterator[IO[bytes]]:
+        self.requested.append(url)
+        if self.on_open:
+            raise self.fail
+        fail = self.fail
+
+        class Stream(BytesIO):
+            def read(self, size: int | None = -1) -> bytes:
+                raise fail
+
+        yield Stream()
+
+
+@pytest.mark.parametrize(
+    ("fail", "on_open"),
+    [
+        (__import__("http.client").client.IncompleteRead(b"partial", 100), False),
+        (__import__("http.client").client.BadStatusLine("garbage"), True),
+        (__import__("http.client").client.InvalidURL("nonnumeric port: 'abc'"), True),
+    ],
+)
+def test_a_mirror_failing_in_any_way_falls_back_rather_than_aborting(
+    tmp_path: Path, fail: Exception, on_open: bool
+) -> None:
+    publisher = Routes({PUBLISHER: PAYLOAD})
+    fetcher = Fetcher(
+        tmp_path / "cache",
+        transport=publisher,
+        mirror=MIRROR,
+        mirror_transport=Broken(fail, on_open=on_open),
+    )
+    result = fetcher.fetch(ARTIFACT, mirror=PATH)
+    assert result.source == "publisher" and result.mirror_failure is not None
+    assert _cache(tmp_path) == [result.path.name]
+
+
+def test_an_interrupt_during_the_mirror_attempt_is_not_swallowed(tmp_path: Path) -> None:
+    fetcher = Fetcher(
+        tmp_path / "cache",
+        transport=Routes({PUBLISHER: PAYLOAD}),
+        mirror=MIRROR,
+        mirror_transport=Broken(KeyboardInterrupt()),  # type: ignore[arg-type]
+    )
+    with pytest.raises(KeyboardInterrupt):
+        fetcher.fetch(ARTIFACT, mirror=PATH)
+    assert _cache(tmp_path) == []

@@ -37,6 +37,14 @@ its publisher.
 To stop using it for one run, `hammunition install --no-mirror ...`. To
 remove it, `hammunition station set --clear-mirror`.
 
+**A mirror does not make an install work offline.** The plan is still
+made against the publishers: a region's dated file and its MD5 are asked of
+Geofabrik, an unpinned tile's size and checksum of the Copernicus bucket,
+and every region and tile to be downloaded is checked for being reachable
+there before anything runs. With the internet down, the plan refuses by
+name, mirror or not, and what is already installed stays installed. The mirror saves the download,
+not the question.
+
 ## A mirror URL is a LAN address
 
 **A mirror is a machine on your own network, never reachable from the
