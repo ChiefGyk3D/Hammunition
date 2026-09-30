@@ -20,6 +20,8 @@ The order that works:
    stands on, then a mode profile.
 3. [First contact](first-contact.md) — a digital-modes station making its first
    decode.
+4. [The guides](../guides/index.md) — rig control, audio and the clock once,
+   then FT8, Winlink, APRS, SDR listening, satellites, each start to finish.
 
 Everything the engine does to your machine, it prints before it does it, and
 records after. `--dry-run` shows the whole plan and changes nothing; a package
