@@ -41,6 +41,10 @@ disagrees with it, DECISIONS wins and the disagreeing file is a bug.
   resolution merged with a measured `apt-cache policy` sweep
 - `docs/reference/parity-coverage.md` — every dispositioned unit against the
   catalog: what is covered, what is outstanding, and why each gap is open
+- `docs/reference/catalog-gaps-2026-09.md` — the catalog against the field,
+  category by category: what is missing, what was planned and not delivered
+  (station config, the rig model, GPS time, audio routing), and what is
+  recommended; its rulings are **Q-022**
 - `docs/reference/` — the measurements everything rests on: `ahrl-inventory.md`,
   `blend-inventory.md`, `dispositions.md`, `overlaps.md`, `profile-sizing.md`,
   `licence-verification.md`, `hardware-gaps.md`, `udev-inventory.md`,
@@ -535,9 +539,9 @@ longer a design question in the abstract; a shipped manifest depends on it. See
 `DESIGN.md` §15.3 and the D-004 amendment.
 
 **Open questions awaiting the maintainer** are in `docs/QUESTIONS.md`.
-**None is open as of 2026-09-12**: Q-018 is D-044, Q-019 is D-045, Q-020
-(the two post-1.0 tracks) is D-046, Q-021 (the offline-data layer) is
-D-049.
+Q-018 is D-044, Q-019 is D-045, Q-020 (the two post-1.0 tracks) is D-046,
+Q-021 (the offline-data layer) is D-049. **Q-022 is open** (2026-09-30):
+six rulings from the 2026-09 gap analysis, none blocking 1.0.
 **Q-001 through Q-016 are all resolved.** Q-006, Q-007 and Q-008 closed on
 2026-08-29: HamClock carries both clients defaulting to `openhamclock` with
 `ohb.works` as the backend; SuperSDR is carried under **D-033**; cellular
