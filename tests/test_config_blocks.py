@@ -22,6 +22,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
+from hammunition.execute import stage_config, write_config  # noqa: E402
 from hammunition.manifest.load import load_catalog  # noqa: E402
 from hammunition.manifest.schema import PackageManifest  # noqa: E402
 from hammunition.plan import _plan_config  # noqa: E402
@@ -34,6 +35,7 @@ STATION = Station(callsign="N0TST", grid_square="FN31pr", node_alias="TSTND")
 #: measurement said no (linpac, fbb: see their manifests).
 BLOCKS: dict[str, str] = {
     "direwolf": "/etc/direwolf.conf",
+    "ax25-tools": "/etc/ax25/axports",
 }
 
 
@@ -116,3 +118,134 @@ def test_direwolf_defers_a_callsign_ax25_cannot_carry(
     writable, deferred = _plan_config(catalog["direwolf"], Station(callsign="W1AW/4"))
     assert not writable
     assert "AX.25" in deferred[0].why
+
+
+# ---------------------------------------------------------------------------
+# ax25-tools -- the axports line, appended once and never as a duplicate
+# ---------------------------------------------------------------------------
+
+#: The shape of libax25's shipped /etc/ax25/axports: a header and two example
+#: ports, both commented out (measured from 0.0.12-rc5+git20230513).
+SHIPPED_AXPORTS = (
+    "# /etc/ax25/axports\n#\n# The format of this file is:\n#\n"
+    "# name callsign speed paclen window description\n#\n\n"
+    "#1\tOH2BNS-1\t1200\t255\t2\t144.675 MHz (1200  bps)\n"
+    "#2\tOH2BNS-9\t38400\t255\t7\tTNOS/Linux  (38400 bps)\n"
+)
+
+
+def _axports(catalog: dict[str, PackageManifest]) -> tuple[str, tuple[str, ...]]:
+    writable, _ = _plan_config(catalog["ax25-tools"], STATION)
+    (_unit, config, body) = writable[0]
+    assert config.append
+    return body, tuple(config.skip_if_present)
+
+
+def _ports(text: str) -> list[list[str]]:
+    """axports as libax25 reads it: `#` in column one is a comment, the rest
+    is whitespace-separated fields (axconfig.c, strtok on space and tab)."""
+    return [ln.split() for ln in text.splitlines() if ln.strip() and not ln.startswith("#")]
+
+
+def test_axports_appends_the_wl2k_port(catalog: dict[str, PackageManifest]) -> None:
+    body, _ = _axports(catalog)
+    assert _ports(body) == [["wl2k", "N0TST", "1200", "255", "7", "Winlink"]]
+
+
+def test_axports_append_is_idempotent(catalog: dict[str, PackageManifest], tmp_path: Path) -> None:
+    body, skip = _axports(catalog)
+    target = tmp_path / "axports"
+    target.write_text(SHIPPED_AXPORTS)
+    write_config(target, body, 0o644, append=True, backup=True, skip_if_present=skip)
+    outcome = write_config(target, body, 0o644, append=True, backup=True, skip_if_present=skip)
+    assert "left" in outcome and "wl2k" in outcome
+    assert _ports(target.read_text()) == [["wl2k", "N0TST", "1200", "255", "7", "Winlink"]]
+    assert (tmp_path / "axports.hammunition-backup").read_text() == SHIPPED_AXPORTS
+
+
+@pytest.mark.parametrize(
+    "existing",
+    [
+        "radio N0TST 9600 255 2 my own port\n",  # the callsign already has a port
+        "radio\tn0tst-0\t9600\t255\t2\tsame call, -0 and lower case\n",
+        "WL2K N0TST-5 1200 255 7 a wl2k port of the operator's own\n",
+    ],
+)
+def test_axports_never_adds_a_duplicate_libax25_would_refuse(
+    catalog: dict[str, PackageManifest], tmp_path: Path, existing: str
+) -> None:
+    """axconfig.c: "duplicate port name" (strcasecmp) and "duplicate callsign"
+    are refused -- the operator's own port is left alone instead."""
+    body, skip = _axports(catalog)
+    target = tmp_path / "axports"
+    target.write_text(SHIPPED_AXPORTS + existing)
+    write_config(target, body, 0o644, append=True, backup=True, skip_if_present=skip)
+    assert target.read_text() == SHIPPED_AXPORTS + existing
+
+
+def test_axports_ignores_a_commented_port_on_the_same_call(
+    catalog: dict[str, PackageManifest], tmp_path: Path
+) -> None:
+    body, skip = _axports(catalog)
+    target = tmp_path / "axports"
+    target.write_text(SHIPPED_AXPORTS + "#old N0TST 1200 255 2 retired\n")
+    write_config(target, body, 0o644, append=True, backup=False, skip_if_present=skip)
+    assert _ports(target.read_text())[-1][0] == "wl2k"
+
+
+def test_axports_staged_for_root_puts_back_what_was_there(
+    catalog: dict[str, PackageManifest], tmp_path: Path
+) -> None:
+    """The root path stages the final file for `install -m`: when the append is
+    skipped the staged file is the target, byte for byte."""
+    body, skip = _axports(catalog)
+    target = tmp_path / "axports"
+    target.write_text(SHIPPED_AXPORTS + "wl2k N0TST 1200 255 7 Winlink\n")
+    staging = tmp_path / "staged"
+    outcome = stage_config(staging, target, body, append=True, skip_if_present=skip)
+    assert "nothing is appended" in outcome
+    assert staging.read_text() == target.read_text()
+
+    fresh = tmp_path / "fresh"
+    fresh.write_text(SHIPPED_AXPORTS)
+    stage_config(staging, fresh, body, append=True, skip_if_present=skip)
+    assert _ports(staging.read_text()) == [["wl2k", "N0TST", "1200", "255", "7", "Winlink"]]
+
+
+def test_a_callsign_is_matched_literally_not_as_a_pattern() -> None:
+    """A value substituted into skip_if_present is escaped: it can only ever
+    match itself."""
+    manifest = PackageManifest.model_validate(
+        {
+            "name": "fixture",
+            "version": "1.0",
+            "summary": "An append with a skip pattern",
+            "categories": ["packet"],
+            "install": [{"install": {"method": "apt", "packages": ["fixture"]}}],
+            "config_files": [
+                {
+                    "path": "/etc/fixture",
+                    "append": True,
+                    "template": "port {station.callsign}\n",
+                    "skip_if_present": ["^port {station.callsign}$"],
+                }
+            ],
+            "update": {"probe": {"method": "none"}},
+            "documentation": {
+                "what_it_does": "Stands in for an append that must not duplicate a line.",
+                "why_you_want_it": "To prove a value is not a pattern.",
+                "upstream_url": "https://example.invalid/",
+            },
+        }
+    )
+    writable, _ = _plan_config(manifest, Station(callsign="W1AW/4"))
+    (pattern,) = writable[0][1].skip_if_present
+    assert re.search(pattern, "port W1AW/4")
+    assert not re.search(pattern, "port W1AWX4")
+
+
+def test_skip_if_present_is_refused_on_a_whole_file_write() -> None:
+    from hammunition.manifest.schema import ConfigFile, ManifestError
+
+    with pytest.raises((ManifestError, ValueError), match="append"):
+        ConfigFile(path="/etc/x", template="x", skip_if_present=["x"])

@@ -306,6 +306,7 @@ AX.25 forces this into 1.0: its install appends
 | `mode` | `str` | no (default `0644`) |  |
 | `append` | `bool` | no (default `False`) |  |
 | `backup_existing` | `bool` | no (default `True`) |  |
+| `skip_if_present` | `list[str]` | no | Append only: regular expressions, matched per line against the file as it is when the step runs. If any line matches any of them the append is skipped and the outcome says which -- the idempotence and the no-duplicate rule of a file like axports, where a second port with the same name or callsign is an error. May reference {station.*}; a value is matched literally (escaped), never as a pattern. |
 
 ### `AptRepo`
 

@@ -21,6 +21,7 @@ import contextlib
 import grp
 import os
 import pwd
+import re
 import shutil
 import tempfile
 from collections.abc import Callable, Sequence
@@ -144,7 +145,29 @@ def user_groups(user: str) -> frozenset[str]:
     return frozenset(names)
 
 
-def write_config(path: Path, body: str, mode: int, *, append: bool, backup: bool) -> str:
+def already_present(existing: str, patterns: Sequence[str]) -> str | None:
+    """The first line of *existing* that one of *patterns* matches, or None.
+
+    An append whose ``skip_if_present`` matches is not made: the line is
+    already there (a re-run), or something the file cannot hold twice is --
+    ``axports`` refuses a second port with the same name or callsign.
+    """
+    compiled = [re.compile(p) for p in patterns]
+    for line in existing.splitlines():
+        if any(c.search(line) for c in compiled):
+            return line
+    return None
+
+
+def write_config(
+    path: Path,
+    body: str,
+    mode: int,
+    *,
+    append: bool,
+    backup: bool,
+    skip_if_present: Sequence[str] = (),
+) -> str:
     """Write one templated configuration file. Returns a one-line outcome.
 
     Backing up first is the default and matters: these paths belong to the
@@ -152,6 +175,10 @@ def write_config(path: Path, body: str, mode: int, *, append: bool, backup: bool
     hand-tuned `/etc/ax25/axports` without a copy would be the kind of damage
     no transaction log can undo.
     """
+    if append and skip_if_present and path.exists():
+        found = already_present(path.read_text(), skip_if_present)
+        if found is not None:
+            return f"left {path} as it is: it already has {found.strip()!r}"
     path.parent.mkdir(parents=True, exist_ok=True)
     saved = ""
     if backup and path.exists():
@@ -172,12 +199,21 @@ def write_config(path: Path, body: str, mode: int, *, append: bool, backup: bool
     return f"{action} {path} (mode {mode:04o}){saved}"
 
 
-def stage_config(staging: Path, target: Path, body: str, *, append: bool) -> str:
+def stage_config(
+    staging: Path,
+    target: Path,
+    body: str,
+    *,
+    append: bool,
+    skip_if_present: Sequence[str] = (),
+) -> str:
     """Render the *final* contents of a root-owned config into a staging file.
 
     The staged file is complete — for an append, the target's current contents
     plus the new block — so the privileged step is a plain ``install`` of a
     finished file, never a shell redirect or an in-place edit run as root.
+    When ``skip_if_present`` matches, the staged file is the target unchanged,
+    so the ``install`` that follows puts back exactly what was there.
     """
     if append and target.exists():
         try:
@@ -187,6 +223,15 @@ def stage_config(staging: Path, target: Path, body: str, *, append: bool) -> str
                 f"{target} must be read to append to it, and that failed: "
                 f"{exc.strerror}. Nothing was staged."
             ) from exc
+        found = already_present(existing, skip_if_present) if skip_if_present else None
+        if found is not None:
+            staging.parent.mkdir(parents=True, exist_ok=True)
+            staging.write_text(existing)
+            os.chmod(staging, 0o600)
+            return (
+                f"staged {target} unchanged at {staging}: it already has "
+                f"{found.strip()!r}, so nothing is appended"
+            )
         body = existing + ("" if existing.endswith("\n") else "\n") + body
     staging.parent.mkdir(parents=True, exist_ok=True)
     staging.write_text(body if body.endswith("\n") else body + "\n")
@@ -242,6 +287,7 @@ def config_steps(plan: InstallPlan, *, staging_root: Path | None = None) -> list
                         mode,
                         append=config.append,
                         backup=config.backup_existing,
+                        skip_if_present=tuple(config.skip_if_present),
                     ),
                 )
             )
@@ -253,7 +299,14 @@ def config_steps(plan: InstallPlan, *, staging_root: Path | None = None) -> list
                 kind="config",
                 description=f"Render {config.path} for {package} into a staging file",
                 detail=f"staged at {staging}, mode 0600; installed by the next command",
-                perform=partial(stage_config, staging, path, body, append=config.append),
+                perform=partial(
+                    stage_config,
+                    staging,
+                    path,
+                    body,
+                    append=config.append,
+                    skip_if_present=tuple(config.skip_if_present),
+                ),
             )
         )
         backup_path = path.with_suffix(path.suffix + ".hammunition-backup")

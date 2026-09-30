@@ -1216,10 +1216,40 @@ class ConfigFile(Strict):
     mode: str = "0644"
     append: bool = False
     backup_existing: bool = True
+    skip_if_present: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Append only: regular expressions, matched per line against the file as it "
+            "is when the step runs. If any line matches any of them the append is "
+            "skipped and the outcome says which -- the idempotence and the "
+            "no-duplicate rule of a file like axports, where a second port with the "
+            "same name or callsign is an error. May reference {station.*}; a value is "
+            "matched literally (escaped), never as a pattern."
+        ),
+    )
 
     @property
     def station_variables(self) -> set[str]:
-        return set(STATION_REF.findall(self.template))
+        found = set(STATION_REF.findall(self.template))
+        for pattern in self.skip_if_present:
+            found |= set(STATION_REF.findall(pattern))
+        return found
+
+    @model_validator(mode="after")
+    def _skip_only_when_appending(self) -> ConfigFile:
+        if self.skip_if_present and not self.append:
+            raise ManifestError(
+                f"{self.path}: skip_if_present only means something for an append; a "
+                f"whole-file write replaces the file (with a backup) regardless"
+            )
+        for pattern in self.skip_if_present:
+            try:
+                re.compile(STATION_REF.sub("X", pattern))
+            except re.error as exc:
+                raise ManifestError(
+                    f"{self.path}: skip_if_present {pattern!r} is not a regular expression: {exc}"
+                ) from exc
+        return self
 
 
 _REPO_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]*$")

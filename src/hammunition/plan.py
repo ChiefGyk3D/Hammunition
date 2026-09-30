@@ -715,10 +715,15 @@ def _plan_config(
             )
             continue
         body = config.template
+        patterns = list(config.skip_if_present)
         for variable in wanted:
             value = station.get(variable)
             assert value is not None  # `missing` above proved it
             body = body.replace("{station." + variable + "}", value)
+            # A value is matched literally: a callsign is data, never a pattern.
+            patterns = [p.replace("{station." + variable + "}", re.escape(value)) for p in patterns]
+        if patterns:
+            config = config.model_copy(update={"skip_if_present": patterns})
         writable.append((manifest.name, config, body))
     return writable, deferred
 
