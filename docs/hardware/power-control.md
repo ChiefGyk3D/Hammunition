@@ -191,6 +191,11 @@ interpreter's own venv, so the hijack import fails instead of succeeding. The
 The same action authorises `hammunition-devctl time mode` (D-058); the policy
 file therefore changes, and the next `hammunition hardware apply` reinstalls it.
 
+Parking a GPS receiver also turns GPS time off, whatever the time mode: ntpd
+stops hearing the receiver and follows the network, or holds over, until it
+is woken, with no configuration rewritten (inferred from ntpd's reachability
+rules; not yet watched on the bench). See `docs/guides/gps-time.md`.
+
 `allow_active=auth_self_keep` means an active local session authenticates
 once and stays authorised for a few minutes afterwards — polkit's own manual
 page documents the interval as "a brief period (e.g. five minutes)" without

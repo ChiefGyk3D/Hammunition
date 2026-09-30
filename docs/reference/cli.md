@@ -798,6 +798,19 @@ files contain and what installing them means.
   **D-056**), and anything but `yes` exits `3`.
 - **Group membership applies at next login.** The command says so; log out
   and back in before expecting device access.
+- **GPS time (D-058), where ntpsec is the time daemon.** Installs the two
+  grants ntpd needs to read gpsd's time: a systemd drop-in,
+  `/etc/systemd/system/ntpsec.service.d/hammunition-gps.conf`, with
+  `AmbientCapabilities=CAP_IPC_OWNER`, and `capability ipc_owner,` added as a
+  marked block to `/etc/apparmor.d/local/usr.sbin.ntpd`, with the profile
+  reloaded. The plan says in so many words that CAP_IPC_OWNER bypasses
+  permission checks on all System V IPC. It creates `/etc/ntpsec/ntp.d` and
+  sets the first time mode (`auto`, or the mode already recorded) through the
+  helper, which restarts ntpsec; when a mode is already applied and only the
+  grants change, it restarts ntpsec instead. On a machine with no hardware
+  clock (`/sys/class/rtc` empty) and no `fake-hwclock`, it installs
+  `fake-hwclock`, disclosed as a stopgap. Each GPS time step is logged
+  (`time_grants`) and read back afterwards. See `docs/guides/gps-time.md`.
 
 ### `hammunition hardware unapply [--dry-run] [--yes] [--user NAME]`
 
@@ -823,11 +836,21 @@ on. Nothing else is touched.
 - **Disclosed and verified**, the same as `apply`: every command is printed
   before it runs (`--dry-run` prints and stops), and `rm` exiting 0 is not
   trusted — each path is re-checked for absence afterwards (**D-031**).
+- **Takes GPS time back exactly (D-058)**, by content rather than by the
+  log: `/etc/ntpsec/ntp.conf`'s marked lines go back byte for byte as the
+  package shipped them (`dpkg --verify ntpsec` then prints nothing for it);
+  `/etc/ntpsec/ntp.d/hammunition-gps.conf`, `/etc/hammunition/time.yaml` and
+  the ntpsec drop-in are removed only when they start with the header
+  Hammunition writes; only Hammunition's block leaves
+  `/etc/apparmor.d/local/usr.sbin.ntpd`, the rest of that file stays; then
+  systemd and AppArmor are reloaded and ntpsec restarted. `fake-hwclock`, if
+  it was installed, stays; `sudo apt remove fake-hwclock` removes it.
 
 Exit codes: `0` for a removal that verified absent, nothing recorded to
 remove, every recorded artefact already gone, a `--dry-run`, or declining the
 confirmation prompt; `1` if the operator could not be determined, a removal
-command failed, or a path is still present after the run.
+command failed, or a path is still present after the run; `2` when
+`ntp.conf`'s marked lines were edited by hand, refused before anything runs.
 
 ### `hammunition hardware park NAME [--until-reboot] [--dry-run]`
 

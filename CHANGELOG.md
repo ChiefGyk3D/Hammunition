@@ -11,7 +11,17 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
-Nothing yet.
+- **GPS time** (D-058). `hammunition time` says what the clock follows (the
+  network, the GPS, or holdover and for how long) without a password;
+  `hammunition time mode auto|prefer-gps|ntp-only|gps-only` prints every
+  write, then sets it through the one helper and polkit action. A parked
+  receiver never feeds the clock. `hardware apply` installs the two grants
+  ntpd needs to read gpsd's time, disclosed as widening a network-facing
+  daemon's privilege, and offers `fake-hwclock` only where there is no
+  hardware clock; `hardware unapply` takes all of it back, `ntp.conf`
+  byte for byte. `doctor` reports the time source, holdover, and a machine
+  with no RTC. Parrot (ntpsec) only; built and not yet run on the field
+  laptop. Guide: `docs/guides/gps-time.md`.
 
 ## v0.14.3 — 2026-09-29 — the GPS tether on other setups
 

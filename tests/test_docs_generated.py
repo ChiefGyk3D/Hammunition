@@ -917,3 +917,32 @@ def test_the_copernicus_check_reports_current_and_writes_nothing() -> None:
     result = _copernicus_check()
     assert result.returncode == 0, f"{result.stdout}{result.stderr}"
     assert "up to date" in result.stdout
+
+
+def test_d058_is_recorded() -> None:
+    assert "## D-058" in (REPO_ROOT / "docs" / "DECISIONS.md").read_text()
+
+
+def test_the_gps_time_guide_recommends_an_rtc_first() -> None:
+    """The maintainer, 2026-09-28: the RTC recommendation comes first."""
+    text = (REPO_ROOT / "docs" / "guides" / "gps-time.md").read_text()
+    assert "RTC" in text
+    assert text.index("RTC") < text.index("time mode")
+
+
+def test_the_gps_time_guide_covers_every_system_modification() -> None:
+    """CLAUDE.md: what changes, why, how to inspect it, how to reverse it."""
+    text = (REPO_ROOT / "docs" / "guides" / "gps-time.md").read_text()
+    for needle in (
+        "/etc/hammunition/time.yaml",
+        "/etc/ntpsec/ntp.d/hammunition-gps.conf",
+        "/etc/ntpsec/ntp.conf",
+        "/etc/systemd/system/ntpsec.service.d/hammunition-gps.conf",
+        "/etc/apparmor.d/local/usr.sbin.ntpd",
+        "CAP_IPC_OWNER",
+        "hardware unapply",
+        "dpkg --verify ntpsec",
+        "ntpq -pn",
+        "fake-hwclock",
+    ):
+        assert needle in text, f"gps-time.md does not mention {needle}"
