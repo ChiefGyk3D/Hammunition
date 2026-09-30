@@ -111,6 +111,13 @@ What that changed below, each noted at its row:
   listens on loopback ports 2000, 2001, 3000 and 3001 for `/dev/ttyS0`
   and `/dev/ttyS1`. Added, but not to `station` as the brief placed it:
   install it by name.
+- **`gpsprune` is offered on all seven targets and is not added**,
+  because the decision record already ruled on it: **D-061** (and the
+  2026-09-28 note under D-057) says GPSPrune was measured and is not
+  carried, because it uses online tiles, and the `navigation` profile's
+  exclusions say the same. This report recommended it without citing
+  that. Carrying it would need the maintainer to amend D-061; nothing
+  here does.
 
 ## A. Cross-cutting gaps — plans the catalog has not caught up with
 
@@ -339,7 +346,7 @@ before a manifest. Nothing here is transmit-capable except where said.
 | `dx-cluster` | 2 | — | The Reverse Beacon Network is a cluster feed and needs a page, not a unit | | A sentence in the DX-cluster pages |
 | `time-frequency` | 3 | `chrony` | See A4 | apt + config | A4 |
 | `gps-gnss` | 7 | **PyGPSClient** (PyPI `pygpsclient`, BSD-3; NMEA, UBX, RTCM3, NTRIP) | Receiver configuration with a GUI; the u-center replacement | venv | ADD |
-| `gps-gnss` | | `gpsprune` (apt, in trixie per the search result), `gpxviewer` (trixie), `foxtrotgps` (sid) | Track viewing and editing; `gpsbabel` converts but shows nothing | apt | ADD `gpsprune`; `foxtrotgps` is online-first and adds nothing over Navit |
+| `gps-gnss` | | `gpsprune` (apt, in trixie per the search result; measured 2026-09-30: all seven targets), `gpxviewer` (trixie), `foxtrotgps` (sid) | Track viewing and editing; `gpsbabel` converts but shows nothing | apt | ~~ADD `gpsprune`~~ Not added: **D-061** measured it and does not carry it (see *Measured since*); `foxtrotgps` is online-first and adds nothing over Navit |
 | `gps-gnss` | | `rtklib` (RTK and PPK post-processing; apt `unmeasured`) | Centimetre positioning for antenna surveys | apt | Post-1.0 on demand |
 | `navigation-maps` | 14 | **OpenCPN** (Debian 13 `1:5.10.2+dfsg-1` per the search result; GPL-2.0) | A marine chart plotter that takes position from `gpsd` and AIS targets from `rtl-ais` or `ais-catcher` over NMEA — the one program that makes the `ships` category more than a decoder. Charts are data: NOAA ENC and RNC are public domain and fetched by region, the D-057 shape again | apt now; charts as a `data`/regional unit later | ADD, tagged `ships` + `navigation-maps`; charts a follow-on |
 | `navigation-maps` | | Organic Maps (Linux desktop: a Qt 6 source build the project says needs 20 GB and has no feature parity; Flathub only) | Turn-by-turn on the desktop with a modern UI | none acceptable today (Flatpak is a measured zero, D-014) | Not carried; revisit if a distribution packages it |
@@ -480,7 +487,8 @@ the cost:
 6. **`predict`, `gr-fosphor`, `libiio-utils`, `stm32flash`, `ser2net`,
    `qpwgraph`, `gpsprune`, OpenCPN** — apt units, one PR each, after the
    sweep confirms them. (2026-09-30: swept, see *Measured since*;
-   `predict` is in no archive and is not added.)
+   `predict` is in no archive and is not added; `gpsprune` is not added
+   because D-061 rules it out.)
 7. **A2** — the rig as station data. A sub-project with a spec, like the
    navigation ones under `docs/superpowers/specs/`.
 8. **A5** — the `splat-sdf` converter and Signal-Server.

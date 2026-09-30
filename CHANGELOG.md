@@ -36,6 +36,9 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   `qpwgraph`, the PipeWire patchbay the radio-audio guide already told
   people to install with apt, joins `digital-modes`, and the guide now
   links its page.
+  `gpsprune` is offered everywhere and is not added: D-061 already
+  measured it and left it out for its online tiles, and the report now
+  says so.
 
 ## v0.17.0 — 2026-09-30 — official topo sheets, CoMaps, and the offline browser map
 
