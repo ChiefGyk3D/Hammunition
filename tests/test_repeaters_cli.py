@@ -437,3 +437,41 @@ def test_fetch_hearham_has_no_json_form_and_names_its_whole_verb(
     assert doc["command"] == "maps repeaters fetch-hearham"
     assert "no --json form" in doc["message"]
     assert not station.layer.exists()
+
+
+# --- an installed navit-offline is moved onto the engine by `menus apply` ---------------------
+
+
+def test_menus_apply_rewrites_an_earlier_navit_offline_to_run_the_engine(tmp_path: Path) -> None:
+    """The guide tells an operator with Navit already installed that
+    `hammunition menus apply` updates the launcher; this is that claim."""
+    from hammunition.launchers import wrapper_body
+    from hammunition.manifest.load import load_catalog
+    from hammunition.menus import missing_launcher_steps
+
+    catalog = Path(__file__).resolve().parent.parent / "catalog" / "packages"
+    navit = load_catalog(catalog)["navit"]
+    assert navit.launchers[0].exec == "hammunition maps navit"
+    earlier_launcher = navit.launchers[0].model_copy(
+        update={"exec": "navit /usr/local/share/hammunition/data/osm-navit/navit.xml"}
+    )
+    earlier = navit.model_copy(update={"launchers": [earlier_launcher]})
+    bin_dir, apps = tmp_path / "bin", tmp_path / "applications"
+    bin_dir.mkdir()
+    apps.mkdir()
+    (bin_dir / "navit-offline").write_text(wrapper_body(earlier, earlier_launcher))
+    (apps / "hammunition-navit-offline.desktop").write_text("[Desktop Entry]\n")
+    engine = tmp_path / "venv" / "hammunition"
+    engine.parent.mkdir()
+    engine.write_text("#!/bin/sh\n")
+    engine.chmod(0o755)
+    steps = missing_launcher_steps(
+        [navit],
+        bin_dir=bin_dir,
+        applications_dir=apps,
+        prefix=tmp_path / "prefix",
+        installed=lambda package: True,
+        engine=engine,
+    )
+    assert len(steps) == 1 and steps[0].description.startswith("Rewrite")
+    assert "maps navit" in wrapper_body(navit, navit.launchers[0], engine=engine)
