@@ -60,6 +60,12 @@ from hammunition.backends import (
     VenvBackend,
 )
 from hammunition.backends.apt import stale_fetches
+from hammunition.backends.comaps_maps import (
+    ComapsMapsBackend,
+    maps_disk_needs,
+    maps_shortfall,
+    resolve_station_maps,
+)
 from hammunition.backends.dem import TIF, TILES, TerrainDisclosure, read_record
 from hammunition.backends.regions import (
     KeptRegion,
@@ -74,6 +80,7 @@ from hammunition.backends.regions import (
 )
 from hammunition.backends.source import DEFAULT_PREFIX
 from hammunition.backends.terrain import combined_shortfall
+from hammunition.comaps import CdnProbe, ComapsError, MapFile
 from hammunition.consent import (
     ConsentDeclined,
     ConsentUnavailable,
@@ -119,6 +126,7 @@ from hammunition.manifest.schema import (
     BinaryInstall,
     DemTilesInstall,
     DerivedDataInstall,
+    MwmRegionsInstall,
     PackageManifest,
     ProfileManifest,
     RegionalDataInstall,
@@ -1389,6 +1397,29 @@ def cmd_install(args: argparse.Namespace) -> int:
         refused("terrain", str(exc))
         return EXIT_UNPLANNABLE
     region_notes = list(resolution.notes)
+    # D-069: CoMaps' maps for the same regions, from the carried region table,
+    # and every map not yet installed HEAD-checked for its pinned size before
+    # the plan prints: each map's size, licence and check are the disclosure,
+    # and a version the CDN has dropped refuses here rather than after apt.
+    mwm_units = [p for p in plan.packages if isinstance(p.block.install, MwmRegionsInstall)]
+    mwm_files: list[MapFile] = []
+    if mwm_units:
+        try:
+            mwm_files, mwm_notes = resolve_station_maps(
+                station.map_regions,
+                catalog_root,
+                installed=data_root(source.prefix) / mwm_units[0].name,
+                head=CdnProbe().head,
+            )
+        except ComapsError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            print("\nNothing was changed.", file=sys.stderr)
+            refused("CoMaps maps", str(exc))
+            return EXIT_UNPLANNABLE
+        region_notes.extend(mwm_notes)
+    mwm = ComapsMapsBackend(
+        fetcher=source.fetcher, prefix=source.prefix, files=mwm_files, runner=runner
+    )
     try:
         border, countries, border_notes = map_borders(plan, packages, catalog_root, source.prefix)
     except CountryBoundaryError as exc:
@@ -1484,6 +1515,29 @@ def cmd_install(args: argparse.Namespace) -> int:
             print("\nNothing was changed.", file=sys.stderr)
             refused("disk space", short)
             return EXIT_UNPLANNABLE
+    # CoMaps' maps' own room, with the same run's other map data on the same disk.
+    mwm_pending = [f for p in mwm_units for f in mwm.pending(p.manifest)]
+    mwm_disk = maps_disk_needs(mwm_pending, cache=source.fetcher.cache_dir, prefix=source.prefix)
+    if mwm_disk:
+        others: dict[Path, int] = {}
+        if pending or conversions or any(terrain_disk.values()):
+            others = dict(
+                disk_needs(
+                    pending,
+                    conversions,
+                    cache=source.fetcher.cache_dir,
+                    staging=map_staging,
+                    prefix=source.prefix,
+                )
+            )
+            for path, amount in terrain_disk.items():
+                others[path] = others.get(path, 0) + amount
+        short = maps_shortfall(mwm_disk, others)
+        if short is not None:
+            print(f"error: {short}", file=sys.stderr)
+            print("\nNothing was changed.", file=sys.stderr)
+            refused("disk space", short)
+            return EXIT_UNPLANNABLE
     # D-051: a build present on disk that the log attributes to this engine
     # at the manifest's pin is already installed; its build steps are skipped.
     built = already_built(
@@ -1503,6 +1557,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         regions=regions,
         derived=derived,
         dem=terrain.dem,
+        mwm=mwm,
         repos=repos,
         config_staging=builds,
         launcher_bin=user_bin_dir(user or None),
@@ -1519,11 +1574,17 @@ def cmd_install(args: argparse.Namespace) -> int:
         if (log_owner and euid == 0 and str(log_destination).startswith("/home"))
         else None
     )
+    # A CoMaps maps unit with nothing to fetch or remove reads "already installed".
+    idle_maps = frozenset(
+        p.name
+        for p in mwm_units
+        if not mwm.steps(p.manifest, cast(MwmRegionsInstall, p.block.install))
+    )
     view = build_install_view(
         plan,
         commands,
         euid=euid,
-        built=built,
+        built=built | idle_maps,
         log_destination=log_destination,
         hands_log_to=hands_log_to,
         suggestion_notes=suggestion_notes,

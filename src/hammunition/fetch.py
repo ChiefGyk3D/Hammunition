@@ -432,6 +432,56 @@ class Fetcher:
         os.replace(temporary, final)
         return FetchResult(path=final, sha256=sha, from_cache=False, size=size)
 
+    def sha1_path_for(self, url: str, sha1: str) -> Path:
+        """Where a SHA-1-verified file lives once verified (:meth:`fetch_sha1`). Pure."""
+        return self.cache_dir / f"sha1-{sha1}-{_safe_name(url)}"
+
+    def fetch_sha1(self, url: str, sha1: str, *, expected_size: int) -> FetchResult:
+        """A file verified by the SHA-1 and exact size its publisher's own index
+        gives (D-069: CoMaps' maps), weaker than a sha256 Hammunition measured,
+        and the plan says so on every line. The size is checked first and
+        exactly: CoMaps' mirrors answer a missing map with 200 and a web page,
+        so a status proves nothing. The sha256 of the bytes is returned so the
+        transaction log carries a strong digest of what was installed.
+        """
+        make_dir(self.cache_dir)
+        final = self.sha1_path_for(url, sha1)
+        if final.exists() and final.stat().st_size == expected_size:
+            digest = hashlib.sha1(usedforsecurity=False)
+            with final.open("rb") as handle:
+                while chunk := handle.read(_CHUNK):
+                    digest.update(chunk)
+            if digest.hexdigest() == sha1:
+                return FetchResult(
+                    path=final, sha256=_digest_file(final), from_cache=True, size=expected_size
+                )
+            final.unlink()
+
+        temporary = final.with_name(final.name + f".part.{os.getpid()}")
+        try:
+            sha, size, got = self._download(
+                url, temporary, max_bytes=expected_size + 1024 * 1024, also="sha1"
+            )
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
+        if size != expected_size:
+            temporary.unlink(missing_ok=True)
+            raise VerificationError(
+                f"{url}: the publisher's index says {expected_size} bytes and {size} "
+                f"arrived; the size check failed (a mirror answers a missing file with a "
+                f"web page)"
+            )
+        if got != sha1:
+            temporary.unlink(missing_ok=True)
+            raise VerificationError(
+                f"{url} does not match the SHA-1 its publisher's index lists.\n"
+                f"  expected SHA-1: {sha1}\n  actually got: {got}\n"
+                f"The download has been discarded."
+            )
+        os.replace(temporary, final)
+        return FetchResult(path=final, sha256=sha, from_cache=False, size=size)
+
     def _download(
         self,
         url: str,
@@ -439,13 +489,15 @@ class Fetcher:
         *,
         max_bytes: int | None = None,
         md5: bool = False,
+        also: str | None = None,
     ) -> tuple[str, int, str | None]:
         """Stream *url* to *destination*, hashing as it goes.
 
-        Returns ``(sha256, size, md5_or_none)``. *max_bytes* overrides this
+        Returns ``(sha256, size, other_or_none)``. *max_bytes* overrides this
         fetcher's instance-level cap for this one call; the sha256 digest is
-        always computed, and the md5 digest alongside it only when *md5* is
-        true, so :meth:`fetch`'s sha256-only path pays nothing extra.
+        always computed, and a second digest alongside it only when asked --
+        MD5 with *md5* (Geofabrik, D-057), SHA-1 with ``also="sha1"`` (CoMaps,
+        D-069) -- so :meth:`fetch`'s sha256-only path pays nothing extra.
 
         Hashing the bytes as they are written, rather than re-reading the file
         afterwards, means the digest is over what was actually stored and
@@ -453,7 +505,9 @@ class Fetcher:
         """
         limit = max_bytes if max_bytes is not None else self.max_bytes
         digest = hashlib.sha256()
-        md5_digest = hashlib.md5(usedforsecurity=False) if md5 else None
+        if md5:
+            also = "md5"
+        extra_digest = hashlib.new(also, usedforsecurity=False) if also in ("md5", "sha1") else None
         size = 0
         with create_temporary(destination) as handle, self.transport.open(url) as stream:
             while True:
@@ -468,15 +522,15 @@ class Fetcher:
                         f"large, raise the limit deliberately rather than removing it."
                     )
                 digest.update(chunk)
-                if md5_digest is not None:
-                    md5_digest.update(chunk)
+                if extra_digest is not None:
+                    extra_digest.update(chunk)
                 handle.write(chunk)
             handle.flush()
             os.fsync(handle.fileno())
         return (
             digest.hexdigest(),
             size,
-            (md5_digest.hexdigest() if md5_digest is not None else None),
+            (extra_digest.hexdigest() if extra_digest is not None else None),
         )
 
 

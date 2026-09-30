@@ -47,6 +47,7 @@ from hammunition.backends import (
     SourceBackend,
     VenvBackend,
 )
+from hammunition.backends.comaps_maps import ComapsMapsBackend
 from hammunition.backends.dem import DemTilesBackend
 from hammunition.backends.derived import Ledger
 from hammunition.backends.source import tree_destination
@@ -59,6 +60,7 @@ from hammunition.manifest.schema import (
     DerivedDataInstall,
     GitInstall,
     InstallBlock,
+    MwmRegionsInstall,
     NodeInstall,
     RegionalDataInstall,
     SourceInstall,
@@ -400,6 +402,7 @@ def commands_for(
     regions: RegionsBackend | None = None,
     derived: DerivedBackend | None = None,
     dem: DemTilesBackend | None = None,
+    mwm: ComapsMapsBackend | None = None,
     repos: AptRepoBackend | None = None,
     config_staging: Path | None = None,
     launcher_bin: Path | None = None,
@@ -526,6 +529,14 @@ def commands_for(
                 )
             builds.extend(dem.steps(planned.manifest, block))
             ledgers.setdefault(id(dem.ledger), dem.ledger)
+        elif isinstance(block, MwmRegionsInstall):
+            if mwm is None:
+                raise BackendError(
+                    f"{planned.name} installs CoMaps' maps for the station's regions and no "
+                    f"mwm-regions backend was supplied. Skipping it would report a "
+                    f"successful run that installed nothing."
+                )
+            builds.extend(mwm.steps(planned.manifest, block))
     builds.extend(conversions)
 
     # A `fetch` is an in-process download into the cache, verified before it
