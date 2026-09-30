@@ -25,7 +25,7 @@ decision. Only CARRY, SUPERSEDE, REVIVE and ADD owe a manifest.
 | …covered | **107** |
 | …outstanding, with a recorded reason | **17** |
 | …outstanding, unexplained | **0** |
-| Manifests in the catalog | **266** |
+| Manifests in the catalog | **269** |
 
 Coverage of what is owed: **107/124** (86%).
 

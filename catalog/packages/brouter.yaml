@@ -1,0 +1,82 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: brouter
+version: "1.7.10"
+summary: BRouter, the offline router QMapShack runs for hiking, bike and car routes with elevation
+categories: [navigation-maps]
+
+# D-063. Not in any Debian or Ubuntu archive. Upstream's release zip, v1.7.10
+# (2026-07-17): 6,724,983 bytes; the sha256 below is GitHub's own asset
+# digest, and a download on 2026-09-29 measured the same. There is no
+# signature. The zip has one top directory, which extraction strips, so the
+# tree is brouter-1.7.10-all.jar (the router and the map creator, protobuf
+# included), brouter-1.7.10-ro.jar, lib/, profiles2/ (26 routing profiles
+# and lookups.dat) and upstream's Android APK, which nothing here uses.
+# Class files are major 55 (Java 11); Debian 13's default JRE is 21.
+#
+# No launcher: QMapShack starts BRouter itself, as a subprocess on
+# 127.0.0.1, only while its Routing dock uses it; `hammunition maps
+# qmapshack` points it at this tree. The map creator in the same jar builds
+# the routing files (`brouter-segments`).
+depends: [default-jre-headless]
+
+install:
+  - install:
+      method: binary
+      artifact:
+        url: https://github.com/abrensch/brouter/releases/download/v1.7.10/brouter-1.7.10.zip
+        sha256: 023fec3ba997758e8cd7ab9e1bae52e962af3f00b57683e3de86b84ffad01532
+      format: zip
+      install_tree: true
+      tree_marker: brouter-1.7.10-all.jar
+    note: >-
+      Lands whole under /usr/local/share/hammunition/brouter/. QMapShack's
+      BRouter setup reads the jar and profiles2/lookups.dat from there.
+
+update:
+  probe:
+    method: github_release
+    repo: abrensch/brouter
+  strategy: reinstall
+  cadence_hint: >-
+    A few releases a year. A new release is a new zip: download it, check
+    its sha256 against GitHub's asset digest, bump the URL, the digest, the
+    tree marker (the jar is named by version) and `version`. The routing
+    files are rebuilt on the next install, because their record names the
+    jar they were built with.
+
+documentation:
+  what_it_does: >-
+    Installs BRouter, an offline route planner for walking, hiking, cycling
+    and driving, under /usr/local/share/hammunition/brouter/. QMapShack runs
+    it for you as a local router, on this machine only, over the routing
+    files `brouter-segments` builds from your map regions. Its 26 routing
+    profiles include `hiking-mountain`, which reads how hard a trail is
+    (`sac_scale`), `trekking`, mountain-bike and gravel profiles, and car
+    profiles; its routes carry elevation, climbs and voice hints.
+  why_you_want_it: >-
+    Routino, the other router here, treats an alpine scramble like a
+    footpath and ignores hills. BRouter weighs trail difficulty and climbs,
+    so a hiking or bike route goes where you would actually go. It is the
+    offline alternative to BRouter's own website and to phone apps that stop
+    working with the phone network.
+  prerequisites: >-
+    Java (default-jre-headless, installed with it). Routing files from
+    `brouter-segments`, which needs your map regions set in station config.
+    Start QMapShack from the `qmapshack-offline` launcher, which registers
+    this BRouter in QMapShack's settings, then choose BRouter in QMapShack's
+    Routing dock.
+  known_problems: >-
+    QMapShack's own BRouter setup wizard downloads BRouter and its routing
+    files from brouter.de; do not use it for this install. brouter.de's
+    routing files are rebuilt weekly and published with no checksum of any
+    kind, which is why Hammunition never fetches them and builds its own.
+    QMapShack's About text calls BRouter GPLv3; upstream's licence is MIT.
+    Not yet confirmed on hardware: a route drawn by QMapShack through this
+    BRouter. It was run by hand on the development host with routing files
+    the engine built from synthetic regions, and it routed.
+  upstream_url: https://github.com/abrensch/brouter
+  upstream_support: >-
+    The project's GitHub issues; the profile language is documented in
+    profiles2/readme.txt and on https://brouter.de/brouter/.

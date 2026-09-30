@@ -1,0 +1,80 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: brouter-segments
+version: "station"
+summary: BRouter routing files built from your own regions, with elevation, never downloaded
+categories: [navigation-maps]
+
+# Derived data (D-063): the engine runs the `brouter-mapcreator` converter,
+# an enum it implements, over every region osm-regions installed, with the
+# terrain tiles dem-copernicus installed folded in as elevation. Nothing is
+# downloaded here, and brouter.de's routing files never are: they are
+# rebuilt weekly with no checksum. osmium-tool merges two regions or more
+# into the map creator's one input (it is not a catalog unit, so apt
+# installs it, as for osm-navit); gdal-bin warps the tiles into its
+# elevation format.
+depends:
+  - osm-regions
+  - dem-copernicus
+  - brouter
+  - brouter-mapcreator-profiles
+  - osmium-tool
+  - gdal-bin
+
+install:
+  - install:
+      method: derived
+      converter: brouter-mapcreator
+      source: osm-regions
+      program: brouter
+      profiles: brouter-mapcreator-profiles
+      elevation: dem-copernicus
+      licence: ODbL-1.0
+      licence_url: https://www.openstreetmap.org/copyright
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    Rebuilt whenever the set of regions, a region's snapshot, the terrain
+    tiles, BRouter's jar or the converter changes; otherwise left as it is.
+
+documentation:
+  what_it_does: >-
+    Builds BRouter's routing files (`.rd5`, one per 5 by 5 degree square)
+    from every map region you have set, with the Copernicus elevation of
+    those regions folded in, and installs them under
+    /usr/local/share/hammunition/data/brouter-segments/. It runs BRouter's
+    own map creator as the operator in a staging directory: the regions
+    merged into one input when there are two or more, the elevation built
+    square by square, then the map creator's three steps.
+  why_you_want_it: >-
+    BRouter needs routing files, and the only published ones (brouter.de)
+    are rebuilt every week with no checksum, so nothing could say they are
+    what their builder made. These are built on your machine from the map
+    data and terrain Hammunition already downloaded and verified, and cover
+    exactly your regions: one routing set, so a route may cross from one
+    region into the next.
+  prerequisites: >-
+    `osm-regions` with at least one region set; with none, this unit is
+    deferred by name. `dem-copernicus` for elevation (a region with no
+    published tile is routed flat), `brouter` and
+    `brouter-mapcreator-profiles`.
+  known_problems: >-
+    One region that fails fails the whole build, and the step names it and
+    why; the routing files already installed are left as they were.
+    Measured on Delaware, a public example state, on 2026-09-29: 3.3 MB of
+    routing files from a 22.1 MB download, and the elevation step at 1.33 GB
+    of memory for one square. The map creator's scratch space and its memory
+    on anything larger than Delaware are not measured; the plan allows 3
+    times the downloads of scratch, and each Java step may take up to 4 GB.
+    Every step's command was run on the development host against the pinned
+    jar with synthetic regions and a synthetic tile, and BRouter routed over
+    the result with its elevation. Not yet run: a real region through
+    `hammunition install`, and a QMapShack route over the result.
+  upstream_url: https://github.com/abrensch/brouter
+  upstream_support: >-
+    The map creator is upstream's misc/scripts/mapcreation/process_pbf_planet.sh
+    run region by region; issues about it go to BRouter's GitHub issues.
