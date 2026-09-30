@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**269 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**270 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -301,13 +301,14 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `navigation-maps` — 17
+### `navigation-maps` — 18
 
 Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
 
 - [brouter](brouter.md) — BRouter, the offline router QMapShack runs for hiking, bike and car routes with elevation
 - [brouter-mapcreator-profiles](brouter-mapcreator-profiles.md) — The two filter files BRouter's map creator needs and its release zip leaves out
 - [brouter-segments](brouter-segments.md) — BRouter routing files built from your own regions, with elevation, never downloaded
+- [comaps](comaps.md) — Offline vector maps with search and car, bike and foot routing, from CoMaps' own map files
 - [country-boundaries](country-boundaries.md) — Natural Earth's world country borders, which let Navit's address search find towns
 - [dem-copernicus](dem-copernicus.md) — Copernicus GLO-30 elevation tiles for your map regions, verified
 - [dem-qmapshack](dem-qmapshack.md) — Hillshade, slope and 20 m contour lines for QMapShack, from the elevation tiles
@@ -696,6 +697,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [code](code.md) | Microsoft's Visual Studio Code build — optional alternative to the VSCodium your distro ships | apt |
 | [codium](codium.md) | VSCodium — Microsoft's VS Code source, built without their telemetry or branding | apt |
 | [coil64](coil64.md) | Calculates inductance for coils of almost any geometry | git |
+| [comaps](comaps.md) | Offline vector maps with search and car, bike and foot routing, from CoMaps' own map files | git |
 | [comptext](comptext.md) | Compares two text streams and scores how much of one arrived intact | apt |
 | [comptty](comptty.md) | The same accuracy comparison as comptext, for Baudot RTTY streams | apt |
 | [country-boundaries](country-boundaries.md) | Natural Earth's world country borders, which let Navit's address search find towns | data |
