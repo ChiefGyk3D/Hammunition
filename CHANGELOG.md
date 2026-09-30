@@ -11,6 +11,12 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.14.3 — 2026-09-29 — the GPS tether on other setups
+
+One pull request since v0.14.2 (#142).
+
 - **The GPS tether takes `--gpsd` and `--port`, and any number of
   clients** (D-061, amended 2026-09-29). `--gpsd HOST[:PORT]` reads a gpsd
   on a Pi, a phone or a shack computer (IPv6 in brackets); `--port N` serves
