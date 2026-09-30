@@ -334,3 +334,104 @@ def current_file(text: str, name: str, flavour: str | None) -> str | None:
 
 def total_size(files: Iterable[BookFile]) -> int:
     return sum(f.pin.size for f in files)
+
+
+#: The hosts the engine asks about books: the origin, its load balancer (the
+#: origin answers 301 to it), and the OPDS catalogue `update --upstream` reads.
+KIWIX_HOSTS = frozenset({"download.kiwix.org", "lb.download.kiwix.org", "opds.library.kiwix.org"})
+_GONE = frozenset({404, 410})
+
+
+class KiwixProbe:
+    """The network, for books: ``HEAD`` a pinned file, ``GET`` a small answer.
+
+    Built from :class:`~urllib.request.OpenerDirector` with only the HTTP(S)
+    handlers, as :class:`hammunition.fetch.UrllibTransport` is, so no
+    ``file:`` URL is ever served. ``head`` follows a redirect only between
+    Kiwix's own hosts: download.kiwix.org answers 301 to its load balancer,
+    which answers 302 to a mirror for a file it has and 404 for one it does
+    not, and a redirect to a mirror is the answer ("published"), not a hop to
+    take. Nothing here is trusted: a book is checked against its pinned
+    sha256 when it is fetched, by the fetcher.
+    """
+
+    MAX_TEXT = 1024 * 1024
+
+    def __init__(self, *, timeout: float = 30.0) -> None:
+        import urllib.request
+
+        self.timeout = timeout
+        director = urllib.request.OpenerDirector()
+        director.add_handler(urllib.request.HTTPSHandler())
+        self._head = director
+        text = urllib.request.OpenerDirector()
+        for handler in (
+            urllib.request.HTTPSHandler(),
+            urllib.request.HTTPRedirectHandler(),
+            urllib.request.HTTPErrorProcessor(),
+            urllib.request.HTTPDefaultErrorHandler(),
+        ):
+            text.add_handler(handler)
+        self._text = text
+
+    @staticmethod
+    def _checked(url: str) -> str:
+        from urllib.parse import urlsplit
+
+        parts = urlsplit(url)
+        if parts.scheme != "https" or parts.hostname not in KIWIX_HOSTS:
+            raise KiwixError(f"refusing {url!r}: only Kiwix's own hosts are asked about books")
+        return url
+
+    def head(self, url: str) -> int:
+        """The status that settles whether *url* is published: 200, or a
+        redirect off Kiwix's hosts to a mirror; 404 when it is gone."""
+        import urllib.request
+
+        current = self._checked(url)
+        for _hop in range(4):
+            request = urllib.request.Request(current, headers={"User-Agent": "hammunition"})
+            request.method = "HEAD"
+            try:
+                response = self._head.open(request, timeout=self.timeout)
+            except OSError as exc:
+                raise KiwixError(f"{url} could not be reached: {exc}") from exc
+            if response is None:  # pragma: no cover - no handler claimed the scheme
+                raise KiwixError(f"no handler would ask {url!r}")
+            with response:
+                status: int = response.status
+                location = response.headers.get("Location")
+            if status in (301, 302, 303, 307, 308) and location:
+                try:
+                    current = self._checked(location)
+                except KiwixError:
+                    return 200  # handed to a mirror: the file is published
+                continue
+            return status
+        raise KiwixError(f"{url}: too many redirects between Kiwix's hosts")
+
+    def text(self, url: str) -> str:
+        import urllib.error
+        import urllib.request
+
+        request = urllib.request.Request(self._checked(url), headers={"User-Agent": "hammunition"})
+        try:
+            response = self._text.open(request, timeout=self.timeout)
+        except urllib.error.HTTPError as exc:
+            if exc.code in _GONE:
+                raise KiwixGone(url) from exc
+            raise KiwixError(f"{url} returned HTTP {exc.code} ({exc.reason})") from exc
+        except OSError as exc:
+            raise KiwixError(f"{url} could not be fetched: {exc}") from exc
+        if response is None:  # pragma: no cover
+            raise KiwixError(f"no handler would fetch {url!r}")
+        with response:
+            self._checked(response.geturl())
+            body: bytes = response.read(self.MAX_TEXT + 1)
+        if len(body) > self.MAX_TEXT:
+            raise KiwixError(f"{url} is larger than {self.MAX_TEXT} bytes; refusing to read it")
+        return body.decode("utf-8", errors="replace")
+
+
+class KiwixGone(KiwixError):
+    """The URL answered 404 or 410: Kiwix no longer publishes it."""

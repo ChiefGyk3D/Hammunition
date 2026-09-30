@@ -194,3 +194,13 @@ def test_a_document_declaring_entities_is_refused_before_parsing() -> None:
     hostile = '<?xml version="1.0"?><!DOCTYPE x [<!ENTITY a "aaaa">]><library/>'
     with pytest.raises(KiwixError, match="DTD"):
         parse_library(hostile)
+
+
+def test_the_real_probe_asks_only_kiwix() -> None:
+    from hammunition.kiwix import KiwixProbe
+
+    probe = KiwixProbe()
+    with pytest.raises(KiwixError, match="refusing"):
+        probe.head("https://evil.example/x.zim")
+    with pytest.raises(KiwixError, match="refusing"):
+        probe.text("http://opds.library.kiwix.org/catalog/v2/entries?name=x")

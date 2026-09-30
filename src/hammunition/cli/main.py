@@ -61,6 +61,12 @@ from hammunition.backends import (
 )
 from hammunition.backends.apt import stale_fetches
 from hammunition.backends.dem import TIF, TILES, TerrainDisclosure, read_record
+from hammunition.backends.kiwix import (
+    KiwixBooksBackend,
+    books_disk_needs,
+    books_shortfall,
+    resolve_station_books,
+)
 from hammunition.backends.regions import (
     KeptRegion,
     MapDisclosure,
@@ -112,7 +118,7 @@ from hammunition.geofabrik import resolve as resolve_region
 from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH, describe_refusal
 from hammunition.interface import envelope
 from hammunition.kernel import KernelProbe
-from hammunition.kiwix import KiwixError, load_book_list
+from hammunition.kiwix import BookFile, KiwixError, KiwixProbe, load_book_list
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
 from hammunition.manifest.schema import (
@@ -120,6 +126,7 @@ from hammunition.manifest.schema import (
     BinaryInstall,
     DemTilesInstall,
     DerivedDataInstall,
+    KiwixBooksInstall,
     PackageManifest,
     ProfileManifest,
     RegionalDataInstall,
@@ -1392,6 +1399,28 @@ def cmd_install(args: argparse.Namespace) -> int:
         print("\nNothing was changed.", file=sys.stderr)
         refused("terrain", str(exc))
         return EXIT_UNPLANNABLE
+    # D-065: the chosen Kiwix books, resolved against the book list and its
+    # pins, and every one not yet installed HEAD-checked, before the plan
+    # prints: each book's size and licence are the disclosure, and a pin
+    # Kiwix has dropped refuses here rather than after apt has run.
+    book_units = [p for p in plan.packages if isinstance(p.block.install, KiwixBooksInstall)]
+    book_files: list[BookFile] = []
+    if book_units:
+        try:
+            book_files = resolve_station_books(
+                station.reference_books,
+                catalog_root,
+                installed=data_root(source.prefix) / book_units[0].name,
+                head=KiwixProbe().head,
+            )
+        except KiwixError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            print("\nNothing was changed.", file=sys.stderr)
+            refused("reference books", str(exc))
+            return EXIT_UNPLANNABLE
+    books = KiwixBooksBackend(
+        fetcher=source.fetcher, prefix=source.prefix, files=book_files, runner=runner
+    )
     region_notes = list(resolution.notes)
     try:
         border, countries, border_notes = map_borders(plan, packages, catalog_root, source.prefix)
@@ -1487,6 +1516,29 @@ def cmd_install(args: argparse.Namespace) -> int:
             print("\nNothing was changed.", file=sys.stderr)
             refused("disk space", short)
             return EXIT_UNPLANNABLE
+    # The books' own room, with any map data of the same run on the same disk.
+    book_pending = [f for p in book_units for f in books.pending(p.manifest)]
+    book_disk = books_disk_needs(book_pending, cache=source.fetcher.cache_dir, prefix=source.prefix)
+    if book_disk:
+        others: dict[Path, int] = {}
+        if pending or conversions or any(terrain_disk.values()):
+            others = dict(
+                disk_needs(
+                    pending,
+                    conversions,
+                    cache=source.fetcher.cache_dir,
+                    staging=map_staging,
+                    prefix=source.prefix,
+                )
+            )
+            for path, amount in terrain_disk.items():
+                others[path] = others.get(path, 0) + amount
+        short = books_shortfall(book_disk, others)
+        if short is not None:
+            print(f"error: {short}", file=sys.stderr)
+            print("\nNothing was changed.", file=sys.stderr)
+            refused("disk space", short)
+            return EXIT_UNPLANNABLE
     # D-051: a build present on disk that the log attributes to this engine
     # at the manifest's pin is already installed; its build steps are skipped.
     built = already_built(
@@ -1506,6 +1558,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         regions=regions,
         derived=derived,
         dem=terrain.dem,
+        books=books,
         repos=repos,
         config_staging=builds,
         launcher_bin=user_bin_dir(user or None),
@@ -1522,11 +1575,17 @@ def cmd_install(args: argparse.Namespace) -> int:
         if (log_owner and euid == 0 and str(log_destination).startswith("/home"))
         else None
     )
+    # A book unit with nothing to fetch or remove reads "already installed".
+    idle_books = frozenset(
+        p.name
+        for p in book_units
+        if not books.steps(p.manifest, cast(KiwixBooksInstall, p.block.install))
+    )
     view = build_install_view(
         plan,
         commands,
         euid=euid,
-        built=built,
+        built=built | idle_books,
         log_destination=log_destination,
         hands_log_to=hands_log_to,
         suggestion_notes=suggestion_notes,

@@ -37,7 +37,7 @@ from functools import partial
 from pathlib import Path
 
 from ..fetch import Fetcher
-from ..kiwix import BookFile
+from ..kiwix import BookFile, KiwixError, load_book_list, load_pin_file, resolve_books
 from ..manifest.schema import KiwixBooksInstall, PackageManifest, RemoteArtifact
 from .base import Action, BackendError, Command, CommandRunner
 from .data import human_size
@@ -210,3 +210,45 @@ class KiwixBooksBackend:
 def _remove(writer: PrefixWriter, path: Path) -> str:
     writer.remove([path])
     return f"removed {path}"
+
+
+def resolve_station_books(
+    selection: Sequence[str],
+    catalog_root: Path,
+    *,
+    installed: Path,
+    head: Callable[[str], int],
+) -> list[BookFile]:
+    """The chosen books as pinned files, checked before the plan prints.
+
+    A book installed at its pin asks nothing of the network. Every other one
+    is asked for once, by ``HEAD``: a pin Kiwix has dropped (it keeps two
+    dated files per book) refuses the plan here, naming the regeneration,
+    rather than failing a fetch after apt has run; so does a book that
+    cannot be reached, offline. Every such book is named together.
+    """
+    books = resolve_books(selection, load_book_list(catalog_root), load_pin_file(catalog_root))
+    problems: list[str] = []
+    for book in books:
+        if book_current(installed / book.pin.file, book):
+            continue
+        try:
+            status = head(book.pin.url)
+        except KiwixError as exc:
+            problems.append(f"  {book.pin.id}: {exc}")
+            continue
+        if status in (404, 410):
+            problems.append(
+                f"  {book.pin.id}: {book.pin.url} answered HTTP {status}. Kiwix keeps the two "
+                f"newest dated files of a book, and this pin is older; regenerate the pins "
+                f"with scripts/gen_kiwix_pins.py. The newer file is not taken in its place: "
+                f"nobody has measured its sha256."
+            )
+        elif status != 200:
+            problems.append(f"  {book.pin.id}: {book.pin.url} answered HTTP {status}, not 200")
+    if problems:
+        raise KiwixError(
+            f"{len(problems)} reference book(s) cannot be fetched and are not installed "
+            f"already:\n" + "\n".join(problems)
+        )
+    return books
