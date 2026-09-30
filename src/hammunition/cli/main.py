@@ -80,7 +80,8 @@ from hammunition.backends.regions import (
 )
 from hammunition.backends.source import DEFAULT_PREFIX
 from hammunition.backends.terrain import combined_shortfall
-from hammunition.comaps import CdnProbe, ComapsError, MapFile
+from hammunition.comaps import CdnProbe, ComapsError, ComapsPins, MapFile, resolve_regions
+from hammunition.comaps import load_pins as load_comaps_pins
 from hammunition.consent import (
     ConsentDeclined,
     ConsentUnavailable,
@@ -153,11 +154,12 @@ from hammunition.station import (
 )
 from hammunition.sudo_ticket import SudoKeepalive, keepalive_wanted
 from hammunition.terrain_plan import brouter_pins, build_terrain_run, resolve_station_terrain
-from hammunition.update import region_snapshots, render, report, requested_units
+from hammunition.update import UNKNOWN, mwm_state, region_snapshots, render, report, requested_units
 from hammunition.upstream import (
     NOT_UPSTREAM,
     http_get,
     parse_ls_remote,
+    probe_comaps_maps,
     probe_upstream,
 )
 from hammunition.upstream import render as render_upstream
@@ -580,6 +582,24 @@ def cmd_update(args: argparse.Namespace) -> int:
         if isinstance(planned.block.install, RegionalDataInstall)
     }
 
+    # CoMaps' maps, offline (D-069): each map the station's regions need
+    # against its pinned version, counted, from the carried table.
+    mwm_by_unit: dict[str, tuple[str, str]] = {}
+    comaps: dict[str, ComapsPins] = {}
+    for planned in plan.packages:
+        if not isinstance(planned.block.install, MwmRegionsInstall):
+            continue
+        try:
+            comaps_pins = load_comaps_pins(catalog_root)
+        except ComapsError as exc:
+            mwm_by_unit[planned.name] = (UNKNOWN, str(exc))
+            continue
+        comaps[planned.name] = comaps_pins
+        files, unmapped = resolve_regions(station.map_regions, comaps_pins)
+        mwm_by_unit[planned.name] = mwm_state(
+            files, data_root(source.prefix) / planned.name, unmapped=len(unmapped)
+        )
+
     result = report(
         plan,
         apt_states=states,
@@ -588,9 +608,10 @@ def cmd_update(args: argparse.Namespace) -> int:
         regions=regions_by_unit,
         tiles=installed_tile_counts(plan, source.prefix),
         no_terrain=no_terrain_counts(plan, source.prefix),
+        mwm=mwm_by_unit,
     )
     lists_note = _apt_lists_note(apt)
-    upstream = _upstream_rows(plan, runner) if args.upstream else None
+    upstream = _upstream_rows(plan, runner, comaps=comaps) if args.upstream else None
     if envelope.wanted(args):
         envelope.emit(
             build_update(
@@ -606,7 +627,12 @@ def cmd_update(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def _upstream_rows(plan: InstallPlan, runner: SubprocessRunner) -> list[UpstreamRow]:
+def _upstream_rows(
+    plan: InstallPlan,
+    runner: SubprocessRunner,
+    *,
+    comaps: Mapping[str, ComapsPins] | None = None,
+) -> list[UpstreamRow]:
     """D-053's second half: the catalog's pin against what upstream publishes.
 
     Opt-in because it is the one thing the engine does that talks to someone
@@ -635,6 +661,10 @@ def _upstream_rows(plan: InstallPlan, runner: SubprocessRunner) -> list[Upstream
         probe_upstream(planned.manifest, http=http, ls_remote=ls_remote)
         for planned in plan.packages
     ]
+    # D-069: CoMaps' maps are asked of the CDN, once per unit: is the pinned
+    # version still published, and how old is it.
+    for unit, comaps_pins in (comaps or {}).items():
+        rows.append(probe_comaps_maps(unit, comaps_pins, head=CdnProbe().head, today=date.today()))
     return [r for r in rows if r.state != NOT_UPSTREAM]
 
 
@@ -3337,7 +3367,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--upstream",
         action="store_true",
         help=(
-            "also ask upstream (GitHub, git tags, PyPI, a version file) whether the "
+            "also ask upstream (GitHub, git tags, PyPI, a version file, CoMaps' CDN) whether the "
             "catalog's pin is current; the only network the report uses"
         ),
     )
