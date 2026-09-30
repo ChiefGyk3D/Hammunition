@@ -69,7 +69,7 @@ argument — js8call is apt on Linux Mint 22.3 and a cmake build elsewhere.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `when` | `Selector` | no |  |
-| `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| NodeInstall \| PipxInstall \| DataInstall \| RegionalDataInstall \| DemTilesInstall \| DerivedDataInstall \| KiwixBooksInstall \| MwmRegionsInstall` | **yes** |  |
+| `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| NodeInstall \| PipxInstall \| DataInstall \| RegionalDataInstall \| DemTilesInstall \| TopoQuadsInstall \| DerivedDataInstall \| KiwixBooksInstall \| MwmRegionsInstall` | **yes** |  |
 | `build_depends` | `list[str]` | no | apt packages needed to BUILD only. Never reported as installed. |
 | `binaries` | `list[Binary] \| None` | no | This block's own build outputs, replacing the manifest's `binaries` wherever this block is the one that resolves. A prebuilt archive selected by `arch` can carry a different path per architecture -- rayhunter's zip has `installer` at the top level and one `rayhunter-check` under a per-platform directory -- and one manifest-level list cannot describe both. Omit the key to use the manifest's list; an empty list is refused, because it reads as an override to nothing. |
 | `note` | `str \| None` | no |  |
@@ -546,8 +546,8 @@ wide because only the catalog knows what `source` resolves to (D-061).
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `method` | `Literal[derived]` | no (default `derived`) |  |
-| `converter` | `Literal[navit-maptool, mkgmap, routino-planetsplitter, gdal-dem, brouter-mapcreator, mapsforge-map, mapsforge-poi]` | **yes** | The transformation to run. Each needs a `source` of one particular install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): `navit-maptool`, `mkgmap`, `routino-planetsplitter`, `brouter-mapcreator`, `mapsforge-map` and `mapsforge-poi` need an `osm-regions` source; `gdal-dem` needs a `dem-tiles` source. |
-| `source` | `str` | **yes** | The catalog package name this is derived from: an `osm-regions` unit, or for `gdal-dem` a `dem-tiles` unit. |
+| `converter` | `Literal[navit-maptool, mkgmap, routino-planetsplitter, gdal-dem, brouter-mapcreator, mapsforge-map, mapsforge-poi, ustopo-mosaic]` | **yes** | The transformation to run. Each needs a `source` of one particular install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): `navit-maptool`, `mkgmap`, `routino-planetsplitter`, `brouter-mapcreator`, `mapsforge-map` and `mapsforge-poi` need an `osm-regions` source; `gdal-dem` needs a `dem-tiles` source; `ustopo-mosaic` needs a `topo-quads` source (D-068). |
+| `source` | `str` | **yes** | The catalog package name this is derived from: an `osm-regions` unit, for `gdal-dem` a `dem-tiles` unit, for `ustopo-mosaic` a `topo-quads` unit. |
 | `boundaries` | `str \| None` | no | The catalog data unit holding country boundaries (one GeoJSON file) that `navit-maptool` merges into each region before conversion, so maptool files towns under a country and address search finds them (D-057 amendment, 2026-09-28). Must also be in `depends`. |
 | `program` | `str \| None` | no | `brouter-mapcreator` only, and required there (D-063): the `binary` unit whose installed tree holds BRouter's jar, which carries the map creator. Must also be in `depends`. |
 | `profiles` | `str \| None` | no | `brouter-mapcreator` only, and required there (D-063): the `data` unit holding `all.brf` and `softaccess.brf`, the map creator's filters, which BRouter's release zip does not carry. Must also be in `depends`. |
@@ -664,5 +664,24 @@ file, never the transaction" rule as any other station-dependent unit.
 |---|---|---|---|
 | `method` | `Literal[osm-regions]` | no (default `osm-regions`) |  |
 | `provider` | `Literal[geofabrik]` | no (default `geofabrik`) |  |
+| `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
+| `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
+
+### `TopoQuadsInstall`
+
+Official topographic map sheets for the station's map regions (D-068).
+
+Like `DemTilesInstall`, nothing is pinned in the manifest: which sheets
+are needed follows the operator's regions in station config, chosen at
+plan time from a carried, generated index
+(``catalog/data/ustopo-quads.txt``), each checked against the S3 ETag
+its publisher lists, the plan saying so sheet by sheet. `provider` is an
+enum so the Forest Service's FSTopo is a new member the engine
+implements, never a URL in the catalog.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `method` | `Literal[topo-quads]` | no (default `topo-quads`) |  |
+| `provider` | `Literal[usgs-ustopo]` | no (default `usgs-ustopo`) |  |
 | `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
 | `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |

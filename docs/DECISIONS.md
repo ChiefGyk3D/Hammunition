@@ -6610,104 +6610,210 @@ the CLI's is `docs/reference/cli.md`.
 
 ---
 
-## D-070 — A data artifact may be taken from a LAN mirror the operator names, verified the same either way, and the engine can list what it would fetch without a station
+## D-068 — Official topographic maps: USGS US Topo sheets for the station's US regions, chosen from a carried index, checked against the publisher's ETag, and made one QMapShack map; FSTopo and 3DEP next; second trail layers not carried
 
-**Date:** 2026-09-29. **Status:** proposed (implemented on branch
-`artifacts-mirror`; the maintainer decides it at review). **Depends on:**
-D-049 (a `data` unit's artifacts are pinned and hashed), D-057 (map regions,
-verified by a pin or by Geofabrik's MD5, the plan saying which), D-061
-(terrain tiles, by a pin or by the object's ETag MD5), D-035 (station values
-are the operator's and defer, never invent), D-059 (one JSON document per
-command). **Amends:** nothing; it adds a second source to the verified
-fetch, never a second verifier.
+**Date:** 2026-09-29. **Status:** accepted (maintainer, 2026-09-29, on the
+spike report on official park, forest and topographic data beyond OSM; the
+design is `docs/superpowers/specs/2026-09-29-official-topo-design.md`).
+**Depends on:** D-061 (QMapShack, terrain, converters run as the operator
+through `Staging`, one terrain ledger), D-057 (regions are station data;
+derived data by a converter enum; the publisher's MD5 disclosed, never
+silent), D-049 (offline data is a catalog unit), D-031 (verify the effect),
+D-021 (state the licence). **Amends:** D-049's install methods, with
+`topo-quads`; D-061's converter enum, with `ustopo-mosaic`.
 
-**Why.** A field machine re-downloads the same public data every time it is
-rebuilt or its regions change: gigabytes of Geofabrik extracts and
-Copernicus tiles over whatever connection it has. The maintainer's NAS sits
-on the same LAN. Hammunition Bunker
-(<https://github.com/ChiefGyk3D/hammunition-bunker>, spec approved
-2026-09-29) keeps a verified copy of that data there and serves it. It holds
-no pins and no verifier of its own; it needs the engine to tell it what to
-keep, and the engine to take from it without trusting it.
+**Why.** OpenStreetMap already carries the trails' lines, and the spike
+measured how completely: 97.5 % of Shenandoah National Park's official
+trail mileage lies within 25 m of an OSM way, 96 % of a George Washington
+and Jefferson National Forest sample. What official sources add is
+authority: the name on the signpost, the printed-map look people trust,
+and, for elevation, bare earth. The USGS US Topo sheet carries the first
+two at once, public domain, with no schema for the engine to interpret.
 
-**Decided.**
+### What is carried
 
-1. **`hammunition artifacts [--json]`** lists every remote data artifact the
-   engine would fetch for a selection given on the command line:
-   `--map-regions`, `--map-freshness` (default `yearly`) and `--units`
-   (default: every unit with a `data`, `osm-regions` or `dem-tiles` block).
-   One entry per `data` file, per region, and per tile a region's outline
-   touches, resolved by the plan's own code: the same pins, the same
-   freshness and fallback, the publisher's MD5 or ETag read. **No station
-   file is read and nothing installed here is read**, so the listing is the
-   same on every machine. A region, outline or tile that cannot be resolved,
-   and a map unit given no regions, is an entry whose `deferred` says why,
-   never dropped. A unit that is not in the catalog, or fetches nothing, is
-   refused with exit 2 by name.
-2. **The `artifacts` document** is the Bunker's contract: `unit`, `name`,
-   `url`, `check` (`sha256`, `md5-publisher`, `etag-md5`; `sha256-publisher`
-   is reserved and no unit produces it), `digest`, `checksum_url`, `size`,
-   `licence`, `deferred`. `name` is the artifact's stable name within its
-   unit: the region path, the tile name, a data file's `install_as` or the
-   file name its URL ends in.
-3. **`digest` is always a digest.** The Bunker spec allowed it to hold the
-   URL of a publisher checksum until read. A field that is sometimes a URL
-   and sometimes hex is a parse ambiguity in a contract, and the engine
-   reads the checksum while resolving anyway; where it read it from is the
-   added `checksum_url`.
-4. **`station set --mirror URL`** stores one optional key, removed by
-   `--clear-mirror`. It must be `http` or `https` with a host, no user or
-   password (the station file holds no credentials), no query or fragment.
-   It is not a template variable. **Plain http is allowed on purpose**: the
-   content is public data and the check is the hash, not the transport.
-5. **A mirror URL is a LAN address, never something reachable from the
-   internet.** The docs say so. The engine does not enforce it: whether a
-   name is private cannot be decided without resolving it, and nothing the
-   mirror could send gets past the digest.
-6. **The verified fetch tries `<mirror>/<unit>/<name>` first** (each segment
-   percent-quoted; an empty, `.` or `..` segment refused) for the three kinds
-   of artifact the listing names, and the publisher second. **Any failure at
-   the mirror** — unreachable, an HTTP error, the size cap, a wrong size, a
-   wrong digest — discards what it sent and asks the publisher. The digest
-   checked is the same either way; nothing unverified reaches the cache. A
-   mirror that did not answer at all is not asked again in that run (one
-   10-second timeout, not one per tile). Source tarballs, prebuilt binaries,
-   wheels and npm packages are not mirrored: they are not in the contract.
-7. **The plan says so first.** A *Data mirror (D-070)* section names the
-   mirror; each data fetch step says the LAN mirror is tried first and its
-   digest checked either way, and its detail names both URLs in order. The
-   JSON plan carries `install.mirror` and each step's `sources`. With no
-   mirror set the text plan is unchanged. **`install --no-mirror`** ignores
-   the key for one run, and the plan says it is ignored.
-8. **The log records the actual source.** A data fetch's `action_end`
-   carries `source` (`cache`, `mirror` or `publisher`), `fetched_from` and,
-   when the mirror was passed over, `mirror_failure`
-   (`docs/reference/transaction-log.md`).
+| Unit | Method | Installs |
+|---|---|---|
+| `usgs-ustopo` | `topo-quads`, `provider: usgs-ustopo` | `data/usgs-ustopo/<stem>_<date>.tif`, and `<slug>.quads` per region |
+| `ustopo-qmapshack` | `derived`, `converter: ustopo-mosaic` | `data/ustopo-qmapshack/quads/<stem>_<date>.tif`, one `ustopo.vrt`, `quads.source` |
 
-**Measured.** `tests/test_fetch_mirror.py` against fakes, and
-`tests/test_mirror_loopback.py` against two real HTTP servers on 127.0.0.1
-through the real transport: a mirror hit asks the publisher nothing; a 404,
-wrong bytes, a wrong size and the cap each hand over with the same digest
-and leave nothing of the mirror's in the cache; a stopped mirror is asked
-once per run; both failing is one refusal naming both.
-`tests/test_artifacts.py`: pinned and unpinned regions, the three
-freshness modes, tiles from an outline, every deferral, no station read, no
-install record read, and the listing's `<unit>/<name>` being exactly what
-the fetch asks a mirror for. **Not yet measured:** an install on the field
-laptop against a running Bunker, which is the evidence this decision needs
-before it is accepted.
+Both join the `navigation` profile. A region outside the United States and
+its territories touches no sheet: its plan line is a `note:` naming it, and
+nothing fails.
 
-**Rejected.** A mirror trusted for its own hashes (the Bunker writes
-sidecars): that would make the NAS a second source of truth, which it is
-not. Mirroring every fetch, source builds included: not in the Bunker's
-contract, and a build's pin is a commit the mirror has no name for.
-Enforcing a private address: a hostname proves nothing, and refusing a
-routable LAN address would refuse real networks. Asking the mirror for its
-index first: one request per artifact, falling back on a 404, needs no
-agreement about an index format the engine would then have to parse and
-trust. `artifacts` reading the station by default: the Bunker runs on a NAS
-with no station, and a listing that changed with whoever ran it would not
-be a contract.
+### Which sheets: a carried index, selected at an eighth of a degree
+
+USGS's `ustopo_current.csv` (in `ustopo_current.zip`, 10.5 MB, rebuilt
+daily) lists every current quad with its box and dated file name; the TNM
+Access API lists only the PDFs, and the GeoTIFFs sit beside them in the
+`prd-tnm` bucket. `scripts/gen_ustopo_index.py --fetch` joins the CSV with
+a listing of the bucket's GeoTIFF prefix (273 pages, 272,910 objects, every
+edition since 2009) and writes `catalog/data/ustopo-quads.txt`: one line
+per quad, its box, size, S3 ETag and `<ST>/<stem>_<date>`. The 2026-09-29
+index: 65,240 quads, 64,423 at their current edition, and **817 whose
+current (2026) edition is published as a PDF only**, carried at their
+newest GeoTIFF edition and counted in the header; none left out. The box
+is carried as decimals, because 6,638 quads (Alaska, oversized and
+off-grid sheets) are not on the 1/8-degree grid. The file is 6.3 MB of
+plain text: `*.gz` is ignored repository-wide, and a line-based file keeps
+a regeneration reviewable.
+
+A region's sheets are those whose box overlaps a 1/8-degree cell its
+Geofabrik outline touches: `copernicus.squares_touching` gained a
+`per_degree` argument and is called at 8. The outline is the one the
+terrain already fetches, and one plan asks for it once (`MemoProbe`). The
+answer is recorded as whole index rows in `<slug>.quads`, so an offline
+plan can verify, warp and remove from the record alone. A record naming an
+edition the index has since replaced is re-selected from the outline;
+offline it is kept, with a note, and what is installed stays installed.
+
+`--check --offline` checks the carried file's shape and header counts and
+runs in the test suite. `--check` lists the bucket and fails naming each
+carried quad that is gone or whose size or ETag changed, since that breaks
+an install; a newer edition appearing is counted and does not fail it, or
+the weekly job would be red on USGS's publishing calendar and be ignored.
+
+### Verification: the publisher's ETag, carried and re-asked
+
+Every sheet about to be fetched is asked for with a `HEAD` at plan time and
+must answer 200 with the size and ETag the index carries; otherwise the
+plan refuses, naming it and `scripts/gen_ustopo_index.py --fetch`. The
+download must reproduce the ETag (`src/hammunition/s3etag.py`,
+`Fetcher.fetch_etag`): a single-part upload's is its MD5; a multipart
+upload's is the MD5 of its parts' binary MD5s, and since the part size is
+not published, each whole-MiB size from S3's 5 MiB minimum that splits the
+object into that many parts is tried, 8 and 5 MiB first. None reproducing
+it is a named failure, never an unverified pass. 13,209 of the current
+GeoTIFFs are multipart. The installed copy is re-verified on the way in
+against the sha256 taken as the bytes arrived, and the cached copy deleted.
+
+The plan says **"MD5 from the publisher's object metadata; not pinned by
+Hammunition"** for every sheet, the Copernicus wording: the ETag is the
+publisher's, and no sha256 was measured by Hammunition. Editions are years
+old (Vermont 2024, Delaware 2023), so sha256 pins could be grown later as
+`gen_copernicus_pins.py` grows them; this decision does not.
+
+### The converter: warp each sheet, crop its collar, one VRT
+
+A US Topo GeoTIFF is the whole 300 dpi page, collar included, each sheet in
+its own Transverse Mercator: `gdalbuildvrt` cannot mosaic them as they
+come, and stacked uncropped each collar hides its neighbour. Per sheet, as
+the operator, in `~/.cache/hammunition/build/ustopo-qmapshack/ustopo.work/`
+under one lock:
+
+```
+gdalwarp -q -overwrite -t_srs EPSG:3857 -te_srs EPSG:4269 -te <w> <s> <e> <n> \
+  -r bilinear -co COMPRESS=JPEG -co PHOTOMETRIC=YCBCR -co TILED=YES <sheet> <out>
+gdaladdo -q -r average --config COMPRESS_OVERVIEW JPEG \
+  --config PHOTOMETRIC_OVERVIEW YCBCR <out> 2 4 8 16
+```
+
+then one `gdalbuildvrt` over every warped sheet by absolute path, published
+as `ustopo.vrt`. `hammunition maps qmapshack` adds the directory under
+`[Canvas] mapPath`; QMapShack lists `*.vrt` there and does not look below.
+Outputs are checked, not exit statuses; failures go into D-061's terrain
+ledger, whose one last step fails the run by name; a sheet no region needs
+loses its warped copy, and with no sheet needed at all the VRT goes too,
+rather than name files just removed.
+
+### Measured, and not
+
+Measured on 2026-09-29 on the development host: the index and the join
+above; one Delaware sheet end to end through the engine's own code
+(`DE_Newark_East_20230603`, 9,227,638 bytes, a two-part upload): the `HEAD`
+check, the download, the ETag reproduced at **8 MiB** parts, then the argv
+above: `gdalwarp` 2.5 s to 6.0 MB, `gdaladdo` 0.9 s to 8.9 MB, the corners
+exactly the sheet's box (75°45′–75°37′30″ W, 39°37′30″–39°45′ N), the
+collar gone in a rendered thumbnail. The files were deleted after. The disk
+factor, 1.0× the download for the warped sheet and as much again of
+scratch, is printed "measured on one quad". A test runs the real GDAL on a
+synthetic Transverse Mercator page and was seen red with the crop broken.
+
+**Not measured: QMapShack drawing the mosaic.** The spike's one run opened
+the VRT and listed it in the Maps dock, and the canvas stayed blank at the
+configured focus; why is unknown. It is owed by the bench, **in a virtual
+machine, never on the maintainer's desktop**: a scratch `HOME` does not
+isolate QMapShack, whose single-instance socket `/tmp/QMapShack-<user>` is
+shared with the desktop's instance, and the spike's `pkill -x qmapshack`
+killed the maintainer's own QMapShack twice. Also not run: the whole
+install of the sheets through `hammunition install` on any machine.
+
+### Next: FSTopo and 3DEP
+
+Not built on this branch; the spec's section 8 is their plan.
+
+- **`usfs-fstopo`**, a second `topo-quads` provider: the Forest Service's
+  7.5′ series over National Forest land, with **trail numbers**. Index from
+  `FSTopo_Index_GTAC`; fetched by `downloadMap.php?mapID=<secoord>`. **No
+  checksum is published**, so each sheet is sha256-pinned by Hammunition
+  where the maintainer has measured one, and otherwise disclosed as
+  unverified in the plan, by name. The generator starts with no pins. It is
+  collarless in EPSG:4269, so its converter is a plain `gdalbuildvrt`.
+- **`dem-3dep`**, a second `dem-tiles` provider, opt-in through
+  `--dem-source copernicus|3dep` (default `copernicus`). Copernicus GLO-30 is
+  a surface model: over a forested window in Shenandoah it reads **11.8 m
+  above 3DEP on average** (σ 6.6 m), the canopy; 3DEP is bare earth. 488 MB
+  a tile against 46 MB. `gdal-dem` needs three changes: tiles named by the
+  north-west corner, its own tile list, and `PIXELS` of at least 10,812.
+
+### Not carried, and why
+
+- **NPS, USFS and state trail lines as a second vector layer.** OSM has
+  97.5 % (SHEN) and 96 % (GW&J sample) of the official mileage within 25 m,
+  plus more; a duplicate layer draws every trail twice, and the sheets
+  already show the official names. REST output has no fixed bytes, and the
+  USFS national files are rebuilt weekly with no checksum.
+- **1 m lidar**: 26.9 GB for one SHEN project.
+- **GeoPDF**: six times the GeoTIFF, and rasterised anyway.
+- **Historical Topo (HTMC)**: historical interest; 9.4 GB for Vermont.
+- **Park PDF maps**: no coordinate system and no neatline; placing them by
+  hand is not the engine's job.
+- **BLM and USFWS layers**: REST queries only, no checksum.
+- **PAD-US**, for now: ScienceBase's checksum field is null.
+- **NPS points of interest and boundaries as GPX**: deferred to a later
+  piece, pending a checksum (the Data Store boundary FGDB can be
+  sha256-pinned; the REST points cannot).
+
+Outside the US, OSM stays the trail layer. OS OpenData publishes an MD5 per
+file, which is the pattern a UK source would follow; CanVec publishes none;
+the EU has no single source.
+
+**Final review (2026-09-29), fixed before merge.** An older edition was
+removed before its newer one had installed, so a failed fetch left a hole in
+the map until the next online run: it is now removed only once the new file
+is on disk, the step runs after the installs, and the mosaic keeps the older
+warped copy in the VRT meanwhile (I1). A current record now takes the
+index's size and ETag, so a re-uploaded object under the same name is not
+checked against a stale ETag forever (M1). A VRT whose every sheet failed to
+warp is removed (M3). `--check --offline` also checks the header's CSV row
+count (M5), and a GeoTIFF newer than the CSV's own edition is counted as
+current, not older (M6). Left as known gaps: a region's record never picks
+up a sheet USGS adds inside it while every recorded sheet is still indexed
+(rare; changing the region re-selects), and `usgs-ustopo` reads "already
+installed" in the plan when only a record or a removal is written, the
+`dem-tiles` rule of D-061.
+
+**Rejected.** The TNM Access API at plan time (online, and it lists only
+PDFs). A gzipped index (`*.gz` is ignored repository-wide, and a regenerated
+diff would be unreadable). Failing the weekly check on a newer edition.
+Keeping only the warped copies (a converter change would need every sheet
+downloaded again).
+
+**Consequences.** `TopoQuadsInstall` and the `ustopo-mosaic` converter in
+`src/hammunition/manifest/schema.py`; `src/hammunition/ustopo.py`,
+`src/hammunition/s3etag.py`, `src/hammunition/topo_plan.py`,
+`src/hammunition/backends/topo.py`, `src/hammunition/backends/topo_mosaic.py`;
+`Fetcher.fetch_etag`; `squares_touching(per_degree=)` and
+`S3Probe(bucket=)` in `src/hammunition/copernicus.py`; the US Topo part of
+the plan's Terrain block and its JSON (`TopoSectionView`); the sheet count
+in `update`; the mosaic directory in `maps qmapshack`; the generated
+`catalog/data/ustopo-quads.txt` and `scripts/gen_ustopo_index.py`, checked
+weekly; `catalog/packages/usgs-ustopo.yaml`,
+`catalog/packages/ustopo-qmapshack.yaml`, `catalog/profiles/navigation.yaml`.
+The operator's page is section 15 of `docs/guides/offline-navigation.md`.
+
+
+---
 
 ## D-069 — CoMaps is carried as a pinned source build over CoMaps' own maps for the station's regions, checked by CoMaps' own index; its missing position is written down, not faked
 
@@ -6882,7 +6988,7 @@ backend's steps and checks in `src/hammunition/backends/git.py`;
 `catalog/packages/comaps.yaml`, `catalog/packages/comaps-maps.yaml`, the
 generated `catalog/data/comaps-pins.yaml` and its generator, and the
 `navigation` profile. The operator's page is
-`docs/guides/offline-navigation.md` (section 15), the CLI's
+`docs/guides/offline-navigation.md` (section 16), the CLI's
 `docs/reference/cli.md`, and the build gap
 `docs/reference/source-build-gaps.md` #8. Tests: `tests/test_comaps_schema.py`,
 `tests/test_git_comaps.py`, `tests/test_comaps_pins.py`,
@@ -6923,6 +7029,104 @@ landed. What changed with it:
   others.
 - **Source-build gap #8 is not closed** until the engine's build runs on the
   bench; the fields exist and are tested against fakes.
-- `tests/test_docs_mirror.py` asserted D-070 was the last entry. D-069 is
-  appended after it by the same rule (entries are added at the end, never
-  renumbered), so the test now asserts D-070 follows what preceded it.
+- D-069 is recorded in number order, between D-068 and D-070, which
+  landed on main first (maintainer's direction, 2026-09-30).
+
+## D-070 — A data artifact may be taken from a LAN mirror the operator names, verified the same either way, and the engine can list what it would fetch without a station
+
+**Date:** 2026-09-29. **Status:** proposed (implemented on branch
+`artifacts-mirror`; the maintainer decides it at review). **Depends on:**
+D-049 (a `data` unit's artifacts are pinned and hashed), D-057 (map regions,
+verified by a pin or by Geofabrik's MD5, the plan saying which), D-061
+(terrain tiles, by a pin or by the object's ETag MD5), D-035 (station values
+are the operator's and defer, never invent), D-059 (one JSON document per
+command). **Amends:** nothing; it adds a second source to the verified
+fetch, never a second verifier.
+
+**Why.** A field machine re-downloads the same public data every time it is
+rebuilt or its regions change: gigabytes of Geofabrik extracts and
+Copernicus tiles over whatever connection it has. The maintainer's NAS sits
+on the same LAN. Hammunition Bunker
+(<https://github.com/ChiefGyk3D/hammunition-bunker>, spec approved
+2026-09-29) keeps a verified copy of that data there and serves it. It holds
+no pins and no verifier of its own; it needs the engine to tell it what to
+keep, and the engine to take from it without trusting it.
+
+**Decided.**
+
+1. **`hammunition artifacts [--json]`** lists every remote data artifact the
+   engine would fetch for a selection given on the command line:
+   `--map-regions`, `--map-freshness` (default `yearly`) and `--units`
+   (default: every unit with a `data`, `osm-regions` or `dem-tiles` block).
+   One entry per `data` file, per region, and per tile a region's outline
+   touches, resolved by the plan's own code: the same pins, the same
+   freshness and fallback, the publisher's MD5 or ETag read. **No station
+   file is read and nothing installed here is read**, so the listing is the
+   same on every machine. A region, outline or tile that cannot be resolved,
+   and a map unit given no regions, is an entry whose `deferred` says why,
+   never dropped. A unit that is not in the catalog, or fetches nothing, is
+   refused with exit 2 by name.
+2. **The `artifacts` document** is the Bunker's contract: `unit`, `name`,
+   `url`, `check` (`sha256`, `md5-publisher`, `etag-md5`; `sha256-publisher`
+   is reserved and no unit produces it), `digest`, `checksum_url`, `size`,
+   `licence`, `deferred`. `name` is the artifact's stable name within its
+   unit: the region path, the tile name, a data file's `install_as` or the
+   file name its URL ends in.
+3. **`digest` is always a digest.** The Bunker spec allowed it to hold the
+   URL of a publisher checksum until read. A field that is sometimes a URL
+   and sometimes hex is a parse ambiguity in a contract, and the engine
+   reads the checksum while resolving anyway; where it read it from is the
+   added `checksum_url`.
+4. **`station set --mirror URL`** stores one optional key, removed by
+   `--clear-mirror`. It must be `http` or `https` with a host, no user or
+   password (the station file holds no credentials), no query or fragment.
+   It is not a template variable. **Plain http is allowed on purpose**: the
+   content is public data and the check is the hash, not the transport.
+5. **A mirror URL is a LAN address, never something reachable from the
+   internet.** The docs say so. The engine does not enforce it: whether a
+   name is private cannot be decided without resolving it, and nothing the
+   mirror could send gets past the digest.
+6. **The verified fetch tries `<mirror>/<unit>/<name>` first** (each segment
+   percent-quoted; an empty, `.` or `..` segment refused) for the three kinds
+   of artifact the listing names, and the publisher second. **Any failure at
+   the mirror** — unreachable, an HTTP error, the size cap, a wrong size, a
+   wrong digest — discards what it sent and asks the publisher. The digest
+   checked is the same either way; nothing unverified reaches the cache. A
+   mirror that did not answer at all is not asked again in that run (one
+   10-second timeout, not one per tile). Source tarballs, prebuilt binaries,
+   wheels and npm packages are not mirrored: they are not in the contract.
+7. **The plan says so first.** A *Data mirror (D-070)* section names the
+   mirror; each data fetch step says the LAN mirror is tried first and its
+   digest checked either way, and its detail names both URLs in order. The
+   JSON plan carries `install.mirror` and each step's `sources`. With no
+   mirror set the text plan is unchanged. **`install --no-mirror`** ignores
+   the key for one run, and the plan says it is ignored.
+8. **The log records the actual source.** A data fetch's `action_end`
+   carries `source` (`cache`, `mirror` or `publisher`), `fetched_from` and,
+   when the mirror was passed over, `mirror_failure`
+   (`docs/reference/transaction-log.md`).
+
+**Measured.** `tests/test_fetch_mirror.py` against fakes, and
+`tests/test_mirror_loopback.py` against two real HTTP servers on 127.0.0.1
+through the real transport: a mirror hit asks the publisher nothing; a 404,
+wrong bytes, a wrong size and the cap each hand over with the same digest
+and leave nothing of the mirror's in the cache; a stopped mirror is asked
+once per run; both failing is one refusal naming both.
+`tests/test_artifacts.py`: pinned and unpinned regions, the three
+freshness modes, tiles from an outline, every deferral, no station read, no
+install record read, and the listing's `<unit>/<name>` being exactly what
+the fetch asks a mirror for. **Not yet measured:** an install on the field
+laptop against a running Bunker, which is the evidence this decision needs
+before it is accepted.
+
+**Rejected.** A mirror trusted for its own hashes (the Bunker writes
+sidecars): that would make the NAS a second source of truth, which it is
+not. Mirroring every fetch, source builds included: not in the Bunker's
+contract, and a build's pin is a commit the mirror has no name for.
+Enforcing a private address: a hostname proves nothing, and refusing a
+routable LAN address would refuse real networks. Asking the mirror for its
+index first: one request per artifact, falling back on a 404, needs no
+agreement about an index format the engine would then have to parse and
+trust. `artifacts` reading the station by default: the Bunker runs on a NAS
+with no station, and a listing that changed with whoever ran it would not
+be a contract.

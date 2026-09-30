@@ -20,15 +20,10 @@ def _flat(path: str) -> str:
     return " ".join((REPO_ROOT / path).read_text().split())
 
 
-def test_d070_is_recorded_after_what_preceded_it_under_its_assigned_title() -> None:
-    """Appended, never inserted: D-070 follows every entry that existed when it
-    was written. It is no longer the last one -- D-069 was appended after it,
-    by the same rule (entries are added at the end and never renumbered)."""
+def test_d070_is_recorded_last_under_its_assigned_title() -> None:
     text = (REPO_ROOT / "docs" / "DECISIONS.md").read_text()
     assert TITLE in text
-    at = text.index(TITLE)
-    for earlier in ("## D-063 ", "## D-064 ", "## D-066 ", "## D-067 "):
-        assert text.index(earlier) < at, f"{earlier.strip()} comes before D-070"
+    assert text.rindex("\n## D-") == text.index(TITLE) - 1, "D-070 is the last entry"
 
 
 def test_the_guide_points_at_the_bunker_and_says_lan_only() -> None:
@@ -51,9 +46,10 @@ def test_the_log_reference_documents_the_fetch_facts() -> None:
 
 def test_claude_md_and_the_changelog_carry_it() -> None:
     assert "**D-070**" in _flat("CLAUDE.md")
+    # In whichever release carries it: a test tied to "Unreleased" goes red
+    # the day the entry is released, which is what happened to v0.16.0.
     changelog = (REPO_ROOT / "CHANGELOG.md").read_text()
-    unreleased = changelog[changelog.index("## Unreleased") : changelog.index("\n## v")]
-    assert "D-070" in unreleased
+    assert "D-070" in changelog[changelog.index("## Unreleased") :]
 
 
 def test_the_guide_says_the_plan_still_needs_the_internet() -> None:

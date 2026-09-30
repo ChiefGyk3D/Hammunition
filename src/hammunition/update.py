@@ -50,6 +50,7 @@ from hammunition.manifest.schema import (
     PackageManifest,
     RegionalDataInstall,
     SourceInstall,
+    TopoQuadsInstall,
     VenvInstall,
 )
 from hammunition.plan import NO_REFERENCE_BOOKS, InstallPlan, PlannedPackage
@@ -268,6 +269,27 @@ def _tiles_row(planned: PlannedPackage, count: int, no_terrain: int = 0) -> Upda
     )
 
 
+def _quads_row(planned: PlannedPackage, count: int, stale: int) -> UpdateRow:
+    """Counts only (D-068): a sheet's name is a place, as telling as a region's."""
+    strategy = planned.manifest.update.strategy
+    if not count:
+        return UpdateRow(planned.name, NOT_INSTALLED, "no US Topo quads installed", strategy)
+    if stale:
+        return UpdateRow(
+            planned.name,
+            BEHIND_PIN,
+            f"{count} US Topo quad(s) installed; {stale} of them have a newer edition in "
+            f"the carried index",
+            strategy,
+        )
+    return UpdateRow(
+        planned.name,
+        UP_TO_DATE,
+        f"{count} US Topo quad(s) installed, each at the edition the carried index lists",
+        strategy,
+    )
+
+
 def books_state(chosen: Sequence[BookFile], installed: Path) -> tuple[str, str]:
     """``(state, detail)`` for the Kiwix books unit, offline (D-066).
 
@@ -352,6 +374,7 @@ def report(
     regions: Mapping[str, Sequence[RegionSnapshot]] | None = None,
     tiles: Mapping[str, int] | None = None,
     no_terrain: Mapping[str, int] | None = None,
+    quads: Mapping[str, tuple[int, int]] | None = None,
     books: Mapping[str, tuple[str, str]] | None = None,
     mwm: Mapping[str, tuple[str, str]] | None = None,
 ) -> UpdateReport:
@@ -366,6 +389,10 @@ def report(
     ``tiles`` is a ``dem-tiles`` unit's name to how many tiles it has
     installed (D-061), a count and nothing else; ``no_terrain`` is how many
     of its regions Copernicus publishes no tile for, a count likewise.
+
+    ``quads`` is a ``topo-quads`` unit's name to (sheets installed, of those
+    the ones the carried index has since replaced with a newer edition),
+    counts only (D-068).
     """
     attributed = frozenset(built)
     region_report = regions or {}
@@ -420,6 +447,8 @@ def report(
                     (no_terrain or {}).get(planned.name, 0),
                 )
             )
+        elif isinstance(method, TopoQuadsInstall):
+            rows.append(_quads_row(planned, *(quads or {}).get(planned.name, (0, 0))))
         elif isinstance(method, KiwixBooksInstall):
             state, detail = (books or {}).get(
                 planned.name, (UNKNOWN, "the chosen books were not resolved")
@@ -513,6 +542,13 @@ def rebuild_command(report: UpdateReport) -> str | None:
         and "brouter-segments" not in names
     ):
         names.append("brouter-segments")
+    # D-068: the US Topo mosaic is warped from the sheets.
+    if (
+        "usgs-ustopo" in names
+        and "ustopo-qmapshack" in reported
+        and "ustopo-qmapshack" not in names
+    ):
+        names.append("ustopo-qmapshack")
     return f"hammunition install {' '.join(names)}"
 
 

@@ -75,6 +75,7 @@ from hammunition.manifest.schema import (
     RegionalDataInstall,
     SourceInstall,
     Status,
+    TopoQuadsInstall,
     effective_binaries,
 )
 from hammunition.state.log import TransactionLog
@@ -956,11 +957,13 @@ def _desktop_blocker(
 def _reads_map_regions(
     block: InstallBlock, catalog: Mapping[str, PackageManifest], target: Target
 ) -> bool:
-    """An ``osm-regions`` or ``dem-tiles`` block (D-061: its tiles follow the
-    regions), an ``mwm-regions`` one (D-069: CoMaps' maps for them), or a
-    ``derived`` one converting such a unit's data."""
+    """An ``osm-regions``, ``dem-tiles`` or ``topo-quads`` block (D-061, D-068:
+    its tiles and sheets follow the regions), an ``mwm-regions`` one (D-069:
+    CoMaps' maps for them), or a ``derived`` one converting such a unit's data."""
     install = block.install
-    if isinstance(install, RegionalDataInstall | DemTilesInstall | MwmRegionsInstall):
+    if isinstance(
+        install, RegionalDataInstall | DemTilesInstall | TopoQuadsInstall | MwmRegionsInstall
+    ):
         return True
     if isinstance(install, DerivedDataInstall):
         source = catalog.get(install.source)
@@ -968,7 +971,7 @@ def _reads_map_regions(
             return False
         source_block = source.resolve(target.distro, target.version, target.arch)
         return source_block is not None and isinstance(
-            source_block.install, RegionalDataInstall | DemTilesInstall
+            source_block.install, RegionalDataInstall | DemTilesInstall | TopoQuadsInstall
         )
     return False
 

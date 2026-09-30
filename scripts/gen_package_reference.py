@@ -57,6 +57,7 @@ from hammunition.manifest.schema import (  # noqa: E402
     RegionalDataInstall,
     SourceInstall,
     Status,
+    TopoQuadsInstall,
     VenvInstall,
 )
 
@@ -116,6 +117,11 @@ def method_of(block: InstallBlock) -> str:
             f"CoMaps' own maps for the regions in station config, each checked by the "
             f"SHA-1 and size in `catalog/data/comaps-pins.yaml` "
             f"({install.licence}, {install.licence_url})"
+        )
+    if isinstance(install, TopoQuadsInstall):
+        return (
+            f"topographic map sheets from {install.provider} for the regions in station "
+            f"config ({install.licence}, {install.licence_url})"
         )
     if isinstance(install, KiwixBooksInstall):
         return (

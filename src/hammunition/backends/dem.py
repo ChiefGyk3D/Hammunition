@@ -37,6 +37,7 @@ from .base import Action, BackendError, Command, CommandRunner
 from .data import human_size
 from .regions import MIB, data_root, prefix_writer, removal_steps
 from .terrain import TerrainLedger, tile_key
+from .topo import TopoDisclosure
 from .verified import PrefixWriter
 
 TIF = ".tif"
@@ -146,6 +147,9 @@ class TerrainDisclosure:
     """How many terrain tiles the rebuild folds in as elevation."""
     brouter_squares: int = 0
     """How many 5-degree squares those tiles fall in."""
+    topo: TopoDisclosure | None = None
+    """The US Topo sheets and their mosaic (D-068); None when neither unit
+    is planned."""
 
 
 @dataclass(frozen=True)
