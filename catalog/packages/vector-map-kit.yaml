@@ -1,0 +1,204 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: vector-map-kit
+version: "2026-09-30"
+summary: The fixed files the offline browser map needs, from their publishers, pinned
+categories: [navigation-maps]
+
+# D-071. Every file here was downloaded once on 2026-09-30, hashed, compared
+# with the copy the tile spike rendered from (2026-09-29, Delaware) and
+# deleted; the sha256 below is Hammunition's own. Nothing is mirrored.
+#
+# - tilemaker's OpenMapTiles profile, the OSM Bright style and three Noto
+#   fonts are members of Debian's pool copy of tilemaker 3.0.0's tarball
+#   (the tag Debian 13 packages, D-024), 43,679,032 bytes. Its config and Lua
+#   hash equal to the spike's copies from upstream's v3.0.0 tag (commit
+#   67c3b45b), and its style and fonts are byte-identical to them. Only the
+#   listed members are extracted: not tilemaker's source, not the 64 MB CJK
+#   fonts.
+# - MapLibre GL JS 6.11.2's dist.zip from its GitHub release: the sha256
+#   equals GitHub's own asset digest. Four of its fifteen files are used.
+# - pmtiles.js 4.5.0 from npm: the tarball's sha512 equals the registry's
+#   integrity field.
+# - OSM Bright's sprite from its gh-pages branch at commit 286b174a
+#   (2026-08-04): byte-identical to the spike's copies.
+# - Natural Earth's ocean, urban areas, glaciers and Antarctic ice shelves at
+#   the v5.1.2 tag's commit, the same commit country-boundaries pins. The
+#   three land layers are byte-identical to naciscdn's zips the spike used.
+#   The ocean stands in for osmdata.openstreetmap.de's water polygons, which
+#   are rebuilt daily with no checksum (the simplified set changed size
+#   between 2026-09-29 and 2026-09-30), so cannot be pinned.
+install:
+  - install:
+      method: data
+      artifacts:
+        - url: https://deb.debian.org/debian/pool/main/t/tilemaker/tilemaker_3.0.0.orig.tar.gz
+          sha256: eff9ba9e0a3f6efc76f089469da293cd7d50355f7268e8d9ab805bff08c3e954
+          size: 43679032
+          format: tarball
+          into: tilemaker
+          members:
+            - tilemaker-3.0.0/LICENCE.txt
+            - tilemaker-3.0.0/resources/config-openmaptiles.json
+            - tilemaker-3.0.0/resources/process-openmaptiles.lua
+            - tilemaker-3.0.0/server/static/style.json
+            - "tilemaker-3.0.0/server/static/fonts/README.md"
+            - "tilemaker-3.0.0/server/static/fonts/KlokanTech Noto Sans Regular/"
+            - "tilemaker-3.0.0/server/static/fonts/KlokanTech Noto Sans Bold/"
+            - "tilemaker-3.0.0/server/static/fonts/KlokanTech Noto Sans Italic/"
+        - url: https://github.com/maplibre/maplibre-gl-js/releases/download/v6.11.2/dist.zip
+          sha256: 45d010b7cc590b471982395390a51eb6d57d0813de37090ea6e744fccf28f4de
+          size: 3271366
+          format: zip
+          into: maplibre
+          members:
+            - dist/maplibre-gl.mjs
+            - dist/maplibre-gl-shared.mjs
+            - dist/maplibre-gl-worker.mjs
+            - dist/maplibre-gl.css
+        - url: https://registry.npmjs.org/pmtiles/-/pmtiles-4.5.0.tgz
+          sha256: 23ae7c575578ad24cd579377d69c46550631da219e6f179997ec2cf3b8c937e5
+          size: 96124
+          format: tarball
+          into: pmtiles
+          members:
+            - package/dist/pmtiles.js
+        - url: https://raw.githubusercontent.com/openmaptiles/osm-bright-gl-style/286b174adbd6e8693887841d6cfdf7445cd5f8c0/sprite.png
+          sha256: 66f12c218af7bada52ccd319013f73c570f3fe1b90d2c79e26bb4d30f7a121f8
+          size: 30851
+          install_as: "sprite.png"
+        - url: https://raw.githubusercontent.com/openmaptiles/osm-bright-gl-style/286b174adbd6e8693887841d6cfdf7445cd5f8c0/sprite.json
+          sha256: 73586a1c10e60b536a3a7b8b3d4e70cd4e6ffa6afe801ff1cb08f38bf38d7cb0
+          size: 15604
+          install_as: "sprite.json"
+        - url: https://raw.githubusercontent.com/openmaptiles/osm-bright-gl-style/286b174adbd6e8693887841d6cfdf7445cd5f8c0/sprite@2x.png
+          sha256: c26647b95eb807beb0c7d9439d4a02468e7c19aa8f665b5e8580794fbfc0478a
+          size: 68139
+          install_as: "sprite@2x.png"
+        - url: https://raw.githubusercontent.com/openmaptiles/osm-bright-gl-style/286b174adbd6e8693887841d6cfdf7445cd5f8c0/sprite@2x.json
+          sha256: 89bc79bdad0a0351cab255c8db20485f741c9f606e98f564f6918c0a44845809
+          size: 15666
+          install_as: "sprite@2x.json"
+        - url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/10m_physical/ne_10m_ocean.shp
+          sha256: bb5ae1e0922b02e61e14f6d562fc2299db4bef5ca36c1008b1a8e7ddf9da6410
+          size: 7176064
+          install_as: ne_10m_ocean.shp
+        - url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/10m_physical/ne_10m_ocean.shx
+          sha256: 90ada34d9c3ff5f1f53064e01968b178b72d6eb8d3f1cbc1287b501e2805880b
+          size: 108
+          install_as: ne_10m_ocean.shx
+        - url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/10m_physical/ne_10m_ocean.dbf
+          sha256: 4b2f302a84bcbb0fe5d744a9b40df173f562e07eb57532935fb6bc664d21fa33
+          size: 138
+          install_as: ne_10m_ocean.dbf
+        - url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/10m_physical/ne_10m_ocean.prj
+          sha256: a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4
+          size: 145
+          install_as: ne_10m_ocean.prj
+        - url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/10m_cultural/ne_10m_urban_areas.shp
+          sha256: 76b8c5786af5df4fa18ae615e594347fb464525347038b15f9df15d1396cb7de
+          size: 19119748
+          install_as: ne_10m_urban_areas.shp
+        - url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/10m_cultural/ne_10m_urban_areas.shx
+          sha256: d387658168a5974d5c8b858af2220c0fdcdfa5b69646d36839e358519816140e
+          size: 95124
+          install_as: ne_10m_urban_areas.shx
+        - url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/10m_cultural/ne_10m_urban_areas.dbf
+          sha256: f80321d5f9d637bdeba463ab4f4d8ae7a05820f1842c25406a57cd1c8cbdddbb
+          size: 950401
+          install_as: ne_10m_urban_areas.dbf
+        - url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/10m_cultural/ne_10m_urban_areas.prj
+          sha256: 3259f0e55290a82b1350646f604e8a7ee1e2136c0320a40fad838ab40819fff8
+          size: 147
+          install_as: ne_10m_urban_areas.prj
+        - url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/10m_physical/ne_10m_glaciated_areas.shp
+          sha256: 44c5fcba162fbf8df0e0d2f3acb974c04f6f3b01bb720dc9f2c777f5fd29f463
+          size: 3938340
+          install_as: ne_10m_glaciated_areas.shp
+        - url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/10m_physical/ne_10m_glaciated_areas.shx
+          sha256: 8ee6e8eda7cae58ba9d921a6f3c4d0d815b152e480d723c5416a4d0cc6943a47
+          size: 15188
+          install_as: ne_10m_glaciated_areas.shx
+        - url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/10m_physical/ne_10m_glaciated_areas.dbf
+          sha256: df70a99b7aef59b306f691afb05e80fdcf23a915ae4cfcd9e3986f52e91bed66
+          size: 300067
+          install_as: ne_10m_glaciated_areas.dbf
+        - url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/10m_physical/ne_10m_glaciated_areas.prj
+          sha256: 98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb
+          size: 143
+          install_as: ne_10m_glaciated_areas.prj
+        - url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/10m_physical/ne_10m_antarctic_ice_shelves_polys.shp
+          sha256: 4774d4b0f3e9d60e214e18a23013900b78281b7f8cd9bbf629aceb9920f2d91d
+          size: 364308
+          install_as: ne_10m_antarctic_ice_shelves_polys.shp
+        - url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/10m_physical/ne_10m_antarctic_ice_shelves_polys.shx
+          sha256: b0964e9bd2653caaaeefab2d24e929b6f4282e76fae817a4831a58f21988abd5
+          size: 1372
+          install_as: ne_10m_antarctic_ice_shelves_polys.shx
+        - url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/10m_physical/ne_10m_antarctic_ice_shelves_polys.dbf
+          sha256: 100160dc3eb7639e93ed23668c41f093a5fa83d656aba7685ced982d4d8239c7
+          size: 28336
+          install_as: ne_10m_antarctic_ice_shelves_polys.dbf
+        - url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/f1890d9f152c896d250a77557a5751a93d494776/10m_physical/ne_10m_antarctic_ice_shelves_polys.prj
+          sha256: 98aaf3d1c0ecadf1a424a4536de261c3daf4e373697cb86c40c43b989daf52eb
+          size: 143
+          install_as: ne_10m_antarctic_ice_shelves_polys.prj
+      licence: >-
+        Several, each the publisher's: FTWPL (tilemaker's profile); CC-BY-4.0
+        (the OSM Bright design and the OpenMapTiles schema, which require the
+        visible credit "© OpenMapTiles © OpenStreetMap contributors" that the
+        page draws); BSD-3-Clause (OSM Bright's code, MapLibre GL JS,
+        pmtiles.js); OFL-1.1 (the Noto fonts, kept under KlokanTech's names
+        as their README asks); public domain (Natural Earth)
+      licence_url: https://github.com/openmaptiles/osm-bright-gl-style/blob/master/LICENSE.md
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    Each file is pinned to a release, a tag's commit or a pool file. A new
+    MapLibre or pmtiles release, a tilemaker the archive moves to, or a new
+    Natural Earth tag is a manifest change: download the file once, hash it,
+    compare with the publisher's own digest where there is one (GitHub's
+    asset digest, npm's integrity), and bump url, sha256 and size together.
+    A new tilemaker profile changes the tiles, so `CONVERTER` in
+    backends/pmtiles.py is bumped with it and every region is rebuilt.
+
+documentation:
+  what_it_does: >-
+    Installs, under /usr/local/share/hammunition/data/vector-map-kit/, the
+    fixed files the offline browser map needs besides your regions:
+    tilemaker's OpenMapTiles profile (config and Lua) and the four Natural
+    Earth layers it names (ocean, urban areas, glaciers, Antarctic ice
+    shelves), which `osm-pmtiles` reads when it builds each region's vector
+    tiles; and the OSM Bright style with its sprite and three Noto fonts,
+    MapLibre GL JS and pmtiles.js, which `hammunition reference serve` hands
+    to the browser to draw them. About 79 MB downloaded, most of it
+    tilemaker's whole tarball, of which only the profile, the style and the
+    three fonts are kept; about 45 MB installed.
+  why_you_want_it: >-
+    None of it is in any distribution's archive (tilemaker's own package
+    ships no profile, and no archive carries MapLibre), and the style as
+    tilemaker ships it loads its library and sprite from the internet. Pinned
+    here, the map draws with the network off. It is what a browser map of
+    your own regions needs, the alternative to an online tile service.
+  prerequisites: >-
+    Nothing. It installs with `osm-pmtiles` in the `navigation` profile.
+  known_problems: >-
+    The ocean is Natural Earth's 1:10m polygon, about 1 km of accuracy: at
+    street zoom a coast can sit a little off OpenStreetMap's own shoreline.
+    The accurate water polygons (906 MB, osmdata.openstreetmap.de) are rebuilt
+    daily with no checksum, so they cannot be pinned, and are not carried.
+    Only Latin, Greek and Cyrillic glyphs are carried (the three KlokanTech
+    Noto Sans faces); the CJK faces are another 64 MB and are left out, so
+    labels in Chinese, Japanese or Korean script do not draw.
+  upstream_url: https://openmaptiles.org/
+  upstream_support: >-
+    Each project's own tracker: tilemaker
+    (https://github.com/systemed/tilemaker/issues), OSM Bright
+    (https://github.com/openmaptiles/osm-bright-gl-style/issues), MapLibre
+    GL JS (https://github.com/maplibre/maplibre-gl-js/issues), pmtiles
+    (https://github.com/protomaps/PMTiles/issues), Natural Earth
+    (https://github.com/nvkelso/natural-earth-vector/issues).

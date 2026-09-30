@@ -164,6 +164,7 @@ from hammunition.station import (
 )
 from hammunition.sudo_ticket import SudoKeepalive, keepalive_wanted
 from hammunition.terrain_plan import brouter_pins, build_terrain_run, resolve_station_terrain
+from hammunition.tiles_plan import build_tiles_run
 from hammunition.update import books_state, region_snapshots, render, report, requested_units
 from hammunition.upstream import (
     NOT_UPSTREAM,
@@ -1873,8 +1874,9 @@ def leftover_maps_note(plan: InstallPlan, prefix: Path) -> str | None:
     """Map data still installed while no map regions are set, named with its removal."""
     units = sorted(d.subject for d in plan.deferrals if d.why == NO_MAP_REGIONS)
     # Piece 1's regions and Navit maps, piece 2's Garmin maps, Routino
-    # database and terrain tiles (D-061), and the phone files (D-067).
-    patterns = ("*.osm.pbf", "*.bin", "*.img", "*.mem", f"*{TIF}", "*.map", "*.poi")
+    # database and terrain tiles (D-061), the phone files (D-067), and the
+    # vector-tile maps (D-071).
+    patterns = ("*.osm.pbf", "*.bin", "*.img", "*.mem", f"*{TIF}", "*.map", "*.poi", "*.pmtiles")
     found = [
         data_root(prefix) / unit
         for unit in units
@@ -2155,6 +2157,16 @@ def cmd_install(args: argparse.Namespace) -> int:
         keep=kept,
         regions=ledger,
     )
+    # D-071: the vector-tile maps for the browser page, from the same regions.
+    tiles = build_tiles_run(
+        prefix=source.prefix,
+        builds=builds,
+        owner=user or None,
+        runner=runner,
+        files=region_files,
+        keep=kept,
+        regions=ledger,
+    )
     derived = DerivedBackend(
         prefix=source.prefix,
         files=region_files,
@@ -2165,7 +2177,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         runner=runner,
         boundaries=border,
         countries=countries,
-        converters={**terrain.converters, **phone.converters},
+        converters={**terrain.converters, **phone.converters, **tiles.converters},
     )
     # Only regions not already installed at their snapshot are downloaded,
     # counted and listed as downloads (the dry run is the run); a region
@@ -2195,7 +2207,14 @@ def cmd_install(args: argparse.Namespace) -> int:
     terrain_view = terrain.disclosure(plan)
     terrain_disk = terrain.needs(plan, cache=source.fetcher.cache_dir, prefix=source.prefix)
     phone_disk = phone.needs(plan, cache=source.fetcher.cache_dir, prefix=source.prefix)
-    if pending or conversions or any(terrain_disk.values()) or any(phone_disk.values()):
+    tiles_disk = tiles.needs(plan, prefix=source.prefix)
+    if (
+        pending
+        or conversions
+        or any(terrain_disk.values())
+        or any(phone_disk.values())
+        or any(tiles_disk.values())
+    ):
         # Refused at plan time, before anything is confirmed, with both numbers:
         # piece 1's and piece 2's needs together, per filesystem (D-061).
         short = combined_shortfall(
@@ -2208,6 +2227,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             ),
             terrain_disk,
             phone=phone_disk,
+            tiles=tiles_disk,
         )
         if short is not None:
             print(f"error: {short}", file=sys.stderr)
@@ -2293,7 +2313,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         sudo_keepalive=args.sudo_keepalive,
         mirror=station.mirror,
         mirror_ignored=args.no_mirror,
-        idle=phone.idle(plan),
+        idle=phone.idle(plan) | tiles.idle(plan),
     )
     if envelope.wanted(args):
         # Reached only with --dry-run: main() refuses a real install under

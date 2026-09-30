@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**277 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**279 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -302,7 +302,7 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `navigation-maps` — 19
+### `navigation-maps` — 21
 
 Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
 
@@ -320,11 +320,13 @@ Offline maps, turn-by-turn navigation and the position on a moving map, with no 
 - [navit](navit.md) — Offline turn-by-turn navigation that follows the GPS, with spoken directions
 - [osm-garmin](osm-garmin.md) — Garmin maps of your OpenStreetMap regions, with trails, for QMapShack
 - [osm-navit](osm-navit.md) — Navit's binary maps, converted from your OpenStreetMap regions, and its configuration
+- [osm-pmtiles](osm-pmtiles.md) — Vector-tile maps of your OpenStreetMap regions, for the offline browser map
 - [osm-regions](osm-regions.md) — OpenStreetMap region extracts from Geofabrik, the regions you choose, verified
 - [osm-routino](osm-routino.md) — One Routino routing database over all your regions, for routes on foot
 - [qmapshack](qmapshack.md) — Offline topographic maps, trails, GPX tracks, elevation profiles and routing on foot
 - [routino](routino.md) — Offline routing over OpenStreetMap data, on foot, by bike or by car
 - [socat](socat.md) — A relay between two data channels, sockets, files or programs
+- [vector-map-kit](vector-map-kit.md) — The fixed files the offline browser map needs, from their publishers, pinned
 
 ### `nbems` — 5
 
@@ -840,6 +842,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [openocd](openocd.md) | On-chip debugging and in-system programming over JTAG and SWD | apt |
 | [osm-garmin](osm-garmin.md) | Garmin maps of your OpenStreetMap regions, with trails, for QMapShack | derived |
 | [osm-navit](osm-navit.md) | Navit's binary maps, converted from your OpenStreetMap regions, and its configuration | derived |
+| [osm-pmtiles](osm-pmtiles.md) | Vector-tile maps of your OpenStreetMap regions, for the offline browser map | derived |
 | [osm-regions](osm-regions.md) | OpenStreetMap region extracts from Geofabrik, the regions you choose, verified | osm-regions |
 | [osm-routino](osm-routino.md) | One Routino routing database over all your regions, for routes on foot | derived |
 | [osmo-sdr](osmo-sdr.md) | Tools for the original OsmoSDR hardware | apt |
@@ -927,6 +930,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [uhd-soapysdr](uhd-soapysdr.md) | Makes SoapySDR devices visible to software written for UHD | apt |
 | [uronode](uronode.md) | Node front end that lets other stations reach services on your machine | apt |
 | [usbutils](usbutils.md) | lsusb — step one of every hardware problem in this catalog | apt |
+| [vector-map-kit](vector-map-kit.md) | The fixed files the offline browser map needs, from their publishers, pinned | data |
 | [voacapl](voacapl.md) | The VOACAP HF propagation prediction engine, ported to Linux | apt |
 | [welle-io](welle-io.md) | DAB and DAB+ digital radio receiver with a modern interface | apt |
 | [wfview](wfview.md) | Control a modern Icom radio, waterfall and all, over USB or the network | apt |
