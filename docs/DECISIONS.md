@@ -4867,10 +4867,26 @@ capability after it drops privileges, so that `SHM(0)` is actually reached.
 If it does not, this route is revisited before anything else ships.
 
 `hardware apply` then sets the first mode through the helper, so one code
-path writes the time files. `hardware unapply` takes all of it back by
+path writes the time files; the plan prints every write that mode causes,
+the `ntp.conf` lines included, and refuses before anything runs when an
+anchor is missing. **Only where gpsd is installed**: without it there is no
+GPS time to read, so ntpd's privilege and `ntp.conf` are left alone and the
+plan says why. `hardware apply --no-gps-time` leaves ntpsec, its grants and
+`fake-hwclock` alone on any machine, so device setup never forces GPS time
+on an operator who does not want it (final review, 2026-09-29).
+
+**What the GPS modes cost.** Turning off `tos minclock 4 minsane 3` lets a
+lone GPS set the clock, and also drops ntpd's `minsane` to its default of 1
+for network sources: one source can set the clock alone. `ntp.conf(5)`:
+minsane "should be at least 4 in order to detect and discard a single
+falseticker". The plan quotes that sentence under the edit; `ntp-only`
+keeps Debian's floor. Whether `tos minclock 1 minsane 1` in ntp.d would
+avoid the conffile edit changes nothing about this cost, only where it is
+written. `hardware unapply` takes all of it back by
 content, not by the log: a file is removed only when it starts with the
 header Hammunition writes, `ntp.conf`'s marked lines are restored byte for
-byte (checked afterwards with `dpkg --verify ntpsec`), only the marked block
+byte to what they were before Hammunition's edits (read back against that
+text; that `dpkg --verify ntpsec` is then clean is not yet measured), only the marked block
 leaves the AppArmor local file (which ntpsec's maintainer script created
 and the profile's `#include` needs, so it is never deleted), and a
 hand-edited `ntp.conf` refuses the whole unapply before anything runs.
@@ -4924,7 +4940,7 @@ four. It is built in its own repository, and the catalog's
 
 ### Not yet measured
 
-All on the field laptop, steps in the plan's Task 9: that the grants let
+All not yet measured, on the field laptop, steps in the plan's Task 9: that the grants let
 ntpd reach `SHM(0)` at all; which source `auto` follows with the network up,
 and so whether it may be described as preferring the network or only as
 "the daemon chooses between them"; whether the ntp.d `tos` override works;

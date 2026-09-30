@@ -946,3 +946,38 @@ def test_the_gps_time_guide_covers_every_system_modification() -> None:
         "fake-hwclock",
     ):
         assert needle in text, f"gps-time.md does not mention {needle}"
+
+
+def _gps_time_prose() -> dict[str, str]:
+    decisions = (REPO_ROOT / "docs" / "DECISIONS.md").read_text()
+    d058 = decisions[decisions.index("## D-058") : decisions.index("## D-059")]
+    return {
+        "D-058": d058,
+        "gps-time.md": (REPO_ROOT / "docs" / "guides" / "gps-time.md").read_text(),
+        "cli.md": (REPO_ROOT / "docs" / "reference" / "cli.md").read_text(),
+        "CHANGELOG.md": (REPO_ROOT / "CHANGELOG.md").read_text(),
+        "CLAUDE.md": (REPO_ROOT / "CLAUDE.md").read_text(),
+    }
+
+
+@pytest.mark.parametrize(
+    "claim", ["dpkg --verify ntpsec", "never feeds the clock", "never feed the clock"]
+)
+def test_gps_time_prose_hedges_what_the_bench_has_not_measured(claim: str) -> None:
+    """Final review: the plan's Global Constraint, no doc claims an unmeasured
+    behaviour. `unapply` leaving `dpkg --verify` clean and a parked receiver
+    dropping out of selection are both bench items."""
+    hedges = ("not yet", "bench", "inferred", "unmeasured")
+    for name, text in _gps_time_prose().items():
+        for paragraph in re.split(r"\n\s*\n|\n(?=\|)", text):
+            if claim in paragraph:
+                assert any(h in paragraph for h in hedges), f"{name}: {paragraph[:200]}"
+
+
+def test_gps_time_docs_name_the_opt_out_and_the_minsane_cost() -> None:
+    """Final review I2."""
+    prose = _gps_time_prose()
+    for name in ("gps-time.md", "cli.md"):
+        assert "--no-gps-time" in prose[name], name
+    for name in ("gps-time.md", "D-058"):
+        assert "single falseticker" in " ".join(prose[name].split()), name

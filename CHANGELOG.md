@@ -17,7 +17,9 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   write, then sets it through the one helper and polkit action. A parked
   receiver never feeds the clock. `hardware apply` installs the two grants
   ntpd needs to read gpsd's time, disclosed as widening a network-facing
-  daemon's privilege, and offers `fake-hwclock` only where there is no
+  daemon's privilege, only where gpsd is installed, and prints every
+  `ntp.conf` line the first mode moves and what that costs; `--no-gps-time`
+  leaves all of it alone. It installs `fake-hwclock` only where there is no
   hardware clock; `hardware unapply` takes all of it back, `ntp.conf`
   byte for byte. `doctor` reports the time source, holdover, and a machine
   with no RTC. Parrot (ntpsec) only; built and not yet run on the field

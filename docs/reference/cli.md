@@ -755,7 +755,7 @@ identifier is flagged as a candidate, not a conclusion — **D-028**),
 the udev rules and your access-group membership are already in place.
 Detection drives nothing: it reports, and you decide (**D-020**).
 
-### `hammunition hardware apply [--dry-run] [--yes] [--user NAME]`
+### `hammunition hardware apply [--dry-run] [--yes] [--user NAME] [--no-gps-time]`
 
 Writes the whole catalog's udev rules to
 `/etc/udev/rules.d/65-hammunition.rules`, reloads and triggers udev, adds
@@ -809,8 +809,14 @@ files contain and what installing them means.
   helper, which restarts ntpsec; when a mode is already applied and only the
   grants change, it restarts ntpsec instead. On a machine with no hardware
   clock (`/sys/class/rtc` empty) and no `fake-hwclock`, it installs
-  `fake-hwclock`, disclosed as a stopgap. Each GPS time step is logged
-  (`time_grants`) and read back afterwards. See `docs/guides/gps-time.md`.
+  `fake-hwclock`, disclosed as a stopgap. The plan prints every write that
+  first mode causes, including the `ntp.conf` lines it moves and what turning
+  off `tos minclock 4 minsane 3` costs, and refuses (exit `2`) before running
+  anything when `ntp.conf` lacks the line an edit anchors to. Each GPS time
+  step is logged (`time_grants`) and read back afterwards. Nothing of this
+  happens without gpsd installed (there is no GPS time to read), and
+  `--no-gps-time` leaves ntpsec, its grants and `fake-hwclock` alone. See
+  `docs/guides/gps-time.md`.
 
 ### `hammunition hardware unapply [--dry-run] [--yes] [--user NAME]`
 
@@ -837,8 +843,10 @@ on. Nothing else is touched.
   before it runs (`--dry-run` prints and stops), and `rm` exiting 0 is not
   trusted — each path is re-checked for absence afterwards (**D-031**).
 - **Takes GPS time back exactly (D-058)**, by content rather than by the
-  log: `/etc/ntpsec/ntp.conf`'s marked lines go back byte for byte as the
-  package shipped them (`dpkg --verify ntpsec` then prints nothing for it);
+  log: `/etc/ntpsec/ntp.conf`'s marked lines go back byte for byte as they
+  were before Hammunition edited them (on an `ntp.conf` nobody else edited,
+  the package's own, which `dpkg --verify ntpsec` should confirm; not yet
+  measured on the bench);
   `/etc/ntpsec/ntp.d/hammunition-gps.conf`, `/etc/hammunition/time.yaml` and
   the ntpsec drop-in are removed only when they start with the header
   Hammunition writes; only Hammunition's block leaves
@@ -932,7 +940,9 @@ Prints every write before it happens: `/etc/hammunition/time.yaml`, the whole of
 `/etc/ntpsec/ntp.d/hammunition-gps.conf`, the marked lines of
 `/etc/ntpsec/ntp.conf` that move, and the `systemctl restart ntpsec` that
 follows; then runs `pkexec /usr/local/libexec/hammunition-devctl time mode MODE`.
-A parked receiver never feeds the clock whatever the mode says. Refused with
+A parked receiver never feeds the clock whatever the mode says (nothing is
+rewritten; ntpd drops it by its own reachability rules, inferred and not yet
+watched on the bench). Refused with
 exit 2 when ntpsec is not installed, when the helper is not, or when `ntp.conf`
 no longer has the line an edit anchors to. If ntpsec will not restart on the new
 files, the helper puts the old ones back and starts ntpsec on them. Exit 3 when

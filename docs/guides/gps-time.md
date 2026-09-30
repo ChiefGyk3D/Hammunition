@@ -72,8 +72,19 @@ these, and prints each one before it runs:
 **Read this before you agree:** CAP_IPC_OWNER bypasses permission checks on
 all System V IPC, not only gpsd's segment, and ntpd is a daemon that talks
 to the network. That is the price of letting it read gpsd's time. If you
-will not pay it, do not run `hardware apply` for GPS time; `ntp-only`
-behaviour is what you have today.
+will not pay it, run `hammunition hardware apply --no-gps-time`: device
+rules, groups and the power-control helper are set up, and ntpsec, its
+grants and `fake-hwclock` are left alone. Without gpsd installed,
+`hardware apply` leaves ntpsec alone by itself, since there is no GPS time to
+read, and says so.
+
+**A second cost, in every GPS mode:** the GPS modes turn off the
+`tos minclock 4 minsane 3` line so a lone GPS can set the clock. ntpd's
+`minsane` then falls to its default of 1, and one source can set the clock
+alone. ntpsec's own manual (`ntp.conf(5)`) says minsane "should be at least
+4 in order to detect and discard a single falseticker". Online, with four
+pool servers and the GPS, that protection is weaker than Debian's default;
+`ntp-only` keeps it. Both are printed in the plan before anything runs.
 
 *Bench:* that ntpd keeps this capability after it drops to the `ntpsec`
 user, so it can actually read the receiver, is the first thing to be
@@ -95,7 +106,9 @@ chooses between the network and the GPS".
 
 A **parked** receiver (`hammunition hardware park gps-receiver`) never feeds
 the clock whatever the mode says; waking it brings GPS time back. A receiver
-kept parked across reboots keeps GPS time off across reboots too.
+kept parked across reboots keeps GPS time off across reboots too. Nothing is
+rewritten on a park: ntpd stops hearing the receiver and drops it by its own
+rules (inferred from ntpsec's documentation, not yet watched on the bench).
 
 Change the mode with:
 
@@ -171,11 +184,13 @@ source the clock is following.
 ```bash
 hammunition hardware unapply --dry-run
 hammunition hardware unapply
-dpkg --verify ntpsec        # no line for /etc/ntpsec/ntp.conf: it matches the package again
+dpkg --verify ntpsec        # expected: no line for /etc/ntpsec/ntp.conf (not yet measured on the bench)
 ```
 
-`unapply` puts `ntp.conf`'s marked lines back exactly as the package shipped
-them, removes `/etc/ntpsec/ntp.d/hammunition-gps.conf`,
+`unapply` puts `ntp.conf`'s marked lines back exactly as they were before
+Hammunition edited them (so, if you never edited it yourself, as the package
+shipped it, which `dpkg --verify ntpsec` should confirm; not yet measured on
+the bench), removes `/etc/ntpsec/ntp.d/hammunition-gps.conf`,
 `/etc/hammunition/time.yaml` and the systemd drop-in (each only if it
 carries the header Hammunition writes), takes only Hammunition's block out
 of `/etc/apparmor.d/local/usr.sbin.ntpd`, reloads systemd and AppArmor, and
