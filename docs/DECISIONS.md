@@ -6815,6 +6815,223 @@ The operator's page is section 15 of `docs/guides/offline-navigation.md`.
 
 ---
 
+## D-069 — CoMaps is carried as a pinned source build over CoMaps' own maps for the station's regions, checked by CoMaps' own index; its missing position is written down, not faked
+
+**Date:** 2026-09-30. **Status:** proposed (design approved by the
+maintainer on 2026-09-29, as recorded in
+`docs/superpowers/specs/2026-09-29-comaps-design.md`; implemented on branch
+`comaps`; the maintainer decides it at review). **Depends on:** D-024 (pin
+the commit a distribution builds), D-014 (backends by measurement), D-049
+(offline data is a catalog unit, disclosed by size and licence), D-057
+(regions are station data; a weaker check is disclosed, never silent),
+D-053 (`update` is a report; `--upstream` opts in), D-043 (who owns an
+installed tree), D-031 (verify the effect), D-040 (third-party archives,
+for the record below), D-059 (a GUI verb has no `--json` form). **Amends:**
+the git backend's scope (five build fields), D-049's install methods (with
+`mwm-regions`), and D-053's upstream kinds (with `comaps_maps`).
+
+**Why.** The navigation spike of 2026-09-29 looked for a phone-style
+navigator for the laptop: one program with offline address search and
+routing by car, bike and foot. Navit routes and follows the GPS; QMapShack
+does trails and terrain; neither searches addresses the way a phone app
+does. CoMaps and Organic Maps both do, from an index inside each map file.
+Neither is in any Debian-family archive, and upstream publishes no Linux
+binary; Flathub is the one upstream-endorsed Linux build.
+
+### What was measured
+
+On the development host (Parrot 7, Debian 13 base, 8 cores, 31 GiB), by
+hand, 2026-09-29, with nothing installed system-wide:
+
+- **The build.** `git clone --recurse-submodules --branch v2026.08.31-14`
+  gave `72632e4de65a98dfed827d8e447f0287168639d0` and 193 submodule entries,
+  each at its gitlink; 9.7 GB with full history, ICU's alone 5.6 GB.
+  `configure.sh --skip-map-download` took 3 min 21 s; `cmake --build -j2`
+  8 min 20 s, peak 1.9 GiB for one compiler process, about 3.4 cores busy
+  at `-j2`; `cmake --install` 348 files, 63 MB without the World maps.
+- **What the archive lacked.** `qt6-positioning-dev`, `qt6-svg-dev`,
+  `optipng` and `ninja-build`, all in trixie. Python `protobuf`: Debian's
+  `python3-protobuf` reports 4.21.12 and CoMaps' CMake wants >= 3.20,
+  < 4.0; `protobuf==3.20.3` from PyPI with the wheel's published sha256.
+- **Two traps.** CoMaps' `generate_symbols.sh` calls a bare `exit` when
+  optipng is missing, so configure exits 0 with no symbols. And the World
+  maps: `qt/CMakeLists.txt` installs `World.mwm` and `WorldCoasts.mwm` only
+  if the tree has them, and a tree that had them as configure.sh's
+  symlinks installed two symlinks into a directory it does not install.
+- **It runs.** Under Xvfb, isolated from the network, D-Bus and the real
+  home, it loaded Vermont and drew it (screenshot mode), and the main
+  window opened on the World map. Without a pre-written
+  `EulaAccepted=true` a modal licence dialog blocks the first start.
+- **Position.** From the source: `location_service.cpp` builds exactly one
+  Linux source, Qt Positioning's `geoclue2` plugin by name. No gpsd client,
+  no NMEA reader.
+- **The maps.** `https://cdn-fi-1.comaps.app/maps/2026.06.28/260830/`:
+  World (53,387,231 bytes) and WorldCoasts (8,494,206) match Flathub's
+  sha256 pins and the SHA-1 in `countries.txt` at the pinned commit; Vermont
+  (60,883,711) matches its SHA-1. On 2026-09-29, for this record: the index
+  fetched from Codeberg at the commit is byte-identical to the spike tree's
+  (363,788 bytes), and a `HEAD` of `US_Delaware.mwm` answered 200 with the
+  index's size (32,804,869).
+
+### The decision
+
+1. **`comaps` is a `git` build** at tag `v2026.08.31-14`, which must
+   resolve to `72632e4…` (a new `commit` field: a tag's resolution was only
+   recorded, and is now compared). D-024: Flathub, nixpkgs and the AUR build
+   this commit. Apache-2.0.
+2. **The git backend grows four fields, each engine-owned and each named by
+   this unit** (source-build-gaps #8): `submodules` (shallow, upstream's own
+   `git submodule update --init --recursive --depth 1`, then `git submodule
+   status --recursive` read back and refused off a gitlink); `build_python`
+   (hash-pinned lines in a venv beside the tree, on the `PATH` of prepare,
+   configure and compile, never the install); `prepare` (upstream's
+   `configure.sh --skip-map-download` with `SKIP_PYTHON_VENV=1`, and the
+   files it must `produce`, checked); `extra_files` (the World maps from the
+   CDN by sha256, and `categories_brands.txt` from the tree, installed after
+   `cmake --install` with `rm -f` first and checked as regular files).
+3. **Rulings.**
+   - *The build Python is a field on the git block, not the venv backend.*
+     The venv backend installs a program for the operator, with wrappers on
+     the `PATH`; a build dependency lives and dies with the build directory.
+   - *Build parallelism is the existing rule*: one job per CPU, capped at
+     one per 2 GiB of memory and swap. The measured peak is 1.9 GiB; no
+     per-unit override. The brief's `-j2` was the fallback for no rule.
+   - *The licence answer and the map links are made at launch, per user*, by
+     `hammunition maps comaps`, not at install, where root would be writing
+     into a home. The answer is added only when the key is absent: the file
+     is `key=value` lines and a duplicated key fails CoMaps' `VERIFY`.
+   - *CoMaps writes only under XDG*, measured from `platform_linux.cpp`: its
+     resource directory is read-only, and its writable directory falls back
+     to the operator's data directory when the resources are not writable.
+     So no D-043 hand-over; the install stays root's.
+   - *`comaps` does not depend on `comaps-maps`*, as Navit and QMapShack do
+     not depend on their map units; the profile carries both.
+4. **`comaps-maps` is a D-049 data unit with a new method, `mwm-regions`**
+   (`provider: comaps`). Its maps follow the station's map regions through
+   `catalog/data/comaps-pins.yaml`, generated by `scripts/gen_comaps_pins.py`
+   from `countries.txt` at the commit `comaps` pins: all 1,150 maps with size
+   and SHA-1, and 262 Geofabrik regions placed by a rule (a region's last
+   path component matched against its parent's CoMaps children, or a
+   continent's child against the top level) plus two reviewed aliases
+   (`north-america/us`, and District of Columbia as `US_Maryland_and_DC`).
+   Every map is pinned, so the file says nothing about whose region
+   matters. A region the rule cannot place is named in the plan and fetches
+   nothing.
+5. **The check is the publisher's, and says so.** Each map is fetched with
+   the SHA-1 and exact size from CoMaps' index at the pinned commit; the
+   plan's line reads "SHA-1 and size from CoMaps' own map index at the
+   pinned commit (the publisher's check)". The size is compared exactly
+   because CoMaps' mirrors answer a missing file with 200 and an HTML page,
+   so a status proves nothing. The sha256 of the bytes is written into the
+   step's outcome, so the transaction log carries it. Every map not
+   installed is `HEAD`-checked at plan time for 200 and the pinned size,
+   and an expired pin refuses the plan before apt runs.
+6. **Expiry is reported.** CoMaps' CDN keeps a map version for months, not
+   forever (Organic Maps' CDN kept about four months on 2026-09-29;
+   CoMaps' own retention is unmeasured). `update --upstream` gains
+   `comaps_maps`: it `HEAD`s the pinned `World.mwm` and reports `current`,
+   `pin expiring` from 90 days after the version's date, or `pin expired`.
+   The offline reference layer (D-066) added `pin expired` to the same
+   module for Kiwix; this uses the same constant and wording. The weekly pin-review
+   job runs `gen_comaps_pins.py --check`, which re-fetches the index and
+   `HEAD`s World.mwm.
+7. **The position gap is written down, not faked.** CoMaps reads GeoClue2
+   only. The route is GeoClue's network-NMEA source fed by the tether and
+   an `[app.comaps.comaps] allowed=true` entry in `geoclue.conf` (Parrot's
+   agent whitelist names no KDE agent). Both are system modifications, both
+   unmeasured, and neither is made. The manifest, the guide and the profile
+   say plainly: no "you are here" on the laptop yet. Reaching Qt's `nmea`
+   plugin instead would take a patch to CoMaps, and none is proposed.
+
+### Not carried
+
+- **Organic Maps.** The same program family, built the same way; one of the
+  two is enough. CoMaps is the one Flathub keeps current (Organic Maps'
+  Flathub build was four months behind on 2026-09-29), and CoMaps' index
+  carries a full SHA-1 per map where Organic Maps' carries a 72-bit BLAKE3.
+- **Flatpak.** D-014 measured it at zero users, and nothing here changes
+  that: a second Qt runtime stack of about 1.5 GB, and updates from
+  Flathub's builders rather than a pin reviewed here. For a future D-040
+  case, Flathub's `.flatpakrepo` embeds the signing key **6E5C 05D9 79C7
+  6DAF 93C0 8135 4184 DD4D 907A 7CAE** (rsa4096, expires 2027-06-14), as
+  measured on 2026-09-29.
+- **Self-generated maps** from the Geofabrik extracts: possible with
+  CoMaps' own generator, built from the same tree, but a state map built
+  here has no coastline (that needs a planet build), no US postcodes and no
+  contours. Documented, not built.
+
+### Measured, and not
+
+Measured: everything under "What was measured" above; the region table's
+coverage (all 50 US states and DC, the whole US 15.7 GB, matching the
+spike); every step of the engine's build, fetch, verification, install,
+removal, launch preparation and report against fakes in the test suite.
+
+Not measured, and owed by the bench:
+
+- **The build through `hammunition install`**, including the shallow
+  submodule fetch, its time, memory and disk.
+- **CoMaps reading the linked maps** on a running desktop.
+- **US address-search quality.** The desktop app has no scriptable search;
+  a person at the screen has to judge it.
+- The GeoClue route to a position, if the maintainer wants it tried.
+
+**Consequences.** `commit`, `submodules`, `build_python`, `prepare`
+(`PrepareStep`) and `extra_files` (`ExtraFile`) on `GitInstall`, and
+`MwmRegionsInstall` in `src/hammunition/manifest/schema.py`; the git
+backend's steps and checks in `src/hammunition/backends/git.py`;
+`build_env` in `build_commands`; `Fetcher.fetch_sha1`;
+`src/hammunition/comaps.py`, `src/hammunition/backends/comaps_maps.py`,
+`src/hammunition/comaps_launch.py`; the extra-file effect check in
+`src/hammunition/execute.py`; the deferral, the install wiring, the
+`comaps_maps` upstream probe and the offline row; `hammunition maps comaps`;
+`catalog/packages/comaps.yaml`, `catalog/packages/comaps-maps.yaml`, the
+generated `catalog/data/comaps-pins.yaml` and its generator, and the
+`navigation` profile. The operator's page is
+`docs/guides/offline-navigation.md` (section 17), the CLI's
+`docs/reference/cli.md`, and the build gap
+`docs/reference/source-build-gaps.md` #8. Tests: `tests/test_comaps_schema.py`,
+`tests/test_git_comaps.py`, `tests/test_comaps_pins.py`,
+`tests/test_comaps_maps.py`, `tests/test_comaps_update.py`,
+`tests/test_comaps_launch.py`.
+
+### Amendment (2026-09-30): after the final review, and beside D-070
+
+The branch was brought up to main, where D-064, D-066, D-067 and D-070 had
+landed. What changed with it:
+
+- **CoMaps' maps use the LAN mirror (D-070).** `Fetcher.fetch_sha1` goes
+  through the same sources as every other data download: the mirror first
+  at `<mirror>/comaps-maps/<version>/<id>.mwm`, then the CDN, the SHA-1 and
+  exact size checked either way, and where the bytes came from recorded in
+  the log. `hammunition artifacts` lists them with a new check kind,
+  `sha1-publisher`, from the carried pins with no network; a region with no
+  CoMaps map is listed as deferred.
+- **An expired pin is told from a busy server.** Only 404, 410, or a 200 of
+  another size is "pin expired", at plan time, in `--upstream` and in the
+  generator's `--check`; any other answer is a server that did not say
+  (`unanswered`, or a refusal saying to try again), and the weekly check
+  reports an unreachable index or CDN as a problem line, not a traceback.
+- **The app's World maps are tied to the index.** `gen_comaps_pins.py
+  --check`, offline too, refuses when `comaps.yaml`'s World and WorldCoasts
+  are not the URL and size the pinned index names, and the cadence hint says
+  to move them with the tag. The weekly `check_pin_reviews.py --verify-refs`
+  now fetches each tag with a `commit` and refuses one that resolves
+  elsewhere.
+- **A map id must be one file name** (no `/`, `\`, NUL, control character
+  or leading dot), in the index and in the pin file: it becomes a path under
+  the data directory and a link name in the operator's home.
+- **No region with a CoMaps map** is said in the plan, never shown as
+  "already installed", and `update` says why nothing is installed.
+- **Coverage, counted:** 262 of the 532 Geofabrik regions Hammunition
+  carries, 165 of the 197 country-level ones; not China, Russia, Ireland and
+  Northern Ireland, Israel and Palestine, the DR Congo or Ivory Coast, among
+  others.
+- **Source-build gap #8 is not closed** until the engine's build runs on the
+  bench; the fields exist and are tested against fakes.
+- D-069 is recorded in number order, between D-068 and D-070, which
+  landed on main first (maintainer's direction, 2026-09-30).
+
 ## D-070 — A data artifact may be taken from a LAN mirror the operator names, verified the same either way, and the engine can list what it would fetch without a station
 
 **Date:** 2026-09-29. **Status:** proposed (implemented on branch

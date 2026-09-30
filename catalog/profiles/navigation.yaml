@@ -14,9 +14,10 @@ stage: post-1.0
 # QMapShack with trails, terrain and routing on foot. D-063 adds BRouter,
 # QMapShack's second offline router, over routing files built from the same
 # regions and terrain. D-068: USGS US Topo sheets as a QMapShack map
-# (docs/superpowers/specs/2026-09-29-official-topo-design.md). D-071 adds
-# the vector-tile maps the offline browser page draws (Kiwix went to its own
-# `reference` profile, D-066).
+# (docs/superpowers/specs/2026-09-29-official-topo-design.md). D-069 adds
+# CoMaps, built from source, over CoMaps' own maps for the same regions.
+# D-071 adds the vector-tile maps the offline browser page draws (Kiwix went
+# to its own `reference` profile, D-066).
 packages:
   - gpsd
   - gpsd-clients
@@ -38,6 +39,8 @@ packages:
   - brouter-segments
   - usgs-ustopo
   - ustopo-qmapshack
+  - comaps
+  - comaps-maps
   - vector-map-kit
   - osm-pmtiles
 
@@ -66,7 +69,11 @@ documentation:
     files in `vector-map-kit`), which `hammunition reference serve` draws in
     a browser at http://127.0.0.1:8480/map/ (D-071); and `gps-tether`, which
     serves gpsd's position to QMapShack as NMEA, and to that browser map, on
-    this machine only.
+    this machine only. And CoMaps (`comaps`), a phone-style map with
+    offline address search and car, bike and foot routing, built from
+    source, over CoMaps' own map files for the same regions (`comaps-maps`),
+    opened by the `comaps-offline` launcher; it has no position on the
+    laptop yet (it reads GeoClue only).
   why_together: >-
     A navigator is only useful with a position and a map, and offline it
     needs both already on the machine. Navit without gpsd does not know
@@ -98,7 +105,9 @@ documentation:
     archive package or clean binary. Navit's GTK interface (`navit-gui-gtk`) is
     left out in favour of the internal one, which suits a touch screen and a
     small panel. Grid-square readouts belong to the station and dashboard
-    tools.
+    tools. Organic Maps is left out: it is the same program family as
+    CoMaps, built the same way, and one of the two is enough; Flathub's
+    builds of either are not used, because Flatpak is not a backend here.
   manual_configuration: >-
     Choose your map regions first, with Geofabrik's region paths, for
     example `hammunition station set --map-regions
@@ -124,7 +133,11 @@ documentation:
     wrong and the first tether silent, and both are rewritten (D-061's
     amendment); the new
     versions have not yet been run on a desktop, and bench session 12
-    (docs/reference/bench-verification-5430.md) is that check.
+    (docs/reference/bench-verification-5430.md) is that check. For CoMaps:
+    start it from the `comaps-offline` launcher, which records the licence
+    answer CoMaps asks for and links your maps where it looks; it shows no
+    "you are here" on the laptop, because it reads position from GeoClue
+    only and nothing feeds GeoClue the GPS yet.
   disk_footprint_hint: >-
     Navit, espeak-ng, osmium-tool and gpsd from the archive (size not yet
     measured), the 13.3 MB country-border file once, and the browser map's
@@ -153,3 +166,8 @@ documentation:
     Vector-tile maps for the browser: about 0.91 times each download
     (measured on Delaware), with up to three times the download of scratch
     allowed while one builds (not measured).
+    CoMaps: a source build, measured by hand at about 11 GB of build
+    tree with full git history (the shallow submodule fetch the engine uses
+    is smaller and not measured) and 123 MB installed with its World maps;
+    its own maps are tens to a few hundred megabytes a US state (Vermont
+    61 MB) and 15.7 GB for all of the US.

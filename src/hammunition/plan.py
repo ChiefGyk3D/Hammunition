@@ -69,6 +69,7 @@ from hammunition.manifest.schema import (
     GitInstall,
     InstallBlock,
     KiwixBooksInstall,
+    MwmRegionsInstall,
     NodeInstall,
     PackageManifest,
     ProfileManifest,
@@ -966,10 +967,12 @@ def _reads_map_regions(
     block: InstallBlock, catalog: Mapping[str, PackageManifest], target: Target
 ) -> bool:
     """An ``osm-regions``, ``dem-tiles`` or ``topo-quads`` block (D-061, D-068:
-    its tiles and sheets follow the regions), or a ``derived`` one converting
-    such a unit's data."""
+    its tiles and sheets follow the regions), an ``mwm-regions`` one (D-069:
+    CoMaps' maps for them), or a ``derived`` one converting such a unit's data."""
     install = block.install
-    if isinstance(install, RegionalDataInstall | DemTilesInstall | TopoQuadsInstall):
+    if isinstance(
+        install, RegionalDataInstall | DemTilesInstall | TopoQuadsInstall | MwmRegionsInstall
+    ):
         return True
     if isinstance(install, DerivedDataInstall):
         source = catalog.get(install.source)

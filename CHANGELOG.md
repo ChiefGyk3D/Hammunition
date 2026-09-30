@@ -11,6 +11,29 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **CoMaps: offline address search and routing like a phone app, with its
+  own maps for your regions** (D-069). Two units join the `navigation`
+  profile. `comaps` is built from source at the tag Flathub, nixpkgs and
+  the AUR build (`v2026.08.31-14`), refused if the tag no longer resolves
+  to its commit; the git backend gains what it needed, each a catalog
+  field the engine runs: submodules fetched shallow and read back at their
+  recorded commits, a hash-pinned build Python (CoMaps' CMake refuses
+  Debian's protobuf 4.x), upstream's `configure.sh` with the files it must
+  produce (its symbol step exits 0 without optipng), and files the install
+  rule leaves out (the World maps, sha256-pinned). `comaps-maps` fetches
+  CoMaps' own maps for your map regions through a generated table
+  (`catalog/data/comaps-pins.yaml`, all 1,150 maps, 262 Geofabrik regions
+  including every US state and DC), each checked by the SHA-1 and exact
+  size in CoMaps' own index, which the plan says on every line, and from a
+  LAN mirror first when one is set (D-070; `hammunition artifacts` lists
+  them as `sha1-publisher`); an expired pin refuses the plan, and `update
+  --upstream` says `pin expiring` or `pin expired`. `hammunition maps
+  comaps`, the `comaps-offline` launcher, records CoMaps' licence answer and links your maps where it looks. CoMaps
+  reads its position from GeoClue only, so there is no "you are here" on
+  the laptop yet; the guide says what the route would be. Organic Maps and
+  Flatpak are not carried. The build through the engine and US address
+  search are owed by the bench.
+
 - **An offline map in the browser** (**D-071**, branch `map-server`).
   `osm-pmtiles` turns each map region into vector tiles with the archive's
   tilemaker (3.0 or newer; Ubuntu 24.04's 2.4 defers it by name), and
@@ -26,6 +49,7 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   with `--port 10111` now needs `--position-port` as well. A `data` archive
   can list its `members` and the subdirectory it goes `into`. Not yet run
   with a real tilemaker; the bench owes it.
+
 - **Official topographic maps: USGS US Topo** (**D-068**). For US map
   regions, the `navigation` profile gains `usgs-ustopo` (the 7.5-minute
   sheets a region's outline touches, chosen offline from the carried index

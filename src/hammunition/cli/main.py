@@ -62,6 +62,12 @@ from hammunition.backends import (
     VenvBackend,
 )
 from hammunition.backends.apt import stale_fetches
+from hammunition.backends.comaps_maps import (
+    ComapsMapsBackend,
+    maps_disk_needs,
+    maps_shortfall,
+    resolve_station_maps,
+)
 from hammunition.backends.data import human_size
 from hammunition.backends.dem import TIF, TILES, TerrainDisclosure, read_record
 from hammunition.backends.kiwix import (
@@ -83,6 +89,8 @@ from hammunition.backends.regions import (
 )
 from hammunition.backends.source import DEFAULT_PREFIX
 from hammunition.backends.terrain import combined_shortfall
+from hammunition.comaps import CdnProbe, ComapsError, ComapsPins, MapFile, resolve_regions
+from hammunition.comaps import load_pins as load_comaps_pins
 from hammunition.consent import (
     ConsentDeclined,
     ConsentUnavailable,
@@ -137,6 +145,7 @@ from hammunition.manifest.schema import (
     DemTilesInstall,
     DerivedDataInstall,
     KiwixBooksInstall,
+    MwmRegionsInstall,
     PackageManifest,
     ProfileManifest,
     RegionalDataInstall,
@@ -168,11 +177,20 @@ from hammunition.terrain_plan import brouter_pins, build_terrain_run, resolve_st
 from hammunition.tiles_plan import build_tiles_run
 from hammunition.topo_plan import INDEX as USTOPO_INDEX
 from hammunition.topo_plan import MemoProbe, resolve_station_topo
-from hammunition.update import books_state, region_snapshots, render, report, requested_units
+from hammunition.update import (
+    UNKNOWN,
+    books_state,
+    mwm_state,
+    region_snapshots,
+    render,
+    report,
+    requested_units,
+)
 from hammunition.upstream import (
     NOT_UPSTREAM,
     http_get,
     parse_ls_remote,
+    probe_comaps_maps,
     probe_kiwix,
     probe_upstream,
 )
@@ -589,6 +607,7 @@ def cmd_update(args: argparse.Namespace) -> int:
         prefix=source.prefix,
         jobs=source.jobs,
         owner=source.owner,
+        fetcher=source.fetcher,
     )
     binary = BinaryBackend(
         fetcher=source.fetcher,
@@ -657,6 +676,24 @@ def cmd_update(args: argparse.Namespace) -> int:
             chosen_books[planned.name], data_root(source.prefix) / planned.name
         )
 
+    # CoMaps' maps, offline (D-069): each map the station's regions need
+    # against its pinned version, counted, from the carried table.
+    mwm_by_unit: dict[str, tuple[str, str]] = {}
+    comaps: dict[str, ComapsPins] = {}
+    for planned in plan.packages:
+        if not isinstance(planned.block.install, MwmRegionsInstall):
+            continue
+        try:
+            comaps_pins = load_comaps_pins(catalog_root)
+        except ComapsError as exc:
+            mwm_by_unit[planned.name] = (UNKNOWN, str(exc))
+            continue
+        comaps[planned.name] = comaps_pins
+        files, unmapped = resolve_regions(station.map_regions, comaps_pins)
+        mwm_by_unit[planned.name] = mwm_state(
+            files, data_root(source.prefix) / planned.name, unmapped=len(unmapped)
+        )
+
     result = report(
         plan,
         apt_states=states,
@@ -667,9 +704,12 @@ def cmd_update(args: argparse.Namespace) -> int:
         no_terrain=no_terrain_counts(plan, source.prefix),
         quads=installed_quad_counts(plan, source.prefix, catalog_root),
         books=books_by_unit,
+        mwm=mwm_by_unit,
     )
     lists_note = _apt_lists_note(apt)
-    upstream = _upstream_rows(plan, runner, books=chosen_books) if args.upstream else None
+    upstream = (
+        _upstream_rows(plan, runner, books=chosen_books, comaps=comaps) if args.upstream else None
+    )
     if envelope.wanted(args):
         envelope.emit(
             build_update(
@@ -690,6 +730,7 @@ def _upstream_rows(
     runner: SubprocessRunner,
     *,
     books: Mapping[str, Sequence[BookFile]] | None = None,
+    comaps: Mapping[str, ComapsPins] | None = None,
 ) -> list[UpstreamRow]:
     """D-053's second half: the catalog's pin against what upstream publishes.
 
@@ -723,6 +764,10 @@ def _upstream_rows(
     kiwix = KiwixProbe()
     for unit, chosen in (books or {}).items():
         rows.extend(probe_kiwix(unit, chosen, text=kiwix.text))
+    # D-069: CoMaps' maps are asked of the CDN, once per unit: is the pinned
+    # version still published, and how old is it.
+    for unit, comaps_pins in (comaps or {}).items():
+        rows.append(probe_comaps_maps(unit, comaps_pins, head=CdnProbe().head, today=date.today()))
     return [r for r in rows if r.state != NOT_UPSTREAM]
 
 
@@ -1002,6 +1047,86 @@ def _repeater_poi_paths(text: str) -> tuple[str, bool]:
     if (directory / FILES[1]).is_file():
         return ensure_paths(text, (want,)), True
     return ensure_paths(text, (), remove=(want,)), False
+
+
+def cmd_maps_comaps(args: argparse.Namespace) -> int:
+    """Prepare this operator's CoMaps, then start it.  D-069.
+
+    What the ``comaps-offline`` launcher runs. Per user, refused as root.
+    Writes ``EulaAccepted=true`` into CoMaps' own settings when no answer is
+    there, so the licence dialog does not block the first start, and links
+    each map ``comaps-maps`` installed into CoMaps' map directory; then
+    replaces itself with CoMaps, with its writable and resource directories
+    named. A settings file that is a symbolic link or not a regular file is
+    refused, and CoMaps is not started. No ``--json`` form: it replaces
+    itself with a GUI (D-059).
+    """
+    from hammunition.comaps_launch import data_dir, ensure_eula, link_maps, settings_path
+
+    if os.geteuid() == 0:
+        print(
+            "error: CoMaps' settings and maps are per user; run this as yourself, not as root.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    prefix = DEFAULT_PREFIX
+    program = prefix / "bin" / "CoMaps"
+    if not args.configure_only and not (program.is_file() and os.access(program, os.X_OK)):
+        print(
+            f"error: {program} is not installed; `hammunition install comaps` builds it.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    path = settings_path()
+    not_started = "Nothing was changed and CoMaps was not started"
+    try:
+        text, mode = _read_config_nofollow(path)
+    except OSError as exc:
+        print(f"error: {exc}. {not_started}.", file=sys.stderr)
+        return EXIT_FAILED
+    updated = ensure_eula(text)
+    if updated != text:
+        print(
+            f"recording in {path} that CoMaps' licence and copyright notice is accepted, "
+            f"so its first-start dialog does not block the window (the notice is "
+            f"{prefix / 'share' / 'comaps' / 'data' / 'copyright.html'})",
+            file=sys.stderr,
+        )
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _replace_atomically(path, updated, mode)
+        except OSError as exc:
+            print(
+                f"error: cannot write {path}: {exc.strerror or exc}. CoMaps was not started.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+    writable = data_dir()
+    try:
+        notes = link_maps(data_root(prefix) / "comaps-maps", writable)
+    except OSError as exc:
+        print(
+            f"error: cannot link the maps into {writable}: {exc.strerror or exc}. "
+            f"CoMaps was not started.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    for note in notes:
+        print(note, file=sys.stderr)
+    if args.configure_only:
+        return EXIT_OK
+    env = {
+        **os.environ,
+        "MWM_WRITABLE_DIR": str(writable),
+        "MWM_RESOURCES_DIR": str(prefix / "share" / "comaps" / "data"),
+    }
+    sys.stdout.flush()
+    sys.stderr.flush()  # execve discards whatever Python still buffers
+    try:
+        os.execve(str(program), ["CoMaps"], env)
+    except OSError as exc:
+        print(f"error: cannot start {program}: {exc.strerror or exc}.", file=sys.stderr)
+    return EXIT_FAILED
 
 
 def _installed_brouter(prefix: Path) -> BRouterSetup | None:
@@ -2092,6 +2217,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         prefix=source.prefix,
         jobs=source.jobs,
         owner=source.owner,
+        fetcher=source.fetcher,
     )
     binary = BinaryBackend(
         fetcher=source.fetcher,
@@ -2191,6 +2317,29 @@ def cmd_install(args: argparse.Namespace) -> int:
     )
     region_notes = list(resolution.notes)
     region_notes.extend(topo_notes)
+    # D-069: CoMaps' maps for the same regions, from the carried region table,
+    # and every map not yet installed HEAD-checked for its pinned size before
+    # the plan prints: each map's size, licence and check are the disclosure,
+    # and a version the CDN has dropped refuses here rather than after apt.
+    mwm_units = [p for p in plan.packages if isinstance(p.block.install, MwmRegionsInstall)]
+    mwm_files: list[MapFile] = []
+    if mwm_units:
+        try:
+            mwm_files, mwm_notes = resolve_station_maps(
+                station.map_regions,
+                catalog_root,
+                installed=data_root(source.prefix) / mwm_units[0].name,
+                head=CdnProbe().head,
+            )
+        except ComapsError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            print("\nNothing was changed.", file=sys.stderr)
+            refused("CoMaps maps", str(exc))
+            return EXIT_UNPLANNABLE
+        region_notes.extend(mwm_notes)
+    mwm = ComapsMapsBackend(
+        fetcher=source.fetcher, prefix=source.prefix, files=mwm_files, runner=runner
+    )
     try:
         border, countries, border_notes = map_borders(plan, packages, catalog_root, source.prefix)
     except CountryBoundaryError as exc:
@@ -2318,24 +2467,41 @@ def cmd_install(args: argparse.Namespace) -> int:
             print("\nNothing was changed.", file=sys.stderr)
             refused("disk space", short)
             return EXIT_UNPLANNABLE
+    # The same run's map data per file system, which the books' and CoMaps'
+    # maps' own checks count beside their own.
+    others: dict[Path, int] = {}
+    if pending or conversions or any(terrain_disk.values()):
+        others = dict(
+            disk_needs(
+                pending,
+                conversions,
+                cache=source.fetcher.cache_dir,
+                staging=map_staging,
+                prefix=source.prefix,
+            )
+        )
+        for path, amount in terrain_disk.items():
+            others[path] = others.get(path, 0) + amount
     # The books' own room, with any map data of the same run on the same disk.
     book_pending = [f for p in book_units for f in books.pending(p.manifest)]
     book_disk = books_disk_needs(book_pending, cache=source.fetcher.cache_dir, prefix=source.prefix)
     if book_disk:
-        others: dict[Path, int] = {}
-        if pending or conversions or any(terrain_disk.values()):
-            others = dict(
-                disk_needs(
-                    pending,
-                    conversions,
-                    cache=source.fetcher.cache_dir,
-                    staging=map_staging,
-                    prefix=source.prefix,
-                )
-            )
-            for path, amount in terrain_disk.items():
-                others[path] = others.get(path, 0) + amount
         short = books_shortfall(book_disk, others)
+        if short is not None:
+            print(f"error: {short}", file=sys.stderr)
+            print("\nNothing was changed.", file=sys.stderr)
+            refused("disk space", short)
+            return EXIT_UNPLANNABLE
+    # CoMaps' maps' own room (D-069), counting the same run's map data, phone
+    # files and books on the same disk too.
+    mwm_pending = [f for p in mwm_units for f in mwm.pending(p.manifest)]
+    mwm_disk = maps_disk_needs(mwm_pending, cache=source.fetcher.cache_dir, prefix=source.prefix)
+    if mwm_disk:
+        beside = dict(others)
+        for extra in (phone_disk, book_disk):
+            for path, amount in extra.items():
+                beside[path] = beside.get(path, 0) + amount
+        short = maps_shortfall(mwm_disk, beside)
         if short is not None:
             print(f"error: {short}", file=sys.stderr)
             print("\nNothing was changed.", file=sys.stderr)
@@ -2362,6 +2528,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         dem=terrain.dem,
         topo=terrain.topo,
         books=books,
+        mwm=mwm,
         repos=repos,
         config_staging=builds,
         launcher_bin=user_bin_dir(user or None),
@@ -2378,17 +2545,24 @@ def cmd_install(args: argparse.Namespace) -> int:
         if (log_owner and euid == 0 and str(log_destination).startswith("/home"))
         else None
     )
-    # A book unit with nothing to fetch or remove reads "already installed".
+    # A book or CoMaps maps unit with nothing to fetch or remove reads
+    # "already installed".
     idle_books = frozenset(
         p.name
         for p in book_units
         if not books.steps(p.manifest, cast(KiwixBooksInstall, p.block.install))
     )
+    idle_maps = frozenset(
+        p.name
+        for p in mwm_units
+        # With no map for any region there is nothing installed to be current.
+        if mwm.files and not mwm.steps(p.manifest, cast(MwmRegionsInstall, p.block.install))
+    )
     view = build_install_view(
         plan,
         commands,
         euid=euid,
-        built=built | idle_books,
+        built=built | idle_books | idle_maps,
         log_destination=log_destination,
         hands_log_to=hands_log_to,
         suggestion_notes=suggestion_notes,
@@ -4144,7 +4318,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--upstream",
         action="store_true",
         help=(
-            "also ask upstream (GitHub, git tags, PyPI, a version file) whether the "
+            "also ask upstream (GitHub, git tags, PyPI, a version file, CoMaps' CDN) whether the "
             "catalog's pin is current; the only network the report uses"
         ),
     )
@@ -4153,7 +4327,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_maps = sub.add_parser(
         "maps",
         help="offline maps: Geofabrik's regions (D-057), QMapShack and its GPS (D-061), "
-        "Navit and repeaters (D-064), phone files (D-067)",
+        "Navit and repeaters (D-064), phone files (D-067), CoMaps (D-069)",
     )
     maps_sub = p_maps.add_subparsers(dest="maps_command", required=True)
 
@@ -4179,6 +4353,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="edit the configuration and do not start QMapShack",
     )
     p_maps_qms.set_defaults(func=cmd_maps_qmapshack)
+
+    p_maps_comaps = maps_sub.add_parser(
+        "comaps",
+        help="accept CoMaps' licence notice and link your maps for it, then start it (D-069)",
+    )
+    p_maps_comaps.add_argument(
+        "--configure-only",
+        action="store_true",
+        help="prepare the settings and map links and do not start CoMaps",
+    )
+    p_maps_comaps.set_defaults(func=cmd_maps_comaps)
 
     p_maps_tether = maps_sub.add_parser(
         "gps-tether",

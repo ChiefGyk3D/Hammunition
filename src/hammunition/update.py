@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any
 
 from hammunition.backends.apt import AptPackageState
+from hammunition.comaps import MapFile
 from hammunition.kiwix import BookFile
 from hammunition.manifest.schema import (
     AptInstall,
@@ -44,6 +45,7 @@ from hammunition.manifest.schema import (
     DemTilesInstall,
     GitInstall,
     KiwixBooksInstall,
+    MwmRegionsInstall,
     NodeInstall,
     PackageManifest,
     RegionalDataInstall,
@@ -62,7 +64,15 @@ ON_INSTALL = "re-checked on install"
 MANUAL = "manual"
 
 UPSTREAM_PROBES = frozenset(
-    {"github_release", "github_tags", "pypi", "label_file", "binary_version", "kiwix"}
+    {
+        "github_release",
+        "github_tags",
+        "pypi",
+        "label_file",
+        "binary_version",
+        "kiwix",
+        "comaps_maps",
+    }
 )
 
 
@@ -309,6 +319,42 @@ def books_state(chosen: Sequence[BookFile], installed: Path) -> tuple[str, str]:
     return NOT_INSTALLED, f"{count - current} of {count} book(s) not installed"
 
 
+def mwm_state(files: Sequence[MapFile], installed: Path, *, unmapped: int) -> tuple[str, str]:
+    """``(state, detail)`` for CoMaps' maps, offline (D-069).
+
+    Each map the station's regions need against its pin: the file at the
+    pinned version and size is current; the same map under another version
+    directory is behind the pin; neither is not installed. Counts only: which
+    maps are installed says which regions, the same class of fact as a grid
+    square.
+    """
+    if not files:
+        return (
+            NOT_INSTALLED,
+            f"none of the station's {unmapped} map region(s) has a CoMaps map"
+            if unmapped
+            else "no map regions set",
+        )
+    current = behind = 0
+    for f in files:
+        pinned = installed / str(f.version) / f.file
+        if pinned.is_file() and not pinned.is_symlink() and pinned.stat().st_size == f.pin.size:
+            current += 1
+        elif any(p for p in installed.glob(f"*/{f.file}") if p.parent.name != str(f.version)):
+            behind += 1
+    count = len(files)
+    extra = f"; {unmapped} region(s) have no CoMaps map" if unmapped else ""
+    if behind:
+        return (
+            BEHIND_PIN,
+            f"{behind} of {count} map(s) installed at another version than the pin; "
+            f"`install comaps-maps` fetches the pinned one{extra}",
+        )
+    if count and current == count:
+        return UP_TO_DATE, f"{count} map(s) installed at their pinned version{extra}"
+    return NOT_INSTALLED, f"{count - current} of {count} map(s) not installed{extra}"
+
+
 def _first_sentence(manifest: PackageManifest) -> str:
     """A manual unit's cadence hint, cut to its first sentence for the table;
     the manifest carries the rest, and the row says where to look."""
@@ -330,6 +376,7 @@ def report(
     no_terrain: Mapping[str, int] | None = None,
     quads: Mapping[str, tuple[int, int]] | None = None,
     books: Mapping[str, tuple[str, str]] | None = None,
+    mwm: Mapping[str, tuple[str, str]] | None = None,
 ) -> UpdateReport:
     """One row per planned unit. Pure: every fact arrives as an argument.
 
@@ -405,6 +452,11 @@ def report(
         elif isinstance(method, KiwixBooksInstall):
             state, detail = (books or {}).get(
                 planned.name, (UNKNOWN, "the chosen books were not resolved")
+            )
+            rows.append(UpdateRow(planned.name, state, detail, strategy))
+        elif isinstance(method, MwmRegionsInstall):
+            state, detail = (mwm or {}).get(
+                planned.name, (UNKNOWN, "the station's CoMaps maps were not resolved")
             )
             rows.append(UpdateRow(planned.name, state, detail, strategy))
         elif isinstance(method, VenvInstall):
