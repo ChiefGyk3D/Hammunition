@@ -522,6 +522,7 @@ def cmd_update(args: argparse.Namespace) -> int:
         prefix=source.prefix,
         jobs=source.jobs,
         owner=source.owner,
+        fetcher=source.fetcher,
     )
     binary = BinaryBackend(
         fetcher=source.fetcher,
@@ -1328,6 +1329,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         prefix=source.prefix,
         jobs=source.jobs,
         owner=source.owner,
+        fetcher=source.fetcher,
     )
     binary = BinaryBackend(
         fetcher=source.fetcher,

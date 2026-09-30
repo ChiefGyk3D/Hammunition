@@ -453,7 +453,9 @@ class PrepareStep(Strict):
 class ExtraArtifact(RemoteArtifact):
     """A pinned file installed beside a build, with its size (D-069)."""
 
-    size: int = Field(gt=0, description="Bytes, as published. Printed in the plan, checked on fetch.")
+    size: int = Field(
+        gt=0, description="Bytes, as published. Printed in the plan, checked on fetch."
+    )
 
 
 class ExtraFile(Strict):

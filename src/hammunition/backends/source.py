@@ -52,7 +52,7 @@ import os
 import shutil
 import tarfile
 import zipfile
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -639,6 +639,7 @@ def build_commands(
     provides_install_target: bool = True,
     binaries: Sequence[Binary] = (),
     autoreconf: bool = False,
+    build_env: Mapping[str, str] | None = None,
 ) -> list[Command]:
     """Configure, compile and install, for one build system.
 
@@ -650,8 +651,12 @@ def build_commands(
     Only the final command is privileged. CLAUDE.md drops to the operator
     wherever possible, and a build run wholly as root would leave a tree of
     root-owned objects in the operator's cache for no benefit.
+
+    ``build_env`` reaches the configure and compile steps and never the
+    install: a git block's build Python (D-069) is a build dependency, and
+    the privileged step has no use for it.
     """
-    env = _compiler_env(compiler_flags)
+    env = {**_compiler_env(compiler_flags), **(build_env or {})}
     args = list(configure_args)
     jobs_arg = str(jobs)
     privileged = needs_root_for(prefix)
