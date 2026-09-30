@@ -955,7 +955,7 @@ callsign, AX.25 needs one in `/etc/ax25/axports`, Direwolf needs one in its
 own configuration.
 
 ```
-hammunition station set --callsign M0ABC --grid-square IO91wm
+hammunition station set --callsign N0TST --grid-square FN31pr
 hammunition station show
 ```
 
