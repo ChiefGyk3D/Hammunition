@@ -442,6 +442,18 @@ def plan_removal(
                     requires_root=True,
                 ),
             )
+            if isinstance(install, DerivedDataInstall) and install.tool is not None:
+                # D-067: the converter's pinned program, kept in the unit's own
+                # namespaced directory beside the data tree, never inside it.
+                add(
+                    unit,
+                    ArtifactRemoval(
+                        "tree",
+                        paths.prefix / "share" / "hammunition" / manifest.name,
+                        "namespaced",
+                        requires_root=True,
+                    ),
+                )
         elif isinstance(install, SourceInstall | GitInstall):
             reversible = not install.provides_install_target or install.install_tree
             if not reversible:

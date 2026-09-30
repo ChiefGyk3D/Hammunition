@@ -74,6 +74,7 @@ def plan_state(
     built: frozenset[str] = frozenset(),
     maps: MapDisclosure | None = None,
     terrain: TerrainDisclosure | None = None,
+    idle: frozenset[str] = frozenset(),
 ) -> str:
     """What the plan will do to this unit, in two words.
 
@@ -97,6 +98,9 @@ def plan_state(
     nothing to build this run.
     """
     method = planned.block.install
+    if isinstance(method, DerivedDataInstall) and planned.name in idle:
+        # A phone unit (D-067) with no region to build and its tool current.
+        return "already installed"
     if maps is not None and (maps.current or maps.kept or maps.fetch):
         regions_current = not maps.fetch and not maps.kept
         if isinstance(method, RegionalDataInstall) and regions_current:
@@ -112,12 +116,12 @@ def plan_state(
         if isinstance(method, DemTilesInstall) and not terrain.resolution.fetch:
             return "already installed"
         if isinstance(method, DerivedDataInstall):
-            idle = {
+            quiet = {
                 "mkgmap": not terrain.garmin,
                 "routino-planetsplitter": not terrain.routino_regions,
                 "gdal-dem": not terrain.drawing,
             }
-            if idle.get(method.converter, False):
+            if quiet.get(method.converter, False):
                 return "already installed"
     if isinstance(method, AptInstall):
         return "already installed" if not planned.outstanding else "will install"
@@ -782,6 +786,7 @@ def build_install_view(
     region_notes: Sequence[str] = (),
     terrain: TerrainDisclosure | None = None,
     sudo_keepalive: bool = True,
+    idle: frozenset[str] = frozenset(),
 ) -> InstallPlanView:
     data: list[DataLine] = []
     for planned in plan.packages:
@@ -808,7 +813,7 @@ def build_install_view(
             PackageLine(
                 name=p.name,
                 method=p.block.install.method,
-                state=plan_state(p, built, maps, terrain),
+                state=plan_state(p, built, maps, terrain, idle),
                 requested_by=tuple(p.requested_by),
                 apt=tuple(
                     AptLine(package=a, outstanding=a in p.outstanding, build_only=a in p.build_only)

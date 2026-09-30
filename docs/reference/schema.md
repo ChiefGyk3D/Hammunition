@@ -445,6 +445,25 @@ direction — neither granting permission nor refusing on their behalf.
 | `disclosure` | `str` | **yes** | What the software can do. Capability, never legality. |
 | `affirmation` | `str` | **yes** | The question. Must ask about the operator's authorization. |
 
+### `ConverterTool`
+
+A program a converter runs that no archive packages, pinned.  D-067.
+
+The catalog supplies where it is and what it hashes to; the engine owns
+how it is run, exactly as it owns every converter's command line. It is
+fetched, verified against `artifact.sha256`, checked against `size`, and
+installed under ``<prefix>/share/hammunition/<unit>/`` -- not under the
+unit's data directory, which holds only files that are read, never run
+(D-049). A `signature_url` is recorded and not verified; the fetch step
+says so, in the words every declared-but-unverified signature gets.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `artifact` | `RemoteArtifact` | **yes** |  |
+| `size` | `int` | **yes** | Bytes, measured; a download of another size is refused. |
+| `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
+| `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
+
 ### `DataArtifact`
 
 One file of an offline dataset: a map tileset, a Wikipedia ZIM, cty.dat.
@@ -522,11 +541,12 @@ wide because only the catalog knows what `source` resolves to (D-061).
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `method` | `Literal[derived]` | no (default `derived`) |  |
-| `converter` | `Literal[navit-maptool, mkgmap, routino-planetsplitter, gdal-dem]` | **yes** | The transformation to run. Each needs a `source` of one particular install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): `navit-maptool`, `mkgmap` and `routino-planetsplitter` need an `osm-regions` source; `gdal-dem` needs a `dem-tiles` source. |
+| `converter` | `Literal[navit-maptool, mkgmap, routino-planetsplitter, gdal-dem, mapsforge-map, mapsforge-poi]` | **yes** | The transformation to run. Each needs a `source` of one particular install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): `navit-maptool`, `mkgmap`, `routino-planetsplitter`, `mapsforge-map` and `mapsforge-poi` need an `osm-regions` source; `gdal-dem` needs a `dem-tiles` source. |
 | `source` | `str` | **yes** | The catalog package name this is derived from: an `osm-regions` unit, or for `gdal-dem` a `dem-tiles` unit. |
 | `boundaries` | `str \| None` | no | The catalog data unit holding country boundaries (one GeoJSON file) that `navit-maptool` merges into each region before conversion, so maptool files towns under a country and address search finds them (D-057 amendment, 2026-09-28). Must also be in `depends`. |
 | `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
 | `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
+| `tool` | `ConverterTool \| None` | no | The pinned program the converter runs, for a converter in `CONVERTERS_WITH_TOOL` (`mapsforge-poi`: Maven Central's mapsforge-poi-writer, which no archive packages, D-067). Required for those converters and refused for every other. |
 
 ### `PipxInstall`
 

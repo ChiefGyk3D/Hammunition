@@ -404,10 +404,12 @@ def rebuild_command(report: UpdateReport) -> str | None:
     names = list(report.behind)
     if "osm-regions" in names and "osm-navit" not in names:
         names.append("osm-navit")
-    # D-061: QMapShack's maps and routing are derived from the same regions.
+    # D-061: QMapShack's maps and routing are derived from the same regions;
+    # D-067: so are the phone files.
     reported = {row.unit for row in report.rows}
     if "osm-regions" in names:
-        names.extend(u for u in ("osm-garmin", "osm-routino") if u in reported and u not in names)
+        derived = ("osm-garmin", "osm-routino", "mapsforge-map", "mapsforge-poi")
+        names.extend(u for u in derived if u in reported and u not in names)
     return f"hammunition install {' '.join(names)}"
 
 
