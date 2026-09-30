@@ -227,8 +227,36 @@ def prepare_tree(destination: Path) -> str:
     return f"{'cleared and recreated' if existed else 'created'} {destination}"
 
 
-def extract(archive: Path, destination: Path) -> str:
+def _selected(names: Sequence[str], members: Sequence[str] | None, archive: str) -> list[str]:
+    """The archive names *members* select, every name when it is None.
+
+    A member is an exact name, or ends in ``/`` and takes everything below
+    it (the directory entry itself included, which a tar writes without
+    the slash). One that selects nothing is refused by name: the archive is
+    not the one the manifest describes (D-071).
+    """
+    if members is None:
+        return list(names)
+    chosen: list[str] = []
+    for member in members:
+        if member.endswith("/"):
+            hits = [n for n in names if n.startswith(member) or n == member.rstrip("/")]
+        else:
+            hits = [n for n in names if n == member]
+        if not hits:
+            raise BackendError(
+                f"{archive}: the member {member!r} matched nothing in the archive; the "
+                f"manifest names a file this archive does not carry"
+            )
+        chosen.extend(h for h in hits if h not in chosen)
+    return chosen
+
+
+def extract(archive: Path, destination: Path, *, members: Sequence[str] | None = None) -> str:
     """Unpack *archive* into *destination*, stripping one top-level directory.
+
+    *members*, when given, limits the unpacking to those names (D-071; see
+    :func:`_selected`); the strip applies to what is unpacked.
 
     Returns a one-line outcome. Raises :class:`BackendError` on anything it
     will not unpack — an unknown format, or a member that would escape.
@@ -258,16 +286,20 @@ def extract(archive: Path, destination: Path) -> str:
         kind = _sniff(archive)
         if kind == "tar" or (kind is None and _is_tar(archive.name)):
             with tarfile.open(archive) as tar:
+                infos = tar.getmembers()
+                wanted = set(_selected([i.name for i in infos], members, archive.name))
+                chosen = [i for i in infos if i.name in wanted]
                 # PEP 706. Refuses absolute paths, `..`, links pointing outside
                 # the destination, device nodes, and setuid/setgid bits.
-                tar.extractall(staging, filter="data")
-                count = len(tar.getnames())
+                tar.extractall(staging, members=chosen, filter="data")
+                count, total = len(chosen), len(infos)
         elif kind == "zip" or (kind is None and _is_zip(archive.name)):
             with zipfile.ZipFile(archive) as archive_zip:
-                names = archive_zip.namelist()
+                all_names = archive_zip.namelist()
+                names = _selected(all_names, members, archive.name)
                 _safe_members(names, staging)
-                archive_zip.extractall(staging)
-                count = len(names)
+                archive_zip.extractall(staging, members=names)
+                count, total = len(names), len(all_names)
                 # Python's zipfile discards the unix mode bits a zip records
                 # in external_attr, so an executable `configure` arrives
                 # unrunnable (linrad's zip proved it -- AHRL's script chmods
@@ -275,7 +307,7 @@ def extract(archive: Path, destination: Path) -> str:
                 # actually recorded; never invent a bit it did not carry.
                 for info in archive_zip.infolist():
                     mode = (info.external_attr >> 16) & 0o777
-                    if mode:
+                    if mode and info.filename in names:
                         os.chmod(staging / info.filename, mode)
         else:
             raise BackendError(
@@ -302,6 +334,8 @@ def extract(archive: Path, destination: Path) -> str:
             f"member was refused by the extraction filter."
         )
     note = f", stripped {stripped}/" if stripped else ""
+    if members is not None:
+        return f"unpacked {count} of {total} entries (the listed members only){note}"
     return f"unpacked {count} entries{note}"
 
 

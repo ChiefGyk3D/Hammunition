@@ -705,6 +705,10 @@ class NodeInstall(Strict):
         return self
 
 
+#: One path component a data unit's archive is extracted into (D-071).
+_PLAIN_NAME = re.compile(r"(?!\.{1,2}$)[A-Za-z0-9._-]+")
+
+
 class DataArtifact(RemoteArtifact):
     """One file of an offline dataset: a map tileset, a Wikipedia ZIM, cty.dat.
 
@@ -727,6 +731,24 @@ class DataArtifact(RemoteArtifact):
             "unit's data directory. Archives extract their members and take none."
         ),
     )
+    members: list[str] | None = Field(
+        default=None,
+        description=(
+            "For an archive: extract only these paths, as the archive names them "
+            "(its top directory included); one ending in `/` takes everything "
+            "below it. A member that matches nothing refuses the install. "
+            "Without it the whole archive is extracted (D-071)."
+        ),
+    )
+    into: str | None = Field(
+        default=None,
+        description=(
+            "For an archive: the subdirectory of the unit's data directory it is "
+            "extracted into, one plain name. Required on every archive of a unit "
+            "with more than one archive, or with files beside an archive: an "
+            "archive replaces the directory it is extracted into (D-071)."
+        ),
+    )
 
     @model_validator(mode="after")
     def _install_name(self) -> DataArtifact:
@@ -735,11 +757,27 @@ class DataArtifact(RemoteArtifact):
                 raise ManifestError("a data file needs install_as: the name it is kept under")
             if "/" in self.install_as or self.install_as in {".", ".."}:
                 raise ManifestError(f"install_as must be a bare file name, got {self.install_as!r}")
+            if self.members is not None or self.into is not None:
+                raise ManifestError(
+                    "members and into are for an archive only; a data file is kept under install_as"
+                )
         elif self.install_as is not None:
             raise ManifestError(
                 f"install_as is only meaningful for format: file, not {self.format}: an archive's "
                 f"members keep their own names"
             )
+        if self.into is not None and not _PLAIN_NAME.fullmatch(self.into):
+            raise ManifestError(
+                f"into must be one plain name (letters, digits, . _ -), got {self.into!r}"
+            )
+        for member in self.members or ():
+            if not member or member.startswith("/") or "\\" in member or ".." in member.split("/"):
+                raise ManifestError(
+                    f"an archive member is a relative path inside the archive, with no '..', "
+                    f"got {member!r}"
+                )
+        if self.members is not None and not self.members:
+            raise ManifestError("an empty members list would extract nothing; omit it for all")
         return self
 
 
@@ -772,6 +810,22 @@ class DataInstall(Strict):
         names = [a.install_as for a in self.artifacts if a.install_as]
         if len(set(names)) != len(names):
             raise ManifestError("two data artifacts would install under the same name")
+        # D-071: an archive rebuilds the directory it is extracted into, so a
+        # second archive, or a file installed beside one, would be wiped by it.
+        archives = [a for a in self.artifacts if a.format != "file"]
+        if len(archives) > 1 or (archives and names):
+            if any(a.into is None for a in archives):
+                raise ManifestError(
+                    "a unit with more than one archive, or files beside an archive, needs "
+                    "into on every archive: each is extracted into its own subdirectory, "
+                    "which it replaces"
+                )
+            intos = [a.into for a in archives]
+            if len(set(intos)) != len(intos) or set(intos) & set(names):
+                raise ManifestError(
+                    "two data artifacts would install under the same name (an archive's into "
+                    "and another's into or install_as)"
+                )
         return self
 
 
@@ -887,6 +941,7 @@ CONVERTER_SOURCE_METHOD: dict[str, str] = {
     "mapsforge-map": "osm-regions",
     "mapsforge-poi": "osm-regions",
     "ustopo-mosaic": "topo-quads",
+    "tilemaker-pmtiles": "osm-regions",
 }
 
 #: D-063: the other units a ``brouter-mapcreator`` block reads, the install
@@ -897,6 +952,18 @@ BROUTER_INPUTS: dict[str, tuple[str, bool]] = {
     "program": ("binary", True),
     "profiles": ("data", True),
     "elevation": ("dem-tiles", False),
+}
+
+#: D-071: the unit a ``tilemaker-pmtiles`` block reads besides its regions: the
+#: kit holding tilemaker's OpenMapTiles profile and the Natural Earth layers.
+TILEMAKER_INPUTS: dict[str, tuple[str, bool]] = {"kit": ("data", True)}
+
+#: Every converter that reads units besides its `source`, and those inputs:
+#: field -> (the install method it must resolve to, whether it is required).
+#: A field is refused on every converter not listed against it.
+CONVERTER_INPUTS: dict[str, dict[str, tuple[str, bool]]] = {
+    "brouter-mapcreator": BROUTER_INPUTS,
+    "tilemaker-pmtiles": TILEMAKER_INPUTS,
 }
 
 #: D-067: the converters that run a program no archive packages, carried as a
@@ -968,13 +1035,15 @@ class DerivedDataInstall(Strict):
         "mapsforge-map",
         "mapsforge-poi",
         "ustopo-mosaic",
+        "tilemaker-pmtiles",
     ] = Field(
         description=(
             "The transformation to run. Each needs a `source` of one particular "
             "install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): "
             "`navit-maptool`, `mkgmap`, `routino-planetsplitter`, `brouter-mapcreator`, "
-            "`mapsforge-map` and `mapsforge-poi` need an `osm-regions` source; `gdal-dem` needs a "
-            "`dem-tiles` source; `ustopo-mosaic` needs a `topo-quads` source (D-068)."
+            "`mapsforge-map`, `mapsforge-poi` and `tilemaker-pmtiles` need an `osm-regions` "
+            "source; `gdal-dem` needs a `dem-tiles` source; `ustopo-mosaic` needs a "
+            "`topo-quads` source (D-068)."
         )
     )
     source: str = Field(
@@ -1016,6 +1085,14 @@ class DerivedDataInstall(Strict):
             "it the routes are flat. Must also be in `depends`."
         ),
     )
+    kit: str | None = Field(
+        default=None,
+        description=(
+            "`tilemaker-pmtiles` only, and required there (D-071): the `data` unit "
+            "holding tilemaker's OpenMapTiles profile (config and Lua) and the Natural "
+            "Earth shapefiles the profile names. Must also be in `depends`."
+        ),
+    )
     licence: str = Field(
         min_length=2,
         description="SPDX identifier where one exists, else the publisher's own words.",
@@ -1045,23 +1122,30 @@ class DerivedDataInstall(Strict):
                 f"converter {self.converter!r} runs only what the archive installs; a `tool` "
                 f"on it would be fetched for nothing"
             )
-        for name, (_, required) in BROUTER_INPUTS.items():
-            value = getattr(self, name)
-            if self.converter != "brouter-mapcreator":
-                if value is not None:
-                    raise ManifestError(
-                        f"{name} is read only by the brouter-mapcreator converter, not "
-                        f"{self.converter!r}"
-                    )
-            elif required and value is None:
-                raise ManifestError(f"converter brouter-mapcreator needs {name}: the unit it reads")
+        for owner, fields in CONVERTER_INPUTS.items():
+            for name, (_, required) in fields.items():
+                value = getattr(self, name)
+                if self.converter != owner:
+                    if value is not None:
+                        raise ManifestError(
+                            f"{name} is read only by the {owner} converter, not {self.converter!r}"
+                        )
+                elif required and value is None:
+                    raise ManifestError(f"converter {owner} needs {name}: the unit it reads")
         return self
 
     def inputs(self) -> tuple[str, ...]:
         """Every other unit this block reads at run time; each must be in `depends`."""
         return tuple(
             unit
-            for unit in (self.source, self.boundaries, self.program, self.profiles, self.elevation)
+            for unit in (
+                self.source,
+                self.boundaries,
+                self.program,
+                self.profiles,
+                self.elevation,
+                self.kit,
+            )
             if unit is not None
         )
 
@@ -1915,7 +1999,7 @@ def derived_source_method_problem(
                     f"needs source {block.source!r} to be a {needed!r} unit, but "
                     f"{block.source!r} is {sorted(methods)!r}"
                 )
-        for field_name, (method, _) in BROUTER_INPUTS.items():
+        for field_name, (method, _) in CONVERTER_INPUTS.get(block.converter, {}).items():
             unit = getattr(block, field_name)
             found = catalog.get(unit) if unit is not None else None
             if found is None:

@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 72 | 2 | 205 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 72 | 2 | 205 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 70 | 2 | 207 |
-| kali-rolling *(unswept)* | 0 | 0 | 67 | 0 | 212 |
-| parrot *(unswept)* | 0 | 0 | 70 | 2 | 207 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 70 | 2 | 207 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 69 | 5 | 205 |
+| debian-13 *(unswept)* | 0 | 0 | 74 | 2 | 205 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 74 | 2 | 205 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 72 | 2 | 207 |
+| kali-rolling *(unswept)* | 0 | 0 | 69 | 0 | 212 |
+| parrot *(unswept)* | 0 | 0 | 72 | 2 | 207 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 72 | 2 | 207 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 71 | 5 | 205 |
 
-**279 manifests** against **7 targets**.
+**281 manifests** against **7 targets**.
 
 ---
 
@@ -222,6 +222,7 @@ build HAS been run in a container say so in their own install notes.
 | `openocd` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `osm-garmin` | derived | derived | derived | derived | derived | derived | derived |
 | `osm-navit` | derived | derived | derived | derived | derived | derived | derived |
+| `osm-pmtiles` | derived | derived | derived | derived | derived | derived | derived |
 | `osm-regions` | osm-regions | osm-regions | osm-regions | osm-regions | osm-regions | osm-regions | osm-regions |
 | `osm-routino` | derived | derived | derived | derived | derived | derived | derived |
 | `osmo-sdr` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -311,6 +312,7 @@ build HAS been run in a container say so in their own install notes.
 | `usbutils` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `usgs-ustopo` | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads |
 | `ustopo-qmapshack` | derived | derived | derived | derived | derived | derived | derived |
+| `vector-map-kit` | data | data | data | data | data | data | data |
 | `voacapl` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `welle-io` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `wfview` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
