@@ -23,7 +23,7 @@ A map shows where things are; a POI file lets the phone find them by name or kin
 
 ## How it installs
 
-- converted from osm-regions by mapsforge-poi (ODbL-1.0, https://www.openstreetmap.org/copyright)
+- converted from osm-regions by mapsforge-poi (ODbL-1.0, https://www.openstreetmap.org/copyright), running `mapsforge-poi-writer-0.25.0-jar-with-dependencies.jar` fetched from https://repo1.maven.org/maven2/org/mapsforge/mapsforge-poi-writer/0.25.0/mapsforge-poi-writer-0.25.0-jar-with-dependencies.jar (18827962 bytes, LGPL-3.0), sha256 `85dd23488511f51a710139dffc8c622d184ea93e817c4ec27dde1c222b7432a7`, pinned by Hammunition; a signature is published at https://repo1.maven.org/maven2/org/mapsforge/mapsforge-poi-writer/0.25.0/mapsforge-poi-writer-0.25.0-jar-with-dependencies.jar.asc and not verified
 
 ## Known problems
 

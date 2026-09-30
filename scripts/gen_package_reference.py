@@ -92,9 +92,22 @@ def method_of(block: InstallBlock) -> str:
             f"({install.licence}, {install.licence_url})"
         )
     if isinstance(install, DerivedDataInstall):
-        return (
+        converted = (
             f"converted from {install.source} by {install.converter} "
             f"({install.licence}, {install.licence_url})"
+        )
+        if install.tool is None:
+            return converted
+        tool = install.tool
+        signed = (
+            f"; a signature is published at {tool.artifact.signature_url} and not verified"
+            if tool.artifact.signature_url
+            else ""
+        )
+        return (
+            f"{converted}, running `{tool.file_name}` fetched from {tool.artifact.url} "
+            f"({tool.size} bytes, {tool.licence}), sha256 `{tool.artifact.sha256}`, "
+            f"pinned by Hammunition{signed}"
         )
     if isinstance(install, NodeInstall):
         return (
