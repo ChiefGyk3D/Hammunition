@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**279 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**280 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -224,10 +224,11 @@ Practice tests for the US, Canadian and commercial licence exams.
 - [fccexam](fccexam.md) — Practice tests for the US FCC commercial radio licence exams
 - [hamexam](hamexam.md) — Practice tests for the United States amateur radio licence exams
 
-### `gps-gnss` — 7
+### `gps-gnss` — 8
 
 GPS receivers and the daemon that shares one, format converters, and a GNSS receiver in software.
 
+- [chrony](chrony.md) — The clock follows your GPS receiver when the network is gone — chrony reading gpsd
 - [gnss-sdr](gnss-sdr.md) — A complete GPS and GNSS receiver built entirely in software
 - [gpsbabel](gpsbabel.md) — Converts between GPS file formats and talks to the receiver
 - [gpsd](gpsd.md) — GPS service daemon — one process owns the receiver, everything else asks it
@@ -593,10 +594,11 @@ Pictures over radio: slow-scan television, weather fax, and analogue television 
 - [qsstv](qsstv.md) — Slow-scan television and radiofax — receive and transmit pictures
 - [xwefax](xwefax.md) — Receives HF weather fax and draws the chart
 
-### `time-frequency` — 3
+### `time-frequency` — 4
 
 Clocks, radio time signals and time-zone displays for the operating position.
 
+- [chrony](chrony.md) — The clock follows your GPS receiver when the network is gone — chrony reading gpsd
 - [radioclk](radioclk.md) — Disciplines the system clock from an MSF, WWVB or DCF77 time signal
 - [twclock](twclock.md) — World clock for the operating position, with a CW station-ID timer
 - [tzwatch](tzwatch.md) — Prints the time in several time zones at once, in a terminal
@@ -703,6 +705,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [canadian-ham-exam](canadian-ham-exam.md) | Practice tests for the Canadian amateur radio qualification exams | apt |
 | [cassbeam](cassbeam.md) | Models Cassegrain dish antennas — the microwave and radio-astronomy case | apt |
 | [chirp](chirp.md) | Reads, edits and writes the memory channels of hundreds of radios | apt |
+| [chrony](chrony.md) | The clock follows your GPS receiver when the network is gone — chrony reading gpsd | apt |
 | [claws-mail](claws-mail.md) | The fast, plain-text-first mail client AHRL shipped | apt |
 | [code](code.md) | Microsoft's Visual Studio Code build — optional alternative to the VSCodium your distro ships | apt |
 | [codium](codium.md) | VSCodium — Microsoft's VS Code source, built without their telemetry or branding | apt |

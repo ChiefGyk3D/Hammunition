@@ -1762,7 +1762,7 @@ def resolve(
             reason = (
                 f"installing it means apt removes installed distribution package(s): {removed} "
                 f"(a declared conflicts_with_repo_package that cannot coexist -- the archive "
-                f"package Breaks it)"
+                f"package Breaks or Conflicts with it)"
             )
         else:
             subject = ", ".join(sorted({m.name for m, _, _, _ in resolved if m.name in wanted}))

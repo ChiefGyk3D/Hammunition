@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 72 | 2 | 205 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 72 | 2 | 205 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 70 | 2 | 207 |
-| kali-rolling *(unswept)* | 0 | 0 | 67 | 0 | 212 |
-| parrot *(unswept)* | 0 | 0 | 70 | 2 | 207 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 70 | 2 | 207 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 69 | 5 | 205 |
+| debian-13 *(unswept)* | 0 | 0 | 72 | 2 | 206 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 72 | 2 | 206 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 70 | 2 | 208 |
+| kali-rolling *(unswept)* | 0 | 0 | 67 | 0 | 213 |
+| parrot *(unswept)* | 0 | 0 | 70 | 2 | 208 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 70 | 2 | 208 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 69 | 5 | 206 |
 
-**279 manifests** against **7 targets**.
+**280 manifests** against **7 targets**.
 
 ---
 
@@ -83,6 +83,7 @@ build HAS been run in a container say so in their own install notes.
 | `canadian-ham-exam` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `cassbeam` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `chirp` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `chrony` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `claws-mail` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `code` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `codium` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
