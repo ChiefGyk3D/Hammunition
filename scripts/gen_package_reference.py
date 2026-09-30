@@ -56,6 +56,7 @@ from hammunition.manifest.schema import (  # noqa: E402
     RegionalDataInstall,
     SourceInstall,
     Status,
+    TopoQuadsInstall,
     VenvInstall,
 )
 
@@ -91,6 +92,11 @@ def method_of(block: InstallBlock) -> str:
         return (
             f"elevation tiles from {install.provider} for the regions in station config "
             f"({install.licence}, {install.licence_url})"
+        )
+    if isinstance(install, TopoQuadsInstall):
+        return (
+            f"topographic map sheets from {install.provider} for the regions in station "
+            f"config ({install.licence}, {install.licence_url})"
         )
     if isinstance(install, KiwixBooksInstall):
         return (

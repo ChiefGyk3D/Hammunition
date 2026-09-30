@@ -140,6 +140,7 @@ from hammunition.manifest.schema import (
     PackageManifest,
     ProfileManifest,
     RegionalDataInstall,
+    TopoQuadsInstall,
 )
 from hammunition.paths import applications_dir, build_root, node_root, user_bin_dir, venv_root
 from hammunition.phone_plan import build_phone_run
@@ -164,6 +165,8 @@ from hammunition.station import (
 )
 from hammunition.sudo_ticket import SudoKeepalive, keepalive_wanted
 from hammunition.terrain_plan import brouter_pins, build_terrain_run, resolve_station_terrain
+from hammunition.topo_plan import INDEX as USTOPO_INDEX
+from hammunition.topo_plan import MemoProbe, resolve_station_topo
 from hammunition.update import books_state, region_snapshots, render, report, requested_units
 from hammunition.upstream import (
     NOT_UPSTREAM,
@@ -173,6 +176,9 @@ from hammunition.upstream import (
     probe_upstream,
 )
 from hammunition.upstream import render as render_upstream
+from hammunition.ustopo import UstopoError
+from hammunition.ustopo import bucket_probe as ustopo_probe
+from hammunition.ustopo import load_index as load_ustopo_index
 
 if TYPE_CHECKING:
     from hammunition.hardware.power import KeptEntry, Parkable
@@ -658,6 +664,7 @@ def cmd_update(args: argparse.Namespace) -> int:
         regions=regions_by_unit,
         tiles=installed_tile_counts(plan, source.prefix),
         no_terrain=no_terrain_counts(plan, source.prefix),
+        quads=installed_quad_counts(plan, source.prefix, catalog_root),
         books=books_by_unit,
     )
     lists_note = _apt_lists_note(apt)
@@ -1830,6 +1837,28 @@ def installed_tile_counts(plan: InstallPlan, prefix: Path) -> dict[str, int]:
     }
 
 
+def installed_quad_counts(
+    plan: InstallPlan, prefix: Path, catalog_root: Path
+) -> dict[str, tuple[int, int]]:
+    """topo-quads, offline (D-068): how many sheets each unit has installed,
+    and how many of those the carried index has replaced with a newer
+    edition. Counts, never names. With no readable index, none is called
+    stale: the report does not guess."""
+    units = [p for p in plan.packages if isinstance(p.block.install, TopoQuadsInstall)]
+    if not units:
+        return {}
+    try:
+        listed = {q.name for q in load_ustopo_index(catalog_root / USTOPO_INDEX).quads}
+    except UstopoError:
+        listed = None
+    counts: dict[str, tuple[int, int]] = {}
+    for planned in units:
+        names = [p.stem for p in (data_root(prefix) / planned.name).glob("*.tif")]
+        stale = 0 if listed is None else sum(1 for n in names if n not in listed)
+        counts[planned.name] = (len(names), stale)
+    return counts
+
+
 def no_terrain_counts(plan: InstallPlan, prefix: Path) -> dict[str, int]:
     """dem-tiles, offline (final review, I1): how many regions' records say
     Copernicus publishes no tile for any of their squares, never which."""
@@ -2068,20 +2097,37 @@ def cmd_install(args: argparse.Namespace) -> int:
     kept = frozenset(k.slug for k in resolution.kept)
     # D-061: terrain tiles for the same regions, resolved before the plan
     # prints for the same reason -- each tile's size and how it is verified
-    # are the disclosure.
+    # are the disclosure. The outlines are asked once for both (D-068).
+    outlines = MemoProbe(UrllibProbe())
     try:
         dem_resolution = resolve_station_terrain(
             plan,
             resolution,
             catalog_root,
             prefix=source.prefix,
-            region_probe=UrllibProbe(),
+            region_probe=outlines,
             tile_probe=S3Probe(),
         )
     except CopernicusError as exc:
         print(f"error: {exc}", file=sys.stderr)
         print("\nNothing was changed.", file=sys.stderr)
         refused("terrain", str(exc))
+        return EXIT_UNPLANNABLE
+    # D-068: the US Topo sheets for the same regions, each HEAD-checked
+    # against the ETag the carried index lists.
+    try:
+        topo_resolution, topo_notes = resolve_station_topo(
+            plan,
+            resolution,
+            catalog_root,
+            prefix=source.prefix,
+            region_probe=outlines,
+            quad_probe=ustopo_probe(),
+        )
+    except UstopoError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        print("\nNothing was changed.", file=sys.stderr)
+        refused("US Topo", str(exc))
         return EXIT_UNPLANNABLE
     # D-066: the chosen Kiwix books, resolved against the book list and its
     # pins, and every one not yet installed HEAD-checked, before the plan
@@ -2106,6 +2152,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         fetcher=source.fetcher, prefix=source.prefix, files=book_files, runner=runner
     )
     region_notes = list(resolution.notes)
+    region_notes.extend(topo_notes)
     try:
         border, countries, border_notes = map_borders(plan, packages, catalog_root, source.prefix)
     except CountryBoundaryError as exc:
@@ -2143,6 +2190,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         regions=ledger,
         resolution=dem_resolution,
         pins=brouter_pins(plan),
+        topo=topo_resolution,
     )
     # D-067: the phone converters, from the same regions, as the operator.
     phone = build_phone_run(
@@ -2256,6 +2304,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         regions=regions,
         derived=derived,
         dem=terrain.dem,
+        topo=terrain.topo,
         books=books,
         repos=repos,
         config_staging=builds,

@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**277 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**279 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -302,7 +302,7 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `navigation-maps` — 19
+### `navigation-maps` — 21
 
 Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
 
@@ -325,6 +325,8 @@ Offline maps, turn-by-turn navigation and the position on a moving map, with no 
 - [qmapshack](qmapshack.md) — Offline topographic maps, trails, GPX tracks, elevation profiles and routing on foot
 - [routino](routino.md) — Offline routing over OpenStreetMap data, on foot, by bike or by car
 - [socat](socat.md) — A relay between two data channels, sockets, files or programs
+- [usgs-ustopo](usgs-ustopo.md) — USGS US Topo 7.5-minute map sheets for your US map regions, verified
+- [ustopo-qmapshack](ustopo-qmapshack.md) — The US Topo sheets as one seamless QMapShack map, collars cropped
 
 ### `nbems` — 5
 
@@ -927,6 +929,8 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [uhd-soapysdr](uhd-soapysdr.md) | Makes SoapySDR devices visible to software written for UHD | apt |
 | [uronode](uronode.md) | Node front end that lets other stations reach services on your machine | apt |
 | [usbutils](usbutils.md) | lsusb — step one of every hardware problem in this catalog | apt |
+| [usgs-ustopo](usgs-ustopo.md) | USGS US Topo 7.5-minute map sheets for your US map regions, verified | topo-quads |
+| [ustopo-qmapshack](ustopo-qmapshack.md) | The US Topo sheets as one seamless QMapShack map, collars cropped | derived |
 | [voacapl](voacapl.md) | The VOACAP HF propagation prediction engine, ported to Linux | apt |
 | [welle-io](welle-io.md) | DAB and DAB+ digital radio receiver with a modern interface | apt |
 | [wfview](wfview.md) | Control a modern Icom radio, waterfall and all, over USB or the network | apt |

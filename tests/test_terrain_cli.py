@@ -173,6 +173,7 @@ def test_the_run_discloses_each_converter_s_pending_work(tmp_path: Path) -> None
         "mkgmap",
         "routino-planetsplitter",
         "gdal-dem",
+        "ustopo-mosaic",
         "brouter-mapcreator",
     }
 

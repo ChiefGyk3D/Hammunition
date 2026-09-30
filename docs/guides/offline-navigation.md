@@ -12,15 +12,16 @@ storm has taken the towers down, that is exactly what is missing. The
 the laptop, converted for Navit, with Navit following your GPS receiver
 through gpsd and speaking the turns. For trails and terrain it also builds
 maps for QMapShack from the same regions, a routing database for walking,
-and elevation with contour lines (**D-061**). Once it is installed, using it
-needs no network at all.
+and elevation with contour lines (**D-061**), and for US regions it lays the
+official USGS topographic sheets over them (**D-068**). Once it is
+installed, using it needs no network at all.
 
 Daily use and EMCOMM are the same setup. The maps have to be on the disk
 before anything goes wrong, so the way to be ready for the bad day is to use
 it on ordinary days and refresh it as routine. The decision records behind
-all of this are **D-057**, **D-061** and, for repeaters, **D-064** in
-`docs/DECISIONS.md`; section 14 makes the same maps for the team's phones
-(**D-067**).
+all of this are **D-057**, **D-061**, **D-068** for the official topo
+sheets and, for repeaters, **D-064** in `docs/DECISIONS.md`; section 14
+makes the same maps for the team's phones (**D-067**).
 
 The examples below use Vermont and New Hampshire. Use your own regions.
 
@@ -1128,6 +1129,102 @@ small region first.
 
 ---
 
+## 15. Official topo sheets: USGS US Topo
+
+For a region in the United States, the `navigation` profile also installs
+the **USGS US Topo** map sheets its outline touches (`usgs-ustopo`) and
+makes them one QMapShack map (`ustopo-qmapshack`). A US Topo sheet is the
+printed 7.5-minute topographic map, public domain: trails by the name on the
+signpost (the Park Service's and the Forest Service's own names),
+campgrounds, visitor centres, shelters, roads, water, woodland and 40 ft
+contours, drawn by USGS. OpenStreetMap already has nearly every trail's
+line; the sheet adds the official names and the look search teams and
+rangers hand out on paper.
+
+Nothing is set for it beyond your map regions. The plan's *US Topo* part,
+under Terrain, lists each region's sheet count and size, every sheet to be
+downloaded with how it is checked, and what is built:
+
+```
+hammunition install navigation --dry-run
+```
+
+**How much.** A sheet is about 8 MB (2 to 20 MB). Measured from USGS's
+index on 2026-09-29: Delaware's 38 sheets are about 220 MB, Vermont's 194
+about 1.6 GB, Virginia's 729 about 6 GB. A region's outline touches the
+sheets just across its borders too, so expect a little more than the
+state's own. Each sheet is kept twice once built (the download, and the
+copy made for QMapShack), so allow about twice those figures.
+
+**Outside the United States** a region gets no sheets. The plan says
+`note: no US Topo quad covers <region>` and everything else installs.
+OpenStreetMap stays the trail map there. (The UK's Ordnance Survey
+publishes a checksum for each of its open files, the pattern a future UK
+source would follow; nothing outside the US is carried yet.)
+
+**How each sheet is checked.** Hammunition carries an index of every
+current sheet, `catalog/data/ustopo-quads.txt`, built from USGS's own list
+and its storage bucket, with each sheet's size and the checksum the bucket
+keeps for it (its ETag). Before the download the bucket is asked again, and
+must still report the same; the download must then reproduce it. The plan
+says **"MD5 from the publisher's object metadata; not pinned by
+Hammunition"** for every sheet: see [What the verification wording
+means](#what-the-verification-wording-means).
+
+**In QMapShack.** `qmapshack-offline` adds
+`/usr/local/share/hammunition/data/ustopo-qmapshack` to QMapShack's map
+directories. In the *Maps* dock, `ustopo` is one map covering every sheet;
+tick it to show it, and drag it above or below the Garmin maps. Each sheet
+was reprojected and cropped to its own quadrangle when it was built, so the
+white margin and legend around a printed sheet are gone and neighbouring
+sheets are meant to meet edge to edge (the crop was measured on one sheet;
+the seam between two has not been looked at). The legend is not in the map: USGS's own
+[US Topo symbol sheet](https://www.usgs.gov/programs/national-geospatial-program/us-topo-maps-america)
+explains the symbols.
+
+**Not measured yet: QMapShack drawing it.** In the one run so far,
+QMapShack opened the map file and listed it, and the map area stayed blank,
+for a reason not yet found. It has not been run on the field laptop. If it
+stays blank for you, see
+[US Topo is listed but draws nothing](#us-topo-is-listed-but-draws-nothing).
+
+**Newer editions.** USGS revises a sheet every few years. When the carried
+index lists a newer edition than the one installed, `hammunition update`
+counts it (never naming the sheet), and
+`hammunition install usgs-ustopo ustopo-qmapshack` fetches the new edition,
+removes the old one once the new one is installed (if it does not arrive,
+the old one stays, in the map too) and rebuilds the map. A sheet USGS adds
+where it had none is picked up only when a region is added or changed,
+since a region's sheets are remembered after its first install.
+
+**Not carried, and why:**
+
+- **Park Service, Forest Service and state trail lines as a second layer.**
+  OpenStreetMap already has 97.5 % of Shenandoah National Park's official
+  trail mileage within 25 m, and 96 % of a sample of the George Washington
+  and Jefferson National Forest's. A second layer draws every trail twice,
+  and the US Topo sheet already shows the official names.
+- **1 m lidar elevation**: one Shenandoah project alone is 26.9 GB.
+- **The PDF editions (GeoPDF)**: six times the size, and they would have
+  to be turned into images anyway.
+- **Historical topographic maps**: of historical interest; Vermont alone is
+  9.4 GB.
+- **Park PDF trail maps**: not georeferenced, so a program cannot place them.
+- **BLM and Fish and Wildlife Service layers**: only answerable as online
+  queries, with no fixed file to check.
+- **Protected-area boundaries (PAD-US)**: later, if at all; its publisher
+  gives no checksum.
+- **Park points of interest and boundaries as GPX**: a later piece, once
+  there is a checksum to check them by.
+
+Next for the US (**D-068**): the Forest Service's FSTopo sheets, which carry
+trail numbers across the national forests, and USGS 3DEP elevation as an
+opt-in alternative to Copernicus. Copernicus measures the top of the tree
+canopy: in Shenandoah's forest it reads about 12 m above the ground on
+average, so its contours ride the treetops; 3DEP is the bare ground.
+
+---
+
 ## What QMapShack does not do (yet)
 
 - **No offline address search**: use Navit (section 10).
@@ -1198,6 +1295,9 @@ one US-state-sized region:
 | BRouter itself | about 8.5 MB, once | `/usr/local/share/hammunition/brouter/` | Until uninstall |
 | BRouter's routing files, all regions | about 0.2× all the regions together (Delaware: 3.3 MB from 22.1 MB) | `/usr/local/share/hammunition/data/brouter-segments/` | Rebuilt when the regions or tiles change |
 | Their build scratch | up to 3× all the regions together (an allowance, not measured), plus the merged regions when there are two or more, and about 650 MB of elevation scratch for one 5-degree square at a time | `~/.cache/hammunition/build/brouter-segments/` | Only while they build |
+| US Topo sheets (US regions) | about 8 MB a sheet | `/usr/local/share/hammunition/data/usgs-ustopo/` | Until uninstall, or no region needs the sheet |
+| The sheets made for QMapShack | about 1× each sheet, measured on one | `/usr/local/share/hammunition/data/ustopo-qmapshack/` | As long as the sheets |
+| Their build scratch | about 1× one sheet at a time | `~/.cache/hammunition/build/ustopo-qmapshack/` | Only while it builds |
 
 Terrain is the part that grows fastest with a region's area. Measured on
 2026-09-28 over Geofabrik's US state outlines: a region's terrain is tens
@@ -1258,6 +1358,13 @@ Elevation tiles use the same two levels, in their own words:
   the tile is checked against the MD5 the storage service keeps for the
   file. It catches a damaged download, not a deliberately altered one.
 
+US Topo sheets (section 15) always get the second wording. The index
+carries the checksum the storage service reported when it was built, the
+bucket is asked again before each download, and the download must
+reproduce it. For a sheet uploaded in parts that checksum is the MD5 of each
+part's MD5; Hammunition works out the part size by trying each whole
+megabyte-size part, and a download matching none is refused by name.
+
 Today no tile is pinned, so every tile gets the second wording. The pin
 list grows as Hammunition measures tiles, in a fixed order that covers the
 50 US states and DC, and a tile pinned later is checked the stronger way
@@ -1314,6 +1421,21 @@ names it, and this puts it back:
 ```
 sudo apt-get install --reinstall routino-common
 ```
+
+### US Topo is listed but draws nothing
+
+Not yet explained (section 15). Things worth trying, and reporting back
+with what happened:
+
+- Tick `ustopo` in the *Maps* dock, then zoom to a place inside one of your
+  US regions: the map draws only over the sheets you have.
+- Check the map file names sheets that exist:
+  `gdalinfo /usr/local/share/hammunition/data/ustopo-qmapshack/ustopo.vrt`
+  prints its size and corners in Web Mercator; if it reports an error
+  opening a sheet, `hammunition install ustopo-qmapshack` rebuilds the map
+  from the sheets that are there.
+- Move `ustopo` above the Garmin maps in the dock; a map below an opaque
+  one is hidden.
 
 ### Navit opens on a blank map
 
@@ -1428,6 +1550,12 @@ BRouter itself and its two filter files go with:
 hammunition uninstall brouter brouter-mapcreator-profiles
 ```
 
+and the US Topo sheets and their QMapShack map:
+
+```
+hammunition uninstall ustopo-qmapshack usgs-ustopo
+```
+
 Your QMapShack settings keep the directories the launcher added; QMapShack
 lists nothing there once they are gone.
 
@@ -1497,6 +1625,17 @@ measured, and owed by the bench:
 - The build on a real region through `hammunition install`, with its time,
   memory and scratch; the scratch figure in the plan is an allowance.
 - Java on the targets other than Parrot.
+
+For the US Topo sheets (**D-068**), one Delaware sheet was downloaded,
+checked against its two-part checksum, reprojected and cropped on the
+development host on 2026-09-29 (2.5 s, 9.2 MB in, 8.9 MB out with
+overviews). Not yet run:
+
+- **QMapShack drawing the US Topo map.** One run on the development host
+  opened the map file and left the map area blank, reason unknown. This
+  belongs in a virtual machine, not on a desktop in use: QMapShack's
+  single-instance socket is shared whatever `HOME` is set to.
+- The whole install of the sheets through Hammunition, on any machine.
 
 Measured on the field laptop on 2026-09-29, and recorded in bench session
 12: the whole install on two regions, with its build times; QMapShack

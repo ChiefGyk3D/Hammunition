@@ -1073,6 +1073,21 @@ def _dem_tiles_manifest(name: str = "dem-copernicus") -> PackageManifest:
     )
 
 
+_USGS = {
+    "licence": "Public domain (USGS)",
+    "licence_url": "https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits",
+}
+
+
+def _topo_quads_manifest(name: str = "usgs-ustopo") -> PackageManifest:
+    return PackageManifest.model_validate(
+        _minimal(
+            name=name,
+            install=[{"install": {"method": "topo-quads", "provider": "usgs-ustopo", **_USGS}}],
+        )
+    )
+
+
 def _derived_manifest(converter: str, source: str) -> PackageManifest:
     data = _minimal(
         name="derived-unit",
@@ -1099,6 +1114,7 @@ def _derived_manifest(converter: str, source: str) -> PackageManifest:
         ("mkgmap", _osm_regions_manifest()),
         ("routino-planetsplitter", _osm_regions_manifest()),
         ("gdal-dem", _dem_tiles_manifest()),
+        ("ustopo-mosaic", _topo_quads_manifest()),
     ],
 )
 def test_a_converter_fed_its_required_source_method_is_not_a_problem(
@@ -1186,3 +1202,70 @@ documentation:
     with pytest.raises(CatalogError, match="osm-garmin") as exc:
         load_catalog(tmp_path)
     assert "mkgmap" in str(exc.value) and "osm-regions" in str(exc.value)
+
+
+# ===========================================================================
+# D-068: official topographic sheets
+# ===========================================================================
+
+
+def test_topo_quads_is_an_implemented_method_and_uninstall_removes_its_tree(
+    tmp_path: Path,
+) -> None:
+    from hammunition.backends import IMPLEMENTED_METHODS
+    from hammunition.distro import Target
+    from hammunition.state.uninstall import RemovalPaths, plan_removal
+
+    assert "topo-quads" in IMPLEMENTED_METHODS
+    manifest = _topo_quads_manifest()
+    paths = RemovalPaths(
+        prefix=tmp_path / "prefix",
+        venv_root=tmp_path / "venvs",
+        bin_dir=tmp_path / "bin",
+        applications_dir=tmp_path / "applications",
+    )
+    directory = paths.prefix / "share" / "hammunition" / "data" / "usgs-ustopo"
+    directory.mkdir(parents=True)
+    (directory / "ZZ_Alpha_20240101.tif").write_bytes(b"x")
+    plan = plan_removal(
+        ["usgs-ustopo"],
+        catalog={"usgs-ustopo": manifest},
+        profiles={},
+        target=Target(distro="debian", version="13", arch="x86_64"),
+        attributed=frozenset(),
+        states={},
+        paths=paths,
+    )
+    assert [(a.kind, a.path) for a in plan.artifacts["usgs-ustopo"]] == [("tree", directory)]
+
+
+def test_a_topo_quads_block_takes_no_provider_but_its_enum() -> None:
+    with pytest.raises(ValueError):
+        PackageManifest.model_validate(
+            _minimal(
+                name="usgs-ustopo",
+                install=[{"install": {"method": "topo-quads", "provider": "usfs-fstopo", **_USGS}}],
+            )
+        )
+    with pytest.raises(ValueError, match="https"):
+        PackageManifest.model_validate(
+            _minimal(
+                name="usgs-ustopo",
+                install=[
+                    {
+                        "install": {
+                            "method": "topo-quads",
+                            "licence": "Public domain",
+                            "licence_url": "http://www.usgs.gov/",
+                        }
+                    }
+                ],
+            )
+        )
+
+
+def test_ustopo_mosaic_fed_a_dem_tiles_source_is_refused_by_name() -> None:
+    source = _dem_tiles_manifest()
+    derived = _derived_manifest("ustopo-mosaic", source.name)
+    problem = derived_source_method_problem(derived, {source.name: source})
+    assert problem is not None and "topo-quads" in problem and "ustopo-mosaic" in problem

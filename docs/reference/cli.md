@@ -199,6 +199,12 @@ not release)`. When `osm-regions` is behind, the footer's command also names
 `osm-garmin` and `osm-routino` if they are installed, since they are built
 from the same regions.
 
+For `usgs-ustopo` (**D-068**) the row is a count too, since a sheet's name is
+a place: `12 US Topo quad(s) installed, each at the edition the carried index
+lists`, or, *behind the pin*, `...; 3 of them have a newer edition in the
+carried index`, and then the footer's command names `ustopo-qmapshack` beside
+it, which warps the new sheets.
+
 With `--json`, prints an `update` document
 ([json-interface.md](json-interface.md)) with the same rows, counts and
 commands. It keeps the text's count-only rule: `osm-regions` is a count
@@ -269,8 +275,9 @@ What the `qmapshack-offline` launcher runs (**D-061**). It adds
 Hammunition's map, elevation and routing directories to QMapShack's own
 settings, `$XDG_CONFIG_HOME/QLandkarte/QMapShack.conf` (by default
 `~/.config/QLandkarte/QMapShack.conf`), then starts `qmapshack`. The keys
-are `mapPath` (the Garmin maps and the contour map) and `demPaths` (the
-elevation) under `[Canvas]`, and `Route/routino/paths` (the Routino
+are `mapPath` (the Garmin maps, the contour map and, from **D-068**, the US
+Topo mosaic's directory, whose `ustopo.vrt` QMapShack lists) and `demPaths`
+(the elevation) under `[Canvas]`, and `Route/routino/paths` (the Routino
 database) under `[Route]`: the names read from QMapShack 1.17.1's binary,
 the groups measured on the field laptop (2026-09-29). An earlier version
 wrote the two lists under `[General]`, which QMapShack ignores; its own
@@ -838,6 +845,44 @@ did not install. It refuses at plan time, exit 2, changing nothing:
 
 With no regions set, all four units are deferred by name with the rest of
 the map data.
+
+**US Topo (D-068).** When the plan holds `usgs-ustopo` or
+`ustopo-qmapshack`, the Terrain block ends with a *US Topo* part. Each
+region's sheets are read from its record (`usgs-ustopo/<slug>.quads`,
+whole rows of the index, so an offline plan needs nothing else) or chosen
+from its outline, the same fetch the terrain uses: the quads in the carried
+index `catalog/data/ustopo-quads.txt` whose box overlaps an eighth-of-a-degree
+cell the outline touches. Each sheet not installed is asked for with a
+`HEAD` to USGS's bucket, which must answer with the size and ETag the index
+carries. From the test suite's synthetic plan:
+
+```
+  US Topo, USGS 7.5-minute quads (D-068):
+    atlantis/oceania  2 quad(s), 17.0 MB; 9.0 MB to download
+    note: no US Topo quad covers atlantis/lemuria (US Topo covers the United States and its territories)
+    (a region's quads are read from its outline at Geofabrik until
+    they are installed and its record written)
+    will be downloaded (1 quad(s), 9.0 MB):
+      ZZ_Alpha_20240101     9.0 MB  MD5 from the publisher's object metadata; not pinned by Hammunition
+    already installed: 1 quad(s)
+      licence: Public domain (USGS), stated at https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits
+    warped for QMapShack: 1 quad(s), about 9.0 MB (1.0x each download, measured on one quad)
+      about 18.0 MB of disk for US Topo (measured on one quad)
+```
+
+Every sheet is checked against its S3 ETag: a single-part upload's is its
+MD5, a multipart one's the MD5 of its parts' MD5s, reproduced by trying each
+whole-MiB part size. The commands section shows each sheet's fetch and
+install, each region's record, each warp and its overviews (as the operator,
+in `~/.cache/hammunition/build/ustopo-qmapshack/`), the one `ustopo.vrt`,
+and the same last step that fails the run by name if anything did not
+install. A region outside the United States gets the `note:` line and does
+not fail the run. The plan refuses, exit 2, changing nothing, when the
+index is missing or empty, when an outline cannot be read, or when a sheet
+not installed is not in the bucket as the index says (every such one named
+together, with `scripts/gen_ustopo_index.py --fetch`, which regenerates the
+index). Offline, a region whose record names an edition the index has since
+replaced keeps its installed sheets, and a `note:` says so.
 
 **Recommends, per unit (D-052).** Recommends are not suppressed globally —
 that would deviate from what every target distribution does, and several ham

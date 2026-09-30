@@ -13,7 +13,9 @@ stage: post-1.0
 # Piece 2 (docs/superpowers/specs/2026-09-28-hiking-maps-design.md, D-061):
 # QMapShack with trails, terrain and routing on foot. D-063 adds BRouter,
 # QMapShack's second offline router, over routing files built from the same
-# regions and terrain. Piece 3 (Kiwix, tile servers) adds to it.
+# regions and terrain. D-068: USGS US Topo sheets as a QMapShack map
+# (docs/superpowers/specs/2026-09-29-official-topo-design.md). Piece 3
+# (Kiwix, tile servers) adds to it.
 packages:
   - gpsd
   - gpsd-clients
@@ -33,6 +35,8 @@ packages:
   - brouter
   - brouter-mapcreator-profiles
   - brouter-segments
+  - usgs-ustopo
+  - ustopo-qmapshack
 
 documentation:
   what_it_installs: >-
@@ -48,7 +52,9 @@ documentation:
     (`osm-garmin`), one Routino database over all of them for routes on foot
     (`osm-routino`), Copernicus elevation tiles for the regions
     (`dem-copernicus`) and the hillshade, slope and contours drawn from them
-    (`dem-qmapshack`), opened by the `qmapshack-offline` launcher; BRouter
+    (`dem-qmapshack`), and for US regions the official USGS US Topo map
+    sheets (`usgs-ustopo`) made into one seamless QMapShack map
+    (`ustopo-qmapshack`), opened by the `qmapshack-offline` launcher; BRouter
     (`brouter`), QMapShack's second offline router, which weighs trail
     difficulty and climbs, over routing files built on the machine from the
     same regions and elevation (`brouter-segments`, with the two map-creator
@@ -66,7 +72,12 @@ documentation:
     each is built for every region and a team's phones are not every
     operator's. Tile servers are the next piece of this work; Kiwix and the
     rest of the offline reference are the `reference` profile (D-066).
-    Viking, Marble, GPSPrune and JOSM were measured and left out: Debian's Viking renders
+    Official trail lines from the Park Service, the Forest Service and the
+    states are not carried as a second layer, because OpenStreetMap already
+    has nearly all of them and a duplicate draws every trail twice; US Topo
+    shows their official names. Forest Service FSTopo sheets and USGS 3DEP
+    bare-earth elevation are the next US additions (D-068). Viking, Marble,
+    GPSPrune and JOSM were measured and left out: Debian's Viking renders
     nothing offline, Marble's offline place index has no packaged builder,
     and GPSPrune and JOSM use online tiles. BRouter's published routing
     files (brouter.de) are left out because they are regenerated weekly with
@@ -124,4 +135,6 @@ documentation:
     downloads together (Delaware: 3.3 MB from 22.1 MB), with up to three
     times the downloads of scratch allowed while they build (not measured)
     and about 650 MB of elevation scratch for one 5-degree square at a
-    time.
+    time. US Topo, for US regions: about 8 MB a sheet, twice over once
+    warped for QMapShack (Delaware about 220 MB of sheets, Vermont about
+    1.6 GB, Virginia about 6 GB, measured from the index on 2026-09-29).
