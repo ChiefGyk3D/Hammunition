@@ -44,16 +44,25 @@
 
 ```python
 def _block(**extra):
-    return {"method": "derived", "converter": "mapsforge-poi", "source": "osm-regions",
-            "licence": "ODbL-1.0", "licence_url": "https://www.openstreetmap.org/copyright", **extra}
+    return {
+        "method": "derived",
+        "converter": "mapsforge-poi",
+        "source": "osm-regions",
+        "licence": "ODbL-1.0",
+        "licence_url": "https://www.openstreetmap.org/copyright",
+        **extra,
+    }
+
 
 def test_mapsforge_poi_requires_its_tool():
     with pytest.raises(ValidationError, match="tool"):
         DerivedDataInstall.model_validate(_block())
 
+
 def test_a_tool_on_another_converter_is_refused():
     with pytest.raises(ValidationError, match="tool"):
         DerivedDataInstall.model_validate({**_block(tool=TOOL), "converter": "mkgmap"})
+
 
 def test_the_tool_names_a_bare_file():
     block = DerivedDataInstall.model_validate(_block(tool=TOOL))
@@ -76,9 +85,12 @@ class ConverterTool(Strict):
 
     @model_validator(mode="after")
     def _check(self) -> ConverterTool:
-        if not self.licence_url.startswith("https://"): raise ManifestError(...)
-        if not self.artifact.url.startswith("https://"): raise ManifestError(...)
-        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", self.file_name): raise ManifestError(...)
+        if not self.licence_url.startswith("https://"):
+            raise ManifestError(...)
+        if not self.artifact.url.startswith("https://"):
+            raise ManifestError(...)
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", self.file_name):
+            raise ManifestError(...)
         return self
 ```
 

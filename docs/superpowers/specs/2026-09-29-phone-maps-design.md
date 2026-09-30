@@ -84,7 +84,7 @@ last step fails by name. With no regions set both units are deferred by name
 (D-057's rule; no new code).
 
 The classpath is resolved when the conversion runs, after apt: a jar missing
-from it fails the region naming the jar and the package that ships it. It is
+from it fails the region naming the jar and the packages that install it. It is
 not resolved at plan time, where on a fresh machine none of it exists yet.
 
 ### Disk and time

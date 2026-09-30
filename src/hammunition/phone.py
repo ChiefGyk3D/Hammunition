@@ -262,7 +262,7 @@ def routes(directory: Path) -> tuple[Route, ...]:
                 "sudo apt install adb"
             ),
             phone="Developer options with USB debugging turned on",
-            commands=(f"adb push {folder}/. /sdcard/Download/hammunition/",),
+            commands=(f"adb push {folder} /sdcard/Download/",),
             note="Most phones do not have USB debugging on; turn it off again afterwards.",
         ),
         Route(

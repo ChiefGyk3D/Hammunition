@@ -18,7 +18,8 @@ needs no network at all.
 Daily use and EMCOMM are the same setup. The maps have to be on the disk
 before anything goes wrong, so the way to be ready for the bad day is to use
 it on ordinary days and refresh it as routine. The decision records behind
-all of this are **D-057** and **D-061** in `docs/DECISIONS.md`.
+all of this are **D-057** and **D-061** in `docs/DECISIONS.md`; section 13
+makes the same maps for the team's phones (**D-067**).
 
 The examples below use Vermont and New Hampshire. Use your own regions.
 
@@ -815,6 +816,127 @@ work, not what has been seen to.
 
 ---
 
+## 13. Maps for your phone
+
+The laptop can make the team's phone maps from the same regions, so every
+phone navigates on the same verified data with the phone network down
+(**D-067**). Two units build them, one file per region each:
+
+| Unit | File | What a phone app does with it |
+|---|---|---|
+| `mapsforge-map` | `<region>.map`, a Mapsforge vector map | draws it offline, with the app's own style |
+| `mapsforge-poi` | `<region>.poi`, a Mapsforge points-of-interest file | searches it for places by name or kind |
+| `osm-garmin` (section 9) | `<region>.img`, the Garmin map | a Garmin handheld reads it from its card; so does OruxMaps |
+
+They are their own profile, `phone-maps`, not part of `navigation`: every
+unit in a profile is built for every region, and a map for phones takes
+time. On Delaware (a 22 MB download) the map took 3 minutes 38 seconds and
+about 1 GB of memory, and the POI file 23 seconds; at that rate a region
+sixty times the size would take hours. Install it when you have phones to fill:
+
+```
+hammunition install phone-maps --dry-run
+hammunition install phone-maps
+```
+
+The plan says, for each region, what it builds and what it costs, with every
+figure marked "measured on one region". It also fetches one file that no
+archive packages: Mapsforge's POI writer, 18.8 MB from Maven Central,
+checked against a sha256 Hammunition measured. The plan says so, and says
+that the signature Central publishes beside it is recorded and not checked.
+Everything else comes from your distribution: `osmosis`,
+`libmapsforge-java` and a Java runtime.
+
+### Put the files in one folder
+
+```
+hammunition maps phone
+```
+
+copies every phone file installed into `~/.local/share/hammunition/phone/`,
+with a `SHA256SUMS` beside them, and prints how to carry them to a phone. It
+copies nothing that is already current, removes a file whose region you
+dropped, and touches nothing else in the folder. **It sends nothing
+anywhere**: the ways across are commands for you.
+
+### Get them onto the phones
+
+Install a map app that reads Mapsforge files on each phone **while it still
+has internet**. By their own documentation, Cruiser, Locus Map, OruxMaps and
+c:geo read Mapsforge maps and POI files. None of them has been tried with
+these files yet.
+
+**The laptop's hotspot and a browser.** Nothing to install, and every phone
+at once:
+
+```
+nmcli device wifi hotspot ssid hammunition-maps password 'choose-8-or-more'
+ip -4 addr show
+python3 -m http.server 8000 --bind 127.0.0.1 --directory ~/.local/share/hammunition/phone
+```
+
+Open `http://127.0.0.1:8000/` on the laptop to check the list, stop it with
+Ctrl-C, then serve it on the hotspot's own address, which `ip -4 addr show`
+lists on the Wi-Fi interface (NetworkManager uses 10.42.0.1 unless told
+otherwise):
+
+```
+python3 -m http.server 8000 --bind 10.42.0.1 --directory ~/.local/share/hammunition/phone
+```
+
+Join each phone to the hotspot and open `http://10.42.0.1:8000/` in its
+browser; the files land in Downloads, and the app opens them from there.
+**Always give `--bind`.** Without it, `http.server` answers on every network
+the laptop is on, a hotel's or an office's included; bound to the hotspot's
+address, only the phones on the hotspot can reach it. It is plain HTTP on a
+local link, which is why `SHA256SUMS` is in the list too, for anyone who can
+check a hash on the phone.
+
+**A USB cable.** On KDE Plasma, plug the phone in, choose "File transfer" on
+the phone, and Dolphin shows it; copy the files into its Download folder.
+Plasma's `kio-extras` does this and is already installed. On another
+desktop, `gvfs-backends`, `jmtpfs` or `mtp-tools` does the same. One phone at
+a time.
+
+**`adb`, if you already use it.** `sudo apt install adb` also installs
+`android-udev-rules`, which adds udev rules to the machine. The phone needs
+Developer options with USB debugging turned on, which most people's phones
+do not have; turn it off again afterwards.
+
+```
+adb push ~/.local/share/hammunition/phone /sdcard/Download/
+```
+
+**KDE Connect, if the phones already have it.** `sudo apt install
+kdeconnect`; each phone needs the KDE Connect app, installed while it had
+internet, and pairing. It works over the laptop's hotspot.
+
+### Formats not made here, and why
+
+- **OsmAnd's `.obf`** would be the best single file (map, routing, address
+  search and POI in one), and the laptop can make it offline, but the only
+  generator is a nightly build replaced every day with no checksum,
+  signature or version. Nothing can be checked, so it is not carried. The
+  route is building OsmAnd's tools from a fixed source commit.
+- **Organic Maps and CoMaps `.mwm`** must be made by a generator from the
+  same release as the app, and a region on the coast needs the whole
+  planet's coastline. The route is the publishers' own `.mwm` files, checked
+  by the hashes they publish; that is separate work.
+- **PocketMaps** needs a routing engine from 2019, and the app has had no
+  change since October 2024.
+- **Transportr** asks online services for every journey and keeps nothing on
+  the phone; there is nothing to make for it.
+
+### What has not been tried
+
+No file made here has been opened on a phone, in any app. The converters
+have not yet run through Hammunition on the field laptop; their figures come
+from one region converted by hand. The bench owes both, and the hotspot's
+address on the field laptop. Until then, check each new phone app with one
+small region first.
+
+---
+
 ## What QMapShack does not do (yet)
 
 - **No offline address search**: use Navit (section 10).
@@ -1099,6 +1221,14 @@ hammunition uninstall dem-qmapshack dem-copernicus osm-routino osm-garmin
 Your QMapShack settings keep the directories the launcher added; QMapShack
 lists nothing there once they are gone.
 
+The phone files go the same way, with the POI writer, and leave osmosis
+installed; the copies in `~/.local/share/hammunition/phone/` are yours to
+delete:
+
+```
+hammunition uninstall mapsforge-poi mapsforge-map
+```
+
 ---
 
 ## What has not been measured yet
@@ -1145,6 +1275,10 @@ Measured on the field laptop on 2026-09-29, and recorded in bench session
 listing the maps, the contour map and the elevation from the directories
 the launcher writes; hillshade; and the GPS tether giving QMapShack a
 position from a real receiver.
+
+For the phone files (**D-067**, section 13): none has been loaded on a
+phone, the converters have not run through Hammunition on real hardware,
+and their figures come from one region.
 
 Offline reference (Kiwix, a local tile server) is the next piece of this
 work and not in this profile.

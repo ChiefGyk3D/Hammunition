@@ -22,7 +22,7 @@ A navigator is only useful with a position and a map, and offline it needs both 
 
 ## What it deliberately excludes
 
-Tile servers and Kiwix are the next piece of this work. Viking, Marble, GPSPrune and JOSM were measured and left out: Debian's Viking renders nothing offline, Marble's offline place index has no packaged builder, and GPSPrune and JOSM use online tiles. BRouter is out because its routing data is regenerated weekly with no checksum. Navit's GTK interface (`navit-gui-gtk`) is left out in favour of the internal one, which suits a touch screen and a small panel. Grid-square readouts belong to the station and dashboard tools.
+Maps for phones are their own profile, `phone-maps` (D-067), because each is built for every region and a team's phones are not every operator's. Tile servers and Kiwix are the next piece of this work. Viking, Marble, GPSPrune and JOSM were measured and left out: Debian's Viking renders nothing offline, Marble's offline place index has no packaged builder, and GPSPrune and JOSM use online tiles. BRouter is out because its routing data is regenerated weekly with no checksum. Navit's GTK interface (`navit-gui-gtk`) is left out in favour of the internal one, which suits a touch screen and a small panel. Grid-square readouts belong to the station and dashboard tools.
 
 ## What you configure by hand afterward
 
