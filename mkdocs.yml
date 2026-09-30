@@ -134,6 +134,7 @@ nav:
           - Propagation: guides/propagation.md
       - In the field:
           - Offline navigation: guides/offline-navigation.md
+          - A LAN mirror for map and reference data: guides/lan-mirror.md
           - Operating at a conference: guides/conference-operating.md
           - Rayhunter: guides/rayhunter.md
   - Profiles:
