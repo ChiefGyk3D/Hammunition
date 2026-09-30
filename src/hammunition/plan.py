@@ -699,6 +699,21 @@ def _plan_config(
                 )
             )
             continue
+        unusable = station.unusable(wanted)
+        if unusable:
+            deferred.append(
+                Deferral(
+                    subject=manifest.name,
+                    what=f"will not write {config.path}",
+                    why="; ".join(unusable),
+                    remedy=(
+                        "the value is set but this file cannot use it, and nothing is "
+                        "changed to make it fit: write the file by hand. The package "
+                        "itself installs either way."
+                    ),
+                )
+            )
+            continue
         body = config.template
         for variable in wanted:
             value = station.get(variable)

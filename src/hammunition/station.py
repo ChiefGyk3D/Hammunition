@@ -43,16 +43,19 @@ from __future__ import annotations
 import os
 import re
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, fields
 from pathlib import Path
 
 import yaml
 
+from .maidenhead import centre
 from .paths import owner_aware_dir
 
 __all__ = [
+    "DERIVED",
     "STATION_FIELDS",
+    "TEMPLATE_VARIABLES",
     "Station",
     "StationError",
     "config_path",
@@ -158,12 +161,47 @@ class Station:
         return self.map_freshness or "yearly"
 
     def get(self, variable: str) -> str | None:
-        """The value a `{station.<variable>}` reference resolves to, or None."""
+        """The value a `{station.<variable>}` reference resolves to, or None.
+
+        A derived variable (:data:`DERIVED`) is computed from the stored value
+        it names, and is None when that value is unset *or* cannot give it --
+        :meth:`missing` and :meth:`unusable` say which.
+        """
+        if variable in DERIVED:
+            source, derive, _why = DERIVED[variable]
+            stored = self.get(source)
+            return derive(stored) if stored else None
         return getattr(self, variable, None) if variable in STATION_FIELDS else None
 
     def missing(self, variables: set[str]) -> tuple[str, ...]:
-        """Of *variables*, the ones this station cannot supply."""
-        return tuple(sorted(v for v in variables if not self.get(v)))
+        """Of *variables*, the stored values this station does not have.
+
+        Named as the operator sets them: a derived variable reports the value
+        it comes from (``latitude`` needs ``grid_square``), because that is
+        what ``station set`` and the install prompt can ask for.
+        """
+        out: set[str] = set()
+        for variable in variables:
+            source = DERIVED[variable][0] if variable in DERIVED else variable
+            if not self.get(source):
+                out.add(source)
+        return tuple(sorted(out))
+
+    def unusable(self, variables: set[str]) -> tuple[str, ...]:
+        """Why a derived variable cannot be had although its source is set.
+
+        One sentence per variable, sorted. Empty when every derived variable
+        in *variables* either resolves or is simply :meth:`missing`.
+        """
+        reasons: set[str] = set()
+        for variable in variables:
+            if variable not in DERIVED:
+                continue
+            source, _derive, why = DERIVED[variable]
+            stored = self.get(source)
+            if stored and self.get(variable) is None:
+                reasons.add(why.format(value=stored))
+        return tuple(sorted(reasons))
 
     def as_dict(self) -> dict[str, str | list[str]]:
         result: dict[str, str | list[str]] = {
@@ -183,6 +221,46 @@ class Station:
 #: empty substitution. Map settings are excluded -- they are read directly by
 #: the maps subsystem, never templated into a config file.
 STATION_FIELDS: frozenset[str] = frozenset(f.name for f in fields(Station)) - _MAP_FIELDS
+
+#: An AX.25 address: one to six letters and digits. The SSID is a separate
+#: field of the frame, and a ``/P`` or ``W1AW/4`` suffix cannot be carried at
+#: all -- Direwolf's example config says "up to 6 letters and digits with an
+#: optional ssid", and ``axports`` and aprx take the same address.
+AX25_CALLSIGN = re.compile(r"^[A-Z0-9]{1,6}$")
+
+
+def _ax25(callsign: str) -> str | None:
+    return callsign if AX25_CALLSIGN.match(callsign) else None
+
+
+def _latitude(grid: str) -> str:
+    return f"{centre(grid)[0]:.4f}"
+
+
+def _longitude(grid: str) -> str:
+    return f"{centre(grid)[1]:.4f}"
+
+
+#: Template variables computed from a stored value rather than stored. Each is
+#: ``(stored value it comes from, how, why it can be unavailable when that
+#: value is set)``. Nothing is invented: a derivation that cannot be made
+#: defers the file (D-035), with the reason, exactly as an unset value does.
+#: ``latitude``/``longitude`` are the centre of the grid square, to four
+#: decimal places (gpredict's own sample file uses four); the precision is the
+#: square's, never more (:mod:`hammunition.maidenhead`).
+DERIVED: dict[str, tuple[str, Callable[[str], str | None], str]] = {
+    "ax25_callsign": (
+        "callsign",
+        _ax25,
+        "the callsign {value} is not an AX.25 address (one to six letters and digits, "
+        "no /suffix), so AX.25 and APRS cannot carry it",
+    ),
+    "latitude": ("grid_square", _latitude, "latitude cannot be derived from {value}"),
+    "longitude": ("grid_square", _longitude, "longitude cannot be derived from {value}"),
+}
+
+#: Every name a ``{station.<name>}`` reference may use: stored and derived.
+TEMPLATE_VARIABLES: frozenset[str] = STATION_FIELDS | frozenset(DERIVED)
 
 #: Every value the station file may hold, template variable or not -- what
 #: `load_station` accepts without raising "sets values nothing can use".
