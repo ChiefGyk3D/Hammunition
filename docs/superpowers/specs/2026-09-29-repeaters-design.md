@@ -96,16 +96,21 @@ with no frequency found keys on its own name instead of the callsign and 0 Hz.
   `minLat,minLon,maxLat,maxLon`; `comment` the layer name and attribution.
   The rtree stores float32 and QMapShack reads 0.1° tiles with
   `minLat >= tile` and `maxLat < tile + 0.1`: a point on a tile line falls in
-  neither tile (spike). So a coordinate within 1e-5° of a 0.1° line is moved
-  2e-5° (about 2 m) into the tile north or east of it, and every point is
-  asserted findable by QMapShack's own query in exactly one tile.
+  neither tile (spike). So a coordinate whose stored box would straddle a
+  0.1° line, computed with SQLite's own rounding, is moved to the float32
+  just inside the tile north or east of it (a few metres at most), and every
+  point near a line, over the whole range of latitude and longitude, is
+  asserted findable by QMapShack's own query in exactly one tile. (Amended
+  after the review: a fixed 1e-5° band lost points past about 64°.)
 - **Navit:** one line per repeater,
   `lon lat type=poi_custom0 label="CALL FREQ" icon_src="/usr/share/navit/icons/tower.png"`;
   `poi_custom0` has a label in the stock layout's "POI Labels" layer, where
   `poi_communication` has none (spike §2).
 
-Every file is written to a temporary name in the directory and renamed over
-the old one, so an interrupted import leaves the previous layer whole. Each
+Every file is written whole to a temporary name in the directory and renamed
+over the old one, so no file is half-written; an import interrupted between
+two renames can leave new and old files together, which the next import
+replaces and `remove` clears, temporaries included. Each
 import replaces the layer: to combine an export with hearham's data, pass
 both files to one import.
 

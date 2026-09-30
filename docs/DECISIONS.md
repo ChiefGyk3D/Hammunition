@@ -5781,14 +5781,31 @@ observed and says it is unverified.
   another GPX; the attribution is the cautious default. Callsign and output
   frequency are found in `<name>`, then `<desc>`; a waypoint with neither is
   kept under its own name, keyed on that name.
-- **The POI writer moves a point on a 0.1° line 2e-5° (about 2 m) north or
-  east.** QMapShack asks for each 0.1° tile with `min >= tile` and
-  `max < tile + 0.1`, and the rtree's float32 boxes round outwards, so a
-  point on a line is in neither tile (the spike). The spike's note said
-  "widen each box"; widening makes it worse, so the point is moved into one
-  tile instead. The tests run QMapShack's verbatim query over every point
-  and show a point on a line lost without the move. The bounds are padded
-  0.001°, because a one-repeater file's zero-area bounds intersect no tile.
+- **The POI writer moves a point whose box straddles a 0.1° line into the
+  tile north or east of it.** QMapShack asks for each 0.1° tile with
+  `min >= tile` and `max < tile + 0.1`, and SQLite's rtree stores float32
+  boxes rounded outwards, so a point on a line is in neither tile (the
+  spike). The spike's note said "widen each box"; widening makes it worse,
+  so the point is moved instead, to the float32 one step inside the tile,
+  a few metres at most. The first version used a fixed 1e-5° band; the
+  final review measured the straddling band growing with the coordinate, to
+  about ±2e-5° at 180°, and 16 points past about 64° lost. It is now
+  computed with SQLite's own rounding (`rtreeValueDown`/`rtreeValueUp`), and
+  the tests run QMapShack's verbatim query over 61 offsets around twelve
+  lines from −179.9° to 179.9°, and show a point on a line lost without the
+  move. The bounds are padded 0.001°, because a one-repeater file's
+  zero-area bounds intersect no tile.
+- **A frequency is looked for where it can be.** In a GPX it must fall in
+  an amateur repeater band from 10 m to 23 cm, or GMRS, and in `<desc>` a
+  number written with "MHz" comes first, so a tone (`PL 100.0`) or a
+  coordinate is not taken for one (review). A typed frequency outside 1 to
+  10,000 MHz is skipped and counted, not labelled `146940000.000`. A
+  hearham entry of another shape is skipped and counted rather than
+  refusing the whole list.
+- **The fetch names every HTTP failure.** `http.client`'s own exceptions
+  are not `OSError`; a malformed answer is now "could not fetch", not a
+  traceback (review). A redirect is followed to HTTPS only; both refusals
+  are tested on loopback.
 - **Each import replaces the layer.** Combining sources is one import of
   every file. A fetch does not keep hearham's raw JSON; to combine it with
   an export, the operator saves the JSON and imports both.

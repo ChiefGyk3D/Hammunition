@@ -351,10 +351,10 @@ content:
 
 | Input | What it must have |
 |---|---|
-| RepeaterBook GPX export | `<wpt>` elements with `lat` and `lon`; the callsign and output frequency are taken from `<name>`, then `<desc>`; a waypoint with neither is kept under its own name |
+| RepeaterBook GPX export | `<wpt>` elements with `lat` and `lon`; the callsign and output frequency are taken from `<name>`, then `<desc>` (there a number written with "MHz" first; any frequency must fall in an amateur repeater band from 10 m to 23 cm, or GMRS, so a tone or a coordinate is not taken for one); a waypoint without both is kept under its own name, or under the callsign found when it has no name |
 | RepeaterBook CSV export | a header with `Callsign`, `Frequency`, `Lat` and `Long`; `Input Freq`, `PL`, `TSQ`, `Nearest City`, `Landmark`, `Use`, `Operational Status` and `Last Update` are read when present |
-| hearham.com's JSON, as served | the array `https://hearham.com/api/repeaters/v1` returns |
-| Your own CSV | exactly the header `callsign,output_mhz,offset_mhz,tone,mode,lat,lon,name,notes`; WGS84 decimal degrees, UTF-8 |
+| hearham.com's JSON, as served | the array `https://hearham.com/api/repeaters/v1` returns; an entry without `callsign`, `frequency`, `latitude` and `longitude` is skipped and counted |
+| Your own CSV | exactly the header `callsign,output_mhz,offset_mhz,tone,mode,lat,lon,name,notes`; WGS84 decimal degrees, UTF-8; a frequency outside 1 to 10,000 MHz (one typed in Hz, say) is skipped and counted |
 
 It refuses, by name and with the reason, and then writes nothing: a CHIRP
 CSV and a CHIRP `.img` (neither has coordinates; CHIRP's RepeaterBook query
@@ -371,8 +371,11 @@ read, and the count is printed. The layer is named
 else by the oldest file's modification date.
 
 It writes three files into `~/.local/share/hammunition/overlays/repeaters/`
-(`$XDG_DATA_HOME` honoured; directory 0700, files 0600, each renamed into
-place, so an interrupted import leaves the previous layer whole):
+(`$XDG_DATA_HOME` honoured; directory 0700, files 0600). Each file is
+written whole under a temporary name and renamed over the old one, so no
+file is ever half-written; an import interrupted between two renames can
+leave new and old files side by side, which the next import replaces and
+`remove` clears, temporaries included:
 `repeaters.gpx` (QMapShack's *File → Load*, a phone, a Garmin unit;
 symbol `Tall Tower`), `repeaters.poi` (a Mapsforge POI collection) and
 `repeaters.navit.txt` (a Navit textfile map, `poi_custom0` with a label and
@@ -390,8 +393,10 @@ yet been measured. The text prints counts, paths and the layer name, never a
 callsign or a position.
 
 Exit 0 when written and registered; 1 when refused, when no row has a
-position, under root, or when QMapShack's settings could not be edited (the
-layer is still written, and the reason named).
+position, under root, or when QMapShack's settings could not be edited or
+your Navit copy could not be written (a symbolic link in its place, a
+generated configuration without exactly one enabled mapset); in those last
+two the layer is still written, and the reason named.
 
 With `--json`, prints a `repeaters` document
 ([json-interface.md](json-interface.md)): the layer, each file's counts and
