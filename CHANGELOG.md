@@ -11,7 +11,7 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
-- **GPS time where the daemon is not ntpsec: the `chrony` unit** (**D-071**,
+- **GPS time where the daemon is not ntpsec: the `chrony` unit** (**D-072**,
   proposed; gap analysis §A4, Q-022 #3). `hammunition install chrony` writes
   `refclock SHM 0 refid GPS poll 2 delay 0.2` to
   `/etc/chrony/conf.d/hammunition-gps.conf` and a gpsd.service drop-in

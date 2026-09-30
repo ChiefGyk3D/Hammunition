@@ -389,7 +389,7 @@ def test_shape8_linbpq_declares_station_variables(catalog: Catalog) -> None:
 #: carry no station variable. Listed by name, with why, so that a new one is
 #: a reviewed decision rather than a template that forgot `{station.callsign}`.
 STATIONLESS_CONFIG = {
-    # D-071: a GPS reference-clock line for chrony and a gpsd.service drop-in
+    # D-072: a GPS reference-clock line for chrony and a gpsd.service drop-in
     # giving gpsd `-n`. Nothing in either names the operator or the station.
     "chrony",
 }

@@ -6916,7 +6916,7 @@ be a contract.
 
 ---
 
-## D-071 — GPS time where the daemon is not ntpsec: a `chrony` unit, installed by name and never in a profile; the time daemon a machine has is the operator's to replace
+## D-072 — GPS time where the daemon is not ntpsec: a `chrony` unit, installed by name and never in a profile; the time daemon a machine has is the operator's to replace
 
 **Date:** 2026-09-30. **Status:** proposed (branch `gap-03-gps-time`),
 awaiting the maintainer. **Answers:** Q-022 #3 (gap analysis §A4), which

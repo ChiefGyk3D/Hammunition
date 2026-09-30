@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""The chrony unit: GPS time where the daemon is not ntpsec.  D-071.
+"""The chrony unit: GPS time where the daemon is not ntpsec.  D-072.
 
 docs/reference/time-daemons.md is the evidence: chrony, ntpsec and
 systemd-timesyncd each Provide and Conflict with `time-daemon` on every
@@ -36,7 +36,7 @@ def test_chrony_is_in_no_profile() -> None:
     machine with a time daemon, the field laptop's ntpsec included."""
     profiles = load_profiles(REPO_ROOT / "catalog" / "profiles")
     holding = sorted(name for name, profile in profiles.items() if "chrony" in profile.packages)
-    assert holding == [], f"chrony is a member of {holding}; D-071 keeps it out of every profile"
+    assert holding == [], f"chrony is a member of {holding}; D-072 keeps it out of every profile"
 
 
 def test_chrony_writes_its_two_files_without_a_station_value() -> None:

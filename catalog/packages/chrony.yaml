@@ -6,7 +6,7 @@ version: "4.6"
 summary: The clock follows your GPS receiver when the network is gone — chrony reading gpsd
 categories: [time-frequency, gps-gnss]
 
-# D-071 (proposed), from docs/reference/time-daemons.md. GPS time on a
+# D-072 (proposed), from docs/reference/time-daemons.md. GPS time on a
 # machine whose time daemon is not ntpsec: D-058 (#124) covers ntpsec and
 # refuses everything else by name. chrony, ntpsec and systemd-timesyncd all
 # Provide and Conflict with `time-daemon` on every target, so installing
@@ -49,7 +49,7 @@ config_files:
   # unit 0 is the first receiver gpsd opens, whatever its device name.
   - path: /etc/chrony/conf.d/hammunition-gps.conf
     template: |
-      # Written by Hammunition (catalog unit `chrony`, D-071).
+      # Written by Hammunition (catalog unit `chrony`, D-072).
       # The GPS receiver's time, from gpsd's shared-memory segment 0.
       # delay 0.2: NMEA over USB is good to tens of milliseconds, not better,
       # so chrony weighs it as a source of that quality.
@@ -63,7 +63,7 @@ config_files:
   # touching gpsd's own conffile.
   - path: /etc/systemd/system/gpsd.service.d/hammunition-gps.conf
     template: |
-      # Written by Hammunition (catalog unit `chrony`, D-071).
+      # Written by Hammunition (catalog unit `chrony`, D-072).
       # Poll the receiver with no client connected, so chrony gets its time.
       [Service]
       Environment=OPTIONS=-n

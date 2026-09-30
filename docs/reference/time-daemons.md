@@ -18,7 +18,7 @@ that produced it.
 targets already ship chrony first*. Pull request #124 (D-058) had meanwhile
 built GPS time through **ntpsec**, the daemon the field laptop runs. Two time
 daemons on one machine fight, so which daemon each target actually has
-decides what this catalog may carry. **D-071** in `docs/DECISIONS.md` is the
+decides what this catalog may carry. **D-072** in `docs/DECISIONS.md` is the
 ruling taken from these tables.
 
 ## 1. What each archive offers

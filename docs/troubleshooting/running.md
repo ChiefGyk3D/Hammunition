@@ -197,7 +197,7 @@ daemon ([Time and position](../guides/time-and-gps.md#with-no-network-a-gps-keep
 has the table):
 
 - **systemd-timesyncd or chrony**: the [`chrony` unit](../packages/chrony.md)
-  (**D-071**). timesyncd cannot read a GPS, so it is replaced, by you.
+  (**D-072**). timesyncd cannot read a GPS, so it is replaced, by you.
 - **ntpsec** (Parrot, the field laptop): GPS time through ntpsec (**D-058**,
   pull request #124, not merged when this was written).
 
