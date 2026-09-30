@@ -26,7 +26,7 @@ Nothing. It installs with `osm-pmtiles` in the `navigation` profile.
 
 ## Known problems
 
-The ocean is Natural Earth's 1:10m polygon, about 1 km of accuracy: at street zoom a coast can sit a little off OpenStreetMap's own shoreline. The accurate water polygons (906 MB, osmdata.openstreetmap.de) are rebuilt daily with no checksum, so they cannot be pinned, and are not carried. Only Latin, Greek and Cyrillic glyphs are carried (the three KlokanTech Noto Sans faces); the CJK faces are another 64 MB and are left out, so labels in Chinese, Japanese or Korean script do not draw.
+The ocean is Natural Earth's 1:10m polygon, about 1 km of accuracy: at street zoom a coast can sit a little off OpenStreetMap's own shoreline. The accurate water polygons (906 MB, osmdata.openstreetmap.de) are rebuilt daily with no checksum, so they cannot be pinned, and are not carried. Only Latin, Greek and Cyrillic glyphs are carried (the three KlokanTech Noto Sans faces); the CJK faces are another 64 MB and are left out, so labels in Chinese, Japanese or Korean script do not draw. On a release whose tilemaker is older than 3.0 (Ubuntu 24.04 and those built on it), `navigation` defers `osm-pmtiles` but still installs this kit, so the page opens and says no maps are installed; `hammunition uninstall vector-map-kit` takes it back out.
 
 ## Keeping it current
 

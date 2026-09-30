@@ -50,7 +50,8 @@ def test_the_defaults_are_10111_and_slash_position() -> None:
 
 def test_a_loopback_request_opens_an_event_stream() -> None:
     answer, stream = position_response(
-        _head("GET /position HTTP/1.1", f"Host: 127.0.0.1:{PORT}"), PORT
+        _head("GET /position HTTP/1.1", f"Host: 127.0.0.1:{PORT}", "Accept: text/event-stream"),
+        PORT,
     )
     assert stream
     assert answer.startswith(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n")
@@ -82,8 +83,14 @@ def test_a_loopback_page_is_allowed_by_its_exact_origin() -> None:
             ["GET /position HTTP/1.1", "Host: 127.0.0.1:10111", "Origin: http://127.0.0.1.evil"],
             b"403",
         ),
-        (["POST /position HTTP/1.1", "Host: 127.0.0.1:10111"], b"405"),
-        (["GET /other HTTP/1.1", "Host: 127.0.0.1:10111"], b"404"),
+        (
+            ["POST /position HTTP/1.1", "Host: 127.0.0.1:10111", "Accept: text/event-stream"],
+            b"405",
+        ),
+        (["GET /other HTTP/1.1", "Host: 127.0.0.1:10111", "Accept: text/event-stream"], b"404"),
+        # An <img> on any web page: no Origin, an image Accept. It could not
+        # read the stream, and it may not hold gpsd watched either.
+        (["GET /position HTTP/1.1", "Host: 127.0.0.1:10111", "Accept: image/*"], b"403"),
         (["garbage"], b"400"),
     ],
 )
@@ -179,7 +186,10 @@ def test_a_page_and_an_nmea_client_share_one_gpsd_watch() -> None:
         page = socket.create_connection(("127.0.0.1", http), timeout=5)
         with client, page:
             assert _lines(client, 2)[0].startswith(b"$GPRMC")
-            page.sendall(f"GET /position HTTP/1.1\r\nHost: localhost:{http}\r\n\r\n".encode())
+            page.sendall(
+                f"GET /position HTTP/1.1\r\nHost: localhost:{http}\r\n"
+                f"Accept: text/event-stream\r\n\r\n".encode()
+            )
             assert b"data: " in _read_until(page, b"data: ")
             assert gpsd.connections == 1
 
@@ -199,3 +209,48 @@ def test_the_position_listener_is_bound_to_loopback() -> None:
 
     with listen(port=0) as http:
         assert _listening_addresses(http.getsockname()[1]) == {"0100007F"}
+
+
+def test_a_request_that_never_finishes_is_closed_after_the_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import hammunition.gps_tether as tether
+
+    monkeypatch.setattr(tether, "REQUEST_DEADLINE", 0.2)
+    gpsd = FakeGpsd(_json(FIX_3D))
+    with _tether(gpsd) as (_, http, _):
+        with socket.create_connection(("127.0.0.1", http), timeout=5) as idle:
+            idle.sendall(b"GET /position HTTP/1.1\r\n")  # and nothing more
+            idle.settimeout(3)
+            assert idle.recv(1) == b"", "the tether closed it"
+        assert gpsd.connections == 0
+
+
+def test_an_unreachable_gpsd_is_a_503_not_silence() -> None:
+    gpsd = FakeGpsd(b"")
+    address = gpsd.address
+    gpsd.close()
+    logged: list[str] = []
+    stop = threading.Event()
+    nmea, http = listen(port=0), listen(port=0)
+    thread = threading.Thread(
+        target=serve,
+        args=(nmea,),
+        kwargs={"http": http, "gpsd": address, "stop": stop, "log": logged.append, "poll": 0.02},
+        daemon=True,
+    )
+    thread.start()
+    try:
+        port = http.getsockname()[1]
+        with socket.create_connection(("127.0.0.1", port), timeout=5) as page:
+            page.sendall(
+                f"GET /position HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n"
+                f"Origin: http://127.0.0.1:8480\r\n\r\n".encode()
+            )
+            got = _read_until(page, b"reached")
+        assert got.startswith(b"HTTP/1.1 503") and b"gpsd cannot be reached" in got
+    finally:
+        stop.set()
+        thread.join(timeout=5)
+        nmea.close()
+        http.close()

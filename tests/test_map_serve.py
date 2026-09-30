@@ -95,6 +95,7 @@ def _get(
         ("bytes=0-1,5-6", None),
         ("items=0-1", None),
         ("bytes=5-2", None),
+        ("bytes=" + "9" * 5000 + "-", None),  # not a number this reads, never a crash
     ],
 )
 def test_a_range_header_is_read_as_rfc_9110_says(
@@ -111,6 +112,12 @@ def test_a_tile_file_answers_a_range_with_206_and_exactly_those_bytes(served: in
     assert headers["Content-Range"] == f"bytes 127-{len(BODY) - 1}/{len(BODY)}"
     assert body == BODY[127:]
     assert headers["Accept-Ranges"] == "bytes"
+
+
+def test_no_byte_of_an_empty_file_can_be_asked_for() -> None:
+    assert byte_range("bytes=-5", 0) == "unsatisfiable"
+    assert byte_range("bytes=0-", 0) == "unsatisfiable"
+    assert byte_range(None, 0) is None
 
 
 def test_head_gives_the_size_and_no_body(served: int) -> None:

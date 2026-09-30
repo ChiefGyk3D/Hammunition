@@ -1478,16 +1478,14 @@ def resolve(
             )
             continue
         state = states.get(program)
-        version = (state.installed or state.candidate) if state is not None else None
+        if state is None or not state.known:
+            continue  # no candidate at all: the apt check above has named it
+        version = state.installed or state.candidate
         found = node_version(version) if version else None
         if found is not None and found >= (major, minor):
             continue
-        source = "installed" if state is not None and state.installed else "the archive's candidate"
-        have = (
-            f"this distribution's {program} is {version} ({source})"
-            if version
-            else f"this distribution offers no {program} package"
-        )
+        source = "installed" if state.installed else "the archive's candidate"
+        have = f"this distribution's {program} is {version} ({source})"
         why = f"needs {program} {major}.{minor} or newer, the first that {does}; {have}"
         if manifest.name in deferrable:
             deferred[manifest.name] = _target_deferral(

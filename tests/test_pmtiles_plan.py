@@ -146,3 +146,13 @@ def test_an_installed_old_one_counts_over_a_newer_candidate(tmp_path: Path) -> N
     """As D-037 reads Node: the installed version is the one that counts."""
     with pytest.raises(PlanError, match=r"2\.4\.0-1"):
         _plan(tmp_path, ["osm-pmtiles"], _state("3.0.0-1", installed="2.4.0-1"))
+
+
+def test_no_tilemaker_at_all_is_one_refusal_the_apt_check_s(tmp_path: Path) -> None:
+    """A depends line the archive lacks is the manifest's defect (D-039); the
+    floor does not name the same cause a second time."""
+    with pytest.raises(PlanError) as exc:
+        _plan(tmp_path, ["osm-pmtiles"], None)
+    text = str(exc.value)
+    assert "no candidate for tilemaker" in text
+    assert "tilemaker 3.0 or newer" not in text

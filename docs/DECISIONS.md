@@ -6768,7 +6768,11 @@ every pin downloaded once and hashed; the ocean clip below.
 3. **tilemaker 3.0 is a floor the plan reads**, from the apt probe it
    already makes: the installed version, else the candidate. Below it,
    `osm-pmtiles` is deferred from a profile naming the version found, and
-   refused when typed; without lists it is a note. The floor is the
+   refused when typed; without lists it is a note. `vector-map-kit` is not
+   deferred with it: on Ubuntu 24.04 `navigation` still downloads the kit
+   (about 79 MB) and the page says no maps are installed. Deferring a unit
+   with its only consumer is a mechanism the plan does not have; the kit's
+   manifest says so. The floor is the
    engine's (`CONVERTER_FLOORS`), not the manifest's, because the output
    format is the engine's argv. A `when:` selector naming Ubuntu 24.04 was
    the other way; it would freeze one evening's archive into the catalog.
@@ -6792,9 +6796,13 @@ every pin downloaded once and hashed; the ocean clip below.
    event stream is a connected client and rides that fan-out unchanged,
    while a poll would need a gpsd connection per request or a watch left
    open on a timer. The same Host rule applies, a non-loopback `Origin` is
-   refused, and `Access-Control-Allow-Origin` is sent only to a loopback
+   refused, a request with no `Origin` must ask for `text/event-stream` (an
+   image tag on any site sends neither, and would otherwise hold gpsd
+   watched), and `Access-Control-Allow-Origin` is sent only to a loopback
    page, so no web page from elsewhere can read the position through the
-   operator's own browser.
+   operator's own browser. An unfinished request is closed after 5 s, at
+   most 16 are held, and an unreachable gpsd is a 503, not silence (review,
+   2026-09-30).
 
 ### Departures from the approved design, each measured
 
@@ -6857,9 +6865,13 @@ and refusal, the install dry run, the range server on loopback (206, HEAD,
 (an event, shared watch, rebinding refused), and the page under headless
 Chromium from the pinned kit and a synthetic tile with every non-loopback
 host unresolvable: idle, no error, the credit drawn, a glyph range asked
-for, every request the page made on 127.0.0.1 by its net log. That test
-needs the pinned files on disk (`HAMMUNITION_MAP_KIT_DIR`) and is skipped by
-name without them or without `chromium`. **Owed by the bench:** a real
+for, every request the page made on 127.0.0.1 by its net log. **That test
+is local only:** it needs the pinned files on disk (`HAMMUNITION_MAP_KIT_DIR`)
+and `chromium`, and is skipped by name without either, which CI has neither
+of; it passed on the development host on 2026-09-30, with Chromium 154, and
+went red when the page's sprite was pointed back at GitHub. A CI job that
+restores the pinned files from a cache keyed on their sha256 is the route to
+running it on every change. **Owed by the bench:** a real
 tilemaker run through the engine with the clipped Natural Earth ocean (its
 time, memory and `--store` scratch; the plan allows three times the
 download, unmeasured); the page in a desktop browser with a real receiver's

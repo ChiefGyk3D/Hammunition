@@ -193,7 +193,11 @@ documentation:
     daily with no checksum, so they cannot be pinned, and are not carried.
     Only Latin, Greek and Cyrillic glyphs are carried (the three KlokanTech
     Noto Sans faces); the CJK faces are another 64 MB and are left out, so
-    labels in Chinese, Japanese or Korean script do not draw.
+    labels in Chinese, Japanese or Korean script do not draw. On a release
+    whose tilemaker is older than 3.0 (Ubuntu 24.04 and those built on it),
+    `navigation` defers `osm-pmtiles` but still installs this kit, so the
+    page opens and says no maps are installed; `hammunition uninstall
+    vector-map-kit` takes it back out.
   upstream_url: https://openmaptiles.org/
   upstream_support: >-
     Each project's own tracker: tilemaker

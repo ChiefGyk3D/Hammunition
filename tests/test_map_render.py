@@ -11,7 +11,9 @@ Chromium runs headless with every host but 127.0.0.1 made unresolvable, and
 its net log is read back: every URL it requested must be on 127.0.0.1. The
 credit the OpenMapTiles licence requires must be drawn on the map.
 
-The suite downloads nothing, so it needs the pinned files already on disk:
+The suite downloads nothing, so it needs the pinned files already on disk, and CI
+has neither them nor Chromium: this check is local. It last passed on the
+development host on 2026-09-30 (Chromium 154).
 ``HAMMUNITION_MAP_KIT_DIR`` names a directory holding them under their
 published names (``tilemaker_3.0.0.orig.tar.gz``, ``dist.zip``,
 ``pmtiles-4.5.0.tgz``, the four sprite files). Without that directory, or

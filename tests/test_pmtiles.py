@@ -365,7 +365,8 @@ def test_the_run_counts_the_largest_scratch_and_every_output(tmp_path: Path) -> 
         regions=MapLedger(),
     )
     needs = run.needs(plan, prefix=tmp_path / "p")
-    assert needs[tmp_path / "b" / "osm-pmtiles"] == SCRATCH_FACTOR * 1000
+    # Scratch and the staged output of the largest region, both in staging.
+    assert needs[tmp_path / "b" / "osm-pmtiles"] == round((SCRATCH_FACTOR + FACTOR) * 1000)
     assert needs[tmp_path / "p"] == round(1000 * FACTOR) + round(10 * FACTOR)
     assert run.idle(plan) == frozenset()
     assert set(run.converters) == {"tilemaker-pmtiles"}

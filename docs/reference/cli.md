@@ -365,8 +365,13 @@ and not after. A request whose `Host` is not `127.0.0.1:<port>` or
 `localhost:<port>` (DNS rebinding), or whose `Origin` is not a loopback page,
 is refused with 403 before gpsd is asked; `Access-Control-Allow-Origin` is
 sent only to a loopback page, so no web page from elsewhere can read your
-position through your own browser. Anything but `GET /position` is 404 or
-405.
+position through your own browser. A request with no `Origin` must ask for
+`Accept: text/event-stream` (so an image tag on some site cannot keep gpsd
+watched; `curl -N -H 'Accept: text/event-stream'
+http://127.0.0.1:10111/position` tests it from a terminal). Anything but
+`GET /position` is 404 or 405. A request not finished within 5 s is closed,
+at most 16 are held at once, and with gpsd unreachable the page gets a 503
+saying so.
 
 Neither option widens the bind: the feed is a position without
 authentication, so another machine reaches it through
@@ -559,8 +564,9 @@ you: parsing downloaded files is the reader's business, never root's.
 | `--port N` | `8480` | The page's port, still on 127.0.0.1; kiwix-serve takes N+1. 1024 to 65534; anything else is refused by name. |
 | `--position-port N` | `10111` | Where the map page asks the GPS tether for your position, on 127.0.0.1: the tether's own `--position-port`. 1024 to 65535. |
 
-**The offline map (D-071).** When `vector-map-kit` and at least one
-`osm-pmtiles` region are installed, the same server also serves the map:
+**The offline map (D-071).** When `vector-map-kit` is installed, the same
+server also serves the map (with no `osm-pmtiles` region installed, the
+page says so and what to run):
 `/map/` (the page), `/map/regions.json` (the installed regions),
 `/map/tiles/<slug>.pmtiles` and `/map/kit/<path>` (MapLibre GL JS,
 pmtiles.js, the OSM Bright style, sprite and fonts). Each file is served by

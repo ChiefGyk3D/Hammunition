@@ -219,7 +219,7 @@ KINDS: dict[str, str] = {
     ".pmtiles": "application/octet-stream",
     ".pdf": "application/pdf",
 }
-_RANGE = re.compile(r"bytes=(\d*)-(\d*)")
+_RANGE = re.compile(r"bytes=(\d{0,19})-(\d{0,19})")
 CHUNK = 1 << 16
 
 
@@ -233,6 +233,8 @@ def byte_range(header: str | None, size: int) -> tuple[int, int] | str | None:
     if header is None:
         return None
     match = _RANGE.fullmatch(header.strip())
+    if match is not None and size == 0 and (match.group(1) or match.group(2)):
+        return "unsatisfiable"  # no byte of an empty file can be asked for
     if match is None or not (match.group(1) or match.group(2)):
         return None
     first, last = match.group(1), match.group(2)

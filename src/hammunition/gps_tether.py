@@ -71,6 +71,10 @@ POSITION_PORT = 10111
 POSITION_PATH = "/position"
 #: The most of a request head the position listener reads before it gives up.
 REQUEST_LIMIT = 8 * 1024
+#: Seconds a connection to the position listener has to send its request.
+REQUEST_DEADLINE = 5.0
+#: Unfinished requests held at once; a connection beyond it is closed at once.
+REQUEST_CAP = 16
 GPSD = ("127.0.0.1", 2947)
 WATCH = b'?WATCH={"enable":true,"json":true}\n'
 
@@ -386,6 +390,15 @@ def position_response(head: bytes, port: int) -> tuple[bytes, bool]:
     origin = headers.get("origin")
     if origin is not None and not _loopback_origin(origin):
         return reply("403 Forbidden", "refused: a page from elsewhere may not read the position\n")
+    if origin is None and "text/event-stream" not in headers.get("accept", ""):
+        # An <img> or <script> on any web page sends no Origin; it could not
+        # read the stream, but it would hold gpsd watched. The map page's
+        # EventSource always sends its Origin; `curl -H 'Accept:
+        # text/event-stream'` is the way to test from a terminal.
+        return reply(
+            "403 Forbidden",
+            "refused: ask as an event stream (Accept: text/event-stream) or from a loopback page\n",
+        )
     if method != "GET":
         return reply("405 Method Not Allowed", "GET only\n")
     if target.split("?", 1)[0] != POSITION_PATH:
@@ -408,6 +421,7 @@ class _Request:
     def __init__(self, sock: socket.socket) -> None:
         self.sock = sock
         self.head = b""
+        self.since = time.monotonic()
 
 
 class _Client:
@@ -560,6 +574,16 @@ def serve(
             if client.gone():
                 drop(client, "A client disconnected")
         if upstream is None and not open_upstream():
+            if events:
+                # Say so, or the page would read it as no tether at all.
+                with contextlib.suppress(OSError):
+                    sock.setblocking(True)
+                    sock.settimeout(1)
+                    sock.sendall(
+                        b"HTTP/1.1 503 Service Unavailable\r\nContent-Type: text/plain\r\n"
+                        b"Content-Length: 24\r\nConnection: close\r\n\r\n"
+                        b"gpsd cannot be reached\r\n"
+                    )
             sock.close()
             return
         sock.setblocking(False)
@@ -577,6 +601,9 @@ def serve(
             sock, _ = listener.accept()
         except BlockingIOError:
             return
+        except OSError as exc:  # out of descriptors, say: the tether keeps running
+            log(f"could not accept a connection: {exc.strerror or exc}")
+            return
         admit(sock)
 
     def accept_http() -> None:
@@ -584,6 +611,12 @@ def serve(
         try:
             sock, _ = http.accept()
         except BlockingIOError:
+            return
+        except OSError as exc:
+            log(f"could not accept a connection: {exc.strerror or exc}")
+            return
+        if len(requests) >= REQUEST_CAP:
+            sock.close()
             return
         sock.setblocking(False)
         request = _Request(sock)
@@ -681,6 +714,10 @@ def serve(
                         from_client(owner)
                     if owner in clients and mask & selectors.EVENT_WRITE:
                         flush(owner)
+            now = time.monotonic()
+            for request in [r for r in requests if now - r.since > REQUEST_DEADLINE]:
+                end_request(request)
+                request.sock.close()
             current = upstream
             if (
                 current is not None

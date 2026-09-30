@@ -17,7 +17,7 @@ from pathlib import Path
 
 from .backends.base import CommandRunner
 from .backends.derived import Converter
-from .backends.pmtiles import SCRATCH_FACTOR, TilesConverter, TilesLedger, estimate
+from .backends.pmtiles import FACTOR, SCRATCH_FACTOR, TilesConverter, TilesLedger, estimate
 from .backends.regions import MapLedger
 from .backends.staging import Staging
 from .geofabrik import RegionFile
@@ -57,9 +57,9 @@ class TilesRun:
         )
 
     def needs(self, plan: InstallPlan, *, prefix: Path) -> dict[Path, int]:
-        """Bytes each location needs this run: the largest build's scratch in
-        the staging directory (one region at a time, each cleared before the
-        next) and every output under the prefix."""
+        """Bytes each location needs this run: the largest build's scratch
+        and its staged output in the staging directory (one region at a time,
+        each cleared before the next) and every output under the prefix."""
         needs: dict[Path, int] = {}
         for planned in plan.packages:
             block = planned.block.install
@@ -67,7 +67,10 @@ class TilesRun:
                 continue
             sizes = [f.size for f in self.tiles.pending(planned.manifest, block)]
             for where, amount in (
-                (self.tiles.staging.directory, SCRATCH_FACTOR * max(sizes, default=0)),
+                (
+                    self.tiles.staging.directory,
+                    (SCRATCH_FACTOR + FACTOR) * max(sizes, default=0),
+                ),
                 (prefix, sum(estimate(size) for size in sizes)),
             ):
                 if amount:
