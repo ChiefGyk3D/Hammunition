@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**288 programs and packages** from the catalog, laid out the way the
+**289 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -379,6 +379,7 @@ SDR receivers and toolkits, device support, and receive-only decoders for aircra
 | [ais-catcher](packages/ais-catcher.md) | AIS receiver and decoder for marine vessel traffic, with a web map | [github.com/jvde-github/AIS-catcher](https://github.com/jvde-github/AIS-catcher) |
 | [gnuais](packages/gnuais.md) | Decodes AIS from the discriminator output of a VHF receiver | [gnuais.sourceforge.net](http://gnuais.sourceforge.net/) |
 | [gnuaisgui](packages/gnuaisgui.md) | Puts the vessels gnuais has heard on an OpenStreetMap display | [gnuais.sourceforge.net](http://gnuais.sourceforge.net/) |
+| [opencpn](packages/opencpn.md) | Marine chart plotter -- your position and AIS ships on nautical charts | [opencpn.org](https://opencpn.org/) |
 | [rtl-ais](packages/rtl-ais.md) | Receives both AIS channels at once from one cheap dongle | [github.com/dgiardini/rtl-ais](https://github.com/dgiardini/rtl-ais) |
 
 ### Weather, Sensors & Radiosondes

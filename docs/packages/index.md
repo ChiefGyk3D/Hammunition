@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**288 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**289 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -304,7 +304,7 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `navigation-maps` — 25
+### `navigation-maps` — 26
 
 Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
 
@@ -322,6 +322,7 @@ Offline maps, turn-by-turn navigation and the position on a moving map, with no 
 - [mkgmap](mkgmap.md) — Builds Garmin-format maps from OpenStreetMap data
 - [mkgmap-splitter](mkgmap-splitter.md) — Cuts OpenStreetMap data into tiles sized for mkgmap
 - [navit](navit.md) — Offline turn-by-turn navigation that follows the GPS, with spoken directions
+- [opencpn](opencpn.md) — Marine chart plotter -- your position and AIS ships on nautical charts
 - [osm-garmin](osm-garmin.md) — Garmin maps of your OpenStreetMap regions, with trails, for QMapShack
 - [osm-navit](osm-navit.md) — Navit's binary maps, converted from your OpenStreetMap regions, and its configuration
 - [osm-pmtiles](osm-pmtiles.md) — Vector-tile maps of your OpenStreetMap regions, for the offline browser map
@@ -558,13 +559,14 @@ tio, minicom, picocom, PuTTY, CuteCom: talking to a radio or a board over a seri
 - [ser2net](ser2net.md) — Serve a serial port over TCP, so a rig's CAT port can be reached from another machine
 - [tio](tio.md) — Serial device terminal — the modern replacement for screen on a TTY
 
-### `ships` — 4
+### `ships` — 5
 
 AIS receivers and decoders with maps of vessel traffic.
 
 - [ais-catcher](ais-catcher.md) — AIS receiver and decoder for marine vessel traffic, with a web map
 - [gnuais](gnuais.md) — Decodes AIS from the discriminator output of a VHF receiver
 - [gnuaisgui](gnuaisgui.md) — Puts the vessels gnuais has heard on an OpenStreetMap display
+- [opencpn](opencpn.md) — Marine chart plotter -- your position and AIS ships on nautical charts
 - [rtl-ais](rtl-ais.md) — Receives both AIS channels at once from one cheap dongle
 
 ### `signal-analysis` — 4
@@ -852,6 +854,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [odr-dabmod](odr-dabmod.md) | Turns a DAB ensemble into a transmittable OFDM signal | apt |
 | [odr-dabmux](odr-dabmux.md) | Assembles audio services into a DAB ensemble multiplex | apt |
 | [odr-padenc](odr-padenc.md) | Encodes the text and images that ride alongside a DAB service | apt |
+| [opencpn](opencpn.md) | Marine chart plotter -- your position and AIS ships on nautical charts | apt |
 | [openfpgaloader](openfpgaloader.md) | Universal bitstream loader for FPGAs, over JTAG and SPI | apt |
 | [openhamclock](openhamclock.md) | Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites | node |
 | [openocd](openocd.md) | On-chip debugging and in-system programming over JTAG and SWD | apt |

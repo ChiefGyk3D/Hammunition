@@ -348,7 +348,7 @@ before a manifest. Nothing here is transmit-capable except where said.
 | `gps-gnss` | 7 | **PyGPSClient** (PyPI `pygpsclient`, BSD-3; NMEA, UBX, RTCM3, NTRIP) | Receiver configuration with a GUI; the u-center replacement | venv | ADD |
 | `gps-gnss` | | `gpsprune` (apt, in trixie per the search result; measured 2026-09-30: all seven targets), `gpxviewer` (trixie), `foxtrotgps` (sid) | Track viewing and editing; `gpsbabel` converts but shows nothing | apt | ~~ADD `gpsprune`~~ Not added: **D-061** measured it and does not carry it (see *Measured since*); `foxtrotgps` is online-first and adds nothing over Navit |
 | `gps-gnss` | | `rtklib` (RTK and PPK post-processing; apt `unmeasured`) | Centimetre positioning for antenna surveys | apt | Post-1.0 on demand |
-| `navigation-maps` | 14 | **OpenCPN** (Debian 13 `1:5.10.2+dfsg-1` per the search result; GPL-2.0) | A marine chart plotter that takes position from `gpsd` and AIS targets from `rtl-ais` or `ais-catcher` over NMEA — the one program that makes the `ships` category more than a decoder. Charts are data: NOAA ENC and RNC are public domain and fetched by region, the D-057 shape again | apt now; charts as a `data`/regional unit later | ADD, tagged `ships` + `navigation-maps`; charts a follow-on |
+| `navigation-maps` | 14 | **OpenCPN** (Debian 13 `1:5.10.2+dfsg-1` per the search result, confirmed by the 2026-09-30 sweep, which found it on all seven targets; GPL-2.0) | A marine chart plotter that takes position from `gpsd` and AIS targets from `rtl-ais` or `ais-catcher` over NMEA — the one program that makes the `ships` category more than a decoder. Charts are data: NOAA ENC and RNC are public domain and fetched by region, the D-057 shape again | apt now; charts as a `data`/regional unit later | ADD, tagged `ships` + `navigation-maps` (added 2026-09-30, `navigation`); charts a follow-on |
 | `navigation-maps` | | Organic Maps (Linux desktop: a Qt 6 source build the project says needs 20 GB and has no feature parity; Flathub only) | Turn-by-turn on the desktop with a modern UI | none acceptable today (Flatpak is a measured zero, D-014) | Not carried; revisit if a distribution packages it |
 | `navigation-maps` | | `qgis`, `kiwix`, `dict`, `mbtileserver` | Already waiting on ETC sub-project 5 | | No change |
 | `locators`, `dashboards` | | — | | | No add |
@@ -401,7 +401,7 @@ before a manifest. Nothing here is transmit-capable except where said.
 | `aircraft` | | `tar1090` | See A8 | git | ADD as described |
 | `aircraft` | | `piaware` / `dump1090-fa` (FlightAware apt repository), the adsb.fi and ADS-B Exchange feeders | Feeding a network is the operator's choice and each network has its own client; `mlat-client-adsbfi` is carried | apt_repos | A page listing the feeders, no more units |
 | `aircraft` | | JAERO, OGN (`ogn-rf`) | Tier 2; low | | No change |
-| `ships` | 4 | OpenCPN | See Group 1 | apt | ADD |
+| `ships` | 4 | OpenCPN (measured 2026-09-30: all seven targets) | See Group 1 | apt | ADD (added 2026-09-30, `navigation`) |
 | `ships` | | *Gap:* NAVTEX is decoded by `fldigi` (carried) — say so on the page. No open DSC decoder exists | — | — | A sentence; nothing to carry |
 | `pagers-decoders` | 3 | — | | | No add |
 

@@ -39,6 +39,10 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   `gpsprune` is offered everywhere and is not added: D-061 already
   measured it and left it out for its online tiles, and the report now
   says so.
+  `opencpn`, the marine chart plotter that draws AIS ships from
+  `rtl-ais` or `ais-catcher` and the position from gpsd or `gps-tether`,
+  joins `navigation`; not opened on any target, so its OpenGL display on
+  the field laptop and every one of those connections are unmeasured.
 
 ## v0.17.0 — 2026-09-30 — official topo sheets, CoMaps, and the offline browser map
 
