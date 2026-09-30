@@ -11,9 +11,9 @@ asking anyone a question or reading a forum thread. This page is that last
 stretch — from installed software to a decode on the waterfall.
 
 It is the short version. Two guides carry the long one:
-[Digital modes](../guides/digital-modes.md) walks rig control, the clock,
+[FT8 and the digital modes](../guides/digital-modes.md) walks rig control, the clock,
 your callsign in each program, the first FT8 QSO, PSK31, RTTY and JS8Call;
-[Audio routing](../guides/audio-routing.md) covers the sound path between
+[Radio audio](../guides/audio-routing.md) covers the sound path between
 radio and program on PipeWire, levels and the ALC trap, and its own list of
 audio symptoms.
 
@@ -34,18 +34,24 @@ A digital-modes station is four things wired together:
 
 After `hammunition install station digital-modes`:
 
-1. **Set your callsign and grid** if you have not: `hammunition station set
-   --callsign … --grid-square …`. WSJT-X asks for them on first run too.
-2. **Rig control.** Start flrig, select your radio, confirm it reads and sets
+1. **Check the clock.** `timedatectl` should say *System clock synchronized:
+   yes*. FT8 decodes nothing, with no error, when the clock is a second
+   out; [Time and position](../guides/time-and-gps.md) covers a station with
+   no network.
+2. **Set your callsign and grid** if you have not: `hammunition station set
+   --callsign … --grid-square …`. WSJT-X asks for them on first run too;
+   [Your callsign in each program](../guides/station-settings.md) lists
+   where every program wants them.
+3. **Rig control.** Start flrig, select your radio, confirm it reads and sets
    frequency. WSJT-X then talks to the radio through flrig — no second CAT
    cable fight.
-3. **Audio routing.** In your sound settings, confirm the interface appears as
+4. **Audio routing.** In your sound settings, confirm the interface appears as
    both an input and an output device. In WSJT-X's Settings → Audio, select it
    for both. The waterfall should come alive with the band's noise. Finding
    which device is the radio, and keeping it from becoming the desktop's
    default output, is in
-   [Audio routing](../guides/audio-routing.md#2-which-device-is-the-radio).
-4. **PTT.** WSJT-X → Settings → Radio: set PTT to CAT (via flrig/hamlib) or a
+   [Radio audio](../guides/audio-routing.md#2-which-device-is-the-radio).
+5. **PTT.** WSJT-X → Settings → Radio: set PTT to CAT (via flrig/hamlib) or a
    serial line. Test with the **Tune** button — the radio should key and show
    output into a dummy load or antenna.
 
@@ -80,6 +86,13 @@ Symptom-first, because that is how trouble actually presents:
   on a Pi is the classic) → switch the session to X11. This is accumulated
   operational knowledge, not a bug in the software.
 
-Deeper symptom-first help lives in the troubleshooting section; the
-per-package pages under `docs/packages/` carry each program's own known
-problems and where to get real support for it.
+- **Decodes appear, but only a few, and the time column looks wrong** → the
+  clock. `timedatectl`.
+
+Each step above has a full guide: [rig control](../guides/rig-control.md),
+[radio audio](../guides/audio-routing.md), and [FT8 and the digital
+modes](../guides/digital-modes.md), which goes on to JS8Call and fldigi.
+Deeper symptom-first help lives in the [troubleshooting
+section](../troubleshooting/index.md); each program's [package
+page](../packages/index.md) carries its own known problems and where to get
+real support for it.

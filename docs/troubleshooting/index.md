@@ -44,23 +44,34 @@ here. Where a fix is distribution-specific it says so.
   kind of hub; measured per target.
 - **[The FT8 waterfall is silent](../getting-started/first-contact.md#when-the-waterfall-is-silent)** —
   audio routing, covered in first contact.
+- **[FT8 decodes nothing on a busy band](../guides/time-and-gps.md#why-the-clock-matters)** —
+  the clock is more than a second out. `timedatectl`; with no network, a GPS
+  keeps it.
+- **[A program cannot reach the radio, or the radio behaves erratically](../guides/rig-control.md#when-it-does-not-work)** —
+  two programs have the serial port open. One owns it; the rest ask it.
+- **[Everyone is heard, nobody hears you](../guides/audio-routing.md#transmit-the-alc-trap)** —
+  transmit audio level. No ALC action.
+- **[`rtl_test` says the dongle is busy](../guides/sdr.md#if-rtl_test-says-the-device-is-busy)** —
+  the kernel's TV driver claimed it first.
+- **[Direwolf or ardopcf: device busy](../guides/packet-winlink.md#1-direwolf-the-modem)** —
+  PipeWire has the sound card; set its profile to Off.
 
 ## Audio and digital modes
 
 Symptom first; each links to the entry in
-[Audio routing](../guides/audio-routing.md#8-when-it-goes-wrong) or the
+[Radio audio](../guides/audio-routing.md#8-when-it-goes-wrong) or the
 [digital-modes guide](../guides/digital-modes.md).
 
 - **[The waterfall is flat or black](../guides/audio-routing.md#no-waterfall)** —
   the program is recording from the wrong source. `wpctl status` shows which.
+- **[The waterfall is solid colour and decodes nothing](../guides/audio-routing.md#clipping)** —
+  the input is clipping; lower the radio's USB output level.
+- **[Tune keys the radio but shows no power](../guides/audio-routing.md#no-power)** —
+  wrong output device, or the radio's data-mode audio source is the mic jack.
 - **[The radio's sound card is not in the program's list](../guides/audio-routing.md#radio-missing)** —
   `cat /proc/asound/cards` says whether the kernel sees it at all.
 - **[Desktop sounds go out over the air, or the radio keys by itself](../guides/audio-routing.md#notifications-on-air)** —
   the radio became the default output.
-- **[Full power on the meter, nobody decodes me](../guides/audio-routing.md#alc)** —
-  overdrive; the ALC trap.
-- **[Direwolf: `Device or resource busy`](../guides/audio-routing.md#busy)** —
-  `plughw:` while PipeWire holds the card.
 - **[SSTV pictures slant](../guides/audio-routing.md#sstv-slant)** — sound
   card clock error; calibrate once per card.
 - **[It worked until I opened a second program](../guides/audio-routing.md#two-programs)** —
@@ -69,8 +80,6 @@ Symptom first; each links to the entry in
   a package pulled in `pulseaudio`, which removes `pipewire-alsa`. The
   planned removal was measured on the bench, where Hammunition refused it
   (issue #61).
-- **[Signals on the waterfall, WSJT-X decodes nothing](../guides/digital-modes.md#3-time-the-clock-must-be-right)** —
-  the clock is more than about a second out.
 - **[WSJT-X's Test CAT fails](../guides/digital-modes.md#test-with-rigctl-before-you-blame-a-program)** —
   test the radio with `rigctl` first; then look for a second program holding
   the serial port.

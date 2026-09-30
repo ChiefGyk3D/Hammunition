@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
-# Digital modes: from installed to first contact
+# FT8 and the digital modes
 
 The standard this project holds itself to: a licensed ham with moderate
 Linux experience gets from a fresh Parrot install to a working
@@ -14,8 +14,12 @@ callsign in each program, then the first FT8 contact**, and after that
 PSK31 and RTTY in fldigi, and JS8Call.
 
 [First contact](../getting-started/first-contact.md) is the short version
-of this page. [Audio routing](audio-routing.md) is the long version of step
-2, and has its own troubleshooting list.
+of this page. Four station guides are the long versions of steps 1 to 4,
+and each is worth doing once before any mode: [Rig control
+(CAT)](rig-control.md), [Radio audio](audio-routing.md), [Time and
+position](time-and-gps.md) and [Your callsign in each
+program](station-settings.md). This page gives the minimum of each and
+then gets on the air.
 
 This page closes gap A9.1 of `docs/reference/catalog-gaps-2026-09.md`, and
 carries the "enter your callsign and grid once per program" instructions
@@ -46,7 +50,10 @@ hammunition install station digital-modes
 hammunition station set --callsign N0CALL --grid-square FN31pr
 ```
 
-Read the dry run first: five of the `digital-modes` programs are source
+The [`digital-modes`](../profiles/digital-modes.md) profile carries the
+WSJT-X family (WSJT-X, JTDX, MSHV), JS8Call, the fldigi family, QSSTV for
+SSTV, FreeDV for digital voice on HF, and a handful of decoders. Read the
+dry run first: five of its programs are source
 builds (fldigi, WSJT-X, MSHV, glfer, xwefax), so it is a long install, and
 the plan says what each step does. Log out and back in afterwards so the
 `dialout` group membership the plan added takes effect
@@ -76,6 +83,8 @@ Pick flrig if you want a window with the radio's controls; pick `rigctld`
 if you want nothing on screen. Both work with every program on this page.
 Hammunition does not start either for you yet — running one `rigctld` as a
 service from station config is gap report A2, not built.
+[Rig control (CAT)](rig-control.md) is the full version of this section,
+with more model numbers, baud rates and every program's CAT dialog.
 
 ### Find the radio's serial port
 
@@ -121,18 +130,25 @@ often wrong), wrong baud, or for Icom radios a wrong CI-V address (see the
 **`rigctld`**, in a terminal you leave open:
 
 ```
-rigctld -m 1035 -r /dev/serial/by-id/usb-…-if00-port0 -s 38400
+rigctld -m 1035 -r /dev/serial/by-id/usb-…-if00-port0 -s 38400 -T 127.0.0.1
 ```
 
-and from another terminal, through it:
+**Always pass `-T 127.0.0.1`.** Without it `rigctld` listens on every
+network interface — its own help says `set listening IP address, default
+ANY` (measured, hamlib 4.7.2 on the laptop) — which puts the transmitter's
+controls on whatever network the laptop is on. From another terminal,
+through it:
 
 ```
-rigctl -m 2 f
+rigctl -m 2 -r 127.0.0.1:4532 f
 ```
 
 **flrig**: start it, choose the radio and serial port in its configuration
-(Config → Setup → Transceiver, per flrig's documentation), and confirm the
-frequency display follows the radio's dial.
+(Config → Setup → Transceiver, per flrig's documentation), press *Init*,
+and confirm the frequency display follows the radio's dial. Other programs
+reach flrig at `127.0.0.1:12345` (flrig's documented default port; not
+read on the bench). Do not run `rigctld` against the radio at the same
+time.
 
 ### PTT: how the program keys the radio
 
@@ -147,7 +163,7 @@ frequency display follows the radio's dial.
 
 ## 2. Audio: radio in, radio out
 
-The whole of this is [Audio routing](audio-routing.md). The minimum, before
+The whole of this is [Radio audio](audio-routing.md). The minimum, before
 the first decode:
 
 1. Find the radio's sound card by difference: `cat /proc/asound/cards`
@@ -169,9 +185,10 @@ the first decode:
 FT8, FT4, JS8 and WSPR transmit and decode in fixed time slots. A clock more
 than about a second off decodes nothing while everything else appears to
 work (the `wsjtx` manifest and the `digital-modes` profile both require
-"within about a second"). There is no GPS-time guide yet; gap report A4
-plans a `chrony` unit fed by `gpsd`, and until it exists the clock comes
-from the network.
+"within about a second"). With a network the clock is kept automatically;
+without one, [Time and position](time-and-gps.md) sets up a GPS receiver
+to keep it (a `chrony` unit that does this for you is gap report A4, not
+built yet).
 
 Check it before operating:
 
@@ -202,7 +219,9 @@ the same way, it is your clock, not theirs.
 
 ## 4. Enter your callsign and grid once per program
 
-Each of these programs keeps its own settings file and rewrites it when it
+[Your callsign in each program](station-settings.md) has the whole list,
+and the credentials that are not settings. For the three programs on this
+page: each keeps its own settings file and rewrites it when it
 exits, so type the values in the program's own dialog, and never edit the
 file while the program is running. The dialog paths are from each
 program's documentation (not opened on the bench):
@@ -211,7 +230,7 @@ program's documentation (not opened on the bench):
 |---|---|---|
 | **WSJT-X** | File → Settings → General | *My Call*, *My Grid* |
 | **JS8Call** | File → Settings → General → Station | *Callsign*, *Maidenhead grid* |
-| **fldigi** | First-run wizard, or Configure → Config dialog → Operator | *Callsign*, *Name*, *QTH*, *Locator* |
+| **fldigi** | First-run wizard, or Configure → Operator | *Callsign*, *Name*, *QTH*, *Locator* |
 
 Use the same callsign and grid you gave `hammunition station set`.
 
@@ -225,8 +244,9 @@ WSJT-X is the catalog's recommended default of the FT8 family (the
 
 **File → Settings → Radio** (per WSJT-X's documentation):
 
-- *Rig*: **Hamlib NET rigctl** with *Network Server* `localhost:4532` if
-  `rigctld` owns the port, or **FLRig** if flrig does.
+- *Rig*: **Hamlib NET rigctl** with *Network Server* `127.0.0.1:4532` if
+  `rigctld` owns the port, or **FLRig FLRig** on `127.0.0.1:12345` if
+  flrig does.
 - *PTT Method*: **CAT**, or *RTS*/*DTR* on the serial port that keys, or
   *VOX* for a SignaLink.
 - *Mode*: **Data/Pkt** if your radio has a data mode that takes USB audio,
@@ -242,19 +262,30 @@ by the name you found in §2.
 Then:
 
 1. Choose **20 m** from the band list: the dial goes to **14.074 MHz** USB.
-   The other FT8 frequencies are in the same list.
+   The common FT8 dial frequencies, all USB, per WSJT-X's documentation:
+
+   | Band | 80 m | 40 m | 30 m | 20 m | 17 m | 15 m | 10 m | 6 m |
+   |---|---|---|---|---|---|---|---|---|
+   | MHz | 3.573 | 7.074 | 10.136 | 14.074 | 18.100 | 21.074 | 28.074 | 50.313 |
+
 2. Set the receive level to about **30 dB** on the level bar with no
    signals (the WSJT-X guidance; [levels](audio-routing.md#receive)).
 3. Watch one 15-second cycle. Decodes appear in the left pane: time, dB,
    DT, frequency and the message. **That is your receive chain working end
    to end** — hearing decodes before you transmit is the check that saves
    an hour.
-4. Press **Tune** and set transmit audio against ALC
+4. A licence is needed to transmit; receiving needs none. Press **Tune**
+   and set transmit audio against ALC
    ([the ALC trap](audio-routing.md#transmit-the-alc-trap)). Press Tune
    again to stop.
 5. **Double-click a CQ** in the left pane. WSJT-X sets up the reply, enables
    transmit, and runs the exchange: your call and grid, the signal reports,
-   `RR73`, `73`. When it finishes it offers a **Log QSO** dialog; accept it.
+   `RR73`, `73`. When it finishes it offers a **Log QSO** dialog; OK saves
+   the contact to `wsjtx_log.adi` (§8), which every logger can import.
+
+Heard by nobody? A [PSK Reporter](https://pskreporter.info/pskmap.html) map
+shows who decoded you; an empty map after several calls is the ALC trap or
+the wrong output device.
 
 If the waterfall shows signals and nothing decodes, it is the clock (§3).
 If the waterfall is flat, it is audio
@@ -272,14 +303,14 @@ NBEMS messaging stack. The fldigi binary on the laptop offers both
 *PortAudio* and *PulseAudio* as sound options (measured, from the strings
 in the binary).
 
-**Configure → Config dialog** (per fldigi's documentation):
+**Configure** (per fldigi's documentation):
 
-- *Soundcard → Devices*: choose **PulseAudio** and leave the server string
+- *Sound Card → Devices*: choose **PulseAudio** and leave the server string
   empty; pick the radio's card in the per-stream selection, or choose it
   for fldigi's stream in `pavucontrol`/`qpwgraph`. *PortAudio* also works
   and lists the devices by name.
 - *Rig Control*: the **flrig** tab if flrig owns the port, or **Hamlib**
-  with rig *Hamlib NET rigctl* and device `localhost:4532` if `rigctld`
+  with rig *Hamlib NET rigctl* and device `127.0.0.1:4532` if `rigctld`
   does. PTT on the same page.
 - *Operator*: your callsign, name, QTH and locator (§4). fldigi's macros
   use them as `<MYCALL>` and the like.
@@ -311,7 +342,7 @@ look similar (per its documentation):
 - **File → Settings → Audio**: the radio's card for input and output.
 - **File → Settings → General → Station**: callsign and grid (§4).
 
-The 20 m JS8 dial frequency is **14.078 MHz** USB. JS8Call needs the clock
+The common JS8 dial frequencies are **7.078** and **14.078 MHz** USB. JS8Call needs the clock
 right exactly as FT8 does (§3), and it should not run at the same time as
 WSJT-X on the same radio.
 
@@ -319,6 +350,17 @@ On Ubuntu 24.04 (and Mint 22.3 and Pop!_OS 24.04 on the same base) the
 catalog installs the distribution's older JS8Call 2.2.0, because JS8Call 3
 needs Qt 6.5; the settings described here may be laid out differently in
 that version (the `js8call` manifest records why).
+
+---
+
+## Other modes on the profile
+
+| Mode | Program | Notes |
+|---|---|---|
+| SSTV (pictures) | [QSSTV](../packages/qsstv.md) | Its own manual; audio as above, and calibrate the sound card once or pictures slant |
+| FreeDV (digital voice on HF) | [FreeDV](../packages/freedv.md) | Two audio paths, radio and headset: Tools → Audio Config |
+| Weather fax | [xwefax](../packages/xwefax.md), or fldigi's WEFAX mode | Receive only |
+| NBEMS messages | [flmsg](../packages/flmsg.md), [flamp](../packages/flamp.md) | Run through fldigi |
 
 ---
 
@@ -342,37 +384,43 @@ because none of the programs has been run there.
 
 For WSJT-X, JS8Call and fldigi, change settings through the program, and
 if you must edit the file, quit the program first: it writes its whole
-settings file back when it exits. For packet and Winlink, `pat` keeps
-`~/.config/pat/config.json` (written by `pat configure`, per its manifest
-and documentation), and Direwolf's file is the one above; a packet guide is
-gap report A9.2.
+settings file back when it exits. For packet and Winlink, Pat's settings are
+written by `pat-winlink configure` (Debian and Ubuntu install the command
+under that name) into `~/.config/pat/config.json` (per Pat's
+documentation), and Direwolf's file is the one above; [Packet and
+Winlink](packet-winlink.md) walks both.
 
 ---
 
 ## When something is wrong
 
 - **Flat waterfall, program hears nothing** → audio:
-  [audio routing, symptoms](audio-routing.md#8-when-it-goes-wrong).
+  [Radio audio, symptoms](audio-routing.md#8-when-it-goes-wrong).
 - **Signals on the waterfall, no decodes** → the clock (§3).
 - **Test CAT fails** → run `rigctl` directly (§1). If `rigctl` works and the
   program does not, the program is set to the wrong rig, or a second program
-  holds the serial port.
+  holds the serial port ([Rig control](rig-control.md#when-it-does-not-work)).
+- **Decodes, but nobody answers** → transmit level or the wrong output
+  device; a [PSK Reporter](https://pskreporter.info/pskmap.html) map shows
+  who heard you.
 - **Permission denied on the serial port** → the `dialout` group needs a
   fresh login ([troubleshooting](../troubleshooting/running.md#dialout)).
 - **Full power, nobody hears you** → the ALC trap
-  ([audio routing](audio-routing.md#transmit-the-alc-trap)).
+  ([Radio audio](audio-routing.md#transmit-the-alc-trap)).
 - **A window comes up blank or without decorations** → Wayland
   ([troubleshooting](../troubleshooting/running.md#wayland)).
 
 ## What has not been measured yet
 
 - **No QSO, decode or CAT session has been run from the field laptop** for
-  this page. The first-contact walk-through is the programs' documented
+  this page. The install itself is covered by the
+  [digital-modes VM campaign](../reference/vm-campaign-digital-modes.md). The first-contact walk-through is the programs' documented
   path, not a bench report. When the FT-991A is on the bench, the result
   belongs in `docs/reference/bench-verification-5430.md` first.
 - **Every dialog path** (File → Settings and the rest) is from the
   programs' documentation; no GUI was opened.
 - **The FT-991A's two-port split** (Enhanced for CAT, Standard for keying)
   is Yaesu's documentation, not measured.
-- **Settings and log locations** marked *documentation* in §8.
+- **Settings and log locations** marked *documentation* in §8, the FT8 and
+  JS8 frequency lists, and flrig's port 12345.
 - **Which time daemon** the targets other than Parrot 7.3 run by default.

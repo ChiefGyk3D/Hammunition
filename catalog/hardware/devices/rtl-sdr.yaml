@@ -366,15 +366,19 @@ documentation:
     Listen to broadcast and amateur bands, decode ADS-B, ISM-band sensors, POCSAG
     and AIS, and feed the whole utility-decoder cluster.
   setup_steps: >-
-    Install the packages and add yourself to plugdev. Debian's rtl-sdr package
-    ships udev rules and a modprobe blacklist for dvb_usb_rtl28xxu; without that
-    blacklist the DVB driver claims the device first and rtl_test reports it as
-    busy.
+    Install the packages and add yourself to plugdev; librtlsdr's udev rules
+    grant that group the device. The kernel's dvb_usb_rtl28xxu television
+    driver can claim the dongle first, and rtl_test then reports it busy
+    (usb_claim_interface error -6). Whether the distribution ships a blacklist
+    for that driver varies: Ubuntu 24.04's librtlsdr2 2.0.1-2build1 ships an
+    empty /etc/modprobe.d and no blacklist file (read from the package archive,
+    2026-09-30); the other targets are unmeasured. `docs/guides/sdr.md` gives
+    the one-line blacklist and how to undo it.
   known_problems: >-
     The dvb_usb_rtl28xxu kernel driver claiming the device is the single most
     common failure and looks like broken hardware. Clones vary enormously in
-    oscillator stability — the `kalibrate-rtl` tool exists for exactly this,
-    though it is not carried in this catalog yet. The librtlsdr
+    oscillator stability — the `kalibrate-rtl` tool, carried in this catalog,
+    exists for exactly this, and `rtl_test -p` gives a rough figure. The librtlsdr
     rules file matches over forty rebadged devices, so a dongle sold under another
     name usually still works.
   upstream_url: https://osmocom.org/projects/rtl-sdr/wiki

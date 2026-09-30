@@ -1,0 +1,6 @@
+[
+ {"id": 1, "callsign": "N0CALL", "latitude": 39.8017, "longitude": -89.6436, "city": "Springfield, IL", "group": "", "internet_node": null, "mode": "FM", "encode": "100.0", "decode": "100.0", "frequency": 146940000, "offset": -600000, "description": "synthetic", "power": "unknown", "operational": 1, "restriction": ""},
+ {"id": 2, "callsign": "N0TST", "latitude": 39.75, "longitude": -89.6, "city": "Springfield, IL", "group": "", "internet_node": null, "mode": "D-star    ", "encode": "0.00", "decode": "0.00", "frequency": 444100000, "offset": 5000000, "description": "", "power": "unknown", "operational": 0, "restriction": ""},
+ {"id": 3, "callsign": "N0TST", "latitude": null, "longitude": null, "city": "", "group": "", "internet_node": null, "mode": "FM", "encode": "0", "decode": "0", "frequency": 147000000, "offset": 600000, "description": "", "power": "", "operational": 1, "restriction": ""},
+ {"id": 4, "callsign": "N0TST", "latitude": 40, "longitude": -89, "city": "", "group": "", "internet_node": null, "mode": "DMR    ", "encode": "123", "decode": "88.5", "frequency": 443000000, "offset": 5000000, "description": "", "power": "", "operational": 1, "restriction": ""}
+]

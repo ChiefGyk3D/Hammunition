@@ -1,0 +1,8 @@
+callsign,output_mhz,offset_mhz,tone,mode,lat,lon,name,notes
+N0CALL,146.940,-0.600,100.0,FM,39.8017,-89.6436,Springfield,synthetic
+n0tst,442.500,+5.000,,DSTAR,39.82,-89.55,Springfield,
+N0CALL,146.940,-0.600,103.5,FM,40.90,-89.10,Other hill,same call and frequency 120 km away
+N0TST,147.000,+0.600,,DMR,abc,-89.70,Springfield,
+,146.520,,,FM,39.80,-89.64,Nobody,
+N0TST,145.230,-0.600,,FM,0,0,Null Island,
+N0TST,145.250,-0.600,,FM,95.0,-89.64,Too far north,

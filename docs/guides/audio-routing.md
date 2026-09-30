@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
-# Audio routing for digital modes
+# Radio audio
 
 Every digital mode is sound. FT8, PSK31, RTTY, JS8, packet and SSTV all
 reach the computer as audio from the radio's receiver and leave it as
@@ -15,9 +15,11 @@ for you. This page is that part.
 It covers what sits between the radio and the program on a 2026 Linux
 desktop, how to tell which sound device is the radio, how to see and
 change where each program's audio goes, sample rates, levels (and the ALC
-trap), and a symptom-first list for when it goes wrong. The companion page
-is [Digital modes: from installed to first contact](digital-modes.md),
-which puts rig control, audio and time together into a first FT8 QSO.
+trap), and a symptom-first list for when it goes wrong. It is the second
+of the four station guides: [Rig control (CAT)](rig-control.md) comes
+before it, [Time and position](time-and-gps.md) and [Your callsign in each
+program](station-settings.md) after, and [FT8 and the digital
+modes](digital-modes.md) puts all four together into a first FT8 QSO.
 
 This page closes gap A3 of `docs/reference/catalog-gaps-2026-09.md`.
 
@@ -28,9 +30,9 @@ read-only commands, and **with no radio or USB sound interface attached**.
 So the layers, the library each program loads, the PipeWire clock, the
 ALSA device names and the command output shapes are measured; everything
 about a real rig's USB codec, its levels and its sample rates is not, and
-says so where it appears. The other targets (Debian 13, Kali, the Ubuntu
-family) have not been checked for which audio packages they install by
-default.
+says so where it appears. `pactl` and `pw-loopback`'s options were also
+read on Ubuntu 24.04 on 2026-09-30. Which audio packages Debian 13, Kali
+and the Ubuntu family install by default has not been checked.
 
 ---
 
@@ -106,10 +108,10 @@ program calls itself, so "loads" is the accurate word:
 | **Direwolf** 1.7 (apt) | `libasound` only | Pure ALSA. It reaches PipeWire through `pipewire-alsa`, or bypasses it with a `plughw:` device name (section 6) |
 
 What was not measured: how Qt 6 Multimedia chooses its backend on each
-target. The gap report records an upstream report (JS8Call-improved issue
-#120, on Arch) that Qt 6 builds of JS8Call and WSJT-X do not list PipeWire
-*virtual* devices as inputs on some systems. Real sound cards are not
-affected by that report; virtual cables are (section 7).
+target. An upstream report (JS8Call-improved issue 120, on Arch) says Qt 6
+builds of JS8Call and WSJT-X do not list PipeWire *virtual* devices as
+inputs on some systems. Real sound cards are not affected by that report;
+virtual cables are (section 7).
 
 ---
 
@@ -120,10 +122,12 @@ microphone, and then the radio. The programs list all of them, often by
 names that do not say "radio". Find it by difference: look before you plug
 it in, and again after.
 
-```
+```sh
 cat /proc/asound/cards
 arecord -l
 aplay -l
+pactl list short sources    # things that record: your mic, the radio's receive audio
+pactl list short sinks      # things that play: your speakers, the radio's transmit input
 ```
 
 **Measured on the field laptop, nothing plugged in**, `cat /proc/asound/cards`
@@ -135,7 +139,10 @@ shows one card (its second line, the bus address, trimmed):
 
 and `arecord -l` one capture device, `card 0: PCH [HDA Intel PCH], device 0:
 ALC3254 Analog`. Plug the radio's USB cable in, run the three commands
-again, and the new card is the radio. The word in square brackets
+again, and the new card is the radio; in the `pactl` lists its entries
+have `usb` and the chip's name in them. If nothing new appears, the
+computer does not see the interface: check the cable and the radio's USB
+setting, then `hammunition hardware list`. The word in square brackets
 (`PCH` here) is the card's **ID**, and it is what to write down: card
 *numbers* are handed out in the order devices appear and can change after
 a reboot or a replug, the ID does not.
@@ -202,7 +209,12 @@ microphone?" in one line.
 
 `qpwgraph` draws the same graph with wires you can drag. It is not in the
 catalog yet (gap report A3 recommends it as a unit, after an archive sweep
-confirms it on every target); install it with apt yourself if you want it.
+confirms it on every target); install it with apt yourself if you want it:
+
+```sh
+sudo apt install qpwgraph
+```
+
 `pavucontrol` is the older PulseAudio mixer and still works against
 `pipewire-pulse`: its *Recording* and *Playback* tabs show each running
 program and a drop-down for its device. Neither was installed on the
@@ -236,6 +248,20 @@ wpctl set-mute <id> 0
 
 These change the software gain PipeWire applies. Section 5 says which way
 to turn them.
+
+### Choose the radio in each program
+
+| Program | Where (per its documentation) | Input (receive) | Output (transmit) |
+|---|---|---|---|
+| [WSJT-X](../packages/wsjtx.md), [JTDX](../packages/jtdx.md), [JS8Call](../packages/js8call.md) | File → Settings → Audio | The radio's source | The radio's sink |
+| [fldigi](../packages/fldigi.md) and the fl family | Configure → Sound Card → Devices | PulseAudio or PortAudio: the radio's capture | the radio's playback |
+| [FreeDV](../packages/freedv.md) | Tools → Audio Config | Receive tab: from radio, to speakers | Transmit tab: from mic, to radio |
+| [QSSTV](../packages/qsstv.md) | Options → Configuration → Sound | the radio's input | the radio's output |
+| [Direwolf](../packages/direwolf.md) | `ADEVICE` in `direwolf.conf` | §6, and [Packet and Winlink](packet-winlink.md) | same line |
+| [ardopcf](../packages/ardopcf.md) | the two device names on its command line | `plughw:` names, see [Packet and Winlink](packet-winlink.md) | same |
+
+No dialog in this table was opened on the bench; the paths move a little
+between versions, the field names less.
 
 ---
 
@@ -273,15 +299,18 @@ own documentation asks for it.
 
 ### Receive
 
-Set receive level so the program sees band noise comfortably above
-nothing and well below clipping:
+Tune to an empty frequency on the band you will use, with the radio's AGC
+on and its noise blanker off. Set receive level so the program sees band
+noise comfortably above nothing and well below clipping. Too low and weak
+signals vanish into the computer's own noise; too high and a strong
+station clips and smears across the waterfall, taking weak ones with it.
 
 - **WSJT-X**: the level bar at the bottom left. WSJT-X's own guidance is
   around 30 dB on a quiet band with no signals.
 - **fldigi**: the waterfall's background should be a speckled noise floor,
   not black and not solid colour.
-- **Direwolf**: it prints an `audio level` with every packet it hears; its
-  user guide aims for about 50.
+- **Direwolf**: it prints an `audio level` with every packet it hears,
+  like `audio level = 50(25/24)`; its user guide aims for about 50.
 
 Adjust in this order: the radio's own USB/data *output* level menu first,
 then the capture volume with `wpctl set-volume` on the radio's source,
@@ -315,6 +344,9 @@ The rule:
    back the audio off. Never raise PipeWire's volume above 1.0 to get more
    drive; that clips before the audio leaves the computer.
 
+Direwolf, ardopcf and fldigi each have their own transmit level; the same
+rule applies to all of them.
+
 On radios with a USB codec there is usually also a *data input level*
 menu item for the USB audio into the transmitter, and a *data input
 select* (rear/USB versus mic). Menu names and numbers differ by radio and
@@ -342,6 +374,9 @@ There are two ways in, and they behave differently:
   *Device or resource busy*. WirePlumber suspends an idle device after a
   few seconds, which is why this works on some starts and not others. That
   behaviour is PipeWire's documented one and was **not reproduced** here.
+  The way out that keeps `plughw:` is to make PipeWire let go of that one
+  card: in `pavucontrol`'s **Configuration** tab set the radio's card
+  profile to **Off** (the desktop keeps its own sound). Also unmeasured.
 - **`ADEVICE default`** (or no `ADEVICE` line, which means the default)
   goes through `pipewire-alsa`: the laptop's
   `/etc/alsa/conf.d/99-pipewire-default.conf` points ALSA's `default` at
@@ -357,7 +392,9 @@ sound chip's own GPIO: the example file carries `#PTT CM108` for exactly
 this. Other options — a serial line's RTS, a Pi GPIO pin, hamlib CAT — are
 in the example file and in Direwolf's Radio Interface Guide, which the file
 links to. Direwolf's config is still the operator's to write; station
-config filling in `MYCALL` is gap report A1, not built yet.
+config filling in `MYCALL` is gap report A1, not built yet. A whole
+working `direwolf.conf` for Winlink, with the AGW and KISS ports Pat uses,
+is in [Packet and Winlink](packet-winlink.md#1-direwolf-the-modem).
 
 ---
 
@@ -367,13 +404,14 @@ To decode what an SDR receiver hears — SDR++ or gqrx audio into WSJT-X or
 fldigi — the SDR program's output has to become a decoder's input. On
 PipeWire that is a **loopback** or a **null sink**:
 
-```
-pw-loopback --capture-props='media.class=Audio/Sink node.name=sdr-out' \
-            --playback-props='media.class=Audio/Source node.name=sdr-in' &
+```sh
+pw-loopback \
+  --capture-props='media.class=Audio/Sink node.name=sdr-out node.description="SDR out"' \
+  --playback-props='media.class=Audio/Source node.name=sdr-in node.description="SDR in"'
 ```
 
-makes a pair: send the SDR program's audio to *sdr-out* and pick *sdr-in*
-as the decoder's input. (Both options are in `pw-loopback --help` on the
+makes a pair while it runs (Ctrl-C stops it): send the SDR program's
+audio to **SDR out** and pick **SDR in** as the decoder's input. (Both options are in `pw-loopback --help` on the
 laptop, measured; the pair was not created.) Or, through the PulseAudio
 door, a null sink whose *monitor* is the decoder's input:
 
@@ -381,10 +419,11 @@ door, a null sink whose *monitor* is the decoder's input:
 pactl load-module module-null-sink sink_name=sdr-to-decoder
 ```
 
-The loopback lasts as long as the command runs, the null sink until
-PipeWire restarts. **Neither has been tried on the field
-laptop for this page**, and the upstream report above (JS8Call-improved
-issue #120) says Qt 6 builds may not list such a device as an input; the
+The null sink lasts until PipeWire restarts. **Neither has been tried on
+the field laptop for this page**, and the upstream report above
+([JS8Call-improved issue 120](https://github.com/JS8Call-improved/JS8Call-improved/issues/120))
+says Qt 6 builds may not list such a device as an input, failing with
+*Requested input audio format is not supported on device*; the
 workaround that report names is the kernel's ALSA loopback (`snd-aloop`),
 which needs a module loaded as root and has also not been measured here.
 The catalog carries no loopback configuration yet: gap report A3 plans one,
@@ -412,12 +451,23 @@ Symptom first. Each points to the section that explains it.
 - <a name="notifications-on-air"></a>**Desktop sounds go out over the air,
   or the radio keys by itself.** The radio became the default output (§3).
   Move the default back, and turn off notification sounds.
+- <a name="clipping"></a>**The waterfall is solid colour and decodes
+  nothing.** The input is clipping. Lower the radio's USB audio output
+  level first (§5).
+- <a name="no-power"></a>**Tune keys the radio but the meter shows no
+  power.** Wrong output device in the program, or the radio is taking
+  transmit audio from its microphone jack: a menu item on Yaesu and Icom
+  radios chooses the USB or rear input as the data-mode audio source (§5).
+- <a name="after-update"></a>**Everything worked until the desktop was
+  updated.** The default device moved to the radio, or a program lost its
+  saved device name. Check the default (§3), then each program's audio
+  settings.
 - <a name="alc"></a>**Full power on the meter, nobody decodes me, PSKReporter
   shows nothing.** Overdrive. Watch ALC while tuning and back the audio off
   until ALC barely moves (§5).
-- <a name="busy"></a>**Direwolf: `Device or resource busy`.** It is opening
-  the card with `plughw:` while PipeWire holds it (§6). Use the `default`
-  route, or stop whatever else has the radio's card.
+- <a name="busy"></a>**Direwolf or ardopcf: `Device or resource busy`.** It
+  is opening the card with `plughw:` while PipeWire holds it (§6). Use the
+  `default` route, or set the radio's card profile to Off in `pavucontrol`.
 - <a name="sstv-slant"></a>**SSTV pictures slant, fax images skew.** Sound
   card clock error; calibrate fldigi's or QSSTV's ppm correction once for
   that sound card (§4).
@@ -431,7 +481,7 @@ Symptom first. Each points to the section that explains it.
   PipeWire packages back with apt and remove `pulseaudio`.
 - <a name="decodes-nothing"></a>**Audio looks fine, the waterfall shows
   signals, WSJT-X decodes nothing.** Not audio: the clock. See
-  [the time section of the digital-modes guide](digital-modes.md#3-time-the-clock-must-be-right).
+  [Time and position](time-and-gps.md).
 
 ---
 

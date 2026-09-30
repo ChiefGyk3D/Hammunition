@@ -1,0 +1,3 @@
+<?xml version="1.0"?>
+<!DOCTYPE gpx [<!ENTITY a "aaaa">]>
+<gpx><wpt lat="1" lon="1"><name>&a;</name></wpt></gpx>
