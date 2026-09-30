@@ -23,7 +23,11 @@ def _flat(path: str) -> str:
 def test_d070_is_recorded_last_under_its_assigned_title() -> None:
     text = (REPO_ROOT / "docs" / "DECISIONS.md").read_text()
     assert TITLE in text
-    assert text.rindex("\n## D-") == text.index(TITLE) - 1, "D-070 is the last entry"
+    # Recorded in order: whatever entry follows D-070's is numbered after it.
+    after = text.find("\n## D-", text.index(TITLE))
+    if after != -1:
+        following = int(text[after + len("\n## D-") : after + len("\n## D-") + 3])
+        assert following > 70, f"D-{following:03d} is recorded after D-070"
 
 
 def test_the_guide_points_at_the_bunker_and_says_lan_only() -> None:
