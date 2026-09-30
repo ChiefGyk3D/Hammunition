@@ -45,6 +45,7 @@ their text follows.
 
 ## Commands
 
+- `hammunition artifacts`
 - `hammunition doctor`
 - `hammunition hardware state`
 - `hammunition install` (with `--dry-run` only)
@@ -62,6 +63,7 @@ their text follows.
 
 | kind | document |
 |---|---|
+| `artifacts` | [`ArtifactsDocument`](#artifacts) |
 | `catalog` | [`CatalogDocument`](#catalog) |
 | `doctor` | [`DoctorDocument`](#doctor) |
 | `error` | [`ErrorDocument`](#error) |
@@ -73,6 +75,188 @@ their text follows.
 | `status` | [`StatusDocument`](#status) |
 | `unit` | [`UnitDocument`](#unit) |
 | `update` | [`UpdateDocument`](#update) |
+
+### artifacts
+
+Every remote data artifact the engine would fetch for the selection
+given (D-070): `data` units, map regions and terrain tiles. No station
+file is read; the regions are the ones on the command line. What cannot
+be listed is listed as deferred, with the reason, never dropped.
+
+| field | type | meaning |
+|---|---|---|
+| `map_regions` | list of string | the `--map-regions` given; empty when none |
+| `map_freshness` | string | the `--map-freshness` given, `yearly` when none |
+| `units` | list of string | the units listed, in order |
+| `artifacts` | list of [`ArtifactEntry`](#artifactentry) | one entry per artifact, deferred ones included |
+
+#### `ArtifactEntry`
+
+One remote artifact, or one the selection cannot list and why.
+
+| field | type | meaning |
+|---|---|---|
+| `unit` | string | the catalog unit (`osm-regions`, `dem-copernicus`, `country-files`) |
+| `name` | string or null | the artifact's stable name within the unit: a region path, a tile name, a data file's name. A LAN mirror serves it at `<mirror>/<unit>/<name>`. Null only for a deferred entry that covers the whole unit |
+| `url` | string or null | the publisher URL the engine itself fetches; null when deferred |
+| `check` | string or null | how the download is verified: `sha256` (pinned by Hammunition), `md5-publisher` (Geofabrik's published MD5), `etag-md5` (the Copernicus object's ETag) or `sha256-publisher` (no unit uses it today); null when deferred |
+| `digest` | string or null | the expected digest, in hex, of the kind `check` names: the pin, or the publisher's checksum as the engine read it while resolving; null when deferred |
+| `checksum_url` | string or null | where a publisher checksum is read: the `.md5` beside a Geofabrik file, or the tile URL whose `HEAD` carries the ETag; null for a pinned sha256 and when deferred |
+| `size` | integer or null | bytes, known before the fetch; null when deferred |
+| `licence` | string | the licence line the plan prints for the unit |
+| `deferred` | string or null | null, or why this artifact cannot be listed for this selection |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "ArtifactEntry": {
+      "additionalProperties": false,
+      "description": "One remote artifact, or one the selection cannot list and why.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Name"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Url"
+        },
+        "check": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Check"
+        },
+        "digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Digest"
+        },
+        "checksum_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Checksum Url"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Size"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "deferred": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Deferred"
+        }
+      },
+      "required": [
+        "unit",
+        "name",
+        "url",
+        "check",
+        "digest",
+        "checksum_url",
+        "size",
+        "licence",
+        "deferred"
+      ],
+      "title": "ArtifactEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Every remote data artifact the engine would fetch for the selection\ngiven (D-070): `data` units, map regions and terrain tiles. No station\nfile is read; the regions are the ones on the command line. What cannot\nbe listed is listed as deferred, with the reason, never dropped.",
+  "properties": {
+    "map_regions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Map Regions",
+      "type": "array"
+    },
+    "map_freshness": {
+      "title": "Map Freshness",
+      "type": "string"
+    },
+    "units": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Units",
+      "type": "array"
+    },
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/ArtifactEntry"
+      },
+      "title": "Artifacts",
+      "type": "array"
+    }
+  },
+  "required": [
+    "map_regions",
+    "map_freshness",
+    "units",
+    "artifacts"
+  ],
+  "title": "ArtifactsDocument",
+  "type": "object"
+}
+```
+
+</details>
 
 ### catalog
 

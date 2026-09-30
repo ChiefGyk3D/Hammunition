@@ -228,6 +228,41 @@ With `--json`, prints a `regions` document
 ([json-interface.md](json-interface.md)): the filter and the matching region
 paths. It is Geofabrik's list, nothing of yours.
 
+### `hammunition artifacts [--map-regions R[,R…]] [--map-freshness MODE] [--units U[,U…]]`
+
+Every remote data artifact the engine would fetch for the selection on the
+command line (**D-070**): each `data` unit's files, the Geofabrik extract of
+each region, and the Copernicus tiles each region's outline touches. It
+reads no station file and nothing installed on this machine, and installs
+nothing; the answer is the same on every machine. It is what
+[Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker), a
+LAN mirror of this data, asks to learn what to keep.
+
+```
+$ hammunition artifacts --map-regions north-america/us/vermont --units osm-regions,country-files
+```
+
+| Flag | Effect |
+|---|---|
+| `--map-regions R[,R…]` | Geofabrik region paths, as `station set --map-regions` takes them. None defers the map units |
+| `--map-freshness MODE` | `yearly` (the default), `monthly` or `latest`: which dated file each region resolves to and how it is verified, exactly as in the plan |
+| `--units U[,U…]` | The units to list. Default: every unit with a `data`, `osm-regions` or `dem-tiles` install block. A name not in the catalog, or a unit that fetches nothing (`osm-navit`, `navit`), exits 2 naming it |
+
+The network is asked as the plan asks it, and only for what the selection
+names: Geofabrik for a region's dated file, its `.md5` and its `.poly`
+outline, and the Copernicus bucket for an unpinned tile's size and ETag. A
+pinned region or tile asks nothing. What cannot be resolved — a region
+Geofabrik does not have, an outline that cannot be read, a map unit with no
+`--map-regions` — is listed as deferred with the reason; it does not change
+the exit code.
+
+With `--json`, prints an `artifacts` document
+([json-interface.md](json-interface.md)): per artifact the unit, its stable
+name within the unit (what a mirror serves at `<mirror>/<unit>/<name>`), the
+publisher URL, the check (`sha256`, `md5-publisher`, `etag-md5`), the
+expected digest, where a publisher checksum was read, the size, the licence,
+and `deferred`. It carries the regions given, and nothing of the station's.
+
 ### `hammunition maps qmapshack [--configure-only]`
 
 What the `qmapshack-offline` launcher runs (**D-061**). It adds

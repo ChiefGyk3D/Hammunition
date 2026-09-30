@@ -778,6 +778,67 @@ def cmd_maps_regions(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+@envelope.json_capable()
+def cmd_artifacts(args: argparse.Namespace) -> int:
+    """Every remote data artifact the engine would fetch for the selection
+    on the command line, with no station and no install.  D-070.
+
+    Hammunition Bunker's one source of what to mirror. The network is asked
+    exactly as the plan asks it -- Geofabrik for a region's dated file and
+    MD5 and its outline, the Copernicus bucket for an unpinned tile's size
+    and ETag -- and only for what the selection names.
+    """
+    from hammunition.artifacts import SelectionError, list_artifacts, select_units
+    from hammunition.interface.artifacts import ArtifactsDocument, render_artifacts
+
+    regions: tuple[str, ...] = ()
+    if args.map_regions is not None:
+        regions = tuple(r for r in (p.strip() for p in args.map_regions.split(",")) if r)
+        if not regions:
+            print(
+                "error: --map-regions gave no regions after splitting on ',' and stripping "
+                "whitespace; give at least one, or leave the flag out.",
+                file=sys.stderr,
+            )
+            return EXIT_UNPLANNABLE
+        try:
+            Station(map_regions=regions)  # the shape station config accepts, nothing more
+        except StationError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return EXIT_UNPLANNABLE
+    requested = (
+        tuple(u for u in (p.strip() for p in args.units.split(",")) if u)
+        if args.units is not None
+        else ()
+    )
+    catalog_root = find_catalog(args.catalog)
+    catalog = load_catalog(catalog_root / "packages")
+    try:
+        units = select_units(catalog, requested)
+    except SelectionError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    entries = list_artifacts(
+        units,
+        regions=regions,
+        freshness=args.map_freshness,
+        catalog=catalog,
+        catalog_root=catalog_root,
+        today=date.today(),
+        region_probe=UrllibProbe(),
+        tile_probe=S3Probe(),
+    )
+    doc = ArtifactsDocument(
+        map_regions=regions, map_freshness=args.map_freshness, units=units, artifacts=entries
+    )
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return EXIT_OK
+    for line in render_artifacts(doc):
+        print(line)
+    return EXIT_OK
+
+
 def _read_config_nofollow(path: Path) -> tuple[str, int | None]:
     """*path*'s text and mode, or ``("", None)`` when absent.
 
@@ -3308,6 +3369,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="serve on 127.0.0.1 port N, 1024 to 65535, when 10110 is taken (default 10110)",
     )
     p_maps_tether.set_defaults(func=cmd_maps_gps_tether)
+
+    p_artifacts = sub.add_parser(
+        "artifacts",
+        help="list every remote data artifact for a selection, with no station (D-070)",
+    )
+    p_artifacts.add_argument(
+        "--map-regions",
+        default=None,
+        metavar="R[,R...]",
+        help="comma-separated Geofabrik region paths; none defers the map units",
+    )
+    p_artifacts.add_argument(
+        "--map-freshness", default="yearly", choices=("yearly", "monthly", "latest")
+    )
+    p_artifacts.add_argument(
+        "--units",
+        default=None,
+        metavar="U[,U...]",
+        help="the units to list (default: every data, osm-regions and dem-tiles unit)",
+    )
+    p_artifacts.set_defaults(func=cmd_artifacts)
 
     p_show = sub.add_parser("show", help="describe a profile, disclosure included")
     p_show.add_argument("profile")
