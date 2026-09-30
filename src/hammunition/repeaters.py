@@ -30,6 +30,7 @@ from __future__ import annotations
 import contextlib
 import csv
 import hashlib
+import http.client
 import io
 import json
 import math
@@ -37,6 +38,7 @@ import os
 import re
 import sqlite3
 import stat
+import struct
 import tempfile
 import urllib.parse
 import urllib.request
@@ -287,7 +289,9 @@ def _hz(mhz: object) -> int | None:
         value = float(str(mhz).strip())
     except ValueError:
         return None
-    if not math.isfinite(value) or value <= 0:
+    # 1 to 10,000 MHz: a frequency typed in Hz or kHz is refused, not
+    # labelled "146940000.000" (review, 2026-09-29).
+    if not math.isfinite(value) or not 1 <= value <= 10_000:
         return None
     return round(value * 1_000_000)
 
@@ -420,13 +424,15 @@ def _read_xml(path: Path, text: str) -> Parsed:
         desc = children.get("desc", "")
         cmt = children.get("cmt", "")
         found_call = _search(_CALLSIGN, wpt_name.upper(), desc.upper())
-        found_freq = _search(_FREQUENCY, wpt_name, desc)
+        found_freq = _gpx_frequency(wpt_name, desc)
         hz = _hz(found_freq) if found_freq else None
-        if not found_call and not wpt_name:
+        if not (found_call and hz):
+            # Kept under its own name, or the callsign found, keyed on that.
+            wpt_name = wpt_name or found_call
+            found_call, hz = "", 0
+        if not wpt_name:
             skips.add(_NO_CALLSIGN, read)
             continue
-        if not (found_call and hz):
-            found_call, hz = "", 0
         notes = "; ".join(x for x in (desc, cmt if cmt != desc else "") if x)
         rows.append(
             Repeater(
@@ -444,11 +450,44 @@ def _read_xml(path: Path, text: str) -> Parsed:
 
 def _search(pattern: re.Pattern[str], *texts: str) -> str:
     for text in texts:
+        match = pattern.search(text)
+        if match:
+            return match.group(0)
+    return ""
+
+
+#: Where a repeater's output can be, in MHz: the amateur bands with
+#: repeaters (10 m to 23 cm, the widest allocation of any region) and GMRS,
+#: which RepeaterBook also lists. A tone (67.0 to 254.1), a DCS code or a
+#: coordinate in a GPX ``<desc>`` falls outside them -- except a longitude
+#: in 144 to 148 or 420 to 450, which is why a number followed by "MHz" is
+#: preferred in ``<desc>`` (review, 2026-09-29).
+_REPEATER_BANDS = (
+    (28.0, 29.7),
+    (50.0, 54.0),
+    (70.0, 71.0),
+    (144.0, 148.0),
+    (219.0, 225.0),
+    (420.0, 450.0),
+    (462.0, 468.0),
+    (902.0, 928.0),
+    (1240.0, 1300.0),
+)
+_MHZ = re.compile(r"(?<![\d.])(\d{2,4}\.\d{1,6})\s*MHz", re.IGNORECASE)
+
+
+def _in_band(text: str) -> bool:
+    value = float(text)
+    return any(low <= value <= high for low, high in _REPEATER_BANDS)
+
+
+def _gpx_frequency(name: str, desc: str) -> str:
+    """The output frequency in a waypoint's name, else in its ``<desc>``:
+    there, one written with "MHz" first, then any in a repeater band."""
+    for pattern, text in ((_FREQUENCY, name), (_MHZ, desc), (_FREQUENCY, desc)):
         for match in pattern.finditer(text):
-            value = match.group(1) if pattern.groups else match.group(0)
-            if pattern is _FREQUENCY and not 1 <= float(value) <= 10_000:
-                continue
-            return value
+            if _in_band(match.group(1)):
+                return match.group(1)
     return ""
 
 
@@ -458,13 +497,20 @@ def _read_json(path: Path, text: str) -> Parsed:
     except json.JSONDecodeError as exc:
         raise _unknown(path, f"JSON that does not parse: {exc}") from None
     wanted = {"callsign", "frequency", "latitude", "longitude"}
-    if not isinstance(data, list) or not all(
-        isinstance(item, dict) and wanted <= item.keys() for item in data
-    ):
+
+    def entry(item: object) -> bool:
+        return isinstance(item, dict) and wanted <= item.keys()
+
+    # One odd entry is skipped and counted; a list with no entry of hearham's
+    # shape at all is not hearham's list (review, 2026-09-29).
+    if not isinstance(data, list) or not any(entry(item) for item in data):
         raise _unknown(path, "JSON that is not hearham's list of repeaters")
     rows: list[Repeater] = []
     skips = _Skips()
     for number, item in enumerate(data, start=1):
+        if not entry(item):
+            skips.add("not a repeater entry", number)
+            continue
         where = _position(item.get("latitude"), item.get("longitude"))
         if where is None:
             skips.add(_NO_POSITION, number)
@@ -711,25 +757,75 @@ def navit_text(rows: Sequence[Repeater]) -> str:
     )
 
 
-#: A coordinate this close to a 0.1° line is moved off it (spike: float32).
-_LINE = 1e-5
-_STEP = 2e-5
+def _f32(value: float) -> float:
+    return float(struct.unpack("<f", struct.pack("<f", value))[0])
+
+
+def _step32(value: float, up: bool) -> float:
+    """The float32 next to *value* (itself a float32), upwards or downwards."""
+    if value == 0.0:
+        tiny = float(struct.unpack("<f", struct.pack("<I", 1))[0])
+        return tiny if up else -tiny
+    bits = struct.unpack("<I", struct.pack("<f", value))[0]
+    bits += 1 if (value > 0) == up else -1
+    return float(struct.unpack("<f", struct.pack("<I", bits))[0])
+
+
+#: SQLite's rtree (``rtreeValueDown``/``rtreeValueUp`` in rtree.c): a value
+#: whose float32 lands on the wrong side is scaled by 1 ± 2**-23 and cast
+#: again, which can move it more than one float32 step.
+_TOWARDS = 1.0 - 1.0 / 8388608.0
+_AWAY = 1.0 + 1.0 / 8388608.0
+
+
+def _down32(value: float) -> float:
+    """What SQLite's rtree stores as a box's minimum."""
+    single = _f32(value)
+    if single > value:
+        single = _f32(value * (_AWAY if value < 0 else _TOWARDS))
+    return single
+
+
+def _up32(value: float) -> float:
+    """What it stores as the maximum."""
+    single = _f32(value)
+    if single < value:
+        single = _f32(value * (_TOWARDS if value < 0 else _AWAY))
+    return single
+
+
+def _line(tenths: int) -> float:
+    """A tile line as QMapShack binds it: ``QString::number(x / 10., 'f')``."""
+    return float(f"{tenths / 10.0:f}")
+
+
+def _in_one_tile(value: float) -> bool:
+    low, high = _down32(value), _up32(value)
+    near = math.floor(value * 10)
+    return any(_line(t) <= low and high < _line(t + 1) for t in (near - 1, near, near + 1))
 
 
 def nudge(value: float, limit: float) -> float:
-    """*value* moved 2e-5° north or east off a 0.1° tile line it sits on.
+    """*value*, or the nearest float32 just inside the tile north or east of
+    the 0.1° line it straddles.
 
     QMapShack reads a ``.poi`` by 0.1° tile, asking for boxes with
-    ``min >= tile`` and ``max < tile + 0.1``, and the rtree keeps each box in
-    float32 rounded outwards: a point on a line is in neither tile and is
-    never drawn (measured in the spike). Moved inside the tile above it --
-    below it at the edge of the world -- it is in exactly one."""
-    tenths = value * 10
-    line = round(tenths)
-    if abs(tenths - line) * 0.1 >= _LINE:
+    ``min >= tile`` and ``max < tile + 0.1``, and SQLite's rtree keeps each
+    box as float32 rounded outwards: a point whose box straddles a line is in
+    neither tile and is never drawn (measured in the spike). The band around
+    a line grows with the coordinate (about ±2e-5° at 180°: review, 2026-09-29),
+    so it is computed, not fixed. Moved to the float32 one step inside the
+    tile above the line -- below it at the edge of the world -- the point is
+    in exactly one tile, at most a few metres from where it was."""
+    if _in_one_tile(value):
         return value
-    moved = line / 10 + _STEP
-    return moved if moved <= limit else line / 10 - _STEP
+    line = _line(round(value * 10))
+    moved = _step32(_up32(line), True)
+    if moved > limit or not _in_one_tile(moved):
+        moved = _step32(_down32(line), False)
+    if not _in_one_tile(moved):  # pragma: no cover - a tile is 0.1°, an ulp 1.5e-5°
+        raise ValueError(f"{value} cannot be placed in one 0.1-degree tile")
+    return moved
 
 
 _POI_SCHEMA = (
@@ -892,6 +988,12 @@ def remove_layer(where: Path) -> tuple[Path, ...]:
         with contextlib.suppress(FileNotFoundError):
             path.unlink()
             removed.append(path)
+    # What an import killed between its writes and its renames leaves.
+    with contextlib.suppress(FileNotFoundError):
+        for leftover in where.iterdir():
+            if any(leftover.name.startswith(f".{name}.") for name in FILES):
+                with contextlib.suppress(FileNotFoundError):
+                    leftover.unlink()
     with contextlib.suppress(FileNotFoundError, OSError):
         where.rmdir()  # only when empty
     return tuple(removed)
@@ -941,8 +1043,8 @@ def fetch_hearham(
             body: bytes = response.read(limit + 1)
     except RepeaterFetchError:
         raise
-    except (OSError, ValueError) as exc:
-        raise RepeaterFetchError(f"could not fetch {url}: {exc}") from None
+    except (OSError, ValueError, http.client.HTTPException) as exc:
+        raise RepeaterFetchError(f"could not fetch {url}: {exc!r}") from None
     if len(body) > limit:
         raise RepeaterFetchError(f"{url} answered with more than {limit} bytes; refused")
     return body, hashlib.sha256(body).hexdigest(), datetime.now(UTC).replace(microsecond=0)

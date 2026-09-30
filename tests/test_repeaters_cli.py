@@ -475,3 +475,58 @@ def test_menus_apply_rewrites_an_earlier_navit_offline_to_run_the_engine(tmp_pat
     )
     assert len(steps) == 1 and steps[0].description.startswith("Rewrite")
     assert "maps navit" in wrapper_body(navit, navit.launchers[0], engine=engine)
+
+
+# --- review findings 2 and 9: what the fetch refuses ---------------------------------------
+
+
+def test_fetch_hearham_names_a_broken_http_answer(
+    station: Station, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import socket
+
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+
+    def answer() -> None:
+        conn, _ = listener.accept()
+        conn.recv(65536)
+        conn.sendall(b"garbage\r\n\r\n")
+        conn.close()
+
+    thread = threading.Thread(target=answer, daemon=True)
+    thread.start()
+    port = listener.getsockname()[1]
+    monkeypatch.setattr(repeaters, "HEARHAM_URL", f"http://127.0.0.1:{port}/api/repeaters/v1")
+    try:
+        assert cli.main(["maps", "repeaters", "fetch-hearham"]) == cli.EXIT_FAILED
+    finally:
+        thread.join(5)
+        listener.close()
+    assert "could not fetch" in capsys.readouterr().err
+    assert not station.layer.exists()
+
+
+@pytest.mark.parametrize("location", ["http://127.0.0.1:9/elsewhere", "file:///etc/passwd"])
+def test_fetch_hearham_follows_a_redirect_only_to_https(
+    location: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class Redirect(_Handler):
+        def do_GET(self) -> None:
+            self.send_response(302)
+            self.send_header("Location", location)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Redirect)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://127.0.0.1:{server.server_address[1]}/api/repeaters/v1"
+        # Ours refuses plain HTTP; urllib itself refuses file: before asking it.
+        with pytest.raises(repeaters.RepeaterFetchError, match=r"not HTTPS|is not allowed"):
+            repeaters.fetch_hearham(url, timeout=5)
+    finally:
+        server.shutdown()
+        server.server_close()

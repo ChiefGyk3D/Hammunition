@@ -321,11 +321,46 @@ def test_without_the_nudge_a_point_on_a_tile_line_is_lost(tmp_path: Path) -> Non
 
 def test_the_nudge_moves_only_points_on_a_line_and_stays_in_range() -> None:
     assert repeaters.nudge(39.8017, 90.0) == 39.8017
-    assert repeaters.nudge(-60.1, 180.0) == pytest.approx(-60.09998)
-    assert repeaters.nudge(90.0, 90.0) == pytest.approx(89.99998)
-    # float32, as the rtree holds it, lands inside the tile.
-    stored = struct.unpack("f", struct.pack("f", repeaters.nudge(-60.1, 180.0)))[0]
-    assert -60.1 <= stored < -60.0
+    moved = repeaters.nudge(-60.1, 180.0)
+    assert moved != -60.1 and abs(moved + 60.1) < 1e-4
+    # float32, as the rtree holds it, lands inside one tile.
+    stored = struct.unpack("f", struct.pack("f", moved))[0]
+    assert -60.1 <= stored < -60.0 or -60.2 <= stored < -60.1
+    assert repeaters.nudge(89.9, 90.0) != 89.9
+    assert repeaters.nudge(179.9, 180.0) <= 180.0
+
+
+# Review finding 1: the float32 rounding grows with the coordinate, so a
+# fixed band that worked at Springfield lost points past about 64 degrees.
+LINES = (-179.9, -155.1, -122.4, -89.9, -60.1, -0.1, 0.0, 0.1, 12.3, 39.8, 150.3, 179.9)
+OFFSETS = tuple(n * 1e-6 for n in range(-30, 31))
+
+
+@pytest.mark.parametrize("axis", ["lat", "lon"])
+def test_every_point_near_any_tile_line_is_found_in_exactly_one_tile(
+    axis: str, tmp_path: Path
+) -> None:
+    limit = 90.0 if axis == "lat" else 180.0
+    rows = []
+    for line in LINES:
+        if abs(line) > limit - 0.05:
+            continue
+        for offset in OFFSETS:
+            value = line + offset
+            if axis == "lat":
+                rows.append(_row(lat=value, lon=-89.65))
+            else:
+                rows.append(_row(lat=45.05, lon=value))
+    rows.append(_row(lat=89.99999, lon=179.99999))  # the edge of the world
+    path = tmp_path / "r.poi"
+    repeaters.write_poi(path, "L", "c", date(2026, 9, 1), rows)
+    db = sqlite3.connect(path)
+    lost = [
+        (row.lat, row.lon)
+        for number, row in enumerate(rows, start=1)
+        if _tiles_holding(db, row.lat, row.lon, number) != 1
+    ]
+    assert not lost, f"{len(lost)} of {len(rows)} not in exactly one tile: {lost[:5]}"
 
 
 # --- the store ------------------------------------------------------------------
@@ -401,3 +436,70 @@ def test_the_licence_texts_are_the_approved_wording() -> None:
     hh = repeaters.hearham_licence("Fetched 2026-09-29T20:00:00Z", "ab" * 32)
     assert "life-and-death operations" in hh and "not verifiable" in hh and "D-033" in hh
     assert ("ab" * 32) in hh
+
+
+# --- review findings 3, 4, 5 and 8 ------------------------------------------------------
+
+
+def _gpx(tmp_path: Path, *waypoints: str) -> Path:
+    path = tmp_path / "x.gpx"
+    body = "".join(f'<wpt lat="39.7817" lon="-89.6436">{w}</wpt>' for w in waypoints)
+    path.write_text(f'<gpx xmlns="http://www.topografix.com/GPX/1/1">{body}</gpx>')
+    return path
+
+
+def test_a_tone_or_a_coordinate_in_desc_is_not_taken_for_the_frequency(tmp_path: Path) -> None:
+    parsed = read_input(
+        _gpx(
+            tmp_path,
+            "<name>N0CALL</name><desc>PL 100.0 at 39.7817</desc>",
+            "<name>N0TST</name><desc>PL 100.0, 147.000 MHz +0.600</desc>",
+        )
+    )
+    first, second = parsed.rows
+    assert first.output_hz == 0 and first.label_text() == "N0CALL"
+    assert second.output_hz == 147_000_000
+
+
+def test_a_waypoint_with_no_name_and_no_frequency_keeps_its_callsign(tmp_path: Path) -> None:
+    parsed = read_input(_gpx(tmp_path, "<desc>N0CALL club</desc>", "<desc>nothing</desc>"))
+    assert [r.label_text() for r in parsed.rows] == ["N0CALL"]
+    assert [(s.reason, s.first) for s in parsed.skipped] == [("no callsign", (2,))]
+
+
+def test_a_frequency_outside_1_to_10000_mhz_is_skipped(tmp_path: Path) -> None:
+    hand = tmp_path / "h.csv"
+    hand.write_text(
+        ",".join(repeaters.HAND_HEADER) + "\n"
+        "N0CALL,146940000,,,FM,39.8017,-89.6436,,\n"
+        "N0TST,462.550,+5.000,,FM,39.75,-89.60,GMRS,\n"
+    )
+    parsed = read_input(hand)
+    assert [r.output_hz for r in parsed.rows] == [462_550_000]
+    assert [(s.reason, s.first) for s in parsed.skipped] == [("no usable output frequency", (2,))]
+
+
+def test_one_odd_hearham_entry_is_skipped_not_the_whole_list(tmp_path: Path) -> None:
+    import json
+
+    rows = json.loads((FIXTURES / "hearham.json").read_text())
+    path = tmp_path / "h.json"
+    path.write_text(json.dumps([*rows, {"id": 9}, "junk"]))
+    parsed = read_input(path)
+    assert parsed.format == repeaters.HEARHAM and len(parsed.rows) == 3
+    assert ("not a repeater entry", 2, (5, 6)) in [
+        (s.reason, s.count, s.first) for s in parsed.skipped
+    ]
+    nothing = tmp_path / "n.json"
+    nothing.write_text(json.dumps([{"id": 9}]))
+    with pytest.raises(RepeaterInputError, match="not hearham"):
+        read_input(nothing)
+
+
+def test_remove_layer_also_clears_temporaries_an_interrupted_import_left(tmp_path: Path) -> None:
+    where = tmp_path / "repeaters"
+    layer = repeaters.Layer(name="L", description="d", day=date(2026, 9, 1), rows=(_row(),))
+    repeaters.write_layer(where, layer)
+    (where / ".repeaters.gpx.abc123").write_text("half")
+    repeaters.remove_layer(where)
+    assert not where.exists()
