@@ -733,6 +733,7 @@ Everything an install will do, section by section as the text prints it.
 | `apt_release` | [`ReleaseSection`](#releasesection) or null | present when apt resolves from another release |
 | `no_recommends` | [`NoRecommendsSection`](#norecommendssection) or null | present when a unit opted out of Recommends |
 | `repos` | list of [`RepoLine`](#repoline) | third-party repositories added |
+| `mirror` | [`MirrorSection`](#mirrorsection) or null | the LAN mirror data downloads try first (D-070); null when none is set |
 | `data` | list of [`DataLine`](#dataline) | offline data downloaded |
 | `maps` | [`MapSectionView`](#mapsectionview) or null | the station's map regions (D-057); null when no map unit or nothing to disclose |
 | `memberships` | list of [`MembershipLine`](#membershipline) | group membership changes |
@@ -812,6 +813,16 @@ A third-party apt repository the transaction adds, behind its own gate (D-040).
 | `sources` | string | the .sources file written |
 | `keyring` | string | the keyring file written |
 | `consent_env_var` | string | must equal the key fingerprint for a scripted run |
+
+#### `MirrorSection`
+
+The LAN mirror a data download is asked for first (D-070).
+
+| field | type | meaning |
+|---|---|---|
+| `url` | string | the mirror's base URL, from station config |
+| `ignored` | boolean | true when `--no-mirror` ignores it for this run |
+| `text` | string | what the plan prints about it |
 
 #### `DataLine`
 
@@ -1052,6 +1063,7 @@ One step, exactly as the real run performs it.
 | `argv` | list of string | the argv executed, escalation applied; empty for an in-process step |
 | `action` | string or null | the in-process step's kind (`fetch`, `extract`, ...); null for a command |
 | `requires_root` | boolean | whether it runs as root |
+| `sources` | list of string | for a data download (a `data` artifact, a map region, a terrain tile), the URLs it is fetched from in the order tried: the LAN mirror, then the publisher (D-070); the publisher alone with no mirror; empty for any other step |
 
 #### `RemovalPlanView`
 
@@ -1568,6 +1580,16 @@ A unit and files.
           "title": "Repos",
           "type": "array"
         },
+        "mirror": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MirrorSection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "data": {
           "items": {
             "$ref": "#/$defs/DataLine"
@@ -1678,6 +1700,7 @@ A unit and files.
         "apt_release",
         "no_recommends",
         "repos",
+        "mirror",
         "data",
         "maps",
         "memberships",
@@ -1871,6 +1894,31 @@ A unit and files.
         "reverse_hint"
       ],
       "title": "MembershipLine",
+      "type": "object"
+    },
+    "MirrorSection": {
+      "additionalProperties": false,
+      "description": "The LAN mirror a data download is asked for first (D-070).",
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "ignored": {
+          "title": "Ignored",
+          "type": "boolean"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "ignored",
+        "text"
+      ],
+      "title": "MirrorSection",
       "type": "object"
     },
     "NoRecommendsSection": {
@@ -2195,6 +2243,13 @@ A unit and files.
         "requires_root": {
           "title": "Requires Root",
           "type": "boolean"
+        },
+        "sources": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sources",
+          "type": "array"
         }
       },
       "required": [
@@ -2202,7 +2257,8 @@ A unit and files.
         "display",
         "argv",
         "action",
-        "requires_root"
+        "requires_root",
+        "sources"
       ],
       "title": "StepView",
       "type": "object"

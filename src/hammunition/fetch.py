@@ -92,7 +92,10 @@ __all__ = [
     "TransportUnreachable",
     "UrllibTransport",
     "VerificationError",
+    "fetch_disclosure",
     "mirror_url",
+    "record_fetch",
+    "safe_name",
     "signature_gap",
 ]
 
@@ -290,6 +293,48 @@ def _safe_name(url: str) -> str:
     kept = "".join(c for c in tail if c.isalnum() or c in "._-")
     kept = kept.lstrip(".")  # never a dotfile, never `..`
     return kept[:64] or "artifact"
+
+
+def safe_name(url: str) -> str:
+    """The file name a URL ends in, reduced to what is safe as one path
+    segment (:func:`_safe_name`): a data artifact's stable name when it has
+    no ``install_as`` (D-070)."""
+    return _safe_name(url)
+
+
+def fetch_disclosure(
+    fetcher: Fetcher, url: str, path: MirrorPath, check: str
+) -> tuple[str, str, tuple[str, ...]]:
+    """What a data fetch step says about its sources (D-070): a suffix for
+    its description, the URLs for its detail, and the URLs in the order
+    tried. With no mirror the suffix is empty and the detail is the URL, so
+    the plan reads exactly as it did."""
+    urls = tuple(where for _, where in fetcher.sources_for(url, path))
+    if len(urls) == 1:
+        return "", url, urls
+    return (
+        f" — the LAN mirror first, then the publisher; the {check} is checked either way",
+        f"{urls[0]}, then {url}",
+        urls,
+    )
+
+
+def record_fetch(result: FetchResult, facts: dict[str, str], *, mirrored: bool) -> str:
+    """Put where *result*'s bytes came from into *facts*, for the step's
+    ``action_end`` entry, and return the words its outcome line adds: none
+    when no mirror is set, so the outcome reads as it did."""
+    facts["source"] = result.source
+    if result.url is not None:
+        facts["fetched_from"] = result.url
+    if result.mirror_failure is not None:
+        facts["mirror_failure"] = result.mirror_failure
+    if not mirrored or result.source == "cache":
+        return ""
+    if result.source == "mirror":
+        return f", from the LAN mirror {result.url}"
+    if result.mirror_failure is not None:
+        return f", from the publisher; the mirror was passed over: {result.mirror_failure}"
+    return ", from the publisher"
 
 
 def signature_gap(artifact: RemoteArtifact) -> str | None:

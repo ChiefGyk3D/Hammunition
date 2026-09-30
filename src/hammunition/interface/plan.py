@@ -457,6 +457,20 @@ class StepView(Strict):
         "the in-process step's kind (`fetch`, `extract`, ...); null for a command"
     )
     requires_root: bool = described("whether it runs as root")
+    sources: tuple[str, ...] = described(
+        "for a data download (a `data` artifact, a map region, a terrain tile), the URLs it "
+        "is fetched from in the order tried: the LAN mirror, then the publisher (D-070); "
+        "the publisher alone with no mirror; empty for any other step"
+    )
+
+
+@dataclass(frozen=True)
+class MirrorSection(Strict):
+    """The LAN mirror a data download is asked for first (D-070)."""
+
+    url: str = described("the mirror's base URL, from station config")
+    ignored: bool = described("true when `--no-mirror` ignores it for this run")
+    text: str = described("what the plan prints about it")
 
 
 @dataclass(frozen=True)
@@ -470,6 +484,9 @@ class InstallPlanView(Strict):
         "present when a unit opted out of Recommends"
     )
     repos: tuple[RepoLine, ...] = described("third-party repositories added")
+    mirror: MirrorSection | None = described(
+        "the LAN mirror data downloads try first (D-070); null when none is set"
+    )
     data: tuple[DataLine, ...] = described("offline data downloaded")
     maps: MapSectionView | None = described(
         "the station's map regions (D-057); null when no map unit or nothing to disclose"
@@ -604,6 +621,7 @@ def step_view(step: Step, *, euid: int) -> StepView:
             argv=(),
             action=step.kind,
             requires_root=step.requires_root,
+            sources=step.sources,
         )
     return StepView(
         description=step.description,
@@ -611,6 +629,7 @@ def step_view(step: Step, *, euid: int) -> StepView:
         argv=tuple(step.argv_for(euid=euid)),
         action=None,
         requires_root=step.requires_root,
+        sources=(),
     )
 
 
@@ -769,6 +788,25 @@ def _sudo_line(commands: Sequence[Step], *, euid: int, keepalive: bool) -> SudoL
     return SudoLine(keepalive=keepalive, interval_seconds=int(KEEPALIVE_INTERVAL), text=text)
 
 
+def _mirror_section(url: str | None, *, ignored: bool) -> MirrorSection | None:
+    if url is None:
+        return None
+    if ignored:
+        text = (
+            f"A LAN mirror is set in station config ({url}); --no-mirror ignores it for "
+            f"this run, and every data download comes from its publisher."
+        )
+    else:
+        text = (
+            f"Each data download below (offline data, map regions, terrain tiles) is asked "
+            f"of the LAN mirror {url} first, as <mirror>/<unit>/<name>, and of its "
+            f"publisher if the mirror fails in any way. The digest it is checked by is the "
+            f"same whichever answers: the mirror is trusted for speed, never for content. "
+            f"The transaction log records which source each download came from."
+        )
+    return MirrorSection(url=url, ignored=ignored, text=text)
+
+
 def build_install_view(
     plan: InstallPlan,
     commands: Sequence[Step],
@@ -782,6 +820,8 @@ def build_install_view(
     region_notes: Sequence[str] = (),
     terrain: TerrainDisclosure | None = None,
     sudo_keepalive: bool = True,
+    mirror: str | None = None,
+    mirror_ignored: bool = False,
 ) -> InstallPlanView:
     data: list[DataLine] = []
     for planned in plan.packages:
@@ -847,6 +887,7 @@ def build_install_view(
             )
             for a in plan.apt_repos
         ),
+        mirror=_mirror_section(mirror, ignored=mirror_ignored),
         data=tuple(data),
         maps=_map_section(plan, maps, terrain),
         memberships=tuple(
@@ -957,6 +998,11 @@ def render_plan_view(view: InstallPlanView, *, target: TargetView) -> list[str]:
             lines.append(f"      writes {repo.sources}")
             lines.append(f"      writes {repo.keyring}")
             lines.append(f"      consent: {repo.consent_env_var} must equal the key fingerprint")
+        lines.append("")
+
+    if view.mirror is not None:
+        lines.append("Data mirror (D-070):")
+        lines.extend(wrap(view.mirror.text, indent="  "))
         lines.append("")
 
     if view.data:

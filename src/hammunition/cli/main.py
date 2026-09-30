@@ -1297,7 +1297,12 @@ def cmd_install(args: argparse.Namespace) -> int:
     # An installed tree is handed to the same operator (D-043): MSHV and
     # radiosonde-auto-rx write beside their executables, and the hand-over is a
     # planned, logged step rather than a side effect of who unpacked the build.
-    source = SourceBackend(Fetcher(owner=user or None), build_root=builds, owner=user or None)
+    # D-070: the station's LAN mirror, unless --no-mirror; only the data
+    # backends name a mirror path, so nothing else is ever asked of it.
+    mirror = None if args.no_mirror else station.mirror
+    source = SourceBackend(
+        Fetcher(owner=user or None, mirror=mirror), build_root=builds, owner=user or None
+    )
     git = GitBackend(
         runner=runner,
         build_root=builds,
@@ -1504,6 +1509,8 @@ def cmd_install(args: argparse.Namespace) -> int:
         region_notes=region_notes,
         terrain=terrain_view,
         sudo_keepalive=args.sudo_keepalive,
+        mirror=station.mirror,
+        mirror_ignored=args.no_mirror,
     )
     if envelope.wanted(args):
         # Reached only with --dry-run: main() refuses a real install under
@@ -3337,6 +3344,14 @@ def build_parser() -> argparse.ArgumentParser:
             "its ticket valid until the run ends, so a long unprivileged step cannot leave "
             "a later root step waiting at a prompt (the default; D-062). "
             "--no-sudo-keepalive turns it off"
+        ),
+    )
+    p_install.add_argument(
+        "--no-mirror",
+        action="store_true",
+        help=(
+            "ignore the LAN mirror set in station config for this run; every data "
+            "download comes from its publisher (D-070)"
         ),
     )
     p_install.add_argument(
