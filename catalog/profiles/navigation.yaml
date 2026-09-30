@@ -116,7 +116,7 @@ documentation:
     the downloads together with up to six times of scratch. Terrain: about
     39 MB per elevation tile, tens to hundreds of tiles a region (over 90,
     about 3.6 GB, for the largest contiguous US states; 449, about 17.5 GB,
-    for Alaska), and about 5.5 MB of contours per tile. BRouter: about 7 MB
+    for Alaska), and about 5.5 MB of contours per tile. BRouter: about 8.5 MB
     for the zip's tree, and routing files at about 0.2 times all the
     downloads together (Delaware: 3.3 MB from 22.1 MB), with up to three
     times the downloads of scratch allowed while they build (not measured)

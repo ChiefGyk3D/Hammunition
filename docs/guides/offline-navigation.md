@@ -455,7 +455,74 @@ says what else has not.
 
 Routino's foot profile does not read trail difficulty (`sac_scale`): an
 alpine path counts the same as a pavement. Look at the contours and judge
-the route yourself.
+the route yourself, or route the same walk with BRouter, below.
+
+### Route with BRouter: trail difficulty and climbs
+
+QMapShack has a second offline router, BRouter, and the `navigation`
+profile installs it (**D-063**):
+
+- **`brouter`**: BRouter 1.7.10 itself, from upstream's release zip checked
+  against its published sha256, under `/usr/local/share/hammunition/brouter/`,
+  with Java from your distribution;
+- **`brouter-segments`**: BRouter's routing files, built on your machine
+  from the same regions and the same elevation tiles as everything above,
+  under `/usr/local/share/hammunition/data/brouter-segments/`;
+- **`brouter-mapcreator-profiles`**: two small filter files BRouter's map
+  builder needs, from BRouter's own source.
+
+What it adds over Routino: its `hiking-mountain` profile reads how hard a
+trail is (`sac_scale`), so a scramble is not treated as a footpath; every
+profile weighs climbs from the elevation, so a bike route avoids a hill
+Routino would ride straight over; and a route comes back with an elevation
+profile and turn hints. It has 26 profiles: `trekking` and its variants,
+`hiking-mountain`, `mtb`, `gravel`, `fastbike`, `safety`, `shortest`, three
+car profiles, `moped` and a few more. Routino stays the default, and
+neither searches for an address (section 10).
+
+**Why the routing files are built here, and never downloaded.** BRouter's
+own site, brouter.de, publishes ready-made routing files for the whole
+world. They are rebuilt every week and published with no checksum of any
+kind, so nothing can say a file is what its builder made, and Hammunition
+never fetches them. BRouter's own map builder is inside the same checked
+jar, so the install runs it over your regions instead, with the terrain
+tiles folded in as elevation. For Delaware, a public example, that was
+3.3 MB of routing files from a 22.1 MB download; brouter.de's file for the
+same area is 115 MB, because it covers a whole 5-by-5-degree square.
+
+The build runs as you, never as root, in
+`~/.cache/hammunition/build/brouter-segments/`, like the Routino database:
+the regions are merged into one input when there are two or more, the
+elevation is built one 5-degree square at a time, then BRouter's map
+builder runs its three steps. It is one set for all your regions, so a
+route may cross from one region into the next, and a region that fails
+fails the set; the set you already had is kept. It is rebuilt when a
+region, a snapshot, the elevation tiles or BRouter itself changes. Each
+Java step may use up to 4 GB of memory; the elevation step took 1.33 GB
+for Delaware's square. A region with no elevation tile is routed flat.
+
+Using it in QMapShack:
+
+1. Start QMapShack from the `qmapshack-offline` launcher. When BRouter and
+   its routing files are installed, the launcher points QMapShack's local
+   BRouter at them, on 127.0.0.1 only, and says so. If you had already set
+   up a BRouter of your own in QMapShack, it leaves yours alone and says
+   that instead.
+2. In the *Routing* dock, choose *BRouter* in the router list (QMapShack
+   1.17.1 labels it *BRouter (online)*; the launcher has set it to run
+   locally) and a profile such as `hiking-mountain` or `trekking`.
+3. Place a start and an end. QMapShack starts BRouter in the background the
+   first time, which takes a few seconds, and stops it when QMapShack
+   closes. Nothing runs while you are not routing with it.
+
+Do not use QMapShack's own *BRouter setup* wizard for this: it downloads
+BRouter and its routing files from brouter.de. BRouter listens only on
+127.0.0.1: the launcher turns on QMapShack's "bind to hostname only" for
+it, because without that BRouter accepts connections from the whole
+network.
+
+A route drawn by QMapShack through this BRouter has not been measured yet;
+see [What has not been measured yet](#what-has-not-been-measured-yet).
 
 ---
 
@@ -818,7 +885,8 @@ work, not what has been seen to.
 ## What QMapShack does not do (yet)
 
 - **No offline address search**: use Navit (section 10).
-- **Trail difficulty is not routed on** (section 9).
+- **Routino does not route on trail difficulty** (section 9); BRouter's
+  `hiking-mountain` profile does.
 - **No hiking map style.** Trails are drawn by mkgmap's default style; no
   hiking style is packaged in the archive. One visible result: residential
   land use is drawn as hatching when you zoom in close. It is cosmetic.
@@ -881,6 +949,9 @@ one US-state-sized region:
 | Its build scratch | up to 6× all the regions together | `~/.cache/hammunition/build/osm-routino/` | Only while it builds |
 | Elevation tiles | about 39 MB a tile; tens to hundreds a region | `/usr/local/share/hammunition/data/dem-copernicus/` | Until uninstall, or no region needs the tile |
 | Contours | about 5.5 MB a tile, with up to 98 MB of scratch at a time | `/usr/local/share/hammunition/data/dem-qmapshack/` | As long as the tiles |
+| BRouter itself | about 8.5 MB, once | `/usr/local/share/hammunition/brouter/` | Until uninstall |
+| BRouter's routing files, all regions | about 0.2× all the regions together (Delaware: 3.3 MB from 22.1 MB) | `/usr/local/share/hammunition/data/brouter-segments/` | Rebuilt when the regions or tiles change |
+| Their build scratch | up to 3× all the regions together (an allowance, not measured), plus the merged regions when there are two or more, and about 650 MB of elevation scratch for one 5-degree square at a time | `~/.cache/hammunition/build/brouter-segments/` | Only while they build |
 
 Terrain is the part that grows fastest with a region's area. Measured on
 2026-09-28 over Geofabrik's US state outlines: a region's terrain is tens
@@ -1093,7 +1164,13 @@ The QMapShack maps, routing database and elevation go the same way, and
 leave QMapShack installed:
 
 ```
-hammunition uninstall dem-qmapshack dem-copernicus osm-routino osm-garmin
+hammunition uninstall brouter-segments dem-qmapshack dem-copernicus osm-routino osm-garmin
+```
+
+BRouter itself and its two filter files go with:
+
+```
+hammunition uninstall brouter brouter-mapcreator-profiles
 ```
 
 Your QMapShack settings keep the directories the launcher added; QMapShack
@@ -1139,6 +1216,19 @@ yet been run on a desktop; bench session 12 in
   laptop, 2026-09-29); a route has not yet been recorded.
 - Slope shading. Hillshade draws; slope was not tried.
 - QMapShack 1.21.1 from backports. Everything above ran on 1.17.1.
+
+For BRouter (**D-063**), every command the build runs was run on the
+development host on 2026-09-29, against the pinned jar, on two synthetic
+regions and a synthetic elevation tile, and BRouter, started the way
+QMapShack starts it, routed across both with that elevation. Not yet
+measured, and owed by the bench:
+
+- **A route in QMapShack through BRouter.** No desktop runs on the
+  development host. QMapShack's own check of the install (it runs the jar
+  and reads its version) has not been seen to pass.
+- The build on a real region through `hammunition install`, with its time,
+  memory and scratch; the scratch figure in the plan is an allowance.
+- Java on the targets other than Parrot.
 
 Measured on the field laptop on 2026-09-29, and recorded in bench session
 12: the whole install on two regions, with its build times; QMapShack
