@@ -492,6 +492,8 @@ It prints what to enter:
 ```
 Serving gpsd's position as NMEA on 127.0.0.1 port 10110, to this machine only.
 In QMapShack: Realtime, Add source, GPS TCP/IP; host 127.0.0.1, port 10110.
+Reading gpsd at 127.0.0.1 port 2947. Any number of NMEA programs may connect at once.
+Options: --gpsd HOST[:PORT] for a gpsd on another machine, --port N if 10110 is taken.
 Ctrl-C stops it. Navit reads gpsd directly and needs none of this.
 ```
 
@@ -500,9 +502,9 @@ and port `10110`.
 
 Once set up, QMapShack connects again by itself whenever a tether is
 running: start the tether after QMapShack and the position appears without
-touching QMapShack. That also means that while QMapShack is open it is the
-one client, so a test from a terminal (`nc 127.0.0.1 10110`, say) is turned
-away with "one at a time". Close QMapShack to test the tether that way.
+touching QMapShack. Any number of programs can connect at once, and each
+gets every sentence, so a test from a terminal (`nc 127.0.0.1 10110`) works
+while QMapShack is open.
 
 How it works, so you know what you are running:
 
@@ -513,18 +515,22 @@ How it works, so you know what you are running:
   one exception is the time, which falls back to this machine's clock (in
   UTC) if gpsd sent none. With
   no fix, it sends nothing.
-- It listens on 127.0.0.1, port 10110, and nowhere else: nothing else on the
-  network can connect to it. One program at a time can. A second one is
-  closed at once, and the terminal says so.
+- It listens on 127.0.0.1, port 10110 (or the port `--port` names), and
+  nowhere else: nothing else on the network can connect to it. Any number
+  of programs on this machine can, and each gets every sentence. It keeps
+  one connection to gpsd open while any of them is connected, and closes it
+  when the last one goes. A program that stops reading is disconnected on
+  its own, and the others carry on.
 - It runs while that terminal stays open. Ctrl-C stops it. Nothing is
   installed as a service, and it does not run as root.
-- The terminal shows a line when QMapShack connects and when it goes. If
-  gpsd has sent no position with a fix within 10 seconds, it says that too.
+- The terminal shows a line when a program connects or goes, with how many
+  are connected. If gpsd has sent no position with a fix within 10 seconds,
+  it says that too.
 
 If it says gpsd has sent no position with a fix, the tether has nothing to
 pass on. Check with `xgps`, and see ["Where am I?"](#6-where-am-i). If it
 says it cannot listen on port 10110, another tether is already running;
-stop that one first. If it says it cannot reach gpsd, gpsd is not running:
+stop that one first, or use another port (section 12). If it says it cannot reach gpsd, gpsd is not running:
 `systemctl status gpsd` says why. If gpsd is running and `xgps` shows no
 position either, restarting it can help:
 `sudo systemctl restart gpsd.socket gpsd`. On the field laptop gpsd once
@@ -539,6 +545,273 @@ first version,
 `socat` is no longer part of this profile; it is kept in the catalog as
 retired, so `hammunition uninstall socat` still removes it. Do that only
 if nothing else of yours uses it.
+
+---
+
+## 12. Other setups
+
+Section 11 assumes a GPS receiver plugged into the laptop that runs
+QMapShack. Yours may not be. The tether takes two options for that, and
+the rest is gpsd's own setup. Every command below runs as you, not root,
+unless it starts with `sudo`.
+
+```
+hammunition maps gps-tether --gpsd HOST[:PORT] --port N
+```
+
+- `--gpsd HOST[:PORT]` is the gpsd to read: a host name or an address,
+  port 2947 if you leave it out. An IPv6 address goes in brackets:
+  `--gpsd [2001:db8::7]:2947`.
+- `--port N` is the port to serve on, 1024 to 65535, if 10110 is taken.
+  Below 1024 is refused, because only root can use those ports and the
+  tether never runs as root.
+
+Neither option changes where the tether listens: 127.0.0.1 only, always.
+Anyone who could connect to it would get your position without a
+password, so there is no option to open it to the network. To use it
+from another machine, see *A second machine* below.
+
+### gpsd on another machine: a Pi, a shack computer
+
+The receiver is on a Raspberry Pi on the mast, or on the shack computer,
+and gpsd runs there. The simplest route, which changes nothing on that
+machine, is an SSH tunnel to its gpsd. In one terminal:
+
+```
+ssh -N -L 12947:127.0.0.1:2947 pi@shack-pi
+```
+
+and in another:
+
+```
+hammunition maps gps-tether --gpsd 127.0.0.1:12947
+```
+
+The tunnel uses local port 12947, not 2947, because this laptop's own
+gpsd may already hold 2947. The position crosses the network encrypted,
+and the Pi's gpsd keeps listening only to itself.
+
+The other route is to make gpsd on that machine listen on the network,
+then point the tether straight at it:
+
+```
+hammunition maps gps-tether --gpsd shack-pi
+```
+
+gpsd listens only on its own loopback unless told otherwise. On Debian
+and Parrot it is started by `gpsd.socket`, and that unit file's own
+comment says how: start gpsd with `-G` and add `ListenStream=[::]:2947`
+and `ListenStream=0.0.0.0:2947` (measured: the comment is in
+`/lib/systemd/system/gpsd.socket` from gpsd 3.25 on Parrot 7). Put the
+lines in an override with `sudo systemctl edit gpsd.socket` rather than
+editing the file, which an upgrade replaces, and add `-G` to
+`GPSD_OPTIONS` in that machine's `/etc/default/gpsd`. This has not been run
+here. Anyone on that network can then read your position from gpsd; do it
+only on a network you trust, and prefer the tunnel.
+
+If the tether says it cannot reach gpsd, check from the laptop with
+`xgps shack-pi:2947` (or `xgps 127.0.0.1:12947` through the tunnel). If
+`xgps` cannot reach it either, the problem is gpsd or the network, not the
+tether.
+
+### A phone as the GPS source
+
+A phone has a good receiver. Apps that share it over the network come in
+two kinds, and the tether reads only one of them directly. **None has been
+tested here**: what follows is what each kind of app should need, not
+something measured.
+
+- **An app that speaks gpsd's own protocol on a port.** The tether reads
+  it like any gpsd: `hammunition maps gps-tether --gpsd PHONE:PORT`. It
+  needs the app to answer `?WATCH` with gpsd's `TPV` reports, which is
+  what "gpsd protocol" means; an app that only says "gpsd compatible" may
+  mean something else.
+- **An app that serves NMEA over TCP.** The tether does not read NMEA. Give
+  it to this laptop's gpsd, and the tether reads that as usual:
+
+  ```
+  sudo gpsdctl add tcp://PHONE:PORT
+  hammunition maps gps-tether
+  ```
+
+  To keep it across reboots, put it in `/etc/default/gpsd` instead:
+  `DEVICES="tcp://PHONE:PORT"`, then `sudo systemctl restart gpsd`.
+  gpsd's manual page names `tcp://` and `udp://` sources; an app that sends
+  NMEA to the laptop over UDP is `udp://0.0.0.0:PORT`. QMapShack can also
+  read such an app directly, with the phone's address and port in its GPS
+  Tether dialog and no tether at all.
+
+The phone and the laptop must be on the same network, which for a field
+setup usually means the phone's hotspot. Whether the phone keeps sending
+with its screen off depends on the app and the phone's battery settings.
+
+### A Bluetooth or USB serial NMEA receiver
+
+A receiver that is not USB-native (a Bluetooth puck, or a module on a
+USB-serial cable) is still one gpsd can read. gpsd must be told the port,
+because only a few receivers are recognised by themselves.
+
+For a Bluetooth receiver, pair it, then bind it to a serial port; `rfcomm`
+comes with bluez on Parrot, and the address is your receiver's:
+
+```
+sudo rfcomm bind 0 00:11:22:33:44:55
+sudo gpsdctl add /dev/rfcomm0
+```
+
+For a USB serial receiver, use its stable name under `/dev/serial/by-id/`
+rather than `/dev/ttyUSB0`, which can change when something else is
+plugged in:
+
+```
+ls /dev/serial/by-id/
+sudo gpsdctl add /dev/serial/by-id/usb-...-port0
+```
+
+`gpsdctl add` hands the port to the gpsd that is already running, and
+lasts until gpsd restarts. To make it permanent, name the port in
+`/etc/default/gpsd`, one line:
+
+```
+DEVICES="/dev/serial/by-id/usb-...-port0"
+```
+
+then `sudo systemctl restart gpsd`. `gpsd -n /dev/ttyUSB0` in a terminal
+also works for a quick test, but only with the system's gpsd stopped
+first (`sudo systemctl stop gpsd.socket gpsd`), because both want port
+2947. In every case the tether needs nothing new: `hammunition maps
+gps-tether`.
+
+### A rig with built-in GPS
+
+Some radios have a GPS receiver and send its NMEA out of a serial or USB
+port: the same port rig control uses, or a second one. Which radios do,
+and on which port, is in the radio's manual; none has been tested here.
+Give that port to gpsd exactly as for a serial receiver above.
+
+**A serial port has one owner.** If the radio sends GPS on the same port
+rig control uses (Hamlib's `rigctld`, flrig, WSJT-X's CAT), gpsd and rig
+control cannot both have it. gpsd reads from the port and sends probes
+down it while it identifies the device, and rig control on the same port
+then sees garbage or nothing. Pick one of these:
+
+- **The radio has a second port** (many USB-connected radios present two
+  serial ports, one for CAT and one for data or GPS). Give gpsd the GPS
+  one and rig control the other. `ls -l /dev/serial/by-id/` shows both;
+  the names usually end `-if00` and `-if02` or similar.
+- **The radio sends GPS on a separate jack** (a data or accessory
+  connector). Use a second cable for it.
+- **One port does both.** Choose: rig control, and a separate USB GPS
+  receiver for position (the cheapest fix); or GPS, and no CAT while you
+  navigate.
+
+gpsd does not grab a rig's port on its own on Parrot: its udev rules
+(`/usr/lib/udev/rules.d/60-gpsd.rules`, gpsd 3.25) leave the common
+USB-serial bridge chips commented out, among them `10c4:ea60`, `0403:6001`
+and `067b:2303`, because those chips are in rig cables as often as GPS
+receivers (measured on the development host, 2026-09-29). A port is
+gpsd's only when you name it.
+
+### Another port
+
+If 10110 is taken (another tether, or another program that serves NMEA
+there):
+
+```
+hammunition maps gps-tether --port 10111
+```
+
+and enter port 10111 in QMapShack's GPS Tether dialog. The terminal
+prints the port to enter.
+
+### Two NMEA programs at once
+
+Start the tether once, and point every program at it: QMapShack, a second
+QMapShack window, a logger, an APRS client that reads NMEA over TCP. Each
+gets every sentence. The terminal counts them as they come and go, for
+example `A client connected; 2 connected`. A program that stops reading
+(one frozen, or paused in a debugger) is disconnected once 64 KiB is
+waiting for it, and the others are not held up.
+
+### A second machine: `ssh -L`
+
+To use the laptop's position on another computer, tunnel to the tether
+from that computer:
+
+```
+ssh -N -L 10110:127.0.0.1:10110 you@laptop
+```
+
+and point the program there at `127.0.0.1` port 10110, as if the
+receiver were local. Use another local port on the left (`-L
+10111:127.0.0.1:10110`) if that machine has its own 10110 in use. This is
+the only supported way: the tether never listens beyond loopback, because
+anyone who could connect would get your position without a password, and
+SSH gives the second machine an encrypted, authenticated path instead.
+
+### A parked receiver
+
+A receiver parked with `hammunition hardware park` (**D-056**) is gone
+from gpsd: gpsd sees it unplugged. A tether left running stays up, keeps
+its programs connected, and sends nothing; if nothing has come since it
+connected to gpsd, it says gpsd has sent no position with a fix. Wake the
+receiver with `hammunition hardware wake gps-receiver`. On the field
+laptop gpsd took the device back within a second of a wake, and a 3D fix
+was back within 74 s (`docs/hardware/gps-receiver-class.md`). Whether a
+running tether then carries on by itself, without being restarted, has
+not been measured; restart it if nothing comes once `xgps` shows a fix.
+
+Parking is per machine. Parking this laptop's receiver does nothing to a
+gpsd on a Pi or a phone you read with `--gpsd`, and parking the Pi's
+receiver is done on the Pi.
+
+### Navit and xgps need none of this
+
+Navit and `xgps` read gpsd themselves. Both reach a gpsd on another
+machine without the tether: `xgps shack-pi:2947`, or through the tunnel,
+`xgps 127.0.0.1:12947`. Navit reads this machine's gpsd by default,
+through the `source="gpsd://..."` of the vehicle in its own `navit.xml`;
+another machine's gpsd is a different host there, which has not been
+tried here. The tether is for QMapShack and other programs that want NMEA.
+
+### Check the feed from a terminal
+
+With the tether running:
+
+```
+nc 127.0.0.1 10110
+```
+
+prints the sentences as they arrive, two per position (`$GPRMC` and
+`$GPGGA`), while QMapShack stays connected. Nothing printed means gpsd has
+no fix; the tether's terminal says so after 10 seconds. The lines carry
+your position, so do not paste them anywhere public. Ctrl-C stops `nc`,
+not the tether.
+
+### What is measured, and what is not
+
+Measured on 2026-09-29, on the development host against its own gpsd with
+a receiver streaming fixes: the tether on a spare port read gpsd through
+`--gpsd`, both as `127.0.0.1` and as `[::1]:2947`, and served two raw
+clients at once. In one run both received the same 32 sentences, byte
+for byte and in the same order, every checksum valid; when one left, the
+other kept receiving; Ctrl-C ended it with exit 0. The tests
+(`tests/test_gps_tether.py`, `tests/test_maps_tools.py`) cover both
+options and their refusals, the whole command against a fake gpsd reached
+through `--gpsd`, an IPv6 gpsd, two clients receiving identical bytes,
+one leaving while the other keeps its gpsd watch, a stalled client
+dropped while the other keeps receiving, and stopping with every socket
+closed. Also measured: the commented-out bridge chips in gpsd's udev
+rules, and the comment in `gpsd.socket`, both read from gpsd 3.25 on
+Parrot 7.
+
+Not measured here: a gpsd on another machine over a real network, with
+or without an SSH tunnel; any phone app; a Bluetooth receiver; a rig's
+built-in GPS; `gpsdctl add` and `tcp://` or `udp://` sources; `-G` and a
+`gpsd.socket` override; a program reached over `ssh -L`; and whether a
+running tether picks the position back up after a wake. The commands for
+those come from each program's own documentation and are what should
+work, not what has been seen to.
 
 ---
 

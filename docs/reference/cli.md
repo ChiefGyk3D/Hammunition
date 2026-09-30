@@ -267,34 +267,55 @@ directories, and the database selection. A missing
 `qmapshack` is a named error, exit 1, after the edit. There is no `--json`
 form, because it replaces itself with a GUI (D-059).
 
-### `hammunition maps gps-tether`
+### `hammunition maps gps-tether [--gpsd HOST[:PORT]] [--port N]`
 
-What the `gps-tether` launcher runs (**D-061**). It watches gpsd's JSON on
-127.0.0.1 port 2947, as `xgps` and Navit do, and writes `$GPRMC` and
-`$GPGGA` for every position with a 2D or 3D fix. It serves them on
-**127.0.0.1 port 10110 only**, one client at a time, for QMapShack's
-*Realtime → Add source → GPS TCP/IP*, and prints the host and port to enter:
+What the `gps-tether` launcher runs (**D-061**). It watches gpsd's JSON, as
+`xgps` and Navit do, and writes `$GPRMC` and `$GPGGA` for every position
+with a 2D or 3D fix. It serves them on **127.0.0.1 port 10110 only**, for
+QMapShack's *Realtime → Add source → GPS TCP/IP* and any other NMEA client, and prints
+the host and port to enter:
 
 ```
 Serving gpsd's position as NMEA on 127.0.0.1 port 10110, to this machine only.
 In QMapShack: Realtime, Add source, GPS TCP/IP; host 127.0.0.1, port 10110.
+Reading gpsd at 127.0.0.1 port 2947. Any number of NMEA programs may connect at once.
+Options: --gpsd HOST[:PORT] for a gpsd on another machine, --port N if 10110 is taken.
 Ctrl-C stops it. Navit reads gpsd directly and needs none of this.
 ```
 
-A field gpsd did not give is an empty field, except the time: with none
-from gpsd, the system clock in UTC is used. Altitude is given on a 3D fix
-only. Satellites and HDOP come from gpsd's latest `SKY`. Each client gets
-its own gpsd watch, closed when the client goes. A second client is closed
-at once; a client that has already gone is noticed first, so a reconnect
-is served. Sends never block: a client that stops reading is dropped. On stderr it prints
-a line when a client connects or goes, when gpsd cannot be reached or
-closes the connection, and once when no position with a fix has arrived in
+| Option | Default | What it does |
+|---|---|---|
+| `--gpsd HOST[:PORT]` | `127.0.0.1:2947` | The gpsd to read: a host name or address, port 2947 when none is given. An IPv6 address goes in brackets (`[::1]`, `[2001:db8::7]:2947`); a bare one, an unclosed bracket, an empty host or a port outside 1 to 65535 is refused by name. |
+| `--port N` | `10110` | The port to serve on, still on 127.0.0.1 only. 1024 to 65535; below 1024 (only root may listen there, and the tether refuses root) and above 65535 are refused by name, and so is anything that is not a number. |
+
+Neither option widens the bind: the feed is a position without
+authentication, so another machine reaches it through
+`ssh -L 10110:127.0.0.1:10110 <laptop>`, never a wider listener.
+
+Any number of clients may connect at once, and each receives every
+sentence. One gpsd connection is opened when the first client connects,
+shared while any is connected, and closed when the last one leaves, so
+every client gets the same bytes and gpsd is not watched while nobody
+listens; if gpsd closes it, every client is closed and may reconnect. A
+client that has already gone is noticed before the next is counted. Sends
+never block: a client with more than 64 KiB waiting is dropped alone, and
+the others keep receiving. A field gpsd did not give is an empty field,
+except the time: with none from gpsd, the system clock in UTC is used.
+Altitude is given on a 3D fix only. Satellites and HDOP come from gpsd's
+latest `SKY`. On stderr it prints a line when a client connects, goes or
+is dropped, with how many are connected; when gpsd cannot be reached or
+closes the connection; and once when no position with a fix has arrived in
 10 s.
 
-It runs in the foreground until Ctrl-C (exit 0); nothing is installed as a
-service, and nothing is executed. It refuses root, exit 1. A port already in
-use is a named error, exit 1. There is no `--json` form, because it is a
-server, not a document (D-059).
+It runs in the foreground until Ctrl-C (exit 0), closing every client and
+the gpsd connection; nothing is installed as a service, and nothing is
+executed. It refuses root, exit 1. A refused option is exit 1 with nothing
+opened. A port already in use is a named error, exit 1. There is no
+`--json` form, because it is a server, not a document (D-059): `--json`
+with any options gives the same one error document. The setups these
+options are for (a gpsd on a Pi or a phone, a Bluetooth or serial
+receiver, a rig's built-in GPS, a second machine) are in
+`docs/guides/offline-navigation.md`, section 12.
 
 ### `hammunition list [all|packages|profiles]`
 

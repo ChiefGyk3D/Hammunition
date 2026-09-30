@@ -11,7 +11,17 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
-Nothing yet.
+- **The GPS tether takes `--gpsd` and `--port`, and any number of
+  clients** (D-061, amended 2026-09-29). `--gpsd HOST[:PORT]` reads a gpsd
+  on a Pi, a phone or a shack computer (IPv6 in brackets); `--port N` serves
+  another port, 1024 to 65535. It still listens on 127.0.0.1 only; another
+  machine reaches it through `ssh -L`. Every connected client gets every
+  sentence from one shared gpsd watch, closed when the last client leaves,
+  and a client that stops reading is dropped alone. The offline navigation
+  guide gains section 12, *Other setups*: a remote gpsd, a phone, a
+  Bluetooth or serial receiver, a rig's built-in GPS and the port it then
+  cannot share with rig control, a parked receiver, and what of each is
+  measured.
 
 ## v0.14.2 — 2026-09-29 — QMapShack selects its routing database; bench session 12
 
