@@ -5668,3 +5668,157 @@ the engine's default is to drop to the operator, not to start as root.
 Setting `timestamp_timeout` or writing sudoers: that changes the machine's
 policy for every program, which a transaction has no business doing.
 `sudo -S` or an askpass helper: the engine would then handle the password.
+
+## D-065 — The offline reference layer: Kiwix books chosen by name and pinned from their `.meta4`, dictd on loopback, FEMA's ICS forms, and one loopback page
+
+**Date:** 2026-09-29. **Status:** accepted (maintainer, 2026-09-29, the
+design of the day's spike, relayed with the task). **Spec:**
+`docs/superpowers/specs/2026-09-29-reference-layer-design.md`. **Depends
+on:** D-049 (offline data is a catalog unit; this is its fourth case, "then
+the ZIM with `kiwix`"), D-042 rule 5 (ETC sub-project 5 named the layer),
+D-035 (a missing station value defers), D-053 (`update` and
+`--upstream`), D-059 (a `books` document; a server has no JSON form),
+D-021 (state a licence, never adjudicate it). **Amends:** D-053, whose
+upstream states gain *pin expired*.
+
+### What was measured
+
+On 2026-09-29, on the development host (Parrot 7.3, Debian 13 archive and
+echo-backports), nothing installed: packages unpacked with `dpkg-deb -x`
+and run from there, nine ZIMs downloaded and checked against the
+publisher's sha256 (nine matched).
+
+- **`kiwix-serve` listens on every address unless told otherwise.** `-p
+  18480` alone gave `LISTEN *:18480` and printed a LAN URL; `-i 127.0.0.1`
+  gave `127.0.0.1:18480`. Its default port is 80, which a user cannot
+  bind. dictd, by contrast, ships `listen_to 127.0.0.1` in Debian's own
+  `/etc/dictd/dictd.conf`.
+- **A ZIM does not say its licence.** Of nine read with `zimdump`, one
+  (ham.stackexchange) carried a `License` metadata entry.
+- **Nothing Kiwix publishes is signed** (`.asc`, `.sig` 404 for the index
+  and every file). Each file's `.meta4` carries its exact size and sha-256;
+  the `.meta4` sha256 equalled the `.sha256` sidecar and the download for
+  all nine. A pin costs one ~5 KB `.meta4`, not a download.
+- **Kiwix keeps the two newest dated files of each book**; the archive keeps
+  a few old categories only. A pinned URL dies about two publications after
+  it is pinned.
+- FEMA's ICS forms: 39 PDFs, **8,046,865 bytes** (the page's own size column
+  said about 4.9 MB), no checksum published, byte-identical on two fetches.
+
+### The rule
+
+1. **Readers are apt units; payloads are data units; serving is an engine
+   verb.** `kiwix-tools`, `kiwix` (the desktop reader; Debian's `kiwix`
+   package *is* kiwix-desktop), `dictionaries` (`dictd dict dict-gcide
+   dict-wn dict-foldoc dict-vera`, nothing reconfigured) and
+   `goldendict-ng`; `kiwix-library` and `ics-forms`; and `hammunition
+   reference serve`. The `reference` profile holds the six, post-1.0.
+2. **Books are chosen by id in station config, from a hand-written
+   allow-list.** `hammunition station set --reference-books` takes Kiwix's
+   file stem without its date (`ham.stackexchange.com_en_all`,
+   `wikipedia_en_medicine_nopic`); nothing is chosen by default; with none,
+   `kiwix-library` is deferred from a profile and refused when typed.
+   `catalog/data/kiwix-books.yaml` lists 27 books, each with the
+   publisher's licence line, because the file does not carry one and D-049
+   rule 2 needs it in the plan: Wikimedia "CC BY-SA 4.0 (text; media
+   individually licensed)", Stack Exchange "CC BY-SA", Appropedia and WikEM
+   "CC BY-SA 4.0", iFixit "CC BY-NC-SA 3.0 — non-commercial", US federal
+   works "US federal work, public domain (17 USC 105)". An id not on the
+   list is refused when it is set. Book ids are not location data, so
+   `station show` names them.
+3. **Pins are generated from the `.meta4`, and a dead pin is an error.**
+   `scripts/gen_kiwix_pins.py` reads `library_zim.xml` for each allowed
+   book's current `.meta4` and writes `catalog/data/kiwix-pins.yaml` (file,
+   URL, exact size, sha256). Trust is TLS to download.kiwix.org at the
+   moment it runs, frozen by the sha256. `--check` asks every pinned
+   `.meta4` again (the weekly pin review); `--check --offline` checks the
+   file against the list in the test suite. At plan time every book not yet
+   installed is asked for by `HEAD`; a 404 refuses the plan, exit 2, naming
+   the generator, and the newer file is **never** taken in its place.
+4. **The plan prints each book's date, size and licence before the
+   confirmation**, as the fetch step's description. Each book is fetched,
+   checked against its pin, copied into
+   `<prefix>/share/hammunition/data/kiwix-library/` re-hashed, and its
+   cached download deleted as its own step (a book can be 127 GB). A book
+   present at its pinned name and size is not fetched again; a `.zim` no
+   chosen book names is removed as its own step. Disk is checked with each
+   book counted twice, together with the same run's map data.
+5. **`hammunition reference serve` binds 127.0.0.1 only.** A
+   standard-library page on port 8480 lists the books, the forms (served
+   from `/forms/` by exact name only) and how to use the dictionaries; it
+   starts `kiwix-serve --library -i 127.0.0.1 -p 8481 -r /wiki -b -M -a
+   <pid> <library.xml>` as a child, **always with `-i 127.0.0.1`** (a test
+   holds it), and stops it on Ctrl-C; a child that exits stops the page,
+   exit 1. The library file is rebuilt by `kiwix-manage` in the operator's
+   cache on every start: parsing a downloaded file is the reader's
+   business, as the operator, never root's (D-057's line). It refuses root.
+6. **`update`**: offline, `kiwix-library` is up to date when every chosen
+   book's pinned file is installed and behind the pin when a chosen book is
+   installed at another date. `--upstream` (probe method `kiwix`) asks
+   Kiwix's OPDS catalogue per chosen book: the pinned file still newest is
+   *current*; a newer one is *newer upstream*, warning that the pin goes at
+   the next publication; a pinned `.meta4` answering 404 is the new state
+   *pin expired*.
+7. **The ICS forms are pinned by Hammunition's own sha256**, measured on
+   two fetches, FEMA's URLs kept as it serves them; the licence is "US
+   federal work, public domain (17 USC 105)". Both published versions of
+   the 221 are carried.
+
+### Not carried, each for its reason
+
+wikiHow (no current Kiwix file; the archive's copies stopped in 2023; CC
+BY-NC-SA). The `zimgit-*` prepper collections (post-disaster, medicine,
+water, knots, food preparation): no licence stated in the files or by their
+publisher, `Creator=Various`; a documented gap until one is stated.
+energypedia: its licence page returned nothing that could be verified.
+Project Gutenberg whole: 221 GB; its military-science class
+(`gutenberg_en_lcc-u`) is offered. Video-channel ZIMs and MedlinePlus:
+mixed licences (MedlinePlus includes A.D.A.M. content that is not public
+domain). nhs.uk: Crown copyright, not verified. ARRL and ARES material,
+ETC's ARRL band chart among it: ARRL copyright. A sigidwiki ZIM: none
+exists, and `artemis` carries the database. Debian's Direwolf manual: the
+`+dfsg` package strips upstream's PDFs; upstream's `wb2osz/direwolf-doc` is
+the route, not measured. A `docs` profile of the 16 radio `-doc` packages
+(about 420 MB, 309 MB of it `gnuradio-doc`) was measured and is left for
+later.
+
+### Corrections the spike made
+
+- `zim-tools` 3.5.0 in Debian 13 ships `/usr/bin/zimwriterfs`: "no
+  `zimwriterfs` in Debian 13" was true of the package name only.
+  `scripts/gen_etc_inventory.py`'s note says so, and
+  `docs/reference/etc-inventory.md` takes it at its next regeneration (it is
+  generated from a gitignored clone this run did not have);
+  `docs/reference/dispositions.md` is corrected in place.
+- libzim 9.2.3, Debian 13's, reads the format-6.3 ZIMs Kiwix publishes today
+  (`zimcheck -C` passed on the ham ZIM); nothing measured needs a newer one.
+- `hamradio-maintguide` is the Debian Hamradio team's packaging guide, not
+  operator documentation; `docs/reference/prior-art.md` says so.
+
+### What has run
+
+The test suite: the allow-list and pin parsers, the generator against a
+faked library and `.meta4`s (and its offline check falsified by an unpinned
+book), the plan's deferral and refusal, the backend against a loopback-served
+file, `install --dry-run` refusing a 404 pin and printing each book's size
+and licence, `update` offline and upstream, the landing server on loopback
+(forms by exact name only, `..` refused), `run` with a fake child through
+Ctrl-C and a child that exits. On the development host: the pin file
+generated (27 rows; 26 equal to the spike's own measurement, the 27th new);
+`--check` against Kiwix; the 76 MB ham ZIM fetched, verified, installed and
+its cache pruned through the backend, a second plan empty; all 39 ICS forms
+through the data backend; and `reference serve` against the archive's
+kiwix-tools 3.7.0 unpacked from its `.deb`: both listeners on 127.0.0.1
+only, a book, a full-text search and a form answering 200, Ctrl-C stopping
+kiwix-serve, and SIGKILL of the parent stopping it through `-a`. **Not yet
+run:** a real `install reference` on a target, and the pages opened in a
+desktop browser; that is the field laptop's bench session.
+
+**Rejected.** One manifest per ZIM (27 manifests for one list, and the
+file names change on Kiwix's calendar). Offering the whole 3,630-book
+library (a book with no known licence has nothing to print). Following
+Kiwix's newest file when a pin dies (an unmeasured sha256). Writing
+`library.xml` at install time (runs a parser of downloaded data as root).
+Reverse-proxying kiwix-serve through the page for one port (more code for
+nothing a person sees). Binding anything but 127.0.0.1, including behind a
+flag: another machine reaches it over `ssh -L`.

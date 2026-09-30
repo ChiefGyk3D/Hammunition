@@ -226,6 +226,7 @@ Do not re-litigate these without being asked:
 | Device power control | Park and wake a catalogued device from the CLI, generated menu entries and the separate `hammunition-tray` applet, through one root helper at `/usr/local/libexec/hammunition-devctl` behind one polkit action; `usb_deauthorize` only, `pci_runtime` and the NetworkManager quiet verbs schema-valid and refused; the install asks one `yes` that `--yes` cannot answer, and refuses a tree another account can write (the owner's private group excepted) | The field laptop's GPS and modem drew power with nobody using them; parked and woken on the GPS 2026-09-27. Kept-off across reboots, one udev rule per device, is built; reboot not yet measured (**D-056**) |
 | Device power control | `power_control` on the manifest names a method from a fixed enum; one helper behind one polkit action serves the CLI, the menu and the tray; kept by intent in a rewritten-whole udev rule per device, sysfs still the live answer, `--until-reboot` opts out; removal by `hardware unapply` or `wake` | The catalog can never carry a command; the maintainer asked for the switch to stay where it is set, so `state` shows intent and reality rather than reconciling them (**D-056**) |
 | Engine interface | One JSON document per command under `--json`, rendered from the same dataclasses as the text; `install`/`uninstall` only with `--dry-run`, a real install never driven through JSON; `station` and `plan` documents are for local programs, not for pasting; bootstrap links `~/.local/bin/hammunition` and never replaces what it did not make | A console and the tray need a stable interface, not parsed text; a command from the docs failed with "command not found" (**D-059**) |
+| Offline reference | Kiwix books chosen by id in station config from a hand-written, licensed allow-list, pinned by size and sha256 from each `.meta4` in a generated pin file; a dead pin refuses, never follows the newer file; dictd on loopback as shipped; FEMA's ICS forms by our own sha256; `hammunition reference serve` binds 127.0.0.1 and always starts kiwix-serve with `-i 127.0.0.1` | kiwix-serve listens on every address by default, ZIMs carry no licence, nothing Kiwix publishes is signed, and Kiwix keeps two dated files per book (**D-065**) |
 | sudo during an install | A run as a user whose plan mixes root and unprivileged steps asks `sudo -v` once before the first step and refreshes with `sudo -n -v` every 4 minutes from its own process until the run ends; disclosed in the plan, `--no-sudo-keepalive` opts out, a failure is reported once and never retried, the password never passes through the engine | A `navigation` install waited 7.8 hours at a second prompt after 30 minutes of work, its ticket expired during a conversion (#137, **D-062**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
@@ -474,8 +475,8 @@ in their own install notes.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 266
-  profiles/        # named bundles referencing packages      ✅ 17
+  packages/        # one YAML per piece of software          ✅ 272
+  profiles/        # named bundles referencing packages      ✅ 18
   hardware/
     classes/       # device families with shared Linux needs ✅ 5
     devices/       # one YAML per device                     ✅ 24

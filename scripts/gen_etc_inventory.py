@@ -438,8 +438,9 @@ CURATION: dict[str, Curated] = {
         DELTA,
         (),
         "kiwix, kiwix-tools and the zim tools from apt -- the offline reader; "
-        "Debian 13 has `kiwix`, `kiwix-tools` and `zim-tools` but no "
-        "`zimwriterfs` (measured 2026-09-06)",
+        "Debian 13 has `kiwix`, `kiwix-tools` and `zim-tools`, and no package "
+        "named `zimwriterfs`, but `zim-tools` 3.5.0 ships `/usr/bin/zimwriterfs` "
+        "(package names measured 2026-09-06; the binary 2026-09-29, D-065)",
     ),
     "download-osm-maps.sh": Curated(
         DATA,
