@@ -1041,6 +1041,40 @@ the region's own, partial copy of its country's border. That is expected
 and harmless. A warning for the merged border itself fails the conversion,
 and the run ends naming the region.
 
+### The install waits at a sudo password prompt
+
+Converting maps takes a long time, and it runs as you, not as root. sudo
+remembers your password for 15 minutes by default, so in Hammunition 0.14.3
+and earlier the step after a long conversion, which needs root to put the map in
+place, asked for the password again. If you had walked away, the install
+waited there: one run on the field laptop waited 7.8 hours after 30 minutes
+of work (issue #137).
+
+**The engine now handles this itself** (D-062). When a plan has both root
+steps and steps that run as you, it prints a *sudo* section, asks for your
+password once, just after you confirm and before the first step, and keeps
+sudo's ticket valid for the rest of the run with `sudo -n -v` every 4
+minutes. It stops when the run ends; your password is only ever typed into
+sudo itself. You can walk away once the first step has started.
+
+If you still see a second prompt, the section in the plan says why it can
+happen: the install ran with `--no-sudo-keepalive`, or a refresh failed and
+printed a warning saying so (your sudoers sets `timestamp_timeout` below 4
+minutes, or something ran `sudo -k`). In either case this still works, in
+the same terminal as the install:
+
+```
+sudo -v && (while sudo -n -v; do sleep 240; done &) && hammunition install navigation --no-sudo-keepalive
+```
+
+Run it in the install's own terminal, not another window. sudo keeps a
+separate ticket per terminal by default (`timestamp_type=tty`, as on the
+field laptop), so a loop in another window refreshes a ticket the install
+never uses. The engine's own refresh runs from the install's process, so it
+has no such problem. Unlike the engine's refresh, the loop keeps running
+after the install ends. `sudo -k` in the same terminal ends it: the ticket
+is gone, the loop's next `sudo -n -v` fails, and the loop exits.
+
 ---
 
 ## Removing it

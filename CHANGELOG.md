@@ -24,6 +24,19 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   engine is a bare name or a path that is gone, with the fix. The offline
   navigation guide's "QMapShack does not start from the menu" says what
   "not found" means now.
+- **An install run as a user asks sudo once and keeps its ticket valid
+  until the run ends** (D-062, issue #137). A `navigation` install waited
+  7.8 hours at a second `sudo` prompt after 30 minutes of work: sudo's
+  cached password had expired during a long conversion that runs as the
+  operator. When a plan mixes root steps with unprivileged ones, it now
+  prints a *sudo* section, runs `sudo -v` once before the first step, and
+  refreshes the ticket with `sudo -n -v` every 4 minutes from the same
+  process, stopping when the run ends. A refresh that fails is reported
+  once and not retried. `--no-sudo-keepalive` turns it off, and the plan
+  then says a later step may prompt again. The JSON plan carries it as
+  `install.sudo`; the log records `sudo_keepalive_begin` and
+  `sudo_keepalive_end`. The offline navigation guide's new troubleshooting
+  entry keeps the manual refresh loop as the fallback.
 
 ## v0.14.3 — 2026-09-29 — the GPS tether on other setups
 
