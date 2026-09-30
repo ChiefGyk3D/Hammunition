@@ -137,7 +137,12 @@ if (!regions.length) {
   const map = new maplibregl.Map({container: 'map', style, attributionControl: {compact: false}});
   window.__map = map;
   map.addControl(new maplibregl.NavigationControl());
-  map.on('error', (e) => window.__errors.push(String((e.error && e.error.message) || e)));
+  map.on('error', (e) => {
+    const m = String((e.error && e.error.message) || e);
+    window.__errors.push(m);
+    status.textContent = 'Map error: ' + m;
+  });
+  map.on('load', () => { document.body.dataset.loaded = '1'; });
   const frame = async (url) => {
     const h = await new pmtiles.PMTiles(location.origin + url).getHeader();
     map.fitBounds([[h.minLon, h.minLat], [h.maxLon, h.maxLat]], {animate: false});
@@ -201,6 +206,11 @@ def map_page(*, position_port: int) -> str:
                 '<button id="centre" type="button">Centre on me</button> '
                 '<span id="where">Waiting for a position…</span> <span id="status"></span>',
                 f"<noscript>{html.escape(CREDIT)}. The map needs JavaScript.</noscript></div>",
+                "<script>window.addEventListener('error',(e)=>{document.body.dataset.error="
+                "String(e.message);document.getElementById('status').textContent='Error: '+e.message;});"
+                "window.addEventListener('unhandledrejection',(e)=>{const m=String((e.reason&&"
+                "e.reason.message)||e.reason);document.body.dataset.error=m;"
+                "document.getElementById('status').textContent='Error: '+m;});</script>",
                 f'<script src="{KIT}pmtiles/dist/pmtiles.js"></script>',
                 f'<script type="module">{script}</script>',
                 "</body></html>",
