@@ -12,7 +12,11 @@ and its XInclude namespace. The ``<vehicle>`` and ``center=`` anchors are
 looked for outside comments, because the stock file's comments carry
 commented-out ``<vehicle>`` elements and a line starting ``center=`` of their
 own; the speech and mapset anchors match over the whole text, as they always
-have, and the stock file comments out neither."""
+have, and the stock file comments out neither.
+
+:func:`add_maps` then adds the operator's overlays (D-064) to a copy of that
+configuration in their own data directory, the one ``hammunition maps navit``
+opens."""
 
 from __future__ import annotations
 
@@ -134,3 +138,41 @@ def rewrite(stock: str, maps: Sequence[Path], center: tuple[float, float] | None
             + out[anchor.end() :]
         )
     return out
+
+
+def add_maps(text: str, overlays: Sequence[Path]) -> str:
+    """*text* -- a configuration :func:`rewrite` wrote -- with a
+    ``<map type="textfile">`` for each of *overlays* in its one enabled
+    mapset, before ``</mapset>``; one already there is not added twice, and
+    nothing else changes.  D-064.
+
+    For the operator's own copy of the generated configuration, which the
+    ``navit-offline`` launcher (``hammunition maps navit``) opens when there
+    are overlays: the generated file is root's and the operator's
+    ``~/.navit`` is never touched. Refused, by name, when *text* does not
+    hold exactly one enabled mapset, or a path holds a line break."""
+    mapsets = list(_ENABLED_MAPSET.finditer(text))
+    if len(mapsets) != 1:
+        raise NavitConfigError(
+            f"the generated Navit configuration has {len(mapsets)} enabled <mapset> "
+            f"elements, need exactly 1"
+        )
+    (mapset,) = mapsets
+    block = mapset.group()
+    lines = []
+    for path in overlays:
+        if "\n" in str(path) or "\r" in str(path):
+            raise NavitConfigError(f"{str(path)!r} cannot be written as a Navit map path")
+        entry = f'<map type="textfile" enabled="yes" data={quoteattr(str(path))}/>'
+        if entry not in block:
+            lines.append(f"\t\t\t{entry}\n")
+    if not lines:
+        return text
+    close = block.rindex("</mapset>")
+    head = block[:close]
+    body = head.rstrip("\t ")
+    indent = head[len(body) :] or "\t\t"  # the close tag's own, kept
+    if not body.endswith("\n"):
+        body += "\n"
+    new_block = body + "".join(lines) + indent + block[close:]
+    return text[: mapset.start()] + new_block + text[mapset.end() :]
