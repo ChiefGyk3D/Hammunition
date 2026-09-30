@@ -177,7 +177,9 @@ def test_tilemaker_runs_the_kit_s_profile_with_a_store_in_the_workdir() -> None:
 
 
 def test_the_clip_box_is_the_header_box_plus_a_margin_inside_the_globe() -> None:
-    west, south, east, north = clip_box(VERMONT_BOX)
+    box = clip_box(VERMONT_BOX)
+    assert box is not None
+    west, south, east, north = box
     assert (west, south, east, north) == pytest.approx(
         (-73.44 - PAD, 42.72 - PAD, -71.46 + PAD, 45.02 + PAD)
     )
