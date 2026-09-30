@@ -30,14 +30,22 @@ nothing else to do.
 
 The [`station`](../profiles/station.md) profile installs
 [gpsd](../packages/gpsd.md), which reads a GPS receiver and shares it with
-every program. What it does not yet do is hand the time to the system clock.
-That takes **chrony**, a time service that can take its time from gpsd.
+every program. Handing its time to the system clock is the job of the
+machine's **time daemon**, and which one you have decides the route. Only
+one can be installed at a time: chrony, ntpsec and systemd-timesyncd each
+declare themselves the machine's `time-daemon` and conflict with the other
+two, so installing one removes the other
+(measured: [Time daemons](../reference/time-daemons.md)).
 
-!!! info "Not a catalog unit yet"
-    A `chrony` unit with this configuration is planned
-    ([gap analysis, A4](../reference/catalog-gaps-2026-09.md)). Until it
-    lands these steps are yours to run, and so is undoing them. Each step
-    says how.
+```sh
+dpkg -l chrony ntpsec systemd-timesyncd 2>/dev/null | grep '^ii'
+```
+
+| You have | Usually on | The route |
+|---|---|---|
+| **ntpsec** | Parrot (its security edition pulls it in), the field laptop | GPS time through ntpsec, **D-058**. Its guide, docs/guides/gps-time.md, arrives with pull request #124 and is not on this branch yet. Do not install chrony here: it would remove ntpsec, and Hammunition refuses to. |
+| **systemd-timesyncd** | Debian 13, Ubuntu 24.04, Linux Mint 22.3; Kali, whose `kali-linux-core` pulls it in (a Kali whose `kali-linux-default` came first may have ntpsec) | It cannot read a GPS. Replace it with chrony, below. |
+| **chrony** | Ubuntu 26.04 | Already the right daemon. Install the unit below; it adds the GPS and changes nothing else. |
 
 ### 1. Plug in the GPS and confirm gpsd sees it
 
@@ -50,56 +58,55 @@ indoors can take minutes. `gpsmon` shows the raw sentences if nothing
 appears. The [GPS receiver page](../hardware/gps-receiver-class.md) covers
 which receivers work and how they appear.
 
-gpsd only reads the receiver while a program is connected to it. For the
-clock, it has to read all the time. In `/etc/default/gpsd` set:
+### 2. Install the chrony unit
+
+On a machine with systemd-timesyncd, remove it yourself first. Hammunition
+never removes a package you did not ask it to (**D-022**); if you skip this
+step, the install refuses and prints the same command.
 
 ```sh
-GPSD_OPTIONS="-n"
+sudo apt-get remove systemd-timesyncd     # only where it is installed
+hammunition install chrony --dry-run      # read what it will do
+hammunition install chrony
+sudo reboot
 ```
 
-and restart it: `sudo systemctl restart gpsd`. Undo: set the line back to
-`""` and restart.
+The [`chrony` unit](../packages/chrony.md) installs chrony and writes two
+files:
 
-### 2. Install chrony
+- `/etc/chrony/conf.d/hammunition-gps.conf`, one line:
+  `refclock SHM 0 refid GPS poll 2 delay 0.2`, the time gpsd publishes for
+  the first receiver it opens. Every target's `chrony.conf` reads that
+  directory.
+- `/etc/systemd/system/gpsd.service.d/hammunition-gps.conf`, which starts
+  gpsd with `-n`. **Without it gpsd reads the receiver only while a program
+  is connected**, and chrony gets no time at all (measured: no samples
+  without `-n`, one a second with it).
+
+**Reboot rather than restart gpsd**: restarting a running gpsd in place,
+tried in a container, left two gpsd processes and no time. After a reboot
+gpsd starts with `-n` from the beginning.
+
+chrony keeps using the network's time servers whenever there is a network,
+so nothing is lost. The GPS line tells chrony its time is good to about a
+tenth of a second (`delay 0.2`), which is what NMEA over USB gives and
+plenty for FT8.
+
+### 3. Optional: calibrate the offset
+
+NMEA sentences arrive a little after the second they describe, by an amount
+that depends on the receiver. With the network up, after a few minutes:
 
 ```sh
-sudo apt install chrony
+chronyc -n sourcestats
 ```
 
-**This removes `systemd-timesyncd`**, and apt says so before it asks. The
-two cannot both run: both packages declare themselves the machine's
-`time-daemon` and conflict with any other (measured from the package
-metadata on Ubuntu 24.04). chrony keeps using the network's time servers
-whenever there is a network, so nothing is lost. Undo: `sudo apt install
-systemd-timesyncd`, which removes chrony in turn.
-
-### 3. Tell chrony to listen to gpsd
-
-Debian's and Ubuntu's `chrony.conf` read every file in `/etc/chrony/conf.d/`,
-so the GPS goes in a file of its own:
-
-```sh
-sudo tee /etc/chrony/conf.d/gpsd.conf <<'EOF'
-# Time from gpsd's shared memory, unit 0: the receiver's NMEA sentences.
-# Good to roughly a tenth of a second over USB, which is plenty for FT8.
-refclock SHM 0 refid GPS precision 1e-1 offset 0.0 delay 0.2 noselect
-EOF
-sudo systemctl restart chrony
-```
-
-`noselect` is deliberate for the first run: chrony watches the GPS without
-trusting it yet. After a few minutes:
-
-```sh
-chronyc sourcestats
-```
-
-The `GPS` line's *Offset* column is how far the GPS's time sits from the
-network-disciplined clock. Adjust the file's `offset` value, restarting
-chrony each time, until that column sits near zero; then remove
-`noselect` and restart once more. The GPS is now a source chrony will
-use, and the only one when the network is gone. Undo: delete the file and
-restart chrony.
+The `GPS` line's *Offset* column is how far the GPS sits from the
+network-disciplined clock. To take it out, add `offset` with that value in
+seconds to the line in `/etc/chrony/conf.d/hammunition-gps.conf` (for
+example `refclock SHM 0 refid GPS poll 2 delay 0.2 offset 0.12`) and
+`sudo systemctl restart chrony`. How large it is on any real receiver has
+not been measured yet.
 
 A receiver with a **PPS** output wired to the computer is accurate to
 microseconds instead; chrony's own [configuration
@@ -112,11 +119,23 @@ cover it. Most USB pucks do not provide PPS, and FT8 does not need it.
 Disconnect from the network, wait a minute, then:
 
 ```sh
-chronyc sources
+chronyc -n sources
 ```
 
 The line starting `#*` is the source in use. With the network off it should
 be `GPS`.
+
+### Undoing it
+
+Uninstalling the unit leaves the two files, so remove them by hand:
+
+```sh
+sudo rm /etc/chrony/conf.d/hammunition-gps.conf \
+        /etc/systemd/system/gpsd.service.d/hammunition-gps.conf
+sudo systemctl daemon-reload
+sudo apt install systemd-timesyncd        # if you want it back; removes chrony
+sudo reboot
+```
 
 ## Position
 
@@ -135,8 +154,11 @@ Your position is yours to share or not.
 
 ## What was measured
 
-gpsd's `/etc/default/gpsd` fields, chrony's `confdir` line and the
-chrony/timesyncd conflict were read from Ubuntu 24.04's packages on
-2026-09-30. The chrony configuration follows chrony's and gpsd's own
-documentation. It has not yet been run with a receiver on the field laptop;
-the GNSS module planned for it is the bench for that.
+Which time daemon each target offers and pulls in, that the three conflict,
+and the chrony and gpsd behaviour above were measured in containers of all
+seven targets on 2026-09-29 and 2026-09-30; the tables and commands are in
+[Time daemons](../reference/time-daemons.md), with what was not measured.
+The gpsd-to-chrony path was run with a script standing in for the receiver.
+It has not yet been run with a receiver on the field laptop, which runs
+ntpsec and so takes the D-058 route; the GNSS module planned for it is the
+bench for that.

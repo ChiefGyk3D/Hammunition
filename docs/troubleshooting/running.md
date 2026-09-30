@@ -163,3 +163,47 @@ Hammunition does not carry a rule against this today, because no target's
 *default* brltty claims a catalogued identifier unconditionally. The day one
 does again, the generated page above goes stale by name, and the shape of
 the fix is a targeted rule for that one identifier, never the whole file.
+
+## <a name="clock"></a>FT8 decodes nothing: check the clock
+
+The waterfall shows traces, the band is busy, and the decode window stays
+empty. The same happens to FT4, JS8 and WSPR. There is no error, because
+nothing failed: the decoder looks for signals where its clock says each
+time slot is, and **a clock more than about a second off finds nothing**.
+Audio is the other cause ([the waterfall is silent](../getting-started/first-contact.md#when-the-waterfall-is-silent));
+if you can see traces on the waterfall, check the clock first.
+
+```
+timedatectl
+```
+
+`System clock synchronized: yes` means a time daemon is keeping it right,
+and the clock is not your problem. `no` means nothing is. Ask the daemon
+you have what it follows (only one of these is installed):
+
+```
+timedatectl timesync-status     # systemd-timesyncd
+chronyc -n tracking             # chrony: "System time" is how far off the clock is
+ntpq -pn                        # ntpsec: the row starting * is the source in use
+```
+
+**With a network**, the daemon corrects the clock by itself within minutes
+of the network coming up. If it has not, `sudo systemctl restart` the daemon
+(`systemd-timesyncd`, `chrony` or `ntpsec`) and look again.
+
+**With no network** nothing corrects it, and a laptop's clock drifts past a
+second in days. A GPS receiver fixes that, by a route that depends on the
+daemon ([Time and position](../guides/time-and-gps.md#with-no-network-a-gps-keeps-the-clock)
+has the table):
+
+- **systemd-timesyncd or chrony**: the [`chrony` unit](../packages/chrony.md)
+  (**D-071**). timesyncd cannot read a GPS, so it is replaced, by you.
+- **ntpsec** (Parrot, the field laptop): GPS time through ntpsec (**D-058**,
+  pull request #124, not merged when this was written).
+
+Either way gpsd must be reading the receiver with nobody connected, which is
+its `-n` option; without it the daemon gets no time from the GPS at all
+([measured](../reference/time-daemons.md#5-gpsd-polls-the-receiver-only-for-a-client-unless-n)).
+
+This entry is from the protocols' timing and the measurements linked above,
+not from a decode failure watched on the bench.
