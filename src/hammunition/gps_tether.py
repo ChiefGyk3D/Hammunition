@@ -704,7 +704,7 @@ def serve(
 
 
 def instructions(
-    port: int = PORT, *, gpsd: tuple[str, int] = GPSD, position_port: int | None = None
+    port: int = PORT, *, gpsd: tuple[str, int] = GPSD, position_port: int | None = POSITION_PORT
 ) -> str:
     page = (
         f"The offline browser map (`hammunition reference serve`) reads it from "

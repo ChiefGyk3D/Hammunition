@@ -236,6 +236,7 @@ Do not re-litigate these without being asked:
 | BRouter routing | Carried: upstream's zip pinned by its sha256 as a tree, Java from the archive; its routing files built on the machine by a `brouter-mapcreator` converter from the station's regions with Copernicus elevation, one set over every region, as the operator, never downloaded from brouter.de; `maps qmapshack` registers it in QMapShack on 127.0.0.1 only and leaves an operator's own BRouter alone | brouter.de's weekly files carry no checksum, which is why D-061 left BRouter out; BRouter's own map creator builds them from our own extracts (Delaware in minutes, most of it a parser polling for a growing file, which `-DavoidMapPolling=true` removes: 120 s to 0.1 s on a synthetic region) (**D-063**) |
 | Phone maps | `mapsforge-map` and `mapsforge-poi` build a Mapsforge map and POI file per region as the operator, `java -cp` over the archive's osmosis jars; the POI writer, packaged nowhere, is the one pin, carried as the derived block's `tool` and installed beside the data, never in it; `maps phone` copies the phone files into one folder with a `SHA256SUMS` and prints routes it never runs, the web server bound to the hotspot's address; its own `phone-maps` profile; OsmAnd `.obf`, `.mwm`, PocketMaps and Transportr not carried, each with its route | Debian's osmosis does not load the packaged writer, and a map took 3:38 on a 22 MB region, hours on a large one; the spike's POI digest was the map writer's (**D-067**) |
 | LAN mirror and `artifacts` | `station set --mirror URL` names a LAN machine each data download (data files, map regions, terrain tiles) asks first at `<mirror>/<unit>/<name>`, the publisher on any failure, the same digest checked either way; plain http allowed, LAN-only documented not enforced; the plan names both sources in order, `--no-mirror` ignores it for a run, `action_end` records the actual source; `hammunition artifacts --json` lists every data artifact for an explicit selection with no station read | Hammunition Bunker keeps a verified copy on a NAS and needs the engine to say what to keep and to take from it without trusting it (**D-070**) |
+| Offline browser map | `osm-pmtiles` builds one PMTiles file per region with the archive's tilemaker (floor 3.0 read from the probe: deferred or refused below it) and `vector-map-kit`'s pinned profile, Natural Earth layers, MapLibre, pmtiles.js and OSM Bright; `reference serve` serves `/map/` with byte ranges, by exact name, refusing any Host but 127.0.0.1/localhost; the page draws the OpenMapTiles/OSM credit; the tether's `GET /position` is an SSE stream on 127.0.0.1:10111 | The daily water polygons changed size overnight, so Natural Earth's ocean is clipped per region instead; `http.server` ignores `Range` and pmtiles.js fails on it; an event stream rides the tether's fan-out where a poll would need a gpsd watch of its own (**D-071**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
 
@@ -499,7 +500,7 @@ in their own install notes.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 277
+  packages/        # one YAML per piece of software          ✅ 279
   profiles/        # named bundles referencing packages      ✅ 19
   hardware/
     classes/       # device families with shared Linux needs ✅ 5

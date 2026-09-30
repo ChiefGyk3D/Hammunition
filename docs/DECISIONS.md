@@ -6708,3 +6708,178 @@ agreement about an index format the engine would then have to parse and
 trust. `artifacts` reading the station by default: the Bunker runs on a NAS
 with no station, and a listing that changed with whoever ran it would not
 be a contract.
+
+---
+
+## D-071 — The offline browser map: vector tiles from the station's regions by the archive's tilemaker, served with byte ranges by `reference serve` on loopback, drawn by a pinned MapLibre, with the position as a loopback event stream
+
+**Date:** 2026-09-30. **Status:** accepted (the design approved by the
+maintainer from the tile spike's report, 2026-09-29, relayed with the task;
+three measured departures below). **Spec:**
+`docs/superpowers/specs/2026-09-30-map-server-design.md`. **Depends on:**
+D-057 (regions are station data; derived data by a converter enum), D-061
+(converters run as the operator through one `Staging`, with their own
+ledger; the tether), D-066 (`reference serve`, 127.0.0.1 only), D-049 (a
+`data` unit's files are pinned, sized and licensed in the plan), D-039 (a
+target gap defers a profile member by name), D-037 (a floor read from the
+archive's candidate, nothing fetched to meet it), D-024 (pin the tag a
+distribution packages), D-070 (a data artifact may come from the LAN
+mirror, verified the same). **Amends:** D-057's converter enum, with
+`tilemaker-pmtiles`; D-049's `data` method, with an archive's `members` and
+`into`; D-039's deferral reasons, with a converter's program below the
+version its output needs; D-061's tether, with a second loopback listener.
+
+### What was measured
+
+The spike (2026-09-29, the development host, Geofabrik's Delaware extract,
+nothing installed): the archive's tilemaker 3.0.0 wrote a 20.1 MB PMTiles
+file from the 22.1 MB extract in 10 to 37 s, 0.49 GB of memory with
+`--store` and 2.8 GB without; Python's `http.server` ignores `Range` and
+pmtiles.js fails on it, while a stdlib handler that answers with 206 works;
+headless Chromium with every non-loopback lookup blocked drew the map with
+MapLibre GL JS 6.11.2, pmtiles.js, OSM Bright, a local sprite and local
+fonts, with no error and every request local. Ubuntu 24.04 carries
+tilemaker 2.4.0, which writes no PMTiles. For this decision (2026-09-30):
+every pin downloaded once and hashed; the ocean clip below.
+
+### The rule
+
+1. **Two units.** `vector-map-kit` (`data`) holds every fixed file: members
+   of Debian's pool copy of tilemaker 3.0.0's tarball (the profile, the
+   OSM Bright style and three KlokanTech Noto fonts, byte-identical to
+   upstream's v3.0.0 tag), MapLibre GL JS 6.11.2's `dist.zip` (sha256 equal
+   to GitHub's asset digest), pmtiles.js 4.5.0 from npm (sha512 equal to the
+   registry's integrity), OSM Bright's sprite at its gh-pages commit, and
+   Natural Earth's ocean, urban areas, glaciers and Antarctic ice shelves at
+   the v5.1.2 commit `country-boundaries` pins. `osm-pmtiles` (`derived`,
+   converter `tilemaker-pmtiles`, `source: osm-regions`, `kit:
+   vector-map-kit`) builds one `<slug>.pmtiles` per region. Both join
+   `navigation`; `tilemaker` and `gdal-bin` are the archive's.
+2. **The converter is the engine's**, like every converter: per region, as
+   the operator in `<builds>/osm-pmtiles/<slug>.work/` under its lock, the
+   kit's files checked, Natural Earth's ocean clipped to the region's
+   header box plus 0.1° with `ogr2ogr -clipsrc` (the whole polygon, said in
+   the outcome, when the header has no box or it crosses the antimeridian),
+   the land-cover layers linked where the pinned config looks, then
+   `tilemaker --input --output --config --process --store`; the output must
+   start with `PMTiles`, is published re-verified with a `.source` sidecar
+   (`converter: tilemaker-pmtiles 1`), and a failure goes to a tiles ledger
+   whose step fails the run by name, last.
+3. **tilemaker 3.0 is a floor the plan reads**, from the apt probe it
+   already makes: the installed version, else the candidate. Below it,
+   `osm-pmtiles` is deferred from a profile naming the version found, and
+   refused when typed; without lists it is a note. The floor is the
+   engine's (`CONVERTER_FLOORS`), not the manifest's, because the output
+   format is the engine's argv. A `when:` selector naming Ubuntu 24.04 was
+   the other way; it would freeze one evening's archive into the catalog.
+4. **`reference serve` serves the map** on its own port: `/map/`,
+   `/map/regions.json`, `/map/tiles/<slug>.pmtiles`, `/map/kit/<path>`, each
+   by its decoded installed name only. Every file takes one `Range` (206,
+   `Content-Range`), `HEAD` gives the size, a range past the end is 416.
+   **A request whose `Host` is not `127.0.0.1:<port>` or `localhost:<port>`
+   is refused (403) on every path**: the tiles say where the operator's
+   regions are, and a site whose name an attacker points at 127.0.0.1 (DNS
+   rebinding) sends its own name.
+5. **The page loads nothing from elsewhere**: the style's sprite, fonts and
+   source are pointed at this server before MapLibre reads it, and the
+   attribution control, not collapsed, reads "© OpenMapTiles ©
+   OpenStreetMap contributors", which the OpenMapTiles schema's CC-BY 4.0
+   and the data's ODbL require on the map. A test asserts both.
+6. **The position is a Server-Sent Event stream**, `GET /position` on
+   127.0.0.1 port 10111 from `hammunition maps gps-tether`
+   (`--position-port` on both commands). **Ruling: SSE, not a JSON poll.**
+   The tether watches gpsd only while a client is connected (D-061); an
+   event stream is a connected client and rides that fan-out unchanged,
+   while a poll would need a gpsd connection per request or a watch left
+   open on a timer. The same Host rule applies, a non-loopback `Origin` is
+   refused, and `Access-Control-Allow-Origin` is sent only to a loopback
+   page, so no web page from elsewhere can read the position through the
+   operator's own browser.
+
+### Departures from the approved design, each measured
+
+- **The ocean is Natural Earth's, not the simplified water polygons.**
+  `simplified-water-polygons-split-3857.zip` was 23,732,315 bytes on
+  2026-09-29 and 23,730,235 bytes on 2026-09-30, `Last-Modified` 03:43 GMT
+  that day: rebuilt daily with no checksum, like the full 906 MB set, so a
+  pin would fail within a day. `ne_10m_ocean` is public domain and fixed at
+  a commit; it is one world-sized polygon, so it is clipped per region
+  (0.115 s on Delaware's box, measured with the archive's GDAL 3.10.3). At
+  street zoom a coast follows Natural Earth's 1:10m line. The route to the
+  accurate ocean is the unpinnable daily set; documented, not carried.
+- **Four shapefiles, not one.** The pinned config names Natural Earth's
+  urban areas, glaciers and ice shelves beside the ocean. All four are
+  carried so the config runs unmodified; the three land layers at the
+  pinned commit are byte-identical to the naciscdn zips the spike used.
+- **The glyphs come from one archive.** Three fonts are 768 files. They,
+  the style and the profile are members of one 43.7 MB tarball, so a
+  `data` archive gains `members` (extract only these; one that matches
+  nothing refuses) and `into` (a subdirectory; required on every archive
+  of a unit with two archives or files beside one, because an archive
+  replaces the directory it is extracted into).
+
+### Consumers, from the spike's measurement
+
+The page itself. AIS-catcher reads `.mbtiles` itself; tilemaker writes one
+output per run, so only PMTiles is made and AIS-catcher is not served.
+QMapShack, Xastir and SDRangel want raster PNG, which only PostGIS,
+osm2pgsql, renderd and carto produce (Delaware imported in 53 s into
+155 MB; the render not measured; carto wants the daily ocean again):
+documented, not built. YAAC imports the region's `.osm.pbf` itself. pat and
+the Winlink standard forms embed no maps.
+
+### Licences
+
+MapLibre GL JS, pmtiles.js and OSM Bright's code BSD-3-Clause; tilemaker's
+profile FTWPL; the Noto fonts OFL-1.1, kept under KlokanTech's names as
+their README asks; OSM data ODbL; the OpenMapTiles schema and OSM Bright's
+design CC-BY 4.0 with the visible credit; Natural Earth public domain. All
+printed in the plan with the kit's size (D-049); nothing is redistributed.
+
+### Not carried
+
+planetiler (not in any archive, Java 21+, about 1.45 GB of side inputs
+before the first tile, slower than tilemaker on a region). martin,
+go-pmtiles and mbtileserver (GitHub binaries with no publisher checksum,
+and nothing they add the page needs; go-pmtiles binds every address by
+default). tileserver-gl and tileserver-gl-light (npm install scripts that
+fetch native binaries, refused under D-037). `libjs-leaflet` (raster only)
+and `libjs-openlayers` (the dead 2.13 line). `.mbtiles`. The raster stack.
+The CJK fonts (64 MB; CJK labels do not draw).
+
+### What has run, and what is owed
+
+The suite: the members extraction against synthetic archives shaped like the real ones, the
+schema, the converter against fake `tilemaker` and `ogr2ogr` (argv, clip
+box, links, effect check, sidecar, ledger, removal), the floor as deferral
+and refusal, the install dry run, the range server on loopback (206, HEAD,
+416, exact names, the Host rule), the position stream against a fake gpsd
+(an event, shared watch, rebinding refused), and the page under headless
+Chromium from the pinned kit and a synthetic tile with every non-loopback
+host unresolvable: idle, no error, the credit drawn, a glyph range asked
+for, every request the page made on 127.0.0.1 by its net log. That test
+needs the pinned files on disk (`HAMMUNITION_MAP_KIT_DIR`) and is skipped by
+name without them or without `chromium`. **Owed by the bench:** a real
+tilemaker run through the engine with the clipped Natural Earth ocean (its
+time, memory and `--store` scratch; the plan allows three times the
+download, unmeasured); the page in a desktop browser with a real receiver's
+position; tilemaker 3.1 and 3.2 with the 3.0 profile.
+
+**Rejected.** Pinning the daily water polygons (dead in a day). Taking
+them unpinned on TLS alone (every non-apt download is checked). A `when:`
+selector for Ubuntu 24.04 (a frozen measurement). A second HTTP server for
+the map (`reference serve` already binds loopback). A JSON poll for the
+position (above). Binding either listener beyond 127.0.0.1, including
+behind a flag: another machine uses `ssh -L`. `navigator.geolocation` (on
+Linux it is GeoClue's network guess, not the receiver).
+
+**Consequences.** `DataArtifact.members` and `into`, `extract(members=)`;
+`tilemaker-pmtiles`, `kit` and `CONVERTER_INPUTS` in
+`src/hammunition/manifest/schema.py`; `src/hammunition/backends/pmtiles.py`,
+`src/hammunition/tiles_plan.py`, `CONVERTER_FLOORS` in
+`src/hammunition/plan.py`; `src/hammunition/map_page.py` and the range
+server, Host rule and map routes in `src/hammunition/reference.py`; the
+position listener in `src/hammunition/gps_tether.py`; `--position-port` on
+`reference serve` and `maps gps-tether`; `catalog/packages/vector-map-kit.yaml`,
+`catalog/packages/osm-pmtiles.yaml`, `catalog/profiles/navigation.yaml`. The
+operator's page is `docs/guides/offline-navigation.md`, section 15.

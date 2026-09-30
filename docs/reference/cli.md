@@ -333,7 +333,7 @@ line when it switched BRouter from online to local or bound it to
 `qmapshack` is a named error, exit 1, after the edit. There is no `--json`
 form, because it replaces itself with a GUI (D-059).
 
-### `hammunition maps gps-tether [--gpsd HOST[:PORT]] [--port N]`
+### `hammunition maps gps-tether [--gpsd HOST[:PORT]] [--port N] [--position-port N]`
 
 What the `gps-tether` launcher runs (**D-061**). It watches gpsd's JSON, as
 `xgps` and Navit do, and writes `$GPRMC` and `$GPGGA` for every position
@@ -344,8 +344,9 @@ the host and port to enter:
 ```
 Serving gpsd's position as NMEA on 127.0.0.1 port 10110, to this machine only.
 In QMapShack: Realtime, Add source, GPS TCP/IP; host 127.0.0.1, port 10110.
+The offline browser map (`hammunition reference serve`) reads it from http://127.0.0.1:10111/position.
 Reading gpsd at 127.0.0.1 port 2947. Any number of NMEA programs may connect at once.
-Options: --gpsd HOST[:PORT] for a gpsd on another machine, --port N if 10110 is taken.
+Options: --gpsd HOST[:PORT] for a gpsd on another machine, --port N if 10110 is taken, --position-port N for the map's.
 Ctrl-C stops it. Navit reads gpsd directly and needs none of this.
 ```
 
@@ -353,6 +354,19 @@ Ctrl-C stops it. Navit reads gpsd directly and needs none of this.
 |---|---|---|
 | `--gpsd HOST[:PORT]` | `127.0.0.1:2947` | The gpsd to read: a host name or address, port 2947 when none is given. An IPv6 address goes in brackets (`[::1]`, `[2001:db8::7]:2947`); a bare one, an unclosed bracket, an empty host or a port outside 1 to 65535 is refused by name. |
 | `--port N` | `10110` | The port to serve on, still on 127.0.0.1 only. 1024 to 65535; below 1024 (only root may listen there, and the tether refuses root) and above 65535 are refused by name, and so is anything that is not a number. |
+| `--position-port N` | `10111` | The port of the browser map's position stream (**D-071**), on 127.0.0.1 only, with the same limits. The same port as `--port` is refused by name, so `--port 10111` needs `--position-port` too. |
+
+**The browser map's position (D-071).** A browser cannot read an NMEA
+socket, so the tether also answers `GET /position` on 127.0.0.1 port 10111
+as Server-Sent Events: one `data: {"lat": …, "lon": …, "mode": 2|3,
+"time": …}` event per fix. An event stream is a client like any NMEA client,
+counted in the same fan-out, so gpsd is watched while the map page is open
+and not after. A request whose `Host` is not `127.0.0.1:<port>` or
+`localhost:<port>` (DNS rebinding), or whose `Origin` is not a loopback page,
+is refused with 403 before gpsd is asked; `Access-Control-Allow-Origin` is
+sent only to a loopback page, so no web page from elsewhere can read your
+position through your own browser. Anything but `GET /position` is 404 or
+405.
 
 Neither option widens the bind: the feed is a position without
 authentication, so another machine reaches it through
@@ -513,7 +527,7 @@ every book with its id, title, pinned file and size, licence and licence
 URL, and whether it is chosen and installed. Which books somebody reads is
 not where they are, so unlike map regions the ids are named everywhere.
 
-### `hammunition reference serve [--port N]`
+### `hammunition reference serve [--port N] [--position-port N]`
 
 The offline reference on one page, on **127.0.0.1 only** (**D-066**):
 
@@ -521,6 +535,7 @@ The offline reference on one page, on **127.0.0.1 only** (**D-066**):
 $ hammunition reference serve
 Offline reference: http://127.0.0.1:8480/  (this machine only; Ctrl-C stops it)
   books: kiwix-serve on http://127.0.0.1:8481/wiki/
+  map: http://127.0.0.1:8480/map/  (2 region(s); your position from `hammunition maps gps-tether` on port 10111)
 ```
 
 The page, from the engine's own standard-library server on port 8480,
@@ -542,6 +557,25 @@ you: parsing downloaded files is the reader's business, never root's.
 | Option | Default | What it does |
 |---|---|---|
 | `--port N` | `8480` | The page's port, still on 127.0.0.1; kiwix-serve takes N+1. 1024 to 65534; anything else is refused by name. |
+| `--position-port N` | `10111` | Where the map page asks the GPS tether for your position, on 127.0.0.1: the tether's own `--position-port`. 1024 to 65535. |
+
+**The offline map (D-071).** When `vector-map-kit` and at least one
+`osm-pmtiles` region are installed, the same server also serves the map:
+`/map/` (the page), `/map/regions.json` (the installed regions),
+`/map/tiles/<slug>.pmtiles` and `/map/kit/<path>` (MapLibre GL JS,
+pmtiles.js, the OSM Bright style, sprite and fonts). Each file is served by
+its exact installed name only, found when the verb starts: a region built
+while it runs appears after a restart. Every file answers a single HTTP
+`Range` with 206 and `Content-Range` (pmtiles.js reads the tiles that way,
+and Python's plain `http.server`, which ignores ranges, makes it fail:
+measured), `HEAD` with its size and `Accept-Ranges: bytes`, and a range past
+the end with 416. A request whose `Host` is not `127.0.0.1:<port>` or
+`localhost:<port>` is refused with 403, on every path, so a web page whose
+name an attacker points at 127.0.0.1 cannot read which regions you carry.
+The page loads nothing from anywhere else, draws "© OpenMapTiles ©
+OpenStreetMap contributors" on the map as the licences require, and shows
+your position when `hammunition maps gps-tether` runs. Without the kit the
+landing page says what to install instead.
 
 With no books installed, no kiwix-serve is started and the page says how to
 choose some. With books installed and `kiwix-serve` or `kiwix-manage`

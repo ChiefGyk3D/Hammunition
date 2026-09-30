@@ -6,13 +6,13 @@ inline, test first; each task ends with its tests green and one commit.
 1. **Archive members** — `DataArtifact.members` and `into` (archives only;
    `into` a plain name; a unit with two archives, or an archive beside
    files, needs `into` on every archive); `extract(..., members=)` in
-   `backends/source.py` extracts only the named files and `dir/` prefixes
+   `src/hammunition/backends/source.py` extracts only the named files and `dir/` prefixes
    and refuses a name that matched nothing; the data backend extracts into
    `<data>/<unit>/<into>`. Tests: `tests/test_data_members.py`.
 2. **Schema** — converter `tilemaker-pmtiles` (source `osm-regions`), field
    `kit` (required for it, refused elsewhere, in `depends`, a `data` unit
    catalog-wide). Tests: `tests/test_pmtiles_schema.py`.
-3. **Converter** — `backends/pmtiles.py`: `TilesConverter`, `TilesLedger`,
+3. **Converter** — `src/hammunition/backends/pmtiles.py`: `TilesConverter`, `TilesLedger`,
    argv, clip box, effect check, sidecar, removal, disk needs; `tiles_plan.py`
    builds the run. Fake `tilemaker`/`ogr2ogr`. Tests:
    `tests/test_pmtiles.py`.
