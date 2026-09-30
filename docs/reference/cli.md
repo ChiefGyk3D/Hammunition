@@ -246,6 +246,12 @@ place, and nothing else in the file changes. A key holding `@Invalid()`,
 which is how Qt writes an empty list, counts as empty. A new file is
 created mode 0600. `--configure-only` edits and does not start QMapShack.
 
+While your repeater layer exists (`maps repeaters import`), it also keeps
+its directory in `poiPaths` under `[Canvas]`, and takes it out once the
+layer is gone (**D-064**): a QMapShack left open during an import writes its
+own list back when it exits, and this puts the path back before the next
+start.
+
 It also sets `routino\database=0` under `[Route]` when that key is absent
 or negative, and leaves a value of 0 or more alone, since that is a choice
 made in QMapShack. The key is the index of the database selected in the
@@ -316,6 +322,108 @@ with any options gives the same one error document. The setups these
 options are for (a gpsd on a Pi or a phone, a Bluetooth or serial
 receiver, a rig's built-in GPS, a second machine) are in
 `docs/guides/offline-navigation.md`, section 12.
+
+### `hammunition maps navit`
+
+What the `navit-offline` launcher runs (**D-064**). It starts `navit` on the
+configuration `osm-navit` writes,
+`/usr/local/share/hammunition/data/osm-navit/navit.xml`. When you have a
+repeater layer (`maps repeaters import`), it first writes your own copy of
+that configuration, `~/.local/share/hammunition/overlays/navit.xml` (mode
+0600; `$XDG_DATA_HOME` honoured), with the layer's textfile map added to its
+one enabled mapset, and starts Navit on the copy. It is rebuilt at every
+start, so it follows each `osm-navit` reinstall. With no layer it starts
+Navit on the generated file and deletes a copy of ours left from an earlier
+layer. Under root it starts Navit on the generated file and writes nothing.
+Your `~/.navit` directory is never touched.
+
+It refuses, exit 1, starting nothing: when the generated configuration is
+absent (`hammunition install osm-navit` writes it), and when the copy cannot
+be written (a symbolic link in its place, a generated file with other than
+one enabled mapset). A missing `navit` is a named error, exit 1. There is no
+`--json` form, because it replaces itself with a GUI (D-059).
+
+### `hammunition maps repeaters import FILE... [--exported YYYY-MM-DD]`
+
+Converts your own repeater export into overlays for QMapShack and Navit, on
+this machine, with no network (**D-064**). It reads, recognised from the
+content:
+
+| Input | What it must have |
+|---|---|
+| RepeaterBook GPX export | `<wpt>` elements with `lat` and `lon`; the callsign and output frequency are taken from `<name>`, then `<desc>`; a waypoint with neither is kept under its own name |
+| RepeaterBook CSV export | a header with `Callsign`, `Frequency`, `Lat` and `Long`; `Input Freq`, `PL`, `TSQ`, `Nearest City`, `Landmark`, `Use`, `Operational Status` and `Last Update` are read when present |
+| hearham.com's JSON, as served | the array `https://hearham.com/api/repeaters/v1` returns |
+| Your own CSV | exactly the header `callsign,output_mhz,offset_mhz,tone,mode,lat,lon,name,notes`; WGS84 decimal degrees, UTF-8 |
+
+It refuses, by name and with the reason, and then writes nothing: a CHIRP
+CSV and a CHIRP `.img` (neither has coordinates; CHIRP's RepeaterBook query
+keeps only "near <city>"), a RepeaterBook CSV without `Lat` and `Long`, KML
+(deferred: export GPX from the same search), and XML carrying a DOCTYPE. One
+refused file refuses the whole import. A row with no usable position or no
+callsign is skipped and counted by reason, with its first line numbers.
+
+Rows from every file are merged on callsign, output frequency and position
+to 0.01° (about 1 km): the same pair on two hills stays two repeaters. When
+merged rows both carry `Last Update`, the newer is kept, otherwise the first
+read, and the count is printed. The layer is named
+`Repeaters (own export YYYY-MM-DD, personal use)`, dated by `--exported`,
+else by the oldest file's modification date.
+
+It writes three files into `~/.local/share/hammunition/overlays/repeaters/`
+(`$XDG_DATA_HOME` honoured; directory 0700, files 0600, each renamed into
+place, so an interrupted import leaves the previous layer whole):
+`repeaters.gpx` (QMapShack's *File → Load*, a phone, a Garmin unit;
+symbol `Tall Tower`), `repeaters.poi` (a Mapsforge POI collection) and
+`repeaters.navit.txt` (a Navit textfile map, `poi_custom0` with a label and
+Navit's tower icon). Then it adds that directory to `poiPaths` under
+`[Canvas]` in QMapShack's settings, with the same editor and refusals as
+`maps qmapshack`, and writes your Navit copy as `maps navit` does. Each
+import replaces the layer; to combine sources, give every file to one import.
+
+Before the counts it prints each source's licence text: for a RepeaterBook
+export, "Data courtesy of RepeaterBook.com", personal non-commercial use,
+never redistributed, converted on this machine only, positions approximate,
+and RepeaterBook's terms at `repeaterbook.com/about/legal`. Every GPX is
+treated as a RepeaterBook export, because a real export's layout has not
+yet been measured. The text prints counts, paths and the layer name, never a
+callsign or a position.
+
+Exit 0 when written and registered; 1 when refused, when no row has a
+position, under root, or when QMapShack's settings could not be edited (the
+layer is still written, and the reason named).
+
+With `--json`, prints a `repeaters` document
+([json-interface.md](json-interface.md)): the layer, each file's counts and
+digest, the files written and what each program was told. Like the text, it
+carries no callsign and no position.
+
+### `hammunition maps repeaters fetch-hearham`
+
+Fetches hearham.com's open repeater list, `https://hearham.com/api/repeaters/v1`
+(about 9.5 MB, the whole world, on 2026-09-29), when you run it and at no
+other time, and converts it exactly as `import` does (**D-064**). It prints
+what it is about to fetch before the request. hearham publishes no checksum
+and no dated snapshot, so the sha256 of what arrived is printed and recorded
+in the layer, named `Repeaters (hearham YYYY-MM-DD, unverified)`. hearham
+states no licence for the data; it is carried under **D-033**, used on your
+request and never redistributed, and hearham's own line, that it should not
+be relied upon "for medical emergencies, or any other life-and-death
+operations", is printed. The answer is bounded at 64 MB and parsed like any
+file of yours; anything but hearham's list is refused, exit 1, and nothing
+is written. There is no `--json` form: the disclosure is for a person to
+read. Nothing is ever fetched from RepeaterBook.
+
+### `hammunition maps repeaters remove`
+
+Deletes the three layer files, your Navit copy, and the directory when it is
+left empty; anything else you put there stays. It takes the directory out of
+QMapShack's `poiPaths` and changes nothing else in that file. Nothing to
+remove is exit 0; a QMapShack settings file it cannot edit is exit 1, named.
+
+With `--json`, prints a `repeaters-removed` document
+([json-interface.md](json-interface.md)): the files deleted and what each
+program was told.
 
 ### `hammunition list [all|packages|profiles]`
 

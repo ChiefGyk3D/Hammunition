@@ -18,7 +18,8 @@ needs no network at all.
 Daily use and EMCOMM are the same setup. The maps have to be on the disk
 before anything goes wrong, so the way to be ready for the bad day is to use
 it on ordinary days and refresh it as routine. The decision records behind
-all of this are **D-057** and **D-061** in `docs/DECISIONS.md`.
+all of this are **D-057**, **D-061** and, for repeaters, **D-064** in
+`docs/DECISIONS.md`.
 
 The examples below use Vermont and New Hampshire. Use your own regions.
 
@@ -815,6 +816,111 @@ work, not what has been seen to.
 
 ---
 
+## 13. Repeaters on the map
+
+Your own repeater list, converted on this machine into a layer QMapShack and
+Navit both show (**D-064**). Hammunition fetches nothing from RepeaterBook
+and ships no repeater data: you export it with your own account, and the
+conversion happens here, offline.
+
+### Get an export
+
+- **RepeaterBook, as GPX (the one to use).** Logged in on repeaterbook.com,
+  run a search (by location, proximity, keyword and so on), then choose
+  *Export → GPX*. RepeaterBook does not export multi-county or multi-state
+  searches as GPX; run one search per area and import the files together.
+- **RepeaterBook, as CSV.** Only when its header has `Lat` and `Long`
+  columns. One without them is refused: there is nothing to place.
+- **Your own list.** A CSV with exactly this header, positions in decimal
+  degrees:
+
+  ```
+  callsign,output_mhz,offset_mhz,tone,mode,lat,lon,name,notes
+  N0CALL,146.940,-0.600,100.0,FM,39.8017,-89.6436,Springfield,club machine
+  ```
+
+- **hearham.com's open list**, fetched for you on request; see below.
+
+CHIRP files do not work, and are refused by name: a CHIRP CSV or `.img`
+holds channels, not places. CHIRP's own RepeaterBook query drops the
+coordinates and keeps only "near <city>" (measured), and a position guessed
+from a town name would be an invented one. KML is not read yet; export GPX
+from the same search.
+
+### Convert it
+
+```
+hammunition maps repeaters import ~/Downloads/repeaters.gpx
+```
+
+Several files at once are merged into one layer; the same repeater in two
+exports becomes one, and the same callsign and frequency on two different
+hills stays two. It prints RepeaterBook's attribution and terms first, then
+what it read, skipped and merged, and the files it wrote. The layer's name
+carries the export's date, taken from the file; give it yourself with
+`--exported 2026-09-01` if the file has been copied since.
+
+The files are yours, in `~/.local/share/hammunition/overlays/repeaters/`,
+readable only by you. RepeaterBook's export terms are personal,
+non-commercial use, and the data may not be redistributed in any form, so
+keep the files to your own machines. Positions are approximate: a map
+overlay to find a machine to talk through, not directions to a repeater
+site.
+
+A new import replaces the layer. To refresh it, export again and import
+again.
+
+### See it
+
+- **QMapShack.** The layer is a POI collection: open the *POI Collections*
+  dock and tick *Amateur radio repeaters*. The import added its directory to
+  QMapShack's settings; if QMapShack was open during the import, close it
+  and start it from `qmapshack-offline`, which adds the directory back. The
+  GPX is there too, for *File → Load* or to copy to a phone or a Garmin
+  unit.
+- **Navit.** Start `navit-offline`. Repeaters draw as towers labelled with
+  callsign and frequency, and list under *POIs → Other* with their
+  distance. They are **not** in Navit's address search: the file format
+  Navit reads them from has no search. The launcher now runs
+  `hammunition maps navit`; a launcher from an earlier install is updated
+  by `hammunition menus apply`.
+
+### hearham.com's open list
+
+```
+hammunition maps repeaters fetch-hearham
+```
+
+fetches the whole world's list from hearham.com (about 9.5 MB) when you run
+it, and at no other time, and converts it the same way. hearham publishes no
+checksum and no dated copy, so Hammunition records the digest of what
+arrived and names the layer *unverified*. hearham states no licence for its
+data, and says it should not be relied upon "for medical emergencies, or any
+other life-and-death operations". To combine it with your RepeaterBook
+export, save hearham's JSON yourself and give both files to one
+`maps repeaters import`.
+
+### Remove it
+
+```
+hammunition maps repeaters remove
+```
+
+deletes the layer's files and takes the directory out of QMapShack's
+settings. Navit goes back to the generated configuration at its next start.
+
+### Not carried
+
+- Anything fetched from RepeaterBook. Its API needs approval, and its
+  data-use terms forbid bulk extraction and offline bundling without written
+  permission.
+- Xastir, whose point layers live in a root-owned map directory, and YAAC,
+  whose importer makes APRS objects it can transmit (a D-021 matter, not a
+  map).
+- The FCC's licence database, which has no coordinates.
+
+---
+
 ## What QMapShack does not do (yet)
 
 - **No offline address search**: use Navit (section 10).
@@ -1099,6 +1205,9 @@ hammunition uninstall dem-qmapshack dem-copernicus osm-routino osm-garmin
 Your QMapShack settings keep the directories the launcher added; QMapShack
 lists nothing there once they are gone.
 
+Your repeater layer is not part of any unit; `hammunition maps repeaters
+remove` removes it (section 13).
+
 ---
 
 ## What has not been measured yet
@@ -1145,6 +1254,14 @@ Measured on the field laptop on 2026-09-29, and recorded in bench session
 listing the maps, the contour map and the elevation from the directories
 the launcher writes; hillshade; and the GPS tether giving QMapShack a
 position from a real receiver.
+
+For repeaters on the map (**D-064**), nothing has been drawn on a desktop
+yet: QMapShack showing the GPX and the POI collection (and reading the
+collection from `poiPaths` under `[Canvas]`), Navit's labels and tower icons,
+and the *POIs → Other* listing all rest on reading QMapShack's and Navit's
+source, not on a screen. The columns of a real RepeaterBook CSV export, and
+what a real GPX export puts in `<name>` and `<desc>`, have not been seen:
+they need one export by a logged-in operator.
 
 Offline reference (Kiwix, a local tile server) is the next piece of this
 work and not in this profile.

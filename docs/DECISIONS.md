@@ -5668,3 +5668,164 @@ the engine's default is to drop to the operator, not to start as root.
 Setting `timestamp_timeout` or writing sudoers: that changes the machine's
 policy for every program, which a transaction has no business doing.
 `sudo -S` or an askpass helper: the engine would then handle the password.
+
+---
+
+## D-064 — Repeaters on the map come from the operator's own export, converted on this machine; nothing is fetched from RepeaterBook, and hearham's open list only on request, unverified
+
+**Date:** 2026-09-29. **Status:** proposed (the design is the spike's
+recommendation, approved by the maintainer; implemented on branch
+`repeaters`; the maintainer decides it at review). **Spec:**
+`docs/superpowers/specs/2026-09-29-repeaters-design.md`. **Depends on:**
+D-021 (disclose, never adjudicate; YAAC's objects can transmit), D-033 (an
+unlicensed source judged on what we do with it), D-049 (why this is not a
+data unit), D-057 and D-061 (the Navit and QMapShack configurations this
+adds to), D-059 (the documents), D-031 (the input's date, not the run's).
+
+**Why.** The maintainer wants repeaters on the offline maps. The spike of
+2026-09-29 measured every route an operator has without an API key.
+RepeaterBook's API is gated, and its data-use page forbids "bulk
+extraction, mirroring, redistribution, offline bundling" without written
+permission. Its *website export*, though, is granted to a registered user
+"for their own personal use", and its GPX page describes loading the file
+into navigation tools, offline. CHIRP's RepeaterBook query was run headless
+and its CSV drops Lat/Long, keeping only "near <city>". hearham.com serves
+the whole world, 22,698 rows, unauthenticated, with no licence and no
+ETag. The FCC's licence database has no coordinates.
+
+### The rule
+
+1. **The operator's export, converted here.**
+   `hammunition maps repeaters import FILE... [--exported YYYY-MM-DD]`
+   reads a RepeaterBook GPX, a RepeaterBook CSV that has `Lat` and `Long`,
+   hearham's JSON as served, or a hand-typed CSV with the header
+   `callsign,output_mhz,offset_mhz,tone,mode,lat,lon,name,notes`, recognised
+   from the content. No network.
+2. **What has no coordinates is refused by name, with the reason:** a CHIRP
+   CSV, a CHIRP `.img` (by suffix, or CHIRP's own metadata marker read from
+   `chirp_common.py`), and a RepeaterBook CSV without `Lat`/`Long`. KML is
+   deferred: it is the same data as the GPX. XML with a DOCTYPE is refused
+   before parsing. One refused file refuses the import, and nothing is
+   written. A position is never guessed from a town name.
+3. **Merged on callsign + output Hz + position to 0.01°.** Callsign and
+   frequency alone would have merged 1,050 multi-site keys in hearham's
+   data. The newer `Last Update` wins where both rows carry one, else the
+   first read; every merge is counted and printed.
+4. **Three outputs, the operator's own.** A GPX (`<name>` `CALL FREQ`,
+   `<desc>` offset, tone, mode, use, status, place and source,
+   `<sym>Tall Tower</sym>`, a QMapShack built-in), a Mapsforge `.poi`, and a
+   Navit textfile (`poi_custom0`, labelled, Navit's own `tower.png`), in
+   `~/.local/share/hammunition/overlays/repeaters/`: directory 0700, files
+   0600, each renamed into place. Never under the root prefix, never in the
+   catalog, never in the transaction log. Refused as root. The layer is
+   named `Repeaters (own export YYYY-MM-DD, personal use)`, dated by
+   `--exported`, else by the oldest input's modification date.
+5. **Registered where each program reads it.** QMapShack: the directory in
+   `[Canvas] poiPaths`, by the editor `maps qmapshack` uses, with its
+   refusals; `maps qmapshack` keeps the path there exactly while a `.poi`
+   exists, because a QMapShack open during the import writes its own list
+   back on exit. Navit: its generated configuration is root's and
+   `~/.navit` is never touched, so the `navit-offline` launcher now runs
+   `hammunition maps navit`, which opens the generated file, or, when there
+   is a layer, the operator's copy of it
+   (`~/.local/share/hammunition/overlays/navit.xml`, 0600) with a textfile
+   map added to its one enabled mapset by `navit_config.add_maps`.
+   `maps repeaters remove` deletes the files and unregisters both;
+   removing nothing is exit 0.
+6. **The licence text is printed at import, before the counts.**
+   RepeaterBook: "Data courtesy of RepeaterBook.com", personal
+   non-commercial use, never redistributed, converted on this machine only,
+   positions approximate, terms at `repeaterbook.com/about/legal`. That
+   attribution is also in the GPX's metadata and in every waypoint's
+   `<desc>`, as RepeaterBook's terms require of an overlay. A hand list:
+   "Your own data." A disclosure of terms, not a ruling on them (D-021).
+7. **hearham on request only.** `maps repeaters fetch-hearham` prints what
+   it will fetch, fetches once (bounded at 64 MB, redirects to HTTPS only),
+   records the sha256 it observed in the layer and the output, and names
+   the layer `Repeaters (hearham YYYY-MM-DD, unverified)`. It prints
+   hearham's own line that the data should not be relied upon "for medical
+   emergencies, or any other life-and-death operations". Carried under
+   D-033: no licence, used on the operator's request, never redistributed.
+8. **Documents.** `import --json` prints a `repeaters` document and
+   `remove --json` a `repeaters-removed` document, from the same objects as
+   the text. Both carry counts, paths and the layer name, never a
+   repeater's callsign or position: the export says where the operator
+   operates. `fetch-hearham` and `maps navit` have no JSON form.
+
+### Not a D-049 data unit
+
+A data unit is an artifact the engine fetches from its publisher and pins by
+sha256. An export is neither fetched by the engine nor pinnable, and
+RepeaterBook's terms forbid anyone but the exporting user holding it. hearham
+is live, with no ETag and no dated snapshot: a pin would be wrong the day it
+was taken. So the export is a command's input, and the fetch records what it
+observed and says it is unverified.
+
+### Not carried, and why
+
+- **Any fetch from RepeaterBook**: the API is gated, and bulk extraction and
+  offline bundling need written permission.
+- **Navit address search of repeaters**: the textfile driver has no search
+  method; they list under POIs → Other, with distance.
+- **Xastir `.gnis`**: its point layers live in a root-owned map tree under
+  `/usr/share/xastir`.
+- **YAAC `.pos`**: YAAC imports APRS objects, which it can transmit. That is
+  a D-021 matter, not a map layer.
+- **FCC ULS**: no coordinates.
+- **KML**: deferred; the GPX carries the same data.
+
+### Rulings made on the way
+
+- **Every GPX gets RepeaterBook's attribution and terms.** A real export's
+  `<name>` and `<desc>` are unmeasured, so an export cannot be told from
+  another GPX; the attribution is the cautious default. Callsign and output
+  frequency are found in `<name>`, then `<desc>`; a waypoint with neither is
+  kept under its own name, keyed on that name.
+- **The POI writer moves a point on a 0.1° line 2e-5° (about 2 m) north or
+  east.** QMapShack asks for each 0.1° tile with `min >= tile` and
+  `max < tile + 0.1`, and the rtree's float32 boxes round outwards, so a
+  point on a line is in neither tile (the spike). The spike's note said
+  "widen each box"; widening makes it worse, so the point is moved into one
+  tile instead. The tests run QMapShack's verbatim query over every point
+  and show a point on a line lost without the move. The bounds are padded
+  0.001°, because a one-repeater file's zero-area bounds intersect no tile.
+- **Each import replaces the layer.** Combining sources is one import of
+  every file. A fetch does not keep hearham's raw JSON; to combine it with
+  an export, the operator saves the JSON and imports both.
+- **The Navit launcher changes.** The alternatives were writing
+  `~/.navit/navit.xml`, which the navit manifest promises never to touch
+  and which `navit-offline` does not read, or writing into the root prefix,
+  which the operator cannot do without sudo. `hammunition menus apply`
+  rewrites an installed `navit-offline` to the new form (tested).
+- **A refused QMapShack edit still writes the layer**, names the reason and
+  exits 1; the files are the operator's either way.
+- **`command_name` reads a third level**, so an error document says
+  `maps repeaters import`.
+
+### What has run
+
+The test suite only: every parser against synthetic fixtures (N0CALL,
+N0TST, Springfield IL), every refusal, the merge, the three writers, the POI
+against QMapShack's own SQL, `add_maps`, the QMapShack edit byte for byte,
+modes 0600 and 0700, root refused, both documents validated against their
+schema with the text's values carried and no callsign or coordinate in
+either, `remove` idempotent, `maps navit` with `execvp` stubbed, and
+`fetch-hearham` against a loopback server only. No GUI was started.
+
+**Owed to the bench:** QMapShack drawing the GPX and the POI collection, and
+reading `poiPaths` under `[Canvas]`; Navit's `poi_custom0` label and tower
+icon, and the POIs → Other listing; one real RepeaterBook export, GPX and
+CSV, by a logged-in operator, for its columns and `<desc>` layout.
+
+**Rejected.** RepeaterBook's API (gated, and forbidden for this use).
+Geocoding CHIRP's "near <city>" (an invented position). A catalog data unit
+(above). A callsign plus frequency key (drops real repeaters). A custom
+QMapShack icon (would write into QMapShack's own directories). Navit's
+`poi_communication` type (no label in the stock layout).
+
+**Consequences.** `src/hammunition/repeaters.py`,
+`src/hammunition/interface/repeaters.py`, `navit_config.add_maps`, four
+commands in `src/hammunition/cli/main.py`, the `navit-offline` launcher in
+`catalog/packages/navit.yaml`; tests `tests/test_repeaters.py`,
+`tests/test_repeaters_cli.py` and `tests/test_navit_config.py`; the
+offline-navigation guide's section 13 and `docs/reference/cli.md`.
