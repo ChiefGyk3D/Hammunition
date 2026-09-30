@@ -33,8 +33,9 @@ from hammunition.gpstime.ntpconf import transform
 HELPER = "/usr/local/libexec/hammunition-devctl"
 
 
-def _never_installed(name: str) -> bool:
-    return False
+def _only_gpsd(name: str) -> bool:
+    """gpsd is installed (GPS time has something to read); nothing else is."""
+    return name == "gpsd"
 
 
 def _apparmor(local: str = "") -> None:
@@ -70,7 +71,7 @@ def test_the_apparmor_block_round_trips_and_is_added_once() -> None:
 
 def test_a_fresh_ntpsec_machine_needs_everything(time_files: Path) -> None:
     _apparmor()
-    tg = plan_time_grants(installed=_never_installed)
+    tg = plan_time_grants(installed=_only_gpsd)
     assert tg.ntpsec and not tg.dropin_current and not tg.apparmor_current
     assert not tg.ntp_d_dir and not tg.mode_applied and tg.mode == "auto"
     assert not tg.offer_fake_hwclock, "rtc0 exists"
@@ -79,7 +80,7 @@ def test_a_fresh_ntpsec_machine_needs_everything(time_files: Path) -> None:
 
 def test_the_commands_for_a_fresh_machine_in_order(time_files: Path) -> None:
     _apparmor()
-    tg = plan_time_grants(installed=_never_installed)
+    tg = plan_time_grants(installed=_only_gpsd)
     argvs = [c.argv for c in grant_commands(tg, "/stage", HELPER)]
     assert argvs == [
         ("install", "-D", "-m", "0644", "/stage/ntpsec-hammunition-gps.conf", files.DROPIN),
@@ -93,7 +94,7 @@ def test_the_commands_for_a_fresh_machine_in_order(time_files: Path) -> None:
 
 
 def test_no_apparmor_profile_means_no_apparmor_step(time_files: Path) -> None:
-    tg = plan_time_grants(installed=_never_installed)
+    tg = plan_time_grants(installed=_only_gpsd)
     assert tg.apparmor_local is None and tg.apparmor_current
     assert not any(c.argv[0] == "apparmor_parser" for c in grant_commands(tg, "/s", HELPER))
 
@@ -103,7 +104,7 @@ def test_new_grants_on_an_applied_mode_restart_instead_of_resetting_it(
 ) -> None:
     _applied(debian_ntp_conf)
     Path(files.DROPIN).unlink()
-    tg = plan_time_grants(installed=_never_installed)
+    tg = plan_time_grants(installed=_only_gpsd)
     assert tg.mode == "gps-only" and tg.mode_applied
     argvs = [c.argv for c in grant_commands(tg, "/s", HELPER)]
     assert argvs[-1] == ("systemctl", "restart", "ntpsec")
@@ -112,29 +113,29 @@ def test_new_grants_on_an_applied_mode_restart_instead_of_resetting_it(
 
 def test_everything_in_place_is_a_noop(time_files: Path, debian_ntp_conf: str) -> None:
     _applied(debian_ntp_conf)
-    tg = plan_time_grants(installed=_never_installed)
+    tg = plan_time_grants(installed=_only_gpsd)
     assert tg.is_noop and grant_commands(tg, "/s", HELPER) == []
 
 
 def test_fake_hwclock_is_offered_only_with_no_rtc(time_files: Path) -> None:
     (Path(files.RTC_CLASS) / "rtc0").rmdir()
-    assert plan_time_grants(installed=_never_installed).offer_fake_hwclock
+    assert plan_time_grants(installed=_only_gpsd).offer_fake_hwclock
     assert not plan_time_grants(installed=lambda name: True).offer_fake_hwclock
     (Path(files.RTC_CLASS) / "rtc0").mkdir()
     asked: list[str] = []
 
     def asking(name: str) -> bool:
         asked.append(name)
-        return False
+        return name == "gpsd"
 
     assert not plan_time_grants(installed=asking).offer_fake_hwclock
-    assert asked == [], "dpkg is not even asked where a real clock exists"
+    assert "fake-hwclock" not in asked, "dpkg is not even asked where a real clock exists"
 
 
 def test_fake_hwclock_without_ntpsec_is_the_only_command(time_files: Path) -> None:
     Path(files.NTP_CONF).unlink()
     (Path(files.RTC_CLASS) / "rtc0").rmdir()
-    tg = plan_time_grants(installed=_never_installed)
+    tg = plan_time_grants(installed=_only_gpsd)
     commands = grant_commands(tg, "/s", HELPER)
     assert [c.argv for c in commands] == [
         ("apt-get", "install", "-y", "--no-install-recommends", "fake-hwclock")
@@ -144,7 +145,7 @@ def test_fake_hwclock_without_ntpsec_is_the_only_command(time_files: Path) -> No
 
 def test_the_disclosure_says_what_the_capability_allows(time_files: Path) -> None:
     _apparmor()
-    text = "\n".join(disclose(plan_time_grants(installed=_never_installed)))
+    text = "\n".join(disclose(plan_time_grants(installed=_only_gpsd)))
     assert "CAP_IPC_OWNER bypasses" in text and "System V IPC" in text
     assert files.DROPIN in text and files.APPARMOR_LOCAL in text
     assert "hardware unapply" in text
@@ -154,7 +155,7 @@ def test_staging_writes_the_two_files_apply_installs(time_files: Path, tmp_path:
     _apparmor("# a site rule\n")
     stage = tmp_path / "stage"
     stage.mkdir()
-    stage_grants(plan_time_grants(installed=_never_installed), stage)
+    stage_grants(plan_time_grants(installed=_only_gpsd), stage)
     assert (stage / "ntpsec-hammunition-gps.conf").read_text() == DROPIN_CONTENT
     assert (stage / "usr.sbin.ntpd.local").read_text() == "# a site rule\n" + APPARMOR_BLOCK
 
@@ -225,7 +226,7 @@ def test_verify_removal_names_what_survived(time_files: Path, debian_ntp_conf: s
 def test_plan_time_grants_tolerates_an_unreadable_mode_file(time_files: Path) -> None:
     Path(files.TIME_CONFIG).parent.mkdir(parents=True)
     Path(files.TIME_CONFIG).write_text("mode: sometimes\n")
-    assert plan_time_grants(installed=_never_installed).mode == "auto"
+    assert plan_time_grants(installed=_only_gpsd).mode == "auto"
 
 
 def test_timegrants_is_hashable_and_frozen() -> None:
@@ -247,6 +248,43 @@ def test_a_conffile_without_ntpd_is_not_ntpsec(time_files: Path) -> None:
     """Final review I3: no drop-in for a unit that is gone."""
     _apparmor()
     Path(files.NTPD).unlink()
-    tg = plan_time_grants(installed=_never_installed)
+    tg = plan_time_grants(installed=_only_gpsd)
     assert not tg.ntpsec
     assert grant_commands(tg, "/s", HELPER) == []
+
+
+def test_without_gpsd_no_grant_is_planned(time_files: Path) -> None:
+    """Final review I2: with no gpsd there is no GPS time to read, so ntpd's
+    privilege is not widened and ntp.conf is not touched."""
+    _apparmor()
+    tg = plan_time_grants(installed=lambda name: False)
+    assert tg.ntpsec and not tg.gpsd
+    assert grant_commands(tg, "/s", HELPER) == []
+    assert tg.is_noop
+    assert any("gpsd is not installed" in line for line in disclose(tg))
+
+
+def test_the_first_mode_discloses_every_write_the_helper_makes(time_files: Path) -> None:
+    """Final review I1: `hardware apply --dry-run` shows what `time mode` writes."""
+    _apparmor()
+    text = "\n".join(disclose(plan_time_grants(installed=_only_gpsd)))
+    assert f"{files.TIME_CONFIG} <- mode: auto" in text
+    assert "refclock shm unit 0 refid GPS" in text
+    assert "- tos minclock 4 minsane 3" in text
+    assert "+ pool 0.debian.pool.ntp.org iburst prefer" in text
+
+
+def test_the_disclosure_says_what_losing_minsane_costs(time_files: Path) -> None:
+    """Final review I2: the spec promised the documented cost of minsane 1."""
+    _apparmor()
+    text = " ".join(" ".join(disclose(plan_time_grants(installed=_only_gpsd))).split())
+    assert "discard a single falseticker" in text
+
+
+def test_a_conffile_without_its_anchor_refuses_at_plan_time(
+    time_files: Path, debian_ntp_conf: str
+) -> None:
+    """Final review I1: refused before anything runs, not mid-run in the helper."""
+    Path(files.NTP_CONF).write_text(debian_ntp_conf.replace("tos minclock 4 minsane 3\n", ""))
+    with pytest.raises(TimeError, match="tos minclock N minsane N"):
+        plan_time_grants(installed=_only_gpsd)

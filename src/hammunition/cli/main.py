@@ -2196,6 +2196,7 @@ def cmd_hardware_list(args: argparse.Namespace) -> int:
 def cmd_hardware_apply(args: argparse.Namespace) -> int:
     """Write the catalog's udev rules and join the device-access groups."""
     from hammunition.gpstime.grants import disclose, grant_commands, stage_grants, verify_grants
+    from hammunition.gpstime.mode import TimeError
     from hammunition.hardware import plan_hardware
 
     try:
@@ -2209,7 +2210,20 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
         print("error: could not determine which user to set up.", file=sys.stderr)
         return EXIT_FAILED
     groups_now = user_groups(user)
-    plan = plan_hardware(classes, devices, user=user, user_groups_now=groups_now, with_time=True)
+    try:
+        plan = plan_hardware(
+            classes,
+            devices,
+            user=user,
+            user_groups_now=groups_now,
+            with_time=not getattr(args, "no_gps_time", False),
+        )
+    except TimeError as exc:
+        print(
+            f"error: {exc}\n`--no-gps-time` sets up devices without GPS time (D-058).",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
 
     print(f"Hardware setup for {user!r}\n")
     if plan.omissions:
@@ -2672,8 +2686,8 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         )
     if time_present:
         print(
-            f"\nGPS time (D-058): {time_files.NTP_CONF}'s marked lines go back exactly as the "
-            f"package shipped them, and only Hammunition's block leaves "
+            f"\nGPS time (D-058): {time_files.NTP_CONF}'s marked lines go back exactly as "
+            f"they were before Hammunition edited them, and only Hammunition's block leaves "
             f"{time_files.APPARMOR_LOCAL}; the rest of that file stays."
         )
     print(
@@ -2939,8 +2953,8 @@ def cmd_time(args: argparse.Namespace) -> int:
 def cmd_time_mode(args: argparse.Namespace) -> int:
     """Disclose the three files a mode change writes and the restart, then ask the helper."""
     from hammunition.gpstime import files
-    from hammunition.gpstime.mode import GPS_MODES, TimeError, as_mode, render_ntp_d
-    from hammunition.gpstime.ntpconf import changes, transform
+    from hammunition.gpstime.mode import GPS_MODES, TimeError, as_mode
+    from hammunition.gpstime.ntpconf import mode_writes
     from hammunition.gpstime.state import gps_from, ntpsec_installed
 
     ready = _helper_ready()
@@ -2957,26 +2971,15 @@ def cmd_time_mode(args: argparse.Namespace) -> int:
         return EXIT_UNPLANNABLE
     current = Path(files.NTP_CONF).read_text(encoding="utf-8")
     try:
-        edited = transform(current, mode)
+        writes = mode_writes(current, mode)
     except TimeError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_UNPLANNABLE
 
     print(f"Setting the time mode to {mode}\n")
     print("Writes this will cause, as root, through the helper:")
-    print(f"  {files.TIME_CONFIG} <- mode: {mode}")
-    print(f"  {files.NTP_D_FILE}, rewritten whole:")
-    for line in render_ntp_d(mode).splitlines():
-        print(f"    {line}")
-    edits = changes(current, edited)
-    if edits:
-        print(
-            f"  {files.NTP_CONF}, marked lines only (another mode or "
-            f"`hardware unapply` puts them back exactly):"
-        )
-        for line in edits:
-            print(f"    {line}")
-    print("  then `systemctl restart ntpsec`: ntpsec rereads its configuration only on a restart.")
+    for line in writes:
+        print(line)
 
     found, _ = _survey_parkables(args)
     gps = gps_from(found)
@@ -3457,6 +3460,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_hw_apply.add_argument("--dry-run", action="store_true", help="print, change nothing")
     p_hw_apply.add_argument("--yes", action="store_true", help="skip the confirmation")
     p_hw_apply.add_argument("--user", default=None, help="whom to set up")
+    p_hw_apply.add_argument(
+        "--no-gps-time",
+        action="store_true",
+        help="leave ntpsec, its grants and fake-hwclock alone (D-058)",
+    )
     p_hw_apply.set_defaults(func=cmd_hardware_apply)
 
     p_hw_unapply = hardware_sub.add_parser(

@@ -26,9 +26,9 @@ import difflib
 import re
 
 from hammunition.gpstime import files
-from hammunition.gpstime.mode import ROUTE, Mode, Route, TimeError, as_mode
+from hammunition.gpstime.mode import ROUTE, Mode, Route, TimeError, as_mode, render_ntp_d
 
-__all__ = ["OFF", "WAS", "changes", "restore", "transform"]
+__all__ = ["OFF", "WAS", "changes", "mode_writes", "restore", "transform"]
 
 OFF = "#hammunition-gps:off# "
 WAS = "#hammunition-gps:was# "
@@ -116,3 +116,36 @@ def changes(before: str, after: str) -> list[str]:
         for ln in difflib.ndiff(before.splitlines(), after.splitlines())
         if ln.startswith(("- ", "+ "))
     ]
+
+
+def mode_writes(conf: str, mode: Mode, route: Route = ROUTE) -> list[str]:
+    """Every write setting ``mode`` makes, as a disclosure prints it: time.yaml,
+    the whole ntp.d file, the ntp.conf lines that move, and the restart.
+
+    One function for ``time mode --dry-run`` and ``hardware apply --dry-run``,
+    so the two cannot drift. Raises :class:`TimeError` when an anchor is
+    missing, before anything is written.
+    """
+    mode = as_mode(mode)
+    edits = changes(conf, transform(conf, mode, route))
+    lines = [
+        f"  {files.TIME_CONFIG} <- mode: {mode}",
+        f"  {files.NTP_D_FILE}, rewritten whole:",
+        *(f"    {line}" for line in render_ntp_d(mode, route).splitlines()),
+    ]
+    if edits:
+        lines.append(
+            f"  {files.NTP_CONF}, marked lines only (another mode or "
+            f"`hardware unapply` puts them back exactly):"
+        )
+        lines += [f"    {line}" for line in edits]
+    if any(line.startswith("- ") and TOS_LINE.fullmatch(line[2:]) for line in edits):
+        lines += [
+            "    Without that line ntpd's minsane falls to its default of 1, so one source",
+            '    can set the clock alone; ntp.conf(5): minsane "should be at least 4 in',
+            '    order to detect and discard a single falseticker".',
+        ]
+    lines.append(
+        "  then `systemctl restart ntpsec`: ntpsec rereads its configuration only on a restart."
+    )
+    return lines

@@ -32,7 +32,7 @@ from pathlib import Path
 from hammunition.backends.base import BackendError, Command, CommandRunner, SubprocessRunner
 from hammunition.gpstime import files
 from hammunition.gpstime.mode import DEFAULT_MODE, HELPER_HEADER, Mode, TimeError, read_mode
-from hammunition.gpstime.ntpconf import restore
+from hammunition.gpstime.ntpconf import mode_writes, restore
 from hammunition.gpstime.state import APPARMOR_RULE, has_rtc, ntpsec_installed
 
 __all__ = [
@@ -119,6 +119,16 @@ class TimeGrants:
     """The ntp.d file exists, i.e. the helper has set a mode at least once."""
     mode: Mode
     offer_fake_hwclock: bool
+    gpsd: bool = True
+    """gpsd is installed. Without it there is no GPS time to read, so nothing
+    widens ntpd's privilege or touches ntp.conf."""
+    mode_writes: tuple[str, ...] = ()
+    """What the first ``time mode`` will write, for the disclosure (empty once a
+    mode is applied)."""
+
+    @property
+    def gps_time(self) -> bool:
+        return self.ntpsec and self.gpsd
 
     @property
     def apparmor_current(self) -> bool:
@@ -126,13 +136,13 @@ class TimeGrants:
 
     @property
     def grants_change(self) -> bool:
-        return self.ntpsec and not (self.dropin_current and self.apparmor_current)
+        return self.gps_time and not (self.dropin_current and self.apparmor_current)
 
     @property
     def is_noop(self) -> bool:
         if self.offer_fake_hwclock:
             return False
-        if not self.ntpsec:
+        if not self.gps_time:
             return True
         return (
             self.dropin_current and self.apparmor_current and self.ntp_d_dir and self.mode_applied
@@ -145,14 +155,25 @@ def plan_time_grants(*, installed: Callable[[str], bool] = package_installed) ->
     except TimeError:
         mode = DEFAULT_MODE
     profile = Path(files.APPARMOR_PROFILE).is_file()
+    ntpsec = ntpsec_installed()
+    gpsd = ntpsec and installed("gpsd")
+    mode_applied = Path(files.NTP_D_FILE).is_file()
+    writes: tuple[str, ...] = ()
+    if gpsd and not mode_applied:
+        # Raises TimeError on a conffile without its anchors: refused here,
+        # before anything runs, not mid-run in the helper.
+        conf = Path(files.NTP_CONF).read_text(encoding="utf-8")
+        writes = tuple(mode_writes(conf, mode))
     return TimeGrants(
-        ntpsec=ntpsec_installed(),
+        ntpsec=ntpsec,
         dropin_current=_read(files.DROPIN) == DROPIN_CONTENT,
         apparmor_local=(_read(files.APPARMOR_LOCAL) or "") if profile else None,
         ntp_d_dir=Path(files.NTP_D_DIR).is_dir(),
-        mode_applied=Path(files.NTP_D_FILE).is_file(),
+        mode_applied=mode_applied,
         mode=mode,
         offer_fake_hwclock=not has_rtc() and not installed(FAKE_HWCLOCK),
+        gpsd=gpsd,
+        mode_writes=writes,
     )
 
 
@@ -167,6 +188,13 @@ def disclose(tg: TimeGrants) -> list[str]:
         ]
     if not tg.ntpsec:
         return lines
+    if not tg.gpsd:
+        return [
+            *lines,
+            "GPS time (D-058): gpsd is not installed, so there is no GPS time for ntpd to",
+            "  read; ntpd's privilege and ntp.conf are left alone. Install gpsd (the",
+            "  `navigation` profile) and re-run to set it up.",
+        ]
     ntp: list[str] = []
     if tg.grants_change:
         ntp.append("Will let ntpd read gpsd's time (D-058):")
@@ -181,10 +209,8 @@ def disclose(tg: TimeGrants) -> list[str]:
     if not tg.ntp_d_dir:
         ntp.append(f"Will create {files.NTP_D_DIR}, which ntpd reads after {files.NTP_CONF}.")
     if not tg.mode_applied:
-        ntp.append(
-            f"Will set time mode {tg.mode} through the helper, which writes "
-            f"{files.NTP_D_FILE} and restarts ntpsec."
-        )
+        ntp.append(f"Will set time mode {tg.mode} through the helper, which writes, as root:")
+        ntp += list(tg.mode_writes)
     elif tg.grants_change:
         ntp.append("Will restart ntpsec so it runs with the grants.")
     if ntp:
@@ -206,7 +232,7 @@ def grant_commands(tg: TimeGrants, staging_root: str, helper: str) -> list[Comma
                 env={"DEBIAN_FRONTEND": "noninteractive"},
             )
         )
-    if not tg.ntpsec:
+    if not tg.gps_time:
         return out
     if not tg.dropin_current:
         out += [
@@ -276,10 +302,10 @@ def grant_commands(tg: TimeGrants, staging_root: str, helper: str) -> list[Comma
 
 
 def stage_grants(tg: TimeGrants, staging_dir: Path) -> None:
-    if tg.ntpsec and not tg.dropin_current:
+    if tg.gps_time and not tg.dropin_current:
         (staging_dir / _STAGED_DROPIN).write_text(DROPIN_CONTENT)
         os.chmod(staging_dir / _STAGED_DROPIN, 0o644)
-    if tg.ntpsec and tg.apparmor_local is not None and not tg.apparmor_current:
+    if tg.gps_time and tg.apparmor_local is not None and not tg.apparmor_current:
         (staging_dir / _STAGED_APPARMOR).write_text(with_block(tg.apparmor_local))
         os.chmod(staging_dir / _STAGED_APPARMOR, 0o644)
 
@@ -290,7 +316,7 @@ def verify_grants(
     problems: list[str] = []
     if tg.offer_fake_hwclock and not installed(FAKE_HWCLOCK):
         problems.append("fake-hwclock is not installed after apt-get reported success")
-    if not tg.ntpsec:
+    if not tg.gps_time:
         return problems
     if _read(files.DROPIN) != DROPIN_CONTENT:
         problems.append(f"{files.DROPIN} on disk does not match what we wrote")
@@ -353,7 +379,10 @@ def removal_commands(r: TimeRemoval, staging_root: str) -> list[Command]:
         out.append(
             Command(
                 argv=("install", "-m", "0644", f"{staging_root}/{_STAGED_CONF}", files.NTP_CONF),
-                description=f"Put {files.NTP_CONF}'s marked lines back exactly as the package shipped them",
+                description=(
+                    f"Put {files.NTP_CONF}'s marked lines back exactly as they were "
+                    f"before Hammunition edited them"
+                ),
                 requires_root=True,
             )
         )

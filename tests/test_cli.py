@@ -3564,3 +3564,70 @@ def test_time_mode_refuses_when_only_the_conffile_is_left(
     Path(files.NTPD).unlink()
     assert cli.main(["time", "mode", "auto", "--dry-run"]) == EXIT_UNPLANNABLE
     assert "ntpsec is not installed" in capsys.readouterr().err
+
+
+def test_hardware_apply_dry_run_shows_the_conffile_edits_of_the_first_mode(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    time_files: Path,
+) -> None:
+    """Final review I1."""
+    import importlib
+    from dataclasses import replace
+
+    from hammunition.gpstime.grants import plan_time_grants
+
+    cli = importlib.import_module("hammunition.cli.main")
+    _ntpd_apparmor()
+    tg = plan_time_grants(installed=lambda name: name == "gpsd")
+    plan = replace(_hardware_plan(tmp_path, polkit=_polkit_artifacts(tmp_path)), time=tg)
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+    assert cli.main(["hardware", "apply", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "- tos minclock 4 minsane 3" in out
+    assert out.index("- tos minclock 4 minsane 3") < out.index("Commands (")
+
+
+def test_hardware_apply_no_gps_time_plans_no_time_step(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Final review I2: an operator can set up devices without GPS time."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    plan = _hardware_plan(tmp_path, polkit=_polkit_artifacts(tmp_path))
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+    asked: list[object] = []
+
+    def recording(*args: object, **kwargs: object) -> Any:
+        asked.append(kwargs.get("with_time"))
+        return plan
+
+    monkeypatch.setattr("hammunition.hardware.plan_hardware", recording)
+    assert cli.main(["hardware", "apply", "--no-gps-time", "--dry-run"]) == 0
+    assert cli.main(["hardware", "apply", "--dry-run"]) == 0
+    assert asked == [False, True]
+
+
+def test_hardware_apply_refuses_a_conffile_it_cannot_edit(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Final review I1: the helper step would fail mid-run; refuse up front."""
+    import importlib
+
+    from hammunition.gpstime.mode import TimeError
+
+    cli = importlib.import_module("hammunition.cli.main")
+    plan = _hardware_plan(tmp_path, polkit=_polkit_artifacts(tmp_path))
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+
+    def refusing(*args: object, **kwargs: object) -> Any:
+        raise TimeError("/etc/ntpsec/ntp.conf has no line of the form `tos minclock N minsane N`")
+
+    monkeypatch.setattr("hammunition.hardware.plan_hardware", refusing)
+    assert cli.main(["hardware", "apply", "--dry-run"]) == EXIT_UNPLANNABLE
+    err = capsys.readouterr().err
+    assert "tos minclock N minsane N" in err and "--no-gps-time" in err
