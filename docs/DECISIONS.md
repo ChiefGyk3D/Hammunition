@@ -6888,3 +6888,41 @@ generated `catalog/data/comaps-pins.yaml` and its generator, and the
 `tests/test_git_comaps.py`, `tests/test_comaps_pins.py`,
 `tests/test_comaps_maps.py`, `tests/test_comaps_update.py`,
 `tests/test_comaps_launch.py`.
+
+### Amendment (2026-09-30): after the final review, and beside D-070
+
+The branch was brought up to main, where D-064, D-066, D-067 and D-070 had
+landed. What changed with it:
+
+- **CoMaps' maps use the LAN mirror (D-070).** `Fetcher.fetch_sha1` goes
+  through the same sources as every other data download: the mirror first
+  at `<mirror>/comaps-maps/<version>/<id>.mwm`, then the CDN, the SHA-1 and
+  exact size checked either way, and where the bytes came from recorded in
+  the log. `hammunition artifacts` lists them with a new check kind,
+  `sha1-publisher`, from the carried pins with no network; a region with no
+  CoMaps map is listed as deferred.
+- **An expired pin is told from a busy server.** Only 404, 410, or a 200 of
+  another size is "pin expired", at plan time, in `--upstream` and in the
+  generator's `--check`; any other answer is a server that did not say
+  (`unanswered`, or a refusal saying to try again), and the weekly check
+  reports an unreachable index or CDN as a problem line, not a traceback.
+- **The app's World maps are tied to the index.** `gen_comaps_pins.py
+  --check`, offline too, refuses when `comaps.yaml`'s World and WorldCoasts
+  are not the URL and size the pinned index names, and the cadence hint says
+  to move them with the tag. The weekly `check_pin_reviews.py --verify-refs`
+  now fetches each tag with a `commit` and refuses one that resolves
+  elsewhere.
+- **A map id must be one file name** (no `/`, `\`, NUL, control character
+  or leading dot), in the index and in the pin file: it becomes a path under
+  the data directory and a link name in the operator's home.
+- **No region with a CoMaps map** is said in the plan, never shown as
+  "already installed", and `update` says why nothing is installed.
+- **Coverage, counted:** 262 of the 532 Geofabrik regions Hammunition
+  carries, 165 of the 197 country-level ones; not China, Russia, Ireland and
+  Northern Ireland, Israel and Palestine, the DR Congo or Ivory Coast, among
+  others.
+- **Source-build gap #8 is not closed** until the engine's build runs on the
+  bench; the fields exist and are tested against fakes.
+- `tests/test_docs_mirror.py` asserted D-070 was the last entry. D-069 is
+  appended after it by the same rule (entries are added at the end, never
+  renumbered), so the test now asserts D-070 follows what preceded it.

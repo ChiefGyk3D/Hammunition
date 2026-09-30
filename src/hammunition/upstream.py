@@ -24,7 +24,14 @@ from dataclasses import dataclass
 from datetime import date
 from urllib.parse import urlparse
 
-from hammunition.comaps import ComapsError, ComapsPins, map_url, published, version_date
+from hammunition.comaps import (
+    ComapsError,
+    ComapsPins,
+    gone,
+    map_url,
+    published,
+    version_date,
+)
 from hammunition.kiwix import BookFile, BookPin, KiwixError, KiwixGone, current_file, file_date
 from hammunition.manifest.schema import GitInstall, PackageManifest, SourceInstall
 
@@ -279,6 +286,8 @@ def probe_comaps_maps(
     except ComapsError as exc:
         return row(None, UNANSWERED, f"{exc}"[:200])
     if not published(status, size, pins.maps["World"]):
+        if not gone(status, size, pins.maps["World"]):
+            return row(None, UNANSWERED, f"{url} answered HTTP {status}, not 200")
         return row(
             None,
             EXPIRED,

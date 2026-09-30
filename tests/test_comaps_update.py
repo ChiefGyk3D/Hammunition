@@ -148,3 +148,13 @@ def test_update_end_to_end_counts_maps_and_flags_an_expired_pin(
     assert "1 map(s)" in row
     assert "pin expired" in out and "1 pin(s) expired" in out
     assert "Vermont" not in out and "vermont" not in out
+
+
+def test_a_busy_cdn_is_unanswered_not_expired() -> None:
+    state, detail = _probe((503, 0), date(2026, 9, 30))
+    assert state == UNANSWERED and "503" in detail
+
+
+def test_no_region_with_a_map_is_not_installed_and_says_why(tmp_path: Path) -> None:
+    state, detail = mwm_state([], tmp_path, unmapped=1)
+    assert state == NOT_INSTALLED and "has a CoMaps map" in detail

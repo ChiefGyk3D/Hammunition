@@ -465,6 +465,7 @@ class Fetcher:
         max_bytes: int | None,
         md5: bool,
         verify: Callable[[str, int, str | None, str], None],
+        also: str | None = None,
     ) -> _Downloaded:
         """Download into *temporary* from each source in turn until one
         verifies. *verify* raises :class:`VerificationError` (or
@@ -480,7 +481,7 @@ class Fetcher:
             transport = self.mirror_transport if source == "mirror" else self.transport
             try:
                 sha, size, got = self._download(
-                    where, temporary, max_bytes=max_bytes, md5=md5, transport=transport
+                    where, temporary, max_bytes=max_bytes, md5=md5, transport=transport, also=also
                 )
                 verify(sha, size, got, where)
             except BaseException as exc:
@@ -657,13 +658,16 @@ class Fetcher:
         """Where a SHA-1-verified file lives once verified (:meth:`fetch_sha1`). Pure."""
         return self.cache_dir / f"sha1-{sha1}-{_safe_name(url)}"
 
-    def fetch_sha1(self, url: str, sha1: str, *, expected_size: int) -> FetchResult:
+    def fetch_sha1(
+        self, url: str, sha1: str, *, expected_size: int, mirror: MirrorPath | None = None
+    ) -> FetchResult:
         """A file verified by the SHA-1 and exact size its publisher's own index
         gives (D-069: CoMaps' maps), weaker than a sha256 Hammunition measured,
-        and the plan says so on every line. The size is checked first and
-        exactly: CoMaps' mirrors answer a missing map with 200 and a web page,
-        so a status proves nothing. The sha256 of the bytes is returned so the
-        transaction log carries a strong digest of what was installed.
+        and the plan says so on every line. The size is checked exactly:
+        CoMaps' mirrors answer a missing map with 200 and a web page, so a
+        status proves nothing. The sha256 of the bytes is returned so the
+        transaction log carries a strong digest of what was installed. A LAN
+        mirror (D-070) is asked first when one is set, checked the same way.
         """
         make_dir(self.cache_dir)
         final = self.sha1_path_for(url, sha1)
@@ -674,34 +678,49 @@ class Fetcher:
                     digest.update(chunk)
             if digest.hexdigest() == sha1:
                 return FetchResult(
-                    path=final, sha256=_digest_file(final), from_cache=True, size=expected_size
+                    path=final,
+                    sha256=_digest_file(final),
+                    from_cache=True,
+                    size=expected_size,
+                    source="cache",
                 )
             final.unlink()
 
         temporary = final.with_name(final.name + f".part.{os.getpid()}")
-        try:
-            sha, size, got = self._download(
-                url, temporary, max_bytes=expected_size + 1024 * 1024, also="sha1"
-            )
-        except BaseException:
-            temporary.unlink(missing_ok=True)
-            raise
-        if size != expected_size:
-            temporary.unlink(missing_ok=True)
-            raise VerificationError(
-                f"{url}: the publisher's index says {expected_size} bytes and {size} "
-                f"arrived; the size check failed (a mirror answers a missing file with a "
-                f"web page)"
-            )
-        if got != sha1:
-            temporary.unlink(missing_ok=True)
-            raise VerificationError(
-                f"{url} does not match the SHA-1 its publisher's index lists.\n"
-                f"  expected SHA-1: {sha1}\n  actually got: {got}\n"
-                f"The download has been discarded."
-            )
+
+        def verify(_sha: str, size: int, got: str | None, where: str) -> None:
+            if size != expected_size:
+                raise VerificationError(
+                    f"{where}: the publisher's index says {expected_size} bytes and {size} "
+                    f"arrived; the size check failed (a mirror answers a missing file with "
+                    f"a web page)"
+                )
+            if got != sha1:
+                raise VerificationError(
+                    f"{where} does not match the SHA-1 its publisher's index lists.\n"
+                    f"  expected SHA-1: {sha1}\n  actually got: {got}\n"
+                    f"The download has been discarded."
+                )
+
+        done = self._from_sources(
+            url,
+            mirror,
+            temporary,
+            max_bytes=expected_size + 1024 * 1024,
+            md5=False,
+            verify=verify,
+            also="sha1",
+        )
         os.replace(temporary, final)
-        return FetchResult(path=final, sha256=sha, from_cache=False, size=size)
+        return FetchResult(
+            path=final,
+            sha256=done.sha256,
+            from_cache=False,
+            size=done.size,
+            source=done.source,
+            url=done.url,
+            mirror_failure=done.mirror_failure,
+        )
 
     def _download(
         self,

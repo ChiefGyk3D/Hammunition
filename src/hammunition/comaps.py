@@ -112,6 +112,20 @@ def sha1_hex(value: str) -> str:
     return raw.hex()
 
 
+def check_map_id(name: str) -> str:
+    """*name*, refused unless it can be one path component: it becomes a file
+    under the installed data directory and a link name in the operator's
+    CoMaps directory."""
+    if (
+        not name
+        or name.startswith(".")
+        or any(c in name for c in ("/", "\\", "\0"))
+        or any(ord(c) < 32 for c in name)
+    ):
+        raise ComapsError(f"map id {name!r} cannot be a file name; refusing the index")
+    return name
+
+
 def version_date(version: int) -> date:
     """``260830`` -> 2026-08-30: CoMaps names a map version by its date."""
     text = f"{version:06d}"
@@ -133,6 +147,7 @@ def flatten(index: Mapping[str, Any]) -> dict[str, MapPin]:
             sha1 = node.get("sha1_base64")
             if not name or not isinstance(size, int) or size <= 0 or not isinstance(sha1, str):
                 raise ComapsError(f"index leaf {name or node!r} has no usable size or SHA-1")
+            check_map_id(name)
             sha1_hex(sha1)
             pin = MapPin(name, size, sha1)
             # One file may be listed under two groups (Crimea, Jerusalem and
@@ -244,6 +259,7 @@ def parse_pins(text: str, *, known_regions: Iterable[str] | None = None) -> Coma
         if not isinstance(sha1, str):
             raise ComapsError(f"map {name!r}: no sha1")
         sha1_hex(sha1)
+        check_map_id(str(name))
         maps[str(name)] = MapPin(str(name), size, sha1)
     if not {"World", "WorldCoasts"} <= set(maps):
         raise ComapsError("the pins carry no World or WorldCoasts map")
@@ -325,3 +341,11 @@ class CdnProbe:
 def published(status: int, size: int, pin: MapPin) -> bool:
     """Whether a ``HEAD`` answer is the pinned file: 200 **and** its size."""
     return status == 200 and size == pin.size
+
+
+def gone(status: int, size: int, pin: MapPin) -> bool:
+    """Whether a ``HEAD`` answer says the pinned file is no longer published:
+    404 or 410, or a 200 of another size (a mirror's web page for a missing
+    map). Any other answer -- a 503, a 429, a redirect -- is a server that
+    did not say, not an expired pin."""
+    return status in (404, 410) or (status == 200 and size != pin.size)

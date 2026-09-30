@@ -24,9 +24,10 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   CoMaps' own maps for your map regions through a generated table
   (`catalog/data/comaps-pins.yaml`, all 1,150 maps, 262 Geofabrik regions
   including every US state and DC), each checked by the SHA-1 and exact
-  size in CoMaps' own index, which the plan says on every line; an expired
-  pin refuses the plan, and `update --upstream` says `pin expiring` or
-  `pin expired`. `hammunition maps comaps`, the `comaps-offline` launcher,
+  size in CoMaps' own index, which the plan says on every line, and from a
+  LAN mirror first when one is set (D-070; `hammunition artifacts` lists
+  them as `sha1-publisher`); an expired pin refuses the plan, and `update
+  --upstream` says `pin expiring` or `pin expired`. `hammunition maps comaps`, the `comaps-offline` launcher,
   records CoMaps' licence answer and links your maps where it looks. CoMaps
   reads its position from GeoClue only, so there is no "you are here" on
   the laptop yet; the guide says what the route would be. Organic Maps and

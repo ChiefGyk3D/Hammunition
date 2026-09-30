@@ -210,7 +210,9 @@ per unit, for the pinned version's `World.mwm` with a `HEAD`, and needs 200
 **and** the pinned size, since a CoMaps mirror answers a missing file with
 200 and a web page: `current` when it is published, `pin expiring` from 90
 days after the version's date (the CDN keeps a version for months, not
-forever), and `pin expired` when it is gone, which an install would refuse.
+forever), and `pin expired` when it answers 404 or 410, or 200 with another
+size, which an install would refuse. Any other answer (a 503, a 429) is
+`unanswered`, not an expired pin.
 Both name `scripts/gen_comaps_pins.py`. The summary line counts the expired
 and expiring pins.
 
@@ -261,7 +263,7 @@ $ hammunition artifacts --map-regions north-america/us/vermont --units osm-regio
 |---|---|
 | `--map-regions R[,R…]` | Geofabrik region paths, as `station set --map-regions` takes them. None defers the map units |
 | `--map-freshness MODE` | `yearly` (the default), `monthly` or `latest`: which dated file each region resolves to and how it is verified, exactly as in the plan |
-| `--units U[,U…]` | The units to list. Default: every unit with a `data`, `osm-regions` or `dem-tiles` install block. A name not in the catalog, or a unit that fetches nothing (`osm-navit`, `navit`), exits 2 naming it |
+| `--units U[,U…]` | The units to list. Default: every unit with a `data`, `osm-regions`, `dem-tiles` or `mwm-regions` install block. A name not in the catalog, or a unit that fetches nothing (`osm-navit`, `navit`), exits 2 naming it |
 
 The network is asked as the plan asks it, and only for what the selection
 names: Geofabrik for a region's dated file, its `.md5` and its `.poly`
@@ -274,7 +276,7 @@ the exit code.
 With `--json`, prints an `artifacts` document
 ([json-interface.md](json-interface.md)): per artifact the unit, its stable
 name within the unit (what a mirror serves at `<mirror>/<unit>/<name>`), the
-publisher URL, the check (`sha256`, `md5-publisher`, `etag-md5`), the
+publisher URL, the check (`sha256`, `md5-publisher`, `etag-md5`, `sha1-publisher` for CoMaps' maps, D-069), the
 expected digest, where a publisher checksum was read, the size, the licence,
 and `deferred`. It carries the regions given, and nothing of the station's.
 
@@ -376,7 +378,8 @@ It refuses, exit 1, changing nothing and starting nothing: under root; when
 `/usr/local/bin/CoMaps` is not installed (naming `hammunition install
 comaps`); and when the settings file is a symbolic link, not a regular file,
 or not UTF-8. There is no `--json` form, because it replaces itself with a
-GUI (D-059).
+GUI (D-059). Started from the menu entry, which opens no terminal, its lines
+on stderr, the licence answer among them, are not seen; the guide says so.
 
 CoMaps has no position on the laptop: it reads GeoClue2 only, and nothing
 here feeds GeoClue the GPS. The navigation guide says what the route would

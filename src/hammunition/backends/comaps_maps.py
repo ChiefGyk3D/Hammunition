@@ -36,12 +36,13 @@ from ..comaps import (
     VERIFIED_BY,
     ComapsError,
     MapFile,
+    gone,
     load_pins,
     published,
     resolve_regions,
     sha1_hex,
 )
-from ..fetch import Fetcher
+from ..fetch import Fetcher, MirrorPath, fetch_disclosure, record_fetch
 from ..manifest.schema import MwmRegionsInstall, PackageManifest
 from .base import Action, Command, CommandRunner
 from .data import human_size
@@ -61,6 +62,12 @@ def map_current(dest: Path, f: MapFile) -> bool:
 
 def map_dest(data_dir: Path, f: MapFile) -> Path:
     return data_dir / str(f.version) / f.file
+
+
+def mirror_path(unit: str, f: MapFile) -> MirrorPath:
+    """Where a LAN mirror serves this map (D-070): ``<unit>/<version>/<id>.mwm``,
+    the installed layout, so two versions never share a name."""
+    return MirrorPath(unit, f"{f.version}/{f.file}")
 
 
 def maps_disk_needs(pending: Sequence[MapFile], *, cache: Path, prefix: Path) -> dict[Path, int]:
@@ -132,19 +139,24 @@ class ComapsMapsBackend:
         steps: list[Action | Command] = []
         for f in self.pending(manifest):
             fetched: dict[str, str] = {}
+            facts: dict[str, str] = {}
             dest = map_dest(out, f)
+            where = mirror_path(manifest.name, f)
+            note, urls, sources = fetch_disclosure(self.fetcher, f.url, where, "SHA-1")
             steps.append(
                 Action(
                     kind="fetch",
                     description=(
                         f"Fetch CoMaps map {f.id} ({human_size(f.pin.size)}, {block.licence}) "
-                        f"— {VERIFIED_BY}"
+                        f"— {VERIFIED_BY}{note}"
                     ),
                     detail=(
-                        f"{f.url} (SHA-1 {sha1_hex(f.pin.sha1)[:12]}…, {f.pin.size} bytes; "
+                        f"{urls} (SHA-1 {sha1_hex(f.pin.sha1)[:12]}…, {f.pin.size} bytes; "
                         f"its sha256 is recorded)"
                     ),
-                    perform=partial(self._fetch, f, fetched),
+                    perform=partial(self._fetch, f, fetched, where, facts),
+                    sources=sources,
+                    facts=facts,
                 )
             )
             steps.append(
@@ -185,14 +197,19 @@ class ComapsMapsBackend:
                 )
         return steps
 
-    def _fetch(self, f: MapFile, fetched: dict[str, str]) -> str:
-        result = self.fetcher.fetch_sha1(f.url, sha1_hex(f.pin.sha1), expected_size=f.pin.size)
+    def _fetch(
+        self, f: MapFile, fetched: dict[str, str], where: MirrorPath, facts: dict[str, str]
+    ) -> str:
+        result = self.fetcher.fetch_sha1(
+            f.url, sha1_hex(f.pin.sha1), expected_size=f.pin.size, mirror=where
+        )
         fetched["path"] = str(result.path)
         fetched["sha256"] = result.sha256
-        where = "cached" if result.from_cache else "downloaded"
+        source = record_fetch(result, facts, mirrored=bool(self.fetcher.mirror))
+        state = "cached" if result.from_cache else "downloaded"
         return (
-            f"{where} {result.size} bytes; SHA-1 and size match CoMaps' index; "
-            f"sha256 {result.sha256}"
+            f"{state} {result.size} bytes; SHA-1 and size match CoMaps' index; "
+            f"sha256 {result.sha256}{source}"
         )
 
     def _install(
@@ -248,6 +265,11 @@ def resolve_station_maps(
     pins = load_pins(catalog_root)
     files, unmapped = resolve_regions(regions, pins)
     notes = [UNMAPPED.format(region=region) for region in unmapped]
+    if unmapped and not files:
+        notes.append(
+            "none of your map regions has a CoMaps map, so CoMaps' maps install nothing "
+            "this run; CoMaps itself shows only its world overview"
+        )
     problems: list[str] = []
     for f in files:
         if map_current(map_dest(installed, f), f):
@@ -257,12 +279,17 @@ def resolve_station_maps(
         except ComapsError as exc:
             problems.append(f"  {f.id}: {exc}")
             continue
-        if not published(status, size, f.pin):
+        if gone(status, size, f.pin):
             problems.append(
                 f"  {f.id}: pin expired: {f.url} answered HTTP {status} with {size} bytes, "
                 f"not the pinned {f.pin.size}. CoMaps' CDN keeps a map version for months, "
                 f"not forever; {REGENERATE}. A newer version is not taken in its place: "
                 f"its checks come from a newer CoMaps index."
+            )
+        elif not published(status, size, f.pin):
+            problems.append(
+                f"  {f.id}: {f.url} answered HTTP {status}, not 200; the server did not say "
+                f"whether the map is still published. Try again later."
             )
     if problems:
         raise ComapsError(

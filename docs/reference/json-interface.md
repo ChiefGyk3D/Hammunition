@@ -107,7 +107,7 @@ One remote artifact, or one the selection cannot list and why.
 | `unit` | string | the catalog unit (`osm-regions`, `dem-copernicus`, `country-files`) |
 | `name` | string or null | the artifact's stable name within the unit: a region path, a tile name, a data file's name. A LAN mirror serves it at `<mirror>/<unit>/<name>`. Null only for a deferred entry that covers the whole unit |
 | `url` | string or null | the publisher URL the engine itself fetches; null when deferred |
-| `check` | string or null | how the download is verified: `sha256` (pinned by Hammunition), `md5-publisher` (Geofabrik's published MD5), `etag-md5` (the Copernicus object's ETag) or `sha256-publisher` (no unit uses it today); null when deferred |
+| `check` | string or null | how the download is verified: `sha256` (pinned by Hammunition), `md5-publisher` (Geofabrik's published MD5), `etag-md5` (the Copernicus object's ETag), `sha1-publisher` (the SHA-1 and size in CoMaps' own map index at the pinned commit, carried in the catalog) or `sha256-publisher` (no unit uses it today); null when deferred |
 | `digest` | string or null | the expected digest, in hex, of the kind `check` names: the pin, or the publisher's checksum as the engine read it while resolving; null when deferred |
 | `checksum_url` | string or null | where a publisher checksum is read: the `.md5` beside a Geofabrik file, or the tile URL whose `HEAD` carries the ETag; null for a pinned sha256 and when deferred |
 | `size` | integer or null | bytes, known before the fetch; null when deferred |

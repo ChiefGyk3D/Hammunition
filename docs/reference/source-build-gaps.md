@@ -270,7 +270,7 @@ Each is the D-025 shape again — a claim re-verified when it became decisive:
 
 All three are in the manifest's `known_problems` and the D-037 amendment.
 
-### 8. Git submodules, a build-time Python and an upstream prepare script — `comaps` — **CLOSED 2026-09-30** (D-069)
+### 8. Git submodules, a build-time Python and an upstream prepare script — `comaps` — **fields added 2026-09-30** (D-069); closed when the engine's build of CoMaps runs on the bench
 
 CoMaps was built by hand on Parrot 7 (Debian 13) on 2026-09-29, from the tag
 `v2026.08.31-14` at commit `72632e4`, and four things it needed were things
@@ -309,7 +309,14 @@ the git backend could not express:
   the effect check requires a regular file.
 
 A tag may also name its `commit`, so a re-cut tag is refused rather than
-only recorded.
+only recorded; the weekly `check_pin_reviews.py --verify-refs` compares it
+too.
+
+**Not yet closed.** Every step above is exercised against fakes in the test
+suite, and the same steps built CoMaps by hand on 2026-09-29; the engine has
+not yet built it. The shallow submodule fetch, the build's time and disk
+through `hammunition install`, and the install's effect check are owed by
+the bench, and this entry closes when they are recorded.
 
 Still open, and not a build gap: CoMaps reads its position from GeoClue2 by
 the plugin's name (`libs/platform/location_service/`). Qt's `nmea` position

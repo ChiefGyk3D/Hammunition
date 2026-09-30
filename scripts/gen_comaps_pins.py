@@ -47,10 +47,13 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from hammunition.comaps import (  # noqa: E402
+    CDN,
     GENERATED_MARK,
     CdnProbe,
     ComapsError,
+    ComapsPins,
     flatten,
+    gone,
     map_url,
     parse_pins,
     published,
@@ -108,6 +111,37 @@ def _load_module(name: str) -> ModuleType:
     return module
 
 
+def world_mismatches(pins: ComapsPins, path: Path = MANIFEST) -> list[str]:
+    """The app's pinned World maps (comaps.yaml's `extra_files`) against the
+    pinned index: the same URL (version and series) and size, or the app
+    would carry one map version and the country maps another."""
+    data = yaml.safe_load(path.read_text())
+    problems: list[str] = []
+    seen: set[str] = set()
+    for block in data.get("install") or ():
+        for extra in (block.get("install") or {}).get("extra_files") or ():
+            artifact = extra.get("artifact") or {}
+            url = str(artifact.get("url", ""))
+            if not url.startswith(CDN + "/"):
+                continue
+            name = url.rsplit("/", 1)[-1].removesuffix(".mwm")
+            seen.add(name)
+            pin = pins.maps.get(name)
+            if pin is None:
+                problems.append(f"{path.name} installs {url}, which the index does not name")
+                continue
+            if url != map_url(pins, name) or artifact.get("size") != pin.size:
+                problems.append(
+                    f"{path.name} pins {url} at {artifact.get('size')} bytes; the index at "
+                    f"{pins.commit[:12]} names {map_url(pins, name)} at {pin.size} bytes. Move "
+                    f"the World maps' url, sha256 and size with the tag"
+                )
+    missing = {"World", "WorldCoasts"} - seen
+    if missing:
+        problems.append(f"{path.name} installs no {' or '.join(sorted(missing))} from the CDN")
+    return problems
+
+
 def carried_regions() -> tuple[str, ...]:
     """Every Geofabrik region path Hammunition carries a list of."""
     pinned: tuple[str, ...] = _load_module("gen_geofabrik_pins").REGIONS
@@ -162,6 +196,7 @@ def main(
     text: Text | None = None,
     head: Head | None = None,
     pins_path: Path = PINS,
+    manifest_path: Path = MANIFEST,
     commit: str | None = None,
     regions: Sequence[str] | None = None,
     today: date | None = None,
@@ -175,7 +210,7 @@ def main(
         "--from", dest="source", metavar="FILE", help="read a countries.txt from disk"
     )
     args = parser.parse_args(argv)
-    pinned = commit or manifest_commit()
+    pinned = commit or manifest_commit(manifest_path)
     known = regions if regions is not None else carried_regions()
 
     if args.check:
@@ -190,6 +225,11 @@ def main(
                 f"{pinned}: the maps would not be the version the app reads. Regenerate."
             )
             return 1
+        mismatched = world_mismatches(current, manifest_path)
+        if mismatched:
+            for problem in mismatched:
+                print(problem)
+            return 1
         if args.offline:
             print(
                 f"{pins_path.name} is well formed: {len(current.maps)} map(s), "
@@ -197,22 +237,33 @@ def main(
             )
             return 0
         problems: list[str] = []
-        index = json.loads((text or real_text)(index_url(pinned)))
-        fresh = render(index, commit=pinned, measured=date.today(), regions=known)
-        if _comparable(fresh) != _comparable(pins_path.read_text()):
-            problems.append(
-                f"{pins_path.name} is not what the index at {pinned[:12]} and the rule "
-                f"produce now; regenerate it"
-            )
+        try:
+            index = json.loads((text or real_text)(index_url(pinned)))
+            fresh = render(index, commit=pinned, measured=date.today(), regions=known)
+        except (OSError, ValueError, ComapsError) as exc:
+            problems.append(f"the index at {pinned[:12]} could not be read: {exc}")
+        else:
+            if _comparable(fresh) != _comparable(pins_path.read_text()):
+                problems.append(
+                    f"{pins_path.name} is not what the index at {pinned[:12]} and the rule "
+                    f"produce now; regenerate it"
+                )
         world = current.maps["World"]
         url = map_url(current, "World")
-        status, size = (head or CdnProbe().head)(url)
-        if not published(status, size, world):
-            problems.append(
-                f"pin expired: {url} answered {status} with {size} bytes, not "
-                f"{world.size}; CoMaps' CDN no longer publishes map version "
-                f"{current.version}. Move comaps.yaml to a newer CoMaps tag and regenerate."
-            )
+        try:
+            status, size = (head or CdnProbe().head)(url)
+        except ComapsError as exc:
+            problems.append(f"{url} could not be asked: {exc}")
+        else:
+            if gone(status, size, world):
+                problems.append(
+                    f"pin expired: {url} answered {status} with {size} bytes, not "
+                    f"{world.size}; CoMaps' CDN no longer publishes map version "
+                    f"{current.version}. Move comaps.yaml to a newer CoMaps tag and "
+                    f"regenerate."
+                )
+            elif not published(status, size, world):
+                problems.append(f"{url} answered HTTP {status}, not 200; try again later")
         if problems:
             print(f"{len(problems)} problem(s):")
             for problem in problems:

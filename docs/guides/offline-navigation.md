@@ -1182,7 +1182,12 @@ US 15.7 GB.
 A region CoMaps names differently from Geofabrik (Geofabrik's
 `europe/germany/bayern` is CoMaps' "Free State of Bavaria") has no CoMaps
 map. The plan says so by name and fetches nothing for it; the rest
-install. All 50 US states and DC are covered.
+install. All 50 US states and DC are covered, and 165 of the 197
+country-level Geofabrik regions; China, Russia, Ireland and Northern
+Ireland, and Israel and Palestine are among those that are not. If none of
+your regions has a CoMaps map, the plan says that too, and nothing is
+fetched. A LAN mirror (`station set --mirror`, see the LAN mirror guide) is
+asked first for each map, checked the same way.
 
 ### Start it
 
@@ -1197,8 +1202,10 @@ It runs `hammunition maps comaps`, which, as you:
   CoMaps looks. A map you downloaded inside CoMaps is left alone;
 - starts CoMaps with those two directories named.
 
-`hammunition maps comaps --configure-only` does the first two and does
-not start it. CoMaps also installs its own menu entry, **CoMaps**, under
+Started from the menu, it opens no terminal, so you will not see it say
+that it recorded the licence answer; `hammunition maps comaps
+--configure-only` in a terminal does the first two, says what it did, and
+does not start CoMaps. CoMaps also installs its own menu entry, **CoMaps**, under
 its own categories. That one starts it without the preparation above: the
 first start shows the licence dialog, and it does not see Hammunition's
 maps.
@@ -1210,7 +1217,7 @@ keeps a version for months, not forever. `hammunition update comaps-maps`
 says whether every map your regions need is installed at that version;
 `hammunition update comaps-maps --upstream` asks the server and says
 **pin expiring** from 90 days after the version's date and **pin expired**
-once it is gone. A new version comes with a new CoMaps release in the
+once it is gone (a busy server is reported as unanswered, not expired). A new version comes with a new CoMaps release in the
 catalog; until then the maps you have keep working offline.
 
 ### Giving CoMaps a position (not done, not measured)

@@ -49,7 +49,7 @@ No "you are here" on the laptop yet. CoMaps on Linux reads its position from Geo
 
 - probe: github tags
 - strategy: rebuild
-- CoMaps tags a release every few weeks. Move the tag and its commit together, to one a distribution builds (Flathub's manifest names both), then regenerate catalog/data/comaps-pins.yaml with scripts/gen_comaps_pins.py: the maps must be the version the app's own index names.
+- CoMaps tags a release every few weeks. Move the tag and its commit together, to one a distribution builds (Flathub's manifest names both); move the two World maps' url, sha256 and size with them (Flathub's manifest pins those too); then regenerate catalog/data/comaps-pins.yaml with scripts/gen_comaps_pins.py, whose --check refuses World maps of another version than the index names: the maps must be the version the app's own index names.
 
 ## Where to get help with the software itself
 

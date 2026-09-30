@@ -306,6 +306,13 @@ def mwm_state(files: Sequence[MapFile], installed: Path, *, unmapped: int) -> tu
     maps are installed says which regions, the same class of fact as a grid
     square.
     """
+    if not files:
+        return (
+            NOT_INSTALLED,
+            f"none of the station's {unmapped} map region(s) has a CoMaps map"
+            if unmapped
+            else "no map regions set",
+        )
     current = behind = 0
     for f in files:
         pinned = installed / str(f.version) / f.file

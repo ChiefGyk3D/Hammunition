@@ -14,6 +14,7 @@ import hashlib
 import shutil
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import date
 from io import BytesIO
 from pathlib import Path
 from typing import IO
@@ -407,3 +408,77 @@ def test_uninstall_removes_the_maps_with_their_directory(tmp_path: Path) -> None
     assert [(a.kind, a.path, a.basis) for a in plan.artifacts["comaps-maps"]] == [
         ("tree", directory, "namespaced")
     ]
+
+
+def test_a_busy_server_is_not_called_an_expired_pin(tmp_path: Path) -> None:
+    with pytest.raises(ComapsError) as caught:
+        resolve_station_maps(
+            (DELAWARE,), _catalog(tmp_path), installed=tmp_path / "d", head=lambda _u: (503, 0)
+        )
+    text = str(caught.value)
+    assert "503" in text and "pin expired" not in text
+
+
+def test_no_region_with_a_comaps_map_is_said_and_never_already_installed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rc, out, err = _dry_run(monkeypatch, tmp_path, capsys, regions=("europe/germany/bayern",))
+    assert rc == 0, err
+    assert "none of your map regions has a CoMaps map" in out
+    line = next(ln for ln in out.splitlines() if ln.strip().startswith("comaps-maps"))
+    assert "already installed" not in line
+
+
+def test_a_lan_mirror_is_asked_first_and_the_log_says_so(tmp_path: Path) -> None:
+    class Split:
+        def __init__(self) -> None:
+            self.requested: list[str] = []
+
+        @contextmanager
+        def open(self, url: str) -> Iterator[IO[bytes]]:
+            self.requested.append(url)
+            yield BytesIO(BODY)
+
+    mirror = Split()
+    m = _unit()
+    backend = ComapsMapsBackend(
+        fetcher=Fetcher(
+            tmp_path / "cache",
+            transport=_Transport(b"never asked"),
+            mirror="http://nas.lan/bunker",
+            mirror_transport=mirror,
+        ),
+        prefix=tmp_path / "prefix",
+        files=[_file(BODY)],
+    )
+    steps = backend.steps(m, _block(m))
+    [fetch] = [s for s in steps if isinstance(s, Action) and s.kind == "fetch"]
+    assert "LAN mirror first" in fetch.description and "SHA-1" in fetch.description
+    assert fetch.sources[0] == "http://nas.lan/bunker/comaps-maps/260830/US_Vermont.mwm"
+    outcome = fetch.perform()
+    assert "from the LAN mirror" in outcome
+    assert fetch.facts["source"] == "mirror"
+    assert mirror.requested == [fetch.sources[0]]
+
+
+def test_the_artifacts_listing_carries_the_maps_by_version(tmp_path: Path) -> None:
+    from hammunition.artifacts import list_artifacts
+
+    m = _unit()
+    entries = list_artifacts(
+        ["comaps-maps"],
+        regions=(DELAWARE, "europe/germany/bayern"),
+        freshness="yearly",
+        catalog={"comaps-maps": m},
+        catalog_root=CATALOG,
+        today=date(2026, 9, 30),
+        region_probe=None,  # type: ignore[arg-type]
+        tile_probe=None,  # type: ignore[arg-type]
+    )
+    deferred = [e for e in entries if e.deferred]
+    listed = [e for e in entries if not e.deferred]
+    assert [e.name for e in deferred] == ["europe/germany/bayern"]
+    [delaware] = listed
+    assert delaware.name == "260830/US_Delaware.mwm"
+    assert delaware.check == "sha1-publisher" and delaware.size == 32804869
+    assert delaware.digest is not None and len(delaware.digest) == 40

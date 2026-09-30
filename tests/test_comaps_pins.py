@@ -291,3 +291,76 @@ def test_generate_from_a_local_index(tmp_path: Path) -> None:
     )
     pins = parse_pins(pins_path.read_text(), known_regions=REGIONS)
     assert pins.maps["World"].size == 53387231
+
+
+@pytest.mark.parametrize("name", ["../etc/x", "a/b", ".hidden", "", "nul\0byte", "tab\tname"])
+def test_a_map_id_that_cannot_be_a_file_name_is_refused(name: str) -> None:
+    bad: dict[str, Any] = {"id": "Countries", "g": [_leaf(name)]}
+    with pytest.raises(ComapsError):
+        flatten(bad)
+
+
+def test_the_world_maps_the_app_installs_are_the_pinned_version(tmp_path: Path) -> None:
+    """comaps.yaml's World maps and the pinned index must agree, or the app
+    carries one map version and the country maps another."""
+    gen = _generator()
+    pins = load_pins(REPO_ROOT / "catalog")
+    assert gen.world_mismatches(pins) == []
+    manifest = tmp_path / "comaps.yaml"
+    text = (REPO_ROOT / "catalog" / "packages" / "comaps.yaml").read_text()
+    manifest.write_text(text.replace("/260830/World.mwm", "/260501/World.mwm"))
+    [problem] = gen.world_mismatches(pins, manifest)
+    assert "World" in problem and "260830" in problem
+    rc = gen.main(
+        ["--check", "--offline"],
+        pins_path=REPO_ROOT / "catalog" / "data" / "comaps-pins.yaml",
+        manifest_path=manifest,
+    )
+    assert rc == 1
+
+
+def test_check_online_tells_a_busy_server_from_an_expired_pin(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    gen = _generator()
+    pins_path = tmp_path / "comaps-pins.yaml"
+    pins_path.write_text(_render())
+    body = json.dumps(INDEX)
+
+    def check(answer: tuple[int, int]) -> str:
+        rc = gen.main(
+            ["--check"],
+            text=lambda url: body,
+            head=lambda url: answer,
+            pins_path=pins_path,
+            commit=COMMIT,
+            regions=REGIONS,
+        )
+        assert rc == 1
+        return capsys.readouterr().out
+
+    assert "pin expired" in check((404, 0))
+    busy = check((503, 0))
+    assert "pin expired" not in busy and "503" in busy
+
+
+def test_check_online_reports_an_unreachable_index_as_a_problem(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    gen = _generator()
+    pins_path = tmp_path / "comaps-pins.yaml"
+    pins_path.write_text(_render())
+
+    def offline(url: str) -> str:
+        raise OSError("no route to host")
+
+    rc = gen.main(
+        ["--check"],
+        text=offline,
+        head=lambda url: (200, 53387231),
+        pins_path=pins_path,
+        commit=COMMIT,
+        regions=REGIONS,
+    )
+    assert rc == 1
+    assert "could not be read" in capsys.readouterr().out

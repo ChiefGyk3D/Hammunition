@@ -14,6 +14,7 @@ command goes through a recording runner: nothing is cloned or built here.
 from __future__ import annotations
 
 import hashlib
+import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 from io import BytesIO
@@ -393,3 +394,39 @@ def test_an_extra_file_left_a_symlink_fails_the_effect_check(tmp_path: Path) -> 
     world.write_bytes(WORLD)
     [check] = [c for c in verify_effects(plan, None, prefix=tmp_path).checks if c.kind == "file"]
     assert check.confirmed
+
+
+def test_the_weekly_ref_check_refuses_a_tag_off_its_commit(tmp_path: Path) -> None:
+    """scripts/check_pin_reviews.py --verify-refs, against a local repository:
+    a tag at its pinned commit passes, and a re-cut one is named."""
+    import importlib.util
+    import subprocess
+
+    repo = tmp_path / "upstream"
+    env = {
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@example.invalid",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@example.invalid",
+        "PATH": os.environ["PATH"],
+        "HOME": str(tmp_path),
+    }
+    for argv in (
+        ("git", "init", "--quiet", str(repo)),
+        ("git", "-C", str(repo), "commit", "--quiet", "--allow-empty", "-m", "one"),
+        ("git", "-C", str(repo), "tag", "v1"),
+    ):
+        subprocess.run(argv, check=True, env=env, capture_output=True)
+    head = subprocess.run(
+        ("git", "-C", str(repo), "rev-parse", "HEAD"), check=True, capture_output=True, text=True
+    ).stdout.strip()
+    spec = importlib.util.spec_from_file_location(
+        "check_pin_reviews",
+        Path(__file__).resolve().parent.parent / "scripts" / "check_pin_reviews.py",
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.verify_ref(str(repo), "v1", head) is None
+    problem = module.verify_ref(str(repo), "v1", "0" * 40)
+    assert problem is not None and head in problem and "0" * 40 in problem

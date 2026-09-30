@@ -2450,7 +2450,8 @@ def cmd_install(args: argparse.Namespace) -> int:
     idle_maps = frozenset(
         p.name
         for p in mwm_units
-        if not mwm.steps(p.manifest, cast(MwmRegionsInstall, p.block.install))
+        # With no map for any region there is nothing installed to be current.
+        if mwm.files and not mwm.steps(p.manifest, cast(MwmRegionsInstall, p.block.install))
     )
     view = build_install_view(
         plan,
