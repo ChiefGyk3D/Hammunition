@@ -913,6 +913,7 @@ CONVERTER_SOURCE_METHOD: dict[str, str] = {
     "brouter-mapcreator": "osm-regions",
     "mapsforge-map": "osm-regions",
     "mapsforge-poi": "osm-regions",
+    "tilemaker-pmtiles": "osm-regions",
 }
 
 #: D-063: the other units a ``brouter-mapcreator`` block reads, the install
@@ -923,6 +924,18 @@ BROUTER_INPUTS: dict[str, tuple[str, bool]] = {
     "program": ("binary", True),
     "profiles": ("data", True),
     "elevation": ("dem-tiles", False),
+}
+
+#: D-071: the unit a ``tilemaker-pmtiles`` block reads besides its regions: the
+#: kit holding tilemaker's OpenMapTiles profile and the Natural Earth layers.
+TILEMAKER_INPUTS: dict[str, tuple[str, bool]] = {"kit": ("data", True)}
+
+#: Every converter that reads units besides its `source`, and those inputs:
+#: field -> (the install method it must resolve to, whether it is required).
+#: A field is refused on every converter not listed against it.
+CONVERTER_INPUTS: dict[str, dict[str, tuple[str, bool]]] = {
+    "brouter-mapcreator": BROUTER_INPUTS,
+    "tilemaker-pmtiles": TILEMAKER_INPUTS,
 }
 
 #: D-067: the converters that run a program no archive packages, carried as a
@@ -993,13 +1006,14 @@ class DerivedDataInstall(Strict):
         "brouter-mapcreator",
         "mapsforge-map",
         "mapsforge-poi",
+        "tilemaker-pmtiles",
     ] = Field(
         description=(
             "The transformation to run. Each needs a `source` of one particular "
             "install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): "
             "`navit-maptool`, `mkgmap`, `routino-planetsplitter`, `brouter-mapcreator`, "
-            "`mapsforge-map` and `mapsforge-poi` need an `osm-regions` source; `gdal-dem` needs a "
-            "`dem-tiles` source."
+            "`mapsforge-map`, `mapsforge-poi` and `tilemaker-pmtiles` need an `osm-regions` "
+            "source; `gdal-dem` needs a `dem-tiles` source."
         )
     )
     source: str = Field(
@@ -1041,6 +1055,14 @@ class DerivedDataInstall(Strict):
             "it the routes are flat. Must also be in `depends`."
         ),
     )
+    kit: str | None = Field(
+        default=None,
+        description=(
+            "`tilemaker-pmtiles` only, and required there (D-071): the `data` unit "
+            "holding tilemaker's OpenMapTiles profile (config and Lua) and the Natural "
+            "Earth shapefiles the profile names. Must also be in `depends`."
+        ),
+    )
     licence: str = Field(
         min_length=2,
         description="SPDX identifier where one exists, else the publisher's own words.",
@@ -1070,23 +1092,30 @@ class DerivedDataInstall(Strict):
                 f"converter {self.converter!r} runs only what the archive installs; a `tool` "
                 f"on it would be fetched for nothing"
             )
-        for name, (_, required) in BROUTER_INPUTS.items():
-            value = getattr(self, name)
-            if self.converter != "brouter-mapcreator":
-                if value is not None:
-                    raise ManifestError(
-                        f"{name} is read only by the brouter-mapcreator converter, not "
-                        f"{self.converter!r}"
-                    )
-            elif required and value is None:
-                raise ManifestError(f"converter brouter-mapcreator needs {name}: the unit it reads")
+        for owner, fields in CONVERTER_INPUTS.items():
+            for name, (_, required) in fields.items():
+                value = getattr(self, name)
+                if self.converter != owner:
+                    if value is not None:
+                        raise ManifestError(
+                            f"{name} is read only by the {owner} converter, not {self.converter!r}"
+                        )
+                elif required and value is None:
+                    raise ManifestError(f"converter {owner} needs {name}: the unit it reads")
         return self
 
     def inputs(self) -> tuple[str, ...]:
         """Every other unit this block reads at run time; each must be in `depends`."""
         return tuple(
             unit
-            for unit in (self.source, self.boundaries, self.program, self.profiles, self.elevation)
+            for unit in (
+                self.source,
+                self.boundaries,
+                self.program,
+                self.profiles,
+                self.elevation,
+                self.kit,
+            )
             if unit is not None
         )
 
@@ -1939,7 +1968,7 @@ def derived_source_method_problem(
                     f"needs source {block.source!r} to be a {needed!r} unit, but "
                     f"{block.source!r} is {sorted(methods)!r}"
                 )
-        for field_name, (method, _) in BROUTER_INPUTS.items():
+        for field_name, (method, _) in CONVERTER_INPUTS.get(block.converter, {}).items():
             unit = getattr(block, field_name)
             found = catalog.get(unit) if unit is not None else None
             if found is None:
