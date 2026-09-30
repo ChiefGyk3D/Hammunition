@@ -78,10 +78,18 @@ The project's own position, which you inherit when you install this tooling:
   legal weight even without transmitting. Treat captured data as something you
   may not be entitled to keep.
 
-## Where the gated tooling lives
+## Where the tooling lives
 
-RF-security and SIGINT tools are in the `rf-security` and `rf-research`
-profiles, both consent-gated, both post-1.0 for the fuller SIGINT set. Read the
-gate before you install: `hammunition show rf-research`. The gate is the
-contract — it tells you what you are taking on, and asks you to accept it
-deliberately.
+RF-security and SIGINT tools are in two profiles. `rf-research` is
+consent-gated: read the gate before you install, `hammunition show
+rf-research`. The gate is the contract — it tells you what you are taking on,
+and asks you to accept it deliberately. `rf-security` is **not** gated, on
+purpose (D-021): its tools capture and analyse, ship in Debian, Kali or Parrot
+without ceremony, and a gate on them would teach people to click through the
+one that matters. Not gated is not the same as without consequence; the pages
+below say what each tool can do.
+
+- [Kismet](kismet.md) — the wireless device detector in `rf-security`: what it
+  captures and collects, how it installs on each target (its own signed
+  repository where the archive lacks it), keeping its web interface on this
+  machine, and what to check when a data source will not open.

@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**279 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**280 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -58,10 +58,11 @@ Position reporting and messaging: clients with maps, digipeaters, iGates and pag
 - [xastir](xastir.md) — APRS client with real maps — see and be seen on the packet network
 - [yaac](yaac.md) — Yet Another APRS Client — the deep, portable Java one
 
-### `bluetooth` — 3
+### `bluetooth` — 4
 
 Ubertooth sniffing and spectrum.
 
+- [kismet](kismet.md) — Wireless network and device detector, sniffer and logger for Wi-Fi, Bluetooth and SDR sources
 - [skid-finder](skid-finder.md) — Passive BLE-spam and Wi-Fi-attack detector with foxhunting, live alerts and a sensor-net collector
 - [spectools](spectools.md) — Spectrum display for MetaGeek Wi-Spy dongles and the Ubertooth One
 - [ubertooth](ubertooth.md) — Host tools for the Ubertooth One Bluetooth sniffer
@@ -78,10 +79,11 @@ DAB and DAB+ receivers and the data alongside broadcast FM.
 - [odr-padenc](odr-padenc.md) — Encodes the text and images that ride alongside a DAB service
 - [welle-io](welle-io.md) — DAB and DAB+ digital radio receiver with a modern interface
 
-### `capture-analysis` — 3
+### `capture-analysis` — 4
 
 Capture traffic on any interface and decode it: Wireshark for the desktop, tcpdump for the terminal, two thousand protocols between them.
 
+- [kismet](kismet.md) — Wireless network and device detector, sniffer and logger for Wi-Fi, Bluetooth and SDR sources
 - [skid-finder](skid-finder.md) — Passive BLE-spam and Wi-Fi-attack detector with foxhunting, live alerts and a sensor-net collector
 - [tcpdump](tcpdump.md) — Command-line packet capture — the tool that works when nothing else does
 - [wireshark](wireshark.md) — Protocol analyser — decodes captured traffic across two thousand protocols
@@ -623,13 +625,14 @@ ISM-band sensors, weather balloons, weather fax and GRIB charts.
 - [xwefax](xwefax.md) — Receives HF weather fax and draws the chart
 - [xygrib](xygrib.md) — Views GRIB weather files — wind, pressure, waves, on a map
 
-### `wifi` — 4
+### `wifi` — 5
 
 Capture, handshake extraction and key recovery for Wi-Fi networks.
 
 - [aircrack-ng](aircrack-ng.md) — Wi-Fi security auditing suite — capture, analysis and key recovery
 - [hcxdumptool](hcxdumptool.md) — Wi-Fi frame capture aimed at producing hash files for offline analysis
 - [hcxtools](hcxtools.md) — Converts captured Wi-Fi frames into hash formats analysis tools read
+- [kismet](kismet.md) — Wireless network and device detector, sniffer and logger for Wi-Fi, Bluetooth and SDR sources
 - [skid-finder](skid-finder.md) — Passive BLE-spam and Wi-Fi-attack detector with foxhunting, live alerts and a sensor-net collector
 
 ### `winlink` — 4
@@ -797,6 +800,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [kalibrate-rtl](kalibrate-rtl.md) | Measures an SDR dongle's frequency error against GSM base stations | apt, git |
 | [kappanhang](kappanhang.md) | Opens an Icom network radio as an ordinary sound card and serial port | apt |
 | [kel-agent](kel-agent.md) | Bridges browser-based logging software to the radio hardware on your desk | apt |
+| [kismet](kismet.md) | Wireless network and device detector, sniffer and logger for Wi-Fi, Bluetooth and SDR sources | apt |
 | [kiwix](kiwix.md) | The Kiwix desktop reader for offline Wikipedia and other ZIM books | apt |
 | [kiwix-library](kiwix-library.md) | The Kiwix books you chose -- Wikipedia, WikiMed, Stack Exchange -- pinned and verified | kiwix-books |
 | [kiwix-tools](kiwix-tools.md) | Kiwix's command-line reader, server and library manager for offline ZIM books | apt |

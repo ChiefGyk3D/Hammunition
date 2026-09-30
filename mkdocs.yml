@@ -200,7 +200,9 @@ nav:
       - troubleshooting/index.md
       - Installing: troubleshooting/install-failures.md
       - Running: troubleshooting/running.md
-  - RF security: rf-security/index.md
+  - RF security:
+      - rf-security/index.md
+      - Kismet: rf-security/kismet.md
   - Reference:
       - The engine:
           - Command line: reference/cli.md
