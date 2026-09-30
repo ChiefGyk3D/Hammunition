@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""The documentation site (D-063): it builds strictly, no page is orphaned,
+"""The documentation site (D-065): it builds strictly, no page is orphaned,
 and the build hook moves only the links it should.
 
 CLAUDE.md: put checks in the test suite and let CI run the test suite. The

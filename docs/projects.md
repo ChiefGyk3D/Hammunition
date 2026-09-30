@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**266 programs and packages** from the catalog, laid out the way the
+**269 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -95,6 +95,9 @@ Control the rig, keep the log, work the cluster, set the clock and the position.
 
 | Project | What it is | Its home |
 |---|---|---|
+| [brouter](packages/brouter.md) | BRouter, the offline router QMapShack runs for hiking, bike and car routes with elevation | [github.com/abrensch/brouter](https://github.com/abrensch/brouter) |
+| [brouter-mapcreator-profiles](packages/brouter-mapcreator-profiles.md) | The two filter files BRouter's map creator needs and its release zip leaves out | [github.com/abrensch/brouter](https://github.com/abrensch/brouter) |
+| [brouter-segments](packages/brouter-segments.md) | BRouter routing files built from your own regions, with elevation, never downloaded | [github.com/abrensch/brouter](https://github.com/abrensch/brouter) |
 | [country-boundaries](packages/country-boundaries.md) | Natural Earth's world country borders, which let Navit's address search find towns | [naturalearthdata.com](https://www.naturalearthdata.com/) |
 | [dem-copernicus](packages/dem-copernicus.md) | Copernicus GLO-30 elevation tiles for your map regions, verified | [registry.opendata.aws/copernicus-dem](https://registry.opendata.aws/copernicus-dem/) |
 | [dem-qmapshack](packages/dem-qmapshack.md) | Hillshade, slope and 20 m contour lines for QMapShack, from the elevation tiles | [gdal.org](https://gdal.org/) |

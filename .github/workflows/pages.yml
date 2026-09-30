@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Publishes the documentation site, Hacker's Ham Shack, from main (D-063).
+# Publishes the documentation site, Hacker's Ham Shack, from main (D-065).
 #
 # The site is https://chiefgyk3d.github.io/Hammunition/. It needs one setting
 # the repository owner makes once: Settings -> Pages -> Build and deployment

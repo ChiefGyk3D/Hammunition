@@ -1,14 +1,14 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# The documentation site, Hacker's Ham Shack (D-063). Built from docs/ by
+# The documentation site, Hacker's Ham Shack (D-065). Built from docs/ by
 # `mkdocs build --strict`; tests/test_site.py builds it on every test run and
 # .github/workflows/pages.yml publishes it from main.
 #
 # MkDocs 1.6.1 and Material 9.7.7 are pinned exactly in pyproject.toml. MkDocs
 # 2.0 removes the plugin and theme systems this file relies on, and Material
 # enters maintenance mode on 2026-11-05; its authors' successor, Zensical,
-# reads this same file. D-063 records the measurement and the migration.
+# reads this same file. D-065 records the measurement and the migration.
 
 site_name: Hammunition
 site_description: >-

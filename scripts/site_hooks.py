@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""MkDocs build hook for the documentation site (D-063).
+"""MkDocs build hook for the documentation site (D-065).
 
 The pages under `docs/` are written to read correctly on GitHub, where a
 relative link to `../../catalog/packages/direwolf.yaml` or to
@@ -22,7 +22,7 @@ repairs where a link *points*, never hides that it points at nothing.
 
 Measured 2026-09-30: Zensical 0.0.66 builds this tree but runs no MkDocs
 hook, so when the site moves to it this rewriting has to move into the page
-generators; D-063 records that.
+generators; D-065 records that.
 """
 
 from __future__ import annotations

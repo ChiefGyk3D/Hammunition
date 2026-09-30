@@ -34,7 +34,7 @@ dev = [
     # be reproducible, or it is a check nobody trusts.)
     "ruff==0.16.5",
     "types-PyYAML",
-    # The documentation site (D-063). Pinned exactly, like ruff: the site is
+    # The documentation site (D-065). Pinned exactly, like ruff: the site is
     # built with --strict in tests/test_site.py and by the Pages workflow, and
     # MkDocs 2.0 removes the plugin and theme systems mkdocs.yml relies on.
     "mkdocs==1.6.1",
