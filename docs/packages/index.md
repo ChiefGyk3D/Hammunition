@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**286 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**287 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -442,7 +442,7 @@ Proxmark3, libnfc, MIFARE key recovery and smartcard reader checks.
 - [pcsc-tools](pcsc-tools.md) — Smartcard reader diagnostics — is the reader even working?
 - [proxmark3](proxmark3.md) — Client and firmware tooling for the Proxmark3 RFID and NFC research device
 
-### `rig-control` — 12
+### `rig-control` — 13
 
 CAT control of a transceiver while operating: frequency, mode, PTT and the panel on the screen.
 
@@ -457,6 +457,7 @@ CAT control of a transceiver while operating: frequency, mode, PTT and the panel
 - [libhamlib-utils](libhamlib-utils.md) — The command-line tools for hamlib — test a radio before blaming software
 - [qlog](qlog.md) — Modern Qt station log with award tracking and online-service upload
 - [quisk](quisk.md) — SDR transceiver software with a real front panel, driving hardware or a dongle
+- [ser2net](ser2net.md) — Serve a serial port over TCP, so a rig's CAT port can be reached from another machine
 - [wfview](wfview.md) — Control a modern Icom radio, waterfall and all, over USB or the network
 
 ### `satellite-decoding` — 3
@@ -545,7 +546,7 @@ Build a radio out of blocks: GNU Radio and its hardware sources, DAB encoders an
 - [odr-dabmux](odr-dabmux.md) — Assembles audio services into a DAB ensemble multiplex
 - [odr-padenc](odr-padenc.md) — Encodes the text and images that ride alongside a DAB service
 
-### `serial-terminals` — 5
+### `serial-terminals` — 6
 
 tio, minicom, picocom, PuTTY, CuteCom: talking to a radio or a board over a serial port.
 
@@ -553,6 +554,7 @@ tio, minicom, picocom, PuTTY, CuteCom: talking to a radio or a board over a seri
 - [minicom](minicom.md) — Full-screen serial communication program, the one everyone already knows
 - [picocom](picocom.md) — The minimal terminal-native serial console
 - [putty](putty.md) — The GUI serial terminal hams reach for, with saved sessions
+- [ser2net](ser2net.md) — Serve a serial port over TCP, so a rig's CAT port can be reached from another machine
 - [tio](tio.md) — Serial device terminal — the modern replacement for screen on a TTY
 
 ### `ships` — 4
@@ -899,6 +901,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [screen](screen.md) | Terminal multiplexer, and the serial console of last resort | apt |
 | [sdrangel](sdrangel.md) | SDR transceiver and analyser that does several things at once | apt, binary |
 | [sdrpp](sdrpp.md) | SDR++ — cross-platform SDR receiver with a modular DSP chain | apt, git |
+| [ser2net](ser2net.md) | Serve a serial port over TCP, so a rig's CAT port can be reached from another machine | apt |
 | [skid-finder](skid-finder.md) | Passive BLE-spam and Wi-Fi-attack detector with foxhunting, live alerts and a sensor-net collector | binary |
 | [soapyremote-server](soapyremote-server.md) | Serves a local SDR over the network to software on another machine | apt |
 | [soapysdr-module-airspy](soapysdr-module-airspy.md) | SoapySDR driver module for Airspy hardware | apt |

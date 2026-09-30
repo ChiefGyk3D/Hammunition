@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 201 | 7 | 76 | 2 | 0 |
-| ubuntu-26.04 | 203 | 5 | 76 | 2 | 0 |
-| ubuntu-24.04 | 196 | 14 | 74 | 2 | 0 |
-| kali-rolling | 207 | 8 | 71 | 0 | 0 |
-| parrot | 205 | 5 | 74 | 2 | 0 |
-| linuxmint-22.3 | 196 | 14 | 74 | 2 | 0 |
-| debian-13-arm64 | 200 | 8 | 73 | 5 | 0 |
+| debian-13 | 202 | 7 | 76 | 2 | 0 |
+| ubuntu-26.04 | 204 | 5 | 76 | 2 | 0 |
+| ubuntu-24.04 | 197 | 14 | 74 | 2 | 0 |
+| kali-rolling | 208 | 8 | 71 | 0 | 0 |
+| parrot | 206 | 5 | 74 | 2 | 0 |
+| linuxmint-22.3 | 197 | 14 | 74 | 2 | 0 |
+| debian-13-arm64 | 201 | 8 | 73 | 5 | 0 |
 
-**286 manifests** against **7 targets**.
+**287 manifests** against **7 targets**.
 
 ---
 
@@ -343,6 +343,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `screen` | apt | apt | apt | apt | apt | apt | apt |
 | `sdrangel` | apt ✗ | binary | apt ✗ | apt | apt ✗ | apt ✗ | apt ✗ |
 | `sdrpp` | git | git | git | apt | apt | git | git |
+| `ser2net` | apt | apt | apt | apt | apt | apt | apt |
 | `skid-finder` | binary | binary | binary | binary | binary | binary | binary |
 | `soapyremote-server` | apt | apt | apt | apt | apt | apt | apt |
 | `soapysdr-module-airspy` | apt | apt | apt | apt | apt | apt | apt |

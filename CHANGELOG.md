@@ -27,6 +27,12 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   built-in serial bootloader over a USB-serial adapter. No device the
   hardware catalog carries flashes that way (its STM32 entries use USB
   DFU), so none links to it; nothing was flashed.
+  `ser2net` is carried but in no profile: installing the package enables
+  a root `ser2net.service` whose shipped configuration listens on four
+  loopback ports for `/dev/ttyS0` and `/dev/ttyS1` (read from the .deb,
+  measured in a Debian 13 container), which a base profile should not
+  do to every station; its page says how to inspect and disable it, and
+  the rig-control guide gains a section on a radio on another machine.
 
 ## v0.17.0 — 2026-09-30 — official topo sheets, CoMaps, and the offline browser map
 

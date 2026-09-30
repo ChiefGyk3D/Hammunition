@@ -105,6 +105,12 @@ What that changed below, each noted at its row:
   (`flipper-zero`, the `dmr-radio` class) use USB DFU (`0483:df11`),
   which is `dfu-util`'s job; NanoVNAs, named in the row below, are not
   catalogued as devices at all. The unit is added and links to no device.
+- **`ser2net` starts a service on install.** Read from the Debian 13
+  .deb and measured in a container: the postinst enables
+  `ser2net.service`, which runs as root, and the shipped configuration
+  listens on loopback ports 2000, 2001, 3000 and 3001 for `/dev/ttyS0`
+  and `/dev/ttyS1`. Added, but not to `station` as the brief placed it:
+  install it by name.
 
 ## A. Cross-cutting gaps — plans the catalog has not caught up with
 
@@ -417,7 +423,7 @@ before a manifest. Nothing here is transmit-capable except where said.
 | `programmer` | | **`adafruit-nrfutil`** (PyPI) and a UF2 note | The maintainer's nRF52840, T-Echo and RAK nodes all flash by UF2 drag-and-drop or `adafruit-nrfutil dfu serial`; nothing in the catalog says so | venv + page | ADD, with the Meshtastic device page carrying the UF2 procedure |
 | `programmer` | | **`cc2538-bsl`** and `catnip` (Electronic Cats) | The CatSniffer V3's firmware loader; Electronic Cats' own docs prefer `catnip`, and Kismet's page says `cc2538-bsl` worked and `catnip` did not in their testing | venv (pyserial, intelhex) | ADD `cc2538-bsl` on the CatSniffer page; the device is owned, so this is measurable now |
 | `programmer` | | `pyocd`, `platformio` | `pyocd` for nRF and STM32 over SWD; PlatformIO is the Meshtastic/MeshCore build tool (#105) | venv | On demand |
-| `serial-terminals` | 5 | `ser2net` | See A2 | apt | ADD |
+| `serial-terminals` | 5 | `ser2net` (measured 2026-09-30: all seven targets) | See A2 | apt | ADD (added 2026-09-30, in no profile: see *Measured since*) |
 | `device-support` | 8 | `qpwgraph`, `pavucontrol` | See A3 | apt | ADD |
 
 ### Group 7 — RF Security & Research

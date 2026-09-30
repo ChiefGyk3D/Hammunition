@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**286 programs and packages** from the catalog, laid out the way the
+**287 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -497,6 +497,7 @@ Antenna design and analysers, spectrum analysers, electronics, radio memories, f
 | [minicom](packages/minicom.md) | Full-screen serial communication program, the one everyone already knows | [salsa.debian.org/minicom-team/minicom](https://salsa.debian.org/minicom-team/minicom) — *Debian package page* |
 | [picocom](packages/picocom.md) | The minimal terminal-native serial console | [github.com/npat-efault/picocom](https://github.com/npat-efault/picocom) |
 | [putty](packages/putty.md) | The GUI serial terminal hams reach for, with saved sessions | [chiark.greenend.org.uk/~sgtatham/putty](https://www.chiark.greenend.org.uk/~sgtatham/putty/) |
+| [ser2net](packages/ser2net.md) | Serve a serial port over TCP, so a rig's CAT port can be reached from another machine | [github.com/cminyard/ser2net](https://github.com/cminyard/ser2net) |
 | [tio](packages/tio.md) | Serial device terminal — the modern replacement for screen on a TTY | [github.com/tio/tio](https://github.com/tio/tio) |
 
 ### Device Support & Drivers
