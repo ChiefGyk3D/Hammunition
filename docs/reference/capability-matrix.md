@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 65 | 2 | 205 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 65 | 2 | 205 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 63 | 2 | 207 |
-| kali-rolling *(unswept)* | 0 | 0 | 60 | 0 | 212 |
-| parrot *(unswept)* | 0 | 0 | 63 | 2 | 207 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 63 | 2 | 207 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 62 | 5 | 205 |
+| debian-13 *(unswept)* | 0 | 0 | 68 | 2 | 205 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 68 | 2 | 205 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 66 | 2 | 207 |
+| kali-rolling *(unswept)* | 0 | 0 | 63 | 0 | 212 |
+| parrot *(unswept)* | 0 | 0 | 66 | 2 | 207 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 66 | 2 | 207 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 65 | 5 | 205 |
 
-**272 manifests** against **7 targets**.
+**275 manifests** against **7 targets**.
 
 ---
 
@@ -77,6 +77,9 @@ build HAS been run in a container say so in their own install notes.
 | `baycomepp` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `baycomusb` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `bladerf` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `brouter` | binary | binary | binary | binary | binary | binary | binary |
+| `brouter-mapcreator-profiles` | data | data | data | data | data | data | data |
+| `brouter-segments` | derived | derived | derived | derived | derived | derived | derived |
 | `canadian-ham-exam` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `cassbeam` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `chirp` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |

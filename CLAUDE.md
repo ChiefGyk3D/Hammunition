@@ -41,6 +41,10 @@ disagrees with it, DECISIONS wins and the disagreeing file is a bug.
   resolution merged with a measured `apt-cache policy` sweep
 - `docs/reference/parity-coverage.md` — every dispositioned unit against the
   catalog: what is covered, what is outstanding, and why each gap is open
+- `docs/reference/catalog-gaps-2026-09.md` — the catalog against the field,
+  category by category: what is missing, what was planned and not delivered
+  (station config, the rig model, GPS time, audio routing), and what is
+  recommended; its rulings are **Q-022**
 - `docs/reference/` — the measurements everything rests on: `ahrl-inventory.md`,
   `blend-inventory.md`, `dispositions.md`, `overlaps.md`, `profile-sizing.md`,
   `licence-verification.md`, `hardware-gaps.md`, `udev-inventory.md`,
@@ -228,6 +232,7 @@ Do not re-litigate these without being asked:
 | Engine interface | One JSON document per command under `--json`, rendered from the same dataclasses as the text; `install`/`uninstall` only with `--dry-run`, a real install never driven through JSON; `station` and `plan` documents are for local programs, not for pasting; bootstrap links `~/.local/bin/hammunition` and never replaces what it did not make | A console and the tray need a stable interface, not parsed text; a command from the docs failed with "command not found" (**D-059**) |
 | Offline reference | Kiwix books chosen by id in station config from a hand-written, licensed allow-list, pinned by size and sha256 from each `.meta4` in a generated pin file; a dead pin refuses, never follows the newer file; dictd on loopback as shipped; FEMA's ICS forms by our own sha256; `hammunition reference serve` binds 127.0.0.1 and always starts kiwix-serve with `-i 127.0.0.1` | kiwix-serve listens on every address by default, ZIMs carry no licence, nothing Kiwix publishes is signed, and Kiwix keeps two dated files per book (**D-065**) |
 | sudo during an install | A run as a user whose plan mixes root and unprivileged steps asks `sudo -v` once before the first step and refreshes with `sudo -n -v` every 4 minutes from its own process until the run ends; disclosed in the plan, `--no-sudo-keepalive` opts out, a failure is reported once and never retried, the password never passes through the engine | A `navigation` install waited 7.8 hours at a second prompt after 30 minutes of work, its ticket expired during a conversion (#137, **D-062**) |
+| BRouter routing | Carried: upstream's zip pinned by its sha256 as a tree, Java from the archive; its routing files built on the machine by a `brouter-mapcreator` converter from the station's regions with Copernicus elevation, one set over every region, as the operator, never downloaded from brouter.de; `maps qmapshack` registers it in QMapShack on 127.0.0.1 only and leaves an operator's own BRouter alone | brouter.de's weekly files carry no checksum, which is why D-061 left BRouter out; BRouter's own map creator builds them from our own extracts (Delaware in minutes, most of it a parser polling for a growing file, which `-DavoidMapPolling=true` removes: 120 s to 0.1 s on a synthetic region) (**D-063**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
 
@@ -475,7 +480,7 @@ in their own install notes.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 272
+  packages/        # one YAML per piece of software          ✅ 275
   profiles/        # named bundles referencing packages      ✅ 18
   hardware/
     classes/       # device families with shared Linux needs ✅ 5
@@ -535,9 +540,9 @@ longer a design question in the abstract; a shipped manifest depends on it. See
 `DESIGN.md` §15.3 and the D-004 amendment.
 
 **Open questions awaiting the maintainer** are in `docs/QUESTIONS.md`.
-**None is open as of 2026-09-12**: Q-018 is D-044, Q-019 is D-045, Q-020
-(the two post-1.0 tracks) is D-046, Q-021 (the offline-data layer) is
-D-049.
+Q-018 is D-044, Q-019 is D-045, Q-020 (the two post-1.0 tracks) is D-046,
+Q-021 (the offline-data layer) is D-049. **Q-022 is open** (2026-09-30):
+six rulings from the 2026-09 gap analysis, none blocking 1.0.
 **Q-001 through Q-016 are all resolved.** Q-006, Q-007 and Q-008 closed on
 2026-08-29: HamClock carries both clients defaulting to `openhamclock` with
 `ohb.works` as the backend; SuperSDR is carried under **D-033**; cellular

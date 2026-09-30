@@ -160,7 +160,7 @@ from hammunition.station import (
     save_station,
 )
 from hammunition.sudo_ticket import SudoKeepalive, keepalive_wanted
-from hammunition.terrain_plan import build_terrain_run, resolve_station_terrain
+from hammunition.terrain_plan import brouter_pins, build_terrain_run, resolve_station_terrain
 from hammunition.update import books_state, region_snapshots, render, report, requested_units
 from hammunition.upstream import (
     NOT_UPSTREAM,
@@ -173,6 +173,7 @@ from hammunition.upstream import render as render_upstream
 
 if TYPE_CHECKING:
     from hammunition.hardware.power import KeptEntry, Parkable
+    from hammunition.qmapshack_config import BRouterSetup
     from hammunition.upstream import UpstreamRow
 
 __all__ = ["build_parser", "main"]
@@ -906,6 +907,26 @@ def _replace_atomically(path: Path, text: str, mode: int | None) -> None:
         raise
 
 
+def _installed_brouter(prefix: Path) -> BRouterSetup | None:
+    """Hammunition's BRouter when its tree holds one jar and at least one
+    routing file is built (D-063); None otherwise, and QMapShack's BRouter
+    setup is then not touched."""
+    from hammunition.backends.brouter import RD5, find_jar
+    from hammunition.backends.source import tree_destination
+    from hammunition.qmapshack_config import BRouterSetup
+
+    tree = tree_destination(prefix, "brouter")
+    jar = find_jar(tree)
+    segments = data_root(prefix) / "brouter-segments"
+    try:
+        built = any(segments.glob(f"*{RD5}"))
+    except OSError:
+        built = False
+    if jar is None or not built:
+        return None
+    return BRouterSetup(tree=tree, jar=jar.name, segments=segments, java=shutil.which("java"))
+
+
 def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
     """Name Hammunition's maps in QMapShack's own configuration, then start it.  D-061.
 
@@ -923,6 +944,7 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
         QmsConfigError,
         config_path,
         ensure_paths,
+        register_brouter,
         select_database,
         superseded,
         wanted,
@@ -944,7 +966,11 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
     try:
         data = data_root(DEFAULT_PREFIX)
         with_paths = ensure_paths(text, wanted(data), remove=superseded(data))
-        updated = select_database(with_paths)
+        selected = select_database(with_paths)
+        brouter = _installed_brouter(DEFAULT_PREFIX)
+        updated, brouter_notes = (
+            register_brouter(selected, brouter) if brouter is not None else (selected, [])
+        )
     except QmsConfigError as exc:
         print(
             f"error: {path}: {exc}. {not_started}; "
@@ -964,12 +990,14 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
             ),
             file=sys.stderr,
         )
-    if updated != with_paths:
+    if selected != with_paths:
         print(
             f"selecting the first routing database in {path}, so the Routing dock's "
             f"Database list is not left blank",
             file=sys.stderr,
         )
+    for note in brouter_notes:
+        print(f"{note} ({path})", file=sys.stderr)
     if updated != text:
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -1626,6 +1654,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         keep=kept,
         regions=ledger,
         resolution=dem_resolution,
+        pins=brouter_pins(plan),
     )
     derived = DerivedBackend(
         prefix=source.prefix,

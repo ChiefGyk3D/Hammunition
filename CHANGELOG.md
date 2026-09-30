@@ -11,6 +11,25 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **BRouter: a second offline router for QMapShack, with trail difficulty
+  and climbs** (D-063, amending D-061's "BRouter stays out"). Three units
+  join the `navigation` profile: `brouter` (upstream's v1.7.10 zip, checked
+  by its sha256, with Java from the archive), `brouter-mapcreator-profiles`
+  (the two map-creator filters the zip lacks, pinned by the tag's commit)
+  and `brouter-segments`, whose new `brouter-mapcreator` converter builds
+  BRouter's routing files on the machine from your regions with the
+  Copernicus elevation folded in, as you, in one locked staging directory,
+  and rebuilds them when a region, snapshot, tile or BRouter changes.
+  brouter.de's routing files are never downloaded: they are rebuilt weekly
+  with no checksum. The plan's *Terrain* block and its JSON say what is
+  built; `hammunition maps qmapshack` points QMapShack's local BRouter at
+  it, set to 127.0.0.1 with bind-to-host on, and leaves a BRouter you set
+  up yourself alone (QMapShack honours the bind only once it has read
+  BRouter's version; the guide says how to check). The
+  map creator now runs with `-DavoidMapPolling=true`, which removes a 120 s
+  wait its parser adds to every input under 100 MB. Measured end to end on
+  synthetic regions against the pinned jar; a route drawn in QMapShack is
+  owed by the bench.
 - **The offline reference layer** (D-065). A `reference` profile (post-1.0)
   with `kiwix-tools`, `kiwix`, `dictionaries` (dictd with GCIDE, WordNet,
   FOLDOC and VERA acronyms, on 127.0.0.1 as Debian ships it) and

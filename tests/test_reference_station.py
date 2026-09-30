@@ -113,6 +113,10 @@ def test_station_show_prints_the_books(
 ) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     monkeypatch.delenv("SUDO_USER", raising=False)
+    monkeypatch.setenv("USER", "op")
+    # Under `unshare -r` (euid 0, as CI runs) the owner-aware path would
+    # otherwise resolve the real account's home and read its station file.
+    monkeypatch.setattr(cli.os, "geteuid", lambda: 1000)
     save_station(
         Station(reference_books=("wikem_en_all_nopic",)),
         path=tmp_path / "hammunition" / "station.yml",

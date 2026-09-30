@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**272 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**275 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -302,10 +302,13 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `navigation-maps` — 14
+### `navigation-maps` — 17
 
 Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
 
+- [brouter](brouter.md) — BRouter, the offline router QMapShack runs for hiking, bike and car routes with elevation
+- [brouter-mapcreator-profiles](brouter-mapcreator-profiles.md) — The two filter files BRouter's map creator needs and its release zip leaves out
+- [brouter-segments](brouter-segments.md) — BRouter routing files built from your own regions, with elevation, never downloaded
 - [country-boundaries](country-boundaries.md) — Natural Earth's world country borders, which let Navit's address search find towns
 - [dem-copernicus](dem-copernicus.md) — Copernicus GLO-30 elevation tiles for your map regions, verified
 - [dem-qmapshack](dem-qmapshack.md) — Hillshade, slope and 20 m contour lines for QMapShack, from the elevation tiles
@@ -690,6 +693,9 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [baycomepp](baycomepp.md) | Driver for the HB9JNX parallel-port packet modem | apt |
 | [baycomusb](baycomusb.md) | Driver for the HB9JNX USB packet modem | apt |
 | [bladerf](bladerf.md) | Command-line tools for Nuand bladeRF transceivers | apt |
+| [brouter](brouter.md) | BRouter, the offline router QMapShack runs for hiking, bike and car routes with elevation | binary |
+| [brouter-mapcreator-profiles](brouter-mapcreator-profiles.md) | The two filter files BRouter's map creator needs and its release zip leaves out | data |
+| [brouter-segments](brouter-segments.md) | BRouter routing files built from your own regions, with elevation, never downloaded | derived |
 | [canadian-ham-exam](canadian-ham-exam.md) | Practice tests for the Canadian amateur radio qualification exams | apt |
 | [cassbeam](cassbeam.md) | Models Cassegrain dish antennas — the microwave and radio-astronomy case | apt |
 | [chirp](chirp.md) | Reads, edits and writes the memory channels of hundreds of radios | apt |
