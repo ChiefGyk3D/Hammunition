@@ -38,6 +38,7 @@ BLOCKS: dict[str, str] = {
     "ax25-tools": "/etc/ax25/axports",
     "gpredict": "~/.config/Gpredict/sample.qth",
     "tlf": "~/tlf/logcfg.dat",
+    "aprx": "/etc/aprx.conf",
 }
 
 #: Where a `~/` path lands in these tests: a stand-in operator home.
@@ -86,6 +87,8 @@ def test_no_block_templates_a_secret(catalog: dict[str, PackageManifest], unit: 
     """No password, passcode or key is ever templated (CLAUDE.md security)."""
     for config in catalog[unit].config_files:
         for line in _lines(config.template):
+            if line.strip() == "passcode -1":
+                continue  # aprx's shipped "no passcode": a receive-only login
             assert not re.search(r"pass(word|code)|secret|token|pwd", line, re.I), (
                 f"{unit}: {config.path} sets {line!r}"
             )
@@ -319,3 +322,29 @@ def test_tlf_keeps_a_portable_callsign(catalog: dict[str, PackageManifest]) -> N
     """A contest log is not AX.25: `W1AW/4` is a callsign tlf takes as is."""
     body = _render(catalog["tlf"], Station(callsign="W1AW/4", grid_square="FN31pr"))
     assert "CALL=W1AW/4" in _lines(body[str(HOME / "tlf/logcfg.dat")])
+
+
+# ---------------------------------------------------------------------------
+# aprx -- mycall, and the shipped receive-only login unchanged
+# ---------------------------------------------------------------------------
+
+
+def test_aprx_is_debians_active_settings_plus_mycall(catalog: dict[str, PackageManifest]) -> None:
+    body = _render(catalog["aprx"])["/etc/aprx.conf"]
+    assert _lines(body) == [
+        "mycall N0TST",
+        "<aprsis>",
+        "passcode -1",
+        "server rotate.aprs2.net",
+        "</aprsis>",
+        "<logging>",
+        "pidfile /var/run/aprx.pid",
+        "rflog /var/log/aprx/aprx-rf.log",
+        "aprxlog /var/log/aprx/aprx.log",
+        "</logging>",
+    ]
+
+
+def test_aprx_defers_a_callsign_ax25_cannot_carry(catalog: dict[str, PackageManifest]) -> None:
+    writable, deferred = _plan_config(catalog["aprx"], Station(callsign="G0ABC/P"), HOME)
+    assert not writable and "AX.25" in deferred[0].why
