@@ -269,6 +269,18 @@ def config_steps(plan: InstallPlan, *, staging_root: Path | None = None) -> list
                     requires_root=True,
                 )
             )
+        # `install` creates the file, never its directory. A drop-in under a
+        # directory nothing has made yet (`/etc/systemd/system/gpsd.service.d/`
+        # for the chrony unit's gpsd `-n`) would fail there, so the directory
+        # is made first, as its own printed step, only when it is missing now.
+        if not path.parent.exists():
+            steps.append(
+                Command(
+                    argv=("mkdir", "-p", "-m", "0755", str(path.parent)),
+                    description=f"Create {path.parent} for {config.path}",
+                    requires_root=True,
+                )
+            )
         steps.append(
             Command(
                 argv=("install", "-m", config.mode, str(staging), str(path)),

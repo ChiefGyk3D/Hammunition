@@ -354,3 +354,43 @@ def test_a_root_owned_config_becomes_staged_commands_not_an_in_process_write(
     staged = Path(install.argv[3])
     assert staged.read_text() == "CALL=M0ABC\n"
     assert "staged" in outcome
+
+
+def test_a_root_owned_config_in_a_missing_directory_makes_the_directory_first(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`install -m` writes a file, never its directory. A systemd drop-in
+    (`/etc/systemd/system/gpsd.service.d/...`, the chrony unit's) lands in a
+    directory nothing has created, so the plan makes it first -- a printed,
+    root step, and only when the directory is missing at plan time."""
+    import os as os_module
+
+    from hammunition.backends import Command
+    from hammunition.execute import config_steps
+    from hammunition.manifest.schema import ConfigFile
+
+    monkeypatch.setattr(os_module, "access", lambda *_a, **_k: False)
+    missing = tmp_path / "etc" / "systemd" / "system" / "gpsd.service.d"
+    present = tmp_path / "etc-present"
+    present.mkdir()
+
+    def commands_for_path(path: Path) -> list[Command]:
+        config = ConfigFile.model_validate(
+            {"path": str(path), "template": "[Service]\n", "mode": "0644"}
+        )
+
+        class PlanStub:
+            config_files: ClassVar[list[tuple[str, ConfigFile, str]]] = [
+                ("chrony", config, "[Service]\n")
+            ]
+
+        steps = config_steps(PlanStub(), staging_root=tmp_path)  # type: ignore[arg-type]
+        return [s for s in steps if isinstance(s, Command)]
+
+    commands = commands_for_path(missing / "hammunition-gps.conf")
+    assert [c.argv[0] for c in commands] == ["mkdir", "install"], commands
+    assert commands[0].argv == ("mkdir", "-p", "-m", "0755", str(missing))
+    assert commands[0].requires_root
+
+    commands = commands_for_path(present / "x.conf")
+    assert [c.argv[0] for c in commands] == ["install"], "an existing directory is not made again"
