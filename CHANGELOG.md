@@ -30,7 +30,7 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   wait its parser adds to every input under 100 MB. Measured end to end on
   synthetic regions against the pinned jar; a route drawn in QMapShack is
   owed by the bench.
-- **The offline reference layer** (D-065). A `reference` profile (post-1.0)
+- **The offline reference layer** (D-066). A `reference` profile (post-1.0)
   with `kiwix-tools`, `kiwix`, `dictionaries` (dictd with GCIDE, WordNet,
   FOLDOC and VERA acronyms, on 127.0.0.1 as Debian ships it) and
   `goldendict-ng` from the archive; `kiwix-library`, the Kiwix books chosen

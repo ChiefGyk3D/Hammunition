@@ -2,7 +2,7 @@
 
 **Status:** design approved by the maintainer (2026-09-29, relayed with the
 task); this document is written for the record and for the implementation
-plan. **Decision record:** D-065, written with the implementation. It is the
+plan. **Decision record:** D-066, written with the implementation. It is the
 fourth case D-049 named ("then the ZIM with `kiwix`") and ETC sub-project 5's
 offline-data layer (D-042 rule 5).
 
@@ -52,7 +52,7 @@ ZIMs read carry no `License` metadata:
 - US federal works: "US federal work, public domain (17 USC 105)"
 
 Carried: the 26 books of the spike's table that have a licence stated by
-their publisher. Not carried, each with its reason in D-065 and the guide:
+their publisher. Not carried, each with its reason in D-066 and the guide:
 wikiHow, the `zimgit-*` prepper collections, energypedia (licence not
 verified), whole Gutenberg, video-channel ZIMs, MedlinePlus, nhs.uk.
 

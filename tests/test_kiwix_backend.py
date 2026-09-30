@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""The Kiwix books backend: fetch, verify, install, remove.  D-065.
+"""The Kiwix books backend: fetch, verify, install, remove.  D-066.
 
 A small fake ZIM is served from loopback, so the real fetcher, the real
 sha256 check and the real verified copy into the prefix all run; only the

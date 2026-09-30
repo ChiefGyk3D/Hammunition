@@ -684,7 +684,7 @@ def test_deb_attribution_reads_the_install_deb_actions_outcome(tmp_path: Path) -
 
 
 def test_the_book_unit_plans_its_data_directory_whole(tmp_path: Path) -> None:
-    """D-065: the chosen books live only under the unit's namespaced data
+    """D-066: the chosen books live only under the unit's namespaced data
     directory, removed whole like every data unit (D-049)."""
     paths = paths_for(tmp_path)
     books = manifest("kiwix-library", install_override={"method": "kiwix-books"})

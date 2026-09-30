@@ -7,7 +7,7 @@ summary: An offline library -- Wikipedia, WikiMed, ham Q&A, dictionaries and the
 # set is the one accepted on 2026-08-29 and asserted by tests/test_schema.py.
 stage: post-1.0
 
-# D-065, docs/superpowers/specs/2026-09-29-reference-layer-design.md: the
+# D-066, docs/superpowers/specs/2026-09-29-reference-layer-design.md: the
 # offline reference layer ETC sub-project 5 named (D-042 rule 5). Readers are
 # apt units; the books and the forms are data units; serving is the engine
 # verb `hammunition reference serve`, not a unit.

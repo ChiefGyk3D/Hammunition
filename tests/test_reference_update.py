@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""`update` for the Kiwix books: offline against the pins, and upstream.  D-065.
+"""`update` for the Kiwix books: offline against the pins, and upstream.  D-066.
 
 Offline the question is the machine against the catalog: is each chosen
 book's pinned file installed. Upstream it is the catalog against Kiwix: is

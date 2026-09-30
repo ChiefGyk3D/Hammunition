@@ -259,7 +259,7 @@ def _tiles_row(planned: PlannedPackage, count: int, no_terrain: int = 0) -> Upda
 
 
 def books_state(chosen: Sequence[BookFile], installed: Path) -> tuple[str, str]:
-    """``(state, detail)`` for the Kiwix books unit, offline (D-065).
+    """``(state, detail)`` for the Kiwix books unit, offline (D-066).
 
     Each chosen book against its pin: the pinned file on disk at its exact
     size is current; another date of the same book is behind the pin; no

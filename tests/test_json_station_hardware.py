@@ -71,7 +71,7 @@ STATIONS = {
     "station-regions": Station(
         map_regions=("atlantis/oceania", "narnia/cair-paravel"), map_freshness="monthly"
     ),
-    # D-065: book ids are named in the text as well as the document.
+    # D-066: book ids are named in the text as well as the document.
     "station-books": Station(reference_books=("ham.stackexchange.com_en_all",)),
 }
 

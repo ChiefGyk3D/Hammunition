@@ -390,7 +390,7 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             return EXIT_FAILED
     else:
         map_regions = current.map_regions
-    # D-065: the same rule for books, and each id checked against the
+    # D-066: the same rule for books, and each id checked against the
     # catalog's book list now, while the operator is looking at the prompt.
     if args.reference_books is not None:
         reference_books = tuple(
@@ -621,7 +621,7 @@ def cmd_update(args: argparse.Namespace) -> int:
         if isinstance(planned.block.install, RegionalDataInstall)
     }
 
-    # Kiwix books, offline (D-065): each chosen book's pinned file on disk.
+    # Kiwix books, offline (D-066): each chosen book's pinned file on disk.
     chosen_books: dict[str, list[BookFile]] = {}
     books_by_unit: dict[str, tuple[str, str]] = {}
     for planned in plan.packages:
@@ -701,7 +701,7 @@ def _upstream_rows(
         probe_upstream(planned.manifest, http=http, ls_remote=ls_remote)
         for planned in plan.packages
     ]
-    # D-065: a book unit is asked about per chosen book, of Kiwix only.
+    # D-066: a book unit is asked about per chosen book, of Kiwix only.
     kiwix = KiwixProbe()
     for unit, chosen in (books or {}).items():
         rows.extend(probe_kiwix(unit, chosen, text=kiwix.text))
@@ -1075,7 +1075,7 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
 @envelope.json_capable()
 def cmd_reference_books(args: argparse.Namespace) -> int:
     """The Kiwix books the catalog offers, with size, licence and whether
-    chosen and installed.  D-065. Read from the catalog and the disk only."""
+    chosen and installed.  D-066. Read from the catalog and the disk only."""
     from hammunition.backends.kiwix import book_current
     from hammunition.interface.books import BookRow, BooksDocument
 
@@ -1126,7 +1126,7 @@ def cmd_reference_books(args: argparse.Namespace) -> int:
 
 
 def cmd_reference_serve(args: argparse.Namespace) -> int:
-    """The offline reference on one loopback page.  D-065.
+    """The offline reference on one loopback page.  D-066.
 
     Books through kiwix-serve (a child, on 127.0.0.1 only), the ICS forms
     and the dictionaries on a page from the standard library. Runs as the
@@ -1595,7 +1595,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         print("\nNothing was changed.", file=sys.stderr)
         refused("terrain", str(exc))
         return EXIT_UNPLANNABLE
-    # D-065: the chosen Kiwix books, resolved against the book list and its
+    # D-066: the chosen Kiwix books, resolved against the book list and its
     # pins, and every one not yet installed HEAD-checked, before the plan
     # prints: each book's size and licence are the disclosure, and a pin
     # Kiwix has dropped refuses here rather than after apt has run.
@@ -3589,7 +3589,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_maps_tether.set_defaults(func=cmd_maps_gps_tether)
 
     p_reference = sub.add_parser(
-        "reference", help="the offline reference: Kiwix books, ICS forms, dictionaries (D-065)"
+        "reference", help="the offline reference: Kiwix books, ICS forms, dictionaries (D-066)"
     )
     reference_sub = p_reference.add_subparsers(dest="reference_command", required=True)
     p_ref_books = reference_sub.add_parser(
@@ -3784,7 +3784,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="ID[,ID…]",
         help="comma-separated Kiwix book ids to carry offline; `hammunition reference "
-        "books` lists them (D-065)",
+        "books` lists them (D-066)",
     )
     p_station_set.add_argument("--user", default=None, help="whose configuration to write")
     p_station_set.set_defaults(func=cmd_station_set)

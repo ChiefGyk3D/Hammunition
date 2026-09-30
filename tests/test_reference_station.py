@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""The reference books the operator chose, in station config.  D-065.
+"""The reference books the operator chose, in station config.  D-066.
 
 A book id says what somebody reads, not where they are, so unlike a map
 region it is printed by `station show`. It is checked against the catalog's

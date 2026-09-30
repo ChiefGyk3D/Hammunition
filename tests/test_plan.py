@@ -1121,7 +1121,7 @@ def test_terrain_and_what_is_drawn_from_it_defer_with_the_regions(tmp_path: Path
 
 
 # ---------------------------------------------------------------------------
-# Reference books without a selection (D-065): deferred by name, readers install
+# Reference books without a selection (D-066): deferred by name, readers install
 # ---------------------------------------------------------------------------
 
 

@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Generate the Kiwix book pins.  D-065.
+"""Generate the Kiwix book pins.  D-066.
 
 Reads the hand-written allow-list, ``catalog/data/kiwix-books.yaml``, and
 writes ``catalog/data/kiwix-pins.yaml``: for each allowed book, the dated file

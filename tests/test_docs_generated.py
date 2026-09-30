@@ -529,7 +529,7 @@ def test_the_readme_manifest_count_matches_the_catalog() -> None:
 
 def test_the_readme_profile_counts_match_the_catalog() -> None:
     """The front page said "plus 5 post-1.0" after a sixth post-1.0 profile
-    (`reference`, D-065) landed beside it: the manifest count one row up had
+    (`reference`, D-066) landed beside it: the manifest count one row up had
     a test and this number had none (final review, 2026-09-29)."""
     profiles = load_profiles(REPO_ROOT / "catalog" / "profiles")
     one = sum(1 for p in profiles.values() if p.stage == "1.0")
@@ -932,7 +932,7 @@ def test_the_copernicus_check_reports_current_and_writes_nothing() -> None:
 
 
 # ---------------------------------------------------------------------------
-# The Kiwix book pins (catalog/data/kiwix-pins.yaml), D-065
+# The Kiwix book pins (catalog/data/kiwix-pins.yaml), D-066
 #
 # `--check --offline` compares the pin file with the hand-written book list
 # (one pin per listed book, in its order) and needs no network, so it runs

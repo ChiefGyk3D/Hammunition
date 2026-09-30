@@ -39,7 +39,7 @@ class StationDocument(Strict):
         "null means the yearly default applies"
     )
     reference_books: tuple[str, ...] = described(
-        "Kiwix book ids chosen for kiwix-library (D-065); empty when none are chosen"
+        "Kiwix book ids chosen for kiwix-library (D-066); empty when none are chosen"
     )
 
 
@@ -86,7 +86,7 @@ def render_station(doc: StationDocument) -> list[str]:
         lines.append(f"  {'map regions':<14} (not set)")
     lines.append(f"  {'map freshness':<14} {doc.map_freshness or 'yearly'}")
     # Which books somebody reads is not where they are: named, not counted
-    # (D-065). Shown only when chosen, so a station without them reads as
+    # (D-066). Shown only when chosen, so a station without them reads as
     # it always has.
     if doc.reference_books:
         lines.append(f"  {'reference books':<14} {', '.join(doc.reference_books)}")

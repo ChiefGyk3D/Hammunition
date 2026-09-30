@@ -996,7 +996,7 @@ REFERENCE_BOOKS_REMEDY = (
 
 
 def _reference_books_deferral(name: str) -> Deferral:
-    """D-065: the books wait for a choice; the readers install regardless."""
+    """D-066: the books wait for a choice; the readers install regardless."""
     return Deferral(
         subject=name,
         what="will not be installed: it is the reference books you have not chosen",
@@ -1232,7 +1232,7 @@ def resolve(
                 )
             continue
 
-        # D-065: the same shape for the Kiwix books. Nothing is chosen by
+        # D-066: the same shape for the Kiwix books. Nothing is chosen by
         # default, so with none chosen there is nothing to fetch.
         if not station.reference_books and isinstance(block.install, KiwixBooksInstall):
             if name in deferrable:

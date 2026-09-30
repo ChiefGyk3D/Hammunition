@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Kiwix books: the allow-list, the pin file and the station's selection.  D-065.
+"""Kiwix books: the allow-list, the pin file and the station's selection.  D-066.
 
 The allow-list is the curation step: a book the catalog does not list has no
 known licence to print, so choosing it is refused by name. The pin file is

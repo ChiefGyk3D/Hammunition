@@ -183,7 +183,7 @@ KIWIX_REGENERATE = "regenerate the pins with scripts/gen_kiwix_pins.py"
 def probe_kiwix(
     unit: str, books: Sequence[BookFile], *, text: Callable[[str], str]
 ) -> list[UpstreamRow]:
-    """Each chosen book's pin against the file Kiwix publishes now (D-065).
+    """Each chosen book's pin against the file Kiwix publishes now (D-066).
 
     One OPDS answer per book (about 3 KB). When Kiwix's newest file is not
     the pinned one, the pinned file's ``.meta4`` is asked for too: Kiwix
@@ -271,7 +271,7 @@ def render(rows: Sequence[UpstreamRow]) -> str:
             "A newer upstream is a catalog question: re-pin the manifest, measure the build, then"
         )
         out.append(f"`hammunition install {' '.join(newer)}` on a machine rebuilds at the new pin.")
-    # D-065: a book row is `<unit>/<book id>`, not a unit, and its re-pin is
+    # D-066: a book row is `<unit>/<book id>`, not a unit, and its re-pin is
     # the generator, not a manifest edit.
     books = sorted(
         {

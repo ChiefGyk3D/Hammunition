@@ -344,7 +344,7 @@ receiver, a rig's built-in GPS, a second machine) are in
 
 ### `hammunition reference books`
 
-The Kiwix books the catalog offers (**D-065**), one per entry of the
+The Kiwix books the catalog offers (**D-066**), one per entry of the
 hand-written `catalog/data/kiwix-books.yaml`: the id `station set
 --reference-books` takes, the pinned file's size, the publisher's licence
 line, and `[chosen]` / `[installed]` marks. Read from the catalog, the
@@ -367,7 +367,7 @@ not where they are, so unlike map regions the ids are named everywhere.
 
 ### `hammunition reference serve [--port N]`
 
-The offline reference on one page, on **127.0.0.1 only** (**D-065**):
+The offline reference on one page, on **127.0.0.1 only** (**D-066**):
 
 ```
 $ hammunition reference serve
@@ -1078,7 +1078,7 @@ hammunition station show
 | `--node-alias NAME` | Short packet node alias |
 | `--map-regions R[,R…]` | Geofabrik region paths for offline maps, e.g. `north-america/us/vermont,north-america/us/new-hampshire`. Replaces the whole list. Checked for shape only (lowercase words joined by `/`); whether Geofabrik has the region is checked at plan time (**D-057**) |
 | `--map-freshness MODE` | `yearly` (the default when unset), `monthly` or `latest`: which dated file each region resolves to, and so how it can be verified |
-| `--reference-books ID[,ID…]` | Kiwix books for `kiwix-library`, by id (`hammunition reference books` lists them). Replaces the whole list; an id the catalog's book list does not name is refused when you type it, and an empty list is refused (uninstall `kiwix-library` to remove the books) (**D-065**) |
+| `--reference-books ID[,ID…]` | Kiwix books for `kiwix-library`, by id (`hammunition reference books` lists them). Replaces the whole list; an id the catalog's book list does not name is refused when you type it, and an empty list is refused (uninstall `kiwix-library` to remove the books) (**D-066**) |
 
 A region list says where the operator lives or travels, so `station show`
 and `station set` print how many regions are set, never their names; the

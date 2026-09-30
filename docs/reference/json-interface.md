@@ -3011,7 +3011,7 @@ and a grid square or a map region says where the station is.
 | `node_alias` | string or null | the packet node alias; null when not set |
 | `map_regions` | list of string | Geofabrik region paths carrying offline map data; empty when none are set |
 | `map_freshness` | string or null | how often map data is refreshed: yearly, monthly or latest; null means the yearly default applies |
-| `reference_books` | list of string | Kiwix book ids chosen for kiwix-library (D-065); empty when none are chosen |
+| `reference_books` | list of string | Kiwix book ids chosen for kiwix-library (D-066); empty when none are chosen |
 
 <details><summary>JSON Schema</summary>
 

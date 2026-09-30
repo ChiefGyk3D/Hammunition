@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""The Kiwix pin file is generated; nothing here reaches the network.  D-065.
+"""The Kiwix pin file is generated; nothing here reaches the network.  D-066.
 
 The library index and every ``.meta4`` are injected. Two books: one with a
 flavour, one without, as the real allow-list has both.

@@ -153,7 +153,7 @@ hamradio-tools        hamradio-training
 Two more `hamradio-*` binaries exist from other source packages: `hamradio-files`
 (callsign and prefix lists) and `hamradio-maintguide` -- the Debian Hamradio
 team's guide to *packaging*, not operator documentation (read 2026-09-29,
-D-065): the archive carries no band plan, signal guide or EMCOMM manual.
+D-066): the archive carries no band plan, signal guide or EMCOMM manual.
 
 Naming gotchas worth putting in the docs: CW is `hamradio-morse`, not `hamradio-cw`;
 packet is `hamradio-packetmodes`, not `hamradio-packet`; there is no `hamradio-aprs`.

@@ -92,7 +92,7 @@ REGION = re.compile(r"[a-z0-9-]+(/[a-z0-9-]+)*")
 _MAP_FIELDS = frozenset({"map_regions", "map_freshness"})
 
 #: Data selections read directly by their subsystem, never templated: the map
-#: settings above, and the Kiwix books chosen for `kiwix-library` (D-065).
+#: settings above, and the Kiwix books chosen for `kiwix-library` (D-066).
 _DATA_FIELDS = _MAP_FIELDS | {"reference_books"}
 
 
@@ -118,7 +118,7 @@ class Station:
     reference_books: tuple[str, ...] = ()
     """Kiwix book ids from ``catalog/data/kiwix-books.yaml``, e.g.
     ``ham.stackexchange.com_en_all``. None means ``kiwix-library`` is
-    deferred (D-065). Which books somebody reads is not where they are, so
+    deferred (D-066). Which books somebody reads is not where they are, so
     these are printed where map regions are only counted."""
 
     def __post_init__(self) -> None:

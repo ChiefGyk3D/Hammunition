@@ -6,7 +6,7 @@ version: "25.06.0"
 summary: A desktop dictionary that looks words up in dictd and in Kiwix books
 categories: [references]
 
-# D-065. 25.06.0 on Debian 13 and Parrot (26.5.4 in forky), 23.12.26 on
+# D-066. 25.06.0 on Debian 13 and Parrot (26.5.4 in forky), 23.12.26 on
 # Ubuntu 24.04, 26.1.1 on Ubuntu 26.04 (measured 2026-09-29). `goldendict` is
 # now only a transitional package to this one. Qt6 WebEngine; it links libzim,
 # so it reads ZIM files as well as DICT servers.

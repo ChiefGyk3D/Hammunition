@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: CC0-1.0
 
-# The Kiwix books the catalog offers (D-065). HAND-WRITTEN: this is the
+# The Kiwix books the catalog offers (D-066). HAND-WRITTEN: this is the
 # curation step, and the licence lines cannot be generated -- of nine ZIMs
 # read on 2026-09-29 one carried a License metadata entry, so each line here
 # is the publisher's own, from the page `licence_url` names.
@@ -15,7 +15,7 @@
 # After adding or removing a book, regenerate the pins:
 #   scripts/gen_kiwix_pins.py
 #
-# Not carried, each for its stated reason in D-065 and
+# Not carried, each for its stated reason in D-066 and
 # docs/guides/offline-reference.md: wikiHow (no current ZIM; CC BY-NC-SA),
 # the zimgit-* prepper collections (no licence stated anywhere), energypedia
 # (licence not verified), Gutenberg whole (221 GB), video-channel ZIMs and

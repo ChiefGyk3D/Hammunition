@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""``reference books`` as data.  D-065, D-059."""
+"""``reference books`` as data.  D-066, D-059."""
 
 from __future__ import annotations
 

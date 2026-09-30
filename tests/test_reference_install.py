@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""The chosen books, resolved before the plan prints.  D-065.
+"""The chosen books, resolved before the plan prints.  D-066.
 
 Resolution asks nothing of the network for a book already installed at its
 pin. Every book about to be fetched is asked for once, by ``HEAD``, so a pin

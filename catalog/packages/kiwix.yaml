@@ -6,7 +6,7 @@ version: "2.4.1"
 summary: The Kiwix desktop reader for offline Wikipedia and other ZIM books
 categories: [references]
 
-# D-065. Debian's `kiwix` binary package *is* kiwix-desktop; there is no
+# D-066. Debian's `kiwix` binary package *is* kiwix-desktop; there is no
 # package of that name. 2.4.1 on Debian 13, Parrot and Ubuntu 26.04, 2.3.1 on
 # Ubuntu 24.04 (measured 2026-09-29), built on Qt5 WebEngine, which is most of
 # what it adds to a desktop that does not already have it.

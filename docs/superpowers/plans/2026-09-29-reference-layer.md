@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Carry Kiwix books, dictionaries and the ICS forms as catalog units, pinned and disclosed, and serve them on one loopback page (D-065).
+**Goal:** Carry Kiwix books, dictionaries and the ICS forms as catalog units, pinned and disclosed, and serve them on one loopback page (D-066).
 
 **Architecture:** Readers are apt units; the payloads are a new `kiwix-books` method (station-selected, pins generated into `catalog/data/`) and a `data` unit; serving is an engine verb that starts `kiwix-serve` as a loopback child beside a stdlib landing server.
 
@@ -110,6 +110,6 @@
 
 ### Task 10: Docs and records
 
-- [ ] `docs/guides/offline-reference.md` (install, choose books, serve, dictionaries, forms, what is not carried and why, bench status); `docs/reference/cli.md`; `CHANGELOG.md` Unreleased; `CLAUDE.md` table row; `## D-065` appended at the end of `docs/DECISIONS.md`; the three corrections (etc-inventory generator note, and any page saying otherwise); `make check` exit 0 captured to a log; commit.
+- [ ] `docs/guides/offline-reference.md` (install, choose books, serve, dictionaries, forms, what is not carried and why, bench status); `docs/reference/cli.md`; `CHANGELOG.md` Unreleased; `CLAUDE.md` table row; `## D-066` appended at the end of `docs/DECISIONS.md`; the three corrections (etc-inventory generator note, and any page saying otherwise); `make check` exit 0 captured to a log; commit.
 
 ### Task 11: Whole-branch review (one opus subagent), fix, re-check, report.

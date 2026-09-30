@@ -6,7 +6,7 @@ version: "1.13.1"
 summary: A local dictionary server with an English dictionary, a thesaurus, computing terms and acronyms
 categories: [references]
 
-# D-065. EmComm Tools OS installs `dict dictd dict-gcide`; this adds WordNet,
+# D-066. EmComm Tools OS installs `dict dictd dict-gcide`; this adds WordNet,
 # FOLDOC and VERA (acronyms, which radio traffic is full of). About 32 MB
 # installed (measured 2026-09-29). dictd's own /etc/dictd/dictd.conf, as the
 # package ships it, already says `listen_to 127.0.0.1` and `allow localhost`:

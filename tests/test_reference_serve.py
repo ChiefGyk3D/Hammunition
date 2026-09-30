@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""`hammunition reference serve` and `reference books`.  D-065.
+"""`hammunition reference serve` and `reference books`.  D-066.
 
 The property that matters most is the one a person would never see:
 kiwix-serve listens on every address unless it is told otherwise (measured

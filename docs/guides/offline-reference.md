@@ -14,7 +14,7 @@ English dictionary, a thesaurus, computing terms and acronyms, and FEMA's
 ICS forms. `hammunition reference serve` shows all of it on one page in a
 browser, on this machine only.
 
-The decision behind this is **D-065** in `docs/DECISIONS.md`; the method
+The decision behind this is **D-066** in `docs/DECISIONS.md`; the method
 the books use is **D-049**'s offline-data layer.
 
 ---

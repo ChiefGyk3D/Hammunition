@@ -533,7 +533,7 @@ wide because only the catalog knows what `source` resolves to (D-061).
 
 ### `KiwixBooksInstall`
 
-The Kiwix books the operator chose in station config (D-065).
+The Kiwix books the operator chose in station config (D-066).
 
 Like `DemTilesInstall`, nothing is pinned in the manifest: which books
 follows ``reference_books`` in station config, and each book resolves at

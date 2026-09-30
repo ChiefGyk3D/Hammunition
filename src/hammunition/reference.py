@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""`hammunition reference serve`: the offline reference on one loopback page.  D-065.
+"""`hammunition reference serve`: the offline reference on one loopback page.  D-066.
 
 Three kinds of thing, kept apart as the catalog keeps them: the books are
 ZIM files read by ``kiwix-serve``; the ICS forms are PDFs, which are just

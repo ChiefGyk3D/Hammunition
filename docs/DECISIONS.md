@@ -5925,7 +5925,7 @@ the CLI's is `docs/reference/cli.md`. Tests: `tests/test_brouter.py`,
 `tests/test_qmapshack_brouter.py`, and the pins and profile in
 `tests/test_navigation_catalog.py`.
 
-## D-065 — The offline reference layer: Kiwix books chosen by name and pinned from their `.meta4`, dictd on loopback, FEMA's ICS forms, and one loopback page
+## D-066 — The offline reference layer: Kiwix books chosen by name and pinned from their `.meta4`, dictd on loopback, FEMA's ICS forms, and one loopback page
 
 **Date:** 2026-09-29. **Status:** accepted (maintainer, 2026-09-29, the
 design of the day's spike, relayed with the task). **Spec:**
@@ -5936,6 +5936,9 @@ D-035 (a missing station value defers), D-053 (`update` and
 `--upstream`), D-059 (a `books` document; a server has no JSON form),
 D-021 (state a licence, never adjudicate it). **Amends:** D-053, whose
 upstream states gain *pin expired*.
+**Numbering:** written as D-065 and renumbered D-066 before merging,
+because D-065 went to the documentation site (PR #154) the same morning;
+the spec, plan and commits before the renumbering say D-065.
 
 ### What was measured
 

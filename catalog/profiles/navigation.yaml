@@ -63,7 +63,7 @@ documentation:
     wrong, and `hammunition update` says when newer map data is pinned.
   deliberately_excludes: >-
     Tile servers are the next piece of this work; Kiwix and the rest of the
-    offline reference are the `reference` profile (D-065). Viking, Marble,
+    offline reference are the `reference` profile (D-066). Viking, Marble,
     GPSPrune and JOSM were measured and left out: Debian's Viking renders
     nothing offline, Marble's offline place index has no packaged builder,
     and GPSPrune and JOSM use online tiles. BRouter's published routing

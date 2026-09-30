@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""The Kiwix books backend: the station's chosen books.  D-065.
+"""The Kiwix books backend: the station's chosen books.  D-066.
 
 The books come from station config, resolved against the catalog's book list
 and its generated pins (:func:`hammunition.kiwix.resolve_books`) before this

@@ -6,7 +6,7 @@ version: "3.7.0"
 summary: Kiwix's command-line reader, server and library manager for offline ZIM books
 categories: [references]
 
-# D-065. The reader half of the offline reference: `hammunition reference
+# D-066. The reader half of the offline reference: `hammunition reference
 # serve` runs kiwix-serve from here, on 127.0.0.1 only. Measured 2026-09-29:
 # 3.7.0 on Debian 13 and Parrot, 3.5.0 on Ubuntu 24.04, 3.7.0 on Ubuntu 26.04;
 # upstream's latest tag is 3.8.2. The closure on a machine without it is 8
