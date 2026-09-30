@@ -742,6 +742,7 @@ Everything an install will do, section by section as the text prints it.
 | `deferrals` | list of [`DeferralLine`](#deferralline) | what will NOT happen |
 | `notes` | list of string | the plan's notes |
 | `records` | [`RecordsLine`](#recordsline) or null | where the transaction log goes |
+| `sudo` | [`SudoLine`](#sudoline) or null | present when a run as a user mixes root steps with steps that are not (D-062); null when run as root or when sudo is needed by every step or none |
 | `commands` | list of [`StepView`](#stepview) | every step, in order |
 | `suggestion_notes` | list of string | what happened to the profiles' suggestion groups; the text prints these as `note:` lines |
 | `region_notes` | list of string | notes from resolving the map regions; the text prints these as `note:` lines |
@@ -1029,6 +1030,16 @@ Where the transaction log is written.
 |---|---|---|
 | `log` | string | the transaction log file |
 | `handed_to` | string or null | the operator it is chowned to, under sudo |
+
+#### `SudoLine`
+
+How a run as a user keeps sudo from asking twice (D-062).
+
+| field | type | meaning |
+|---|---|---|
+| `keepalive` | boolean | true when the run validates sudo once and refreshes its ticket until the run ends; false when `--no-sudo-keepalive` turned it off |
+| `interval_seconds` | integer | seconds between `sudo -n -v` refreshes |
+| `text` | string | what the plan prints about it |
 
 #### `StepView`
 
@@ -1629,6 +1640,16 @@ A unit and files.
             }
           ]
         },
+        "sudo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SudoLine"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "commands": {
           "items": {
             "$ref": "#/$defs/StepView"
@@ -1666,6 +1687,7 @@ A unit and files.
         "deferrals",
         "notes",
         "records",
+        "sudo",
         "commands",
         "suggestion_notes",
         "region_notes"
@@ -2183,6 +2205,31 @@ A unit and files.
         "requires_root"
       ],
       "title": "StepView",
+      "type": "object"
+    },
+    "SudoLine": {
+      "additionalProperties": false,
+      "description": "How a run as a user keeps sudo from asking twice (D-062).",
+      "properties": {
+        "keepalive": {
+          "title": "Keepalive",
+          "type": "boolean"
+        },
+        "interval_seconds": {
+          "title": "Interval Seconds",
+          "type": "integer"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "keepalive",
+        "interval_seconds",
+        "text"
+      ],
+      "title": "SudoLine",
       "type": "object"
     },
     "TargetView": {

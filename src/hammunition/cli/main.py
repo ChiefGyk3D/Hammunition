@@ -37,7 +37,7 @@ import sys
 import tempfile
 import textwrap
 import traceback
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn, TextIO, cast
@@ -85,6 +85,7 @@ from hammunition.country_boundaries import BoundarySource, CountryBoundaryError,
 from hammunition.desktop import current_desktop, scan_sessions
 from hammunition.distro import DetectionError, Target
 from hammunition.execute import (
+    ExecutionReport,
     Step,
     already_built,
     artifact_removal_steps,
@@ -142,6 +143,7 @@ from hammunition.station import (
     prompt_for,
     save_station,
 )
+from hammunition.sudo_ticket import SudoKeepalive, keepalive_wanted
 from hammunition.terrain_plan import build_terrain_run, resolve_station_terrain
 from hammunition.update import region_snapshots, render, report, requested_units
 from hammunition.upstream import (
@@ -1497,6 +1499,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         maps=maps,
         region_notes=region_notes,
         terrain=terrain_view,
+        sudo_keepalive=args.sudo_keepalive,
     )
     if envelope.wanted(args):
         # Reached only with --dry-run: main() refuses a real install under
@@ -1587,16 +1590,22 @@ def cmd_install(args: argparse.Namespace) -> int:
     # exit code of 0 from apt-get or gpasswd is not evidence the package landed
     # or the membership took, and transaction_end is the record uninstall will
     # trust.
-    report = execute(
+    report = run_with_sudo_ticket(
         commands,
-        runner,
-        log=log,
-        plan=plan,
-        echo=print,
         euid=euid,
-        prober=apt,
-        prefix=source.prefix,
-        launcher_bin=user_bin_dir(user or None),
+        keepalive=args.sudo_keepalive,
+        log=log,
+        run=lambda: execute(
+            commands,
+            runner,
+            log=log,
+            plan=plan,
+            echo=print,
+            euid=euid,
+            prober=apt,
+            prefix=source.prefix,
+            launcher_bin=user_bin_dir(user or None),
+        ),
     )
     if log.ownership_error:
         # Not fatal — the commands ran — but not silent either. A log the
@@ -1646,6 +1655,84 @@ def cmd_install(args: argparse.Namespace) -> int:
         file=sys.stderr,
     )
     return EXIT_FAILED
+
+
+def run_with_sudo_ticket(
+    commands: Sequence[Step],
+    *,
+    euid: int,
+    keepalive: bool,
+    log: TransactionLog,
+    run: Callable[[], ExecutionReport],
+    make_keepalive: Callable[[], SudoKeepalive] | None = None,
+) -> ExecutionReport:
+    """Run a confirmed transaction, holding sudo's ticket while it runs (D-062).
+
+    Only when the plan said so: a run as a user that mixes root steps with
+    steps that are not, and no ``--no-sudo-keepalive``. Reached only after
+    the plan printed and the operator confirmed, so a dry run never gets
+    here and never runs sudo. ``--yes`` changes nothing about it: the
+    password prompt is sudo's own and is asked whether or not the
+    confirmation was skipped.
+
+    ``sudo -v`` asks once, before the first step, while the operator is
+    still at the keyboard. If it fails, nothing is refreshed and every root
+    step prompts as it would have without D-062. The refresh stops when
+    ``run`` returns or raises, and the log records how it went.
+    """
+    if not (keepalive and keepalive_wanted(commands, euid=euid)):
+        return run()
+
+    def warn(message: str) -> None:
+        print(f"\nwarning: {message}", file=sys.stderr)
+
+    ticket = make_keepalive() if make_keepalive is not None else SudoKeepalive(warn=warn)
+    print("\nsudo: asking once, before the first step (D-062).")
+    if not ticket.validate():
+        print(
+            "\nwarning: `sudo -v` did not succeed, so sudo's ticket will not be kept "
+            "valid. Each step that needs root asks for itself.",
+            file=sys.stderr,
+        )
+        log.append(
+            {
+                "event": "sudo_keepalive_begin",
+                "version": 1,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "validated": False,
+                "interval_seconds": ticket.interval,
+            }
+        )
+        return run()
+    log.append(
+        {
+            "event": "sudo_keepalive_begin",
+            "version": 1,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "validated": True,
+            "interval_seconds": ticket.interval,
+        }
+    )
+    ticket.start()
+    try:
+        return run()
+    finally:
+        failure = ticket.stop()
+        log.append(
+            {
+                "event": "sudo_keepalive_end",
+                "version": 1,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "refreshes": ticket.refreshes,
+                "failed": None
+                if failure is None
+                else {
+                    "argv": list(failure.argv),
+                    "returncode": failure.returncode,
+                    "timestamp": failure.timestamp,
+                },
+            }
+        )
 
 
 def stale_lists_diagnosis(failed: Command | Action, stderr: str) -> str | None:
@@ -3218,6 +3305,17 @@ def build_parser() -> argparse.ArgumentParser:
             "run `apt-get update` as the first command of the transaction, when the "
             "transaction has apt work (the default; D-044). --no-refresh skips it: a "
             "local mirror, or a station with no uplink"
+        ),
+    )
+    p_install.add_argument(
+        "--sudo-keepalive",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "when run as a user, ask sudo's password once before the first step and keep "
+            "its ticket valid until the run ends, so a long unprivileged step cannot leave "
+            "a later root step waiting at a prompt (the default; D-062). "
+            "--no-sudo-keepalive turns it off"
         ),
     )
     p_install.add_argument(

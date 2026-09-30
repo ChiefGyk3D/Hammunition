@@ -25,20 +25,33 @@ all four target containers, whose apt lists are empty. Blocking `apt-get`,
 `apt-cache`, `apt`, `dpkg`, `dpkg-query` and `sudo` at the real runner makes
 that a failure everywhere, naming the mock to add. Compilers, tar and the
 rest stay open: the source-build tests run real builds on purpose.
+
+**No test runs the real sudo, by either route.** The keepalive (D-062) runs
+``sudo -v`` and ``sudo -n -v`` itself rather than through a runner, so it is
+guarded separately: a ``sudo`` that resolves anywhere but under the test's
+temporary directory -- a fake written by ``fake_tools.install_fakes`` --
+fails the test. ``sudo -v`` on a developer's terminal would otherwise stop
+the suite at a password prompt, and in CI it would quietly test nothing.
 """
 
 from __future__ import annotations
 
+import shutil
 import socket
+import tempfile
+from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
 
 import pytest
 
+import hammunition.sudo_ticket as sudo_ticket
 from hammunition.backends.base import Command, CommandResult, SubprocessRunner
 
 _real_connect = socket.socket.connect
 _real_connect_ex = socket.socket.connect_ex
 _real_run = SubprocessRunner.run
+_real_sudo_run = sudo_ticket._run
 
 MACHINE_QUERIES = frozenset({"apt-get", "apt-cache", "apt", "dpkg", "dpkg-query", "sudo"})
 
@@ -65,6 +78,33 @@ def _no_machine_queries() -> Any:
         yield
     finally:
         SubprocessRunner.run = _real_run  # type: ignore[method-assign]
+
+
+def _fake(program: str) -> bool:
+    """Whether *program* resolves on PATH to a file under the temp directory,
+    or to nothing at all (the missing-sudo case is a test of its own)."""
+    found = shutil.which(program)
+    if found is None:
+        return True
+    return Path(found).resolve().is_relative_to(Path(tempfile.gettempdir()).resolve())
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _no_real_sudo() -> Any:
+    def guard(argv: Sequence[str], interactive: bool) -> int:
+        if argv and not _fake(argv[0]):
+            raise MachineQueried(
+                f"the test suite blocked the real {argv[0]!r} ({' '.join(argv)}). Put a "
+                f"fake sudo first on PATH with fake_tools.install_fakes, or pass "
+                f"SudoKeepalive a run= function."
+            )
+        return _real_sudo_run(argv, interactive)
+
+    sudo_ticket._run = guard
+    try:
+        yield
+    finally:
+        sudo_ticket._run = _real_sudo_run
 
 
 def _loopback(address: Any) -> bool:

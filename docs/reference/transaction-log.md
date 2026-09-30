@@ -214,6 +214,35 @@ the key and where it was written.
 
 ---
 
+## `sudo_keepalive_begin` and `sudo_keepalive_end`
+
+Written by an `install` run as a user whose plan mixes root steps with steps
+that are not, unless `--no-sudo-keepalive` was given (**D-062**): the run
+asks sudo's password once and keeps sudo's ticket valid until it ends.
+Neither is written by a dry run, by a run as root, or with the flag.
+
+`sudo_keepalive_begin` comes after the confirmation and before
+`transaction_begin`, once `sudo -v` has returned:
+
+| Field | Meaning |
+|---|---|
+| `validated` | Whether `sudo -v` succeeded. `false` means nothing is refreshed and each root step asks for itself; no `sudo_keepalive_end` follows. |
+| `interval_seconds` | Seconds between `sudo -n -v` refreshes: 240 by default. |
+
+`sudo_keepalive_end` comes after the transaction's own last entry, whether it
+ended in `transaction_end` or `transaction_failed`, when the refreshing stops:
+
+| Field | Meaning |
+|---|---|
+| `refreshes` | How many `sudo -n -v` refreshes succeeded. |
+| `failed` | `null`, or the refresh that failed and stopped it: `argv`, `returncode`, and its own `timestamp`. After it, a root step may have prompted. |
+
+Nothing about the password is ever in the log: the engine never sees it.
+A `sudo_keepalive_begin` with no `sudo_keepalive_end` is a run that was
+killed; the refreshing died with it.
+
+---
+
 ## The uninstall lifecycle
 
 Written by `hammunition uninstall`. Same before/after ordering, same
