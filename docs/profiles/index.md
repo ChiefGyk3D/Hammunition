@@ -7,7 +7,7 @@ Named bundles of software that belong together. Flat tags with overlap, never ne
 | Profile | Stage | Packages | Summary |
 |---|---|---:|---|
 | [antenna](antenna.md) | 1.0 | 10 | Antenna modelling, transmission lines and coverage prediction |
-| [digital-modes](digital-modes.md) | 1.0 | 20 | FT8, JS8, PSK31, SSTV, digital voice and the rest of the keyboard modes |
+| [digital-modes](digital-modes.md) | 1.0 | 21 | FT8, JS8, PSK31, SSTV, digital voice and the rest of the keyboard modes |
 | [editors](editors.md) | post-1.0 | 2 | VS Code and VSCodium, opt-in, each behind its publisher's apt repository |
 | [electronics](electronics.md) | 1.0 | 13 | Bench electronics, instruments and device programmers |
 | [listening](listening.md) | 1.0 | 24 | Shortwave, utility and aeronautical listening — no licence, no transmitter |

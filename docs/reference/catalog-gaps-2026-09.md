@@ -424,7 +424,7 @@ before a manifest. Nothing here is transmit-capable except where said.
 | `programmer` | | **`cc2538-bsl`** and `catnip` (Electronic Cats) | The CatSniffer V3's firmware loader; Electronic Cats' own docs prefer `catnip`, and Kismet's page says `cc2538-bsl` worked and `catnip` did not in their testing | venv (pyserial, intelhex) | ADD `cc2538-bsl` on the CatSniffer page; the device is owned, so this is measurable now |
 | `programmer` | | `pyocd`, `platformio` | `pyocd` for nRF and STM32 over SWD; PlatformIO is the Meshtastic/MeshCore build tool (#105) | venv | On demand |
 | `serial-terminals` | 5 | `ser2net` (measured 2026-09-30: all seven targets) | See A2 | apt | ADD (added 2026-09-30, in no profile: see *Measured since*) |
-| `device-support` | 8 | `qpwgraph`, `pavucontrol` | See A3 | apt | ADD |
+| `device-support` | 8 | `qpwgraph` (measured 2026-09-30: all seven targets), `pavucontrol` | See A3 | apt | ADD (`qpwgraph` added 2026-09-30, `digital-modes`) |
 
 ### Group 7 — RF Security & Research
 

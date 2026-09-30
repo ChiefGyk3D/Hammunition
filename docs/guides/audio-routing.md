@@ -84,13 +84,13 @@ rule applies to all of them.
 
 ## 6. A patchbay when something is not where you think
 
-`qpwgraph` draws every PipeWire device and every connection as boxes and
-wires, so "which input is WSJT-X actually listening to?" is answered by
-looking. It is not in the catalog yet ([gap analysis,
-A3](../reference/catalog-gaps-2026-09.md)); install it with apt:
+[qpwgraph](../packages/qpwgraph.md) draws every PipeWire device and every
+connection as boxes and wires, so "which input is WSJT-X actually
+listening to?" is answered by looking. It is in the
+[`digital-modes`](../profiles/digital-modes.md) profile; on its own:
 
 ```sh
-sudo apt install qpwgraph
+hammunition install qpwgraph
 ```
 
 `pavucontrol` is the older, simpler tool: its *Recording* and *Playback*

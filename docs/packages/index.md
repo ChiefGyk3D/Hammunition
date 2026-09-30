@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**287 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**288 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -135,7 +135,7 @@ HamClock-style boards: grey line, propagation, spots and the day at a glance.
 - [openhamclock](openhamclock.md) — Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites
 - [sunclock](sunclock.md) — World map showing the day-night terminator and where the sun is now
 
-### `device-support` — 8
+### `device-support` — 9
 
 lsusb, lspci, packet-modem drivers and companions for devices that need one.
 
@@ -145,6 +145,7 @@ lsusb, lspci, packet-modem drivers and companions for devices that need one.
 - [hammunition-tray-qt](hammunition-tray-qt.md) — Tray switches for parking and waking radio devices on Xfce, LXQt, LXDE, MATE and Cinnamon — the Hammunition family's own
 - [pciutils](pciutils.md) — lspci — for the SDRs and capture cards that are not on USB
 - [qflipper](qflipper.md) — Desktop companion for the Flipper Zero — firmware, files, and CLI over USB
+- [qpwgraph](qpwgraph.md) — PipeWire patchbay -- see and change which program is connected to which sound card
 - [usbutils](usbutils.md) — lsusb — step one of every hardware problem in this catalog
 - [z8530-utils2](z8530-utils2.md) — Configures Z8530-based HDLC cards for high-speed packet
 
@@ -878,6 +879,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [qgrid](qgrid.md) | Maidenhead grid square calculator with a map and a compass | source |
 | [qlog](qlog.md) | Modern Qt station log with award tracking and online-service upload | apt, git |
 | [qmapshack](qmapshack.md) | Offline topographic maps, trails, GPX tracks, elevation profiles and routing on foot | apt |
+| [qpwgraph](qpwgraph.md) | PipeWire patchbay -- see and change which program is connected to which sound card | apt |
 | [qrq](qrq.md) | High-speed Morse trainer that pushes your callsign copy to its limit | apt |
 | [qsstv](qsstv.md) | Slow-scan television and radiofax — receive and transmit pictures | apt |
 | [qtbpqaprs](qtbpqaprs.md) | G8BPQ's Qt APRS client, the messaging-focused one | git |

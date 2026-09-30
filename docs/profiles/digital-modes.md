@@ -8,7 +8,7 @@
 
 ## What it installs
 
-fldigi and the NBEMS stack that surrounds it, the whole FT8 family, JS8Call, SSTV and radiofax, open digital voice, two small PSK31 clients, a general-purpose FSK modem, a QRSS receiver, and the measuring tools that let you compare two of them honestly.
+fldigi and the NBEMS stack that surrounds it, the whole FT8 family, JS8Call, SSTV and radiofax, open digital voice, two small PSK31 clients, a general-purpose FSK modem, a QRSS receiver, the measuring tools that let you compare two of them honestly, and `qpwgraph`, a PipeWire patchbay that shows which sound card each program is wired to.
 
 **Disk footprint:** Around 1.2 GB installed — 1.28 GB measured on Kali rolling, 2026-09-02, as `df` before minus after with the build trees and apt cache subtracted. The build trees are another 0.9 GB in `~/.cache/hammunition/build` until you clear them, and **five of these are source builds** — fldigi, WSJT-X, MSHV, glfer and xwefax — so expect a long install. fldigi purges the repository package first, because the source build installs to the same prefix.
 
@@ -17,9 +17,9 @@ fldigi and the NBEMS stack that surrounds it, the whole FT8 family, JS8Call, SST
 This is the reason most people install something like this. It is the widest profile in the set and it is still coherent: everything here turns sound-card audio into text, pictures or speech through a transceiver, and everything here has the same three prerequisites — audio in, audio out, and a way to key the radio.
 **`wsjtx` is the recommended default of the FT8 family.** `jtdx` and `mshv` also decode FT8 and both declare themselves not the default; they are carried because each has a real constituency — a better decoder in crowded conditions, multi-stream decoding for a pileup — and because PARITY-POLICY requires the choice be visible rather than made silently.
 
-## Packages (20)
+## Packages (21)
 
-[`fldigi`](../packages/fldigi.md), [`flmsg`](../packages/flmsg.md), [`flamp`](../packages/flamp.md), [`flwrap`](../packages/flwrap.md), [`comptext`](../packages/comptext.md), [`comptty`](../packages/comptty.md), [`wsjtx`](../packages/wsjtx.md), [`jtdx`](../packages/jtdx.md), [`mshv`](../packages/mshv.md), [`js8call`](../packages/js8call.md), [`qsstv`](../packages/qsstv.md), [`freedv`](../packages/freedv.md), [`psk31lx`](../packages/psk31lx.md), [`twpsk`](../packages/twpsk.md), [`minimodem`](../packages/minimodem.md), [`glfer`](../packages/glfer.md), [`xwefax`](../packages/xwefax.md), [`multimon-ng`](../packages/multimon-ng.md), [`qtel`](../packages/qtel.md), [`flrig`](../packages/flrig.md)
+[`fldigi`](../packages/fldigi.md), [`flmsg`](../packages/flmsg.md), [`flamp`](../packages/flamp.md), [`flwrap`](../packages/flwrap.md), [`comptext`](../packages/comptext.md), [`comptty`](../packages/comptty.md), [`wsjtx`](../packages/wsjtx.md), [`jtdx`](../packages/jtdx.md), [`mshv`](../packages/mshv.md), [`js8call`](../packages/js8call.md), [`qsstv`](../packages/qsstv.md), [`freedv`](../packages/freedv.md), [`psk31lx`](../packages/psk31lx.md), [`twpsk`](../packages/twpsk.md), [`minimodem`](../packages/minimodem.md), [`glfer`](../packages/glfer.md), [`xwefax`](../packages/xwefax.md), [`multimon-ng`](../packages/multimon-ng.md), [`qpwgraph`](../packages/qpwgraph.md), [`qtel`](../packages/qtel.md), [`flrig`](../packages/flrig.md)
 
 ## What it deliberately excludes
 
@@ -29,5 +29,5 @@ Packet and Winlink, which are `packet`. Morse, which is `morse` — fldigi decod
 
 ## What you configure by hand afterward
 
-**An accurate clock is not optional for FT8.** It transmits in 15-second windows and a clock more than about a second out decodes nothing while appearing to work — run NTP or chrony before anything else. **Audio routing is the other thing nothing here does for you**: sound card in and out to the radio, at levels that do not overdrive it, and PTT through hamlib, flrig, CAT or VOX. Transmit audio level is the single biggest cause of a station that hears everyone and is heard by nobody.
+**An accurate clock is not optional for FT8.** It transmits in 15-second windows and a clock more than about a second out decodes nothing while appearing to work — run NTP or chrony before anything else. **Audio routing is the other thing nothing here does for you**: sound card in and out to the radio, at levels that do not overdrive it, and PTT through hamlib, flrig, CAT or VOX. Transmit audio level is the single biggest cause of a station that hears everyone and is heard by nobody. The radio-audio guide (docs/guides/audio-routing.md) walks through it, and `qpwgraph` shows the result.
 **Running several of the FT8 family at once contends for the same sound device and the same radio** — pick one per session. SSTV needs the sound card's sample rate calibrated once per machine or every picture slants, which people blame on the band.

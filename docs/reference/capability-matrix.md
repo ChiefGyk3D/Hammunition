@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 202 | 7 | 76 | 2 | 0 |
-| ubuntu-26.04 | 204 | 5 | 76 | 2 | 0 |
-| ubuntu-24.04 | 197 | 14 | 74 | 2 | 0 |
-| kali-rolling | 208 | 8 | 71 | 0 | 0 |
-| parrot | 206 | 5 | 74 | 2 | 0 |
-| linuxmint-22.3 | 197 | 14 | 74 | 2 | 0 |
-| debian-13-arm64 | 201 | 8 | 73 | 5 | 0 |
+| debian-13 | 203 | 7 | 76 | 2 | 0 |
+| ubuntu-26.04 | 205 | 5 | 76 | 2 | 0 |
+| ubuntu-24.04 | 198 | 14 | 74 | 2 | 0 |
+| kali-rolling | 209 | 8 | 71 | 0 | 0 |
+| parrot | 207 | 5 | 74 | 2 | 0 |
+| linuxmint-22.3 | 198 | 14 | 74 | 2 | 0 |
+| debian-13-arm64 | 202 | 8 | 73 | 5 | 0 |
 
-**287 manifests** against **7 targets**.
+**288 manifests** against **7 targets**.
 
 ---
 
@@ -320,6 +320,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `qgrid` | source | source | source | source | source | source | source |
 | `qlog` | git | git | git | apt | apt | git | git |
 | `qmapshack` | apt | apt | apt | apt | apt | apt | apt |
+| `qpwgraph` | apt | apt | apt | apt | apt | apt | apt |
 | `qrq` | apt | apt | apt | apt | apt | apt | apt |
 | `qsstv` | apt | apt | apt | apt | apt | apt | apt |
 | `qtbpqaprs` | git | git | git | git | git | git | git |

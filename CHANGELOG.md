@@ -33,6 +33,9 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   measured in a Debian 13 container), which a base profile should not
   do to every station; its page says how to inspect and disable it, and
   the rig-control guide gains a section on a radio on another machine.
+  `qpwgraph`, the PipeWire patchbay the radio-audio guide already told
+  people to install with apt, joins `digital-modes`, and the guide now
+  links its page.
 
 ## v0.17.0 — 2026-09-30 — official topo sheets, CoMaps, and the offline browser map
 

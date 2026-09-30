@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**287 programs and packages** from the catalog, laid out the way the
+**288 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -509,6 +509,7 @@ Antenna design and analysers, spectrum analysers, electronics, radio memories, f
 | [hammunition-tray](packages/hammunition-tray.md) | KDE Plasma tray switches for parking and waking radio devices — the Hammunition family's own | [github.com/ChiefGyk3D/hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) |
 | [hammunition-tray-qt](packages/hammunition-tray-qt.md) | Tray switches for parking and waking radio devices on Xfce, LXQt, LXDE, MATE and Cinnamon — the Hammunition family's own | [github.com/ChiefGyk3D/hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) |
 | [pciutils](packages/pciutils.md) | lspci — for the SDRs and capture cards that are not on USB | [mj.ucw.cz/sw/pciutils](https://mj.ucw.cz/sw/pciutils/) |
+| [qpwgraph](packages/qpwgraph.md) | PipeWire patchbay -- see and change which program is connected to which sound card | [gitlab.freedesktop.org/rncbc/qpwgraph](https://gitlab.freedesktop.org/rncbc/qpwgraph) |
 | [usbutils](packages/usbutils.md) | lsusb — step one of every hardware problem in this catalog | [github.com/gregkh/usbutils](https://github.com/gregkh/usbutils) |
 | [z8530-utils2](packages/z8530-utils2.md) *(retired)* | Configures Z8530-based HDLC cards for high-speed packet | [tracker.debian.org/pkg/z8530-utils2](https://tracker.debian.org/pkg/z8530-utils2) — *Debian package page* |
 
