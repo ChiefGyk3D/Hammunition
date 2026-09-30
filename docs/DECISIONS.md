@@ -2680,6 +2680,33 @@ that records it:
   file was written under `/etc/apt/keyrings/` or `sources.list.d/`, and
   the log holds no `consent_affirmed`. Rule 3, measured.
 
+### Amendment, 2026-09-30 — a repository may be narrowed to some targets
+
+**No new number; this extends rule 1 and changes nothing else.** An
+`apt_repos` entry may carry `when:`, the same selector an install block
+uses (distro, distro version, architecture). Unset, it applies to every
+target, which is what `code` and `codium` have always meant. The plan
+considers only the repositories whose `when` matches the running target;
+the rest are never mentioned to apt, never disclosed, and never gated. A
+target that no repository applies to falls to the ordinary D-039 path: a
+profile member is deferred by name, a name the operator typed is refused.
+Two entries of one `name` are refused at load, because they would write the
+same two files.
+
+**Why.** Kismet (Q-022 #4) is the first publisher whose repository is one
+tree per release under a different URI: `…/repos/apt/release/trixie` with
+suite `trixie`, and `…/release/noble` with suite `noble`, each with its own
+`Release` file. The URI differs, not only the suite, so one declaration
+cannot serve both, and declaring both unconditionally would add Ubuntu
+noble's packages to a Debian 13 machine. Measured 2026-09-30 from the
+repository's own index: `release/` carries `trixie` and `noble` and no
+`resolute`, so Ubuntu 26.04 gets no repository and Kismet is deferred
+there by name.
+
+`uninstall` is unchanged: it removes the files the log attributes to a
+unit's declared repositories, whichever target wrote them.
+
+
 ---
 
 ## D-041 — A manifest declares the kernel subsystems it cannot work without; the plan reads the running kernel's module tree and refuses or defers by name, never from the capability matrix, and never by building a module

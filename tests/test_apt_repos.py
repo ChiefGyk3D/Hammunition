@@ -102,12 +102,12 @@ def _backend(tmp_path: Path, transport: FakeTransport | None = None) -> AptRepoB
 
 
 def _unit(**overrides: Any) -> Any:
-    return _manifest(
-        name="editor",
-        install=[{"install": {"method": "apt", "packages": ["editor"]}}],
-        apt_repos=[REPO],
-        **overrides,
-    )
+    fields: dict[str, Any] = {
+        "name": "editor",
+        "install": [{"install": {"method": "apt", "packages": ["editor"]}}],
+        "apt_repos": [REPO],
+    }
+    return _manifest(**{**fields, **overrides})
 
 
 def _plan(tmp_path: Path, repos: AptRepoBackend | None, **kwargs: Any) -> Any:
@@ -471,6 +471,76 @@ def test_a_profile_member_needing_a_repository_is_planned_not_deferred(tmp_path:
     assert {p.name for p in plan.packages} == {"present", "editor"}
     assert plan.deferrals == ()
     assert len(plan.apt_repos) == 1
+
+
+# ---------------------------------------------------------------------------
+# A repository narrowed to some targets (`when`): Kismet's per-release trees
+# ---------------------------------------------------------------------------
+
+
+def _per_release_unit() -> Any:
+    """Two trees, one per release, the shape Kismet's repository has."""
+    return _unit(
+        apt_repos=[
+            {**REPO, "name": "vendor-trixie", "when": {"distro": ["debian"]}},
+            {
+                **REPO,
+                "name": "vendor-noble",
+                "uri": "https://example.invalid/apt/noble",
+                "suites": ["noble"],
+                "when": {"distro": ["ubuntu"], "distro_version": ["24.04"]},
+            },
+        ]
+    )
+
+
+def test_only_the_repository_whose_when_matches_is_added(tmp_path: Path) -> None:
+    plan = _plan(tmp_path, _backend(tmp_path), catalog={"editor": _per_release_unit()})
+    assert [a.repo.name for a in plan.apt_repos] == ["vendor-trixie"]
+
+
+def test_a_target_no_repository_applies_to_is_not_offered_the_unit(tmp_path: Path) -> None:
+    """Named: the unit is not in the archive and no repository serves this
+    target, so the ordinary refusal applies -- never a repository for
+    another release."""
+    unit = _unit(apt_repos=[{**REPO, "when": {"distro": ["ubuntu"]}}])
+    with pytest.raises(PlanError) as excinfo:
+        _plan(tmp_path, _backend(tmp_path), catalog={"editor": unit})
+    reasons = " ".join(b.reason for b in excinfo.value.blockers)
+    assert "editor" in reasons
+    assert "no repository backend" not in reasons
+
+
+def test_a_repository_for_another_target_needs_no_backend(tmp_path: Path) -> None:
+    """The no-backend refusal names repositories this target would add, and
+    here there are none; a candidate in the archive plans cleanly."""
+    unit = _unit(apt_repos=[{**REPO, "when": {"distro": ["ubuntu"]}}])
+    plan = _plan(tmp_path, None, catalog={"editor": unit}, known={"editor": None})
+    assert plan.apt_repos == ()
+    assert plan.apt_to_install == ("editor",)
+
+
+def test_a_profile_member_no_repository_serves_is_deferred(tmp_path: Path) -> None:
+    """D-039: the member the target cannot get is deferred by name."""
+    present = _manifest(
+        name="present", install=[{"install": {"method": "apt", "packages": ["present"]}}]
+    )
+    unit = _unit(apt_repos=[{**REPO, "when": {"distro": ["ubuntu"]}}])
+    plan = _plan(
+        tmp_path,
+        _backend(tmp_path),
+        names=["editors"],
+        catalog={"editor": unit, "present": present},
+        profiles={"editors": _profile(name="editors", packages=["present", "editor"])},
+        known={"present": None},
+    )
+    assert [d.subject for d in plan.deferrals] == ["editor"]
+    assert plan.apt_repos == ()
+
+
+def test_two_repositories_of_one_name_are_refused() -> None:
+    with pytest.raises((ManifestError, ValidationError), match="duplicate apt repo names"):
+        _unit(apt_repos=[REPO, {**REPO, "when": {"distro": ["ubuntu"]}}])
 
 
 # ---------------------------------------------------------------------------
