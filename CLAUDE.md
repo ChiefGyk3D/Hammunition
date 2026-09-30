@@ -675,7 +675,7 @@ prefix are **post-1.0**, required by HAMRS and VARA respectively. `snap` appears
 belongs in `system_modifications`, never as a backend.
 
 **M4 — profiles and hardware. ✅ Profiles complete; hardware applied, not yet
-exercised.** All 12 profiles of the 1.0 set plus 5 post-1.0 ship, every member
+exercised.** All 12 profiles of the 1.0 set plus 6 post-1.0 ship, every member
 installable and asserted by test. udev rules and group membership are generated
 from the hardware catalog and were applied on the field laptop, byte-identical to
 the catalog's set; the ladder against attached devices is the open item, and

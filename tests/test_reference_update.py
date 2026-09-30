@@ -182,3 +182,19 @@ def test_update_reports_the_books_offline_and_asks_kiwix_only_with_upstream(
     out = capsys.readouterr().out
     assert f"kiwix-library/{HAM}" in out and "the pinned file is Kiwix's newest" in out
     assert len(asked) == 1
+
+
+def test_a_newer_book_upstream_prints_the_command_that_works() -> None:
+    """Final review, I1: a book row's unit is `kiwix-library/<id>`, which is
+    not a unit; the advice for a book is the pin generator, then the unit."""
+    newer = "wikipedia_en_medicine_nopic_2026-10.zim"
+    rows = probe_kiwix(
+        "kiwix-library",
+        [BOOK],
+        text=_text({OPDS_URL: opds(newer), f"{URL}.meta4": "<metalink/>"}),
+    )
+    text = render(rows)
+    assert "hammunition install kiwix-library/" not in text
+    assert "`hammunition install kiwix-library`" in text
+    assert "scripts/gen_kiwix_pins.py" in text.split("upstream,")[-1]
+    assert "measure the build" not in text

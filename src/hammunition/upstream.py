@@ -265,12 +265,27 @@ def render(rows: Sequence[UpstreamRow]) -> str:
         f"{counts[DIFFERS]} differing in a way the numbers do not order, "
         f"{counts[UNANSWERED]} unanswered{expired}."
     )
-    newer = [r.unit for r in asked if r.state == NEWER_UPSTREAM]
+    newer = [r.unit for r in asked if r.state == NEWER_UPSTREAM and r.method != "kiwix"]
     if newer:
         out.append(
             "A newer upstream is a catalog question: re-pin the manifest, measure the build, then"
         )
         out.append(f"`hammunition install {' '.join(newer)}` on a machine rebuilds at the new pin.")
+    # D-065: a book row is `<unit>/<book id>`, not a unit, and its re-pin is
+    # the generator, not a manifest edit.
+    books = sorted(
+        {
+            r.unit.split("/", 1)[0]
+            for r in asked
+            if r.method == "kiwix" and r.state in (NEWER_UPSTREAM, EXPIRED)
+        }
+    )
+    if books:
+        out.append(
+            "A newer or expired book is a catalog question: regenerate the pins with "
+            "scripts/gen_kiwix_pins.py, then"
+        )
+        out.append(f"`hammunition install {' '.join(books)}` fetches the newly pinned files.")
     out.append(
         "Answers came from GitHub, git hosts, PyPI, Kiwix or a version file; nothing was "
         "downloaded or written."

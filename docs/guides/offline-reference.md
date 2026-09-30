@@ -155,8 +155,9 @@ book**, so a pin dies about two publications after it was made:
   naming `scripts/gen_kiwix_pins.py`, and never quietly takes the newer
   file: nobody has measured its sha256.
 
-Either way the fix is in the catalog: regenerate the pins (the weekly pin
-review does it on a calendar), pull the catalog, and install again. An
+Either way the fix is in the catalog: the weekly pin review flags a pin
+that has gone, and regenerating is `scripts/gen_kiwix_pins.py`; pull the
+catalog once it has been regenerated, and install again. An
 installed book keeps working whatever happens upstream.
 
 ## Sizes
@@ -262,6 +263,10 @@ deleted at any time.
   with both listeners on 127.0.0.1 only and Ctrl-C stopping kiwix-serve. It
   has not run on the field laptop, and no page has been opened in a
   desktop browser there.
+- `reference serve` against Ubuntu 24.04's kiwix-tools 3.5.0: the
+  flags it passes (`-a`, `-M`, `--library`) were measured on 3.7.0 only.
+  If 3.5.0 lacks one, kiwix-serve exits at start and the page stops with
+  its exit code; it cannot start listening wider.
 - goldendict-ng's DICT-server setting and the Kiwix desktop reader on a
   desktop session.
 - The installed sizes of `kiwix` and `goldendict-ng` on a desktop that

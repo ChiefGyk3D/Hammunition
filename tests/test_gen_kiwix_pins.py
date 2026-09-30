@@ -209,3 +209,15 @@ def test_the_online_check_names_a_pin_whose_hash_moved(
 def test_the_real_fetcher_refuses_other_hosts() -> None:
     with pytest.raises(SystemExit, match="refusing"):
         _gen().real_text("https://evil.example/library_zim.xml")
+
+
+def test_the_real_fetcher_refuses_a_redirect_off_kiwix_before_following_it() -> None:
+    import urllib.request
+
+    gen = _gen()
+    assert any(isinstance(h, gen.KiwixOnlyRedirects) for h in gen._opener().handlers)
+    request = urllib.request.Request("https://download.kiwix.org/library/library_zim.xml")
+    with pytest.raises(SystemExit, match="refusing"):
+        gen.KiwixOnlyRedirects().redirect_request(
+            request, None, 302, "Found", {}, "https://evil.example/x"
+        )

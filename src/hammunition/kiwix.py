@@ -31,6 +31,7 @@ nobody here has measured.
 from __future__ import annotations
 
 import re
+import urllib.request
 import xml.etree.ElementTree as ET
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -342,6 +343,24 @@ KIWIX_HOSTS = frozenset({"download.kiwix.org", "lb.download.kiwix.org", "opds.li
 _GONE = frozenset({404, 410})
 
 
+class KiwixRedirects(urllib.request.HTTPRedirectHandler):
+    """Follows a redirect only to one of Kiwix's own hosts, checked before the
+    new request is made: download.kiwix.org's 301 to its load balancer is
+    followed; a redirect anywhere else is refused, not asked."""
+
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        KiwixProbe._checked(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 class KiwixProbe:
     """The network, for books: ``HEAD`` a pinned file, ``GET`` a small answer.
 
@@ -358,8 +377,6 @@ class KiwixProbe:
     MAX_TEXT = 1024 * 1024
 
     def __init__(self, *, timeout: float = 30.0) -> None:
-        import urllib.request
-
         self.timeout = timeout
         director = urllib.request.OpenerDirector()
         director.add_handler(urllib.request.HTTPSHandler())
@@ -367,7 +384,7 @@ class KiwixProbe:
         text = urllib.request.OpenerDirector()
         for handler in (
             urllib.request.HTTPSHandler(),
-            urllib.request.HTTPRedirectHandler(),
+            KiwixRedirects(),
             urllib.request.HTTPErrorProcessor(),
             urllib.request.HTTPDefaultErrorHandler(),
         ):

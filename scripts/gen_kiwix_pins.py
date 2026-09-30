@@ -173,11 +173,29 @@ def online_problems(pins: Mapping[str, BookPin], text: Text) -> list[str]:
 # -- the network, used only when nothing is injected --------------------------
 
 
+class KiwixOnlyRedirects(urllib.request.HTTPRedirectHandler):
+    """Follows a redirect only to download.kiwix.org or its load balancer,
+    checked before the new request is made."""
+
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        if not newurl.startswith(HOSTS):
+            raise SystemExit(f"refusing a redirect to {newurl!r}: only download.kiwix.org is asked")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def _opener() -> urllib.request.OpenerDirector:
     director = urllib.request.OpenerDirector()
     for handler in (
         urllib.request.HTTPSHandler(),
-        urllib.request.HTTPRedirectHandler(),
+        KiwixOnlyRedirects(),
         urllib.request.HTTPErrorProcessor(),
         urllib.request.HTTPDefaultErrorHandler(),
     ):

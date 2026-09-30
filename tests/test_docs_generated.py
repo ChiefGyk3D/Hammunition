@@ -28,7 +28,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from hammunition.manifest.load import load_catalog  # noqa: E402
+from hammunition.manifest.load import load_catalog, load_profiles  # noqa: E402
 
 PACKAGES = REPO_ROOT / "docs" / "packages"
 GENERATOR = REPO_ROOT / "scripts" / "gen_package_reference.py"
@@ -524,6 +524,18 @@ def test_the_readme_manifest_count_matches_the_catalog() -> None:
     catalog = load_catalog(REPO_ROOT / "catalog" / "packages")
     readme = (REPO_ROOT / "README.md").read_text()
     claim = f"| Package manifests | 🟡 **{len(catalog)}**"
+    assert claim in readme, f"README no longer says {claim!r}"
+
+
+def test_the_readme_profile_counts_match_the_catalog() -> None:
+    """The front page said "plus 5 post-1.0" after a sixth post-1.0 profile
+    (`reference`, D-065) landed beside it: the manifest count one row up had
+    a test and this number had none (final review, 2026-09-29)."""
+    profiles = load_profiles(REPO_ROOT / "catalog" / "profiles")
+    one = sum(1 for p in profiles.values() if p.stage == "1.0")
+    post = sum(1 for p in profiles.values() if p.stage == "post-1.0")
+    readme = (REPO_ROOT / "README.md").read_text()
+    claim = f"| Profiles | ✅ **all {one} of the 1.0 set**, plus {post} post-1.0"
     assert claim in readme, f"README no longer says {claim!r}"
 
 

@@ -204,3 +204,22 @@ def test_the_real_probe_asks_only_kiwix() -> None:
         probe.head("https://evil.example/x.zim")
     with pytest.raises(KiwixError, match="refusing"):
         probe.text("http://opds.library.kiwix.org/catalog/v2/entries?name=x")
+
+
+def test_the_text_probe_refuses_a_redirect_off_kiwix_before_following_it() -> None:
+    """Final review: the host was checked only after the redirect had been
+    followed, so a redirect off Kiwix's hosts was asked before it was refused."""
+    import urllib.request
+
+    from hammunition.kiwix import KiwixProbe, KiwixRedirects
+
+    probe = KiwixProbe()
+    assert any(isinstance(h, KiwixRedirects) for h in vars(probe._text)["handlers"])
+    handler = KiwixRedirects()
+    request = urllib.request.Request("https://opds.library.kiwix.org/catalog/v2/entries?name=x")
+    with pytest.raises(KiwixError, match="refusing"):
+        handler.redirect_request(request, None, 302, "Found", {}, "https://evil.example/x")
+    followed = handler.redirect_request(
+        request, None, 301, "Moved", {}, "https://lb.download.kiwix.org/zim/x.meta4"
+    )
+    assert followed is not None and followed.full_url.startswith("https://lb.download.kiwix.org/")
