@@ -11,6 +11,12 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.16.0 — 2026-09-30 — the navigation sweep: BRouter, repeaters, phone maps, the reference layer, the LAN mirror, and the documentation site
+
+Six pull requests since v0.15.0 (#151, #150, #154, #157, #152, #155), 5 entries.
+
 - **A LAN mirror for offline data, and `hammunition artifacts`** (**D-070**,
   branch `artifacts-mirror`). `hammunition station set --mirror URL` names a
   machine on your own network; every data download (a `data` unit's files, a
