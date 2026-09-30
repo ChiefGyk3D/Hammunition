@@ -159,8 +159,8 @@ from hammunition.upstream import render as render_upstream
 if TYPE_CHECKING:
     from hammunition.hardware.power import KeptEntry, Parkable
     from hammunition.interface.repeaters import RegistrationView
-    from hammunition.repeaters import ParsedInput
     from hammunition.qmapshack_config import BRouterSetup
+    from hammunition.repeaters import ParsedInput
     from hammunition.upstream import UpstreamRow
 
 __all__ = ["build_parser", "main"]
@@ -848,6 +848,8 @@ def _repeater_poi_paths(text: str) -> tuple[str, bool]:
     if (directory / FILES[1]).is_file():
         return ensure_paths(text, (want,)), True
     return ensure_paths(text, (), remove=(want,)), False
+
+
 def _installed_brouter(prefix: Path) -> BRouterSetup | None:
     """Hammunition's BRouter when its tree holds one jar and at least one
     routing file is built (D-063); None otherwise, and QMapShack's BRouter
