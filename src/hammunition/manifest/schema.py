@@ -705,6 +705,10 @@ class NodeInstall(Strict):
         return self
 
 
+#: One path component a data unit's archive is extracted into (D-071).
+_PLAIN_NAME = re.compile(r"(?!\.{1,2}$)[A-Za-z0-9._-]+")
+
+
 class DataArtifact(RemoteArtifact):
     """One file of an offline dataset: a map tileset, a Wikipedia ZIM, cty.dat.
 
@@ -727,6 +731,24 @@ class DataArtifact(RemoteArtifact):
             "unit's data directory. Archives extract their members and take none."
         ),
     )
+    members: list[str] | None = Field(
+        default=None,
+        description=(
+            "For an archive: extract only these paths, as the archive names them "
+            "(its top directory included); one ending in `/` takes everything "
+            "below it. A member that matches nothing refuses the install. "
+            "Without it the whole archive is extracted (D-071)."
+        ),
+    )
+    into: str | None = Field(
+        default=None,
+        description=(
+            "For an archive: the subdirectory of the unit's data directory it is "
+            "extracted into, one plain name. Required on every archive of a unit "
+            "with more than one archive, or with files beside an archive: an "
+            "archive replaces the directory it is extracted into (D-071)."
+        ),
+    )
 
     @model_validator(mode="after")
     def _install_name(self) -> DataArtifact:
@@ -735,11 +757,27 @@ class DataArtifact(RemoteArtifact):
                 raise ManifestError("a data file needs install_as: the name it is kept under")
             if "/" in self.install_as or self.install_as in {".", ".."}:
                 raise ManifestError(f"install_as must be a bare file name, got {self.install_as!r}")
+            if self.members is not None or self.into is not None:
+                raise ManifestError(
+                    "members and into are for an archive only; a data file is kept under install_as"
+                )
         elif self.install_as is not None:
             raise ManifestError(
                 f"install_as is only meaningful for format: file, not {self.format}: an archive's "
                 f"members keep their own names"
             )
+        if self.into is not None and not _PLAIN_NAME.fullmatch(self.into):
+            raise ManifestError(
+                f"into must be one plain name (letters, digits, . _ -), got {self.into!r}"
+            )
+        for member in self.members or ():
+            if not member or member.startswith("/") or "\\" in member or ".." in member.split("/"):
+                raise ManifestError(
+                    f"an archive member is a relative path inside the archive, with no '..', "
+                    f"got {member!r}"
+                )
+        if self.members is not None and not self.members:
+            raise ManifestError("an empty members list would extract nothing; omit it for all")
         return self
 
 
@@ -772,6 +810,22 @@ class DataInstall(Strict):
         names = [a.install_as for a in self.artifacts if a.install_as]
         if len(set(names)) != len(names):
             raise ManifestError("two data artifacts would install under the same name")
+        # D-071: an archive rebuilds the directory it is extracted into, so a
+        # second archive, or a file installed beside one, would be wiped by it.
+        archives = [a for a in self.artifacts if a.format != "file"]
+        if len(archives) > 1 or (archives and names):
+            if any(a.into is None for a in archives):
+                raise ManifestError(
+                    "a unit with more than one archive, or files beside an archive, needs "
+                    "into on every archive: each is extracted into its own subdirectory, "
+                    "which it replaces"
+                )
+            intos = [a.into for a in archives]
+            if len(set(intos)) != len(intos) or set(intos) & set(names):
+                raise ManifestError(
+                    "two data artifacts would install under the same name (an archive's into "
+                    "and another's into or install_as)"
+                )
         return self
 
 
