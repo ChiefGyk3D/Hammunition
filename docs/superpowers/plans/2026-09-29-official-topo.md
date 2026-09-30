@@ -41,7 +41,7 @@
 
 ### Task 5: schema and catalog-wide plumbing
 - [ ] Tests: `TopoQuadsInstall` validates; converter `ustopo-mosaic` needs a `topo-quads` source; `IMPLEMENTED_METHODS` has `topo-quads`; `_reads_map_regions` defers the units with no regions; the package reference and capability matrix render the method.
-- [ ] Implement in `schema.py`, `backends/__init__.py`, `plan.py`, `state/uninstall.py`, `scripts/gen_package_reference.py`, `scripts/gen_capability_matrix.py`.
+- [ ] Implement in `schema.py`, `src/hammunition/backends/__init__.py`, `plan.py`, `src/hammunition/state/uninstall.py`, `scripts/gen_package_reference.py`, `scripts/gen_capability_matrix.py`.
 
 ### Task 6: the `topo-quads` backend
 - [ ] Tests (`tests/test_topo_backend.py`): steps fetch, install and delete the cached copy per quad; the record per region; removals of quads no region needs; a failed quad goes to the ledger and the others continue; a region with no quad records an empty set and says so.
@@ -53,11 +53,11 @@
 
 ### Task 8: plan-time resolution and wiring
 - [ ] Tests (`tests/test_topo_plan.py`): record first, outline second; a HEAD per quad to fetch; offline refusals named together; a region outside the US gets no quad and a note; the memo probe asks each outline once; `TerrainRun` disclosure and disk needs include topo.
-- [ ] Implement `src/hammunition/topo_plan.py`, extend `terrain_plan.py`, `execute.commands_for`, `cli/main.py`.
+- [ ] Implement `src/hammunition/topo_plan.py`, extend `terrain_plan.py`, `execute.commands_for`, `src/hammunition/cli/main.py`.
 
 ### Task 9: the plan view
 - [ ] Tests: text golden for the US Topo part; JSON view; existing goldens byte-identical; `plan_state` says "already installed" when nothing is fetched or warped.
-- [ ] Implement in `interface/plan.py`; regenerate `docs/reference/json-interface.md`.
+- [ ] Implement in `src/hammunition/interface/plan.py`; regenerate `docs/reference/json-interface.md`.
 
 ### Task 10: QMapShack registration
 - [ ] Test: `wanted()` includes `<data>/ustopo-qmapshack` under `[Canvas] mapPath`.
