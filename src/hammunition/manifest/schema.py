@@ -882,6 +882,33 @@ class DemTilesInstall(Strict):
         return self
 
 
+class TopoQuadsInstall(Strict):
+    """Official topographic map sheets for the station's map regions (D-068).
+
+    Like `DemTilesInstall`, nothing is pinned in the manifest: which sheets
+    are needed follows the operator's regions in station config, chosen at
+    plan time from a carried, generated index
+    (``catalog/data/ustopo-quads.txt``), each checked against the S3 ETag
+    its publisher lists, the plan saying so sheet by sheet. `provider` is an
+    enum so the Forest Service's FSTopo is a new member the engine
+    implements, never a URL in the catalog.
+    """
+
+    method: Literal["topo-quads"] = "topo-quads"
+    provider: Literal["usgs-ustopo"] = "usgs-ustopo"
+    licence: str = Field(
+        min_length=2,
+        description="SPDX identifier where one exists, else the publisher's own words.",
+    )
+    licence_url: str = Field(description="Where the licence is stated, on the publisher's site.")
+
+    @model_validator(mode="after")
+    def _check(self) -> TopoQuadsInstall:
+        if not self.licence_url.startswith("https://"):
+            raise ManifestError(f"licence_url must be https, got {self.licence_url!r}")
+        return self
+
+
 class KiwixBooksInstall(Strict):
     """The Kiwix books the operator chose in station config (D-066).
 
@@ -913,6 +940,7 @@ CONVERTER_SOURCE_METHOD: dict[str, str] = {
     "brouter-mapcreator": "osm-regions",
     "mapsforge-map": "osm-regions",
     "mapsforge-poi": "osm-regions",
+    "ustopo-mosaic": "topo-quads",
     "tilemaker-pmtiles": "osm-regions",
 }
 
@@ -1006,6 +1034,7 @@ class DerivedDataInstall(Strict):
         "brouter-mapcreator",
         "mapsforge-map",
         "mapsforge-poi",
+        "ustopo-mosaic",
         "tilemaker-pmtiles",
     ] = Field(
         description=(
@@ -1013,13 +1042,14 @@ class DerivedDataInstall(Strict):
             "install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): "
             "`navit-maptool`, `mkgmap`, `routino-planetsplitter`, `brouter-mapcreator`, "
             "`mapsforge-map`, `mapsforge-poi` and `tilemaker-pmtiles` need an `osm-regions` "
-            "source; `gdal-dem` needs a `dem-tiles` source."
+            "source; `gdal-dem` needs a `dem-tiles` source; `ustopo-mosaic` needs a "
+            "`topo-quads` source (D-068)."
         )
     )
     source: str = Field(
         description=(
             "The catalog package name this is derived from: an `osm-regions` unit, "
-            "or for `gdal-dem` a `dem-tiles` unit."
+            "for `gdal-dem` a `dem-tiles` unit, for `ustopo-mosaic` a `topo-quads` unit."
         )
     )
     boundaries: str | None = Field(
@@ -1137,6 +1167,7 @@ InstallMethod = Annotated[
     | DataInstall
     | RegionalDataInstall
     | DemTilesInstall
+    | TopoQuadsInstall
     | DerivedDataInstall
     | KiwixBooksInstall,
     Field(discriminator="method"),

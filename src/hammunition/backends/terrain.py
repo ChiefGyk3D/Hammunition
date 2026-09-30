@@ -48,6 +48,12 @@ ROUTINO_SCRATCH_FACTOR = 6
 #: One tile's rasterised contours, a DEFLATE Byte GeoTIFF: 5,439,059 bytes
 #: measured on one mountain tile at a 20 m interval.
 CONTOUR_BYTES = 5_500_000
+#: A US Topo sheet warped with its overviews against its download, and the
+#: warp's scratch: 8.9 MB from 9.2 MB on one Delaware sheet, both rounded up
+#: to 1.0 (D-068). Here, not in ``topo_mosaic``, so the disk check needs no
+#: converter to count.
+WARP_FACTOR = 1.0
+WARP_SCRATCH_FACTOR = 1.0
 #: One tile's contour GeoPackage, removed once rasterised: 97,812,480 bytes
 #: on that tile, the largest a tile is expected to need.
 CONTOUR_SCRATCH_BYTES = 98_000_000
@@ -76,7 +82,9 @@ TERRAIN_NOTE = (
     f"contours at about {human_size(CONTOUR_BYTES)} a tile with up to "
     f"{human_size(CONTOUR_SCRATCH_BYTES)} of scratch, {MEASURED}; BRouter's routing "
     f"files at {BROUTER_FACTOR}x of every download together ({MEASURED}), with "
-    f"{BROUTER_SCRATCH_FACTOR}x of scratch allowed, not measured"
+    f"{BROUTER_SCRATCH_FACTOR}x of scratch allowed, not measured; and US Topo quads "
+    f"warped at {WARP_FACTOR}x each download with as much again of scratch, measured "
+    f"on one quad"
 )
 
 
@@ -146,9 +154,21 @@ class TerrainWork:
     """How many regions they are rebuilt over: two or more are merged first."""
     brouter_squares: int = 0
     """How many 5 degree squares get elevation built."""
+    quads: int = 0
+    """Bytes of US Topo sheets downloaded (D-068)."""
+    warp: tuple[int, ...] = ()
+    """The download size of each sheet ``ustopo-mosaic`` warps."""
 
     def any(self) -> bool:
-        return bool(self.tiles or self.garmin or self.routino or self.contour_tiles or self.brouter)
+        return bool(
+            self.tiles
+            or self.garmin
+            or self.routino
+            or self.contour_tiles
+            or self.brouter
+            or self.quads
+            or self.warp
+        )
 
 
 def terrain_needs(
@@ -160,11 +180,13 @@ def terrain_needs(
     contour_staging: Path,
     prefix: Path,
     brouter_staging: Path | None = None,
+    mosaic_staging: Path | None = None,
 ) -> dict[Path, int]:
-    """Bytes each location needs: each tile in the fetch cache and under the
-    prefix; the largest Garmin build's scratch (they run one at a time and
-    each is removed before the next); the Routino build's scratch and output;
-    one tile's contour scratch plus every rasterised tile; and every output
+    """Bytes each location needs: each tile and sheet in the fetch cache and
+    under the prefix; the largest Garmin build's scratch (they run one at a
+    time and each is removed before the next); the Routino build's scratch
+    and output; one tile's contour scratch plus every rasterised tile; the
+    largest sheet's warp scratch (one at a time, D-068); and every output
     again under the prefix. BRouter's build (D-063): its allowance of scratch,
     the merged input when there are two regions or more, one square's
     ``.hgt`` files and every square's ``.bef`` in its staging directory, and
@@ -173,6 +195,7 @@ def terrain_needs(
     routino_out = routino_estimate(work.routino)
     brouter_out = brouter_estimate(work.brouter)
     contours = work.contour_tiles * CONTOUR_BYTES
+    warped = round(sum(work.warp) * WARP_FACTOR)
     brouter_scratch = (
         BROUTER_SCRATCH_FACTOR * work.brouter
         + (work.brouter if work.brouter_regions > 1 else 0)
@@ -187,12 +210,16 @@ def terrain_needs(
     )
     needs: dict[Path, int] = {}
     for where, amount in (
-        (cache, work.tiles),
+        (cache, work.tiles + work.quads),
         (garmin_staging, GARMIN_SCRATCH_FACTOR * max(work.garmin, default=0)),
         (routino_staging, ROUTINO_SCRATCH_FACTOR * work.routino),
         (contour_staging, (CONTOUR_SCRATCH_BYTES if work.contour_tiles else 0) + contours),
         (brouter_staging or routino_staging, brouter_scratch),
-        (prefix, work.tiles + garmin_out + routino_out + contours + brouter_out),
+        (mosaic_staging or contour_staging, WARP_SCRATCH_FACTOR * max(work.warp, default=0)),
+        (
+            prefix,
+            work.tiles + garmin_out + routino_out + contours + brouter_out + work.quads + warped,
+        ),
     ):
         needs[where] = needs.get(where, 0) + round(amount)
     return needs

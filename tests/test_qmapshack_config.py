@@ -25,6 +25,8 @@ GARMIN = f"{DATA}/osm-garmin"
 CONTOURS = f"{DATA}/dem-qmapshack/contours"
 DEM = f"{DATA}/dem-qmapshack/dem"
 ROUTINO = f"{DATA}/osm-routino"
+#: D-068: the US Topo mosaic's directory, where ustopo.vrt lives.
+USTOPO = f"{DATA}/ustopo-qmapshack"
 
 
 def test_the_keys_are_the_ones_qmapshack_keeps() -> None:
@@ -32,7 +34,7 @@ def test_the_keys_are_the_ones_qmapshack_keeps() -> None:
     and ``demPaths`` back under ``[Canvas]`` and ignored them under
     ``[General]``; ``routino\\paths`` under ``[Route]`` it kept (D-061)."""
     assert wanted(DATA) == (
-        Wanted("Canvas", "mapPath", (GARMIN, CONTOURS)),
+        Wanted("Canvas", "mapPath", (GARMIN, CONTOURS, USTOPO)),
         Wanted("Canvas", "demPaths", (DEM,)),
         Wanted("Route", "routino\\paths", (ROUTINO,)),
     )
@@ -45,7 +47,7 @@ def test_the_keys_are_the_ones_qmapshack_keeps() -> None:
 def test_an_empty_config_gains_every_key() -> None:
     assert ensure_paths("", wanted(DATA)) == (
         "[Canvas]\n"
-        f"mapPath={GARMIN}, {CONTOURS}\n"
+        f"mapPath={GARMIN}, {CONTOURS}, {USTOPO}\n"
         f"demPaths={DEM}\n"
         "\n"
         "[Route]\n"
@@ -68,7 +70,7 @@ def test_existing_values_are_kept_in_place_and_ours_appended() -> None:
     )
     assert ensure_paths(text, wanted(DATA)) == (
         "[Canvas]\n"
-        f"mapPath=/home/op/maps, {GARMIN}, {CONTOURS}\n"
+        f"mapPath=/home/op/maps, {GARMIN}, {CONTOURS}, {USTOPO}\n"
         f"demPaths={DEM}\n"
         "\n"
         "[Units]\n"
@@ -84,7 +86,7 @@ def test_a_config_already_naming_our_paths_is_returned_byte_for_byte() -> None:
     text = (
         "; kept\r\n"
         "[Canvas]\r\n"
-        f"mapPath={CONTOURS}, /x, {GARMIN}\r\n"
+        f"mapPath={CONTOURS}, /x, {GARMIN}, {USTOPO}\r\n"
         f"demPaths={DEM}\r\n"
         "[Route]\r\n"
         f"routino\\paths={ROUTINO}"
@@ -158,7 +160,7 @@ def test_qts_empty_list_is_an_empty_list_and_gains_our_paths() -> None:
     assert ensure_paths(QT_WROTE_EMPTY_LISTS, wanted(DATA)) == (
         "[Canvas]\n"
         f"demPaths={DEM}\n"
-        f"mapPath={GARMIN}, {CONTOURS}\n"
+        f"mapPath={GARMIN}, {CONTOURS}, {USTOPO}\n"
         "\n"
         "[Route]\n"
         f"routino\\paths={ROUTINO}\n"
@@ -207,7 +209,7 @@ def test_an_earlier_runs_general_keys_move_to_canvas() -> None:
         "[General]\n"
         "\n"
         "[Canvas]\n"
-        f"mapPath={GARMIN}, {CONTOURS}\n"
+        f"mapPath={GARMIN}, {CONTOURS}, {USTOPO}\n"
         f"demPaths={DEM}\n"
         "\n"
         "[Route]\n"

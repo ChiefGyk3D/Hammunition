@@ -81,6 +81,7 @@ from hammunition.paths import (
     ensure_operator_dir,
     open_operator_dir,
 )
+from hammunition.s3etag import etag_matches
 
 __all__ = [
     "DEFAULT_MAX_BYTES",
@@ -652,6 +653,48 @@ class Fetcher:
             url=done.url,
             mirror_failure=done.mirror_failure,
         )
+
+    def etag_path_for(self, url: str, etag: str) -> Path:
+        """Where an ETag-verified file lives once verified (:meth:`fetch_etag`). Pure."""
+        return self.cache_dir / f"etag-{etag.strip().strip(chr(34))}-{_safe_name(url)}"
+
+    def fetch_etag(self, url: str, etag: str, *, expected_size: int) -> FetchResult:
+        """A file verified only by its publisher's S3 ETag (D-068): a
+        single-part upload's MD5, or a multipart upload's MD5 of its parts'
+        MD5s (:mod:`hammunition.s3etag`). As weak as :meth:`fetch_md5`, and
+        the plan says so beside every file it is used for. The size must be
+        the one the index and the bucket agree on; the cap is that size plus
+        1 MiB. A cached copy is re-verified every time, never trusted for
+        having matched once.
+        """
+        make_dir(self.cache_dir)
+        final = self.etag_path_for(url, etag)
+        if final.exists() and final.stat().st_size == expected_size:
+            if etag_matches(final, etag):
+                return FetchResult(
+                    path=final, sha256=_digest_file(final), from_cache=True, size=expected_size
+                )
+            final.unlink()
+
+        temporary = final.with_name(final.name + f".part.{os.getpid()}")
+        try:
+            sha, size, _ = self._download(url, temporary, max_bytes=expected_size + 1024 * 1024)
+            if size != expected_size:
+                raise VerificationError(
+                    f"{url}: {expected_size} bytes were expected and {size} arrived; "
+                    f"the size check failed"
+                )
+            if not etag_matches(temporary, etag):
+                raise VerificationError(
+                    f"{url} does not match the ETag its publisher lists.\n"
+                    f"  expected ETag: {etag}\n"
+                    f"No part size reproduces it. The download has been discarded."
+                )
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
+        os.replace(temporary, final)
+        return FetchResult(path=final, sha256=sha, from_cache=False, size=size)
 
     def _download(
         self,
