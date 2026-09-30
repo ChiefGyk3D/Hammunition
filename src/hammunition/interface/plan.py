@@ -22,12 +22,14 @@ from hammunition.backends.data import human_size
 from hammunition.backends.dem import TerrainDisclosure, no_terrain_line
 from hammunition.backends.regions import ESTIMATE, MapDisclosure, bin_estimate
 from hammunition.backends.terrain import (
+    BROUTER_FACTOR,
     CONTOUR_BYTES,
     CONTOUR_SCRATCH_BYTES,
     GARMIN_FACTOR,
     MEASURED,
     ROUTINO_FACTOR,
     WARP_FACTOR,
+    brouter_estimate,
     garmin_estimate,
     routino_estimate,
 )
@@ -79,6 +81,7 @@ def plan_state(
     built: frozenset[str] = frozenset(),
     maps: MapDisclosure | None = None,
     terrain: TerrainDisclosure | None = None,
+    idle: frozenset[str] = frozenset(),
 ) -> str:
     """What the plan will do to this unit, in two words.
 
@@ -102,6 +105,9 @@ def plan_state(
     nothing to build this run.
     """
     method = planned.block.install
+    if isinstance(method, DerivedDataInstall) and planned.name in idle:
+        # A phone unit (D-067) with no region to build and its tool current.
+        return "already installed"
     if maps is not None and (maps.current or maps.kept or maps.fetch):
         regions_current = not maps.fetch and not maps.kept
         if isinstance(method, RegionalDataInstall) and regions_current:
@@ -127,12 +133,13 @@ def plan_state(
             ):
                 return "already installed"
         if isinstance(method, DerivedDataInstall):
-            idle = {
+            quiet = {
                 "mkgmap": not terrain.garmin,
                 "routino-planetsplitter": not terrain.routino_regions,
                 "gdal-dem": not terrain.drawing,
+                "brouter-mapcreator": not terrain.brouter_regions,
             }
-            if idle.get(method.converter, False):
+            if quiet.get(method.converter, False):
                 return "already installed"
     if isinstance(method, AptInstall):
         return "already installed" if not planned.outstanding else "will install"
@@ -394,6 +401,12 @@ class TerrainSectionView(Strict):
     contours: int = described("tiles whose contours are drawn this run")
     contours_estimate: int = described("bytes those contours are estimated to take")
     contours_estimate_human: str = described("as the text prints it")
+    brouter_regions: int = described(
+        "regions BRouter's routing files are rebuilt over; 0 when current (D-063)"
+    )
+    brouter_tiles: int = described("terrain tiles folded into them as elevation")
+    brouter_estimate: int = described("bytes the rebuilt routing files are estimated to take")
+    brouter_estimate_human: str = described("as the text prints it")
     disk_total: int = described("bytes: the tiles plus everything estimated to be built")
     disk_total_human: str = described("as the text prints it")
     estimate_note: str = described("how the estimates were measured")
@@ -521,6 +534,20 @@ class StepView(Strict):
         "the in-process step's kind (`fetch`, `extract`, ...); null for a command"
     )
     requires_root: bool = described("whether it runs as root")
+    sources: tuple[str, ...] = described(
+        "for a data download (a `data` artifact, a map region, a terrain tile), the URLs it "
+        "is fetched from in the order tried: the LAN mirror, then the publisher (D-070); "
+        "the publisher alone with no mirror; empty for any other step"
+    )
+
+
+@dataclass(frozen=True)
+class MirrorSection(Strict):
+    """The LAN mirror a data download is asked for first (D-070)."""
+
+    url: str = described("the mirror's base URL, from station config")
+    ignored: bool = described("true when `--no-mirror` ignores it for this run")
+    text: str = described("what the plan prints about it")
 
 
 @dataclass(frozen=True)
@@ -534,6 +561,9 @@ class InstallPlanView(Strict):
         "present when a unit opted out of Recommends"
     )
     repos: tuple[RepoLine, ...] = described("third-party repositories added")
+    mirror: MirrorSection | None = described(
+        "the LAN mirror data downloads try first (D-070); null when none is set"
+    )
     data: tuple[DataLine, ...] = described("offline data downloaded")
     maps: MapSectionView | None = described(
         "the station's map regions (D-057); null when no map unit or nothing to disclose"
@@ -668,6 +698,7 @@ def step_view(step: Step, *, euid: int) -> StepView:
             argv=(),
             action=step.kind,
             requires_root=step.requires_root,
+            sources=step.sources,
         )
     return StepView(
         description=step.description,
@@ -675,6 +706,7 @@ def step_view(step: Step, *, euid: int) -> StepView:
         argv=tuple(step.argv_for(euid=euid)),
         action=None,
         requires_root=step.requires_root,
+        sources=(),
     )
 
 
@@ -736,7 +768,8 @@ def _terrain_section(terrain: TerrainDisclosure | None) -> TerrainSectionView | 
     ]
     routino = routino_estimate(terrain.routino_total)
     contours = terrain.contours * CONTOUR_BYTES
-    disk = download + sum(g.estimate for g in garmin) + routino + contours
+    brouter = brouter_estimate(terrain.brouter_total)
+    disk = download + sum(g.estimate for g in garmin) + routino + contours + brouter
     return TerrainSectionView(
         regions=tuple(
             TerrainRegionLine(
@@ -767,6 +800,10 @@ def _terrain_section(terrain: TerrainDisclosure | None) -> TerrainSectionView | 
         contours=terrain.contours,
         contours_estimate=contours,
         contours_estimate_human=human_size(contours),
+        brouter_regions=terrain.brouter_regions,
+        brouter_tiles=terrain.brouter_tiles,
+        brouter_estimate=brouter,
+        brouter_estimate_human=human_size(brouter),
         disk_total=disk,
         disk_total_human=human_size(disk),
         estimate_note=MEASURED,
@@ -796,7 +833,7 @@ def _map_section(
     converting = {f.slug for f in maps.convert}
     if terrain is not None:
         converting |= {f.slug for f in terrain.garmin}
-        if terrain.routino_regions:
+        if terrain.routino_regions or terrain.brouter_regions:
             converting |= {f.slug for f in (*maps.fetch, *maps.current)}
 
     def line(f: RegionFile, *, current: bool) -> RegionLine:
@@ -875,6 +912,26 @@ def _sudo_line(commands: Sequence[Step], *, euid: int, keepalive: bool) -> SudoL
     return SudoLine(keepalive=keepalive, interval_seconds=int(KEEPALIVE_INTERVAL), text=text)
 
 
+def _mirror_section(url: str | None, *, ignored: bool) -> MirrorSection | None:
+    if url is None:
+        return None
+    if ignored:
+        text = (
+            f"A LAN mirror is set in station config ({url}); --no-mirror ignores it for "
+            f"this run, and every data download comes from its publisher."
+        )
+    else:
+        text = (
+            f"Each data download below (offline data, map regions, terrain tiles) is asked "
+            f"of the LAN mirror {url} first, as <mirror>/<unit>/<name>, and of its "
+            f"publisher if the mirror fails in any way. The digest it is checked by is the "
+            f"same whichever answers: the mirror is trusted for speed, never for content. "
+            f"A mirror that does not answer at all is not asked again in this run. The "
+            f"transaction log records which source each download came from."
+        )
+    return MirrorSection(url=url, ignored=ignored, text=text)
+
+
 def build_install_view(
     plan: InstallPlan,
     commands: Sequence[Step],
@@ -888,6 +945,9 @@ def build_install_view(
     region_notes: Sequence[str] = (),
     terrain: TerrainDisclosure | None = None,
     sudo_keepalive: bool = True,
+    mirror: str | None = None,
+    mirror_ignored: bool = False,
+    idle: frozenset[str] = frozenset(),
 ) -> InstallPlanView:
     data: list[DataLine] = []
     for planned in plan.packages:
@@ -914,7 +974,7 @@ def build_install_view(
             PackageLine(
                 name=p.name,
                 method=p.block.install.method,
-                state=plan_state(p, built, maps, terrain),
+                state=plan_state(p, built, maps, terrain, idle),
                 requested_by=tuple(p.requested_by),
                 apt=tuple(
                     AptLine(package=a, outstanding=a in p.outstanding, build_only=a in p.build_only)
@@ -952,6 +1012,12 @@ def build_install_view(
                 consent_env_var=repo_env_var(a.repo),
             )
             for a in plan.apt_repos
+        ),
+        # Only when something in this plan is a data download: an apt-only
+        # plan never asks the mirror, and must not say it will.
+        mirror=_mirror_section(
+            mirror if any(isinstance(c, Action) and c.sources for c in commands) else None,
+            ignored=mirror_ignored,
         ),
         data=tuple(data),
         maps=_map_section(plan, maps, terrain),
@@ -1063,6 +1129,11 @@ def render_plan_view(view: InstallPlanView, *, target: TargetView) -> list[str]:
             lines.append(f"      writes {repo.sources}")
             lines.append(f"      writes {repo.keyring}")
             lines.append(f"      consent: {repo.consent_env_var} must equal the key fingerprint")
+        lines.append("")
+
+    if view.mirror is not None:
+        lines.append("Data mirror (D-070):")
+        lines.extend(wrap(view.mirror.text, indent="  "))
         lines.append("")
 
     if view.data:
@@ -1289,6 +1360,17 @@ def _render_terrain(terrain: TerrainSectionView) -> list[str]:
         built.append(
             f"    Routino database over {terrain.routino_regions} region(s)  about "
             f"{terrain.routino_estimate_human} ({ROUTINO_FACTOR}x the downloads together)"
+        )
+    if terrain.brouter_regions:
+        elevation = (
+            f"elevation from {terrain.brouter_tiles} tile(s)"
+            if terrain.brouter_tiles
+            else "no elevation (flat)"
+        )
+        built.append(
+            f"    BRouter routing files over {terrain.brouter_regions} region(s)  about "
+            f"{terrain.brouter_estimate_human} ({BROUTER_FACTOR}x the downloads together), "
+            f"{elevation}; built here, never downloaded from brouter.de"
         )
     if terrain.contours:
         built.append(

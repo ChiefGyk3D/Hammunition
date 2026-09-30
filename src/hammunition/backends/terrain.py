@@ -25,6 +25,7 @@ from pathlib import Path
 
 from .base import Action, BackendError
 from .data import human_size
+from .mapsforge import PHONE_NOTE
 from .regions import device_at, disk_shortfall, free_bytes_at
 
 MEASURED = "measured on one region"
@@ -56,12 +57,31 @@ WARP_SCRATCH_FACTOR = 1.0
 #: on that tile, the largest a tile is expected to need.
 CONTOUR_SCRATCH_BYTES = 98_000_000
 
+#: BRouter's routing files against the sum of the ``.osm.pbf`` files they are
+#: built from: Delaware's 3.3 MB of ``.rd5`` (with elevation) against its
+#: 22.1 MB download, 0.15, rounded up (D-063, the routing spike, 2026-09-29).
+BROUTER_FACTOR = 0.2
+#: The map creator's working files against the same sum. **Not measured**:
+#: an allowance, stated as one wherever it is printed.
+BROUTER_SCRATCH_FACTOR = 3
+#: One one-arc-second ``.hgt`` as gdalwarp writes it: 3601 x 3601 Int16,
+#: 25,934,402 bytes, measured.
+HGT_BYTES = 25_934_402
+#: A square's elevation scratch: its own 25 tiles as ``.hgt`` files at most,
+#: removed before the next square.
+ELEVATION_SCRATCH_BYTES = 25 * HGT_BYTES
+#: One square's ``.bef``, kept until the build ends: 7,987,865 bytes for
+#: Delaware's square, measured; rounded up.
+BEF_BYTES = 8_000_000
+
 TERRAIN_NOTE = (
     f"QMapShack's maps at {GARMIN_FACTOR}x each download with "
     f"{GARMIN_SCRATCH_FACTOR}x of scratch, the Routino database at {ROUTINO_FACTOR}x "
     f"of every download together with up to {ROUTINO_SCRATCH_FACTOR}x of scratch, and "
     f"contours at about {human_size(CONTOUR_BYTES)} a tile with up to "
-    f"{human_size(CONTOUR_SCRATCH_BYTES)} of scratch, {MEASURED}; and US Topo quads "
+    f"{human_size(CONTOUR_SCRATCH_BYTES)} of scratch, {MEASURED}; BRouter's routing "
+    f"files at {BROUTER_FACTOR}x of every download together ({MEASURED}), with "
+    f"{BROUTER_SCRATCH_FACTOR}x of scratch allowed, not measured; and US Topo quads "
     f"warped at {WARP_FACTOR}x each download with as much again of scratch, measured "
     f"on one quad"
 )
@@ -73,6 +93,10 @@ def garmin_estimate(size: int) -> int:
 
 def routino_estimate(total: int) -> int:
     return round(total * ROUTINO_FACTOR)
+
+
+def brouter_estimate(total: int) -> int:
+    return round(total * BROUTER_FACTOR)
 
 
 def tile_key(name: str) -> str:
@@ -123,6 +147,12 @@ class TerrainWork:
     """The sum of every ``.osm.pbf`` when the database is rebuilt, else 0."""
     contour_tiles: int = 0
     """How many tiles have contours drawn."""
+    brouter: int = 0
+    """The sum of every ``.osm.pbf`` when BRouter's routing files are rebuilt, else 0."""
+    brouter_regions: int = 0
+    """How many regions they are rebuilt over: two or more are merged first."""
+    brouter_squares: int = 0
+    """How many 5 degree squares get elevation built."""
     quads: int = 0
     """Bytes of US Topo sheets downloaded (D-068)."""
     warp: tuple[int, ...] = ()
@@ -134,6 +164,7 @@ class TerrainWork:
             or self.garmin
             or self.routino
             or self.contour_tiles
+            or self.brouter
             or self.quads
             or self.warp
         )
@@ -147,6 +178,7 @@ def terrain_needs(
     routino_staging: Path,
     contour_staging: Path,
     prefix: Path,
+    brouter_staging: Path | None = None,
     mosaic_staging: Path | None = None,
 ) -> dict[Path, int]:
     """Bytes each location needs: each tile and sheet in the fetch cache and
@@ -154,19 +186,39 @@ def terrain_needs(
     time and each is removed before the next); the Routino build's scratch
     and output; one tile's contour scratch plus every rasterised tile; the
     largest sheet's warp scratch (one at a time, D-068); and every output
-    again under the prefix."""
+    again under the prefix. BRouter's build (D-063): its allowance of scratch,
+    the merged input when there are two regions or more, one square's
+    ``.hgt`` files and every square's ``.bef`` in its staging directory, and
+    its routing files under the prefix."""
     garmin_out = sum(garmin_estimate(size) for size in work.garmin)
     routino_out = routino_estimate(work.routino)
+    brouter_out = brouter_estimate(work.brouter)
     contours = work.contour_tiles * CONTOUR_BYTES
     warped = round(sum(work.warp) * WARP_FACTOR)
+    brouter_scratch = (
+        BROUTER_SCRATCH_FACTOR * work.brouter
+        + (work.brouter if work.brouter_regions > 1 else 0)
+        + (
+            ELEVATION_SCRATCH_BYTES + BEF_BYTES * work.brouter_squares
+            if work.brouter_squares
+            else 0
+        )
+        + brouter_out
+        if work.brouter
+        else 0
+    )
     needs: dict[Path, int] = {}
     for where, amount in (
         (cache, work.tiles + work.quads),
         (garmin_staging, GARMIN_SCRATCH_FACTOR * max(work.garmin, default=0)),
         (routino_staging, ROUTINO_SCRATCH_FACTOR * work.routino),
         (contour_staging, (CONTOUR_SCRATCH_BYTES if work.contour_tiles else 0) + contours),
+        (brouter_staging or routino_staging, brouter_scratch),
         (mosaic_staging or contour_staging, WARP_SCRATCH_FACTOR * max(work.warp, default=0)),
-        (prefix, work.tiles + garmin_out + routino_out + contours + work.quads + warped),
+        (
+            prefix,
+            work.tiles + garmin_out + routino_out + contours + brouter_out + work.quads + warped,
+        ),
     ):
         needs[where] = needs.get(where, 0) + round(amount)
     return needs
@@ -176,15 +228,24 @@ def combined_shortfall(
     map_needs: Mapping[Path, int],
     terrain: Mapping[Path, int],
     *,
+    phone: Mapping[Path, int] | None = None,
     free_at: Callable[[Path], int] = free_bytes_at,
     device_of: Callable[[Path], int] = device_at,
 ) -> str | None:
-    """Piece 1's disk refusal over piece 1's and piece 2's needs together,
-    saying what the terrain part was estimated from when it counted."""
+    """Piece 1's disk refusal over piece 1's, piece 2's and the phone
+    converters' needs together (D-067), saying what each added part was
+    estimated from when it counted."""
+    phone = phone or {}
     merged = dict(map_needs)
-    for path, amount in terrain.items():
-        merged[path] = merged.get(path, 0) + amount
+    for extra in (terrain, phone):
+        for path, amount in extra.items():
+            merged[path] = merged.get(path, 0) + amount
     short = disk_shortfall(merged, free_at=free_at, device_of=device_of)
-    if short is None or not any(terrain.values()):
+    if short is None:
         return short
-    return f"{short}\n  The estimate includes {TERRAIN_NOTE}."
+    notes = [
+        note for note, part in ((TERRAIN_NOTE, terrain), (PHONE_NOTE, phone)) if any(part.values())
+    ]
+    if not notes:
+        return short
+    return f"{short}\n  The estimate includes {'; and '.join(notes)}."

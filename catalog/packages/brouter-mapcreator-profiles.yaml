@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: brouter-mapcreator-profiles
+version: "1.7.10"
+summary: The two filter files BRouter's map creator needs and its release zip leaves out
+categories: [navigation-maps]
+
+# D-063. BRouter's map creator reads all.brf (which ways and nodes to keep)
+# and softaccess.brf beside lookups.dat and trekking.brf. The last two are
+# in the release zip (`brouter`); these two are only in the source tree,
+# misc/profiles2/. They are not routing profiles: in profiles2 QMapShack
+# would list "all" and "softaccess" as profiles to route with, so they are
+# kept in their own data directory.
+#
+# Pinned by the v1.7.10 tag's commit (4d2639af), whose raw files cannot
+# change. The v1.7.10 source tarball (archive/refs/tags/v1.7.10.tar.gz,
+# 2,037,047 bytes, sha256 cb83f220332de8223476e029a9b075157fb74401c69a991ceaa013486c29760f,
+# measured on 2026-09-29, since GitHub publishes no digest for an archive)
+# holds the same two files with the same sha256 as the raw downloads below.
+# The tarball is not the artifact: GitHub's generated archives are not
+# guaranteed byte-stable, and it would install a whole source tree for 1.1 KB.
+install:
+  - install:
+      method: data
+      artifacts:
+        - url: https://raw.githubusercontent.com/abrensch/brouter/4d2639af77ea5ed9c30d3e400764eb6f9e8522da/misc/profiles2/all.brf
+          sha256: 87d49d6a2850db277e2c86a81de5e2e6727e0498e47f10662ababa0a9b56f144
+          size: 511
+          format: file
+          install_as: all.brf
+        - url: https://raw.githubusercontent.com/abrensch/brouter/4d2639af77ea5ed9c30d3e400764eb6f9e8522da/misc/profiles2/softaccess.brf
+          sha256: 0c04a5889d61bef88b62a8abd22e76555b2d3a2299e33811b2f7e15ac7587190
+          size: 631
+          format: file
+          install_as: softaccess.brf
+      licence: MIT
+      licence_url: https://github.com/abrensch/brouter/blob/master/LICENSE
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    Bumped with `brouter`: pin the new tag's commit in both URLs, download
+    both files, measure their sha256 and size, and bump `version`.
+
+documentation:
+  what_it_does: >-
+    Installs two small files, all.brf and softaccess.brf, from BRouter
+    1.7.10's source under
+    /usr/local/share/hammunition/data/brouter-mapcreator-profiles/. Nothing
+    reads them but `brouter-segments`, which passes them to BRouter's map
+    creator when it builds your routing files.
+  why_you_want_it: >-
+    BRouter's map creator needs them to decide which roads and paths go into
+    the routing files, and BRouter's release zip does not carry them.
+  prerequisites: None.
+  known_problems: >-
+    None known. They are map-creation filters, not routing profiles, and
+    are deliberately kept out of the profile directory QMapShack lists.
+  upstream_url: https://github.com/abrensch/brouter
+  upstream_support: The project's GitHub issues.

@@ -49,6 +49,7 @@ from hammunition.manifest.schema import (  # noqa: E402
     DerivedDataInstall,
     GitInstall,
     InstallBlock,
+    KiwixBooksInstall,
     NodeInstall,
     PackageManifest,
     PipxInstall,
@@ -97,10 +98,29 @@ def method_of(block: InstallBlock) -> str:
             f"topographic map sheets from {install.provider} for the regions in station "
             f"config ({install.licence}, {install.licence_url})"
         )
-    if isinstance(install, DerivedDataInstall):
+    if isinstance(install, KiwixBooksInstall):
         return (
+            "Kiwix books chosen in station config, each pinned in "
+            "`catalog/data/kiwix-pins.yaml` and licensed as "
+            "`catalog/data/kiwix-books.yaml` states, printed in the plan"
+        )
+    if isinstance(install, DerivedDataInstall):
+        converted = (
             f"converted from {install.source} by {install.converter} "
             f"({install.licence}, {install.licence_url})"
+        )
+        if install.tool is None:
+            return converted
+        tool = install.tool
+        signed = (
+            f"; a signature is published at {tool.artifact.signature_url} and not verified"
+            if tool.artifact.signature_url
+            else ""
+        )
+        return (
+            f"{converted}, running `{tool.file_name}` fetched from {tool.artifact.url} "
+            f"({tool.size} bytes, {tool.licence}), sha256 `{tool.artifact.sha256}`, "
+            f"pinned by Hammunition{signed}"
         )
     if isinstance(install, NodeInstall):
         return (

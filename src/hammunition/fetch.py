@@ -48,6 +48,15 @@ catalog carries no sha256 pin for, verified instead against the publisher's
 unchanged by its existence -- ``fetch()`` still refuses anything that is not
 digest-pinned. ``fetch_md5`` is a separate method, named for what it is, and
 every plan that uses it says so beside the region.
+
+**A LAN mirror may be asked first** (D-070). With ``mirror`` set, a fetch
+given a :class:`MirrorPath` tries ``<mirror>/<unit>/<name>`` and, on any
+failure there -- unreachable, an HTTP error, the size cap, a wrong size, a
+wrong digest -- discards what the mirror sent and tries the publisher. The
+digest checked is the same either way; the mirror is trusted for speed,
+never for content. :class:`FetchResult` says which source the bytes came
+from, and a mirror that did not answer at all is not asked again by the
+same fetcher, so a run of ninety tiles pays one timeout, not ninety.
 """
 
 from __future__ import annotations
@@ -58,7 +67,7 @@ import shutil
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -76,13 +85,25 @@ from hammunition.s3etag import etag_matches
 
 __all__ = [
     "DEFAULT_MAX_BYTES",
+    "MIRROR_TIMEOUT",
     "FetchResult",
     "Fetcher",
+    "MirrorPath",
     "Transport",
+    "TransportUnreachable",
     "UrllibTransport",
     "VerificationError",
+    "fetch_disclosure",
+    "mirror_url",
+    "record_fetch",
+    "safe_name",
     "signature_gap",
 ]
+
+#: How long a LAN mirror gets to answer before the publisher is asked. A
+#: machine on the same network answers in milliseconds; this only bounds the
+#: wait when the mirror is switched off.
+MIRROR_TIMEOUT = 10.0
 
 #: Refuse a download larger than this. A source tarball is single-digit MB and
 #: the largest artifact in the catalog is well under this; the limit exists so
@@ -100,6 +121,47 @@ class VerificationError(BackendError):
     the same rule everything else is: D-016 forbids continuing past a failure,
     and this is the failure it would be worst to continue past.
     """
+
+
+class TransportUnreachable(BackendError):
+    """The host did not answer at all: refused, timed out, not resolvable.
+
+    Distinct from an HTTP error status, which is an answer. A mirror that
+    raised this is not asked again by the same :class:`Fetcher` (D-070)."""
+
+
+@dataclass(frozen=True)
+class MirrorPath:
+    """Where an artifact sits on a LAN mirror: ``<unit>/<name>`` (D-070).
+
+    ``unit`` is the catalog unit and ``name`` the artifact's stable name
+    within it -- a region path, a tile name, a data file name -- exactly as
+    ``hammunition artifacts`` lists them. Refused when a segment could step
+    out of the unit's directory on the server."""
+
+    unit: str
+    name: str
+
+    def __post_init__(self) -> None:
+        segments = [self.unit, *self.name.split("/")]
+        if "/" in self.unit or any(s in ("", ".", "..") for s in segments):
+            raise BackendError(
+                f"mirror path {self.unit!r}/{self.name!r} has an empty, '.' or '..' "
+                f"segment, or a unit with a '/'; refusing to ask a mirror for it"
+            )
+
+    @property
+    def segments(self) -> tuple[str, ...]:
+        return (self.unit, *self.name.split("/"))
+
+
+def mirror_url(mirror: str, path: MirrorPath) -> str:
+    """``<mirror>/<unit>/<name>``, each segment percent-quoted.
+
+    A base URL with or without a trailing slash, with or without a path of
+    its own (``http://nas.lan/bunker/``), gives the same answer."""
+    quoted = "/".join(urllib.parse.quote(s, safe="") for s in path.segments)
+    return f"{mirror.rstrip('/')}/{quoted}"
 
 
 class Transport(Protocol):
@@ -170,9 +232,9 @@ class UrllibTransport:
         except urllib.error.HTTPError as exc:
             raise BackendError(f"{url} returned HTTP {exc.code} ({exc.reason})") from exc
         except urllib.error.URLError as exc:
-            raise BackendError(f"{url} could not be fetched: {exc.reason}") from exc
+            raise TransportUnreachable(f"{url} could not be fetched: {exc.reason}") from exc
         except OSError as exc:  # timeouts, connection resets, DNS
-            raise BackendError(f"{url} could not be fetched: {exc}") from exc
+            raise TransportUnreachable(f"{url} could not be fetched: {exc}") from exc
         if response is None:
             # No handler claimed the scheme. Unreachable given the check above,
             # and refused by name anyway rather than returned as a stream.
@@ -198,6 +260,26 @@ class FetchResult:
 
     size: int
 
+    source: str = "publisher"
+    """Where the bytes came from: ``cache`` (a verified copy already here),
+    ``mirror`` (the LAN mirror, D-070) or ``publisher``."""
+
+    url: str | None = None
+    """The URL the bytes were downloaded from; None for a cached copy."""
+
+    mirror_failure: str | None = None
+    """Why the mirror was passed over for the publisher, when it was."""
+
+
+@dataclass(frozen=True)
+class _Downloaded:
+    sha256: str
+    size: int
+    md5: str | None
+    source: str
+    url: str
+    mirror_failure: str | None
+
 
 def _safe_name(url: str) -> str:
     """A filename for the cache, derived from the URL but never trusting it.
@@ -212,6 +294,48 @@ def _safe_name(url: str) -> str:
     kept = "".join(c for c in tail if c.isalnum() or c in "._-")
     kept = kept.lstrip(".")  # never a dotfile, never `..`
     return kept[:64] or "artifact"
+
+
+def safe_name(url: str) -> str:
+    """The file name a URL ends in, reduced to what is safe as one path
+    segment (:func:`_safe_name`): a data artifact's stable name when it has
+    no ``install_as`` (D-070)."""
+    return _safe_name(url)
+
+
+def fetch_disclosure(
+    fetcher: Fetcher, url: str, path: MirrorPath, check: str
+) -> tuple[str, str, tuple[str, ...]]:
+    """What a data fetch step says about its sources (D-070): a suffix for
+    its description, the URLs for its detail, and the URLs in the order
+    tried. With no mirror the suffix is empty and the detail is the URL, so
+    the plan reads exactly as it did."""
+    urls = tuple(where for _, where in fetcher.sources_for(url, path))
+    if len(urls) == 1:
+        return "", url, urls
+    return (
+        f" — the LAN mirror first, then the publisher; the {check} is checked either way",
+        f"{urls[0]}, then {url}",
+        urls,
+    )
+
+
+def record_fetch(result: FetchResult, facts: dict[str, str], *, mirrored: bool) -> str:
+    """Put where *result*'s bytes came from into *facts*, for the step's
+    ``action_end`` entry, and return the words its outcome line adds: none
+    when no mirror is set, so the outcome reads as it did."""
+    facts["source"] = result.source
+    if result.url is not None:
+        facts["fetched_from"] = result.url
+    if result.mirror_failure is not None:
+        facts["mirror_failure"] = result.mirror_failure
+    if not mirrored or result.source == "cache":
+        return ""
+    if result.source == "mirror":
+        return f", from the LAN mirror {result.url}"
+    if result.mirror_failure is not None:
+        return f", from the publisher; the mirror was passed over: {result.mirror_failure}"
+    return ", from the publisher"
 
 
 def signature_gap(artifact: RemoteArtifact) -> str | None:
@@ -310,10 +434,77 @@ class Fetcher:
         transport: Transport | None = None,
         max_bytes: int = DEFAULT_MAX_BYTES,
         owner: str | None = None,
+        mirror: str | None = None,
+        mirror_transport: Transport | None = None,
     ) -> None:
         self.cache_dir = cache_dir if cache_dir is not None else artifact_cache_dir(owner)
         self.transport: Transport = transport if transport is not None else UrllibTransport()
         self.max_bytes = max_bytes
+        self.mirror = mirror
+        """The LAN mirror's base URL (D-070), or None: publisher only."""
+        if mirror_transport is not None:
+            self.mirror_transport: Transport = mirror_transport
+        elif transport is not None:
+            self.mirror_transport = transport
+        else:
+            self.mirror_transport = UrllibTransport(timeout=MIRROR_TIMEOUT)
+        self._mirror_down: str | None = None
+
+    def sources_for(self, url: str, mirror: MirrorPath | None) -> tuple[tuple[str, str], ...]:
+        """``(source, url)`` pairs in the order a fetch tries them. Pure, so
+        the plan discloses exactly the order the run will use."""
+        if self.mirror and mirror is not None:
+            return (("mirror", mirror_url(self.mirror, mirror)), ("publisher", url))
+        return (("publisher", url),)
+
+    def _from_sources(
+        self,
+        url: str,
+        mirror: MirrorPath | None,
+        temporary: Path,
+        *,
+        max_bytes: int | None,
+        md5: bool,
+        verify: Callable[[str, int, str | None, str], None],
+    ) -> _Downloaded:
+        """Download into *temporary* from each source in turn until one
+        verifies. *verify* raises :class:`VerificationError` (or
+        :class:`BackendError`) for bytes that do not pass. A mirror failure
+        of any kind is recorded and the publisher tried; a publisher failure
+        is raised, naming the mirror's too. Nothing unverified survives: the
+        temporary is removed after every failed attempt."""
+        passed_over: str | None = None
+        for source, where in self.sources_for(url, mirror):
+            if source == "mirror" and self._mirror_down is not None:
+                passed_over = self._mirror_down
+                continue
+            transport = self.mirror_transport if source == "mirror" else self.transport
+            try:
+                sha, size, got = self._download(
+                    where, temporary, max_bytes=max_bytes, md5=md5, transport=transport
+                )
+                verify(sha, size, got, where)
+            except BaseException as exc:
+                temporary.unlink(missing_ok=True)
+                # Any Exception from the mirror is a mirror failure: a
+                # truncated chunked body or a bad status line is an
+                # http.client.HTTPException, not an OSError, and must hand
+                # over to the publisher rather than abort the install. An
+                # interrupt (not an Exception) still stops the run.
+                if source == "mirror" and isinstance(exc, Exception):
+                    passed_over = f"{where}: {exc}"
+                    if isinstance(exc, TransportUnreachable):
+                        self._mirror_down = (
+                            f"the mirror {self.mirror} did not answer earlier in this run ({exc})"
+                        )
+                    continue
+                if passed_over is not None and isinstance(exc, BackendError):
+                    raise type(exc)(
+                        f"{exc}\n(The LAN mirror was tried first and passed over: {passed_over})"
+                    ) from exc
+                raise
+            return _Downloaded(sha, size, got, source, where, passed_over)
+        raise AssertionError("the publisher is always the last source")  # pragma: no cover
 
     def path_for(self, artifact: RemoteArtifact) -> Path:
         """Where this artifact lives once verified. Pure; touches no disk.
@@ -328,7 +519,13 @@ class Fetcher:
         """Where an MD5-verified file lives once verified (:meth:`fetch_md5`). Pure."""
         return self.cache_dir / f"md5-{md5}-{_safe_name(url)}"
 
-    def fetch(self, artifact: RemoteArtifact, *, max_bytes: int | None = None) -> FetchResult:
+    def fetch(
+        self,
+        artifact: RemoteArtifact,
+        *,
+        max_bytes: int | None = None,
+        mirror: MirrorPath | None = None,
+    ) -> FetchResult:
         """Return a verified local copy of *artifact*, downloading if needed.
 
         Raises :class:`VerificationError` if what arrives does not match the
@@ -340,6 +537,9 @@ class Fetcher:
         this one download; the default (``None``) keeps the instance's own
         :attr:`max_bytes`. It never disables the cap -- there is no value that
         means unlimited.
+
+        *mirror*, with a mirror set, is where this artifact sits on it; the
+        mirror is then tried first and the publisher second (D-070).
         """
         final = self.path_for(artifact)
 
@@ -351,6 +551,7 @@ class Fetcher:
                     sha256=actual,
                     from_cache=True,
                     size=final.stat().st_size,
+                    source="cache",
                 )
             # Content-addressed, so this cannot be a stale version: it is a
             # corrupted or tampered cache entry. Drop it and fetch again rather
@@ -362,28 +563,36 @@ class Fetcher:
         # within one filesystem, which is atomic. A temp file in /tmp would
         # make it a copy, and a copy can be interrupted half-written.
         temporary = final.with_name(final.name + f".part.{os.getpid()}")
-        try:
-            actual, size, _ = self._download(artifact.url, temporary, max_bytes=max_bytes)
-        except BaseException:
-            temporary.unlink(missing_ok=True)
-            raise
 
-        if actual != artifact.sha256:
-            temporary.unlink(missing_ok=True)
-            raise VerificationError(
-                f"{artifact.url} does not match the digest the manifest declares.\n"
-                f"  expected sha256: {artifact.sha256}\n"
-                f"  actually got:    {actual}\n"
-                f"The download has been discarded. This is either a corrupted "
-                f"transfer, an upstream that re-cut a release under the same URL, "
-                f"or an artifact that is not the one the catalog was written "
-                f"against — and none of those may be installed."
-            )
+        def verify(actual: str, _size: int, _md5: str | None, where: str) -> None:
+            if actual != artifact.sha256:
+                raise VerificationError(
+                    f"{where} does not match the digest the manifest declares.\n"
+                    f"  expected sha256: {artifact.sha256}\n"
+                    f"  actually got:    {actual}\n"
+                    f"The download has been discarded. This is either a corrupted "
+                    f"transfer, an upstream that re-cut a release under the same URL, "
+                    f"or an artifact that is not the one the catalog was written "
+                    f"against — and none of those may be installed."
+                )
 
+        got = self._from_sources(
+            artifact.url, mirror, temporary, max_bytes=max_bytes, md5=False, verify=verify
+        )
         os.replace(temporary, final)
-        return FetchResult(path=final, sha256=actual, from_cache=False, size=size)
+        return FetchResult(
+            path=final,
+            sha256=got.sha256,
+            from_cache=False,
+            size=got.size,
+            source=got.source,
+            url=got.url,
+            mirror_failure=got.mirror_failure,
+        )
 
-    def fetch_md5(self, url: str, md5: str, *, expected_size: int) -> FetchResult:
+    def fetch_md5(
+        self, url: str, md5: str, *, expected_size: int, mirror: MirrorPath | None = None
+    ) -> FetchResult:
         """A file verified only by its publisher's MD5 (D-057), for map data the
         catalog carries no sha256 pin for. Weaker than :meth:`fetch`, and the plan
         says so beside every region it is used for. The size must match what the
@@ -400,7 +609,11 @@ class Fetcher:
                     digest.update(chunk)
             if digest.hexdigest() == md5:
                 return FetchResult(
-                    path=final, sha256=_digest_file(final), from_cache=True, size=expected_size
+                    path=final,
+                    sha256=_digest_file(final),
+                    from_cache=True,
+                    size=expected_size,
+                    source="cache",
                 )
             # Same reasoning as fetch(): re-verified every time, never trusted
             # for having matched once. A mismatch here is corruption, not a
@@ -408,30 +621,38 @@ class Fetcher:
             final.unlink()
 
         temporary = final.with_name(final.name + f".part.{os.getpid()}")
-        try:
-            sha, size, got = self._download(
-                url, temporary, max_bytes=expected_size + 1024 * 1024, md5=True
-            )
-        except BaseException:
-            temporary.unlink(missing_ok=True)
-            raise
 
-        if size != expected_size:
-            temporary.unlink(missing_ok=True)
-            raise VerificationError(
-                f"{url}: the server reported {expected_size} bytes and sent "
-                f"{size}; the size check failed"
-            )
-        if got != md5:
-            temporary.unlink(missing_ok=True)
-            raise VerificationError(
-                f"{url} does not match the md5 its publisher lists.\n"
-                f"  expected md5: {md5}\n  actually got: {got}\n"
-                f"The download has been discarded."
-            )
+        def verify(_sha: str, size: int, got: str | None, where: str) -> None:
+            if size != expected_size:
+                raise VerificationError(
+                    f"{where}: the server reported {expected_size} bytes and sent "
+                    f"{size}; the size check failed"
+                )
+            if got != md5:
+                raise VerificationError(
+                    f"{where} does not match the md5 its publisher lists.\n"
+                    f"  expected md5: {md5}\n  actually got: {got}\n"
+                    f"The download has been discarded."
+                )
 
+        done = self._from_sources(
+            url,
+            mirror,
+            temporary,
+            max_bytes=expected_size + 1024 * 1024,
+            md5=True,
+            verify=verify,
+        )
         os.replace(temporary, final)
-        return FetchResult(path=final, sha256=sha, from_cache=False, size=size)
+        return FetchResult(
+            path=final,
+            sha256=done.sha256,
+            from_cache=False,
+            size=done.size,
+            source=done.source,
+            url=done.url,
+            mirror_failure=done.mirror_failure,
+        )
 
     def etag_path_for(self, url: str, etag: str) -> Path:
         """Where an ETag-verified file lives once verified (:meth:`fetch_etag`). Pure."""
@@ -482,6 +703,7 @@ class Fetcher:
         *,
         max_bytes: int | None = None,
         md5: bool = False,
+        transport: Transport | None = None,
     ) -> tuple[str, int, str | None]:
         """Stream *url* to *destination*, hashing as it goes.
 
@@ -498,7 +720,8 @@ class Fetcher:
         digest = hashlib.sha256()
         md5_digest = hashlib.md5(usedforsecurity=False) if md5 else None
         size = 0
-        with create_temporary(destination) as handle, self.transport.open(url) as stream:
+        source = transport if transport is not None else self.transport
+        with create_temporary(destination) as handle, source.open(url) as stream:
             while True:
                 chunk = stream.read(_CHUNK)
                 if not chunk:

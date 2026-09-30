@@ -39,6 +39,7 @@
     "apt_release": null,
     "no_recommends": null,
     "repos": [],
+    "mirror": null,
     "data": [],
     "maps": null,
     "memberships": [],
@@ -64,7 +65,8 @@
           "update"
         ],
         "action": null,
-        "requires_root": true
+        "requires_root": true,
+        "sources": []
       },
       {
         "description": "Install 1 package(s) with apt",
@@ -81,7 +83,8 @@
           "fixture-apt"
         ],
         "action": null,
-        "requires_root": true
+        "requires_root": true,
+        "sources": []
       }
     ],
     "suggestion_notes": [],

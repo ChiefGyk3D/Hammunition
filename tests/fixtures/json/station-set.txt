@@ -5,3 +5,4 @@ Station configuration: <config>/hammunition/station.yml
   node_alias     (not set)
   map regions    (not set)
   map freshness  yearly
+  mirror         (not set)

@@ -38,6 +38,13 @@ class StationDocument(Strict):
         "how often map data is refreshed: yearly, monthly or latest; "
         "null means the yearly default applies"
     )
+    reference_books: tuple[str, ...] = described(
+        "Kiwix book ids chosen for kiwix-library (D-066); empty when none are chosen"
+    )
+    mirror: str | None = described(
+        "the LAN mirror the verified fetch tries before the publisher, the same digest "
+        "checked either way (D-070); null when none is set"
+    )
 
 
 def build_station(path: Path, station: Station) -> StationDocument:
@@ -49,6 +56,8 @@ def build_station(path: Path, station: Station) -> StationDocument:
         node_alias=station.node_alias,
         map_regions=station.map_regions,
         map_freshness=station.map_freshness,
+        reference_books=station.reference_books,
+        mirror=station.mirror,
     )
 
 
@@ -58,7 +67,13 @@ def render_station(doc: StationDocument) -> list[str]:
     if not doc.file_exists:
         lines.append("  (no file yet)")
     values = {name: getattr(doc, name) for name in sorted(STATION_FIELDS)}
-    if not any(values.values()) and not doc.map_regions and doc.map_freshness is None:
+    if (
+        not any(values.values())
+        and not doc.map_regions
+        and doc.map_freshness is None
+        and not doc.reference_books
+        and doc.mirror is None
+    ):
         return [
             *lines,
             "",
@@ -76,4 +91,10 @@ def render_station(doc: StationDocument) -> list[str]:
     else:
         lines.append(f"  {'map regions':<14} (not set)")
     lines.append(f"  {'map freshness':<14} {doc.map_freshness or 'yearly'}")
+    lines.append(f"  {'mirror':<14} {doc.mirror or '(not set)'}")
+    # Which books somebody reads is not where they are: named, not counted
+    # (D-066). Shown only when chosen, so a station without them reads as
+    # it always has.
+    if doc.reference_books:
+        lines.append(f"  {'reference books':<14} {', '.join(doc.reference_books)}")
     return lines

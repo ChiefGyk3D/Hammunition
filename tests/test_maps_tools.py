@@ -33,6 +33,8 @@ def _record_exec(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
 def _as(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, euid: int = 1000) -> Path:
     monkeypatch.setattr(os, "geteuid", lambda: euid)
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    # Never the real home's repeater overlays (D-064): `maps qmapshack` looks there.
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
     return tmp_path / "QLandkarte" / "QMapShack.conf"
 
 
