@@ -19,7 +19,11 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   ntpd needs to read gpsd's time, disclosed as widening a network-facing
   daemon's privilege, only where gpsd is installed, and prints every
   `ntp.conf` line the first mode moves and what that costs; `--no-gps-time`
-  leaves all of it alone. It installs `fake-hwclock` only where there is no
+  leaves all of it alone. It also runs gpsd with `-n` (the drop-in
+  `/etc/systemd/system/gpsd.service.d/hammunition-gps.conf`, the same file
+  and text as the `chrony` unit's), because gpsd publishes no time while no
+  client is connected (measured on #162); a reboot after apply lets gpsd
+  take it, and `unapply` leaves it while the `chrony` unit still uses it. It installs `fake-hwclock` only where there is no
   hardware clock; `hardware unapply` takes all of it back, `ntp.conf`
   byte for byte. `doctor` reports the time source, holdover, and a machine
   with no RTC. Parrot (ntpsec) only; built and not yet run on the field

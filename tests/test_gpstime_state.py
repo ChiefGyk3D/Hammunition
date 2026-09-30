@@ -201,7 +201,10 @@ def test_grants_need_the_dropin_and_where_apparmor_is_in_use_the_rule(time_files
     assert not grants_installed()
     Path(files.DROPIN).parent.mkdir(parents=True)
     Path(files.DROPIN).write_text("[Service]\n")
-    assert grants_installed(), "no AppArmor profile: the drop-in is the whole grant"
+    assert not grants_installed(), "gpsd publishes no time to SHM without -n"
+    Path(files.GPSD_DROPIN).parent.mkdir(parents=True)
+    Path(files.GPSD_DROPIN).write_text("[Service]\nEnvironment=OPTIONS=-n\n")
+    assert grants_installed(), "no AppArmor profile: the two drop-ins are the whole grant"
     Path(files.APPARMOR_PROFILE).parent.mkdir(parents=True)
     Path(files.APPARMOR_PROFILE).write_text("profile\n")
     Path(files.APPARMOR_LOCAL).parent.mkdir(parents=True)

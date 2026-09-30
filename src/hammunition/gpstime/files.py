@@ -12,8 +12,10 @@ from __future__ import annotations
 __all__ = [
     "APPARMOR_LOCAL",
     "APPARMOR_PROFILE",
+    "CHRONY_GPS_CONF",
     "DHCP_CONF",
     "DROPIN",
+    "GPSD_DROPIN",
     "NTPD",
     "NTPSEC_DEFAULT",
     "NTP_CONF",
@@ -43,6 +45,16 @@ NTP_D_FILE = "/etc/ntpsec/ntp.d/hammunition-gps.conf"
 DROPIN = "/etc/systemd/system/ntpsec.service.d/hammunition-gps.conf"
 """Grants ntpd CAP_IPC_OWNER so it can attach gpsd's root-only SHM segment."""
 
+GPSD_DROPIN = "/etc/systemd/system/gpsd.service.d/hammunition-gps.conf"
+"""Runs gpsd with ``-n``: without it gpsd polls a receiver only while a client is
+connected, and publishes no time to the SHM segment ntpd reads (measured on PR
+#162: 0 samples without, 9 in 8 s with). The same path and text as the ``chrony``
+catalog unit writes (D-072), so the two share one file."""
+
+CHRONY_GPS_CONF = "/etc/chrony/conf.d/hammunition-gps.conf"
+"""The ``chrony`` unit's other file. Its presence means that unit still relies on
+GPSD_DROPIN, so ``hardware unapply`` leaves the drop-in in place."""
+
 APPARMOR_LOCAL = "/etc/apparmor.d/local/usr.sbin.ntpd"
 """The file Debian reserves for local additions to ntpd's profile. Created empty by
 the package's maintainer script and not owned by dpkg, so it is edited, never removed."""
@@ -67,6 +79,8 @@ PATHS: dict[str, str] = {
     "NTP_D_DIR": NTP_D_DIR,
     "NTP_D_FILE": NTP_D_FILE,
     "DROPIN": DROPIN,
+    "GPSD_DROPIN": GPSD_DROPIN,
+    "CHRONY_GPS_CONF": CHRONY_GPS_CONF,
     "APPARMOR_LOCAL": APPARMOR_LOCAL,
     "APPARMOR_PROFILE": APPARMOR_PROFILE,
     "NTPSEC_DEFAULT": NTPSEC_DEFAULT,

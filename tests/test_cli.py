@@ -3210,7 +3210,7 @@ def test_hardware_apply_discloses_and_installs_the_gps_time_grants(
     from dataclasses import replace
 
     from hammunition.gpstime import files
-    from hammunition.gpstime.grants import APPARMOR_BLOCK, DROPIN_CONTENT
+    from hammunition.gpstime.grants import APPARMOR_BLOCK, DROPIN_CONTENT, GPSD_DROPIN_CONTENT
 
     cli = importlib.import_module("hammunition.cli.main")
     _ntpd_apparmor()
@@ -3225,8 +3225,10 @@ def test_hardware_apply_discloses_and_installs_the_gps_time_grants(
     assert "CAP_IPC_OWNER bypasses" in out
     assert out.index("CAP_IPC_OWNER bypasses") < out.index("Commands (")
     assert Path(files.DROPIN).read_text() == DROPIN_CONTENT
+    assert Path(files.GPSD_DROPIN).read_text() == GPSD_DROPIN_CONTENT
     assert APPARMOR_BLOCK in Path(files.APPARMOR_LOCAL).read_text()
     assert [c.argv[0] for c in runner.ran] == [
+        "install",
         "install",
         "systemctl",
         "install",
@@ -3260,7 +3262,7 @@ def test_hardware_apply_logs_each_gps_time_step(
     monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: _TimeInstallingRunner())
     assert cli.main(["hardware", "apply", "--yes"]) == 0
     time_events = [e for e in logged if e.get("event") == "time_grants"]
-    assert len(time_events) == 6
+    assert len(time_events) == 7
     assert all(e["version"] == 1 and e["description"] and e["argv"] for e in time_events)
 
 

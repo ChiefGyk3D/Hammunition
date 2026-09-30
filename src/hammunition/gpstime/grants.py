@@ -64,6 +64,24 @@ DROPIN_CONTENT = (
     "[Service]\n"
     "AmbientCapabilities=CAP_IPC_OWNER\n"
 )
+GPSD_DROPIN_CONTENT = (
+    "# Written by Hammunition (catalog unit `chrony`, D-072).\n"
+    "# Poll the receiver with no client connected, so chrony gets its time.\n"
+    "[Service]\n"
+    "Environment=OPTIONS=-n\n"
+)
+"""gpsd polls a receiver, and so publishes time to shared memory, only while a
+client is connected unless it runs with ``-n`` (gpsd(8); measured on PR #162:
+0 samples in SHM without it, 9 in 8 s with it). Debian's gpsd.service runs
+``gpsd $GPSD_OPTIONS $OPTIONS $DEVICES`` and /etc/default/gpsd sets no OPTIONS,
+so a drop-in adds the flag without touching gpsd's conffile.
+
+**Byte for byte the text the ``chrony`` catalog unit writes at the same path**
+(D-072), header included, so the two units never rewrite each other's file
+and a second install is a no-op. The header names the chrony unit because
+that text was written first; changing it here alone would make the two
+fight over the file."""
+
 APPARMOR_BLOCK = (
     "# Added by `hammunition hardware apply` (D-058): ntpd reads gpsd's time.\n"
     "# `hammunition hardware unapply` removes these three lines and nothing else.\n"
@@ -71,6 +89,7 @@ APPARMOR_BLOCK = (
 )
 FAKE_HWCLOCK = "fake-hwclock"
 _STAGED_DROPIN = "ntpsec-hammunition-gps.conf"
+_STAGED_GPSD_DROPIN = "gpsd-hammunition-gps.conf"
 _STAGED_APPARMOR = "usr.sbin.ntpd.local"
 _STAGED_CONF = "ntp.conf"
 _RESTART = ("systemctl", "restart", "ntpsec")
@@ -125,6 +144,9 @@ class TimeGrants:
     mode_writes: tuple[str, ...] = ()
     """What the first ``time mode`` will write, for the disclosure (empty once a
     mode is applied)."""
+    gpsd_dropin_current: bool = False
+    """gpsd's ``-n`` drop-in is already there, with exactly our text (possibly
+    written by the ``chrony`` unit, which writes the same)."""
 
     @property
     def gps_time(self) -> bool:
@@ -139,13 +161,21 @@ class TimeGrants:
         return self.gps_time and not (self.dropin_current and self.apparmor_current)
 
     @property
+    def dropins_change(self) -> bool:
+        return self.gps_time and not (self.dropin_current and self.gpsd_dropin_current)
+
+    @property
     def is_noop(self) -> bool:
         if self.offer_fake_hwclock:
             return False
         if not self.gps_time:
             return True
         return (
-            self.dropin_current and self.apparmor_current and self.ntp_d_dir and self.mode_applied
+            self.dropin_current
+            and self.gpsd_dropin_current
+            and self.apparmor_current
+            and self.ntp_d_dir
+            and self.mode_applied
         )
 
 
@@ -158,6 +188,13 @@ def plan_time_grants(*, installed: Callable[[str], bool] = package_installed) ->
     ntpsec = ntpsec_installed()
     gpsd = ntpsec and installed("gpsd")
     mode_applied = Path(files.NTP_D_FILE).is_file()
+    gpsd_text = _read(files.GPSD_DROPIN)
+    if gpsd and gpsd_text is not None and gpsd_text != GPSD_DROPIN_CONTENT:
+        raise TimeError(
+            f"{files.GPSD_DROPIN} exists and holds text Hammunition did not write. GPS "
+            f"time needs gpsd to run with -n from that file, and it is never overwritten. "
+            f"Move it aside and re-run, or use `--no-gps-time`. Nothing was changed."
+        )
     writes: tuple[str, ...] = ()
     if gpsd and not mode_applied:
         # Raises TimeError on a conffile without its anchors: refused here,
@@ -174,6 +211,7 @@ def plan_time_grants(*, installed: Callable[[str], bool] = package_installed) ->
         offer_fake_hwclock=not has_rtc() and not installed(FAKE_HWCLOCK),
         gpsd=gpsd,
         mode_writes=writes,
+        gpsd_dropin_current=gpsd_text == GPSD_DROPIN_CONTENT,
     )
 
 
@@ -206,6 +244,17 @@ def disclose(tg: TimeGrants) -> list[str]:
         ]
     if not tg.apparmor_current:
         ntp.append(f"  {files.APPARMOR_LOCAL}: + {APPARMOR_RULE} (and ntpd's profile is reloaded)")
+    if not tg.gpsd_dropin_current:
+        ntp += [
+            "Will make gpsd poll the receiver with no client connected (gpsd -n), so it",
+            "  publishes time for ntpd; without it gpsd writes no time to shared memory:",
+            f"  {files.GPSD_DROPIN}:",
+            *(f"    {line}" for line in GPSD_DROPIN_CONTENT.splitlines()),
+            "  The same file, with the same text, as the `chrony` unit writes. Inspect it",
+            "  with `systemctl cat gpsd`. gpsd reads it when it next starts: reboot after",
+            "  this run (restarting gpsd in place left two gpsd processes in testing).",
+            "  `hardware unapply` removes it unless the `chrony` unit still uses it.",
+        ]
     if not tg.ntp_d_dir:
         ntp.append(f"Will create {files.NTP_D_DIR}, which ntpd reads after {files.NTP_CONF}.")
     if not tg.mode_applied:
@@ -235,7 +284,7 @@ def grant_commands(tg: TimeGrants, staging_root: str, helper: str) -> list[Comma
     if not tg.gps_time:
         return out
     if not tg.dropin_current:
-        out += [
+        out.append(
             Command(
                 argv=(
                     "install",
@@ -247,13 +296,31 @@ def grant_commands(tg: TimeGrants, staging_root: str, helper: str) -> list[Comma
                 ),
                 description="Let ntpd attach gpsd's root-only time segment (CAP_IPC_OWNER)",
                 requires_root=True,
-            ),
+            )
+        )
+    if not tg.gpsd_dropin_current:
+        out.append(
+            Command(
+                argv=(
+                    "install",
+                    "-D",
+                    "-m",
+                    "0644",
+                    f"{staging_root}/{_STAGED_GPSD_DROPIN}",
+                    files.GPSD_DROPIN,
+                ),
+                description="Run gpsd with -n, so it publishes the receiver's time with no client",
+                requires_root=True,
+            )
+        )
+    if tg.dropins_change:
+        out.append(
             Command(
                 argv=("systemctl", "daemon-reload"),
-                description="Reload systemd so ntpsec.service takes the drop-in",
+                description="Reload systemd so ntpsec.service and gpsd.service take the drop-ins",
                 requires_root=True,
-            ),
-        ]
+            )
+        )
     if not tg.apparmor_current:
         out += [
             Command(
@@ -305,6 +372,9 @@ def stage_grants(tg: TimeGrants, staging_dir: Path) -> None:
     if tg.gps_time and not tg.dropin_current:
         (staging_dir / _STAGED_DROPIN).write_text(DROPIN_CONTENT)
         os.chmod(staging_dir / _STAGED_DROPIN, 0o644)
+    if tg.gps_time and not tg.gpsd_dropin_current:
+        (staging_dir / _STAGED_GPSD_DROPIN).write_text(GPSD_DROPIN_CONTENT)
+        os.chmod(staging_dir / _STAGED_GPSD_DROPIN, 0o644)
     if tg.gps_time and tg.apparmor_local is not None and not tg.apparmor_current:
         (staging_dir / _STAGED_APPARMOR).write_text(with_block(tg.apparmor_local))
         os.chmod(staging_dir / _STAGED_APPARMOR, 0o644)
@@ -320,6 +390,8 @@ def verify_grants(
         return problems
     if _read(files.DROPIN) != DROPIN_CONTENT:
         problems.append(f"{files.DROPIN} on disk does not match what we wrote")
+    if _read(files.GPSD_DROPIN) != GPSD_DROPIN_CONTENT:
+        problems.append(f"{files.GPSD_DROPIN} on disk does not match what we wrote")
     if tg.apparmor_local is not None and APPARMOR_BLOCK not in (_read(files.APPARMOR_LOCAL) or ""):
         problems.append(f"{files.APPARMOR_LOCAL} does not hold the {APPARMOR_RULE!r} block")
     if not Path(files.NTP_D_DIR).is_dir():
@@ -340,12 +412,21 @@ class TimeRemoval:
     """The AppArmor local file without Hammunition's block, or None when the block is absent."""
     apparmor_profile: bool
     ntpsec: bool
+    gpsd_dropin_ours: bool = False
+    """gpsd's ``-n`` drop-in holds exactly the text Hammunition writes."""
+    gpsd_dropin_shared: bool = False
+    """The ``chrony`` unit still relies on it (its conf.d file is present), so it stays."""
+
+    @property
+    def removes_gpsd_dropin(self) -> bool:
+        return self.gpsd_dropin_ours and not self.gpsd_dropin_shared
 
     @property
     def is_empty(self) -> bool:
         return (
             self.conf_restored is None
             and not (self.ntp_d_ours or self.time_config_ours or self.dropin_ours)
+            and not self.removes_gpsd_dropin
             and self.apparmor_restored is None
         )
 
@@ -370,6 +451,8 @@ def plan_time_removal() -> TimeRemoval:
         ),
         apparmor_profile=Path(files.APPARMOR_PROFILE).is_file(),
         ntpsec=conf is not None,
+        gpsd_dropin_ours=_read(files.GPSD_DROPIN) == GPSD_DROPIN_CONTENT,
+        gpsd_dropin_shared=Path(files.CHRONY_GPS_CONF).exists(),
     )
 
 
@@ -390,6 +473,7 @@ def removal_commands(r: TimeRemoval, staging_root: str) -> list[Command]:
         (files.NTP_D_FILE, r.ntp_d_ours),
         (files.TIME_CONFIG, r.time_config_ours),
         (files.DROPIN, r.dropin_ours),
+        (files.GPSD_DROPIN, r.removes_gpsd_dropin),
     ):
         if ours:
             out.append(
@@ -421,11 +505,11 @@ def removal_commands(r: TimeRemoval, staging_root: str) -> list[Command]:
                     requires_root=True,
                 )
             )
-    if r.dropin_ours:
+    if r.dropin_ours or r.removes_gpsd_dropin:
         out.append(
             Command(
                 argv=("systemctl", "daemon-reload"),
-                description="Reload systemd so ntpsec.service loses the drop-in",
+                description="Reload systemd so ntpsec.service and gpsd.service lose the drop-ins",
                 requires_root=True,
             )
         )
@@ -457,6 +541,7 @@ def verify_removal(r: TimeRemoval) -> list[str]:
         (files.NTP_D_FILE, r.ntp_d_ours),
         (files.TIME_CONFIG, r.time_config_ours),
         (files.DROPIN, r.dropin_ours),
+        (files.GPSD_DROPIN, r.removes_gpsd_dropin),
     ):
         if ours and Path(path).exists():
             problems.append(f"{path} is still present")

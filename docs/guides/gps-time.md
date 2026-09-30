@@ -65,6 +65,7 @@ these, and prints each one before it runs:
 | What | Why | Inspect | Reverse |
 |---|---|---|---|
 | `/etc/systemd/system/ntpsec.service.d/hammunition-gps.conf` — `AmbientCapabilities=CAP_IPC_OWNER` | gpsd writes the time into shared memory only root can read; ntpd runs as the `ntpsec` user | `systemctl cat ntpsec` | `hammunition hardware unapply` |
+| `/etc/systemd/system/gpsd.service.d/hammunition-gps.conf` — `Environment=OPTIONS=-n` | gpsd reads the receiver, and publishes its time, only while some program is connected to it; `-n` makes it poll the receiver continuously, so ntpd always has time to read. The same file and text as the `chrony` unit writes. gpsd takes it at the next boot | `systemctl cat gpsd`, then after a reboot `ps -o args= -C gpsd` shows `-n` | `hammunition hardware unapply`, unless the `chrony` unit still uses it |
 | `capability ipc_owner,` added to `/etc/apparmor.d/local/usr.sbin.ntpd` (the file Debian keeps for local additions), and ntpd's profile reloaded | AppArmor must allow the same capability | `cat /etc/apparmor.d/local/usr.sbin.ntpd` | `hammunition hardware unapply` removes only that block |
 | `/etc/ntpsec/ntp.d/` created | ntpd reads `*.conf` here after `ntp.conf` | `ls /etc/ntpsec/ntp.d` | left in place, empty |
 | The first time mode, `auto`, set through the helper (the files in section 4) and ntpsec restarted | | `hammunition time` | `hammunition hardware unapply` |
@@ -85,6 +86,13 @@ alone. ntpsec's own manual (`ntp.conf(5)`) says minsane "should be at least
 4 in order to detect and discard a single falseticker". Online, with four
 pool servers and the GPS, that protection is weaker than Debian's default;
 `ntp-only` keeps it. Both are printed in the plan before anything runs.
+
+**Reboot after `hardware apply`.** gpsd reads its `-n` setting only when it
+starts, and restarting a running gpsd in place left two gpsd processes in
+testing. The receiver has to be polled continuously: without `-n`, gpsd
+writes no time into the shared memory ntpd reads while nothing else is
+asking it for a position (measured: no samples in 8 s without `-n`, nine
+with it).
 
 *Bench:* that ntpd keeps this capability after it drops to the `ntpsec`
 user, so it can actually read the receiver, is the first thing to be
@@ -191,8 +199,10 @@ dpkg --verify ntpsec        # expected: no line for /etc/ntpsec/ntp.conf (not ye
 Hammunition edited them (so, if you never edited it yourself, as the package
 shipped it, which `dpkg --verify ntpsec` should confirm; not yet measured on
 the bench), removes `/etc/ntpsec/ntp.d/hammunition-gps.conf`,
-`/etc/hammunition/time.yaml` and the systemd drop-in (each only if it
-carries the header Hammunition writes), takes only Hammunition's block out
+`/etc/hammunition/time.yaml` and the ntpsec drop-in (each only if it
+carries the header Hammunition writes), removes gpsd's `-n` drop-in only if
+it holds exactly Hammunition's text and the `chrony` unit's
+`/etc/chrony/conf.d/hammunition-gps.conf` is absent (the two share it), takes only Hammunition's block out
 of `/etc/apparmor.d/local/usr.sbin.ntpd`, reloads systemd and AppArmor, and
 restarts ntpsec on the package's own configuration. `hardware apply` puts
 GPS time back.

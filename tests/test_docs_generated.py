@@ -952,6 +952,8 @@ def test_the_gps_time_guide_covers_every_system_modification() -> None:
         "/etc/ntpsec/ntp.conf",
         "/etc/systemd/system/ntpsec.service.d/hammunition-gps.conf",
         "/etc/apparmor.d/local/usr.sbin.ntpd",
+        "/etc/systemd/system/gpsd.service.d/hammunition-gps.conf",
+        "systemctl cat gpsd",
         "CAP_IPC_OWNER",
         "hardware unapply",
         "dpkg --verify ntpsec",

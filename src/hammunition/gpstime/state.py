@@ -184,8 +184,9 @@ def has_rtc() -> bool:
 
 
 def grants_installed() -> bool:
-    """The drop-in, and where ntpd runs under AppArmor, the local rule."""
-    if not Path(files.DROPIN).is_file():
+    """ntpd's drop-in, gpsd's ``-n`` drop-in, and where ntpd runs under AppArmor,
+    the local rule."""
+    if not (Path(files.DROPIN).is_file() and Path(files.GPSD_DROPIN).is_file()):
         return False
     if not Path(files.APPARMOR_PROFILE).is_file():
         return True
@@ -354,8 +355,8 @@ def describe(t: TimeState) -> list[str]:
 
     if t.daemon is not None and t.mode in GPS_MODES and not t.grants:
         lines.append(
-            "ntpd cannot read gpsd's time yet: `hammunition hardware apply` installs the "
-            "two grants it needs."
+            "ntpd cannot read gpsd's time yet: `hammunition hardware apply` installs what "
+            "it needs (ntpd's two grants, and gpsd -n so gpsd publishes time)."
         )
     if t.dhcp_config:
         lines.append(

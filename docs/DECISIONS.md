@@ -4917,6 +4917,50 @@ stopgap (it restores the last saved time, wrong by however long the machine
 was off); it is never offered where a real clock exists, and dpkg is not
 even asked. The hour-long holdover drift figure is *bench*.
 
+### Amendment, 2026-09-30: gpsd runs with `-n`, from the same drop-in as the `chrony` unit
+
+**Measured** on PR #162 (branch `gap-03-gps-time`, the `chrony` unit,
+D-072), in a container with a script serving NMEA: gpsd put **no samples**
+into the shared-memory segment in 8 s without `-n`, and **nine** with it,
+both with the device on gpsd's command line and added through `gpsdctl
+add`. gpsd polls a receiver only while a client is connected unless it runs
+with `-n` (gpsd(8)). The field laptop's `/etc/default/gpsd` has
+`GPSD_OPTIONS=""`, so as first built, ntpd would have found nothing to
+read: the plan's bench Step 1 could not have passed.
+
+So `hardware apply` writes
+`/etc/systemd/system/gpsd.service.d/hammunition-gps.conf`:
+
+```
+# Written by Hammunition (catalog unit `chrony`, D-072).
+# Poll the receiver with no client connected, so chrony gets its time.
+[Service]
+Environment=OPTIONS=-n
+```
+
+Debian's gpsd.service runs `gpsd $GPSD_OPTIONS $OPTIONS $DEVICES`, and
+`/etc/default/gpsd` sets no `OPTIONS`, so the drop-in adds the flag without
+touching gpsd's conffile. **The path and the text are the `chrony` unit's,
+byte for byte**, header included: the two units then never rewrite each
+other's file, and the second to arrive finds it current and does nothing.
+The header names the other unit because its text came first; a neutral
+header would have to change in both at once. A test pins the text, and a
+second test compares it with the chrony unit's manifest (catalog/packages/chrony.yaml on #162) once that unit
+is in the catalog. A different text at that path is refused at plan time,
+never overwritten. It is disclosed with how to inspect it (`systemctl cat
+gpsd`), and gpsd takes it at the next boot: the disclosure says to reboot,
+because restarting gpsd in place left two gpsd processes in #162's test.
+It counts as one of the grants `hammunition time` and `doctor` check.
+
+**Ruling on removal: shared, removed only when no other unit needs it.**
+`hardware unapply` removes the drop-in only when it holds exactly this text
+**and** the `chrony` unit's other file, `/etc/chrony/conf.d/hammunition-gps.conf`,
+is absent; otherwise it stays and the rest of GPS time is still taken back.
+ntpsec and chrony cannot both be installed, so the case is a machine that
+switched daemons; the file that says the chrony unit is still configured is
+the evidence, read by content like everything else unapply removes. Not yet
+measured on the field laptop, like the rest of this record.
+
 ### What is refused, and what is out of scope
 
 A target whose time daemon is not ntpsec (Debian 13, Ubuntu and Kali

@@ -1104,7 +1104,7 @@ The **time** and **hardware clock** checks (**D-058**) say what the clock
 follows (the network or the GPS, with ntpd's offset), or that it follows
 nothing and for how long (information under a day, a warning past one), read
 with `ntpq -pn` and `ntpq -c rv` and no privilege. It warns when a GPS mode is
-set but ntpd lacks the two grants `hardware apply` installs, when `gps-only`
+set but ntpd lacks the grants `hardware apply` installs (or gpsd its `-n` drop-in), when `gps-only`
 is set with the receiver parked, and when ntpd runs on a DHCP-supplied
 configuration. A machine with no battery-backed hardware clock (`/sys/class/rtc`
 empty) is warned on any target, naming the fix: fit an RTC module. On a target
@@ -1229,7 +1229,12 @@ files contain and what installing them means.
   `AmbientCapabilities=CAP_IPC_OWNER`, and `capability ipc_owner,` added as a
   marked block to `/etc/apparmor.d/local/usr.sbin.ntpd`, with the profile
   reloaded. The plan says in so many words that CAP_IPC_OWNER bypasses
-  permission checks on all System V IPC. It creates `/etc/ntpsec/ntp.d` and
+  permission checks on all System V IPC. It also writes
+  `/etc/systemd/system/gpsd.service.d/hammunition-gps.conf`
+  (`Environment=OPTIONS=-n`), without which gpsd publishes no time while no
+  client is connected; it is the same file, with the same text, as the
+  `chrony` unit writes, a different text there is refused, and gpsd reads it
+  at the next boot. Inspect it with `systemctl cat gpsd`. It creates `/etc/ntpsec/ntp.d` and
   sets the first time mode (`auto`, or the mode already recorded) through the
   helper, which restarts ntpsec; when a mode is already applied and only the
   grants change, it restarts ntpsec instead. On a machine with no hardware
@@ -1274,7 +1279,9 @@ on. Nothing else is touched.
   measured on the bench);
   `/etc/ntpsec/ntp.d/hammunition-gps.conf`, `/etc/hammunition/time.yaml` and
   the ntpsec drop-in are removed only when they start with the header
-  Hammunition writes; only Hammunition's block leaves
+  Hammunition writes; gpsd's `-n` drop-in only when it holds exactly
+  Hammunition's text and `/etc/chrony/conf.d/hammunition-gps.conf` is
+  absent, since the `chrony` unit shares it; only Hammunition's block leaves
   `/etc/apparmor.d/local/usr.sbin.ntpd`, the rest of that file stays; then
   systemd and AppArmor are reloaded and ntpsec restarted. `fake-hwclock`, if
   it was installed, stays; `sudo apt remove fake-hwclock` removes it.

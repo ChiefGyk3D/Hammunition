@@ -434,7 +434,7 @@ def _time_checks(t: TimeState) -> list[Check]:
             Check(
                 "time",
                 "warn",
-                "ntpd cannot read gpsd's time: its two grants are not installed",
+                "ntpd cannot read gpsd's time: its grants or gpsd's -n drop-in are not installed",
                 "hammunition hardware apply",
             )
         )
