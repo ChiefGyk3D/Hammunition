@@ -340,7 +340,7 @@ With `--json`, prints a `profile` document
 document carrying its manifest; the text `show` still describes profiles
 only.
 
-### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
+### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--no-sudo-keepalive] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
 
 **A re-run rebuilds nothing it has already built** (**D-051**): a source, git
 or prebuilt-archive unit whose binaries are on the machine *and* whose build
@@ -356,10 +356,50 @@ Names may be packages or profiles, mixed freely.
 | `--dry-run` | Resolve everything, print exactly what would run, change nothing |
 | `--yes` | Skip the confirmation. **Does not satisfy a consent gate** (D-021). Also suppresses the station prompt |
 | `--no-refresh` | Skip the `apt-get update` that otherwise opens every transaction with apt work (**D-044**). For a local mirror, or a station with no uplink. `--refresh` is the default and still parses |
+| `--no-sudo-keepalive` | Do not hold sudo's ticket for the run (**D-062**). By default a run as a user that mixes root steps with steps that are not asks the password once, by `sudo -v`, before the first step, and keeps the ticket valid with `sudo -n -v` every 4 minutes until the run ends. With this flag each root step asks for itself, and one that follows a long step may prompt again. `--sudo-keepalive` is the default and still parses |
 | `--user NAME` | Who to add to groups. Defaults to `$SUDO_USER`, then `$USER` |
 | `--callsign CALL` | Station callsign for this run. Overrides the saved value |
 | `--grid-square LOC` | Maidenhead locator, four or six characters |
 | `--node-alias NAME` | Short packet node alias, up to six characters |
+
+**sudo's ticket, for the length of the run (D-062).** Run as a user, the
+engine puts `sudo` in front of each root step and nothing else, and sudo
+caches the password for 15 minutes by default (`timestamp_timeout`). A
+transaction that alternates root steps with long unprivileged work -- a Navit
+conversion, a Garmin map -- outlives that, and the next root step asks again on
+a terminal nobody may be watching (issue #137: 7.8 hours at the prompt after 30
+minutes of work). When a plan has both kinds of step and is not run as root,
+it prints a section saying what happens instead:
+
+```
+sudo (D-062):
+  sudo's ticket is kept valid for the length of this transaction; it is not extended
+  beyond it. The password is asked once, by `sudo -v`, before the first step; then `sudo
+  -n -v`, which cannot prompt, refreshes the ticket every 4 minutes from this process
+  until the run ends. If a refresh fails it is reported once and not retried, and the
+  next root step asks as it would have. --no-sudo-keepalive turns this off.
+```
+
+After the confirmation (or `--yes`) and before the first step, `sudo -v`
+asks for the password on the terminal, as sudo always has; the engine never
+reads, stores or passes it, and `--yes` does not change what sudo asks. A
+thread of the same process then runs `sudo -n -v`, with stdin from
+`/dev/null`, every 4 minutes, and stops when the transaction ends, succeeds
+or fails. sudo's per-terminal tickets (`timestamp_type=tty`, Debian's
+default) and global ones behave the same here: the refresh runs from the
+same process on the same terminal as every root step, so it refreshes the
+ticket those steps use. That is also why a loop in another window does
+nothing for the install on a machine with per-terminal tickets. If
+`sudo -v` does not succeed, nothing is refreshed and each root step asks as
+it would have. If a refresh fails (sudoers changed, `timestamp_timeout` set
+below 4 minutes, the ticket revoked with `sudo -k`), one warning says so and
+the refreshing stops. The log records `sudo_keepalive_begin` and
+`sudo_keepalive_end` ([transaction-log.md](transaction-log.md)).
+`--no-sudo-keepalive` turns it off, and the section then says a later root
+step may prompt again. A dry run prints the section, because it prints what
+the real run would do, and never runs `sudo`. Run as root there is no ticket
+to keep and no section. Only `install` holds the ticket: the root steps of
+`uninstall` and `hardware apply` are not separated by long unprivileged work.
 
 **Offline data (D-049).** A unit whose `install` method is `data` — a map
 tileset, a Wikipedia ZIM, the DX-cluster `cty.dat` — is not software: the

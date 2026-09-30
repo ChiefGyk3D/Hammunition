@@ -51,6 +51,7 @@
       "log": "<tmp>/xdg_state_home/hammunition/transactions.jsonl",
       "handed_to": null
     },
+    "sudo": null,
     "commands": [
       {
         "description": "Refresh apt package lists",

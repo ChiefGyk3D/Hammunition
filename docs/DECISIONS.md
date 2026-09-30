@@ -5578,3 +5578,93 @@ another machine, a phone, a Bluetooth receiver or a rig's GPS; the guide's
 section 12 says so for each. **Rejected:** a `--bind` option or any
 listener beyond loopback (the position to anyone who asks), and a watch
 per client (N copies of gpsd's stream for identical output).
+
+---
+
+## D-062 — An install run as a user asks sudo once and keeps its ticket valid until the run ends, and no longer
+
+**Date:** 2026-09-29. **Status:** proposed (implemented for issue #137 on
+branch `sudo-keepalive`; the maintainer decides it at review). **Depends
+on:** D-021 (`--yes` never answers for a person, and does not here), D-044
+(an engine-run step disclosed in the plan, with a `--no-` opt-out), D-061
+(the long operator-side conversions that exposed this), D-031 (verify the
+effect). **Amends:** nothing; it adds the first privilege the engine holds
+for longer than one command.
+
+**Why.** Measured on the field laptop, 2026-09-29, bench session 12:
+`hammunition install navigation`, run as the operator, did about 30 minutes
+of work and then waited **7.8 hours** at a `sudo` password prompt. Run as a
+user, the engine puts `sudo` in front of each root step and nothing else
+(`Command.argv_for`). sudo caches the credential for `timestamp_timeout`
+minutes, 15 by default, and D-061's conversions run as the operator for
+longer than that, so the root step that publishes the first converted map
+asked again, with nobody at the keyboard. The plan did not say it would.
+The workaround used since, `sudo -v && (while sudo -n -v; do sleep 240;
+done &) && hammunition install navigation`, works only in the install's own
+terminal, because the laptop's sudo keeps a ticket per terminal.
+
+**Decided.**
+
+1. **When.** A real `install` run as a user (euid not 0) whose steps
+   include at least one root command and at least one step that is not
+   root. Not a dry run, not a run as root, not a run where every step is
+   root or none is, and not with `--no-sudo-keepalive`. Only `install`:
+   `uninstall` and `hardware apply` have no long unprivileged step between
+   root ones.
+2. **The plan says so first.** A `sudo (D-062)` section, printed by the dry
+   run and the real run alike and carried in the JSON plan as
+   `install.sudo`, opens with "sudo's ticket is kept valid for the length
+   of this transaction; it is not extended beyond it", and says how. With
+   `--no-sudo-keepalive` it says instead that a root step after a long step
+   may ask again, and not to leave the run unattended. This answers the
+   issue's first ask: the plan says whether the run can prompt again.
+3. **One prompt, while the operator is watching.** After the confirmation
+   (or `--yes`) and before the first step, `sudo -v` runs on the terminal.
+   The password goes to sudo; the engine never reads, stores or passes it,
+   and `--yes` does not change what sudo asks.
+4. **A refresh that cannot prompt, stopped with the run.** A thread of the
+   same process runs `sudo -n -v`, stdin `/dev/null`, every 240 seconds,
+   and is stopped and joined when the transaction returns or raises. The
+   ticket then expires on sudo's own schedule.
+5. **Failure is reported once, never retried.** If `sudo -v` fails, nothing
+   is refreshed and each root step asks as it did before this decision. If
+   a refresh fails, one warning says so and the refreshing stops. The log
+   records `sudo_keepalive_begin` (whether `sudo -v` succeeded) and
+   `sudo_keepalive_end` (refreshes, and the failure if any)
+   (`docs/reference/transaction-log.md`).
+
+**Why this works under `timestamp_type=tty`.** The refresh is a child of
+the engine's own process on the same controlling terminal as every root
+step, so it refreshes the ticket those steps use, whether sudo keeps tickets
+per terminal, per parent process or globally. That is what a loop in another
+window cannot do.
+
+**Why 240 seconds and not a measured timeout.** sudo's default is 15
+minutes, and `sudo -l` prints only `Defaults` lines somebody wrote, never a
+compiled-in value, so the real timeout is not readable without root. Four
+minutes is inside any timeout of five minutes or more. A site that sets it
+lower gets the failed refresh reported once, and its prompts as before.
+
+**Measured.** `tests/test_sudo_keepalive.py`, against a fake `sudo` on the
+test's `PATH` recording its argv: `sudo -v` runs once before the first step
+and every refresh is `sudo -n -v`; the refreshing stops when the run
+returns, when it raises, and after the first failure, with nothing run in
+the ten intervals after; a failed `sudo -v` refreshes nothing; a dry run,
+`--no-sudo-keepalive`, a run as root and an all-root plan run no `sudo` at
+all. `tests/conftest.py` now refuses any `sudo` the keepalive would run that
+does not resolve under the temporary directory, so no test can prompt on a
+developer's terminal. **Not yet measured:** a real run on the field laptop
+past sudo's timeout with the operator away, which is the evidence this
+decision needs before it is accepted.
+
+**Rejected.** Reordering the transaction so root steps come first and last
+(the issue's second route): each map is published into the prefix as
+soon as it is converted, one region at a time; batching the publishes to
+the end would hold every converted map in staging until all conversions
+finish and change what a failed region leaves behind, and the steps that
+follow root ones (a build after its `build_depends`) cannot move. Running
+the whole install under `sudo` (the third route): not measured as safe, and
+the engine's default is to drop to the operator, not to start as root.
+Setting `timestamp_timeout` or writing sudoers: that changes the machine's
+policy for every program, which a transaction has no business doing.
+`sudo -S` or an askpass helper: the engine would then handle the password.
