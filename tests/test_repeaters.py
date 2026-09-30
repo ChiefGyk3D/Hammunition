@@ -503,3 +503,16 @@ def test_remove_layer_also_clears_temporaries_an_interrupted_import_left(tmp_pat
     (where / ".repeaters.gpx.abc123").write_text("half")
     repeaters.remove_layer(where)
     assert not where.exists()
+
+
+def test_write_layer_refuses_a_directory_owned_by_another_account(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Compared with the real uid, so CI's root run and a faked geteuid agree."""
+    where = tmp_path / "repeaters"
+    where.mkdir()
+    monkeypatch.setattr(os, "getuid", lambda: where.stat().st_uid + 1)
+    layer = repeaters.Layer(name="L", description="d", day=date(2026, 9, 1), rows=(_row(),))
+    with pytest.raises(OSError, match="not yours"):
+        repeaters.write_layer(where, layer)
+    assert list(where.iterdir()) == []

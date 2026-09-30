@@ -937,7 +937,11 @@ def _own_dir(where: Path) -> None:
     info = os.lstat(where)
     if not stat.S_ISDIR(info.st_mode):
         raise OSError(f"{where} is not a directory; left as it is")
-    if info.st_uid != os.geteuid():
+    # The uid this process's new files get, read with getuid: the CLI has
+    # already refused an effective root (a real root never gets here), and a
+    # test that fakes geteuid to reach that refusal must not also make the
+    # directory it just created look like someone else's (CI runs as root).
+    if info.st_uid != os.getuid():
         raise OSError(f"{where} is not yours; left as it is")
     os.chmod(where, 0o700)
 
