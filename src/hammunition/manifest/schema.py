@@ -838,8 +838,19 @@ CONVERTER_SOURCE_METHOD: dict[str, str] = {
     "mkgmap": "osm-regions",
     "routino-planetsplitter": "osm-regions",
     "gdal-dem": "dem-tiles",
+    "brouter-mapcreator": "osm-regions",
     "mapsforge-map": "osm-regions",
     "mapsforge-poi": "osm-regions",
+}
+
+#: D-063: the other units a ``brouter-mapcreator`` block reads, the install
+#: method each must resolve to, and whether it is required. Checked per
+#: manifest (named in `depends`, refused on any other converter) and
+#: catalog-wide (the method) the way `CONVERTER_SOURCE_METHOD` is.
+BROUTER_INPUTS: dict[str, tuple[str, bool]] = {
+    "program": ("binary", True),
+    "profiles": ("data", True),
+    "elevation": ("dem-tiles", False),
 }
 
 #: D-067: the converters that run a program no archive packages, carried as a
@@ -907,14 +918,15 @@ class DerivedDataInstall(Strict):
         "mkgmap",
         "routino-planetsplitter",
         "gdal-dem",
+        "brouter-mapcreator",
         "mapsforge-map",
         "mapsforge-poi",
     ] = Field(
         description=(
             "The transformation to run. Each needs a `source` of one particular "
             "install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): "
-            "`navit-maptool`, `mkgmap`, `routino-planetsplitter`, `mapsforge-map` and "
-            "`mapsforge-poi` need an `osm-regions` source; `gdal-dem` needs a "
+            "`navit-maptool`, `mkgmap`, `routino-planetsplitter`, `brouter-mapcreator`, "
+            "`mapsforge-map` and `mapsforge-poi` need an `osm-regions` source; `gdal-dem` needs a "
             "`dem-tiles` source."
         )
     )
@@ -931,6 +943,30 @@ class DerivedDataInstall(Strict):
             "that `navit-maptool` merges into each region before conversion, so "
             "maptool files towns under a country and address search finds them "
             "(D-057 amendment, 2026-09-28). Must also be in `depends`."
+        ),
+    )
+    program: str | None = Field(
+        default=None,
+        description=(
+            "`brouter-mapcreator` only, and required there (D-063): the `binary` "
+            "unit whose installed tree holds BRouter's jar, which carries the map "
+            "creator. Must also be in `depends`."
+        ),
+    )
+    profiles: str | None = Field(
+        default=None,
+        description=(
+            "`brouter-mapcreator` only, and required there (D-063): the `data` unit "
+            "holding `all.brf` and `softaccess.brf`, the map creator's filters, which "
+            "BRouter's release zip does not carry. Must also be in `depends`."
+        ),
+    )
+    elevation: str | None = Field(
+        default=None,
+        description=(
+            "`brouter-mapcreator` only, optional (D-063): the `dem-tiles` unit whose "
+            "installed tiles are folded into the routing files as elevation. Without "
+            "it the routes are flat. Must also be in `depends`."
         ),
     )
     licence: str = Field(
@@ -962,7 +998,25 @@ class DerivedDataInstall(Strict):
                 f"converter {self.converter!r} runs only what the archive installs; a `tool` "
                 f"on it would be fetched for nothing"
             )
+        for name, (_, required) in BROUTER_INPUTS.items():
+            value = getattr(self, name)
+            if self.converter != "brouter-mapcreator":
+                if value is not None:
+                    raise ManifestError(
+                        f"{name} is read only by the brouter-mapcreator converter, not "
+                        f"{self.converter!r}"
+                    )
+            elif required and value is None:
+                raise ManifestError(f"converter brouter-mapcreator needs {name}: the unit it reads")
         return self
+
+    def inputs(self) -> tuple[str, ...]:
+        """Every other unit this block reads at run time; each must be in `depends`."""
+        return tuple(
+            unit
+            for unit in (self.source, self.boundaries, self.program, self.profiles, self.elevation)
+            if unit is not None
+        )
 
 
 class PipxInstall(Strict):
@@ -1637,8 +1691,8 @@ class PackageManifest(Strict):
             block = entry.install
             if not isinstance(block, DerivedDataInstall):
                 continue
-            for unit in (block.source, block.boundaries):
-                if unit is not None and unit not in self.depends:
+            for unit in block.inputs():
+                if unit not in self.depends:
                     raise ManifestError(
                         f"{self.name}: a derived block reads {unit!r}, which must be "
                         f"in depends so it is installed first"
@@ -1803,15 +1857,33 @@ def derived_source_method_problem(
             continue
         needed = CONVERTER_SOURCE_METHOD[block.converter]
         source = catalog.get(block.source)
-        if source is None:
-            continue
-        methods = {b.install.method for b in source.install}
-        if needed not in methods:
-            return (
-                f"{manifest.name}: derived block with converter {block.converter!r} "
-                f"needs source {block.source!r} to be a {needed!r} unit, but "
-                f"{block.source!r} is {sorted(methods)!r}"
-            )
+        if source is not None:
+            methods = {b.install.method for b in source.install}
+            if needed not in methods:
+                return (
+                    f"{manifest.name}: derived block with converter {block.converter!r} "
+                    f"needs source {block.source!r} to be a {needed!r} unit, but "
+                    f"{block.source!r} is {sorted(methods)!r}"
+                )
+        for field_name, (method, _) in BROUTER_INPUTS.items():
+            unit = getattr(block, field_name)
+            found = catalog.get(unit) if unit is not None else None
+            if found is None:
+                continue
+            installs = [b.install for b in found.install]
+            if method not in {i.method for i in installs}:
+                return (
+                    f"{manifest.name}: derived block with converter {block.converter!r} "
+                    f"needs {field_name} {unit!r} to be a {method!r} unit, but {unit!r} is "
+                    f"{sorted({i.method for i in installs})!r}"
+                )
+            if field_name == "program" and not any(
+                getattr(i, "install_tree", False) for i in installs
+            ):
+                return (
+                    f"{manifest.name}: program {unit!r} must install a tree "
+                    f"(install_tree: true): the converter reads its jar from there"
+                )
     return None
 
 

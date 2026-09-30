@@ -405,11 +405,24 @@ def rebuild_command(report: UpdateReport) -> str | None:
     if "osm-regions" in names and "osm-navit" not in names:
         names.append("osm-navit")
     # D-061: QMapShack's maps and routing are derived from the same regions;
-    # D-067: so are the phone files.
+    # D-063: so are BRouter's routing files; D-067: so are the phone files.
     reported = {row.unit for row in report.rows}
     if "osm-regions" in names:
-        derived = ("osm-garmin", "osm-routino", "mapsforge-map", "mapsforge-poi")
+        derived = (
+            "osm-garmin",
+            "osm-routino",
+            "brouter-segments",
+            "mapsforge-map",
+            "mapsforge-poi",
+        )
         names.extend(u for u in derived if u in reported and u not in names)
+    # D-063: a new BRouter or new map-creator filters rebuild the routing files.
+    if (
+        {"brouter", "brouter-mapcreator-profiles"} & set(names)
+        and "brouter-segments" in reported
+        and "brouter-segments" not in names
+    ):
+        names.append("brouter-segments")
     return f"hammunition install {' '.join(names)}"
 
 

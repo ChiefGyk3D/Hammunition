@@ -541,9 +541,12 @@ wide because only the catalog knows what `source` resolves to (D-061).
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `method` | `Literal[derived]` | no (default `derived`) |  |
-| `converter` | `Literal[navit-maptool, mkgmap, routino-planetsplitter, gdal-dem, mapsforge-map, mapsforge-poi]` | **yes** | The transformation to run. Each needs a `source` of one particular install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): `navit-maptool`, `mkgmap`, `routino-planetsplitter`, `mapsforge-map` and `mapsforge-poi` need an `osm-regions` source; `gdal-dem` needs a `dem-tiles` source. |
+| `converter` | `Literal[navit-maptool, mkgmap, routino-planetsplitter, gdal-dem, brouter-mapcreator, mapsforge-map, mapsforge-poi]` | **yes** | The transformation to run. Each needs a `source` of one particular install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): `navit-maptool`, `mkgmap`, `routino-planetsplitter`, `brouter-mapcreator`, `mapsforge-map` and `mapsforge-poi` need an `osm-regions` source; `gdal-dem` needs a `dem-tiles` source. |
 | `source` | `str` | **yes** | The catalog package name this is derived from: an `osm-regions` unit, or for `gdal-dem` a `dem-tiles` unit. |
 | `boundaries` | `str \| None` | no | The catalog data unit holding country boundaries (one GeoJSON file) that `navit-maptool` merges into each region before conversion, so maptool files towns under a country and address search finds them (D-057 amendment, 2026-09-28). Must also be in `depends`. |
+| `program` | `str \| None` | no | `brouter-mapcreator` only, and required there (D-063): the `binary` unit whose installed tree holds BRouter's jar, which carries the map creator. Must also be in `depends`. |
+| `profiles` | `str \| None` | no | `brouter-mapcreator` only, and required there (D-063): the `data` unit holding `all.brf` and `softaccess.brf`, the map creator's filters, which BRouter's release zip does not carry. Must also be in `depends`. |
+| `elevation` | `str \| None` | no | `brouter-mapcreator` only, optional (D-063): the `dem-tiles` unit whose installed tiles are folded into the routing files as elevation. Without it the routes are flat. Must also be in `depends`. |
 | `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
 | `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
 | `tool` | `ConverterTool \| None` | no | The pinned program the converter runs, for a converter in `CONVERTERS_WITH_TOOL` (`mapsforge-poi`: Maven Central's mapsforge-poi-writer, which no archive packages, D-067). Required for those converters and refused for every other. |

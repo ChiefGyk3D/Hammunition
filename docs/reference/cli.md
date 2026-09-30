@@ -246,6 +246,12 @@ place, and nothing else in the file changes. A key holding `@Invalid()`,
 which is how Qt writes an empty list, counts as empty. A new file is
 created mode 0600. `--configure-only` edits and does not start QMapShack.
 
+While your repeater layer exists (`maps repeaters import`), it also keeps
+its directory in `poiPaths` under `[Canvas]`, and takes it out once the
+layer is gone (**D-064**): a QMapShack left open during an import writes its
+own list back when it exits, and this puts the path back before the next
+start.
+
 It also sets `routino\database=0` under `[Route]` when that key is absent
 or negative, and leaves a value of 0 or more alone, since that is a choice
 made in QMapShack. The key is the index of the database selected in the
@@ -253,6 +259,29 @@ Routing dock's *Database* list. Measured on the field laptop on 2026-09-29:
 with `-1` there, QMapShack loaded the `hammunition` database and selected
 nothing, and routing gave up without a message. QMapShack writes the index
 back when it exits, so a `-1` stays until something changes it.
+
+**BRouter (D-063).** When `brouter`'s tree holds one `brouter-*-all.jar`
+and `brouter-segments` has built at least one routing file, it points
+QMapShack's local BRouter at them: under `[Route]`, the keys of QMapShack
+1.17.1's `Route/brouter` group (read from its `CRouterBRouterSetup.cpp`),
+`brouter\installMode=local`, `brouter\localDir` (the tree),
+`brouter\localBRouterJar`, `brouter\localSegmentsDir`,
+`brouter\localHost=127.0.0.1` and `brouter\localBindLocalonly=true`, and
+`brouter\localJava` (`java` on the `PATH`) only when it is absent or empty.
+QMapShack saves every one of these on exit, so a key at QMapShack's default
+(`localDir=.`, `installMode=online`) is treated as never chosen and
+replaced; a `localDir` naming any other directory is the operator's own
+BRouter, and then no BRouter key is touched and a line says so. With the
+tree ours, the host and the bind are loopback whatever they held: QMapShack
+passes the host to BRouter only with "bind to hostname only" on, and
+BRouter otherwise listens on every interface. A quoted or `@`-typed value
+in one of these keys leaves BRouter alone, with a line, and does not refuse
+the launch. Which router the Routing dock shows (`Route/current`) is left
+to the operator. QMapShack starts BRouter itself when its Routing dock uses
+it, and stops it with QMapShack. It passes the host to BRouter only once it
+has read BRouter's version, by running the jar with a 3 s limit; a probe
+that times out would start BRouter on every interface, which the guide
+says how to check (`ss -ltnp`) and the bench has still to measure.
 
 It refuses, exit 1, changing nothing and starting nothing:
 
@@ -263,7 +292,9 @@ It refuses, exit 1, changing nothing and starting nothing:
 - when the file is a symbolic link, not a regular file, or not UTF-8.
 
 It prints a line to stderr for each kind of change it made: the
-directories, and the database selection. A missing
+directories, the database selection, and BRouter's registration (with a
+line when it switched BRouter from online to local or bound it to
+127.0.0.1). A missing
 `qmapshack` is a named error, exit 1, after the edit. There is no `--json`
 form, because it replaces itself with a GUI (D-059).
 
@@ -317,6 +348,113 @@ options are for (a gpsd on a Pi or a phone, a Bluetooth or serial
 receiver, a rig's built-in GPS, a second machine) are in
 `docs/guides/offline-navigation.md`, section 12.
 
+### `hammunition maps navit`
+
+What the `navit-offline` launcher runs (**D-064**). It starts `navit` on the
+configuration `osm-navit` writes,
+`/usr/local/share/hammunition/data/osm-navit/navit.xml`. When you have a
+repeater layer (`maps repeaters import`), it first writes your own copy of
+that configuration, `~/.local/share/hammunition/overlays/navit.xml` (mode
+0600; `$XDG_DATA_HOME` honoured), with the layer's textfile map added to its
+one enabled mapset, and starts Navit on the copy. It is rebuilt at every
+start, so it follows each `osm-navit` reinstall. With no layer it starts
+Navit on the generated file and deletes a copy of ours left from an earlier
+layer. Under root it starts Navit on the generated file and writes nothing.
+Your `~/.navit` directory is never touched.
+
+It refuses, exit 1, starting nothing: when the generated configuration is
+absent (`hammunition install osm-navit` writes it), and when the copy cannot
+be written (a symbolic link in its place, a generated file with other than
+one enabled mapset). A missing `navit` is a named error, exit 1. There is no
+`--json` form, because it replaces itself with a GUI (D-059).
+
+### `hammunition maps repeaters import FILE... [--exported YYYY-MM-DD]`
+
+Converts your own repeater export into overlays for QMapShack and Navit, on
+this machine, with no network (**D-064**). It reads, recognised from the
+content:
+
+| Input | What it must have |
+|---|---|
+| RepeaterBook GPX export | `<wpt>` elements with `lat` and `lon`; the callsign and output frequency are taken from `<name>`, then `<desc>` (there a number written with "MHz" first; any frequency must fall in an amateur repeater band from 10 m to 23 cm, or GMRS, so a tone or a coordinate is not taken for one); a waypoint without both is kept under its own name, or under the callsign found when it has no name |
+| RepeaterBook CSV export | a header with `Callsign`, `Frequency`, `Lat` and `Long`; `Input Freq`, `PL`, `TSQ`, `Nearest City`, `Landmark`, `Use`, `Operational Status` and `Last Update` are read when present |
+| hearham.com's JSON, as served | the array `https://hearham.com/api/repeaters/v1` returns; an entry without `callsign`, `frequency`, `latitude` and `longitude` is skipped and counted |
+| Your own CSV | exactly the header `callsign,output_mhz,offset_mhz,tone,mode,lat,lon,name,notes`; WGS84 decimal degrees, UTF-8; a frequency outside 1 to 10,000 MHz (one typed in Hz, say) is skipped and counted |
+
+It refuses, by name and with the reason, and then writes nothing: a CHIRP
+CSV and a CHIRP `.img` (neither has coordinates; CHIRP's RepeaterBook query
+keeps only "near <city>"), a RepeaterBook CSV without `Lat` and `Long`, KML
+(deferred: export GPX from the same search), and XML carrying a DOCTYPE. One
+refused file refuses the whole import. A row with no usable position or no
+callsign is skipped and counted by reason, with its first line numbers.
+
+Rows from every file are merged on callsign, output frequency and position
+to 0.01° (about 1 km): the same pair on two hills stays two repeaters. When
+merged rows both carry `Last Update`, the newer is kept, otherwise the first
+read, and the count is printed. The layer is named
+`Repeaters (own export YYYY-MM-DD, personal use)`, dated by `--exported`,
+else by the oldest file's modification date.
+
+It writes three files into `~/.local/share/hammunition/overlays/repeaters/`
+(`$XDG_DATA_HOME` honoured; directory 0700, files 0600). Each file is
+written whole under a temporary name and renamed over the old one, so no
+file is ever half-written; an import interrupted between two renames can
+leave new and old files side by side, which the next import replaces and
+`remove` clears, temporaries included:
+`repeaters.gpx` (QMapShack's *File → Load*, a phone, a Garmin unit;
+symbol `Tall Tower`), `repeaters.poi` (a Mapsforge POI collection) and
+`repeaters.navit.txt` (a Navit textfile map, `poi_custom0` with a label and
+Navit's tower icon). Then it adds that directory to `poiPaths` under
+`[Canvas]` in QMapShack's settings, with the same editor and refusals as
+`maps qmapshack`, and writes your Navit copy as `maps navit` does. Each
+import replaces the layer; to combine sources, give every file to one import.
+
+Before the counts it prints each source's licence text: for a RepeaterBook
+export, "Data courtesy of RepeaterBook.com", personal non-commercial use,
+never redistributed, converted on this machine only, positions approximate,
+and RepeaterBook's terms at `repeaterbook.com/about/legal`. Every GPX is
+treated as a RepeaterBook export, because a real export's layout has not
+yet been measured. The text prints counts, paths and the layer name, never a
+callsign or a position.
+
+Exit 0 when written and registered; 1 when refused, when no row has a
+position, under root, or when QMapShack's settings could not be edited or
+your Navit copy could not be written (a symbolic link in its place, a
+generated configuration without exactly one enabled mapset); in those last
+two the layer is still written, and the reason named.
+
+With `--json`, prints a `repeaters` document
+([json-interface.md](json-interface.md)): the layer, each file's counts and
+digest, the files written and what each program was told. Like the text, it
+carries no callsign and no position.
+
+### `hammunition maps repeaters fetch-hearham`
+
+Fetches hearham.com's open repeater list, `https://hearham.com/api/repeaters/v1`
+(about 9.5 MB, the whole world, on 2026-09-29), when you run it and at no
+other time, and converts it exactly as `import` does (**D-064**). It prints
+what it is about to fetch before the request. hearham publishes no checksum
+and no dated snapshot, so the sha256 of what arrived is printed and recorded
+in the layer, named `Repeaters (hearham YYYY-MM-DD, unverified)`. hearham
+states no licence for the data; it is carried under **D-033**, used on your
+request and never redistributed, and hearham's own line, that it should not
+be relied upon "for medical emergencies, or any other life-and-death
+operations", is printed. The answer is bounded at 64 MB and parsed like any
+file of yours; anything but hearham's list is refused, exit 1, and nothing
+is written. There is no `--json` form: the disclosure is for a person to
+read. Nothing is ever fetched from RepeaterBook.
+
+### `hammunition maps repeaters remove`
+
+Deletes the three layer files, your Navit copy, and the directory when it is
+left empty; anything else you put there stays. It takes the directory out of
+QMapShack's `poiPaths` and changes nothing else in that file. Nothing to
+remove is exit 0; a QMapShack settings file it cannot edit is exit 1, named.
+
+With `--json`, prints a `repeaters-removed` document
+([json-interface.md](json-interface.md)): the files deleted and what each
+program was told.
+
 ### `hammunition maps phone`
 
 Gathers the phone files the laptop has built into one folder and prints the
@@ -359,7 +497,7 @@ Plasma, which Plasma installs, else `gvfs-backends`, `jmtpfs` or
 `mtp-tools`); and two opt-ins, **`adb`** (brings `android-udev-rules`, a
 system modification; the phone needs USB debugging) and **KDE Connect**
 (the phone needs its app, installed while it had internet, and pairing).
-The full walk-through is `docs/guides/offline-navigation.md`, section 13.
+The full walk-through is `docs/guides/offline-navigation.md`, section 14.
 
 It refuses root, exit 1, and changes nothing. It refuses, exit 1, before
 copying anything, when the folder is a symbolic link or not a directory,
@@ -517,8 +655,8 @@ that writes nothing — does not stop the others; the run ends exit 1 naming
 every region that did not install.
 
 **Terrain and QMapShack's maps (D-061).** When the plan holds
-`dem-copernicus`, `osm-garmin`, `osm-routino` or `dem-qmapshack`, the map
-section gains a *Terrain* block. Before the plan prints, each region's tiles
+`dem-copernicus`, `osm-garmin`, `osm-routino`, `dem-qmapshack` or
+`brouter-segments`, the map section gains a *Terrain* block. Before the plan prints, each region's tiles
 are read from its record (`dem-copernicus/<slug>.tiles`) or, until its
 terrain is first installed, chosen from its Geofabrik outline
 (`<region>.poly`), fetched again by every plan until then and said so. Each
@@ -557,6 +695,32 @@ A square with no published tile is counted as such and never called sea:
 the carried list cannot tell open sea from land Copernicus does not release.
 A region with no published tile at all gets the `warning:` line, fetches
 nothing and does not fail the run; its maps still install (D-061).
+
+When `brouter-segments` (**D-063**) is rebuilt, *Built for QMapShack*
+gains one line, from its test's synthetic plan:
+
+```
+    BRouter routing files over 2 region(s)  about 12.6 MB (0.2x the downloads together), elevation from 3 tile(s); built here, never downloaded from brouter.de
+```
+
+and the disk check counts the routing files under the prefix and, in
+`~/.cache/hammunition/build/brouter-segments/`, 3x the downloads of scratch
+(an allowance, not measured), the merged input when there are two regions
+or more, one 5-degree square's `.hgt` files (25 at most, 25,934,402 bytes
+each) and every square's `.bef`. Its steps, all as the operator in
+`brouter.work` under one lock: a check that the jar and the two map-creator
+filters are installed; `osmium merge` of the regions when there are two or
+more; per 5-degree square with an installed tile, `gdalbuildvrt` over the
+square and its one-degree ring, `gdalwarp` of each tile into a
+one-arc-second `.hgt` and BRouter's `ElevationRasterTileConverter`; then
+the map creator's `OsmFastCutter` (with `-DavoidMapPolling=true`),
+`PosUnifier` and `WayLinker`; and last the install of every `.rd5`, all or
+none, with its record. A failed step fails the routing files by name, keeps
+the installed set (a rename failing partway removes it rather than leave it
+mixed, and the next run rebuilds), and is reported by the same last
+terrain step. The record names the jar and the filters' version the plan
+installs, read from the planned manifests, so a BRouter upgraded in the
+same run rebuilds the routing files in that run.
 
 The commands section shows each tile's fetch (all fetches first, as every
 download is), each install, each region's record, each Garmin build and the
@@ -1011,7 +1175,7 @@ callsign, AX.25 needs one in `/etc/ax25/axports`, Direwolf needs one in its
 own configuration.
 
 ```
-hammunition station set --callsign M0ABC --grid-square IO91wm
+hammunition station set --callsign N0TST --grid-square FN31pr
 hammunition station show
 ```
 
