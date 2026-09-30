@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**271 programs and packages** from the catalog, laid out the way the
+**277 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -590,6 +590,12 @@ Licence exam practice, Morse training and reference material.
 | Project | What it is | Its home |
 |---|---|---|
 | [artemis](packages/artemis.md) | Signal identification reference — the sigidwiki database, offline | [github.com/AresValley/Artemis](https://github.com/AresValley/Artemis) |
+| [dictionaries](packages/dictionaries.md) | A local dictionary server with an English dictionary, a thesaurus, computing terms and acronyms | [sourceforge.net/projects/dict](https://sourceforge.net/projects/dict/) |
+| [goldendict-ng](packages/goldendict-ng.md) | A desktop dictionary that looks words up in dictd and in Kiwix books | [github.com/xiaoyifang/goldendict-ng](https://github.com/xiaoyifang/goldendict-ng) |
+| [ics-forms](packages/ics-forms.md) | FEMA's 39 fillable ICS forms, 205 radio communications plan and 213 general message among them | [training.fema.gov/emiweb/is/icsresource/icsforms](https://training.fema.gov/emiweb/is/icsresource/icsforms/) |
+| [kiwix](packages/kiwix.md) | The Kiwix desktop reader for offline Wikipedia and other ZIM books | [github.com/kiwix/kiwix-desktop](https://github.com/kiwix/kiwix-desktop) |
+| [kiwix-library](packages/kiwix-library.md) | The Kiwix books you chose -- Wikipedia, WikiMed, Stack Exchange -- pinned and verified | [library.kiwix.org](https://library.kiwix.org/) |
+| [kiwix-tools](packages/kiwix-tools.md) | Kiwix's command-line reader, server and library manager for offline ZIM books | [github.com/kiwix/kiwix-tools](https://github.com/kiwix/kiwix-tools) |
 | [python3-pyhamtools](packages/python3-pyhamtools.md) | Python library for callsign lookup, locators and DXCC data | [github.com/dh1tw/pyhamtools](https://github.com/dh1tw/pyhamtools) |
 
 ## Workstation

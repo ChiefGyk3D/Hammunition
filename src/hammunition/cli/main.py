@@ -62,7 +62,14 @@ from hammunition.backends import (
     VenvBackend,
 )
 from hammunition.backends.apt import stale_fetches
+from hammunition.backends.data import human_size
 from hammunition.backends.dem import TIF, TILES, TerrainDisclosure, read_record
+from hammunition.backends.kiwix import (
+    KiwixBooksBackend,
+    books_disk_needs,
+    books_shortfall,
+    resolve_station_books,
+)
 from hammunition.backends.regions import (
     KeptRegion,
     MapDisclosure,
@@ -114,6 +121,14 @@ from hammunition.geofabrik import resolve as resolve_region
 from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH, describe_refusal
 from hammunition.interface import envelope
 from hammunition.kernel import KernelProbe
+from hammunition.kiwix import (
+    BookFile,
+    KiwixError,
+    KiwixProbe,
+    load_book_list,
+    load_pin_file,
+    resolve_books,
+)
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
 from hammunition.manifest.schema import (
@@ -121,6 +136,7 @@ from hammunition.manifest.schema import (
     BinaryInstall,
     DemTilesInstall,
     DerivedDataInstall,
+    KiwixBooksInstall,
     PackageManifest,
     ProfileManifest,
     RegionalDataInstall,
@@ -148,11 +164,12 @@ from hammunition.station import (
 )
 from hammunition.sudo_ticket import SudoKeepalive, keepalive_wanted
 from hammunition.terrain_plan import brouter_pins, build_terrain_run, resolve_station_terrain
-from hammunition.update import region_snapshots, render, report, requested_units
+from hammunition.update import books_state, region_snapshots, render, report, requested_units
 from hammunition.upstream import (
     NOT_UPSTREAM,
     http_get,
     parse_ls_remote,
+    probe_kiwix,
     probe_upstream,
 )
 from hammunition.upstream import render as render_upstream
@@ -378,6 +395,35 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             return EXIT_FAILED
     else:
         map_regions = current.map_regions
+    # D-066: the same rule for books, and each id checked against the
+    # catalog's book list now, while the operator is looking at the prompt.
+    if args.reference_books is not None:
+        reference_books = tuple(
+            b for b in (p.strip() for p in args.reference_books.split(",")) if b
+        )
+        if not reference_books:
+            print(
+                "error: --reference-books gave no book ids after splitting on ',' and "
+                "stripping whitespace; give at least one, or to remove the books, "
+                "uninstall kiwix-library.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+        try:
+            books = load_book_list(find_catalog(args.catalog))
+        except KiwixError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return EXIT_FAILED
+        unknown = [b for b in reference_books if b not in books]
+        if unknown:
+            print(
+                f"error: not in the catalog's book list: {', '.join(unknown)}. "
+                f"`hammunition reference books` lists the books the catalog offers, by id.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+    else:
+        reference_books = current.reference_books
     set_fields = [
         field
         for field, value in (
@@ -386,6 +432,7 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             ("node_alias", args.node_alias),
             ("map_regions", args.map_regions),
             ("map_freshness", args.map_freshness),
+            ("reference_books", args.reference_books),
             ("mirror", args.mirror or args.clear_mirror),
         )
         if value
@@ -393,7 +440,8 @@ def cmd_station_set(args: argparse.Namespace) -> int:
     if not set_fields:
         print(
             "error: nothing to set. Pass at least one of --callsign, --grid-square, "
-            "--node-alias, --map-regions, --map-freshness, --mirror, --clear-mirror.",
+            "--node-alias, --map-regions, --map-freshness, --reference-books, --mirror, "
+            "--clear-mirror.",
             file=sys.stderr,
         )
         return EXIT_FAILED
@@ -404,6 +452,7 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             node_alias=args.node_alias or current.node_alias,
             map_regions=map_regions,
             map_freshness=args.map_freshness or current.map_freshness,
+            reference_books=reference_books,
             mirror=None if args.clear_mirror else (args.mirror or current.mirror),
         )
     except StationError as exc:
@@ -416,6 +465,8 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             print(f"  {field:<14} {len(station.map_regions)} set")
         elif field == "map_freshness":
             print(f"  {field:<14} {station.freshness}")
+        elif field == "reference_books":
+            print(f"  {field:<14} {', '.join(station.reference_books)}")
         elif field == "mirror":
             print(f"  {field:<14} {station.mirror or '(cleared)'}")
         else:
@@ -580,6 +631,25 @@ def cmd_update(args: argparse.Namespace) -> int:
         if isinstance(planned.block.install, RegionalDataInstall)
     }
 
+    # Kiwix books, offline (D-066): each chosen book's pinned file on disk.
+    chosen_books: dict[str, list[BookFile]] = {}
+    books_by_unit: dict[str, tuple[str, str]] = {}
+    for planned in plan.packages:
+        if not isinstance(planned.block.install, KiwixBooksInstall):
+            continue
+        try:
+            chosen_books[planned.name] = resolve_books(
+                station.reference_books,
+                load_book_list(catalog_root),
+                load_pin_file(catalog_root),
+            )
+        except KiwixError as exc:
+            books_by_unit[planned.name] = ("unknown", str(exc))
+            continue
+        books_by_unit[planned.name] = books_state(
+            chosen_books[planned.name], data_root(source.prefix) / planned.name
+        )
+
     result = report(
         plan,
         apt_states=states,
@@ -588,9 +658,10 @@ def cmd_update(args: argparse.Namespace) -> int:
         regions=regions_by_unit,
         tiles=installed_tile_counts(plan, source.prefix),
         no_terrain=no_terrain_counts(plan, source.prefix),
+        books=books_by_unit,
     )
     lists_note = _apt_lists_note(apt)
-    upstream = _upstream_rows(plan, runner) if args.upstream else None
+    upstream = _upstream_rows(plan, runner, books=chosen_books) if args.upstream else None
     if envelope.wanted(args):
         envelope.emit(
             build_update(
@@ -606,7 +677,12 @@ def cmd_update(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def _upstream_rows(plan: InstallPlan, runner: SubprocessRunner) -> list[UpstreamRow]:
+def _upstream_rows(
+    plan: InstallPlan,
+    runner: SubprocessRunner,
+    *,
+    books: Mapping[str, Sequence[BookFile]] | None = None,
+) -> list[UpstreamRow]:
     """D-053's second half: the catalog's pin against what upstream publishes.
 
     Opt-in because it is the one thing the engine does that talks to someone
@@ -635,6 +711,10 @@ def _upstream_rows(plan: InstallPlan, runner: SubprocessRunner) -> list[Upstream
         probe_upstream(planned.manifest, http=http, ls_remote=ls_remote)
         for planned in plan.packages
     ]
+    # D-066: a book unit is asked about per chosen book, of Kiwix only.
+    kiwix = KiwixProbe()
+    for unit, chosen in (books or {}).items():
+        rows.extend(probe_kiwix(unit, chosen, text=kiwix.text))
     return [r for r in rows if r.state != NOT_UPSTREAM]
 
 
@@ -1475,6 +1555,136 @@ def cmd_maps_navit(args: argparse.Namespace) -> int:
     return EXIT_FAILED
 
 
+@envelope.json_capable()
+def cmd_reference_books(args: argparse.Namespace) -> int:
+    """The Kiwix books the catalog offers, with size, licence and whether
+    chosen and installed.  D-066. Read from the catalog and the disk only."""
+    from hammunition.backends.kiwix import book_current
+    from hammunition.interface.books import BookRow, BooksDocument
+
+    user = operator(args)
+    catalog_root = find_catalog(args.catalog)
+    try:
+        books = load_book_list(catalog_root)
+        pins = load_pin_file(catalog_root)
+        station = load_station(owner=user)
+    except (KiwixError, StationError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    installed = data_root(DEFAULT_PREFIX) / "kiwix-library"
+    rows = []
+    for book in books.values():
+        pin = pins.get(book.id)
+        rows.append(
+            BookRow(
+                id=book.id,
+                title=book.title,
+                file=pin.file if pin else None,
+                size=pin.size if pin else None,
+                licence=book.licence,
+                licence_url=book.licence_url,
+                note=book.note,
+                chosen=book.id in station.reference_books,
+                installed=pin is not None
+                and book_current(installed / pin.file, BookFile(book, pin)),
+            )
+        )
+    if envelope.wanted(args):
+        envelope.emit(BooksDocument(books=tuple(rows)))
+        return EXIT_OK
+    width = max(len(r.id) for r in rows)
+    for row in rows:
+        size = human_size(row.size) if row.size is not None else "not pinned"
+        marks = " ".join(
+            m for m, on in (("[chosen]", row.chosen), ("[installed]", row.installed)) if on
+        )
+        print(f"{row.id:<{width}}  {size:>9}  {row.licence}  {marks}".rstrip())
+        print(f"{'':<{width}}  {'':>9}  {row.title}")
+    print()
+    print(
+        "Choose with `hammunition station set --reference-books ID[,ID…]`, then "
+        "`hammunition install kiwix-library`. Sizes are the pinned files'."
+    )
+    return EXIT_OK
+
+
+def cmd_reference_serve(args: argparse.Namespace) -> int:
+    """The offline reference on one loopback page.  D-066.
+
+    Books through kiwix-serve (a child, on 127.0.0.1 only), the ICS forms
+    and the dictionaries on a page from the standard library. Runs as the
+    operator, never as root; Ctrl-C stops both. No ``--json`` form: it is a
+    server, not a document (D-059).
+    """
+    import subprocess
+
+    from hammunition import reference
+    from hammunition.paths import owner_aware_dir
+
+    try:
+        port = reference.PORT if args.port is None else reference.serve_port(args.port)
+    except ValueError as exc:
+        print(f"error: {exc}.", file=sys.stderr)
+        return EXIT_FAILED
+    if os.geteuid() == 0:
+        print(
+            "error: the reference page reads files anyone can read; run it as yourself, "
+            "not as root.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    try:
+        books = load_book_list(find_catalog(args.catalog))
+    except (KiwixError, SystemExit):
+        books = {}  # the page still serves every file, named by its file name
+    shelf = reference.find_shelf(data_root(DEFAULT_PREFIX), books)
+    if shelf.books:
+        missing = [t for t in ("kiwix-serve", "kiwix-manage") if shutil.which(t) is None]
+        if missing:
+            print(
+                f"error: {len(shelf.books)} book(s) are installed and {', '.join(missing)} "
+                f"is not on the PATH: `hammunition install kiwix-tools`.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+    library = (
+        owner_aware_dir(xdg_var="XDG_CACHE_HOME", home_relative=(".cache",))
+        / "reference"
+        / "library.xml"
+    )
+
+    def manage(path: Path, zims: Sequence[Path]) -> None:
+        result = subprocess.run(
+            ["kiwix-manage", str(path), "add", *(str(z) for z in zims)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0 or not path.is_file():
+            raise SystemExit(
+                f"error: kiwix-manage could not build {path} (exit {result.returncode}): "
+                f"{(result.stderr or result.stdout).strip()}"
+            )
+
+    def spawn(argv: Sequence[str]) -> subprocess.Popen[bytes]:
+        return subprocess.Popen(list(argv), stdout=subprocess.DEVNULL)
+
+    def log(line: str) -> None:
+        print(line, file=sys.stderr, flush=True)
+
+    try:
+        return reference.run(
+            port, shelf=shelf, library=library, spawn=spawn, manage=manage, log=log
+        )
+    except OSError as exc:
+        print(
+            f"error: cannot listen on {reference.HOST} port {port}: {exc.strerror or exc}. "
+            f"--port N serves another port.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+
+
 def resolve_map_regions(
     plan: InstallPlan,
     station: Station,
@@ -1873,6 +2083,28 @@ def cmd_install(args: argparse.Namespace) -> int:
         print("\nNothing was changed.", file=sys.stderr)
         refused("terrain", str(exc))
         return EXIT_UNPLANNABLE
+    # D-066: the chosen Kiwix books, resolved against the book list and its
+    # pins, and every one not yet installed HEAD-checked, before the plan
+    # prints: each book's size and licence are the disclosure, and a pin
+    # Kiwix has dropped refuses here rather than after apt has run.
+    book_units = [p for p in plan.packages if isinstance(p.block.install, KiwixBooksInstall)]
+    book_files: list[BookFile] = []
+    if book_units:
+        try:
+            book_files = resolve_station_books(
+                station.reference_books,
+                catalog_root,
+                installed=data_root(source.prefix) / book_units[0].name,
+                head=KiwixProbe().head,
+            )
+        except KiwixError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            print("\nNothing was changed.", file=sys.stderr)
+            refused("reference books", str(exc))
+            return EXIT_UNPLANNABLE
+    books = KiwixBooksBackend(
+        fetcher=source.fetcher, prefix=source.prefix, files=book_files, runner=runner
+    )
     region_notes = list(resolution.notes)
     try:
         border, countries, border_notes = map_borders(plan, packages, catalog_root, source.prefix)
@@ -1982,6 +2214,29 @@ def cmd_install(args: argparse.Namespace) -> int:
             print("\nNothing was changed.", file=sys.stderr)
             refused("disk space", short)
             return EXIT_UNPLANNABLE
+    # The books' own room, with any map data of the same run on the same disk.
+    book_pending = [f for p in book_units for f in books.pending(p.manifest)]
+    book_disk = books_disk_needs(book_pending, cache=source.fetcher.cache_dir, prefix=source.prefix)
+    if book_disk:
+        others: dict[Path, int] = {}
+        if pending or conversions or any(terrain_disk.values()):
+            others = dict(
+                disk_needs(
+                    pending,
+                    conversions,
+                    cache=source.fetcher.cache_dir,
+                    staging=map_staging,
+                    prefix=source.prefix,
+                )
+            )
+            for path, amount in terrain_disk.items():
+                others[path] = others.get(path, 0) + amount
+        short = books_shortfall(book_disk, others)
+        if short is not None:
+            print(f"error: {short}", file=sys.stderr)
+            print("\nNothing was changed.", file=sys.stderr)
+            refused("disk space", short)
+            return EXIT_UNPLANNABLE
     # D-051: a build present on disk that the log attributes to this engine
     # at the manifest's pin is already installed; its build steps are skipped.
     built = already_built(
@@ -2001,6 +2256,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         regions=regions,
         derived=derived,
         dem=terrain.dem,
+        books=books,
         repos=repos,
         config_staging=builds,
         launcher_bin=user_bin_dir(user or None),
@@ -2017,11 +2273,17 @@ def cmd_install(args: argparse.Namespace) -> int:
         if (log_owner and euid == 0 and str(log_destination).startswith("/home"))
         else None
     )
+    # A book unit with nothing to fetch or remove reads "already installed".
+    idle_books = frozenset(
+        p.name
+        for p in book_units
+        if not books.steps(p.manifest, cast(KiwixBooksInstall, p.block.install))
+    )
     view = build_install_view(
         plan,
         commands,
         euid=euid,
-        built=built,
+        built=built | idle_books,
         log_destination=log_destination,
         hands_log_to=hands_log_to,
         suggestion_notes=suggestion_notes,
@@ -3892,6 +4154,28 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_rep_remove.set_defaults(func=cmd_maps_repeaters_remove)
 
+    p_reference = sub.add_parser(
+        "reference", help="the offline reference: Kiwix books, ICS forms, dictionaries (D-066)"
+    )
+    reference_sub = p_reference.add_subparsers(dest="reference_command", required=True)
+    p_ref_books = reference_sub.add_parser(
+        "books", help="list the Kiwix books the catalog offers, with size and licence"
+    )
+    p_ref_books.add_argument("--user", default=None, help="whose station configuration to read")
+    p_ref_books.set_defaults(func=cmd_reference_books)
+    p_ref_serve = reference_sub.add_parser(
+        "serve",
+        help="serve the books, forms and dictionaries on 127.0.0.1:8480 until Ctrl-C",
+    )
+    p_ref_serve.add_argument(
+        "--port",
+        metavar="N",
+        default=None,
+        help="serve the page on 127.0.0.1 port N (1024 to 65534); kiwix-serve takes N+1 "
+        "(default 8480)",
+    )
+    p_ref_serve.set_defaults(func=cmd_reference_serve)
+
     p_show = sub.add_parser("show", help="describe a profile, disclosure included")
     p_show.add_argument("profile")
     p_show.set_defaults(func=cmd_show)
@@ -4068,6 +4352,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_station_set.add_argument(
         "--map-freshness", default=None, choices=("yearly", "monthly", "latest")
+    )
+    p_station_set.add_argument(
+        "--reference-books",
+        default=None,
+        metavar="ID[,ID…]",
+        help="comma-separated Kiwix book ids to carry offline; `hammunition reference "
+        "books` lists them (D-066)",
     )
     mirror_flags = p_station_set.add_mutually_exclusive_group()
     mirror_flags.add_argument(

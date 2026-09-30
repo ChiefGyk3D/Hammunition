@@ -49,6 +49,7 @@ from hammunition.backends import (
 )
 from hammunition.backends.dem import DemTilesBackend
 from hammunition.backends.derived import Ledger
+from hammunition.backends.kiwix import KiwixBooksBackend
 from hammunition.backends.source import tree_destination
 from hammunition.distro import Target
 from hammunition.launchers import launcher_steps
@@ -59,6 +60,7 @@ from hammunition.manifest.schema import (
     DerivedDataInstall,
     GitInstall,
     InstallBlock,
+    KiwixBooksInstall,
     NodeInstall,
     RegionalDataInstall,
     SourceInstall,
@@ -400,6 +402,7 @@ def commands_for(
     regions: RegionsBackend | None = None,
     derived: DerivedBackend | None = None,
     dem: DemTilesBackend | None = None,
+    books: KiwixBooksBackend | None = None,
     repos: AptRepoBackend | None = None,
     config_staging: Path | None = None,
     launcher_bin: Path | None = None,
@@ -526,6 +529,14 @@ def commands_for(
                 )
             builds.extend(dem.steps(planned.manifest, block))
             ledgers.setdefault(id(dem.ledger), dem.ledger)
+        elif isinstance(block, KiwixBooksInstall):
+            if books is None:
+                raise BackendError(
+                    f"{planned.name} installs the station's reference books and no books "
+                    f"backend was supplied. Skipping it would report a successful run "
+                    f"that installed nothing."
+                )
+            builds.extend(books.steps(planned.manifest, block))
     builds.extend(conversions)
 
     # A `fetch` is an in-process download into the cache, verified before it

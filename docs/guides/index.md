@@ -46,6 +46,8 @@ Everything else leans on these four. Do them in this order the first time.
 
 - **[Offline navigation](offline-navigation.md)** — maps, routing and terrain
   with no network at all.
+- **[Offline reference](offline-reference.md)** — Wikipedia, WikiMed, a
+  dictionary and the ICS forms on the laptop, on one local page.
 - **[Operating at a conference](conference-operating.md)** — a portable
   station in a hotel full of other people's RF.
 - **[Rayhunter](rayhunter.md)** — watching for cell-site simulators with EFF's

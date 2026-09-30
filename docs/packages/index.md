@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**271 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**277 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -201,7 +201,7 @@ Desktop mail clients and PGP, carried for stations that move traffic by mail.
 - [gpa](gpa.md) — GNU Privacy Assistant — a GTK front end to GnuPG for signed and encrypted traffic
 - [thunderbird](thunderbird.md) — Mozilla's full-featured mail client — the household name
 
-### `emcomm` — 9
+### `emcomm` — 10
 
 Net control, message forms, weather charts and the rest of the public-service stack.
 
@@ -211,6 +211,7 @@ Net control, message forms, weather charts and the rest of the public-service st
 - [flnet](flnet.md) — Net control operator's list — who checked in, in what order
 - [flwrap](flwrap.md) — Wraps a file with a checksum so the far end knows it arrived intact
 - [garim](garim.md) — Graphical ARIM messaging over an ARDOP TNC
+- [ics-forms](ics-forms.md) — FEMA's 39 fillable ICS forms, 205 radio communications plan and 213 general message among them
 - [js8spotter](js8spotter.md) — JS8Call's companion — spot tracking, forms, APRS and SMS gateways
 - [svxlink-server](svxlink-server.md) — Repeater controller and EchoLink node in software
 - [xygrib](xygrib.md) — Views GRIB weather files — wind, pressure, waves, on a map
@@ -401,11 +402,17 @@ Writing channels and settings into a transceiver: CHIRP and the TNC built into K
 - [qdmr](qdmr.md) — Codeplug editor for DMR handhelds — one codeplug, many radios
 - [tmd710-tncsetup](tmd710-tncsetup.md) — Configures the built-in TNC on Kenwood TM-D710 and TH-D72 radios
 
-### `references` — 2
+### `references` — 8
 
-Offline reference material: the sigidwiki signal database, callsign and DXCC data.
+Offline reference material: Kiwix books, dictionaries, ICS forms, the sigidwiki signal database, callsign and DXCC data.
 
 - [artemis](artemis.md) — Signal identification reference — the sigidwiki database, offline
+- [dictionaries](dictionaries.md) — A local dictionary server with an English dictionary, a thesaurus, computing terms and acronyms
+- [goldendict-ng](goldendict-ng.md) — A desktop dictionary that looks words up in dictd and in Kiwix books
+- [ics-forms](ics-forms.md) — FEMA's 39 fillable ICS forms, 205 radio communications plan and 213 general message among them
+- [kiwix](kiwix.md) — The Kiwix desktop reader for offline Wikipedia and other ZIM books
+- [kiwix-library](kiwix-library.md) — The Kiwix books you chose -- Wikipedia, WikiMed, Stack Exchange -- pinned and verified
+- [kiwix-tools](kiwix-tools.md) — Kiwix's command-line reader, server and library manager for offline ZIM books
 - [python3-pyhamtools](python3-pyhamtools.md) — Python library for callsign lookup, locators and DXCC data
 
 ### `rf-research` — 3
@@ -714,6 +721,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [dem-copernicus](dem-copernicus.md) | Copernicus GLO-30 elevation tiles for your map regions, verified | dem-tiles |
 | [dem-qmapshack](dem-qmapshack.md) | Hillshade, slope and 20 m contour lines for QMapShack, from the elevation tiles | derived |
 | [dfu-util](dfu-util.md) | Device Firmware Upgrade tool — flash devices that expose a standard DFU mode | apt |
+| [dictionaries](dictionaries.md) | A local dictionary server with an English dictionary, a thesaurus, computing terms and acronyms | apt |
 | [direwolf](direwolf.md) | Software TNC — turns a sound card into an APRS and packet modem | apt |
 | [dmrconfig](dmrconfig.md) | Command-line DMR codeplug tool — the text-file approach to the same job | apt |
 | [dsdcc](dsdcc.md) | Decodes digital voice protocols from demodulated audio | apt |
@@ -749,6 +757,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [gnuais](gnuais.md) | Decodes AIS from the discriminator output of a VHF receiver | apt |
 | [gnuaisgui](gnuaisgui.md) | Puts the vessels gnuais has heard on an OpenStreetMap display | apt |
 | [gnuradio](gnuradio.md) | Build a radio out of signal-processing blocks instead of hardware | apt |
+| [goldendict-ng](goldendict-ng.md) | A desktop dictionary that looks words up in dictd and in Kiwix books | apt |
 | [gpa](gpa.md) | GNU Privacy Assistant — a GTK front end to GnuPG for signed and encrypted traffic | apt, source |
 | [gpredict](gpredict.md) | Real-time satellite tracking and pass prediction, with radio control | apt |
 | [gpsbabel](gpsbabel.md) | Converts between GPS file formats and talks to the receiver | apt |
@@ -778,6 +787,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [hcxtools](hcxtools.md) | Converts captured Wi-Fi frames into hash formats analysis tools read | apt |
 | [ibp](ibp.md) | Shows which NCDXF/IARU beacon is transmitting right now, on which band | source |
 | [icom](icom.md) | Minimal CI-V control for Icom radios from the command line | apt |
+| [ics-forms](ics-forms.md) | FEMA's 39 fillable ICS forms, 205 radio communications plan and 213 general message among them | data |
 | [inspectrum](inspectrum.md) | Offline visualiser for captured radio signals — read a waveform by eye | apt |
 | [js8call](js8call.md) | Weak-signal keyboard-to-keyboard messaging built on the FT8 modem | apt, git |
 | [js8spotter](js8spotter.md) | JS8Call's companion — spot tracking, forms, APRS and SMS gateways | binary |
@@ -785,6 +795,9 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [kalibrate-rtl](kalibrate-rtl.md) | Measures an SDR dongle's frequency error against GSM base stations | apt, git |
 | [kappanhang](kappanhang.md) | Opens an Icom network radio as an ordinary sound card and serial port | apt |
 | [kel-agent](kel-agent.md) | Bridges browser-based logging software to the radio hardware on your desk | apt |
+| [kiwix](kiwix.md) | The Kiwix desktop reader for offline Wikipedia and other ZIM books | apt |
+| [kiwix-library](kiwix-library.md) | The Kiwix books you chose -- Wikipedia, WikiMed, Stack Exchange -- pinned and verified | kiwix-books |
+| [kiwix-tools](kiwix-tools.md) | Kiwix's command-line reader, server and library manager for offline ZIM books | apt |
 | [klog](klog.md) | Cross-platform Qt station log that stays out of the way | apt |
 | [langford-utils](langford-utils.md) | Control programs for the Per Vices Noctar board | apt |
 | [libacars](libacars.md) | Shared library that decodes ACARS application-layer messages | git |

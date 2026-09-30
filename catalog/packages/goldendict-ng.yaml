@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: goldendict-ng
+version: "25.06.0"
+summary: A desktop dictionary that looks words up in dictd and in Kiwix books
+categories: [references]
+
+# D-066. 25.06.0 on Debian 13 and Parrot (26.5.4 in forky), 23.12.26 on
+# Ubuntu 24.04, 26.1.1 on Ubuntu 26.04 (measured 2026-09-29). `goldendict` is
+# now only a transitional package to this one. Qt6 WebEngine; it links libzim,
+# so it reads ZIM files as well as DICT servers.
+install:
+  - install:
+      method: apt
+      packages: [goldendict-ng]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A desktop look-up window: type a word, or select one in any application
+    and press a shortcut, and it answers from every dictionary it knows --
+    the local dictd from `dictionaries`, StarDict and other dictionary
+    files, and ZIM books such as a Wiktionary.
+  why_you_want_it: >-
+    The desktop half of `dictionaries`: the same answers as `dict WORD`
+    without a terminal, and one window for dictionaries and books together.
+  prerequisites: >-
+    A desktop session. Once `dictionaries` is installed, add the local dictd
+    (127.0.0.1) as a DICT server among its dictionary sources, and add ZIM
+    books by their folder. Where those settings sit in this version's menus
+    has not been checked on a desktop here yet.
+  known_problems: >-
+    It does not find dictd by itself: the DICT server has to be added once,
+    by hand, as above. Qt6 WebEngine is a large dependency on a desktop
+    without it.
+  upstream_url: https://github.com/xiaoyifang/goldendict-ng
+  upstream_support: >-
+    The project's issue tracker on GitHub
+    (https://github.com/xiaoyifang/goldendict-ng/issues).

@@ -67,6 +67,7 @@ from hammunition.manifest.schema import (
     DerivedDataInstall,
     GitInstall,
     InstallBlock,
+    KiwixBooksInstall,
     NodeInstall,
     PackageManifest,
     ProfileManifest,
@@ -987,6 +988,24 @@ def _map_regions_deferral(name: str) -> Deferral:
     )
 
 
+NO_REFERENCE_BOOKS = "no reference books chosen"
+REFERENCE_BOOKS_REMEDY = (
+    "run `hammunition station set --reference-books <id>[,<id>…]` and install again; "
+    "`hammunition reference books` lists the ids"
+)
+
+
+def _reference_books_deferral(name: str) -> Deferral:
+    """D-066: the books wait for a choice; the readers install regardless."""
+    return Deferral(
+        subject=name,
+        what="will not be installed: it is the reference books you have not chosen",
+        why=NO_REFERENCE_BOOKS,
+        remedy=f"{REFERENCE_BOOKS_REMEDY}. Everything else installs either way.",
+        kind="package",
+    )
+
+
 def _plan_repos(
     manifest: PackageManifest,
     install: AptInstall,
@@ -1209,6 +1228,21 @@ def resolve(
                         subject=name,
                         reason=f"{NO_MAP_REGIONS}, so there is no map data to install",
                         remedy=MAP_REGIONS_REMEDY,
+                    )
+                )
+            continue
+
+        # D-066: the same shape for the Kiwix books. Nothing is chosen by
+        # default, so with none chosen there is nothing to fetch.
+        if not station.reference_books and isinstance(block.install, KiwixBooksInstall):
+            if name in deferrable:
+                deferred[name] = _reference_books_deferral(name)
+            else:
+                blockers.append(
+                    Blocker(
+                        subject=name,
+                        reason=f"{NO_REFERENCE_BOOKS}, so there is nothing to install",
+                        remedy=REFERENCE_BOOKS_REMEDY,
                     )
                 )
             continue

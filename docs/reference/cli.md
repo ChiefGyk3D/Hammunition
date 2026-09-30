@@ -490,6 +490,67 @@ With `--json`, prints a `repeaters-removed` document
 ([json-interface.md](json-interface.md)): the files deleted and what each
 program was told.
 
+### `hammunition reference books`
+
+The Kiwix books the catalog offers (**D-066**), one per entry of the
+hand-written `catalog/data/kiwix-books.yaml`: the id `station set
+--reference-books` takes, the pinned file's size, the publisher's licence
+line, and `[chosen]` / `[installed]` marks. Read from the catalog, the
+station file and the disk; nothing is fetched.
+
+```
+$ hammunition reference books
+...
+ham.stackexchange.com_en_all             75.9 MB  CC BY-SA
+                                                  Amateur Radio Stack Exchange
+...
+ifixit_en_all                            3.57 GB  CC BY-NC-SA 3.0 — non-commercial
+                                                  iFixit repair guides
+```
+
+With `--json`, prints a `books` document ([json-interface.md](json-interface.md)):
+every book with its id, title, pinned file and size, licence and licence
+URL, and whether it is chosen and installed. Which books somebody reads is
+not where they are, so unlike map regions the ids are named everywhere.
+
+### `hammunition reference serve [--port N]`
+
+The offline reference on one page, on **127.0.0.1 only** (**D-066**):
+
+```
+$ hammunition reference serve
+Offline reference: http://127.0.0.1:8480/  (this machine only; Ctrl-C stops it)
+  books: kiwix-serve on http://127.0.0.1:8481/wiki/
+```
+
+The page, from the engine's own standard-library server on port 8480,
+lists every installed book (a link into Kiwix, with its licence line), every
+ICS form (served from `/forms/`), and how to use the dictionaries (`dict
+WORD` in a terminal; goldendict-ng on the desktop). The books are served
+by `kiwix-serve`, started as a child on the next port:
+
+    kiwix-serve --library -i 127.0.0.1 -p 8481 -r /wiki -b -M -a <pid> <library.xml>
+
+`-i 127.0.0.1` is always there: without it kiwix-serve listens on every
+address of the machine, and its default port, 80, needs root (both
+measured 2026-09-29). `-b` blocks links out of the books, `-M` reloads the
+library when it changes, `-a` makes kiwix-serve exit if this process dies.
+The library is rebuilt by `kiwix-manage` from the installed books every
+time the verb starts, in `~/.cache/hammunition/reference/library.xml`, as
+you: parsing downloaded files is the reader's business, never root's.
+
+| Option | Default | What it does |
+|---|---|---|
+| `--port N` | `8480` | The page's port, still on 127.0.0.1; kiwix-serve takes N+1. 1024 to 65534; anything else is refused by name. |
+
+With no books installed, no kiwix-serve is started and the page says how to
+choose some. With books installed and `kiwix-serve` or `kiwix-manage`
+missing, it refuses naming `hammunition install kiwix-tools`, exit 1. It
+refuses root, exit 1. A port in use is a named error, exit 1. Ctrl-C stops
+both servers, exit 0; kiwix-serve exiting on its own stops the page, exit
+1. There is no `--json` form: it is a server, not a document (D-059).
+`docs/guides/offline-reference.md` is the operator's walk-through.
+
 ### `hammunition maps phone`
 
 Gathers the phone files the laptop has built into one folder and prints the
@@ -1223,6 +1284,7 @@ hammunition station show
 | `--node-alias NAME` | Short packet node alias |
 | `--map-regions R[,R…]` | Geofabrik region paths for offline maps, e.g. `north-america/us/vermont,north-america/us/new-hampshire`. Replaces the whole list. Checked for shape only (lowercase words joined by `/`); whether Geofabrik has the region is checked at plan time (**D-057**) |
 | `--map-freshness MODE` | `yearly` (the default when unset), `monthly` or `latest`: which dated file each region resolves to, and so how it can be verified |
+| `--reference-books ID[,ID…]` | Kiwix books for `kiwix-library`, by id (`hammunition reference books` lists them). Replaces the whole list; an id the catalog's book list does not name is refused when you type it, and an empty list is refused (uninstall `kiwix-library` to remove the books) (**D-066**) |
 | `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
 | `--clear-mirror` | Remove the saved mirror |
 

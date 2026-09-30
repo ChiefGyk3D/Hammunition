@@ -54,6 +54,7 @@ their text follows.
 - `hammunition maps regions`
 - `hammunition maps repeaters import`
 - `hammunition maps repeaters remove`
+- `hammunition reference books`
 - `hammunition show`
 - `hammunition station show`
 - `hammunition status`
@@ -67,6 +68,7 @@ their text follows.
 | kind | document |
 |---|---|
 | `artifacts` | [`ArtifactsDocument`](#artifacts) |
+| `books` | [`BooksDocument`](#books) |
 | `catalog` | [`CatalogDocument`](#catalog) |
 | `doctor` | [`DoctorDocument`](#doctor) |
 | `error` | [`ErrorDocument`](#error) |
@@ -258,6 +260,134 @@ One remote artifact, or one the selection cannot list and why.
     "artifacts"
   ],
   "title": "ArtifactsDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### books
+
+The Kiwix books the catalog offers. Read from the catalog and the disk;
+nothing is fetched.
+
+| field | type | meaning |
+|---|---|---|
+| `books` | list of [`BookRow`](#bookrow) | every book in catalog/data/kiwix-books.yaml, in its order |
+
+#### `BookRow`
+
+One book the catalog offers, with its pin.
+
+| field | type | meaning |
+|---|---|---|
+| `id` | string | the id station config takes (`station set --reference-books`) |
+| `title` | string | what the book is |
+| `file` | string or null | the pinned dated file; null when the book is not pinned |
+| `size` | integer or null | bytes of the pinned file; null when not pinned |
+| `licence` | string | the publisher's licence line, printed in the plan too |
+| `licence_url` | string | where the publisher states it |
+| `note` | string or null | anything else the book list says of it |
+| `chosen` | boolean | whether station config chooses it |
+| `installed` | boolean | whether its pinned file is installed |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "BookRow": {
+      "additionalProperties": false,
+      "description": "One book the catalog offers, with its pin.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "File"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Size"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "licence_url": {
+          "title": "Licence Url",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Note"
+        },
+        "chosen": {
+          "title": "Chosen",
+          "type": "boolean"
+        },
+        "installed": {
+          "title": "Installed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "file",
+        "size",
+        "licence",
+        "licence_url",
+        "note",
+        "chosen",
+        "installed"
+      ],
+      "title": "BookRow",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The Kiwix books the catalog offers. Read from the catalog and the disk;\nnothing is fetched.",
+  "properties": {
+    "books": {
+      "items": {
+        "$ref": "#/$defs/BookRow"
+      },
+      "title": "Books",
+      "type": "array"
+    }
+  },
+  "required": [
+    "books"
+  ],
+  "title": "BooksDocument",
   "type": "object"
 }
 ```
@@ -3622,6 +3752,7 @@ and a grid square or a map region says where the station is.
 | `node_alias` | string or null | the packet node alias; null when not set |
 | `map_regions` | list of string | Geofabrik region paths carrying offline map data; empty when none are set |
 | `map_freshness` | string or null | how often map data is refreshed: yearly, monthly or latest; null means the yearly default applies |
+| `reference_books` | list of string | Kiwix book ids chosen for kiwix-library (D-066); empty when none are chosen |
 | `mirror` | string or null | the LAN mirror the verified fetch tries before the publisher, the same digest checked either way (D-070); null when none is set |
 
 <details><summary>JSON Schema</summary>
@@ -3690,6 +3821,13 @@ and a grid square or a map region says where the station is.
       ],
       "title": "Map Freshness"
     },
+    "reference_books": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reference Books",
+      "type": "array"
+    },
     "mirror": {
       "anyOf": [
         {
@@ -3710,6 +3848,7 @@ and a grid square or a map region says where the station is.
     "node_alias",
     "map_regions",
     "map_freshness",
+    "reference_books",
     "mirror"
   ],
   "title": "StationDocument",

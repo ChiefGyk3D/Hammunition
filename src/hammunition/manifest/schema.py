@@ -828,6 +828,24 @@ class DemTilesInstall(Strict):
         return self
 
 
+class KiwixBooksInstall(Strict):
+    """The Kiwix books the operator chose in station config (D-066).
+
+    Like `DemTilesInstall`, nothing is pinned in the manifest: which books
+    follows ``reference_books`` in station config, and each book resolves at
+    plan time to a pin in ``catalog/data/kiwix-pins.yaml``, generated from
+    Kiwix's own ``.meta4`` files. There is no ``licence`` here because the
+    books do not share one: each book's licence line is in the hand-written
+    ``catalog/data/kiwix-books.yaml``, and the plan prints it beside the
+    book's size before the confirmation (D-049 rule 2). `provider` is an
+    enum, as `dem-tiles`' is, so another library is a new member the engine
+    implements, never a URL in the catalog.
+    """
+
+    method: Literal["kiwix-books"] = "kiwix-books"
+    provider: Literal["kiwix"] = "kiwix"
+
+
 #: D-061: the install method a `derived` block's `source` unit must actually
 #: resolve to, keyed by `converter`. A single-manifest validator cannot check
 #: this -- it would need another manifest's own install block, which is why
@@ -1036,7 +1054,8 @@ InstallMethod = Annotated[
     | DataInstall
     | RegionalDataInstall
     | DemTilesInstall
-    | DerivedDataInstall,
+    | DerivedDataInstall
+    | KiwixBooksInstall,
     Field(discriminator="method"),
 ]
 
@@ -1380,6 +1399,7 @@ class UpdateProbe(Strict):
         "binary_version",
         "label_file",
         "pypi",
+        "kiwix",
         "none",
     ]
     repo: str | None = None

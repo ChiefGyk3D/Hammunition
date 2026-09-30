@@ -69,7 +69,7 @@ argument — js8call is apt on Linux Mint 22.3 and a cmake build elsewhere.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `when` | `Selector` | no |  |
-| `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| NodeInstall \| PipxInstall \| DataInstall \| RegionalDataInstall \| DemTilesInstall \| DerivedDataInstall` | **yes** |  |
+| `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| NodeInstall \| PipxInstall \| DataInstall \| RegionalDataInstall \| DemTilesInstall \| DerivedDataInstall \| KiwixBooksInstall` | **yes** |  |
 | `build_depends` | `list[str]` | no | apt packages needed to BUILD only. Never reported as installed. |
 | `binaries` | `list[Binary] \| None` | no | This block's own build outputs, replacing the manifest's `binaries` wherever this block is the one that resolves. A prebuilt archive selected by `arch` can carry a different path per architecture -- rayhunter's zip has `installer` at the top level and one `rayhunter-check` under a per-platform directory -- and one manifest-level list cannot describe both. Omit the key to use the manifest's list; an empty list is refused, because it reads as an override to nothing. |
 | `note` | `str \| None` | no |  |
@@ -363,7 +363,7 @@ so an engine can make the same comparison; one measured user, like ``pypi``.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `method` | `Literal[apt_policy, github_release, github_tags, binary_version, label_file, pypi, none]` | **yes** |  |
+| `method` | `Literal[apt_policy, github_release, github_tags, binary_version, label_file, pypi, kiwix, none]` | **yes** |  |
 | `repo` | `str \| None` | no |  |
 | `command` | `str \| None` | no |  |
 | `pattern` | `str \| None` | no |  |
@@ -550,6 +550,25 @@ wide because only the catalog knows what `source` resolves to (D-061).
 | `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
 | `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
 | `tool` | `ConverterTool \| None` | no | The pinned program the converter runs, for a converter in `CONVERTERS_WITH_TOOL` (`mapsforge-poi`: Maven Central's mapsforge-poi-writer, which no archive packages, D-067). Required for those converters and refused for every other. |
+
+### `KiwixBooksInstall`
+
+The Kiwix books the operator chose in station config (D-066).
+
+Like `DemTilesInstall`, nothing is pinned in the manifest: which books
+follows ``reference_books`` in station config, and each book resolves at
+plan time to a pin in ``catalog/data/kiwix-pins.yaml``, generated from
+Kiwix's own ``.meta4`` files. There is no ``licence`` here because the
+books do not share one: each book's licence line is in the hand-written
+``catalog/data/kiwix-books.yaml``, and the plan prints it beside the
+book's size before the confirmation (D-049 rule 2). `provider` is an
+enum, as `dem-tiles`' is, so another library is a new member the engine
+implements, never a URL in the catalog.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `method` | `Literal[kiwix-books]` | no (default `kiwix-books`) |  |
+| `provider` | `Literal[kiwix]` | no (default `kiwix`) |  |
 
 ### `PipxInstall`
 

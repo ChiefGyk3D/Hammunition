@@ -1,0 +1,254 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+"""The Kiwix books backend: the station's chosen books.  D-066.
+
+The books come from station config, resolved against the catalog's book list
+and its generated pins (:func:`hammunition.kiwix.resolve_books`) before this
+backend is built, because the plan has to print each one's size and licence
+before anything is confirmed (D-049 rule 2). The fetch step's description is
+that disclosure: *Fetch reference book ID (DATE, SIZE, LICENCE)*.
+
+Each book is fetched into the shared cache, verified against its pinned
+sha256 and exact size, and copied into
+``<prefix>/share/hammunition/data/<unit>/<file>.zim``, re-hashed on the way
+in and never through a symlink (:class:`~hammunition.backends.verified.PrefixWriter`).
+The cached download is then deleted, as its own disclosed step: a book can be
+50 GB, and keeping a second copy of it in the cache would double that for the
+sake of a re-install that the installed copy already answers.
+
+A book whose pinned file is already installed at its pinned size is not
+fetched again: the file name carries the date, and the size is exact. A
+``.zim`` in the directory that no chosen book's pin names -- a book dropped
+from station config, or an older date of one still chosen -- is removed as
+its own ``remove-data`` step.
+
+No ``library.xml`` is written here. Building one runs ``kiwix-manage``, which
+parses the downloaded file; that belongs to the reader, run as the operator
+by ``hammunition reference serve``, not to a data unit under root (D-057's
+line for a parser of downloaded data).
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
+from functools import partial
+from pathlib import Path
+
+from ..fetch import Fetcher
+from ..kiwix import BookFile, KiwixError, load_book_list, load_pin_file, resolve_books
+from ..manifest.schema import KiwixBooksInstall, PackageManifest, RemoteArtifact
+from .base import Action, BackendError, Command, CommandRunner
+from .data import human_size
+from .regions import data_root, device_at, free_bytes_at
+from .source import needs_root_for
+from .verified import PrefixWriter
+
+MIB = 1024 * 1024
+ZIM = ".zim"
+
+
+def book_current(dest: Path, book: BookFile) -> bool:
+    """Whether *dest* holds this book's pinned file: a regular file at its exact size."""
+    return dest.is_file() and not dest.is_symlink() and dest.stat().st_size == book.pin.size
+
+
+def books_disk_needs(pending: Sequence[BookFile], *, cache: Path, prefix: Path) -> dict[Path, int]:
+    """Each download once in the fetch cache and once under the prefix: both
+    exist between the install and the cache prune."""
+    total = sum(f.pin.size for f in pending)
+    return {cache: total, prefix: total} if total else {}
+
+
+def books_shortfall(
+    needs: Mapping[Path, int],
+    others: Mapping[Path, int] | None = None,
+    *,
+    free_at: Callable[[Path], int] = free_bytes_at,
+    device_of: Callable[[Path], int] = device_at,
+) -> str | None:
+    """A refusal naming both numbers for every file system short of room for
+    the books, counting the same run's map data (*others*) on it too."""
+    merged: dict[Path, int] = dict(others or {})
+    for path, amount in needs.items():
+        merged[path] = merged.get(path, 0) + amount
+    by_device: dict[int, tuple[list[Path], int]] = {}
+    for path, amount in merged.items():
+        paths, total = by_device.get(device_of(path), ([], 0))
+        by_device[device_of(path)] = ([*paths, path], total + amount)
+    short: list[str] = []
+    for paths, need in by_device.values():
+        free = free_at(paths[0])
+        if free < need:
+            short.append(
+                f"{', '.join(str(p) for p in paths)}: {human_size(need)} ({need} bytes) is "
+                f"needed and {human_size(free)} ({free} bytes) is free"
+            )
+    if not short:
+        return None
+    return (
+        "not enough disk space for the reference books (each counted twice: the verified "
+        "download in the cache and the installed copy; any map data in the same run is "
+        "counted too):\n  " + "\n  ".join(short)
+    )
+
+
+@dataclass(frozen=True)
+class KiwixBooksBackend:
+    """Turns the chosen books into fetch, install, prune and remove steps."""
+
+    fetcher: Fetcher
+    prefix: Path
+    files: Sequence[BookFile]
+    runner: CommandRunner | None = None
+    """Escalates the copy into a root-owned prefix when the engine is not root."""
+    method = "kiwix-books"
+
+    def data_dir(self, manifest: PackageManifest) -> Path:
+        return data_root(self.prefix) / manifest.name
+
+    @property
+    def writer(self) -> PrefixWriter:
+        return PrefixWriter(privileged=needs_root_for(self.prefix), runner=self.runner)
+
+    def pending(self, manifest: PackageManifest) -> list[BookFile]:
+        """The chosen books not installed at their pin: what this run downloads."""
+        out = self.data_dir(manifest)
+        return [f for f in self.files if not book_current(out / f.pin.file, f)]
+
+    def steps(self, manifest: PackageManifest, block: KiwixBooksInstall) -> list[Action | Command]:
+        del block  # nothing in it varies the steps; the books come from station config
+        out = self.data_dir(manifest)
+        writer = self.writer
+        steps: list[Action | Command] = []
+        for book in self.pending(manifest):
+            fetched: dict[str, Path] = {}
+            pin = book.pin
+            dest = out / pin.file
+            steps.append(
+                Action(
+                    kind="fetch",
+                    description=(
+                        f"Fetch reference book {pin.id} ({pin.published}, "
+                        f"{human_size(pin.size)}, {book.book.licence})"
+                    ),
+                    detail=f"{pin.url} (sha256 {pin.sha256[:12]}…, {pin.size} bytes)",
+                    perform=partial(self._fetch, book, fetched),
+                )
+            )
+            steps.append(
+                Action(
+                    kind="install-data",
+                    description=f"Install reference book {pin.file}",
+                    # The destination, verbatim, for uninstall's attribution replay.
+                    detail=str(dest),
+                    perform=partial(self._install, book, fetched, dest, writer),
+                    requires_root=writer.privileged,
+                )
+            )
+            cached = self.fetcher.path_for(RemoteArtifact(url=pin.url, sha256=pin.sha256))
+            steps.append(
+                Action(
+                    kind="prune-cache",
+                    description=f"Delete the cached download of {pin.id} once it is installed",
+                    detail=str(cached),
+                    perform=partial(self._prune, fetched, dest),
+                )
+            )
+        wanted = {f.pin.file for f in self.files}
+        if out.is_dir():
+            for path in sorted(out.glob(f"*{ZIM}")):
+                if path.name in wanted or not path.is_file():
+                    continue
+                steps.append(
+                    Action(
+                        kind="remove-data",
+                        description=f"Remove {path.name}: no longer among your reference books",
+                        # The path, verbatim: uninstall stops attributing it.
+                        detail=str(path),
+                        perform=partial(_remove, writer, path),
+                        requires_root=writer.privileged,
+                    )
+                )
+        return steps
+
+    def _fetch(self, book: BookFile, fetched: dict[str, Path]) -> str:
+        pin = book.pin
+        # The cap is raised to the pinned size plus a margin, never removed.
+        result = self.fetcher.fetch(
+            RemoteArtifact(url=pin.url, sha256=pin.sha256), max_bytes=pin.size + MIB
+        )
+        if result.size != pin.size:
+            raise BackendError(
+                f"{pin.url}: the pin says {pin.size} bytes and {result.size} arrived; the "
+                f"digest matched, so the pin's size is wrong -- regenerate the pins with "
+                f"scripts/gen_kiwix_pins.py"
+            )
+        fetched["path"] = result.path
+        where = "cached" if result.from_cache else "downloaded"
+        return f"{where} {result.size} bytes, sha256 {result.sha256[:12]}… verified against the pin"
+
+    def _install(
+        self, book: BookFile, fetched: dict[str, Path], dest: Path, writer: PrefixWriter
+    ) -> str:
+        path = fetched.get("path")
+        if path is None:  # pragma: no cover
+            raise BackendError(f"{book.pin.id} was not fetched before its install step")
+        # Copy, never move: the cache is content-addressed and shared.
+        writer.install_verified(path, dest, algorithm="sha256", digest=book.pin.sha256)
+        return f"installed {dest} ({human_size(book.pin.size)}, mode 0644, sha256 re-verified)"
+
+    def _prune(self, fetched: dict[str, Path], dest: Path) -> str:
+        path = fetched.get("path")
+        if path is None or not dest.is_file():  # pragma: no cover - a failed step stops the run
+            return "kept: the book did not install"
+        path.unlink(missing_ok=True)
+        return f"deleted {path}"
+
+
+def _remove(writer: PrefixWriter, path: Path) -> str:
+    writer.remove([path])
+    return f"removed {path}"
+
+
+def resolve_station_books(
+    selection: Sequence[str],
+    catalog_root: Path,
+    *,
+    installed: Path,
+    head: Callable[[str], int],
+) -> list[BookFile]:
+    """The chosen books as pinned files, checked before the plan prints.
+
+    A book installed at its pin asks nothing of the network. Every other one
+    is asked for once, by ``HEAD``: a pin Kiwix has dropped (it keeps two
+    dated files per book) refuses the plan here, naming the regeneration,
+    rather than failing a fetch after apt has run; so does a book that
+    cannot be reached, offline. Every such book is named together.
+    """
+    books = resolve_books(selection, load_book_list(catalog_root), load_pin_file(catalog_root))
+    problems: list[str] = []
+    for book in books:
+        if book_current(installed / book.pin.file, book):
+            continue
+        try:
+            status = head(book.pin.url)
+        except KiwixError as exc:
+            problems.append(f"  {book.pin.id}: {exc}")
+            continue
+        if status in (404, 410):
+            problems.append(
+                f"  {book.pin.id}: {book.pin.url} answered HTTP {status}. Kiwix keeps the two "
+                f"newest dated files of a book, and this pin is older; regenerate the pins "
+                f"with scripts/gen_kiwix_pins.py. The newer file is not taken in its place: "
+                f"nobody has measured its sha256."
+            )
+        elif status != 200:
+            problems.append(f"  {book.pin.id}: {book.pin.url} answered HTTP {status}, not 200")
+    if problems:
+        raise KiwixError(
+            f"{len(problems)} reference book(s) cannot be fetched and are not installed "
+            f"already:\n" + "\n".join(problems)
+        )
+    return books
