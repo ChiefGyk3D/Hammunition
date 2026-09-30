@@ -14,13 +14,13 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from hammunition.backends.brouter import ELEVATION_SCRATCH_BYTES
 from hammunition.backends.dem import DemResolution, RegionTiles
 from hammunition.backends.regions import MapLedger
 from hammunition.backends.terrain import (
     BEF_BYTES,
     BROUTER_FACTOR,
     BROUTER_SCRATCH_FACTOR,
+    ELEVATION_SCRATCH_BYTES,
     TerrainWork,
     brouter_estimate,
     terrain_needs,

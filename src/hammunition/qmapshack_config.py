@@ -50,6 +50,23 @@ ours. A value of 0 or more is the operator's choice in QMapShack and stays;
 one that is not a number stays too, since Qt reads it as 0 anyway. Like
 every key here, it is written before QMapShack starts: a running QMapShack
 overwrites the file when it exits.
+
+:func:`register_brouter` (D-063) points QMapShack's local BRouter at
+Hammunition's: the group is ``Route/brouter`` (``brouter\\<key>`` under
+``[Route]``), keys read from QMapShack 1.17.1's source
+(``CRouterBRouterSetup.cpp`` at tag ``V_1.17.1``). QMapShack's ``save()``
+writes every one of them on exit, so an absent key cannot be told from one at
+its default; a ``localDir`` that is absent, QMapShack's default ``.``, or
+already ours means no other local BRouter was set up, and then every key it
+needs is set to ours. Any other ``localDir`` is the operator's own BRouter and
+nothing is touched. When the tree is ours, ``localHost`` and
+``localBindLocalonly`` are loopback whatever they held: QMapShack passes the
+host to BRouter only with "bind to hostname only" on, and BRouter otherwise
+listens on every interface. ``localJava`` is set only when absent or empty
+(a QMapShack run before Java was installed saves it empty, and BRouter then
+reads as not installed for good). A quoted or ``@``-typed value in one of
+these keys is not ours and leaves BRouter alone, never refusing the launch.
+``Route/current``, which router the Routing dock shows, is the operator's.
 """
 
 from __future__ import annotations
@@ -60,10 +77,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 __all__ = [
+    "BRouterSetup",
     "QmsConfigError",
     "Wanted",
     "config_path",
     "ensure_paths",
+    "register_brouter",
     "select_database",
     "superseded",
     "wanted",
@@ -223,6 +242,129 @@ def select_database(text: str) -> str:
             lines.append("\n")
         lines.extend([f"[{DATABASE_SECTION}]\n", entry + "\n"])
     return "".join(lines)
+
+
+#: QMapShack 1.17.1's group for its BRouter settings, as a ``[Route]`` key prefix.
+BROUTER = "brouter\\"
+#: QMapShack 1.17.1's own defaults (``CRouterBRouterSetup.h``) for the keys
+#: this sets; a key at its default was never chosen by the operator.
+BROUTER_DEFAULTS = {
+    "installMode": "online",
+    "localDir": ".",
+    "localBRouterJar": "brouter.jar",
+    "localSegmentsDir": "segments4",
+    "localHost": "127.0.0.1",
+    "localBindLocalonly": "true",
+}
+LOOPBACK = "127.0.0.1"
+#: Characters Qt quotes or escapes in an INI string; a path holding one is not
+#: written, rather than written in a form Qt would read back differently.
+_QT_SPECIAL = frozenset(',;="\\#\n\r\t')
+
+
+@dataclass(frozen=True)
+class BRouterSetup:
+    """Hammunition's BRouter as QMapShack is to run it."""
+
+    tree: Path
+    """BRouter's installed tree: ``localDir``, holding the jar and ``profiles2``."""
+    jar: str
+    """The jar's file name in the tree."""
+    segments: Path
+    """The routing files' directory."""
+    java: str | None
+    """``java`` on the PATH, or None."""
+
+    def values(self) -> dict[str, str]:
+        return {
+            "installMode": "local",
+            "localDir": str(self.tree),
+            "localBRouterJar": self.jar,
+            "localSegmentsDir": str(self.segments),
+            "localHost": LOOPBACK,
+            "localBindLocalonly": "true",
+        }
+
+
+def _plain(value: str) -> bool:
+    return (
+        value.isascii()
+        and value == value.strip()
+        and not value.startswith("@")
+        and not any(c in _QT_SPECIAL for c in value)
+    )
+
+
+def register_brouter(text: str, setup: BRouterSetup) -> tuple[str, list[str]]:
+    """*text* with QMapShack's local BRouter pointed at *setup*, and what was
+    done, one line each; *text* itself and a line saying why when it is the
+    operator's own BRouter or a value is not one this edits."""
+    ours = setup.values()
+    for value in (*ours.values(), setup.java or ""):
+        if value and not _plain(value):
+            return text, [f"BRouter not registered: {value!r} cannot be written as a Qt value"]
+    lines = text.splitlines(keepends=True)
+    if lines and not lines[-1].endswith("\n"):
+        lines[-1] += "\n"
+    headers, keys = _scan(lines)
+    current: dict[str, str | None] = {}
+    for name in (*ours, "localJava"):
+        at = keys.get(("Route", BROUTER + name))
+        current[name] = None if at is None else lines[at].split("=", 1)[1].strip()
+    for name, held in current.items():
+        if held and not _plain(held):
+            return text, [
+                f"BRouter not registered: [Route] {BROUTER}{name} holds {held[:60]!r}, "
+                f"a value this launcher does not edit; QMapShack's BRouter setup is left "
+                f"as it is"
+            ]
+    directory = current["localDir"]
+    if directory not in (None, BROUTER_DEFAULTS["localDir"], ours["localDir"]):
+        return text, [
+            f"QMapShack's BRouter is set up for {directory}, not Hammunition's; left as it "
+            f"is. Set its directory to {setup.tree} in QMapShack's BRouter setup to use "
+            f"the routing files built from your regions"
+        ]
+    wanted = dict(ours)
+    if not current["localJava"] and setup.java:
+        wanted["localJava"] = setup.java
+    notes: list[str] = []
+    if current["installMode"] == "online":
+        notes.append("QMapShack's BRouter switched from online to local")
+    if current["localHost"] not in (None, LOOPBACK) or current["localBindLocalonly"] not in (
+        None,
+        "true",
+    ):
+        notes.append("QMapShack's BRouter bound to 127.0.0.1 only")
+    inserts: list[str] = []
+    changed = False
+    for name, value in wanted.items():
+        at = keys.get(("Route", BROUTER + name))
+        if at is None:
+            inserts.append(f"{BROUTER}{name}={value}\n")
+            continue
+        raw = lines[at]
+        if raw.split("=", 1)[1].strip() == value:
+            continue
+        lines[at] = f"{BROUTER}{name}={value}" + raw[len(raw.rstrip("\r\n")) :]
+        changed = True
+    if not (changed or inserts):
+        return text, []
+    if inserts:
+        if "Route" in headers:
+            end = _section_end(lines, headers["Route"])
+            lines[end:end] = inserts
+        else:
+            if lines and lines[-1].strip():
+                lines.append("\n")
+            lines.extend(["[Route]\n", *inserts])
+    if not current["localJava"] and not setup.java:
+        notes.append("java was not found on the PATH; QMapShack will say BRouter is not installed")
+    return "".join(lines), [
+        f"registering Hammunition's BRouter for QMapShack (local, 127.0.0.1 only, "
+        f"routing files in {setup.segments}); pick BRouter in the Routing dock to use it",
+        *notes,
+    ]
 
 
 def _scan(lines: Sequence[str]) -> tuple[dict[str, int], dict[tuple[str, str], int]]:
