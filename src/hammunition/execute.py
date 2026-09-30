@@ -982,6 +982,16 @@ class ExecutionReport:
         return self.verification is not None and self.verification.ok
 
 
+#: The keys every ``action_end`` entry carries; a step's facts never replace one.
+_ACTION_END_KEYS = frozenset({"event", "version", "timestamp", "kind", "detail", "outcome"})
+
+
+def _facts(action: Action) -> dict[str, str]:
+    """*action*'s facts for its ``action_end`` entry (D-070), minus any key
+    the entry already has: a fact adds to the record, never rewrites it."""
+    return {k: v for k, v in action.facts.items() if k not in _ACTION_END_KEYS}
+
+
 def execute(
     commands: Sequence[Step],
     runner: CommandRunner,
@@ -1078,6 +1088,7 @@ def execute(
                     # details back as destinations; an Action has no argv.
                     "detail": command.detail,
                     "outcome": outcome,
+                    **_facts(command),
                 }
             )
             if outcome:
@@ -1358,6 +1369,7 @@ def run_removal(
                     "kind": command.kind,
                     "detail": command.detail,
                     "outcome": outcome,
+                    **_facts(command),
                 }
             )
             if outcome:

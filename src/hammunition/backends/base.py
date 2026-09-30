@@ -159,6 +159,13 @@ class Action:
 
     perform: Callable[[], str]
     requires_root: bool = False
+    sources: tuple[str, ...] = ()
+    """For a fetch, the URLs it downloads from in the order it tries them
+    (D-070): the LAN mirror, then the publisher. Empty for any other step."""
+    facts: dict[str, str] = field(default_factory=dict, compare=False)
+    """What the step learned while running, filled in by ``perform`` and
+    added to its ``action_end`` log entry: a fetch's actual source (D-070).
+    Never a key the entry already has."""
 
     def display(self, *, euid: int = 0, sudo: Sequence[str] = ("sudo",)) -> str:
         """Rendered for the plan. Bracketed so it cannot be mistaken for a

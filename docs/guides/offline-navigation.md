@@ -1217,6 +1217,15 @@ anything is fetched if a disk is short.
 
 ---
 
+## Taking the downloads from your own network
+
+If a machine on your LAN keeps a copy of the regions and tiles
+([Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker)),
+`hammunition station set --mirror http://bunker.lan:8080/` makes every map
+and terrain download ask it first, checked against the same digests as the
+publisher's, and fall back to the publisher on any failure (**D-070**).
+[lan-mirror.md](lan-mirror.md) is the walk-through.
+
 ## What the verification wording means
 
 Every region's plan line ends with one of two phrases, and you are told

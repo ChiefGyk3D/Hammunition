@@ -71,6 +71,8 @@ STATIONS = {
     "station-regions": Station(
         map_regions=("atlantis/oceania", "narnia/cair-paravel"), map_freshness="monthly"
     ),
+    # D-070: a LAN mirror, shown in the text and carried in the JSON.
+    "station-mirror": Station(mirror="http://bunker.lan:8080/"),
 }
 
 

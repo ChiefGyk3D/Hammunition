@@ -228,6 +228,41 @@ With `--json`, prints a `regions` document
 ([json-interface.md](json-interface.md)): the filter and the matching region
 paths. It is Geofabrik's list, nothing of yours.
 
+### `hammunition artifacts [--map-regions R[,R…]] [--map-freshness MODE] [--units U[,U…]]`
+
+Every remote data artifact the engine would fetch for the selection on the
+command line (**D-070**): each `data` unit's files, the Geofabrik extract of
+each region, and the Copernicus tiles each region's outline touches. It
+reads no station file and nothing installed on this machine, and installs
+nothing; the answer is the same on every machine. It is what
+[Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker), a
+LAN mirror of this data, asks to learn what to keep.
+
+```
+$ hammunition artifacts --map-regions north-america/us/vermont --units osm-regions,country-files
+```
+
+| Flag | Effect |
+|---|---|
+| `--map-regions R[,R…]` | Geofabrik region paths, as `station set --map-regions` takes them. None defers the map units |
+| `--map-freshness MODE` | `yearly` (the default), `monthly` or `latest`: which dated file each region resolves to and how it is verified, exactly as in the plan |
+| `--units U[,U…]` | The units to list. Default: every unit with a `data`, `osm-regions` or `dem-tiles` install block. A name not in the catalog, or a unit that fetches nothing (`osm-navit`, `navit`), exits 2 naming it |
+
+The network is asked as the plan asks it, and only for what the selection
+names: Geofabrik for a region's dated file, its `.md5` and its `.poly`
+outline, and the Copernicus bucket for an unpinned tile's size and ETag. A
+pinned region or tile asks nothing. What cannot be resolved — a region
+Geofabrik does not have, an outline that cannot be read, a map unit with no
+`--map-regions` — is listed as deferred with the reason; it does not change
+the exit code.
+
+With `--json`, prints an `artifacts` document
+([json-interface.md](json-interface.md)): per artifact the unit, its stable
+name within the unit (what a mirror serves at `<mirror>/<unit>/<name>`), the
+publisher URL, the check (`sha256`, `md5-publisher`, `etag-md5`), the
+expected digest, where a publisher checksum was read, the size, the licence,
+and `deferred`. It carries the regions given, and nothing of the station's.
+
 ### `hammunition maps qmapshack [--configure-only]`
 
 What the `qmapshack-offline` launcher runs (**D-061**). It adds
@@ -534,7 +569,7 @@ With `--json`, prints a `profile` document
 document carrying its manifest; the text `show` still describes profiles
 only.
 
-### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--no-sudo-keepalive] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
+### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--no-sudo-keepalive] [--no-mirror] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
 
 **A re-run rebuilds nothing it has already built** (**D-051**): a source, git
 or prebuilt-archive unit whose binaries are on the machine *and* whose build
@@ -551,6 +586,7 @@ Names may be packages or profiles, mixed freely.
 | `--yes` | Skip the confirmation. **Does not satisfy a consent gate** (D-021). Also suppresses the station prompt |
 | `--no-refresh` | Skip the `apt-get update` that otherwise opens every transaction with apt work (**D-044**). For a local mirror, or a station with no uplink. `--refresh` is the default and still parses |
 | `--no-sudo-keepalive` | Do not hold sudo's ticket for the run (**D-062**). By default a run as a user that mixes root steps with steps that are not asks the password once, by `sudo -v`, before the first step, and keeps the ticket valid with `sudo -n -v` every 4 minutes until the run ends. With this flag each root step asks for itself, and one that follows a long step may prompt again. `--sudo-keepalive` is the default and still parses |
+| `--no-mirror` | Ignore the LAN mirror set in station config for this run (**D-070**): every data download comes from its publisher. With no mirror set it changes nothing |
 | `--user NAME` | Who to add to groups. Defaults to `$SUDO_USER`, then `$USER` |
 | `--callsign CALL` | Station callsign for this run. Overrides the saved value |
 | `--grid-square LOC` | Maidenhead locator, four or six characters |
@@ -1169,7 +1205,8 @@ keys the helper prints, plus any error reading the kept-off rules.
 ### `hammunition station show` / `hammunition station set`
 
 The values only you can supply — callsign, grid square, packet node alias,
-and the regions to carry offline maps for. Some
+the regions to carry offline maps for, and the LAN mirror to take their data
+from. Some
 manifests write configuration files templated with them: `linbpq` needs a node
 callsign, AX.25 needs one in `/etc/ax25/axports`, Direwolf needs one in its
 own configuration.
@@ -1186,6 +1223,8 @@ hammunition station show
 | `--node-alias NAME` | Short packet node alias |
 | `--map-regions R[,R…]` | Geofabrik region paths for offline maps, e.g. `north-america/us/vermont,north-america/us/new-hampshire`. Replaces the whole list. Checked for shape only (lowercase words joined by `/`); whether Geofabrik has the region is checked at plan time (**D-057**) |
 | `--map-freshness MODE` | `yearly` (the default when unset), `monthly` or `latest`: which dated file each region resolves to, and so how it can be verified |
+| `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
+| `--clear-mirror` | Remove the saved mirror |
 
 A region list says where the operator lives or travels, so `station show`
 and `station set` print how many regions are set, never their names; the
@@ -1207,6 +1246,9 @@ needed a callsign got an operator nowhere.
 because a configuration file written with a made-up callsign would transmit
 it. An interactive run offers to prompt for what the request actually needs;
 `--yes`, a pipe, or a value that is already known all skip the question.
+
+`station show` prints the mirror URL in full: it is an address on your own
+network, and `--no-mirror` or `--clear-mirror` are the way to stop using it.
 
 `station show --json` prints a `station` document
 ([json-interface.md](json-interface.md)) carrying the values themselves:
