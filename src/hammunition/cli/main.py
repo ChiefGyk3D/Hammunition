@@ -2966,6 +2966,11 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     except (OSError, PowerError, CatalogError, SystemExit):
         kept_attached, kept_absent = (), ()
 
+    from hammunition.launchers import survey_engine_launchers
+
+    # Issue #145: every generated launcher that runs the engine can reach it.
+    engine_launchers = survey_engine_launchers(Path(local_bin))
+
     sessions = scan_sessions()
     checks = run_checks(
         target_describe=target_describe,
@@ -2994,6 +2999,9 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         qmapshack_without_translations=(
             shutil.which("qmapshack") is not None and not Path(ROUTINO_TRANSLATIONS).is_file()
         ),
+        launchers_ok=engine_launchers.ok,
+        launchers_bare=engine_launchers.bare,
+        launchers_broken=engine_launchers.broken,
     )
 
     from hammunition.interface.doctor import build_doctor, render_doctor

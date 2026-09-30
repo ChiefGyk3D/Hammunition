@@ -307,3 +307,41 @@ def test_qmapshack_without_routino_translations_warns_with_the_fix() -> None:
     assert "/usr/share/routino/translations.xml" in check.detail
     assert check.fix == "sudo apt-get install --reinstall routino-common"
     assert not [c for c in run_checks(**HEALTHY) if c.name == "qmapshack"]  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# Issue #145: every generated launcher that runs the engine can reach it
+# ---------------------------------------------------------------------------
+
+
+def test_launchers_whose_engine_runs_are_ok() -> None:
+    checks = _with(launchers_ok=("/home/op/.local/bin/qmapshack-offline",))
+    check = _by_name(checks)["launchers"]
+    assert check.status == "ok" and "1 launcher" in check.detail
+
+
+def test_a_launcher_whose_engine_is_gone_warns_naming_it_and_the_fix() -> None:
+    checks = _with(
+        launchers_ok=("/home/op/.local/bin/gps-tether",),
+        launchers_broken=(
+            ("/home/op/.local/bin/qmapshack-offline", "/home/op/old/.venv/bin/hammunition"),
+        ),
+    )
+    check = _by_name(checks)["launchers"]
+    assert check.status == "warn"
+    assert "/home/op/.local/bin/qmapshack-offline" in check.detail
+    assert "/home/op/old/.venv/bin/hammunition" in check.detail
+    assert check.fix is not None
+    assert "./bootstrap.sh" in check.fix and "hammunition menus apply" in check.fix
+
+
+def test_a_launcher_calling_the_engine_by_bare_name_warns_with_menus_apply() -> None:
+    checks = _with(launchers_bare=("/home/op/.local/bin/gps-tether",))
+    check = _by_name(checks)["launchers"]
+    assert check.status == "warn"
+    assert "/home/op/.local/bin/gps-tether" in check.detail and "not found" in check.detail
+    assert check.fix is not None and "hammunition menus apply" in check.fix
+
+
+def test_no_engine_launchers_adds_no_check() -> None:
+    assert "launchers" not in _by_name(run_checks(**HEALTHY))  # type: ignore[arg-type]

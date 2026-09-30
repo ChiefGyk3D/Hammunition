@@ -948,7 +948,28 @@ list stays exactly what that script says.
 
 ### QMapShack does not start from the menu
 
-Run the launcher in a terminal to see why:
+From this version the menu entry works: `qmapshack-offline` and `gps-tether`
+run Hammunition by its full path, because the desktop starts a menu entry
+without `~/.local/bin` on its `PATH` (Plasma runs each one as a systemd user
+service). A launcher written by an earlier version says plain `hammunition`
+and fails from the menu with `hammunition: not found`, status 127, in the
+session journal (`journalctl --user -e`). One command rewrites it:
+
+```
+hammunition menus apply
+```
+
+`hammunition doctor` names every launcher still in that state, under
+**launchers**.
+
+If a launcher written by this version says `not found`, the Hammunition
+it names has moved: the checkout was moved or its `.venv` rebuilt somewhere
+else. Run `./bootstrap.sh` from the checkout you use, which links
+`~/.local/bin/hammunition` to it again, then `hammunition menus apply`,
+which rewrites the launchers with that path. `hammunition doctor` names the
+launcher and the path it can no longer find.
+
+For anything else, run the launcher in a terminal to see why:
 
 ```
 qmapshack-offline
@@ -958,10 +979,7 @@ If it says it cannot read `~/.config/QLandkarte/QMapShack.conf`, nothing was
 changed and QMapShack was not started: the file holds something the
 launcher does not edit on a guess. Add the directories in QMapShack's own
 setup instead, or move the file aside (`mv ~/.config/QLandkarte/QMapShack.conf
-~/.config/QLandkarte/QMapShack.conf.old`) and run the launcher again. If
-the shell says `hammunition: not found`, run `./bootstrap.sh` from your
-Hammunition checkout again, which puts it on your `PATH`
-(`hammunition doctor` checks this too).
+~/.config/QLandkarte/QMapShack.conf.old`) and run the launcher again.
 
 If QMapShack starts and at once stops with "The specified translations XML
 file did not exist", Routino's data file is missing. `hammunition doctor`
