@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**281 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**283 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -201,7 +201,7 @@ Desktop mail clients and PGP, carried for stations that move traffic by mail.
 - [gpa](gpa.md) — GNU Privacy Assistant — a GTK front end to GnuPG for signed and encrypted traffic
 - [thunderbird](thunderbird.md) — Mozilla's full-featured mail client — the household name
 
-### `emcomm` — 10
+### `emcomm` — 11
 
 Net control, message forms, weather charts and the rest of the public-service stack.
 
@@ -210,6 +210,7 @@ Net control, message forms, weather charts and the rest of the public-service st
 - [flmsg](flmsg.md) — Fills in and transmits the standard message forms EMCOMM runs on
 - [flnet](flnet.md) — Net control operator's list — who checked in, in what order
 - [flwrap](flwrap.md) — Wraps a file with a checksum so the far end knows it arrived intact
+- [freedata](freedata.md) — HF messaging and file transfer over codec2 modems, with a browser interface
 - [garim](garim.md) — Graphical ARIM messaging over an ARDOP TNC
 - [ics-forms](ics-forms.md) — FEMA's 39 fillable ICS forms, 205 radio communications plan and 213 general message among them
 - [js8spotter](js8spotter.md) — JS8Call's companion — spot tracking, forms, APRS and SMS gateways
@@ -567,7 +568,7 @@ Look at a capture and work out what it is: inspectrum, the sigidwiki reference, 
 - [inspectrum](inspectrum.md) — Offline visualiser for captured radio signals — read a waveform by eye
 - [kalibrate-rtl](kalibrate-rtl.md) — Measures an SDR dongle's frequency error against GSM base stations
 
-### `soundcard-modems` — 8
+### `soundcard-modems` — 10
 
 Direwolf, QtSoundModem, ARDOP and the TNCs built into radios.
 
@@ -575,6 +576,8 @@ Direwolf, QtSoundModem, ARDOP and the TNCs built into radios.
 - [baycomepp](baycomepp.md) — Driver for the HB9JNX parallel-port packet modem
 - [baycomusb](baycomusb.md) — Driver for the HB9JNX USB packet modem
 - [direwolf](direwolf.md) — Software TNC — turns a sound card into an APRS and packet modem
+- [freedata](freedata.md) — HF messaging and file transfer over codec2 modems, with a browser interface
+- [mercury](mercury.md) — Open HF data modem that speaks VARA's TCP interface, so pat uses it unchanged
 - [minimodem](minimodem.md) — General-purpose audio FSK modem — Bell 103, RTTY, AX.25 and anything else
 - [qtsoundmodem](qtsoundmodem.md) — Soundcard packet modem with a scope — an alternative to Direwolf
 - [tmd710-tncsetup](tmd710-tncsetup.md) — Configures the built-in TNC on Kenwood TM-D710 and TH-D72 radios
@@ -634,13 +637,14 @@ Capture, handshake extraction and key recovery for Wi-Fi networks.
 - [hcxtools](hcxtools.md) — Converts captured Wi-Fi frames into hash formats analysis tools read
 - [skid-finder](skid-finder.md) — Passive BLE-spam and Wi-Fi-attack detector with foxhunting, live alerts and a sensor-net collector
 
-### `winlink` — 4
+### `winlink` — 5
 
 Radio email when the internet is down: pat, ARDOP, gateways.
 
 - [ardopcf](ardopcf.md) — HF data modem for Winlink and packet over poor paths
 - [garim](garim.md) — Graphical ARIM messaging over an ARDOP TNC
 - [linbpq](linbpq.md) — BPQ32 packet-radio node, BBS and Winlink gateway
+- [mercury](mercury.md) — Open HF data modem that speaks VARA's TCP interface, so pat uses it unchanged
 - [pat](pat.md) — Winlink client — radio email that works when the internet does not
 
 ### `workstation` — 21
@@ -751,6 +755,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [flrig](flrig.md) | Rig control with a real front panel, shared between programs over XML-RPC | apt |
 | [flwkey](flwkey.md) | Control panel for the Winkeyer hardware CW keyer | source |
 | [flwrap](flwrap.md) | Wraps a file with a checksum so the far end knows it arrived intact | apt |
+| [freedata](freedata.md) | HF messaging and file transfer over codec2 modems, with a browser interface | venv |
 | [freedv](freedv.md) | Digital voice over HF in the bandwidth of an SSB signal | apt |
 | [garim](garim.md) | Graphical ARIM messaging over an ARDOP TNC | source |
 | [gdal-bin](gdal-bin.md) | GDAL's command-line tools for rasters and elevation data | apt |
@@ -817,6 +822,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [m2kcli](m2kcli.md) | Command-line control of the ADALM2000 lab instrument | apt |
 | [mapsforge-map](mapsforge-map.md) | Mapsforge vector maps of your OpenStreetMap regions, for phone map apps | derived |
 | [mapsforge-poi](mapsforge-poi.md) | Mapsforge points-of-interest files of your regions, for searching on a phone | derived |
+| [mercury](mercury.md) | Open HF data modem that speaks VARA's TCP interface, so pat uses it unchanged | apt, git |
 | [mfcuk](mfcuk.md) | MIFARE Classic key recovery with no known key — the slow path | apt |
 | [mfoc](mfoc.md) | Key recovery for MIFARE Classic cards with at least one known key | apt |
 | [minicom](minicom.md) | Full-screen serial communication program, the one everyone already knows | apt |
