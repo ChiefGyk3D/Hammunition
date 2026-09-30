@@ -1,0 +1,27 @@
+Target: Debian GNU/Linux 13 (trixie) (ID=debian, version=13, arch=x86_64)
+
+Packages (1):
+  fixture-gps                  will install       [profile fixture-desk]
+      + fixture-gps
+
+Desktops read from session files (/usr/share/xsessions, /usr/share/wayland-sessions and the same under /usr/local/share):
+  Xfce; also sway.desktop, which names no desktop the catalog knows
+
+Will NOT happen (the rest of the transaction still will):
+  fixture-tray: will not be installed (profile fixture-desk)
+      why: for KDE Plasma; this machine has no KDE Plasma session (it has: Xfce)
+      → the rest installs without it; on a machine that gains a KDE Plasma session,
+      `hammunition install fixture-desk` again picks it up
+
+Records:
+  transaction log written to <tmp>/xdg_state_home/hammunition/transactions.jsonl
+
+Commands (2):
+  # Refresh apt package lists
+  $ sudo env DEBIAN_FRONTEND=noninteractive apt-get update
+  # Install 1 package(s) with apt
+  $ sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-remove -- fixture-gps
+
+Afterwards: the Hammunition menu is re-applied for this user (per-user files, unprivileged, D-050).
+
+Dry run: nothing above was executed.

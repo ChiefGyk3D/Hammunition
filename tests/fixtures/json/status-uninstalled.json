@@ -1,0 +1,68 @@
+{
+  "schema": "hammunition/1",
+  "kind": "status",
+  "engine": "<engine>",
+  "target": {
+    "distro": "debian",
+    "version": "13",
+    "arch": "x86_64",
+    "id_like": [],
+    "pretty_name": "Debian GNU/Linux 13 (trixie)",
+    "description": "Debian GNU/Linux 13 (trixie) (ID=debian, version=13, arch=x86_64)",
+    "debian_family": true
+  },
+  "catalog": {
+    "path": "<catalog>",
+    "packages": 2,
+    "resolvable": 2,
+    "profiles": 2
+  },
+  "log_path": "<state>/hammunition/transactions.jsonl",
+  "log_entries": 4,
+  "latest": {
+    "when": "2026-09-28T12:00:00+00:00",
+    "outcome": "completed",
+    "completed_commands": 4,
+    "intended": [
+      "fixture-apt",
+      "build-essential"
+    ],
+    "verified": null,
+    "checks": 0,
+    "unconfirmed": [],
+    "deferred": [
+      {
+        "kind": "config",
+        "subject": "fixture-source",
+        "what": "/etc/fixture.conf not written",
+        "why": "no callsign set"
+      }
+    ]
+  },
+  "recorded_units": [
+    {
+      "name": "fixture-apt",
+      "last_named": "2026-09-28T13:00:00+00:00",
+      "last_outcome": "removed",
+      "catalog_version": "1.0",
+      "method": "apt",
+      "pin": null
+    },
+    {
+      "name": "fixture-source",
+      "last_named": "2026-09-28T12:00:00+00:00",
+      "last_outcome": "completed",
+      "catalog_version": "2.1",
+      "method": "source",
+      "pin": "sha256 30cf6db1a2b4…"
+    },
+    {
+      "name": "gone-unit",
+      "last_named": "2026-09-28T12:00:00+00:00",
+      "last_outcome": "completed",
+      "catalog_version": null,
+      "method": null,
+      "pin": null
+    }
+  ]
+}

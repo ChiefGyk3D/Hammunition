@@ -8,9 +8,9 @@ targeting Debian, Ubuntu, Kali, Linux Mint and Raspberry Pi OS.
 
 ---
 
-## Beta, v0.9.0 — feature-complete for 1.0; what remains is verification on the bench
+## Beta, v0.14.3 — feature-complete for 1.0; what remains is verification on the bench
 
-**Status: beta, v0.9.0 — every 1.0 stage is in the catalog; the 0.1 that is missing is measured, not written.** The core cycle —
+**Status: beta, v0.14.3 — every 1.0 stage is in the catalog; the 0.1 that is missing is measured, not written.** The core cycle —
 resolve, disclose, install, configure, verify, remove — runs end to end and is
 **VM-verified on Parrot, Kali, Debian 13, Ubuntu 24.04, Ubuntu 26.04 and
 Pop!_OS 24.04**, with **zero hard install failures across the whole catalog on
@@ -20,7 +20,8 @@ not a declared target yet). Seven backends are
 written (apt, source, git, binary, venv — including a venv+payload hybrid —
 node, and third-party apt repositories against a pinned key), and
 `uninstall` reverses every one of them, not just apt. `./bootstrap.sh`
-installs the engine in one command; `hammunition doctor` reports what is ready;
+installs the engine in one command and links `hammunition` onto your PATH;
+`hammunition doctor` reports what is ready;
 `hammunition hardware` detects your radios and applies the udev rules and
 group membership they need; `hammunition update` reports what is installed
 against the catalog and, with `--upstream`, the catalog against what
@@ -30,7 +31,10 @@ looks for, a toolkit nested as one line, every generated entry titled by
 what it does (D-050, D-054, D-055) — measured on the field laptop's KDE
 Plasma, written for Xfce through the menu spec and for GNOME through its
 app-folders, and not yet looked at on either of those desktops since the
-rebuild. **What remains for 1.0** is listed with owners in
+rebuild. Parrot with KDE Plasma comes first, and Xfce and LXQt are welcome
+next; [the desktops page](docs/desktops.md) says what is measured on each,
+and on a machine with no Plasma session `station` now defers the Plasma
+tray by name instead of pulling Plasma in (D-060). **What remains for 1.0** is listed with owners in
 [the 1.0 checklist](docs/reference/release-1.0-checklist.md): the Pop!_OS
 declaration decision, the rebuilt menu seen on GNOME, Xfce and COSMIC,
 the attached-hardware ladder on the bench (the field target is a Dell
@@ -45,12 +49,12 @@ exactly where things stand:
 | | Status |
 |---|---|
 | Catalog schema (Pydantic, `mypy --strict`) | ✅ working |
-| Package manifests | 🟡 **251**, up from 71 |
+| Package manifests | 🟡 **266**, up from 71 |
 | …Debian Blend coverage | ✅ **152 of 152** — SCOPE.md's first 1.0 stage, complete |
-| …parity coverage | 🟡 **106 of the 124 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
+| …parity coverage | 🟡 **107 of the 124 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
 | Hardware catalog | 🟡 24 devices, 5 classes, 297 confirmed USB identifiers |
 | …of which **supported** / **run on hardware here** | **18** / **7** — [two different claims](docs/DECISIONS.md), kept apart on purpose |
-| Profiles | ✅ **all 12 of the 1.0 set**, plus 4 post-1.0 — every package installable, asserted by test; a member a target's archive lacks is deferred by name, never the whole profile (D-039) |
+| Profiles | ✅ **all 12 of the 1.0 set**, plus 5 post-1.0 — every package installable, asserted by test; a member a target's archive lacks is deferred by name, never the whole profile (D-039) |
 | Inventories of all six upstream sources | ✅ complete and measured |
 | Consent gates for RF-research tooling | ✅ working |
 | Distro detection from `/etc/os-release` | ✅ working |
@@ -61,13 +65,15 @@ exactly where things stand:
 | Builds from a pinned git revision, with the pin verified after checkout | ✅ working |
 | Prebuilt binaries: `.deb`, tarball, zip, executable | ✅ working — `.deb` through apt, never `dpkg -i` |
 | Per-user venv installs, hash-pinned end to end (`--require-hashes`) | ✅ working — not1mm and NanoVNASaver run from them |
-| Launcher + desktop-entry generation from manifests (D-036) | ✅ working — 26 units carry launchers; terminal launchers hold their window; a wrapper never shadows its own tool (found and fixed 2026-09-12) |
+| Launcher + desktop-entry generation from manifests (D-036) | ✅ working — 29 units carry launchers; terminal launchers hold their window; a wrapper never shadows its own tool (found and fixed 2026-09-12) |
 | Idempotent re-runs for builds (D-051) | ✅ a source, git or prebuilt unit already installed at its pin is skipped; measured on the field laptop: 143 of 165 units plan nothing on a re-run |
 | AppImage backend | ❌ post-1.0 (SCOPE.md) — refused by name |
 | pipx / CPAN backends | ⚪ re-measured to **zero users** and dropped from 1.0 (D-014 amendment) |
 | Templated config files, from station values | ✅ working — a missing value defers one file, not the transaction |
 | Third-party apt repos | ✅ working — manifest pins the key fingerprint, consent is that fingerprint and `--yes` cannot give it, both files reversed by `uninstall` (D-040); `code`/`codium` in the opt-in `editors` profile |
-| Device power control: park and wake a catalogued device (D-056) | ✅ working — `hammunition hardware park`/`wake`, generated menu entries, and the [hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) Plasma applet, all through one root helper behind one polkit action; measured on the field laptop's GPS receiver 2026-09-27; staying parked across a reboot is [designed in #119](https://github.com/ChiefGyk3D/Hammunition/pull/119), not built |
+| Device power control: park and wake a catalogued device (D-056) | ✅ working — `hammunition hardware park`/`wake`, generated menu entries, and the [hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) Plasma applet, all through one root helper behind one polkit action; measured on the field laptop's GPS receiver 2026-09-27; staying parked across a reboot (one udev rule per device, D-056 amended) is built; reboot not yet measured |
+| Offline navigation: Navit over your own OpenStreetMap regions (D-057) | 🟡 built, not yet measured on hardware end to end — regions from station config; each download checked by a sha256 Hammunition pinned (the 50 US states and DC) or by Geofabrik's MD5, and the plan says which; converted for Navit as the operator; post-1.0 `navigation` profile, [guide](docs/guides/offline-navigation.md) |
+| Offline trails and terrain: QMapShack, routing on foot, Copernicus elevation (D-061) | 🟡 built, not yet measured on hardware — Garmin maps and one Routino database built from your regions as the operator; elevation tiles checked by a sha256 Hammunition pinned or by the object's MD5 (no tile pinned yet), and the plan says which; contours at 20 m; `gps-tether` serves the position on 127.0.0.1 only; post-1.0 `navigation` profile, [guide](docs/guides/offline-navigation.md) |
 | udev rule generation from the hardware catalog | ✅ generated and applied by `hammunition hardware apply`; applied on the field laptop and byte-identical to the catalog's set; not yet exercised against an attached device |
 | `uninstall` | ✅ working — reverses apt, venv, binary, .deb, trees and launchers; marker-verified, VM-proven; a real `make install` is refused by name |
 | End-to-end VM verification (install / configure / remove) | ✅ Parrot, Kali, Debian 13, Ubuntu 24.04, Ubuntu 26.04, and [Pop!_OS 24.04](docs/reference/vm-campaign-pop.md) as an undeclared target |
@@ -91,11 +97,21 @@ What it does do, it does completely: `--dry-run` prints every command and every
 system change before anything happens, resolution finishes before installation
 begins so a failure is a report rather than a half-installed machine, and a
 package this engine cannot handle is **refused by name with the reason**, never
-skipped. See [`docs/reference/cli.md`](docs/reference/cli.md).
+skipped. See [`docs/reference/cli.md`](docs/reference/cli.md). The
+commands a front end reads (`status`, `list`, `show`, `update`, `doctor`,
+`station show`, `hardware state`, `maps regions`, and the `install` and
+`uninstall` plans under `--dry-run`) also print JSON with `--json`; see
+[`docs/reference/json-interface.md`](docs/reference/json-interface.md)
+(D-059).
 
 ```
 hammunition install rf-security --dry-run
 ```
+
+If the shell answers `command not found`, `./bootstrap.sh` has not run yet,
+or `~/.local/bin` is not on your PATH until you next log in. Run the
+checkout's `.venv/bin/hammunition` by its full path meanwhile;
+[installing the engine](docs/getting-started/install.md) covers each case.
 
 The other thing that is usable today is the research. `docs/reference/` contains
 complete, generated inventories of six upstream projects, with per-package
@@ -113,7 +129,7 @@ this project's own maintainer.
 |---|---|---|
 | [Hammunition Hill](https://github.com/ChiefGyk3D/hammunition-hill) | A local-first operating-position dashboard — clocks, band plan, solar and propagation dials, DX spots coloured by your log, satellites, a CW trainer — served from your own machine to your own browser on loopback. | [`hammunition-hill`](docs/packages/hammunition-hill.md), in the `station` profile: a digest-pinned `.deb`. |
 | [Skid Finder](https://github.com/ChiefGyk3D/Skid-Finder) | A passive detector for BLE-spam and Wi-Fi attacks, built for foxhunting at a con. It listens and never transmits. Upstream is alpha. | [`skid-finder`](docs/packages/skid-finder.md), in the `rf-security` profile: a sha256-pinned tag tarball. |
-| [hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) | A KDE Plasma tray applet: a switch per parkable device, calling this project's power-control helper (D-056). | [`hammunition-tray`](docs/packages/hammunition-tray.md), in the `station` profile: a digest-pinned `.deb`. KDE Plasma 6 only; run `hammunition hardware apply` first. |
+| [hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) | A KDE Plasma tray applet: a switch per parkable device, calling this project's power-control helper (D-056). | [`hammunition-tray`](docs/packages/hammunition-tray.md), in the `station` profile: a digest-pinned `.deb`. KDE Plasma 6 only, deferred from `station` on a machine with no Plasma session ([desktops](docs/desktops.md)); run `hammunition hardware apply` first. |
 
 **There is one thing you can help with right now**, and it needs no code:
 [contributing hardware identifiers](docs/contributing/hardware.md). Eleven of
@@ -305,7 +321,7 @@ requirements, not aspirations:
   release key with the dates it was trusted. Check that file against
   `https://api.github.com/users/ChiefGyk3D/ssh_signing_keys` before trusting
   it; [`docs/contributing/releasing.md`](docs/contributing/releasing.md) is
-  the procedure. **No key exists yet**: `v0.7.0` and `v0.9.0` are annotated
+  the procedure. **No key exists yet**: `v0.7.0`, `v0.9.0`, `v0.10.0`, `v0.11.0`, `v0.12.0`, `v0.13.0`, `v0.14.0`, `v0.14.1`, `v0.14.2` and `v0.14.3` are annotated
   and unsigned, and the file says so; the first signed tag is 1.0.
 
 ---

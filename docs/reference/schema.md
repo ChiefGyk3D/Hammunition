@@ -22,6 +22,8 @@ A manifest is **strict**: an unknown field is an error, not ignored. That is del
 | `conflicts_with_repo_package` | `list[str]` | no |  |
 | `after` | `list[str]` | no | Ordering, not dependency. |
 | `requires_kernel` | `list[Literal[ax25]]` | no | Kernel subsystems the software cannot work without, checked against the running kernel at plan time. A machine whose kernel lacks one defers the unit in a profile and refuses it by name. Linux 7.1 removed AX.25 (merge 64edfa65, 2026-04-24); `hammunition.kernel` reads the module tree. The vocabulary is what has been measured. |
+| `desktops` | `list[Desktop] \| None` | no | The desktops this unit is for, when it is for some and not others: `kde`, `gnome`, `xfce`, `lxqt`, `lxde`, `mate`, `cinnamon`. Omitted means any desktop, which is every unit that is not a panel applet or the like. Decided at plan time against the session files under /usr/share/xsessions and /usr/share/wayland-sessions (and the same under /usr/local/share), never XDG_CURRENT_DESKTOP (sudo drops it): a machine with no session for any listed desktop defers the unit in a profile and refuses it by name (D-060). The case it exists for is `hammunition-tray`, a Plasma applet whose .deb pulls plasma-workspace onto an Xfce machine. |
+| `desktop_alternative` | `str \| None` | no | The unit that does this job on the desktops this one is not for, named in the refusal and the deferral so the operator is told what to install instead. It must exist in the catalog, and its `desktops` must share none with this unit's (checked when the catalog loads). Requires `desktops`. |
 | `menu_title` | `str \| None` | no | What the desktop menu shows for the entry the engine generates when this unit ships none of its own: what it does, then the command in parentheses (`Contest logger (tlf)`). Defaults to the unit's name, which is fine for a name people know (gqrx) and not for one they do not (wwl). Ignored for a unit that ships its own desktop entries. |
 | `menu_submenu` | `str \| None` | no | Gather every desktop entry this unit ships into one submenu of this title, under the unit's first category only, instead of listing them beside everything else in every category it carries. For a unit that ships a toolkit: GNU Radio puts 21 entries into a submenu, and the SDR and Digital Modes menus were unreadable with them inline. |
 | `binaries` | `list[Binary]` | no |  |
@@ -67,7 +69,7 @@ argument — js8call is apt on Linux Mint 22.3 and a cmake build elsewhere.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `when` | `Selector` | no |  |
-| `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| NodeInstall \| PipxInstall \| DataInstall` | **yes** |  |
+| `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| NodeInstall \| PipxInstall \| DataInstall \| RegionalDataInstall \| DemTilesInstall \| DerivedDataInstall` | **yes** |  |
 | `build_depends` | `list[str]` | no | apt packages needed to BUILD only. Never reported as installed. |
 | `binaries` | `list[Binary] \| None` | no | This block's own build outputs, replacing the manifest's `binaries` wherever this block is the one that resolves. A prebuilt archive selected by `arch` can carry a different path per architecture -- rayhunter's zip has `installer` at the top level and one `rayhunter-check` under a per-platform directory -- and one manifest-level list cannot describe both. Omit the key to use the manifest's list; an empty list is refused, because it reads as an override to nothing. |
 | `note` | `str \| None` | no |  |
@@ -485,6 +487,47 @@ engine states and does not adjudicate (D-021).
 | `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
 | `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
 
+### `DemTilesInstall`
+
+Elevation tiles for the squares the station's map regions cover (D-061).
+
+Like `RegionalDataInstall`, nothing is pinned in the manifest: which
+tiles are needed follows the operator's regions in station config, and
+each tile is resolved at plan time and verified by a sha256 the catalog
+carries (``catalog/data/copernicus-glo30-pins.yaml``) or by the MD5 in
+the publisher's object metadata, the plan saying which, tile by tile.
+`provider` is an enum so another source (USGS 3DEP) is a new member the
+engine implements, never a URL in the catalog.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `method` | `Literal[dem-tiles]` | no (default `dem-tiles`) |  |
+| `provider` | `Literal[copernicus-glo30]` | no (default `copernicus-glo30`) |  |
+| `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
+| `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
+
+### `DerivedDataInstall`
+
+Data produced by running a converter over another catalog unit's data.
+
+`converter` names the transformation by enum, never a command line --
+the catalog stays pure data (CLAUDE.md's founding invariant) and the
+engine owns what each enum member means. `source` names the catalog
+package whose data this is derived from; the manifest's own validator
+requires it to also appear in `depends`, so the plan always installs the
+source data before running the converter over it. Which install method
+`source` must actually be is `CONVERTER_SOURCE_METHOD`, checked catalog-
+wide because only the catalog knows what `source` resolves to (D-061).
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `method` | `Literal[derived]` | no (default `derived`) |  |
+| `converter` | `Literal[navit-maptool, mkgmap, routino-planetsplitter, gdal-dem]` | **yes** | The transformation to run. Each needs a `source` of one particular install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): `navit-maptool`, `mkgmap` and `routino-planetsplitter` need an `osm-regions` source; `gdal-dem` needs a `dem-tiles` source. |
+| `source` | `str` | **yes** | The catalog package name this is derived from: an `osm-regions` unit, or for `gdal-dem` a `dem-tiles` unit. |
+| `boundaries` | `str \| None` | no | The catalog data unit holding country boundaries (one GeoJSON file) that `navit-maptool` merges into each region before conversion, so maptool files towns under a country and address search finds them (D-057 amendment, 2026-09-28). Must also be in `depends`. |
+| `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
+| `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
+
 ### `PipxInstall`
 
 | Field | Type | Required | Description |
@@ -492,3 +535,21 @@ engine states and does not adjudicate (D-021).
 | `method` | `Literal[pipx]` | no (default `pipx`) |  |
 | `spec` | `str` | **yes** |  |
 | `system_site_packages` | `bool` | no (default `False`) |  |
+
+### `RegionalDataInstall`
+
+An offline map region, fetched by the station's own selection.
+
+Unlike `DataInstall`, no artifact is pinned in the manifest: a Geofabrik
+extract is one of hundreds of regions, and the operator's choice lives in
+station config (D-035), not the catalog. The catalog states the provider
+and the licence; the engine resolves the region and its checksum at plan
+time from the operator's selection, the same "a missing value defers one
+file, never the transaction" rule as any other station-dependent unit.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `method` | `Literal[osm-regions]` | no (default `osm-regions`) |  |
+| `provider` | `Literal[geofabrik]` | no (default `geofabrik`) |  |
+| `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
+| `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |

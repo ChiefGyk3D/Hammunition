@@ -1,0 +1,5 @@
+  fixture-radio: not parkable right now — its port has no power control
+device                   address    state    kept  summary
+gps-receiver             1-4        parked   no    USB GNSS receivers
+
+`hammunition hardware park NAME` keeps it parked across reboots; `park --until-reboot NAME` lets a reboot wake it; `wake NAME` brings it back.

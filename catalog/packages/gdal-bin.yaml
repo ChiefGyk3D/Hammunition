@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: gdal-bin
+version: "3.10.3"
+summary: GDAL's command-line tools for rasters and elevation data
+menu_title: Raster and elevation tools (gdalinfo)
+categories: [navigation-maps]
+
+# `apt-cache policy gdal-bin` on Parrot 7 (echo), 2026-09-28: candidate
+# 3.10.3+dfsg-1 (echo/main), no backports version.
+
+install:
+  - install:
+      method: apt
+      packages: [gdal-bin]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    The Geospatial Data Abstraction Library's programs: `gdalinfo` to inspect
+    a raster, `gdalbuildvrt` to join tiles into one virtual raster,
+    `gdal_contour` to trace contour lines from elevation, `gdal_rasterize` to
+    draw vector data onto a raster, `gdaldem` for hillshade and slope, and
+    many more.
+  why_you_want_it: >-
+    It is how `dem-qmapshack` turns the elevation tiles into QMapShack's
+    elevation and contour map, and the standard way to look inside any
+    elevation or map raster yourself.
+  prerequisites: >-
+    None of its own; the tiles come from `dem-copernicus`.
+  known_problems: >-
+    `gdal_contour` writes into an existing output file rather than refusing
+    it (measured on 3.10.3), so a contour file left from an earlier run is
+    appended to; `dem-qmapshack` removes its own before each run.
+  upstream_url: https://gdal.org/
+  upstream_support: >-
+    The documentation at https://gdal.org/ and the gdal-dev mailing list
+    (https://lists.osgeo.org/mailman/listinfo/gdal-dev).

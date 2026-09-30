@@ -1,0 +1,81 @@
+Target: Debian GNU/Linux 13 (trixie) (ID=debian, version=13, arch=x86_64)
+
+Packages (4):
+  fixture-apt                  will install       [fixture-station]
+      + fixture-apt
+      = libfixture1
+  fixture-quiet                will install       [requested]
+      + fixture-quiet
+  fixture-source               will build         [requested]
+      + build-essential  (to build)
+  fixture-data                 will fetch+install [requested]
+
+Installed distribution packages displaced or shadowed (D-022):
+  fixture-apt-legacy  — declared by fixture-apt; the distribution package stays installed, see that manifest's notes
+
+apt packages resolved from trixie-backports (D-038):
+  apt refused the default release because a package this machine already installs from
+  trixie-backports would have been downgraded; the apt step runs with --target-release
+  trixie-backports, which takes these from there:
+      libfixture1
+
+apt packages installed without Recommends (D-052):
+  fixture-quiet asked for --no-install-recommends in the manifest, because the
+  Recommends of these packages conflict with software this target installs; a second
+  apt-get install carries the flag for them alone. Everything else in this transaction
+  keeps apt's defaults, and both commands run with --no-remove:
+      fixture-quiet
+
+Third-party apt repositories that will be added (D-040):
+  fixture-repo  [fixture-apt: fixture-repo-tool]
+      https://example.invalid/apt  stable  main
+      key 0123456789ABCDEF0123456789ABCDEF01234567
+      writes /etc/apt/sources.list.d/fixture-repo.sources
+      writes /etc/apt/keyrings/fixture-repo.gpg
+      consent: HAMMUNITION_ACCEPT_APT_REPO_FIXTURE_REPO must equal the key fingerprint
+
+Offline data that will be downloaded and installed (D-049):
+  fixture-data                 1.4 MB total, licence: free with notice
+      stated at https://example.invalid/licence
+         1.4 MB  https://example.invalid/cty.dat
+      installs under <prefix>/share/hammunition/data/fixture-data/
+
+Group membership changes:
+  op → dialout  (fixture-apt)
+      Lets the operator open serial ports: rig CAT cables, TNCs and GPS receivers. It
+      also grants every other serial device on the machine.
+      reverse: sudo gpasswd -d op dialout
+
+Consent gates that will be presented:
+  fixture-gated (HAMMUNITION_ACCEPT_FIXTURE_GATED)
+      - identifier_collection: Can collect identifiers associated with people or their
+        devices, such as IMSI, IMEI, MAC addresses, or subscriber records.
+
+Configuration that will be written:
+  /etc/fixture-apt.conf  (written, mode 0644, existing file backed up)  [fixture-apt]
+
+Desktops read from session files (/usr/share/xsessions, /usr/share/wayland-sessions and the same under /usr/local/share):
+  Xfce; also sway.desktop, which names no desktop the catalog knows
+
+Will NOT happen (the rest of the transaction still will):
+  fixture-apt: /etc/fixture.conf not written
+      why: no callsign set
+      → hammunition station set --callsign N0TST
+  fixture-tray: will not be installed (profile fixture-station)
+      why: for KDE Plasma; this machine has no KDE Plasma session (it has: Xfce)
+      → the rest installs without it; on a machine that gains a KDE Plasma session,
+      `hammunition install fixture-station` again picks it up
+
+Notes:
+  - fixture-source shadows nothing on PATH; this note is here to be wrapped fixture-
+      source shadows nothing on PATH; this note is here to be wrapped
+
+Records:
+  transaction log written to /home/op/.local/state/hammunition/transactions.jsonl
+  the log and any directories created for it are given to 'op' (chown), since root is writing into their home
+
+Commands (2):
+  # Install the apt packages
+  $ sudo apt-get install --yes -- fixture-apt
+  # Fetch and verify the fixture-source tarball
+  $ [fetch] https://example.invalid/fixture-source-2.1.tar.gz

@@ -7,7 +7,8 @@
 #     ./bootstrap.sh
 #
 # It creates the virtualenv the engine runs from, installs the package into it,
-# and finishes by running `hammunition doctor` so you see exactly what is ready
+# links ~/.local/bin/hammunition to it (never replacing a file it did not
+# create), and finishes by running `hammunition doctor` so you see exactly what is ready
 # and what still needs setting up. It is idempotent — safe to re-run — and it
 # fails loudly rather than degrading silently (CLAUDE.md).
 #
@@ -105,19 +106,43 @@ fi
 command -v .venv/bin/hammunition >/dev/null 2>&1 || [ -x .venv/bin/hammunition ] \
   || die "the 'hammunition' entry point did not install. Check the pip output above."
 
-# --- 4. Show the operator where they stand ----------------------------------
+# --- 4. Put `hammunition` on the PATH ---------------------------------------
+#
+# ~/.local/bin/hammunition -> this checkout's .venv/bin/hammunition, so every
+# `hammunition ...` in the docs works as typed (D-059). Never replaces a file
+# it did not create; a link to another checkout is left and the switch printed.
+# Shell rc files are never edited: when ~/.local/bin is not on PATH, the one
+# line to add is printed instead.
+
+say "Linking ~/.local/bin/hammunition to this checkout"
+"$here/scripts/path-link.sh" "$here" \
+  || warn "hammunition is not linked onto the PATH from this checkout; the reason is above. .venv/bin/hammunition works meanwhile."
+
+# --- 5. Show the operator where they stand ----------------------------------
 
 say "Installed. Health check:"
 echo
 .venv/bin/hammunition doctor || true   # doctor's non-zero exit is a report, not a bootstrap failure
 
-cat <<'NEXT'
+# --- 6. Next steps, runnable exactly as printed ------------------------------
+#
+# Bare `hammunition` only when this shell finds this checkout's link by that
+# name. Otherwise (the link was refused, or ~/.local/bin is not on PATH until
+# the next login) the full path, so nothing printed here is "command not
+# found" (D-059).
 
-Next:
-  .venv/bin/hammunition station set --callsign YOURCALL --grid-square AB12cd
-  .venv/bin/hammunition list profiles
-  .venv/bin/hammunition install station --dry-run
+engine="$(cd "$here" && pwd -P)/.venv/bin/hammunition"
+if [ "$(command -v hammunition 2>/dev/null || true)" = "$HOME/.local/bin/hammunition" ] \
+   && [ "$(readlink -- "$HOME/.local/bin/hammunition" 2>/dev/null || true)" = "$engine" ]; then
+  hm=hammunition
+else
+  hm="$(printf '%q' "$engine")"
+  echo
+  warn "this shell does not find this checkout's engine as \`hammunition\` yet (why is above);"
+  warn "until it does, run it by its full path, as below."
+fi
 
-Put .venv/bin on your PATH (or activate it) to type `hammunition` directly:
-  source .venv/bin/activate
-NEXT
+printf '\nNext:\n'
+printf '  %s station set --callsign YOURCALL --grid-square AB12cd\n' "$hm"
+printf '  %s list profiles\n' "$hm"
+printf '  %s install station --dry-run\n' "$hm"

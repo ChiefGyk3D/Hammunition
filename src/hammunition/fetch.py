@@ -40,12 +40,21 @@ handle in our hands. And it does not verify signatures yet —
 not read here, so a manifest supplying them gets no more checking than one that
 does not. That gap is named rather than papered over; see
 :func:`signature_gap`.
+
+**One second, deliberately weaker path exists** (:meth:`Fetcher.fetch_md5`,
+D-057, maintainer-approved 2026-09-27): OpenStreetMap region extracts that the
+catalog carries no sha256 pin for, verified instead against the publisher's
+(Geofabrik's) MD5 plus the size its server reported. The sha256 path above is
+unchanged by its existence -- ``fetch()`` still refuses anything that is not
+digest-pinned. ``fetch_md5`` is a separate method, named for what it is, and
+every plan that uses it says so beside the region.
 """
 
 from __future__ import annotations
 
 import hashlib
 import os
+import shutil
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -57,7 +66,12 @@ from typing import IO, Protocol
 
 from hammunition.backends.base import BackendError
 from hammunition.manifest.schema import RemoteArtifact
-from hammunition.paths import artifact_cache_dir
+from hammunition.paths import (
+    OperatorDirError,
+    artifact_cache_dir,
+    ensure_operator_dir,
+    open_operator_dir,
+)
 
 __all__ = [
     "DEFAULT_MAX_BYTES",
@@ -216,6 +230,75 @@ def signature_gap(artifact: RemoteArtifact) -> str | None:
     )
 
 
+def create_temporary(path: Path) -> IO[bytes]:
+    """A new file at *path* for writing, created -- never opened.
+
+    ``O_CREAT|O_EXCL|O_NOFOLLOW``, mode 0600: under sudo the cache is the
+    operator's, and a ``<name>.part.<pid>`` planted there as a symlink to
+    ``/etc/shadow`` must not have root's download written through it. Any
+    existing entry at *path* (a link, a file) is a refusal naming it."""
+    try:
+        fd = os.open(
+            path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600
+        )
+    except OSError as exc:
+        raise BackendError(
+            f"cannot create the download temporary {path}: {exc.strerror or exc}. Something "
+            f"already exists at that name (a link planted there is refused, never followed); "
+            f"remove it and run the install again."
+        ) from exc
+    return os.fdopen(fd, "wb")
+
+
+def make_dir(path: Path) -> None:
+    """``mkdir -p`` that keeps the operator's directories the operator's under
+    sudo (:func:`hammunition.paths.ensure_operator_dir`); a refusal is a
+    :class:`BackendError` naming the path and the fix."""
+    try:
+        ensure_operator_dir(path)
+    except OperatorDirError as exc:
+        raise BackendError(str(exc)) from exc
+
+
+@contextmanager
+def operator_dir(path: Path) -> Iterator[int | None]:
+    """:func:`make_dir`, holding a descriptor on *path* while the block runs.
+
+    The descriptor is None where :func:`make_dir` is a plain mkdir; otherwise
+    it is the directory proven the operator's through ``O_NOFOLLOW`` from
+    their home, for removing and creating entries by ``dir_fd``."""
+    try:
+        fd = open_operator_dir(path)
+    except OperatorDirError as exc:
+        raise BackendError(str(exc)) from exc
+    try:
+        yield fd
+    finally:
+        if fd is not None:
+            os.close(fd)
+
+
+def remove_tree(parent: Path, parent_fd: int | None, name: str) -> bool:
+    """Remove *parent*/*name* if present; True if it was.
+
+    Through *parent_fd* when there is one: ``rmtree(name, dir_fd=...)`` walks
+    by descriptor and refuses a symlink, so neither *parent* nor anything
+    below it can redirect the removal. Without one it is the path-based
+    rmtree it always was (the engine is not root on anyone's behalf)."""
+    if parent_fd is None:
+        target = parent / name
+        if not (target.exists() or target.is_symlink()):
+            return False
+        shutil.rmtree(target)
+        return True
+    try:
+        os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        return False
+    shutil.rmtree(name, dir_fd=parent_fd)
+    return True
+
+
 class Fetcher:
     """Downloads artifacts into a content-addressed cache, verifying each one."""
 
@@ -240,13 +323,22 @@ class Fetcher:
         """
         return self.cache_dir / f"{artifact.sha256}-{_safe_name(artifact.url)}"
 
-    def fetch(self, artifact: RemoteArtifact) -> FetchResult:
+    def md5_path_for(self, url: str, md5: str) -> Path:
+        """Where an MD5-verified file lives once verified (:meth:`fetch_md5`). Pure."""
+        return self.cache_dir / f"md5-{md5}-{_safe_name(url)}"
+
+    def fetch(self, artifact: RemoteArtifact, *, max_bytes: int | None = None) -> FetchResult:
         """Return a verified local copy of *artifact*, downloading if needed.
 
         Raises :class:`VerificationError` if what arrives does not match the
         manifest's digest, and :class:`~hammunition.backends.BackendError` if it
         could not be fetched at all. There is no return value that means
         "unverified".
+
+        *max_bytes*, if given, overrides this fetcher's instance-level cap for
+        this one download; the default (``None``) keeps the instance's own
+        :attr:`max_bytes`. It never disables the cap -- there is no value that
+        means unlimited.
         """
         final = self.path_for(artifact)
 
@@ -264,13 +356,13 @@ class Fetcher:
             # than failing -- and never serve it.
             final.unlink()
 
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        make_dir(self.cache_dir)
         # Same directory as the destination so the final move is a rename
         # within one filesystem, which is atomic. A temp file in /tmp would
         # make it a copy, and a copy can be interrupted half-written.
         temporary = final.with_name(final.name + f".part.{os.getpid()}")
         try:
-            actual, size = self._download(artifact.url, temporary)
+            actual, size, _ = self._download(artifact.url, temporary, max_bytes=max_bytes)
         except BaseException:
             temporary.unlink(missing_ok=True)
             raise
@@ -290,32 +382,102 @@ class Fetcher:
         os.replace(temporary, final)
         return FetchResult(path=final, sha256=actual, from_cache=False, size=size)
 
-    def _download(self, url: str, destination: Path) -> tuple[str, int]:
-        """Stream *url* to *destination*, hashing as it goes. Returns (digest, size).
+    def fetch_md5(self, url: str, md5: str, *, expected_size: int) -> FetchResult:
+        """A file verified only by its publisher's MD5 (D-057), for map data the
+        catalog carries no sha256 pin for. Weaker than :meth:`fetch`, and the plan
+        says so beside every region it is used for. The size must match what the
+        publisher's server reported, and the cap is that size plus 1 MiB, so a
+        server that keeps sending is still stopped.
+        """
+        make_dir(self.cache_dir)
+        final = self.md5_path_for(url, md5)
+
+        if final.exists() and final.stat().st_size == expected_size:
+            digest = hashlib.md5(usedforsecurity=False)
+            with final.open("rb") as handle:
+                while chunk := handle.read(_CHUNK):
+                    digest.update(chunk)
+            if digest.hexdigest() == md5:
+                return FetchResult(
+                    path=final, sha256=_digest_file(final), from_cache=True, size=expected_size
+                )
+            # Same reasoning as fetch(): re-verified every time, never trusted
+            # for having matched once. A mismatch here is corruption, not a
+            # stale version -- there is only one URL/MD5 pair per cache name.
+            final.unlink()
+
+        temporary = final.with_name(final.name + f".part.{os.getpid()}")
+        try:
+            sha, size, got = self._download(
+                url, temporary, max_bytes=expected_size + 1024 * 1024, md5=True
+            )
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
+
+        if size != expected_size:
+            temporary.unlink(missing_ok=True)
+            raise VerificationError(
+                f"{url}: the server reported {expected_size} bytes and sent "
+                f"{size}; the size check failed"
+            )
+        if got != md5:
+            temporary.unlink(missing_ok=True)
+            raise VerificationError(
+                f"{url} does not match the md5 its publisher lists.\n"
+                f"  expected md5: {md5}\n  actually got: {got}\n"
+                f"The download has been discarded."
+            )
+
+        os.replace(temporary, final)
+        return FetchResult(path=final, sha256=sha, from_cache=False, size=size)
+
+    def _download(
+        self,
+        url: str,
+        destination: Path,
+        *,
+        max_bytes: int | None = None,
+        md5: bool = False,
+    ) -> tuple[str, int, str | None]:
+        """Stream *url* to *destination*, hashing as it goes.
+
+        Returns ``(sha256, size, md5_or_none)``. *max_bytes* overrides this
+        fetcher's instance-level cap for this one call; the sha256 digest is
+        always computed, and the md5 digest alongside it only when *md5* is
+        true, so :meth:`fetch`'s sha256-only path pays nothing extra.
 
         Hashing the bytes as they are written, rather than re-reading the file
         afterwards, means the digest is over what was actually stored and
         leaves no window between the two.
         """
+        limit = max_bytes if max_bytes is not None else self.max_bytes
         digest = hashlib.sha256()
+        md5_digest = hashlib.md5(usedforsecurity=False) if md5 else None
         size = 0
-        with self.transport.open(url) as stream, destination.open("wb") as handle:
+        with create_temporary(destination) as handle, self.transport.open(url) as stream:
             while True:
                 chunk = stream.read(_CHUNK)
                 if not chunk:
                     break
                 size += len(chunk)
-                if size > self.max_bytes:
+                if size > limit:
                     raise BackendError(
-                        f"{url} exceeds the {self.max_bytes} byte limit and was "
+                        f"{url} exceeds the {limit} byte limit and was "
                         f"abandoned part-way. If this artifact is genuinely this "
                         f"large, raise the limit deliberately rather than removing it."
                     )
                 digest.update(chunk)
+                if md5_digest is not None:
+                    md5_digest.update(chunk)
                 handle.write(chunk)
             handle.flush()
             os.fsync(handle.fileno())
-        return digest.hexdigest(), size
+        return (
+            digest.hexdigest(),
+            size,
+            (md5_digest.hexdigest() if md5_digest is not None else None),
+        )
 
 
 def _digest_file(path: Path) -> str:

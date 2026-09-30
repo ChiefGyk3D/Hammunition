@@ -4052,14 +4052,18 @@ like the unit (`ax25mail-utils`, `hcxtools`, `libfreefare-bin`, `pciutils`,
 
 ---
 
-## D-056 — Device power control: one helper behind one polkit action, nothing persisted, and every unbuilt capability ships schema-valid and refused
+## D-056 — Device power control: one helper behind one polkit action, parked kept as intent in one udev rule per device (amended 2026-09-28), and every unbuilt capability ships schema-valid and refused
 
 **Decided:** A catalogued device can be **parked** (detached so its port
 suspends) and **woken** (brought back) through a `power_control` block on its
 manifest naming a fixed method. Three callers — the CLI, generated menu
 entries, and the Plasma applet in a separate repository — all reach the
 kernel through one small root-owned helper, authorised by one polkit action.
-Nothing about which devices are parked is ever written to disk.
+Whether a device *is* parked right now is always read from sysfs, never from
+a cache. What *is* written to disk, by default and only as of the amendment
+below, is intent — one udev rule per kept device, naming its port and model,
+so udev reapplies the park the next time that device is added; `--until-reboot`
+opts out and nothing is written for that park.
 
 ### Why a helper behind polkit, not `sudo hammunition`
 
@@ -4100,6 +4104,68 @@ crash, after `apply` has never been run at all — and reconciling "the file
 says parked but the device is not" is a whole failure mode this design has no
 reason to build. `hammunition hardware state` answers by reading the bus, not
 a cache.
+
+### Amendment (2026-09-28): parked is kept, as intent, in one udev rule per device
+
+The maintainer, once park and wake had proven out on the field laptop's GPS
+receiver, asked for the switch to *stay* where it is set: "we may not always
+want GPS but maybe cell, or maybe we want cell off and GPS to save battery or
+whatever for an extended period." The reasoning just above still holds for
+what it actually argued: sysfs remains the single place that answers "is this
+device parked right now", and there is still no cache of that answer to go
+stale. What it did not anticipate is that an operator might want a second
+thing recorded alongside it — not "is it parked" but "should it come back
+parked" — and that a reboot resetting every device is a loss for a device
+someone deliberately left off, not a simplification. This amendment adds
+exactly that second thing, and only that.
+
+**The mechanism.** `park` now writes two lines, by default, to
+`/etc/udev/rules.d/66-hammunition-kept.rules` — after Hammunition's own
+`65-hammunition.rules`, so the permission rules have already run: a
+`# kept: NAME` comment, then the rule. The rule names the device's port and its vendor/product pair together
+(`KERNEL=="3-5.1", ATTR{idVendor}=="1546", ATTR{idProduct}=="01a9"`), each
+value checked against the shape a USB port address and a USB ID actually
+have before it is written; nothing else reaches the file. The file is
+rewritten whole from scratch on every change, by the helper alone, never
+appended to by hand — a line it did not write refuses the entire rewrite,
+naming the offending line and the file, rather than discarding whatever put
+it there. The write itself is atomic (a uniquely named temp file in the same
+directory, `fsync`, rename, the temp file removed on any failure) and mode
+`0644`, the whole read-modify-write held under an `flock` on the rules
+directory so two helper runs cannot lose each other's entry, followed by `udevadm control --reload` —
+never `trigger`, because the park that led to the write already happened
+through the sysfs write a moment earlier, and re-triggering would re-run
+every udev rule against every device on the bus for a change that only
+concerns one of them. `hammunition hardware park --until-reboot NAME` is the
+way back to this decision's original behaviour: the sysfs write happens,
+nothing is added to the file, and any entry an earlier `park` wrote for the
+device is removed, so the device parks now and a reboot wakes it, exactly as
+first specified above.
+
+**The disagreement this section worried about is now shown, not avoided.**
+Reconciling "the file says parked but the device is not" was the whole
+failure mode the original decision declined to build a state file for. That
+problem has not gone away — a kept device authorised by hand while its rule
+still exists is now a real state — but the answer is not a reconciliation
+step; it is `hammunition hardware state` reporting `kept` and the live sysfs
+`parked` reading as two separate fields, so a disagreement between intent and
+reality is visible in one line instead of hidden behind a single boolean that
+would have to pick a side. The next time the device is added, udev applies
+the rule again regardless of what a hand-authorisation left behind.
+
+**What the mechanism does not yet answer, stated as unmeasured, not assumed.**
+The rule is a udev `ACTION=="add"` rule, which fires once the kernel has
+already enumerated the device, not before — so the belief that it beats every
+consumer to the device, before a tty node like `/dev/ttyACM0` can appear at
+all, is not yet checked against real hardware. Whether the field laptop's GPS
+receiver ever shows a fleeting `/dev/ttyACM0` across a reboot before the rule
+reasserts `authorized=0`, and whether the port address a kept entry names
+(`3-5.1`) is actually stable across reboots on that machine, are exactly what
+this design's own bench test (Task 7, recorded in
+`docs/reference/bench-verification-5430.md`) measures — not a claim this
+amendment or `docs/hardware/power-control.md` makes ahead of it. See
+`docs/superpowers/specs/2026-09-27-device-kept-off-design.md` §3, which is
+corrected alongside this amendment for the same reason.
 
 ### Why `pci_runtime` ships refused
 
@@ -4279,3 +4345,1236 @@ power switch.
 
 **See also:** `docs/hardware/power-control.md` for the operator-facing page
 — what parking changes, how to inspect it, and how to reverse it.
+
+---
+
+## D-057 — Offline navigation: map regions are station data, fetched at a chosen freshness with the check named per region, and converted for Navit by a converter the engine owns
+
+**Date:** 2026-09-28. **Status:** accepted (maintainer, 2026-09-27, on the
+design in `docs/superpowers/specs/2026-09-27-navigation-maps-design.md`).
+**Depends on:** D-049 (offline data is a catalog unit), D-035 (a missing
+station value defers, never refuses), D-039 (one member failing does not
+withhold the rest), D-031 (verify the effect), D-043 (the operator owns
+what is built on their behalf), D-021 (state the licence, never adjudicate
+it). **Amends:** D-049, whose `data` method installs fixed, pinned
+artifacts only, with two new install methods; D-055, whose vocabulary was
+fixed at 55 tags, with a 56th.
+
+**Why.** The maintainer, 2026-09-27: turn the field laptop into a GPS
+navigator "for pure emergency situations, phone and everything is down",
+and "for daily use as well as EMCOMM". Maps have to be on the machine
+before anything goes wrong, so the daily path and the emergency path are
+the same path: install ahead of time, refresh as routine, and nothing at
+the moment of use needs a network. D-049 had already named Navit's extract
+as its third case, and the extract did not fit D-049's shape twice over:
+which file to fetch depends on the operator's region and on the date, so
+it cannot be pinned in a manifest; and Navit cannot read what Geofabrik
+publishes, so the file that is useful is one the engine has to make.
+
+### Regions are station data, and printed only where the operator sees them
+
+`hammunition station set --map-regions` takes Geofabrik's own region paths
+(`north-america/us/vermont`), comma-separated, and replaces the list;
+`--map-freshness` takes `yearly`, `monthly` or `latest`. Both are stored in
+station config beside the callsign, mode 0600. A region list says where
+somebody lives or travels, which is the same class of fact as a grid
+square, so `station show` and `station set` print how many regions are set
+and never their names. The install plan prints them, because the plan is
+the disclosure and is on the operator's own terminal.
+
+With no regions set, `osm-regions` and `osm-navit` are deferred by name and
+Navit and gpsd install (D-035's shape, D-049 rule 3); the plan names the
+command to run. No region is guessed or defaulted.
+
+### Three freshness modes, and why yearly is the default
+
+Measured on Geofabrik 2026-09-27: a dated extract every 1 January back to
+2014, the 1st of each of the last three months, the last seven days, and a
+`-latest` name that is a 302 to today's dated file.
+
+| Mode | File | How long it stays published |
+|---|---|---|
+| `yearly` (default) | `<region>-YY0101.osm.pbf`, this year's 1 January | Years |
+| `monthly` | `<region>-YYMM01.osm.pbf`, this month's 1st | About three months |
+| `latest` | the dated file `-latest` redirects to, resolved when the plan is made | About a week |
+
+Yearly is the default because it is the only one that can be pinned for
+long enough to matter, and because the roads a navigator needs change
+slowly: a map from 1 January is a good map for a year, and a file that
+stays published for years can be checked against a hash measured once. A
+snapshot not yet published is looked for one period back, so a machine on
+2 January is not refused while Geofabrik catches up. `monthly` and `latest`
+are there for the operator who wants newer data and accepts the weaker
+check that comes with it most of the time.
+
+### MD5 is the weaker path, and it is disclosed, not refused
+
+Geofabrik publishes an MD5 beside every file and nothing stronger. For a
+region and snapshot the catalog pins (`catalog/data/geofabrik-pins.yaml`),
+the file is checked against the sha256 Hammunition measured, and the plan
+says **"sha256, pinned by Hammunition"**. For every other region, every
+snapshot not in the pin list, and every region in `latest` mode, it is
+checked against Geofabrik's MD5, and the plan says **"MD5 from Geofabrik
+only; not pinned"**, on that region's line, every time. `--yes` does not
+change what is printed.
+
+MD5 fetched from the same server as the file catches a damaged or
+truncated download. It does not catch a deliberately altered file, because
+whoever can alter the file can alter the MD5 beside it. The alternatives
+were to refuse every unpinned region, which makes the feature US-only and
+`latest` impossible, or to mirror the files, which this project does not
+do. The maintainer approved the MD5 path on the condition that it is never
+silent (2026-09-27). The project's rule that a non-apt
+download is checked or refused still holds: every region is checked, and
+the plan says by what.
+
+### The pin list is generated, measured, and regenerated on a calendar
+
+`scripts/gen_geofabrik_pins.py` streams each pinned region's current yearly
+and monthly file, hashes and sizes it, and discards the bytes; nothing is
+kept or mirrored. The first pass, 2026-09-28, pinned the 50 US states and
+DC at `260101` and `260901`: 102 rows, about 10 GB downloaded. Adding a
+region is one line in the generator's list and a regeneration, so the
+pinned set is always what the generator says it is.
+
+A pin names one dated file, so it is only current while that file is the
+one a mode resolves to. The yearly pins cover the whole of 2026 and are
+regenerated once a year, after 1 January; until they are, a yearly region
+in the new year resolves to a file with no pin and is checked by MD5, which
+its plan line says. A monthly pin is current for one month; monthly mode
+falls back to MD5 on the 1st of the next month unless the list has been
+regenerated. The weekly CI pin-review job runs `--check`, which asks each
+pinned URL for its `HEAD` and goes red when one no longer answers 200 or
+its size has changed; a monthly pin that Geofabrik has aged out fails
+there, with the command to regenerate.
+
+### Derived data: a converter named by enum, run as the operator
+
+Navit reads its own binary format, not `.osm.pbf`. A new install method,
+`derived`, produces files by running a converter over another unit's
+installed data; the manifest names the converter by enum
+(`converter: navit-maptool`) and the source unit (`source: osm-regions`,
+which must also be in `depends`), and the engine owns the command line
+(`maptool --protobuf -i <input> <output>`), exactly as
+`build_system: cmake` is an enum the source backend implements. No command line comes
+from the catalog, and a new converter is implemented in the engine before a
+manifest can name it.
+
+maptool parses downloaded data, and a parser of downloaded data does not
+run as root where it need not. It runs as the operator, in a staging
+directory under the operator's cache
+(`~/.cache/hammunition/build/osm-navit/`), and writes its scratch files
+there. Under `sudo`, root never
+creates, reads, hashes or removes anything in that directory itself: each
+of those is a process dropped to the operator, and root's one look is an
+`lstat` that refuses a staging directory which is a symlink. The effect is
+checked, not the exit status (D-031): the output must exist and be
+non-empty, and its sha256 is taken. Root then publishes it into
+`<prefix>/share/hammunition/data/osm-navit/<slug>.bin`, and the copy is
+verified against that sha256 before it replaces anything, without following
+a symlink to make it. The same
+boundary for the source backend's builds, which under `sudo` still run as
+root in an operator-owned build directory, was found during this work and
+is issue #125; it is not changed here.
+
+A region already converted from the same snapshot is not converted again. A
+region dropped from station config has its `.osm.pbf` and `.bin` removed on
+the next install, each as its own disclosed step. Navit's configuration is
+written last, beside the maps, from the installed `/etc/navit/navit.xml`
+with two anchored changes: speech through `espeak-ng`, and one enabled
+mapset listing the maps that exist. It lives in the data directory, not in
+`~/.config` as the spec first had it, so it is system-wide and `uninstall`
+removes it with the maps. The launcher is `navit-offline`, so plain `navit`
+still runs Debian's own configuration, and `~/.navit` is never touched.
+
+### One region failing does not stop the others
+
+A region whose download does not verify, whose install fails, or whose
+conversion fails is recorded, its later steps are skipped, and every other
+region installs and converts; Navit's configuration lists only the maps
+that exist. The last step of the transaction then fails the run by name,
+exit 1, listing each region that did not install. A partial map install is
+never reported as a success.
+
+With no network, a region already installed is kept as it is and the plan
+says it could not check for a newer map; a region not installed and not
+resolvable refuses the plan, naming it, exit 2. A **pinned** region
+resolves entirely from the pin list with no network asked at all, so a
+region about to be fetched — pinned or not, not already installed at its
+resolved snapshot — is also HEAD-checked before the plan prints; one that
+cannot be reached refuses the same way, named, rather than surfacing later
+as a fetch failure after apt has already run (fix round 1, I3). Not enough
+disk space refuses the plan too, with the estimate and what is free, for
+each file system that is short — one with enough room is not named.
+
+### The disk estimate is measured on one region, and says so
+
+Per region the plan counts the download twice (the verified cache copy and
+the installed copy), Navit's map at **0.8×** the download (staged, then
+installed), and **2×** the download of maptool's scratch while it runs.
+Measured on one region on the field laptop, 2026-09-28: a 6.1 GB
+country-sized region, converted to a 4.7 GB `.bin` in 75 minutes on an
+i7-1185G7, peak memory about 2.4 GB, more than 12 GB of scratch. The plan
+calls its figures "an estimate, measured on one region" until more regions
+are measured.
+
+### The `navigation-maps` tag, amending D-055
+
+D-055 cut the vocabulary to 55 tags and meant it to be fixed. Offline maps
+and turn-by-turn navigation had no place among them: `gps-gnss` is
+receivers and the daemon that shares one, not the thing a person looking
+for a map would search for. One tag is added, `navigation-maps`
+(*Navigation & Maps*), in the *Operate the Station* group beside
+`gps-gnss`. The rule that a tag is added by a decision, not in passing,
+stands.
+
+### The profile is post-1.0
+
+`navigation` (`gpsd`, `gpsd-clients`, `navit`, `osm-regions`, `osm-navit`)
+ships at `stage: post-1.0`. The 1.0 profile set is the one the maintainer
+accepted and the tests assert; adding to it is his decision, not a side
+effect of a new profile.
+
+### What is measured, and what is not yet
+
+Measured: Geofabrik's snapshot layout and redirects (2026-09-27); every
+tool in Parrot 7.3's archive (`navit` and `maptool` 0.5.6, `espeak-ng`
+1.52.0); the 102 pins (2026-09-28, `--check` passing); one conversion (a
+6.1 GB country-sized region, above), by hand, not through the engine;
+`UrllibProbe.text` against Geofabrik's live region index (2026-09-28,
+`index-v1-nogeom.json`, 555 regions parsed by `region_ids`).
+
+Not yet measured, and not claimed until the field laptop's bench page
+records it:
+
+- the whole install through the engine, with the maintainer's regions;
+- Navit routing across two separately converted regions, a trip from one
+  state into the next (if it does not, routing gets one merged map and the
+  display keeps per-region files);
+- the whole path with networking off: launch, position from gpsd, a route,
+  voice;
+- voice with a street name containing an apostrophe, which Navit's stock
+  `'%s'` quoting may break;
+- `UrllibProbe.head` against the live server, which a fetch and the I3
+  plan-time reachability check both depend on; the tests replace it.
+
+### Deferred
+
+Hiking and topographic maps (QMapShack, `mkgmap`, contours, GPSPrune) are
+the next piece; Kiwix with a Wikipedia ZIM and ETC's tileset with a tile
+server are the one after, and D-049's order changes to put Navit's extract
+before the tileset. Each gets its own specification.
+
+(2026-09-28: the next piece is built as **D-061**: QMapShack, Garmin maps,
+one Routino database and Copernicus elevation from the same regions.
+GPSPrune was measured then and is not carried, because it uses online
+tiles.)
+
+**Consequences.** `RegionalDataInstall` (`method: osm-regions`) and
+`DerivedDataInstall` (`method: derived`) in the schema;
+`src/hammunition/geofabrik.py`, `src/hammunition/backends/regions.py`,
+`src/hammunition/backends/derived.py`, `src/hammunition/navit_config.py`;
+`map_regions` and `map_freshness` in station config; the plan's *Map
+regions* section; `catalog/packages/navit.yaml`,
+`catalog/packages/osm-regions.yaml`, `catalog/packages/osm-navit.yaml`,
+`catalog/profiles/navigation.yaml`; the generated
+`catalog/data/geofabrik-pins.yaml` and its generator; the weekly `--check`.
+The operator's page is `docs/guides/offline-navigation.md`.
+
+### Amendment (2026-09-28): Navit opens on the maps and follows the GPS; the map factor is 0.9
+
+The maintainer installed two US-state-sized regions on the field laptop
+with `hammunition install navigation`. Every step verified, and Navit
+opened on a blank screen. Three findings, each fixed where it arose:
+
+**Navit opened on Munich.** The generated configuration kept the stock
+`<navit center="11.5666 48.1333">`, and no map existed there. The two
+anchored changes above are now four. The configuration step reads the
+bounding box from the first installed region's `.osm.pbf` header and
+centres Navit on its midpoint, written as the stock file writes it
+(`"lon lat"`, four decimals). `src/hammunition/osm_pbf.py` reads only the
+file's first blob, the `OSMHeader`: a 4-byte length, a `BlobHeader` that
+must say `OSMHeader`, and a raw or zlib `Blob`. It uses the standard
+library only, and both the packed and the inflated size are capped at
+1 MiB. A region is gigabytes and its header a few hundred bytes. A region
+that did not convert gives way to the next. So does one whose `.osm.pbf`
+is gone, one whose header has no bbox (the format allows that), and one
+whose header cannot be read or gives a bbox off the globe. Each is named in
+the step's outcome, with the region the centre came from, and none fails
+the step: a configuration that opens on the stock centre still loads every
+map, and failing the step would leave Navit no configuration and hide the
+ledger's report of a region that did fail. The stock centre is used only on Navit's
+first start. After that Navit restores its last view from
+`~/.navit/center.txt`. A machine that has already opened on Munich goes
+back there until that file is removed, which the guide's troubleshooting
+entry says, with the command.
+
+**The view never moved to the GPS**, even with a 3D fix. The gpsd
+`<vehicle>` lacked `follow="1"`, which Navit's own stock comment says to
+add "to have the view centered on your position". It is added to the one
+enabled vehicle reading `gpsd://`. Anchors are matched outside comments,
+because the stock file comments out two vehicles of its own, one of them on
+gpsd. A vehicle that already says `follow=` is left as it is. Not exactly
+one enabled gpsd vehicle does not fail the step: the configuration is
+written without `follow`, and the outcome says "Navit will not follow the
+GPS" and why. An operator who pointed the conffile at a serial receiver, or
+added a second gpsd vehicle, loses following, never the configuration. The
+mapset refusal stays hard, because two enabled mapsets are mis-loaded.
+
+**The disk estimate was low.** The two regions converted at **0.874×** and
+**0.856×** the download, against the 0.8× set above from the country-sized
+region's 0.77×. The factor is now **0.9×**, which is above all three. The plan's wording
+is "an estimate, measured on three regions, scratch on one", because the
+2× scratch factor still comes from the country-sized region alone.
+
+**maptool left scratch behind** after a successful conversion:
+`country_*_broken_.tmp` and `country_*_poly_.tmp` in
+`~/.cache/hammunition/build/osm-navit/`. Once a region's `.bin` is
+installed, exactly those are removed: regular files whose whole name has
+one of the two shapes, in the staging directory only. They are removed by
+name through a descriptor from `open_operator_dir`, which walks
+`O_NOFOLLOW` from the operator's home. A symlink or directory with such a
+name, any other `.tmp`, and another region's `.bin.part` stay. The plan
+line for each map install says this. A failure to clear is named in the
+outcome and does not fail the run, because the map is installed and the
+files are the operator's.
+
+Not yet measured: a configuration written by this change, on the field
+laptop. The maintainer is testing a hand-edited copy with the same two
+edits.
+
+### Amendment (2026-09-28): address search, and a closed country border merged into every region
+
+After the fixes above, Navit ran on the field laptop on both regions and
+followed the GPS, and address search found almost nothing: Actions → Town
+listed a handful of towns and not the largest city. Measured from the
+installed maps: one US-state-sized region's search index held **about a
+dozen items for a map that draws a few thousand places**.
+
+**Cause.** maptool files a town under a country with a point-in-polygon
+test against that country's boundary relation, and treats a relation as a
+country only when it is `admin_level=2` with `ISO3166-1`
+(`maptool/boundaries.c`, `process_boundaries_setup`). A town inside no
+country is dropped from the index ("Lost town"), though it is still drawn.
+A Geofabrik state extract carries the US relation with only the member
+ways inside the state, a small fraction of them, so the polygon
+is open, maptool logs "Broken country polygon", and only the few towns
+still carrying an `is_in` or GNIS tag get a country. maptool has no option
+to read a boundary from anywhere else; `-U` is the only switch that
+touches the problem. Upstream documents the same thing: its `osm.rst` says
+to concatenate the whole country boundary with a sub-country excerpt.
+
+**Options weighed.**
+
+- **`-U` alone.** Measured: over four thousand index items, every town found, but all
+  under a pseudo-country "* Unknown, add is_in tags to those cities",
+  with no state or county, and reachable only after changing the country
+  to it. The maintainer rebuilt his maps this way as a stopgap. A fix that
+  makes the operator search a country called Unknown is not the fix.
+- **The whole country's extract.** Its boundary is complete. The US file
+  is 12.2 GB; asked of every operator for the sake of one polygon.
+  **Rejected.**
+- **The relation from the OSM API** (`relation/148838/full`, 31.6 MB).
+  Online, and it changes continually, so it cannot be pinned or checked.
+  **Refused**, under the rule that every non-apt download is checked.
+- **The extract's own state relation, cloned as the country.** The
+  state's `admin_level=4` relation is complete in its own extract, and a
+  synthetic `admin_level=2` relation reusing its ways worked with no
+  download at all (within a percent of the Natural Earth build). It relies on the extract happening to
+  carry one complete sub-country relation, and on picking it, which is a
+  heuristic per region shape. **Kept in reserve, not carried.**
+- **A closed border from Natural Earth**, merged into the extract.
+  Measured: **over four thousand items, a few hundred times as many, all
+  under the USA**, almost all with a state, and no build time added (phase 9, the multipolygons, dominates as before).
+
+**The choice.** A new data unit, `country-boundaries`: Natural Earth's
+1:10m admin-0 countries, GeoJSON, public domain, pinned to the file at
+the v5.1.2 tag's commit. Natural Earth publishes no release assets and no
+checksum, so the sha256 is Hammunition's own, measured twice, and the
+manifest says so. `osm-navit` names it in a new `boundaries` field of the
+`derived` block (like `source`, it must be in `depends`) and depends on
+`osmium-tool` from the archive. Before maptool runs, the converter:
+
+1. Finds the region's countries in `catalog/data/geofabrik-countries.yaml`,
+   generated by `scripts/gen_geofabrik_countries.py` from Geofabrik's
+   region index: a region's own `iso3166-1:alpha2` and `iso3166-2`
+   prefixes, else its nearest ancestor's (Bayern takes Germany's). The
+   plan reads the table with no network. A region with no country (a
+   continent, `dach`, `us-northeast`) is converted without a merge, and
+   its plan line says `border: none known`.
+2. Writes, with the standard library only, one closed relation per
+   country (`type=boundary`, `boundary=administrative`, `admin_level=2`,
+   `name`, `ISO3166-1`), ids above 9×10^15 so none collides with an OSM
+   id, found by Natural Earth's `ISO_A2_EH` (its `ISO_A2` is `-99` for
+   France and Norway). `src/hammunition/country_boundaries.py`.
+3. Pipes that XML into `osmium cat` on stdin and `osmium merge`s it with
+   the region in the staging directory, as the operator; nothing root
+   composes is written into the operator's directory.
+4. Runs `maptool --protobuf -U -i <merged> <out>`. `-U` is always on: it
+   catches the places the coarse border misses.
+5. Reads maptool's log. "Broken country polygon" for the extract's own
+   partial relation is expected and always there; for the merged border's
+   relation it fails the region by name. The merged copies are removed
+   whether the map built or not.
+
+Regions convert **one at a time, never in parallel**: maptool writes
+fixed-name temp files (`coords.tmp`, `ways_.tmp`, ...) into its working
+directory, all regions share one staging directory, and two concurrent
+runs there segfaulted (measured 2026-09-28). A test asserts it.
+
+**Maps built before this are converted again.** The `.bin.source`
+sidecar gains a second line, `converter: navit-maptool 2`. A map at the
+right snapshot without it is pending, and the plan says `(converter
+changed)` beside it; the region is not downloaded again. An engine older than
+this one reads the whole two-line sidecar as the snapshot, so after a
+downgrade every map looks stale and is converted again: slow, not wrong. The plan also
+discloses the border file (13.3 MB, its licence, "sha256, pinned by
+Hammunition"), the merge, and `-U`. The disk estimate counts the merged
+copy, one more times the download, in the staging directory while it
+converts.
+
+**Residual gaps, measured on one region.** A few places close to the
+national border fall on the other side of Natural Earth's 1:10m line and
+are indexed under Unknown by `-U`, not lost. A handful of places at the
+extract's edges, in the neighbouring states, are under the USA with no
+state, because those states' own relations are incomplete in the
+extract. The places across the national border that the extract carries
+are correctly not filed under the US, and sit under Unknown too.
+
+**Privacy.** Exact per-region counts are not recorded here or anywhere in
+the repository: each can be reproduced for every US state, and a match
+would say which state the maintainer's maps cover, the same class of fact
+as the grid square (review, 2026-09-28). Figures are rounded or given as
+ratios; the one synthetic region below keeps its exact numbers.
+
+**Measured and not.** The Natural Earth build, the `-U` build and the
+state clone were built by hand from the installed region, in scratch
+(2026-09-28). The converter's steps were run end to end in scratch with
+the archive's maptool and osmium-tool 1.18 on a synthetic three-town
+region carrying an open US relation: unmerged, 0 index items; merged, 3
+under the US, with the open relation's warning the only broken polygon.
+Not yet run: `hammunition install navigation` with this change on the
+field laptop, and the search on the maps it builds;
+`docs/reference/bench-verification-5430.md` (session 11) names the steps.
+
+## D-059 — The engine has a machine-readable interface: one JSON document per command on stdout, rendered from the same objects as the text; a real install is never driven through JSON; and `hammunition` is put on the PATH
+
+**Date:** 2026-09-28. **Status:** accepted (maintainer, 2026-09-28: option A
+of the console design, front ends are separate projects driving the engine
+through a stable interface). **Spec:**
+`docs/superpowers/specs/2026-09-28-engine-json-interface-design.md`, piece 1
+of 4. **Depends on:** D-021 (consent is never answered by a flag), D-053
+and D-057 (`update` and `station` print a count of map regions, never their
+names), D-056 (the helper's `state` array the tray already reads).
+
+**Why.** The maintainer, 2026-09-28: "we will need to make it easier with
+like an ncurses or whatever menu … the whole point of the project is to
+make it easier. And the installer should be able to track the ones already
+installed when we open it again to add more." That console
+(`hammunition-console`) is its own project, as `hammunition-tray` is, and a
+client of the engine, never part of it. It needs to read what the engine
+knows. Parsing the text would make every change of wording a break for a
+front end, and a second code path producing "the same" data would drift
+from what the operator reads.
+
+The second half came from the field laptop: `bootstrap.sh` installed the
+engine into the checkout's `.venv` and only suggested
+`source .venv/bin/activate`. `hammunition` was not on the PATH, and a short
+command copied from the docs failed with "command not found".
+
+### The rule
+
+1. **One flag, one document.** `--json` is accepted before or after the
+   verb, on every subcommand; it is added by walking the parser, so a verb
+   added later carries it. With it a command prints one JSON document on
+   stdout and nothing else there. Under `--json` both `sys.stdout` and
+   `sys.stderr` point at a recording tee over the real stderr, so a note, a
+   warning or a stray line of text is a diagnostic, never a second thing on
+   stdout. The tee answers "not a terminal", so a `--json` run never
+   prompts. The exit code is the text run's.
+2. **A run that refuses still prints a document.** Its own kind when it got
+   far enough to have one (a refused plan is a `plan` with
+   `outcome: "refused"`, every blocker, exit 2), otherwise an `error`
+   document carrying the exit code and everything written to stderr. That
+   covers arguments that do not parse, a command with no JSON form (exit 2,
+   nothing run), a missing catalog, and an unexpected exception, whose
+   traceback goes to stderr. `--help` and `--version` print to stderr and
+   emit no document.
+3. **The envelope.** Every document is
+   `{"schema": "hammunition/1", "kind": ..., "engine": ...}` plus the
+   fields of one dataclass under `src/hammunition/interface/`. `schema`
+   versions the whole interface: a field may be added within a major
+   version; removing one or changing what it means bumps the major, and a
+   front end refuses a major it does not know, by name. The published
+   schema forbids a field it does not name.
+4. **The text and the document render from the same object.** Each command
+   builds one dataclass instance, and both the text renderer and the JSON
+   encoder read it. Every text refactor this needed was held byte for byte
+   by a golden captured from the code before it moved. A shared check,
+   `tests/json_support.py`, asserts per command that every value the text
+   shows is in the document; it was made to fail on purpose before it was
+   trusted, and it splits tokens at `@` so `NAME@ADDRESS` rows are checked
+   as the two values they are.
+5. **A real install is never driven through JSON.** `install` and
+   `uninstall` accept `--json` only with `--dry-run`, and the document is
+   the plan. Without `--dry-run` the run is refused with an `error`
+   document and nothing runs. A front end runs the ordinary command in the
+   operator's terminal, where sudo, every consent gate (D-021) and every
+   disclosure are the CLI's own, then reads `status --json` again.
+6. **Privacy.** `station show --json` carries the station values
+   themselves, the callsign, grid square, node alias and every map region
+   by name, because a local front end needs them to fill in a form. `plan`
+   carries exactly what the text plan prints: the operator's account, paths
+   in their home, and the map regions. It never carries a rendered
+   configuration file, so the callsign in one is not in it (the spec's §6
+   was amended to match: less leaves the machine by accident). Both are for
+   local programs, not for pasting into an issue, and
+   `docs/reference/json-interface.md` and `docs/reference/cli.md` say so.
+   `doctor --json` and `update --json` keep the count-only rule their text
+   follows; a test runs `update` end to end with regions installed and
+   asserts that neither form names one.
+7. **The reference is generated.** `scripts/gen_json_reference.py` finds
+   every document class by its `KIND`, not from a list, and writes
+   `docs/reference/json-interface.md`: the commands that have a JSON form
+   (from the `@envelope.json_capable()` registry), each kind's fields with
+   their descriptions, and the JSON Schema pydantic derives from the same
+   class. Every golden document validates against that schema, and
+   `tests/test_docs_generated.py` runs the generator's `--check`.
+8. **No abbreviated flags.** `allow_abbrev` is off on every parser, text
+   runs included: `--js` is not `--json` and `--dry` is not `--dry-run`. A
+   CLI that guards a real install and every consent gate behind an exact
+   flag does not guess.
+9. **`hammunition` on the PATH.** `bootstrap.sh` runs
+   `scripts/path-link.sh`, which links `~/.local/bin/hammunition` to the
+   checkout's `.venv/bin/hammunition`. It prints each change before making
+   it, creates `~/.local/bin` (mode 0755) only when it is absent, judges a
+   link by what it says and never follows it, and never edits a shell rc
+   file: when `~/.local/bin` is not on the PATH it prints the line to add.
+   It never replaces a file, or a link, it did not make. A link to another
+   checkout is also left alone, so two worktrees do not fight over the PATH,
+   and the one `ln -sfn` command that switches it is printed. The only link
+   it replaces is its own whose checkout is gone. `doctor` gains a
+   *hammunition* check: on the PATH, and resolving to this checkout; its fix
+   never offers to overwrite what the link script would refuse to.
+10. **The docs say `hammunition …`.** Every current example runs the
+    engine by that bare name, and a test keeps it so. The pages a reader
+    meets first say what to run when the shell says "command not found":
+    the checkout's `.venv/bin/hammunition` by its full path. Historical
+    records (this file, bench and campaign pages, the changelog) keep what
+    was typed at the time.
+
+### What landed
+
+| Command | Document `kind` |
+|---|---|
+| `status` | `status`: target, catalog, the log, every unit a transaction here named |
+| `list` | `catalog`: every profile and package, and what resolves here |
+| `show NAME` | `profile`; under `--json` only, a unit's name gives `unit`, its manifest |
+| `install … --dry-run` | `plan`, with `install` filled in |
+| `uninstall … --dry-run` | `plan`, with `removal` filled in |
+| `station show` | `station`, values included |
+| `hardware state` | `hardware`: the helper's keys, `kept` and `attached` real (D-056 amended) |
+| `maps regions [FILTER]` | `regions`: Geofabrik's list, nothing of the operator's |
+| `update` | `update`: the same rows and counts, regions counted |
+| `doctor` | `doctor`: each check, severity, detail and fix; D-060's *desktops* check included with no per-check code |
+
+Eleven kinds with `error`. The plan's map section (D-057) and the desktops
+read from session files (D-060, merged from `main` during this work) are in
+the plan document, and `render_plan` is now a wrapper over the view; the
+text of both plan fixtures was compared with `main`'s own renderer and is
+byte identical.
+
+### What changed in the text, and why
+
+The spec kept every command's text as it was. Five things moved:
+
+- `status` with no catalog no longer prints its `Target:` and
+  `Debian family:` lines before the error. Every successful run is byte
+  identical.
+- `osm-regions` and `osm-navit` read `already installed` in the plan's
+  package list when the *Map regions* section says there is nothing to
+  fetch or convert, where they read `will fetch+install` or
+  `will convert` before. A region that could not be checked (*kept*) keeps
+  the old wording, because it is not known to be current. That last
+  choice is open to the maintainer: nothing is fetched for a kept region
+  either.
+- Abbreviated long options are refused (rule 8).
+- `usage:` and `--help` show the global `[--json]` flag, on every verb.
+- `doctor` gains its *hammunition* check (rule 9), which also moves the
+  summary counts and the Ready line. On a fresh account whose
+  `~/.local/bin` is linked but not yet on the PATH, its fix is to log out
+  and back in, not to re-run bootstrap.
+
+### Rulings made on the way
+
+- `show NAME --json` accepts a package name while the text `show` refuses
+  one: accepted, JSON only, documented, because the spec forbids changing
+  the text.
+- `status --json` lists recorded units, not requested profiles. The
+  transaction log format does not change here; a front end derives profile
+  membership from `list --json`. Recording profiles is a separate,
+  log-versioned change if the console needs it.
+- The plan's Task 10 (`hardware state`'s `kept` and `attached`) was done
+  inside the `station`/`hardware` task, because the kept-off work (D-056
+  amended) had already reached `main`.
+
+### What has run
+
+The test suite: a golden per command against a fixture catalog and a fake
+target, schema validation of each, one-document-on-stdout on every refusal
+path, the link script against a scratch home (created, idempotent, every
+refusal, mode 0755 under umask 077, rc files untouched), and `doctor`'s
+four shadow cases. `doctor --json` was run by hand against a scratch home
+for each. No run on the field laptop or a VM is recorded yet.
+
+**Rejected.** Parsing the text in the console: every wording change would
+break it. A separate JSON code path: it would drift from what the operator
+reads. Driving a real install through JSON with consent passed in: that is
+the flag D-021 says cannot answer a gate. A network API: the interface is a
+local process's stdout. Editing `~/.profile` from bootstrap: a tool that
+augments a system does not rewrite a person's shell setup; it prints the
+line.
+
+**Consequences.** A new command gets a document by adding a module to
+`src/hammunition/interface/` and `@envelope.json_capable()` to its
+function; the reference page, the `--json` flag and the page's command list
+follow with no list to edit. `docs/reference/cli.md` names each command's
+document in its own section, and `tests/test_docs_json_interface.py` fails
+when one is missing. Files: `src/hammunition/interface/` (`envelope.py`,
+`text.py`, one module per command), `src/hammunition/cli/main.py`,
+`src/hammunition/doctor.py`, `scripts/gen_json_reference.py`,
+`scripts/path-link.sh`, `bootstrap.sh`; tests `tests/test_json_*.py`,
+`tests/test_path_link.py`, `tests/test_doctor.py`,
+`tests/test_docs_json_interface.py`, goldens under `tests/fixtures/json/`.
+
+## D-060 — A unit may be for particular desktops: read from the session files, deferred from a profile on a machine with none of them, refused by name; Plasma first, Xfce and LXQt welcomed
+
+**Date:** 2026-09-28. **Status:** accepted (maintainer, 2026-09-28, on the
+design in `docs/superpowers/specs/2026-09-28-desktops-design.md`: "work
+through 1-3"; the VM runs come later, on his word). **Depends on:** D-039
+(a profile member the machine cannot use is deferred by name, a typed name
+refuses), D-036 and D-050 (menus per mechanism, per desktop), D-056 (the
+tray is a client of one helper), D-031 (verify the effect). **Amends:**
+D-039's list of deferrable reasons, with one more fact about the machine.
+
+**Why.** The maintainer, 2026-09-28: "Do we have Xfce and lxde support
+built in? Maybe we should add those in so we have lower powered systems be
+able to use this project … for simplicity while we test against those we
+are Parrot OS and KDE first … but we want to welcome more environments."
+Read against the engine, almost nothing depends on the desktop. Three
+things do: the menu (per mechanism, D-036/D-050), the tray (a Plasma applet
+only, D-056), and `station`, which included `hammunition-tray`
+unconditionally. That applet's `.deb` depends on `plasma-workspace`, so on
+Xubuntu or Lubuntu `station` pulled the whole Plasma shell onto the machine
+chosen for being light. That was a defect, and this decision fixes it.
+
+**Lubuntu is LXQt, not LXDE**, and has been since 18.10. Testing Lubuntu
+tests LXQt. Plain LXDE is still in Debian (`openbox-lxde-session`); no
+current Ubuntu flavour ships it.
+
+### What was measured
+
+Which desktops a machine has is readable from the session files every
+display manager lists, `/usr/share/xsessions/*.desktop` and
+`/usr/share/wayland-sessions/*.desktop`. They are files, so they survive
+`sudo`, which `XDG_CURRENT_DESKTOP` does not. Read from the Debian 13
+packages (`apt-get download`, then `dpkg-deb -x`, 2026-09-28) and from the
+field laptop:
+
+| Session file | Package | `DesktopNames=` |
+|---|---|---|
+| `plasma.desktop`, `plasmax11.desktop` | plasma-workspace | `KDE` (field laptop) |
+| `xfce.desktop`, `xfce-wayland.desktop` | xfce4-session | `XFCE` |
+| `lxqt.desktop` | lxqt-session | `LXQt` |
+| `mate.desktop` | mate-session-manager | `MATE` |
+| `gnome.desktop`, `gnome-wayland.desktop` | gnome-session(-xsession) | `GNOME` |
+| `LXDE.desktop` | openbox-lxde-session | **none** (Exec `/usr/bin/startlxde`) |
+| `cinnamon.desktop`, `cinnamon2d.desktop`, `cinnamon-wayland.desktop` | cinnamon-common | **none** |
+
+The menu roots the four newly listed desktops ship were read the same way:
+`lxqt-menu-data` ships `lxqt-applications.menu`, `lxmenu-data`
+`lxde-applications.menu`, `mate-menus` `mate-applications.menu` (plus an
+explicit `applications-merged` merge directory), `cinnamon-common`
+`cinnamon-applications.menu`, and all four carry `<DefaultMergeDirs/>`.
+That is which file the spec says each reads; what each panel draws is
+unmeasured.
+
+### The rule
+
+1. **Detection.** `src/hammunition/desktop.py` reads `DesktopNames` first,
+   `;`-separated and case-insensitive (`GNOME;GNOME-Classic`: any element
+   recognised counts). A file without the key falls back to a table keyed
+   by its filename stem, holding exactly the two measured gaps: `LXDE` →
+   lxde; `cinnamon`, `cinnamon2d`, `cinnamon-wayland` → cinnamon. Anything
+   else without the key (`lightdm-xsession`, `openbox`) is ignored rather
+   than guessed at. `/usr/local/share/xsessions` and
+   `/usr/local/share/wayland-sessions` are read too, since SDDM and LightDM
+   search them. Only regular files are read, after following a symlink,
+   and at most 64 KiB each, with a UTF-8 BOM stripped: a FIFO or device
+   node named `*.desktop` would otherwise block the planner. A missing
+   directory is an empty set: a container or a server has none. A file
+   read that names no desktop listed here (COSMIC, Sway, Budgie) is
+   reported as **read but unrecognised**, never dropped, so a graphical
+   machine running one is not described as a server. `XDG_CURRENT_DESKTOP` is read only where the session
+   matters (menus, `doctor`), **never by the planner**.
+2. **A manifest may name its desktops.** `desktops:` is a non-empty list
+   of `kde`, `gnome`, `xfce`, `lxqt`, `lxde`, `mate`, `cinnamon` with no
+   duplicates; omitted means any desktop, which is every unit but one
+   today. `desktop_alternative:` optionally names the unit that does the
+   same job elsewhere; the catalog refuses to load unless that unit exists
+   and its `desktops` share none with this one's.
+3. **The plan decides from what it is handed.** `resolve()` takes the
+   installed desktops as an argument; the CLI passes what the session
+   files say. A unit whose `desktops` shares nothing with them is, as a
+   **profile member, deferred by name** with the reason `for KDE Plasma;
+   this machine has no KDE Plasma session (it has: Xfce)` (or `(it has no
+   session files)`, or `(its session files name none the catalog knows:
+   cosmic.desktop)`) and the rest of the profile installs; **typed by name, it is
+   refused** with that reason and a remedy that names the alternative when
+   one serves a desktop the machine has. Both follow D-039: logged, shown
+   by `status`, a dependent deferring with it, a profile of nothing but
+   deferrals refused. A dependent deferred through such a unit, and a
+   profile whose members are all deferred this way, give the desktop as
+   the cause and not D-039's "this target does not offer", which would be
+   false. Desktops that were not read (a caller passing none)
+   are disclosed as a note and the unit plans, the way an unreadable
+   kernel is.
+4. **The dry run shows it.** Whenever a unit in the request declares
+   `desktops`, the plan prints *Desktops read from session files* with
+   what they offered and any file read that named none, so the decision is
+   visible before anything runs. `doctor` reports the same, and the
+   current session's desktop.
+5. **Installing a desktop later needs nothing special.** Re-running
+   `hammunition install station` picks the unit up; that is the whole
+   story, because install is idempotent.
+
+### Order and scope
+
+Parrot OS with KDE Plasma stays first: it is the field laptop, and it is
+where things are measured. Xfce (Xubuntu 26.04) and LXQt (Lubuntu 26.04)
+are next; their checklist is `docs/reference/vm-campaign-desktops.md`,
+**not yet run**. `docs/desktops.md` is the user-facing
+account, and says *unmeasured* wherever nothing has run.
+
+### D-050 amendment (2026-09-28): four more rows for the per-desktop table
+
+D-050 item 8's table is left as it was accepted. These rows extend it,
+dated here rather than written into it. The menu root each desktop ships
+was read from the Debian 13 package on 2026-09-28; nothing has been
+rendered on any of them.
+
+| Desktop | Mechanism | State |
+|---|---|---|
+| LXQt (Lubuntu) | menu-spec merge into `lxqt-applications-merged/`; `lxqt-applications.menu` carries `<DefaultMergeDirs/>` | **Unmeasured.** The Lubuntu 26.04 run is its checklist |
+| LXDE | menu-spec merge into `lxde-applications-merged/`; `lxde-applications.menu` carries `<DefaultMergeDirs/>` | **Unmeasured** |
+| MATE | menu-spec merge into `mate-applications-merged/`; Parrot carries a `mate-` root | **Unmeasured** |
+| Cinnamon (Linux Mint) | menu-spec merge into `cinnamon-applications-merged/`; `cinnamon-applications.menu` carries `<DefaultMergeDirs/>` | **Unmeasured** |
+
+### The machine that already ran `station`
+
+A machine that ran `station` at v0.10.0 or earlier got the applet and
+`plasma-workspace` with it, and `plasma-workspace` ships `plasma.desktop`.
+Detection now reads KDE Plasma as installed there, which is true of the
+disk, and the applet stays planned. The engine does not remove a desktop
+on a guess about why it is there. `docs/desktops.md` gives the operator the
+two commands (`hammunition uninstall hammunition-tray`, then `apt
+autoremove`) and says to read the list before agreeing.
+
+### The Qt tray
+
+`hammunition-tray-qt` is the same switch for the other panels: a PyQt6
+`QSystemTrayIcon`, a second binary package from the tray's own repository,
+released with the applet as hammunition-tray v0.3.0 (2026-09-28) and pinned
+here from that release's `SHA256SUMS` (13784 bytes). It lists `xfce`,
+`lxqt`, `lxde`, `mate` and `cinnamon`. Its autostart entry carries
+`NotShowIn=KDE;`, so a machine with Plasma and another desktop shows one tray
+in each. The two units name each other in `desktop_alternative`, so a
+refusal names the one to install instead. Both front ends run
+`/usr/bin/pkexec` by its absolute path, and both say when no polkit
+authentication agent is running. The same release fixed a bug the second
+front end exposed: the applet cleared a failed park's error on the poll that
+follows every action. The release workflow installed and removed both
+packages on Parrot; **neither has run on the desktops the Qt tray lists**,
+and `docs/reference/vm-campaign-desktops.md` is that check.
+
+**Rejected.** Reading `XDG_CURRENT_DESKTOP` in the planner: `sudo` drops
+it, and the plan would answer differently under `sudo` than in the dry
+run. Wider filename matching for files without `DesktopNames`: the two
+packages measured are the whole of the gap, and a pattern would tell a
+machine it has a desktop it does not. Removing `hammunition-tray` from
+`station`: Plasma is the first desktop, and the unit is right there.
+
+**Consequences.** `src/hammunition/desktop.py`; `desktops` and
+`desktop_alternative` in `src/hammunition/manifest/schema.py`, the
+cross-manifest check in `src/hammunition/manifest/load.py`; the deferral,
+refusal and `desktops_read` in `src/hammunition/plan.py`; the *desktops*
+check in `src/hammunition/doctor.py`; `desktops: [kde]` on
+`catalog/packages/hammunition-tray.yaml`. Tests:
+`tests/test_desktop.py`, `tests/test_desktop_units.py`, and the two
+`station`/`hammunition-tray` cases in `tests/test_cli.py`, which set the
+desktops explicitly so they answer the same on a desktop and in a
+container.
+
+## D-061 — Trails, terrain and routing on foot: QMapShack over Garmin maps and one Routino database built from the station's regions, and Copernicus elevation checked tile by tile
+
+**Date:** 2026-09-28. **Status:** accepted (maintainer, 2026-09-28, "sounds
+good go for it", on `docs/superpowers/specs/2026-09-28-hiking-maps-design.md`),
+with one departure from that specification, measured and recorded in its
+own dated amendment: the tiles follow each region's outline, not its file's
+bounding box (below). **Depends on:** D-057 (regions are station data;
+derived data by a converter enum; MD5 disclosed, never silent), D-049
+(offline data is a catalog unit), D-035 and D-039 (a missing station value
+defers by name), D-031 (verify the effect), D-043 (the operator owns what is
+built on their behalf), D-021 (state the licence), D-059 (the launchers run
+`hammunition` from the `PATH`). **Amends:** D-057's converter enum, with
+three members (`mkgmap`, `routino-planetsplitter`, `gdal-dem`), and D-049's
+install methods, with `dem-tiles`.
+
+**Why.** The maintainer, 2026-09-28, after Navit ran on the field laptop:
+"need maps for trails, and such too. Think survival and EMCOMM." Navit is a
+road navigator. It has no terrain and draws trails as an afterthought. A
+search, a hike to a repeater site or a deployment off the road network
+needs trails, contours, a route on foot and the position on one map.
+
+### What is carried, and what was measured and left out
+
+All of it comes from the archive and none of it is built from source:
+QMapShack (Parrot echo 1.17.1; 1.21.1 in echo-backports, which D-038 takes
+where the machine already installs from there), Routino 3.4.3, GDAL 3.10.3,
+mkgmap r4923 with mkgmap-splitter r654, and socat (retired 2026-09-29 by
+the amendment below). Viking, Marble, GPSPrune
+and JOSM were measured and are not carried. Debian's Viking links no Mapnik,
+so it renders nothing offline, and it routes only through web services.
+Marble's offline place index has no packaged builder. GPSPrune and JOSM use
+online tiles.
+
+| Unit | What | Where |
+|---|---|---|
+| `osm-garmin` | converter `mkgmap`: mkgmap-splitter, then mkgmap `--style=default --route --add-pois-to-areas --unicode --gmapsupp` | `data/osm-garmin/<slug>.img` |
+| `osm-routino` | converter `routino-planetsplitter`: `--parse-only` per region (`--append` after the first), then one `--process-only`, prefix `hammunition` | `data/osm-routino/hammunition-*.mem` |
+| `dem-copernicus` | method `dem-tiles`, provider `copernicus-glo30` | `data/dem-copernicus/<tile>.tif` |
+| `dem-qmapshack` | converter `gdal-dem`: per tile `gdal_contour -i 20`, then `gdal_rasterize -ts 7200 7200`; `gdalbuildvrt` over the tiles and over the contour rasters | `data/dem-qmapshack/{dem,contours}/` |
+
+The `navigation` profile gains the ten units: the six programs and the
+four data units. Piece 1's units are unchanged. With no regions set, the
+four data units are deferred by name with the rest of the map data, and the
+programs still install.
+
+`--index` and `--housenumbers` are not passed to mkgmap. They need its
+upstream bounds files, which have no published checksum, and QMapShack does
+not read that index.
+
+### One Routino database over every region, installed whole
+
+A route can cross from one region into the next only inside one database;
+QMapShack's own help says Routino cannot route across two. The trade is
+stated in the plan. A region that fails to parse fails the database, not
+only itself, and the step names the region and why. The four `.mem` files
+are one database, so they are published under temporary names and only
+renamed into place once all four verify. A publish that fails partway
+leaves the installed database and its record (`hammunition.source`, the
+regions and snapshots it was built from) exactly as they were. A rename
+failing after that removes the database and its record rather than leave
+QMapShack a mixed set, and the next run rebuilds it.
+
+### Tiles follow each region's outline
+
+A tile is one 1°×1° square named by its south-west corner. Which squares
+have a tile is the bucket's `tileList.txt`, carried as
+`catalog/data/copernicus-glo30-tiles.txt` (26,450 names, generated). A
+square not in it has **no published tile**, and the plan needs no network to
+know that. It does not know why. Such a square is ocean, or land the
+publisher withholds from the public 30 m release: measured against the
+carried list at the final review, the squares of Yerevan and Baku are absent
+while their neighbours to the north and south are listed. The list cannot
+tell the two apart, and Hammunition never guesses, so the plan counts these
+squares as "square(s) with no published tile (sea, or land Copernicus does
+not release)" and never calls them sea. An empty or comment-only list is an
+error naming the file, never "every square is unpublished", because a
+truncated file would otherwise take a region's terrain away with no warning.
+
+A region whose outline touches squares, none of them published, gets no
+terrain, and that is never silent. The plan prints **"warning: no terrain
+available for `<region>` from Copernicus GLO-30; its maps still install"**,
+nothing is fetched for it, and the step that records the region names it
+the same way. The transaction does not fail over it: the operator asked for
+the region's maps, not its terrain, and the maps install. The record's
+header is `# squares with no published tile: N`; a record written with the
+earlier `# sea squares: N` still reads as the same count, so it is not
+rewritten. `update` counts such regions, never naming one.
+
+The specification chose each region's squares from the bounding box in its
+`.osm.pbf` header. That was measured before the build on the two regions
+installed on the development host. For one of them the header box spans
+hundreds of squares where the region's Geofabrik outline touches tens, and
+it does not even contain the outline's own box. The header box also does
+not exist before a region's first download, and that is when the plan must
+print the tiles. So the squares are the ones the outline touches, edge or
+interior: `<region>.poly`, the file Geofabrik cut the extract with. The
+outline is fetched through the same probe that resolves the regions, and the
+answer is recorded in `data/dem-copernicus/<slug>.tiles` when the terrain
+installs. Until that first install, every plan fetches the outline again, a
+dry run included, and the plan says so. It is not cached at plan time,
+because a plan run under `sudo` would leave a root-owned file in the
+operator's cache.
+
+The antimeridian refusal applies only to an outline edge that jumps across
+±180 as a single segment, and no Geofabrik outline measured does that.
+Measured on 2026-09-28 through `parse_poly` and `squares_touching` on the
+live outlines: Geofabrik writes Alaska, Fiji, New Zealand and Russia's far
+east as separate rings that stop at ±180, and all four select their tiles
+with zero refusals (Alaska: 449 tiles, about 17.5 GB). An edge that does
+jump would still be refused by name, not unwrapped on a guess.
+
+A region's terrain is tens to hundreds of tiles, at about 39 MB a tile.
+Measured the same day over `gen_geofabrik_pins.REGIONS`: a contiguous US
+state can exceed 90 tiles (about 3.6 GB), Alaska is 449 tiles (about
+17.5 GB), and the 50 states and DC together touch 1,447 tiles. The plan
+prints each region's tile count and download size before anything is
+fetched, and the disk check counts them.
+
+### Every tile is verified in one of D-057's two modes, and the plan names which
+
+A tile with a row in `catalog/data/copernicus-glo30-pins.yaml` is checked
+against the sha256 Hammunition measured, and the plan says **"sha256, pinned
+by Hammunition"**. Any other tile is checked against the MD5 in the object's
+S3 ETag, and the plan says **"MD5 from the publisher's object metadata; not
+pinned by Hammunition"**, tile by tile. A single-part upload's ETag is its
+MD5, measured equal to `md5sum` on one tile. A multipart ETag is not an MD5,
+and such a tile is refused by name. A pinned tile is still asked for with a
+`HEAD` at plan time, so an unreachable bucket refuses the plan before apt
+runs rather than halfway through the transaction.
+
+**The pin file ships empty** (`pins: []`). Until the maintainer grows it,
+every tile gets the MD5 wording. Each pin costs a 39 MB download, and
+`scripts/gen_copernicus_pins.py --max-tiles N` pins the next N tiles of one
+fixed order: the 1,447 tiles that the outlines of the 50 US states and DC
+touch, state by state (counted on 2026-09-28, when one tile was also pinned
+live and its body's MD5 matched its ETag; that pin was not kept). The pin
+file is always a prefix of that order, whoever runs the generator, so it
+never says whose region was pinned first, and the generator has no
+`--region`. The weekly job diffs the carried list against the bucket's and
+`HEAD`s every pin for its size and ETag.
+
+Each tile is fetched into the shared cache, verified, installed and
+re-verified on the way in, and its cached copy is then deleted: a tile never
+changes, and a second copy of tens to hundreds of tiles is gigabytes. A tile no region
+needs any more is removed.
+
+### Converters run as the operator, one lock per build, and fail into their own ledger
+
+Every converter runs in a working directory under the operator's
+`~/.cache/hammunition/build/<unit>/`, through one `Staging` object
+(`src/hammunition/backends/staging.py`). Under `sudo`, every staging-side
+operation is a process dropped to the operator, with the operator's minimal
+environment (`PATH`, `HOME`, `USER`, `LOGNAME`, the locale, and the
+converter's own variables), never root's. The staged output is published
+into the prefix only if it still hashes to what the operator's process
+measured. That was piece 1's rule for maptool, and it is now one class. The
+same review found piece 1's maptool children inheriting root's environment,
+and they now get the same minimal one.
+
+The working directory is fixed per region (`<slug>.work`) or per build
+(`routino.work`, `dem.work`) and is held under one `flock` for every phase
+of that build. Scratch is cleared only under that lock, by the operator.
+Root never removes a working directory, and a run refused because another
+holds the lock removes nothing. The lock is there for the reason D-057's
+amendment found: maptool writes fixed-name temp files, and two runs in one
+directory crashed.
+
+Outputs are checked, not exit statuses (D-031). mkgmap exits 0 while it
+logs SEVERE, and `gdal_contour` exits 0 appending to an existing file, so
+the working directory is emptied before every tile. Debian's `mkgmap`
+wrapper ignores `JAVA_OPTS`, which the splitter's honours, so mkgmap's
+6000 MB heap arrives through `JAVA_TOOL_OPTIONS` and the splitter's 4000 MB
+through `JAVA_OPTS`. Each output carries a `.source` sidecar naming its
+input and its converter's version (`mkgmap 1`, `gdal-dem 1`), so a changed
+converter rebuilds, as `navit-maptool 2` does. `gdal_rasterize -ts 7200
+7200` draws each tile's contours at about 5.4 MB, measured.
+
+A failure is recorded in a terrain ledger separate from piece 1's: a region
+whose Garmin map did not build is still a region Navit converts. The run's
+last step fails it by name if anything terrain did not install.
+
+### QMapShack is told where the maps are, and nothing else changes
+
+`hammunition maps qmapshack` is what the `qmapshack-offline` launcher runs.
+It adds Hammunition's directories to QMapShack's own settings,
+`~/.config/QLandkarte/QMapShack.conf`, if they are absent. The keys are
+`mapPath` and `demPaths` under `[General]` and `routino\paths` under
+`[Route]`, read from QMapShack 1.17.1's binary. (Amended 2026-09-29, below:
+the first two belong under `[Canvas]`.) It keeps every existing
+value in its place and touches nothing else, byte for byte. A value of
+`@Invalid()` is how Qt writes an empty list, so it reads as empty and is
+replaced. Any other `@`-typed or quoted value in those keys is refused, and
+so is a line that is neither a section nor `key=value`, or a symbolic link
+in the file's place. A refusal changes nothing and does not start
+QMapShack. A new file is created 0600. The command refuses root, whose
+settings are not the operator's. It is per-user and unprivileged, like the
+menu files (D-050). A refusal from a menu click is not visible, so the
+guide tells the operator to run the launcher in a terminal to read it.
+
+QMapShack stops at startup when `/usr/share/routino/translations.xml` is
+missing. apt supplies it, and `doctor` gains a *qmapshack* warning naming
+it for the case where it is gone.
+
+### The GPS tether is loopback only
+
+QMapShack has no gpsd client; its GPS Tether reads NMEA over TCP.
+`hammunition maps gps-tether`, the `gps-tether` launcher, runs `gpspipe -r`
+behind `socat` listening on 127.0.0.1 port 10110 only, one client at a
+time, and only while the operator runs it. (Amended 2026-09-29, below: the
+engine now writes the NMEA from gpsd's JSON itself, and `socat` is retired.) A position is where the operator
+is, so it is never served to the network, and nothing is installed as a
+service. The listening socket was measured on loopback only by
+`tests/test_gps_tether.py`, which runs the real `socat` where it is
+installed.
+
+### The plan, disk and privacy
+
+The plan's *Map regions* section gains a *Terrain* block. It shows tiles per
+region, how many squares have no published tile and what the region's tiles cost to
+download, each tile to fetch with its size and verification, and what is
+built for QMapShack with its estimate. Each factor is printed with
+"measured on one region":
+
+- Garmin map: 0.85× the download, with 3× scratch.
+- Routino database: 0.67× all the downloads together, with 6× scratch
+  (5.02× sampled at the peak once a second, rounded up).
+- Contours: about 5.5 MB a tile, with up to 98 MB of scratch at a time.
+
+The disk check counts piece 1 and piece 2 together and refuses before
+anything is fetched. Tile names encode latitude and longitude, so they are
+printed in the plan only. `update` prints how many tiles are installed and
+nothing else, and names `osm-garmin` and `osm-routino` in its command when
+`osm-regions` is behind. The tests use synthetic outlines and tile names,
+and no maintainer region, tile, size or digest is recorded in the
+repository: figures from his regions appear here as ratios and as "tens"
+or "hundreds".
+
+### Gaps, documented and carried
+
+- **Offline address search is Navit's.** QMapShack's search is online only,
+  and Routino takes coordinates. Find the address in Navit, then walk it in
+  QMapShack.
+- **Trail difficulty is not routed on.** Routino's foot profile ignores
+  `sac_scale`.
+- **No hiking cartography.** No hiking style or TYP file is in the archive.
+  OpenTopoMap's and Freizeitkarte's are unmeasured upstream projects.
+- **The Garmin address index is off**, because its bounds files are not
+  pinned.
+- **Labelled contours inside the map** need a DEM-to-OSM tool the archive
+  lacks (`pyhgtmap` on PyPI is the candidate). The raster overlay is legible,
+  not pretty.
+- **SRTM is refused** (it needs an Earthdata login). **viewfinderpanoramas
+  is not carried** (no checksum, unclear licence). **USGS 3DEP** is the
+  alternative provider if anyone asks, and the `provider` enum has room for
+  it.
+- **BRouter stays out**: its jar is pinnable, and its weekly routing data is
+  not.
+- **An outline edge that jumps across ±180 as one segment is refused** by
+  name. None measured does (above): Alaska, Fiji, New Zealand and Russia's
+  far east select their tiles.
+- **Land Copernicus does not release at 30 m has no terrain.** The region's
+  maps install, and the plan warns by name (above). The route is a second
+  provider: Copernicus GLO-90, published separately at 90 m, is the
+  candidate, unmeasured here, and the `provider` enum has room for it.
+
+### What is measured, and what is not yet
+
+Measured on the development host on 2026-09-28: every converter's argv and
+factor above, on one region or tile; the tile list; one live pin, not kept;
+the tether's loopback socket. Not yet run on a desktop, and not claimed
+until bench session 12 in `docs/reference/bench-verification-5430.md`
+records it:
+
+- QMapShack reading the directories the launcher writes under those keys;
+- listing the `hammunition` Routino database;
+- drawing hillshade and slope from `dem.vrt`;
+- a route on foot across the boundary between two regions;
+- the tether feeding QMapShack's GPS Tether from a real receiver;
+- the whole install on the field laptop.
+
+The guide's *What has not been measured yet* is the operator's copy of this
+list.
+
+**Measured on the field laptop, 2026-09-29 (bench session 12).** The whole
+install on two regions, every effect verified, 294 commands. QMapShack
+lists both regions' maps, the contour map and the elevation once the lists
+are under `[Canvas]` (the amendment below). Hillshade draws, seen at the
+3 km and 10 km scales; slope was not tried. The rewritten tether fed
+QMapShack's GPS TCP/IP source from the fitted receiver, and "center to
+position" moved the map there. Still not measured: slope, and a route on
+foot, within a region or across a boundary.
+
+**Amended 2026-09-29 (bench session 12): the Routino database was loaded
+and not selected.** QMapShack 1.17.1 read `routino\paths`, loaded the
+`hammunition` database (its four `.mem` files were mapped in the process),
+and then selected the Database entry at the index in `[Route]
+routino\database`, which held `-1`: nothing selected, and routing gave up
+without a message. It writes the index back on exit, so the `-1` persisted.
+`hammunition maps qmapshack` now sets that key to 0 when it is absent or
+negative, and leaves 0 or more, the operator's choice, alone
+(`select_database()` in `src/hammunition/qmapshack_config.py`).
+
+**Rejected.** The `.osm.pbf` header box for tile selection (measured wrong,
+above). Caching the outline at plan time (root-owned files in the operator's
+cache under `sudo`). One Routino database per region (no route across a
+boundary). Unwrapping an antimeridian edge on a guess. A `--region` flag on
+the pin generator (the pin file would say whose region it was). A systemd
+service for the tether (a position served while nobody is using it). Garmin
+device export, and online maps of any kind, which are out of scope.
+
+**Consequences.** `DemTilesInstall` and the three converters in
+`src/hammunition/manifest/schema.py`; `src/hammunition/copernicus.py`,
+`src/hammunition/terrain_plan.py`, `src/hammunition/qmapshack_config.py`,
+`src/hammunition/gps_tether.py`; `src/hammunition/backends/staging.py`,
+`garmin.py`, `routino.py`, `dem.py`, `gdal_dem.py` and `terrain.py`; the
+*Terrain* block in the plan and its JSON form (`TerrainSectionView`,
+`docs/reference/json-interface.md`); the tile count in `update`; the
+*qmapshack* check in `src/hammunition/doctor.py`; `maps qmapshack` and
+`maps gps-tether` in `src/hammunition/cli/main.py`; the generated
+`catalog/data/copernicus-glo30-tiles.txt` and
+`catalog/data/copernicus-glo30-pins.yaml` and their generator
+`scripts/gen_copernicus_pins.py`, checked weekly;
+`catalog/packages/qmapshack.yaml`, `catalog/packages/osm-garmin.yaml`,
+`catalog/packages/osm-routino.yaml`, `catalog/packages/dem-copernicus.yaml`,
+`catalog/packages/dem-qmapshack.yaml` and the programs' manifests;
+`catalog/profiles/navigation.yaml`. The operator's page is
+`docs/guides/offline-navigation.md` (sections 9 to 11), and the CLI's is
+`docs/reference/cli.md`. Tests: `tests/test_copernicus.py`,
+`tests/test_terrain_plan.py`, `tests/test_staging.py`,
+`tests/test_garmin.py`, `tests/test_routino.py`,
+`tests/test_dem_backend.py`, `tests/test_gdal_dem.py`,
+`tests/test_terrain.py`, `tests/test_terrain_cli.py`,
+`tests/test_terrain_execute.py`, `tests/test_json_plan_terrain.py`,
+`tests/test_qmapshack_config.py`, `tests/test_gps_tether.py`,
+`tests/test_gen_copernicus_pins.py`, `tests/test_navigation_catalog.py`
+and `tests/test_docs_terrain.py`.
+
+### Amendment (2026-09-29): measured on the bench, the settings group was wrong and the tether is rewritten
+
+QMapShack 1.17.1 ran on the field laptop for the first time on 2026-09-29.
+The settings group this decision shipped was wrong, and is fixed. The
+tether gave QMapShack nothing, for a reason not established, and is
+rewritten on its own merits.
+
+**The map and elevation lists belong under `[Canvas]`.** After QMapShack
+exited, `~/.config/QLandkarte/QMapShack.conf` held `mapPath=@Invalid()` and
+`demPaths=@Invalid()` under `[Canvas]`: that is where QMapShack keeps them,
+and it had ignored the same keys the launcher wrote under `[General]`.
+`routino\paths` under `[Route]` it kept, so that one was right. The key
+names came from the binary; the group was inferred from it, and the
+inference was wrong. `hammunition maps qmapshack` now adds
+both lists under `[Canvas]`, creating the group if absent. Where an earlier
+run left them under `[General]`, it takes out exactly its own directories
+from those two keys and removes a key left empty; any other value there and
+every other key stay, and a `[General]` value it cannot read is not ours and
+is left alone rather than refused. It says on stderr when it moved anything.
+
+**The tether makes its own NMEA.** The shipped tether was `gpspipe -r`, gpsd's
+raw NMEA watch, behind `socat`. What was measured on 2026-09-29: with it
+connected, `gpspipe -r` printed gpsd's three JSON header lines and then no
+NMEA for 12 s, and QMapShack's GPS Tether saw nothing; at the same time
+gpsd's JSON watch was sending no `TPV` either (`?POLL` answered
+`active: 0`). gpsd had nothing to report, so no cause for the old tether's
+silence is established, and `gpspipe(1)` says `-r` emits pseudo-NMEA built
+from binary data, so it may well have worked with a fix. The rewrite stands
+on its own merits: no `socat` or `gpspipe` dependency, the loopback bind
+made and tested in the engine's own code, `RMC` and `GGA` built from the
+JSON feed every gpsd client (`xgps`, Navit) uses, and a plain message when
+gpsd has no fix, which the old tether could not give.
+`hammunition maps gps-tether` now connects to gpsd at 127.0.0.1:2947 itself,
+sends `?WATCH={"enable":true,"json":true}`, and for every `TPV` with
+`mode` 2 or 3 writes `$GPRMC` then `$GPGGA`: the time, the position as
+`ddmm.mmmm` with its hemisphere, speed in knots, track, altitude (from
+`altMSL`, else `alt`) on a 3D fix only, fix quality 1 (2 and RMC mode `D`
+where gpsd's `status` says DGPS), and the satellites used and HDOP from the
+latest `SKY`. Every sentence ends with its XOR checksum and CRLF. A field
+gpsd did not give is an empty field, except the time: a TPV with no time,
+or one that does not parse, is stamped with the system clock in UTC, since a
+reader may drop a sentence without one. It is the standard
+library in the engine, and nothing is executed: `socat` and `gpspipe` are no
+longer involved.
+
+What stays: 127.0.0.1 port 10110 only; one client at a time, now a second
+client closed at once with a line on the terminal rather than left waiting
+(amended 2026-09-29, below: any number of clients, and `--gpsd`/`--port`);
+only while the operator runs it; Ctrl-C stops it; no `--json` form; the
+`gps-tether` launcher. Each client gets its own gpsd watch, opened when it
+connects and closed when it goes. The terminal shows a line when a client
+comes or goes, when gpsd cannot be reached or closes the connection, and
+once when no position with a fix has arrived in 10 s, naming `xgps`. It
+refuses root.
+
+`socat` was carried only for the tether, and nothing else in the catalog
+uses it, so it leaves the `navigation` profile and `qmapshack`'s
+dependencies. Its manifest stays, with status `retired` (`out_of_scope`):
+`hammunition uninstall` resolves names against the catalog, and a machine
+that installed socat under v0.14.0 must still be able to remove it by name.
+`qmapshack` keeps its dependency on `gpsd-clients`, for `xgps`.
+
+Measured: the sentence conversion against checksums computed by hand, both
+hemispheres, no fix and missing fields; the server against a fake gpsd on a
+random loopback port, bound to 127.0.0.1 only and turning a second client
+away (`tests/test_gps_tether.py`, `tests/test_qmapshack_config.py`,
+`tests/test_maps_tools.py`). On the development host, against its own gpsd,
+which was sending only its header lines at the time, the tether logged the
+client and then "no position with a fix". Later the same day, with that
+gpsd streaming fixes, the controller's run counted one client served and
+every later one turned away as a second. That was not reproduced here, but
+the loop had the hazards review found, and they are fixed:
+- every socket is registered with the session it belongs to, and an event
+  for a session that has ended is dropped;
+- in each batch the current session's events come before a new connection;
+- a new connection first checks, without reading, whether the current
+  client has closed;
+- sends are non-blocking, with at most 64 KiB queued, so a client that
+  stops reading is dropped rather than holding the loop;
+- ending a session closes its gpsd socket.
+
+Each is tested against a fake gpsd: immediate reconnects, a close mid-stream
+with the gpsd watch seen closed, a close and a new connection in one batch,
+and a client that never reads. Run live through `hammunition maps gps-tether`
+on a spare port against that gpsd, 11 raw-socket connections were all
+served, with RMC and GGA arriving within about 1 s each time. They were
+three reconnects 2 s apart, six immediate ones, one closed mid-stream and
+the one after it. Not yet measured, and still bench session 12's to record:
+QMapShack reading the lists under `[Canvas]`, and QMapShack's own GPS Tether
+taking a position from the tether. (Both measured in bench session 12 the same day;
+see *What is measured, and what is not yet* above.)
+
+**Rejected.** Keeping `gpspipe -r` behind `socat` (not shown to fail for
+want of a fix, but two external programs where the engine's own code can
+bind loopback, be tested, and say when gpsd has no fix). Keeping `socat` in
+front of an engine-made stream (a second program for what the standard
+library does, with its comma-separated option syntax in the argv).
+Leaving the `[General]` keys where they were (harmless to QMapShack, but a
+file that says two different things about where the maps are).
+
+### Amendment (2026-09-29): fan-out, `--gpsd` and `--port`
+
+**Amended 2026-09-29: the tether serves any number of clients, reads any
+gpsd, and serves any unprivileged port, still on loopback only.** One
+client at a time kept a terminal check (`nc`) away while QMapShack was
+open, and pinned the tether to the maintainer's own setup.
+`--gpsd HOST[:PORT]` (default `127.0.0.1:2947`; IPv6 in brackets, a bare
+one refused) reads a gpsd on a Pi, a phone or a shack computer; `--port N`
+(default 10110) serves another port, refused below 1024 and above 65535
+by name. The bind stays 127.0.0.1 whatever either says: the feed is a
+position without authentication, and another machine reaches it through
+`ssh -L 10110:127.0.0.1:10110 <laptop>`. Every connected client gets every
+sentence. **One gpsd connection is kept open while any client is
+connected**, opened for the first and closed when the last leaves, rather
+than one per client: every client then gets identical bytes from one
+`Feed`, gpsd is watched once, and nothing is held open while nobody
+listens, which is the property the per-client watch existed for. A client
+with more than 64 KiB unsent is dropped alone. Measured: the tests in
+`tests/test_gps_tether.py` and `tests/test_maps_tools.py`, broken on purpose
+and seen red first; and live on the development host, two raw clients on a
+spare port receiving the same 32 sentences in the same order, through
+`--gpsd` as `127.0.0.1` and as `[::1]:2947`. Not measured: a gpsd on
+another machine, a phone, a Bluetooth receiver or a rig's GPS; the guide's
+section 12 says so for each. **Rejected:** a `--bind` option or any
+listener beyond loopback (the position to anyone who asks), and a watch
+per client (N copies of gpsd's stream for identical output).

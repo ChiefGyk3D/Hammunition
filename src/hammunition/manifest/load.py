@@ -10,8 +10,10 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
+from hammunition.desktop import describe_set
+
 from .hardware import DeviceClass, DeviceManifest
-from .schema import ManifestError, PackageManifest, ProfileManifest
+from .schema import ManifestError, PackageManifest, ProfileManifest, derived_source_method_problem
 
 __all__ = [
     "CatalogError",
@@ -43,6 +45,7 @@ def load_catalog(directory: Path) -> dict[str, PackageManifest]:
     """Load every manifest, reporting *all* failures rather than aborting on the
     first — D-016: resolve everything, then report together."""
     manifests: dict[str, PackageManifest] = {}
+    paths: dict[str, Path] = {}
     failures: dict[Path, str] = {}
 
     for path in sorted(directory.glob("*.yaml")):
@@ -55,10 +58,50 @@ def load_catalog(directory: Path) -> dict[str, PackageManifest]:
             failures[path] = f"duplicate package name {manifest.name!r}"
             continue
         manifests[manifest.name] = manifest
+        paths[manifest.name] = path
+
+    for name, manifest in manifests.items():
+        problem = _desktop_alternative_problem(manifest, manifests)
+        if problem is not None:
+            failures[paths[name]] = problem
+            continue
+        problem = derived_source_method_problem(manifest, manifests)
+        if problem is not None:
+            failures[paths[name]] = problem
 
     if failures:
         raise CatalogError(failures)
     return manifests
+
+
+def _desktop_alternative_problem(
+    manifest: PackageManifest, manifests: dict[str, PackageManifest]
+) -> str | None:
+    """D-060: an alternative names a unit that exists and serves other desktops.
+
+    Across manifests, so it is checked here rather than in the schema. An
+    alternative sharing a desktop with the unit it stands in for would be
+    offered as the answer on a machine where neither is the answer; one with
+    no ``desktops`` at all is for every desktop, which overlaps everything.
+    """
+    alternative = manifest.desktop_alternative
+    if alternative is None or manifest.desktops is None:
+        return None
+    other = manifests.get(alternative)
+    if other is None:
+        return f"desktop_alternative {alternative!r} names no manifest in the catalog"
+    if other.desktops is None:
+        return (
+            f"desktop_alternative {alternative!r} declares no desktops, so it is for every "
+            f"desktop; an alternative must serve desktops this unit does not"
+        )
+    shared = set(manifest.desktops) & set(other.desktops)
+    if shared:
+        return (
+            f"desktop_alternative {alternative!r} is also for {describe_set(frozenset(shared))}; "
+            f"an alternative must serve desktops this unit does not"
+        )
+    return None
 
 
 def load_profile(path: Path) -> ProfileManifest:

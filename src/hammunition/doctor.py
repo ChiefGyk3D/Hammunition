@@ -28,9 +28,18 @@ Severity has four levels, and the distinction is the point:
 from __future__ import annotations
 
 import os
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+
+from hammunition.desktop import Desktop, describe, describe_set
+
+#: routino-common's file QMapShack reads at startup (D-061).
+ROUTINO_TRANSLATIONS = "/usr/share/routino/translations.xml"
+
+# What scripts/path-link.sh links to: a link ending here is ours (D-059).
+ENGINE_LINK_SUFFIX = "/.venv/bin/hammunition"
 
 __all__ = ["Check", "Status", "run_checks", "summarize", "writable_or_creatable"]
 
@@ -61,6 +70,18 @@ def run_checks(
     rules_applied: bool,
     attached_recognised: int,
     log_dir_writable: bool,
+    engine_on_path: str | None,
+    engine_expected: str,
+    engine_found: str | None,
+    engine_found_in_local_bin: bool,
+    engine_found_link: str | None,
+    engine_linked_in_local_bin: bool = False,
+    kept_attached: tuple[str, ...] = (),
+    kept_absent: tuple[str, ...] = (),
+    desktops_installed: frozenset[Desktop] | None = None,
+    desktop_current: Desktop | None = None,
+    sessions_unrecognised: tuple[str, ...] = (),
+    qmapshack_without_translations: bool = False,
 ) -> list[Check]:
     """Every check, in the order a person should read them. Pure; see module docstring."""
     checks: list[Check] = []
@@ -120,6 +141,71 @@ def run_checks(
                 "warn",
                 "~/.local/bin is not on PATH — venv-installed programs will look missing",
                 "log out and back in, or add ~/.local/bin to PATH; it is added when the dir first appears",
+            )
+        )
+
+    # `hammunition` itself on the PATH, and resolving to this checkout (D-059).
+    # Without it every short command in the docs says "command not found",
+    # which is how the field laptop met it; with it pointing at a different
+    # checkout, a fix made here is not the engine that runs.
+    if engine_on_path == engine_expected:
+        checks.append(Check("hammunition", "ok", f"on PATH: {engine_expected}"))
+    elif engine_on_path is None and engine_linked_in_local_bin and not path_has_local_bin:
+        # A fresh account: bootstrap made the link, and ~/.local/bin reaches
+        # PATH only at the next login. Re-running bootstrap changes nothing.
+        checks.append(
+            Check(
+                "hammunition",
+                "warn",
+                "~/.local/bin/hammunition links to this checkout, "
+                "but ~/.local/bin is not on PATH yet",
+                'log out and back in, or run export PATH="$HOME/.local/bin:$PATH" for this shell',
+            )
+        )
+    elif engine_on_path is None:
+        checks.append(
+            Check(
+                "hammunition",
+                "warn",
+                "`hammunition` is not on PATH — commands in the docs will say command not found",
+                "re-run ./bootstrap.sh, which links ~/.local/bin/hammunition to this checkout",
+            )
+        )
+    elif engine_found is not None and not engine_found_in_local_bin:
+        # Shadowed from earlier on PATH: relinking ~/.local/bin would not clear it.
+        where = "before ~/.local/bin on PATH" if path_has_local_bin else "on PATH"
+        checks.append(
+            Check(
+                "hammunition",
+                "warn",
+                f"`hammunition` is {engine_found}, found {where}, "
+                f"and runs {engine_on_path}, not this checkout's {engine_expected}",
+                f"inspect it with `ls -l {shlex.quote(engine_found)}`; remove or rename it "
+                "yourself, or put ~/.local/bin ahead of its directory on PATH",
+            )
+        )
+    elif engine_found is not None and (engine_found_link or "").endswith(ENGINE_LINK_SUFFIX):
+        # Our own link, to another checkout: the one case where switching is safe.
+        checks.append(
+            Check(
+                "hammunition",
+                "warn",
+                f"`hammunition` on PATH runs {engine_on_path}, not this checkout's {engine_expected}",
+                f"ln -sfn {shlex.quote(engine_expected)} {shlex.quote(engine_found)}",
+            )
+        )
+    else:
+        # A file or link bootstrap did not make (a pipx install, a wrapper):
+        # named, never replaced, exactly as scripts/path-link.sh leaves it.
+        shown = engine_found or "~/.local/bin/hammunition"
+        runs = "" if engine_on_path == shown else f" (it runs {engine_on_path})"
+        checks.append(
+            Check(
+                "hammunition",
+                "warn",
+                f"{shown} is not a link bootstrap made and shadows this checkout{runs}",
+                f"inspect it with `ls -l {shlex.quote(shown)}`; if you no longer want it, "
+                "move it aside yourself, then re-run ./bootstrap.sh",
             )
         )
 
@@ -186,6 +272,21 @@ def run_checks(
             )
         )
 
+    if kept_absent:
+        names = ", ".join(kept_absent)
+        checks.append(
+            Check(
+                "kept off",
+                "warn",
+                f"kept parked but not attached: {names}",
+                "; ".join(f"`hammunition hardware wake {n}` clears it" for n in kept_absent),
+            )
+        )
+    elif kept_attached:
+        checks.append(
+            Check("kept off", "info", f"parked across reboots: {', '.join(kept_attached)}")
+        )
+
     if attached_recognised > 0:
         checks.append(
             Check(
@@ -196,6 +297,52 @@ def run_checks(
         )
     else:
         checks.append(Check("hardware", "info", "no catalogued devices attached right now"))
+
+    # D-060. Information either way: which desktops is a fact, not a fault.
+    # The session files are what the planner decides against; the session's
+    # own desktop is what the menu and the tray are about, and sudo drops it.
+    # Files that name no desktop the catalog knows (COSMIC, Sway) are named,
+    # so a graphical machine is never described as a server.
+    if desktops_installed is not None:
+        consequence = (
+            "a unit for one desktop, such as the Plasma tray, is deferred from a "
+            "profile and refused by name here"
+        )
+        files = ", ".join(sessions_unrecognised)
+        if not desktops_installed and sessions_unrecognised:
+            detail = (
+                f"session files name none of the desktops the catalog knows "
+                f"(read: {files}); {consequence}"
+            )
+        elif not desktops_installed:
+            detail = f"no desktop session files (a server or a container); {consequence}"
+        else:
+            offer = f"session files offer {describe_set(desktops_installed)}"
+            if sessions_unrecognised:
+                names = "names" if len(sessions_unrecognised) == 1 else "name"
+                offer += f"; also {files}, which {names} no desktop the catalog knows"
+            if desktop_current is not None:
+                detail = f"{offer}; this session is {describe(desktop_current)}"
+            else:
+                detail = (
+                    f"{offer}; this session's desktop is not known (XDG_CURRENT_DESKTOP "
+                    f"is unset or unrecognised, and sudo usually drops it)"
+                )
+        checks.append(Check("desktops", "info", detail))
+
+    # D-061: QMapShack stops at startup with a modal "The specified
+    # translations XML file did not exist" when routino-common's file is
+    # missing. apt supplies it through libroutino0; this names it when not.
+    if qmapshack_without_translations:
+        checks.append(
+            Check(
+                "qmapshack",
+                "warn",
+                f"QMapShack is installed and {ROUTINO_TRANSLATIONS} is missing; QMapShack "
+                f"stops at startup until it is back",
+                "sudo apt-get install --reinstall routino-common",
+            )
+        )
 
     if log_dir_writable:
         checks.append(Check("state dir", "ok", "the transaction log directory is writable"))

@@ -223,6 +223,23 @@ jobs:
       # re-cut tag, or a wrong SHA, which is still 40 hex characters and so
       # passes every offline check there is.
       - run: python scripts/check_pin_reviews.py --verify-refs
+      # The Geofabrik sha256 pins: HEAD each pinned URL and compare its size.
+      # Geofabrik keeps about three monthly snapshots, so a monthly pin ages
+      # out on the calendar and this goes red naming it and the command to
+      # regenerate. HEAD only; the ~10 GB regeneration runs on a maintainer's
+      # machine.
+      - run: python scripts/gen_geofabrik_pins.py --check
+      # The Copernicus tile list and tile pins (D-061): diff the carried list
+      # against the bucket's and HEAD every pinned tile. HEAD and a 1.1 MB
+      # list only; growing the pins downloads 39 MB a tile and runs on a
+      # maintainer's machine.
+      - run: python scripts/gen_copernicus_pins.py --check
+      # The region -> country table the Navit converter merges borders by
+      # (D-057 amendment). Geofabrik adds and re-parents regions; a region
+      # with no row converts with no border and its towns land under
+      # "Unknown". Fetches the 0.5 MB index and compares the regions only:
+      # the `measured` date moves on every fetch and is not compared.
+      - run: python scripts/gen_geofabrik_countries.py --fetch --check
 
   # -------------------------------------------------------------------------
   # D-031. Every identifier citing a distribution's udev rule is checked

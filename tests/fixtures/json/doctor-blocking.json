@@ -1,0 +1,16 @@
+{
+  "schema": "hammunition/1",
+  "kind": "doctor",
+  "engine": "<engine>",
+  "checks": [
+    {
+      "name": "catalog",
+      "status": "fail",
+      "detail": "the catalog could not be found or loaded",
+      "fix": "pass --catalog"
+    }
+  ],
+  "fails": 1,
+  "warns": 0,
+  "healthy": 0
+}

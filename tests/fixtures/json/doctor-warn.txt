@@ -1,0 +1,8 @@
+Hammunition health check
+
+  [✓] system         Debian GNU/Linux 13
+  [!] compiler       no C compiler found
+      → sudo apt install build-essential
+
+1 ok, 1 to look at, 0 blocking.
+The engine works; the items marked ! limit what you can install until fixed.

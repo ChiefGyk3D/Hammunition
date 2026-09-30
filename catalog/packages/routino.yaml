@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: routino
+version: "3.4.3"
+summary: Offline routing over OpenStreetMap data, on foot, by bike or by car
+menu_title: Offline route finder (routino-router)
+categories: [navigation-maps]
+
+# `apt-cache policy routino` on Parrot 7 (echo), 2026-09-28: candidate
+# 3.4.3-1 (echo/main); 3.4.4-1~bpo13+1 in echo-backports, which D-038
+# resolves on a machine already installing from backports.
+
+install:
+  - install:
+      method: apt
+      packages: [routino]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Builds a routing database from OpenStreetMap data (`planetsplitter`)
+    and finds routes through it (`routino-router`), using profiles for foot,
+    horse, wheelchair, bicycle and motor vehicles. QMapShack links the same
+    router in-process; `osm-routino` builds the database it reads.
+  why_you_want_it: >-
+    Routing that works with no network, over the same map data as the rest of
+    the station, and fast: five routes of 10 to 17 km on foot came back in 5
+    to 39 ms on one region (2026-09-28).
+  prerequisites: >-
+    A routing database: `osm-routino` builds one over every region you have
+    set. The router takes coordinates, not addresses.
+  known_problems: >-
+    The foot profile does not read `sac_scale`, so it scores an alpine path
+    as it scores a pavement. A route cannot cross from one database into
+    another, which is why `osm-routino` builds one over every region. No
+    place or address search.
+  upstream_url: https://www.routino.org/
+  upstream_support: >-
+    The documentation at https://www.routino.org/documentation/ and the
+    author's contact page on the same site.

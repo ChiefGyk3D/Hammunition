@@ -75,6 +75,7 @@ XDG_CATEGORIES: dict[str, str] = {
     "logging": "HamRadio;Database",
     "mesh": "Network",
     "morse-training": "HamRadio;Education",
+    "navigation-maps": "Utility;Geography",
     "nbems": "HamRadio;Network",
     "packet-nodes": "HamRadio;Network",
     "packet-terminals": "HamRadio;Network",

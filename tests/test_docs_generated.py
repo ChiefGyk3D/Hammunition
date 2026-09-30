@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import importlib.util
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -72,6 +73,12 @@ def test_a_kernel_requirement_is_rendered_on_the_page(rendered: dict[str, str]) 
     see it without opening the manifest."""
     assert "- **Needs from the kernel:** `ax25`" in rendered["ax25-tools.md"]
     assert "Needs from the kernel" not in rendered["direwolf.md"]
+
+
+def test_a_desktop_restriction_is_rendered_on_the_page(rendered: dict[str, str]) -> None:
+    """`desktops` is why the tray is deferred on an Xfce machine (D-060)."""
+    assert "- **Desktops:** KDE Plasma only" in rendered["hammunition-tray.md"]
+    assert "**Desktops:**" not in rendered["direwolf.md"]
 
 
 def test_an_installed_tree_is_disclosed_as_a_change_to_the_machine(
@@ -673,6 +680,12 @@ CHECKED_GENERATORS: list[tuple[str, list[str], list[Path]]] = [
     ),
     ("gen_device_naming.py", ["docs/reference/device-naming.md"], []),
     ("gen_hardware_gaps.py", ["docs/reference/hardware-gaps.md"], []),
+    ("gen_json_reference.py", ["docs/reference/json-interface.md"], []),
+    (
+        "gen_geofabrik_countries.py",
+        ["catalog/data/geofabrik-countries.yaml"],
+        [REFERENCE / "geofabrik" / "index-v1-nogeom.json"],
+    ),
 ]
 
 
@@ -813,3 +826,94 @@ def test_the_power_control_page_covers_the_four_required_things() -> None:
 
 def test_d056_is_recorded() -> None:
     assert "D-056" in (REPO_ROOT / "docs" / "DECISIONS.md").read_text()
+
+
+# ---------------------------------------------------------------------------
+# The Geofabrik pin list (catalog/data/geofabrik-pins.yaml)
+#
+# Its --check re-probes each pinned URL's HEAD size, which is the network, and
+# this suite blocks every non-loopback socket (tests/conftest.py). An empty pin
+# list needs no probe and is checked everywhere; a populated one is checked by
+# the weekly CI job, and here skips with the reason rather than failing.
+# ---------------------------------------------------------------------------
+
+GEOFABRIK_PINS = REPO_ROOT / "catalog" / "data" / "geofabrik-pins.yaml"
+
+
+def _network_reaches(host: str) -> bool:
+    import socket
+
+    try:
+        with socket.create_connection((host, 443), timeout=5):
+            return True
+    except Exception:  # conftest's NetworkBlocked, DNS failure, timeout
+        return False
+
+
+def test_the_geofabrik_pin_check_reports_current_and_writes_nothing() -> None:
+    import subprocess
+
+    pins = (yaml.safe_load(GEOFABRIK_PINS.read_text()) or {}).get("pins") or []
+    if pins and not _network_reaches("download.geofabrik.de"):
+        pytest.skip(
+            "the pin list is populated and its --check HEADs every pinned URL on "
+            "download.geofabrik.de; the network is unavailable here (this suite "
+            "blocks non-loopback sockets). The weekly pin-reviews CI job runs it."
+        )
+    before = GEOFABRIK_PINS.stat().st_mtime_ns
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "gen_geofabrik_pins.py"), "--check"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    assert result.returncode == 0, f"{result.stdout}{result.stderr}"
+    assert "up to date" in result.stdout, result.stdout
+    assert GEOFABRIK_PINS.stat().st_mtime_ns == before, "--check wrote the pin file"
+
+
+# ---------------------------------------------------------------------------
+# The Copernicus tile list and pins (catalog/data/copernicus-glo30-*), D-061
+#
+# `--check --offline` reads both files' shape and needs no network, so it runs
+# everywhere. The full `--check` fetches the bucket's list and HEADs every pin:
+# the weekly pin-reviews job runs it, and here it skips with the reason, since
+# this suite blocks every non-loopback socket.
+# ---------------------------------------------------------------------------
+
+COPERNICUS = [
+    REPO_ROOT / "catalog" / "data" / "copernicus-glo30-tiles.txt",
+    REPO_ROOT / "catalog" / "data" / "copernicus-glo30-pins.yaml",
+]
+
+
+def _copernicus_check(*extra: str) -> subprocess.CompletedProcess[str]:
+    before = [path.stat().st_mtime_ns for path in COPERNICUS]
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "gen_copernicus_pins.py"), "--check", *extra],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    assert [path.stat().st_mtime_ns for path in COPERNICUS] == before, "--check wrote a file"
+    return result
+
+
+def test_the_copernicus_files_are_well_formed_offline() -> None:
+    result = _copernicus_check("--offline")
+    assert result.returncode == 0, f"{result.stdout}{result.stderr}"
+    assert "well formed" in result.stdout
+
+
+def test_the_copernicus_check_reports_current_and_writes_nothing() -> None:
+    if not _network_reaches("copernicus-dem-30m.s3.amazonaws.com"):
+        pytest.skip(
+            "the check fetches the bucket's tile list and HEADs every pinned tile on "
+            "copernicus-dem-30m.s3.amazonaws.com; the network is unavailable here (this "
+            "suite blocks non-loopback sockets). The weekly pin-reviews CI job runs it."
+        )
+    result = _copernicus_check()
+    assert result.returncode == 0, f"{result.stdout}{result.stderr}"
+    assert "up to date" in result.stdout

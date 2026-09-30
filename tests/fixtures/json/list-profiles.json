@@ -1,0 +1,51 @@
+{
+  "schema": "hammunition/1",
+  "kind": "catalog",
+  "engine": "<engine>",
+  "what": "profiles",
+  "target": {
+    "distro": "debian",
+    "version": "13",
+    "arch": "x86_64",
+    "id_like": [],
+    "pretty_name": "Debian GNU/Linux 13 (trixie)",
+    "description": "Debian GNU/Linux 13 (trixie) (ID=debian, version=13, arch=x86_64)",
+    "debian_family": true
+  },
+  "profiles": [
+    {
+      "name": "fixture-gated",
+      "summary": "A consent-gated fixture profile",
+      "stage": "post-1.0",
+      "packages": [
+        "fixture-apt"
+      ],
+      "consent_gated": true,
+      "documentation": {
+        "what_it_installs": "The apt fixture unit, behind a consent gate.",
+        "why_together": "A gated profile is the shape `show --json` must carry a disclosure for.",
+        "deliberately_excludes": "Everything real.",
+        "manual_configuration": "Nothing; it is a fixture.",
+        "disk_footprint_hint": null
+      }
+    },
+    {
+      "name": "fixture-station",
+      "summary": "Both fixture units, as a profile",
+      "stage": "1.0",
+      "packages": [
+        "fixture-apt",
+        "fixture-source"
+      ],
+      "consent_gated": false,
+      "documentation": {
+        "what_it_installs": "The two fixture units, one from apt and one built from source.",
+        "why_together": "One of each install method the golden documents need to show.",
+        "deliberately_excludes": "Everything real.",
+        "manual_configuration": "Nothing; it is a fixture.",
+        "disk_footprint_hint": null
+      }
+    }
+  ],
+  "packages": []
+}

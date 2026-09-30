@@ -29,17 +29,20 @@ Exit codes, because scripts read them:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import shutil
+import stat
 import sys
 import tempfile
 import textwrap
+import traceback
 from collections.abc import Mapping, Sequence
-from datetime import UTC, datetime
-from importlib import metadata
+from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn, TextIO, cast
 
+from hammunition import navit_config
 from hammunition.backends import (
     Action,
     AptBackend,
@@ -48,23 +51,38 @@ from hammunition.backends import (
     BinaryBackend,
     Command,
     DataBackend,
+    DerivedBackend,
     GitBackend,
     NodeBackend,
+    RegionsBackend,
     SourceBackend,
     SubprocessRunner,
     VenvBackend,
 )
 from hammunition.backends.apt import stale_fetches
-from hammunition.backends.data import human_size
+from hammunition.backends.dem import TIF, TILES, TerrainDisclosure, read_record
+from hammunition.backends.regions import (
+    KeptRegion,
+    MapDisclosure,
+    MapLedger,
+    MapResolution,
+    data_root,
+    disk_needs,
+    installed_slugs,
+    installed_snapshot,
+    region_current,
+)
 from hammunition.backends.source import DEFAULT_PREFIX
+from hammunition.backends.terrain import combined_shortfall
 from hammunition.consent import (
     ConsentDeclined,
     ConsentUnavailable,
-    render_disclosure,
-    repo_env_var,
     resolve_consent,
     resolve_repo_consent,
 )
+from hammunition.copernicus import CopernicusError, S3Probe
+from hammunition.country_boundaries import BoundarySource, CountryBoundaryError, boundary_source
+from hammunition.desktop import current_desktop, scan_sessions
 from hammunition.distro import DetectionError, Target
 from hammunition.execute import (
     Step,
@@ -78,24 +96,34 @@ from hammunition.execute import (
     user_groups,
 )
 from hammunition.fetch import Fetcher
+from hammunition.geofabrik import (
+    BASE,
+    GeofabrikError,
+    Probe,
+    RegionFile,
+    UrllibProbe,
+    current_pinned_snapshots,
+    load_countries,
+    load_pins,
+    region_ids,
+)
+from hammunition.geofabrik import resolve as resolve_region
 from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH, describe_refusal
+from hammunition.interface import envelope
 from hammunition.kernel import KernelProbe
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
 from hammunition.manifest.schema import (
     AptInstall,
     BinaryInstall,
-    DataInstall,
-    GitInstall,
-    NodeInstall,
+    DemTilesInstall,
+    DerivedDataInstall,
     PackageManifest,
     ProfileManifest,
-    SourceInstall,
-    Status,
-    VenvInstall,
+    RegionalDataInstall,
 )
 from hammunition.paths import applications_dir, build_root, node_root, user_bin_dir, venv_root
-from hammunition.plan import InstallPlan, PlanError, PlannedPackage, resolve
+from hammunition.plan import NO_MAP_REGIONS, Blocker, InstallPlan, PlanError, resolve
 from hammunition.state import (
     RemovalError,
     RemovalPaths,
@@ -106,7 +134,6 @@ from hammunition.state import (
     plan_removal,
 )
 from hammunition.station import (
-    STATION_FIELDS,
     Station,
     StationError,
     config_path,
@@ -115,7 +142,8 @@ from hammunition.station import (
     prompt_for,
     save_station,
 )
-from hammunition.update import render, report, requested_units
+from hammunition.terrain_plan import build_terrain_run, resolve_station_terrain
+from hammunition.update import region_snapshots, render, report, requested_units
 from hammunition.upstream import (
     NOT_UPSTREAM,
     http_get,
@@ -125,7 +153,8 @@ from hammunition.upstream import (
 from hammunition.upstream import render as render_upstream
 
 if TYPE_CHECKING:
-    from hammunition.hardware.power import Parkable
+    from hammunition.hardware.power import KeptEntry, Parkable
+    from hammunition.upstream import UpstreamRow
 
 __all__ = ["build_parser", "main"]
 
@@ -182,33 +211,6 @@ def load_all(
 # ---------------------------------------------------------------------------
 
 
-def _plan_state(planned: PlannedPackage, built: frozenset[str] = frozenset()) -> str:
-    """What the plan will do to this unit, in two words.
-
-    "already installed" is apt's answer and only apt's: it means every apt
-    package the block names is present. A source or binary unit's apt list is
-    its build dependencies, or nothing at all, so for those it was saying
-    "already installed" one line above a build -- sdrangel's .deb block on
-    the Ubuntu 26.04 VM read that way (2026-09-02). The one carve-out is a
-    vendor .deb the plan has attributed to this engine and dpkg still holds
-    (#63): nothing is planned for it, and the line says so.
-    """
-    method = planned.block.install
-    if isinstance(method, AptInstall):
-        return "already installed" if not planned.outstanding else "will install"
-    if isinstance(method, BinaryInstall) and planned.deb_installed:
-        return "already installed"
-    if planned.name in built:
-        return "already installed"  # built at this pin, D-051
-    if isinstance(method, SourceInstall | GitInstall):
-        return "will build"
-    if isinstance(method, VenvInstall):
-        return "will install"  # into its own venv, reported by the venv step
-    if isinstance(method, NodeInstall):
-        return "will build"
-    return "will fetch+install"
-
-
 def render_plan(
     plan: InstallPlan,
     commands: Sequence[Step],
@@ -217,6 +219,8 @@ def render_plan(
     log_destination: Path | None = None,
     hands_log_to: str | None = None,
     built: frozenset[str] = frozenset(),
+    maps: MapDisclosure | None = None,
+    terrain: TerrainDisclosure | None = None,
 ) -> list[str]:
     """The complete account of what will happen. Printed for every run.
 
@@ -232,173 +236,24 @@ def render_plan(
     path also makes a wrong one visible: if the operator does not resolve and
     the log falls back to ``/root``, the plan now says so instead of the
     fallback happening in silence.
+
+    Rendered from :class:`hammunition.interface.plan.InstallPlanView`, the same
+    object ``install --dry-run --json`` emits (D-059), so the two cannot drift.
     """
-    lines = [f"Target: {plan.target.describe()}", ""]
+    from hammunition.interface.envelope import target_view
+    from hammunition.interface.plan import build_install_view, render_plan_view
 
-    if plan.packages:
-        lines.append(f"Packages ({len(plan.packages)}):")
-        for planned in plan.packages:
-            why = ", ".join(planned.requested_by)
-            lines.append(f"  {planned.name:<28} {_plan_state(planned, built):<18} [{why}]")
-            for apt_package in planned.apt_packages:
-                mark = "+" if apt_package in planned.outstanding else "="
-                # A build dependency is installed like any other apt package but
-                # is not the software that was asked for, and saying so is the
-                # difference between "glfer needs GTK2" and "glfer is GTK2".
-                note = "  (to build)" if apt_package in planned.build_only else ""
-                lines.append(f"      {mark} {apt_package}{note}")
-        lines.append("")
-
-    displacing = [(p.name, c) for p in plan.packages for c in p.displaces]
-    if displacing:
-        lines.append("Installed distribution packages displaced or shadowed (D-022):")
-        for name, conflict in displacing:
-            lines.append(
-                f"  {conflict}  — declared by {name}; the distribution package stays "
-                f"installed, see that manifest's notes"
-            )
-        lines.append("")
-
-    if plan.apt_release is not None:
-        # apt would not resolve the transaction from the default release
-        # because a package already installed from another archive would have
-        # to be downgraded, so the whole apt step is resolved from that archive
-        # instead. Which packages that changes is the disclosure. D-038.
-        lines.append(f"apt packages resolved from {plan.apt_release} (D-038):")
-        lines.extend(
-            _wrap(
-                f"apt refused the default release because a package this machine "
-                f"already installs from {plan.apt_release} would have been "
-                f"downgraded; the apt step runs with --target-release "
-                f"{plan.apt_release}, which takes these from there:",
-                indent="  ",
-            )
-        )
-        for apt_package in plan.apt_from_release:
-            lines.append(f"      {apt_package}")
-        lines.append("")
-
-    if plan.apt_to_install_no_recommends:
-        # A second apt command is a second thing happening to the machine, and
-        # it deviates from what the distribution does by default. Name the
-        # units that asked, so the deviation is attributable rather than a flag
-        # that appeared in an argv. D-052.
-        units = ", ".join(plan.apt_no_recommends_units)
-        lines.append("apt packages installed without Recommends (D-052):")
-        lines.extend(
-            _wrap(
-                f"{units} asked for --no-install-recommends in the manifest, because the "
-                f"Recommends of these packages conflict with software this target installs; "
-                f"a second apt-get install carries the flag for them alone. Everything else "
-                f"in this transaction keeps apt's defaults, and both commands run with "
-                f"--no-remove:",
-                indent="  ",
-            )
-        )
-        for apt_package in plan.apt_to_install_no_recommends:
-            lines.append(f"      {apt_package}")
-        lines.append("")
-
-    if plan.apt_repos:
-        # Before group membership and the consent gates, because it is the
-        # largest thing the transaction does to the machine: a repository
-        # keeps shipping updates after this run is over. Each one has its own
-        # gate below. D-040.
-        lines.append("Third-party apt repositories that will be added (D-040):")
-        for addition in plan.apt_repos:
-            lines.append(
-                f"  {addition.repo.name}  [{addition.unit}: {', '.join(addition.packages)}]"
-            )
-            lines.append(
-                f"      {addition.repo.uri}  {' '.join(addition.repo.suites)}  {' '.join(addition.repo.components)}"
-            )
-            lines.append(f"      key {addition.repo.key_fingerprint}")
-            lines.append(f"      writes {addition.sources}")
-            lines.append(f"      writes {addition.keyring}")
-            lines.append(
-                f"      consent: {repo_env_var(addition.repo)} must equal the key fingerprint"
-            )
-        lines.append("")
-
-    data_units = [
-        (p, p.block.install) for p in plan.packages if isinstance(p.block.install, DataInstall)
-    ]
-    if data_units:
-        lines.append("Offline data that will be downloaded and installed (D-049):")
-        for planned, block in data_units:
-            total = sum(a.size for a in block.artifacts)
-            lines.append(
-                f"  {planned.name:<28} {human_size(total)} total, licence: {block.licence.strip()}"
-            )
-            lines.append(f"      stated at {block.licence_url}")
-            for artifact in block.artifacts:
-                lines.append(f"      {human_size(artifact.size):>9}  {artifact.url}")
-            lines.append(f"      installs under <prefix>/share/hammunition/data/{planned.name}/")
-        lines.append("")
-
-    if plan.group_memberships:
-        lines.append("Group membership changes:")
-        for membership in plan.group_memberships:
-            lines.append(f"  {membership.user} → {membership.group}  ({membership.package})")
-            lines.extend(_wrap(membership.detail, indent="      "))
-            if membership.reverse_hint:
-                lines.append(f"      reverse: {membership.reverse_hint.strip()}")
-        lines.append("")
-
-    if plan.consent_gates:
-        lines.append("Consent gates that will be presented:")
-        for profile_name, gate in plan.consent_gates:
-            lines.append(f"  {profile_name} ({gate.env_var})")
-            for risk in gate.risk_lines:
-                wrapped = _wrap(risk, indent="        ")
-                lines.append("      - " + wrapped[0].strip())
-                lines.extend(wrapped[1:])
-        lines.append("")
-
-    if plan.config_files:
-        lines.append("Configuration that will be written:")
-        for package, config, _body in plan.config_files:
-            backup = "existing file backed up" if config.backup_existing else "NOT backed up"
-            verb = "appended to" if config.append else "written"
-            lines.append(f"  {config.path}  ({verb}, mode {config.mode}, {backup})  [{package}]")
-        lines.append("")
-
-    if plan.deferrals:
-        # Deliberately after the packages and before the notes: this is the
-        # part of the request that will NOT happen, and burying it under a
-        # heading called "notes" is how it stops being read. D-035.
-        lines.append("Will NOT happen (the rest of the transaction still will):")
-        for deferral in plan.deferrals:
-            lines.append(f"  {deferral.subject}: {deferral.what}")
-            lines.extend(_wrap(f"why: {deferral.why}", indent="      "))
-            lines.extend(_wrap(f"→ {deferral.remedy}", indent="      "))
-        lines.append("")
-
-    if plan.notes:
-        lines.append("Notes:")
-        for note in plan.notes:
-            wrapped = _wrap(note, indent="      ")
-            lines.append("  - " + wrapped[0].strip())
-            lines.extend(wrapped[1:])
-        lines.append("")
-
-    if log_destination is not None:
-        lines.append("Records:")
-        lines.append(f"  transaction log written to {log_destination}")
-        if hands_log_to is not None:
-            lines.append(
-                f"  the log and any directories created for it are given to "
-                f"{hands_log_to!r} (chown), since root is writing into their home"
-            )
-        lines.append("")
-
-    lines.append(f"Commands ({len(commands)}):")
-    if not commands:
-        lines.append("  (none — everything this plan asks for is already in place)")
-    for command in commands:
-        lines.append(f"  # {command.description}")
-        lines.append(f"  $ {command.display(euid=euid)}")
-    return lines
+    view = build_install_view(
+        plan,
+        commands,
+        euid=euid,
+        log_destination=log_destination,
+        hands_log_to=hands_log_to,
+        built=built,
+        maps=maps,
+        terrain=terrain,
+    )
+    return render_plan_view(view, target=target_view(plan.target))
 
 
 # ---------------------------------------------------------------------------
@@ -406,37 +261,18 @@ def render_plan(
 # ---------------------------------------------------------------------------
 
 
+@envelope.json_capable()
 def cmd_list(args: argparse.Namespace) -> int:
+    from hammunition.interface.catalog import build_catalog, detect_target, render_catalog
+
     catalog_root = find_catalog(args.catalog)
     packages, profiles = load_all(catalog_root)
-
-    target: Target | None
-    try:
-        target = Target.detect()
-    except DetectionError:
-        target = None
-
-    if args.what in {"profiles", "all"}:
-        print(f"Profiles ({len(profiles)}):")
-        for name in sorted(profiles):
-            profile = profiles[name]
-            gate = "  [consent gate]" if profile.consent else ""
-            print(f"  {name:<16} {profile.stage:<9} {len(profile.packages):>3} pkg{gate}")
-            print(f"      {profile.summary}")
-        print()
-
-    if args.what in {"packages", "all"}:
-        print(f"Packages ({len(packages)}):")
-        for name in sorted(packages):
-            manifest = packages[name]
-            if target is None:
-                where = "?"
-            else:
-                block = manifest.resolve(target.distro, target.version, target.arch)
-                where = block.install.method if block else "unsupported here"
-            flag = "" if manifest.status is Status.supported else f"  [{manifest.status.value}]"
-            print(f"  {name:<28} {where:<18}{flag}")
-            print(f"      {manifest.summary}")
+    doc = build_catalog(args.what, packages, profiles, detect_target())
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return EXIT_OK
+    for line in render_catalog(doc):
+        print(line)
     return EXIT_OK
 
 
@@ -454,124 +290,59 @@ def operator(args: argparse.Namespace) -> str:
     )
 
 
+@envelope.json_capable()
 def cmd_status(args: argparse.Namespace) -> int:
+    """What this machine is, what the catalog holds, and what has been done here.
+
+    The most recent transaction is reported by how it actually ended, not by
+    what it intended: reading only transaction_begin once reported a run that
+    died on package 3 of 20 as if all 20 landed.
+    """
+    from hammunition.interface.status import build_status, render_status
+
     try:
         target = Target.detect()
     except DetectionError as exc:
         print(f"Target: unidentified — {exc}", file=sys.stderr)
         return EXIT_FAILED
 
-    print(f"Target: {target.describe()}")
-    print(
-        "Debian family: "
-        + ("yes" if target.is_debian_family else "no — installation is refused here")
-    )
-
     catalog_root = find_catalog(args.catalog)
     packages, profiles = load_all(catalog_root)
-    resolvable = sum(
-        1
-        for manifest in packages.values()
-        if manifest.resolve(target.distro, target.version, target.arch) is not None
-    )
-    print(f"Catalog: {catalog_root}")
-    print(f"  {len(packages)} packages, {resolvable} of which resolve on this target")
-    print(f"  {len(profiles)} profiles")
-
     log = TransactionLog(owner=operator(args) or None)
-    entries = list(log.read())
-    print(f"Transaction log: {log.path}")
-    if not entries:
-        print("  no transactions recorded")
-        return EXIT_OK
-
-    # The most recent transaction, and how it actually ended. Reading only
-    # transaction_begin and calling its packages "covered" reported a run that
-    # died on package 3 of 20 as if all 20 landed — the one command whose job
-    # is honest reporting, lying by omission. So find the last begin and the
-    # first terminal event after it.
-    begin_index = max(
-        (i for i, e in enumerate(entries) if e.get("event") == "transaction_begin"),
-        default=None,
+    doc = build_status(
+        target=target,
+        catalog_root=catalog_root,
+        packages=packages,
+        profiles=profiles,
+        log_path=log.path,
+        entries=list(log.read()),
     )
-    print(f"  {len(entries)} entries")
-    if begin_index is None:
-        print("  no transaction start recorded (log holds only other events)")
+    if envelope.wanted(args):
+        envelope.emit(doc)
         return EXIT_OK
-
-    begin = entries[begin_index]
-    intended = [str(p) for p in begin.get("apt_packages", [])]
-    tail = entries[begin_index + 1 :]
-    ended = next((e for e in tail if e.get("event") == "transaction_end"), None)
-    failed = next((e for e in tail if e.get("event") == "transaction_failed"), None)
-
-    if failed is not None:
-        done = failed.get("completed", 0)
-        print(
-            f"  most recent transaction FAILED after {done} command(s); "
-            f"{len(intended)} package(s) were intended, not necessarily installed"
-        )
-    elif ended is not None:
-        print(
-            f"  most recent transaction completed {ended.get('completed', 0)} "
-            f"command(s); {len(intended)} package(s) intended"
-        )
-        # transaction_end version 2 carries the D-031 effect check. An older
-        # log (version 1) has no `verified` key; treat its absence as "not
-        # recorded" rather than inventing a verdict.
-        if "verified" in ended:
-            checks = ended.get("checks", [])
-            unconfirmed = [c for c in checks if not c.get("confirmed", False)]
-            if ended.get("verified"):
-                print(f"  effects confirmed afterwards: {len(checks)} check(s) passed (D-031)")
-            else:
-                print(f"  UNVERIFIED: {len(unconfirmed)} effect(s) could not be confirmed:")
-                for check in unconfirmed:
-                    print(f"    {check.get('subject', '?')}: {check.get('detail', '')}")
-    else:
-        print(
-            f"  most recent transaction did not record an ending (interrupted or "
-            f"still running); {len(intended)} package(s) were intended"
-        )
-    for name in intended:
-        print(f"    {name}")
-    # transaction_begin version 2 records what the plan deferred (D-039): a
-    # profile member this target's archive does not carry, or a station value
-    # a config file needed and did not have. A version 1 entry has no key and
-    # nothing is inferred from its absence.
-    deferred = begin.get("deferred", [])
-    if deferred:
-        print(f"  deferred in that transaction, by design ({len(deferred)}):")
-        for entry in deferred:
-            print(
-                f"    {entry.get('subject', '?')}: {entry.get('what', '')} -- {entry.get('why', '')}"
-            )
+    for line in render_status(doc):
+        print(line)
     return EXIT_OK
 
 
+@envelope.json_capable()
 def cmd_station_show(args: argparse.Namespace) -> int:
     """What is saved, and where. Says plainly when nothing is."""
+    from hammunition.interface.station import build_station, render_station
+
     user = operator(args)
-    path = config_path(user)
     try:
         station = load_station(owner=user)
     except StationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_FAILED
 
-    print(f"Station configuration: {path}")
-    if not path.exists():
-        print("  (no file yet)")
-    values = station.as_dict()
-    if not values:
-        print("\nNothing set. `hammunition station set --callsign <yours>` starts it off.")
-        print("Nothing is invented on your behalf: a configuration file needing a value")
-        print("you have not given is reported as not written, and the package still installs.")
+    doc = build_station(config_path(user), station)
+    if envelope.wanted(args):
+        envelope.emit(doc)
         return EXIT_OK
-    print()
-    for field in sorted(STATION_FIELDS):
-        value = station.get(field)
-        print(f"  {field:<14} {value if value else '(not set)'}")
+    for line in render_station(doc):
+        print(line)
     return EXIT_OK
 
 
@@ -581,30 +352,62 @@ def cmd_station_set(args: argparse.Namespace) -> int:
         current = load_station(owner=user)
     except StationError:
         current = Station()
-    overrides = {
-        field: value
+    # Checked before "nothing to set" and whether or not other flags are
+    # given (fix round 1, M1): splitting "," or "" on ',' and stripping each
+    # piece can legitimately produce zero regions -- a trailing comma, a
+    # stray space, an empty string typed by habit -- and saving that
+    # silently as "no regions" is indistinguishable from having meant it.
+    # `--map-regions` is for setting regions, never for clearing them.
+    if args.map_regions is not None:
+        map_regions = tuple(r for r in (p.strip() for p in args.map_regions.split(",")) if r)
+        if not map_regions:
+            print(
+                "error: --map-regions gave no regions after splitting on ',' and "
+                "stripping whitespace; give at least one region, or to remove the "
+                "maps, uninstall osm-navit and osm-regions.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+    else:
+        map_regions = current.map_regions
+    set_fields = [
+        field
         for field, value in (
             ("callsign", args.callsign),
             ("grid_square", args.grid_square),
             ("node_alias", args.node_alias),
+            ("map_regions", args.map_regions),
+            ("map_freshness", args.map_freshness),
         )
         if value
-    }
-    if not overrides:
+    ]
+    if not set_fields:
         print(
-            "error: nothing to set. Pass at least one of --callsign, --grid-square, --node-alias.",
+            "error: nothing to set. Pass at least one of --callsign, --grid-square, "
+            "--node-alias, --map-regions, --map-freshness.",
             file=sys.stderr,
         )
         return EXIT_FAILED
     try:
-        station = Station(**{**current.as_dict(), **overrides})
+        station = Station(
+            callsign=args.callsign or current.callsign,
+            grid_square=args.grid_square or current.grid_square,
+            node_alias=args.node_alias or current.node_alias,
+            map_regions=map_regions,
+            map_freshness=args.map_freshness or current.map_freshness,
+        )
     except StationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_FAILED
     path = save_station(station, owner=user)
     print(f"Saved to {path} (mode 0600).")
-    for field in sorted(overrides):
-        print(f"  {field:<14} {station.get(field)}")
+    for field in sorted(set_fields):
+        if field == "map_regions":
+            print(f"  {field:<14} {len(station.map_regions)} set")
+        elif field == "map_freshness":
+            print(f"  {field:<14} {station.freshness}")
+        else:
+            print(f"  {field:<14} {station.get(field)}")
     return EXIT_OK
 
 
@@ -627,8 +430,11 @@ def _apt_lists_note(apt: AptBackend) -> str:
     return f"last refreshed {when} (`sudo apt-get update` refreshes them; this report does not)"
 
 
+@envelope.json_capable()
 def cmd_update(args: argparse.Namespace) -> int:
     """Installed versus the catalog, as a report. D-053: nothing runs."""
+    from hammunition.interface.update import build_update
+
     try:
         target = Target.detect()
     except DetectionError as exc:
@@ -646,9 +452,26 @@ def cmd_update(args: argparse.Namespace) -> int:
     read_log = TransactionLog(owner=user or None)
 
     names = list(dict.fromkeys(args.names))
+    from_log = not names
     if not names:
         names = list(requested_units(read_log.read()))
         if not names:
+            if envelope.wanted(args):
+                envelope.emit(
+                    build_update(
+                        target,
+                        report(
+                            InstallPlan(target=target, packages=()),
+                            apt_states={},
+                            present={},
+                            built=(),
+                        ),
+                        lists_note=_apt_lists_note(apt),
+                        from_log=True,
+                        upstream=None,
+                    )
+                )
+                return EXIT_OK
             print(f"Target: {target.describe()}")
             print(
                 "Nothing to compare: the transaction log records no install request here "
@@ -673,6 +496,7 @@ def cmd_update(args: argparse.Namespace) -> int:
             station=station,
             repos=repos,
             kernel=KernelProbe.detect(),
+            desktops=scan_sessions(),
             log=read_log,
         )
     except PlanError as exc:
@@ -722,21 +546,55 @@ def cmd_update(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_FAILED
 
-    print(f"Target: {target.describe()}")
-    print(
-        render(
-            report(plan, apt_states=states, present=present, built=built),
-            lists_note=_apt_lists_note(apt),
-            upstream_asked=bool(args.upstream),
+    # osm-regions, offline (D-053): each installed region's `.source`
+    # sidecar against the pinned snapshot the station's own freshness mode
+    # would resolve to today (fix round 1, I1) -- not the newest pin of any
+    # snapshot, which reported a yearly install behind a monthly-shaped pin
+    # forever. No fetch, no probe -- just what is on disk and what the
+    # catalog carries.
+    pins_path = catalog_root / "data" / "geofabrik-pins.yaml"
+    current_pinned = (
+        current_pinned_snapshots(
+            station.freshness, date.today(), load_pins(pins_path), station.map_regions
         )
+        if pins_path.is_file()
+        else {}
     )
-    if args.upstream:
+    regions_by_unit = {
+        planned.name: region_snapshots(
+            installed_slugs(data_root(source.prefix) / planned.name), current_pinned
+        )
+        for planned in plan.packages
+        if isinstance(planned.block.install, RegionalDataInstall)
+    }
+
+    result = report(
+        plan,
+        apt_states=states,
+        present=present,
+        built=built,
+        regions=regions_by_unit,
+        tiles=installed_tile_counts(plan, source.prefix),
+        no_terrain=no_terrain_counts(plan, source.prefix),
+    )
+    lists_note = _apt_lists_note(apt)
+    upstream = _upstream_rows(plan, runner) if args.upstream else None
+    if envelope.wanted(args):
+        envelope.emit(
+            build_update(
+                target, result, lists_note=lists_note, from_log=from_log, upstream=upstream
+            )
+        )
+        return EXIT_OK
+    print(f"Target: {target.describe()}")
+    print(render(result, lists_note=lists_note, upstream_asked=bool(args.upstream)))
+    if upstream is not None:
         print()
-        print(_upstream_report(plan, runner))
+        print(render_upstream(upstream))
     return EXIT_OK
 
 
-def _upstream_report(plan: InstallPlan, runner: SubprocessRunner) -> str:
+def _upstream_rows(plan: InstallPlan, runner: SubprocessRunner) -> list[UpstreamRow]:
     """D-053's second half: the catalog's pin against what upstream publishes.
 
     Opt-in because it is the one thing the engine does that talks to someone
@@ -765,7 +623,7 @@ def _upstream_report(plan: InstallPlan, runner: SubprocessRunner) -> str:
         probe_upstream(planned.manifest, http=http, ls_remote=ls_remote)
         for planned in plan.packages
     ]
-    return render_upstream([r for r in rows if r.state != NOT_UPSTREAM])
+    return [r for r in rows if r.state != NOT_UPSTREAM]
 
 
 def _station_for(
@@ -884,7 +742,474 @@ def _apply_suggestions(
     return extra, notes
 
 
+@envelope.json_capable()
+def cmd_maps_regions(args: argparse.Namespace) -> int:
+    """Every region Geofabrik's region index names, filtered by a substring.  D-057.
+
+    Fetches the index only when this command runs -- network on request,
+    like `update --upstream`, never as a side effect of any other command
+    and never at import time. ``index-v1-nogeom.json`` (0.51 MB, measured
+    2026-09-28) carries the same ``properties.urls.pbf`` shape
+    :func:`hammunition.geofabrik.region_ids` reads as ``index-v1.json``
+    (3.79 MB); fetching the smaller one is free (fix round 1, M6).
+    """
+    probe = UrllibProbe()
+    try:
+        index_json = probe.text(f"{BASE}/index-v1-nogeom.json")
+        ids = region_ids(index_json)
+    except GeofabrikError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    needle = (args.filter or "").casefold()
+    matched = tuple(region for region in ids if needle in region.casefold())
+    if envelope.wanted(args):
+        from hammunition.interface.regions import RegionsDocument
+
+        envelope.emit(RegionsDocument(filter=args.filter, regions=matched))
+        return EXIT_OK
+    for region in matched:
+        print(region)
+    return EXIT_OK
+
+
+def _read_config_nofollow(path: Path) -> tuple[str, int | None]:
+    """*path*'s text and mode, or ``("", None)`` when absent.
+
+    Opened with ``O_NOFOLLOW``: a symbolic link in place of the file is
+    refused, never read through and never renamed over, because what it
+    points at is not a file this command created (the path-link.sh rule).
+    Anything but a regular file is refused too. Raises :class:`OSError`
+    with a message naming what was found.
+    """
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except FileNotFoundError:
+        if path.is_symlink():  # a dangling link: still not ours to replace
+            raise OSError(f"{path} is a symbolic link; left as it is") from None
+        return "", None
+    except OSError as exc:
+        if path.is_symlink():
+            raise OSError(f"{path} is a symbolic link; left as it is") from None
+        raise OSError(f"cannot read {path}: {exc.strerror or exc}") from None
+    with os.fdopen(fd, "rb") as handle:
+        info = os.fstat(handle.fileno())
+        if not stat.S_ISREG(info.st_mode):
+            raise OSError(f"{path} is not a regular file; left as it is")
+        raw = handle.read()
+    try:
+        return raw.decode("utf-8"), stat.S_IMODE(info.st_mode)
+    except UnicodeDecodeError:
+        raise OSError(f"{path} is not UTF-8 text; left as it is") from None
+
+
+def _replace_atomically(path: Path, text: str, mode: int | None) -> None:
+    """Write *text* to a new file beside *path* and rename it over *path*.
+
+    The temporary file is created exclusively (``mkstemp``) in the same
+    directory, so the rename is atomic and nothing pre-planted at a fixed
+    name is written through. An existing file's mode is kept; a new one is
+    0600, as mkstemp creates it.
+    """
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            if mode is not None:
+                os.fchmod(handle.fileno(), mode)
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    except BaseException:
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(temporary)
+        raise
+
+
+def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
+    """Name Hammunition's maps in QMapShack's own configuration, then start it.  D-061.
+
+    What the ``qmapshack-offline`` launcher runs. Per-user: refused under
+    root, whose configuration is not the operator's. Additive: a key is
+    added or extended only with our directories, existing values stay where
+    they are, and nothing else in the file changes, except that an absent or
+    negative ``[Route] routino\\database`` becomes 0 so the Routing dock
+    selects the database it loaded (bench, 2026-09-29); a file it cannot read,
+    a symbolic link or anything but a regular file in its place is refused
+    and left untouched, and QMapShack is then not started. No ``--json``
+    form: it replaces itself with a GUI (D-059).
+    """
+    from hammunition.qmapshack_config import (
+        QmsConfigError,
+        config_path,
+        ensure_paths,
+        select_database,
+        superseded,
+        wanted,
+    )
+
+    if os.geteuid() == 0:
+        print(
+            "error: QMapShack's configuration is per user; run this as yourself, not as root.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    path = config_path()
+    not_started = "Nothing was changed and QMapShack was not started"
+    try:
+        text, mode = _read_config_nofollow(path)
+    except OSError as exc:
+        print(f"error: {exc}. {not_started}.", file=sys.stderr)
+        return EXIT_FAILED
+    try:
+        data = data_root(DEFAULT_PREFIX)
+        with_paths = ensure_paths(text, wanted(data), remove=superseded(data))
+        updated = select_database(with_paths)
+    except QmsConfigError as exc:
+        print(
+            f"error: {path}: {exc}. {not_started}; "
+            f"add the directories in QMapShack's own setup, or move the file aside.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    if with_paths != text:
+        moved = ensure_paths(text, (), remove=superseded(data)) != text
+        print(
+            f"adding Hammunition's map, elevation and routing directories to {path} "
+            f"(existing entries kept"
+            + (
+                "; ours moved from [General], where QMapShack does not read them, to [Canvas])"
+                if moved
+                else ")"
+            ),
+            file=sys.stderr,
+        )
+    if updated != with_paths:
+        print(
+            f"selecting the first routing database in {path}, so the Routing dock's "
+            f"Database list is not left blank",
+            file=sys.stderr,
+        )
+    if updated != text:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _replace_atomically(path, updated, mode)
+        except OSError as exc:
+            print(
+                f"error: cannot write {path}: {exc.strerror or exc}. QMapShack was not started.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+    if args.configure_only:
+        return EXIT_OK
+    sys.stdout.flush()
+    sys.stderr.flush()  # execvp discards whatever Python still buffers
+    try:
+        os.execvp("qmapshack", ["qmapshack"])
+    except OSError as exc:
+        print(
+            f"error: cannot start qmapshack: {exc.strerror or exc}. "
+            f"`hammunition install qmapshack` installs it.",
+            file=sys.stderr,
+        )
+    return EXIT_FAILED
+
+
+def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
+    """Serve gpsd's position as NMEA on 127.0.0.1 for QMapShack.  D-061.
+
+    The engine watches gpsd's JSON and writes RMC and GGA itself
+    (:mod:`hammunition.gps_tether`); nothing is executed. ``--gpsd`` names
+    a gpsd on another machine, ``--port`` a port other than 10110; the
+    tether listens on loopback only whatever they say. Any number of clients
+    at once, each sent every sentence; only while the operator runs it, and
+    never as root. Ctrl-C stops it, exit 0. No ``--json`` form: it is a
+    server, not a document (D-059).
+    """
+    from hammunition import gps_tether
+
+    try:
+        port = gps_tether.PORT if args.port is None else gps_tether.serve_port(args.port)
+        gpsd = gps_tether.GPSD if args.gpsd is None else gps_tether.gpsd_address(args.gpsd)
+    except ValueError as exc:
+        print(f"error: {exc}.", file=sys.stderr)
+        return EXIT_FAILED
+    if os.geteuid() == 0:
+        print(
+            "error: the GPS tether reads gpsd as any user can; run it as yourself, not as root.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    try:
+        listener = gps_tether.listen(port)
+    except OSError as exc:
+        print(
+            f"error: cannot listen on {gps_tether.HOST} port {port}: "
+            f"{exc.strerror or exc}. Is another tether already running? "
+            f"--port N serves another port.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    print(gps_tether.instructions(port, gpsd=gpsd), flush=True)
+
+    def log(line: str) -> None:
+        print(line, file=sys.stderr, flush=True)
+
+    try:
+        gps_tether.serve(listener, gpsd=gpsd, log=log)
+    except KeyboardInterrupt:
+        log("Stopped.")
+    finally:
+        listener.close()
+    return EXIT_OK
+
+
+def resolve_map_regions(
+    plan: InstallPlan,
+    station: Station,
+    catalog_root: Path,
+    *,
+    probe: Probe,
+    today: date,
+    installed: Path,
+) -> MapResolution:
+    """The station's map regions as dated, verifiable Geofabrik files.  D-057.
+
+    Asked only when the plan holds a map unit -- the plan has already
+    deferred or refused them when no regions are set -- and before the plan
+    prints, because the dated file, its size and how it is verified are the
+    disclosure.
+
+    A region that cannot be resolved (offline, Geofabrik down, a 404) but is
+    already installed under *installed* is kept as it is, and the plan says
+    so (spec §8: no network leaves installed regions untouched). One that is
+    not installed cannot be kept; every such region is named together in one
+    :class:`GeofabrikError`.
+
+    A **pinned** region resolves entirely from the pin list, no network
+    asked at all (fix round 1, I3): offline, that looked like success, apt
+    ran, and only then did the actual fetch fail, mid-transaction. So every
+    region about to be fetched -- not already installed at its resolved
+    snapshot, pinned or not -- is also HEAD-checked here, before the plan
+    ever prints; a region already installed keeps today's behaviour and is
+    never probed.
+    """
+    wanted = any(
+        isinstance(p.block.install, RegionalDataInstall | DerivedDataInstall) for p in plan.packages
+    )
+    if not wanted or not station.map_regions:
+        return MapResolution()
+    notes: list[str] = []
+    pins_path = catalog_root / "data" / "geofabrik-pins.yaml"
+    if pins_path.is_file():
+        pins = load_pins(pins_path)
+    else:
+        pins = {}
+        notes.append(
+            f"no Geofabrik pin list at {pins_path}; every map region is verified by "
+            f"Geofabrik's MD5 only, and the plan says so beside each one."
+        )
+    files: list[RegionFile] = []
+    kept: list[KeptRegion] = []
+    refused: list[str] = []
+    for region in station.map_regions:
+        try:
+            resolved = resolve_region(
+                region, station.freshness, today=today, pins=pins, probe=probe
+            )
+        except (GeofabrikError, OSError) as exc:
+            slug = region.replace("/", "-")
+            pbf = installed / f"{slug}.osm.pbf"
+            if pbf.is_file():
+                kept.append(KeptRegion(region, slug, installed_snapshot(pbf), str(exc)))
+            else:
+                refused.append(f"  {region}: {exc}")
+            continue
+        pbf = installed / f"{resolved.slug}.osm.pbf"
+        if not region_current(pbf, resolved):
+            try:
+                status, _, _ = probe.head(resolved.url)
+                problem = (
+                    None if status == 200 else f"{resolved.url} answered HTTP {status}, not 200"
+                )
+            except (GeofabrikError, OSError) as exc:
+                # The probe's message already names the URL; not repeated.
+                problem = str(exc)
+            if problem is not None:
+                # Spec §8: offline, an installed region stays installed. Only
+                # a region with nothing installed is refused.
+                if pbf.is_file():
+                    kept.append(KeptRegion(region, resolved.slug, installed_snapshot(pbf), problem))
+                else:
+                    refused.append(f"  {region}: {problem}")
+                continue
+        files.append(resolved)
+    if refused:
+        raise GeofabrikError(
+            f"{len(refused)} map region(s) could not be resolved and are not installed "
+            f"already:\n" + "\n".join(refused)
+        )
+    return MapResolution(files=tuple(files), kept=tuple(kept), notes=tuple(notes))
+
+
+def map_borders(
+    plan: InstallPlan,
+    catalog: Mapping[str, PackageManifest],
+    catalog_root: Path,
+    prefix: Path,
+) -> tuple[BoundarySource | None, dict[str, tuple[str, ...]], list[str]]:
+    """The country-border file and the region -> country table the Navit
+    converter merges with (the address-search fix, D-057 amendment).
+
+    Read at plan time with no network: the file is where the plan's
+    ``boundaries`` unit installs it, and the table is
+    ``catalog/data/geofabrik-countries.yaml``. A missing table is a note in
+    the plan, and every region converts unmerged under -U; a boundaries
+    unit of the wrong shape raises :class:`CountryBoundaryError`, which
+    refuses the plan by name.
+    """
+    named = [
+        p.block.install.boundaries
+        for p in plan.packages
+        if isinstance(p.block.install, DerivedDataInstall) and p.block.install.boundaries
+    ]
+    if not named:
+        return None, {}, []
+    unit = catalog.get(named[0])
+    if unit is None:
+        raise CountryBoundaryError(
+            f"{named[0]} is named for country borders and is not in the catalog"
+        )
+    border = boundary_source(unit, prefix)
+    table = catalog_root / "data" / "geofabrik-countries.yaml"
+    if not table.is_file():
+        return (
+            border,
+            {},
+            [
+                f"no region-to-country table at {table}, so no country border is merged: "
+                f"every map converts with maptool -U alone, and address search files "
+                f"its towns under Unknown."
+            ],
+        )
+    try:
+        return border, load_countries(table), []
+    except GeofabrikError as exc:
+        raise CountryBoundaryError(str(exc)) from exc
+
+
+def installed_tile_counts(plan: InstallPlan, prefix: Path) -> dict[str, int]:
+    """dem-tiles, offline (D-061): how many tiles each unit has installed,
+    never which. Counted from the ``.tif`` files on disk, not the regions'
+    ``.tiles`` records, which are written even when a tile failed."""
+    return {
+        planned.name: sum(1 for _ in (data_root(prefix) / planned.name).glob(f"*{TIF}"))
+        for planned in plan.packages
+        if isinstance(planned.block.install, DemTilesInstall)
+    }
+
+
+def no_terrain_counts(plan: InstallPlan, prefix: Path) -> dict[str, int]:
+    """dem-tiles, offline (final review, I1): how many regions' records say
+    Copernicus publishes no tile for any of their squares, never which."""
+    counts: dict[str, int] = {}
+    for planned in plan.packages:
+        if not isinstance(planned.block.install, DemTilesInstall):
+            continue
+        records = sorted((data_root(prefix) / planned.name).glob(f"*{TILES}"))
+        counts[planned.name] = sum(
+            1
+            for path in records
+            if (entry := read_record(path, path.stem, path.stem)) is not None and entry.no_terrain
+        )
+    return counts
+
+
+def map_work(
+    plan: InstallPlan, regions: RegionsBackend, derived: DerivedBackend
+) -> tuple[list[RegionFile], list[RegionFile]]:
+    """(regions to download, regions to convert) for this plan."""
+    downloads = [
+        f
+        for p in plan.packages
+        if isinstance(p.block.install, RegionalDataInstall)
+        for f in regions.pending(p.manifest)
+    ]
+    # Navit's conversions only: piece 2's converters count their own work
+    # (hammunition.terrain_plan.TerrainRun), and derived.pending() reads
+    # Navit's `.bin` files, which an osm-garmin unit has none of.
+    conversions = [
+        f
+        for p in plan.packages
+        if isinstance(p.block.install, DerivedDataInstall)
+        and p.block.install.converter == "navit-maptool"
+        for f in derived.pending(p.manifest)
+    ]
+    return downloads, conversions
+
+
+def leftover_maps_note(plan: InstallPlan, prefix: Path) -> str | None:
+    """Map data still installed while no map regions are set, named with its removal."""
+    units = sorted(d.subject for d in plan.deferrals if d.why == NO_MAP_REGIONS)
+    # Piece 1's regions and Navit maps, and piece 2's Garmin maps, Routino
+    # database and terrain tiles (D-061).
+    patterns = ("*.osm.pbf", "*.bin", "*.img", "*.mem", f"*{TIF}")
+    found = [
+        data_root(prefix) / unit
+        for unit in units
+        if any(any((data_root(prefix) / unit).glob(pattern)) for pattern in patterns)
+    ]
+    if not found:
+        return None
+    return (
+        f"no map regions are set, and map data from an earlier install is still installed "
+        f"under {', '.join(map(str, found))}. `hammunition uninstall {' '.join(units)}` "
+        f"removes it; setting regions again keeps it current."
+    )
+
+
+def navit_config_blocker(plan: InstallPlan, stock: Path = navit_config.STOCK) -> str | None:
+    """A Navit conversion with no Navit config to write from, found before it runs.
+
+    The conversion can take hours; discovering at its end that
+    ``/etc/navit/navit.xml`` is missing is the shape D-016 exists to prevent.
+    Satisfied by the file being there, or by navit in this same transaction
+    (apt runs before any conversion).
+    """
+    converting = [
+        p.name
+        for p in plan.packages
+        if isinstance(p.block.install, DerivedDataInstall)
+        and p.block.install.converter == "navit-maptool"
+    ]
+    if not converting or stock.is_file():
+        return None
+    if any(p.name == "navit" or "navit" in p.apt_packages for p in plan.packages):
+        return None
+    return (
+        f"{', '.join(converting)} writes Navit's config from {stock}, which is not on this "
+        f"machine, and navit is not in this transaction. Install navit first "
+        f"(`hammunition install navit`), or ask for it in the same run."
+    )
+
+
+@envelope.json_capable(dry_run_only=True)
 def cmd_install(args: argparse.Namespace) -> int:
+    from hammunition.interface.envelope import target_view
+    from hammunition.interface.plan import (
+        PlanDocument,
+        build_install_view,
+        refused_plan,
+        render_plan_view,
+    )
+
+    def refused(subject: str, reason: str) -> None:
+        # A refusal after resolution is still a plan document, with the
+        # reason the text printed (D-059); the exit code is unchanged.
+        if envelope.wanted(args):
+            envelope.emit(
+                refused_plan("install", args.names, target_view(target), [Blocker(subject, reason)])
+            )
+
     try:
         target = Target.detect()
     except DetectionError as exc:
@@ -929,6 +1254,9 @@ def cmd_install(args: argparse.Namespace) -> int:
             # The running kernel is a fact about this machine, not the target
             # (one Pop!_OS 24.04 VM has AX.25 under 7.0.11 and not under 7.1.5).
             kernel=KernelProbe.detect(),
+            # Which desktops the session files offer (D-060): files on disk,
+            # so the answer under sudo is the answer outside it.
+            desktops=scan_sessions(),
             # Read-only here: whether a vendor .deb already on the machine is
             # ours to skip (#63). The same log is written to after the plan.
             log=read_log,
@@ -940,10 +1268,19 @@ def cmd_install(args: argparse.Namespace) -> int:
             "failure is a report rather than a half-installed machine (D-016).",
             file=sys.stderr,
         )
+        if envelope.wanted(args):
+            envelope.emit(refused_plan("install", args.names, target_view(target), exc.blockers))
         return EXIT_UNPLANNABLE
     except BackendError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_FAILED
+
+    blocked = navit_config_blocker(plan)
+    if blocked is not None:
+        print(f"error: {blocked}", file=sys.stderr)
+        print("\nNothing was changed.", file=sys.stderr)
+        refused("navit configuration", blocked)
+        return EXIT_UNPLANNABLE
 
     euid = os.geteuid()
     # The artifact cache and the build tree belong to the operator, not to root:
@@ -983,7 +1320,137 @@ def cmd_install(args: argparse.Namespace) -> int:
         node_root=node_root(user or None),
         bin_dir=user_bin_dir(user or None),
     )
-    data = DataBackend(fetcher=source.fetcher, prefix=source.prefix)
+    data = DataBackend(fetcher=source.fetcher, prefix=source.prefix, runner=runner)
+    map_units = [p for p in plan.packages if isinstance(p.block.install, RegionalDataInstall)]
+    try:
+        resolution = resolve_map_regions(
+            plan,
+            station,
+            catalog_root,
+            probe=UrllibProbe(),
+            today=date.today(),
+            installed=data_root(source.prefix)
+            / (map_units[0].name if map_units else "osm-regions"),
+        )
+    except GeofabrikError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        print("\nNothing was changed.", file=sys.stderr)
+        refused("map regions", str(exc))
+        return EXIT_UNPLANNABLE
+    region_files = list(resolution.files)
+    kept = frozenset(k.slug for k in resolution.kept)
+    # D-061: terrain tiles for the same regions, resolved before the plan
+    # prints for the same reason -- each tile's size and how it is verified
+    # are the disclosure.
+    try:
+        dem_resolution = resolve_station_terrain(
+            plan,
+            resolution,
+            catalog_root,
+            prefix=source.prefix,
+            region_probe=UrllibProbe(),
+            tile_probe=S3Probe(),
+        )
+    except CopernicusError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        print("\nNothing was changed.", file=sys.stderr)
+        refused("terrain", str(exc))
+        return EXIT_UNPLANNABLE
+    region_notes = list(resolution.notes)
+    try:
+        border, countries, border_notes = map_borders(plan, packages, catalog_root, source.prefix)
+    except CountryBoundaryError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        print("\nNothing was changed.", file=sys.stderr)
+        refused("country borders", str(exc))
+        return EXIT_UNPLANNABLE
+    region_notes.extend(border_notes)
+    leftover = leftover_maps_note(plan, source.prefix)
+    if leftover is not None:
+        region_notes.append(leftover)
+    # One ledger for both map backends: a region that did not install is not
+    # converted, and the transaction ends naming every region that failed.
+    ledger = MapLedger()
+    regions = RegionsBackend(
+        fetcher=source.fetcher,
+        prefix=source.prefix,
+        files=region_files,
+        keep=kept,
+        ledger=ledger,
+        runner=runner,
+    )
+    # maptool runs as the operator into the operator's build tree; only the
+    # install of its verified output into the prefix is privileged. Piece 2's
+    # converters (D-061) do the same, each in its own staging directory.
+    map_staging = builds / "osm-navit"
+    terrain = build_terrain_run(
+        prefix=source.prefix,
+        builds=builds,
+        owner=user or None,
+        runner=runner,
+        fetcher=source.fetcher,
+        files=region_files,
+        keep=kept,
+        regions=ledger,
+        resolution=dem_resolution,
+    )
+    derived = DerivedBackend(
+        prefix=source.prefix,
+        files=region_files,
+        keep=kept,
+        staging=map_staging,
+        ledger=ledger,
+        owner=user or None,
+        runner=runner,
+        boundaries=border,
+        countries=countries,
+        converters=terrain.converters,
+    )
+    # Only regions not already installed at their snapshot are downloaded,
+    # counted and listed as downloads (the dry run is the run); a region
+    # installed but not yet converted still needs conversion space.
+    pending, conversions = map_work(plan, regions, derived)
+    changed = frozenset(
+        slug
+        for p in plan.packages
+        if isinstance(p.block.install, DerivedDataInstall)
+        for slug in derived.converter_changed(p.manifest)
+    )
+    maps = (
+        resolution.disclosure(
+            pending,
+            conversions,
+            boundaries=border,
+            # As the converter will resolve them, parent paths included.
+            countries={f.region: derived.codes_for(f) for f in region_files},
+            converter_changed=changed,
+        )
+        if any(
+            isinstance(p.block.install, RegionalDataInstall | DerivedDataInstall)
+            for p in plan.packages
+        )
+        else None
+    )
+    terrain_view = terrain.disclosure(plan)
+    terrain_disk = terrain.needs(plan, cache=source.fetcher.cache_dir, prefix=source.prefix)
+    if pending or conversions or any(terrain_disk.values()):
+        # Refused at plan time, before anything is confirmed, with both numbers:
+        # piece 1's and piece 2's needs together, per filesystem (D-061).
+        short = combined_shortfall(
+            disk_needs(
+                pending,
+                conversions,
+                cache=source.fetcher.cache_dir,
+                staging=map_staging,
+                prefix=source.prefix,
+            ),
+            terrain_disk,
+        )
+        if short is not None:
+            print(f"error: {short}", file=sys.stderr)
+            print("\nNothing was changed.", file=sys.stderr)
+            refused("disk space", short)
+            return EXIT_UNPLANNABLE
     # D-051: a build present on disk that the log attributes to this engine
     # at the manifest's pin is already installed; its build steps are skipped.
     built = already_built(
@@ -1000,6 +1467,9 @@ def cmd_install(args: argparse.Namespace) -> int:
         venv=venv,
         node=node,
         data=data,
+        regions=regions,
+        derived=derived,
+        dem=terrain.dem,
         repos=repos,
         config_staging=builds,
         launcher_bin=user_bin_dir(user or None),
@@ -1016,16 +1486,36 @@ def cmd_install(args: argparse.Namespace) -> int:
         if (log_owner and euid == 0 and str(log_destination).startswith("/home"))
         else None
     )
-    for note in suggestion_notes:
-        print(f"note: {note}")
-    for line in render_plan(
+    view = build_install_view(
         plan,
         commands,
         euid=euid,
         built=built,
         log_destination=log_destination,
         hands_log_to=hands_log_to,
-    ):
+        suggestion_notes=suggestion_notes,
+        maps=maps,
+        region_notes=region_notes,
+        terrain=terrain_view,
+    )
+    if envelope.wanted(args):
+        # Reached only with --dry-run: main() refuses a real install under
+        # --json before this command runs (D-059).
+        envelope.emit(
+            PlanDocument(
+                action="install",
+                requested=tuple(args.names),
+                outcome="planned",
+                target=target_view(target),
+                blockers=(),
+                install=view,
+                removal=None,
+            )
+        )
+        return EXIT_OK
+    for note in (*suggestion_notes, *region_notes):
+        print(f"note: {note}")
+    for line in render_plan_view(view, target=target_view(plan.target)):
         print(line)
 
     print(
@@ -1187,7 +1677,16 @@ def stale_lists_diagnosis(failed: Command | Action, stderr: str) -> str | None:
     )
 
 
+@envelope.json_capable(dry_run_only=True)
 def cmd_uninstall(args: argparse.Namespace) -> int:
+    from hammunition.interface.envelope import target_view
+    from hammunition.interface.plan import (
+        BlockerLine,
+        PlanDocument,
+        build_removal_view,
+        render_removal_view,
+    )
+
     try:
         target = Target.detect()
     except DetectionError as exc:
@@ -1248,6 +1747,18 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
     except RemovalError as exc:
         print(str(exc), file=sys.stderr)
         print("\nNothing was changed.", file=sys.stderr)
+        if envelope.wanted(args):
+            envelope.emit(
+                PlanDocument(
+                    action="uninstall",
+                    requested=tuple(args.names),
+                    outcome="refused",
+                    target=target_view(target),
+                    blockers=(BlockerLine(subject="uninstall", reason=str(exc), remedy=None),),
+                    install=None,
+                    removal=None,
+                )
+            )
         return EXIT_UNPLANNABLE
     except BackendError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -1262,43 +1773,24 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
         # the state it found it (D-040).
         commands.append(apt.refresh_command())
 
-    print(f"Target: {target.describe()}\n")
-    if plan.to_remove:
-        print(f"Removing ({len(plan.to_remove)} unit(s)):")
-        for unit, unit_packages in plan.to_remove.items():
-            print(f"  {unit:28} - {' '.join(unit_packages)}")
-    if plan.artifacts:
-        print(f"\nRemoving artifacts ({sum(len(a) for a in plan.artifacts.values())}):")
-        for unit, removals in plan.artifacts.items():
-            for removal in removals:
-                print(f"  {unit:28} {removal.kind:14} {removal.path}  [{removal.basis}]")
-    if plan.left_unattributed:
-        print("\nLeft in place — present, but the transaction log does not attribute it:")
-        for unit, files in plan.left_unattributed.items():
-            for path in files:
-                print(f"  {unit:28} {path}")
-    for label, mapping in (
-        ("Left in place — installed, but not installed by Hammunition:", plan.left_foreign),
-        ("Already absent:", plan.already_absent),
-    ):
-        flat = {unit: pkgs for unit, pkgs in mapping.items() if pkgs or unit not in plan.to_remove}
-        if flat:
-            print(f"\n{label}")
-            for unit, unit_packages in flat.items():
-                print(f"  {unit:28} {' '.join(unit_packages) or '(nothing resolves here)'}")
-    print(
-        "\nNot reversed, by design: dependencies apt pulled in (run "
-        "`sudo apt autoremove` to clear orphans), group memberships, and any "
-        "config files written — all recorded in the transaction log (D-004)."
-    )
-
-    if commands:
-        print(f"\nCommands ({len(commands)}):")
-        for command in commands:
-            print(f"  # {command.description}")
-            print(f"  $ {command.display(euid=euid)}")
-    else:
-        print("\nNothing to do: none of this is installed, or none of it was ours.")
+    view = build_removal_view(plan, commands, euid=euid)
+    if envelope.wanted(args):
+        # Reached only with --dry-run (D-059).
+        envelope.emit(
+            PlanDocument(
+                action="uninstall",
+                requested=tuple(args.names),
+                outcome="planned",
+                target=target_view(target),
+                blockers=(),
+                install=None,
+                removal=view,
+            )
+        )
+        return EXIT_OK
+    for line in render_removal_view(view, target=target_view(target)):
+        print(line)
+    if not commands:
         return EXIT_OK
 
     if args.dry_run:
@@ -1569,42 +2061,37 @@ def cmd_menus_apply(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+@envelope.json_capable()
 def cmd_show(args: argparse.Namespace) -> int:
-    """Print the consent disclosure for a gated profile without installing it."""
+    """Print a profile, its consent disclosure included, without installing it.
+
+    Under --json a unit's name is accepted too, and emits its manifest (D-059);
+    the text form describes profiles only, as it always has.
+    """
+    from hammunition.interface.catalog import (
+        build_profile,
+        build_unit,
+        detect_target,
+        render_profile,
+    )
+
     catalog_root = find_catalog(args.catalog)
-    _, profiles = load_all(catalog_root)
+    packages, profiles = load_all(catalog_root)
     profile = profiles.get(args.profile)
     if profile is None:
+        manifest = packages.get(args.profile)
+        if manifest is not None and envelope.wanted(args):
+            envelope.emit(build_unit(manifest, detect_target()))
+            return EXIT_OK
         print(f"error: no profile named {args.profile!r}", file=sys.stderr)
         return EXIT_UNPLANNABLE
-    print(f"{profile.name} — {profile.summary}")
-    print(f"stage: {profile.stage}")
-    print(f"\n{profile.documentation.what_it_installs.strip()}")
-    print(f"\nWhy together:\n  {profile.documentation.why_together.strip()}")
-    print(f"\nDeliberately excludes:\n  {profile.documentation.deliberately_excludes.strip()}")
-    print(f"\nYou still configure by hand:\n  {profile.documentation.manual_configuration.strip()}")
-    if profile.consent is not None:
-        print("\n" + render_disclosure(profile.consent, profile.name))
-    print(f"\nPackages ({len(profile.packages)}):")
-    for name in profile.packages:
-        print(f"  {name}")
+    doc = build_profile(profile)
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return EXIT_OK
+    for line in render_profile(doc):
+        print(line)
     return EXIT_OK
-
-
-def _wrap(text: str, *, indent: str, width: int = 88) -> list[str]:
-    """Wrap manifest prose to a readable width.
-
-    The `detail` on a system modification is a paragraph — it has to be, since
-    it is the operator's only account of what a group membership actually
-    grants — and printing it as one 400-column line is how a disclosure becomes
-    something nobody reads.
-    """
-    return textwrap.wrap(
-        " ".join(text.split()),
-        width=width,
-        initial_indent=indent,
-        subsequent_indent=indent,
-    )
 
 
 def _prompt(text: str) -> bool:
@@ -2030,16 +2517,27 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     because a root ``rm -f`` for an arbitrary string an unprivileged account
     once wrote into its own log file is not a promise this command makes.
 
-    The udev rules file is deliberately left alone. It is declarative, it is
-    harmless for a device that is not attached, and removing it would take
-    away device access an operator is still using. Power control is the
-    reversible part; permissions are not.
+    The device-access udev rules file (D-029) is deliberately left alone. It
+    is declarative, it is harmless for a device that is not attached, and
+    removing it would take away device access an operator is still using.
+    Power control is the reversible part; permissions are not.
+
+    **The kept-off rules file (D-056) is different and is removed here.** It
+    exists only because ``park`` was told to keep a device parked, and its
+    entries are power-control intent, not permissions -- so if it is present
+    it is removed along with the helper and the policy action, and udev is
+    told to reload so every device it was holding parked wakes from the next
+    boot.
     """
+    from hammunition.hardware import RULES_PATH
+    from hammunition.hardware.power import KEPT_RULES
+
     user = operator(args)
     if not user:
         print("error: could not determine whose transaction log to read.", file=sys.stderr)
         return EXIT_FAILED
 
+    kept_present = Path(KEPT_RULES).exists()
     owned = {HELPER_PATH, POLICY_PATH}
     recorded: list[str] = []
     skipped: list[str] = []
@@ -2065,7 +2563,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             if path not in recorded:
                 recorded.append(path)
 
-    if not recorded and not skipped:
+    if not recorded and not skipped and not kept_present:
         print(
             "Nothing to remove: the transaction log records no hardware artefacts "
             "installed by Hammunition for this user."
@@ -2077,7 +2575,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             f"Skipped: the log names {path!r}, which this command does not own "
             f"(only the power-control helper and its polkit action are ever removed)."
         )
-    if not recorded:
+    if not recorded and not kept_present:
         print("Nothing to do: no artefact this command owns is recorded.")
         return EXIT_OK
 
@@ -2085,7 +2583,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     gone = [p for p in recorded if p not in present]
     for path in gone:
         print(f"Already absent: {path}")
-    if not present:
+    if not present and not kept_present:
         print("Nothing to do: every recorded artefact is already gone.")
         return EXIT_OK
 
@@ -2097,15 +2595,36 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         )
         for path in present
     ]
+    if kept_present:
+        commands.append(
+            Command(
+                argv=("rm", "-f", KEPT_RULES),
+                description="Remove the kept-off entries, so every device wakes from the next boot",
+                requires_root=True,
+            )
+        )
+        commands.append(
+            Command(
+                argv=("udevadm", "control", "--reload"),
+                description="Reload udev's rules",
+                requires_root=True,
+            )
+        )
+        present.append(KEPT_RULES)
     euid = os.geteuid()
     print(f"\nCommands ({len(commands)}):")
     for command in commands:
         print(f"  # {command.description}")
         print(f"  $ {command.display(euid=euid)}")
+    if kept_present:
+        print(
+            f"\nRemoving {KEPT_RULES} removes the whole file, including any line in it "
+            f"that Hammunition did not write."
+        )
     print(
-        "\nThe udev rules file is not touched: it is declarative, harmless for a "
-        "device that is not attached, and removing it would take away device "
-        "access you are still using."
+        f"\nThe device-access rules file, {RULES_PATH}, is not touched: it is "
+        f"declarative, harmless for a device that is not attached, and removing it "
+        f"would take away device access you are still using."
     )
 
     if args.dry_run:
@@ -2131,7 +2650,12 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             print(f"  unverified: {path} is still present", file=sys.stderr)
         return EXIT_FAILED
 
-    print("\nDone and verified. `hammunition hardware apply` reinstalls them.")
+    after = []
+    if any(p != KEPT_RULES for p in present):
+        after.append("`hammunition hardware apply` reinstalls the helper and its polkit action.")
+    if kept_present:
+        after.append("Kept entries come back with `hammunition hardware park`.")
+    print("\nDone and verified. " + " ".join(after))
     return EXIT_OK
 
 
@@ -2152,27 +2676,66 @@ def _survey_parkables(args: argparse.Namespace) -> tuple[list[Parkable], list[tu
     return parkable(matches, entries)
 
 
+def _kept_split(
+    found: list[Parkable], kept: list[KeptEntry]
+) -> tuple[list[tuple[Parkable, bool]], list[KeptEntry]]:
+    """Each attached parkable with whether it is kept, and the kept entries
+    with nothing attached.
+
+    A device whose values will not validate as an entry is reported not kept
+    and matched against nothing -- one odd device never drops the rest, the
+    way devctl's ``state`` treats it.
+    """
+    from hammunition.hardware.power import PowerError, kept_entry
+
+    rows: list[tuple[Parkable, bool]] = []
+    mine: list[KeptEntry] = []
+    for p in found:
+        try:
+            entry = kept_entry(p)
+        except PowerError:
+            rows.append((p, False))
+            continue
+        mine.append(entry)
+        rows.append((p, any(e.same_device(entry) for e in kept)))
+    absent = [e for e in kept if not any(e.same_device(m) for m in mine)]
+    return rows, absent
+
+
+@envelope.json_capable()
 def cmd_hardware_state(args: argparse.Namespace) -> int:
-    """Which catalogued devices can be parked, and which are parked now."""
+    """Which catalogued devices can be parked, which are parked now, and which
+    are kept parked across reboots — attached or not."""
+    from hammunition.hardware.power import PowerError, read_kept
+    from hammunition.interface.hardware import build_hardware, render_hardware
+
     found, skipped = _survey_parkables(args)
-    for unit, why in skipped:
-        print(f"  {unit}: not parkable right now — {why}")
-    if not found:
-        print(
-            "No parkable device is attached. A device is parkable when its catalog "
-            "entry carries a power_control block and it is plugged in now."
-        )
+    kept_error: str | None = None
+    try:
+        kept = read_kept()
+    except (OSError, PowerError) as exc:
+        kept_error, kept = str(exc), []
+
+    rows, absent = _kept_split(sorted(found, key=lambda p: (p.name, p.address)), kept)
+    doc = build_hardware(rows, absent, skipped, kept_error)
+    if envelope.wanted(args):
+        envelope.emit(doc)
         return EXIT_OK
-    print(f"{'device':24} {'address':10} {'state':8} summary")
-    for p in sorted(found, key=lambda p: (p.name, p.address)):
-        print(f"{p.name:24} {p.address:10} {'parked' if p.parked else 'awake':8} {p.summary}")
-    print("\n`hammunition hardware park NAME` / `wake NAME`. A reboot wakes everything.")
+    for line in render_hardware(doc):
+        print(line)
     return EXIT_OK
 
 
 def _power_verb(args: argparse.Namespace, verb: str) -> int:
     """Disclose the privileged call and every write it will cause, then run it."""
-    from hammunition.hardware.power import PowerError, plan_park, plan_wake
+    from hammunition.hardware.power import (
+        KEPT_RULES,
+        PowerError,
+        plan_forget,
+        plan_park,
+        plan_wake,
+        read_kept,
+    )
 
     helper = Path(HELPER_PATH)
     if not helper.is_file():
@@ -2197,23 +2760,49 @@ def _power_verb(args: argparse.Namespace, verb: str) -> int:
     found, skipped = _survey_parkables(args)
     for unit, why in skipped:
         print(f"note: {unit} is not parkable right now — {why}", file=sys.stderr)
+    from hammunition.cli.devctl import attached_named, resolve_kept
     from hammunition.cli.devctl import resolve as resolve_parkable
 
+    keep = not getattr(args, "until_reboot", False)
+    absent = False
     try:
-        target = resolve_parkable(args.name, found)
-        plan = plan_park(target) if verb == "park" else plan_wake(target)
+        try:
+            target = resolve_parkable(args.name, found)
+        except PowerError:
+            if verb != "wake" or attached_named(args.name, found):
+                raise
+            entry = resolve_kept(args.name, read_kept())
+            plan = plan_forget(entry)
+            absent = True
+            label, address, summary = entry.name, entry.address, "not attached"
+        else:
+            plan = plan_park(target, keep=keep) if verb == "park" else plan_wake(target)
+            label, address, summary = target.name, target.address, target.summary
     except PowerError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_UNPLANNABLE
 
-    command = Command(
-        argv=("pkexec", HELPER_PATH, verb, f"{target.name}@{target.address}"),
-        description=f"{verb.capitalize()} {target.name} at {target.address}",
-    )
-    print(f"{verb.capitalize()}ing {target.name} ({target.summary}) at {target.address}\n")
-    print("Writes this will cause:")
-    for write in plan.writes:
-        print(f"  {write.path} <- {write.value}")
+    argv = ["pkexec", HELPER_PATH, verb]
+    if verb == "park" and not keep:
+        argv.append("--until-reboot")
+    argv.append(f"{label}@{address}")
+    command = Command(argv=tuple(argv), description=f"{verb.capitalize()} {label} at {address}")
+    print(f"{verb.capitalize()}ing {label} ({summary}) at {address}\n")
+    if plan.writes:
+        print("Writes this will cause:")
+        for write in plan.writes:
+            print(f"  {write.path} <- {write.value}")
+    if plan.keep is not None:
+        print(f"\nIt stays parked across reboots. Added to {KEPT_RULES}:")
+        print(f"  {plan.keep.rule()}")
+    elif verb == "park":
+        print(
+            f"\nA reboot wakes it (--until-reboot): no kept entry is written, and "
+            f"any kept entry for it is removed from {KEPT_RULES}."
+        )
+    elif plan.forget is not None:
+        note = "It is not attached, so this will only" if absent else "This will also"
+        print(f"\n{note} remove its kept entry from {KEPT_RULES}, if present.")
     print(f"\n  # {command.description}\n  $ {command.display()}")
 
     if args.dry_run:
@@ -2237,12 +2826,12 @@ def _power_verb(args: argparse.Namespace, verb: str) -> int:
     if result.returncode != 0:
         print(result.stderr.strip()[:400] or f"helper exited {result.returncode}", file=sys.stderr)
         return EXIT_FAILED
-    print(f"\nDone and verified. `hammunition hardware state` shows {target.name} now.")
+    print(f"\nDone and verified. `hammunition hardware state` shows {label} now.")
     return EXIT_OK
 
 
 def cmd_hardware_park(args: argparse.Namespace) -> int:
-    """Detach a device and let its port suspend. Reversed by `wake` or a reboot."""
+    """Detach a device and keep it parked across reboots, unless --until-reboot."""
     return _power_verb(args, "park")
 
 
@@ -2256,11 +2845,12 @@ def cmd_hardware_wake(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+@envelope.json_capable()
 def cmd_doctor(args: argparse.Namespace) -> int:
     """Report what is ready and what is not yet set up. Changes nothing."""
     import shutil
 
-    from hammunition.doctor import run_checks, summarize, writable_or_creatable
+    from hammunition.doctor import ROUTINO_TRANSLATIONS, run_checks, writable_or_creatable
     from hammunition.hardware import RULES_PATH, plan_hardware, rules_file
     from hammunition.manifest.load import load_hardware
     from hammunition.paths import state_dir
@@ -2329,6 +2919,45 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     log_dir = state_dir(user or None)
     log_dir_writable = writable_or_creatable(log_dir)
 
+    # This checkout's entry point: src/hammunition/cli/main.py -> the checkout
+    # root is three parents above the package. Resolved, so a ~/.local/bin
+    # link to it compares equal (D-059).
+    checkout = Path(__file__).resolve().parents[3]
+    engine_expected = str((checkout / ".venv" / "bin" / "hammunition").resolve())
+    found_engine = shutil.which("hammunition")
+    engine_on_path = str(Path(found_engine).resolve()) if found_engine else None
+    # Where it was found, unresolved, and whether that is ~/.local/bin, so doctor
+    # offers the relink only for our own link there and never for a file it
+    # would clobber or one that shadows it from earlier on PATH.
+    engine_found_in_local_bin = (
+        found_engine is not None
+        and Path(found_engine).parent.resolve() == Path(local_bin).resolve()
+    )
+    engine_found_link = (
+        os.readlink(found_engine) if found_engine and Path(found_engine).is_symlink() else None
+    )
+
+    # bootstrap's own link in ~/.local/bin, whether or not that is on PATH yet:
+    # a fresh account has the link before its next login puts the dir on PATH.
+    linked = Path(local_bin) / "hammunition"
+    engine_linked_in_local_bin = linked.is_symlink() and str(linked.resolve()) == engine_expected
+
+    kept_attached: tuple[str, ...] = ()
+    kept_absent: tuple[str, ...] = ()
+    try:
+        from hammunition.hardware.power import PowerError, read_kept
+
+        found, _skipped = _survey_parkables(args)
+        kept = read_kept()
+        _rows, absent = _kept_split(found, kept)
+        attached_now = [f"{e.name}@{e.address}" for e in kept if e not in absent]
+        absent_now = [f"{e.name}@{e.address}" for e in absent]
+        kept_attached = tuple(attached_now)
+        kept_absent = tuple(absent_now)
+    except (OSError, PowerError, CatalogError, SystemExit):
+        kept_attached, kept_absent = (), ()
+
+    sessions = scan_sessions()
     checks = run_checks(
         target_describe=target_describe,
         is_debian_family=is_debian,
@@ -2342,24 +2971,31 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         rules_applied=rules_applied,
         attached_recognised=attached_recognised,
         log_dir_writable=log_dir_writable,
+        engine_on_path=engine_on_path,
+        engine_expected=engine_expected,
+        engine_found=found_engine,
+        engine_found_in_local_bin=engine_found_in_local_bin,
+        engine_found_link=engine_found_link,
+        engine_linked_in_local_bin=engine_linked_in_local_bin,
+        kept_attached=kept_attached,
+        kept_absent=kept_absent,
+        desktops_installed=sessions.desktops,
+        sessions_unrecognised=sessions.unrecognised,
+        desktop_current=current_desktop(os.environ),
+        qmapshack_without_translations=(
+            shutil.which("qmapshack") is not None and not Path(ROUTINO_TRANSLATIONS).is_file()
+        ),
     )
 
-    glyph = {"ok": "✓", "warn": "!", "fail": "✗", "info": "·"}
-    print("Hammunition health check\n")
-    for check in checks:
-        print(f"  [{glyph[check.status]}] {check.name:14} {check.detail}")
-        if check.fix and check.status in ("fail", "warn"):
-            print(f"      → {check.fix}")
-    fails, warns, healthy = summarize(checks)
-    print(f"\n{healthy} ok, {warns} to look at, {fails} blocking.")
-    if fails:
-        print("Fix the blocking items above before installing.")
-        return EXIT_FAILED
-    if warns:
-        print("The engine works; the items marked ! limit what you can install until fixed.")
+    from hammunition.interface.doctor import build_doctor, render_doctor
+
+    doc = build_doctor(checks)
+    if envelope.wanted(args):
+        envelope.emit(doc)
     else:
-        print("Ready.")
-    return EXIT_OK
+        for line in render_doctor(doc):
+            print(line)
+    return EXIT_FAILED if doc.fails else EXIT_OK
 
 
 # ---------------------------------------------------------------------------
@@ -2369,10 +3005,85 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
 def _engine_version() -> str:
     """The installed package version, or a marker when running uninstalled."""
+    return envelope.engine_version()
+
+
+def _add_json_flag(parser: argparse.ArgumentParser, *, top: bool) -> None:
+    """``--json`` on the top-level parser and on every subcommand, recursively.
+
+    Accepted on both sides of the verb, ``hammunition --json status`` and
+    ``hammunition status --json``. A subcommand's copy defaults to SUPPRESS,
+    so an absent flag after the verb does not overwrite one given before it.
+    Walked rather than listed, so a verb added later carries it without
+    anyone remembering to (D-059).
+    """
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        default=False if top else argparse.SUPPRESS,
+        help="print one JSON document on stdout instead of text (docs/reference/json-interface.md)",
+    )
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            for child in action.choices.values():
+                _add_json_flag(child, top=False)
+
+
+def _disallow_abbrev(parser: argparse.ArgumentParser) -> None:
+    """No abbreviated long option is ever accepted, here or on any
+    subcommand, recursively.  D-059 (review round 1, Important 2).
+
+    ``allow_abbrev`` defaults to True, so without this `--js` or `--dr`
+    would silently stand in for `--json` or `--dry-run`. That is a real gate
+    to defeat: `main()` separately routes on the *parsed* value of
+    ``args.json`` rather than a text scan of argv, but a CLI that guards a
+    real install and every consent gate behind an exact flag should not
+    depend on that alone. ``allow_abbrev`` is a plain instance attribute
+    argparse reads at parse time, so setting it after construction (as every
+    subparser here is already built) works the same as passing it in.
+    """
+    parser.allow_abbrev = False
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            for child in action.choices.values():
+                _disallow_abbrev(child)
+
+
+def _json_requested(arguments: list[str]) -> bool:
+    """Whether ``--json`` was actually given -- immune to abbreviation, and
+    to every other flag this CLI defines -- with no side effect (no help
+    text, no version, no exit).  D-059 (review round 1, Important 2).
+
+    Used by `main()` to route before touching stdout, so it must not risk
+    printing anything: a full parse of ``--help``/``--version`` writes to
+    stdout before this function could know whether to redirect it. A tiny
+    parser that knows only ``--json`` (`add_help=False`, so `-h`/`--help`
+    is not even registered; `allow_abbrev=False`, so `--js` matches
+    nothing) is the actual parsed answer to "did the operator ask for
+    JSON", not a guess from scanning the raw tokens the old code used.
+    """
+    probe = _Probe(add_help=False, allow_abbrev=False)
+    probe.add_argument("--json", action="store_true", default=False)
     try:
-        return metadata.version("hammunition")
-    except metadata.PackageNotFoundError:
-        return "0+uninstalled"
+        parsed, _ = probe.parse_known_args(arguments)
+    except _ProbeError:
+        # `--json=VALUE`: the exact flag with a value it does not take. It is
+        # a request for JSON all the same, so `_main_json` reports the full
+        # parser's own error as a document (final review, Minor 1) rather
+        # than the probe exiting 2 with nothing on stdout.
+        return True
+    return bool(parsed.json)
+
+
+class _ProbeError(Exception):
+    """The `--json` probe could not parse its one flag."""
+
+
+class _Probe(argparse.ArgumentParser):
+    """A parser whose errors raise instead of printing usage and exiting."""
+
+    def error(self, message: str) -> NoReturn:
+        raise _ProbeError(message)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -2435,6 +3146,53 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_update.set_defaults(func=cmd_update)
+
+    p_maps = sub.add_parser(
+        "maps", help="offline maps: Geofabrik's regions (D-057), QMapShack and its GPS (D-061)"
+    )
+    maps_sub = p_maps.add_subparsers(dest="maps_command", required=True)
+
+    p_maps_regions = maps_sub.add_parser(
+        "regions",
+        help="list Geofabrik's region paths; fetches the index only when run",
+    )
+    p_maps_regions.add_argument(
+        "filter",
+        nargs="?",
+        default=None,
+        help="case-insensitive substring to match; default: every region",
+    )
+    p_maps_regions.set_defaults(func=cmd_maps_regions)
+
+    p_maps_qms = maps_sub.add_parser(
+        "qmapshack",
+        help="add Hammunition's maps to your QMapShack configuration, then start it (D-061)",
+    )
+    p_maps_qms.add_argument(
+        "--configure-only",
+        action="store_true",
+        help="edit the configuration and do not start QMapShack",
+    )
+    p_maps_qms.set_defaults(func=cmd_maps_qmapshack)
+
+    p_maps_tether = maps_sub.add_parser(
+        "gps-tether",
+        help="serve gpsd's position as NMEA on 127.0.0.1:10110 for QMapShack's GPS TCP/IP source (D-061)",
+    )
+    p_maps_tether.add_argument(
+        "--gpsd",
+        metavar="HOST[:PORT]",
+        default=None,
+        help="the gpsd to read: another machine's, an IPv6 address in brackets "
+        "(default 127.0.0.1:2947)",
+    )
+    p_maps_tether.add_argument(
+        "--port",
+        metavar="N",
+        default=None,
+        help="serve on 127.0.0.1 port N, 1024 to 65535, when 10110 is taken (default 10110)",
+    )
+    p_maps_tether.set_defaults(func=cmd_maps_gps_tether)
 
     p_show = sub.add_parser("show", help="describe a profile, disclosure included")
     p_show.add_argument("profile")
@@ -2567,6 +3325,12 @@ def build_parser() -> argparse.ArgumentParser:
             action="store_true",
             help="print the privileged call and every write it would cause, then stop",
         )
+        if verb == "park":
+            p_verb.add_argument(
+                "--until-reboot",
+                action="store_true",
+                help="park now, but let a reboot wake it (no kept entry)",
+            )
         p_verb.set_defaults(func=cmd_hardware_park if verb == "park" else cmd_hardware_wake)
 
     p_station = sub.add_parser("station", help="the values only you can supply")
@@ -2580,33 +3344,24 @@ def build_parser() -> argparse.ArgumentParser:
     p_station_set.add_argument("--callsign", default=None)
     p_station_set.add_argument("--grid-square", default=None)
     p_station_set.add_argument("--node-alias", default=None)
+    p_station_set.add_argument(
+        "--map-regions",
+        default=None,
+        help="comma-separated Geofabrik regions to carry offline maps for",
+    )
+    p_station_set.add_argument(
+        "--map-freshness", default=None, choices=("yearly", "monthly", "latest")
+    )
     p_station_set.add_argument("--user", default=None, help="whose configuration to write")
     p_station_set.set_defaults(func=cmd_station_set)
 
+    _add_json_flag(parser, top=True)
+    _disallow_abbrev(parser)
     return parser
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    # Line-buffer stdout even when it is not a terminal. A whole-profile
-    # install redirected to a file showed 0 bytes for the forty minutes it
-    # ran (Kali VM, 2026-09-02): Python block-buffers a pipe, so every `$
-    # command` header sat in memory while the child processes, which write
-    # to the same descriptor directly, streamed past it -- a log that is
-    # empty until exit, and then out of order. An install that is killed
-    # mid-way loses the whole record. Line buffering costs nothing an
-    # installer notices.
-    reconfigure = getattr(sys.stdout, "reconfigure", None)
-    if reconfigure is not None:
-        reconfigure(line_buffering=True)
-    parser = build_parser()
-    args = parser.parse_args(argv)
-    if not getattr(args, "func", None):
-        # Bare `hammunition`: print the top-level help and exit cleanly, which
-        # is friendlier than argparse's "command is required" error for someone
-        # running it for the first time. (Group verbs keep required sub-verbs,
-        # so `hammunition hardware` still gets argparse's standard message.)
-        parser.print_help()
-        return EXIT_OK
+def _dispatch(args: argparse.Namespace) -> int:
+    """Run the chosen command, turning operator-input errors into exit codes."""
     try:
         result: int = args.func(args)
     except CatalogError as exc:
@@ -2622,6 +3377,103 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("\nInterrupted. Nothing further was run.", file=sys.stderr)
         return EXIT_FAILED
     return result
+
+
+def _exit_code(exc: SystemExit) -> int:
+    """The status the interpreter would exit with for *exc*."""
+    if exc.code is None:
+        return EXIT_OK
+    if isinstance(exc.code, int):
+        return exc.code
+    return EXIT_FAILED  # SystemExit("message") prints it and exits 1
+
+
+def _main_json(arguments: list[str]) -> int:
+    """``--json``: exactly one document on stdout, on every path.  D-059.
+
+    Both standard streams point at a recording tee over the real stderr
+    while the command runs, so nothing it prints can reach stdout; the
+    document goes to the real stdout through :func:`envelope.emit`. A run
+    that ends without one gets an error document with the same exit code.
+    """
+    real_stdout, real_stderr = sys.stdout, sys.stderr
+    tee = envelope.Tee(real_stderr)
+    sys.stdout = sys.stderr = cast(TextIO, tee)
+    envelope.begin(real_stdout)
+    try:
+        try:
+            args = build_parser().parse_args(arguments)
+        except SystemExit as exc:
+            code = _exit_code(exc)
+            if code == EXIT_OK:
+                return EXIT_OK  # --help or --version: printed to stderr, not a document
+            envelope.emit(
+                envelope.ErrorDocument(command="", exit_code=code, message=tee.text().strip())
+            )
+            return code
+        command = envelope.command_name(args)
+        why = envelope.refusal(args)
+        if why is not None:
+            # Bare `hammunition --json` keeps bare `hammunition`'s exit 0
+            # (final review, Minor 2): no command is not a refused command.
+            code = EXIT_OK if getattr(args, "func", None) is None else EXIT_UNPLANNABLE
+            print(f"error: {why}", file=sys.stderr)
+            envelope.emit(
+                envelope.ErrorDocument(command=command, exit_code=code, message=tee.text().strip())
+            )
+            return code
+        try:
+            code = _dispatch(args)
+        except SystemExit as exc:
+            code = _exit_code(exc)
+            if isinstance(exc.code, str):
+                print(exc.code, file=sys.stderr)
+        except Exception:
+            # A bug in a command, or emit() itself raising -- json.dumps on
+            # a non-serialisable field, say -- must not leave stdout empty
+            # (review round 1, Important 1): the module's own promise is
+            # "stdout parses as exactly one document on every path", and
+            # `_dispatch` only catches CatalogError, StationError and
+            # KeyboardInterrupt. The traceback goes to the real stderr
+            # through the tee, loud rather than silently swallowed;
+            # KeyboardInterrupt keeps its existing handling in `_dispatch`.
+            traceback.print_exc(file=sys.stderr)
+            code = EXIT_FAILED
+        if not envelope.emitted():
+            envelope.emit(
+                envelope.ErrorDocument(command=command, exit_code=code, message=tee.text().strip())
+            )
+        return code
+    finally:
+        envelope.end()
+        sys.stdout, sys.stderr = real_stdout, real_stderr
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    # Line-buffer stdout even when it is not a terminal. A whole-profile
+    # install redirected to a file showed 0 bytes for the forty minutes it
+    # ran (Kali VM, 2026-09-02): Python block-buffers a pipe, so every `$
+    # command` header sat in memory while the child processes, which write
+    # to the same descriptor directly, streamed past it -- a log that is
+    # empty until exit, and then out of order. An install that is killed
+    # mid-way loses the whole record. Line buffering costs nothing an
+    # installer notices.
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is not None:
+        reconfigure(line_buffering=True)
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if _json_requested(arguments):
+        return _main_json(arguments)
+    parser = build_parser()
+    args = parser.parse_args(arguments)
+    if not getattr(args, "func", None):
+        # Bare `hammunition`: print the top-level help and exit cleanly, which
+        # is friendlier than argparse's "command is required" error for someone
+        # running it for the first time. (Group verbs keep required sub-verbs,
+        # so `hammunition hardware` still gets argparse's standard message.)
+        parser.print_help()
+        return EXIT_OK
+    return _dispatch(args)
 
 
 if __name__ == "__main__":  # pragma: no cover

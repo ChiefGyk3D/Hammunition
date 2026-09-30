@@ -1,0 +1,75 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: navit
+version: "0.5.6"
+summary: Offline turn-by-turn navigation that follows the GPS, with spoken directions
+categories: [navigation-maps, gps-gnss]
+
+# From the EmComm Tools OS delta (install-navit.sh, D-042), where it is
+# the offline cyberdeck navigator. ETC installs navit-gui-gtk too; this
+# carries the internal GUI only, which is the one laid out for a touch
+# screen and a small panel. All five packages were measured present in
+# Parrot 7.3's archive. `maptool` is here, not in osm-navit, because it is
+# the program osm-navit's converter runs and apt installs programs.
+depends: [gpsd]
+
+install:
+  - install:
+      method: apt
+      packages:
+        - navit
+        - navit-gui-internal
+        - navit-graphics-gtk-drawing-area
+        - espeak-ng
+        - maptool
+
+# Named navit-offline, not navit: the wrapper lands on the PATH under this
+# name, and plain `navit` must keep running Debian's own configuration.
+launchers:
+  - name: navit-offline
+    exec: navit /usr/local/share/hammunition/data/osm-navit/navit.xml
+    title: Navit (offline navigation)
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A navigation program for a laptop or a cyberdeck: a moving map that
+    follows your position from gpsd, routes to an address or a point you
+    pick on the map, and speaks the turns through espeak-ng. It reads maps
+    from files on the disk, so once the maps are installed nothing it does
+    needs a network. With no destination set it is a situational display:
+    the map follows the GPS and shows position and speed.
+  why_you_want_it: >-
+    A phone's navigation needs the phone network for its maps and often for
+    its routing, which is the thing that is missing in a field deployment,
+    at a remote site or after a storm. Navit with the maps already on the
+    machine keeps working. It is the offline alternative to phone or web
+    navigation, and it shares the same gpsd feed as APRS, grid-square and
+    time tools rather than taking the receiver for itself.
+  prerequisites: >-
+    A GPS receiver served by gpsd (the `gpsd` unit, installed first), and
+    maps: the `osm-regions` and `osm-navit` units, which need your regions
+    set first with `hammunition station set --map-regions`. The launcher
+    opens the configuration `osm-navit` writes, so it has nothing to open
+    until `osm-navit` has installed. Spoken directions need working audio
+    output.
+  known_problems: >-
+    The internal GUI is built for a touch screen: its menus are large tiles
+    opened by clicking the map, and there is no menu bar, which surprises
+    anyone expecting a desktop application. The launcher's configuration is
+    not edited by hand: it is generated from Debian's /etc/navit/navit.xml
+    with the speech set to espeak-ng and the installed maps added, and it is
+    rewritten on every install, so a change made to it is lost. Your own
+    ~/.navit directory, which holds bookmarks and the last destination, is
+    never touched. Whether Navit routes across two separately converted
+    regions, such as a trip from one state into the next, has not yet been
+    measured on hardware.
+  upstream_url: https://www.navit-project.org/
+  upstream_support: >-
+    The Navit wiki (https://wiki.navit-project.org/) and the project's
+    GitHub issues (https://github.com/navit-gps/navit/issues).

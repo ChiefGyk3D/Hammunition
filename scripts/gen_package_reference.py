@@ -38,17 +38,21 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 import yaml  # noqa: E402
 
 from hammunition.backends.source import DEFAULT_PREFIX, tree_destination  # noqa: E402
+from hammunition.desktop import describe_set  # noqa: E402
 from hammunition.manifest.load import load_catalog  # noqa: E402
 from hammunition.manifest.schema import (  # noqa: E402
     AptInstall,
     Binary,
     BinaryInstall,
     DataInstall,
+    DemTilesInstall,
+    DerivedDataInstall,
     GitInstall,
     InstallBlock,
     NodeInstall,
     PackageManifest,
     PipxInstall,
+    RegionalDataInstall,
     SourceInstall,
     Status,
     VenvInstall,
@@ -77,6 +81,21 @@ def method_of(block: InstallBlock) -> str:
     if isinstance(install, DataInstall):
         parts = ", ".join(f"{a.url} ({a.size:,} bytes)" for a in install.artifacts)
         return f"data ({install.licence}, {install.licence_url}): {parts}"
+    if isinstance(install, RegionalDataInstall):
+        return (
+            f"OpenStreetMap regions from Geofabrik (chosen in station config) "
+            f"({install.licence}, {install.licence_url})"
+        )
+    if isinstance(install, DemTilesInstall):
+        return (
+            f"elevation tiles from {install.provider} for the regions in station config "
+            f"({install.licence}, {install.licence_url})"
+        )
+    if isinstance(install, DerivedDataInstall):
+        return (
+            f"converted from {install.source} by {install.converter} "
+            f"({install.licence}, {install.licence_url})"
+        )
     if isinstance(install, NodeInstall):
         return (
             f"node (needs Node {install.node_min_version}+ from the distribution; "
@@ -148,6 +167,15 @@ def page(m: PackageManifest) -> str:
             + " — checked against the running kernel at plan time; "
             "see [kernel-ax25](../reference/kernel-ax25.md)"
         )
+    if m.desktops is not None:
+        line = (
+            f"- **Desktops:** {describe_set(frozenset(m.desktops))} only — read from the "
+            "session files at plan time; deferred from a profile on a machine with none of "
+            "them, refused by name (see [desktops](../desktops.md))"
+        )
+        if m.desktop_alternative:
+            line += f"; elsewhere, [`{m.desktop_alternative}`]({m.desktop_alternative}.md)"
+        out.append(line)
     if m.supersedes:
         out.append("- **Supersedes:** " + ", ".join(f"`{p}`" for p in m.supersedes))
     if m.superseded_by:

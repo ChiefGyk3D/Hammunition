@@ -56,7 +56,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from hammunition.fetch import Fetcher
+from hammunition.fetch import Fetcher, operator_dir, remove_tree
 from hammunition.manifest.schema import (
     Binary,
     InstallBlock,
@@ -206,11 +206,24 @@ def prepare_tree(destination: Path) -> str:
     Idempotent (CLAUDE.md): a re-run builds from a clean tree rather than
     layering a new checkout or archive over a half-built one, where a stale
     object file outlives the source it came from.
+
+    Under sudo, the parent -- the unit's directory in the operator's build
+    root -- is walked from the operator's home and proven theirs *before*
+    anything is removed, and the old tree is removed and the new one made
+    through that directory's descriptor: a symlink planted in the path
+    (``build/unit-abc -> /somewhere``) is refused, never followed. That is
+    all this protects. Root still builds by path inside an operator-owned
+    directory afterwards, which an operator-uid process can race; that is a
+    separate, open issue, not solved here.
     """
-    existed = destination.exists()
-    if existed:
-        shutil.rmtree(destination)
-    destination.mkdir(parents=True)
+    # The build root and the unit's directory are the operator's even under
+    # sudo, or the operator's own later steps there fail with EACCES.
+    with operator_dir(destination.parent) as parent_fd:
+        existed = remove_tree(destination.parent, parent_fd, destination.name)
+        if parent_fd is None:
+            destination.mkdir()
+        else:
+            os.mkdir(destination.name, 0o755, dir_fd=parent_fd)
     return f"{'cleared and recreated' if existed else 'created'} {destination}"
 
 
@@ -227,15 +240,19 @@ def extract(archive: Path, destination: Path) -> str:
     than one top-level entry it is unpacked as-is, and the root is still
     ``destination``.
     """
-    if destination.exists():
-        # Idempotent: a re-run rebuilds from a clean tree rather than layering a
-        # new archive over a half-built one, where a stale object file outlives
-        # the source it came from.
-        shutil.rmtree(destination)
     staging = destination.parent / (destination.name + ".unpack")
-    if staging.exists():
-        shutil.rmtree(staging)
-    staging.mkdir(parents=True)
+    # Idempotent: a re-run rebuilds from a clean tree rather than layering a
+    # new archive over a half-built one, where a stale object file outlives
+    # the source it came from. Under sudo the parent is proven the
+    # operator's first and both removals go through its descriptor, as in
+    # prepare_tree -- and with the same limit: the unpacking below is by path.
+    with operator_dir(destination.parent) as parent_fd:
+        remove_tree(destination.parent, parent_fd, destination.name)
+        remove_tree(destination.parent, parent_fd, staging.name)
+        if parent_fd is None:
+            staging.mkdir()
+        else:
+            os.mkdir(staging.name, 0o755, dir_fd=parent_fd)
 
     try:
         kind = _sniff(archive)

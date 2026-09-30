@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: socat
+version: "1.8.0.3"
+summary: A relay between two data channels, sockets, files or programs
+menu_title: Data channel relay (socat)
+categories: [navigation-maps]
+
+# Retired, and the catalog still carries it, so `hammunition uninstall
+# socat` still works on a machine v0.14.0 installed it on (D-061, amended
+# 2026-09-29). No profile or manifest names it.
+status: retired
+retire_reason: out_of_scope
+status_reason: >-
+  Carried only for the first `gps-tether`, which ran `gpspipe -r` behind
+  socat. The tether now writes NMEA from gpsd's JSON in the engine, with no
+  socat (D-061, amended 2026-09-29).
+  Nothing else in the catalog uses it. `apt install socat` still works for
+  anyone who wants it for its own sake.
+status_date: 2026-09-29
+status_verdict: tested
+recommended_default: false
+
+# `apt-cache policy socat` on Parrot 7 (echo), 2026-09-28: candidate
+# 1.8.0.3-1+deb13u1 (echo/main), already installed on the measuring machine.
+
+install:
+  - install:
+      method: apt
+      packages: [socat]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Connects two data channels and copies between them: a TCP listener and a
+    program's output, a serial port and a socket, a file and a pipe.
+  why_you_want_it: >-
+    It is the general tool for joining a program that speaks one channel to
+    another that expects a different one. Hammunition no longer needs it:
+    the `gps-tether` launcher serves QMapShack its NMEA itself.
+  prerequisites: >-
+    None of its own.
+  known_problems: >-
+    A listener with no `bind=` option listens on every interface; bind
+    127.0.0.1 for anything that should stay on this machine.
+  upstream_url: http://www.dest-unreach.org/socat/
+  upstream_support: >-
+    The documentation on the project site and the socat mailing list it
+    lists.

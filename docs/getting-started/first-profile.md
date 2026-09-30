@@ -10,6 +10,11 @@ bundle, not two dozen packages by hand. Profiles are flat tags — they overlap
 (fldigi is in both `digital-modes` and `nbems`) but never nest, so you compose
 them freely.
 
+Every command here runs the engine as `hammunition`, which `./bootstrap.sh`
+put on your PATH. If the shell says `command not found`, run the checkout's
+`.venv/bin/hammunition` by its full path instead;
+[installing the engine](install.md) says why and how to fix it.
+
 ## Start with `station`
 
 `station` is the floor every setup stands on: rig control, time, and position.

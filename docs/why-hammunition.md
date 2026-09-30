@@ -3,7 +3,7 @@
 *Linux radio tools for people who can't leave well enough alone.*
 
 > **State of the project, September 2026: it installs, and it is beta.**
-> v0.9.0 (2026-09-13) is feature-complete for 1.0; what remains is
+> v0.14.2 (2026-09-29) is feature-complete for 1.0; what remains is
 > verification against attached radios on the bench. The catalog holds 249
 > package manifests, 16 profiles, and a 24-device hardware catalog with 297
 > measured USB identifiers. The engine has seven backends — apt, source tarball, git,
@@ -282,8 +282,8 @@ Nearly every project in this space depends on one person. That's not a criticism
 debt to those individuals. But it's fragile, and we'd rather build something that
 survives its founder. Multiple maintainers with merge rights, a documented
 decision process, a real pull-request path, and signed releases — the first
-three from the start, the last as soon as a signing key exists (v0.7.0 and
-v0.9.0 are annotated tags, unsigned, and say so; 1.0 will be signed).
+three from the start, the last as soon as a signing key exists (v0.7.0,
+v0.9.0, v0.10.0, v0.11.0, v0.12.0, v0.13.0, v0.14.0, v0.14.1 and v0.14.2 are annotated tags, unsigned, and say so; 1.0 will be signed).
 
 ---
 

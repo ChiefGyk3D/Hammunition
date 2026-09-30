@@ -275,6 +275,53 @@ Not measured: a reboot while parked (the design says it wakes everything and
 nothing is persisted), park and wake from the CLI and menu callers, and any
 second parkable device.
 
+## Session 11, 2026-09-28: Navit on the operator's own maps, and address search
+
+The first run of the `navigation` profile (D-057) on the field laptop,
+with two US-state-sized regions set in station config. Region names, file
+sizes and positions are not recorded here.
+
+| Step | Result |
+|---|---|
+| `hammunition install navigation` | Every step verified: both regions downloaded and checked against their pins, both converted as the operator, Navit's configuration written. |
+| First start of `navit-offline` | A blank screen. The generated configuration kept Navit's stock centre, Munich, where no map exists, and the gpsd vehicle had no `follow="1"`, so the view never moved to the receiver. Fixed by #130: the configuration now opens on the first region's bounding box and follows the GPS (the D-057 amendment of the same day). |
+| Reinstall, then `rm -f ~/.navit/center.txt` | Navit opens on the maps and follows the receiver. The file matters: after its first start Navit restores its last view from it, and it still held the Munich view. The guide's troubleshooting entry carries the command. |
+| Address search | Found almost nothing. Actions → Town, with the US chosen, listed a handful of towns, and not the largest city in the first region. Measured in scratch, from the installed `.osm.pbf` read-only: the search index of one region held about a dozen items for a map that draws a few thousand places. The cause is the state extract's open copy of the US border: maptool files towns under a country only inside a closed `admin_level=2` boundary, and dropped the rest. |
+| The maintainer's stopgap | The maps rebuilt by hand with `maptool -U`, which files every unassigned town under the pseudo-country "Unknown": searchable, with no state or county, and only after choosing "* Unknown" as the country. |
+| The fix, measured in scratch | A closed US border from Natural Earth merged into the extract with `osmium merge` before `maptool -U`: over four thousand index items on the same region under the USA, a few hundred times as many, almost all with state and county; a handful of edge places in the neighbouring states with no state (those states' own borders are incomplete in the extract); a handful more under Unknown: a few places on the wrong side of the coarse border, and the places across the national border that the extract carries, correctly not filed under the US. The largest missing places were each found under the US flag, with their streets. |
+
+The fix is the `country-boundaries` unit and the converter's merge step
+(D-057 amendment, 2026-09-28). Not yet run here: `hammunition install
+navigation` with it. Both regions' maps carry the old one-line sidecar, so
+the plan should mark each `(converter changed)` and `border: US`, convert
+both again from the regions already on disk, and download only the 13.3 MB
+border file; then Actions → Town should find the towns the stock maps lost.
+
+## Session 12, 2026-09-29: trails, terrain and the GPS tether in QMapShack (D-061)
+
+The first run of piece 2 of the `navigation` profile (v0.14.0) on the field
+laptop, on the same two US-state-sized regions as session 11, then
+QMapShack 1.17.1 opened on what it built. Region names, tile names, file
+sizes, digests, positions and coordinates are not recorded here.
+
+| Step | Result |
+|---|---|
+| `hammunition install navigation` | Completed with every effect verified: **294 commands**. The work took about 30 minutes: the Navit maps rebuilt in 18.6 and 2.6 min, the Garmin maps in 3.5 and 3.2 min, the Routino database in 2.5 min. The run itself took far longer: it waited **7.8 hours** at a `sudo` prompt, because the cached credential from its first privileged step had expired during a long unprivileged conversion and nobody was at the keyboard. Issue #137. |
+| The workaround, used since | `sudo -v && (while sudo -n -v; do sleep 240; done &) && hammunition install navigation`, in the install's own terminal: on this machine sudo's credential is per terminal, so a keep-alive in another window does nothing for the install. |
+| QMapShack's map list, first start | Only the contour map was listed. The launcher had written `mapPath` and `demPaths` under `[General]`; QMapShack reads them under `[Canvas]`. Fixed in #138 (v0.14.1, the D-061 amendment of the same day). |
+| After the fix | Both region maps, `contours` and `dem` are listed; the operator activated them. |
+| Hillshade | Draws: confirmed on screen at the 3 km and 10 km scales. Slope shading was not tried. |
+| mkgmap's default style | Residential land use is drawn as hatching at close zoom. Cosmetic, and the "no hiking cartography" gap the guide already names. |
+| The GPS tether, shipped version | The `socat`/`gpspipe` tether delivered nothing, and at the time gpsd itself had stopped reporting: `?POLL` answered `active: 0`, and a JSON watcher got no `TPV` for 30 s. After `systemctl restart gpsd.socket gpsd`, gpsd streamed a 3D fix within 1 s. |
+| The GPS tether, rewritten (#138) | Serves `RMC` and `GGA`. QMapShack's *GPS TCP/IP* source showed the position, and "center to position" moved the map to it. QMapShack reconnects to 127.0.0.1:10110 by itself whenever a tether appears, so while it is open a test client from a terminal is always "turned away: one at a time": QMapShack is already the one client. |
+| Routing, first try | `[Route] routino\paths` was read, and the `hammunition` database was loaded at startup: its four `.mem` files were mapped in the QMapShack process. The Routing dock's *Database* dropdown showed nothing selected, because the settings held `routino\database=-1`, and routing did nothing. Picking `hammunition` by hand made routing available. QMapShack 1.17.1's source (`CRouterRoutino`) selects the index in that key after loading, and writes the index back on exit, so `-1` persisted. Fixed on the branch that records this session: `maps qmapshack` now sets it to 0 when absent or negative. |
+| Where the path dialog is | The folder button beside the *Database* dropdown, with *Routino (offline)* chosen; its dialog is titled "Setup Routino database…". No menu item opens it. |
+| The *Database* dock | Its "Needs setup…" is QMapShack's own store for tracks and waypoints, unrelated to routing. The operator took it for the routing database twice; the guide now says so. |
+| A route on foot | Not attempted in this session: the routing database only became selectable at its end. It is the first item of the next session, within one region and across the boundary between the two. |
+
+The ten-region install (a Great Lakes cluster plus two eastern states) was
+started with the keep-alive line above; its result is a later session.
+
 ## Not yet run (this rung's remaining ladder)
 
 In order, and every one needs the operator at the keyboard for `sudo`:

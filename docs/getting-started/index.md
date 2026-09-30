@@ -13,7 +13,9 @@ experience never has to read a forum thread to finish.
 The order that works:
 
 1. [Install the engine](install.md) — five minutes, no root until you install
-   something.
+   something. `./bootstrap.sh` puts `hammunition` on your PATH, which is how
+   every example here runs it; if your shell says `command not found`, that
+   page says what to run instead.
 2. [Your first profile](first-profile.md) — `station`, the floor every setup
    stands on, then a mode profile.
 3. [First contact](first-contact.md) — a digital-modes station making its first

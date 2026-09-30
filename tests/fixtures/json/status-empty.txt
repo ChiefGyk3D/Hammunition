@@ -1,0 +1,7 @@
+Target: Debian GNU/Linux 13 (trixie) (ID=debian, version=13, arch=x86_64)
+Debian family: yes
+Catalog: <catalog>
+  2 packages, 2 of which resolve on this target
+  2 profiles
+Transaction log: <state>/hammunition/transactions.jsonl
+  no transactions recorded

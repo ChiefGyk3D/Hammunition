@@ -1,0 +1,93 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: hammunition-tray-qt
+version: "0.3.0"
+summary: Tray switches for parking and waking radio devices on Xfce, LXQt, LXDE, MATE and Cinnamon — the Hammunition family's own
+categories: [device-support]
+
+# The Plasma applet's switch for the other panels (D-060). A Qt tray icon:
+# StatusNotifierItem where the panel offers it (Xfce, LXQt), XEmbed where it
+# does not (LXDE's lxpanel). On a Plasma machine hammunition-tray serves
+# instead, and this package's autostart entry carries NotShowIn=KDE so a
+# machine with both desktops never shows two trays in Plasma. GNOME is not
+# listed: its panel has no tray without the AppIndicator extension, and that
+# combination has not been measured.
+desktops: [xfce, lxqt, lxde, mate, cinnamon]
+desktop_alternative: hammunition-tray
+
+# ADD. A second binary package from hammunition-tray's repository and
+# release, whose upstream is this project's own maintainer, disclosed here and
+# carried on the same terms as everything else -- a published, digest-pinned
+# artifact, measured before it was written down.
+#
+# Fetched from the v0.3.0 release on 2026-09-28: the digest below is what
+# sha256sum printed for the downloaded file and what SHA256SUMS lists for it
+# (13784 bytes). `dpkg-deb -f` gave Package hammunition-tray-qt, Version
+# 0.3.0, Architecture all, Depends python3 (>= 3.11), python3-pyqt6,
+# pkexec | policykit-1. `pkexec` comes first because policykit-1 has no
+# candidate on Debian 13 (apt-cache policy, 2026-09-28). The release workflow
+# installed and removed this exact .deb in a docker.io/parrotsec/core
+# container before publishing it. Not yet run on any of the desktops it
+# lists: docs/reference/vm-campaign-desktops.md is that check.
+install:
+  - install:
+      method: binary
+      artifact:
+        url: https://github.com/ChiefGyk3D/hammunition-tray/releases/download/v0.3.0/hammunition-tray-qt_0.3.0_all.deb
+        sha256: 6811036df3e748067852838781a047a7b9aae3e37071d8aabf42dcaad8a445c0
+      format: deb
+      deb_package: hammunition-tray-qt
+    note: >-
+      Installs /usr/bin/hammunition-tray-qt, its Python package under
+      /usr/share/hammunition-tray-qt, an application menu entry, an autostart
+      entry in /etc/xdg/autostart (not shown in Plasma) and two icons under
+      /usr/share/icons/hicolor. It runs nothing as root itself; it calls the
+      helper `hammunition hardware apply` installs, through
+      /usr/bin/pkexec.
+
+update:
+  probe:
+    method: github_release
+    repo: ChiefGyk3D/hammunition-tray
+  strategy: reinstall
+  cadence_hint: >-
+    Released together with hammunition-tray: one tag, both .debs and one
+    SHA256SUMS. A release is a new digest for each; re-pin both units.
+
+documentation:
+  what_it_does: >-
+    A system-tray icon with a menu entry for each catalogued device
+    Hammunition can park -- a GPS receiver today, a WWAN modem when one is
+    catalogued. Choosing a device's entry detaches it so the kernel drops it
+    and its port can suspend, or brings it back. A device kept off across
+    reboots reads "kept off", and one that is unplugged while kept offers
+    Forget. The icon is the same penguin with a handheld radio as the Plasma
+    applet's, and it goes grey while anything is parked.
+  why_you_want_it: >-
+    The Plasma applet's switch on a lighter desktop: parking a GPS or a modem
+    you are not using saves battery on a field laptop, in one click and one
+    password prompt. It is a front end for `hammunition hardware park` and
+    `wake` (D-056), sharing the applet's rules and texts, so it does exactly
+    what those do and nothing else.
+  prerequisites: >-
+    Xfce, LXQt, LXDE, MATE or Cinnamon, with a panel that has a system tray
+    (Xfce's Status Tray plugin, LXQt's Status Notifier, lxpanel's system
+    tray). A polkit authentication agent must be running for the password
+    prompt; the tray says so, and names the package, when none is.
+    `hammunition hardware apply` must have been run: it installs the root
+    helper and polkit action the menu entries call.
+  known_problems: >-
+    **Not yet run on any of the desktops it lists**; the Xubuntu and Lubuntu
+    VM checklist in docs/reference/vm-campaign-desktops.md is that check.
+    Where the desktop has no system tray (GNOME without the AppIndicator
+    extension) it prints one line and exits rather than showing nothing
+    forever. It starts at the next login after installing; start it now from
+    the application menu entry *Hammunition Devices* or by running
+    `hammunition-tray-qt`. Left click opening the menu is unmeasured on
+    Wayland; right click is the menu everywhere.
+  upstream_url: https://github.com/ChiefGyk3D/hammunition-tray
+  upstream_support: >-
+    Issues on the GitHub repository. For "the menu does nothing", run
+    `hammunition hardware state` first: the tray shows what that command
+    reports.

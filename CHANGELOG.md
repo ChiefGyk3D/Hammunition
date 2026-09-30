@@ -11,11 +11,283 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.14.3 — 2026-09-29 — the GPS tether on other setups
+
+One pull request since v0.14.2 (#142).
+
+- **The GPS tether takes `--gpsd` and `--port`, and any number of
+  clients** (D-061, amended 2026-09-29). `--gpsd HOST[:PORT]` reads a gpsd
+  on a Pi, a phone or a shack computer (IPv6 in brackets); `--port N` serves
+  another port, 1024 to 65535. It still listens on 127.0.0.1 only; another
+  machine reaches it through `ssh -L`. Every connected client gets every
+  sentence from one shared gpsd watch, closed when the last client leaves,
+  and a client that stops reading is dropped alone. The offline navigation
+  guide gains section 12, *Other setups*: a remote gpsd, a phone, a
+  Bluetooth or serial receiver, a rig's built-in GPS and the port it then
+  cannot share with rig control, a parked receiver, and what of each is
+  measured.
+
+## v0.14.2 — 2026-09-29 — QMapShack selects its routing database; bench session 12
+
+One pull request since v0.14.1.
+
+- **QMapShack's routing database is selected** (D-061, amended
+  2026-09-29). With `[Route] routino\database=-1` in its settings,
+  QMapShack 1.17.1 loaded the `hammunition` Routino database and selected
+  nothing, so routing did nothing without a message, and it wrote the `-1`
+  back on exit. `hammunition maps qmapshack` now sets the key to 0 when it
+  is absent or negative and leaves 0 or more alone.
+- **Bench session 12 recorded** in
+  `docs/reference/bench-verification-5430.md`: the two-region
+  `install navigation` verified whole (294 commands, a 7.8-hour wait at an
+  expired `sudo` prompt, issue #137), QMapShack listing the maps and
+  drawing hillshade, and the rewritten GPS tether giving QMapShack a
+  position from a real receiver. The guide's QMapShack section says where
+  the Routino path dialog is, that the *Database* dock is not the routing
+  database, that QMapShack reconnects to the tether by itself, and what
+  the hatching is. A route on foot is still not recorded.
+
+## v0.14.1 — 2026-09-29 — bench fixes: QMapShack's paths, the GPS tether
+
+One pull request since v0.14.0, from bench session 12 on the field laptop.
+
+- **The GPS tether makes its own NMEA** (D-061, amended 2026-09-29).
+  `hammunition maps gps-tether` reads gpsd's JSON and writes `$GPRMC` and
+  `$GPGGA` on 127.0.0.1:10110; no socat or gpspipe, the loopback bind
+  in its own code, and a plain message when gpsd has no fix. The old
+  tether sent nothing on the field laptop while gpsd reported no position. `socat` leaves the `navigation`
+  profile and is kept in the catalog as retired, so `hammunition uninstall
+  socat` still works where v0.14.0 installed it.
+- **QMapShack's map and elevation lists go under `[Canvas]`** (D-061,
+  amended 2026-09-29), where QMapShack reads them; the launcher moves its
+  own directories out of `[General]`, where the first version put them.
+
+## v0.14.0 — 2026-09-28 — trails, terrain and offline routing on foot
+
+One pull request since v0.13.0: navigation piece 2, for daily hiking and
+for the day nothing else works.
+
+### Engine
+
+- Three new converters, run as the operator under one lock per region or
+  per build, scratch cleared only by the operator under that lock, root
+  never removing a working directory: `mkgmap` (a Garmin image per region,
+  0.85× the extract), `routino-planetsplitter` (one Routino database over
+  every region, installed all-or-nothing, 0.67× of the sum) and `gdal-dem`
+  (a VRT for hillshade and slope, and a 20 m contour overlay, 5.4 MB per
+  tile measured). Converter versions in sidecars trigger exactly one
+  rebuild; mkgmap's heap arrives through `JAVA_TOOL_OPTIONS`, because
+  Debian's wrapper ignores `JAVA_OPTS` (#135, D-061).
+- A `dem-tiles` install method: Copernicus GLO-30 elevation tiles for every
+  square a region's Geofabrik outline touches, each verified by a sha256
+  pinned by Hammunition or by the publisher's single-part ETag MD5, said
+  which per tile in the plan; a carried tile list of 26,450 names with a
+  weekly check; a square with no published tile is reported as exactly
+  that, never "sea", and a region with no terrain available is warned
+  about while its maps still install (#135).
+- `hammunition maps qmapshack` (starts QMapShack after additively adding
+  our directories to its per-user config) and `hammunition maps
+  gps-tether` (gpsd → NMEA over TCP on 127.0.0.1:10110 only); a `doctor`
+  check for Routino's translations file (#135).
+- The plan's Terrain block, text and JSON from one object; the disk check
+  counts tiles, images, databases, contours and scratch; `update` reports
+  terrain as counts only (#135).
+- Navit's dropped children now get the operator's minimal environment,
+  not root's (#135).
+
+### Catalog
+
+- `qmapshack`, `routino`, `gdal-bin`, `mkgmap`, `mkgmap-splitter`, `socat`
+  from apt; `dem-copernicus`, `osm-garmin`, `osm-routino`, `dem-qmapshack`;
+  all in `navigation` (#135).
+
+### Documentation
+
+- D-061; the guide's trails-and-terrain sections, "find an address in
+  Navit, walk it in QMapShack", the bridge, and the gaps; the CLI
+  reference. What has not run on a desktop yet is marked so: bench
+  session 12 on the field laptop is the check (#135).
+
+## v0.13.0 — 2026-09-28 — Navit finds your towns
+
+One pull request since v0.12.0, from the first address search on the bench.
+
+### Engine
+
+- Navit's town index was nearly empty on every Geofabrik sub-country extract:
+  the extract carries only the in-extract pieces of the country's boundary
+  relation, so `maptool` logged "Broken country polygon" and filed almost no
+  town while still drawing them. The `navit-maptool` converter now merges a
+  closed country border, synthesised from Natural Earth's admin-0 data for
+  the region's country, into the extract with `osmium` before running
+  `maptool -U`; a region passes only when maptool recognises each merged
+  border as a country. On one US-state-sized region the index went from
+  about a dozen items to over four thousand, nearly all with state and
+  county (#133, D-057 amendment).
+- Maps built by the old converter rebuild once: the sidecar records a
+  converter version, and the plan says "will convert (converter changed)"
+  (#133).
+- maptool runs stay sequential: its fixed-name temp files make two runs in
+  one directory crash, measured on the bench (#133).
+
+### Catalog
+
+- `country-boundaries`: Natural Earth 1:10m admin-0 countries, public
+  domain, sha256 computed and pinned by Hammunition because upstream
+  publishes none; a dependency of `osm-navit`, with `osmium-tool` (#133).
+- `catalog/data/geofabrik-countries.yaml`: each Geofabrik region's country,
+  generated from Geofabrik's index and checked weekly (#133).
+
+### Documentation
+
+- The guide's "Find an address" section (Actions → Town, the flag button,
+  street and house-number icons, Set as destination); bench session 11
+  (#133).
+
+## v0.12.0 — 2026-09-28 — the engine speaks JSON, and `hammunition` is on the PATH
+
+One pull request since v0.11.0: piece 1 of the console. The front ends that
+follow (`hammunition-console`, its own project) drive the engine through
+this interface and never import it.
+
+### Engine
+
+- A global `--json` flag: with it a command prints exactly one document on
+  stdout (`schema: hammunition/1`, a `kind`, the engine version), diagnostics
+  go to stderr, and the exit code is the text form's. That holds on success,
+  on a refusal, on an argparse error and on an unexpected exception. Covered:
+  `status`, `list`, `show`, `install`/`uninstall --dry-run`, `station show`,
+  `hardware state`, `maps regions`, `update`, `doctor`. Text and JSON are
+  rendered from one object per command, so they cannot drift; golden tests
+  pin both (#127, D-059).
+- A real install is never driven through `--json`; only `--dry-run` is
+  accepted. Abbreviated flags are refused on every parser, because `--js`
+  used to route around that guard (#127).
+- `status --json` records removals: `removed`, `removal failed`,
+  `removal interrupted`; a reinstall reads `completed` again (#127).
+- Privacy: the `plan` document never carries rendered config or the
+  callsign; `update` and `doctor` never name a map region in either output,
+  and tests fail if they do; `station show --json` carries station values
+  for local front ends and the reference says it is not for pasting (#127).
+- `bootstrap.sh` links `~/.local/bin/hammunition` to the checkout's venv
+  through `scripts/path-link.sh`: every change printed first, nothing it did
+  not create replaced, no shell rc file touched. `doctor` checks where
+  `hammunition` resolves; it offers a quoted switch only for our own link,
+  names a foreign file or an earlier PATH entry without touching it, and on
+  a fresh install says to log out and back in (#127).
+- The Packages list and the Map regions section agree: `osm-regions` and
+  `osm-navit` read "already installed" when nothing is left to fetch or
+  convert (#127).
+
+### Documentation
+
+- `docs/reference/json-interface.md`, generated from the dataclasses and
+  checked in CI; D-059; examples written as bare `hammunition`, with the
+  full `.venv/bin/hammunition` path wherever a reader could meet the command
+  before bootstrap has linked it; a "command not found" section in
+  getting-started (#127).
+
+## v0.11.0 — 2026-09-28 — lighter desktops welcomed, and Navit opens on your maps
+
+Two pull requests merged since v0.10.0. Parrot and KDE Plasma stay first;
+Xfce and LXQt (Lubuntu) are welcomed, and nothing about them is claimed
+until the VM runs.
+
+### Engine
+
+- Desktop detection from the session files a display manager lists
+  (`DesktopNames=`, with a measured fallback for LXDE and Cinnamon, whose
+  files carry none). A new `desktops` / `desktop_alternative` manifest pair
+  lets a unit serve particular desktops: a profile member for a desktop the
+  machine lacks is deferred by name and the rest installs; typed by name, it
+  is refused with the alternative named. `doctor` reports the desktops read
+  (#129, D-060).
+- Navit opens on the maps and follows the GPS. The generated config used to
+  keep Navit's stock start point, Munich, and never followed the gpsd
+  vehicle, so it showed a blank screen even with a 3D fix. It now centres on
+  the first region's bounding box, read from the PBF header (bounded, and
+  only the header), and adds `follow="1"`. Both are soft: when either cannot
+  be done, the config is still written and the step says why (#130, D-057
+  amendment).
+- Navit's map size estimate goes from 0.8x to 0.9x of the download, after
+  two US-state-sized regions converted at 0.874x and 0.856x on the field
+  laptop. maptool's scratch files are removed once a region's map is
+  installed (#130).
+
+### Catalog
+
+- `hammunition-tray-qt`, the tray for Xfce, LXQt, LXDE, MATE and Cinnamon,
+  pinned from hammunition-tray v0.3.0, and `hammunition-tray` re-pinned to
+  v0.3.0 with `desktops: [kde]`; both in `station`, each naming the other.
+  `station` no longer pulls the Plasma shell onto a machine without it
+  (#129).
+
+### Documentation
+
+- `docs/desktops.md`: every desktop's menu mechanism, tray and weight,
+  unmeasured marked unmeasured; Lubuntu is LXQt, not LXDE.
+  `docs/reference/vm-campaign-desktops.md` is the Xubuntu and Lubuntu
+  checklist, not yet run (#129).
+- `docs/guides/offline-navigation.md`: "Navit opens on a blank map", and
+  that scratch stays after a failed conversion (#130).
+
+## v0.10.0 — 2026-09-28 — device power control, offline navigation, the family's own units
+
+14 pull requests merged between 2026-09-13 and 2026-09-28. Still beta: the
+1.0 checklist in `docs/reference/release-1.0-checklist.md` is unchanged in
+kind. What is new is the station switching its own radios off, finding its
+way with no network, and carrying the other Hammunition projects as ordinary
+pinned units.
+
+### Engine
+
+- Device power control: park and wake a catalogued device from the CLI,
+  generated menu entries and a tray applet, through one root helper at
+  `/usr/local/libexec/hammunition-devctl` behind one polkit action;
+  `power_control` on a manifest names a method from a fixed enum, so the
+  catalog never carries a command (#117, D-056). Installing the helper asks
+  one `yes` that `--yes` cannot answer (#118), and refuses a tree another
+  account can write, the owner's private group excepted.
+- Kept off: a parked device stays parked across reboots, one rewritten-whole
+  udev rule per device; `--until-reboot` opts out; `state` shows intent and
+  reality side by side (#119, D-056 amendment). The reboot itself is not yet
+  measured on the bench.
+- Offline navigation: `osm-regions` fetches OpenStreetMap extracts from
+  Geofabrik, pinned by sha256 for the yearly snapshot of every US state and
+  DC, MD5-checked from Geofabrik for anything else the operator picks;
+  `osm-navit` converts them with Navit's `maptool` as the operator, one
+  region at a time, a failed region never taking the others with it; the
+  selection lives in station config (#121, D-057). `hammunition maps
+  regions` lists what can be chosen.
+- Menus: every installed unit is placed on the day the menu is applied, not
+  only those installed through the engine (#114, D-050 amendment).
+
+### Catalog
+
 - `skid-finder`, the maintainer's passive BLE-spam and Wi-Fi-attack
   detector, carried as an ungated `rf-security` unit from its tagged
-  pre-release tarball, v0.6.0-alpha.1 (install_tree, terminal launcher for
-  its field menu). Alpha upstream; not yet installed through the engine on a target
-  (#116).
+  pre-release tarball, v0.6.0-alpha.1 (#116).
+- `hammunition-tray`, the Plasma applet for park and wake, carried as a
+  pinned `.deb` in `station` (#122); re-pinned to v0.2.0 here, which adds
+  the kept-off label, Forget, and one notice per login.
+- `navit`, `osm-regions`, `osm-navit`, and a post-1.0 `navigation` profile
+  under a new `navigation-maps` category (#121).
+- `wsjtx` claims its aggregator entry in the menu (#115).
+
+### Documentation
+
+- The Hammunition family (hill, tray, skid-finder) described from the main
+  README, and power control in the status (#120).
+- `docs/guides/offline-navigation.md`: choosing regions, disk and time
+  measured on a 6.1 GB country-sized region, and what works with the network
+  off (#121). `docs/hardware/power-control.md` for park, wake and kept off
+  (#117, #119).
+- The rebuilt menu verified as data on GNOME and Xfce (no one has opened
+  either on a VM yet), and COSMIC and Pop!_OS
+  recommendations toward 1.0 (#115).
+- README: socials and donation rows (#109–#113).
 
 ## v0.9.0 — 2026-09-13 — beta: feature-complete for 1.0, verification remains
 

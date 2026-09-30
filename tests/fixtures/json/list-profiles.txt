@@ -1,0 +1,6 @@
+Profiles (2):
+  fixture-gated    post-1.0    1 pkg  [consent gate]
+      A consent-gated fixture profile
+  fixture-station  1.0         2 pkg
+      Both fixture units, as a profile
+

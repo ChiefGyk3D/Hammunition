@@ -30,11 +30,13 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from hammunition.manifest.load import CatalogError, load_catalog  # noqa: E402
 from hammunition.manifest.schema import (  # noqa: E402
     AptInstall,
+    DerivedDataInstall,
     GitInstall,
     ManifestError,
     PackageManifest,
     SourceInstall,
     Status,
+    derived_source_method_problem,
 )
 
 CATALOG = REPO_ROOT / "catalog" / "packages"
@@ -95,6 +97,10 @@ def test_every_remote_artifact_is_verified(catalog: Catalog) -> None:
     for name, m in catalog.items():
         for block in m.install:
             inst = block.install
+            if isinstance(inst, DerivedDataInstall):
+                # Its `source` names the catalog unit it converts, not a download;
+                # that unit's own fetch is what gets verified.
+                continue
             artifact = getattr(inst, "source", None) or getattr(inst, "artifact", None)
             if artifact is not None:
                 assert len(artifact.sha256) == 64, f"{name} has an unverified artifact"
@@ -852,3 +858,331 @@ def test_an_apt_unit_may_opt_out_of_recommends() -> None:
         {"method": "apt", "packages": ["morse"], "install_recommends": False}
     )
     assert block.install_recommends is False
+
+
+# ===========================================================================
+# osm-regions and derived (navigation piece 1, Task 4)
+# ===========================================================================
+
+
+def test_osm_regions_block_parses() -> None:
+    m = PackageManifest.model_validate(
+        _minimal(
+            name="osm-regions",
+            install=[
+                {
+                    "install": {
+                        "method": "osm-regions",
+                        "provider": "geofabrik",
+                        "licence": "ODbL-1.0",
+                        "licence_url": "https://www.openstreetmap.org/copyright",
+                    }
+                }
+            ],
+        )
+    )
+    assert m.install[0].install.method == "osm-regions"
+
+
+def test_derived_block_needs_its_source_in_depends() -> None:
+    block = {
+        "method": "derived",
+        "converter": "navit-maptool",
+        "source": "osm-regions",
+        "licence": "ODbL-1.0",
+        "licence_url": "https://www.openstreetmap.org/copyright",
+    }
+    with pytest.raises(ValidationError, match="depends"):
+        PackageManifest.model_validate(_minimal(name="osm-navit", install=[{"install": block}]))
+    ok = _minimal(name="osm-navit", install=[{"install": block}])
+    ok["depends"] = ["osm-regions", "maptool"]
+    assert PackageManifest.model_validate(ok).install[0].install.method == "derived"
+
+
+def test_a_converter_outside_the_enum_is_refused() -> None:
+    block = {
+        "method": "derived",
+        "converter": "sh -c 'rm -rf /'",
+        "source": "osm-regions",
+        "licence": "ODbL-1.0",
+        "licence_url": "https://www.openstreetmap.org/copyright",
+    }
+    bad = _minimal(name="osm-navit", install=[{"install": block}])
+    bad["depends"] = ["osm-regions"]
+    with pytest.raises(ValidationError):
+        PackageManifest.model_validate(bad)
+
+
+def test_derived_block_needs_its_boundaries_unit_in_depends_too() -> None:
+    """The address-search fix (D-057 amendment): the boundary file is another
+    unit's data, read at conversion time, so the plan must install it first."""
+    block = {
+        "method": "derived",
+        "converter": "navit-maptool",
+        "source": "osm-regions",
+        "boundaries": "country-boundaries",
+        "licence": "ODbL-1.0",
+        "licence_url": "https://www.openstreetmap.org/copyright",
+    }
+    bad = _minimal(name="osm-navit", install=[{"install": block}])
+    bad["depends"] = ["osm-regions"]
+    with pytest.raises(ValidationError, match="country-boundaries"):
+        PackageManifest.model_validate(bad)
+    bad["depends"] = ["osm-regions", "country-boundaries"]
+    parsed = PackageManifest.model_validate(bad).install[0].install
+    assert isinstance(parsed, DerivedDataInstall) and parsed.boundaries == "country-boundaries"
+
+
+# ===========================================================================
+# dem-tiles and piece 2's converters (D-061)
+# ===========================================================================
+
+_COP = {
+    "licence": "Copernicus DEM licence",
+    "licence_url": "https://copernicus-dem-30m.s3.amazonaws.com/readme.html",
+}
+
+
+def test_dem_tiles_block_parses_and_names_its_provider_by_enum() -> None:
+    m = PackageManifest.model_validate(
+        _minimal(
+            name="dem-copernicus",
+            install=[{"install": {"method": "dem-tiles", "provider": "copernicus-glo30", **_COP}}],
+        )
+    )
+    assert m.install[0].install.method == "dem-tiles"
+    with pytest.raises(ValidationError):
+        PackageManifest.model_validate(
+            _minimal(
+                name="dem-copernicus",
+                install=[{"install": {"method": "dem-tiles", "provider": "srtm", **_COP}}],
+            )
+        )
+
+
+def test_a_dem_tiles_licence_url_must_be_https() -> None:
+    with pytest.raises(ValidationError, match="https"):
+        PackageManifest.model_validate(
+            _minimal(
+                name="dem-copernicus",
+                install=[
+                    {
+                        "install": {
+                            "method": "dem-tiles",
+                            "licence": "Copernicus DEM licence",
+                            "licence_url": "http://example.invalid/",
+                        }
+                    }
+                ],
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    ("converter", "source"),
+    [
+        ("mkgmap", "osm-regions"),
+        ("routino-planetsplitter", "osm-regions"),
+        ("gdal-dem", "dem-copernicus"),
+    ],
+)
+def test_piece_2_converters_are_enum_members(converter: str, source: str) -> None:
+    data = _minimal(
+        name="derived-unit",
+        install=[
+            {
+                "install": {
+                    "method": "derived",
+                    "converter": converter,
+                    "source": source,
+                    "licence": "ODbL-1.0",
+                    "licence_url": "https://www.openstreetmap.org/copyright",
+                }
+            }
+        ],
+    )
+    data["depends"] = [source]
+    block = PackageManifest.model_validate(data).install[0].install
+    assert isinstance(block, DerivedDataInstall) and block.converter == converter
+
+
+def test_dem_tiles_is_an_implemented_method_and_uninstall_removes_its_tree(
+    tmp_path: Path,
+) -> None:
+    from hammunition.backends import IMPLEMENTED_METHODS
+    from hammunition.distro import Target
+    from hammunition.state.uninstall import RemovalPaths, plan_removal
+
+    assert "dem-tiles" in IMPLEMENTED_METHODS
+    manifest = PackageManifest.model_validate(
+        _minimal(
+            name="dem-copernicus",
+            install=[{"install": {"method": "dem-tiles", "provider": "copernicus-glo30", **_COP}}],
+        )
+    )
+    paths = RemovalPaths(
+        prefix=tmp_path / "prefix",
+        venv_root=tmp_path / "venvs",
+        bin_dir=tmp_path / "bin",
+        applications_dir=tmp_path / "applications",
+    )
+    directory = paths.prefix / "share" / "hammunition" / "data" / "dem-copernicus"
+    directory.mkdir(parents=True)
+    (directory / "Copernicus_DSM_COG_10_N00_00_E000_00_DEM.tif").write_bytes(b"x")
+    plan = plan_removal(
+        ["dem-copernicus"],
+        catalog={"dem-copernicus": manifest},
+        profiles={},
+        target=Target(distro="debian", version="13", arch="x86_64"),
+        attributed=frozenset(),
+        states={},
+        paths=paths,
+    )
+    assert [(a.kind, a.path) for a in plan.artifacts["dem-copernicus"]] == [("tree", directory)]
+
+
+# ===========================================================================
+# converter <-> source-method compatibility, catalog-wide (D-061 review fix)
+# ===========================================================================
+
+
+def _osm_regions_manifest(name: str = "osm-regions") -> PackageManifest:
+    return PackageManifest.model_validate(
+        _minimal(
+            name=name,
+            install=[
+                {
+                    "install": {
+                        "method": "osm-regions",
+                        "provider": "geofabrik",
+                        "licence": "ODbL-1.0",
+                        "licence_url": "https://www.openstreetmap.org/copyright",
+                    }
+                }
+            ],
+        )
+    )
+
+
+def _dem_tiles_manifest(name: str = "dem-copernicus") -> PackageManifest:
+    return PackageManifest.model_validate(
+        _minimal(
+            name=name,
+            install=[{"install": {"method": "dem-tiles", "provider": "copernicus-glo30", **_COP}}],
+        )
+    )
+
+
+def _derived_manifest(converter: str, source: str) -> PackageManifest:
+    data = _minimal(
+        name="derived-unit",
+        install=[
+            {
+                "install": {
+                    "method": "derived",
+                    "converter": converter,
+                    "source": source,
+                    "licence": "ODbL-1.0",
+                    "licence_url": "https://www.openstreetmap.org/copyright",
+                }
+            }
+        ],
+    )
+    data["depends"] = [source]
+    return PackageManifest.model_validate(data)
+
+
+@pytest.mark.parametrize(
+    ("converter", "source"),
+    [
+        ("navit-maptool", _osm_regions_manifest()),
+        ("mkgmap", _osm_regions_manifest()),
+        ("routino-planetsplitter", _osm_regions_manifest()),
+        ("gdal-dem", _dem_tiles_manifest()),
+    ],
+)
+def test_a_converter_fed_its_required_source_method_is_not_a_problem(
+    converter: str, source: PackageManifest
+) -> None:
+    derived = _derived_manifest(converter, source.name)
+    assert derived_source_method_problem(derived, {source.name: source}) is None
+
+
+def test_gdal_dem_fed_an_osm_regions_source_is_refused_by_name() -> None:
+    source = _osm_regions_manifest()
+    derived = _derived_manifest("gdal-dem", source.name)
+    problem = derived_source_method_problem(derived, {source.name: source})
+    assert problem is not None
+    assert "derived-unit" in problem
+    assert "gdal-dem" in problem
+    assert "osm-regions" in problem
+    assert "dem-tiles" in problem
+
+
+def test_mkgmap_fed_a_dem_tiles_source_is_refused_by_name() -> None:
+    source = _dem_tiles_manifest()
+    derived = _derived_manifest("mkgmap", source.name)
+    problem = derived_source_method_problem(derived, {source.name: source})
+    assert problem is not None
+    assert "derived-unit" in problem
+    assert "mkgmap" in problem
+    assert "dem-copernicus" in problem
+    assert "osm-regions" in problem
+
+
+def test_a_source_missing_from_the_catalog_is_not_this_functions_problem() -> None:
+    """`_derived_source_is_in_depends` (or a plain unresolved name) owns that case."""
+    derived = _derived_manifest("gdal-dem", "no-such-unit")
+    assert derived_source_method_problem(derived, {}) is None
+
+
+def test_load_catalog_refuses_a_mismatched_converter_and_source(tmp_path: Path) -> None:
+    """Wired catalog-wide through `load.load_catalog`, the same way D-060's
+    `_desktop_alternative_problem` is."""
+    (tmp_path / "dem-copernicus.yaml").write_text(
+        """\
+name: dem-copernicus
+version: "1.0"
+summary: Elevation tiles
+categories: [digital-modes]
+install:
+  - install:
+      method: dem-tiles
+      provider: copernicus-glo30
+      licence: Copernicus DEM licence
+      licence_url: https://copernicus-dem-30m.s3.amazonaws.com/readme.html
+update:
+  probe:
+    method: apt_policy
+documentation:
+  what_it_does: Elevation tiles for the operator's chosen map regions.
+  why_you_want_it: Hillshade, slope and contour lines on the map.
+  upstream_url: https://example.invalid/
+"""
+    )
+    (tmp_path / "osm-garmin.yaml").write_text(
+        """\
+name: osm-garmin
+version: "1.0"
+summary: Garmin image
+categories: [digital-modes]
+depends: [dem-copernicus]
+install:
+  - install:
+      method: derived
+      converter: mkgmap
+      source: dem-copernicus
+      licence: ODbL-1.0
+      licence_url: https://www.openstreetmap.org/copyright
+update:
+  probe:
+    method: apt_policy
+documentation:
+  what_it_does: A Garmin .img map image built from a region's data.
+  why_you_want_it: Trails, tracks and terrain on a handheld GPS.
+  upstream_url: https://example.invalid/
+"""
+    )
+    with pytest.raises(CatalogError, match="osm-garmin") as exc:
+        load_catalog(tmp_path)
+    assert "mkgmap" in str(exc.value) and "osm-regions" in str(exc.value)

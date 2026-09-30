@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+#
+# Test fixture for the --json golden documents (D-059). Not part of the catalog.
+
+name: fixture-source
+version: "2.1"
+summary: A fixture unit built from a pinned tarball
+categories: [digital-modes]
+install:
+  - install:
+      method: source
+      source:
+        url: https://example.invalid/fixture-source-2.1.tar.gz
+        sha256: 30cf6db1a2b495975a499b45f3e760758579b81c99157b2d52d699f0c46ff9a4
+      build_system: autotools
+    build_depends: [build-essential]
+update:
+  probe:
+    method: none
+  strategy: rebuild
+documentation:
+  what_it_does: Stands in for a source build in the JSON interface tests.
+  why_you_want_it: The golden documents need a built unit with a pin to report.
+  upstream_url: https://example.invalid/fixture-source

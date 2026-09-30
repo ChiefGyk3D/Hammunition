@@ -21,13 +21,15 @@ requirements rather than preferences:
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import date
 from enum import StrEnum
 from pathlib import PurePosixPath
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from hammunition.desktop import Desktop
 
 __all__ = [
     "Binary",
@@ -41,6 +43,7 @@ __all__ = [
     "RiskCategory",
     "Selector",
     "Status",
+    "derived_source_method_problem",
     "effective_binaries",
 ]
 
@@ -772,6 +775,122 @@ class DataInstall(Strict):
         return self
 
 
+class RegionalDataInstall(Strict):
+    """An offline map region, fetched by the station's own selection.
+
+    Unlike `DataInstall`, no artifact is pinned in the manifest: a Geofabrik
+    extract is one of hundreds of regions, and the operator's choice lives in
+    station config (D-035), not the catalog. The catalog states the provider
+    and the licence; the engine resolves the region and its checksum at plan
+    time from the operator's selection, the same "a missing value defers one
+    file, never the transaction" rule as any other station-dependent unit.
+    """
+
+    method: Literal["osm-regions"] = "osm-regions"
+    provider: Literal["geofabrik"] = "geofabrik"
+    licence: str = Field(
+        min_length=2,
+        description="SPDX identifier where one exists, else the publisher's own words.",
+    )
+    licence_url: str = Field(description="Where the licence is stated, on the publisher's site.")
+
+    @model_validator(mode="after")
+    def _check(self) -> RegionalDataInstall:
+        if not self.licence_url.startswith("https://"):
+            raise ManifestError(f"licence_url must be https, got {self.licence_url!r}")
+        return self
+
+
+class DemTilesInstall(Strict):
+    """Elevation tiles for the squares the station's map regions cover (D-061).
+
+    Like `RegionalDataInstall`, nothing is pinned in the manifest: which
+    tiles are needed follows the operator's regions in station config, and
+    each tile is resolved at plan time and verified by a sha256 the catalog
+    carries (``catalog/data/copernicus-glo30-pins.yaml``) or by the MD5 in
+    the publisher's object metadata, the plan saying which, tile by tile.
+    `provider` is an enum so another source (USGS 3DEP) is a new member the
+    engine implements, never a URL in the catalog.
+    """
+
+    method: Literal["dem-tiles"] = "dem-tiles"
+    provider: Literal["copernicus-glo30"] = "copernicus-glo30"
+    licence: str = Field(
+        min_length=2,
+        description="SPDX identifier where one exists, else the publisher's own words.",
+    )
+    licence_url: str = Field(description="Where the licence is stated, on the publisher's site.")
+
+    @model_validator(mode="after")
+    def _check(self) -> DemTilesInstall:
+        if not self.licence_url.startswith("https://"):
+            raise ManifestError(f"licence_url must be https, got {self.licence_url!r}")
+        return self
+
+
+#: D-061: the install method a `derived` block's `source` unit must actually
+#: resolve to, keyed by `converter`. A single-manifest validator cannot check
+#: this -- it would need another manifest's own install block, which is why
+#: `derived_source_method_problem` below checks it catalog-wide, called from
+#: `load.load_catalog` the same way `_desktop_alternative_problem` is.
+CONVERTER_SOURCE_METHOD: dict[str, str] = {
+    "navit-maptool": "osm-regions",
+    "mkgmap": "osm-regions",
+    "routino-planetsplitter": "osm-regions",
+    "gdal-dem": "dem-tiles",
+}
+
+
+class DerivedDataInstall(Strict):
+    """Data produced by running a converter over another catalog unit's data.
+
+    `converter` names the transformation by enum, never a command line --
+    the catalog stays pure data (CLAUDE.md's founding invariant) and the
+    engine owns what each enum member means. `source` names the catalog
+    package whose data this is derived from; the manifest's own validator
+    requires it to also appear in `depends`, so the plan always installs the
+    source data before running the converter over it. Which install method
+    `source` must actually be is `CONVERTER_SOURCE_METHOD`, checked catalog-
+    wide because only the catalog knows what `source` resolves to (D-061).
+    """
+
+    method: Literal["derived"] = "derived"
+    converter: Literal["navit-maptool", "mkgmap", "routino-planetsplitter", "gdal-dem"] = Field(
+        description=(
+            "The transformation to run. Each needs a `source` of one particular "
+            "install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): "
+            "`navit-maptool`, `mkgmap` and `routino-planetsplitter` need an "
+            "`osm-regions` source; `gdal-dem` needs a `dem-tiles` source."
+        )
+    )
+    source: str = Field(
+        description=(
+            "The catalog package name this is derived from: an `osm-regions` unit, "
+            "or for `gdal-dem` a `dem-tiles` unit."
+        )
+    )
+    boundaries: str | None = Field(
+        default=None,
+        description=(
+            "The catalog data unit holding country boundaries (one GeoJSON file) "
+            "that `navit-maptool` merges into each region before conversion, so "
+            "maptool files towns under a country and address search finds them "
+            "(D-057 amendment, 2026-09-28). Must also be in `depends`."
+        ),
+    )
+    licence: str = Field(
+        min_length=2,
+        description="SPDX identifier where one exists, else the publisher's own words.",
+    )
+    licence_url: str = Field(description="Where the licence is stated, on the publisher's site.")
+
+    @model_validator(mode="after")
+    def _check(self) -> DerivedDataInstall:
+        if not self.licence_url.startswith("https://"):
+            raise ManifestError(f"licence_url must be https, got {self.licence_url!r}")
+        return self
+
+
 class PipxInstall(Strict):
     method: Literal["pipx"] = "pipx"
     spec: str
@@ -786,7 +905,10 @@ InstallMethod = Annotated[
     | VenvInstall
     | NodeInstall
     | PipxInstall
-    | DataInstall,
+    | DataInstall
+    | RegionalDataInstall
+    | DemTilesInstall
+    | DerivedDataInstall,
     Field(discriminator="method"),
 ]
 
@@ -1223,6 +1345,32 @@ class PackageManifest(Strict):
         ),
     )
 
+    desktops: list[Desktop] | None = Field(
+        default=None,
+        description=(
+            "The desktops this unit is for, when it is for some and not others: "
+            "`kde`, `gnome`, `xfce`, `lxqt`, `lxde`, `mate`, `cinnamon`. Omitted "
+            "means any desktop, which is every unit that is not a panel applet or "
+            "the like. Decided at plan time against the session files under "
+            "/usr/share/xsessions and /usr/share/wayland-sessions (and the same "
+            "under /usr/local/share), never "
+            "XDG_CURRENT_DESKTOP (sudo drops it): a machine with no session for "
+            "any listed desktop defers the unit in a profile and refuses it by "
+            "name (D-060). The case it exists for is `hammunition-tray`, a Plasma "
+            "applet whose .deb pulls plasma-workspace onto an Xfce machine."
+        ),
+    )
+    desktop_alternative: str | None = Field(
+        default=None,
+        description=(
+            "The unit that does this job on the desktops this one is not for, "
+            "named in the refusal and the deferral so the operator is told what "
+            "to install instead. It must exist in the catalog, and its "
+            "`desktops` must share none with this unit's (checked when the "
+            "catalog loads). Requires `desktops`."
+        ),
+    )
+
     menu_title: str | None = Field(
         default=None,
         description=(
@@ -1312,6 +1460,28 @@ class PackageManifest(Strict):
         return self
 
     @model_validator(mode="after")
+    def _desktops_are_a_real_list(self) -> PackageManifest:
+        """D-060. An empty list would be a unit for no desktop -- never
+        installable, and silently so -- and a duplicate is a typo."""
+        if self.desktops is not None:
+            if not self.desktops:
+                raise ManifestError(
+                    f"{self.name}: desktops is empty; omit it for a unit that works on any desktop"
+                )
+            dupes = sorted({d.value for d in self.desktops if self.desktops.count(d) > 1})
+            if dupes:
+                raise ManifestError(f"{self.name}: desktops lists {', '.join(dupes)} twice")
+        if self.desktop_alternative is not None:
+            if self.desktops is None:
+                raise ManifestError(
+                    f"{self.name}: desktop_alternative needs desktops; a unit for every "
+                    f"desktop has no desktop for an alternative to serve"
+                )
+            if self.desktop_alternative == self.name:
+                raise ManifestError(f"{self.name}: desktop_alternative names the unit itself")
+        return self
+
+    @model_validator(mode="after")
     def _installed_files_are_relative_effects(self) -> PackageManifest:
         for declared in self.installed_files:
             path = PurePosixPath(declared)
@@ -1373,6 +1543,28 @@ class PackageManifest(Strict):
         _check_package_names(
             self.conflicts_with_repo_package, f"{self.name}: conflicts_with_repo_package"
         )
+        return self
+
+    @model_validator(mode="after")
+    def _derived_source_is_in_depends(self) -> PackageManifest:
+        """A `derived` block reads another unit's data at run time (D-049-adjacent);
+        `depends` is what makes the plan install that unit first.
+
+        This only checks the *name* is listed; it cannot check what `source`
+        actually *is*, because a single-manifest validator has no other
+        manifest to look at. `derived_source_method_problem`, right after this
+        class, is the catalog-wide companion that checks the method (D-061).
+        """
+        for entry in self.install:
+            block = entry.install
+            if not isinstance(block, DerivedDataInstall):
+                continue
+            for unit in (block.source, block.boundaries):
+                if unit is not None and unit not in self.depends:
+                    raise ManifestError(
+                        f"{self.name}: a derived block reads {unit!r}, which must be "
+                        f"in depends so it is installed first"
+                    )
         return self
 
     @model_validator(mode="after")
@@ -1509,6 +1701,40 @@ class PackageManifest(Strict):
         for cfg in self.config_files:
             out |= cfg.station_variables
         return out
+
+
+def derived_source_method_problem(
+    manifest: PackageManifest, catalog: Mapping[str, PackageManifest]
+) -> str | None:
+    """D-061: a `derived` block's `converter` needs its `source` to be a unit
+    of a particular install method (`CONVERTER_SOURCE_METHOD`) -- `gdal-dem`
+    fed an `osm-regions` unit, or `mkgmap` fed a `dem-tiles` one, would resolve
+    and install cleanly and fail only at run time, deep inside the converter.
+
+    Catalog-wide, like `load._desktop_alternative_problem`: only the catalog
+    knows what method the named `source` unit actually resolves to, which
+    `_derived_source_is_in_depends` above cannot see from one manifest alone.
+    Called from `load.load_catalog`. A `source` this function cannot find is
+    not its problem -- that is `_derived_source_is_in_depends`'s "must be in
+    depends" refusal, or a plain missing-manifest one; this only judges a
+    `source` that resolved to something.
+    """
+    for entry in manifest.install:
+        block = entry.install
+        if not isinstance(block, DerivedDataInstall):
+            continue
+        needed = CONVERTER_SOURCE_METHOD[block.converter]
+        source = catalog.get(block.source)
+        if source is None:
+            continue
+        methods = {b.install.method for b in source.install}
+        if needed not in methods:
+            return (
+                f"{manifest.name}: derived block with converter {block.converter!r} "
+                f"needs source {block.source!r} to be a {needed!r} unit, but "
+                f"{block.source!r} is {sorted(methods)!r}"
+            )
+    return None
 
 
 def effective_binaries(manifest: PackageManifest, block: InstallBlock) -> Sequence[Binary]:

@@ -1,0 +1,29 @@
+fixture-gated — A consent-gated fixture profile
+stage: post-1.0
+
+The apt fixture unit, behind a consent gate.
+
+Why together:
+  A gated profile is the shape `show --json` must carry a disclosure for.
+
+Deliberately excludes:
+  Everything real.
+
+You still configure by hand:
+  Nothing; it is a fixture.
+
+Profile 'fixture-gated' is consent-gated.
+
+This fixture profile stands in for software that can receive and store identifiers belonging to people and their devices.
+
+What this software can do:
+  - identifier_collection: Can collect identifiers associated with people or their devices, such as IMSI, IMEI, MAC addresses, or subscriber records.
+
+Hammunition cannot know your location, licence class, or the terms of any
+authorization you hold, and does not give legal advice. You are being asked
+to affirm your own authorization, not to be told what applies to you.
+
+Do you affirm that you have the authorization you need for this fixture?
+
+Packages (1):
+  fixture-apt

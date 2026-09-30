@@ -1,0 +1,14 @@
+Target: Debian GNU/Linux 13 (trixie) (ID=debian, version=13, arch=x86_64)
+Debian family: yes
+Catalog: <catalog>
+  2 packages, 2 of which resolve on this target
+  2 profiles
+Transaction log: <state>/hammunition/transactions.jsonl
+  2 entries
+  most recent transaction completed 4 command(s); 2 package(s) intended
+  UNVERIFIED: 1 effect(s) could not be confirmed:
+    fixture-source: /usr/local/bin/fixture: not on disk
+    fixture-apt
+    build-essential
+  deferred in that transaction, by design (1):
+    fixture-source: /etc/fixture.conf not written -- no callsign set

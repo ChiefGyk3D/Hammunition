@@ -14,6 +14,7 @@ against a fixture of expected text.
 from __future__ import annotations
 
 import argparse
+import importlib
 import os
 import pwd
 import sys
@@ -921,6 +922,85 @@ def test_install_reads_the_running_kernel_and_refuses_ax25_tools_without_ax25(
     assert "Nothing was changed" in err
 
 
+def test_install_station_on_xfce_defers_the_plasma_tray_and_says_what_it_read(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    """D-060 through main(), against the shipped catalog: the session files
+    are read by the CLI and handed to the planner, which defers the Plasma
+    applet from `station` on a machine whose only desktop is Xfce."""
+    cli = importlib.import_module("hammunition.cli.main")
+    from hammunition.desktop import Desktop, SessionScan
+
+    _mock_apt(monkeypatch, populated=True)
+    monkeypatch.setattr(
+        cli, "scan_sessions", lambda: SessionScan(desktops=frozenset({Desktop.xfce}))
+    )
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "station"])
+    out = capsys.readouterr().out
+    assert rc == EXIT_OK
+    assert "Desktops read from session files" in out
+    assert "hammunition-tray: will not be installed (profile station)" in out
+    assert "no KDE Plasma session (it has: Xfce)" in out
+    # The applet's .deb URL is printed whenever it is planned (the fetch step);
+    # its Depends, plasma-workspace among them, never are, so asserting on
+    # that name could not fail. The control test below shows this one can.
+    assert TRAY_DEB not in out
+
+
+# Read from the manifest, never typed: a re-pin moves the filename, and a
+# typed copy broke this test on the first one (0.1.0 -> 0.3.0).
+def _tray_deb() -> str:
+    from hammunition.manifest.load import load_manifest
+    from hammunition.manifest.schema import BinaryInstall
+
+    manifest = load_manifest(
+        Path(__file__).resolve().parents[1] / "catalog/packages/hammunition-tray.yaml"
+    )
+    install = manifest.install[0].install
+    assert isinstance(install, BinaryInstall)
+    return install.artifact.url.rsplit("/", 1)[1]
+
+
+TRAY_DEB = _tray_deb()
+
+
+def test_install_station_on_plasma_plans_the_tray_deb(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    """The control for the test above: with a Plasma session the same dry run
+    prints the applet's .deb, so its absence there is evidence."""
+    cli = importlib.import_module("hammunition.cli.main")
+    from hammunition.desktop import Desktop, SessionScan
+
+    _mock_apt(monkeypatch, populated=True)
+    monkeypatch.setattr(
+        cli, "scan_sessions", lambda: SessionScan(desktops=frozenset({Desktop.kde}))
+    )
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "station"])
+    out = capsys.readouterr().out
+    assert rc == EXIT_OK
+    assert TRAY_DEB in out
+    assert "hammunition-tray: will not be installed" not in out
+
+
+def test_install_hammunition_tray_by_name_with_no_sessions_is_refused(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    """A container or a server: no session files at all. Typed by name, the
+    applet is refused (D-039's rule for a name the operator typed)."""
+    from hammunition.desktop import SessionScan
+
+    cli = importlib.import_module("hammunition.cli.main")
+
+    _mock_apt(monkeypatch, populated=True)
+    monkeypatch.setattr(cli, "scan_sessions", lambda: SessionScan(desktops=frozenset()))
+    rc = main(["--catalog", str(CATALOG), "install", "--dry-run", "hammunition-tray"])
+    err = capsys.readouterr().err
+    assert rc == EXIT_UNPLANNABLE
+    assert "hammunition-tray: is for KDE Plasma" in err
+    assert "(it has no session files)" in err
+
+
 @pytest.mark.parametrize("flags", [(), ("--refresh",)])
 def test_install_on_empty_lists_is_plannable_through_main(
     monkeypatch: pytest.MonkeyPatch, capsys: Any, flags: tuple[str, ...]
@@ -1493,29 +1573,16 @@ def test_hardware_park_maps_a_dismissed_prompt_to_exit_3(
 def test_hardware_state_needs_no_privilege_and_prints_a_table(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    import dataclasses
     import importlib
 
     cli = importlib.import_module("hammunition.cli.main")
 
-    monkeypatch.setattr(
-        cli,
-        "_survey_parkables",
-        lambda args: (
-            [
-                type(
-                    "P",
-                    (),
-                    {
-                        "name": "gps-receiver",
-                        "address": "1-4",
-                        "summary": "USB GNSS receivers",
-                        "parked": True,
-                    },
-                )()
-            ],
-            [],
-        ),
-    )
+    # A real Parkable, not a duck-typed stub: `hardware state` builds its
+    # document (D-059) from every field the helper reports.
+    parked = dataclasses.replace(_gps_receiver(), parked=True)
+    monkeypatch.setattr(cli, "_survey_parkables", lambda args: ([parked], []))
+    monkeypatch.setattr("hammunition.hardware.power.read_kept", lambda: [])
     assert cli.main(["hardware", "state"]) == 0
     out = capsys.readouterr().out
     assert "gps-receiver" in out and "parked" in out.lower()
@@ -2286,3 +2353,804 @@ def test_hardware_unapply_removes_both_recorded_owned_paths(
     assert not helper.exists()
     assert not policy.exists()
     assert "Done and verified" in capsys.readouterr().out
+
+
+def test_station_set_map_regions_and_freshness(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    target = tmp_path / "station.yaml"
+    monkeypatch.setattr("hammunition.station.config_path", lambda owner=None: target)
+    assert (
+        cli.main(
+            [
+                "station",
+                "set",
+                "--map-regions",
+                "north-america/us/vermont,north-america/us/new-hampshire",
+                "--map-freshness",
+                "latest",
+            ]
+        )
+        == 0
+    )
+    from hammunition.station import load_station
+
+    s = load_station(target)
+    assert s.map_regions == ("north-america/us/vermont", "north-america/us/new-hampshire")
+    assert s.freshness == "latest"
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["station", "set", "--map-regions", ""],
+        ["station", "set", "--map-regions", ","],
+        ["station", "set", "--map-regions", "", "--map-freshness", "monthly"],
+        ["station", "set", "--map-regions", " , , "],
+    ],
+)
+def test_station_set_map_regions_with_nothing_after_splitting_is_refused(
+    argv: list[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Fix round 1 (7+9), M1: an empty result after splitting on ',' and
+    stripping is refused with a clear message, whether or not other flags
+    are given -- not silently saved as "no regions"."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    target = tmp_path / "station.yaml"
+    monkeypatch.setattr("hammunition.station.config_path", lambda owner=None: target)
+    result = cli.main(argv)
+    assert result != 0
+    assert not target.exists()
+    err = capsys.readouterr().err
+    assert "give at least one region" in err
+    assert "uninstall osm-navit and osm-regions" in err
+
+
+def test_station_set_map_regions_strips_whitespace_around_commas(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    from hammunition.station import load_station
+
+    cli = importlib.import_module("hammunition.cli.main")
+    target = tmp_path / "station.yaml"
+    monkeypatch.setattr("hammunition.station.config_path", lambda owner=None: target)
+    assert (
+        cli.main(
+            [
+                "station",
+                "set",
+                "--map-regions",
+                " north-america/us/vermont , north-america/us/new-hampshire ",
+            ]
+        )
+        == 0
+    )
+    s = load_station(target)
+    assert s.map_regions == ("north-america/us/vermont", "north-america/us/new-hampshire")
+
+
+# ---------------------------------------------------------------------------
+# Map regions (D-057): resolved before the plan prints, disclosed per region
+# ---------------------------------------------------------------------------
+
+
+class _Probe:
+    """Geofabrik as far as resolve() asks: every dated file exists, 10 bytes."""
+
+    def __init__(self) -> None:
+        self.asked: list[str] = []
+
+    def head(self, url: str) -> tuple[int, int, str | None]:
+        self.asked.append(url)
+        return 200, 10, None
+
+    def text(self, url: str) -> str:
+        self.asked.append(url)
+        return "b" * 32 + "  " + url.rsplit("/", 1)[-1].removesuffix(".md5") + "\n"
+
+
+def _map_plan() -> InstallPlan:
+    from test_regions_backend import navit_manifest, regions_manifest
+
+    regions, navit = regions_manifest(), navit_manifest()
+    return InstallPlan(
+        target=Target(distro="debian", version="13", arch="x86_64"),
+        packages=(
+            PlannedPackage(manifest=navit, block=navit.install[0], apt_packages=("maptool",)),
+            PlannedPackage(manifest=regions, block=regions.install[0], apt_packages=()),
+        ),
+    )
+
+
+def _resolve_maps(tmp_path: Path, station: Any, catalog: Path, probe: Any, plan: Any = None) -> Any:
+    from datetime import date
+
+    from hammunition.cli.main import resolve_map_regions
+
+    return resolve_map_regions(
+        plan if plan is not None else _map_plan(),
+        station,
+        catalog,
+        probe=probe,
+        today=date(2026, 9, 28),
+        installed=tmp_path / "installed",
+    )
+
+
+def test_map_regions_resolve_against_the_pin_list_and_geofabrik(tmp_path: Path) -> None:
+    from hammunition.station import Station
+
+    catalog = tmp_path / "catalog"
+    (catalog / "data").mkdir(parents=True)
+    (catalog / "data" / "geofabrik-pins.yaml").write_text(
+        "pins:\n"
+        "  - region: north-america/us/vermont\n"
+        "    snapshot: '260101'\n"
+        "    size: 10\n"
+        f"    sha256: {'a' * 64}\n"
+    )
+    station = Station(map_regions=("north-america/us/vermont", "north-america/us/new-hampshire"))
+    maps = _resolve_maps(tmp_path, station, catalog, _Probe())
+    assert [(f.region, f.snapshot, f.verified_by) for f in maps.files] == [
+        ("north-america/us/vermont", "260101", "sha256, pinned by Hammunition"),
+        ("north-america/us/new-hampshire", "260101", "MD5 from Geofabrik only; not pinned"),
+    ]
+    assert maps.notes == () and maps.kept == ()
+
+
+def test_a_pinned_region_not_installed_is_refused_when_unreachable(tmp_path: Path) -> None:
+    """Fix round 1 (7+9), I3: a pinned region resolves from the pin list with
+    no network at all (no HEAD, no MD5 fetch), so without an explicit
+    reachability check at plan time, the plan would pass offline and the
+    fetch would fail later, mid-transaction, after apt already ran. Guide
+    :263 already promised this refusal; the code did not do it."""
+    from hammunition.geofabrik import GeofabrikError
+    from hammunition.station import Station
+
+    catalog = tmp_path / "catalog"
+    (catalog / "data").mkdir(parents=True)
+    (catalog / "data" / "geofabrik-pins.yaml").write_text(
+        "pins:\n"
+        "  - region: north-america/us/vermont\n"
+        "    snapshot: '260101'\n"
+        "    size: 10\n"
+        f"    sha256: {'a' * 64}\n"
+    )
+    station = Station(map_regions=("north-america/us/vermont",))
+    with pytest.raises(GeofabrikError) as excinfo:
+        _resolve_maps(tmp_path, station, catalog, _Offline())
+    assert "north-america/us/vermont" in str(excinfo.value)
+
+
+def test_a_pinned_region_already_installed_is_not_probed(tmp_path: Path) -> None:
+    """Installed regions keep today's offline behaviour (I3): no HEAD is
+    attempted for a region that is already current, pinned or not."""
+    from hammunition.station import Station
+
+    catalog = tmp_path / "catalog"
+    (catalog / "data").mkdir(parents=True)
+    (catalog / "data" / "geofabrik-pins.yaml").write_text(
+        "pins:\n"
+        "  - region: north-america/us/vermont\n"
+        "    snapshot: '260101'\n"
+        "    size: 1\n"
+        f"    sha256: {'a' * 64}\n"
+    )
+    installed = tmp_path / "installed"
+    installed.mkdir()
+    (installed / "north-america-us-vermont.osm.pbf").write_bytes(b"x")
+    (installed / "north-america-us-vermont.osm.pbf.source").write_text("260101\n")
+    station = Station(map_regions=("north-america/us/vermont",))
+    probe = _Offline()
+    # resolve() itself never calls the probe for a pinned region; a HEAD
+    # here would come only from the new reachability check, and must not
+    # happen for a region already current offline.
+    maps = _resolve_maps(tmp_path, station, catalog, probe)
+    assert [(f.region, f.snapshot) for f in maps.files] == [("north-america/us/vermont", "260101")]
+
+
+def test_no_pin_list_means_every_region_is_md5_and_the_plan_says_so(tmp_path: Path) -> None:
+    from hammunition.station import Station
+
+    maps = _resolve_maps(
+        tmp_path, Station(map_regions=("north-america/us/vermont",)), tmp_path, _Probe()
+    )
+    assert [f.verified_by for f in maps.files] == ["MD5 from Geofabrik only; not pinned"]
+    assert len(maps.notes) == 1 and "geofabrik-pins.yaml" in maps.notes[0]
+
+
+def test_a_plan_without_map_units_asks_geofabrik_nothing(tmp_path: Path) -> None:
+    from hammunition.station import Station
+
+    probe = _Probe()
+    maps = _resolve_maps(
+        tmp_path, Station(map_regions=("north-america/us/vermont",)), tmp_path, probe, _plan()
+    )
+    assert maps.files == () and probe.asked == []
+
+
+class _Offline:
+    def head(self, url: str) -> tuple[int, int, str | None]:
+        from hammunition.geofabrik import GeofabrikError
+
+        raise GeofabrikError(f"{url} could not be reached: no route to host")
+
+    def text(self, url: str) -> str:
+        return self.head(url)  # type: ignore[return-value]
+
+
+def test_offline_installed_regions_are_kept_and_the_plan_says_so(tmp_path: Path) -> None:
+    """Fix round 1, item 4 (spec §8): no network leaves installed regions untouched."""
+    from hammunition.station import Station
+
+    installed = tmp_path / "installed"
+    installed.mkdir()
+    for slug in ("north-america-us-vermont", "north-america-us-new-hampshire"):
+        (installed / f"{slug}.osm.pbf").write_bytes(b"x")
+        (installed / f"{slug}.osm.pbf.source").write_text("250101\n")
+    station = Station(map_regions=("north-america/us/vermont", "north-america/us/new-hampshire"))
+    maps = _resolve_maps(tmp_path, station, tmp_path, _Offline())
+    assert maps.files == ()
+    assert [(k.region, k.snapshot) for k in maps.kept] == [
+        ("north-america/us/vermont", "250101"),
+        ("north-america/us/new-hampshire", "250101"),
+    ]
+    text = "\n".join(render_plan(_map_plan(), [], euid=0, maps=maps.disclosure([])))
+    assert text.count("could not check for a newer map; keeping the installed 250101") == 2
+
+
+def test_every_unresolvable_region_not_installed_is_named_together(tmp_path: Path) -> None:
+    from hammunition.geofabrik import GeofabrikError
+    from hammunition.station import Station
+
+    station = Station(map_regions=("north-america/us/vermont", "north-america/us/new-hampshire"))
+    with pytest.raises(GeofabrikError) as excinfo:
+        _resolve_maps(tmp_path, station, tmp_path, _Offline())
+    assert "north-america/us/vermont" in str(excinfo.value)
+    assert "north-america/us/new-hampshire" in str(excinfo.value)
+
+
+def test_the_plan_discloses_each_region_its_size_and_how_it_is_verified() -> None:
+    from hammunition.backends.regions import MapDisclosure
+    from test_regions_backend import NH, VT
+
+    maps = MapDisclosure(fetch=(VT, NH), current=(), kept=())
+    text = "\n".join(render_plan(_map_plan(), [], euid=0, maps=maps))
+    assert "Map regions" in text and "will be downloaded and installed" in text
+    assert "ODbL-1.0" in text
+    vt = next(line for line in text.splitlines() if "north-america/us/vermont" in line)
+    assert "260101" in vt and "sha256, pinned by Hammunition" in vt
+    nh = next(line for line in text.splitlines() if "north-america/us/new-hampshire" in line)
+    assert "MD5 from Geofabrik only; not pinned" in nh
+    assert "estimate" in text
+
+
+def test_regions_already_current_are_not_listed_as_downloads() -> None:
+    """Fix round 1, item 3: the dry run lists only what will be fetched."""
+    from hammunition.backends.regions import MapDisclosure
+    from hammunition.geofabrik import RegionFile
+    from test_regions_backend import NH, VT
+
+    me = RegionFile("north-america/us/maine", "260101", "https://x/m.osm.pbf", 10, None, "c" * 32)
+    maps = MapDisclosure(fetch=(), current=(VT, NH, me), kept=())
+    text = "\n".join(render_plan(_map_plan(), [], euid=0, maps=maps))
+    assert "will be downloaded" not in text
+    assert "download total: 0 KB" in text
+    assert "already installed, current" in text
+    for region in ("north-america/us/vermont", "north-america/us/new-hampshire", "maine"):
+        assert region in text
+
+
+def test_leftover_map_data_is_named_when_no_regions_are_set(tmp_path: Path) -> None:
+    """Fix round 1, item 5: not left behind in silence."""
+    from hammunition.cli.main import leftover_maps_note
+    from hammunition.plan import Deferral
+
+    plan = InstallPlan(
+        target=Target(distro="debian", version="13", arch="x86_64"),
+        packages=(),
+        deferrals=tuple(
+            Deferral(subject=s, what="x", why="no map regions set", remedy="y", kind="package")
+            for s in ("osm-navit", "osm-regions")
+        ),
+    )
+    assert leftover_maps_note(plan, tmp_path) is None
+    data = tmp_path / "share" / "hammunition" / "data"
+    (data / "osm-regions").mkdir(parents=True)
+    (data / "osm-regions" / "north-america-us-vermont.osm.pbf").write_bytes(b"x")
+    note = leftover_maps_note(plan, tmp_path)
+    assert note is not None
+    assert "still installed" in note
+    assert "hammunition uninstall osm-navit osm-regions" in note
+
+
+def test_osm_navit_without_navit_is_refused_before_hours_of_conversion(tmp_path: Path) -> None:
+    """Fix round 1, item 10."""
+    from hammunition.cli.main import navit_config_blocker
+
+    stock = tmp_path / "etc" / "navit" / "navit.xml"
+    message = navit_config_blocker(_map_plan(), stock)
+    assert message is not None and str(stock) in message and "navit" in message
+    # navit in the same transaction installs the file before conversion.
+    navit = PackageManifest.model_validate(
+        {
+            **_manifest_dict("navit"),
+            "install": [{"install": {"method": "apt", "packages": ["navit"]}}],
+        }
+    )
+    with_navit = InstallPlan(
+        target=_map_plan().target,
+        packages=(
+            *_map_plan().packages,
+            PlannedPackage(manifest=navit, block=navit.install[0], apt_packages=("navit",)),
+        ),
+    )
+    assert navit_config_blocker(with_navit, stock) is None
+    stock.parent.mkdir(parents=True)
+    stock.write_text("<config/>")
+    assert navit_config_blocker(_map_plan(), stock) is None
+
+
+def _manifest_dict(name: str) -> dict[str, Any]:
+    return {
+        "name": name,
+        "version": "1",
+        "summary": "x",
+        "categories": ["digital-modes"],
+        "update": {"probe": {"method": "apt_policy"}},
+        "documentation": {
+            "what_it_does": "Does an example thing for the purposes of testing.",
+            "why_you_want_it": "Because the test suite requires a valid manifest.",
+            "upstream_url": "https://example.invalid/",
+        },
+    }
+
+
+def test_free_space_is_read_from_the_nearest_existing_directory(tmp_path: Path) -> None:
+    from hammunition.backends.regions import free_bytes_at
+
+    assert free_bytes_at(tmp_path / "not" / "yet" / "made") > 0
+
+
+def test_an_osm_navit_only_run_still_counts_its_conversions(tmp_path: Path) -> None:
+    """Fix round 2, item 3: no download does not mean no disk to check."""
+    from hammunition.backends import DerivedBackend, RegionsBackend
+    from hammunition.cli.main import map_work
+    from test_regions_backend import VT, navit_manifest
+
+    navit = navit_manifest()
+    plan = InstallPlan(
+        target=Target(distro="debian", version="13", arch="x86_64"),
+        packages=(PlannedPackage(manifest=navit, block=navit.install[0], apt_packages=()),),
+    )
+    regions = RegionsBackend(fetcher=Fetcher(tmp_path / "c"), prefix=tmp_path, files=[VT])
+    derived = DerivedBackend(prefix=tmp_path, files=[VT], staging=tmp_path / "s")
+    downloads, conversions = map_work(plan, regions, derived)
+    assert downloads == [] and conversions == [VT]
+
+
+def _catalog_navit_plan() -> tuple[InstallPlan, dict[str, Any]]:
+    from hammunition.manifest.load import load_catalog
+
+    catalog = load_catalog(REPO_ROOT / "catalog" / "packages")
+    navit = catalog["osm-navit"]
+    plan = InstallPlan(
+        target=Target(distro="debian", version="13", arch="x86_64"),
+        packages=(PlannedPackage(manifest=navit, block=navit.install[0], apt_packages=()),),
+    )
+    return plan, catalog
+
+
+def test_the_plan_finds_the_border_file_and_the_country_table(tmp_path: Path) -> None:
+    """The address-search fix: osm-navit names country-boundaries; the plan
+    reads where it installs and the committed region -> country table."""
+    from hammunition.cli.main import map_borders
+
+    plan, catalog = _catalog_navit_plan()
+    border, countries, notes = map_borders(plan, catalog, REPO_ROOT / "catalog", tmp_path)
+    assert border is not None
+    assert border.path == (
+        tmp_path / "share/hammunition/data/country-boundaries/ne_10m_admin_0_countries.geojson"
+    )
+    assert countries["north-america/us/vermont"] == ("US",)
+    assert notes == []
+
+
+def test_a_missing_country_table_is_a_note_not_a_silent_empty_one(tmp_path: Path) -> None:
+    from hammunition.cli.main import map_borders
+
+    plan, catalog = _catalog_navit_plan()
+    border, countries, notes = map_borders(plan, catalog, tmp_path / "no-catalog", tmp_path)
+    assert border is not None and countries == {}
+    (note,) = notes
+    assert "geofabrik-countries.yaml" in note and "no country border is merged" in note
+
+
+def test_no_derived_unit_means_no_border(tmp_path: Path) -> None:
+    from hammunition.cli.main import map_borders
+
+    assert map_borders(_map_plan(), {}, REPO_ROOT / "catalog", tmp_path) == (None, {}, [])
+
+
+def test_the_plan_lists_regions_that_will_be_converted() -> None:
+    from hammunition.backends.regions import MapDisclosure
+    from test_regions_backend import VT
+
+    maps = MapDisclosure(fetch=(), current=(VT,), kept=(), convert=(VT,))
+    text = "\n".join(render_plan(_map_plan(), [], euid=0, maps=maps))
+    assert "will be converted for Navit" in text
+    assert "estimate, measured on three regions" in text
+
+
+# ---------------------------------------------------------------------------
+# `hammunition maps regions` -- Geofabrik's index, fetched on request (D-057)
+# ---------------------------------------------------------------------------
+
+
+class _MapsProbe:
+    """A :class:`hammunition.geofabrik.Probe` stand-in for `maps regions`:
+    only `text` is ever called for this command."""
+
+    def __init__(self, *, text: str | None = None, error: str | None = None) -> None:
+        self._text = text
+        self._error = error
+        self.asked: list[str] = []
+
+    def head(self, url: str) -> tuple[int, int, str | None]:  # pragma: no cover - unused here
+        raise NotImplementedError
+
+    def text(self, url: str) -> str:
+        self.asked.append(url)
+        if self._error is not None:
+            from hammunition.geofabrik import GeofabrikError
+
+            raise GeofabrikError(self._error)
+        assert self._text is not None
+        return self._text
+
+
+_MAPS_INDEX = (
+    '{"features": [{"properties": {"urls": {"pbf": '
+    '"https://download.geofabrik.de/north-america/us/vermont-latest.osm.pbf"}}}, '
+    '{"properties": {"urls": {"pbf": '
+    '"https://download.geofabrik.de/europe-latest.osm.pbf"}}}]}'
+)
+
+
+def test_maps_regions_filters_case_insensitively(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    monkeypatch.setattr(cli, "UrllibProbe", lambda: _MapsProbe(text=_MAPS_INDEX))
+    assert cli.main(["maps", "regions", "VERMONT"]) == EXIT_OK
+    assert capsys.readouterr().out == "north-america/us/vermont\n"
+
+
+def test_maps_regions_fetches_the_smaller_nogeom_index(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fix round 1 (7+9), M6: index-v1-nogeom.json (0.51 MB, measured live
+    2026-09-28) carries the same `properties.urls.pbf` shape as
+    index-v1.json (3.79 MB); fetch the smaller one."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    probe = _MapsProbe(text=_MAPS_INDEX)
+    monkeypatch.setattr(cli, "UrllibProbe", lambda: probe)
+    assert cli.main(["maps", "regions"]) == EXIT_OK
+    assert probe.asked == ["https://download.geofabrik.de/index-v1-nogeom.json"]
+
+
+def test_maps_regions_with_no_filter_lists_everything_sorted(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    monkeypatch.setattr(cli, "UrllibProbe", lambda: _MapsProbe(text=_MAPS_INDEX))
+    assert cli.main(["maps", "regions"]) == EXIT_OK
+    assert capsys.readouterr().out.splitlines() == ["europe", "north-america/us/vermont"]
+
+
+def test_maps_regions_a_network_failure_is_a_named_error(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    monkeypatch.setattr(
+        cli,
+        "UrllibProbe",
+        lambda: _MapsProbe(
+            error="https://download.geofabrik.de/index-v1.json could not be reached"
+        ),
+    )
+    assert cli.main(["maps", "regions"]) != EXIT_OK
+    err = capsys.readouterr().err
+    assert "error:" in err
+    assert "could not be reached" in err
+
+
+def test_offline_a_pinned_region_installed_at_an_older_snapshot_is_kept(tmp_path: Path) -> None:
+    """Final review, item 1: the up-front HEAD failing must not refuse a region
+    whose .osm.pbf is installed; it is kept, as any offline region is."""
+    from hammunition.station import Station
+
+    catalog = tmp_path / "catalog"
+    (catalog / "data").mkdir(parents=True)
+    (catalog / "data" / "geofabrik-pins.yaml").write_text(
+        "pins:\n"
+        "  - region: north-america/us/vermont\n"
+        "    snapshot: '260101'\n"
+        "    size: 10\n"
+        f"    sha256: {'a' * 64}\n"
+    )
+    installed = tmp_path / "installed"
+    installed.mkdir()
+    (installed / "north-america-us-vermont.osm.pbf").write_bytes(b"x")
+    (installed / "north-america-us-vermont.osm.pbf.source").write_text("250101\n")
+    maps = _resolve_maps(
+        tmp_path, Station(map_regions=("north-america/us/vermont",)), catalog, _Offline()
+    )
+    assert maps.files == ()
+    assert [(k.region, k.snapshot) for k in maps.kept] == [("north-america/us/vermont", "250101")]
+    text = "\n".join(render_plan(_map_plan(), [], euid=0, maps=maps.disclosure([])))
+    assert "could not check for a newer map; keeping the installed 250101" in text
+    # The probe's own message names the URL once; it is not wrapped in a second.
+    assert maps.kept[0].reason.count("could not be reached") == 1
+
+
+# ---------------------------------------------------------------------------
+# hardware park --until-reboot, state's kept column, unapply removes KEPT_RULES
+# ---------------------------------------------------------------------------
+
+
+def _gps_parkable(parked: bool = False) -> Parkable:
+    """A stand-in attached device for the kept-off disclosure tests, distinct
+    from ``_gps_receiver()`` above only in its address and identifier, which
+    match the rule text these tests assert against."""
+    from hammunition.hardware.power import Parkable
+
+    return Parkable(
+        name="gps-receiver",
+        summary="USB GNSS receivers",
+        method="usb_deauthorize",
+        quiet=(),
+        sysfs_path="/sys/bus/usb/devices/3-5.1",
+        identifier="1546:01a9",
+        parked=parked,
+    )
+
+
+def _stub_power_verb(
+    monkeypatch: pytest.MonkeyPatch, cli: Any, tmp_path: Path, found: list[Parkable]
+) -> None:
+    """The plumbing every `park`/`wake` test needs to reach `_power_verb`'s own
+    logic: a helper file that exists, `pkexec` on PATH, a stubbed survey, and
+    no kept entries already on disk."""
+    helper = tmp_path / "helper"
+    helper.write_text("#!/bin/sh\n")
+    helper.chmod(0o755)
+    monkeypatch.setattr(cli, "HELPER_PATH", str(helper))
+    monkeypatch.setattr(
+        cli.shutil, "which", lambda name: "/usr/bin/pkexec" if name == "pkexec" else None
+    )
+    monkeypatch.setattr(cli, "_survey_parkables", lambda args: (found, []))
+    monkeypatch.setattr("hammunition.hardware.power.read_kept", lambda: [])
+
+
+def _stub_unapply_with_nothing_logged(monkeypatch: pytest.MonkeyPatch, cli: Any) -> None:
+    """`unapply`'s own log-reading path, stubbed out so the kept-rules removal
+    can be exercised on its own."""
+
+    class _EmptyLog:
+        def __init__(self, **kwargs: object) -> None: ...
+
+        def read(self) -> Iterator[dict[str, Any]]:
+            return iter(())
+
+    monkeypatch.setattr(cli, "operator", lambda args: "op")
+    monkeypatch.setattr(cli, "TransactionLog", _EmptyLog)
+
+
+def test_hardware_park_dry_run_discloses_the_kept_entry(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    _stub_power_verb(monkeypatch, cli, tmp_path, [_gps_parkable()])
+    assert cli.main(["hardware", "park", "--dry-run", "gps-receiver"]) == 0
+    out = capsys.readouterr().out
+    assert "66-hammunition-kept.rules" in out
+    assert 'KERNEL=="3-5.1"' in out
+    assert "stays parked across reboots" in out
+
+
+def test_hardware_park_until_reboot_passes_the_flag_and_writes_no_entry(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    _stub_power_verb(monkeypatch, cli, tmp_path, [_gps_parkable()])
+    assert cli.main(["hardware", "park", "--until-reboot", "--dry-run", "gps-receiver"]) == 0
+    out = capsys.readouterr().out
+    assert 'ATTR{authorized}="0"' not in out, "no rule is added"
+    assert "A reboot wakes it" in out
+    # Final review finding 4: an entry from an earlier keeping park would
+    # re-park it at boot, so --until-reboot removes it and says so.
+    assert "any kept entry for it is removed from" in out
+    assert "66-hammunition-kept.rules" in out
+    assert "This will also remove" not in out, "the removal is disclosed once"
+    assert "park --until-reboot gps-receiver@3-5.1" in out
+
+
+def test_hardware_wake_of_an_absent_kept_device_discloses_the_removal(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import importlib
+
+    from hammunition.hardware.power import KeptEntry
+
+    cli = importlib.import_module("hammunition.cli.main")
+    _stub_power_verb(monkeypatch, cli, tmp_path, [])
+    monkeypatch.setattr(
+        "hammunition.hardware.power.read_kept",
+        lambda: [KeptEntry("gps-receiver", "3-5.1", "1546", "01a9")],
+    )
+    assert cli.main(["hardware", "wake", "--dry-run", "gps-receiver@3-5.1"]) == 0
+    out = capsys.readouterr().out
+    assert "not attached" in out
+    assert "remove its kept entry" in out
+
+
+def test_hardware_state_shows_kept_and_absent(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    from hammunition.hardware.power import KeptEntry
+
+    cli = importlib.import_module("hammunition.cli.main")
+    monkeypatch.setattr(cli, "_survey_parkables", lambda args: ([_gps_parkable(parked=True)], []))
+    monkeypatch.setattr(
+        "hammunition.hardware.power.read_kept",
+        lambda: [
+            KeptEntry("gps-receiver", "3-5.1", "1546", "01a9"),
+            KeptEntry("gps-receiver", "3-6", "1546", "01a9"),
+        ],
+    )
+    assert cli.main(["hardware", "state"]) == 0
+    out = capsys.readouterr().out
+    assert "kept" in out.splitlines()[0]
+    assert "Kept parked, not attached" in out
+    assert "gps-receiver@3-6" in out
+    assert "A reboot wakes everything" not in out
+
+
+def test_hardware_unapply_removes_the_kept_rules_file(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    kept = tmp_path / "66-hammunition-kept.rules"
+    kept.write_text("# kept: gps-receiver\n")
+    monkeypatch.setattr("hammunition.hardware.power.KEPT_RULES", str(kept))
+    _stub_unapply_with_nothing_logged(monkeypatch, cli)
+    assert cli.main(["hardware", "unapply", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert f"rm -f {kept}" in out
+    assert "udevadm control --reload" in out
+
+
+def test_hardware_wake_dry_run_of_an_ambiguous_attached_name_is_refused(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Final review finding 1, the CLI half: an attached device is never
+    disclosed as "not attached" because its name was ambiguous."""
+    import dataclasses
+    import importlib
+
+    from hammunition.hardware.power import KeptEntry
+
+    cli = importlib.import_module("hammunition.cli.main")
+    a = dataclasses.replace(_gps_parkable(parked=True), sysfs_path="/sys/bus/usb/devices/1-4")
+    b = dataclasses.replace(_gps_parkable(), sysfs_path="/sys/bus/usb/devices/1-5")
+    _stub_power_verb(monkeypatch, cli, tmp_path, [a, b])
+    monkeypatch.setattr(
+        "hammunition.hardware.power.read_kept",
+        lambda: [KeptEntry("gps-receiver", "1-4", "1546", "01a9")],
+    )
+    assert cli.main(["hardware", "wake", "--dry-run", "gps-receiver"]) == 2
+    out, err = capsys.readouterr()
+    assert "would be a guess" in err
+    assert "not attached" not in out
+
+
+def test_hardware_state_survives_a_device_whose_identity_is_not_a_kept_shape(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Final review finding 7: kept_entry() raising for one attached device was
+    a traceback out of `hardware state`."""
+    import dataclasses
+    import importlib
+
+    from hammunition.hardware.power import KeptEntry
+
+    cli = importlib.import_module("hammunition.cli.main")
+    odd = dataclasses.replace(_gps_parkable(), identifier="1546:01a9x")
+    monkeypatch.setattr(cli, "_survey_parkables", lambda args: ([odd], []))
+    monkeypatch.setattr(
+        "hammunition.hardware.power.read_kept",
+        lambda: [KeptEntry("gps-receiver", "3-6", "1546", "01a9")],
+    )
+    assert cli.main(["hardware", "state"]) == 0
+    out = capsys.readouterr().out
+    assert "gps-receiver@3-6" in out
+
+
+def test_kept_split_skips_only_the_device_that_will_not_validate() -> None:
+    """Final review finding 7, doctor's half: one bad attached device drops
+    that device from the kept checks, never all of them."""
+    import dataclasses
+    import importlib
+
+    from hammunition.hardware.power import KeptEntry
+
+    cli = importlib.import_module("hammunition.cli.main")
+    good = _gps_parkable(parked=True)
+    odd = dataclasses.replace(
+        _gps_parkable(), sysfs_path="/sys/bus/usb/devices/3-7", identifier="1546:01a9x"
+    )
+    kept = [
+        KeptEntry("gps-receiver", "3-5.1", "1546", "01a9"),
+        KeptEntry("gps-receiver", "3-6", "1546", "01a9"),
+    ]
+    rows, absent = cli._kept_split([good, odd], kept)
+    assert rows == [(good, True), (odd, False)]
+    assert absent == [kept[1]]
+
+
+def test_hardware_unapply_names_what_it_leaves_and_how_kept_entries_return(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Final review finding 6: the listing that removes the kept file said
+    "the udev rules file is not touched", and the closing line said `apply`
+    reinstalls what it removed -- which apply never does for kept entries."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    kept = tmp_path / "66-hammunition-kept.rules"
+    kept.write_text("# kept: gps-receiver\n")
+    monkeypatch.setattr("hammunition.hardware.power.KEPT_RULES", str(kept))
+    _stub_unapply_with_nothing_logged(monkeypatch, cli)
+
+    class _Removing:
+        def run(self, command: Command) -> CommandResult:
+            if command.argv[0] == "rm":
+                Path(command.argv[-1]).unlink(missing_ok=True)
+            return CommandResult(argv=tuple(command.argv), returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: _Removing())
+    assert cli.main(["hardware", "unapply", "--yes"]) == 0
+    out = capsys.readouterr().out
+    assert not kept.exists()
+    assert "The udev rules file is not touched" not in out
+    assert "65-hammunition.rules" in out and "is not touched" in out
+    assert "including any line in it that Hammunition did not write" in out
+    assert "`hammunition hardware apply` reinstalls them" not in out
+    assert "Kept entries come back with `hammunition hardware park`" in out

@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**251 packages** across **55 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**266 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -135,13 +135,14 @@ HamClock-style boards: grey line, propagation, spots and the day at a glance.
 - [openhamclock](openhamclock.md) — Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites
 - [sunclock](sunclock.md) — World map showing the day-night terminator and where the sun is now
 
-### `device-support` — 7
+### `device-support` — 8
 
 lsusb, lspci, packet-modem drivers and companions for devices that need one.
 
 - [baycomepp](baycomepp.md) — Driver for the HB9JNX parallel-port packet modem
 - [baycomusb](baycomusb.md) — Driver for the HB9JNX USB packet modem
 - [hammunition-tray](hammunition-tray.md) — KDE Plasma tray switches for parking and waking radio devices — the Hammunition family's own
+- [hammunition-tray-qt](hammunition-tray-qt.md) — Tray switches for parking and waking radio devices on Xfce, LXQt, LXDE, MATE and Cinnamon — the Hammunition family's own
 - [pciutils](pciutils.md) — lspci — for the SDRs and capture cards that are not on USB
 - [qflipper](qflipper.md) — Desktop companion for the Flipper Zero — firmware, files, and CLI over USB
 - [usbutils](usbutils.md) — lsusb — step one of every hardware problem in this catalog
@@ -222,7 +223,7 @@ Practice tests for the US, Canadian and commercial licence exams.
 - [fccexam](fccexam.md) — Practice tests for the US FCC commercial radio licence exams
 - [hamexam](hamexam.md) — Practice tests for the United States amateur radio licence exams
 
-### `gps-gnss` — 5
+### `gps-gnss` — 7
 
 GPS receivers and the daemon that shares one, format converters, and a GNSS receiver in software.
 
@@ -231,6 +232,8 @@ GPS receivers and the daemon that shares one, format converters, and a GNSS rece
 - [gpsd](gpsd.md) — GPS service daemon — one process owns the receiver, everything else asks it
 - [gpsd-clients](gpsd-clients.md) — Clients that consume what gpsd serves — xgps, gpspipe, gpxlogger, gpsdecode
 - [gpsd-tools](gpsd-tools.md) — cgps and gpsmon — the two programs you actually reach for when a receiver misbehaves
+- [navit](navit.md) — Offline turn-by-turn navigation that follows the GPS, with spoken directions
+- [qmapshack](qmapshack.md) — Offline topographic maps, trails, GPX tracks, elevation profiles and routing on foot
 
 ### `ism-subghz` — 3
 
@@ -297,6 +300,25 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [qrq](qrq.md) — High-speed Morse trainer that pushes your callsign copy to its limit
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
+
+### `navigation-maps` — 14
+
+Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
+
+- [country-boundaries](country-boundaries.md) — Natural Earth's world country borders, which let Navit's address search find towns
+- [dem-copernicus](dem-copernicus.md) — Copernicus GLO-30 elevation tiles for your map regions, verified
+- [dem-qmapshack](dem-qmapshack.md) — Hillshade, slope and 20 m contour lines for QMapShack, from the elevation tiles
+- [gdal-bin](gdal-bin.md) — GDAL's command-line tools for rasters and elevation data
+- [mkgmap](mkgmap.md) — Builds Garmin-format maps from OpenStreetMap data
+- [mkgmap-splitter](mkgmap-splitter.md) — Cuts OpenStreetMap data into tiles sized for mkgmap
+- [navit](navit.md) — Offline turn-by-turn navigation that follows the GPS, with spoken directions
+- [osm-garmin](osm-garmin.md) — Garmin maps of your OpenStreetMap regions, with trails, for QMapShack
+- [osm-navit](osm-navit.md) — Navit's binary maps, converted from your OpenStreetMap regions, and its configuration
+- [osm-regions](osm-regions.md) — OpenStreetMap region extracts from Geofabrik, the regions you choose, verified
+- [osm-routino](osm-routino.md) — One Routino routing database over all your regions, for routes on foot
+- [qmapshack](qmapshack.md) — Offline topographic maps, trails, GPX tracks, elevation profiles and routing on foot
+- [routino](routino.md) — Offline routing over OpenStreetMap data, on foot, by bike or by car
+- [socat](socat.md) — A relay between two data channels, sockets, files or programs
 
 ### `nbems` — 5
 
@@ -670,6 +692,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [coil64](coil64.md) | Calculates inductance for coils of almost any geometry | git |
 | [comptext](comptext.md) | Compares two text streams and scores how much of one arrived intact | apt |
 | [comptty](comptty.md) | The same accuracy comparison as comptext, for Baudot RTTY streams | apt |
+| [country-boundaries](country-boundaries.md) | Natural Earth's world country borders, which let Navit's address search find towns | data |
 | [country-files](country-files.md) | The DX-cluster country file (cty.dat) — callsign prefix to entity, zone and coordinates | data |
 | [cqrlog](cqrlog.md) | Full-featured station log with a database behind it and rig control in front | apt |
 | [cubicsdr](cubicsdr.md) | Cross-platform SDR receiver with several demodulators running at once | apt |
@@ -680,6 +703,8 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [cwdaemon](cwdaemon.md) | Network service that keys a transmitter's Morse from a serial or parallel port | apt |
 | [cwwav](cwwav.md) | Turns text into a Morse audio file, from the command line | git |
 | [dablin](dablin.md) | Lightweight DAB receiver for the command line or a small window | apt |
+| [dem-copernicus](dem-copernicus.md) | Copernicus GLO-30 elevation tiles for your map regions, verified | dem-tiles |
+| [dem-qmapshack](dem-qmapshack.md) | Hillshade, slope and 20 m contour lines for QMapShack, from the elevation tiles | derived |
 | [dfu-util](dfu-util.md) | Device Firmware Upgrade tool — flash devices that expose a standard DFU mode | apt |
 | [direwolf](direwolf.md) | Software TNC — turns a sound card into an APRS and packet modem | apt |
 | [dmrconfig](dmrconfig.md) | Command-line DMR codeplug tool — the text-file approach to the same job | apt |
@@ -708,6 +733,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [flwrap](flwrap.md) | Wraps a file with a checksum so the far end knows it arrived intact | apt |
 | [freedv](freedv.md) | Digital voice over HF in the bandwidth of an SSB signal | apt |
 | [garim](garim.md) | Graphical ARIM messaging over an ARDOP TNC | source |
+| [gdal-bin](gdal-bin.md) | GDAL's command-line tools for rasters and elevation data | apt |
 | [geary](geary.md) | The minimal, conversation-view mail client | apt |
 | [git](git.md) | Distributed version control — the tool this project is distributed with | apt |
 | [glfer](glfer.md) | QRSS and DFCW receiver for extremely slow narrowband CW on LF/MF | source |
@@ -739,6 +765,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [hamexam](hamexam.md) | Practice tests for the United States amateur radio licence exams | apt |
 | [hammunition-hill](hammunition-hill.md) | Local-first ham radio dashboard — the Hammunition family's own | binary |
 | [hammunition-tray](hammunition-tray.md) | KDE Plasma tray switches for parking and waking radio devices — the Hammunition family's own | binary |
+| [hammunition-tray-qt](hammunition-tray-qt.md) | Tray switches for parking and waking radio devices on Xfce, LXQt, LXDE, MATE and Cinnamon — the Hammunition family's own | binary |
 | [hcxdumptool](hcxdumptool.md) | Wi-Fi frame capture aimed at producing hash files for offline analysis | apt |
 | [hcxtools](hcxtools.md) | Converts captured Wi-Fi frames into hash formats analysis tools read | apt |
 | [ibp](ibp.md) | Shows which NCDXF/IARU beacon is transmitting right now, on which band | source |
@@ -768,6 +795,8 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [minicom](minicom.md) | Full-screen serial communication program, the one everyone already knows | apt |
 | [minimodem](minimodem.md) | General-purpose audio FSK modem — Bell 103, RTTY, AX.25 and anything else | apt |
 | [miri-sdr](miri-sdr.md) | Command-line tools for Mirics-based receivers | apt |
+| [mkgmap](mkgmap.md) | Builds Garmin-format maps from OpenStreetMap data | apt |
+| [mkgmap-splitter](mkgmap-splitter.md) | Cuts OpenStreetMap data into tiles sized for mkgmap | apt |
 | [mlat-client-adsbfi](mlat-client-adsbfi.md) | Contributes ADS-B timing data so a network can locate aircraft by multilateration | apt |
 | [morse-classic](morse-classic.md) | Text-to-Morse sounder and trainer, Eric Raymond's morse-classic | apt |
 | [morse2ascii](morse2ascii.md) | Decodes Morse out of a recorded WAV file | apt |
@@ -775,6 +804,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [multimon](multimon.md) | The original multimon decoder, kept for the modes its successor dropped | apt |
 | [multimon-ng](multimon-ng.md) | Decoder for POCSAG, FLEX, AFSK, DTMF and other audio-band digital modes | apt |
 | [nanovna-saver](nanovna-saver.md) | Sweep, chart and calibrate a NanoVNA from the computer | apt |
+| [navit](navit.md) | Offline turn-by-turn navigation that follows the GPS, with spoken directions | apt |
 | [nec2c](nec2c.md) | The NEC2 antenna modelling engine as a C program, for scripting | apt |
 | [noaa-apt](noaa-apt.md) | Decoder for NOAA weather-satellite APT imagery | binary |
 | [not1mm](not1mm.md) | A contest logger that speaks to your rig, keyer and cluster | venv |
@@ -785,6 +815,10 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [openfpgaloader](openfpgaloader.md) | Universal bitstream loader for FPGAs, over JTAG and SPI | apt |
 | [openhamclock](openhamclock.md) | Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites | node |
 | [openocd](openocd.md) | On-chip debugging and in-system programming over JTAG and SWD | apt |
+| [osm-garmin](osm-garmin.md) | Garmin maps of your OpenStreetMap regions, with trails, for QMapShack | derived |
+| [osm-navit](osm-navit.md) | Navit's binary maps, converted from your OpenStreetMap regions, and its configuration | derived |
+| [osm-regions](osm-regions.md) | OpenStreetMap region extracts from Geofabrik, the regions you choose, verified | osm-regions |
+| [osm-routino](osm-routino.md) | One Routino routing database over all your regions, for routes on foot | derived |
 | [osmo-sdr](osmo-sdr.md) | Tools for the original OsmoSDR hardware | apt |
 | [paracon](paracon.md) | Packet radio terminal that talks AGWPE to Direwolf, with no kernel AX.25 | binary |
 | [pat](pat.md) | Winlink client — radio email that works when the internet does not | apt |
@@ -803,6 +837,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [qflipper](qflipper.md) | Desktop companion for the Flipper Zero — firmware, files, and CLI over USB | apt |
 | [qgrid](qgrid.md) | Maidenhead grid square calculator with a map and a compass | source |
 | [qlog](qlog.md) | Modern Qt station log with award tracking and online-service upload | apt, git |
+| [qmapshack](qmapshack.md) | Offline topographic maps, trails, GPX tracks, elevation profiles and routing on foot | apt |
 | [qrq](qrq.md) | High-speed Morse trainer that pushes your callsign copy to its limit | apt |
 | [qsstv](qsstv.md) | Slow-scan television and radiofax — receive and transmit pictures | apt |
 | [qtbpqaprs](qtbpqaprs.md) | G8BPQ's Qt APRS client, the messaging-focused one | git |
@@ -817,6 +852,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [rayhunter](rayhunter.md) | EFF's IMSI-catcher detector — the installer for a supported hotspot, and the offline capture analyser | binary |
 | [readsb](readsb.md) | Efficient Mode S and ADS-B decoder — the maintained dump1090 successor | apt |
 | [remotetrx](remotetrx.md) | Puts an SvxLink receiver or transceiver at the end of a network link | apt |
+| [routino](routino.md) | Offline routing over OpenStreetMap data, on foot, by bike or by car | apt |
 | [rtl-433](rtl-433.md) | Decoder for the unlicensed ISM bands — weather stations, sensors, tyre monitors | apt |
 | [rtl-ais](rtl-ais.md) | Receives both AIS channels at once from one cheap dongle | apt |
 | [rtl-sdr](rtl-sdr.md) | Host tools and library for RTL2832U-based receivers | apt |
@@ -841,6 +877,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [soapysdr-module-rtlsdr](soapysdr-module-rtlsdr.md) | SoapySDR driver module for RTL-SDR hardware | apt |
 | [soapysdr-module-uhd](soapysdr-module-uhd.md) | SoapySDR driver module for Ettus USRP hardware | apt |
 | [soapysdr-tools](soapysdr-tools.md) | Command-line tools for the SoapySDR hardware abstraction layer | apt |
+| [socat](socat.md) | A relay between two data channels, sockets, files or programs | apt |
 | [spectools](spectools.md) | Spectrum display for MetaGeek Wi-Spy dongles and the Ubertooth One | apt |
 | [splat](splat.md) | Terrain-aware path analysis for VHF and above, from real elevation data | apt |
 | [stlink-tools](stlink-tools.md) | Flash and debug STM32 targets through an ST-Link probe | apt |

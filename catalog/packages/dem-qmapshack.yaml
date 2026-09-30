@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: dem-qmapshack
+version: "station"
+summary: Hillshade, slope and 20 m contour lines for QMapShack, from the elevation tiles
+categories: [navigation-maps]
+
+# Derived data (D-061): the `gdal-dem` converter builds QMapShack's DEM (a
+# virtual raster over the installed tiles) and a contour overlay map.
+depends: [dem-copernicus, gdal-bin]
+
+install:
+  - install:
+      method: derived
+      converter: gdal-dem
+      source: dem-copernicus
+      licence: Copernicus DEM licence (free, with attribution)
+      licence_url: https://copernicus-dem-30m.s3.amazonaws.com/readme.html
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    Follows dem-copernicus: a new tile gets contours on the next install and
+    both virtual rasters are rebuilt when the set of tiles changes.
+
+documentation:
+  what_it_does: >-
+    Builds two things QMapShack reads, under
+    /usr/local/share/hammunition/data/dem-qmapshack/: `dem/dem.vrt`, one
+    virtual raster over every elevation tile, from which QMapShack draws
+    hillshade and slope and reads heights for track profiles; and
+    `contours/contours.vrt`, plain 20 m contour lines drawn per tile with
+    GDAL, which QMapShack lists as a map to lay over the others.
+  why_you_want_it: >-
+    QMapShack does not draw contour lines from elevation itself, and needs
+    its elevation as one virtual raster. This makes both from the tiles,
+    with the archive's GDAL and nothing else.
+  prerequisites: >-
+    `dem-copernicus` and `gdal-bin`, which install first.
+  known_problems: >-
+    The contours are unlabelled lines at a fixed resolution: legible, not
+    pretty. Labelled contours inside the map need a tool the archive does
+    not carry. Measured on one mountain tile on 2026-09-28: 4 s and a
+    97.8 MB GeoPackage to trace, 1.5 s and 5.4 MB to rasterise; the
+    GeoPackage is removed once rasterised. QMapShack 1.17.1 draws hillshade
+    from the elevation (confirmed on the field laptop on 2026-09-29, at the
+    3 km and 10 km scales); slope shading has not yet been tried there.
+  upstream_url: https://gdal.org/
+  upstream_support: >-
+    The GDAL documentation (https://gdal.org/) for the tools; QMapShack's
+    wiki (https://github.com/Maproom/qmapshack/wiki) for how it shows them.

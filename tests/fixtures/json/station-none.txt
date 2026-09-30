@@ -1,0 +1,6 @@
+Station configuration: <config>/hammunition/station.yml
+  (no file yet)
+
+Nothing set. `hammunition station set --callsign <yours>` starts it off.
+Nothing is invented on your behalf: a configuration file needing a value
+you have not given is reported as not written, and the package still installs.
