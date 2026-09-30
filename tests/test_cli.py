@@ -3154,3 +3154,246 @@ def test_hardware_unapply_names_what_it_leaves_and_how_kept_entries_return(
     assert "including any line in it that Hammunition did not write" in out
     assert "`hammunition hardware apply` reinstalls them" not in out
     assert "Kept entries come back with `hammunition hardware park`" in out
+
+
+def _time_grants(*, mode_applied: bool = False, dropin_current: bool = False) -> Any:
+    from hammunition.gpstime.grants import TimeGrants
+
+    return TimeGrants(
+        ntpsec=True,
+        dropin_current=dropin_current,
+        apparmor_local="",
+        ntp_d_dir=False,
+        mode_applied=mode_applied,
+        mode="auto",
+        offer_fake_hwclock=False,
+    )
+
+
+class _TimeInstallingRunner(_InstallingRunner):
+    """Also makes a directory for `install -d`, and stands in for the helper's
+    `time mode` by writing the ntp.d file it would write."""
+
+    def run(self, command: Command) -> CommandResult:
+        from hammunition.gpstime import files
+        from hammunition.gpstime.mode import as_mode, render_ntp_d
+
+        ok = CommandResult(argv=tuple(command.argv), returncode=0, stdout="", stderr="")
+        if command.argv[:2] == ("install", "-d"):
+            self.ran.append(command)
+            Path(command.argv[-1]).mkdir(parents=True, exist_ok=True)
+            return ok
+        if command.argv[1:3] == ("time", "mode"):
+            self.ran.append(command)
+            Path(files.NTP_D_FILE).parent.mkdir(parents=True, exist_ok=True)
+            Path(files.NTP_D_FILE).write_text(render_ntp_d(as_mode(command.argv[3])))
+            return ok
+        return super().run(command)
+
+
+def _ntpd_apparmor() -> None:
+    from hammunition.gpstime import files
+
+    Path(files.APPARMOR_PROFILE).parent.mkdir(parents=True, exist_ok=True)
+    Path(files.APPARMOR_PROFILE).write_text("profile ntpd {}\n")
+    Path(files.APPARMOR_LOCAL).parent.mkdir(parents=True, exist_ok=True)
+    Path(files.APPARMOR_LOCAL).write_text("")
+
+
+def test_hardware_apply_discloses_and_installs_the_gps_time_grants(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    time_files: Path,
+) -> None:
+    import importlib
+    from dataclasses import replace
+
+    from hammunition.gpstime import files
+    from hammunition.gpstime.grants import APPARMOR_BLOCK, DROPIN_CONTENT
+
+    cli = importlib.import_module("hammunition.cli.main")
+    _ntpd_apparmor()
+    polkit = _polkit_artifacts(tmp_path)
+    plan = replace(_hardware_plan(tmp_path, polkit=polkit), time=_time_grants())
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+    runner = _TimeInstallingRunner()
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: runner)
+
+    assert cli.main(["hardware", "apply", "--yes"]) == 0
+    out = capsys.readouterr().out
+    assert "CAP_IPC_OWNER bypasses" in out
+    assert out.index("CAP_IPC_OWNER bypasses") < out.index("Commands (")
+    assert Path(files.DROPIN).read_text() == DROPIN_CONTENT
+    assert APPARMOR_BLOCK in Path(files.APPARMOR_LOCAL).read_text()
+    assert [c.argv[0] for c in runner.ran] == [
+        "install",
+        "systemctl",
+        "install",
+        "apparmor_parser",
+        "install",
+        polkit.helper_path,
+    ]
+
+
+def test_hardware_apply_logs_each_gps_time_step(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, time_files: Path
+) -> None:
+    import importlib
+    from dataclasses import replace
+
+    cli = importlib.import_module("hammunition.cli.main")
+    _ntpd_apparmor()
+    plan = replace(
+        _hardware_plan(tmp_path, polkit=_polkit_artifacts(tmp_path)), time=_time_grants()
+    )
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+    logged: list[dict[str, Any]] = []
+
+    class _Log:
+        def __init__(self, **kwargs: object) -> None: ...
+
+        def append(self, entry: dict[str, Any]) -> None:
+            logged.append(entry)
+
+    monkeypatch.setattr(cli, "TransactionLog", _Log)
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: _TimeInstallingRunner())
+    assert cli.main(["hardware", "apply", "--yes"]) == 0
+    time_events = [e for e in logged if e.get("event") == "time_grants"]
+    assert len(time_events) == 6
+    assert all(e["version"] == 1 and e["description"] and e["argv"] for e in time_events)
+
+
+def test_hardware_apply_dry_run_shows_the_gps_time_commands_and_runs_none(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    time_files: Path,
+) -> None:
+    import importlib
+    from dataclasses import replace
+
+    from hammunition.gpstime import files
+
+    cli = importlib.import_module("hammunition.cli.main")
+    plan = replace(
+        _hardware_plan(tmp_path, polkit=_polkit_artifacts(tmp_path)), time=_time_grants()
+    )
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+
+    class Exploding:
+        def run(self, command: Command) -> CommandResult:  # pragma: no cover
+            raise AssertionError("a dry run executed something")
+
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: Exploding())
+    assert cli.main(["hardware", "apply", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert files.DROPIN in out and "time mode auto" in out
+    assert not Path(files.DROPIN).exists()
+
+
+def _unapply_scaffolding(monkeypatch: pytest.MonkeyPatch, cli: Any, tmp_path: Path) -> None:
+    monkeypatch.setattr(cli, "HELPER_PATH", str(tmp_path / "absent-devctl"))
+    monkeypatch.setattr(cli, "POLICY_PATH", str(tmp_path / "absent.policy"))
+    monkeypatch.setattr("hammunition.hardware.power.KEPT_RULES", str(tmp_path / "absent.rules"))
+    monkeypatch.setattr(cli, "operator", lambda args: "op")
+    monkeypatch.setattr(cli, "TransactionLog", _log_with([]))
+
+
+class _UnapplyRunner:
+    def __init__(self) -> None:
+        self.ran: list[Command] = []
+
+    def run(self, command: Command) -> CommandResult:
+        self.ran.append(command)
+        if command.argv[0] == "rm":
+            Path(command.argv[-1]).unlink(missing_ok=True)
+        elif command.argv[0] == "install":
+            Path(command.argv[-1]).write_bytes(Path(command.argv[-2]).read_bytes())
+        return CommandResult(argv=tuple(command.argv), returncode=0, stdout="", stderr="")
+
+
+def test_hardware_unapply_takes_gps_time_back_exactly(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    time_files: Path,
+    debian_ntp_conf: str,
+) -> None:
+    import importlib
+
+    from hammunition.gpstime import files
+    from hammunition.gpstime.grants import APPARMOR_BLOCK, DROPIN_CONTENT
+    from hammunition.gpstime.mode import render_mode_file, render_ntp_d
+    from hammunition.gpstime.ntpconf import transform
+
+    cli = importlib.import_module("hammunition.cli.main")
+    _unapply_scaffolding(monkeypatch, cli, tmp_path)
+    _ntpd_apparmor()
+    Path(files.APPARMOR_LOCAL).write_text("# a site rule\n" + APPARMOR_BLOCK)
+    Path(files.DROPIN).parent.mkdir(parents=True)
+    Path(files.DROPIN).write_text(DROPIN_CONTENT)
+    Path(files.NTP_D_FILE).parent.mkdir(parents=True)
+    Path(files.NTP_D_FILE).write_text(render_ntp_d("gps-only"))
+    Path(files.TIME_CONFIG).parent.mkdir(parents=True)
+    Path(files.TIME_CONFIG).write_text(render_mode_file("gps-only"))
+    Path(files.NTP_CONF).write_text(transform(debian_ntp_conf, "gps-only"))
+    runner = _UnapplyRunner()
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: runner)
+
+    assert cli.main(["hardware", "unapply", "--yes"]) == 0
+    assert Path(files.NTP_CONF).read_text() == debian_ntp_conf
+    for path in (files.NTP_D_FILE, files.TIME_CONFIG, files.DROPIN):
+        assert not Path(path).exists()
+    assert Path(files.APPARMOR_LOCAL).read_text() == "# a site rule\n"
+    assert ("systemctl", "restart", "ntpsec") in [c.argv for c in runner.ran]
+    assert "Done and verified" in capsys.readouterr().out
+
+
+def test_hardware_unapply_refuses_a_hand_edited_conffile_before_running_anything(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    time_files: Path,
+    debian_ntp_conf: str,
+) -> None:
+    """Review Focus 2."""
+    import importlib
+
+    from hammunition.gpstime import files
+    from hammunition.gpstime.ntpconf import transform
+
+    cli = importlib.import_module("hammunition.cli.main")
+    _unapply_scaffolding(monkeypatch, cli, tmp_path)
+    Path(files.NTP_CONF).write_text(
+        transform(debian_ntp_conf, "auto").replace("iburst prefer", "prefer", 1)
+    )
+
+    class Exploding:
+        def run(self, command: Command) -> CommandResult:  # pragma: no cover
+            raise AssertionError("ran something after refusing")
+
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: Exploding())
+    assert cli.main(["hardware", "unapply", "--yes"]) == EXIT_UNPLANNABLE
+    assert "edited by hand" in capsys.readouterr().err
+
+
+def test_hardware_unapply_dry_run_lists_the_gps_time_steps(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    time_files: Path,
+    debian_ntp_conf: str,
+) -> None:
+    import importlib
+
+    from hammunition.gpstime import files
+    from hammunition.gpstime.ntpconf import transform
+
+    cli = importlib.import_module("hammunition.cli.main")
+    _unapply_scaffolding(monkeypatch, cli, tmp_path)
+    Path(files.NTP_CONF).write_text(transform(debian_ntp_conf, "gps-only"))
+    assert cli.main(["hardware", "unapply", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "marked lines back" in out and "systemctl restart ntpsec" in out
+    assert Path(files.NTP_CONF).read_text() != debian_ntp_conf, "a dry run changed nothing"
