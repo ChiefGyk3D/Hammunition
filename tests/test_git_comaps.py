@@ -373,3 +373,23 @@ def test_an_extra_artifact_needs_a_fetcher(tmp_path: Path) -> None:
 
 def test_the_block_type_is_git(tmp_path: Path) -> None:
     assert isinstance(_manifest().install[0].install, GitInstall)
+
+
+def test_an_extra_file_left_a_symlink_fails_the_effect_check(tmp_path: Path) -> None:
+    from hammunition.distro import Target
+    from hammunition.execute import build_effects_present, verify_effects
+    from hammunition.plan import InstallPlan, PlannedPackage
+
+    m = _manifest(extra_files=[_world()])
+    planned = PlannedPackage(manifest=m, block=m.install[0], apt_packages=())
+    plan = InstallPlan(target=Target("debian", "13", "x86_64"), packages=(planned,))
+    world = tmp_path / "share" / "comaps" / "data" / "World.mwm"
+    world.parent.mkdir(parents=True)
+    world.symlink_to("world_mwm/260830/World.mwm")
+    [check] = [c for c in verify_effects(plan, None, prefix=tmp_path).checks if c.kind == "file"]
+    assert not check.confirmed and "symlink" in check.detail
+    assert build_effects_present(planned, prefix=tmp_path) is False
+    world.unlink()
+    world.write_bytes(WORLD)
+    [check] = [c for c in verify_effects(plan, None, prefix=tmp_path).checks if c.kind == "file"]
+    assert check.confirmed

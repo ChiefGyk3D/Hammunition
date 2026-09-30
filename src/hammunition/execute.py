@@ -113,6 +113,14 @@ def _declares_installed_binaries(block: InstallBlock) -> bool:
     return isinstance(method, BinaryInstall) and method.format != "deb"
 
 
+def _extra_files(block: InstallBlock) -> tuple[str, ...]:
+    """A git block's `extra_files`, as paths under the prefix (D-069)."""
+    method = block.install
+    if isinstance(method, GitInstall):
+        return tuple(extra.install_as for extra in method.extra_files)
+    return ()
+
+
 def _tree_marker(block: InstallBlock) -> str | None:
     """The marker file of a block that installs a tree, else None.
 
@@ -319,6 +327,9 @@ def build_effects_present(planned: PlannedPackage, *, prefix: Path) -> bool | No
     if _declares_installed_binaries(planned.block):
         for declared_file in planned.manifest.installed_files:
             present.append((prefix / declared_file).exists())
+    for extra in _extra_files(planned.block):
+        path = prefix / extra
+        present.append(path.is_file() and not path.is_symlink())
     if not present:
         return None
     return all(present)
@@ -855,6 +866,26 @@ def verify_effects(
                                 f"the install step exited 0 but there is no executable at "
                                 f"{path} -- the build has no install rule for it, or installs "
                                 f"it under another name"
+                            )
+                        ),
+                    )
+                )
+
+        for planned in plan.packages:
+            for extra in _extra_files(planned.block):
+                path = prefix / extra
+                present = path.is_file() and not path.is_symlink()
+                checks.append(
+                    EffectCheck(
+                        kind="file",
+                        subject=f"{planned.name}:{extra}",
+                        confirmed=present,
+                        detail=(
+                            f"regular file at {path}"
+                            if present
+                            else (
+                                f"the install step exited 0 but {path} is not a regular "
+                                f"file -- missing, or left a symlink (D-069)"
                             )
                         ),
                     )

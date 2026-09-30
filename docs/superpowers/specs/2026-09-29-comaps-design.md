@@ -61,7 +61,7 @@ catalog data only and every command owned by the engine:
    (the script builds `skin_generator_tool` with a bare `cmake --build`).
    **`produces`** is a list of globs relative to the tree, each of which must
    match at least one non-empty regular file afterwards, or the step fails
-   naming the glob: `tools/unix/generate_symbols.sh` exits 0 with no symbols
+   naming the glob: CoMaps' `generate_symbols.sh` exits 0 with no symbols
    when optipng is missing (D-031). CoMaps names
    `data/symbols/*/light/symbols.png` and `data/drules_proto.bin`.
 6. `cmake --fresh -S src -B build -DCMAKE_INSTALL_PREFIX=/usr/local

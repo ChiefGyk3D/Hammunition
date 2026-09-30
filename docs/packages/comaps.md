@@ -22,7 +22,7 @@ Map regions set in station config (`hammunition station set --map-regions ...`) 
 
 ## How it installs
 
-- git (cmake) — https://codeberg.org/comaps/comaps.git at `v2026.08.31-14`
+- git (cmake) — https://codeberg.org/comaps/comaps.git at `v2026.08.31-14` (commit `72632e4de65a98dfed827d8e447f0287168639d0`); with submodules at their recorded commits, a hash-pinned build Python, upstream's `configure.sh` first, 3 file(s) the install rule leaves out
   - build dependencies: `build-essential`, `cmake`, `ninja-build`, `qt6-base-dev`, `qt6-svg-dev`, `qt6-positioning-dev`, `libicu-dev`, `libfreetype-dev`, `libharfbuzz-dev`, `libxrandr-dev`, `libxinerama-dev`, `libxcursor-dev`, `libxi-dev`, `optipng`, `python3-venv`, `jq`
 
 Binaries this produces:
@@ -31,12 +31,15 @@ Binaries this produces:
 
 Files its install rule leaves under the prefix, checked after the run and never copied or removed by the engine:
 
-- `share/comaps/data/World.mwm`
-- `share/comaps/data/WorldCoasts.mwm`
-- `share/comaps/data/categories_brands.txt`
 - `share/comaps/data/countries.txt`
 - `share/comaps/data/drules_proto.bin`
 - `share/comaps/data/symbols/mdpi/light/symbols.png`
+
+Files the build's own install rule leaves out, installed by the engine after it (a symlink at the destination replaced, never written through) and checked after the run:
+
+- `share/comaps/data/World.mwm`, from https://cdn-fi-1.comaps.app/maps/2026.06.28/260830/World.mwm (53,387,231 bytes, sha256 pinned)
+- `share/comaps/data/WorldCoasts.mwm`, from https://cdn-fi-1.comaps.app/maps/2026.06.28/260830/WorldCoasts.mwm (8,494,206 bytes, sha256 pinned)
+- `share/comaps/data/categories_brands.txt`, from `data/categories_brands.txt` from the built tree
 
 ## Known problems
 

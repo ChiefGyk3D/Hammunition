@@ -269,3 +269,51 @@ Each is the D-025 shape again — a claim re-verified when it became decisive:
   disclosed, and Node is not fetched to meet it.
 
 All three are in the manifest's `known_problems` and the D-037 amendment.
+
+### 8. Git submodules, a build-time Python and an upstream prepare script — `comaps` — **CLOSED 2026-09-30** (D-069)
+
+CoMaps was built by hand on Parrot 7 (Debian 13) on 2026-09-29, from the tag
+`v2026.08.31-14` at commit `72632e4`, and four things it needed were things
+the git backend could not express:
+
+- **Submodules.** The backend fetched the superproject alone (`git fetch
+  --depth 1 origin <ref>`), and CoMaps vendors 22 top-level submodules, 193
+  entries recursively (boost, ICU, protobuf, freetype, harfbuzz and more),
+  pinned by gitlinks in the superproject commit. `submodules: true` now runs
+  `git submodule update --init --recursive --depth 1` after the pin check —
+  upstream's own `configure.sh` runs exactly that — and then reads
+  `git submodule status --recursive`, refusing unless there is at least one
+  entry and every one is at its gitlink. The spike's clone was full history,
+  9.7 GB of which ICU is 5.6 GB; **the shallow fetch is unmeasured**.
+- **A Python the build needs that the archive does not have.** CoMaps' CMake
+  refuses Debian's protobuf (4.21, `__version__` 4.21.12; it wants ≥ 3.20,
+  < 4.0). `build_python` takes hash-pinned requirement lines; the engine
+  makes a venv beside the tree and puts it first on the `PATH` of the
+  prepare, configure and compile steps, never the install. The venv backend
+  was not used: it installs a program for the operator, and this is a build
+  dependency discarded with the build.
+- **An upstream script before configure.** `configure.sh` generates the
+  strings, categories, symbols and drawing rules the build reads.
+  `prepare` names it with its arguments and environment, and `produces`
+  names what it must leave behind: CoMaps' `generate_symbols.sh` calls a
+  bare `exit` when optipng is missing, so configure exits 0 with no symbols
+  (D-031). `--skip-map-download` keeps it from fetching the World maps with
+  plain curl; `SKIP_PYTHON_VENV=1` keeps it from pip-installing an unpinned
+  protobuf.
+- **Files the install rule leaves out.** With `--skip-map-download`,
+  `install_resources` in `qt/CMakeLists.txt` skips the World maps (a tree
+  that had them installed two symlinks into a directory it does not
+  install); `categories_brands.txt` is not installed either. `extra_files`
+  installs each, a sha256-pinned download or a file of the built tree,
+  after `rm -f` so a symlink is replaced rather than written through, and
+  the effect check requires a regular file.
+
+A tag may also name its `commit`, so a re-cut tag is refused rather than
+only recorded.
+
+Still open, and not a build gap: CoMaps reads its position from GeoClue2 by
+the plugin's name (`libs/platform/location_service/`). Qt's `nmea` position
+plugin is installed and would read the GPS directly, and reaching it would
+take a patch to CoMaps; that is carried by nobody and is not proposed here.
+The route that needs no patch is GeoClue's network-NMEA source, unmeasured
+(D-069).

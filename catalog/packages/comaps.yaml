@@ -98,12 +98,10 @@ binaries:
   - produced: CoMaps
     install_as: CoMaps
 
-# Read back after the run (D-031). A World map left as a dangling symlink
-# fails here, and so does a build whose configure made no symbols.
+# Read back after the run (D-031): a build whose configure made no symbols
+# or drawing rules fails here. The extra files above are checked too, each
+# as a regular file, so a World map left as a symlink fails.
 installed_files:
-  - share/comaps/data/World.mwm
-  - share/comaps/data/WorldCoasts.mwm
-  - share/comaps/data/categories_brands.txt
   - share/comaps/data/countries.txt
   - share/comaps/data/drules_proto.bin
   - share/comaps/data/symbols/mdpi/light/symbols.png

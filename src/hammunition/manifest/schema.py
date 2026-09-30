@@ -412,7 +412,7 @@ class PrepareStep(Strict):
     the CMake build reads, and builds a helper tool to do it. The script is
     upstream's, named by path, never a command line the catalog writes; the
     engine owns how it runs. ``produces`` is what makes it checkable:
-    ``tools/unix/generate_symbols.sh`` exits 0 with no symbols when optipng is
+    CoMaps' ``generate_symbols.sh`` exits 0 with no symbols when optipng is
     missing, so a script's exit status is not evidence of anything (D-031).
     """
 

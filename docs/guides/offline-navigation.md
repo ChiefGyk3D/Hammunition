@@ -899,6 +899,121 @@ work, not what has been seen to.
 
 ---
 
+## 13. CoMaps: search and routing like a phone app
+
+CoMaps is the desktop build of the CoMaps phone app, a community fork of
+Organic Maps. It draws vector maps on the machine, searches addresses,
+places and postcodes from an index inside each map file, and routes by
+car, bike, on foot and by public transport, all offline. It reads its own
+map format, not Geofabrik's, so it has its own map unit (**D-069**).
+
+**What it cannot do on the laptop yet: show where you are.** CoMaps on
+Linux asks for its position from GeoClue2 only, the desktop's location
+service, by name. It has no gpsd client and no NMEA reader, so neither
+gpsd nor the GPS tether reaches it. Use it to find a place and plan a
+route; use Navit (section 4) or QMapShack with the tether (section 11) to
+see yourself move. The route to a position is in "Giving CoMaps a
+position" below, and none of it is done by Hammunition.
+
+### Install it
+
+Both units are in the `navigation` profile, and use the regions you chose
+in section 1:
+
+```
+hammunition install comaps comaps-maps --dry-run
+hammunition install comaps comaps-maps
+```
+
+`comaps` is built from source: no archive carries it and upstream
+publishes no Linux binary. The plan names the tag (`v2026.08.31-14`) and
+the commit it must resolve to (`72632e4`, the commit Flathub, nixpkgs and
+the AUR all build), fetches the source and its submodules, builds a small
+Python for the build with a pinned protobuf, runs CoMaps' own
+`configure.sh` and then CMake. Expect tens of minutes; by hand, on an
+8-core laptop at two jobs, configure took about 3 minutes and the compile
+about 8. The build needs about 2 GB of memory per parallel job, which the
+engine already sizes to your machine.
+
+`comaps-maps` downloads CoMaps' own maps for your regions. The plan prints
+each map with its size, its licence and how it is checked:
+
+```
+Fetch CoMaps map US_Vermont (60.9 MB, ODbL-1.0) — SHA-1 and size from CoMaps' own map index at the pinned commit (the publisher's check)
+```
+
+That is the check CoMaps publishes and nothing stronger: the SHA-1 and
+exact size from its index (`countries.txt`) at the commit the app is built
+from. The size is compared exactly because CoMaps' mirrors answer a
+missing file with a normal-looking page. The sha256 of each file as
+installed goes into the transaction log. A US state is one to a dozen
+files and tens to a few hundred megabytes; Vermont is 61 MB, all of the
+US 15.7 GB.
+
+A region CoMaps names differently from Geofabrik (Geofabrik's
+`europe/germany/bayern` is CoMaps' "Free State of Bavaria") has no CoMaps
+map. The plan says so by name and fetches nothing for it; the rest
+install. All 50 US states and DC are covered.
+
+### Start it
+
+From the menu: **CoMaps with your offline maps**, under Navigation & Maps.
+It runs `hammunition maps comaps`, which, as you:
+
+- records in `~/.config/CoMaps/settings.ini` that CoMaps' licence and
+  copyright notice is accepted, only if the file has no answer yet, so
+  the first start does not stop at that dialog. The notice itself is
+  `/usr/local/share/comaps/data/copyright.html`;
+- links each installed map into `~/.local/share/CoMaps/<version>/`, where
+  CoMaps looks. A map you downloaded inside CoMaps is left alone;
+- starts CoMaps with those two directories named.
+
+`hammunition maps comaps --configure-only` does the first two and does
+not start it. CoMaps also installs its own menu entry, **CoMaps**, under
+its own categories. That one starts it without the preparation above: the
+first start shows the licence dialog, and it does not see Hammunition's
+maps.
+
+### Keep the maps current
+
+The maps are the version the app's own index names, and CoMaps' server
+keeps a version for months, not forever. `hammunition update comaps-maps`
+says whether every map your regions need is installed at that version;
+`hammunition update comaps-maps --upstream` asks the server and says
+**pin expiring** from 90 days after the version's date and **pin expired**
+once it is gone. A new version comes with a new CoMaps release in the
+catalog; until then the maps you have keep working offline.
+
+### Giving CoMaps a position (not done, not measured)
+
+The route, for anyone who wants to try it by hand:
+
+1. Feed the GPS to GeoClue. GeoClue's **network-NMEA** source reads NMEA
+   from a network service advertised on the local network; Parrot's
+   `/etc/geoclue/geoclue.conf` has it enabled. Something would have to
+   advertise the tether's NMEA there.
+2. Allow CoMaps. GeoClue asks a desktop agent before it gives an app a
+   position, and Parrot's configuration names no KDE agent. An
+   `[app.comaps.comaps]` section with `allowed=true` in `geoclue.conf` is
+   the usual way.
+
+Both are changes to the whole machine, neither has been measured here, and
+Hammunition makes neither. Until they are, CoMaps has no "you are here" on
+the laptop.
+
+### Not measured yet
+
+- **US address search.** The desktop app has no way to script a search,
+  so the quality of US address results is for a person at the screen to
+  judge; the bench owes it.
+- **The build through Hammunition.** CoMaps was built by hand on
+  2026-09-29 with the same steps; the engine's build, including the
+  shallow submodule fetch, has not run.
+- **CoMaps reading the linked maps.** Its source reads a linked file like
+  any other; a running CoMaps has not been seen to.
+
+---
+
 ## What QMapShack does not do (yet)
 
 - **No offline address search**: use Navit (section 10).
@@ -1193,6 +1308,12 @@ hammunition uninstall brouter brouter-mapcreator-profiles
 Your QMapShack settings keep the directories the launcher added; QMapShack
 lists nothing there once they are gone.
 
+CoMaps' maps go with `hammunition uninstall comaps-maps`. CoMaps itself is
+refused by `uninstall`, as every build is whose own install rule wrote into
+`/usr/local`: that rule leaves no list of files to reverse, and what it
+wrote is in the transaction log. The links in `~/.local/share/CoMaps/` are
+removed by `hammunition maps comaps` once their maps are gone.
+
 ---
 
 ## What has not been measured yet
@@ -1254,6 +1375,9 @@ Measured on the field laptop on 2026-09-29, and recorded in bench session
 listing the maps, the contour map and the elevation from the directories
 the launcher writes; hillshade; and the GPS tether giving QMapShack a
 position from a real receiver.
+
+For CoMaps (**D-069**), see section 13: US address search, the build
+through the engine and CoMaps reading the linked maps are all owed.
 
 Offline reference (Kiwix, a local tile server) is the next piece of this
 work and not in this profile.

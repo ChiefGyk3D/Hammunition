@@ -11,6 +11,28 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **CoMaps: offline address search and routing like a phone app, with its
+  own maps for your regions** (D-069). Two units join the `navigation`
+  profile. `comaps` is built from source at the tag Flathub, nixpkgs and
+  the AUR build (`v2026.08.31-14`), refused if the tag no longer resolves
+  to its commit; the git backend gains what it needed, each a catalog
+  field the engine runs: submodules fetched shallow and read back at their
+  recorded commits, a hash-pinned build Python (CoMaps' CMake refuses
+  Debian's protobuf 4.x), upstream's `configure.sh` with the files it must
+  produce (its symbol step exits 0 without optipng), and files the install
+  rule leaves out (the World maps, sha256-pinned). `comaps-maps` fetches
+  CoMaps' own maps for your map regions through a generated table
+  (`catalog/data/comaps-pins.yaml`, all 1,150 maps, 262 Geofabrik regions
+  including every US state and DC), each checked by the SHA-1 and exact
+  size in CoMaps' own index, which the plan says on every line; an expired
+  pin refuses the plan, and `update --upstream` says `pin expiring` or
+  `pin expired`. `hammunition maps comaps`, the `comaps-offline` launcher,
+  records CoMaps' licence answer and links your maps where it looks. CoMaps
+  reads its position from GeoClue only, so there is no "you are here" on
+  the laptop yet; the guide says what the route would be. Organic Maps and
+  Flatpak are not carried. The build through the engine and US address
+  search are owed by the bench.
+
 - **BRouter: a second offline router for QMapShack, with trail difficulty
   and climbs** (D-063, amending D-061's "BRouter stays out"). Three units
   join the `navigation` profile: `brouter` (upstream's v1.7.10 zip, checked
