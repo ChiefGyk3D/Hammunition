@@ -146,7 +146,7 @@ from hammunition.station import (
     save_station,
 )
 from hammunition.sudo_ticket import SudoKeepalive, keepalive_wanted
-from hammunition.terrain_plan import build_terrain_run, resolve_station_terrain
+from hammunition.terrain_plan import brouter_pins, build_terrain_run, resolve_station_terrain
 from hammunition.update import region_snapshots, render, report, requested_units
 from hammunition.upstream import (
     NOT_UPSTREAM,
@@ -160,6 +160,7 @@ if TYPE_CHECKING:
     from hammunition.hardware.power import KeptEntry, Parkable
     from hammunition.interface.repeaters import RegistrationView
     from hammunition.repeaters import ParsedInput
+    from hammunition.qmapshack_config import BRouterSetup
     from hammunition.upstream import UpstreamRow
 
 __all__ = ["build_parser", "main"]
@@ -847,6 +848,24 @@ def _repeater_poi_paths(text: str) -> tuple[str, bool]:
     if (directory / FILES[1]).is_file():
         return ensure_paths(text, (want,)), True
     return ensure_paths(text, (), remove=(want,)), False
+def _installed_brouter(prefix: Path) -> BRouterSetup | None:
+    """Hammunition's BRouter when its tree holds one jar and at least one
+    routing file is built (D-063); None otherwise, and QMapShack's BRouter
+    setup is then not touched."""
+    from hammunition.backends.brouter import RD5, find_jar
+    from hammunition.backends.source import tree_destination
+    from hammunition.qmapshack_config import BRouterSetup
+
+    tree = tree_destination(prefix, "brouter")
+    jar = find_jar(tree)
+    segments = data_root(prefix) / "brouter-segments"
+    try:
+        built = any(segments.glob(f"*{RD5}"))
+    except OSError:
+        built = False
+    if jar is None or not built:
+        return None
+    return BRouterSetup(tree=tree, jar=jar.name, segments=segments, java=shutil.which("java"))
 
 
 def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
@@ -868,6 +887,7 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
         QmsConfigError,
         config_path,
         ensure_paths,
+        register_brouter,
         select_database,
         superseded,
         wanted,
@@ -890,7 +910,11 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
         data = data_root(DEFAULT_PREFIX)
         with_paths = ensure_paths(text, wanted(data), remove=superseded(data))
         with_poi, has_poi = _repeater_poi_paths(with_paths)
-        updated = select_database(with_poi)
+        selected = select_database(with_poi)
+        brouter = _installed_brouter(DEFAULT_PREFIX)
+        updated, brouter_notes = (
+            register_brouter(selected, brouter) if brouter is not None else (selected, [])
+        )
     except QmsConfigError as exc:
         print(
             f"error: {path}: {exc}. {not_started}; "
@@ -916,12 +940,14 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
             f"{'to' if has_poi else 'of'} [Canvas] poiPaths in {path} (D-064)",
             file=sys.stderr,
         )
-    if updated != with_poi:
+    if selected != with_poi:
         print(
             f"selecting the first routing database in {path}, so the Routing dock's "
             f"Database list is not left blank",
             file=sys.stderr,
         )
+    for note in brouter_notes:
+        print(f"{note} ({path})", file=sys.stderr)
     if updated != text:
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -1762,6 +1788,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         keep=kept,
         regions=ledger,
         resolution=dem_resolution,
+        pins=brouter_pins(plan),
     )
     derived = DerivedBackend(
         prefix=source.prefix,

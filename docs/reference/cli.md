@@ -260,6 +260,29 @@ with `-1` there, QMapShack loaded the `hammunition` database and selected
 nothing, and routing gave up without a message. QMapShack writes the index
 back when it exits, so a `-1` stays until something changes it.
 
+**BRouter (D-063).** When `brouter`'s tree holds one `brouter-*-all.jar`
+and `brouter-segments` has built at least one routing file, it points
+QMapShack's local BRouter at them: under `[Route]`, the keys of QMapShack
+1.17.1's `Route/brouter` group (read from its `CRouterBRouterSetup.cpp`),
+`brouter\installMode=local`, `brouter\localDir` (the tree),
+`brouter\localBRouterJar`, `brouter\localSegmentsDir`,
+`brouter\localHost=127.0.0.1` and `brouter\localBindLocalonly=true`, and
+`brouter\localJava` (`java` on the `PATH`) only when it is absent or empty.
+QMapShack saves every one of these on exit, so a key at QMapShack's default
+(`localDir=.`, `installMode=online`) is treated as never chosen and
+replaced; a `localDir` naming any other directory is the operator's own
+BRouter, and then no BRouter key is touched and a line says so. With the
+tree ours, the host and the bind are loopback whatever they held: QMapShack
+passes the host to BRouter only with "bind to hostname only" on, and
+BRouter otherwise listens on every interface. A quoted or `@`-typed value
+in one of these keys leaves BRouter alone, with a line, and does not refuse
+the launch. Which router the Routing dock shows (`Route/current`) is left
+to the operator. QMapShack starts BRouter itself when its Routing dock uses
+it, and stops it with QMapShack. It passes the host to BRouter only once it
+has read BRouter's version, by running the jar with a 3 s limit; a probe
+that times out would start BRouter on every interface, which the guide
+says how to check (`ss -ltnp`) and the bench has still to measure.
+
 It refuses, exit 1, changing nothing and starting nothing:
 
 - under root, whose settings are not the operator's;
@@ -269,7 +292,9 @@ It refuses, exit 1, changing nothing and starting nothing:
 - when the file is a symbolic link, not a regular file, or not UTF-8.
 
 It prints a line to stderr for each kind of change it made: the
-directories, and the database selection. A missing
+directories, the database selection, and BRouter's registration (with a
+line when it switched BRouter from online to local or bound it to
+127.0.0.1). A missing
 `qmapshack` is a named error, exit 1, after the edit. There is no `--json`
 form, because it replaces itself with a GUI (D-059).
 
@@ -574,8 +599,8 @@ that writes nothing — does not stop the others; the run ends exit 1 naming
 every region that did not install.
 
 **Terrain and QMapShack's maps (D-061).** When the plan holds
-`dem-copernicus`, `osm-garmin`, `osm-routino` or `dem-qmapshack`, the map
-section gains a *Terrain* block. Before the plan prints, each region's tiles
+`dem-copernicus`, `osm-garmin`, `osm-routino`, `dem-qmapshack` or
+`brouter-segments`, the map section gains a *Terrain* block. Before the plan prints, each region's tiles
 are read from its record (`dem-copernicus/<slug>.tiles`) or, until its
 terrain is first installed, chosen from its Geofabrik outline
 (`<region>.poly`), fetched again by every plan until then and said so. Each
@@ -614,6 +639,32 @@ A square with no published tile is counted as such and never called sea:
 the carried list cannot tell open sea from land Copernicus does not release.
 A region with no published tile at all gets the `warning:` line, fetches
 nothing and does not fail the run; its maps still install (D-061).
+
+When `brouter-segments` (**D-063**) is rebuilt, *Built for QMapShack*
+gains one line, from its test's synthetic plan:
+
+```
+    BRouter routing files over 2 region(s)  about 12.6 MB (0.2x the downloads together), elevation from 3 tile(s); built here, never downloaded from brouter.de
+```
+
+and the disk check counts the routing files under the prefix and, in
+`~/.cache/hammunition/build/brouter-segments/`, 3x the downloads of scratch
+(an allowance, not measured), the merged input when there are two regions
+or more, one 5-degree square's `.hgt` files (25 at most, 25,934,402 bytes
+each) and every square's `.bef`. Its steps, all as the operator in
+`brouter.work` under one lock: a check that the jar and the two map-creator
+filters are installed; `osmium merge` of the regions when there are two or
+more; per 5-degree square with an installed tile, `gdalbuildvrt` over the
+square and its one-degree ring, `gdalwarp` of each tile into a
+one-arc-second `.hgt` and BRouter's `ElevationRasterTileConverter`; then
+the map creator's `OsmFastCutter` (with `-DavoidMapPolling=true`),
+`PosUnifier` and `WayLinker`; and last the install of every `.rd5`, all or
+none, with its record. A failed step fails the routing files by name, keeps
+the installed set (a rename failing partway removes it rather than leave it
+mixed, and the next run rebuilds), and is reported by the same last
+terrain step. The record names the jar and the filters' version the plan
+installs, read from the planned manifests, so a BRouter upgraded in the
+same run rebuilds the routing files in that run.
 
 The commands section shows each tile's fetch (all fetches first, as every
 download is), each install, each region's record, each Garmin build and the

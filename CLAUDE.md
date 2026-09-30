@@ -232,6 +232,7 @@ Do not re-litigate these without being asked:
 | Engine interface | One JSON document per command under `--json`, rendered from the same dataclasses as the text; `install`/`uninstall` only with `--dry-run`, a real install never driven through JSON; `station` and `plan` documents are for local programs, not for pasting; bootstrap links `~/.local/bin/hammunition` and never replaces what it did not make | A console and the tray need a stable interface, not parsed text; a command from the docs failed with "command not found" (**D-059**) |
 | sudo during an install | A run as a user whose plan mixes root and unprivileged steps asks `sudo -v` once before the first step and refreshes with `sudo -n -v` every 4 minutes from its own process until the run ends; disclosed in the plan, `--no-sudo-keepalive` opts out, a failure is reported once and never retried, the password never passes through the engine | A `navigation` install waited 7.8 hours at a second prompt after 30 minutes of work, its ticket expired during a conversion (#137, **D-062**) |
 | Repeater overlays | `maps repeaters import` converts the operator's own export (RepeaterBook GPX, a RepeaterBook CSV with Lat/Long, hearham JSON, a hand CSV) offline into a GPX, a QMapShack `.poi` and a Navit textfile under `~/.local/share/hammunition/overlays/repeaters/`, 0600; CHIRP files and position-less CSVs refused by name; merged on callsign + Hz + 0.01°; nothing fetched from RepeaterBook, hearham only on request and marked unverified; `navit-offline` runs `maps navit`; not a D-049 data unit | RepeaterBook's export is personal-use and its API gated; CHIRP's query was measured to drop coordinates; callsign + frequency alone merged 1,050 multi-site keys in hearham's data (**D-064**) |
+| BRouter routing | Carried: upstream's zip pinned by its sha256 as a tree, Java from the archive; its routing files built on the machine by a `brouter-mapcreator` converter from the station's regions with Copernicus elevation, one set over every region, as the operator, never downloaded from brouter.de; `maps qmapshack` registers it in QMapShack on 127.0.0.1 only and leaves an operator's own BRouter alone | brouter.de's weekly files carry no checksum, which is why D-061 left BRouter out; BRouter's own map creator builds them from our own extracts (Delaware in minutes, most of it a parser polling for a growing file, which `-DavoidMapPolling=true` removes: 120 s to 0.1 s on a synthetic region) (**D-063**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
 
@@ -479,7 +480,7 @@ in their own install notes.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 266
+  packages/        # one YAML per piece of software          ✅ 269
   profiles/        # named bundles referencing packages      ✅ 17
   hardware/
     classes/       # device families with shared Linux needs ✅ 5

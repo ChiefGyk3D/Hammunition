@@ -918,6 +918,10 @@ Terrain, and what is built for QMapShack (D-061). Names where the operator is: l
 | `contours` | integer | tiles whose contours are drawn this run |
 | `contours_estimate` | integer | bytes those contours are estimated to take |
 | `contours_estimate_human` | string | as the text prints it |
+| `brouter_regions` | integer | regions BRouter's routing files are rebuilt over; 0 when current (D-063) |
+| `brouter_tiles` | integer | terrain tiles folded into them as elevation |
+| `brouter_estimate` | integer | bytes the rebuilt routing files are estimated to take |
+| `brouter_estimate_human` | string | as the text prints it |
 | `disk_total` | integer | bytes: the tiles plus everything estimated to be built |
 | `disk_total_human` | string | as the text prints it |
 | `estimate_note` | string | how the estimates were measured |
@@ -2400,6 +2404,22 @@ A unit and files.
           "title": "Contours Estimate Human",
           "type": "string"
         },
+        "brouter_regions": {
+          "title": "Brouter Regions",
+          "type": "integer"
+        },
+        "brouter_tiles": {
+          "title": "Brouter Tiles",
+          "type": "integer"
+        },
+        "brouter_estimate": {
+          "title": "Brouter Estimate",
+          "type": "integer"
+        },
+        "brouter_estimate_human": {
+          "title": "Brouter Estimate Human",
+          "type": "string"
+        },
         "disk_total": {
           "title": "Disk Total",
           "type": "integer"
@@ -2428,6 +2448,10 @@ A unit and files.
         "contours",
         "contours_estimate",
         "contours_estimate_human",
+        "brouter_regions",
+        "brouter_tiles",
+        "brouter_estimate",
+        "brouter_estimate_human",
         "disk_total",
         "disk_total_human",
         "estimate_note"
