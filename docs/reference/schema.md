@@ -69,7 +69,7 @@ argument — js8call is apt on Linux Mint 22.3 and a cmake build elsewhere.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `when` | `Selector` | no |  |
-| `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| NodeInstall \| PipxInstall \| DataInstall \| RegionalDataInstall \| DemTilesInstall \| DerivedDataInstall` | **yes** |  |
+| `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| NodeInstall \| PipxInstall \| DataInstall \| RegionalDataInstall \| DemTilesInstall \| DerivedDataInstall \| MwmRegionsInstall` | **yes** |  |
 | `build_depends` | `list[str]` | no | apt packages needed to BUILD only. Never reported as installed. |
 | `binaries` | `list[Binary] \| None` | no | This block's own build outputs, replacing the manifest's `binaries` wherever this block is the one that resolves. A prebuilt archive selected by `arch` can carry a different path per architecture -- rayhunter's zip has `installer` at the top level and one `rayhunter-check` under a per-platform directory -- and one manifest-level list cannot describe both. Omit the key to use the manifest's list; an empty list is refused, because it reads as an override to nothing. |
 | `note` | `str \| None` | no |  |
@@ -122,6 +122,11 @@ Build from a pinned git revision. `ref` must be immutable.
 | `patches` | `list[Patch]` | no | Unified diffs applied after the checkout and before the build, in order, exactly as a source block's. linbpq's makefile runs `sudo setcap` inside the build (#96); the patch that removes it is the first use. |
 | `tree_marker` | `str \| None` | no | One file, relative to the installed tree, whose presence proves the tree is what the launcher expects: yaac's YAAC.jar, js8spotter's js8spotter.py. The effect check reads it back after the run; `cp -aT` exits 0 on any directory, so without it a tree unit ended `verified: true` with no check at all (issue #27). Required exactly when the block installs a tree. |
 | `pin_review` | `PinReview \| None` | no | Required when `ref` is a commit SHA rather than a tag. D-024. |
+| `commit` | `str \| None` | no | For a tag `ref`: the commit it must resolve to. The pin check then refuses a re-cut tag instead of only recording what it resolved to. CoMaps' tag is the one Flathub, nixpkgs and the AUR build, at this commit (D-024, D-069). |
+| `submodules` | `bool` | no (default `False`) | Check out every submodule, recursively, at the superproject's gitlinks, shallow (`git submodule update --init --recursive --depth 1`, upstream CoMaps' own command), then refuse unless `git submodule status --recursive` shows each one at its gitlink. D-069. |
+| `build_python` | `list[str]` | no | Hash-pinned requirement lines for a Python the build needs, installed into a venv in the build directory with --require-hashes; prepare, configure and compile run with it first on the PATH. CoMaps' CMake refuses Debian's protobuf 4.x (D-069). Build-only: it is discarded with the build directory and never reaches the operator. |
+| `prepare` | `PrepareStep \| None` | no | An upstream script run in the tree before configure. D-069. |
+| `extra_files` | `list[ExtraFile]` | no | Files the install rule leaves out, installed after it. D-069. |
 
 ### `BinaryInstall`
 
@@ -363,7 +368,7 @@ so an engine can make the same comparison; one measured user, like ``pypi``.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `method` | `Literal[apt_policy, github_release, github_tags, binary_version, label_file, pypi, none]` | **yes** |  |
+| `method` | `Literal[apt_policy, github_release, github_tags, binary_version, label_file, pypi, comaps_maps, none]` | **yes** |  |
 | `repo` | `str \| None` | no |  |
 | `command` | `str \| None` | no |  |
 | `pattern` | `str \| None` | no |  |
@@ -531,6 +536,54 @@ wide because only the catalog knows what `source` resolves to (D-061).
 | `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
 | `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
 
+### `ExtraArtifact`
+
+A pinned file installed beside a build, with its size (D-069).
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `url` | `str` | **yes** |  |
+| `sha256` | `str` | **yes** | Mandatory. There is no unverified path. |
+| `signature_url` | `str \| None` | no |  |
+| `signing_key_fingerprint` | `str \| None` | no |  |
+| `size` | `int` | **yes** | Bytes, as published. Printed in the plan, checked on fetch. |
+
+### `ExtraFile`
+
+A file a build's install rule leaves out, installed after it (D-069).
+
+Either a pinned artifact or a file from the built tree, installed at
+``<prefix>/<install_as>`` with mode 0644, after an ``rm -f`` so a symlink
+at the destination is replaced and never written through. CoMaps'
+install rule skips ``World.mwm`` and ``WorldCoasts.mwm`` when the tree has
+none (they are downloaded, not built), and leaves out
+``categories_brands.txt``; Flathub's manifest installs all three by hand.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `artifact` | `ExtraArtifact \| None` | no |  |
+| `from_tree` | `str \| None` | no | A file in the checked-out tree, relative to it. |
+| `install_as` | `str` | **yes** | Relative to the prefix, under share/. |
+
+### `MwmRegionsInstall`
+
+CoMaps' own map files for the station's map regions (D-069).
+
+Like `DemTilesInstall`, nothing is pinned in the manifest: which maps
+follows the operator's regions in station config, through the region
+table in ``catalog/data/comaps-pins.yaml``, generated from CoMaps' map
+index at the commit the `comaps` unit pins. Each map is checked against
+that index's SHA-1 and exact size, the publisher's own check, and the plan
+says so. `provider` is an enum, so Organic Maps' CDN would be a new member
+the engine implements, never a URL in the catalog.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `method` | `Literal[mwm-regions]` | no (default `mwm-regions`) |  |
+| `provider` | `Literal[comaps]` | no (default `comaps`) |  |
+| `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
+| `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
+
 ### `PipxInstall`
 
 | Field | Type | Required | Description |
@@ -538,6 +591,24 @@ wide because only the catalog knows what `source` resolves to (D-061).
 | `method` | `Literal[pipx]` | no (default `pipx`) |  |
 | `spec` | `str` | **yes** |  |
 | `system_site_packages` | `bool` | no (default `False`) |  |
+
+### `PrepareStep`
+
+An upstream script run in the checked-out tree before configure (D-069).
+
+CoMaps' ``configure.sh`` generates the symbols, drawing rules and strings
+the CMake build reads, and builds a helper tool to do it. The script is
+upstream's, named by path, never a command line the catalog writes; the
+engine owns how it runs. ``produces`` is what makes it checkable:
+``tools/unix/generate_symbols.sh`` exits 0 with no symbols when optipng is
+missing, so a script's exit status is not evidence of anything (D-031).
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `script` | `str` | **yes** | Path of the script, relative to the tree; run as ./<script>. |
+| `args` | `list[str]` | no |  |
+| `env` | `dict[str, str]` | no | Upstream's own switches, e.g. SKIP_PYTHON_VENV=1 so CoMaps' script does not pip-install an unpinned protobuf. Never secrets: the plan prints it. |
+| `produces` | `list[str]` | **yes** | Globs relative to the tree; each must match at least one non-empty regular file after the script, or the step fails naming it. |
 
 ### `RegionalDataInstall`
 
