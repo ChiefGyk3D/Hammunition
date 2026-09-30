@@ -966,6 +966,55 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+@envelope.json_capable()
+def cmd_maps_phone(args: argparse.Namespace) -> int:
+    """Gather the phone files into one folder with a SHA256SUMS, and print
+    the ways to carry them to a phone.  D-067.
+
+    Copies each installed Mapsforge map and POI file, and each Garmin map,
+    into ``$XDG_DATA_HOME/hammunition/phone/`` (:mod:`hammunition.phone`).
+    Transfers nothing and serves nothing: every route it prints is a command
+    for the operator. Per user, refused as root.
+    """
+    from hammunition import phone
+    from hammunition.interface.phone import phone_document
+
+    if os.geteuid() == 0:
+        print(
+            "error: the phone folder is per user; run this as yourself, not as root.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    data = data_root(DEFAULT_PREFIX)
+    directory = phone.phone_dir()
+    found = phone.installed(data)
+    missing = phone.missing_units(data)
+    if not found:
+        message = (
+            f"No phone files are installed under {data}. `hammunition install phone-maps` "
+            f"builds Mapsforge maps and POI files from your map regions; `hammunition "
+            f"install navigation` builds Garmin maps. Nothing was copied."
+        )
+        if envelope.wanted(args):
+            print(message, file=sys.stderr)
+            envelope.emit(phone_document(None, (), directory=str(directory), missing=missing))
+            return EXIT_OK
+        print(message)
+        return EXIT_OK
+    try:
+        result = phone.stage(found, directory)
+    except (phone.PhoneError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    ways = phone.routes(directory)
+    if envelope.wanted(args):
+        envelope.emit(phone_document(result, ways, directory=str(directory), missing=missing))
+        return EXIT_OK
+    for line in phone.render(result, ways):
+        print(line)
+    return EXIT_OK
+
+
 def resolve_map_regions(
     plan: InstallPlan,
     station: Station,
@@ -3267,7 +3316,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_update.set_defaults(func=cmd_update)
 
     p_maps = sub.add_parser(
-        "maps", help="offline maps: Geofabrik's regions (D-057), QMapShack and its GPS (D-061)"
+        "maps",
+        help="offline maps: Geofabrik's regions (D-057), QMapShack and its GPS (D-061), "
+        "phone files (D-067)",
     )
     maps_sub = p_maps.add_subparsers(dest="maps_command", required=True)
 
@@ -3312,6 +3363,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="serve on 127.0.0.1 port N, 1024 to 65535, when 10110 is taken (default 10110)",
     )
     p_maps_tether.set_defaults(func=cmd_maps_gps_tether)
+
+    p_maps_phone = maps_sub.add_parser(
+        "phone",
+        help="gather the phone map files into one folder with a SHA256SUMS and print the "
+        "ways to carry them to a phone; transfers nothing (D-067)",
+    )
+    p_maps_phone.set_defaults(func=cmd_maps_phone)
 
     p_show = sub.add_parser("show", help="describe a profile, disclosure included")
     p_show.add_argument("profile")

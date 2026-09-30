@@ -4,7 +4,7 @@
 
 **Goal:** Two derived converters (`mapsforge-map`, `mapsforge-poi`) that build Mapsforge phone files per region as the operator, a `phone-maps` profile, and `hammunition maps phone`, which stages the phone files with a `SHA256SUMS` and prints the transfer routes without transferring anything.
 
-**Architecture:** One backend module, `backends/mapsforge.py`, holds both converters (they differ in classpath, argv, magic and output suffix) and a phone ledger, on D-061's `Staging`; `phone_plan.py` builds them for a run and counts their disk; `phone.py` is the `maps phone` command's pure logic; `interface/phone.py` its JSON document. The one pinned jar travels on the derived block as a new optional `tool` field.
+**Architecture:** One backend module, `src/hammunition/backends/mapsforge.py`, holds both converters (they differ in classpath, argv, magic and output suffix) and a phone ledger, on D-061's `Staging`; `src/hammunition/phone_plan.py` builds them for a run and counts their disk; `src/hammunition/phone.py` is the `maps phone` command's pure logic; `src/hammunition/interface/phone.py` its JSON document. The one pinned jar travels on the derived block as a new optional `tool` field.
 
 **Tech Stack:** Python 3.11+, pydantic schema, pytest with fake programs on `PATH` (`tests/fake_tools.py`), mypy --strict, ruff.
 
@@ -113,7 +113,7 @@ def test_map_runs_java_with_the_measured_argv_as_the_operator_in_its_workdir(...
 
 plus: poi fetches and installs the tool then puts it last on the classpath with `-Dorg.sqlite.tmpdir`; a current region and current tool give no steps; a missing jar fails the region naming it and the other region builds; a wrong magic fails; a dropped region is removed; a region piece 1 failed is skipped; the ledger step fails by name.
 - [ ] **Step 2:** run, fails on import.
-- [ ] **Step 3:** implement, following `backends/garmin.py` step for step (convert Action, install-data Action with the destination as detail, `removal_steps`), with the tool fetch (`kind="fetch"`) and tool install (`kind="install-data"`, detail the jar's destination) first for `mapsforge-poi` when the installed jar does not hash to the pin.
+- [ ] **Step 3:** implement, following `src/hammunition/backends/garmin.py` step for step (convert Action, install-data Action with the destination as detail, `removal_steps`), with the tool fetch (`kind="fetch"`) and tool install (`kind="install-data"`, detail the jar's destination) first for `mapsforge-poi` when the installed jar does not hash to the pin.
 - [ ] **Step 4:** tests pass, mypy clean.
 - [ ] **Step 5:** commit `mapsforge converters: a phone map and POI file per region, run as the operator (D-067)`.
 
