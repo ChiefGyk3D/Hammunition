@@ -41,7 +41,7 @@ from functools import partial
 from pathlib import Path
 
 from ..country_boundaries import BoundarySource
-from ..fetch import Fetcher
+from ..fetch import Fetcher, MirrorPath, fetch_disclosure, record_fetch
 from ..geofabrik import RegionFile
 from ..manifest.schema import PackageManifest, RegionalDataInstall, RemoteArtifact
 from .base import Action, BackendError, Command, CommandRunner
@@ -423,10 +423,15 @@ class RegionsBackend:
             if self._current(dest, region):
                 continue
             fetched: dict[str, Path] = {}
+            facts: dict[str, str] = {}
             digest = (
                 f"sha256 {region.sha256[:12]}…"
                 if region.sha256
                 else f"md5 {(region.md5 or '')[:12]}…"
+            )
+            where = MirrorPath(manifest.name, region.region)
+            note, urls, sources = fetch_disclosure(
+                self.fetcher, region.url, where, "sha256" if region.sha256 else "md5"
             )
             steps.append(
                 Action(
@@ -434,9 +439,12 @@ class RegionsBackend:
                     description=(
                         f"Fetch map region {region.region} ({region.snapshot}, "
                         f"{human_size(region.size)}, {block.licence}) — {region.verified_by}"
+                        f"{note}"
                     ),
-                    detail=f"{region.url} ({digest}, {region.size} bytes)",
-                    perform=partial(self._fetch, region, fetched),
+                    detail=f"{urls} ({digest}, {region.size} bytes)",
+                    perform=partial(self._fetch, region, fetched, where, facts),
+                    sources=sources,
+                    facts=facts,
                 )
             )
             steps.append(
@@ -466,7 +474,13 @@ class RegionsBackend:
         steps.extend(removal_steps(out, PBF, keep, writer))
         return steps
 
-    def _fetch(self, region: RegionFile, fetched: dict[str, Path]) -> str:
+    def _fetch(
+        self,
+        region: RegionFile,
+        fetched: dict[str, Path],
+        where: MirrorPath | None = None,
+        facts: dict[str, str] | None = None,
+    ) -> str:
         try:
             if region.sha256 is not None:
                 # The cap is raised to the declared size plus a margin, never
@@ -474,10 +488,13 @@ class RegionsBackend:
                 result = self.fetcher.fetch(
                     RemoteArtifact(url=region.url, sha256=region.sha256),
                     max_bytes=region.size + MIB,
+                    mirror=where,
                 )
                 how = f"sha256 {result.sha256[:12]}… verified against the pin"
             elif region.md5 is not None:
-                result = self.fetcher.fetch_md5(region.url, region.md5, expected_size=region.size)
+                result = self.fetcher.fetch_md5(
+                    region.url, region.md5, expected_size=region.size, mirror=where
+                )
                 how = f"md5 {region.md5[:12]}… matched Geofabrik's (not pinned)"
             else:  # pragma: no cover - geofabrik.resolve always sets one
                 raise BackendError(f"{region.url}: neither a sha256 pin nor an MD5 to verify it by")
@@ -489,8 +506,11 @@ class RegionsBackend:
         except (BackendError, OSError) as exc:
             return self.ledger.fail(region.slug, f"{region.region}: {exc}")
         fetched["path"] = result.path
-        where = "cached" if result.from_cache else "downloaded"
-        return f"{where} {result.size} bytes, {how}"
+        source = record_fetch(
+            result, facts if facts is not None else {}, mirrored=bool(self.fetcher.mirror)
+        )
+        state = "cached" if result.from_cache else "downloaded"
+        return f"{state} {result.size} bytes, {how}{source}"
 
     def _install(
         self, region: RegionFile, fetched: dict[str, Path], dest: Path, writer: PrefixWriter

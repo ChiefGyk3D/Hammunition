@@ -69,7 +69,7 @@ argument — js8call is apt on Linux Mint 22.3 and a cmake build elsewhere.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `when` | `Selector` | no |  |
-| `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| NodeInstall \| PipxInstall \| DataInstall \| RegionalDataInstall \| DemTilesInstall \| DerivedDataInstall` | **yes** |  |
+| `install` | `AptInstall \| SourceInstall \| GitInstall \| BinaryInstall \| VenvInstall \| NodeInstall \| PipxInstall \| DataInstall \| RegionalDataInstall \| DemTilesInstall \| TopoQuadsInstall \| DerivedDataInstall \| KiwixBooksInstall` | **yes** |  |
 | `build_depends` | `list[str]` | no | apt packages needed to BUILD only. Never reported as installed. |
 | `binaries` | `list[Binary] \| None` | no | This block's own build outputs, replacing the manifest's `binaries` wherever this block is the one that resolves. A prebuilt archive selected by `arch` can carry a different path per architecture -- rayhunter's zip has `installer` at the top level and one `rayhunter-check` under a per-platform directory -- and one manifest-level list cannot describe both. Omit the key to use the manifest's list; an empty list is refused, because it reads as an override to nothing. |
 | `note` | `str \| None` | no |  |
@@ -363,7 +363,7 @@ so an engine can make the same comparison; one measured user, like ``pypi``.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `method` | `Literal[apt_policy, github_release, github_tags, binary_version, label_file, pypi, none]` | **yes** |  |
+| `method` | `Literal[apt_policy, github_release, github_tags, binary_version, label_file, pypi, kiwix, none]` | **yes** |  |
 | `repo` | `str \| None` | no |  |
 | `command` | `str \| None` | no |  |
 | `pattern` | `str \| None` | no |  |
@@ -445,6 +445,25 @@ direction — neither granting permission nor refusing on their behalf.
 | `disclosure` | `str` | **yes** | What the software can do. Capability, never legality. |
 | `affirmation` | `str` | **yes** | The question. Must ask about the operator's authorization. |
 
+### `ConverterTool`
+
+A program a converter runs that no archive packages, pinned.  D-067.
+
+The catalog supplies where it is and what it hashes to; the engine owns
+how it is run, exactly as it owns every converter's command line. It is
+fetched, verified against `artifact.sha256`, checked against `size`, and
+installed under ``<prefix>/share/hammunition/<unit>/`` -- not under the
+unit's data directory, which holds only files that are read, never run
+(D-049). A `signature_url` is recorded and not verified; the fetch step
+says so, in the words every declared-but-unverified signature gets.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `artifact` | `RemoteArtifact` | **yes** |  |
+| `size` | `int` | **yes** | Bytes, measured; a download of another size is refused. |
+| `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
+| `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
+
 ### `DataArtifact`
 
 One file of an offline dataset: a map tileset, a Wikipedia ZIM, cty.dat.
@@ -522,11 +541,34 @@ wide because only the catalog knows what `source` resolves to (D-061).
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `method` | `Literal[derived]` | no (default `derived`) |  |
-| `converter` | `Literal[navit-maptool, mkgmap, routino-planetsplitter, gdal-dem]` | **yes** | The transformation to run. Each needs a `source` of one particular install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): `navit-maptool`, `mkgmap` and `routino-planetsplitter` need an `osm-regions` source; `gdal-dem` needs a `dem-tiles` source. |
-| `source` | `str` | **yes** | The catalog package name this is derived from: an `osm-regions` unit, or for `gdal-dem` a `dem-tiles` unit. |
+| `converter` | `Literal[navit-maptool, mkgmap, routino-planetsplitter, gdal-dem, brouter-mapcreator, mapsforge-map, mapsforge-poi, ustopo-mosaic]` | **yes** | The transformation to run. Each needs a `source` of one particular install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): `navit-maptool`, `mkgmap`, `routino-planetsplitter`, `brouter-mapcreator`, `mapsforge-map` and `mapsforge-poi` need an `osm-regions` source; `gdal-dem` needs a `dem-tiles` source; `ustopo-mosaic` needs a `topo-quads` source (D-068). |
+| `source` | `str` | **yes** | The catalog package name this is derived from: an `osm-regions` unit, for `gdal-dem` a `dem-tiles` unit, for `ustopo-mosaic` a `topo-quads` unit. |
 | `boundaries` | `str \| None` | no | The catalog data unit holding country boundaries (one GeoJSON file) that `navit-maptool` merges into each region before conversion, so maptool files towns under a country and address search finds them (D-057 amendment, 2026-09-28). Must also be in `depends`. |
+| `program` | `str \| None` | no | `brouter-mapcreator` only, and required there (D-063): the `binary` unit whose installed tree holds BRouter's jar, which carries the map creator. Must also be in `depends`. |
+| `profiles` | `str \| None` | no | `brouter-mapcreator` only, and required there (D-063): the `data` unit holding `all.brf` and `softaccess.brf`, the map creator's filters, which BRouter's release zip does not carry. Must also be in `depends`. |
+| `elevation` | `str \| None` | no | `brouter-mapcreator` only, optional (D-063): the `dem-tiles` unit whose installed tiles are folded into the routing files as elevation. Without it the routes are flat. Must also be in `depends`. |
 | `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
 | `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
+| `tool` | `ConverterTool \| None` | no | The pinned program the converter runs, for a converter in `CONVERTERS_WITH_TOOL` (`mapsforge-poi`: Maven Central's mapsforge-poi-writer, which no archive packages, D-067). Required for those converters and refused for every other. |
+
+### `KiwixBooksInstall`
+
+The Kiwix books the operator chose in station config (D-066).
+
+Like `DemTilesInstall`, nothing is pinned in the manifest: which books
+follows ``reference_books`` in station config, and each book resolves at
+plan time to a pin in ``catalog/data/kiwix-pins.yaml``, generated from
+Kiwix's own ``.meta4`` files. There is no ``licence`` here because the
+books do not share one: each book's licence line is in the hand-written
+``catalog/data/kiwix-books.yaml``, and the plan prints it beside the
+book's size before the confirmation (D-049 rule 2). `provider` is an
+enum, as `dem-tiles`' is, so another library is a new member the engine
+implements, never a URL in the catalog.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `method` | `Literal[kiwix-books]` | no (default `kiwix-books`) |  |
+| `provider` | `Literal[kiwix]` | no (default `kiwix`) |  |
 
 ### `PipxInstall`
 
@@ -551,5 +593,24 @@ file, never the transaction" rule as any other station-dependent unit.
 |---|---|---|---|
 | `method` | `Literal[osm-regions]` | no (default `osm-regions`) |  |
 | `provider` | `Literal[geofabrik]` | no (default `geofabrik`) |  |
+| `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
+| `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
+
+### `TopoQuadsInstall`
+
+Official topographic map sheets for the station's map regions (D-068).
+
+Like `DemTilesInstall`, nothing is pinned in the manifest: which sheets
+are needed follows the operator's regions in station config, chosen at
+plan time from a carried, generated index
+(``catalog/data/ustopo-quads.txt``), each checked against the S3 ETag
+its publisher lists, the plan saying so sheet by sheet. `provider` is an
+enum so the Forest Service's FSTopo is a new member the engine
+implements, never a URL in the catalog.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `method` | `Literal[topo-quads]` | no (default `topo-quads`) |  |
+| `provider` | `Literal[usgs-ustopo]` | no (default `usgs-ustopo`) |  |
 | `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
 | `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |

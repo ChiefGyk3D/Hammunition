@@ -378,3 +378,57 @@ def test_a_symlink_planted_at_the_temporary_is_refused_and_its_target_untouched(
             fetcher.fetch_md5(url, md5, expected_size=len(body))
     assert victim.read_text() == "root:secret\n"
     assert not final.exists()
+
+
+# ---------------------------------------------------------------------------
+# ETag-verified fetch (D-068): US Topo quads, checked against the publisher's
+# S3 ETag, single-part or multipart.
+# ---------------------------------------------------------------------------
+
+
+def _multipart_etag(body: bytes, part: int) -> str:
+    digests = b"".join(hashlib.md5(body[i : i + part]).digest() for i in range(0, len(body), part))
+    return f"{hashlib.md5(digests).hexdigest()}-{-(-len(body) // part)}"
+
+
+def test_fetch_etag_accepts_a_single_part_md5(tmp_path: Path) -> None:
+    body = b"quad" * 1000
+    fetcher = Fetcher(tmp_path, transport=FakeTransport(body))
+    result = fetcher.fetch_etag(
+        "https://x/q.tif", f'"{hashlib.md5(body).hexdigest()}"', expected_size=len(body)
+    )
+    assert result.path.read_bytes() == body
+    assert result.sha256 == hashlib.sha256(body).hexdigest()
+    assert not result.from_cache
+
+
+def test_fetch_etag_accepts_a_multipart_etag_and_rechecks_the_cached_copy(
+    tmp_path: Path,
+) -> None:
+    mib = 1024 * 1024
+    body = b"t" * (9 * mib + 5)
+    etag = _multipart_etag(body, 8 * mib)
+    fetcher = Fetcher(tmp_path, transport=FakeTransport(body), max_bytes=1)
+    first = fetcher.fetch_etag("https://x/q.tif", etag, expected_size=len(body))
+    second = fetcher.fetch_etag("https://x/q.tif", etag, expected_size=len(body))
+    assert second.from_cache and second.path == first.path
+    # A corrupted cached copy is not trusted for having matched once.
+    first.path.write_bytes(b"t" * (len(body) - 1) + b"u")
+    third = fetcher.fetch_etag("https://x/q.tif", etag, expected_size=len(body))
+    assert not third.from_cache
+    assert third.path.read_bytes() == body
+
+
+def test_fetch_etag_refuses_a_mismatch_and_keeps_nothing(tmp_path: Path) -> None:
+    fetcher = Fetcher(tmp_path, transport=FakeTransport(b"evil"))
+    with pytest.raises(VerificationError, match="ETag"):
+        fetcher.fetch_etag("https://x/q.tif", "0" * 32 + "-2", expected_size=4)
+    assert _cache_files(tmp_path) == []
+
+
+def test_fetch_etag_refuses_the_wrong_size_and_keeps_nothing(tmp_path: Path) -> None:
+    body = b"x" * 10
+    fetcher = Fetcher(tmp_path, transport=FakeTransport(body))
+    with pytest.raises(VerificationError, match="size"):
+        fetcher.fetch_etag("https://x/q.tif", hashlib.md5(body).hexdigest(), expected_size=11)
+    assert _cache_files(tmp_path) == []

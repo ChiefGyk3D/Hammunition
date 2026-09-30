@@ -33,6 +33,8 @@ def _record_exec(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
 def _as(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, euid: int = 1000) -> Path:
     monkeypatch.setattr(os, "geteuid", lambda: euid)
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    # Never the real home's repeater overlays (D-064): `maps qmapshack` looks there.
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
     return tmp_path / "QLandkarte" / "QMapShack.conf"
 
 
@@ -373,7 +375,10 @@ def test_an_earlier_launchers_general_keys_are_moved_to_canvas(
     text = conf.read_text()
     general, canvas = text.split("[Canvas]\n")
     assert "mapPath" not in general and "demPaths" not in general
-    assert f"mapPath={data}/osm-garmin, {data}/dem-qmapshack/contours\n" in canvas
+    assert (
+        f"mapPath={data}/osm-garmin, {data}/dem-qmapshack/contours, {data}/ustopo-qmapshack\n"
+        in canvas
+    )
     assert f"demPaths={data}/dem-qmapshack/dem\n" in canvas
     assert "moved from [General]" in capsys.readouterr().err
 
@@ -388,7 +393,7 @@ def test_an_unselected_routing_database_is_selected(
     conf.parent.mkdir(parents=True)
     conf.write_text(
         "[Canvas]\n"
-        f"mapPath={data}/osm-garmin, {data}/dem-qmapshack/contours\n"
+        f"mapPath={data}/osm-garmin, {data}/dem-qmapshack/contours, {data}/ustopo-qmapshack\n"
         f"demPaths={data}/dem-qmapshack/dem\n"
         "\n"
         "[Route]\n"

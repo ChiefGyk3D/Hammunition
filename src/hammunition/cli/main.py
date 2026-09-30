@@ -30,8 +30,10 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import dataclasses
 import os
 import shutil
+import sqlite3
 import stat
 import sys
 import tempfile
@@ -60,7 +62,14 @@ from hammunition.backends import (
     VenvBackend,
 )
 from hammunition.backends.apt import stale_fetches
+from hammunition.backends.data import human_size
 from hammunition.backends.dem import TIF, TILES, TerrainDisclosure, read_record
+from hammunition.backends.kiwix import (
+    KiwixBooksBackend,
+    books_disk_needs,
+    books_shortfall,
+    resolve_station_books,
+)
 from hammunition.backends.regions import (
     KeptRegion,
     MapDisclosure,
@@ -112,6 +121,14 @@ from hammunition.geofabrik import resolve as resolve_region
 from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH, describe_refusal
 from hammunition.interface import envelope
 from hammunition.kernel import KernelProbe
+from hammunition.kiwix import (
+    BookFile,
+    KiwixError,
+    KiwixProbe,
+    load_book_list,
+    load_pin_file,
+    resolve_books,
+)
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
 from hammunition.manifest.schema import (
@@ -119,11 +136,14 @@ from hammunition.manifest.schema import (
     BinaryInstall,
     DemTilesInstall,
     DerivedDataInstall,
+    KiwixBooksInstall,
     PackageManifest,
     ProfileManifest,
     RegionalDataInstall,
+    TopoQuadsInstall,
 )
 from hammunition.paths import applications_dir, build_root, node_root, user_bin_dir, venv_root
+from hammunition.phone_plan import build_phone_run
 from hammunition.plan import NO_MAP_REGIONS, Blocker, InstallPlan, PlanError, resolve
 from hammunition.state import (
     RemovalError,
@@ -144,18 +164,27 @@ from hammunition.station import (
     save_station,
 )
 from hammunition.sudo_ticket import SudoKeepalive, keepalive_wanted
-from hammunition.terrain_plan import build_terrain_run, resolve_station_terrain
-from hammunition.update import region_snapshots, render, report, requested_units
+from hammunition.terrain_plan import brouter_pins, build_terrain_run, resolve_station_terrain
+from hammunition.topo_plan import INDEX as USTOPO_INDEX
+from hammunition.topo_plan import MemoProbe, resolve_station_topo
+from hammunition.update import books_state, region_snapshots, render, report, requested_units
 from hammunition.upstream import (
     NOT_UPSTREAM,
     http_get,
     parse_ls_remote,
+    probe_kiwix,
     probe_upstream,
 )
 from hammunition.upstream import render as render_upstream
+from hammunition.ustopo import UstopoError
+from hammunition.ustopo import bucket_probe as ustopo_probe
+from hammunition.ustopo import load_index as load_ustopo_index
 
 if TYPE_CHECKING:
     from hammunition.hardware.power import KeptEntry, Parkable
+    from hammunition.interface.repeaters import RegistrationView
+    from hammunition.qmapshack_config import BRouterSetup
+    from hammunition.repeaters import ParsedInput
     from hammunition.upstream import UpstreamRow
 
 __all__ = ["build_parser", "main"]
@@ -372,6 +401,35 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             return EXIT_FAILED
     else:
         map_regions = current.map_regions
+    # D-066: the same rule for books, and each id checked against the
+    # catalog's book list now, while the operator is looking at the prompt.
+    if args.reference_books is not None:
+        reference_books = tuple(
+            b for b in (p.strip() for p in args.reference_books.split(",")) if b
+        )
+        if not reference_books:
+            print(
+                "error: --reference-books gave no book ids after splitting on ',' and "
+                "stripping whitespace; give at least one, or to remove the books, "
+                "uninstall kiwix-library.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+        try:
+            books = load_book_list(find_catalog(args.catalog))
+        except KiwixError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return EXIT_FAILED
+        unknown = [b for b in reference_books if b not in books]
+        if unknown:
+            print(
+                f"error: not in the catalog's book list: {', '.join(unknown)}. "
+                f"`hammunition reference books` lists the books the catalog offers, by id.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+    else:
+        reference_books = current.reference_books
     set_fields = [
         field
         for field, value in (
@@ -380,13 +438,16 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             ("node_alias", args.node_alias),
             ("map_regions", args.map_regions),
             ("map_freshness", args.map_freshness),
+            ("reference_books", args.reference_books),
+            ("mirror", args.mirror or args.clear_mirror),
         )
         if value
     ]
     if not set_fields:
         print(
             "error: nothing to set. Pass at least one of --callsign, --grid-square, "
-            "--node-alias, --map-regions, --map-freshness.",
+            "--node-alias, --map-regions, --map-freshness, --reference-books, --mirror, "
+            "--clear-mirror.",
             file=sys.stderr,
         )
         return EXIT_FAILED
@@ -397,6 +458,8 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             node_alias=args.node_alias or current.node_alias,
             map_regions=map_regions,
             map_freshness=args.map_freshness or current.map_freshness,
+            reference_books=reference_books,
+            mirror=None if args.clear_mirror else (args.mirror or current.mirror),
         )
     except StationError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -408,6 +471,10 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             print(f"  {field:<14} {len(station.map_regions)} set")
         elif field == "map_freshness":
             print(f"  {field:<14} {station.freshness}")
+        elif field == "reference_books":
+            print(f"  {field:<14} {', '.join(station.reference_books)}")
+        elif field == "mirror":
+            print(f"  {field:<14} {station.mirror or '(cleared)'}")
         else:
             print(f"  {field:<14} {station.get(field)}")
     return EXIT_OK
@@ -570,6 +637,25 @@ def cmd_update(args: argparse.Namespace) -> int:
         if isinstance(planned.block.install, RegionalDataInstall)
     }
 
+    # Kiwix books, offline (D-066): each chosen book's pinned file on disk.
+    chosen_books: dict[str, list[BookFile]] = {}
+    books_by_unit: dict[str, tuple[str, str]] = {}
+    for planned in plan.packages:
+        if not isinstance(planned.block.install, KiwixBooksInstall):
+            continue
+        try:
+            chosen_books[planned.name] = resolve_books(
+                station.reference_books,
+                load_book_list(catalog_root),
+                load_pin_file(catalog_root),
+            )
+        except KiwixError as exc:
+            books_by_unit[planned.name] = ("unknown", str(exc))
+            continue
+        books_by_unit[planned.name] = books_state(
+            chosen_books[planned.name], data_root(source.prefix) / planned.name
+        )
+
     result = report(
         plan,
         apt_states=states,
@@ -578,9 +664,11 @@ def cmd_update(args: argparse.Namespace) -> int:
         regions=regions_by_unit,
         tiles=installed_tile_counts(plan, source.prefix),
         no_terrain=no_terrain_counts(plan, source.prefix),
+        quads=installed_quad_counts(plan, source.prefix, catalog_root),
+        books=books_by_unit,
     )
     lists_note = _apt_lists_note(apt)
-    upstream = _upstream_rows(plan, runner) if args.upstream else None
+    upstream = _upstream_rows(plan, runner, books=chosen_books) if args.upstream else None
     if envelope.wanted(args):
         envelope.emit(
             build_update(
@@ -596,7 +684,12 @@ def cmd_update(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def _upstream_rows(plan: InstallPlan, runner: SubprocessRunner) -> list[UpstreamRow]:
+def _upstream_rows(
+    plan: InstallPlan,
+    runner: SubprocessRunner,
+    *,
+    books: Mapping[str, Sequence[BookFile]] | None = None,
+) -> list[UpstreamRow]:
     """D-053's second half: the catalog's pin against what upstream publishes.
 
     Opt-in because it is the one thing the engine does that talks to someone
@@ -625,6 +718,10 @@ def _upstream_rows(plan: InstallPlan, runner: SubprocessRunner) -> list[Upstream
         probe_upstream(planned.manifest, http=http, ls_remote=ls_remote)
         for planned in plan.packages
     ]
+    # D-066: a book unit is asked about per chosen book, of Kiwix only.
+    kiwix = KiwixProbe()
+    for unit, chosen in (books or {}).items():
+        rows.extend(probe_kiwix(unit, chosen, text=kiwix.text))
     return [r for r in rows if r.state != NOT_UPSTREAM]
 
 
@@ -774,6 +871,67 @@ def cmd_maps_regions(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+@envelope.json_capable()
+def cmd_artifacts(args: argparse.Namespace) -> int:
+    """Every remote data artifact the engine would fetch for the selection
+    on the command line, with no station and no install.  D-070.
+
+    Hammunition Bunker's one source of what to mirror. The network is asked
+    exactly as the plan asks it -- Geofabrik for a region's dated file and
+    MD5 and its outline, the Copernicus bucket for an unpinned tile's size
+    and ETag -- and only for what the selection names.
+    """
+    from hammunition.artifacts import SelectionError, list_artifacts, select_units
+    from hammunition.interface.artifacts import ArtifactsDocument, render_artifacts
+
+    regions: tuple[str, ...] = ()
+    if args.map_regions is not None:
+        regions = tuple(r for r in (p.strip() for p in args.map_regions.split(",")) if r)
+        if not regions:
+            print(
+                "error: --map-regions gave no regions after splitting on ',' and stripping "
+                "whitespace; give at least one, or leave the flag out.",
+                file=sys.stderr,
+            )
+            return EXIT_UNPLANNABLE
+        try:
+            Station(map_regions=regions)  # the shape station config accepts, nothing more
+        except StationError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return EXIT_UNPLANNABLE
+    requested = (
+        tuple(u for u in (p.strip() for p in args.units.split(",")) if u)
+        if args.units is not None
+        else ()
+    )
+    catalog_root = find_catalog(args.catalog)
+    catalog = load_catalog(catalog_root / "packages")
+    try:
+        units = select_units(catalog, requested)
+    except SelectionError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    entries = list_artifacts(
+        units,
+        regions=regions,
+        freshness=args.map_freshness,
+        catalog=catalog,
+        catalog_root=catalog_root,
+        today=date.today(),
+        region_probe=UrllibProbe(),
+        tile_probe=S3Probe(),
+    )
+    doc = ArtifactsDocument(
+        map_regions=regions, map_freshness=args.map_freshness, units=units, artifacts=entries
+    )
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return EXIT_OK
+    for line in render_artifacts(doc):
+        print(line)
+    return EXIT_OK
+
+
 def _read_config_nofollow(path: Path) -> tuple[str, int | None]:
     """*path*'s text and mode, or ``("", None)`` when absent.
 
@@ -827,6 +985,44 @@ def _replace_atomically(path: Path, text: str, mode: int | None) -> None:
         raise
 
 
+def _repeater_poi_paths(text: str) -> tuple[str, bool]:
+    """*text* with the operator's repeater directory in ``[Canvas] poiPaths``
+    while it holds a ``.poi``, and out of it while not; and whether it does.
+
+    A QMapShack open during ``maps repeaters import`` writes its own list
+    back when it exits, so the launcher puts the path back before each start
+    (D-064). Raises :class:`~hammunition.qmapshack_config.QmsConfigError`
+    like :func:`~hammunition.qmapshack_config.ensure_paths`."""
+    from hammunition.qmapshack_config import Wanted, ensure_paths
+    from hammunition.repeaters import FILES, overlay_dir
+
+    directory = overlay_dir()
+    want = Wanted("Canvas", "poiPaths", (str(directory),))
+    if (directory / FILES[1]).is_file():
+        return ensure_paths(text, (want,)), True
+    return ensure_paths(text, (), remove=(want,)), False
+
+
+def _installed_brouter(prefix: Path) -> BRouterSetup | None:
+    """Hammunition's BRouter when its tree holds one jar and at least one
+    routing file is built (D-063); None otherwise, and QMapShack's BRouter
+    setup is then not touched."""
+    from hammunition.backends.brouter import RD5, find_jar
+    from hammunition.backends.source import tree_destination
+    from hammunition.qmapshack_config import BRouterSetup
+
+    tree = tree_destination(prefix, "brouter")
+    jar = find_jar(tree)
+    segments = data_root(prefix) / "brouter-segments"
+    try:
+        built = any(segments.glob(f"*{RD5}"))
+    except OSError:
+        built = False
+    if jar is None or not built:
+        return None
+    return BRouterSetup(tree=tree, jar=jar.name, segments=segments, java=shutil.which("java"))
+
+
 def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
     """Name Hammunition's maps in QMapShack's own configuration, then start it.  D-061.
 
@@ -835,7 +1031,9 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
     added or extended only with our directories, existing values stay where
     they are, and nothing else in the file changes, except that an absent or
     negative ``[Route] routino\\database`` becomes 0 so the Routing dock
-    selects the database it loaded (bench, 2026-09-29); a file it cannot read,
+    selects the database it loaded (bench, 2026-09-29), and the operator's
+    repeater directory is kept in ``[Canvas] poiPaths`` exactly while it holds
+    a ``.poi`` (D-064); a file it cannot read,
     a symbolic link or anything but a regular file in its place is refused
     and left untouched, and QMapShack is then not started. No ``--json``
     form: it replaces itself with a GUI (D-059).
@@ -844,6 +1042,7 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
         QmsConfigError,
         config_path,
         ensure_paths,
+        register_brouter,
         select_database,
         superseded,
         wanted,
@@ -865,7 +1064,12 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
     try:
         data = data_root(DEFAULT_PREFIX)
         with_paths = ensure_paths(text, wanted(data), remove=superseded(data))
-        updated = select_database(with_paths)
+        with_poi, has_poi = _repeater_poi_paths(with_paths)
+        selected = select_database(with_poi)
+        brouter = _installed_brouter(DEFAULT_PREFIX)
+        updated, brouter_notes = (
+            register_brouter(selected, brouter) if brouter is not None else (selected, [])
+        )
     except QmsConfigError as exc:
         print(
             f"error: {path}: {exc}. {not_started}; "
@@ -885,12 +1089,20 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
             ),
             file=sys.stderr,
         )
-    if updated != with_paths:
+    if with_poi != with_paths:
+        print(
+            f"{'adding' if has_poi else 'taking out'} your repeater POI collection "
+            f"{'to' if has_poi else 'of'} [Canvas] poiPaths in {path} (D-064)",
+            file=sys.stderr,
+        )
+    if selected != with_poi:
         print(
             f"selecting the first routing database in {path}, so the Routing dock's "
             f"Database list is not left blank",
             file=sys.stderr,
         )
+    for note in brouter_notes:
+        print(f"{note} ({path})", file=sys.stderr)
     if updated != text:
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -963,6 +1175,521 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
     finally:
         listener.close()
     return EXIT_OK
+
+
+@envelope.json_capable()
+def cmd_maps_phone(args: argparse.Namespace) -> int:
+    """Gather the phone files into one folder with a SHA256SUMS, and print
+    the ways to carry them to a phone.  D-067.
+
+    Copies each installed Mapsforge map and POI file, and each Garmin map,
+    into ``$XDG_DATA_HOME/hammunition/phone/`` (:mod:`hammunition.phone`).
+    Transfers nothing and serves nothing: every route it prints is a command
+    for the operator. Per user, refused as root.
+    """
+    from hammunition import phone
+    from hammunition.interface.phone import phone_document
+
+    if os.geteuid() == 0:
+        print(
+            "error: the phone folder is per user; run this as yourself, not as root.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    data = data_root(DEFAULT_PREFIX)
+    directory = phone.phone_dir()
+    found = phone.installed(data)
+    missing = phone.missing_units(data)
+    if not found:
+        message = (
+            f"No phone files are installed under {data}. `hammunition install phone-maps` "
+            f"builds Mapsforge maps and POI files from your map regions; `hammunition "
+            f"install navigation` builds Garmin maps. Nothing was copied."
+        )
+        if envelope.wanted(args):
+            print(message, file=sys.stderr)
+            envelope.emit(phone_document(None, (), directory=str(directory), missing=missing))
+            return EXIT_OK
+        print(message)
+        return EXIT_OK
+    try:
+        result = phone.stage(found, directory)
+    except (phone.PhoneError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    ways = phone.routes(directory)
+    if envelope.wanted(args):
+        envelope.emit(phone_document(result, ways, directory=str(directory), missing=missing))
+        return EXIT_OK
+    for line in phone.render(result, ways):
+        print(line)
+    return EXIT_OK
+
+
+def _generated_navit_config() -> Path:
+    """The configuration ``osm-navit`` writes under the prefix (D-057)."""
+    return data_root(DEFAULT_PREFIX) / "osm-navit" / "navit.xml"
+
+
+def _qmapshack_poi_path(directory: Path, *, present: bool) -> RegistrationView:
+    """``[Canvas] poiPaths`` in QMapShack's file holding *directory* when
+    *present*, not holding it otherwise; nothing else changed.  D-064.
+
+    The same editor and the same refusals as ``maps qmapshack``: a symbolic
+    link, anything but a regular file, or a line it cannot read is named and
+    left untouched."""
+    from hammunition.interface.repeaters import RegistrationView
+    from hammunition.qmapshack_config import QmsConfigError, Wanted, config_path, ensure_paths
+
+    path = config_path()
+    want = Wanted("Canvas", "poiPaths", (str(directory),))
+    try:
+        text, mode = _read_config_nofollow(path)
+        updated = ensure_paths(text, (want,) if present else (), remove=() if present else (want,))
+    except (OSError, QmsConfigError) as exc:
+        return RegistrationView(
+            program="qmapshack",
+            config=str(path),
+            outcome="refused",
+            detail=f"{path}: {exc}; add {directory} under POI paths in QMapShack's setup",
+        )
+    if updated == text:
+        if present:
+            detail = f"{directory} already in [Canvas] poiPaths in {path}"
+            return RegistrationView("qmapshack", str(path), "already there", detail)
+        return RegistrationView(
+            "qmapshack", str(path), "not there", f"nothing to take out of {path}"
+        )
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _replace_atomically(path, updated, mode)
+    except OSError as exc:
+        return RegistrationView(
+            "qmapshack", str(path), "refused", f"cannot write {path}: {exc.strerror or exc}"
+        )
+    if present:
+        detail = f"added {directory} to [Canvas] poiPaths in {path}"
+        return RegistrationView("qmapshack", str(path), "added", detail)
+    detail = f"took {directory} out of [Canvas] poiPaths in {path}"
+    return RegistrationView("qmapshack", str(path), "removed", detail)
+
+
+def _navit_user_config(overlay: Path, user: Path, generated: Path) -> RegistrationView:
+    """The operator's copy of *generated* with *overlay* in its mapset, at
+    *user*, mode 0600.  D-064."""
+    from hammunition.interface.repeaters import RegistrationView
+
+    if not generated.is_file():
+        return RegistrationView(
+            "navit",
+            str(user),
+            "not written",
+            f"no generated configuration at {generated} yet; `hammunition install osm-navit` "
+            f"writes it, and navit-offline adds the layer at its next start",
+        )
+    try:
+        body = navit_config.add_maps(generated.read_text(encoding="utf-8"), [overlay])
+        _read_config_nofollow(user)  # refuses a link or a non-file in its place
+        user.parent.mkdir(parents=True, exist_ok=True)
+        _replace_atomically(user, body, 0o600)
+    except (OSError, navit_config.NavitConfigError) as exc:
+        return RegistrationView("navit", str(user), "refused", f"{user}: {exc}")
+    return RegistrationView(
+        "navit", str(user), "written", f"wrote {user}; navit-offline opens it from now on"
+    )
+
+
+def _refuse_root(what: str) -> bool:
+    if os.geteuid() == 0:
+        print(
+            f"error: {what} are per user; run this as yourself, not as root.",
+            file=sys.stderr,
+        )
+        return True
+    return False
+
+
+def _write_repeater_layer(
+    parsed: Sequence[ParsedInput],
+    layer_title: str,
+    day: date,
+    licences: Sequence[str],
+    args: argparse.Namespace,
+) -> int:
+    """Merge *parsed*, write the layer, register it, print or emit."""
+    from hammunition.interface.repeaters import (
+        InputView,
+        RepeatersDocument,
+        SkipView,
+        render_repeaters,
+    )
+    from hammunition.repeaters import FILES, Layer, merge, overlay_dir, overlays_root, write_layer
+
+    rows, merged = merge(r for p in parsed for r in p.rows)
+    if not rows:
+        print(
+            "error: no repeater with a position and a callsign was read. Nothing was written.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    directory = overlay_dir()
+    description = " ".join(licences)
+    try:
+        written = write_layer(directory, Layer(layer_title, description, day, rows))
+    except (OSError, sqlite3.Error) as exc:
+        print(f"error: cannot write the layer in {directory}: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    registered = (
+        _qmapshack_poi_path(directory, present=True),
+        _navit_user_config(
+            directory / FILES[2], overlays_root() / "navit.xml", _generated_navit_config()
+        ),
+    )
+    doc = RepeatersDocument(
+        layer=layer_title,
+        exported=day.isoformat(),
+        licences=tuple(licences),
+        inputs=tuple(
+            InputView(
+                path=str(p.path),
+                format=p.format,
+                read=p.read,
+                used=len(p.rows),
+                skipped=tuple(SkipView(s.reason, s.count, s.first) for s in p.skipped),
+                sha256=p.sha256,
+            )
+            for p in parsed
+        ),
+        read=sum(p.read for p in parsed),
+        skipped=sum(p.read - len(p.rows) for p in parsed),
+        merged=merged,
+        written=len(rows),
+        directory=str(directory),
+        files=tuple(str(p) for p in written),
+        registered=registered,
+    )
+    code = EXIT_FAILED if any(r.outcome == "refused" for r in registered) else EXIT_OK
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return code
+    for line in render_repeaters(doc):
+        print(line)
+    return code
+
+
+@envelope.json_capable()
+def cmd_maps_repeaters_import(args: argparse.Namespace) -> int:
+    """Convert the operator's own repeater export into overlays.  D-064.
+
+    Fully offline. Reads a RepeaterBook GPX or CSV export (a CSV only with
+    Lat and Long), hearham's JSON as served, or a hand-typed CSV; refuses
+    CHIRP files, a CSV without positions and KML by name, and then writes
+    nothing. Merges on callsign, output frequency and position to 0.01°,
+    writes the GPX, POI and Navit files into the operator's overlay
+    directory, adds it to QMapShack's ``poiPaths`` and writes the operator's
+    Navit configuration. Refused as root: the files are the operator's.
+    """
+    from hammunition.repeaters import (
+        HEARHAM,
+        RepeaterInputError,
+        export_date,
+        hearham_licence,
+        layer_name,
+        licence_text,
+        parse_exported,
+        read_inputs,
+    )
+
+    if _refuse_root("repeater overlays"):
+        return EXIT_FAILED
+    try:
+        override = parse_exported(args.exported) if args.exported else None
+    except ValueError as exc:
+        print(f"error: {exc}. Nothing was written.", file=sys.stderr)
+        return EXIT_FAILED
+    paths = [Path(p) for p in args.files]
+    try:
+        parsed = read_inputs(paths)
+    except RepeaterInputError as exc:
+        print(f"error: {exc}\nNothing was written.", file=sys.stderr)
+        return EXIT_FAILED
+    licences: list[str] = []
+    for item in parsed:
+        text = (
+            hearham_licence(f"Read from {item.path}", item.sha256)
+            if item.format == HEARHAM
+            else licence_text(item.format)
+        )
+        if text not in licences:
+            licences.append(text)
+    day = export_date(paths, override)
+    return _write_repeater_layer(parsed, layer_name(day), day, licences, args)
+
+
+def cmd_maps_repeaters_fetch_hearham(args: argparse.Namespace) -> int:
+    """Fetch hearham.com's repeater list, on request, and convert it.  D-064.
+
+    The one route here that uses the network, and only when run. The sha256
+    of what arrived is recorded in the layer and printed; hearham publishes
+    no digest and no dated snapshot, so it is marked unverified (D-033's
+    position). No ``--json`` form: the disclosure is printed before the
+    request, for a person to read."""
+    from hammunition import repeaters
+
+    if _refuse_root("repeater overlays"):
+        return EXIT_FAILED
+    url = repeaters.HEARHAM_URL
+    print(
+        f"This fetches hearham.com's whole repeater list from {url} (about 9.5 MB), now and "
+        f"only now, and converts it on this machine. hearham publishes no checksum, so what "
+        f"arrives is recorded by its sha256 and marked unverified.",
+        flush=True,
+    )
+    try:
+        body, digest, when = repeaters.fetch_hearham(url, limit=repeaters.HEARHAM_LIMIT)
+    except repeaters.RepeaterFetchError as exc:
+        print(f"error: {exc}. Nothing was written.", file=sys.stderr)
+        return EXIT_FAILED
+    with tempfile.TemporaryDirectory(prefix="hammunition-hearham-") as scratch:
+        staged = Path(scratch) / "hearham.json"
+        staged.write_bytes(body)
+        try:
+            parsed = repeaters.read_input(staged)
+        except repeaters.RepeaterInputError as exc:
+            print(f"error: {url}: {exc}. Nothing was written.", file=sys.stderr)
+            return EXIT_FAILED
+        if parsed.format != repeaters.HEARHAM:
+            print(
+                f"error: {url} answered with something other than its repeater list "
+                f"({parsed.format}). Nothing was written.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+        parsed = dataclasses.replace(parsed, path=Path(url))
+        day = when.date()
+        licence = repeaters.hearham_licence(f"Fetched {when.isoformat()}", digest)
+        return _write_repeater_layer(
+            [parsed], repeaters.hearham_layer_name(day), day, [licence], args
+        )
+
+
+@envelope.json_capable()
+def cmd_maps_repeaters_remove(args: argparse.Namespace) -> int:
+    """Delete the repeater layer and unregister it.  D-064.
+
+    The three files, the operator's Navit copy, the directory when empty,
+    and the path in QMapShack's ``poiPaths``. Idempotent: nothing to remove
+    is exit 0. Anything else in the directory stays."""
+    from hammunition.interface.repeaters import (
+        RegistrationView,
+        RepeatersRemovedDocument,
+        render_removed,
+    )
+    from hammunition.repeaters import overlay_dir, overlays_root, remove_layer
+
+    if _refuse_root("repeater overlays"):
+        return EXIT_FAILED
+    directory = overlay_dir()
+    try:
+        removed = remove_layer(directory)
+    except OSError as exc:
+        print(f"error: {exc}. Nothing was removed.", file=sys.stderr)
+        return EXIT_FAILED
+    user = overlays_root() / "navit.xml"
+    try:
+        user.unlink()
+        navit = RegistrationView("navit", str(user), "removed", f"deleted {user}")
+    except FileNotFoundError:
+        navit = RegistrationView("navit", str(user), "not there", f"no {user} to delete")
+    except OSError as exc:
+        navit = RegistrationView("navit", str(user), "refused", f"{user}: {exc.strerror or exc}")
+    registered = (_qmapshack_poi_path(directory, present=False), navit)
+    doc = RepeatersRemovedDocument(
+        directory=str(directory),
+        removed=tuple(str(p) for p in removed),
+        unregistered=registered,
+    )
+    code = EXIT_FAILED if any(r.outcome == "refused" for r in registered) else EXIT_OK
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return code
+    for line in render_removed(doc):
+        print(line)
+    return code
+
+
+def cmd_maps_navit(args: argparse.Namespace) -> int:
+    """Start Navit on the offline maps, with the operator's overlays.  D-064.
+
+    What the ``navit-offline`` launcher runs. The configuration ``osm-navit``
+    writes is root's; when the operator has a repeater layer, a copy of it
+    with the layer in its mapset is written to their overlay directory (0600)
+    and Navit opens that; with none, Navit opens the generated file and a
+    stale copy of ours is removed. Under root it opens the generated file and
+    writes nothing. No ``--json`` form: it replaces itself with a GUI."""
+    from hammunition.repeaters import FILES, overlay_dir, overlays_root
+
+    generated = _generated_navit_config()
+    if not generated.is_file():
+        print(
+            f"error: no Navit configuration at {generated}. `hammunition install osm-navit` "
+            f"converts your map regions and writes it.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    target = generated
+    if os.geteuid() != 0:
+        overlay = overlay_dir() / FILES[2]
+        user = overlays_root() / "navit.xml"
+        if overlay.is_file():
+            view = _navit_user_config(overlay, user, generated)
+            if view.outcome != "written":
+                print(f"error: {view.detail}. Navit was not started.", file=sys.stderr)
+                return EXIT_FAILED
+            target = user
+        elif user.is_file() and not user.is_symlink():
+            user.unlink()
+    sys.stdout.flush()
+    sys.stderr.flush()  # execvp discards whatever Python still buffers
+    try:
+        os.execvp("navit", ["navit", str(target)])
+    except OSError as exc:
+        print(
+            f"error: cannot start navit: {exc.strerror or exc}. "
+            f"`hammunition install navit` installs it.",
+            file=sys.stderr,
+        )
+    return EXIT_FAILED
+
+
+@envelope.json_capable()
+def cmd_reference_books(args: argparse.Namespace) -> int:
+    """The Kiwix books the catalog offers, with size, licence and whether
+    chosen and installed.  D-066. Read from the catalog and the disk only."""
+    from hammunition.backends.kiwix import book_current
+    from hammunition.interface.books import BookRow, BooksDocument
+
+    user = operator(args)
+    catalog_root = find_catalog(args.catalog)
+    try:
+        books = load_book_list(catalog_root)
+        pins = load_pin_file(catalog_root)
+        station = load_station(owner=user)
+    except (KiwixError, StationError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    installed = data_root(DEFAULT_PREFIX) / "kiwix-library"
+    rows = []
+    for book in books.values():
+        pin = pins.get(book.id)
+        rows.append(
+            BookRow(
+                id=book.id,
+                title=book.title,
+                file=pin.file if pin else None,
+                size=pin.size if pin else None,
+                licence=book.licence,
+                licence_url=book.licence_url,
+                note=book.note,
+                chosen=book.id in station.reference_books,
+                installed=pin is not None
+                and book_current(installed / pin.file, BookFile(book, pin)),
+            )
+        )
+    if envelope.wanted(args):
+        envelope.emit(BooksDocument(books=tuple(rows)))
+        return EXIT_OK
+    width = max(len(r.id) for r in rows)
+    for row in rows:
+        size = human_size(row.size) if row.size is not None else "not pinned"
+        marks = " ".join(
+            m for m, on in (("[chosen]", row.chosen), ("[installed]", row.installed)) if on
+        )
+        print(f"{row.id:<{width}}  {size:>9}  {row.licence}  {marks}".rstrip())
+        print(f"{'':<{width}}  {'':>9}  {row.title}")
+    print()
+    print(
+        "Choose with `hammunition station set --reference-books ID[,ID…]`, then "
+        "`hammunition install kiwix-library`. Sizes are the pinned files'."
+    )
+    return EXIT_OK
+
+
+def cmd_reference_serve(args: argparse.Namespace) -> int:
+    """The offline reference on one loopback page.  D-066.
+
+    Books through kiwix-serve (a child, on 127.0.0.1 only), the ICS forms
+    and the dictionaries on a page from the standard library. Runs as the
+    operator, never as root; Ctrl-C stops both. No ``--json`` form: it is a
+    server, not a document (D-059).
+    """
+    import subprocess
+
+    from hammunition import reference
+    from hammunition.paths import owner_aware_dir
+
+    try:
+        port = reference.PORT if args.port is None else reference.serve_port(args.port)
+    except ValueError as exc:
+        print(f"error: {exc}.", file=sys.stderr)
+        return EXIT_FAILED
+    if os.geteuid() == 0:
+        print(
+            "error: the reference page reads files anyone can read; run it as yourself, "
+            "not as root.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    try:
+        books = load_book_list(find_catalog(args.catalog))
+    except (KiwixError, SystemExit):
+        books = {}  # the page still serves every file, named by its file name
+    shelf = reference.find_shelf(data_root(DEFAULT_PREFIX), books)
+    if shelf.books:
+        missing = [t for t in ("kiwix-serve", "kiwix-manage") if shutil.which(t) is None]
+        if missing:
+            print(
+                f"error: {len(shelf.books)} book(s) are installed and {', '.join(missing)} "
+                f"is not on the PATH: `hammunition install kiwix-tools`.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+    library = (
+        owner_aware_dir(xdg_var="XDG_CACHE_HOME", home_relative=(".cache",))
+        / "reference"
+        / "library.xml"
+    )
+
+    def manage(path: Path, zims: Sequence[Path]) -> None:
+        result = subprocess.run(
+            ["kiwix-manage", str(path), "add", *(str(z) for z in zims)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0 or not path.is_file():
+            raise SystemExit(
+                f"error: kiwix-manage could not build {path} (exit {result.returncode}): "
+                f"{(result.stderr or result.stdout).strip()}"
+            )
+
+    def spawn(argv: Sequence[str]) -> subprocess.Popen[bytes]:
+        return subprocess.Popen(list(argv), stdout=subprocess.DEVNULL)
+
+    def log(line: str) -> None:
+        print(line, file=sys.stderr, flush=True)
+
+    try:
+        return reference.run(
+            port, shelf=shelf, library=library, spawn=spawn, manage=manage, log=log
+        )
+    except OSError as exc:
+        print(
+            f"error: cannot listen on {reference.HOST} port {port}: {exc.strerror or exc}. "
+            f"--port N serves another port.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
 
 
 def resolve_map_regions(
@@ -1110,6 +1837,28 @@ def installed_tile_counts(plan: InstallPlan, prefix: Path) -> dict[str, int]:
     }
 
 
+def installed_quad_counts(
+    plan: InstallPlan, prefix: Path, catalog_root: Path
+) -> dict[str, tuple[int, int]]:
+    """topo-quads, offline (D-068): how many sheets each unit has installed,
+    and how many of those the carried index has replaced with a newer
+    edition. Counts, never names. With no readable index, none is called
+    stale: the report does not guess."""
+    units = [p for p in plan.packages if isinstance(p.block.install, TopoQuadsInstall)]
+    if not units:
+        return {}
+    try:
+        listed = {q.name for q in load_ustopo_index(catalog_root / USTOPO_INDEX).quads}
+    except UstopoError:
+        listed = None
+    counts: dict[str, tuple[int, int]] = {}
+    for planned in units:
+        names = [p.stem for p in (data_root(prefix) / planned.name).glob("*.tif")]
+        stale = 0 if listed is None else sum(1 for n in names if n not in listed)
+        counts[planned.name] = (len(names), stale)
+    return counts
+
+
 def no_terrain_counts(plan: InstallPlan, prefix: Path) -> dict[str, int]:
     """dem-tiles, offline (final review, I1): how many regions' records say
     Copernicus publishes no tile for any of their squares, never which."""
@@ -1152,9 +1901,9 @@ def map_work(
 def leftover_maps_note(plan: InstallPlan, prefix: Path) -> str | None:
     """Map data still installed while no map regions are set, named with its removal."""
     units = sorted(d.subject for d in plan.deferrals if d.why == NO_MAP_REGIONS)
-    # Piece 1's regions and Navit maps, and piece 2's Garmin maps, Routino
-    # database and terrain tiles (D-061).
-    patterns = ("*.osm.pbf", "*.bin", "*.img", "*.mem", f"*{TIF}")
+    # Piece 1's regions and Navit maps, piece 2's Garmin maps, Routino
+    # database and terrain tiles (D-061), and the phone files (D-067).
+    patterns = ("*.osm.pbf", "*.bin", "*.img", "*.mem", f"*{TIF}", "*.map", "*.poi")
     found = [
         data_root(prefix) / unit
         for unit in units
@@ -1293,7 +2042,12 @@ def cmd_install(args: argparse.Namespace) -> int:
     # An installed tree is handed to the same operator (D-043): MSHV and
     # radiosonde-auto-rx write beside their executables, and the hand-over is a
     # planned, logged step rather than a side effect of who unpacked the build.
-    source = SourceBackend(Fetcher(owner=user or None), build_root=builds, owner=user or None)
+    # D-070: the station's LAN mirror, unless --no-mirror; only the data
+    # backends name a mirror path, so nothing else is ever asked of it.
+    mirror = None if args.no_mirror else station.mirror
+    source = SourceBackend(
+        Fetcher(owner=user or None, mirror=mirror), build_root=builds, owner=user or None
+    )
     git = GitBackend(
         runner=runner,
         build_root=builds,
@@ -1343,14 +2097,15 @@ def cmd_install(args: argparse.Namespace) -> int:
     kept = frozenset(k.slug for k in resolution.kept)
     # D-061: terrain tiles for the same regions, resolved before the plan
     # prints for the same reason -- each tile's size and how it is verified
-    # are the disclosure.
+    # are the disclosure. The outlines are asked once for both (D-068).
+    outlines = MemoProbe(UrllibProbe())
     try:
         dem_resolution = resolve_station_terrain(
             plan,
             resolution,
             catalog_root,
             prefix=source.prefix,
-            region_probe=UrllibProbe(),
+            region_probe=outlines,
             tile_probe=S3Probe(),
         )
     except CopernicusError as exc:
@@ -1358,7 +2113,46 @@ def cmd_install(args: argparse.Namespace) -> int:
         print("\nNothing was changed.", file=sys.stderr)
         refused("terrain", str(exc))
         return EXIT_UNPLANNABLE
+    # D-068: the US Topo sheets for the same regions, each HEAD-checked
+    # against the ETag the carried index lists.
+    try:
+        topo_resolution, topo_notes = resolve_station_topo(
+            plan,
+            resolution,
+            catalog_root,
+            prefix=source.prefix,
+            region_probe=outlines,
+            quad_probe=ustopo_probe(),
+        )
+    except UstopoError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        print("\nNothing was changed.", file=sys.stderr)
+        refused("US Topo", str(exc))
+        return EXIT_UNPLANNABLE
+    # D-066: the chosen Kiwix books, resolved against the book list and its
+    # pins, and every one not yet installed HEAD-checked, before the plan
+    # prints: each book's size and licence are the disclosure, and a pin
+    # Kiwix has dropped refuses here rather than after apt has run.
+    book_units = [p for p in plan.packages if isinstance(p.block.install, KiwixBooksInstall)]
+    book_files: list[BookFile] = []
+    if book_units:
+        try:
+            book_files = resolve_station_books(
+                station.reference_books,
+                catalog_root,
+                installed=data_root(source.prefix) / book_units[0].name,
+                head=KiwixProbe().head,
+            )
+        except KiwixError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            print("\nNothing was changed.", file=sys.stderr)
+            refused("reference books", str(exc))
+            return EXIT_UNPLANNABLE
+    books = KiwixBooksBackend(
+        fetcher=source.fetcher, prefix=source.prefix, files=book_files, runner=runner
+    )
     region_notes = list(resolution.notes)
+    region_notes.extend(topo_notes)
     try:
         border, countries, border_notes = map_borders(plan, packages, catalog_root, source.prefix)
     except CountryBoundaryError as exc:
@@ -1395,6 +2189,19 @@ def cmd_install(args: argparse.Namespace) -> int:
         keep=kept,
         regions=ledger,
         resolution=dem_resolution,
+        pins=brouter_pins(plan),
+        topo=topo_resolution,
+    )
+    # D-067: the phone converters, from the same regions, as the operator.
+    phone = build_phone_run(
+        prefix=source.prefix,
+        builds=builds,
+        owner=user or None,
+        runner=runner,
+        fetcher=source.fetcher,
+        files=region_files,
+        keep=kept,
+        regions=ledger,
     )
     derived = DerivedBackend(
         prefix=source.prefix,
@@ -1406,7 +2213,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         runner=runner,
         boundaries=border,
         countries=countries,
-        converters=terrain.converters,
+        converters={**terrain.converters, **phone.converters},
     )
     # Only regions not already installed at their snapshot are downloaded,
     # counted and listed as downloads (the dry run is the run); a region
@@ -1435,7 +2242,8 @@ def cmd_install(args: argparse.Namespace) -> int:
     )
     terrain_view = terrain.disclosure(plan)
     terrain_disk = terrain.needs(plan, cache=source.fetcher.cache_dir, prefix=source.prefix)
-    if pending or conversions or any(terrain_disk.values()):
+    phone_disk = phone.needs(plan, cache=source.fetcher.cache_dir, prefix=source.prefix)
+    if pending or conversions or any(terrain_disk.values()) or any(phone_disk.values()):
         # Refused at plan time, before anything is confirmed, with both numbers:
         # piece 1's and piece 2's needs together, per filesystem (D-061).
         short = combined_shortfall(
@@ -1447,7 +2255,31 @@ def cmd_install(args: argparse.Namespace) -> int:
                 prefix=source.prefix,
             ),
             terrain_disk,
+            phone=phone_disk,
         )
+        if short is not None:
+            print(f"error: {short}", file=sys.stderr)
+            print("\nNothing was changed.", file=sys.stderr)
+            refused("disk space", short)
+            return EXIT_UNPLANNABLE
+    # The books' own room, with any map data of the same run on the same disk.
+    book_pending = [f for p in book_units for f in books.pending(p.manifest)]
+    book_disk = books_disk_needs(book_pending, cache=source.fetcher.cache_dir, prefix=source.prefix)
+    if book_disk:
+        others: dict[Path, int] = {}
+        if pending or conversions or any(terrain_disk.values()):
+            others = dict(
+                disk_needs(
+                    pending,
+                    conversions,
+                    cache=source.fetcher.cache_dir,
+                    staging=map_staging,
+                    prefix=source.prefix,
+                )
+            )
+            for path, amount in terrain_disk.items():
+                others[path] = others.get(path, 0) + amount
+        short = books_shortfall(book_disk, others)
         if short is not None:
             print(f"error: {short}", file=sys.stderr)
             print("\nNothing was changed.", file=sys.stderr)
@@ -1472,6 +2304,8 @@ def cmd_install(args: argparse.Namespace) -> int:
         regions=regions,
         derived=derived,
         dem=terrain.dem,
+        topo=terrain.topo,
+        books=books,
         repos=repos,
         config_staging=builds,
         launcher_bin=user_bin_dir(user or None),
@@ -1488,11 +2322,17 @@ def cmd_install(args: argparse.Namespace) -> int:
         if (log_owner and euid == 0 and str(log_destination).startswith("/home"))
         else None
     )
+    # A book unit with nothing to fetch or remove reads "already installed".
+    idle_books = frozenset(
+        p.name
+        for p in book_units
+        if not books.steps(p.manifest, cast(KiwixBooksInstall, p.block.install))
+    )
     view = build_install_view(
         plan,
         commands,
         euid=euid,
-        built=built,
+        built=built | idle_books,
         log_destination=log_destination,
         hands_log_to=hands_log_to,
         suggestion_notes=suggestion_notes,
@@ -1500,6 +2340,9 @@ def cmd_install(args: argparse.Namespace) -> int:
         region_notes=region_notes,
         terrain=terrain_view,
         sudo_keepalive=args.sudo_keepalive,
+        mirror=station.mirror,
+        mirror_ignored=args.no_mirror,
+        idle=phone.idle(plan),
     )
     if envelope.wanted(args):
         # Reached only with --dry-run: main() refuses a real install under
@@ -3423,7 +4266,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_update.set_defaults(func=cmd_update)
 
     p_maps = sub.add_parser(
-        "maps", help="offline maps: Geofabrik's regions (D-057), QMapShack and its GPS (D-061)"
+        "maps",
+        help="offline maps: Geofabrik's regions (D-057), QMapShack and its GPS (D-061), "
+        "Navit and repeaters (D-064), phone files (D-067)",
     )
     maps_sub = p_maps.add_subparsers(dest="maps_command", required=True)
 
@@ -3469,6 +4314,88 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_maps_tether.set_defaults(func=cmd_maps_gps_tether)
 
+    p_artifacts = sub.add_parser(
+        "artifacts",
+        help="list every remote data artifact for a selection, with no station (D-070)",
+    )
+    p_artifacts.add_argument(
+        "--map-regions",
+        default=None,
+        metavar="R[,R...]",
+        help="comma-separated Geofabrik region paths; none defers the map units",
+    )
+    p_artifacts.add_argument(
+        "--map-freshness", default="yearly", choices=("yearly", "monthly", "latest")
+    )
+    p_artifacts.add_argument(
+        "--units",
+        default=None,
+        metavar="U[,U...]",
+        help="the units to list (default: every data, osm-regions and dem-tiles unit)",
+    )
+    p_artifacts.set_defaults(func=cmd_artifacts)
+
+    p_maps_phone = maps_sub.add_parser(
+        "phone",
+        help="gather the phone map files into one folder with a SHA256SUMS and print the "
+        "ways to carry them to a phone; transfers nothing (D-067)",
+    )
+    p_maps_phone.set_defaults(func=cmd_maps_phone)
+    p_maps_navit = maps_sub.add_parser(
+        "navit",
+        help="start Navit on your offline maps, with your repeater layer when there is one (D-064)",
+    )
+    p_maps_navit.set_defaults(func=cmd_maps_navit)
+
+    p_maps_rep = maps_sub.add_parser(
+        "repeaters",
+        help="repeaters on the map from your own export, converted on this machine (D-064)",
+    )
+    rep_sub = p_maps_rep.add_subparsers(dest="maps_repeaters_command", required=True)
+    p_rep_import = rep_sub.add_parser(
+        "import",
+        help="convert a RepeaterBook GPX or CSV export, hearham JSON or your own CSV; offline",
+    )
+    p_rep_import.add_argument("files", nargs="+", metavar="FILE", help="the export(s) to convert")
+    p_rep_import.add_argument(
+        "--exported",
+        metavar="YYYY-MM-DD",
+        default=None,
+        help="the day you exported it, for the layer's name (default: the file's date)",
+    )
+    p_rep_import.set_defaults(func=cmd_maps_repeaters_import)
+    p_rep_fetch = rep_sub.add_parser(
+        "fetch-hearham",
+        help="fetch hearham.com's open list now and convert it; recorded as unverified",
+    )
+    p_rep_fetch.set_defaults(func=cmd_maps_repeaters_fetch_hearham)
+    p_rep_remove = rep_sub.add_parser(
+        "remove", help="delete the repeater layer and take it out of QMapShack and Navit"
+    )
+    p_rep_remove.set_defaults(func=cmd_maps_repeaters_remove)
+
+    p_reference = sub.add_parser(
+        "reference", help="the offline reference: Kiwix books, ICS forms, dictionaries (D-066)"
+    )
+    reference_sub = p_reference.add_subparsers(dest="reference_command", required=True)
+    p_ref_books = reference_sub.add_parser(
+        "books", help="list the Kiwix books the catalog offers, with size and licence"
+    )
+    p_ref_books.add_argument("--user", default=None, help="whose station configuration to read")
+    p_ref_books.set_defaults(func=cmd_reference_books)
+    p_ref_serve = reference_sub.add_parser(
+        "serve",
+        help="serve the books, forms and dictionaries on 127.0.0.1:8480 until Ctrl-C",
+    )
+    p_ref_serve.add_argument(
+        "--port",
+        metavar="N",
+        default=None,
+        help="serve the page on 127.0.0.1 port N (1024 to 65534); kiwix-serve takes N+1 "
+        "(default 8480)",
+    )
+    p_ref_serve.set_defaults(func=cmd_reference_serve)
+
     p_show = sub.add_parser("show", help="describe a profile, disclosure included")
     p_show.add_argument("profile")
     p_show.set_defaults(func=cmd_show)
@@ -3504,6 +4431,14 @@ def build_parser() -> argparse.ArgumentParser:
             "its ticket valid until the run ends, so a long unprivileged step cannot leave "
             "a later root step waiting at a prompt (the default; D-062). "
             "--no-sudo-keepalive turns it off"
+        ),
+    )
+    p_install.add_argument(
+        "--no-mirror",
+        action="store_true",
+        help=(
+            "ignore the LAN mirror set in station config for this run; every data "
+            "download comes from its publisher (D-070)"
         ),
     )
     p_install.add_argument(
@@ -3661,6 +4596,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_station_set.add_argument(
         "--map-freshness", default=None, choices=("yearly", "monthly", "latest")
     )
+    p_station_set.add_argument(
+        "--reference-books",
+        default=None,
+        metavar="ID[,ID…]",
+        help="comma-separated Kiwix book ids to carry offline; `hammunition reference "
+        "books` lists them (D-066)",
+    )
+    mirror_flags = p_station_set.add_mutually_exclusive_group()
+    mirror_flags.add_argument(
+        "--mirror",
+        default=None,
+        metavar="URL",
+        help="a LAN mirror of the data artifacts, tried before the publisher (D-070)",
+    )
+    mirror_flags.add_argument("--clear-mirror", action="store_true", help="remove the saved mirror")
     p_station_set.add_argument("--user", default=None, help="whose configuration to write")
     p_station_set.set_defaults(func=cmd_station_set)
 

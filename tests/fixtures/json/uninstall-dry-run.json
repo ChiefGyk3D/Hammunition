@@ -73,7 +73,8 @@
           "fixture-apt"
         ],
         "action": null,
-        "requires_root": true
+        "requires_root": true,
+        "sources": []
       },
       {
         "description": "Remove fixture-source's installed binary (log)",
@@ -85,7 +86,8 @@
           "/usr/local/bin/fixture-source"
         ],
         "action": null,
-        "requires_root": false
+        "requires_root": false,
+        "sources": []
       }
     ]
   }

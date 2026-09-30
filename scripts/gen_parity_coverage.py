@@ -115,10 +115,8 @@ EXPLAINED: dict[str, str] = {
     # EmComm Tools OS delta (D-042): the offline-data layer is sub-project 5,
     # and needs a category the catalog does not have before any of these can
     # be carried. Decided ADD by D-048; outstanding until that category exists.
-    "kiwix": "ETC sub-project 5 — the offline Wikipedia reader; the ZIM it reads is the data layer (D-042, D-048)",
     "mbtileserver": "ETC sub-project 5 — serves the map tileset; nothing to serve until the data layer exists (D-042, D-048)",
     "gis-tools": "ETC sub-project 5 — `qgis`; profile placement is the question, and it belongs with the map layer (D-042, D-048)",
-    "dict": "ETC sub-project 5 — the offline dictionary, the data layer's smallest member (D-042, D-048)",
 }
 
 

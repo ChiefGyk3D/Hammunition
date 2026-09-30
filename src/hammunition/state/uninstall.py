@@ -67,11 +67,13 @@ from hammunition.manifest.schema import (
     DerivedDataInstall,
     GitInstall,
     InstallBlock,
+    KiwixBooksInstall,
     NodeInstall,
     PackageManifest,
     ProfileManifest,
     RegionalDataInstall,
     SourceInstall,
+    TopoQuadsInstall,
     VenvInstall,
     effective_binaries,
 )
@@ -427,7 +429,13 @@ def plan_removal(
                     )
 
         elif isinstance(
-            install, DataInstall | RegionalDataInstall | DemTilesInstall | DerivedDataInstall
+            install,
+            DataInstall
+            | RegionalDataInstall
+            | DemTilesInstall
+            | TopoQuadsInstall
+            | DerivedDataInstall
+            | KiwixBooksInstall,
         ):
             # D-049: a data unit's files live only under its namespaced data
             # directory, which nothing but this engine writes; removed whole.
@@ -442,6 +450,18 @@ def plan_removal(
                     requires_root=True,
                 ),
             )
+            if isinstance(install, DerivedDataInstall) and install.tool is not None:
+                # D-067: the converter's pinned program, kept in the unit's own
+                # namespaced directory beside the data tree, never inside it.
+                add(
+                    unit,
+                    ArtifactRemoval(
+                        "tree",
+                        paths.prefix / "share" / "hammunition" / manifest.name,
+                        "namespaced",
+                        requires_root=True,
+                    ),
+                )
         elif isinstance(install, SourceInstall | GitInstall):
             reversible = not install.provides_install_target or install.install_tree
             if not reversible:

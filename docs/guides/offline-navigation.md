@@ -12,13 +12,16 @@ storm has taken the towers down, that is exactly what is missing. The
 the laptop, converted for Navit, with Navit following your GPS receiver
 through gpsd and speaking the turns. For trails and terrain it also builds
 maps for QMapShack from the same regions, a routing database for walking,
-and elevation with contour lines (**D-061**). Once it is installed, using it
-needs no network at all.
+and elevation with contour lines (**D-061**), and for US regions it lays the
+official USGS topographic sheets over them (**D-068**). Once it is
+installed, using it needs no network at all.
 
 Daily use and EMCOMM are the same setup. The maps have to be on the disk
 before anything goes wrong, so the way to be ready for the bad day is to use
 it on ordinary days and refresh it as routine. The decision records behind
-all of this are **D-057** and **D-061** in `docs/DECISIONS.md`.
+all of this are **D-057**, **D-061**, **D-068** for the official topo
+sheets and, for repeaters, **D-064** in `docs/DECISIONS.md`; section 14
+makes the same maps for the team's phones (**D-067**).
 
 The examples below use Vermont and New Hampshire. Use your own regions.
 
@@ -455,7 +458,91 @@ says what else has not.
 
 Routino's foot profile does not read trail difficulty (`sac_scale`): an
 alpine path counts the same as a pavement. Look at the contours and judge
-the route yourself.
+the route yourself, or route the same walk with BRouter, below.
+
+### Route with BRouter: trail difficulty and climbs
+
+QMapShack has a second offline router, BRouter, and the `navigation`
+profile installs it (**D-063**):
+
+- **`brouter`**: BRouter 1.7.10 itself, from upstream's release zip checked
+  against its published sha256, under `/usr/local/share/hammunition/brouter/`,
+  with Java from your distribution;
+- **`brouter-segments`**: BRouter's routing files, built on your machine
+  from the same regions and the same elevation tiles as everything above,
+  under `/usr/local/share/hammunition/data/brouter-segments/`;
+- **`brouter-mapcreator-profiles`**: two small filter files BRouter's map
+  builder needs, from BRouter's own source.
+
+What it adds over Routino: its `hiking-mountain` profile reads how hard a
+trail is (`sac_scale`), so a scramble is not treated as a footpath; every
+profile weighs climbs from the elevation, so a bike route avoids a hill
+Routino would ride straight over; and a route comes back with an elevation
+profile and turn hints. It has 26 profiles: `trekking` and its variants,
+`hiking-mountain`, `mtb`, `gravel`, `fastbike`, `safety`, `shortest`, three
+car profiles, `moped` and a few more. Routino stays the default, and
+neither searches for an address (section 10).
+
+**Why the routing files are built here, and never downloaded.** BRouter's
+own site, brouter.de, publishes ready-made routing files for the whole
+world. They are rebuilt every week and published with no checksum of any
+kind, so nothing can say a file is what its builder made, and Hammunition
+never fetches them. BRouter's own map builder is inside the same checked
+jar, so the install runs it over your regions instead, with the terrain
+tiles folded in as elevation. For Delaware, a public example, that was
+3.3 MB of routing files from a 22.1 MB download; brouter.de's file for the
+same area is 115 MB, because it covers a whole 5-by-5-degree square.
+
+The build runs as you, never as root, in
+`~/.cache/hammunition/build/brouter-segments/`, like the Routino database:
+the regions are merged into one input when there are two or more, the
+elevation is built one 5-degree square at a time, then BRouter's map
+builder runs its three steps. It is one set for all your regions, so a
+route may cross from one region into the next, and a region that fails
+fails the set; the set you already had is kept (unless a failing disk
+stops the new set halfway into place, when the set is removed rather than
+left mixed, and the next run rebuilds it). It is rebuilt when a
+region, a snapshot, the elevation tiles or BRouter itself changes. Each
+Java step may use up to 4 GB of memory; the elevation step took 1.33 GB
+for Delaware's square. A region with no elevation tile is routed flat.
+
+Using it in QMapShack:
+
+1. Start QMapShack from the `qmapshack-offline` launcher. When BRouter and
+   its routing files are installed, the launcher points QMapShack's local
+   BRouter at them, on 127.0.0.1 only, and says so. If you had already set
+   up a BRouter of your own in QMapShack, it leaves yours alone and says
+   that instead.
+2. In the *Routing* dock, choose *BRouter* in the router list (QMapShack
+   1.17.1 labels it *BRouter (online)*; the launcher has set it to run
+   locally) and a profile such as `hiking-mountain` or `trekking`.
+3. Place a start and an end. QMapShack starts BRouter in the background the
+   first time, which takes a few seconds, and stops it when QMapShack
+   closes. Nothing runs while you are not routing with it.
+
+Do not use QMapShack's own *BRouter setup* wizard for this: it downloads
+BRouter and its routing files from brouter.de.
+
+BRouter is meant to listen on 127.0.0.1 only: the launcher sets that host
+and turns on QMapShack's "bind to hostname only", because without it
+BRouter accepts connections from the whole network. QMapShack passes the
+host to BRouter only when it has read BRouter's version, which it does by
+running the jar and waiting up to 3 seconds; if that times out (a slow
+start on a busy machine), QMapShack can start BRouter without the host, on
+every interface. To check while a route is being calculated:
+
+```
+ss -ltnp | grep 17777
+```
+
+`127.0.0.1:17777` (or `[::ffff:127.0.0.1]:17777`) is loopback only;
+`*:17777` or `0.0.0.0:17777` is not, and then close QMapShack, reopen it and
+choose BRouter again. The development host started the jar and printed its
+version in 0.09 s, so this is not expected; it has not been seen on the
+field laptop either way.
+
+A route drawn by QMapShack through this BRouter has not been measured yet;
+see [What has not been measured yet](#what-has-not-been-measured-yet).
 
 ---
 
@@ -815,10 +902,334 @@ work, not what has been seen to.
 
 ---
 
+## 13. Repeaters on the map
+
+Your own repeater list, converted on this machine into a layer QMapShack and
+Navit both show (**D-064**). Hammunition fetches nothing from RepeaterBook
+and ships no repeater data: you export it with your own account, and the
+conversion happens here, offline.
+
+### Get an export
+
+- **RepeaterBook, as GPX (the one to use).** Logged in on repeaterbook.com,
+  run a search (by location, proximity, keyword and so on), then choose
+  *Export → GPX*. RepeaterBook does not export multi-county or multi-state
+  searches as GPX; run one search per area and import the files together.
+- **RepeaterBook, as CSV.** Only when its header has `Lat` and `Long`
+  columns. One without them is refused: there is nothing to place.
+- **Your own list.** A CSV with exactly this header, positions in decimal
+  degrees:
+
+  ```
+  callsign,output_mhz,offset_mhz,tone,mode,lat,lon,name,notes
+  N0CALL,146.940,-0.600,100.0,FM,39.8017,-89.6436,Springfield,club machine
+  ```
+
+- **hearham.com's open list**, fetched for you on request; see below.
+
+CHIRP files do not work, and are refused by name: a CHIRP CSV or `.img`
+holds channels, not places. CHIRP's own RepeaterBook query drops the
+coordinates and keeps only "near <city>" (measured), and a position guessed
+from a town name would be an invented one. KML is not read yet; export GPX
+from the same search.
+
+### Convert it
+
+```
+hammunition maps repeaters import ~/Downloads/repeaters.gpx
+```
+
+Several files at once are merged into one layer; the same repeater in two
+exports becomes one, and the same callsign and frequency on two different
+hills stays two. It prints RepeaterBook's attribution and terms first, then
+what it read, skipped and merged, and the files it wrote. The layer's name
+carries the export's date, taken from the file; give it yourself with
+`--exported 2026-09-01` if the file has been copied since.
+
+The files are yours, in `~/.local/share/hammunition/overlays/repeaters/`,
+readable only by you. RepeaterBook's export terms are personal,
+non-commercial use, and the data may not be redistributed in any form, so
+keep the files to your own machines. Positions are approximate: a map
+overlay to find a machine to talk through, not directions to a repeater
+site.
+
+A new import replaces the layer. To refresh it, export again and import
+again.
+
+### See it
+
+- **QMapShack.** The layer is a POI collection: open the *POI Collections*
+  dock and tick *Amateur radio repeaters*. The import added its directory to
+  QMapShack's settings; if QMapShack was open during the import, close it
+  and start it from `qmapshack-offline`, which adds the directory back. The
+  GPX is there too, for *File → Load* or to copy to a phone or a Garmin
+  unit.
+- **Navit.** Start `navit-offline`. Repeaters draw as towers labelled with
+  callsign and frequency, and list under *POIs → Other* with their
+  distance. They are **not** in Navit's address search: the file format
+  Navit reads them from has no search. The launcher now runs
+  `hammunition maps navit`; a launcher from an earlier install is updated
+  by `hammunition menus apply`.
+
+### hearham.com's open list
+
+```
+hammunition maps repeaters fetch-hearham
+```
+
+fetches the whole world's list from hearham.com (about 9.5 MB) when you run
+it, and at no other time, and converts it the same way. hearham publishes no
+checksum and no dated copy, so Hammunition records the digest of what
+arrived and names the layer *unverified*. hearham states no licence for its
+data, and says it should not be relied upon "for medical emergencies, or any
+other life-and-death operations". To combine it with your RepeaterBook
+export, save hearham's JSON yourself and give both files to one
+`maps repeaters import`.
+
+### Remove it
+
+```
+hammunition maps repeaters remove
+```
+
+deletes the layer's files and takes the directory out of QMapShack's
+settings. Navit goes back to the generated configuration at its next start.
+
+### Not carried
+
+- Anything fetched from RepeaterBook. Its API needs approval, and its
+  data-use terms forbid bulk extraction and offline bundling without written
+  permission.
+- Xastir, whose point layers live in a root-owned map directory, and YAAC,
+  whose importer makes APRS objects it can transmit (a D-021 matter, not a
+  map).
+- The FCC's licence database, which has no coordinates.
+
+---
+
+## 14. Maps for your phone
+
+The laptop can make the team's phone maps from the same regions, so every
+phone navigates on the same verified data with the phone network down
+(**D-067**). Two units build them, one file per region each:
+
+| Unit | File | What a phone app does with it |
+|---|---|---|
+| `mapsforge-map` | `<region>.map`, a Mapsforge vector map | draws it offline, with the app's own style |
+| `mapsforge-poi` | `<region>.poi`, a Mapsforge points-of-interest file | searches it for places by name or kind |
+| `osm-garmin` (section 9) | `<region>.img`, the Garmin map | a Garmin handheld reads it from its card; so does OruxMaps |
+
+They are their own profile, `phone-maps`, not part of `navigation`: every
+unit in a profile is built for every region, and a map for phones takes
+time. On Delaware (a 22 MB download) the map took 3 minutes 38 seconds and
+about 1 GB of memory, and the POI file 23 seconds; at that rate a region
+sixty times the size would take hours. Install it when you have phones to fill:
+
+```
+hammunition install phone-maps --dry-run
+hammunition install phone-maps
+```
+
+The plan says, for each region, what it builds and what it costs, with every
+figure marked "measured on one region". It also fetches one file that no
+archive packages: Mapsforge's POI writer, 18.8 MB from Maven Central,
+checked against a sha256 Hammunition measured. The plan says so, and says
+that the signature Central publishes beside it is recorded and not checked.
+Everything else comes from your distribution: `osmosis`,
+`libmapsforge-java` and a Java runtime.
+
+### Put the files in one folder
+
+```
+hammunition maps phone
+```
+
+copies every phone file installed into `~/.local/share/hammunition/phone/`,
+with a `SHA256SUMS` beside them, and prints how to carry them to a phone. It
+copies nothing that is already current, removes a file it put there whose
+region you dropped, and touches nothing else in the folder. **It sends nothing
+anywhere**: the ways across are commands for you.
+
+### Get them onto the phones
+
+Install a map app that reads Mapsforge files on each phone **while it still
+has internet**. By their own documentation, Cruiser, Locus Map, OruxMaps and
+c:geo read Mapsforge maps and POI files. None of them has been tried with
+these files yet.
+
+**The laptop's hotspot and a browser.** Nothing to install, and every phone
+at once:
+
+```
+nmcli device wifi hotspot ssid hammunition-maps password 'choose-8-or-more'
+ip -4 addr show
+python3 -m http.server 8000 --bind 127.0.0.1 --directory ~/.local/share/hammunition/phone
+```
+
+Open `http://127.0.0.1:8000/` on the laptop to check the list, stop it with
+Ctrl-C, then serve it on the hotspot's own address, which `ip -4 addr show`
+lists on the Wi-Fi interface (NetworkManager uses 10.42.0.1 unless told
+otherwise):
+
+```
+python3 -m http.server 8000 --bind 10.42.0.1 --directory ~/.local/share/hammunition/phone
+```
+
+Join each phone to the hotspot and open `http://10.42.0.1:8000/` in its
+browser. The files are expected to land in Downloads for the app to open
+from there; that has not been tried on a phone yet.
+**Always give `--bind`.** Without it, `http.server` answers on every network
+the laptop is on, a hotel's or an office's included; bound to the hotspot's
+address, only the phones on the hotspot can reach it. It is plain HTTP on a
+local link, which is why `SHA256SUMS` is in the list too, for anyone who can
+check a hash on the phone.
+
+**A USB cable.** On KDE Plasma, plug the phone in, choose "File transfer" on
+the phone, and Dolphin shows it; copy the files into its Download folder.
+Plasma's `kio-extras` does this and is already installed. On another
+desktop, `gvfs-backends`, `jmtpfs` or `mtp-tools` does the same. One phone at
+a time.
+
+**`adb`, if you already use it.** `sudo apt install adb` also installs
+`android-udev-rules`, which adds udev rules to the machine. The phone needs
+Developer options with USB debugging turned on, which most people's phones
+do not have; turn it off again afterwards.
+
+```
+adb push ~/.local/share/hammunition/phone /sdcard/Download/
+```
+
+**KDE Connect, if the phones already have it.** `sudo apt install
+kdeconnect`; each phone needs the KDE Connect app, installed while it had
+internet, and pairing. It works over the laptop's hotspot.
+
+### Formats not made here, and why
+
+- **OsmAnd's `.obf`** would be the best single file (map, routing, address
+  search and POI in one), and the laptop can make it offline, but the only
+  generator is a nightly build replaced every day with no checksum,
+  signature or version. Nothing can be checked, so it is not carried. The
+  route is building OsmAnd's tools from a fixed source commit.
+- **Organic Maps and CoMaps `.mwm`** must be made by a generator from the
+  same release as the app, and a region on the coast needs the whole
+  planet's coastline. The route is the publishers' own `.mwm` files, checked
+  by the hashes they publish; that is separate work.
+- **PocketMaps** needs a routing engine from 2019, and the app has had no
+  change since October 2024.
+- **Transportr** asks online services for every journey and keeps nothing on
+  the phone; there is nothing to make for it.
+
+### What has not been tried
+
+No file made here has been opened on a phone, in any app. The converters
+have not yet run through Hammunition on the field laptop; their figures come
+from one region converted by hand. The bench owes both, and the hotspot's
+address on the field laptop. Until then, check each new phone app with one
+small region first.
+
+---
+
+## 15. Official topo sheets: USGS US Topo
+
+For a region in the United States, the `navigation` profile also installs
+the **USGS US Topo** map sheets its outline touches (`usgs-ustopo`) and
+makes them one QMapShack map (`ustopo-qmapshack`). A US Topo sheet is the
+printed 7.5-minute topographic map, public domain: trails by the name on the
+signpost (the Park Service's and the Forest Service's own names),
+campgrounds, visitor centres, shelters, roads, water, woodland and 40 ft
+contours, drawn by USGS. OpenStreetMap already has nearly every trail's
+line; the sheet adds the official names and the look search teams and
+rangers hand out on paper.
+
+Nothing is set for it beyond your map regions. The plan's *US Topo* part,
+under Terrain, lists each region's sheet count and size, every sheet to be
+downloaded with how it is checked, and what is built:
+
+```
+hammunition install navigation --dry-run
+```
+
+**How much.** A sheet is about 8 MB (2 to 20 MB). Measured from USGS's
+index on 2026-09-29: Delaware's 38 sheets are about 220 MB, Vermont's 194
+about 1.6 GB, Virginia's 729 about 6 GB. A region's outline touches the
+sheets just across its borders too, so expect a little more than the
+state's own. Each sheet is kept twice once built (the download, and the
+copy made for QMapShack), so allow about twice those figures.
+
+**Outside the United States** a region gets no sheets. The plan says
+`note: no US Topo quad covers <region>` and everything else installs.
+OpenStreetMap stays the trail map there. (The UK's Ordnance Survey
+publishes a checksum for each of its open files, the pattern a future UK
+source would follow; nothing outside the US is carried yet.)
+
+**How each sheet is checked.** Hammunition carries an index of every
+current sheet, `catalog/data/ustopo-quads.txt`, built from USGS's own list
+and its storage bucket, with each sheet's size and the checksum the bucket
+keeps for it (its ETag). Before the download the bucket is asked again, and
+must still report the same; the download must then reproduce it. The plan
+says **"MD5 from the publisher's object metadata; not pinned by
+Hammunition"** for every sheet: see [What the verification wording
+means](#what-the-verification-wording-means).
+
+**In QMapShack.** `qmapshack-offline` adds
+`/usr/local/share/hammunition/data/ustopo-qmapshack` to QMapShack's map
+directories. In the *Maps* dock, `ustopo` is one map covering every sheet;
+tick it to show it, and drag it above or below the Garmin maps. Each sheet
+was reprojected and cropped to its own quadrangle when it was built, so the
+white margin and legend around a printed sheet are gone and neighbouring
+sheets are meant to meet edge to edge (the crop was measured on one sheet;
+the seam between two has not been looked at). The legend is not in the map: USGS's own
+[US Topo symbol sheet](https://www.usgs.gov/programs/national-geospatial-program/us-topo-maps-america)
+explains the symbols.
+
+**Not measured yet: QMapShack drawing it.** In the one run so far,
+QMapShack opened the map file and listed it, and the map area stayed blank,
+for a reason not yet found. It has not been run on the field laptop. If it
+stays blank for you, see
+[US Topo is listed but draws nothing](#us-topo-is-listed-but-draws-nothing).
+
+**Newer editions.** USGS revises a sheet every few years. When the carried
+index lists a newer edition than the one installed, `hammunition update`
+counts it (never naming the sheet), and
+`hammunition install usgs-ustopo ustopo-qmapshack` fetches the new edition,
+removes the old one once the new one is installed (if it does not arrive,
+the old one stays, in the map too) and rebuilds the map. A sheet USGS adds
+where it had none is picked up only when a region is added or changed,
+since a region's sheets are remembered after its first install.
+
+**Not carried, and why:**
+
+- **Park Service, Forest Service and state trail lines as a second layer.**
+  OpenStreetMap already has 97.5 % of Shenandoah National Park's official
+  trail mileage within 25 m, and 96 % of a sample of the George Washington
+  and Jefferson National Forest's. A second layer draws every trail twice,
+  and the US Topo sheet already shows the official names.
+- **1 m lidar elevation**: one Shenandoah project alone is 26.9 GB.
+- **The PDF editions (GeoPDF)**: six times the size, and they would have
+  to be turned into images anyway.
+- **Historical topographic maps**: of historical interest; Vermont alone is
+  9.4 GB.
+- **Park PDF trail maps**: not georeferenced, so a program cannot place them.
+- **BLM and Fish and Wildlife Service layers**: only answerable as online
+  queries, with no fixed file to check.
+- **Protected-area boundaries (PAD-US)**: later, if at all; its publisher
+  gives no checksum.
+- **Park points of interest and boundaries as GPX**: a later piece, once
+  there is a checksum to check them by.
+
+Next for the US (**D-068**): the Forest Service's FSTopo sheets, which carry
+trail numbers across the national forests, and USGS 3DEP elevation as an
+opt-in alternative to Copernicus. Copernicus measures the top of the tree
+canopy: in Shenandoah's forest it reads about 12 m above the ground on
+average, so its contours ride the treetops; 3DEP is the bare ground.
+
+---
+
 ## What QMapShack does not do (yet)
 
 - **No offline address search**: use Navit (section 10).
-- **Trail difficulty is not routed on** (section 9).
+- **Routino does not route on trail difficulty** (section 9); BRouter's
+  `hiking-mountain` profile does.
 - **No hiking map style.** Trails are drawn by mkgmap's default style; no
   hiking style is packaged in the archive. One visible result: residential
   land use is drawn as hatching when you zoom in close. It is cosmetic.
@@ -881,6 +1292,12 @@ one US-state-sized region:
 | Its build scratch | up to 6× all the regions together | `~/.cache/hammunition/build/osm-routino/` | Only while it builds |
 | Elevation tiles | about 39 MB a tile; tens to hundreds a region | `/usr/local/share/hammunition/data/dem-copernicus/` | Until uninstall, or no region needs the tile |
 | Contours | about 5.5 MB a tile, with up to 98 MB of scratch at a time | `/usr/local/share/hammunition/data/dem-qmapshack/` | As long as the tiles |
+| BRouter itself | about 8.5 MB, once | `/usr/local/share/hammunition/brouter/` | Until uninstall |
+| BRouter's routing files, all regions | about 0.2× all the regions together (Delaware: 3.3 MB from 22.1 MB) | `/usr/local/share/hammunition/data/brouter-segments/` | Rebuilt when the regions or tiles change |
+| Their build scratch | up to 3× all the regions together (an allowance, not measured), plus the merged regions when there are two or more, and about 650 MB of elevation scratch for one 5-degree square at a time | `~/.cache/hammunition/build/brouter-segments/` | Only while they build |
+| US Topo sheets (US regions) | about 8 MB a sheet | `/usr/local/share/hammunition/data/usgs-ustopo/` | Until uninstall, or no region needs the sheet |
+| The sheets made for QMapShack | about 1× each sheet, measured on one | `/usr/local/share/hammunition/data/ustopo-qmapshack/` | As long as the sheets |
+| Their build scratch | about 1× one sheet at a time | `~/.cache/hammunition/build/ustopo-qmapshack/` | Only while it builds |
 
 Terrain is the part that grows fastest with a region's area. Measured on
 2026-09-28 over Geofabrik's US state outlines: a region's terrain is tens
@@ -899,6 +1316,15 @@ counts all of this with the Navit figures above, and refuses before
 anything is fetched if a disk is short.
 
 ---
+
+## Taking the downloads from your own network
+
+If a machine on your LAN keeps a copy of the regions and tiles
+([Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker)),
+`hammunition station set --mirror http://bunker.lan:8080/` makes every map
+and terrain download ask it first, checked against the same digests as the
+publisher's, and fall back to the publisher on any failure (**D-070**).
+[lan-mirror.md](lan-mirror.md) is the walk-through.
 
 ## What the verification wording means
 
@@ -931,6 +1357,13 @@ Elevation tiles use the same two levels, in their own words:
 - **"MD5 from the publisher's object metadata; not pinned by Hammunition"**:
   the tile is checked against the MD5 the storage service keeps for the
   file. It catches a damaged download, not a deliberately altered one.
+
+US Topo sheets (section 15) always get the second wording. The index
+carries the checksum the storage service reported when it was built, the
+bucket is asked again before each download, and the download must
+reproduce it. For a sheet uploaded in parts that checksum is the MD5 of each
+part's MD5; Hammunition works out the part size by trying each whole
+megabyte-size part, and a download matching none is refused by name.
 
 Today no tile is pinned, so every tile gets the second wording. The pin
 list grows as Hammunition measures tiles, in a fixed order that covers the
@@ -988,6 +1421,21 @@ names it, and this puts it back:
 ```
 sudo apt-get install --reinstall routino-common
 ```
+
+### US Topo is listed but draws nothing
+
+Not yet explained (section 15). Things worth trying, and reporting back
+with what happened:
+
+- Tick `ustopo` in the *Maps* dock, then zoom to a place inside one of your
+  US regions: the map draws only over the sheets you have.
+- Check the map file names sheets that exist:
+  `gdalinfo /usr/local/share/hammunition/data/ustopo-qmapshack/ustopo.vrt`
+  prints its size and corners in Web Mercator; if it reports an error
+  opening a sheet, `hammunition install ustopo-qmapshack` rebuilds the map
+  from the sheets that are there.
+- Move `ustopo` above the Garmin maps in the dock; a map below an opaque
+  one is hidden.
 
 ### Navit opens on a blank map
 
@@ -1093,11 +1541,34 @@ The QMapShack maps, routing database and elevation go the same way, and
 leave QMapShack installed:
 
 ```
-hammunition uninstall dem-qmapshack dem-copernicus osm-routino osm-garmin
+hammunition uninstall brouter-segments dem-qmapshack dem-copernicus osm-routino osm-garmin
+```
+
+BRouter itself and its two filter files go with:
+
+```
+hammunition uninstall brouter brouter-mapcreator-profiles
+```
+
+and the US Topo sheets and their QMapShack map:
+
+```
+hammunition uninstall ustopo-qmapshack usgs-ustopo
 ```
 
 Your QMapShack settings keep the directories the launcher added; QMapShack
 lists nothing there once they are gone.
+
+Your repeater layer is not part of any unit; `hammunition maps repeaters
+remove` removes it (section 13).
+
+The phone files go the same way, with the POI writer, and leave osmosis
+installed; the copies in `~/.local/share/hammunition/phone/` are yours to
+delete:
+
+```
+hammunition uninstall mapsforge-poi mapsforge-map
+```
 
 ---
 
@@ -1140,11 +1611,49 @@ yet been run on a desktop; bench session 12 in
 - Slope shading. Hillshade draws; slope was not tried.
 - QMapShack 1.21.1 from backports. Everything above ran on 1.17.1.
 
+For BRouter (**D-063**), every command the build runs was run on the
+development host on 2026-09-29, against the pinned jar, on two synthetic
+regions and a synthetic elevation tile, and BRouter, started the way
+QMapShack starts it, routed across both with that elevation. Not yet
+measured, and owed by the bench:
+
+- **A route in QMapShack through BRouter.** No desktop runs on the
+  development host. QMapShack's own check of the install (it runs the jar
+  and reads its version) has not been seen to pass.
+- **BRouter on loopback only while QMapShack routes**: `ss -ltnp | grep
+  17777` during a route should show `127.0.0.1` and nothing wider.
+- The build on a real region through `hammunition install`, with its time,
+  memory and scratch; the scratch figure in the plan is an allowance.
+- Java on the targets other than Parrot.
+
+For the US Topo sheets (**D-068**), one Delaware sheet was downloaded,
+checked against its two-part checksum, reprojected and cropped on the
+development host on 2026-09-29 (2.5 s, 9.2 MB in, 8.9 MB out with
+overviews). Not yet run:
+
+- **QMapShack drawing the US Topo map.** One run on the development host
+  opened the map file and left the map area blank, reason unknown. This
+  belongs in a virtual machine, not on a desktop in use: QMapShack's
+  single-instance socket is shared whatever `HOME` is set to.
+- The whole install of the sheets through Hammunition, on any machine.
+
 Measured on the field laptop on 2026-09-29, and recorded in bench session
 12: the whole install on two regions, with its build times; QMapShack
 listing the maps, the contour map and the elevation from the directories
 the launcher writes; hillshade; and the GPS tether giving QMapShack a
 position from a real receiver.
+
+For repeaters on the map (**D-064**), nothing has been drawn on a desktop
+yet: QMapShack showing the GPX and the POI collection (and reading the
+collection from `poiPaths` under `[Canvas]`), Navit's labels and tower icons,
+and the *POIs → Other* listing all rest on reading QMapShack's and Navit's
+source, not on a screen. The columns of a real RepeaterBook CSV export, and
+what a real GPX export puts in `<name>` and `<desc>`, have not been seen:
+they need one export by a logged-in operator.
+
+For the phone files (**D-067**, section 14): none has been loaded on a
+phone, the converters have not run through Hammunition on real hardware,
+and their figures come from one region.
 
 Offline reference (Kiwix, a local tile server) is the next piece of this
 work and not in this profile.

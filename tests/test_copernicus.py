@@ -250,3 +250,44 @@ def test_a_well_formed_pins_file_still_loads(tmp_path: Path) -> None:
     assert load_pins(path)[A].size == 10
     path.write_text("pins: []\n")
     assert load_pins(path) == {}
+
+
+# ---------------------------------------------------------------------------
+# D-068: the same outline test at an eighth of a degree, the grid US Topo's
+# 7.5-minute quads sit on.
+# ---------------------------------------------------------------------------
+
+
+def test_eighth_degree_cells_are_the_ones_the_outline_touches() -> None:
+    # 0.1..0.3 by 0.1..0.2 degrees: columns 0.8..2.4 and rows 0.8..1.6 in
+    # eighths, so cells 0..2 by 0..1.
+    got = squares_touching([bbox_ring(0.1, 0.3, 0.2, 0.1)], per_degree=8)
+    assert got == {(r, c) for r in (0, 1) for c in (0, 1, 2)}
+
+
+def test_one_degree_is_unchanged_by_the_per_degree_argument() -> None:
+    ring = bbox_ring(-0.5, 2.5, 2.5, -0.5)
+    assert squares_touching([ring], per_degree=1) == squares_touching([ring])
+
+
+def test_eighth_degree_cells_fold_at_the_antimeridian() -> None:
+    outer, _ = parse_poly("x\n1\n 179.95 10.01\n 180.05 10.01\n 180.05 10.1\nEND\nEND\n")
+    assert squares_touching(outer, per_degree=8) == {(80, 1439), (80, -1440)}
+
+
+def test_an_antimeridian_jump_is_named_in_degrees_at_any_scale() -> None:
+    ring = ((179.5, 10.2), (-179.5, 10.2), (-179.5, 10.5), (179.5, 10.5))
+    with pytest.raises(CopernicusError, match="180") as excinfo:
+        squares_touching([ring], per_degree=8)
+    assert "179.5" in str(excinfo.value)
+
+
+def test_a_per_degree_below_one_is_refused() -> None:
+    with pytest.raises(CopernicusError, match="per_degree"):
+        squares_touching([bbox_ring(0.1, 0.3, 0.2, 0.1)], per_degree=0)
+
+
+def test_the_probe_can_be_given_another_bucket() -> None:
+    probe = S3Probe(bucket="https://prd-tnm.s3.amazonaws.com")
+    with pytest.raises(CopernicusError, match="only https://prd-tnm"):
+        probe.head("https://copernicus-dem-30m.s3.amazonaws.com/x.tif")

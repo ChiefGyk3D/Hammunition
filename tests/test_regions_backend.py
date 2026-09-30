@@ -45,7 +45,7 @@ from hammunition.backends.regions import (
     disk_shortfall,
     installed_slugs,
 )
-from hammunition.fetch import Fetcher, FetchResult, VerificationError
+from hammunition.fetch import Fetcher, FetchResult, MirrorPath, VerificationError
 from hammunition.geofabrik import RegionFile, UrllibProbe
 from hammunition.manifest.schema import (
     DerivedDataInstall,
@@ -163,6 +163,7 @@ class FakeFetcher(Fetcher):
         super().__init__(cache)
         self.size = size
         self.bad = set(bad)
+        self.mirrors: list[MirrorPath | None] = []
         self.calls: list[tuple[str, Any]] = []
 
     def _file(self, path: Path) -> Path:
@@ -170,14 +171,24 @@ class FakeFetcher(Fetcher):
         path.write_bytes(BODY[:1] * self.size)
         return path
 
-    def fetch(self, artifact: RemoteArtifact, *, max_bytes: int | None = None) -> FetchResult:
+    def fetch(
+        self,
+        artifact: RemoteArtifact,
+        *,
+        max_bytes: int | None = None,
+        mirror: MirrorPath | None = None,
+    ) -> FetchResult:
+        self.mirrors.append(mirror)
         self.calls.append(("sha256", (artifact.url, artifact.sha256, max_bytes)))
         if artifact.url in self.bad:
             raise VerificationError(f"{artifact.url} does not match the digest")
         path = self._file(self.path_for(artifact))
         return FetchResult(path, artifact.sha256, False, self.size)
 
-    def fetch_md5(self, url: str, md5: str, *, expected_size: int) -> FetchResult:
+    def fetch_md5(
+        self, url: str, md5: str, *, expected_size: int, mirror: MirrorPath | None = None
+    ) -> FetchResult:
+        self.mirrors.append(mirror)
         self.calls.append(("md5", (url, md5, expected_size)))
         if url in self.bad:
             raise VerificationError(f"{url} does not match the md5 its publisher lists")

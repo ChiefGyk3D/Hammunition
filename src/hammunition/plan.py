@@ -67,12 +67,14 @@ from hammunition.manifest.schema import (
     DerivedDataInstall,
     GitInstall,
     InstallBlock,
+    KiwixBooksInstall,
     NodeInstall,
     PackageManifest,
     ProfileManifest,
     RegionalDataInstall,
     SourceInstall,
     Status,
+    TopoQuadsInstall,
     effective_binaries,
 )
 from hammunition.state.log import TransactionLog
@@ -954,10 +956,11 @@ def _desktop_blocker(
 def _reads_map_regions(
     block: InstallBlock, catalog: Mapping[str, PackageManifest], target: Target
 ) -> bool:
-    """An ``osm-regions`` or ``dem-tiles`` block (D-061: its tiles follow the
-    regions), or a ``derived`` one converting such a unit's data."""
+    """An ``osm-regions``, ``dem-tiles`` or ``topo-quads`` block (D-061, D-068:
+    its tiles and sheets follow the regions), or a ``derived`` one converting
+    such a unit's data."""
     install = block.install
-    if isinstance(install, RegionalDataInstall | DemTilesInstall):
+    if isinstance(install, RegionalDataInstall | DemTilesInstall | TopoQuadsInstall):
         return True
     if isinstance(install, DerivedDataInstall):
         source = catalog.get(install.source)
@@ -965,7 +968,7 @@ def _reads_map_regions(
             return False
         source_block = source.resolve(target.distro, target.version, target.arch)
         return source_block is not None and isinstance(
-            source_block.install, RegionalDataInstall | DemTilesInstall
+            source_block.install, RegionalDataInstall | DemTilesInstall | TopoQuadsInstall
         )
     return False
 
@@ -983,6 +986,24 @@ def _map_regions_deferral(name: str) -> Deferral:
         what="will not be installed: it is map data for regions you have not chosen",
         why=NO_MAP_REGIONS,
         remedy=f"{MAP_REGIONS_REMEDY}. Everything else installs either way.",
+        kind="package",
+    )
+
+
+NO_REFERENCE_BOOKS = "no reference books chosen"
+REFERENCE_BOOKS_REMEDY = (
+    "run `hammunition station set --reference-books <id>[,<id>…]` and install again; "
+    "`hammunition reference books` lists the ids"
+)
+
+
+def _reference_books_deferral(name: str) -> Deferral:
+    """D-066: the books wait for a choice; the readers install regardless."""
+    return Deferral(
+        subject=name,
+        what="will not be installed: it is the reference books you have not chosen",
+        why=NO_REFERENCE_BOOKS,
+        remedy=f"{REFERENCE_BOOKS_REMEDY}. Everything else installs either way.",
         kind="package",
     )
 
@@ -1209,6 +1230,21 @@ def resolve(
                         subject=name,
                         reason=f"{NO_MAP_REGIONS}, so there is no map data to install",
                         remedy=MAP_REGIONS_REMEDY,
+                    )
+                )
+            continue
+
+        # D-066: the same shape for the Kiwix books. Nothing is chosen by
+        # default, so with none chosen there is nothing to fetch.
+        if not station.reference_books and isinstance(block.install, KiwixBooksInstall):
+            if name in deferrable:
+                deferred[name] = _reference_books_deferral(name)
+            else:
+                blockers.append(
+                    Blocker(
+                        subject=name,
+                        reason=f"{NO_REFERENCE_BOOKS}, so there is nothing to install",
+                        remedy=REFERENCE_BOOKS_REMEDY,
                     )
                 )
             continue

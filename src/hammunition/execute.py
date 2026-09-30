@@ -49,7 +49,9 @@ from hammunition.backends import (
 )
 from hammunition.backends.dem import DemTilesBackend
 from hammunition.backends.derived import Ledger
+from hammunition.backends.kiwix import KiwixBooksBackend
 from hammunition.backends.source import tree_destination
+from hammunition.backends.topo import TopoQuadsBackend
 from hammunition.distro import Target
 from hammunition.launchers import launcher_steps
 from hammunition.manifest.schema import (
@@ -59,9 +61,11 @@ from hammunition.manifest.schema import (
     DerivedDataInstall,
     GitInstall,
     InstallBlock,
+    KiwixBooksInstall,
     NodeInstall,
     RegionalDataInstall,
     SourceInstall,
+    TopoQuadsInstall,
     VenvInstall,
     effective_binaries,
 )
@@ -400,6 +404,8 @@ def commands_for(
     regions: RegionsBackend | None = None,
     derived: DerivedBackend | None = None,
     dem: DemTilesBackend | None = None,
+    topo: TopoQuadsBackend | None = None,
+    books: KiwixBooksBackend | None = None,
     repos: AptRepoBackend | None = None,
     config_staging: Path | None = None,
     launcher_bin: Path | None = None,
@@ -526,6 +532,23 @@ def commands_for(
                 )
             builds.extend(dem.steps(planned.manifest, block))
             ledgers.setdefault(id(dem.ledger), dem.ledger)
+        elif isinstance(block, TopoQuadsInstall):
+            if topo is None:
+                raise BackendError(
+                    f"{planned.name} installs the station's US Topo sheets and no topo-quads "
+                    f"backend was supplied. Skipping it would report a successful run "
+                    f"that installed nothing."
+                )
+            builds.extend(topo.steps(planned.manifest, block))
+            ledgers.setdefault(id(topo.ledger), topo.ledger)
+        elif isinstance(block, KiwixBooksInstall):
+            if books is None:
+                raise BackendError(
+                    f"{planned.name} installs the station's reference books and no books "
+                    f"backend was supplied. Skipping it would report a successful run "
+                    f"that installed nothing."
+                )
+            builds.extend(books.steps(planned.manifest, block))
     builds.extend(conversions)
 
     # A `fetch` is an in-process download into the cache, verified before it
@@ -982,6 +1005,16 @@ class ExecutionReport:
         return self.verification is not None and self.verification.ok
 
 
+#: The keys every ``action_end`` entry carries; a step's facts never replace one.
+_ACTION_END_KEYS = frozenset({"event", "version", "timestamp", "kind", "detail", "outcome"})
+
+
+def _facts(action: Action) -> dict[str, str]:
+    """*action*'s facts for its ``action_end`` entry (D-070), minus any key
+    the entry already has: a fact adds to the record, never rewrites it."""
+    return {k: v for k, v in action.facts.items() if k not in _ACTION_END_KEYS}
+
+
 def execute(
     commands: Sequence[Step],
     runner: CommandRunner,
@@ -1078,6 +1111,7 @@ def execute(
                     # details back as destinations; an Action has no argv.
                     "detail": command.detail,
                     "outcome": outcome,
+                    **_facts(command),
                 }
             )
             if outcome:
@@ -1358,6 +1392,7 @@ def run_removal(
                     "kind": command.kind,
                     "detail": command.detail,
                     "outcome": outcome,
+                    **_facts(command),
                 }
             )
             if outcome:
