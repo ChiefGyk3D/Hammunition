@@ -49,6 +49,7 @@ their text follows.
 - `hammunition hardware state`
 - `hammunition install` (with `--dry-run` only)
 - `hammunition list`
+- `hammunition maps phone`
 - `hammunition maps regions`
 - `hammunition maps repeaters import`
 - `hammunition maps repeaters remove`
@@ -68,6 +69,7 @@ their text follows.
 | `doctor` | [`DoctorDocument`](#doctor) |
 | `error` | [`ErrorDocument`](#error) |
 | `hardware` | [`HardwareDocument`](#hardware) |
+| `phone` | [`PhoneDocument`](#phone) |
 | `plan` | [`PlanDocument`](#plan) |
 | `profile` | [`ProfileDocument`](#profile) |
 | `regions` | [`RegionsDocument`](#regions) |
@@ -692,6 +694,179 @@ A catalogued device that is attached but cannot be parked right now.
     "kept_error"
   ],
   "title": "HardwareDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### phone
+
+The phone files gathered into one folder with a SHA256SUMS, and the
+routes to a phone. Names carry region slugs: for local programs, not for
+pasting. Nothing was transferred.
+
+| field | type | meaning |
+|---|---|---|
+| `directory` | string | the folder, under the operator's XDG data directory |
+| `sums` | string | the SHA256SUMS file beside them |
+| `files` | list of [`PhoneFileLine`](#phonefileline) | every phone file now in the folder |
+| `removed` | list of string | our files removed because their region is gone |
+| `missing` | list of string | phone units with nothing installed |
+| `routes` | list of [`PhoneRouteLine`](#phonerouteline) | the ways to carry the folder to a phone |
+
+#### `PhoneFileLine`
+
+One phone file in the folder.
+
+| field | type | meaning |
+|---|---|---|
+| `unit` | string | the unit that built it: mapsforge-map, mapsforge-poi or osm-garmin |
+| `name` | string | its name in the folder, `<region slug>.<map\|poi\|img>` |
+| `size` | integer | bytes |
+| `sha256` | string | its sha256, as written in SHA256SUMS |
+| `copied` | boolean | true when this run copied it; false when the copy was already current |
+
+#### `PhoneRouteLine`
+
+One way to carry the folder to a phone. The engine runs none of them.
+
+| field | type | meaning |
+|---|---|---|
+| `name` | string | the route |
+| `laptop` | string | what the laptop needs |
+| `phone` | string | what the phone needs |
+| `commands` | list of string | commands for the operator to run, in order; may be empty |
+| `note` | string | how to use it, and what it binds or modifies |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "PhoneFileLine": {
+      "additionalProperties": false,
+      "description": "One phone file in the folder.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "copied": {
+          "title": "Copied",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "unit",
+        "name",
+        "size",
+        "sha256",
+        "copied"
+      ],
+      "title": "PhoneFileLine",
+      "type": "object"
+    },
+    "PhoneRouteLine": {
+      "additionalProperties": false,
+      "description": "One way to carry the folder to a phone. The engine runs none of them.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "laptop": {
+          "title": "Laptop",
+          "type": "string"
+        },
+        "phone": {
+          "title": "Phone",
+          "type": "string"
+        },
+        "commands": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Commands",
+          "type": "array"
+        },
+        "note": {
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "laptop",
+        "phone",
+        "commands",
+        "note"
+      ],
+      "title": "PhoneRouteLine",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The phone files gathered into one folder with a SHA256SUMS, and the\nroutes to a phone. Names carry region slugs: for local programs, not for\npasting. Nothing was transferred.",
+  "properties": {
+    "directory": {
+      "title": "Directory",
+      "type": "string"
+    },
+    "sums": {
+      "title": "Sums",
+      "type": "string"
+    },
+    "files": {
+      "items": {
+        "$ref": "#/$defs/PhoneFileLine"
+      },
+      "title": "Files",
+      "type": "array"
+    },
+    "removed": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Removed",
+      "type": "array"
+    },
+    "missing": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing",
+      "type": "array"
+    },
+    "routes": {
+      "items": {
+        "$ref": "#/$defs/PhoneRouteLine"
+      },
+      "title": "Routes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "directory",
+    "sums",
+    "files",
+    "removed",
+    "missing",
+    "routes"
+  ],
+  "title": "PhoneDocument",
   "type": "object"
 }
 ```

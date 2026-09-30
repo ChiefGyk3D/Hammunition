@@ -839,6 +839,8 @@ CONVERTER_SOURCE_METHOD: dict[str, str] = {
     "routino-planetsplitter": "osm-regions",
     "gdal-dem": "dem-tiles",
     "brouter-mapcreator": "osm-regions",
+    "mapsforge-map": "osm-regions",
+    "mapsforge-poi": "osm-regions",
 }
 
 #: D-063: the other units a ``brouter-mapcreator`` block reads, the install
@@ -850,6 +852,51 @@ BROUTER_INPUTS: dict[str, tuple[str, bool]] = {
     "profiles": ("data", True),
     "elevation": ("dem-tiles", False),
 }
+
+#: D-067: the converters that run a program no archive packages, carried as a
+#: pinned `tool` on the derived block. Required for these, refused for the rest.
+CONVERTERS_WITH_TOOL = frozenset({"mapsforge-poi"})
+
+#: A tool's file name, from the last component of its URL: a bare name the
+#: engine can install under the unit's own directory, never a path.
+_TOOL_FILE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+
+
+class ConverterTool(Strict):
+    """A program a converter runs that no archive packages, pinned.  D-067.
+
+    The catalog supplies where it is and what it hashes to; the engine owns
+    how it is run, exactly as it owns every converter's command line. It is
+    fetched, verified against `artifact.sha256`, checked against `size`, and
+    installed under ``<prefix>/share/hammunition/<unit>/`` -- not under the
+    unit's data directory, which holds only files that are read, never run
+    (D-049). A `signature_url` is recorded and not verified; the fetch step
+    says so, in the words every declared-but-unverified signature gets.
+    """
+
+    artifact: RemoteArtifact
+    size: int = Field(gt=0, description="Bytes, measured; a download of another size is refused.")
+    licence: str = Field(
+        min_length=2,
+        description="SPDX identifier where one exists, else the publisher's own words.",
+    )
+    licence_url: str = Field(description="Where the licence is stated, on the publisher's site.")
+
+    @property
+    def file_name(self) -> str:
+        return self.artifact.url.rsplit("/", 1)[-1]
+
+    @model_validator(mode="after")
+    def _check(self) -> ConverterTool:
+        if not self.artifact.url.startswith("https://"):
+            raise ManifestError(f"a converter tool's url must be https: {self.artifact.url!r}")
+        if not self.licence_url.startswith("https://"):
+            raise ManifestError(f"licence_url must be https, got {self.licence_url!r}")
+        if not _TOOL_FILE.fullmatch(self.file_name):
+            raise ManifestError(
+                f"a converter tool's url must end in a plain file name, got {self.artifact.url!r}"
+            )
+        return self
 
 
 class DerivedDataInstall(Strict):
@@ -867,13 +914,19 @@ class DerivedDataInstall(Strict):
 
     method: Literal["derived"] = "derived"
     converter: Literal[
-        "navit-maptool", "mkgmap", "routino-planetsplitter", "gdal-dem", "brouter-mapcreator"
+        "navit-maptool",
+        "mkgmap",
+        "routino-planetsplitter",
+        "gdal-dem",
+        "brouter-mapcreator",
+        "mapsforge-map",
+        "mapsforge-poi",
     ] = Field(
         description=(
             "The transformation to run. Each needs a `source` of one particular "
             "install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): "
-            "`navit-maptool`, `mkgmap`, `routino-planetsplitter` and "
-            "`brouter-mapcreator` need an `osm-regions` source; `gdal-dem` needs a "
+            "`navit-maptool`, `mkgmap`, `routino-planetsplitter`, `brouter-mapcreator`, "
+            "`mapsforge-map` and `mapsforge-poi` need an `osm-regions` source; `gdal-dem` needs a "
             "`dem-tiles` source."
         )
     )
@@ -921,11 +974,30 @@ class DerivedDataInstall(Strict):
         description="SPDX identifier where one exists, else the publisher's own words.",
     )
     licence_url: str = Field(description="Where the licence is stated, on the publisher's site.")
+    tool: ConverterTool | None = Field(
+        default=None,
+        description=(
+            "The pinned program the converter runs, for a converter in "
+            "`CONVERTERS_WITH_TOOL` (`mapsforge-poi`: Maven Central's "
+            "mapsforge-poi-writer, which no archive packages, D-067). Required for "
+            "those converters and refused for every other."
+        ),
+    )
 
     @model_validator(mode="after")
     def _check(self) -> DerivedDataInstall:
         if not self.licence_url.startswith("https://"):
             raise ManifestError(f"licence_url must be https, got {self.licence_url!r}")
+        if self.converter in CONVERTERS_WITH_TOOL and self.tool is None:
+            raise ManifestError(
+                f"converter {self.converter!r} runs a program no archive packages, so the "
+                f"block must pin it as `tool` (url, sha256, size, licence)"
+            )
+        if self.converter not in CONVERTERS_WITH_TOOL and self.tool is not None:
+            raise ManifestError(
+                f"converter {self.converter!r} runs only what the archive installs; a `tool` "
+                f"on it would be fetched for nothing"
+            )
         for name, (_, required) in BROUTER_INPUTS.items():
             value = getattr(self, name)
             if self.converter != "brouter-mapcreator":

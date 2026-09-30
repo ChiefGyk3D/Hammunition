@@ -233,6 +233,7 @@ Do not re-litigate these without being asked:
 | sudo during an install | A run as a user whose plan mixes root and unprivileged steps asks `sudo -v` once before the first step and refreshes with `sudo -n -v` every 4 minutes from its own process until the run ends; disclosed in the plan, `--no-sudo-keepalive` opts out, a failure is reported once and never retried, the password never passes through the engine | A `navigation` install waited 7.8 hours at a second prompt after 30 minutes of work, its ticket expired during a conversion (#137, **D-062**) |
 | Repeater overlays | `maps repeaters import` converts the operator's own export (RepeaterBook GPX, a RepeaterBook CSV with Lat/Long, hearham JSON, a hand CSV) offline into a GPX, a QMapShack `.poi` and a Navit textfile under `~/.local/share/hammunition/overlays/repeaters/`, 0600; CHIRP files and position-less CSVs refused by name; merged on callsign + Hz + 0.01°; nothing fetched from RepeaterBook, hearham only on request and marked unverified; `navit-offline` runs `maps navit`; not a D-049 data unit | RepeaterBook's export is personal-use and its API gated; CHIRP's query was measured to drop coordinates; callsign + frequency alone merged 1,050 multi-site keys in hearham's data (**D-064**) |
 | BRouter routing | Carried: upstream's zip pinned by its sha256 as a tree, Java from the archive; its routing files built on the machine by a `brouter-mapcreator` converter from the station's regions with Copernicus elevation, one set over every region, as the operator, never downloaded from brouter.de; `maps qmapshack` registers it in QMapShack on 127.0.0.1 only and leaves an operator's own BRouter alone | brouter.de's weekly files carry no checksum, which is why D-061 left BRouter out; BRouter's own map creator builds them from our own extracts (Delaware in minutes, most of it a parser polling for a growing file, which `-DavoidMapPolling=true` removes: 120 s to 0.1 s on a synthetic region) (**D-063**) |
+| Phone maps | `mapsforge-map` and `mapsforge-poi` build a Mapsforge map and POI file per region as the operator, `java -cp` over the archive's osmosis jars; the POI writer, packaged nowhere, is the one pin, carried as the derived block's `tool` and installed beside the data, never in it; `maps phone` copies the phone files into one folder with a `SHA256SUMS` and prints routes it never runs, the web server bound to the hotspot's address; its own `phone-maps` profile; OsmAnd `.obf`, `.mwm`, PocketMaps and Transportr not carried, each with its route | Debian's osmosis does not load the packaged writer, and a map took 3:38 on a 22 MB region, hours on a large one; the spike's POI digest was the map writer's (**D-067**) |
 
 Full reasoning and evidence in `docs/DECISIONS.md`, which is authoritative.
 
@@ -496,8 +497,8 @@ in their own install notes.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 269
-  profiles/        # named bundles referencing packages      ✅ 17
+  packages/        # one YAML per piece of software          ✅ 271
+  profiles/        # named bundles referencing packages      ✅ 18
   hardware/
     classes/       # device families with shared Linux needs ✅ 5
     devices/       # one YAML per device                     ✅ 24

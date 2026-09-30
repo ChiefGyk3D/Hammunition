@@ -149,6 +149,7 @@ nav:
       - sdr: profiles/sdr.md
       - listening: profiles/listening.md
       - navigation: profiles/navigation.md
+      - phone-maps: profiles/phone-maps.md
       - electronics: profiles/electronics.md
       - workstation: profiles/workstation.md
       - editors: profiles/editors.md

@@ -126,6 +126,7 @@ from hammunition.manifest.schema import (
     RegionalDataInstall,
 )
 from hammunition.paths import applications_dir, build_root, node_root, user_bin_dir, venv_root
+from hammunition.phone_plan import build_phone_run
 from hammunition.plan import NO_MAP_REGIONS, Blocker, InstallPlan, PlanError, resolve
 from hammunition.state import (
     RemovalError,
@@ -1024,6 +1025,55 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+@envelope.json_capable()
+def cmd_maps_phone(args: argparse.Namespace) -> int:
+    """Gather the phone files into one folder with a SHA256SUMS, and print
+    the ways to carry them to a phone.  D-067.
+
+    Copies each installed Mapsforge map and POI file, and each Garmin map,
+    into ``$XDG_DATA_HOME/hammunition/phone/`` (:mod:`hammunition.phone`).
+    Transfers nothing and serves nothing: every route it prints is a command
+    for the operator. Per user, refused as root.
+    """
+    from hammunition import phone
+    from hammunition.interface.phone import phone_document
+
+    if os.geteuid() == 0:
+        print(
+            "error: the phone folder is per user; run this as yourself, not as root.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    data = data_root(DEFAULT_PREFIX)
+    directory = phone.phone_dir()
+    found = phone.installed(data)
+    missing = phone.missing_units(data)
+    if not found:
+        message = (
+            f"No phone files are installed under {data}. `hammunition install phone-maps` "
+            f"builds Mapsforge maps and POI files from your map regions; `hammunition "
+            f"install navigation` builds Garmin maps. Nothing was copied."
+        )
+        if envelope.wanted(args):
+            print(message, file=sys.stderr)
+            envelope.emit(phone_document(None, (), directory=str(directory), missing=missing))
+            return EXIT_OK
+        print(message)
+        return EXIT_OK
+    try:
+        result = phone.stage(found, directory)
+    except (phone.PhoneError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    ways = phone.routes(directory)
+    if envelope.wanted(args):
+        envelope.emit(phone_document(result, ways, directory=str(directory), missing=missing))
+        return EXIT_OK
+    for line in phone.render(result, ways):
+        print(line)
+    return EXIT_OK
+
+
 def _generated_navit_config() -> Path:
     """The configuration ``osm-navit`` writes under the prefix (D-057)."""
     return data_root(DEFAULT_PREFIX) / "osm-navit" / "navit.xml"
@@ -1547,9 +1597,9 @@ def map_work(
 def leftover_maps_note(plan: InstallPlan, prefix: Path) -> str | None:
     """Map data still installed while no map regions are set, named with its removal."""
     units = sorted(d.subject for d in plan.deferrals if d.why == NO_MAP_REGIONS)
-    # Piece 1's regions and Navit maps, and piece 2's Garmin maps, Routino
-    # database and terrain tiles (D-061).
-    patterns = ("*.osm.pbf", "*.bin", "*.img", "*.mem", f"*{TIF}")
+    # Piece 1's regions and Navit maps, piece 2's Garmin maps, Routino
+    # database and terrain tiles (D-061), and the phone files (D-067).
+    patterns = ("*.osm.pbf", "*.bin", "*.img", "*.mem", f"*{TIF}", "*.map", "*.poi")
     found = [
         data_root(prefix) / unit
         for unit in units
@@ -1792,6 +1842,17 @@ def cmd_install(args: argparse.Namespace) -> int:
         resolution=dem_resolution,
         pins=brouter_pins(plan),
     )
+    # D-067: the phone converters, from the same regions, as the operator.
+    phone = build_phone_run(
+        prefix=source.prefix,
+        builds=builds,
+        owner=user or None,
+        runner=runner,
+        fetcher=source.fetcher,
+        files=region_files,
+        keep=kept,
+        regions=ledger,
+    )
     derived = DerivedBackend(
         prefix=source.prefix,
         files=region_files,
@@ -1802,7 +1863,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         runner=runner,
         boundaries=border,
         countries=countries,
-        converters=terrain.converters,
+        converters={**terrain.converters, **phone.converters},
     )
     # Only regions not already installed at their snapshot are downloaded,
     # counted and listed as downloads (the dry run is the run); a region
@@ -1831,7 +1892,8 @@ def cmd_install(args: argparse.Namespace) -> int:
     )
     terrain_view = terrain.disclosure(plan)
     terrain_disk = terrain.needs(plan, cache=source.fetcher.cache_dir, prefix=source.prefix)
-    if pending or conversions or any(terrain_disk.values()):
+    phone_disk = phone.needs(plan, cache=source.fetcher.cache_dir, prefix=source.prefix)
+    if pending or conversions or any(terrain_disk.values()) or any(phone_disk.values()):
         # Refused at plan time, before anything is confirmed, with both numbers:
         # piece 1's and piece 2's needs together, per filesystem (D-061).
         short = combined_shortfall(
@@ -1843,6 +1905,7 @@ def cmd_install(args: argparse.Namespace) -> int:
                 prefix=source.prefix,
             ),
             terrain_disk,
+            phone=phone_disk,
         )
         if short is not None:
             print(f"error: {short}", file=sys.stderr)
@@ -1896,6 +1959,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         region_notes=region_notes,
         terrain=terrain_view,
         sudo_keepalive=args.sudo_keepalive,
+        idle=phone.idle(plan),
     )
     if envelope.wanted(args):
         # Reached only with --dry-run: main() refuses a real install under
@@ -3650,7 +3714,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_maps = sub.add_parser(
         "maps",
         help="offline maps: Geofabrik's regions (D-057), QMapShack and its GPS (D-061), "
-        "Navit and repeaters (D-064)",
+        "Navit and repeaters (D-064), phone files (D-067)",
     )
     maps_sub = p_maps.add_subparsers(dest="maps_command", required=True)
 
@@ -3696,6 +3760,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_maps_tether.set_defaults(func=cmd_maps_gps_tether)
 
+    p_maps_phone = maps_sub.add_parser(
+        "phone",
+        help="gather the phone map files into one folder with a SHA256SUMS and print the "
+        "ways to carry them to a phone; transfers nothing (D-067)",
+    )
+    p_maps_phone.set_defaults(func=cmd_maps_phone)
     p_maps_navit = maps_sub.add_parser(
         "navit",
         help="start Navit on your offline maps, with your repeater layer when there is one (D-064)",

@@ -33,7 +33,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from hammunition.manifest.load import load_catalog  # noqa: E402
-from hammunition.manifest.schema import PackageManifest  # noqa: E402
+from hammunition.manifest.schema import PackageManifest, RemoteArtifact  # noqa: E402
 
 USER_AGENT = "hammunition-url-sweep/1 (+https://github.com/ChiefGyk3D/Hammunition)"
 
@@ -43,9 +43,16 @@ def artifact_urls(catalog: dict[str, PackageManifest]) -> list[tuple[str, str]]:
     found: list[tuple[str, str]] = []
     for name, manifest in sorted(catalog.items()):
         for block in manifest.install:
-            for attr in ("artifact", "source"):
-                remote = getattr(block.install, attr, None)
-                if remote is not None:
+            # A derived block's `source` is a unit name, not an artifact, and
+            # its pinned program is under `tool` (D-067).
+            tool = getattr(block.install, "tool", None)
+            candidates = (
+                getattr(block.install, "artifact", None),
+                getattr(block.install, "source", None),
+                tool.artifact if tool is not None else None,
+            )
+            for remote in candidates:
+                if isinstance(remote, RemoteArtifact):
                     found.append((name, remote.url))
     return found
 
