@@ -50,6 +50,7 @@ their text follows.
 - `hammunition install` (with `--dry-run` only)
 - `hammunition list`
 - `hammunition maps regions`
+- `hammunition reference books`
 - `hammunition show`
 - `hammunition station show`
 - `hammunition status`
@@ -62,6 +63,7 @@ their text follows.
 
 | kind | document |
 |---|---|
+| `books` | [`BooksDocument`](#books) |
 | `catalog` | [`CatalogDocument`](#catalog) |
 | `doctor` | [`DoctorDocument`](#doctor) |
 | `error` | [`ErrorDocument`](#error) |
@@ -73,6 +75,134 @@ their text follows.
 | `status` | [`StatusDocument`](#status) |
 | `unit` | [`UnitDocument`](#unit) |
 | `update` | [`UpdateDocument`](#update) |
+
+### books
+
+The Kiwix books the catalog offers. Read from the catalog and the disk;
+nothing is fetched.
+
+| field | type | meaning |
+|---|---|---|
+| `books` | list of [`BookRow`](#bookrow) | every book in catalog/data/kiwix-books.yaml, in its order |
+
+#### `BookRow`
+
+One book the catalog offers, with its pin.
+
+| field | type | meaning |
+|---|---|---|
+| `id` | string | the id station config takes (`station set --reference-books`) |
+| `title` | string | what the book is |
+| `file` | string or null | the pinned dated file; null when the book is not pinned |
+| `size` | integer or null | bytes of the pinned file; null when not pinned |
+| `licence` | string | the publisher's licence line, printed in the plan too |
+| `licence_url` | string | where the publisher states it |
+| `note` | string or null | anything else the book list says of it |
+| `chosen` | boolean | whether station config chooses it |
+| `installed` | boolean | whether its pinned file is installed |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "BookRow": {
+      "additionalProperties": false,
+      "description": "One book the catalog offers, with its pin.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "File"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Size"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "licence_url": {
+          "title": "Licence Url",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Note"
+        },
+        "chosen": {
+          "title": "Chosen",
+          "type": "boolean"
+        },
+        "installed": {
+          "title": "Installed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "file",
+        "size",
+        "licence",
+        "licence_url",
+        "note",
+        "chosen",
+        "installed"
+      ],
+      "title": "BookRow",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The Kiwix books the catalog offers. Read from the catalog and the disk;\nnothing is fetched.",
+  "properties": {
+    "books": {
+      "items": {
+        "$ref": "#/$defs/BookRow"
+      },
+      "title": "Books",
+      "type": "array"
+    }
+  },
+  "required": [
+    "books"
+  ],
+  "title": "BooksDocument",
+  "type": "object"
+}
+```
+
+</details>
 
 ### catalog
 

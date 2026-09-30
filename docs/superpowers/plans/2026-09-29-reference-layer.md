@@ -60,14 +60,14 @@
 
 ### Task 3: Station `reference_books`
 
-**Files:** Modify `src/hammunition/station.py`, `src/hammunition/cli/main.py` (`station set --reference-books`, station show), `src/hammunition/interface/station.py`, JSON goldens; tests in `tests/test_station.py`, `tests/test_reference_cli.py`.
+**Files:** Modify `src/hammunition/station.py`, `src/hammunition/cli/main.py` (`station set --reference-books`, station show), `src/hammunition/interface/station.py`, JSON goldens; tests in `tests/test_reference_station.py`.
 
 - [ ] Tests: a `reference_books` list round-trips through save/load; an id with a space or upper case is refused by the dataclass; `station set --reference-books a,b` saves and prints both; an id outside the allow-list is refused naming `hammunition reference books` and nothing is saved; `--reference-books ","` is refused; `prompt_for` keeps the books; `station show` lists them; the station JSON document carries `reference_books`.
 - [ ] Implement; regenerate `docs/reference/json-interface.md`; commit.
 
 ### Task 4: Schema method `kiwix-books`, plan deferral
 
-**Files:** Modify `src/hammunition/manifest/schema.py` (`KiwixBooksInstall`, `UpdateProbe.method` gains `kiwix`), `src/hammunition/backends/__init__.py` (`IMPLEMENTED_METHODS`), `src/hammunition/plan.py` (deferral/blocker), `src/hammunition/state/uninstall.py`, `scripts/gen_package_reference.py`, `scripts/gen_capability_matrix.py`; tests in `tests/test_plan.py`-style new file `tests/test_reference_plan.py`.
+**Files:** Modify `src/hammunition/manifest/schema.py` (`KiwixBooksInstall`, `UpdateProbe.method` gains `kiwix`), `src/hammunition/backends/__init__.py` (`IMPLEMENTED_METHODS`), `src/hammunition/plan.py` (deferral/blocker), `src/hammunition/state/uninstall.py`, `scripts/gen_package_reference.py`, `scripts/gen_capability_matrix.py`; tests in `tests/test_plan.py`-style `tests/test_plan.py` and `tests/test_uninstall.py`.
 
 - [ ] Tests: a profile holding a `kiwix-books` unit with no books set defers it with `why == "no reference books chosen"` and a remedy naming `station set --reference-books`, the apt members still planned; the same unit typed by name is refused; with books set nothing is deferred; uninstall plans removal of `data/kiwix-library/` whole.
 - [ ] Implement; commit.

@@ -60,6 +60,7 @@ from hammunition.backends import (
     VenvBackend,
 )
 from hammunition.backends.apt import stale_fetches
+from hammunition.backends.data import human_size
 from hammunition.backends.dem import TIF, TILES, TerrainDisclosure, read_record
 from hammunition.backends.kiwix import (
     KiwixBooksBackend,
@@ -1041,6 +1042,136 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
     finally:
         listener.close()
     return EXIT_OK
+
+
+@envelope.json_capable()
+def cmd_reference_books(args: argparse.Namespace) -> int:
+    """The Kiwix books the catalog offers, with size, licence and whether
+    chosen and installed.  D-065. Read from the catalog and the disk only."""
+    from hammunition.backends.kiwix import book_current
+    from hammunition.interface.books import BookRow, BooksDocument
+
+    user = operator(args)
+    catalog_root = find_catalog(args.catalog)
+    try:
+        books = load_book_list(catalog_root)
+        pins = load_pin_file(catalog_root)
+        station = load_station(owner=user)
+    except (KiwixError, StationError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    installed = data_root(DEFAULT_PREFIX) / "kiwix-library"
+    rows = []
+    for book in books.values():
+        pin = pins.get(book.id)
+        rows.append(
+            BookRow(
+                id=book.id,
+                title=book.title,
+                file=pin.file if pin else None,
+                size=pin.size if pin else None,
+                licence=book.licence,
+                licence_url=book.licence_url,
+                note=book.note,
+                chosen=book.id in station.reference_books,
+                installed=pin is not None
+                and book_current(installed / pin.file, BookFile(book, pin)),
+            )
+        )
+    if envelope.wanted(args):
+        envelope.emit(BooksDocument(books=tuple(rows)))
+        return EXIT_OK
+    width = max(len(r.id) for r in rows)
+    for row in rows:
+        size = human_size(row.size) if row.size is not None else "not pinned"
+        marks = " ".join(
+            m for m, on in (("[chosen]", row.chosen), ("[installed]", row.installed)) if on
+        )
+        print(f"{row.id:<{width}}  {size:>9}  {row.licence}  {marks}".rstrip())
+        print(f"{'':<{width}}  {'':>9}  {row.title}")
+    print()
+    print(
+        "Choose with `hammunition station set --reference-books ID[,ID…]`, then "
+        "`hammunition install kiwix-library`. Sizes are the pinned files'."
+    )
+    return EXIT_OK
+
+
+def cmd_reference_serve(args: argparse.Namespace) -> int:
+    """The offline reference on one loopback page.  D-065.
+
+    Books through kiwix-serve (a child, on 127.0.0.1 only), the ICS forms
+    and the dictionaries on a page from the standard library. Runs as the
+    operator, never as root; Ctrl-C stops both. No ``--json`` form: it is a
+    server, not a document (D-059).
+    """
+    import subprocess
+
+    from hammunition import reference
+    from hammunition.paths import owner_aware_dir
+
+    try:
+        port = reference.PORT if args.port is None else reference.serve_port(args.port)
+    except ValueError as exc:
+        print(f"error: {exc}.", file=sys.stderr)
+        return EXIT_FAILED
+    if os.geteuid() == 0:
+        print(
+            "error: the reference page reads files anyone can read; run it as yourself, "
+            "not as root.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    try:
+        books = load_book_list(find_catalog(args.catalog))
+    except (KiwixError, SystemExit):
+        books = {}  # the page still serves every file, named by its file name
+    shelf = reference.find_shelf(data_root(DEFAULT_PREFIX), books)
+    if shelf.books:
+        missing = [t for t in ("kiwix-serve", "kiwix-manage") if shutil.which(t) is None]
+        if missing:
+            print(
+                f"error: {len(shelf.books)} book(s) are installed and {', '.join(missing)} "
+                f"is not on the PATH: `hammunition install kiwix-tools`.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+    library = (
+        owner_aware_dir(xdg_var="XDG_CACHE_HOME", home_relative=(".cache",))
+        / "reference"
+        / "library.xml"
+    )
+
+    def manage(path: Path, zims: Sequence[Path]) -> None:
+        result = subprocess.run(
+            ["kiwix-manage", str(path), "add", *(str(z) for z in zims)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0 or not path.is_file():
+            raise SystemExit(
+                f"error: kiwix-manage could not build {path} (exit {result.returncode}): "
+                f"{(result.stderr or result.stdout).strip()}"
+            )
+
+    def spawn(argv: Sequence[str]) -> subprocess.Popen[bytes]:
+        return subprocess.Popen(list(argv), stdout=subprocess.DEVNULL)
+
+    def log(line: str) -> None:
+        print(line, file=sys.stderr, flush=True)
+
+    try:
+        return reference.run(
+            port, shelf=shelf, library=library, spawn=spawn, manage=manage, log=log
+        )
+    except OSError as exc:
+        print(
+            f"error: cannot listen on {reference.HOST} port {port}: {exc.strerror or exc}. "
+            f"--port N serves another port.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
 
 
 def resolve_map_regions(
@@ -3427,6 +3558,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="serve on 127.0.0.1 port N, 1024 to 65535, when 10110 is taken (default 10110)",
     )
     p_maps_tether.set_defaults(func=cmd_maps_gps_tether)
+
+    p_reference = sub.add_parser(
+        "reference", help="the offline reference: Kiwix books, ICS forms, dictionaries (D-065)"
+    )
+    reference_sub = p_reference.add_subparsers(dest="reference_command", required=True)
+    p_ref_books = reference_sub.add_parser(
+        "books", help="list the Kiwix books the catalog offers, with size and licence"
+    )
+    p_ref_books.add_argument("--user", default=None, help="whose station configuration to read")
+    p_ref_books.set_defaults(func=cmd_reference_books)
+    p_ref_serve = reference_sub.add_parser(
+        "serve",
+        help="serve the books, forms and dictionaries on 127.0.0.1:8480 until Ctrl-C",
+    )
+    p_ref_serve.add_argument(
+        "--port",
+        metavar="N",
+        default=None,
+        help="serve the page on 127.0.0.1 port N (1024 to 65534); kiwix-serve takes N+1 "
+        "(default 8480)",
+    )
+    p_ref_serve.set_defaults(func=cmd_reference_serve)
 
     p_show = sub.add_parser("show", help="describe a profile, disclosure included")
     p_show.add_argument("profile")
