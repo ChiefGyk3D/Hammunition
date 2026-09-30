@@ -1235,6 +1235,25 @@ class ConfigFile(Strict):
             found |= set(STATION_REF.findall(pattern))
         return found
 
+    @property
+    def in_home(self) -> bool:
+        """``~/``: a file in the operator's home, resolved at plan time."""
+        return self.path.startswith("~/")
+
+    @model_validator(mode="after")
+    def _path_is_absolute_or_home(self) -> ConfigFile:
+        # `~/` is the operator's home -- the owner-aware one `paths` resolves,
+        # never $HOME, which is /root under sudo. Nothing else is expanded.
+        rest = self.path[2:] if self.in_home else self.path
+        if not (self.in_home or self.path.startswith("/")):
+            raise ManifestError(
+                f"config path {self.path!r} must be absolute or start with ~/ (the operator's home)"
+            )
+        parts = rest.split("/")
+        if not rest.strip("/") or rest.endswith("/") or ".." in parts or "~" in rest:
+            raise ManifestError(f"config path {self.path!r} must name a file, with no '..' or '~'")
+        return self
+
     @model_validator(mode="after")
     def _skip_only_when_appending(self) -> ConfigFile:
         if self.skip_if_present and not self.append:

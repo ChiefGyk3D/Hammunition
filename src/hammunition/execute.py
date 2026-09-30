@@ -23,6 +23,7 @@ import os
 import pwd
 import re
 import shutil
+import stat
 import tempfile
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -66,6 +67,7 @@ from hammunition.manifest.schema import (
     VenvInstall,
     effective_binaries,
 )
+from hammunition.paths import OperatorDirError, open_operator_dir, operator_for
 from hammunition.plan import InstallPlan, PlannedPackage
 from hammunition.state import RemovalPlan, TransactionLog
 
@@ -199,6 +201,97 @@ def write_config(
     return f"{action} {path} (mode {mode:04o}){saved}"
 
 
+def write_operator_config(
+    path: Path,
+    body: str,
+    mode: int,
+    *,
+    append: bool,
+    backup: bool,
+    skip_if_present: Sequence[str] = (),
+    owner: str | None = None,
+) -> str:
+    """:func:`write_config` for a file in an operator's home, written by root.
+
+    ``~/`` in a manifest's path is the operator's home, and under sudo the
+    engine is root. Root writing there by path would follow a symlink the
+    operator (or anything running as them) planted -- ``~/.config/Gpredict``
+    pointing at ``/etc`` -- and would leave root-owned files the operator's
+    own program then cannot rewrite. So the parent is opened through
+    :func:`~hammunition.paths.open_operator_dir` (``O_NOFOLLOW`` from the
+    home down, each component proven the operator's, missing ones created and
+    handed over), every file is opened by name relative to that descriptor
+    with ``O_NOFOLLOW``, and what root writes is ``fchown``-ed to the
+    operator. An existing entry that is not a regular file is refused.
+    """
+    entry = operator_for(path, owner)
+    if entry is None:
+        return write_config(
+            path, body, mode, append=append, backup=backup, skip_if_present=skip_if_present
+        )
+    try:
+        fd = open_operator_dir(path.parent, entry.pw_name)
+    except OperatorDirError as exc:
+        raise BackendError(f"{path} not written: {exc}") from exc
+    if fd is None:
+        # The parent is the home itself, which the walk starts from rather than
+        # proves; the account database named it.
+        fd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    name = path.name
+    backup_name = name + ".hammunition-backup"
+    flags = os.O_NOFOLLOW | os.O_CLOEXEC
+
+    def _existing() -> bytes | None:
+        try:
+            st = os.stat(name, dir_fd=fd, follow_symlinks=False)
+        except FileNotFoundError:
+            return None
+        if not stat.S_ISREG(st.st_mode):
+            raise BackendError(
+                f"{path} is not a regular file (a symlink or something else); root will "
+                f"not write through it on {entry.pw_name}'s behalf. Move it aside and "
+                f"install again."
+            )
+        handle = os.open(name, os.O_RDONLY | flags, dir_fd=fd)
+        with os.fdopen(handle, "rb") as reader:
+            return reader.read()
+
+    def _write(target: str, data: bytes, *, how: int, perm: int) -> None:
+        handle = os.open(target, os.O_WRONLY | os.O_CREAT | how | flags, perm, dir_fd=fd)
+        try:
+            os.write(handle, data)
+            os.fchmod(handle, perm)
+            os.fchown(handle, entry.pw_uid, entry.pw_gid)
+        finally:
+            os.close(handle)
+
+    try:
+        existing = _existing()
+        if append and skip_if_present and existing is not None:
+            found = already_present(existing.decode(errors="replace"), skip_if_present)
+            if found is not None:
+                return f"left {path} as it is: it already has {found.strip()!r}"
+        saved = ""
+        if backup and existing is not None:
+            try:
+                os.stat(backup_name, dir_fd=fd, follow_symlinks=False)
+            except FileNotFoundError:
+                _write(backup_name, existing, how=os.O_EXCL, perm=mode)
+                saved = f", previous contents saved to {backup_name}"
+            else:
+                saved = f", {backup_name} already exists and was left alone"
+        text = (body if body.endswith("\n") else body + "\n").encode()
+        if append and existing is not None:
+            _write(name, text, how=os.O_APPEND, perm=mode)
+            action = "appended to"
+        else:
+            _write(name, text, how=os.O_TRUNC, perm=mode)
+            action = "wrote"
+    finally:
+        os.close(fd)
+    return f"{action} {path} (mode {mode:04o}, {entry.pw_name}'s){saved}"
+
+
 def stage_config(
     staging: Path,
     target: Path,
@@ -271,6 +364,32 @@ def config_steps(plan: InstallPlan, *, staging_root: Path | None = None) -> list
         while not probe.exists() and probe != probe.parent:
             probe = probe.parent
         needs_root = not os.access(probe, os.W_OK)
+        operator = operator_for(path)
+        if operator is not None:
+            # Root, writing into somebody's home (a manifest's `~/` path):
+            # never by path, and what it writes is theirs.
+            steps.append(
+                Action(
+                    kind="config",
+                    description=f"{verb} {config.path} for {package}",
+                    detail=(
+                        f"mode {config.mode}, "
+                        + ("existing file backed up" if config.backup_existing else "no backup")
+                        + f", written as root and handed to {operator.pw_name}"
+                    ),
+                    perform=partial(
+                        write_operator_config,
+                        path,
+                        body,
+                        mode,
+                        append=config.append,
+                        backup=config.backup_existing,
+                        skip_if_present=tuple(config.skip_if_present),
+                        owner=operator.pw_name,
+                    ),
+                )
+            )
+            continue
         if not needs_root:
             steps.append(
                 Action(

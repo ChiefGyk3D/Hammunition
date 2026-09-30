@@ -36,6 +36,7 @@ import pwd
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from hammunition.backends import (
     IMPLEMENTED_BINARY_FORMATS,
@@ -670,18 +671,51 @@ def _check_engine_capability(
     return found
 
 
+def operator_home(user: str) -> Path | None:
+    """The home a manifest's ``~/`` config path means: the operator's, from the
+    account database -- never ``$HOME``, which sudo resets to ``/root``. None
+    for no operator, root, or an account this machine does not have."""
+    if not user:
+        return None
+    try:
+        entry = pwd.getpwnam(user)
+    except KeyError:
+        return None
+    if entry.pw_uid == 0 or entry.pw_dir in ("", "/"):
+        return None
+    return Path(entry.pw_dir)
+
+
 def _plan_config(
-    manifest: PackageManifest, station: Station
+    manifest: PackageManifest, station: Station, home: Path | None = None
 ) -> tuple[list[tuple[str, ConfigFile, str]], list[Deferral]]:
     """Render this manifest's templated config, or defer what cannot be rendered.
 
     Every file is all-or-nothing: a config file written with some values
     substituted and others left as `{station.callsign}` is worse than no file,
     because it looks configured. So a file missing one value is deferred whole.
+
+    A ``~/`` path is resolved against *home*, the operator's (``operator_home``);
+    with none, the file is deferred -- root's home is nobody's station.
     """
     writable: list[tuple[str, ConfigFile, str]] = []
     deferred: list[Deferral] = []
     for config in manifest.config_files:
+        if config.in_home:
+            if home is None:
+                deferred.append(
+                    Deferral(
+                        subject=manifest.name,
+                        what=f"will not write {config.path}",
+                        why="it belongs in the operator's home and no operator (other than root) was identified",
+                        remedy=(
+                            "run the install as yourself, or pass --user <name>. The package "
+                            "itself installs either way."
+                        ),
+                    )
+                )
+                continue
+            config = config.model_copy(update={"path": str(home / config.path[2:])})
         wanted = config.station_variables
         unknown = station.missing(wanted)
         if unknown:
@@ -1233,7 +1267,7 @@ def resolve(
                 )
             continue
 
-        writable, unwritable = _plan_config(manifest, station)
+        writable, unwritable = _plan_config(manifest, station, operator_home(user))
         config_files.extend(writable)
         deferrals.extend(unwritable)
 
