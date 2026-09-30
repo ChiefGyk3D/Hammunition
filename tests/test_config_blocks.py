@@ -37,6 +37,7 @@ BLOCKS: dict[str, str] = {
     "direwolf": "/etc/direwolf.conf",
     "ax25-tools": "/etc/ax25/axports",
     "gpredict": "~/.config/Gpredict/sample.qth",
+    "tlf": "~/tlf/logcfg.dat",
 }
 
 #: Where a `~/` path lands in these tests: a stand-in operator home.
@@ -295,3 +296,26 @@ def test_gpredict_is_deferred_without_a_grid_square(catalog: dict[str, PackageMa
     assert not writable
     assert "grid_square" in deferred[0].why
     assert "--grid-square" in deferred[0].remedy
+
+
+# ---------------------------------------------------------------------------
+# tlf -- the station half of logcfg.dat
+# ---------------------------------------------------------------------------
+
+
+def test_tlf_sets_call_and_myqra(catalog: dict[str, PackageManifest]) -> None:
+    body = _render(catalog["tlf"])[str(HOME / "tlf/logcfg.dat")]
+    assert _lines(body) == ["CALL=N0TST", "MYQRA=FN31pr"]
+
+
+def test_tlf_uses_the_keyword_tlf_accepts() -> None:
+    """`MYLOCATOR` was the gap analysis's guess; the packaged tlf refuses it
+    ("Keyword 'MYLOCATOR' not supported"). MYQRA is parse_logcfg.c's."""
+    template = load_catalog(CATALOG)["tlf"].config_files[0].template
+    assert "MYLOCATOR" not in template
+
+
+def test_tlf_keeps_a_portable_callsign(catalog: dict[str, PackageManifest]) -> None:
+    """A contest log is not AX.25: `W1AW/4` is a callsign tlf takes as is."""
+    body = _render(catalog["tlf"], Station(callsign="W1AW/4", grid_square="FN31pr"))
+    assert "CALL=W1AW/4" in _lines(body[str(HOME / "tlf/logcfg.dat")])
