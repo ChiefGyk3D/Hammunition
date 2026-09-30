@@ -47,6 +47,7 @@ __all__ = [
     "gps_from",
     "grants_installed",
     "has_rtc",
+    "ntpsec_installed",
     "ntp_time",
     "parse_peers",
     "parse_rv",
@@ -168,6 +169,13 @@ def ntp_time(value: str | None) -> datetime | None:
         return None
 
 
+def ntpsec_installed() -> bool:
+    """ntpsec's configuration *and* its daemon. `apt remove ntpsec` (not purge)
+    leaves the conffile behind, so the conffile alone would name a daemon that
+    is gone."""
+    return Path(files.NTP_CONF).is_file() and Path(files.NTPD).is_file()
+
+
 def has_rtc() -> bool:
     try:
         return any(Path(files.RTC_CLASS).iterdir())
@@ -233,7 +241,7 @@ def gather(
         problems.append(str(exc))
     rtc = has_rtc()
 
-    if not Path(files.NTP_CONF).is_file():
+    if not ntpsec_installed():
         return TimeState(
             mode=mode,
             mode_set=mode_set,

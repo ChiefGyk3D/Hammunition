@@ -142,3 +142,14 @@ def test_the_sysfs_guard_still_refuses_the_time_files(time_files: Path) -> None:
     for path in (files.NTP_CONF, files.NTP_D_FILE, files.TIME_CONFIG):
         with pytest.raises(PowerError):
             guard(path)
+
+
+def test_a_conffile_without_ntpd_refuses_and_writes_nothing(time_files: Path) -> None:
+    """Final review I3: after `apt remove ntpsec` the conffile stays."""
+    Path(files.NTPD).unlink()
+    runner = RecordingRunner()
+    with pytest.raises(TimeError, match="ntpsec is not installed"):
+        apply_mode("auto", runner=runner)
+    assert not Path(files.TIME_CONFIG).exists()
+    assert not Path(files.NTP_D_FILE).exists()
+    assert runner.commands == []

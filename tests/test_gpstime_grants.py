@@ -241,3 +241,12 @@ def test_timegrants_is_hashable_and_frozen() -> None:
     assert tg.is_noop
     with pytest.raises(AttributeError):
         tg.ntpsec = False  # type: ignore[misc]
+
+
+def test_a_conffile_without_ntpd_is_not_ntpsec(time_files: Path) -> None:
+    """Final review I3: no drop-in for a unit that is gone."""
+    _apparmor()
+    Path(files.NTPD).unlink()
+    tg = plan_time_grants(installed=_never_installed)
+    assert not tg.ntpsec
+    assert grant_commands(tg, "/s", HELPER) == []

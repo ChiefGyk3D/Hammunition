@@ -18,6 +18,7 @@ __all__ = [
     "NTP_CONF",
     "NTP_D_DIR",
     "NTP_D_FILE",
+    "NTPD",
     "PATHS",
     "RTC_CLASS",
     "TIME_CONFIG",
@@ -28,6 +29,10 @@ TIME_CONFIG = "/etc/hammunition/time.yaml"
 
 NTP_CONF = "/etc/ntpsec/ntp.conf"
 """ntpsec's own configuration, a dpkg conffile. Edited only on marked lines."""
+
+NTPD = "/usr/sbin/ntpd"
+"""ntpsec's daemon. The conffile alone is no evidence: `apt remove ntpsec` leaves
+/etc/ntpsec/ntp.conf behind (a dpkg conffile) and takes this binary away."""
 
 NTP_D_DIR = "/etc/ntpsec/ntp.d"
 """ntpd reads ``*.conf`` here after ntp.conf (``ntpd(8)``). The package does not ship it."""
@@ -58,6 +63,7 @@ RTC_CLASS = "/sys/class/rtc"
 PATHS: dict[str, str] = {
     "TIME_CONFIG": TIME_CONFIG,
     "NTP_CONF": NTP_CONF,
+    "NTPD": NTPD,
     "NTP_D_DIR": NTP_D_DIR,
     "NTP_D_FILE": NTP_D_FILE,
     "DROPIN": DROPIN,

@@ -3546,3 +3546,21 @@ def test_time_mode_takes_only_the_four_modes() -> None:
     with pytest.raises(SystemExit) as caught:
         main(["time", "mode", "gps"])
     assert caught.value.code == 2
+
+
+def test_time_mode_refuses_when_only_the_conffile_is_left(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    time_files: Path,
+) -> None:
+    """Final review I3."""
+    import importlib
+
+    from hammunition.gpstime import files
+
+    cli = importlib.import_module("hammunition.cli.main")
+    _ready_helper(monkeypatch, cli, tmp_path)
+    Path(files.NTPD).unlink()
+    assert cli.main(["time", "mode", "auto", "--dry-run"]) == EXIT_UNPLANNABLE
+    assert "ntpsec is not installed" in capsys.readouterr().err

@@ -34,6 +34,7 @@ from hammunition.gpstime.mode import (
     render_ntp_d,
 )
 from hammunition.gpstime.ntpconf import transform
+from hammunition.gpstime.state import ntpsec_installed
 from hammunition.rootfiles import atomic_write, dir_lock
 
 __all__ = ["RESTART", "apply_mode", "guard_time"]
@@ -98,10 +99,10 @@ def apply_mode(
     ntpsec is absent or ntp.conf lacks an anchor."""
     mode = as_mode(mode)
     run = runner or SubprocessRunner()
-    if not Path(files.NTP_CONF).is_file():
+    if not ntpsec_installed():
         raise TimeError(
-            f"{files.NTP_CONF} does not exist: ntpsec is not installed, and only ntpsec can "
-            f"take time from a GPS here (D-058). Nothing was changed."
+            f"ntpsec is not installed ({files.NTPD} or {files.NTP_CONF} is missing), and "
+            f"only ntpsec can take time from a GPS here (D-058). Nothing was changed."
         )
     lock_dir = Path(files.TIME_CONFIG).parent
     lock_dir.mkdir(mode=0o755, parents=True, exist_ok=True)

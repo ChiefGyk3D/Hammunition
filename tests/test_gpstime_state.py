@@ -285,3 +285,13 @@ def test_describe_says_a_parked_receiver_turns_gps_time_off() -> None:
 
 def test_describe_points_at_hardware_apply_when_the_grants_are_missing() -> None:
     assert any("hardware apply" in ln for ln in describe(_state(grants=False)))
+
+
+def test_a_conffile_left_by_apt_remove_is_not_ntpsec(time_files: Path) -> None:
+    """Final review I3: `apt remove ntpsec` keeps /etc/ntpsec/ntp.conf; the
+    daemon is gone, so the gap is named and ntpq is not asked."""
+    Path(files.NTPD).unlink()
+    ntpq, asked = _ntpq(NET_SELECTED, RV)
+    state = gather(gps="awake", ntpq=ntpq)
+    assert state.daemon is None
+    assert asked == []

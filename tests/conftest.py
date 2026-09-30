@@ -202,7 +202,8 @@ def time_files(
     debian_ntp_conf: str,
     _no_host_time_files: Path,
 ) -> Path:
-    """A machine with ntpsec's shipped ntp.conf and one hardware clock, under tmp_path."""
+    """A machine with ntpsec installed (its shipped ntp.conf and its daemon) and one
+    hardware clock, under tmp_path."""
     from hammunition.gpstime import files
 
     root = tmp_path / "root"
@@ -211,5 +212,8 @@ def time_files(
     conf = Path(files.NTP_CONF)
     conf.parent.mkdir(parents=True)
     conf.write_text(debian_ntp_conf)
+    ntpd = Path(files.NTPD)
+    ntpd.parent.mkdir(parents=True)
+    ntpd.write_text("")
     (Path(files.RTC_CLASS) / "rtc0").mkdir(parents=True)
     return root

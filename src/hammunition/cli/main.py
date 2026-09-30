@@ -2941,22 +2941,21 @@ def cmd_time_mode(args: argparse.Namespace) -> int:
     from hammunition.gpstime import files
     from hammunition.gpstime.mode import GPS_MODES, TimeError, as_mode, render_ntp_d
     from hammunition.gpstime.ntpconf import changes, transform
-    from hammunition.gpstime.state import gps_from
+    from hammunition.gpstime.state import gps_from, ntpsec_installed
 
     ready = _helper_ready()
     if ready is not None:
         return ready
     mode = as_mode(args.mode)
-    try:
-        current = Path(files.NTP_CONF).read_text(encoding="utf-8")
-    except FileNotFoundError:
+    if not ntpsec_installed():
         print(
-            f"error: {files.NTP_CONF} does not exist: ntpsec is not installed, and only "
-            f"ntpsec can take time from a GPS here (D-058). This target's time daemon is "
-            f"left as it is.",
+            f"error: ntpsec is not installed ({files.NTPD} or {files.NTP_CONF} is missing), "
+            f"and only ntpsec can take time from a GPS here (D-058). This target's time "
+            f"daemon is left as it is.",
             file=sys.stderr,
         )
         return EXIT_UNPLANNABLE
+    current = Path(files.NTP_CONF).read_text(encoding="utf-8")
     try:
         edited = transform(current, mode)
     except TimeError as exc:

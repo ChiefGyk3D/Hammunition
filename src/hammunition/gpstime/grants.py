@@ -33,7 +33,7 @@ from hammunition.backends.base import BackendError, Command, CommandRunner, Subp
 from hammunition.gpstime import files
 from hammunition.gpstime.mode import DEFAULT_MODE, HELPER_HEADER, Mode, TimeError, read_mode
 from hammunition.gpstime.ntpconf import restore
-from hammunition.gpstime.state import APPARMOR_RULE, has_rtc
+from hammunition.gpstime.state import APPARMOR_RULE, has_rtc, ntpsec_installed
 
 __all__ = [
     "APPARMOR_BLOCK",
@@ -146,7 +146,7 @@ def plan_time_grants(*, installed: Callable[[str], bool] = package_installed) ->
         mode = DEFAULT_MODE
     profile = Path(files.APPARMOR_PROFILE).is_file()
     return TimeGrants(
-        ntpsec=Path(files.NTP_CONF).is_file(),
+        ntpsec=ntpsec_installed(),
         dropin_current=_read(files.DROPIN) == DROPIN_CONTENT,
         apparmor_local=(_read(files.APPARMOR_LOCAL) or "") if profile else None,
         ntp_d_dir=Path(files.NTP_D_DIR).is_dir(),
