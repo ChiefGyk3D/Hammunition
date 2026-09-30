@@ -319,7 +319,7 @@ def register_brouter(text: str, setup: BRouterSetup) -> tuple[str, list[str]]:
                 f"as it is"
             ]
     directory = current["localDir"]
-    if directory not in (None, BROUTER_DEFAULTS["localDir"], ours["localDir"]):
+    if directory not in (None, "", BROUTER_DEFAULTS["localDir"], ours["localDir"]):
         return text, [
             f"QMapShack's BRouter is set up for {directory}, not Hammunition's; left as it "
             f"is. Set its directory to {setup.tree} in QMapShack's BRouter setup to use "

@@ -144,7 +144,7 @@ from hammunition.station import (
     save_station,
 )
 from hammunition.sudo_ticket import SudoKeepalive, keepalive_wanted
-from hammunition.terrain_plan import build_terrain_run, resolve_station_terrain
+from hammunition.terrain_plan import brouter_pins, build_terrain_run, resolve_station_terrain
 from hammunition.update import region_snapshots, render, report, requested_units
 from hammunition.upstream import (
     NOT_UPSTREAM,
@@ -1423,6 +1423,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         keep=kept,
         regions=ledger,
         resolution=dem_resolution,
+        pins=brouter_pins(plan),
     )
     derived = DerivedBackend(
         prefix=source.prefix,

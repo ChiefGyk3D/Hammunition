@@ -45,7 +45,8 @@ regions and a synthetic tile, and BRouter routed across both with the
 tile's elevation. Outputs are checked, not exit statuses (D-031).
 
 ``<data>/<unit>/segments.source`` records the regions and snapshots, each
-tile folded in, the jar, each routing file installed and, last,
+tile folded in, the jar and the filters' version (as the plan pins them,
+:class:`InputPins`), each routing file installed and, last,
 :data:`CONVERTER`. The build is current when that record, less its
 ``segment`` lines, is what this run would write and every segment named in
 it exists. The tiles recorded are the ones on disk when the build ran, so a
@@ -196,14 +197,19 @@ def find_jar(tree: Path) -> Path | None:
 
 
 def render_record(
-    regions: Sequence[str], tiles: Sequence[str], jar: str | None, segments: Sequence[str]
+    regions: Sequence[str],
+    tiles: Sequence[str],
+    jar: str | None,
+    segments: Sequence[str],
+    profiles: str | None = None,
 ) -> str:
-    """The record: region lines, each tile folded in, the jar, each segment
-    installed, then :data:`CONVERTER`."""
+    """The record: region lines, each tile folded in, the jar, the filters'
+    version, each segment installed, then :data:`CONVERTER`."""
     lines = [
         *regions,
         *(f"elevation {t}" for t in tiles),
         f"program {jar or '-'}",
+        f"profiles {profiles or '-'}",
         *(f"segment {s}" for s in sorted(segments)),
         f"converter: {CONVERTER}",
     ]
@@ -222,6 +228,18 @@ def _segments_of(record: str) -> list[str]:
 
 def _tail(text: str) -> str:
     return text.strip()[-300:]
+
+
+@dataclass(frozen=True)
+class InputPins:
+    """What the catalog pins for the units the build reads, as this run plans
+    them: the ``program`` unit's tree marker (its jar's name) and the
+    ``profiles`` unit's version. Read from the plan, not the disk, so a
+    BRouter bumped in this very run rebuilds the routing files in this run:
+    the plan is made before the new tree is installed (review, I1)."""
+
+    jar: str | None = None
+    profiles: str | None = None
 
 
 @dataclass(frozen=True)
@@ -254,6 +272,7 @@ class BRouterConverter:
     runner: CommandRunner | None = None
     euid: int | None = None
     privileged: bool | None = None
+    pins: InputPins = field(default_factory=InputPins)
 
     @property
     def writer(self) -> PrefixWriter:
@@ -303,10 +322,15 @@ class BRouterConverter:
             recorded = (out / RECORD).read_text()
         except OSError:
             recorded = None
-        jar = find_jar(self._tree(block))
+        on_disk = find_jar(self._tree(block))
+        jar = self.pins.jar or (on_disk.name if on_disk is not None else None)
         if sources and recorded is not None and jar is not None:
             expected = render_record(
-                sorted(s.line for s in sources), self.wanted_tiles(block), jar.name, ()
+                sorted(s.line for s in sources),
+                self.wanted_tiles(block),
+                jar,
+                (),
+                self.pins.profiles,
             )
             segments = _segments_of(recorded)
             if (
@@ -574,7 +598,14 @@ class BRouterConverter:
         vrt = work / "window.vrt"
         window = window_tiles(square, on_disk)
         mosaic = self._run(
-            ["gdalbuildvrt", "-q", str(vrt), *(str(tiles_dir / f"{t}{TIF}") for t in window)]
+            [
+                "gdalbuildvrt",
+                "-q",
+                "-resolution",
+                "highest",
+                str(vrt),
+                *(str(tiles_dir / f"{t}{TIF}") for t in window),
+            ]
         )
         if mosaic.returncode != 0 or self.staging.digest(vrt) is None:
             return self._fail(
@@ -715,6 +746,7 @@ class BRouterConverter:
             state.get("tiles", "").split(),
             Path(state["jar"]).name,
             sorted(built),
+            self.pins.profiles,
         )
         failure = self._publish(built, out, record, writer)
         scratch = self._scratch("")
@@ -733,7 +765,11 @@ class BRouterConverter:
         names = sorted(built)
         temporaries = [out / f"{name}{NEW}" for name in names]
         try:
-            stale = sorted(p for p in out.glob(f"*{RD5}") if p.name not in built)
+            # A temporary a crashed run left between publish and rename goes too.
+            stale = sorted(
+                {p for p in out.glob(f"*{RD5}") if p.name not in built}
+                | {p for p in out.glob(f"*{RD5}{NEW}") if p.name[: -len(NEW)] not in built}
+            )
         except OSError:
             stale = []
         try:

@@ -30,10 +30,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from fnmatch import fnmatch
 from pathlib import Path
 
 from .backends.base import CommandRunner
-from .backends.brouter import BRouterConverter
+from .backends.brouter import JAR_GLOB, BRouterConverter, InputPins
 from .backends.brouter import Source as BRouterSource
 from .backends.dem import (
     TIF,
@@ -65,7 +66,7 @@ from .copernicus import (
 )
 from .fetch import Fetcher
 from .geofabrik import BASE, GeofabrikError, Probe, RegionFile
-from .manifest.schema import DemTilesInstall, DerivedDataInstall
+from .manifest.schema import BinaryInstall, DemTilesInstall, DerivedDataInstall
 from .plan import InstallPlan, PlannedPackage
 
 
@@ -209,6 +210,25 @@ def resolve_station_terrain(
     )
 
 
+def brouter_pins(plan: InstallPlan) -> InputPins:
+    """The jar and the filters' version the plan installs for the BRouter
+    build (D-063), from the planned manifests: a BRouter bumped in this run
+    is seen before its new tree is on disk."""
+    build = _planned(plan, DerivedDataInstall, "brouter-mapcreator")
+    if build is None or not isinstance(build.block.install, DerivedDataInstall):
+        return InputPins()
+    block = build.block.install
+    planned = {p.name: p for p in plan.packages}
+    jar = None
+    program = planned.get(block.program or "")
+    if program is not None and isinstance(program.block.install, BinaryInstall):
+        marker = program.block.install.tree_marker
+        if marker is not None and fnmatch(marker, JAR_GLOB):
+            jar = marker
+    profiles = planned.get(block.profiles or "")
+    return InputPins(jar=jar, profiles=profiles.manifest.version if profiles else None)
+
+
 @dataclass(frozen=True)
 class TerrainRun:
     """Piece 2's backends for one run, sharing one :class:`TerrainLedger`."""
@@ -313,6 +333,7 @@ def build_terrain_run(
     keep: frozenset[str],
     regions: MapLedger,
     resolution: DemResolution,
+    pins: InputPins | None = None,
 ) -> TerrainRun:
     """Every piece-2 backend for one run. Each converter stages in its own
     directory under the operator's build tree and runs as the operator."""
@@ -361,5 +382,6 @@ def build_terrain_run(
             regions=regions,
             ledger=ledger,
             runner=runner,
+            pins=pins or InputPins(),
         ),
     )

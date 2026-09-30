@@ -23,6 +23,7 @@ from hammunition.backends.brouter import (
     CONVERTER,
     RECORD,
     BRouterConverter,
+    InputPins,
     hgt_name,
     render_record,
     square_of_tile,
@@ -74,7 +75,7 @@ OSMIUM = """
 while [ "$1" != "-o" ]; do shift; done
 printf merged > "$2"
 """
-GDALBUILDVRT = 'printf vrt > "$2"'
+GDALBUILDVRT = 'for a; do case "$a" in *.vrt) printf vrt > "$a"; break ;; esac; done'
 GDALWARP = 'for a; do last=$a; done; printf hgt > "$last"'
 TOOLS = {"java": JAVA, "osmium": OSMIUM, "gdalbuildvrt": GDALBUILDVRT, "gdalwarp": GDALWARP}
 
@@ -266,7 +267,7 @@ def test_one_region_with_elevation_builds_and_installs_every_routing_file(
     brf = _data(tmp_path, "brouter-mapcreator-profiles")
     run = [c for _, c in calls(log)]
     assert not any(c.startswith("osmium") for c in run), "one region is read as it is"
-    assert run[0] == f"gdalbuildvrt -q {work}/window.vrt {tile}"
+    assert run[0] == f"gdalbuildvrt -q -resolution highest {work}/window.vrt {tile}"
     assert run[1].startswith("gdalwarp -q --config GDAL_PAM_ENABLED NO -te -76.000138889")
     assert run[1].endswith(f"{work}/window.vrt {work}/hgt/N39W076.hgt")
     heap = "java -Xmx4000m"
@@ -290,7 +291,7 @@ def test_one_region_with_elevation_builds_and_installs_every_routing_file(
     assert (out / "W80_N35.rd5").read_bytes() == b"seg-W80_N35"
     assert (out / "W75_N35.rd5").read_bytes() == b"seg-W75_N35"
     assert (out / RECORD).read_text() == (
-        f"atlantis-oceania 260101\nelevation {DELAWARE_TILE}\nprogram {JAR}\n"
+        f"atlantis-oceania 260101\nelevation {DELAWARE_TILE}\nprogram {JAR}\nprofiles -\n"
         f"segment W75_N35.rd5\nsegment W80_N35.rd5\nconverter: {CONVERTER}\n"
     )
     assert list(work.iterdir()) == [], "the scratch is cleared, the directory kept"
@@ -348,6 +349,39 @@ def test_the_build_is_current_until_a_region_tile_jar_or_converter_changes(
     assert _converter(tmp_path, [OCEANIA, LEMURIA], (DELAWARE_TILE,)).pending(m, _block(m))
     (_tree(tmp_path) / JAR).rename(_tree(tmp_path) / "brouter-1.7.11-all.jar")
     assert _converter(tmp_path, [OCEANIA], (DELAWARE_TILE,)).pending(m, _block(m))
+
+
+def test_a_brouter_bumped_in_this_run_rebuilds_before_its_tree_is_replaced(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The plan is made before the binary step replaces the tree, so the
+    pins come from the plan, not the disk (review, I1)."""
+    install_fakes(monkeypatch, tmp_path / "bin", TOOLS)
+    _install_inputs(tmp_path)
+    _install_region(tmp_path, OCEANIA)
+    m = manifest(elevation=False)
+    pins = InputPins(jar=JAR, profiles="1.7.10")
+    _run(_converter(tmp_path, [OCEANIA], pins=pins), m)
+    assert _converter(tmp_path, [OCEANIA], pins=pins).pending(m, _block(m)) == []
+    newer = InputPins(jar="brouter-1.7.11-all.jar", profiles="1.7.10")
+    assert _converter(tmp_path, [OCEANIA], pins=newer).pending(m, _block(m))
+    filters = InputPins(jar=JAR, profiles="1.7.11")
+    assert _converter(tmp_path, [OCEANIA], pins=filters).pending(m, _block(m))
+
+
+def test_a_temporary_left_by_a_crashed_publish_is_removed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    install_fakes(monkeypatch, tmp_path / "bin", TOOLS)
+    _install_inputs(tmp_path)
+    _install_region(tmp_path, OCEANIA)
+    out = _data(tmp_path, "brouter-segments")
+    out.mkdir(parents=True)
+    (out / "E10_N45.rd5.new").write_bytes(b"half")
+    conv = _converter(tmp_path, [OCEANIA])
+    _run(conv, manifest(elevation=False))
+    assert conv.ledger.failed == {}
+    assert not (out / "E10_N45.rd5.new").exists()
 
 
 def test_a_record_from_an_older_converter_rebuilds(

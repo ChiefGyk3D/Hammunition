@@ -496,7 +496,9 @@ the regions are merged into one input when there are two or more, the
 elevation is built one 5-degree square at a time, then BRouter's map
 builder runs its three steps. It is one set for all your regions, so a
 route may cross from one region into the next, and a region that fails
-fails the set; the set you already had is kept. It is rebuilt when a
+fails the set; the set you already had is kept (unless a failing disk
+stops the new set halfway into place, when the set is removed rather than
+left mixed, and the next run rebuilds it). It is rebuilt when a
 region, a snapshot, the elevation tiles or BRouter itself changes. Each
 Java step may use up to 4 GB of memory; the elevation step took 1.33 GB
 for Delaware's square. A region with no elevation tile is routed flat.
@@ -516,10 +518,25 @@ Using it in QMapShack:
    closes. Nothing runs while you are not routing with it.
 
 Do not use QMapShack's own *BRouter setup* wizard for this: it downloads
-BRouter and its routing files from brouter.de. BRouter listens only on
-127.0.0.1: the launcher turns on QMapShack's "bind to hostname only" for
-it, because without that BRouter accepts connections from the whole
-network.
+BRouter and its routing files from brouter.de.
+
+BRouter is meant to listen on 127.0.0.1 only: the launcher sets that host
+and turns on QMapShack's "bind to hostname only", because without it
+BRouter accepts connections from the whole network. QMapShack passes the
+host to BRouter only when it has read BRouter's version, which it does by
+running the jar and waiting up to 3 seconds; if that times out (a slow
+start on a busy machine), QMapShack can start BRouter without the host, on
+every interface. To check while a route is being calculated:
+
+```
+ss -ltnp | grep 17777
+```
+
+`127.0.0.1:17777` (or `[::ffff:127.0.0.1]:17777`) is loopback only;
+`*:17777` or `0.0.0.0:17777` is not, and then close QMapShack, reopen it and
+choose BRouter again. The development host started the jar and printed its
+version in 0.09 s, so this is not expected; it has not been seen on the
+field laptop either way.
 
 A route drawn by QMapShack through this BRouter has not been measured yet;
 see [What has not been measured yet](#what-has-not-been-measured-yet).
@@ -1226,6 +1243,8 @@ measured, and owed by the bench:
 - **A route in QMapShack through BRouter.** No desktop runs on the
   development host. QMapShack's own check of the install (it runs the jar
   and reads its version) has not been seen to pass.
+- **BRouter on loopback only while QMapShack routes**: `ss -ltnp | grep
+  17777` during a route should show `127.0.0.1` and nothing wider.
 - The build on a real region through `hammunition install`, with its time,
   memory and scratch; the scratch figure in the plan is an allowance.
 - Java on the targets other than Parrot.

@@ -181,3 +181,50 @@ def test_the_update_footer_names_the_routing_files_when_they_are_installed() -> 
     assert rebuild_command(UpdateReport(rows=rows, upstream_declared=())) == (
         "hammunition install osm-regions osm-navit brouter-segments"
     )
+
+
+def test_a_new_brouter_alone_names_the_routing_files_in_the_rebuild_command() -> None:
+    from hammunition.update import BEHIND_PIN
+
+    rows = (
+        UpdateRow("brouter", BEHIND_PIN, "1.7.10 installed; 1.7.11 pinned", "reinstall"),
+        UpdateRow("brouter-segments", "unknown", "no comparison for this method", "reinstall"),
+    )
+    assert rebuild_command(UpdateReport(rows=rows, upstream_declared=())) == (
+        "hammunition install brouter brouter-segments"
+    )
+
+
+def test_the_plan_s_pins_are_the_planned_jar_and_filters_version() -> None:
+    from hammunition.backends.brouter import InputPins
+    from hammunition.terrain_plan import brouter_pins
+
+    brouter = _unit(
+        "brouter",
+        {
+            "method": "binary",
+            "artifact": {"url": "https://example.invalid/b.zip", "sha256": "a" * 64},
+            "format": "zip",
+            "install_tree": True,
+            "tree_marker": "brouter-1.7.11-all.jar",
+        },
+    )
+    filters = _unit(
+        "brouter-mapcreator-profiles",
+        {
+            "method": "data",
+            "artifacts": [
+                {
+                    "url": "https://example.invalid/all.brf",
+                    "sha256": "a" * 64,
+                    "size": 1,
+                    "install_as": "all.brf",
+                }
+            ],
+            "licence": "MIT",
+            "licence_url": "https://example.invalid/LICENSE",
+        },
+    )
+    plan = _plan(brouter, filters, _segments())
+    assert brouter_pins(plan) == InputPins(jar="brouter-1.7.11-all.jar", profiles="station")
+    assert brouter_pins(_plan(brouter)) == InputPins()

@@ -27,7 +27,7 @@ BRouter needs routing files, and the only published ones (brouter.de) are rebuil
 
 ## Known problems
 
-One region that fails fails the whole build, and the step names it and why; the routing files already installed are left as they were. Measured on Delaware, a public example state, on 2026-09-29: 3.3 MB of routing files from a 22.1 MB download, and the elevation step at 1.33 GB of memory for one square. The map creator's scratch space and its memory on anything larger than Delaware are not measured; the plan allows 3 times the downloads of scratch, and each Java step may take up to 4 GB. Every step's command was run on the development host against the pinned jar with synthetic regions and a synthetic tile, and BRouter routed over the result with its elevation. Not yet run: a real region through `hammunition install`, and a QMapShack route over the result.
+One region that fails fails the whole build, and the step names it and why; the routing files already installed are left as they were, unless the failure comes while the new set is being renamed into place (a failing disk), when they are removed rather than left mixed and the next run rebuilds them. Measured on Delaware, a public example state, on 2026-09-29: 3.3 MB of routing files from a 22.1 MB download, and the elevation step at 1.33 GB of memory for one square. The map creator's scratch space and its memory on anything larger than Delaware are not measured; the plan allows 3 times the downloads of scratch, and each Java step may take up to 4 GB. Every step's command was run on the development host against the pinned jar with synthetic regions and a synthetic tile, and BRouter routed over the result with its elevation. Not yet run: a real region through `hammunition install`, and a QMapShack route over the result.
 
 ## Keeping it current
 
@@ -37,6 +37,6 @@ One region that fails fails the whole build, and the step names it and why; the 
 
 ## Where to get help with the software itself
 
-The map creator is upstream's misc/scripts/mapcreation/process_pbf_planet.sh run region by region; issues about it go to BRouter's GitHub issues.
+The map creator's steps are upstream's misc/scripts/mapcreation/process_pbf_planet.sh, run once over the merged regions; issues about it go to BRouter's GitHub issues.
 
 *Source: [`catalog/packages/brouter-segments.yaml`](../../catalog/packages/brouter-segments.yaml)*

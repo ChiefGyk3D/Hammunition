@@ -141,8 +141,10 @@ unmeasured, and the JVM takes only what it uses).
 
 **The record**, `<data>/brouter-segments/segments.source`: one `<slug>
 <snapshot>` line per region, one `elevation <tile>` line per tile folded in,
-`program <jar name>`, each `segment <file>.rd5` installed, and last
-`converter: brouter-mapcreator 1`. The build is current when the record,
+`program <jar name>`, `profiles <version>`, each `segment <file>.rd5`
+installed, and last `converter: brouter-mapcreator 1`. (Amended at the
+final review: the jar and the filters' version are read from the plan, so
+an upgrade in the same run rebuilds; see D-063.) The build is current when the record,
 less its `segment` lines, equals what this run would write and every named
 segment exists. A new region or snapshot, a tile added or lost, a new
 BRouter jar or a bumped converter version rebuilds it. Tiles recorded are

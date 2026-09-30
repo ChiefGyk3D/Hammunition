@@ -23,7 +23,9 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   brouter.de's routing files are never downloaded: they are rebuilt weekly
   with no checksum. The plan's *Terrain* block and its JSON say what is
   built; `hammunition maps qmapshack` points QMapShack's local BRouter at
-  it on 127.0.0.1 only and leaves a BRouter you set up yourself alone. The
+  it, set to 127.0.0.1 with bind-to-host on, and leaves a BRouter you set
+  up yourself alone (QMapShack honours the bind only once it has read
+  BRouter's version; the guide says how to check). The
   map creator now runs with `-DavoidMapPolling=true`, which removes a 120 s
   wait its parser adds to every input under 100 MB. Measured end to end on
   synthetic regions against the pinned jar; a route drawn in QMapShack is

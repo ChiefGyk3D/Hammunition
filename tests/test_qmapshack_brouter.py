@@ -96,6 +96,13 @@ def test_the_operator_s_own_brouter_is_left_alone() -> None:
     assert "/home/op/brouter" in notes[0] and "left as it is" in notes[0]
 
 
+def test_an_empty_directory_is_read_as_never_set() -> None:
+    empty = SAVED_DEFAULTS.replace("brouter\\localDir=.", "brouter\\localDir=")
+    text, notes = register_brouter(empty, SETUP)
+    assert f"brouter\\localDir={TREE}\n" in text
+    assert "pick BRouter in the Routing dock" in notes[0]
+
+
 def test_our_tree_is_always_bound_to_loopback() -> None:
     open_to_all = SAVED_DEFAULTS.replace(
         "brouter\\localBindLocalonly=true", "brouter\\localBindLocalonly=false"

@@ -272,7 +272,10 @@ BRouter otherwise listens on every interface. A quoted or `@`-typed value
 in one of these keys leaves BRouter alone, with a line, and does not refuse
 the launch. Which router the Routing dock shows (`Route/current`) is left
 to the operator. QMapShack starts BRouter itself when its Routing dock uses
-it, and stops it with QMapShack.
+it, and stops it with QMapShack. It passes the host to BRouter only once it
+has read BRouter's version, by running the jar with a 3 s limit; a probe
+that times out would start BRouter on every interface, which the guide
+says how to check (`ss -ltnp`) and the bench has still to measure.
 
 It refuses, exit 1, changing nothing and starting nothing:
 
@@ -544,7 +547,11 @@ one-arc-second `.hgt` and BRouter's `ElevationRasterTileConverter`; then
 the map creator's `OsmFastCutter` (with `-DavoidMapPolling=true`),
 `PosUnifier` and `WayLinker`; and last the install of every `.rd5`, all or
 none, with its record. A failed step fails the routing files by name, keeps
-the installed set, and is reported by the same last terrain step.
+the installed set (a rename failing partway removes it rather than leave it
+mixed, and the next run rebuilds), and is reported by the same last
+terrain step. The record names the jar and the filters' version the plan
+installs, read from the planned manifests, so a BRouter upgraded in the
+same run rebuilds the routing files in that run.
 
 The commands section shows each tile's fetch (all fetches first, as every
 download is), each install, each region's record, each Garmin build and the

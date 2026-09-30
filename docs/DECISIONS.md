@@ -5757,7 +5757,8 @@ never its exit status:
    the installed tiles in the square and its one-degree ring, `gdalwarp -te
    <lon-0.5"> <lat-0.5"> <lon+1+0.5"> <lat+1+0.5"> -ts 3601 3601 -ot Int16
    -of SRTMHGT` of each of the square's tiles out of that mosaic (so a
-   tile's edge rows come from its neighbour, not no-data), then
+   tile's edge rows come from its neighbour, not no-data; the mosaic at
+   `-resolution highest`), then
    `ElevationRasterTileConverter srtm_XX_YY hgt bef 1`, naming the square as
    `PosUnifier` does (`-1` north of 65 degrees); the `.hgt` files are
    removed before the next square;
@@ -5775,11 +5776,13 @@ synthetic region the cut took 120.1 s without the property and 0.1 s with
 it; most of the spike's "128 s" for Delaware was that wait.
 
 **The record**, `segments.source`: a `<slug> <snapshot>` line per region,
-`elevation <tile>` per tile folded in, `program <jar>`, `segment <file>`
-per routing file, and last `converter: brouter-mapcreator 1`. The set is
+`elevation <tile>` per tile folded in, `program <jar>`, `profiles
+<version>` (the filters unit's), `segment <file>` per routing file, and
+last `converter: brouter-mapcreator 1`. The set is
 current when the record, less its `segment` lines, is what this run would
 write and every segment exists. A new region or snapshot, a tile gained or
-lost, a new jar or a bumped converter rebuilds it; a tile that failed to
+lost, a new jar or filters version (as planned, so in the same run as the
+upgrade) or a bumped converter rebuilds it; a tile that failed to
 download is built in next run, because the record names the tiles that
 were on disk.
 
@@ -5847,8 +5850,43 @@ From the spike, on Delaware: the cut 128 s and 593 MB (most of it the
 polling above), the elevation square 9.3 s and 1.33 GB, the link 7 s and
 445 MB, 3.3 MB of routing files.
 
+**Loopback depends on QMapShack reading BRouter's version.** QMapShack
+1.17.1 passes the host to `RouteServer` only when "bind to hostname only" is
+on *and* it has parsed BRouter's version (`usesLocalBindaddress()`), which
+it reads by running the jar with a 3 s limit; and its synchronous route
+request starts the server in local mode without checking that the install
+was found valid (`CRouterBRouter::synchronousRequest`). A probe that times
+out would therefore start BRouter on every interface. The jar printed its
+version in 0.09 s on the development host, so this is not expected, but it
+is QMapShack's behaviour and not the engine's to prevent; the guide says
+how to check with `ss -ltnp` (final review, I2).
+
+**Final review, 2026-09-29.** The record's `program` line and a new
+`profiles` line now come from the plan (`brouter_pins()` in
+`src/hammunition/terrain_plan.py`: the planned `brouter` unit's tree marker
+and the planned filters unit's version), not the disk, because steps are
+planned before the binary step replaces the tree: read from the disk, a
+BRouter bumped in the same run left the old routing files in place until
+the next install (I1). `update` names `brouter-segments` in its rebuild
+command when `brouter` or the filters are behind. `gdalbuildvrt` takes
+`-resolution highest`, so a window crossing Copernicus's 50-degree
+longitude-spacing change is not resampled to an average grid; a
+`<square>.rd5.new` a crashed publish left is removed with the stale files;
+an empty `localDir` reads as never set.
+
+**Deferred.** A square beside the 180-degree meridian does not take its
+ring tile from across it, so its edge column has no neighbour value (no
+Geofabrik region measured sits there; recorded, not handled). The launcher
+names the `brouter` and `brouter-segments` units, as it names
+`osm-routino` (D-061's precedent). An operator who switches QMapShack's
+BRouter back to online, keeping Hammunition's directory, is switched to
+local again by the next launch, with a line saying so: QMapShack saves
+`online` both as its default and as a choice, and the two cannot be told
+apart.
+
 **Not measured, and owed by the bench:** a QMapShack route drawn through
-this BRouter (no desktop runs on the development host), and QMapShack's own
+this BRouter (no desktop runs on the development host), with `ss -ltnp`
+showing it on loopback only while it routes, and QMapShack's own
 validation of the tree; the build on a real region through `hammunition
 install`, with its time, memory and scratch; heaps and scratch on anything
 larger than Delaware; Java on the targets other than Parrot. The guide's
