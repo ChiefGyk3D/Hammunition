@@ -118,7 +118,14 @@ from hammunition.geofabrik import resolve as resolve_region
 from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH, describe_refusal
 from hammunition.interface import envelope
 from hammunition.kernel import KernelProbe
-from hammunition.kiwix import BookFile, KiwixError, KiwixProbe, load_book_list
+from hammunition.kiwix import (
+    BookFile,
+    KiwixError,
+    KiwixProbe,
+    load_book_list,
+    load_pin_file,
+    resolve_books,
+)
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
 from hammunition.manifest.schema import (
@@ -153,11 +160,12 @@ from hammunition.station import (
 )
 from hammunition.sudo_ticket import SudoKeepalive, keepalive_wanted
 from hammunition.terrain_plan import build_terrain_run, resolve_station_terrain
-from hammunition.update import region_snapshots, render, report, requested_units
+from hammunition.update import books_state, region_snapshots, render, report, requested_units
 from hammunition.upstream import (
     NOT_UPSTREAM,
     http_get,
     parse_ls_remote,
+    probe_kiwix,
     probe_upstream,
 )
 from hammunition.upstream import render as render_upstream
@@ -611,6 +619,25 @@ def cmd_update(args: argparse.Namespace) -> int:
         if isinstance(planned.block.install, RegionalDataInstall)
     }
 
+    # Kiwix books, offline (D-065): each chosen book's pinned file on disk.
+    chosen_books: dict[str, list[BookFile]] = {}
+    books_by_unit: dict[str, tuple[str, str]] = {}
+    for planned in plan.packages:
+        if not isinstance(planned.block.install, KiwixBooksInstall):
+            continue
+        try:
+            chosen_books[planned.name] = resolve_books(
+                station.reference_books,
+                load_book_list(catalog_root),
+                load_pin_file(catalog_root),
+            )
+        except KiwixError as exc:
+            books_by_unit[planned.name] = ("unknown", str(exc))
+            continue
+        books_by_unit[planned.name] = books_state(
+            chosen_books[planned.name], data_root(source.prefix) / planned.name
+        )
+
     result = report(
         plan,
         apt_states=states,
@@ -619,9 +646,10 @@ def cmd_update(args: argparse.Namespace) -> int:
         regions=regions_by_unit,
         tiles=installed_tile_counts(plan, source.prefix),
         no_terrain=no_terrain_counts(plan, source.prefix),
+        books=books_by_unit,
     )
     lists_note = _apt_lists_note(apt)
-    upstream = _upstream_rows(plan, runner) if args.upstream else None
+    upstream = _upstream_rows(plan, runner, books=chosen_books) if args.upstream else None
     if envelope.wanted(args):
         envelope.emit(
             build_update(
@@ -637,7 +665,12 @@ def cmd_update(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def _upstream_rows(plan: InstallPlan, runner: SubprocessRunner) -> list[UpstreamRow]:
+def _upstream_rows(
+    plan: InstallPlan,
+    runner: SubprocessRunner,
+    *,
+    books: Mapping[str, Sequence[BookFile]] | None = None,
+) -> list[UpstreamRow]:
     """D-053's second half: the catalog's pin against what upstream publishes.
 
     Opt-in because it is the one thing the engine does that talks to someone
@@ -666,6 +699,10 @@ def _upstream_rows(plan: InstallPlan, runner: SubprocessRunner) -> list[Upstream
         probe_upstream(planned.manifest, http=http, ls_remote=ls_remote)
         for planned in plan.packages
     ]
+    # D-065: a book unit is asked about per chosen book, of Kiwix only.
+    kiwix = KiwixProbe()
+    for unit, chosen in (books or {}).items():
+        rows.extend(probe_kiwix(unit, chosen, text=kiwix.text))
     return [r for r in rows if r.state != NOT_UPSTREAM]
 
 

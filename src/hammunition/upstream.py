@@ -23,12 +23,14 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
+from hammunition.kiwix import BookFile, BookPin, KiwixError, KiwixGone, current_file, file_date
 from hammunition.manifest.schema import GitInstall, PackageManifest, SourceInstall
 
 CURRENT = "current"
 NEWER_UPSTREAM = "newer upstream"
 DIFFERS = "differs"
 UNANSWERED = "unanswered"
+EXPIRED = "pin expired"
 NOT_UPSTREAM = "not an upstream probe"
 
 Http = Callable[[str], str]
@@ -174,6 +176,73 @@ def probe_upstream(manifest: PackageManifest, *, http: Http, ls_remote: LsRemote
         return row(None, UNANSWERED, f"{type(exc).__name__}: {exc}"[:200])
 
 
+OPDS = "https://opds.library.kiwix.org/catalog/v2/entries"
+KIWIX_REGENERATE = "regenerate the pins with scripts/gen_kiwix_pins.py"
+
+
+def probe_kiwix(
+    unit: str, books: Sequence[BookFile], *, text: Callable[[str], str]
+) -> list[UpstreamRow]:
+    """Each chosen book's pin against the file Kiwix publishes now (D-065).
+
+    One OPDS answer per book (about 3 KB). When Kiwix's newest file is not
+    the pinned one, the pinned file's ``.meta4`` is asked for too: Kiwix
+    keeps the two newest dated files of a book, so a pin one behind is
+    still published and goes at the next publication (*newer upstream*),
+    and a pin that answers 404 is gone already (*pin expired*).
+    """
+    from urllib.parse import quote
+
+    rows: list[UpstreamRow] = []
+    for book in books:
+        pin = book.pin
+
+        def row(upstream: str | None, state: str, detail: str, pin: BookPin = pin) -> UpstreamRow:
+            return UpstreamRow(f"{unit}/{pin.id}", "kiwix", pin.published, upstream, state, detail)
+
+        try:
+            answer = text(f"{OPDS}?name={quote(book.book.name)}")
+            newest = current_file(answer, book.book.name, book.book.flavour)
+            if newest is None:
+                rows.append(row(None, UNANSWERED, "Kiwix's catalogue lists no file of this book"))
+                continue
+            if newest == pin.file:
+                rows.append(row(file_date(newest), CURRENT, "the pinned file is Kiwix's newest"))
+                continue
+            if file_date(newest) < pin.published:
+                rows.append(
+                    row(
+                        file_date(newest),
+                        DIFFERS,
+                        f"Kiwix's newest is {newest}, older than the pin",
+                    )
+                )
+                continue
+            try:
+                text(f"{pin.url}.meta4")
+            except KiwixGone:
+                rows.append(
+                    row(
+                        file_date(newest),
+                        EXPIRED,
+                        f"{pin.file} is no longer published (Kiwix keeps two dated files "
+                        f"per book) and an install will refuse it; {KIWIX_REGENERATE}",
+                    )
+                )
+                continue
+            rows.append(
+                row(
+                    file_date(newest),
+                    NEWER_UPSTREAM,
+                    f"Kiwix published {newest}; it keeps two dated files per book, so the "
+                    f"pinned {pin.file} goes at the next publication; {KIWIX_REGENERATE}",
+                )
+            )
+        except KiwixError as exc:
+            rows.append(row(None, UNANSWERED, f"{exc}"[:200]))
+    return rows
+
+
 def render(rows: Sequence[UpstreamRow]) -> str:
     asked = [r for r in rows if r.state != NOT_UPSTREAM]
     out = [f"Upstream ({len(asked)} asked):"]
@@ -187,12 +256,14 @@ def render(rows: Sequence[UpstreamRow]) -> str:
         )
     counts = {
         s: sum(1 for r in asked if r.state == s)
-        for s in (CURRENT, NEWER_UPSTREAM, DIFFERS, UNANSWERED)
+        for s in (CURRENT, NEWER_UPSTREAM, DIFFERS, UNANSWERED, EXPIRED)
     }
     out.append("")
+    expired = f", {counts[EXPIRED]} pin(s) expired" if counts[EXPIRED] else ""
     out.append(
         f"{counts[CURRENT]} current, {counts[NEWER_UPSTREAM]} with a newer upstream, "
-        f"{counts[DIFFERS]} differing in a way the numbers do not order, {counts[UNANSWERED]} unanswered."
+        f"{counts[DIFFERS]} differing in a way the numbers do not order, "
+        f"{counts[UNANSWERED]} unanswered{expired}."
     )
     newer = [r.unit for r in asked if r.state == NEWER_UPSTREAM]
     if newer:
@@ -201,7 +272,8 @@ def render(rows: Sequence[UpstreamRow]) -> str:
         )
         out.append(f"`hammunition install {' '.join(newer)}` on a machine rebuilds at the new pin.")
     out.append(
-        "Answers came from GitHub, git hosts, PyPI or a version file; nothing was downloaded or written."
+        "Answers came from GitHub, git hosts, PyPI, Kiwix or a version file; nothing was "
+        "downloaded or written."
     )
     return "\n".join(out)
 
