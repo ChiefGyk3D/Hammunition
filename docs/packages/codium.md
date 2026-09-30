@@ -34,6 +34,15 @@ On Parrot, nothing. On every other target, the vscodium apt repository above mus
   - Writes /etc/apt/sources.list.d/vscodium.sources and installs the signing key to /etc/apt/keyrings/vscodium.gpg, with Signed-By pointing at that keyring so the key is trusted for this repository only and not archive-wide. On Parrot neither file is written and no repository is added, because the package is already in the distribution's archive.
   - undo: sudo rm /etc/apt/sources.list.d/vscodium.sources /etc/apt/keyrings/vscodium.gpg && sudo apt update
 
+## Third-party apt repositories
+
+Added only when the target's own archive has no candidate, and only after you affirm the key fingerprint (**D-040**); `--yes` does not answer it.
+
+- **vscodium**
+  - `https://download.vscodium.com/debs` suite `vscodium`, component `main`
+  - key: <https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/raw/master/pub.gpg>
+  - fingerprint: `1302DE60231889FE1EBACADC54678CF75A278D9C`
+
 ## Known problems
 
 Extensions come from Open VSX rather than Microsoft's marketplace, and a few Microsoft-published extensions are not there — the C++ and remote-development ones most notably, which are licensed for use only with Microsoft's own build. That is the concrete trade-off against `code`, and it runs the other way too: `code` sends telemetry to Microsoft by default and requires their repository. Both are installable, neither displaces the other, and the catalog does not pick for you.
