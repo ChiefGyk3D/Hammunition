@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import shutil
 from collections.abc import Iterator
 from contextlib import contextmanager
 from io import BytesIO
@@ -396,6 +397,9 @@ def test_an_extra_file_left_a_symlink_fails_the_effect_check(tmp_path: Path) -> 
     assert check.confirmed
 
 
+@pytest.mark.skipif(
+    shutil.which("git") is None, reason="needs git on PATH (the container jobs have none)"
+)
 def test_the_weekly_ref_check_refuses_a_tag_off_its_commit(tmp_path: Path) -> None:
     """scripts/check_pin_reviews.py --verify-refs, against a local repository:
     a tag at its pinned commit passes, and a re-cut one is named."""
