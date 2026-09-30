@@ -917,3 +917,48 @@ def test_the_copernicus_check_reports_current_and_writes_nothing() -> None:
     result = _copernicus_check()
     assert result.returncode == 0, f"{result.stdout}{result.stderr}"
     assert "up to date" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# The Kiwix book pins (catalog/data/kiwix-pins.yaml), D-065
+#
+# `--check --offline` compares the pin file with the hand-written book list
+# (one pin per listed book, in its order) and needs no network, so it runs
+# everywhere. The full `--check` asks Kiwix for each pinned file's .meta4:
+# Kiwix keeps two dated files per book, so a pin dies on its calendar, and
+# the weekly pin-reviews job goes red naming it. Here it skips with the
+# reason, since this suite blocks every non-loopback socket.
+# ---------------------------------------------------------------------------
+
+KIWIX_PINS = REPO_ROOT / "catalog" / "data" / "kiwix-pins.yaml"
+
+
+def _kiwix_check(*extra: str) -> subprocess.CompletedProcess[str]:
+    before = KIWIX_PINS.stat().st_mtime_ns
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "gen_kiwix_pins.py"), "--check", *extra],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    assert KIWIX_PINS.stat().st_mtime_ns == before, "--check wrote the pin file"
+    return result
+
+
+def test_the_kiwix_pins_match_the_book_list_offline() -> None:
+    result = _kiwix_check("--offline")
+    assert result.returncode == 0, f"{result.stdout}{result.stderr}"
+    assert "well formed" in result.stdout
+
+
+def test_the_kiwix_check_reports_current_and_writes_nothing() -> None:
+    if not _network_reaches("download.kiwix.org"):
+        pytest.skip(
+            "the check asks download.kiwix.org for every pinned file's .meta4; the "
+            "network is unavailable here (this suite blocks non-loopback sockets). "
+            "The weekly pin-reviews CI job runs it."
+        )
+    result = _kiwix_check()
+    assert result.returncode == 0, f"{result.stdout}{result.stderr}"
+    assert "up to date" in result.stdout
