@@ -1030,10 +1030,6 @@ def _qmapshack_poi_path(directory: Path, *, present: bool) -> RegistrationView:
         return RegistrationView(
             "qmapshack", str(path), "not there", f"nothing to take out of {path}"
         )
-    if not present and not text:
-        return RegistrationView(
-            "qmapshack", str(path), "not there", f"nothing to take out of {path}"
-        )
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         _replace_atomically(path, updated, mode)
