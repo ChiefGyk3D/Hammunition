@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 72 | 2 | 206 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 72 | 2 | 206 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 70 | 2 | 208 |
-| kali-rolling *(unswept)* | 0 | 0 | 67 | 0 | 213 |
-| parrot *(unswept)* | 0 | 0 | 70 | 2 | 208 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 70 | 2 | 208 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 69 | 5 | 206 |
+| debian-13 *(unswept)* | 0 | 0 | 73 | 2 | 206 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 73 | 2 | 206 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 71 | 2 | 208 |
+| kali-rolling *(unswept)* | 0 | 0 | 68 | 0 | 213 |
+| parrot *(unswept)* | 0 | 0 | 71 | 2 | 208 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 71 | 2 | 208 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 70 | 5 | 206 |
 
-**280 manifests** against **7 targets**.
+**281 manifests** against **7 targets**.
 
 ---
 
@@ -235,6 +235,7 @@ build HAS been run in a container say so in their own install notes.
 | `proxmark3` | git | git | git | apt ? | git | git | git |
 | `psk31lx` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `putty` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `pygpsclient` | venv | venv | venv | venv | venv | venv | venv |
 | `pyqso` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `python3-meshtastic` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `python3-pyhamtools` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |

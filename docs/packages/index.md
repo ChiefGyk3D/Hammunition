@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**280 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**281 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -224,7 +224,7 @@ Practice tests for the US, Canadian and commercial licence exams.
 - [fccexam](fccexam.md) — Practice tests for the US FCC commercial radio licence exams
 - [hamexam](hamexam.md) — Practice tests for the United States amateur radio licence exams
 
-### `gps-gnss` — 8
+### `gps-gnss` — 9
 
 GPS receivers and the daemon that shares one, format converters, and a GNSS receiver in software.
 
@@ -235,6 +235,7 @@ GPS receivers and the daemon that shares one, format converters, and a GNSS rece
 - [gpsd-clients](gpsd-clients.md) — Clients that consume what gpsd serves — xgps, gpspipe, gpxlogger, gpsdecode
 - [gpsd-tools](gpsd-tools.md) — cgps and gpsmon — the two programs you actually reach for when a receiver misbehaves
 - [navit](navit.md) — Offline turn-by-turn navigation that follows the GPS, with spoken directions
+- [pygpsclient](pygpsclient.md) — See what your GNSS receiver sees, and configure a u-blox receiver without u-center
 - [qmapshack](qmapshack.md) — Offline topographic maps, trails, GPX tracks, elevation profiles and routing on foot
 
 ### `ism-subghz` — 3
@@ -857,6 +858,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [proxmark3](proxmark3.md) | Client and firmware tooling for the Proxmark3 RFID and NFC research device | apt, git |
 | [psk31lx](psk31lx.md) | PSK31 in a terminal, with no desktop and no waterfall | apt |
 | [putty](putty.md) | The GUI serial terminal hams reach for, with saved sessions | apt |
+| [pygpsclient](pygpsclient.md) | See what your GNSS receiver sees, and configure a u-blox receiver without u-center | venv |
 | [pyqso](pyqso.md) | Simple GTK logger in Python, easy to read and easy to change | apt |
 | [python3-meshtastic](python3-meshtastic.md) | Meshtastic command-line client and Python API | apt |
 | [python3-pyhamtools](python3-pyhamtools.md) | Python library for callsign lookup, locators and DXCC data | apt |
