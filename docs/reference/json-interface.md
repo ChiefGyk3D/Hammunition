@@ -2857,6 +2857,7 @@ and a grid square or a map region says where the station is.
 | `node_alias` | string or null | the packet node alias; null when not set |
 | `map_regions` | list of string | Geofabrik region paths carrying offline map data; empty when none are set |
 | `map_freshness` | string or null | how often map data is refreshed: yearly, monthly or latest; null means the yearly default applies |
+| `mirror` | string or null | the LAN mirror the verified fetch tries before the publisher, the same digest checked either way (D-070); null when none is set |
 
 <details><summary>JSON Schema</summary>
 
@@ -2923,6 +2924,17 @@ and a grid square or a map region says where the station is.
         }
       ],
       "title": "Map Freshness"
+    },
+    "mirror": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Mirror"
     }
   },
   "required": [
@@ -2932,7 +2944,8 @@ and a grid square or a map region says where the station is.
     "grid_square",
     "node_alias",
     "map_regions",
-    "map_freshness"
+    "map_freshness",
+    "mirror"
   ],
   "title": "StationDocument",
   "type": "object"
