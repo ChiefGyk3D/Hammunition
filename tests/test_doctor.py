@@ -11,11 +11,15 @@ value of the command.
 from __future__ import annotations
 
 import os
+from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from hammunition.doctor import Check, run_checks, summarize, writable_or_creatable
+from hammunition.gpstime.state import TimeState
 
 HEALTHY: dict[str, object] = {
     "target_describe": "Parrot Security 7.3",
@@ -307,3 +311,71 @@ def test_qmapshack_without_routino_translations_warns_with_the_fix() -> None:
     assert "/usr/share/routino/translations.xml" in check.detail
     assert check.fix == "sudo apt-get install --reinstall routino-common"
     assert not [c for c in run_checks(**HEALTHY) if c.name == "qmapshack"]  # type: ignore[arg-type]
+
+
+TIME = TimeState(
+    mode="auto",
+    mode_set=False,
+    daemon="ntpsec",
+    gps="awake",
+    following="network",
+    offset_ms=-4.4,
+    last_sync=datetime(2026, 9, 28, 14, 44, tzinfo=UTC),
+    last_source="network",
+    holdover_seconds=None,
+    rtc=True,
+    grants=True,
+    dhcp_config=False,
+    problems=(),
+)
+
+
+def _time_checks(**over: Any) -> list[Check]:
+    checks = run_checks(**HEALTHY, time_state=replace(TIME, **over))  # type: ignore[arg-type]
+    return [c for c in checks if c.name in ("time", "hardware clock")]
+
+
+def test_the_followed_source_is_ok() -> None:
+    [check] = _time_checks()
+    assert check.status == "ok" and "the network" in check.detail and "-4.4 ms" in check.detail
+
+
+def test_a_machine_without_an_rtc_is_warned_with_the_fix() -> None:
+    clock = [c for c in _time_checks(rtc=False) if c.name == "hardware clock"]
+    assert clock and clock[0].status == "warn"
+    assert clock[0].fix is not None and "RTC" in clock[0].fix and "fake-hwclock" in clock[0].fix
+
+
+def test_holdover_under_a_day_is_stated() -> None:
+    [check] = _time_checks(following="none", holdover_seconds=7200)
+    assert check.status == "info" and "2 h 0 min" in check.detail
+
+
+def test_holdover_past_a_day_warns() -> None:
+    [check] = _time_checks(following="none", holdover_seconds=187_200)
+    assert check.status == "warn" and "2 d 4 h" in check.detail
+
+
+def test_gps_only_with_the_receiver_parked_warns() -> None:
+    [check] = _time_checks(mode="gps-only", gps="parked", following="none", holdover_seconds=60)
+    assert check.status == "warn" and "parked" in check.detail
+    assert check.fix is not None and "time mode auto" in check.fix
+
+
+def test_never_synchronised_warns() -> None:
+    [check] = _time_checks(following="none", last_sync=None, holdover_seconds=None)
+    assert check.status == "warn"
+
+
+def test_missing_grants_warn_with_hardware_apply() -> None:
+    checks = _time_checks(grants=False)
+    assert any(c.status == "warn" and c.fix == "hammunition hardware apply" for c in checks)
+
+
+def test_a_target_without_ntpsec_is_stated_not_failed() -> None:
+    [check] = _time_checks(daemon=None, following="unknown")
+    assert check.status == "info" and "D-058" in check.detail
+
+
+def test_no_time_state_adds_no_time_checks() -> None:
+    assert [c for c in run_checks(**HEALTHY) if c.name == "time"] == []  # type: ignore[arg-type]

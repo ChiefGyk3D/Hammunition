@@ -3397,3 +3397,152 @@ def test_hardware_unapply_dry_run_lists_the_gps_time_steps(
     out = capsys.readouterr().out
     assert "marked lines back" in out and "systemctl restart ntpsec" in out
     assert Path(files.NTP_CONF).read_text() != debian_ntp_conf, "a dry run changed nothing"
+
+
+def _ready_helper(monkeypatch: pytest.MonkeyPatch, cli: Any, tmp_path: Path) -> Path:
+    helper = tmp_path / "hammunition-devctl"
+    helper.write_text("#!/bin/sh\n")
+    helper.chmod(0o755)
+    monkeypatch.setattr(cli, "HELPER_PATH", str(helper))
+    monkeypatch.setattr(
+        cli.shutil, "which", lambda name: "/usr/bin/pkexec" if name == "pkexec" else None
+    )
+    return helper
+
+
+def test_time_reads_without_privilege_and_says_what_the_clock_follows(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+    from datetime import UTC, datetime
+
+    from hammunition.gpstime import state as time_state
+
+    cli = importlib.import_module("hammunition.cli.main")
+    monkeypatch.setattr(cli, "_survey_parkables", lambda args: ([_gps_receiver()], []))
+    seen: list[str] = []
+
+    def fake_gather(*, gps: str) -> Any:
+        seen.append(gps)
+        return time_state.TimeState(
+            mode="auto",
+            mode_set=True,
+            daemon="ntpsec",
+            gps="awake",
+            following="none",
+            offset_ms=None,
+            last_sync=datetime(2026, 9, 28, 14, 44, tzinfo=UTC),
+            last_source="gps",
+            holdover_seconds=3600,
+            rtc=True,
+            grants=True,
+            dhcp_config=False,
+            problems=(),
+        )
+
+    monkeypatch.setattr(time_state, "gather", fake_gather)
+
+    class Exploding:
+        def run(self, command: Command) -> CommandResult:  # pragma: no cover
+            raise AssertionError("`time` ran something")
+
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: Exploding())
+    assert cli.main(["time"]) == 0
+    out = capsys.readouterr().out
+    assert "Holdover since 14:44 UTC (1 h 0 min)" in out
+    assert seen == ["awake"]
+
+
+def test_time_mode_dry_run_discloses_every_write_and_runs_nothing(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    time_files: Path,
+) -> None:
+    import importlib
+
+    from hammunition.gpstime import files
+
+    cli = importlib.import_module("hammunition.cli.main")
+    helper = _ready_helper(monkeypatch, cli, tmp_path)
+    monkeypatch.setattr(cli, "_survey_parkables", lambda args: ([_gps_receiver()], []))
+
+    class Exploding:
+        def run(self, command: Command) -> CommandResult:  # pragma: no cover
+            raise AssertionError("a dry run executed something")
+
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: Exploding())
+    assert cli.main(["time", "mode", "gps-only", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert f"{files.TIME_CONFIG} <- mode: gps-only" in out
+    assert files.NTP_D_FILE in out and "refclock shm unit 0 refid GPS" in out
+    assert "- pool 0.debian.pool.ntp.org iburst" in out
+    assert "systemctl restart ntpsec" in out
+    assert f"pkexec {helper} time mode gps-only" in out
+    assert "Dry run" in out
+
+
+def test_time_mode_refuses_without_ntpsec(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    _ready_helper(monkeypatch, cli, tmp_path)
+    assert cli.main(["time", "mode", "auto"]) == EXIT_UNPLANNABLE
+    assert "ntpsec is not installed" in capsys.readouterr().err
+
+
+def test_time_mode_refuses_without_the_helper(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    monkeypatch.setattr(cli, "HELPER_PATH", "/nonexistent/hammunition-devctl")
+    assert cli.main(["time", "mode", "auto"]) == EXIT_UNPLANNABLE
+    assert "hardware apply" in capsys.readouterr().err
+
+
+def test_time_mode_says_a_gps_mode_waits_for_a_receiver(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    time_files: Path,
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    _ready_helper(monkeypatch, cli, tmp_path)
+    monkeypatch.setattr(cli, "_survey_parkables", lambda args: ([], []))
+    assert cli.main(["time", "mode", "prefer-gps", "--dry-run"]) == 0
+    assert "takes effect when one is" in capsys.readouterr().out
+
+
+def test_time_mode_maps_a_dismissed_prompt_to_exit_3(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    time_files: Path,
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    _ready_helper(monkeypatch, cli, tmp_path)
+    monkeypatch.setattr(cli, "_survey_parkables", lambda args: ([_gps_receiver()], []))
+
+    class Dismissing:
+        def run(self, command: Command) -> CommandResult:
+            return CommandResult(argv=tuple(command.argv), returncode=126, stdout="", stderr="")
+
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: Dismissing())
+    assert cli.main(["time", "mode", "auto"]) == EXIT_CONSENT
+    assert "nothing was changed" in capsys.readouterr().err.lower()
+
+
+def test_time_mode_takes_only_the_four_modes() -> None:
+    with pytest.raises(SystemExit) as caught:
+        main(["time", "mode", "gps"])
+    assert caught.value.code == 2

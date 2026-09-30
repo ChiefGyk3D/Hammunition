@@ -2796,19 +2796,9 @@ def cmd_hardware_state(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def _power_verb(args: argparse.Namespace, verb: str) -> int:
-    """Disclose the privileged call and every write it will cause, then run it."""
-    from hammunition.hardware.power import (
-        KEPT_RULES,
-        PowerError,
-        plan_forget,
-        plan_park,
-        plan_wake,
-        read_kept,
-    )
-
-    helper = Path(HELPER_PATH)
-    if not helper.is_file():
+def _helper_ready() -> int | None:
+    """An exit code when the privileged helper cannot be reached, else None."""
+    if not Path(HELPER_PATH).is_file():
         print(
             f"error: the privileged helper is not installed at {HELPER_PATH}.\n"
             f"`hammunition hardware apply` installs it, together with the polkit "
@@ -2820,12 +2810,49 @@ def _power_verb(args: argparse.Namespace, verb: str) -> int:
         print(
             "error: pkexec is not on PATH, so the privileged helper cannot be "
             "authorised. It comes from the `polkit` package (`pkexec` is in "
-            "`policykit-1` on Debian-family targets). Without it, park and wake "
-            "have no way to escalate; `hammunition hardware state` still works, "
-            "because reading sysfs needs no privilege.",
+            "`policykit-1` on Debian-family targets). Without it, park, wake and "
+            "time mode have no way to escalate; `hammunition hardware state` and "
+            "`hammunition time` still work, because reading needs no privilege.",
             file=sys.stderr,
         )
         return EXIT_UNPLANNABLE
+    return None
+
+
+def _run_helper(command: Command, done: str) -> int:
+    """Run a pkexec call and map its exit to ours: 126/127 is a dismissed prompt."""
+    try:
+        result = SubprocessRunner().run(command)
+    except BackendError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    if result.returncode in (126, 127):
+        print("The authentication prompt was dismissed; nothing was changed.", file=sys.stderr)
+        return EXIT_CONSENT
+    if result.returncode == EXIT_UNPLANNABLE:
+        print(result.stderr.strip() or "the helper refused the request", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    if result.returncode != 0:
+        print(result.stderr.strip()[:400] or f"helper exited {result.returncode}", file=sys.stderr)
+        return EXIT_FAILED
+    print(f"\n{done}")
+    return EXIT_OK
+
+
+def _power_verb(args: argparse.Namespace, verb: str) -> int:
+    """Disclose the privileged call and every write it will cause, then run it."""
+    from hammunition.hardware.power import (
+        KEPT_RULES,
+        PowerError,
+        plan_forget,
+        plan_park,
+        plan_wake,
+        read_kept,
+    )
+
+    ready = _helper_ready()
+    if ready is not None:
+        return ready
 
     found, skipped = _survey_parkables(args)
     for unit, why in skipped:
@@ -2879,25 +2906,9 @@ def _power_verb(args: argparse.Namespace, verb: str) -> int:
         print("\nDry run: nothing above was executed.")
         return EXIT_OK
 
-    try:
-        result = SubprocessRunner().run(command)
-    except BackendError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return EXIT_FAILED
-    if result.returncode in (126, 127):
-        print(
-            "The authentication prompt was dismissed; nothing was changed.",
-            file=sys.stderr,
-        )
-        return EXIT_CONSENT
-    if result.returncode == EXIT_UNPLANNABLE:
-        print(result.stderr.strip() or "the helper refused the request", file=sys.stderr)
-        return EXIT_UNPLANNABLE
-    if result.returncode != 0:
-        print(result.stderr.strip()[:400] or f"helper exited {result.returncode}", file=sys.stderr)
-        return EXIT_FAILED
-    print(f"\nDone and verified. `hammunition hardware state` shows {label} now.")
-    return EXIT_OK
+    return _run_helper(
+        command, f"Done and verified. `hammunition hardware state` shows {label} now."
+    )
 
 
 def cmd_hardware_park(args: argparse.Namespace) -> int:
@@ -2908,6 +2919,84 @@ def cmd_hardware_park(args: argparse.Namespace) -> int:
 def cmd_hardware_wake(args: argparse.Namespace) -> int:
     """Bring a parked device back."""
     return _power_verb(args, "wake")
+
+
+# ---------------------------------------------------------------------------
+# time — GPS time (D-058)
+# ---------------------------------------------------------------------------
+
+
+def cmd_time(args: argparse.Namespace) -> int:
+    """What the clock follows now, and the mode. Reads only; needs no privilege."""
+    from hammunition.gpstime import state as time_state
+
+    found, _ = _survey_parkables(args)
+    for line in time_state.describe(time_state.gather(gps=time_state.gps_from(found))):
+        print(line)
+    return EXIT_OK
+
+
+def cmd_time_mode(args: argparse.Namespace) -> int:
+    """Disclose the three files a mode change writes and the restart, then ask the helper."""
+    from hammunition.gpstime import files
+    from hammunition.gpstime.mode import GPS_MODES, TimeError, as_mode, render_ntp_d
+    from hammunition.gpstime.ntpconf import changes, transform
+    from hammunition.gpstime.state import gps_from
+
+    ready = _helper_ready()
+    if ready is not None:
+        return ready
+    mode = as_mode(args.mode)
+    try:
+        current = Path(files.NTP_CONF).read_text(encoding="utf-8")
+    except FileNotFoundError:
+        print(
+            f"error: {files.NTP_CONF} does not exist: ntpsec is not installed, and only "
+            f"ntpsec can take time from a GPS here (D-058). This target's time daemon is "
+            f"left as it is.",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
+    try:
+        edited = transform(current, mode)
+    except TimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+
+    print(f"Setting the time mode to {mode}\n")
+    print("Writes this will cause, as root, through the helper:")
+    print(f"  {files.TIME_CONFIG} <- mode: {mode}")
+    print(f"  {files.NTP_D_FILE}, rewritten whole:")
+    for line in render_ntp_d(mode).splitlines():
+        print(f"    {line}")
+    edits = changes(current, edited)
+    if edits:
+        print(
+            f"  {files.NTP_CONF}, marked lines only (another mode or "
+            f"`hardware unapply` puts them back exactly):"
+        )
+        for line in edits:
+            print(f"    {line}")
+    print("  then `systemctl restart ntpsec`: ntpsec rereads its configuration only on a restart.")
+
+    found, _ = _survey_parkables(args)
+    gps = gps_from(found)
+    if mode in GPS_MODES and gps == "absent":
+        print("\nNo GPS receiver is attached: the mode is recorded and takes effect when one is.")
+    elif mode in GPS_MODES and gps == "parked":
+        print("\nThe GPS receiver is parked: GPS time stays off until it is woken.")
+
+    command = Command(
+        argv=("pkexec", HELPER_PATH, "time", "mode", mode),
+        description=f"Set the time mode to {mode}",
+    )
+    print(f"\n  # {command.description}\n  $ {command.display()}")
+    if args.dry_run:
+        print("\nDry run: nothing above was executed.")
+        return EXIT_OK
+    return _run_helper(
+        command, "Done and verified. `hammunition time` shows what the clock follows now."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -3027,6 +3116,15 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     except (OSError, PowerError, CatalogError, SystemExit):
         kept_attached, kept_absent = (), ()
 
+    time_state = None
+    try:
+        from hammunition.gpstime.state import gather, gps_from
+
+        found_now, _ = _survey_parkables(args)
+        time_state = gather(gps=gps_from(found_now))
+    except (OSError, CatalogError, SystemExit):
+        time_state = None
+
     sessions = scan_sessions()
     checks = run_checks(
         target_describe=target_describe,
@@ -3055,6 +3153,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         qmapshack_without_translations=(
             shutil.which("qmapshack") is not None and not Path(ROUTINO_TRANSLATIONS).is_file()
         ),
+        time_state=time_state,
     )
 
     from hammunition.interface.doctor import build_doctor, render_doctor
@@ -3402,6 +3501,24 @@ def build_parser() -> argparse.ArgumentParser:
                 help="park now, but let a reboot wake it (no kept entry)",
             )
         p_verb.set_defaults(func=cmd_hardware_park if verb == "park" else cmd_hardware_wake)
+
+    from hammunition.gpstime.mode import MODES
+
+    p_time = sub.add_parser(
+        "time", help="GPS time (D-058): what the clock follows, and the time mode"
+    )
+    p_time.set_defaults(func=cmd_time)
+    time_sub = p_time.add_subparsers(dest="time_command")
+    p_time_mode = time_sub.add_parser(
+        "mode", help="auto | prefer-gps | ntp-only | gps-only, through the helper"
+    )
+    p_time_mode.add_argument("mode", choices=MODES)
+    p_time_mode.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print every write, the restart and the privileged call, then stop",
+    )
+    p_time_mode.set_defaults(func=cmd_time_mode)
 
     p_station = sub.add_parser("station", help="the values only you can supply")
     station_sub = p_station.add_subparsers(dest="station_command", required=True)
