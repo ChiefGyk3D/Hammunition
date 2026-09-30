@@ -189,6 +189,7 @@ def test_not_root_it_is_the_ordinary_write(tmp_path: Path) -> None:
 def test_the_plan_step_under_root_is_the_operator_write(operator: Any) -> None:
     """config_steps picks the root-safe writer for a path in a home, and the
     dry run says whose the file will be."""
+    from hammunition.backends import Action
     from hammunition.distro import Target
     from hammunition.execute import config_steps
     from hammunition.plan import InstallPlan, PlannedPackage
@@ -209,6 +210,7 @@ def test_the_plan_step_under_root_is_the_operator_write(operator: Any) -> None:
         config_files=tuple(writable),
     )
     (step,) = config_steps(plan)
+    assert isinstance(step, Action), "an in-process write, never a root command by path"
     assert "handed to operator" in step.detail
     step.perform()
     assert (home / ".config" / "App" / "x.conf").read_text() == "CALL=N0TST\n"
