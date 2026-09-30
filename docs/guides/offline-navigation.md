@@ -478,7 +478,7 @@ QMapShack.
 
 ## 11. Your position in QMapShack: the GPS tether
 
-QMapShack does not talk to gpsd. Its *GPS Tether* reads NMEA, the sentence
+QMapShack does not talk to gpsd. Its Realtime source *GPS TCP/IP* reads NMEA, the sentence
 format GPS receivers speak, from a network port. The tether makes that NMEA
 from gpsd's position and serves it on this machine only. Run the *GPS
 position for QMapShack* launcher, or in a terminal:
@@ -491,13 +491,13 @@ It prints what to enter:
 
 ```
 Serving gpsd's position as NMEA on 127.0.0.1 port 10110, to this machine only.
-In QMapShack: Realtime, then GPS Tether; host 127.0.0.1, port 10110.
+In QMapShack: Realtime, Add source, GPS TCP/IP; host 127.0.0.1, port 10110.
 Reading gpsd at 127.0.0.1 port 2947. Any number of NMEA programs may connect at once.
 Options: --gpsd HOST[:PORT] for a gpsd on another machine, --port N if 10110 is taken.
 Ctrl-C stops it. Navit reads gpsd directly and needs none of this.
 ```
 
-In QMapShack open *Realtime*, add *GPS Tether*, and enter host `127.0.0.1`
+In QMapShack open the *Realtime* dock, right-click its list, *Add source*, choose *GPS TCP/IP* (measured on 1.17.1: that is the label, not "GPS Tether"), and enter host `127.0.0.1`
 and port `10110`.
 
 Once set up, QMapShack connects again by itself whenever a tether is

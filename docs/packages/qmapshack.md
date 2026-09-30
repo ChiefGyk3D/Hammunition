@@ -19,7 +19,7 @@ A road navigator does not know trails and has no terrain. For a hike, a search, 
 
 ## Before it will work
 
-Your map regions set in station config, and the `navigation` profile's map units installed, so there are maps, elevation and a routing database to show; start it from the `qmapshack-offline` launcher, which writes their directories into QMapShack's own configuration first (`mapPath` and `demPaths` under [Canvas], `routino\paths` under [Route]). For your position, gpsd with a receiver that has a fix, and the `gps-tether` launcher running, which makes NMEA from gpsd's position and serves it on 127.0.0.1 port 10110 for QMapShack's GPS Tether dialog to take. A gpsd on another machine (a Pi, a phone, a shack computer) is read with `hammunition maps gps-tether --gpsd HOST[:PORT]`, and `--port N` serves another port; the offline navigation guide's section 12 has each setup.
+Your map regions set in station config, and the `navigation` profile's map units installed, so there are maps, elevation and a routing database to show; start it from the `qmapshack-offline` launcher, which writes their directories into QMapShack's own configuration first (`mapPath` and `demPaths` under [Canvas], `routino\paths` under [Route]). For your position, gpsd with a receiver that has a fix, and the `gps-tether` launcher running, which makes NMEA from gpsd's position and serves it on 127.0.0.1 port 10110 for QMapShack's Realtime source "GPS TCP/IP" to take. A gpsd on another machine (a Pi, a phone, a shack computer) is read with `hammunition maps gps-tether --gpsd HOST[:PORT]`, and `--port N` serves another port; the offline navigation guide's section 12 has each setup.
 
 ## How it installs
 

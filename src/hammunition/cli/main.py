@@ -3177,7 +3177,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_maps_tether = maps_sub.add_parser(
         "gps-tether",
-        help="serve gpsd's position as NMEA on 127.0.0.1:10110 for QMapShack's GPS Tether (D-061)",
+        help="serve gpsd's position as NMEA on 127.0.0.1:10110 for QMapShack's GPS TCP/IP source (D-061)",
     )
     p_maps_tether.add_argument(
         "--gpsd",

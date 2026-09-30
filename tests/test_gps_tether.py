@@ -201,7 +201,7 @@ def test_the_constants_are_loopback_port_10110_and_gpsds_own_port() -> None:
 
 def test_the_instructions_name_the_host_and_port() -> None:
     text = instructions()
-    assert "127.0.0.1" in text and "10110" in text and "GPS Tether" in text
+    assert "127.0.0.1" in text and "10110" in text and "GPS TCP/IP" in text
     assert "Ctrl-C" in text
 
 

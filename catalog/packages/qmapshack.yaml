@@ -64,7 +64,7 @@ documentation:
     and `demPaths` under [Canvas], `routino\paths` under [Route]). For your
     position, gpsd with a receiver that has a fix, and the `gps-tether`
     launcher running, which makes NMEA from gpsd's position and serves it
-    on 127.0.0.1 port 10110 for QMapShack's GPS Tether dialog to take. A
+    on 127.0.0.1 port 10110 for QMapShack's Realtime source "GPS TCP/IP" to take. A
     gpsd on another machine (a Pi, a phone, a shack computer) is read with
     `hammunition maps gps-tether --gpsd HOST[:PORT]`, and `--port N` serves
     another port; the offline navigation guide's section 12 has each setup.

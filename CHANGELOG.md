@@ -11,6 +11,12 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.14.2 — 2026-09-29 — QMapShack selects its routing database; bench session 12
+
+One pull request since v0.14.1.
+
 - **QMapShack's routing database is selected** (D-061, amended
   2026-09-29). With `[Route] routino\database=-1` in its settings,
   QMapShack 1.17.1 loaded the `hammunition` Routino database and selected
