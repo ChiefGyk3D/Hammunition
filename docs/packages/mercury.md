@@ -15,7 +15,7 @@ Mercury is a soundcard modem for HF data, from Rhizomatica's HERMES project. It 
 
 ## Why you would want it
 
-It is the free answer to VARA. Pat already speaks VARA HF's interface, and pat's `varahf` transport connects to Mercury as it is: measured here with Debian's pat 0.16.0 and Mercury 1.9.15, a peer-to-peer session carried a message between two Mercury instances wired back to back (no radio, no sound card). VARA is closed software that runs under Wine; ardopcf is the other open HF modem in this catalog. How Mercury's throughput compares with either on a real HF path has not been measured here; upstream's `docs/MODES.md` has its own bench figures for its modes.
+It is the free answer to VARA. Pat already speaks VARA HF's interface, and pat's `varahf` transport connects to Mercury as it is: measured here with Debian's pat 0.16.0 and Mercury 1.9.15, a peer-to-peer session carried a message between two Mercury instances wired back to back (no radio, no sound card). VARA is closed software that runs under Wine; ardopcf is the other open HF modem in this catalog. How Mercury's throughput compares with either on a real HF path has not been measured here; upstream's MODES document (in its docs directory) has its own bench figures for its modes.
 
 ## Before it will work
 

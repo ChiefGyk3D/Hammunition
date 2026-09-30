@@ -178,7 +178,8 @@ documentation:
     allows cross-origin requests from every origin (`allow_origins=["*"]`)
     and has no login, and its API includes calls that transmit (`/modem/cqcqcq`,
     `/modem/beacon`, `/modem/send_test_frame`). That was read from
-    `server.py` and `api/modem.py` at 0.18.2 and not tested here. Run the
+    upstream's server and modem API modules (freedata_server, server and
+    api.modem) at 0.18.2 and not tested here. Run the
     server while you are using it, stop it when you are not, and keep
     `modemaddress` at 127.0.0.1: an empty value makes it listen on every
     interface.

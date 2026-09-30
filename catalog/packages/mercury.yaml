@@ -113,7 +113,8 @@ documentation:
     back to back (no radio, no sound card). VARA is closed software that
     runs under Wine; ardopcf is the other open HF modem in this catalog.
     How Mercury's throughput compares with either on a real HF path has not
-    been measured here; upstream's `docs/MODES.md` has its own bench figures
+    been measured here; upstream's MODES document (in its docs directory)
+    has its own bench figures
     for its modes.
   prerequisites: >-
     An SSB transceiver with audio in and out, and a way to key it: hamlib
