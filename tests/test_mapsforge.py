@@ -412,3 +412,29 @@ def test_the_scratch_and_the_sqlite_library_stay_in_the_workdir(
     _run(conv)
     work = tmp_path / "staging" / "mapsforge-poi" / f"{DELAWARE.slug}.work"
     assert list(work.iterdir()) == []
+
+
+def test_binary_garbage_from_java_fails_the_region_not_the_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Bytes that are not UTF-8 must not be decoded anywhere (review, 2026-09-30):
+    a decode error would escape the ledger and kill the transaction."""
+    garbage = f"{_OUT}; printf '\\377\\376\\200\\201 not a map at all' > \"$o\""
+    install_fakes(monkeypatch, tmp_path / "bin", {"java": garbage})
+    _install_region(tmp_path, VERMONT)
+    conv = _converter(tmp_path, "map", [VERMONT])
+    _run(conv)
+    (message,) = conv.ledger.failed.values()
+    assert "not a Mapsforge map" in message
+
+
+def test_the_magic_check_does_not_read_flock_s_lines_in_any_language(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """flock --verbose writes to stdout; the check reads only an exit status."""
+    install_fakes(monkeypatch, tmp_path / "bin", {"java": JAVA_OK})
+    monkeypatch.setenv("LC_ALL", "de_DE.UTF-8")
+    _install_region(tmp_path, VERMONT)
+    conv = _converter(tmp_path, "map", [VERMONT])
+    _run(conv)
+    assert conv.ledger.failed == {}

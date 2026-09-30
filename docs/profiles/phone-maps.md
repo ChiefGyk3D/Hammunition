@@ -10,7 +10,7 @@
 
 The OpenStreetMap regions you choose, downloaded from Geofabrik and verified (`osm-regions`); a Mapsforge vector map of each (`mapsforge-map`), built with the archive's osmosis and Mapsforge writer; and a Mapsforge points-of-interest file of each (`mapsforge-poi`), built with Mapsforge's POI writer, which is fetched once from Maven Central and checked against a sha256 Hammunition measured. `hammunition maps phone` then gathers the files, with the Garmin maps from `navigation` when they are installed, into one folder with a SHA256SUMS, and prints the ways to carry them to a phone.
 
-**Disk footprint:** osmosis, libmapsforge-java and a Java runtime from the archive (size not yet measured), and the 18.8 MB POI writer once. Per region, measured on Delaware (22 MB download): the download, a map at about 0.78 times it and a POI file at about 0.21 times it, with up to 15 times the download of scratch while the map builds, removed afterwards. `maps phone` copies the files once more into your home.
+**Disk footprint:** osmosis, libmapsforge-java and a Java runtime from the archive (size not yet measured), and the 18.8 MB POI writer once. Per region, measured on Delaware (22 MB download): the download, a map at about 0.78 times it and a POI file at about 0.21 times it, with about 15 times the download of scratch while the map builds, removed afterwards. `maps phone` copies the files once more into your home.
 
 ## Why these belong together
 

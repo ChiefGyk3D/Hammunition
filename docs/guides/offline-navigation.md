@@ -855,8 +855,8 @@ hammunition maps phone
 
 copies every phone file installed into `~/.local/share/hammunition/phone/`,
 with a `SHA256SUMS` beside them, and prints how to carry them to a phone. It
-copies nothing that is already current, removes a file whose region you
-dropped, and touches nothing else in the folder. **It sends nothing
+copies nothing that is already current, removes a file it put there whose
+region you dropped, and touches nothing else in the folder. **It sends nothing
 anywhere**: the ways across are commands for you.
 
 ### Get them onto the phones
@@ -885,7 +885,8 @@ python3 -m http.server 8000 --bind 10.42.0.1 --directory ~/.local/share/hammunit
 ```
 
 Join each phone to the hotspot and open `http://10.42.0.1:8000/` in its
-browser; the files land in Downloads, and the app opens them from there.
+browser. The files are expected to land in Downloads for the app to open
+from there; that has not been tried on a phone yet.
 **Always give `--bind`.** Without it, `http.server` answers on every network
 the laptop is on, a hotel's or an office's included; bound to the hotspot's
 address, only the phones on the hotspot can reach it. It is plain HTTP on a

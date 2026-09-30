@@ -105,9 +105,10 @@ Unprivileged, refused as root. Reads
 for `*.map`, `*.poi`, `*.img`, copies each into
 `~/.local/share/hammunition/phone/` as `<slug>.<ext>`, hashing the source as
 it copies and the copy after, and writes `SHA256SUMS` in `sha256sum -c`
-format. A copy whose hash already matches is left alone. A file of ours
-(`.map`, `.poi`, `.img` at the top of that directory) whose region is gone is
-removed; nothing else in the directory is touched. Refused before copying,
+format. A copy whose hash already matches is left alone. A file the
+previous run listed in `SHA256SUMS` whose region is gone is removed; nothing
+else in the directory is touched (amended at review, 2026-09-30: every `.map`
+at the top of the folder would have included one the operator put there). Refused before copying,
 by name, when the directory's file system has not got room. Nothing found
 installed is not an error: it says which units to install, exit 0.
 
@@ -158,7 +159,7 @@ its `.img` when it is installed.
 - **Organic Maps and CoMaps `.mwm`.** The generator must match the app
   release and needs the planet's coastline for any coastal region. Route: the
   publishers' own `.mwm` files, checked by their per-file hashes (BLAKE3-72,
-  SHA-1), which D-069 handles.
+  SHA-1), which is separate work, not yet decided.
 - **PocketMaps.** Measured possible (GraphHopper 0.13.0 plus a `.map`), not
   carried: the engine is from 2019 and the app has had no commit since
   2024-10.

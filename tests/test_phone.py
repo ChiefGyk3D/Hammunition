@@ -104,6 +104,7 @@ def test_a_region_gone_removes_only_our_file_and_leaves_the_rest(home: Path) -> 
     folder = phone.phone_dir()
     phone.stage(phone.installed(_data(home / "prefix")), folder)
     (folder / "notes.txt").write_text("mine")
+    (folder / "from-elsewhere.map").write_text("a map the operator put here")
     (folder / "sub").mkdir()
     (folder / "sub" / "old.map").write_text("mine too")
     os.symlink("/nonexistent", folder / "link.map")
@@ -112,6 +113,7 @@ def test_a_region_gone_removes_only_our_file_and_leaves_the_rest(home: Path) -> 
     result = phone.stage(phone.installed(_data(home / "prefix")), folder)
     assert sorted(result.removed) == [f"{DE}.map", f"{DE}.poi"]
     assert (folder / "notes.txt").exists() and (folder / "sub" / "old.map").exists()
+    assert (folder / "from-elsewhere.map").exists(), "a .map we never listed is not ours"
     assert (folder / "link.map").is_symlink(), "a symbolic link is not ours to remove"
     assert DE not in (folder / "SHA256SUMS").read_text()
 
@@ -193,3 +195,25 @@ def test_the_json_document_carries_the_files_and_the_routes(
     assert doc["missing"] == ["mapsforge-poi", "osm-garmin"]
     assert doc["routes"][0]["name"] == "Laptop hotspot and a web browser"
     assert len(doc["routes"]) == 4
+
+
+def test_an_edited_sha256sums_cannot_point_the_removal_elsewhere(home: Path) -> None:
+    _everything(home / "prefix")
+    folder = phone.phone_dir()
+    phone.stage(phone.installed(_data(home / "prefix")), folder)
+    outside = folder.parent / "outside.map"
+    outside.write_text("not in the folder")
+    (folder / ".hidden.map").write_text("hidden")
+    with (folder / "SHA256SUMS").open("a") as sums:
+        sums.write(f"{'0' * 64}  ../outside.map\n{'0' * 64}  .hidden.map\n")
+        sums.write(f"{'0' * 64}  notes.txt\n")
+    (folder / "notes.txt").write_text("mine")
+    phone.stage(phone.installed(_data(home / "prefix")), folder)
+    assert outside.exists() and (folder / ".hidden.map").exists()
+    assert (folder / "notes.txt").exists()
+
+
+def test_a_folder_with_a_space_is_quoted_in_the_commands(tmp_path: Path) -> None:
+    ways = phone.routes(tmp_path / "my maps")
+    server = ways[0].commands[-1]
+    assert f"--directory '{tmp_path}/my maps'" in server

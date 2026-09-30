@@ -331,9 +331,10 @@ It copies each installed Mapsforge map (`mapsforge-map`), Mapsforge POI file
 in the format `sha256sum -c SHA256SUMS` checks. Each source is hashed as it
 is copied and each copy is hashed again after it is written. A copy that
 already hashes the same is left alone, so a second run copies nothing. A
-`.map`, `.poi` or `.img` at the top of the folder whose region is no longer
-installed is removed; nothing else in the folder is touched, including
-symbolic links and subdirectories.
+file the previous run listed in `SHA256SUMS` whose region is no longer
+installed is removed; nothing else in the folder is touched, including a
+`.map` you put there yourself, symbolic links and subdirectories. With no
+phone file installed at all, the folder is left as it is.
 
 ```
 $ hammunition maps phone

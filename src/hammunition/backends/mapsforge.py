@@ -28,7 +28,7 @@ the same directory, so the writer's ``type=hd`` scratch and the native
 library sqlite-jdbc unpacks at run time land in staging, where they are
 counted and cleared, not in ``/tmp``. The effect is checked, not the exit
 status (D-031): the output must be non-empty and start with its format's
-magic, read by the operator's own ``head -c``. **install**, as root only
+magic, read by the operator's own ``head -c`` and compared by exit status. **install**, as root only
 where the prefix needs it: the file is published into
 ``<data>/<unit>/<slug>.<ext>`` re-verified against the operator's digest,
 with a ``.source`` sidecar holding the snapshot and the converter, and the
@@ -40,7 +40,6 @@ continue, and the ledger's step, last in the transaction, fails it by name.
 
 from __future__ import annotations
 
-import re
 import shlex
 import subprocess
 from collections.abc import Sequence
@@ -64,7 +63,6 @@ from .regions import (
     prefix_writer,
     removal_steps,
 )
-from .source import needs_root_for
 from .staging import REFUSED, Staging
 from .verified import PrefixWriter, digest_of
 
@@ -142,8 +140,8 @@ SCRATCH: dict[Kind, float] = {"map": MAP_SCRATCH_FACTOR, "poi": POI_SCRATCH_FACT
 CONVERTER: dict[Kind, str] = {"map": "mapsforge-map 1", "poi": "mapsforge-poi 1"}
 
 PHONE_NOTE = (
-    f"the phone maps at {MAP_FACTOR}x each download with up to {MAP_SCRATCH_FACTOR}x of "
-    f"scratch, and the POI files at {POI_FACTOR}x with up to {POI_SCRATCH_FACTOR}x, {MEASURED}"
+    f"the phone maps at {MAP_FACTOR}x each download with about {MAP_SCRATCH_FACTOR}x of "
+    f"scratch, and the POI files at {POI_FACTOR}x with about {POI_SCRATCH_FACTOR}x, {MEASURED}"
 )
 
 
@@ -191,9 +189,6 @@ def java_argv(kind: Kind, pbf: Path, out: Path, work: Path, cp: Sequence[Path]) 
         f"file={out}",
         *tail,
     ]
-
-
-_FLOCK_STDOUT = re.compile(r"flock: getting lock took [^\n]* seconds\n|flock: executing [^\n]*\n")
 
 
 def _tail(text: str) -> str:
@@ -325,7 +320,7 @@ class MapsforgeConverter:
                         f"for phones, as the operator, in {work}: {shlex.join(shown)}, the "
                         f"classpath being {where}; {HEAP_NEED}; output about "
                         f"{human_size(estimate(self.kind, region.size))} "
-                        f"({FACTOR[self.kind]}x the download) and up to "
+                        f"({FACTOR[self.kind]}x the download) and about "
                         f"{human_size(round(SCRATCH[self.kind] * region.size))} of scratch "
                         f"while it runs ({MEASURED})"
                     ),
@@ -375,7 +370,7 @@ class MapsforgeConverter:
                 # The destination, verbatim, for uninstall's attribution replay.
                 detail=str(dest),
                 perform=partial(self._install_tool, tool, fetched, dest),
-                requires_root=needs_root_for(self.prefix),
+                requires_root=self.writer.privileged,
             ),
         ]
 
@@ -397,8 +392,7 @@ class MapsforgeConverter:
         path = fetched.get("path")
         if path is None:  # pragma: no cover - the fetch Action always runs first
             raise BackendError("the POI writer was not fetched before the install step")
-        writer = PrefixWriter(privileged=needs_root_for(self.prefix), runner=self.runner)
-        writer.install_verified(path, dest, algorithm="sha256", digest=tool.artifact.sha256)
+        self.writer.install_verified(path, dest, algorithm="sha256", digest=tool.artifact.sha256)
         return f"installed {dest} ({human_size(tool.size)}, mode 0644, sha256 re-verified)"
 
     def _convert(
@@ -446,8 +440,7 @@ class MapsforgeConverter:
                 f"{self._scratch(work, '; ')}",
             )
         magic = MAGIC[self.kind]
-        head = self._head(staged, work, len(magic))
-        if head != magic:
+        if not self._starts_with(staged, work, magic):
             return self.ledger.fail(
                 key,
                 f"{region.region}: {staged.name} is not a {WHAT[self.kind]} (it does not "
@@ -461,15 +454,26 @@ class MapsforgeConverter:
             f"(staged, {staged})"
         )
 
-    def _head(self, path: Path, work: Path, count: int) -> str | None:
-        """The first *count* bytes of *path*, read by the operator's own ``head``."""
-        read = self.staging.run(["head", "-c", str(count), "--", str(path)], cwd=work)
-        if read.returncode != 0:
-            return None
-        # util-linux's `flock --verbose` writes its two lines to stdout, where
-        # they land before or after head's bytes (measured 2026-09-29); only
-        # head's bytes are compared.
-        return _FLOCK_STDOUT.sub("", read.stdout)
+    def _starts_with(self, path: Path, work: Path, magic: str) -> bool:
+        """Whether *path* starts with *magic*, read by the operator's own
+        ``head`` and compared as hex by ``od`` in the same shell, so only the
+        exit status is read: nothing is decoded, whatever bytes java wrote,
+        and ``flock --verbose``'s lines on stdout, in whatever language the
+        locale gives them, are never compared (review, 2026-09-30)."""
+        want = magic.encode("ascii").hex()
+        check = self.staging.run(
+            [
+                "sh",
+                "-c",
+                'test "$(head -c "$1" -- "$2" | od -An -v -tx1 | tr -d " \\n")" = "$3"',
+                "sh",
+                str(len(magic)),
+                str(path),
+                want,
+            ],
+            cwd=work,
+        )
+        return check.returncode == 0
 
     def _install(
         self,

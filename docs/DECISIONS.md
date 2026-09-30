@@ -5724,7 +5724,9 @@ exists yet.
 Everything else is D-061's shape: one working directory per region under one
 lock, as the operator; the output checked by its effect (non-empty, and
 starting with `mapsforge binary OSM` or `SQLite format 3`, read by the
-operator's own `head -c`); published into
+operator's own `head -c` and compared as hex in the same shell, so only an exit
+status comes back: nothing java wrote is decoded, and `flock --verbose`'s own
+lines, which it writes to stdout, are never compared); published into
 `<prefix>/share/hammunition/data/<unit>/<slug>.{map,poi}` re-verified, with a
 `.source` sidecar naming the snapshot and the converter; a region dropped
 from station config removed as its own step; a failure recorded in a phone
@@ -5744,6 +5746,12 @@ the engine does not check it, and the fetch step says so in the words every
 declared-but-unverified signature gets (`signature_gap`). It is a release
 tag, so no `pin_review` is needed (D-024); a new release is a manifest change,
 and every POI file is rebuilt because its sidecar names the jar's digest.
+
+**The map's converter record does not follow the archive's writer.** It is
+`mapsforge-map 1` whatever `libmapsforge-java` version is installed, so an
+apt upgrade of the writer does not rebuild existing maps; the record is bumped
+when Hammunition's argv changes. Folding the installed package version in is
+the route if an upgrade is ever measured to change the output.
 
 **The spike's summary gave the wrong digest.** It listed `c132d97d…4b68` for
 the POI writer; its own saved `.sha256` files show that digest is the
@@ -5769,7 +5777,7 @@ Scratch was not measured directly; the best number there is is GNU time's
 count of blocks each run wrote, output included: 318 MB for the map (14.4×
 the download) and 9.4 MB for the POI file (0.43×). A temporary file deleted
 before it reached disk would not add to that count, so it is not a bound. The
-plan allows **15×** and **0.5×**, prints "measured on one region" beside
+plan allows about **15×** and **0.5×**, prints "measured on one region" beside
 every factor, and adds them, with the jar's 18.8 MB once, to the disk check
 piece 1 and piece 2 already make; a refusal names the phone factors. At the
 measured rate (Delaware's 22 MB in 3 min 38 s) a large region's map takes
@@ -5781,8 +5789,10 @@ Copies every installed `.map`, `.poi` and Garmin `.img` into
 `$XDG_DATA_HOME/hammunition/phone/` (0700) as `<slug>.<ext>`, hashing each
 source as it is copied and each copy after, and writes `SHA256SUMS` in
 `sha256sum -c` format. A copy that already hashes the same is left alone; a
-file of ours whose region is gone is removed, and nothing else in the folder
-is touched. Refused before any copy: root, a symbolic link or a non-directory
+file the previous run listed in its `SHA256SUMS` whose region is gone is
+removed; nothing else in the folder is touched, a `.map` the operator put
+there included. The sums are written before any removal, so a removal that
+fails leaves them matching the files. Refused before any copy: root, a symbolic link or a non-directory
 in the folder's place, too little room. `--json` prints a `phone` document.
 
 It then prints four routes, **none of which the engine runs**:
@@ -5837,7 +5847,8 @@ regions are shared, so a machine with both downloads each region once.
   maintenance line this project refuses. **Route:** the publishers' own
   `.mwm` files, checked by their per-file hashes (BLAKE3 truncated to 9
   bytes for Organic Maps, SHA-1 for CoMaps, whose mirrors answer HTTP 200
-  with an HTML page for a missing file), which D-069 handles.
+  with an HTML page for a missing file); that is separate work, not yet
+  decided.
 - **PocketMaps.** Measured possible (GraphHopper 0.13.0 with a `.map`: 1:34,
   0.9 GB, 47 MB zipped), not carried: a 2019 engine for an app with no
   commit since 2024-10.

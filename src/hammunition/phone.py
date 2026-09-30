@@ -13,9 +13,10 @@ nothing is served by the engine**: every route is a command the operator runs.
 Per user and unprivileged, like the menu files (D-050). Each source is hashed
 as it is read and each copy after it is written (D-031: the effect, not the
 exit status). A copy whose hash already matches is left alone, so a second run
-copies nothing. A file of ours -- a ``.map``, ``.poi`` or ``.img`` at the top
-of the folder -- whose region is gone is removed; nothing else in the folder is
-touched. The folder must be a real directory, never a symbolic link, and the
+copies nothing. A file of ours -- one the previous run listed in
+``SHA256SUMS`` -- whose region is gone is removed; nothing else in the folder
+is touched, a ``.map`` you put there yourself included. The folder must be a
+real directory, never a symbolic link, and the
 copies must fit on its file system; each is refused by name before anything
 is copied.
 
@@ -28,6 +29,7 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import os
+import shlex
 import shutil
 import stat
 import tempfile
@@ -201,15 +203,37 @@ def stage(
             _copy(item.source, directory, item.name, sha256)
         staged.append(Staged(item.unit, item.name, size, sha256, copied=not current))
     names = {s.name for s in staged}
-    removed: list[str] = []
-    for entry in sorted(directory.iterdir()):
-        if entry.name in names or entry.suffix not in SUFFIXES:
-            continue
-        if stat.S_ISREG(entry.lstat().st_mode):
-            entry.unlink()
-            removed.append(entry.name)
+    ours = _listed(directory)
+    # The sums first: a removal that fails leaves a SHA256SUMS that still
+    # matches every file this run staged.
     _write_sums(directory, staged)
+    removed: list[str] = []
+    for name in sorted(ours - names):
+        entry = directory / name
+        with contextlib.suppress(FileNotFoundError):
+            if stat.S_ISREG(entry.lstat().st_mode):
+                entry.unlink()
+                removed.append(name)
     return Result(directory=directory, files=tuple(staged), removed=tuple(removed))
+
+
+def _listed(directory: Path) -> set[str]:
+    """The phone files the previous run wrote, by the SHA256SUMS it left: the
+    only files this command ever removes. A name that is not a plain phone
+    file name is ignored, so an edited SHA256SUMS cannot reach outside the
+    folder or at anything else in it."""
+    sums = directory / SUMS
+    try:
+        with os.fdopen(_open(sums), "r", encoding="utf-8", errors="replace") as handle:
+            text = handle.read()
+    except (FileNotFoundError, PhoneError, OSError):
+        return set()
+    out: set[str] = set()
+    for line in text.splitlines():
+        _, _, name = line.partition("  ")
+        if name and "/" not in name and not name.startswith(".") and Path(name).suffix in SUFFIXES:
+            out.add(name)
+    return out
 
 
 @dataclass(frozen=True)
@@ -223,7 +247,7 @@ class Route:
 
 def routes(directory: Path) -> tuple[Route, ...]:
     """The ways to carry *directory* to a phone, none of which the engine runs."""
-    folder = str(directory)
+    folder = shlex.quote(str(directory))
     return (
         Route(
             name="Laptop hotspot and a web browser",
@@ -253,7 +277,7 @@ def routes(directory: Path) -> tuple[Route, ...]:
             ),
             phone="set to 'File transfer' when plugged in",
             commands=(),
-            note=f"Copy the files from {folder} to the phone's Download folder, one phone at a time.",
+            note=f"Copy the files from {directory} to the phone's Download folder, one phone at a time.",
         ),
         Route(
             name="adb (opt-in)",
