@@ -357,7 +357,7 @@ class FakeGpsd:
                         return
                     line += chunk
                 self.received.append(line)
-                conn.sendall(self.script)
+                self._write(conn)
                 self.open.append(conn)
                 while not self.stop.is_set():
                     try:
@@ -367,10 +367,21 @@ class FakeGpsd:
                     except TimeoutError:
                         pass
                     if self.repeat:
-                        conn.sendall(self.script)
+                        self._write(conn)
                         time.sleep(self.every)
             except OSError:
                 self.closed_by_tether += 1
+
+    def _write(self, conn: socket.socket) -> None:
+        """Write the script whole. The 0.02 s timeout is for the reads that
+        watch for the tether closing; a flood of 2000 fixes takes longer than
+        that to hand to a tether busy with a stalled client, and a timeout
+        here would close the connection and read as gpsd going away."""
+        conn.settimeout(5)
+        try:
+            conn.sendall(self.script)
+        finally:
+            conn.settimeout(0.02)
 
     def broadcast(self, data: bytes) -> None:
         """Send *data* on every open connection, once."""
@@ -667,7 +678,14 @@ def test_a_client_that_stops_reading_does_not_hold_the_loop() -> None:
     flood = _json(*([{"class": "VERSION"}] + [FIX_3D] * 2000))
     gpsd = FakeGpsd(flood, repeat=True, every=0.0)
     with _tether_on(gpsd) as (port, logged):
-        idle = socket.create_connection(("127.0.0.1", port), timeout=5)
+        # A small receive window, set before connecting, so the kernel's
+        # buffers do not absorb the flood on the reader's behalf: on a
+        # default Linux they hold megabytes, and the tether's own limit
+        # was never reached before the script ran out.
+        idle = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        idle.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
+        idle.settimeout(5)
+        idle.connect(("127.0.0.1", port))
         try:
             time.sleep(0.3)
             started = time.monotonic()
