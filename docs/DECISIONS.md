@@ -2099,6 +2099,11 @@ The dry run and the JSON plan name the station values each file is filled
 from (`fills`), never the values. Uninstall still does not reverse a
 written file, and each manifest says how to.
 
+Six of the eight units carry a block: `direwolf`, `ax25-tools` (the
+`axports` append), `gpredict`, `tlf`, `aprx` and `uronode`. `linpac` and
+`fbb` configure themselves on first run from answers station config does
+not hold, and their manifests say so instead.
+
 ## D-036 — Desktop integration is curated submenus, generated per desktop environment
 
 **Date:** 2026-08-29. **Status:** accepted (maintainer, during the first VM

@@ -104,6 +104,21 @@ callsign and grid once", with the dialog path for each program. Do not
 template a password anywhere; `pat`'s block sets `mycall` and `locator`
 and leaves the password key absent, and the plan says so.
 
+**Measured, 2026-09-29 (Q-022 #1, ruled yes).** The table above was
+written from memory and search results; building the blocks measured each
+unit's shipped files, man page or source, and three rows were wrong.
+`tlf`'s locator key is `MYQRA`: the packaged binary refuses `MYLOCATOR`.
+`linpac` gets no block: its first-run questions run only while `~/LinPac`
+is absent, and four of the five are not station values. `fbb` gets no
+block: `fbb.conf`'s mandatory lines include the hierarchical address,
+SSID, city and sysop name, so a block could only write the partial file
+D-035 forbids. The other six carry blocks -- `direwolf`
+(`/etc/direwolf.conf`), `ax25-tools` (`/etc/ax25/axports`, appended once),
+`gpredict` (`~/.config/Gpredict/sample.qth`), `tlf` (`~/tlf/logcfg.dat`),
+`aprx` (`/etc/aprx.conf`) and `uronode` (`/etc/ax25/uronode.conf`) -- and
+each manifest cites what was measured and says what was not. The engine
+work they needed is D-035's 2026-09-29 amendment.
+
 ### A2. The rig is not station data, so every program is configured separately
 
 D-042 approved reimplementing ETC's rig model as catalog data and named it
