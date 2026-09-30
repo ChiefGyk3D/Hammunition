@@ -19,6 +19,39 @@ install:
       apt for now; the version gap is real and a source build is a defensible
       future change once someone measures what 2.5 fixes for an operator.
 
+# The ground station, from the grid square. Measured 2026-09-29 from the
+# source Debian builds (gpredict_2.3-115-g0f3beb6.orig.tar.gz), not
+# remembered:
+#  - The directory is `g_get_user_config_dir()/Gpredict` (src/compat.c,
+#    get_user_conf_dir), ~/.config/Gpredict with XDG_CONFIG_HOME unset.
+#  - A ground station is a `<name>.qth` GKeyFile there: group `[QTH]`, keys
+#    LOCATION, DESCRIPTION, WX, LAT, LON, ALT (src/config-keys.h), LAT and LON
+#    read with g_ascii_strtod as decimal degrees, north and east positive
+#    (the shipped sample.qth has Copenhagen at LAT=55.6167 LON=12.6500).
+#  - The default ground station is `DEFAULT_QTH` in gpredict.cfg, and its
+#    default is "sample.qth" (src/sat-cfg.c); first-time.c copies the sample
+#    in only when no .qth file exists at all. So the file is named
+#    sample.qth: on a first run gpredict finds it and uses it, where a file
+#    of any other name would stop the sample being copied and leave the
+#    default pointing at nothing -- qth_safe(), latitude 0, longitude 0.
+#  - gpredict writes a .qth only from its ground-station editor
+#    (qth-editor.c, sat-pref-qth.c); on exit it saves gpredict.cfg
+#    (main.c), which is why that file is not templated here.
+# ALT is left out: station config has no altitude, and a missing ALT is read
+# as 0 (qth-data.c logs it and carries on).
+config_files:
+  - path: ~/.config/Gpredict/sample.qth
+    template: |
+      # Written by Hammunition: the centre of your grid square. Gpredict's
+      # default ground station is the file of this name.
+      [QTH]
+      DESCRIPTION=Centre of grid square {station.grid_square}, from Hammunition station config
+      LOCATION={station.grid_square}
+      LAT={station.latitude}
+      LON={station.longitude}
+    mode: "0644"
+    backup_existing: true
+
 update:
   probe:
     method: apt_policy
@@ -39,8 +72,11 @@ documentation:
   prerequisites: >-
     Current Keplerian elements, which it downloads and which go stale in days
     rather than months -- a prediction from old elements is confidently wrong.
-    Your own location, accurately. Radio and rotator control need hamlib to
-    reach the hardware.
+    Your own location: Hammunition writes gpredict's default ground station
+    from the grid square in station config (`hammunition station set
+    --grid-square <yours>`), at the centre of the square; with no grid
+    square set the package installs and the file is reported as not
+    written. Radio and rotator control need hamlib to reach the hardware.
   known_problems: >-
     Stale elements are the commonest cause of a pass that does not happen when
     predicted, and nothing warns you: the program computes from whatever it
@@ -48,6 +84,27 @@ documentation:
     needs `rigctld` running rather than direct access, which is a step that is
     easy to miss, and Doppler correction for a full-duplex satellite means two
     radios or one that can do both.
+    What the configuration block does: writes
+    `~/.config/Gpredict/sample.qth` in your home (yours, mode 0644; under
+    sudo it is written as root and handed to you, never through a
+    symlink), with LAT and LON at the centre of your grid square and the
+    square as its LOCATION. That name is gpredict's own default ground
+    station, so a first run opens on your location; if you already chose
+    another ground station as the default, yours is untouched and this
+    file is simply one more in the list. Precision is the square's: a
+    four-character square can be 80 km from you, a six-character one about
+    3 km. Altitude is not set (gpredict uses 0 m and says so in its log).
+    For a better position, edit the ground station in Edit > Preferences >
+    Ground Stations, and do it under another name -- every `hammunition
+    install` that includes gpredict rewrites sample.qth from station config.
+    A sample.qth that was there before is kept as
+    `~/.config/Gpredict/sample.qth.hammunition-backup`, once. If you set
+    XDG_CONFIG_HOME, gpredict looks there instead, and this file is not
+    where it reads. Inspect with `cat ~/.config/Gpredict/sample.qth`.
+    `hammunition uninstall gpredict` does not remove it (config files are
+    not reversed, and the plan says so); to undo, `rm
+    ~/.config/Gpredict/sample.qth`, and gpredict copies its own sample back
+    on the next start if no other ground station exists.
   upstream_url: http://gpredict.oz9aec.net/
   upstream_support: >-
     Alexandru Csete, OZ9AEC -- also the author of gqrx. GitHub issues linked

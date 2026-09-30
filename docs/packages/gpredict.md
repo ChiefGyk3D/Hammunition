@@ -18,16 +18,20 @@ Working a satellite is a ten-minute window that arrives on a schedule you have t
 
 ## Before it will work
 
-Current Keplerian elements, which it downloads and which go stale in days rather than months -- a prediction from old elements is confidently wrong. Your own location, accurately. Radio and rotator control need hamlib to reach the hardware.
+Current Keplerian elements, which it downloads and which go stale in days rather than months -- a prediction from old elements is confidently wrong. Your own location: Hammunition writes gpredict's default ground station from the grid square in station config (`hammunition station set --grid-square <yours>`), at the centre of the square; with no grid square set the package installs and the file is reported as not written. Radio and rotator control need hamlib to reach the hardware.
 
 ## How it installs
 
 - apt: `gpredict`
   - AHRL builds 2.5.1 from a tarball (inventory unit 55). The archive versions are older and inconsistent: Debian 13, Parrot and Mint carry the snapshot 2.3-115-g0f3beb6, Ubuntu 26.04 carries 2.4, Kali 2.5.2 (measured 2026-08-28). The Debian package is a git snapshot rather than a release, which is a packaging judgement upstream's release cadence forced. This is apt for now; the version gap is real and a source build is a defensible future change once someone measures what 2.5 fixes for an operator.
 
+## Configuration it writes
+
+- `~/.config/Gpredict/sample.qth` (written, mode 0644, existing file backed up); filled from the station values `grid_square`, `latitude`, `longitude`, and not written while one is unset (D-035)
+
 ## Known problems
 
-Stale elements are the commonest cause of a pass that does not happen when predicted, and nothing warns you: the program computes from whatever it has. Update before relying on a prediction. The hamlib radio interface needs `rigctld` running rather than direct access, which is a step that is easy to miss, and Doppler correction for a full-duplex satellite means two radios or one that can do both.
+Stale elements are the commonest cause of a pass that does not happen when predicted, and nothing warns you: the program computes from whatever it has. Update before relying on a prediction. The hamlib radio interface needs `rigctld` running rather than direct access, which is a step that is easy to miss, and Doppler correction for a full-duplex satellite means two radios or one that can do both. What the configuration block does: writes `~/.config/Gpredict/sample.qth` in your home (yours, mode 0644; under sudo it is written as root and handed to you, never through a symlink), with LAT and LON at the centre of your grid square and the square as its LOCATION. That name is gpredict's own default ground station, so a first run opens on your location; if you already chose another ground station as the default, yours is untouched and this file is simply one more in the list. Precision is the square's: a four-character square can be 80 km from you, a six-character one about 3 km. Altitude is not set (gpredict uses 0 m and says so in its log). For a better position, edit the ground station in Edit > Preferences > Ground Stations, and do it under another name -- every `hammunition install` that includes gpredict rewrites sample.qth from station config. A sample.qth that was there before is kept as `~/.config/Gpredict/sample.qth.hammunition-backup`, once. If you set XDG_CONFIG_HOME, gpredict looks there instead, and this file is not where it reads. Inspect with `cat ~/.config/Gpredict/sample.qth`. `hammunition uninstall gpredict` does not remove it (config files are not reversed, and the plan says so); to undo, `rm ~/.config/Gpredict/sample.qth`, and gpredict copies its own sample back on the next start if no other ground station exists.
 
 ## Keeping it current
 

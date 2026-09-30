@@ -36,7 +36,15 @@ STATION = Station(callsign="N0TST", grid_square="FN31pr", node_alias="TSTND")
 BLOCKS: dict[str, str] = {
     "direwolf": "/etc/direwolf.conf",
     "ax25-tools": "/etc/ax25/axports",
+    "gpredict": "~/.config/Gpredict/sample.qth",
 }
+
+#: Where a `~/` path lands in these tests: a stand-in operator home.
+HOME = Path("/home/op")
+
+
+def _where(path: str) -> str:
+    return str(HOME / path[2:]) if path.startswith("~/") else path
 
 
 @pytest.fixture(scope="module")
@@ -45,7 +53,7 @@ def catalog() -> dict[str, PackageManifest]:
 
 
 def _render(manifest: PackageManifest, station: Station = STATION) -> dict[str, str]:
-    writable, deferred = _plan_config(manifest, station)
+    writable, deferred = _plan_config(manifest, station, HOME)
     assert not deferred, [d.why for d in deferred]
     return {config.path: body for _unit, config, body in writable}
 
@@ -60,14 +68,14 @@ def test_the_block_renders_whole_with_placeholders(
     catalog: dict[str, PackageManifest], unit: str, path: str
 ) -> None:
     rendered = _render(catalog[unit])
-    assert list(rendered) == [path]
-    assert "{station." not in rendered[path], "an unsubstituted reference survived"
+    assert list(rendered) == [_where(path)]
+    assert "{station." not in rendered[_where(path)], "an unsubstituted reference survived"
 
 
 @pytest.mark.parametrize("unit", sorted(BLOCKS))
 def test_an_empty_station_writes_nothing(catalog: dict[str, PackageManifest], unit: str) -> None:
     """D-035: the unit installs and the file is reported, never invented."""
-    writable, deferred = _plan_config(catalog[unit], Station())
+    writable, deferred = _plan_config(catalog[unit], Station(), HOME)
     assert not writable
     assert deferred and all("station set" in d.remedy for d in deferred)
 
@@ -90,7 +98,7 @@ def test_the_manifest_says_how_to_inspect_and_reverse(
     it and how to reverse it -- and uninstall does not reverse config files."""
     notes = " ".join((catalog[unit].documentation.known_problems or "").split())
     path = BLOCKS[unit]
-    assert path in notes or path.replace("~/", "") in notes
+    assert path in notes
     assert "does not remove it" in notes
     assert "hammunition-backup" in notes
 
@@ -249,3 +257,41 @@ def test_skip_if_present_is_refused_on_a_whole_file_write() -> None:
 
     with pytest.raises((ManifestError, ValueError), match="append"):
         ConfigFile(path="/etc/x", template="x", skip_if_present=["x"])
+
+
+# ---------------------------------------------------------------------------
+# gpredict -- the default ground station, from the grid square
+# ---------------------------------------------------------------------------
+
+
+def _keyfile(body: str) -> dict[str, dict[str, str]]:
+    """A GKeyFile read the way gpredict's qth_data_read sees it: `[group]`
+    headers, `key=value`, `#` comments."""
+    groups: dict[str, dict[str, str]] = {}
+    current: dict[str, str] | None = None
+    for line in body.splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        if line.startswith("["):
+            current = groups.setdefault(line.strip("[]"), {})
+            continue
+        assert current is not None, f"{line!r} is outside any group"
+        key, _, value = line.partition("=")
+        current[key] = value
+    return groups
+
+
+def test_gpredict_writes_the_default_ground_station(catalog: dict[str, PackageManifest]) -> None:
+    body = _render(catalog["gpredict"])[str(HOME / ".config/Gpredict/sample.qth")]
+    qth = _keyfile(body)["QTH"]
+    assert qth["LOCATION"] == "FN31pr"
+    assert (qth["LAT"], qth["LON"]) == ("41.7292", "-72.7083"), "the centre of FN31pr"
+    assert "ALT" not in qth, "station config has no altitude; nothing is invented"
+    assert set(qth) <= {"LOCATION", "DESCRIPTION", "WX", "LAT", "LON", "ALT", "QTH_TYPE"}
+
+
+def test_gpredict_is_deferred_without_a_grid_square(catalog: dict[str, PackageManifest]) -> None:
+    writable, deferred = _plan_config(catalog["gpredict"], Station(callsign="N0TST"), HOME)
+    assert not writable
+    assert "grid_square" in deferred[0].why
+    assert "--grid-square" in deferred[0].remedy
