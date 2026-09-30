@@ -828,6 +828,33 @@ class DemTilesInstall(Strict):
         return self
 
 
+class TopoQuadsInstall(Strict):
+    """Official topographic map sheets for the station's map regions (D-068).
+
+    Like `DemTilesInstall`, nothing is pinned in the manifest: which sheets
+    are needed follows the operator's regions in station config, chosen at
+    plan time from a carried, generated index
+    (``catalog/data/ustopo-quads.txt``), each checked against the S3 ETag
+    its publisher lists, the plan saying so sheet by sheet. `provider` is an
+    enum so the Forest Service's FSTopo is a new member the engine
+    implements, never a URL in the catalog.
+    """
+
+    method: Literal["topo-quads"] = "topo-quads"
+    provider: Literal["usgs-ustopo"] = "usgs-ustopo"
+    licence: str = Field(
+        min_length=2,
+        description="SPDX identifier where one exists, else the publisher's own words.",
+    )
+    licence_url: str = Field(description="Where the licence is stated, on the publisher's site.")
+
+    @model_validator(mode="after")
+    def _check(self) -> TopoQuadsInstall:
+        if not self.licence_url.startswith("https://"):
+            raise ManifestError(f"licence_url must be https, got {self.licence_url!r}")
+        return self
+
+
 #: D-061: the install method a `derived` block's `source` unit must actually
 #: resolve to, keyed by `converter`. A single-manifest validator cannot check
 #: this -- it would need another manifest's own install block, which is why
@@ -838,6 +865,7 @@ CONVERTER_SOURCE_METHOD: dict[str, str] = {
     "mkgmap": "osm-regions",
     "routino-planetsplitter": "osm-regions",
     "gdal-dem": "dem-tiles",
+    "ustopo-mosaic": "topo-quads",
 }
 
 
@@ -855,18 +883,21 @@ class DerivedDataInstall(Strict):
     """
 
     method: Literal["derived"] = "derived"
-    converter: Literal["navit-maptool", "mkgmap", "routino-planetsplitter", "gdal-dem"] = Field(
+    converter: Literal[
+        "navit-maptool", "mkgmap", "routino-planetsplitter", "gdal-dem", "ustopo-mosaic"
+    ] = Field(
         description=(
             "The transformation to run. Each needs a `source` of one particular "
             "install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): "
             "`navit-maptool`, `mkgmap` and `routino-planetsplitter` need an "
-            "`osm-regions` source; `gdal-dem` needs a `dem-tiles` source."
+            "`osm-regions` source; `gdal-dem` needs a `dem-tiles` source; "
+            "`ustopo-mosaic` needs a `topo-quads` source (D-068)."
         )
     )
     source: str = Field(
         description=(
             "The catalog package name this is derived from: an `osm-regions` unit, "
-            "or for `gdal-dem` a `dem-tiles` unit."
+            "for `gdal-dem` a `dem-tiles` unit, for `ustopo-mosaic` a `topo-quads` unit."
         )
     )
     boundaries: str | None = Field(
@@ -908,6 +939,7 @@ InstallMethod = Annotated[
     | DataInstall
     | RegionalDataInstall
     | DemTilesInstall
+    | TopoQuadsInstall
     | DerivedDataInstall,
     Field(discriminator="method"),
 ]

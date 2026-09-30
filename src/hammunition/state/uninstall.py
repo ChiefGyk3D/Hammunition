@@ -72,6 +72,7 @@ from hammunition.manifest.schema import (
     ProfileManifest,
     RegionalDataInstall,
     SourceInstall,
+    TopoQuadsInstall,
     VenvInstall,
     effective_binaries,
 )
@@ -427,7 +428,12 @@ def plan_removal(
                     )
 
         elif isinstance(
-            install, DataInstall | RegionalDataInstall | DemTilesInstall | DerivedDataInstall
+            install,
+            DataInstall
+            | RegionalDataInstall
+            | DemTilesInstall
+            | TopoQuadsInstall
+            | DerivedDataInstall,
         ):
             # D-049: a data unit's files live only under its namespaced data
             # directory, which nothing but this engine writes; removed whole.
