@@ -867,6 +867,86 @@ def _replace_atomically(path: Path, text: str, mode: int | None) -> None:
         raise
 
 
+def cmd_maps_comaps(args: argparse.Namespace) -> int:
+    """Prepare this operator's CoMaps, then start it.  D-069.
+
+    What the ``comaps-offline`` launcher runs. Per user, refused as root.
+    Writes ``EulaAccepted=true`` into CoMaps' own settings when no answer is
+    there, so the licence dialog does not block the first start, and links
+    each map ``comaps-maps`` installed into CoMaps' map directory; then
+    replaces itself with CoMaps, with its writable and resource directories
+    named. A settings file that is a symbolic link or not a regular file is
+    refused, and CoMaps is not started. No ``--json`` form: it replaces
+    itself with a GUI (D-059).
+    """
+    from hammunition.comaps_launch import data_dir, ensure_eula, link_maps, settings_path
+
+    if os.geteuid() == 0:
+        print(
+            "error: CoMaps' settings and maps are per user; run this as yourself, not as root.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    prefix = DEFAULT_PREFIX
+    program = prefix / "bin" / "CoMaps"
+    if not args.configure_only and not (program.is_file() and os.access(program, os.X_OK)):
+        print(
+            f"error: {program} is not installed; `hammunition install comaps` builds it.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    path = settings_path()
+    not_started = "Nothing was changed and CoMaps was not started"
+    try:
+        text, mode = _read_config_nofollow(path)
+    except OSError as exc:
+        print(f"error: {exc}. {not_started}.", file=sys.stderr)
+        return EXIT_FAILED
+    updated = ensure_eula(text)
+    if updated != text:
+        print(
+            f"recording in {path} that CoMaps' licence and copyright notice is accepted, "
+            f"so its first-start dialog does not block the window (the notice is "
+            f"{prefix / 'share' / 'comaps' / 'data' / 'copyright.html'})",
+            file=sys.stderr,
+        )
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _replace_atomically(path, updated, mode)
+        except OSError as exc:
+            print(
+                f"error: cannot write {path}: {exc.strerror or exc}. CoMaps was not started.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+    writable = data_dir()
+    try:
+        notes = link_maps(data_root(prefix) / "comaps-maps", writable)
+    except OSError as exc:
+        print(
+            f"error: cannot link the maps into {writable}: {exc.strerror or exc}. "
+            f"CoMaps was not started.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    for note in notes:
+        print(note, file=sys.stderr)
+    if args.configure_only:
+        return EXIT_OK
+    env = {
+        **os.environ,
+        "MWM_WRITABLE_DIR": str(writable),
+        "MWM_RESOURCES_DIR": str(prefix / "share" / "comaps" / "data"),
+    }
+    sys.stdout.flush()
+    sys.stderr.flush()  # execve discards whatever Python still buffers
+    try:
+        os.execve(str(program), ["CoMaps"], env)
+    except OSError as exc:
+        print(f"error: cannot start {program}: {exc.strerror or exc}.", file=sys.stderr)
+    return EXIT_FAILED
+
+
 def _installed_brouter(prefix: Path) -> BRouterSetup | None:
     """Hammunition's BRouter when its tree holds one jar and at least one
     routing file is built (D-063); None otherwise, and QMapShack's BRouter
@@ -3374,7 +3454,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_update.set_defaults(func=cmd_update)
 
     p_maps = sub.add_parser(
-        "maps", help="offline maps: Geofabrik's regions (D-057), QMapShack and its GPS (D-061)"
+        "maps",
+        help="offline maps: Geofabrik's regions (D-057), QMapShack and its GPS (D-061), CoMaps (D-069)",
     )
     maps_sub = p_maps.add_subparsers(dest="maps_command", required=True)
 
@@ -3400,6 +3481,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="edit the configuration and do not start QMapShack",
     )
     p_maps_qms.set_defaults(func=cmd_maps_qmapshack)
+
+    p_maps_comaps = maps_sub.add_parser(
+        "comaps",
+        help="accept CoMaps' licence notice and link your maps for it, then start it (D-069)",
+    )
+    p_maps_comaps.add_argument(
+        "--configure-only",
+        action="store_true",
+        help="prepare the settings and map links and do not start CoMaps",
+    )
+    p_maps_comaps.set_defaults(func=cmd_maps_comaps)
 
     p_maps_tether = maps_sub.add_parser(
         "gps-tether",
