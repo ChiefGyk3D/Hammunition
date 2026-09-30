@@ -62,7 +62,9 @@ documentation:
     phone network down: the maps are on the laptop before anything goes
     wrong, and `hammunition update` says when newer map data is pinned.
   deliberately_excludes: >-
-    Tile servers and Kiwix are the next piece of this work. Viking, Marble,
+    Maps for phones are their own profile, `phone-maps` (D-067), because
+    each is built for every region and a team's phones are not every
+    operator's. Tile servers and Kiwix are the next piece of this work. Viking, Marble,
     GPSPrune and JOSM were measured and left out: Debian's Viking renders
     nothing offline, Marble's offline place index has no packaged builder,
     and GPSPrune and JOSM use online tiles. BRouter's published routing

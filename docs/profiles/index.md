@@ -15,6 +15,7 @@ Named bundles of software that belong together. Flat tags with overlap, never ne
 | [morse](morse.md) | 1.0 | 17 | Morse code — sending, decoding, learning, and licence exam practice |
 | [navigation](navigation.md) | post-1.0 | 18 | Offline maps and turn-by-turn navigation from your own GPS, with no network |
 | [packet](packet.md) | 1.0 | 22 | AX.25, APRS, Winlink and the EMCOMM stack |
+| [phone-maps](phone-maps.md) | post-1.0 | 3 | Offline maps and points of interest for the team's phones, built on the laptop |
 | [propagation](propagation.md) | 1.0 | 12 | Band conditions, grey line, beacons and DX spotting |
 | [rf-research](rf-research.md) 🔒 | post-1.0 | 2 | Transmit-capable and interception-capable RF tooling — affirmative opt-in required |
 | [rf-security](rf-security.md) | 1.0 | 12 | Spectrum analysis, wireless auditing and protocol inspection |

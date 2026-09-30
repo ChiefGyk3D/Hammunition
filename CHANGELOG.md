@@ -64,6 +64,21 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   wait its parser adds to every input under 100 MB. Measured end to end on
   synthetic regions against the pinned jar; a route drawn in QMapShack is
   owed by the bench.
+- **Phone maps from the laptop** (D-067). Two new units build, from the
+  station's regions, a Mapsforge map (`mapsforge-map`) and a Mapsforge
+  points-of-interest file (`mapsforge-poi`) per region, as the operator,
+  with the archive's osmosis; the POI writer, packaged nowhere, is fetched
+  from Maven Central and checked against a sha256 Hammunition measured. They
+  are a new post-1.0 profile, `phone-maps`; `navigation` is unchanged.
+  `hammunition maps phone` copies the phone files, Garmin maps included,
+  into one folder with a `SHA256SUMS` and prints the ways to carry them to a
+  phone: the laptop's hotspot with a web server bound to the hotspot's
+  address, USB, and `adb` or KDE Connect as opt-ins. It transfers nothing.
+  None of the files has been loaded on a phone yet. OsmAnd `.obf`,
+  Organic Maps and CoMaps `.mwm`, PocketMaps and Transportr are not
+  carried, each with its reason and route in D-067.
+- `scripts/check_artifact_urls.py` no longer crashes on a derived unit, whose
+  `source` is a unit name, and sweeps a converter's pinned tool (D-067).
 
 ## v0.15.0 — 2026-09-29 — sudo asked once per run; launchers by absolute path
 
