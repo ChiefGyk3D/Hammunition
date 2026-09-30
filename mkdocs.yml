@@ -151,6 +151,7 @@ nav:
       - listening: profiles/listening.md
       - navigation: profiles/navigation.md
       - reference: profiles/reference.md
+      - phone-maps: profiles/phone-maps.md
       - electronics: profiles/electronics.md
       - workstation: profiles/workstation.md
       - editors: profiles/editors.md

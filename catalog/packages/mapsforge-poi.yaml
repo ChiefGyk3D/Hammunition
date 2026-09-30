@@ -1,0 +1,85 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: mapsforge-poi
+version: "station"
+summary: Mapsforge points-of-interest files of your regions, for searching on a phone
+categories: [navigation-maps]
+
+# Derived data (D-067): the `mapsforge-poi` converter runs the archive's
+# osmosis with Mapsforge's POI writer, which no archive packages (Debian's
+# mapsforge-poi jar holds only the storage classes). The writer is Maven
+# Central's jar-with-dependencies, pinned below by a sha256 Hammunition
+# measured on 2026-09-29 by downloading it once; it matched Central's own
+# .sha256 beside it. Central also serves an .asc signature by key ID
+# B51D6498DA0031B6, whose owner was not verified; the engine records it and
+# does not check it, and the plan says so. The jar is 0.25.0, mapsforge's
+# latest release (2025-04); upstream's head commit was 2026-09-07. It bundles
+# sqlite-jdbc 3.43.0, with native libraries for x86_64, aarch64 and arm, and
+# Guava, each under its own licence in the jar's META-INF.
+depends: [osm-regions, osmosis, libmapsforge-java]
+
+install:
+  - install:
+      method: derived
+      converter: mapsforge-poi
+      source: osm-regions
+      licence: ODbL-1.0
+      licence_url: https://www.openstreetmap.org/copyright
+      tool:
+        artifact:
+          url: https://repo1.maven.org/maven2/org/mapsforge/mapsforge-poi-writer/0.25.0/mapsforge-poi-writer-0.25.0-jar-with-dependencies.jar
+          sha256: 85dd23488511f51a710139dffc8c622d184ea93e817c4ec27dde1c222b7432a7
+          signature_url: https://repo1.maven.org/maven2/org/mapsforge/mapsforge-poi-writer/0.25.0/mapsforge-poi-writer-0.25.0-jar-with-dependencies.jar.asc
+        size: 18827962
+        licence: LGPL-3.0
+        licence_url: https://github.com/mapsforge/mapsforge/blob/master/LICENSE
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    Follows osm-regions: a region whose downloaded file changed is built
+    again on the next install. The writer is pinned to one release; a new
+    mapsforge release (https://github.com/mapsforge/mapsforge/releases) is a
+    manifest change: download it once, hash it, compare with Central's
+    .sha256, and bump the url, sha256 and size together. Every POI file is
+    then built again, because its record names the writer's digest.
+
+documentation:
+  what_it_does: >-
+    Builds one Mapsforge `.poi` file per region `osm-regions` downloaded:
+    a small SQLite database of the region's points of interest, chosen by
+    the writer's own default tag mapping, that a phone map app searches
+    offline beside a Mapsforge map. It runs as the operator in a
+    staging directory. The files land under
+    /usr/local/share/hammunition/data/mapsforge-poi/, and
+    `hammunition maps phone` gathers them.
+  why_you_want_it: >-
+    A map shows where things are; a POI file lets the phone find them by
+    name or kind with no network. Built on the laptop from the same regions
+    as the map, so the two match. By their own documentation, Cruiser, Locus
+    Map, OruxMaps and c:geo read Mapsforge POI files; none has been checked
+    on a phone here.
+  prerequisites: >-
+    `osm-regions` with at least one region set in station config, and the
+    archive's `osmosis` and `libmapsforge-java`; all install first. The POI
+    writer is downloaded once from Maven Central (18.8 MB) and checked
+    against the sha256 above. With no regions set this unit is deferred by
+    name.
+  known_problems: >-
+    Measured on one region, Delaware (22 MB download), on 2026-09-29: 23 s,
+    0.47 GB of memory, a POI file 0.21 times the download holding 22,785
+    points, and under half the download written to disk while it runs. The
+    plan uses 0.21 and 0.5 and says they were measured on one region. The
+    writer is not packaged by any archive, so it is the one file here pinned
+    by Hammunition rather than signed by a distribution; its .asc signature
+    is recorded and not verified. It unpacks sqlite-jdbc's native library at
+    run time, into the staging directory, not /tmp. Not loaded on a phone
+    yet. The file carries the Open Database License obligations of the
+    data.
+  upstream_url: https://github.com/mapsforge/mapsforge
+  upstream_support: >-
+    GitHub issues at https://github.com/mapsforge/mapsforge/issues; the POI
+    writer's options are documented in the repository's docs directory.

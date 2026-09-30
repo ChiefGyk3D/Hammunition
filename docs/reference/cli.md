@@ -516,6 +516,62 @@ both servers, exit 0; kiwix-serve exiting on its own stops the page, exit
 1. There is no `--json` form: it is a server, not a document (D-059).
 `docs/guides/offline-reference.md` is the operator's walk-through.
 
+### `hammunition maps phone`
+
+Gathers the phone files the laptop has built into one folder and prints the
+ways to carry them to a phone (**D-067**). **It transfers nothing and serves
+nothing**: every route it prints is a command for you to run.
+
+It copies each installed Mapsforge map (`mapsforge-map`), Mapsforge POI file
+(`mapsforge-poi`) and Garmin map (`osm-garmin`, from `navigation`) from
+`/usr/local/share/hammunition/data/` into `$XDG_DATA_HOME/hammunition/phone/`
+(by default `~/.local/share/hammunition/phone/`, created mode 0700), named
+`<region slug>.map`, `.poi` and `.img`, and writes `SHA256SUMS` beside them
+in the format `sha256sum -c SHA256SUMS` checks. Each source is hashed as it
+is copied and each copy is hashed again after it is written. A copy that
+already hashes the same is left alone, so a second run copies nothing. A
+file the previous run listed in `SHA256SUMS` whose region is no longer
+installed is removed; nothing else in the folder is touched, including a
+`.map` you put there yourself, symbolic links and subdirectories. With no
+phone file installed at all, the folder is left as it is.
+
+```
+$ hammunition maps phone
+Phone files in /home/you/.local/share/hammunition/phone:
+  north-america-us-vermont.map        12345678 bytes  copied
+  ...
+  SHA256SUMS: check a copy with `sha256sum -c SHA256SUMS` in the folder
+
+Nothing was transferred. To carry them to a phone:
+
+1. Laptop hotspot and a web browser
+   ...
+     python3 -m http.server 8000 --bind 10.42.0.1 --directory /home/you/.local/share/hammunition/phone
+```
+
+The routes: **the laptop's hotspot** (`nmcli device wifi hotspot`) with
+`python3 -m http.server` **bound to the hotspot's address** (10.42.0.1,
+NetworkManager's default for a hotspot), so the files are served on the
+hotspot link and not on any other network the laptop has joined, after a
+check bound to 127.0.0.1; **USB file transfer** (MTP: `kio-extras` on KDE
+Plasma, which Plasma installs, else `gvfs-backends`, `jmtpfs` or
+`mtp-tools`); and two opt-ins, **`adb`** (brings `android-udev-rules`, a
+system modification; the phone needs USB debugging) and **KDE Connect**
+(the phone needs its app, installed while it had internet, and pairing).
+The full walk-through is `docs/guides/offline-navigation.md`, section 14.
+
+It refuses root, exit 1, and changes nothing. It refuses, exit 1, before
+copying anything, when the folder is a symbolic link or not a directory,
+and when its file system has less room than the copies need. With no phone
+file installed it says which units build them and exits 0, touching
+nothing.
+
+With `--json`, prints a `phone` document
+([json-interface.md](json-interface.md)): the folder, each file with its
+unit, size, sha256 and whether this run copied it, the files removed, the
+phone units with nothing installed, and the routes as data. File names carry
+region slugs: for local programs, not for pasting.
+
 ### `hammunition list [all|packages|profiles]`
 
 Everything in the catalog, with each package's install method **on this

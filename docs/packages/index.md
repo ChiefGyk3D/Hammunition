@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**275 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**277 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -302,7 +302,7 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `navigation-maps` — 17
+### `navigation-maps` — 19
 
 Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
 
@@ -313,6 +313,8 @@ Offline maps, turn-by-turn navigation and the position on a moving map, with no 
 - [dem-copernicus](dem-copernicus.md) — Copernicus GLO-30 elevation tiles for your map regions, verified
 - [dem-qmapshack](dem-qmapshack.md) — Hillshade, slope and 20 m contour lines for QMapShack, from the elevation tiles
 - [gdal-bin](gdal-bin.md) — GDAL's command-line tools for rasters and elevation data
+- [mapsforge-map](mapsforge-map.md) — Mapsforge vector maps of your OpenStreetMap regions, for phone map apps
+- [mapsforge-poi](mapsforge-poi.md) — Mapsforge points-of-interest files of your regions, for searching on a phone
 - [mkgmap](mkgmap.md) — Builds Garmin-format maps from OpenStreetMap data
 - [mkgmap-splitter](mkgmap-splitter.md) — Cuts OpenStreetMap data into tiles sized for mkgmap
 - [navit](navit.md) — Offline turn-by-turn navigation that follows the GPS, with spoken directions
@@ -809,6 +811,8 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [linpac](linpac.md) | Terminal for AX.25 packet with a built-in mail client and macros | apt |
 | [linrad](linrad.md) | SM5BSZ's DSP receiver — the deep-toolbox SDR for weak-signal work | source |
 | [m2kcli](m2kcli.md) | Command-line control of the ADALM2000 lab instrument | apt |
+| [mapsforge-map](mapsforge-map.md) | Mapsforge vector maps of your OpenStreetMap regions, for phone map apps | derived |
+| [mapsforge-poi](mapsforge-poi.md) | Mapsforge points-of-interest files of your regions, for searching on a phone | derived |
 | [mfcuk](mfcuk.md) | MIFARE Classic key recovery with no known key — the slow path | apt |
 | [mfoc](mfoc.md) | Key recovery for MIFARE Classic cards with at least one known key | apt |
 | [minicom](minicom.md) | Full-screen serial communication program, the one everyone already knows | apt |
