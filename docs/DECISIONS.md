@@ -5498,7 +5498,8 @@ library in the engine, and nothing is executed: `socat` and `gpspipe` are no
 longer involved.
 
 What stays: 127.0.0.1 port 10110 only; one client at a time, now a second
-client closed at once with a line on the terminal rather than left waiting;
+client closed at once with a line on the terminal rather than left waiting
+(amended 2026-09-29, below: any number of clients, and `--gpsd`/`--port`);
 only while the operator runs it; Ctrl-C stops it; no `--json` form; the
 `gps-tether` launcher. Each client gets its own gpsd watch, opened when it
 connects and closed when it goes. The terminal shows a line when a client
@@ -5550,3 +5551,30 @@ front of an engine-made stream (a second program for what the standard
 library does, with its comma-separated option syntax in the argv).
 Leaving the `[General]` keys where they were (harmless to QMapShack, but a
 file that says two different things about where the maps are).
+
+### Amendment (2026-09-29): fan-out, `--gpsd` and `--port`
+
+**Amended 2026-09-29: the tether serves any number of clients, reads any
+gpsd, and serves any unprivileged port, still on loopback only.** One
+client at a time kept a terminal check (`nc`) away while QMapShack was
+open, and pinned the tether to the maintainer's own setup.
+`--gpsd HOST[:PORT]` (default `127.0.0.1:2947`; IPv6 in brackets, a bare
+one refused) reads a gpsd on a Pi, a phone or a shack computer; `--port N`
+(default 10110) serves another port, refused below 1024 and above 65535
+by name. The bind stays 127.0.0.1 whatever either says: the feed is a
+position without authentication, and another machine reaches it through
+`ssh -L 10110:127.0.0.1:10110 <laptop>`. Every connected client gets every
+sentence. **One gpsd connection is kept open while any client is
+connected**, opened for the first and closed when the last leaves, rather
+than one per client: every client then gets identical bytes from one
+`Feed`, gpsd is watched once, and nothing is held open while nobody
+listens, which is the property the per-client watch existed for. A client
+with more than 64 KiB unsent is dropped alone. Measured: the tests in
+`tests/test_gps_tether.py` and `tests/test_maps_tools.py`, broken on purpose
+and seen red first; and live on the development host, two raw clients on a
+spare port receiving the same 32 sentences in the same order, through
+`--gpsd` as `127.0.0.1` and as `[::1]:2947`. Not measured: a gpsd on
+another machine, a phone, a Bluetooth receiver or a rig's GPS; the guide's
+section 12 says so for each. **Rejected:** a `--bind` option or any
+listener beyond loopback (the position to anyone who asks), and a watch
+per client (N copies of gpsd's stream for identical output).

@@ -76,6 +76,7 @@ def test_the_guide_has_the_new_sections() -> None:
         "## 9. Trails and terrain: QMapShack",
         "## 10. Find an address in Navit, walk it in QMapShack",
         "## 11. Your position in QMapShack: the GPS tether",
+        "## 12. Other setups",
         "## What QMapShack does not do (yet)",
     ):
         assert heading in text, heading
@@ -90,6 +91,40 @@ def test_the_cli_reference_documents_both_maps_verbs() -> None:
         assert key in qms, key
     tether = _cli_section("`hammunition maps gps-tether")
     assert f"{HOST} port {PORT}" in " ".join(tether.split())
+    for option in ("--gpsd HOST[:PORT]", "--port N", "ssh -L 10110:127.0.0.1:10110"):
+        assert option in tether, option
+
+
+def test_the_printed_instructions_are_quoted_in_the_guide_and_the_cli_reference() -> None:
+    """What the launcher prints, as the docs show it, is what the code prints."""
+    from hammunition.gps_tether import instructions
+
+    printed = instructions()
+    assert printed in GUIDE.read_text()
+    assert printed in CLI.read_text()
+
+
+def test_the_other_setups_section_covers_each_setup_and_says_what_is_measured() -> None:
+    text = GUIDE.read_text()
+    start, end = text.index("## 12. Other setups"), text.index("## What QMapShack does not do")
+    section = " ".join(text[start:end].split())
+    for words in (
+        "--gpsd",
+        "--port",
+        "ssh -N -L 12947:127.0.0.1:2947",
+        "A phone as the GPS source",
+        "/etc/default/gpsd",
+        "/dev/rfcomm0",
+        "A rig with built-in GPS",
+        "A serial port has one owner",
+        "ssh -N -L 10110:127.0.0.1:10110",
+        "hammunition hardware park",
+        "Navit and xgps need none of this",
+        "nc 127.0.0.1 10110",
+        "### What is measured, and what is not",
+        "**None has been tested here**",
+    ):
+        assert words in section, words
 
 
 def test_the_cli_reference_quotes_the_golden_terrain_block() -> None:

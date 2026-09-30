@@ -64,7 +64,10 @@ documentation:
     and `demPaths` under [Canvas], `routino\paths` under [Route]). For your
     position, gpsd with a receiver that has a fix, and the `gps-tether`
     launcher running, which makes NMEA from gpsd's position and serves it
-    on 127.0.0.1 port 10110 for QMapShack's GPS Tether dialog to take.
+    on 127.0.0.1 port 10110 for QMapShack's GPS Tether dialog to take. A
+    gpsd on another machine (a Pi, a phone, a shack computer) is read with
+    `hammunition maps gps-tether --gpsd HOST[:PORT]`, and `--port N` serves
+    another port; the offline navigation guide's section 12 has each setup.
   known_problems: >-
     QMapShack has no offline address search: its search asks online
     services, and Routino routes between points, not addresses. Find the
@@ -77,8 +80,17 @@ documentation:
     JSON, as xgps and Navit do, writes RMC and GGA itself, bound to
     127.0.0.1 in its own code, and says when gpsd has no fix. On the field
     laptop on 2026-09-29 it gave QMapShack's GPS source a position from a
-    real receiver. QMapShack reconnects to it by itself, so while QMapShack
-    is open a test client from a terminal is turned away as a second one.
+    real receiver. Any number of programs may connect at once, each sent
+    every sentence, so `nc 127.0.0.1 10110` shows the feed while QMapShack
+    is open; a program that stops reading is dropped alone. It listens on
+    127.0.0.1 only whatever its options say, because the feed is your
+    position without a password; another machine reaches it through
+    `ssh -L 10110:127.0.0.1:10110`. A gpsd on another machine read through
+    `--gpsd` has been measured only as this machine's own gpsd, by address;
+    phone apps, Bluetooth receivers and a rig's built-in GPS are documented
+    and not yet tested. A rig that sends GPS on its CAT port gives that
+    port to gpsd, and rig control then cannot use it: pick a second port,
+    a second cable, or a separate receiver.
     The first version relayed `gpspipe -r` through socat and sent nothing,
     at a time when gpsd itself had stopped reporting (restarting gpsd
     brought a fix back within a second), so why is not established. The
