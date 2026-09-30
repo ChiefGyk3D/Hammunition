@@ -46,9 +46,10 @@ def test_the_log_reference_documents_the_fetch_facts() -> None:
 
 def test_claude_md_and_the_changelog_carry_it() -> None:
     assert "**D-070**" in _flat("CLAUDE.md")
+    # In whichever release carries it: a test tied to "Unreleased" goes red
+    # the day the entry is released, which is what happened to v0.16.0.
     changelog = (REPO_ROOT / "CHANGELOG.md").read_text()
-    unreleased = changelog[changelog.index("## Unreleased") : changelog.index("\n## v")]
-    assert "D-070" in unreleased
+    assert "D-070" in changelog[changelog.index("## Unreleased") :]
 
 
 def test_the_guide_says_the_plan_still_needs_the_internet() -> None:
