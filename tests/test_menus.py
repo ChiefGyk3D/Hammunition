@@ -1051,7 +1051,26 @@ def test_stale_device_entries_are_pruned(tmp_path: Path) -> None:
 
     stale = tmp_path / "hammunition-device-old-receiver-park.desktop"
     stale.write_text("[Desktop Entry]\n")
-    steps = device_entry_steps((), tmp_path, None)
+    steps = device_entry_steps((), tmp_path, None, engine=Path("/x/hammunition"))
     for step in steps:
         step.perform()
     assert not stale.exists()
+
+
+def test_a_device_entry_runs_the_engine_by_absolute_path(tmp_path: Path) -> None:
+    """Issue #145: a menu entry is started without ~/.local/bin on PATH, so
+    the Exec line names the engine; the title keeps the command to type."""
+    from hammunition.menus import device_entries, device_entry_steps
+
+    entries = device_entries(
+        parkables=[_parkable_stub("gps-receiver", "1-4", "USB GNSS receivers")],
+        entries={"gps-receiver": _device_class_stub(["gpsd-clients"])},
+        manifests={"gpsd-clients": _manifest_stub("gpsd-clients", ["gps-gnss"])},
+        hidden=frozenset(),
+    )
+    engine = Path("/home/op/.local/bin/hammunition")
+    for step in device_entry_steps(entries, tmp_path, None, engine=engine):
+        step.perform()
+    body = (tmp_path / "hammunition-device-gps-receiver-park.desktop").read_text()
+    assert f"Exec={engine} hardware park gps-receiver\n" in body, body
+    assert "Name=Park GPS receiver (hammunition hardware park gps-receiver)" in body

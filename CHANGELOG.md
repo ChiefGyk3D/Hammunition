@@ -11,6 +11,19 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Generated launchers run Hammunition by its full path** (issue #145).
+  `qmapshack-offline` and `gps-tether` said `hammunition maps ...`, and
+  Plasma starts a menu entry as a systemd user service whose `PATH` has no
+  `~/.local/bin`: both failed from the menu with "hammunition: not found".
+  A launcher now names `~/.local/bin/hammunition` when that is bootstrap's
+  link to the engine that wrote it (so a moved checkout is mended by
+  `./bootstrap.sh`), otherwise the engine's own `.venv/bin/hammunition`; the
+  plan prints which. The device park and wake menu entries do the same.
+  `hammunition menus apply` rewrites a launcher written before this, and
+  `hammunition doctor` gains a **launchers** check naming any launcher whose
+  engine is a bare name or a path that is gone, with the fix. The offline
+  navigation guide's "QMapShack does not start from the menu" says what
+  "not found" means now.
 - **An install run as a user asks sudo once and keeps its ticket valid
   until the run ends** (D-062, issue #137). A `navigation` install waited
   7.8 hours at a second `sudo` prompt after 30 minutes of work: sudo's
