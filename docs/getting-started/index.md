@@ -19,7 +19,9 @@ The order that works:
 2. [Your first profile](first-profile.md) — `station`, the floor every setup
    stands on, then a mode profile.
 3. [First contact](first-contact.md) — a digital-modes station making its first
-   decode.
+   decode. The full walk-through is the
+   [digital-modes guide](../guides/digital-modes.md), with
+   [audio routing](../guides/audio-routing.md) beside it.
 
 Everything the engine does to your machine, it prints before it does it, and
 records after. `--dry-run` shows the whole plan and changes nothing; a package

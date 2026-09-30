@@ -9,8 +9,11 @@ Organised by **symptom**, because that is how trouble presents — you do not
 know which component is at fault yet, that is the whole problem. Find what you
 are seeing; the fix names the component.
 
-Every entry here was observed on a real machine (the VM verification campaigns
-or field use), not imagined. Where a fix is distribution-specific it says so.
+Every entry under *Installing* and *Running* was observed on a real machine
+(the VM verification campaigns or field use), not imagined. The *Audio*
+entries point into the audio-routing guide, which says for each one whether
+it was measured on the bench or is documented behaviour not yet reproduced
+here. Where a fix is distribution-specific it says so.
 
 ## Installing
 
@@ -41,6 +44,36 @@ or field use), not imagined. Where a fix is distribution-specific it says so.
   kind of hub; measured per target.
 - **[The FT8 waterfall is silent](../getting-started/first-contact.md#when-the-waterfall-is-silent)** —
   audio routing, covered in first contact.
+
+## Audio and digital modes
+
+Symptom first; each links to the entry in
+[Audio routing](../guides/audio-routing.md#8-when-it-goes-wrong) or the
+[digital-modes guide](../guides/digital-modes.md).
+
+- **[The waterfall is flat or black](../guides/audio-routing.md#no-waterfall)** —
+  the program is recording from the wrong source. `wpctl status` shows which.
+- **[The radio's sound card is not in the program's list](../guides/audio-routing.md#radio-missing)** —
+  `cat /proc/asound/cards` says whether the kernel sees it at all.
+- **[Desktop sounds go out over the air, or the radio keys by itself](../guides/audio-routing.md#notifications-on-air)** —
+  the radio became the default output.
+- **[Full power on the meter, nobody decodes me](../guides/audio-routing.md#alc)** —
+  overdrive; the ALC trap.
+- **[Direwolf: `Device or resource busy`](../guides/audio-routing.md#busy)** —
+  `plughw:` while PipeWire holds the card.
+- **[SSTV pictures slant](../guides/audio-routing.md#sstv-slant)** — sound
+  card clock error; calibrate once per card.
+- **[It worked until I opened a second program](../guides/audio-routing.md#two-programs)** —
+  one ham program per radio per session.
+- **[All sound stopped after installing something](../guides/audio-routing.md#pulseaudio-removed)** —
+  a package pulled in `pulseaudio`, which removes `pipewire-alsa`. The
+  planned removal was measured on the bench, where Hammunition refused it
+  (issue #61).
+- **[Signals on the waterfall, WSJT-X decodes nothing](../guides/digital-modes.md#3-time-the-clock-must-be-right)** —
+  the clock is more than about a second out.
+- **[WSJT-X's Test CAT fails](../guides/digital-modes.md#test-with-rigctl-before-you-blame-a-program)** —
+  test the radio with `rigctl` first; then look for a second program holding
+  the serial port.
 
 ## When nothing here fits
 

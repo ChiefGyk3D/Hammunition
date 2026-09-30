@@ -10,6 +10,13 @@ experience gets from a fresh install to a working digital-modes station without
 asking anyone a question or reading a forum thread. This page is that last
 stretch — from installed software to a decode on the waterfall.
 
+It is the short version. Two guides carry the long one:
+[Digital modes](../guides/digital-modes.md) walks rig control, the clock,
+your callsign in each program, the first FT8 QSO, PSK31, RTTY and JS8Call;
+[Audio routing](../guides/audio-routing.md) covers the sound path between
+radio and program on PipeWire, levels and the ALC trap, and its own list of
+audio symptoms.
+
 ## The chain you are building
 
 A digital-modes station is four things wired together:
@@ -34,7 +41,10 @@ After `hammunition install station digital-modes`:
    cable fight.
 3. **Audio routing.** In your sound settings, confirm the interface appears as
    both an input and an output device. In WSJT-X's Settings → Audio, select it
-   for both. The waterfall should come alive with the band's noise.
+   for both. The waterfall should come alive with the band's noise. Finding
+   which device is the radio, and keeping it from becoming the desktop's
+   default output, is in
+   [Audio routing](../guides/audio-routing.md#2-which-device-is-the-radio).
 4. **PTT.** WSJT-X → Settings → Radio: set PTT to CAT (via flrig/hamlib) or a
    serial line. Test with the **Tune** button — the radio should key and show
    output into a dummy load or antenna.
@@ -55,7 +65,12 @@ Symptom-first, because that is how trouble actually presents:
 
 - **Waterfall flat, no noise** → the computer is not hearing the radio. Wrong
   input device in WSJT-X, or audio cable in the wrong jack. Confirm the
-  interface shows input level in your OS sound settings first.
+  interface shows input level in your OS sound settings first; the
+  [audio symptoms list](../guides/audio-routing.md#8-when-it-goes-wrong)
+  goes further.
+- **Signals on the waterfall, no decodes** → the clock. FT8 needs it within
+  about a second; see
+  [the time section](../guides/digital-modes.md#3-time-the-clock-must-be-right).
 - **Decodes but Tune does not key the radio** → PTT. Wrong CAT setting or
   serial line; test flrig can key the radio on its own.
 - **`dialout` permission errors on the serial device** → you were added to the
