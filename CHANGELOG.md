@@ -27,6 +27,44 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   `mirror` field; plan steps gain `sources`. Guide:
   `docs/guides/lan-mirror.md`.
 
+- **Repeaters on the offline maps** (**D-064**). `hammunition maps repeaters
+  import FILE...` converts your own export, with no network, into a GPX, a
+  QMapShack POI collection and a Navit layer in
+  `~/.local/share/hammunition/overlays/repeaters/` (mode 0600). It reads a
+  RepeaterBook GPX export, a RepeaterBook CSV export with Lat and Long,
+  hearham.com's JSON or a CSV you type; CHIRP files and CSVs without
+  positions are refused by name, since they carry no coordinates. Rows are
+  merged on callsign, output frequency and position to 0.01°, and the
+  merges are counted. RepeaterBook's attribution and terms are printed at
+  import; nothing is ever fetched from RepeaterBook. `maps repeaters
+  fetch-hearham` fetches hearham's open list on request, records the
+  sha256 it saw and marks the layer unverified. `maps repeaters remove`
+  undoes it. `import` and `remove` take `--json` (`repeaters`,
+  `repeaters-removed`), carrying counts and paths, never a callsign or a
+  position. The `navit-offline` launcher now runs `hammunition maps
+  navit`, which adds the layer to your own copy of Navit's configuration;
+  `hammunition menus apply` updates an installed launcher. Drawing on
+  screen is not yet measured.
+- **BRouter: a second offline router for QMapShack, with trail difficulty
+  and climbs** (D-063, amending D-061's "BRouter stays out"). Three units
+  join the `navigation` profile: `brouter` (upstream's v1.7.10 zip, checked
+  by its sha256, with Java from the archive), `brouter-mapcreator-profiles`
+  (the two map-creator filters the zip lacks, pinned by the tag's commit)
+  and `brouter-segments`, whose new `brouter-mapcreator` converter builds
+  BRouter's routing files on the machine from your regions with the
+  Copernicus elevation folded in, as you, in one locked staging directory,
+  and rebuilds them when a region, snapshot, tile or BRouter changes.
+  brouter.de's routing files are never downloaded: they are rebuilt weekly
+  with no checksum. The plan's *Terrain* block and its JSON say what is
+  built; `hammunition maps qmapshack` points QMapShack's local BRouter at
+  it, set to 127.0.0.1 with bind-to-host on, and leaves a BRouter you set
+  up yourself alone (QMapShack honours the bind only once it has read
+  BRouter's version; the guide says how to check). The
+  map creator now runs with `-DavoidMapPolling=true`, which removes a 120 s
+  wait its parser adds to every input under 100 MB. Measured end to end on
+  synthetic regions against the pinned jar; a route drawn in QMapShack is
+  owed by the bench.
+
 ## v0.15.0 — 2026-09-29 — sudo asked once per run; launchers by absolute path
 
 Two pull requests since v0.14.3 (#146, #147).

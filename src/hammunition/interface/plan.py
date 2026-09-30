@@ -22,11 +22,13 @@ from hammunition.backends.data import human_size
 from hammunition.backends.dem import TerrainDisclosure, no_terrain_line
 from hammunition.backends.regions import ESTIMATE, MapDisclosure, bin_estimate
 from hammunition.backends.terrain import (
+    BROUTER_FACTOR,
     CONTOUR_BYTES,
     CONTOUR_SCRATCH_BYTES,
     GARMIN_FACTOR,
     MEASURED,
     ROUTINO_FACTOR,
+    brouter_estimate,
     garmin_estimate,
     routino_estimate,
 )
@@ -116,6 +118,7 @@ def plan_state(
                 "mkgmap": not terrain.garmin,
                 "routino-planetsplitter": not terrain.routino_regions,
                 "gdal-dem": not terrain.drawing,
+                "brouter-mapcreator": not terrain.brouter_regions,
             }
             if idle.get(method.converter, False):
                 return "already installed"
@@ -333,6 +336,12 @@ class TerrainSectionView(Strict):
     contours: int = described("tiles whose contours are drawn this run")
     contours_estimate: int = described("bytes those contours are estimated to take")
     contours_estimate_human: str = described("as the text prints it")
+    brouter_regions: int = described(
+        "regions BRouter's routing files are rebuilt over; 0 when current (D-063)"
+    )
+    brouter_tiles: int = described("terrain tiles folded into them as elevation")
+    brouter_estimate: int = described("bytes the rebuilt routing files are estimated to take")
+    brouter_estimate_human: str = described("as the text prints it")
     disk_total: int = described("bytes: the tiles plus everything estimated to be built")
     disk_total_human: str = described("as the text prints it")
     estimate_note: str = described("how the estimates were measured")
@@ -650,7 +659,8 @@ def _terrain_section(terrain: TerrainDisclosure | None) -> TerrainSectionView | 
     ]
     routino = routino_estimate(terrain.routino_total)
     contours = terrain.contours * CONTOUR_BYTES
-    disk = download + sum(g.estimate for g in garmin) + routino + contours
+    brouter = brouter_estimate(terrain.brouter_total)
+    disk = download + sum(g.estimate for g in garmin) + routino + contours + brouter
     return TerrainSectionView(
         regions=tuple(
             TerrainRegionLine(
@@ -681,6 +691,10 @@ def _terrain_section(terrain: TerrainDisclosure | None) -> TerrainSectionView | 
         contours=terrain.contours,
         contours_estimate=contours,
         contours_estimate_human=human_size(contours),
+        brouter_regions=terrain.brouter_regions,
+        brouter_tiles=terrain.brouter_tiles,
+        brouter_estimate=brouter,
+        brouter_estimate_human=human_size(brouter),
         disk_total=disk,
         disk_total_human=human_size(disk),
         estimate_note=MEASURED,
@@ -709,7 +723,7 @@ def _map_section(
     converting = {f.slug for f in maps.convert}
     if terrain is not None:
         converting |= {f.slug for f in terrain.garmin}
-        if terrain.routino_regions:
+        if terrain.routino_regions or terrain.brouter_regions:
             converting |= {f.slug for f in (*maps.fetch, *maps.current)}
 
     def line(f: RegionFile, *, current: bool) -> RegionLine:
@@ -1235,6 +1249,17 @@ def _render_terrain(terrain: TerrainSectionView) -> list[str]:
         built.append(
             f"    Routino database over {terrain.routino_regions} region(s)  about "
             f"{terrain.routino_estimate_human} ({ROUTINO_FACTOR}x the downloads together)"
+        )
+    if terrain.brouter_regions:
+        elevation = (
+            f"elevation from {terrain.brouter_tiles} tile(s)"
+            if terrain.brouter_tiles
+            else "no elevation (flat)"
+        )
+        built.append(
+            f"    BRouter routing files over {terrain.brouter_regions} region(s)  about "
+            f"{terrain.brouter_estimate_human} ({BROUTER_FACTOR}x the downloads together), "
+            f"{elevation}; built here, never downloaded from brouter.de"
         )
     if terrain.contours:
         built.append(

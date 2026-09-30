@@ -178,3 +178,45 @@ def test_the_centred_following_output_is_still_well_formed_xml() -> None:
     assert navit.get("center") == "-72.5000 44.0000"
     gps = [v for v in navit.iter("vehicle") if (v.get("source") or "").startswith("gpsd://")]
     assert [v.get("follow") for v in gps] == ["1"]
+
+
+# --- overlays in the operator's copy (D-064) -----------------------------------------
+
+OVERLAY = Path("/home/op/.local/share/hammunition/overlays/repeaters/repeaters.navit.txt")
+
+
+def test_add_maps_puts_a_textfile_map_in_the_one_enabled_mapset() -> None:
+    from hammunition.navit_config import add_maps
+
+    generated = rewrite(FIXTURE, MAPS)
+    out = add_maps(generated, [OVERLAY])
+    mapset = out.split('<mapset enabled="yes">')[1].split("</mapset>")[0]
+    assert f'<map type="binfile" enabled="yes" data="{MAPS[0]}"/>' in mapset
+    assert f'<map type="textfile" enabled="yes" data="{OVERLAY}"/>' in mapset
+    # Nothing else moved: taking the one line out gives the input back.
+    line = f'\t\t\t<map type="textfile" enabled="yes" data="{OVERLAY}"/>\n'
+    assert out.replace(line, "") == generated
+
+
+def test_add_maps_is_idempotent_and_well_formed() -> None:
+    import xml.etree.ElementTree as ET
+
+    from hammunition.navit_config import add_maps
+
+    once = add_maps(rewrite(FIXTURE, MAPS), [OVERLAY])
+    assert add_maps(once, [OVERLAY]) == once
+    ET.fromstring(once.replace("xi:include", "include"))
+
+
+def test_add_maps_refuses_not_exactly_one_enabled_mapset() -> None:
+    from hammunition.navit_config import add_maps
+
+    with pytest.raises(NavitConfigError, match="0 enabled <mapset>"):
+        add_maps("<config><navit></navit></config>", [OVERLAY])
+
+
+def test_add_maps_refuses_a_path_navit_cannot_quote() -> None:
+    from hammunition.navit_config import add_maps
+
+    with pytest.raises(NavitConfigError, match="cannot be written"):
+        add_maps(rewrite(FIXTURE, MAPS), [Path("/tmp/a\nb.txt")])

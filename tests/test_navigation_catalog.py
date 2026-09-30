@@ -19,7 +19,7 @@ import pytest
 
 from hammunition.backends.regions import MapResolution
 from hammunition.manifest.load import load_catalog, load_profile
-from hammunition.manifest.schema import ProfileManifest
+from hammunition.manifest.schema import BinaryInstall, DataInstall, ProfileManifest
 from hammunition.terrain_plan import poly_url
 from test_json_plan_terrain import OCEANIA
 from test_terrain_cli import RegionProbe, TileProbe
@@ -40,6 +40,8 @@ PIECE_2 = {
     "dem-copernicus",
     "dem-qmapshack",
 }
+#: D-063: BRouter, its map-creator filters and the routing files.
+BROUTER = {"brouter", "brouter-mapcreator-profiles", "brouter-segments"}
 
 
 def _profile() -> ProfileManifest:
@@ -49,6 +51,7 @@ def _profile() -> ProfileManifest:
 def test_navigation_names_every_piece_2_unit_and_keeps_piece_1() -> None:
     members = set(_profile().packages)
     assert members >= PIECE_2
+    assert members >= BROUTER
     assert {"gpsd", "gpsd-clients", "navit", "osm-regions", "country-boundaries", "osm-navit"} <= (
         members
     )
@@ -133,6 +136,9 @@ def test_the_shipped_profile_resolves_whole_and_discloses_terrain(
     assert f"{OCEANIA.region}  1 tile(s)" in text
     assert f"Fetch terrain tile {TILE}" in text
     assert text.count("[check-terrain]") == 1
+    assert "BRouter routing files over 1 region(s)" in text
+    assert "elevation from 1 tile(s)" in text
+    assert "never downloaded from brouter.de" in text
 
     assert cli.main([*argv, "--json"]) == 0
     doc = json.loads(capsys.readouterr().out)
@@ -141,3 +147,31 @@ def test_the_shipped_profile_resolves_whole_and_discloses_terrain(
     assert set(_profile().packages) <= planned, "a navigation member did not resolve"
     assert install["deferrals"] == [], install["deferrals"]
     assert [t["tile"] for t in install["maps"]["terrain"]["fetch"]] == [TILE]
+    assert install["maps"]["terrain"]["brouter_regions"] == 1
+
+
+def test_brouter_s_pins_are_the_measured_ones() -> None:
+    """D-063: the zip by GitHub's asset digest, the two filters by the
+    sha256 of the v1.7.10 source tarball's members, fetched by commit."""
+    catalog = load_catalog(CATALOG / "packages")
+    zip_block = catalog["brouter"].install[0].install
+    assert isinstance(zip_block, BinaryInstall)
+    assert zip_block.artifact.sha256 == (
+        "023fec3ba997758e8cd7ab9e1bae52e962af3f00b57683e3de86b84ffad01532"
+    )
+    assert zip_block.tree_marker == "brouter-1.7.10-all.jar"
+    assert "default-jre-headless" in catalog["brouter"].depends
+    filters = catalog["brouter-mapcreator-profiles"].install[0].install
+    assert isinstance(filters, DataInstall)
+    assert {a.install_as: (a.sha256[:8], a.size) for a in filters.artifacts} == {
+        "all.brf": ("87d49d6a", 511),
+        "softaccess.brf": ("0c04a588", 631),
+    }
+    assert all("/4d2639af77ea5ed9c30d3e400764eb6f9e8522da/" in a.url for a in filters.artifacts)
+
+
+def test_nothing_in_the_catalog_fetches_from_brouter_de() -> None:
+    """brouter.de publishes no checksum; D-063 builds the routing files instead."""
+    for path in (CATALOG / "packages").glob("*.yaml"):
+        body = [line for line in path.read_text().splitlines() if not line.lstrip().startswith("#")]
+        assert not any("url:" in line and "brouter.de" in line for line in body), path.name

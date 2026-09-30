@@ -18,7 +18,8 @@ needs no network at all.
 Daily use and EMCOMM are the same setup. The maps have to be on the disk
 before anything goes wrong, so the way to be ready for the bad day is to use
 it on ordinary days and refresh it as routine. The decision records behind
-all of this are **D-057** and **D-061** in `docs/DECISIONS.md`.
+all of this are **D-057**, **D-061** and, for repeaters, **D-064** in
+`docs/DECISIONS.md`.
 
 The examples below use Vermont and New Hampshire. Use your own regions.
 
@@ -455,7 +456,91 @@ says what else has not.
 
 Routino's foot profile does not read trail difficulty (`sac_scale`): an
 alpine path counts the same as a pavement. Look at the contours and judge
-the route yourself.
+the route yourself, or route the same walk with BRouter, below.
+
+### Route with BRouter: trail difficulty and climbs
+
+QMapShack has a second offline router, BRouter, and the `navigation`
+profile installs it (**D-063**):
+
+- **`brouter`**: BRouter 1.7.10 itself, from upstream's release zip checked
+  against its published sha256, under `/usr/local/share/hammunition/brouter/`,
+  with Java from your distribution;
+- **`brouter-segments`**: BRouter's routing files, built on your machine
+  from the same regions and the same elevation tiles as everything above,
+  under `/usr/local/share/hammunition/data/brouter-segments/`;
+- **`brouter-mapcreator-profiles`**: two small filter files BRouter's map
+  builder needs, from BRouter's own source.
+
+What it adds over Routino: its `hiking-mountain` profile reads how hard a
+trail is (`sac_scale`), so a scramble is not treated as a footpath; every
+profile weighs climbs from the elevation, so a bike route avoids a hill
+Routino would ride straight over; and a route comes back with an elevation
+profile and turn hints. It has 26 profiles: `trekking` and its variants,
+`hiking-mountain`, `mtb`, `gravel`, `fastbike`, `safety`, `shortest`, three
+car profiles, `moped` and a few more. Routino stays the default, and
+neither searches for an address (section 10).
+
+**Why the routing files are built here, and never downloaded.** BRouter's
+own site, brouter.de, publishes ready-made routing files for the whole
+world. They are rebuilt every week and published with no checksum of any
+kind, so nothing can say a file is what its builder made, and Hammunition
+never fetches them. BRouter's own map builder is inside the same checked
+jar, so the install runs it over your regions instead, with the terrain
+tiles folded in as elevation. For Delaware, a public example, that was
+3.3 MB of routing files from a 22.1 MB download; brouter.de's file for the
+same area is 115 MB, because it covers a whole 5-by-5-degree square.
+
+The build runs as you, never as root, in
+`~/.cache/hammunition/build/brouter-segments/`, like the Routino database:
+the regions are merged into one input when there are two or more, the
+elevation is built one 5-degree square at a time, then BRouter's map
+builder runs its three steps. It is one set for all your regions, so a
+route may cross from one region into the next, and a region that fails
+fails the set; the set you already had is kept (unless a failing disk
+stops the new set halfway into place, when the set is removed rather than
+left mixed, and the next run rebuilds it). It is rebuilt when a
+region, a snapshot, the elevation tiles or BRouter itself changes. Each
+Java step may use up to 4 GB of memory; the elevation step took 1.33 GB
+for Delaware's square. A region with no elevation tile is routed flat.
+
+Using it in QMapShack:
+
+1. Start QMapShack from the `qmapshack-offline` launcher. When BRouter and
+   its routing files are installed, the launcher points QMapShack's local
+   BRouter at them, on 127.0.0.1 only, and says so. If you had already set
+   up a BRouter of your own in QMapShack, it leaves yours alone and says
+   that instead.
+2. In the *Routing* dock, choose *BRouter* in the router list (QMapShack
+   1.17.1 labels it *BRouter (online)*; the launcher has set it to run
+   locally) and a profile such as `hiking-mountain` or `trekking`.
+3. Place a start and an end. QMapShack starts BRouter in the background the
+   first time, which takes a few seconds, and stops it when QMapShack
+   closes. Nothing runs while you are not routing with it.
+
+Do not use QMapShack's own *BRouter setup* wizard for this: it downloads
+BRouter and its routing files from brouter.de.
+
+BRouter is meant to listen on 127.0.0.1 only: the launcher sets that host
+and turns on QMapShack's "bind to hostname only", because without it
+BRouter accepts connections from the whole network. QMapShack passes the
+host to BRouter only when it has read BRouter's version, which it does by
+running the jar and waiting up to 3 seconds; if that times out (a slow
+start on a busy machine), QMapShack can start BRouter without the host, on
+every interface. To check while a route is being calculated:
+
+```
+ss -ltnp | grep 17777
+```
+
+`127.0.0.1:17777` (or `[::ffff:127.0.0.1]:17777`) is loopback only;
+`*:17777` or `0.0.0.0:17777` is not, and then close QMapShack, reopen it and
+choose BRouter again. The development host started the jar and printed its
+version in 0.09 s, so this is not expected; it has not been seen on the
+field laptop either way.
+
+A route drawn by QMapShack through this BRouter has not been measured yet;
+see [What has not been measured yet](#what-has-not-been-measured-yet).
 
 ---
 
@@ -815,10 +900,116 @@ work, not what has been seen to.
 
 ---
 
+## 13. Repeaters on the map
+
+Your own repeater list, converted on this machine into a layer QMapShack and
+Navit both show (**D-064**). Hammunition fetches nothing from RepeaterBook
+and ships no repeater data: you export it with your own account, and the
+conversion happens here, offline.
+
+### Get an export
+
+- **RepeaterBook, as GPX (the one to use).** Logged in on repeaterbook.com,
+  run a search (by location, proximity, keyword and so on), then choose
+  *Export → GPX*. RepeaterBook does not export multi-county or multi-state
+  searches as GPX; run one search per area and import the files together.
+- **RepeaterBook, as CSV.** Only when its header has `Lat` and `Long`
+  columns. One without them is refused: there is nothing to place.
+- **Your own list.** A CSV with exactly this header, positions in decimal
+  degrees:
+
+  ```
+  callsign,output_mhz,offset_mhz,tone,mode,lat,lon,name,notes
+  N0CALL,146.940,-0.600,100.0,FM,39.8017,-89.6436,Springfield,club machine
+  ```
+
+- **hearham.com's open list**, fetched for you on request; see below.
+
+CHIRP files do not work, and are refused by name: a CHIRP CSV or `.img`
+holds channels, not places. CHIRP's own RepeaterBook query drops the
+coordinates and keeps only "near <city>" (measured), and a position guessed
+from a town name would be an invented one. KML is not read yet; export GPX
+from the same search.
+
+### Convert it
+
+```
+hammunition maps repeaters import ~/Downloads/repeaters.gpx
+```
+
+Several files at once are merged into one layer; the same repeater in two
+exports becomes one, and the same callsign and frequency on two different
+hills stays two. It prints RepeaterBook's attribution and terms first, then
+what it read, skipped and merged, and the files it wrote. The layer's name
+carries the export's date, taken from the file; give it yourself with
+`--exported 2026-09-01` if the file has been copied since.
+
+The files are yours, in `~/.local/share/hammunition/overlays/repeaters/`,
+readable only by you. RepeaterBook's export terms are personal,
+non-commercial use, and the data may not be redistributed in any form, so
+keep the files to your own machines. Positions are approximate: a map
+overlay to find a machine to talk through, not directions to a repeater
+site.
+
+A new import replaces the layer. To refresh it, export again and import
+again.
+
+### See it
+
+- **QMapShack.** The layer is a POI collection: open the *POI Collections*
+  dock and tick *Amateur radio repeaters*. The import added its directory to
+  QMapShack's settings; if QMapShack was open during the import, close it
+  and start it from `qmapshack-offline`, which adds the directory back. The
+  GPX is there too, for *File → Load* or to copy to a phone or a Garmin
+  unit.
+- **Navit.** Start `navit-offline`. Repeaters draw as towers labelled with
+  callsign and frequency, and list under *POIs → Other* with their
+  distance. They are **not** in Navit's address search: the file format
+  Navit reads them from has no search. The launcher now runs
+  `hammunition maps navit`; a launcher from an earlier install is updated
+  by `hammunition menus apply`.
+
+### hearham.com's open list
+
+```
+hammunition maps repeaters fetch-hearham
+```
+
+fetches the whole world's list from hearham.com (about 9.5 MB) when you run
+it, and at no other time, and converts it the same way. hearham publishes no
+checksum and no dated copy, so Hammunition records the digest of what
+arrived and names the layer *unverified*. hearham states no licence for its
+data, and says it should not be relied upon "for medical emergencies, or any
+other life-and-death operations". To combine it with your RepeaterBook
+export, save hearham's JSON yourself and give both files to one
+`maps repeaters import`.
+
+### Remove it
+
+```
+hammunition maps repeaters remove
+```
+
+deletes the layer's files and takes the directory out of QMapShack's
+settings. Navit goes back to the generated configuration at its next start.
+
+### Not carried
+
+- Anything fetched from RepeaterBook. Its API needs approval, and its
+  data-use terms forbid bulk extraction and offline bundling without written
+  permission.
+- Xastir, whose point layers live in a root-owned map directory, and YAAC,
+  whose importer makes APRS objects it can transmit (a D-021 matter, not a
+  map).
+- The FCC's licence database, which has no coordinates.
+
+---
+
 ## What QMapShack does not do (yet)
 
 - **No offline address search**: use Navit (section 10).
-- **Trail difficulty is not routed on** (section 9).
+- **Routino does not route on trail difficulty** (section 9); BRouter's
+  `hiking-mountain` profile does.
 - **No hiking map style.** Trails are drawn by mkgmap's default style; no
   hiking style is packaged in the archive. One visible result: residential
   land use is drawn as hatching when you zoom in close. It is cosmetic.
@@ -881,6 +1072,9 @@ one US-state-sized region:
 | Its build scratch | up to 6× all the regions together | `~/.cache/hammunition/build/osm-routino/` | Only while it builds |
 | Elevation tiles | about 39 MB a tile; tens to hundreds a region | `/usr/local/share/hammunition/data/dem-copernicus/` | Until uninstall, or no region needs the tile |
 | Contours | about 5.5 MB a tile, with up to 98 MB of scratch at a time | `/usr/local/share/hammunition/data/dem-qmapshack/` | As long as the tiles |
+| BRouter itself | about 8.5 MB, once | `/usr/local/share/hammunition/brouter/` | Until uninstall |
+| BRouter's routing files, all regions | about 0.2× all the regions together (Delaware: 3.3 MB from 22.1 MB) | `/usr/local/share/hammunition/data/brouter-segments/` | Rebuilt when the regions or tiles change |
+| Their build scratch | up to 3× all the regions together (an allowance, not measured), plus the merged regions when there are two or more, and about 650 MB of elevation scratch for one 5-degree square at a time | `~/.cache/hammunition/build/brouter-segments/` | Only while they build |
 
 Terrain is the part that grows fastest with a region's area. Measured on
 2026-09-28 over Geofabrik's US state outlines: a region's terrain is tens
@@ -1102,11 +1296,20 @@ The QMapShack maps, routing database and elevation go the same way, and
 leave QMapShack installed:
 
 ```
-hammunition uninstall dem-qmapshack dem-copernicus osm-routino osm-garmin
+hammunition uninstall brouter-segments dem-qmapshack dem-copernicus osm-routino osm-garmin
+```
+
+BRouter itself and its two filter files go with:
+
+```
+hammunition uninstall brouter brouter-mapcreator-profiles
 ```
 
 Your QMapShack settings keep the directories the launcher added; QMapShack
 lists nothing there once they are gone.
+
+Your repeater layer is not part of any unit; `hammunition maps repeaters
+remove` removes it (section 13).
 
 ---
 
@@ -1149,11 +1352,34 @@ yet been run on a desktop; bench session 12 in
 - Slope shading. Hillshade draws; slope was not tried.
 - QMapShack 1.21.1 from backports. Everything above ran on 1.17.1.
 
+For BRouter (**D-063**), every command the build runs was run on the
+development host on 2026-09-29, against the pinned jar, on two synthetic
+regions and a synthetic elevation tile, and BRouter, started the way
+QMapShack starts it, routed across both with that elevation. Not yet
+measured, and owed by the bench:
+
+- **A route in QMapShack through BRouter.** No desktop runs on the
+  development host. QMapShack's own check of the install (it runs the jar
+  and reads its version) has not been seen to pass.
+- **BRouter on loopback only while QMapShack routes**: `ss -ltnp | grep
+  17777` during a route should show `127.0.0.1` and nothing wider.
+- The build on a real region through `hammunition install`, with its time,
+  memory and scratch; the scratch figure in the plan is an allowance.
+- Java on the targets other than Parrot.
+
 Measured on the field laptop on 2026-09-29, and recorded in bench session
 12: the whole install on two regions, with its build times; QMapShack
 listing the maps, the contour map and the elevation from the directories
 the launcher writes; hillshade; and the GPS tether giving QMapShack a
 position from a real receiver.
+
+For repeaters on the map (**D-064**), nothing has been drawn on a desktop
+yet: QMapShack showing the GPX and the POI collection (and reading the
+collection from `poiPaths` under `[Canvas]`), Navit's labels and tower icons,
+and the *POIs → Other* listing all rest on reading QMapShack's and Navit's
+source, not on a screen. The columns of a real RepeaterBook CSV export, and
+what a real GPX export puts in `<name>` and `<desc>`, have not been seen:
+they need one export by a logged-in operator.
 
 Offline reference (Kiwix, a local tile server) is the next piece of this
 work and not in this profile.

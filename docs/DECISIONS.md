@@ -5371,7 +5371,9 @@ or "hundreds".
   alternative provider if anyone asks, and the `provider` enum has room for
   it.
 - **BRouter stays out**: its jar is pinnable, and its weekly routing data is
-  not.
+  not. (Amended 2026-09-29 by **D-063**: BRouter is carried, and its
+  routing files are built on the machine from the station's own regions and
+  tiles; brouter.de's weekly files are still never fetched.)
 - **An outline edge that jumps across ±180 as one segment is refused** by
   name. None measured does (above): Alaska, Fiji, New Zealand and Russia's
   far east select their tiles.
@@ -5668,6 +5670,437 @@ the engine's default is to drop to the operator, not to start as root.
 Setting `timestamp_timeout` or writing sudoers: that changes the machine's
 policy for every program, which a transaction has no business doing.
 `sudo -S` or an askpass helper: the engine would then handle the password.
+
+---
+
+## D-063 — BRouter is carried, and its routing files are built on the machine from the station's regions and elevation, never downloaded
+
+**Date:** 2026-09-29. **Status:** proposed (design approved by the
+maintainer in conversation on 2026-09-29, as recorded in
+`docs/superpowers/specs/2026-09-29-brouter-design.md`; implemented on
+branch `brouter`; the maintainer decides it at review). **Depends on:**
+D-057 (regions are station data; derived data by a converter enum run as
+the operator), D-061 (Copernicus tiles; the Routino converter's shape; the
+QMapShack launcher; loopback only), D-049 (pinned data units), D-035 and
+D-039 (a missing station value defers by name), D-031 (verify the effect),
+D-024 (pin what upstream tags). **Amends:** D-061's gaps list, whose
+"BRouter stays out" line now points here; D-061's converter enum, with
+`brouter-mapcreator`.
+
+**Why.** D-061 carries one offline router, Routino, whose foot profile
+ignores trail difficulty (`sac_scale`) and whose profiles ignore climbs.
+The routing spike of 2026-09-29 measured five engines on Delaware, a
+public example state. BRouter was the only one with an offline desktop
+consumer Hammunition already carries: QMapShack 1.17.1 has a local BRouter
+backend (`CRouterBRouterLocal`) that starts `java ... btools.server.RouteServer`
+itself as a subprocess and talks to it over HTTP. Its `hiking-mountain`
+profile reads `sac_scale`, and every profile weighs elevation. D-061 left
+it out for one reason: brouter.de's `segments4/` publishes 1,142 routing
+files, rebuilt weekly, with no checksum of any kind. The spike measured
+that BRouter's own map creator, inside the same pinned jar, builds those
+files from a Geofabrik extract in minutes, and that the Copernicus tiles
+D-061 already verifies convert into its elevation format. Built on the
+machine, from inputs already checked, the objection is gone.
+
+### Three units
+
+| Unit | What | Where |
+|---|---|---|
+| `brouter` | binary: upstream's `brouter-1.7.10.zip`, 6,724,983 bytes, sha256 `023fec3b…1532` (GitHub's asset digest, measured equal), installed as a tree, marker `brouter-1.7.10-all.jar`, `depends: [default-jre-headless]` (class files major 55, Java 11) | `/usr/local/share/hammunition/brouter/` |
+| `brouter-mapcreator-profiles` | data: `all.brf` (511 bytes) and `softaccess.brf` (631 bytes), which the zip lacks, from `raw.githubusercontent.com` at the tag's commit `4d2639af` | `data/brouter-mapcreator-profiles/` |
+| `brouter-segments` | derived, converter `brouter-mapcreator`: `source: osm-regions`, `program: brouter`, `profiles: brouter-mapcreator-profiles`, `elevation: dem-copernicus`; depends on `osmium-tool` and `gdal-bin` from the archive | `data/brouter-segments/*.rd5` |
+
+The `navigation` profile gains all three. Licence MIT (the GitHub API;
+QMapShack's About text still says GPLv3, which is stale). No launcher and
+no service: QMapShack starts BRouter while its Routing dock uses it and
+stops it with itself.
+
+**Ruling: the two filter files by commit, not the source tarball.** The
+approved design named the v1.7.10 source tarball. It was downloaded
+(`archive/refs/tags/v1.7.10.tar.gz`, 2,037,047 bytes, sha256
+`cb83f220332de8223476e029a9b075157fb74401c69a991ceaa013486c29760f`, our own
+measurement: GitHub publishes none for an archive), and its two members'
+sha256 are the pins. The files themselves are fetched by the tag's commit,
+the way `country-boundaries` is (D-057's amendment): the same bytes,
+measured equal, from a commit-addressed URL that cannot change, where
+GitHub's generated archives have not been guaranteed byte-stable; and a
+`data` tarball would install a whole source tree, under a versioned top
+directory, for 1.1 KB. They are map-creator filters, not routing profiles,
+so they are kept out of `profiles2`, where QMapShack would list "all" and
+"softaccess" as profiles to route with.
+
+**The block's three new fields.** `program` (a `binary` unit that installs
+a tree) and `profiles` (a `data` unit) are required on `brouter-mapcreator`
+and refused on every other converter; `elevation` (a `dem-tiles` unit) is
+optional, and without it the routes are flat. Each must be in `depends`,
+checked per manifest, and each is checked catalog-wide for its method,
+as `source` is (`BROUTER_INPUTS` in `src/hammunition/manifest/schema.py`).
+
+### One build over every region
+
+**Ruling: one set, never one per region.** A routing file is named by its
+5-degree square, so two regions in one square would each write the same
+file. `OsmFastCutter` takes one input, so two regions or more are merged
+first with `osmium merge`. This is Routino's shape (D-061): one working
+directory, `brouter.work`, under the operator's staging directory, one
+lock held by every step and every clear, run as the operator through
+`Staging`; a region that did not install or a step that fails fails the
+set by name in the terrain ledger, the installed set is kept, and the
+ledger's last step fails the run. The steps, each checked by its output,
+never its exit status:
+
+1. a check that the jar, `lookups.dat`, `trekking.brf` and the two filters
+   are installed, then the working directory emptied;
+2. `osmium merge <pbf>... -o merged.osm.pbf --overwrite`, with two regions
+   or more;
+3. per 5-degree square holding a tile the regions need: `gdalbuildvrt` over
+   the installed tiles in the square and its one-degree ring, `gdalwarp -te
+   <lon-0.5"> <lat-0.5"> <lon+1+0.5"> <lat+1+0.5"> -ts 3601 3601 -ot Int16
+   -of SRTMHGT` of each of the square's tiles out of that mosaic (so a
+   tile's edge rows come from its neighbour, not no-data; the mosaic at
+   `-resolution highest`), then
+   `ElevationRasterTileConverter srtm_XX_YY hgt bef 1`, naming the square as
+   `PosUnifier` does (`-1` north of 65 degrees); the `.hgt` files are
+   removed before the next square;
+4. `OsmFastCutter` with `-DavoidMapPolling=true -DuseDenseMaps=true
+   -Ddeletetmpfiles=true`, `PosUnifier` over the `.bef` directory, and
+   `WayLinker ... segments rd5`, as upstream's `process_pbf_planet.sh` runs
+   them less its database pseudo-tags; every Java step at `-Xmx4000m`;
+5. every `.rd5` published under a temporary name, verified, renamed in, the
+   files no longer built removed, and the record written: all or none.
+
+**`-DavoidMapPolling=true` is a measured finding.** `OsmParser` waits for
+its input to grow, 10 s at a time, until 120 s have passed, for any file
+within 100 MB of its end: upstream runs `osmupdate` beside it. On the
+synthetic region the cut took 120.1 s without the property and 0.1 s with
+it; most of the spike's "128 s" for Delaware was that wait.
+
+**The record**, `segments.source`: a `<slug> <snapshot>` line per region,
+`elevation <tile>` per tile folded in, `program <jar>`, `profiles
+<version>` (the filters unit's), `segment <file>` per routing file, and
+last `converter: brouter-mapcreator 1`. The set is
+current when the record, less its `segment` lines, is what this run would
+write and every segment exists. A new region or snapshot, a tile gained or
+lost, a new jar or filters version (as planned, so in the same run as the
+upgrade) or a bumped converter rebuilds it; a tile that failed to
+download is built in next run, because the record names the tiles that
+were on disk.
+
+With no regions set, `brouter-segments` is deferred by name with the other
+map units, and `brouter` and its filters install.
+
+### The plan and the disk
+
+*Built for QMapShack* gains "BRouter routing files over N region(s) about X
+(0.2x the downloads together), elevation from T tile(s); built here, never
+downloaded from brouter.de", and the JSON plan `brouter_regions`,
+`brouter_tiles` and `brouter_estimate`. The disk check counts, in the
+staging directory, 3x the downloads (**an allowance, not measured**), the
+merged input with two regions or more, one square's `.hgt` files (25 at
+most, 25,934,402 bytes each, measured) and every square's `.bef` (8 MB,
+Delaware's 7,987,865 bytes rounded up), and under the prefix 0.2x the
+downloads (Delaware's 3.3 MB from 22.1 MB, 0.15, rounded up). `update`
+names `brouter-segments` in its rebuild command beside the other derived
+units.
+
+### QMapShack is told where BRouter is
+
+`hammunition maps qmapshack` registers it when the tree holds one
+`brouter-*-all.jar` and at least one `.rd5` is built. The group is
+`Route/brouter`, read from QMapShack 1.17.1's `CRouterBRouterSetup.cpp` at
+tag `V_1.17.1`: under `[Route]`, `brouter\installMode=local`,
+`brouter\localDir` (the tree), `brouter\localBRouterJar`,
+`brouter\localSegmentsDir`, `brouter\localHost=127.0.0.1`,
+`brouter\localBindLocalonly=true`, and `brouter\localJava` only when
+absent or empty. `localProfileDir` stays at QMapShack's default,
+`profiles2`, relative to the tree.
+
+QMapShack's `save()` writes every one of these on exit, so an absent key
+and one at QMapShack's default are the same fact: nobody chose it. A
+`localDir` that is absent, `.` or already ours is set, with the rest; any
+other is the operator's own BRouter, and nothing is touched and one line
+says so. **Ruling: the host and the bind are forced to loopback when the
+tree is ours.** QMapShack passes the host to BRouter only when "bind to
+hostname only" is on, and BRouter otherwise listens on every interface,
+which QMapShack itself warns about; the engine's rule since D-061 is
+loopback only. `localJava` matters because a QMapShack run before Java was
+installed saves it empty, and BRouter then reads as "not installed" for
+good. A quoted or `@`-typed value in one of these keys leaves BRouter alone
+with a line, and never refuses the launch: BRouter must not stop the maps
+from opening. `Route/current`, which router the dock shows, stays the
+operator's; Routino remains the default.
+
+### What is measured, and what is not
+
+Measured on the development host on 2026-09-29, in scratch: the zip's
+digest and the two filters' against the tarball's members; the engine's
+converter, the real jar and the archive's `osmium` and GDAL, on two
+synthetic regions (a 4-by-4 grid of roads and paths near Wilmington, and
+a track sharing a node with it) and a synthetic flat 42 m tile on the
+Copernicus grid: the `.hgt` (25,934,402 bytes), `srtm_21_05.bef` (2.8 s
+through the engine), the cut (0.1 s), unify (0.6 s), link (0.1 s),
+`W80_N35.rd5` installed with its record, and the next plan finding it
+current; then `RouteServer` started as QMapShack starts it (in the tree,
+the jar and `profiles2` relative, the segments absolute, a custom-profile
+directory that does not exist, `127.0.0.1`): `ss` showed one loopback
+listener, and `trekking` and `hiking-mountain` routes crossed both regions
+with 42 m on every point. The jar run with no arguments printed
+`BRouter 1.7.10`, the line QMapShack's version check reads, in 0.09 s.
+From the spike, on Delaware: the cut 128 s and 593 MB (most of it the
+polling above), the elevation square 9.3 s and 1.33 GB, the link 7 s and
+445 MB, 3.3 MB of routing files.
+
+**Loopback depends on QMapShack reading BRouter's version.** QMapShack
+1.17.1 passes the host to `RouteServer` only when "bind to hostname only" is
+on *and* it has parsed BRouter's version (`usesLocalBindaddress()`), which
+it reads by running the jar with a 3 s limit; and its synchronous route
+request starts the server in local mode without checking that the install
+was found valid (`CRouterBRouter::synchronousRequest`). A probe that times
+out would therefore start BRouter on every interface. The jar printed its
+version in 0.09 s on the development host, so this is not expected, but it
+is QMapShack's behaviour and not the engine's to prevent; the guide says
+how to check with `ss -ltnp` (final review, I2).
+
+**Final review, 2026-09-29.** The record's `program` line and a new
+`profiles` line now come from the plan (`brouter_pins()` in
+`src/hammunition/terrain_plan.py`: the planned `brouter` unit's tree marker
+and the planned filters unit's version), not the disk, because steps are
+planned before the binary step replaces the tree: read from the disk, a
+BRouter bumped in the same run left the old routing files in place until
+the next install (I1). `update` names `brouter-segments` in its rebuild
+command when `brouter` or the filters are behind. `gdalbuildvrt` takes
+`-resolution highest`, so a window crossing Copernicus's 50-degree
+longitude-spacing change is not resampled to an average grid; a
+`<square>.rd5.new` a crashed publish left is removed with the stale files;
+an empty `localDir` reads as never set.
+
+**Deferred.** A square beside the 180-degree meridian does not take its
+ring tile from across it, so its edge column has no neighbour value (no
+Geofabrik region measured sits there; recorded, not handled). The launcher
+names the `brouter` and `brouter-segments` units, as it names
+`osm-routino` (D-061's precedent). An operator who switches QMapShack's
+BRouter back to online, keeping Hammunition's directory, is switched to
+local again by the next launch, with a line saying so: QMapShack saves
+`online` both as its default and as a choice, and the two cannot be told
+apart.
+
+**Not measured, and owed by the bench:** a QMapShack route drawn through
+this BRouter (no desktop runs on the development host), with `ss -ltnp`
+showing it on loopback only while it routes, and QMapShack's own
+validation of the tree; the build on a real region through `hammunition
+install`, with its time, memory and scratch; heaps and scratch on anything
+larger than Delaware; Java on the targets other than Parrot. The guide's
+*What has not been measured yet* is the operator's copy of this list.
+
+**Rejected.** brouter.de's routing files (no checksum, rebuilt weekly).
+The source tarball as the filters' artifact (above). One build per region
+(two regions in one square collide). Selecting BRouter as QMapShack's
+router (the operator's choice). A launcher or a service for BRouter
+(QMapShack starts it, and only while it is used). Putting `all.brf` and
+`softaccess.brf` in `profiles2` (QMapShack would offer them as routing
+profiles). GraphHopper, OSRM, Valhalla and OpenRouteService, measured in
+the same spike: none has an offline desktop consumer here (QMapShack has
+only Routino and BRouter, and Marble's and GNOME Maps' URLs for the others
+are hardcoded online); OSRM 26.x is in Debian forky and sid only and fails
+to build on trixie; Valhalla is in no archive and its wheel vendors an
+end-of-life OpenSSL; GraphHopper, the best-verified (Maven Central's PGP
+signature), is the candidate once a local tile server gives it a map.
+
+**Consequences.** `BROUTER_INPUTS` and the `program`, `profiles` and
+`elevation` fields in `src/hammunition/manifest/schema.py`;
+`src/hammunition/backends/brouter.py`; the BRouter factors and needs in
+`src/hammunition/backends/terrain.py`; `TerrainDisclosure`'s BRouter
+fields in `src/hammunition/backends/dem.py`; `TerrainRun.brouter` in
+`src/hammunition/terrain_plan.py`; the plan line and JSON fields in
+`src/hammunition/interface/plan.py` (`docs/reference/json-interface.md`
+regenerated); `update`'s rebuild command; `register_brouter` in
+`src/hammunition/qmapshack_config.py` and its call in `maps qmapshack`;
+`catalog/packages/brouter.yaml`,
+`catalog/packages/brouter-mapcreator-profiles.yaml`,
+`catalog/packages/brouter-segments.yaml` and
+`catalog/profiles/navigation.yaml`. The operator's page is
+`docs/guides/offline-navigation.md` (section 9, *Route with BRouter*), and
+the CLI's is `docs/reference/cli.md`. Tests: `tests/test_brouter.py`,
+`tests/test_brouter_schema.py`, `tests/test_brouter_plan.py`,
+`tests/test_qmapshack_brouter.py`, and the pins and profile in
+`tests/test_navigation_catalog.py`.
+## D-064 — Repeaters on the map come from the operator's own export, converted on this machine; nothing is fetched from RepeaterBook, and hearham's open list only on request, unverified
+
+**Date:** 2026-09-29. **Status:** proposed (the design is the spike's
+recommendation, approved by the maintainer; implemented on branch
+`repeaters`; the maintainer decides it at review). **Spec:**
+`docs/superpowers/specs/2026-09-29-repeaters-design.md`. **Depends on:**
+D-021 (disclose, never adjudicate; YAAC's objects can transmit), D-033 (an
+unlicensed source judged on what we do with it), D-049 (why this is not a
+data unit), D-057 and D-061 (the Navit and QMapShack configurations this
+adds to), D-059 (the documents), D-031 (the input's date, not the run's).
+
+**Why.** The maintainer wants repeaters on the offline maps. The spike of
+2026-09-29 measured every route an operator has without an API key.
+RepeaterBook's API is gated, and its data-use page forbids "bulk
+extraction, mirroring, redistribution, offline bundling" without written
+permission. Its *website export*, though, is granted to a registered user
+"for their own personal use", and its GPX page describes loading the file
+into navigation tools, offline. CHIRP's RepeaterBook query was run headless
+and its CSV drops Lat/Long, keeping only "near <city>". hearham.com serves
+the whole world, 22,698 rows, unauthenticated, with no licence and no
+ETag. The FCC's licence database has no coordinates.
+
+### The rule
+
+1. **The operator's export, converted here.**
+   `hammunition maps repeaters import FILE... [--exported YYYY-MM-DD]`
+   reads a RepeaterBook GPX, a RepeaterBook CSV that has `Lat` and `Long`,
+   hearham's JSON as served, or a hand-typed CSV with the header
+   `callsign,output_mhz,offset_mhz,tone,mode,lat,lon,name,notes`, recognised
+   from the content. No network.
+2. **What has no coordinates is refused by name, with the reason:** a CHIRP
+   CSV, a CHIRP `.img` (by suffix, or CHIRP's own metadata marker read from
+   `chirp_common.py`), and a RepeaterBook CSV without `Lat`/`Long`. KML is
+   deferred: it is the same data as the GPX. XML with a DOCTYPE is refused
+   before parsing. One refused file refuses the import, and nothing is
+   written. A position is never guessed from a town name.
+3. **Merged on callsign + output Hz + position to 0.01°.** Callsign and
+   frequency alone would have merged 1,050 multi-site keys in hearham's
+   data. The newer `Last Update` wins where both rows carry one, else the
+   first read; every merge is counted and printed.
+4. **Three outputs, the operator's own.** A GPX (`<name>` `CALL FREQ`,
+   `<desc>` offset, tone, mode, use, status, place and source,
+   `<sym>Tall Tower</sym>`, a QMapShack built-in), a Mapsforge `.poi`, and a
+   Navit textfile (`poi_custom0`, labelled, Navit's own `tower.png`), in
+   `~/.local/share/hammunition/overlays/repeaters/`: directory 0700, files
+   0600, each renamed into place. Never under the root prefix, never in the
+   catalog, never in the transaction log. Refused as root. The layer is
+   named `Repeaters (own export YYYY-MM-DD, personal use)`, dated by
+   `--exported`, else by the oldest input's modification date.
+5. **Registered where each program reads it.** QMapShack: the directory in
+   `[Canvas] poiPaths`, by the editor `maps qmapshack` uses, with its
+   refusals; `maps qmapshack` keeps the path there exactly while a `.poi`
+   exists, because a QMapShack open during the import writes its own list
+   back on exit. Navit: its generated configuration is root's and
+   `~/.navit` is never touched, so the `navit-offline` launcher now runs
+   `hammunition maps navit`, which opens the generated file, or, when there
+   is a layer, the operator's copy of it
+   (`~/.local/share/hammunition/overlays/navit.xml`, 0600) with a textfile
+   map added to its one enabled mapset by `navit_config.add_maps`.
+   `maps repeaters remove` deletes the files and unregisters both;
+   removing nothing is exit 0.
+6. **The licence text is printed at import, before the counts.**
+   RepeaterBook: "Data courtesy of RepeaterBook.com", personal
+   non-commercial use, never redistributed, converted on this machine only,
+   positions approximate, terms at `repeaterbook.com/about/legal`. That
+   attribution is also in the GPX's metadata and in every waypoint's
+   `<desc>`, as RepeaterBook's terms require of an overlay. A hand list:
+   "Your own data." A disclosure of terms, not a ruling on them (D-021).
+7. **hearham on request only.** `maps repeaters fetch-hearham` prints what
+   it will fetch, fetches once (bounded at 64 MB, redirects to HTTPS only),
+   records the sha256 it observed in the layer and the output, and names
+   the layer `Repeaters (hearham YYYY-MM-DD, unverified)`. It prints
+   hearham's own line that the data should not be relied upon "for medical
+   emergencies, or any other life-and-death operations". Carried under
+   D-033: no licence, used on the operator's request, never redistributed.
+8. **Documents.** `import --json` prints a `repeaters` document and
+   `remove --json` a `repeaters-removed` document, from the same objects as
+   the text. Both carry counts, paths and the layer name, never a
+   repeater's callsign or position: the export says where the operator
+   operates. `fetch-hearham` and `maps navit` have no JSON form.
+
+### Not a D-049 data unit
+
+A data unit is an artifact the engine fetches from its publisher and pins by
+sha256. An export is neither fetched by the engine nor pinnable, and
+RepeaterBook's terms forbid anyone but the exporting user holding it. hearham
+is live, with no ETag and no dated snapshot: a pin would be wrong the day it
+was taken. So the export is a command's input, and the fetch records what it
+observed and says it is unverified.
+
+### Not carried, and why
+
+- **Any fetch from RepeaterBook**: the API is gated, and bulk extraction and
+  offline bundling need written permission.
+- **Navit address search of repeaters**: the textfile driver has no search
+  method; they list under POIs → Other, with distance.
+- **Xastir `.gnis`**: its point layers live in a root-owned map tree under
+  `/usr/share/xastir`.
+- **YAAC `.pos`**: YAAC imports APRS objects, which it can transmit. That is
+  a D-021 matter, not a map layer.
+- **FCC ULS**: no coordinates.
+- **KML**: deferred; the GPX carries the same data.
+
+### Rulings made on the way
+
+- **Every GPX gets RepeaterBook's attribution and terms.** A real export's
+  `<name>` and `<desc>` are unmeasured, so an export cannot be told from
+  another GPX; the attribution is the cautious default. Callsign and output
+  frequency are found in `<name>`, then `<desc>`; a waypoint with neither is
+  kept under its own name, keyed on that name.
+- **The POI writer moves a point whose box straddles a 0.1° line into the
+  tile north or east of it.** QMapShack asks for each 0.1° tile with
+  `min >= tile` and `max < tile + 0.1`, and SQLite's rtree stores float32
+  boxes rounded outwards, so a point on a line is in neither tile (the
+  spike). The spike's note said "widen each box"; widening makes it worse,
+  so the point is moved instead, to the float32 one step inside the tile,
+  a few metres at most. The first version used a fixed 1e-5° band; the
+  final review measured the straddling band growing with the coordinate, to
+  about ±2e-5° at 180°, and 16 points past about 64° lost. It is now
+  computed with SQLite's own rounding (`rtreeValueDown`/`rtreeValueUp`), and
+  the tests run QMapShack's verbatim query over 61 offsets around twelve
+  lines from −179.9° to 179.9°, and show a point on a line lost without the
+  move. The bounds are padded 0.001°, because a one-repeater file's
+  zero-area bounds intersect no tile.
+- **A frequency is looked for where it can be.** In a GPX it must fall in
+  an amateur repeater band from 10 m to 23 cm, or GMRS, and in `<desc>` a
+  number written with "MHz" comes first, so a tone (`PL 100.0`) or a
+  coordinate is not taken for one (review). A typed frequency outside 1 to
+  10,000 MHz is skipped and counted, not labelled `146940000.000`. A
+  hearham entry of another shape is skipped and counted rather than
+  refusing the whole list.
+- **The fetch names every HTTP failure.** `http.client`'s own exceptions
+  are not `OSError`; a malformed answer is now "could not fetch", not a
+  traceback (review). A redirect is followed to HTTPS only; both refusals
+  are tested on loopback.
+- **Each import replaces the layer.** Combining sources is one import of
+  every file. A fetch does not keep hearham's raw JSON; to combine it with
+  an export, the operator saves the JSON and imports both.
+- **The Navit launcher changes.** The alternatives were writing
+  `~/.navit/navit.xml`, which the navit manifest promises never to touch
+  and which `navit-offline` does not read, or writing into the root prefix,
+  which the operator cannot do without sudo. `hammunition menus apply`
+  rewrites an installed `navit-offline` to the new form (tested).
+- **A refused QMapShack edit still writes the layer**, names the reason and
+  exits 1; the files are the operator's either way.
+- **`command_name` reads a third level**, so an error document says
+  `maps repeaters import`.
+
+### What has run
+
+The test suite only: every parser against synthetic fixtures (N0CALL,
+N0TST, Springfield IL), every refusal, the merge, the three writers, the POI
+against QMapShack's own SQL, `add_maps`, the QMapShack edit byte for byte,
+modes 0600 and 0700, root refused, both documents validated against their
+schema with the text's values carried and no callsign or coordinate in
+either, `remove` idempotent, `maps navit` with `execvp` stubbed, and
+`fetch-hearham` against a loopback server only. No GUI was started.
+
+**Owed to the bench:** QMapShack drawing the GPX and the POI collection, and
+reading `poiPaths` under `[Canvas]`; Navit's `poi_custom0` label and tower
+icon, and the POIs → Other listing; one real RepeaterBook export, GPX and
+CSV, by a logged-in operator, for its columns and `<desc>` layout.
+
+**Rejected.** RepeaterBook's API (gated, and forbidden for this use).
+Geocoding CHIRP's "near <city>" (an invented position). A catalog data unit
+(above). A callsign plus frequency key (drops real repeaters). A custom
+QMapShack icon (would write into QMapShack's own directories). Navit's
+`poi_communication` type (no label in the stock layout).
+
+**Consequences.** `src/hammunition/repeaters.py`,
+`src/hammunition/interface/repeaters.py`, `navit_config.add_maps`, four
+commands in `src/hammunition/cli/main.py`, the `navit-offline` launcher in
+`catalog/packages/navit.yaml`; tests `tests/test_repeaters.py`,
+`tests/test_repeaters_cli.py` and `tests/test_navit_config.py`; the
+offline-navigation guide's section 13 and `docs/reference/cli.md`.
+
+---
 
 ## D-070 — A data artifact may be taken from a LAN mirror the operator names, verified the same either way, and the engine can list what it would fetch without a station
 

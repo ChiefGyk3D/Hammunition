@@ -51,6 +51,8 @@ their text follows.
 - `hammunition install` (with `--dry-run` only)
 - `hammunition list`
 - `hammunition maps regions`
+- `hammunition maps repeaters import`
+- `hammunition maps repeaters remove`
 - `hammunition show`
 - `hammunition station show`
 - `hammunition status`
@@ -71,6 +73,8 @@ their text follows.
 | `plan` | [`PlanDocument`](#plan) |
 | `profile` | [`ProfileDocument`](#profile) |
 | `regions` | [`RegionsDocument`](#regions) |
+| `repeaters` | [`RepeatersDocument`](#repeaters) |
+| `repeaters-removed` | [`RepeatersRemovedDocument`](#repeaters-removed) |
 | `station` | [`StationDocument`](#station) |
 | `status` | [`StatusDocument`](#status) |
 | `unit` | [`UnitDocument`](#unit) |
@@ -1109,6 +1113,10 @@ Terrain, and what is built for QMapShack (D-061). Names where the operator is: l
 | `contours` | integer | tiles whose contours are drawn this run |
 | `contours_estimate` | integer | bytes those contours are estimated to take |
 | `contours_estimate_human` | string | as the text prints it |
+| `brouter_regions` | integer | regions BRouter's routing files are rebuilt over; 0 when current (D-063) |
+| `brouter_tiles` | integer | terrain tiles folded into them as elevation |
+| `brouter_estimate` | integer | bytes the rebuilt routing files are estimated to take |
+| `brouter_estimate_human` | string | as the text prints it |
 | `disk_total` | integer | bytes: the tiles plus everything estimated to be built |
 | `disk_total_human` | string | as the text prints it |
 | `estimate_note` | string | how the estimates were measured |
@@ -2636,6 +2644,22 @@ A unit and files.
           "title": "Contours Estimate Human",
           "type": "string"
         },
+        "brouter_regions": {
+          "title": "Brouter Regions",
+          "type": "integer"
+        },
+        "brouter_tiles": {
+          "title": "Brouter Tiles",
+          "type": "integer"
+        },
+        "brouter_estimate": {
+          "title": "Brouter Estimate",
+          "type": "integer"
+        },
+        "brouter_estimate_human": {
+          "title": "Brouter Estimate Human",
+          "type": "string"
+        },
         "disk_total": {
           "title": "Disk Total",
           "type": "integer"
@@ -2664,6 +2688,10 @@ A unit and files.
         "contours",
         "contours_estimate",
         "contours_estimate_human",
+        "brouter_regions",
+        "brouter_tiles",
+        "brouter_estimate",
+        "brouter_estimate_human",
         "disk_total",
         "disk_total_human",
         "estimate_note"
@@ -3073,6 +3101,328 @@ this command runs, and only then; nothing here is the operator's.
     "regions"
   ],
   "title": "RegionsDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### repeaters
+
+A repeater layer written from the operator's own export, or from
+hearham's list on request. Counts and paths only: no repeater's callsign
+or position is carried.
+
+| field | type | meaning |
+|---|---|---|
+| `layer` | string | the layer's name, as QMapShack's project and POI file show it |
+| `exported` | string | YYYY-MM-DD: `--exported`, else the oldest input's modification date; a fetch's own date |
+| `licences` | list of string | each source's licence text, printed before anything |
+| `inputs` | list of [`InputView`](#inputview) | each file read, in the order given |
+| `read` | integer | rows read over every input |
+| `skipped` | integer | rows left out over every input |
+| `merged` | integer | rows merged into another: same callsign, output frequency and position to 0.01 degree |
+| `written` | integer | repeaters in the layer |
+| `directory` | string | where the layer's files are, mode 0700 |
+| `files` | list of string | the files written, mode 0600: GPX, POI, Navit textfile |
+| `registered` | list of [`RegistrationView`](#registrationview) | QMapShack's and Navit's, in that order |
+
+#### `InputView`
+
+One file read.
+
+| field | type | meaning |
+|---|---|---|
+| `path` | string | the file as given |
+| `format` | string | `repeaterbook-gpx`, `repeaterbook-csv`, `hearham-json` or `hand-csv` |
+| `read` | integer | rows, objects or waypoints in it |
+| `used` | integer | of those, the ones with a position and a callsign |
+| `skipped` | list of [`SkipView`](#skipview) | the rest, by reason |
+| `sha256` | string | the digest of the file as read |
+
+#### `SkipView`
+
+Rows of one input left out for one reason.
+
+| field | type | meaning |
+|---|---|---|
+| `reason` | string | why, e.g. `no usable position` or `no callsign` |
+| `count` | integer | how many rows |
+| `first` | list of integer | the first five: line numbers in a CSV, row numbers in JSON, waypoint numbers in a GPX |
+
+#### `RegistrationView`
+
+What a program was told about the layer.
+
+| field | type | meaning |
+|---|---|---|
+| `program` | string | `qmapshack` or `navit` |
+| `config` | string | the file edited or written |
+| `outcome` | string | `added`, `already there`, `written`, `removed`, `not there`, `not written` or `refused` |
+| `detail` | string | the sentence the text prints after the outcome |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "InputView": {
+      "additionalProperties": false,
+      "description": "One file read.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "format": {
+          "title": "Format",
+          "type": "string"
+        },
+        "read": {
+          "title": "Read",
+          "type": "integer"
+        },
+        "used": {
+          "title": "Used",
+          "type": "integer"
+        },
+        "skipped": {
+          "items": {
+            "$ref": "#/$defs/SkipView"
+          },
+          "title": "Skipped",
+          "type": "array"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "format",
+        "read",
+        "used",
+        "skipped",
+        "sha256"
+      ],
+      "title": "InputView",
+      "type": "object"
+    },
+    "RegistrationView": {
+      "additionalProperties": false,
+      "description": "What a program was told about the layer.",
+      "properties": {
+        "program": {
+          "title": "Program",
+          "type": "string"
+        },
+        "config": {
+          "title": "Config",
+          "type": "string"
+        },
+        "outcome": {
+          "title": "Outcome",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "program",
+        "config",
+        "outcome",
+        "detail"
+      ],
+      "title": "RegistrationView",
+      "type": "object"
+    },
+    "SkipView": {
+      "additionalProperties": false,
+      "description": "Rows of one input left out for one reason.",
+      "properties": {
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "count": {
+          "title": "Count",
+          "type": "integer"
+        },
+        "first": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "First",
+          "type": "array"
+        }
+      },
+      "required": [
+        "reason",
+        "count",
+        "first"
+      ],
+      "title": "SkipView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A repeater layer written from the operator's own export, or from\nhearham's list on request. Counts and paths only: no repeater's callsign\nor position is carried.",
+  "properties": {
+    "layer": {
+      "title": "Layer",
+      "type": "string"
+    },
+    "exported": {
+      "title": "Exported",
+      "type": "string"
+    },
+    "licences": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Licences",
+      "type": "array"
+    },
+    "inputs": {
+      "items": {
+        "$ref": "#/$defs/InputView"
+      },
+      "title": "Inputs",
+      "type": "array"
+    },
+    "read": {
+      "title": "Read",
+      "type": "integer"
+    },
+    "skipped": {
+      "title": "Skipped",
+      "type": "integer"
+    },
+    "merged": {
+      "title": "Merged",
+      "type": "integer"
+    },
+    "written": {
+      "title": "Written",
+      "type": "integer"
+    },
+    "directory": {
+      "title": "Directory",
+      "type": "string"
+    },
+    "files": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Files",
+      "type": "array"
+    },
+    "registered": {
+      "items": {
+        "$ref": "#/$defs/RegistrationView"
+      },
+      "title": "Registered",
+      "type": "array"
+    }
+  },
+  "required": [
+    "layer",
+    "exported",
+    "licences",
+    "inputs",
+    "read",
+    "skipped",
+    "merged",
+    "written",
+    "directory",
+    "files",
+    "registered"
+  ],
+  "title": "RepeatersDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### repeaters-removed
+
+The repeater layer deleted and unregistered. Removing nothing is not
+an error: every list is then empty.
+
+| field | type | meaning |
+|---|---|---|
+| `directory` | string | where the layer was |
+| `removed` | list of string | the files deleted |
+| `unregistered` | list of [`RegistrationView`](#registrationview) | QMapShack's and Navit's, in that order |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "RegistrationView": {
+      "additionalProperties": false,
+      "description": "What a program was told about the layer.",
+      "properties": {
+        "program": {
+          "title": "Program",
+          "type": "string"
+        },
+        "config": {
+          "title": "Config",
+          "type": "string"
+        },
+        "outcome": {
+          "title": "Outcome",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "program",
+        "config",
+        "outcome",
+        "detail"
+      ],
+      "title": "RegistrationView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The repeater layer deleted and unregistered. Removing nothing is not\nan error: every list is then empty.",
+  "properties": {
+    "directory": {
+      "title": "Directory",
+      "type": "string"
+    },
+    "removed": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Removed",
+      "type": "array"
+    },
+    "unregistered": {
+      "items": {
+        "$ref": "#/$defs/RegistrationView"
+      },
+      "title": "Unregistered",
+      "type": "array"
+    }
+  },
+  "required": [
+    "directory",
+    "removed",
+    "unregistered"
+  ],
+  "title": "RepeatersRemovedDocument",
   "type": "object"
 }
 ```

@@ -219,10 +219,14 @@ def json_capable(*, dry_run_only: bool = False) -> Callable[[CommandFunc], Comma
 
 
 def command_name(args: argparse.Namespace) -> str:
-    """``status``, ``hardware state``: the verb as the operator typed it."""
+    """``status``, ``hardware state``, ``maps repeaters import``: the verb as
+    the operator typed it."""
     verb = str(getattr(args, "command", None) or "")
     sub = getattr(args, f"{verb}_command", None) if verb else None
-    return f"{verb} {sub}" if sub else verb
+    if not sub:
+        return verb
+    third = getattr(args, f"{verb}_{sub}_command".replace("-", "_"), None)
+    return f"{verb} {sub} {third}" if third else f"{verb} {sub}"
 
 
 def refusal(args: argparse.Namespace) -> str | None:

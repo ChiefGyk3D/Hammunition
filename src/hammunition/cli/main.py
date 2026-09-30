@@ -30,8 +30,10 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import dataclasses
 import os
 import shutil
+import sqlite3
 import stat
 import sys
 import tempfile
@@ -144,7 +146,7 @@ from hammunition.station import (
     save_station,
 )
 from hammunition.sudo_ticket import SudoKeepalive, keepalive_wanted
-from hammunition.terrain_plan import build_terrain_run, resolve_station_terrain
+from hammunition.terrain_plan import brouter_pins, build_terrain_run, resolve_station_terrain
 from hammunition.update import region_snapshots, render, report, requested_units
 from hammunition.upstream import (
     NOT_UPSTREAM,
@@ -156,6 +158,9 @@ from hammunition.upstream import render as render_upstream
 
 if TYPE_CHECKING:
     from hammunition.hardware.power import KeptEntry, Parkable
+    from hammunition.interface.repeaters import RegistrationView
+    from hammunition.qmapshack_config import BRouterSetup
+    from hammunition.repeaters import ParsedInput
     from hammunition.upstream import UpstreamRow
 
 __all__ = ["build_parser", "main"]
@@ -892,6 +897,44 @@ def _replace_atomically(path: Path, text: str, mode: int | None) -> None:
         raise
 
 
+def _repeater_poi_paths(text: str) -> tuple[str, bool]:
+    """*text* with the operator's repeater directory in ``[Canvas] poiPaths``
+    while it holds a ``.poi``, and out of it while not; and whether it does.
+
+    A QMapShack open during ``maps repeaters import`` writes its own list
+    back when it exits, so the launcher puts the path back before each start
+    (D-064). Raises :class:`~hammunition.qmapshack_config.QmsConfigError`
+    like :func:`~hammunition.qmapshack_config.ensure_paths`."""
+    from hammunition.qmapshack_config import Wanted, ensure_paths
+    from hammunition.repeaters import FILES, overlay_dir
+
+    directory = overlay_dir()
+    want = Wanted("Canvas", "poiPaths", (str(directory),))
+    if (directory / FILES[1]).is_file():
+        return ensure_paths(text, (want,)), True
+    return ensure_paths(text, (), remove=(want,)), False
+
+
+def _installed_brouter(prefix: Path) -> BRouterSetup | None:
+    """Hammunition's BRouter when its tree holds one jar and at least one
+    routing file is built (D-063); None otherwise, and QMapShack's BRouter
+    setup is then not touched."""
+    from hammunition.backends.brouter import RD5, find_jar
+    from hammunition.backends.source import tree_destination
+    from hammunition.qmapshack_config import BRouterSetup
+
+    tree = tree_destination(prefix, "brouter")
+    jar = find_jar(tree)
+    segments = data_root(prefix) / "brouter-segments"
+    try:
+        built = any(segments.glob(f"*{RD5}"))
+    except OSError:
+        built = False
+    if jar is None or not built:
+        return None
+    return BRouterSetup(tree=tree, jar=jar.name, segments=segments, java=shutil.which("java"))
+
+
 def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
     """Name Hammunition's maps in QMapShack's own configuration, then start it.  D-061.
 
@@ -900,7 +943,9 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
     added or extended only with our directories, existing values stay where
     they are, and nothing else in the file changes, except that an absent or
     negative ``[Route] routino\\database`` becomes 0 so the Routing dock
-    selects the database it loaded (bench, 2026-09-29); a file it cannot read,
+    selects the database it loaded (bench, 2026-09-29), and the operator's
+    repeater directory is kept in ``[Canvas] poiPaths`` exactly while it holds
+    a ``.poi`` (D-064); a file it cannot read,
     a symbolic link or anything but a regular file in its place is refused
     and left untouched, and QMapShack is then not started. No ``--json``
     form: it replaces itself with a GUI (D-059).
@@ -909,6 +954,7 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
         QmsConfigError,
         config_path,
         ensure_paths,
+        register_brouter,
         select_database,
         superseded,
         wanted,
@@ -930,7 +976,12 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
     try:
         data = data_root(DEFAULT_PREFIX)
         with_paths = ensure_paths(text, wanted(data), remove=superseded(data))
-        updated = select_database(with_paths)
+        with_poi, has_poi = _repeater_poi_paths(with_paths)
+        selected = select_database(with_poi)
+        brouter = _installed_brouter(DEFAULT_PREFIX)
+        updated, brouter_notes = (
+            register_brouter(selected, brouter) if brouter is not None else (selected, [])
+        )
     except QmsConfigError as exc:
         print(
             f"error: {path}: {exc}. {not_started}; "
@@ -950,12 +1001,20 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
             ),
             file=sys.stderr,
         )
-    if updated != with_paths:
+    if with_poi != with_paths:
+        print(
+            f"{'adding' if has_poi else 'taking out'} your repeater POI collection "
+            f"{'to' if has_poi else 'of'} [Canvas] poiPaths in {path} (D-064)",
+            file=sys.stderr,
+        )
+    if selected != with_poi:
         print(
             f"selecting the first routing database in {path}, so the Routing dock's "
             f"Database list is not left blank",
             file=sys.stderr,
         )
+    for note in brouter_notes:
+        print(f"{note} ({path})", file=sys.stderr)
     if updated != text:
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -1028,6 +1087,342 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
     finally:
         listener.close()
     return EXIT_OK
+
+
+def _generated_navit_config() -> Path:
+    """The configuration ``osm-navit`` writes under the prefix (D-057)."""
+    return data_root(DEFAULT_PREFIX) / "osm-navit" / "navit.xml"
+
+
+def _qmapshack_poi_path(directory: Path, *, present: bool) -> RegistrationView:
+    """``[Canvas] poiPaths`` in QMapShack's file holding *directory* when
+    *present*, not holding it otherwise; nothing else changed.  D-064.
+
+    The same editor and the same refusals as ``maps qmapshack``: a symbolic
+    link, anything but a regular file, or a line it cannot read is named and
+    left untouched."""
+    from hammunition.interface.repeaters import RegistrationView
+    from hammunition.qmapshack_config import QmsConfigError, Wanted, config_path, ensure_paths
+
+    path = config_path()
+    want = Wanted("Canvas", "poiPaths", (str(directory),))
+    try:
+        text, mode = _read_config_nofollow(path)
+        updated = ensure_paths(text, (want,) if present else (), remove=() if present else (want,))
+    except (OSError, QmsConfigError) as exc:
+        return RegistrationView(
+            program="qmapshack",
+            config=str(path),
+            outcome="refused",
+            detail=f"{path}: {exc}; add {directory} under POI paths in QMapShack's setup",
+        )
+    if updated == text:
+        if present:
+            detail = f"{directory} already in [Canvas] poiPaths in {path}"
+            return RegistrationView("qmapshack", str(path), "already there", detail)
+        return RegistrationView(
+            "qmapshack", str(path), "not there", f"nothing to take out of {path}"
+        )
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _replace_atomically(path, updated, mode)
+    except OSError as exc:
+        return RegistrationView(
+            "qmapshack", str(path), "refused", f"cannot write {path}: {exc.strerror or exc}"
+        )
+    if present:
+        detail = f"added {directory} to [Canvas] poiPaths in {path}"
+        return RegistrationView("qmapshack", str(path), "added", detail)
+    detail = f"took {directory} out of [Canvas] poiPaths in {path}"
+    return RegistrationView("qmapshack", str(path), "removed", detail)
+
+
+def _navit_user_config(overlay: Path, user: Path, generated: Path) -> RegistrationView:
+    """The operator's copy of *generated* with *overlay* in its mapset, at
+    *user*, mode 0600.  D-064."""
+    from hammunition.interface.repeaters import RegistrationView
+
+    if not generated.is_file():
+        return RegistrationView(
+            "navit",
+            str(user),
+            "not written",
+            f"no generated configuration at {generated} yet; `hammunition install osm-navit` "
+            f"writes it, and navit-offline adds the layer at its next start",
+        )
+    try:
+        body = navit_config.add_maps(generated.read_text(encoding="utf-8"), [overlay])
+        _read_config_nofollow(user)  # refuses a link or a non-file in its place
+        user.parent.mkdir(parents=True, exist_ok=True)
+        _replace_atomically(user, body, 0o600)
+    except (OSError, navit_config.NavitConfigError) as exc:
+        return RegistrationView("navit", str(user), "refused", f"{user}: {exc}")
+    return RegistrationView(
+        "navit", str(user), "written", f"wrote {user}; navit-offline opens it from now on"
+    )
+
+
+def _refuse_root(what: str) -> bool:
+    if os.geteuid() == 0:
+        print(
+            f"error: {what} are per user; run this as yourself, not as root.",
+            file=sys.stderr,
+        )
+        return True
+    return False
+
+
+def _write_repeater_layer(
+    parsed: Sequence[ParsedInput],
+    layer_title: str,
+    day: date,
+    licences: Sequence[str],
+    args: argparse.Namespace,
+) -> int:
+    """Merge *parsed*, write the layer, register it, print or emit."""
+    from hammunition.interface.repeaters import (
+        InputView,
+        RepeatersDocument,
+        SkipView,
+        render_repeaters,
+    )
+    from hammunition.repeaters import FILES, Layer, merge, overlay_dir, overlays_root, write_layer
+
+    rows, merged = merge(r for p in parsed for r in p.rows)
+    if not rows:
+        print(
+            "error: no repeater with a position and a callsign was read. Nothing was written.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    directory = overlay_dir()
+    description = " ".join(licences)
+    try:
+        written = write_layer(directory, Layer(layer_title, description, day, rows))
+    except (OSError, sqlite3.Error) as exc:
+        print(f"error: cannot write the layer in {directory}: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    registered = (
+        _qmapshack_poi_path(directory, present=True),
+        _navit_user_config(
+            directory / FILES[2], overlays_root() / "navit.xml", _generated_navit_config()
+        ),
+    )
+    doc = RepeatersDocument(
+        layer=layer_title,
+        exported=day.isoformat(),
+        licences=tuple(licences),
+        inputs=tuple(
+            InputView(
+                path=str(p.path),
+                format=p.format,
+                read=p.read,
+                used=len(p.rows),
+                skipped=tuple(SkipView(s.reason, s.count, s.first) for s in p.skipped),
+                sha256=p.sha256,
+            )
+            for p in parsed
+        ),
+        read=sum(p.read for p in parsed),
+        skipped=sum(p.read - len(p.rows) for p in parsed),
+        merged=merged,
+        written=len(rows),
+        directory=str(directory),
+        files=tuple(str(p) for p in written),
+        registered=registered,
+    )
+    code = EXIT_FAILED if any(r.outcome == "refused" for r in registered) else EXIT_OK
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return code
+    for line in render_repeaters(doc):
+        print(line)
+    return code
+
+
+@envelope.json_capable()
+def cmd_maps_repeaters_import(args: argparse.Namespace) -> int:
+    """Convert the operator's own repeater export into overlays.  D-064.
+
+    Fully offline. Reads a RepeaterBook GPX or CSV export (a CSV only with
+    Lat and Long), hearham's JSON as served, or a hand-typed CSV; refuses
+    CHIRP files, a CSV without positions and KML by name, and then writes
+    nothing. Merges on callsign, output frequency and position to 0.01°,
+    writes the GPX, POI and Navit files into the operator's overlay
+    directory, adds it to QMapShack's ``poiPaths`` and writes the operator's
+    Navit configuration. Refused as root: the files are the operator's.
+    """
+    from hammunition.repeaters import (
+        HEARHAM,
+        RepeaterInputError,
+        export_date,
+        hearham_licence,
+        layer_name,
+        licence_text,
+        parse_exported,
+        read_inputs,
+    )
+
+    if _refuse_root("repeater overlays"):
+        return EXIT_FAILED
+    try:
+        override = parse_exported(args.exported) if args.exported else None
+    except ValueError as exc:
+        print(f"error: {exc}. Nothing was written.", file=sys.stderr)
+        return EXIT_FAILED
+    paths = [Path(p) for p in args.files]
+    try:
+        parsed = read_inputs(paths)
+    except RepeaterInputError as exc:
+        print(f"error: {exc}\nNothing was written.", file=sys.stderr)
+        return EXIT_FAILED
+    licences: list[str] = []
+    for item in parsed:
+        text = (
+            hearham_licence(f"Read from {item.path}", item.sha256)
+            if item.format == HEARHAM
+            else licence_text(item.format)
+        )
+        if text not in licences:
+            licences.append(text)
+    day = export_date(paths, override)
+    return _write_repeater_layer(parsed, layer_name(day), day, licences, args)
+
+
+def cmd_maps_repeaters_fetch_hearham(args: argparse.Namespace) -> int:
+    """Fetch hearham.com's repeater list, on request, and convert it.  D-064.
+
+    The one route here that uses the network, and only when run. The sha256
+    of what arrived is recorded in the layer and printed; hearham publishes
+    no digest and no dated snapshot, so it is marked unverified (D-033's
+    position). No ``--json`` form: the disclosure is printed before the
+    request, for a person to read."""
+    from hammunition import repeaters
+
+    if _refuse_root("repeater overlays"):
+        return EXIT_FAILED
+    url = repeaters.HEARHAM_URL
+    print(
+        f"This fetches hearham.com's whole repeater list from {url} (about 9.5 MB), now and "
+        f"only now, and converts it on this machine. hearham publishes no checksum, so what "
+        f"arrives is recorded by its sha256 and marked unverified.",
+        flush=True,
+    )
+    try:
+        body, digest, when = repeaters.fetch_hearham(url, limit=repeaters.HEARHAM_LIMIT)
+    except repeaters.RepeaterFetchError as exc:
+        print(f"error: {exc}. Nothing was written.", file=sys.stderr)
+        return EXIT_FAILED
+    with tempfile.TemporaryDirectory(prefix="hammunition-hearham-") as scratch:
+        staged = Path(scratch) / "hearham.json"
+        staged.write_bytes(body)
+        try:
+            parsed = repeaters.read_input(staged)
+        except repeaters.RepeaterInputError as exc:
+            print(f"error: {url}: {exc}. Nothing was written.", file=sys.stderr)
+            return EXIT_FAILED
+        if parsed.format != repeaters.HEARHAM:
+            print(
+                f"error: {url} answered with something other than its repeater list "
+                f"({parsed.format}). Nothing was written.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+        parsed = dataclasses.replace(parsed, path=Path(url))
+        day = when.date()
+        licence = repeaters.hearham_licence(f"Fetched {when.isoformat()}", digest)
+        return _write_repeater_layer(
+            [parsed], repeaters.hearham_layer_name(day), day, [licence], args
+        )
+
+
+@envelope.json_capable()
+def cmd_maps_repeaters_remove(args: argparse.Namespace) -> int:
+    """Delete the repeater layer and unregister it.  D-064.
+
+    The three files, the operator's Navit copy, the directory when empty,
+    and the path in QMapShack's ``poiPaths``. Idempotent: nothing to remove
+    is exit 0. Anything else in the directory stays."""
+    from hammunition.interface.repeaters import (
+        RegistrationView,
+        RepeatersRemovedDocument,
+        render_removed,
+    )
+    from hammunition.repeaters import overlay_dir, overlays_root, remove_layer
+
+    if _refuse_root("repeater overlays"):
+        return EXIT_FAILED
+    directory = overlay_dir()
+    try:
+        removed = remove_layer(directory)
+    except OSError as exc:
+        print(f"error: {exc}. Nothing was removed.", file=sys.stderr)
+        return EXIT_FAILED
+    user = overlays_root() / "navit.xml"
+    try:
+        user.unlink()
+        navit = RegistrationView("navit", str(user), "removed", f"deleted {user}")
+    except FileNotFoundError:
+        navit = RegistrationView("navit", str(user), "not there", f"no {user} to delete")
+    except OSError as exc:
+        navit = RegistrationView("navit", str(user), "refused", f"{user}: {exc.strerror or exc}")
+    registered = (_qmapshack_poi_path(directory, present=False), navit)
+    doc = RepeatersRemovedDocument(
+        directory=str(directory),
+        removed=tuple(str(p) for p in removed),
+        unregistered=registered,
+    )
+    code = EXIT_FAILED if any(r.outcome == "refused" for r in registered) else EXIT_OK
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return code
+    for line in render_removed(doc):
+        print(line)
+    return code
+
+
+def cmd_maps_navit(args: argparse.Namespace) -> int:
+    """Start Navit on the offline maps, with the operator's overlays.  D-064.
+
+    What the ``navit-offline`` launcher runs. The configuration ``osm-navit``
+    writes is root's; when the operator has a repeater layer, a copy of it
+    with the layer in its mapset is written to their overlay directory (0600)
+    and Navit opens that; with none, Navit opens the generated file and a
+    stale copy of ours is removed. Under root it opens the generated file and
+    writes nothing. No ``--json`` form: it replaces itself with a GUI."""
+    from hammunition.repeaters import FILES, overlay_dir, overlays_root
+
+    generated = _generated_navit_config()
+    if not generated.is_file():
+        print(
+            f"error: no Navit configuration at {generated}. `hammunition install osm-navit` "
+            f"converts your map regions and writes it.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    target = generated
+    if os.geteuid() != 0:
+        overlay = overlay_dir() / FILES[2]
+        user = overlays_root() / "navit.xml"
+        if overlay.is_file():
+            view = _navit_user_config(overlay, user, generated)
+            if view.outcome != "written":
+                print(f"error: {view.detail}. Navit was not started.", file=sys.stderr)
+                return EXIT_FAILED
+            target = user
+        elif user.is_file() and not user.is_symlink():
+            user.unlink()
+    sys.stdout.flush()
+    sys.stderr.flush()  # execvp discards whatever Python still buffers
+    try:
+        os.execvp("navit", ["navit", str(target)])
+    except OSError as exc:
+        print(
+            f"error: cannot start navit: {exc.strerror or exc}. "
+            f"`hammunition install navit` installs it.",
+            file=sys.stderr,
+        )
+    return EXIT_FAILED
 
 
 def resolve_map_regions(
@@ -1465,6 +1860,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         keep=kept,
         regions=ledger,
         resolution=dem_resolution,
+        pins=brouter_pins(plan),
     )
     derived = DerivedBackend(
         prefix=source.prefix,
@@ -3324,7 +3720,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_update.set_defaults(func=cmd_update)
 
     p_maps = sub.add_parser(
-        "maps", help="offline maps: Geofabrik's regions (D-057), QMapShack and its GPS (D-061)"
+        "maps",
+        help="offline maps: Geofabrik's regions (D-057), QMapShack and its GPS (D-061), "
+        "Navit and repeaters (D-064)",
     )
     maps_sub = p_maps.add_subparsers(dest="maps_command", required=True)
 
@@ -3390,6 +3788,39 @@ def build_parser() -> argparse.ArgumentParser:
         help="the units to list (default: every data, osm-regions and dem-tiles unit)",
     )
     p_artifacts.set_defaults(func=cmd_artifacts)
+
+    p_maps_navit = maps_sub.add_parser(
+        "navit",
+        help="start Navit on your offline maps, with your repeater layer when there is one (D-064)",
+    )
+    p_maps_navit.set_defaults(func=cmd_maps_navit)
+
+    p_maps_rep = maps_sub.add_parser(
+        "repeaters",
+        help="repeaters on the map from your own export, converted on this machine (D-064)",
+    )
+    rep_sub = p_maps_rep.add_subparsers(dest="maps_repeaters_command", required=True)
+    p_rep_import = rep_sub.add_parser(
+        "import",
+        help="convert a RepeaterBook GPX or CSV export, hearham JSON or your own CSV; offline",
+    )
+    p_rep_import.add_argument("files", nargs="+", metavar="FILE", help="the export(s) to convert")
+    p_rep_import.add_argument(
+        "--exported",
+        metavar="YYYY-MM-DD",
+        default=None,
+        help="the day you exported it, for the layer's name (default: the file's date)",
+    )
+    p_rep_import.set_defaults(func=cmd_maps_repeaters_import)
+    p_rep_fetch = rep_sub.add_parser(
+        "fetch-hearham",
+        help="fetch hearham.com's open list now and convert it; recorded as unverified",
+    )
+    p_rep_fetch.set_defaults(func=cmd_maps_repeaters_fetch_hearham)
+    p_rep_remove = rep_sub.add_parser(
+        "remove", help="delete the repeater layer and take it out of QMapShack and Navit"
+    )
+    p_rep_remove.set_defaults(func=cmd_maps_repeaters_remove)
 
     p_show = sub.add_parser("show", help="describe a profile, disclosure included")
     p_show.add_argument("profile")
