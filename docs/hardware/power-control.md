@@ -174,8 +174,8 @@ interpreter's own venv, so the hijack import fails instead of succeeding. The
   <vendor>Hammunition</vendor>
   <vendor_url>https://github.com/ChiefGyk3D/Hammunition</vendor_url>
   <action id="com.chiefgyk3d.hammunition.devctl">
-    <description>Park or wake a radio device</description>
-    <message>Authentication is required to change a device's power state</message>
+    <description>Park or wake a radio device, or set the clock's time source</description>
+    <message>Authentication is required to change a radio device's power state or the clock's time source</message>
     <icon_name>preferences-system-power</icon_name>
     <defaults>
       <allow_any>auth_admin</allow_any>
@@ -187,6 +187,9 @@ interpreter's own venv, so the hijack import fails instead of succeeding. The
   </action>
 </policyconfig>
 ```
+
+The same action authorises `hammunition-devctl time mode` (D-058); the policy
+file therefore changes, and the next `hammunition hardware apply` reinstalls it.
 
 `allow_active=auth_self_keep` means an active local session authenticates
 once and stays authorised for a few minutes afterwards — polkit's own manual

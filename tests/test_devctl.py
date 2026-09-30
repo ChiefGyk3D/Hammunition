@@ -15,6 +15,7 @@ import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -436,3 +437,95 @@ def test_wake_of_an_ambiguous_name_with_nothing_kept_keeps_the_ambiguity_message
     err = capsys.readouterr().err
     assert "would be a guess" in err
     assert "neither attached nor kept" not in err
+
+
+def _time_state() -> Any:
+    from datetime import UTC, datetime
+
+    from hammunition.gpstime.state import TimeState
+
+    return TimeState(
+        mode="auto",
+        mode_set=False,
+        daemon="ntpsec",
+        gps="awake",
+        following="network",
+        offset_ms=-4.4,
+        last_sync=datetime(2026, 9, 28, 14, 44, tzinfo=UTC),
+        last_source="network",
+        holdover_seconds=None,
+        rtc=True,
+        grants=True,
+        dhcp_config=False,
+        problems=(),
+    )
+
+
+def test_time_state_prints_one_json_object(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hammunition.cli import devctl
+    from hammunition.gpstime.state import JSON_KEYS
+
+    monkeypatch.setattr(devctl, "_survey", lambda: ([_parkable("gps-receiver", "1-4")], []))
+    seen: list[str] = []
+
+    def fake_gather(*, gps: str) -> Any:
+        seen.append(gps)
+        return _time_state()
+
+    monkeypatch.setattr(devctl, "gather", fake_gather)
+    assert main(["time", "state"]) == 0
+    body = json.loads(capsys.readouterr().out)
+    assert tuple(body) == JSON_KEYS
+    assert seen == ["awake"]
+
+
+def test_time_mode_takes_only_the_four_modes() -> None:
+    with pytest.raises(SystemExit) as caught:
+        main(["time", "mode", "gps"])
+    assert caught.value.code == 2
+
+
+def test_time_needs_a_verb() -> None:
+    with pytest.raises(SystemExit) as caught:
+        main(["time"])
+    assert caught.value.code == 2
+
+
+def test_time_mode_applies_the_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    from hammunition.cli import devctl
+
+    applied: list[str] = []
+
+    def recording(mode: str) -> list[str]:
+        applied.append(mode)
+        return []
+
+    monkeypatch.setattr(devctl, "apply_mode", recording)
+    assert main(["time", "mode", "gps-only"]) == 0
+    assert applied == ["gps-only"]
+
+
+def test_time_mode_refusal_is_exit_2(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hammunition.cli import devctl
+    from hammunition.gpstime.mode import TimeError
+
+    def refusing(mode: str) -> list[str]:
+        raise TimeError("ntpsec is not installed")
+
+    monkeypatch.setattr(devctl, "apply_mode", refusing)
+    assert main(["time", "mode", "auto"]) == 2
+    assert "error: ntpsec is not installed" in capsys.readouterr().err
+
+
+def test_time_mode_problems_are_exit_1(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from hammunition.cli import devctl
+
+    monkeypatch.setattr(devctl, "apply_mode", lambda mode: ["ntpsec did not restart"])
+    assert main(["time", "mode", "auto"]) == 1
+    assert "unverified: ntpsec did not restart" in capsys.readouterr().err

@@ -3,8 +3,8 @@
 
 """``hammunition-devctl`` — the one thing here that runs as root.  D-056.
 
-Three verbs, ``park NAME``, ``wake NAME`` and ``state``, reached through one
-polkit action. Every caller -- the CLI, a menu entry, the Plasma applet in
+Five verbs, ``park NAME``, ``wake NAME``, ``state``, ``time mode MODE`` and
+``time state``, reached through one polkit action. Every caller -- the CLI, a menu entry, the Plasma applet in
 ``hammunition-tray`` -- runs *this*, so there is one privileged path to review
 rather than three. ``park`` also keeps the device parked across reboots
 unless called with ``--until-reboot``.
@@ -15,6 +15,10 @@ that carried a path would be a way to write anywhere on the system as root,
 and an argv that carried a *plan* would be the same thing spelled longer. The
 name is the only thing an unprivileged caller supplies, and a name that is not
 a parkable attached device is refused before anything happens.
+
+``time mode`` takes a mode from a fixed enum of four and derives every byte it
+writes from it (D-058); it never writes the capability grants ``hardware apply``
+installs.
 
 It never reads the operator's station config. Parking a GPS has nothing to do
 with a callsign and this process has no business holding one.
@@ -28,6 +32,9 @@ import os
 import sys
 from pathlib import Path
 
+from hammunition.gpstime.apply import apply_mode
+from hammunition.gpstime.mode import MODES, TimeError, as_mode
+from hammunition.gpstime.state import gather, gps_from
 from hammunition.hardware.polkit import (
     WritabilityFinding,
     WritabilityRisk,
@@ -208,6 +215,27 @@ def _state() -> int:
     return EXIT_OK
 
 
+def _time_state() -> int:
+    """Unprivileged, like ``state``: the tray polls it without pkexec."""
+    found, skipped = _survey()
+    for unit, why in skipped:
+        print(f"note: {unit} is not parkable right now: {why}", file=sys.stderr)
+    # Always one JSON object: the applet parses this on every poll.
+    print(json.dumps(gather(gps=gps_from(found)).as_json()))
+    return EXIT_OK
+
+
+def _time_mode(mode: str) -> int:
+    try:
+        problems = apply_mode(as_mode(mode))
+    except TimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    for problem in problems:
+        print(f"unverified: {problem}", file=sys.stderr)
+    return EXIT_FAILED if problems else EXIT_OK
+
+
 def _runtime_writability_findings() -> tuple[WritabilityFinding | None, WritabilityFinding | None]:
     """The same D-056 check ``hardware apply`` runs before install, run again
     here, at the moment this process is actually about to act as root.
@@ -311,8 +339,19 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser(
         "state", help="JSON: every parkable device, attached or kept, and whether it is parked"
     )
+    p_time = sub.add_parser("time", help="GPS time (D-058): the mode, and what the clock follows")
+    time_sub = p_time.add_subparsers(dest="time_verb", required=True)
+    p_time_mode = time_sub.add_parser(
+        "mode", help="set the time mode: writes three files and restarts ntpsec"
+    )
+    p_time_mode.add_argument("mode", choices=MODES)
+    time_sub.add_parser("state", help="JSON: the mode, the GPS, and what the clock follows")
 
     args = parser.parse_args(argv)
+    if args.verb == "time":
+        if args.time_verb == "state":
+            return _time_state()
+        return _time_mode(args.mode)
     if args.verb == "state":
         return _state()
     verb: str = args.verb
