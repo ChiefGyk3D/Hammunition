@@ -70,6 +70,13 @@ Notes:
   - fixture-source shadows nothing on PATH; this note is here to be wrapped fixture-
       source shadows nothing on PATH; this note is here to be wrapped
 
+sudo (D-062):
+  sudo's ticket is kept valid for the length of this transaction; it is not extended
+  beyond it. The password is asked once, by `sudo -v`, before the first step; then `sudo
+  -n -v`, which cannot prompt, refreshes the ticket every 4 minutes from this process
+  until the run ends. If a refresh fails it is reported once and not retried, and the
+  next root step asks as it would have. --no-sudo-keepalive turns this off.
+
 Records:
   transaction log written to /home/op/.local/state/hammunition/transactions.jsonl
   the log and any directories created for it are given to 'op' (chown), since root is writing into their home

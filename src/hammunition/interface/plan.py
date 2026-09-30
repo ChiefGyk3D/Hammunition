@@ -50,6 +50,7 @@ from hammunition.manifest.schema import (
 )
 from hammunition.plan import Blocker, InstallPlan, PlannedPackage
 from hammunition.state import RemovalPlan
+from hammunition.sudo_ticket import KEEPALIVE_INTERVAL, keepalive_wanted
 
 __all__ = [
     "PlanDocument",
@@ -432,6 +433,18 @@ class RecordsLine(Strict):
 
 
 @dataclass(frozen=True)
+class SudoLine(Strict):
+    """How a run as a user keeps sudo from asking twice (D-062)."""
+
+    keepalive: bool = described(
+        "true when the run validates sudo once and refreshes its ticket until the run ends; "
+        "false when `--no-sudo-keepalive` turned it off"
+    )
+    interval_seconds: int = described("seconds between `sudo -n -v` refreshes")
+    text: str = described("what the plan prints about it")
+
+
+@dataclass(frozen=True)
 class StepView(Strict):
     """One step, exactly as the real run performs it."""
 
@@ -471,6 +484,10 @@ class InstallPlanView(Strict):
     deferrals: tuple[DeferralLine, ...] = described("what will NOT happen")
     notes: tuple[str, ...] = described("the plan's notes")
     records: RecordsLine | None = described("where the transaction log goes")
+    sudo: SudoLine | None = described(
+        "present when a run as a user mixes root steps with steps that are not (D-062); "
+        "null when run as root or when sudo is needed by every step or none"
+    )
     commands: tuple[StepView, ...] = described("every step, in order")
     suggestion_notes: tuple[str, ...] = described(
         "what happened to the profiles' suggestion groups; the text prints these as `note:` lines"
@@ -729,6 +746,29 @@ def _map_section(
     )
 
 
+def _sudo_line(commands: Sequence[Step], *, euid: int, keepalive: bool) -> SudoLine | None:
+    if not keepalive_wanted(commands, euid=euid):
+        return None
+    minutes = int(KEEPALIVE_INTERVAL // 60)
+    if keepalive:
+        text = (
+            f"sudo's ticket is kept valid for the length of this transaction; it is not "
+            f"extended beyond it. The password is asked once, by `sudo -v`, before the "
+            f"first step; then `sudo -n -v`, which cannot prompt, refreshes the ticket "
+            f"every {minutes} minutes from this process until the run ends. If a "
+            f"refresh fails it is reported once and not retried, and the next root step "
+            f"asks as it would have. --no-sudo-keepalive turns this off."
+        )
+    else:
+        text = (
+            "--no-sudo-keepalive: each step that needs root runs under its own `sudo`, "
+            "and sudo may ask for the password again at any root step that follows a "
+            "step outlasting its cached ticket (15 minutes by default). Do not leave "
+            "the run unattended."
+        )
+    return SudoLine(keepalive=keepalive, interval_seconds=int(KEEPALIVE_INTERVAL), text=text)
+
+
 def build_install_view(
     plan: InstallPlan,
     commands: Sequence[Step],
@@ -741,6 +781,7 @@ def build_install_view(
     maps: MapDisclosure | None = None,
     region_notes: Sequence[str] = (),
     terrain: TerrainDisclosure | None = None,
+    sudo_keepalive: bool = True,
 ) -> InstallPlanView:
     data: list[DataLine] = []
     for planned in plan.packages:
@@ -843,6 +884,7 @@ def build_install_view(
             if log_destination is not None
             else None
         ),
+        sudo=_sudo_line(commands, euid=euid, keepalive=sudo_keepalive),
         commands=tuple(step_view(c, euid=euid) for c in commands),
         suggestion_notes=tuple(suggestion_notes),
         region_notes=tuple(region_notes),
@@ -1060,6 +1102,11 @@ def render_plan_view(view: InstallPlanView, *, target: TargetView) -> list[str]:
             wrapped = wrap(note, indent="      ")
             lines.append("  - " + wrapped[0].strip())
             lines.extend(wrapped[1:])
+        lines.append("")
+
+    if view.sudo is not None:
+        lines.append("sudo (D-062):")
+        lines.extend(wrap(view.sudo.text, indent="  "))
         lines.append("")
 
     if view.records is not None:

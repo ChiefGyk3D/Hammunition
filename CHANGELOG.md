@@ -25,6 +25,37 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   with no RTC. Parrot (ntpsec) only; built and not yet run on the field
   laptop. Guide: `docs/guides/gps-time.md`.
 
+## v0.15.0 — 2026-09-29 — sudo asked once per run; launchers by absolute path
+
+Two pull requests since v0.14.3 (#146, #147).
+
+- **Generated launchers run Hammunition by its full path** (issue #145).
+  `qmapshack-offline` and `gps-tether` said `hammunition maps ...`, and
+  Plasma starts a menu entry as a systemd user service whose `PATH` has no
+  `~/.local/bin`: both failed from the menu with "hammunition: not found".
+  A launcher now names `~/.local/bin/hammunition` when that is bootstrap's
+  link to the engine that wrote it (so a moved checkout is mended by
+  `./bootstrap.sh`), otherwise the engine's own `.venv/bin/hammunition`; the
+  plan prints which. The device park and wake menu entries do the same.
+  `hammunition menus apply` rewrites a launcher written before this, and
+  `hammunition doctor` gains a **launchers** check naming any launcher whose
+  engine is a bare name or a path that is gone, with the fix. The offline
+  navigation guide's "QMapShack does not start from the menu" says what
+  "not found" means now.
+- **An install run as a user asks sudo once and keeps its ticket valid
+  until the run ends** (D-062, issue #137). A `navigation` install waited
+  7.8 hours at a second `sudo` prompt after 30 minutes of work: sudo's
+  cached password had expired during a long conversion that runs as the
+  operator. When a plan mixes root steps with unprivileged ones, it now
+  prints a *sudo* section, runs `sudo -v` once before the first step, and
+  refreshes the ticket with `sudo -n -v` every 4 minutes from the same
+  process, stopping when the run ends. A refresh that fails is reported
+  once and not retried. `--no-sudo-keepalive` turns it off, and the plan
+  then says a later step may prompt again. The JSON plan carries it as
+  `install.sudo`; the log records `sudo_keepalive_begin` and
+  `sudo_keepalive_end`. The offline navigation guide's new troubleshooting
+  entry keeps the manual refresh loop as the fallback.
+
 ## v0.14.3 — 2026-09-29 — the GPS tether on other setups
 
 One pull request since v0.14.2 (#142).

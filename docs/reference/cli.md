@@ -340,7 +340,7 @@ With `--json`, prints a `profile` document
 document carrying its manifest; the text `show` still describes profiles
 only.
 
-### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
+### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--no-sudo-keepalive] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
 
 **A re-run rebuilds nothing it has already built** (**D-051**): a source, git
 or prebuilt-archive unit whose binaries are on the machine *and* whose build
@@ -356,10 +356,50 @@ Names may be packages or profiles, mixed freely.
 | `--dry-run` | Resolve everything, print exactly what would run, change nothing |
 | `--yes` | Skip the confirmation. **Does not satisfy a consent gate** (D-021). Also suppresses the station prompt |
 | `--no-refresh` | Skip the `apt-get update` that otherwise opens every transaction with apt work (**D-044**). For a local mirror, or a station with no uplink. `--refresh` is the default and still parses |
+| `--no-sudo-keepalive` | Do not hold sudo's ticket for the run (**D-062**). By default a run as a user that mixes root steps with steps that are not asks the password once, by `sudo -v`, before the first step, and keeps the ticket valid with `sudo -n -v` every 4 minutes until the run ends. With this flag each root step asks for itself, and one that follows a long step may prompt again. `--sudo-keepalive` is the default and still parses |
 | `--user NAME` | Who to add to groups. Defaults to `$SUDO_USER`, then `$USER` |
 | `--callsign CALL` | Station callsign for this run. Overrides the saved value |
 | `--grid-square LOC` | Maidenhead locator, four or six characters |
 | `--node-alias NAME` | Short packet node alias, up to six characters |
+
+**sudo's ticket, for the length of the run (D-062).** Run as a user, the
+engine puts `sudo` in front of each root step and nothing else, and sudo
+caches the password for 15 minutes by default (`timestamp_timeout`). A
+transaction that alternates root steps with long unprivileged work -- a Navit
+conversion, a Garmin map -- outlives that, and the next root step asks again on
+a terminal nobody may be watching (issue #137: 7.8 hours at the prompt after 30
+minutes of work). When a plan has both kinds of step and is not run as root,
+it prints a section saying what happens instead:
+
+```
+sudo (D-062):
+  sudo's ticket is kept valid for the length of this transaction; it is not extended
+  beyond it. The password is asked once, by `sudo -v`, before the first step; then `sudo
+  -n -v`, which cannot prompt, refreshes the ticket every 4 minutes from this process
+  until the run ends. If a refresh fails it is reported once and not retried, and the
+  next root step asks as it would have. --no-sudo-keepalive turns this off.
+```
+
+After the confirmation (or `--yes`) and before the first step, `sudo -v`
+asks for the password on the terminal, as sudo always has; the engine never
+reads, stores or passes it, and `--yes` does not change what sudo asks. A
+thread of the same process then runs `sudo -n -v`, with stdin from
+`/dev/null`, every 4 minutes, and stops when the transaction ends, succeeds
+or fails. sudo's per-terminal tickets (`timestamp_type=tty`, Debian's
+default) and global ones behave the same here: the refresh runs from the
+same process on the same terminal as every root step, so it refreshes the
+ticket those steps use. That is also why a loop in another window does
+nothing for the install on a machine with per-terminal tickets. If
+`sudo -v` does not succeed, nothing is refreshed and each root step asks as
+it would have. If a refresh fails (sudoers changed, `timestamp_timeout` set
+below 4 minutes, the ticket revoked with `sudo -k`), one warning says so and
+the refreshing stops. The log records `sudo_keepalive_begin` and
+`sudo_keepalive_end` ([transaction-log.md](transaction-log.md)).
+`--no-sudo-keepalive` turns it off, and the section then says a later root
+step may prompt again. A dry run prints the section, because it prints what
+the real run would do, and never runs `sudo`. Run as root there is no ticket
+to keep and no section. Only `install` holds the ticket: the root steps of
+`uninstall` and `hardware apply` are not separated by long unprivileged work.
 
 **Offline data (D-049).** A unit whose `install` method is `data` — a map
 tileset, a Wikipedia ZIM, the DX-cluster `cty.dat` — is not software: the
@@ -608,7 +648,12 @@ second list. Per-user and unprivileged throughout.
   title, comment; the wrapper path is kept), generates an entry for a
   built unit from the binaries its manifest declares and the prefix holds,
   and writes a launcher a unit gained in the catalog after it was installed
-  (D-050 amendment, 2026-09-13). Each
+  (D-050 amendment, 2026-09-13). A launcher of ours that runs `hammunition`
+  by any path but today's engine (issue #145: a bare name from before the
+  fix, or a checkout that moved) has its wrapper rewritten; its desktop
+  entry is left to the refresh above, and a file without the
+  `# generated by hammunition for` marker is never rewritten. The park and
+  wake entries run the engine by the same absolute path. Each
   submenu includes the `X-Hammunition-<category>` markers every generated
   desktop entry carries **and, by `<Filename>`, the desktop entries the
   installed catalog packages ship themselves** — mapped at apply time from
@@ -672,7 +717,7 @@ A **read-only** health check: is this machine ready, and what is not yet set
 up. It changes nothing, and it is the first thing to run on a fresh machine
 or when something misbehaves — it turns the failures the engine would
 otherwise hit mid-transaction into a report you read up front, each with the
-one command that fixes it. Seventeen checks across four severities:
+one command that fixes it. Eighteen checks across four severities:
 
 - **fail** — the engine cannot work until fixed (not a Debian-family system;
   no catalog). Exits non-zero.
@@ -732,6 +777,24 @@ The **qmapshack** check (**D-061**) appears only when `qmapshack` is on the
 at startup with "The specified translations XML file did not exist" until
 the file is back. It is a warn, with `sudo apt-get install --reinstall
 routino-common` as the fix.
+
+The **launchers** check (issue #145) reads back every generated launcher in
+`~/.local/bin` that runs `hammunition` itself (today QMapShack's
+`qmapshack-offline` and `gps-tether`). A launcher runs the engine by its
+absolute path, because the desktop menu starts it without `~/.local/bin` on
+`PATH`. It is ok when every one names an engine that exists and is
+executable, and a warn naming the launcher when:
+
+- **it names a path that is gone** — the checkout moved or its `.venv` was
+  rebuilt elsewhere. The fix is `./bootstrap.sh` in the checkout you use,
+  which relinks `~/.local/bin/hammunition`, then `hammunition menus apply`,
+  which rewrites the launcher with that engine's path. A launcher that runs
+  the `~/.local/bin/hammunition` link is mended by the bootstrap alone.
+- **it says bare `hammunition`** — written before this check existed, and
+  what the menu reports as "hammunition: not found". The fix is
+  `hammunition menus apply`.
+
+No launcher that runs the engine, no line.
 
 The closing line counts each, and the exit code is non-zero only when
 something is **blocking**. It is the natural first command after installing
@@ -1009,7 +1072,19 @@ from the manifest's `service_endpoints` (the repointable-backend rule — a
 dead upstream is fixed by editing the catalog, not launchers), and a desktop
 entry in `~/.local/share/applications` whose `Categories=` are mapped from
 the manifest's own category tags, `HamRadio` first (**D-036**). Entries
-carry `X-Hammunition-Package` so later tooling can find its own work. The
+carry `X-Hammunition-Package` so later tooling can find its own work.
+
+A launcher whose command starts with `hammunition` runs the engine **by
+absolute path** (issue #145): a desktop menu starts its entries without
+`~/.local/bin` on `PATH` (Plasma runs each as a systemd user service), and
+a bare `hammunition` there exits 127, "not found". The path is
+`~/.local/bin/hammunition` when that is bootstrap's link and runs the engine
+doing the install, so a checkout that moves is mended by re-running
+`./bootstrap.sh`; otherwise it is the running engine's own
+`.venv/bin/hammunition`. The plan prints which (`calls <path>`), and
+`hammunition doctor` names a launcher whose engine is gone. Uninstall is
+unchanged: it removes a wrapper that carries the generated marker, which
+the new wrapper keeps. The
 curated per-DE submenu layer (Xfce `.menu`, GNOME app-folders, COSMIC) is
 D-036's next, measured step.
 

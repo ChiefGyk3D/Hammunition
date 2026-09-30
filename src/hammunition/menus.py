@@ -850,7 +850,12 @@ def device_entries(
     return tuple(built)
 
 
-def render_device_entry(entry: DeviceEntry, icons: Mapping[str, str] | None = None) -> str:
+def render_device_entry(
+    entry: DeviceEntry, icons: Mapping[str, str] | None = None, *, engine: Path
+) -> str:
+    """The desktop entry. ``Exec=`` runs ``engine`` by its absolute path
+    (issue #145: a menu entry's PATH has no ``~/.local/bin``); the title keeps
+    the bare command, which is what an operator types to repeat it (D-054)."""
     markers = ";".join(f"X-Hammunition-{c}" for c in entry.categories)
     keywords = ";".join((*entry.categories, entry.device, entry.verb, "power"))
     icon = next((icons[c] for c in entry.categories if icons and c in icons), None)
@@ -861,7 +866,7 @@ def render_device_entry(entry: DeviceEntry, icons: Mapping[str, str] | None = No
         f"{icon_line}"
         f"Name={entry.title}\n"
         f"Comment={entry.comment}\n"
-        f"Exec={entry.exec}\n"
+        f"Exec={engine} hardware {entry.verb} {entry.target}\n"
         "Terminal=true\n"
         f"Categories={markers};\n"
         f"Keywords={keywords};\n"
@@ -874,6 +879,8 @@ def device_entry_steps(
     entries: Sequence[DeviceEntry],
     applications_dir: Path,
     icons: Mapping[str, str] | None = None,
+    *,
+    engine: Path,
 ) -> list[Action]:
     """Write this run's device entries; prune ours that this run did not produce.
 
@@ -887,9 +894,11 @@ def device_entry_steps(
         Action(
             kind="menu",
             description=f"Write the {entry.verb} entry for {entry.device} ({entry.address})",
-            detail=str(applications_dir / entry.desktop_id),
+            detail=f"{applications_dir / entry.desktop_id}, runs {engine}",
             perform=partial(
-                _write, applications_dir / entry.desktop_id, render_device_entry(entry, icons)
+                _write,
+                applications_dir / entry.desktop_id,
+                render_device_entry(entry, icons, engine=engine),
             ),
         )
         for entry in entries
@@ -937,9 +946,11 @@ def missing_launcher_steps(
     applications_dir: Path,
     prefix: Path,
     installed: PackagePresence = dpkg_installed,
+    engine: Path | None = None,
 ) -> list[Action]:
     """Write the launcher a manifest declares for a unit that is installed
-    here and has none on disk.
+    here and has none on disk, and rewrite one that runs the engine by a
+    path other than today's.
 
     A launcher is written by `install`; a unit installed before its manifest
     gained one never gets it (rtl-sdr, libhamlib-utils, libnfc-bin and
@@ -947,8 +958,24 @@ def missing_launcher_steps(
     when one of its apt packages is, or a declared binary is under the
     prefix. venv and node units are left alone: their wrappers need the
     virtualenv or node tree that only `install` knows.
+
+    Issue #145: a wrapper that runs ``hammunition`` and was written before the
+    fix calls it by bare name, which a menu entry started as a systemd user
+    service cannot find; one written from a checkout that has since moved
+    calls a path that is gone. Either is rewritten here -- the wrapper only,
+    and only a file carrying the generated marker, so its desktop entry and
+    the icon on it stay with the refresh steps. ``engine`` defaults to
+    :func:`hammunition.launchers.engine_path` of ``bin_dir``, resolved only
+    when a launcher needs it.
     """
-    from hammunition.launchers import launcher_steps
+    from hammunition.launchers import (
+        MARKER,
+        calls_engine,
+        engine_path,
+        launcher_steps,
+        wrapper_body,
+        wrapper_step,
+    )
     from hammunition.manifest.schema import NodeInstall, VenvInstall
 
     steps: list[Action] = []
@@ -962,13 +989,34 @@ def missing_launcher_steps(
         )
         if not present:
             continue
-        if all(
+        if not all(
             (bin_dir / launcher.name).is_file()
             and (applications_dir / f"hammunition-{launcher.name}.desktop").is_file()
             for launcher in manifest.launchers
         ):
+            steps.extend(
+                launcher_steps(
+                    manifest, bin_dir=bin_dir, applications_dir=applications_dir, engine=engine
+                )
+            )
             continue
-        steps.extend(launcher_steps(manifest, bin_dir=bin_dir, applications_dir=applications_dir))
+        for launcher in manifest.launchers:
+            if not calls_engine(launcher):
+                continue
+            wrapper = bin_dir / launcher.name
+            try:
+                current = wrapper.read_text()
+            except (OSError, UnicodeDecodeError):
+                continue
+            if f"{MARKER}{manifest.name}" not in current.splitlines()[:3]:
+                continue  # not ours: never rewritten
+            if engine is None:
+                engine = engine_path(bin_dir)
+            if current == wrapper_body(manifest, launcher, engine=engine):
+                continue
+            steps.append(
+                wrapper_step(manifest, launcher, bin_dir=bin_dir, engine=engine, verb="Rewrite")
+            )
     return steps
 
 

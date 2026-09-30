@@ -1041,7 +1041,11 @@ class Launcher(Strict):
         ),
     )
     exec: str = Field(
-        description="Command template. May reference {endpoint:NAME}.",
+        description=(
+            "Command template. May reference {endpoint:NAME}. A line starting with "
+            "`hammunition` runs the engine, written into the wrapper as the absolute "
+            "path of the hammunition that generated it (issue #145)."
+        ),
     )
     title: str | None = Field(
         default=None,

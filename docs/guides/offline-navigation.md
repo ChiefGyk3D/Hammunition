@@ -948,7 +948,28 @@ list stays exactly what that script says.
 
 ### QMapShack does not start from the menu
 
-Run the launcher in a terminal to see why:
+From this version the menu entry works: `qmapshack-offline` and `gps-tether`
+run Hammunition by its full path, because the desktop starts a menu entry
+without `~/.local/bin` on its `PATH` (Plasma runs each one as a systemd user
+service). A launcher written by an earlier version says plain `hammunition`
+and fails from the menu with `hammunition: not found`, status 127, in the
+session journal (`journalctl --user -e`). One command rewrites it:
+
+```
+hammunition menus apply
+```
+
+`hammunition doctor` names every launcher still in that state, under
+**launchers**.
+
+If a launcher written by this version says `not found`, the Hammunition
+it names has moved: the checkout was moved or its `.venv` rebuilt somewhere
+else. Run `./bootstrap.sh` from the checkout you use, which links
+`~/.local/bin/hammunition` to it again, then `hammunition menus apply`,
+which rewrites the launchers with that path. `hammunition doctor` names the
+launcher and the path it can no longer find.
+
+For anything else, run the launcher in a terminal to see why:
 
 ```
 qmapshack-offline
@@ -958,10 +979,7 @@ If it says it cannot read `~/.config/QLandkarte/QMapShack.conf`, nothing was
 changed and QMapShack was not started: the file holds something the
 launcher does not edit on a guess. Add the directories in QMapShack's own
 setup instead, or move the file aside (`mv ~/.config/QLandkarte/QMapShack.conf
-~/.config/QLandkarte/QMapShack.conf.old`) and run the launcher again. If
-the shell says `hammunition: not found`, run `./bootstrap.sh` from your
-Hammunition checkout again, which puts it on your `PATH`
-(`hammunition doctor` checks this too).
+~/.config/QLandkarte/QMapShack.conf.old`) and run the launcher again.
 
 If QMapShack starts and at once stops with "The specified translations XML
 file did not exist", Routino's data file is missing. `hammunition doctor`
@@ -1022,6 +1040,40 @@ maptool's log for a conversion always warns `Broken country polygon` for
 the region's own, partial copy of its country's border. That is expected
 and harmless. A warning for the merged border itself fails the conversion,
 and the run ends naming the region.
+
+### The install waits at a sudo password prompt
+
+Converting maps takes a long time, and it runs as you, not as root. sudo
+remembers your password for 15 minutes by default, so in Hammunition 0.14.3
+and earlier the step after a long conversion, which needs root to put the map in
+place, asked for the password again. If you had walked away, the install
+waited there: one run on the field laptop waited 7.8 hours after 30 minutes
+of work (issue #137).
+
+**The engine now handles this itself** (D-062). When a plan has both root
+steps and steps that run as you, it prints a *sudo* section, asks for your
+password once, just after you confirm and before the first step, and keeps
+sudo's ticket valid for the rest of the run with `sudo -n -v` every 4
+minutes. It stops when the run ends; your password is only ever typed into
+sudo itself. You can walk away once the first step has started.
+
+If you still see a second prompt, the section in the plan says why it can
+happen: the install ran with `--no-sudo-keepalive`, or a refresh failed and
+printed a warning saying so (your sudoers sets `timestamp_timeout` below 4
+minutes, or something ran `sudo -k`). In either case this still works, in
+the same terminal as the install:
+
+```
+sudo -v && (while sudo -n -v; do sleep 240; done &) && hammunition install navigation --no-sudo-keepalive
+```
+
+Run it in the install's own terminal, not another window. sudo keeps a
+separate ticket per terminal by default (`timestamp_type=tty`, as on the
+field laptop), so a loop in another window refreshes a ticket the install
+never uses. The engine's own refresh runs from the install's process, so it
+has no such problem. Unlike the engine's refresh, the loop keeps running
+after the install ends. `sudo -k` in the same terminal ends it: the ticket
+is gone, the loop's next `sudo -n -v` fails, and the loop exits.
 
 ---
 
