@@ -667,6 +667,7 @@ with why.
 |---|---|---|---|
 | **gr-fosphor** | ADD — `catalog/packages/gr-fosphor.yaml`, `sdr` profile | apt | Offered on all seven targets. GPL-3.0 COPYING; default branch `master` head 2024-03-23 (D-032), the snapshot five targets package. The .deb Depends on `gnuradio-dev` and on the OpenCL loader only. No fosphor block was run; the field laptop's Iris Xe is unmeasured. |
 | **libiio-utils** | ADD — `catalog/packages/libiio-utils.yaml`, `electronics` profile; linked from the `plutosdr` device | apt | Offered on all seven targets (0.25 or 0.26). Tools GPL-2.0-or-later, library LGPL-2.1-or-later (README); default branch `main` head 2026-09-28 (D-032), upstream tagged v1.0.0 while the archives carry 0.x. Seven tools and no desktop entry, so an `iio_scan` launcher runs `iio_info -S`. No PlutoSDR or ADALM2000 is owned; nothing was scanned. |
+| **stm32flash** | ADD — `catalog/packages/stm32flash.yaml`, `electronics` profile | apt | 0.7 on all seven targets. GPL-2.0; SourceForge default branch `master` head 2026-03-06 (D-032), still adding parts; v0.7 is the latest tag. No device in the hardware catalog, owned or not, is recorded as flashing over the STM32 serial bootloader (the STM32 entries use USB DFU), so no device links to it (D-026: the means of talking to a device, not gated on one). Nothing was flashed. |
 
 ---
 

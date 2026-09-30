@@ -100,6 +100,11 @@ What that changed below, each noted at its row:
 - **`gr-fosphor` is offered on all seven targets and is added**, but it is
   not a Blend `sdr` task member: `blend-inventory.md`, generated from the
   task files, does not list it. The row below said it was.
+- **`stm32flash`: no owned device is recorded as using the STM32
+  serial bootloader.** The hardware catalog's STM32 entries
+  (`flipper-zero`, the `dmr-radio` class) use USB DFU (`0483:df11`),
+  which is `dfu-util`'s job; NanoVNAs, named in the row below, are not
+  catalogued as devices at all. The unit is added and links to no device.
 
 ## A. Cross-cutting gaps — plans the catalog has not caught up with
 
@@ -408,7 +413,7 @@ before a manifest. Nothing here is transmit-capable except where said.
 | `radio-programming` | 4 | **`k5prog`** (`sq5bpf/k5prog`, GPL; C) and the UV-K5 CHIRP drivers (`egzumer`, `armel/F4HWN`) | The Quansheng UV-K5 is the most-modified handheld of the decade; `chirp` (carried) programs it only through a firmware-specific driver, and flashing custom firmware on Linux is `k5prog` | source (make); the CHIRP driver is a file the page points at | ADD `k5prog`; page on the driver |
 | `radio-programming`, `dmr` | | **OpenRTX `radio_tool`** | Flashes OpenRTX (M17-capable) onto TYT MD-UV380/390 and others from Linux; D-026 says carry the means of talking to the device | source (cmake) | ADD |
 | `radio-programming` | | `editcp` (AnyTone) | `qdmr` covers AnyTone; editcp is dormant | | Not carried |
-| `programmer` | 8 | `stm32flash` (trixie), `teensy-loader-cli` (trixie), `dfu-programmer`, `bossa-cli`, `picotool`, `mspdebug` (`unmeasured`) | STM32 serial bootloaders are how MMDVM boards, NanoVNAs and many radios are flashed; RP2040/RP2350 boards need `picotool` | apt | ADD `stm32flash` and `picotool` first; the class file is generated (`gen_programmer_class.py` reads the rules) |
+| `programmer` | 8 | `stm32flash` (trixie; measured 2026-09-30: 0.7 on all seven targets), `teensy-loader-cli` (trixie), `dfu-programmer`, `bossa-cli`, `picotool`, `mspdebug` (`unmeasured`) | STM32 serial bootloaders are how MMDVM boards, NanoVNAs and many radios are flashed; RP2040/RP2350 boards need `picotool` | apt | ADD `stm32flash` (added 2026-09-30) and `picotool` first; the class file is generated (`gen_programmer_class.py` reads the rules) |
 | `programmer` | | **`adafruit-nrfutil`** (PyPI) and a UF2 note | The maintainer's nRF52840, T-Echo and RAK nodes all flash by UF2 drag-and-drop or `adafruit-nrfutil dfu serial`; nothing in the catalog says so | venv + page | ADD, with the Meshtastic device page carrying the UF2 procedure |
 | `programmer` | | **`cc2538-bsl`** and `catnip` (Electronic Cats) | The CatSniffer V3's firmware loader; Electronic Cats' own docs prefer `catnip`, and Kismet's page says `cc2538-bsl` worked and `catnip` did not in their testing | venv (pyserial, intelhex) | ADD `cc2538-bsl` on the CatSniffer page; the device is owned, so this is measurable now |
 | `programmer` | | `pyocd`, `platformio` | `pyocd` for nRF and STM32 over SWD; PlatformIO is the Meshtastic/MeshCore build tool (#105) | venv | On demand |

@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**285 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**286 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -375,7 +375,7 @@ POCSAG, FLEX, DTMF and the other audio-band modes multimon reads.
 - [multimon](multimon.md) — The original multimon decoder, kept for the modes its successor dropped
 - [multimon-ng](multimon-ng.md) — Decoder for POCSAG, FLEX, AFSK, DTMF and other audio-band digital modes
 
-### `programmer` — 8
+### `programmer` — 9
 
 AVR, ESP, STM32, FPGA and flash-chip programmers, DFU, JTAG and SWD.
 
@@ -387,6 +387,7 @@ AVR, ESP, STM32, FPGA and flash-chip programmers, DFU, JTAG and SWD.
 - [openfpgaloader](openfpgaloader.md) — Universal bitstream loader for FPGAs, over JTAG and SPI
 - [openocd](openocd.md) — On-chip debugging and in-system programming over JTAG and SWD
 - [stlink-tools](stlink-tools.md) — Flash and debug STM32 targets through an ST-Link probe
+- [stm32flash](stm32flash.md) — Flash STM32 microcontrollers over their built-in serial bootloader
 
 ### `propagation` — 7
 
@@ -918,6 +919,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [spectools](spectools.md) | Spectrum display for MetaGeek Wi-Spy dongles and the Ubertooth One | apt |
 | [splat](splat.md) | Terrain-aware path analysis for VHF and above, from real elevation data | apt |
 | [stlink-tools](stlink-tools.md) | Flash and debug STM32 targets through an ST-Link probe | apt |
+| [stm32flash](stm32flash.md) | Flash STM32 microcontrollers over their built-in serial bootloader | apt |
 | [sunclock](sunclock.md) | World map showing the day-night terminator and where the sun is now | apt |
 | [supersdr](supersdr.md) | Turn any KiwiSDR into your rig's panadapter, synchronized over CAT | venv |
 | [svxlink-calibration-tools](svxlink-calibration-tools.md) | Sets the audio levels an SvxLink node needs to work properly | apt |

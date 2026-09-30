@@ -23,6 +23,10 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   the `plutosdr` device: `iio_info -S`, as the `iio_scan` launcher, is
   the first check that libiio sees a Pluto or an ADALM2000. No such
   device is owned; nothing was scanned.
+  `stm32flash` joins `electronics` beside `stlink-tools`: the STM32's
+  built-in serial bootloader over a USB-serial adapter. No device the
+  hardware catalog carries flashes that way (its STM32 entries use USB
+  DFU), so none links to it; nothing was flashed.
 
 ## v0.17.0 — 2026-09-30 — official topo sheets, CoMaps, and the offline browser map
 

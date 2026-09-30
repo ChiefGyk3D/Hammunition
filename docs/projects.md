@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**285 programs and packages** from the catalog, laid out the way the
+**286 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -487,6 +487,7 @@ Antenna design and analysers, spectrum analysers, electronics, radio memories, f
 | [openfpgaloader](packages/openfpgaloader.md) | Universal bitstream loader for FPGAs, over JTAG and SPI | [github.com/trabucayre/openFPGALoader](https://github.com/trabucayre/openFPGALoader) |
 | [openocd](packages/openocd.md) | On-chip debugging and in-system programming over JTAG and SWD | [openocd.org](https://openocd.org/) |
 | [stlink-tools](packages/stlink-tools.md) | Flash and debug STM32 targets through an ST-Link probe | [github.com/stlink-org/stlink](https://github.com/stlink-org/stlink) |
+| [stm32flash](packages/stm32flash.md) | Flash STM32 microcontrollers over their built-in serial bootloader | [sourceforge.net/projects/stm32flash](https://sourceforge.net/projects/stm32flash/) |
 
 ### Serial Terminals
 
