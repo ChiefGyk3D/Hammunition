@@ -1,8 +1,8 @@
 Station configuration: <config>/hammunition/station.yml
 
-  callsign       N0TST
-  grid_square    FN31pr
+  callsign       (not set)
+  grid_square    (not set)
   node_alias     (not set)
   map regions    (not set)
   map freshness  yearly
-  mirror         (not set)
+  mirror         http://bunker.lan:8080/

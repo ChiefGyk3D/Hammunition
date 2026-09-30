@@ -380,13 +380,14 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             ("node_alias", args.node_alias),
             ("map_regions", args.map_regions),
             ("map_freshness", args.map_freshness),
+            ("mirror", args.mirror or args.clear_mirror),
         )
         if value
     ]
     if not set_fields:
         print(
             "error: nothing to set. Pass at least one of --callsign, --grid-square, "
-            "--node-alias, --map-regions, --map-freshness.",
+            "--node-alias, --map-regions, --map-freshness, --mirror, --clear-mirror.",
             file=sys.stderr,
         )
         return EXIT_FAILED
@@ -397,6 +398,7 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             node_alias=args.node_alias or current.node_alias,
             map_regions=map_regions,
             map_freshness=args.map_freshness or current.map_freshness,
+            mirror=None if args.clear_mirror else (args.mirror or current.mirror),
         )
     except StationError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -408,6 +410,8 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             print(f"  {field:<14} {len(station.map_regions)} set")
         elif field == "map_freshness":
             print(f"  {field:<14} {station.freshness}")
+        elif field == "mirror":
+            print(f"  {field:<14} {station.mirror or '(cleared)'}")
         else:
             print(f"  {field:<14} {station.get(field)}")
     return EXIT_OK
@@ -3467,6 +3471,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_station_set.add_argument(
         "--map-freshness", default=None, choices=("yearly", "monthly", "latest")
     )
+    mirror_flags = p_station_set.add_mutually_exclusive_group()
+    mirror_flags.add_argument(
+        "--mirror",
+        default=None,
+        metavar="URL",
+        help="a LAN mirror of the data artifacts, tried before the publisher (D-070)",
+    )
+    mirror_flags.add_argument("--clear-mirror", action="store_true", help="remove the saved mirror")
     p_station_set.add_argument("--user", default=None, help="whose configuration to write")
     p_station_set.set_defaults(func=cmd_station_set)
 

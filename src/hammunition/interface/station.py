@@ -38,6 +38,10 @@ class StationDocument(Strict):
         "how often map data is refreshed: yearly, monthly or latest; "
         "null means the yearly default applies"
     )
+    mirror: str | None = described(
+        "the LAN mirror the verified fetch tries before the publisher, the same digest "
+        "checked either way (D-070); null when none is set"
+    )
 
 
 def build_station(path: Path, station: Station) -> StationDocument:
@@ -49,6 +53,7 @@ def build_station(path: Path, station: Station) -> StationDocument:
         node_alias=station.node_alias,
         map_regions=station.map_regions,
         map_freshness=station.map_freshness,
+        mirror=station.mirror,
     )
 
 
@@ -58,7 +63,12 @@ def render_station(doc: StationDocument) -> list[str]:
     if not doc.file_exists:
         lines.append("  (no file yet)")
     values = {name: getattr(doc, name) for name in sorted(STATION_FIELDS)}
-    if not any(values.values()) and not doc.map_regions and doc.map_freshness is None:
+    if (
+        not any(values.values())
+        and not doc.map_regions
+        and doc.map_freshness is None
+        and doc.mirror is None
+    ):
         return [
             *lines,
             "",
@@ -76,4 +86,5 @@ def render_station(doc: StationDocument) -> list[str]:
     else:
         lines.append(f"  {'map regions':<14} (not set)")
     lines.append(f"  {'map freshness':<14} {doc.map_freshness or 'yearly'}")
+    lines.append(f"  {'mirror':<14} {doc.mirror or '(not set)'}")
     return lines

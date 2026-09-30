@@ -43,6 +43,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+import urllib.parse
 from collections.abc import Sequence
 from dataclasses import dataclass, fields
 from pathlib import Path
@@ -90,6 +91,41 @@ REGION = re.compile(r"[a-z0-9-]+(/[a-z0-9-]+)*")
 #: `{station.*}` template variable -- so they are excluded here.
 _MAP_FIELDS = frozenset({"map_regions", "map_freshness"})
 
+#: Station values that are never a `{station.*}` template variable: the map
+#: settings, and the LAN mirror the verified fetch tries first (D-070).
+_NOT_TEMPLATES = _MAP_FIELDS | {"mirror"}
+
+#: A mirror is fetched by :class:`hammunition.fetch.UrllibTransport`, which
+#: speaks these and nothing else. Plain http is allowed on purpose: the
+#: content is public data and the check is the hash, not the transport.
+MIRROR_SCHEMES = ("http", "https")
+
+
+def _check_mirror(url: str) -> str:
+    """*url* stripped, or a StationError saying what a mirror URL must be.
+
+    The shape a base URL needs and nothing more: whether the host is on the
+    LAN cannot be decided from a name without resolving it, and is the
+    operator's statement to make (D-070). A user or password is refused,
+    because the station file is no place for a credential."""
+    value = url.strip()
+    parts = urllib.parse.urlsplit(value)
+    problem = None
+    if parts.scheme not in MIRROR_SCHEMES:
+        problem = "it must start with http:// or https://"
+    elif not parts.hostname or any(c.isspace() for c in value):
+        problem = "it names no host"
+    elif parts.username is not None or parts.password is not None:
+        problem = "it carries a user or password, and the station file holds no credentials"
+    elif parts.query or parts.fragment or "?" in value or "#" in value:
+        problem = "it has a query or a fragment; a mirror is a base URL"
+    if problem is not None:
+        raise StationError(
+            f"mirror {url!r} is not usable: {problem}. Expected a LAN address such as "
+            f"http://bunker.lan:8080/ (D-070)."
+        )
+    return value
+
 
 @dataclass(frozen=True)
 class Station:
@@ -110,6 +146,9 @@ class Station:
     units are deferred (D-035)."""
     map_freshness: str | None = None
     """``yearly`` (the default when unset), ``monthly`` or ``latest``."""
+    mirror: str | None = None
+    """A LAN mirror of the catalog's data artifacts, tried before the
+    publisher and verified the same way (D-070). Never an internet address."""
 
     def __post_init__(self) -> None:
         if self.callsign is not None:
@@ -151,6 +190,8 @@ class Station:
             raise StationError(
                 f"map freshness {self.map_freshness!r} is not one of {', '.join(FRESHNESS)}"
             )
+        if self.mirror is not None:
+            object.__setattr__(self, "mirror", _check_mirror(self.mirror))
 
     @property
     def freshness(self) -> str:
@@ -169,20 +210,22 @@ class Station:
         result: dict[str, str | list[str]] = {
             f.name: v
             for f in fields(self)
-            if f.name not in _MAP_FIELDS and (v := getattr(self, f.name))
+            if f.name not in _NOT_TEMPLATES and (v := getattr(self, f.name))
         }
         if self.map_regions:
             result["map_regions"] = list(self.map_regions)
         if self.map_freshness is not None:
             result["map_freshness"] = self.map_freshness
+        if self.mirror is not None:
+            result["mirror"] = self.mirror
         return result
 
 
 #: The variables a manifest may reference. Kept beside the dataclass so a
 #: template naming something unknown is a reportable error rather than an
-#: empty substitution. Map settings are excluded -- they are read directly by
-#: the maps subsystem, never templated into a config file.
-STATION_FIELDS: frozenset[str] = frozenset(f.name for f in fields(Station)) - _MAP_FIELDS
+#: empty substitution. Map settings and the mirror are excluded -- they are
+#: read directly by the engine, never templated into a config file.
+STATION_FIELDS: frozenset[str] = frozenset(f.name for f in fields(Station)) - _NOT_TEMPLATES
 
 #: Every value the station file may hold, template variable or not -- what
 #: `load_station` accepts without raising "sets values nothing can use".
@@ -240,6 +283,7 @@ def load_station(path: Path | None = None, owner: str | None = None) -> Station:
         node_alias=_str("node_alias"),
         map_regions=tuple(str(r) for r in regions) if regions is not None else (),
         map_freshness=_str("map_freshness"),
+        mirror=_str("mirror"),
     )
 
 
@@ -265,7 +309,7 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
     Returns a new Station. Only called when standard input is a terminal --
     a non-interactive run defers instead, which is the whole point.
     """
-    # Map settings are not template variables (`variable` only ever names one
+    # Map settings and the mirror are not template variables (`variable` only ever names one
     # of STATION_FIELDS -- `station.get` gates on that), so they are carried
     # through unchanged rather than passed through this dict of strings.
     values: dict[str, str] = {f: v for f in STATION_FIELDS if (v := station.get(f)) is not None}
@@ -282,6 +326,7 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
                 Station(
                     map_regions=station.map_regions,
                     map_freshness=station.map_freshness,
+                    mirror=station.mirror,
                     **{**values, variable: answer},
                 )
             except StationError as exc:
@@ -289,7 +334,12 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
                 continue
             values[variable] = answer
             break
-    return Station(map_regions=station.map_regions, map_freshness=station.map_freshness, **values)
+    return Station(
+        map_regions=station.map_regions,
+        map_freshness=station.map_freshness,
+        mirror=station.mirror,
+        **values,
+    )
 
 
 def is_interactive() -> bool:
