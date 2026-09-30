@@ -4,10 +4,12 @@
   "engine": "<engine>",
   "path": "<config>/hammunition/station.yml",
   "file_exists": true,
-  "callsign": "N0TST",
-  "grid_square": "FN31pr",
+  "callsign": null,
+  "grid_square": null,
   "node_alias": null,
   "map_regions": [],
   "map_freshness": null,
-  "reference_books": []
+  "reference_books": [
+    "ham.stackexchange.com_en_all"
+  ]
 }

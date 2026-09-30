@@ -49,6 +49,7 @@ from pathlib import Path
 
 import yaml
 
+from .kiwix import BOOK_ID
 from .paths import owner_aware_dir
 
 __all__ = [
@@ -90,6 +91,10 @@ REGION = re.compile(r"[a-z0-9-]+(/[a-z0-9-]+)*")
 #: `{station.*}` template variable -- so they are excluded here.
 _MAP_FIELDS = frozenset({"map_regions", "map_freshness"})
 
+#: Data selections read directly by their subsystem, never templated: the map
+#: settings above, and the Kiwix books chosen for `kiwix-library` (D-065).
+_DATA_FIELDS = _MAP_FIELDS | {"reference_books"}
+
 
 @dataclass(frozen=True)
 class Station:
@@ -110,6 +115,11 @@ class Station:
     units are deferred (D-035)."""
     map_freshness: str | None = None
     """``yearly`` (the default when unset), ``monthly`` or ``latest``."""
+    reference_books: tuple[str, ...] = ()
+    """Kiwix book ids from ``catalog/data/kiwix-books.yaml``, e.g.
+    ``ham.stackexchange.com_en_all``. None means ``kiwix-library`` is
+    deferred (D-065). Which books somebody reads is not where they are, so
+    these are printed where map regions are only counted."""
 
     def __post_init__(self) -> None:
         if self.callsign is not None:
@@ -147,6 +157,15 @@ class Station:
                     f"`hammunition maps regions` lists them."
                 )
         object.__setattr__(self, "map_regions", regions)
+        books = tuple(b.strip() for b in self.reference_books)
+        for book in books:
+            if not BOOK_ID.fullmatch(book):
+                raise StationError(
+                    f"reference book {book!r} is not a Kiwix book id (lowercase, no spaces, "
+                    f"e.g. ham.stackexchange.com_en_all). `hammunition reference books` "
+                    f"lists them."
+                )
+        object.__setattr__(self, "reference_books", tuple(dict.fromkeys(books)))
         if self.map_freshness is not None and self.map_freshness not in FRESHNESS:
             raise StationError(
                 f"map freshness {self.map_freshness!r} is not one of {', '.join(FRESHNESS)}"
@@ -169,12 +188,14 @@ class Station:
         result: dict[str, str | list[str]] = {
             f.name: v
             for f in fields(self)
-            if f.name not in _MAP_FIELDS and (v := getattr(self, f.name))
+            if f.name not in _DATA_FIELDS and (v := getattr(self, f.name))
         }
         if self.map_regions:
             result["map_regions"] = list(self.map_regions)
         if self.map_freshness is not None:
             result["map_freshness"] = self.map_freshness
+        if self.reference_books:
+            result["reference_books"] = list(self.reference_books)
         return result
 
 
@@ -182,7 +203,7 @@ class Station:
 #: template naming something unknown is a reportable error rather than an
 #: empty substitution. Map settings are excluded -- they are read directly by
 #: the maps subsystem, never templated into a config file.
-STATION_FIELDS: frozenset[str] = frozenset(f.name for f in fields(Station)) - _MAP_FIELDS
+STATION_FIELDS: frozenset[str] = frozenset(f.name for f in fields(Station)) - _DATA_FIELDS
 
 #: Every value the station file may hold, template variable or not -- what
 #: `load_station` accepts without raising "sets values nothing can use".
@@ -234,12 +255,14 @@ def load_station(path: Path | None = None, owner: str | None = None) -> Station:
         return str(value) if value is not None else None
 
     regions = data.get("map_regions")
+    books = data.get("reference_books")
     return Station(
         callsign=_str("callsign"),
         grid_square=_str("grid_square"),
         node_alias=_str("node_alias"),
         map_regions=tuple(str(r) for r in regions) if regions is not None else (),
         map_freshness=_str("map_freshness"),
+        reference_books=tuple(str(b) for b in books) if books is not None else (),
     )
 
 
@@ -282,6 +305,7 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
                 Station(
                     map_regions=station.map_regions,
                     map_freshness=station.map_freshness,
+                    reference_books=station.reference_books,
                     **{**values, variable: answer},
                 )
             except StationError as exc:
@@ -289,7 +313,12 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
                 continue
             values[variable] = answer
             break
-    return Station(map_regions=station.map_regions, map_freshness=station.map_freshness, **values)
+    return Station(
+        map_regions=station.map_regions,
+        map_freshness=station.map_freshness,
+        reference_books=station.reference_books,
+        **values,
+    )
 
 
 def is_interactive() -> bool:

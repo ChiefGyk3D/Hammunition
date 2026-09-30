@@ -34,6 +34,7 @@ import re
 import xml.etree.ElementTree as ET
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -48,7 +49,9 @@ __all__ = [
     "KiwixError",
     "current_file",
     "file_date",
+    "load_book_list",
     "load_books",
+    "load_pin_file",
     "load_pins",
     "parse_library",
     "parse_meta4",
@@ -223,6 +226,32 @@ def load_pins(text: str) -> dict[str, BookPin]:
             measured=str(row.get("measured") or ""),
         )
     return pins
+
+
+BOOKS_FILE = Path("data") / "kiwix-books.yaml"
+PINS_FILE = Path("data") / "kiwix-pins.yaml"
+
+
+def load_book_list(catalog_root: Path) -> dict[str, Book]:
+    """The catalog's book list, read from ``<catalog>/data/kiwix-books.yaml``."""
+    path = catalog_root / BOOKS_FILE
+    try:
+        return load_books(path.read_text())
+    except OSError as exc:
+        raise KiwixError(f"{path}: {exc.strerror or exc}") from exc
+    except KiwixError as exc:
+        raise KiwixError(f"{path}: {exc}") from exc
+
+
+def load_pin_file(catalog_root: Path) -> dict[str, BookPin]:
+    """The generated pins, read from ``<catalog>/data/kiwix-pins.yaml``."""
+    path = catalog_root / PINS_FILE
+    try:
+        return load_pins(path.read_text())
+    except OSError as exc:
+        raise KiwixError(f"{path}: {exc.strerror or exc}; {PINS_REMEDY}") from exc
+    except KiwixError as exc:
+        raise KiwixError(f"{path}: {exc}; {PINS_REMEDY}") from exc
 
 
 def resolve_books(

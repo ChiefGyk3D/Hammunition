@@ -112,6 +112,7 @@ from hammunition.geofabrik import resolve as resolve_region
 from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH, describe_refusal
 from hammunition.interface import envelope
 from hammunition.kernel import KernelProbe
+from hammunition.kiwix import KiwixError, load_book_list
 from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.load import CatalogError, load_catalog, load_profiles
 from hammunition.manifest.schema import (
@@ -372,6 +373,35 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             return EXIT_FAILED
     else:
         map_regions = current.map_regions
+    # D-065: the same rule for books, and each id checked against the
+    # catalog's book list now, while the operator is looking at the prompt.
+    if args.reference_books is not None:
+        reference_books = tuple(
+            b for b in (p.strip() for p in args.reference_books.split(",")) if b
+        )
+        if not reference_books:
+            print(
+                "error: --reference-books gave no book ids after splitting on ',' and "
+                "stripping whitespace; give at least one, or to remove the books, "
+                "uninstall kiwix-library.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+        try:
+            books = load_book_list(find_catalog(args.catalog))
+        except KiwixError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return EXIT_FAILED
+        unknown = [b for b in reference_books if b not in books]
+        if unknown:
+            print(
+                f"error: not in the catalog's book list: {', '.join(unknown)}. "
+                f"`hammunition reference books` lists the books the catalog offers, by id.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+    else:
+        reference_books = current.reference_books
     set_fields = [
         field
         for field, value in (
@@ -380,13 +410,14 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             ("node_alias", args.node_alias),
             ("map_regions", args.map_regions),
             ("map_freshness", args.map_freshness),
+            ("reference_books", args.reference_books),
         )
         if value
     ]
     if not set_fields:
         print(
             "error: nothing to set. Pass at least one of --callsign, --grid-square, "
-            "--node-alias, --map-regions, --map-freshness.",
+            "--node-alias, --map-regions, --map-freshness, --reference-books.",
             file=sys.stderr,
         )
         return EXIT_FAILED
@@ -397,6 +428,7 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             node_alias=args.node_alias or current.node_alias,
             map_regions=map_regions,
             map_freshness=args.map_freshness or current.map_freshness,
+            reference_books=reference_books,
         )
     except StationError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -408,6 +440,8 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             print(f"  {field:<14} {len(station.map_regions)} set")
         elif field == "map_freshness":
             print(f"  {field:<14} {station.freshness}")
+        elif field == "reference_books":
+            print(f"  {field:<14} {', '.join(station.reference_books)}")
         else:
             print(f"  {field:<14} {station.get(field)}")
     return EXIT_OK
@@ -3466,6 +3500,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_station_set.add_argument(
         "--map-freshness", default=None, choices=("yearly", "monthly", "latest")
+    )
+    p_station_set.add_argument(
+        "--reference-books",
+        default=None,
+        metavar="ID[,ID…]",
+        help="comma-separated Kiwix book ids to carry offline; `hammunition reference "
+        "books` lists them (D-065)",
     )
     p_station_set.add_argument("--user", default=None, help="whose configuration to write")
     p_station_set.set_defaults(func=cmd_station_set)
