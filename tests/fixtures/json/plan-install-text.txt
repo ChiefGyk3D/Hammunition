@@ -52,7 +52,7 @@ Consent gates that will be presented:
         devices, such as IMSI, IMEI, MAC addresses, or subscriber records.
 
 Configuration that will be written:
-  /etc/fixture-apt.conf  (written, mode 0644, existing file backed up)  [fixture-apt]
+  /etc/fixture-apt.conf  (written, mode 0644, existing file backed up)  [fixture-apt]  fills callsign
 
 Desktops read from session files (/usr/share/xsessions, /usr/share/wayland-sessions and the same under /usr/local/share):
   Xfce; also sway.desktop, which names no desktop the catalog knows

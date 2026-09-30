@@ -404,6 +404,10 @@ class ConfigLine(Strict):
     mode: str = described("its octal mode")
     append: bool = described("appended to rather than written")
     backup_existing: bool = described("an existing file is backed up first")
+    fills: tuple[str, ...] = described(
+        "the station values templated into it, by name (callsign, grid_square, "
+        "ax25_callsign, latitude ...); never the values themselves"
+    )
 
 
 @dataclass(frozen=True)
@@ -884,6 +888,7 @@ def build_install_view(
                 mode=config.mode,
                 append=config.append,
                 backup_existing=config.backup_existing,
+                fills=tuple(sorted(config.station_variables)),
             )
             for unit, config, _body in plan.config_files
         ),
@@ -1083,8 +1088,9 @@ def render_plan_view(view: InstallPlanView, *, target: TargetView) -> list[str]:
         for config in view.config_files:
             backup = "existing file backed up" if config.backup_existing else "NOT backed up"
             verb = "appended to" if config.append else "written"
+            fills = f"  fills {', '.join(config.fills)}" if config.fills else ""
             lines.append(
-                f"  {config.path}  ({verb}, mode {config.mode}, {backup})  [{config.unit}]"
+                f"  {config.path}  ({verb}, mode {config.mode}, {backup})  [{config.unit}]{fills}"
             )
         lines.append("")
 
