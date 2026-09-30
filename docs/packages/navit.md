@@ -19,7 +19,7 @@ A phone's navigation needs the phone network for its maps and often for its rout
 
 ## Before it will work
 
-A GPS receiver served by gpsd (the `gpsd` unit, installed first), and maps: the `osm-regions` and `osm-navit` units, which need your regions set first with `hammunition station set --map-regions`. The launcher opens the configuration `osm-navit` writes, so it has nothing to open until `osm-navit` has installed. Spoken directions need working audio output.
+A GPS receiver served by gpsd (the `gpsd` unit, installed first), and maps: the `osm-regions` and `osm-navit` units, which need your regions set first with `hammunition station set --map-regions`. The launcher runs `hammunition maps navit`, which opens the configuration `osm-navit` writes, so it has nothing to open until `osm-navit` has installed. A repeater layer from `hammunition maps repeaters import` is added to a copy of it in your own data directory, which the launcher then opens. Spoken directions need working audio output.
 
 ## How it installs
 

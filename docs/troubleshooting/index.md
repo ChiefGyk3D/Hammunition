@@ -41,6 +41,17 @@ or field use), not imagined. Where a fix is distribution-specific it says so.
   kind of hub; measured per target.
 - **[The FT8 waterfall is silent](../getting-started/first-contact.md#when-the-waterfall-is-silent)** —
   audio routing, covered in first contact.
+- **[FT8 decodes nothing on a busy band](../guides/time-and-gps.md#why-the-clock-matters)** —
+  the clock is more than a second out. `timedatectl`; with no network, a GPS
+  keeps it.
+- **[A program cannot reach the radio, or the radio behaves erratically](../guides/rig-control.md#when-it-does-not-work)** —
+  two programs have the serial port open. One owns it; the rest ask it.
+- **[Everyone is heard, nobody hears you](../guides/audio-routing.md#5-set-the-transmit-level)** —
+  transmit audio level. No ALC action.
+- **[`rtl_test` says the dongle is busy](../guides/sdr.md#if-rtl_test-says-the-device-is-busy)** —
+  the kernel's TV driver claimed it first.
+- **[Direwolf or ardopcf: device busy](../guides/packet-winlink.md#1-direwolf-the-modem)** —
+  PipeWire has the sound card; set its profile to Off.
 
 ## When nothing here fits
 

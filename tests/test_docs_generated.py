@@ -693,6 +693,7 @@ CHECKED_GENERATORS: list[tuple[str, list[str], list[Path]]] = [
     ("gen_device_naming.py", ["docs/reference/device-naming.md"], []),
     ("gen_hardware_gaps.py", ["docs/reference/hardware-gaps.md"], []),
     ("gen_json_reference.py", ["docs/reference/json-interface.md"], []),
+    ("gen_projects_page.py", ["docs/projects.md"], []),
     (
         "gen_geofabrik_countries.py",
         ["catalog/data/geofabrik-countries.yaml"],

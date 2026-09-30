@@ -329,6 +329,13 @@ requirements, not aspirations:
 
 ## Documentation
 
+**Read it at <https://chiefgyk3d.github.io/Hammunition/>** — the
+documentation site, *Hacker's Ham Shack*: getting started, step-by-step
+guides (rig control, audio, the clock, FT8, Winlink, APRS, SDR, satellites),
+every profile, package and device, and [every project we
+install](docs/projects.md), linked to its home. It is built from `docs/` by
+`mkdocs build --strict` and published from `main` (**D-065**).
+
 The decision record and the policies below were written before the code
 they describe, deliberately; the reference pages are generated from the
 catalog and the measurements, so they cannot say what the code does not.
@@ -348,7 +355,7 @@ catalog and the measurements, so they cannot say what the code does not.
 | [`CHANGELOG.md`](CHANGELOG.md) | One entry per release, from the merged pull requests, each line naming the decision it rests on |
 | [`docs/contributing/releasing.md`](docs/contributing/releasing.md) | How a release is cut and signed, and why v0.7.0 and v0.9.0 are not |
 
-The user-facing documentation site is *Hacker's Ham Shack*. Its standard: a
+The documentation site is *Hacker's Ham Shack*. Its standard: a
 licensed ham with moderate Linux experience should get from a fresh install to a
 working digital-modes station without asking anyone a question or reading a forum
 thread. A step that needs knowledge not in our docs is a documentation bug.

@@ -5925,6 +5925,301 @@ the CLI's is `docs/reference/cli.md`. Tests: `tests/test_brouter.py`,
 `tests/test_qmapshack_brouter.py`, and the pins and profile in
 `tests/test_navigation_catalog.py`.
 
+## D-064 — Repeaters on the map come from the operator's own export, converted on this machine; nothing is fetched from RepeaterBook, and hearham's open list only on request, unverified
+
+**Date:** 2026-09-29. **Status:** proposed (the design is the spike's
+recommendation, approved by the maintainer; implemented on branch
+`repeaters`; the maintainer decides it at review). **Spec:**
+`docs/superpowers/specs/2026-09-29-repeaters-design.md`. **Depends on:**
+D-021 (disclose, never adjudicate; YAAC's objects can transmit), D-033 (an
+unlicensed source judged on what we do with it), D-049 (why this is not a
+data unit), D-057 and D-061 (the Navit and QMapShack configurations this
+adds to), D-059 (the documents), D-031 (the input's date, not the run's).
+
+**Why.** The maintainer wants repeaters on the offline maps. The spike of
+2026-09-29 measured every route an operator has without an API key.
+RepeaterBook's API is gated, and its data-use page forbids "bulk
+extraction, mirroring, redistribution, offline bundling" without written
+permission. Its *website export*, though, is granted to a registered user
+"for their own personal use", and its GPX page describes loading the file
+into navigation tools, offline. CHIRP's RepeaterBook query was run headless
+and its CSV drops Lat/Long, keeping only "near <city>". hearham.com serves
+the whole world, 22,698 rows, unauthenticated, with no licence and no
+ETag. The FCC's licence database has no coordinates.
+
+### The rule
+
+1. **The operator's export, converted here.**
+   `hammunition maps repeaters import FILE... [--exported YYYY-MM-DD]`
+   reads a RepeaterBook GPX, a RepeaterBook CSV that has `Lat` and `Long`,
+   hearham's JSON as served, or a hand-typed CSV with the header
+   `callsign,output_mhz,offset_mhz,tone,mode,lat,lon,name,notes`, recognised
+   from the content. No network.
+2. **What has no coordinates is refused by name, with the reason:** a CHIRP
+   CSV, a CHIRP `.img` (by suffix, or CHIRP's own metadata marker read from
+   `chirp_common.py`), and a RepeaterBook CSV without `Lat`/`Long`. KML is
+   deferred: it is the same data as the GPX. XML with a DOCTYPE is refused
+   before parsing. One refused file refuses the import, and nothing is
+   written. A position is never guessed from a town name.
+3. **Merged on callsign + output Hz + position to 0.01°.** Callsign and
+   frequency alone would have merged 1,050 multi-site keys in hearham's
+   data. The newer `Last Update` wins where both rows carry one, else the
+   first read; every merge is counted and printed.
+4. **Three outputs, the operator's own.** A GPX (`<name>` `CALL FREQ`,
+   `<desc>` offset, tone, mode, use, status, place and source,
+   `<sym>Tall Tower</sym>`, a QMapShack built-in), a Mapsforge `.poi`, and a
+   Navit textfile (`poi_custom0`, labelled, Navit's own `tower.png`), in
+   `~/.local/share/hammunition/overlays/repeaters/`: directory 0700, files
+   0600, each renamed into place. Never under the root prefix, never in the
+   catalog, never in the transaction log. Refused as root. The layer is
+   named `Repeaters (own export YYYY-MM-DD, personal use)`, dated by
+   `--exported`, else by the oldest input's modification date.
+5. **Registered where each program reads it.** QMapShack: the directory in
+   `[Canvas] poiPaths`, by the editor `maps qmapshack` uses, with its
+   refusals; `maps qmapshack` keeps the path there exactly while a `.poi`
+   exists, because a QMapShack open during the import writes its own list
+   back on exit. Navit: its generated configuration is root's and
+   `~/.navit` is never touched, so the `navit-offline` launcher now runs
+   `hammunition maps navit`, which opens the generated file, or, when there
+   is a layer, the operator's copy of it
+   (`~/.local/share/hammunition/overlays/navit.xml`, 0600) with a textfile
+   map added to its one enabled mapset by `navit_config.add_maps`.
+   `maps repeaters remove` deletes the files and unregisters both;
+   removing nothing is exit 0.
+6. **The licence text is printed at import, before the counts.**
+   RepeaterBook: "Data courtesy of RepeaterBook.com", personal
+   non-commercial use, never redistributed, converted on this machine only,
+   positions approximate, terms at `repeaterbook.com/about/legal`. That
+   attribution is also in the GPX's metadata and in every waypoint's
+   `<desc>`, as RepeaterBook's terms require of an overlay. A hand list:
+   "Your own data." A disclosure of terms, not a ruling on them (D-021).
+7. **hearham on request only.** `maps repeaters fetch-hearham` prints what
+   it will fetch, fetches once (bounded at 64 MB, redirects to HTTPS only),
+   records the sha256 it observed in the layer and the output, and names
+   the layer `Repeaters (hearham YYYY-MM-DD, unverified)`. It prints
+   hearham's own line that the data should not be relied upon "for medical
+   emergencies, or any other life-and-death operations". Carried under
+   D-033: no licence, used on the operator's request, never redistributed.
+8. **Documents.** `import --json` prints a `repeaters` document and
+   `remove --json` a `repeaters-removed` document, from the same objects as
+   the text. Both carry counts, paths and the layer name, never a
+   repeater's callsign or position: the export says where the operator
+   operates. `fetch-hearham` and `maps navit` have no JSON form.
+
+### Not a D-049 data unit
+
+A data unit is an artifact the engine fetches from its publisher and pins by
+sha256. An export is neither fetched by the engine nor pinnable, and
+RepeaterBook's terms forbid anyone but the exporting user holding it. hearham
+is live, with no ETag and no dated snapshot: a pin would be wrong the day it
+was taken. So the export is a command's input, and the fetch records what it
+observed and says it is unverified.
+
+### Not carried, and why
+
+- **Any fetch from RepeaterBook**: the API is gated, and bulk extraction and
+  offline bundling need written permission.
+- **Navit address search of repeaters**: the textfile driver has no search
+  method; they list under POIs → Other, with distance.
+- **Xastir `.gnis`**: its point layers live in a root-owned map tree under
+  `/usr/share/xastir`.
+- **YAAC `.pos`**: YAAC imports APRS objects, which it can transmit. That is
+  a D-021 matter, not a map layer.
+- **FCC ULS**: no coordinates.
+- **KML**: deferred; the GPX carries the same data.
+
+### Rulings made on the way
+
+- **Every GPX gets RepeaterBook's attribution and terms.** A real export's
+  `<name>` and `<desc>` are unmeasured, so an export cannot be told from
+  another GPX; the attribution is the cautious default. Callsign and output
+  frequency are found in `<name>`, then `<desc>`; a waypoint with neither is
+  kept under its own name, keyed on that name.
+- **The POI writer moves a point whose box straddles a 0.1° line into the
+  tile north or east of it.** QMapShack asks for each 0.1° tile with
+  `min >= tile` and `max < tile + 0.1`, and SQLite's rtree stores float32
+  boxes rounded outwards, so a point on a line is in neither tile (the
+  spike). The spike's note said "widen each box"; widening makes it worse,
+  so the point is moved instead, to the float32 one step inside the tile,
+  a few metres at most. The first version used a fixed 1e-5° band; the
+  final review measured the straddling band growing with the coordinate, to
+  about ±2e-5° at 180°, and 16 points past about 64° lost. It is now
+  computed with SQLite's own rounding (`rtreeValueDown`/`rtreeValueUp`), and
+  the tests run QMapShack's verbatim query over 61 offsets around twelve
+  lines from −179.9° to 179.9°, and show a point on a line lost without the
+  move. The bounds are padded 0.001°, because a one-repeater file's
+  zero-area bounds intersect no tile.
+- **A frequency is looked for where it can be.** In a GPX it must fall in
+  an amateur repeater band from 10 m to 23 cm, or GMRS, and in `<desc>` a
+  number written with "MHz" comes first, so a tone (`PL 100.0`) or a
+  coordinate is not taken for one (review). A typed frequency outside 1 to
+  10,000 MHz is skipped and counted, not labelled `146940000.000`. A
+  hearham entry of another shape is skipped and counted rather than
+  refusing the whole list.
+- **The fetch names every HTTP failure.** `http.client`'s own exceptions
+  are not `OSError`; a malformed answer is now "could not fetch", not a
+  traceback (review). A redirect is followed to HTTPS only; both refusals
+  are tested on loopback.
+- **Each import replaces the layer.** Combining sources is one import of
+  every file. A fetch does not keep hearham's raw JSON; to combine it with
+  an export, the operator saves the JSON and imports both.
+- **The Navit launcher changes.** The alternatives were writing
+  `~/.navit/navit.xml`, which the navit manifest promises never to touch
+  and which `navit-offline` does not read, or writing into the root prefix,
+  which the operator cannot do without sudo. `hammunition menus apply`
+  rewrites an installed `navit-offline` to the new form (tested).
+- **A refused QMapShack edit still writes the layer**, names the reason and
+  exits 1; the files are the operator's either way.
+- **`command_name` reads a third level**, so an error document says
+  `maps repeaters import`.
+
+### What has run
+
+The test suite only: every parser against synthetic fixtures (N0CALL,
+N0TST, Springfield IL), every refusal, the merge, the three writers, the POI
+against QMapShack's own SQL, `add_maps`, the QMapShack edit byte for byte,
+modes 0600 and 0700, root refused, both documents validated against their
+schema with the text's values carried and no callsign or coordinate in
+either, `remove` idempotent, `maps navit` with `execvp` stubbed, and
+`fetch-hearham` against a loopback server only. No GUI was started.
+
+**Owed to the bench:** QMapShack drawing the GPX and the POI collection, and
+reading `poiPaths` under `[Canvas]`; Navit's `poi_custom0` label and tower
+icon, and the POIs → Other listing; one real RepeaterBook export, GPX and
+CSV, by a logged-in operator, for its columns and `<desc>` layout.
+
+**Rejected.** RepeaterBook's API (gated, and forbidden for this use).
+Geocoding CHIRP's "near <city>" (an invented position). A catalog data unit
+(above). A callsign plus frequency key (drops real repeaters). A custom
+QMapShack icon (would write into QMapShack's own directories). Navit's
+`poi_communication` type (no label in the stock layout).
+
+**Consequences.** `src/hammunition/repeaters.py`,
+`src/hammunition/interface/repeaters.py`, `navit_config.add_maps`, four
+commands in `src/hammunition/cli/main.py`, the `navit-offline` launcher in
+`catalog/packages/navit.yaml`; tests `tests/test_repeaters.py`,
+`tests/test_repeaters_cli.py` and `tests/test_navit_config.py`; the
+offline-navigation guide's section 13 and `docs/reference/cli.md`.
+
+## D-065 — The documentation is published as a static site built from `docs/` by MkDocs and Material, pinned exactly, strict on every link, with the project records left in the repository
+
+**Date:** 2026-09-30. **Status:** the site is the maintainer's ask (2026-09-30:
+"do we need a .io or whatever? There's a lot we need to walk users through
+with this as well as at least link to each of the projects"); the tooling,
+the URL and the layout below are this record's recommendation, and the
+maintainer decides them at review. **Depends on:** issue #76 (sub-project 1,
+"a published site built from `docs/`"), D-036/D-050 (generated, never
+hand-kept copies), D-031 (verify the effect), D-021 (disclose, never
+adjudicate). **Amends:** issue #76's "not before 1.0", at the maintainer's
+request.
+
+**Why.** Issue #76 recorded the intent: a published site, static, searchable,
+regenerated from the catalog rather than a wiki people edit in place. The
+pages under `docs/` already existed as Markdown with checked links; what was
+missing was somewhere a person who has never seen a git repository could
+read them, the walk-throughs CLAUDE.md's standard asks for, and one place that
+links every upstream project the catalog installs.
+
+### What is published, where
+
+**https://chiefgyk3d.github.io/Hammunition/**, by GitHub Pages from `main`
+(`.github/workflows/pages.yml`). No domain is bought: the `github.io` address
+costs nothing, and a custom domain can be pointed at the same site later
+with one `CNAME` file and a DNS record, which is a decision about money and
+naming that is the maintainer's. The repository owner enables Pages once
+(Settings → Pages → Source: GitHub Actions); until then the deploy job fails
+naming that setting and nothing else in CI is affected.
+
+The site carries getting started, the guides, the profiles, the package and
+hardware references, troubleshooting, RF security, the reference
+measurements and contributing. It does **not** carry the project records:
+CLAUDE.md says `DECISIONS.md`, `PARITY-POLICY.md`, `DESIGN.md` and
+`why-hammunition.md` are not part of the user-facing site, and `QUESTIONS.md`,
+`SCOPE.md`, `SESSION-LOG.md` and `superpowers/` are the same kind of thing.
+They stay in the repository and a link to one from a published page opens it
+on GitHub.
+
+### How it is built
+
+- **MkDocs 1.6.1 and Material for MkDocs 9.7.7, pinned exactly** in the `dev`
+  and `docs` extras of `pyproject.toml`, as ruff is, and for the same reason:
+  the build is a gate, and a gate on a floating version drifts red on its own.
+  MkDocs 2.0 removes the plugin and theme systems (Material's authors' own
+  notice, printed by 9.7.7 on every build), so an unpinned `mkdocs` would
+  break this site on the day 2.0 lands.
+- **`mkdocs build --strict`, with link, anchor and absolute-link validation at
+  warning level.** A broken link or a missing anchor fails the build, in
+  `tests/test_site.py` on every test run and in the Pages workflow before
+  anything is published. Measured on the 2026-09-30 tree: 269 warnings before
+  the hook below, 268 of them links leaving `docs/`, and zero after.
+- **One build hook, `scripts/site_hooks.py`.** Pages are written to read on
+  GitHub, where a package page's relative link to its manifest opens it. At
+  build time only, a relative link whose target is not part of the site is
+  pointed at the same file on GitHub. A link whose target does not exist in
+  the repository either is left as written, so the strict build reports it:
+  the hook repairs where a link points and never hides that it points at
+  nothing. Its tests break it on purpose.
+- **No page is orphaned.** Every page is in `mkdocs.yml`'s nav, excluded, or a
+  package page reached from the generated package index; `tests/test_site.py`
+  fails naming any page that is none of the three.
+- **No "edit this page" button.** Half the site is generated, and an edit to a
+  generated page is reverted by its generator.
+
+### Every upstream project, linked
+
+`docs/projects.md` is generated by `scripts/gen_projects_page.py` from every
+manifest's `documentation.upstream_url`, laid out by the vocabulary's groups
+and categories as the menu is (D-050, D-054), one row per unit under its first
+category. A URL that is a distribution's package tracker rather than the
+author's site is labelled so: 15 of 269 on 2026-09-30, after the BRouter units of D-063 landed. It takes `--check` and
+is in `tests/test_docs_generated.py`'s list like every other generator.
+`docs/credits.md` names the six inventory sources and the four data sets.
+
+### The guides
+
+Nine task guides, written to CLAUDE.md's standard and linked from the
+getting-started path: rig control, radio audio, time and position, the
+callsign in each program, FT8 and the digital modes, packet and Winlink,
+APRS, SDR first steps, satellites. Every default, port, file name and option
+they quote was read from the installed program on 2026-09-30 (an Ubuntu
+24.04 container: hamlib 4.5.5, Pat 0.15.1, Direwolf 1.7, Xastir 2.2.0, gpsd
+3.25, chrony 4.5, PipeWire's tools, the `rtl-sdr` 2.0.1 archives), and each
+guide ends with what was measured and what was not. Nothing in them has been
+run end to end against a radio on the field laptop yet, and each says so.
+
+Three things the measurement turned up, recorded where they belong:
+
+- **Debian and Ubuntu install Pat as `pat-winlink`**, and Pat 0.15.1's default
+  AX.25 engine is `linux`, the kernel stack Linux 7.1 removed. The packet guide
+  sets `engine` to `agwpe`, which is Direwolf's port 8000 (D-045).
+- **`rigctld` listens on every interface by default** ("default ANY" in its
+  own help). The rig-control guide passes `-T 127.0.0.1` everywhere.
+- **Ubuntu 24.04's `librtlsdr2` ships no DVB-driver blacklist**, only an empty
+  `/etc/modprobe.d`, which contradicted the `rtl-sdr` device entry. The entry
+  now says what was measured and that the other targets are not. It also
+  said `kalibrate-rtl` was not carried; it is, and the entry now says so.
+
+### The move to Zensical, measured before it is needed
+
+Material for MkDocs enters maintenance mode on 2026-11-05, and its authors'
+successor, Zensical, reads `mkdocs.yml` directly. Measured 2026-09-30:
+Zensical 0.0.66 builds this whole tree in 16 seconds, and **runs no MkDocs
+hook**, so on that version the out-of-site links would publish as dead links.
+The migration therefore waits for one of two things: Zensical running hooks,
+or the link rewriting moving into the page generators. Until then the exact
+pins keep the site building; a maintained-mode Material on a frozen MkDocs is
+a working site, and a version bump is a deliberate commit that runs the same
+strict build.
+
+### Not done
+
+- **A custom domain.** The maintainer's decision; one file when made.
+- **Versioned docs per release** (`mike` or Zensical's equivalent). Issue #76
+  asks for it; one version from `main` is the first step, and a release that
+  changes behaviour is when versions start to matter.
+- **Per-tool depth pages and the launcher "Documentation" action** (issue #76
+  items 2 and 3). The guides name the programs that most need depth.
+
 ## D-066 — The offline reference layer: Kiwix books chosen by name and pinned from their `.meta4`, dictd on loopback, FEMA's ICS forms, and one loopback page
 
 **Date:** 2026-09-29. **Status:** accepted (maintainer, 2026-09-29, the

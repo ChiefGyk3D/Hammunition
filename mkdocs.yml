@@ -1,0 +1,255 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# The documentation site, Hacker's Ham Shack (D-065). Built from docs/ by
+# `mkdocs build --strict`; tests/test_site.py builds it on every test run and
+# .github/workflows/pages.yml publishes it from main.
+#
+# MkDocs 1.6.1 and Material 9.7.7 are pinned exactly in pyproject.toml. MkDocs
+# 2.0 removes the plugin and theme systems this file relies on, and Material
+# enters maintenance mode on 2026-11-05; its authors' successor, Zensical,
+# reads this same file. D-065 records the measurement and the migration.
+
+site_name: Hammunition
+site_description: >-
+  Hacker's Ham Shack: turn an existing Debian-family install into an amateur
+  radio, SDR and RF workstation, and learn to use what it installs.
+site_url: https://chiefgyk3d.github.io/Hammunition/
+repo_url: https://github.com/ChiefGyk3D/Hammunition
+repo_name: ChiefGyk3D/Hammunition
+# No "edit this page" button: half the site is generated, and an edit to a
+# generated page is reverted by its generator (tests/test_docs_generated.py).
+edit_uri: ""
+copyright: >-
+  Copyright © 2026 Renegade Penguin LLC. Engine and docs GPL-3.0-or-later;
+  catalog CC0-1.0. The software it installs belongs to its authors.
+
+docs_dir: docs
+site_dir: site
+strict: true
+
+# CLAUDE.md: the project records are not part of the user-facing site. They
+# stay in the repository; scripts/site_hooks.py points links to them at GitHub.
+exclude_docs: |
+  /DECISIONS.md
+  /DESIGN.md
+  /PARITY-POLICY.md
+  /why-hammunition.md
+  /QUESTIONS.md
+  /SCOPE.md
+  /SESSION-LOG.md
+  /superpowers/
+
+hooks:
+  - scripts/site_hooks.py
+
+validation:
+  # Package pages are reached from the package index, not the nav, so MkDocs'
+  # own list of pages outside the nav is 266 lines of noise on every build.
+  # tests/test_site.py does this check properly: every page is in the nav or
+  # is a package page, and it fails naming any that is neither.
+  omitted_files: ignore
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+theme:
+  name: material
+  language: en
+  icon:
+    logo: material/radio-tower
+    repo: fontawesome/brands/github
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep orange
+      accent: amber
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep orange
+      accent: amber
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - toc.follow
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.keys
+
+plugins:
+  - search
+
+# Every page under docs/ is either in this nav, excluded above, or a package
+# page reached from the package index. tests/test_site.py fails naming any
+# page that is none of the three, so a new page cannot be orphaned.
+nav:
+  - Home:
+      - index.md
+      - The projects we install: projects.md
+      - Credits: credits.md
+  - Getting started:
+      - getting-started/index.md
+      - Install the engine: getting-started/install.md
+      - Your first profile: getting-started/first-profile.md
+      - First contact: getting-started/first-contact.md
+  - Guides:
+      - guides/index.md
+      - Operating:
+          - Rig control (CAT): guides/rig-control.md
+          - Radio audio: guides/audio-routing.md
+          - Time and position: guides/time-and-gps.md
+          - Your callsign in each program: guides/station-settings.md
+      - Modes:
+          - FT8 and the digital modes: guides/digital-modes.md
+          - Packet and Winlink: guides/packet-winlink.md
+          - APRS: guides/aprs.md
+      - Receiving:
+          - SDR first steps: guides/sdr.md
+          - Satellites: guides/satellite.md
+          - Propagation: guides/propagation.md
+      - In the field:
+          - Offline navigation: guides/offline-navigation.md
+          - Offline reference: guides/offline-reference.md
+          - Operating at a conference: guides/conference-operating.md
+          - Rayhunter: guides/rayhunter.md
+  - Profiles:
+      - profiles/index.md
+      - station: profiles/station.md
+      - digital-modes: profiles/digital-modes.md
+      - packet: profiles/packet.md
+      - logging: profiles/logging.md
+      - morse: profiles/morse.md
+      - propagation: profiles/propagation.md
+      - satellite: profiles/satellite.md
+      - antenna: profiles/antenna.md
+      - sdr: profiles/sdr.md
+      - listening: profiles/listening.md
+      - navigation: profiles/navigation.md
+      - reference: profiles/reference.md
+      - electronics: profiles/electronics.md
+      - workstation: profiles/workstation.md
+      - editors: profiles/editors.md
+      - rf-security: profiles/rf-security.md
+      - rfid: profiles/rfid.md
+      - rf-research: profiles/rf-research.md
+  - Packages:
+      - packages/index.md
+  - Hardware:
+      - hardware/index.md
+      - Park and wake devices: hardware/power-control.md
+      - SDR receivers and transceivers:
+          - RTL-SDR: hardware/rtl-sdr.md
+          - Airspy: hardware/airspy.md
+          - FUNcube Dongle: hardware/funcube-dongle.md
+          - SDRplay RSP: hardware/sdrplay-rsp.md
+          - HackRF One: hardware/hackrf-one.md
+          - HackRF Pro: hardware/hackrf-pro.md
+          - PortaPack H4M: hardware/portapack-h4m.md
+          - bladeRF: hardware/bladerf.md
+          - LimeSDR: hardware/limesdr.md
+          - PlutoSDR: hardware/plutosdr.md
+          - USRP: hardware/usrp.md
+          - KrakenSDR: hardware/krakensdr.md
+      - Radios, GPS and mesh:
+          - DMR radios: hardware/dmr-radio-class.md
+          - GPS receivers: hardware/gps-receiver-class.md
+          - Meshtastic nodes: hardware/meshtastic.md
+          - ClockworkPi uConsole: hardware/uconsole.md
+      - Security and research hardware:
+          - Proxmark3: hardware/proxmark3.md
+          - NFC readers: hardware/nfc-reader-class.md
+          - Flipper Zero: hardware/flipper-zero.md
+          - Ubertooth One: hardware/ubertooth-one.md
+          - Wi-Spy: hardware/wi-spy.md
+          - CatSniffer V3: hardware/catsniffer-v3.md
+          - Minino: hardware/minino.md
+          - Free-WiLi 2: hardware/free-wili-2.md
+          - Clip-Boy: hardware/clip-boy.md
+          - C5 Wardriver: hardware/c5-wardriver.md
+          - Orbic RC400L (Rayhunter): hardware/orbic-rc400l.md
+          - Badgelife boards: hardware/badgelife-class.md
+      - Programmers: hardware/programmer-class.md
+  - Troubleshooting:
+      - troubleshooting/index.md
+      - Installing: troubleshooting/install-failures.md
+      - Running: troubleshooting/running.md
+  - RF security: rf-security/index.md
+  - Reference:
+      - The engine:
+          - Command line: reference/cli.md
+          - JSON interface: reference/json-interface.md
+          - Manifest schema: reference/schema.md
+          - Transaction log: reference/transaction-log.md
+          - Desktops: desktops.md
+      - Coverage:
+          - Capability matrix: reference/capability-matrix.md
+          - Coverage matrix: reference/coverage-matrix.md
+          - Parity coverage: reference/parity-coverage.md
+          - Not carried, and why: reference/not-carried.md
+          - Dispositions: reference/dispositions.md
+          - Overlaps and defaults: reference/overlaps.md
+          - Gap analysis, 2026-09: reference/catalog-gaps-2026-09.md
+          - Source-build gaps: reference/source-build-gaps.md
+          - Release 1.0 checklist: reference/release-1.0-checklist.md
+          - Q-015 rulings: reference/decisions-pending.md
+      - Inventories:
+          - AHRL: reference/ahrl-inventory.md
+          - Debian Hamradio Blend: reference/blend-inventory.md
+          - Skywave Linux: reference/skywave-inventory.md
+          - DragonOS Tier 1: reference/dragonos-tier1-inventory.md
+          - EmComm Tools OS: reference/etc-inventory.md
+          - Prior art: reference/prior-art.md
+          - Profile sizing: reference/profile-sizing.md
+          - Licence verification: reference/licence-verification.md
+      - Hardware measurements:
+          - Hardware gaps: reference/hardware-gaps.md
+          - Device naming: reference/device-naming.md
+          - udev inventory: reference/udev-inventory.md
+          - USB ambiguity: reference/usb-ambiguity.md
+          - LoRa inventory: reference/lora-inventory.md
+          - brltty: reference/brltty-inventory.md
+          - Kernel AX.25: reference/kernel-ax25.md
+      - Verification:
+          - M5 parity verified: reference/m5-parity-verified.md
+          - Install verification: reference/install-verification.md
+          - Field laptop bench: reference/bench-verification-5430.md
+          - Parrot VM: reference/vm-verification-parrot.md
+          - Kali VM: reference/vm-verification-kali.md
+          - Debian 13 VM: reference/vm-verification-debian13.md
+          - Ubuntu campaign: reference/vm-campaign-ubuntu.md
+          - Pop!_OS campaign: reference/vm-campaign-pop.md
+          - Profiles campaign: reference/vm-campaign-profiles.md
+          - Digital modes campaign: reference/vm-campaign-digital-modes.md
+          - Packet on Debian 13: reference/vm-campaign-packet-debian13.md
+          - Desktops campaign: reference/vm-campaign-desktops.md
+          - Full grind: reference/vm-campaign-full-grind.md
+  - Contributing:
+      - Adding a manifest: contributing/manifests.md
+      - Sending hardware identifiers: contributing/hardware.md
+      - Testing in VMs: contributing/vm-testing.md
+      - Releasing: contributing/releasing.md
