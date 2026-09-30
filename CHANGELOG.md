@@ -11,6 +11,12 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.17.0 — 2026-09-30 — official topo sheets, CoMaps, and the offline browser map
+
+Three pull requests since v0.16.0 (#161, #163, #164), 3 entries.
+
 - **CoMaps: offline address search and routing like a phone app, with its
   own maps for your regions** (D-069). Two units join the `navigation`
   profile. `comaps` is built from source at the tag Flathub, nixpkgs and
