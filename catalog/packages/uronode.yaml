@@ -17,6 +17,50 @@ install:
 # D-050: no menu entry, deliberately. Everything is under /usr/sbin:
 # uronode is spawned by ax25d for each inbound connection, and axdigi,
 # calibrate, flexd and nodeusers are its administration; nothing to open.
+# The node's identity in /etc/ax25/uronode.conf. Measured 2026-09-29 from
+# the package (2.15-5), not remembered:
+#  - The path is compiled in (the binary names /etc/ax25/uronode.conf) and
+#    the file is a conffile, shipped as placeholders: `NodeId
+#    XXXXXX:XX#XX-#`, `FlexId XX#XX-#`, `RoseId XX#XX-#@####,######`,
+#    `HostName xx#xx.ampr.org`, `Email <your@email.ampr.org>`, `LocalNet
+#    44.0.0.0/32`, with example aliases to the author's own services.
+#  - uronode.conf(5): NodeId is the text shown before every message (its
+#    shipped form ALIAS:CALL-SSID), FlexID "typically your ax25
+#    callsign-ssid", `RoseID none` when Rose is not used; IdleTimeout,
+#    ConnTimeout and LogLevel as shipped; NrPort, HostName, Email and
+#    LocalNet omitted, so the man page's defaults apply (the first NET/ROM
+#    port; no hostname or email shown).
+#  - The keywords are the ones config.c registers (idletimeout,
+#    conntimeout, nodeid, flexid, roseid, loglevel; uronode_2.15 source),
+#    matched case-insensitively.
+#  - Not measured: uronode reading this file. Run by hand in a private mount
+#    namespace over a copy of /etc/ax25, it exits silently before any prompt
+#    because no AX.25 port is active -- this laptop's 7.1 kernel has no
+#    ax25 (D-041) -- so whether it then reads the file cleanly is unknown
+#    until a machine with the kernel stack runs it.
+#  - No password: uronode.perms holds those and is not touched.
+config_files:
+  - path: /etc/ax25/uronode.conf
+    template: |
+      # URONode configuration written by Hammunition from your station values.
+      # NodeId and FlexId carry your callsign, and callers see them.
+      #
+      # Deliberately short: the man page (uronode.conf(5)) explains every
+      # keyword, and the example Debian shipped is kept beside this file as
+      # /etc/ax25/uronode.conf.hammunition-backup. FlexId must be the callsign
+      # (and SSID) ax25d.conf hands connections over on; if you use an SSID
+      # there, add it here. Passwords live in uronode.perms, which Hammunition
+      # does not touch.
+
+      IdleTimeout 900
+      ConnTimeout 600
+      NodeId {station.node_alias}:{station.ax25_callsign}
+      FlexId {station.ax25_callsign}
+      RoseId none
+      LogLevel 3
+    mode: "0644"
+    backup_existing: true
+
 update:
   probe:
     method: apt_policy
@@ -36,7 +80,11 @@ documentation:
   prerequisites: >-
     A configured AX.25 stack, and `ax25d` set up to hand inbound connections to
     uronode. Your callsign appears in that configuration and in what callers
-    see.
+    see: Hammunition writes it, with your node alias, into
+    `/etc/ax25/uronode.conf` from station config (`hammunition station set
+    --callsign <yours> --node-alias <alias>`); `ax25d.conf` is still yours.
+    With either value unset the package installs and the file is reported as
+    not written.
   known_problems: >-
     Needs the kernel AX.25 stack, which Linux 7.1 removed (merge 64edfa65,
     2026-04-24); on a 7.1 or newer kernel -- Kali rolling and Pop!_OS 24.04 on
@@ -47,5 +95,23 @@ documentation:
     your callsign's authority, so what passes through it is your
     responsibility in most jurisdictions. Configuration is several files and
     getting the ax25d handoff right is the usual sticking point.
+    What the configuration block does: writes `/etc/ax25/uronode.conf`, mode
+    0644, with `NodeId <alias>:<callsign>`, `FlexId <callsign>`, `RoseId
+    none`, and the timeouts and log level Debian shipped; hostname, email,
+    local network, the NET/ROM port and the example aliases are left out, so
+    uronode's defaults apply. It is a conffile of placeholders, so the
+    shipped file is copied first to
+    `/etc/ax25/uronode.conf.hammunition-backup`, once, and a package upgrade
+    that changes it asks which to keep. FlexId must match the callsign and
+    SSID `ax25d.conf` listens on; add the SSID if you use one. The callsign
+    is written only when it is an AX.25 address (one to six letters and
+    digits); a callsign such as `W1AW/4` is reported as unusable rather than
+    trimmed. Whether uronode reads the file cleanly has not been measured
+    here (no kernel AX.25 on the test machine). Inspect with `cat
+    /etc/ax25/uronode.conf`. `hammunition uninstall uronode` does not remove
+    it (config files are not reversed, and the plan says so); to undo, `sudo
+    mv /etc/ax25/uronode.conf.hammunition-backup /etc/ax25/uronode.conf`.
+    Every `hammunition install` that includes uronode rewrites the file from
+    station config, replacing edits made to it since.
   upstream_url: https://uronode.sourceforge.net/
   upstream_support: SourceForge project page at the URL above.

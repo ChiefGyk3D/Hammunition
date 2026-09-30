@@ -39,6 +39,7 @@ BLOCKS: dict[str, str] = {
     "gpredict": "~/.config/Gpredict/sample.qth",
     "tlf": "~/tlf/logcfg.dat",
     "aprx": "/etc/aprx.conf",
+    "uronode": "/etc/ax25/uronode.conf",
 }
 
 #: Where a `~/` path lands in these tests: a stand-in operator home.
@@ -348,3 +349,38 @@ def test_aprx_is_debians_active_settings_plus_mycall(catalog: dict[str, PackageM
 def test_aprx_defers_a_callsign_ax25_cannot_carry(catalog: dict[str, PackageManifest]) -> None:
     writable, deferred = _plan_config(catalog["aprx"], Station(callsign="G0ABC/P"), HOME)
     assert not writable and "AX.25" in deferred[0].why
+
+
+# ---------------------------------------------------------------------------
+# uronode -- the node's identity
+# ---------------------------------------------------------------------------
+
+
+def test_uronode_sets_the_node_identity(catalog: dict[str, PackageManifest]) -> None:
+    body = _render(catalog["uronode"])["/etc/ax25/uronode.conf"]
+    assert _lines(body) == [
+        "IdleTimeout 900",
+        "ConnTimeout 600",
+        "NodeId TSTND:N0TST",
+        "FlexId N0TST",
+        "RoseId none",
+        "LogLevel 3",
+    ]
+
+
+def test_uronode_uses_only_keywords_its_parser_registers(
+    catalog: dict[str, PackageManifest],
+) -> None:
+    """config.c's table (uronode 2.15), matched case-insensitively."""
+    registered = {
+        "alias", "conntimeout", "email", "escapechar", "extcmd", "hiddenports",
+        "hostname", "idletimeout", "localnet", "loglevel", "nodeid", "flexid",
+        "roseid", "prompt", "nrport", "reconnect", "passprompt",
+    }  # fmt: skip
+    body = _render(catalog["uronode"])["/etc/ax25/uronode.conf"]
+    assert {ln.split()[0].lower() for ln in _lines(body)} <= registered
+
+
+def test_uronode_needs_the_node_alias(catalog: dict[str, PackageManifest]) -> None:
+    writable, deferred = _plan_config(catalog["uronode"], Station(callsign="N0TST"), HOME)
+    assert not writable and "node_alias" in deferred[0].why
