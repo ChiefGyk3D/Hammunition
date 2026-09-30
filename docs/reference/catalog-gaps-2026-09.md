@@ -72,6 +72,32 @@ each; these are the ones an operator hits on the first evening.
   A candidate is not a manifest until that sweep has run for it (D-014,
   D-025).
 
+### Measured since, 2026-09-30 — the apt adds of D.6
+
+`scripts/apt-policy-sweep.sh`, one target at a time, over the eight apt
+candidates of item 6 in section D. `-` means the archive has no candidate.
+
+| Package | Debian 13 | Ubuntu 26.04 | Ubuntu 24.04 | Kali | Parrot 7 | Mint 22.3 | Debian 13 arm64 |
+|---|---|---|---|---|---|---|---|
+| `predict` | - | - | - | - | - | - | - |
+| `gr-fosphor` | 3.9~git20240323.74d54fc-1+b10 | 3.9~git20240323.74d54fc-1ubuntu1 | 3.9~git20230826.e02a2ea-1build3 | 3.9~git20240323.74d54fc-2+b1 | 3.9~git20240323.74d54fc-1+b10 | 3.9~git20230826.e02a2ea-1build3 | 3.9~git20240323.74d54fc-1+b10 |
+| `libiio-utils` | 0.26-2 | 0.26-2build2 | 0.25-4build2 | 0.26-2+b2 | 0.26-2 | 0.25-4build2 | 0.26-2 |
+| `stm32flash` | 0.7-1 | 0.7-1build1 | 0.7-1 | 0.7-1 | 0.7-1 | 0.7-1 | 0.7-1+b1 |
+| `ser2net` | 4.6.4-1 | 4.6.5-1 | 4.6.0-1build2 | 4.6.5-1 | 4.6.4-1 | 4.6.0-1build2 | 4.6.4-1 |
+| `qpwgraph` | 0.8.2-1 | 0.9.9-1 | 0.6.1-1build3 | 1.0.3-1 | 0.8.2-1 | 0.6.1-1build3 | 0.8.2-1 |
+| `gpsprune` | 25.2-1 | 26.1-1 | 23.2-1 | 27+ds-1 | 25.2-1 | 23.2-1 | 25.2-1 (all) |
+| `opencpn` | 1:5.10.2+dfsg-1 | 1:5.12.4+dfsg-1 | 5.8.4+dfsg-1build4 | 1:5.14.1+dfsg-4 | 1:5.10.2+dfsg-1 | 5.8.4+dfsg-1build4 | 1:5.10.2+dfsg-1 |
+
+What that changed below, each noted at its row:
+
+- **`predict` is in no target's archive**, and not in Debian 12 or
+  unstable either (`apt-cache search` in `debian:12`, `debian:13` and
+  `debian:sid`, 2026-09-30). The search result's "in testing" was wrong.
+  Debian's packaging repository (salsa `debian-hamradio-team/predict`)
+  was last touched on 2018-12-30, with an upload marked UNRELEASED. Not
+  added; `satellite-tracking` stays a one-member category until a
+  maintained route is found.
+
 ## A. Cross-cutting gaps — plans the catalog has not caught up with
 
 ### A1. Station config is built and almost nobody reads it
@@ -362,7 +388,7 @@ before a manifest. Nothing here is transmit-capable except where said.
 
 | Category | Carried | Candidate | What it adds | Route | Recommendation |
 |---|---|---|---|---|---|
-| `satellite-tracking` | **1** | **`predict`** (KD2BD, GPL-2.0; apt, in testing per the search result) | The one-member category. PREDICT is the terminal tracker `gpredict` grew from, runs headless with a network server other programs poll, and is what a Pi ground station uses | apt | ADD |
+| `satellite-tracking` | **1** | **`predict`** (KD2BD, GPL-2.0; apt, in testing per the search result — **wrong: in no archive, measured 2026-09-30**, see *Measured since*) | The one-member category. PREDICT is the terminal tracker `gpredict` grew from, runs headless with a network server other programs poll, and is what a Pi ground station uses | ~~apt~~ none packaged | ~~ADD~~ Not added: no target offers it |
 | `satellite-tracking` | | **SatNOGS client** (2.1.1, December 2025; pip; needs hamlib and gpsd Python bindings) | Turns the station into a ground station for the network — the open-source satellite community's own project | venv | ADD post-1.0 as an appliance unit; needs a page on what it uploads |
 | `satellite-tracking` | | `rotctld` configuration | `libhamlib-utils` carries it; nothing configures a rotator | config + page | Part of A2 |
 | `satellite-decoding` | 3 | `goestools` (`pietern/goestools`; GOES HRIT/LRIT) | SatDump (carried) decodes GOES; goestools' `goesrecv` is still the community's lock-and-signal-strength tool for aiming a dish | source (cmake) | Optional; a note on the SatDump page is enough until asked |
@@ -416,7 +442,7 @@ fine on purpose (D-055) — but each is worth a glance:
 
 | Category | Members | Note |
 |---|---|---|
-| `satellite-tracking` | 1 | `predict` and SatNOGS above |
+| `satellite-tracking` | 1 | SatNOGS above; `predict` is in no archive (2026-09-30) |
 | `dx-cluster` | 2 | Complete |
 | `locators` | 2 | Complete |
 | `mesh` | 2 | Issue #105 |
@@ -439,7 +465,8 @@ the cost:
 5. **Mercury and FreeDATA** — the open HF-modem pair; re-rank VARA after.
 6. **`predict`, `gr-fosphor`, `libiio-utils`, `stm32flash`, `ser2net`,
    `qpwgraph`, `gpsprune`, OpenCPN** — apt units, one PR each, after the
-   sweep confirms them.
+   sweep confirms them. (2026-09-30: swept, see *Measured since*;
+   `predict` is in no archive and is not added.)
 7. **A2** — the rig as station data. A sub-project with a spec, like the
    navigation ones under `docs/superpowers/specs/`.
 8. **A5** — the `splat-sdf` converter and Signal-Server.
