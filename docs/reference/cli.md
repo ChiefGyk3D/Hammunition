@@ -243,6 +243,41 @@ With `--json`, prints a `regions` document
 ([json-interface.md](json-interface.md)): the filter and the matching region
 paths. It is Geofabrik's list, nothing of yours.
 
+### `hammunition artifacts [--map-regions R[,R…]] [--map-freshness MODE] [--units U[,U…]]`
+
+Every remote data artifact the engine would fetch for the selection on the
+command line (**D-070**): each `data` unit's files, the Geofabrik extract of
+each region, and the Copernicus tiles each region's outline touches. It
+reads no station file and nothing installed on this machine, and installs
+nothing; the answer is the same on every machine. It is what
+[Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker), a
+LAN mirror of this data, asks to learn what to keep.
+
+```
+$ hammunition artifacts --map-regions north-america/us/vermont --units osm-regions,country-files
+```
+
+| Flag | Effect |
+|---|---|
+| `--map-regions R[,R…]` | Geofabrik region paths, as `station set --map-regions` takes them. None defers the map units |
+| `--map-freshness MODE` | `yearly` (the default), `monthly` or `latest`: which dated file each region resolves to and how it is verified, exactly as in the plan |
+| `--units U[,U…]` | The units to list. Default: every unit with a `data`, `osm-regions` or `dem-tiles` install block. A name not in the catalog, or a unit that fetches nothing (`osm-navit`, `navit`), exits 2 naming it |
+
+The network is asked as the plan asks it, and only for what the selection
+names: Geofabrik for a region's dated file, its `.md5` and its `.poly`
+outline, and the Copernicus bucket for an unpinned tile's size and ETag. A
+pinned region or tile asks nothing. What cannot be resolved — a region
+Geofabrik does not have, an outline that cannot be read, a map unit with no
+`--map-regions` — is listed as deferred with the reason; it does not change
+the exit code.
+
+With `--json`, prints an `artifacts` document
+([json-interface.md](json-interface.md)): per artifact the unit, its stable
+name within the unit (what a mirror serves at `<mirror>/<unit>/<name>`), the
+publisher URL, the check (`sha256`, `md5-publisher`, `etag-md5`), the
+expected digest, where a publisher checksum was read, the size, the licence,
+and `deferred`. It carries the regions given, and nothing of the station's.
+
 ### `hammunition maps qmapshack [--configure-only]`
 
 What the `qmapshack-offline` launcher runs (**D-061**). It adds
@@ -260,6 +295,12 @@ directory is added only if absent. Every value already there is kept in its
 place, and nothing else in the file changes. A key holding `@Invalid()`,
 which is how Qt writes an empty list, counts as empty. A new file is
 created mode 0600. `--configure-only` edits and does not start QMapShack.
+
+While your repeater layer exists (`maps repeaters import`), it also keeps
+its directory in `poiPaths` under `[Canvas]`, and takes it out once the
+layer is gone (**D-064**): a QMapShack left open during an import writes its
+own list back when it exits, and this puts the path back before the next
+start.
 
 It also sets `routino\database=0` under `[Route]` when that key is absent
 or negative, and leaves a value of 0 or more alone, since that is a choice
@@ -391,6 +432,230 @@ options are for (a gpsd on a Pi or a phone, a Bluetooth or serial
 receiver, a rig's built-in GPS, a second machine) are in
 `docs/guides/offline-navigation.md`, section 12.
 
+### `hammunition maps navit`
+
+What the `navit-offline` launcher runs (**D-064**). It starts `navit` on the
+configuration `osm-navit` writes,
+`/usr/local/share/hammunition/data/osm-navit/navit.xml`. When you have a
+repeater layer (`maps repeaters import`), it first writes your own copy of
+that configuration, `~/.local/share/hammunition/overlays/navit.xml` (mode
+0600; `$XDG_DATA_HOME` honoured), with the layer's textfile map added to its
+one enabled mapset, and starts Navit on the copy. It is rebuilt at every
+start, so it follows each `osm-navit` reinstall. With no layer it starts
+Navit on the generated file and deletes a copy of ours left from an earlier
+layer. Under root it starts Navit on the generated file and writes nothing.
+Your `~/.navit` directory is never touched.
+
+It refuses, exit 1, starting nothing: when the generated configuration is
+absent (`hammunition install osm-navit` writes it), and when the copy cannot
+be written (a symbolic link in its place, a generated file with other than
+one enabled mapset). A missing `navit` is a named error, exit 1. There is no
+`--json` form, because it replaces itself with a GUI (D-059).
+
+### `hammunition maps repeaters import FILE... [--exported YYYY-MM-DD]`
+
+Converts your own repeater export into overlays for QMapShack and Navit, on
+this machine, with no network (**D-064**). It reads, recognised from the
+content:
+
+| Input | What it must have |
+|---|---|
+| RepeaterBook GPX export | `<wpt>` elements with `lat` and `lon`; the callsign and output frequency are taken from `<name>`, then `<desc>` (there a number written with "MHz" first; any frequency must fall in an amateur repeater band from 10 m to 23 cm, or GMRS, so a tone or a coordinate is not taken for one); a waypoint without both is kept under its own name, or under the callsign found when it has no name |
+| RepeaterBook CSV export | a header with `Callsign`, `Frequency`, `Lat` and `Long`; `Input Freq`, `PL`, `TSQ`, `Nearest City`, `Landmark`, `Use`, `Operational Status` and `Last Update` are read when present |
+| hearham.com's JSON, as served | the array `https://hearham.com/api/repeaters/v1` returns; an entry without `callsign`, `frequency`, `latitude` and `longitude` is skipped and counted |
+| Your own CSV | exactly the header `callsign,output_mhz,offset_mhz,tone,mode,lat,lon,name,notes`; WGS84 decimal degrees, UTF-8; a frequency outside 1 to 10,000 MHz (one typed in Hz, say) is skipped and counted |
+
+It refuses, by name and with the reason, and then writes nothing: a CHIRP
+CSV and a CHIRP `.img` (neither has coordinates; CHIRP's RepeaterBook query
+keeps only "near <city>"), a RepeaterBook CSV without `Lat` and `Long`, KML
+(deferred: export GPX from the same search), and XML carrying a DOCTYPE. One
+refused file refuses the whole import. A row with no usable position or no
+callsign is skipped and counted by reason, with its first line numbers.
+
+Rows from every file are merged on callsign, output frequency and position
+to 0.01° (about 1 km): the same pair on two hills stays two repeaters. When
+merged rows both carry `Last Update`, the newer is kept, otherwise the first
+read, and the count is printed. The layer is named
+`Repeaters (own export YYYY-MM-DD, personal use)`, dated by `--exported`,
+else by the oldest file's modification date.
+
+It writes three files into `~/.local/share/hammunition/overlays/repeaters/`
+(`$XDG_DATA_HOME` honoured; directory 0700, files 0600). Each file is
+written whole under a temporary name and renamed over the old one, so no
+file is ever half-written; an import interrupted between two renames can
+leave new and old files side by side, which the next import replaces and
+`remove` clears, temporaries included:
+`repeaters.gpx` (QMapShack's *File → Load*, a phone, a Garmin unit;
+symbol `Tall Tower`), `repeaters.poi` (a Mapsforge POI collection) and
+`repeaters.navit.txt` (a Navit textfile map, `poi_custom0` with a label and
+Navit's tower icon). Then it adds that directory to `poiPaths` under
+`[Canvas]` in QMapShack's settings, with the same editor and refusals as
+`maps qmapshack`, and writes your Navit copy as `maps navit` does. Each
+import replaces the layer; to combine sources, give every file to one import.
+
+Before the counts it prints each source's licence text: for a RepeaterBook
+export, "Data courtesy of RepeaterBook.com", personal non-commercial use,
+never redistributed, converted on this machine only, positions approximate,
+and RepeaterBook's terms at `repeaterbook.com/about/legal`. Every GPX is
+treated as a RepeaterBook export, because a real export's layout has not
+yet been measured. The text prints counts, paths and the layer name, never a
+callsign or a position.
+
+Exit 0 when written and registered; 1 when refused, when no row has a
+position, under root, or when QMapShack's settings could not be edited or
+your Navit copy could not be written (a symbolic link in its place, a
+generated configuration without exactly one enabled mapset); in those last
+two the layer is still written, and the reason named.
+
+With `--json`, prints a `repeaters` document
+([json-interface.md](json-interface.md)): the layer, each file's counts and
+digest, the files written and what each program was told. Like the text, it
+carries no callsign and no position.
+
+### `hammunition maps repeaters fetch-hearham`
+
+Fetches hearham.com's open repeater list, `https://hearham.com/api/repeaters/v1`
+(about 9.5 MB, the whole world, on 2026-09-29), when you run it and at no
+other time, and converts it exactly as `import` does (**D-064**). It prints
+what it is about to fetch before the request. hearham publishes no checksum
+and no dated snapshot, so the sha256 of what arrived is printed and recorded
+in the layer, named `Repeaters (hearham YYYY-MM-DD, unverified)`. hearham
+states no licence for the data; it is carried under **D-033**, used on your
+request and never redistributed, and hearham's own line, that it should not
+be relied upon "for medical emergencies, or any other life-and-death
+operations", is printed. The answer is bounded at 64 MB and parsed like any
+file of yours; anything but hearham's list is refused, exit 1, and nothing
+is written. There is no `--json` form: the disclosure is for a person to
+read. Nothing is ever fetched from RepeaterBook.
+
+### `hammunition maps repeaters remove`
+
+Deletes the three layer files, your Navit copy, and the directory when it is
+left empty; anything else you put there stays. It takes the directory out of
+QMapShack's `poiPaths` and changes nothing else in that file. Nothing to
+remove is exit 0; a QMapShack settings file it cannot edit is exit 1, named.
+
+With `--json`, prints a `repeaters-removed` document
+([json-interface.md](json-interface.md)): the files deleted and what each
+program was told.
+
+### `hammunition reference books`
+
+The Kiwix books the catalog offers (**D-066**), one per entry of the
+hand-written `catalog/data/kiwix-books.yaml`: the id `station set
+--reference-books` takes, the pinned file's size, the publisher's licence
+line, and `[chosen]` / `[installed]` marks. Read from the catalog, the
+station file and the disk; nothing is fetched.
+
+```
+$ hammunition reference books
+...
+ham.stackexchange.com_en_all             75.9 MB  CC BY-SA
+                                                  Amateur Radio Stack Exchange
+...
+ifixit_en_all                            3.57 GB  CC BY-NC-SA 3.0 — non-commercial
+                                                  iFixit repair guides
+```
+
+With `--json`, prints a `books` document ([json-interface.md](json-interface.md)):
+every book with its id, title, pinned file and size, licence and licence
+URL, and whether it is chosen and installed. Which books somebody reads is
+not where they are, so unlike map regions the ids are named everywhere.
+
+### `hammunition reference serve [--port N]`
+
+The offline reference on one page, on **127.0.0.1 only** (**D-066**):
+
+```
+$ hammunition reference serve
+Offline reference: http://127.0.0.1:8480/  (this machine only; Ctrl-C stops it)
+  books: kiwix-serve on http://127.0.0.1:8481/wiki/
+```
+
+The page, from the engine's own standard-library server on port 8480,
+lists every installed book (a link into Kiwix, with its licence line), every
+ICS form (served from `/forms/`), and how to use the dictionaries (`dict
+WORD` in a terminal; goldendict-ng on the desktop). The books are served
+by `kiwix-serve`, started as a child on the next port:
+
+    kiwix-serve --library -i 127.0.0.1 -p 8481 -r /wiki -b -M -a <pid> <library.xml>
+
+`-i 127.0.0.1` is always there: without it kiwix-serve listens on every
+address of the machine, and its default port, 80, needs root (both
+measured 2026-09-29). `-b` blocks links out of the books, `-M` reloads the
+library when it changes, `-a` makes kiwix-serve exit if this process dies.
+The library is rebuilt by `kiwix-manage` from the installed books every
+time the verb starts, in `~/.cache/hammunition/reference/library.xml`, as
+you: parsing downloaded files is the reader's business, never root's.
+
+| Option | Default | What it does |
+|---|---|---|
+| `--port N` | `8480` | The page's port, still on 127.0.0.1; kiwix-serve takes N+1. 1024 to 65534; anything else is refused by name. |
+
+With no books installed, no kiwix-serve is started and the page says how to
+choose some. With books installed and `kiwix-serve` or `kiwix-manage`
+missing, it refuses naming `hammunition install kiwix-tools`, exit 1. It
+refuses root, exit 1. A port in use is a named error, exit 1. Ctrl-C stops
+both servers, exit 0; kiwix-serve exiting on its own stops the page, exit
+1. There is no `--json` form: it is a server, not a document (D-059).
+`docs/guides/offline-reference.md` is the operator's walk-through.
+
+### `hammunition maps phone`
+
+Gathers the phone files the laptop has built into one folder and prints the
+ways to carry them to a phone (**D-067**). **It transfers nothing and serves
+nothing**: every route it prints is a command for you to run.
+
+It copies each installed Mapsforge map (`mapsforge-map`), Mapsforge POI file
+(`mapsforge-poi`) and Garmin map (`osm-garmin`, from `navigation`) from
+`/usr/local/share/hammunition/data/` into `$XDG_DATA_HOME/hammunition/phone/`
+(by default `~/.local/share/hammunition/phone/`, created mode 0700), named
+`<region slug>.map`, `.poi` and `.img`, and writes `SHA256SUMS` beside them
+in the format `sha256sum -c SHA256SUMS` checks. Each source is hashed as it
+is copied and each copy is hashed again after it is written. A copy that
+already hashes the same is left alone, so a second run copies nothing. A
+file the previous run listed in `SHA256SUMS` whose region is no longer
+installed is removed; nothing else in the folder is touched, including a
+`.map` you put there yourself, symbolic links and subdirectories. With no
+phone file installed at all, the folder is left as it is.
+
+```
+$ hammunition maps phone
+Phone files in /home/you/.local/share/hammunition/phone:
+  north-america-us-vermont.map        12345678 bytes  copied
+  ...
+  SHA256SUMS: check a copy with `sha256sum -c SHA256SUMS` in the folder
+
+Nothing was transferred. To carry them to a phone:
+
+1. Laptop hotspot and a web browser
+   ...
+     python3 -m http.server 8000 --bind 10.42.0.1 --directory /home/you/.local/share/hammunition/phone
+```
+
+The routes: **the laptop's hotspot** (`nmcli device wifi hotspot`) with
+`python3 -m http.server` **bound to the hotspot's address** (10.42.0.1,
+NetworkManager's default for a hotspot), so the files are served on the
+hotspot link and not on any other network the laptop has joined, after a
+check bound to 127.0.0.1; **USB file transfer** (MTP: `kio-extras` on KDE
+Plasma, which Plasma installs, else `gvfs-backends`, `jmtpfs` or
+`mtp-tools`); and two opt-ins, **`adb`** (brings `android-udev-rules`, a
+system modification; the phone needs USB debugging) and **KDE Connect**
+(the phone needs its app, installed while it had internet, and pairing).
+The full walk-through is `docs/guides/offline-navigation.md`, section 14.
+
+It refuses root, exit 1, and changes nothing. It refuses, exit 1, before
+copying anything, when the folder is a symbolic link or not a directory,
+and when its file system has less room than the copies need. With no phone
+file installed it says which units build them and exits 0, touching
+nothing.
+
+With `--json`, prints a `phone` document
+([json-interface.md](json-interface.md)): the folder, each file with its
+unit, size, sha256 and whether this run copied it, the files removed, the
+phone units with nothing installed, and the routes as data. File names carry
+region slugs: for local programs, not for pasting.
+
 ### `hammunition list [all|packages|profiles]`
 
 Everything in the catalog, with each package's install method **on this
@@ -414,7 +679,7 @@ With `--json`, prints a `profile` document
 document carrying its manifest; the text `show` still describes profiles
 only.
 
-### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--no-sudo-keepalive] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
+### `hammunition install NAME... [--dry-run] [--yes] [--no-refresh] [--no-sudo-keepalive] [--no-mirror] [--user NAME] [--callsign CALL] [--grid-square LOC] [--node-alias NAME]`
 
 **A re-run rebuilds nothing it has already built** (**D-051**): a source, git
 or prebuilt-archive unit whose binaries are on the machine *and* whose build
@@ -431,6 +696,7 @@ Names may be packages or profiles, mixed freely.
 | `--yes` | Skip the confirmation. **Does not satisfy a consent gate** (D-021). Also suppresses the station prompt |
 | `--no-refresh` | Skip the `apt-get update` that otherwise opens every transaction with apt work (**D-044**). For a local mirror, or a station with no uplink. `--refresh` is the default and still parses |
 | `--no-sudo-keepalive` | Do not hold sudo's ticket for the run (**D-062**). By default a run as a user that mixes root steps with steps that are not asks the password once, by `sudo -v`, before the first step, and keeps the ticket valid with `sudo -n -v` every 4 minutes until the run ends. With this flag each root step asks for itself, and one that follows a long step may prompt again. `--sudo-keepalive` is the default and still parses |
+| `--no-mirror` | Ignore the LAN mirror set in station config for this run (**D-070**): every data download comes from its publisher. With no mirror set it changes nothing |
 | `--user NAME` | Who to add to groups. Defaults to `$SUDO_USER`, then `$USER` |
 | `--callsign CALL` | Station callsign for this run. Overrides the saved value |
 | `--grid-square LOC` | Maidenhead locator, four or six characters |
@@ -1049,13 +1315,14 @@ keys the helper prints, plus any error reading the kept-off rules.
 ### `hammunition station show` / `hammunition station set`
 
 The values only you can supply — callsign, grid square, packet node alias,
-and the regions to carry offline maps for. Some
+the regions to carry offline maps for, and the LAN mirror to take their data
+from. Some
 manifests write configuration files templated with them: `linbpq` needs a node
 callsign, AX.25 needs one in `/etc/ax25/axports`, Direwolf needs one in its
 own configuration.
 
 ```
-hammunition station set --callsign M0ABC --grid-square IO91wm
+hammunition station set --callsign N0TST --grid-square FN31pr
 hammunition station show
 ```
 
@@ -1066,6 +1333,9 @@ hammunition station show
 | `--node-alias NAME` | Short packet node alias |
 | `--map-regions R[,R…]` | Geofabrik region paths for offline maps, e.g. `north-america/us/vermont,north-america/us/new-hampshire`. Replaces the whole list. Checked for shape only (lowercase words joined by `/`); whether Geofabrik has the region is checked at plan time (**D-057**) |
 | `--map-freshness MODE` | `yearly` (the default when unset), `monthly` or `latest`: which dated file each region resolves to, and so how it can be verified |
+| `--reference-books ID[,ID…]` | Kiwix books for `kiwix-library`, by id (`hammunition reference books` lists them). Replaces the whole list; an id the catalog's book list does not name is refused when you type it, and an empty list is refused (uninstall `kiwix-library` to remove the books) (**D-066**) |
+| `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
+| `--clear-mirror` | Remove the saved mirror |
 
 A region list says where the operator lives or travels, so `station show`
 and `station set` print how many regions are set, never their names; the
@@ -1087,6 +1357,9 @@ needed a callsign got an operator nowhere.
 because a configuration file written with a made-up callsign would transmit
 it. An interactive run offers to prompt for what the request actually needs;
 `--yes`, a pipe, or a value that is already known all skip the question.
+
+`station show` prints the mirror URL in full: it is an address on your own
+network, and `--no-mirror` or `--clear-mirror` are the way to stop using it.
 
 `station show --json` prints a `station` document
 ([json-interface.md](json-interface.md)) carrying the values themselves:

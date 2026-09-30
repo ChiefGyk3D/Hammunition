@@ -35,7 +35,7 @@ from hammunition.copernicus import (
     square_of,
     tile_url,
 )
-from hammunition.fetch import Fetcher, FetchResult, VerificationError
+from hammunition.fetch import Fetcher, FetchResult, MirrorPath, VerificationError
 from hammunition.manifest.schema import DemTilesInstall, PackageManifest, RemoteArtifact
 
 BODY = b"t" * 10
@@ -55,6 +55,7 @@ class FakeFetcher(Fetcher):
     def __init__(self, cache: Path, *, bad: Sequence[str] = ()) -> None:
         super().__init__(cache)
         self.bad = set(bad)
+        self.mirrors: list[MirrorPath | None] = []
         self.calls: list[tuple[str, str, Any]] = []
 
     def _file(self, path: Path) -> Path:
@@ -62,13 +63,23 @@ class FakeFetcher(Fetcher):
         path.write_bytes(BODY)
         return path
 
-    def fetch(self, artifact: RemoteArtifact, *, max_bytes: int | None = None) -> FetchResult:
+    def fetch(
+        self,
+        artifact: RemoteArtifact,
+        *,
+        max_bytes: int | None = None,
+        mirror: MirrorPath | None = None,
+    ) -> FetchResult:
+        self.mirrors.append(mirror)
         self.calls.append(("sha256", artifact.url, max_bytes))
         if artifact.url in self.bad:
             raise VerificationError(f"{artifact.url} does not match the digest")
         return FetchResult(self._file(self.path_for(artifact)), artifact.sha256, False, 10)
 
-    def fetch_md5(self, url: str, md5: str, *, expected_size: int) -> FetchResult:
+    def fetch_md5(
+        self, url: str, md5: str, *, expected_size: int, mirror: MirrorPath | None = None
+    ) -> FetchResult:
+        self.mirrors.append(mirror)
         self.calls.append(("md5", url, expected_size))
         if url in self.bad:
             raise VerificationError(f"{url} does not match the md5 its publisher lists")

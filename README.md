@@ -49,12 +49,12 @@ exactly where things stand:
 | | Status |
 |---|---|
 | Catalog schema (Pydantic, `mypy --strict`) | ✅ working |
-| Package manifests | 🟡 **271**, up from 71 |
+| Package manifests | 🟡 **279**, up from 71 |
 | …Debian Blend coverage | ✅ **152 of 152** — SCOPE.md's first 1.0 stage, complete |
-| …parity coverage | 🟡 **107 of the 124 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
+| …parity coverage | 🟡 **109 of the 124 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
 | Hardware catalog | 🟡 24 devices, 5 classes, 297 confirmed USB identifiers |
 | …of which **supported** / **run on hardware here** | **18** / **7** — [two different claims](docs/DECISIONS.md), kept apart on purpose |
-| Profiles | ✅ **all 12 of the 1.0 set**, plus 5 post-1.0 — every package installable, asserted by test; a member a target's archive lacks is deferred by name, never the whole profile (D-039) |
+| Profiles | ✅ **all 12 of the 1.0 set**, plus 7 post-1.0 — every package installable, asserted by test; a member a target's archive lacks is deferred by name, never the whole profile (D-039) |
 | Inventories of all six upstream sources | ✅ complete and measured |
 | Consent gates for RF-research tooling | ✅ working |
 | Distro detection from `/etc/os-release` | ✅ working |
@@ -74,6 +74,8 @@ exactly where things stand:
 | Device power control: park and wake a catalogued device (D-056) | ✅ working — `hammunition hardware park`/`wake`, generated menu entries, and the [hammunition-tray](https://github.com/ChiefGyk3D/hammunition-tray) Plasma applet, all through one root helper behind one polkit action; measured on the field laptop's GPS receiver 2026-09-27; staying parked across a reboot (one udev rule per device, D-056 amended) is built; reboot not yet measured |
 | Offline navigation: Navit over your own OpenStreetMap regions (D-057) | 🟡 built, not yet measured on hardware end to end — regions from station config; each download checked by a sha256 Hammunition pinned (the 50 US states and DC) or by Geofabrik's MD5, and the plan says which; converted for Navit as the operator; post-1.0 `navigation` profile, [guide](docs/guides/offline-navigation.md) |
 | Offline trails and terrain: QMapShack, routing on foot, Copernicus elevation (D-061) | 🟡 built, not yet measured on hardware — Garmin maps and one Routino database built from your regions as the operator; elevation tiles checked by a sha256 Hammunition pinned or by the object's MD5 (no tile pinned yet), and the plan says which; contours at 20 m; `gps-tether` serves the position on 127.0.0.1 only; post-1.0 `navigation` profile, [guide](docs/guides/offline-navigation.md) |
+| Offline reference: Kiwix books, dictionaries, ICS forms (D-066) | 🟡 built, not yet measured on hardware — books chosen by id in station config from a 27-book list with each licence stated, each pinned by size and sha256 from Kiwix's `.meta4` and printed in the plan; dictd on 127.0.0.1; FEMA's 39 ICS forms by Hammunition's own sha256; `hammunition reference serve` on 127.0.0.1 only; post-1.0 `reference` profile, [guide](docs/guides/offline-reference.md) |
+| A LAN mirror for offline data, and `hammunition artifacts` (D-070) | 🟡 built, not yet measured on hardware — `station set --mirror` names a machine on your own network; each data download asks it first and its publisher on any failure, the same digest checked either way; `artifacts --json` lists what to mirror for [Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker), [guide](docs/guides/lan-mirror.md) |
 | udev rule generation from the hardware catalog | ✅ generated and applied by `hammunition hardware apply`; applied on the field laptop and byte-identical to the catalog's set; not yet exercised against an attached device |
 | `uninstall` | ✅ working — reverses apt, venv, binary, .deb, trees and launchers; marker-verified, VM-proven; a real `make install` is refused by name |
 | End-to-end VM verification (install / configure / remove) | ✅ Parrot, Kali, Debian 13, Ubuntu 24.04, Ubuntu 26.04, and [Pop!_OS 24.04](docs/reference/vm-campaign-pop.md) as an undeclared target |
@@ -328,6 +330,13 @@ requirements, not aspirations:
 
 ## Documentation
 
+**Read it at <https://chiefgyk3d.github.io/Hammunition/>** — the
+documentation site, *Hacker's Ham Shack*: getting started, step-by-step
+guides (rig control, audio, the clock, FT8, Winlink, APRS, SDR, satellites),
+every profile, package and device, and [every project we
+install](docs/projects.md), linked to its home. It is built from `docs/` by
+`mkdocs build --strict` and published from `main` (**D-065**).
+
 The decision record and the policies below were written before the code
 they describe, deliberately; the reference pages are generated from the
 catalog and the measurements, so they cannot say what the code does not.
@@ -347,7 +356,7 @@ catalog and the measurements, so they cannot say what the code does not.
 | [`CHANGELOG.md`](CHANGELOG.md) | One entry per release, from the merged pull requests, each line naming the decision it rests on |
 | [`docs/contributing/releasing.md`](docs/contributing/releasing.md) | How a release is cut and signed, and why v0.7.0 and v0.9.0 are not |
 
-The user-facing documentation site is *Hacker's Ham Shack*. Its standard: a
+The documentation site is *Hacker's Ham Shack*. Its standard: a
 licensed ham with moderate Linux experience should get from a fresh install to a
 working digital-modes station without asking anyone a question or reading a forum
 thread. A step that needs knowledge not in our docs is a documentation bug.

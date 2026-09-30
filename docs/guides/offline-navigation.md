@@ -18,7 +18,9 @@ needs no network at all.
 Daily use and EMCOMM are the same setup. The maps have to be on the disk
 before anything goes wrong, so the way to be ready for the bad day is to use
 it on ordinary days and refresh it as routine. The decision records behind
-all of this are **D-057** and **D-061** in `docs/DECISIONS.md`.
+all of this are **D-057**, **D-061** and, for repeaters, **D-064** in
+`docs/DECISIONS.md`; section 14 makes the same maps for the team's phones
+(**D-067**).
 
 The examples below use Vermont and New Hampshire. Use your own regions.
 
@@ -899,7 +901,234 @@ work, not what has been seen to.
 
 ---
 
-## 13. CoMaps: search and routing like a phone app
+## 13. Repeaters on the map
+
+Your own repeater list, converted on this machine into a layer QMapShack and
+Navit both show (**D-064**). Hammunition fetches nothing from RepeaterBook
+and ships no repeater data: you export it with your own account, and the
+conversion happens here, offline.
+
+### Get an export
+
+- **RepeaterBook, as GPX (the one to use).** Logged in on repeaterbook.com,
+  run a search (by location, proximity, keyword and so on), then choose
+  *Export → GPX*. RepeaterBook does not export multi-county or multi-state
+  searches as GPX; run one search per area and import the files together.
+- **RepeaterBook, as CSV.** Only when its header has `Lat` and `Long`
+  columns. One without them is refused: there is nothing to place.
+- **Your own list.** A CSV with exactly this header, positions in decimal
+  degrees:
+
+  ```
+  callsign,output_mhz,offset_mhz,tone,mode,lat,lon,name,notes
+  N0CALL,146.940,-0.600,100.0,FM,39.8017,-89.6436,Springfield,club machine
+  ```
+
+- **hearham.com's open list**, fetched for you on request; see below.
+
+CHIRP files do not work, and are refused by name: a CHIRP CSV or `.img`
+holds channels, not places. CHIRP's own RepeaterBook query drops the
+coordinates and keeps only "near <city>" (measured), and a position guessed
+from a town name would be an invented one. KML is not read yet; export GPX
+from the same search.
+
+### Convert it
+
+```
+hammunition maps repeaters import ~/Downloads/repeaters.gpx
+```
+
+Several files at once are merged into one layer; the same repeater in two
+exports becomes one, and the same callsign and frequency on two different
+hills stays two. It prints RepeaterBook's attribution and terms first, then
+what it read, skipped and merged, and the files it wrote. The layer's name
+carries the export's date, taken from the file; give it yourself with
+`--exported 2026-09-01` if the file has been copied since.
+
+The files are yours, in `~/.local/share/hammunition/overlays/repeaters/`,
+readable only by you. RepeaterBook's export terms are personal,
+non-commercial use, and the data may not be redistributed in any form, so
+keep the files to your own machines. Positions are approximate: a map
+overlay to find a machine to talk through, not directions to a repeater
+site.
+
+A new import replaces the layer. To refresh it, export again and import
+again.
+
+### See it
+
+- **QMapShack.** The layer is a POI collection: open the *POI Collections*
+  dock and tick *Amateur radio repeaters*. The import added its directory to
+  QMapShack's settings; if QMapShack was open during the import, close it
+  and start it from `qmapshack-offline`, which adds the directory back. The
+  GPX is there too, for *File → Load* or to copy to a phone or a Garmin
+  unit.
+- **Navit.** Start `navit-offline`. Repeaters draw as towers labelled with
+  callsign and frequency, and list under *POIs → Other* with their
+  distance. They are **not** in Navit's address search: the file format
+  Navit reads them from has no search. The launcher now runs
+  `hammunition maps navit`; a launcher from an earlier install is updated
+  by `hammunition menus apply`.
+
+### hearham.com's open list
+
+```
+hammunition maps repeaters fetch-hearham
+```
+
+fetches the whole world's list from hearham.com (about 9.5 MB) when you run
+it, and at no other time, and converts it the same way. hearham publishes no
+checksum and no dated copy, so Hammunition records the digest of what
+arrived and names the layer *unverified*. hearham states no licence for its
+data, and says it should not be relied upon "for medical emergencies, or any
+other life-and-death operations". To combine it with your RepeaterBook
+export, save hearham's JSON yourself and give both files to one
+`maps repeaters import`.
+
+### Remove it
+
+```
+hammunition maps repeaters remove
+```
+
+deletes the layer's files and takes the directory out of QMapShack's
+settings. Navit goes back to the generated configuration at its next start.
+
+### Not carried
+
+- Anything fetched from RepeaterBook. Its API needs approval, and its
+  data-use terms forbid bulk extraction and offline bundling without written
+  permission.
+- Xastir, whose point layers live in a root-owned map directory, and YAAC,
+  whose importer makes APRS objects it can transmit (a D-021 matter, not a
+  map).
+- The FCC's licence database, which has no coordinates.
+
+---
+
+## 14. Maps for your phone
+
+The laptop can make the team's phone maps from the same regions, so every
+phone navigates on the same verified data with the phone network down
+(**D-067**). Two units build them, one file per region each:
+
+| Unit | File | What a phone app does with it |
+|---|---|---|
+| `mapsforge-map` | `<region>.map`, a Mapsforge vector map | draws it offline, with the app's own style |
+| `mapsforge-poi` | `<region>.poi`, a Mapsforge points-of-interest file | searches it for places by name or kind |
+| `osm-garmin` (section 9) | `<region>.img`, the Garmin map | a Garmin handheld reads it from its card; so does OruxMaps |
+
+They are their own profile, `phone-maps`, not part of `navigation`: every
+unit in a profile is built for every region, and a map for phones takes
+time. On Delaware (a 22 MB download) the map took 3 minutes 38 seconds and
+about 1 GB of memory, and the POI file 23 seconds; at that rate a region
+sixty times the size would take hours. Install it when you have phones to fill:
+
+```
+hammunition install phone-maps --dry-run
+hammunition install phone-maps
+```
+
+The plan says, for each region, what it builds and what it costs, with every
+figure marked "measured on one region". It also fetches one file that no
+archive packages: Mapsforge's POI writer, 18.8 MB from Maven Central,
+checked against a sha256 Hammunition measured. The plan says so, and says
+that the signature Central publishes beside it is recorded and not checked.
+Everything else comes from your distribution: `osmosis`,
+`libmapsforge-java` and a Java runtime.
+
+### Put the files in one folder
+
+```
+hammunition maps phone
+```
+
+copies every phone file installed into `~/.local/share/hammunition/phone/`,
+with a `SHA256SUMS` beside them, and prints how to carry them to a phone. It
+copies nothing that is already current, removes a file it put there whose
+region you dropped, and touches nothing else in the folder. **It sends nothing
+anywhere**: the ways across are commands for you.
+
+### Get them onto the phones
+
+Install a map app that reads Mapsforge files on each phone **while it still
+has internet**. By their own documentation, Cruiser, Locus Map, OruxMaps and
+c:geo read Mapsforge maps and POI files. None of them has been tried with
+these files yet.
+
+**The laptop's hotspot and a browser.** Nothing to install, and every phone
+at once:
+
+```
+nmcli device wifi hotspot ssid hammunition-maps password 'choose-8-or-more'
+ip -4 addr show
+python3 -m http.server 8000 --bind 127.0.0.1 --directory ~/.local/share/hammunition/phone
+```
+
+Open `http://127.0.0.1:8000/` on the laptop to check the list, stop it with
+Ctrl-C, then serve it on the hotspot's own address, which `ip -4 addr show`
+lists on the Wi-Fi interface (NetworkManager uses 10.42.0.1 unless told
+otherwise):
+
+```
+python3 -m http.server 8000 --bind 10.42.0.1 --directory ~/.local/share/hammunition/phone
+```
+
+Join each phone to the hotspot and open `http://10.42.0.1:8000/` in its
+browser. The files are expected to land in Downloads for the app to open
+from there; that has not been tried on a phone yet.
+**Always give `--bind`.** Without it, `http.server` answers on every network
+the laptop is on, a hotel's or an office's included; bound to the hotspot's
+address, only the phones on the hotspot can reach it. It is plain HTTP on a
+local link, which is why `SHA256SUMS` is in the list too, for anyone who can
+check a hash on the phone.
+
+**A USB cable.** On KDE Plasma, plug the phone in, choose "File transfer" on
+the phone, and Dolphin shows it; copy the files into its Download folder.
+Plasma's `kio-extras` does this and is already installed. On another
+desktop, `gvfs-backends`, `jmtpfs` or `mtp-tools` does the same. One phone at
+a time.
+
+**`adb`, if you already use it.** `sudo apt install adb` also installs
+`android-udev-rules`, which adds udev rules to the machine. The phone needs
+Developer options with USB debugging turned on, which most people's phones
+do not have; turn it off again afterwards.
+
+```
+adb push ~/.local/share/hammunition/phone /sdcard/Download/
+```
+
+**KDE Connect, if the phones already have it.** `sudo apt install
+kdeconnect`; each phone needs the KDE Connect app, installed while it had
+internet, and pairing. It works over the laptop's hotspot.
+
+### Formats not made here, and why
+
+- **OsmAnd's `.obf`** would be the best single file (map, routing, address
+  search and POI in one), and the laptop can make it offline, but the only
+  generator is a nightly build replaced every day with no checksum,
+  signature or version. Nothing can be checked, so it is not carried. The
+  route is building OsmAnd's tools from a fixed source commit.
+- **Organic Maps and CoMaps `.mwm`** must be made by a generator from the
+  same release as the app, and a region on the coast needs the whole
+  planet's coastline. The route is the publishers' own `.mwm` files, checked
+  by the hashes they publish; that is separate work.
+- **PocketMaps** needs a routing engine from 2019, and the app has had no
+  change since October 2024.
+- **Transportr** asks online services for every journey and keeps nothing on
+  the phone; there is nothing to make for it.
+
+### What has not been tried
+
+No file made here has been opened on a phone, in any app. The converters
+have not yet run through Hammunition on the field laptop; their figures come
+from one region converted by hand. The bench owes both, and the hotspot's
+address on the field laptop. Until then, check each new phone app with one
+small region first.
+
+---
+
+## 15. CoMaps: search and routing like a phone app
 
 CoMaps is the desktop build of the CoMaps phone app, a community fork of
 Organic Maps. It draws vector maps on the machine, searches addresses,
@@ -1102,6 +1331,15 @@ counts all of this with the Navit figures above, and refuses before
 anything is fetched if a disk is short.
 
 ---
+
+## Taking the downloads from your own network
+
+If a machine on your LAN keeps a copy of the regions and tiles
+([Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker)),
+`hammunition station set --mirror http://bunker.lan:8080/` makes every map
+and terrain download ask it first, checked against the same digests as the
+publisher's, and fall back to the publisher on any failure (**D-070**).
+[lan-mirror.md](lan-mirror.md) is the walk-through.
 
 ## What the verification wording means
 
@@ -1308,6 +1546,17 @@ hammunition uninstall brouter brouter-mapcreator-profiles
 Your QMapShack settings keep the directories the launcher added; QMapShack
 lists nothing there once they are gone.
 
+Your repeater layer is not part of any unit; `hammunition maps repeaters
+remove` removes it (section 13).
+
+The phone files go the same way, with the POI writer, and leave osmosis
+installed; the copies in `~/.local/share/hammunition/phone/` are yours to
+delete:
+
+```
+hammunition uninstall mapsforge-poi mapsforge-map
+```
+
 CoMaps' maps go with `hammunition uninstall comaps-maps`. CoMaps itself is
 refused by `uninstall`, as every build is whose own install rule wrote into
 `/usr/local`: that rule leaves no list of files to reverse, and what it
@@ -1376,7 +1625,19 @@ listing the maps, the contour map and the elevation from the directories
 the launcher writes; hillshade; and the GPS tether giving QMapShack a
 position from a real receiver.
 
-For CoMaps (**D-069**), see section 13: US address search, the build
+For repeaters on the map (**D-064**), nothing has been drawn on a desktop
+yet: QMapShack showing the GPX and the POI collection (and reading the
+collection from `poiPaths` under `[Canvas]`), Navit's labels and tower icons,
+and the *POIs → Other* listing all rest on reading QMapShack's and Navit's
+source, not on a screen. The columns of a real RepeaterBook CSV export, and
+what a real GPX export puts in `<name>` and `<desc>`, have not been seen:
+they need one export by a logged-in operator.
+
+For the phone files (**D-067**, section 14): none has been loaded on a
+phone, the converters have not run through Hammunition on real hardware,
+and their figures come from one region.
+
+For CoMaps (**D-069**), see section 15: US address search, the build
 through the engine and CoMaps reading the linked maps are all owed.
 
 Offline reference (Kiwix, a local tile server) is the next piece of this

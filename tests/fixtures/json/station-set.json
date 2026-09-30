@@ -8,5 +8,7 @@
   "grid_square": "FN31pr",
   "node_alias": null,
   "map_regions": [],
-  "map_freshness": null
+  "map_freshness": null,
+  "reference_books": [],
+  "mirror": null
 }

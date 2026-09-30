@@ -25,6 +25,7 @@ from datetime import date
 from urllib.parse import urlparse
 
 from hammunition.comaps import ComapsError, ComapsPins, map_url, published, version_date
+from hammunition.kiwix import BookFile, BookPin, KiwixError, KiwixGone, current_file, file_date
 from hammunition.manifest.schema import GitInstall, PackageManifest, SourceInstall
 
 CURRENT = "current"
@@ -178,6 +179,73 @@ def probe_upstream(manifest: PackageManifest, *, http: Http, ls_remote: LsRemote
         return row(None, UNANSWERED, f"{type(exc).__name__}: {exc}"[:200])
 
 
+OPDS = "https://opds.library.kiwix.org/catalog/v2/entries"
+KIWIX_REGENERATE = "regenerate the pins with scripts/gen_kiwix_pins.py"
+
+
+def probe_kiwix(
+    unit: str, books: Sequence[BookFile], *, text: Callable[[str], str]
+) -> list[UpstreamRow]:
+    """Each chosen book's pin against the file Kiwix publishes now (D-066).
+
+    One OPDS answer per book (about 3 KB). When Kiwix's newest file is not
+    the pinned one, the pinned file's ``.meta4`` is asked for too: Kiwix
+    keeps the two newest dated files of a book, so a pin one behind is
+    still published and goes at the next publication (*newer upstream*),
+    and a pin that answers 404 is gone already (*pin expired*).
+    """
+    from urllib.parse import quote
+
+    rows: list[UpstreamRow] = []
+    for book in books:
+        pin = book.pin
+
+        def row(upstream: str | None, state: str, detail: str, pin: BookPin = pin) -> UpstreamRow:
+            return UpstreamRow(f"{unit}/{pin.id}", "kiwix", pin.published, upstream, state, detail)
+
+        try:
+            answer = text(f"{OPDS}?name={quote(book.book.name)}")
+            newest = current_file(answer, book.book.name, book.book.flavour)
+            if newest is None:
+                rows.append(row(None, UNANSWERED, "Kiwix's catalogue lists no file of this book"))
+                continue
+            if newest == pin.file:
+                rows.append(row(file_date(newest), CURRENT, "the pinned file is Kiwix's newest"))
+                continue
+            if file_date(newest) < pin.published:
+                rows.append(
+                    row(
+                        file_date(newest),
+                        DIFFERS,
+                        f"Kiwix's newest is {newest}, older than the pin",
+                    )
+                )
+                continue
+            try:
+                text(f"{pin.url}.meta4")
+            except KiwixGone:
+                rows.append(
+                    row(
+                        file_date(newest),
+                        EXPIRED,
+                        f"{pin.file} is no longer published (Kiwix keeps two dated files "
+                        f"per book) and an install will refuse it; {KIWIX_REGENERATE}",
+                    )
+                )
+                continue
+            rows.append(
+                row(
+                    file_date(newest),
+                    NEWER_UPSTREAM,
+                    f"Kiwix published {newest}; it keeps two dated files per book, so the "
+                    f"pinned {pin.file} goes at the next publication; {KIWIX_REGENERATE}",
+                )
+            )
+        except KiwixError as exc:
+            rows.append(row(None, UNANSWERED, f"{exc}"[:200]))
+    return rows
+
+
 #: How old a CoMaps map version is when ``update --upstream`` starts warning.
 #: Organic Maps' CDN, the same software, kept about four months of versions on
 #: 2026-09-29 (250101 to 260501 gone, 260527 onward kept); CoMaps' own
@@ -254,14 +322,29 @@ def render(rows: Sequence[UpstreamRow]) -> str:
         f"{counts[DIFFERS]} differing in a way the numbers do not order, "
         f"{counts[UNANSWERED]} unanswered{expired}{expiring}."
     )
-    newer = [r.unit for r in asked if r.state == NEWER_UPSTREAM]
+    newer = [r.unit for r in asked if r.state == NEWER_UPSTREAM and r.method != "kiwix"]
     if newer:
         out.append(
             "A newer upstream is a catalog question: re-pin the manifest, measure the build, then"
         )
         out.append(f"`hammunition install {' '.join(newer)}` on a machine rebuilds at the new pin.")
+    # D-066: a book row is `<unit>/<book id>`, not a unit, and its re-pin is
+    # the generator, not a manifest edit.
+    books = sorted(
+        {
+            r.unit.split("/", 1)[0]
+            for r in asked
+            if r.method == "kiwix" and r.state in (NEWER_UPSTREAM, EXPIRED)
+        }
+    )
+    if books:
+        out.append(
+            "A newer or expired book is a catalog question: regenerate the pins with "
+            "scripts/gen_kiwix_pins.py, then"
+        )
+        out.append(f"`hammunition install {' '.join(books)}` fetches the newly pinned files.")
     out.append(
-        "Answers came from GitHub, git hosts, PyPI, CoMaps' CDN or a version file; nothing was "
+        "Answers came from GitHub, git hosts, PyPI, Kiwix, CoMaps' CDN or a version file; nothing was "
         "downloaded or written."
     )
     return "\n".join(out)

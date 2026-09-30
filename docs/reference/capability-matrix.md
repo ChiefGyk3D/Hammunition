@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 68 | 2 | 201 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 68 | 2 | 201 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 66 | 2 | 203 |
-| kali-rolling *(unswept)* | 0 | 0 | 63 | 0 | 208 |
-| parrot *(unswept)* | 0 | 0 | 66 | 2 | 203 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 66 | 2 | 203 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 65 | 5 | 201 |
+| debian-13 *(unswept)* | 0 | 0 | 72 | 2 | 205 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 72 | 2 | 205 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 70 | 2 | 207 |
+| kali-rolling *(unswept)* | 0 | 0 | 67 | 0 | 212 |
+| parrot *(unswept)* | 0 | 0 | 70 | 2 | 207 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 70 | 2 | 207 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 69 | 5 | 205 |
 
-**271 manifests** against **7 targets**.
+**279 manifests** against **7 targets**.
 
 ---
 
@@ -105,6 +105,7 @@ build HAS been run in a container say so in their own install notes.
 | `dem-copernicus` | dem-tiles | dem-tiles | dem-tiles | dem-tiles | dem-tiles | dem-tiles | dem-tiles |
 | `dem-qmapshack` | derived | derived | derived | derived | derived | derived | derived |
 | `dfu-util` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `dictionaries` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `direwolf` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `dmrconfig` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `dsdcc` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -140,6 +141,7 @@ build HAS been run in a container say so in their own install notes.
 | `gnuais` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `gnuaisgui` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `gnuradio` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `goldendict-ng` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `gpa` | source | apt ? | apt ? | source | source | apt ? | source |
 | `gpredict` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `gpsbabel` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -169,6 +171,7 @@ build HAS been run in a container say so in their own install notes.
 | `hcxtools` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `ibp` | source | source | source | source | source | source | source |
 | `icom` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `ics-forms` | data | data | data | data | data | data | data |
 | `inspectrum` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `js8call` | git | git | apt ? | git | git | apt ? | git |
 | `js8spotter` | binary | binary | binary | binary | binary | binary | binary |
@@ -176,6 +179,9 @@ build HAS been run in a container say so in their own install notes.
 | `kalibrate-rtl` | git | git | git | apt ? | git | git | git |
 | `kappanhang` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `kel-agent` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `kiwix` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `kiwix-library` | kiwix-books | kiwix-books | kiwix-books | kiwix-books | kiwix-books | kiwix-books | kiwix-books |
+| `kiwix-tools` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `klog` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `langford-utils` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `libacars` | git | git | git | git | git | git | git |
@@ -189,6 +195,8 @@ build HAS been run in a container say so in their own install notes.
 | `linpac` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `linrad` | source | source | source | source | source | source | — |
 | `m2kcli` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `mapsforge-map` | derived | derived | derived | derived | derived | derived | derived |
+| `mapsforge-poi` | derived | derived | derived | derived | derived | derived | derived |
 | `mfcuk` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `mfoc` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `minicom` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |

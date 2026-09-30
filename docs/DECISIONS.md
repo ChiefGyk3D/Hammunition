@@ -5925,6 +5925,790 @@ the CLI's is `docs/reference/cli.md`. Tests: `tests/test_brouter.py`,
 `tests/test_qmapshack_brouter.py`, and the pins and profile in
 `tests/test_navigation_catalog.py`.
 
+## D-064 — Repeaters on the map come from the operator's own export, converted on this machine; nothing is fetched from RepeaterBook, and hearham's open list only on request, unverified
+
+**Date:** 2026-09-29. **Status:** proposed (the design is the spike's
+recommendation, approved by the maintainer; implemented on branch
+`repeaters`; the maintainer decides it at review). **Spec:**
+`docs/superpowers/specs/2026-09-29-repeaters-design.md`. **Depends on:**
+D-021 (disclose, never adjudicate; YAAC's objects can transmit), D-033 (an
+unlicensed source judged on what we do with it), D-049 (why this is not a
+data unit), D-057 and D-061 (the Navit and QMapShack configurations this
+adds to), D-059 (the documents), D-031 (the input's date, not the run's).
+
+**Why.** The maintainer wants repeaters on the offline maps. The spike of
+2026-09-29 measured every route an operator has without an API key.
+RepeaterBook's API is gated, and its data-use page forbids "bulk
+extraction, mirroring, redistribution, offline bundling" without written
+permission. Its *website export*, though, is granted to a registered user
+"for their own personal use", and its GPX page describes loading the file
+into navigation tools, offline. CHIRP's RepeaterBook query was run headless
+and its CSV drops Lat/Long, keeping only "near <city>". hearham.com serves
+the whole world, 22,698 rows, unauthenticated, with no licence and no
+ETag. The FCC's licence database has no coordinates.
+
+### The rule
+
+1. **The operator's export, converted here.**
+   `hammunition maps repeaters import FILE... [--exported YYYY-MM-DD]`
+   reads a RepeaterBook GPX, a RepeaterBook CSV that has `Lat` and `Long`,
+   hearham's JSON as served, or a hand-typed CSV with the header
+   `callsign,output_mhz,offset_mhz,tone,mode,lat,lon,name,notes`, recognised
+   from the content. No network.
+2. **What has no coordinates is refused by name, with the reason:** a CHIRP
+   CSV, a CHIRP `.img` (by suffix, or CHIRP's own metadata marker read from
+   `chirp_common.py`), and a RepeaterBook CSV without `Lat`/`Long`. KML is
+   deferred: it is the same data as the GPX. XML with a DOCTYPE is refused
+   before parsing. One refused file refuses the import, and nothing is
+   written. A position is never guessed from a town name.
+3. **Merged on callsign + output Hz + position to 0.01°.** Callsign and
+   frequency alone would have merged 1,050 multi-site keys in hearham's
+   data. The newer `Last Update` wins where both rows carry one, else the
+   first read; every merge is counted and printed.
+4. **Three outputs, the operator's own.** A GPX (`<name>` `CALL FREQ`,
+   `<desc>` offset, tone, mode, use, status, place and source,
+   `<sym>Tall Tower</sym>`, a QMapShack built-in), a Mapsforge `.poi`, and a
+   Navit textfile (`poi_custom0`, labelled, Navit's own `tower.png`), in
+   `~/.local/share/hammunition/overlays/repeaters/`: directory 0700, files
+   0600, each renamed into place. Never under the root prefix, never in the
+   catalog, never in the transaction log. Refused as root. The layer is
+   named `Repeaters (own export YYYY-MM-DD, personal use)`, dated by
+   `--exported`, else by the oldest input's modification date.
+5. **Registered where each program reads it.** QMapShack: the directory in
+   `[Canvas] poiPaths`, by the editor `maps qmapshack` uses, with its
+   refusals; `maps qmapshack` keeps the path there exactly while a `.poi`
+   exists, because a QMapShack open during the import writes its own list
+   back on exit. Navit: its generated configuration is root's and
+   `~/.navit` is never touched, so the `navit-offline` launcher now runs
+   `hammunition maps navit`, which opens the generated file, or, when there
+   is a layer, the operator's copy of it
+   (`~/.local/share/hammunition/overlays/navit.xml`, 0600) with a textfile
+   map added to its one enabled mapset by `navit_config.add_maps`.
+   `maps repeaters remove` deletes the files and unregisters both;
+   removing nothing is exit 0.
+6. **The licence text is printed at import, before the counts.**
+   RepeaterBook: "Data courtesy of RepeaterBook.com", personal
+   non-commercial use, never redistributed, converted on this machine only,
+   positions approximate, terms at `repeaterbook.com/about/legal`. That
+   attribution is also in the GPX's metadata and in every waypoint's
+   `<desc>`, as RepeaterBook's terms require of an overlay. A hand list:
+   "Your own data." A disclosure of terms, not a ruling on them (D-021).
+7. **hearham on request only.** `maps repeaters fetch-hearham` prints what
+   it will fetch, fetches once (bounded at 64 MB, redirects to HTTPS only),
+   records the sha256 it observed in the layer and the output, and names
+   the layer `Repeaters (hearham YYYY-MM-DD, unverified)`. It prints
+   hearham's own line that the data should not be relied upon "for medical
+   emergencies, or any other life-and-death operations". Carried under
+   D-033: no licence, used on the operator's request, never redistributed.
+8. **Documents.** `import --json` prints a `repeaters` document and
+   `remove --json` a `repeaters-removed` document, from the same objects as
+   the text. Both carry counts, paths and the layer name, never a
+   repeater's callsign or position: the export says where the operator
+   operates. `fetch-hearham` and `maps navit` have no JSON form.
+
+### Not a D-049 data unit
+
+A data unit is an artifact the engine fetches from its publisher and pins by
+sha256. An export is neither fetched by the engine nor pinnable, and
+RepeaterBook's terms forbid anyone but the exporting user holding it. hearham
+is live, with no ETag and no dated snapshot: a pin would be wrong the day it
+was taken. So the export is a command's input, and the fetch records what it
+observed and says it is unverified.
+
+### Not carried, and why
+
+- **Any fetch from RepeaterBook**: the API is gated, and bulk extraction and
+  offline bundling need written permission.
+- **Navit address search of repeaters**: the textfile driver has no search
+  method; they list under POIs → Other, with distance.
+- **Xastir `.gnis`**: its point layers live in a root-owned map tree under
+  `/usr/share/xastir`.
+- **YAAC `.pos`**: YAAC imports APRS objects, which it can transmit. That is
+  a D-021 matter, not a map layer.
+- **FCC ULS**: no coordinates.
+- **KML**: deferred; the GPX carries the same data.
+
+### Rulings made on the way
+
+- **Every GPX gets RepeaterBook's attribution and terms.** A real export's
+  `<name>` and `<desc>` are unmeasured, so an export cannot be told from
+  another GPX; the attribution is the cautious default. Callsign and output
+  frequency are found in `<name>`, then `<desc>`; a waypoint with neither is
+  kept under its own name, keyed on that name.
+- **The POI writer moves a point whose box straddles a 0.1° line into the
+  tile north or east of it.** QMapShack asks for each 0.1° tile with
+  `min >= tile` and `max < tile + 0.1`, and SQLite's rtree stores float32
+  boxes rounded outwards, so a point on a line is in neither tile (the
+  spike). The spike's note said "widen each box"; widening makes it worse,
+  so the point is moved instead, to the float32 one step inside the tile,
+  a few metres at most. The first version used a fixed 1e-5° band; the
+  final review measured the straddling band growing with the coordinate, to
+  about ±2e-5° at 180°, and 16 points past about 64° lost. It is now
+  computed with SQLite's own rounding (`rtreeValueDown`/`rtreeValueUp`), and
+  the tests run QMapShack's verbatim query over 61 offsets around twelve
+  lines from −179.9° to 179.9°, and show a point on a line lost without the
+  move. The bounds are padded 0.001°, because a one-repeater file's
+  zero-area bounds intersect no tile.
+- **A frequency is looked for where it can be.** In a GPX it must fall in
+  an amateur repeater band from 10 m to 23 cm, or GMRS, and in `<desc>` a
+  number written with "MHz" comes first, so a tone (`PL 100.0`) or a
+  coordinate is not taken for one (review). A typed frequency outside 1 to
+  10,000 MHz is skipped and counted, not labelled `146940000.000`. A
+  hearham entry of another shape is skipped and counted rather than
+  refusing the whole list.
+- **The fetch names every HTTP failure.** `http.client`'s own exceptions
+  are not `OSError`; a malformed answer is now "could not fetch", not a
+  traceback (review). A redirect is followed to HTTPS only; both refusals
+  are tested on loopback.
+- **Each import replaces the layer.** Combining sources is one import of
+  every file. A fetch does not keep hearham's raw JSON; to combine it with
+  an export, the operator saves the JSON and imports both.
+- **The Navit launcher changes.** The alternatives were writing
+  `~/.navit/navit.xml`, which the navit manifest promises never to touch
+  and which `navit-offline` does not read, or writing into the root prefix,
+  which the operator cannot do without sudo. `hammunition menus apply`
+  rewrites an installed `navit-offline` to the new form (tested).
+- **A refused QMapShack edit still writes the layer**, names the reason and
+  exits 1; the files are the operator's either way.
+- **`command_name` reads a third level**, so an error document says
+  `maps repeaters import`.
+
+### What has run
+
+The test suite only: every parser against synthetic fixtures (N0CALL,
+N0TST, Springfield IL), every refusal, the merge, the three writers, the POI
+against QMapShack's own SQL, `add_maps`, the QMapShack edit byte for byte,
+modes 0600 and 0700, root refused, both documents validated against their
+schema with the text's values carried and no callsign or coordinate in
+either, `remove` idempotent, `maps navit` with `execvp` stubbed, and
+`fetch-hearham` against a loopback server only. No GUI was started.
+
+**Owed to the bench:** QMapShack drawing the GPX and the POI collection, and
+reading `poiPaths` under `[Canvas]`; Navit's `poi_custom0` label and tower
+icon, and the POIs → Other listing; one real RepeaterBook export, GPX and
+CSV, by a logged-in operator, for its columns and `<desc>` layout.
+
+**Rejected.** RepeaterBook's API (gated, and forbidden for this use).
+Geocoding CHIRP's "near <city>" (an invented position). A catalog data unit
+(above). A callsign plus frequency key (drops real repeaters). A custom
+QMapShack icon (would write into QMapShack's own directories). Navit's
+`poi_communication` type (no label in the stock layout).
+
+**Consequences.** `src/hammunition/repeaters.py`,
+`src/hammunition/interface/repeaters.py`, `navit_config.add_maps`, four
+commands in `src/hammunition/cli/main.py`, the `navit-offline` launcher in
+`catalog/packages/navit.yaml`; tests `tests/test_repeaters.py`,
+`tests/test_repeaters_cli.py` and `tests/test_navit_config.py`; the
+offline-navigation guide's section 13 and `docs/reference/cli.md`.
+
+## D-065 — The documentation is published as a static site built from `docs/` by MkDocs and Material, pinned exactly, strict on every link, with the project records left in the repository
+
+**Date:** 2026-09-30. **Status:** the site is the maintainer's ask (2026-09-30:
+"do we need a .io or whatever? There's a lot we need to walk users through
+with this as well as at least link to each of the projects"); the tooling,
+the URL and the layout below are this record's recommendation, and the
+maintainer decides them at review. **Depends on:** issue #76 (sub-project 1,
+"a published site built from `docs/`"), D-036/D-050 (generated, never
+hand-kept copies), D-031 (verify the effect), D-021 (disclose, never
+adjudicate). **Amends:** issue #76's "not before 1.0", at the maintainer's
+request.
+
+**Why.** Issue #76 recorded the intent: a published site, static, searchable,
+regenerated from the catalog rather than a wiki people edit in place. The
+pages under `docs/` already existed as Markdown with checked links; what was
+missing was somewhere a person who has never seen a git repository could
+read them, the walk-throughs CLAUDE.md's standard asks for, and one place that
+links every upstream project the catalog installs.
+
+### What is published, where
+
+**https://chiefgyk3d.github.io/Hammunition/**, by GitHub Pages from `main`
+(`.github/workflows/pages.yml`). No domain is bought: the `github.io` address
+costs nothing, and a custom domain can be pointed at the same site later
+with one `CNAME` file and a DNS record, which is a decision about money and
+naming that is the maintainer's. The repository owner enables Pages once
+(Settings → Pages → Source: GitHub Actions); until then the deploy job fails
+naming that setting and nothing else in CI is affected.
+
+The site carries getting started, the guides, the profiles, the package and
+hardware references, troubleshooting, RF security, the reference
+measurements and contributing. It does **not** carry the project records:
+CLAUDE.md says `DECISIONS.md`, `PARITY-POLICY.md`, `DESIGN.md` and
+`why-hammunition.md` are not part of the user-facing site, and `QUESTIONS.md`,
+`SCOPE.md`, `SESSION-LOG.md` and `superpowers/` are the same kind of thing.
+They stay in the repository and a link to one from a published page opens it
+on GitHub.
+
+### How it is built
+
+- **MkDocs 1.6.1 and Material for MkDocs 9.7.7, pinned exactly** in the `dev`
+  and `docs` extras of `pyproject.toml`, as ruff is, and for the same reason:
+  the build is a gate, and a gate on a floating version drifts red on its own.
+  MkDocs 2.0 removes the plugin and theme systems (Material's authors' own
+  notice, printed by 9.7.7 on every build), so an unpinned `mkdocs` would
+  break this site on the day 2.0 lands.
+- **`mkdocs build --strict`, with link, anchor and absolute-link validation at
+  warning level.** A broken link or a missing anchor fails the build, in
+  `tests/test_site.py` on every test run and in the Pages workflow before
+  anything is published. Measured on the 2026-09-30 tree: 269 warnings before
+  the hook below, 268 of them links leaving `docs/`, and zero after.
+- **One build hook, `scripts/site_hooks.py`.** Pages are written to read on
+  GitHub, where a package page's relative link to its manifest opens it. At
+  build time only, a relative link whose target is not part of the site is
+  pointed at the same file on GitHub. A link whose target does not exist in
+  the repository either is left as written, so the strict build reports it:
+  the hook repairs where a link points and never hides that it points at
+  nothing. Its tests break it on purpose.
+- **No page is orphaned.** Every page is in `mkdocs.yml`'s nav, excluded, or a
+  package page reached from the generated package index; `tests/test_site.py`
+  fails naming any page that is none of the three.
+- **No "edit this page" button.** Half the site is generated, and an edit to a
+  generated page is reverted by its generator.
+
+### Every upstream project, linked
+
+`docs/projects.md` is generated by `scripts/gen_projects_page.py` from every
+manifest's `documentation.upstream_url`, laid out by the vocabulary's groups
+and categories as the menu is (D-050, D-054), one row per unit under its first
+category. A URL that is a distribution's package tracker rather than the
+author's site is labelled so: 15 of 269 on 2026-09-30, after the BRouter units of D-063 landed. It takes `--check` and
+is in `tests/test_docs_generated.py`'s list like every other generator.
+`docs/credits.md` names the six inventory sources and the four data sets.
+
+### The guides
+
+Nine task guides, written to CLAUDE.md's standard and linked from the
+getting-started path: rig control, radio audio, time and position, the
+callsign in each program, FT8 and the digital modes, packet and Winlink,
+APRS, SDR first steps, satellites. Every default, port, file name and option
+they quote was read from the installed program on 2026-09-30 (an Ubuntu
+24.04 container: hamlib 4.5.5, Pat 0.15.1, Direwolf 1.7, Xastir 2.2.0, gpsd
+3.25, chrony 4.5, PipeWire's tools, the `rtl-sdr` 2.0.1 archives), and each
+guide ends with what was measured and what was not. Nothing in them has been
+run end to end against a radio on the field laptop yet, and each says so.
+
+Three things the measurement turned up, recorded where they belong:
+
+- **Debian and Ubuntu install Pat as `pat-winlink`**, and Pat 0.15.1's default
+  AX.25 engine is `linux`, the kernel stack Linux 7.1 removed. The packet guide
+  sets `engine` to `agwpe`, which is Direwolf's port 8000 (D-045).
+- **`rigctld` listens on every interface by default** ("default ANY" in its
+  own help). The rig-control guide passes `-T 127.0.0.1` everywhere.
+- **Ubuntu 24.04's `librtlsdr2` ships no DVB-driver blacklist**, only an empty
+  `/etc/modprobe.d`, which contradicted the `rtl-sdr` device entry. The entry
+  now says what was measured and that the other targets are not. It also
+  said `kalibrate-rtl` was not carried; it is, and the entry now says so.
+
+### The move to Zensical, measured before it is needed
+
+Material for MkDocs enters maintenance mode on 2026-11-05, and its authors'
+successor, Zensical, reads `mkdocs.yml` directly. Measured 2026-09-30:
+Zensical 0.0.66 builds this whole tree in 16 seconds, and **runs no MkDocs
+hook**, so on that version the out-of-site links would publish as dead links.
+The migration therefore waits for one of two things: Zensical running hooks,
+or the link rewriting moving into the page generators. Until then the exact
+pins keep the site building; a maintained-mode Material on a frozen MkDocs is
+a working site, and a version bump is a deliberate commit that runs the same
+strict build.
+
+### Not done
+
+- **A custom domain.** The maintainer's decision; one file when made.
+- **Versioned docs per release** (`mike` or Zensical's equivalent). Issue #76
+  asks for it; one version from `main` is the first step, and a release that
+  changes behaviour is when versions start to matter.
+- **Per-tool depth pages and the launcher "Documentation" action** (issue #76
+  items 2 and 3). The guides name the programs that most need depth.
+
+## D-066 — The offline reference layer: Kiwix books chosen by name and pinned from their `.meta4`, dictd on loopback, FEMA's ICS forms, and one loopback page
+
+**Date:** 2026-09-29. **Status:** accepted (maintainer, 2026-09-29, the
+design of the day's spike, relayed with the task). **Spec:**
+`docs/superpowers/specs/2026-09-29-reference-layer-design.md`. **Depends
+on:** D-049 (offline data is a catalog unit; this is its fourth case, "then
+the ZIM with `kiwix`"), D-042 rule 5 (ETC sub-project 5 named the layer),
+D-035 (a missing station value defers), D-053 (`update` and
+`--upstream`), D-059 (a `books` document; a server has no JSON form),
+D-021 (state a licence, never adjudicate it). **Amends:** D-053, whose
+upstream states gain *pin expired*.
+**Numbering:** written as D-065 and renumbered D-066 before merging,
+because D-065 went to the documentation site (PR #154) the same morning;
+the spec, plan and commits before the renumbering say D-065.
+
+### What was measured
+
+On 2026-09-29, on the development host (Parrot 7.3, Debian 13 archive and
+echo-backports), nothing installed: packages unpacked with `dpkg-deb -x`
+and run from there, nine ZIMs downloaded and checked against the
+publisher's sha256 (nine matched).
+
+- **`kiwix-serve` listens on every address unless told otherwise.** `-p
+  18480` alone gave `LISTEN *:18480` and printed a LAN URL; `-i 127.0.0.1`
+  gave `127.0.0.1:18480`. Its default port is 80, which a user cannot
+  bind. dictd, by contrast, ships `listen_to 127.0.0.1` in Debian's own
+  `/etc/dictd/dictd.conf`.
+- **A ZIM does not say its licence.** Of nine read with `zimdump`, one
+  (ham.stackexchange) carried a `License` metadata entry.
+- **Nothing Kiwix publishes is signed** (`.asc`, `.sig` 404 for the index
+  and every file). Each file's `.meta4` carries its exact size and sha-256;
+  the `.meta4` sha256 equalled the `.sha256` sidecar and the download for
+  all nine. A pin costs one ~5 KB `.meta4`, not a download.
+- **Kiwix keeps the two newest dated files of each book**; the archive keeps
+  a few old categories only. A pinned URL dies about two publications after
+  it is pinned.
+- FEMA's ICS forms: 39 PDFs, **8,046,865 bytes** (the page's own size column
+  said about 4.9 MB), no checksum published, byte-identical on two fetches.
+
+### The rule
+
+1. **Readers are apt units; payloads are data units; serving is an engine
+   verb.** `kiwix-tools`, `kiwix` (the desktop reader; Debian's `kiwix`
+   package *is* kiwix-desktop), `dictionaries` (`dictd dict dict-gcide
+   dict-wn dict-foldoc dict-vera`, nothing reconfigured) and
+   `goldendict-ng`; `kiwix-library` and `ics-forms`; and `hammunition
+   reference serve`. The `reference` profile holds the six, post-1.0.
+2. **Books are chosen by id in station config, from a hand-written
+   allow-list.** `hammunition station set --reference-books` takes Kiwix's
+   file stem without its date (`ham.stackexchange.com_en_all`,
+   `wikipedia_en_medicine_nopic`); nothing is chosen by default; with none,
+   `kiwix-library` is deferred from a profile and refused when typed.
+   `catalog/data/kiwix-books.yaml` lists 27 books, each with the
+   publisher's licence line, because the file does not carry one and D-049
+   rule 2 needs it in the plan: Wikimedia "CC BY-SA 4.0 (text; media
+   individually licensed)", Stack Exchange "CC BY-SA", Appropedia and WikEM
+   "CC BY-SA 4.0", iFixit "CC BY-NC-SA 3.0 — non-commercial", US federal
+   works "US federal work, public domain (17 USC 105)". An id not on the
+   list is refused when it is set. Book ids are not location data, so
+   `station show` names them.
+3. **Pins are generated from the `.meta4`, and a dead pin is an error.**
+   `scripts/gen_kiwix_pins.py` reads `library_zim.xml` for each allowed
+   book's current `.meta4` and writes `catalog/data/kiwix-pins.yaml` (file,
+   URL, exact size, sha256). Trust is TLS to download.kiwix.org at the
+   moment it runs, frozen by the sha256. `--check` asks every pinned
+   `.meta4` again (the weekly pin review); `--check --offline` checks the
+   file against the list in the test suite. At plan time every book not yet
+   installed is asked for by `HEAD`; a 404 refuses the plan, exit 2, naming
+   the generator, and the newer file is **never** taken in its place.
+4. **The plan prints each book's date, size and licence before the
+   confirmation**, as the fetch step's description. Each book is fetched,
+   checked against its pin, copied into
+   `<prefix>/share/hammunition/data/kiwix-library/` re-hashed, and its
+   cached download deleted as its own step (a book can be 127 GB). A book
+   present at its pinned name and size is not fetched again; a `.zim` no
+   chosen book names is removed as its own step. Disk is checked with each
+   book counted twice, together with the same run's map data.
+5. **`hammunition reference serve` binds 127.0.0.1 only.** A
+   standard-library page on port 8480 lists the books, the forms (served
+   from `/forms/` by exact name only) and how to use the dictionaries; it
+   starts `kiwix-serve --library -i 127.0.0.1 -p 8481 -r /wiki -b -M -a
+   <pid> <library.xml>` as a child, **always with `-i 127.0.0.1`** (a test
+   holds it), and stops it on Ctrl-C; a child that exits stops the page,
+   exit 1. The library file is rebuilt by `kiwix-manage` in the operator's
+   cache on every start: parsing a downloaded file is the reader's
+   business, as the operator, never root's (D-057's line). It refuses root.
+6. **`update`**: offline, `kiwix-library` is up to date when every chosen
+   book's pinned file is installed and behind the pin when a chosen book is
+   installed at another date. `--upstream` (probe method `kiwix`) asks
+   Kiwix's OPDS catalogue per chosen book: the pinned file still newest is
+   *current*; a newer one is *newer upstream*, warning that the pin goes at
+   the next publication; a pinned `.meta4` answering 404 is the new state
+   *pin expired*.
+7. **The ICS forms are pinned by Hammunition's own sha256**, measured on
+   two fetches, FEMA's URLs kept as it serves them; the licence is "US
+   federal work, public domain (17 USC 105)". Both published versions of
+   the 221 are carried.
+
+### Not carried, each for its reason
+
+wikiHow (no current Kiwix file; the archive's copies stopped in 2023; CC
+BY-NC-SA). The `zimgit-*` prepper collections (post-disaster, medicine,
+water, knots, food preparation): no licence stated in the files or by their
+publisher, `Creator=Various`; a documented gap until one is stated.
+energypedia: its licence page returned nothing that could be verified.
+Project Gutenberg whole: 221 GB; its military-science class
+(`gutenberg_en_lcc-u`) is offered. Video-channel ZIMs and MedlinePlus:
+mixed licences (MedlinePlus includes A.D.A.M. content that is not public
+domain). nhs.uk: Crown copyright, not verified. ARRL and ARES material,
+ETC's ARRL band chart among it: ARRL copyright. A sigidwiki ZIM: none
+exists, and `artemis` carries the database. Debian's Direwolf manual: the
+`+dfsg` package strips upstream's PDFs; upstream's `wb2osz/direwolf-doc` is
+the route, not measured. A `docs` profile of the 16 radio `-doc` packages
+(about 420 MB, 309 MB of it `gnuradio-doc`) was measured and is left for
+later.
+
+### Corrections the spike made
+
+- `zim-tools` 3.5.0 in Debian 13 ships `/usr/bin/zimwriterfs`: "no
+  `zimwriterfs` in Debian 13" was true of the package name only.
+  `scripts/gen_etc_inventory.py`'s note says so, and
+  `docs/reference/etc-inventory.md` takes it at its next regeneration (it is
+  generated from a gitignored clone this run did not have);
+  `docs/reference/dispositions.md` is corrected in place.
+- libzim 9.2.3, Debian 13's, reads the format-6.3 ZIMs Kiwix publishes today
+  (`zimcheck -C` passed on the ham ZIM); nothing measured needs a newer one.
+- `hamradio-maintguide` is the Debian Hamradio team's packaging guide, not
+  operator documentation; `docs/reference/prior-art.md` says so.
+
+### What has run
+
+The test suite: the allow-list and pin parsers, the generator against a
+faked library and `.meta4`s (and its offline check falsified by an unpinned
+book), the plan's deferral and refusal, the backend against a loopback-served
+file, `install --dry-run` refusing a 404 pin and printing each book's size
+and licence, `update` offline and upstream, the landing server on loopback
+(forms by exact name only, `..` refused), `run` with a fake child through
+Ctrl-C and a child that exits. On the development host: the pin file
+generated (27 rows; 26 equal to the spike's own measurement, the 27th new);
+`--check` against Kiwix; the 76 MB ham ZIM fetched, verified, installed and
+its cache pruned through the backend, a second plan empty; all 39 ICS forms
+through the data backend; and `reference serve` against the archive's
+kiwix-tools 3.7.0 unpacked from its `.deb`: both listeners on 127.0.0.1
+only, a book, a full-text search and a form answering 200, Ctrl-C stopping
+kiwix-serve, and SIGKILL of the parent stopping it through `-a`. **Not yet
+run:** a real `install reference` on a target, and the pages opened in a
+desktop browser; that is the field laptop's bench session.
+
+**Rejected.** One manifest per ZIM (27 manifests for one list, and the
+file names change on Kiwix's calendar). Offering the whole 3,630-book
+library (a book with no known licence has nothing to print). Following
+Kiwix's newest file when a pin dies (an unmeasured sha256). Writing
+`library.xml` at install time (runs a parser of downloaded data as root).
+Reverse-proxying kiwix-serve through the page for one port (more code for
+nothing a person sees). Binding anything but 127.0.0.1, including behind a
+flag: another machine reaches it over `ssh -L`.
+
+---
+
+## D-067 — Phone maps from the laptop: Mapsforge maps and POI files per region, one pinned writer, a folder with a SHA256SUMS, and routes the engine never runs
+
+**Date:** 2026-09-29. **Status:** accepted (the design approved in
+conversation on 2026-09-29, from the spike's report; written for the record
+in `docs/superpowers/specs/2026-09-29-phone-maps-design.md`). **Depends on:**
+D-057 (regions are station data; derived data by a converter enum), D-061
+(converters run as the operator through one `Staging`, with a ledger of their
+own), D-024 (a pin carries our judgement), D-049 (data is read, never
+executed), D-059 (one JSON document per command), D-003 (profiles are flat
+and overlap). **Amends:** D-057's converter enum, with two members
+(`mapsforge-map`, `mapsforge-poi`), and the `derived` block, with an optional
+`tool`.
+
+**Why.** Phones lean on the network for their maps. The field laptop already
+downloads and verifies the station's regions; with the phone network down, a
+team's phones should navigate on the same maps, made ahead of time on the
+laptop from the same downloads. The spike (2026-09-29) measured every phone
+format there is a generator for, on Geofabrik's Delaware extract (22,139,742
+bytes) in a rootless container from `parrotsec/core` with no network, and no
+maintainer region.
+
+### What is carried
+
+| Unit | What | Measured on Delaware |
+|---|---|---|
+| `mapsforge-map` | converter `mapsforge-map`: the archive's osmosis 0.49.2 with `libmapsforge-java` 0.20.0's map writer, `type=hd` | 3:38, 1.04 GB with `-Xmx2g`, 17,127,551 bytes (0.78×), map file version 3 |
+| `mapsforge-poi` | converter `mapsforge-poi`: the same osmosis with Maven Central's `mapsforge-poi-writer` 0.25.0 | 0:23, 0.47 GB, 4,546,560 bytes (0.21×), 22,785 POIs |
+
+Both are derived from `osm-regions` and depend on `osmosis` and
+`libmapsforge-java` from the archive; Java arrives through osmosis's own
+dependency, as `mkgmap`'s does. The Garmin `.img` that `osm-garmin` (D-061)
+already builds is the third phone file; nothing new is built for it.
+
+**Debian's osmosis does not load either writer.** `/usr/bin/osmosis` loads
+`/usr/share/osmosis/*.jar` through its classworlds file, and the writers are
+in `/usr/share/java/`, so `--mapfile-writer` fails with "Task type
+mapfile-writer doesn't exist". The engine runs `java -Xmx2g
+-Djava.io.tmpdir=<work> -cp <classpath> org.openstreetmap.osmosis.core.Osmosis
+-q --rbf file=<pbf> --mapfile-writer file=<out> type=hd` (and `--poi-writer
+file=<out>`, with `-Dorg.sqlite.tmpdir=<work>` too), the classpath being
+osmosis's jars and the named `/usr/share/java` jars the spike's scripts ran
+with and reported none missing (`MAP_JARS`, `POI_JARS` in
+`src/hammunition/backends/mapsforge.py`). No system file is changed. The
+temporary-directory properties put the writer's scratch, and the native
+library sqlite-jdbc unpacks at run time, into the working directory, where
+they are counted and cleared, never in `/tmp`. The classpath is resolved when
+the conversion runs, after apt; a jar that is missing fails the region by
+name before `java` starts, because at plan time on a fresh machine none of it
+exists yet.
+
+Everything else is D-061's shape: one working directory per region under one
+lock, as the operator; the output checked by its effect (non-empty, and
+starting with `mapsforge binary OSM` or `SQLite format 3`, read by the
+operator's own `head -c` and compared as hex in the same shell, so only an exit
+status comes back: nothing java wrote is decoded, and `flock --verbose`'s own
+lines, which it writes to stdout, are never compared); published into
+`<prefix>/share/hammunition/data/<unit>/<slug>.{map,poi}` re-verified, with a
+`.source` sidecar naming the snapshot and the converter; a region dropped
+from station config removed as its own step; a failure recorded in a phone
+ledger whose step fails the run by name, last. With no regions set both units
+are deferred by name, with no new code.
+
+### One pin, carried on the block
+
+The POI writer is packaged nowhere: Debian's `mapsforge-poi` jar holds only
+the storage classes. `mapsforge-poi` pins Maven Central's
+`mapsforge-poi-writer-0.25.0-jar-with-dependencies.jar`, 18,827,962 bytes,
+by sha256 `85dd23488511f51a710139dffc8c622d184ea93e817c4ec27dde1c222b7432a7`,
+measured for this decision by downloading it once (2026-09-29); it matched
+Central's own `.sha256`. Central also serves an `.asc` by key ID
+`B51D6498DA0031B6`, whose owner was not verified: the manifest records it,
+the engine does not check it, and the fetch step says so in the words every
+declared-but-unverified signature gets (`signature_gap`). It is a release
+tag, so no `pin_review` is needed (D-024); a new release is a manifest change,
+and every POI file is rebuilt because its sidecar names the jar's digest.
+
+**The map's converter record does not follow the archive's writer.** It is
+`mapsforge-map 1` whatever `libmapsforge-java` version is installed, so an
+apt upgrade of the writer does not rebuild existing maps; the record is bumped
+when Hammunition's argv changes. Folding the installed package version in is
+the route if an upgrade is ever measured to change the output.
+
+**The spike's summary gave the wrong digest.** It listed `c132d97d…4b68` for
+the POI writer; its own saved `.sha256` files show that digest is the
+**map-writer** jar's. The pin is the one measured here.
+
+The pin travels as a new optional field on the `derived` block, `tool`
+(`ConverterTool`: an artifact with url and sha256, a size, a licence), required
+for `mapsforge-poi` and refused on every other converter
+(`CONVERTERS_WITH_TOOL`). The catalog supplies where the jar is and what it
+hashes to; the engine owns how it is run, as it owns every converter's
+command line. It is fetched into the shared cache and verified, its size
+checked, and installed at `<prefix>/share/hammunition/mapsforge-poi/<jar>`,
+0644, re-verified on the way in. **Not under the unit's data directory**,
+because D-049 says a data directory holds files that are read and never
+executed; `uninstall` removes the unit's own directory beside it. The jar
+bundles sqlite-jdbc 3.43.0 with native libraries for x86_64, aarch64 and
+arm, and Guava; each is under its own licence in the jar's `META-INF`.
+
+### Disk and time
+
+Output factors from the one region: 0.78× for a map, 0.21× for a POI file.
+Scratch was not measured directly; the best number there is is GNU time's
+count of blocks each run wrote, output included: 318 MB for the map (14.4×
+the download) and 9.4 MB for the POI file (0.43×). A temporary file deleted
+before it reached disk would not add to that count, so it is not a bound. The
+plan allows about **15×** and **0.5×**, prints "measured on one region" beside
+every factor, and adds them, with the jar's 18.8 MB once, to the disk check
+piece 1 and piece 2 already make; a refusal names the phone factors. At the
+measured rate (Delaware's 22 MB in 3 min 38 s) a large region's map takes
+hours; that is the reason for the profile below.
+
+### `hammunition maps phone`
+
+Copies every installed `.map`, `.poi` and Garmin `.img` into
+`$XDG_DATA_HOME/hammunition/phone/` (0700) as `<slug>.<ext>`, hashing each
+source as it is copied and each copy after, and writes `SHA256SUMS` in
+`sha256sum -c` format. A copy that already hashes the same is left alone; a
+file the previous run listed in its `SHA256SUMS` whose region is gone is
+removed; nothing else in the folder is touched, a `.map` the operator put
+there included. The sums are written before any removal, so a removal that
+fails leaves them matching the files. Refused before any copy: root, a symbolic link or a non-directory
+in the folder's place, too little room. `--json` prints a `phone` document.
+
+It then prints four routes, **none of which the engine runs**:
+
+1. **The laptop's hotspot and a web server bound to the hotspot's
+   address.** `nmcli device wifi hotspot`, then `python3 -m http.server 8000
+   --bind 10.42.0.1 --directory <folder>`, after the same line with
+   `--bind 127.0.0.1` to check the listing on the laptop. 10.42.0.1 is what
+   NetworkManager's shared mode gives the laptop unless it is configured
+   otherwise, and the text says to confirm it with `ip -4 addr show`. It is
+   bound to that one address so the files go out on the hotspot link and not
+   on a hotel or office network the laptop has also joined; `http.server`'s
+   own default is every interface, and the text says never to run it without
+   `--bind`. Nothing to install, every phone has a browser, many phones at
+   once; plain HTTP on a local link, which is why `SHA256SUMS` is served
+   beside the files.
+2. **USB, MTP.** `kio-extras`, which Plasma installs (Dolphin shows the
+   phone set to "File transfer"); elsewhere `gvfs-backends`, `jmtpfs` or
+   `mtp-tools`.
+3. **`adb`, opt-in.** The package `adb` brings `android-udev-rules`, a
+   system modification the text names; the phone needs USB debugging.
+4. **KDE Connect, opt-in.** The package `kdeconnect`; the phone needs the
+   app, installed while it had internet, and pairing.
+
+Which apps read the files is quoted from their own documentation only:
+Cruiser, Locus Map, OruxMaps and c:geo for Mapsforge maps and POI files; a
+Garmin handheld, and OruxMaps, for `.img`.
+
+### The profile: `phone-maps`, not `navigation`
+
+A new flat profile, `phone-maps` (`osm-regions`, `mapsforge-map`,
+`mapsforge-poi`), post-1.0 like `navigation`. The two units do not join
+`navigation`: that profile is the laptop's own navigator, and every member of
+a profile is built for every region, so joining would add hours per large
+region for phones an operator may not have. Profiles overlap (D-003); the
+regions are shared, so a machine with both downloads each region once.
+`navigation` is unchanged.
+
+### Not carried, each with its route
+
+- **OsmAnd `.obf`.** The best single phone file (map, routing, address and
+  POI: 3:40, 3.1 GB, 50 MB on Delaware, offline), but its generator,
+  `OsmAndMapCreator-main.zip`, is a 152 MB nightly replaced daily with no
+  checksum, no signature and no tag (`osmandapp/OsmAnd-tools` has neither
+  tags nor releases). It cannot be pinned, and the project does not mirror.
+  **Route:** build OsmAnd-tools from a source commit under D-024; a Gradle
+  build pulling a large Maven graph, not attempted.
+- **Organic Maps and CoMaps `.mwm`.** The generator must come from the same
+  release as the app ("the application does not support maps built by a
+  generator_tool newer than the app"), and a coastal region needs the whole
+  planet's coastline or has no sea. A pinned C++ tree per app release is a
+  maintenance line this project refuses. **Route:** the publishers' own
+  `.mwm` files, checked by their per-file hashes (BLAKE3 truncated to 9
+  bytes for Organic Maps, SHA-1 for CoMaps, whose mirrors answer HTTP 200
+  with an HTML page for a missing file); that is separate work, not yet
+  decided.
+- **PocketMaps.** Measured possible (GraphHopper 0.13.0 with a `.map`: 1:34,
+  0.9 GB, 47 MB zipped), not carried: a 2019 engine for an app with no
+  commit since 2024-10.
+- **Transportr.** It asks online transit services for every query and
+  stores nothing on the phone; there is nothing to build.
+
+### What is measured, and what is not
+
+Measured: the spike's runs above, in a container, offline, on one region;
+the POI writer's digest and size (2026-09-29); the engine's argv, classpath,
+effect checks, ledger, disk arithmetic, the phone folder and its
+`SHA256SUMS` (`sha256sum --check` run in the tests), against a fake `java`
+on `PATH` (`tests/test_mapsforge.py`, `tests/test_phone_plan.py`,
+`tests/test_phone.py`, `tests/test_phone_catalog.py`,
+`tests/test_mapsforge_schema.py`).
+
+Not measured, and not claimed until the bench records it:
+
+- **any of these files loaded on a real phone**, in any app;
+- the converters through the engine on a real osmosis: `osmosis` and
+  `libmapsforge-java` are not installed on the development host, and this
+  work installs nothing there;
+- the factors on a second region, or on one larger than Delaware;
+- the hotspot route's address on the field laptop, and each transfer route
+  end to end;
+- which Android apps read Mapsforge files, beyond their documentation.
+
+**Found on the way.** `scripts/check_artifact_urls.py` read every block's
+`source` as an artifact; a derived block's `source` is a unit name, so the
+sweep raised `AttributeError` on the first map unit (since D-057). It now
+takes only artifacts, and the POI writer's pin is swept with the rest; a test
+runs it over the catalog.
+
+**Rejected.** Joining `navigation` (hours per region for phones the operator
+may not have). Installing the jar under the data directory (D-049). Running
+Debian's `/usr/bin/osmosis` with a changed classworlds file (a system file
+changed for one program). Resolving the classpath at plan time (it does not
+exist before apt). Serving the files from the engine, or `http.server`
+without `--bind`. OsmAnd's nightly as a binary pin.
+
+**Consequences.** `ConverterTool`, `CONVERTERS_WITH_TOOL` and the two
+converters in `src/hammunition/manifest/schema.py`;
+`src/hammunition/backends/mapsforge.py`; `src/hammunition/phone_plan.py`;
+`src/hammunition/phone.py` and `src/hammunition/interface/phone.py`; `maps
+phone` in `src/hammunition/cli/main.py`; the phone note in
+`combined_shortfall`; the tool directory in `uninstall`; the phone units in
+`update`'s rebuild command; `catalog/packages/mapsforge-map.yaml`,
+`catalog/packages/mapsforge-poi.yaml`, `catalog/profiles/phone-maps.yaml`.
+The operator's page is `docs/guides/offline-navigation.md`, section 14, and
+the CLI's is `docs/reference/cli.md`.
+
+---
+
+## D-070 — A data artifact may be taken from a LAN mirror the operator names, verified the same either way, and the engine can list what it would fetch without a station
+
+**Date:** 2026-09-29. **Status:** proposed (implemented on branch
+`artifacts-mirror`; the maintainer decides it at review). **Depends on:**
+D-049 (a `data` unit's artifacts are pinned and hashed), D-057 (map regions,
+verified by a pin or by Geofabrik's MD5, the plan saying which), D-061
+(terrain tiles, by a pin or by the object's ETag MD5), D-035 (station values
+are the operator's and defer, never invent), D-059 (one JSON document per
+command). **Amends:** nothing; it adds a second source to the verified
+fetch, never a second verifier.
+
+**Why.** A field machine re-downloads the same public data every time it is
+rebuilt or its regions change: gigabytes of Geofabrik extracts and
+Copernicus tiles over whatever connection it has. The maintainer's NAS sits
+on the same LAN. Hammunition Bunker
+(<https://github.com/ChiefGyk3D/hammunition-bunker>, spec approved
+2026-09-29) keeps a verified copy of that data there and serves it. It holds
+no pins and no verifier of its own; it needs the engine to tell it what to
+keep, and the engine to take from it without trusting it.
+
+**Decided.**
+
+1. **`hammunition artifacts [--json]`** lists every remote data artifact the
+   engine would fetch for a selection given on the command line:
+   `--map-regions`, `--map-freshness` (default `yearly`) and `--units`
+   (default: every unit with a `data`, `osm-regions` or `dem-tiles` block).
+   One entry per `data` file, per region, and per tile a region's outline
+   touches, resolved by the plan's own code: the same pins, the same
+   freshness and fallback, the publisher's MD5 or ETag read. **No station
+   file is read and nothing installed here is read**, so the listing is the
+   same on every machine. A region, outline or tile that cannot be resolved,
+   and a map unit given no regions, is an entry whose `deferred` says why,
+   never dropped. A unit that is not in the catalog, or fetches nothing, is
+   refused with exit 2 by name.
+2. **The `artifacts` document** is the Bunker's contract: `unit`, `name`,
+   `url`, `check` (`sha256`, `md5-publisher`, `etag-md5`; `sha256-publisher`
+   is reserved and no unit produces it), `digest`, `checksum_url`, `size`,
+   `licence`, `deferred`. `name` is the artifact's stable name within its
+   unit: the region path, the tile name, a data file's `install_as` or the
+   file name its URL ends in.
+3. **`digest` is always a digest.** The Bunker spec allowed it to hold the
+   URL of a publisher checksum until read. A field that is sometimes a URL
+   and sometimes hex is a parse ambiguity in a contract, and the engine
+   reads the checksum while resolving anyway; where it read it from is the
+   added `checksum_url`.
+4. **`station set --mirror URL`** stores one optional key, removed by
+   `--clear-mirror`. It must be `http` or `https` with a host, no user or
+   password (the station file holds no credentials), no query or fragment.
+   It is not a template variable. **Plain http is allowed on purpose**: the
+   content is public data and the check is the hash, not the transport.
+5. **A mirror URL is a LAN address, never something reachable from the
+   internet.** The docs say so. The engine does not enforce it: whether a
+   name is private cannot be decided without resolving it, and nothing the
+   mirror could send gets past the digest.
+6. **The verified fetch tries `<mirror>/<unit>/<name>` first** (each segment
+   percent-quoted; an empty, `.` or `..` segment refused) for the three kinds
+   of artifact the listing names, and the publisher second. **Any failure at
+   the mirror** — unreachable, an HTTP error, the size cap, a wrong size, a
+   wrong digest — discards what it sent and asks the publisher. The digest
+   checked is the same either way; nothing unverified reaches the cache. A
+   mirror that did not answer at all is not asked again in that run (one
+   10-second timeout, not one per tile). Source tarballs, prebuilt binaries,
+   wheels and npm packages are not mirrored: they are not in the contract.
+7. **The plan says so first.** A *Data mirror (D-070)* section names the
+   mirror; each data fetch step says the LAN mirror is tried first and its
+   digest checked either way, and its detail names both URLs in order. The
+   JSON plan carries `install.mirror` and each step's `sources`. With no
+   mirror set the text plan is unchanged. **`install --no-mirror`** ignores
+   the key for one run, and the plan says it is ignored.
+8. **The log records the actual source.** A data fetch's `action_end`
+   carries `source` (`cache`, `mirror` or `publisher`), `fetched_from` and,
+   when the mirror was passed over, `mirror_failure`
+   (`docs/reference/transaction-log.md`).
+
+**Measured.** `tests/test_fetch_mirror.py` against fakes, and
+`tests/test_mirror_loopback.py` against two real HTTP servers on 127.0.0.1
+through the real transport: a mirror hit asks the publisher nothing; a 404,
+wrong bytes, a wrong size and the cap each hand over with the same digest
+and leave nothing of the mirror's in the cache; a stopped mirror is asked
+once per run; both failing is one refusal naming both.
+`tests/test_artifacts.py`: pinned and unpinned regions, the three
+freshness modes, tiles from an outline, every deferral, no station read, no
+install record read, and the listing's `<unit>/<name>` being exactly what
+the fetch asks a mirror for. **Not yet measured:** an install on the field
+laptop against a running Bunker, which is the evidence this decision needs
+before it is accepted.
+
+**Rejected.** A mirror trusted for its own hashes (the Bunker writes
+sidecars): that would make the NAS a second source of truth, which it is
+not. Mirroring every fetch, source builds included: not in the Bunker's
+contract, and a build's pin is a commit the mirror has no name for.
+Enforcing a private address: a hostname proves nothing, and refusing a
+routable LAN address would refuse real networks. Asking the mirror for its
+index first: one request per artifact, falling back on a 404, needs no
+agreement about an index format the engine would then have to parse and
+trust. `artifacts` reading the station by default: the Bunker runs on a NAS
+with no station, and a listing that changed with whoever ran it would not
+be a contract.
+
 ## D-069 — CoMaps is carried as a pinned source build over CoMaps' own maps for the station's regions, checked by CoMaps' own index; its missing position is written down, not faked
 
 **Date:** 2026-09-30. **Status:** proposed (design approved by the
@@ -6041,8 +6825,8 @@ hand, 2026-09-29, with nothing installed system-wide:
    CoMaps' own retention is unmeasured). `update --upstream` gains
    `comaps_maps`: it `HEAD`s the pinned `World.mwm` and reports `current`,
    `pin expiring` from 90 days after the version's date, or `pin expired`.
-   The reference layer's branch (D-065) adds `pin expired` to the same
-   module; this uses the same constant and wording. The weekly pin-review
+   The offline reference layer (D-066) added `pin expired` to the same
+   module for Kiwix; this uses the same constant and wording. The weekly pin-review
    job runs `gen_comaps_pins.py --check`, which re-fetches the index and
    `HEAD`s World.mwm.
 7. **The position gap is written down, not faked.** CoMaps reads GeoClue2
@@ -6098,7 +6882,7 @@ backend's steps and checks in `src/hammunition/backends/git.py`;
 `catalog/packages/comaps.yaml`, `catalog/packages/comaps-maps.yaml`, the
 generated `catalog/data/comaps-pins.yaml` and its generator, and the
 `navigation` profile. The operator's page is
-`docs/guides/offline-navigation.md` (section 13), the CLI's
+`docs/guides/offline-navigation.md` (section 15), the CLI's
 `docs/reference/cli.md`, and the build gap
 `docs/reference/source-build-gaps.md` #8. Tests: `tests/test_comaps_schema.py`,
 `tests/test_git_comaps.py`, `tests/test_comaps_pins.py`,

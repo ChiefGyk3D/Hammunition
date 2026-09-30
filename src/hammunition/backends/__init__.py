@@ -44,6 +44,7 @@ IMPLEMENTED_METHODS: frozenset[str] = frozenset(
         "dem-tiles",
         "derived",
         "git",
+        "kiwix-books",
         "mwm-regions",
         "node",
         "osm-regions",

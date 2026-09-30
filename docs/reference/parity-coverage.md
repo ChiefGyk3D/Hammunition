@@ -22,12 +22,12 @@ decision. Only CARRY, SUPERSEDE, REVIVE and ADD owe a manifest.
 |---|---:|
 | Units in the six-source union | **161** |
 | …that owe a manifest (C, S, R, A) | **124** |
-| …covered | **107** |
-| …outstanding, with a recorded reason | **17** |
+| …covered | **109** |
+| …outstanding, with a recorded reason | **15** |
 | …outstanding, unexplained | **0** |
-| Manifests in the catalog | **271** |
+| Manifests in the catalog | **279** |
 
-Coverage of what is owed: **107/124** (86%).
+Coverage of what is owed: **109/124** (87%).
 
 The catalog is larger than the union because the Debian Blend contributes
 152 packages, most of which are not AHRL units, and because hardware
@@ -49,10 +49,8 @@ Absent on purpose. Each names what it waits on.
 | `ahrl_docs` | SUPERSEDE | SUPERSEDE #8-12 — replaced by our own engine, not by software |
 | `ahrl_menus` | SUPERSEDE | SUPERSEDE #8-12 — replaced by our own engine |
 | `ahrl_version` | SUPERSEDE | SUPERSEDE #8-12 — replaced by our own engine |
-| `dict` | ADD | ETC sub-project 5 — the offline dictionary, the data layer's smallest member (D-042, D-048) |
 | `dream` | REVIVE | REVIVE blocked: libqt5webkit5-dev has no candidate on Debian 13 (measured) |
 | `gis-tools` | ADD | ETC sub-project 5 — `qgis`; profile placement is the question, and it belongs with the map layer (D-042, D-048) |
-| `kiwix` | ADD | ETC sub-project 5 — the offline Wikipedia reader; the ZIM it reads is the data layer (D-042, D-048) |
 | `libhamlib4` | SUPERSEDE | SUPERSEDE #8-12 — a dependency, not a unit; apt `depends` carries it and `libhamlib-utils` is the operator-facing manifest (Q-015 decision 3, 2026-08-30) |
 | `mbtileserver` | ADD | ETC sub-project 5 — serves the map tileset; nothing to serve until the data layer exists (D-042, D-048) |
 | `mvoice` | REVIVE | REVIVE blocked: libopendht-dev has no candidate on Debian 13 (measured) |
@@ -68,7 +66,7 @@ Absent on purpose. Each names what it waits on.
 | CARRY | 69 | 67 |
 | SUPERSEDE | 14 | 9 |
 | REVIVE | 6 | 4 |
-| ADD | 35 | 27 |
+| ADD | 35 | 29 |
 | RETIRE | 30 | — |
 | NEEDS-DECISION | 1 | — |
 | reserved to maintainer | 6 | — |
@@ -112,7 +110,7 @@ catalog is where an operator would look for it.
 | `country_files` | CARRY | `country-files` |
 | `cqrlog` | CARRY | `cqrlog` |
 | `cwwav` | CARRY | `cwwav` |
-| `dict` | ADD | — *waiting, see above* |
+| `dict` | ADD | `dictionaries` |
 | `DIPOLE` | RETIRE | — |
 | `direwolf` | CARRY | `direwolf` |
 | `dream` | REVIVE | — *waiting, see above* |
@@ -161,7 +159,7 @@ catalog is where an operator would look for it.
 | `jtdx` | CARRY | `jtdx` |
 | `kalibrate-rtl` | ADD | `kalibrate-rtl` |
 | `kicad` | reserved to maintainer | — |
-| `kiwix` | ADD | — *waiting, see above* |
+| `kiwix` | ADD | `kiwix` |
 | `klog` | CARRY | `klog` |
 | `libacars` | ADD | `libacars` |
 | `libhamlib4` | SUPERSEDE | — *waiting, see above* |

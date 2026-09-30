@@ -1,0 +1,228 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+# The Kiwix books the catalog offers (D-066). HAND-WRITTEN: this is the
+# curation step, and the licence lines cannot be generated -- of nine ZIMs
+# read on 2026-09-29 one carried a License metadata entry, so each line here
+# is the publisher's own, from the page `licence_url` names.
+#
+# `id` is Kiwix's file stem without its date: <name>_<flavour>, or the bare
+# name for a book published in one flavour. The operator chooses ids with
+# `hammunition station set --reference-books`; `hammunition reference books`
+# lists them. A book not listed here is refused by name, because a book with
+# no known licence has nothing to print before the confirmation (D-049).
+#
+# After adding or removing a book, regenerate the pins:
+#   scripts/gen_kiwix_pins.py
+#
+# Not carried, each for its stated reason in D-066 and
+# docs/guides/offline-reference.md: wikiHow (no current ZIM; CC BY-NC-SA),
+# the zimgit-* prepper collections (no licence stated anywhere), energypedia
+# (licence not verified), Gutenberg whole (221 GB), video-channel ZIMs and
+# MedlinePlus (mixed licences), nhs.uk (Crown copyright, not verified).
+
+books:
+  - id: wikipedia_en_all_maxi
+    name: wikipedia_en_all
+    flavour: maxi
+    category: wikipedia
+    title: English Wikipedia, with pictures
+    licence: CC BY-SA 4.0 (text; media individually licensed)
+    licence_url: https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use
+    note: About 127 GB; the nopic and mini flavours are a fraction of it.
+  - id: wikipedia_en_all_nopic
+    name: wikipedia_en_all
+    flavour: nopic
+    category: wikipedia
+    title: English Wikipedia, no pictures
+    licence: CC BY-SA 4.0 (text; media individually licensed)
+    licence_url: https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use
+    note: About 53 GB. The book EmComm Tools OS fetches.
+  - id: wikipedia_en_all_mini
+    name: wikipedia_en_all
+    flavour: mini
+    category: wikipedia
+    title: English Wikipedia, introductions only
+    licence: CC BY-SA 4.0 (text; media individually licensed)
+    licence_url: https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use
+    note: 'About 14 GB: each article''s introduction and infobox.'
+  - id: wikipedia_en_top1m_nopic
+    name: wikipedia_en_top1m
+    flavour: nopic
+    category: wikipedia
+    title: Wikipedia's top million articles, no pictures
+    licence: CC BY-SA 4.0 (text; media individually licensed)
+    licence_url: https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use
+  - id: wikipedia_en_top_nopic
+    name: wikipedia_en_top
+    flavour: nopic
+    category: wikipedia
+    title: Best of Wikipedia, no pictures
+    licence: CC BY-SA 4.0 (text; media individually licensed)
+    licence_url: https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use
+    note: About 2.7 GB.
+  - id: wikipedia_en-simple_all_nopic
+    name: wikipedia_en-simple_all
+    flavour: nopic
+    category: wikipedia
+    title: Simple English Wikipedia, no pictures
+    licence: CC BY-SA 4.0 (text; media individually licensed)
+    licence_url: https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use
+    note: About 1.1 GB.
+  - id: wikipedia_en_medicine_maxi
+    name: wikipedia_en_medicine
+    flavour: maxi
+    category: wikipedia
+    title: WikiMed medical encyclopedia, with pictures
+    licence: CC BY-SA 4.0 (text; media individually licensed)
+    licence_url: https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use
+  - id: wikipedia_en_medicine_nopic
+    name: wikipedia_en_medicine
+    flavour: nopic
+    category: wikipedia
+    title: WikiMed medical encyclopedia, no pictures
+    licence: CC BY-SA 4.0 (text; media individually licensed)
+    licence_url: https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use
+  - id: wikipedia_en_medicine_mini
+    name: wikipedia_en_medicine
+    flavour: mini
+    category: wikipedia
+    title: WikiMed medical encyclopedia, introductions only
+    licence: CC BY-SA 4.0 (text; media individually licensed)
+    licence_url: https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use
+  - id: mdwiki_en_all_maxi
+    name: mdwiki_en_all
+    flavour: maxi
+    category: other
+    title: MDWiki medical encyclopedia
+    licence: CC BY-SA
+    licence_url: https://mdwiki.org/wiki/WikiProjectMed:Copyrights
+  - id: wikem_en_all_nopic
+    name: wikem_en_all
+    flavour: nopic
+    category: other
+    title: WikEM emergency medicine, no pictures
+    licence: CC BY-SA 4.0
+    licence_url: https://wikem.org/wiki/WikEM:Copyrights
+  - id: wikivoyage_en_all_nopic
+    name: wikivoyage_en_all
+    flavour: nopic
+    category: wikivoyage
+    title: Wikivoyage travel guide, no pictures
+    licence: CC BY-SA 4.0 (text; media individually licensed)
+    licence_url: https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use
+  - id: wikivoyage_en_all_maxi
+    name: wikivoyage_en_all
+    flavour: maxi
+    category: wikivoyage
+    title: Wikivoyage travel guide, with pictures
+    licence: CC BY-SA 4.0 (text; media individually licensed)
+    licence_url: https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use
+  - id: wiktionary_en_all_nopic
+    name: wiktionary_en_all
+    flavour: nopic
+    category: wiktionary
+    title: English Wiktionary, no pictures
+    licence: CC BY-SA 4.0 (text; media individually licensed)
+    licence_url: https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use
+    note: About 9 GB; the dictionaries unit answers most look-ups in 32 MB.
+  - id: wiktionary_en-simple_all_nopic
+    name: wiktionary_en-simple_all
+    flavour: nopic
+    category: wiktionary
+    title: Simple English Wiktionary
+    licence: CC BY-SA 4.0 (text; media individually licensed)
+    licence_url: https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use
+  - id: ham.stackexchange.com_en_all
+    name: ham.stackexchange.com_en_all
+    flavour: null
+    category: stack_exchange
+    title: Amateur Radio Stack Exchange
+    licence: CC BY-SA
+    licence_url: https://stackoverflow.com/help/licensing
+    note: 'About 76 MB: the ham one.'
+  - id: dsp.stackexchange.com_en_all
+    name: dsp.stackexchange.com_en_all
+    flavour: null
+    category: stack_exchange
+    title: Signal Processing Stack Exchange
+    licence: CC BY-SA
+    licence_url: https://stackoverflow.com/help/licensing
+  - id: electronics.stackexchange.com_en_all
+    name: electronics.stackexchange.com_en_all
+    flavour: null
+    category: stack_exchange
+    title: Electrical Engineering Stack Exchange
+    licence: CC BY-SA
+    licence_url: https://stackoverflow.com/help/licensing
+  - id: raspberrypi.stackexchange.com_en_all
+    name: raspberrypi.stackexchange.com_en_all
+    flavour: null
+    category: stack_exchange
+    title: Raspberry Pi Stack Exchange
+    licence: CC BY-SA
+    licence_url: https://stackoverflow.com/help/licensing
+  - id: outdoors.stackexchange.com_en_all
+    name: outdoors.stackexchange.com_en_all
+    flavour: null
+    category: stack_exchange
+    title: The Great Outdoors Stack Exchange
+    licence: CC BY-SA
+    licence_url: https://stackoverflow.com/help/licensing
+  - id: appropedia_en_all_maxi
+    name: appropedia_en_all
+    flavour: maxi
+    category: other
+    title: 'Appropedia: appropriate technology and sustainability'
+    licence: CC BY-SA 4.0
+    licence_url: https://www.appropedia.org/Appropedia:Copyrights
+  - id: ifixit_en_all
+    name: ifixit_en_all
+    flavour: null
+    category: ifixit
+    title: iFixit repair guides
+    licence: CC BY-NC-SA 3.0 — non-commercial
+    licence_url: https://www.ifixit.com/Info/Licensing
+    note: 'Non-commercial: the licence forbids commercial reuse of the guides.'
+  - id: www.ready.gov_en
+    name: www.ready.gov_en
+    flavour: null
+    category: zimit
+    title: Ready.gov, the US government's preparedness site
+    licence: US federal work, public domain (17 USC 105)
+    licence_url: https://www.copyright.gov/title17/92chap1.html
+    note: A 2024 scrape of the site. The licence is the class of the publisher, not verified
+      page by page.
+  - id: armypubs_en_all
+    name: armypubs_en_all
+    flavour: null
+    category: zimit
+    title: 'Army Publishing Directorate: field manuals and doctrine'
+    licence: US federal work, public domain (17 USC 105)
+    licence_url: https://www.copyright.gov/title17/92chap1.html
+    note: About 8.2 GB. The licence is the class of the publisher, not verified publication
+      by publication.
+  - id: irp.fas.org_en_military-medicine
+    name: irp.fas.org_en_military-medicine
+    flavour: null
+    category: zimit
+    title: Military medicine manuals, mirrored by the Federation of American Scientists
+    licence: US federal work, public domain (17 USC 105)
+    licence_url: https://www.copyright.gov/title17/92chap1.html
+    note: US federal documents on a mirror; not verified document by document.
+  - id: openstreetmap-wiki_en_all_nopic
+    name: openstreetmap-wiki_en_all
+    flavour: nopic
+    category: other
+    title: OpenStreetMap wiki, no pictures
+    licence: CC BY-SA 2.0
+    licence_url: https://wiki.openstreetmap.org/wiki/Wiki_content_license
+    note: Pairs with the offline maps (D-057).
+  - id: gutenberg_en_lcc-u
+    name: gutenberg_en_lcc-u
+    flavour: null
+    category: gutenberg
+    title: Project Gutenberg, military science (LCC class U)
+    licence: Public domain in the USA; Project Gutenberg licence for the ebook files
+    licence_url: https://www.gutenberg.org/policy/license.html
+    note: One Library of Congress class of Gutenberg's English books, not the whole 221 GB library.

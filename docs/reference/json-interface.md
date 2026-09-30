@@ -45,11 +45,16 @@ their text follows.
 
 ## Commands
 
+- `hammunition artifacts`
 - `hammunition doctor`
 - `hammunition hardware state`
 - `hammunition install` (with `--dry-run` only)
 - `hammunition list`
+- `hammunition maps phone`
 - `hammunition maps regions`
+- `hammunition maps repeaters import`
+- `hammunition maps repeaters remove`
+- `hammunition reference books`
 - `hammunition show`
 - `hammunition station show`
 - `hammunition status`
@@ -62,17 +67,332 @@ their text follows.
 
 | kind | document |
 |---|---|
+| `artifacts` | [`ArtifactsDocument`](#artifacts) |
+| `books` | [`BooksDocument`](#books) |
 | `catalog` | [`CatalogDocument`](#catalog) |
 | `doctor` | [`DoctorDocument`](#doctor) |
 | `error` | [`ErrorDocument`](#error) |
 | `hardware` | [`HardwareDocument`](#hardware) |
+| `phone` | [`PhoneDocument`](#phone) |
 | `plan` | [`PlanDocument`](#plan) |
 | `profile` | [`ProfileDocument`](#profile) |
 | `regions` | [`RegionsDocument`](#regions) |
+| `repeaters` | [`RepeatersDocument`](#repeaters) |
+| `repeaters-removed` | [`RepeatersRemovedDocument`](#repeaters-removed) |
 | `station` | [`StationDocument`](#station) |
 | `status` | [`StatusDocument`](#status) |
 | `unit` | [`UnitDocument`](#unit) |
 | `update` | [`UpdateDocument`](#update) |
+
+### artifacts
+
+Every remote data artifact the engine would fetch for the selection
+given (D-070): `data` units, map regions and terrain tiles. No station
+file is read; the regions are the ones on the command line. What cannot
+be listed is listed as deferred, with the reason, never dropped.
+
+| field | type | meaning |
+|---|---|---|
+| `map_regions` | list of string | the `--map-regions` given; empty when none |
+| `map_freshness` | string | the `--map-freshness` given, `yearly` when none |
+| `units` | list of string | the units listed, in order |
+| `artifacts` | list of [`ArtifactEntry`](#artifactentry) | one entry per artifact, deferred ones included |
+
+#### `ArtifactEntry`
+
+One remote artifact, or one the selection cannot list and why.
+
+| field | type | meaning |
+|---|---|---|
+| `unit` | string | the catalog unit (`osm-regions`, `dem-copernicus`, `country-files`) |
+| `name` | string or null | the artifact's stable name within the unit: a region path, a tile name, a data file's name. A LAN mirror serves it at `<mirror>/<unit>/<name>`. Null only for a deferred entry that covers the whole unit |
+| `url` | string or null | the publisher URL the engine itself fetches; null when deferred |
+| `check` | string or null | how the download is verified: `sha256` (pinned by Hammunition), `md5-publisher` (Geofabrik's published MD5), `etag-md5` (the Copernicus object's ETag) or `sha256-publisher` (no unit uses it today); null when deferred |
+| `digest` | string or null | the expected digest, in hex, of the kind `check` names: the pin, or the publisher's checksum as the engine read it while resolving; null when deferred |
+| `checksum_url` | string or null | where a publisher checksum is read: the `.md5` beside a Geofabrik file, or the tile URL whose `HEAD` carries the ETag; null for a pinned sha256 and when deferred |
+| `size` | integer or null | bytes, known before the fetch; null when deferred |
+| `licence` | string | the licence line the plan prints for the unit |
+| `deferred` | string or null | null, or why this artifact cannot be listed for this selection |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "ArtifactEntry": {
+      "additionalProperties": false,
+      "description": "One remote artifact, or one the selection cannot list and why.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Name"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Url"
+        },
+        "check": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Check"
+        },
+        "digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Digest"
+        },
+        "checksum_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Checksum Url"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Size"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "deferred": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Deferred"
+        }
+      },
+      "required": [
+        "unit",
+        "name",
+        "url",
+        "check",
+        "digest",
+        "checksum_url",
+        "size",
+        "licence",
+        "deferred"
+      ],
+      "title": "ArtifactEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Every remote data artifact the engine would fetch for the selection\ngiven (D-070): `data` units, map regions and terrain tiles. No station\nfile is read; the regions are the ones on the command line. What cannot\nbe listed is listed as deferred, with the reason, never dropped.",
+  "properties": {
+    "map_regions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Map Regions",
+      "type": "array"
+    },
+    "map_freshness": {
+      "title": "Map Freshness",
+      "type": "string"
+    },
+    "units": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Units",
+      "type": "array"
+    },
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/ArtifactEntry"
+      },
+      "title": "Artifacts",
+      "type": "array"
+    }
+  },
+  "required": [
+    "map_regions",
+    "map_freshness",
+    "units",
+    "artifacts"
+  ],
+  "title": "ArtifactsDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### books
+
+The Kiwix books the catalog offers. Read from the catalog and the disk;
+nothing is fetched.
+
+| field | type | meaning |
+|---|---|---|
+| `books` | list of [`BookRow`](#bookrow) | every book in catalog/data/kiwix-books.yaml, in its order |
+
+#### `BookRow`
+
+One book the catalog offers, with its pin.
+
+| field | type | meaning |
+|---|---|---|
+| `id` | string | the id station config takes (`station set --reference-books`) |
+| `title` | string | what the book is |
+| `file` | string or null | the pinned dated file; null when the book is not pinned |
+| `size` | integer or null | bytes of the pinned file; null when not pinned |
+| `licence` | string | the publisher's licence line, printed in the plan too |
+| `licence_url` | string | where the publisher states it |
+| `note` | string or null | anything else the book list says of it |
+| `chosen` | boolean | whether station config chooses it |
+| `installed` | boolean | whether its pinned file is installed |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "BookRow": {
+      "additionalProperties": false,
+      "description": "One book the catalog offers, with its pin.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "File"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Size"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "licence_url": {
+          "title": "Licence Url",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Note"
+        },
+        "chosen": {
+          "title": "Chosen",
+          "type": "boolean"
+        },
+        "installed": {
+          "title": "Installed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "file",
+        "size",
+        "licence",
+        "licence_url",
+        "note",
+        "chosen",
+        "installed"
+      ],
+      "title": "BookRow",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The Kiwix books the catalog offers. Read from the catalog and the disk;\nnothing is fetched.",
+  "properties": {
+    "books": {
+      "items": {
+        "$ref": "#/$defs/BookRow"
+      },
+      "title": "Books",
+      "type": "array"
+    }
+  },
+  "required": [
+    "books"
+  ],
+  "title": "BooksDocument",
+  "type": "object"
+}
+```
+
+</details>
 
 ### catalog
 
@@ -694,6 +1014,179 @@ A catalogued device that is attached but cannot be parked right now.
 
 </details>
 
+### phone
+
+The phone files gathered into one folder with a SHA256SUMS, and the
+routes to a phone. Names carry region slugs: for local programs, not for
+pasting. Nothing was transferred.
+
+| field | type | meaning |
+|---|---|---|
+| `directory` | string | the folder, under the operator's XDG data directory |
+| `sums` | string | the SHA256SUMS file beside them |
+| `files` | list of [`PhoneFileLine`](#phonefileline) | every phone file now in the folder |
+| `removed` | list of string | our files removed because their region is gone |
+| `missing` | list of string | phone units with nothing installed |
+| `routes` | list of [`PhoneRouteLine`](#phonerouteline) | the ways to carry the folder to a phone |
+
+#### `PhoneFileLine`
+
+One phone file in the folder.
+
+| field | type | meaning |
+|---|---|---|
+| `unit` | string | the unit that built it: mapsforge-map, mapsforge-poi or osm-garmin |
+| `name` | string | its name in the folder, `<region slug>.<map\|poi\|img>` |
+| `size` | integer | bytes |
+| `sha256` | string | its sha256, as written in SHA256SUMS |
+| `copied` | boolean | true when this run copied it; false when the copy was already current |
+
+#### `PhoneRouteLine`
+
+One way to carry the folder to a phone. The engine runs none of them.
+
+| field | type | meaning |
+|---|---|---|
+| `name` | string | the route |
+| `laptop` | string | what the laptop needs |
+| `phone` | string | what the phone needs |
+| `commands` | list of string | commands for the operator to run, in order; may be empty |
+| `note` | string | how to use it, and what it binds or modifies |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "PhoneFileLine": {
+      "additionalProperties": false,
+      "description": "One phone file in the folder.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "size": {
+          "title": "Size",
+          "type": "integer"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "copied": {
+          "title": "Copied",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "unit",
+        "name",
+        "size",
+        "sha256",
+        "copied"
+      ],
+      "title": "PhoneFileLine",
+      "type": "object"
+    },
+    "PhoneRouteLine": {
+      "additionalProperties": false,
+      "description": "One way to carry the folder to a phone. The engine runs none of them.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "laptop": {
+          "title": "Laptop",
+          "type": "string"
+        },
+        "phone": {
+          "title": "Phone",
+          "type": "string"
+        },
+        "commands": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Commands",
+          "type": "array"
+        },
+        "note": {
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "laptop",
+        "phone",
+        "commands",
+        "note"
+      ],
+      "title": "PhoneRouteLine",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The phone files gathered into one folder with a SHA256SUMS, and the\nroutes to a phone. Names carry region slugs: for local programs, not for\npasting. Nothing was transferred.",
+  "properties": {
+    "directory": {
+      "title": "Directory",
+      "type": "string"
+    },
+    "sums": {
+      "title": "Sums",
+      "type": "string"
+    },
+    "files": {
+      "items": {
+        "$ref": "#/$defs/PhoneFileLine"
+      },
+      "title": "Files",
+      "type": "array"
+    },
+    "removed": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Removed",
+      "type": "array"
+    },
+    "missing": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing",
+      "type": "array"
+    },
+    "routes": {
+      "items": {
+        "$ref": "#/$defs/PhoneRouteLine"
+      },
+      "title": "Routes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "directory",
+    "sums",
+    "files",
+    "removed",
+    "missing",
+    "routes"
+  ],
+  "title": "PhoneDocument",
+  "type": "object"
+}
+```
+
+</details>
+
 ### plan
 
 The plan `install --dry-run` or `uninstall --dry-run` prints, as data.
@@ -733,6 +1226,7 @@ Everything an install will do, section by section as the text prints it.
 | `apt_release` | [`ReleaseSection`](#releasesection) or null | present when apt resolves from another release |
 | `no_recommends` | [`NoRecommendsSection`](#norecommendssection) or null | present when a unit opted out of Recommends |
 | `repos` | list of [`RepoLine`](#repoline) | third-party repositories added |
+| `mirror` | [`MirrorSection`](#mirrorsection) or null | the LAN mirror data downloads try first (D-070); null when none is set |
 | `data` | list of [`DataLine`](#dataline) | offline data downloaded |
 | `maps` | [`MapSectionView`](#mapsectionview) or null | the station's map regions (D-057); null when no map unit or nothing to disclose |
 | `memberships` | list of [`MembershipLine`](#membershipline) | group membership changes |
@@ -812,6 +1306,16 @@ A third-party apt repository the transaction adds, behind its own gate (D-040).
 | `sources` | string | the .sources file written |
 | `keyring` | string | the keyring file written |
 | `consent_env_var` | string | must equal the key fingerprint for a scripted run |
+
+#### `MirrorSection`
+
+The LAN mirror a data download is asked for first (D-070).
+
+| field | type | meaning |
+|---|---|---|
+| `url` | string | the mirror's base URL, from station config |
+| `ignored` | boolean | true when `--no-mirror` ignores it for this run |
+| `text` | string | what the plan prints about it |
 
 #### `DataLine`
 
@@ -1056,6 +1560,7 @@ One step, exactly as the real run performs it.
 | `argv` | list of string | the argv executed, escalation applied; empty for an in-process step |
 | `action` | string or null | the in-process step's kind (`fetch`, `extract`, ...); null for a command |
 | `requires_root` | boolean | whether it runs as root |
+| `sources` | list of string | for a data download (a `data` artifact, a map region, a terrain tile), the URLs it is fetched from in the order tried: the LAN mirror, then the publisher (D-070); the publisher alone with no mirror; empty for any other step |
 
 #### `RemovalPlanView`
 
@@ -1572,6 +2077,16 @@ A unit and files.
           "title": "Repos",
           "type": "array"
         },
+        "mirror": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MirrorSection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "data": {
           "items": {
             "$ref": "#/$defs/DataLine"
@@ -1682,6 +2197,7 @@ A unit and files.
         "apt_release",
         "no_recommends",
         "repos",
+        "mirror",
         "data",
         "maps",
         "memberships",
@@ -1875,6 +2391,31 @@ A unit and files.
         "reverse_hint"
       ],
       "title": "MembershipLine",
+      "type": "object"
+    },
+    "MirrorSection": {
+      "additionalProperties": false,
+      "description": "The LAN mirror a data download is asked for first (D-070).",
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "ignored": {
+          "title": "Ignored",
+          "type": "boolean"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "ignored",
+        "text"
+      ],
+      "title": "MirrorSection",
       "type": "object"
     },
     "NoRecommendsSection": {
@@ -2199,6 +2740,13 @@ A unit and files.
         "requires_root": {
           "title": "Requires Root",
           "type": "boolean"
+        },
+        "sources": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sources",
+          "type": "array"
         }
       },
       "required": [
@@ -2206,7 +2754,8 @@ A unit and files.
         "display",
         "argv",
         "action",
-        "requires_root"
+        "requires_root",
+        "sources"
       ],
       "title": "StepView",
       "type": "object"
@@ -2863,6 +3412,328 @@ this command runs, and only then; nothing here is the operator's.
 
 </details>
 
+### repeaters
+
+A repeater layer written from the operator's own export, or from
+hearham's list on request. Counts and paths only: no repeater's callsign
+or position is carried.
+
+| field | type | meaning |
+|---|---|---|
+| `layer` | string | the layer's name, as QMapShack's project and POI file show it |
+| `exported` | string | YYYY-MM-DD: `--exported`, else the oldest input's modification date; a fetch's own date |
+| `licences` | list of string | each source's licence text, printed before anything |
+| `inputs` | list of [`InputView`](#inputview) | each file read, in the order given |
+| `read` | integer | rows read over every input |
+| `skipped` | integer | rows left out over every input |
+| `merged` | integer | rows merged into another: same callsign, output frequency and position to 0.01 degree |
+| `written` | integer | repeaters in the layer |
+| `directory` | string | where the layer's files are, mode 0700 |
+| `files` | list of string | the files written, mode 0600: GPX, POI, Navit textfile |
+| `registered` | list of [`RegistrationView`](#registrationview) | QMapShack's and Navit's, in that order |
+
+#### `InputView`
+
+One file read.
+
+| field | type | meaning |
+|---|---|---|
+| `path` | string | the file as given |
+| `format` | string | `repeaterbook-gpx`, `repeaterbook-csv`, `hearham-json` or `hand-csv` |
+| `read` | integer | rows, objects or waypoints in it |
+| `used` | integer | of those, the ones with a position and a callsign |
+| `skipped` | list of [`SkipView`](#skipview) | the rest, by reason |
+| `sha256` | string | the digest of the file as read |
+
+#### `SkipView`
+
+Rows of one input left out for one reason.
+
+| field | type | meaning |
+|---|---|---|
+| `reason` | string | why, e.g. `no usable position` or `no callsign` |
+| `count` | integer | how many rows |
+| `first` | list of integer | the first five: line numbers in a CSV, row numbers in JSON, waypoint numbers in a GPX |
+
+#### `RegistrationView`
+
+What a program was told about the layer.
+
+| field | type | meaning |
+|---|---|---|
+| `program` | string | `qmapshack` or `navit` |
+| `config` | string | the file edited or written |
+| `outcome` | string | `added`, `already there`, `written`, `removed`, `not there`, `not written` or `refused` |
+| `detail` | string | the sentence the text prints after the outcome |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "InputView": {
+      "additionalProperties": false,
+      "description": "One file read.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "format": {
+          "title": "Format",
+          "type": "string"
+        },
+        "read": {
+          "title": "Read",
+          "type": "integer"
+        },
+        "used": {
+          "title": "Used",
+          "type": "integer"
+        },
+        "skipped": {
+          "items": {
+            "$ref": "#/$defs/SkipView"
+          },
+          "title": "Skipped",
+          "type": "array"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "format",
+        "read",
+        "used",
+        "skipped",
+        "sha256"
+      ],
+      "title": "InputView",
+      "type": "object"
+    },
+    "RegistrationView": {
+      "additionalProperties": false,
+      "description": "What a program was told about the layer.",
+      "properties": {
+        "program": {
+          "title": "Program",
+          "type": "string"
+        },
+        "config": {
+          "title": "Config",
+          "type": "string"
+        },
+        "outcome": {
+          "title": "Outcome",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "program",
+        "config",
+        "outcome",
+        "detail"
+      ],
+      "title": "RegistrationView",
+      "type": "object"
+    },
+    "SkipView": {
+      "additionalProperties": false,
+      "description": "Rows of one input left out for one reason.",
+      "properties": {
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "count": {
+          "title": "Count",
+          "type": "integer"
+        },
+        "first": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "First",
+          "type": "array"
+        }
+      },
+      "required": [
+        "reason",
+        "count",
+        "first"
+      ],
+      "title": "SkipView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A repeater layer written from the operator's own export, or from\nhearham's list on request. Counts and paths only: no repeater's callsign\nor position is carried.",
+  "properties": {
+    "layer": {
+      "title": "Layer",
+      "type": "string"
+    },
+    "exported": {
+      "title": "Exported",
+      "type": "string"
+    },
+    "licences": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Licences",
+      "type": "array"
+    },
+    "inputs": {
+      "items": {
+        "$ref": "#/$defs/InputView"
+      },
+      "title": "Inputs",
+      "type": "array"
+    },
+    "read": {
+      "title": "Read",
+      "type": "integer"
+    },
+    "skipped": {
+      "title": "Skipped",
+      "type": "integer"
+    },
+    "merged": {
+      "title": "Merged",
+      "type": "integer"
+    },
+    "written": {
+      "title": "Written",
+      "type": "integer"
+    },
+    "directory": {
+      "title": "Directory",
+      "type": "string"
+    },
+    "files": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Files",
+      "type": "array"
+    },
+    "registered": {
+      "items": {
+        "$ref": "#/$defs/RegistrationView"
+      },
+      "title": "Registered",
+      "type": "array"
+    }
+  },
+  "required": [
+    "layer",
+    "exported",
+    "licences",
+    "inputs",
+    "read",
+    "skipped",
+    "merged",
+    "written",
+    "directory",
+    "files",
+    "registered"
+  ],
+  "title": "RepeatersDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### repeaters-removed
+
+The repeater layer deleted and unregistered. Removing nothing is not
+an error: every list is then empty.
+
+| field | type | meaning |
+|---|---|---|
+| `directory` | string | where the layer was |
+| `removed` | list of string | the files deleted |
+| `unregistered` | list of [`RegistrationView`](#registrationview) | QMapShack's and Navit's, in that order |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "RegistrationView": {
+      "additionalProperties": false,
+      "description": "What a program was told about the layer.",
+      "properties": {
+        "program": {
+          "title": "Program",
+          "type": "string"
+        },
+        "config": {
+          "title": "Config",
+          "type": "string"
+        },
+        "outcome": {
+          "title": "Outcome",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "program",
+        "config",
+        "outcome",
+        "detail"
+      ],
+      "title": "RegistrationView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The repeater layer deleted and unregistered. Removing nothing is not\nan error: every list is then empty.",
+  "properties": {
+    "directory": {
+      "title": "Directory",
+      "type": "string"
+    },
+    "removed": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Removed",
+      "type": "array"
+    },
+    "unregistered": {
+      "items": {
+        "$ref": "#/$defs/RegistrationView"
+      },
+      "title": "Unregistered",
+      "type": "array"
+    }
+  },
+  "required": [
+    "directory",
+    "removed",
+    "unregistered"
+  ],
+  "title": "RepeatersRemovedDocument",
+  "type": "object"
+}
+```
+
+</details>
+
 ### station
 
 The saved station values, the values themselves included -- map
@@ -2881,6 +3752,8 @@ and a grid square or a map region says where the station is.
 | `node_alias` | string or null | the packet node alias; null when not set |
 | `map_regions` | list of string | Geofabrik region paths carrying offline map data; empty when none are set |
 | `map_freshness` | string or null | how often map data is refreshed: yearly, monthly or latest; null means the yearly default applies |
+| `reference_books` | list of string | Kiwix book ids chosen for kiwix-library (D-066); empty when none are chosen |
+| `mirror` | string or null | the LAN mirror the verified fetch tries before the publisher, the same digest checked either way (D-070); null when none is set |
 
 <details><summary>JSON Schema</summary>
 
@@ -2947,6 +3820,24 @@ and a grid square or a map region says where the station is.
         }
       ],
       "title": "Map Freshness"
+    },
+    "reference_books": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reference Books",
+      "type": "array"
+    },
+    "mirror": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Mirror"
     }
   },
   "required": [
@@ -2956,7 +3847,9 @@ and a grid square or a map region says where the station is.
     "grid_square",
     "node_alias",
     "map_regions",
-    "map_freshness"
+    "map_freshness",
+    "reference_books",
+    "mirror"
   ],
   "title": "StationDocument",
   "type": "object"
