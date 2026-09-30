@@ -1,0 +1,169 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: comaps
+version: "2026.08.31-14"
+summary: Offline vector maps with search and car, bike and foot routing, from CoMaps' own map files
+categories: [navigation-maps]
+
+# D-069. No archive carries CoMaps or Organic Maps, and upstream publishes no
+# Linux binary; Flathub is the one upstream-endorsed Linux build and Flatpak
+# is not a backend here (D-014). So it is built from source at the tag
+# Flathub, nixpkgs and the AUR all build, v2026.08.31-14, which must resolve
+# to 72632e4de65a98dfed827d8e447f0287168639d0 (D-024: a distribution's pin,
+# not ours). Measured by hand on Parrot 7 (Debian 13) on 2026-09-29, not yet
+# through the engine: configure 3 min 21 s, compile 8 min 20 s at -j2 with a
+# 1.9 GiB peak per compiler process (inside the engine's 2 GiB-per-job rule),
+# an install prefix of 63 MB plus 60 MB of World maps. Submodules are fetched
+# shallow, as upstream's own configure.sh does; the spike's full-history clone
+# was 9.7 GB (ICU alone 5.6 GB), and the shallow form is unmeasured.
+#
+# The four -dev and tool packages the spike found missing on a desktop that
+# builds other Qt software are qt6-positioning-dev, qt6-svg-dev, optipng and
+# ninja-build; the rest is upstream's own Debian list (docs/INSTALL.md at the
+# pinned commit). python3-venv is for the build Python.
+#
+# CoMaps reads its position from GeoClue2 only, by the plugin's name: no gpsd
+# client and no NMEA reader. There is no "you are here" on the laptop yet;
+# docs/guides/offline-navigation.md says what the route would be.
+install:
+  - install:
+      method: git
+      repo: https://codeberg.org/comaps/comaps.git
+      ref: v2026.08.31-14
+      commit: 72632e4de65a98dfed827d8e447f0287168639d0
+      build_system: cmake
+      submodules: true
+      # CoMaps' CMake refuses Debian's protobuf (4.21, reporting
+      # __version__ 4.21.12; it wants >= 3.20, < 4.0). The wheel's sha256 is
+      # the one PyPI publishes; Flathub pins the same release's sdist.
+      build_python:
+        - protobuf==3.20.3 --hash=sha256:a7ca6d488aa8ff7f329d4c545b2dbad8ac31464f1d8b1c87ad1346717731e4db
+      # configure.sh generates the strings, categories, symbols and drawing
+      # rules the build reads. --skip-map-download: it would otherwise fetch
+      # the World maps with plain curl and no check; they arrive below,
+      # pinned. SKIP_PYTHON_VENV=1: it would otherwise pip-install an
+      # unpinned protobuf. generate_symbols.sh exits 0 with no symbols when
+      # optipng is missing, so what it must produce is checked (D-031).
+      prepare:
+        script: configure.sh
+        args: [--skip-map-download]
+        env:
+          SKIP_PYTHON_VENV: "1"
+        produces:
+          - data/symbols/*/light/symbols.png
+          - data/drules_proto.bin
+      # The spike's line without its sysroot flag: the same as Flathub's
+      # config-opts. The engine adds --fresh, the prefix and Release.
+      configure_args: [-G, Ninja, -DSKIP_TESTS=1, -DSKIP_TOOLS=1]
+      # What cmake --install leaves out. The World maps are downloaded, not
+      # built: with --skip-map-download and none placed, qt/CMakeLists.txt's
+      # install_resources skips them, and a tree that had them installs two
+      # symlinks into a directory it does not install (measured). sha256
+      # from Flathub's app.comaps.comaps.yml, verified on 2026-09-29, and
+      # matching the SHA-1 in the pinned index. categories_brands.txt is
+      # installed by hand in Flathub's manifest too.
+      extra_files:
+        - artifact:
+            url: https://cdn-fi-1.comaps.app/maps/2026.06.28/260830/World.mwm
+            sha256: 4dc68624af3102471e03bc05b02ad8b7a7ae3a7b6cd30ecb64228b14f9d4df03
+            size: 53387231
+          install_as: share/comaps/data/World.mwm
+        - artifact:
+            url: https://cdn-fi-1.comaps.app/maps/2026.06.28/260830/WorldCoasts.mwm
+            sha256: a4d6f470b19137a624962ada2fe0d9c803e1f8925233abd3ce87a378abe2fe87
+            size: 8494206
+          install_as: share/comaps/data/WorldCoasts.mwm
+        - from_tree: data/categories_brands.txt
+          install_as: share/comaps/data/categories_brands.txt
+    build_depends:
+      - build-essential
+      - cmake
+      - ninja-build
+      - qt6-base-dev
+      - qt6-svg-dev
+      - qt6-positioning-dev
+      - libicu-dev
+      - libfreetype-dev
+      - libharfbuzz-dev
+      - libxrandr-dev
+      - libxinerama-dev
+      - libxcursor-dev
+      - libxi-dev
+      - optipng
+      - python3-venv
+      - jq
+
+binaries:
+  - produced: CoMaps
+    install_as: CoMaps
+
+# Read back after the run (D-031): a build whose configure made no symbols
+# or drawing rules fails here. The extra files above are checked too, each
+# as a regular file, so a World map left as a symlink fails.
+installed_files:
+  - share/comaps/data/countries.txt
+  - share/comaps/data/drules_proto.bin
+  - share/comaps/data/symbols/mdpi/light/symbols.png
+
+# The engine prepares the per-user state and starts the app (D-069): the
+# licence acceptance CoMaps asks for on first start, and links to the maps
+# `comaps-maps` installed. Terminal=false: it is a map, not a console.
+launchers:
+  - name: comaps-offline
+    exec: hammunition maps comaps
+    title: CoMaps with your offline maps (CoMaps)
+
+update:
+  probe:
+    method: github_tags
+  strategy: rebuild
+  cadence_hint: >-
+    CoMaps tags a release every few weeks. Move the tag and its commit
+    together, to one a distribution builds (Flathub's manifest names both);
+    move the two World maps' url, sha256 and size with them (Flathub's
+    manifest pins those too); then regenerate catalog/data/comaps-pins.yaml
+    with scripts/gen_comaps_pins.py, whose --check refuses World maps of
+    another version than the index names: the maps must be the version the
+    app's own index names.
+
+documentation:
+  what_it_does: >-
+    A map and navigator in the style of a phone app: vector maps drawn on the
+    machine, search for places, addresses and postcodes from an index inside
+    each map file, and routes by car, bike, on foot and by public transport,
+    with contours and speed cameras where the map carries them. Everything
+    runs from files on the disk, so none of it needs a network. It reads
+    CoMaps' own map format, which `comaps-maps` downloads for your regions.
+  why_you_want_it: >-
+    One program that finds an address and routes to it offline, with modern
+    rendering, beside Navit (turn-by-turn from gpsd) and QMapShack (trails
+    and terrain). It is the desktop build of the CoMaps phone app, a
+    community fork of Organic Maps, so the laptop and a phone can carry the
+    same maps.
+  prerequisites: >-
+    Map regions set in station config (`hammunition station set
+    --map-regions ...`) and `comaps-maps` installed for them; without maps
+    it shows only the World overview. Start it from the menu entry "CoMaps
+    with your offline maps", which runs `hammunition maps comaps`.
+  known_problems: >-
+    No "you are here" on the laptop yet. CoMaps on Linux reads its position
+    from GeoClue2 only, by name: it has no gpsd client and no NMEA reader,
+    and GeoClue must also be told to allow app.comaps.comaps, which
+    Parrot's GeoClue configuration does not. Feeding the GPS to GeoClue
+    through its network-NMEA source is the route, unmeasured and not done by
+    Hammunition; the navigation guide says what it would take. Built from
+    source: a first install downloads the source and its submodules and
+    compiles for tens of minutes (about 12 minutes measured on an 8-core
+    laptop at two jobs, by hand). Upstream installs its own menu entry,
+    "CoMaps", under its own categories; that one starts CoMaps without the
+    launcher's preparation, so its first start shows the licence dialog and
+    it does not see Hammunition's maps. `uninstall` refuses it, as it does
+    every build whose own install rule wrote into /usr/local (the rule
+    leaves no file list to reverse); what it wrote is in the transaction
+    log. US address-search quality has not been measured.
+  upstream_url: https://www.comaps.app/
+  upstream_support: >-
+    The project's Codeberg issue tracker
+    (https://codeberg.org/comaps/comaps/issues) and its community channels
+    listed on comaps.app.

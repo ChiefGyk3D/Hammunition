@@ -382,6 +382,121 @@ class PinReview(Strict):
         return today > self.due
 
 
+def _unhashed(lines: Sequence[str]) -> list[str]:
+    """Requirement lines that carry no ``--hash=sha256:`` pin."""
+    return [
+        line
+        for line in lines
+        if line.strip()
+        and not line.lstrip().startswith(("#", "--"))
+        and "--hash=sha256:" not in line
+    ]
+
+
+def _inside_tree(path: str) -> bool:
+    """A relative path with no ``..`` component: it cannot leave the tree."""
+    parts = PurePosixPath(path).parts
+    return bool(path.strip()) and not path.startswith("/") and ".." not in parts
+
+
+#: The variables the git backend sets on a prepare step itself (D-069): the
+#: build Python's ``PATH`` and ``VIRTUAL_ENV``, and the job count. A manifest
+#: setting one would silently undo the engine's.
+ENGINE_BUILD_ENV = frozenset({"PATH", "VIRTUAL_ENV", "CMAKE_BUILD_PARALLEL_LEVEL"})
+
+
+class PrepareStep(Strict):
+    """An upstream script run in the checked-out tree before configure (D-069).
+
+    CoMaps' ``configure.sh`` generates the symbols, drawing rules and strings
+    the CMake build reads, and builds a helper tool to do it. The script is
+    upstream's, named by path, never a command line the catalog writes; the
+    engine owns how it runs. ``produces`` is what makes it checkable:
+    CoMaps' ``generate_symbols.sh`` exits 0 with no symbols when optipng is
+    missing, so a script's exit status is not evidence of anything (D-031).
+    """
+
+    script: str = Field(description="Path of the script, relative to the tree; run as ./<script>.")
+    args: list[str] = Field(default_factory=list)
+    env: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Upstream's own switches, e.g. SKIP_PYTHON_VENV=1 so CoMaps' script does "
+            "not pip-install an unpinned protobuf. Never secrets: the plan prints it."
+        ),
+    )
+    produces: list[str] = Field(
+        min_length=1,
+        description=(
+            "Globs relative to the tree; each must match at least one non-empty "
+            "regular file after the script, or the step fails naming it."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _check(self) -> PrepareStep:
+        for path in (self.script, *self.produces):
+            if not _inside_tree(path):
+                raise ManifestError(
+                    f"prepare path {path!r} must be a relative path inside the tree, "
+                    f"with no `..` components"
+                )
+        owned = sorted(ENGINE_BUILD_ENV & set(self.env))
+        if owned:
+            raise ManifestError(
+                f"prepare env sets {', '.join(owned)}, which the engine sets itself on "
+                f"this step (the build Python and the job count)"
+            )
+        return self
+
+
+class ExtraArtifact(RemoteArtifact):
+    """A pinned file installed beside a build, with its size (D-069)."""
+
+    size: int = Field(
+        gt=0, description="Bytes, as published. Printed in the plan, checked on fetch."
+    )
+
+
+class ExtraFile(Strict):
+    """A file a build's install rule leaves out, installed after it (D-069).
+
+    Either a pinned artifact or a file from the built tree, installed at
+    ``<prefix>/<install_as>`` with mode 0644, after an ``rm -f`` so a symlink
+    at the destination is replaced and never written through. CoMaps'
+    install rule skips ``World.mwm`` and ``WorldCoasts.mwm`` when the tree has
+    none (they are downloaded, not built), and leaves out
+    ``categories_brands.txt``; Flathub's manifest installs all three by hand.
+    """
+
+    artifact: ExtraArtifact | None = None
+    from_tree: str | None = Field(
+        default=None, description="A file in the checked-out tree, relative to it."
+    )
+    install_as: str = Field(description="Relative to the prefix, under share/.")
+
+    @model_validator(mode="after")
+    def _check(self) -> ExtraFile:
+        if (self.artifact is None) == (self.from_tree is None):
+            raise ManifestError(
+                "an extra file names exactly one of `artifact` (a pinned download) or "
+                "`from_tree` (a file of the built tree)"
+            )
+        if self.from_tree is not None and not _inside_tree(self.from_tree):
+            raise ManifestError(
+                f"from_tree {self.from_tree!r} must be a relative path inside the tree, "
+                f"with no `..` components"
+            )
+        parts = PurePosixPath(self.install_as).parts
+        if not _inside_tree(self.install_as) or len(parts) < 2 or parts[0] != "share":
+            raise ManifestError(
+                f"extra file install_as {self.install_as!r} must be a relative path under "
+                f"share/ in the prefix: data beside a build, never an executable or a "
+                f"library, and never outside the prefix"
+            )
+        return self
+
+
 class GitInstall(Strict):
     """Build from a pinned git revision. `ref` must be immutable."""
 
@@ -436,6 +551,42 @@ class GitInstall(Strict):
         default=None,
         description="Required when `ref` is a commit SHA rather than a tag. D-024.",
     )
+    commit: str | None = Field(
+        default=None,
+        description=(
+            "For a tag `ref`: the commit it must resolve to. The pin check then "
+            "refuses a re-cut tag instead of only recording what it resolved to. "
+            "CoMaps' tag is the one Flathub, nixpkgs and the AUR build, at this "
+            "commit (D-024, D-069)."
+        ),
+    )
+    submodules: bool = Field(
+        default=False,
+        description=(
+            "Check out every submodule, recursively, at the superproject's gitlinks, "
+            "shallow (`git submodule update --init --recursive --depth 1`, upstream "
+            "CoMaps' own command), then refuse unless `git submodule status "
+            "--recursive` shows each one at its gitlink. D-069."
+        ),
+    )
+    build_python: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Hash-pinned requirement lines for a Python the build needs, installed "
+            "into a venv in the build directory with --require-hashes; prepare, "
+            "configure and compile run with it first on the PATH. CoMaps' CMake "
+            "refuses Debian's protobuf 4.x (D-069). Build-only: it is discarded "
+            "with the build directory and never reaches the operator."
+        ),
+    )
+    prepare: PrepareStep | None = Field(
+        default=None,
+        description="An upstream script run in the tree before configure. D-069.",
+    )
+    extra_files: list[ExtraFile] = Field(
+        default_factory=list,
+        description="Files the install rule leaves out, installed after it. D-069.",
+    )
 
     @model_validator(mode="after")
     def _pinned(self) -> GitInstall:
@@ -458,6 +609,29 @@ class GitInstall(Strict):
     @model_validator(mode="after")
     def _tree_marker(self) -> GitInstall:
         _check_tree_marker(self.install_tree, self.tree_marker, self.method)
+        return self
+
+    @model_validator(mode="after")
+    def _build_fields(self) -> GitInstall:
+        if self.commit is not None:
+            if COMMIT_SHA.match(self.ref):
+                raise ManifestError(
+                    f"commit is for a tag ref; ref {self.ref!r} is already a commit"
+                )
+            if not COMMIT_SHA.match(self.commit):
+                raise ManifestError(
+                    f"commit must be 40 lowercase hex characters, got {self.commit!r}"
+                )
+        unhashed = _unhashed(self.build_python)
+        if unhashed:
+            raise ManifestError(
+                f"build_python lines without a --hash=sha256: pin: {unhashed[:3]} -- "
+                f"non-apt sources are verified or refused, at build time too"
+            )
+        names = [f.install_as for f in self.extra_files]
+        twice = sorted({n for n in names if names.count(n) > 1})
+        if twice:
+            raise ManifestError(f"extra files would install {', '.join(twice)} twice")
         return self
 
 
@@ -587,13 +761,7 @@ class VenvInstall(Strict):
 
     @model_validator(mode="after")
     def _hashes(self) -> VenvInstall:
-        unhashed = [
-            line
-            for line in self.requirements
-            if line.strip()
-            and not line.lstrip().startswith(("#", "--"))
-            and "--hash=sha256:" not in line
-        ]
+        unhashed = _unhashed(self.requirements)
         if unhashed:
             raise ManifestError(
                 f"venv requirements without a --hash=sha256: pin: {unhashed[:3]} — "
@@ -927,6 +1095,33 @@ class KiwixBooksInstall(Strict):
     provider: Literal["kiwix"] = "kiwix"
 
 
+class MwmRegionsInstall(Strict):
+    """CoMaps' own map files for the station's map regions (D-069).
+
+    Like `DemTilesInstall`, nothing is pinned in the manifest: which maps
+    follows the operator's regions in station config, through the region
+    table in ``catalog/data/comaps-pins.yaml``, generated from CoMaps' map
+    index at the commit the `comaps` unit pins. Each map is checked against
+    that index's SHA-1 and exact size, the publisher's own check, and the plan
+    says so. `provider` is an enum, so Organic Maps' CDN would be a new member
+    the engine implements, never a URL in the catalog.
+    """
+
+    method: Literal["mwm-regions"] = "mwm-regions"
+    provider: Literal["comaps"] = "comaps"
+    licence: str = Field(
+        min_length=2,
+        description="SPDX identifier where one exists, else the publisher's own words.",
+    )
+    licence_url: str = Field(description="Where the licence is stated, on the publisher's site.")
+
+    @model_validator(mode="after")
+    def _check(self) -> MwmRegionsInstall:
+        if not self.licence_url.startswith("https://"):
+            raise ManifestError(f"licence_url must be https, got {self.licence_url!r}")
+        return self
+
+
 #: D-061: the install method a `derived` block's `source` unit must actually
 #: resolve to, keyed by `converter`. A single-manifest validator cannot check
 #: this -- it would need another manifest's own install block, which is why
@@ -1169,7 +1364,8 @@ InstallMethod = Annotated[
     | DemTilesInstall
     | TopoQuadsInstall
     | DerivedDataInstall
-    | KiwixBooksInstall,
+    | KiwixBooksInstall
+    | MwmRegionsInstall,
     Field(discriminator="method"),
 ]
 
@@ -1514,6 +1710,7 @@ class UpdateProbe(Strict):
         "label_file",
         "pypi",
         "kiwix",
+        "comaps_maps",
         "none",
     ]
     repo: str | None = None

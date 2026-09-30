@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 198 | 7 | 76 | 2 | 0 |
-| ubuntu-26.04 | 200 | 5 | 76 | 2 | 0 |
-| ubuntu-24.04 | 193 | 14 | 74 | 2 | 0 |
-| kali-rolling | 205 | 8 | 70 | 0 | 0 |
-| parrot | 202 | 5 | 74 | 2 | 0 |
-| linuxmint-22.3 | 193 | 14 | 74 | 2 | 0 |
-| debian-13-arm64 | 197 | 8 | 72 | 6 | 0 |
+| debian-13 | 198 | 7 | 78 | 2 | 0 |
+| ubuntu-26.04 | 200 | 5 | 78 | 2 | 0 |
+| ubuntu-24.04 | 193 | 14 | 76 | 2 | 0 |
+| kali-rolling | 205 | 8 | 72 | 0 | 0 |
+| parrot | 202 | 5 | 76 | 2 | 0 |
+| linuxmint-22.3 | 193 | 14 | 76 | 2 | 0 |
+| debian-13-arm64 | 197 | 8 | 74 | 6 | 0 |
 
-**283 manifests** against **7 targets**.
+**285 manifests** against **7 targets**.
 
 ---
 
@@ -159,6 +159,8 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `code` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
 | `codium` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt | apt ✗ | apt ✗ |
 | `coil64` | git | git | git | git | git | git | git |
+| `comaps` | git | git | git | git | git | git | git |
+| `comaps-maps` | mwm-regions | mwm-regions | mwm-regions | mwm-regions | mwm-regions | mwm-regions | mwm-regions |
 | `comptext` | apt | apt | apt | apt | apt | apt | apt |
 | `comptty` | apt | apt | apt | apt | apt | apt | apt |
 | `country-boundaries` | data | data | data | data | data | data | data |
