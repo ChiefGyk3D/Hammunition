@@ -1139,3 +1139,39 @@ five land together.
 If A is taken, the order is: the schema and fetcher work (sizes, licence
 disclosure), `country_files` as the first and smallest data unit (a proof
 on a 200 KB file), then the tileset, then Navit's extract, then the ZIM.
+
+---
+
+## Q-022 🟢 — The 2026-09 gap analysis: which of its recommendations to take, and in what order
+
+**Raised:** 2026-09-30. **Blocks:** nothing in 1.0; it shapes what follows.
+**Evidence:** `docs/reference/catalog-gaps-2026-09.md`, a category-by-category
+comparison of the catalog against the field, prompted by the navigation gap
+you found on 2026-09-27.
+
+The report's headline is that the catalog is complete against its six
+sources (the Debian Blend is carried whole) and thin where the *engine's own
+plans* outran the manifests. Six things need a ruling rather than a
+manifest:
+
+| # | Question | Recommendation |
+|---|---|---|
+| 1 | **Station config for the units that need a callsign** (report §A1). D-008 promised "Direwolf *with configuration*" and D-035 built the mechanism; only `linbpq` uses it. Blocks for the plain-text units (Direwolf, axports, gpredict, tlf, aprx, uronode, linpac, fbb), and a page for the Qt/XML programs whose first-run wizard rewrites its own file? | **Yes, in that order.** Never a block for WSJT-X, fldigi or their kin: they rewrite the file on exit and the wizard is the safer path. No password is ever templated (`pat`'s block sets `mycall` and `locator` only). |
+| 2 | **The rig as station data** (§A2): a `rig` hardware class, three station fields (`rig`, `rig_device`, `rig_baud`), and one shared `rigctld` as a user service. D-042 approved the idea; this is its first concrete shape. Is a systemd *user* service a `system_modifications` kind you want the schema to have? | **Yes**, as a sub-project with a spec under `docs/superpowers/specs/`, after #1. It is the one change that makes every CAT-capable unit configure itself once. `flrig` stays as the alternative. |
+| 3 | **GPS-disciplined time** (§A4): a `chrony` unit in `station` with a `refclock` block reading `gpsd`, displacing `systemd-timesyncd` by disclosure (D-022). | **Yes.** FT8 with the network down is exactly the D-057 scenario and it fails at ±1 s without this. Measure which targets already ship chrony first. |
+| 4 | **Kismet** (§A7): the `rf-security` profile says it waits on the third-party-repo path; D-040 built that path on 2026-09-03. Carry it now — apt on Kali and Parrot, `apt_repos` elsewhere? | **Yes.** The CatSniffer V3 you own is a Kismet datasource, so this is measurable on the bench. |
+| 5 | **Three re-rulings** (§A8): `ARDOPGUI` superseded by `ardopcf`'s built-in web GUI; Morse Runner Community Edition (Lazarus, Linux port, 1.86 in preparation) tested against your 2026-08-25 conditional; `chattervox` retired as abandoned (last release 2020). | **All three as stated.** The first and third are paperwork; the second is one build on Debian 13. |
+| 6 | **The open HF-modem pair** (§B, Group 3): Mercury (Rhizomatica, GPL-3.0, VARA-API-compatible, released May 2026) and FreeDATA (DJ2LS, GPL-3.0). Both transmit in the ordinary station sense, like `ardopcf`. Carry both in the packet core, and re-rank VARA's post-1.0 Wine prefix afterwards? | **Yes.** Mercury is the first free answer to the reason VARA was ever on the list, and `pat` already speaks its API. |
+
+Everything else in the report is a manifest at a time and needs no ruling:
+the apt adds after the sweep confirms them (`predict`, `gr-fosphor`,
+`libiio-utils`, `stm32flash`, `ser2net`, `qpwgraph`, `gpsprune`, OpenCPN),
+the source-built adds each behind a D-032 liveness check (piHPSDR, FreeDV
+2.x with RADE, DroidStar, dump978-fa, nrsc5, LibreVNA, k5prog, OpenRTX's
+`radio_tool`, tar1090), and the two SDR devices that wait for hardware
+(HydraSDR RFOne, Fobos).
+
+**Two things the report could not do from this session**, and says so: no
+archive was reachable, so every "in Debian" claim is a web-search result
+marked `unmeasured` until `scripts/apt-policy-sweep.sh --all` runs; and no
+candidate has had the D-032 head-commit check yet.
