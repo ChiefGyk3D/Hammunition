@@ -73,6 +73,8 @@ STATIONS = {
     ),
     # D-066: book ids are named in the text as well as the document.
     "station-books": Station(reference_books=("ham.stackexchange.com_en_all",)),
+    # D-070: a LAN mirror, shown in the text and carried in the JSON.
+    "station-mirror": Station(mirror="http://bunker.lan:8080/"),
 }
 
 

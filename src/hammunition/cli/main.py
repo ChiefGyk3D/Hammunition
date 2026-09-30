@@ -433,13 +433,15 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             ("map_regions", args.map_regions),
             ("map_freshness", args.map_freshness),
             ("reference_books", args.reference_books),
+            ("mirror", args.mirror or args.clear_mirror),
         )
         if value
     ]
     if not set_fields:
         print(
             "error: nothing to set. Pass at least one of --callsign, --grid-square, "
-            "--node-alias, --map-regions, --map-freshness, --reference-books.",
+            "--node-alias, --map-regions, --map-freshness, --reference-books, --mirror, "
+            "--clear-mirror.",
             file=sys.stderr,
         )
         return EXIT_FAILED
@@ -451,6 +453,7 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             map_regions=map_regions,
             map_freshness=args.map_freshness or current.map_freshness,
             reference_books=reference_books,
+            mirror=None if args.clear_mirror else (args.mirror or current.mirror),
         )
     except StationError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -464,6 +467,8 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             print(f"  {field:<14} {station.freshness}")
         elif field == "reference_books":
             print(f"  {field:<14} {', '.join(station.reference_books)}")
+        elif field == "mirror":
+            print(f"  {field:<14} {station.mirror or '(cleared)'}")
         else:
             print(f"  {field:<14} {station.get(field)}")
     return EXIT_OK
@@ -856,6 +861,67 @@ def cmd_maps_regions(args: argparse.Namespace) -> int:
         return EXIT_OK
     for region in matched:
         print(region)
+    return EXIT_OK
+
+
+@envelope.json_capable()
+def cmd_artifacts(args: argparse.Namespace) -> int:
+    """Every remote data artifact the engine would fetch for the selection
+    on the command line, with no station and no install.  D-070.
+
+    Hammunition Bunker's one source of what to mirror. The network is asked
+    exactly as the plan asks it -- Geofabrik for a region's dated file and
+    MD5 and its outline, the Copernicus bucket for an unpinned tile's size
+    and ETag -- and only for what the selection names.
+    """
+    from hammunition.artifacts import SelectionError, list_artifacts, select_units
+    from hammunition.interface.artifacts import ArtifactsDocument, render_artifacts
+
+    regions: tuple[str, ...] = ()
+    if args.map_regions is not None:
+        regions = tuple(r for r in (p.strip() for p in args.map_regions.split(",")) if r)
+        if not regions:
+            print(
+                "error: --map-regions gave no regions after splitting on ',' and stripping "
+                "whitespace; give at least one, or leave the flag out.",
+                file=sys.stderr,
+            )
+            return EXIT_UNPLANNABLE
+        try:
+            Station(map_regions=regions)  # the shape station config accepts, nothing more
+        except StationError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return EXIT_UNPLANNABLE
+    requested = (
+        tuple(u for u in (p.strip() for p in args.units.split(",")) if u)
+        if args.units is not None
+        else ()
+    )
+    catalog_root = find_catalog(args.catalog)
+    catalog = load_catalog(catalog_root / "packages")
+    try:
+        units = select_units(catalog, requested)
+    except SelectionError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    entries = list_artifacts(
+        units,
+        regions=regions,
+        freshness=args.map_freshness,
+        catalog=catalog,
+        catalog_root=catalog_root,
+        today=date.today(),
+        region_probe=UrllibProbe(),
+        tile_probe=S3Probe(),
+    )
+    doc = ArtifactsDocument(
+        map_regions=regions, map_freshness=args.map_freshness, units=units, artifacts=entries
+    )
+    if envelope.wanted(args):
+        envelope.emit(doc)
+        return EXIT_OK
+    for line in render_artifacts(doc):
+        print(line)
     return EXIT_OK
 
 
@@ -1947,7 +2013,12 @@ def cmd_install(args: argparse.Namespace) -> int:
     # An installed tree is handed to the same operator (D-043): MSHV and
     # radiosonde-auto-rx write beside their executables, and the hand-over is a
     # planned, logged step rather than a side effect of who unpacked the build.
-    source = SourceBackend(Fetcher(owner=user or None), build_root=builds, owner=user or None)
+    # D-070: the station's LAN mirror, unless --no-mirror; only the data
+    # backends name a mirror path, so nothing else is ever asked of it.
+    mirror = None if args.no_mirror else station.mirror
+    source = SourceBackend(
+        Fetcher(owner=user or None, mirror=mirror), build_root=builds, owner=user or None
+    )
     git = GitBackend(
         runner=runner,
         build_root=builds,
@@ -2220,6 +2291,8 @@ def cmd_install(args: argparse.Namespace) -> int:
         region_notes=region_notes,
         terrain=terrain_view,
         sudo_keepalive=args.sudo_keepalive,
+        mirror=station.mirror,
+        mirror_ignored=args.no_mirror,
         idle=phone.idle(plan),
     )
     if envelope.wanted(args):
@@ -4021,6 +4094,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_maps_tether.set_defaults(func=cmd_maps_gps_tether)
 
+    p_artifacts = sub.add_parser(
+        "artifacts",
+        help="list every remote data artifact for a selection, with no station (D-070)",
+    )
+    p_artifacts.add_argument(
+        "--map-regions",
+        default=None,
+        metavar="R[,R...]",
+        help="comma-separated Geofabrik region paths; none defers the map units",
+    )
+    p_artifacts.add_argument(
+        "--map-freshness", default="yearly", choices=("yearly", "monthly", "latest")
+    )
+    p_artifacts.add_argument(
+        "--units",
+        default=None,
+        metavar="U[,U...]",
+        help="the units to list (default: every data, osm-regions and dem-tiles unit)",
+    )
+    p_artifacts.set_defaults(func=cmd_artifacts)
+
     p_maps_phone = maps_sub.add_parser(
         "phone",
         help="gather the phone map files into one folder with a SHA256SUMS and print the "
@@ -4117,6 +4211,14 @@ def build_parser() -> argparse.ArgumentParser:
             "its ticket valid until the run ends, so a long unprivileged step cannot leave "
             "a later root step waiting at a prompt (the default; D-062). "
             "--no-sudo-keepalive turns it off"
+        ),
+    )
+    p_install.add_argument(
+        "--no-mirror",
+        action="store_true",
+        help=(
+            "ignore the LAN mirror set in station config for this run; every data "
+            "download comes from its publisher (D-070)"
         ),
     )
     p_install.add_argument(
@@ -4258,6 +4360,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="comma-separated Kiwix book ids to carry offline; `hammunition reference "
         "books` lists them (D-066)",
     )
+    mirror_flags = p_station_set.add_mutually_exclusive_group()
+    mirror_flags.add_argument(
+        "--mirror",
+        default=None,
+        metavar="URL",
+        help="a LAN mirror of the data artifacts, tried before the publisher (D-070)",
+    )
+    mirror_flags.add_argument("--clear-mirror", action="store_true", help="remove the saved mirror")
     p_station_set.add_argument("--user", default=None, help="whose configuration to write")
     p_station_set.set_defaults(func=cmd_station_set)
 

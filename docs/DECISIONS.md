@@ -6607,3 +6607,104 @@ phone` in `src/hammunition/cli/main.py`; the phone note in
 `catalog/packages/mapsforge-poi.yaml`, `catalog/profiles/phone-maps.yaml`.
 The operator's page is `docs/guides/offline-navigation.md`, section 14, and
 the CLI's is `docs/reference/cli.md`.
+
+---
+
+## D-070 — A data artifact may be taken from a LAN mirror the operator names, verified the same either way, and the engine can list what it would fetch without a station
+
+**Date:** 2026-09-29. **Status:** proposed (implemented on branch
+`artifacts-mirror`; the maintainer decides it at review). **Depends on:**
+D-049 (a `data` unit's artifacts are pinned and hashed), D-057 (map regions,
+verified by a pin or by Geofabrik's MD5, the plan saying which), D-061
+(terrain tiles, by a pin or by the object's ETag MD5), D-035 (station values
+are the operator's and defer, never invent), D-059 (one JSON document per
+command). **Amends:** nothing; it adds a second source to the verified
+fetch, never a second verifier.
+
+**Why.** A field machine re-downloads the same public data every time it is
+rebuilt or its regions change: gigabytes of Geofabrik extracts and
+Copernicus tiles over whatever connection it has. The maintainer's NAS sits
+on the same LAN. Hammunition Bunker
+(<https://github.com/ChiefGyk3D/hammunition-bunker>, spec approved
+2026-09-29) keeps a verified copy of that data there and serves it. It holds
+no pins and no verifier of its own; it needs the engine to tell it what to
+keep, and the engine to take from it without trusting it.
+
+**Decided.**
+
+1. **`hammunition artifacts [--json]`** lists every remote data artifact the
+   engine would fetch for a selection given on the command line:
+   `--map-regions`, `--map-freshness` (default `yearly`) and `--units`
+   (default: every unit with a `data`, `osm-regions` or `dem-tiles` block).
+   One entry per `data` file, per region, and per tile a region's outline
+   touches, resolved by the plan's own code: the same pins, the same
+   freshness and fallback, the publisher's MD5 or ETag read. **No station
+   file is read and nothing installed here is read**, so the listing is the
+   same on every machine. A region, outline or tile that cannot be resolved,
+   and a map unit given no regions, is an entry whose `deferred` says why,
+   never dropped. A unit that is not in the catalog, or fetches nothing, is
+   refused with exit 2 by name.
+2. **The `artifacts` document** is the Bunker's contract: `unit`, `name`,
+   `url`, `check` (`sha256`, `md5-publisher`, `etag-md5`; `sha256-publisher`
+   is reserved and no unit produces it), `digest`, `checksum_url`, `size`,
+   `licence`, `deferred`. `name` is the artifact's stable name within its
+   unit: the region path, the tile name, a data file's `install_as` or the
+   file name its URL ends in.
+3. **`digest` is always a digest.** The Bunker spec allowed it to hold the
+   URL of a publisher checksum until read. A field that is sometimes a URL
+   and sometimes hex is a parse ambiguity in a contract, and the engine
+   reads the checksum while resolving anyway; where it read it from is the
+   added `checksum_url`.
+4. **`station set --mirror URL`** stores one optional key, removed by
+   `--clear-mirror`. It must be `http` or `https` with a host, no user or
+   password (the station file holds no credentials), no query or fragment.
+   It is not a template variable. **Plain http is allowed on purpose**: the
+   content is public data and the check is the hash, not the transport.
+5. **A mirror URL is a LAN address, never something reachable from the
+   internet.** The docs say so. The engine does not enforce it: whether a
+   name is private cannot be decided without resolving it, and nothing the
+   mirror could send gets past the digest.
+6. **The verified fetch tries `<mirror>/<unit>/<name>` first** (each segment
+   percent-quoted; an empty, `.` or `..` segment refused) for the three kinds
+   of artifact the listing names, and the publisher second. **Any failure at
+   the mirror** — unreachable, an HTTP error, the size cap, a wrong size, a
+   wrong digest — discards what it sent and asks the publisher. The digest
+   checked is the same either way; nothing unverified reaches the cache. A
+   mirror that did not answer at all is not asked again in that run (one
+   10-second timeout, not one per tile). Source tarballs, prebuilt binaries,
+   wheels and npm packages are not mirrored: they are not in the contract.
+7. **The plan says so first.** A *Data mirror (D-070)* section names the
+   mirror; each data fetch step says the LAN mirror is tried first and its
+   digest checked either way, and its detail names both URLs in order. The
+   JSON plan carries `install.mirror` and each step's `sources`. With no
+   mirror set the text plan is unchanged. **`install --no-mirror`** ignores
+   the key for one run, and the plan says it is ignored.
+8. **The log records the actual source.** A data fetch's `action_end`
+   carries `source` (`cache`, `mirror` or `publisher`), `fetched_from` and,
+   when the mirror was passed over, `mirror_failure`
+   (`docs/reference/transaction-log.md`).
+
+**Measured.** `tests/test_fetch_mirror.py` against fakes, and
+`tests/test_mirror_loopback.py` against two real HTTP servers on 127.0.0.1
+through the real transport: a mirror hit asks the publisher nothing; a 404,
+wrong bytes, a wrong size and the cap each hand over with the same digest
+and leave nothing of the mirror's in the cache; a stopped mirror is asked
+once per run; both failing is one refusal naming both.
+`tests/test_artifacts.py`: pinned and unpinned regions, the three
+freshness modes, tiles from an outline, every deferral, no station read, no
+install record read, and the listing's `<unit>/<name>` being exactly what
+the fetch asks a mirror for. **Not yet measured:** an install on the field
+laptop against a running Bunker, which is the evidence this decision needs
+before it is accepted.
+
+**Rejected.** A mirror trusted for its own hashes (the Bunker writes
+sidecars): that would make the NAS a second source of truth, which it is
+not. Mirroring every fetch, source builds included: not in the Bunker's
+contract, and a build's pin is a commit the mirror has no name for.
+Enforcing a private address: a hostname proves nothing, and refusing a
+routable LAN address would refuse real networks. Asking the mirror for its
+index first: one request per artifact, falling back on a 404, needs no
+agreement about an index format the engine would then have to parse and
+trust. `artifacts` reading the station by default: the Bunker runs on a NAS
+with no station, and a listing that changed with whoever ran it would not
+be a contract.

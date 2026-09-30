@@ -1,0 +1,60 @@
+{
+  "schema": "hammunition/1",
+  "kind": "artifacts",
+  "engine": "<engine>",
+  "map_regions": [
+    "north-america/us/vermont",
+    "north-america/us/delaware"
+  ],
+  "map_freshness": "yearly",
+  "units": [
+    "osm-regions",
+    "dem-copernicus"
+  ],
+  "artifacts": [
+    {
+      "unit": "osm-regions",
+      "name": "north-america/us/vermont",
+      "url": "https://download.geofabrik.de/north-america/us/vermont-260101.osm.pbf",
+      "check": "sha256",
+      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "checksum_url": null,
+      "size": 99,
+      "licence": "ODbL-1.0",
+      "deferred": null
+    },
+    {
+      "unit": "osm-regions",
+      "name": "north-america/us/delaware",
+      "url": "https://download.geofabrik.de/north-america/us/delaware-260101.osm.pbf",
+      "check": "md5-publisher",
+      "digest": "2bf5a3bb7e9875719dc428015b7be8bf",
+      "checksum_url": "https://download.geofabrik.de/north-america/us/delaware-260101.osm.pbf.md5",
+      "size": 12345,
+      "licence": "ODbL-1.0",
+      "deferred": null
+    },
+    {
+      "unit": "dem-copernicus",
+      "name": "Copernicus_DSM_COG_10_N38_00_W076_00_DEM",
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N38_00_W076_00_DEM/Copernicus_DSM_COG_10_N38_00_W076_00_DEM.tif",
+      "check": "etag-md5",
+      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "checksum_url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N38_00_W076_00_DEM/Copernicus_DSM_COG_10_N38_00_W076_00_DEM.tif",
+      "size": 40000000,
+      "licence": "Copernicus DEM licence (free, with attribution)",
+      "deferred": null
+    },
+    {
+      "unit": "dem-copernicus",
+      "name": "Copernicus_DSM_COG_10_N43_00_W073_00_DEM",
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N43_00_W073_00_DEM/Copernicus_DSM_COG_10_N43_00_W073_00_DEM.tif",
+      "check": "sha256",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "checksum_url": null,
+      "size": 41,
+      "licence": "Copernicus DEM licence (free, with attribution)",
+      "deferred": null
+    }
+  ]
+}
