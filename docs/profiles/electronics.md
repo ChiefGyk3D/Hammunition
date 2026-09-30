@@ -8,7 +8,7 @@
 
 ## What it installs
 
-Five device programmers covering AVR, SPI flash, ARM debug probes, FPGAs and ST-LINK; command-line control of the ADALM2000 lab instrument; desktop front ends for the two instruments most likely to be on a ham's bench, the tinySA spectrum analyser and the NanoVNA; and three calculators — a Smith chart, a coil designer and an arbitrary transmission-line solver.
+Five device programmers covering AVR, SPI flash, ARM debug probes, FPGAs and ST-LINK; command-line control of the ADALM2000 lab instrument, and libiio's tools, which find and talk to it and to a PlutoSDR; desktop front ends for the two instruments most likely to be on a ham's bench, the tinySA spectrum analyser and the NanoVNA; and three calculators — a Smith chart, a coil designer and an arbitrary transmission-line solver.
 
 **Disk footprint:** Around 250 MB. The Qt front ends for the tinySA and NanoVNA are most of it; the programmers themselves are small.
 
@@ -16,9 +16,9 @@ Five device programmers covering AVR, SPI flash, ARM debug probes, FPGAs and ST-
 
 This is the half of the hobby that happens at a bench rather than at an operating position. It is deliberately opt-in: a station that only operates needs none of it, and a person building or repairing equipment wants all of it. The instrument front ends are here rather than in `antenna` because you reach for them for anything you have built, not only for antennas.
 
-## Packages (11)
+## Packages (12)
 
-[`avrdude`](../packages/avrdude.md), [`flashrom`](../packages/flashrom.md), [`openocd`](../packages/openocd.md), [`openfpgaloader`](../packages/openfpgaloader.md), [`stlink-tools`](../packages/stlink-tools.md), [`m2kcli`](../packages/m2kcli.md), [`qttinysa`](../packages/qttinysa.md), [`nanovna-saver`](../packages/nanovna-saver.md), [`gsmc`](../packages/gsmc.md), [`coil64`](../packages/coil64.md), [`atlc`](../packages/atlc.md)
+[`avrdude`](../packages/avrdude.md), [`flashrom`](../packages/flashrom.md), [`openocd`](../packages/openocd.md), [`openfpgaloader`](../packages/openfpgaloader.md), [`stlink-tools`](../packages/stlink-tools.md), [`m2kcli`](../packages/m2kcli.md), [`libiio-utils`](../packages/libiio-utils.md), [`qttinysa`](../packages/qttinysa.md), [`nanovna-saver`](../packages/nanovna-saver.md), [`gsmc`](../packages/gsmc.md), [`coil64`](../packages/coil64.md), [`atlc`](../packages/atlc.md)
 
 ## What it deliberately excludes
 

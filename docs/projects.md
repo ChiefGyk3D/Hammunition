@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**284 programs and packages** from the catalog, laid out the way the
+**285 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -324,6 +324,7 @@ SDR receivers and toolkits, device support, and receive-only decoders for aircra
 | [hackrf](packages/hackrf.md) | Host tools for HackRF — transfer, sweep, spectrum and firmware utilities | [github.com/greatscottgadgets/hackrf](https://github.com/greatscottgadgets/hackrf) |
 | [langford-utils](packages/langford-utils.md) | Control programs for the Per Vices Noctar board | [pervices.com](https://www.pervices.com/) |
 | [libbladerf2](packages/libbladerf2.md) | Library and udev rules for Nuand bladeRF boards | [github.com/Nuand/bladeRF](https://github.com/Nuand/bladeRF) |
+| [libiio-utils](packages/libiio-utils.md) | Command-line tools that find and talk to IIO devices such as the PlutoSDR and ADALM2000 | [github.com/analogdevicesinc/libiio](https://github.com/analogdevicesinc/libiio) |
 | [libmirisdr4](packages/libmirisdr4.md) | Open driver for Mirics-based receivers, including SDRplay RSP hardware | [github.com/f4exb/libmirisdr-4](https://github.com/f4exb/libmirisdr-4) |
 | [limesuite](packages/limesuite.md) | Host tools and library for LimeSDR hardware | [github.com/myriadrf/LimeSuite](https://github.com/myriadrf/LimeSuite) |
 | [miri-sdr](packages/miri-sdr.md) | Command-line tools for Mirics-based receivers | [github.com/f4exb/libmirisdr-4](https://github.com/f4exb/libmirisdr-4/) |

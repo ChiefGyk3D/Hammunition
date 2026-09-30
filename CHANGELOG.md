@@ -19,6 +19,10 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   Radio's GPU spectrum and waterfall blocks, offered on all seven targets;
   its .deb pulls `gnuradio-dev` and only the OpenCL loader, so the page
   says an OpenCL driver is the operator's to install. Not run on any GPU.
+  `libiio-utils` joins `electronics` beside `m2kcli` and is linked from
+  the `plutosdr` device: `iio_info -S`, as the `iio_scan` launcher, is
+  the first check that libiio sees a Pluto or an ADALM2000. No such
+  device is owned; nothing was scanned.
 
 ## v0.17.0 — 2026-09-30 — official topo sheets, CoMaps, and the offline browser map
 

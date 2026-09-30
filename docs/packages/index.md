@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**284 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**285 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -180,7 +180,7 @@ EchoLink clients, SvxLink repeater and node software, and their link and calibra
 - [svxlink-server](svxlink-server.md) — Repeater controller and EchoLink node in software
 - [svxreflector](svxreflector.md) — Conference server that links many SvxLink nodes into one talk group
 
-### `electronics` — 6
+### `electronics` — 7
 
 Circuit design, matching networks, lab instruments and the Blend's RF design tools.
 
@@ -188,6 +188,7 @@ Circuit design, matching networks, lab instruments and the Blend's RF design too
 - [coil64](coil64.md) — Calculates inductance for coils of almost any geometry
 - [electronics-radio-dev](electronics-radio-dev.md) — Metapackage pulling in the Blend's RF circuit-design tools
 - [gsmc](gsmc.md) — Interactive Smith chart for designing impedance matching networks
+- [libiio-utils](libiio-utils.md) — Command-line tools that find and talk to IIO devices such as the PlutoSDR and ADALM2000
 - [m2kcli](m2kcli.md) — Command-line control of the ADALM2000 lab instrument
 - [tempest-for-eliza](tempest-for-eliza.md) — Makes a monitor radiate music on an AM radio — a TEMPEST demonstration
 
@@ -471,7 +472,7 @@ Pass prediction and antenna and radio control for amateur and weather satellites
 
 - [gpredict](gpredict.md) — Real-time satellite tracking and pass prediction, with radio control
 
-### `sdr-hardware` — 33
+### `sdr-hardware` — 34
 
 Host tools, libraries, udev rules and SoapySDR modules for every supported receiver and transceiver.
 
@@ -485,6 +486,7 @@ Host tools, libraries, udev rules and SoapySDR modules for every supported recei
 - [hackrf](hackrf.md) — Host tools for HackRF — transfer, sweep, spectrum and firmware utilities
 - [langford-utils](langford-utils.md) — Control programs for the Per Vices Noctar board
 - [libbladerf2](libbladerf2.md) — Library and udev rules for Nuand bladeRF boards
+- [libiio-utils](libiio-utils.md) — Command-line tools that find and talk to IIO devices such as the PlutoSDR and ADALM2000
 - [libmirisdr4](libmirisdr4.md) — Open driver for Mirics-based receivers, including SDRplay RSP hardware
 - [limesuite](limesuite.md) — Host tools and library for LimeSDR hardware
 - [miri-sdr](miri-sdr.md) — Command-line tools for Mirics-based receivers
@@ -814,6 +816,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [libbladerf2](libbladerf2.md) | Library and udev rules for Nuand bladeRF boards | apt |
 | [libfreefare-bin](libfreefare-bin.md) | Tools for MIFARE DESFire, Ultralight and Classic over libnfc | apt |
 | [libhamlib-utils](libhamlib-utils.md) | The command-line tools for hamlib — test a radio before blaming software | apt |
+| [libiio-utils](libiio-utils.md) | Command-line tools that find and talk to IIO devices such as the PlutoSDR and ADALM2000 | apt |
 | [libmirisdr4](libmirisdr4.md) | Open driver for Mirics-based receivers, including SDRplay RSP hardware | apt |
 | [libnfc-bin](libnfc-bin.md) | Command-line tools for PN53x-based NFC readers | apt |
 | [limesuite](limesuite.md) | Host tools and library for LimeSDR hardware | apt |

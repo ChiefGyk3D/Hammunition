@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 199 | 7 | 76 | 2 | 0 |
-| ubuntu-26.04 | 201 | 5 | 76 | 2 | 0 |
-| ubuntu-24.04 | 194 | 14 | 74 | 2 | 0 |
-| kali-rolling | 205 | 8 | 71 | 0 | 0 |
-| parrot | 203 | 5 | 74 | 2 | 0 |
-| linuxmint-22.3 | 194 | 14 | 74 | 2 | 0 |
-| debian-13-arm64 | 198 | 8 | 73 | 5 | 0 |
+| debian-13 | 200 | 7 | 76 | 2 | 0 |
+| ubuntu-26.04 | 202 | 5 | 76 | 2 | 0 |
+| ubuntu-24.04 | 195 | 14 | 74 | 2 | 0 |
+| kali-rolling | 206 | 8 | 71 | 0 | 0 |
+| parrot | 204 | 5 | 74 | 2 | 0 |
+| linuxmint-22.3 | 195 | 14 | 74 | 2 | 0 |
+| debian-13-arm64 | 199 | 8 | 73 | 5 | 0 |
 
-**284 manifests** against **7 targets**.
+**285 manifests** against **7 targets**.
 
 ---
 
@@ -261,6 +261,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `libbladerf2` | apt | apt | apt | apt | apt | apt | apt |
 | `libfreefare-bin` | apt | apt | apt | apt | apt | apt | apt |
 | `libhamlib-utils` | apt | apt | apt | apt | apt | apt | apt |
+| `libiio-utils` | apt | apt | apt | apt | apt | apt | apt |
 | `libmirisdr4` | apt | apt | apt | apt | apt | apt | apt |
 | `libnfc-bin` | apt | apt | apt | apt | apt | apt | apt |
 | `limesuite` | apt | apt | apt | apt | apt | apt | apt |
