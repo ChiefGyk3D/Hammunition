@@ -384,3 +384,20 @@ def test_uronode_uses_only_keywords_its_parser_registers(
 def test_uronode_needs_the_node_alias(catalog: dict[str, PackageManifest]) -> None:
     writable, deferred = _plan_config(catalog["uronode"], Station(callsign="N0TST"), HOME)
     assert not writable and "node_alias" in deferred[0].why
+
+
+# ---------------------------------------------------------------------------
+# linpac and fbb -- measured, and no block: each configures itself
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("unit", ["linpac", "fbb"])
+def test_the_self_configuring_units_carry_no_block_and_say_why(
+    catalog: dict[str, PackageManifest], unit: str
+) -> None:
+    """linpac's first-run questions run only while ~/LinPac is absent; fbb's
+    fbb.conf needs values station config does not hold. Either block would
+    fight the program or write a partial file (D-035)."""
+    manifest = catalog[unit]
+    assert not manifest.config_files
+    assert "Q-022 #1" in " ".join((manifest.documentation.prerequisites or "").split())
