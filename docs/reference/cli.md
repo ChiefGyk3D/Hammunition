@@ -205,6 +205,23 @@ lists`, or, *behind the pin*, `...; 3 of them have a newer edition in the
 carried index`, and then the footer's command names `ustopo-qmapshack` beside
 it, which warps the new sheets.
 
+For `comaps-maps` (**D-069**) the row is a count too, because a CoMaps map
+id names a region: every map the station's regions need at its pinned
+version and size is `up to date` (`2 map(s) installed at their pinned
+version`); one installed under another version directory is `behind the
+pin`, with `install comaps-maps` to fetch the pinned one; anything else is
+`not installed`. Regions the carried table has no CoMaps map for are counted
+on the end. With `--upstream`, a `comaps_maps` probe asks CoMaps' CDN, once
+per unit, for the pinned version's `World.mwm` with a `HEAD`, and needs 200
+**and** the pinned size, since a CoMaps mirror answers a missing file with
+200 and a web page: `current` when it is published, `pin expiring` from 90
+days after the version's date (the CDN keeps a version for months, not
+forever), and `pin expired` when it answers 404 or 410, or 200 with another
+size, which an install would refuse. Any other answer (a 503, a 429) is
+`unanswered`, not an expired pin.
+Both name `scripts/gen_comaps_pins.py`. The summary line counts the expired
+and expiring pins.
+
 With `--json`, prints an `update` document
 ([json-interface.md](json-interface.md)) with the same rows, counts and
 commands. It keeps the text's count-only rule: `osm-regions` is a count
@@ -252,7 +269,7 @@ $ hammunition artifacts --map-regions north-america/us/vermont --units osm-regio
 |---|---|
 | `--map-regions R[,R…]` | Geofabrik region paths, as `station set --map-regions` takes them. None defers the map units |
 | `--map-freshness MODE` | `yearly` (the default), `monthly` or `latest`: which dated file each region resolves to and how it is verified, exactly as in the plan |
-| `--units U[,U…]` | The units to list. Default: every unit with a `data`, `osm-regions` or `dem-tiles` install block. A name not in the catalog, or a unit that fetches nothing (`osm-navit`, `navit`), exits 2 naming it |
+| `--units U[,U…]` | The units to list. Default: every unit with a `data`, `osm-regions`, `dem-tiles` or `mwm-regions` install block. A name not in the catalog, or a unit that fetches nothing (`osm-navit`, `navit`), exits 2 naming it |
 
 The network is asked as the plan asks it, and only for what the selection
 names: Geofabrik for a region's dated file, its `.md5` and its `.poly`
@@ -265,7 +282,7 @@ the exit code.
 With `--json`, prints an `artifacts` document
 ([json-interface.md](json-interface.md)): per artifact the unit, its stable
 name within the unit (what a mirror serves at `<mirror>/<unit>/<name>`), the
-publisher URL, the check (`sha256`, `md5-publisher`, `etag-md5`), the
+publisher URL, the check (`sha256`, `md5-publisher`, `etag-md5`, `sha1-publisher` for CoMaps' maps, D-069), the
 expected digest, where a publisher checksum was read, the size, the licence,
 and `deferred`. It carries the regions given, and nothing of the station's.
 
@@ -340,7 +357,42 @@ line when it switched BRouter from online to local or bound it to
 `qmapshack` is a named error, exit 1, after the edit. There is no `--json`
 form, because it replaces itself with a GUI (D-059).
 
-### `hammunition maps gps-tether [--gpsd HOST[:PORT]] [--port N]`
+### `hammunition maps comaps [--configure-only]`
+
+What the `comaps-offline` launcher runs (**D-069**). As the operator, never
+as root, it prepares two things CoMaps reads and then starts it:
+
+- **The licence answer.** CoMaps shows a modal dialog with its licence and
+  copyright notice until `EulaAccepted=true` is in
+  `$XDG_CONFIG_HOME/CoMaps/settings.ini` (by default
+  `~/.config/CoMaps/settings.ini`). The line is added only when no line sets
+  that key: the file is `key=value` lines, and CoMaps stops on a duplicated
+  key. An answer already there, either one, is left. A new file is mode
+  0600. A line on stderr says it was recorded and where the notice is.
+- **The maps.** Each map `comaps-maps` installed under
+  `/usr/local/share/hammunition/data/comaps-maps/<version>/` is linked into
+  `$XDG_DATA_HOME/CoMaps/<version>/` (by default `~/.local/share/CoMaps/`),
+  where CoMaps looks for them. A regular file of the same name, a map
+  downloaded in CoMaps, is left, with a line; a link of ours whose map is
+  gone is removed; nothing else there is touched.
+
+It then replaces itself with `/usr/local/bin/CoMaps`, with
+`MWM_WRITABLE_DIR` set to that data directory and `MWM_RESOURCES_DIR` to
+`/usr/local/share/comaps/data`. `--configure-only` prepares and does not
+start it.
+
+It refuses, exit 1, changing nothing and starting nothing: under root; when
+`/usr/local/bin/CoMaps` is not installed (naming `hammunition install
+comaps`); and when the settings file is a symbolic link, not a regular file,
+or not UTF-8. There is no `--json` form, because it replaces itself with a
+GUI (D-059). Started from the menu entry, which opens no terminal, its lines
+on stderr, the licence answer among them, are not seen; the guide says so.
+
+CoMaps has no position on the laptop: it reads GeoClue2 only, and nothing
+here feeds GeoClue the GPS. The navigation guide says what the route would
+be.
+
+### `hammunition maps gps-tether [--gpsd HOST[:PORT]] [--port N] [--position-port N]`
 
 What the `gps-tether` launcher runs (**D-061**). It watches gpsd's JSON, as
 `xgps` and Navit do, and writes `$GPRMC` and `$GPGGA` for every position
@@ -351,8 +403,9 @@ the host and port to enter:
 ```
 Serving gpsd's position as NMEA on 127.0.0.1 port 10110, to this machine only.
 In QMapShack: Realtime, Add source, GPS TCP/IP; host 127.0.0.1, port 10110.
+The offline browser map (`hammunition reference serve`) reads it from http://127.0.0.1:10111/position.
 Reading gpsd at 127.0.0.1 port 2947. Any number of NMEA programs may connect at once.
-Options: --gpsd HOST[:PORT] for a gpsd on another machine, --port N if 10110 is taken.
+Options: --gpsd HOST[:PORT] for a gpsd on another machine, --port N if 10110 is taken, --position-port N for the map's.
 Ctrl-C stops it. Navit reads gpsd directly and needs none of this.
 ```
 
@@ -360,6 +413,24 @@ Ctrl-C stops it. Navit reads gpsd directly and needs none of this.
 |---|---|---|
 | `--gpsd HOST[:PORT]` | `127.0.0.1:2947` | The gpsd to read: a host name or address, port 2947 when none is given. An IPv6 address goes in brackets (`[::1]`, `[2001:db8::7]:2947`); a bare one, an unclosed bracket, an empty host or a port outside 1 to 65535 is refused by name. |
 | `--port N` | `10110` | The port to serve on, still on 127.0.0.1 only. 1024 to 65535; below 1024 (only root may listen there, and the tether refuses root) and above 65535 are refused by name, and so is anything that is not a number. |
+| `--position-port N` | `10111` | The port of the browser map's position stream (**D-071**), on 127.0.0.1 only, with the same limits. The same port as `--port` is refused by name, so `--port 10111` needs `--position-port` too. |
+
+**The browser map's position (D-071).** A browser cannot read an NMEA
+socket, so the tether also answers `GET /position` on 127.0.0.1 port 10111
+as Server-Sent Events: one `data: {"lat": …, "lon": …, "mode": 2|3,
+"time": …}` event per fix. An event stream is a client like any NMEA client,
+counted in the same fan-out, so gpsd is watched while the map page is open
+and not after. A request whose `Host` is not `127.0.0.1:<port>` or
+`localhost:<port>` (DNS rebinding), or whose `Origin` is not a loopback page,
+is refused with 403 before gpsd is asked; `Access-Control-Allow-Origin` is
+sent only to a loopback page, so no web page from elsewhere can read your
+position through your own browser. A request with no `Origin` must ask for
+`Accept: text/event-stream` (so an image tag on some site cannot keep gpsd
+watched; `curl -N -H 'Accept: text/event-stream'
+http://127.0.0.1:10111/position` tests it from a terminal). Anything but
+`GET /position` is 404 or 405. A request not finished within 5 s is closed,
+at most 16 are held at once, and with gpsd unreachable the page gets a 503
+saying so.
 
 Neither option widens the bind: the feed is a position without
 authentication, so another machine reaches it through
@@ -520,7 +591,7 @@ every book with its id, title, pinned file and size, licence and licence
 URL, and whether it is chosen and installed. Which books somebody reads is
 not where they are, so unlike map regions the ids are named everywhere.
 
-### `hammunition reference serve [--port N]`
+### `hammunition reference serve [--port N] [--position-port N]`
 
 The offline reference on one page, on **127.0.0.1 only** (**D-066**):
 
@@ -528,6 +599,7 @@ The offline reference on one page, on **127.0.0.1 only** (**D-066**):
 $ hammunition reference serve
 Offline reference: http://127.0.0.1:8480/  (this machine only; Ctrl-C stops it)
   books: kiwix-serve on http://127.0.0.1:8481/wiki/
+  map: http://127.0.0.1:8480/map/  (2 region(s); your position from `hammunition maps gps-tether` on port 10111)
 ```
 
 The page, from the engine's own standard-library server on port 8480,
@@ -549,6 +621,26 @@ you: parsing downloaded files is the reader's business, never root's.
 | Option | Default | What it does |
 |---|---|---|
 | `--port N` | `8480` | The page's port, still on 127.0.0.1; kiwix-serve takes N+1. 1024 to 65534; anything else is refused by name. |
+| `--position-port N` | `10111` | Where the map page asks the GPS tether for your position, on 127.0.0.1: the tether's own `--position-port`. 1024 to 65535. |
+
+**The offline map (D-071).** When `vector-map-kit` is installed, the same
+server also serves the map (with no `osm-pmtiles` region installed, the
+page says so and what to run):
+`/map/` (the page), `/map/regions.json` (the installed regions),
+`/map/tiles/<slug>.pmtiles` and `/map/kit/<path>` (MapLibre GL JS,
+pmtiles.js, the OSM Bright style, sprite and fonts). Each file is served by
+its exact installed name only, found when the verb starts: a region built
+while it runs appears after a restart. Every file answers a single HTTP
+`Range` with 206 and `Content-Range` (pmtiles.js reads the tiles that way,
+and Python's plain `http.server`, which ignores ranges, makes it fail:
+measured), `HEAD` with its size and `Accept-Ranges: bytes`, and a range past
+the end with 416. A request whose `Host` is not `127.0.0.1:<port>` or
+`localhost:<port>` is refused with 403, on every path, so a web page whose
+name an attacker points at 127.0.0.1 cannot read which regions you carry.
+The page loads nothing from anywhere else, draws "© OpenMapTiles ©
+OpenStreetMap contributors" on the map as the licences require, and shows
+your position when `hammunition maps gps-tether` runs. Without the kit the
+landing page says what to install instead.
 
 With no books installed, no kiwix-serve is started and the page says how to
 choose some. With books installed and `kiwix-serve` or `kiwix-manage`
@@ -1738,6 +1830,34 @@ recorded beside the pin rather than implied by it.
 
 The fetch is shallow and by ref, so a pinned commit costs one object walk rather
 than a project's whole history.
+
+**A tag may name its commit** (`commit:`). The pin check then compares the
+checkout with it and refuses a re-cut tag instead of only recording what it
+resolved to. CoMaps pins `v2026.08.31-14` to `72632e4`, the commit Flathub,
+nixpkgs and the AUR build (**D-069**).
+
+Four more steps exist for a build that needs them, each catalog data and
+each run by the engine (**D-069**; CoMaps is the one user):
+
+- `submodules: true` runs `git submodule update --init --recursive --depth
+  1` after the pin check, then `git submodule status --recursive`, and stops
+  unless there is at least one submodule and each is at the commit the
+  pinned revision records.
+- `build_python` makes a venv beside the tree
+  (`<build>/build-python`) with the engine's own interpreter and installs
+  the hash-pinned lines with `--require-hashes`; the prepare, configure and
+  compile commands run with `VIRTUAL_ENV` and the venv first on `PATH`. The
+  install command does not.
+- `prepare` runs an upstream script in the tree (`./configure.sh
+  --skip-map-download` for CoMaps) with its declared environment,
+  `CMAKE_BUILD_PARALLEL_LEVEL` set to the job count, then checks that each
+  glob in `produces` matches a non-empty regular file: CoMaps' symbol
+  generation exits 0 with no symbols when optipng is missing.
+- `extra_files` installs, after the build's own install, each file its rule
+  leaves out, a sha256-pinned download (fetched with the others, before
+  apt) or a file of the built tree, with `rm -f` first so a symlink at the
+  destination is replaced, never written through. The effect check then
+  requires a regular file there.
 
 ## Consent gates
 

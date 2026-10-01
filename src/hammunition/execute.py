@@ -47,6 +47,7 @@ from hammunition.backends import (
     SourceBackend,
     VenvBackend,
 )
+from hammunition.backends.comaps_maps import ComapsMapsBackend
 from hammunition.backends.dem import DemTilesBackend
 from hammunition.backends.derived import Ledger
 from hammunition.backends.kiwix import KiwixBooksBackend
@@ -62,6 +63,7 @@ from hammunition.manifest.schema import (
     GitInstall,
     InstallBlock,
     KiwixBooksInstall,
+    MwmRegionsInstall,
     NodeInstall,
     RegionalDataInstall,
     SourceInstall,
@@ -113,6 +115,14 @@ def _declares_installed_binaries(block: InstallBlock) -> bool:
     if isinstance(method, SourceInstall | GitInstall):
         return True
     return isinstance(method, BinaryInstall) and method.format != "deb"
+
+
+def _extra_files(block: InstallBlock) -> tuple[str, ...]:
+    """A git block's `extra_files`, as paths under the prefix (D-069)."""
+    method = block.install
+    if isinstance(method, GitInstall):
+        return tuple(extra.install_as for extra in method.extra_files)
+    return ()
 
 
 def _tree_marker(block: InstallBlock) -> str | None:
@@ -321,6 +331,9 @@ def build_effects_present(planned: PlannedPackage, *, prefix: Path) -> bool | No
     if _declares_installed_binaries(planned.block):
         for declared_file in planned.manifest.installed_files:
             present.append((prefix / declared_file).exists())
+    for extra in _extra_files(planned.block):
+        path = prefix / extra
+        present.append(path.is_file() and not path.is_symlink())
     if not present:
         return None
     return all(present)
@@ -406,6 +419,7 @@ def commands_for(
     dem: DemTilesBackend | None = None,
     topo: TopoQuadsBackend | None = None,
     books: KiwixBooksBackend | None = None,
+    mwm: ComapsMapsBackend | None = None,
     repos: AptRepoBackend | None = None,
     config_staging: Path | None = None,
     launcher_bin: Path | None = None,
@@ -549,6 +563,14 @@ def commands_for(
                     f"that installed nothing."
                 )
             builds.extend(books.steps(planned.manifest, block))
+        elif isinstance(block, MwmRegionsInstall):
+            if mwm is None:
+                raise BackendError(
+                    f"{planned.name} installs CoMaps' maps for the station's regions and no "
+                    f"mwm-regions backend was supplied. Skipping it would report a "
+                    f"successful run that installed nothing."
+                )
+            builds.extend(mwm.steps(planned.manifest, block))
     builds.extend(conversions)
 
     # A `fetch` is an in-process download into the cache, verified before it
@@ -867,6 +889,26 @@ def verify_effects(
                                 f"the install step exited 0 but there is no executable at "
                                 f"{path} -- the build has no install rule for it, or installs "
                                 f"it under another name"
+                            )
+                        ),
+                    )
+                )
+
+        for planned in plan.packages:
+            for extra in _extra_files(planned.block):
+                path = prefix / extra
+                present = path.is_file() and not path.is_symlink()
+                checks.append(
+                    EffectCheck(
+                        kind="file",
+                        subject=f"{planned.name}:{extra}",
+                        confirmed=present,
+                        detail=(
+                            f"regular file at {path}"
+                            if present
+                            else (
+                                f"the install step exited 0 but {path} is not a regular "
+                                f"file -- missing, or left a symlink (D-069)"
                             )
                         ),
                     )

@@ -6,6 +6,7 @@ done until it is documented."""
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -20,10 +21,14 @@ def _flat(path: str) -> str:
     return " ".join((REPO_ROOT / path).read_text().split())
 
 
-def test_d070_is_recorded_last_under_its_assigned_title() -> None:
+def test_d070_is_recorded_under_its_assigned_title_and_nothing_after_it_is_older() -> None:
+    """D-070 was the last entry when it was written; a later decision (D-071)
+    is appended after it, never before, and never numbered below it."""
     text = (REPO_ROOT / "docs" / "DECISIONS.md").read_text()
     assert TITLE in text
-    assert text.rindex("\n## D-") == text.index(TITLE) - 1, "D-070 is the last entry"
+    after = text[text.index(TITLE) + len(TITLE) :]
+    later = [int(n) for n in re.findall(r"\n## D-(\d{3}) ", after)]
+    assert all(n > 70 for n in later), f"a decision below D-070 recorded after it: {later}"
 
 
 def test_the_guide_points_at_the_bunker_and_says_lan_only() -> None:

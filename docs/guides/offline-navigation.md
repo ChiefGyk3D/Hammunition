@@ -579,10 +579,14 @@ It prints what to enter:
 ```
 Serving gpsd's position as NMEA on 127.0.0.1 port 10110, to this machine only.
 In QMapShack: Realtime, Add source, GPS TCP/IP; host 127.0.0.1, port 10110.
+The offline browser map (`hammunition reference serve`) reads it from http://127.0.0.1:10111/position.
 Reading gpsd at 127.0.0.1 port 2947. Any number of NMEA programs may connect at once.
-Options: --gpsd HOST[:PORT] for a gpsd on another machine, --port N if 10110 is taken.
+Options: --gpsd HOST[:PORT] for a gpsd on another machine, --port N if 10110 is taken, --position-port N for the map's.
 Ctrl-C stops it. Navit reads gpsd directly and needs none of this.
 ```
+
+The same tether also feeds the browser map (section 16) on 127.0.0.1
+port 10111.
 
 In QMapShack open the *Realtime* dock, right-click its list, *Add source*, choose *GPS TCP/IP* (measured on 1.17.1: that is the label, not "GPS Tether"), and enter host `127.0.0.1`
 and port `10110`.
@@ -1225,6 +1229,214 @@ average, so its contours ride the treetops; 3DEP is the bare ground.
 
 ---
 
+## 16. A map in the browser
+
+The same regions, drawn in any web browser on this machine with no program
+to learn and no network (**D-071**). `hammunition install navigation` builds
+it: `osm-pmtiles` turns each region into vector tiles with the archive's
+`tilemaker`, and `vector-map-kit` installs the fixed files the page needs.
+To build only this, `hammunition install osm-pmtiles`.
+
+Open it with the reference page's server, and your position with the
+tether, each in its own terminal:
+
+```
+hammunition reference serve
+hammunition maps gps-tether
+```
+
+Then open <http://127.0.0.1:8480/map/>. Choose a region at the top left;
+the map frames it. Zoom to 14 shows streets, buildings, water, parks and
+place names. With the tether running, a red marker shows where you are and
+*Centre on me* moves the map there; without it the bar says to start it.
+The corner of the map reads "© OpenMapTiles © OpenStreetMap contributors":
+the OpenMapTiles schema's CC-BY licence and OpenStreetMap's ODbL ask for
+that credit on the map, so it is never hidden.
+
+What it is made of, so you know what runs:
+
+- **The tiles** are built once per region, as you, in
+  `~/.cache/hammunition/build/osm-pmtiles/`, by tilemaker with tilemaker's
+  own OpenMapTiles profile at v3.0.0. tilemaker's `--store` keeps its memory
+  near 0.5 GB instead of 2.8 GB on a region the size of Delaware (measured
+  by the spike). They land in
+  `/usr/local/share/hammunition/data/osm-pmtiles/<region>.pmtiles`, about
+  0.91 times the download.
+- **The ocean** is Natural Earth's 1:10m polygon, clipped to each region
+  first with GDAL's `ogr2ogr`. The accurate ocean OpenStreetMap's tools use
+  (osmdata.openstreetmap.de's water polygons) is rebuilt every day with no
+  checksum: its simplified set changed size overnight between 2026-09-29
+  and 09-30, so no pin would last a day, and it is not carried. At street
+  zoom a coast may sit a little off OpenStreetMap's shoreline.
+- **The page** is served by `reference serve`'s own loopback server with
+  MapLibre GL JS 6.11.2, pmtiles.js 4.5.0 and the OSM Bright style, each
+  pinned by sha256 in `vector-map-kit`. Nothing is loaded from anywhere
+  else: the style as tilemaker ships it loads its sprite from GitHub and its
+  fonts from a local server of its own, and the page points both at this
+  machine. A headless browser with every non-loopback host blocked drew it
+  in the test suite with every request on 127.0.0.1.
+- **The position** comes from the tether's `GET /position` event stream on
+  127.0.0.1 port 10111 (`--position-port` on both commands if that port is
+  taken). A browser cannot read the NMEA port, and its own location service
+  on Linux is GeoClue's network guess, not your GPS. The tether refuses a
+  request that does not name 127.0.0.1 or localhost, and never hands the
+  stream to a page from another site.
+
+**Where tilemaker 3.0 is missing.** Ubuntu 24.04, and the releases built on
+it, carry tilemaker 2.4, which cannot write PMTiles. The plan says so and
+leaves `osm-pmtiles` out of `navigation` there, naming the version it found;
+everything else installs.
+
+**What else reads these maps.** Measured by the spike (2026-09-29):
+
+| Program | Reads | Here |
+|---|---|---|
+| This page | PMTiles vector tiles | yes |
+| AIS-catcher 0.70 | its own `.mbtiles` or a z/x/y folder, raster certain, vector not verified | no: tilemaker writes one file per run, and PMTiles is the one made |
+| QMapShack, Xastir, SDRangel | raster PNG tiles from a URL | no (below) |
+| YAAC | the `.osm.pbf` region itself (*File › OpenStreetMap › Import Raw OSM Map File*) | yes, from `/usr/local/share/hammunition/data/osm-regions/` |
+| pat, the Winlink standard forms | no maps at all | not needed |
+
+Raster tiles for QMapShack, Xastir or SDRangel need a whole stack:
+PostgreSQL with PostGIS, `osm2pgsql`, `renderd` with `mod_tile` and the
+openstreetmap-carto style, all in the archive. The spike imported Delaware
+into it (53 s, a 155 MB database) and did not measure the drawing, and the
+style wants the same unpinnable daily ocean again. A database service and a
+web server to draw PNGs on a field laptop is the heaviest route there is,
+so it is documented, not built.
+
+**Tile servers not carried**, each for its reason: martin, go-pmtiles
+(`pmtiles serve`) and mbtileserver are GitHub binaries with no checksum
+from their publishers, and the page needs nothing they add (go-pmtiles also
+listens on every address by default); tileserver-gl needs npm install
+scripts that fetch native binaries, which D-037 refuses; planetiler is not
+in any archive, needs Java 21 and about 1.45 GB of side downloads before
+the first tile, and is slower than tilemaker on a region.
+
+---
+
+## 17. CoMaps: search and routing like a phone app
+
+CoMaps is the desktop build of the CoMaps phone app, a community fork of
+Organic Maps. It draws vector maps on the machine, searches addresses,
+places and postcodes from an index inside each map file, and routes by
+car, bike, on foot and by public transport, all offline. It reads its own
+map format, not Geofabrik's, so it has its own map unit (**D-069**).
+
+**What it cannot do on the laptop yet: show where you are.** CoMaps on
+Linux asks for its position from GeoClue2 only, the desktop's location
+service, by name. It has no gpsd client and no NMEA reader, so neither
+gpsd nor the GPS tether reaches it. Use it to find a place and plan a
+route; use Navit (section 4) or QMapShack with the tether (section 11) to
+see yourself move. The route to a position is in "Giving CoMaps a
+position" below, and none of it is done by Hammunition.
+
+### Install it
+
+Both units are in the `navigation` profile, and use the regions you chose
+in section 1:
+
+```
+hammunition install comaps comaps-maps --dry-run
+hammunition install comaps comaps-maps
+```
+
+`comaps` is built from source: no archive carries it and upstream
+publishes no Linux binary. The plan names the tag (`v2026.08.31-14`) and
+the commit it must resolve to (`72632e4`, the commit Flathub, nixpkgs and
+the AUR all build), fetches the source and its submodules, builds a small
+Python for the build with a pinned protobuf, runs CoMaps' own
+`configure.sh` and then CMake. Expect tens of minutes; by hand, on an
+8-core laptop at two jobs, configure took about 3 minutes and the compile
+about 8. The build needs about 2 GB of memory per parallel job, which the
+engine already sizes to your machine.
+
+`comaps-maps` downloads CoMaps' own maps for your regions. The plan prints
+each map with its size, its licence and how it is checked:
+
+```
+Fetch CoMaps map US_Vermont (60.9 MB, ODbL-1.0) — SHA-1 and size from CoMaps' own map index at the pinned commit (the publisher's check)
+```
+
+That is the check CoMaps publishes and nothing stronger: the SHA-1 and
+exact size from its index (`countries.txt`) at the commit the app is built
+from. The size is compared exactly because CoMaps' mirrors answer a
+missing file with a normal-looking page. The sha256 of each file as
+installed goes into the transaction log. A US state is one to a dozen
+files and tens to a few hundred megabytes; Vermont is 61 MB, all of the
+US 15.7 GB.
+
+A region CoMaps names differently from Geofabrik (Geofabrik's
+`europe/germany/bayern` is CoMaps' "Free State of Bavaria") has no CoMaps
+map. The plan says so by name and fetches nothing for it; the rest
+install. All 50 US states and DC are covered, and 165 of the 197
+country-level Geofabrik regions; China, Russia, Ireland and Northern
+Ireland, and Israel and Palestine are among those that are not. If none of
+your regions has a CoMaps map, the plan says that too, and nothing is
+fetched. A LAN mirror (`station set --mirror`, see the LAN mirror guide) is
+asked first for each map, checked the same way.
+
+### Start it
+
+From the menu: **CoMaps with your offline maps**, under Navigation & Maps.
+It runs `hammunition maps comaps`, which, as you:
+
+- records in `~/.config/CoMaps/settings.ini` that CoMaps' licence and
+  copyright notice is accepted, only if the file has no answer yet, so
+  the first start does not stop at that dialog. The notice itself is
+  `/usr/local/share/comaps/data/copyright.html`;
+- links each installed map into `~/.local/share/CoMaps/<version>/`, where
+  CoMaps looks. A map you downloaded inside CoMaps is left alone;
+- starts CoMaps with those two directories named.
+
+Started from the menu, it opens no terminal, so you will not see it say
+that it recorded the licence answer; `hammunition maps comaps
+--configure-only` in a terminal does the first two, says what it did, and
+does not start CoMaps. CoMaps also installs its own menu entry, **CoMaps**, under
+its own categories. That one starts it without the preparation above: the
+first start shows the licence dialog, and it does not see Hammunition's
+maps.
+
+### Keep the maps current
+
+The maps are the version the app's own index names, and CoMaps' server
+keeps a version for months, not forever. `hammunition update comaps-maps`
+says whether every map your regions need is installed at that version;
+`hammunition update comaps-maps --upstream` asks the server and says
+**pin expiring** from 90 days after the version's date and **pin expired**
+once it is gone (a busy server is reported as unanswered, not expired). A new version comes with a new CoMaps release in the
+catalog; until then the maps you have keep working offline.
+
+### Giving CoMaps a position (not done, not measured)
+
+The route, for anyone who wants to try it by hand:
+
+1. Feed the GPS to GeoClue. GeoClue's **network-NMEA** source reads NMEA
+   from a network service advertised on the local network; Parrot's
+   `/etc/geoclue/geoclue.conf` has it enabled. Something would have to
+   advertise the tether's NMEA there.
+2. Allow CoMaps. GeoClue asks a desktop agent before it gives an app a
+   position, and Parrot's configuration names no KDE agent. An
+   `[app.comaps.comaps]` section with `allowed=true` in `geoclue.conf` is
+   the usual way.
+
+Both are changes to the whole machine, neither has been measured here, and
+Hammunition makes neither. Until they are, CoMaps has no "you are here" on
+the laptop.
+
+### Not measured yet
+
+- **US address search.** The desktop app has no way to script a search,
+  so the quality of US address results is for a person at the screen to
+  judge; the bench owes it.
+- **The build through Hammunition.** CoMaps was built by hand on
+  2026-09-29 with the same steps; the engine's build, including the
+  shallow submodule fetch, has not run.
+- **CoMaps reading the linked maps.** Its source reads a linked file like
+  any other; a running CoMaps has not been seen to.
+
+---
+
 ## What QMapShack does not do (yet)
 
 - **No offline address search**: use Navit (section 10).
@@ -1570,6 +1782,18 @@ delete:
 hammunition uninstall mapsforge-poi mapsforge-map
 ```
 
+The browser map's tiles and its kit go with:
+
+```
+hammunition uninstall osm-pmtiles vector-map-kit
+```
+
+CoMaps' maps go with `hammunition uninstall comaps-maps`. CoMaps itself is
+refused by `uninstall`, as every build is whose own install rule wrote into
+`/usr/local`: that rule leaves no list of files to reverse, and what it
+wrote is in the transaction log. The links in `~/.local/share/CoMaps/` are
+removed by `hammunition maps comaps` once their maps are gone.
+
 ---
 
 ## What has not been measured yet
@@ -1637,6 +1861,20 @@ overviews). Not yet run:
   single-instance socket is shared whatever `HOME` is set to.
 - The whole install of the sheets through Hammunition, on any machine.
 
+For the browser map (**D-071**), the page was drawn by headless Chromium in
+the test suite from the pinned kit and a synthetic tile, with every
+non-loopback host blocked and every request on 127.0.0.1; and the spike drew
+a real Delaware map the same way. Not yet measured, and owed by the bench:
+
+- **tilemaker through the engine.** tilemaker is not installed on the
+  development host, so the converter ran only against a stand-in. The first
+  real run, with Natural Earth's clipped ocean in place of the water
+  polygons the spike used, is the bench's, with its time, memory and the
+  `--store` scratch (the plan allows three times the download).
+- The page in a desktop browser, with the tether feeding a real receiver's
+  position.
+- tilemaker 3.1 (Ubuntu 26.04) and 3.2 (Debian forky) with the 3.0 profile.
+
 Measured on the field laptop on 2026-09-29, and recorded in bench session
 12: the whole install on two regions, with its build times; QMapShack
 listing the maps, the contour map and the elevation from the directories
@@ -1655,5 +1893,8 @@ For the phone files (**D-067**, section 14): none has been loaded on a
 phone, the converters have not run through Hammunition on real hardware,
 and their figures come from one region.
 
-Offline reference (Kiwix, a local tile server) is the next piece of this
-work and not in this profile.
+For CoMaps (**D-069**), see section 17: US address search, the build
+through the engine and CoMaps reading the linked maps are all owed.
+
+The offline reference (Kiwix books, dictionaries, ICS forms) is its own
+profile, `reference` (D-066). The browser map (section 16) is in this one.

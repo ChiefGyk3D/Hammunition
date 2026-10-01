@@ -58,6 +58,17 @@ needs it.
 Deferred post-1.0: VARA (Wine prefix, closed-source freeware), HAMRS (AppImage,
 scrapes its own download URL).
 
+**VARA re-ranked, 2026-09-30 (Q-022 #6).** VARA came in with the 73Linux delta
+(D-008) as the HF modem Winlink operators run beside ARDOP, and its only
+implementation is closed and Windows-only. Mercury (Rhizomatica, GPL-3.0) is now in the packet core and
+speaks VARA's TCP interface, so Pat's `varahf` transport drives it unchanged —
+measured here peer to peer, over two Mercury instances with no radio. That is
+the free answer to the reason VARA was listed. VARA's Wine prefix stays
+post-1.0 and is now optional: what it still buys is reaching gateways that run
+only VARA on the air, which Mercury does not interoperate with. FreeDATA
+(DJ2LS, GPL-3.0) joins the same profile as the open station-to-station
+messaging modem; it is not Winlink.
+
 ### Skywave Linux — the listening delta
 **Measured** — `docs/reference/skywave-inventory.md`, release 5.10.0. Of 60
 featured applications, **9 are delta**, 29 overlap another source, and 22 are
