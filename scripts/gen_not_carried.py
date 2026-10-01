@@ -415,6 +415,50 @@ RESOLVED_NOT_CARRIED: dict[str, tuple[str, str, str]] = {
 }
 
 
+#: Units the 2026-09 gap analysis found in the field that are recorded "Not
+#: added" in dispositions.md's *Beyond the six sources* table: unit -> (what
+#: rules it out, why, and what would change it). Validated against that
+#: table the way the dicts above are validated against the index, so a row
+#: added there without a reason here fails generation by name.
+FOUND_NOT_ADDED: dict[str, tuple[str, str]] = {
+    "gpsprune": (
+        "D-061",
+        "Offered on all seven targets, and not carried: D-061 measured it on "
+        "2026-09-28 and left it out because it draws its maps from online "
+        "tiles, which is what the `navigation` profile's exclusions say. "
+        "Carrying it needs the maintainer to amend D-061.",
+    ),
+    "freedv-rade": (
+        "Measured build, 2026-10-01",
+        "FreeDV 2.x, the release with the RADE neural voice mode, is in no "
+        "target's archive (all seven carry 1.8.11, which is the catalog's "
+        "`freedv` and has the pre-RADE modes), and its build cannot be pinned "
+        "from outside. v2.4.0 builds on Debian 13, but its CMake fetches its "
+        "own dependencies while building: `freedv-backend` at a tag, and "
+        "underneath it RADE's C port (`freedv/rade_c`) and RNNoise from their "
+        "`main` branches, and Opus as an unhashed archive. Two of those are "
+        "moving branches, which the security rules refuse, and the engine "
+        "cannot pin a fetch made inside someone else's build "
+        "(`source-build-gaps.md` #9). The install rule also leaves out the "
+        "`librade` library the binary links. Upstream's Linux binary is an "
+        "AppImage, which is refused by name. It is carried when a "
+        "distribution packages FreeDV 2.x or upstream pins those fetches.",
+    ),
+}
+
+
+def parse_found_not_added() -> set[str]:
+    """Units the *Beyond the six sources* table records as "Not added"."""
+    _, _, rest = DISPOSITIONS.read_text().partition("## Beyond the six sources")
+    section, _, _ = rest.partition("\n---")
+    if not section:  # pragma: no cover - guards a restructure of the source doc
+        sys.exit("no 'Beyond the six sources' section in dispositions.md; the shape changed")
+    return {
+        match.group(1)
+        for match in re.finditer(r"^\| \*\*([a-z0-9.+-]+)\*\* \| Not added", section, re.M)
+    }
+
+
 def normalise(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", name.lower())
 
@@ -463,6 +507,20 @@ def validate(units: list[tuple[str, str]], catalog_names: set[str]) -> None:
                 f"RESOLVED_NOT_CARRIED: `{unit}` expected index code {expected_code}, "
                 f"found {actual!r} — dispositions.md moved; move this entry too"
             )
+
+    found = parse_found_not_added()
+    for unit in sorted(found - set(FOUND_NOT_ADDED)):
+        problems.append(
+            f"FOUND_NOT_ADDED: dispositions.md records `{unit}` as not added but no "
+            f"reason is recorded here"
+        )
+    for unit in sorted(set(FOUND_NOT_ADDED) - found):
+        problems.append(
+            f"FOUND_NOT_ADDED: `{unit}` has an entry here but dispositions.md's "
+            f"'Beyond the six sources' table does not record it as not added"
+        )
+    for unit in sorted(set(FOUND_NOT_ADDED) & catalog_names):
+        problems.append(f"FOUND_NOT_ADDED: `{unit}` is listed as not added but has a manifest")
 
     for unit, (_, manifest, _) in SUPERSEDED.items():
         if manifest is not None and manifest not in catalog_names:
@@ -566,6 +624,21 @@ def render(catalog_names: set[str]) -> str:
     for unit in sorted(RESOLVED_NOT_CARRIED, key=str.lower):
         _, source, why = RESOLVED_NOT_CARRIED[unit]
         out.append(f"| `{unit}` | {source} | {why} |")
+
+    out += [
+        "",
+        "## Found by the 2026-09 gap analysis — not added",
+        "",
+        "Units from outside the six sources that the gap analysis",
+        "(`catalog-gaps-2026-09.md`) recommended and that measurement or the",
+        "decision record ruled out. Each says what would change the answer.",
+        "",
+        "| Unit | Ruled out by | Why |",
+        "|---|---|---|",
+    ]
+    for unit in sorted(FOUND_NOT_ADDED, key=str.lower):
+        basis, why = FOUND_NOT_ADDED[unit]
+        out.append(f"| `{unit}` | {basis} | {why} |")
 
     out += [
         "",
