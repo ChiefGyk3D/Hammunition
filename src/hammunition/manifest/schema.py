@@ -1617,10 +1617,59 @@ class ConfigFile(Strict):
     mode: str = "0644"
     append: bool = False
     backup_existing: bool = True
+    skip_if_present: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Append only: regular expressions, matched per line against the file as it "
+            "is when the step runs. If any line matches any of them the append is "
+            "skipped and the outcome says which -- the idempotence and the "
+            "no-duplicate rule of a file like axports, where a second port with the "
+            "same name or callsign is an error. May reference {station.*}; a value is "
+            "matched literally (escaped), never as a pattern."
+        ),
+    )
 
     @property
     def station_variables(self) -> set[str]:
-        return set(STATION_REF.findall(self.template))
+        found = set(STATION_REF.findall(self.template))
+        for pattern in self.skip_if_present:
+            found |= set(STATION_REF.findall(pattern))
+        return found
+
+    @property
+    def in_home(self) -> bool:
+        """``~/``: a file in the operator's home, resolved at plan time."""
+        return self.path.startswith("~/")
+
+    @model_validator(mode="after")
+    def _path_is_absolute_or_home(self) -> ConfigFile:
+        # `~/` is the operator's home -- the owner-aware one `paths` resolves,
+        # never $HOME, which is /root under sudo. Nothing else is expanded.
+        rest = self.path[2:] if self.in_home else self.path
+        if not (self.in_home or self.path.startswith("/")):
+            raise ManifestError(
+                f"config path {self.path!r} must be absolute or start with ~/ (the operator's home)"
+            )
+        parts = rest.split("/")
+        if not rest.strip("/") or rest.endswith("/") or ".." in parts or "~" in rest:
+            raise ManifestError(f"config path {self.path!r} must name a file, with no '..' or '~'")
+        return self
+
+    @model_validator(mode="after")
+    def _skip_only_when_appending(self) -> ConfigFile:
+        if self.skip_if_present and not self.append:
+            raise ManifestError(
+                f"{self.path}: skip_if_present only means something for an append; a "
+                f"whole-file write replaces the file (with a backup) regardless"
+            )
+        for pattern in self.skip_if_present:
+            try:
+                re.compile(STATION_REF.sub("X", pattern))
+            except re.error as exc:
+                raise ManifestError(
+                    f"{self.path}: skip_if_present {pattern!r} is not a regular expression: {exc}"
+                ) from exc
+        return self
 
 
 _REPO_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
@@ -1637,6 +1686,15 @@ class AptRepo(Strict):
     and refuses anything else. ``key_url`` is https: the fingerprint check
     is what makes the key trustworthy, but the transport still decides who
     can *see* the request.
+
+    ``when`` narrows the repository to some targets, with the same selector
+    an install block uses; unset, it applies everywhere. It exists because a
+    publisher may serve one tree per release under a different URI -- Kismet
+    serves ``.../release/trixie`` and ``.../release/noble``, each its own
+    ``Release`` file -- and a manifest that declared both unconditionally
+    would add a noble repository to a Debian 13 machine. A target no
+    repository applies to gets no repository, and the unit falls to the
+    ordinary "the archive does not offer it" path (D-039), deferred by name.
     """
 
     name: str
@@ -1646,6 +1704,10 @@ class AptRepo(Strict):
     key_url: str
     key_fingerprint: str
     rationale: str = Field(description="Shown to the user before the repo is added.")
+    when: Selector = Field(
+        default_factory=Selector,
+        description="The targets this repository applies to; unset means every target.",
+    )
 
     @model_validator(mode="after")
     def _well_formed(self) -> AptRepo:
@@ -2138,6 +2200,19 @@ class PackageManifest(Strict):
         if dupes:
             raise ManifestError(f"{self.name}: duplicate install_as: {sorted(dupes)}")
         return self
+
+    @model_validator(mode="after")
+    def _apt_repo_names_unique(self) -> PackageManifest:
+        """Two repositories of one name would write the same two files."""
+        names = [repo.name for repo in self.apt_repos]
+        dupes = sorted({n for n in names if names.count(n) > 1})
+        if dupes:
+            raise ManifestError(f"{self.name}: duplicate apt repo names: {dupes}")
+        return self
+
+    def apt_repos_for(self, distro: str, distro_version: str, arch: str) -> list[AptRepo]:
+        """The declared repositories whose ``when`` matches this target."""
+        return [r for r in self.apt_repos if r.when.matches(distro, distro_version, arch)]
 
     @model_validator(mode="after")
     def _apt_repo_needs_rationale(self) -> PackageManifest:

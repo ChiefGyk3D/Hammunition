@@ -1163,6 +1163,11 @@ manifest:
 | 5 | **Three re-rulings** (§A8): `ARDOPGUI` superseded by `ardopcf`'s built-in web GUI; Morse Runner Community Edition (Lazarus, Linux port, 1.86 in preparation) tested against your 2026-08-25 conditional; `chattervox` retired as abandoned (last release 2020). | **All three as stated.** The first and third are paperwork; the second is one build on Debian 13. |
 | 6 | **The open HF-modem pair** (§B, Group 3): Mercury (Rhizomatica, GPL-3.0, VARA-API-compatible, released May 2026) and FreeDATA (DJ2LS, GPL-3.0). Both transmit in the ordinary station sense, like `ardopcf`. Carry both in the packet core, and re-rank VARA's post-1.0 Wine prefix afterwards? | **Yes.** Mercury is the first free answer to the reason VARA was ever on the list, and `pat` already speaks its API. |
 
+**#1 ruled yes; delivered by PR #153** (2026-09-29):
+blocks for six of the eight units, `linpac` and `fbb` measured out with
+the reason in their manifests, and the engine additions recorded as
+D-035's 2026-09-29 amendment.
+
 Everything else in the report is a manifest at a time and needs no ruling:
 the apt adds after the sweep confirms them (`predict`, `gr-fosphor`,
 `libiio-utils`, `stm32flash`, `ser2net`, `qpwgraph`, `gpsprune`, OpenCPN),

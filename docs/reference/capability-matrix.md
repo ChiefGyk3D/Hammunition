@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 79 | 2 | 206 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 79 | 2 | 206 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 77 | 2 | 208 |
-| kali-rolling *(unswept)* | 0 | 0 | 73 | 0 | 214 |
-| parrot *(unswept)* | 0 | 0 | 77 | 2 | 208 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 77 | 2 | 208 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 75 | 6 | 206 |
+| debian-13 *(unswept)* | 0 | 0 | 79 | 2 | 213 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 79 | 2 | 213 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 77 | 2 | 215 |
+| kali-rolling *(unswept)* | 0 | 0 | 73 | 0 | 221 |
+| parrot *(unswept)* | 0 | 0 | 77 | 2 | 215 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 77 | 2 | 215 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 75 | 6 | 213 |
 
-**287 manifests** against **7 targets**.
+**294 manifests** against **7 targets**.
 
 ---
 
@@ -152,6 +152,7 @@ build HAS been run in a container say so in their own install notes.
 | `gpsd-tools` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `gqrx-sdr` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `gr-air-modes` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `gr-fosphor` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `gr-funcube` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `gr-gsm` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `gr-hpsdr` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -181,6 +182,7 @@ build HAS been run in a container say so in their own install notes.
 | `kalibrate-rtl` | git | git | git | apt ? | git | git | git |
 | `kappanhang` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `kel-agent` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `kismet` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `kiwix` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `kiwix-library` | kiwix-books | kiwix-books | kiwix-books | kiwix-books | kiwix-books | kiwix-books | kiwix-books |
 | `kiwix-tools` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -190,6 +192,7 @@ build HAS been run in a container say so in their own install notes.
 | `libbladerf2` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `libfreefare-bin` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `libhamlib-utils` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `libiio-utils` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `libmirisdr4` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `libnfc-bin` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `limesuite` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -222,6 +225,7 @@ build HAS been run in a container say so in their own install notes.
 | `odr-dabmod` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `odr-dabmux` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `odr-padenc` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `opencpn` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `openfpgaloader` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `openhamclock` | node | node | node | node | node | node | node |
 | `openocd` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -250,6 +254,7 @@ build HAS been run in a container say so in their own install notes.
 | `qgrid` | source | source | source | source | source | source | source |
 | `qlog` | git | git | git | apt ? | apt ? | git | git |
 | `qmapshack` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `qpwgraph` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `qrq` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `qsstv` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `qtbpqaprs` | git | git | git | git | git | git | git |
@@ -273,6 +278,7 @@ build HAS been run in a container say so in their own install notes.
 | `screen` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `sdrangel` | apt ? | binary | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `sdrpp` | git | git | git | apt ? | apt ? | git | git |
+| `ser2net` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `skid-finder` | binary | binary | binary | binary | binary | binary | binary |
 | `soapyremote-server` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `soapysdr-module-airspy` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -293,6 +299,7 @@ build HAS been run in a container say so in their own install notes.
 | `spectools` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `splat` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `stlink-tools` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `stm32flash` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `sunclock` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `supersdr` | venv | venv | venv | venv | venv | venv | venv |
 | `svxlink-calibration-tools` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |

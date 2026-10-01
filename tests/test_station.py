@@ -31,6 +31,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from hammunition.execute import write_config  # noqa: E402
 from hammunition.manifest.load import load_catalog  # noqa: E402
+from hammunition.manifest.schema import PackageManifest  # noqa: E402
 from hammunition.plan import _plan_config  # noqa: E402
 from hammunition.station import (  # noqa: E402
     STATION_FIELDS,
@@ -191,6 +192,83 @@ def test_a_complete_station_renders_the_file() -> None:
     _package, _config, body = writable[0]
     assert "M0ABC" in body and "IO91wm" in body and "TESTND" in body
     assert "{station." not in body, "an unsubstituted reference survived"
+
+
+# ---------------------------------------------------------------------------
+# Derived variables: computed from a stored value, never stored or invented
+# ---------------------------------------------------------------------------
+
+
+def test_a_position_is_derived_from_the_grid_square() -> None:
+    station = Station(grid_square="FN31pr")
+    assert station.get("latitude") == "41.7292"
+    assert station.get("longitude") == "-72.7083"
+
+
+def test_a_derived_variable_asks_for_the_value_it_comes_from() -> None:
+    """`station set --latitude` does not exist; the prompt and the deferral's
+    remedy must name what the operator can actually set."""
+    assert Station().missing({"latitude", "longitude"}) == ("grid_square",)
+    assert Station().missing({"ax25_callsign"}) == ("callsign",)
+    assert Station(grid_square="FN31pr").missing({"latitude", "callsign"}) == ("callsign",)
+
+
+@pytest.mark.parametrize("callsign", ["N0TST", "M0ABC", "2E0ABC", "9A1CMS"])
+def test_an_ax25_callsign_is_the_callsign_when_ax25_can_carry_it(callsign: str) -> None:
+    station = Station(callsign=callsign)
+    assert station.get("ax25_callsign") == callsign
+    assert station.unusable({"ax25_callsign"}) == ()
+
+
+@pytest.mark.parametrize("callsign", ["W1AW/4", "G0ABC/P", "3DA0ABC"])
+def test_a_callsign_ax25_cannot_carry_is_unusable_not_trimmed(callsign: str) -> None:
+    """Trimming `/P` or a seventh character would be inventing a station
+    identity (D-035). The value is set, so it is not *missing*; it is unusable,
+    and says why."""
+    station = Station(callsign=callsign)
+    assert station.get("ax25_callsign") is None
+    assert station.missing({"ax25_callsign"}) == ()
+    (reason,) = station.unusable({"ax25_callsign"})
+    assert callsign in reason and "AX.25" in reason
+
+
+def _templating(template: str, path: str = "/etc/fixture.conf") -> PackageManifest:
+    return PackageManifest.model_validate(
+        {
+            "name": "fixture",
+            "version": "1.0",
+            "summary": "A package that templates station values",
+            "categories": ["packet"],
+            "install": [{"install": {"method": "apt", "packages": ["fixture"]}}],
+            "config_files": [{"path": path, "template": template}],
+            "update": {"probe": {"method": "none"}},
+            "documentation": {
+                "what_it_does": "Stands in for a unit that templates station values.",
+                "why_you_want_it": "To exercise the planner's deferral.",
+                "upstream_url": "https://example.invalid/",
+            },
+        }
+    )
+
+
+def test_an_unusable_value_defers_the_file_with_the_reason() -> None:
+    manifest = _templating("MYCALL {station.ax25_callsign}\n")
+    writable, deferred = _plan_config(manifest, Station(callsign="W1AW/4"))
+    assert not writable
+    (deferral,) = deferred
+    assert "W1AW/4" in deferral.why and "AX.25" in deferral.why
+    assert "station set" not in deferral.remedy, "setting the value again cannot help"
+
+
+def test_every_template_names_a_known_variable() -> None:
+    """A typo in `{station.calsign}` would otherwise defer the file forever
+    with a remedy nobody can follow."""
+    from hammunition.station import TEMPLATE_VARIABLES
+
+    catalog = load_catalog(CATALOG)
+    for name, manifest in catalog.items():
+        unknown = manifest.station_variables - TEMPLATE_VARIABLES
+        assert not unknown, f"{name} templates unknown station values: {sorted(unknown)}"
 
 
 def test_a_package_with_no_config_defers_nothing() -> None:

@@ -36,6 +36,7 @@ import pwd
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from hammunition.backends import (
     IMPLEMENTED_BINARY_FORMATS,
@@ -538,7 +539,11 @@ def _build_depends_of(manifest: PackageManifest) -> set[str]:
 
 
 def _check_engine_capability(
-    manifest: PackageManifest, block: InstallBlock, *, repos_supported: bool = False
+    manifest: PackageManifest,
+    block: InstallBlock,
+    *,
+    repos_supported: bool = False,
+    applicable_repos: Sequence[AptRepo] | None = None,
 ) -> list[Blocker]:
     """Refuse, by name, anything this engine build cannot actually do.
 
@@ -640,11 +645,12 @@ def _check_engine_capability(
                 )
             )
 
-    if manifest.apt_repos and not repos_supported:
+    wanted_repos = list(manifest.apt_repos if applicable_repos is None else applicable_repos)
+    if wanted_repos and not repos_supported:
         # The backend exists (D-040); a caller that plans without one -- a
         # test, a bare `resolve` -- still gets the named refusal rather than
         # a plan that silently assumes the repository will appear.
-        names = ", ".join(repo.name for repo in manifest.apt_repos)
+        names = ", ".join(repo.name for repo in wanted_repos)
         found.append(
             Blocker(
                 subject=manifest.name,
@@ -674,18 +680,51 @@ def _check_engine_capability(
     return found
 
 
+def operator_home(user: str) -> Path | None:
+    """The home a manifest's ``~/`` config path means: the operator's, from the
+    account database -- never ``$HOME``, which sudo resets to ``/root``. None
+    for no operator, root, or an account this machine does not have."""
+    if not user:
+        return None
+    try:
+        entry = pwd.getpwnam(user)
+    except KeyError:
+        return None
+    if entry.pw_uid == 0 or entry.pw_dir in ("", "/"):
+        return None
+    return Path(entry.pw_dir)
+
+
 def _plan_config(
-    manifest: PackageManifest, station: Station
+    manifest: PackageManifest, station: Station, home: Path | None = None
 ) -> tuple[list[tuple[str, ConfigFile, str]], list[Deferral]]:
     """Render this manifest's templated config, or defer what cannot be rendered.
 
     Every file is all-or-nothing: a config file written with some values
     substituted and others left as `{station.callsign}` is worse than no file,
     because it looks configured. So a file missing one value is deferred whole.
+
+    A ``~/`` path is resolved against *home*, the operator's (``operator_home``);
+    with none, the file is deferred -- root's home is nobody's station.
     """
     writable: list[tuple[str, ConfigFile, str]] = []
     deferred: list[Deferral] = []
     for config in manifest.config_files:
+        if config.in_home:
+            if home is None:
+                deferred.append(
+                    Deferral(
+                        subject=manifest.name,
+                        what=f"will not write {config.path}",
+                        why="it belongs in the operator's home and no operator (other than root) was identified",
+                        remedy=(
+                            "run the install as yourself, or pass --user <name>. The package "
+                            "itself installs either way."
+                        ),
+                    )
+                )
+                continue
+            config = config.model_copy(update={"path": str(home / config.path[2:])})
         wanted = config.station_variables
         unknown = station.missing(wanted)
         if unknown:
@@ -703,11 +742,31 @@ def _plan_config(
                 )
             )
             continue
+        unusable = station.unusable(wanted)
+        if unusable:
+            deferred.append(
+                Deferral(
+                    subject=manifest.name,
+                    what=f"will not write {config.path}",
+                    why="; ".join(unusable),
+                    remedy=(
+                        "the value is set but this file cannot use it, and nothing is "
+                        "changed to make it fit: write the file by hand. The package "
+                        "itself installs either way."
+                    ),
+                )
+            )
+            continue
         body = config.template
+        patterns = list(config.skip_if_present)
         for variable in wanted:
             value = station.get(variable)
             assert value is not None  # `missing` above proved it
             body = body.replace("{station." + variable + "}", value)
+            # A value is matched literally: a callsign is data, never a pattern.
+            patterns = [p.replace("{station." + variable + "}", re.escape(value)) for p in patterns]
+        if patterns:
+            config = config.model_copy(update={"skip_if_present": patterns})
         writable.append((manifest.name, config, body))
     return writable, deferred
 
@@ -1022,6 +1081,7 @@ def _reference_books_deferral(name: str) -> Deferral:
 
 def _plan_repos(
     manifest: PackageManifest,
+    applicable: Sequence[AptRepo],
     install: AptInstall,
     repos: AptRepoBackend,
     missing: Sequence[str],
@@ -1030,7 +1090,9 @@ def _plan_repos(
 ) -> list[RepoAddition] | Blocker:
     """D-040: decide whether this unit's declared repositories are added.
 
-    Returns the additions -- possibly none -- or one blocker. The
+    ``applicable`` is the declared repositories whose ``when`` matches the
+    target; the rest are never mentioned to apt. Returns the additions --
+    possibly none -- or one blocker. The
     repositories are added only when the unit's *own* apt packages have no
     candidate: a target that already carries them is left as it is and told
     so (D-022), and a missing ``depends`` is never a reason to add somebody
@@ -1046,7 +1108,7 @@ def _plan_repos(
     """
     own_missing = sorted(p for p in missing if p in own)
     if not own_missing:
-        for repo in manifest.apt_repos:
+        for repo in applicable:
             if repos.state(repo, unit=manifest.name) is RepoState.absent:
                 notes.append(
                     f"{manifest.name}: the archive already offers {', '.join(install.packages)}; "
@@ -1054,7 +1116,7 @@ def _plan_repos(
                 )
         return []
     additions: list[RepoAddition] = []
-    for repo in manifest.apt_repos:
+    for repo in applicable:
         files = repos.files_for(repo)
         state = repos.state(repo, unit=manifest.name)
         if state is RepoState.foreign:
@@ -1224,7 +1286,12 @@ def resolve(
             )
             continue
 
-        capability = _check_engine_capability(manifest, block, repos_supported=repos is not None)
+        capability = _check_engine_capability(
+            manifest,
+            block,
+            repos_supported=repos is not None,
+            applicable_repos=manifest.apt_repos_for(target.distro, target.version, target.arch),
+        )
         if capability:
             blockers.extend(capability)
             continue
@@ -1261,7 +1328,7 @@ def resolve(
                 )
             continue
 
-        writable, unwritable = _plan_config(manifest, station)
+        writable, unwritable = _plan_config(manifest, station, operator_home(user))
         config_files.extend(writable)
         deferrals.extend(unwritable)
 
@@ -1386,11 +1453,8 @@ def resolve(
                 own = (
                     set(block.install.packages) if isinstance(block.install, AptInstall) else set()
                 )
-                if (
-                    manifest.apt_repos
-                    and repos is not None
-                    and isinstance(block.install, AptInstall)
-                ):
+                applicable = manifest.apt_repos_for(target.distro, target.version, target.arch)
+                if applicable and repos is not None and isinstance(block.install, AptInstall):
                     # D-040: the archive as configured has no candidate for
                     # the unit's own packages, and the manifest names where
                     # they come from. Decided here, from the same probe, so
@@ -1398,7 +1462,9 @@ def resolve(
                     # own codium -- never gets a repository it does not need
                     # (D-022), and a repository added under our name by an
                     # earlier run is recognised rather than re-added.
-                    repo_outcome = _plan_repos(manifest, block.install, repos, missing, own, notes)
+                    repo_outcome = _plan_repos(
+                        manifest, applicable, block.install, repos, missing, own, notes
+                    )
                     if isinstance(repo_outcome, Blocker):
                         blockers.append(repo_outcome)
                         continue

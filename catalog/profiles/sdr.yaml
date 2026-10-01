@@ -16,6 +16,7 @@ packages:
   - cubicsdr
   - gnuradio
   - gr-osmosdr
+  - gr-fosphor
   - soapysdr-tools
   - soapysdr-module-rtlsdr
   - rtl-sdr
@@ -29,7 +30,8 @@ packages:
 documentation:
   what_it_installs: >-
     Three general-purpose receivers with waterfalls, GNU Radio and the block
-    that lets a flow graph talk to almost any radio, the SoapySDR tools and the
+    that lets a flow graph talk to almost any radio, fosphor's GPU-drawn
+    spectrum and waterfall blocks for it, the SoapySDR tools and the
     RTL-SDR driver stack, the client and server halves of network SDR sharing,
     an offline signal visualiser, an RDS decoder, a transceiver application for
     hardware that transmits, and a complete GPS receiver in software.
@@ -72,6 +74,11 @@ documentation:
     so it belongs on a trusted network or behind a tunnel, deliberately.
     Quisk is configured in Python rather than through a dialog; the shipped
     examples are the starting point and this is the step that stops people.
+    fosphor's blocks need an OpenCL driver for the graphics hardware, which
+    nothing here installs; `clinfo` shows whether one is present, and the
+    `gr-fosphor` package page says what the archives offer.
   disk_footprint_hint: >-
     Around 1.5 GB, most of it GNU Radio and its Python stack. Without GNU Radio
-    the rest is roughly 300 MB.
+    the rest is roughly 300 MB. `gr-fosphor` (added 2026-09-30) also pulls
+    `gnuradio-dev`, GNU Radio's development headers; what that adds has not
+    been measured.

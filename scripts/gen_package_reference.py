@@ -55,6 +55,7 @@ from hammunition.manifest.schema import (  # noqa: E402
     PackageManifest,
     PipxInstall,
     RegionalDataInstall,
+    Selector,
     SourceInstall,
     Status,
     TopoQuadsInstall,
@@ -169,16 +170,21 @@ def _binary_line(b: Binary) -> str:
     return f"`{b.produced}` → `{b.install_as}`"
 
 
+def selector_text(when: Selector) -> str:
+    """What a selector restricts, in words. Empty when it is the default."""
+    parts = []
+    if when.distro:
+        parts.append("on " + ", ".join(when.distro))
+    if when.distro_version:
+        parts.append("version " + ", ".join(when.distro_version))
+    if when.arch:
+        parts.append("arch " + ", ".join(a.value for a in when.arch))
+    return "; ".join(parts)
+
+
 def selector_of(block: InstallBlock) -> str:
     """What restricts a block, in words. Empty when it is the default."""
-    parts = []
-    if block.when.distro:
-        parts.append("on " + ", ".join(block.when.distro))
-    if block.when.distro_version:
-        parts.append("version " + ", ".join(block.when.distro_version))
-    if block.when.arch:
-        parts.append("arch " + ", ".join(a.value for a in block.when.arch))
-    return "; ".join(parts)
+    return selector_text(block.when)
 
 
 def status_line(m: PackageManifest) -> str | None:
@@ -348,11 +354,38 @@ def page(m: PackageManifest) -> str:
             out.append(f"  - undo: `hammunition uninstall {m.name}` removes the tree")
         out.append("")
 
+    if m.apt_repos:
+        # D-040: the repository, its suite and the pinned fingerprint are what
+        # the operator is asked to affirm, so the page shows them, not only
+        # the prose around them.
+        out.append("## Third-party apt repositories\n")
+        out.append(
+            "Added only when the target's own archive has no candidate, and only after "
+            "you affirm the key fingerprint (**D-040**); `--yes` does not answer it.\n"
+        )
+        for repo in m.apt_repos:
+            where = selector_text(repo.when)
+            scope = f" — *{where}*" if where else ""
+            out.append(f"- **{repo.name}**{scope}")
+            out.append(
+                f"  - `{repo.uri}` suite{'s' if len(repo.suites) > 1 else ''} "
+                f"`{' '.join(repo.suites)}`, component{'s' if len(repo.components) > 1 else ''} "
+                f"`{' '.join(repo.components)}`"
+            )
+            out.append(f"  - key: <{repo.key_url}>")
+            out.append(f"  - fingerprint: `{''.join(repo.key_fingerprint.split()).upper()}`")
+        out.append("")
+
     if m.config_files:
         out.append("## Configuration it writes\n")
         for cfg in m.config_files:
             backup = "existing file backed up" if cfg.backup_existing else "no backup"
-            out.append(f"- `{cfg.path}` (mode {cfg.mode}, {backup})")
+            verb = "appended to" if cfg.append else "written"
+            fills = ", ".join(f"`{v}`" for v in sorted(cfg.station_variables))
+            out.append(
+                f"- `{cfg.path}` ({verb}, mode {cfg.mode}, {backup}); filled from the "
+                f"station values {fills}, and not written while one is unset (D-035)"
+            )
         out.append("")
 
     if d.known_problems:

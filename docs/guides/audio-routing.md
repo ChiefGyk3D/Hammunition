@@ -207,12 +207,13 @@ microphone?" in one line.
 
 ### A patchbay, if you want to see it drawn
 
-`qpwgraph` draws the same graph with wires you can drag. It is not in the
-catalog yet (gap report A3 recommends it as a unit, after an archive sweep
-confirms it on every target); install it with apt yourself if you want it:
+[qpwgraph](../packages/qpwgraph.md) draws every PipeWire device and every
+connection as boxes and wires, so "which input is WSJT-X actually
+listening to?" is answered by looking. It is in the
+[`digital-modes`](../profiles/digital-modes.md) profile; on its own:
 
 ```sh
-sudo apt install qpwgraph
+hammunition install qpwgraph
 ```
 
 `pavucontrol` is the older PulseAudio mixer and still works against

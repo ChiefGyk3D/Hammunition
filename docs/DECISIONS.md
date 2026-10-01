@@ -2061,6 +2061,49 @@ and explicitly did not cover templated config. This is that gap filled, and it
 is filled as a separate concept rather than a fourth modification kind, because
 a config file is the only one of the four that can be *partly* possible.
 
+### Amendment, 2026-09-29 — derived values, home paths and appends that cannot duplicate (Q-022 #1)
+
+Q-022 #1 (the 2026-09 gap analysis, §A1) asked for `config_files` blocks on
+the plain-text units that need a callsign. Measuring their formats for it
+found three things the mechanism above could not express. Each is filled
+without weakening the three properties: nothing is invented, a partial file
+is never written, an existing file is backed up once.
+
+- **A value can be derived, never stored twice.** gpredict wants a latitude
+  and longitude; the station stores a grid square. `{station.latitude}` and
+  `{station.longitude}` are the centre of the square (four decimals, the
+  square's precision and no more; `src/hammunition/maidenhead.py`). AX.25
+  cannot carry `W1AW/4` or a seven-character call, so `{station.ax25_callsign}`
+  is the callsign when it is one to six letters and digits. A derived value
+  whose source is unset reports the *source* as missing (the prompt and the
+  remedy ask for `grid_square`, which `station set` takes); one whose source
+  is set but cannot give it defers the file with that reason. Trimming `/4`
+  would be inventing a station identity, so it is never done.
+- **`~/` is the operator's home.** gpredict reads `~/.config/Gpredict` and
+  tlf the directory it starts in. A path beginning `~/` resolves against the
+  account the run is on behalf of (the account database, never `$HOME`,
+  which sudo resets to `/root`); with no operator the file is deferred. As
+  root, the engine writes there only through `O_NOFOLLOW` descriptors from
+  the home down (`paths.open_operator_dir`), refuses an entry that is not a
+  regular file, and hands what it writes to the operator. Any other path must
+  be absolute.
+- **An append names what it must not duplicate.** `skip_if_present` lists
+  regular expressions (station values substituted escaped, so a callsign only
+  ever matches itself); if a line of the file matches one when the step
+  runs, the append is skipped and the outcome names the line. libax25 refuses
+  a second `axports` port with the same name or callsign, so the `wl2k` line
+  is appended only when neither exists: a re-run changes nothing and a port
+  the operator defined is left alone.
+
+The dry run and the JSON plan name the station values each file is filled
+from (`fills`), never the values. Uninstall still does not reverse a
+written file, and each manifest says how to.
+
+Six of the eight units carry a block: `direwolf`, `ax25-tools` (the
+`axports` append), `gpredict`, `tlf`, `aprx` and `uronode`. `linpac` and
+`fbb` configure themselves on first run from answers station config does
+not hold, and their manifests say so instead.
+
 ## D-036 — Desktop integration is curated submenus, generated per desktop environment
 
 **Date:** 2026-08-29. **Status:** accepted (maintainer, during the first VM
@@ -2679,6 +2722,33 @@ that records it:
   manifest declares is not added (D-022)*, no gate was presented, no
   file was written under `/etc/apt/keyrings/` or `sources.list.d/`, and
   the log holds no `consent_affirmed`. Rule 3, measured.
+
+### Amendment, 2026-09-30 — a repository may be narrowed to some targets
+
+**No new number; this extends rule 1 and changes nothing else.** An
+`apt_repos` entry may carry `when:`, the same selector an install block
+uses (distro, distro version, architecture). Unset, it applies to every
+target, which is what `code` and `codium` have always meant. The plan
+considers only the repositories whose `when` matches the running target;
+the rest are never mentioned to apt, never disclosed, and never gated. A
+target that no repository applies to falls to the ordinary D-039 path: a
+profile member is deferred by name, a name the operator typed is refused.
+Two entries of one `name` are refused at load, because they would write the
+same two files.
+
+**Why.** Kismet (Q-022 #4) is the first publisher whose repository is one
+tree per release under a different URI: `…/repos/apt/release/trixie` with
+suite `trixie`, and `…/release/noble` with suite `noble`, each with its own
+`Release` file. The URI differs, not only the suite, so one declaration
+cannot serve both, and declaring both unconditionally would add Ubuntu
+noble's packages to a Debian 13 machine. Measured 2026-09-30 from the
+repository's own index: `release/` carries `trixie` and `noble` and no
+`resolute`, so Ubuntu 26.04 gets no repository and Kismet is deferred
+there by name.
+
+`uninstall` is unchanged: it removes the files the log attributes to a
+unit's declared repositories, whichever target wrote them.
+
 
 ---
 

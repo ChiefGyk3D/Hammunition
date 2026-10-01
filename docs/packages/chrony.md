@@ -30,8 +30,8 @@ This displaces the distribution's own `systemd-timesyncd`, `ntpsec` (**D-022**: 
 
 ## Configuration it writes
 
-- `/etc/chrony/conf.d/hammunition-gps.conf` (mode 0644, existing file backed up)
-- `/etc/systemd/system/gpsd.service.d/hammunition-gps.conf` (mode 0644, existing file backed up)
+- `/etc/chrony/conf.d/hammunition-gps.conf` (written, mode 0644, existing file backed up); filled from the station values , and not written while one is unset (D-035)
+- `/etc/systemd/system/gpsd.service.d/hammunition-gps.conf` (written, mode 0644, existing file backed up); filled from the station values , and not written while one is unset (D-035)
 
 ## Known problems
 

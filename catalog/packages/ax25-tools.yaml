@@ -22,6 +22,33 @@ launchers:
     terminal: true
     # Who has been heard: the stations mheardd logged on each port. The rest of the unit is per-port configuration (kissattach, axparms, sethdlc) typed at a shell, not opened from a menu
 
+# The line 73Linux appends at install time (D-004 amendment, D-045), written
+# the D-035 way. Measured 2026-09-29, not remembered:
+#  - /etc/ax25/axports is libax25's conffile (0.0.12-rc5+git20230513, a
+#    dependency of ax25-tools), shipped with only its two example lines
+#    commented out, so on a fresh install this is the only port.
+#  - The format, from that file's header and axports(5): `name callsign speed
+#    paclen window description`, one port a line, `#` in the first column a
+#    comment.
+#  - `wl2k` is the port pat's AX.25 transport uses by default: pat 0.16.0
+#    (Parrot's package) writes `"ax25_linux": {"port": "wl2k"}` into a fresh
+#    config.json.
+#  - libax25's axconfig.c refuses a second port with the same name
+#    ("duplicate port name") or the same callsign ("duplicate callsign"),
+#    comparing names case-insensitively. So the line is appended only when
+#    the file has neither; a re-run finds its own line and changes nothing.
+config_files:
+  - path: /etc/ax25/axports
+    append: true
+    template: |
+      # wl2k: added by Hammunition from your station values -- the port pat uses.
+      wl2k {station.ax25_callsign} 1200 255 7 Winlink
+    skip_if_present:
+      - '(?i)^\s*wl2k\s'
+      - '(?i)^\s*[^#\s]\S*\s+{station.ax25_callsign}(-0)?\s'
+    mode: "0644"
+    backup_existing: true
+
 update:
   probe:
     method: apt_policy
@@ -39,11 +66,12 @@ documentation:
     what turns that from a compiled-in capability into a working port.
   prerequisites: >-
     A port definition in `/etc/ax25/axports` naming your callsign, the device,
-    and the speed. That file is the station configuration this catalog does not
-    yet generate: 73Linux writes a line into it at install time, and doing that
-    correctly requires knowing a callsign, which is the open question CLAUDE.md
-    records as blocking. Until then this manifest installs the tools and the
-    file is yours to write.
+    and the speed. Hammunition appends one, `wl2k <your callsign> 1200 255 7
+    Winlink` -- the port pat's AX.25 transport uses by default -- from station
+    config (`hammunition station set --callsign <yours>`). Attaching that port
+    to Direwolf or a TNC with `kissattach` is still yours to do. With no
+    callsign set the package installs and the line is reported as not
+    written.
   known_problems: >-
     Linux 7.1 removed the kernel AX.25 stack -- net/ax25, net/netrom, net/rose
     and every driver in drivers/net/hamradio -- in merge 64edfa65 of
@@ -66,6 +94,21 @@ documentation:
     some of the more exotic paths -- Rose in particular -- have few users and
     correspondingly few bug reports. A callsign written into axports is
     transmitted; it is the station identity, not a label.
+    What the configuration block does: appends the `wl2k` line above to
+    `/etc/ax25/axports` (mode 0644), with a comment line naming it as ours.
+    It is not appended when the file already has a port named `wl2k` or a
+    port on your callsign, because libax25 refuses a second one of either --
+    so a re-run changes nothing, and a port you defined yourself is left
+    alone. The file as it was is copied first to
+    `/etc/ax25/axports.hammunition-backup`, once. The line is written only
+    when the callsign is an AX.25 address (one to six letters and digits); a
+    callsign such as `W1AW/4` is reported as unusable rather than trimmed.
+    On a kernel without ax25 the unit is refused or deferred, and the line
+    with it. Inspect with `grep -v '^#' /etc/ax25/axports`.
+    `hammunition uninstall ax25-tools` does not remove it (config files are
+    not reversed, and the plan says so); to undo, delete the two `wl2k`
+    lines with `sudoedit /etc/ax25/axports`, or put the backup back with
+    `sudo mv /etc/ax25/axports.hammunition-backup /etc/ax25/axports`.
   upstream_url: https://linux-ax25.in-berlin.de/wiki/Main_Page
   upstream_support: >-
     The linux-ax25 project wiki, which is also the best available
