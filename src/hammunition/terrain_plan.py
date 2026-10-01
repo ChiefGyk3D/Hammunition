@@ -70,6 +70,9 @@ from .fetch import Fetcher
 from .geofabrik import BASE, GeofabrikError, Probe, RegionFile
 from .manifest.schema import BinaryInstall, DemTilesInstall, DerivedDataInstall, TopoQuadsInstall
 from .plan import InstallPlan, PlannedPackage
+from .usgs3dep import TileRow, check_tile, tile_url
+from .usgs3dep import load_tile_list as load_threedep_list
+from .usgs3dep import tile_name as threedep_name
 
 
 def poly_url(region: str) -> str:
@@ -140,6 +143,111 @@ def resolve_terrain(
     return DemResolution(regions=tuple(entries), fetch=tuple(fetch), current=tuple(current))
 
 
+def resolve_bare_earth(
+    regions: Sequence[tuple[str, str]],
+    *,
+    installed: Path,
+    tiles: Mapping[str, TileRow],
+    region_probe: Probe,
+    tile_probe: TileProbe,
+) -> DemResolution:
+    """*regions* resolved to their USGS 3DEP tiles (D-068, amended
+    2026-10-01): each region's record, else its outline's squares named by
+    their north-west corner and kept where the carried list has a tile; then
+    every tile not installed HEAD-checked against the list's size and ETag.
+    Every refusal is named together, as for Copernicus."""
+    refused: list[str] = []
+    entries: list[RegionTiles] = []
+    seen: set[tuple[str, str]] = set()
+    for region, slug in regions:
+        if (region, slug) in seen:
+            continue
+        seen.add((region, slug))
+        recorded = read_record(installed / f"{slug}{TILES}", region, slug)
+        if recorded is not None:
+            entries.append(recorded)
+            continue
+        try:
+            outer, holes = parse_poly(region_probe.text(poly_url(region)))
+        except (GeofabrikError, CopernicusError, OSError) as exc:
+            refused.append(f"  {region}: its outline could not be read: {exc}")
+            continue
+        names = {threedep_name(square) for square in squares_touching(outer, holes)}
+        found = tuple(sorted(name for name in names if name in tiles))
+        entries.append(RegionTiles(region, slug, found, len(names) - len(found)))
+    wanted = sorted({name for entry in entries for name in entry.tiles})
+    fetch: list[TileFile] = []
+    current: list[str] = []
+    for name in wanted:
+        if (installed / f"{name}{TIF}").is_file():
+            current.append(name)
+            continue
+        row = tiles.get(name)
+        if row is None:
+            refused.append(
+                f"  {name}: recorded for a region but no longer in the carried 3DEP list; "
+                f"scripts/gen_3dep_tiles.py --fetch regenerates it"
+            )
+            continue
+        try:
+            check_tile(row, tile_probe)
+        except (CopernicusError, OSError) as exc:
+            refused.append(f"  {name}: {exc}")
+            continue
+        fetch.append(TileFile(name, tile_url(name), row.size, None, None, row.etag))
+    if refused:
+        raise CopernicusError(
+            f"{len(refused)} 3DEP item(s) could not be resolved and are not installed "
+            f"already:\n" + "\n".join(refused)
+        )
+    return DemResolution(regions=tuple(entries), fetch=tuple(fetch), current=tuple(current))
+
+
+THREEDEP_LIST = Path("data") / "usgs-3dep-tiles.txt"
+
+
+def copernicus_chosen_note(unit: str) -> str:
+    """The plan's note for a planned 3DEP unit while the station chose Copernicus."""
+    return (
+        f"{unit}: dem_source is copernicus (the default), so no 3DEP tile is fetched and "
+        f"any installed one is removed; `hammunition station set --dem-source 3dep` "
+        f"chooses USGS bare earth, about ten times the size of Copernicus"
+    )
+
+
+def resolve_station_3dep(
+    plan: InstallPlan,
+    maps: MapResolution,
+    catalog_root: Path,
+    *,
+    prefix: Path,
+    source: str,
+    region_probe: Probe,
+    tile_probe: TileProbe,
+) -> tuple[DemResolution, tuple[str, ...]]:
+    """The plan's 3DEP tiles and notes (D-068, amended 2026-10-01). Nothing
+    unless the plan holds a ``usgs-3dep`` unit; with the station's
+    ``dem_source`` anything but ``3dep``, nothing is resolved -- no outline
+    asked, no HEAD -- and the plan says so."""
+    unit = _planned_dem(plan, "usgs-3dep")
+    if unit is None:
+        return DemResolution(), ()
+    if source != "3dep":
+        return DemResolution(), (copernicus_chosen_note(unit.name),)
+    tiles = load_threedep_list(catalog_root / THREEDEP_LIST)
+    regions = [(f.region, f.slug) for f in maps.files]
+    ours = {slug for _, slug in regions}
+    regions += [(k.region, k.slug) for k in maps.kept if k.slug not in ours]
+    resolution = resolve_bare_earth(
+        regions,
+        installed=data_root(prefix) / unit.name,
+        tiles=tiles,
+        region_probe=region_probe,
+        tile_probe=tile_probe,
+    )
+    return resolution, ()
+
+
 # ---------------------------------------------------------------------------
 # The whole of piece 2 for one install run: which units the plan holds, the
 # backends that build them, what the plan discloses and what the disk needs.
@@ -166,6 +274,15 @@ def _planned(
     return None
 
 
+def _planned_dem(plan: InstallPlan, provider: str) -> PlannedPackage | None:
+    """The planned ``dem-tiles`` unit of *provider*, or None."""
+    for planned in plan.packages:
+        block = planned.block.install
+        if isinstance(block, DemTilesInstall) and block.provider == provider:
+            return planned
+    return None
+
+
 def resolve_station_terrain(
     plan: InstallPlan,
     maps: MapResolution,
@@ -185,7 +302,7 @@ def resolve_station_terrain(
     then every plan -- a dry run included -- asks for its outline again; the
     plan says so (Task 10's note, ruled at Task 13: no plan-time cache, which
     under sudo would be a root-owned file in the operator's cache)."""
-    unit = _planned(plan, DemTilesInstall)
+    unit = _planned_dem(plan, "copernicus-glo30")
     if unit is None:
         return DemResolution()
     listed = catalog_root / TILE_LIST
@@ -276,7 +393,7 @@ class TerrainRun:
 
     def disclosure(self, plan: InstallPlan) -> TerrainDisclosure | None:
         """What the plan says about piece 2; None when it holds none of its units."""
-        dem = _planned(plan, DemTilesInstall)
+        dem = _planned_dem(plan, "copernicus-glo30")
         garmin = _planned(plan, DerivedDataInstall, "mkgmap")
         routino = _planned(plan, DerivedDataInstall, "routino-planetsplitter")
         gdal = _planned(plan, DerivedDataInstall, "gdal-dem")
