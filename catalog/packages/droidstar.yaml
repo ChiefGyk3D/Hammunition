@@ -73,6 +73,12 @@ install:
             the block off, DMR, Fusion and NXDN use the mbelib-derived
             software vocoder compiled into DroidStar instead -- the code
             path upstream's own `#else` branches take.
+            Neither switch has a variable a define could reach: both are
+            literals in the file. Measured 2026-10-01 in debian:13 without
+            the patch: `-DUSE_MD380_VOCODER=OFF` lands in the CMake cache
+            and changes nothing -- configure still stops at CorePrivate, and
+            with only that line edited the build stops at `fatal error:
+            md380_vocoder.h: No such file or directory`.
           unified_diff: |
             --- a/CMakeLists.txt
             +++ b/CMakeLists.txt
@@ -157,6 +163,12 @@ install:
             the block off, DMR, Fusion and NXDN use the mbelib-derived
             software vocoder compiled into DroidStar instead -- the code
             path upstream's own `#else` branches take.
+            Neither switch has a variable a define could reach: both are
+            literals in the file. Measured 2026-10-01 in debian:13 without
+            the patch: `-DUSE_MD380_VOCODER=OFF` lands in the CMake cache
+            and changes nothing -- configure still stops at CorePrivate, and
+            with only that line edited the build stops at `fatal error:
+            md380_vocoder.h: No such file or directory`.
           unified_diff: |
             --- a/CMakeLists.txt
             +++ b/CMakeLists.txt
