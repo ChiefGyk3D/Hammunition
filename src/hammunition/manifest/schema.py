@@ -668,6 +668,15 @@ class BinaryInstall(Strict):
     @model_validator(mode="after")
     def _tree_marker(self) -> BinaryInstall:
         _check_tree_marker(self.install_tree, self.tree_marker, self.method)
+        if self.format == "executable" and self.install_tree:
+            # D-076: one file installed as a tree (GraphHopper's jar) is staged
+            # under its marker's name, so the marker is that file's plain name.
+            marker = self.tree_marker or ""
+            if PurePosixPath(marker).name != marker or marker in (".", ".."):
+                raise ManifestError(
+                    f"a single executable installed as a tree is installed under its "
+                    f"tree_marker, so the marker must be a plain file name, not {marker!r}"
+                )
         return self
 
     @model_validator(mode="after")
@@ -1142,6 +1151,7 @@ CONVERTER_SOURCE_METHOD: dict[str, str] = {
     "mapsforge-poi": "osm-regions",
     "ustopo-mosaic": "topo-quads",
     "tilemaker-pmtiles": "osm-regions",
+    "graphhopper-import": "osm-regions",
 }
 
 #: D-063: the other units a ``brouter-mapcreator`` block reads, the install
@@ -1158,6 +1168,10 @@ BROUTER_INPUTS: dict[str, tuple[str, bool]] = {
 #: kit holding tilemaker's OpenMapTiles profile and the Natural Earth layers.
 TILEMAKER_INPUTS: dict[str, tuple[str, bool]] = {"kit": ("data", True)}
 
+#: D-076: the unit a ``graphhopper-import`` block reads besides its regions:
+#: the ``binary`` unit whose installed tree holds GraphHopper's jar.
+GRAPHHOPPER_INPUTS: dict[str, tuple[str, bool]] = {"program": ("binary", True)}
+
 #: D-068 (amended 2026-10-01): ``gdal-dem`` may name the ``dem-tiles`` unit it
 #: draws from instead of `source` when the station's ``dem_source`` selects
 #: that unit's provider; ``ustopo-mosaic`` may name the Forest Service's
@@ -1171,6 +1185,7 @@ MOSAIC_INPUTS: dict[str, tuple[str, bool]] = {"fstopo": ("topo-quads", False)}
 CONVERTER_INPUTS: dict[str, dict[str, tuple[str, bool]]] = {
     "brouter-mapcreator": BROUTER_INPUTS,
     "tilemaker-pmtiles": TILEMAKER_INPUTS,
+    "graphhopper-import": GRAPHHOPPER_INPUTS,
     "gdal-dem": GDAL_DEM_INPUTS,
     "ustopo-mosaic": MOSAIC_INPUTS,
 }
@@ -1250,12 +1265,14 @@ class DerivedDataInstall(Strict):
         "mapsforge-poi",
         "ustopo-mosaic",
         "tilemaker-pmtiles",
+        "graphhopper-import",
     ] = Field(
         description=(
             "The transformation to run. Each needs a `source` of one particular "
             "install method (`CONVERTER_SOURCE_METHOD`, checked catalog-wide, D-061): "
             "`navit-maptool`, `mkgmap`, `routino-planetsplitter`, `brouter-mapcreator`, "
-            "`mapsforge-map`, `mapsforge-poi` and `tilemaker-pmtiles` need an `osm-regions` "
+            "`mapsforge-map`, `mapsforge-poi`, `tilemaker-pmtiles` and `graphhopper-import` "
+            "need an `osm-regions` "
             "source; `gdal-dem` needs a `dem-tiles` source; `ustopo-mosaic` needs a "
             "`topo-quads` source (D-068)."
         )
@@ -1278,9 +1295,10 @@ class DerivedDataInstall(Strict):
     program: str | None = Field(
         default=None,
         description=(
-            "`brouter-mapcreator` only, and required there (D-063): the `binary` "
-            "unit whose installed tree holds BRouter's jar, which carries the map "
-            "creator. Must also be in `depends`."
+            "`brouter-mapcreator` and `graphhopper-import` only, and required on "
+            "both: the `binary` unit whose installed tree holds the jar the "
+            "converter runs, BRouter's with its map creator (D-063) or GraphHopper's "
+            "(D-076). Must also be in `depends`."
         ),
     )
     profiles: str | None = Field(
@@ -1354,16 +1372,19 @@ class DerivedDataInstall(Strict):
                 f"converter {self.converter!r} runs only what the archive installs; a `tool` "
                 f"on it would be fetched for nothing"
             )
-        for owner, fields in CONVERTER_INPUTS.items():
-            for name, (_, required) in fields.items():
-                value = getattr(self, name)
-                if self.converter != owner:
-                    if value is not None:
-                        raise ManifestError(
-                            f"{name} is read only by the {owner} converter, not {self.converter!r}"
-                        )
-                elif required and value is None:
-                    raise ManifestError(f"converter {owner} needs {name}: the unit it reads")
+        own = CONVERTER_INPUTS.get(self.converter, {})
+        for name, (_, required) in own.items():
+            if required and getattr(self, name) is None:
+                raise ManifestError(f"converter {self.converter} needs {name}: the unit it reads")
+        # A field more than one converter reads (`program`: BRouter's and
+        # GraphHopper's, D-076) is refused on every converter that reads none.
+        for name in sorted({n for fields in CONVERTER_INPUTS.values() for n in fields} - set(own)):
+            if getattr(self, name) is not None:
+                readers = sorted(o for o, fields in CONVERTER_INPUTS.items() if name in fields)
+                raise ManifestError(
+                    f"{name} is read only by the {' and '.join(readers)} converter, "
+                    f"not {self.converter!r}"
+                )
         return self
 
     def inputs(self) -> tuple[str, ...]:
