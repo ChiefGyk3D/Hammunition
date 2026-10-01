@@ -1178,7 +1178,7 @@ A **read-only** health check: is this machine ready, and what is not yet set
 up. It changes nothing, and it is the first thing to run on a fresh machine
 or when something misbehaves — it turns the failures the engine would
 otherwise hit mid-transaction into a report you read up front, each with the
-one command that fixes it. Eighteen checks across four severities:
+one command that fixes it. Nineteen checks across four severities:
 
 - **fail** — the engine cannot work until fixed (not a Debian-family system;
   no catalog). Exits non-zero.
@@ -1209,6 +1209,13 @@ configuration. A machine with no battery-backed hardware clock (`/sys/class/rtc`
 empty) is warned on any target, naming the fix: fit an RTC module. On a target
 whose time daemon is not ntpsec the line is information naming the gap. See
 `docs/guides/gps-time.md`.
+
+The **gps-resume** check (issue #177) appears only when a GPS receiver is
+attached (parked or awake) and gpsd is installed. It is ok when the resume
+step `hardware apply` installs is in place as this engine writes it, enabled
+for the four sleep targets, and warns, naming `hammunition hardware apply`,
+when it is missing, from an older engine, or not enabled. See
+`docs/hardware/power-control.md`, "After suspend".
 
 The **hammunition** check (**D-059**) asks whether `hammunition` resolves on
 your `PATH`, and to the checkout `doctor` is running from. `./bootstrap.sh`
@@ -1288,7 +1295,7 @@ identifier is flagged as a candidate, not a conclusion — **D-028**),
 the udev rules and your access-group membership are already in place.
 Detection drives nothing: it reports, and you decide (**D-020**).
 
-### `hammunition hardware apply [--dry-run] [--yes] [--user NAME] [--no-gps-time]`
+### `hammunition hardware apply [--dry-run] [--yes] [--user NAME] [--no-gps-time] [--no-gps-resume]`
 
 Writes the whole catalog's udev rules to
 `/etc/udev/rules.d/65-hammunition.rules`, reloads and triggers udev, adds
@@ -1355,6 +1362,20 @@ files contain and what installing them means.
   happens without gpsd installed (there is no GPS time to read), and
   `--no-gps-time` leaves ntpsec, its grants and `fake-hwclock` alone. See
   `docs/guides/gps-time.md`.
+- **Installs the GPS receiver's resume step (issue #177)** where gpsd is
+  installed: `/usr/local/libexec/hammunition-gps-resume` (`0755`) and
+  `/etc/systemd/system/hammunition-gps-resume.service`, a oneshot after and
+  wanted by the four sleep targets, enabled and not started. After each
+  resume it runs `gpsdctl remove` and `add` for each `/dev/gpsN`, and
+  `systemctl try-restart gpsd.service` if gpsd then reports no device; with
+  no `/dev/gpsN` it does nothing, and it never parks or wakes anything. The
+  plan prints both files whole, with how to inspect them
+  (`systemctl status hammunition-gps-resume`,
+  `journalctl -u hammunition-gps-resume`) and reverse them. Each step is
+  logged (`gps_resume`), and both files and the four `.wants` links are read
+  back afterwards. A file at either path without Hammunition's header refuses
+  the plan (exit `2`). `--no-gps-resume` leaves the step out; `--no-gps-time`
+  does not. See `docs/hardware/power-control.md`, "After suspend".
 
 ### `hammunition hardware unapply [--dry-run] [--yes] [--user NAME]`
 
@@ -1364,7 +1385,8 @@ Removes the power-control helper and its polkit action — the two files
 if present, `/etc/udev/rules.d/66-hammunition-kept.rules`, the kept-off rules
 file `park` writes to by default (**D-056**, amended 2026-09-28). Removing it
 reloads udev, so every device it was holding parked wakes from the next boot
-on. Nothing else is touched.
+on. GPS time and the GPS resume step are taken back too (below); nothing
+else is touched.
 
 - **Not part of `uninstall`.** `uninstall` resolves the names it is given
   against the package and profile catalogs; there is no unit named
@@ -1393,6 +1415,11 @@ on. Nothing else is touched.
   `/etc/apparmor.d/local/usr.sbin.ntpd`, the rest of that file stays; then
   systemd and AppArmor are reloaded and ntpsec restarted. `fake-hwclock`, if
   it was installed, stays; `sudo apt remove fake-hwclock` removes it.
+- **Takes the GPS resume step back (issue #177)**, by content:
+  `systemctl disable hammunition-gps-resume.service`, then the unit and
+  `/usr/local/libexec/hammunition-gps-resume` are removed, each only when it
+  starts with the header Hammunition writes, and systemd is reloaded. The
+  files and the four `.wants` links are re-checked for absence afterwards.
 
 Exit codes: `0` for a removal that verified absent, nothing recorded to
 remove, every recorded artefact already gone, a `--dry-run`, or declining the

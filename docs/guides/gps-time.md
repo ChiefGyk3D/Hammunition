@@ -69,6 +69,7 @@ these, and prints each one before it runs:
 | `capability ipc_owner,` added to `/etc/apparmor.d/local/usr.sbin.ntpd` (the file Debian keeps for local additions), and ntpd's profile reloaded | AppArmor must allow the same capability | `cat /etc/apparmor.d/local/usr.sbin.ntpd` | `hammunition hardware unapply` removes only that block |
 | `/etc/ntpsec/ntp.d/` created | ntpd reads `*.conf` here after `ntp.conf` | `ls /etc/ntpsec/ntp.d` | left in place, empty |
 | The first time mode, `auto`, set through the helper (the files in section 4) and ntpsec restarted | | `hammunition time` | `hammunition hardware unapply` |
+| The GPS receiver's resume step: `/usr/local/libexec/hammunition-gps-resume` and `/etc/systemd/system/hammunition-gps-resume.service`, enabled for the four sleep targets | With `-n`, gpsd holds the receiver open all the time, so every suspend can leave it holding a tty that has gone quiet (issue #177). After each resume the step gives gpsd a fresh open of the receiver. See [After suspend](../hardware/power-control.md#after-suspend) | `systemctl cat hammunition-gps-resume`, `journalctl -u hammunition-gps-resume` | `hammunition hardware unapply` |
 
 **Read this before you agree:** CAP_IPC_OWNER bypasses permission checks on
 all System V IPC, not only gpsd's segment, and ntpd is a daemon that talks
@@ -93,6 +94,17 @@ testing. The receiver has to be polled continuously: without `-n`, gpsd
 writes no time into the shared memory ntpd reads while nothing else is
 asking it for a position (measured: no samples in 8 s without `-n`, nine
 with it).
+
+**On a laptop that sleeps, the resume step comes with the grants.** The
+resume step is installed with them by the same `hardware apply`, wherever
+gpsd is installed, and it is what keeps `-n` workable across a suspend:
+measured on the field laptop (issue #177), the receiver is not re-enumerated
+when the machine resumes, and a gpsd holding it open can stay silent until
+something gives it a fresh open. `--no-gps-time` does not remove the resume
+step, which also serves `cgps`, `xgps` and the map tether. To leave it out,
+use `--no-gps-resume`. If the GPS is still silent after a resume, park and
+wake the receiver by hand (`hammunition hardware park gps-receiver`, then
+`wake`).
 
 *Bench:* that ntpd keeps this capability after it drops to the `ntpsec`
 user, so it can actually read the receiver, is the first thing to be
@@ -204,8 +216,9 @@ carries the header Hammunition writes), removes gpsd's `-n` drop-in only if
 it holds exactly Hammunition's text and the `chrony` unit's
 `/etc/chrony/conf.d/hammunition-gps.conf` is absent (the two share it), takes only Hammunition's block out
 of `/etc/apparmor.d/local/usr.sbin.ntpd`, reloads systemd and AppArmor, and
-restarts ntpsec on the package's own configuration. `hardware apply` puts
-GPS time back.
+restarts ntpsec on the package's own configuration. It also disables and
+removes the GPS resume step's unit and script, each only if it carries
+Hammunition's header. `hardware apply` puts GPS time back.
 
 ## 10. Other targets
 

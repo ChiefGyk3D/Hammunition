@@ -207,3 +207,57 @@ its `-n` option; without it the daemon gets no time from the GPS at all
 
 This entry is from the protocols' timing and the measurements linked above,
 not from a decode failure watched on the bench.
+
+## <a name="gps-after-suspend"></a>GPS dead after the laptop slept
+
+The laptop was suspended with a GPS receiver plugged in. On resume, `cgps`
+or `xgps` shows no fix: satellites stop updating, or the fix never comes
+back, the map tether shows no position, and GPS time stops. Parking and
+waking the receiver brings it back.
+
+**Why.** A USB receiver is not re-enumerated across a suspend (measured
+across 19 suspends on the field laptop, issue #177), so gpsd's hot-plug
+never fires and gpsd can keep a tty that has gone quiet. It happens only
+when something was watching across the suspend: a GPS client left open, or
+gpsd running with `-n` for [GPS time](../guides/gps-time.md).
+
+**Check whether the resume step is installed:**
+
+```
+hammunition doctor
+systemctl status hammunition-gps-resume
+```
+
+`doctor`'s `gps-resume` line warns when a receiver is attached and the step
+is missing. Install it with:
+
+```
+hammunition hardware apply
+```
+
+After each resume the step gives gpsd a fresh open of each `/dev/gpsN`
+(`gpsdctl remove` and `add`), restarts gpsd if gpsd then reports no device,
+and logs a line per action. Read the last run with:
+
+```
+journalctl -u hammunition-gps-resume -n 20
+```
+
+(the system journal may need `sudo` or membership of `systemd-journal`).
+
+**If it is still dead,** recover by hand, from least to most invasive,
+stopping at the first that brings a fix back:
+
+```
+sudo gpsdctl remove /dev/ttyACM0 && sudo gpsdctl add /dev/ttyACM0
+sudo systemctl restart gpsd.socket gpsd
+hammunition hardware park gps-receiver
+hammunition hardware wake gps-receiver
+```
+
+`/dev/ttyACM0` is the field laptop's receiver: `readlink -f /dev/gps0`
+names yours. A 3D fix took 74 s from a wake on the bench. Park and wake is
+never done by the resume step, because it is the heaviest recovery and it
+is yours to choose. Which of the steps a real suspend actually needs is not
+yet measured: the bench steps are on issue #177. The step's files and how
+to remove them are under [After suspend](../hardware/power-control.md#after-suspend).

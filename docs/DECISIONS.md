@@ -5045,6 +5045,79 @@ switched daemons; the file that says the chrony unit is still configured is
 the evidence, read by content like everything else unapply removes. Not yet
 measured on the field laptop, like the rest of this record.
 
+### Amendment, 2026-10-01: a resume step for the GPS receiver, installed with the grants (issue #177)
+
+**Measured** read-only on the field laptop (issue #177's measurement
+comment, 2026-10-01). After a suspend the GPS had no fix until the receiver
+was parked and woken. Across 19 suspend/resume cycles in one boot the u-blox
+receiver kept the same USB device number, and its `connected_duration`
+equalled the time the machine was awake. It was enumerated once, at boot,
+and never re-enumerated. So no `gpsdctl` remove or add follows a resume, and
+gpsd keeps a tty that can go quiet without an error or a hangup. Every
+recovery that worked gave gpsd a fresh open: session 12's gpsd restart (a
+fix within 1 s) and a park and wake. The kept-off rule was absent and
+nothing writes the port's `power/control`. Without `-n` and with no client
+watching, gpsd closes the receiver before the sleep and opens it fresh after
+it, so the fault is intermittent there. **With this record's `-n` drop-in
+it would follow every suspend.** On a laptop that sleeps, the resume step is
+therefore a prerequisite for GPS time.
+
+**Ruling: recorded here, not under D-056.** The fault is in gpsd's open
+handle, not in power control: the measurement rules out the kept-off rule,
+autosuspend and park/wake as causes, and the step never parks or wakes
+anything. What it shares is this record's shape: a root-owned file
+installed by `hardware apply`, disclosed in the plan, read back afterwards,
+removed by `hardware unapply` by content, with an opt-out flag. And it
+exists because of this record's `-n`.
+
+**The step.** A device class names it, `resume: {step: gpsd_reopen}`, an
+enum the engine implements, as `power_control.method` is. The catalog
+carries no command. Where gpsd is installed and a catalog entry names the
+step, `hardware apply` installs:
+
+- `/usr/local/libexec/hammunition-gps-resume`, `0755`, staged and installed
+  by `install -D` like the helper, beginning with Hammunition's header. A
+  standard-library Python script (`src/hammunition/hardware/gps_resume_script.py`)
+  run by `/usr/bin/python3 -I`, which gpsd's package depends on. With no
+  `/dev/gpsN` it does nothing, so a parked receiver is never woken. With no
+  gpsd control socket it does nothing, because `gpsdctl add` would start a
+  gpsd of its own outside systemd. Otherwise, for each receiver it runs
+  `gpsdctl remove` then `gpsdctl add`, by the path gpsd reports for it
+  (`?DEVICES;`): the tty as `gpsdctl@` registers it, or `/dev/gpsN` where
+  gpsd was configured with that name, so gpsd never holds two handles on
+  one port. Then it sends `?DEVICES;` on 127.0.0.1:2947 with a 2 s limit. No
+  device, or no answer: `systemctl try-restart gpsd.service`. One journal
+  line per action; a failed restart fails the unit.
+- `/etc/systemd/system/hammunition-gps-resume.service`, a oneshot with
+  `After=` and `WantedBy=` `suspend.target hibernate.target
+  hybrid-sleep.target suspend-then-hibernate.target`, enabled and never
+  started. It is a unit rather than a `system-sleep` hook so that
+  `systemctl cat` shows it and its runs land in the journal.
+
+Both are printed whole in the plan, with `systemctl status`,
+`journalctl -u` and `hardware unapply`. Each step is logged (`gps_resume`).
+Afterwards the files are read back and the four `.wants` links checked: an
+exit code from `systemctl enable` is not taken as proof (D-031). A file at
+either path without the header refuses the plan and is never overwritten.
+`hardware unapply` disables the unit and removes both files, each only when
+it starts with the header. `hardware apply --no-gps-resume` leaves the step
+out. `--no-gps-time` does not, because the step also serves `cgps`, `xgps`
+and the map tether. `doctor` reports whether it is installed when a GPS
+receiver is attached and gpsd is installed.
+
+**The third recovery stays manual.** Park and wake through the helper is the
+heaviest recovery (74 s to a fix from cold, bench session 10). The step
+never does it. The operator does, by hand, and the docs say so
+(`docs/hardware/power-control.md`, "After suspend").
+
+**Not yet measured:** whether `gpsdctl remove` and `add` alone bring the fix
+back after a real suspend, or whether only the `try-restart` does; whether
+the stall is in gpsd's handle or in `cdc_acm` (the issue's bench step 5);
+and the step running at all on the field laptop. The bench steps are on
+issue #177. Until they are recorded in
+`docs/reference/bench-verification-5430.md`, the docs call this the design
+the measurement points to, not a measured recovery.
+
 ### What is refused, and what is out of scope
 
 A target whose time daemon is not ntpsec (Debian 13, Ubuntu and Kali
