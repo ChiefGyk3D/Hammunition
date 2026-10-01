@@ -265,6 +265,13 @@ enum, and `splat` and `signal-server` become readers of the station's
 regions the way QMapShack is. It closes "propagation prediction with no
 network", which the `propagation` profile page currently cannot promise.
 
+**Built 2026-10-02** (D-061's amendment of that date): `splat-sdf` and
+`signal-server`, in `antenna`, where `splat` is. Measured on the way:
+Cloud-RF's repository now holds only a README, so `signal-server` is
+W3AXL's fork; Xastir reads a GeoTIFF or a `.geo`-described image, not an
+SDF, so the converter does not serve it, and its route is recorded in the
+amendment; SPLAT's `-geo` output is an Xastir layer meanwhile.
+
 ### A6. Offline reference data the D-049 shape can now carry
 
 D-049 gave the catalog a `data` method; D-057 gave it regional and dated
@@ -444,7 +451,7 @@ before a manifest. Nothing here is transmit-capable except where said.
 | `satellite-tracking` | | **SatNOGS client** (2.1.1, December 2025; pip; needs hamlib and gpsd Python bindings) | Turns the station into a ground station for the network — the open-source satellite community's own project | venv | ADD post-1.0 as an appliance unit; needs a page on what it uploads |
 | `satellite-tracking` | | `rotctld` configuration | `libhamlib-utils` carries it; nothing configures a rotator | config + page | Part of A2 |
 | `satellite-decoding` | 3 | `goestools` (`pietern/goestools`; GOES HRIT/LRIT) | SatDump (carried) decodes GOES; goestools' `goesrecv` is still the community's lock-and-signal-strength tool for aiming a dish | source (cmake) | Optional; a note on the SatDump page is enough until asked |
-| `propagation` | 7 | **Signal-Server** (Cloud-RF, the multi-threaded SPLAT fork; carried by DragonOS) | Coverage maps in minutes instead of hours, from the same terrain (A5) | source (make) | ADD with the `splat-sdf` converter |
+| `propagation` | 7 | **Signal-Server** (Cloud-RF, the multi-threaded SPLAT fork; carried by DragonOS) | Coverage maps in minutes instead of hours, from the same terrain (A5) | source (make) | ADD with the `splat-sdf` converter (added 2026-10-02: W3AXL's fork, CMake, in `antenna`; Cloud-RF's repository holds only a README now) |
 
 ### Group 6 — Antennas, Bench & Programming
 
@@ -522,7 +529,8 @@ the cost:
    because D-061 rules it out.)
 7. **A2** — the rig as station data. A sub-project with a spec, like the
    navigation ones under `docs/superpowers/specs/`.
-8. **A5** — the `splat-sdf` converter and Signal-Server.
+8. **A5** — the `splat-sdf` converter and Signal-Server. (Built
+   2026-10-02, D-061's amendment of that date.)
 9. **A8** — the three re-rulings: ARDOPGUI, Morse Runner CE, Chattervox.
 10. **Source-built adds** — piHPSDR, FreeDV 2.x, DroidStar, dump978-fa,
     nrsc5, LibreVNA, k5prog, radio_tool, tar1090; each a pinned build

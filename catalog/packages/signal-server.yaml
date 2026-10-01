@@ -100,7 +100,7 @@ documentation:
     **The threaded plot is not reliable: pass `-nothreads`.** Measured on
     2026-10-01 over one tile at a 20 km radius, a one-arc-second plot
     crashed 2 times in 10 with threads and completed 10 times in 10 without
-    (21 to 29 s, 1.36 GB of memory; the three-arc-second plot took 1.2 s and
+    (19 to 29 s, 1.36 GB of memory; the three-arc-second plot took 1 to 2 s and
     600 MB). A missing terrain file is not an error: the square is treated as
     sea level with a warning and the program exits 0, so a plot with the
     wrong terrain looks like a plot. Its own usage text limits the transmitter

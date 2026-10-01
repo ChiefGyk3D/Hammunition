@@ -29,8 +29,9 @@ ledger at the end records each task's result and every ruling.
    rebuilding, removal, links.
 5. **Plan and disk.** `splat` on `TerrainRun` and `build_terrain_run`;
    `TerrainDisclosure.splat_tiles`; estimates and scratch in
-   `backends/terrain.py`; the text block and the JSON fields in
-   `interface/plan.py`; "already installed" when current. Tests on the
+   `src/hammunition/backends/terrain.py`; the text block and the JSON
+   fields in `src/hammunition/interface/plan.py`; "already installed"
+   when current. Tests on the
    disclosure, the needs, the text and the JSON.
 6. **`hammunition maps splat`.** Per user, refused as root; writes
    `~/.splat_path` only when absent; leaves another path alone; refuses a

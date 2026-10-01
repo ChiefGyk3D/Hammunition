@@ -5984,6 +5984,128 @@ section 12 says so for each. **Rejected:** a `--bind` option or any
 listener beyond loopback (the position to anyone who asks), and a watch
 per client (N copies of gpsd's stream for identical output).
 
+### Amendment (2026-10-02): the terrain layer serves three readers, and SPLAT! and Signal-Server join QMapShack
+
+The gap report's A5 (`docs/reference/catalog-gaps-2026-09.md`) said the
+terrain this decision fetches serves one reader and could serve four.
+Built on branch `terrain-readers` from
+`docs/superpowers/specs/2026-10-02-terrain-readers-design.md`, on the
+architectural path; Q-022 needed no ruling for it. **Amends** this
+decision's converter enum with `splat-sdf`, and D-068's amendment, whose
+`alternative` input `splat-sdf` now reads as `gdal-dem` does.
+
+**The readers, measured.** QMapShack was served (`dem-qmapshack`). SPLAT!
+(carried, apt) and Signal-Server (added here) read SPLAT Data Files, and
+are now served by `splat-sdf`. Xastir (carried) draws a GeoTIFF or a
+`.geo`-described image, which an SDF is not: its route is a shaded-relief
+image per tile with a `.geo` beside it, `gdal-dem`'s shape again, not built
+because nobody has measured Xastir drawing one, and SPLAT's own `-geo`
+output is an Xastir layer today. `gpredict` and `hamclock-next` read no
+terrain; a horizon mask is post-1.0, as A5 says. So three of the four A5
+counts are served, and the fourth is written down with its route.
+
+**The format, from SPLAT's own tools.** Run on 2026-10-01 over synthetic
+`.hgt` files whose samples encode their row and column: four header lines
+(`max_west`, `min_lat`, `min_west`, `max_lat`, longitudes west and
+positive), then 1200 x 1200 or 3600 x 3600 integers, the south row first
+and each row from east to west, the `.hgt`'s north row and east column
+dropped. Names as `srtm2sdf` writes them, measured on nine squares in four
+hemispheres (`36:37:116:117`, `-34:-33:208:209`, and `0:1:359:0` for the
+square east of Greenwich). `srtm2sdf-hd` reads the one-arc-second `.hgt`
+for 30 m data.
+
+**Measured finding: the tools erase land below sea level by default.**
+`-n`, "the elevation below which SRTM data is replaced", defaults to 0; a
+synthetic block at -50 m came out at 104 m, and the real tile's -91 m
+survived only with `-n -32767`. The converter passes `-d /dev/null -n
+-32767`: `/dev/null` is the manual's "prevents data replacement" and keeps
+the tool from reading `~/.splat_path`, which names this converter's own
+output.
+
+**Ruling: SPLAT's tools, not a writer of our own.** Over one HD tile a
+Python writer took 1.06 s where `srtm2sdf-hd` took 4.53 s, and its output
+was byte-identical except at a void. The tools define the format, fill
+voids the way SPLAT expects, and keep the rule that a converter is an
+archive program run as the operator in staging, never the engine parsing
+downloaded data under `sudo`.
+
+**Ruling: compressed, both resolutions.** SPLAT! reads `.sdf.bz2` and
+Signal-Server `.sdf.bz2` and `.sdf.gz`. On Death Valley's Copernicus tile
+(the square at 36 N 117 W, a public example chosen for its land below sea
+level, verified against its ETag and deleted after) the HD file
+is 57,033,174 bytes as text and 5,668,563 compressed; the standard one
+6,336,641 and 867,797. `splat-hd` is built for 4 square degrees and
+`splat` for 8, and a 20 km coverage map took them 22 s and 1.3 s, so both
+files are made.
+
+**The converter.** Per tile, as the operator in `splat.work` under one
+lock: `gdalbuildvrt -resolution highest` over the tile and its installed
+neighbours (a Copernicus tile's south row and east column are theirs:
+its origin is half a sample beyond its north-west corner, measured);
+`gdalwarp -r average -dstnodata -32768` to a 3601-sample `.hgt` centred
+on whole arc seconds, a sample no tile covers becoming a void that
+`srtm2sdf-hd` fills from its neighbours; `srtm2sdf-hd`, `bzip2 -9`; the
+same at 1201 samples with `srtm2sdf`; both files published with a
+`.source` sidecar (the tile, its window, `splat-sdf 1`) and a link
+beside each under Signal-Server's name (`36_37_116_117-hd.sdf.bz2`; for
+the square east of Greenwich `0_1_359_360`, from its `LoadTopoData`, not
+run). A changed source tile (`--dem-source`), a changed window or a new
+converter remakes a square; a square no region needs loses its files.
+`PrefixWriter.link` makes the links: a sibling name only. Through the
+engine's own code on that tile: 16.3 s, 151.2 MB peak in the children,
+the same bytes as the manual run, and the next plan found it current;
+`splat-hd` and `splat` then reported 699 m and -17 m at two sites where
+the source tile has 699.2 and -16.7.
+
+**Signal-Server.** Cloud-RF's repository was reduced to a history README
+on 2025-08-28; its code was deleted in 2023 and it names two forks. Cloned
+once each on 2026-10-01 (D-032): N9OZB's head is 2019-07-30, W3AXL's
+2026-01-30, GPL-2.0 both, no tags in either, no distribution package.
+**Ruling: W3AXL's head, `7f6242a`, a D-024 pin with `basis: own_choice`.**
+Built in rootless Podman on Debian 13: configure 0.4 s, compile 38.4 s at
+420 MB peak. **Measured: a release build crashes on every plot.** The
+engine configures CMake as Release, which adds `-DNDEBUG`, and
+Signal-Server allocates ITWOM's arrays inside `assert()`
+(`src/models/itwom3.0.cc`, lines 2143 and 2196): `-O2` ran clean, `-O2
+-DNDEBUG` crashed in `d1thx`. The manifest passes
+`-DCMAKE_CXX_FLAGS_RELEASE=-O2`, no patch. **Measured: the threaded plot
+races**: 2 crashes in 10 at 30 m and 1 in 20 at 90 m with threads, none in
+the unthreaded runs; the guide's command passes `-nothreads`. Its
+`CMakeLists.txt` is in `src/`, and the CMake path now passes `-S
+<tree>/<project_file>`, which the schema had always documented and the
+engine had ignored; a `project_file` must stay inside the tree.
+
+**Pointing the readers.** `hammunition maps splat`, per user and refused
+as root, writes `~/.splat_path` only when it is absent, leaves another
+directory alone with the `-d` to pass, refuses a symbolic link, and
+prints Signal-Server's `-sdf`. Nothing writes it during an install.
+
+**Rejected.** A writer of our own (above). Uncompressed files (ten times
+the disk). Only the HD files (`splat-hd`'s 4 square degrees). A patch to
+Signal-Server for the `assert()` (a configure argument does it, and
+`patches` stay a measured zero). N9OZB's fork (seven years still).
+Signal-Server's LIDAR mode and the web front ends (not fed, unmeasured).
+
+**Not measured, and owed by the bench:** `splat-sdf` through `hammunition
+install` on a real region; SPLAT! and Signal-Server plots over it on the
+field laptop; the threaded crash on other hardware.
+
+**Consequences.** `src/hammunition/backends/splat_sdf.py`;
+`PrefixWriter.link` in `src/hammunition/backends/verified.py`; the CMake
+`-S` in `src/hammunition/backends/source.py`; `INPUT_OWNERS` and the enum
+member in `src/hammunition/manifest/schema.py`; `TerrainRun.splat` and
+`splat_source` in `src/hammunition/terrain_plan.py`; the SDF estimates in
+`src/hammunition/backends/terrain.py`; the plan's lines and JSON fields in
+`src/hammunition/interface/plan.py`; `src/hammunition/splat_path.py` and
+`maps splat` in `src/hammunition/cli/main.py`;
+`catalog/packages/splat-sdf.yaml`, `catalog/packages/signal-server.yaml`,
+`catalog/profiles/antenna.yaml`. The operator's page is
+`docs/guides/propagation.md`, *Terrain for coverage plots*. Tests:
+`tests/test_splat_sdf.py`, `tests/test_splat_sdf_schema.py`,
+`tests/test_splat_sdf_plan.py`, `tests/test_splat_sdf_catalog.py`,
+`tests/test_splat_path.py`, and additions to
+`tests/test_verified_install.py` and `tests/test_source_backend.py`.
+
 ---
 
 ## D-062 — An install run as a user asks sudo once and keeps its ticket valid until the run ends, and no longer
