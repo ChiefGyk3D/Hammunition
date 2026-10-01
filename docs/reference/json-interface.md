@@ -50,6 +50,8 @@ their text follows.
 - `hammunition hardware state`
 - `hammunition install` (with `--dry-run` only)
 - `hammunition list`
+- `hammunition maps infra import`
+- `hammunition maps infra remove`
 - `hammunition maps phone`
 - `hammunition maps regions`
 - `hammunition maps repeaters import`
@@ -73,6 +75,8 @@ their text follows.
 | `doctor` | [`DoctorDocument`](#doctor) |
 | `error` | [`ErrorDocument`](#error) |
 | `hardware` | [`HardwareDocument`](#hardware) |
+| `infra` | [`InfraDocument`](#infra) |
+| `infra-removed` | [`InfraRemovedDocument`](#infra-removed) |
 | `phone` | [`PhoneDocument`](#phone) |
 | `plan` | [`PlanDocument`](#plan) |
 | `profile` | [`ProfileDocument`](#profile) |
@@ -1018,6 +1022,374 @@ A catalogued device that is attached but cannot be parked right now.
     "kept_error"
   ],
   "title": "HardwareDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### infra
+
+Infrastructure layers written from one source (D-075). Counts, paths,
+names and licence lines only: no place, position or region is carried.
+
+| field | type | meaning |
+|---|---|---|
+| `route` | string | `osm`, `nasr`, `eia`, `wri`, `fcc-asr` or `nwr` |
+| `licences` | list of string | the source's licence line, printed before anything |
+| `inputs` | list of [`InfraInputView`](#infrainputview) | what was read |
+| `read` | integer | objects, rows or records read that belong in a layer |
+| `skipped` | list of [`SkipView`](#skipview) | rows left out, by reason; `first` is empty when several extracts were read |
+| `outside` | integer | rows of a nationwide or worldwide file outside the regions' boxes; 0 for `osm` |
+| `merged` | integer | points two extracts both held, kept once; 0 but for `osm` |
+| `notes` | list of string | sentences the text prints: an extract left out (by number), what another source covers |
+| `layers` | list of [`InfraLayerView`](#infralayerview) | each layer, in layer order |
+| `directory` | string | where the layers are, mode 0700 |
+| `registered` | list of [`RegistrationView`](#registrationview) | QMapShack's and Navit's, in that order, for every overlay layer present |
+
+#### `InfraInputView`
+
+One input read.
+
+| field | type | meaning |
+|---|---|---|
+| `path` | string | the installed file, or a fetch's URL; for `osm-extract`, the directory of the region extracts, never a region's name |
+| `format` | string | `osm-extract`, `faa-nasr-apt`, `eia-860m`, `wri-gppd`, `fcc-asr` or `nwr-ccl` |
+| `sha256` | string | the digest of what was read; empty for `osm-extract`, whose extracts' digests would name the regions |
+
+#### `SkipView`
+
+Rows of one input left out for one reason.
+
+| field | type | meaning |
+|---|---|---|
+| `reason` | string | why, e.g. `no usable position` or `no callsign` |
+| `count` | integer | how many rows |
+| `first` | list of integer | the first five: line numbers in a CSV, row numbers in JSON, waypoint numbers in a GPX |
+
+#### `InfraLayerView`
+
+One layer this import wrote, or found empty.
+
+| field | type | meaning |
+|---|---|---|
+| `layer_id` | string | `osm-medical`, `osm-responders`, `osm-supply`, `osm-shelter-candidates`, `osm-transport`, `osm-power`, `osm-telecom`, `osm-water`, `faa-airports`, `eia-plants`, `wri-plants`, `fcc-towers` or `nwr` |
+| `name` | string | the layer's name, as QMapShack and the browser map show it |
+| `written` | integer | points in the layer; 0 when this import found none |
+| `files` | list of string | the files written, mode 0600: GPX, POI, Navit textfile, GeoJSON; empty when none |
+| `removed` | list of string | an earlier version's files, deleted because this import found no point for it |
+
+#### `RegistrationView`
+
+What a program was told about the layer.
+
+| field | type | meaning |
+|---|---|---|
+| `program` | string | `qmapshack` or `navit` |
+| `config` | string | the file edited or written |
+| `outcome` | string | `added`, `already there`, `written`, `removed`, `not there`, `not written` or `refused` |
+| `detail` | string | the sentence the text prints after the outcome |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "InfraInputView": {
+      "additionalProperties": false,
+      "description": "One input read.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "format": {
+          "title": "Format",
+          "type": "string"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "format",
+        "sha256"
+      ],
+      "title": "InfraInputView",
+      "type": "object"
+    },
+    "InfraLayerView": {
+      "additionalProperties": false,
+      "description": "One layer this import wrote, or found empty.",
+      "properties": {
+        "layer_id": {
+          "title": "Layer Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "written": {
+          "title": "Written",
+          "type": "integer"
+        },
+        "files": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Files",
+          "type": "array"
+        },
+        "removed": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Removed",
+          "type": "array"
+        }
+      },
+      "required": [
+        "layer_id",
+        "name",
+        "written",
+        "files",
+        "removed"
+      ],
+      "title": "InfraLayerView",
+      "type": "object"
+    },
+    "RegistrationView": {
+      "additionalProperties": false,
+      "description": "What a program was told about the layer.",
+      "properties": {
+        "program": {
+          "title": "Program",
+          "type": "string"
+        },
+        "config": {
+          "title": "Config",
+          "type": "string"
+        },
+        "outcome": {
+          "title": "Outcome",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "program",
+        "config",
+        "outcome",
+        "detail"
+      ],
+      "title": "RegistrationView",
+      "type": "object"
+    },
+    "SkipView": {
+      "additionalProperties": false,
+      "description": "Rows of one input left out for one reason.",
+      "properties": {
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "count": {
+          "title": "Count",
+          "type": "integer"
+        },
+        "first": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "First",
+          "type": "array"
+        }
+      },
+      "required": [
+        "reason",
+        "count",
+        "first"
+      ],
+      "title": "SkipView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Infrastructure layers written from one source (D-075). Counts, paths,\nnames and licence lines only: no place, position or region is carried.",
+  "properties": {
+    "route": {
+      "title": "Route",
+      "type": "string"
+    },
+    "licences": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Licences",
+      "type": "array"
+    },
+    "inputs": {
+      "items": {
+        "$ref": "#/$defs/InfraInputView"
+      },
+      "title": "Inputs",
+      "type": "array"
+    },
+    "read": {
+      "title": "Read",
+      "type": "integer"
+    },
+    "skipped": {
+      "items": {
+        "$ref": "#/$defs/SkipView"
+      },
+      "title": "Skipped",
+      "type": "array"
+    },
+    "outside": {
+      "title": "Outside",
+      "type": "integer"
+    },
+    "merged": {
+      "title": "Merged",
+      "type": "integer"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+    },
+    "layers": {
+      "items": {
+        "$ref": "#/$defs/InfraLayerView"
+      },
+      "title": "Layers",
+      "type": "array"
+    },
+    "directory": {
+      "title": "Directory",
+      "type": "string"
+    },
+    "registered": {
+      "items": {
+        "$ref": "#/$defs/RegistrationView"
+      },
+      "title": "Registered",
+      "type": "array"
+    }
+  },
+  "required": [
+    "route",
+    "licences",
+    "inputs",
+    "read",
+    "skipped",
+    "outside",
+    "merged",
+    "notes",
+    "layers",
+    "directory",
+    "registered"
+  ],
+  "title": "InfraDocument",
+  "type": "object"
+}
+```
+
+</details>
+
+### infra-removed
+
+Infrastructure layers deleted and unregistered. Removing nothing is
+not an error: every list is then empty.
+
+| field | type | meaning |
+|---|---|---|
+| `directory` | string | where the layers are |
+| `layers` | list of string | the layer ids asked for: the one `--layer` named, else every layer |
+| `removed` | list of string | the files deleted |
+| `unregistered` | list of [`RegistrationView`](#registrationview) | QMapShack's and Navit's, in that order, for the overlay layers left |
+
+<details><summary>JSON Schema</summary>
+
+```json
+{
+  "$defs": {
+    "RegistrationView": {
+      "additionalProperties": false,
+      "description": "What a program was told about the layer.",
+      "properties": {
+        "program": {
+          "title": "Program",
+          "type": "string"
+        },
+        "config": {
+          "title": "Config",
+          "type": "string"
+        },
+        "outcome": {
+          "title": "Outcome",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "program",
+        "config",
+        "outcome",
+        "detail"
+      ],
+      "title": "RegistrationView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Infrastructure layers deleted and unregistered. Removing nothing is\nnot an error: every list is then empty.",
+  "properties": {
+    "directory": {
+      "title": "Directory",
+      "type": "string"
+    },
+    "layers": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Layers",
+      "type": "array"
+    },
+    "removed": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Removed",
+      "type": "array"
+    },
+    "unregistered": {
+      "items": {
+        "$ref": "#/$defs/RegistrationView"
+      },
+      "title": "Unregistered",
+      "type": "array"
+    }
+  },
+  "required": [
+    "directory",
+    "layers",
+    "removed",
+    "unregistered"
+  ],
+  "title": "InfraRemovedDocument",
   "type": "object"
 }
 ```
@@ -3681,27 +4053,6 @@ One file read.
 | `used` | integer | of those, the ones kept: a position and a callsign or frequency |
 | `skipped` | list of [`SkipView`](#skipview) | the rest, by reason |
 | `sha256` | string | the digest of what was read (several logs: of their bytes in order); empty for `osm-extract`, whose extracts' digests would name the regions |
-
-#### `SkipView`
-
-Rows of one input left out for one reason.
-
-| field | type | meaning |
-|---|---|---|
-| `reason` | string | why, e.g. `no usable position` or `no callsign` |
-| `count` | integer | how many rows |
-| `first` | list of integer | the first five: line numbers in a CSV, row numbers in JSON, waypoint numbers in a GPX |
-
-#### `RegistrationView`
-
-What a program was told about the layer.
-
-| field | type | meaning |
-|---|---|---|
-| `program` | string | `qmapshack` or `navit` |
-| `config` | string | the file edited or written |
-| `outcome` | string | `added`, `already there`, `written`, `removed`, `not there`, `not written` or `refused` |
-| `detail` | string | the sentence the text prints after the outcome |
 
 #### `AllSourcesView`
 

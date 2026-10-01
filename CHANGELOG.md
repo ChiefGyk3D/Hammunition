@@ -11,6 +11,30 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Infrastructure and EMCOMM layers on the maps** (D-075). `hammunition
+  maps infra import --from-osm` filters the installed region extracts with
+  osmium into eight layers (medical, responders, supply, shelter
+  candidates, which say "candidate, not a designated shelter", transport,
+  power, telecom, water), each a GPX, a QMapShack POI collection, a Navit
+  map and a GeoJSON in `~/.local/share/hammunition/overlays/infra/`;
+  nothing is downloaded. Three new data units in no profile:
+  `faa-nasr-airports` (FAA NASR cycle 2026-10-01), `eia-860m` (August 2026)
+  and `wri-power-plants` (v1.3.0, outside the US only), read by
+  `--from-nasr`, `--from-eia` and `--from-wri` and kept to the regions'
+  boxes; their pins are written by `scripts/gen_nasr_pin.py`,
+  `scripts/gen_eia860m_pin.py` (with `--follow-move` for EIA's monthly
+  archive move) and `scripts/gen_wri_pin.py`, all three in the weekly pin
+  review. `fetch-fcc-asr` (only the registration and coordinate records;
+  the owners' contact file is never opened) and `fetch-nwr` (the live
+  status dropped) fetch on request, unverified. `maps infra remove
+  [--layer ID]`; documents `infra` and `infra-removed`. The browser map's
+  tiles gain an `infra` layer (the converter is `tilemaker-pmtiles 2`, so
+  each region is rebuilt once), power coloured by Open Infrastructure Map's
+  voltage ramp under its BSD-3-Clause notice, and every infra layer is a
+  toggled overlay with its licence in the credit. The operator's Navit copy
+  and QMapShack's `poiPaths` now carry repeater and infrastructure layers
+  together.
+
 - **`hammunition-tray` and `hammunition-tray-qt` re-pinned to v0.4.0**
   (GPS-time plan Task 11, D-058). Both catalog manifests moved from v0.3.0
   to the v0.4.0 release assets, measured against the published SHA256SUMS:

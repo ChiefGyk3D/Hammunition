@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 205 | 8 | 81 | 2 | 0 |
-| ubuntu-26.04 | 207 | 6 | 81 | 2 | 0 |
-| ubuntu-24.04 | 200 | 15 | 79 | 2 | 0 |
-| kali-rolling | 213 | 8 | 74 | 1 | 0 |
-| parrot | 210 | 5 | 79 | 2 | 0 |
-| linuxmint-22.3 | 200 | 15 | 79 | 2 | 0 |
-| debian-13-arm64 | 204 | 9 | 76 | 7 | 0 |
+| debian-13 | 205 | 8 | 84 | 2 | 0 |
+| ubuntu-26.04 | 207 | 6 | 84 | 2 | 0 |
+| ubuntu-24.04 | 200 | 15 | 82 | 2 | 0 |
+| kali-rolling | 213 | 8 | 77 | 1 | 0 |
+| parrot | 210 | 5 | 82 | 2 | 0 |
+| linuxmint-22.3 | 200 | 15 | 82 | 2 | 0 |
+| debian-13-arm64 | 204 | 9 | 79 | 7 | 0 |
 
-**296 manifests** against **7 targets**.
+**299 manifests** against **7 targets**.
 
 ---
 
@@ -192,9 +192,11 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `dumpvdl2` | git | git | git | git | git | git | git |
 | `ebook2cw` | apt | apt | apt | apt | apt | apt | apt |
 | `ebook2cwgui` | apt | apt | apt | apt | apt | apt | apt |
+| `eia-860m` | data | data | data | data | data | data | data |
 | `electronics-radio-dev` | apt | apt | apt | apt | apt | apt | apt |
 | `esptool` | apt | apt | apt | apt | apt | apt | apt |
 | `evolution` | apt | apt | apt | apt | apt | apt | apt |
+| `faa-nasr-airports` | data | data | data | data | data | data | data |
 | `fbb` | apt ✗ | apt | apt | apt | apt ✗ | apt | apt ✗ |
 | `fccexam` | apt | apt | apt | apt | apt | apt | apt |
 | `fl-moxgen` | source | source | source | source | source | source | source |
@@ -410,6 +412,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `wfview` | apt | apt | apt | apt | apt | apt | apt |
 | `wireshark` | apt | apt | apt | apt | apt | apt | apt |
 | `wordsworth` | binary | binary | binary | binary | binary | binary | binary |
+| `wri-power-plants` | data | data | data | data | data | data | data |
 | `wsjtx` | git | git | git | git | git | git | git |
 | `wsjtx-improved` | binary | binary | binary | apt | binary | binary | — |
 | `wwl` | apt | apt | apt | apt | apt | apt | apt |

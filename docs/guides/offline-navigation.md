@@ -21,7 +21,9 @@ before anything goes wrong, so the way to be ready for the bad day is to use
 it on ordinary days and refresh it as routine. The decision records behind
 all of this are **D-057**, **D-061**, **D-068** for the official topo
 sheets and, for repeaters, **D-064** in `docs/DECISIONS.md`; section 14
-makes the same maps for the team's phones (**D-067**).
+makes the same maps for the team's phones (**D-067**), and section 18 puts
+hospitals, responders, fuel, airfields, the grid and Weather Radio on them
+(**D-075**).
 
 The examples below use Vermont and New Hampshire. Use your own regions.
 
@@ -1665,6 +1667,177 @@ need a CoMaps patch, which the engine refuses and nobody carries.
   shallow submodule fetch, has not run.
 - **CoMaps reading the linked maps.** Its source reads a linked file like
   any other; a running CoMaps has not been seen to.
+
+---
+
+## 18. Infrastructure and EMCOMM points
+
+When the power is out and the roads are blocked, the questions on a net
+are concrete: where is the nearest hospital with an emergency department,
+which fire station covers that road, who has fuel, where can a helicopter
+land, which substation feeds the town, which Weather Radio transmitter you
+should tune. The answers can be on your maps before the day, in QMapShack,
+in Navit, on the team's phones and in the browser map, one layer per
+source like the repeaters in section 13 (**D-075**).
+
+Each layer lands in `~/.local/share/hammunition/overlays/infra/` as four
+files of yours: a GPX, a QMapShack POI collection, a Navit map and a
+GeoJSON for the browser map. Writing one source's layers leaves the others
+alone. Nothing here runs as root.
+
+### From the regions you already have
+
+```
+hammunition maps infra import --from-osm
+```
+
+filters the OpenStreetMap extracts you installed for the maps, with
+`osmium` (from `osm-navit`), into eight layers. Nothing is downloaded. On
+the two example states it was measured on (2026-10-01):
+
+| layer | what is in it | Delaware | Vermont |
+|---|---|---:|---:|
+| Medical | hospitals, clinics and doctors, pharmacies | 187 | 199 |
+| Responders | fire stations, police, ambulance stations | 158 | 367 |
+| Supply | fuel, supermarkets, hardware, EV charging, drinking water | 573 | 885 |
+| Shelter candidates | schools, community centres and town halls, places of worship | 671 | 1,801 |
+| Transport | airfields, helipads, railway stations | 72 | 123 |
+| Power | substations and power plants | 225 | 874 |
+| Telecom masts | communications masts and towers | 314 | 174 |
+| Water | water works, wastewater plants, pumping stations, water towers | 163 | 105 |
+
+`--layers medical,water` makes only those. A hospital that mappers marked
+as having an emergency department says so in its description; a
+substation carries its voltage and operator where they are mapped.
+
+**Shelter candidates are only candidates.** A school, a community centre
+or a church is where a shelter is often opened, which is why they are on
+the map; whether one is open, and which one, is the emergency manager's
+announcement. The layer's name and every point in it say *candidate, not a
+designated shelter*.
+
+Left out on purpose: OpenStreetMap's `amenity=shelter` (picnic, bus-stop
+and lean-to shelters: hundreds of them, none a mass-care shelter); sirens,
+defibrillators and assembly points (a handful per state at most); road
+call boxes; power towers and poles (tens of thousands); rooftop solar
+generators; hydrants, bridges and power lines, which belong on the map
+rather than in a list. The browser map draws the lines and hydrants (below).
+
+### US federal lists, pinned like any data
+
+Three lists install like the maps do, each checked against the digest the
+catalog pins, each one a LAN mirror can serve (`docs/guides/lan-mirror.md`).
+None is in a profile yet; install the ones you want:
+
+```
+hammunition install faa-nasr-airports
+hammunition maps infra import --from-nasr
+```
+
+The FAA's NASR list of every airport, heliport and seaplane base, public
+and private, about 8 MB, renewed every 28 days. A hospital's helipad is in
+it; a closed airfield says so.
+
+```
+hammunition install eia-860m
+hammunition maps infra import --from-eia
+```
+
+EIA's monthly inventory of power plants of 1 MW and up, about 14 MB: one
+point a plant, with its operator, its technologies and its megawatts. It
+is credited the way EIA asks: *Source: U.S. Energy Information
+Administration (Aug 2026), public domain*.
+
+```
+hammunition install wri-power-plants
+hammunition maps infra import --from-wri
+```
+
+WRI's worldwide plant list (CC BY 4.0, frozen in 2021), for regions that
+cross the US border: the import keeps only plants outside the US and says
+EIA covers the US.
+
+These imports keep what lies inside your regions' boxes. A box is a
+rectangle round a region, so it reaches into the next state: Delaware's
+box holds 115 FAA sites where Delaware itself has 38.
+
+### On request: towers and Weather Radio
+
+```
+hammunition maps infra fetch-fcc-asr
+```
+
+fetches the FCC's antenna structure registrations, about 38 MB, when you
+run it and only then: every registered tower and mast in your regions,
+with its height above ground and sea level. The FCC publishes no checksum,
+so the layer is *FCC towers (unverified, date)* and the digest of what
+arrived is printed. The FCC's file also holds the owners' contact names,
+e-mail addresses and telephone numbers; that part is never opened.
+Registered structures are those that need FAA notice, mostly over 200 feet
+or near airports, so the OpenStreetMap telecom layer and this one overlap
+and neither holds the other.
+
+```
+hammunition maps infra fetch-nwr
+```
+
+fetches NOAA Weather Radio's transmitter list (about 755 kB): each
+transmitter near your regions with its frequency, power and the SAME code
+of every county it covers, which is what a weather radio is programmed
+with. The list's live on-air status is dropped (it changes with every
+outage), so check a transmitter is on the air before you count on it. It
+is *not an official NWS product*.
+
+### See them
+
+- **QMapShack:** each layer is a POI collection in the POI Collections
+  dock (the folder is added to its settings for you), and *File → Load*
+  opens a layer's GPX as a project.
+- **Navit:** start `navit-offline`; each layer is drawn with its own icon
+  and listed among the POIs.
+- **Phones:** copy a layer's GPX; most offline map apps import GPX.
+- **The browser map** (section 16): `hammunition reference serve` lists
+  every layer beside the map with a box to show or hide it; click a point
+  for its description. The map's own tiles, rebuilt once by the next
+  `hammunition install osm-pmtiles`, now also draw power lines coloured by
+  voltage (after Open Infrastructure Map's colours, credited on the map),
+  substations and plants, masts, pipelines, water works and hydrants at
+  street zoom. A layer written while the server runs appears after you
+  restart it.
+
+### Remove them
+
+```
+hammunition maps infra remove
+hammunition maps infra remove --layer fcc-towers
+```
+
+### Not carried, and why
+
+- **HIFLD Open**, the old federal infrastructure catalogue: DHS retired it;
+  what is left needs an account and a data-use agreement, or is a
+  third-party copy (the cell-tower layer is under Esri's licence).
+- **OpenGridWorks**: its site blocked every automated request, its terms
+  could not be read, and it has no download; its own sources (EIA,
+  OpenStreetMap) are carried here directly.
+- **FEMA's open shelters**: a live list (five open nationwide on the day it
+  was checked), useless offline outside an event.
+- **911 call-centre boundaries**: not published nationally.
+- **USGS National Structures**: 82 MB for Delaware's 998 points, which
+  OpenStreetMap matches or beats.
+- **OpenFEMA**: county areas, not points, and its terms page could not be
+  read.
+
+Canada's licensed-transmitter file (ISED TAFL), the UK's OS OpenData and
+Europe's INSPIRE services are named routes for later, not built.
+
+### What has not been measured yet
+
+QMapShack and Navit drawing these layers with these symbols and icons, a
+real `fetch-fcc-asr` and `fetch-nwr` from this engine, and the imports over
+a station's own regions are owed to the bench. The tiles' infrastructure
+layer was built by tilemaker on Delaware and drawn by a headless browser,
+not yet looked at on the laptop.
 
 ---
 

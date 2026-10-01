@@ -132,3 +132,13 @@ Bunker took at the pinned digest still installs. The repeater lists fetched
 on request (hearham, the ETCC, Brandmeister) are not data units and are not
 in the list; whether a Bunker may keep copies of them is the maintainer's
 decision, not yet made.
+
+The infrastructure layers' three data units (**D-075**) mirror like any
+pinned data: `faa-nasr-airports/APT_CSV.zip`, `eia-860m/eia860m.xlsx` and
+`wri-power-plants/global_power_plant_database.zip`, about 26 MB together.
+Two of them move under the catalog: the FAA publishes a new NASR cycle
+every 28 days, and EIA moves each month's workbook to its archive address
+when the next one is out, so a Bunker holding the pinned bytes keeps an
+install working between a move and the pin's regeneration. The FCC tower
+file and NOAA Weather Radio's list are fetched on request, unverified, and
+are not in the list.

@@ -123,7 +123,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 ### Task 10: The browser map overlays
 
-**Files:** Modify `src/hammunition/map_page.py`, `src/hammunition/reference.py`, CLI `cmd_reference_serve`; Test `tests/test_reference_serve.py`, `tests/test_map_page.py` (or existing), `tests/test_map_render.py`.
+**Files:** Modify `src/hammunition/map_page.py`, `src/hammunition/reference.py`, CLI `cmd_reference_serve`; Test `tests/test_map_overlays.py` (new), `tests/test_map_render.py`.
 
 - [ ] Step 1: tests: `find_overlays(dir)` serves each `infra-*.geojson` by exact name at `/map/overlays/<file>`, lists them at `/map/overlays.json` with id, name, licence; a symlink or other file is not served; the page names the overlays URL, the infra style and the OIM credit; the licence file is served.
 - [ ] Step 2-4. Commit.

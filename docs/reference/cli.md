@@ -699,6 +699,111 @@ With `--json`, prints a `repeaters-removed` document
 ([json-interface.md](json-interface.md)): the layers asked for, the files
 deleted, what each program was told and the all-sources file.
 
+### `hammunition maps infra import (--from-osm [--layers LAYER,LAYER] | --from-nasr | --from-eia | --from-wri)`
+
+Infrastructure and EMCOMM points on your maps, one layer per source
+(**D-075**). Each layer is four files in
+`~/.local/share/hammunition/overlays/infra/` (directory 0700, files 0600,
+each renamed into place): a GPX (`infra-<id>.gpx`) for QMapShack's File >
+Load and phones, a Mapsforge `.poi` QMapShack keeps as a POI collection, a
+Navit textfile, and a GeoJSON the browser map draws. One import writes its
+own layers and leaves every other layer as it is. Refused as root.
+
+- `--from-osm` filters the region extracts installed here with osmium, as
+  you, into eight layers: `osm-medical` (hospitals, clinics and doctors,
+  pharmacies), `osm-responders` (fire stations, police, ambulance stations),
+  `osm-supply` (fuel, supermarkets, hardware, EV charging, drinking water),
+  `osm-shelter-candidates` (schools, community centres and town halls,
+  places of worship: **candidate, not a designated shelter**, in the
+  layer's name and every description), `osm-transport` (aerodromes,
+  helipads, railway stations), `osm-power` (substations and plants),
+  `osm-telecom` (communications masts and towers) and `osm-water` (water
+  works, wastewater plants, pumping stations, water towers). `--layers
+  medical,water` writes only those. Nothing is downloaded. Licence line
+  `© OpenStreetMap contributors, ODbL 1.0`.
+- `--from-nasr` reads the installed `faa-nasr-airports` unit: every
+  airport, heliport and seaplane base in your regions' boxes, with its
+  status and use. Licence line `FAA NASR <cycle>, public domain`.
+- `--from-eia` reads the installed `eia-860m` unit: one point a plant, its
+  operator, technologies and summed nameplate megawatts. Licence line
+  `Source: U.S. Energy Information Administration (<Mon YYYY>), public
+  domain`.
+- `--from-wri` reads the installed `wri-power-plants` unit, outside the US
+  only, and says EIA-860M covers the US. Licence line `WRI Global Power
+  Plant Database v1.3.0 (2021), CC BY 4.0`.
+
+The three data imports keep what lies in the boxes the installed
+extracts' headers carry (a box is a rectangle, so it reaches across a
+state line); an extract without one is named by its number and left out,
+and none at all is refused, naming `hammunition install osm-regions`. A
+layer this import finds empty has its old files deleted and listed; an
+import that finds nothing at all changes nothing and exits 1. QMapShack's
+`[Canvas] poiPaths` holds the directory while any layer has a `.poi`, and
+your Navit copy (`overlays/navit.xml`) carries every repeater and
+infrastructure layer.
+
+```
+$ hammunition maps infra import --from-osm
+© OpenStreetMap contributors, ODbL 1.0
+
+Input: /usr/local/share/hammunition/data/osm-regions (osm-extract)
+Read: 2362 objects, 0 skipped
+Note: filtered on this machine from the region extracts already here; nothing downloaded
+Medical (OpenStreetMap, ODbL, 2026-09-30): 187 points
+...
+```
+
+With `--json`, prints an `infra` document
+([json-interface.md](json-interface.md)): the route, the licence lines,
+what was read (the extracts' directory with no digest), counts and skips,
+each layer's name, count and files, and what QMapShack and Navit were told.
+It carries no place's name or position, no region and no box.
+
+### `hammunition maps infra fetch-fcc-asr`
+
+Fetches the FCC's weekly Antenna Structure Registration file,
+`https://data.fcc.gov/download/pub/uls/complete/r_tower.zip` (37,810,019
+bytes on 2026-09-27; no checksum published), when you run it and at no
+other time, through the repeaters' bounded, HTTPS-only fetch, and writes
+the `fcc-towers` layer, `FCC towers (unverified, YYYY-MM-DD)`, dated by the
+file's own `counts` record (**D-075**: on request, unverified, by the
+maintainer's delegate's ruling). It prints what it is about to fetch first.
+Only `RA.dat` and `CO.dat` are read; **`EN.dat`, the owners' contact names,
+e-mail addresses and telephone numbers, is never opened**, and of `RA` the
+signature and street-address fields are never kept. A structure is kept
+when its registration is constructed or granted, it has no dismantle date,
+it has a structure coordinate, and it lies in your regions' boxes. Licence
+line `FCC Antenna Structure Registration, US Government work, public
+domain`; the sha256 of what arrived is printed and recorded. No `--json`
+form.
+
+### `hammunition maps infra fetch-nwr`
+
+Fetches NOAA Weather Radio's transmitter list,
+`https://www.weather.gov/source/nwr/JS/ccl-data.js` (754,735 bytes on
+2026-10-01), on request only, and writes the `nwr` layer, `NOAA Weather
+Radio (unverified, fetched YYYY-MM-DD)` (**D-075**). Each transmitter keeps
+its callsign, frequency, power, site, forecast office and every county's
+SAME code; **its live status is dropped** before anything is written, so
+check a transmitter is on the air before you rely on it. A transmitter
+within 1.0 degree of a region's box is kept: measured, that keeps every
+transmitter serving Delaware's and Vermont's counties. Licence line
+`NOAA/NWS, public domain, not an official NWS product`. No `--json` form.
+
+### `hammunition maps infra remove [--layer ID]`
+
+Deletes every infrastructure layer's files, and the directory when it is
+left empty; anything else you put there stays. With `--layer` (`osm-medical`,
+`osm-responders`, `osm-supply`, `osm-shelter-candidates`, `osm-transport`,
+`osm-power`, `osm-telecom`, `osm-water`, `faa-airports`, `eia-plants`,
+`wri-plants`, `fcc-towers` or `nwr`) it deletes that layer only. QMapShack's
+`poiPaths` and your Navit copy follow the overlay layers that remain,
+repeaters included. Nothing to remove is exit 0.
+
+With `--json`, prints an `infra-removed` document
+([json-interface.md](json-interface.md)): the layers asked for, the files
+deleted and what each program was told.
+
 ### `hammunition reference books`
 
 The Kiwix books the catalog offers (**D-066**), one per entry of the
@@ -772,6 +877,16 @@ The page loads nothing from anywhere else, draws "© OpenMapTiles ©
 OpenStreetMap contributors" on the map as the licences require, and shows
 your position when `hammunition maps gps-tether` runs. Without the kit the
 landing page says what to install instead.
+
+**Infrastructure on the map (D-075).** Tiles built by the converter's
+version 2 carry an `infra` layer (power lines and plants coloured by
+voltage after Open Infrastructure Map, masts, pipelines, water works,
+hydrants), which the page draws over OSM Bright and credits; the style's
+BSD-3-Clause notice is at `/map/infra-style-licence.txt`. Each layer you
+wrote with `hammunition maps infra` is served from your own overlay
+directory as `/map/overlays/infra-<id>.geojson`, listed at
+`/map/overlays.json`, and drawn as a toggled layer with its licence in the
+credit; a layer written while the server runs appears after a restart.
 
 With no books installed, no kiwix-serve is started and the page says how to
 choose some. With books installed and `kiwix-serve` or `kiwix-manage`
