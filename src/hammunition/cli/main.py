@@ -449,6 +449,16 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             return EXIT_FAILED
     else:
         reference_books = current.reference_books
+
+    # The rig values (D-073 §4): resolved against the catalog here, so the
+    # station module stays free of it. Returns the resolved kwargs and the
+    # field names set, or an exit code on a refusal.
+    rig_result = _resolve_rig_flags(args, current)
+    if isinstance(rig_result, int):
+        return rig_result
+    rig_fields = rig_result.fields_set
+    rig_notes = rig_result.notes
+
     set_fields = [
         field
         for field, value in (
@@ -461,12 +471,13 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             ("mirror", args.mirror or args.clear_mirror),
         )
         if value
-    ]
-    if not set_fields:
+    ] + rig_fields
+    if not set_fields and args.unattended is None:
         print(
             "error: nothing to set. Pass at least one of --callsign, --grid-square, "
             "--node-alias, --map-regions, --map-freshness, --reference-books, --mirror, "
-            "--clear-mirror.",
+            "--clear-mirror, --rig, --rig-device, --rig-baud, --rig-ptt-line, --rig-owner, "
+            "--clear-rig, --unattended.",
             file=sys.stderr,
         )
         return EXIT_FAILED
@@ -479,6 +490,11 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             map_freshness=args.map_freshness or current.map_freshness,
             reference_books=reference_books,
             mirror=None if args.clear_mirror else (args.mirror or current.mirror),
+            rig=rig_result.rig,
+            rig_device=rig_result.rig_device,
+            rig_baud=rig_result.rig_baud,
+            rig_ptt_line=rig_result.rig_ptt_line,
+            rig_owner=rig_result.rig_owner,
         )
     except StationError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -496,6 +512,140 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             print(f"  {field:<14} {station.mirror or '(cleared)'}")
         else:
             print(f"  {field:<14} {station.get(field)}")
+    for note in rig_notes:
+        print(note)
+    if args.unattended is not None:
+        code = _apply_unattended(args, station, user)
+        if code != EXIT_OK:
+            return code
+    return EXIT_OK
+
+
+@dataclasses.dataclass(frozen=True)
+class _RigFlags:
+    rig: str | None
+    rig_device: str | None
+    rig_baud: int | None
+    rig_ptt_line: str | None
+    rig_owner: str | None
+    fields_set: list[str]
+    notes: list[str]
+
+
+def _resolve_rig_flags(args: argparse.Namespace, current: Station) -> _RigFlags | int:
+    """Validate the rig flags against the catalog, enforcing the §4 table.
+
+    Returns the resolved values and operator notes, or an exit code on a
+    refusal. The station module checks only the shape a value needs; the
+    catalog cross-checks — is it a rig, is the baud in range, does the kind
+    allow this flag — are here (D-073 §4).
+    """
+    if args.clear_rig:
+        return _RigFlags(None, None, None, None, None, ["rig"], ["  rig            (cleared)"])
+
+    rig: str | None = args.rig or current.rig
+    rig_device: str | None = args.rig_device or current.rig_device
+    rig_baud: int | None = args.rig_baud if args.rig_baud is not None else current.rig_baud
+    ptt_line: str | None = args.rig_ptt_line or current.rig_ptt_line
+    owner: str | None = args.rig_owner or current.rig_owner
+
+    touched = any(
+        v is not None
+        for v in (args.rig, args.rig_device, args.rig_baud, args.rig_ptt_line, args.rig_owner)
+    )
+    if not touched:
+        return _RigFlags(rig, rig_device, rig_baud, ptt_line, owner, [], [])
+
+    notes: list[str] = []
+    if rig is None:
+        print(
+            "error: set --rig first (the device or hamlib:<model>); the other rig "
+            "values describe the radio it names.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+
+    from hammunition.rig import RigError, check_rig_baud, elide_serial, resolve_rig
+
+    try:
+        _classes, devices = _load_hardware_catalog(args)
+        res = resolve_rig(rig, devices)
+    except (CatalogError, RigError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+
+    if res.kind == "cat":
+        if ptt_line is not None:
+            print(
+                "error: --rig-ptt-line is for a radio with no CAT; this rig keys over CAT.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+        if res.uncatalogued and rig_baud is None:
+            print(
+                f"error: {rig} has no manifest, so --rig-baud is required — there is no "
+                f"range in the catalog to take it from. Give the speed from the radio's "
+                f"CAT RATE menu.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+        if rig_baud is not None and res.baud_range is not None:
+            problem = check_rig_baud(rig_baud, res.baud_range)
+            if problem is not None:
+                print(f"error: {problem}", file=sys.stderr)
+                return EXIT_FAILED
+        if res.uncatalogued:
+            notes.append(
+                f"  note: radio {rig} has no manifest; its USB shape, ports and known "
+                f"problems are unmeasured here."
+            )
+        elif res.baud_range is not None:
+            lo, hi = res.baud_range
+            notes.append(
+                f"  note: this backend's CAT speed range is {lo}..{hi}; set --rig-baud to "
+                f"the rate in the radio's CAT RATE menu."
+            )
+    else:  # ptt_only
+        if rig_baud is not None:
+            print(
+                "error: --rig-baud is refused for a radio with no CAT — no data crosses "
+                "the line.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+        if ptt_line is None:
+            print(
+                "error: --rig-ptt-line is required for a radio with no CAT (rts, dtr, or "
+                "vox): the catalog cannot know which line your interface keys it on.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+        if owner == "flrig":
+            print(
+                "error: --rig-owner flrig needs a CAT rig for flrig to drive; this radio "
+                "has no CAT.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+
+    if rig_device is not None:
+        if "/dev/serial/by-id/" not in rig_device:
+            notes.append(
+                "  warning: the rig device is not a /dev/serial/by-id/ path; a /dev/ttyUSB "
+                "number changes with plug order."
+            )
+        elif not Path(rig_device).exists():
+            notes.append(
+                f"  warning: {elide_serial(rig_device)} does not exist right now (the radio may "
+                f"simply be off)."
+            )
+
+    return _RigFlags(rig, rig_device, rig_baud, ptt_line, owner, ["rig"], notes)
+
+
+def _apply_unattended(args: argparse.Namespace, station: Station, user: str) -> int:
+    """Placeholder completed in Task 12 (D-073 §5a: opt-in linger)."""
+    del args, station, user
     return EXIT_OK
 
 
@@ -4884,6 +5034,54 @@ def build_parser() -> argparse.ArgumentParser:
         help="a LAN mirror of the data artifacts, tried before the publisher (D-070)",
     )
     mirror_flags.add_argument("--clear-mirror", action="store_true", help="remove the saved mirror")
+    p_station_set.add_argument(
+        "--rig",
+        default=None,
+        metavar="DEVICE|hamlib:MODEL",
+        help="the station's radio: a catalog device id, or hamlib:<model> for one with no "
+        "manifest (D-073)",
+    )
+    p_station_set.add_argument(
+        "--rig-device",
+        default=None,
+        metavar="PATH",
+        help="the serial port the rig is reached on; a /dev/serial/by-id/ path is best",
+    )
+    p_station_set.add_argument(
+        "--rig-baud", default=None, type=int, metavar="RATE", help="the CAT serial speed"
+    )
+    p_station_set.add_argument(
+        "--rig-ptt-line",
+        default=None,
+        choices=("rts", "dtr", "vox"),
+        help="for a radio with no CAT: which line keys it, or vox",
+    )
+    p_station_set.add_argument(
+        "--rig-owner",
+        default=None,
+        choices=("rigctld", "flrig"),
+        help="who holds the serial port (default rigctld when unset)",
+    )
+    p_station_set.add_argument(
+        "--clear-rig",
+        action="store_true",
+        help="remove rig, rig_device, rig_baud, rig_ptt_line and rig_owner",
+    )
+    unattended_flags = p_station_set.add_mutually_exclusive_group()
+    unattended_flags.add_argument(
+        "--unattended",
+        dest="unattended",
+        action="store_true",
+        default=None,
+        help="keep the rig service running with nobody logged in (enables linger; D-073 §5a)",
+    )
+    unattended_flags.add_argument(
+        "--no-unattended",
+        dest="unattended",
+        action="store_false",
+        default=None,
+        help="stop keeping services running after logout (disables linger if we enabled it)",
+    )
     p_station_set.add_argument("--user", default=None, help="whose configuration to write")
     p_station_set.set_defaults(func=cmd_station_set)
 
