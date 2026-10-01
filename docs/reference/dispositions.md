@@ -794,7 +794,9 @@ inventories'. Mercury and FreeDATA are ADD by the maintainer's ruling on
 **Q-022** #6. The apt adds are ADD on the report's recommendation (section
 D, item 6), which Q-022 says needs no ruling once the seven-target sweep
 confirms a unit; a unit the sweep or the decision record rules out is listed
-with why.
+with why. The first batch of source-built adds (section D, item 10:
+piHPSDR, FreeDV 2.x, DroidStar) is ADD on the same footing: Q-022 says
+they need a D-032 liveness check and a measured build, not a ruling.
 
 | Unit | Decided | How | What was measured (2026-09-30) |
 |---|---|---|---|

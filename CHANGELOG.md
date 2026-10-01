@@ -29,6 +29,22 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   list. `hammunition menus apply` removes a generated launcher that shadows
   a PATH binary, with its menu entry, and writes the renamed one; `doctor`'s
   launchers check names one. After merge: `hammunition menus apply`.
+- **piHPSDR and DroidStar are carried; FreeDV 2.x is not yet** (gap
+  analysis D.10, first batch; Q-022 says these need a D-032 check and a
+  measured build, not a ruling). `pihpsdr` is the operating program for
+  OpenHPSDR transceivers (ANAN, Hermes Lite 2), a `make` build of DL1YCF's
+  tag v3.0 in the `sdr` profile beside Quisk. `droidstar` is a reflector
+  client for M17, DMR, D-STAR, Fusion, P25 and NXDN with its vocoders
+  compiled in, an own-choice commit pin in `digital-modes` beside `qtel`, on
+  Debian 13, Parrot, Kali and Ubuntu 26.04 (Ubuntu 24.04 and Mint have Qt
+  6.4, below its floor); a two-line patch turns off its ARM-only MD-380
+  firmware vocoder, and only its executable is installed because its
+  install rule deploys Qt into the prefix. Both transmit when keyed, and
+  their pages and profiles say so. FreeDV 2.4.0 builds, but fetches RADE's
+  C port and RNNoise from `main` while building: `source-build-gaps.md` #9,
+  a row in `not-carried.md` (whose generator now validates the
+  gap-analysis "Not added" rows too), and a note on `freedv`, which is
+  1.8.11 without RADE on every target.
 
 ## v0.18.0 — 2026-10-01 — the 2026-09 gap analysis: guides, station config for the packet units, GPS time, chrony, Kismet, the HF modems, six apt units, three re-rulings
 
