@@ -16,4 +16,4 @@ Install `qdmr` or `dmrconfig`, join `dialout`, then log out and back in — grou
 
 ## Shared tooling
 
-[`dfu-util`](../packages/dfu-util.md), [`dmrconfig`](../packages/dmrconfig.md), [`qdmr`](../packages/qdmr.md)
+[`dfu-util`](../packages/dfu-util.md), [`dmrconfig`](../packages/dmrconfig.md), [`qdmr`](../packages/qdmr.md), [`radio-tool`](../packages/radio-tool.md)

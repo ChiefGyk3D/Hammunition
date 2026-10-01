@@ -1,0 +1,155 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: radio-tool
+version: "0.3.0+git20260829"
+summary: Flashes firmware -- OpenRTX among it -- onto TYT, Baofeng, Radioddity and other DMR handhelds from Linux
+menu_title: DMR radio firmware flasher (radio_tool)
+categories: [radio-programming, dmr]
+
+# ADD, 2026-09 gap analysis section B Group 6 ("OpenRTX `radio_tool`") and
+# section D item 10 (second batch). Measured 2026-10-01:
+#   - Which repository: OpenRTX's user guide (openrtx.github.io,
+#     user_guide.md) says "On Linux you can use radio_tool" and links
+#     v0l/radio_tool. There is no OpenRTX/radio_tool; OpenRTX's own Rust
+#     flasher `rtxflash` carries v0l/radio_tool as a submodule. The manifest
+#     is `radio-tool` because manifest names are slugs; the program is
+#     `radio_tool`.
+#   - D-032: default branch `main`, head f9083b6313ee committed 2026-08-29.
+#     Last tag v0.3.0, 2025-06-23; the 21 commits since include the fixes
+#     this pin exists for (pin_review below).
+#   - Licence: LICENSE is GPL-3.0, and src/radio_tool.cpp's header says
+#     "version 3 of the License, or (at your option) any later version".
+#   - Archives (scripts/apt-policy-sweep.sh, seven targets): no target offers
+#     `radio-tool` or `radiotool`; neither the AUR nor nixpkgs packages it.
+#   - D-026: radio_tool copies firmware bytes to a radio over USB. It is the
+#     means of talking to the device, so it is not consent-gated, whatever
+#     firmware it writes.
+install:
+  - install:
+      method: git
+      repo: https://github.com/v0l/radio_tool
+      ref: f9083b6313eed0317694c1caa0814c17de4acb5e
+      build_system: cmake
+      # BUILD_BLE is upstream's own switch, on by default, and it makes the
+      # configure step FetchContent SimpleBLE v1.1.0 from GitHub -- a fetch
+      # this manifest cannot pin, and one that needs libdbus-1-dev, which
+      # stopped the first measured configure. Bluetooth LE is used only to
+      # clone codeplugs from the Baofeng UV-17Pro family; flashing does not
+      # use it. Off, nothing is fetched.
+      configure_args: [-DBUILD_BLE=OFF]
+      pin_review:
+        last_reviewed: 2026-10-01
+        reviewed_by: hammunition-maintainers
+        basis: own_choice
+        rationale: >-
+          The default branch's head (D-032), f9083b6, 2026-08-29, rather than
+          the last tag, v0.3.0 (2025-06-23), because v0.3.0 cannot flash:
+          its RadioFactory::ListDevices builds the USB factory as a local
+          whose destructor calls libusb_exit before any device is opened
+          (read in src/radio_factory.cpp and src/usb_radio_factory.cpp at
+          the tag), which upstream's f698a41 records as every USB operation,
+          --flash included, segfaulting. The same commit fixes
+          IsCompatible checks that were always true, so v0.3.0 accepted any
+          firmware file for any radio; a82a88a fixes HID transfers to the
+          GD-77's bootloader and detaches the kernel HID driver first.
+          Checked for a distribution to follow and found none: no target
+          archive packages it (2026-10-01 sweep), and neither the AUR nor
+          nixpkgs does.
+        cadence_days: 180
+    build_depends:
+      - build-essential
+      - git
+      - cmake
+      - pkg-config
+      - libusb-1.0-0-dev
+    note: >-
+      Built on 2026-10-01 in a rootless debian:13 container the way this
+      block runs it -- cmake configure with -DBUILD_BLE=OFF, `cmake --build
+      --parallel 2` as an unprivileged user with the build_depends above:
+      exit 0, 48 s wall, 482 MiB peak, 106 compiler warnings (-Wall -Wextra
+      in upstream's flags) and no errors. The executable is 0.9 MB and links
+      libusb and libudev. `cmake --install` into a DESTDIR wrote
+      bin/radio_tool and nothing else. The build dependencies came to 101
+      packages and about 450 MB on a bare debian:13 image. Configured with
+      upstream's default instead, BUILD_BLE on, the configure step cloned
+      SimpleBLE and stopped at "Package 'dbus-1' ... not found". The same build in a kali-rolling container took 63 s and
+      480 MiB peak.
+
+binaries:
+  - produced: radio_tool
+    install_as: radio_tool
+
+# For its udev rule: dfu-util's package grants access to 0483:df11, the
+# STM32 bootloader the TYT radios are flashed in (its manifest has the
+# rule's text). Nothing else in this manifest is reachable as a user without
+# it.
+depends: [dfu-util]
+
+update:
+  probe:
+    method: github_tags
+    repo: v0l/radio_tool
+  strategy: rebuild
+  cadence_hint: >-
+    Tags are rare (v0.2.2 in 2022, v0.3.0 in 2025) and the 2026-08 fixes
+    are untagged. When a tag lands at or after f9083b6, move to the tag and
+    drop the pin_review; until then read the default branch's head (D-032)
+    at each review. Keep -DBUILD_BLE=OFF unless SimpleBLE can be pinned.
+
+documentation:
+  what_it_does: >-
+    radio_tool writes firmware to DMR handhelds over USB, in the bootloader
+    mode each radio is started in for an update: TYT's MD-380, MD-390,
+    MD-UV380, MD-UV390, MD-2017, MD-9600, MD-446 and MD-280, Baofeng's
+    DM-1701, DM-1801 and RD-5R, Radioddity's GD-77, Ailunce's HD1 and
+    Yaesu's FT-70DR (upstream's README table). It also wraps a raw firmware
+    image into the vendor's update format (`--wrap`) and unwraps one,
+    prints what a firmware file is for (`--fw-info`), and on TYT radios
+    reads and sets the clock. OpenRTX, the open firmware with M17 support,
+    names it as the Linux way to put OpenRTX on these radios and to put the
+    original firmware back.
+
+    **It writes firmware to the radio.** `--flash` replaces the program the
+    radio runs; an image for the wrong model, or a flash interrupted part
+    way, can leave the radio unable to start until it is flashed again.
+    Installing it changes nothing on any radio, and no firmware comes with
+    it -- OpenRTX's and the manufacturers' images are downloaded by you.
+  why_you_want_it: >-
+    The manufacturers' update tools run on Windows. On Linux, `qdmr` and
+    `dmrconfig` (in the catalog) write a radio's codeplug -- its channels
+    and contacts -- but not its firmware; `dfu-util` writes raw DFU images
+    and has no notion of the vendors' wrapped update files. radio_tool is
+    the piece that flashes, and the one OpenRTX's documentation points
+    Linux users at.
+  prerequisites: >-
+    The radio's programming cable, and the radio started in its firmware
+    update mode: OpenRTX's user guide says PTT and the side button above it
+    held while switching on for the MD-3x0 radios, the two side buttons
+    below PTT for the GD-77 family, and the red button with P1 for the
+    MD-9600. The account needs access to the raw USB device. A TYT radio in
+    that mode is an STM32 bootloader (0483:df11), and access to it comes
+    from the udev rule the archive's `dfu-util` ships, which this unit
+    installs as a dependency; the `dmr-radio` hardware class records that
+    pair as a firmware target only, never as a rule matched to whatever is
+    attached (D-028). The RD-5R and GD-77 bootloader (15a2:0073) is an
+    identifier the same class carries, for `dialout`. A firmware image for
+    that exact model, and a codeplug backup first, as OpenRTX's guide says.
+  known_problems: >-
+    **List before you flash.** `radio_tool -l` lists the radios it can see
+    with an index; `-d <index>` picks one. Codeplug upload is not supported
+    for these radios (upstream's README table); use `qdmr` or `dmrconfig`
+    for channels. This build has no Bluetooth LE, so `--ble` and
+    `--list-ble`, which upstream added for cloning the Baofeng UV-17Pro
+    family's codeplugs, do nothing useful here; the help still lists them.
+    The README's `--list-radios` is not an option at this commit.
+
+    What was measured: built on Debian 13 and Kali, and `radio_tool --help` printed
+    its options ("radio_tool v0.3.0-f9083b6"). `-l` was not run, because it
+    enumerates the USB devices attached. Not measured: any radio, a firmware
+    file, `--wrap`, or a flash.
+  upstream_url: https://github.com/v0l/radio_tool
+  upstream_support: >-
+    The author's repository: issues at the URL above, and its README's
+    supported-radio table. For OpenRTX itself, openrtx.github.io and the
+    OpenRTX project's own channels. Licence: GPL-3.0-or-later.
