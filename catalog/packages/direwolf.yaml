@@ -92,6 +92,9 @@ documentation:
     ports, and leaves the audio device and PTT to you, because they depend
     on your interface and nothing here can know them. With no callsign set
     the package installs and the file is reported as not written.
+    Direwolf is an ALSA program: `docs/guides/audio-routing.md` says how to name the radio's sound
+    card in `ADEVICE` and what changes between the `plughw:` and `default`
+    routes on a PipeWire desktop.
   known_problems: >-
     Unaffected by Linux 7.1's removal of the kernel AX.25 stack: it is the
     userspace modem, and its KISS and AGW ports are what the other packet

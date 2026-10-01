@@ -18,7 +18,7 @@ It made hardware TNCs optional. A radio, a cheap sound interface and this is a c
 
 ## Before it will work
 
-Audio in and out to the radio, and a way to key the transmitter -- a serial control line, a GPIO pin on a Pi, or VOX. A configuration file naming your callsign, the audio device and the PTT method: Hammunition writes `/etc/direwolf.conf` with your callsign from station config (`hammunition station set --callsign <yours>`) and the KISS and AGW ports, and leaves the audio device and PTT to you, because they depend on your interface and nothing here can know them. With no callsign set the package installs and the file is reported as not written.
+Audio in and out to the radio, and a way to key the transmitter -- a serial control line, a GPIO pin on a Pi, or VOX. A configuration file naming your callsign, the audio device and the PTT method: Hammunition writes `/etc/direwolf.conf` with your callsign from station config (`hammunition station set --callsign <yours>`) and the KISS and AGW ports, and leaves the audio device and PTT to you, because they depend on your interface and nothing here can know them. With no callsign set the package installs and the file is reported as not written. Direwolf is an ALSA program: `docs/guides/audio-routing.md` says how to name the radio's sound card in `ADEVICE` and what changes between the `plughw:` and `default` routes on a PipeWire desktop.
 
 ## How it installs
 
