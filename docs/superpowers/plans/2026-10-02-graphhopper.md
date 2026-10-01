@@ -6,7 +6,7 @@ D-076. Each task is test first (red, then green), then `ruff` and `mypy
 
 ## Task 1: a single jar installed as a tree
 
-- Test (`tests/test_graphhopper_schema.py`, `tests/test_binary_tree_file.py`):
+- Test (`tests/test_graphhopper_schema.py`, which holds Task 2's tests too):
   `format: executable` with `install_tree: true` and a marker with a `/` is
   refused; with a plain marker it validates; the binary backend's steps for
   it are fetch, a staging action, then `tree_install_commands`' four steps,
@@ -44,12 +44,13 @@ D-076. Each task is test first (red, then green), then `ruff` and `mypy
 ## Task 5: the plan, the disk, the CLI wiring, update
 
 - Test: `routing_plan.GraphRun.needs` (3.7x under the prefix and in scratch,
-  plus the merged input with two regions); `graphhopper_pins` from the plan;
+  plus the merged input with two regions); `graphhopper_jar` from the plan;
   `combined_shortfall` names the graph note; `install graphhopper-graph
-  --dry-run` with regions set prints the steps; without regions it is
-  deferred by name; `rebuild_command` names the graph.
+  --dry-run` with regions set prints the steps; typed with no regions it is
+  refused with the remedy (as executed: D-039 refuses a typed name, and the
+  unit is only ever typed); `rebuild_command` names the graph.
 - Code: `src/hammunition/routing_plan.py`, `terrain.combined_shortfall`,
-  `cli/main.py`, `update.rebuild_command`.
+  `src/hammunition/cli/main.py`, `update.rebuild_command`.
 
 ## Task 6: the catalog units
 
@@ -68,10 +69,11 @@ D-076. Each task is test first (red, then green), then `ruff` and `mypy
   once the child is gone; the Host rule first; `prepare_router` writes the
   config 0600 and refills the link directory (a stale link and `gh.lock`
   removed, nothing else touched); `run()` spawns the child argv, logs the
-  route line, keeps serving when the child exits, stops it on Ctrl-C; the
-  CLI starts no router without `java` or with a stale graph, and says why.
+  route line, keeps serving when the child exits, stops it on Ctrl-C;
+  `plan_router` starts no router without `java` or with a stale graph, and
+  says why; the child dies with its parent.
 - Code: `src/hammunition/reference.py`, `src/hammunition/graphhopper.py`,
-  `cli/main.py`.
+  `src/hammunition/cli/main.py`.
 
 ## Task 8: the page
 

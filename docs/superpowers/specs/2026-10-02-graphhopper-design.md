@@ -79,7 +79,9 @@ the plan, so a GraphHopper bumped in the same run rebuilds the graph),
 `profiles car bike foot hike`, `file <name>` per graph file, last
 `converter: graphhopper-import 1`. Current when the record less its `file`
 lines is what this run would write and every file exists. With no regions
-set the unit is deferred by name with the other map units.
+set, the unit, which is only ever typed (§5), is refused with the remedy,
+as D-039 rules for a typed name (found while building: a profile member is
+deferred, a typed name is not); `graphhopper` alone still installs.
 
 **The profiles** are the engine's, never the catalog's: car with
 contraction hierarchies, bike, foot and hike with landmarks, the encoded

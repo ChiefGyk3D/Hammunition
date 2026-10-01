@@ -1513,6 +1513,86 @@ scripts that fetch native binaries, which D-037 refuses; planetiler is not
 in any archive, needs Java 21 and about 1.45 GB of side downloads before
 the first tile, and is slower than tilemaker on a region.
 
+### Routes on the browser map: GraphHopper
+
+The browser map can also plan a route, by car, bike, on foot or hiking,
+with turn-by-turn directions and no network, through GraphHopper
+(**D-076**). It is not part of `navigation`; install it by name:
+
+```
+hammunition install graphhopper-graph
+```
+
+That brings two units:
+
+- **`graphhopper`**: GraphHopper 11.1, one Java file
+  (`graphhopper-web-11.1.jar`, 47 MB) from Maven Central, checked against
+  the sha256 Central publishes beside it, under
+  `/usr/local/share/hammunition/graphhopper/`, with Java from your
+  distribution (17 or newer; Debian 13 has 21). Central also publishes a
+  PGP signature; Hammunition records it and does not check it, and the
+  plan says so.
+- **`graphhopper-graph`**: GraphHopper's route graph, built on your machine
+  from the same regions as everything above, one graph over all of them so
+  a route crosses from one region into the next, under
+  `/usr/local/share/hammunition/data/graphhopper-graph/`. With no regions
+  set, the install refuses and says how to set them.
+
+Then start the reference page as before (`hammunition reference serve`).
+When the graph is installed and Java is there, the terminal says `routes:
+GraphHopper starting`, and the map's bar gains a second line: *Route for*
+(car, bike, foot or hike), *Route* and *Clear*. Press *Route*, then click
+where to go: with the tether running the route starts where you are;
+without it, click the start first, then the end. The route is drawn in
+blue with a green pin at the start, and the bar shows its length and time;
+open that line for the directions. Choosing another profile routes the
+same two points again. GraphHopper takes a few seconds to start; a route
+asked before then says it is still starting. You can also open a route
+directly, for example
+`http://127.0.0.1:8480/map/#route=44.2601,-72.5754;44.2700,-72.5600;hike`
+(two points near Montpelier, Vermont, as latitude,longitude, then the
+profile).
+
+What the profiles do: **car** and **bike** follow roads and cycle routes;
+**foot** keeps off mountain paths (it refuses `sac_scale` mountain hiking
+and harder); **hike** takes trails by their difficulty, mountain paths
+included. Routes are flat: GraphHopper's own elevation sources are online
+downloads, and none of them reads the Copernicus tiles Hammunition
+installs.
+
+**How it runs, so you know what is listening.** `reference serve` starts
+GraphHopper's own server as a child on 127.0.0.1, at a port the system
+picks each time, and stops it when you press Ctrl-C (or when
+`reference serve` is killed). The map never calls GraphHopper itself: it
+asks `/map/route` on the reference page's own server, which refuses any
+request that does not name 127.0.0.1 or localhost, rebuilds the request
+from two points and a profile, and passes GraphHopper's answer back.
+GraphHopper's own server answers every web page with
+`Access-Control-Allow-Origin: *` and checks no Host name (measured on
+11.1), so while it runs a page from elsewhere in your browser that found
+its port could ask it for routes over your regions. Stop `reference serve`
+when you are not using the map. GraphHopper's own web page at `/maps/` on
+that port is not used: its base maps all come from the internet. Its log
+is `~/.cache/hammunition/reference/graphhopper/graphhopper.log`; if
+GraphHopper stops, the books and the map keep serving and the Route control
+says the router stopped.
+
+**Which router for what.** Each one is here for a program that uses it:
+
+| Router | Used by | What it is for |
+|---|---|---|
+| Navit's own | Navit (sections 4 and 5) | Driving with spoken directions and address search |
+| Routino | QMapShack (section 9) | Routes on foot or by bike over the trails map; ignores trail difficulty and hills |
+| BRouter | QMapShack (section 9) | Hiking by trail difficulty, and bike routes that weigh climbs from the elevation |
+| CoMaps' own | CoMaps (section 17) | Phone-style car, bike and foot routing with address search |
+| GraphHopper | The browser map (this section) | Car, bike, foot and hiking routes in any browser on this machine, from your position |
+
+GraphHopper is installed by name only, because of its size: the graph is
+about 3.7 times all your downloads together (Delaware's 22.1 MB made 78 MB,
+measured by the routing spike), the largest of any map unit, and building
+it took 1.2 GB of memory on Delaware, with nothing larger measured. The
+`navigation` profile already carries three offline routers.
+
 ---
 
 ## 17. CoMaps: search and routing like a phone app
@@ -1843,6 +1923,17 @@ tile never changes, so there is no reason to keep two copies. The plan
 counts all of this with the Navit figures above, and refuses before
 anything is fetched if a disk is short.
 
+GraphHopper, only when you install it by name (section 16), adds:
+
+| What | How much | Where | How long it stays |
+|---|---|---|---|
+| GraphHopper itself | 47 MB, once | `/usr/local/share/hammunition/graphhopper/` | Until uninstall |
+| The route graph, all regions | about 3.7× all the regions together (Delaware: 78 MB from 22.1 MB, one measurement) | `/usr/local/share/hammunition/data/graphhopper-graph/` | Rebuilt when the regions or GraphHopper change |
+| Its build scratch | the graph once more, plus the merged regions when there are two or more | `~/.cache/hammunition/build/graphhopper-graph/` | Only while it builds |
+
+Building it took about 1.2 GB of memory on Delaware; Java's heap is capped
+at 4 GB, and a region much larger than Delaware has not been tried.
+
 ---
 
 ## Taking the downloads from your own network
@@ -1964,6 +2055,21 @@ names it, and this puts it back:
 ```
 sudo apt-get install --reinstall routino-common
 ```
+
+### The map has no Route control, or says the router stopped
+
+The Route control appears only when `reference serve` started GraphHopper;
+the terminal says why when it did not. The usual reasons: the graph is not
+installed (`hammunition install graphhopper-graph`); it was built by
+another GraphHopper than the one installed, after an upgrade
+(`hammunition install graphhopper-graph` rebuilds it); or `java` is not on
+the PATH (`hammunition install graphhopper`). If the control says the
+router stopped, read the last lines of
+`~/.cache/hammunition/reference/graphhopper/graphhopper.log`; a graph too
+large for Java's 4 GB heap would end there with Java's out-of-memory error
+(not yet seen: nothing larger than Delaware has been built). "Still
+starting" goes away after a few seconds. A route that comes back "Point 0 is
+out of bounds" asked for a point outside your regions.
 
 ### US Topo is listed but draws nothing
 
@@ -2120,6 +2226,15 @@ The browser map's tiles and its kit go with:
 hammunition uninstall osm-pmtiles vector-map-kit
 ```
 
+and GraphHopper and its route graph with:
+
+```
+hammunition uninstall graphhopper-graph graphhopper
+```
+
+`~/.cache/hammunition/reference/graphhopper/` (the server's configuration,
+its links to the graph and its log) is yours to delete.
+
 CoMaps' maps go with `hammunition uninstall comaps-maps`. CoMaps itself is
 refused by `uninstall`, as every build is whose own install rule wrote into
 `/usr/local`: that rule leaves no list of files to reverse, and what it
@@ -2219,6 +2334,25 @@ a real Delaware map the same way. Not yet measured, and owed by the bench:
 - The page in a desktop browser, with the tether feeding a real receiver's
   position.
 - tilemaker 3.1 (Ubuntu 26.04) and 3.2 (Debian forky) with the 3.0 profile.
+
+For routes on the browser map (**D-076**), every command the build and the
+server run was run on the development host on 2026-10-01, against the
+pinned jar and the archive's Java, on two synthetic regions near
+Montpelier: the graph built through the engine's own converter (4.6 s),
+GraphHopper started from the read-only graph the way `reference serve`
+starts it, listening on 127.0.0.1 only, and car, bike, foot and hiking
+routes asked through the reference server, one crossing from one region
+into the other; the hike took a mountain path the foot route went round.
+The Route control was drawn by headless Chromium against a stand-in for
+GraphHopper, every request on 127.0.0.1. Not yet measured, and owed by the
+bench:
+
+- **A real region through `hammunition install graphhopper-graph`**, with
+  its time, memory and scratch; the figures above are the spike's, on
+  Delaware, and nothing larger has been built.
+- **The Route control in a desktop browser** on the field laptop, starting
+  from a real receiver's position.
+- Java on the targets other than Parrot.
 
 Measured on the field laptop on 2026-09-29, and recorded in bench session
 12: the whole install on two regions, with its build times; QMapShack

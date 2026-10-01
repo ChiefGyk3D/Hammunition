@@ -11,6 +11,24 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Routes on the browser map: GraphHopper** (D-076). Two units, installed
+  by name only and in no profile: `graphhopper`, Maven Central's
+  `graphhopper-web-11.1.jar` pinned by the sha256 measured equal to
+  Central's own (its PGP signature recorded, not verified), installed as a
+  tree of one file now that a binary `executable` block may install as a
+  tree; and `graphhopper-graph`, a new `graphhopper-import` converter that
+  merges the station's regions with `osmium` and builds one graph with car,
+  bike, foot and hike profiles as the operator, the plan disclosing 3.7x
+  the downloads on disk and 1.2 GB of memory from one measured region.
+  `hammunition reference serve` starts GraphHopper on a loopback port the
+  system chooses, through links to the read-only graph in the operator's
+  cache, and answers `/map/route` itself after its Host rule, rebuilding
+  the request; a GraphHopper that exits is reported once and the page keeps
+  serving. The map gains *Route for*, *Route* and *Clear*, starting from the
+  tether's position, and `#route=` in the address. `update` names the graph
+  in its rebuild command. Measured on the development host with synthetic
+  regions; a real region and a desktop browser are owed by the bench.
+
 - **Forest Service FSTopo sheets and USGS 3DEP bare-earth elevation**
   (D-068, amended 2026-10-01). `usfs-fstopo` installs the FSTopo
   7.5-minute sheets, with trail numbers, for the station's regions over

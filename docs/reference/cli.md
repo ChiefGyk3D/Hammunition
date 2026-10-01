@@ -773,6 +773,41 @@ OpenStreetMap contributors" on the map as the licences require, and shows
 your position when `hammunition maps gps-tether` runs. Without the kit the
 landing page says what to install instead.
 
+**Routes (D-076).** When the map has a region and `graphhopper-graph` is
+installed, built by the GraphHopper jar now installed, and `java` is on the
+PATH, the verb also starts GraphHopper's own server as a child:
+
+    java -Xmx4000m -jar /usr/local/share/hammunition/graphhopper/graphhopper-web-11.1.jar server ~/.cache/hammunition/reference/graphhopper/config.yml
+
+on 127.0.0.1 at a port the system chooses, with no admin port, its output in
+`graphhopper.log` beside the configuration (0600), and a parent-death signal
+so it stops if this process is killed. The configuration and a directory of
+links to the installed graph are rewritten in
+`~/.cache/hammunition/reference/graphhopper/` every start, because
+GraphHopper takes a lock file in the graph's directory and the graph is
+root's (measured). The terminal adds:
+
+```
+  routes: GraphHopper starting on 127.0.0.1:<port>, asked through this page only; its log is ~/.cache/hammunition/reference/graphhopper/graphhopper.log
+```
+
+The map then asks `GET /map/route?point=LAT,LON&point=LAT,LON&profile=P` of
+this server, after the same Host rule. Exactly two points, each two finite
+numbers on the globe, and one profile the graph was built with (car, bike,
+foot, hike); anything else, another parameter included, is a 400 with a
+JSON `message`, and nothing reaches GraphHopper. The request GraphHopper
+receives is rebuilt here, with `points_encoded=false`, instructions in
+English and, for every profile but car, `ch.disable=true`; its answer
+(GeoJSON line, distance, time, instructions) is relayed with its status. A
+GraphHopper still starting is a 503 saying so; one that has exited is a
+503 naming its exit code and log, and is reported once in the terminal
+while the books and the map keep serving (unlike kiwix-serve, whose exit
+stops the page). Without a graph nothing is started; with a graph that
+cannot be served (built by another jar, a file missing, no `java`) the
+terminal and the landing page say why and what to run. GraphHopper's own
+server answers every page with `Access-Control-Allow-Origin: *`, which is
+why the map never calls it directly.
+
 With no books installed, no kiwix-serve is started and the page says how to
 choose some. With books installed and `kiwix-serve` or `kiwix-manage`
 missing, it refuses naming `hammunition install kiwix-tools`, exit 1. It
