@@ -161,7 +161,8 @@ its `reach` column counts up from 0 to 377 as ntpd hears it. Always use
 down that hangs.
 
 The `hammunition-tray` applet shows the same in its Time section and lets
-you pick the mode, from its 0.3.0.
+you pick the mode, from its 0.4.0 (corrected 2026-10-01; the section shipped
+one release later than first written here).
 
 ## 6. Holdover: when nothing sets the clock
 

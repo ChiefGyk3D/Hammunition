@@ -11,6 +11,22 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **`hammunition-tray` and `hammunition-tray-qt` re-pinned to v0.4.0**
+  (GPS-time plan Task 11, D-058). Both catalog manifests moved from v0.3.0
+  to the v0.4.0 release assets, measured against the published SHA256SUMS:
+  `hammunition-tray_0.4.0_all.deb` (15270 bytes,
+  `451bea9322376dbb9cd00834834f96e0f5d5ce487735d5fbe2349e2ae41e97bd`) and
+  `hammunition-tray-qt_0.4.0_all.deb` (18198 bytes,
+  `21ccc91e2f8a46a5213c9200fc0f33661d2075bfaee360cc50b0158981a46527`); both
+  Depends lines are unchanged from 0.3.0. 0.4.0 adds the Time section to
+  both trays: what the clock follows and the four GPS-time modes, read
+  without a password and changed through one polkit prompt to
+  `hammunition-devctl`, needing Hammunition 0.18.0 or later. Both
+  `what_it_does` fields gain a sentence for it, and the two places that had
+  written "its 0.3.0" for the still-unreleased Time section
+  (`docs/guides/gps-time.md` §5, D-058's "The tray" paragraph) are corrected
+  to 0.4.0.
+
 - **Kiwix books come through the LAN mirror, and `artifacts` lists them**
   (issue #159, D-070 amended 2026-10-01, D-066). The books backend fetched
   from download.kiwix.org only, whatever the station's mirror; it now asks
