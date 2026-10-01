@@ -472,3 +472,36 @@ def test_fetch_sized_refuses_the_wrong_size_or_not_a_tiff_and_keeps_nothing(
     with pytest.raises(VerificationError, match=match):
         fetcher.fetch_sized("https://x/s.tiff", expected_size=size)
     assert _cache_files(tmp_path) == []
+
+
+def test_fetch_sized_follows_no_redirect_at_run_time(tmp_path: Path) -> None:
+    """Final review I1: the plan checked the gateway's one redirect; a second
+    one answered during the run is refused, never followed to another host."""
+    import http.server
+    import threading
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            if self.path == "/sheet.tiff":
+                self.send_response(302)
+                self.send_header("Location", "/evil")
+                self.end_headers()
+                return
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(TIFF)))
+            self.end_headers()
+            self.wfile.write(TIFF)
+
+        def log_message(self, *args: object) -> None:
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://127.0.0.1:{server.server_port}/sheet.tiff"
+        with pytest.raises(BackendError, match="302"):
+            Fetcher(tmp_path).fetch_sized(url, expected_size=len(TIFF))
+    finally:
+        server.shutdown()
+    assert _cache_files(tmp_path) == []

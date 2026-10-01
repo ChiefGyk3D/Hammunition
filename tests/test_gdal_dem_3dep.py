@@ -158,3 +158,44 @@ def test_real_gdal_draws_contours_on_a_north_west_named_tile(tmp_path: Path) -> 
     corners = info["cornerCoordinates"]
     assert corners["upperLeft"] == pytest.approx([-79.0, 39.0])
     assert corners["lowerRight"] == pytest.approx([-78.0, 38.0])
+
+
+def test_with_no_tile_left_both_rasters_and_the_record_are_removed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Final review I2: 3DEP chosen and every region outside the US -- the
+    Copernicus contours go, and a VRT left behind would name them."""
+    install_fakes(monkeypatch, tmp_path / "bin", FAKES)
+    _data(tmp_path, "dem-copernicus").mkdir(parents=True)
+    (_data(tmp_path, "dem-copernicus") / f"{C}.tif").write_bytes(b"elevation")
+    _run(_converter(tmp_path, COPERNICUS))
+    out = _data(tmp_path, "dem-qmapshack")
+    assert (out / "dem" / "dem.vrt").is_file() and (out / "contours" / "contours.vrt").is_file()
+    empty = DemResolution(regions=(RegionTiles("atlantis/lemuria", "atlantis-lemuria", (), 4),))
+    outcomes = _run(_converter(tmp_path, empty, source_unit="dem-3dep", provider="usgs-3dep"))
+    assert not (out / "contours" / "tiles" / f"{C}.tif").exists()
+    assert not (out / "dem" / "dem.vrt").exists(), outcomes
+    assert not (out / "contours" / "contours.vrt").exists()
+    assert not (out / RECORD).exists()
+
+
+def test_a_failed_rebuild_removes_a_vrt_naming_files_that_are_gone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Final review I2: switching back to Copernicus removed the 3DEP tiles
+    before gdal-dem rebuilt; if the rebuild fails, dem.vrt must not keep
+    naming them."""
+    install_fakes(monkeypatch, tmp_path / "bin", {**FAKES, "gdalbuildvrt": "exit 1"})
+    _data(tmp_path, "dem-copernicus").mkdir(parents=True)
+    (_data(tmp_path, "dem-copernicus") / f"{C}.tif").write_bytes(b"elevation")
+    out = _data(tmp_path, "dem-qmapshack")
+    (out / "dem").mkdir(parents=True)
+    gone = _data(tmp_path, "dem-3dep") / f"{T}.tif"
+    (out / "dem" / "dem.vrt").write_text(
+        f'<VRTDataset><VRTRasterBand><SimpleSource><SourceFilename relativeToVRT="0">'
+        f"{gone}</SourceFilename></SimpleSource></VRTRasterBand></VRTDataset>"
+    )
+    conv = _converter(tmp_path, COPERNICUS)
+    outcomes = _run(conv)
+    assert conv.ledger.failed, outcomes
+    assert not (out / "dem" / "dem.vrt").exists()

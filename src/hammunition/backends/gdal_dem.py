@@ -46,6 +46,7 @@ fails that part by name, and a clear that fails is reported, never a silent
 
 from __future__ import annotations
 
+import re
 import shlex
 import subprocess
 from collections.abc import Sequence
@@ -139,6 +140,18 @@ def render_record(tiles: Sequence[str], provider: str = "copernicus-glo30") -> s
     byte what it was, so no existing install is rebuilt for it."""
     elevation = "" if provider == "copernicus-glo30" else f"elevation: {provider}\n"
     return "".join(f"{t}\n" for t in tiles) + elevation + f"converter: {CONVERTER}\n"
+
+
+_SOURCE = re.compile(r"<SourceFilename[^>]*>([^<]+)</SourceFilename>")
+
+
+def _names_missing(vrt: Path) -> bool:
+    """Whether *vrt* names a source file that is not on disk."""
+    try:
+        text = vrt.read_text()
+    except OSError:
+        return False
+    return any(not Path(name).is_file() for name in _SOURCE.findall(text))
 
 
 def _tail(text: str) -> str:
@@ -356,6 +369,20 @@ class GdalDemConverter:
             return self.ledger.fail(key, f"{name}: installed {dest}, but {scratch}")
         return f"installed {dest}; cleared {self.work}"
 
+    def _drop(self, out: Path, writer: PrefixWriter, *, everything: bool = False) -> str:
+        """Remove each virtual raster that names a file no longer on disk (or
+        both, *everything*), and the record with them: a VRT naming missing
+        files is a broken map (final review, I2). "" when nothing went."""
+        gone = [
+            vrt
+            for vrt in (out / "dem" / "dem.vrt", out / "contours" / "contours.vrt")
+            if vrt.is_file() and (everything or _names_missing(vrt))
+        ]
+        if not gone:
+            return ""
+        writer.remove([*gone, out / RECORD])
+        return "; removed " + " and ".join(str(v) for v in gone)
+
     def _rasters(self, source: Path, out: Path, writer: PrefixWriter) -> str:
         wanted = self.resolution.tiles
         tiles = [t for t in wanted if (source / f"{t}{TIF}").is_file()]
@@ -365,10 +392,13 @@ class GdalDemConverter:
             if (out / "contours" / "tiles" / f"{t}{TIF}").is_file()
         ]
         if not tiles:
-            return "no terrain tile is installed; QMapShack gets no elevation this run"
+            dropped = self._drop(out, writer, everything=True)
+            return f"no terrain tile is installed; QMapShack gets no elevation this run{dropped}"
         refusal = self._begin()
         if refusal is not None:
-            return self.ledger.fail(KEY, f"QMapShack's elevation not built: {refusal}")
+            return self.ledger.fail(
+                KEY, f"QMapShack's elevation not built: {refusal}{self._drop(out, writer)}"
+            )
         work = self.work
         built: list[str] = []
         for staged, inputs, dest in (
@@ -380,19 +410,24 @@ class GdalDemConverter:
             result = self.staging.run(buildvrt_argv(staged, inputs), cwd=work, lock=self.lock)
             if result.returncode == REFUSED:
                 return self.ledger.fail(
-                    KEY, f"{dest.name} not built: {_refused('gdalbuildvrt', result)}"
+                    KEY,
+                    f"{dest.name} not built: {_refused('gdalbuildvrt', result)}"
+                    f"{self._drop(out, writer)}",
                 )
             digest = self.staging.digest(staged)
             if result.returncode != 0 or digest is None:
                 return self.ledger.fail(
                     KEY,
                     f"gdalbuildvrt did not build {dest.name} (exit {result.returncode}): "
-                    f"{_tail(result.stderr or result.stdout)}{self._clear('; ')}",
+                    f"{_tail(result.stderr or result.stdout)}{self._clear('; ')}"
+                    f"{self._drop(out, writer)}",
                 )
             try:
                 self.staging.publish(staged, dest, digest=digest, writer=writer)
             except (BackendError, OSError) as exc:
-                return self.ledger.fail(KEY, f"{dest}: {exc}{self._clear('; ')}")
+                return self.ledger.fail(
+                    KEY, f"{dest}: {exc}{self._clear('; ')}{self._drop(out, writer)}"
+                )
             built.append(f"{dest} ({len(inputs)} tile(s))")
         scratch = self._clear("")
         # Recorded only when every tile made it into both: a missing one is

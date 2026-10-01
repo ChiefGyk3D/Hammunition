@@ -206,16 +206,21 @@ class UrllibTransport:
     *which* artifact was fetched, so https is preferred in manifests.
     """
 
-    def __init__(self, *, timeout: float = 60.0) -> None:
+    def __init__(self, *, timeout: float = 60.0, follow_redirects: bool = True) -> None:
         self.timeout = timeout
         director = urllib.request.OpenerDirector()
-        for handler in (
+        # A transport that follows no redirect answers a 30x as an HTTP error
+        # (D-068, amended 2026-10-01: an FSTopo sheet is fetched from the
+        # Location the plan checked, and nowhere a second redirect points).
+        handlers: list[urllib.request.BaseHandler] = [
             urllib.request.HTTPHandler(),
             urllib.request.HTTPSHandler(),
-            urllib.request.HTTPRedirectHandler(),
             urllib.request.HTTPErrorProcessor(),
             urllib.request.HTTPDefaultErrorHandler(),
-        ):
+        ]
+        if follow_redirects:
+            handlers.append(urllib.request.HTTPRedirectHandler())
+        for handler in handlers:
             director.add_handler(handler)
         self._opener = director
 
@@ -450,6 +455,11 @@ class Fetcher:
             self.mirror_transport = transport
         else:
             self.mirror_transport = UrllibTransport(timeout=MIRROR_TIMEOUT)
+        #: For :meth:`fetch_sized`: the injected transport, else one that
+        #: follows no redirect (final review, I1).
+        self.strict_transport: Transport = (
+            transport if transport is not None else UrllibTransport(follow_redirects=False)
+        )
         self._mirror_down: str | None = None
 
     def sources_for(self, url: str, mirror: MirrorPath | None) -> tuple[tuple[str, str], ...]:
@@ -779,14 +789,20 @@ class Fetcher:
         "unverified" beside every file it is used for. A cached copy is never
         reused, since nothing could tell a damaged one from a good one; the
         sha256 of what arrived is returned for the transaction log and the
-        install's own re-check.
+        install's own re-check. No redirect is followed: the URL is the one
+        the plan located and checked.
         """
         make_dir(self.cache_dir)
         final = self.sized_path_for(url, expected_size)
         final.unlink(missing_ok=True)
         temporary = final.with_name(final.name + f".part.{os.getpid()}")
         try:
-            sha, size, _ = self._download(url, temporary, max_bytes=expected_size + 1024 * 1024)
+            sha, size, _ = self._download(
+                url,
+                temporary,
+                max_bytes=expected_size + 1024 * 1024,
+                transport=self.strict_transport,
+            )
             if size != expected_size:
                 raise VerificationError(
                     f"{url}: the server announced {expected_size} bytes and {size} arrived; "
