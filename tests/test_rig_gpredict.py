@@ -26,7 +26,7 @@ def test_the_radio_file_is_written_when_the_rig_device_is_set(tmp_path: Path) ->
     bodies = {Path(cfg.path).name: body for _unit, cfg, body in writable}
     assert "hammunition.rig" in bodies
     radio = bodies["hammunition.rig"]
-    assert "Host=localhost" in radio
+    assert "Host=127.0.0.1" in radio
     assert "Port=4532" in radio
 
 

@@ -63,7 +63,7 @@ config_files:
       # Written by Hammunition: the station's shared rigctld (D-073).
       # For rig {station.rig_device}. Do not edit: a reinstall replaces it.
       [radio]
-      Host=localhost
+      Host=127.0.0.1
       Port=4532
       Type=1
       PTT=0
@@ -132,7 +132,7 @@ documentation:
     on the next start if no other ground station exists.
     The second file, written only once the station's rig is set (`hammunition
     station set --rig … --rig-device …`, D-073), is the radio
-    `~/.config/Gpredict/hwconf/hammunition.rig`: Host localhost, Port 4532,
+    `~/.config/Gpredict/hwconf/hammunition.rig`: Host 127.0.0.1, Port 4532,
     the shared rigctld that `rig-service` runs. Pick it in Edit > Preferences
     > Interfaces > Radios. Doppler tuning needs CAT, so for a radio with no
     CAT it tunes nothing, and with `rig_owner: flrig` point a radio of your

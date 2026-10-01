@@ -104,6 +104,10 @@ def render_unit_file(
     ]
     if device_unit is not None:
         lines += [f"BindsTo={device_unit}", f"After={device_unit}"]
+    # A start limit so a service that cannot start — the user manager still
+    # lacking `dialout`, the binary gone — stops after five tries in half a
+    # minute rather than restarting forever (review minor).
+    lines += ["StartLimitIntervalSec=30", "StartLimitBurst=5"]
     lines += [
         "",
         "[Service]",
@@ -238,7 +242,13 @@ def plan_user_services(
     # together, so the missing-value and skip decisions are made once over the
     # group, not once per entry (a single deferral line, spec §6b).
     selected = [svc for svc in manifest.user_services if _matches(svc.when_station, facts)]
-    if selected and all(_matches(svc.unless_station, facts) for svc in selected):
+    # An entry is skipped only by a non-empty unless_station that matches: an
+    # empty one means "nothing excludes this", never "always skip" (review
+    # minor). The group is skipped only when every selected entry is.
+    def _excluded(svc: UserService) -> bool:
+        return bool(svc.unless_station) and _matches(svc.unless_station, facts)
+
+    if selected and all(_excluded(svc) for svc in selected):
         if facts["rig_owner"] == "flrig":
             notes.append(f"  {manifest.name}: skipped — the station's rig is owned by flrig")
         else:

@@ -2380,7 +2380,14 @@ def cmd_install(args: argparse.Namespace) -> int:
     repos = AptRepoBackend(owner=user or None)
 
     read_log = TransactionLog(owner=user or None)  # read-only until the plan is confirmed
-    _rig_classes, _rig_device_catalog = _load_hardware_catalog(args)
+    # The hardware catalog, for resolving a rig-carrying unit's user service
+    # (D-073). A malformed hardware manifest is a catalog error reported like
+    # any other, never an uncaught crash of every install (review minor).
+    try:
+        _rig_classes, _rig_device_catalog = _load_hardware_catalog(args)
+    except CatalogError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
     rig_devices: dict[str, DeviceClass | DeviceManifest] = {
         **_rig_classes,
         **_rig_device_catalog,
