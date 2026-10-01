@@ -11,6 +11,18 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Kiwix books come through the LAN mirror, and `artifacts` lists them**
+  (issue #159, D-070 amended 2026-10-01, D-066). The books backend fetched
+  from download.kiwix.org only, whatever the station's mirror; it now asks
+  `<mirror>/kiwix-library/<book id>` first and Kiwix second, the same pinned
+  sha256 and size checked either way, the plan line saying so and the log
+  recording `source`, `fetched_from` and `mirror_failure` as a `data` fetch
+  does. `hammunition artifacts --reference-books ID,ID` lists each book
+  (`check: sha256`, its own licence line) from the carried pins, no station
+  read; with none given `kiwix-library` is deferred as *no books selected*,
+  and it is now among the default units. The `artifacts` document gains
+  `reference_books`. Books are the largest data the catalog fetches, up to
+  127 GB.
 - **`import hammunition.fetch` no longer raises a circular `ImportError`
   when it is the first `hammunition` import in the process** (issue #158).
   `src/hammunition/backends/__init__.py` eagerly imports every backend, six of

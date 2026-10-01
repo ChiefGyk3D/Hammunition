@@ -87,14 +87,16 @@ their text follows.
 ### artifacts
 
 Every remote data artifact the engine would fetch for the selection
-given (D-070): `data` units, map regions and terrain tiles. No station
-file is read; the regions are the ones on the command line. What cannot
-be listed is listed as deferred, with the reason, never dropped.
+given (D-070): `data` units, map regions, terrain tiles and reference
+books. No station file is read; the regions and books are the ones on
+the command line. What cannot be listed is listed as deferred, with the
+reason, never dropped.
 
 | field | type | meaning |
 |---|---|---|
 | `map_regions` | list of string | the `--map-regions` given; empty when none |
 | `map_freshness` | string | the `--map-freshness` given, `yearly` when none |
+| `reference_books` | list of string | the `--reference-books` given (Kiwix book ids, D-066); empty when none |
 | `units` | list of string | the units listed, in order |
 | `artifacts` | list of [`ArtifactEntry`](#artifactentry) | one entry per artifact, deferred ones included |
 
@@ -104,14 +106,14 @@ One remote artifact, or one the selection cannot list and why.
 
 | field | type | meaning |
 |---|---|---|
-| `unit` | string | the catalog unit (`osm-regions`, `dem-copernicus`, `country-files`) |
-| `name` | string or null | the artifact's stable name within the unit: a region path, a tile name, a data file's name. A LAN mirror serves it at `<mirror>/<unit>/<name>`. Null only for a deferred entry that covers the whole unit |
+| `unit` | string | the catalog unit (`osm-regions`, `dem-copernicus`, `country-files`, `kiwix-library`) |
+| `name` | string or null | the artifact's stable name within the unit: a region path, a tile name, a data file's name, a Kiwix book id as the pin file names it. A LAN mirror serves it at `<mirror>/<unit>/<name>`. Null only for a deferred entry that covers the whole unit |
 | `url` | string or null | the publisher URL the engine itself fetches; null when deferred |
 | `check` | string or null | how the download is verified: `sha256` (pinned by Hammunition), `md5-publisher` (Geofabrik's published MD5), `etag-md5` (the Copernicus object's ETag), `sha1-publisher` (the SHA-1 and size in CoMaps' own map index at the pinned commit, carried in the catalog) or `sha256-publisher` (no unit uses it today); null when deferred |
 | `digest` | string or null | the expected digest, in hex, of the kind `check` names: the pin, or the publisher's checksum as the engine read it while resolving; null when deferred |
 | `checksum_url` | string or null | where a publisher checksum is read: the `.md5` beside a Geofabrik file, or the tile URL whose `HEAD` carries the ETag; null for a pinned sha256 and when deferred |
 | `size` | integer or null | bytes, known before the fetch; null when deferred |
-| `licence` | string | the licence line the plan prints for the unit |
+| `licence` | string | the licence line the plan prints for the unit, or for a Kiwix book that book's own |
 | `deferred` | string or null | null, or why this artifact cannot be listed for this selection |
 
 <details><summary>JSON Schema</summary>
@@ -225,7 +227,7 @@ One remote artifact, or one the selection cannot list and why.
     }
   },
   "additionalProperties": false,
-  "description": "Every remote data artifact the engine would fetch for the selection\ngiven (D-070): `data` units, map regions and terrain tiles. No station\nfile is read; the regions are the ones on the command line. What cannot\nbe listed is listed as deferred, with the reason, never dropped.",
+  "description": "Every remote data artifact the engine would fetch for the selection\ngiven (D-070): `data` units, map regions, terrain tiles and reference\nbooks. No station file is read; the regions and books are the ones on\nthe command line. What cannot be listed is listed as deferred, with the\nreason, never dropped.",
   "properties": {
     "map_regions": {
       "items": {
@@ -237,6 +239,13 @@ One remote artifact, or one the selection cannot list and why.
     "map_freshness": {
       "title": "Map Freshness",
       "type": "string"
+    },
+    "reference_books": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reference Books",
+      "type": "array"
     },
     "units": {
       "items": {
@@ -256,6 +265,7 @@ One remote artifact, or one the selection cannot list and why.
   "required": [
     "map_regions",
     "map_freshness",
+    "reference_books",
     "units",
     "artifacts"
   ],

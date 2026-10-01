@@ -29,10 +29,12 @@ CHECKS = ("sha256", "md5-publisher", "etag-md5", "sha256-publisher")
 class ArtifactEntry(Strict):
     """One remote artifact, or one the selection cannot list and why."""
 
-    unit: str = described("the catalog unit (`osm-regions`, `dem-copernicus`, `country-files`)")
+    unit: str = described(
+        "the catalog unit (`osm-regions`, `dem-copernicus`, `country-files`, `kiwix-library`)"
+    )
     name: str | None = described(
         "the artifact's stable name within the unit: a region path, a tile name, a data "
-        "file's name. A LAN mirror serves it at `<mirror>/<unit>/<name>`. Null only for a "
+        "file's name, a Kiwix book id as the pin file names it. A LAN mirror serves it at `<mirror>/<unit>/<name>`. Null only for a "
         "deferred entry that covers the whole unit"
     )
     url: str | None = described("the publisher URL the engine itself fetches; null when deferred")
@@ -52,7 +54,9 @@ class ArtifactEntry(Strict):
         "URL whose `HEAD` carries the ETag; null for a pinned sha256 and when deferred"
     )
     size: int | None = described("bytes, known before the fetch; null when deferred")
-    licence: str = described("the licence line the plan prints for the unit")
+    licence: str = described(
+        "the licence line the plan prints for the unit, or for a Kiwix book that book's own"
+    )
     deferred: str | None = described(
         "null, or why this artifact cannot be listed for this selection"
     )
@@ -61,14 +65,18 @@ class ArtifactEntry(Strict):
 @dataclass(frozen=True)
 class ArtifactsDocument(Strict):
     """Every remote data artifact the engine would fetch for the selection
-    given (D-070): `data` units, map regions and terrain tiles. No station
-    file is read; the regions are the ones on the command line. What cannot
-    be listed is listed as deferred, with the reason, never dropped."""
+    given (D-070): `data` units, map regions, terrain tiles and reference
+    books. No station file is read; the regions and books are the ones on
+    the command line. What cannot be listed is listed as deferred, with the
+    reason, never dropped."""
 
     KIND: ClassVar[str] = "artifacts"
 
     map_regions: tuple[str, ...] = described("the `--map-regions` given; empty when none")
     map_freshness: str = described("the `--map-freshness` given, `yearly` when none")
+    reference_books: tuple[str, ...] = described(
+        "the `--reference-books` given (Kiwix book ids, D-066); empty when none"
+    )
     units: tuple[str, ...] = described("the units listed, in order")
     artifacts: tuple[ArtifactEntry, ...] = described(
         "one entry per artifact, deferred ones included"
@@ -79,7 +87,8 @@ def render_artifacts(doc: ArtifactsDocument) -> list[str]:
     """``artifacts`` as the terminal shows it: one line per artifact."""
     lines = [
         f"Remote data artifacts for {len(doc.units)} unit(s), "
-        f"{len(doc.map_regions)} map region(s), freshness {doc.map_freshness}:"
+        f"{len(doc.map_regions)} map region(s), {len(doc.reference_books)} reference book(s), "
+        f"freshness {doc.map_freshness}:"
     ]
     listed = [e for e in doc.artifacts if e.deferred is None]
     deferred: Sequence[ArtifactEntry] = [e for e in doc.artifacts if e.deferred is not None]
