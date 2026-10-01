@@ -73,8 +73,9 @@ documentation:
     this machine only. And CoMaps (`comaps`), a phone-style map with
     offline address search and car, bike and foot routing, built from
     source, over CoMaps' own map files for the same regions (`comaps-maps`),
-    opened by the `comaps-offline` launcher; it has no position on the
-    laptop yet (it reads GeoClue only). For the water, OpenCPN (`opencpn`),
+    opened by the `comaps-offline` launcher; it reads its position from
+    GeoClue only, which the tether feeds once `hammunition hardware apply`
+    has set GeoClue up (D-069). For the water, OpenCPN (`opencpn`),
     a marine chart plotter that shows the position and the AIS ships an
     SDR decodes on nautical charts downloaded while online.
   why_together: >-
@@ -138,9 +139,12 @@ documentation:
     versions have not yet been run on a desktop, and bench session 12
     (docs/reference/bench-verification-5430.md) is that check. For CoMaps:
     start it from the `comaps-offline` launcher, which records the licence
-    answer CoMaps asks for and links your maps where it looks; it shows no
-    "you are here" on the laptop, because it reads position from GeoClue
-    only and nothing feeds GeoClue the GPS yet. For OpenCPN: download
+    answer CoMaps asks for and links your maps where it looks; for "you are
+    here", run `hammunition hardware apply` once (it tells GeoClue, the only
+    position source CoMaps reads, to take the tether's NMEA from a socket),
+    log out and back in so GeoClue's demo agent is running, and keep
+    `gps-tether` running while CoMaps is open. That route was measured with
+    Debian's GeoClue in a private namespace, not yet on a desktop. For OpenCPN: download
     charts with its chart downloader while online, and add a network
     connection for the position (gpsd, or `gps-tether` on 127.0.0.1 port
     10110) and one for AIS from `rtl-ais` or `ais-catcher`; none of

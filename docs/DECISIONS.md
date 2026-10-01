@@ -7338,13 +7338,14 @@ hand, 2026-09-29, with nothing installed system-wide:
    module for Kiwix; this uses the same constant and wording. The weekly pin-review
    job runs `gen_comaps_pins.py --check`, which re-fetches the index and
    `HEAD`s World.mwm.
-7. **The position gap is written down, not faked.** CoMaps reads GeoClue2
-   only. The route is GeoClue's network-NMEA source fed by the tether and
-   an `[app.comaps.comaps] allowed=true` entry in `geoclue.conf` (Parrot's
-   agent whitelist names no KDE agent). Both are system modifications, both
-   unmeasured, and neither is made. The manifest, the guide and the profile
-   say plainly: no "you are here" on the laptop yet. Reaching Qt's `nmea`
-   plugin instead would take a patch to CoMaps, and none is proposed.
+7. **The position comes through GeoClue, fed by the tether** (replaced
+   2026-10-01; the amendment below has the measurement). CoMaps reads
+   GeoClue2 only. The tether serves its NMEA on a unix socket as well as TCP
+   10110, GeoClue's network-NMEA source reads that socket, and `hardware
+   apply` writes the two root files that set it up, disclosed and reversed
+   like GPS time's (D-058). A native CoMaps is a system app to GeoClue and
+   needs no `[app.comaps.comaps]` entry; the entry this item first named was
+   wrong. No CoMaps patch. What the bench still owes is listed below.
 
 ### Not carried
 
@@ -7377,7 +7378,8 @@ Not measured, and owed by the bench:
 - **CoMaps reading the linked maps** on a running desktop.
 - **US address-search quality.** The desktop app has no scriptable search;
   a person at the screen has to judge it.
-- The GeoClue route to a position, if the maintainer wants it tried.
+- The GeoClue route to a position on a real desktop (amended 2026-10-01:
+  built, and the bench's list is in the amendment below).
 
 **Consequences.** `commit`, `submodules`, `build_python`, `prepare`
 (`PrepareStep`) and `extra_files` (`ExtraFile`) on `GitInstall`, and
@@ -7434,6 +7436,162 @@ landed. What changed with it:
   bench; the fields exist and are tested against fakes.
 - D-069 is recorded in number order, between D-068 and D-070, which
   landed on main first (maintainer's direction, 2026-09-30).
+
+### Amendment (2026-10-01): "you are here" through GeoClue's NMEA socket
+
+**Status:** built on branch `comaps-position`; the maintainer decides it at
+review. It replaces item 7's position gap.
+
+**Measured** (the GeoClue spike, 2026-10-01, on the development host, Parrot
+7 on Debian 13; nothing installed, no root, the system GeoClue never
+called). Debian's GeoClue 2.7.2 (`geoclue-2.0` 2.7.2-2, upstream tag
+`2.7.2`, no NMEA patches in the Debian changelog) reads `nmea-socket=` from
+`[network-nmea]` as a static unix-socket service (`gclue-nmea-source.c`);
+there is no static TCP key. It reads `/etc/geoclue/geoclue.conf` and then
+every `conf.d/*.conf`, the later winning. The whole chain was run in a
+private user, mount and network namespace with only loopback: Debian's own
+`/usr/libexec/geoclue` on a private system bus, its demo agent, and a
+headless Qt 6.8.2 client making CoMaps' calls verbatim
+(`createSource("geoclue2")` with `desktopId` `app.comaps.comaps`,
+`AllPositioningMethods`, a 1 s interval). A fake NMEA feed of a fixed
+public position (Montpelier, Vermont) on the socket reached the client
+within milliseconds, with `NMEA service connected.` in GeoClue's log (a
+`g_debug` line, seen because the spike ran GeoClue with
+`G_MESSAGES_DEBUG=all`; the stock service does not log it); a
+stopped feed gave no fix and GeoClue retried every 5 s; a restarted feed was
+picked up with no GeoClue restart; and the same held over Debian's
+**unmodified** `geoclue.conf` plus one drop-in. With no agent, GeoClue held
+the request (`Client waiting for agent`) and Qt reported an access error
+after its 25 s D-Bus timeout. No `[app.comaps.comaps]` section was written
+in any run: `gclue-service-client.c` treats a client with no Flatpak app id
+as a system app and starts it (`'app.comaps.comaps' not in configuration`,
+then the start). An app section never bypasses the agent either.
+
+**Also measured, and why the disclosures exist.** Disabling `[wifi]` does
+not stop network lookups: GeoClue keeps a GeoIP-only source at city
+accuracy unless `[static-source]` is enabled, and it asked beacondb when a
+client asked below exact accuracy. Qt's plugin keeps the last fix in
+`$XDG_DATA_HOME/qtposition-geoclue2`. The spike's first, unisolated run let
+a private GeoClue reach beacondb and Qt cache an IP-derived fix in the
+maintainer's home; the file was deleted and every later run had no network.
+Hammunition's tests never start a GeoClue.
+
+**Ruling: where the files belong.** They serve the receiver's position to
+every GeoClue client, not to CoMaps alone (no app entry is written), so
+they are a class-level set installed by `hardware apply` beside GPS time
+(D-058), gated on GeoClue being installed (`/usr/libexec/geoclue` and the
+`geoclue` group), and not a `system_modifications` entry on `comaps`: no
+kind fits and the engine performs none for this. `comaps` carries the apt
+dependencies, `geoclue-2.0` and `libqt6positioning6-plugins` (the package
+with `libqtposition_geoclue2.so`).
+
+**What `hardware apply` does**, each step printed first and read back after
+(D-031), logged as `geoclue_files`:
+
+1. `/etc/geoclue/conf.d/90-hammunition-gps.conf`: Hammunition's header,
+   `[network-nmea]`, `enable=true`, `nmea-socket=/run/hammunition-gps/nmea.sock`.
+   A drop-in; Debian's conffile is not edited.
+2. `/etc/tmpfiles.d/hammunition-gps.conf`: `d /run/hammunition-gps 2750
+   <operator> geoclue -`, then `systemd-tmpfiles --create` on that file.
+   GeoClue's unit runs as `geoclue` with `ProtectSystem=strict`,
+   `ProtectHome=true` and `PrivateTmp=true`, so the socket cannot be under
+   /home, /tmp or /run/user; the setgid bit gives the socket GeoClue's
+   group.
+3. `systemctl try-restart geoclue`, because GeoClue reads its configuration
+   only at start.
+
+A file at either path without Hammunition's header, or anything but a
+directory at `/run/hammunition-gps`, refuses the run before anything runs;
+the operator's name is checked before it is written into a root file.
+`--no-geoclue` leaves GeoClue alone. The plan prints both files, the
+inspect steps (`cat` both, `ls -ld /run/hammunition-gps`, `journalctl -u
+geoclue | grep -i nmea`), the reverse steps, and four sentences held word
+for word in `hammunition.geoclue.DISCLOSURES` and in the navigation guide
+(a test compares them): that GeoClue reads its configuration only at start
+(it exits after 60 s idle, or `try-restart`); that while the tether runs
+any native app of a user with an agent gets the fix and the demo agent does
+not prompt; that stock GeoClue also asks beacondb and GeoIP whenever CoMaps
+asks, so with the tether stopped the map shows that coarse location, and
+only `[static-source]` would stop the GeoIP lookups, which Hammunition does
+not change; and that Qt caches the last fix under
+`~/.local/share/qtposition-geoclue2`. `hardware unapply` removes both files
+by their header, the socket only when it is a socket, then `rmdir` and
+`systemctl try-restart geoclue`.
+
+**The tether.** `maps gps-tether --nmea-socket PATH` adds a unix stream
+listener, mode 0660, served by the same fan-out as TCP with the same stall
+and disconnect rules. It is on by default, at the path above, when the
+drop-in with Hammunition's header is present, so the `gps-tether` launcher
+needs no second form; `--no-nmea-socket` turns it off. A stale socket is
+replaced, a live one or a non-socket refused, and only the inode the
+tether bound is removed when it stops. The default failing (no directory
+before tmpfiles ran, say) is a line on stderr and TCP still serves. TCP
+10110 and `/position` on 10111 are unchanged. The socket is tighter than
+TCP 10110: only GeoClue's group can open it.
+
+**`doctor`** reports the two files, the directory's mode, owner and group,
+and whether `org.freedesktop.GeoClue2.DemoAgent` is on the session bus
+(`busctl --user list`, read-only, with a 5 s timeout, not asked as root).
+It does not read other `conf.d` drop-ins, so a later one that sets
+`nmea-socket` itself would win unseen; the guide says how to look.
+
+**Removal, after the final review.** `unapply` runs `rmdir` only with our
+tmpfiles line present (the evidence the directory is ours), and asks
+`systemctl try-restart geoclue` only while GeoClue's daemon is installed;
+a run whose operator resolves to root says the directory would be root's,
+which the tether, never run as root, could not use. Debian's
+`geoclue-2.0` autostarts that agent on every desktop but GNOME from
+`/etc/xdg/autostart/geoclue-demo-agent.desktop`; it was running on the
+development host's Plasma session.
+
+**Rejected.**
+
+- *Avahi* (`_nmea-0183._tcp`, GeoClue's other network-NMEA route):
+  avahi-daemon and its socket are disabled on Parrot, `lo` has no
+  MULTICAST so nothing is announced on it, and GeoClue connects to the
+  advertised `<host>.local`, which resolves to a LAN address: the tether
+  would have to listen beyond loopback, which D-061 refuses.
+- *A CoMaps patch to read NMEA itself*: `patches` is a measured zero the
+  engine refuses, and upstream closed Codeberg #3734 with "nothing to fix
+  on CoMaps side", GeoClue being the standard.
+- *Qt's `nmea` plugin chosen from outside*: it reads a loopback NMEA stream
+  (measured), but `createSource` loads only the provider it names, CoMaps
+  names `geoclue2`, and no environment variable selects another, so this is
+  the same patch. A fake plugin claiming the name `geoclue2` would be a
+  shim, which this project refuses.
+
+**Owed by the bench** (`docs/reference/bench-verification-5430.md`), none
+claimed until recorded there, and no agent added to any desktop to get
+there:
+
+- the demo agent present in the field laptop's Plasma session;
+- the real, sandboxed GeoClue connecting to the socket in `/run`; from the
+  kernel's rules, which exempt sockets from read-only mounts, not seen. The
+  evidence is the tether's `A client on the socket connected` while CoMaps
+  asks, with no `Failed to connect to NMEA service` warning in the journal:
+  `NMEA service connected.`, which the brief named, is `g_debug` in
+  `gclue-nmea-source.c` and Debian's `geoclue.service` does not enable
+  debug output, so `journalctl -u geoclue | grep -i nmea` shows only
+  failures (review, 2026-10-01);
+- CoMaps' dot following the tether, and what it shows with the tether
+  stopped;
+- `/run/hammunition-gps` made again after a reboot;
+- the demo agent autostarting on the Xfce and LXQt VMs.
+
+**Still a gap.** A Flatpak CoMaps would need an `[app.comaps.comaps]` entry
+or a desktop that prompts; Hammunition builds the native one. Direct NMEA
+without GeoClue needs the patch nobody carries.
+
+**Consequences.** `src/hammunition/geoclue.py`; `listen_unix`,
+`close_unix` and the `unix` listener in `src/hammunition/gps_tether.py`;
+`--nmea-socket`, `--no-nmea-socket` and `--no-geoclue` and the apply,
+unapply and doctor wiring in `src/hammunition/cli/main.py`; the
+`geoclue` checks in `src/hammunition/doctor.py`; `depends` and the known
+problems in `catalog/packages/comaps.yaml`; the guide's section 17,
+`docs/reference/cli.md`. Tests: `tests/test_geoclue.py`,
+`tests/test_geoclue_apply.py`, `tests/test_doctor_geoclue.py`,
+`tests/test_docs_geoclue.py`, and the socket cases in
+`tests/test_gps_tether.py` and `tests/test_maps_tools.py`.
 
 ## D-070 — A data artifact may be taken from a LAN mirror the operator names, verified the same either way, and the engine can list what it would fetch without a station
 

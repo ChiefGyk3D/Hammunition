@@ -113,6 +113,27 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   list. `hammunition menus apply` removes a generated launcher that shadows
   a PATH binary, with its menu entry, and writes the renamed one; `doctor`'s
   launchers check names one. After merge: `hammunition menus apply`.
+- **CoMaps can show "you are here", through GeoClue** (D-069, amended
+  2026-10-01). `hammunition maps gps-tether` gains `--nmea-socket PATH`: a
+  unix socket, mode 0660 in GeoClue's group, fed by the same fan-out as TCP
+  10110; it is on by default once GeoClue is set up, and `--no-nmea-socket`
+  turns it off. `hammunition hardware apply` writes
+  `/etc/geoclue/conf.d/90-hammunition-gps.conf` (GeoClue's network-NMEA
+  source reads that socket) and `/etc/tmpfiles.d/hammunition-gps.conf`
+  (`/run/hammunition-gps`, 2750, setgid `geoclue`), with every file, the
+  inspect and reverse steps and four disclosures in the plan; GeoClue's own
+  beacondb and GeoIP lookups are not changed, and the plan says so.
+  `--no-geoclue` skips it, and `hardware unapply` removes it by content.
+  `doctor` reports the files, the directory and whether GeoClue's demo
+  agent is running. `comaps` depends on `geoclue-2.0` and
+  `libqt6positioning6-plugins`. No `[app.comaps.comaps]` entry: a native
+  CoMaps is a system app to GeoClue. Measured with Debian's GeoClue in a
+  private namespace, not yet on a desktop; the guide's section 17 lists
+  what the bench owes. After merge: `hammunition hardware apply`, then log
+  out and back in. Where CoMaps is already built, `hammunition install
+  comaps --dry-run` shows whether the two new packages are planned (not
+  checked on a machine with CoMaps at its pin); if they are not,
+  `sudo apt install geoclue-2.0 libqt6positioning6-plugins` adds them.
 
 - **`CHECKS` now names `sha1-publisher`** (**D-070**, **D-069**). The
   `artifacts` document's `check` field was already described as able to
