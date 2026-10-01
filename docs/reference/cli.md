@@ -251,11 +251,12 @@ With `--json`, prints a `regions` document
 ([json-interface.md](json-interface.md)): the filter and the matching region
 paths. It is Geofabrik's list, nothing of yours.
 
-### `hammunition artifacts [--map-regions R[,R…]] [--map-freshness MODE] [--units U[,U…]]`
+### `hammunition artifacts [--map-regions R[,R…]] [--map-freshness MODE] [--reference-books ID[,ID…]] [--units U[,U…]]`
 
 Every remote data artifact the engine would fetch for the selection on the
 command line (**D-070**): each `data` unit's files, the Geofabrik extract of
-each region, and the Copernicus tiles each region's outline touches. It
+each region, the Copernicus tiles each region's outline touches, and each
+Kiwix book given (**D-066**, the 2026-10-01 amendment of D-070). It
 reads no station file and nothing installed on this machine, and installs
 nothing; the answer is the same on every machine. It is what
 [Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker), a
@@ -269,7 +270,8 @@ $ hammunition artifacts --map-regions north-america/us/vermont --units osm-regio
 |---|---|
 | `--map-regions R[,R…]` | Geofabrik region paths, as `station set --map-regions` takes them. None defers the map units |
 | `--map-freshness MODE` | `yearly` (the default), `monthly` or `latest`: which dated file each region resolves to and how it is verified, exactly as in the plan |
-| `--units U[,U…]` | The units to list. Default: every unit with a `data`, `osm-regions`, `dem-tiles` or `mwm-regions` install block. A name not in the catalog, or a unit that fetches nothing (`osm-navit`, `navit`), exits 2 naming it |
+| `--reference-books ID[,ID…]` | Kiwix book ids, as `station set --reference-books` takes them (`hammunition reference books` lists them). Each is listed by its id with the pinned URL, `sha256`, size and the book's own licence line, from the carried pins with no network asked. An id the book list or the pins do not carry is listed as deferred; a malformed one, or an empty list, exits 2. None defers `kiwix-library` as *no books selected* |
+| `--units U[,U…]` | The units to list. Default: every unit with a `data`, `osm-regions`, `dem-tiles`, `mwm-regions` or `kiwix-books` install block. A name not in the catalog, or a unit that fetches nothing (`osm-navit`, `navit`), exits 2 naming it |
 
 The network is asked as the plan asks it, and only for what the selection
 names: Geofabrik for a region's dated file, its `.md5` and its `.poly`
@@ -284,7 +286,8 @@ With `--json`, prints an `artifacts` document
 name within the unit (what a mirror serves at `<mirror>/<unit>/<name>`), the
 publisher URL, the check (`sha256`, `md5-publisher`, `etag-md5`, `sha1-publisher` for CoMaps' maps, D-069), the
 expected digest, where a publisher checksum was read, the size, the licence,
-and `deferred`. It carries the regions given, and nothing of the station's.
+and `deferred`. It carries the regions and books given, and nothing of the
+station's.
 
 ### `hammunition maps qmapshack [--configure-only]`
 
@@ -481,7 +484,7 @@ be written (a symbolic link in its place, a generated file with other than
 one enabled mapset). A missing `navit` is a named error, exit 1. There is no
 `--json` form, because it replaces itself with a GUI (D-059).
 
-### `hammunition maps repeaters import FILE... [--exported YYYY-MM-DD]`
+### `hammunition maps repeaters import [FILE...] [--exported YYYY-MM-DD] [--from-open-repeater [FILE] | --from-osm | --from-direwolf-log FILE...]`
 
 Converts your own repeater export into overlays for QMapShack and Navit, on
 this machine, with no network (**D-064**). It reads, recognised from the
@@ -508,7 +511,7 @@ read, and the count is printed. The layer is named
 `Repeaters (own export YYYY-MM-DD, personal use)`, dated by `--exported`,
 else by the oldest file's modification date.
 
-It writes three files into `~/.local/share/hammunition/overlays/repeaters/`
+It writes the layer's files into `~/.local/share/hammunition/overlays/repeaters/`
 (`$XDG_DATA_HOME` honoured; directory 0700, files 0600). Each file is
 written whole under a temporary name and renamed over the old one, so no
 file is ever half-written; an import interrupted between two renames can
@@ -517,10 +520,76 @@ leave new and old files side by side, which the next import replaces and
 `repeaters.gpx` (QMapShack's *File → Load*, a phone, a Garmin unit;
 symbol `Tall Tower`), `repeaters.poi` (a Mapsforge POI collection) and
 `repeaters.navit.txt` (a Navit textfile map, `poi_custom0` with a label and
-Navit's tower icon). Then it adds that directory to `poiPaths` under
-`[Canvas]` in QMapShack's settings, with the same editor and refusals as
-`maps qmapshack`, and writes your Navit copy as `maps navit` does. Each
-import replaces the layer; to combine sources, give every file to one import.
+Navit's tower icon), and `repeaters.rows.json`, the rows as data, which the
+all-sources file is rebuilt from (**D-074**). Then it adds that directory to
+`poiPaths` under `[Canvas]` in QMapShack's settings, with the same editor and
+refusals as `maps qmapshack`, and writes your Navit copy as `maps navit`
+does, with a map for every layer present. Each import replaces its own
+layer and leaves the others; to combine your export files, give every file
+to one import.
+
+**One layer per source (D-074).** An import reads exactly one source and
+writes it as its own layer, under its own file stem in the same directory:
+
+| Option | Layer id | File stem | Layer name |
+|---|---|---|---|
+| `FILE...` (above) | `export` | `repeaters` | `Repeaters (own export …)` or `(hearham …)` |
+| `--from-open-repeater [FILE]` | `open-repeater` | `repeaters-open-repeater` | `Repeaters (Open Repeater YYYY-MM-DD, CC0)` |
+| `--from-osm` | `osm` | `repeaters-osm` | `Repeaters (OpenStreetMap, ODbL, YYYY-MM-DD)` |
+| `--from-direwolf-log FILE...` | `aprs-heard` | `repeaters-aprs-heard` | `Repeaters heard off the air (APRS objects, YYYY-MM-DD)` |
+
+The options exclude each other and `FILE...`; `--exported` dates your own
+export only, and each other source is dated by its own data. An Open
+Repeater file, an ETCC CSV or a Direwolf log given as `FILE` is refused,
+naming the option or command that reads it.
+
+- **`--from-open-repeater`** reads the file the `open-repeater` data unit
+  installs (`/usr/local/share/hammunition/data/open-repeater/open-repeater.json`;
+  refused, naming `hammunition install open-repeater`, when it is not
+  there), or `FILE`, a copy you downloaded from openrepeater.org. An entry
+  without a position, a callsign or a frequency is skipped and counted; an
+  offset under 50 is read as MHz, otherwise kHz (the file holds both). The
+  layer is dated by the newest entry's `last_verified`.
+- **`--from-osm`** filters every region extract installed under
+  `/usr/local/share/hammunition/data/osm-regions/` with `osmium
+  tags-filter` (as you, into a temporary directory; `osmium-tool`, which
+  `osm-navit` installs) and downloads nothing. A repeater is an object
+  tagged `communication:amateur_radio:repeater` (`yes` or a callsign),
+  `communication:amateur_radio=repeater`, or with a
+  `…:repeater:frequency_out`; `communication:ham_radio:*` is read the same.
+  A frequency without a unit is tried as MHz, kHz, Hz and Hz ×10, and the
+  first that lands in a repeater band is taken (all four spellings occur);
+  a shift without a sign is noted, not claimed. A way is placed at the mean
+  of its nodes; a relation is counted and skipped. Dated by the oldest
+  extract's snapshot. The text and the document name the extracts'
+  directory, never a region, and carry no digest.
+- **`--from-direwolf-log`** reads Direwolf's `-l` daily logs or its `-L`
+  file (header measured from Direwolf 1.8.1:
+  `chan,utime,isotime,source,heard,level,error,dti,name,symbol,latitude,longitude,speed,course,altitude,frequency,offset,tone,system,status,telemetry,comment`).
+  Kept: rows whose `dti` is `;` (an APRS object) with a frequency in a
+  repeater band; `offset` is Direwolf's signed kHz, `tone` its Hz. An object
+  heard again merges, the newest hearing kept. Dated by the newest hearing.
+  The log does not say whether an object was killed, so a killed object is
+  shown like a live one. This layer is never part of the all-sources file.
+
+**The all-sources file.** After every import, fetch and remove,
+`repeaters-all.gpx` is rebuilt from the directory layers (every layer but
+`aprs-heard`) when two or more can be read, and deleted otherwise. Rows are
+taken best source first: your export or own list, the RSGB ETCC, Open
+Repeater, hearham, Brandmeister, OpenStreetMap. A row joins a row of
+another layer with the same output frequency that is within 0.02° (about
+2 km), or has the same callsign and is within 0.25°; the first keeps its
+position and fields, fills an offset, tone, mode or place it lacks, and its
+description names every source that listed it. Rows of one layer never
+join each other. The count is printed (`All sources: N repeaters from
+layers …, M joined across sources`). GPX only: QMapShack and Navit already
+show every layer. A layer imported before D-074 has no `.rows.json`, and
+a `.rows.json` with a field of the wrong type is unreadable; either is named
+as left out until it is imported again. When the file cannot be rewritten,
+the layer just imported is still written and registered, the reason is
+printed (`All sources: not rebuilt: …`) and the command exits 1. Every
+`--from-osm` message names an extract by its number (`region extract 2 of
+3`), never by its region.
 
 Before the counts it prints each source's licence text: for a RepeaterBook
 export, "Data courtesy of RepeaterBook.com", personal non-commercial use,
@@ -537,9 +606,10 @@ generated configuration without exactly one enabled mapset); in those last
 two the layer is still written, and the reason named.
 
 With `--json`, prints a `repeaters` document
-([json-interface.md](json-interface.md)): the layer, each file's counts and
-digest, the files written and what each program was told. Like the text, it
-carries no callsign and no position.
+([json-interface.md](json-interface.md)): the layer and its id, each file's
+counts and digest, the files written, what each program was told and the
+all-sources file. Like the text, it carries no callsign, no position and no
+region.
 
 ### `hammunition maps repeaters fetch-hearham`
 
@@ -557,16 +627,54 @@ file of yours; anything but hearham's list is refused, exit 1, and nothing
 is written. There is no `--json` form: the disclosure is for a person to
 read. Nothing is ever fetched from RepeaterBook.
 
-### `hammunition maps repeaters remove`
+### `hammunition maps repeaters fetch-etcc`
 
-Deletes the three layer files, your Navit copy, and the directory when it is
-left empty; anything else you put there stays. It takes the directory out of
-QMapShack's `poiPaths` and changes nothing else in that file. Nothing to
-remove is exit 0; a QMapShack settings file it cannot edit is exit 1, named.
+Fetches the RSGB ETCC's UK repeater list, `https://ukrepeater.net/csvcreate_all.php`
+(about 62 kB, 803 rows on 2026-10-01; answered 200, `application/csv`, no
+`ETag`, `Cache-Control: max-age=0,no-store` when checked the same day), when
+you run it and at no other time, through the same bounded, HTTPS-only fetch
+as `fetch-hearham`, and writes it as the `etcc` layer, named
+`Repeaters (RSGB ETCC YYYY-MM-DD, unverified)` (**D-074**). It prints what it
+is about to fetch first. `txMHz` is read as the repeater's output, `rxMHz`
+minus it as the offset, the `ANALOG`, `DMR`, `DSTAR` and `FUSION` flags as
+the modes. **Positions are at Maidenhead-locator precision**: a
+four-character locator puts the repeater at its square's centre, tens of
+kilometres from the site, and the description says which locator it was.
+ukrepeater.net states no licence; the list is carried under **D-033**,
+fetched on your request, never redistributed, and the sha256 of what
+arrived is printed and recorded. Anything but the ETCC's CSV is refused,
+exit 1, and nothing is written. No `--json` form.
+
+### `hammunition maps repeaters fetch-brandmeister`
+
+Fetches Brandmeister's DMR device list, `https://api.brandmeister.network/v2/device`
+(no key; about 9.5 MB and 31,993 devices on 2026-10-01; answered 200,
+`application/json`, no `ETag` when checked the same day), on request only,
+and writes the `brandmeister` layer, named
+`DMR repeaters (Brandmeister YYYY-MM-DD, unverified)` (**D-074**). It says
+first that **most entries are hotspots, which are personal locations**:
+only a 6-digit id whose transmit and receive frequencies differ is kept
+(2,857 on the day measured); 7- and 9-digit ids and any device whose
+transmit equals its receive are dropped from memory before anything is
+written, and only their counts are printed. `tx` is the output, `rx` minus
+it the offset; the colour code and master are in the description.
+Brandmeister publishes no terms for this API; carried under **D-033**, the
+observed sha256 recorded. No `--json` form.
+
+### `hammunition maps repeaters remove [--layer ID]`
+
+Deletes every layer's files, the all-sources file, your Navit copy, and the
+directory when it is left empty; anything else you put there stays. It
+takes the directory out of QMapShack's `poiPaths` and changes nothing else
+in that file. With `--layer` (`export`, `open-repeater`, `osm`, `etcc`,
+`brandmeister` or `aprs-heard`) it deletes that layer only, rebuilds the
+all-sources file from what is left, and rewrites your Navit copy with the
+layers that remain. Nothing to remove is exit 0; a QMapShack settings file
+it cannot edit is exit 1, named.
 
 With `--json`, prints a `repeaters-removed` document
-([json-interface.md](json-interface.md)): the files deleted and what each
-program was told.
+([json-interface.md](json-interface.md)): the layers asked for, the files
+deleted, what each program was told and the all-sources file.
 
 ### `hammunition reference books`
 
@@ -1196,7 +1304,7 @@ A **read-only** health check: is this machine ready, and what is not yet set
 up. It changes nothing, and it is the first thing to run on a fresh machine
 or when something misbehaves — it turns the failures the engine would
 otherwise hit mid-transaction into a report you read up front, each with the
-one command that fixes it. Eighteen checks across four severities:
+one command that fixes it. Nineteen checks across four severities:
 
 - **fail** — the engine cannot work until fixed (not a Debian-family system;
   no catalog). Exits non-zero.
@@ -1227,6 +1335,13 @@ configuration. A machine with no battery-backed hardware clock (`/sys/class/rtc`
 empty) is warned on any target, naming the fix: fit an RTC module. On a target
 whose time daemon is not ntpsec the line is information naming the gap. See
 `docs/guides/gps-time.md`.
+
+The **gps-resume** check (issue #177) appears only when a GPS receiver is
+attached (parked or awake) and gpsd is installed. It is ok when the resume
+step `hardware apply` installs is in place as this engine writes it, enabled
+for the four sleep targets, and warns, naming `hammunition hardware apply`,
+when it is missing, from an older engine, or not enabled. See
+`docs/hardware/power-control.md`, "After suspend".
 
 The **hammunition** check (**D-059**) asks whether `hammunition` resolves on
 your `PATH`, and to the checkout `doctor` is running from. `./bootstrap.sh`
@@ -1306,7 +1421,7 @@ identifier is flagged as a candidate, not a conclusion — **D-028**),
 the udev rules and your access-group membership are already in place.
 Detection drives nothing: it reports, and you decide (**D-020**).
 
-### `hammunition hardware apply [--dry-run] [--yes] [--user NAME] [--no-gps-time]`
+### `hammunition hardware apply [--dry-run] [--yes] [--user NAME] [--no-gps-time] [--no-gps-resume]`
 
 Writes the whole catalog's udev rules to
 `/etc/udev/rules.d/65-hammunition.rules`, reloads and triggers udev, adds
@@ -1373,6 +1488,20 @@ files contain and what installing them means.
   happens without gpsd installed (there is no GPS time to read), and
   `--no-gps-time` leaves ntpsec, its grants and `fake-hwclock` alone. See
   `docs/guides/gps-time.md`.
+- **Installs the GPS receiver's resume step (issue #177)** where gpsd is
+  installed: `/usr/local/libexec/hammunition-gps-resume` (`0755`) and
+  `/etc/systemd/system/hammunition-gps-resume.service`, a oneshot after and
+  wanted by the four sleep targets, enabled and not started. After each
+  resume it runs `gpsdctl remove` and `add` for each `/dev/gpsN`, and
+  `systemctl try-restart gpsd.service` if gpsd then reports no device; with
+  no `/dev/gpsN` it does nothing, and it never parks or wakes anything. The
+  plan prints both files whole, with how to inspect them
+  (`systemctl status hammunition-gps-resume`,
+  `journalctl -u hammunition-gps-resume`) and reverse them. Each step is
+  logged (`gps_resume`), and both files and the four `.wants` links are read
+  back afterwards. A file at either path without Hammunition's header refuses
+  the plan (exit `2`). `--no-gps-resume` leaves the step out; `--no-gps-time`
+  does not. See `docs/hardware/power-control.md`, "After suspend".
 
 ### `hammunition hardware unapply [--dry-run] [--yes] [--user NAME]`
 
@@ -1382,7 +1511,8 @@ Removes the power-control helper and its polkit action — the two files
 if present, `/etc/udev/rules.d/66-hammunition-kept.rules`, the kept-off rules
 file `park` writes to by default (**D-056**, amended 2026-09-28). Removing it
 reloads udev, so every device it was holding parked wakes from the next boot
-on. Nothing else is touched.
+on. GPS time and the GPS resume step are taken back too (below); nothing
+else is touched.
 
 - **Not part of `uninstall`.** `uninstall` resolves the names it is given
   against the package and profile catalogs; there is no unit named
@@ -1411,6 +1541,11 @@ on. Nothing else is touched.
   `/etc/apparmor.d/local/usr.sbin.ntpd`, the rest of that file stays; then
   systemd and AppArmor are reloaded and ntpsec restarted. `fake-hwclock`, if
   it was installed, stays; `sudo apt remove fake-hwclock` removes it.
+- **Takes the GPS resume step back (issue #177)**, by content:
+  `systemctl disable hammunition-gps-resume.service`, then the unit and
+  `/usr/local/libexec/hammunition-gps-resume` are removed, each only when it
+  starts with the header Hammunition writes, and systemd is reloaded. The
+  files and the four `.wants` links are re-checked for absence afterwards.
 
 Exit codes: `0` for a removal that verified absent, nothing recorded to
 remove, every recorded artefact already gone, a `--dry-run`, or declining the
@@ -1528,7 +1663,7 @@ hammunition station show
 | `--map-regions R[,R…]` | Geofabrik region paths for offline maps, e.g. `north-america/us/vermont,north-america/us/new-hampshire`. Replaces the whole list. Checked for shape only (lowercase words joined by `/`); whether Geofabrik has the region is checked at plan time (**D-057**) |
 | `--map-freshness MODE` | `yearly` (the default when unset), `monthly` or `latest`: which dated file each region resolves to, and so how it can be verified |
 | `--reference-books ID[,ID…]` | Kiwix books for `kiwix-library`, by id (`hammunition reference books` lists them). Replaces the whole list; an id the catalog's book list does not name is refused when you type it, and an empty list is refused (uninstall `kiwix-library` to remove the books) (**D-066**) |
-| `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
+| `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile, a CoMaps map, a reference book) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
 | `--clear-mirror` | Remove the saved mirror |
 | `--dem-source SOURCE` | `copernicus` (the default when unset) or `3dep`: the elevation QMapShack's hillshade, slope and contours are drawn from (**D-068**, amended 2026-10-01). `3dep` makes `dem-3dep` fetch USGS 3DEP 1/3-arc-second bare-earth tiles for the US regions, about ten times Copernicus's size, and `dem-qmapshack` redraw from them; Copernicus stays installed for BRouter and for regions outside the US. Setting it back to `copernicus` removes the 3DEP tiles and redraws from Copernicus on the next install. `station show` prints it |
 

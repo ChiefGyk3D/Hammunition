@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: CC0-1.0
 
 name: hammunition-tray-qt
-version: "0.3.0"
+version: "0.4.0"
 summary: Tray switches for parking and waking radio devices on Xfce, LXQt, LXDE, MATE and Cinnamon — the Hammunition family's own
 categories: [device-support]
 
@@ -21,21 +21,24 @@ desktop_alternative: hammunition-tray
 # carried on the same terms as everything else -- a published, digest-pinned
 # artifact, measured before it was written down.
 #
-# Fetched from the v0.3.0 release on 2026-09-28: the digest below is what
+# Fetched from the v0.4.0 release on 2026-10-01: the digest below is what
 # sha256sum printed for the downloaded file and what SHA256SUMS lists for it
-# (13784 bytes). `dpkg-deb -f` gave Package hammunition-tray-qt, Version
-# 0.3.0, Architecture all, Depends python3 (>= 3.11), python3-pyqt6,
-# pkexec | policykit-1. `pkexec` comes first because policykit-1 has no
-# candidate on Debian 13 (apt-cache policy, 2026-09-28). The release workflow
-# installed and removed this exact .deb in a docker.io/parrotsec/core
-# container before publishing it. Not yet run on any of the desktops it
-# lists: docs/reference/vm-campaign-desktops.md is that check.
+# (18198 bytes). `dpkg-deb -f` gave Package hammunition-tray-qt, Version
+# 0.4.0, Architecture all, Depends python3 (>= 3.11), python3-pyqt6,
+# pkexec | policykit-1 -- unchanged from 0.3.0. `pkexec` comes first because
+# policykit-1 has no candidate on Debian 13 (apt-cache policy, 2026-09-28).
+# 0.4.0 adds the Time section (D-058): what the clock follows and the four
+# modes, read without a password and changed through one polkit prompt to
+# hammunition-devctl. The release workflow installed and removed this exact
+# .deb in a docker.io/parrotsec/core container before publishing it. Not yet
+# run on any of the desktops it lists: docs/reference/vm-campaign-desktops.md
+# is that check.
 install:
   - install:
       method: binary
       artifact:
-        url: https://github.com/ChiefGyk3D/hammunition-tray/releases/download/v0.3.0/hammunition-tray-qt_0.3.0_all.deb
-        sha256: 6811036df3e748067852838781a047a7b9aae3e37071d8aabf42dcaad8a445c0
+        url: https://github.com/ChiefGyk3D/hammunition-tray/releases/download/v0.4.0/hammunition-tray-qt_0.4.0_all.deb
+        sha256: 21ccc91e2f8a46a5213c9200fc0f33661d2075bfaee360cc50b0158981a46527
       format: deb
       deb_package: hammunition-tray-qt
     note: >-
@@ -63,7 +66,9 @@ documentation:
     and its port can suspend, or brings it back. A device kept off across
     reboots reads "kept off", and one that is unplugged while kept offers
     Forget. The icon is the same penguin with a handheld radio as the Plasma
-    applet's, and it goes grey while anything is parked.
+    applet's, and it goes grey while anything is parked. A Time section
+    (D-058, needs Hammunition 0.18.0 or later) shows what the clock follows
+    and lets you choose one of the four GPS-time modes.
   why_you_want_it: >-
     The Plasma applet's switch on a lighter desktop: parking a GPS or a modem
     you are not using saves battery on a field laptop, in one click and one

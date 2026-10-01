@@ -1099,7 +1099,8 @@ def _mirror_section(url: str | None, *, ignored: bool) -> MirrorSection | None:
         )
     else:
         text = (
-            f"Each data download below (offline data, map regions, terrain tiles) is asked "
+            f"Each data download below (offline data, map regions, terrain tiles, CoMaps "
+            f"maps, reference books) is asked "
             f"of the LAN mirror {url} first, as <mirror>/<unit>/<name>, and of its "
             f"publisher if the mirror fails in any way. The digest it is checked by is the "
             f"same whichever answers: the mirror is trusted for speed, never for content. "

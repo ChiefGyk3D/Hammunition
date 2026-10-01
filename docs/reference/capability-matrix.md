@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 82 | 2 | 213 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 82 | 2 | 213 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 80 | 2 | 215 |
-| kali-rolling *(unswept)* | 0 | 0 | 75 | 1 | 221 |
-| parrot *(unswept)* | 0 | 0 | 80 | 2 | 215 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 80 | 2 | 215 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 77 | 7 | 213 |
+| debian-13 *(unswept)* | 0 | 0 | 83 | 2 | 213 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 83 | 2 | 213 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 81 | 2 | 215 |
+| kali-rolling *(unswept)* | 0 | 0 | 76 | 1 | 221 |
+| parrot *(unswept)* | 0 | 0 | 81 | 2 | 215 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 81 | 2 | 215 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 78 | 7 | 213 |
 
-**297 manifests** against **7 targets**.
+**298 manifests** against **7 targets**.
 
 ---
 
@@ -227,6 +227,7 @@ build HAS been run in a container say so in their own install notes.
 | `odr-dabmod` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `odr-dabmux` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `odr-padenc` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `open-repeater` | data | data | data | data | data | data | data |
 | `opencpn` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `openfpgaloader` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `openhamclock` | node | node | node | node | node | node | node |

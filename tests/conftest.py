@@ -254,3 +254,46 @@ def time_files(
     ntpd.write_text("")
     (Path(files.RTC_CLASS) / "rtc0").mkdir(parents=True)
     return root
+
+
+# ---------------------------------------------------------------------------
+# The GPS resume step (issue #177): no test reads or writes the host's unit
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _no_host_resume_files(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[Path]:
+    """The resume step's paths point somewhere that does not exist, for every
+    test, for the reason `_no_host_time_files` gives: the field laptop runs this
+    suite, and a plan that read its real /usr/local/libexec or /etc/systemd
+    would test that machine. Tests that want files request `resume_files`."""
+    from hammunition.hardware import gps_resume
+
+    root = tmp_path_factory.getbasetemp() / "host-resume-files-absent"
+    for name, default in gps_resume.PATHS.items():
+        monkeypatch.setattr(gps_resume, name, str(root) + default)
+    yield root
+    if root.exists():
+        shutil.rmtree(root)
+        pytest.fail(
+            "a test wrote GPS resume files without the resume_files fixture; request it "
+            "so they land in that test's own tmp_path"
+        )
+
+
+@pytest.fixture
+def resume_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, _no_host_resume_files: Path
+) -> Path:
+    """A machine with gpsd installed and no resume step yet, under tmp_path."""
+    from hammunition.hardware import gps_resume
+
+    root = tmp_path / "resume-root"
+    for name, default in gps_resume.PATHS.items():
+        monkeypatch.setattr(gps_resume, name, str(root) + default)
+    gpsd = Path(gps_resume.GPSD)
+    gpsd.parent.mkdir(parents=True)
+    gpsd.write_text("")
+    return root

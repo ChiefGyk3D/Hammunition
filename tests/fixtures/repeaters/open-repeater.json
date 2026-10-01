@@ -1,0 +1,12 @@
+{
+  "source": "Open Repeater",
+  "license": "CC0",
+  "count": 5,
+  "repeaters": [
+    {"id": "00000000-0000-0000-0000-000000000001", "callsign": "N0CALL", "frequency": 146.94, "offset": -0.6, "ctcss": 100, "dcs": null, "mode": "FM (analog)", "band": "2m (144 MHz)", "country": "United States", "city": "Springfield", "lat": 39.8017, "lng": -89.6436, "coverage_km": 30, "owner": "N0CALL", "website": null, "status": "active", "last_verified": "2026-09-26", "image_url": null},
+    {"id": "00000000-0000-0000-0000-000000000002", "callsign": "n0tst", "frequency": 442.5, "offset": 5000, "ctcss": null, "dcs": 23, "mode": "FM / DMR", "band": "70cm (430 MHz)", "country": "United States", "city": "Springfield", "lat": 39.82, "lng": -89.55, "coverage_km": 20, "owner": null, "website": null, "status": "inactive", "last_verified": "2026-09-28", "image_url": null},
+    {"id": "00000000-0000-0000-0000-000000000003", "callsign": "N0TST", "frequency": 147.0, "offset": 0.6, "ctcss": 103.5, "dcs": null, "mode": "FM (analog)", "band": "2m (144 MHz)", "country": "United States", "city": "Springfield", "lat": null, "lng": null, "coverage_km": null, "owner": null, "website": null, "status": "active", "last_verified": "2026-08-01", "image_url": null},
+    {"id": "00000000-0000-0000-0000-000000000004", "callsign": "", "frequency": 145.29, "offset": -0.6, "ctcss": null, "dcs": null, "mode": "FM (analog)", "band": "2m (144 MHz)", "country": "United States", "city": "Springfield", "lat": 39.7, "lng": -89.6, "coverage_km": null, "owner": null, "website": null, "status": "active", "last_verified": null, "image_url": null},
+    {"id": "00000000-0000-0000-0000-000000000005", "callsign": "N0TST", "frequency": null, "offset": null, "ctcss": null, "dcs": null, "mode": "FM (analog)", "band": "2m (144 MHz)", "country": "United States", "city": "Springfield", "lat": 39.71, "lng": -89.61, "coverage_km": null, "owner": null, "website": null, "status": "active", "last_verified": "2026-09-01", "image_url": null}
+  ]
+}

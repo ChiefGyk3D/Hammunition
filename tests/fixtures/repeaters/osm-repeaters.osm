@@ -1,0 +1,55 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<osm version="0.6" generator="hammunition tests (synthetic)">
+  <bounds minlat="39.6" minlon="-89.8" maxlat="39.9" maxlon="-89.5"/>
+  <node id="1" version="1" lat="39.8017" lon="-89.6436">
+    <tag k="man_made" v="mast"/>
+    <tag k="communication:amateur_radio" v="yes"/>
+    <tag k="communication:amateur_radio:repeater" v="yes"/>
+    <tag k="communication:amateur_radio:callsign" v="N0CALL"/>
+    <tag k="communication:amateur_radio:repeater:frequency_out" v="146940000"/>
+    <tag k="communication:amateur_radio:repeater:shift" v="-600 kHz"/>
+    <tag k="communication:amateur_radio:repeater:ctcss" v="100.0 Hz"/>
+    <tag k="communication:amateur_radio:repeater:modulation" v="FM"/>
+    <tag k="name" v="Springfield water tower"/>
+  </node>
+  <node id="2" version="1" lat="39.75" lon="-89.60">
+    <tag k="communication:amateur_radio:repeater" v="N0TST"/>
+    <tag k="communication:amateur_radio:repeater:frequency_out" v="1466100000"/>
+    <tag k="communication:amateur_radio:repeater:shift" v="0.6"/>
+  </node>
+  <node id="3" version="1" lat="39.70" lon="-89.70">
+    <tag k="communication:amateur_radio" v="yes"/>
+  </node>
+  <node id="4" version="1" lat="39.71" lon="-89.71">
+    <tag k="communication:amateur_radio" v="beacon"/>
+  </node>
+  <node id="5" version="1" lat="39.72" lon="-89.72">
+    <tag k="communication:ham_radio" v="repeater"/>
+    <tag k="communication:ham_radio:repeater:frequency_out" v="147.000"/>
+    <tag k="communication:ham_radio:repeater:frequency_in" v="147.600"/>
+  </node>
+  <node id="6" version="1" lat="39.73" lon="-89.73">
+    <tag k="communication:amateur_radio:repeater" v="yes"/>
+    <tag k="communication:amateur_radio:repeater:frequency_out" v="3.5"/>
+  </node>
+  <node id="10" version="1" lat="39.80" lon="-89.60"/>
+  <node id="11" version="1" lat="39.80" lon="-89.62"/>
+  <node id="12" version="1" lat="39.82" lon="-89.62"/>
+  <node id="13" version="1" lat="39.82" lon="-89.60"/>
+  <way id="100" version="1">
+    <nd ref="10"/>
+    <nd ref="11"/>
+    <nd ref="12"/>
+    <nd ref="13"/>
+    <nd ref="10"/>
+    <tag k="man_made" v="water_tower"/>
+    <tag k="communication:amateur_radio:repeater" v="yes"/>
+    <tag k="communication:amateur_radio:repeater:frequency_out" v="146685"/>
+  </way>
+  <relation id="1000" version="1">
+    <member type="way" ref="100" role="outer"/>
+    <tag k="type" v="multipolygon"/>
+    <tag k="communication:amateur_radio:repeater" v="yes"/>
+    <tag k="communication:amateur_radio:repeater:frequency_out" v="145.350"/>
+  </relation>
+</osm>

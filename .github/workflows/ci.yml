@@ -264,6 +264,11 @@ jobs:
       # keeps a map version for months, and a mirror answers a missing file
       # with 200 and a web page, so the size is compared, never the status.
       - run: python scripts/gen_comaps_pins.py --check
+      # The Open Repeater pin (D-074): fetch its one CC0 file (~241 kB) and
+      # compare with the sha256 in catalog/packages/open-repeater.yaml. The
+      # URL is not dated, so the pin dies whenever the site's data changes;
+      # this goes red naming the generator, and regenerating is running it.
+      - run: python scripts/gen_open-repeater-pin.py --check
 
   # -------------------------------------------------------------------------
   # D-031. Every identifier citing a distribution's udev rule is checked
