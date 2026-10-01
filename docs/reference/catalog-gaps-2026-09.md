@@ -72,6 +72,53 @@ each; these are the ones an operator hits on the first evening.
   A candidate is not a manifest until that sweep has run for it (D-014,
   D-025).
 
+### Measured since, 2026-09-30 — the apt adds of D.6
+
+`scripts/apt-policy-sweep.sh`, one target at a time, over the eight apt
+candidates of item 6 in section D. `-` means the archive has no candidate.
+
+| Package | Debian 13 | Ubuntu 26.04 | Ubuntu 24.04 | Kali | Parrot 7 | Mint 22.3 | Debian 13 arm64 |
+|---|---|---|---|---|---|---|---|
+| `predict` | - | - | - | - | - | - | - |
+| `gr-fosphor` | 3.9~git20240323.74d54fc-1+b10 | 3.9~git20240323.74d54fc-1ubuntu1 | 3.9~git20230826.e02a2ea-1build3 | 3.9~git20240323.74d54fc-2+b1 | 3.9~git20240323.74d54fc-1+b10 | 3.9~git20230826.e02a2ea-1build3 | 3.9~git20240323.74d54fc-1+b10 |
+| `libiio-utils` | 0.26-2 | 0.26-2build2 | 0.25-4build2 | 0.26-2+b2 | 0.26-2 | 0.25-4build2 | 0.26-2 |
+| `stm32flash` | 0.7-1 | 0.7-1build1 | 0.7-1 | 0.7-1 | 0.7-1 | 0.7-1 | 0.7-1+b1 |
+| `ser2net` | 4.6.4-1 | 4.6.5-1 | 4.6.0-1build2 | 4.6.5-1 | 4.6.4-1 | 4.6.0-1build2 | 4.6.4-1 |
+| `qpwgraph` | 0.8.2-1 | 0.9.9-1 | 0.6.1-1build3 | 1.0.3-1 | 0.8.2-1 | 0.6.1-1build3 | 0.8.2-1 |
+| `gpsprune` | 25.2-1 | 26.1-1 | 23.2-1 | 27+ds-1 | 25.2-1 | 23.2-1 | 25.2-1 (all) |
+| `opencpn` | 1:5.10.2+dfsg-1 | 1:5.12.4+dfsg-1 | 5.8.4+dfsg-1build4 | 1:5.14.1+dfsg-4 | 1:5.10.2+dfsg-1 | 5.8.4+dfsg-1build4 | 1:5.10.2+dfsg-1 |
+
+What that changed below, each noted at its row:
+
+- **`predict` is in no target's archive**, and not in Debian 12 or
+  unstable either (`apt-cache search` in `debian:12`, `debian:13` and
+  `debian:sid`, 2026-09-30). The search result's "in testing" was wrong.
+  Debian's packaging repository (salsa `debian-hamradio-team/predict`)
+  was last touched on 2018-12-30, with an upload marked UNRELEASED. Not
+  added; `satellite-tracking` stays a one-member category until a
+  maintained route is found.
+- **`gr-fosphor` is offered on all seven targets and is added**, but it is
+  not a Blend `sdr` task member: `blend-inventory.md`, generated from the
+  task files, does not list it. The row below said it was.
+- **`stm32flash`: no owned device is recorded as using the STM32
+  serial bootloader.** The hardware catalog's STM32 entries
+  (`flipper-zero`, the `dmr-radio` class) use USB DFU (`0483:df11`),
+  which is `dfu-util`'s job; NanoVNAs, named in the row below, are not
+  catalogued as devices at all. The unit is added and links to no device.
+- **`ser2net` starts a service on install.** Read from the Debian 13
+  .deb and measured in a container: the postinst enables
+  `ser2net.service`, which runs as root, and the shipped configuration
+  listens on loopback ports 2000, 2001, 3000 and 3001 for `/dev/ttyS0`
+  and `/dev/ttyS1`. Added, but not to `station` as the brief placed it:
+  install it by name.
+- **`gpsprune` is offered on all seven targets and is not added**,
+  because the decision record already ruled on it: **D-061** (and the
+  2026-09-28 note under D-057) says GPSPrune was measured and is not
+  carried, because it uses online tiles, and the `navigation` profile's
+  exclusions say the same. This report recommended it without citing
+  that. Carrying it would need the maintainer to amend D-061; nothing
+  here does.
+
 ## A. Cross-cutting gaps — plans the catalog has not caught up with
 
 ### A1. Station config is built and almost nobody reads it
@@ -103,6 +150,21 @@ XML units, a page: the *digital-modes* guide (A9), section "Enter your
 callsign and grid once", with the dialog path for each program. Do not
 template a password anywhere; `pat`'s block sets `mycall` and `locator`
 and leaves the password key absent, and the plan says so.
+
+**Measured, 2026-09-29 (Q-022 #1, ruled yes).** The table above was
+written from memory and search results; building the blocks measured each
+unit's shipped files, man page or source, and three rows were wrong.
+`tlf`'s locator key is `MYQRA`: the packaged binary refuses `MYLOCATOR`.
+`linpac` gets no block: its first-run questions run only while `~/LinPac`
+is absent, and four of the five are not station values. `fbb` gets no
+block: `fbb.conf`'s mandatory lines include the hierarchical address,
+SSID, city and sysop name, so a block could only write the partial file
+D-035 forbids. The other six carry blocks -- `direwolf`
+(`/etc/direwolf.conf`), `ax25-tools` (`/etc/ax25/axports`, appended once),
+`gpredict` (`~/.config/Gpredict/sample.qth`), `tlf` (`~/tlf/logcfg.dat`),
+`aprx` (`/etc/aprx.conf`) and `uronode` (`/etc/ax25/uronode.conf`) -- and
+each manifest cites what was measured and says what was not. The engine
+work they needed is D-035's 2026-09-29 amendment.
 
 ### A2. The rig is not station data, so every program is configured separately
 
@@ -309,15 +371,15 @@ before a manifest. Nothing here is transmit-capable except where said.
 |---|---|---|---|---|---|
 | `rig-control` | 12 | **piHPSDR** (`g0orx/pihpsdr`, DL1YCF and G0ORX, GPL-3.0; issues active September 2026) | The operator program for OpenHPSDR protocol 1 and 2 radios: ANAN and the **Hermes Lite 2**, which has one of the largest homebrew-SDR communities there is. `gr-hpsdr` is carried and gives those owners a GNU Radio source and nothing to operate with | source (make) | ADD, `rig-control` + `sdr-receivers`; `deskhpsdr` (DL1BZ) is the desktop-oriented fork and the `overlaps.md` row |
 | `rig-control` | | `rigctld` as a service; `ser2net` | See A2 | config + apt | A2 |
-| `rig-control` | | *Documentation gap:* the maintainer's own **FT-991A** is not in CHIRP (chirpmyradio issues 6685, 7987, 9073: no developer with the radio) and is programmed by Yaesu's Windows-only ADMS-991A; the **BTECH UV-50PRO** has no CHIRP driver and is programmed only through BTECH's Bluetooth phone app | — | — | Say so on the `chirp` page's `known_problems` and on a `hardware/` page for each radio; both radios are CAT-controllable through hamlib (`3073` for the FT-991), which is the part that matters for the station |
+| `rig-control` | | *Documentation gap:* the maintainer's own **FT-991A** is not in CHIRP (chirpmyradio issues 6685, 7987, 9073: no developer with the radio) and is programmed by Yaesu's Windows-only ADMS-991A; the **BTECH UV-50PRO** has no CHIRP driver and is programmed only through BTECH's Bluetooth phone app | — | — | Say so on the `chirp` page's `known_problems` and on a `hardware/` page for each radio; both radios are CAT-controllable through hamlib (`1035` for the FT-991; this page first said `3073`, which is the IC-7300 — corrected from `rigctl -l`, hamlib 4.7.2, on the field laptop, 2026-09-29), which is the part that matters for the station |
 | `logging` | 13 | — | Coverage is complete against every source; the gap is offline lookup (A6) | | No add |
 | `contest` | 5 | `so2sdr` (N4OGW, GPL-3.0; apt `unmeasured`) | An SO2R-capable contest logger with a Linux-native GUI, the shape `not1mm` and `tlf` do not have | apt | Measure the sweep; ADD if in Debian 13 |
 | `dx-cluster` | 2 | — | The Reverse Beacon Network is a cluster feed and needs a page, not a unit | | A sentence in the DX-cluster pages |
 | `time-frequency` | 3 | `chrony` | See A4 | apt + config | A4 |
 | `gps-gnss` | 7 | **PyGPSClient** (PyPI `pygpsclient`, BSD-3; NMEA, UBX, RTCM3, NTRIP) | Receiver configuration with a GUI; the u-center replacement | venv | ADD |
-| `gps-gnss` | | `gpsprune` (apt, in trixie per the search result), `gpxviewer` (trixie), `foxtrotgps` (sid) | Track viewing and editing; `gpsbabel` converts but shows nothing | apt | ADD `gpsprune`; `foxtrotgps` is online-first and adds nothing over Navit |
+| `gps-gnss` | | `gpsprune` (apt, in trixie per the search result; measured 2026-09-30: all seven targets), `gpxviewer` (trixie), `foxtrotgps` (sid) | Track viewing and editing; `gpsbabel` converts but shows nothing | apt | ~~ADD `gpsprune`~~ Not added: **D-061** measured it and does not carry it (see *Measured since*); `foxtrotgps` is online-first and adds nothing over Navit |
 | `gps-gnss` | | `rtklib` (RTK and PPK post-processing; apt `unmeasured`) | Centimetre positioning for antenna surveys | apt | Post-1.0 on demand |
-| `navigation-maps` | 14 | **OpenCPN** (Debian 13 `1:5.10.2+dfsg-1` per the search result; GPL-2.0) | A marine chart plotter that takes position from `gpsd` and AIS targets from `rtl-ais` or `ais-catcher` over NMEA — the one program that makes the `ships` category more than a decoder. Charts are data: NOAA ENC and RNC are public domain and fetched by region, the D-057 shape again | apt now; charts as a `data`/regional unit later | ADD, tagged `ships` + `navigation-maps`; charts a follow-on |
+| `navigation-maps` | 14 | **OpenCPN** (Debian 13 `1:5.10.2+dfsg-1` per the search result, confirmed by the 2026-09-30 sweep, which found it on all seven targets; GPL-2.0) | A marine chart plotter that takes position from `gpsd` and AIS targets from `rtl-ais` or `ais-catcher` over NMEA — the one program that makes the `ships` category more than a decoder. Charts are data: NOAA ENC and RNC are public domain and fetched by region, the D-057 shape again | apt now; charts as a `data`/regional unit later | ADD, tagged `ships` + `navigation-maps` (added 2026-09-30, `navigation`); charts a follow-on |
 | `navigation-maps` | | Organic Maps (Linux desktop: a Qt 6 source build the project says needs 20 GB and has no feature parity; Flathub only) | Turn-by-turn on the desktop with a modern UI | none acceptable today (Flatpak is a measured zero, D-014) | Not carried; revisit if a distribution packages it |
 | `navigation-maps` | | `qgis`, `kiwix`, `dict`, `mbtileserver` | Already waiting on ETC sub-project 5 | | No change |
 | `locators`, `dashboards` | | — | | | No add |
@@ -359,8 +421,8 @@ before a manifest. Nothing here is transmit-capable except where said.
 | `sdr-receivers` | | `kiwiclient` | Already in `skywave-inventory.md` as the maintained KiwiSDR client | venv | ADD, cheap |
 | `sdr-hardware` | 33 | **HydraSDR RFOne** (`libhydrasdr` 1.1.1, `SoapyHydraSDR`, `hydrasdr_433`; the 2025–26 Airspy successor; not in any archive) | A device the catalog has no entry for at all: hardware class entry, host library, Soapy module | source (cmake) ×2 | ADD a device and two units when a unit of hardware is available to measure; `maintainer_verified: false` until then (D-027) |
 | `sdr-hardware` | | **Fobos SDR** (`rigexpert/libfobos`, `SoapyFobosSDR`; the vendor of `antscope2`, already carried) | Same shape as HydraSDR | source ×2 | Same |
-| `sdr-hardware` | | `libiio-utils`, `iio-oscilloscope` (apt; libiio is in trixie per the search result) | The PlutoSDR's own tools; the device page already says the Pluto is "reached through libiio" and nothing installs it | apt | ADD `libiio-utils` beside the Pluto device |
-| `sdr-toolkits` | 12 | `gr-fosphor` (trixie `3.9~0.974ab2f-1+b15` per the search result) | The GPU waterfall every GNU Radio demo uses; a Blend `sdr` task member that is not in the catalog | apt | ADD |
+| `sdr-hardware` | | `libiio-utils`, `iio-oscilloscope` (apt; libiio is in trixie per the search result; measured 2026-09-30: `libiio-utils` on all seven targets) | The PlutoSDR's own tools; the device page already says the Pluto is "reached through libiio" and nothing installs it | apt | ADD `libiio-utils` beside the Pluto device (added 2026-09-30) |
+| `sdr-toolkits` | 12 | `gr-fosphor` (trixie `3.9~0.974ab2f-1+b15` per the search result; measured 2026-09-30: `3.9~git20240323.74d54fc-1+b10`, all seven targets) | The GPU waterfall every GNU Radio demo uses; ~~a Blend `sdr` task member~~ not in the Blend's task files (`blend-inventory.md`), and not in the catalog | apt | ADD (added 2026-09-30) |
 | `sdr-toolkits` | | `gr-dab`, `gr-ais`, `gr-iqbal` (`unmeasured`) | Tier 3 governs the rest | apt where packaged | Measure; ADD only the packaged ones |
 | `signal-analysis` | 4 | URH, SigDigger | DragonOS Tier 2 (SCOPE.md stage 7) | | No change |
 | `signal-analysis`, `broadcast` | | `redsea` (RDS decoder, CLI; apt `unmeasured`) | The command-line RDS decoder beside `gr-rds` | apt | Measure; ADD if packaged |
@@ -370,7 +432,7 @@ before a manifest. Nothing here is transmit-capable except where said.
 | `aircraft` | | `tar1090` | See A8 | git | ADD as described |
 | `aircraft` | | `piaware` / `dump1090-fa` (FlightAware apt repository), the adsb.fi and ADS-B Exchange feeders | Feeding a network is the operator's choice and each network has its own client; `mlat-client-adsbfi` is carried | apt_repos | A page listing the feeders, no more units |
 | `aircraft` | | JAERO, OGN (`ogn-rf`) | Tier 2; low | | No change |
-| `ships` | 4 | OpenCPN | See Group 1 | apt | ADD |
+| `ships` | 4 | OpenCPN (measured 2026-09-30: all seven targets) | See Group 1 | apt | ADD (added 2026-09-30, `navigation`) |
 | `ships` | | *Gap:* NAVTEX is decoded by `fldigi` (carried) — say so on the page. No open DSC decoder exists | — | — | A sentence; nothing to carry |
 | `pagers-decoders` | 3 | — | | | No add |
 
@@ -378,7 +440,7 @@ before a manifest. Nothing here is transmit-capable except where said.
 
 | Category | Carried | Candidate | What it adds | Route | Recommendation |
 |---|---|---|---|---|---|
-| `satellite-tracking` | **1** | **`predict`** (KD2BD, GPL-2.0; apt, in testing per the search result) | The one-member category. PREDICT is the terminal tracker `gpredict` grew from, runs headless with a network server other programs poll, and is what a Pi ground station uses | apt | ADD |
+| `satellite-tracking` | **1** | **`predict`** (KD2BD, GPL-2.0; apt, in testing per the search result — **wrong: in no archive, measured 2026-09-30**, see *Measured since*) | The one-member category. PREDICT is the terminal tracker `gpredict` grew from, runs headless with a network server other programs poll, and is what a Pi ground station uses | ~~apt~~ none packaged | ~~ADD~~ Not added: no target offers it |
 | `satellite-tracking` | | **SatNOGS client** (2.1.1, December 2025; pip; needs hamlib and gpsd Python bindings) | Turns the station into a ground station for the network — the open-source satellite community's own project | venv | ADD post-1.0 as an appliance unit; needs a page on what it uploads |
 | `satellite-tracking` | | `rotctld` configuration | `libhamlib-utils` carries it; nothing configures a rotator | config + page | Part of A2 |
 | `satellite-decoding` | 3 | `goestools` (`pietern/goestools`; GOES HRIT/LRIT) | SatDump (carried) decodes GOES; goestools' `goesrecv` is still the community's lock-and-signal-strength tool for aiming a dish | source (cmake) | Optional; a note on the SatDump page is enough until asked |
@@ -395,12 +457,12 @@ before a manifest. Nothing here is transmit-capable except where said.
 | `radio-programming` | 4 | **`k5prog`** (`sq5bpf/k5prog`, GPL; C) and the UV-K5 CHIRP drivers (`egzumer`, `armel/F4HWN`) | The Quansheng UV-K5 is the most-modified handheld of the decade; `chirp` (carried) programs it only through a firmware-specific driver, and flashing custom firmware on Linux is `k5prog` | source (make); the CHIRP driver is a file the page points at | ADD `k5prog`; page on the driver |
 | `radio-programming`, `dmr` | | **OpenRTX `radio_tool`** | Flashes OpenRTX (M17-capable) onto TYT MD-UV380/390 and others from Linux; D-026 says carry the means of talking to the device | source (cmake) | ADD |
 | `radio-programming` | | `editcp` (AnyTone) | `qdmr` covers AnyTone; editcp is dormant | | Not carried |
-| `programmer` | 8 | `stm32flash` (trixie), `teensy-loader-cli` (trixie), `dfu-programmer`, `bossa-cli`, `picotool`, `mspdebug` (`unmeasured`) | STM32 serial bootloaders are how MMDVM boards, NanoVNAs and many radios are flashed; RP2040/RP2350 boards need `picotool` | apt | ADD `stm32flash` and `picotool` first; the class file is generated (`gen_programmer_class.py` reads the rules) |
+| `programmer` | 8 | `stm32flash` (trixie; measured 2026-09-30: 0.7 on all seven targets), `teensy-loader-cli` (trixie), `dfu-programmer`, `bossa-cli`, `picotool`, `mspdebug` (`unmeasured`) | STM32 serial bootloaders are how MMDVM boards, NanoVNAs and many radios are flashed; RP2040/RP2350 boards need `picotool` | apt | ADD `stm32flash` (added 2026-09-30) and `picotool` first; the class file is generated (`gen_programmer_class.py` reads the rules) |
 | `programmer` | | **`adafruit-nrfutil`** (PyPI) and a UF2 note | The maintainer's nRF52840, T-Echo and RAK nodes all flash by UF2 drag-and-drop or `adafruit-nrfutil dfu serial`; nothing in the catalog says so | venv + page | ADD, with the Meshtastic device page carrying the UF2 procedure |
 | `programmer` | | **`cc2538-bsl`** and `catnip` (Electronic Cats) | The CatSniffer V3's firmware loader; Electronic Cats' own docs prefer `catnip`, and Kismet's page says `cc2538-bsl` worked and `catnip` did not in their testing | venv (pyserial, intelhex) | ADD `cc2538-bsl` on the CatSniffer page; the device is owned, so this is measurable now |
 | `programmer` | | `pyocd`, `platformio` | `pyocd` for nRF and STM32 over SWD; PlatformIO is the Meshtastic/MeshCore build tool (#105) | venv | On demand |
-| `serial-terminals` | 5 | `ser2net` | See A2 | apt | ADD |
-| `device-support` | 8 | `qpwgraph`, `pavucontrol` | See A3 | apt | ADD |
+| `serial-terminals` | 5 | `ser2net` (measured 2026-09-30: all seven targets) | See A2 | apt | ADD (added 2026-09-30, in no profile: see *Measured since*) |
+| `device-support` | 8 | `qpwgraph` (measured 2026-09-30: all seven targets), `pavucontrol` | See A3 | apt | ADD (`qpwgraph` added 2026-09-30, `digital-modes`) |
 
 ### Group 7 — RF Security & Research
 
@@ -432,7 +494,7 @@ fine on purpose (D-055) — but each is worth a glance:
 
 | Category | Members | Note |
 |---|---|---|
-| `satellite-tracking` | 1 | `predict` and SatNOGS above |
+| `satellite-tracking` | 1 | SatNOGS above; `predict` is in no archive (2026-09-30) |
 | `dx-cluster` | 2 | Complete |
 | `locators` | 2 | Complete |
 | `mesh` | 2 | Issue #105 |
@@ -455,7 +517,9 @@ the cost:
 5. **Mercury and FreeDATA** — the open HF-modem pair; re-rank VARA after.
 6. **`predict`, `gr-fosphor`, `libiio-utils`, `stm32flash`, `ser2net`,
    `qpwgraph`, `gpsprune`, OpenCPN** — apt units, one PR each, after the
-   sweep confirms them.
+   sweep confirms them. (2026-09-30: swept, see *Measured since*;
+   `predict` is in no archive and is not added; `gpsprune` is not added
+   because D-061 rules it out.)
 7. **A2** — the rig as station data. A sub-project with a spec, like the
    navigation ones under `docs/superpowers/specs/`.
 8. **A5** — the `splat-sdf` converter and Signal-Server.

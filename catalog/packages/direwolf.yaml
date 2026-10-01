@@ -18,6 +18,53 @@ install:
       working TNC and the difference is not worth owning a build; where 1.8.1
       matters is in newer AIS and IL2P support.
 
+# D-008 admits Direwolf "with configuration, not merely installation"; D-035 is
+# how. Measured 2026-09-29 from the extracted packages, not remembered:
+#  - /etc/direwolf.conf is the path Debian's unit runs (`ExecStart=/usr/bin/
+#    direwolf -c /etc/direwolf.conf`, `AssertPathExists=/etc/direwolf.conf`
+#    in /usr/lib/systemd/system/direwolf.service), and README.Debian says the
+#    service needs that file. The package ships no file there (not a
+#    conffile) and does not enable the unit.
+#  - The keywords are the shipped example's (/usr/share/doc/direwolf/conf/
+#    direwolf.conf.gz, 1.7 and 1.8.1): `CHANNEL 0`, `MYCALL` ("up to 6
+#    letters and digits with an optional ssid"), and the AGW and KISS TCP
+#    ports, whose defaults the same file gives as 8000 and 8001.
+#  - This exact file, with `ADEVICE stdin null` prepended so no sound card
+#    was opened, was read by both packaged binaries (1.7+dfsg-2+deb13u1 and
+#    1.8.1+dfsg-2~bpo13+1) in a user and network namespace: "Channel 0: 1200
+#    baud, AFSK 1200 & 2200 Hz", "Ready to accept AGW client application 0
+#    on port 8000", "... KISS TCP client application 0 on port 8001".
+# The file is ours, written short on purpose rather than a copy of the
+# example: ADEVICE and PTT depend on the operator's interface and are left
+# to them, which is why the comments say where the forms are.
+config_files:
+  - path: /etc/direwolf.conf
+    template: |
+      # Direwolf configuration written by Hammunition from your station values.
+      # MYCALL is your callsign and Direwolf transmits it: read this before
+      # keying a radio.
+      #
+      # Deliberately short. Every keyword, with examples, is in Direwolf's own
+      # commented example: zless /usr/share/doc/direwolf/conf/direwolf.conf.gz
+      # A file that was here before is kept as /etc/direwolf.conf.hammunition-backup
+      #
+      # Sound card: none is named, so Direwolf uses the system default. To pick
+      # one, add `ADEVICE plughw:1,0` with the card number `arecord -l` reports.
+      # Transmit: no PTT line is set, so Direwolf cannot key the radio itself;
+      # add `PTT` for your interface (serial RTS, CM108 GPIO, ...) from the
+      # example. No beacon, digipeater or igate is configured: Direwolf sends
+      # only what a KISS or AGW client hands it.
+
+      CHANNEL 0
+      MYCALL {station.ax25_callsign}
+
+      # The TCP ports pat, LinBPQ, YAAC and Xastir connect to. These are
+      # Direwolf's own defaults, written out so they can be seen.
+      AGWPORT 8000
+      KISSPORT 8001
+    mode: "0644"
+    backup_existing: true
+
 update:
   probe:
     method: apt_policy
@@ -39,9 +86,15 @@ documentation:
   prerequisites: >-
     Audio in and out to the radio, and a way to key the transmitter -- a
     serial control line, a GPIO pin on a Pi, or VOX. A configuration file
-    naming your callsign, the audio device and the PTT method. That callsign is
-    the station-configuration question this catalog has open; the file is yours
-    to write for now, and the shipped example is heavily commented.
+    naming your callsign, the audio device and the PTT method: Hammunition
+    writes `/etc/direwolf.conf` with your callsign from station config
+    (`hammunition station set --callsign <yours>`) and the KISS and AGW
+    ports, and leaves the audio device and PTT to you, because they depend
+    on your interface and nothing here can know them. With no callsign set
+    the package installs and the file is reported as not written.
+    Direwolf is an ALSA program: `docs/guides/audio-routing.md` says how to name the radio's sound
+    card in `ADEVICE` and what changes between the `plughw:` and `default`
+    routes on a PipeWire desktop.
   known_problems: >-
     Unaffected by Linux 7.1's removal of the kernel AX.25 stack: it is the
     userspace modem, and its KISS and AGW ports are what the other packet
@@ -55,6 +108,23 @@ documentation:
     an igate puts traffic on the network under your callsign, and the default
     example configuration is deliberately not a digipeater; turning that on is
     a decision about a shared resource.
+    What the configuration block does: writes `/etc/direwolf.conf`, mode
+    0644, with `MYCALL` set to your callsign, `CHANNEL 0` and the AGW (8000)
+    and KISS (8001) TCP ports. An existing file is copied first to
+    `/etc/direwolf.conf.hammunition-backup`, once; a later install never
+    replaces that backup. Nothing is enabled or started: Debian's
+    `direwolf.service` reads this file (`sudo systemctl start direwolf`),
+    and run by hand it is `direwolf -c /etc/direwolf.conf` -- without `-c`
+    Direwolf looks only in the current directory and your home directory.
+    The file is written only when the callsign is an AX.25 address (one to
+    six letters and digits): a callsign such as `W1AW/4` is reported as
+    unusable rather than trimmed, and the file is yours to write. Inspect it
+    with `cat /etc/direwolf.conf`. `hammunition uninstall direwolf` does not
+    remove it (config files are not reversed, and the plan says so); to
+    undo, `sudo rm /etc/direwolf.conf`, then `sudo mv
+    /etc/direwolf.conf.hammunition-backup /etc/direwolf.conf` if a backup
+    was made. A later install rewrites the file from station config, so an
+    edit you make to it is replaced then (the first backup is kept).
   upstream_url: https://github.com/wb2osz/direwolf
   upstream_support: >-
     John Langner, WB2OSZ. GitHub issues, and the user guide in the repository

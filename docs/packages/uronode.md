@@ -20,15 +20,19 @@ A node is what makes a station useful to other people rather than only to you. I
 
 ## Before it will work
 
-A configured AX.25 stack, and `ax25d` set up to hand inbound connections to uronode. Your callsign appears in that configuration and in what callers see.
+A configured AX.25 stack, and `ax25d` set up to hand inbound connections to uronode. Your callsign appears in that configuration and in what callers see: Hammunition writes it, with your node alias, into `/etc/ax25/uronode.conf` from station config (`hammunition station set --callsign <yours> --node-alias <alias>`); `ax25d.conf` is still yours. With either value unset the package installs and the file is reported as not written.
 
 ## How it installs
 
 - apt: `uronode`
 
+## Configuration it writes
+
+- `/etc/ax25/uronode.conf` (written, mode 0644, existing file backed up); filled from the station values `ax25_callsign`, `node_alias`, and not written while one is unset (D-035)
+
 ## Known problems
 
-Needs the kernel AX.25 stack, which Linux 7.1 removed (merge 64edfa65, 2026-04-24); on a 7.1 or newer kernel -- Kali rolling and Pop!_OS 24.04 on 7.1.5, measured 2026-09-04 -- the plan refuses or defers this unit by name. See `ax25-tools` and `docs/reference/kernel-ax25.md`. A node is a service other people use, and running one is a commitment: an unreliable node is worse for a network than no node. It relays traffic on your callsign's authority, so what passes through it is your responsibility in most jurisdictions. Configuration is several files and getting the ax25d handoff right is the usual sticking point.
+Needs the kernel AX.25 stack, which Linux 7.1 removed (merge 64edfa65, 2026-04-24); on a 7.1 or newer kernel -- Kali rolling and Pop!_OS 24.04 on 7.1.5, measured 2026-09-04 -- the plan refuses or defers this unit by name. See `ax25-tools` and `docs/reference/kernel-ax25.md`. A node is a service other people use, and running one is a commitment: an unreliable node is worse for a network than no node. It relays traffic on your callsign's authority, so what passes through it is your responsibility in most jurisdictions. Configuration is several files and getting the ax25d handoff right is the usual sticking point. What the configuration block does: writes `/etc/ax25/uronode.conf`, mode 0644, with `NodeId <alias>:<callsign>`, `FlexId <callsign>`, `RoseId none`, and the timeouts and log level Debian shipped; hostname, email, local network, the NET/ROM port and the example aliases are left out, so uronode's defaults apply. It is a conffile of placeholders, so the shipped file is copied first to `/etc/ax25/uronode.conf.hammunition-backup`, once, and a package upgrade that changes it asks which to keep. FlexId must match the callsign and SSID `ax25d.conf` listens on; add the SSID if you use one. The callsign is written only when it is an AX.25 address (one to six letters and digits); a callsign such as `W1AW/4` is reported as unusable rather than trimmed. Whether uronode reads the file cleanly has not been measured here (no kernel AX.25 on the test machine). Inspect with `cat /etc/ax25/uronode.conf`. `hammunition uninstall uronode` does not remove it (config files are not reversed, and the plan says so); to undo, `sudo mv /etc/ax25/uronode.conf.hammunition-backup /etc/ax25/uronode.conf`. Every `hammunition install` that includes uronode rewrites the file from station config, replacing edits made to it since.
 
 ## Keeping it current
 

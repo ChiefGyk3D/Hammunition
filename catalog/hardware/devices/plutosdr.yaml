@@ -15,7 +15,7 @@ identification_gap: >-
   Debian package here shipped a matching udev rule. Closing this needs lsusb
   output from someone holding the board, tagged with its firmware revision.
 groups: [plugdev, dialout]
-packages: [soapysdr-module-plutosdr]
+packages: [soapysdr-module-plutosdr, libiio-utils]
 documentation:
   what_it_is: >-
     A small full-duplex software defined radio built around an Analog Devices
@@ -27,7 +27,10 @@ documentation:
   setup_steps: >-
     Debian 13 does not ship soapysdr-module-plutosdr; it is in unstable only, so
     on a stable base this needs a non-apt path. The device is usually reached over
-    its USB network interface rather than a /dev node.
+    its USB network interface rather than a /dev node. `iio_info -S`, from
+    libiio-utils (apt on every target, 2026-09-30), lists the IIO contexts
+    libiio can reach and is the first check that the host sees the board;
+    unmeasured here, since no Pluto is owned.
   known_problems: >-
     soapysdr-module-plutosdr is sid-only, so it is unavailable from apt on our
     primary targets. Being a composite device, it does not fit the single-symlink

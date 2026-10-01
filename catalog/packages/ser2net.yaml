@@ -1,0 +1,92 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: ser2net
+version: "4.6.4"
+summary: Serve a serial port over TCP, so a rig's CAT port can be reached from another machine
+categories: [serial-terminals, rig-control]
+
+# Gap analysis 2026-09 (catalog-gaps-2026-09.md, B Groups 1 and 6, A2; D.6),
+# ADD.
+#
+# Upstream (D-032): github.com/cminyard/ser2net, default branch `master`,
+# head 699d63466f57, 2026-08-14 -- read from a depth-1 clone on 2026-09-30.
+# Active; latest tag v4.6.8, where the archives carry 4.6.0 to 4.6.5.
+# Licence: GPL-2.0 (COPYING).
+#
+# `apt-cache policy`, 2026-09-30: offered on all seven targets.
+#
+# D-050: no menu entry, deliberately. The only executable is /usr/sbin/
+# ser2net, a daemon systemd runs; there is nothing to open.
+#
+# **The package starts a service on install**, and this is disclosed here
+# and on the page rather than as a `system_modifications` entry, because
+# the package's own postinst does it and the schema has no kind for that.
+# Read from the Debian 13 .deb on 2026-09-30: postinst enables and starts
+# ser2net.service, and the shipped /etc/ser2net.yaml (a conffile) enables
+# four connections -- 127.0.0.1 and ::1 ports 2000 and 3000 to /dev/ttyS0,
+# 2001 and 3001 to /dev/ttyS1, at 9600 and 19200 baud. Measured in a
+# debian:13 container the same day: after `apt-get install ser2net`,
+# multi-user.target.wants/ser2net.service existed, and ser2net started on
+# the shipped file listened on exactly those eight loopback sockets.
+#
+# Not in the `station` profile for that reason: a base profile would start
+# a root daemon on every station that gives any local account the two
+# built-in serial ports without the `dialout` group. Install it by name.
+
+install:
+  - install:
+      method: apt
+      packages: [ser2net]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    A daemon that connects TCP (or UDP, or a telnet session) on one side to
+    a serial device on the other, configured in /etc/ser2net.yaml: one
+    `connection` per port, naming the listening address and port, the
+    device and its baud rate and framing. A program anywhere on the network
+    that opens the TCP port is talking to the serial device.
+  why_you_want_it: >-
+    To reach a radio's CAT port, a TNC, a GPS or a rotator controller from a
+    different machine: the radio stays in the shack with a small computer
+    beside it, and the logging or digital-modes machine is elsewhere. It is
+    the transport half of a remote station. For CAT specifically, running
+    `rigctld` on the machine with the radio and pointing programs at it over
+    the network is usually the better answer, because every hamlib program
+    speaks it and it serialises access; ser2net is for software that wants
+    a raw serial port, or a device hamlib does not know. It is an
+    alternative to `socat` pipelines and to a USB-over-IP link.
+  prerequisites: >-
+    The serial device (use its /dev/serial/by-id/ path) and its baud rate
+    from the radio's menu, written as a `connection` in /etc/ser2net.yaml
+    (`man ser2net.yaml`), then `sudo systemctl restart ser2net`. The
+    program on the far end needs a way to open a TCP serial port: many take
+    a host and port directly; others need a virtual serial device on the
+    client side (`socat` with a pty, for example). The rig-control guide's
+    rule applies unchanged -- exactly one program opens the radio's port,
+    and here that program is ser2net.
+  known_problems: >-
+    **Installing the package enables and starts ser2net.service**, and the
+    shipped configuration listens on loopback ports 2000, 2001, 3000 and
+    3001 for /dev/ttyS0 and /dev/ttyS1 (read from the Debian 13 .deb and
+    measured in a container, 2026-09-30). The unit names no `User=`, so
+    ser2net runs as root, and any
+    account on the machine can reach those two serial ports through it
+    without being in `dialout`. Inspect it with `systemctl status ser2net`
+    and `ss -ltnp`; edit /etc/ser2net.yaml to remove the examples you do
+    not use, or `sudo systemctl disable --now ser2net` until you need it;
+    `sudo apt-get purge ser2net` removes the service and the file. **Never
+    listen on a public address**: ser2net has no encryption, and a CAT port
+    on the network is the transmitter's controls. Keep it on 127.0.0.1, a
+    LAN you control or a VPN. Whether hamlib and the logging programs work
+    well over it with a real radio is unmeasured here, as is its behaviour
+    across a lossy link.
+  upstream_url: https://github.com/cminyard/ser2net
+  upstream_support: >-
+    Corey Minyard. GitHub issues on the repository above; the manual pages
+    ser2net(8) and ser2net.yaml(5) are the reference for the configuration.

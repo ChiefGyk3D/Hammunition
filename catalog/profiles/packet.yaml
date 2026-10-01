@@ -18,6 +18,8 @@ packages:
   - linbpq
   - pat
   - ardopcf
+  - mercury
+  - freedata
   - xastir
   - aprsdigi
   - aprx
@@ -58,10 +60,20 @@ documentation:
     Two soundcard TNCs — one headless and one with a scope — three packet
     terminals (one of them, Paracon, speaking AGWPE to Direwolf and needing
     no kernel stack at all), a node front end, a BBS and Winlink gateway, the Winlink
-    client, an HF data modem, the full-featured APRS client, a digipeater and
-    an internet gateway, mail tools, AMPRnet routing, a GRIB weather viewer,
-    and, where the running kernel still carries it, the kernel AX.25 stack's
-    configuration and user tools.
+    client, three HF data modems, the full-featured APRS client, a digipeater
+    and an internet gateway, mail tools, AMPRnet routing, a GRIB weather
+    viewer, and, where the running kernel still carries it, the kernel AX.25
+    stack's configuration and user tools.
+
+    **The free HF modems are ardopcf, Mercury and FreeDATA.** ardopcf speaks
+    ARDOP and Mercury speaks VARA HF's TCP interface; Pat drives either one
+    (`ardop://` and `varahf://`). Mercury on the air talks to other Mercury
+    stations, not to VARA ones. FreeDATA is its own messaging and
+    file-transfer system with a browser interface, station to station, and
+    is not a Winlink path. All three transmit on HF when a client keys them:
+    a licence and the band plan apply, and nothing here keys the rig without
+    your rig-control setup. FreeDATA is x86-64 only; the codec2 library it
+    ships has no arm64 build.
 
     **The station is userspace-primary (D-045).** Direwolf or QtSoundModem
     turns the radio into a modem; pat, LinBPQ, YAAC and Xastir talk to it
@@ -102,7 +114,9 @@ documentation:
     ordinary pinned qmake builds. Neither is packaged on any of our six
     targets, which was measured. VARA and
     its messaging client are post-1.0 — closed software needing a configured
-    Wine prefix. `fbb`, the classic packet BBS, is in Ubuntu and Mint and not in
+    Wine prefix — and optional since Mercury joined (Q-022 #6): Pat reaches a
+    Mercury station through the same `varahf` transport, and what VARA still
+    adds is gateways that run only VARA. `fbb`, the classic packet BBS, is in Ubuntu and Mint and not in
     Debian, Kali or Parrot, so including it would half-install the profile on
     the primary target; its client-side tools are here and the BBS you forward
     with will be somebody else's.
@@ -126,6 +140,14 @@ documentation:
     this; it is superseded here because the modem ships the interface
     itself. It listens on every interface, as the modem's host port does.
 
+    **The HF modems take their callsign from somewhere different each.**
+    ardopcf and Mercury are told it by Pat when it connects, so they need no
+    file. FreeDATA keeps its own, in its browser settings page, and its first
+    start copies upstream's example station AA1AAA into
+    `~/.config/FreeDATA/config.ini`: change it before transmitting. Each
+    modem is started by hand with its sound device and keying method; the
+    packet-and-Winlink guide has the commands.
+
     **Serial and audio access need the `dialout` group**, and a session already
     open does not gain it. **Transmit audio level** decides whether anyone
     decodes you; direwolf reports its own receive levels and that is where to
@@ -134,5 +156,7 @@ documentation:
     digipeaters, and turning that on is a decision about a resource other
     people depend on.
   disk_footprint_hint: >-
-    Around 500 MB. LinBPQ and ardopcf are source builds from pinned upstream
-    tags; everything else is apt.
+    Around 500 MB, plus about 220 MB for FreeDATA's venv (219 MB measured on
+    Parrot). LinBPQ, ardopcf and Mercury are source builds from pinned
+    upstream tags (Mercury is apt on Kali); FreeDATA is a hash-pinned venv;
+    everything else is apt.

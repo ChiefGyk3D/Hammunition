@@ -43,6 +43,7 @@ packages:
   - comaps-maps
   - vector-map-kit
   - osm-pmtiles
+  - opencpn
 
 documentation:
   what_it_installs: >-
@@ -73,7 +74,9 @@ documentation:
     offline address search and car, bike and foot routing, built from
     source, over CoMaps' own map files for the same regions (`comaps-maps`),
     opened by the `comaps-offline` launcher; it has no position on the
-    laptop yet (it reads GeoClue only).
+    laptop yet (it reads GeoClue only). For the water, OpenCPN (`opencpn`),
+    a marine chart plotter that shows the position and the AIS ships an
+    SDR decodes on nautical charts downloaded while online.
   why_together: >-
     A navigator is only useful with a position and a map, and offline it
     needs both already on the machine. Navit without gpsd does not know
@@ -137,7 +140,11 @@ documentation:
     start it from the `comaps-offline` launcher, which records the licence
     answer CoMaps asks for and links your maps where it looks; it shows no
     "you are here" on the laptop, because it reads position from GeoClue
-    only and nothing feeds GeoClue the GPS yet.
+    only and nothing feeds GeoClue the GPS yet. For OpenCPN: download
+    charts with its chart downloader while online, and add a network
+    connection for the position (gpsd, or `gps-tether` on 127.0.0.1 port
+    10110) and one for AIS from `rtl-ais` or `ais-catcher`; none of
+    these has been set up and tried by this project (2026-09-30).
   disk_footprint_hint: >-
     Navit, espeak-ng, osmium-tool and gpsd from the archive (size not yet
     measured), the 13.3 MB country-border file once, and the browser map's

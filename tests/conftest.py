@@ -39,7 +39,7 @@ from __future__ import annotations
 import shutil
 import socket
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -53,7 +53,19 @@ _real_connect_ex = socket.socket.connect_ex
 _real_run = SubprocessRunner.run
 _real_sudo_run = sudo_ticket._run
 
-MACHINE_QUERIES = frozenset({"apt-get", "apt-cache", "apt", "dpkg", "dpkg-query", "sudo"})
+MACHINE_QUERIES = frozenset(
+    {
+        "apt-get",
+        "apt-cache",
+        "apt",
+        "dpkg",
+        "dpkg-query",
+        "sudo",
+        "systemctl",
+        "ntpq",
+        "apparmor_parser",
+    }
+)
 
 
 class MachineQueried(RuntimeError):
@@ -146,3 +158,99 @@ def _no_network() -> Any:
     finally:
         socket.socket.connect = _real_connect  # type: ignore[method-assign]
         socket.socket.connect_ex = _real_connect_ex  # type: ignore[method-assign]
+
+
+# ---------------------------------------------------------------------------
+# GPS time (D-058): no test touches the host's time configuration
+# ---------------------------------------------------------------------------
+
+DEBIAN_NTP_CONF = """\
+# /etc/ntpsec/ntp.conf, configuration for ntpd; see ntp.conf(5) for help
+
+driftfile /var/lib/ntpsec/ntp.drift
+leapfile /usr/share/zoneinfo/leap-seconds.list
+
+# This should be maxclock 7, but the pool entries count towards maxclock.
+tos maxclock 11
+
+# Comment this out if you have a refclock and want it to be able to discipline
+# the clock by itself (e.g. if the system is not connected to the network).
+tos minclock 4 minsane 3
+
+# Specify one or more NTP servers.
+
+# Public NTP servers supporting Network Time Security:
+# server time.cloudflare.com nts
+
+# pool.ntp.org maps to about 1000 low-stratum NTP servers.  Your server will
+# pick a different set every time it starts up.  Please consider joining the
+# pool: <https://www.pool.ntp.org/join.html>
+pool 0.debian.pool.ntp.org iburst
+pool 1.debian.pool.ntp.org iburst
+pool 2.debian.pool.ntp.org iburst
+pool 3.debian.pool.ntp.org iburst
+
+# By default, exchange time with everybody, but don't allow configuration.
+restrict default kod nomodify noquery limited
+
+# Local users may interrogate the ntp server more closely.
+restrict 127.0.0.1
+restrict ::1
+"""
+"""The lines of ntpsec 1.2.3's shipped ntp.conf that GPS time reads or edits,
+copied from the package with the unrelated NTS and statistics comments left out."""
+
+
+@pytest.fixture
+def debian_ntp_conf() -> str:
+    return DEBIAN_NTP_CONF
+
+
+@pytest.fixture(autouse=True)
+def _no_host_time_files(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[Path]:
+    """Every GPS-time path points somewhere that does not exist, for every test.
+
+    The field laptop runs this suite and has GPS time applied. A test that read
+    its real /etc/ntpsec/ntp.conf would pass or fail by what that machine holds
+    (CLAUDE.md: test the matrix, not your machine), and one that wrote there
+    would be worse. Tests that want files request `time_files`. A test that
+    writes here without it fails, naming the fixture to use.
+    """
+    from hammunition.gpstime import files
+
+    root = tmp_path_factory.getbasetemp() / "host-time-files-absent"
+    for name, default in files.PATHS.items():
+        monkeypatch.setattr(files, name, str(root) + default)
+    yield root
+    if root.exists():
+        shutil.rmtree(root)
+        pytest.fail(
+            "a test wrote GPS time files without the time_files fixture; request it "
+            "so they land in that test's own tmp_path"
+        )
+
+
+@pytest.fixture
+def time_files(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    debian_ntp_conf: str,
+    _no_host_time_files: Path,
+) -> Path:
+    """A machine with ntpsec installed (its shipped ntp.conf and its daemon) and one
+    hardware clock, under tmp_path."""
+    from hammunition.gpstime import files
+
+    root = tmp_path / "root"
+    for name, default in files.PATHS.items():
+        monkeypatch.setattr(files, name, str(root) + default)
+    conf = Path(files.NTP_CONF)
+    conf.parent.mkdir(parents=True)
+    conf.write_text(debian_ntp_conf)
+    ntpd = Path(files.NTPD)
+    ntpd.parent.mkdir(parents=True)
+    ntpd.write_text("")
+    (Path(files.RTC_CLASS) / "rtc0").mkdir(parents=True)
+    return root

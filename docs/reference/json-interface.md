@@ -1553,6 +1553,7 @@ A configuration file the transaction writes.
 | `mode` | string | its octal mode |
 | `append` | boolean | appended to rather than written |
 | `backup_existing` | boolean | an existing file is backed up first |
+| `fills` | list of string | the station values templated into it, by name (callsign, grid_square, ax25_callsign, latitude ...); never the values themselves |
 
 #### `DesktopsReadView`
 
@@ -1806,6 +1807,13 @@ A unit and files.
         "backup_existing": {
           "title": "Backup Existing",
           "type": "boolean"
+        },
+        "fills": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fills",
+          "type": "array"
         }
       },
       "required": [
@@ -1813,7 +1821,8 @@ A unit and files.
         "path",
         "mode",
         "append",
-        "backup_existing"
+        "backup_existing",
+        "fills"
       ],
       "title": "ConfigLine",
       "type": "object"

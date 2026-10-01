@@ -20,7 +20,7 @@ Transmit and receive simultaneously, and run software on the device itself — i
 
 ## Setup
 
-Debian 13 does not ship soapysdr-module-plutosdr; it is in unstable only, so on a stable base this needs a non-apt path. The device is usually reached over its USB network interface rather than a /dev node.
+Debian 13 does not ship soapysdr-module-plutosdr; it is in unstable only, so on a stable base this needs a non-apt path. The device is usually reached over its USB network interface rather than a /dev node. `iio_info -S`, from libiio-utils (apt on every target, 2026-09-30), lists the IIO contexts libiio can reach and is the first check that the host sees the board; unmeasured here, since no Pluto is owned.
 
 ## Known problems
 
@@ -38,6 +38,6 @@ Group membership required: `dialout`, `plugdev` — added at install, applies at
 
 ## Software that makes it useful
 
-[`soapysdr-module-plutosdr`](../packages/soapysdr-module-plutosdr.md)
+[`libiio-utils`](../packages/libiio-utils.md), [`soapysdr-module-plutosdr`](../packages/soapysdr-module-plutosdr.md)
 
 **Upstream:** <https://wiki.analog.com/university/tools/pluto>

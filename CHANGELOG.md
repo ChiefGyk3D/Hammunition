@@ -24,6 +24,87 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   its serial layer cannot load (D-048 amended). Nothing awaits the
   maintainer in `dispositions.md` any more.
 
+- **GPS time** (D-058). `hammunition time` says what the clock follows (the
+  network, the GPS, or holdover and for how long) without a password;
+  `hammunition time mode auto|prefer-gps|ntp-only|gps-only` prints every
+  write, then sets it through the one helper and polkit action. A parked
+  receiver never feeds the clock. `hardware apply` installs the two grants
+  ntpd needs to read gpsd's time, disclosed as widening a network-facing
+  daemon's privilege, only where gpsd is installed, and prints every
+  `ntp.conf` line the first mode moves and what that costs; `--no-gps-time`
+  leaves all of it alone. It also runs gpsd with `-n` (the drop-in
+  `/etc/systemd/system/gpsd.service.d/hammunition-gps.conf`, the same file
+  and text as the `chrony` unit's), because gpsd publishes no time while no
+  client is connected (measured on #162); a reboot after apply lets gpsd
+  take it, and `unapply` leaves it while the `chrony` unit still uses it.
+  It installs `fake-hwclock` only where there is no hardware clock;
+  `hardware unapply` takes all of it back, `ntp.conf` byte for byte. `doctor` reports the time source, holdover, and a machine
+  with no RTC. Parrot (ntpsec) only; built and not yet run on the field
+  laptop. Guide: `docs/guides/gps-time.md`.
+
+- **Two free HF modems join the packet core** (gap analysis section B
+  Group 3, **Q-022** #6, branch `gap-05-hf-modems`). `mercury`
+  (Rhizomatica, GPL-3.0) speaks VARA HF's TCP interface, so Pat's
+  `varahf://` transport drives it unchanged: apt on Kali (1.9.13), a `make`
+  build of v1.9.15 elsewhere, the release Debian unstable packages
+  (**D-024**). `freedata` (DJ2LS, GPL-3.0) is station-to-station messaging
+  and file transfer with a browser interface, a hash-pinned venv of the
+  0.18.2 wheel, x86-64 only. Both are in `packet` and both transmit when a
+  client keys them; the pages say so. `overlaps.md` gains an HF-modem
+  section, `dispositions.md` records both as ADD outside the six sources,
+  and `SCOPE.md` re-ranks VARA's Wine prefix as post-1.0 and optional. The
+  packet-and-Winlink guide gains the modem choice. Measured: Pat 0.16.0 to
+  Mercury 1.9.15 peer to peer, two instances back to back with no radio.
+  Not measured: either modem over the air, FreeDATA's server and window.
+- **Station config reaches six more units** (Q-022 #1, gap analysis A1;
+  D-035 amendment of 2026-09-29). `direwolf` writes `/etc/direwolf.conf`
+  (MYCALL and the KISS/AGW ports; the sound card and PTT stay yours),
+  `ax25-tools` appends the `wl2k` port to `/etc/ax25/axports` once and never
+  as a duplicate libax25 would refuse, `gpredict` writes its default ground
+  station from the grid square, `tlf` writes `~/tlf/logcfg.dat` (CALL,
+  MYQRA), `aprx` sets `mycall` on Debian's receive-only login, and
+  `uronode` sets the node identity. Each was measured from the package's
+  own files; each manifest says what it writes, how to inspect it and how
+  to undo it. `linpac` and `fbb` configure themselves and get no block.
+  The engine gains derived station values (`latitude`, `longitude` from the
+  grid square; `ax25_callsign`, which defers a file rather than trim
+  `W1AW/4`), `~/` paths written into the operator's home without following
+  a symlink, `skip_if_present` for appends, and a dry run that names the
+  station values each file is filled from.
+
+- **Apt units from the gap analysis** (section D.6, branch
+  `gap-06-apt-adds`). The eight candidates were swept on the seven targets
+  first; `catalog-gaps-2026-09.md` carries the table and corrects the
+  report where it was wrong. `predict` is in no archive (not in Debian 12,
+  13 or unstable either) and is not added. `gr-fosphor` joins `sdr`: GNU
+  Radio's GPU spectrum and waterfall blocks, offered on all seven targets;
+  its .deb pulls `gnuradio-dev` and only the OpenCL loader, so the page
+  says an OpenCL driver is the operator's to install. Not run on any GPU.
+  `libiio-utils` joins `electronics` beside `m2kcli` and is linked from
+  the `plutosdr` device: `iio_info -S`, as the `iio_scan` launcher, is
+  the first check that libiio sees a Pluto or an ADALM2000. No such
+  device is owned; nothing was scanned.
+  `stm32flash` joins `electronics` beside `stlink-tools`: the STM32's
+  built-in serial bootloader over a USB-serial adapter. No device the
+  hardware catalog carries flashes that way (its STM32 entries use USB
+  DFU), so none links to it; nothing was flashed.
+  `ser2net` is carried but in no profile: installing the package enables
+  a root `ser2net.service` whose shipped configuration listens on four
+  loopback ports for `/dev/ttyS0` and `/dev/ttyS1` (read from the .deb,
+  measured in a Debian 13 container), which a base profile should not
+  do to every station; its page says how to inspect and disable it, and
+  the rig-control guide gains a section on a radio on another machine.
+  `qpwgraph`, the PipeWire patchbay the radio-audio guide already told
+  people to install with apt, joins `digital-modes`, and the guide now
+  links its page.
+  `gpsprune` is offered everywhere and is not added: D-061 already
+  measured it and left it out for its online tiles, and the report now
+  says so.
+  `opencpn`, the marine chart plotter that draws AIS ships from
+  `rtl-ais` or `ais-catcher` and the position from gpsd or `gps-tether`,
+  joins `navigation`; not opened on any target, so its OpenGL display on
+  the field laptop and every one of those connections are unmeasured.
+
 ## v0.17.0 — 2026-09-30 — official topo sheets, CoMaps, and the offline browser map
 
 Three pull requests since v0.16.0 (#161, #163, #164), 3 entries.

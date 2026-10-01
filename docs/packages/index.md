@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**284 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**292 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -136,7 +136,7 @@ HamClock-style boards: grey line, propagation, spots and the day at a glance.
 - [openhamclock](openhamclock.md) — Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites
 - [sunclock](sunclock.md) — World map showing the day-night terminator and where the sun is now
 
-### `device-support` — 8
+### `device-support` — 9
 
 lsusb, lspci, packet-modem drivers and companions for devices that need one.
 
@@ -146,6 +146,7 @@ lsusb, lspci, packet-modem drivers and companions for devices that need one.
 - [hammunition-tray-qt](hammunition-tray-qt.md) — Tray switches for parking and waking radio devices on Xfce, LXQt, LXDE, MATE and Cinnamon — the Hammunition family's own
 - [pciutils](pciutils.md) — lspci — for the SDRs and capture cards that are not on USB
 - [qflipper](qflipper.md) — Desktop companion for the Flipper Zero — firmware, files, and CLI over USB
+- [qpwgraph](qpwgraph.md) — PipeWire patchbay -- see and change which program is connected to which sound card
 - [usbutils](usbutils.md) — lsusb — step one of every hardware problem in this catalog
 - [z8530-utils2](z8530-utils2.md) — Configures Z8530-based HDLC cards for high-speed packet
 
@@ -181,7 +182,7 @@ EchoLink clients, SvxLink repeater and node software, and their link and calibra
 - [svxlink-server](svxlink-server.md) — Repeater controller and EchoLink node in software
 - [svxreflector](svxreflector.md) — Conference server that links many SvxLink nodes into one talk group
 
-### `electronics` — 6
+### `electronics` — 7
 
 Circuit design, matching networks, lab instruments and the Blend's RF design tools.
 
@@ -189,6 +190,7 @@ Circuit design, matching networks, lab instruments and the Blend's RF design too
 - [coil64](coil64.md) — Calculates inductance for coils of almost any geometry
 - [electronics-radio-dev](electronics-radio-dev.md) — Metapackage pulling in the Blend's RF circuit-design tools
 - [gsmc](gsmc.md) — Interactive Smith chart for designing impedance matching networks
+- [libiio-utils](libiio-utils.md) — Command-line tools that find and talk to IIO devices such as the PlutoSDR and ADALM2000
 - [m2kcli](m2kcli.md) — Command-line control of the ADALM2000 lab instrument
 - [tempest-for-eliza](tempest-for-eliza.md) — Makes a monitor radiate music on an AM radio — a TEMPEST demonstration
 
@@ -202,7 +204,7 @@ Desktop mail clients and PGP, carried for stations that move traffic by mail.
 - [gpa](gpa.md) — GNU Privacy Assistant — a GTK front end to GnuPG for signed and encrypted traffic
 - [thunderbird](thunderbird.md) — Mozilla's full-featured mail client — the household name
 
-### `emcomm` — 10
+### `emcomm` — 11
 
 Net control, message forms, weather charts and the rest of the public-service stack.
 
@@ -211,6 +213,7 @@ Net control, message forms, weather charts and the rest of the public-service st
 - [flmsg](flmsg.md) — Fills in and transmits the standard message forms EMCOMM runs on
 - [flnet](flnet.md) — Net control operator's list — who checked in, in what order
 - [flwrap](flwrap.md) — Wraps a file with a checksum so the far end knows it arrived intact
+- [freedata](freedata.md) — HF messaging and file transfer over codec2 modems, with a browser interface
 - [garim](garim.md) — Graphical ARIM messaging over an ARDOP TNC
 - [ics-forms](ics-forms.md) — FEMA's 39 fillable ICS forms, 205 radio communications plan and 213 general message among them
 - [js8spotter](js8spotter.md) — JS8Call's companion — spot tracking, forms, APRS and SMS gateways
@@ -304,7 +307,7 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `navigation-maps` — 25
+### `navigation-maps` — 26
 
 Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
 
@@ -322,6 +325,7 @@ Offline maps, turn-by-turn navigation and the position on a moving map, with no 
 - [mkgmap](mkgmap.md) — Builds Garmin-format maps from OpenStreetMap data
 - [mkgmap-splitter](mkgmap-splitter.md) — Cuts OpenStreetMap data into tiles sized for mkgmap
 - [navit](navit.md) — Offline turn-by-turn navigation that follows the GPS, with spoken directions
+- [opencpn](opencpn.md) — Marine chart plotter -- your position and AIS ships on nautical charts
 - [osm-garmin](osm-garmin.md) — Garmin maps of your OpenStreetMap regions, with trails, for QMapShack
 - [osm-navit](osm-navit.md) — Navit's binary maps, converted from your OpenStreetMap regions, and its configuration
 - [osm-pmtiles](osm-pmtiles.md) — Vector-tile maps of your OpenStreetMap regions, for the offline browser map
@@ -376,7 +380,7 @@ POCSAG, FLEX, DTMF and the other audio-band modes multimon reads.
 - [multimon](multimon.md) — The original multimon decoder, kept for the modes its successor dropped
 - [multimon-ng](multimon-ng.md) — Decoder for POCSAG, FLEX, AFSK, DTMF and other audio-band digital modes
 
-### `programmer` — 8
+### `programmer` — 9
 
 AVR, ESP, STM32, FPGA and flash-chip programmers, DFU, JTAG and SWD.
 
@@ -388,6 +392,7 @@ AVR, ESP, STM32, FPGA and flash-chip programmers, DFU, JTAG and SWD.
 - [openfpgaloader](openfpgaloader.md) — Universal bitstream loader for FPGAs, over JTAG and SPI
 - [openocd](openocd.md) — On-chip debugging and in-system programming over JTAG and SWD
 - [stlink-tools](stlink-tools.md) — Flash and debug STM32 targets through an ST-Link probe
+- [stm32flash](stm32flash.md) — Flash STM32 microcontrollers over their built-in serial bootloader
 
 ### `propagation` — 7
 
@@ -442,7 +447,7 @@ Proxmark3, libnfc, MIFARE key recovery and smartcard reader checks.
 - [pcsc-tools](pcsc-tools.md) — Smartcard reader diagnostics — is the reader even working?
 - [proxmark3](proxmark3.md) — Client and firmware tooling for the Proxmark3 RFID and NFC research device
 
-### `rig-control` — 12
+### `rig-control` — 13
 
 CAT control of a transceiver while operating: frequency, mode, PTT and the panel on the screen.
 
@@ -457,6 +462,7 @@ CAT control of a transceiver while operating: frequency, mode, PTT and the panel
 - [libhamlib-utils](libhamlib-utils.md) — The command-line tools for hamlib — test a radio before blaming software
 - [qlog](qlog.md) — Modern Qt station log with award tracking and online-service upload
 - [quisk](quisk.md) — SDR transceiver software with a real front panel, driving hardware or a dongle
+- [ser2net](ser2net.md) — Serve a serial port over TCP, so a rig's CAT port can be reached from another machine
 - [wfview](wfview.md) — Control a modern Icom radio, waterfall and all, over USB or the network
 
 ### `satellite-decoding` — 3
@@ -473,7 +479,7 @@ Pass prediction and antenna and radio control for amateur and weather satellites
 
 - [gpredict](gpredict.md) — Real-time satellite tracking and pass prediction, with radio control
 
-### `sdr-hardware` — 33
+### `sdr-hardware` — 34
 
 Host tools, libraries, udev rules and SoapySDR modules for every supported receiver and transceiver.
 
@@ -487,6 +493,7 @@ Host tools, libraries, udev rules and SoapySDR modules for every supported recei
 - [hackrf](hackrf.md) — Host tools for HackRF — transfer, sweep, spectrum and firmware utilities
 - [langford-utils](langford-utils.md) — Control programs for the Per Vices Noctar board
 - [libbladerf2](libbladerf2.md) — Library and udev rules for Nuand bladeRF boards
+- [libiio-utils](libiio-utils.md) — Command-line tools that find and talk to IIO devices such as the PlutoSDR and ADALM2000
 - [libmirisdr4](libmirisdr4.md) — Open driver for Mirics-based receivers, including SDRplay RSP hardware
 - [limesuite](limesuite.md) — Host tools and library for LimeSDR hardware
 - [miri-sdr](miri-sdr.md) — Command-line tools for Mirics-based receivers
@@ -526,13 +533,14 @@ Gqrx, SDR++, CubicSDR, SDRangel, Quisk, Linrad: the programs a dongle turns into
 - [supersdr](supersdr.md) — Turn any KiwiSDR into your rig's panadapter, synchronized over CAT
 - [wfview](wfview.md) — Control a modern Icom radio, waterfall and all, over USB or the network
 
-### `sdr-toolkits` — 12
+### `sdr-toolkits` — 13
 
 Build a radio out of blocks: GNU Radio and its hardware sources, DAB encoders and modulators.
 
 - [gnss-sdr](gnss-sdr.md) — A complete GPS and GNSS receiver built entirely in software
 - [gnuradio](gnuradio.md) — Build a radio out of signal-processing blocks instead of hardware
 - [gr-air-modes](gr-air-modes.md) — Decodes aircraft transponder replies with GNU Radio
+- [gr-fosphor](gr-fosphor.md) — GPU-drawn real-time spectrum and waterfall display blocks for GNU Radio
 - [gr-funcube](gr-funcube.md) — GNU Radio source blocks for the FUNcube Dongle Pro and Pro+
 - [gr-hpsdr](gr-hpsdr.md) — GNU Radio blocks for OpenHPSDR transceiver hardware
 - [gr-limesdr](gr-limesdr.md) — GNU Radio blocks for LimeSDR hardware
@@ -543,7 +551,7 @@ Build a radio out of blocks: GNU Radio and its hardware sources, DAB encoders an
 - [odr-dabmux](odr-dabmux.md) — Assembles audio services into a DAB ensemble multiplex
 - [odr-padenc](odr-padenc.md) — Encodes the text and images that ride alongside a DAB service
 
-### `serial-terminals` — 5
+### `serial-terminals` — 6
 
 tio, minicom, picocom, PuTTY, CuteCom: talking to a radio or a board over a serial port.
 
@@ -551,15 +559,17 @@ tio, minicom, picocom, PuTTY, CuteCom: talking to a radio or a board over a seri
 - [minicom](minicom.md) — Full-screen serial communication program, the one everyone already knows
 - [picocom](picocom.md) — The minimal terminal-native serial console
 - [putty](putty.md) — The GUI serial terminal hams reach for, with saved sessions
+- [ser2net](ser2net.md) — Serve a serial port over TCP, so a rig's CAT port can be reached from another machine
 - [tio](tio.md) — Serial device terminal — the modern replacement for screen on a TTY
 
-### `ships` — 4
+### `ships` — 5
 
 AIS receivers and decoders with maps of vessel traffic.
 
 - [ais-catcher](ais-catcher.md) — AIS receiver and decoder for marine vessel traffic, with a web map
 - [gnuais](gnuais.md) — Decodes AIS from the discriminator output of a VHF receiver
 - [gnuaisgui](gnuaisgui.md) — Puts the vessels gnuais has heard on an OpenStreetMap display
+- [opencpn](opencpn.md) — Marine chart plotter -- your position and AIS ships on nautical charts
 - [rtl-ais](rtl-ais.md) — Receives both AIS channels at once from one cheap dongle
 
 ### `signal-analysis` — 4
@@ -571,7 +581,7 @@ Look at a capture and work out what it is: inspectrum, the sigidwiki reference, 
 - [inspectrum](inspectrum.md) — Offline visualiser for captured radio signals — read a waveform by eye
 - [kalibrate-rtl](kalibrate-rtl.md) — Measures an SDR dongle's frequency error against GSM base stations
 
-### `soundcard-modems` — 8
+### `soundcard-modems` — 10
 
 Direwolf, QtSoundModem, ARDOP and the TNCs built into radios.
 
@@ -579,6 +589,8 @@ Direwolf, QtSoundModem, ARDOP and the TNCs built into radios.
 - [baycomepp](baycomepp.md) — Driver for the HB9JNX parallel-port packet modem
 - [baycomusb](baycomusb.md) — Driver for the HB9JNX USB packet modem
 - [direwolf](direwolf.md) — Software TNC — turns a sound card into an APRS and packet modem
+- [freedata](freedata.md) — HF messaging and file transfer over codec2 modems, with a browser interface
+- [mercury](mercury.md) — Open HF data modem that speaks VARA's TCP interface, so pat uses it unchanged
 - [minimodem](minimodem.md) — General-purpose audio FSK modem — Bell 103, RTTY, AX.25 and anything else
 - [qtsoundmodem](qtsoundmodem.md) — Soundcard packet modem with a scope — an alternative to Direwolf
 - [tmd710-tncsetup](tmd710-tncsetup.md) — Configures the built-in TNC on Kenwood TM-D710 and TH-D72 radios
@@ -638,13 +650,14 @@ Capture, handshake extraction and key recovery for Wi-Fi networks.
 - [hcxtools](hcxtools.md) — Converts captured Wi-Fi frames into hash formats analysis tools read
 - [skid-finder](skid-finder.md) — Passive BLE-spam and Wi-Fi-attack detector with foxhunting, live alerts and a sensor-net collector
 
-### `winlink` — 4
+### `winlink` — 5
 
 Radio email when the internet is down: pat, ARDOP, gateways.
 
 - [ardopcf](ardopcf.md) — HF data modem for Winlink and packet over poor paths
 - [garim](garim.md) — Graphical ARIM messaging over an ARDOP TNC
 - [linbpq](linbpq.md) — BPQ32 packet-radio node, BBS and Winlink gateway
+- [mercury](mercury.md) — Open HF data modem that speaks VARA's TCP interface, so pat uses it unchanged
 - [pat](pat.md) — Winlink client — radio email that works when the internet does not
 
 ### `workstation` — 21
@@ -757,6 +770,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [flrig](flrig.md) | Rig control with a real front panel, shared between programs over XML-RPC | apt |
 | [flwkey](flwkey.md) | Control panel for the Winkeyer hardware CW keyer | source |
 | [flwrap](flwrap.md) | Wraps a file with a checksum so the far end knows it arrived intact | apt |
+| [freedata](freedata.md) | HF messaging and file transfer over codec2 modems, with a browser interface | venv |
 | [freedv](freedv.md) | Digital voice over HF in the bandwidth of an SSB signal | apt |
 | [garim](garim.md) | Graphical ARIM messaging over an ARDOP TNC | source |
 | [gdal-bin](gdal-bin.md) | GDAL's command-line tools for rasters and elevation data | apt |
@@ -776,6 +790,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [gpsd-tools](gpsd-tools.md) | cgps and gpsmon — the two programs you actually reach for when a receiver misbehaves | apt |
 | [gqrx-sdr](gqrx-sdr.md) | Graphical SDR receiver — waterfall, demodulators and a bookmark list | apt |
 | [gr-air-modes](gr-air-modes.md) | Decodes aircraft transponder replies with GNU Radio | apt |
+| [gr-fosphor](gr-fosphor.md) | GPU-drawn real-time spectrum and waterfall display blocks for GNU Radio | apt |
 | [gr-funcube](gr-funcube.md) | GNU Radio source blocks for the FUNcube Dongle Pro and Pro+ | apt |
 | [gr-gsm](gr-gsm.md) | GNU Radio blocks for receiving and analysing GSM signalling | apt |
 | [gr-hpsdr](gr-hpsdr.md) | GNU Radio blocks for OpenHPSDR transceiver hardware | apt |
@@ -814,6 +829,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [libbladerf2](libbladerf2.md) | Library and udev rules for Nuand bladeRF boards | apt |
 | [libfreefare-bin](libfreefare-bin.md) | Tools for MIFARE DESFire, Ultralight and Classic over libnfc | apt |
 | [libhamlib-utils](libhamlib-utils.md) | The command-line tools for hamlib — test a radio before blaming software | apt |
+| [libiio-utils](libiio-utils.md) | Command-line tools that find and talk to IIO devices such as the PlutoSDR and ADALM2000 | apt |
 | [libmirisdr4](libmirisdr4.md) | Open driver for Mirics-based receivers, including SDRplay RSP hardware | apt |
 | [libnfc-bin](libnfc-bin.md) | Command-line tools for PN53x-based NFC readers | apt |
 | [limesuite](limesuite.md) | Host tools and library for LimeSDR hardware | apt |
@@ -823,6 +839,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [m2kcli](m2kcli.md) | Command-line control of the ADALM2000 lab instrument | apt |
 | [mapsforge-map](mapsforge-map.md) | Mapsforge vector maps of your OpenStreetMap regions, for phone map apps | derived |
 | [mapsforge-poi](mapsforge-poi.md) | Mapsforge points-of-interest files of your regions, for searching on a phone | derived |
+| [mercury](mercury.md) | Open HF data modem that speaks VARA's TCP interface, so pat uses it unchanged | apt, git |
 | [mfcuk](mfcuk.md) | MIFARE Classic key recovery with no known key — the slow path | apt |
 | [mfoc](mfoc.md) | Key recovery for MIFARE Classic cards with at least one known key | apt |
 | [minicom](minicom.md) | Full-screen serial communication program, the one everyone already knows | apt |
@@ -846,6 +863,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [odr-dabmod](odr-dabmod.md) | Turns a DAB ensemble into a transmittable OFDM signal | apt |
 | [odr-dabmux](odr-dabmux.md) | Assembles audio services into a DAB ensemble multiplex | apt |
 | [odr-padenc](odr-padenc.md) | Encodes the text and images that ride alongside a DAB service | apt |
+| [opencpn](opencpn.md) | Marine chart plotter -- your position and AIS ships on nautical charts | apt |
 | [openfpgaloader](openfpgaloader.md) | Universal bitstream loader for FPGAs, over JTAG and SPI | apt |
 | [openhamclock](openhamclock.md) | Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites | node |
 | [openocd](openocd.md) | On-chip debugging and in-system programming over JTAG and SWD | apt |
@@ -873,6 +891,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [qgrid](qgrid.md) | Maidenhead grid square calculator with a map and a compass | source |
 | [qlog](qlog.md) | Modern Qt station log with award tracking and online-service upload | apt, git |
 | [qmapshack](qmapshack.md) | Offline topographic maps, trails, GPX tracks, elevation profiles and routing on foot | apt |
+| [qpwgraph](qpwgraph.md) | PipeWire patchbay -- see and change which program is connected to which sound card | apt |
 | [qrq](qrq.md) | High-speed Morse trainer that pushes your callsign copy to its limit | apt |
 | [qsstv](qsstv.md) | Slow-scan television and radiofax — receive and transmit pictures | apt |
 | [qtbpqaprs](qtbpqaprs.md) | G8BPQ's Qt APRS client, the messaging-focused one | git |
@@ -896,6 +915,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [screen](screen.md) | Terminal multiplexer, and the serial console of last resort | apt |
 | [sdrangel](sdrangel.md) | SDR transceiver and analyser that does several things at once | apt, binary |
 | [sdrpp](sdrpp.md) | SDR++ — cross-platform SDR receiver with a modular DSP chain | apt, git |
+| [ser2net](ser2net.md) | Serve a serial port over TCP, so a rig's CAT port can be reached from another machine | apt |
 | [skid-finder](skid-finder.md) | Passive BLE-spam and Wi-Fi-attack detector with foxhunting, live alerts and a sensor-net collector | binary |
 | [soapyremote-server](soapyremote-server.md) | Serves a local SDR over the network to software on another machine | apt |
 | [soapysdr-module-airspy](soapysdr-module-airspy.md) | SoapySDR driver module for Airspy hardware | apt |
@@ -916,6 +936,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [spectools](spectools.md) | Spectrum display for MetaGeek Wi-Spy dongles and the Ubertooth One | apt |
 | [splat](splat.md) | Terrain-aware path analysis for VHF and above, from real elevation data | apt |
 | [stlink-tools](stlink-tools.md) | Flash and debug STM32 targets through an ST-Link probe | apt |
+| [stm32flash](stm32flash.md) | Flash STM32 microcontrollers over their built-in serial bootloader | apt |
 | [sunclock](sunclock.md) | World map showing the day-night terminator and where the sun is now | apt |
 | [supersdr](supersdr.md) | Turn any KiwiSDR into your rig's panadapter, synchronized over CAT | venv |
 | [svxlink-calibration-tools](svxlink-calibration-tools.md) | Sets the audio levels an SvxLink node needs to work properly | apt |

@@ -1171,7 +1171,7 @@ A **read-only** health check: is this machine ready, and what is not yet set
 up. It changes nothing, and it is the first thing to run on a fresh machine
 or when something misbehaves — it turns the failures the engine would
 otherwise hit mid-transaction into a report you read up front, each with the
-one command that fixes it. Sixteen checks across four severities:
+one command that fixes it. Eighteen checks across four severities:
 
 - **fail** — the engine cannot work until fixed (not a Debian-family system;
   no catalog). Exits non-zero.
@@ -1191,6 +1191,17 @@ desktop is not known rather than guessing. A machine with no session files
 (a server, a container) is reported as such. Session files that name no
 desktop the catalog knows (COSMIC, Sway) are named as read, so a graphical
 machine is never reported as a server. See `docs/desktops.md`.
+
+The **time** and **hardware clock** checks (**D-058**) say what the clock
+follows (the network or the GPS, with ntpd's offset), or that it follows
+nothing and for how long (information under a day, a warning past one), read
+with `ntpq -pn` and `ntpq -c rv` and no privilege. It warns when a GPS mode is
+set but ntpd lacks the grants `hardware apply` installs (or gpsd its `-n` drop-in), when `gps-only`
+is set with the receiver parked, and when ntpd runs on a DHCP-supplied
+configuration. A machine with no battery-backed hardware clock (`/sys/class/rtc`
+empty) is warned on any target, naming the fix: fit an RTC module. On a target
+whose time daemon is not ntpsec the line is information naming the gap. See
+`docs/guides/gps-time.md`.
 
 The **hammunition** check (**D-059**) asks whether `hammunition` resolves on
 your `PATH`, and to the checkout `doctor` is running from. `./bootstrap.sh`
@@ -1261,7 +1272,7 @@ identifier is flagged as a candidate, not a conclusion — **D-028**),
 the udev rules and your access-group membership are already in place.
 Detection drives nothing: it reports, and you decide (**D-020**).
 
-### `hammunition hardware apply [--dry-run] [--yes] [--user NAME]`
+### `hammunition hardware apply [--dry-run] [--yes] [--user NAME] [--no-gps-time]`
 
 Writes the whole catalog's udev rules to
 `/etc/udev/rules.d/65-hammunition.rules`, reloads and triggers udev, adds
@@ -1304,6 +1315,30 @@ files contain and what installing them means.
   **D-056**), and anything but `yes` exits `3`.
 - **Group membership applies at next login.** The command says so; log out
   and back in before expecting device access.
+- **GPS time (D-058), where ntpsec is the time daemon.** Installs the two
+  grants ntpd needs to read gpsd's time: a systemd drop-in,
+  `/etc/systemd/system/ntpsec.service.d/hammunition-gps.conf`, with
+  `AmbientCapabilities=CAP_IPC_OWNER`, and `capability ipc_owner,` added as a
+  marked block to `/etc/apparmor.d/local/usr.sbin.ntpd`, with the profile
+  reloaded. The plan says in so many words that CAP_IPC_OWNER bypasses
+  permission checks on all System V IPC. It also writes
+  `/etc/systemd/system/gpsd.service.d/hammunition-gps.conf`
+  (`Environment=OPTIONS=-n`), without which gpsd publishes no time while no
+  client is connected; it is the same file, with the same text, as the
+  `chrony` unit writes, a different text there is refused, and gpsd reads it
+  at the next boot. Inspect it with `systemctl cat gpsd`. It creates `/etc/ntpsec/ntp.d` and
+  sets the first time mode (`auto`, or the mode already recorded) through the
+  helper, which restarts ntpsec; when a mode is already applied and only the
+  grants change, it restarts ntpsec instead. On a machine with no hardware
+  clock (`/sys/class/rtc` empty) and no `fake-hwclock`, it installs
+  `fake-hwclock`, disclosed as a stopgap. The plan prints every write that
+  first mode causes, including the `ntp.conf` lines it moves and what turning
+  off `tos minclock 4 minsane 3` costs, and refuses (exit `2`) before running
+  anything when `ntp.conf` lacks the line an edit anchors to. Each GPS time
+  step is logged (`time_grants`) and read back afterwards. Nothing of this
+  happens without gpsd installed (there is no GPS time to read), and
+  `--no-gps-time` leaves ntpsec, its grants and `fake-hwclock` alone. See
+  `docs/guides/gps-time.md`.
 
 ### `hammunition hardware unapply [--dry-run] [--yes] [--user NAME]`
 
@@ -1329,11 +1364,25 @@ on. Nothing else is touched.
 - **Disclosed and verified**, the same as `apply`: every command is printed
   before it runs (`--dry-run` prints and stops), and `rm` exiting 0 is not
   trusted — each path is re-checked for absence afterwards (**D-031**).
+- **Takes GPS time back exactly (D-058)**, by content rather than by the
+  log: `/etc/ntpsec/ntp.conf`'s marked lines go back byte for byte as they
+  were before Hammunition edited them (on an `ntp.conf` nobody else edited,
+  the package's own, which `dpkg --verify ntpsec` should confirm; not yet
+  measured on the bench);
+  `/etc/ntpsec/ntp.d/hammunition-gps.conf`, `/etc/hammunition/time.yaml` and
+  the ntpsec drop-in are removed only when they start with the header
+  Hammunition writes; gpsd's `-n` drop-in only when it holds exactly
+  Hammunition's text and `/etc/chrony/conf.d/hammunition-gps.conf` is
+  absent, since the `chrony` unit shares it; only Hammunition's block leaves
+  `/etc/apparmor.d/local/usr.sbin.ntpd`, the rest of that file stays; then
+  systemd and AppArmor are reloaded and ntpsec restarted. `fake-hwclock`, if
+  it was installed, stays; `sudo apt remove fake-hwclock` removes it.
 
 Exit codes: `0` for a removal that verified absent, nothing recorded to
 remove, every recorded artefact already gone, a `--dry-run`, or declining the
 confirmation prompt; `1` if the operator could not be determined, a removal
-command failed, or a path is still present after the run.
+command failed, or a path is still present after the run; `2` when
+`ntp.conf`'s marked lines were edited by hand, refused before anything runs.
 
 ### `hammunition hardware park NAME [--until-reboot] [--dry-run]`
 
@@ -1399,6 +1448,29 @@ tray applet polls) gives one object per row with `"kept": bool` alongside
 With `--json`, prints a `hardware` document
 ([json-interface.md](json-interface.md)): one object per row with the same
 keys the helper prints, plus any error reading the kept-off rules.
+
+### `hammunition time`
+
+What the clock follows now (the network, the GPS, or nothing, with how long it
+has been in holdover), the time mode and whether it was ever set, whether a GPS
+receiver is attached and awake, and whether ntpd can read it. Reads only:
+`ntpq -pn` and `ntpq -c rv` answer any local user, so there is no prompt. On a
+target whose time daemon is not ntpsec it says so and names the gap (D-058).
+
+### `hammunition time mode MODE [--dry-run]`
+
+`MODE` is one of `auto` (the default), `prefer-gps`, `ntp-only`, `gps-only`.
+Prints every write before it happens: `/etc/hammunition/time.yaml`, the whole of
+`/etc/ntpsec/ntp.d/hammunition-gps.conf`, the marked lines of
+`/etc/ntpsec/ntp.conf` that move, and the `systemctl restart ntpsec` that
+follows; then runs `pkexec /usr/local/libexec/hammunition-devctl time mode MODE`.
+A parked receiver never feeds the clock whatever the mode says (nothing is
+rewritten; ntpd drops it by its own reachability rules, inferred and not yet
+watched on the bench). Refused with
+exit 2 when ntpsec is not installed, when the helper is not, or when `ntp.conf`
+no longer has the line an edit anchors to. If ntpsec will not restart on the new
+files, the helper puts the old ones back and starts ntpsec on them. Exit 3 when
+the authentication prompt is dismissed.
 
 ### `hammunition station show` / `hammunition station set`
 

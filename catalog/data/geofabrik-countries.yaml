@@ -14,7 +14,7 @@
 # Regenerate: scripts/gen_geofabrik_countries.py --fetch
 # Check:      scripts/gen_geofabrik_countries.py --check
 
-measured: '2026-09-28'
+measured: '2026-09-30'
 source: https://download.geofabrik.de/index-v1-nogeom.json
 regions:
   africa/algeria: [DZ]
@@ -415,7 +415,6 @@ regions:
   europe/united-kingdom/england/lancashire: [GB]
   europe/united-kingdom/england/leicestershire: [GB]
   europe/united-kingdom/england/lincolnshire: [GB]
-  europe/united-kingdom/england/london/enfield: [GB]
   europe/united-kingdom/england/merseyside: [GB]
   europe/united-kingdom/england/norfolk: [GB]
   europe/united-kingdom/england/north-yorkshire: [GB]

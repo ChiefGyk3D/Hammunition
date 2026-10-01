@@ -317,10 +317,14 @@ class FakeGpsd:
         repeat: bool = False,
         every: float = 0.05,
         family: socket.AddressFamily = socket.AF_INET,
+        settle: float = 0.0,
     ) -> None:
         self.script = script
         self.repeat = repeat
         self.every = every
+        #: Seconds between writing the script and counting the watch open:
+        #: a slow machine's scheduling, made certain for a test.
+        self.settle = settle
         self.received: list[bytes] = []
         self.open: list[socket.socket] = []
         self.connections = 0
@@ -358,6 +362,7 @@ class FakeGpsd:
                     line += chunk
                 self.received.append(line)
                 self._write(conn)
+                time.sleep(self.settle)
                 self.open.append(conn)
                 while not self.stop.is_set():
                     try:
@@ -383,8 +388,17 @@ class FakeGpsd:
         finally:
             conn.settimeout(0.02)
 
-    def broadcast(self, data: bytes) -> None:
-        """Send *data* on every open connection, once."""
+    def broadcast(self, data: bytes, *, watches: int = 1, within: float = 5.0) -> None:
+        """Send *data* on every open connection, once, after *watches* are open.
+
+        The tether logs a client connected as soon as its WATCH is sent, before
+        this fake's thread has read it and counted the watch open; without the
+        wait, a burst sent in that gap goes to no connection (issue #156)."""
+        deadline = time.monotonic() + within
+        while len(self.open) < watches:
+            if time.monotonic() > deadline:
+                raise AssertionError(f"{len(self.open)} of {watches} gpsd watches open")
+            time.sleep(0.01)
         for conn in list(self.open):
             with contextlib.suppress(OSError):
                 conn.sendall(data)
@@ -542,6 +556,21 @@ def test_both_clients_get_the_same_sentences_byte_for_byte() -> None:
         one, two = _lines(first, 20), _lines(second, 20)
     expected = [line.rstrip(b"\n") for tpv in tpvs for line in sentences(tpv)]
     assert one == two == expected
+
+
+def test_a_burst_reaches_a_watch_the_fake_has_not_finished_opening() -> None:
+    """Issue #156. The tether logs a client connected once its WATCH is
+    sent, before the fake gpsd's thread has read it and counted the watch
+    open; a burst sent in that gap went to no connection, and both clients
+    of the byte-for-byte test read nothing. *settle* holds the gap open."""
+    gpsd = FakeGpsd(_json({"class": "VERSION"}), settle=0.5)
+    with (
+        _tether_on(gpsd) as (port, logged),
+        socket.create_connection(("127.0.0.1", port), timeout=5) as client,
+    ):
+        _wait_for(logged, "1 connected")
+        gpsd.broadcast(_json(FIX_3D))
+        assert _until_rmc_and_gga(client) >= {b"$GPRMC", b"$GPGGA"}
 
 
 def test_one_client_leaving_keeps_the_watch_for_the_other() -> None:

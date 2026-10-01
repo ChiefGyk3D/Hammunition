@@ -23,20 +23,19 @@ disclose the same thing.
 from __future__ import annotations
 
 import contextlib
-import fcntl
 import os
 import re
 import shutil
 import subprocess
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hammunition.manifest.hardware import PowerMethod, QuietVerb
+from hammunition.rootfiles import atomic_write, dir_lock
 
 if TYPE_CHECKING:  # pragma: no cover
-    from collections.abc import Iterable, Iterator, Mapping
+    from collections.abc import Iterable, Mapping
 
     from hammunition.hardware.detect import Match
     from hammunition.manifest.hardware import DeviceClass, DeviceManifest
@@ -453,35 +452,16 @@ def _write_kept(entries: list[KeptEntry]) -> None:
     if not entries:
         path.unlink(missing_ok=True)
         return
-    # A unique temp name in the same directory, never a fixed one: two helper
-    # runs sharing `<name>.tmp` can interleave into one spliced file that
-    # parse_kept then refuses forever. Hidden and not `*.rules`, so udev never
-    # reads it; unlinked on any failure so nothing is left behind.
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.stem}.", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(render_kept(entries))
-            fh.flush()
-            os.fsync(fh.fileno())
-        os.chmod(tmp, 0o644)
-        os.replace(tmp, path)
-    except BaseException:
-        with contextlib.suppress(OSError):
-            os.unlink(tmp)
-        raise
+    # rootfiles: a unique hidden temp beside the file, never `*.rules`, so udev
+    # never reads it, fsynced and renamed into place, unlinked on any failure.
+    atomic_write(path, render_kept(entries))
 
 
-@contextlib.contextmanager
-def _kept_lock() -> Iterator[None]:
+def _kept_lock() -> contextlib.AbstractContextManager[None]:
     """Hold an exclusive flock on the rules directory for one read-modify-write,
     so a second helper run reads the first run's result instead of losing it.
     The directory itself is locked, so no lock file is left in rules.d."""
-    fd = os.open(Path(_guard_kept(KEPT_RULES)).parent, os.O_RDONLY | os.O_DIRECTORY)
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
-        yield
-    finally:
-        os.close(fd)
+    return dir_lock(Path(_guard_kept(KEPT_RULES)).parent)
 
 
 def _apply_kept(plan: PowerPlan) -> list[str]:

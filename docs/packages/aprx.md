@@ -18,15 +18,19 @@ An igate is what puts a local APRS network on the map that everyone else looks a
 
 ## Before it will work
 
-A receiver and a soundmodem or TNC. A callsign and an APRS-IS passcode for the gateway side. Transmitting on RF from internet traffic is a separate decision and is off unless configured.
+A receiver and a soundmodem or TNC. A callsign and an APRS-IS passcode for the gateway side: Hammunition writes the callsign into `/etc/aprx.conf` from station config (`hammunition station set --callsign <yours>`); the passcode is a credential and is yours to add. An `<interface>` block for the TNC or Direwolf's KISS port is yours too. Transmitting on RF from internet traffic is a separate decision and is off unless configured.
 
 ## How it installs
 
 - apt: `aprx`
 
+## Configuration it writes
+
+- `/etc/aprx.conf` (written, mode 0644, existing file backed up); filled from the station values `ax25_callsign`, and not written while one is unset (D-035)
+
 ## Known problems
 
-Gating internet traffic to RF is the part that causes trouble: done carelessly it floods the local channel with messages for stations that are not there. The convention is to gate only what is needed and only for stations recently heard locally, and the configuration file's defaults are deliberately conservative. An igate publishes what it hears to a permanent public archive, including the positions of stations that may not realise how far their packets travel.
+Gating internet traffic to RF is the part that causes trouble: done carelessly it floods the local channel with messages for stations that are not there. The convention is to gate only what is needed and only for stations recently heard locally, and the configuration file's defaults are deliberately conservative. An igate publishes what it hears to a permanent public archive, including the positions of stations that may not realise how far their packets travel. What the configuration block does: writes `/etc/aprx.conf`, mode 0644, as Debian's own active settings (a receive-only APRS-IS login with `passcode -1` to rotate.aprs2.net, and the pidfile and logs) plus `mycall` set to your callsign. It is a conffile, so the file Debian shipped is copied first to `/etc/aprx.conf.hammunition-backup`, once, and a later package upgrade that changes it asks you which to keep. The callsign is written only when it is an AX.25 address (one to six letters and digits), since aprx logs in with it; a callsign such as `W1AW/4` is reported as unusable rather than trimmed. The package installs the service disabled and this starts nothing; `sudo systemctl start aprx` would log in to APRS-IS under your callsign, receive-only, and gate nothing until an interface is configured. If Direwolf is also an igate under the same callsign and SSID, APRS-IS sees two logins with one name -- give each its own SSID. Inspect with `grep -v '^#' /etc/aprx.conf`. `hammunition uninstall aprx` does not remove it (config files are not reversed, and the plan says so); to undo, `sudo mv /etc/aprx.conf.hammunition-backup /etc/aprx.conf`. Every `hammunition install` that includes aprx rewrites the file from station config, so a passcode or interface you add is replaced then; the first backup is kept, not your edit.
 
 ## Keeping it current
 

@@ -19,7 +19,7 @@ It is the classic packet terminal and still the most comfortable way to work a B
 
 ## Before it will work
 
-A configured AX.25 stack -- ax25-tools with a port defined in `/etc/ax25/axports` -- and a TNC or soundmodem behind it. That configuration carries your callsign and is the step this catalog cannot yet generate for you; see the open station-configuration question in CLAUDE.md.
+A configured AX.25 stack -- ax25-tools with a port defined in `/etc/ax25/axports`, which Hammunition appends when your callsign is set -- and a TNC or soundmodem behind it. LinPac's own configuration is made by LinPac: the first time you run it, it asks for your callsign, your home BBS with its SSID, the port to reach it on, any digipeaters and the BBS's hierarchical address, and builds `~/LinPac` from the answers. Hammunition deliberately writes nothing there (Q-022 #1, measured 2026-09-29 from linpac 0.28's startup script): the questions run only when `~/LinPac` does not exist, so a file placed there in advance would skip them and leave LinPac without the macros and tables it copies in, and four of the five answers are not station values.
 
 ## How it installs
 

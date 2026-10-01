@@ -2061,6 +2061,49 @@ and explicitly did not cover templated config. This is that gap filled, and it
 is filled as a separate concept rather than a fourth modification kind, because
 a config file is the only one of the four that can be *partly* possible.
 
+### Amendment, 2026-09-29 — derived values, home paths and appends that cannot duplicate (Q-022 #1)
+
+Q-022 #1 (the 2026-09 gap analysis, §A1) asked for `config_files` blocks on
+the plain-text units that need a callsign. Measuring their formats for it
+found three things the mechanism above could not express. Each is filled
+without weakening the three properties: nothing is invented, a partial file
+is never written, an existing file is backed up once.
+
+- **A value can be derived, never stored twice.** gpredict wants a latitude
+  and longitude; the station stores a grid square. `{station.latitude}` and
+  `{station.longitude}` are the centre of the square (four decimals, the
+  square's precision and no more; `src/hammunition/maidenhead.py`). AX.25
+  cannot carry `W1AW/4` or a seven-character call, so `{station.ax25_callsign}`
+  is the callsign when it is one to six letters and digits. A derived value
+  whose source is unset reports the *source* as missing (the prompt and the
+  remedy ask for `grid_square`, which `station set` takes); one whose source
+  is set but cannot give it defers the file with that reason. Trimming `/4`
+  would be inventing a station identity, so it is never done.
+- **`~/` is the operator's home.** gpredict reads `~/.config/Gpredict` and
+  tlf the directory it starts in. A path beginning `~/` resolves against the
+  account the run is on behalf of (the account database, never `$HOME`,
+  which sudo resets to `/root`); with no operator the file is deferred. As
+  root, the engine writes there only through `O_NOFOLLOW` descriptors from
+  the home down (`paths.open_operator_dir`), refuses an entry that is not a
+  regular file, and hands what it writes to the operator. Any other path must
+  be absolute.
+- **An append names what it must not duplicate.** `skip_if_present` lists
+  regular expressions (station values substituted escaped, so a callsign only
+  ever matches itself); if a line of the file matches one when the step
+  runs, the append is skipped and the outcome names the line. libax25 refuses
+  a second `axports` port with the same name or callsign, so the `wl2k` line
+  is appended only when neither exists: a re-run changes nothing and a port
+  the operator defined is left alone.
+
+The dry run and the JSON plan name the station values each file is filled
+from (`fills`), never the values. Uninstall still does not reverse a
+written file, and each manifest says how to.
+
+Six of the eight units carry a block: `direwolf`, `ax25-tools` (the
+`axports` append), `gpredict`, `tlf`, `aprx` and `uronode`. `linpac` and
+`fbb` configure themselves on first run from answers station config does
+not hold, and their manifests say so instead.
+
 ## D-036 — Desktop integration is curated submenus, generated per desktop environment
 
 **Date:** 2026-08-29. **Status:** accepted (maintainer, during the first VM
@@ -4770,6 +4813,242 @@ under the US, with the open relation's warning the only broken polygon.
 Not yet run: `hammunition install navigation` with this change on the
 field laptop, and the search on the maps it builds;
 `docs/reference/bench-verification-5430.md` (session 11) names the steps.
+
+## D-058 — GPS time: four modes, `auto` by default; the clock follows the GPS through ntpsec only while the receiver is awake; the one helper writes the time files and `hardware apply` installs ntpd's two grants
+
+**Date:** 2026-09-29. **Status:** accepted (maintainer, 2026-09-28, "#124
+works", on the design in `docs/superpowers/specs/2026-09-28-gps-time-design.md`);
+built, **not yet run on the field laptop** — every behaviour this record
+marks *bench* is unmeasured until `docs/reference/bench-verification-5430.md`
+carries it. **Depends on:** D-056 (the one helper behind one polkit action,
+and a parked device), D-022 (coexist with the distribution's choice, never
+displace it), D-031 (verify the effect), D-021 (disclose a capability in
+plain words). **Extends:** D-056, to the time source that depends on the
+device it parks.
+
+**Why.** The maintainer, 2026-09-28: "a configuration to use the GPS for
+time vs standard NTP if it's in the laptop, think EMCOMM situation where
+internet may not be available". Without the network nothing corrects the
+clock; FT8 and the other weak-signal modes stop decoding beyond about a
+second of error, logs carry wrong times, and an EMCOMM station loses the one
+clock everybody else trusts. The field laptop's USB GNSS receiver knows the
+time to far better than a second.
+
+### The four modes, and the rules they keep
+
+| Mode | GPS awake: the clock follows | GPS parked |
+|---|---|---|
+| `auto` (default) | the network and the GPS, the network preferred where ntpsec's selection allows (*bench*, below) | the network only |
+| `prefer-gps` | the GPS first; the network is a check and the fallback | the network only |
+| `ntp-only` | the network only; the GPS is never used | the network only |
+| `gps-only` | the GPS only; network servers are never used | nothing: holdover, and `doctor` warns |
+
+The mode is optional (`auto` when unset) and persists across reboots in
+`/etc/hammunition/time.yaml`, root-owned 0644, written only by the helper.
+**The device state wins**: a parked receiver never feeds the clock, whatever
+the mode. Nothing is rewritten on a park: a parked receiver's shared-memory
+segment stops updating and ntpd drops it from selection by its own
+reachability rules, so the rule holds by construction and a receiver kept
+parked across reboots keeps GPS time off too, with no second setting.
+(*Bench*: the decay without a restart is inferred from ntpsec's documented
+reachability model, not yet watched.)
+
+### Mechanism: ntpsec only, one file of our own, marked edits to the conffile
+
+Measured read-only on Parrot 7.3 with ntpsec 1.2.3 (2026-09-28, spec §4b):
+ntpsec is the time daemon; gpsd publishes the first receiver's time to
+System V shared memory units 0 and 1, root-owned 0600; ntpd reads
+`/etc/ntpsec/ntp.d/*.conf` after `ntp.conf` when the directory exists (the
+package does not ship it); `tos minclock 4 minsane 3` in the shipped
+`ntp.conf` stops a lone refclock disciplining the clock; `restrict nopeer`
+no longer holds `pool` associations back; and SIGHUP does not reread the
+configuration.
+
+So:
+
+1. **`/etc/ntpsec/ntp.d/hammunition-gps.conf`**, rewritten whole per mode
+   and generated from the mode alone: `refclock shm unit 0 refid GPS time1
+   0.000`, plus `stratum 10` in `auto` and `prefer` in `prefer-gps`; no
+   refclock line in `ntp-only`.
+2. **`/etc/ntpsec/ntp.conf`**, a dpkg conffile, edited only on marked lines:
+   `#hammunition-gps:off# ` disables a line (the `tos minclock … minsane …`
+   line in every GPS mode, the `pool`/`server` lines in `gps-only`) and
+   `#hammunition-gps:was# ` keeps an original whose `prefer`red copy follows
+   it (each source in `auto`). Every edit is restored exactly, so the
+   conffile's checksum matches the package's again; an edit whose anchor
+   line is missing is refused, never guessed; a preferred copy edited by
+   hand is refused with the line numbers, before anything is written.
+3. **`systemctl restart ntpsec`** after a change: a fixed argv, never SIGHUP
+   and never `ntpq :config` (documented experimental, with a silent-failure
+   mode). If ntpsec will not restart on the new files, the previous three
+   are put back and ntpsec is started on them, so a mode change cannot leave
+   the machine without a time daemon; the message names
+   `journalctl -u ntpsec -n 20`.
+
+Both open questions in the spec are carried as one value,
+`hammunition.gpstime.mode.ROUTE`, and both answers are implemented and
+tested: whether `tos minclock 1 minsane 1` in the ntp.d file overrides the
+conffile's line (it would leave `ntp.conf` untouched outside `gps-only` and
+`auto`'s preference), and whether `prefer` on the pools makes ntpsec follow
+the network while it is reachable. Until the bench answers, `ROUTE` takes
+the documented route (the conffile edit) and the spec's description of
+`auto` (the pools preferred), and `time1` is `0.000`, no correction.
+
+### Privilege: no new action, and the helper never widens a daemon
+
+`hammunition-devctl` gains `time mode auto|prefer-gps|ntp-only|gps-only`
+and `time state`. The mode is a fixed enum; every byte written derives from
+it; the three paths are admitted by an exact-string guard, written
+atomically (`hammunition.rootfiles`, lifted from the kept-off rules file of
+D-056) under a directory lock on `/etc/hammunition`, so a tray click and a
+CLI call cannot splice. `time state` is unprivileged JSON the tray polls.
+The one polkit action's wording widens to "or set the clock's time source";
+no second action exists.
+
+ntpd drops to `ntpsec:ntpsec` with `cap_net_bind_service`, `cap_sys_nice`
+and `cap_sys_time` (measured from `/proc/<pid>/status`), so it cannot attach
+gpsd's 0600 segment. Two grants, installed by `hammunition hardware apply`
+under sudo and never by the helper:
+
+- `/etc/systemd/system/ntpsec.service.d/hammunition-gps.conf`,
+  `AmbientCapabilities=CAP_IPC_OWNER`. **CAP_IPC_OWNER bypasses permission
+  checks on all System V IPC**, and ntpd faces the network; the plan prints
+  that sentence before it runs.
+- `capability ipc_owner,` in `/etc/apparmor.d/local/usr.sbin.ntpd`, the file
+  Debian reserves for local additions (ntpsec's `README.Debian` documents
+  this half), as a marked block, with the profile reloaded by
+  `apparmor_parser -r`.
+
+*Bench*, and the first thing to run: whether ntpd keeps the ambient
+capability after it drops privileges, so that `SHM(0)` is actually reached.
+If it does not, this route is revisited before anything else ships.
+
+`hardware apply` then sets the first mode through the helper, so one code
+path writes the time files; the plan prints every write that mode causes,
+the `ntp.conf` lines included, and refuses before anything runs when an
+anchor is missing. **Only where gpsd is installed**: without it there is no
+GPS time to read, so ntpd's privilege and `ntp.conf` are left alone and the
+plan says why. `hardware apply --no-gps-time` leaves ntpsec, its grants and
+`fake-hwclock` alone on any machine, so device setup never forces GPS time
+on an operator who does not want it (final review, 2026-09-29).
+
+**What the GPS modes cost.** Turning off `tos minclock 4 minsane 3` lets a
+lone GPS set the clock, and also drops ntpd's `minsane` to its default of 1
+for network sources: one source can set the clock alone. `ntp.conf(5)`:
+minsane "should be at least 4 in order to detect and discard a single
+falseticker". The plan quotes that sentence under the edit; `ntp-only`
+keeps Debian's floor. Whether `tos minclock 1 minsane 1` in ntp.d would
+avoid the conffile edit changes nothing about this cost, only where it is
+written. `hardware unapply` takes all of it back by
+content, not by the log: a file is removed only when it starts with the
+header Hammunition writes, `ntp.conf`'s marked lines are restored byte for
+byte to what they were before Hammunition's edits (read back against that
+text; that `dpkg --verify ntpsec` is then clean is not yet measured), only the marked block
+leaves the AppArmor local file (which ntpsec's maintainer script created
+and the profile's `#include` needs, so it is never deleted), and a
+hand-edited `ntp.conf` refuses the whole unapply before anything runs.
+
+### Reading it: `ntpq -pn`, always numeric
+
+`hammunition time`, `doctor` and the helper's `time state` share one reader:
+`ntpq -pn` (the peer marked `*` or `o` is what the clock follows; `SHM(0)`
+with refid `.GPS.` is the receiver) and `ntpq -c rv` (`reftime` and
+`clock`; holdover age is `clock - reftime`). Always `-n`: without it ntpq
+resolves every peer address, and with the network down that waits on DNS
+that is not there, the one situation this exists for. `doctor` states
+holdover under a day as information and warns past 86 400 s, and warns on
+`gps-only` with the receiver parked, on missing grants in a GPS mode, and on
+ntpd started from a DHCP-supplied configuration (whether ntpd reads the
+ntp.d directory then is *bench*).
+
+### Holdover and the hardware clock
+
+Measured on the field laptop (2026-09-28): a battery-backed `rtc0` in UTC,
+written back every 11 minutes by the kernel (`CONFIG_RTC_SYSTOHC`), ntpsec's
+drift file, and ntpd's `-g`. Holdover therefore already works on a machine
+with an RTC; this decision only reports it. **The docs recommend a
+battery-backed RTC first** (the maintainer, 2026-09-28), and `doctor` warns
+on any target where `/sys/class/rtc` is empty, naming the fix. There,
+`hardware apply` offers `fake-hwclock` from the archive, disclosed as a
+stopgap (it restores the last saved time, wrong by however long the machine
+was off); it is never offered where a real clock exists, and dpkg is not
+even asked. The hour-long holdover drift figure is *bench*.
+
+### Amendment, 2026-09-30: gpsd runs with `-n`, from the same drop-in as the `chrony` unit
+
+**Measured** on PR #162 (branch `gap-03-gps-time`, the `chrony` unit,
+D-072), in a container with a script serving NMEA: gpsd put **no samples**
+into the shared-memory segment in 8 s without `-n`, and **nine** with it,
+both with the device on gpsd's command line and added through `gpsdctl
+add`. gpsd polls a receiver only while a client is connected unless it runs
+with `-n` (gpsd(8)). The field laptop's `/etc/default/gpsd` has
+`GPSD_OPTIONS=""`, so as first built, ntpd would have found nothing to
+read: the plan's bench Step 1 could not have passed.
+
+So `hardware apply` writes
+`/etc/systemd/system/gpsd.service.d/hammunition-gps.conf`:
+
+```
+# Written by Hammunition (catalog unit `chrony`, D-072).
+# Poll the receiver with no client connected, so chrony gets its time.
+[Service]
+Environment=OPTIONS=-n
+```
+
+Debian's gpsd.service runs `gpsd $GPSD_OPTIONS $OPTIONS $DEVICES`, and
+`/etc/default/gpsd` sets no `OPTIONS`, so the drop-in adds the flag without
+touching gpsd's conffile. **The path and the text are the `chrony` unit's,
+byte for byte**, header included: the two units then never rewrite each
+other's file, and the second to arrive finds it current and does nothing.
+The header names the other unit because its text came first; a neutral
+header would have to change in both at once. A test pins the text, and a
+second test compares it with the chrony unit's manifest (catalog/packages/chrony.yaml on #162) once that unit
+is in the catalog. A different text at that path is refused at plan time,
+never overwritten. It is disclosed with how to inspect it (`systemctl cat
+gpsd`), and gpsd takes it at the next boot: the disclosure says to reboot,
+because restarting gpsd in place left two gpsd processes in #162's test.
+It counts as one of the grants `hammunition time` and `doctor` check.
+
+**Ruling on removal: shared, removed only when no other unit needs it.**
+`hardware unapply` removes the drop-in only when it holds exactly this text
+**and** the `chrony` unit's other file, `/etc/chrony/conf.d/hammunition-gps.conf`,
+is absent; otherwise it stays and the rest of GPS time is still taken back.
+ntpsec and chrony cannot both be installed, so the case is a machine that
+switched daemons; the file that says the chrony unit is still configured is
+the evidence, read by content like everything else unapply removes. Not yet
+measured on the field laptop, like the rest of this record.
+
+### What is refused, and what is out of scope
+
+A target whose time daemon is not ntpsec (Debian 13, Ubuntu and Kali
+default to `systemd-timesyncd`, which cannot read a refclock) is refused by
+name with the gap stated; switching daemons is a D-022 question for later,
+never a silent swap. Accuracy is NMEA over USB, tens of milliseconds, fine
+for FT8 and logs and not for lab timing; no PPS line exists on the fitted
+receiver. With the network down and a GPS mode set the clock follows one
+source, and a spoofed or faulty receiver could move it; online, ntpsec
+weighs it against the network. `ntp-only` never trusts the GPS and
+`gps-only` never trusts the network. PPS, chrony, timesyncd targets and
+serving time to the LAN are out of scope.
+
+### The tray
+
+`hammunition-tray` gains a Time section (its 0.3.0) that reads through
+`hammunition-devctl time state` without `pkexec` and changes the mode only
+through `pkexec hammunition-devctl time mode MODE`, from a fixed list of the
+four. It is built in its own repository, and the catalog's
+`hammunition-tray` manifest is re-pinned to it once released.
+
+### Not yet measured
+
+All not yet measured, on the field laptop, steps in the plan's Task 9: that the grants let
+ntpd reach `SHM(0)` at all; which source `auto` follows with the network up,
+and so whether it may be described as preferring the network or only as
+"the daemon chooses between them"; whether the ntp.d `tos` override works;
+the `time1` offset; the parked decay without a restart; each mode's
+`ntpq -pn`; an hour of holdover's drift; the DHCP case; and `dpkg --verify
+ntpsec` clean after `unapply`. Until each is recorded, nothing in the docs
+claims it.
 
 ## D-059 — The engine has a machine-readable interface: one JSON document per command on stdout, rendered from the same objects as the text; a real install is never driven through JSON; and `hammunition` is put on the PATH
 

@@ -38,6 +38,7 @@ __all__ = [
     "ensure_operator_dir",
     "open_operator_dir",
     "operator_dir_problem",
+    "operator_for",
     "owner_aware_dir",
     "state_dir",
 ]
@@ -205,6 +206,14 @@ def _operator_home(path: Path, owner: str | None) -> pwd.struct_passwd | None:
         ):
             best = entry
     return best
+
+
+def operator_for(path: Path, owner: str | None = None) -> pwd.struct_passwd | None:
+    """The account whose home *path* is under, when this process is root and
+    it is somebody else's: the case where root must write there on their
+    behalf, through :func:`open_operator_dir`, and hand what it writes over.
+    None otherwise -- not root, or not under another account's home."""
+    return _operator_home(path, owner)
 
 
 def _under(path: Path, home: Path) -> bool:

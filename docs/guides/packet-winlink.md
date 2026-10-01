@@ -14,6 +14,7 @@ over the air.
 |---|---|---|
 | Modem, VHF/UHF | [Direwolf](../packages/direwolf.md) | Turns the sound card into a 1200-baud packet TNC |
 | Modem, HF | [ardopcf](../packages/ardopcf.md) | ARDOP, the open HF Winlink modem |
+| Modem, HF | [Mercury](../packages/mercury.md) | An open HF modem Pat drives through its VARA transport |
 | Mail client | [Pat](../packages/pat.md) | Winlink email, with a web interface |
 | Gateways | Winlink RMS stations | Other hams' stations that move your mail to and from the internet |
 
@@ -25,7 +26,7 @@ hammunition install station packet
 ```
 
 The [`packet`](../profiles/packet.md) profile carries Direwolf, Pat, ARDOP,
-the AX.25 tools, LinBPQ, the packet terminals and the APRS clients. If you
+Mercury, FreeDATA, the AX.25 tools, LinBPQ, the packet terminals and the APRS clients. If you
 have no mail client, an interactive install offers one; it never installs
 one silently.
 
@@ -208,8 +209,67 @@ call. The gateway list gives each station's.
     PTT path. Test CM108 keying before relying on it; RTS and CAT keying are
     unaffected. [ardopcf's page](../packages/ardopcf.md) has the detail.
 
-VARA, the proprietary HF modem many Winlink gateways also run, is not
+## Choosing an HF modem
+
+Three free HF modems come with the profile, and the one to use is decided
+by the station at the other end, because none of them understands the
+others on the air:
+
+- **[ardopcf](../packages/ardopcf.md)** for a gateway or station that runs
+  ARDOP. Pat's `ardop://` transport, above.
+- **[Mercury](../packages/mercury.md)** for a station that runs Mercury.
+  Mercury speaks VARA HF's TCP interface to your software, so Pat reaches
+  it through its `varahf://` transport with no change. It does not speak
+  VARA's waveform, so a gateway that runs only VARA is out of reach.
+- **[FreeDATA](../packages/freedata.md)** for messages and files straight
+  to another FreeDATA station, in a browser. It is its own system, not
+  Winlink, and Pat does not use it.
+
+VARA itself, the proprietary modem many Winlink gateways also run, is not
 installed by Hammunition in 1.0; see [not carried](../reference/not-carried.md).
+Its Wine prefix is post-1.0 and optional now that Mercury covers the free
+end of Pat's VARA transport.
+
+All three transmit on HF when a client keys them. A licence and the band
+plan apply, and nothing here keys the rig without your rig-control setup.
+
+## HF: Mercury
+
+```sh
+mercury -i plughw:CARD=CODEC,DEV=0 -o plughw:CARD=CODEC,DEV=0 -P serial -A /dev/ttyUSB0
+```
+
+Mercury listens for Pat on port 8300, which is Pat's default `varahf.addr`
+(`localhost:8300`), so Pat's `varahf` section can stay as it is. `-i` and
+`-o` are capture and playback, and `mercury -z` lists the sound devices.
+`-P serial -A` keys the radio on the serial port's RTS line, DigiRig style;
+`-R <model> -A <device>` keys through hamlib instead, and with no `-P`
+Mercury leaves keying to Pat (`"ptt_ctrl": true` and a `rig` in Pat's
+`varahf` section, as for ARDOP above). Kali's packaged Mercury is 1.9.13, which has no `-P`: use hamlib
+or Pat's keying there.
+
+```sh
+pat-winlink connect 'varahf:///N0CALL'
+pat-winlink connect 'varahf:///N0CALL?p2p=true'
+```
+
+The second form is a peer-to-peer session with another operator rather
+than a gateway. Pat logs "got a vara command I wasn't expecting" for
+Mercury's `SN` and `BITRATE` status lines; that is harmless. Mercury's
+channel-busy detector is off by default, so listen before you connect.
+
+## Station to station: FreeDATA
+
+```sh
+freedata
+```
+
+That starts FreeDATA's server and opens <http://127.0.0.1:5000/gui> in
+your browser. Before anything else, open Settings and replace the example
+callsign AA1AAA and grid JN48ea with yours, then choose the sound devices
+and the keying (rigctld, flrig, serial PTT or VOX). Stop the server when
+you are done: it has no login, and [its page](../packages/freedata.md)
+says why that matters in a browser you also use for the web.
 
 ## Keyboard packet and BBSes
 
@@ -230,3 +290,11 @@ options are from its own usage notes at the release the catalog builds.
 The [packet VM campaign](../reference/vm-campaign-packet-debian13.md)
 covers the install on Debian 13; a message sent over the air from the field
 laptop is not yet in the [bench record](../reference/bench-verification-5430.md).
+
+Mercury's options are from its 1.9.15 `-h` and README. On 2026-09-30,
+Debian's Pat 0.16.0 carried a message peer to peer (`varahf:///…?p2p=true`)
+between two Mercury 1.9.15 instances on the field laptop, their audio
+crossed through named pipes at real time and PTT set to none: no radio and
+no sound card were involved, and the session took about two minutes for one
+line of text. Mercury over the air, and FreeDATA's server, window and audio
+path, have not been exercised here.
