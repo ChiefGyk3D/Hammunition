@@ -176,6 +176,20 @@ Recorded here because this branch ships sections 1 to 7 only.
   the full-object CRC64NVME or the multipart ETag, disclosed as the
   publisher's check.
 
+**Note, 2026-10-01 (measured facts change the FSTopo converter).** Measured
+offline on the spike's own Reddish Knob sheet and on synthetic rasters with
+GDAL 3.10.3: an FSTopo GeoTIFF is stored in strips (`Block=8951x1`) with no
+overviews, and `gdalbuildvrt` over two paletted GeoTIFFs whose palettes
+differ exits 0 and keeps the first palette for both ("The end result might
+produce weird colors"). So the converter is not a plain `gdalbuildvrt`: per
+sheet `gdal_translate -expand rgb` to tiled JPEG/YCbCr and the US Topo
+`gdaladdo`, then one `gdalbuildvrt` over the converted sheets as
+`FSTopo.vrt`, built by `ustopo-mosaic` when its block names the `fstopo`
+unit, in the directory `maps qmapshack` already registers. And 3DEP is
+verified by the multipart ETag only: a pure-Python CRC-64/NVME ran at
+6.6 MB/s, over a minute a tile, and the ETag covers every object. The
+built design and its measurements are D-068's amendment of 2026-10-01.
+
 ## 9. Measured, and not
 
 Measured: the index (2026-09-29), the join against the bucket listing, the

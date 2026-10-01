@@ -7,13 +7,13 @@ Named bundles of software that belong together. Flat tags with overlap, never ne
 | Profile | Stage | Packages | Summary |
 |---|---|---:|---|
 | [antenna](antenna.md) | 1.0 | 10 | Antenna modelling, transmission lines and coverage prediction |
-| [digital-modes](digital-modes.md) | 1.0 | 21 | FT8, JS8, PSK31, SSTV, digital voice and the rest of the keyboard modes |
+| [digital-modes](digital-modes.md) | 1.0 | 22 | FT8, JS8, PSK31, SSTV, digital voice and the rest of the keyboard modes |
 | [editors](editors.md) | post-1.0 | 2 | VS Code and VSCodium, opt-in, each behind its publisher's apt repository |
 | [electronics](electronics.md) | 1.0 | 13 | Bench electronics, instruments and device programmers |
 | [listening](listening.md) | 1.0 | 24 | Shortwave, utility and aeronautical listening — no licence, no transmitter |
 | [logging](logging.md) | 1.0 | 11 | Station logs, contest logging and award tracking |
 | [morse](morse.md) | 1.0 | 17 | Morse code — sending, decoding, learning, and licence exam practice |
-| [navigation](navigation.md) | post-1.0 | 25 | Offline maps and turn-by-turn navigation from your own GPS, with no network |
+| [navigation](navigation.md) | post-1.0 | 26 | Offline maps and turn-by-turn navigation from your own GPS, with no network |
 | [packet](packet.md) | 1.0 | 24 | AX.25, APRS, Winlink and the EMCOMM stack |
 | [phone-maps](phone-maps.md) | post-1.0 | 3 | Offline maps and points of interest for the team's phones, built on the laptop |
 | [propagation](propagation.md) | 1.0 | 12 | Band conditions, grey line, beacons and DX spotting |
@@ -22,7 +22,7 @@ Named bundles of software that belong together. Flat tags with overlap, never ne
 | [rf-security](rf-security.md) | 1.0 | 13 | Spectrum analysis, wireless auditing and protocol inspection |
 | [rfid](rfid.md) | post-1.0 | 6 | RFID and NFC — card protocols, readers, and the tooling to study them |
 | [satellite](satellite.md) | 1.0 | 4 | Tracking, working and decoding amateur and weather satellites |
-| [sdr](sdr.md) | 1.0 | 15 | Software-defined radio — receivers, GNU Radio, and the driver layer |
+| [sdr](sdr.md) | 1.0 | 16 | Software-defined radio — receivers, GNU Radio, and the driver layer |
 | [station](station.md) | 1.0 | 13 | The floor every station stands on — rig control, time, position |
 | [workstation](workstation.md) | post-1.0 | 7 | Terminal and bench tooling for the machine the station runs on |
 

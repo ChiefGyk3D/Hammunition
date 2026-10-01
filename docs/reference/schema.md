@@ -533,13 +533,15 @@ tiles are needed follows the operator's regions in station config, and
 each tile is resolved at plan time and verified by a sha256 the catalog
 carries (``catalog/data/copernicus-glo30-pins.yaml``) or by the MD5 in
 the publisher's object metadata, the plan saying which, tile by tile.
-`provider` is an enum so another source (USGS 3DEP) is a new member the
-engine implements, never a URL in the catalog.
+`provider` is an enum so another source is a new member the engine
+implements, never a URL in the catalog: ``usgs-3dep`` (D-068, amended
+2026-10-01) is USGS 3DEP 1/3-arc-second bare earth, chosen by the
+station's ``dem_source`` and checked by the S3 ETag its publisher lists.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `method` | `Literal[dem-tiles]` | no (default `dem-tiles`) |  |
-| `provider` | `Literal[copernicus-glo30]` | no (default `copernicus-glo30`) |  |
+| `provider` | `Literal[copernicus-glo30, usgs-3dep]` | no (default `copernicus-glo30`) |  |
 | `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
 | `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
 
@@ -565,6 +567,8 @@ wide because only the catalog knows what `source` resolves to (D-061).
 | `program` | `str \| None` | no | `brouter-mapcreator` only, and required there (D-063): the `binary` unit whose installed tree holds BRouter's jar, which carries the map creator. Must also be in `depends`. |
 | `profiles` | `str \| None` | no | `brouter-mapcreator` only, and required there (D-063): the `data` unit holding `all.brf` and `softaccess.brf`, the map creator's filters, which BRouter's release zip does not carry. Must also be in `depends`. |
 | `elevation` | `str \| None` | no | `brouter-mapcreator` only, optional (D-063): the `dem-tiles` unit whose installed tiles are folded into the routing files as elevation. Without it the routes are flat. Must also be in `depends`. |
+| `alternative` | `str \| None` | no | `gdal-dem` only, optional (D-068, amended 2026-10-01): the `dem-tiles` unit of provider `usgs-3dep` drawn from instead of `source` when the station's `dem_source` is `3dep`. Must also be in `depends`. |
+| `fstopo` | `str \| None` | no | `ustopo-mosaic` only, optional (D-068, amended 2026-10-01): the `topo-quads` unit of provider `usfs-fstopo` whose sheets, when installed, are made a second QMapShack map, `FSTopo.vrt`, beside `ustopo.vrt`. Read, never depended on: the Forest Service publishes no checksum, so its sheets are installed only by name (CLAUDE.md's checksum rule), and US Topo's map works without them. |
 | `kit` | `str \| None` | no | `tilemaker-pmtiles` only, and required there (D-071): the `data` unit holding tilemaker's OpenMapTiles profile (config and Lua) and the Natural Earth shapefiles the profile names. Must also be in `depends`. |
 | `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
 | `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |
@@ -690,12 +694,15 @@ are needed follows the operator's regions in station config, chosen at
 plan time from a carried, generated index
 (``catalog/data/ustopo-quads.txt``), each checked against the S3 ETag
 its publisher lists, the plan saying so sheet by sheet. `provider` is an
-enum so the Forest Service's FSTopo is a new member the engine
-implements, never a URL in the catalog.
+enum, never a URL in the catalog: ``usfs-fstopo`` (D-068, amended
+2026-10-01) is the Forest Service's FSTopo series, chosen from
+``catalog/data/fstopo-quads.txt``; the Forest Service publishes no
+checksum, so a sheet is checked by a sha256 Hammunition pinned where one
+was measured and is otherwise disclosed as unverified, by name.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `method` | `Literal[topo-quads]` | no (default `topo-quads`) |  |
-| `provider` | `Literal[usgs-ustopo]` | no (default `usgs-ustopo`) |  |
+| `provider` | `Literal[usgs-ustopo, usfs-fstopo]` | no (default `usgs-ustopo`) |  |
 | `licence` | `str` | **yes** | SPDX identifier where one exists, else the publisher's own words. |
 | `licence_url` | `str` | **yes** | Where the licence is stated, on the publisher's site. |

@@ -1,0 +1,68 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: dem-3dep
+version: "station"
+summary: USGS 3DEP bare-earth elevation for your US map regions, when you choose it
+categories: [navigation-maps]
+
+# Data (D-068, amended 2026-10-01): fetched only when the station's
+# dem_source is 3dep (`hammunition station set --dem-source 3dep`); with the
+# default, copernicus, it fetches nothing and removes any tile it installed.
+# Which tiles follows the regions' outlines, chosen from the carried list
+# catalog/data/usgs-3dep-tiles.txt (scripts/gen_3dep_tiles.py); each is
+# checked against the S3 ETag its publisher lists.
+depends: [osm-regions]
+
+install:
+  - install:
+      method: dem-tiles
+      provider: usgs-3dep
+      licence: Public domain (USGS)
+      licence_url: https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    USGS replaces a tile in its current/ folder when new lidar arrives; the
+    weekly check names a carried tile that changed, and the list is
+    regenerated with scripts/gen_3dep_tiles.py --fetch.
+
+documentation:
+  what_it_does: >-
+    With `hammunition station set --dem-source 3dep`, downloads the USGS 3D
+    Elevation Program's 1/3-arc-second (about 10 m) bare-earth tiles covering
+    your US map regions from USGS's own bucket, checks each, and keeps them
+    under /usr/local/share/hammunition/data/dem-3dep/; `dem-qmapshack` then
+    draws QMapShack's hillshade, slope and contours from them instead of from
+    Copernicus. With the default, `copernicus`, it fetches nothing.
+  why_you_want_it: >-
+    Copernicus GLO-30, the default, is a surface model: in forest it measures
+    the treetops. Over a forested window in Shenandoah National Park it read
+    11.8 m above 3DEP on average (measured 2026-09-29), so its contours ride
+    the canopy. 3DEP is the ground, at three times the resolution -- the
+    elevation to want for a trail under trees.
+  prerequisites: >-
+    Map regions set in station config, and `dem_source` set to `3dep`. 3DEP
+    covers the United States and its territories; a region elsewhere gets no
+    3DEP tile and the plan warns that QMapShack has no elevation for it while
+    3dep is chosen. Copernicus stays installed either way: BRouter's routing
+    elevation reads it.
+  known_problems: >-
+    About ten times the size of Copernicus: a 3DEP tile is about 480 MB
+    against Copernicus's 46 MB for the same square degree (Shenandoah one tile,
+    Delaware two, about 0.9 GB, Vermont twelve, about 4.4 GB, measured
+    2026-09-29); the plan prints the size per region before anything
+    downloads. Each tile is checked against the MD5 in the publisher's object
+    metadata (its S3 ETag, carried in the list and asked for again before the
+    download): "MD5 from the publisher's object metadata; not pinned by
+    Hammunition", which catches a damaged download, not a deliberately
+    altered one. Tile names encode latitude and longitude, so they are shown
+    in the plan only. Switching `dem_source` back to `copernicus` removes the
+    3DEP tiles and redraws the contours from Copernicus on the next install.
+  upstream_url: https://www.usgs.gov/3d-elevation-program
+  upstream_support: >-
+    The 3D Elevation Program's pages (https://www.usgs.gov/3d-elevation-program)
+    and The National Map's help desk for the data itself.

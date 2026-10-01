@@ -27,6 +27,7 @@ A transceiver with SSB and audio in and out, PTT through hamlib or a serial line
 ## Known problems
 
 Below the threshold it does not degrade gracefully; it stops, completely, where SSB would have been merely painful. That cliff is the trade the mode makes and it surprises people used to analogue. Codec2 at 700 bits per second sounds like a robot even under perfect conditions -- this is the codec, not your audio chain, and no amount of level adjustment changes it.
+**This is FreeDV 1.8.11, without RADE.** All seven targets carry 1.8.11 (measured 2026-10-01). RADE, the neural voice mode FreeDV 2.0 introduced, is in no target's archive, and 1.8.11 has no RADE mode to talk to a station using it. FreeDV 2.x is not carried yet: its build fetches parts of itself from moving branches (`docs/reference/source-build-gaps.md` #9 and `not-carried.md`).
 
 ## Keeping it current
 
