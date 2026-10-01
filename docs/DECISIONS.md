@@ -3499,6 +3499,20 @@ reasons; the apt policy sweep re-run for the new names and the capability
 matrix regenerated. D-042 sub-project 4's software half is closed by this
 record; the `et-*` config ideas wait on station config and sub-project 3.
 
+### Amendment, 2026-09-30 — Chattervox is RETIRE
+
+Decision 4 left Chattervox to the maintainer with its test results. The
+maintainer ruled on **Q-022** #5 (the gap analysis, A8): retire it as
+abandoned. Re-measured before recording, so the verdict rests on more
+than the dormancy: head 2019-03-17 by D-032 (the 2020-01-04 date carried
+until now was GitHub's push field), nine releases all prereleases, the
+newest open issue a 2024 build failure the author has not answered; and
+the npm 0.7.0 package, installed with `--ignore-scripts` on Debian 13's
+Node 20, runs `--version` and cannot load `serialport`, its link to a
+KISS TNC. `dispositions.md` (EmComm Tools OS delta) carries the record
+and what covers the use; `not-carried.md` the reason. The gap-07 pull
+request (`gap-07-rerulings`) is where it was applied.
+
 ## D-049 — Offline data is a catalog unit: a `data` install method whose payload is the point, disclosed by size and licence before the confirmation, selected through station config
 
 **Date:** 2026-09-12. **Status:** accepted (maintainer, Q-021, option A as

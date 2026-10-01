@@ -10,7 +10,8 @@ its dispositions are decided by ETC sub-project 4 and are not in the index yet.
 **Scope:** 105 AHRL `INSTALL_*` toggles (95 executing + 9 disabled + 1 dead
 code), 28 73Linux delta units, 9 Skywave delta units, and the 8 genuinely-new
 of DragonOS's 24 Tier-1 units (the other 16 are CARRY cross-references to AHRL
-or the Blend). **161 units, one awaiting the maintainer** (`chattervox`, D-048).
+or the Blend). **161 units, none awaiting the maintainer** — the last,
+`chattervox`, was retired on 2026-09-30 (Q-022 #5).
 
 **Method:** dispositions follow the policy's bars. Where the policy already
 settled a case, it is recorded here and **not re-argued**. Two clusters are
@@ -33,9 +34,9 @@ depending on distro package state is marked *(verify in container)*.
 | CARRY | 68 | 1 | 0 | 0 | 0 | 69 |
 | SUPERSEDE | 13 | 1 | 1 | 0 | 0 | 15 |
 | REVIVE | 6 | 0 | 0 | 0 | 0 | 6 |
-| RETIRE | 13 | 15 | 0 | 0 | 2 | 30 |
+| RETIRE | 13 | 15 | 0 | 0 | 3 | 31 |
 | ADD | — | 11 | 8 | 8 | 8 | 35 |
-| NEEDS-DECISION | 0 | 0 | 0 | 0 | 1 | 1 |
+| NEEDS-DECISION | 0 | 0 | 0 | 0 | 0 | 0 |
 | Reserved to maintainer | 5 | 0 | 0 | 0 | 0 | 5 |
 | **Total** | **105** | **28** | **9** | **8** | **11** | **161** |
 
@@ -729,7 +730,7 @@ container that day; the verdicts say what was seen.
 | **paracon** | ADD — `catalog/packages/paracon.yaml` | binary, the 1.3.0 `.pyz` hashed | `paracon --version` → `Paracon 1.3.0` on Debian 13, Python 3.13.5. AGWPE to Direwolf; no kernel AX.25 needed, which is the point (D-045). |
 | **artemis** | ADD — `catalog/packages/artemis.yaml` | venv from the 4.2.0 source tarball, hash-pinned requirements | The vendor `.deb` is refused: its Package name is `artemis`, which every target's archive already gives to a Sanger genome browser at 18.2.0, and it Depends on libpython3.12. The pinned set installs and `import artemis` succeeds on Debian 13; the GUI is not yet opened from this install. |
 | **gpa** | ADD — `catalog/packages/gpa.yaml` | apt on Ubuntu 24.04, 26.04 and Mint (0.10.0 / 0.11.0 / 0.10.0); autotools from the gnupg.org tarball on Debian 13, Parrot, Kali | Tarball signature verified against the GnuPG distribution key; configure and make exit 0 on Debian 13; `gpa 0.11.1`. |
-| **chattervox** | NEEDS-DECISION — kept, with evidence | — | The 0.7.0 bundle runs `--help` on Debian 13; the source builds on Node 20 with `npm ci --ignore-scripts` and runs `--version`; `kiss-tnc` loads without serialport's native build, and whether a KISS port *opens* without it is untested. Only prereleases exist, head 2019-03-17, and two dependencies are git commits rather than registry packages. Carrying the bundle is a fetched Node runtime (refused by D-037); carrying the source is the node backend with two git fetches. The maintainer's call, as recommended. |
+| **chattervox** | NEEDS-DECISION — kept, with evidence; **RETIRE on 2026-09-30** (Q-022 #5, see below) | — | The 0.7.0 bundle runs `--help` on Debian 13; the source builds on Node 20 with `npm ci --ignore-scripts` and runs `--version`; `kiss-tnc` loads without serialport's native build, and whether a KISS port *opens* without it is untested. Only prereleases exist, head 2019-03-17, and two dependencies are git commits rather than registry packages. Carrying the bundle is a fetched Node runtime (refused by D-037); carrying the source is the node backend with two git fetches. The maintainer's call, as recommended. |
 | **mbutil** | RETIRE (`not-carried.md`) | — | python2 `setup.py install`; nothing in ETC's own workflow calls it. |
 | **pfte** | RETIRE (`not-carried.md`) | — | Proprietary, unsigned, no source. GnuPG covers the workflow. |
 | navit, kiwix, mbtileserver, gis-tools, dict | ADD, outstanding | — | Sub-project 5: the offline-data layer needs a category first. `parity-coverage.md` carries the reason. |
@@ -757,10 +758,30 @@ catalog does not have before either can be carried.
 | **pfte** | RETIRE | — | proprietary `.deb` from `paranoiaworks.mobi`, no licence, no source, unsigned download | Paranoia Text Encryption. A closed binary from a vendor site fetched without verification is what the security requirements refuse by name; the AmRRON workflow it serves has GnuPG. Record the reason, do not carry. |
 
 **Tally.** 7 ADD (5 apt, 3 binary, 1 source — `gis-tools` counts once for
-`qgis`), 2 RETIRE, 1 NEEDS-DECISION, plus 2 data downloads deferred to
+`qgis`), 2 RETIRE, 1 NEEDS-DECISION (`chattervox`, retired 2026-09-30),
+plus 2 data downloads deferred to
 sub-project 5. **Every ETC fetch is unverified upstream** (34 of 34); every
 binary and source route above is pinned and hashed under this project's rules
 or it is not written.
+
+### chattervox — RETIRE, 2026-09-30
+
+Ruled on **Q-022** #5 ("all three as stated") from the gap analysis
+(`catalog-gaps-2026-09.md` A8), which had it as the one NEEDS-DECISION unit.
+PARITY-POLICY does not accept "it looks unmaintained" as a reason, so the
+reason is its category (2), **no upstream**, together with what the test
+found: the route this project's rules allow installs a client that cannot
+open the link it exists to use.
+
+Measured 2026-09-30: default branch `master` head 2019-03-17 "v0.7.0 bump." (D-032; the 2020-01-04 date recorded earlier was GitHub's push field, which D-032 does not read), every one of its nine GitHub releases a prerelease, the last 0.7.0 the same day; 13 open issues and no open pull requests, the newest a 2024-01-22 report that the source no longer builds, which the author has not answered. From the npm registry, `npm install --ignore-scripts chattervox@0.7.0` on Debian 13's Node 20.19.2 exits 0 and `chattervox --version` prints 0.7.0 — but `require('serialport')` then fails with "Could not locate the bindings file", because the native serial layer is exactly what `--ignore-scripts` (D-037) does not build, and that layer is how chattervox reaches its KISS TNC.
+
+**What covers its use.** Keyboard chat over AX.25 is carried three ways:
+`paracon` (AGWPE to Direwolf, no kernel AX.25 needed, D-045), `linpac`,
+and `qttermtcp`, with `ax25-apps`' `call` where the kernel stack exists.
+What none of them does is chattervox's own idea, **ECDSA-signed
+messages**. A Python reimplementation, CVAuth (`mrpurplenz/cvauth`, 0.1.0
+announced in that issue on 2026-02-14), is the candidate if signing is
+wanted; it has not been measured here, so it is named and not carried.
 
 ---
 
@@ -869,7 +890,7 @@ under AHRL or covered by the Blend, and are not re-indexed here.
 
 **EmComm Tools OS delta (11):**
 
-`artemis` A · `chattervox` ? · `dict` A · `gis-tools` A · `gpa` A · `kiwix` A ·
+`artemis` A · `chattervox` X · `dict` A · `gis-tools` A · `gpa` A · `kiwix` A ·
 `mbtileserver` A · `mbutil` X · `navit` A · `paracon` A · `pfte` X
 
 *(The 16 already-covered Tier-1 units — `fldigi`, `js8call`, `wsjtx`, `qsstv`,

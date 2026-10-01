@@ -34,6 +34,7 @@ changed, it never worked, or it was never radio.
 | `backdrops` | AHRL | Out of scope — 20 MB of desktop wallpapers. Hammunition is not a desktop theme. |
 | `BATT` | 73Linux | KM4ACK's own script, unlicensed repository (D-001). |
 | `browser` | AHRL | Out of scope — we do not install web browsers; every target ships one. AHRL's browser logic was also its buggiest: `$BROWSER` is never assigned, and the snapd branch adds an unpinned PPA. Hammunition depends on `x-www-browser` existing and does not manage it. |
+| `chattervox` | EmComm Tools OS | No upstream — retired 2026-09-30 (Q-022 #5). The default branch's head is 2019-03-17 and every release is a prerelease; a 2024 report that it no longer builds is unanswered. It still installs from npm with `--ignore-scripts`, but its serial layer then cannot load ("Could not locate the bindings file"), and that layer is how it reaches a KISS TNC. For keyboard chat over AX.25 use `paracon` (AGWPE to Direwolf), `linpac` or `qttermtcp`. Signed messages, chattervox's own feature, are carried by nothing yet. |
 | `CONKY` | 73Linux | Out of scope — a system monitor, not radio. |
 | `DIPOLE` | 73Linux | KM4ACK's own dipole calculator, unlicensed repository (D-001). Same position as GRIDCALC. |
 | `EES` | 73Linux | KM4ACK's own script (an emergency email server) in an unlicensed repository — we cannot ship or derive from it (D-001). The function is genuinely useful; a licensed equivalent is the path if one is wanted. |

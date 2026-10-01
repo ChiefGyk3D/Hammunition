@@ -66,6 +66,17 @@ RETIRED: dict[str, tuple[str, str]] = {
         "export of MBTiles, if ever needed, is a job for the sub-project 5 "
         "tooling, not for a 2017 python2 script.",
     ),
+    "chattervox": (
+        "EmComm Tools OS",
+        "No upstream — retired 2026-09-30 (Q-022 #5). The default branch's "
+        "head is 2019-03-17 and every release is a prerelease; a 2024 report "
+        "that it no longer builds is unanswered. It still installs from npm "
+        "with `--ignore-scripts`, but its serial layer then cannot load "
+        "(\"Could not locate the bindings file\"), and that layer is how it "
+        "reaches a KISS TNC. For keyboard chat over AX.25 use `paracon` "
+        "(AGWPE to Direwolf), `linpac` or `qttermtcp`. Signed messages, "
+        "chattervox's own feature, are carried by nothing yet.",
+    ),
     "pfte": (
         "EmComm Tools OS",
         "Out of scope by the security requirements, by name: a proprietary "

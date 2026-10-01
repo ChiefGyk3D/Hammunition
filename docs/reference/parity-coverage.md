@@ -66,8 +66,8 @@ Absent on purpose. Each names what it waits on.
 | SUPERSEDE | 15 | 10 |
 | REVIVE | 6 | 4 |
 | ADD | 35 | 29 |
-| RETIRE | 30 | — |
-| NEEDS-DECISION | 1 | — |
+| RETIRE | 31 | — |
+| NEEDS-DECISION | 0 | — |
 | reserved to maintainer | 5 | — |
 
 RETIRE, NEEDS-DECISION and reserved units show no coverage figure because
@@ -101,7 +101,7 @@ catalog is where an operator would look for it.
 | `BATT` | RETIRE | — |
 | `BPQ` | ADD | `linbpq` |
 | `browser` | RETIRE | — |
-| `chattervox` | NEEDS-DECISION | — |
+| `chattervox` | RETIRE | — |
 | `chirp` | CARRY | `chirp` |
 | `claws-mail` | CARRY | `claws-mail` |
 | `Coil64` | CARRY | `coil64` |
