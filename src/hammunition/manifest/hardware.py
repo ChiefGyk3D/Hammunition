@@ -473,8 +473,9 @@ ResumeStep = Literal["gpsd_reopen"]
 
 ``gpsd_reopen``: a systemd oneshot ordered after the four sleep targets gives
 gpsd a fresh open of each ``/dev/gpsN`` (``gpsdctl remove`` and ``add``, then
-``systemctl try-restart gpsd.service`` if gpsd reports no device), and does
-nothing when no ``/dev/gpsN`` exists. Installed by ``hardware apply``, removed
+``systemctl try-restart gpsd.service`` if gpsd reports no device; no data
+check, so a listed but silent receiver is not restarted), and does nothing
+when no ``/dev/gpsN`` exists. Installed by ``hardware apply``, removed
 by ``hardware unapply`` (issue #177, D-058 amended 2026-10-01).
 """
 

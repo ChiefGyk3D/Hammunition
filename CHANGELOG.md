@@ -21,9 +21,11 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   or hibernation. It does nothing when no `/dev/gpsN` exists, so a parked
   receiver stays parked. Otherwise it runs `gpsdctl remove` and `add` for
   each receiver, and `systemctl try-restart gpsd.service` if gpsd then
-  reports no device, logging one journal line per action. Park and wake
-  stays a manual third step. Both files are printed in the plan, read back
-  after the run and removed by `hardware unapply`. `--no-gps-resume` opts
+  reports no device, logging one journal line per action. It makes no
+  check that data flows, so a receiver gpsd still lists but that stays
+  silent is left to the manual steps: a gpsd restart, then park and wake.
+  Both files are printed in the plan, read back after the run and removed
+  by `hardware unapply`. `--no-gps-resume` opts
   out, and `doctor` reports the step when a receiver is attached. The
   catalog names the step (`resume: {step: gpsd_reopen}` on the
   `gps-receiver` class), and that class's page gains "After suspend". It

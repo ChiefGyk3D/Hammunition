@@ -129,10 +129,15 @@ def unit_content() -> str:
 
 
 def _read(path: str) -> str | None:
+    """The file's text; None when nothing is there. A directory, a file that is
+    not UTF-8 or one this account cannot read is something, and reads as ""
+    so it is never taken for ours."""
     try:
         return Path(path).read_text(encoding="utf-8")
-    except (FileNotFoundError, NotADirectoryError, IsADirectoryError):
+    except (FileNotFoundError, NotADirectoryError):
         return None
+    except (OSError, UnicodeDecodeError):
+        return ""
 
 
 def _enabled() -> bool:
@@ -180,13 +185,16 @@ def _refuse_foreign(path: str, text: str | None) -> None:
 
 
 def plan_gps_resume() -> GpsResume:
-    """Read what is installed. Raises :class:`GpsResumeError` on a foreign file."""
+    """Read what is installed. Raises :class:`GpsResumeError` on a foreign file,
+    but only where gpsd is installed and the step would be."""
+    if not Path(GPSD).exists():
+        return GpsResume(gpsd=False, script_current=False, unit_current=False, enabled=False)
     script = _read(SCRIPT)
     unit = _read(unit_path())
     _refuse_foreign(SCRIPT, script)
     _refuse_foreign(unit_path(), unit)
     return GpsResume(
-        gpsd=Path(GPSD).exists(),
+        gpsd=True,
         script_current=script == script_content() and _script_executable(),
         unit_current=unit == unit_content(),
         enabled=_enabled(),

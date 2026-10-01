@@ -186,3 +186,18 @@ def test_verify_removal_names_what_survived(resume_files: Path, tmp_path: Path) 
 def test_nothing_installed_reads_absent(resume_files: Path) -> None:
     assert gr.status() == "absent"
     assert gr.plan_gps_resume_removal().is_empty
+
+
+def test_without_gpsd_a_foreign_file_does_not_block_the_plan(resume_files: Path) -> None:
+    Path(gr.GPSD).unlink()
+    Path(gr.SCRIPT).parent.mkdir(parents=True)
+    Path(gr.SCRIPT).write_text("#!/bin/sh\n")
+    assert gr.plan_gps_resume().is_noop
+
+
+def test_a_binary_file_at_the_path_is_foreign_not_a_crash(resume_files: Path) -> None:
+    Path(gr.SCRIPT).parent.mkdir(parents=True)
+    Path(gr.SCRIPT).write_bytes(b"\x7fELF\xff\xfe")
+    with pytest.raises(gr.GpsResumeError):
+        gr.plan_gps_resume()
+    assert gr.plan_gps_resume_removal().is_empty

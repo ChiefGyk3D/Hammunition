@@ -468,6 +468,13 @@ in the plan before anything runs:
   4. `?DEVICES;` to gpsd on `127.0.0.1:2947`, two seconds at most. No
      device or no answer: `systemctl try-restart gpsd.service`, which
      restarts gpsd only if it is running. Clients then have to reconnect.
+     This catches gpsd losing the device or not answering. It does not
+     catch a receiver that gpsd still lists but that stays silent after
+     the re-add: the script does not check for data, so that case needs
+     the manual steps below.
+
+  The unit reports failure (`systemctl status`) when the restart or any
+  `gpsdctl add` failed.
 - `/etc/systemd/system/hammunition-gps-resume.service`, a oneshot ordered
   `After=` and `WantedBy=` `suspend.target`, `hibernate.target`,
   `hybrid-sleep.target` and `suspend-then-hibernate.target`. It is enabled,
@@ -477,12 +484,15 @@ A file at either path that does not start with Hammunition's header refuses
 the plan, and is never overwritten. `hammunition hardware apply
 --no-gps-resume` leaves the step out.
 
-**The third step is yours.** The resume step never parks or wakes anything.
-If the fix still does not come back after a resume, park and wake the
-receiver by hand, the heaviest recovery (a 3D fix took 74 s from a wake in
-bench session 10):
+**The rest is yours.** The resume step never restarts a gpsd that still
+lists the receiver, and it never parks or wakes anything. If the fix still
+does not come back after a resume, restart gpsd (session 12's measured
+recovery, a fix within 1 s), and if that does not do it, park and wake the
+receiver, the heaviest recovery (a 3D fix took 74 s from a wake in bench
+session 10):
 
 ```
+sudo systemctl restart gpsd.socket gpsd
 hammunition hardware park gps-receiver
 hammunition hardware wake gps-receiver
 ```
@@ -499,10 +509,12 @@ the unit and removes both files, each only when it starts with Hammunition's
 header, then reloads systemd and checks that the files and the four
 `.wants` links are gone.
 
-**Not yet measured.** Whether `gpsdctl remove` and `add` alone bring the fix
-back after a real suspend, or whether the `try-restart` is what does it, is
-what the bench steps on issue #177 measure. Until they are run this is the
-design the measurement points to, not a measured recovery.
+**Not yet measured.** Whether `gpsdctl remove` and `add` bring the fix back
+after a real suspend is what the bench steps on issue #177 measure. If they
+do not, a gpsd that still lists the receiver is not restarted
+automatically, and the manual steps above are what recovers it. Until the
+bench steps are run this is the design the measurement points to, not a
+measured recovery.
 
 ## The tray applet
 

@@ -5087,7 +5087,14 @@ step, `hardware apply` installs:
   gpsd was configured with that name, so gpsd never holds two handles on
   one port. Then it sends `?DEVICES;` on 127.0.0.1:2947 with a 2 s limit. No
   device, or no answer: `systemctl try-restart gpsd.service`. One journal
-  line per action; a failed restart fails the unit.
+  line per action; a failed restart or a failed `gpsdctl add` fails the
+  unit. **The restart does not cover the measured fault on its own terms:**
+  in #177 gpsd still listed the device while the tty was silent, and after
+  the re-add it lists it again whether or not data flows. The script makes
+  no data check (the design asked for `?DEVICES`, and a watch for reports
+  after the re-add is the follow-up if the bench shows the re-add alone is
+  not enough). So the restart catches gpsd losing the device or hanging, and
+  a receiver that stays silent is left to the manual steps.
 - `/etc/systemd/system/hammunition-gps-resume.service`, a oneshot with
   `After=` and `WantedBy=` `suspend.target hibernate.target
   hybrid-sleep.target suspend-then-hibernate.target`, enabled and never
@@ -5105,13 +5112,15 @@ out. `--no-gps-time` does not, because the step also serves `cgps`, `xgps`
 and the map tether. `doctor` reports whether it is installed when a GPS
 receiver is attached and gpsd is installed.
 
-**The third recovery stays manual.** Park and wake through the helper is the
-heaviest recovery (74 s to a fix from cold, bench session 10). The step
-never does it. The operator does, by hand, and the docs say so
+**The heavier recoveries stay manual.** They are a gpsd restart while gpsd
+still lists the receiver, and park and wake through the helper, which is the
+heaviest (74 s to a fix from cold, bench session 10). The step never parks
+or wakes anything. The operator does, by hand, and the docs say so
 (`docs/hardware/power-control.md`, "After suspend").
 
-**Not yet measured:** whether `gpsdctl remove` and `add` alone bring the fix
-back after a real suspend, or whether only the `try-restart` does; whether
+**Not yet measured:** whether `gpsdctl remove` and `add` bring the fix back
+after a real suspend; whether the unit, which runs as soon as the system is
+resumed, can run before the USB port has finished resuming; whether
 the stall is in gpsd's handle or in `cdc_acm` (the issue's bench step 5);
 and the step running at all on the field laptop. The bench steps are on
 issue #177. Until they are recorded in

@@ -309,10 +309,13 @@ resume:
     installs a resume step for that. After every suspend or hibernation,
     hammunition-gps-resume.service runs `gpsdctl remove` and `gpsdctl add`
     for each /dev/gpsN, and `systemctl try-restart gpsd.service` if gpsd then
-    reports no device. It does nothing when no /dev/gpsN exists, so a parked
+    reports no device; it makes no check that data flows, so a receiver gpsd
+    still lists but that stays silent is not restarted automatically. It
+    does nothing when no /dev/gpsN exists, so a parked
     receiver stays parked, and it never parks or wakes anything: if a fix
-    still does not come back, `hammunition hardware park gps-receiver` then
-    `hammunition hardware wake gps-receiver` is the third step, by hand.
+    still does not come back, `sudo systemctl restart gpsd.socket gpsd`, and
+    then `hammunition hardware park gps-receiver` and `hammunition hardware
+    wake gps-receiver`, are the operator's steps, by hand.
     Whether the first step alone brings the fix back after a real suspend is
     what the bench steps on issue #177 measure; until they are run it is the
     design the measurement points to, not a measured recovery.

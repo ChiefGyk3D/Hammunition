@@ -20,7 +20,17 @@ What it does, one journal line per action:
    ``/dev/gpsN`` where gpsd was configured with that name.
 4. ``?DEVICES;`` again, two seconds at most. No device, or no answer:
    ``systemctl try-restart gpsd.service``, which restarts gpsd only if it is
-   running.
+   running. This catches gpsd losing the device or hanging. It does **not**
+   catch a receiver gpsd still lists that stays silent after the re-add: no
+   data check is made, so that case needs the operator's manual steps.
+
+The exit status is 1 when the restart or any ``gpsdctl add`` failed, so
+``systemctl status`` shows it.
+
+gpsd's TCP port is read only after the control socket is seen, but a local
+account could still answer on 127.0.0.1:2947 when gpsd's socket is not
+holding it. The reply only chooses between the two paths this script found
+in ``/dev`` and whether to restart gpsd; no path or command is taken from it.
 
 The park and wake cycle is not done here: it is the heaviest recovery, and it
 is the operator's (docs/hardware/power-control.md, "After suspend").
@@ -139,6 +149,7 @@ def main(argv: list[str] | None = None) -> int:
 
     env = {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "GPSD_SOCKET": args.control_socket}
     known = devices(args.gpsd_host, args.gpsd_port, args.timeout)
+    added = True
     for link, node in found:
         path = link if known is not None and link in known else node
         if known is None or path in known:
@@ -146,15 +157,16 @@ def main(argv: list[str] | None = None) -> int:
             log(f"gpsdctl remove {path} ({link}): {_outcome(ok, detail)}")
         ok, detail = run([args.gpsdctl, "add", path], env)
         log(f"gpsdctl add {path} ({link}): {_outcome(ok, detail)}")
+        added = added and ok
 
     after = devices(args.gpsd_host, args.gpsd_port, args.timeout)
     if after:
         log(f"gpsd reports {len(after)} device(s): {', '.join(after)}")
-        return 0
+        return 0 if added else 1
     why = "no answer" if after is None else "no device"
     ok, detail = run([args.systemctl, "try-restart", "gpsd.service"], env)
     log(f"gpsd gave {why} to ?DEVICES; systemctl try-restart gpsd.service: {_outcome(ok, detail)}")
-    return 0 if ok else 1
+    return 0 if ok and added else 1
 
 
 if __name__ == "__main__":

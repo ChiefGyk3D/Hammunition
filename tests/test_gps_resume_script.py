@@ -240,7 +240,7 @@ def test_a_failed_restart_fails_the_unit(machine: dict[str, Path], gpsd: list[Fa
     assert script.main(_argv(machine, server)) == 1
 
 
-def test_a_failing_gpsdctl_is_logged_and_the_check_still_runs(
+def test_a_failing_gpsdctl_is_logged_the_check_still_runs_and_the_unit_fails(
     machine: dict[str, Path], gpsd: list[FakeGpsd], capsys: pytest.CaptureFixture[str]
 ) -> None:
     _receiver(machine["dev"])
@@ -250,7 +250,7 @@ def test_a_failing_gpsdctl_is_logged_and_the_check_still_runs(
     tty = str(machine["dev"] / "ttyACM0")
     server = FakeGpsd([[tty], [tty]])
     gpsd.append(server)
-    assert script.main(_argv(machine, server)) == 0
+    assert script.main(_argv(machine, server)) == 1
     out = capsys.readouterr().out
     assert "failed: no gpsd" in out
     assert server.asked == 2
@@ -334,3 +334,16 @@ def test_the_script_imports_only_the_standard_library() -> None:
     assert all(name in sys.stdlib_module_names or name == "__future__" for name in imported), (
         imported
     )
+
+
+def test_a_listed_but_silent_receiver_is_not_restarted(
+    machine: dict[str, Path], gpsd: list[FakeGpsd]
+) -> None:
+    """Pins the documented limit: no data check is made, so a device gpsd
+    still lists after the re-add does not trigger the restart (review, #177)."""
+    _receiver(machine["dev"])
+    tty = str(machine["dev"] / "ttyACM0")
+    server = FakeGpsd([[tty], [tty]])
+    gpsd.append(server)
+    assert script.main(_argv(machine, server)) == 0
+    assert not any(line.startswith("systemctl") for line in _ran(machine))

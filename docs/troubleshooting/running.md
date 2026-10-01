@@ -237,7 +237,9 @@ hammunition hardware apply
 
 After each resume the step gives gpsd a fresh open of each `/dev/gpsN`
 (`gpsdctl remove` and `add`), restarts gpsd if gpsd then reports no device,
-and logs a line per action. Read the last run with:
+and logs a line per action. It makes no check that data flows: a receiver
+gpsd still lists but that stays silent is left to the steps below. Read the
+last run with:
 
 ```
 journalctl -u hammunition-gps-resume -n 20
@@ -258,6 +260,7 @@ hammunition hardware wake gps-receiver
 `/dev/ttyACM0` is the field laptop's receiver: `readlink -f /dev/gps0`
 names yours. A 3D fix took 74 s from a wake on the bench. Park and wake is
 never done by the resume step, because it is the heaviest recovery and it
-is yours to choose. Which of the steps a real suspend actually needs is not
+is yours to choose, and the step restarts gpsd only when gpsd reports no
+device. Which of the steps a real suspend actually needs is not
 yet measured: the bench steps are on issue #177. The step's files and how
 to remove them are under [After suspend](../hardware/power-control.md#after-suspend).
