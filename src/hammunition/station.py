@@ -100,6 +100,25 @@ _MAP_FIELDS = frozenset({"map_regions", "map_freshness"})
 #: Kiwix books chosen for `kiwix-library` (D-066).
 _NOT_TEMPLATES = _MAP_FIELDS | {"mirror", "reference_books"}
 
+#: The rig owner: who holds the serial port. ``rigctld`` (the shared daemon,
+#: the default when unset) or ``flrig`` (the panel). A mode with a stated
+#: default like ``map_freshness``, not a station fact (D-073 §4).
+RIG_OWNERS = ("rigctld", "flrig")
+
+#: How a PTT-only rig is keyed: a serial control line, or the radio's own VOX.
+PTT_LINES = ("rts", "dtr", "vox")
+
+#: A rig value: a catalog device id (lowercase slug) or ``hamlib:<model>`` for a
+#: radio with no manifest. Which one it is is the CLI's check against the
+#: catalog and this machine's hamlib; the dataclass only checks the shape.
+RIG_VALUE = re.compile(r"^(?:hamlib:[0-9]+|[a-z0-9][a-z0-9-]*)$")
+
+#: An absolute path under ``/dev/`` built only from the characters udev leaves
+#: in a by-id name. Everything systemd would split or expand in an
+#: ``ExecStart=`` — whitespace, quotes, ``\``, ``$``, ``%`` — is excluded by
+#: construction, and ``..`` is refused separately (D-073 §4).
+RIG_DEVICE = re.compile(r"^/dev/[A-Za-z0-9#+\-.:=@_/]+$")
+
 #: A mirror is fetched by :class:`hammunition.fetch.UrllibTransport`, which
 #: speaks these and nothing else. Plain http is allowed on purpose: the
 #: content is public data and the check is the hash, not the transport.
@@ -166,6 +185,20 @@ class Station:
     mirror: str | None = None
     """A LAN mirror of the catalog's data artifacts, tried before the
     publisher and verified the same way (D-070). Never an internet address."""
+    rig: str | None = None
+    """The station's radio: a catalog device id, or ``hamlib:<model>`` for a
+    radio with no manifest (D-073 §4). Which decides the user service."""
+    rig_device: str | None = None
+    """The serial port the rig (or its interface) is reached on, an absolute
+    ``/dev/`` path — a ``/dev/serial/by-id/`` one for stability."""
+    rig_baud: int | None = None
+    """The CAT serial speed, for a CAT rig. Never defaulted: a wrong speed is
+    silence, not an error, so the operator reads it from the radio's menu."""
+    rig_ptt_line: str | None = None
+    """For a PTT-only rig: ``rts``, ``dtr`` or ``vox`` — which line keys it, or
+    that it keys itself on audio. Refused for a CAT rig (its PTT is CAT)."""
+    rig_owner: str | None = None
+    """``rigctld`` (the shared daemon, the default when unset) or ``flrig``."""
 
     def __post_init__(self) -> None:
         if self.callsign is not None:
@@ -218,6 +251,50 @@ class Station:
             )
         if self.mirror is not None:
             object.__setattr__(self, "mirror", _check_mirror(self.mirror))
+        if self.rig is not None:
+            value = self.rig.strip()
+            if not RIG_VALUE.match(value):
+                raise StationError(
+                    f"rig {self.rig!r} is not a catalog device id or a hamlib:<model> value. "
+                    f"`hammunition station set --rig <device>` takes a rig from the catalog, "
+                    f"or hamlib:<number> for a radio with no manifest."
+                )
+            object.__setattr__(self, "rig", value)
+        if self.rig_device is not None:
+            device = self.rig_device.strip()
+            # `..` is refused only as a whole path *segment* (traversal), not as
+            # a substring: a by-id name legitimately carries runs of dots, and
+            # the documentation placeholder elides the serial as `...`.
+            traversal = ".." in device.split("/")
+            if traversal or not RIG_DEVICE.match(device):
+                raise StationError(
+                    f"rig device {self.rig_device!r} must be an absolute /dev/ path with no "
+                    f"'..', whitespace, quotes or shell characters — it becomes part of the "
+                    f"service's command line. A /dev/serial/by-id/ path is best."
+                )
+            object.__setattr__(self, "rig_device", device)
+        if self.rig_baud is not None:
+            try:
+                baud = int(self.rig_baud)
+            except (TypeError, ValueError) as exc:
+                raise StationError(f"rig baud {self.rig_baud!r} is not a number") from exc
+            if baud <= 0:
+                raise StationError(f"rig baud {self.rig_baud!r} must be a positive integer")
+            object.__setattr__(self, "rig_baud", baud)
+        if self.rig_ptt_line is not None:
+            line = self.rig_ptt_line.strip().lower()
+            if line not in PTT_LINES:
+                raise StationError(
+                    f"rig PTT line {self.rig_ptt_line!r} must be one of {', '.join(PTT_LINES)}"
+                )
+            object.__setattr__(self, "rig_ptt_line", line)
+        if self.rig_owner is not None:
+            owner = self.rig_owner.strip().lower()
+            if owner not in RIG_OWNERS:
+                raise StationError(
+                    f"rig owner {self.rig_owner!r} must be one of {', '.join(RIG_OWNERS)}"
+                )
+            object.__setattr__(self, "rig_owner", owner)
 
     @property
     def freshness(self) -> str:
@@ -267,11 +344,15 @@ class Station:
                 reasons.add(why.format(value=stored))
         return tuple(sorted(reasons))
 
-    def as_dict(self) -> dict[str, str | list[str]]:
-        result: dict[str, str | list[str]] = {
+    def as_dict(self) -> dict[str, str | int | list[str]]:
+        # `rig_baud` is an int, so it is excluded from the string comprehension
+        # and added explicitly below, as the map and mirror fields are.
+        result: dict[str, str | int | list[str]] = {
             f.name: v
             for f in fields(self)
-            if f.name not in _NOT_TEMPLATES and (v := getattr(self, f.name))
+            if f.name not in _NOT_TEMPLATES
+            and f.name != "rig_baud"
+            and (v := getattr(self, f.name))
         }
         if self.map_regions:
             result["map_regions"] = list(self.map_regions)
@@ -281,6 +362,8 @@ class Station:
             result["reference_books"] = list(self.reference_books)
         if self.mirror is not None:
             result["mirror"] = self.mirror
+        if self.rig_baud is not None:
+            result["rig_baud"] = self.rig_baud
         return result
 
 
@@ -381,6 +464,11 @@ def load_station(path: Path | None = None, owner: str | None = None) -> Station:
 
     regions = data.get("map_regions")
     books = data.get("reference_books")
+    raw_baud = data.get("rig_baud")
+    try:
+        rig_baud = int(raw_baud) if raw_baud is not None else None
+    except (TypeError, ValueError) as exc:
+        raise StationError(f"{target}: rig_baud {raw_baud!r} is not a number") from exc
     return Station(
         callsign=_str("callsign"),
         grid_square=_str("grid_square"),
@@ -389,6 +477,11 @@ def load_station(path: Path | None = None, owner: str | None = None) -> Station:
         map_freshness=_str("map_freshness"),
         reference_books=tuple(str(b) for b in books) if books is not None else (),
         mirror=_str("mirror"),
+        rig=_str("rig"),
+        rig_device=_str("rig_device"),
+        rig_baud=rig_baud,
+        rig_ptt_line=_str("rig_ptt_line"),
+        rig_owner=_str("rig_owner"),
     )
 
 
@@ -417,7 +510,11 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
     # Map settings and the mirror are not template variables (`variable` only ever names one
     # of STATION_FIELDS -- `station.get` gates on that), so they are carried
     # through unchanged rather than passed through this dict of strings.
-    values: dict[str, str] = {f: v for f in STATION_FIELDS if (v := station.get(f)) is not None}
+    # `rig_baud` is the one STATION_FIELD that is an int, so it is carried
+    # separately rather than through this string dict.
+    values: dict[str, str] = {
+        f: v for f in STATION_FIELDS if f != "rig_baud" and (v := station.get(f)) is not None
+    }
     for variable in variables:
         if station.get(variable):
             continue
@@ -433,6 +530,7 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
                     map_freshness=station.map_freshness,
                     reference_books=station.reference_books,
                     mirror=station.mirror,
+                    rig_baud=station.rig_baud,
                     **{**values, variable: answer},
                 )
             except StationError as exc:
@@ -445,6 +543,7 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
         map_freshness=station.map_freshness,
         reference_books=station.reference_books,
         mirror=station.mirror,
+        rig_baud=station.rig_baud,
         **values,
     )
 

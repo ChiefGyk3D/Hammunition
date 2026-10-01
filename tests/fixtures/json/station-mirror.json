@@ -10,5 +10,10 @@
   "map_regions": [],
   "map_freshness": null,
   "reference_books": [],
-  "mirror": "http://bunker.lan:8080/"
+  "mirror": "http://bunker.lan:8080/",
+  "rig": null,
+  "rig_device": null,
+  "rig_baud": null,
+  "rig_ptt_line": null,
+  "rig_owner": null
 }
