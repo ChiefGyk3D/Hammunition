@@ -11,6 +11,26 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Repeater data beyond RepeaterBook, one layer per source** (D-074).
+  `open-repeater` is a new data unit: Open Repeater's CC0 list (241 kB,
+  461 repeaters, none yet in the US), pinned by sha256 in its manifest by
+  `scripts/gen_open-repeater-pin.py`, checked weekly, mirrorable through a
+  Bunker. `hammunition maps repeaters import` gains
+  `--from-open-repeater [FILE]`, `--from-osm` (the repeaters tagged in the
+  region extracts already installed, filtered by osmium, nothing
+  downloaded) and `--from-direwolf-log FILE...` (the APRS repeater objects
+  your station heard, its own layer, never merged). `fetch-etcc` (the
+  UK's RSGB list) and `fetch-brandmeister` (DMR repeaters only; every
+  hotspot dropped before anything is written) fetch on request and are
+  marked unverified. Each source is its own layer; with two or more,
+  `repeaters-all.gpx` joins them by a stated precedence and counts every
+  join. `maps repeaters remove --layer ID` removes one. The `repeaters`
+  and `repeaters-removed` documents gain `layer_id`, `layers` and
+  `all_sources`. RepeaterBook bulk, RadioReference, RFinder, the ARRL
+  directory, FCC ULS, RadioID, the WIA list, repeatermap.de and the D-STAR,
+  YSF and NXDN lists are documented as not carried; ACMA's register is
+  named as a later data unit.
+
 - **A generated launcher no longer takes a PATH binary's name** (issue
   #174). `~/.local/bin/rigctl`, libhamlib-utils' launcher, ran ahead of
   hamlib's `/usr/bin/rigctl`, ignored its arguments and opened the
