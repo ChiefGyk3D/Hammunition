@@ -71,6 +71,7 @@ __all__ = [
     "AllSources",
     "Layer",
     "ParsedInput",
+    "PoiPoint",
     "Repeater",
     "RepeaterFetchError",
     "RepeaterInputError",
@@ -99,6 +100,7 @@ __all__ = [
     "remove_layer",
     "write_layer",
     "write_poi",
+    "write_poi_points",
 ]
 
 # The four inputs, by the name the text and the JSON document carry.
@@ -934,6 +936,18 @@ def _poi_value(text: str) -> str:
     return " ".join(text.replace("\r", " ").split())
 
 
+@dataclass(frozen=True)
+class PoiPoint:
+    """One point of a Mapsforge POI file: where, what it is called, its
+    description, and the one ``key=value`` tag it is filed under."""
+
+    lat: float
+    lon: float
+    name: str
+    description: str
+    tag: str
+
+
 def write_poi(
     path: Path,
     layer: str,
@@ -945,17 +959,44 @@ def write_poi(
 ) -> None:
     """A Mapsforge POI database (version 2) QMapShack's ``CPoiFilePOI`` reads:
     one category, every repeater in it. *path* must not exist."""
+    points = [
+        PoiPoint(
+            r.lat,
+            r.lon,
+            r.label_text(),
+            r.description(),
+            "communication:amateur_radio:repeater=yes",
+        )
+        for r in rows
+    ]
+    write_poi_points(path, layer, comment, day, points, category=POI_CATEGORY, nudge=nudge)
+
+
+def write_poi_points(
+    path: Path,
+    layer: str,
+    comment: str,
+    day: date,
+    points: Sequence[PoiPoint],
+    *,
+    category: str,
+    nudge: bool = True,
+) -> None:
+    """A Mapsforge POI database (version 2) QMapShack's ``CPoiFilePOI`` reads:
+    one *category*, every point in it. *path* must not exist. The repeater
+    layers (D-064) and the infrastructure layers (D-075) both write through
+    this, so there is one float32 nudge."""
     move = _nudge if nudge else (lambda value, limit: value)
-    points = [(move(r.lat, 90.0), move(r.lon, 180.0)) for r in rows]
-    # Padded, so one repeater still makes a box with an area: QMapShack skips
+    placed = [(move(p.lat, 90.0), move(p.lon, 180.0)) for p in points]
+    # Padded, so one point still makes a box with an area: QMapShack skips
     # a file whose bounds do not intersect the tile, and a zero-width
     # rectangle intersects nothing.
     pad = 0.001
     bounds = (
-        min(p[0] for p in points) - pad,
-        min(p[1] for p in points) - pad,
-        max(p[0] for p in points) + pad,
-        max(p[1] for p in points) + pad,
+        min(p[0] for p in placed) - pad,
+        min(p[1] for p in placed) - pad,
+        max(p[0] for p in placed) + pad,
+        max(p[1] for p in placed) + pad,
     )
     stamp = int(datetime(day.year, day.month, day.day, tzinfo=UTC).timestamp() * 1000)
     db = sqlite3.connect(path)
@@ -977,14 +1018,16 @@ def write_poi(
             )
             db.executemany(
                 "INSERT INTO poi_categories VALUES (?, ?, ?)",
-                [(0, "root", None), (1, POI_CATEGORY, 0)],
+                [(0, "root", None), (1, category, 0)],
             )
-            for number, (row, (lat, lon)) in enumerate(zip(rows, points, strict=True), start=1):
+            for number, (point, (lat, lon)) in enumerate(
+                zip(points, placed, strict=True), start=1
+            ):
                 data = "\r".join(
                     (
-                        f"name={_poi_value(row.label_text())}",
-                        f"description={_poi_value(row.description())}",
-                        "communication:amateur_radio:repeater=yes",
+                        f"name={_poi_value(point.name)}",
+                        f"description={_poi_value(point.description)}",
+                        point.tag,
                     )
                 )
                 db.execute("INSERT INTO poi_data VALUES (?, ?)", (number, data))
