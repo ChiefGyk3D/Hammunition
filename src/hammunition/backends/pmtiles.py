@@ -45,7 +45,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
 
-from .. import osm_pbf
+from .. import map_style, osm_pbf
 from ..geofabrik import RegionFile
 from ..manifest.schema import DerivedDataInstall, PackageManifest
 from .base import Action, BackendError, Command, CommandRunner
@@ -94,7 +94,12 @@ FACTOR = 0.91
 SCRATCH_FACTOR = 3
 #: Recorded in each output's ``.source`` sidecar; bumped when the argv or the
 #: kit's profile changes the output.
-CONVERTER = "tilemaker-pmtiles 1"
+CONVERTER = "tilemaker-pmtiles 2"
+#: The profile each run uses, written into its working directory as the
+#: operator: the kit's config and Lua with the ``infra`` layer added (D-075).
+#: Version 2 of the converter is the one that writes them.
+WORK_CONFIG = "config-infra.json"
+WORK_PROCESS = "process-infra.lua"
 
 TILES_NOTE = (
     f"the vector-tile maps at {FACTOR}x each download ({MEASURED}) with about "
@@ -107,7 +112,11 @@ def estimate(size: int) -> int:
 
 
 def tilemaker_argv(pbf: Path, out: Path, kit: Path, work: Path) -> list[str]:
-    """The fixed argv of one run. Nothing in it comes from a manifest."""
+    """The fixed argv of one run: the infra profile the converter wrote into
+    *work* (the kit's own, run by it, plus the ``infra`` layer; D-075).
+    Nothing in it comes from a manifest. *kit* is where that profile's Lua
+    finds the kit's, named inside the file, not here."""
+    del kit
     return [
         "tilemaker",
         "--input",
@@ -115,9 +124,9 @@ def tilemaker_argv(pbf: Path, out: Path, kit: Path, work: Path) -> list[str]:
         "--output",
         str(out),
         "--config",
-        str(kit / CONFIG),
+        str(work / WORK_CONFIG),
         "--process",
-        str(kit / PROCESS),
+        str(work / WORK_PROCESS),
         "--store",
         str(work / "store"),
     ]
@@ -249,7 +258,9 @@ class TilesConverter:
                     kind="convert",
                     description=(
                         f"Build the vector-tile map of {region.region} ({region.snapshot}), "
-                        f"as the operator, in {work}: clip Natural Earth's ocean "
+                        f"as the operator, in {work}: write the kit's profile with the "
+                        f"infrastructure layer added ({WORK_CONFIG}, {WORK_PROCESS}; "
+                        f"D-075), clip Natural Earth's ocean "
                         f"({kit / OCEAN}.shp) to the region's box with ogr2ogr, link the "
                         f"three land-cover layers, then {shown}; output about "
                         f"{human_size(estimate(region.size))} ({FACTOR}x the download, "
@@ -361,6 +372,9 @@ class TilesConverter:
         )
         if linked is not None:
             return self.ledger.fail(key, f"{region.region}: {linked}{self._scratch(work, '; ')}")
+        written = self._profile(kit, work)
+        if written is not None:
+            return self.ledger.fail(key, f"{region.region}: {written}{self._scratch(work, '; ')}")
         made = self.staging.run(tilemaker_argv(pbf, staged, kit, work), cwd=work)
         if made.returncode == REFUSED:
             return self.ledger.fail(
@@ -388,6 +402,24 @@ class TilesConverter:
             f"built the vector-tile map of {region.region}{' ' + who if who else ''}, "
             f"{ocean} (staged, {staged})"
         )
+
+    def _profile(self, kit: Path, work: Path) -> str | None:
+        """The infra profile written into *work* by the operator: the kit's
+        config with the ``infra`` layer, and the wrapper Lua that runs the
+        kit's own (D-075). Why not, or None."""
+        try:
+            config = map_style.infra_config((kit / CONFIG).read_text(encoding="utf-8"))
+            lua = map_style.infra_lua(kit / PROCESS)
+        except (OSError, ValueError) as exc:
+            return f"the kit's {CONFIG.name}: {exc}"
+        for name, text in ((WORK_CONFIG, config), (WORK_PROCESS, lua)):
+            target = work / name
+            made = self.staging.run(
+                ["sh", "-c", 'printf "%s" "$2" > "$1"', "sh", str(target), text], cwd=work
+            )
+            if made.returncode != 0 or self.staging.digest(target) is None:
+                return f"could not write {target}: {_tail(made.stderr) or 'refused'}"
+        return None
 
     def _starts_with(self, path: Path, work: Path) -> bool:
         """Whether *path* starts with :data:`MAGIC`, read by the operator's own

@@ -14,6 +14,7 @@ nothing here runs it. The kit is a directory of stand-in files laid out as
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +43,16 @@ from hammunition.manifest.schema import DerivedDataInstall, PackageManifest
 from test_osm_pbf import pbf
 
 NOT_ROOT = 1000
+#: A stand-in for the kit's config-openmaptiles.json: its shape, two layers.
+KIT_CONFIG = json.dumps(
+    {
+        "layers": {
+            "place": {"minzoom": 0, "maxzoom": 14},
+            "water": {"minzoom": 6, "maxzoom": 14},
+        },
+        "settings": {"minzoom": 0, "maxzoom": 14, "basezoom": 14},
+    }
+)
 VERMONT_BOX = (-73.44, -71.46, 45.02, 42.72)  # left, right, top, bottom
 BODY = pbf(VERMONT_BOX)
 
@@ -120,6 +131,7 @@ def _kit(prefix: Path, *, skip: str | None = None) -> Path:
     for rel in (CONFIG, PROCESS):
         (kit / rel).parent.mkdir(parents=True, exist_ok=True)
         (kit / rel).write_text("stand-in")
+    (kit / CONFIG).write_text(KIT_CONFIG)
     for layer in (OCEAN, *LANDCOVER):
         for part in SHAPE_PARTS:
             name = f"{layer}.{part}"
@@ -158,7 +170,9 @@ def fakes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
 # -- the argv ---------------------------------------------------------------------
 
 
-def test_tilemaker_runs_the_kit_s_profile_with_a_store_in_the_workdir() -> None:
+def test_tilemaker_runs_the_infra_profile_written_in_the_workdir_with_a_store() -> None:
+    """D-075: the kit's profile plus the infra layer, as two files the
+    converter writes beside the store; the kit's own files are unchanged."""
     kit, work = Path("/kit"), Path("/w/vermont.work")
     argv = tilemaker_argv(Path("/d/vermont.osm.pbf"), work / "vermont.pmtiles", kit, work)
     assert argv == [
@@ -168,12 +182,53 @@ def test_tilemaker_runs_the_kit_s_profile_with_a_store_in_the_workdir() -> None:
         "--output",
         "/w/vermont.work/vermont.pmtiles",
         "--config",
-        str(kit / CONFIG),
+        "/w/vermont.work/config-infra.json",
         "--process",
-        str(kit / PROCESS),
+        "/w/vermont.work/process-infra.lua",
         "--store",
         "/w/vermont.work/store",
     ]
+
+
+def test_the_converter_version_forces_one_rebuild_for_the_infra_layer() -> None:
+    assert CONVERTER == "tilemaker-pmtiles 2"
+
+
+def test_the_infra_profile_is_written_as_the_operator_before_tilemaker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen = tmp_path / "seen"
+    seen.mkdir()
+    keep = (
+        'c=$(echo "$*" | sed -n "s/.*--config \\([^ ]*\\).*/\\1/p"); '
+        'p=$(echo "$*" | sed -n "s/.*--process \\([^ ]*\\).*/\\1/p"); '
+        f'cp "$c" "$p" {seen}/; '
+    )
+    fakes = install_fakes(
+        monkeypatch, tmp_path / "bin", {"tilemaker": keep + TILEMAKER_OK, "ogr2ogr": OGR_OK}
+    )
+    _install_region(tmp_path, VERMONT)
+    conv = _converter(tmp_path, [VERMONT])
+    outcomes = _run(conv)
+    assert conv.ledger.failed == {}, outcomes
+    config = json.loads((seen / "config-infra.json").read_text())
+    assert config["layers"]["infra"] == {"minzoom": 10, "maxzoom": 14}
+    assert config["layers"]["place"] == json.loads(KIT_CONFIG)["layers"]["place"]
+    lua = (seen / "process-infra.lua").read_text()
+    kit = _data(tmp_path, "vector-map-kit")
+    assert f"dofile([==[{kit / PROCESS}]==])" in lua
+    assert len([line for _, line in calls(fakes) if line.startswith("tilemaker ")]) == 1
+
+
+def test_a_kit_config_that_is_not_json_fails_the_region_by_name(
+    tmp_path: Path, fakes: Path
+) -> None:
+    _install_region(tmp_path, VERMONT)
+    conv = _converter(tmp_path, [VERMONT])
+    (_data(tmp_path, "vector-map-kit") / CONFIG).write_text("stand-in")
+    outcomes = _run(conv)
+    assert "config-openmaptiles.json is not the profile's JSON" in " ".join(outcomes)
+    assert not any(line.startswith("tilemaker ") for _, line in calls(fakes))
 
 
 def test_the_clip_box_is_the_header_box_plus_a_margin_inside_the_globe() -> None:

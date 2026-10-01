@@ -56,7 +56,7 @@ where = ["src"]
 # The catalog is meant to be usable by an engine that is not ours; that is worth
 # one empty file.
 [tool.setuptools.package-data]
-hammunition = ["py.typed"]
+hammunition = ["py.typed", "map_style/LICENSE.openinframap"]
 
 # ---------------------------------------------------------------------------
 # mypy --strict is a hard gate, not an aspiration (CLAUDE.md Conventions).
