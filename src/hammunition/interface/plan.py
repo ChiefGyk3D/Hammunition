@@ -436,6 +436,9 @@ class SheetRegionLine(Strict):
         "bytes of its quads downloaded this run; a quad two regions share counts in both"
     )
     download_human: str = described("as the text prints it")
+    all_pinned: bool = described(
+        "every quad it needs has a sha256 pinned by Hammunition, so none is unverified"
+    )
 
 
 @dataclass(frozen=True)
@@ -895,6 +898,7 @@ def _fstopo_section(fstopo: FsTopoDisclosure | None) -> FsTopoSectionView | None
                 quads=len(r.quads),
                 download=sum(sizes.get(q.secoord, 0) for q in r.quads),
                 download_human=human_size(sum(sizes.get(q.secoord, 0) for q in r.quads)),
+                all_pinned=resolution.all_pinned(r),
             )
             for r in resolution.regions
             if r.quads
@@ -1613,7 +1617,10 @@ def _render_fstopo(fstopo: FsTopoSectionView) -> list[str]:
         width = max(len(r.region) for r in fstopo.regions)
         for region in fstopo.regions:
             fetch = f"; {region.download_human} to download" if region.download else ""
-            lines.append(f"    {region.region:<{width}}  {region.quads} quad(s){fetch}")
+            pinned = ", every one pinned" if region.all_pinned else ""
+            lines.append(f"    {region.region:<{width}}  {region.quads} quad(s){pinned}{fetch}")
+        if all(r.all_pinned for r in fstopo.regions):
+            lines.append("    every FSTopo quad your regions need is pinned by Hammunition")
     lines.extend(f"    note: {no_sheets_line(region)}" for region in fstopo.no_quads)
     if fstopo.fetch:
         lines.append(

@@ -1223,10 +1223,18 @@ since a region's sheets are remembered after its first install.
 
 ### Forest Service FSTopo sheets: trail numbers
 
-Over National Forest land the `navigation` profile also installs the Forest
-Service's own 7.5-minute sheets, **FSTopo** (`usfs-fstopo`): Forest Service
-trails by their **trail numbers**, forest roads by number, 40 ft contours and
-the forest's boundaries, as the ranger district prints them. Public domain.
+The Forest Service's own 7.5-minute sheets, **FSTopo** (`usfs-fstopo`),
+carry Forest Service trails by their **trail numbers**, forest roads by
+number, 40 ft contours and the forest's boundaries, as the ranger district
+prints them. Public domain. **They are not part of the `navigation`
+profile**, because the Forest Service publishes no checksum for them (see
+below); you install them by name, after reading the plan:
+
+```
+hammunition install usfs-fstopo ustopo-qmapshack --dry-run
+hammunition install usfs-fstopo ustopo-qmapshack
+```
+
 Nothing is set for it beyond your map regions; a region with no National
 Forest land (Delaware, for one) gets `note: no FSTopo quad covers <region>`
 and nothing else happens. The plan's *FSTopo* part lists each region's sheet
@@ -1248,11 +1256,13 @@ being a TIFF image are checked. The plan says so on each sheet's line —
 "unverified: the Forest Service publishes no checksum and Hammunition has
 pinned none; only the size is checked" — and counts them in a warning. A
 damaged or cut-off download is caught; a sheet altered on the Forest
-Service's server is not. If you would rather not take that, there is no
-setting yet that leaves FSTopo out of `navigation`: `ustopo-qmapshack`
-installs the FSTopo sheets alongside the US Topo map.
-Installing `usgs-ustopo` by itself gives you the US Topo sheets without
-either QMapShack map.
+Service's server is not. That is why the sheets are installed only when you
+name them, never by the profile: Hammunition's rule is that a download
+without a checksum is not installed by default. When every sheet your
+regions need has been pinned, the plan says "every FSTopo quad your regions
+need is pinned by Hammunition", and the unit may then join the profile by a
+recorded decision (**D-068**). Without FSTopo, `ustopo-qmapshack` builds the
+US Topo map alone.
 
 **In QMapShack.** Each sheet's colours are expanded to full colour, tiled,
 and given overviews (they come as one long strip each, with no zoomed-out
@@ -1581,7 +1591,7 @@ one US-state-sized region:
 | US Topo sheets (US regions) | about 8 MB a sheet | `/usr/local/share/hammunition/data/usgs-ustopo/` | Until uninstall, or no region needs the sheet |
 | The sheets made for QMapShack | about 1× each sheet, measured on one | `/usr/local/share/hammunition/data/ustopo-qmapshack/` | As long as the sheets |
 | Their build scratch | about 1× one sheet at a time | `~/.cache/hammunition/build/ustopo-qmapshack/` | Only while it builds |
-| FSTopo sheets (National Forest land) | about 21 MB a sheet | `/usr/local/share/hammunition/data/usfs-fstopo/` | Until uninstall, or no region needs the sheet |
+| FSTopo sheets (National Forest land, installed by name only) | about 21 MB a sheet | `/usr/local/share/hammunition/data/usfs-fstopo/` | Until uninstall, or no region needs the sheet |
 | FSTopo sheets made for QMapShack | about 1.2× each sheet, measured on one | `/usr/local/share/hammunition/data/ustopo-qmapshack/fstopo/` | As long as the sheets |
 | 3DEP tiles (only with `--dem-source 3dep`) | about 480 MB a tile, ten times Copernicus | `/usr/local/share/hammunition/data/dem-3dep/` | Until uninstall, the source set back to `copernicus`, or no region needs the tile |
 | 3DEP contour scratch | about 212 MB, one tile at a time | `~/.cache/hammunition/build/dem-qmapshack/` | Only while it builds |

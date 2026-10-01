@@ -86,6 +86,13 @@ class FsTopoResolution:
     """Sheets not installed yet: downloaded this run."""
     current: tuple[FsQuad, ...] = ()
     """Sheets already installed; nothing happens to them."""
+    pinned: frozenset[int] = frozenset()
+    """The secoords among the regions' sheets with a pin in the catalog."""
+
+    def all_pinned(self, entry: RegionSheets) -> bool:
+        """Whether every sheet *entry* needs is pinned (the condition for the
+        unit to rejoin a profile, D-068 amended 2026-10-01)."""
+        return bool(entry.quads) and all(q.secoord in self.pinned for q in entry.quads)
 
     @property
     def quads(self) -> tuple[FsQuad, ...]:

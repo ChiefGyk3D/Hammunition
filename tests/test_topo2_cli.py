@@ -117,9 +117,7 @@ install:
     )
     mosaic = packages / "ustopo-qmapshack.yaml"
     mosaic.write_text(
-        mosaic.read_text()
-        .replace("depends: [usgs-ustopo]", "depends: [usgs-ustopo, usfs-fstopo]")
-        .replace(
+        mosaic.read_text().replace(
             "      source: usgs-ustopo\n", "      source: usgs-ustopo\n      fstopo: usfs-fstopo\n"
         )
     )
@@ -202,12 +200,12 @@ def test_switching_back_to_copernicus_plans_the_3dep_tiles_removal(
     assert f"{data / THREE}.tif" in text and "Remove" in text
 
 
-def test_fstopo_sheets_are_disclosed_unverified_and_converted_into_a_second_map(
+def test_fstopo_installed_by_name_is_disclosed_unverified_and_converted_into_a_second_map(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     cli, _, gateway = _cli(monkeypatch, tmp_path)
     catalog = _catalog(tmp_path)
-    assert _dry(cli, catalog, "ustopo-qmapshack") == 0
+    assert _dry(cli, catalog, "usfs-fstopo", "ustopo-qmapshack") == 0
     text = capsys.readouterr().out
     assert "FSTopo, Forest Service 7.5-minute quads (D-068):" in text
     assert f"{OCEANIA.region}  1 quad(s); 21.0 MB to download" in text
@@ -218,7 +216,7 @@ def test_fstopo_sheets_are_disclosed_unverified_and_converted_into_a_second_map(
     assert "FSTopo.vrt" in text
     assert gateway.asked == [map_url(1230000), FILE]
     assert text.count("[check-terrain]") == 1
-    assert _dry(cli, catalog, "ustopo-qmapshack", json_out=True) == 0
+    assert _dry(cli, catalog, "usfs-fstopo", "ustopo-qmapshack", json_out=True) == 0
     fstopo = json.loads(capsys.readouterr().out)["install"]["maps"]["terrain"]["fstopo"]
     assert [q["quad"] for q in fstopo["fetch"]] == [SHEET]
     assert fstopo["unverified"] == 1 and fstopo["convert"] == 1
@@ -244,3 +242,51 @@ def test_update_counts_fstopo_sheets_and_3dep_tiles_and_names_none(
     assert "1 3DEP tile(s) installed" in text
     assert "Alpha" not in text and THREE not in text
     assert "hammunition install usfs-fstopo ustopo-qmapshack" in text
+
+
+def test_us_topo_alone_plans_no_fstopo_and_asks_no_gateway(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cli, _, gateway = _cli(monkeypatch, tmp_path)
+    catalog = _catalog(tmp_path)
+    assert _dry(cli, catalog, "ustopo-qmapshack") == 0
+    text = capsys.readouterr().out
+    assert "usfs-fstopo" not in text and "FSTopo" not in text
+    assert "Warp US Topo quad" in text
+    assert gateway.asked == []
+
+
+def test_installed_fstopo_sheets_are_mosaicked_when_the_unit_is_not_planned(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from hammunition.backends.fstopo import RegionSheets, render_record
+    from hammunition.fstopo import parse_row
+
+    cli, _, gateway = _cli(monkeypatch, tmp_path)
+    catalog = _catalog(tmp_path)
+    sheets = data_root(tmp_path) / "usfs-fstopo"
+    sheets.mkdir(parents=True)
+    quad = parse_row("0.25 0.25 0.375 0.375 1230000 11 ZZ Alpha")
+    (sheets / f"{SHEET}.tif").write_bytes(b"II*\x00")
+    (sheets / f"{OCEANIA.slug}.quads").write_text(
+        render_record(RegionSheets(OCEANIA.region, OCEANIA.slug, (quad,)))
+    )
+    assert _dry(cli, catalog, "ustopo-qmapshack") == 0
+    text = capsys.readouterr().out
+    assert f"Convert FSTopo quad {SHEET}" in text and "FSTopo.vrt" in text
+    assert "Fetch FSTopo quad" not in text and "Remove" not in text.split("FSTopo")[0][-200:]
+    assert gateway.asked == []
+
+
+def test_every_sheet_pinned_is_said_in_the_plan(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cli, _, _ = _cli(monkeypatch, tmp_path)
+    catalog = _catalog(tmp_path)
+    (catalog / "data" / "fstopo-pins.yaml").write_text(
+        f"pins:\n- secoord: 1230000\n  size: 21000000\n  sha256: {'a' * 64}\n"
+    )
+    assert _dry(cli, catalog, "usfs-fstopo") == 0
+    text = capsys.readouterr().out
+    assert "every FSTopo quad your regions need is pinned by Hammunition" in text
+    assert "unverified" not in text

@@ -1558,6 +1558,7 @@ The FSTopo quads one region needs (D-068, amended 2026-10-01).
 | `quads` | integer | quads whose box its outline touches |
 | `download` | integer | bytes of its quads downloaded this run; a quad two regions share counts in both |
 | `download_human` | string | as the text prints it |
+| `all_pinned` | boolean | every quad it needs has a sha256 pinned by Hammunition, so none is unverified |
 
 #### `BoundaryLine`
 
@@ -3013,13 +3014,18 @@ A unit and files.
         "download_human": {
           "title": "Download Human",
           "type": "string"
+        },
+        "all_pinned": {
+          "title": "All Pinned",
+          "type": "boolean"
         }
       },
       "required": [
         "region",
         "quads",
         "download",
-        "download_human"
+        "download_human",
+        "all_pinned"
       ],
       "title": "SheetRegionLine",
       "type": "object"

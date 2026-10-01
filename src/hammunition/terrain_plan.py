@@ -424,10 +424,10 @@ class TerrainRun:
             and isinstance(mosaic.block.install, DerivedDataInstall)
             and mosaic.block.install.fstopo is not None
         )
-        if sheets is None and not reads:
+        resolution = self.topo.fstopo.resolution if self.topo.fstopo else FsTopoResolution()
+        if sheets is None and not (reads and (resolution.quads or self._fstopo_left(mosaic))):
             return None
         block = sheets.block.install if sheets is not None else None
-        resolution = self.topo.fstopo.resolution if self.topo.fstopo else FsTopoResolution()
         convert: tuple[int, ...] = ()
         building = False
         if mosaic is not None and isinstance(mosaic.block.install, DerivedDataInstall) and reads:
@@ -440,6 +440,12 @@ class TerrainRun:
             convert=convert,
             building=building,
         )
+
+    def _fstopo_left(self, mosaic: PlannedPackage | None) -> bool:
+        """Whether an FSTopo map is on disk with no sheet left to draw."""
+        if mosaic is None or not isinstance(mosaic.block.install, DerivedDataInstall):
+            return False
+        return bool(self.mosaic._fstopo_steps(mosaic.manifest, mosaic.block.install))
 
     def _bare_earth(self, plan: InstallPlan) -> BareEarthDisclosure | None:
         unit = _planned_dem(plan, THREEDEP)

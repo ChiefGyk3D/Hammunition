@@ -36,11 +36,11 @@ from .backends.fstopo import read_record as read_sheets
 from .backends.regions import MapResolution, data_root
 from .backends.topo import QUADS, TIF, RegionQuads, TopoResolution, read_record
 from .copernicus import CopernicusError, TileProbe, parse_poly
-from .fstopo import FsIndex, FsPin, FsQuadFile, FstopoError, GatewayProbe
+from .fstopo import FsIndex, FsPin, FsQuad, FsQuadFile, FstopoError, GatewayProbe
 from .fstopo import load_index as load_fstopo_index
 from .fstopo import load_pins as load_fstopo_pins
 from .geofabrik import BASE, GeofabrikError, Probe
-from .manifest.schema import TopoQuadsInstall
+from .manifest.schema import DerivedDataInstall, TopoQuadsInstall
 from .plan import InstallPlan, PlannedPackage
 from .ustopo import QuadIndex, UstopoError, check_quad, load_index
 
@@ -263,7 +263,21 @@ def resolve_fstopo(
             f"{len(refused)} FSTopo item(s) could not be resolved and are not installed "
             f"already:\n" + "\n".join(refused)
         )
-    return FsTopoResolution(tuple(entries), tuple(fetch), tuple(current)), tuple(notes)
+    pinned = frozenset(s for s in wanted if s in pins)
+    return FsTopoResolution(tuple(entries), tuple(fetch), tuple(current), pinned), tuple(notes)
+
+
+def installed_sheets(directory: Path) -> FsTopoResolution:
+    """The FSTopo sheets on disk, from their regions' records, offline: what
+    the mosaic reads when the unit is not in the plan (it is installed by
+    name only, D-068 amended 2026-10-01). Nothing is fetched or removed."""
+    found: dict[int, FsQuad] = {}
+    for record in sorted(directory.glob(f"*{QUADS}")):
+        entry = read_sheets(record, record.stem, record.stem)
+        for quad in entry.quads if entry is not None else ():
+            if (directory / f"{quad.name}{TIF}").is_file():
+                found[quad.secoord] = quad
+    return FsTopoResolution(current=tuple(found[s] for s in sorted(found)))
 
 
 def resolve_station_fstopo(
@@ -279,7 +293,20 @@ def resolve_station_fstopo(
     unit. A missing index or a malformed pins file is refused by name."""
     unit = _planned_topo(plan, "usfs-fstopo")
     if unit is None:
-        return FsTopoResolution(), ()
+        # Not planned: the mosaic still draws the sheets installed by name.
+        mosaic = next(
+            (
+                p.block.install
+                for p in plan.packages
+                if isinstance(p.block.install, DerivedDataInstall)
+                and p.block.install.converter == "ustopo-mosaic"
+                and p.block.install.fstopo
+            ),
+            None,
+        )
+        if mosaic is None or mosaic.fstopo is None:
+            return FsTopoResolution(), ()
+        return installed_sheets(data_root(prefix) / mosaic.fstopo), ()
     index = load_fstopo_index(catalog_root / FSTOPO_INDEX)
     pins = load_fstopo_pins(catalog_root / FSTOPO_PINS)
     regions = [(f.region, f.slug) for f in maps.files]

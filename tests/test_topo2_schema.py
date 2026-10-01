@@ -80,9 +80,13 @@ def test_gdal_dem_takes_an_optional_alternative_in_depends() -> None:
         _manifest("dem-qmapshack", _gdal(alternative="dem-3dep"), ["dem-copernicus"])
 
 
-def test_ustopo_mosaic_takes_an_optional_fstopo_in_depends() -> None:
-    m = _manifest("ustopo-qmapshack", _mosaic(fstopo="usfs-fstopo"), ["usgs-ustopo", "usfs-fstopo"])
-    assert m.install[0].install.fstopo == "usfs-fstopo"  # type: ignore[union-attr]
+def test_ustopo_mosaic_reads_fstopo_without_depending_on_it() -> None:
+    """Ruling 3 revised (2026-10-01): FSTopo sheets are unverified, so the
+    mosaic must not pull them in; it reads them only when they are there."""
+    m = _manifest("ustopo-qmapshack", _mosaic(fstopo="usfs-fstopo"), ["usgs-ustopo"])
+    block = m.install[0].install
+    assert block.fstopo == "usfs-fstopo"  # type: ignore[union-attr]
+    assert "usfs-fstopo" not in block.inputs()  # type: ignore[union-attr]
     assert _manifest("ustopo-qmapshack", _mosaic(), ["usgs-ustopo"])
 
 
@@ -90,7 +94,7 @@ def test_the_inputs_mean_nothing_to_another_converter() -> None:
     with pytest.raises(ValidationError, match="alternative"):
         _manifest("x", _mosaic(alternative="dem-3dep"), ["usgs-ustopo", "dem-3dep"])
     with pytest.raises(ValidationError, match="fstopo"):
-        _manifest("x", _gdal(fstopo="usfs-fstopo"), ["dem-copernicus", "usfs-fstopo"])
+        _manifest("x", _gdal(fstopo="usfs-fstopo"), ["dem-copernicus"])
 
 
 def _tiles(name: str, provider: str) -> PackageManifest:
@@ -115,7 +119,7 @@ def test_the_alternative_must_be_the_3dep_provider_catalog_wide() -> None:
 
 
 def test_the_fstopo_input_must_be_the_forest_service_provider_catalog_wide() -> None:
-    m = _manifest("ustopo-qmapshack", _mosaic(fstopo="usfs-fstopo"), ["usgs-ustopo", "usfs-fstopo"])
+    m = _manifest("ustopo-qmapshack", _mosaic(fstopo="usfs-fstopo"), ["usgs-ustopo"])
     good = {"usgs-ustopo": _sheets("usgs-ustopo", "usgs-ustopo")}
     assert (
         derived_source_method_problem(
@@ -127,3 +131,18 @@ def test_the_fstopo_input_must_be_the_forest_service_provider_catalog_wide() -> 
         m, {**good, "usfs-fstopo": _sheets("usfs-fstopo", "usgs-ustopo")}
     )
     assert problem is not None and "usfs-fstopo" in problem
+
+
+def test_fstopo_is_out_of_navigation_and_the_mosaic_does_not_depend_on_it() -> None:
+    """Ruling 3 revised: unverified sheets are installed by name only."""
+    from pathlib import Path
+
+    import yaml
+
+    root = Path(__file__).resolve().parent.parent / "catalog"
+    navigation = yaml.safe_load((root / "profiles" / "navigation.yaml").read_text())
+    assert "usfs-fstopo" not in navigation["packages"]
+    assert "dem-3dep" in navigation["packages"]
+    mosaic = yaml.safe_load((root / "packages" / "ustopo-qmapshack.yaml").read_text())
+    assert "usfs-fstopo" not in mosaic["depends"]
+    assert mosaic["install"][0]["install"]["fstopo"] == "usfs-fstopo"

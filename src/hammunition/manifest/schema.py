@@ -1311,8 +1311,10 @@ class DerivedDataInstall(Strict):
         default=None,
         description=(
             "`ustopo-mosaic` only, optional (D-068, amended 2026-10-01): the `topo-quads` "
-            "unit of provider `usfs-fstopo` whose sheets are made a second QMapShack map, "
-            "`FSTopo.vrt`, beside `ustopo.vrt`. Must also be in `depends`."
+            "unit of provider `usfs-fstopo` whose sheets, when installed, are made a second "
+            "QMapShack map, `FSTopo.vrt`, beside `ustopo.vrt`. Read, never depended on: the "
+            "Forest Service publishes no checksum, so its sheets are installed only by name "
+            "(CLAUDE.md's checksum rule), and US Topo's map works without them."
         ),
     )
     kit: str | None = Field(
@@ -1365,7 +1367,9 @@ class DerivedDataInstall(Strict):
         return self
 
     def inputs(self) -> tuple[str, ...]:
-        """Every other unit this block reads at run time; each must be in `depends`."""
+        """Every other unit this block needs at run time; each must be in
+        `depends`. `fstopo` is not one: it is read when it is installed and
+        never pulled in (D-068, amended 2026-10-01)."""
         return tuple(
             unit
             for unit in (
@@ -1376,7 +1380,6 @@ class DerivedDataInstall(Strict):
                 self.elevation,
                 self.kit,
                 self.alternative,
-                self.fstopo,
             )
             if unit is not None
         )

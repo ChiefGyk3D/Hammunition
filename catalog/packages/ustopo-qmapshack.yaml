@@ -8,9 +8,10 @@ categories: [navigation-maps]
 
 # Derived data (D-068): the `ustopo-mosaic` converter warps each sheet to Web
 # Mercator cropped to its own box and builds one virtual raster over them.
-# D-068 (amended 2026-10-01): it also expands each Forest Service FSTopo
-# sheet to tiled RGB and builds a second virtual raster, FSTopo.vrt.
-depends: [usgs-ustopo, usfs-fstopo, gdal-bin]
+# D-068 (amended 2026-10-01): when the Forest Service's FSTopo sheets are
+# installed (by name: `usfs-fstopo` is read, never depended on), it also
+# expands each to tiled RGB and builds a second virtual raster, FSTopo.vrt.
+depends: [usgs-ustopo, gdal-bin]
 
 install:
   - install:
@@ -37,9 +38,10 @@ documentation:
     legend around every printed sheet are gone and neighbouring sheets meet
     edge to edge, with overviews so it draws quickly zoomed out; then
     `ustopo.vrt`, one virtual raster over all of them, which the
-    `qmapshack-offline` launcher adds to QMapShack's map list. The Forest
-    Service's FSTopo sheets, where your regions have any, become a second
-    map in the same directory, `FSTopo.vrt`: each sheet's colour palette
+    `qmapshack-offline` launcher adds to QMapShack's map list. If you have
+    installed the Forest Service's FSTopo sheets (`hammunition install
+    usfs-fstopo`, by name only), they become a second map in the same
+    directory, `FSTopo.vrt`: each sheet's colour palette
     expanded to RGB, tiled and given overviews (the sheets come as strips
     with no overviews, and a mosaic of differing palettes keeps only the
     first one's colours).
@@ -49,7 +51,8 @@ documentation:
     uncropped each margin hides its neighbour. This makes them one map, with
     the archive's GDAL and nothing else.
   prerequisites: >-
-    `usgs-ustopo`, `usfs-fstopo` and `gdal-bin`, which install first.
+    `usgs-ustopo` and `gdal-bin`, which install first. `usfs-fstopo` is
+    read when installed and never pulled in.
   known_problems: >-
     Measured on one Delaware sheet on 2026-09-29: 2.5 s to warp a 9.2 MB
     sheet to 6.0 MB and 0.9 s to add overviews, 8.9 MB in all; the plan

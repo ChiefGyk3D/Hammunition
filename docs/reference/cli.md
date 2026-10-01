@@ -976,6 +976,24 @@ together, with `scripts/gen_ustopo_index.py --fetch`, which regenerates the
 index). Offline, a region whose record names an edition the index has since
 replaced keeps its installed sheets, and a `note:` says so.
 
+**FSTopo and 3DEP (D-068, amended 2026-10-01).** With `dem-3dep` planned the
+Terrain block gains a *USGS 3DEP bare-earth elevation* part: with
+`dem_source` unset or `copernicus` it says 3DEP is not chosen and that any
+installed tile is removed; with `3dep` it lists each region's tiles and what
+each region downloads (about ten times Copernicus), each tile checked by its
+S3 ETag in the US Topo wording. `usfs-fstopo` is in no profile and is planned
+only when typed by name (`hammunition install usfs-fstopo`), because the
+Forest Service publishes no checksum. Its *FSTopo* part lists each region's
+sheets; each sheet's line reads `sha256, pinned by Hammunition (the Forest
+Service publishes no checksum)` when the catalog pins it, or `unverified:
+the Forest Service publishes no checksum and Hammunition has pinned none;
+only the size is checked`; a `warning:` counts the unverified sheets; and
+when every sheet the regions need is pinned the part says `every FSTopo
+quad your regions need is pinned by Hammunition`. `ustopo-qmapshack` reads
+FSTopo sheets that are installed and builds `FSTopo.vrt` beside `ustopo.vrt`;
+it never pulls `usfs-fstopo` into a plan. The JSON carries both parts as
+`terrain.bare_earth` and `terrain.fstopo` ([json-interface.md](json-interface.md)).
+
 **Recommends, per unit (D-052).** Recommends are not suppressed globally —
 that would deviate from what every target distribution does, and several ham
 applications get their runtime data that way. A single manifest may opt its

@@ -39,8 +39,8 @@ documentation:
     /usr/local/share/hammunition/data/usfs-fstopo/. An FSTopo sheet is the
     forest's own topographic map: Forest Service trails with their trail
     numbers, forest roads by number, 40 ft contours and the forest's
-    boundaries. `ustopo-qmapshack` makes them a second QMapShack map,
-    `FSTopo.vrt`, beside the US Topo one.
+    boundaries. `ustopo-qmapshack`, installed with it or later, makes them a
+    second QMapShack map, `FSTopo.vrt`, beside the US Topo one.
   why_you_want_it: >-
     On a National Forest the signpost, the ranger district's notices and the
     trail log name a trail by its number, and only the Forest Service's own
@@ -52,6 +52,12 @@ documentation:
     sheets (none in Delaware, for example); a region with none gets a note in
     the plan and nothing fails.
   known_problems: >-
+    Installed by name only (`hammunition install usfs-fstopo`), never by a
+    profile: the Forest Service publishes no checksum for a sheet, and the
+    project's rule is that a non-apt source without one is not installed by
+    default. The unit may rejoin the `navigation` profile, by a dated
+    amendment to D-068, once every sheet a region needs is pinned; the plan
+    then says "every FSTopo quad your regions need is pinned by Hammunition".
     The Forest Service publishes no checksum for a sheet, so unless the
     maintainer has measured and pinned one in catalog/data/fstopo-pins.yaml,
     a sheet is fetched unverified: only its size, as the gateway announces it

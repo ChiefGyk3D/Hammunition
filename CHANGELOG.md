@@ -19,9 +19,12 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   one redirect at plan time. The Forest Service publishes no checksum: a
   sheet the maintainer pinned is checked by its sha256, and every other is
   fetched **unverified**, its size and TIFF header only, said on its plan
-  line and counted in a warning; the pins file starts empty.
-  `ustopo-qmapshack` expands each sheet's palette to tiled RGB with
-  overviews and builds a second QMapShack map, `FSTopo.vrt`. `dem-3dep`
+  line and counted in a warning; the pins file starts empty. So it is in
+  no profile and installs only when typed by name, until every sheet a
+  region needs is pinned and the plan says so. When FSTopo sheets are
+  installed, `ustopo-qmapshack` expands each one's palette to tiled RGB
+  with overviews and builds a second QMapShack map, `FSTopo.vrt`; it never
+  pulls them in, and US Topo works alone. `dem-3dep`, in `navigation`,
   installs 3DEP 1/3-arc-second tiles, about ten times Copernicus's size,
   only after `hammunition station set --dem-source 3dep`, checked against
   each object's S3 ETag from a carried list of 1,449 tiles

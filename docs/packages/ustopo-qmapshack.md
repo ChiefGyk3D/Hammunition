@@ -7,11 +7,11 @@
 - **Version recorded:** station
 - **Categories:** `navigation-maps`
 - **Upstream:** <https://gdal.org/>
-- **Needs first:** `usgs-ustopo`, `usfs-fstopo`, `gdal-bin`
+- **Needs first:** `usgs-ustopo`, `gdal-bin`
 
 ## What it does
 
-Turns the US Topo sheets into one map QMapShack can open, under /usr/local/share/hammunition/data/ustopo-qmapshack/: each sheet reprojected to Web Mercator and cropped to its own quadrangle, so the white margin and legend around every printed sheet are gone and neighbouring sheets meet edge to edge, with overviews so it draws quickly zoomed out; then `ustopo.vrt`, one virtual raster over all of them, which the `qmapshack-offline` launcher adds to QMapShack's map list. The Forest Service's FSTopo sheets, where your regions have any, become a second map in the same directory, `FSTopo.vrt`: each sheet's colour palette expanded to RGB, tiled and given overviews (the sheets come as strips with no overviews, and a mosaic of differing palettes keeps only the first one's colours).
+Turns the US Topo sheets into one map QMapShack can open, under /usr/local/share/hammunition/data/ustopo-qmapshack/: each sheet reprojected to Web Mercator and cropped to its own quadrangle, so the white margin and legend around every printed sheet are gone and neighbouring sheets meet edge to edge, with overviews so it draws quickly zoomed out; then `ustopo.vrt`, one virtual raster over all of them, which the `qmapshack-offline` launcher adds to QMapShack's map list. If you have installed the Forest Service's FSTopo sheets (`hammunition install usfs-fstopo`, by name only), they become a second map in the same directory, `FSTopo.vrt`: each sheet's colour palette expanded to RGB, tiled and given overviews (the sheets come as strips with no overviews, and a mosaic of differing palettes keeps only the first one's colours).
 
 ## Why you would want it
 
@@ -19,7 +19,7 @@ A US Topo GeoTIFF is the whole printed page, each in its own projection; QMapSha
 
 ## Before it will work
 
-`usgs-ustopo`, `usfs-fstopo` and `gdal-bin`, which install first.
+`usgs-ustopo` and `gdal-bin`, which install first. `usfs-fstopo` is read when installed and never pulled in.
 
 ## How it installs
 

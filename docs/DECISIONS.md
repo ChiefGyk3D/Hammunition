@@ -7138,10 +7138,27 @@ The "Next" above, built on branch `official-topo-2` from the spec's
 section 8 and its dated note (plan:
 `docs/superpowers/plans/2026-10-01-official-topo-2.md`). Two provider
 members on the existing methods, not new methods: `topo-quads` gains
-`usfs-fstopo`, `dem-tiles` gains `usgs-3dep`. Both units join
-`navigation`. **Amends** D-061's `gdal-dem` with an optional `alternative`
-input and this decision's `ustopo-mosaic` with an optional `fstopo` input,
-each checked catalog-wide for its provider.
+`usfs-fstopo`, `dem-tiles` gains `usgs-3dep`. `dem-3dep` joins
+`navigation`; `usfs-fstopo` does not (below). **Amends** D-061's `gdal-dem`
+with an optional `alternative` input and this decision's `ustopo-mosaic`
+with an optional `fstopo` input, each checked catalog-wide for its provider;
+`fstopo` is read when its unit is installed and is never a dependency.
+
+**FSTopo is installed by name only, until pinned (maintainer, 2026-10-01).**
+CLAUDE.md's security rule, "verify checksums/signatures for any non-apt
+source; refuse to install if absent", is the maintainer's standing rule, and
+a profile default does not route around it. So `usfs-fstopo` is in no
+profile and is planned only when the operator types it, with the per-sheet
+"unverified" plan lines and the warning that counts them. `ustopo-qmapshack`
+does not depend on it: it builds and keeps `FSTopo.vrt` only from FSTopo
+sheets already installed (read from their regions' records, offline, when
+the unit is not in the plan), so US Topo works alone. **The condition to
+rejoin `navigation`:** every sheet a region needs is pinned in
+`catalog/data/fstopo-pins.yaml` (`scripts/gen_fstopo_index.py --pin`), and
+the plan then says "every FSTopo quad your regions need is pinned by
+Hammunition"; the unit may rejoin by a further dated amendment to this
+decision, never as a side effect. `dem-3dep` stays in the profile: its S3
+ETag is the publisher's own check, the Copernicus precedent.
 
 **FSTopo (`usfs-fstopo`).** `scripts/gen_fstopo_index.py` reads the ArcGIS
 layer `FSTopo_Index_GTAC` (19 pages) and writes
@@ -7161,10 +7178,9 @@ Hammunition (the Forest Service publishes no checksum)") and refused by
 name when the gateway announces another size. Any other sheet is fetched
 **unverified** by `Fetcher.fetch_sized` -- its announced size and a TIFF
 header checked, no cached copy ever reused -- and the plan says so on the
-sheet's own line and counts them in a warning. This rests on this
-decision's own "otherwise disclosed as unverified in the plan, by name",
-which CLAUDE.md's older "refuse to install if absent" yields to under the
-authority rule; the data is a picture, never executed.
+sheet's own line and counts them in a warning. That is why the unit is
+installed by name only (above): disclosure alone does not satisfy the
+checksum rule for a default.
 
 **The converter changed from the spec's plain `gdalbuildvrt`** (the
 spec's section 8 note of the same date): the spike's sheet is stored in
