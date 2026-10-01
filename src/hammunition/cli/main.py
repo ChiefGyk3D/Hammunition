@@ -1308,6 +1308,50 @@ def cmd_maps_qmapshack(args: argparse.Namespace) -> int:
     return EXIT_FAILED
 
 
+def cmd_maps_splat(args: argparse.Namespace) -> int:
+    """Point SPLAT! at Hammunition's terrain through ``~/.splat_path``, and
+    print Signal-Server's ``-sdf`` argument.  D-061, amended 2026-10-02.
+
+    Per user, refused under root, as ``maps qmapshack`` is. The file is
+    written only when absent; one naming another directory is left alone
+    with the ``-d`` to pass instead; a symbolic link or anything but a
+    regular file there is refused and nothing changes.
+    """
+    from hammunition.splat_path import SplatPathError, ensure_splat_path, splat_path_file
+
+    if os.geteuid() == 0:
+        print(
+            "error: ~/.splat_path is per user; run this as yourself, not as root.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    directory = data_root(DEFAULT_PREFIX) / "splat-sdf"
+    path = splat_path_file()
+    try:
+        state = ensure_splat_path(path, directory)
+    except (SplatPathError, OSError) as exc:
+        print(f"error: {exc}. Nothing was changed.", file=sys.stderr)
+        return EXIT_FAILED
+    if state == "written":
+        print(f"wrote {path}: SPLAT! now finds its terrain in {directory}/")
+    elif state == "already":
+        print(f"{path} already names {directory}/")
+    else:
+        line = (path.read_text().splitlines() or [""])[0].strip()
+        print(
+            f"{path} names {line}, which is yours and is left alone; pass "
+            f"-d {directory}/ to splat or splat-hd to read Hammunition's terrain"
+        )
+    print(f"Signal-Server: signalserver -sdf {directory}/ ... (signalserverHD for 30 m)")
+    if not any(directory.glob("*.sdf.bz2")):
+        print(
+            "note: no SPLAT terrain is installed yet; `hammunition install splat-sdf` makes "
+            "it from your map regions' elevation",
+            file=sys.stderr,
+        )
+    return EXIT_OK
+
+
 def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
     """Serve gpsd's position as NMEA on 127.0.0.1 for QMapShack.  D-061.
 
@@ -5115,6 +5159,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="edit the configuration and do not start QMapShack",
     )
     p_maps_qms.set_defaults(func=cmd_maps_qmapshack)
+
+    p_maps_splat = maps_sub.add_parser(
+        "splat",
+        help="point SPLAT! at Hammunition's terrain through ~/.splat_path, and print "
+        "Signal-Server's -sdf argument (D-061)",
+    )
+    p_maps_splat.set_defaults(func=cmd_maps_splat)
 
     p_maps_comaps = maps_sub.add_parser(
         "comaps",
