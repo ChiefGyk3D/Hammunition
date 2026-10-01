@@ -26,12 +26,15 @@ packages:
   - multimon-ng
   - qpwgraph
   - qtel
+  - droidstar
   - flrig
 
 documentation:
   what_it_installs: >-
     fldigi and the NBEMS stack that surrounds it, the whole FT8 family, JS8Call,
-    SSTV and radiofax, open digital voice, two small PSK31 clients, a
+    SSTV and radiofax, open digital voice, DroidStar for the digital-voice
+    reflector networks (M17, DMR, D-STAR, Fusion, P25, NXDN) with no radio,
+    two small PSK31 clients, a
     general-purpose FSK modem, a QRSS receiver, the measuring tools that let
     you compare two of them honestly, and `qpwgraph`, a PipeWire patchbay
     that shows which sound card each program is wired to.
@@ -68,7 +71,14 @@ documentation:
     repeater or a linked network — that is operating infrastructure other
     people depend on, not a mode you work, and it wants a considered install
     rather than arriving inside a bundle. `qtel` IS here, because using
-    EchoLink from a desktop is an operating activity like any other.
+    EchoLink from a desktop is an operating activity like any other, and
+    `droidstar` is here for the same reason: it is a reflector client you
+    talk through, the digital-voice networks' counterpart of `qtel`. It is
+    not in `listening`, which D-046 keeps for receive-only decoders: pressing
+    TX sends your voice to every repeater and hotspot linked to the
+    reflector, and that needs a licence. **It is not offered on Ubuntu 24.04
+    or Linux Mint 22.3**, whose Qt 6.4 is below its 6.5 floor; there the
+    profile installs without it (D-039).
   manual_configuration: >-
     **An accurate clock is not optional for FT8.** It transmits in 15-second
     windows and a clock more than about a second out decodes nothing while
@@ -95,7 +105,10 @@ documentation:
     Around 1.2 GB installed — 1.28 GB measured on Kali rolling, 2026-09-02,
     as `df` before minus after with the build trees and apt cache subtracted.
     The build trees are another 0.9 GB in `~/.cache/hammunition/build` until
-    you clear them, and **five of these are source builds** — fldigi, WSJT-X,
-    MSHV, glfer and xwefax — so expect a long install. fldigi purges the
+    you clear them, and **six of these are source builds** — fldigi, WSJT-X,
+    MSHV, glfer, xwefax and DroidStar — so expect a long install. DroidStar
+    (added 2026-10-01) needs Qt 6's development packages; on a bare
+    debian:13 image its build dependencies came to about 1.1 GB, and what
+    they add to this profile's measured total has not been measured. fldigi purges the
     repository package first, because the source build installs to the same
     prefix.

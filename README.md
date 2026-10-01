@@ -49,7 +49,7 @@ exactly where things stand:
 | | Status |
 |---|---|
 | Catalog schema (Pydantic, `mypy --strict`) | ✅ working |
-| Package manifests | 🟡 **299**, up from 71 |
+| Package manifests | 🟡 **301**, up from 71 |
 | …Debian Blend coverage | ✅ **152 of 152** — SCOPE.md's first 1.0 stage, complete |
 | …parity coverage | 🟡 **111 of the 125 units that owe a manifest** — [every gap has a recorded reason](docs/reference/parity-coverage.md) |
 | Hardware catalog | 🟡 24 devices, 5 classes, 297 confirmed USB identifiers |

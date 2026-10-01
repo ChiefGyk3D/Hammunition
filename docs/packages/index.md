@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**299 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**301 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -152,10 +152,11 @@ lsusb, lspci, packet-modem drivers and companions for devices that need one.
 - [usbutils](usbutils.md) — lsusb — step one of every hardware problem in this catalog
 - [z8530-utils2](z8530-utils2.md) — Configures Z8530-based HDLC cards for high-speed packet
 
-### `digital-voice` — 2
+### `digital-voice` — 3
 
 FreeDV over HF and decoders for the digital voice protocols heard on VHF and UHF.
 
+- [droidstar](droidstar.md) — M17, DMR, D-STAR, Fusion, P25 and NXDN over reflectors, with software vocoders and no radio
 - [dsdcc](dsdcc.md) — Decodes digital voice protocols from demodulated audio
 - [freedv](freedv.md) — Digital voice over HF in the bandwidth of an SSB signal
 
@@ -173,10 +174,11 @@ Cluster clients: what other operators are hearing right now.
 - [flcluster](flcluster.md) — DX cluster client that feeds the rest of the W1HKJ suite
 - [xdx](xdx.md) — DX cluster client — see what other operators are hearing, right now
 
-### `echolink-repeaters` — 6
+### `echolink-repeaters` — 7
 
 EchoLink clients, SvxLink repeater and node software, and their link and calibration tools.
 
+- [droidstar](droidstar.md) — M17, DMR, D-STAR, Fusion, P25 and NXDN over reflectors, with software vocoders and no radio
 - [qtel](qtel.md) — EchoLink client — work repeaters and stations over the internet
 - [remotetrx](remotetrx.md) — Puts an SvxLink receiver or transceiver at the end of a network link
 - [svxlink-calibration-tools](svxlink-calibration-tools.md) — Sets the audio levels an SvxLink node needs to work properly
@@ -455,7 +457,7 @@ Proxmark3, libnfc, MIFARE key recovery and smartcard reader checks.
 - [pcsc-tools](pcsc-tools.md) — Smartcard reader diagnostics — is the reader even working?
 - [proxmark3](proxmark3.md) — Client and firmware tooling for the Proxmark3 RFID and NFC research device
 
-### `rig-control` — 13
+### `rig-control` — 14
 
 CAT control of a transceiver while operating: frequency, mode, PTT and the panel on the screen.
 
@@ -468,6 +470,7 @@ CAT control of a transceiver while operating: frequency, mode, PTT and the panel
 - [kel-agent](kel-agent.md) — Bridges browser-based logging software to the radio hardware on your desk
 - [klog](klog.md) — Cross-platform Qt station log that stays out of the way
 - [libhamlib-utils](libhamlib-utils.md) — The command-line tools for hamlib — test a radio before blaming software
+- [pihpsdr](pihpsdr.md) — Operator program for OpenHPSDR transceivers -- ANAN, Hermes Lite 2 and their kin
 - [qlog](qlog.md) — Modern Qt station log with award tracking and online-service upload
 - [quisk](quisk.md) — SDR transceiver software with a real front panel, driving hardware or a dongle
 - [ser2net](ser2net.md) — Serve a serial port over TCP, so a rig's CAT port can be reached from another machine
@@ -526,7 +529,7 @@ Host tools, libraries, udev rules and SoapySDR modules for every supported recei
 - [uhd-host](uhd-host.md) — USRP Hardware Driver — host tools and firmware images for Ettus USRP radios
 - [uhd-soapysdr](uhd-soapysdr.md) — Makes SoapySDR devices visible to software written for UHD
 
-### `sdr-receivers` — 10
+### `sdr-receivers` — 11
 
 Gqrx, SDR++, CubicSDR, SDRangel, Quisk, Linrad: the programs a dongle turns into a radio.
 
@@ -535,6 +538,7 @@ Gqrx, SDR++, CubicSDR, SDRangel, Quisk, Linrad: the programs a dongle turns into
 - [cutesdr](cutesdr.md) — Small demodulator and spectrum display for networked receivers
 - [gqrx-sdr](gqrx-sdr.md) — Graphical SDR receiver — waterfall, demodulators and a bookmark list
 - [linrad](linrad.md) — SM5BSZ's DSP receiver — the deep-toolbox SDR for weak-signal work
+- [pihpsdr](pihpsdr.md) — Operator program for OpenHPSDR transceivers -- ANAN, Hermes Lite 2 and their kin
 - [quisk](quisk.md) — SDR transceiver software with a real front panel, driving hardware or a dongle
 - [sdrangel](sdrangel.md) — SDR transceiver and analyser that does several things at once
 - [sdrpp](sdrpp.md) — SDR++ — cross-platform SDR receiver with a modular DSP chain
@@ -760,6 +764,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [dictionaries](dictionaries.md) | A local dictionary server with an English dictionary, a thesaurus, computing terms and acronyms | apt |
 | [direwolf](direwolf.md) | Software TNC — turns a sound card into an APRS and packet modem | apt |
 | [dmrconfig](dmrconfig.md) | Command-line DMR codeplug tool — the text-file approach to the same job | apt |
+| [droidstar](droidstar.md) | M17, DMR, D-STAR, Fusion, P25 and NXDN over reflectors, with software vocoders and no radio | git |
 | [dsdcc](dsdcc.md) | Decodes digital voice protocols from demodulated audio | apt |
 | [dump1090-mutability](dump1090-mutability.md) | The older dump1090 fork, kept because two targets still carry it | apt |
 | [dumphfdl](dumphfdl.md) | HFDL decoder for long-range oceanic aircraft datalink | source |
@@ -893,6 +898,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [pciutils](pciutils.md) | lspci — for the SDRs and capture cards that are not on USB | apt |
 | [pcsc-tools](pcsc-tools.md) | Smartcard reader diagnostics — is the reader even working? | apt |
 | [picocom](picocom.md) | The minimal terminal-native serial console | apt |
+| [pihpsdr](pihpsdr.md) | Operator program for OpenHPSDR transceivers -- ANAN, Hermes Lite 2 and their kin | git |
 | [pipx](pipx.md) | Installs Python applications in their own environments, on the PATH | apt |
 | [proxmark3](proxmark3.md) | Client and firmware tooling for the Proxmark3 RFID and NFC research device | apt, git |
 | [psk31lx](psk31lx.md) | PSK31 in a terminal, with no desktop and no waterfall | apt |
