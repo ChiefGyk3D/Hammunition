@@ -425,3 +425,27 @@ def test_the_run_counts_the_largest_scratch_and_every_output(tmp_path: Path) -> 
     assert needs[tmp_path / "p"] == round(1000 * FACTOR) + round(10 * FACTOR)
     assert run.idle(plan) == frozenset()
     assert set(run.converters) == {"tilemaker-pmtiles"}
+
+
+def test_a_profile_larger_than_one_argument_may_be_is_still_written(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Final review (D-075): the profile was passed to `sh` as one argv
+    element, which Linux caps at 128 KiB (MAX_ARG_STRLEN). A kit config past
+    that must still be written whole, so it goes on stdin."""
+    seen = tmp_path / "seen"
+    seen.mkdir()
+    keep = f'c=$(echo "$*" | sed -n "s/.*--config \\([^ ]*\\).*/\\1/p"); cp "$c" {seen}/; '
+    install_fakes(
+        monkeypatch, tmp_path / "bin", {"tilemaker": keep + TILEMAKER_OK, "ogr2ogr": OGR_OK}
+    )
+    _install_region(tmp_path, VERMONT)
+    conv = _converter(tmp_path, [VERMONT])
+    big = json.loads(KIT_CONFIG)
+    big["settings"]["description"] = "x" * 200_000
+    (_data(tmp_path, "vector-map-kit") / CONFIG).write_text(json.dumps(big))
+    outcomes = _run(conv)
+    assert conv.ledger.failed == {}, outcomes
+    written = json.loads((seen / "config-infra.json").read_text())
+    assert written["settings"]["description"] == "x" * 200_000
+    assert written["layers"]["infra"] == {"minzoom": 10, "maxzoom": 14}

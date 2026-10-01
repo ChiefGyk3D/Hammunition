@@ -8561,6 +8561,12 @@ pipeline. Measured again on this branch:
   EIA; the generators' licence lines are written quoted (EIA's is not plain
   YAML); months are named from our own table, never the locale; overlays
   appear after a server restart, as region maps do.
+- **From the final review:** the converter first handed the profile's text
+  to the operator's shell as one argument, which Linux caps at 128 KiB: a
+  kit config past that failed the region with "Argument list too long"
+  (reproduced by a test before the fix). The text now goes to the
+  operator's `cat` on standard input; `Staging.run` takes `stdin`, and
+  every other call is unchanged.
 
 ### Not carried, and why
 

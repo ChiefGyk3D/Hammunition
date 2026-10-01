@@ -414,8 +414,10 @@ class TilesConverter:
             return f"the kit's {CONFIG.name}: {exc}"
         for name, text in ((WORK_CONFIG, config), (WORK_PROCESS, lua)):
             target = work / name
+            # The text on stdin, never in argv: an argument is capped at
+            # 128 KiB, and a kit profile may outgrow that (final review).
             made = self.staging.run(
-                ["sh", "-c", 'printf "%s" "$2" > "$1"', "sh", str(target), text], cwd=work
+                ["sh", "-c", 'cat > "$1"', "sh", str(target)], cwd=work, stdin=text
             )
             if made.returncode != 0 or self.staging.digest(target) is None:
                 return f"could not write {target}: {_tail(made.stderr) or 'refused'}"
