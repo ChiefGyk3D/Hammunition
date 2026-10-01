@@ -1,0 +1,132 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: chrony
+version: "4.6"
+summary: The clock follows your GPS receiver when the network is gone — chrony reading gpsd
+categories: [time-frequency, gps-gnss]
+
+# D-072 (proposed), from docs/reference/time-daemons.md. GPS time on a
+# machine whose time daemon is not ntpsec: D-058 (#124) covers ntpsec and
+# refuses everything else by name. chrony, ntpsec and systemd-timesyncd all
+# Provide and Conflict with `time-daemon` on every target, so installing
+# this unit removes whichever of the other two is there -- and the engine
+# refuses any transaction that removes a package (D-022, amended
+# 2026-09-07). That refusal is the disclosure: it names the package and
+# prints the `apt-get remove` for the operator to run deliberately.
+#
+# NOT in `station`, although Q-022 #3 asked for it there: D-022 rule 5 keeps
+# anything that displaces a distribution's choice out of a base profile, and
+# as a member it would refuse the whole of `station` on every machine that
+# already has a time daemon -- the field laptop's ntpsec included.
+conflicts_with_repo_package: [systemd-timesyncd, ntpsec]
+depends: [gpsd]
+
+install:
+  - install:
+      method: apt
+      packages: [chrony]
+    note: >-
+      apt-cache policy on 2026-09-29: chrony has a candidate on all seven
+      targets (4.5 on Ubuntu 24.04 and Mint 22.3, 4.6.1 on Debian 13 and
+      Parrot, 4.8 on Ubuntu 26.04, 4.9 on Kali). Ubuntu 26.04's
+      ubuntu-minimal installs chrony itself, so there this unit adds only
+      the two files below. Measured in a debian:13 container on 2026-09-30,
+      chrony 4.6.1 and gpsd 3.25 from the archive, chronyd -x -u _chrony: the
+      refclock line below selected the GPS (`#* GPS`, reach 377) from the
+      package's own chrony.conf via /etc/chrony/conf.d, whichever of chronyd
+      and gpsd started first, with no grant; and gpsd started through
+      systemd with the drop-in below ran as `gpsd -n` and published time
+      with no client connected, where without it it published none. The
+      "receiver" was a script serving NMEA with the container's own clock,
+      so this proves the plumbing and nothing about accuracy.
+
+# Two files, neither a conffile of any package, and neither needs a station
+# value, so neither is ever deferred (D-035).
+config_files:
+  # chrony's shipped chrony.conf has `confdir /etc/chrony/conf.d` on all seven
+  # targets (measured), so this is read without editing the conffile. SHM
+  # unit 0 is the first receiver gpsd opens, whatever its device name.
+  - path: /etc/chrony/conf.d/hammunition-gps.conf
+    template: |
+      # Written by Hammunition (catalog unit `chrony`, D-072).
+      # The GPS receiver's time, from gpsd's shared-memory segment 0.
+      # delay 0.2: NMEA over USB is good to tens of milliseconds, not better,
+      # so chrony weighs it as a source of that quality.
+      refclock SHM 0 refid GPS poll 2 delay 0.2
+    mode: "0644"
+    backup_existing: true
+  # gpsd polls a receiver only while a client is connected, unless it runs
+  # with -n (gpsd(8), and measured: 0 samples without, 9 in 8 s with). The
+  # packaged gpsd.service runs `gpsd $GPSD_OPTIONS $OPTIONS $DEVICES` and
+  # /etc/default/gpsd sets no OPTIONS, so this drop-in adds the flag without
+  # touching gpsd's own conffile.
+  - path: /etc/systemd/system/gpsd.service.d/hammunition-gps.conf
+    template: |
+      # Written by Hammunition (catalog unit `chrony`, D-072).
+      # Poll the receiver with no client connected, so chrony gets its time.
+      [Service]
+      Environment=OPTIONS=-n
+    mode: "0644"
+    backup_existing: true
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    chrony is a time daemon: it keeps the system clock right from network
+    time servers, and from any other clock it is told about. This unit
+    installs it and tells it about your GPS receiver, through gpsd, so that
+    with no network the clock follows the satellites instead of drifting.
+    It writes two small files: one chrony setting that reads the time gpsd
+    publishes, and one gpsd setting that makes gpsd read the receiver even
+    when no program is asking it for a position.
+  why_you_want_it: >-
+    FT8, FT4, JS8 and WSPR stop decoding once the clock is off by about a
+    second, and every log entry carries the time. At a field site or on a
+    served agency's deployment with no internet, nothing corrects a laptop's
+    clock and it drifts. A GPS receiver knows the time far better than that.
+    This is the route for a machine whose time daemon is systemd-timesyncd
+    (Debian 13, Ubuntu 24.04, Linux Mint, Kali installed core-first) or
+    chrony already (Ubuntu 26.04). On a machine running ntpsec, which is
+    Parrot's security edition and the field laptop, the GPS time guide of
+    D-058 is the route instead, and this unit refuses to replace ntpsec.
+  prerequisites: >-
+    A GPS receiver the catalog knows (docs/hardware/gps-receiver-class.md)
+    and gpsd, which this unit depends on and which `station` installs. On a
+    machine with systemd-timesyncd, remove it yourself first: the plan
+    refuses and prints the command, `sudo apt-get remove systemd-timesyncd`,
+    because the engine never removes a package you did not ask it to
+    (D-022). Then reboot after the install, so gpsd starts with the new
+    setting.
+  known_problems: >-
+    **Reboot after installing.** gpsd reads its new setting only when it
+    starts; restarting a running gpsd in place left two
+    gpsd processes and no time in a container test, so reboot instead. Afterwards `chronyc -n
+    sources` lists `GPS`, and `*` in front of it means the clock is
+    following it. **It will not install beside ntpsec or systemd-timesyncd**:
+    apt lets only one time daemon be installed, and the engine refuses to
+    remove the other one for you. On ntpsec use D-058's GPS time instead.
+    **SHM, not SOCK.** chrony's manual calls its shared-memory driver
+    deprecated in favour of the socket one, because a program running before
+    chronyd could create the segment and feed it false time; the socket
+    route needs the receiver's device name in the file (ttyACM0 on one
+    machine, ttyUSB1 on the next) and gpsd started after chronyd, and it was
+    not made to work in testing. chronyd starts at boot, before anyone logs
+    in. **Not yet measured with a real receiver**: the offset between NMEA
+    and true time, how chrony weighs the GPS against network servers when
+    both are reachable, and whether chrony's AppArmor profile lets it read
+    the segment on a real host (`journalctl -u chrony` shows a denial if
+    not). **The files stay on uninstall**: remove
+    /etc/chrony/conf.d/hammunition-gps.conf and
+    /etc/systemd/system/gpsd.service.d/hammunition-gps.conf, then `sudo
+    systemctl daemon-reload` and reboot, and gpsd goes back to waiting for
+    a client.
+  upstream_url: https://chrony-project.org/
+  upstream_support: >-
+    The chrony-users mailing list (chrony-project.org lists it); for the
+    Debian package, the Debian bug tracker. gpsd's side is the gpsd-users
+    list.

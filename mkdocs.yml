@@ -239,6 +239,7 @@ nav:
           - LoRa inventory: reference/lora-inventory.md
           - brltty: reference/brltty-inventory.md
           - Kernel AX.25: reference/kernel-ax25.md
+          - Time daemons: reference/time-daemons.md
       - Verification:
           - M5 parity verified: reference/m5-parity-verified.md
           - Install verification: reference/install-verification.md

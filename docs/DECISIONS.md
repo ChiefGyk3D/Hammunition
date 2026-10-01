@@ -7623,3 +7623,84 @@ position listener in `src/hammunition/gps_tether.py`; `--position-port` on
 `reference serve` and `maps gps-tether`; `catalog/packages/vector-map-kit.yaml`,
 `catalog/packages/osm-pmtiles.yaml`, `catalog/profiles/navigation.yaml`. The
 operator's page is `docs/guides/offline-navigation.md`, section 16.
+
+---
+
+## D-072 — GPS time where the daemon is not ntpsec: a `chrony` unit, installed by name and never in a profile; the time daemon a machine has is the operator's to replace
+
+**Date:** 2026-09-30. **Status:** proposed (branch `gap-03-gps-time`),
+awaiting the maintainer. **Answers:** Q-022 #3 (gap analysis §A4), which
+ruled "yes: a chrony unit in `station` … displacing systemd-timesyncd by
+disclosure; measure which targets already ship chrony first". **Depends
+on:** D-022 (coexist, disclose, never remove silently; its 2026-09-07
+amendment refuses every removal), D-035 (a file with no station value is
+never deferred), D-058 (GPS time through ntpsec, pull request #124, not yet
+merged). **Evidence:** `docs/reference/time-daemons.md`.
+
+**What was measured, and what it changed.** The recommendation was written
+without D-058 in view and without the archive; both changed it.
+
+| Fact | Measured |
+|---|---|
+| D-058 installs no time daemon | It disciplines ntpsec where ntpsec already runs and refuses by name everywhere else; chrony and timesyncd targets are out of its scope |
+| Which daemon a machine has | ntpsec on Parrot's security edition (`parrot-tools-full` pulls it in; the field laptop has it, auto-installed); chrony on Ubuntu 26.04 (`ubuntu-minimal`); systemd-timesyncd on Debian 13, Ubuntu 24.04, Mint 22.3 and a Kali whose `kali-linux-core` came first |
+| Coexistence | chrony, ntpsec and systemd-timesyncd each `Provides:` and `Conflicts: time-daemon`; on Debian 13 installing chrony or ntpsec simulates `Remv systemd-timesyncd`, and chrony over ntpsec `Remv ntpsec` |
+| The engine | refuses any transaction whose simulation removes a package, and names the `apt-get remove` (measured with this unit: refused over timesyncd, refused over ntpsec, planned cleanly with chrony present on Ubuntu 26.04 and with no daemon on Debian 13) |
+| gpsd | publishes no time while no client is connected unless it runs with `-n`, on the command line and through `gpsdctl add` alike; Debian's `/etc/default/gpsd` ships without it |
+| chrony reading gpsd | `refclock SHM 0` selected the GPS in a container, either start order, no grant; the SOCK driver was not made to work |
+
+**The ruling.**
+
+1. **A `chrony` unit is carried** (`catalog/packages/chrony.yaml`): chrony
+   from the archive, `refclock SHM 0 refid GPS poll 2 delay 0.2` in
+   `/etc/chrony/conf.d/hammunition-gps.conf`, and a gpsd.service drop-in
+   setting `OPTIONS=-n`. Neither file takes a station value, so neither is
+   ever deferred. It declares `systemd-timesyncd` and `ntpsec` in
+   `conflicts_with_repo_package`.
+2. **It is in no profile, `station` included** — the one point on which this
+   departs from Q-022 #3. D-022 rule 5 keeps what displaces a distribution's
+   choice out of a base profile, and the measurement shows why that rule is
+   not a formality here: apt keeps one time daemon, the engine refuses the
+   removal, and a member that is refused refuses its whole transaction. As a
+   `station` member it would have refused `station` on every machine that
+   has a time daemon other than chrony: the field laptop (ntpsec), and by
+   the metapackage simulations every target's default install except
+   Ubuntu 26.04's.
+3. **Displacing timesyncd is the operator's act.** The plan's refusal names
+   the package and prints `sudo apt-get remove systemd-timesyncd`; after
+   that, `hammunition install chrony` plans cleanly. No `system_modifications`
+   kind removes a package — `package_purge` is schema-valid and unperformed,
+   and declaring it would refuse the unit — so `conflicts_with_repo_package`
+   is how the displacement is disclosed, as D-022 rule 2 says it should be.
+4. **Never over ntpsec.** On an ntpsec machine the unit is refused like any
+   other displacement, and the docs send the operator to D-058. The catalog
+   therefore never carries two daemons on one machine; apt would not allow
+   it anyway.
+
+**What it means for D-058.** ntpsec's `refclock shm unit 0` reads the same
+segment, so D-058 needs gpsd running with `-n` too, or a client held open.
+The field laptop's `/etc/default/gpsd` has `GPSD_OPTIONS=""` (read, not
+changed). Whether its gpsd has a client connected is not measured; the
+bench run D-058 already owes is where to check, with `ntpshmmon`.
+
+**Rejected.**
+
+- *chrony in `station`*: point 2.
+- *The SOCK refclock*, which chrony's manual prefers: its path names the
+  serial device, which differs by receiver and machine, gpsd must start
+  after chronyd, and it did not run here. SHM unit 0 is the first receiver
+  gpsd opens, and chronyd starts at boot before anyone logs in, which is the
+  window the manual's warning is about.
+- *ntpsec instead of chrony on timesyncd machines*, which would put every
+  machine on D-058's one mechanism (modes, `doctor`, the tray). Q-022 #3
+  named chrony, and D-058 declined to switch daemons; this is a question for
+  the maintainer, not a thing to decide here.
+- *Editing `/etc/default/gpsd`*: it is gpsd's conffile; the drop-in changes
+  the same thing without touching it.
+
+**Not measured.** The installer order on Kali and Ubuntu 26.04; the SOCK
+driver; anything with a real receiver (NMEA's offset from UTC, how `delay
+0.2` weighs the GPS against network servers, chrony's AppArmor profile on a
+host); `chrony.service` itself, which needs `CAP_SYS_TIME` a rootless
+container lacks; the root `mkdir` step for a missing drop-in directory,
+which is unit-tested only (the container runs wrote as root in-process).

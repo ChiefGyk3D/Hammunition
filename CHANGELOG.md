@@ -23,6 +23,18 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   interface by default. The CatSniffer V3's Kismet helpers are in no
   release yet. New page `docs/rf-security/kismet.md`; generated package
   pages now list a unit's third-party repositories and fingerprints.
+- **GPS time where the daemon is not ntpsec: the `chrony` unit** (**D-072**,
+  proposed; gap analysis §A4, Q-022 #3). `hammunition install chrony` writes
+  `refclock SHM 0 refid GPS poll 2 delay 0.2` to
+  `/etc/chrony/conf.d/hammunition-gps.conf` and a gpsd.service drop-in
+  giving gpsd `-n`, without which gpsd publishes no time to anybody. Not in
+  `station`: the three time daemons conflict, and the plan refuses to remove
+  systemd-timesyncd or ntpsec, printing the `apt-get remove` for the operator
+  instead. Root config writes now `mkdir -p` a missing directory as a
+  printed step. **PyGPSClient** 1.7.7 is a hash-pinned venv unit for the
+  `gps-gnss` tag. The *Time and position* guide routes by daemon (ntpsec to
+  D-058), and troubleshooting gains *FT8 decodes nothing: check the clock*.
+  Evidence: `docs/reference/time-daemons.md`.
 
 - **GPS time** (D-058). `hammunition time` says what the clock follows (the
   network, the GPS, or holdover and for how long) without a password;

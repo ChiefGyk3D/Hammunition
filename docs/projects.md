@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**292 programs and packages** from the catalog, laid out the way the
+**294 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -77,6 +77,7 @@ Control the rig, keep the log, work the cluster, set the clock and the position.
 
 | Project | What it is | Its home |
 |---|---|---|
+| [chrony](packages/chrony.md) | The clock follows your GPS receiver when the network is gone — chrony reading gpsd | [chrony-project.org](https://chrony-project.org/) |
 | [radioclk](packages/radioclk.md) | Disciplines the system clock from an MSF, WWVB or DCF77 time signal | [buzzard.me.uk/jonathan/radioclock.html](http://www.buzzard.me.uk/jonathan/radioclock.html) |
 | [twclock](packages/twclock.md) | World clock for the operating position, with a CW station-ID timer | [tracker.debian.org/pkg/twclock](https://tracker.debian.org/pkg/twclock) — *Debian package page* |
 | [tzwatch](packages/tzwatch.md) | Prints the time in several time zones at once, in a terminal | [tracker.debian.org/pkg/tzwatch](https://tracker.debian.org/pkg/tzwatch) — *Debian package page* |
@@ -90,6 +91,7 @@ Control the rig, keep the log, work the cluster, set the clock and the position.
 | [gpsd](packages/gpsd.md) | GPS service daemon — one process owns the receiver, everything else asks it | [gpsd.io](https://gpsd.io/) |
 | [gpsd-clients](packages/gpsd-clients.md) | Clients that consume what gpsd serves — xgps, gpspipe, gpxlogger, gpsdecode | [gpsd.io](https://gpsd.io/) |
 | [gpsd-tools](packages/gpsd-tools.md) | cgps and gpsmon — the two programs you actually reach for when a receiver misbehaves | [gpsd.io](https://gpsd.io/) |
+| [pygpsclient](packages/pygpsclient.md) | See what your GNSS receiver sees, and configure a u-blox receiver without u-center | [github.com/semuconsulting/PyGPSClient](https://github.com/semuconsulting/PyGPSClient) |
 
 ### Navigation & Maps
 
