@@ -7777,7 +7777,8 @@ hearham in the three areas (one Brandmeister repeater in Vermont).
    (`.rows.json`) under its own stem in D-064's directory:
    `export` (D-064's, unchanged names), `open-repeater`, `osm`, `etcc`,
    `brandmeister`, `aprs-heard`. Each name carries the source, the date and
-   the licence. One command writes one layer and leaves the others.
+   the licence or the status (`unverified`, heard off the air). One command
+   writes one layer and leaves the others.
    QMapShack's `poiPaths` holds the directory while any layer has a `.poi`;
    the operator's Navit copy has one textfile map per layer present.
 2. **Open Repeater is a D-049 data unit**, `open-repeater`, `CC0 1.0`, in no
@@ -7857,6 +7858,16 @@ hearham in the three areas (one Brandmeister repeater in Vermont).
   units are measured, not recalled.
 - **Open Repeater's layer is dated by its data**, the newest
   `last_verified`; the installed file's modification time is the install's.
+- **From the final review.** A `.rows.json` is type-checked field by field
+  and a wrong one skipped by name (a string latitude had crashed the merge
+  and `true` was read as 1 Hz). The all-sources rebuild has its own failure
+  path: the layer is written and registered, the view carries `error`, and
+  the command exits 1. Every `--from-osm` message names an extract by its
+  number, never its file, osmium's stderr included. An unsigned OSM shift
+  falls back to `frequency_in` for its direction. A `remove --layer` that
+  leaves one directory layer lists the all-sources file it deleted. The
+  generator catches `http.client`'s exceptions and never leaves its
+  temporary file.
 
 ### Not carried, and why
 

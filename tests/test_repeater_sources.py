@@ -238,6 +238,7 @@ def test_an_osm_frequency_is_read_in_whatever_unit_it_lands_in_a_band(
         ("-600000", "", -600_000),
         ("+5 MHz", "", 5_000_000),
         ("0.6", "", None),
+        ("0.6", "147.600", 600_000),  # no sign: the input frequency says which way
         ("", "147.600", 600_000),
         ("", "", None),
     ],

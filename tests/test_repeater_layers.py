@@ -142,6 +142,45 @@ def test_a_layer_without_a_rows_file_is_named_not_guessed(tmp_path: Path) -> Non
     assert "re-import" in reasons["export"] and "cannot be read" in reasons["brandmeister"]
 
 
+@pytest.mark.parametrize(
+    ("field", "value", "says"),
+    [
+        ("lat", "39.8", "lat"),
+        ("offset_hz", "x", "offset_hz"),
+        ("output_hz", True, "output_hz"),
+        ("callsign", 7, "callsign"),
+        ("also", "hand-csv", "also"),
+        ("also", ["nobody"], "'nobody'"),
+    ],
+)
+def test_a_tampered_rows_file_is_skipped_by_name_never_a_traceback(
+    tmp_path: Path, field: str, value: object, says: str
+) -> None:
+    """Final review: a string latitude crashed cross_merge, a string offset
+    the GPX writer, and ``true`` was taken for 1 Hz."""
+    where = tmp_path / "repeaters"
+    repeaters.write_layer(where, _layer("own", date(2026, 9, 1), _row(repeaters.HAND)))
+    repeaters.write_layer(where, _layer("osm", date(2026, 9, 1), _row(repeaters.OSM)), "osm")
+    rows_path = where / repeaters.layer_files("osm")[3]
+    data = json.loads(rows_path.read_text())
+    data["rows"][0][field] = value
+    rows_path.write_text(json.dumps(data))
+    result = repeaters.rebuild_all(where)
+    assert result.path is None and result.layers == ("export",)
+    reason = dict(result.skipped)["osm"]
+    assert "cannot be read" in reason and says in reason
+
+
+def test_a_rebuild_that_deletes_the_file_says_so(tmp_path: Path) -> None:
+    where = tmp_path / "repeaters"
+    repeaters.write_layer(where, _layer("own", date(2026, 9, 1), _row(repeaters.HAND)))
+    repeaters.write_layer(where, _layer("osm", date(2026, 9, 1), _row(repeaters.OSM)), "osm")
+    assert repeaters.rebuild_all(where).removed is None
+    repeaters.remove_layer(where, "osm")
+    assert repeaters.rebuild_all(where).removed == where / repeaters.ALL_SOURCES
+    assert repeaters.rebuild_all(where).removed is None  # nothing left to delete
+
+
 def test_removing_everything_takes_the_all_sources_file_too(tmp_path: Path) -> None:
     where = tmp_path / "repeaters"
     repeaters.write_layer(where, _layer("own", date(2026, 9, 1), _row(repeaters.HAND)))

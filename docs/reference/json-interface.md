@@ -3701,10 +3701,11 @@ What a program was told about the layer.
 |---|---|---|
 | `file` | string or null | the file, mode 0600; null when fewer than two directory layers could be read, and the file is then absent |
 | `name` | string | its name, `Repeaters (all sources, YYYY-MM-DD)`; empty when null |
-| `layers` | list of string | the layer ids joined, in precedence order |
+| `layers` | list of string | the layer ids joined, in layer order |
 | `written` | integer | repeaters in it |
-| `merged` | integer | rows joined to another source's: same output frequency and the same callsign or within 0.02 degree |
+| `merged` | integer | rows joined to another layer's: the same output frequency, and within 0.02 degree, or the same callsign within 0.25 degree |
 | `skipped` | list of [`LayerSkipView`](#layerskipview) | layers that could not be read |
+| `error` | string or null | why the file could not be rebuilt (the command then exits 1); null when it was |
 
 #### `LayerSkipView`
 
@@ -3760,6 +3761,17 @@ A layer the all-sources file could not read.
           },
           "title": "Skipped",
           "type": "array"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
         }
       },
       "required": [
@@ -3768,7 +3780,8 @@ A layer the all-sources file could not read.
         "layers",
         "written",
         "merged",
-        "skipped"
+        "skipped",
+        "error"
       ],
       "title": "AllSourcesView",
       "type": "object"
@@ -4042,6 +4055,17 @@ error: every list is then empty.
           },
           "title": "Skipped",
           "type": "array"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
         }
       },
       "required": [
@@ -4050,7 +4074,8 @@ error: every list is then empty.
         "layers",
         "written",
         "merged",
-        "skipped"
+        "skipped",
+        "error"
       ],
       "title": "AllSourcesView",
       "type": "object"

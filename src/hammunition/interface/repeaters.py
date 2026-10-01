@@ -91,13 +91,16 @@ class AllSourcesView(Strict):
         "and the file is then absent"
     )
     name: str = described("its name, `Repeaters (all sources, YYYY-MM-DD)`; empty when null")
-    layers: tuple[str, ...] = described("the layer ids joined, in precedence order")
+    layers: tuple[str, ...] = described("the layer ids joined, in layer order")
     written: int = described("repeaters in it")
     merged: int = described(
-        "rows joined to another source's: same output frequency and the same callsign "
-        "or within 0.02 degree"
+        "rows joined to another layer's: the same output frequency, and within 0.02 "
+        "degree, or the same callsign within 0.25 degree"
     )
     skipped: tuple[LayerSkipView, ...] = described("layers that could not be read")
+    error: str | None = described(
+        "why the file could not be rebuilt (the command then exits 1); null when it was"
+    )
 
 
 @dataclass(frozen=True)
@@ -169,10 +172,12 @@ def render_all_sources(view: AllSourcesView) -> list[str]:
     if view.file is not None:
         lines.append(
             f"All sources: {view.written} repeaters from layers {', '.join(view.layers)}, "
-            f"{view.merged} joined across sources (same frequency, and the same callsign "
-            f"or within 0.02 degree), in {view.file}"
+            f"{view.merged} joined across sources (same frequency, and within 0.02 degree "
+            f"or the same callsign within 0.25 degree), in {view.file}"
         )
     lines += [f"All sources: left out layer {s.layer}: {s.reason}" for s in view.skipped]
+    if view.error is not None:
+        lines.append(f"All sources: {view.error}")
     return lines
 
 

@@ -212,6 +212,62 @@ def test_osm_filters_every_installed_extract_and_names_no_region(
     assert "shelbyville" not in out
 
 
+def test_a_failing_osmium_names_the_extract_by_number_never_by_region(
+    station: Station, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Final review: osmium's stderr and the old message carried the file."""
+    pbf = station.install_region("springfield")
+
+    def fails(argv: list[str]) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            argv, 1, "", f"Open failed for '{pbf}': springfield.osm.pbf is truncated"
+        )
+
+    monkeypatch.setattr(repeater_sources, "_run", fails)
+    code, out, err = _run(["maps", "repeaters", "import", "--from-osm"], capsys)
+    assert code == cli.EXIT_FAILED and "region extract 1 of 1" in err
+    _no_private(out + err)
+
+
+def test_a_failed_rebuild_still_registers_the_written_layer_and_exits_1(
+    station: Station,
+    capsys: pytest.CaptureFixture[str],
+    osmium: list[list[str]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Final review: the rebuild shared the layer's try, so its failure said
+    'cannot write the layer' about a layer already written, and skipped
+    registration."""
+    station.install_region()
+    assert cli.main(["maps", "repeaters", "import", str(station.copy("hand.csv"))]) == 0
+    capsys.readouterr()
+
+    def broken(where: Path) -> object:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(repeaters, "rebuild_all", broken)
+    code, out, err = _run(["maps", "repeaters", "import", "--from-osm"], capsys)
+    assert code == cli.EXIT_FAILED
+    assert "cannot write the layer" not in err
+    assert "All sources: not rebuilt: disk full" in out
+    assert (station.layer / repeaters.layer_files("osm")[0]).is_file()
+    assert f"poiPaths={station.layer}" in station.qms.read_text()
+
+
+def test_remove_one_layer_lists_the_all_sources_file_it_deleted(
+    station: Station, capsys: pytest.CaptureFixture[str], osmium: list[list[str]]
+) -> None:
+    station.install_region()
+    assert cli.main(["maps", "repeaters", "import", str(station.copy("hand.csv"))]) == 0
+    assert cli.main(["maps", "repeaters", "import", "--from-osm"]) == 0
+    assert (station.layer / repeaters.ALL_SOURCES).is_file()
+    capsys.readouterr()
+    assert cli.main(["maps", "repeaters", "remove", "--layer", "osm", "--json"]) == 0
+    doc = parse_one(capsys.readouterr().out)
+    assert repeaters.ALL_SOURCES in {Path(p).name for p in doc["removed"]}
+    assert not (station.layer / repeaters.ALL_SOURCES).exists()
+
+
 def test_osm_with_no_region_installed_says_what_to_install(
     station: Station, capsys: pytest.CaptureFixture[str], osmium: list[list[str]]
 ) -> None:
@@ -436,7 +492,7 @@ def test_remove_json_names_the_layers_and_everything_goes(
             layers=("osm",),
             removed=(),
             unregistered=(),
-            all_sources=repeater_docs.AllSourcesView(None, "", (), 0, 0, ()),
+            all_sources=repeater_docs.AllSourcesView(None, "", (), 0, 0, (), None),
         )
     )
     assert lines == ["Nothing to remove in d."]

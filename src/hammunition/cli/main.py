@@ -1521,10 +1521,12 @@ def _write_repeater_layer(
     description = " ".join(licences)
     try:
         written = write_layer(directory, Layer(layer_title, description, day, rows), layer_id)
-        all_sources = _rebuild_all_sources(directory)
     except (OSError, sqlite3.Error) as exc:
         print(f"error: cannot write the layer in {directory}: {exc}", file=sys.stderr)
         return EXIT_FAILED
+    # The layer is in place from here on: a failed rebuild is reported in
+    # the all-sources view and the exit status, and registration still runs.
+    all_sources, _ = _rebuild_all_sources(directory)
     registered = _register_repeaters(directory)
     doc = RepeatersDocument(
         layer_id=layer_id,
@@ -1551,7 +1553,8 @@ def _write_repeater_layer(
         registered=registered,
         all_sources=all_sources,
     )
-    code = EXIT_FAILED if any(r.outcome == "refused" for r in registered) else EXIT_OK
+    refused = any(r.outcome == "refused" for r in registered) or all_sources.error is not None
+    code = EXIT_FAILED if refused else EXIT_OK
     if envelope.wanted(args):
         envelope.emit(doc)
         return code
@@ -1560,20 +1563,27 @@ def _write_repeater_layer(
     return code
 
 
-def _rebuild_all_sources(directory: Path) -> AllSourcesView:
-    """``repeaters-all.gpx`` rebuilt from the directory layers, as a view.  D-074."""
+def _rebuild_all_sources(directory: Path) -> tuple[AllSourcesView, Path | None]:
+    """``repeaters-all.gpx`` rebuilt from the directory layers, as a view,
+    and the file when this rebuild deleted it.  D-074. Never raises: a
+    rebuild that cannot write says why in the view's ``error``."""
     from hammunition.interface.repeaters import AllSourcesView, LayerSkipView
     from hammunition.repeaters import rebuild_all
 
-    result = rebuild_all(directory)
-    return AllSourcesView(
+    try:
+        result = rebuild_all(directory)
+    except OSError as exc:
+        return AllSourcesView(None, "", (), 0, 0, (), error=f"not rebuilt: {exc}"), None
+    view = AllSourcesView(
         file=None if result.path is None else str(result.path),
         name=result.name,
         layers=result.layers if result.path is not None else (),
         written=result.written,
         merged=result.merged,
         skipped=tuple(LayerSkipView(layer, reason) for layer, reason in result.skipped),
+        error=None,
     )
+    return view, result.removed
 
 
 @envelope.json_capable()
@@ -1710,8 +1720,9 @@ def _import_repeater_source(args: argparse.Namespace) -> int:
             skips: dict[str, int] = {}
             read = 0
             with tempfile.TemporaryDirectory(prefix="hammunition-osm-repeaters-") as scratch:
-                for pbf, _ in extracts:
-                    one = rs.filter_extract(pbf, Path(scratch))
+                for number, (pbf, _) in enumerate(extracts, start=1):
+                    label = f"region extract {number} of {len(extracts)}"
+                    one = rs.filter_extract(pbf, Path(scratch), label=label)
                     rows += one.rows
                     for skip in one.skipped:
                         skips[skip.reason] = skips.get(skip.reason, 0) + skip.count
@@ -1902,10 +1913,12 @@ def cmd_maps_repeaters_remove(args: argparse.Namespace) -> int:
     directory = overlay_dir()
     try:
         removed = remove_layer(directory, args.layer)
-        all_sources = _rebuild_all_sources(directory)
     except OSError as exc:
         print(f"error: {exc}. Nothing more was removed.", file=sys.stderr)
         return EXIT_FAILED
+    all_sources, dropped = _rebuild_all_sources(directory)
+    if dropped is not None:
+        removed = (*removed, dropped)
     registered = _register_repeaters(directory)
     doc = RepeatersRemovedDocument(
         directory=str(directory),
@@ -1914,7 +1927,8 @@ def cmd_maps_repeaters_remove(args: argparse.Namespace) -> int:
         unregistered=registered,
         all_sources=all_sources,
     )
-    code = EXIT_FAILED if any(r.outcome == "refused" for r in registered) else EXIT_OK
+    refused = any(r.outcome == "refused" for r in registered) or all_sources.error is not None
+    code = EXIT_FAILED if refused else EXIT_OK
     if envelope.wanted(args):
         envelope.emit(doc)
         return code

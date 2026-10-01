@@ -1137,6 +1137,30 @@ def remove_layer(where: Path, layer_id: str | None = None) -> tuple[Path, ...]:
 _ROW_FIELDS = {f.name for f in dataclasses.fields(Repeater)}
 
 
+def _is_int(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _check_row_types(item: Mapping[str, Any]) -> None:
+    """Every field of a row read back has the type :class:`Repeater` writes,
+    or ValueError naming the field: a string latitude or offset would fail
+    later, inside the merge or the GPX writer, and ``true`` is not 1 Hz
+    (final review, 2026-10-01)."""
+    for name, value in item.items():
+        if name == "output_hz":
+            ok = _is_int(value)
+        elif name == "offset_hz":
+            ok = value is None or _is_int(value)
+        elif name in ("lat", "lon"):
+            ok = _is_int(value) or isinstance(value, float)
+        elif name == "also":
+            ok = isinstance(value, list) and all(isinstance(s, str) for s in value)
+        else:
+            ok = isinstance(value, str)
+        if not ok:
+            raise ValueError(f"field {name} holds {value!r}, not what this writes")
+
+
 def read_layer_rows(path: Path) -> Layer:
     """A ``.rows.json`` read back, or ValueError naming what is wrong. The
     operator's own file: read defensively, every field checked."""
@@ -1146,12 +1170,14 @@ def read_layer_rows(path: Path) -> Layer:
         for item in data["rows"]:
             if not isinstance(item, dict) or set(item) - _ROW_FIELDS:
                 raise ValueError("a row with fields this does not write")
-            also = tuple(str(s) for s in item.get("also") or ())
+            _check_row_types(item)
+            also = tuple(item.get("also") or ())
             row = Repeater(**{**item, "also": also})
-            if row.source not in SOURCE_NAMES or any(s not in SOURCE_NAMES for s in also):
-                raise ValueError(f"an unknown source {row.source!r}")
-            if not isinstance(row.output_hz, int) or _position(row.lat, row.lon) is None:
-                raise ValueError("a row without a frequency or a position")
+            for source in (row.source, *also):
+                if source not in SOURCE_NAMES:
+                    raise ValueError(f"an unknown source {source!r}")
+            if _position(row.lat, row.lon) is None:
+                raise ValueError("a row without a usable position")
             rows.append(row)
         return Layer(
             name=str(data["layer"]),
@@ -1174,6 +1200,8 @@ class AllSources:
     skipped: tuple[tuple[str, str], ...] = ()
     written: int = 0
     merged: int = 0
+    #: The file, when this rebuild deleted it (fewer than two layers left).
+    removed: Path | None = None
 
 
 def all_sources_name(day: date) -> str:
@@ -1204,9 +1232,13 @@ def rebuild_all(where: Path) -> AllSources:
             skipped.append((layer_id, str(exc)))
     target = where / ALL_SOURCES
     if len(used) < 2:
+        removed = None
         with contextlib.suppress(FileNotFoundError):
             target.unlink()
-        return AllSources(None, layers=tuple(i for i, _ in used), skipped=tuple(skipped))
+            removed = target
+        return AllSources(
+            None, layers=tuple(i for i, _ in used), skipped=tuple(skipped), removed=removed
+        )
     rows, merged = cross_merge(layer.rows for _, layer in used)
     day = min(layer.day for _, layer in used)
     name = all_sources_name(day)

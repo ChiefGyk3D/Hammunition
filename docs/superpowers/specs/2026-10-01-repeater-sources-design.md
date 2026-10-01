@@ -202,7 +202,9 @@ files; `--exported` dates an export only.
   hand list; the regulator or coordinator (ETCC); CC0 (Open Repeater);
   hearham; Brandmeister; OSM. A row joins a kept one when its output Hz is
   equal **and** either its callsign is equal or it lies within 0.02° in
-  latitude and longitude (about 2 km). The kept row keeps its position and
+  latitude and longitude (about 2 km). *Amended in implementation (D-074's
+  rulings): rows of one layer never join each other, and a callsign match
+  counts only within 0.25°; unbounded, it joined two sites 120 km apart.* The kept row keeps its position and
   fields and takes a field it lacks (offset, tone, mode, place) from the
   joining row; its description names every source that listed it. Every
   merge is counted and printed, and in the document. **The APRS layer is

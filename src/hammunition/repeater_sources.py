@@ -612,11 +612,11 @@ def osm_frequency(text: str) -> int | None:
 
 def osm_offset(shift: str, out_hz: int, freq_in: str) -> int | None:
     """``…:repeater:shift`` with its sign (a bare magnitude under 50 is MHz,
-    under 50,000 kHz, else Hz), or the input frequency's difference; None
-    when the shift has no sign, which says how far and not which way."""
+    under 50,000 kHz, else Hz), else the input frequency's difference; None
+    when neither says which way (an unsigned shift says how far only)."""
     first = _first_value(shift)
     match = _UNIT.match(first)
-    if match and first.lstrip()[:1] in "+-" and first.strip():
+    if match and first.lstrip()[:1] in "+-":
         value = float(match.group(1).replace(",", "."))
         unit = (match.group(2) or "").lower()
         if unit:
@@ -624,10 +624,8 @@ def osm_offset(shift: str, out_hz: int, freq_in: str) -> int | None:
         size = abs(value)
         scale = 1_000_000 if size < 50 else 1_000 if size < 50_000 else 1
         return round(value * scale)
-    if not first:
-        entry = osm_frequency(freq_in) if freq_in else None
-        return None if entry is None else entry - out_hz
-    return None
+    entry = osm_frequency(freq_in) if freq_in else None
+    return None if entry is None else entry - out_hz
 
 
 def _scheme(tags: dict[str, str]) -> dict[str, str]:
@@ -749,10 +747,16 @@ def _run(argv: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(argv, capture_output=True, text=True, check=False)
 
 
-def filter_extract(pbf: Path, scratch: Path, *, run: Runner | None = None) -> ParsedInput:
+def filter_extract(
+    pbf: Path, scratch: Path, *, run: Runner | None = None, label: str = "the extract"
+) -> ParsedInput:
     """The repeaters in one region extract: ``osmium tags-filter`` into
-    *scratch*, as the operator, then :func:`read_osm_xml`."""
-    out = scratch / f"{pbf.name}.repeaters.osm"
+    *scratch*, as the operator, then :func:`read_osm_xml`.
+
+    Every message names the extract by *label* (``region extract 2 of 3``),
+    never by its file: a region's name says where the operator is (D-057),
+    and these messages are the kind that get pasted (final review)."""
+    out = scratch / "extract.repeaters.osm"
     argv = [
         "osmium",
         "tags-filter",
@@ -773,17 +777,20 @@ def filter_extract(pbf: Path, scratch: Path, *, run: Runner | None = None) -> Pa
             "`hammunition install osm-navit` installs (or `sudo apt install osmium-tool`)"
         ) from None
     if result.returncode != 0:
+        said = result.stderr.strip().replace(str(pbf), label).replace(pbf.name, label)
+        said = said.replace(pbf.name.removesuffix(".osm.pbf"), label)
         raise RepeaterInputError(
-            f"osmium tags-filter failed on {pbf.name} (exit {result.returncode}): "
-            f"{result.stderr.strip()[:300]}"
+            f"osmium tags-filter failed on {label} (exit {result.returncode}): {said[:300]}"
         )
     try:
         text = out.read_text(encoding="utf-8")
     except OSError as exc:
-        raise RepeaterInputError(f"osmium wrote nothing readable for {pbf.name}: {exc}") from None
+        raise RepeaterInputError(
+            f"osmium wrote nothing readable for {label}: {exc.strerror or 'unreadable'}"
+        ) from None
     finally:
         out.unlink(missing_ok=True)
-    return read_osm_xml(text, pbf)
+    return read_osm_xml(text, Path(label))
 
 
 def installed_extracts(prefix: Path) -> list[tuple[Path, str | None]]:

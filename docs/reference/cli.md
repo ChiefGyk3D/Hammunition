@@ -580,8 +580,13 @@ position and fields, fills an offset, tone, mode or place it lacks, and its
 description names every source that listed it. Rows of one layer never
 join each other. The count is printed (`All sources: N repeaters from
 layers …, M joined across sources`). GPX only: QMapShack and Navit already
-show every layer. A layer imported before D-074 has no `.rows.json` and is
-named as left out until it is imported again.
+show every layer. A layer imported before D-074 has no `.rows.json`, and
+a `.rows.json` with a field of the wrong type is unreadable; either is named
+as left out until it is imported again. When the file cannot be rewritten,
+the layer just imported is still written and registered, the reason is
+printed (`All sources: not rebuilt: …`) and the command exits 1. Every
+`--from-osm` message names an extract by its number (`region extract 2 of
+3`), never by its region.
 
 Before the counts it prints each source's licence text: for a RepeaterBook
 export, "Data courtesy of RepeaterBook.com", personal non-commercial use,

@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import json
 import os
 import re
@@ -166,8 +167,9 @@ def real_fetch(url: str) -> bytes:
     try:
         with director.open(request, timeout=TIMEOUT) as response:
             body: bytes = response.read(LIMIT + 1)
-    except (urllib.error.URLError, OSError) as exc:
-        raise SystemExit(f"could not fetch {url}: {exc}") from None
+    except (urllib.error.URLError, OSError, http.client.HTTPException) as exc:
+        # http.client's own exceptions (a truncated answer) are not OSError.
+        raise SystemExit(f"could not fetch {url}: {exc!r}") from None
     if len(body) > LIMIT:
         raise SystemExit(f"{url} answered with more than {LIMIT} bytes; refused")
     return body
@@ -175,8 +177,11 @@ def real_fetch(url: str) -> bytes:
 
 def _write(path: Path, text: str) -> None:
     temporary = path.with_name(f".{path.name}.tmp")
-    temporary.write_text(text)
-    os.replace(temporary, path)
+    try:
+        temporary.write_text(text)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def main(
