@@ -27,7 +27,7 @@ from enum import StrEnum
 from pathlib import PurePosixPath
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from hammunition.desktop import Desktop
 
@@ -236,6 +236,11 @@ class SourceInstall(Strict):
         default=None,
         description="qmake .pro / cmake subdir. MSHV needs a different one per arch.",
     )
+
+    @field_validator("project_file")
+    @classmethod
+    def _project_file_inside_the_tree(cls, value: str | None) -> str | None:
+        return _project_file_inside(value)
     patches: list[Patch] = Field(default_factory=list)
     build_dir: str | None = None
     autoreconf: bool = Field(
@@ -393,6 +398,17 @@ def _unhashed(lines: Sequence[str]) -> list[str]:
     ]
 
 
+def _project_file_inside(value: str | None) -> str | None:
+    """A ``project_file`` is a path inside the unpacked tree: the cmake path
+    configures ``<tree>/<project_file>`` (D-061, amended 2026-10-02)."""
+    if value is not None and not _inside_tree(value):
+        raise ManifestError(
+            f"project_file must be a relative path inside the source tree, with no '..': "
+            f"{value!r}"
+        )
+    return value
+
+
 def _inside_tree(path: str) -> bool:
     """A relative path with no ``..`` component: it cannot leave the tree."""
     parts = PurePosixPath(path).parts
@@ -510,6 +526,11 @@ class GitInstall(Strict):
         default=None,
         description="qmake .pro / cmake subdir, as for a source build.",
     )
+
+    @field_validator("project_file")
+    @classmethod
+    def _project_file_inside_the_tree(cls, value: str | None) -> str | None:
+        return _project_file_inside(value)
     build_args: list[str] = Field(default_factory=list)
     autoreconf: bool = Field(
         default=False,
