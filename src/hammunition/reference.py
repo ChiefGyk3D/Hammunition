@@ -46,7 +46,16 @@ from typing import Protocol
 from urllib.parse import quote, unquote
 
 from .kiwix import Book
-from .map_page import MAP, REGIONS, MapShelf, landing_section, map_page, regions_json
+from .map_page import (
+    MAP,
+    OVERLAYS,
+    REGIONS,
+    MapShelf,
+    landing_section,
+    map_page,
+    overlays_json,
+    regions_json,
+)
 
 HOST = "127.0.0.1"
 PORT = 8480
@@ -218,6 +227,9 @@ KINDS: dict[str, str] = {
     ".pbf": "application/x-protobuf",
     ".pmtiles": "application/octet-stream",
     ".pdf": "application/pdf",
+    # D-075: the infrastructure overlays and the style's licence notice.
+    ".geojson": "application/geo+json",
+    ".openinframap": "text/plain; charset=utf-8",
 }
 _RANGE = re.compile(r"bytes=(\d{0,19})-(\d{0,19})")
 CHUNK = 1 << 16
@@ -258,6 +270,7 @@ class _Server(http.server.ThreadingHTTPServer):
     forms: dict[str, Path]
     map_page: bytes | None
     regions: bytes
+    overlays: bytes
     files: dict[str, Path]
 
 
@@ -341,6 +354,9 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             if path == REGIONS:
                 self._send(200, self.server.regions, "application/json")
                 return
+            if path == OVERLAYS:
+                self._send(200, self.server.overlays, "application/json")
+                return
             # By its exact installed name only: decoded, then looked up.
             # Nothing is joined to a directory, so no path reaches anything else.
             found = self.server.files.get(unquote(path))
@@ -378,10 +394,12 @@ def make_server(
     server.forms = {f"{FORMS}{quote(p.name)}": p for p in forms}
     server.map_page = None
     server.regions = b"[]\n"
+    server.overlays = b"[]\n"
     server.files = {}
     if map_shelf is not None and map_shelf.ready:
         server.map_page = map_page(position_port=position_port).encode("utf-8")
         server.regions = regions_json(map_shelf)
+        server.overlays = overlays_json(map_shelf)
         server.files = dict(map_shelf.files)
     return server
 

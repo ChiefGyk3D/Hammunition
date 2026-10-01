@@ -10,7 +10,11 @@ installed name and nothing else:
   ``/map/tiles/<slug>.pmtiles``, read by pmtiles.js with HTTP byte ranges;
 * the fixed kit, ``<data>/vector-map-kit/``: MapLibre GL JS, pmtiles.js, the
   OSM Bright style, its sprite and fonts, at ``/map/kit/<path>``;
-* the page at ``/map/`` and the list of regions at ``/map/regions.json``.
+* the page at ``/map/`` and the list of regions at ``/map/regions.json``;
+* the operator's infrastructure layers (D-075), each ``infra-<id>.geojson``
+  in their overlay directory, at ``/map/overlays/<file>``, listed at
+  ``/map/overlays.json``, and the infrastructure style's licence at
+  ``/map/infra-style-licence.txt``.
 
 The page loads nothing from anywhere else. The style as tilemaker ships it
 names a sprite on openmaptiles.github.io and a font and tile server on
@@ -25,9 +29,12 @@ from __future__ import annotations
 
 import html
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 from urllib.parse import quote
+
+from . import map_style
 
 KIT_UNIT = "vector-map-kit"
 TILES_UNIT = "osm-pmtiles"
@@ -35,12 +42,19 @@ MAP = "/map/"
 KIT = "/map/kit/"
 TILES = "/map/tiles/"
 REGIONS = "/map/regions.json"
+OVERLAYS = "/map/overlays.json"
+OVERLAY = "/map/overlays/"
+STYLE_LICENCE = "/map/infra-style-licence.txt"
+#: A GeoJSON larger than this is not offered: the largest layer measured
+#: (Vermont's shelter candidates, 1,801 points) is well under 1 MB.
+OVERLAY_LIMIT = 64 * 1024 * 1024
 #: The credit OpenMapTiles' CC-BY licence and OpenStreetMap's ODbL require on
 #: the map (OSM Bright's LICENSE.md). A test asserts the page carries it.
 CREDIT = "© OpenMapTiles © OpenStreetMap contributors"
 CREDIT_HTML = (
     '<a href="https://openmaptiles.org/">© OpenMapTiles</a> '
-    '<a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>'
+    '<a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a> '
+    f'<a href="/map/infra-style-licence.txt">{map_style.CREDIT}</a>'
 )
 #: The kit's subtrees and files the page reads; nothing else of it is served.
 SERVED: tuple[str, ...] = ("maplibre", "pmtiles/dist", "tilemaker/server/static")
@@ -60,6 +74,17 @@ FONTS = "tilemaker/server/static/fonts"
 
 
 @dataclass(frozen=True)
+class Overlay:
+    """One infrastructure layer's GeoJSON, as the page lists it."""
+
+    layer_id: str
+    name: str
+    licence: str
+    url: str
+    path: Path
+
+
+@dataclass(frozen=True)
 class MapShelf:
     """What the map has to serve: kit files and region maps by URL path,
     percent-decoded (the server decodes a request's path before it looks it
@@ -68,6 +93,7 @@ class MapShelf:
     files: dict[str, Path]
     regions: tuple[str, ...]
     missing: tuple[str, ...]
+    overlays: tuple[Overlay, ...] = field(default=())
 
     @property
     def ready(self) -> bool:
@@ -80,8 +106,43 @@ def _plain_files(root: Path) -> list[Path]:
     return sorted(p for p in root.rglob("*") if p.is_file() and not p.is_symlink())
 
 
-def find_map(data: Path) -> MapShelf:
-    """The kit's page files and the installed region maps under *data*."""
+def find_overlays(where: Path | None) -> tuple[Overlay, ...]:
+    """The infrastructure layers' GeoJSON in *where*, in layer order: each a
+    regular file, not a link, under :data:`OVERLAY_LIMIT`, a FeatureCollection
+    naming itself and its licence. Anything else is left out."""
+    from .infra import LAYERS, layer_files
+
+    if where is None or not where.is_dir() or where.is_symlink():
+        return ()
+    found: list[Overlay] = []
+    for layer_id in LAYERS:
+        path = where / layer_files(layer_id)[3]
+        try:
+            if path.is_symlink() or not path.is_file() or path.stat().st_size > OVERLAY_LIMIT:
+                continue
+            data: Any = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict) or data.get("type") != "FeatureCollection":
+            continue
+        name, licence = data.get("name"), data.get("licence")
+        if not isinstance(name, str) or not isinstance(licence, str):
+            continue
+        found.append(Overlay(layer_id, name, licence, OVERLAY + quote(path.name), path))
+    return tuple(found)
+
+
+def overlays_json(shelf: MapShelf) -> bytes:
+    rows = [
+        {"id": o.layer_id, "name": o.name, "licence": o.licence, "url": o.url}
+        for o in shelf.overlays
+    ]
+    return (json.dumps(rows, ensure_ascii=False) + "\n").encode("utf-8")
+
+
+def find_map(data: Path, overlays: Path | None = None) -> MapShelf:
+    """The kit's page files and the installed region maps under *data*, and
+    the operator's infrastructure layers in *overlays* (D-075)."""
     kit = data / KIT_UNIT
     files: dict[str, Path] = {}
     for sub in SERVED:
@@ -97,10 +158,16 @@ def find_map(data: Path) -> MapShelf:
     )
     for path in tiles:
         files[TILES + path.name] = path
+    layers = find_overlays(overlays)
+    for overlay in layers:
+        files[OVERLAY + overlay.path.name] = overlay.path
+    if map_style.NOTICE.is_file():
+        files[STYLE_LICENCE] = map_style.NOTICE
     return MapShelf(
         files=files,
         regions=tuple(p.name.removesuffix(".pmtiles") for p in tiles),
         missing=missing,
+        overlays=layers,
     )
 
 
@@ -113,6 +180,8 @@ def regions_json(shelf: MapShelf) -> bytes:
 _SCRIPT = """
 import * as maplibregl from '__KIT__maplibre/maplibre-gl.mjs';
 const credit = __CREDIT__;
+const infraLayers = __INFRA_LAYERS__;
+const esc = (s) => { const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; };
 const positionUrl = 'http://127.0.0.1:__POSITION__/position';
 const status = document.getElementById('status');
 const where = document.getElementById('where');
@@ -134,6 +203,7 @@ if (!regions.length) {
   style.sprite = location.origin + '__KIT__sprite';
   style.glyphs = location.origin + '__KIT____FONTS__/{fontstack}/{range}.pbf';
   style.sources = {openmaptiles: {type: 'vector', url: tiles(regions[0].url), attribution: credit}};
+  style.layers = style.layers.concat(infraLayers);
   const map = new maplibregl.Map({container: 'map', style, attributionControl: {compact: false}});
   window.__map = map;
   map.addControl(new maplibregl.NavigationControl());
@@ -148,6 +218,28 @@ if (!regions.length) {
     map.fitBounds([[h.minLon, h.minLat], [h.maxLon, h.maxLat]], {animate: false});
   };
   map.once('load', () => frame(regions[0].url));
+  const overlays = await (await fetch('__OVERLAYS__')).json();
+  const colours = ['#d62728', '#1f77b4', '#2ca02c', '#9467bd', '#ff7f0e', '#8c564b', '#e377c2', '#17becf', '#bcbd22', '#7f7f7f', '#393b79', '#637939', '#843c39'];
+  const shown = document.getElementById('layers');
+  const addOverlays = () => overlays.forEach((o, i) => {
+    const id = 'overlay-' + o.id;
+    map.addSource(id, {type: 'geojson', data: o.url, attribution: esc(o.licence)});
+    map.addLayer({id, type: 'circle', source: id, paint: {
+      'circle-color': colours[i % colours.length], 'circle-radius': 5,
+      'circle-stroke-color': '#fff', 'circle-stroke-width': 1}});
+    const label = document.createElement('label');
+    const box = document.createElement('input');
+    box.type = 'checkbox'; box.checked = true;
+    box.addEventListener('change', () => map.setLayoutProperty(id, 'visibility', box.checked ? 'visible' : 'none'));
+    label.appendChild(box); label.appendChild(document.createTextNode(' ' + o.name + ' '));
+    shown.appendChild(label);
+    map.on('click', id, (e) => {
+      const f = e.features[0];
+      new maplibregl.Popup().setLngLat(f.geometry.coordinates)
+        .setText(f.properties.name + ': ' + f.properties.description).addTo(map);
+    });
+  });
+  if (map.loaded()) addOverlays(); else map.once('load', addOverlays);
   chooser.addEventListener('change', () => {
     map.getSource('openmaptiles').setUrl(tiles(chooser.value));
     frame(chooser.value);
@@ -187,6 +279,8 @@ def map_page(*, position_port: int) -> str:
         .replace("__REGIONS__", REGIONS)
         .replace("__POSITION__", str(position_port))
         .replace("__CREDIT__", json.dumps(CREDIT_HTML))
+        .replace("__INFRA_LAYERS__", json.dumps(map_style.style_layers()))
+        .replace("__OVERLAYS__", OVERLAYS)
     )
     return (
         "\n".join(
@@ -204,7 +298,8 @@ def map_page(*, position_port: int) -> str:
                 '<div id="map"></div>',
                 '<div id="bar"><label>Region <select id="region"></select></label> '
                 '<button id="centre" type="button">Centre on me</button> '
-                '<span id="where">Waiting for a position…</span> <span id="status"></span>',
+                '<span id="where">Waiting for a position…</span> <span id="status"></span> '
+                '<span id="layers"></span>',
                 f"<noscript>{html.escape(CREDIT)}. The map needs JavaScript.</noscript></div>",
                 "<script>window.addEventListener('error',(e)=>{document.body.dataset.error="
                 "String(e.message);document.getElementById('status').textContent='Error: '+e.message;});"

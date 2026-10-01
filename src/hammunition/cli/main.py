@@ -2522,7 +2522,10 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
     except (KiwixError, SystemExit):
         books = {}  # the page still serves every file, named by its file name
     shelf = reference.find_shelf(data_root(DEFAULT_PREFIX), books)
-    map_shelf = find_map(data_root(DEFAULT_PREFIX))  # D-071
+    from hammunition import infra
+
+    # D-071; the operator's infrastructure layers as overlays, D-075.
+    map_shelf = find_map(data_root(DEFAULT_PREFIX), overlays=infra.overlay_dir())
     if shelf.books:
         missing = [t for t in ("kiwix-serve", "kiwix-manage") if shutil.which(t) is None]
         if missing:
