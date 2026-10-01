@@ -1489,11 +1489,20 @@ journalctl -u geoclue | grep -i nmea
 ```
 
 The directory reads `drwxr-s---` with you as owner and `geoclue` as group.
-With the tether running and CoMaps asking, the journal shows `NMEA service
-connected.`; `Connection refused` lines every 5 s mean GeoClue is looking
-for the socket and the tether is not running (it reconnects by itself when
-you start it, with no restart). `hammunition doctor` reports the files, the
-directory and the agent.
+GeoClue's journal shows only failures here: `Failed to connect to NMEA
+service: No such file or directory` (the tether is not running) or `…
+Connection refused` (a tether that crashed left its socket), repeated every
+5 s while something asks for a position. GeoClue reconnects by itself when
+you start the tether, with no restart. Its success line, `NMEA service
+connected.`, is a debug message the stock service does not log. The sign
+that it worked is in the tether's own terminal: `A client on the socket
+connected`. `hammunition doctor` reports the files, the directory and the
+agent.
+
+One thing `doctor` does not read: another drop-in in
+`/etc/geoclue/conf.d/` sorting after `90-` (a `99-something.conf`) that sets
+`nmea-socket` itself wins over ours. `ls /etc/geoclue/conf.d/` shows whether
+there is one.
 
 **Reverse it:** `hammunition hardware unapply`, which deletes both files
 (each only if it starts with Hammunition's header), removes the socket,
@@ -1513,8 +1522,9 @@ field laptop, and owed by the bench:
 
 - the demo agent present in the Plasma session (`busctl --user list`);
 - the real GeoClue, sandboxed as user `geoclue` by its systemd unit,
-  connecting to the socket in `/run`: `NMEA service connected.` in the
-  journal (read from the kernel's rules, which exempt sockets from
+  connecting to the socket in `/run`: the tether's `A client on the socket
+  connected` while CoMaps asks, and no `Failed to connect to NMEA service`
+  in the journal (read from the kernel's rules, which exempt sockets from
   read-only mounts; not seen);
 - CoMaps' dot following the tether, and what it shows with the tether
   stopped;

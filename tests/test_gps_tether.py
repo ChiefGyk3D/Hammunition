@@ -895,6 +895,25 @@ def test_a_path_that_cannot_be_a_socket_is_refused_by_name(
         assert Path(path).read_text() == "theirs", "never removed"
 
 
+def test_a_socket_that_fails_after_bind_is_not_left_behind(
+    short_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review: bind made the file, chmod failed; the file goes with the error."""
+    import os
+
+    from hammunition.gps_tether import listen_unix
+
+    path = str(short_dir / "nmea.sock")
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise PermissionError(1, "Operation not permitted")
+
+    monkeypatch.setattr(os, "chmod", refuse)
+    with pytest.raises(PermissionError):
+        listen_unix(path, group=_my_group(), log=lambda line: None)
+    assert not os.path.lexists(path)
+
+
 def test_a_replaced_socket_is_not_removed_on_close(short_dir: Path) -> None:
     """Only the inode this tether bound is unlinked: a second tether's socket at
     the same path, after this one's was removed, stays."""

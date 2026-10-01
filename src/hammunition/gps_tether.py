@@ -362,6 +362,9 @@ def _clear_stale(path: str) -> None:
         return
     if not stat.S_ISSOCK(st.st_mode):
         raise ValueError(f"--nmea-socket {path}: it exists and is not a socket; it is left alone")
+    # The probe is a real connection: a live tether on the other end logs it as a
+    # client that came and went, and that one line is the price of not removing
+    # a socket somebody is serving.
     probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     probe.settimeout(1)
     try:
@@ -395,13 +398,18 @@ def listen_unix(
         )
     _clear_stale(path)
     listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    bound = False
     try:
         listener.bind(path)
+        bound = True
         os.chmod(path, SOCKET_MODE)
         st = os.lstat(path)
         listener.listen(8)
     except OSError:
         listener.close()
+        if bound:
+            with contextlib.suppress(OSError):
+                os.unlink(path)
         raise
     try:
         wanted: int | None = grp.getgrnam(group).gr_gid

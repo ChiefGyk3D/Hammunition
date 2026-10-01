@@ -3549,6 +3549,8 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             "group, the power-control helper and its polkit action are installed, and "
             "GPS time's grants are in place. Hardware setup is complete."
         )
+        if geo is not None and geo.installed:
+            print("GeoClue already reads the GPS tether's socket (D-069).")
         return EXIT_OK
 
     def build_commands(

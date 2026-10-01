@@ -110,7 +110,10 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   CoMaps is a system app to GeoClue. Measured with Debian's GeoClue in a
   private namespace, not yet on a desktop; the guide's section 17 lists
   what the bench owes. After merge: `hammunition hardware apply`, then log
-  out and back in.
+  out and back in. Where CoMaps is already built, `hammunition install
+  comaps --dry-run` shows whether the two new packages are planned (not
+  checked on a machine with CoMaps at its pin); if they are not,
+  `sudo apt install geoclue-2.0 libqt6positioning6-plugins` adds them.
 
 ## v0.18.0 — 2026-10-01 — the 2026-09 gap analysis: guides, station config for the packet units, GPS time, chrony, Kismet, the HF modems, six apt units, three re-rulings
 

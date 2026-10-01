@@ -274,18 +274,20 @@ def test_the_tether_marker_is_our_dropin_and_nothing_else(geoclue_files: Path) -
 
 
 def test_removal_takes_back_both_files_the_socket_and_the_directory(
-    geoclue_files: Path, tmp_path: Path
+    geoclue_files: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    import shutil
     import socket
+    import tempfile
 
     _install_both()
     _make_dir()
-    # A short real socket path: AF_UNIX allows 107 bytes, tmp_path is longer.
+    # A real socket at a short path: AF_UNIX allows 107 bytes, tmp_path is longer.
+    short_dir = tempfile.mkdtemp(prefix="hg-")
+    monkeypatch.setattr(geoclue, "SOCKET", os.path.join(short_dir, "nmea.sock"))
     sock = socket.socket(socket.AF_UNIX)
-    short = Path(os.path.realpath("/tmp")) / f"hg-{os.getpid()}.sock"
-    sock.bind(str(short))
+    sock.bind(geoclue.SOCKET)
     try:
-        os.link(short, geoclue.SOCKET)  # the same socket inode, at the long path
         removal = plan_geoclue_removal()
         assert removal == GeoClueRemoval(
             dropin_ours=True, tmpfiles_ours=True, socket_present=True, directory_present=True
@@ -300,7 +302,35 @@ def test_removal_takes_back_both_files_the_socket_and_the_directory(
         assert verify_removal(removal) != []
     finally:
         sock.close()
-        short.unlink(missing_ok=True)
+        shutil.rmtree(short_dir, ignore_errors=True)
+
+
+def test_the_directory_goes_only_with_our_tmpfiles_line(geoclue_files: Path) -> None:
+    """Review: a directory at that path with no tmpfiles line of ours is not
+    proved to be ours, and stays."""
+    _make_dir()
+    removal = plan_geoclue_removal()
+    assert removal.directory_present and not removal.tmpfiles_ours
+    assert removal_commands(removal) == []
+    assert verify_removal(removal) == []
+
+
+def test_no_restart_is_asked_of_a_geoclue_that_is_gone(geoclue_files: Path) -> None:
+    """Review: geoclue-2.0 purged, our drop-in left behind: `try-restart` of a
+    unit that no longer exists would fail the unapply after the files went."""
+    _install_both()
+    Path(geoclue.DAEMON).unlink()
+    argv = _argv(removal_commands(plan_geoclue_removal()))
+    assert f"rm -f {geoclue.DROPIN}" in argv
+    assert "systemctl try-restart geoclue" not in argv
+
+
+def test_root_as_the_operator_is_disclosed(
+    geoclue_files: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(geoclue, "_uid", lambda name: 0)
+    text = " ".join(" ".join(disclose(plan_geoclue(ME))).split())
+    assert "the operator here is root" in text and "--user NAME" in text
 
 
 def test_removal_leaves_a_file_someone_else_wrote(geoclue_files: Path) -> None:
@@ -351,7 +381,7 @@ class _Busctl:
         )
 
 
-DEMO_LINE = "org.freedesktop.GeoClue2.DemoAgent 2345 agent chiefgyk3d :1.84 user@1000.service - -\n"
+DEMO_LINE = "org.freedesktop.GeoClue2.DemoAgent 2345 agent op :1.2 user@1000.service - -\n"
 
 
 def test_the_agent_is_read_from_busctl_user_list_and_nothing_else() -> None:

@@ -38,11 +38,12 @@ import os
 import pwd
 import re
 import stat
+import subprocess
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
 
-from hammunition.backends.base import BackendError, Command, CommandRunner, SubprocessRunner
+from hammunition.backends.base import BackendError, Command, CommandRunner
 
 __all__ = [
     "DAEMON",
@@ -210,6 +211,8 @@ def _directory_state(uid: int | None, gid: int | None) -> str:
         st = os.lstat(SOCKET_DIR)
     except FileNotFoundError:
         return "absent"
+    except OSError as exc:
+        return f"unreadable ({exc.strerror or exc})"
     if not stat.S_ISDIR(st.st_mode):
         return NOT_A_DIRECTORY
     wrong: list[str] = []
@@ -314,6 +317,12 @@ def disclose(g: GeoClueGrants) -> list[str]:
     if not g.tmpfiles_current:
         lines.append(f"  {TMPFILES}:")
         lines += [f"    {line}" for line in tmpfiles_content(g.operator).splitlines()]
+    if _uid(g.operator) == 0:
+        lines += _wrap(
+            f"Note: the operator here is root, so {SOCKET_DIR} will be root's, and the "
+            f"tether never runs as root. Run `sudo hammunition hardware apply` from your "
+            f"own account, or pass `--user NAME`, so the directory is yours."
+        )
     lines += _wrap(
         f"`systemd-tmpfiles --create {TMPFILES}` makes {SOCKET_DIR} now ({DIR_MODE:o}, "
         f"{g.operator}:{GROUP}), and systemd makes it at every boot. The tether "
@@ -326,8 +335,10 @@ def disclose(g: GeoClueGrants) -> list[str]:
         lines += _wrap(sentence)
     lines += _wrap(
         f"Inspect: `cat {DROPIN} {TMPFILES}`, `ls -ld {SOCKET_DIR}`, "
-        f'`journalctl -u geoclue | grep -i nmea` ("NMEA service connected." once the '
-        f"tether runs)."
+        f"`journalctl -u geoclue | grep -i nmea` (GeoClue logs only failures there: "
+        f'"Failed to connect to NMEA service" means the tether is not serving the '
+        f'socket). The tether\'s own terminal says "A client on the socket connected" '
+        f"when GeoClue reads it."
     )
     lines += _wrap(
         f"Reverse: `hammunition hardware unapply` deletes both files and the socket, runs "
@@ -418,7 +429,8 @@ class GeoClueRemoval:
     """SOCKET is a socket (a stale one, or a running tether's). Anything else at
     that path is not removed, and ``rmdir`` then fails loudly."""
     directory_present: bool = False
-    """SOCKET_DIR is a real directory, not a symlink."""
+    """SOCKET_DIR is a real directory, not a symlink. It is removed only with our
+    tmpfiles line, the evidence that Hammunition made it."""
 
     @property
     def is_empty(self) -> bool:
@@ -463,7 +475,7 @@ def removal_commands(r: GeoClueRemoval) -> list[Command]:
                 requires_root=True,
             )
         )
-    if r.directory_present:
+    if r.directory_present and r.tmpfiles_ours:
         out.append(
             Command(
                 argv=("rmdir", SOCKET_DIR),
@@ -471,7 +483,7 @@ def removal_commands(r: GeoClueRemoval) -> list[Command]:
                 requires_root=True,
             )
         )
-    if r.dropin_ours:
+    if r.dropin_ours and Path(DAEMON).is_file():
         out.append(
             Command(
                 argv=_RESTART,
@@ -487,7 +499,7 @@ def verify_removal(r: GeoClueRemoval) -> list[str]:
     for path, removed in (
         (DROPIN, r.dropin_ours),
         (TMPFILES, r.tmpfiles_ours),
-        (SOCKET_DIR, r.directory_present),
+        (SOCKET_DIR, r.directory_present and r.tmpfiles_ours),
     ):
         if removed and os.path.lexists(path):
             problems.append(f"{path} is still present")
@@ -513,13 +525,25 @@ def agent_running(runner: CommandRunner | None = None) -> bool | None:
         argv=("busctl", "--user", "list", "--no-pager"),
         description="List the names on this session's bus (read-only)",
     )
-    try:
-        result = (runner or SubprocessRunner()).run(command)
-    except BackendError:
+    if runner is None:
+        # Not through SubprocessRunner: a wedged session bus must not hang
+        # `doctor`, so this one read has a timeout.
+        try:
+            done = subprocess.run(
+                command.argv, capture_output=True, text=True, timeout=5, check=False
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        ok, stdout = done.returncode == 0, done.stdout
+    else:
+        try:
+            result = runner.run(command)
+        except BackendError:
+            return None
+        ok, stdout = result.ok, result.stdout
+    if not ok:
         return None
-    if not result.ok:
-        return None
-    return any(line.split()[:1] == [DEMO_AGENT] for line in result.stdout.splitlines())
+    return any(line.split()[:1] == [DEMO_AGENT] for line in stdout.splitlines())
 
 
 def read_state(

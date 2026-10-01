@@ -1480,9 +1480,10 @@ taken back too (below); nothing else is touched.
   `/etc/geoclue/conf.d/90-hammunition-gps.conf` and
   `/etc/tmpfiles.d/hammunition-gps.conf` only when it starts with
   Hammunition's header, `/run/hammunition-gps/nmea.sock` only when it is a
-  socket, then `rmdir /run/hammunition-gps` (which fails, loudly, if
-  anything else is in it) and `systemctl try-restart geoclue`. Stop the
-  tether first; TCP 10110 keeps serving until you do.
+  socket, then `rmdir /run/hammunition-gps` when the tmpfiles line was ours
+  (it fails, loudly, if anything else is in it) and, while GeoClue is
+  installed, `systemctl try-restart geoclue`. Stop the tether first; TCP
+  10110 keeps serving until you do.
 - **Takes the GPS resume step back (issue #177)**, by content:
   `systemctl disable hammunition-gps-resume.service`, then the unit and
   `/usr/local/libexec/hammunition-gps-resume` are removed, each only when it

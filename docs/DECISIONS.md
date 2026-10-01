@@ -7455,7 +7455,9 @@ headless Qt 6.8.2 client making CoMaps' calls verbatim
 (`createSource("geoclue2")` with `desktopId` `app.comaps.comaps`,
 `AllPositioningMethods`, a 1 s interval). A fake NMEA feed of a fixed
 public position (Montpelier, Vermont) on the socket reached the client
-within milliseconds, with `NMEA service connected.` in GeoClue's log; a
+within milliseconds, with `NMEA service connected.` in GeoClue's log (a
+`g_debug` line, seen because the spike ran GeoClue with
+`G_MESSAGES_DEBUG=all`; the stock service does not log it); a
 stopped feed gave no fix and GeoClue retried every 5 s; a restarted feed was
 picked up with no GeoClue restart; and the same held over Debian's
 **unmodified** `geoclue.conf` plus one drop-in. With no agent, GeoClue held
@@ -7529,7 +7531,15 @@ TCP 10110: only GeoClue's group can open it.
 
 **`doctor`** reports the two files, the directory's mode, owner and group,
 and whether `org.freedesktop.GeoClue2.DemoAgent` is on the session bus
-(`busctl --user list`, read-only, not asked as root). Debian's
+(`busctl --user list`, read-only, with a 5 s timeout, not asked as root).
+It does not read other `conf.d` drop-ins, so a later one that sets
+`nmea-socket` itself would win unseen; the guide says how to look.
+
+**Removal, after the final review.** `unapply` runs `rmdir` only with our
+tmpfiles line present (the evidence the directory is ours), and asks
+`systemctl try-restart geoclue` only while GeoClue's daemon is installed;
+a run whose operator resolves to root says the directory would be root's,
+which the tether, never run as root, could not use. Debian's
 `geoclue-2.0` autostarts that agent on every desktop but GNOME from
 `/etc/xdg/autostart/geoclue-demo-agent.desktop`; it was running on the
 development host's Plasma session.
@@ -7555,9 +7565,14 @@ claimed until recorded there, and no agent added to any desktop to get
 there:
 
 - the demo agent present in the field laptop's Plasma session;
-- the real, sandboxed GeoClue connecting to the socket in `/run`
-  (`NMEA service connected.` in the journal); from the kernel's rules,
-  which exempt sockets from read-only mounts, not seen;
+- the real, sandboxed GeoClue connecting to the socket in `/run`; from the
+  kernel's rules, which exempt sockets from read-only mounts, not seen. The
+  evidence is the tether's `A client on the socket connected` while CoMaps
+  asks, with no `Failed to connect to NMEA service` warning in the journal:
+  `NMEA service connected.`, which the brief named, is `g_debug` in
+  `gclue-nmea-source.c` and Debian's `geoclue.service` does not enable
+  debug output, so `journalctl -u geoclue | grep -i nmea` shows only
+  failures (review, 2026-10-01);
 - CoMaps' dot following the tether, and what it shows with the tether
   stopped;
 - `/run/hammunition-gps` made again after a reboot;
