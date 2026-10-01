@@ -525,7 +525,7 @@ def test_the_fetches_send_a_descriptive_user_agent(
     station: Station, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """data.fcc.gov refused a bare `hammunition` (403) and served this one."""
-    handler = type(
+    handler: type[_Agent] = type(
         "Agent",
         (_Agent,),
         {"bodies": {"/ccl-data.js": sources_test.NWR}, "asked": [], "agents": []},

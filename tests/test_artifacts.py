@@ -246,7 +246,6 @@ def test_open_repeater_is_listed_for_a_mirror_like_any_pinned_data(tmp_path: Pat
     assert entry.url == artifact.url and entry.deferred is None
 
 
-
 @pytest.mark.parametrize(
     ("unit", "name", "licence"),
     [

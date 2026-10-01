@@ -219,7 +219,7 @@ def test_the_move_to_the_archive_is_named_then_followed_with_the_pin_kept(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     manifest = _copy(tmp_path, "eia-860m")
-    block, artifact = _artifact(manifest)
+    _, artifact = _artifact(manifest)
     august = date(2026, 8, 1)
     pinned = b"the pinned bytes"
     manifest.write_text(

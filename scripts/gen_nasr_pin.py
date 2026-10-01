@@ -83,7 +83,9 @@ def checked_body(body: bytes, cycle: date) -> tuple[str, int, int]:
         archive = zipfile.ZipFile(io.BytesIO(body))
         text = archive.read("APT_BASE.csv").decode("utf-8", errors="replace")
     except (zipfile.BadZipFile, KeyError) as exc:
-        raise SystemExit(f"the NASR file is not the APT CSV zip ({exc}). Nothing was written.")
+        raise SystemExit(
+            f"the NASR file is not the APT CSV zip ({exc}). Nothing was written."
+        ) from None
     rows = list(csv.DictReader(io.StringIO(text)))
     cycles = {row.get("EFF_DATE", "").strip() for row in rows}
     want = cycle.strftime("%Y/%m/%d")
