@@ -7814,3 +7814,206 @@ driver; anything with a real receiver (NMEA's offset from UTC, how `delay
 host); `chrony.service` itself, which needs `CAP_SYS_TIME` a rootless
 container lacks; the root `mkdir` step for a missing drop-in directory,
 which is unit-tested only (the container runs wrote as root in-process).
+
+---
+
+## D-074 — Repeater data beyond RepeaterBook: one layer per source, Open Repeater pinned as data, OpenStreetMap filtered from the extracts already here, the ETCC and Brandmeister on request with hotspots dropped, and what the station heard kept apart
+
+**Date:** 2026-10-01. **Status:** proposed (the spike's recommendation,
+approved by the maintainer with three items left to him; implemented on
+branch `repeater-sources`; the maintainer decides it at review).
+**Spec:** `docs/superpowers/specs/2026-10-01-repeater-sources-design.md`.
+**Numbering:** assigned with the task; D-073 is not on this branch.
+**Depends on:** D-064 (the overlays this adds layers to), D-049 (a data
+unit), D-066 (a generated pin), D-070 (the mirror and `artifacts`), D-033
+(an unlicensed source judged on what we do with it), D-035 (a station value
+is the operator's), D-021 (disclose, never adjudicate), D-031 (the input's
+date), D-057 (a region says where the operator is), D-059 (documents).
+**Amends:** D-064: an import now replaces its own layer, not every layer,
+and `remove` takes `--layer`.
+
+### What was measured
+
+The spike of 2026-10-01 (scratchpad, not committed) measured every bulk
+source it could find on three public example areas (Delaware, Vermont,
+Shenandoah), with hearham as the baseline: hearham's bytes changed six rows
+in ten minutes and cannot be pinned. **Open bulk data for the US barely
+exists**: all the sources below together added about one repeater over
+hearham in the three areas (one Brandmeister repeater in Vermont).
+
+- **Open Repeater**: one URL, no key, 241 kB, 461 repeaters, byte-identical
+  over three fetches, "Data licensed under CC0 1.0" and `"license": "CC0"`
+  in the file. Sweden 243, Malaysia 121, India 96, Canada 1, US 0. The
+  only CC0 bulk directory found. Pinned on this branch at sha256
+  `07be1cba…`, 240,723 bytes: the same digest the spike saw, and twice
+  more by `--check`.
+- **OpenStreetMap**: the keys in use are `communication:amateur_radio:*`
+  (925 objects worldwide); the keys guessed beforehand have zero uses. The
+  pinned Delaware extract has none, Vermont's one (a duplicate of hearham's),
+  the whole US 47 by Overpass. The frequency is written as `145350000`,
+  `146.685`, `146685` and `1466100000` (146.61 MHz ×10).
+- **UK ETCC** (`ukrepeater.net/csvcreate_all.php`): 803 rows, 62 kB,
+  identical over three fetches, positions at locator precision, no licence
+  or terms stated, openly offered.
+- **Brandmeister** (`api.brandmeister.network/v2/device`, no key): 31,993
+  devices; 2,857 are 6-digit ids with transmit ≠ receive. The rest are
+  personal ids and simplex hotspots: somebody's house. No terms published.
+- **Direwolf 1.8.1's `-l` log**, measured here by decoding synthetic
+  objects (`gen_packets` into `direwolf -l`): the header is
+  `chan,utime,isotime,source,heard,level,error,dti,name,symbol,latitude,longitude,speed,course,altitude,frequency,offset,tone,system,status,telemetry,comment`,
+  with the frequency (MHz), offset (signed kHz) and tone (Hz) already
+  decoded from the object. The log shows no killed flag.
+- The HEADs for the docs, 2026-10-01: both URLs answered 200, no `ETag`,
+  no length; ETCC `application/csv`, `Cache-Control: max-age=0,no-store`,
+  Brandmeister `application/json`, `no-cache, private`.
+
+### The rule
+
+1. **One layer per source**, each three files plus its rows as data
+   (`.rows.json`) under its own stem in D-064's directory:
+   `export` (D-064's, unchanged names), `open-repeater`, `osm`, `etcc`,
+   `brandmeister`, `aprs-heard`. Each name carries the source, the date and
+   the licence or the status (`unverified`, heard off the air). One command
+   writes one layer and leaves the others.
+   QMapShack's `poiPaths` holds the directory while any layer has a `.poi`;
+   the operator's Navit copy has one textfile map per layer present.
+2. **Open Repeater is a D-049 data unit**, `open-repeater`, `CC0 1.0`, in no
+   profile. Its sha256, size and date are written into the manifest by
+   `scripts/gen_open-repeater-pin.py`; `--check` fetches and compares (the
+   weekly pin review), `--check --offline` runs in the suite. The URL is
+   not dated, so the pin dies whenever the site changes and the install
+   refuses the file by its digest until it is regenerated; a mirror holding
+   the pinned bytes still serves it, and `artifacts` lists it for the
+   Bunker as `open-repeater/open-repeater.json`. `import
+   --from-open-repeater [FILE]` reads the installed file or a downloaded
+   copy; the layer is dated by the newest `last_verified`.
+3. **OpenStreetMap is an explicit `import --from-osm`**, not a converter
+   run with the maps (ruling): conversions run as root inside `install`,
+   this layer is the operator's file, D-057 keeps parsing downloaded data
+   out of root, and the measured yield is close to nothing in the US.
+   `osmium tags-filter` runs as the operator over every installed extract;
+   nothing is downloaded. A bare frequency is tried as MHz, kHz, Hz and Hz
+   ×10 and the first landing in a repeater band is taken (no number lands
+   in a band under two of them); an unsigned shift is noted, not claimed.
+   The document names the extracts' directory with no digest, and skips are
+   numbered in reading order, never by OSM id: a region, a region's digest
+   and an OSM id each say where the operator is.
+4. **ETCC and Brandmeister are fetched on request only**, through D-064's
+   fetch (bounded, HTTPS-only redirects), parsed in memory, marked
+   *unverified* with the observed sha256, carried under D-033, no JSON form.
+   **Brandmeister keeps only a 6-digit id whose transmit and receive
+   differ**; every hotspot is dropped before anything is written, and only
+   the counts are printed. The ETCC's locator precision is in every
+   description.
+5. **Direwolf's log is its own layer**, `Repeaters heard off the air (APRS
+   objects, YYYY-MM-DD)`: rows with `dti` `;` and a frequency in a repeater
+   band, the newest hearing kept, dated by the newest hearing. **Never
+   merged into the directories.** No network and no login.
+6. **The all-sources file**, `repeaters-all.gpx`, is rebuilt after every
+   import, fetch and remove from the directory layers when two or more can
+   be read, and deleted otherwise. Precedence, best first: the operator's
+   export or list; the ETCC; Open Repeater; hearham; Brandmeister; OSM. A
+   row joins a kept row **of another layer** with the same output frequency
+   that is within 0.02°, or has the same callsign and is within 0.25°; the
+   kept row keeps its position and fields, fills an offset, tone, mode or
+   place it lacks, and names every source in its description. Every join is
+   counted and printed. GPX only. A layer without `.rows.json` (written
+   before this) is named as left out.
+7. **D-064's `import FILE...` refuses** an Open Repeater file, an ETCC CSV
+   and a Direwolf log by name, pointing at the route that makes each its own
+   layer; the `--from-*` options exclude each other and files; `--exported`
+   dates an export only.
+8. **Documents.** `repeaters` gains `layer_id` and `all_sources`;
+   `repeaters-removed` gains `layers` and `all_sources`. Fields added within
+   schema 1. Neither carries a callsign, a position, a region or a region's
+   digest.
+
+### Rulings made on the way
+
+- **The spike's cross-source rule was bounded.** As written ("same Hz and
+  either the same callsign or within 0.02°") it joined two rows of one hand
+  list, the same call and frequency 120 km apart, on the first CLI run: the
+  case D-064 measured 1,050 times in hearham alone. Rows of one layer now
+  never join each other (D-064's key already decided them), and a callsign
+  match counts within 0.25° (about 25 km), which still catches a directory
+  that places a repeater at its town.
+- **The generator writes into the manifest**, not a separate pin file: a
+  data artifact carries its sha256 inline (the schema), and a second copy
+  in `catalog/data/` would be duplicated data. It finds each of its three
+  lines exactly once and re-reads the manifest after the write.
+- **The script keeps the name the task gave it**, `gen_open-repeater-pin.py`;
+  ruff and mypy accept the hyphen, and its tests load it by path.
+- **The capability matrix took only this manifest's delta.** The checkout
+  has no probe sweep (`reference/probes/` is gitignored, and the only copy
+  found was older than the committed page). The generator was run with and
+  without the new manifest over that copy, and its difference (one `data`
+  row, `build` +1 per target, 296 manifests) applied to the committed page;
+  the page is otherwise unchanged until the next sweep.
+- **The Direwolf fixtures are Direwolf's own output** for synthetic packets
+  (`tests/fixtures/repeaters/direwolf-packets.txt`), so the columns and
+  units are measured, not recalled.
+- **Open Repeater's layer is dated by its data**, the newest
+  `last_verified`; the installed file's modification time is the install's.
+- **From the final review.** A `.rows.json` is type-checked field by field
+  and a wrong one skipped by name (a string latitude had crashed the merge
+  and `true` was read as 1 Hz). The all-sources rebuild has its own failure
+  path: the layer is written and registered, the view carries `error`, and
+  the command exits 1. Every `--from-osm` message names an extract by its
+  number, never its file, osmium's stderr included. An unsigned OSM shift
+  falls back to `frequency_in` for its direction. A `remove --layer` that
+  leaves one directory layer lists the all-sources file it deleted. The
+  generator catches `http.client`'s exceptions and never leaves its
+  temporary file.
+
+### Not carried, and why
+
+RepeaterBook bulk (written permission needed for bulk extraction,
+mirroring and offline bundling); RadioReference (private viewing only
+without a licence); RFinder (a paid app, no bulk data); the ARRL directory
+(RepeaterBook's data, same terms); FCC ULS (repeaters are not licensed
+individually; records carry a mailing address); RadioID (its terms exclude
+mapping and re-publication; no coordinates); the WIA CSV (all rights
+reserved; no coordinates); repeatermap.de (a token on request only); D-STAR,
+YSF and NXDN lists (personal-use HTML, or internet reflectors without
+coordinates). **ACMA's register** (Australia) is a route named, not built:
+a 67.5 MB daily file whose licence permits derivatives with attribution,
+493 repeaters with positions; a later data unit, with a generated extract
+and a decision on who hosts it.
+
+### Left to the maintainer, not built
+
+Whether the Bunker may hold unverified snapshots of hearham-class data
+(hearham, the ETCC, Brandmeister); writing to the RSGB, the US councils
+and Brandmeister for an explicit licence, the only route to real US gain;
+any APRS-IS capture (aprsc refused `N0CALL` and `NOCALL`, and whether a
+non-callsign login is acceptable is his call).
+
+### What has run
+
+The test suite: every parser against synthetic fixtures, each skip and
+refusal, the four frequency spellings, the hotspot filter, the Direwolf log
+captured from Direwolf, osmium over a synthetic extract built by `osmium
+cat` (skipped where osmium is absent), the cross-source join and its
+bounds, the layers side by side and removed by id, both fetches against a
+loopback server, both documents validated with no private value in either,
+`artifacts` listing the unit, and the generator against a faked fetch, its
+offline check falsified three ways. On the development host: the pin
+generated from openrepeater.org once and checked twice. No GUI was started
+and nothing was installed.
+
+**Owed to the bench:** `install open-repeater` from the publisher and from
+a Bunker; QMapShack listing each layer's `.poi` as its own collection and
+loading `repeaters-all.gpx`; Navit drawing several textfile maps from one
+mapset; a real `fetch-etcc` and `fetch-brandmeister`; `--from-osm` over the
+laptop's own extracts; a day of Direwolf's real log.
+
+**Consequences.** `src/hammunition/repeater_sources.py`; layers, rows
+files and the all-sources file in `src/hammunition/repeaters.py`; the
+import options, two fetch commands and `remove --layer` in
+`src/hammunition/cli/main.py`; the documents in
+`src/hammunition/interface/repeaters.py`;
+`catalog/packages/open-repeater.yaml`; `scripts/gen_open-repeater-pin.py`
+and its weekly CI step; tests `tests/test_repeater_sources.py`,
+`tests/test_repeater_sources_cli.py`, `tests/test_repeater_layers.py`,
+`tests/test_gen_open_repeater_pin.py`; the offline-navigation guide's
+section 13, `docs/guides/lan-mirror.md` and `docs/reference/cli.md`.

@@ -122,3 +122,13 @@ with none given, `kiwix-library` is listed as deferred, *no books
 selected*.
 `docs/reference/cli.md` describes the command and
 `docs/reference/json-interface.md` its `artifacts` document.
+
+Open Repeater's CC0 repeater list (`open-repeater`, **D-074**) is in that
+list like any pinned data, as `open-repeater/open-repeater.json`. A Bunker
+that keeps it is worth more than usual here: Open Repeater's download
+address carries no date, so its file changes whenever the site does and
+the catalog's pin goes stale between regenerations, while the copy the
+Bunker took at the pinned digest still installs. The repeater lists fetched
+on request (hearham, the ETCC, Brandmeister) are not data units and are not
+in the list; whether a Bunker may keep copies of them is the maintainer's
+decision, not yet made.

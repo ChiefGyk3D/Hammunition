@@ -484,7 +484,7 @@ be written (a symbolic link in its place, a generated file with other than
 one enabled mapset). A missing `navit` is a named error, exit 1. There is no
 `--json` form, because it replaces itself with a GUI (D-059).
 
-### `hammunition maps repeaters import FILE... [--exported YYYY-MM-DD]`
+### `hammunition maps repeaters import [FILE...] [--exported YYYY-MM-DD] [--from-open-repeater [FILE] | --from-osm | --from-direwolf-log FILE...]`
 
 Converts your own repeater export into overlays for QMapShack and Navit, on
 this machine, with no network (**D-064**). It reads, recognised from the
@@ -511,7 +511,7 @@ read, and the count is printed. The layer is named
 `Repeaters (own export YYYY-MM-DD, personal use)`, dated by `--exported`,
 else by the oldest file's modification date.
 
-It writes three files into `~/.local/share/hammunition/overlays/repeaters/`
+It writes the layer's files into `~/.local/share/hammunition/overlays/repeaters/`
 (`$XDG_DATA_HOME` honoured; directory 0700, files 0600). Each file is
 written whole under a temporary name and renamed over the old one, so no
 file is ever half-written; an import interrupted between two renames can
@@ -520,10 +520,76 @@ leave new and old files side by side, which the next import replaces and
 `repeaters.gpx` (QMapShack's *File → Load*, a phone, a Garmin unit;
 symbol `Tall Tower`), `repeaters.poi` (a Mapsforge POI collection) and
 `repeaters.navit.txt` (a Navit textfile map, `poi_custom0` with a label and
-Navit's tower icon). Then it adds that directory to `poiPaths` under
-`[Canvas]` in QMapShack's settings, with the same editor and refusals as
-`maps qmapshack`, and writes your Navit copy as `maps navit` does. Each
-import replaces the layer; to combine sources, give every file to one import.
+Navit's tower icon), and `repeaters.rows.json`, the rows as data, which the
+all-sources file is rebuilt from (**D-074**). Then it adds that directory to
+`poiPaths` under `[Canvas]` in QMapShack's settings, with the same editor and
+refusals as `maps qmapshack`, and writes your Navit copy as `maps navit`
+does, with a map for every layer present. Each import replaces its own
+layer and leaves the others; to combine your export files, give every file
+to one import.
+
+**One layer per source (D-074).** An import reads exactly one source and
+writes it as its own layer, under its own file stem in the same directory:
+
+| Option | Layer id | File stem | Layer name |
+|---|---|---|---|
+| `FILE...` (above) | `export` | `repeaters` | `Repeaters (own export …)` or `(hearham …)` |
+| `--from-open-repeater [FILE]` | `open-repeater` | `repeaters-open-repeater` | `Repeaters (Open Repeater YYYY-MM-DD, CC0)` |
+| `--from-osm` | `osm` | `repeaters-osm` | `Repeaters (OpenStreetMap, ODbL, YYYY-MM-DD)` |
+| `--from-direwolf-log FILE...` | `aprs-heard` | `repeaters-aprs-heard` | `Repeaters heard off the air (APRS objects, YYYY-MM-DD)` |
+
+The options exclude each other and `FILE...`; `--exported` dates your own
+export only, and each other source is dated by its own data. An Open
+Repeater file, an ETCC CSV or a Direwolf log given as `FILE` is refused,
+naming the option or command that reads it.
+
+- **`--from-open-repeater`** reads the file the `open-repeater` data unit
+  installs (`/usr/local/share/hammunition/data/open-repeater/open-repeater.json`;
+  refused, naming `hammunition install open-repeater`, when it is not
+  there), or `FILE`, a copy you downloaded from openrepeater.org. An entry
+  without a position, a callsign or a frequency is skipped and counted; an
+  offset under 50 is read as MHz, otherwise kHz (the file holds both). The
+  layer is dated by the newest entry's `last_verified`.
+- **`--from-osm`** filters every region extract installed under
+  `/usr/local/share/hammunition/data/osm-regions/` with `osmium
+  tags-filter` (as you, into a temporary directory; `osmium-tool`, which
+  `osm-navit` installs) and downloads nothing. A repeater is an object
+  tagged `communication:amateur_radio:repeater` (`yes` or a callsign),
+  `communication:amateur_radio=repeater`, or with a
+  `…:repeater:frequency_out`; `communication:ham_radio:*` is read the same.
+  A frequency without a unit is tried as MHz, kHz, Hz and Hz ×10, and the
+  first that lands in a repeater band is taken (all four spellings occur);
+  a shift without a sign is noted, not claimed. A way is placed at the mean
+  of its nodes; a relation is counted and skipped. Dated by the oldest
+  extract's snapshot. The text and the document name the extracts'
+  directory, never a region, and carry no digest.
+- **`--from-direwolf-log`** reads Direwolf's `-l` daily logs or its `-L`
+  file (header measured from Direwolf 1.8.1:
+  `chan,utime,isotime,source,heard,level,error,dti,name,symbol,latitude,longitude,speed,course,altitude,frequency,offset,tone,system,status,telemetry,comment`).
+  Kept: rows whose `dti` is `;` (an APRS object) with a frequency in a
+  repeater band; `offset` is Direwolf's signed kHz, `tone` its Hz. An object
+  heard again merges, the newest hearing kept. Dated by the newest hearing.
+  The log does not say whether an object was killed, so a killed object is
+  shown like a live one. This layer is never part of the all-sources file.
+
+**The all-sources file.** After every import, fetch and remove,
+`repeaters-all.gpx` is rebuilt from the directory layers (every layer but
+`aprs-heard`) when two or more can be read, and deleted otherwise. Rows are
+taken best source first: your export or own list, the RSGB ETCC, Open
+Repeater, hearham, Brandmeister, OpenStreetMap. A row joins a row of
+another layer with the same output frequency that is within 0.02° (about
+2 km), or has the same callsign and is within 0.25°; the first keeps its
+position and fields, fills an offset, tone, mode or place it lacks, and its
+description names every source that listed it. Rows of one layer never
+join each other. The count is printed (`All sources: N repeaters from
+layers …, M joined across sources`). GPX only: QMapShack and Navit already
+show every layer. A layer imported before D-074 has no `.rows.json`, and
+a `.rows.json` with a field of the wrong type is unreadable; either is named
+as left out until it is imported again. When the file cannot be rewritten,
+the layer just imported is still written and registered, the reason is
+printed (`All sources: not rebuilt: …`) and the command exits 1. Every
+`--from-osm` message names an extract by its number (`region extract 2 of
+3`), never by its region.
 
 Before the counts it prints each source's licence text: for a RepeaterBook
 export, "Data courtesy of RepeaterBook.com", personal non-commercial use,
@@ -540,9 +606,10 @@ generated configuration without exactly one enabled mapset); in those last
 two the layer is still written, and the reason named.
 
 With `--json`, prints a `repeaters` document
-([json-interface.md](json-interface.md)): the layer, each file's counts and
-digest, the files written and what each program was told. Like the text, it
-carries no callsign and no position.
+([json-interface.md](json-interface.md)): the layer and its id, each file's
+counts and digest, the files written, what each program was told and the
+all-sources file. Like the text, it carries no callsign, no position and no
+region.
 
 ### `hammunition maps repeaters fetch-hearham`
 
@@ -560,16 +627,54 @@ file of yours; anything but hearham's list is refused, exit 1, and nothing
 is written. There is no `--json` form: the disclosure is for a person to
 read. Nothing is ever fetched from RepeaterBook.
 
-### `hammunition maps repeaters remove`
+### `hammunition maps repeaters fetch-etcc`
 
-Deletes the three layer files, your Navit copy, and the directory when it is
-left empty; anything else you put there stays. It takes the directory out of
-QMapShack's `poiPaths` and changes nothing else in that file. Nothing to
-remove is exit 0; a QMapShack settings file it cannot edit is exit 1, named.
+Fetches the RSGB ETCC's UK repeater list, `https://ukrepeater.net/csvcreate_all.php`
+(about 62 kB, 803 rows on 2026-10-01; answered 200, `application/csv`, no
+`ETag`, `Cache-Control: max-age=0,no-store` when checked the same day), when
+you run it and at no other time, through the same bounded, HTTPS-only fetch
+as `fetch-hearham`, and writes it as the `etcc` layer, named
+`Repeaters (RSGB ETCC YYYY-MM-DD, unverified)` (**D-074**). It prints what it
+is about to fetch first. `txMHz` is read as the repeater's output, `rxMHz`
+minus it as the offset, the `ANALOG`, `DMR`, `DSTAR` and `FUSION` flags as
+the modes. **Positions are at Maidenhead-locator precision**: a
+four-character locator puts the repeater at its square's centre, tens of
+kilometres from the site, and the description says which locator it was.
+ukrepeater.net states no licence; the list is carried under **D-033**,
+fetched on your request, never redistributed, and the sha256 of what
+arrived is printed and recorded. Anything but the ETCC's CSV is refused,
+exit 1, and nothing is written. No `--json` form.
+
+### `hammunition maps repeaters fetch-brandmeister`
+
+Fetches Brandmeister's DMR device list, `https://api.brandmeister.network/v2/device`
+(no key; about 9.5 MB and 31,993 devices on 2026-10-01; answered 200,
+`application/json`, no `ETag` when checked the same day), on request only,
+and writes the `brandmeister` layer, named
+`DMR repeaters (Brandmeister YYYY-MM-DD, unverified)` (**D-074**). It says
+first that **most entries are hotspots, which are personal locations**:
+only a 6-digit id whose transmit and receive frequencies differ is kept
+(2,857 on the day measured); 7- and 9-digit ids and any device whose
+transmit equals its receive are dropped from memory before anything is
+written, and only their counts are printed. `tx` is the output, `rx` minus
+it the offset; the colour code and master are in the description.
+Brandmeister publishes no terms for this API; carried under **D-033**, the
+observed sha256 recorded. No `--json` form.
+
+### `hammunition maps repeaters remove [--layer ID]`
+
+Deletes every layer's files, the all-sources file, your Navit copy, and the
+directory when it is left empty; anything else you put there stays. It
+takes the directory out of QMapShack's `poiPaths` and changes nothing else
+in that file. With `--layer` (`export`, `open-repeater`, `osm`, `etcc`,
+`brandmeister` or `aprs-heard`) it deletes that layer only, rebuilds the
+all-sources file from what is left, and rewrites your Navit copy with the
+layers that remain. Nothing to remove is exit 0; a QMapShack settings file
+it cannot edit is exit 1, named.
 
 With `--json`, prints a `repeaters-removed` document
-([json-interface.md](json-interface.md)): the files deleted and what each
-program was told.
+([json-interface.md](json-interface.md)): the layers asked for, the files
+deleted, what each program was told and the all-sources file.
 
 ### `hammunition reference books`
 

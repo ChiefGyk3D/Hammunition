@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import contextlib
 import csv
+import dataclasses
 import hashlib
 import http.client
 import io
@@ -51,24 +52,37 @@ from typing import Any
 from xml.sax.saxutils import escape
 
 __all__ = [
+    "ALL_SOURCES",
+    "BRANDMEISTER",
+    "DIREWOLF",
+    "ETCC",
     "FILES",
     "HAND",
     "HAND_HEADER",
+    "HEARD_LAYERS",
     "HEARHAM",
     "HEARHAM_URL",
+    "LAYERS",
+    "OPEN_REPEATER",
+    "OSM",
     "REPEATERBOOK_CSV",
     "REPEATERBOOK_GPX",
+    "SUFFIXES",
+    "AllSources",
     "Layer",
     "ParsedInput",
     "Repeater",
     "RepeaterFetchError",
     "RepeaterInputError",
     "Skip",
+    "all_sources_name",
     "export_date",
     "fetch_hearham",
+    "fetch_list",
     "gpx_text",
     "hearham_layer_name",
     "hearham_licence",
+    "layer_files",
     "layer_name",
     "licence_text",
     "merge",
@@ -77,8 +91,11 @@ __all__ = [
     "overlay_dir",
     "overlays_root",
     "parse_exported",
+    "present_layers",
     "read_input",
     "read_inputs",
+    "read_layer_rows",
+    "rebuild_all",
     "remove_layer",
     "write_layer",
     "write_poi",
@@ -89,6 +106,12 @@ REPEATERBOOK_GPX = "repeaterbook-gpx"
 REPEATERBOOK_CSV = "repeaterbook-csv"
 HEARHAM = "hearham-json"
 HAND = "hand-csv"
+# D-074's sources, each read into its own layer (``repeater_sources``).
+OPEN_REPEATER = "open-repeater-json"
+OSM = "osm-extract"
+ETCC = "etcc-csv"
+BRANDMEISTER = "brandmeister-json"
+DIREWOLF = "direwolf-log"
 
 #: The hand-typed CSV's header, exactly (D-064).
 HAND_HEADER = (
@@ -103,8 +126,41 @@ HAND_HEADER = (
     "notes",
 )
 
-#: The files a layer is, in the order they are written and listed.
-FILES = ("repeaters.gpx", "repeaters.poi", "repeaters.navit.txt")
+#: One layer per source (D-074), each under its own stem in the one
+#: directory. ``export`` is D-064's layer: ``import FILE...`` and
+#: ``fetch-hearham`` write it, under D-064's names.
+LAYERS: dict[str, str] = {
+    "export": "repeaters",
+    "open-repeater": "repeaters-open-repeater",
+    "osm": "repeaters-osm",
+    "etcc": "repeaters-etcc",
+    "brandmeister": "repeaters-brandmeister",
+    "aprs-heard": "repeaters-aprs-heard",
+}
+#: What this station heard is evidence, not a directory: never in the
+#: all-sources file.
+HEARD_LAYERS = ("aprs-heard",)
+#: The suffixes of a layer's files: GPX, POI, Navit textfile, and the rows as
+#: data, which is what the all-sources file is rebuilt from.
+SUFFIXES = (".gpx", ".poi", ".navit.txt", ".rows.json")
+#: The directory layers joined, GPX only (D-074).
+ALL_SOURCES = "repeaters-all.gpx"
+
+
+def layer_files(layer_id: str) -> tuple[str, str, str, str]:
+    """The four file names of *layer_id*, in :data:`SUFFIXES` order."""
+    try:
+        stem = LAYERS[layer_id]
+    except KeyError:
+        raise ValueError(
+            f"no repeater layer {layer_id!r}; the layers are {', '.join(LAYERS)}"
+        ) from None
+    gpx, poi, navit, rows = (stem + suffix for suffix in SUFFIXES)
+    return gpx, poi, navit, rows
+
+
+#: The files D-064's layer is, in the order they are written and listed.
+FILES = layer_files("export")
 
 #: hearham.com's whole-world list: unauthenticated JSON, about 9.5 MB and
 #: 22,698 rows on 2026-09-29, no ETag. Tests point this at a loopback server.
@@ -115,6 +171,10 @@ HEARHAM_LIMIT = 64 * 1024 * 1024
 #: CHIRP's image metadata marker, from chirp_common.py (chirp 1:20250530).
 CHIRP_MAGIC = b"\x00\xffchirp\xeeimg\x00\x01"
 CHIRP_CSV_HEAD = ("location", "name", "frequency", "duplex")
+#: The first columns of Direwolf's ``-l`` log and of the ETCC CSV, lower-cased
+#: (both measured, D-074).
+DIREWOLF_HEAD = ("chan", "utime", "isotime")
+ETCC_HEAD = ("call", "band", "chan", "txmhz", "rxmhz")
 
 #: A QMapShack built-in waypoint symbol (the SJJB communications tower), so
 #: nothing is written into QMapShack's own directories.
@@ -130,6 +190,11 @@ SOURCE_NAMES = {
     REPEATERBOOK_CSV: "RepeaterBook export. Data courtesy of RepeaterBook.com",
     HEARHAM: "hearham.com, unverified",
     HAND: "your own list",
+    OPEN_REPEATER: "Open Repeater, CC0",
+    OSM: "OpenStreetMap contributors, ODbL",
+    ETCC: "RSGB ETCC (ukrepeater.net), unverified",
+    BRANDMEISTER: "BrandMeister, unverified",
+    DIREWOLF: "heard off the air by this station (APRS object)",
 }
 
 REPEATERBOOK_TERMS = "repeaterbook.com/about/legal"
@@ -192,6 +257,9 @@ class Repeater:
     status: str = ""
     updated: str = ""
     label: str = ""
+    #: Other sources that list the same machine, best first: set only in the
+    #: all-sources file (D-074), where rows from several layers are joined.
+    also: tuple[str, ...] = ()
 
     def label_text(self) -> str:
         """``N0CALL 146.940``: what the map draws beside the icon."""
@@ -219,6 +287,8 @@ class Repeater:
         if self.notes:
             parts.append(self.notes)
         parts.append(f"Source: {SOURCE_NAMES[self.source]}")
+        if self.also:
+            parts.append("also listed by " + ", ".join(SOURCE_NAMES[s] for s in self.also))
         return "; ".join(parts)
 
 
@@ -501,6 +571,12 @@ def _read_json(path: Path, text: str) -> Parsed:
     def entry(item: object) -> bool:
         return isinstance(item, dict) and wanted <= item.keys()
 
+    if isinstance(data, dict) and data.get("source") == "Open Repeater":
+        raise RepeaterInputError(
+            f"{path}: an Open Repeater file is its own layer (D-074); import it with "
+            f"`hammunition maps repeaters import --from-open-repeater {path}`"
+        )
+
     # One odd entry is skipped and counted; a list with no entry of hearham's
     # shape at all is not hearham's list (review, 2026-09-29).
     if not isinstance(data, list) or not any(entry(item) for item in data):
@@ -566,6 +642,16 @@ def _read_csv(path: Path, text: str) -> Parsed:
         )
     if tuple(names) == HAND_HEADER:
         return _read_hand(reader)
+    if tuple(names[:3]) == DIREWOLF_HEAD:
+        raise RepeaterInputError(
+            f"{path}: a Direwolf log is its own layer, what this station heard (D-074); "
+            f"import it with `hammunition maps repeaters import --from-direwolf-log {path}`"
+        )
+    if tuple(names[:5]) == ETCC_HEAD:
+        raise RepeaterInputError(
+            f"{path}: the RSGB ETCC list is its own layer (D-074); "
+            f"`hammunition maps repeaters fetch-etcc` fetches and converts it"
+        )
     columns = set(names)
     if {"callsign", "frequency", "lat", "long"} <= columns:
         return _read_repeaterbook(reader, names)
@@ -665,12 +751,19 @@ def _read_repeaterbook(reader: Any, names: list[str]) -> Parsed:
 # --- merging and naming ------------------------------------------------------------
 
 
-def _updated(value: str) -> date | None:
+def _updated(value: str) -> datetime | None:
+    """*value* as a naive UTC time to compare by: an ISO date with or without
+    a time (Direwolf's ``isotime``, Brandmeister's ``last_seen``), or a
+    RepeaterBook ``MM/DD/YYYY``."""
     value = value.strip()
     with contextlib.suppress(ValueError):
-        return date.fromisoformat(value[:10])
+        when = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return when.astimezone(UTC).replace(tzinfo=None) if when.tzinfo else when
     with contextlib.suppress(ValueError):
-        return datetime.strptime(value, "%m/%d/%Y").date()
+        day = date.fromisoformat(value[:10])
+        return datetime(day.year, day.month, day.day)
+    with contextlib.suppress(ValueError):
+        return datetime.strptime(value, "%m/%d/%Y")
     return None
 
 
@@ -952,22 +1045,36 @@ def _temporary(where: Path, name: str) -> Path:
     return Path(temporary)
 
 
-def write_layer(where: Path, layer: Layer) -> tuple[Path, ...]:
-    """The three files written into *where*, each to a temporary name and
-    renamed over the old one, mode 0600; returned in :data:`FILES` order."""
-    _own_dir(where)
-    texts = {
-        FILES[0]: gpx_text(layer.name, layer.description, layer.rows),
-        FILES[2]: navit_text(layer.rows),
-    }
+def _rows_text(layer: Layer) -> str:
+    """The layer as data: what the all-sources file is rebuilt from."""
+    return (
+        json.dumps(
+            {
+                "layer": layer.name,
+                "description": layer.description,
+                "day": layer.day.isoformat(),
+                "rows": [{**dataclasses.asdict(row), "also": list(row.also)} for row in layer.rows],
+            },
+            ensure_ascii=False,
+            indent=1,
+        )
+        + "\n"
+    )
+
+
+def _write_staged(where: Path, texts: Mapping[str, str], poi: tuple[str, Layer] | None) -> None:
+    """Each file to a temporary name, then every one renamed into place,
+    mode 0600; on any failure nothing of this write is left."""
     staged: list[tuple[Path, Path]] = []
+    names = [*texts, *([poi[0]] if poi else [])]
     try:
-        for name in FILES:
+        for name in names:
             temporary = _temporary(where, name)
             staged.append((temporary, where / name))
             if name in texts:
                 temporary.write_text(texts[name], encoding="utf-8")
-            else:
+            elif poi is not None:
+                layer = poi[1]
                 temporary.unlink()  # sqlite creates it afresh
                 write_poi(temporary, layer.name, layer.description, layer.day, layer.rows)
             os.chmod(temporary, 0o600)
@@ -978,16 +1085,40 @@ def write_layer(where: Path, layer: Layer) -> tuple[Path, ...]:
             with contextlib.suppress(FileNotFoundError):
                 temporary.unlink()
         raise
-    return tuple(where / name for name in FILES)
 
 
-def remove_layer(where: Path) -> tuple[Path, ...]:
-    """Delete the layer's files and *where* when it is left empty; the files
-    removed, in :data:`FILES` order. Anything else in it stays."""
+def write_layer(where: Path, layer: Layer, layer_id: str = "export") -> tuple[Path, ...]:
+    """*layer_id*'s four files written into *where*, each to a temporary name
+    and renamed over the old one, mode 0600; returned in :data:`SUFFIXES`
+    order. Every other layer's files stay as they are."""
+    names = layer_files(layer_id)
+    _own_dir(where)
+    texts = {
+        names[0]: gpx_text(layer.name, layer.description, layer.rows),
+        names[2]: navit_text(layer.rows),
+        names[3]: _rows_text(layer),
+    }
+    _write_staged(where, texts, (names[1], layer))
+    return tuple(where / name for name in names)
+
+
+def present_layers(where: Path) -> tuple[str, ...]:
+    """The layers whose GPX is in *where*, in :data:`LAYERS` order."""
+    return tuple(i for i in LAYERS if (where / layer_files(i)[0]).is_file())
+
+
+def remove_layer(where: Path, layer_id: str | None = None) -> tuple[Path, ...]:
+    """Delete *layer_id*'s files, or every layer's and the all-sources file
+    when it is None, and *where* when it is left empty; the files removed,
+    each layer in :data:`SUFFIXES` order. Anything else in it stays."""
     if where.is_symlink():
         raise OSError(f"{where} is a symbolic link; left as it is")
+    ids = [layer_id] if layer_id is not None else list(LAYERS)
+    names = [n for i in ids for n in layer_files(i)]
+    if layer_id is None:
+        names.append(ALL_SOURCES)
     removed: list[Path] = []
-    for name in FILES:
+    for name in names:
         path = where / name
         with contextlib.suppress(FileNotFoundError):
             path.unlink()
@@ -995,12 +1126,133 @@ def remove_layer(where: Path) -> tuple[Path, ...]:
     # What an import killed between its writes and its renames leaves.
     with contextlib.suppress(FileNotFoundError):
         for leftover in where.iterdir():
-            if any(leftover.name.startswith(f".{name}.") for name in FILES):
+            if any(leftover.name.startswith(f".{name}.") for name in names):
                 with contextlib.suppress(FileNotFoundError):
                     leftover.unlink()
     with contextlib.suppress(FileNotFoundError, OSError):
         where.rmdir()  # only when empty
     return tuple(removed)
+
+
+_ROW_FIELDS = {f.name for f in dataclasses.fields(Repeater)}
+
+
+def _is_int(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _check_row_types(item: Mapping[str, Any]) -> None:
+    """Every field of a row read back has the type :class:`Repeater` writes,
+    or ValueError naming the field: a string latitude or offset would fail
+    later, inside the merge or the GPX writer, and ``true`` is not 1 Hz
+    (final review, 2026-10-01)."""
+    for name, value in item.items():
+        if name == "output_hz":
+            ok = _is_int(value)
+        elif name == "offset_hz":
+            ok = value is None or _is_int(value)
+        elif name in ("lat", "lon"):
+            ok = _is_int(value) or isinstance(value, float)
+        elif name == "also":
+            ok = isinstance(value, list) and all(isinstance(s, str) for s in value)
+        else:
+            ok = isinstance(value, str)
+        if not ok:
+            raise ValueError(f"field {name} holds {value!r}, not what this writes")
+
+
+def read_layer_rows(path: Path) -> Layer:
+    """A ``.rows.json`` read back, or ValueError naming what is wrong. The
+    operator's own file: read defensively, every field checked."""
+    try:
+        data: Any = json.loads(path.read_text(encoding="utf-8"))
+        rows: list[Repeater] = []
+        for item in data["rows"]:
+            if not isinstance(item, dict) or set(item) - _ROW_FIELDS:
+                raise ValueError("a row with fields this does not write")
+            _check_row_types(item)
+            also = tuple(item.get("also") or ())
+            row = Repeater(**{**item, "also": also})
+            for source in (row.source, *also):
+                if source not in SOURCE_NAMES:
+                    raise ValueError(f"an unknown source {source!r}")
+            if _position(row.lat, row.lon) is None:
+                raise ValueError("a row without a usable position")
+            rows.append(row)
+        return Layer(
+            name=str(data["layer"]),
+            description=str(data["description"]),
+            day=date.fromisoformat(str(data["day"])),
+            rows=tuple(rows),
+        )
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise ValueError(f"{path.name} cannot be read: {exc}") from None
+
+
+@dataclass(frozen=True)
+class AllSources:
+    """What :func:`rebuild_all` did. ``path`` is None when fewer than two
+    directory layers could be read, and the file is then absent."""
+
+    path: Path | None
+    name: str = ""
+    layers: tuple[str, ...] = ()
+    skipped: tuple[tuple[str, str], ...] = ()
+    written: int = 0
+    merged: int = 0
+    #: The file, when this rebuild deleted it (fewer than two layers left).
+    removed: Path | None = None
+
+
+def all_sources_name(day: date) -> str:
+    return f"Repeaters (all sources, {day.isoformat()})"
+
+
+def rebuild_all(where: Path) -> AllSources:
+    """``repeaters-all.gpx``: every directory layer in *where* joined by the
+    cross-source precedence (:func:`hammunition.repeater_sources.cross_merge`),
+    written when two or more can be read and deleted otherwise. Dated by the
+    oldest layer it joins; its description carries every one's licence."""
+    from .repeater_sources import cross_merge
+
+    used: list[tuple[str, Layer]] = []
+    skipped: list[tuple[str, str]] = []
+    for layer_id in present_layers(where):
+        if layer_id in HEARD_LAYERS:
+            continue
+        rows_path = where / layer_files(layer_id)[3]
+        if not rows_path.is_file():
+            skipped.append(
+                (layer_id, "written before D-074 kept its rows as data; re-import it to include it")
+            )
+            continue
+        try:
+            used.append((layer_id, read_layer_rows(rows_path)))
+        except ValueError as exc:
+            skipped.append((layer_id, str(exc)))
+    target = where / ALL_SOURCES
+    if len(used) < 2:
+        removed = None
+        with contextlib.suppress(FileNotFoundError):
+            target.unlink()
+            removed = target
+        return AllSources(
+            None, layers=tuple(i for i, _ in used), skipped=tuple(skipped), removed=removed
+        )
+    rows, merged = cross_merge(layer.rows for _, layer in used)
+    day = min(layer.day for _, layer in used)
+    name = all_sources_name(day)
+    description = " ".join(layer.description for _, layer in used)
+    _own_dir(where)
+    _write_staged(where, {ALL_SOURCES: gpx_text(name, description, rows)}, None)
+    return AllSources(
+        path=target,
+        name=name,
+        layers=tuple(i for i, _ in used),
+        skipped=tuple(skipped),
+        written=len(rows),
+        merged=merged,
+    )
 
 
 # --- hearham -----------------------------------------------------------------------------
@@ -1027,7 +1279,14 @@ class _HttpsOnlyRedirect(urllib.request.HTTPRedirectHandler):
 def fetch_hearham(
     url: str = HEARHAM_URL, *, timeout: float = 60.0, limit: int = HEARHAM_LIMIT
 ) -> tuple[bytes, str, datetime]:
-    """hearham's list as served, its observed sha256 and when it was fetched.
+    """hearham's list as served, its observed sha256 and when it was fetched."""
+    return fetch_list(url, timeout=timeout, limit=limit)
+
+
+def fetch_list(url: str, *, timeout: float = 60.0, limit: int) -> tuple[bytes, str, datetime]:
+    """A list fetched on the operator's request (hearham, D-064; the ETCC
+    and Brandmeister, D-074): the bytes as served, their observed sha256 and
+    when they arrived.
 
     Built from :class:`~urllib.request.OpenerDirector` with only the HTTP
     handlers, so no ``file:`` URL is served; TLS verified by default. Nothing
