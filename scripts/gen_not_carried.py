@@ -72,7 +72,7 @@ RETIRED: dict[str, tuple[str, str]] = {
         "head is 2019-03-17 and every release is a prerelease; a 2024 report "
         "that it no longer builds is unanswered. It still installs from npm "
         "with `--ignore-scripts`, but its serial layer then cannot load "
-        "(\"Could not locate the bindings file\"), and that layer is how it "
+        '("Could not locate the bindings file"), and that layer is how it '
         "reaches a KISS TNC. For keyboard chat over AX.25 use `paracon` "
         "(AGWPE to Direwolf), `linpac` or `qttermtcp`. Signed messages, "
         "chattervox's own feature, are carried by nothing yet.",
