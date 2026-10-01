@@ -54,6 +54,12 @@ CONTOUR_BYTES = 5_500_000
 #: converter to count.
 WARP_FACTOR = 1.0
 WARP_SCRATCH_FACTOR = 1.0
+#: An FSTopo sheet expanded to tiled RGB JPEG with overviews, against its
+#: download (D-068, amended 2026-10-01), and its scratch. Set from the
+#: spike's sheet until Task 10's live sheet measures it.
+FSTOPO_FACTOR = 1.0
+FSTOPO_SCRATCH_FACTOR = 1.0
+FSTOPO_MEASURED = "not yet measured; the download's size assumed"
 #: One tile's contour GeoPackage, removed once rasterised: 97,812,480 bytes
 #: on that tile, the largest a tile is expected to need.
 CONTOUR_SCRATCH_BYTES = 98_000_000
