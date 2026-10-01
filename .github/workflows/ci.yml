@@ -239,6 +239,10 @@ jobs:
       # changed, since that breaks an install. A newer edition is counted, not
       # failed. A listing only (about 273 pages); nothing is downloaded.
       - run: python scripts/gen_ustopo_index.py --check
+      # The 3DEP 1/3-arc-second tile list (D-068, amended 2026-10-01): list the
+      # bucket's current/ prefix (six pages) and fail naming each carried tile
+      # that is gone or whose size or ETag changed. Nothing is downloaded.
+      - run: python scripts/gen_3dep_tiles.py --check
       # The Kiwix book pins (D-066): each pinned file's .meta4 again, about
       # 5 KB a book. Kiwix keeps two dated files per book, so a pin goes about
       # two publications after it is made and this goes red naming it and the

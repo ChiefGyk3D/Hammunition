@@ -1073,6 +1073,40 @@ def test_the_ustopo_index_is_well_formed_offline() -> None:
     assert "well formed" in result.stdout
 
 
+THREEDEP = REPO_ROOT / "catalog" / "data" / "usgs-3dep-tiles.txt"
+
+
+def _threedep_check(*extra: str) -> subprocess.CompletedProcess[str]:
+    before = THREEDEP.stat().st_mtime_ns
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "gen_3dep_tiles.py"), "--check", *extra],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    assert THREEDEP.stat().st_mtime_ns == before, "--check wrote a file"
+    return result
+
+
+def test_the_3dep_tile_list_is_well_formed_offline() -> None:
+    result = _threedep_check("--offline")
+    assert result.returncode == 0, f"{result.stdout}{result.stderr}"
+    assert "well formed" in result.stdout
+
+
+def test_the_3dep_check_lists_the_bucket_and_writes_nothing() -> None:
+    if not _network_reaches("prd-tnm.s3.amazonaws.com"):
+        pytest.skip(
+            "the check lists the prd-tnm bucket's 3DEP 1/3-arc-second prefix (six "
+            "pages); the network is unavailable here (this suite blocks non-loopback "
+            "sockets). The weekly pin-reviews CI job runs it."
+        )
+    result = _threedep_check()
+    assert result.returncode == 0, f"{result.stdout}{result.stderr}"
+    assert "every carried tile" in result.stdout
+
+
 def test_the_ustopo_check_lists_the_bucket_and_writes_nothing() -> None:
     if not _network_reaches("prd-tnm.s3.amazonaws.com"):
         pytest.skip(
