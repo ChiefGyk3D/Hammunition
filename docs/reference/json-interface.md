@@ -3979,6 +3979,7 @@ and a grid square or a map region says where the station is.
 | `map_freshness` | string or null | how often map data is refreshed: yearly, monthly or latest; null means the yearly default applies |
 | `reference_books` | list of string | Kiwix book ids chosen for kiwix-library (D-066); empty when none are chosen |
 | `mirror` | string or null | the LAN mirror the verified fetch tries before the publisher, the same digest checked either way (D-070); null when none is set |
+| `dem_source` | string | where QMapShack's elevation is drawn from: `copernicus` (the default, also when unset) or `3dep`, USGS bare earth (D-068, amended 2026-10-01) |
 
 <details><summary>JSON Schema</summary>
 
@@ -4063,6 +4064,10 @@ and a grid square or a map region says where the station is.
         }
       ],
       "title": "Mirror"
+    },
+    "dem_source": {
+      "title": "Dem Source",
+      "type": "string"
     }
   },
   "required": [
@@ -4074,7 +4079,8 @@ and a grid square or a map region says where the station is.
     "map_regions",
     "map_freshness",
     "reference_books",
-    "mirror"
+    "mirror",
+    "dem_source"
   ],
   "title": "StationDocument",
   "type": "object"

@@ -459,6 +459,7 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             ("map_freshness", args.map_freshness),
             ("reference_books", args.reference_books),
             ("mirror", args.mirror or args.clear_mirror),
+            ("dem_source", args.dem_source),
         )
         if value
     ]
@@ -466,7 +467,7 @@ def cmd_station_set(args: argparse.Namespace) -> int:
         print(
             "error: nothing to set. Pass at least one of --callsign, --grid-square, "
             "--node-alias, --map-regions, --map-freshness, --reference-books, --mirror, "
-            "--clear-mirror.",
+            "--clear-mirror, --dem-source.",
             file=sys.stderr,
         )
         return EXIT_FAILED
@@ -479,6 +480,7 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             map_freshness=args.map_freshness or current.map_freshness,
             reference_books=reference_books,
             mirror=None if args.clear_mirror else (args.mirror or current.mirror),
+            dem_source=args.dem_source or current.dem_source,
         )
     except StationError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -494,6 +496,8 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             print(f"  {field:<14} {', '.join(station.reference_books)}")
         elif field == "mirror":
             print(f"  {field:<14} {station.mirror or '(cleared)'}")
+        elif field == "dem_source":
+            print(f"  {field:<14} {station.elevation}")
         else:
             print(f"  {field:<14} {station.get(field)}")
     return EXIT_OK
@@ -4884,6 +4888,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="a LAN mirror of the data artifacts, tried before the publisher (D-070)",
     )
     mirror_flags.add_argument("--clear-mirror", action="store_true", help="remove the saved mirror")
+    p_station_set.add_argument(
+        "--dem-source",
+        default=None,
+        choices=("copernicus", "3dep"),
+        help="the elevation QMapShack's hillshade and contours are drawn from: copernicus "
+        "(the default, a surface model) or 3dep (USGS bare earth, about 10x larger) (D-068)",
+    )
     p_station_set.add_argument("--user", default=None, help="whose configuration to write")
     p_station_set.set_defaults(func=cmd_station_set)
 

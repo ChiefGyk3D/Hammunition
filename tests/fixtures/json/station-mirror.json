@@ -10,5 +10,6 @@
   "map_regions": [],
   "map_freshness": null,
   "reference_books": [],
-  "mirror": "http://bunker.lan:8080/"
+  "mirror": "http://bunker.lan:8080/",
+  "dem_source": "copernicus"
 }
