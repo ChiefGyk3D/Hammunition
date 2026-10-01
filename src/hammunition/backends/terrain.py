@@ -100,6 +100,18 @@ ELEVATION_SCRATCH_BYTES = 25 * HGT_BYTES
 #: Delaware's square, measured; rounded up.
 BEF_BYTES = 8_000_000
 
+#: SPLAT's terrain for one tile, both files compressed (D-061, amended
+#: 2026-10-02): measured on 2026-10-01 on Death Valley's Copernicus tile,
+#: 5,668,563 bytes at 3600 samples and 867,797 at 1200, 6.54 MB, rounded up.
+#: The output grid is the same whichever provider the tile came from.
+SDF_BYTES = 7_000_000
+#: The most one tile's conversion holds in scratch at once: the one-second
+#: ``.hgt`` (25,934,402 bytes), the text SDF ``srtm2sdf-hd`` writes from it
+#: (57,033,174) and its compressed copy while ``bzip2`` runs, 88.6 MB,
+#: rounded up. Emptied before the next tile.
+SDF_SCRATCH_BYTES = 100_000_000
+SDF_MEASURED = "measured on one tile"
+
 TERRAIN_NOTE = (
     f"QMapShack's maps at {GARMIN_FACTOR}x each download with "
     f"{GARMIN_SCRATCH_FACTOR}x of scratch, the Routino database at {ROUTINO_FACTOR}x "
@@ -111,7 +123,9 @@ TERRAIN_NOTE = (
     f"warped at {WARP_FACTOR}x each download with as much again of scratch, measured "
     f"on one quad; FSTopo sheets converted at {FSTOPO_FACTOR}x each sheet, "
     f"{FSTOPO_MEASURED}; and 3DEP contours at about {human_size(CONTOUR_BYTES_3DEP)} a "
-    f"tile with up to {human_size(CONTOUR_SCRATCH_BYTES_3DEP)} of scratch"
+    f"tile with up to {human_size(CONTOUR_SCRATCH_BYTES_3DEP)} of scratch; and SPLAT's "
+    f"terrain at about {human_size(SDF_BYTES)} a tile with up to "
+    f"{human_size(SDF_SCRATCH_BYTES)} of scratch, {SDF_MEASURED}"
 )
 
 
