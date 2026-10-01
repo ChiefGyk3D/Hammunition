@@ -1232,6 +1232,7 @@ Everything an install will do, section by section as the text prints it.
 | `memberships` | list of [`MembershipLine`](#membershipline) | group membership changes |
 | `consent_gates` | list of [`GateLine`](#gateline) | gates the real run presents |
 | `config_files` | list of [`ConfigLine`](#configline) | configuration written |
+| `user_services` | list of [`UserServiceLine`](#userserviceline) | systemd user services written and enabled (D-073); empty when none |
 | `desktops_read` | [`DesktopsReadView`](#desktopsreadview) or null | present when a unit in the request is for particular desktops and the session files were read (D-060); null otherwise |
 | `deferrals` | list of [`DeferralLine`](#deferralline) | what will NOT happen |
 | `notes` | list of string | the plan's notes |
@@ -1554,6 +1555,24 @@ A configuration file the transaction writes.
 | `append` | boolean | appended to rather than written |
 | `backup_existing` | boolean | an existing file is backed up first |
 | `fills` | list of string | the station values templated into it, by name (callsign, grid_square, ax25_callsign, latitude ...); never the values themselves |
+
+#### `UserServiceLine`
+
+A systemd user service the transaction writes and enables (D-073 §6b).
+
+The command line is rendered with the device serial elided, and the
+station values are named, never quoted — the same privacy split as the
+rest of the plan.
+
+| field | type | meaning |
+|---|---|---|
+| `unit` | string | the catalog unit carrying it |
+| `name` | string | the systemd user unit, without .service |
+| `path` | string | the unit file written, under the operator's ~/.config/systemd/user/ |
+| `exec` | string | the rigctld command line, with the device serial elided |
+| `fills` | list of string | the station values that fed it, by name; never the values |
+| `listen` | string | the loopback address:port it binds, e.g. 127.0.0.1:4532 |
+| `starts_now` | boolean | whether the plan restarts it now (the radio's port is present) |
 
 #### `DesktopsReadView`
 
@@ -2180,6 +2199,13 @@ A unit and files.
           "title": "Config Files",
           "type": "array"
         },
+        "user_services": {
+          "items": {
+            "$ref": "#/$defs/UserServiceLine"
+          },
+          "title": "User Services",
+          "type": "array"
+        },
         "desktops_read": {
           "anyOf": [
             {
@@ -2258,6 +2284,7 @@ A unit and files.
         "memberships",
         "consent_gates",
         "config_files",
+        "user_services",
         "desktops_read",
         "deferrals",
         "notes",
@@ -3303,6 +3330,54 @@ A unit and files.
         "packages"
       ],
       "title": "UnitPackages",
+      "type": "object"
+    },
+    "UserServiceLine": {
+      "additionalProperties": false,
+      "description": "A systemd user service the transaction writes and enables (D-073 §6b).\n\nThe command line is rendered with the device serial elided, and the\nstation values are named, never quoted — the same privacy split as the\nrest of the plan.",
+      "properties": {
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "exec": {
+          "title": "Exec",
+          "type": "string"
+        },
+        "fills": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fills",
+          "type": "array"
+        },
+        "listen": {
+          "title": "Listen",
+          "type": "string"
+        },
+        "starts_now": {
+          "title": "Starts Now",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "unit",
+        "name",
+        "path",
+        "exec",
+        "fills",
+        "listen",
+        "starts_now"
+      ],
+      "title": "UserServiceLine",
       "type": "object"
     }
   },

@@ -56,6 +56,7 @@ from hammunition.manifest.schema import (
     VenvInstall,
 )
 from hammunition.plan import Blocker, InstallPlan, PlannedPackage
+from hammunition.rig import elide_serial
 from hammunition.state import RemovalPlan
 from hammunition.sudo_ticket import KEEPALIVE_INTERVAL, keepalive_wanted
 
@@ -479,6 +480,23 @@ class ConfigLine(Strict):
 
 
 @dataclass(frozen=True)
+class UserServiceLine(Strict):
+    """A systemd user service the transaction writes and enables (D-073 §6b).
+
+    The command line is rendered with the device serial elided, and the
+    station values are named, never quoted — the same privacy split as the
+    rest of the plan."""
+
+    unit: str = described("the catalog unit carrying it")
+    name: str = described("the systemd user unit, without .service")
+    path: str = described("the unit file written, under the operator's ~/.config/systemd/user/")
+    exec: str = described("the rigctld command line, with the device serial elided")
+    fills: tuple[str, ...] = described("the station values that fed it, by name; never the values")
+    listen: str = described("the loopback address:port it binds, e.g. 127.0.0.1:4532")
+    starts_now: bool = described("whether the plan restarts it now (the radio's port is present)")
+
+
+@dataclass(frozen=True)
 class DesktopsReadView(Strict):
     """What the session files said, when a unit in the request is for particular desktops (D-060)."""
 
@@ -575,6 +593,9 @@ class InstallPlanView(Strict):
     memberships: tuple[MembershipLine, ...] = described("group membership changes")
     consent_gates: tuple[GateLine, ...] = described("gates the real run presents")
     config_files: tuple[ConfigLine, ...] = described("configuration written")
+    user_services: tuple[UserServiceLine, ...] = described(
+        "systemd user services written and enabled (D-073); empty when none"
+    )
     desktops_read: DesktopsReadView | None = described(
         "present when a unit in the request is for particular desktops and the session files "
         "were read (D-060); null otherwise"
@@ -1050,6 +1071,18 @@ def build_install_view(
             )
             for unit, config, _body in plan.config_files
         ),
+        user_services=tuple(
+            UserServiceLine(
+                unit="rig-service",
+                name=svc.name,
+                path=f"~/.config/systemd/user/{svc.name}.service",
+                exec=elide_serial(" ".join(svc.exec_argv)),
+                fills=svc.filled_from,
+                listen=", ".join(f"{address}:{port}" for address, port in svc.listens),
+                starts_now=svc.device_path is not None and Path(svc.device_path).exists(),
+            )
+            for svc in plan.user_services
+        ),
         desktops_read=_desktops_read(plan),
         deferrals=tuple(
             DeferralLine(kind=d.kind, subject=d.subject, what=d.what, why=d.why, remedy=d.remedy)
@@ -1255,6 +1288,28 @@ def render_plan_view(view: InstallPlanView, *, target: TargetView) -> list[str]:
             lines.append(
                 f"  {config.path}  ({verb}, mode {config.mode}, {backup})  [{config.unit}]{fills}"
             )
+        lines.append("")
+
+    if view.user_services:
+        lines.append("User services (D-073), run as you, not root:")
+        for svc in view.user_services:
+            lines.append(f"  {svc.unit}: {svc.name}")
+            lines.append(f"    writes   {svc.path}")
+            lines.append(f"    runs     {svc.exec}")
+            lines.append(f"    filled from: {', '.join(svc.fills)}")
+            lines.append(
+                f"    listens  {svc.listen} — any program on this machine can key the "
+                f"transmitter through it; it has no password (rigctld -A is not implemented)"
+            )
+            lines.append("    then     systemctl --user daemon-reload")
+            lines.append(f"             systemctl --user enable {svc.name}.service")
+            if svc.starts_now:
+                lines.append(f"             systemctl --user restart {svc.name}.service")
+            else:
+                lines.append(
+                    f"             (restart deferred: {svc.name} starts when the radio's port appears)"
+                )
+            lines.append(f"    reverse  hammunition uninstall {svc.unit}")
         lines.append("")
 
     if view.desktops_read is not None:

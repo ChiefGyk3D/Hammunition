@@ -68,3 +68,20 @@ def test_check_rig_baud_in_and_out_of_range() -> None:
     assert check_rig_baud(4800, (4800, 38400)) is None
     problem = check_rig_baud(2400, (4800, 38400))
     assert problem is not None and "4800" in problem and "38400" in problem
+
+
+def test_elide_serial_mid_string() -> None:
+    from hammunition.rig import elide_serial
+
+    cmd = "rigctld -r /dev/serial/by-id/usb-Silicon_Labs_CP2105_ABC123-if00-port0 -s 38400"
+    out = elide_serial(cmd)
+    assert "ABC123" not in out
+    assert "…" in out
+    assert "-s 38400" in out  # the rest of the line is untouched
+
+
+def test_elide_serial_at_end() -> None:
+    from hammunition.rig import elide_serial
+
+    out = elide_serial("/dev/serial/by-id/usb-Silicon_Labs_CP2105_ABC123-if00-port0")
+    assert "ABC123" not in out and out.endswith("-if00-port0")

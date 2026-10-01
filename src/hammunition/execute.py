@@ -76,6 +76,7 @@ from hammunition.manifest.schema import (
 from hammunition.paths import OperatorDirError, open_operator_dir, operator_for
 from hammunition.plan import InstallPlan, PlannedPackage
 from hammunition.state import RemovalPlan, TransactionLog
+from hammunition.userservice import HEADER as USER_SERVICE_HEADER
 
 #: One entry in a plan: a process to run, or something the engine does itself.
 #: `--dry-run` prints these and a real run performs them, from the same objects.
@@ -473,6 +474,130 @@ def config_steps(plan: InstallPlan, *, staging_root: Path | None = None) -> list
     return steps
 
 
+def _user_unit_path(home: Path, name: str) -> Path:
+    return home / "systemd" / "user" / f"{name}.service"
+
+
+def _systemctl(machine: str | None, *verb: str) -> tuple[str, ...]:
+    """``systemctl --user …`` as the operator, with ``--machine`` when root is
+    acting for a logged-in operator (D-062, D-073 §6c)."""
+    prefix: tuple[str, ...] = ("systemctl", "--user")
+    if machine is not None:
+        prefix = (*prefix, f"--machine={machine}@.host")
+    return (*prefix, *verb)
+
+
+def user_service_steps(
+    plan: InstallPlan, *, home: Path, machine: str | None = None, staging_root: Path | None = None
+) -> list[Step]:
+    """Write each planned user service into the operator's home, then reload,
+    enable and (when the device is present) restart it.  D-073 §6c.
+
+    The file is written like an operator-home config file: in-process as the
+    operator, or ``write_operator_config`` when root is writing into their home.
+    The ``systemctl --user`` steps are never escalated — the service is the
+    operator's (D-062).
+    """
+    del staging_root  # written in-process, no staging file needed
+    steps: list[Step] = []
+    for svc in plan.user_services:
+        path = _user_unit_path(home, svc.name)
+        operator = operator_for(path)
+        if operator is not None:
+            steps.append(
+                Action(
+                    kind="user_service",
+                    description=f"Write the {svc.name} user service",
+                    detail=f"{path}, mode 0644, written as root and handed to {operator.pw_name}",
+                    perform=partial(
+                        write_operator_config,
+                        path,
+                        svc.unit_body,
+                        0o644,
+                        append=False,
+                        backup=False,
+                        owner=operator.pw_name,
+                    ),
+                )
+            )
+        else:
+            steps.append(
+                Action(
+                    kind="user_service",
+                    description=f"Write the {svc.name} user service",
+                    detail=f"{path}, mode 0644",
+                    perform=partial(
+                        write_config, path, svc.unit_body, 0o644, append=False, backup=False
+                    ),
+                )
+            )
+        steps.append(
+            Command(
+                argv=_systemctl(machine, "daemon-reload"),
+                description="Have systemd read the new user service",
+            )
+        )
+        steps.append(
+            Command(
+                argv=_systemctl(machine, "enable", f"{svc.name}.service"),
+                description=f"Enable {svc.name} so it starts at login",
+            )
+        )
+        if svc.device_path is not None and Path(svc.device_path).exists():
+            steps.append(
+                Command(
+                    argv=_systemctl(machine, "restart", f"{svc.name}.service"),
+                    description=f"Start {svc.name} now (the radio's port is present)",
+                )
+            )
+    return steps
+
+
+def _remove_user_unit_if_ours(path: Path) -> str:
+    """Remove *path* only if it still starts with Hammunition's header; a file
+    the operator rewrote is left and named (D-073 §6d)."""
+    try:
+        text = path.read_text()
+    except FileNotFoundError:
+        return f"{path} was already gone"
+    if not text.startswith(USER_SERVICE_HEADER):
+        return f"left {path}: it no longer starts with Hammunition's header, so it is not ours"
+    path.unlink()
+    return f"removed {path}"
+
+
+def user_service_removal_steps(
+    names: Sequence[str], *, home: Path, machine: str | None = None
+) -> list[Step]:
+    """Disable each named user service and remove its file if it is ours, then
+    reload.  D-073 §6d."""
+    steps: list[Step] = []
+    for name in names:
+        steps.append(
+            Command(
+                argv=_systemctl(machine, "disable", "--now", f"{name}.service"),
+                description=f"Stop and disable {name}",
+            )
+        )
+        path = _user_unit_path(home, name)
+        steps.append(
+            Action(
+                kind="user_service",
+                description=f"Remove the {name} user service if it is ours",
+                detail=f"{path}, only if it still carries Hammunition's header",
+                perform=partial(_remove_user_unit_if_ours, path),
+            )
+        )
+    if names:
+        steps.append(
+            Command(
+                argv=_systemctl(machine, "daemon-reload"),
+                description="Have systemd forget the removed user service",
+            )
+        )
+    return steps
+
+
 def build_dir(
     planned: PlannedPackage,
     *,
@@ -608,6 +733,8 @@ def commands_for(
     config_staging: Path | None = None,
     launcher_bin: Path | None = None,
     launcher_applications: Path | None = None,
+    user_services_home: Path | None = None,
+    user_services_machine: str | None = None,
     skip_builds: frozenset[str] = frozenset(),
 ) -> list[Step]:
     """Every step this plan implies, in the order it will run.
@@ -892,6 +1019,16 @@ def commands_for(
     # package's own postinst cannot overwrite what we put down, and before
     # group membership for the same reason the comment above gives.
     commands.extend(config_steps(plan, staging_root=config_staging))
+
+    # User services after the software and its configuration exist, and only
+    # when the caller supplied the operator's home — a caller that does not
+    # (older tests, bare planning) plans exactly as before (D-073 §6c).
+    if user_services_home is not None and plan.user_services:
+        commands.extend(
+            user_service_steps(
+                plan, home=user_services_home, machine=user_services_machine
+            )
+        )
 
     # Launchers after the software and its configuration exist. Generated
     # only when the caller supplies the per-user directories -- a caller that

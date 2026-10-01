@@ -35,7 +35,7 @@ __all__ = [
 #: any surface but the operator's own screen (D-073 §4). udev composes a by-id
 #: name as usb-<vendor>_<product>_<serial>-if<NN>-port<N>; the serial is the
 #: last underscore-separated field before the -if suffix.
-_BY_ID_SERIAL = re.compile(r"(usb-.+?_)([^_/]+)(-if[0-9a-f]{2}(?:-port[0-9]+)?)$")
+_BY_ID_SERIAL = re.compile(r"(usb-[^\s/]+?_)([^_/\s]+)(-if[0-9a-f]{2}(?:-port[0-9]+)?)")
 
 _HamlibModels = Mapping[int, tuple[int, int]]
 

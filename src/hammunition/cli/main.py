@@ -2692,6 +2692,13 @@ def cmd_install(args: argparse.Namespace) -> int:
         config_staging=builds,
         launcher_bin=user_bin_dir(user or None),
         launcher_applications=applications_dir(user or None),
+        # The operator's XDG config home, where ~/.config/systemd/user/ lives
+        # (D-073 §6c). Under sudo (euid 0) with a known operator, the
+        # systemctl --user steps target their manager with --machine.
+        user_services_home=config_path(user or None).parent,
+        user_services_machine=(
+            user if os.geteuid() == 0 and user and user != "root" else None
+        ),
     )
     # Disclose the log destination in the plan itself, so the file write (and,
     # under sudo, the chown to the operator) is shown before it happens rather
