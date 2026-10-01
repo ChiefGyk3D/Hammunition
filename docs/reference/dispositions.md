@@ -311,7 +311,7 @@ What was measured on 2026-09-30:
   Wiseman": spectrum, waterfall and constellation, receive level with
   warnings, PTT and busy indicators, protocol state, frame log and a
   drive-level slider. So the pin already has it and **no pin bump was
-  needed**. `docs/Commandline_options.md` at the tag documents
+  needed**. Upstream's command-line options page at the tag documents
   `-G`/`--webgui <port>`, by convention 8514; a *negative* port opens a
   developer mode that accepts arbitrary host commands.
 - **Exercised** in a `debian:13` rootless container: 1.0.4.1.3 built with
