@@ -19,7 +19,7 @@ It is the practical choice for keyboard-to-keyboard conversation and store-and-f
 
 ## Before it will work
 
-Rig control via hamlib or flrig, and correctly routed sound-card audio between the radio and the computer.
+Rig control via hamlib or flrig, and correctly routed sound-card audio between the radio and the computer, with the clock within about a second as for FT8. `docs/guides/digital-modes.md` walks through all three; `docs/guides/audio-routing.md` covers the audio path.
 
 ## How it installs
 

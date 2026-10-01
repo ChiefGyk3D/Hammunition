@@ -20,7 +20,7 @@ FT8 is the most-used mode on HF, and this is the reference implementation. It ma
 
 ## Before it will work
 
-Accurate system clock (within about a second), CAT rig control, and audio routed both ways between radio and computer.
+Accurate system clock (within about a second), CAT rig control, and audio routed both ways between radio and computer. All three, and the first FT8 contact, are walked through in `docs/guides/digital-modes.md`; the audio path in `docs/guides/audio-routing.md`.
 
 ## How it installs
 
