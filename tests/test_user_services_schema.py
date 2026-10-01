@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from hammunition.manifest.schema import ManifestError, PackageManifest, UserService
 
-_DOC = {
+_DOC: dict[str, object] = {
     "what_it_does": "Runs one shared rigctld for the station's rig over loopback.",
     "why_you_want_it": "So every program keys through one port instead of fighting for it.",
     "upstream_url": "https://hamlib.github.io/",
@@ -30,7 +30,7 @@ def _manifest(services: list[dict[str, object]]) -> dict[str, object]:
     }
 
 
-_CAT = {
+_CAT: dict[str, object] = {
     "name": "hammunition-rigctld",
     "description": "hamlib rigctld for the station's rig",
     "when_station": {"rig_kind": "cat"},
@@ -87,7 +87,7 @@ def test_a_shell_metacharacter_in_exec_is_refused() -> None:
 
 
 def test_two_entries_one_name_must_have_disjoint_conditions() -> None:
-    ptt = {
+    ptt: dict[str, object] = {
         "name": "hammunition-rigctld",
         "description": "hamlib rigctld keying the PTT-only rig",
         "when_station": {"rig_kind": "ptt_only"},

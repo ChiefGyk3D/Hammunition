@@ -43,7 +43,15 @@ ROUTINO_TRANSLATIONS = "/usr/share/routino/translations.xml"
 # What scripts/path-link.sh links to: a link ending here is ours (D-059).
 ENGINE_LINK_SUFFIX = "/.venv/bin/hammunition"
 
-__all__ = ["Check", "RigStatus", "Status", "rig_checks", "run_checks", "summarize", "writable_or_creatable"]
+__all__ = [
+    "Check",
+    "RigStatus",
+    "Status",
+    "rig_checks",
+    "run_checks",
+    "summarize",
+    "writable_or_creatable",
+]
 
 Status = Literal["ok", "warn", "fail", "info"]
 
@@ -117,11 +125,18 @@ def rig_checks(status: RigStatus | None) -> list[Check]:
     state = status.service_state
     if state == "absent":
         checks.append(
-            Check("rig", "warn", "hammunition-rigctld is not installed", "hammunition install rig-service")
+            Check(
+                "rig",
+                "warn",
+                "hammunition-rigctld is not installed",
+                "hammunition install rig-service",
+            )
         )
     elif state == "disabled":
         checks.append(
-            Check("rig", "warn", "hammunition-rigctld is disabled", "hammunition install rig-service")
+            Check(
+                "rig", "warn", "hammunition-rigctld is disabled", "hammunition install rig-service"
+            )
         )
     elif state == "failed":
         checks.append(
@@ -155,7 +170,9 @@ def rig_checks(status: RigStatus | None) -> list[Check]:
             )
         )
     if status.device_present is False:
-        checks.append(Check("rig", "info", "the rig's device is not present now", "switch the radio on"))
+        checks.append(
+            Check("rig", "info", "the rig's device is not present now", "switch the radio on")
+        )
     if status.linger == "ours":
         checks.append(Check("rig", "info", "linger is on (Hammunition turned it on)"))
     elif status.linger == "theirs":

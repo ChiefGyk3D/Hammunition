@@ -550,7 +550,7 @@ def test_linger_handler_uses_the_plan(monkeypatch: pytest.MonkeyPatch, tmp_path:
     """`linger on` when it is off runs loginctl enable-linger for the caller's
     own account and writes an ours=True record — without touching real systemd."""
     import hammunition.cli.devctl as devctl
-    from hammunition.backends.base import CommandResult
+    from hammunition.backends.base import CommandResult, SubprocessRunner
     from hammunition.hardware import linger as linger_mod
 
     record = tmp_path / "linger.yaml"
@@ -565,7 +565,7 @@ def test_linger_handler_uses_the_plan(monkeypatch: pytest.MonkeyPatch, tmp_path:
         ran.append(command.argv)
         return CommandResult(argv=command.argv, returncode=0, stdout="", stderr="")
 
-    monkeypatch.setattr(devctl.SubprocessRunner, "run", fake_run)
+    monkeypatch.setattr(SubprocessRunner, "run", fake_run)
 
     rc = devctl.main(["linger", "on"])
     assert rc == 0

@@ -17,13 +17,11 @@ cli = importlib.import_module("hammunition.cli.main")
 _BY_ID = "/dev/serial/by-id/usb-Silicon_Labs_CP2105_...-if00-port0"
 
 
-def _run(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *flags: str
-) -> int:
+def _run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *flags: str) -> int:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     monkeypatch.delenv("SUDO_USER", raising=False)
     monkeypatch.setenv("USER", "op")
-    return cli.main(["station", "set", *flags])
+    return int(cli.main(["station", "set", *flags]))
 
 
 def _station(tmp_path: Path) -> object:
@@ -49,7 +47,14 @@ def test_set_a_cat_rig(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
 def test_baud_out_of_range_is_refused(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     rc = _run(
-        monkeypatch, tmp_path, "--rig", "yaesu-ft-991a", "--rig-device", _BY_ID, "--rig-baud", "2400"
+        monkeypatch,
+        tmp_path,
+        "--rig",
+        "yaesu-ft-991a",
+        "--rig-device",
+        _BY_ID,
+        "--rig-baud",
+        "2400",
     )
     assert rc != 0
 
@@ -86,9 +91,7 @@ def test_set_a_ptt_only_rig(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
 
 
 def test_ptt_only_requires_a_line(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    rc = _run(
-        monkeypatch, tmp_path, "--rig", "btech-uv-50pro", "--rig-device", _BY_ID
-    )
+    rc = _run(monkeypatch, tmp_path, "--rig", "btech-uv-50pro", "--rig-device", _BY_ID)
     assert rc != 0
 
 
@@ -131,7 +134,14 @@ def test_unknown_rig_is_refused(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
 
 def test_clear_rig(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _run(
-        monkeypatch, tmp_path, "--rig", "yaesu-ft-991a", "--rig-device", _BY_ID, "--rig-baud", "38400"
+        monkeypatch,
+        tmp_path,
+        "--rig",
+        "yaesu-ft-991a",
+        "--rig-device",
+        _BY_ID,
+        "--rig-baud",
+        "38400",
     )
     rc = _run(monkeypatch, tmp_path, "--clear-rig")
     assert rc == 0

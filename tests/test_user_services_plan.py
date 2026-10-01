@@ -7,7 +7,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from hammunition.manifest.hardware import DeviceManifest
 from hammunition.manifest.load import load_catalog, load_hardware
+from hammunition.manifest.schema import PackageManifest
 from hammunition.station import Station
 from hammunition.userservice import (
     device_unit_name,
@@ -18,11 +20,11 @@ ROOT = Path(__file__).resolve().parent.parent
 _BY_ID = "/dev/serial/by-id/usb-Silicon_Labs_CP2105_...-if00-port0"
 
 
-def _rig_service() -> object:
+def _rig_service() -> PackageManifest:
     return load_catalog(ROOT / "catalog" / "packages")["rig-service"]
 
 
-def _devices() -> dict[str, object]:
+def _devices() -> dict[str, DeviceManifest]:
     _classes, devices = load_hardware(ROOT / "catalog" / "hardware")
     return devices
 

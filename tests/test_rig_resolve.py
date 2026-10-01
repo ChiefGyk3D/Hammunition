@@ -9,13 +9,14 @@ from pathlib import Path
 
 import pytest
 
+from hammunition.manifest.hardware import DeviceManifest
 from hammunition.manifest.load import load_hardware
 from hammunition.rig import RigError, check_rig_baud, resolve_rig
 
 CATALOG = Path(__file__).resolve().parent.parent / "catalog" / "hardware"
 
 
-def _devices() -> dict[str, object]:
+def _devices() -> dict[str, DeviceManifest]:
     _classes, devices = load_hardware(CATALOG)
     return devices
 
@@ -37,9 +38,7 @@ def test_resolve_a_catalogued_ptt_only_rig() -> None:
 
 
 def test_resolve_an_uncatalogued_hamlib_model() -> None:
-    res = resolve_rig(
-        "hamlib:3073", _devices(), model_lister=lambda: {3073: (1200, 115200)}
-    )
+    res = resolve_rig("hamlib:3073", _devices(), model_lister=lambda: {3073: (1200, 115200)})
     assert res.kind == "cat"
     assert res.hamlib_model == 3073
     assert res.baud_range == (1200, 115200)

@@ -8,11 +8,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from hammunition.manifest.load import load_catalog, load_profiles
+from hammunition.manifest.schema import PackageManifest, ProfileManifest
 
 CATALOG = Path(__file__).resolve().parent.parent / "catalog"
 
 
-def _catalog() -> tuple[dict[str, object], dict[str, object]]:
+def _catalog() -> tuple[dict[str, PackageManifest], dict[str, ProfileManifest]]:
     packages = load_catalog(CATALOG / "packages")
     profiles = load_profiles(CATALOG / "profiles", packages)
     return packages, profiles

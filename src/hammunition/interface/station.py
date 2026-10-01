@@ -52,7 +52,9 @@ class StationDocument(Strict):
         "the serial port the rig is reached on — the full by-id path, for the operator's "
         "own screen (the plan, doctor and status elide the serial); null when not set"
     )
-    rig_baud: int | None = described("the CAT serial speed; null when not set or for a PTT-only rig")
+    rig_baud: int | None = described(
+        "the CAT serial speed; null when not set or for a PTT-only rig"
+    )
     rig_ptt_line: str | None = described(
         "for a PTT-only rig: rts, dtr or vox; null for a CAT rig or when not set"
     )

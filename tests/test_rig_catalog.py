@@ -7,14 +7,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.load import load_hardware
 
 CATALOG = Path(__file__).resolve().parent.parent / "catalog" / "hardware"
 
 
-def _load() -> tuple[dict[str, object], dict[str, object]]:
-    classes, devices = load_hardware(CATALOG)
-    return classes, devices
+def _load() -> tuple[dict[str, DeviceClass], dict[str, DeviceManifest]]:
+    return load_hardware(CATALOG)
 
 
 def test_rig_class_carries_dialout_and_the_cp2105() -> None:

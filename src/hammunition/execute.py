@@ -1025,9 +1025,7 @@ def commands_for(
     # (older tests, bare planning) plans exactly as before (D-073 §6c).
     if user_services_home is not None and plan.user_services:
         commands.extend(
-            user_service_steps(
-                plan, home=user_services_home, machine=user_services_machine
-            )
+            user_service_steps(plan, home=user_services_home, machine=user_services_machine)
         )
 
     # Launchers after the software and its configuration exist. Generated

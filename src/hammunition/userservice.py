@@ -230,7 +230,9 @@ def plan_user_services(
             if facts["rig_owner"] == "flrig":
                 notes.append(f"  {manifest.name}: skipped — the station's rig is owned by flrig")
             else:
-                notes.append(f"  {manifest.name}: skipped — the rig is keyed by VOX, nothing to run")
+                notes.append(
+                    f"  {manifest.name}: skipped — the rig is keyed by VOX, nothing to run"
+                )
             continue
         # The needed values are station attributes, checked on the station
         # itself — not the substitution dict, which holds derived names.

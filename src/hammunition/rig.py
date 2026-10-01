@@ -56,9 +56,7 @@ class RigResolution:
     uncatalogued: bool = False
 
 
-def hamlib_models(
-    *, runner: Callable[[list[str]], str] | None = None
-) -> _HamlibModels:
+def hamlib_models(*, runner: Callable[[list[str]], str] | None = None) -> _HamlibModels:
     """Every rig model this machine's hamlib knows, mapped to a baud range.
 
     Reads ``rigctl -l`` (the model numbers) but not each backend's range — the
@@ -117,9 +115,7 @@ def resolve_rig(
     device = devices.get(value)
     rig = getattr(device, "rig", None) if device is not None else None
     if device is None or rig is None:
-        rigs = sorted(
-            name for name, d in devices.items() if getattr(d, "rig", None) is not None
-        )
+        rigs = sorted(name for name, d in devices.items() if getattr(d, "rig", None) is not None)
         raise RigError(
             f"{value!r} is not a rig in the catalog. Catalogued rigs: "
             f"{', '.join(rigs) or '(none)'}. Or give hamlib:<model> for a radio "

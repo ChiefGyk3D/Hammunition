@@ -610,8 +610,7 @@ def _resolve_rig_flags(args: argparse.Namespace, current: Station) -> _RigFlags 
     else:  # ptt_only
         if rig_baud is not None:
             print(
-                "error: --rig-baud is refused for a radio with no CAT — no data crosses "
-                "the line.",
+                "error: --rig-baud is refused for a radio with no CAT — no data crosses the line.",
                 file=sys.stderr,
             )
             return EXIT_FAILED
@@ -2755,9 +2754,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         # (D-073 §6c). Under sudo (euid 0) with a known operator, the
         # systemctl --user steps target their manager with --machine.
         user_services_home=config_path(user or None).parent,
-        user_services_machine=(
-            user if os.geteuid() == 0 and user and user != "root" else None
-        ),
+        user_services_machine=(user if os.geteuid() == 0 and user and user != "root" else None),
     )
     # Disclose the log destination in the plan itself, so the file write (and,
     # under sudo, the chown to the operator) is shown before it happens rather
@@ -3169,7 +3166,9 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
             user_service_removal_steps(
                 user_service_names,
                 home=config_path(uninstall_user or None).parent,
-                machine=(uninstall_user if euid == 0 and uninstall_user not in ("", "root") else None),
+                machine=(
+                    uninstall_user if euid == 0 and uninstall_user not in ("", "root") else None
+                ),
             )
         )
     commands.extend(artifact_removal_steps(plan))
@@ -4550,9 +4549,7 @@ def _gather_rig_status(
     missing = tuple(v for v in needed if getattr(station, v) in (None, "")) if kind else ()
     state = _user_unit_state("hammunition-rigctld")
     answering = _dump_state_answers() if state == "active" else None
-    device_present = (
-        Path(station.rig_device).exists() if station.rig_device is not None else None
-    )
+    device_present = Path(station.rig_device).exists() if station.rig_device is not None else None
     linger = _linger_state_for_doctor(operator(args))
     return RigStatus(
         configured=True,

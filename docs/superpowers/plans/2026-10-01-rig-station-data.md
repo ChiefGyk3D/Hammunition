@@ -50,44 +50,61 @@ import pytest
 
 pytestmark = pytest.mark.skipif(shutil.which("rigctld") is None, reason="hamlib not installed")
 
+
 def _free_port() -> int:
-    s = socket.socket(); s.bind(("127.0.0.1", 0)); p = s.getsockname()[1]; s.close(); return p
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    p = s.getsockname()[1]
+    s.close()
+    return p
+
 
 def _wait(port: int) -> None:
     for _ in range(100):
         try:
-            socket.create_connection(("127.0.0.1", port), timeout=0.2).close(); return
+            socket.create_connection(("127.0.0.1", port), timeout=0.2).close()
+            return
         except OSError:
             time.sleep(0.05)
     raise AssertionError("rigctld never listened")
 
+
 def _talk(port: int, data: bytes, settle: float = 0.5) -> bytes:
     c = socket.create_connection(("127.0.0.1", port), timeout=2)
-    c.sendall(data); time.sleep(settle); c.settimeout(0.3); out = b""
+    c.sendall(data)
+    time.sleep(settle)
+    c.settimeout(0.3)
+    out = b""
     try:
-        while (chunk := c.recv(4096)):
+        while chunk := c.recv(4096):
             out += chunk
     except OSError:
         pass
-    c.close(); return out
+    c.close()
+    return out
+
 
 def test_browser_post_does_not_key_dummy_but_raw_command_does():
     port = _free_port()
     proc = subprocess.Popen(
         ["rigctld", "-m", "1", "-T", "127.0.0.1", "-t", str(port)],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     try:
         _wait(port)
         body = b"T 1\n"
-        req = (b"POST / HTTP/1.1\r\nHost: 127.0.0.1\r\n"
-               b"Content-Type: text/plain\r\nContent-Length: %d\r\n\r\n" % len(body)) + body
+        req = (
+            b"POST / HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+            b"Content-Type: text/plain\r\nContent-Length: %d\r\n\r\n" % len(body)
+        ) + body
         _talk(port, req, settle=1.0)
-        assert _talk(port, b"t\n", 0.3) == b"0\n"      # gate OPEN: POST did not key
-        assert b"RPRT 0" in _talk(port, b"T 1\n", 0.3) # falsification: raw command reaches parser
-        assert _talk(port, b"t\n", 0.3) == b"1\n"       # and keyed
+        assert _talk(port, b"t\n", 0.3) == b"0\n"  # gate OPEN: POST did not key
+        assert b"RPRT 0" in _talk(port, b"T 1\n", 0.3)  # falsification: raw command reaches parser
+        assert _talk(port, b"t\n", 0.3) == b"1\n"  # and keyed
     finally:
-        proc.terminate(); proc.wait()
+        proc.terminate()
+        proc.wait()
 ```
 
 - [ ] **Step 2: Run it.** `nice -n 19 .venv/bin/python -m pytest tests/test_rig_gate.py -q` → PASS (or skipped if no hamlib; on the field laptop hamlib is present, so PASS).
@@ -111,21 +128,43 @@ from hammunition.manifest.hardware import RigBlock
 import pytest
 from pydantic import ValidationError
 
+
 def test_cat_block_loads():
-    rig = RigBlock.model_validate({
-        "hamlib_model": 1035,
-        "cat": {"kind": "usb_cp2105_dual", "interface": "00", "baud": [4800, 38400], "handshake": "hardware"},
-        "audio": "builtin_usb_codec", "ptt": ["cat", "rts"], "ptt_interface": "01",
-    })
+    rig = RigBlock.model_validate(
+        {
+            "hamlib_model": 1035,
+            "cat": {
+                "kind": "usb_cp2105_dual",
+                "interface": "00",
+                "baud": [4800, 38400],
+                "handshake": "hardware",
+            },
+            "audio": "builtin_usb_codec",
+            "ptt": ["cat", "rts"],
+            "ptt_interface": "01",
+        }
+    )
     assert rig.kind == "cat" and rig.hamlib_model == 1035
 
+
 def test_ptt_only_block_loads():
-    rig = RigBlock.model_validate({"ptt_only": {"lines": ["rts", "dtr"], "vox": True}, "audio": "external_interface"})
+    rig = RigBlock.model_validate(
+        {"ptt_only": {"lines": ["rts", "dtr"], "vox": True}, "audio": "external_interface"}
+    )
     assert rig.kind == "ptt_only"
+
 
 def test_cat_and_ptt_only_mutually_exclusive():
     with pytest.raises((ValidationError, ValueError)):
-        RigBlock.model_validate({"hamlib_model": 1035, "cat": {"kind": "usb_cp210x", "baud": [4800, 38400], "handshake": "none"}, "ptt_only": {"lines": ["rts"]}, "audio": "none"})
+        RigBlock.model_validate(
+            {
+                "hamlib_model": 1035,
+                "cat": {"kind": "usb_cp210x", "baud": [4800, 38400], "handshake": "none"},
+                "ptt_only": {"lines": ["rts"]},
+                "audio": "none",
+            }
+        )
+
 
 def test_neither_cat_nor_ptt_only_refused():
     with pytest.raises((ValidationError, ValueError)):
@@ -146,34 +185,54 @@ PttLine = Literal["rts", "dtr"]
 
 class RigCat(Strict):
     """How a CAT radio's control port is reached and driven."""
+
     kind: RigInterfaceKind
-    interface: str | None = Field(default=None, description="Which -ifNN- port is CAT, when the chip has several.")
-    baud: tuple[int, int] = Field(description="The backend's [low, high] serial-speed range, from `rigctl -m N -u`.")
-    factory_baud: int | None = Field(default=None, description="The radio's out-of-box CAT rate; only when read from the radio.")
+    interface: str | None = Field(
+        default=None, description="Which -ifNN- port is CAT, when the chip has several."
+    )
+    baud: tuple[int, int] = Field(
+        description="The backend's [low, high] serial-speed range, from `rigctl -m N -u`."
+    )
+    factory_baud: int | None = Field(
+        default=None, description="The radio's out-of-box CAT rate; only when read from the radio."
+    )
     handshake: Literal["hardware", "software", "none"]
 
     @model_validator(mode="after")
     def _check(self) -> "RigCat":
         lo, hi = self.baud
         if lo <= 0 or hi < lo:
-            raise ManifestError(f"rig cat baud {self.baud} must be [low, high] with 0 < low <= high")
+            raise ManifestError(
+                f"rig cat baud {self.baud} must be [low, high] with 0 < low <= high"
+            )
         return self
 
 
 class RigPttOnly(Strict):
     """A radio with no CAT: the serial control lines that key it."""
-    lines: list[PttLine] = Field(min_length=1, description="Serial control lines an interface can key it by.")
+
+    lines: list[PttLine] = Field(
+        min_length=1, description="Serial control lines an interface can key it by."
+    )
     vox: bool = Field(default=False, description="The radio can key itself on audio instead.")
 
 
 class RigBlock(Strict):
     """What a radio needs from Linux and from hamlib.  D-073."""
-    hamlib_model: int | None = Field(default=None, description="`rigctl -l`; the plan checks the target's hamlib lists it.")
+
+    hamlib_model: int | None = Field(
+        default=None, description="`rigctl -l`; the plan checks the target's hamlib lists it."
+    )
     cat: RigCat | None = None
     ptt_only: RigPttOnly | None = None
     audio: RigAudio
-    ptt: list[RigPtt] = Field(default_factory=list, description="What the radio can be keyed by; the first is the default.")
-    ptt_interface: str | None = Field(default=None, description="The -ifNN- port for RTS/DTR keying, where it differs from CAT.")
+    ptt: list[RigPtt] = Field(
+        default_factory=list,
+        description="What the radio can be keyed by; the first is the default.",
+    )
+    ptt_interface: str | None = Field(
+        default=None, description="The -ifNN- port for RTS/DTR keying, where it differs from CAT."
+    )
 
     @property
     def kind(self) -> Literal["cat", "ptt_only"]:
@@ -183,7 +242,9 @@ class RigBlock(Strict):
     def _exclusive(self) -> "RigBlock":
         is_cat = self.hamlib_model is not None or self.cat is not None
         if is_cat and self.ptt_only is not None:
-            raise ManifestError("a rig has either a hamlib backend and a CAT port, or ptt_only, never both")
+            raise ManifestError(
+                "a rig has either a hamlib backend and a CAT port, or ptt_only, never both"
+            )
         if not is_cat and self.ptt_only is None:
             raise ManifestError("a rig block must declare either hamlib_model+cat or ptt_only")
         if is_cat and (self.hamlib_model is None or self.cat is None):
@@ -271,6 +332,7 @@ class UserService(Strict):
     kind, because those are descriptions the engine does not render and a user
     service lives in one operator's home and needs no root.
     """
+
     name: str
     description: str
     when_station: dict[str, str] = Field(default_factory=dict)
@@ -293,12 +355,14 @@ class UserService(Strict):
         if not SLUG_WITH_DASH.match(self.name):  # reuse an existing name regex; unit file base name
             raise ManifestError(f"user service name {self.name!r} must be a unit-file base name")
         if not self.exec[0].startswith("/"):
-            raise ManifestError(f"user service {self.name!r}: exec[0] {self.exec[0]!r} must be an absolute path")
+            raise ManifestError(
+                f"user service {self.name!r}: exec[0] {self.exec[0]!r} must be an absolute path"
+            )
         for word in self.exec:
             # One argv word: no shell metacharacters and no internal whitespace.
             # {station.*} references are allowed and re-checked after substitution.
             bare = STATION_REF.sub("X", word)
-            if any(c in bare for c in " \t\n;|&$`%<>") :
+            if any(c in bare for c in " \t\n;|&$`%<>"):
                 raise ManifestError(
                     f"user service {self.name!r}: exec element {word!r} is not one argv word; "
                     f"no shell, no whitespace or metacharacters reach the unit file (D-073 §6a)"
