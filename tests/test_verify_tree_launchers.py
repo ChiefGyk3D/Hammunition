@@ -347,6 +347,7 @@ def test_every_catalog_launcher_working_directory_is_under_the_shared_prefix() -
         "ax25-apps": ("axlisten-all",),
         "ax25-tools": ("mheard-stations",),
         "bladerf": ("bladeRF-cli-shell",),
+        "droidstar": ("droidstar-window",),
         "gpa": ("gpa-window",),
         "gpsd": ("gpsctl-device",),
         "gpsd-tools": ("cgps-fix",),

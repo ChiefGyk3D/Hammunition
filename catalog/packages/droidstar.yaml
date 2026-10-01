@@ -1,0 +1,297 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: droidstar
+version: "0+git20260913"
+summary: M17, DMR, D-STAR, Fusion, P25 and NXDN over reflectors, with software vocoders and no radio
+menu_title: Digital voice reflector client (droidstar)
+categories: [digital-voice, echolink-repeaters]
+
+# ADD, 2026-09 gap analysis section B Group 2 and section D item 10. AHRL
+# carried DroidStar until v26e (D-007); this is it back, built from source.
+# Measured 2026-10-01:
+#   - D-032: default branch `main`, head c6a4c54e7c14 committed 2026-09-13
+#     (a merged pull request adding host search); 131 commits; no tags.
+#   - Licence: the tree has no LICENSE file. Every source file of DroidStar's
+#     own carries a GPL-3.0-or-later header (Doug McLain, AD8DP); the
+#     bundled IMBE vocoder is GPL-3.0-or-later (Pavel Yazev), the mbelib
+#     AMBE code ISC, the Codec2 port LGPL-2.1. Per-file grants, so not the
+#     D-033 case.
+#   - Archives (scripts/apt-policy-sweep.sh, seven targets): no target
+#     offers `droidstar`, `dudestar` or `mvoice`. The Qt 6 build dependencies
+#     are offered everywhere, but Ubuntu 24.04 and Mint 22.3 carry Qt 6.4.2,
+#     below the `find_package(Qt6 6.5 REQUIRED ...)` floor in upstream's
+#     CMakeLists, so they get no block. Debian 13 and Parrot carry 6.8.2,
+#     Kali and Ubuntu 26.04 6.10.2.
+#   - The vocoder question the gap report raised: upstream removed its
+#     downloadable vocoder plugin on 2025-10-19 (commit be37092, "Remove
+#     vocoder plugin system"). At this pin nothing executable is fetched at
+#     run time; the software vocoders are compiled in. The one that is not
+#     is the MD-380 firmware vocoder, which upstream's CMakeLists switches on
+#     and which the patch below switches off -- see its description.
+install:
+  - when:
+      distro: [debian, parrot, kali]
+    install:
+      method: git
+      repo: https://github.com/nostar/DroidStar
+      ref: c6a4c54e7c142814d44e1a887982391e99354e5c
+      build_system: cmake
+      # The install rule also runs Qt's deploy script. Into a DESTDIR it
+      # wrote a `qt.conf` into <prefix>/bin on Debian 13, and on Kali and Ubuntu 26.04 (Qt
+      # 6.10) also copied the Qt libraries, libc and the dynamic loader
+      # into <prefix>/lib before exiting non-zero. A qt.conf in /usr/local/bin
+      # is read by every Qt program there, so the executable alone is
+      # installed instead.
+      provides_install_target: false
+      pin_review:
+        last_reviewed: 2026-10-01
+        reviewed_by: hammunition-maintainers
+        basis: own_choice
+        rationale: >-
+          The default branch's head (D-032), c6a4c54, 2026-09-13: the
+          merge of a host-search pull request on top of the 2026-07-26 IAX
+          web-transceiver port fix and the 2026-02 DMR reconnect fixes.
+          Upstream has never tagged. Checked for a distribution to follow
+          and found none: no target archive packages DroidStar, DudeStar
+          or mvoice (2026-10-01 sweep). The unofficial Linux .deb and
+          AppImage builds third parties publish were not measured and are
+          not a distribution's review.
+        cadence_days: 180
+      patches:
+        - file: CMakeLists.txt
+          description: >-
+            Two lines. First, `CorePrivate` leaves the non-iOS
+            find_package: only the Android branch links Qt6::CorePrivate,
+            and Qt before 6.9 has no separate Qt6CorePrivate package, so
+            Debian 13's Qt 6.8 stopped at "Failed to find required Qt
+            component CorePrivate" (measured). Second, the MD-380 vocoder
+            block goes from TRUE to FALSE. It links `md380_vocoder`, a
+            library that, by its own README, runs the Tytera MD-380
+            radio's firmware under emulation to encode AMBE+2, works only
+            on ARM, and has no licence file; no archive packages it. With
+            the block off, DMR, Fusion and NXDN use the mbelib-derived
+            software vocoder compiled into DroidStar instead -- the code
+            path upstream's own `#else` branches take.
+          unified_diff: |
+            --- a/CMakeLists.txt
+            +++ b/CMakeLists.txt
+            @@ -6,7 +6,7 @@
+             if(IOS)
+                 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Multimedia Network Quick QuickControls2)
+             else()
+            -    find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Multimedia Network Quick QuickControls2 SerialPort CorePrivate)
+            +    find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Multimedia Network Quick QuickControls2 SerialPort)
+             endif()
+
+             qt_standard_project_setup(REQUIRES 6.5)
+            @@ -211,7 +211,7 @@
+                 )
+             endif()
+
+            -if(TRUE) # set TRUE for md380_vocoder
+            +if(FALSE) # set TRUE for md380_vocoder
+                 target_compile_definitions(DroidStar PRIVATE
+                     USE_MD380_VOCODER
+                 )
+    build_depends:
+      - build-essential
+      - cmake
+      - patch
+      - qt6-base-dev
+      - qt6-base-private-dev
+      - qt6-multimedia-dev
+      - qt6-declarative-dev
+      - qt6-serialport-dev
+    note: >-
+      Built on 2026-10-01 in a rootless debian:13 container the way this
+      block runs it -- the patch, cmake configure, `cmake --build --parallel
+      2` as an unprivileged user with the build_depends above: exit 0, 74 s
+      wall, 666 MiB peak for the largest process, no compiler warnings. The
+      executable is 1.9 MB and links Qt 6 Core, Gui, Network, Multimedia,
+      Quick, QuickControls2 and SerialPort. The build dependencies and the
+      QML modules below came to 427 packages and about 1.1 GB on a bare
+      debian:13 image. The same build on Kali (Qt 6.10.2) took 84 s and
+      692 MiB.
+  - when:
+      distro: [ubuntu]
+      distro_version: ["26.04"]
+    install:
+      method: git
+      repo: https://github.com/nostar/DroidStar
+      ref: c6a4c54e7c142814d44e1a887982391e99354e5c
+      build_system: cmake
+      # The install rule also runs Qt's deploy script. Into a DESTDIR it
+      # wrote a `qt.conf` into <prefix>/bin on Debian 13, and on Kali and Ubuntu 26.04 (Qt
+      # 6.10) also copied the Qt libraries, libc and the dynamic loader
+      # into <prefix>/lib before exiting non-zero. A qt.conf in /usr/local/bin
+      # is read by every Qt program there, so the executable alone is
+      # installed instead.
+      provides_install_target: false
+      pin_review:
+        last_reviewed: 2026-10-01
+        reviewed_by: hammunition-maintainers
+        basis: own_choice
+        rationale: >-
+          The default branch's head (D-032), c6a4c54, 2026-09-13: the
+          merge of a host-search pull request on top of the 2026-07-26 IAX
+          web-transceiver port fix and the 2026-02 DMR reconnect fixes.
+          Upstream has never tagged. Checked for a distribution to follow
+          and found none: no target archive packages DroidStar, DudeStar
+          or mvoice (2026-10-01 sweep). The unofficial Linux .deb and
+          AppImage builds third parties publish were not measured and are
+          not a distribution's review.
+        cadence_days: 180
+      patches:
+        - file: CMakeLists.txt
+          description: >-
+            Two lines. First, `CorePrivate` leaves the non-iOS
+            find_package: only the Android branch links Qt6::CorePrivate,
+            and Qt before 6.9 has no separate Qt6CorePrivate package, so
+            Debian 13's Qt 6.8 stopped at "Failed to find required Qt
+            component CorePrivate" (measured). Second, the MD-380 vocoder
+            block goes from TRUE to FALSE. It links `md380_vocoder`, a
+            library that, by its own README, runs the Tytera MD-380
+            radio's firmware under emulation to encode AMBE+2, works only
+            on ARM, and has no licence file; no archive packages it. With
+            the block off, DMR, Fusion and NXDN use the mbelib-derived
+            software vocoder compiled into DroidStar instead -- the code
+            path upstream's own `#else` branches take.
+          unified_diff: |
+            --- a/CMakeLists.txt
+            +++ b/CMakeLists.txt
+            @@ -6,7 +6,7 @@
+             if(IOS)
+                 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Multimedia Network Quick QuickControls2)
+             else()
+            -    find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Multimedia Network Quick QuickControls2 SerialPort CorePrivate)
+            +    find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Multimedia Network Quick QuickControls2 SerialPort)
+             endif()
+
+             qt_standard_project_setup(REQUIRES 6.5)
+            @@ -211,7 +211,7 @@
+                 )
+             endif()
+
+            -if(TRUE) # set TRUE for md380_vocoder
+            +if(FALSE) # set TRUE for md380_vocoder
+                 target_compile_definitions(DroidStar PRIVATE
+                     USE_MD380_VOCODER
+                 )
+    build_depends:
+      - build-essential
+      - cmake
+      - patch
+      - qt6-base-dev
+      - qt6-base-private-dev
+      - qt6-multimedia-dev
+      - qt6-declarative-dev
+      - qt6-serialport-dev
+    note: >-
+      Ubuntu 26.04 carries Qt 6.10.2. Ubuntu 24.04 and Linux Mint 22.3 carry
+      Qt 6.4.2, below upstream's 6.5 floor, and have no block.
+      Built the same way in an ubuntu:26.04 container on 2026-10-01: 53 s,
+      679 MiB peak, and it started under a virtual display.
+
+binaries:
+  - produced: DroidStar
+    install_as: droidstar
+
+# The QML modules its interface loads at start, read with QML_IMPORT_TRACE
+# on Debian 13 and mapped to their packages with dpkg -S (2026-10-01). The
+# packages are declared here so what the program needs to run does not
+# rest on what its build happened to pull in.
+depends:
+  - qml6-module-qtqml
+  - qml6-module-qtqml-models
+  - qml6-module-qtqml-workerscript
+  - qml6-module-qtquick
+  - qml6-module-qtquick-controls
+  - qml6-module-qtquick-dialogs
+  - qml6-module-qtquick-templates
+  - qml6-module-qtquick-window
+
+launchers:
+  - name: droidstar-window
+    title: Digital voice reflector client (droidstar)
+    exec: droidstar
+    terminal: false
+
+update:
+  probe:
+    method: none
+  strategy: rebuild
+  cadence_hint: >-
+    No tags. Read the default branch's head (D-032) at each review; upstream
+    commits in bursts, mostly merged pull requests. Rebuild with the patch
+    and check that both patched lines are still in CMakeLists.txt -- if
+    upstream drops CorePrivate or the MD-380 block itself, drop that hunk.
+
+documentation:
+  what_it_does: >-
+    DroidStar connects to digital-voice reflectors and networks over the
+    internet and lets you talk and listen through your computer's
+    microphone and speakers: M17, System Fusion (YSF and FCS), DMR
+    (BrandMeister, TGIF and other servers), P25, NXDN, D-STAR (REF, XRF and
+    DCS reflectors) and AllStar nodes as an IAX2 client. The vocoders that
+    turn speech into each mode's bits are compiled in -- Codec2 for M17, an
+    IMBE coder for P25, an AMBE coder derived from mbelib for DMR, Fusion,
+    NXDN and D-STAR -- so it needs no radio and no vocoder dongle. It can
+    also drive an AMBE USB dongle (ThumbDV, DVstick) for the AMBE modes,
+    and an MMDVM modem as a hotspot or, for M17 and DMR, as a stand-alone
+    transceiver.
+
+    **It transmits.** Pressing TX sends your voice to the reflector or
+    talkgroup, and repeaters and hotspots linked to it put it on the air;
+    with an MMDVM modem attached it keys that modem's radio directly. A
+    licence applies, and DMR servers need a DMR ID registered to your
+    callsign. Installing it transmits nothing; nothing is sent until you
+    connect and press TX.
+  why_you_want_it: >-
+    It is the one program here that speaks every common digital-voice
+    network, M17 included, with no radio. D-007 says M17 support is ours to
+    build: AHRL's two M17 programs are gone (DroidStar left it in v26e and
+    `mvoice` no longer builds on Debian 13), and this gives an M17
+    reflector client today. It is also the way to try DMR or D-STAR before
+    buying a radio for either. `dsdcc` decodes some of the same modes off
+    the air from an SDR, receive only; `qtel` is the EchoLink client.
+  prerequisites: >-
+    A microphone and speakers or a headset, and a network connection. Your
+    callsign in its Settings tab; for DMR, a DMR ID registered to that
+    callsign, and the server's hotspot password if your account has one.
+    For an AMBE dongle or an MMDVM modem, the `dialout` group; upstream's
+    README also asks for ModemManager to be disabled so it leaves the
+    serial port alone.
+  known_problems: >-
+    **The AMBE software vocoder is not DVSI's.** DMR, Fusion, NXDN and
+    D-STAR are AMBE modes; without a hardware dongle DroidStar encodes and
+    decodes them with the mbelib-derived coder in its tree, and how it
+    sounds to other stations against a radio's hardware vocoder has not
+    been measured here. The MD-380 firmware vocoder upstream's build
+    enables is switched off by this build's patch: it runs a radio's
+    firmware, has no licence file and works only on ARM. **Its host lists
+    come over plain HTTP.** At start it downloads the reflector and host
+    lists and the DMR ID database from `www.dudetronics.com` over http,
+    unsigned; they are data, not programs, but a network in the middle can
+    change where a host name points. **Passwords are stored in clear.** The
+    BrandMeister, TGIF and AllStar portal passwords you type go into
+    `~/.config/dudetronics/droidstar.conf` as plain text. Upstream says
+    the software is provided as-is with no support.
+
+    What was measured: built on Debian 13, Kali and Ubuntu 26.04 (Qt 6.8
+    and 6.10), and started under a virtual display on all three; on Debian
+    13 the screenshot shows the main tab with "No AMBE hardware connected",
+    "No MMDVM connected"
+    and "Not Connected to network". On that first start the downloaded
+    lists could not be saved, because the container's home had no
+    `~/.config` and DroidStar creates only its own subdirectory. Not
+    measured: a connection to any reflector, audio in either direction,
+    an AMBE dongle, an MMDVM modem, arm64, or an install through the
+    engine.
+  upstream_url: https://github.com/nostar/DroidStar
+  upstream_support: >-
+    Doug McLain (AD8DP); issues at the URL above, though the README says no
+    support is provided for any build. Licence: GPL-3.0-or-later by its
+    source headers (the repository has no LICENSE file), with the bundled
+    IMBE coder GPL-3.0-or-later, mbelib ISC and Codec2 LGPL-2.1. M17
+    reflectors and protocol: m17project.org.
