@@ -1178,7 +1178,7 @@ A **read-only** health check: is this machine ready, and what is not yet set
 up. It changes nothing, and it is the first thing to run on a fresh machine
 or when something misbehaves — it turns the failures the engine would
 otherwise hit mid-transaction into a report you read up front, each with the
-one command that fixes it. Eighteen checks across four severities:
+one command that fixes it. Nineteen checks across four severities:
 
 - **fail** — the engine cannot work until fixed (not a Debian-family system;
   no catalog). Exits non-zero.
@@ -1198,6 +1198,16 @@ desktop is not known rather than guessing. A machine with no session files
 (a server, a container) is reported as such. Session files that name no
 desktop the catalog knows (COSMIC, Sway) are named as read, so a graphical
 machine is never reported as a server. See `docs/desktops.md`.
+
+The **rig** check (**D-073**) is read-only and never keys the transmitter.
+With no rig set it is information. With one set, it names any value the
+rig's kind still needs (with the `station set` flag), whether the
+`hammunition-rigctld` user service is installed, disabled, failed or active
+(`systemctl --user`), whether `rigctld` answers `\dump_state` on
+`127.0.0.1:4532` (a read; nothing is set and PTT is never touched), whether
+the rig's device is present now, and whether linger is on and whether
+Hammunition turned it on. Whether the running `rigctld`'s arguments match
+the station is not yet compared. See `docs/guides/rig-control.md`.
 
 The **time** and **hardware clock** checks (**D-058**) say what the clock
 follows (the network or the GPS, with ntpd's offset), or that it follows

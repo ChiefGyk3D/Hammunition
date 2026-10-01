@@ -130,6 +130,17 @@ documentation:
     not reversed, and the plan says so); to undo, `rm
     ~/.config/Gpredict/sample.qth`, and gpredict copies its own sample back
     on the next start if no other ground station exists.
+    The second file, written only once the station's rig is set (`hammunition
+    station set --rig … --rig-device …`, D-073), is the radio
+    `~/.config/Gpredict/hwconf/hammunition.rig`: Host localhost, Port 4532,
+    the shared rigctld that `rig-service` runs. Pick it in Edit > Preferences
+    > Interfaces > Radios. Doppler tuning needs CAT, so for a radio with no
+    CAT it tunes nothing, and with `rig_owner: flrig` point a radio of your
+    own at 127.0.0.1:12345 instead. Whether gpredict reads every key this
+    file sets is not yet measured. Same rules as above: yours, mode 0644, an
+    earlier file kept once as `hammunition.rig.hammunition-backup`, inspect
+    with `cat ~/.config/Gpredict/hwconf/hammunition.rig`, and uninstall does
+    not remove it; to undo, `rm ~/.config/Gpredict/hwconf/hammunition.rig`.
   upstream_url: http://gpredict.oz9aec.net/
   upstream_support: >-
     Alexandru Csete, OZ9AEC -- also the author of gqrx. GitHub issues linked

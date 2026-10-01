@@ -29,17 +29,26 @@ from hammunition.plan import _plan_config  # noqa: E402
 from hammunition.station import Station  # noqa: E402
 
 CATALOG = REPO_ROOT / "catalog" / "packages"
-STATION = Station(callsign="N0TST", grid_square="FN31pr", node_alias="TSTND")
+STATION = Station(
+    callsign="N0TST",
+    grid_square="FN31pr",
+    node_alias="TSTND",
+    # D-073: the rig values gpredict's radio file is deferred on. Placeholders.
+    rig="yaesu-ft-991a",
+    rig_device="/dev/serial/by-id/usb-Silicon_Labs_CP2105_...-if00-port0",
+    rig_baud=38400,
+)
 
-#: unit -> the path its block writes. The Q-022 #1 set, less the two whose
-#: measurement said no (linpac, fbb: see their manifests).
-BLOCKS: dict[str, str] = {
-    "direwolf": "/etc/direwolf.conf",
-    "ax25-tools": "/etc/ax25/axports",
-    "gpredict": "~/.config/Gpredict/sample.qth",
-    "tlf": "~/tlf/logcfg.dat",
-    "aprx": "/etc/aprx.conf",
-    "uronode": "/etc/ax25/uronode.conf",
+#: unit -> the paths its block writes. The Q-022 #1 set, less the two whose
+#: measurement said no (linpac, fbb: see their manifests), plus gpredict's
+#: radio file (D-073).
+BLOCKS: dict[str, tuple[str, ...]] = {
+    "direwolf": ("/etc/direwolf.conf",),
+    "ax25-tools": ("/etc/ax25/axports",),
+    "gpredict": ("~/.config/Gpredict/sample.qth", "~/.config/Gpredict/hwconf/hammunition.rig"),
+    "tlf": ("~/tlf/logcfg.dat",),
+    "aprx": ("/etc/aprx.conf",),
+    "uronode": ("/etc/ax25/uronode.conf",),
 }
 
 #: Where a `~/` path lands in these tests: a stand-in operator home.
@@ -66,13 +75,14 @@ def _lines(body: str) -> list[str]:
     return [ln for ln in body.splitlines() if ln.strip() and not ln.lstrip().startswith("#")]
 
 
-@pytest.mark.parametrize(("unit", "path"), sorted(BLOCKS.items()))
+@pytest.mark.parametrize(("unit", "paths"), sorted(BLOCKS.items()))
 def test_the_block_renders_whole_with_placeholders(
-    catalog: dict[str, PackageManifest], unit: str, path: str
+    catalog: dict[str, PackageManifest], unit: str, paths: tuple[str, ...]
 ) -> None:
     rendered = _render(catalog[unit])
-    assert list(rendered) == [_where(path)]
-    assert "{station." not in rendered[_where(path)], "an unsubstituted reference survived"
+    assert sorted(rendered) == sorted(_where(p) for p in paths)
+    for path in paths:
+        assert "{station." not in rendered[_where(path)], "an unsubstituted reference survived"
 
 
 @pytest.mark.parametrize("unit", sorted(BLOCKS))
@@ -102,8 +112,8 @@ def test_the_manifest_says_how_to_inspect_and_reverse(
     """CLAUDE.md: every system modification says what changes, how to inspect
     it and how to reverse it -- and uninstall does not reverse config files."""
     notes = " ".join((catalog[unit].documentation.known_problems or "").split())
-    path = BLOCKS[unit]
-    assert path in notes
+    for path in BLOCKS[unit]:
+        assert path in notes, f"{path} is written but the manifest never says so"
     assert "does not remove it" in notes
     assert "hammunition-backup" in notes
 
