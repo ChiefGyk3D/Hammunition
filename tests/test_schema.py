@@ -385,14 +385,33 @@ def test_shape8_linbpq_declares_station_variables(catalog: Catalog) -> None:
     assert bpq.station_variables == {"callsign", "node_alias", "grid_square"}
 
 
+#: Units whose config files are about the machine, not the operator, and so
+#: carry no station variable. Listed by name, with why, so that a new one is
+#: a reviewed decision rather than a template that forgot `{station.callsign}`.
+STATIONLESS_CONFIG = {
+    # D-072: a GPS reference-clock line for chrony and a gpsd.service drop-in
+    # giving gpsd `-n`. Nothing in either names the operator or the station.
+    "chrony",
+}
+
+
 def test_shape8_no_callsign_is_hardcoded(catalog: Catalog) -> None:
     """Operator identity must be a variable, never a literal in the catalog."""
+    stationless = set()
     for name, manifest in catalog.items():
         for cfg in manifest.config_files:
-            assert "{station." in cfg.template, (
+            if "{station." in cfg.template:
+                continue
+            stationless.add(name)
+            assert name in STATIONLESS_CONFIG, (
                 f"{name}: config template has no station variable — check it is "
-                f"not hardcoding operator-specific data"
+                f"not hardcoding operator-specific data, and list it in "
+                f"STATIONLESS_CONFIG with why if it genuinely has none"
             )
+    assert stationless == STATIONLESS_CONFIG, (
+        f"STATIONLESS_CONFIG names {sorted(STATIONLESS_CONFIG - stationless)}, "
+        f"which no longer write a file without a station variable; drop them"
+    )
 
 
 def test_shape8_config_files_are_backed_up(catalog: Catalog) -> None:

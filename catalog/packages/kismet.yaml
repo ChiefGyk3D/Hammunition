@@ -1,0 +1,273 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: kismet
+version: "2025.09.R1"
+summary: Wireless network and device detector, sniffer and logger for Wi-Fi, Bluetooth and SDR sources
+menu_title: Wi-Fi, Bluetooth and SDR device detector (kismet)
+categories: [wifi, bluetooth, capture-analysis]
+
+# Q-022 #4 (gap analysis 2026-09 §A7), ruled yes: apt on Kali and Parrot,
+# Kismet's own repository elsewhere. Every claim below was measured on
+# 2026-09-30; the measurements are summarised here and in the pull request.
+#
+# ARCHIVES (scripts/apt-policy-sweep.sh, one container per target):
+#   kali-rolling    kismet 2025.09.R1-0kali3
+#   parrot          kismet 2025.09.R1-0parrot1
+#   debian-13, debian-13 arm64, ubuntu-24.04, ubuntu-26.04, linuxmint-22.3:
+#                   no candidate for kismet, kismet-core or any capture helper
+# So the one unconditional apt block below is right on Kali and Parrot as it
+# stands, and needs a repository on the other five.
+#
+# UPSTREAM REPOSITORY. https://www.kismetwireless.net/repos/apt/release/ is
+# one tree per release, each under its own URI with its own Release file
+# (aptly-generated). Read from the index on 2026-09-30, the release channel
+# carries trixie (amd64 arm64) and noble (amd64 arm64 armhf i386), both
+# dated 2026-02-02, and NO resolute: .../release/resolute/dists/resolute/
+# Release is a 404, although Kismet's own packages page prints a
+# release/resolute line. Only the nightly `git/` channel has resolute, and a
+# nightly is not what a release manifest pins. So:
+#   Debian 13            -> kismet-trixie (below)
+#   Ubuntu 24.04, Mint 22.3 (installs from noble) -> kismet-noble (below)
+#   Ubuntu 26.04         -> no repository; deferred from a profile and
+#                           refused by name (D-039), until release/resolute
+#                           exists. Re-check the index, not the web page.
+# The per-repository `when:` is the D-040 amendment of 2026-09-30, written
+# for exactly this shape. Kismet's repository also carries a `kali` suite;
+# it is never declared here, because Kali's own archive has the package, and
+# nothing here ever reaches Parrot either: no repository names parrot.
+#
+# SIGNING KEY. Fetched once from key_url on 2026-09-30 and read with this
+# engine's own src/hammunition/openpgp.py (never gpg):
+#   primary fingerprint ADA09A0E9B80ACCCE8FE6BB65345B8BF43403B93
+#   key id 5345B8BF43403B93, RSA 4096, created 2018-09-12, no expiry
+#   uid "Kismet Wireless (Packaging Signature) <kismet@kismetwireless.net>"
+#   one encryption subkey, BA5DB28859A52EC8237DDC6402B23EC18E18F4B6
+# The February 2026 "key refresh" is the same primary key with its
+# self-signatures re-issued on 2026-02-02 over SHA-256; the older file at
+# .../repos/kismet-release.gpg (no `.key`) carries the 2018 SHA-1
+# self-signatures that current apt refuses. Same fingerprint either way, so
+# the pin cannot tell the two files apart; the key_url is the refreshed one.
+# Both suites' Release.gpg are issued by 5345B8BF43403B93 over SHA-256.
+#
+# RESOLUTION, in containers with the key installed as D-040 installs it and
+# a deb822 source with Signed-By: apt-get update accepted the signed
+# InRelease on debian:13 (apt 3.0) and ubuntu:24.04, and
+# `apt-get install --simulate kismet` resolved with nothing removed:
+# 59 packages on Debian 13, 61 on Ubuntu 24.04, 38 on Mint 22.3; from the
+# archives, 51 on Kali and 40 on Parrot. Simulated, not installed.
+#
+# NOT CONSENT-GATED, deliberately, and the reason is D-021, not an oversight.
+# Gates attach to profiles, never to packages, and `rf-security` is the
+# ungated control that tests/test_consent.py asserts stays ungated. Kismet's
+# capability -- passive capture of Wi-Fi, Bluetooth and SDR traffic and the
+# device identifiers in it -- is the capability `wireshark`, `aircrack-ng`
+# and `hcxdumptool` already bring into that profile. Read from the
+# 2025-09-R1 source: the Wi-Fi helper (capture_linux_wifi.c) makes no
+# inject or send call; the Linux Bluetooth helper starts the adapter's
+# ordinary discovery (MGMT_OP_START_DISCOVERY), which transmits inquiry and
+# scan requests the way any Bluetooth device searching for others does.
+# Nothing in it deauthenticates, jams or impersonates -- aircrack-ng, in the
+# same ungated profile, can. What `--yes` cannot answer here is the
+# D-040 repository gate, on the three targets that need the repository:
+# HAMMUNITION_ACCEPT_APT_REPO_KISMET_TRIXIE or ..._KISMET_NOBLE must equal
+# the fingerprint above.
+recommended_default: false
+
+apt_repos:
+  - name: kismet-trixie
+    uri: https://www.kismetwireless.net/repos/apt/release/trixie
+    suites: [trixie]
+    components: [main]
+    key_url: https://www.kismetwireless.net/repos/kismet-release.gpg.key
+    key_fingerprint: ADA09A0E9B80ACCCE8FE6BB65345B8BF43403B93
+    when:
+      distro: [debian]
+      distro_version: ["13"]
+    rationale: >-
+      Kismet is not packaged by Debian 13; Kali and Parrot carry it in their
+      own archives and never get this repository. This is the Kismet
+      project's own release repository for Debian 13 (trixie), signed by
+      "Kismet Wireless (Packaging Signature)", an RSA 4096 key created
+      2018-09-12, fingerprint read from the published key on 2026-09-30.
+      Adding it grants the Kismet project the ability to ship updates for
+      any package name published there, for as long as it stays configured;
+      today it publishes only kismet packages (21 in the trixie tree).
+  - name: kismet-noble
+    uri: https://www.kismetwireless.net/repos/apt/release/noble
+    suites: [noble]
+    components: [main]
+    key_url: https://www.kismetwireless.net/repos/kismet-release.gpg.key
+    key_fingerprint: ADA09A0E9B80ACCCE8FE6BB65345B8BF43403B93
+    # Ubuntu 24.04 and Linux Mint 22.3, which installs from Ubuntu 24.04's
+    # archive. The selector is a cross product, so it would also match an
+    # "ubuntu 22.3" or a "linuxmint 24.04"; neither exists.
+    when:
+      distro: [ubuntu, linuxmint]
+      distro_version: ["24.04", "22.3"]
+    rationale: >-
+      Kismet is not packaged by Ubuntu 24.04 or Linux Mint 22.3. This is the
+      Kismet project's own release repository for Ubuntu 24.04 (noble),
+      signed by "Kismet Wireless (Packaging Signature)", an RSA 4096 key
+      created 2018-09-12, fingerprint read from the published key on
+      2026-09-30. Adding it grants the Kismet project the ability to ship
+      updates for any package name published there, for as long as it stays
+      configured; today it publishes only kismet packages (22 in the noble
+      tree).
+
+# Both packagings ask whether the capture helpers are installed with
+# elevated privileges, under different question names: Kali's and Parrot's
+# kismet-capture-common asks kismet-capture-common/install-setuid (and a
+# free-text list of users, left empty -- the engine adds the operator
+# itself, below, where the log records it); Kismet's own packages ask
+# kismet-common/install-setuid. Both default to true, so these lines change
+# nothing a noninteractive install would not do; they are written so the
+# choice is on the record rather than implied by a default. Read from the
+# packages' `config`, `templates` and `postinst` with dpkg-deb -e, never
+# installed.
+debconf_selections:
+  - "kismet-capture-common kismet-capture-common/install-setuid boolean true"
+  - "kismet-core kismet-common/install-setuid boolean true"
+
+install:
+  - install:
+      method: apt
+      packages: [kismet]
+    note: >-
+      `kismet` is a metapackage in every packaging measured: kismet-core,
+      kismet-logtools and the capture helpers (Wi-Fi, Linux Bluetooth,
+      Ubertooth One, nRF51822, nRF52840, nRF MouseJack, TI CC2531 and
+      CC2540, NXP KW41Z, RZ KillerBee, Freaklabs Zigbee, rtl_433, rtladsb,
+      AntSDR DroneID, Radiacode, Radview, Hak5 WiFi Coconut). On Kali and
+      Parrot it comes from the archive; on Debian 13, Ubuntu 24.04 and
+      Mint 22.3 from the Kismet repository for that release (listed under
+      its apt_repos), after its gate; on
+      Ubuntu 26.04 nothing offers it yet and it is deferred by name.
+
+system_modifications:
+  - kind: apt_pin
+    description: >-
+      On Debian 13, Ubuntu 24.04 and Linux Mint 22.3 only: adds Kismet's
+      release repository for that release and pins its signing key. Does
+      NOT happen on Kali or Parrot, which carry kismet in their own archives.
+    detail: >-
+      Writes /etc/apt/sources.list.d/kismet-trixie.sources (Debian 13) or
+      kismet-noble.sources (Ubuntu 24.04, Mint 22.3), and the signing key in
+      binary form to /etc/apt/keyrings/kismet-trixie.gpg or kismet-noble.gpg,
+      with Signed-By naming that keyring, so the key is trusted for this
+      repository only and not archive-wide.
+    reversible: true
+    reverse_hint: >-
+      sudo rm /etc/apt/sources.list.d/kismet-trixie.sources
+      /etc/apt/keyrings/kismet-trixie.gpg && sudo apt update (kismet-noble
+      in place of kismet-trixie on Ubuntu 24.04 and Mint 22.3);
+      `hammunition uninstall kismet` removes both files itself
+  - kind: group_membership
+    group: kismet
+    description: >-
+      Adds the operator to the `kismet` group, so Kismet's capture helpers
+      run for them without running Kismet as root
+    detail: >-
+      With install-setuid answered true (the debconf lines this manifest
+      preseeds), every packaging measured creates
+      a `kismet` system group and makes each capture helper
+      (/usr/bin/kismet_cap_*) owned root:kismet and runnable by that group
+      only: setuid root on Kali and Parrot, and on Kismet's own packages
+      cap_net_raw and cap_net_admin through setcap, falling back to setuid
+      when setcap is unavailable. Neither packaging adds anyone to the group
+      on a noninteractive install, which is why the engine does. Membership
+      is the ability to put radios into capture modes and capture what they
+      hear, so treat it like `wireshark` group membership. It does not apply
+      to a session already open -- log out and back in.
+    reversible: true
+    reverse_hint: >-
+      sudo gpasswd -d $USER kismet
+
+service_endpoints:
+  - name: web_ui
+    default_url: http://localhost:2501
+    description: >-
+      Kismet's own web interface and REST API, served by the kismet process
+      itself. The shipped /etc/kismet/kismet_httpd.conf sets httpd_port=2501
+      and leaves httpd_bind_address commented out, and its comment says
+      "By default kismet listens on all interfaces" -- so while Kismet runs,
+      port 2501 is reachable from any network the machine is on unless you
+      restrict it. The login is created by whoever connects first.
+    user_configurable: true
+    note: >-
+      To keep it to this machine, put `httpd_bind_address=127.0.0.1` in
+      /etc/kismet/kismet_site.conf, which Kismet reads last and which no
+      package upgrade overwrites.
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+
+documentation:
+  what_it_does: >-
+    Listens to wireless traffic through one or more capture sources -- a
+    Wi-Fi card in monitor mode, the laptop's Bluetooth adapter, an Ubertooth,
+    Zigbee and BLE sniffer dongles, an RTL-SDR decoding ISM sensors or
+    aircraft -- and builds a live list of every network and device it hears,
+    with channels, signal strength, manufacturers, and GPS positions when
+    `gpsd` is running. Everything is logged to a `.kismet` database that
+    `kismetdb_to_pcap`, `kismetdb_to_kml` and the other kismet-logtools
+    convert afterwards. It is operated from a web browser pointed at the
+    machine it runs on.
+  why_you_want_it: >-
+    It is the long-standing open tool for wireless survey and wardriving,
+    and the one that puts Wi-Fi, Bluetooth and a dozen sniffer dongles in
+    one view instead of one program each. On your own network it answers
+    what is actually on the air: rogue access points, a neighbour's
+    channel crowding yours, every Bluetooth tracker in the room. It is the
+    alternative to juggling airodump-ng, a Bluetooth scanner and
+    Wireshark side by side; Wireshark stays the tool for reading
+    individual frames, and Kismet writes pcapng it can open.
+  prerequisites: >-
+    A capture source Kismet has a helper for. For Wi-Fi, an adapter whose
+    driver supports monitor mode: Kismet switches it itself when you add it
+    as a source, and many built-in laptop cards cannot. For Bluetooth, the
+    machine's own adapter works through BlueZ. You must be in the `kismet`
+    group (added by this install; log out and back in first), or run Kismet
+    with sudo, which upstream advises against. Start it with `kismet` in a
+    terminal, open http://localhost:2501, set the login, and add sources
+    under Data Sources -- or name one on the command line, `kismet -c wlan1`.
+    The CatSniffer V3 is not a source in any packaged Kismet yet; see the
+    known problems.
+  known_problems: >-
+    Kismet's web interface listens on every interface by default, not only
+    on this machine, and the first browser to reach it sets the login: on
+    a shared or public network, set `httpd_bind_address=127.0.0.1` in
+    /etc/kismet/kismet_site.conf before the first run. On Kali and Parrot
+    the kismet-core package also installs and enables `kismet.service`,
+    which runs Kismet as root at boot and restarts it if it stops (read
+    from the package's postinst, `deb-systemd-helper enable` and a start
+    when systemd is running; not observed on a running system); Kismet's
+    own packages ship the same unit without enabling it. If you only want
+    Kismet when you start it, `sudo systemctl disable --now kismet.service`;
+    do the same before `hammunition uninstall kismet`, which removes the
+    `kismet` metapackage and leaves kismet-core -- and that service -- for
+    `apt autoremove`. If `kismet` in a terminal reports the port in use, that service is the
+    reason. Site settings belong in /etc/kismet/kismet_site.conf, never in
+    kismet.conf, which package upgrades replace. A source that will not
+    open is almost always one of three things: the card cannot do monitor
+    mode, the capture helper for that hardware is not installed, or you
+    were added to the `kismet` group in a session that is still open --
+    `docs/rf-security/kismet.md` walks through each. The CatSniffer V3's
+    Zigbee helper (capture_catsniffer_zigbee, on Kismet's development
+    branch since 2024-09-18) and its Sniffle BLE helper (since 2026-07-22)
+    are in no release: not in the 2025-09-R1 tag, not in Kali's or Parrot's
+    packages, not in Kismet's release or nightly repositories (their
+    Contents list no kismet_cap_catsniffer or sniffle binary, 2026-09-30).
+    Until a release carries them, the CatSniffer is used through its own
+    tooling and Wireshark. Ubuntu 26.04 has no Kismet release repository
+    yet, so Kismet is deferred there.
+  upstream_url: https://www.kismetwireless.net/
+  upstream_support: >-
+    Documentation at https://www.kismetwireless.net/docs/; issues at
+    https://github.com/kismetwireless/kismet/issues. GPL-2.0 (the
+    repository's LICENSE: "released under the GPL2 license" unless a file
+    says otherwise). Liveness per D-032: default branch `master`, head
+    cfe427074b7f committed 2026-09-17; latest release tag kismet-2025-09-R1,
+    committed 2025-09-04.

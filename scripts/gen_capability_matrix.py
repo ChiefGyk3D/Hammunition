@@ -245,8 +245,8 @@ def render(catalog: dict[str, PackageManifest]) -> str:
             "gap.** The sweep measures each target's stock archive; it does not add "
             "the repositories a manifest declares in `apt_repos`, because adding one "
             "is a system modification that must be shown to the operator before it "
-            "happens. `code` and `codium` are the two in this catalog and they are "
-            "why this paragraph exists."
+            "happens. `code`, `codium` and `kismet` are the three in this catalog; "
+            "the first two are why this paragraph exists."
         )
         out.append("")
         out.append("| Package | Target | Missing apt package(s) |")

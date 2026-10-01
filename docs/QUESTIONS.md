@@ -1180,3 +1180,10 @@ the source-built adds each behind a D-032 liveness check (piHPSDR, FreeDV
 archive was reachable, so every "in Debian" claim is a web-search result
 marked `unmeasured` until `scripts/apt-policy-sweep.sh --all` runs; and no
 candidate has had the D-032 head-commit check yet.
+
+**#3, measured 2026-09-30:** proposed as **D-072**. The `chrony` unit is
+carried, but not in `station`: apt keeps one time daemon, the engine refuses
+the removal of the other, and as a member it would refuse `station` on the
+field laptop (ntpsec) and on every timesyncd install. It is installed by
+name, after the operator removes systemd-timesyncd; ntpsec machines take
+D-058. `docs/reference/time-daemons.md` has the tables.

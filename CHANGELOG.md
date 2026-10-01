@@ -24,6 +24,31 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   its serial layer cannot load (D-048 amended). Nothing awaits the
   maintainer in `dispositions.md` any more.
 
+- **Kismet in `rf-security`** (Q-022 #4; **D-040**, amended). `kismet` is
+  apt from the archive on Kali and Parrot, and from the Kismet project's own
+  signed release repository on Debian 13 (`release/trixie`), Ubuntu 24.04
+  and Mint 22.3 (`release/noble`), behind the D-040 fingerprint gate
+  (`ADA09A0E9B80ACCCE8FE6BB65345B8BF43403B93`). Ubuntu 26.04 has no release
+  tree and defers it. An `apt_repos` entry may now carry `when:`, so one
+  manifest can name one repository per release. Adds the operator to the
+  `kismet` group; discloses that Kali's and Parrot's kismet-core enables a
+  root `kismet.service` and that the web interface listens on every
+  interface by default. The CatSniffer V3's Kismet helpers are in no
+  release yet. New page `docs/rf-security/kismet.md`; generated package
+  pages now list a unit's third-party repositories and fingerprints.
+- **GPS time where the daemon is not ntpsec: the `chrony` unit** (**D-072**,
+  proposed; gap analysis §A4, Q-022 #3). `hammunition install chrony` writes
+  `refclock SHM 0 refid GPS poll 2 delay 0.2` to
+  `/etc/chrony/conf.d/hammunition-gps.conf` and a gpsd.service drop-in
+  giving gpsd `-n`, without which gpsd publishes no time to anybody. Not in
+  `station`: the three time daemons conflict, and the plan refuses to remove
+  systemd-timesyncd or ntpsec, printing the `apt-get remove` for the operator
+  instead. Root config writes now `mkdir -p` a missing directory as a
+  printed step. **PyGPSClient** 1.7.7 is a hash-pinned venv unit for the
+  `gps-gnss` tag. The *Time and position* guide routes by daemon (ntpsec to
+  D-058), and troubleshooting gains *FT8 decodes nothing: check the clock*.
+  Evidence: `docs/reference/time-daemons.md`.
+
 - **GPS time** (D-058). `hammunition time` says what the clock follows (the
   network, the GPS, or holdover and for how long) without a password;
   `hammunition time mode auto|prefer-gps|ntp-only|gps-only` prints every

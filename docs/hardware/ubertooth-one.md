@@ -41,6 +41,6 @@ The generated udev rule provides a `/dev/ubertooth` symlink, mode `0660`, group 
 
 ## Software that makes it useful
 
-[`spectools`](../packages/spectools.md), [`ubertooth`](../packages/ubertooth.md), [`wireshark`](../packages/wireshark.md)
+[`kismet`](../packages/kismet.md), [`spectools`](../packages/spectools.md), [`ubertooth`](../packages/ubertooth.md), [`wireshark`](../packages/wireshark.md)
 
 **Upstream:** <https://greatscottgadgets.com/ubertoothone/>

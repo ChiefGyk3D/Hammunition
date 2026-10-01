@@ -325,6 +325,15 @@ and refuses anything else. ``key_url`` is https: the fingerprint check
 is what makes the key trustworthy, but the transport still decides who
 can *see* the request.
 
+``when`` narrows the repository to some targets, with the same selector
+an install block uses; unset, it applies everywhere. It exists because a
+publisher may serve one tree per release under a different URI -- Kismet
+serves ``.../release/trixie`` and ``.../release/noble``, each its own
+``Release`` file -- and a manifest that declared both unconditionally
+would add a noble repository to a Debian 13 machine. A target no
+repository applies to gets no repository, and the unit falls to the
+ordinary "the archive does not offer it" path (D-039), deferred by name.
+
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `name` | `str` | **yes** |  |
@@ -334,6 +343,7 @@ can *see* the request.
 | `key_url` | `str` | **yes** |  |
 | `key_fingerprint` | `str` | **yes** |  |
 | `rationale` | `str` | **yes** | Shown to the user before the repo is added. |
+| `when` | `Selector` | no | The targets this repository applies to; unset means every target. |
 
 ### `ToolkitRisk`
 

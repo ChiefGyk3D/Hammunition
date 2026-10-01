@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 204 | 7 | 79 | 2 | 0 |
-| ubuntu-26.04 | 206 | 5 | 79 | 2 | 0 |
-| ubuntu-24.04 | 199 | 14 | 77 | 2 | 0 |
-| kali-rolling | 211 | 8 | 72 | 1 | 0 |
-| parrot | 208 | 5 | 77 | 2 | 0 |
-| linuxmint-22.3 | 199 | 14 | 77 | 2 | 0 |
-| debian-13-arm64 | 203 | 8 | 74 | 7 | 0 |
+| debian-13 | 205 | 8 | 80 | 2 | 0 |
+| ubuntu-26.04 | 207 | 6 | 80 | 2 | 0 |
+| ubuntu-24.04 | 200 | 15 | 78 | 2 | 0 |
+| kali-rolling | 213 | 8 | 73 | 1 | 0 |
+| parrot | 210 | 5 | 78 | 2 | 0 |
+| linuxmint-22.3 | 200 | 15 | 78 | 2 | 0 |
+| debian-13-arm64 | 204 | 9 | 75 | 7 | 0 |
 
-**292 manifests** against **7 targets**.
+**295 manifests** against **7 targets**.
 
 ---
 
@@ -51,7 +51,7 @@ build HAS been run in a container say so in their own install notes.
 
 Each of these is an honest gap the engine reports at plan time rather than a defect. Where a manifest expects it, its install note says so.
 
-**A package behind a third-party repository appears here and is not a gap.** The sweep measures each target's stock archive; it does not add the repositories a manifest declares in `apt_repos`, because adding one is a system modification that must be shown to the operator before it happens. `code` and `codium` are the two in this catalog and they are why this paragraph exists.
+**A package behind a third-party repository appears here and is not a gap.** The sweep measures each target's stock archive; it does not add the repositories a manifest declares in `apt_repos`, because adding one is a system modification that must be shown to the operator before it happens. `code`, `codium` and `kismet` are the three in this catalog; the first two are why this paragraph exists.
 
 | Package | Target | Missing apt package(s) |
 |---|---|---|
@@ -87,6 +87,11 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `gr-gsm` | ubuntu-26.04 | `gr-gsm` |
 | `gtk-meshtastic-client` | linuxmint-22.3 | `gtk-meshtastic-client` |
 | `gtk-meshtastic-client` | ubuntu-24.04 | `gtk-meshtastic-client` |
+| `kismet` | debian-13 | `kismet` |
+| `kismet` | debian-13-arm64 | `kismet` |
+| `kismet` | linuxmint-22.3 | `kismet` |
+| `kismet` | ubuntu-24.04 | `kismet` |
+| `kismet` | ubuntu-26.04 | `kismet` |
 | `m2kcli` | linuxmint-22.3 | `m2kcli` |
 | `m2kcli` | ubuntu-24.04 | `m2kcli` |
 | `mlat-client-adsbfi` | linuxmint-22.3 | `mlat-client-adsbfi` |
@@ -155,6 +160,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `canadian-ham-exam` | apt | apt | apt | apt | apt | apt | apt |
 | `cassbeam` | apt | apt | apt | apt | apt | apt | apt |
 | `chirp` | apt | apt | apt | apt | apt | apt | apt |
+| `chrony` | apt | apt | apt | apt | apt | apt | apt |
 | `claws-mail` | apt | apt | apt | apt | apt | apt | apt |
 | `code` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
 | `codium` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt | apt ✗ | apt ✗ |
@@ -253,6 +259,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `kalibrate-rtl` | git | git | git | apt | git | git | git |
 | `kappanhang` | apt | apt | apt | apt | apt | apt | apt |
 | `kel-agent` | apt | apt | apt | apt | apt | apt | apt |
+| `kismet` | apt ✗ | apt ✗ | apt ✗ | apt | apt | apt ✗ | apt ✗ |
 | `kiwix` | apt | apt | apt | apt | apt | apt | apt |
 | `kiwix-library` | kiwix-books | kiwix-books | kiwix-books | kiwix-books | kiwix-books | kiwix-books | kiwix-books |
 | `kiwix-tools` | apt | apt | apt | apt | apt | apt | apt |
@@ -315,6 +322,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `proxmark3` | git | git | git | apt | git | git | git |
 | `psk31lx` | apt | apt | apt | apt | apt | apt | apt |
 | `putty` | apt | apt | apt | apt | apt | apt | apt |
+| `pygpsclient` | venv | venv | venv | venv | venv | venv | venv |
 | `pyqso` | apt | apt | apt | apt | apt | apt | apt |
 | `python3-meshtastic` | apt | apt | apt ✗ | apt | apt | apt ✗ | apt |
 | `python3-pyhamtools` | apt | apt | apt | apt | apt | apt | apt |

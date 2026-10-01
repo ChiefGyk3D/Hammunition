@@ -1686,6 +1686,15 @@ class AptRepo(Strict):
     and refuses anything else. ``key_url`` is https: the fingerprint check
     is what makes the key trustworthy, but the transport still decides who
     can *see* the request.
+
+    ``when`` narrows the repository to some targets, with the same selector
+    an install block uses; unset, it applies everywhere. It exists because a
+    publisher may serve one tree per release under a different URI -- Kismet
+    serves ``.../release/trixie`` and ``.../release/noble``, each its own
+    ``Release`` file -- and a manifest that declared both unconditionally
+    would add a noble repository to a Debian 13 machine. A target no
+    repository applies to gets no repository, and the unit falls to the
+    ordinary "the archive does not offer it" path (D-039), deferred by name.
     """
 
     name: str
@@ -1695,6 +1704,10 @@ class AptRepo(Strict):
     key_url: str
     key_fingerprint: str
     rationale: str = Field(description="Shown to the user before the repo is added.")
+    when: Selector = Field(
+        default_factory=Selector,
+        description="The targets this repository applies to; unset means every target.",
+    )
 
     @model_validator(mode="after")
     def _well_formed(self) -> AptRepo:
@@ -2187,6 +2200,19 @@ class PackageManifest(Strict):
         if dupes:
             raise ManifestError(f"{self.name}: duplicate install_as: {sorted(dupes)}")
         return self
+
+    @model_validator(mode="after")
+    def _apt_repo_names_unique(self) -> PackageManifest:
+        """Two repositories of one name would write the same two files."""
+        names = [repo.name for repo in self.apt_repos]
+        dupes = sorted({n for n in names if names.count(n) > 1})
+        if dupes:
+            raise ManifestError(f"{self.name}: duplicate apt repo names: {dupes}")
+        return self
+
+    def apt_repos_for(self, distro: str, distro_version: str, arch: str) -> list[AptRepo]:
+        """The declared repositories whose ``when`` matches this target."""
+        return [r for r in self.apt_repos if r.when.matches(distro, distro_version, arch)]
 
     @model_validator(mode="after")
     def _apt_repo_needs_rationale(self) -> PackageManifest:

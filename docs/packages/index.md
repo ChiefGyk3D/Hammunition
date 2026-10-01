@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**292 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**295 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -58,10 +58,11 @@ Position reporting and messaging: clients with maps, digipeaters, iGates and pag
 - [xastir](xastir.md) — APRS client with real maps — see and be seen on the packet network
 - [yaac](yaac.md) — Yet Another APRS Client — the deep, portable Java one
 
-### `bluetooth` — 3
+### `bluetooth` — 4
 
 Ubertooth sniffing and spectrum.
 
+- [kismet](kismet.md) — Wireless network and device detector, sniffer and logger for Wi-Fi, Bluetooth and SDR sources
 - [skid-finder](skid-finder.md) — Passive BLE-spam and Wi-Fi-attack detector with foxhunting, live alerts and a sensor-net collector
 - [spectools](spectools.md) — Spectrum display for MetaGeek Wi-Spy dongles and the Ubertooth One
 - [ubertooth](ubertooth.md) — Host tools for the Ubertooth One Bluetooth sniffer
@@ -78,10 +79,11 @@ DAB and DAB+ receivers and the data alongside broadcast FM.
 - [odr-padenc](odr-padenc.md) — Encodes the text and images that ride alongside a DAB service
 - [welle-io](welle-io.md) — DAB and DAB+ digital radio receiver with a modern interface
 
-### `capture-analysis` — 3
+### `capture-analysis` — 4
 
 Capture traffic on any interface and decode it: Wireshark for the desktop, tcpdump for the terminal, two thousand protocols between them.
 
+- [kismet](kismet.md) — Wireless network and device detector, sniffer and logger for Wi-Fi, Bluetooth and SDR sources
 - [skid-finder](skid-finder.md) — Passive BLE-spam and Wi-Fi-attack detector with foxhunting, live alerts and a sensor-net collector
 - [tcpdump](tcpdump.md) — Command-line packet capture — the tool that works when nothing else does
 - [wireshark](wireshark.md) — Protocol analyser — decodes captured traffic across two thousand protocols
@@ -228,16 +230,18 @@ Practice tests for the US, Canadian and commercial licence exams.
 - [fccexam](fccexam.md) — Practice tests for the US FCC commercial radio licence exams
 - [hamexam](hamexam.md) — Practice tests for the United States amateur radio licence exams
 
-### `gps-gnss` — 7
+### `gps-gnss` — 9
 
 GPS receivers and the daemon that shares one, format converters, and a GNSS receiver in software.
 
+- [chrony](chrony.md) — The clock follows your GPS receiver when the network is gone — chrony reading gpsd
 - [gnss-sdr](gnss-sdr.md) — A complete GPS and GNSS receiver built entirely in software
 - [gpsbabel](gpsbabel.md) — Converts between GPS file formats and talks to the receiver
 - [gpsd](gpsd.md) — GPS service daemon — one process owns the receiver, everything else asks it
 - [gpsd-clients](gpsd-clients.md) — Clients that consume what gpsd serves — xgps, gpspipe, gpxlogger, gpsdecode
 - [gpsd-tools](gpsd-tools.md) — cgps and gpsmon — the two programs you actually reach for when a receiver misbehaves
 - [navit](navit.md) — Offline turn-by-turn navigation that follows the GPS, with spoken directions
+- [pygpsclient](pygpsclient.md) — See what your GNSS receiver sees, and configure a u-blox receiver without u-center
 - [qmapshack](qmapshack.md) — Offline topographic maps, trails, GPX tracks, elevation profiles and routing on foot
 
 ### `ism-subghz` — 3
@@ -611,10 +615,11 @@ Pictures over radio: slow-scan television, weather fax, and analogue television 
 - [qsstv](qsstv.md) — Slow-scan television and radiofax — receive and transmit pictures
 - [xwefax](xwefax.md) — Receives HF weather fax and draws the chart
 
-### `time-frequency` — 3
+### `time-frequency` — 4
 
 Clocks, radio time signals and time-zone displays for the operating position.
 
+- [chrony](chrony.md) — The clock follows your GPS receiver when the network is gone — chrony reading gpsd
 - [radioclk](radioclk.md) — Disciplines the system clock from an MSF, WWVB or DCF77 time signal
 - [twclock](twclock.md) — World clock for the operating position, with a CW station-ID timer
 - [tzwatch](tzwatch.md) — Prints the time in several time zones at once, in a terminal
@@ -641,13 +646,14 @@ ISM-band sensors, weather balloons, weather fax and GRIB charts.
 - [xwefax](xwefax.md) — Receives HF weather fax and draws the chart
 - [xygrib](xygrib.md) — Views GRIB weather files — wind, pressure, waves, on a map
 
-### `wifi` — 4
+### `wifi` — 5
 
 Capture, handshake extraction and key recovery for Wi-Fi networks.
 
 - [aircrack-ng](aircrack-ng.md) — Wi-Fi security auditing suite — capture, analysis and key recovery
 - [hcxdumptool](hcxdumptool.md) — Wi-Fi frame capture aimed at producing hash files for offline analysis
 - [hcxtools](hcxtools.md) — Converts captured Wi-Fi frames into hash formats analysis tools read
+- [kismet](kismet.md) — Wireless network and device detector, sniffer and logger for Wi-Fi, Bluetooth and SDR sources
 - [skid-finder](skid-finder.md) — Passive BLE-spam and Wi-Fi-attack detector with foxhunting, live alerts and a sensor-net collector
 
 ### `winlink` — 5
@@ -722,6 +728,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [canadian-ham-exam](canadian-ham-exam.md) | Practice tests for the Canadian amateur radio qualification exams | apt |
 | [cassbeam](cassbeam.md) | Models Cassegrain dish antennas — the microwave and radio-astronomy case | apt |
 | [chirp](chirp.md) | Reads, edits and writes the memory channels of hundreds of radios | apt |
+| [chrony](chrony.md) | The clock follows your GPS receiver when the network is gone — chrony reading gpsd | apt |
 | [claws-mail](claws-mail.md) | The fast, plain-text-first mail client AHRL shipped | apt |
 | [code](code.md) | Microsoft's Visual Studio Code build — optional alternative to the VSCodium your distro ships | apt |
 | [codium](codium.md) | VSCodium — Microsoft's VS Code source, built without their telemetry or branding | apt |
@@ -820,6 +827,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [kalibrate-rtl](kalibrate-rtl.md) | Measures an SDR dongle's frequency error against GSM base stations | apt, git |
 | [kappanhang](kappanhang.md) | Opens an Icom network radio as an ordinary sound card and serial port | apt |
 | [kel-agent](kel-agent.md) | Bridges browser-based logging software to the radio hardware on your desk | apt |
+| [kismet](kismet.md) | Wireless network and device detector, sniffer and logger for Wi-Fi, Bluetooth and SDR sources | apt |
 | [kiwix](kiwix.md) | The Kiwix desktop reader for offline Wikipedia and other ZIM books | apt |
 | [kiwix-library](kiwix-library.md) | The Kiwix books you chose -- Wikipedia, WikiMed, Stack Exchange -- pinned and verified | kiwix-books |
 | [kiwix-tools](kiwix-tools.md) | Kiwix's command-line reader, server and library manager for offline ZIM books | apt |
@@ -882,6 +890,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [proxmark3](proxmark3.md) | Client and firmware tooling for the Proxmark3 RFID and NFC research device | apt, git |
 | [psk31lx](psk31lx.md) | PSK31 in a terminal, with no desktop and no waterfall | apt |
 | [putty](putty.md) | The GUI serial terminal hams reach for, with saved sessions | apt |
+| [pygpsclient](pygpsclient.md) | See what your GNSS receiver sees, and configure a u-blox receiver without u-center | venv |
 | [pyqso](pyqso.md) | Simple GTK logger in Python, easy to read and easy to change | apt |
 | [python3-meshtastic](python3-meshtastic.md) | Meshtastic command-line client and Python API | apt |
 | [python3-pyhamtools](python3-pyhamtools.md) | Python library for callsign lookup, locators and DXCC data | apt |
