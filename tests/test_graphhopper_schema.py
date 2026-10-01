@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -114,7 +115,9 @@ def test_the_file_is_staged_under_its_marker_and_installed_as_every_tree_is(
     assert isinstance(last, Command) and last.argv[:5] == ("chown", "-R", "-h", "--", "alice:")
 
 
-def test_staging_copies_the_fetched_file_readable_and_not_executable(tmp_path: Path) -> None:
+def test_staging_copies_the_fetched_file_readable_and_not_executable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     manifest = PackageManifest.model_validate(_manifest("graphhopper", _jar_block()))
     backend = _backend(tmp_path, tmp_path / "prefix")
     steps = backend.steps(manifest, manifest.install[0])
@@ -123,9 +126,11 @@ def test_staging_copies_the_fetched_file_readable_and_not_executable(tmp_path: P
     # The fetch step fills the shared slot the later steps read; stand in for it.
     fetch, prepare, stage = steps[0], steps[1], steps[2]
     assert isinstance(fetch, Action) and isinstance(prepare, Action) and isinstance(stage, Action)
-    backend.fetcher.fetch = lambda artifact: type(  # type: ignore[method-assign]
-        "R", (), {"path": fetched, "from_cache": True, "size": 11, "sha256": SHA}
-    )()
+    monkeypatch.setattr(
+        backend.fetcher,
+        "fetch",
+        lambda artifact: SimpleNamespace(path=fetched, from_cache=True, size=11, sha256=SHA),
+    )
     fetch.perform()
     prepare.perform()
     stage.perform()

@@ -247,8 +247,8 @@ def test_a_route_is_asked_through_this_server_and_drawn_with_no_request_off_loop
         fake.server_close()
     assert 'data-route="drawn"' in dom, (dom[-2000:], stderr[-2000:])
     assert 'data-errors="0"' in dom, dom[-2000:]
-    distance = ROUTE_ANSWER["paths"][0]["distance"]  # type: ignore[index]
-    assert f"{distance / 1000:.1f} km" in dom and "(hike)" in dom
+    assert ROUTE_ANSWER["paths"][0]["distance"] == 4148.0
+    assert "4.1 km" in dom and "(hike)" in dom
     assert "Continue onto Trail 19" in dom
     assert len(_FakeGraphHopper.asked) == 1 and "profile=hike" in _FakeGraphHopper.asked[0]
     page, _browser = _page_requests(net_log)

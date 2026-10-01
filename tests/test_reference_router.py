@@ -219,7 +219,7 @@ def _run(
         0,
         shelf=Shelf(books=(), forms=(), dict_client=False, goldendict=False),
         library=tmp_path / "library.xml",
-        spawn=lambda argv: pytest.fail("no books, no kiwix-serve"),  # type: ignore[arg-type,return-value]
+        spawn=lambda argv: pytest.fail("no books, no kiwix-serve"),
         manage=lambda library, zims: None,
         tick=tick,
         log=lines.append,
