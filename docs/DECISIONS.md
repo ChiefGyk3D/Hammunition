@@ -3510,8 +3510,8 @@ newest open issue a 2024 build failure the author has not answered; and
 the npm 0.7.0 package, installed with `--ignore-scripts` on Debian 13's
 Node 20, runs `--version` and cannot load `serialport`, its link to a
 KISS TNC. `dispositions.md` (EmComm Tools OS delta) carries the record
-and what covers the use; `not-carried.md` the reason. The gap-07 pull
-request (`gap-07-rerulings`) is where it was applied.
+and what covers the use; `not-carried.md` the reason. Applied in pull request
+#172 (`gap-07-rerulings`).
 
 ## D-049 — Offline data is a catalog unit: a `data` install method whose payload is the point, disclosed by size and licence before the confirmation, selected through station config
 
