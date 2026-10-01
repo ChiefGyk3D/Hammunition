@@ -238,6 +238,40 @@ class PrefixWriter:
         self._run(("chmod", f"{mode:04o}", "--", str(temporary)), f"Set the mode of {dest}")
         self._run(("mv", "-f", "-T", "--", str(temporary), str(dest)), f"Install {dest}")
 
+    def link(self, dest: Path, target: str) -> None:
+        """Make *dest* a symbolic link to *target*, a file beside it.  D-061,
+        amended 2026-10-02: Signal-Server reads SPLAT's terrain files under
+        its own names. *target* must be a bare file name -- no directory, no
+        ``.`` or ``..`` -- so the link can only ever name a sibling inside
+        the prefix. The link is made under a temporary name and renamed over
+        *dest*, which replaces a file or link there and never follows one."""
+        if not target or target in (".", "..") or "/" in target or "\0" in target:
+            raise BackendError(
+                f"{dest}: a link is made only to a sibling file name, not {target!r}"
+            )
+        temporary = self._temporary(dest)
+        if self.direct:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                os.symlink(target, temporary)
+            except OSError as exc:
+                raise BackendError(
+                    f"cannot create the temporary link {temporary}: {exc.strerror or exc}"
+                ) from exc
+            try:
+                os.replace(temporary, dest)
+            except BaseException:
+                temporary.unlink(missing_ok=True)
+                raise
+            return
+        self._run(("install", "-d", "-m", "0755", "--", str(dest.parent)), f"Create {dest.parent}")
+        self._run(("ln", "-s", "-T", "--", target, str(temporary)), f"Link {dest} to {target}")
+        try:
+            self._run(("mv", "-f", "-T", "--", str(temporary), str(dest)), f"Install {dest}")
+        except BackendError:
+            self._run(("rm", "-f", "--", str(temporary)), f"Remove {temporary}")
+            raise
+
     def remove(self, paths: Sequence[Path]) -> None:
         """Remove *paths*; one already gone is not an error."""
         if self.direct:
