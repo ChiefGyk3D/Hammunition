@@ -256,6 +256,54 @@ def time_files(
     return root
 
 
+@pytest.fixture(autouse=True)
+def _no_host_geoclue_files(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[Path]:
+    """Every GeoClue path (D-069) points somewhere that does not exist, for every test.
+
+    The field laptop runs this suite with GeoClue installed and, once
+    `hardware apply` has run there, Hammunition's drop-in in place: a test that
+    read the real /etc/geoclue would answer by what that machine holds, and
+    the tether would pick up the real socket path. Tests that want the files
+    request `geoclue_files`; one that writes here without it fails.
+    """
+    from hammunition import geoclue
+
+    root = tmp_path_factory.getbasetemp() / "host-geoclue-files-absent"
+    for name, default in geoclue.PATHS.items():
+        monkeypatch.setattr(geoclue, name, str(root) + default)
+    yield root
+    if root.exists():
+        shutil.rmtree(root)
+        pytest.fail(
+            "a test wrote GeoClue files without the geoclue_files fixture; request it "
+            "so they land in that test's own tmp_path"
+        )
+
+
+@pytest.fixture
+def geoclue_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, _no_host_geoclue_files: Path
+) -> Path:
+    """A machine with GeoClue installed (its daemon present), under tmp_path,
+    whose ``geoclue`` group is the test account's own group, so the directory
+    checks can pass without root."""
+    import grp
+    import os
+
+    from hammunition import geoclue
+
+    root = tmp_path / "root"
+    for name, default in geoclue.PATHS.items():
+        monkeypatch.setattr(geoclue, name, str(root) + default)
+    monkeypatch.setattr(geoclue, "GROUP", grp.getgrgid(os.getgid()).gr_name)
+    daemon = Path(geoclue.DAEMON)
+    daemon.parent.mkdir(parents=True)
+    daemon.write_text("")
+    return root
+
+
 # ---------------------------------------------------------------------------
 # The GPS resume step (issue #177): no test reads or writes the host's unit
 # ---------------------------------------------------------------------------

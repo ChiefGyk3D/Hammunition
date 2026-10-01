@@ -33,7 +33,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from hammunition import geoclue
 from hammunition.desktop import Desktop, describe, describe_set
+from hammunition.geoclue import GeoClueState
 from hammunition.gpstime.mode import GPS_MODES
 from hammunition.gpstime.state import HOLDOVER_WARN_SECONDS, TimeState, format_duration
 from hammunition.hardware.gps_resume import ResumeStatus
@@ -91,6 +93,7 @@ def run_checks(
     launchers_bare: tuple[str, ...] = (),
     launchers_broken: tuple[tuple[str, str], ...] = (),
     launchers_shadowing: tuple[tuple[str, str], ...] = (),
+    geoclue_state: GeoClueState | None = None,
 ) -> list[Check]:
     """Every check, in the order a person should read them. Pure; see module docstring."""
     checks: list[Check] = []
@@ -356,6 +359,8 @@ def run_checks(
     if time_state is not None:
         checks += _time_checks(time_state)
 
+    if geoclue_state is not None:
+        checks += _geoclue_checks(geoclue_state)
     # Issue #177: with a GPS receiver attached and gpsd installed, whether the
     # resume step `hardware apply` installs is there. None: not applicable.
     if gps_resume is not None:
@@ -416,6 +421,63 @@ def run_checks(
             )
         )
 
+    return checks
+
+
+def _geoclue_checks(g: GeoClueState) -> list[Check]:
+    """D-069: GeoClue's tether socket files and directory, and the agent CoMaps
+    needs. Read without privilege; `busctl --user list` only lists names."""
+    checks: list[Check] = []
+    apply = "hammunition hardware apply"
+    if not g.dropin_ours and not g.tmpfiles_ours:
+        checks.append(
+            Check(
+                "geoclue",
+                "info",
+                f"GeoClue is installed and does not read the GPS tether, so CoMaps shows no "
+                f"position from the receiver; `{apply}` sets it up",
+            )
+        )
+    elif not (g.dropin_ours and g.tmpfiles_ours):
+        missing = geoclue.TMPFILES if g.dropin_ours else geoclue.DROPIN
+        checks.append(Check("geoclue", "warn", f"half set up: {missing} is missing", apply))
+    elif g.directory != "current":
+        what = "is missing" if g.directory == "absent" else f"is wrong: {g.directory}"
+        checks.append(
+            Check(
+                "geoclue",
+                "warn",
+                f"{geoclue.SOCKET_DIR} {what}, so the tether cannot give GeoClue its socket",
+                f"sudo systemd-tmpfiles --create {geoclue.TMPFILES}",
+            )
+        )
+    else:
+        checks.append(
+            Check(
+                "geoclue",
+                "ok",
+                f"GeoClue reads the tether's socket at {geoclue.SOCKET} while "
+                f"`hammunition maps gps-tether` runs",
+            )
+        )
+    if g.agent is None:
+        checks.append(
+            Check("geoclue agent", "info", "not checked (busctl did not answer, or run as root)")
+        )
+    elif g.agent:
+        checks.append(Check("geoclue agent", "ok", "Debian's GeoClue demo agent is running"))
+    else:
+        checks.append(
+            Check(
+                "geoclue agent",
+                "warn",
+                f"no {geoclue.DEMO_AGENT} in `busctl --user list`: without an agent GeoClue "
+                f"holds CoMaps' request and Qt gives up after about 25 s (GNOME Shell is its "
+                f"own agent, and this check does not see it)",
+                "log out and back in: geoclue-2.0 starts the demo agent at login from "
+                "/etc/xdg/autostart/geoclue-demo-agent.desktop",
+            )
+        )
     return checks
 
 

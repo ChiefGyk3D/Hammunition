@@ -285,6 +285,12 @@ that is not attached, and removing them would take away device access you
 are still using — power control is the reversible part of this feature;
 device permissions are not.
 
+It also takes back GeoClue's two files for the GPS tether's socket
+(**D-069**, written by `hardware apply` where GeoClue is installed), by
+content: each file only when it starts with Hammunition's header, then the
+socket, `rmdir /run/hammunition-gps` and `systemctl try-restart geoclue`.
+`docs/guides/offline-navigation.md` §17 describes them.
+
 | Exit code | Meaning |
 |---|---|
 | 0 | Removed and verified, nothing recorded to remove, everything already absent, a `--dry-run`, or the operator declined the confirmation prompt |
