@@ -20,7 +20,7 @@ If you want to run a BBS rather than use one, this is the software the rest of t
 
 ## Before it will work
 
-A configured AX.25 stack and a callsign for the BBS. Forwarding partners, which is an arrangement with their operators rather than a setting. Somewhere for it to run continuously.
+A configured AX.25 stack and a callsign for the BBS. Forwarding partners, which is an arrangement with their operators rather than a setting. Somewhere for it to run continuously. FBB configures itself: when `/etc/ax25/fbb/fbb.conf` is absent, its start script (`fbb`) asks for the BBS callsign, SSID, hierarchical address, locator, city, sysop name and callsign and the offset from GMT, writes `fbb.conf` from them and then asks for the ports. Hammunition does not template `fbb.conf` (Q-022 #1, measured 2026-09-29 from the 7.011-3 package's script and samples): its mandatory lines include the hierarchical address, the SSID, the city and the sysop's first name, none of them station values, and a file with only the callsign and locator filled in is the partial file D-035 never writes.
 
 ## How it installs
 

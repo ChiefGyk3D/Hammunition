@@ -11,7 +11,9 @@ packages:
   - openocd
   - openfpgaloader
   - stlink-tools
+  - stm32flash
   - m2kcli
+  - libiio-utils
   - qttinysa
   - nanovna-saver
   - gsmc
@@ -20,8 +22,9 @@ packages:
 
 documentation:
   what_it_installs: >-
-    Five device programmers covering AVR, SPI flash, ARM debug probes, FPGAs
-    and ST-LINK; command-line control of the ADALM2000 lab instrument; desktop
+    Six device programmers covering AVR, SPI flash, ARM debug probes, FPGAs,
+    ST-LINK and the STM32 serial bootloader; command-line control of the ADALM2000 lab instrument, and
+    libiio's tools, which find and talk to it and to a PlutoSDR; desktop
     front ends for the two instruments most likely to be on a ham's bench, the
     tinySA spectrum analyser and the NanoVNA; and three calculators — a Smith
     chart, a coil designer and an arbitrary transmission-line solver.

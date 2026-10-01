@@ -1,0 +1,75 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: stm32flash
+version: "0.7"
+summary: Flash STM32 microcontrollers over their built-in serial bootloader
+categories: [programmer]
+menu_title: STM32 serial bootloader flasher (stm32flash)
+
+# Gap analysis 2026-09 (catalog-gaps-2026-09.md, B Group 6; D.6), ADD.
+#
+# D-026: this copies bytes to a serial port. It installs the means of
+# talking to a microcontroller and says nothing about what the firmware
+# written with it does, so it is ungated like esptool and stlink-tools.
+#
+# Upstream (D-032): git.code.sf.net/p/stm32flash/code (SourceForge), default
+# branch `master`, head 16547fd08e13, 2026-03-06, "dev_table: fill entries
+# for STM32WBA5xxx and STM32WBA6xxx" -- read from a depth-1 clone on
+# 2026-09-30. Maintained: new parts are still being added to its table.
+# Latest tag v0.7, which every target packages. Licence: GPL-2.0 (gpl-2.0.txt
+# at the top of the tree).
+#
+# `apt-cache policy`, 2026-09-30: 0.7 on all seven targets.
+#
+# Hardware: no device the hardware catalog carries is recorded as flashing
+# over the STM32 serial (UART) bootloader, owned or not. The STM32 entries
+# there -- flipper-zero and the dmr-radio class -- use the USB DFU bootloader
+# (0483:df11), which is dfu-util's job. So no device links to this unit; it
+# is carried as the means of talking to any STM32 in its serial bootloader.
+
+install:
+  - install:
+      method: apt
+      packages: [stm32flash]
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+  cadence_hint: >-
+    Tagged releases are years apart (v0.7 is the latest tag); the default
+    branch keeps adding newer STM32 parts between them. A part missing from
+    0.7's table is a reason to look at the upstream head, not a fault.
+
+documentation:
+  what_it_does: >-
+    Reads, writes, erases and verifies the flash of an STM32 microcontroller
+    through the ROM bootloader ST builds into every part, over a serial line
+    (a USB-serial adapter or a Raspberry Pi's UART) or I2C. It can also
+    start the program it has just written, and on boards that wire them it
+    can use the adapter's RTS and DTR lines, or GPIO, to put the chip into
+    bootloader mode and reset it.
+  why_you_want_it: >-
+    Many small STM32 boards have no USB bootloader and no debug header
+    fitted, and the serial bootloader is the one way in that every STM32
+    has. Ham hotspot boards built on the MMDVM design are a common example
+    (the gap analysis's search result; not measured here). It is the
+    alternative to ST's own STM32CubeProgrammer, and complements the
+    catalog's `stlink-tools` (an ST-LINK probe over SWD) and `dfu-util`
+    (parts with a USB DFU bootloader).
+  prerequisites: >-
+    A serial connection to the board's bootloader pins (TX, RX and ground at
+    3.3 V logic), and access to the serial device -- the `dialout` group.
+    The chip must be in its system bootloader: BOOT0 held high at reset, by
+    a jumper, a button or the adapter's control lines.
+  known_problems: >-
+    Unmeasured here: no board has been flashed with it. The commonest
+    failure is a chip not in bootloader mode, which reports as a timeout
+    rather than an error that says so. Some parts ship with read-out
+    protection set; clearing it erases the chip. Getting the wrong serial
+    device writes nothing but wastes time, so name the adapter by its
+    /dev/serial/by-id/ path.
+  upstream_url: https://sourceforge.net/projects/stm32flash/
+  upstream_support: >-
+    The SourceForge project page above: its tickets and its mailing list.

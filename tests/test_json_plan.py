@@ -398,6 +398,11 @@ def test_the_plan_document_never_carries_a_rendered_config_file() -> None:
     assert "/etc/fixture-apt.conf" in text
     assert rendered not in text
     assert "template" not in text
+    # What the file is filled from is named, so a dry run is a faithful
+    # summary of it -- by the value's name, never the value.
+    assert doc.install is not None
+    (line,) = doc.install.config_files
+    assert line.fills == ("callsign",)
 
 
 def test_the_navit_config_step_reads_the_same_in_the_text_and_the_json(tmp_path: Path) -> None:

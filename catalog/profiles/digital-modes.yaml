@@ -24,6 +24,7 @@ packages:
   - glfer
   - xwefax
   - multimon-ng
+  - qpwgraph
   - qtel
   - flrig
 
@@ -31,8 +32,9 @@ documentation:
   what_it_installs: >-
     fldigi and the NBEMS stack that surrounds it, the whole FT8 family, JS8Call,
     SSTV and radiofax, open digital voice, two small PSK31 clients, a
-    general-purpose FSK modem, a QRSS receiver, and the measuring tools that let
-    you compare two of them honestly.
+    general-purpose FSK modem, a QRSS receiver, the measuring tools that let
+    you compare two of them honestly, and `qpwgraph`, a PipeWire patchbay
+    that shows which sound card each program is wired to.
   why_together: >-
     This is the reason most people install something like this. It is the widest
     profile in the set and it is still coherent: everything here turns sound-card
@@ -74,7 +76,9 @@ documentation:
     routing is the other thing nothing here does for you**: sound card in and
     out to the radio, at levels that do not overdrive it, and PTT through
     hamlib, flrig, CAT or VOX. Transmit audio level is the single biggest cause
-    of a station that hears everyone and is heard by nobody.
+    of a station that hears everyone and is heard by nobody. The radio-audio
+    guide (docs/guides/audio-routing.md) walks through it, and `qpwgraph`
+    shows the result.
 
     **Running several of the FT8 family at once contends for the same sound
     device and the same radio** — pick one per session. SSTV needs the sound

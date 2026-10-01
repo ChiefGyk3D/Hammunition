@@ -351,6 +351,7 @@ def test_every_catalog_launcher_working_directory_is_under_the_shared_prefix() -
         "hammunition-hill",
         "js8spotter",
         "libhamlib-utils",
+        "libiio-utils",
         "libnfc-bin",
         "mshv",
         "navit",

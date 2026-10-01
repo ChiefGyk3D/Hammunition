@@ -1,0 +1,80 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: libiio-utils
+version: "0.26"
+summary: Command-line tools that find and talk to IIO devices such as the PlutoSDR and ADALM2000
+categories: [sdr-hardware, electronics]
+
+# Gap analysis 2026-09 (catalog-gaps-2026-09.md, B Group 4; D.6), ADD. The
+# plutosdr device entry and soapysdr-module-plutosdr both say the Pluto is
+# reached through libiio, and nothing in the catalog installed libiio's tools.
+#
+# Upstream (D-032): github.com/analogdevicesinc/libiio, default branch `main`,
+# head fa9f4c909b46, 2026-09-28 -- read from a depth-1 clone on 2026-09-30.
+# Active. Latest tags v0.26 and v1.0.0; every target packages the 0.x series
+# (0.26 or 0.25), not 1.0. Licence: the library is LGPL-2.1-or-later and the
+# tools this package installs ("the examples and test applications
+# (sometimes referred to as the iio-utils)") are GPL-2.0-or-later, per the
+# README and COPYING_GPL.txt.
+#
+# `apt-cache policy`, 2026-09-30: offered on all seven targets.
+
+install:
+  - install:
+      method: apt
+      packages: [libiio-utils]
+
+# D-050: the unit ships seven command-line tools (iio_attr, iio_genxml,
+# iio_info, iio_readdev, iio_reg, iio_stresstest, iio_writedev, read from
+# the Debian 13 .deb) and no desktop entry, so `menus apply` could not pick
+# one without guessing. This is the pick: the scan an operator runs first.
+# Named iio_scan rather than iio_info so the wrapper never shadows the tool.
+launchers:
+  - name: iio_scan
+    exec: iio_info -S
+    title: Find IIO devices, PlutoSDR and ADALM2000 (iio_info -S)
+    terminal: true
+    # Lists every IIO context libiio can reach over USB, the network and local sysfs, with the URI each one answers to
+
+update:
+  probe:
+    method: apt_policy
+  strategy: apt_upgrade
+  cadence_hint: >-
+    Upstream is active and has moved to a 1.x series with a changed API; the
+    archives carry 0.25 and 0.26. A 1.x tools package would arrive through
+    the distribution.
+
+documentation:
+  what_it_does: >-
+    The command-line tools of libiio, Analog Devices' library for Industrial
+    I/O devices. `iio_info` lists the contexts it can reach and every
+    device, channel and attribute inside one; `iio_attr` reads and writes a
+    single attribute (a Pluto's LO frequency, gain or sample rate);
+    `iio_readdev` and `iio_writedev` stream raw samples to and from a file or
+    a pipe; `iio_reg` reads and writes device registers.
+  why_you_want_it: >-
+    The PlutoSDR and the ADALM2000 are IIO devices, reached over USB or the
+    network through libiio rather than through a /dev node. When SDR
+    software does not see a Pluto, `iio_info -S` answers the first question
+    -- does libiio see it at all, and at which URI -- before any application
+    is involved. It is the Pluto's equivalent of `rtl_test` and
+    `hackrf_info`.
+  prerequisites: >-
+    An IIO device, attached over USB or reachable on the network (a Pluto
+    answers at `ip:192.168.2.1` over its USB network interface by default,
+    per Analog Devices' documentation; not checked here). USB access needs a
+    udev rule, which the plutosdr hardware entry does not yet carry: its
+    identifier is unconfirmed.
+  known_problems: >-
+    Unmeasured with hardware here: the maintainer owns no PlutoSDR and no
+    ADALM2000, so no scan has been run against a device. The archives carry
+    the 0.x tools while upstream has tagged v1.0.0; whether a command
+    written for 1.x runs unchanged on the packaged 0.x tools is unmeasured,
+    so check `iio_info --help` when an example fails. Ubuntu 24.04 and Mint
+    22.3 carry 0.25, the others 0.26 (measured 2026-09-30).
+  upstream_url: https://github.com/analogdevicesinc/libiio
+  upstream_support: >-
+    Analog Devices. GitHub issues on the repository above, and the Analog
+    Devices EngineerZone forums for the Pluto and the ADALM2000.

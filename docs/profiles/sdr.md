@@ -8,18 +8,18 @@
 
 ## What it installs
 
-Three general-purpose receivers with waterfalls, GNU Radio and the block that lets a flow graph talk to almost any radio, the SoapySDR tools and the RTL-SDR driver stack, the client and server halves of network SDR sharing, an offline signal visualiser, an RDS decoder, a transceiver application for hardware that transmits, and a complete GPS receiver in software.
+Three general-purpose receivers with waterfalls, GNU Radio and the block that lets a flow graph talk to almost any radio, fosphor's GPU-drawn spectrum and waterfall blocks for it, the SoapySDR tools and the RTL-SDR driver stack, the client and server halves of network SDR sharing, an offline signal visualiser, an RDS decoder, a transceiver application for hardware that transmits, and a complete GPS receiver in software.
 
-**Disk footprint:** Around 1.5 GB, most of it GNU Radio and its Python stack. Without GNU Radio the rest is roughly 300 MB.
+**Disk footprint:** Around 1.5 GB, most of it GNU Radio and its Python stack. Without GNU Radio the rest is roughly 300 MB. `gr-fosphor` (added 2026-09-30) also pulls `gnuradio-dev`, GNU Radio's development headers; what that adds has not been measured.
 
 ## Why these belong together
 
 Everything here works with one cheap dongle, and the driver layer is what makes the applications interchangeable — software written against SoapySDR reaches your radio through a module, which is why installing the right one is usually the difference between an application listing your radio and showing an empty device list.
 **The network pair is worth the two packages.** Run the server where the antenna is and the client where you are sitting, and every SoapySDR program reaches the remote radio unchanged. Getting the antenna away from a modern house is the single biggest improvement available to most receivers.
 
-## Packages (14)
+## Packages (15)
 
-[`gqrx-sdr`](../packages/gqrx-sdr.md), [`sdrpp`](../packages/sdrpp.md), [`cubicsdr`](../packages/cubicsdr.md), [`gnuradio`](../packages/gnuradio.md), [`gr-osmosdr`](../packages/gr-osmosdr.md), [`soapysdr-tools`](../packages/soapysdr-tools.md), [`soapysdr-module-rtlsdr`](../packages/soapysdr-module-rtlsdr.md), [`rtl-sdr`](../packages/rtl-sdr.md), [`soapyremote-server`](../packages/soapyremote-server.md), [`soapysdr-module-remote`](../packages/soapysdr-module-remote.md), [`inspectrum`](../packages/inspectrum.md), [`gr-rds`](../packages/gr-rds.md), [`quisk`](../packages/quisk.md), [`gnss-sdr`](../packages/gnss-sdr.md)
+[`gqrx-sdr`](../packages/gqrx-sdr.md), [`sdrpp`](../packages/sdrpp.md), [`cubicsdr`](../packages/cubicsdr.md), [`gnuradio`](../packages/gnuradio.md), [`gr-osmosdr`](../packages/gr-osmosdr.md), [`gr-fosphor`](../packages/gr-fosphor.md), [`soapysdr-tools`](../packages/soapysdr-tools.md), [`soapysdr-module-rtlsdr`](../packages/soapysdr-module-rtlsdr.md), [`rtl-sdr`](../packages/rtl-sdr.md), [`soapyremote-server`](../packages/soapyremote-server.md), [`soapysdr-module-remote`](../packages/soapysdr-module-remote.md), [`inspectrum`](../packages/inspectrum.md), [`gr-rds`](../packages/gr-rds.md), [`quisk`](../packages/quisk.md), [`gnss-sdr`](../packages/gnss-sdr.md)
 
 ## What it deliberately excludes
 
@@ -29,4 +29,4 @@ Also excludes transmit-capable and interception tooling, which is `rf-security` 
 ## What you configure by hand afterward
 
 **A dongle that works under `sudo` and not otherwise is a permissions problem.** Device access needs a udev rule and usually the `plugdev` group; the hardware catalog carries the rules and applying them is M4 work that is not written, so today that is a manual step. `SoapySDRUtil --find` is the first command to run when a radio is invisible — it separates a USB or permissions problem from a missing module from an application bug.
-**Determine your dongle's frequency error once** and keep the PPM correction; several decoders fail to lock rather than reporting an error when it is wrong. `soapyremote-server` has no authentication at all — anyone who can reach the port can use your radio and hear what it hears — so it belongs on a trusted network or behind a tunnel, deliberately. Quisk is configured in Python rather than through a dialog; the shipped examples are the starting point and this is the step that stops people.
+**Determine your dongle's frequency error once** and keep the PPM correction; several decoders fail to lock rather than reporting an error when it is wrong. `soapyremote-server` has no authentication at all — anyone who can reach the port can use your radio and hear what it hears — so it belongs on a trusted network or behind a tunnel, deliberately. Quisk is configured in Python rather than through a dialog; the shipped examples are the starting point and this is the step that stops people. fosphor's blocks need an OpenCL driver for the graphics hardware, which nothing here installs; `clinfo` shows whether one is present, and the `gr-fosphor` package page says what the archives offer.
