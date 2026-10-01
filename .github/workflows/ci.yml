@@ -239,6 +239,15 @@ jobs:
       # changed, since that breaks an install. A newer edition is counted, not
       # failed. A listing only (about 273 pages); nothing is downloaded.
       - run: python scripts/gen_ustopo_index.py --check
+      # The 3DEP 1/3-arc-second tile list (D-068, amended 2026-10-01): list the
+      # bucket's current/ prefix (six pages) and fail naming each carried tile
+      # that is gone or whose size or ETag changed. Nothing is downloaded.
+      - run: python scripts/gen_3dep_tiles.py --check
+      # The FSTopo quad index (D-068, amended 2026-10-01): the GTAC index layer
+      # again (about 19 pages), failing naming each carried quad that is gone
+      # or whose box changed. No sheet is downloaded; the pins are grown by
+      # hand with --pin, which does download.
+      - run: python scripts/gen_fstopo_index.py --check
       # The Kiwix book pins (D-066): each pinned file's .meta4 again, about
       # 5 KB a book. Kiwix keeps two dated files per book, so a pin goes about
       # two publications after it is made and this goes red naming it and the
@@ -255,6 +264,11 @@ jobs:
       # keeps a map version for months, and a mirror answers a missing file
       # with 200 and a web page, so the size is compared, never the status.
       - run: python scripts/gen_comaps_pins.py --check
+      # The Open Repeater pin (D-074): fetch its one CC0 file (~241 kB) and
+      # compare with the sha256 in catalog/packages/open-repeater.yaml. The
+      # URL is not dated, so the pin dies whenever the site's data changes;
+      # this goes red naming the generator, and regenerating is running it.
+      - run: python scripts/gen_open-repeater-pin.py --check
 
   # -------------------------------------------------------------------------
   # D-031. Every identifier citing a distribution's udev rule is checked

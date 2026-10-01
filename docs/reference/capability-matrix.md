@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 80 | 2 | 214 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 80 | 2 | 214 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 78 | 2 | 216 |
-| kali-rolling *(unswept)* | 0 | 0 | 73 | 1 | 222 |
-| parrot *(unswept)* | 0 | 0 | 78 | 2 | 216 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 78 | 2 | 216 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 75 | 7 | 214 |
+| debian-13 *(unswept)* | 0 | 0 | 83 | 2 | 214 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 83 | 2 | 214 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 81 | 2 | 216 |
+| kali-rolling *(unswept)* | 0 | 0 | 76 | 1 | 222 |
+| parrot *(unswept)* | 0 | 0 | 81 | 2 | 216 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 81 | 2 | 216 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 78 | 7 | 214 |
 
-**296 manifests** against **7 targets**.
+**299 manifests** against **7 targets**.
 
 ---
 
@@ -103,6 +103,7 @@ build HAS been run in a container say so in their own install notes.
 | `cwdaemon` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `cwwav` | git | git | git | git | git | git | git |
 | `dablin` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `dem-3dep` | dem-tiles | dem-tiles | dem-tiles | dem-tiles | dem-tiles | dem-tiles | dem-tiles |
 | `dem-copernicus` | dem-tiles | dem-tiles | dem-tiles | dem-tiles | dem-tiles | dem-tiles | dem-tiles |
 | `dem-qmapshack` | derived | derived | derived | derived | derived | derived | derived |
 | `dfu-util` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -226,6 +227,7 @@ build HAS been run in a container say so in their own install notes.
 | `odr-dabmod` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `odr-dabmux` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `odr-padenc` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `open-repeater` | data | data | data | data | data | data | data |
 | `opencpn` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `openfpgaloader` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `openhamclock` | node | node | node | node | node | node | node |
@@ -325,6 +327,7 @@ build HAS been run in a container say so in their own install notes.
 | `uhd-soapysdr` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `uronode` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `usbutils` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `usfs-fstopo` | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads |
 | `usgs-ustopo` | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads |
 | `ustopo-qmapshack` | derived | derived | derived | derived | derived | derived | derived |
 | `vector-map-kit` | data | data | data | data | data | data | data |

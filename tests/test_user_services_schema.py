@@ -109,7 +109,7 @@ def test_user_service_is_importable() -> None:
 def test_a_rigctld_service_must_bind_what_it_declares() -> None:
     """Review I4: a rigctld exec that omits -T/-t matching listens is refused,
     so the loopback guarantee is not declarative-only."""
-    bad = {
+    bad: dict[str, object] = {
         "name": "hammunition-rigctld",
         "description": "rigctld without a matching -T",
         "when_station": {"rig_kind": "cat"},
@@ -122,7 +122,7 @@ def test_a_rigctld_service_must_bind_what_it_declares() -> None:
 
 def test_python_placeholder_is_accepted_as_exec0() -> None:
     """The loopback filter runs under the engine's interpreter, named {python}."""
-    proxy = {
+    proxy: dict[str, object] = {
         "name": "hammunition-rig-proxy",
         "description": "loopback filter",
         "when_station": {"rig_kind": "cat"},

@@ -98,7 +98,13 @@ _MAP_FIELDS = frozenset({"map_regions", "map_freshness"})
 #: Station values that are never a `{station.*}` template variable: the map
 #: settings, the LAN mirror the verified fetch tries first (D-070), and the
 #: Kiwix books chosen for `kiwix-library` (D-066).
-_NOT_TEMPLATES = _MAP_FIELDS | {"mirror", "reference_books"}
+_NOT_TEMPLATES = _MAP_FIELDS | {"mirror", "reference_books", "dem_source"}
+
+#: Where QMapShack's elevation is drawn from (D-068, amended 2026-10-01):
+#: Copernicus GLO-30, a surface model, by default; USGS 3DEP bare earth by
+#: choice. Each names the ``dem-tiles`` provider it selects.
+DEM_SOURCES = ("copernicus", "3dep")
+DEM_PROVIDERS = {"copernicus": "copernicus-glo30", "3dep": "usgs-3dep"}
 
 #: The rig owner: who holds the serial port. ``rigctld`` (the shared daemon,
 #: the default when unset) or ``flrig`` (the panel). A mode with a stated
@@ -199,6 +205,10 @@ class Station:
     that it keys itself on audio. Refused for a CAT rig (its PTT is CAT)."""
     rig_owner: str | None = None
     """``rigctld`` (the shared daemon, the default when unset) or ``flrig``."""
+    dem_source: str | None = None
+    """``copernicus`` (the default when unset) or ``3dep``: the elevation
+    QMapShack's hillshade, slope and contours are drawn from (D-068,
+    amended 2026-10-01)."""
 
     def __post_init__(self) -> None:
         if self.callsign is not None:
@@ -295,6 +305,15 @@ class Station:
                     f"rig owner {self.rig_owner!r} must be one of {', '.join(RIG_OWNERS)}"
                 )
             object.__setattr__(self, "rig_owner", owner)
+        if self.dem_source is not None and self.dem_source not in DEM_SOURCES:
+            raise StationError(
+                f"dem source {self.dem_source!r} is not one of {', '.join(DEM_SOURCES)}"
+            )
+
+    @property
+    def elevation(self) -> str:
+        """The effective elevation source: what is stored, or ``copernicus``."""
+        return self.dem_source or "copernicus"
 
     @property
     def freshness(self) -> str:
@@ -364,6 +383,8 @@ class Station:
             result["mirror"] = self.mirror
         if self.rig_baud is not None:
             result["rig_baud"] = self.rig_baud
+        if self.dem_source is not None:
+            result["dem_source"] = self.dem_source
         return result
 
 
@@ -482,6 +503,7 @@ def load_station(path: Path | None = None, owner: str | None = None) -> Station:
         rig_baud=rig_baud,
         rig_ptt_line=_str("rig_ptt_line"),
         rig_owner=_str("rig_owner"),
+        dem_source=_str("dem_source"),
     )
 
 
@@ -531,6 +553,7 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
                     reference_books=station.reference_books,
                     mirror=station.mirror,
                     rig_baud=station.rig_baud,
+                    dem_source=station.dem_source,
                     **{**values, variable: answer},
                 )
             except StationError as exc:
@@ -544,6 +567,7 @@ def prompt_for(variables: Sequence[str], station: Station) -> Station:
         reference_books=station.reference_books,
         mirror=station.mirror,
         rig_baud=station.rig_baud,
+        dem_source=station.dem_source,
         **values,
     )
 

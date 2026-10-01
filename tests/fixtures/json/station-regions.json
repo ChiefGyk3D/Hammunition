@@ -18,5 +18,6 @@
   "rig_device": null,
   "rig_baud": null,
   "rig_ptt_line": null,
-  "rig_owner": null
+  "rig_owner": null,
+  "dem_source": "copernicus"
 }

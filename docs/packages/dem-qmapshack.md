@@ -7,7 +7,7 @@
 - **Version recorded:** station
 - **Categories:** `navigation-maps`
 - **Upstream:** <https://gdal.org/>
-- **Needs first:** `dem-copernicus`, `gdal-bin`
+- **Needs first:** `dem-copernicus`, `dem-3dep`, `gdal-bin`
 
 ## What it does
 
@@ -19,7 +19,7 @@ QMapShack does not draw contour lines from elevation itself, and needs its eleva
 
 ## Before it will work
 
-`dem-copernicus` and `gdal-bin`, which install first.
+`dem-copernicus`, `dem-3dep` and `gdal-bin`, which install first. `dem-3dep` fetches nothing unless you choose it with `hammunition station set --dem-source 3dep`; then the elevation and contours are drawn from USGS 3DEP bare earth instead of Copernicus, and a region outside the US gets no elevation in QMapShack while that is chosen.
 
 ## How it installs
 
@@ -27,7 +27,7 @@ QMapShack does not draw contour lines from elevation itself, and needs its eleva
 
 ## Known problems
 
-The contours are unlabelled lines at a fixed resolution: legible, not pretty. Labelled contours inside the map need a tool the archive does not carry. Measured on one mountain tile on 2026-09-28: 4 s and a 97.8 MB GeoPackage to trace, 1.5 s and 5.4 MB to rasterise; the GeoPackage is removed once rasterised. QMapShack 1.17.1 draws hillshade from the elevation (confirmed on the field laptop on 2026-09-29, at the 3 km and 10 km scales); slope shading has not yet been tried there.
+The contours are unlabelled lines at a fixed resolution: legible, not pretty. Labelled contours inside the map need a tool the archive does not carry. Measured on one mountain tile on 2026-09-28: 4 s and a 97.8 MB GeoPackage to trace, 1.5 s and 5.4 MB to rasterise; the GeoPackage is removed once rasterised. QMapShack 1.17.1 draws hillshade from the elevation (confirmed on the field laptop on 2026-09-29, at the 3 km and 10 km scales); slope shading has not yet been tried there. From 3DEP the contours are rasterised at 10,812 pixels a tile to keep its 10 m detail: measured on one Shenandoah tile on 2026-10-01, 17.3 s and a 212 MB GeoPackage to trace, 3.4 s and 8.4 MB to rasterise. QMapShack drawing a 3DEP elevation has not been measured.
 
 ## Keeping it current
 

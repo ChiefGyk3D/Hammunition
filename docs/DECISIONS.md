@@ -5045,6 +5045,88 @@ switched daemons; the file that says the chrony unit is still configured is
 the evidence, read by content like everything else unapply removes. Not yet
 measured on the field laptop, like the rest of this record.
 
+### Amendment, 2026-10-01: a resume step for the GPS receiver, installed with the grants (issue #177)
+
+**Measured** read-only on the field laptop (issue #177's measurement
+comment, 2026-10-01). After a suspend the GPS had no fix until the receiver
+was parked and woken. Across 19 suspend/resume cycles in one boot the u-blox
+receiver kept the same USB device number, and its `connected_duration`
+equalled the time the machine was awake. It was enumerated once, at boot,
+and never re-enumerated. So no `gpsdctl` remove or add follows a resume, and
+gpsd keeps a tty that can go quiet without an error or a hangup. Every
+recovery that worked gave gpsd a fresh open: session 12's gpsd restart (a
+fix within 1 s) and a park and wake. The kept-off rule was absent and
+nothing writes the port's `power/control`. Without `-n` and with no client
+watching, gpsd closes the receiver before the sleep and opens it fresh after
+it, so the fault is intermittent there. **With this record's `-n` drop-in
+it would follow every suspend.** On a laptop that sleeps, the resume step is
+therefore a prerequisite for GPS time.
+
+**Ruling: recorded here, not under D-056.** The fault is in gpsd's open
+handle, not in power control: the measurement rules out the kept-off rule,
+autosuspend and park/wake as causes, and the step never parks or wakes
+anything. What it shares is this record's shape: a root-owned file
+installed by `hardware apply`, disclosed in the plan, read back afterwards,
+removed by `hardware unapply` by content, with an opt-out flag. And it
+exists because of this record's `-n`.
+
+**The step.** A device class names it, `resume: {step: gpsd_reopen}`, an
+enum the engine implements, as `power_control.method` is. The catalog
+carries no command. Where gpsd is installed and a catalog entry names the
+step, `hardware apply` installs:
+
+- `/usr/local/libexec/hammunition-gps-resume`, `0755`, staged and installed
+  by `install -D` like the helper, beginning with Hammunition's header. A
+  standard-library Python script (`src/hammunition/hardware/gps_resume_script.py`)
+  run by `/usr/bin/python3 -I`, which gpsd's package depends on. With no
+  `/dev/gpsN` it does nothing, so a parked receiver is never woken. With no
+  gpsd control socket it does nothing, because `gpsdctl add` would start a
+  gpsd of its own outside systemd. Otherwise, for each receiver it runs
+  `gpsdctl remove` then `gpsdctl add`, by the path gpsd reports for it
+  (`?DEVICES;`): the tty as `gpsdctl@` registers it, or `/dev/gpsN` where
+  gpsd was configured with that name, so gpsd never holds two handles on
+  one port. Then it sends `?DEVICES;` on 127.0.0.1:2947 with a 2 s limit. No
+  device, or no answer: `systemctl try-restart gpsd.service`. One journal
+  line per action; a failed restart or a failed `gpsdctl add` fails the
+  unit. **The restart does not cover the measured fault on its own terms:**
+  in #177 gpsd still listed the device while the tty was silent, and after
+  the re-add it lists it again whether or not data flows. The script makes
+  no data check (the design asked for `?DEVICES`, and a watch for reports
+  after the re-add is the follow-up if the bench shows the re-add alone is
+  not enough). So the restart catches gpsd losing the device or hanging, and
+  a receiver that stays silent is left to the manual steps.
+- `/etc/systemd/system/hammunition-gps-resume.service`, a oneshot with
+  `After=` and `WantedBy=` `suspend.target hibernate.target
+  hybrid-sleep.target suspend-then-hibernate.target`, enabled and never
+  started. It is a unit rather than a `system-sleep` hook so that
+  `systemctl cat` shows it and its runs land in the journal.
+
+Both are printed whole in the plan, with `systemctl status`,
+`journalctl -u` and `hardware unapply`. Each step is logged (`gps_resume`).
+Afterwards the files are read back and the four `.wants` links checked: an
+exit code from `systemctl enable` is not taken as proof (D-031). A file at
+either path without the header refuses the plan and is never overwritten.
+`hardware unapply` disables the unit and removes both files, each only when
+it starts with the header. `hardware apply --no-gps-resume` leaves the step
+out. `--no-gps-time` does not, because the step also serves `cgps`, `xgps`
+and the map tether. `doctor` reports whether it is installed when a GPS
+receiver is attached and gpsd is installed.
+
+**The heavier recoveries stay manual.** They are a gpsd restart while gpsd
+still lists the receiver, and park and wake through the helper, which is the
+heaviest (74 s to a fix from cold, bench session 10). The step never parks
+or wakes anything. The operator does, by hand, and the docs say so
+(`docs/hardware/power-control.md`, "After suspend").
+
+**Not yet measured:** whether `gpsdctl remove` and `add` bring the fix back
+after a real suspend; whether the unit, which runs as soon as the system is
+resumed, can run before the USB port has finished resuming; whether
+the stall is in gpsd's handle or in `cdc_acm` (the issue's bench step 5);
+and the step running at all on the field laptop. The bench steps are on
+issue #177. Until they are recorded in
+`docs/reference/bench-verification-5430.md`, the docs call this the design
+the measurement points to, not a measured recovery.
+
 ### What is refused, and what is out of scope
 
 A target whose time daemon is not ntpsec (Debian 13, Ubuntu and Kali
@@ -5060,11 +5142,12 @@ serving time to the LAN are out of scope.
 
 ### The tray
 
-`hammunition-tray` gains a Time section (its 0.3.0) that reads through
+`hammunition-tray` gains a Time section (its 0.4.0, corrected 2026-10-01 --
+first written here as 0.3.0 before the section shipped) that reads through
 `hammunition-devctl time state` without `pkexec` and changes the mode only
 through `pkexec hammunition-devctl time mode MODE`, from a fixed list of the
 four. It is built in its own repository, and the catalog's
-`hammunition-tray` manifest is re-pinned to it once released.
+`hammunition-tray` manifest was re-pinned to it once released.
 
 ### Not yet measured
 
@@ -7132,6 +7215,130 @@ weekly; `catalog/packages/usgs-ustopo.yaml`,
 `catalog/packages/ustopo-qmapshack.yaml`, `catalog/profiles/navigation.yaml`.
 The operator's page is section 15 of `docs/guides/offline-navigation.md`.
 
+### D-068 amendment (2026-10-01): FSTopo and 3DEP, built
+
+The "Next" above, built on branch `official-topo-2` from the spec's
+section 8 and its dated note (plan:
+`docs/superpowers/plans/2026-10-01-official-topo-2.md`). Two provider
+members on the existing methods, not new methods: `topo-quads` gains
+`usfs-fstopo`, `dem-tiles` gains `usgs-3dep`. `dem-3dep` joins
+`navigation`; `usfs-fstopo` does not (below). **Amends** D-061's `gdal-dem`
+with an optional `alternative` input and this decision's `ustopo-mosaic`
+with an optional `fstopo` input, each checked catalog-wide for its provider;
+`fstopo` is read when its unit is installed and is never a dependency.
+
+**FSTopo is installed by name only, until pinned (maintainer, 2026-10-01).**
+CLAUDE.md's security rule, "verify checksums/signatures for any non-apt
+source; refuse to install if absent", is the maintainer's standing rule, and
+a profile default does not route around it. So `usfs-fstopo` is in no
+profile and is planned only when the operator types it, with the per-sheet
+"unverified" plan lines and the warning that counts them. `ustopo-qmapshack`
+does not depend on it: it builds and keeps `FSTopo.vrt` only from FSTopo
+sheets already installed (read from their regions' records, offline, when
+the unit is not in the plan), so US Topo works alone. **The condition to
+rejoin `navigation`:** every sheet a region needs is pinned in
+`catalog/data/fstopo-pins.yaml` (`scripts/gen_fstopo_index.py --pin`), and
+the plan then says "every FSTopo quad your regions need is pinned by
+Hammunition"; the unit may rejoin by a further dated amendment to this
+decision, never as a side effect. `dem-3dep` stays in the profile: its S3
+ETag is the publisher's own check, the Copernicus precedent.
+
+**FSTopo (`usfs-fstopo`).** `scripts/gen_fstopo_index.py` reads the ArcGIS
+layer `FSTopo_Index_GTAC` (19 pages) and writes
+`catalog/data/fstopo-quads.txt`: box, `secoord`, vintage (the layer's
+two-digit edition, 0 for the 6,560 of 18,188 it leaves empty), postal code
+and name. Generated 2026-10-01 from the layer as last edited 2025-08-08:
+18,187 quads, one left out with no `secoord` (an Arkansas cell with no
+polygon). A region's sheets are chosen by eighth-degree cell as US Topo's
+are. At plan time each sheet to fetch is located through the raster
+gateway's one redirect, followed by the plan itself and refused unless it
+leads to a `.tif`/`.tiff` under `https://data.fs.usda.gov/geodata/rastergateway/`,
+and the file is asked its size. **The Forest Service publishes no
+checksum.** `catalog/data/fstopo-pins.yaml` carries a sha256 and size per
+sheet the maintainer measured (`--pin SECOORD`, which downloads); it starts
+empty. A pinned sheet is checked against its pin ("sha256, pinned by
+Hammunition (the Forest Service publishes no checksum)") and refused by
+name when the gateway announces another size. Any other sheet is fetched
+**unverified** by `Fetcher.fetch_sized` -- its announced size and a TIFF
+header checked, no cached copy ever reused -- and the plan says so on the
+sheet's own line and counts them in a warning. That is why the unit is
+installed by name only (above): disclosure alone does not satisfy the
+checksum rule for a default.
+
+**The converter changed from the spec's plain `gdalbuildvrt`** (the
+spec's section 8 note of the same date): the spike's sheet is stored in
+strips (`Block=8951x1`) with no overviews, and `gdalbuildvrt` over two
+paletted GeoTIFFs whose palettes differ exits 0, keeps the first palette for
+both and warns "The end result might produce weird colors" (measured on
+synthetic sheets). So `ustopo-mosaic`, when its block names `fstopo`, runs
+per sheet `gdal_translate -q -expand rgb -co TILED=YES -co COMPRESS=JPEG
+-co PHOTOMETRIC=YCBCR` and US Topo's `gdaladdo` 2 4 8 16, publishes
+`<data>/ustopo-qmapshack/fstopo/<name>.tif` with a sidecar
+(`ustopo-mosaic fstopo 1`), and builds `FSTopo.vrt` beside `ustopo.vrt`,
+recorded in `fstopo.source`. `maps qmapshack` already lists that directory,
+so QMapShack gets a second map, `FSTopo`, with no change to its
+registration. A test over two synthetic paletted sheets keeps each sheet's
+colour and goes red without `-expand rgb`.
+
+**3DEP (`dem-3dep`).** `scripts/gen_3dep_tiles.py` lists the bucket's
+`StagedProducts/Elevation/13/TIFF/current/` prefix (5,967 objects, six
+pages) and writes `catalog/data/usgs-3dep-tiles.txt`: 1,449 tiles with size
+and ETag, the newest object dated 2026-09-17. Tiles are named by the
+north-west corner (`src/hammunition/usgs3dep.py`); a region's squares are
+its outline's, as for Copernicus. Each tile to fetch is HEAD-checked against
+the list and the download must reproduce the S3 ETag; the plan says "MD5
+from the publisher's object metadata; not pinned by Hammunition". The
+CRC-64/NVME the 2025 objects also carry is not used: no standard-library
+implementation, a pure-Python one ran at 6.6 MB/s (over a minute a tile),
+and the ETag covers every object. 3DEP is fetched **only** when the
+station's new `dem_source` is `3dep` (`hammunition station set
+--dem-source copernicus|3dep`, default `copernicus`); otherwise
+`dem-3dep` resolves nothing, asks nothing, removes any 3DEP tile it
+installed, and the plan says so. With `3dep`, `gdal-dem` draws from the
+unit its block names as `alternative`, rasterises a tile at 10,812 pixels
+(`PIXELS` per provider), and writes `elevation: usgs-3dep` into
+`tiles.source`, so a change of source never reads as current; a Copernicus
+record is byte for byte what it was, so no existing install rebuilds. The
+plan prints 3DEP's size per region before the confirmation.
+**Copernicus stays the default and stays installed either way**: it is a
+tenth the size, BRouter's elevation reads it (its builder parses Copernicus
+names), and it covers regions 3DEP does not; a region outside the US gets a
+warning that QMapShack has no elevation for it while `3dep` is chosen.
+
+**Measured on 2026-10-01**, through the engine's own code, files deleted
+after: one George Washington National Forest FSTopo sheet (`secoord`
+382207907), gateway located in 1.0 s, 21,194,737 bytes, the same sha256 as
+the spike's copy of 2026-09-29, expanded in 7.0 s and given overviews in
+3.6 s to 24,546,537 bytes (1.16, carried as 1.2, "measured on one sheet");
+one Shenandoah 3DEP tile (`USGS_13_n39w079`), HEAD 0.4 s, 488,059,861
+bytes, ETag `…-94` reproduced and the spike's sha256 again, traced in
+17.3 s to a 211.5 MB GeoPackage and rasterised at 10,812 pixels in 3.4 s to
+8.4 MB, its corners exactly the degree. The first attempt at the tile
+stalled mid-download (a 60 s read timeout); the partial was deleted and the
+retry completed.
+
+**Not measured:** QMapShack drawing `FSTopo.vrt`, or drawing hillshade
+from a 3DEP `dem.vrt`; owed by the bench, in a virtual machine, never on
+the maintainer's desktop (the spike's `pkill` incident above). Whether
+every index quad has a GeoTIFF at the gateway (a quad without one refuses
+the plan by name); whether any FSTopo sheet is already RGB (`-expand rgb`
+would then fail it by name in the ledger); a whole install through
+`hammunition install` on any machine.
+
+**Not carried, as above:** 1 m lidar (26.9 GB for one Shenandoah
+project), GeoPDF (six times the GeoTIFF, rasterised anyway), Historical
+Topo (9.4 GB for Vermont).
+
+**Consequences.** `src/hammunition/fstopo.py`, `src/hammunition/usgs3dep.py`,
+`src/hammunition/backends/fstopo.py`; `Fetcher.fetch_sized`;
+`TopoQuadsBackend.fstopo`, `DemTilesBackend.bare_earth`; the FSTopo half of
+`src/hammunition/backends/topo_mosaic.py`; provider-aware
+`src/hammunition/backends/gdal_dem.py`; `resolve_station_fstopo`,
+`resolve_station_3dep`; `Station.dem_source`; the plan's `bare_earth`,
+`fstopo` and `contours_from` in text and JSON; `scripts/gen_fstopo_index.py`
+and `scripts/gen_3dep_tiles.py`, checked weekly;
+`catalog/packages/usfs-fstopo.yaml`, `catalog/packages/dem-3dep.yaml`.
+
 
 ---
 
@@ -7255,13 +7462,14 @@ hand, 2026-09-29, with nothing installed system-wide:
    module for Kiwix; this uses the same constant and wording. The weekly pin-review
    job runs `gen_comaps_pins.py --check`, which re-fetches the index and
    `HEAD`s World.mwm.
-7. **The position gap is written down, not faked.** CoMaps reads GeoClue2
-   only. The route is GeoClue's network-NMEA source fed by the tether and
-   an `[app.comaps.comaps] allowed=true` entry in `geoclue.conf` (Parrot's
-   agent whitelist names no KDE agent). Both are system modifications, both
-   unmeasured, and neither is made. The manifest, the guide and the profile
-   say plainly: no "you are here" on the laptop yet. Reaching Qt's `nmea`
-   plugin instead would take a patch to CoMaps, and none is proposed.
+7. **The position comes through GeoClue, fed by the tether** (replaced
+   2026-10-01; the amendment below has the measurement). CoMaps reads
+   GeoClue2 only. The tether serves its NMEA on a unix socket as well as TCP
+   10110, GeoClue's network-NMEA source reads that socket, and `hardware
+   apply` writes the two root files that set it up, disclosed and reversed
+   like GPS time's (D-058). A native CoMaps is a system app to GeoClue and
+   needs no `[app.comaps.comaps]` entry; the entry this item first named was
+   wrong. No CoMaps patch. What the bench still owes is listed below.
 
 ### Not carried
 
@@ -7294,7 +7502,8 @@ Not measured, and owed by the bench:
 - **CoMaps reading the linked maps** on a running desktop.
 - **US address-search quality.** The desktop app has no scriptable search;
   a person at the screen has to judge it.
-- The GeoClue route to a position, if the maintainer wants it tried.
+- The GeoClue route to a position on a real desktop (amended 2026-10-01:
+  built, and the bench's list is in the amendment below).
 
 **Consequences.** `commit`, `submodules`, `build_python`, `prepare`
 (`PrepareStep`) and `extra_files` (`ExtraFile`) on `GitInstall`, and
@@ -7351,6 +7560,162 @@ landed. What changed with it:
   bench; the fields exist and are tested against fakes.
 - D-069 is recorded in number order, between D-068 and D-070, which
   landed on main first (maintainer's direction, 2026-09-30).
+
+### Amendment (2026-10-01): "you are here" through GeoClue's NMEA socket
+
+**Status:** built on branch `comaps-position`; the maintainer decides it at
+review. It replaces item 7's position gap.
+
+**Measured** (the GeoClue spike, 2026-10-01, on the development host, Parrot
+7 on Debian 13; nothing installed, no root, the system GeoClue never
+called). Debian's GeoClue 2.7.2 (`geoclue-2.0` 2.7.2-2, upstream tag
+`2.7.2`, no NMEA patches in the Debian changelog) reads `nmea-socket=` from
+`[network-nmea]` as a static unix-socket service (`gclue-nmea-source.c`);
+there is no static TCP key. It reads `/etc/geoclue/geoclue.conf` and then
+every `conf.d/*.conf`, the later winning. The whole chain was run in a
+private user, mount and network namespace with only loopback: Debian's own
+`/usr/libexec/geoclue` on a private system bus, its demo agent, and a
+headless Qt 6.8.2 client making CoMaps' calls verbatim
+(`createSource("geoclue2")` with `desktopId` `app.comaps.comaps`,
+`AllPositioningMethods`, a 1 s interval). A fake NMEA feed of a fixed
+public position (Montpelier, Vermont) on the socket reached the client
+within milliseconds, with `NMEA service connected.` in GeoClue's log (a
+`g_debug` line, seen because the spike ran GeoClue with
+`G_MESSAGES_DEBUG=all`; the stock service does not log it); a
+stopped feed gave no fix and GeoClue retried every 5 s; a restarted feed was
+picked up with no GeoClue restart; and the same held over Debian's
+**unmodified** `geoclue.conf` plus one drop-in. With no agent, GeoClue held
+the request (`Client waiting for agent`) and Qt reported an access error
+after its 25 s D-Bus timeout. No `[app.comaps.comaps]` section was written
+in any run: `gclue-service-client.c` treats a client with no Flatpak app id
+as a system app and starts it (`'app.comaps.comaps' not in configuration`,
+then the start). An app section never bypasses the agent either.
+
+**Also measured, and why the disclosures exist.** Disabling `[wifi]` does
+not stop network lookups: GeoClue keeps a GeoIP-only source at city
+accuracy unless `[static-source]` is enabled, and it asked beacondb when a
+client asked below exact accuracy. Qt's plugin keeps the last fix in
+`$XDG_DATA_HOME/qtposition-geoclue2`. The spike's first, unisolated run let
+a private GeoClue reach beacondb and Qt cache an IP-derived fix in the
+maintainer's home; the file was deleted and every later run had no network.
+Hammunition's tests never start a GeoClue.
+
+**Ruling: where the files belong.** They serve the receiver's position to
+every GeoClue client, not to CoMaps alone (no app entry is written), so
+they are a class-level set installed by `hardware apply` beside GPS time
+(D-058), gated on GeoClue being installed (`/usr/libexec/geoclue` and the
+`geoclue` group), and not a `system_modifications` entry on `comaps`: no
+kind fits and the engine performs none for this. `comaps` carries the apt
+dependencies, `geoclue-2.0` and `libqt6positioning6-plugins` (the package
+with `libqtposition_geoclue2.so`).
+
+**What `hardware apply` does**, each step printed first and read back after
+(D-031), logged as `geoclue_files`:
+
+1. `/etc/geoclue/conf.d/90-hammunition-gps.conf`: Hammunition's header,
+   `[network-nmea]`, `enable=true`, `nmea-socket=/run/hammunition-gps/nmea.sock`.
+   A drop-in; Debian's conffile is not edited.
+2. `/etc/tmpfiles.d/hammunition-gps.conf`: `d /run/hammunition-gps 2750
+   <operator> geoclue -`, then `systemd-tmpfiles --create` on that file.
+   GeoClue's unit runs as `geoclue` with `ProtectSystem=strict`,
+   `ProtectHome=true` and `PrivateTmp=true`, so the socket cannot be under
+   /home, /tmp or /run/user; the setgid bit gives the socket GeoClue's
+   group.
+3. `systemctl try-restart geoclue`, because GeoClue reads its configuration
+   only at start.
+
+A file at either path without Hammunition's header, or anything but a
+directory at `/run/hammunition-gps`, refuses the run before anything runs;
+the operator's name is checked before it is written into a root file.
+`--no-geoclue` leaves GeoClue alone. The plan prints both files, the
+inspect steps (`cat` both, `ls -ld /run/hammunition-gps`, `journalctl -u
+geoclue | grep -i nmea`), the reverse steps, and four sentences held word
+for word in `hammunition.geoclue.DISCLOSURES` and in the navigation guide
+(a test compares them): that GeoClue reads its configuration only at start
+(it exits after 60 s idle, or `try-restart`); that while the tether runs
+any native app of a user with an agent gets the fix and the demo agent does
+not prompt; that stock GeoClue also asks beacondb and GeoIP whenever CoMaps
+asks, so with the tether stopped the map shows that coarse location, and
+only `[static-source]` would stop the GeoIP lookups, which Hammunition does
+not change; and that Qt caches the last fix under
+`~/.local/share/qtposition-geoclue2`. `hardware unapply` removes both files
+by their header, the socket only when it is a socket, then `rmdir` and
+`systemctl try-restart geoclue`.
+
+**The tether.** `maps gps-tether --nmea-socket PATH` adds a unix stream
+listener, mode 0660, served by the same fan-out as TCP with the same stall
+and disconnect rules. It is on by default, at the path above, when the
+drop-in with Hammunition's header is present, so the `gps-tether` launcher
+needs no second form; `--no-nmea-socket` turns it off. A stale socket is
+replaced, a live one or a non-socket refused, and only the inode the
+tether bound is removed when it stops. The default failing (no directory
+before tmpfiles ran, say) is a line on stderr and TCP still serves. TCP
+10110 and `/position` on 10111 are unchanged. The socket is tighter than
+TCP 10110: only GeoClue's group can open it.
+
+**`doctor`** reports the two files, the directory's mode, owner and group,
+and whether `org.freedesktop.GeoClue2.DemoAgent` is on the session bus
+(`busctl --user list`, read-only, with a 5 s timeout, not asked as root).
+It does not read other `conf.d` drop-ins, so a later one that sets
+`nmea-socket` itself would win unseen; the guide says how to look.
+
+**Removal, after the final review.** `unapply` runs `rmdir` only with our
+tmpfiles line present (the evidence the directory is ours), and asks
+`systemctl try-restart geoclue` only while GeoClue's daemon is installed;
+a run whose operator resolves to root says the directory would be root's,
+which the tether, never run as root, could not use. Debian's
+`geoclue-2.0` autostarts that agent on every desktop but GNOME from
+`/etc/xdg/autostart/geoclue-demo-agent.desktop`; it was running on the
+development host's Plasma session.
+
+**Rejected.**
+
+- *Avahi* (`_nmea-0183._tcp`, GeoClue's other network-NMEA route):
+  avahi-daemon and its socket are disabled on Parrot, `lo` has no
+  MULTICAST so nothing is announced on it, and GeoClue connects to the
+  advertised `<host>.local`, which resolves to a LAN address: the tether
+  would have to listen beyond loopback, which D-061 refuses.
+- *A CoMaps patch to read NMEA itself*: `patches` is a measured zero the
+  engine refuses, and upstream closed Codeberg #3734 with "nothing to fix
+  on CoMaps side", GeoClue being the standard.
+- *Qt's `nmea` plugin chosen from outside*: it reads a loopback NMEA stream
+  (measured), but `createSource` loads only the provider it names, CoMaps
+  names `geoclue2`, and no environment variable selects another, so this is
+  the same patch. A fake plugin claiming the name `geoclue2` would be a
+  shim, which this project refuses.
+
+**Owed by the bench** (`docs/reference/bench-verification-5430.md`), none
+claimed until recorded there, and no agent added to any desktop to get
+there:
+
+- the demo agent present in the field laptop's Plasma session;
+- the real, sandboxed GeoClue connecting to the socket in `/run`; from the
+  kernel's rules, which exempt sockets from read-only mounts, not seen. The
+  evidence is the tether's `A client on the socket connected` while CoMaps
+  asks, with no `Failed to connect to NMEA service` warning in the journal:
+  `NMEA service connected.`, which the brief named, is `g_debug` in
+  `gclue-nmea-source.c` and Debian's `geoclue.service` does not enable
+  debug output, so `journalctl -u geoclue | grep -i nmea` shows only
+  failures (review, 2026-10-01);
+- CoMaps' dot following the tether, and what it shows with the tether
+  stopped;
+- `/run/hammunition-gps` made again after a reboot;
+- the demo agent autostarting on the Xfce and LXQt VMs.
+
+**Still a gap.** A Flatpak CoMaps would need an `[app.comaps.comaps]` entry
+or a desktop that prompts; Hammunition builds the native one. Direct NMEA
+without GeoClue needs the patch nobody carries.
+
+**Consequences.** `src/hammunition/geoclue.py`; `listen_unix`,
+`close_unix` and the `unix` listener in `src/hammunition/gps_tether.py`;
+`--nmea-socket`, `--no-nmea-socket` and `--no-geoclue` and the apply,
+unapply and doctor wiring in `src/hammunition/cli/main.py`; the
+`geoclue` checks in `src/hammunition/doctor.py`; `depends` and the known
+problems in `catalog/packages/comaps.yaml`; the guide's section 17,
+`docs/reference/cli.md`. Tests: `tests/test_geoclue.py`,
+`tests/test_geoclue_apply.py`, `tests/test_doctor_geoclue.py`,
+`tests/test_docs_geoclue.py`, and the socket cases in
+`tests/test_gps_tether.py` and `tests/test_maps_tools.py`.
 
 ## D-070 — A data artifact may be taken from a LAN mirror the operator names, verified the same either way, and the engine can list what it would fetch without a station
 
@@ -7450,6 +7815,19 @@ agreement about an index format the engine would then have to parse and
 trust. `artifacts` reading the station by default: the Bunker runs on a NAS
 with no station, and a listing that changed with whoever ran it would not
 be a contract.
+
+**Amended 2026-10-01 (issue #159): Kiwix books (D-066) go through the mirror
+too, and `artifacts` lists them.** The books backend had fetched from
+download.kiwix.org only; it now asks `<mirror>/kiwix-library/<book id>`
+first, the id as `catalog/data/kiwix-pins.yaml` names it, with the same
+pinned sha256 and size, the same plan wording and the same log facts as a
+`data` file. `artifacts --reference-books ID,ID` lists each book (`check:
+sha256`, its own licence line) from the carried pins alone, no station read;
+with none given, `kiwix-library` is one entry deferred as *no books
+selected*. Books are the largest data the catalog fetches (up to 127 GB), so
+they are the mirror's most valuable case. Measured in
+`tests/test_mirror_books.py` (two loopback servers: a mirror hit, and wrong
+bytes falling back to the publisher) and `tests/test_artifacts.py`.
 
 ---
 
@@ -7806,3 +8184,205 @@ the radio; the program table against the service; the flrig route; the
 UV-50PRO's keying line and that nothing is written to the serial line, plus the
 start-up keying question and VOX; `--unattended` across a logout. Found while
 measuring and fixed first: issue #174, the launcher that shadowed `rigctl`.
+---
+
+## D-074 — Repeater data beyond RepeaterBook: one layer per source, Open Repeater pinned as data, OpenStreetMap filtered from the extracts already here, the ETCC and Brandmeister on request with hotspots dropped, and what the station heard kept apart
+
+**Date:** 2026-10-01. **Status:** proposed (the spike's recommendation,
+approved by the maintainer with three items left to him; implemented on
+branch `repeater-sources`; the maintainer decides it at review).
+**Spec:** `docs/superpowers/specs/2026-10-01-repeater-sources-design.md`.
+**Numbering:** assigned with the task; D-073 is not on this branch.
+**Depends on:** D-064 (the overlays this adds layers to), D-049 (a data
+unit), D-066 (a generated pin), D-070 (the mirror and `artifacts`), D-033
+(an unlicensed source judged on what we do with it), D-035 (a station value
+is the operator's), D-021 (disclose, never adjudicate), D-031 (the input's
+date), D-057 (a region says where the operator is), D-059 (documents).
+**Amends:** D-064: an import now replaces its own layer, not every layer,
+and `remove` takes `--layer`.
+
+### What was measured
+
+The spike of 2026-10-01 (scratchpad, not committed) measured every bulk
+source it could find on three public example areas (Delaware, Vermont,
+Shenandoah), with hearham as the baseline: hearham's bytes changed six rows
+in ten minutes and cannot be pinned. **Open bulk data for the US barely
+exists**: all the sources below together added about one repeater over
+hearham in the three areas (one Brandmeister repeater in Vermont).
+
+- **Open Repeater**: one URL, no key, 241 kB, 461 repeaters, byte-identical
+  over three fetches, "Data licensed under CC0 1.0" and `"license": "CC0"`
+  in the file. Sweden 243, Malaysia 121, India 96, Canada 1, US 0. The
+  only CC0 bulk directory found. Pinned on this branch at sha256
+  `07be1cba…`, 240,723 bytes: the same digest the spike saw, and twice
+  more by `--check`.
+- **OpenStreetMap**: the keys in use are `communication:amateur_radio:*`
+  (925 objects worldwide); the keys guessed beforehand have zero uses. The
+  pinned Delaware extract has none, Vermont's one (a duplicate of hearham's),
+  the whole US 47 by Overpass. The frequency is written as `145350000`,
+  `146.685`, `146685` and `1466100000` (146.61 MHz ×10).
+- **UK ETCC** (`ukrepeater.net/csvcreate_all.php`): 803 rows, 62 kB,
+  identical over three fetches, positions at locator precision, no licence
+  or terms stated, openly offered.
+- **Brandmeister** (`api.brandmeister.network/v2/device`, no key): 31,993
+  devices; 2,857 are 6-digit ids with transmit ≠ receive. The rest are
+  personal ids and simplex hotspots: somebody's house. No terms published.
+- **Direwolf 1.8.1's `-l` log**, measured here by decoding synthetic
+  objects (`gen_packets` into `direwolf -l`): the header is
+  `chan,utime,isotime,source,heard,level,error,dti,name,symbol,latitude,longitude,speed,course,altitude,frequency,offset,tone,system,status,telemetry,comment`,
+  with the frequency (MHz), offset (signed kHz) and tone (Hz) already
+  decoded from the object. The log shows no killed flag.
+- The HEADs for the docs, 2026-10-01: both URLs answered 200, no `ETag`,
+  no length; ETCC `application/csv`, `Cache-Control: max-age=0,no-store`,
+  Brandmeister `application/json`, `no-cache, private`.
+
+### The rule
+
+1. **One layer per source**, each three files plus its rows as data
+   (`.rows.json`) under its own stem in D-064's directory:
+   `export` (D-064's, unchanged names), `open-repeater`, `osm`, `etcc`,
+   `brandmeister`, `aprs-heard`. Each name carries the source, the date and
+   the licence or the status (`unverified`, heard off the air). One command
+   writes one layer and leaves the others.
+   QMapShack's `poiPaths` holds the directory while any layer has a `.poi`;
+   the operator's Navit copy has one textfile map per layer present.
+2. **Open Repeater is a D-049 data unit**, `open-repeater`, `CC0 1.0`, in no
+   profile. Its sha256, size and date are written into the manifest by
+   `scripts/gen_open-repeater-pin.py`; `--check` fetches and compares (the
+   weekly pin review), `--check --offline` runs in the suite. The URL is
+   not dated, so the pin dies whenever the site changes and the install
+   refuses the file by its digest until it is regenerated; a mirror holding
+   the pinned bytes still serves it, and `artifacts` lists it for the
+   Bunker as `open-repeater/open-repeater.json`. `import
+   --from-open-repeater [FILE]` reads the installed file or a downloaded
+   copy; the layer is dated by the newest `last_verified`.
+3. **OpenStreetMap is an explicit `import --from-osm`**, not a converter
+   run with the maps (ruling): conversions run as root inside `install`,
+   this layer is the operator's file, D-057 keeps parsing downloaded data
+   out of root, and the measured yield is close to nothing in the US.
+   `osmium tags-filter` runs as the operator over every installed extract;
+   nothing is downloaded. A bare frequency is tried as MHz, kHz, Hz and Hz
+   ×10 and the first landing in a repeater band is taken (no number lands
+   in a band under two of them); an unsigned shift is noted, not claimed.
+   The document names the extracts' directory with no digest, and skips are
+   numbered in reading order, never by OSM id: a region, a region's digest
+   and an OSM id each say where the operator is.
+4. **ETCC and Brandmeister are fetched on request only**, through D-064's
+   fetch (bounded, HTTPS-only redirects), parsed in memory, marked
+   *unverified* with the observed sha256, carried under D-033, no JSON form.
+   **Brandmeister keeps only a 6-digit id whose transmit and receive
+   differ**; every hotspot is dropped before anything is written, and only
+   the counts are printed. The ETCC's locator precision is in every
+   description.
+5. **Direwolf's log is its own layer**, `Repeaters heard off the air (APRS
+   objects, YYYY-MM-DD)`: rows with `dti` `;` and a frequency in a repeater
+   band, the newest hearing kept, dated by the newest hearing. **Never
+   merged into the directories.** No network and no login.
+6. **The all-sources file**, `repeaters-all.gpx`, is rebuilt after every
+   import, fetch and remove from the directory layers when two or more can
+   be read, and deleted otherwise. Precedence, best first: the operator's
+   export or list; the ETCC; Open Repeater; hearham; Brandmeister; OSM. A
+   row joins a kept row **of another layer** with the same output frequency
+   that is within 0.02°, or has the same callsign and is within 0.25°; the
+   kept row keeps its position and fields, fills an offset, tone, mode or
+   place it lacks, and names every source in its description. Every join is
+   counted and printed. GPX only. A layer without `.rows.json` (written
+   before this) is named as left out.
+7. **D-064's `import FILE...` refuses** an Open Repeater file, an ETCC CSV
+   and a Direwolf log by name, pointing at the route that makes each its own
+   layer; the `--from-*` options exclude each other and files; `--exported`
+   dates an export only.
+8. **Documents.** `repeaters` gains `layer_id` and `all_sources`;
+   `repeaters-removed` gains `layers` and `all_sources`. Fields added within
+   schema 1. Neither carries a callsign, a position, a region or a region's
+   digest.
+
+### Rulings made on the way
+
+- **The spike's cross-source rule was bounded.** As written ("same Hz and
+  either the same callsign or within 0.02°") it joined two rows of one hand
+  list, the same call and frequency 120 km apart, on the first CLI run: the
+  case D-064 measured 1,050 times in hearham alone. Rows of one layer now
+  never join each other (D-064's key already decided them), and a callsign
+  match counts within 0.25° (about 25 km), which still catches a directory
+  that places a repeater at its town.
+- **The generator writes into the manifest**, not a separate pin file: a
+  data artifact carries its sha256 inline (the schema), and a second copy
+  in `catalog/data/` would be duplicated data. It finds each of its three
+  lines exactly once and re-reads the manifest after the write.
+- **The script keeps the name the task gave it**, `gen_open-repeater-pin.py`;
+  ruff and mypy accept the hyphen, and its tests load it by path.
+- **The capability matrix took only this manifest's delta.** The checkout
+  has no probe sweep (`reference/probes/` is gitignored, and the only copy
+  found was older than the committed page). The generator was run with and
+  without the new manifest over that copy, and its difference (one `data`
+  row, `build` +1 per target, 296 manifests) applied to the committed page;
+  the page is otherwise unchanged until the next sweep.
+- **The Direwolf fixtures are Direwolf's own output** for synthetic packets
+  (`tests/fixtures/repeaters/direwolf-packets.txt`), so the columns and
+  units are measured, not recalled.
+- **Open Repeater's layer is dated by its data**, the newest
+  `last_verified`; the installed file's modification time is the install's.
+- **From the final review.** A `.rows.json` is type-checked field by field
+  and a wrong one skipped by name (a string latitude had crashed the merge
+  and `true` was read as 1 Hz). The all-sources rebuild has its own failure
+  path: the layer is written and registered, the view carries `error`, and
+  the command exits 1. Every `--from-osm` message names an extract by its
+  number, never its file, osmium's stderr included. An unsigned OSM shift
+  falls back to `frequency_in` for its direction. A `remove --layer` that
+  leaves one directory layer lists the all-sources file it deleted. The
+  generator catches `http.client`'s exceptions and never leaves its
+  temporary file.
+
+### Not carried, and why
+
+RepeaterBook bulk (written permission needed for bulk extraction,
+mirroring and offline bundling); RadioReference (private viewing only
+without a licence); RFinder (a paid app, no bulk data); the ARRL directory
+(RepeaterBook's data, same terms); FCC ULS (repeaters are not licensed
+individually; records carry a mailing address); RadioID (its terms exclude
+mapping and re-publication; no coordinates); the WIA CSV (all rights
+reserved; no coordinates); repeatermap.de (a token on request only); D-STAR,
+YSF and NXDN lists (personal-use HTML, or internet reflectors without
+coordinates). **ACMA's register** (Australia) is a route named, not built:
+a 67.5 MB daily file whose licence permits derivatives with attribution,
+493 repeaters with positions; a later data unit, with a generated extract
+and a decision on who hosts it.
+
+### Left to the maintainer, not built
+
+Whether the Bunker may hold unverified snapshots of hearham-class data
+(hearham, the ETCC, Brandmeister); writing to the RSGB, the US councils
+and Brandmeister for an explicit licence, the only route to real US gain;
+any APRS-IS capture (aprsc refused `N0CALL` and `NOCALL`, and whether a
+non-callsign login is acceptable is his call).
+
+### What has run
+
+The test suite: every parser against synthetic fixtures, each skip and
+refusal, the four frequency spellings, the hotspot filter, the Direwolf log
+captured from Direwolf, osmium over a synthetic extract built by `osmium
+cat` (skipped where osmium is absent), the cross-source join and its
+bounds, the layers side by side and removed by id, both fetches against a
+loopback server, both documents validated with no private value in either,
+`artifacts` listing the unit, and the generator against a faked fetch, its
+offline check falsified three ways. On the development host: the pin
+generated from openrepeater.org once and checked twice. No GUI was started
+and nothing was installed.
+
+**Owed to the bench:** `install open-repeater` from the publisher and from
+a Bunker; QMapShack listing each layer's `.poi` as its own collection and
+loading `repeaters-all.gpx`; Navit drawing several textfile maps from one
+mapset; a real `fetch-etcc` and `fetch-brandmeister`; `--from-osm` over the
+laptop's own extracts; a day of Direwolf's real log.
+
+**Consequences.** `src/hammunition/repeater_sources.py`; layers, rows
+files and the all-sources file in `src/hammunition/repeaters.py`; the
+import options, two fetch commands and `remove --layer` in
+`src/hammunition/cli/main.py`; the documents in
+`src/hammunition/interface/repeaters.py`;
+`catalog/packages/open-repeater.yaml`; `scripts/gen_open-repeater-pin.py`
+and its weekly CI step; tests `tests/test_repeater_sources.py`,
+`tests/test_repeater_sources_cli.py`, `tests/test_repeater_layers.py`,
+`tests/test_gen_open_repeater_pin.py`; the offline-navigation guide's
+section 13, `docs/guides/lan-mirror.md` and `docs/reference/cli.md`.

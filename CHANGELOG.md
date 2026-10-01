@@ -33,6 +33,113 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   line; a regression test guards it. `doctor` checks both services read-only and
   never keys the transmitter. gpredict's radio file is written for the shared
   `rigctld`; `docs/guides/rig-control.md` is rewritten around the service.
+- **Forest Service FSTopo sheets and USGS 3DEP bare-earth elevation**
+  (D-068, amended 2026-10-01). `usfs-fstopo` installs the FSTopo
+  7.5-minute sheets, with trail numbers, for the station's regions over
+  National Forest land, chosen offline from a carried index of 18,187 quads
+  (`scripts/gen_fstopo_index.py`) and located through the raster gateway's
+  one redirect at plan time. The Forest Service publishes no checksum: a
+  sheet the maintainer pinned is checked by its sha256, and every other is
+  fetched **unverified**, its size and TIFF header only, said on its plan
+  line and counted in a warning; the pins file starts empty. So it is in
+  no profile and installs only when typed by name, until every sheet a
+  region needs is pinned and the plan says so. When FSTopo sheets are
+  installed, `ustopo-qmapshack` expands each one's palette to tiled RGB
+  with overviews and builds a second QMapShack map, `FSTopo.vrt`; it never
+  pulls them in, and US Topo works alone. `dem-3dep`, in `navigation`,
+  installs 3DEP 1/3-arc-second tiles, about ten times Copernicus's size,
+  only after `hammunition station set --dem-source 3dep`, checked against
+  each object's S3 ETag from a carried list of 1,449 tiles
+  (`scripts/gen_3dep_tiles.py`); `dem-qmapshack` then draws its elevation
+  and contours from 3DEP at 10,812 pixels a tile, and setting the source
+  back removes the tiles and redraws from Copernicus. Copernicus stays the
+  default and stays installed. The plan prints both, per region, in text
+  and JSON. QMapShack drawing either is not yet measured.
+
+- **`hammunition-tray` and `hammunition-tray-qt` re-pinned to v0.4.0**
+  (GPS-time plan Task 11, D-058). Both catalog manifests moved from v0.3.0
+  to the v0.4.0 release assets, measured against the published SHA256SUMS:
+  `hammunition-tray_0.4.0_all.deb` (15270 bytes,
+  `451bea9322376dbb9cd00834834f96e0f5d5ce487735d5fbe2349e2ae41e97bd`) and
+  `hammunition-tray-qt_0.4.0_all.deb` (18198 bytes,
+  `21ccc91e2f8a46a5213c9200fc0f33661d2075bfaee360cc50b0158981a46527`); both
+  Depends lines are unchanged from 0.3.0. 0.4.0 adds the Time section to
+  both trays: what the clock follows and the four GPS-time modes, read
+  without a password and changed through one polkit prompt to
+  `hammunition-devctl`, needing Hammunition 0.18.0 or later. Both
+  `what_it_does` fields gain a sentence for it, and the two places that had
+  written "its 0.3.0" for the still-unreleased Time section
+  (`docs/guides/gps-time.md` §5, D-058's "The tray" paragraph) are corrected
+  to 0.4.0.
+
+- **Kiwix books come through the LAN mirror, and `artifacts` lists them**
+  (issue #159, D-070 amended 2026-10-01, D-066). The books backend fetched
+  from download.kiwix.org only, whatever the station's mirror; it now asks
+  `<mirror>/kiwix-library/<book id>` first and Kiwix second, the same pinned
+  sha256 and size checked either way, the plan line saying so and the log
+  recording `source`, `fetched_from` and `mirror_failure` as a `data` fetch
+  does. `hammunition artifacts --reference-books ID,ID` lists each book
+  (`check: sha256`, its own licence line) from the carried pins, no station
+  read; with none given `kiwix-library` is deferred as *no books selected*,
+  and it is now among the default units. The `artifacts` document gains
+  `reference_books`. Books are the largest data the catalog fetches, up to
+  127 GB.
+- **`import hammunition.fetch` no longer raises a circular `ImportError`
+  when it is the first `hammunition` import in the process** (issue #158).
+  `src/hammunition/backends/__init__.py` eagerly imports every backend, six of
+  which (`apt_repo`, `binary`, `data`, `git`, `node`, `regions`, `source`,
+  `venv`) named `hammunition.fetch` symbols at module scope purely for type
+  annotations or late-needed helpers; `hammunition.cli.main`'s own import
+  order happened to prime `sys.modules` around it, which is why the engine's
+  CLI never hit it while Hammunition Bunker's `enginelib.py` did. Those
+  imports now move under `TYPE_CHECKING` (annotations, deferred by
+  `from __future__ import annotations` anyway) or become local imports at
+  their one or two call sites (`MirrorPath`, `fetch_disclosure`,
+  `record_fetch`, `safe_name`, `operator_dir`, `remove_tree`,
+  `UrllibTransport`) — never a bare `try`/`except ImportError`.
+  `tests/test_import_isolation.py` imports every `hammunition` module alone
+  in a fresh subprocess so this cannot come back silently.
+
+- **The GPS receiver gets a resume step** (issue #177, D-058 amended
+  2026-10-01). Measured on the field laptop: a USB receiver is not
+  re-enumerated across a suspend, so gpsd can keep a tty that has gone quiet
+  and the fix does not come back. Where gpsd is installed,
+  `hammunition hardware apply` now installs
+  `/usr/local/libexec/hammunition-gps-resume` and
+  `hammunition-gps-resume.service`, a oneshot that runs after every suspend
+  or hibernation. It does nothing when no `/dev/gpsN` exists, so a parked
+  receiver stays parked. Otherwise it runs `gpsdctl remove` and `add` for
+  each receiver, and `systemctl try-restart gpsd.service` if gpsd then
+  reports no device, logging one journal line per action. It makes no
+  check that data flows, so a receiver gpsd still lists but that stays
+  silent is left to the manual steps: a gpsd restart, then park and wake.
+  Both files are printed in the plan, read back after the run and removed
+  by `hardware unapply`. `--no-gps-resume` opts
+  out, and `doctor` reports the step when a receiver is attached. The
+  catalog names the step (`resume: {step: gpsd_reopen}` on the
+  `gps-receiver` class), and that class's page gains "After suspend". It
+  has not yet run on the field laptop; the bench steps are on the issue.
+  After merge: `hammunition hardware apply`.
+- **Repeater data beyond RepeaterBook, one layer per source** (D-074).
+  `open-repeater` is a new data unit: Open Repeater's CC0 list (241 kB,
+  461 repeaters, none yet in the US), pinned by sha256 in its manifest by
+  `scripts/gen_open-repeater-pin.py`, checked weekly, mirrorable through a
+  Bunker. `hammunition maps repeaters import` gains
+  `--from-open-repeater [FILE]`, `--from-osm` (the repeaters tagged in the
+  region extracts already installed, filtered by osmium, nothing
+  downloaded) and `--from-direwolf-log FILE...` (the APRS repeater objects
+  your station heard, its own layer, never merged). `fetch-etcc` (the
+  UK's RSGB list) and `fetch-brandmeister` (DMR repeaters only; every
+  hotspot dropped before anything is written) fetch on request and are
+  marked unverified. Each source is its own layer; with two or more,
+  `repeaters-all.gpx` joins them by a stated precedence and counts every
+  join. `maps repeaters remove --layer ID` removes one. The `repeaters`
+  and `repeaters-removed` documents gain `layer_id`, `layers` and
+  `all_sources`. RepeaterBook bulk, RadioReference, RFinder, the ARRL
+  directory, FCC ULS, RadioID, the WIA list, repeatermap.de and the D-STAR,
+  YSF and NXDN lists are documented as not carried; ACMA's register is
+  named as a later data unit.
+
 - **A generated launcher no longer takes a PATH binary's name** (issue
   #174). `~/.local/bin/rigctl`, libhamlib-utils' launcher, ran ahead of
   hamlib's `/usr/bin/rigctl`, ignored its arguments and opened the
@@ -51,6 +158,34 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   list. `hammunition menus apply` removes a generated launcher that shadows
   a PATH binary, with its menu entry, and writes the renamed one; `doctor`'s
   launchers check names one. After merge: `hammunition menus apply`.
+- **CoMaps can show "you are here", through GeoClue** (D-069, amended
+  2026-10-01). `hammunition maps gps-tether` gains `--nmea-socket PATH`: a
+  unix socket, mode 0660 in GeoClue's group, fed by the same fan-out as TCP
+  10110; it is on by default once GeoClue is set up, and `--no-nmea-socket`
+  turns it off. `hammunition hardware apply` writes
+  `/etc/geoclue/conf.d/90-hammunition-gps.conf` (GeoClue's network-NMEA
+  source reads that socket) and `/etc/tmpfiles.d/hammunition-gps.conf`
+  (`/run/hammunition-gps`, 2750, setgid `geoclue`), with every file, the
+  inspect and reverse steps and four disclosures in the plan; GeoClue's own
+  beacondb and GeoIP lookups are not changed, and the plan says so.
+  `--no-geoclue` skips it, and `hardware unapply` removes it by content.
+  `doctor` reports the files, the directory and whether GeoClue's demo
+  agent is running. `comaps` depends on `geoclue-2.0` and
+  `libqt6positioning6-plugins`. No `[app.comaps.comaps]` entry: a native
+  CoMaps is a system app to GeoClue. Measured with Debian's GeoClue in a
+  private namespace, not yet on a desktop; the guide's section 17 lists
+  what the bench owes. After merge: `hammunition hardware apply`, then log
+  out and back in. Where CoMaps is already built, `hammunition install
+  comaps --dry-run` shows whether the two new packages are planned (not
+  checked on a machine with CoMaps at its pin); if they are not,
+  `sudo apt install geoclue-2.0 libqt6positioning6-plugins` adds them.
+
+- **`CHECKS` now names `sha1-publisher`** (**D-070**, **D-069**). The
+  `artifacts` document's `check` field was already described as able to
+  carry `sha1-publisher` — the SHA-1 and size `comaps-maps` reads from
+  CoMaps' own map index — but the `CHECKS` tuple Hammunition Bunker imports
+  as the enumeration of valid values never listed it, so a `comaps-maps`
+  entry carried a value its own published contract did not name.
 
 ## v0.18.0 — 2026-10-01 — the 2026-09 gap analysis: guides, station config for the packet units, GPS time, chrony, Kismet, the HF modems, six apt units, three re-rulings
 

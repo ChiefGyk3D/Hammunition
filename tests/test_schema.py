@@ -1263,7 +1263,7 @@ def test_a_topo_quads_block_takes_no_provider_but_its_enum() -> None:
         PackageManifest.model_validate(
             _minimal(
                 name="usgs-ustopo",
-                install=[{"install": {"method": "topo-quads", "provider": "usfs-fstopo", **_USGS}}],
+                install=[{"install": {"method": "topo-quads", "provider": "usfs-geopdf", **_USGS}}],
             )
         )
     with pytest.raises(ValueError, match="https"):

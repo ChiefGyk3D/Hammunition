@@ -116,6 +116,8 @@ from hammunition.execute import (
     user_service_removal_steps,
 )
 from hammunition.fetch import Fetcher
+from hammunition.fstopo import FstopoError, GatewayProbe
+from hammunition.fstopo import load_index as load_fstopo_index
 from hammunition.geofabrik import (
     BASE,
     GeofabrikError,
@@ -128,6 +130,8 @@ from hammunition.geofabrik import (
     region_ids,
 )
 from hammunition.geofabrik import resolve as resolve_region
+from hammunition.hardware import gps_resume
+from hammunition.hardware.apply import HardwarePlan
 from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH, describe_refusal
 from hammunition.interface import envelope
 from hammunition.kernel import KernelProbe
@@ -182,10 +186,21 @@ from hammunition.station import (
     save_station,
 )
 from hammunition.sudo_ticket import SudoKeepalive, keepalive_wanted
-from hammunition.terrain_plan import brouter_pins, build_terrain_run, resolve_station_terrain
+from hammunition.terrain_plan import (
+    brouter_pins,
+    build_terrain_run,
+    contour_source,
+    resolve_station_3dep,
+    resolve_station_terrain,
+)
 from hammunition.tiles_plan import build_tiles_run
+from hammunition.topo_plan import (
+    FSTOPO_INDEX,
+    MemoProbe,
+    resolve_station_fstopo,
+    resolve_station_topo,
+)
 from hammunition.topo_plan import INDEX as USTOPO_INDEX
-from hammunition.topo_plan import MemoProbe, resolve_station_topo
 from hammunition.update import (
     UNKNOWN,
     books_state,
@@ -209,8 +224,9 @@ from hammunition.ustopo import bucket_probe as ustopo_probe
 from hammunition.ustopo import load_index as load_ustopo_index
 
 if TYPE_CHECKING:
+    from hammunition.geoclue import GeoClueGrants, GeoClueState
     from hammunition.hardware.power import KeptEntry, Parkable
-    from hammunition.interface.repeaters import RegistrationView
+    from hammunition.interface.repeaters import AllSourcesView, RegistrationView
     from hammunition.qmapshack_config import BRouterSetup
     from hammunition.repeaters import ParsedInput
     from hammunition.upstream import UpstreamRow
@@ -478,6 +494,7 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             ("map_freshness", args.map_freshness),
             ("reference_books", args.reference_books),
             ("mirror", args.mirror or args.clear_mirror),
+            ("dem_source", args.dem_source),
         )
         if value
     ] + rig_fields
@@ -485,8 +502,8 @@ def cmd_station_set(args: argparse.Namespace) -> int:
         print(
             "error: nothing to set. Pass at least one of --callsign, --grid-square, "
             "--node-alias, --map-regions, --map-freshness, --reference-books, --mirror, "
-            "--clear-mirror, --rig, --rig-device, --rig-baud, --rig-ptt-line, --rig-owner, "
-            "--clear-rig, --unattended.",
+            "--clear-mirror, --dem-source, --rig, --rig-device, --rig-baud, "
+            "--rig-ptt-line, --rig-owner, --clear-rig, --unattended.",
             file=sys.stderr,
         )
         return EXIT_FAILED
@@ -504,6 +521,7 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             rig_baud=rig_result.rig_baud,
             rig_ptt_line=rig_result.rig_ptt_line,
             rig_owner=rig_result.rig_owner,
+            dem_source=args.dem_source or current.dem_source,
         )
     except StationError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -525,6 +543,8 @@ def cmd_station_set(args: argparse.Namespace) -> int:
                 value = getattr(station, rig_field)
                 if value is not None:
                     print(f"  {rig_field:<14} {value}")
+        elif field == "dem_source":
+            print(f"  {field:<14} {station.elevation}")
         else:
             print(f"  {field:<14} {station.get(field)}")
     for note in rig_notes:
@@ -1151,7 +1171,8 @@ def cmd_artifacts(args: argparse.Namespace) -> int:
     Hammunition Bunker's one source of what to mirror. The network is asked
     exactly as the plan asks it -- Geofabrik for a region's dated file and
     MD5 and its outline, the Copernicus bucket for an unpinned tile's size
-    and ETag -- and only for what the selection names.
+    and ETag -- and only for what the selection names. Reference books come
+    from the carried pins alone (D-066).
     """
     from hammunition.artifacts import SelectionError, list_artifacts, select_units
     from hammunition.interface.artifacts import ArtifactsDocument, render_artifacts
@@ -1171,6 +1192,23 @@ def cmd_artifacts(args: argparse.Namespace) -> int:
         except StationError as exc:
             print(f"error: {exc}", file=sys.stderr)
             return EXIT_UNPLANNABLE
+    books: tuple[str, ...] = ()
+    if args.reference_books is not None:
+        books = tuple(b for b in (p.strip() for p in args.reference_books.split(",")) if b)
+        if not books:
+            print(
+                "error: --reference-books gave no book ids after splitting on ',' and "
+                "stripping whitespace; give at least one, or leave the flag out.",
+                file=sys.stderr,
+            )
+            return EXIT_UNPLANNABLE
+        try:
+            # The shape station config accepts, nothing more; an id the book
+            # list does not carry is listed as deferred, as a region is.
+            books = Station(reference_books=books).reference_books
+        except StationError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return EXIT_UNPLANNABLE
     requested = (
         tuple(u for u in (p.strip() for p in args.units.split(",")) if u)
         if args.units is not None
@@ -1186,6 +1224,7 @@ def cmd_artifacts(args: argparse.Namespace) -> int:
     entries = list_artifacts(
         units,
         regions=regions,
+        books=books,
         freshness=args.map_freshness,
         catalog=catalog,
         catalog_root=catalog_root,
@@ -1194,7 +1233,11 @@ def cmd_artifacts(args: argparse.Namespace) -> int:
         tile_probe=S3Probe(),
     )
     doc = ArtifactsDocument(
-        map_regions=regions, map_freshness=args.map_freshness, units=units, artifacts=entries
+        map_regions=regions,
+        map_freshness=args.map_freshness,
+        reference_books=books,
+        units=units,
+        artifacts=entries,
     )
     if envelope.wanted(args):
         envelope.emit(doc)
@@ -1266,13 +1309,23 @@ def _repeater_poi_paths(text: str) -> tuple[str, bool]:
     (D-064). Raises :class:`~hammunition.qmapshack_config.QmsConfigError`
     like :func:`~hammunition.qmapshack_config.ensure_paths`."""
     from hammunition.qmapshack_config import Wanted, ensure_paths
-    from hammunition.repeaters import FILES, overlay_dir
+    from hammunition.repeaters import overlay_dir
 
     directory = overlay_dir()
     want = Wanted("Canvas", "poiPaths", (str(directory),))
-    if (directory / FILES[1]).is_file():
+    if _repeater_files(directory, 1):
         return ensure_paths(text, (want,)), True
     return ensure_paths(text, (), remove=(want,)), False
+
+
+def _repeater_files(directory: Path, index: int) -> list[Path]:
+    """Every repeater layer's file *index* (1, the ``.poi``; 2, the Navit
+    textfile) present in *directory*, in layer order: one layer per source
+    since D-074."""
+    from hammunition.repeaters import LAYERS, layer_files
+
+    paths = [directory / layer_files(i)[index] for i in LAYERS]
+    return [p for p in paths if p.is_file()]
 
 
 def cmd_maps_comaps(args: argparse.Namespace) -> int:
@@ -1490,8 +1543,14 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
     at once, each sent every sentence; only while the operator runs it, and
     never as root. Ctrl-C stops it, exit 0. No ``--json`` form: it is a
     server, not a document (D-059).
+
+    D-069: with ``--nmea-socket PATH``, or by default once ``hardware apply``
+    has written GeoClue's drop-in, it also serves a unix socket GeoClue reads;
+    ``--no-nmea-socket`` leaves it off. The default failing (its directory
+    missing, say) is a note and TCP still serves; a path the operator named
+    failing stops the tether.
     """
-    from hammunition import gps_tether
+    from hammunition import geoclue, gps_tether
 
     try:
         port = gps_tether.PORT if args.port is None else gps_tether.serve_port(args.port)
@@ -1507,6 +1566,8 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
                 f"the map's position stream is on {gps_tether.POSITION_PORT} unless "
                 f"--position-port names another"
             )
+        if args.nmea_socket is not None and args.no_nmea_socket:
+            raise ValueError("--nmea-socket and --no-nmea-socket ask for opposite things")
     except ValueError as exc:
         print(f"error: {exc}.", file=sys.stderr)
         return EXIT_FAILED
@@ -1536,18 +1597,53 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return EXIT_FAILED
-    print(gps_tether.instructions(port, gpsd=gpsd, position_port=position_port), flush=True)
 
     def log(line: str) -> None:
         print(line, file=sys.stderr, flush=True)
 
+    socket_path: str | None = args.nmea_socket
+    if socket_path is None and not args.no_nmea_socket and geoclue.configured():
+        socket_path = geoclue.SOCKET
+    unix = None
+    if socket_path is not None:
+        try:
+            unix = gps_tether.listen_unix(socket_path, group=geoclue.GROUP, log=log)
+        except (OSError, ValueError) as exc:
+            why = exc.strerror if isinstance(exc, OSError) and exc.strerror else str(exc)
+            if args.nmea_socket is not None:
+                listener.close()
+                http.close()
+                print(f"error: cannot listen on {socket_path}: {why}.", file=sys.stderr)
+                return EXIT_FAILED
+            hint = (
+                f" Its directory comes from {geoclue.TMPFILES}; `sudo systemd-tmpfiles "
+                f"--create {geoclue.TMPFILES}` makes it."
+                if isinstance(exc, FileNotFoundError)
+                else ""
+            )
+            log(
+                f"Not serving GeoClue: cannot listen on {socket_path} ({why}).{hint} "
+                f"QMapShack and the map are served as usual."
+            )
+            socket_path = None
+    print(
+        gps_tether.instructions(
+            port, gpsd=gpsd, position_port=position_port, nmea_socket=socket_path
+        ),
+        flush=True,
+    )
+
     try:
-        gps_tether.serve(listener, http=http, gpsd=gpsd, log=log)
+        gps_tether.serve(
+            listener, http=http, unix=None if unix is None else unix[0], gpsd=gpsd, log=log
+        )
     except KeyboardInterrupt:
         log("Stopped.")
     finally:
         listener.close()
         http.close()
+        if unix is not None and socket_path is not None:
+            gps_tether.close_unix(unix[0], socket_path, unix[1])
     return EXIT_OK
 
 
@@ -1648,9 +1744,33 @@ def _qmapshack_poi_path(directory: Path, *, present: bool) -> RegistrationView:
     return RegistrationView("qmapshack", str(path), "removed", detail)
 
 
-def _navit_user_config(overlay: Path, user: Path, generated: Path) -> RegistrationView:
-    """The operator's copy of *generated* with *overlay* in its mapset, at
-    *user*, mode 0600.  D-064."""
+def _register_repeaters(directory: Path) -> tuple[RegistrationView, RegistrationView]:
+    """QMapShack and Navit told about every repeater layer left in
+    *directory*: the directory in ``poiPaths`` and the operator's Navit copy
+    with each layer's textfile while any layer is there; both taken out when
+    none is.  D-064, D-074."""
+    from hammunition.interface.repeaters import RegistrationView
+    from hammunition.repeaters import overlays_root
+
+    user = overlays_root() / "navit.xml"
+    maps = _repeater_files(directory, 2)
+    present = bool(_repeater_files(directory, 1))
+    qmapshack = _qmapshack_poi_path(directory, present=present)
+    if maps:
+        return qmapshack, _navit_user_config(maps, user, _generated_navit_config())
+    try:
+        user.unlink()
+        navit = RegistrationView("navit", str(user), "removed", f"deleted {user}")
+    except FileNotFoundError:
+        navit = RegistrationView("navit", str(user), "not there", f"no {user} to delete")
+    except OSError as exc:
+        navit = RegistrationView("navit", str(user), "refused", f"{user}: {exc.strerror or exc}")
+    return qmapshack, navit
+
+
+def _navit_user_config(overlays: Sequence[Path], user: Path, generated: Path) -> RegistrationView:
+    """The operator's copy of *generated* with each of *overlays* in its
+    mapset, at *user*, mode 0600.  D-064; one map per layer since D-074."""
     from hammunition.interface.repeaters import RegistrationView
 
     if not generated.is_file():
@@ -1662,7 +1782,7 @@ def _navit_user_config(overlay: Path, user: Path, generated: Path) -> Registrati
             f"writes it, and navit-offline adds the layer at its next start",
         )
     try:
-        body = navit_config.add_maps(generated.read_text(encoding="utf-8"), [overlay])
+        body = navit_config.add_maps(generated.read_text(encoding="utf-8"), list(overlays))
         _read_config_nofollow(user)  # refuses a link or a non-file in its place
         user.parent.mkdir(parents=True, exist_ok=True)
         _replace_atomically(user, body, 0o600)
@@ -1689,37 +1809,39 @@ def _write_repeater_layer(
     day: date,
     licences: Sequence[str],
     args: argparse.Namespace,
+    layer_id: str = "export",
 ) -> int:
-    """Merge *parsed*, write the layer, register it, print or emit."""
+    """Merge *parsed*, write the layer *layer_id*, rebuild the all-sources
+    file, register every layer, print or emit."""
     from hammunition.interface.repeaters import (
         InputView,
         RepeatersDocument,
         SkipView,
         render_repeaters,
     )
-    from hammunition.repeaters import FILES, Layer, merge, overlay_dir, overlays_root, write_layer
+    from hammunition.repeaters import Layer, merge, overlay_dir, write_layer
 
     rows, merged = merge(r for p in parsed for r in p.rows)
     if not rows:
         print(
-            "error: no repeater with a position and a callsign was read. Nothing was written.",
+            "error: no repeater with a position and a callsign or frequency was read. "
+            "Nothing was written.",
             file=sys.stderr,
         )
         return EXIT_FAILED
     directory = overlay_dir()
     description = " ".join(licences)
     try:
-        written = write_layer(directory, Layer(layer_title, description, day, rows))
+        written = write_layer(directory, Layer(layer_title, description, day, rows), layer_id)
     except (OSError, sqlite3.Error) as exc:
         print(f"error: cannot write the layer in {directory}: {exc}", file=sys.stderr)
         return EXIT_FAILED
-    registered = (
-        _qmapshack_poi_path(directory, present=True),
-        _navit_user_config(
-            directory / FILES[2], overlays_root() / "navit.xml", _generated_navit_config()
-        ),
-    )
+    # The layer is in place from here on: a failed rebuild is reported in
+    # the all-sources view and the exit status, and registration still runs.
+    all_sources, _ = _rebuild_all_sources(directory)
+    registered = _register_repeaters(directory)
     doc = RepeatersDocument(
+        layer_id=layer_id,
         layer=layer_title,
         exported=day.isoformat(),
         licences=tuple(licences),
@@ -1741,14 +1863,39 @@ def _write_repeater_layer(
         directory=str(directory),
         files=tuple(str(p) for p in written),
         registered=registered,
+        all_sources=all_sources,
     )
-    code = EXIT_FAILED if any(r.outcome == "refused" for r in registered) else EXIT_OK
+    refused = any(r.outcome == "refused" for r in registered) or all_sources.error is not None
+    code = EXIT_FAILED if refused else EXIT_OK
     if envelope.wanted(args):
         envelope.emit(doc)
         return code
     for line in render_repeaters(doc):
         print(line)
     return code
+
+
+def _rebuild_all_sources(directory: Path) -> tuple[AllSourcesView, Path | None]:
+    """``repeaters-all.gpx`` rebuilt from the directory layers, as a view,
+    and the file when this rebuild deleted it.  D-074. Never raises: a
+    rebuild that cannot write says why in the view's ``error``."""
+    from hammunition.interface.repeaters import AllSourcesView, LayerSkipView
+    from hammunition.repeaters import rebuild_all
+
+    try:
+        result = rebuild_all(directory)
+    except OSError as exc:
+        return AllSourcesView(None, "", (), 0, 0, (), error=f"not rebuilt: {exc}"), None
+    view = AllSourcesView(
+        file=None if result.path is None else str(result.path),
+        name=result.name,
+        layers=result.layers if result.path is not None else (),
+        written=result.written,
+        merged=result.merged,
+        skipped=tuple(LayerSkipView(layer, reason) for layer, reason in result.skipped),
+        error=None,
+    )
+    return view, result.removed
 
 
 @envelope.json_capable()
@@ -1762,6 +1909,12 @@ def cmd_maps_repeaters_import(args: argparse.Namespace) -> int:
     writes the GPX, POI and Navit files into the operator's overlay
     directory, adds it to QMapShack's ``poiPaths`` and writes the operator's
     Navit configuration. Refused as root: the files are the operator's.
+
+    D-074 adds three inputs, each its own layer and each exclusive of the
+    files and of the others: ``--from-open-repeater [FILE]`` (the installed
+    ``open-repeater`` data unit's file by default), ``--from-osm`` (the
+    region extracts installed here, filtered by osmium) and
+    ``--from-direwolf-log FILE...``.
     """
     from hammunition.repeaters import (
         HEARHAM,
@@ -1776,6 +1929,34 @@ def cmd_maps_repeaters_import(args: argparse.Namespace) -> int:
 
     if _refuse_root("repeater overlays"):
         return EXIT_FAILED
+    routes = [
+        name
+        for name, given in (
+            ("FILE...", bool(args.files)),
+            ("--from-open-repeater", args.from_open_repeater is not None),
+            ("--from-osm", args.from_osm),
+            ("--from-direwolf-log", bool(args.from_direwolf_log)),
+        )
+        if given
+    ]
+    if len(routes) != 1:
+        print(
+            "error: give one source per import: your export files, --from-open-repeater, "
+            "--from-osm or --from-direwolf-log; each is its own layer (D-074)"
+            + (f", not {' and '.join(routes)}" if routes else "")
+            + ". Nothing was written.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    if args.exported and not args.files:
+        print(
+            f"error: --exported dates your own export; {routes[0]} is dated by its own "
+            f"data. Nothing was written.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    if not args.files:
+        return _import_repeater_source(args)
     try:
         override = parse_exported(args.exported) if args.exported else None
     except ValueError as exc:
@@ -1798,6 +1979,186 @@ def cmd_maps_repeaters_import(args: argparse.Namespace) -> int:
             licences.append(text)
     day = export_date(paths, override)
     return _write_repeater_layer(parsed, layer_name(day), day, licences, args)
+
+
+#: Where the ``open-repeater`` data unit installs its file (D-049, D-074).
+OPEN_REPEATER_FILE = Path("open-repeater") / "open-repeater.json"
+
+
+def _import_repeater_source(args: argparse.Namespace) -> int:
+    """``import --from-open-repeater``, ``--from-osm`` or
+    ``--from-direwolf-log``: one D-074 source into its own layer."""
+    from hammunition import repeater_sources as rs
+    from hammunition.repeaters import (
+        OSM,
+        ParsedInput,
+        Repeater,
+        RepeaterInputError,
+        Skip,
+        overlay_dir,
+    )
+
+    try:
+        if args.from_open_repeater is not None:
+            if args.from_open_repeater:
+                path = Path(args.from_open_repeater)
+            else:
+                path = data_root(DEFAULT_PREFIX) / OPEN_REPEATER_FILE
+                if not path.is_file():
+                    raise RepeaterInputError(
+                        f"no Open Repeater file at {path}: `hammunition install open-repeater` "
+                        f"installs it (241 kB, CC0), or give a file you downloaded: "
+                        f"--from-open-repeater FILE"
+                    )
+            parsed = rs.read_open_repeater(path)
+            day = rs.open_repeater_date(path)
+            return _write_repeater_layer(
+                [parsed],
+                rs.open_repeater_layer_name(day),
+                day,
+                [rs.open_repeater_licence()],
+                args,
+                "open-repeater",
+            )
+        if args.from_osm:
+            extracts = rs.installed_extracts(DEFAULT_PREFIX)
+            folder = data_root(DEFAULT_PREFIX) / "osm-regions"
+            if not extracts:
+                raise RepeaterInputError(
+                    f"no map region is installed in {folder}: `hammunition install osm-regions` "
+                    f"fetches your regions, and this filters the repeaters out of them"
+                )
+            rows: list[Repeater] = []
+            skips: dict[str, int] = {}
+            read = 0
+            with tempfile.TemporaryDirectory(prefix="hammunition-osm-repeaters-") as scratch:
+                for number, (pbf, _) in enumerate(extracts, start=1):
+                    label = f"region extract {number} of {len(extracts)}"
+                    one = rs.filter_extract(pbf, Path(scratch), label=label)
+                    rows += one.rows
+                    for skip in one.skipped:
+                        skips[skip.reason] = skips.get(skip.reason, 0) + skip.count
+                    read += one.read
+            # One input for the whole directory: a region's name, or its
+            # digest, says where the operator is (D-057), and this document
+            # is meant to be pasteable (D-064).
+            parsed = ParsedInput(
+                path=folder,
+                format=OSM,
+                read=read,
+                rows=tuple(rows),
+                skipped=tuple(Skip(reason, count, ()) for reason, count in skips.items()),
+                sha256="",
+                mtime=0.0,
+            )
+            day = rs.extracts_date(extracts)
+            return _write_repeater_layer(
+                [parsed], rs.osm_layer_name(day), day, [rs.osm_licence()], args, "osm"
+            )
+        paths = [Path(p) for p in args.from_direwolf_log]
+        parsed = rs.read_direwolf_logs(paths)
+        heard = rs.direwolf_date(parsed.rows)
+        day = heard or date.fromtimestamp(parsed.mtime)
+        return _write_repeater_layer(
+            [parsed],
+            rs.direwolf_layer_name(day),
+            day,
+            [rs.direwolf_licence()],
+            args,
+            "aprs-heard",
+        )
+    except RepeaterInputError as exc:
+        print(f"error: {exc}\nNothing was written in {overlay_dir()}.", file=sys.stderr)
+        return EXIT_FAILED
+
+
+def _fetch_repeater_list(
+    args: argparse.Namespace,
+    *,
+    url: str,
+    limit: int,
+    disclosure: str,
+    parse: Callable[[bytes, str], ParsedInput],
+    licence: Callable[[str, str], str],
+    name: Callable[[date], str],
+    layer_id: str,
+) -> int:
+    """A list fetched on request through D-064's fetch (bounded, HTTPS-only
+    redirects), parsed from memory, written as its own layer.  D-074."""
+    from hammunition import repeaters
+
+    if _refuse_root("repeater overlays"):
+        return EXIT_FAILED
+    print(disclosure, flush=True)
+    try:
+        body, digest, when = repeaters.fetch_list(url, limit=limit)
+    except repeaters.RepeaterFetchError as exc:
+        print(f"error: {exc}. Nothing was written.", file=sys.stderr)
+        return EXIT_FAILED
+    try:
+        parsed = parse(body, url)
+    except repeaters.RepeaterInputError as exc:
+        print(f"error: {exc}. Nothing was written.", file=sys.stderr)
+        return EXIT_FAILED
+    finally:
+        del body  # never kept: Brandmeister's carries every hotspot's position
+    parsed = dataclasses.replace(parsed, sha256=digest)
+    day = when.date()
+    text = licence(f"Fetched {when.isoformat()}", digest)
+    return _write_repeater_layer([parsed], name(day), day, [text], args, layer_id)
+
+
+def cmd_maps_repeaters_fetch_etcc(args: argparse.Namespace) -> int:
+    """Fetch the RSGB ETCC's UK repeater list, on request.  D-074.
+
+    No licence is stated for it (D-033's position); the observed sha256 is
+    recorded and the layer marked unverified. No ``--json`` form, like
+    ``fetch-hearham``: the disclosure is for a person to read first."""
+    from hammunition import repeater_sources as rs
+
+    return _fetch_repeater_list(
+        args,
+        url=rs.ETCC_URL,
+        limit=rs.ETCC_LIMIT,
+        disclosure=(
+            f"This fetches the RSGB ETCC's UK repeater list from {rs.ETCC_URL} (about 62 kB), "
+            f"now and only now, and converts it on this machine. ukrepeater.net states no "
+            f"licence and publishes no checksum, so what arrives is recorded by its sha256 "
+            f"and marked unverified. Its positions are at Maidenhead-locator precision."
+        ),
+        parse=rs.parse_etcc,
+        licence=rs.etcc_licence,
+        name=rs.etcc_layer_name,
+        layer_id="etcc",
+    )
+
+
+def cmd_maps_repeaters_fetch_brandmeister(args: argparse.Namespace) -> int:
+    """Fetch Brandmeister's device list, on request, repeaters only.  D-074.
+
+    Most of the list is hotspots, which are personal locations: only a
+    6-digit id whose transmit and receive frequencies differ is kept, the
+    rest dropped from memory before anything is written. No terms are
+    published (D-033); the layer is marked unverified. No ``--json`` form."""
+    from hammunition import repeater_sources as rs
+
+    return _fetch_repeater_list(
+        args,
+        url=rs.BRANDMEISTER_URL,
+        limit=rs.BRANDMEISTER_LIMIT,
+        disclosure=(
+            f"This fetches Brandmeister's whole DMR device list from {rs.BRANDMEISTER_URL} "
+            f"(about 9.5 MB), now and only now, and converts it on this machine. Most entries "
+            f"are hotspots, which are personal locations: they are dropped before anything is "
+            f"written, and only repeaters (a 6-digit id whose transmit and receive "
+            f"frequencies differ) are kept. Brandmeister publishes no terms and no checksum, "
+            f"so what arrives is recorded by its sha256 and marked unverified."
+        ),
+        parse=rs.parse_brandmeister,
+        licence=rs.brandmeister_licence,
+        name=rs.brandmeister_layer_name,
+        layer_id="brandmeister",
+    )
 
 
 def cmd_maps_repeaters_fetch_hearham(args: argparse.Namespace) -> int:
@@ -1849,41 +2210,37 @@ def cmd_maps_repeaters_fetch_hearham(args: argparse.Namespace) -> int:
 
 @envelope.json_capable()
 def cmd_maps_repeaters_remove(args: argparse.Namespace) -> int:
-    """Delete the repeater layer and unregister it.  D-064.
+    """Delete repeater layers and unregister what is gone.  D-064, D-074.
 
-    The three files, the operator's Navit copy, the directory when empty,
-    and the path in QMapShack's ``poiPaths``. Idempotent: nothing to remove
-    is exit 0. Anything else in the directory stays."""
-    from hammunition.interface.repeaters import (
-        RegistrationView,
-        RepeatersRemovedDocument,
-        render_removed,
-    )
-    from hammunition.repeaters import overlay_dir, overlays_root, remove_layer
+    Every layer and the all-sources file by default; one layer with
+    ``--layer ID``, after which the all-sources file is rebuilt from what is
+    left. QMapShack's ``poiPaths`` and the operator's Navit copy follow the
+    layers that remain. Idempotent: nothing to remove is exit 0. Anything
+    else in the directory stays."""
+    from hammunition.interface.repeaters import RepeatersRemovedDocument, render_removed
+    from hammunition.repeaters import LAYERS, overlay_dir, remove_layer
 
     if _refuse_root("repeater overlays"):
         return EXIT_FAILED
     directory = overlay_dir()
     try:
-        removed = remove_layer(directory)
+        removed = remove_layer(directory, args.layer)
     except OSError as exc:
-        print(f"error: {exc}. Nothing was removed.", file=sys.stderr)
+        print(f"error: {exc}. Nothing more was removed.", file=sys.stderr)
         return EXIT_FAILED
-    user = overlays_root() / "navit.xml"
-    try:
-        user.unlink()
-        navit = RegistrationView("navit", str(user), "removed", f"deleted {user}")
-    except FileNotFoundError:
-        navit = RegistrationView("navit", str(user), "not there", f"no {user} to delete")
-    except OSError as exc:
-        navit = RegistrationView("navit", str(user), "refused", f"{user}: {exc.strerror or exc}")
-    registered = (_qmapshack_poi_path(directory, present=False), navit)
+    all_sources, dropped = _rebuild_all_sources(directory)
+    if dropped is not None:
+        removed = (*removed, dropped)
+    registered = _register_repeaters(directory)
     doc = RepeatersRemovedDocument(
         directory=str(directory),
+        layers=(args.layer,) if args.layer else tuple(LAYERS),
         removed=tuple(str(p) for p in removed),
         unregistered=registered,
+        all_sources=all_sources,
     )
-    code = EXIT_FAILED if any(r.outcome == "refused" for r in registered) else EXIT_OK
+    refused = any(r.outcome == "refused" for r in registered) or all_sources.error is not None
+    code = EXIT_FAILED if refused else EXIT_OK
     if envelope.wanted(args):
         envelope.emit(doc)
         return code
@@ -1901,7 +2258,7 @@ def cmd_maps_navit(args: argparse.Namespace) -> int:
     and Navit opens that; with none, Navit opens the generated file and a
     stale copy of ours is removed. Under root it opens the generated file and
     writes nothing. No ``--json`` form: it replaces itself with a GUI."""
-    from hammunition.repeaters import FILES, overlay_dir, overlays_root
+    from hammunition.repeaters import overlay_dir, overlays_root
 
     generated = _generated_navit_config()
     if not generated.is_file():
@@ -1913,10 +2270,10 @@ def cmd_maps_navit(args: argparse.Namespace) -> int:
         return EXIT_FAILED
     target = generated
     if os.geteuid() != 0:
-        overlay = overlay_dir() / FILES[2]
+        overlays = _repeater_files(overlay_dir(), 2)
         user = overlays_root() / "navit.xml"
-        if overlay.is_file():
-            view = _navit_user_config(overlay, user, generated)
+        if overlays:
+            view = _navit_user_config(overlays, user, generated)
             if view.outcome != "written":
                 print(f"error: {view.detail}. Navit was not started.", file=sys.stderr)
                 return EXIT_FAILED
@@ -2235,12 +2592,24 @@ def installed_quad_counts(
     units = [p for p in plan.packages if isinstance(p.block.install, TopoQuadsInstall)]
     if not units:
         return {}
-    try:
-        listed = {q.name for q in load_ustopo_index(catalog_root / USTOPO_INDEX).quads}
-    except UstopoError:
-        listed = None
+
+    def ustopo() -> set[str] | None:
+        try:
+            return {q.name for q in load_ustopo_index(catalog_root / USTOPO_INDEX).quads}
+        except UstopoError:
+            return None
+
+    def fstopo() -> set[str] | None:
+        try:
+            return {q.name for q in load_fstopo_index(catalog_root / FSTOPO_INDEX).quads}
+        except FstopoError:
+            return None
+
     counts: dict[str, tuple[int, int]] = {}
     for planned in units:
+        block = planned.block.install
+        assert isinstance(block, TopoQuadsInstall)
+        listed = fstopo() if block.provider == "usfs-fstopo" else ustopo()
         names = [p.stem for p in (data_root(prefix) / planned.name).glob("*.tif")]
         stale = 0 if listed is None else sum(1 for n in names if n not in listed)
         counts[planned.name] = (len(names), stale)
@@ -2535,6 +2904,38 @@ def cmd_install(args: argparse.Namespace) -> int:
         print("\nNothing was changed.", file=sys.stderr)
         refused("US Topo", str(exc))
         return EXIT_UNPLANNABLE
+    # D-068, amended 2026-10-01: USGS 3DEP when the station chose it (the same
+    # bucket as US Topo, so the same probe), and the Forest Service's FSTopo
+    # sheets, each located through the raster gateway's one redirect.
+    try:
+        bare_resolution, bare_notes = resolve_station_3dep(
+            plan,
+            resolution,
+            catalog_root,
+            prefix=source.prefix,
+            source=station.elevation,
+            region_probe=outlines,
+            tile_probe=ustopo_probe(),
+        )
+    except CopernicusError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        print("\nNothing was changed.", file=sys.stderr)
+        refused("3DEP", str(exc))
+        return EXIT_UNPLANNABLE
+    try:
+        fstopo_resolution, fstopo_notes = resolve_station_fstopo(
+            plan,
+            resolution,
+            catalog_root,
+            prefix=source.prefix,
+            region_probe=outlines,
+            gateway=GatewayProbe(),
+        )
+    except FstopoError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        print("\nNothing was changed.", file=sys.stderr)
+        refused("FSTopo", str(exc))
+        return EXIT_UNPLANNABLE
     # D-066: the chosen Kiwix books, resolved against the book list and its
     # pins, and every one not yet installed HEAD-checked, before the plan
     # prints: each book's size and licence are the disclosure, and a pin
@@ -2559,6 +2960,8 @@ def cmd_install(args: argparse.Namespace) -> int:
     )
     region_notes = list(resolution.notes)
     region_notes.extend(topo_notes)
+    region_notes.extend(bare_notes)
+    region_notes.extend(fstopo_notes)
     # D-069: CoMaps' maps for the same regions, from the carried region table,
     # and every map not yet installed HEAD-checked for its pinned size before
     # the plan prints: each map's size, licence and check are the disclosure,
@@ -2620,6 +3023,10 @@ def cmd_install(args: argparse.Namespace) -> int:
         resolution=dem_resolution,
         pins=brouter_pins(plan),
         topo=topo_resolution,
+        bare_earth=bare_resolution,
+        dem_source=station.elevation,
+        contour_source=contour_source(plan),
+        fstopo=fstopo_resolution,
     )
     # D-067: the phone converters, from the same regions, as the operator.
     phone = build_phone_run(
@@ -3655,6 +4062,50 @@ def cmd_hardware_list(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _geoclue_for_apply(args: argparse.Namespace, user: str) -> GeoClueGrants | None:
+    """GeoClue's half of `hardware apply` (D-069): None under ``--no-geoclue``.
+    Raises GeoClueError, before anything runs, on a file Hammunition did not write."""
+    from hammunition import geoclue
+
+    if getattr(args, "no_geoclue", False):
+        return None
+    return geoclue.plan_geoclue(user)
+
+
+def _geoclue_disclosure(args: argparse.Namespace, geo: GeoClueGrants | None) -> list[str]:
+    from hammunition import geoclue
+
+    if geo is None:
+        return (
+            ["GeoClue (D-069): left alone (--no-geoclue)."]
+            if getattr(args, "no_geoclue", False)
+            else []
+        )
+    return geoclue.disclose(geo)
+
+
+def _disclose_gps_resume(plan: HardwarePlan) -> None:
+    """The resume step's disclosure (issue #177), when the plan carries one."""
+    if plan.gps_resume is not None:
+        for line in gps_resume.disclose(plan.gps_resume):
+            print(line)
+
+
+def _gps_resume_commands(plan: HardwarePlan, staging_root: str) -> list[Command]:
+    if plan.gps_resume is None:
+        return []
+    return gps_resume.install_commands(plan.gps_resume, staging_root)
+
+
+def _stage_gps_resume(plan: HardwarePlan, staging_dir: Path) -> list[Command]:
+    """Stage the step's two files; return its commands as they will run, so
+    the apply loop can log each one (``gps_resume``)."""
+    if plan.gps_resume is None:
+        return []
+    gps_resume.stage(plan.gps_resume, staging_dir)
+    return _gps_resume_commands(plan, str(staging_dir))
+
+
 def cmd_hardware_apply(args: argparse.Namespace) -> int:
     """Write the catalog's udev rules and join the device-access groups."""
     from hammunition.gpstime.grants import disclose, grant_commands, stage_grants, verify_grants
@@ -3679,10 +4130,24 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             user=user,
             user_groups_now=groups_now,
             with_time=not getattr(args, "no_gps_time", False),
+            with_gps_resume=not getattr(args, "no_gps_resume", False),
         )
     except TimeError as exc:
         print(
             f"error: {exc}\n`--no-gps-time` sets up devices without GPS time (D-058).",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
+    except gps_resume.GpsResumeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    from hammunition import geoclue
+
+    try:
+        geo = _geoclue_for_apply(args, user)
+    except geoclue.GeoClueError as exc:
+        print(
+            f"error: {exc}\n`--no-geoclue` sets up devices without GeoClue's GPS socket (D-069).",
             file=sys.stderr,
         )
         return EXIT_UNPLANNABLE
@@ -3696,12 +4161,14 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             print(f"  … and {len(plan.omissions) - 8} more")
         print()
 
-    if plan.is_noop:
+    if plan.is_noop and (geo is None or geo.is_noop):
         print(
             "Nothing to do: the rules file already matches, you are in every access "
             "group, the power-control helper and its polkit action are installed, and "
             "GPS time's grants are in place. Hardware setup is complete."
         )
+        if geo is not None and geo.installed:
+            print("GeoClue already reads the GPS tether's socket (D-069).")
         return EXIT_OK
 
     def build_commands(
@@ -3786,6 +4253,7 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             else []
         )
         built += time_cmds
+        built += _gps_resume_commands(plan, staging_root)
         return built, helper_cmd, policy_cmd, time_cmds
 
     if not plan.rules_already_current:
@@ -3807,8 +4275,13 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
     if plan.time is not None:
         for line in disclose(plan.time):
             print(line)
+    for line in _geoclue_disclosure(args, geo):
+        print(line)
+    _disclose_gps_resume(plan)
 
     preview_commands, preview_helper, preview_policy, _preview_time = build_commands("<staging>")
+    if geo is not None:
+        preview_commands += geoclue.grant_commands(geo, "<staging>")
     installing_polkit = preview_helper is not None or preview_policy is not None
     """Whether this run installs *either* privileged artefact. Fix round 3:
     the helper and the policy are both routes to the same root-exec, and a
@@ -3875,6 +4348,8 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
     staging_dir = Path(tempfile.mkdtemp(prefix="hammunition-hardware-"))
     try:
         commands, helper_command, policy_command, time_commands = build_commands(str(staging_dir))
+        geo_commands = geoclue.grant_commands(geo, str(staging_dir)) if geo is not None else []
+        commands += geo_commands
 
         if not plan.rules_already_current:
             staging = staging_dir / "udev-staging.rules"
@@ -3890,6 +4365,9 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             os.chmod(policy_staging, 0o644)
         if plan.time is not None:
             stage_grants(plan.time, staging_dir)
+        if geo is not None:
+            geoclue.stage_grants(geo, staging_dir)
+        resume_steps = _stage_gps_resume(plan, staging_dir)
 
         runner = SubprocessRunner()
         print("\nRunning:")
@@ -3904,6 +4382,24 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
                 TransactionLog(owner=user).append(
                     {
                         "event": "time_grants",
+                        "version": 1,
+                        "description": command.description,
+                        "argv": list(command.argv),
+                    }
+                )
+            if any(command is step for step in geo_commands):
+                TransactionLog(owner=user).append(
+                    {
+                        "event": "geoclue_files",
+                        "version": 1,
+                        "description": command.description,
+                        "argv": list(command.argv),
+                    }
+                )
+            if command in resume_steps:
+                TransactionLog(owner=user).append(
+                    {
+                        "event": "gps_resume",
                         "version": 1,
                         "description": command.description,
                         "argv": list(command.argv),
@@ -3985,6 +4481,10 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
                 problems.append(f"{user} is still not in {group}")
         if plan.time is not None:
             problems += verify_grants(plan.time)
+        if geo is not None:
+            problems += geoclue.verify_grants(geo)
+        if plan.gps_resume is not None:
+            problems += gps_resume.verify(plan.gps_resume)
         if problems:
             for problem in problems:
                 print(f"  unverified: {problem}", file=sys.stderr)
@@ -4060,6 +4560,12 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_UNPLANNABLE
     time_present = not removal.is_empty
+    from hammunition import geoclue
+
+    geo_removal = geoclue.plan_geoclue_removal()
+    geo_present = not geo_removal.is_empty
+    resume_removal = gps_resume.plan_gps_resume_removal()
+    resume_present = not resume_removal.is_empty
     owned = {HELPER_PATH, POLICY_PATH}
     recorded: list[str] = []
     skipped: list[str] = []
@@ -4085,7 +4591,14 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             if path not in recorded:
                 recorded.append(path)
 
-    if not recorded and not skipped and not kept_present and not time_present:
+    if (
+        not recorded
+        and not skipped
+        and not kept_present
+        and not time_present
+        and not resume_present
+        and not geo_present
+    ):
         print(
             "Nothing to remove: the transaction log records no hardware artefacts "
             "installed by Hammunition for this user."
@@ -4097,7 +4610,13 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             f"Skipped: the log names {path!r}, which this command does not own "
             f"(only the power-control helper and its polkit action are ever removed)."
         )
-    if not recorded and not kept_present and not time_present:
+    if (
+        not recorded
+        and not kept_present
+        and not time_present
+        and not resume_present
+        and not geo_present
+    ):
         print("Nothing to do: no artefact this command owns is recorded.")
         return EXIT_OK
 
@@ -4105,7 +4624,13 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     gone = [p for p in recorded if p not in present]
     for path in gone:
         print(f"Already absent: {path}")
-    if not present and not kept_present and not time_present:
+    if (
+        not present
+        and not kept_present
+        and not time_present
+        and not resume_present
+        and not geo_present
+    ):
         print("Nothing to do: every recorded artefact is already gone.")
         return EXIT_OK
 
@@ -4170,7 +4695,9 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         present.append(KEPT_RULES)
 
     time_preview = removal_commands(removal, "<staging>")
-    shown = [*commands, *time_preview]
+    resume_commands = gps_resume.removal_commands(resume_removal)
+    geo_commands = geoclue.removal_commands(geo_removal)
+    shown = [*commands, *time_preview, *resume_commands, *geo_commands]
     euid = os.geteuid()
     print(f"\nCommands ({len(shown)}):")
     for command in shown:
@@ -4186,6 +4713,13 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             f"\nGPS time (D-058): {time_files.NTP_CONF}'s marked lines go back exactly as "
             f"they were before Hammunition edited them, and only Hammunition's block leaves "
             f"{time_files.APPARMOR_LOCAL}; the rest of that file stays."
+        )
+    if geo_present:
+        print(
+            f"\nGeoClue (D-069): only files that start with Hammunition's header are removed; "
+            f"{geoclue.SOCKET_DIR} goes with `rmdir`, which refuses if anything but the "
+            f"tether's socket is in it. Stop `hammunition maps gps-tether` first: GeoClue "
+            f"loses its socket either way, and TCP 10110 keeps serving until you do."
         )
     print(
         f"\nThe device-access rules file, {RULES_PATH}, is not touched: it is "
@@ -4206,6 +4740,8 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         if staging_dir is not None:
             stage_removal(removal, staging_dir)
             to_run += removal_commands(removal, str(staging_dir))
+        to_run += geo_commands
+        to_run += resume_commands
         runner = SubprocessRunner()
         print("\nRunning:")
         for command in to_run:
@@ -4222,6 +4758,9 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     problems = [f"{p} is still present" for p in present if Path(p).exists()]
     if time_present:
         problems += verify_removal(removal)
+    if geo_present:
+        problems += geoclue.verify_removal(geo_removal)
+    problems += gps_resume.verify_removal(resume_removal)
     if problems:
         for problem in problems:
             print(f"  unverified: {problem}", file=sys.stderr)
@@ -4236,6 +4775,10 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         after.append(
             "ntpsec runs on the package's own configuration; `hardware apply` restores GPS time."
         )
+    if geo_present:
+        after.append("GeoClue no longer reads the tether; `hardware apply` sets it up again.")
+    if resume_present:
+        after.append("`hardware apply` reinstalls the GPS resume step.")
     print("\nDone and verified. " + " ".join(after))
     return EXIT_OK
 
@@ -4676,6 +5219,31 @@ def _gather_rig_status(
     )
 
 
+def _geoclue_state_for_doctor(args: argparse.Namespace) -> GeoClueState | None:
+    """GeoClue's files, directory and agent for `doctor` (D-069), read-only.
+    The agent is asked of this session's bus, so not as root."""
+    from hammunition import geoclue
+
+    try:
+        return geoclue.read_state(operator(args), ask_agent=os.geteuid() != 0)
+    except OSError:
+        return None
+
+
+def _doctor_gps_resume(args: argparse.Namespace) -> gps_resume.ResumeStatus | None:
+    """Issue #177: the resume step's state, when a GPS receiver is attached
+    (parked or awake) and gpsd is installed; otherwise None, and no check."""
+    from hammunition.gpstime.state import gps_from
+
+    try:
+        found, _ = _survey_parkables(args)
+    except (OSError, CatalogError, SystemExit):
+        return None
+    if gps_from(found) == "absent" or not Path(gps_resume.GPSD).exists():
+        return None
+    return gps_resume.status()
+
+
 @envelope.json_capable()
 def cmd_doctor(args: argparse.Namespace) -> int:
     """Report what is ready and what is not yet set up. Changes nothing."""
@@ -4797,6 +5365,9 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     except (OSError, CatalogError, SystemExit):
         time_state = None
 
+    geoclue_state = _geoclue_state_for_doctor(args)
+    gps_resume_state = _doctor_gps_resume(args)
+
     from hammunition.launchers import survey_engine_launchers, survey_shadowing_launchers
 
     # Issue #145: every generated launcher that runs the engine can reach it.
@@ -4834,11 +5405,13 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             shutil.which("qmapshack") is not None and not Path(ROUTINO_TRANSLATIONS).is_file()
         ),
         time_state=time_state,
+        gps_resume=gps_resume_state,
         launchers_ok=engine_launchers.ok,
         launchers_bare=engine_launchers.bare,
         launchers_broken=engine_launchers.broken,
         launchers_shadowing=shadowing_launchers,
         rig=rig_status,
+        geoclue_state=geoclue_state,
     )
 
     from hammunition.interface.doctor import build_doctor, render_doctor
@@ -5067,6 +5640,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="serve the browser map's position stream (GET /position) on 127.0.0.1 port N "
         "(default 10111, D-071)",
     )
+    p_maps_tether.add_argument(
+        "--nmea-socket",
+        metavar="PATH",
+        default=None,
+        help="also serve NMEA on a unix socket at PATH, mode 0660, for GeoClue (D-069); "
+        "the default is /run/hammunition-gps/nmea.sock once `hardware apply` has set "
+        "GeoClue up, and off otherwise",
+    )
+    p_maps_tether.add_argument(
+        "--no-nmea-socket",
+        action="store_true",
+        help="do not serve GeoClue's socket, even where `hardware apply` has set it up",
+    )
     p_maps_tether.set_defaults(func=cmd_maps_gps_tether)
 
     p_artifacts = sub.add_parser(
@@ -5086,7 +5672,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--units",
         default=None,
         metavar="U[,U...]",
-        help="the units to list (default: every data, osm-regions and dem-tiles unit)",
+        help="the units to list (default: every data, osm-regions, dem-tiles, mwm-regions "
+        "and kiwix-books unit)",
+    )
+    p_artifacts.add_argument(
+        "--reference-books",
+        default=None,
+        metavar="ID[,ID...]",
+        help="comma-separated Kiwix book ids (`hammunition reference books` lists them); "
+        "none defers kiwix-library",
     )
     p_artifacts.set_defaults(func=cmd_artifacts)
 
@@ -5104,19 +5698,42 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_maps_rep = maps_sub.add_parser(
         "repeaters",
-        help="repeaters on the map from your own export, converted on this machine (D-064)",
+        help="repeaters on the map, one layer per source, converted on this machine (D-064, D-074)",
     )
     rep_sub = p_maps_rep.add_subparsers(dest="maps_repeaters_command", required=True)
     p_rep_import = rep_sub.add_parser(
         "import",
-        help="convert a RepeaterBook GPX or CSV export, hearham JSON or your own CSV; offline",
+        help="convert a RepeaterBook GPX or CSV export, hearham JSON or your own CSV, or one "
+        "of --from-open-repeater, --from-osm, --from-direwolf-log; offline",
     )
-    p_rep_import.add_argument("files", nargs="+", metavar="FILE", help="the export(s) to convert")
+    p_rep_import.add_argument("files", nargs="*", metavar="FILE", help="the export(s) to convert")
     p_rep_import.add_argument(
         "--exported",
         metavar="YYYY-MM-DD",
         default=None,
         help="the day you exported it, for the layer's name (default: the file's date)",
+    )
+    p_rep_import.add_argument(
+        "--from-open-repeater",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="FILE",
+        help="Open Repeater's CC0 list: the installed open-repeater unit's file, or FILE (D-074)",
+    )
+    p_rep_import.add_argument(
+        "--from-osm",
+        action="store_true",
+        help="the repeaters tagged in the map regions installed here, filtered by osmium; "
+        "downloads nothing (D-074)",
+    )
+    p_rep_import.add_argument(
+        "--from-direwolf-log",
+        nargs="+",
+        default=None,
+        metavar="FILE",
+        help="the APRS repeater objects in Direwolf's -l or -L log: what this station "
+        "heard, its own layer (D-074)",
     )
     p_rep_import.set_defaults(func=cmd_maps_repeaters_import)
     p_rep_fetch = rep_sub.add_parser(
@@ -5124,8 +5741,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="fetch hearham.com's open list now and convert it; recorded as unverified",
     )
     p_rep_fetch.set_defaults(func=cmd_maps_repeaters_fetch_hearham)
+    p_rep_etcc = rep_sub.add_parser(
+        "fetch-etcc",
+        help="fetch the RSGB ETCC's UK repeater list now and convert it; recorded as "
+        "unverified (D-074)",
+    )
+    p_rep_etcc.set_defaults(func=cmd_maps_repeaters_fetch_etcc)
+    p_rep_bm = rep_sub.add_parser(
+        "fetch-brandmeister",
+        help="fetch Brandmeister's DMR repeaters now, hotspots dropped; recorded as "
+        "unverified (D-074)",
+    )
+    p_rep_bm.set_defaults(func=cmd_maps_repeaters_fetch_brandmeister)
     p_rep_remove = rep_sub.add_parser(
-        "remove", help="delete the repeater layer and take it out of QMapShack and Navit"
+        "remove", help="delete repeater layers and take them out of QMapShack and Navit"
+    )
+    p_rep_remove.add_argument(
+        "--layer",
+        choices=("export", "open-repeater", "osm", "etcc", "brandmeister", "aprs-heard"),
+        default=None,
+        help="remove only this layer (default: every layer and the all-sources file)",
     )
     p_rep_remove.set_defaults(func=cmd_maps_repeaters_remove)
 
@@ -5278,6 +5913,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="leave ntpsec, its grants and fake-hwclock alone (D-058)",
     )
+    p_hw_apply.add_argument(
+        "--no-geoclue",
+        action="store_true",
+        help="leave GeoClue alone: no socket drop-in, no tmpfiles line (D-069)",
+    )
+    p_hw_apply.add_argument(
+        "--no-gps-resume",
+        action="store_true",
+        help="leave out the GPS receiver's resume step (issue #177)",
+    )
     p_hw_apply.set_defaults(func=cmd_hardware_apply)
 
     p_hw_unapply = hardware_sub.add_parser(
@@ -5374,6 +6019,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="a LAN mirror of the data artifacts, tried before the publisher (D-070)",
     )
     mirror_flags.add_argument("--clear-mirror", action="store_true", help="remove the saved mirror")
+    p_station_set.add_argument(
+        "--dem-source",
+        default=None,
+        choices=("copernicus", "3dep"),
+        help="the elevation QMapShack's hillshade and contours are drawn from: copernicus "
+        "(the default, a surface model) or 3dep (USGS bare earth, about 10x larger) (D-068)",
+    )
     p_station_set.add_argument(
         "--rig",
         default=None,

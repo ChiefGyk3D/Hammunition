@@ -11,3 +11,4 @@ Station configuration: <config>/hammunition/station.yml
   map regions    2 set
   map freshness  monthly
   mirror         (not set)
+  dem_source     copernicus

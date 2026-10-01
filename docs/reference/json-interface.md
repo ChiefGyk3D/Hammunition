@@ -87,14 +87,16 @@ their text follows.
 ### artifacts
 
 Every remote data artifact the engine would fetch for the selection
-given (D-070): `data` units, map regions and terrain tiles. No station
-file is read; the regions are the ones on the command line. What cannot
-be listed is listed as deferred, with the reason, never dropped.
+given (D-070): `data` units, map regions, terrain tiles and reference
+books. No station file is read; the regions and books are the ones on
+the command line. What cannot be listed is listed as deferred, with the
+reason, never dropped.
 
 | field | type | meaning |
 |---|---|---|
 | `map_regions` | list of string | the `--map-regions` given; empty when none |
 | `map_freshness` | string | the `--map-freshness` given, `yearly` when none |
+| `reference_books` | list of string | the `--reference-books` given (Kiwix book ids, D-066); empty when none |
 | `units` | list of string | the units listed, in order |
 | `artifacts` | list of [`ArtifactEntry`](#artifactentry) | one entry per artifact, deferred ones included |
 
@@ -104,14 +106,14 @@ One remote artifact, or one the selection cannot list and why.
 
 | field | type | meaning |
 |---|---|---|
-| `unit` | string | the catalog unit (`osm-regions`, `dem-copernicus`, `country-files`) |
-| `name` | string or null | the artifact's stable name within the unit: a region path, a tile name, a data file's name. A LAN mirror serves it at `<mirror>/<unit>/<name>`. Null only for a deferred entry that covers the whole unit |
+| `unit` | string | the catalog unit (`osm-regions`, `dem-copernicus`, `country-files`, `kiwix-library`) |
+| `name` | string or null | the artifact's stable name within the unit: a region path, a tile name, a data file's name, a Kiwix book id as the pin file names it. A LAN mirror serves it at `<mirror>/<unit>/<name>`. Null only for a deferred entry that covers the whole unit |
 | `url` | string or null | the publisher URL the engine itself fetches; null when deferred |
 | `check` | string or null | how the download is verified: `sha256` (pinned by Hammunition), `md5-publisher` (Geofabrik's published MD5), `etag-md5` (the Copernicus object's ETag), `sha1-publisher` (the SHA-1 and size in CoMaps' own map index at the pinned commit, carried in the catalog) or `sha256-publisher` (no unit uses it today); null when deferred |
 | `digest` | string or null | the expected digest, in hex, of the kind `check` names: the pin, or the publisher's checksum as the engine read it while resolving; null when deferred |
 | `checksum_url` | string or null | where a publisher checksum is read: the `.md5` beside a Geofabrik file, or the tile URL whose `HEAD` carries the ETag; null for a pinned sha256 and when deferred |
 | `size` | integer or null | bytes, known before the fetch; null when deferred |
-| `licence` | string | the licence line the plan prints for the unit |
+| `licence` | string | the licence line the plan prints for the unit, or for a Kiwix book that book's own |
 | `deferred` | string or null | null, or why this artifact cannot be listed for this selection |
 
 <details><summary>JSON Schema</summary>
@@ -225,7 +227,7 @@ One remote artifact, or one the selection cannot list and why.
     }
   },
   "additionalProperties": false,
-  "description": "Every remote data artifact the engine would fetch for the selection\ngiven (D-070): `data` units, map regions and terrain tiles. No station\nfile is read; the regions are the ones on the command line. What cannot\nbe listed is listed as deferred, with the reason, never dropped.",
+  "description": "Every remote data artifact the engine would fetch for the selection\ngiven (D-070): `data` units, map regions, terrain tiles and reference\nbooks. No station file is read; the regions and books are the ones on\nthe command line. What cannot be listed is listed as deferred, with the\nreason, never dropped.",
   "properties": {
     "map_regions": {
       "items": {
@@ -237,6 +239,13 @@ One remote artifact, or one the selection cannot list and why.
     "map_freshness": {
       "title": "Map Freshness",
       "type": "string"
+    },
+    "reference_books": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reference Books",
+      "type": "array"
     },
     "units": {
       "items": {
@@ -256,6 +265,7 @@ One remote artifact, or one the selection cannot list and why.
   "required": [
     "map_regions",
     "map_freshness",
+    "reference_books",
     "units",
     "artifacts"
   ],
@@ -1427,6 +1437,9 @@ Terrain, and what is built for QMapShack (D-061). Names where the operator is: l
 | `disk_total_human` | string | as the text prints it |
 | `estimate_note` | string | how the estimates were measured |
 | `topo` | [`TopoSectionView`](#toposectionview) or null | USGS US Topo quads and their mosaic (D-068); null when neither unit is planned |
+| `contours_from` | string | the provider the contours and QMapShack's elevation are drawn from this run: `copernicus-glo30`, or `usgs-3dep` when the station chose it (D-068, amended 2026-10-01) |
+| `bare_earth` | [`BareEarthSectionView`](#bareearthsectionview) or null | USGS 3DEP (D-068, amended 2026-10-01); null when no 3DEP unit is planned |
+| `fstopo` | [`FsTopoSectionView`](#fstoposectionview) or null | Forest Service FSTopo quads and their map (D-068, amended 2026-10-01); null when neither is planned |
 
 #### `TerrainRegionLine`
 
@@ -1507,6 +1520,56 @@ One US Topo quad downloaded this run.
 | `size` | integer | bytes |
 | `size_human` | string | the size as the text prints it |
 | `verified_by` | string | how the download is checked |
+
+#### `BareEarthSectionView`
+
+USGS 3DEP bare-earth elevation (D-068, amended 2026-10-01). Local only.
+
+| field | type | meaning |
+|---|---|---|
+| `chosen` | boolean | whether the station's dem_source is 3dep; when false nothing is fetched, any installed 3DEP tile is removed, and QMapShack's elevation is Copernicus's |
+| `regions` | list of [`TerrainRegionLine`](#terrainregionline) | 3DEP tiles per region and what each downloads this run (about ten times Copernicus) |
+| `fetch` | list of [`TileLine`](#tileline) | 3DEP tiles downloaded this run |
+| `current` | integer | 3DEP tiles already installed |
+| `licence` | string | the elevation data's licence |
+| `licence_url` | string | where it is stated |
+| `download_total` | integer | bytes of 3DEP tiles downloaded |
+| `download_total_human` | string | as the text prints it |
+
+#### `FsTopoSectionView`
+
+Forest Service FSTopo sheets and QMapShack's FSTopo map (D-068,
+amended 2026-10-01). Local only.
+
+| field | type | meaning |
+|---|---|---|
+| `regions` | list of [`SheetRegionLine`](#sheetregionline) | quads per region |
+| `no_quads` | list of string | regions no FSTopo quad covers (no National Forest land); nothing is fetched for them |
+| `fetch` | list of [`QuadLine`](#quadline) | quads downloaded this run |
+| `unverified` | integer | of those, quads fetched with no checksum: the Forest Service publishes none and Hammunition has pinned none |
+| `current` | integer | quads already installed |
+| `licence` | string | the sheets' licence |
+| `licence_url` | string | where it is stated |
+| `download_total` | integer | bytes of quads downloaded |
+| `download_total_human` | string | as the text prints it |
+| `convert` | integer | quads converted to tiled RGB for QMapShack this run |
+| `convert_estimate` | integer | bytes the converted quads are estimated to take |
+| `convert_estimate_human` | string | as the text prints it |
+| `disk_total` | integer | bytes: the downloads plus the converted quads |
+| `disk_total_human` | string | as the text prints it |
+| `estimate_note` | string | how the estimate was measured |
+
+#### `SheetRegionLine`
+
+The FSTopo quads one region needs (D-068, amended 2026-10-01).
+
+| field | type | meaning |
+|---|---|---|
+| `region` | string | the Geofabrik region path |
+| `quads` | integer | quads whose box its outline touches |
+| `download` | integer | bytes of its quads downloaded this run; a quad two regions share counts in both |
+| `download_human` | string | as the text prints it |
+| `all_pinned` | boolean | every quad it needs has a sha256 pinned by Hammunition, so none is unverified |
 
 #### `BoundaryLine`
 
@@ -1729,6 +1792,62 @@ A unit and files.
         "basis"
       ],
       "title": "ArtifactLine",
+      "type": "object"
+    },
+    "BareEarthSectionView": {
+      "additionalProperties": false,
+      "description": "USGS 3DEP bare-earth elevation (D-068, amended 2026-10-01). Local only.",
+      "properties": {
+        "chosen": {
+          "title": "Chosen",
+          "type": "boolean"
+        },
+        "regions": {
+          "items": {
+            "$ref": "#/$defs/TerrainRegionLine"
+          },
+          "title": "Regions",
+          "type": "array"
+        },
+        "fetch": {
+          "items": {
+            "$ref": "#/$defs/TileLine"
+          },
+          "title": "Fetch",
+          "type": "array"
+        },
+        "current": {
+          "title": "Current",
+          "type": "integer"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "licence_url": {
+          "title": "Licence Url",
+          "type": "string"
+        },
+        "download_total": {
+          "title": "Download Total",
+          "type": "integer"
+        },
+        "download_total_human": {
+          "title": "Download Total Human",
+          "type": "string"
+        }
+      },
+      "required": [
+        "chosen",
+        "regions",
+        "fetch",
+        "current",
+        "licence",
+        "licence_url",
+        "download_total",
+        "download_total_human"
+      ],
+      "title": "BareEarthSectionView",
       "type": "object"
     },
     "BlockerLine": {
@@ -2046,6 +2165,100 @@ A unit and files.
         "declared_by"
       ],
       "title": "DisplacedLine",
+      "type": "object"
+    },
+    "FsTopoSectionView": {
+      "additionalProperties": false,
+      "description": "Forest Service FSTopo sheets and QMapShack's FSTopo map (D-068,\namended 2026-10-01). Local only.",
+      "properties": {
+        "regions": {
+          "items": {
+            "$ref": "#/$defs/SheetRegionLine"
+          },
+          "title": "Regions",
+          "type": "array"
+        },
+        "no_quads": {
+          "items": {
+            "type": "string"
+          },
+          "title": "No Quads",
+          "type": "array"
+        },
+        "fetch": {
+          "items": {
+            "$ref": "#/$defs/QuadLine"
+          },
+          "title": "Fetch",
+          "type": "array"
+        },
+        "unverified": {
+          "title": "Unverified",
+          "type": "integer"
+        },
+        "current": {
+          "title": "Current",
+          "type": "integer"
+        },
+        "licence": {
+          "title": "Licence",
+          "type": "string"
+        },
+        "licence_url": {
+          "title": "Licence Url",
+          "type": "string"
+        },
+        "download_total": {
+          "title": "Download Total",
+          "type": "integer"
+        },
+        "download_total_human": {
+          "title": "Download Total Human",
+          "type": "string"
+        },
+        "convert": {
+          "title": "Convert",
+          "type": "integer"
+        },
+        "convert_estimate": {
+          "title": "Convert Estimate",
+          "type": "integer"
+        },
+        "convert_estimate_human": {
+          "title": "Convert Estimate Human",
+          "type": "string"
+        },
+        "disk_total": {
+          "title": "Disk Total",
+          "type": "integer"
+        },
+        "disk_total_human": {
+          "title": "Disk Total Human",
+          "type": "string"
+        },
+        "estimate_note": {
+          "title": "Estimate Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "regions",
+        "no_quads",
+        "fetch",
+        "unverified",
+        "current",
+        "licence",
+        "licence_url",
+        "download_total",
+        "download_total_human",
+        "convert",
+        "convert_estimate",
+        "convert_estimate_human",
+        "disk_total",
+        "disk_total_human",
+        "estimate_note"
+      ],
+      "title": "FsTopoSectionView",
       "type": "object"
     },
     "GarminLine": {
@@ -2819,6 +3032,41 @@ A unit and files.
       "title": "RepoLine",
       "type": "object"
     },
+    "SheetRegionLine": {
+      "additionalProperties": false,
+      "description": "The FSTopo quads one region needs (D-068, amended 2026-10-01).",
+      "properties": {
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "quads": {
+          "title": "Quads",
+          "type": "integer"
+        },
+        "download": {
+          "title": "Download",
+          "type": "integer"
+        },
+        "download_human": {
+          "title": "Download Human",
+          "type": "string"
+        },
+        "all_pinned": {
+          "title": "All Pinned",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "region",
+        "quads",
+        "download",
+        "download_human",
+        "all_pinned"
+      ],
+      "title": "SheetRegionLine",
+      "type": "object"
+    },
     "StepView": {
       "additionalProperties": false,
       "description": "One step, exactly as the real run performs it.",
@@ -3098,6 +3346,30 @@ A unit and files.
               "type": "null"
             }
           ]
+        },
+        "contours_from": {
+          "title": "Contours From",
+          "type": "string"
+        },
+        "bare_earth": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BareEarthSectionView"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fstopo": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FsTopoSectionView"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -3122,7 +3394,10 @@ A unit and files.
         "disk_total",
         "disk_total_human",
         "estimate_note",
-        "topo"
+        "topo",
+        "contours_from",
+        "bare_earth",
+        "fstopo"
       ],
       "title": "TerrainSectionView",
       "type": "object"
@@ -3714,12 +3989,13 @@ this command runs, and only then; nothing here is the operator's.
 
 ### repeaters
 
-A repeater layer written from the operator's own export, or from
-hearham's list on request. Counts and paths only: no repeater's callsign
-or position is carried.
+A repeater layer written from the operator's own export, hearham's
+list on request (D-064), or one of D-074's sources. Counts and paths
+only: no repeater's callsign or position, and no region, is carried.
 
 | field | type | meaning |
 |---|---|---|
+| `layer_id` | string | `export` (D-064's layer), `open-repeater`, `osm`, `etcc`, `brandmeister` or `aprs-heard` (D-074) |
 | `layer` | string | the layer's name, as QMapShack's project and POI file show it |
 | `exported` | string | YYYY-MM-DD: `--exported`, else the oldest input's modification date; a fetch's own date |
 | `licences` | list of string | each source's licence text, printed before anything |
@@ -3729,8 +4005,9 @@ or position is carried.
 | `merged` | integer | rows merged into another: same callsign, output frequency and position to 0.01 degree |
 | `written` | integer | repeaters in the layer |
 | `directory` | string | where the layer's files are, mode 0700 |
-| `files` | list of string | the files written, mode 0600: GPX, POI, Navit textfile |
-| `registered` | list of [`RegistrationView`](#registrationview) | QMapShack's and Navit's, in that order |
+| `files` | list of string | the files written, mode 0600: GPX, POI, Navit textfile and the rows as data |
+| `registered` | list of [`RegistrationView`](#registrationview) | QMapShack's and Navit's, in that order, for every layer present |
+| `all_sources` | [`AllSourcesView`](#allsourcesview) | the all-sources file, rebuilt after the write |
 
 #### `InputView`
 
@@ -3738,12 +4015,12 @@ One file read.
 
 | field | type | meaning |
 |---|---|---|
-| `path` | string | the file as given |
-| `format` | string | `repeaterbook-gpx`, `repeaterbook-csv`, `hearham-json` or `hand-csv` |
-| `read` | integer | rows, objects or waypoints in it |
-| `used` | integer | of those, the ones with a position and a callsign |
+| `path` | string | the file as given; a fetch's URL; for `osm-extract`, the directory of the region extracts, never a region's name |
+| `format` | string | `repeaterbook-gpx`, `repeaterbook-csv`, `hearham-json` or `hand-csv` (D-064); `open-repeater-json`, `osm-extract`, `etcc-csv`, `brandmeister-json` or `direwolf-log` (D-074) |
+| `read` | integer | rows, objects, devices or waypoints in it |
+| `used` | integer | of those, the ones kept: a position and a callsign or frequency |
 | `skipped` | list of [`SkipView`](#skipview) | the rest, by reason |
-| `sha256` | string | the digest of the file as read |
+| `sha256` | string | the digest of what was read (several logs: of their bytes in order); empty for `osm-extract`, whose extracts' digests would name the regions |
 
 #### `SkipView`
 
@@ -3766,11 +4043,99 @@ What a program was told about the layer.
 | `outcome` | string | `added`, `already there`, `written`, `removed`, `not there`, `not written` or `refused` |
 | `detail` | string | the sentence the text prints after the outcome |
 
+#### `AllSourcesView`
+
+``repeaters-all.gpx``: the directory layers joined (D-074).
+
+| field | type | meaning |
+|---|---|---|
+| `file` | string or null | the file, mode 0600; null when fewer than two directory layers could be read, and the file is then absent |
+| `name` | string | its name, `Repeaters (all sources, YYYY-MM-DD)`; empty when null |
+| `layers` | list of string | the layer ids joined, in layer order |
+| `written` | integer | repeaters in it |
+| `merged` | integer | rows joined to another layer's: the same output frequency, and within 0.02 degree, or the same callsign within 0.25 degree |
+| `skipped` | list of [`LayerSkipView`](#layerskipview) | layers that could not be read |
+| `error` | string or null | why the file could not be rebuilt (the command then exits 1); null when it was |
+
+#### `LayerSkipView`
+
+A layer the all-sources file could not read.
+
+| field | type | meaning |
+|---|---|---|
+| `layer` | string | the layer's id |
+| `reason` | string | why it was left out |
+
 <details><summary>JSON Schema</summary>
 
 ```json
 {
   "$defs": {
+    "AllSourcesView": {
+      "additionalProperties": false,
+      "description": "``repeaters-all.gpx``: the directory layers joined (D-074).",
+      "properties": {
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "File"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "layers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Layers",
+          "type": "array"
+        },
+        "written": {
+          "title": "Written",
+          "type": "integer"
+        },
+        "merged": {
+          "title": "Merged",
+          "type": "integer"
+        },
+        "skipped": {
+          "items": {
+            "$ref": "#/$defs/LayerSkipView"
+          },
+          "title": "Skipped",
+          "type": "array"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        }
+      },
+      "required": [
+        "file",
+        "name",
+        "layers",
+        "written",
+        "merged",
+        "skipped",
+        "error"
+      ],
+      "title": "AllSourcesView",
+      "type": "object"
+    },
     "InputView": {
       "additionalProperties": false,
       "description": "One file read.",
@@ -3812,6 +4177,26 @@ What a program was told about the layer.
         "sha256"
       ],
       "title": "InputView",
+      "type": "object"
+    },
+    "LayerSkipView": {
+      "additionalProperties": false,
+      "description": "A layer the all-sources file could not read.",
+      "properties": {
+        "layer": {
+          "title": "Layer",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "layer",
+        "reason"
+      ],
+      "title": "LayerSkipView",
       "type": "object"
     },
     "RegistrationView": {
@@ -3874,8 +4259,12 @@ What a program was told about the layer.
     }
   },
   "additionalProperties": false,
-  "description": "A repeater layer written from the operator's own export, or from\nhearham's list on request. Counts and paths only: no repeater's callsign\nor position is carried.",
+  "description": "A repeater layer written from the operator's own export, hearham's\nlist on request (D-064), or one of D-074's sources. Counts and paths\nonly: no repeater's callsign or position, and no region, is carried.",
   "properties": {
+    "layer_id": {
+      "title": "Layer Id",
+      "type": "string"
+    },
     "layer": {
       "title": "Layer",
       "type": "string"
@@ -3931,9 +4320,13 @@ What a program was told about the layer.
       },
       "title": "Registered",
       "type": "array"
+    },
+    "all_sources": {
+      "$ref": "#/$defs/AllSourcesView"
     }
   },
   "required": [
+    "layer_id",
     "layer",
     "exported",
     "licences",
@@ -3944,7 +4337,8 @@ What a program was told about the layer.
     "written",
     "directory",
     "files",
-    "registered"
+    "registered",
+    "all_sources"
   ],
   "title": "RepeatersDocument",
   "type": "object"
@@ -3955,20 +4349,107 @@ What a program was told about the layer.
 
 ### repeaters-removed
 
-The repeater layer deleted and unregistered. Removing nothing is not
-an error: every list is then empty.
+Repeater layers deleted and unregistered. Removing nothing is not an
+error: every list is then empty.
 
 | field | type | meaning |
 |---|---|---|
-| `directory` | string | where the layer was |
+| `directory` | string | where the layers are |
+| `layers` | list of string | the layer ids asked for: the one `--layer` named, else every layer |
 | `removed` | list of string | the files deleted |
-| `unregistered` | list of [`RegistrationView`](#registrationview) | QMapShack's and Navit's, in that order |
+| `unregistered` | list of [`RegistrationView`](#registrationview) | QMapShack's and Navit's, in that order, for the layers left |
+| `all_sources` | [`AllSourcesView`](#allsourcesview) | the all-sources file, rebuilt from what is left |
 
 <details><summary>JSON Schema</summary>
 
 ```json
 {
   "$defs": {
+    "AllSourcesView": {
+      "additionalProperties": false,
+      "description": "``repeaters-all.gpx``: the directory layers joined (D-074).",
+      "properties": {
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "File"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "layers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Layers",
+          "type": "array"
+        },
+        "written": {
+          "title": "Written",
+          "type": "integer"
+        },
+        "merged": {
+          "title": "Merged",
+          "type": "integer"
+        },
+        "skipped": {
+          "items": {
+            "$ref": "#/$defs/LayerSkipView"
+          },
+          "title": "Skipped",
+          "type": "array"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        }
+      },
+      "required": [
+        "file",
+        "name",
+        "layers",
+        "written",
+        "merged",
+        "skipped",
+        "error"
+      ],
+      "title": "AllSourcesView",
+      "type": "object"
+    },
+    "LayerSkipView": {
+      "additionalProperties": false,
+      "description": "A layer the all-sources file could not read.",
+      "properties": {
+        "layer": {
+          "title": "Layer",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "layer",
+        "reason"
+      ],
+      "title": "LayerSkipView",
+      "type": "object"
+    },
     "RegistrationView": {
       "additionalProperties": false,
       "description": "What a program was told about the layer.",
@@ -4001,11 +4482,18 @@ an error: every list is then empty.
     }
   },
   "additionalProperties": false,
-  "description": "The repeater layer deleted and unregistered. Removing nothing is not\nan error: every list is then empty.",
+  "description": "Repeater layers deleted and unregistered. Removing nothing is not an\nerror: every list is then empty.",
   "properties": {
     "directory": {
       "title": "Directory",
       "type": "string"
+    },
+    "layers": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Layers",
+      "type": "array"
     },
     "removed": {
       "items": {
@@ -4020,12 +4508,17 @@ an error: every list is then empty.
       },
       "title": "Unregistered",
       "type": "array"
+    },
+    "all_sources": {
+      "$ref": "#/$defs/AllSourcesView"
     }
   },
   "required": [
     "directory",
+    "layers",
     "removed",
-    "unregistered"
+    "unregistered",
+    "all_sources"
   ],
   "title": "RepeatersRemovedDocument",
   "type": "object"
@@ -4059,6 +4552,7 @@ and a grid square or a map region says where the station is.
 | `rig_baud` | integer or null | the CAT serial speed; null when not set or for a PTT-only rig |
 | `rig_ptt_line` | string or null | for a PTT-only rig: rts, dtr or vox; null for a CAT rig or when not set |
 | `rig_owner` | string or null | who holds the port: rigctld (the default when unset) or flrig; null when not set |
+| `dem_source` | string | where QMapShack's elevation is drawn from: `copernicus` (the default, also when unset) or `3dep`, USGS bare earth (D-068, amended 2026-10-01) |
 
 <details><summary>JSON Schema</summary>
 
@@ -4198,6 +4692,10 @@ and a grid square or a map region says where the station is.
         }
       ],
       "title": "Rig Owner"
+    },
+    "dem_source": {
+      "title": "Dem Source",
+      "type": "string"
     }
   },
   "required": [
@@ -4214,7 +4712,8 @@ and a grid square or a map region says where the station is.
     "rig_device",
     "rig_baud",
     "rig_ptt_line",
-    "rig_owner"
+    "rig_owner",
+    "dem_source"
   ],
   "title": "StationDocument",
   "type": "object"

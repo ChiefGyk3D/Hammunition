@@ -16,11 +16,14 @@ from hammunition.interface.envelope import Strict, described
 from hammunition.interface.text import wrap
 
 __all__ = [
+    "AllSourcesView",
     "InputView",
+    "LayerSkipView",
     "RegistrationView",
     "RepeatersDocument",
     "RepeatersRemovedDocument",
     "SkipView",
+    "render_all_sources",
     "render_removed",
     "render_repeaters",
 ]
@@ -41,12 +44,22 @@ class SkipView(Strict):
 class InputView(Strict):
     """One file read."""
 
-    path: str = described("the file as given")
-    format: str = described("`repeaterbook-gpx`, `repeaterbook-csv`, `hearham-json` or `hand-csv`")
-    read: int = described("rows, objects or waypoints in it")
-    used: int = described("of those, the ones with a position and a callsign")
+    path: str = described(
+        "the file as given; a fetch's URL; for `osm-extract`, the directory of the region "
+        "extracts, never a region's name"
+    )
+    format: str = described(
+        "`repeaterbook-gpx`, `repeaterbook-csv`, `hearham-json` or `hand-csv` (D-064); "
+        "`open-repeater-json`, `osm-extract`, `etcc-csv`, `brandmeister-json` or "
+        "`direwolf-log` (D-074)"
+    )
+    read: int = described("rows, objects, devices or waypoints in it")
+    used: int = described("of those, the ones kept: a position and a callsign or frequency")
     skipped: tuple[SkipView, ...] = described("the rest, by reason")
-    sha256: str = described("the digest of the file as read")
+    sha256: str = described(
+        "the digest of what was read (several logs: of their bytes in order); empty for "
+        "`osm-extract`, whose extracts' digests would name the regions"
+    )
 
 
 @dataclass(frozen=True)
@@ -62,13 +75,46 @@ class RegistrationView(Strict):
 
 
 @dataclass(frozen=True)
+class LayerSkipView(Strict):
+    """A layer the all-sources file could not read."""
+
+    layer: str = described("the layer's id")
+    reason: str = described("why it was left out")
+
+
+@dataclass(frozen=True)
+class AllSourcesView(Strict):
+    """``repeaters-all.gpx``: the directory layers joined (D-074)."""
+
+    file: str | None = described(
+        "the file, mode 0600; null when fewer than two directory layers could be read, "
+        "and the file is then absent"
+    )
+    name: str = described("its name, `Repeaters (all sources, YYYY-MM-DD)`; empty when null")
+    layers: tuple[str, ...] = described("the layer ids joined, in layer order")
+    written: int = described("repeaters in it")
+    merged: int = described(
+        "rows joined to another layer's: the same output frequency, and within 0.02 "
+        "degree, or the same callsign within 0.25 degree"
+    )
+    skipped: tuple[LayerSkipView, ...] = described("layers that could not be read")
+    error: str | None = described(
+        "why the file could not be rebuilt (the command then exits 1); null when it was"
+    )
+
+
+@dataclass(frozen=True)
 class RepeatersDocument(Strict):
-    """A repeater layer written from the operator's own export, or from
-    hearham's list on request. Counts and paths only: no repeater's callsign
-    or position is carried."""
+    """A repeater layer written from the operator's own export, hearham's
+    list on request (D-064), or one of D-074's sources. Counts and paths
+    only: no repeater's callsign or position, and no region, is carried."""
 
     KIND: ClassVar[str] = "repeaters"
 
+    layer_id: str = described(
+        "`export` (D-064's layer), `open-repeater`, `osm`, `etcc`, `brandmeister` or "
+        "`aprs-heard` (D-074)"
+    )
     layer: str = described("the layer's name, as QMapShack's project and POI file show it")
     exported: str = described(
         "YYYY-MM-DD: `--exported`, else the oldest input's modification date; a fetch's own date"
@@ -82,23 +128,57 @@ class RepeatersDocument(Strict):
     )
     written: int = described("repeaters in the layer")
     directory: str = described("where the layer's files are, mode 0700")
-    files: tuple[str, ...] = described("the files written, mode 0600: GPX, POI, Navit textfile")
-    registered: tuple[RegistrationView, ...] = described("QMapShack's and Navit's, in that order")
+    files: tuple[str, ...] = described(
+        "the files written, mode 0600: GPX, POI, Navit textfile and the rows as data"
+    )
+    registered: tuple[RegistrationView, ...] = described(
+        "QMapShack's and Navit's, in that order, for every layer present"
+    )
+    all_sources: AllSourcesView = described("the all-sources file, rebuilt after the write")
 
 
 @dataclass(frozen=True)
 class RepeatersRemovedDocument(Strict):
-    """The repeater layer deleted and unregistered. Removing nothing is not
-    an error: every list is then empty."""
+    """Repeater layers deleted and unregistered. Removing nothing is not an
+    error: every list is then empty."""
 
     KIND: ClassVar[str] = "repeaters-removed"
 
-    directory: str = described("where the layer was")
+    directory: str = described("where the layers are")
+    layers: tuple[str, ...] = described(
+        "the layer ids asked for: the one `--layer` named, else every layer"
+    )
     removed: tuple[str, ...] = described("the files deleted")
-    unregistered: tuple[RegistrationView, ...] = described("QMapShack's and Navit's, in that order")
+    unregistered: tuple[RegistrationView, ...] = described(
+        "QMapShack's and Navit's, in that order, for the layers left"
+    )
+    all_sources: AllSourcesView = described("the all-sources file, rebuilt from what is left")
 
 
-_NUMBERED = {"hand-csv": "lines", "repeaterbook-csv": "lines", "hearham-json": "rows"}
+_NUMBERED = {
+    "hand-csv": "lines",
+    "repeaterbook-csv": "lines",
+    "hearham-json": "rows",
+    "open-repeater-json": "entries",
+    "osm-extract": "objects",
+    "etcc-csv": "lines",
+    "brandmeister-json": "devices",
+    "direwolf-log": "lines",
+}
+
+
+def render_all_sources(view: AllSourcesView) -> list[str]:
+    lines = []
+    if view.file is not None:
+        lines.append(
+            f"All sources: {view.written} repeaters from layers {', '.join(view.layers)}, "
+            f"{view.merged} joined across sources (same frequency, and within 0.02 degree "
+            f"or the same callsign within 0.25 degree), in {view.file}"
+        )
+    lines += [f"All sources: left out layer {s.layer}: {s.reason}" for s in view.skipped]
+    if view.error is not None:
+        lines.append(f"All sources: {view.error}")
+    return lines
 
 
 def _registration(view: RegistrationView) -> str:
@@ -118,6 +198,9 @@ def render_repeaters(doc: RepeatersDocument) -> list[str]:
         )
         numbered = _NUMBERED.get(view.format, "waypoints")
         for skip in view.skipped:
+            if not skip.first:  # several extracts read as one input
+                lines.append(f"    {skip.reason}: {skip.count}")
+                continue
             more = ", ..." if skip.count > len(skip.first) else ""
             first = ", ".join(str(n) for n in skip.first)
             lines.append(f"    {skip.reason}: {skip.count} ({numbered} {first}{more})")
@@ -127,6 +210,7 @@ def render_repeaters(doc: RepeatersDocument) -> list[str]:
     lines.append(f"Written: {doc.written} repeaters, layer {doc.layer!r}")
     for path in doc.files:
         lines.append(f"  {path}")
+    lines += render_all_sources(doc.all_sources)
     lines += [_registration(view) for view in doc.registered]
     lines += [
         "",
@@ -141,5 +225,6 @@ def render_removed(doc: RepeatersRemovedDocument) -> list[str]:
     if not doc.removed and all(v.outcome == "not there" for v in doc.unregistered):
         return [f"Nothing to remove in {doc.directory}."]
     lines = ["Removed:"] + [f"  {path}" for path in doc.removed]
+    lines += render_all_sources(doc.all_sources)
     lines += [_registration(view) for view in doc.unregistered]
     return lines

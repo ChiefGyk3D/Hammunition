@@ -311,12 +311,15 @@ class TileFile:
     size: int
     sha256: str | None
     md5: str | None
+    etag: str | None = None
+    """An S3 ETag, single-part or multipart, for a provider whose list
+    carries one (USGS 3DEP, D-068 amended 2026-10-01)."""
 
     @property
     def verified_by(self) -> str:
         if self.sha256:
             return PINNED
-        if self.md5:
+        if self.md5 or self.etag:
             return UNPINNED
         raise CopernicusError(
             f"{self.name}: has neither a sha256 pin nor an MD5; nothing verifies it"

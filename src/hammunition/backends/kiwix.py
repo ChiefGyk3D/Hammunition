@@ -17,6 +17,12 @@ The cached download is then deleted, as its own disclosed step: a book can be
 50 GB, and keeping a second copy of it in the cache would double that for the
 sake of a re-install that the installed copy already answers.
 
+With a LAN mirror in station config (D-070), each book is asked of
+``<mirror>/<unit>/<book id>`` first and of download.kiwix.org second, the
+same pinned sha256 and size checked either way, and the step records which
+answered (:func:`book_mirror_path`). Books are the largest data the catalog
+fetches, so they are the mirror's most valuable case (issue #159).
+
 A book whose pinned file is already installed at its pinned size is not
 fetched again: the file name carries the date, and the size is exact. A
 ``.zim`` in the directory that no chosen book's pin names -- a book dropped
@@ -36,7 +42,7 @@ from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 
-from ..fetch import Fetcher
+from ..fetch import Fetcher, MirrorPath, fetch_disclosure, record_fetch
 from ..kiwix import BookFile, KiwixError, load_book_list, load_pin_file, resolve_books
 from ..manifest.schema import KiwixBooksInstall, PackageManifest, RemoteArtifact
 from .base import Action, BackendError, Command, CommandRunner
@@ -47,6 +53,15 @@ from .verified import PrefixWriter
 
 MIB = 1024 * 1024
 ZIM = ".zim"
+
+
+def book_mirror_path(unit: str, book: BookFile) -> MirrorPath:
+    """Where a LAN mirror serves this book (D-070): ``<unit>/<book id>``, the
+    id as the pin file names it and as ``hammunition artifacts`` lists it.
+    The id, not the dated file name, so a mirror keeps one path per book
+    across Kiwix's republications; a stale copy there fails the pin's sha256
+    and the publisher is asked instead."""
+    return MirrorPath(unit, book.pin.id)
 
 
 def book_current(dest: Path, book: BookFile) -> bool:
@@ -124,17 +139,22 @@ class KiwixBooksBackend:
         steps: list[Action | Command] = []
         for book in self.pending(manifest):
             fetched: dict[str, Path] = {}
+            facts: dict[str, str] = {}
             pin = book.pin
             dest = out / pin.file
+            where = book_mirror_path(manifest.name, book)
+            note, urls, sources = fetch_disclosure(self.fetcher, pin.url, where, "sha256")
             steps.append(
                 Action(
                     kind="fetch",
                     description=(
                         f"Fetch reference book {pin.id} ({pin.published}, "
-                        f"{human_size(pin.size)}, {book.book.licence})"
+                        f"{human_size(pin.size)}, {book.book.licence}){note}"
                     ),
-                    detail=f"{pin.url} (sha256 {pin.sha256[:12]}…, {pin.size} bytes)",
-                    perform=partial(self._fetch, book, fetched),
+                    detail=f"{urls} (sha256 {pin.sha256[:12]}…, {pin.size} bytes)",
+                    perform=partial(self._fetch, book, fetched, where, facts),
+                    sources=sources,
+                    facts=facts,
                 )
             )
             steps.append(
@@ -173,12 +193,19 @@ class KiwixBooksBackend:
                 )
         return steps
 
-    def _fetch(self, book: BookFile, fetched: dict[str, Path]) -> str:
+    def _fetch(
+        self,
+        book: BookFile,
+        fetched: dict[str, Path],
+        where: MirrorPath,
+        facts: dict[str, str],
+    ) -> str:
         pin = book.pin
         # The cap is raised to the pinned size plus a margin, never removed.
         result = self.fetcher.fetch(
-            RemoteArtifact(url=pin.url, sha256=pin.sha256), max_bytes=pin.size + MIB
+            RemoteArtifact(url=pin.url, sha256=pin.sha256), max_bytes=pin.size + MIB, mirror=where
         )
+        source = record_fetch(result, facts, mirrored=bool(self.fetcher.mirror))
         if result.size != pin.size:
             raise BackendError(
                 f"{pin.url}: the pin says {pin.size} bytes and {result.size} arrived; the "
@@ -186,8 +213,11 @@ class KiwixBooksBackend:
                 f"scripts/gen_kiwix_pins.py"
             )
         fetched["path"] = result.path
-        where = "cached" if result.from_cache else "downloaded"
-        return f"{where} {result.size} bytes, sha256 {result.sha256[:12]}… verified against the pin"
+        how = "cached" if result.from_cache else "downloaded"
+        return (
+            f"{how} {result.size} bytes, sha256 {result.sha256[:12]}… verified against the "
+            f"pin{source}"
+        )
 
     def _install(
         self, book: BookFile, fetched: dict[str, Path], dest: Path, writer: PrefixWriter

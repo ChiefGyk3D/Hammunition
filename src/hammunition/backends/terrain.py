@@ -54,9 +54,34 @@ CONTOUR_BYTES = 5_500_000
 #: converter to count.
 WARP_FACTOR = 1.0
 WARP_SCRATCH_FACTOR = 1.0
+#: An FSTopo sheet expanded to tiled RGB JPEG with overviews, against its
+#: download, and its scratch (D-068, amended 2026-10-01): measured on
+#: 2026-10-01 on one George Washington National Forest sheet, 21,194,737
+#: bytes, gdal_translate 7.0 s and gdaladdo 3.6 s to 24,546,537 bytes,
+#: 1.16, rounded up.
+FSTOPO_FACTOR = 1.2
+FSTOPO_SCRATCH_FACTOR = 1.2
+FSTOPO_MEASURED = "measured on one sheet"
 #: One tile's contour GeoPackage, removed once rasterised: 97,812,480 bytes
 #: on that tile, the largest a tile is expected to need.
 CONTOUR_SCRATCH_BYTES = 98_000_000
+#: The same two for a USGS 3DEP 1/3" tile (D-068, amended 2026-10-01),
+#: measured on 2026-10-01 on Shenandoah's tile, n39w079, with the engine's
+#: own argv: gdal_contour 17.3 s to a 211,509,248-byte GeoPackage,
+#: gdal_rasterize at 10,812 pixels 3.4 s to 8,421,990 bytes; rounded up.
+CONTOUR_BYTES_3DEP = 8_500_000
+CONTOUR_SCRATCH_BYTES_3DEP = 212_000_000
+
+
+def contour_bytes(provider: str) -> int:
+    """One tile's rasterised contours, by elevation provider."""
+    return CONTOUR_BYTES_3DEP if provider == "usgs-3dep" else CONTOUR_BYTES
+
+
+def contour_scratch(provider: str) -> int:
+    """One tile's contour GeoPackage scratch, by elevation provider."""
+    return CONTOUR_SCRATCH_BYTES_3DEP if provider == "usgs-3dep" else CONTOUR_SCRATCH_BYTES
+
 
 #: BRouter's routing files against the sum of the ``.osm.pbf`` files they are
 #: built from: Delaware's 3.3 MB of ``.rd5`` (with elevation) against its
@@ -84,7 +109,9 @@ TERRAIN_NOTE = (
     f"files at {BROUTER_FACTOR}x of every download together ({MEASURED}), with "
     f"{BROUTER_SCRATCH_FACTOR}x of scratch allowed, not measured; and US Topo quads "
     f"warped at {WARP_FACTOR}x each download with as much again of scratch, measured "
-    f"on one quad"
+    f"on one quad; FSTopo sheets converted at {FSTOPO_FACTOR}x each sheet, "
+    f"{FSTOPO_MEASURED}; and 3DEP contours at about {human_size(CONTOUR_BYTES_3DEP)} a "
+    f"tile with up to {human_size(CONTOUR_SCRATCH_BYTES_3DEP)} of scratch"
 )
 
 
@@ -158,6 +185,14 @@ class TerrainWork:
     """Bytes of US Topo sheets downloaded (D-068)."""
     warp: tuple[int, ...] = ()
     """The download size of each sheet ``ustopo-mosaic`` warps."""
+    bare_earth: int = 0
+    """Bytes of USGS 3DEP tiles downloaded (D-068, amended 2026-10-01)."""
+    sheets: int = 0
+    """Bytes of FSTopo sheets downloaded."""
+    convert: tuple[int, ...] = ()
+    """The sheet size of each FSTopo sheet ``ustopo-mosaic`` converts."""
+    elevation: str = "copernicus-glo30"
+    """The provider the contours are drawn from, for their estimates."""
 
     def any(self) -> bool:
         return bool(
@@ -168,6 +203,9 @@ class TerrainWork:
             or self.brouter
             or self.quads
             or self.warp
+            or self.bare_earth
+            or self.sheets
+            or self.convert
         )
 
 
@@ -194,8 +232,10 @@ def terrain_needs(
     garmin_out = sum(garmin_estimate(size) for size in work.garmin)
     routino_out = routino_estimate(work.routino)
     brouter_out = brouter_estimate(work.brouter)
-    contours = work.contour_tiles * CONTOUR_BYTES
+    contours = work.contour_tiles * contour_bytes(work.elevation)
     warped = round(sum(work.warp) * WARP_FACTOR)
+    converted = round(sum(work.convert) * FSTOPO_FACTOR)
+    downloads = work.tiles + work.quads + work.bare_earth + work.sheets
     brouter_scratch = (
         BROUTER_SCRATCH_FACTOR * work.brouter
         + (work.brouter if work.brouter_regions > 1 else 0)
@@ -210,15 +250,24 @@ def terrain_needs(
     )
     needs: dict[Path, int] = {}
     for where, amount in (
-        (cache, work.tiles + work.quads),
+        (cache, downloads),
         (garmin_staging, GARMIN_SCRATCH_FACTOR * max(work.garmin, default=0)),
         (routino_staging, ROUTINO_SCRATCH_FACTOR * work.routino),
-        (contour_staging, (CONTOUR_SCRATCH_BYTES if work.contour_tiles else 0) + contours),
+        (
+            contour_staging,
+            (contour_scratch(work.elevation) if work.contour_tiles else 0) + contours,
+        ),
         (brouter_staging or routino_staging, brouter_scratch),
-        (mosaic_staging or contour_staging, WARP_SCRATCH_FACTOR * max(work.warp, default=0)),
+        (
+            mosaic_staging or contour_staging,
+            max(
+                WARP_SCRATCH_FACTOR * max(work.warp, default=0),
+                FSTOPO_SCRATCH_FACTOR * max(work.convert, default=0),
+            ),
+        ),
         (
             prefix,
-            work.tiles + garmin_out + routino_out + contours + brouter_out + work.quads + warped,
+            downloads + garmin_out + routino_out + contours + brouter_out + warped + converted,
         ),
     ):
         needs[where] = needs.get(where, 0) + round(amount)

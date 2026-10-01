@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**296 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**299 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -311,7 +311,7 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `navigation-maps` — 26
+### `navigation-maps` — 29
 
 Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
 
@@ -321,6 +321,7 @@ Offline maps, turn-by-turn navigation and the position on a moving map, with no 
 - [comaps](comaps.md) — Offline vector maps with search and car, bike and foot routing, from CoMaps' own map files
 - [comaps-maps](comaps-maps.md) — CoMaps' own map files for your map regions, checked against CoMaps' index
 - [country-boundaries](country-boundaries.md) — Natural Earth's world country borders, which let Navit's address search find towns
+- [dem-3dep](dem-3dep.md) — USGS 3DEP bare-earth elevation for your US map regions, when you choose it
 - [dem-copernicus](dem-copernicus.md) — Copernicus GLO-30 elevation tiles for your map regions, verified
 - [dem-qmapshack](dem-qmapshack.md) — Hillshade, slope and 20 m contour lines for QMapShack, from the elevation tiles
 - [gdal-bin](gdal-bin.md) — GDAL's command-line tools for rasters and elevation data
@@ -329,6 +330,7 @@ Offline maps, turn-by-turn navigation and the position on a moving map, with no 
 - [mkgmap](mkgmap.md) — Builds Garmin-format maps from OpenStreetMap data
 - [mkgmap-splitter](mkgmap-splitter.md) — Cuts OpenStreetMap data into tiles sized for mkgmap
 - [navit](navit.md) — Offline turn-by-turn navigation that follows the GPS, with spoken directions
+- [open-repeater](open-repeater.md) — Open Repeater's CC0 list of amateur repeaters, for the repeater layer on the map
 - [opencpn](opencpn.md) — Marine chart plotter -- your position and AIS ships on nautical charts
 - [osm-garmin](osm-garmin.md) — Garmin maps of your OpenStreetMap regions, with trails, for QMapShack
 - [osm-navit](osm-navit.md) — Navit's binary maps, converted from your OpenStreetMap regions, and its configuration
@@ -338,6 +340,7 @@ Offline maps, turn-by-turn navigation and the position on a moving map, with no 
 - [qmapshack](qmapshack.md) — Offline topographic maps, trails, GPX tracks, elevation profiles and routing on foot
 - [routino](routino.md) — Offline routing over OpenStreetMap data, on foot, by bike or by car
 - [socat](socat.md) — A relay between two data channels, sockets, files or programs
+- [usfs-fstopo](usfs-fstopo.md) — Forest Service FSTopo 7.5-minute sheets for your US map regions, with trail numbers
 - [usgs-ustopo](usgs-ustopo.md) — USGS US Topo 7.5-minute map sheets for your US map regions, verified
 - [ustopo-qmapshack](ustopo-qmapshack.md) — The US Topo sheets as one seamless QMapShack map, collars cropped
 - [vector-map-kit](vector-map-kit.md) — The fixed files the offline browser map needs, from their publishers, pinned
@@ -749,6 +752,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [cwdaemon](cwdaemon.md) | Network service that keys a transmitter's Morse from a serial or parallel port | apt |
 | [cwwav](cwwav.md) | Turns text into a Morse audio file, from the command line | git |
 | [dablin](dablin.md) | Lightweight DAB receiver for the command line or a small window | apt |
+| [dem-3dep](dem-3dep.md) | USGS 3DEP bare-earth elevation for your US map regions, when you choose it | dem-tiles |
 | [dem-copernicus](dem-copernicus.md) | Copernicus GLO-30 elevation tiles for your map regions, verified | dem-tiles |
 | [dem-qmapshack](dem-qmapshack.md) | Hillshade, slope and 20 m contour lines for QMapShack, from the elevation tiles | derived |
 | [dfu-util](dfu-util.md) | Device Firmware Upgrade tool — flash devices that expose a standard DFU mode | apt |
@@ -872,6 +876,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [odr-dabmod](odr-dabmod.md) | Turns a DAB ensemble into a transmittable OFDM signal | apt |
 | [odr-dabmux](odr-dabmux.md) | Assembles audio services into a DAB ensemble multiplex | apt |
 | [odr-padenc](odr-padenc.md) | Encodes the text and images that ride alongside a DAB service | apt |
+| [open-repeater](open-repeater.md) | Open Repeater's CC0 list of amateur repeaters, for the repeater layer on the map | data |
 | [opencpn](opencpn.md) | Marine chart plotter -- your position and AIS ships on nautical charts | apt |
 | [openfpgaloader](openfpgaloader.md) | Universal bitstream loader for FPGAs, over JTAG and SPI | apt |
 | [openhamclock](openhamclock.md) | Community continuation of HamClock as a browser dashboard — grey line, propagation, spots, satellites | node |
@@ -971,6 +976,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [uhd-soapysdr](uhd-soapysdr.md) | Makes SoapySDR devices visible to software written for UHD | apt |
 | [uronode](uronode.md) | Node front end that lets other stations reach services on your machine | apt |
 | [usbutils](usbutils.md) | lsusb — step one of every hardware problem in this catalog | apt |
+| [usfs-fstopo](usfs-fstopo.md) | Forest Service FSTopo 7.5-minute sheets for your US map regions, with trail numbers | topo-quads |
 | [usgs-ustopo](usgs-ustopo.md) | USGS US Topo 7.5-minute map sheets for your US map regions, verified | topo-quads |
 | [ustopo-qmapshack](ustopo-qmapshack.md) | The US Topo sheets as one seamless QMapShack map, collars cropped | derived |
 | [vector-map-kit](vector-map-kit.md) | The fixed files the offline browser map needs, from their publishers, pinned | data |

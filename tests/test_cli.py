@@ -3633,3 +3633,240 @@ def test_hardware_apply_refuses_a_conffile_it_cannot_edit(
     assert cli.main(["hardware", "apply", "--dry-run"]) == EXIT_UNPLANNABLE
     err = capsys.readouterr().err
     assert "tos minclock N minsane N" in err and "--no-gps-time" in err
+
+
+# ---------------------------------------------------------------------------
+# The GPS resume step (issue #177) through `hardware apply` and `unapply`
+# ---------------------------------------------------------------------------
+
+
+class _ResumeRunner(_InstallingRunner):
+    """`install` copies and keeps the mode; `systemctl enable`/`disable` make and
+    remove the `.wants` links, which is what they do to disk; `rm` removes."""
+
+    def run(self, command: Command) -> CommandResult:
+        from hammunition.hardware import gps_resume as gr
+
+        result = super().run(command)
+        argv = command.argv
+        if argv[0] == "install":
+            os.chmod(argv[-1], int(argv[argv.index("-m") + 1], 8))
+        elif argv[:2] == ("systemctl", "enable"):
+            for link in gr.wants_links():
+                Path(link).parent.mkdir(parents=True, exist_ok=True)
+                Path(link).symlink_to(gr.unit_path())
+        elif argv[:2] == ("systemctl", "disable"):
+            for link in gr.wants_links():
+                Path(link).unlink(missing_ok=True)
+        elif argv[:2] == ("rm", "-f"):
+            Path(argv[2]).unlink(missing_ok=True)
+        return result
+
+
+def _resume_plan(tmp_path: Path) -> Any:
+    from dataclasses import replace
+
+    from hammunition.hardware.gps_resume import plan_gps_resume
+
+    return replace(
+        _hardware_plan(tmp_path, polkit=_polkit_artifacts(tmp_path)),
+        gps_resume=plan_gps_resume(),
+    )
+
+
+def test_hardware_apply_discloses_installs_and_logs_the_gps_resume_step(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    resume_files: Path,
+) -> None:
+    import importlib
+
+    from hammunition.hardware import gps_resume as gr
+
+    cli = importlib.import_module("hammunition.cli.main")
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, _resume_plan(tmp_path))
+    logged: list[dict[str, Any]] = []
+
+    class _Log:
+        def __init__(self, **kwargs: object) -> None: ...
+
+        def append(self, entry: dict[str, Any]) -> None:
+            logged.append(entry)
+
+    monkeypatch.setattr(cli, "TransactionLog", _Log)
+    runner = _ResumeRunner()
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: runner)
+
+    assert cli.main(["hardware", "apply", "--yes"]) == 0
+    out = capsys.readouterr().out
+    assert f"ExecStart={gr.SCRIPT}" in out
+    assert out.index("ExecStart=") < out.index("Commands (")
+    assert "journalctl -u hammunition-gps-resume.service" in out
+    assert Path(gr.SCRIPT).read_text() == gr.script_content()
+    assert Path(gr.unit_path()).read_text() == gr.unit_content()
+    assert all(Path(link).is_symlink() for link in gr.wants_links())
+    assert [c.argv[:2] for c in runner.ran] == [
+        ("install", "-D"),
+        ("install", "-D"),
+        ("systemctl", "daemon-reload"),
+        ("systemctl", "enable"),
+    ]
+    events = [e for e in logged if e.get("event") == "gps_resume"]
+    assert len(events) == 4 and all(e["version"] == 1 and e["argv"] for e in events)
+    assert "Done and verified" in out
+
+
+def test_hardware_apply_fails_when_the_resume_unit_is_not_enabled_after_all(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, resume_files: Path
+) -> None:
+    """D-031: `systemctl enable` exiting 0 is not the links existing."""
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, _resume_plan(tmp_path))
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: _InstallingRunner())
+    assert cli.main(["hardware", "apply", "--yes"]) == EXIT_FAILED
+
+
+def test_hardware_apply_dry_run_prints_the_resume_step_and_writes_nothing(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    resume_files: Path,
+) -> None:
+    import importlib
+
+    from hammunition.hardware import gps_resume as gr
+
+    cli = importlib.import_module("hammunition.cli.main")
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, _resume_plan(tmp_path))
+
+    class Exploding:
+        def run(self, command: Command) -> CommandResult:  # pragma: no cover
+            raise AssertionError("a dry run executed something")
+
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: Exploding())
+    assert cli.main(["hardware", "apply", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "systemctl enable hammunition-gps-resume.service" in out
+    assert "gpsdctl" in out
+    assert not Path(gr.SCRIPT).exists() and not Path(gr.unit_path()).exists()
+
+
+def test_hardware_apply_no_gps_resume_does_not_ask_for_the_step(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import importlib
+
+    cli = importlib.import_module("hammunition.cli.main")
+    plan = _hardware_plan(tmp_path, polkit=_polkit_artifacts(tmp_path))
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+    asked: list[object] = []
+
+    def recording(*args: object, **kwargs: object) -> Any:
+        asked.append(kwargs.get("with_gps_resume"))
+        return plan
+
+    monkeypatch.setattr("hammunition.hardware.plan_hardware", recording)
+    assert cli.main(["hardware", "apply", "--no-gps-resume", "--dry-run"]) == 0
+    assert cli.main(["hardware", "apply", "--dry-run"]) == 0
+    assert asked == [False, True]
+
+
+def test_hardware_apply_refuses_a_resume_unit_it_did_not_write(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import importlib
+
+    from hammunition.hardware.gps_resume import GpsResumeError
+
+    cli = importlib.import_module("hammunition.cli.main")
+    plan = _hardware_plan(tmp_path, polkit=_polkit_artifacts(tmp_path))
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, plan)
+
+    def refusing(*args: object, **kwargs: object) -> Any:
+        raise GpsResumeError("/etc/systemd/system/hammunition-gps-resume.service exists")
+
+    monkeypatch.setattr("hammunition.hardware.plan_hardware", refusing)
+    assert cli.main(["hardware", "apply", "--dry-run"]) == EXIT_UNPLANNABLE
+    assert "hammunition-gps-resume.service exists" in capsys.readouterr().err
+
+
+def test_hardware_unapply_removes_the_gps_resume_step_by_content(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    resume_files: Path,
+) -> None:
+    import importlib
+
+    from hammunition.hardware import gps_resume as gr
+
+    cli = importlib.import_module("hammunition.cli.main")
+    _stub_hardware_apply_scaffolding(monkeypatch, cli, _resume_plan(tmp_path))
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: _ResumeRunner())
+    assert cli.main(["hardware", "apply", "--yes"]) == 0
+    capsys.readouterr()
+
+    _unapply_scaffolding(monkeypatch, cli, tmp_path)
+    runner = _ResumeRunner()
+    monkeypatch.setattr(cli, "SubprocessRunner", lambda *a, **k: runner)
+    assert cli.main(["hardware", "unapply", "--dry-run"]) == 0
+    assert "systemctl disable hammunition-gps-resume.service" in capsys.readouterr().out
+    assert Path(gr.unit_path()).exists(), "a dry run removed something"
+
+    assert cli.main(["hardware", "unapply", "--yes"]) == 0
+    assert not Path(gr.SCRIPT).exists() and not Path(gr.unit_path()).exists()
+    assert not any(Path(link).is_symlink() for link in gr.wants_links())
+    out = capsys.readouterr().out
+    assert "reinstalls the GPS resume step" in out
+
+
+def test_hardware_unapply_leaves_a_resume_unit_someone_else_wrote(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    resume_files: Path,
+) -> None:
+    import importlib
+
+    from hammunition.hardware import gps_resume as gr
+
+    cli = importlib.import_module("hammunition.cli.main")
+    _unapply_scaffolding(monkeypatch, cli, tmp_path)
+    Path(gr.unit_path()).parent.mkdir(parents=True)
+    Path(gr.unit_path()).write_text("[Unit]\nDescription=the operator's own\n")
+    assert cli.main(["hardware", "unapply", "--yes"]) == 0
+    assert Path(gr.unit_path()).exists()
+    assert "Nothing to remove" in capsys.readouterr().out
+
+
+def test_doctor_asks_about_the_resume_step_only_with_a_receiver_and_gpsd(
+    monkeypatch: pytest.MonkeyPatch, resume_files: Path
+) -> None:
+    import argparse
+    import importlib
+
+    from hammunition.hardware import gps_resume as gr
+    from hammunition.hardware.power import Parkable
+
+    cli = importlib.import_module("hammunition.cli.main")
+    receiver = Parkable(
+        name="gps-receiver",
+        summary="USB GNSS receivers",
+        method="usb_deauthorize",
+        quiet=(),
+        sysfs_path="/sys/bus/usb/devices/3-5.1",
+        identifier="1546:01a9",
+        parked=True,
+    )
+    args = argparse.Namespace()
+    monkeypatch.setattr(cli, "_survey_parkables", lambda a: ([], []))
+    assert cli._doctor_gps_resume(args) is None
+    monkeypatch.setattr(cli, "_survey_parkables", lambda a: ([receiver], []))
+    assert cli._doctor_gps_resume(args) == "absent"
+    Path(gr.GPSD).unlink()
+    assert cli._doctor_gps_resume(args) is None

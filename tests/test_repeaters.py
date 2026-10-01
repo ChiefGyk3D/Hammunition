@@ -373,7 +373,8 @@ def test_the_overlay_directory_follows_xdg_data_home(tmp_path: Path) -> None:
     assert got == tmp_path / ".local" / "share" / "hammunition" / "overlays" / "repeaters"
 
 
-def test_write_layer_writes_three_private_files_atomically(tmp_path: Path) -> None:
+def test_write_layer_writes_four_private_files_atomically(tmp_path: Path) -> None:
+    """D-064's three files and, since D-074, the rows as data beside them."""
     where = tmp_path / "overlays" / "repeaters"
     layer = repeaters.Layer(
         name="Repeaters (own export 2026-09-01, personal use)",
@@ -382,7 +383,12 @@ def test_write_layer_writes_three_private_files_atomically(tmp_path: Path) -> No
         rows=(_row(),),
     )
     written = repeaters.write_layer(where, layer)
-    assert [p.name for p in written] == ["repeaters.gpx", "repeaters.poi", "repeaters.navit.txt"]
+    assert [p.name for p in written] == [
+        "repeaters.gpx",
+        "repeaters.poi",
+        "repeaters.navit.txt",
+        "repeaters.rows.json",
+    ]
     assert stat.S_IMODE(where.stat().st_mode) == 0o700
     for path in written:
         assert stat.S_IMODE(path.stat().st_mode) == 0o600

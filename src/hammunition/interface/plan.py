@@ -19,23 +19,31 @@ from typing import ClassVar
 
 from hammunition.backends import Action
 from hammunition.backends.data import human_size
-from hammunition.backends.dem import TerrainDisclosure, no_terrain_line
+from hammunition.backends.dem import (
+    BareEarthDisclosure,
+    TerrainDisclosure,
+    no_bare_earth_line,
+    no_terrain_line,
+)
+from hammunition.backends.fstopo import FsTopoDisclosure, no_sheets_line
 from hammunition.backends.regions import ESTIMATE, MapDisclosure, bin_estimate
 from hammunition.backends.terrain import (
     BROUTER_FACTOR,
-    CONTOUR_BYTES,
-    CONTOUR_SCRATCH_BYTES,
+    FSTOPO_FACTOR,
+    FSTOPO_MEASURED,
     GARMIN_FACTOR,
     MEASURED,
     ROUTINO_FACTOR,
     WARP_FACTOR,
     brouter_estimate,
+    contour_bytes,
+    contour_scratch,
     garmin_estimate,
     routino_estimate,
 )
 from hammunition.backends.topo import TopoDisclosure, no_quads_line
 from hammunition.backends.topo_mosaic import MEASURED as TOPO_MEASURED
-from hammunition.backends.topo_mosaic import warp_estimate
+from hammunition.backends.topo_mosaic import fstopo_estimate, warp_estimate
 from hammunition.consent import repo_env_var
 from hammunition.desktop import Desktop, describe_set
 from hammunition.execute import Step
@@ -121,18 +129,34 @@ def plan_state(
         ):
             return "already installed"
     if terrain is not None:
-        if isinstance(method, DemTilesInstall) and not terrain.resolution.fetch:
+        if isinstance(method, DemTilesInstall):
+            # Each provider answers from its own resolution (D-068, amended
+            # 2026-10-01): 3DEP's is empty while Copernicus is chosen.
+            bare = terrain.bare_earth
+            fetching = (
+                (bare.resolution.fetch if bare is not None else ())
+                if method.provider == "usgs-3dep"
+                else terrain.resolution.fetch
+            )
+            if not fetching:
+                return "already installed"
+        topo, fstopo = terrain.topo, terrain.fstopo
+        if isinstance(method, TopoQuadsInstall):
+            sheets = (
+                (fstopo.resolution.fetch if fstopo is not None else ())
+                if method.provider == "usfs-fstopo"
+                else (topo.resolution.fetch if topo is not None else ())
+            )
+            if (topo is not None or fstopo is not None) and not sheets:
+                return "already installed"
+        if (
+            (topo is not None or fstopo is not None)
+            and isinstance(method, DerivedDataInstall)
+            and method.converter == "ustopo-mosaic"
+            and not (topo is not None and topo.building)
+            and not (fstopo is not None and fstopo.building)
+        ):
             return "already installed"
-        topo = terrain.topo
-        if topo is not None:
-            if isinstance(method, TopoQuadsInstall) and not topo.resolution.fetch:
-                return "already installed"
-            if (
-                isinstance(method, DerivedDataInstall)
-                and method.converter == "ustopo-mosaic"
-                and not topo.building
-            ):
-                return "already installed"
         if isinstance(method, DerivedDataInstall):
             quiet = {
                 "mkgmap": not terrain.garmin,
@@ -385,6 +409,67 @@ class TopoSectionView(Strict):
 
 
 @dataclass(frozen=True)
+class BareEarthSectionView(Strict):
+    """USGS 3DEP bare-earth elevation (D-068, amended 2026-10-01). Local only."""
+
+    chosen: bool = described(
+        "whether the station's dem_source is 3dep; when false nothing is fetched, any "
+        "installed 3DEP tile is removed, and QMapShack's elevation is Copernicus's"
+    )
+    regions: tuple[TerrainRegionLine, ...] = described(
+        "3DEP tiles per region and what each downloads this run (about ten times Copernicus)"
+    )
+    fetch: tuple[TileLine, ...] = described("3DEP tiles downloaded this run")
+    current: int = described("3DEP tiles already installed")
+    licence: str = described("the elevation data's licence")
+    licence_url: str = described("where it is stated")
+    download_total: int = described("bytes of 3DEP tiles downloaded")
+    download_total_human: str = described("as the text prints it")
+
+
+@dataclass(frozen=True)
+class SheetRegionLine(Strict):
+    """The FSTopo quads one region needs (D-068, amended 2026-10-01)."""
+
+    region: str = described("the Geofabrik region path")
+    quads: int = described("quads whose box its outline touches")
+    download: int = described(
+        "bytes of its quads downloaded this run; a quad two regions share counts in both"
+    )
+    download_human: str = described("as the text prints it")
+    all_pinned: bool = described(
+        "every quad it needs has a sha256 pinned by Hammunition, so none is unverified"
+    )
+
+
+@dataclass(frozen=True)
+class FsTopoSectionView(Strict):
+    """Forest Service FSTopo sheets and QMapShack's FSTopo map (D-068,
+    amended 2026-10-01). Local only."""
+
+    regions: tuple[SheetRegionLine, ...] = described("quads per region")
+    no_quads: tuple[str, ...] = described(
+        "regions no FSTopo quad covers (no National Forest land); nothing is fetched for them"
+    )
+    fetch: tuple[QuadLine, ...] = described("quads downloaded this run")
+    unverified: int = described(
+        "of those, quads fetched with no checksum: the Forest Service publishes none and "
+        "Hammunition has pinned none"
+    )
+    current: int = described("quads already installed")
+    licence: str = described("the sheets' licence")
+    licence_url: str = described("where it is stated")
+    download_total: int = described("bytes of quads downloaded")
+    download_total_human: str = described("as the text prints it")
+    convert: int = described("quads converted to tiled RGB for QMapShack this run")
+    convert_estimate: int = described("bytes the converted quads are estimated to take")
+    convert_estimate_human: str = described("as the text prints it")
+    disk_total: int = described("bytes: the downloads plus the converted quads")
+    disk_total_human: str = described("as the text prints it")
+    estimate_note: str = described("how the estimate was measured")
+
+
+@dataclass(frozen=True)
 class TerrainSectionView(Strict):
     """Terrain, and what is built for QMapShack (D-061). Names where the operator is: local only."""
 
@@ -413,6 +498,17 @@ class TerrainSectionView(Strict):
     estimate_note: str = described("how the estimates were measured")
     topo: TopoSectionView | None = described(
         "USGS US Topo quads and their mosaic (D-068); null when neither unit is planned"
+    )
+    contours_from: str = described(
+        "the provider the contours and QMapShack's elevation are drawn from this run: "
+        "`copernicus-glo30`, or `usgs-3dep` when the station chose it (D-068, amended 2026-10-01)"
+    )
+    bare_earth: BareEarthSectionView | None = described(
+        "USGS 3DEP (D-068, amended 2026-10-01); null when no 3DEP unit is planned"
+    )
+    fstopo: FsTopoSectionView | None = described(
+        "Forest Service FSTopo quads and their map (D-068, amended 2026-10-01); null when "
+        "neither is planned"
     )
 
 
@@ -776,6 +872,80 @@ def _topo_section(topo: TopoDisclosure | None) -> TopoSectionView | None:
     )
 
 
+def _bare_earth_section(bare: BareEarthDisclosure | None) -> BareEarthSectionView | None:
+    if bare is None:
+        return None
+    resolution = bare.resolution
+    sizes = {t.name: t.size for t in resolution.fetch}
+    download = sum(sizes.values())
+    return BareEarthSectionView(
+        chosen=bare.chosen,
+        regions=tuple(
+            TerrainRegionLine(
+                region=r.region,
+                tiles=len(r.tiles),
+                unpublished=r.unpublished,
+                no_terrain=r.no_terrain,
+                download=sum(sizes.get(name, 0) for name in r.tiles),
+                download_human=human_size(sum(sizes.get(name, 0) for name in r.tiles)),
+            )
+            for r in resolution.regions
+        ),
+        fetch=tuple(
+            TileLine(
+                tile=t.name, size=t.size, size_human=human_size(t.size), verified_by=t.verified_by
+            )
+            for t in resolution.fetch
+        ),
+        current=len(resolution.current),
+        licence=bare.licence.strip(),
+        licence_url=bare.licence_url,
+        download_total=download,
+        download_total_human=human_size(download),
+    )
+
+
+def _fstopo_section(fstopo: FsTopoDisclosure | None) -> FsTopoSectionView | None:
+    if fstopo is None:
+        return None
+    resolution = fstopo.resolution
+    sizes = {f.quad.secoord: f.size for f in resolution.fetch}
+    download = sum(sizes.values())
+    converted = sum(fstopo_estimate(size) for size in fstopo.convert)
+    return FsTopoSectionView(
+        regions=tuple(
+            SheetRegionLine(
+                region=r.region,
+                quads=len(r.quads),
+                download=sum(sizes.get(q.secoord, 0) for q in r.quads),
+                download_human=human_size(sum(sizes.get(q.secoord, 0) for q in r.quads)),
+                all_pinned=resolution.all_pinned(r),
+            )
+            for r in resolution.regions
+            if r.quads
+        ),
+        no_quads=tuple(r.region for r in resolution.regions if not r.quads),
+        fetch=tuple(
+            QuadLine(
+                quad=f.name, size=f.size, size_human=human_size(f.size), verified_by=f.verified_by
+            )
+            for f in resolution.fetch
+        ),
+        unverified=sum(1 for f in resolution.fetch if not f.sha256),
+        current=len(resolution.current),
+        licence=fstopo.licence.strip(),
+        licence_url=fstopo.licence_url,
+        download_total=download,
+        download_total_human=human_size(download),
+        convert=len(fstopo.convert),
+        convert_estimate=converted,
+        convert_estimate_human=human_size(converted),
+        disk_total=download + converted,
+        disk_total_human=human_size(download + converted),
+        estimate_note=FSTOPO_MEASURED,
+    )
+
+
 def _terrain_section(terrain: TerrainDisclosure | None) -> TerrainSectionView | None:
     if terrain is None:
         return None
@@ -792,7 +962,7 @@ def _terrain_section(terrain: TerrainDisclosure | None) -> TerrainSectionView | 
         for f in terrain.garmin
     ]
     routino = routino_estimate(terrain.routino_total)
-    contours = terrain.contours * CONTOUR_BYTES
+    contours = terrain.contours * contour_bytes(terrain.elevation)
     brouter = brouter_estimate(terrain.brouter_total)
     disk = download + sum(g.estimate for g in garmin) + routino + contours + brouter
     return TerrainSectionView(
@@ -833,6 +1003,9 @@ def _terrain_section(terrain: TerrainDisclosure | None) -> TerrainSectionView | 
         disk_total_human=human_size(disk),
         estimate_note=MEASURED,
         topo=_topo_section(terrain.topo),
+        contours_from=terrain.elevation,
+        bare_earth=_bare_earth_section(terrain.bare_earth),
+        fstopo=_fstopo_section(terrain.fstopo),
     )
 
 
@@ -947,7 +1120,8 @@ def _mirror_section(url: str | None, *, ignored: bool) -> MirrorSection | None:
         )
     else:
         text = (
-            f"Each data download below (offline data, map regions, terrain tiles) is asked "
+            f"Each data download below (offline data, map regions, terrain tiles, CoMaps "
+            f"maps, reference books) is asked "
             f"of the LAN mirror {url} first, as <mirror>/<unit>/<name>, and of its "
             f"publisher if the mirror fails in any way. The digest it is checked by is the "
             f"same whichever answers: the mirror is trusted for speed, never for content. "
@@ -1434,10 +1608,11 @@ def _render_terrain(terrain: TerrainSectionView) -> list[str]:
             f"{elevation}; built here, never downloaded from brouter.de"
         )
     if terrain.contours:
+        drawn = " of USGS 3DEP" if terrain.contours_from == "usgs-3dep" else ""
         built.append(
-            f"    contours for {terrain.contours} tile(s)  about "
+            f"    contours for {terrain.contours} tile(s){drawn}  about "
             f"{terrain.contours_estimate_human}, with up to "
-            f"{human_size(CONTOUR_SCRATCH_BYTES)} of scratch at a time"
+            f"{human_size(contour_scratch(terrain.contours_from))} of scratch at a time"
         )
     if built:
         lines.append(f"  Built for QMapShack (sizes an estimate, {terrain.estimate_note}):")
@@ -1446,8 +1621,89 @@ def _render_terrain(terrain: TerrainSectionView) -> list[str]:
         f"      about {terrain.disk_total_human} of disk for terrain and QMapShack's maps "
         f"({terrain.estimate_note})"
     )
+    if terrain.bare_earth is not None:
+        lines.extend(_render_bare_earth(terrain.bare_earth))
     if terrain.topo is not None:
         lines.extend(_render_topo(terrain.topo))
+    if terrain.fstopo is not None:
+        lines.extend(_render_fstopo(terrain.fstopo))
+    return lines
+
+
+def _render_bare_earth(bare: BareEarthSectionView) -> list[str]:
+    """The 3DEP block, after Copernicus's (D-068, amended 2026-10-01)."""
+    lines = ["  USGS 3DEP bare-earth elevation (D-068):"]
+    if not bare.chosen:
+        lines.append("    not chosen: dem_source is copernicus, so no 3DEP tile is fetched and any")
+        lines.append("    installed one is removed (`hammunition station set --dem-source 3dep`")
+        lines.append("    chooses bare earth, about ten times the size of Copernicus)")
+        return lines
+    if bare.regions:
+        width = max(len(r.region) for r in bare.regions)
+        for region in bare.regions:
+            fetch = f"; {region.download_human} to download" if region.download else ""
+            lines.append(f"    {region.region:<{width}}  {region.tiles} tile(s){fetch}")
+        lines.extend(
+            f"    warning: {no_bare_earth_line(region.region)}"
+            for region in bare.regions
+            if region.no_terrain
+        )
+    if bare.fetch:
+        lines.append(
+            f"    will be downloaded ({len(bare.fetch)} tile(s), {bare.download_total_human}, "
+            f"about ten times Copernicus's size for the same ground):"
+        )
+        width = max(len(t.tile) for t in bare.fetch)
+        lines.extend(
+            f"      {t.tile:<{width}}  {t.size_human:>9}  {t.verified_by}" for t in bare.fetch
+        )
+    if bare.current:
+        lines.append(f"    already installed: {bare.current} tile(s)")
+    if bare.licence:
+        lines.append(f"      licence: {bare.licence}, stated at {bare.licence_url}")
+    if bare.download_total:
+        lines.append(f"      about {bare.download_total_human} of disk for 3DEP tiles")
+    return lines
+
+
+def _render_fstopo(fstopo: FsTopoSectionView) -> list[str]:
+    """The FSTopo block, after US Topo's (D-068, amended 2026-10-01)."""
+    lines = ["  FSTopo, Forest Service 7.5-minute quads (D-068):"]
+    if fstopo.regions:
+        width = max(len(r.region) for r in fstopo.regions)
+        for region in fstopo.regions:
+            fetch = f"; {region.download_human} to download" if region.download else ""
+            pinned = ", every one pinned" if region.all_pinned else ""
+            lines.append(f"    {region.region:<{width}}  {region.quads} quad(s){pinned}{fetch}")
+        if all(r.all_pinned for r in fstopo.regions):
+            lines.append("    every FSTopo quad your regions need is pinned by Hammunition")
+    lines.extend(f"    note: {no_sheets_line(region)}" for region in fstopo.no_quads)
+    if fstopo.fetch:
+        lines.append(
+            f"    will be downloaded ({len(fstopo.fetch)} quad(s), {fstopo.download_total_human}):"
+        )
+        width = max(len(q.quad) for q in fstopo.fetch)
+        lines.extend(
+            f"      {q.quad:<{width}}  {q.size_human:>9}  {q.verified_by}" for q in fstopo.fetch
+        )
+    if fstopo.unverified:
+        lines.append(
+            f"    warning: {fstopo.unverified} quad(s) unverified: the Forest Service publishes "
+            f"no checksum and Hammunition has pinned none"
+        )
+    if fstopo.current:
+        lines.append(f"    already installed: {fstopo.current} quad(s)")
+    if fstopo.licence:
+        lines.append(f"      licence: {fstopo.licence}, stated at {fstopo.licence_url}")
+    if fstopo.convert:
+        lines.append(
+            f"    converted for QMapShack: {fstopo.convert} quad(s), about "
+            f"{fstopo.convert_estimate_human} ({FSTOPO_FACTOR}x each sheet, "
+            f"{fstopo.estimate_note})"
+        )
+    lines.append(
+        f"      about {fstopo.disk_total_human} of disk for FSTopo ({fstopo.estimate_note})"
+    )
     return lines
 
 

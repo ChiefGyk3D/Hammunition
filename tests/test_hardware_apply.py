@@ -13,10 +13,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hammunition.hardware import plan_hardware, rules_file
+from hammunition.hardware import HardwarePlan, plan_hardware, rules_file
 from hammunition.hardware.detect import AttachedDevice
 from hammunition.hardware.polkit import PolkitArtifacts
-from hammunition.manifest.hardware import DeviceClass, DeviceManifest, HardwareDocumentation
+from hammunition.manifest.hardware import (
+    DeviceClass,
+    DeviceManifest,
+    HardwareDocumentation,
+    ResumeControl,
+)
 
 _NOOP_POLKIT = PolkitArtifacts(
     helper_path="/usr/local/libexec/hammunition-devctl",
@@ -175,3 +180,51 @@ def test_class_groups_are_inherited_into_the_union() -> None:
     )
     # union of the member's own dialout and the class's plugdev
     assert plan.groups_to_add == ["dialout", "plugdev"]
+
+
+def _with_resume(devices: dict[str, DeviceManifest]) -> dict[str, DeviceManifest]:
+    alpha = devices["alpha"].model_copy(
+        update={
+            "resume": ResumeControl(
+                step="gpsd_reopen", note="Gives gpsd a fresh open after a suspend."
+            )
+        }
+    )
+    return {**devices, "alpha": alpha}
+
+
+def test_the_resume_step_is_planned_only_when_asked_and_declared(
+    tmp_path: Path, resume_files: Path
+) -> None:
+    """Issue #177: a catalog entry names the step; `hardware apply` asks for it."""
+    classes, devices = _catalog()
+    rules = tmp_path / "65-hammunition.rules"
+    rules.write_text(rules_file([*devices.values()])[0])
+
+    def plan(devs: dict[str, DeviceManifest], asked: bool) -> HardwarePlan:
+        return plan_hardware(
+            classes,
+            devs,
+            user="op",
+            user_groups_now=frozenset({"plugdev", "dialout"}),
+            attached=[],
+            rules_path=str(rules),
+            polkit=_NOOP_POLKIT,
+            with_gps_resume=asked,
+        )
+
+    declared = _with_resume(devices)
+    assert plan(declared, False).gps_resume is None
+    assert plan(devices, True).gps_resume is None
+    asked = plan(declared, True)
+    assert asked.gps_resume is not None and asked.gps_resume.gpsd
+    assert not asked.is_noop  # the step is still to install
+
+
+def test_the_shipped_gps_receiver_class_declares_the_resume_step() -> None:
+    from hammunition.manifest.load import load_hardware
+
+    root = Path(__file__).resolve().parents[1] / "catalog" / "hardware"
+    classes, _ = load_hardware(root)
+    resume = classes["gps-receiver"].resume
+    assert resume is not None and resume.step == "gpsd_reopen"

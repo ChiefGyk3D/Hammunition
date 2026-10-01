@@ -61,6 +61,10 @@ class StationDocument(Strict):
     rig_owner: str | None = described(
         "who holds the port: rigctld (the default when unset) or flrig; null when not set"
     )
+    dem_source: str = described(
+        "where QMapShack's elevation is drawn from: `copernicus` (the default, also when "
+        "unset) or `3dep`, USGS bare earth (D-068, amended 2026-10-01)"
+    )
 
 
 def build_station(path: Path, station: Station) -> StationDocument:
@@ -79,6 +83,7 @@ def build_station(path: Path, station: Station) -> StationDocument:
         rig_baud=station.rig_baud,
         rig_ptt_line=station.rig_ptt_line,
         rig_owner=station.rig_owner,
+        dem_source=station.elevation,
     )
 
 
@@ -94,6 +99,7 @@ def render_station(doc: StationDocument) -> list[str]:
         and doc.map_freshness is None
         and not doc.reference_books
         and doc.mirror is None
+        and doc.dem_source == "copernicus"
     ):
         return [
             *lines,
@@ -113,6 +119,7 @@ def render_station(doc: StationDocument) -> list[str]:
         lines.append(f"  {'map regions':<14} (not set)")
     lines.append(f"  {'map freshness':<14} {doc.map_freshness or 'yearly'}")
     lines.append(f"  {'mirror':<14} {doc.mirror or '(not set)'}")
+    lines.append(f"  {'dem_source':<14} {doc.dem_source}")
     # Which books somebody reads is not where they are: named, not counted
     # (D-066). Shown only when chosen, so a station without them reads as
     # it always has.

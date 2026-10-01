@@ -37,11 +37,19 @@ import os
 import sys
 from functools import partial
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hammunition.backends.base import Action, Command
 from hammunition.backends.source import SourceLayout, extract, tree_install_commands
-from hammunition.fetch import Fetcher
 from hammunition.manifest.schema import PackageManifest, RemoteArtifact, VenvInstall
+
+if TYPE_CHECKING:
+    # Type-only: `hammunition.backends/__init__.py` imports this module
+    # eagerly, and `hammunition.fetch` imports `hammunition.backends.base`,
+    # so a module-level import here is the other half of #158's cycle.
+    # `Fetcher` is only ever used in an annotation, which `from __future__
+    # import annotations` defers, so it never needs a real import.
+    from hammunition.fetch import Fetcher
 
 __all__ = ["VenvBackend"]
 

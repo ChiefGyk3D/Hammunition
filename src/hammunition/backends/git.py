@@ -34,8 +34,8 @@ import sys
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from hammunition.fetch import Fetcher
 from hammunition.manifest.schema import (
     COMMIT_SHA,
     ExtraFile,
@@ -56,6 +56,14 @@ from .source import (
     prepare_tree,
     tree_install_commands,
 )
+
+if TYPE_CHECKING:
+    # Type-only: `hammunition.backends/__init__.py` imports this module
+    # eagerly, and `hammunition.fetch` imports `hammunition.backends.base`,
+    # so a module-level import here is the other half of #158's cycle.
+    # `Fetcher` is only ever used in an annotation, which `from __future__
+    # import annotations` defers, so it never needs a real import.
+    from hammunition.fetch import Fetcher
 
 MIB = 1024 * 1024
 
