@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+kind: device
+name: btech-uv-50pro
+summary: BTECH UV-50PRO — dual-band mobile with no CAT, keyed through an external interface
+vendor: BTECH
+device_class: rig
+status: untested
+gap_closure: maintainer_hardware
+
+# No usb_ids of its own: the UV-50PRO has no USB interface. It is keyed through
+# an external sound-card interface (a Digirig, a SignaLink, a home-made cable),
+# and that interface's USB identifiers belong to the interface, not to the
+# radio. The device inherits the class only for its `dialout` group and
+# packages; the serial port the station names is the interface's.
+identification_gap: >-
+  The UV-50PRO cannot be identified on USB because it has none. What the bench
+  must record, through whichever interface is used on it (D-073 §3d): (1) which
+  control line keys it — RTS or DTR — and that the other line does nothing;
+  (2) that nothing is sent on the serial line itself — `strace -f -e
+  trace=write,ioctl` on the running rigctld shows only line ioctls on the port
+  and no write to it; (3) whether starting the service keys the radio even
+  briefly, because opening a tty raises RTS and DTR before hamlib sets them;
+  (4) that VOX keys it as the alternative, with the audio level that does it.
+
+# A radio hamlib cannot drive: ptt_only names the lines that key it. The same
+# rig-service keys it with hamlib's dummy model, so every program is configured
+# for it exactly as for a CAT rig — Hamlib NET rigctl, 127.0.0.1:4532 — with no
+# frequency control (D-073 §3d).
+rig:
+  ptt_only:
+    lines: [rts, dtr]         # the interface can key it on either; the station names which
+    vox: true                 # or the radio keys itself on audio (VOX), skipping the service
+  audio: external_interface
+
+documentation:
+  what_it_is: >-
+    A BTECH UV-50PRO, a dual-band (2 m / 70 cm) FM mobile transceiver. It has
+    no CAT: the computer cannot read or set its frequency. For digital modes it
+    is keyed through an external sound-card interface, either on a serial
+    control line (RTS or DTR) or by VOX.
+  what_you_can_do_with_it: >-
+    Run FM digital modes — the radio is keyed to transmit through the same
+    shared rigctld every other program uses, selecting Hamlib NET rigctl and
+    PTT method CAT, with the band set by hand on the radio because there is no
+    CAT to set it from the computer.
+  setup_steps: >-
+    Wire the interface to the radio's data port. `hammunition station set --rig
+    btech-uv-50pro --rig-device <the interface's /dev/serial/by-id/ path>
+    --rig-ptt-line rts` (or dtr, whichever keys it on your interface), then
+    install `rig-service`. For VOX instead, `--rig-ptt-line vox`: no service
+    runs and each program's PTT method is set to VOX. See
+    docs/guides/rig-control.md.
+  known_problems: >-
+    No frequency control: a logger or digital-mode program fed by this service
+    reads the dummy model's frequency, not the radio's, so set the band by
+    hand. Opening the serial port raises RTS and DTR, so a radio keyed on
+    either line may key briefly when the service starts — until the bench has
+    measured it, start the service with the radio switched off or on a dummy
+    load. The wrong control line is a radio that never keys or one held keyed,
+    which is why --rig-ptt-line is required and nothing defaults it. This entry
+    is untested here (D-073 §12).
+  upstream_url: https://baofengtech.com/

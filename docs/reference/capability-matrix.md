@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 86 | 2 | 213 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 86 | 2 | 213 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 83 | 3 | 215 |
-| kali-rolling *(unswept)* | 0 | 0 | 79 | 1 | 221 |
-| parrot *(unswept)* | 0 | 0 | 84 | 2 | 215 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 83 | 3 | 215 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 81 | 7 | 213 |
+| debian-13 *(unswept)* | 0 | 0 | 86 | 2 | 214 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 86 | 2 | 214 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 83 | 3 | 216 |
+| kali-rolling *(unswept)* | 0 | 0 | 79 | 1 | 222 |
+| parrot *(unswept)* | 0 | 0 | 84 | 2 | 216 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 83 | 3 | 216 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 81 | 7 | 214 |
 
-**301 manifests** against **7 targets**.
+**302 manifests** against **7 targets**.
 
 ---
 
@@ -275,6 +275,7 @@ build HAS been run in a container say so in their own install notes.
 | `rayhunter` | binary | binary | binary | binary | binary | binary | binary |
 | `readsb` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `remotetrx` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `rig-service` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `routino` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `rtl-433` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `rtl-ais` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |

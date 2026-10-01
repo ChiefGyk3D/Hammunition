@@ -13,5 +13,10 @@
     "ham.stackexchange.com_en_all"
   ],
   "mirror": null,
+  "rig": null,
+  "rig_device": null,
+  "rig_baud": null,
+  "rig_ptt_line": null,
+  "rig_owner": null,
   "dem_source": "copernicus"
 }

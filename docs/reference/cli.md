@@ -1351,7 +1351,7 @@ A **read-only** health check: is this machine ready, and what is not yet set
 up. It changes nothing, and it is the first thing to run on a fresh machine
 or when something misbehaves — it turns the failures the engine would
 otherwise hit mid-transaction into a report you read up front, each with the
-one command that fixes it. Twenty-one checks across four severities:
+one command that fixes it. Twenty-two checks across four severities:
 
 - **fail** — the engine cannot work until fixed (not a Debian-family system;
   no catalog). Exits non-zero.
@@ -1371,6 +1371,20 @@ desktop is not known rather than guessing. A machine with no session files
 (a server, a container) is reported as such. Session files that name no
 desktop the catalog knows (COSMIC, Sway) are named as read, so a graphical
 machine is never reported as a server. See `docs/desktops.md`.
+
+The **rig** check (**D-073**) is read-only and never keys the transmitter.
+With no rig set it is information. With one set, it names any value the
+rig's kind still needs (with the `station set` flag), whether the
+`hammunition-rigctld` user service is installed, disabled, failed or active
+(`systemctl --user`), whether `rigctld` answers `\dump_state` on
+`127.0.0.1:4532` (a read; nothing is set and PTT is never touched), whether
+the rig's device is present now, whether the running `rigctld`'s arguments
+match the station (from `/proc`), whether port 4532 is bound to loopback only
+(a **fail** otherwise — the transmitter would be reachable off-machine), that
+the loopback filter is running, and whether linger is on and whether
+Hammunition turned it on. For a flrig or VOX station, which runs no `rigctld`
+service, it says so rather than telling you to install one. See
+`docs/guides/rig-control.md`.
 
 The **time** and **hardware clock** checks (**D-058**) say what the clock
 follows (the network or the GPS, with ntpd's offset), or that it follows
@@ -1494,7 +1508,11 @@ needs: a root-owned helper at `/usr/local/libexec/hammunition-devctl`
 `/usr/share/polkit-1/actions/com.chiefgyk3d.hammunition.devctl.policy`
 (`0644`), which is what lets `hardware park`/`wake` ask `pkexec` to run that
 helper as root. See `docs/hardware/power-control.md` for what those two
-files contain and what installing them means.
+files contain and what installing them means. The same helper and action
+carry the `linger on|off` verb behind `station set --unattended` (**D-073
+§5a**): it acts only on the calling account (the uid polkit reports, never an
+argument) and records whether Hammunition turned linger on, so only linger
+that is ours is ever turned off.
 
 - **All the rules, not only attached devices' —** a udev rule is declarative
   and harmless for a device that is not present, so applying the whole set
@@ -1756,6 +1774,13 @@ hammunition station show
 | `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile, a CoMaps map, a reference book) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
 | `--clear-mirror` | Remove the saved mirror |
 | `--dem-source SOURCE` | `copernicus` (the default when unset) or `3dep`: the elevation QMapShack's hillshade, slope and contours are drawn from (**D-068**, amended 2026-10-01). `3dep` makes `dem-3dep` fetch USGS 3DEP 1/3-arc-second bare-earth tiles for the US regions, about ten times Copernicus's size, and `dem-qmapshack` redraw from them; Copernicus stays installed for BRouter and for regions outside the US. Setting it back to `copernicus` removes the 3DEP tiles and redraws from Copernicus on the next install. `station show` prints it |
+| `--rig DEVICE\|hamlib:MODEL` | The station's radio (**D-073**): a catalog device id (`yaesu-ft-991a`), or `hamlib:<model>` for one with no manifest. Checked against the catalog and this machine's `rigctl -l` when you set it |
+| `--rig-device PATH` | The serial port the rig (or its interface) is reached on; an absolute `/dev/` path, a `/dev/serial/by-id/` one for stability. Refused if it carries `..`, whitespace or a shell character |
+| `--rig-baud RATE` | The CAT serial speed. For a catalogued CAT rig it must be inside the backend's range (named on refusal); mandatory for `hamlib:<model>`; refused for a PTT-only rig |
+| `--rig-ptt-line rts\|dtr\|vox` | For a radio with no CAT: which control line keys it, or `vox`. Required for a PTT-only rig, refused for a CAT rig |
+| `--rig-owner rigctld\|flrig` | Who holds the port: `rigctld` (the shared daemon, the default when unset) or `flrig`. `flrig` with a PTT-only rig is refused |
+| `--clear-rig` | Remove `rig`, `rig_device`, `rig_baud`, `rig_ptt_line` and `rig_owner` |
+| `--unattended` / `--no-unattended` | Keep the operator's user services running with nobody logged in, through `loginctl enable-linger` behind the power-control helper (**D-073 §5a**). The plan lists what linger keeps alive before the prompt. `--no-unattended` disables it, but only if Hammunition turned it on |
 
 A region list says where the operator lives or travels, so `station show`
 and `station set` print how many regions are set, never their names; the

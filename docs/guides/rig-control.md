@@ -97,43 +97,109 @@ frequency the radio is on. `m` instead of `f` prints the mode. If it hangs
 or prints an error, the port, the speed or the model is wrong; change one
 thing at a time.
 
-## 5. Run `rigctld` for everyone
+## 5. Say which radio is on the station, and the service is there
+
+Tell Hammunition the radio, the port and the speed once:
 
 ```sh
-rigctld -m 1035 -r /dev/serial/by-id/usb-...-if00-port0 -s 38400 -T 127.0.0.1
+hammunition station set --rig yaesu-ft-991a \
+    --rig-device /dev/serial/by-id/usb-Silicon_Labs_CP2105_...-if00-port0 \
+    --rig-baud 38400
 ```
 
-**Always pass `-T 127.0.0.1`.** Without it `rigctld` listens on every
-network interface (its help says so: "default ANY"), which puts your
-transmitter's controls on whatever network the laptop is on. On a machine
-that also carries security tooling, that is not an acceptable default.
+`--rig` takes a radio the catalog knows ([`hammunition hardware list`](../reference/cli.md)),
+or `hamlib:<model>` for one it does not (`--rig hamlib:3073`, with `--rig-baud`
+then required). The value is checked against the catalog and against your
+machine's hamlib as you set it; a speed outside the backend's range, or a
+value that is not a rig, is refused there and then.
 
-Leave it running and test it from another terminal:
+Then install the service (it ships in the [`station`](../profiles/station.md)
+profile):
 
 ```sh
-rigctl -m 2 -r 127.0.0.1:4532 f
+hammunition install rig-service
 ```
 
-Model 2 is *NET rigctl*: "ask the rigctld on this address".
+The plan prints the unit file it writes, the command line it runs with the
+serial elided, and the plain warning that **any program on this machine can
+key the transmitter through `127.0.0.1:4532`, which has no password**. It
+writes `~/.config/systemd/user/hammunition-rigctld.service`, binds it to the
+radio's USB port so it stops when the radio is switched off, and enables it so
+it starts at your login. `-T 127.0.0.1` is fixed: the service never listens
+beyond loopback.
 
-!!! info "Starting it with your session"
-    Hammunition does not yet install a service for `rigctld`; making the rig
-    part of the station configuration is planned
-    ([gap analysis, A2](../reference/catalog-gaps-2026-09.md)). Until then,
-    start it by hand or from your desktop's autostart.
+Check it:
+
+```sh
+systemctl --user status hammunition-rigctld
+rigctl -m 2 -r 127.0.0.1:4532 f     # model 2 is NET rigctl: "ask the rigctld here"
+hammunition doctor                  # reports the service, the port and the device
+```
+
+Changing a rig value (`station set --rig-baud …`) reaches the service only
+through `hammunition install rig-service` again, which rewrites the file and
+restarts it. `hammunition uninstall rig-service` disables it and removes the
+file. To choose flrig's panel instead, see [the flrig route](#the-flrig-route).
+
+!!! info "A station with nobody logged in"
+    By default the service runs while you are logged in and stops with your
+    last session. For a remote or headless station, `hammunition station set
+    --unattended` turns on linger (through the power-control helper) so your
+    user services keep running after you log out — the transmitter then keyable
+    through 4532 with nobody at the machine. `--no-unattended` reverses it. The
+    plain `loginctl enable-linger` does the same by hand.
 
 ## 6. Point every program at it
+
+Every program below reaches the service as *Hamlib NET rigctl*, hamlib model
+2, at `127.0.0.1:4532`. The only question is where each keeps the setting.
 
 | Program | Where | What to set |
 |---|---|---|
 | [WSJT-X](../packages/wsjtx.md), [JTDX](../packages/jtdx.md), [JS8Call](../packages/js8call.md) | File → Settings → Radio | Rig: *Hamlib NET rigctl*. Network Server: `127.0.0.1:4532`. PTT method: *CAT* |
-| [fldigi](../packages/fldigi.md) | Configure → Rig Control → Hamlib | Use Hamlib; Rig: *Hamlib NET rigctl*; Device: `127.0.0.1:4532` |
-| [gpredict](../packages/gpredict.md) | Edit → Preferences → Interfaces → Radios | Host `127.0.0.1`, port `4532` |
-| [CQRLOG](../packages/cqrlog.md) | Preferences → TRX control | Rig model 2 (*NET rigctl*), host `127.0.0.1`, port `4532`, and *do not* let it start its own `rigctld` |
-| [Pat](../packages/pat.md) | `pat-winlink configure` | A `hamlib_rigs` entry with `"address": "localhost:4532", "network": "tcp"` |
+| [fldigi](../packages/fldigi.md) (and flmsg, flamp) | Configure → Rig Control → Hamlib | Use Hamlib; Rig: *Hamlib NET rigctl*; Device: `127.0.0.1:4532` |
+| MSHV | Options → Rig control | *Hamlib NET rigctl*, `127.0.0.1:4532` |
+| [gpredict](../packages/gpredict.md) | written for you | Hammunition writes `~/.config/Gpredict/hwconf/hammunition.rig` pointing at `127.0.0.1:4532`; pick it under Edit → Preferences → Interfaces → Radios. Doppler needs CAT, so a PTT-only rig cannot tune |
+| tlf | `logcfg.dat` | `RIGMODEL=2`, `RIGPORT=localhost:4532` (whether `RIGPORT` takes host:port for model 2 is not yet measured here) |
+| [Direwolf](../packages/direwolf.md) | `direwolf.conf` | `PTT RIG 2 localhost:4532` — a rig *number*, not a name. The packet radio is often not the station's CAT rig |
+| [Pat](../packages/pat.md) | `pat configure` or its web settings | A `hamlib_rigs` entry with `"address": "localhost:4532", "network": "tcp"`, then `rig` per transport |
+| [FreeDATA](../packages/freedata.md) | Settings → Radio | control *rigctld* (never *rigctld_bundle*, which starts a second one on 4532); IP `127.0.0.1`, port `4532` (the shipped defaults) |
+| Mercury | command line | key through Pat's `rig`, or `-R 2 -A 127.0.0.1:4532` (not yet measured here) |
+| [CQRLOG](../packages/cqrlog.md) | Preferences → TRX control | Rig model 2 (*NET rigctl*), host `127.0.0.1`, port `4532`, and **untick *Run rigctld*** or it starts a second one on 4532 |
+| [QLog](../packages/qlog.md), KLog, xlog, QSSTV, FreeDV | each program's own rig dialog | *Hamlib NET rigctl*, `127.0.0.1:4532` |
+| SuperSDR, OpenHamClock's rig bridge | command line or their settings | a `rigctld` client: `127.0.0.1:4532` |
 
-The dialog names are from each program's own documentation. They move a
-little between versions; the field names do not.
+[Xastir](../packages/xastir.md) and [YAAC](../packages/yaac.md) speak no CAT at
+all; they key through Direwolf. `ardopcf` is keyed by Pat's `rig`, a serial
+line, or VOX.
+
+The dialog names are from each program's own documentation. They move a little
+between versions; the field names do not.
+
+## A radio with no CAT (PTT only)
+
+A radio hamlib cannot drive — a BTECH or Baofeng handheld or mobile, keyed
+through a Digirig or SignaLink — is still carried by the same service, so every
+program is configured for it exactly as above. Name the radio, the interface's
+serial port, and which control line keys it:
+
+```sh
+hammunition station set --rig btech-uv-50pro \
+    --rig-device /dev/serial/by-id/usb-...-if00-port0 \
+    --rig-ptt-line rts        # or dtr, whichever your interface keys it on
+```
+
+The service runs `rigctld` with hamlib's dummy model and that line; a program's
+PTT method *CAT* through 4532 asserts the line. **There is no frequency
+control** — the programs read the dummy's frequency, so set the band by hand on
+the radio. If the radio keys itself on audio instead, `--rig-ptt-line vox`: no
+service runs, and each program's PTT method is set to *VOX*.
+
+!!! warning "Opening the port can key the radio"
+    Linux raises RTS and DTR when a serial port is opened, before hamlib sets
+    them, so a radio keyed on either line may key briefly when the service
+    starts. Until this is measured on your interface, start the service with the
+    radio switched off or on a dummy load.
 
 ## The flrig route
 
@@ -178,8 +244,18 @@ has been run against a real radio by this project.
 ## What was measured
 
 The hamlib model numbers, `rigctld`'s options and its listen-on-any default
-were read from hamlib 4.5.5 (Ubuntu 24.04's package) on 2026-09-30. The
-dialog paths are from each program's documentation. This project has not
-yet driven every row of the program table against a real radio; the
-FT-991A on the field laptop is the bench for that
-([bench record](../reference/bench-verification-5430.md)).
+were read from hamlib 4.7.2 (Parrot's backport) on 2026-10-01; which programs
+link hamlib was read with `ldd`, and each program's configuration keys from the
+strings in its binary. A browser-producible HTTP POST to `127.0.0.1:4532` was
+measured against hamlib's dummy model and **did** key it (rigctld works through
+the request and header lines and then acts on the body), so a loopback filter
+sits in front: `rigctld` binds `127.0.0.1:4632` and `hammunition.rigproxy` binds
+4532, forwarding everything except a connection that opens with an HTTP request
+line, which it drops (D-073 §11). Programs still point at 4532 and see no
+difference.
+
+This project has not yet driven the service or any row of the program table
+against a real radio: the FT-991A and the UV-50PRO on the field laptop are the
+bench for that ([bench record](../reference/bench-verification-5430.md)), and
+until it has run the radio pages say `untested`. The design and its rulings are
+[D-073](../DECISIONS.md).

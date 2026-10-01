@@ -45,6 +45,7 @@
     "memberships": [],
     "consent_gates": [],
     "config_files": [],
+    "user_services": [],
     "desktops_read": {
       "desktops": [
         "xfce"
