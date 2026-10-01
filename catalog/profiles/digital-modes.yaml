@@ -80,6 +80,13 @@ documentation:
     device and the same radio** — pick one per session. SSTV needs the sound
     card's sample rate calibrated once per machine or every picture slants,
     which people blame on the band.
+
+    **Two guides walk the whole of this.** `docs/guides/digital-modes.md`
+    goes from installed to a first FT8 contact — rig control, the clock,
+    your callsign in each program, WSJT-X, fldigi's PSK31 and RTTY, JS8Call,
+    and which file each program writes. `docs/guides/audio-routing.md` is
+    the sound path on PipeWire, finding which device is the radio, levels
+    and the ALC trap, with its own symptom list.
   disk_footprint_hint: >-
     Around 1.2 GB installed — 1.28 GB measured on Kali rolling, 2026-09-02,
     as `df` before minus after with the build trees and apt cache subtracted.

@@ -20,7 +20,7 @@ It is the reference implementation for HF digital modes on Linux and the foundat
 
 ## Before it will work
 
-Sound-card audio routed to and from the radio, and PTT via hamlib, flrig, CAT, or a serial line.
+Sound-card audio routed to and from the radio, and PTT via hamlib, flrig, CAT, or a serial line. `docs/guides/digital-modes.md` covers rig control and the first PSK31 and RTTY contacts; `docs/guides/audio-routing.md` covers the audio path and choosing between fldigi's PulseAudio and PortAudio options.
 
 ## How it installs
 

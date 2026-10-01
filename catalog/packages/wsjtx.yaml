@@ -92,7 +92,9 @@ documentation:
     alternative.
   prerequisites: >-
     Accurate system clock (within about a second), CAT rig control, and audio
-    routed both ways between radio and computer.
+    routed both ways between radio and computer. All three, and the first
+    FT8 contact, are walked through in `docs/guides/digital-modes.md`; the audio path in
+    `docs/guides/audio-routing.md`.
   known_problems: >-
     Under Wayland on Raspberry Pi the window renders without borders or
     decorations; switch to X11. That report is inherited from AHRL's
