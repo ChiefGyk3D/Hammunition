@@ -200,7 +200,7 @@ from hammunition.ustopo import bucket_probe as ustopo_probe
 from hammunition.ustopo import load_index as load_ustopo_index
 
 if TYPE_CHECKING:
-    from hammunition.geoclue import GeoClueGrants
+    from hammunition.geoclue import GeoClueGrants, GeoClueState
     from hammunition.hardware.power import KeptEntry, Parkable
     from hammunition.interface.repeaters import RegistrationView
     from hammunition.qmapshack_config import BRouterSetup
@@ -4301,6 +4301,17 @@ def cmd_time_mode(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _geoclue_state_for_doctor(args: argparse.Namespace) -> GeoClueState | None:
+    """GeoClue's files, directory and agent for `doctor` (D-069), read-only.
+    The agent is asked of this session's bus, so not as root."""
+    from hammunition import geoclue
+
+    try:
+        return geoclue.read_state(operator(args), ask_agent=os.geteuid() != 0)
+    except OSError:
+        return None
+
+
 @envelope.json_capable()
 def cmd_doctor(args: argparse.Namespace) -> int:
     """Report what is ready and what is not yet set up. Changes nothing."""
@@ -4422,6 +4433,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     except (OSError, CatalogError, SystemExit):
         time_state = None
 
+    geoclue_state = _geoclue_state_for_doctor(args)
+
     from hammunition.launchers import survey_engine_launchers, survey_shadowing_launchers
 
     # Issue #145: every generated launcher that runs the engine can reach it.
@@ -4462,6 +4475,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         launchers_bare=engine_launchers.bare,
         launchers_broken=engine_launchers.broken,
         launchers_shadowing=shadowing_launchers,
+        geoclue_state=geoclue_state,
     )
 
     from hammunition.interface.doctor import build_doctor, render_doctor
