@@ -11,6 +11,12 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.18.0 — 2026-10-01 — the 2026-09 gap analysis: guides, station config for the packet units, GPS time, chrony, Kismet, the HF modems, six apt units, three re-rulings
+
+Ten pull requests since v0.17.0 (#149, #153, #124, #162, #165, #167, #168, #170, #171, #172), 7 entries.
+
 - **Three re-rulings from the gap analysis** (Q-022 #5, report section
   A8). `ARDOPGUI` is superseded by `ardopcf`'s own web GUI (`-G 8514`),
   which the catalog's pin already serves; the packet profile and the
