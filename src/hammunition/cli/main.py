@@ -519,10 +519,21 @@ def cmd_station_set(args: argparse.Namespace) -> int:
             print(f"  {field:<14} {', '.join(station.reference_books)}")
         elif field == "mirror":
             print(f"  {field:<14} {station.mirror or '(cleared)'}")
+        elif field == "rig":
+            # Echo every rig value that is set, not just `rig` (review minor).
+            for rig_field in ("rig", "rig_device", "rig_baud", "rig_ptt_line", "rig_owner"):
+                value = getattr(station, rig_field)
+                if value is not None:
+                    print(f"  {rig_field:<14} {value}")
         else:
             print(f"  {field:<14} {station.get(field)}")
     for note in rig_notes:
         print(note)
+    if "rig" in set_fields and station.rig is not None:
+        # A changed rig value reaches the running service only through a
+        # reinstall, which rewrites the unit and restarts it (D-073 §6c). Say so
+        # here, since rig-service's docs promise this reminder.
+        print("  → run `hammunition install rig-service` to apply this to the running service")
     if args.unattended is not None:
         code = _apply_unattended(args, station, user)
         if code != EXIT_OK:
@@ -4556,6 +4567,62 @@ def _linger_state_for_doctor(user: str) -> str | None:
     return "ours" if record is not None and record.enabled_by_us else "theirs"
 
 
+def _port_loopback_only(port: int) -> bool | None:
+    """True when *port* is bound only to 127.0.0.1/::1, read from /proc/net/tcp.
+
+    None when the files cannot be read. A listener (state 0A) on any other
+    local address is a transmitter reachable off-machine (D-073 §11)."""
+    hexport = f"{port:04X}"
+    try:
+        rows = []
+        for name in ("/proc/net/tcp", "/proc/net/tcp6"):
+            p = Path(name)
+            if p.exists():
+                rows.extend(p.read_text().splitlines()[1:])
+    except OSError:
+        return None
+    loopback = {
+        "0100007F",  # 127.0.0.1, little-endian hex
+        "00000000000000000000000001000000",  # ::1
+        "0000000000000000FFFF00000100007F",  # ::ffff:127.0.0.1
+    }
+    for row in rows:
+        fields = row.split()
+        if len(fields) < 4 or fields[3] != "0A":  # 0A = LISTEN
+            continue
+        local = fields[1]
+        addr, _, lport = local.partition(":")
+        if lport.upper() == hexport and addr.upper() not in loopback:
+            return False
+    return True
+
+
+def _rigctld_args_match(station: Station) -> bool | None:
+    """Whether a running rigctld's arguments match the station, from /proc.
+
+    None when no rigctld is found or /proc cannot be read. Compares the device
+    and, for a CAT rig, the speed — the values a wrong reinstall would leave
+    stale (D-073 §9)."""
+    try:
+        pids = [p for p in Path("/proc").iterdir() if p.name.isdigit()]
+    except OSError:
+        return None
+    for proc in pids:
+        try:
+            cmdline = (proc / "cmdline").read_bytes().split(b"\0")
+        except OSError:
+            continue
+        if not cmdline or not cmdline[0].endswith(b"rigctld"):
+            continue
+        args = [a.decode(errors="replace") for a in cmdline if a]
+        if "-t" not in args or "4632" not in args:
+            continue  # not our rig service's rigctld
+        device_ok = station.rig_device is None or station.rig_device in args
+        baud_ok = station.rig_baud is None or str(station.rig_baud) in args
+        return device_ok and baud_ok
+    return None
+
+
 def _gather_rig_status(
     args: argparse.Namespace,
     station: Station,
@@ -4575,8 +4642,14 @@ def _gather_rig_status(
         kind = None
     needed = ("rig_device", "rig_baud") if kind == "cat" else ("rig_device", "rig_ptt_line")
     missing = tuple(v for v in needed if getattr(station, v) in (None, "")) if kind else ()
-    state = _user_unit_state("hammunition-rigctld")
+    owner = station.rig_owner or "rigctld"
+    vox = station.rig_ptt_line == "vox"
+    runs_service = owner != "flrig" and not (kind == "ptt_only" and vox)
+    state = _user_unit_state("hammunition-rigctld") if runs_service else None
+    proxy_state = _user_unit_state("hammunition-rig-proxy") if runs_service else None
     answering = _dump_state_answers() if state == "active" else None
+    loopback_only = _port_loopback_only(4532) if state == "active" else None
+    args_match = _rigctld_args_match(station) if state == "active" else None
     device_present = Path(station.rig_device).exists() if station.rig_device is not None else None
     linger = _linger_state_for_doctor(operator(args))
     return RigStatus(
@@ -4584,8 +4657,13 @@ def _gather_rig_status(
         missing=missing,
         uncatalogued=uncatalogued,
         kind=kind,
+        owner=owner,
+        vox=vox,
         service_state=state,
+        proxy_state=proxy_state,
         answering=answering,
+        loopback_only=loopback_only,
+        args_match=args_match,
         device_present=device_present,
         linger=linger,
     )

@@ -82,16 +82,34 @@ class RigStatus:
     uncatalogued: bool = False
     kind: str | None = None
     """``cat`` or ``ptt_only`` when known."""
+    owner: str = "rigctld"
+    """``rigctld`` (the shared daemon) or ``flrig``. A flrig station runs no
+    rigctld service, so its absence is expected, not a fault."""
+    vox: bool = False
+    """A PTT-only rig keyed by VOX runs no service either."""
     service_state: str | None = None
     """``absent``, ``disabled``, ``active`` or ``failed``; None when not read."""
+    proxy_state: str | None = None
+    """The loopback filter's state, same values; None when not read (D-073 §11)."""
     args_match: bool | None = None
     """Whether the running rigctld's arguments match the station; None if not running."""
     answering: bool | None = None
-    """Whether \\dump_state got a reply on 127.0.0.1:4532; None if not probed."""
+    """Whether \\dump_state got a reply on the proxy port 4532; None if not probed."""
+    loopback_only: bool | None = None
+    """Whether 4532 is bound to 127.0.0.1 only; None if not read (/proc/net/tcp)."""
     device_present: bool | None = None
     """Whether the rig_device path resolves to a node now; None if not checked."""
     linger: str | None = None
     """``off``, ``ours`` or ``theirs``; None when not read."""
+
+
+def _runs_a_service(status: RigStatus) -> bool:
+    """Whether this station is expected to run the rigctld user service at all.
+
+    flrig owns the port itself, and a VOX-keyed PTT-only rig needs nothing
+    running — so for either, the service being absent is correct, not a fault
+    (review I5)."""
+    return status.owner != "flrig" and not (status.kind == "ptt_only" and status.vox)
 
 
 def rig_checks(status: RigStatus | None) -> list[Check]:
@@ -122,6 +140,18 @@ def rig_checks(status: RigStatus | None) -> list[Check]:
         checks.append(
             Check("rig", "info", "the rig is a hamlib:<model> value, unmeasured here", None)
         )
+    if not _runs_a_service(status):
+        # flrig or VOX: no rigctld service is expected, so its state is not a
+        # fault and the "install rig-service" fix would do nothing (review I5).
+        if status.owner == "flrig":
+            checks.append(
+                Check("rig", "info", "the rig is owned by flrig; no rigctld service runs")
+            )
+        else:
+            checks.append(
+                Check("rig", "info", "the rig is keyed by VOX; no rigctld service runs")
+            )
+        return checks
     state = status.service_state
     if state == "absent":
         checks.append(
@@ -149,6 +179,18 @@ def rig_checks(status: RigStatus | None) -> list[Check]:
         )
     elif state == "active":
         checks.append(Check("rig", "ok", "hammunition-rigctld is active"))
+    if status.proxy_state == "active":
+        checks.append(Check("rig", "ok", "the loopback filter is active on 127.0.0.1:4532"))
+    elif status.proxy_state in ("absent", "disabled", "failed"):
+        checks.append(
+            Check(
+                "rig",
+                "warn",
+                f"the loopback filter (hammunition-rig-proxy) is {status.proxy_state}; "
+                f"without it a web page can reach rigctld",
+                "hammunition install rig-service",
+            )
+        )
     if status.args_match is False:
         checks.append(
             Check(
@@ -159,7 +201,7 @@ def rig_checks(status: RigStatus | None) -> list[Check]:
             )
         )
     if status.answering is True:
-        checks.append(Check("rig", "ok", "rigctld answers on 127.0.0.1:4532"))
+        checks.append(Check("rig", "ok", "rigctld answers through the filter on 127.0.0.1:4532"))
     elif status.answering is False and state == "active":
         checks.append(
             Check(
@@ -167,6 +209,15 @@ def rig_checks(status: RigStatus | None) -> list[Check]:
                 "warn",
                 "rigctld is active but did not answer \\dump_state on 127.0.0.1:4532",
                 "journalctl --user -u hammunition-rigctld -n 20",
+            )
+        )
+    if status.loopback_only is False:
+        checks.append(
+            Check(
+                "rig",
+                "fail",
+                "port 4532 is bound beyond loopback — the transmitter is reachable off-machine",
+                "reinstall rig-service: hammunition install rig-service",
             )
         )
     if status.device_present is False:

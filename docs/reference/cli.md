@@ -1205,9 +1205,13 @@ rig's kind still needs (with the `station set` flag), whether the
 `hammunition-rigctld` user service is installed, disabled, failed or active
 (`systemctl --user`), whether `rigctld` answers `\dump_state` on
 `127.0.0.1:4532` (a read; nothing is set and PTT is never touched), whether
-the rig's device is present now, and whether linger is on and whether
-Hammunition turned it on. Whether the running `rigctld`'s arguments match
-the station is not yet compared. See `docs/guides/rig-control.md`.
+the rig's device is present now, whether the running `rigctld`'s arguments
+match the station (from `/proc`), whether port 4532 is bound to loopback only
+(a **fail** otherwise — the transmitter would be reachable off-machine), that
+the loopback filter is running, and whether linger is on and whether
+Hammunition turned it on. For a flrig or VOX station, which runs no `rigctld`
+service, it says so rather than telling you to install one. See
+`docs/guides/rig-control.md`.
 
 The **time** and **hardware clock** checks (**D-058**) say what the clock
 follows (the network or the GPS, with ntpd's offset), or that it follows

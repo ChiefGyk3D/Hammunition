@@ -59,13 +59,15 @@ class RigResolution:
 def hamlib_models(*, runner: Callable[[list[str]], str] | None = None) -> _HamlibModels:
     """Every rig model this machine's hamlib knows, mapped to a baud range.
 
-    Reads ``rigctl -l`` (the model numbers) but not each backend's range — the
-    range for an uncatalogued model is read lazily by :func:`resolve_rig` with
-    ``rigctl -m <model> -u`` only for the one model chosen, since ``-u`` is one
-    subprocess per model and the list is 300-plus. Here the range is left as a
-    permissive ``(300, 921600)`` for a known model; the operator gives the
-    speed and the real backend validates it when the service starts. Injectable
-    for tests.
+    Reads ``rigctl -l`` (the model numbers) only. The speed for an uncatalogued
+    ``hamlib:<model>`` is **not** range-checked against its backend here: each
+    model's range would be a separate ``rigctl -m <model> -u`` whose output
+    this project has not measured to parse across 300-plus backends, so the
+    pair carried is a nominal ``(300, 921600)`` and the real check is the one
+    the backend makes when ``rigctld`` opens the port. The operator supplies the
+    speed from the radio's menu, and a wrong speed is silence, not an error
+    (D-073 §4). Injectable for tests. Raises ``FileNotFoundError`` when
+    ``rigctl`` is absent; :func:`resolve_rig` turns that into a ``RigError``.
     """
     run = runner or _run
     out = run(["rigctl", "-l"])
@@ -97,8 +99,20 @@ def resolve_rig(
     fail at start with nothing to read it.
     """
     if value.startswith("hamlib:"):
-        model = int(value.split(":", 1)[1])
-        models = (model_lister or hamlib_models)()
+        tail = value.split(":", 1)[1]
+        if not tail.isdigit():
+            raise RigError(
+                f"{value!r} is not a hamlib model: give a number, e.g. hamlib:3073 "
+                f"(`rigctl -l` lists them)."
+            )
+        model = int(tail)
+        try:
+            models = (model_lister or hamlib_models)()
+        except FileNotFoundError:
+            raise RigError(
+                "rigctl is not installed, so a hamlib:<model> value cannot be checked "
+                "against this machine's hamlib; install libhamlib-utils first."
+            ) from None
         if model not in models:
             raise RigError(
                 f"hamlib model {model} is not listed by this machine's hamlib "

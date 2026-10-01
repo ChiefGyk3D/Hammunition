@@ -84,3 +84,18 @@ def test_elide_serial_at_end() -> None:
 
     out = elide_serial("/dev/serial/by-id/usb-Silicon_Labs_CP2105_ABC123-if00-port0")
     assert "ABC123" not in out and out.endswith("-if00-port0")
+
+
+def test_hamlib_with_a_non_numeric_model_is_a_rig_error() -> None:
+    # Review I6: `int()` must not raise a bare ValueError the CLI won't catch.
+    with pytest.raises(RigError):
+        resolve_rig("hamlib:abc", _devices(), model_lister=lambda: {3073: (1200, 115200)})
+
+
+def test_rigctl_absent_is_a_rig_error_not_a_traceback() -> None:
+    # Review I6: a missing rigctl must surface as a RigError, not FileNotFoundError.
+    def missing() -> dict[int, tuple[int, int]]:
+        raise FileNotFoundError("rigctl")
+
+    with pytest.raises(RigError):
+        resolve_rig("hamlib:3073", _devices(), model_lister=missing)

@@ -476,3 +476,41 @@ def test_rig_checks_never_key() -> None:
     )
     for c in checks:
         assert "set_ptt" not in (c.fix or "") and "\\set" not in (c.fix or "")
+
+
+def test_rig_checks_do_not_warn_install_for_an_flrig_station() -> None:
+    """Review I5: flrig runs no rigctld service, so doctor must not tell the
+    operator to install one — that fix would do nothing."""
+    from hammunition.doctor import RigStatus, rig_checks
+
+    checks = rig_checks(RigStatus(configured=True, kind="cat", owner="flrig", service_state="absent"))
+    assert not any(c.status == "warn" for c in checks)
+    assert any("flrig" in c.detail for c in checks)
+
+
+def test_rig_checks_do_not_warn_install_for_a_vox_station() -> None:
+    from hammunition.doctor import RigStatus, rig_checks
+
+    checks = rig_checks(
+        RigStatus(configured=True, kind="ptt_only", vox=True, service_state="absent")
+    )
+    assert not any(c.status == "warn" for c in checks)
+    assert any("VOX" in c.detail for c in checks)
+
+
+def test_rig_checks_flag_a_missing_proxy() -> None:
+    from hammunition.doctor import RigStatus, rig_checks
+
+    checks = rig_checks(
+        RigStatus(configured=True, kind="cat", service_state="active", proxy_state="absent")
+    )
+    assert any("filter" in c.detail and c.status == "warn" for c in checks)
+
+
+def test_rig_checks_fail_when_4532_is_not_loopback_only() -> None:
+    from hammunition.doctor import RigStatus, rig_checks
+
+    checks = rig_checks(
+        RigStatus(configured=True, kind="cat", service_state="active", loopback_only=False)
+    )
+    assert any(c.status == "fail" for c in checks)
