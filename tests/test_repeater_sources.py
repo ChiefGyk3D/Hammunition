@@ -347,14 +347,19 @@ def _row(source: str, **over: object) -> Repeater:
     return Repeater(**base)  # type: ignore[arg-type]
 
 
+def _layers(*rows: Repeater) -> list[list[Repeater]]:
+    """Each row its own layer."""
+    return [[row] for row in rows]
+
+
 def test_the_same_machine_from_two_sources_merges_on_callsign_or_distance() -> None:
     rows, merges = rs.cross_merge(
-        [
+        _layers(
             _row(repeaters.OSM, callsign="", label="146.940", lat=39.81, lon=-89.63),
             _row(repeaters.HEARHAM, lat=39.85, lon=-89.70, tone="100.0"),
             _row(repeaters.HAND, offset_hz=None),
             _row(repeaters.BRANDMEISTER, callsign="N0TST", lat=39.83, lon=-89.64),
-        ]
+        )
     )
     # The hand list leads; hearham joins by callsign 6 km away; OSM by
     # 0.01 degree; Brandmeister's other callsign 0.03 degree away stays apart.
@@ -369,9 +374,31 @@ def test_the_same_machine_from_two_sources_merges_on_callsign_or_distance() -> N
 
 def test_a_different_frequency_never_merges() -> None:
     rows, merges = rs.cross_merge(
-        [_row(repeaters.HAND), _row(repeaters.ETCC, output_hz=146_970_000)]
+        _layers(_row(repeaters.HAND), _row(repeaters.ETCC, output_hz=146_970_000))
     )
     assert merges == 0 and len(rows) == 2
+
+
+def test_the_same_callsign_far_away_is_another_site() -> None:
+    """D-064 measured 1,050 callsign-and-frequency keys in hearham naming
+    more than one site; the callsign test is bounded at 0.25 degree."""
+    rows, merges = rs.cross_merge(
+        _layers(_row(repeaters.HAND), _row(repeaters.HEARHAM, lat=40.90, lon=-89.10))
+    )
+    assert merges == 0 and len(rows) == 2
+
+
+def test_rows_of_one_layer_never_join_each_other() -> None:
+    """What D-064's key kept apart within a layer stays apart; a row of
+    another layer near both joins the first."""
+    rows, merges = rs.cross_merge(
+        [
+            [_row(repeaters.HAND), _row(repeaters.HAND, lat=39.81)],
+            [_row(repeaters.OSM, callsign="", label="146.940", lat=39.805)],
+        ]
+    )
+    assert merges == 1 and len(rows) == 2
+    assert rows[0].also == (repeaters.OSM,) and rows[1].also == ()
 
 
 def test_precedence_follows_the_order_whatever_the_input_order() -> None:
@@ -383,7 +410,7 @@ def test_precedence_follows_the_order_whatever_the_input_order() -> None:
         repeaters.ETCC,
         repeaters.REPEATERBOOK_CSV,
     ]
-    rows, merges = rs.cross_merge([_row(s) for s in order])
+    rows, merges = rs.cross_merge(_layers(*(_row(s) for s in order)))
     assert merges == 5
     assert rows[0].source == repeaters.REPEATERBOOK_CSV
     assert rows[0].also == (
@@ -397,11 +424,11 @@ def test_precedence_follows_the_order_whatever_the_input_order() -> None:
 
 def test_an_aprs_object_is_never_an_input_to_the_merge() -> None:
     with pytest.raises(ValueError, match="never merged"):
-        rs.cross_merge([_row(repeaters.DIREWOLF)])
+        rs.cross_merge(_layers(_row(repeaters.DIREWOLF)))
 
 
 def test_a_row_without_a_frequency_is_kept_apart() -> None:
     rows, merges = rs.cross_merge(
-        [_row(repeaters.HAND, output_hz=0), _row(repeaters.HEARHAM, output_hz=0)]
+        _layers(_row(repeaters.HAND, output_hz=0), _row(repeaters.HEARHAM, output_hz=0))
     )
     assert merges == 0 and len(rows) == 2

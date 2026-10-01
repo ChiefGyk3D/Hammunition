@@ -1207,7 +1207,7 @@ def rebuild_all(where: Path) -> AllSources:
         with contextlib.suppress(FileNotFoundError):
             target.unlink()
         return AllSources(None, layers=tuple(i for i, _ in used), skipped=tuple(skipped))
-    rows, merged = cross_merge(r for _, layer in used for r in layer.rows)
+    rows, merged = cross_merge(layer.rows for _, layer in used)
     day = min(layer.day for _, layer in used)
     name = all_sources_name(day)
     description = " ".join(layer.description for _, layer in used)

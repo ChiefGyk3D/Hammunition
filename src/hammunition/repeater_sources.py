@@ -131,6 +131,12 @@ PRECEDENCE = (
 #: 0.01° key matched 2 of 7 Vermont Brandmeister repeaters to hearham where
 #: this matched 5 (the spike).
 NEAR_DEGREES = 0.02
+#: How far a same-callsign, same-frequency row may lie and still be the same
+#: machine. Unbounded, the callsign test would join real separate sites:
+#: D-064 measured 1,050 callsign-and-frequency keys in hearham alone that
+#: name more than one site. 0.25° (about 25 km) still catches a directory
+#: that places a repeater at its town rather than its hill (ruling, D-074).
+SAME_CALL_DEGREES = 0.25
 
 
 # --- licences and names -------------------------------------------------------------
@@ -672,7 +678,10 @@ def read_osm_xml(text: str, path: Path) -> ParsedInput:
         if not scheme:
             continue  # a node a matched way references
         read += 1
-        number = int(element.get("id", "0") or 0)
+        # Skips are numbered in reading order, never by OSM id: an id is a
+        # place, and the skip list reaches the pasteable document.
+        number = read
+        osm_id = element.get("id", "")
         if not _is_repeater(scheme):
             skips.add("not marked as a repeater", number)
             continue
@@ -702,7 +711,7 @@ def read_osm_xml(text: str, path: Path) -> ParsedInput:
             call = named
         shift = scheme.get(f"{base}:repeater:shift", "")
         offset = osm_offset(shift, hz, scheme.get(f"{base}:repeater:frequency_in", ""))
-        notes = [f"OpenStreetMap {element.tag} {number}"]
+        notes = [f"OpenStreetMap {element.tag} {osm_id}"]
         if shift and offset is None:
             notes.append(f"shift {shift.strip()} (direction not given)")
         rows.append(
@@ -740,7 +749,7 @@ def _run(argv: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(argv, capture_output=True, text=True, check=False)
 
 
-def filter_extract(pbf: Path, scratch: Path, *, run: Runner = _run) -> ParsedInput:
+def filter_extract(pbf: Path, scratch: Path, *, run: Runner | None = None) -> ParsedInput:
     """The repeaters in one region extract: ``osmium tags-filter`` into
     *scratch*, as the operator, then :func:`read_osm_xml`."""
     out = scratch / f"{pbf.name}.repeaters.osm"
@@ -757,7 +766,7 @@ def filter_extract(pbf: Path, scratch: Path, *, run: Runner = _run) -> ParsedInp
         "--overwrite",
     ]
     try:
-        result = run(argv)
+        result = (run or _run)(argv)
     except FileNotFoundError:
         raise RepeaterInputError(
             "osmium is not installed: it comes from the osmium-tool package, which "
@@ -810,8 +819,8 @@ def extracts_date(extracts: Sequence[tuple[Path, str | None]]) -> date:
 # --- across sources ---------------------------------------------------------------------
 
 
-def _near(a: Repeater, b: Repeater) -> bool:
-    return abs(a.lat - b.lat) <= NEAR_DEGREES + 1e-9 and abs(a.lon - b.lon) <= NEAR_DEGREES + 1e-9
+def _near(a: Repeater, b: Repeater, degrees: float) -> bool:
+    return abs(a.lat - b.lat) <= degrees + 1e-9 and abs(a.lon - b.lon) <= degrees + 1e-9
 
 
 def _fill(kept: Repeater, other: Repeater) -> Repeater:
@@ -827,39 +836,49 @@ def _fill(kept: Repeater, other: Repeater) -> Repeater:
     )
 
 
-def cross_merge(rows: Iterable[Repeater]) -> tuple[tuple[Repeater, ...], int]:
+def cross_merge(layers: Iterable[Iterable[Repeater]]) -> tuple[tuple[Repeater, ...], int]:
     """The directory layers joined into one list, and how many rows joined
-    another.
+    a row of another layer.
 
-    Rows are taken best source first (:data:`PRECEDENCE`). A row joins a
-    kept one when its output frequency is the same and either its callsign
-    is the same or it lies within 0.02° in latitude and longitude. The kept
-    row keeps its position and fields, takes a field it lacks from the
-    joining row, and names the joining source in ``also``. A row without a
-    frequency is never joined. An APRS object is refused: it is what the
-    station heard, not a directory entry."""
-    ordered = list(rows)
-    if any(r.source == DIREWOLF for r in ordered):
+    Rows are taken best source first (:data:`PRECEDENCE`), each layer's in
+    its own order. A row joins a kept row **of another layer** when its
+    output frequency is the same and either it lies within 0.02° in
+    latitude and longitude, or its callsign is the same and it lies within
+    0.25°. Rows of one layer never join each other: D-064's key has already
+    merged them, and what it kept apart is a separate site. The kept row
+    keeps its position and fields, takes a field it lacks from the joining
+    row, and names the joining source in ``also``. A row without a frequency
+    is never joined. An APRS object is refused: it is what the station
+    heard, not a directory entry."""
+    tagged = [(n, row) for n, layer in enumerate(layers) for row in layer]
+    if any(r.source == DIREWOLF for _, r in tagged):
         raise ValueError("an APRS object heard off the air is never merged into the directories")
     rank = {source: n for n, source in enumerate(PRECEDENCE)}
-    ordered.sort(key=lambda r: rank[r.source])
+    tagged.sort(key=lambda item: rank[item[1].source])
     kept: list[Repeater] = []
+    kept_layers: list[set[int]] = []
     by_hz: dict[int, list[int]] = {}
     joined = 0
-    for row in ordered:
+    for layer, row in tagged:
         match = None
         if row.output_hz:
             for index in by_hz.get(row.output_hz, []):
+                if layer in kept_layers[index]:
+                    continue
                 other = kept[index]
                 same_call = bool(row.callsign) and row.callsign == other.callsign
-                if same_call or _near(row, other):
+                if _near(row, other, NEAR_DEGREES) or (
+                    same_call and _near(row, other, SAME_CALL_DEGREES)
+                ):
                     match = index
                     break
         if match is None:
             if row.output_hz:
                 by_hz.setdefault(row.output_hz, []).append(len(kept))
             kept.append(row)
+            kept_layers.append({layer})
             continue
         joined += 1
         kept[match] = _fill(kept[match], row)
+        kept_layers[match].add(layer)
     return tuple(kept), joined
