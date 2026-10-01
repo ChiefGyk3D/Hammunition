@@ -99,6 +99,8 @@ class RouterState:
     profiles: tuple[str, ...]
     log: Path
     exited: int | None = None
+    why: str | None = None
+    """Why GraphHopper never started, when it did not (review, 2026-10-01)."""
 
 
 def serve_port(text: str) -> int:
@@ -335,6 +337,9 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         and its answer relayed (D-076)."""
         router = self.server.router
         assert router is not None
+        if router.why is not None:
+            self._json(503, f"routes are off: {router.why}")
+            return
         if router.exited is not None:
             self._json(
                 503,
@@ -558,7 +563,18 @@ def run(
                 kiwix_serve_argv(kiwix_port, library, pid=pid if pid is not None else os.getpid())
             )
         if router is not None and start_router is not None and server.router is not None:
-            router_child = start_router(router)
+            try:
+                router_child = start_router(router)
+            except OSError as exc:
+                # Never the page's failure, and never reported as its port
+                # (review, 2026-10-01): the books and the map go on.
+                server.router.why = f"GraphHopper could not start: {exc}"
+                server.page = landing_page(
+                    shelf,
+                    kiwix_port=kiwix_port,
+                    map_shelf=map_shelf,
+                    routes=f"off: {server.router.why}",
+                ).encode("utf-8")
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         bound = server.server_address[1]
@@ -575,6 +591,8 @@ def run(
                 f"  routes: GraphHopper starting on {ROUTER_HOST}:{router.port}, asked through "
                 f"this page only; its log is {router.log}"
             )
+        elif server.router is not None and server.router.why is not None:
+            log(f"  routes are off: {server.router.why}")
         elif routes_note is not None and server.map_page is not None:
             log(f"  {routes_note}")
         while True:

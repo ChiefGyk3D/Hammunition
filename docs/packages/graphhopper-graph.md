@@ -19,7 +19,7 @@ GraphHopper routes only over a graph built for it, and nobody publishes one to d
 
 ## Before it will work
 
-`osm-regions` with at least one region set; with none, this unit is deferred by name. `graphhopper` (installed with it). Install it by name: `hammunition install graphhopper-graph`; it is in no profile.
+`osm-regions` with at least one region set; with none, installing this unit is refused, and the refusal says how to set them. `graphhopper` (installed with it). Install it by name: `hammunition install graphhopper-graph`; it is in no profile.
 
 ## How it installs
 

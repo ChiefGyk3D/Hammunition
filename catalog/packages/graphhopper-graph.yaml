@@ -56,9 +56,10 @@ documentation:
     Hammunition already downloaded and verified, and covers exactly your
     regions.
   prerequisites: >-
-    `osm-regions` with at least one region set; with none, this unit is
-    deferred by name. `graphhopper` (installed with it). Install it by
-    name: `hammunition install graphhopper-graph`; it is in no profile.
+    `osm-regions` with at least one region set; with none, installing this
+    unit is refused, and the refusal says how to set them. `graphhopper`
+    (installed with it). Install it by name: `hammunition install
+    graphhopper-graph`; it is in no profile.
   known_problems: >-
     Measured on Delaware, a public example state, by the routing spike on
     2026-09-29: the import took 58 seconds on a busy 8-core host and 1.2 GB

@@ -332,3 +332,48 @@ def test_with_a_router_the_page_has_the_route_control_and_names_only_this_server
 def test_without_a_router_the_page_has_no_route_control() -> None:
     page = map_page(position_port=10111)
     assert 'id="route"' not in page and ROUTE not in page
+
+
+def test_a_router_that_cannot_start_leaves_the_page_serving_and_says_why(tmp_path: Path) -> None:
+    """Review, 2026-10-01: a GraphHopper that fails to start (java gone since
+    the check, no room for its log) must not take the books and the map down
+    with it, nor be reported as the page's port."""
+    lines: list[str] = []
+    ticks = {"n": 0}
+    spec = gh.RouterSpec(
+        argv=["java"], port=1, profiles=gh.PROFILES, log=tmp_path / "gh.log", config=tmp_path / "c"
+    )
+
+    def start_router(router: gh.RouterSpec) -> FakeChild:
+        raise FileNotFoundError(2, "No such file or directory", "java")
+
+    def tick() -> None:
+        ticks["n"] += 1
+        if ticks["n"] >= 3:
+            raise KeyboardInterrupt
+
+    rc = run(
+        0,
+        shelf=Shelf(books=(), forms=(), dict_client=False, goldendict=False),
+        library=tmp_path / "library.xml",
+        spawn=lambda argv: pytest.fail("no books, no kiwix-serve"),
+        manage=lambda library, zims: None,
+        tick=tick,
+        log=lines.append,
+        map_shelf=find_map(_data(tmp_path)),
+        router=spec,
+        start_router=start_router,
+    )
+    assert rc == 0
+    said = [line for line in lines if "could not start" in line]
+    assert len(said) == 1 and "No such file or directory" in said[0]
+    assert not any("GraphHopper starting" in line for line in lines)
+    router = RouterState(port=1, profiles=gh.PROFILES, log=tmp_path / "gh.log")
+    router.why = "GraphHopper could not start: no java"
+    server, served = _serve(tmp_path / "b", router)
+    try:
+        status, body = _get(served, GOOD)
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert status == 503 and "could not start" in body["message"]
