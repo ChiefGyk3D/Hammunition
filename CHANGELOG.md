@@ -39,6 +39,26 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   `tests/test_import_isolation.py` imports every `hammunition` module alone
   in a fresh subprocess so this cannot come back silently.
 
+- **The GPS receiver gets a resume step** (issue #177, D-058 amended
+  2026-10-01). Measured on the field laptop: a USB receiver is not
+  re-enumerated across a suspend, so gpsd can keep a tty that has gone quiet
+  and the fix does not come back. Where gpsd is installed,
+  `hammunition hardware apply` now installs
+  `/usr/local/libexec/hammunition-gps-resume` and
+  `hammunition-gps-resume.service`, a oneshot that runs after every suspend
+  or hibernation. It does nothing when no `/dev/gpsN` exists, so a parked
+  receiver stays parked. Otherwise it runs `gpsdctl remove` and `add` for
+  each receiver, and `systemctl try-restart gpsd.service` if gpsd then
+  reports no device, logging one journal line per action. It makes no
+  check that data flows, so a receiver gpsd still lists but that stays
+  silent is left to the manual steps: a gpsd restart, then park and wake.
+  Both files are printed in the plan, read back after the run and removed
+  by `hardware unapply`. `--no-gps-resume` opts
+  out, and `doctor` reports the step when a receiver is attached. The
+  catalog names the step (`resume: {step: gpsd_reopen}` on the
+  `gps-receiver` class), and that class's page gains "After suspend". It
+  has not yet run on the field laptop; the bench steps are on the issue.
+  After merge: `hammunition hardware apply`.
 - **A generated launcher no longer takes a PATH binary's name** (issue
   #174). `~/.local/bin/rigctl`, libhamlib-utils' launcher, ran ahead of
   hamlib's `/usr/bin/rigctl`, ignored its arguments and opened the

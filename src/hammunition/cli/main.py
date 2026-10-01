@@ -126,6 +126,8 @@ from hammunition.geofabrik import (
     region_ids,
 )
 from hammunition.geofabrik import resolve as resolve_region
+from hammunition.hardware import gps_resume
+from hammunition.hardware.apply import HardwarePlan
 from hammunition.hardware.polkit import HELPER_PATH, POLICY_PATH, describe_refusal
 from hammunition.interface import envelope
 from hammunition.kernel import KernelProbe
@@ -3398,6 +3400,28 @@ def cmd_hardware_list(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _disclose_gps_resume(plan: HardwarePlan) -> None:
+    """The resume step's disclosure (issue #177), when the plan carries one."""
+    if plan.gps_resume is not None:
+        for line in gps_resume.disclose(plan.gps_resume):
+            print(line)
+
+
+def _gps_resume_commands(plan: HardwarePlan, staging_root: str) -> list[Command]:
+    if plan.gps_resume is None:
+        return []
+    return gps_resume.install_commands(plan.gps_resume, staging_root)
+
+
+def _stage_gps_resume(plan: HardwarePlan, staging_dir: Path) -> list[Command]:
+    """Stage the step's two files; return its commands as they will run, so
+    the apply loop can log each one (``gps_resume``)."""
+    if plan.gps_resume is None:
+        return []
+    gps_resume.stage(plan.gps_resume, staging_dir)
+    return _gps_resume_commands(plan, str(staging_dir))
+
+
 def cmd_hardware_apply(args: argparse.Namespace) -> int:
     """Write the catalog's udev rules and join the device-access groups."""
     from hammunition.gpstime.grants import disclose, grant_commands, stage_grants, verify_grants
@@ -3422,12 +3446,16 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             user=user,
             user_groups_now=groups_now,
             with_time=not getattr(args, "no_gps_time", False),
+            with_gps_resume=not getattr(args, "no_gps_resume", False),
         )
     except TimeError as exc:
         print(
             f"error: {exc}\n`--no-gps-time` sets up devices without GPS time (D-058).",
             file=sys.stderr,
         )
+        return EXIT_UNPLANNABLE
+    except gps_resume.GpsResumeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
         return EXIT_UNPLANNABLE
 
     print(f"Hardware setup for {user!r}\n")
@@ -3529,6 +3557,7 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             else []
         )
         built += time_cmds
+        built += _gps_resume_commands(plan, staging_root)
         return built, helper_cmd, policy_cmd, time_cmds
 
     if not plan.rules_already_current:
@@ -3550,6 +3579,7 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
     if plan.time is not None:
         for line in disclose(plan.time):
             print(line)
+    _disclose_gps_resume(plan)
 
     preview_commands, preview_helper, preview_policy, _preview_time = build_commands("<staging>")
     installing_polkit = preview_helper is not None or preview_policy is not None
@@ -3633,6 +3663,7 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             os.chmod(policy_staging, 0o644)
         if plan.time is not None:
             stage_grants(plan.time, staging_dir)
+        resume_steps = _stage_gps_resume(plan, staging_dir)
 
         runner = SubprocessRunner()
         print("\nRunning:")
@@ -3647,6 +3678,15 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
                 TransactionLog(owner=user).append(
                     {
                         "event": "time_grants",
+                        "version": 1,
+                        "description": command.description,
+                        "argv": list(command.argv),
+                    }
+                )
+            if command in resume_steps:
+                TransactionLog(owner=user).append(
+                    {
+                        "event": "gps_resume",
                         "version": 1,
                         "description": command.description,
                         "argv": list(command.argv),
@@ -3728,6 +3768,8 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
                 problems.append(f"{user} is still not in {group}")
         if plan.time is not None:
             problems += verify_grants(plan.time)
+        if plan.gps_resume is not None:
+            problems += gps_resume.verify(plan.gps_resume)
         if problems:
             for problem in problems:
                 print(f"  unverified: {problem}", file=sys.stderr)
@@ -3803,6 +3845,8 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_UNPLANNABLE
     time_present = not removal.is_empty
+    resume_removal = gps_resume.plan_gps_resume_removal()
+    resume_present = not resume_removal.is_empty
     owned = {HELPER_PATH, POLICY_PATH}
     recorded: list[str] = []
     skipped: list[str] = []
@@ -3828,7 +3872,13 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             if path not in recorded:
                 recorded.append(path)
 
-    if not recorded and not skipped and not kept_present and not time_present:
+    if (
+        not recorded
+        and not skipped
+        and not kept_present
+        and not time_present
+        and not resume_present
+    ):
         print(
             "Nothing to remove: the transaction log records no hardware artefacts "
             "installed by Hammunition for this user."
@@ -3840,7 +3890,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             f"Skipped: the log names {path!r}, which this command does not own "
             f"(only the power-control helper and its polkit action are ever removed)."
         )
-    if not recorded and not kept_present and not time_present:
+    if not recorded and not kept_present and not time_present and not resume_present:
         print("Nothing to do: no artefact this command owns is recorded.")
         return EXIT_OK
 
@@ -3848,7 +3898,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     gone = [p for p in recorded if p not in present]
     for path in gone:
         print(f"Already absent: {path}")
-    if not present and not kept_present and not time_present:
+    if not present and not kept_present and not time_present and not resume_present:
         print("Nothing to do: every recorded artefact is already gone.")
         return EXIT_OK
 
@@ -3878,7 +3928,8 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         present.append(KEPT_RULES)
 
     time_preview = removal_commands(removal, "<staging>")
-    shown = [*commands, *time_preview]
+    resume_commands = gps_resume.removal_commands(resume_removal)
+    shown = [*commands, *time_preview, *resume_commands]
     euid = os.geteuid()
     print(f"\nCommands ({len(shown)}):")
     for command in shown:
@@ -3914,6 +3965,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         if staging_dir is not None:
             stage_removal(removal, staging_dir)
             to_run += removal_commands(removal, str(staging_dir))
+        to_run += resume_commands
         runner = SubprocessRunner()
         print("\nRunning:")
         for command in to_run:
@@ -3930,6 +3982,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     problems = [f"{p} is still present" for p in present if Path(p).exists()]
     if time_present:
         problems += verify_removal(removal)
+    problems += gps_resume.verify_removal(resume_removal)
     if problems:
         for problem in problems:
             print(f"  unverified: {problem}", file=sys.stderr)
@@ -3944,6 +3997,8 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         after.append(
             "ntpsec runs on the package's own configuration; `hardware apply` restores GPS time."
         )
+    if resume_present:
+        after.append("`hardware apply` reinstalls the GPS resume step.")
     print("\nDone and verified. " + " ".join(after))
     return EXIT_OK
 
@@ -4211,6 +4266,20 @@ def cmd_time_mode(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _doctor_gps_resume(args: argparse.Namespace) -> gps_resume.ResumeStatus | None:
+    """Issue #177: the resume step's state, when a GPS receiver is attached
+    (parked or awake) and gpsd is installed; otherwise None, and no check."""
+    from hammunition.gpstime.state import gps_from
+
+    try:
+        found, _ = _survey_parkables(args)
+    except (OSError, CatalogError, SystemExit):
+        return None
+    if gps_from(found) == "absent" or not Path(gps_resume.GPSD).exists():
+        return None
+    return gps_resume.status()
+
+
 @envelope.json_capable()
 def cmd_doctor(args: argparse.Namespace) -> int:
     """Report what is ready and what is not yet set up. Changes nothing."""
@@ -4332,6 +4401,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     except (OSError, CatalogError, SystemExit):
         time_state = None
 
+    gps_resume_state = _doctor_gps_resume(args)
+
     from hammunition.launchers import survey_engine_launchers, survey_shadowing_launchers
 
     # Issue #145: every generated launcher that runs the engine can reach it.
@@ -4368,6 +4439,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             shutil.which("qmapshack") is not None and not Path(ROUTINO_TRANSLATIONS).is_file()
         ),
         time_state=time_state,
+        gps_resume=gps_resume_state,
         launchers_ok=engine_launchers.ok,
         launchers_bare=engine_launchers.bare,
         launchers_broken=engine_launchers.broken,
@@ -4818,6 +4890,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-gps-time",
         action="store_true",
         help="leave ntpsec, its grants and fake-hwclock alone (D-058)",
+    )
+    p_hw_apply.add_argument(
+        "--no-gps-resume",
+        action="store_true",
+        help="leave out the GPS receiver's resume step (issue #177)",
     )
     p_hw_apply.set_defaults(func=cmd_hardware_apply)
 
