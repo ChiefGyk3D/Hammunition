@@ -47,6 +47,7 @@ from hammunition.backends import (
 )
 from hammunition.backends.apt import downgrades_refused
 from hammunition.backends.apt_repo import AptRepoBackend, RepoState
+from hammunition.backends.pmtiles import TILEMAKER_FLOOR
 from hammunition.backends.source import IMPLEMENTED_BUILD_SYSTEMS
 from hammunition.desktop import Desktop, SessionScan, describe_set
 from hammunition.distro import Target
@@ -68,6 +69,7 @@ from hammunition.manifest.schema import (
     GitInstall,
     InstallBlock,
     KiwixBooksInstall,
+    MwmRegionsInstall,
     NodeInstall,
     PackageManifest,
     ProfileManifest,
@@ -739,6 +741,14 @@ def _status_blocker(manifest: PackageManifest) -> Blocker | None:
 _MAJOR_MINOR = re.compile(r"^(?:\d+:)?(\d+)\.(\d+)")
 
 
+#: D-071: a converter whose output needs a minimum version of the program it
+#: runs: (the distribution package, its MAJOR.MINOR floor, what that version
+#: is the first to do). The engine owns these, as it owns each converter's argv.
+CONVERTER_FLOORS: dict[str, tuple[str, tuple[int, int], str]] = {
+    "tilemaker-pmtiles": ("tilemaker", TILEMAKER_FLOOR, "writes PMTiles"),
+}
+
+
 def node_version(version: str) -> tuple[int, int] | None:
     match = _MAJOR_MINOR.match(version.strip())
     return (int(match.group(1)), int(match.group(2))) if match else None
@@ -962,10 +972,12 @@ def _reads_map_regions(
     block: InstallBlock, catalog: Mapping[str, PackageManifest], target: Target
 ) -> bool:
     """An ``osm-regions``, ``dem-tiles`` or ``topo-quads`` block (D-061, D-068:
-    its tiles and sheets follow the regions), or a ``derived`` one converting
-    such a unit's data."""
+    its tiles and sheets follow the regions), an ``mwm-regions`` one (D-069:
+    CoMaps' maps for them), or a ``derived`` one converting such a unit's data."""
     install = block.install
-    if isinstance(install, RegionalDataInstall | DemTilesInstall | TopoQuadsInstall):
+    if isinstance(
+        install, RegionalDataInstall | DemTilesInstall | TopoQuadsInstall | MwmRegionsInstall
+    ):
         return True
     if isinstance(install, DerivedDataInstall):
         source = catalog.get(install.source)
@@ -1461,6 +1473,53 @@ def resolve(
                 blockers.append(outcome)
         else:
             notes.append(outcome)
+
+    # -- A converter's program below the version its output needs (D-071) ---
+    # tilemaker writes PMTiles from 3.0; Ubuntu 24.04 carries 2.4.0. Read from
+    # the same probe as Node's floor (D-037): the version the run will have,
+    # installed else the archive's candidate. The floor is the engine's, like
+    # the converter's argv, and nothing is built or fetched to meet it.
+    for manifest, block, _, _ in resolved:
+        install = block.install
+        if not isinstance(install, DerivedDataInstall) or manifest.name in deferred:
+            continue
+        floor = CONVERTER_FLOORS.get(install.converter)
+        if floor is None:
+            continue
+        program, (major, minor), does = floor
+        if not states:
+            notes.append(
+                f"{manifest.name} needs {program} {major}.{minor} or newer, the first that "
+                f"{does}, and with no apt lists the version on offer cannot be checked "
+                f"before this plan executes."
+            )
+            continue
+        state = states.get(program)
+        if state is None or not state.known:
+            continue  # no candidate at all: the apt check above has named it
+        version = state.installed or state.candidate
+        found = node_version(version) if version else None
+        if found is not None and found >= (major, minor):
+            continue
+        source = "installed" if state.installed else "the archive's candidate"
+        have = f"this distribution's {program} is {version} ({source})"
+        why = f"needs {program} {major}.{minor} or newer, the first that {does}; {have}"
+        if manifest.name in deferrable:
+            deferred[manifest.name] = _target_deferral(
+                manifest.name, wanted, f"{manifest.name} {why}"
+            )
+        else:
+            blockers.append(
+                Blocker(
+                    subject=manifest.name,
+                    reason=why,
+                    remedy=(
+                        f"a release of this distribution that carries {program} "
+                        f"{major}.{minor} or newer; nothing is built or fetched to meet it "
+                        f"(D-071)"
+                    ),
+                )
+            )
 
     # -- Kernel subsystems the unit cannot work without ---------------------
     # A fact about the machine, not the target: one Pop!_OS 24.04 VM has

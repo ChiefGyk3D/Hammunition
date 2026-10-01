@@ -50,6 +50,7 @@ from hammunition.manifest.schema import (  # noqa: E402
     GitInstall,
     InstallBlock,
     KiwixBooksInstall,
+    MwmRegionsInstall,
     NodeInstall,
     PackageManifest,
     PipxInstall,
@@ -76,7 +77,25 @@ def method_of(block: InstallBlock) -> str:
     if isinstance(install, SourceInstall):
         return f"source ({install.build_system}) from {install.source.url}"
     if isinstance(install, GitInstall):
-        return f"git ({install.build_system}) — {install.repo} at `{install.ref}`"
+        pin = f"`{install.ref}`" + (f" (commit `{install.commit}`)" if install.commit else "")
+        extras = [
+            text
+            for on, text in (
+                (install.submodules, "submodules at their recorded commits"),
+                (bool(install.build_python), "a hash-pinned build Python"),
+                (
+                    install.prepare is not None,
+                    f"upstream's `{install.prepare.script}` first" if install.prepare else "",
+                ),
+                (
+                    bool(install.extra_files),
+                    f"{len(install.extra_files)} file(s) the install rule leaves out",
+                ),
+            )
+            if on
+        ]
+        with_ = f"; with {', '.join(extras)}" if extras else ""
+        return f"git ({install.build_system}) — {install.repo} at {pin}{with_}"
     if isinstance(install, BinaryInstall):
         return f"prebuilt {install.format} from {install.artifact.url}"
     if isinstance(install, VenvInstall):
@@ -92,6 +111,12 @@ def method_of(block: InstallBlock) -> str:
     if isinstance(install, DemTilesInstall):
         return (
             f"elevation tiles from {install.provider} for the regions in station config "
+            f"({install.licence}, {install.licence_url})"
+        )
+    if isinstance(install, MwmRegionsInstall):
+        return (
+            f"CoMaps' own maps for the regions in station config, each checked by the "
+            f"SHA-1 and size in `catalog/data/comaps-pins.yaml` "
             f"({install.licence}, {install.licence_url})"
         )
     if isinstance(install, TopoQuadsInstall):
@@ -273,6 +298,27 @@ def page(m: PackageManifest) -> str:
         )
         for declared in m.installed_files:
             out.append(f"- `{declared}`")
+        out.append("")
+
+    extras = [
+        extra
+        for block in m.install
+        if isinstance(block.install, GitInstall)
+        for extra in block.install.extra_files
+    ]
+    if extras:
+        out.append(
+            "Files the build's own install rule leaves out, installed by the engine "
+            "after it (a symlink at the destination replaced, never written through) "
+            "and checked after the run:\n"
+        )
+        for extra in extras:
+            where = (
+                f"{extra.artifact.url} ({extra.artifact.size:,} bytes, sha256 pinned)"
+                if extra.artifact is not None
+                else f"`{extra.from_tree}` from the built tree"
+            )
+            out.append(f"- `{extra.install_as}`, from {where}")
         out.append("")
 
     if m.conflicts_with_repo_package:

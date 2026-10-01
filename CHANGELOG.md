@@ -23,6 +23,83 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   interface by default. The CatSniffer V3's Kismet helpers are in no
   release yet. New page `docs/rf-security/kismet.md`; generated package
   pages now list a unit's third-party repositories and fingerprints.
+
+- **GPS time** (D-058). `hammunition time` says what the clock follows (the
+  network, the GPS, or holdover and for how long) without a password;
+  `hammunition time mode auto|prefer-gps|ntp-only|gps-only` prints every
+  write, then sets it through the one helper and polkit action. A parked
+  receiver never feeds the clock. `hardware apply` installs the two grants
+  ntpd needs to read gpsd's time, disclosed as widening a network-facing
+  daemon's privilege, only where gpsd is installed, and prints every
+  `ntp.conf` line the first mode moves and what that costs; `--no-gps-time`
+  leaves all of it alone. It also runs gpsd with `-n` (the drop-in
+  `/etc/systemd/system/gpsd.service.d/hammunition-gps.conf`, the same file
+  and text as the `chrony` unit's), because gpsd publishes no time while no
+  client is connected (measured on #162); a reboot after apply lets gpsd
+  take it, and `unapply` leaves it while the `chrony` unit still uses it.
+  It installs `fake-hwclock` only where there is no hardware clock;
+  `hardware unapply` takes all of it back, `ntp.conf` byte for byte. `doctor` reports the time source, holdover, and a machine
+  with no RTC. Parrot (ntpsec) only; built and not yet run on the field
+  laptop. Guide: `docs/guides/gps-time.md`.
+
+- **Two free HF modems join the packet core** (gap analysis section B
+  Group 3, **Q-022** #6, branch `gap-05-hf-modems`). `mercury`
+  (Rhizomatica, GPL-3.0) speaks VARA HF's TCP interface, so Pat's
+  `varahf://` transport drives it unchanged: apt on Kali (1.9.13), a `make`
+  build of v1.9.15 elsewhere, the release Debian unstable packages
+  (**D-024**). `freedata` (DJ2LS, GPL-3.0) is station-to-station messaging
+  and file transfer with a browser interface, a hash-pinned venv of the
+  0.18.2 wheel, x86-64 only. Both are in `packet` and both transmit when a
+  client keys them; the pages say so. `overlaps.md` gains an HF-modem
+  section, `dispositions.md` records both as ADD outside the six sources,
+  and `SCOPE.md` re-ranks VARA's Wine prefix as post-1.0 and optional. The
+  packet-and-Winlink guide gains the modem choice. Measured: Pat 0.16.0 to
+  Mercury 1.9.15 peer to peer, two instances back to back with no radio.
+  Not measured: either modem over the air, FreeDATA's server and window.
+
+## v0.17.0 — 2026-09-30 — official topo sheets, CoMaps, and the offline browser map
+
+Three pull requests since v0.16.0 (#161, #163, #164), 3 entries.
+
+- **CoMaps: offline address search and routing like a phone app, with its
+  own maps for your regions** (D-069). Two units join the `navigation`
+  profile. `comaps` is built from source at the tag Flathub, nixpkgs and
+  the AUR build (`v2026.08.31-14`), refused if the tag no longer resolves
+  to its commit; the git backend gains what it needed, each a catalog
+  field the engine runs: submodules fetched shallow and read back at their
+  recorded commits, a hash-pinned build Python (CoMaps' CMake refuses
+  Debian's protobuf 4.x), upstream's `configure.sh` with the files it must
+  produce (its symbol step exits 0 without optipng), and files the install
+  rule leaves out (the World maps, sha256-pinned). `comaps-maps` fetches
+  CoMaps' own maps for your map regions through a generated table
+  (`catalog/data/comaps-pins.yaml`, all 1,150 maps, 262 Geofabrik regions
+  including every US state and DC), each checked by the SHA-1 and exact
+  size in CoMaps' own index, which the plan says on every line, and from a
+  LAN mirror first when one is set (D-070; `hammunition artifacts` lists
+  them as `sha1-publisher`); an expired pin refuses the plan, and `update
+  --upstream` says `pin expiring` or `pin expired`. `hammunition maps
+  comaps`, the `comaps-offline` launcher, records CoMaps' licence answer and links your maps where it looks. CoMaps
+  reads its position from GeoClue only, so there is no "you are here" on
+  the laptop yet; the guide says what the route would be. Organic Maps and
+  Flatpak are not carried. The build through the engine and US address
+  search are owed by the bench.
+
+- **An offline map in the browser** (**D-071**, branch `map-server`).
+  `osm-pmtiles` turns each map region into vector tiles with the archive's
+  tilemaker (3.0 or newer; Ubuntu 24.04's 2.4 defers it by name), and
+  `vector-map-kit` pins the fixed files: tilemaker's OpenMapTiles profile,
+  Natural Earth's ocean and land cover, the OSM Bright style, sprite and
+  fonts, MapLibre GL JS 6.11.2 and pmtiles.js 4.5.0. Both join
+  `navigation`. `hammunition reference serve` now also serves the map at
+  `http://127.0.0.1:8480/map/`, with HTTP byte ranges, each file by its
+  installed name, and refuses any request that does not name 127.0.0.1 or
+  localhost. The page draws "© OpenMapTiles © OpenStreetMap contributors" on
+  the map. `hammunition maps gps-tether` also serves your position to it as
+  an event stream on 127.0.0.1:10111 (`--position-port`); a tether started
+  with `--port 10111` now needs `--position-port` as well. A `data` archive
+  can list its `members` and the subdirectory it goes `into`. Not yet run
+  with a real tilemaker; the bench owes it.
+
 - **Official topographic maps: USGS US Topo** (**D-068**). For US map
   regions, the `navigation` profile gains `usgs-ustopo` (the 7.5-minute
   sheets a region's outline touches, chosen offline from the carried index

@@ -38,8 +38,10 @@ class ArtifactEntry(Strict):
     url: str | None = described("the publisher URL the engine itself fetches; null when deferred")
     check: str | None = described(
         "how the download is verified: `sha256` (pinned by Hammunition), `md5-publisher` "
-        "(Geofabrik's published MD5), `etag-md5` (the Copernicus object's ETag) or "
-        "`sha256-publisher` (no unit uses it today); null when deferred"
+        "(Geofabrik's published MD5), `etag-md5` (the Copernicus object's ETag), "
+        "`sha1-publisher` (the SHA-1 and size in CoMaps' own map index at the pinned "
+        "commit, carried in the catalog) or `sha256-publisher` (no unit uses it today); "
+        "null when deferred"
     )
     digest: str | None = described(
         "the expected digest, in hex, of the kind `check` names: the pin, or the publisher's "

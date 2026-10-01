@@ -33,6 +33,11 @@ The [`station`](../profiles/station.md) profile installs
 every program. What it does not yet do is hand the time to the system clock.
 That takes **chrony**, a time service that can take its time from gpsd.
 
+!!! note "On Parrot, or any machine running ntpsec"
+    ntpsec, not chrony, is the time daemon there, and Hammunition sets it up
+    to follow the GPS itself: see [GPS time](gps-time.md) (**D-058**). The
+    steps below are for a machine with systemd-timesyncd or chrony.
+
 !!! info "Not a catalog unit yet"
     A `chrony` unit with this configuration is planned
     ([gap analysis, A4](../reference/catalog-gaps-2026-09.md)). Until it

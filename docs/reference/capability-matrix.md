@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 198 | 8 | 72 | 2 | 0 |
-| ubuntu-26.04 | 200 | 6 | 72 | 2 | 0 |
-| ubuntu-24.04 | 193 | 15 | 70 | 2 | 0 |
-| kali-rolling | 205 | 8 | 67 | 0 | 0 |
-| parrot | 203 | 5 | 70 | 2 | 0 |
-| linuxmint-22.3 | 193 | 15 | 70 | 2 | 0 |
-| debian-13-arm64 | 197 | 9 | 69 | 5 | 0 |
+| debian-13 | 198 | 8 | 78 | 2 | 0 |
+| ubuntu-26.04 | 200 | 6 | 78 | 2 | 0 |
+| ubuntu-24.04 | 193 | 15 | 76 | 2 | 0 |
+| kali-rolling | 206 | 8 | 72 | 0 | 0 |
+| parrot | 203 | 5 | 76 | 2 | 0 |
+| linuxmint-22.3 | 193 | 15 | 76 | 2 | 0 |
+| debian-13-arm64 | 197 | 9 | 74 | 6 | 0 |
 
-**280 manifests** against **7 targets**.
+**286 manifests** against **7 targets**.
 
 ---
 
@@ -164,6 +164,8 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `code` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt ✗ |
 | `codium` | apt ✗ | apt ✗ | apt ✗ | apt ✗ | apt | apt ✗ | apt ✗ |
 | `coil64` | git | git | git | git | git | git | git |
+| `comaps` | git | git | git | git | git | git | git |
+| `comaps-maps` | mwm-regions | mwm-regions | mwm-regions | mwm-regions | mwm-regions | mwm-regions | mwm-regions |
 | `comptext` | apt | apt | apt | apt | apt | apt | apt |
 | `comptty` | apt | apt | apt | apt | apt | apt | apt |
 | `country-boundaries` | data | data | data | data | data | data | data |
@@ -206,6 +208,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `flrig` | apt | apt | apt | apt | apt | apt | apt |
 | `flwkey` | source | source | source | source | source | source | source |
 | `flwrap` | apt | apt | apt | apt | apt | apt | apt |
+| `freedata` | venv | venv | venv | venv | venv | venv | — |
 | `freedv` | apt | apt | apt | apt | apt | apt | apt |
 | `garim` | source | source | source | source | source | source | source |
 | `gdal-bin` | apt | apt | apt | apt | apt | apt | apt |
@@ -273,6 +276,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `m2kcli` | apt | apt | apt ✗ | apt | apt | apt ✗ | apt |
 | `mapsforge-map` | derived | derived | derived | derived | derived | derived | derived |
 | `mapsforge-poi` | derived | derived | derived | derived | derived | derived | derived |
+| `mercury` | git | git | git | apt | git | git | git |
 | `mfcuk` | apt | apt | apt | apt | apt | apt | apt |
 | `mfoc` | apt | apt | apt | apt | apt | apt | apt |
 | `minicom` | apt | apt | apt | apt | apt | apt | apt |
@@ -300,6 +304,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `openocd` | apt | apt | apt | apt | apt | apt | apt |
 | `osm-garmin` | derived | derived | derived | derived | derived | derived | derived |
 | `osm-navit` | derived | derived | derived | derived | derived | derived | derived |
+| `osm-pmtiles` | derived | derived | derived | derived | derived | derived | derived |
 | `osm-regions` | osm-regions | osm-regions | osm-regions | osm-regions | osm-regions | osm-regions | osm-regions |
 | `osm-routino` | derived | derived | derived | derived | derived | derived | derived |
 | `osmo-sdr` | apt | apt | apt | apt | apt | apt | apt |
@@ -389,6 +394,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `usbutils` | apt | apt | apt | apt | apt | apt | apt |
 | `usgs-ustopo` | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads | topo-quads |
 | `ustopo-qmapshack` | derived | derived | derived | derived | derived | derived | derived |
+| `vector-map-kit` | data | data | data | data | data | data | data |
 | `voacapl` | apt | apt | apt ✗ | apt | apt | apt ✗ | apt |
 | `welle-io` | apt | apt | apt | apt | apt | apt | apt |
 | `wfview` | apt | apt | apt | apt | apt | apt | apt |

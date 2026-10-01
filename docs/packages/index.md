@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**280 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**286 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -203,7 +203,7 @@ Desktop mail clients and PGP, carried for stations that move traffic by mail.
 - [gpa](gpa.md) — GNU Privacy Assistant — a GTK front end to GnuPG for signed and encrypted traffic
 - [thunderbird](thunderbird.md) — Mozilla's full-featured mail client — the household name
 
-### `emcomm` — 10
+### `emcomm` — 11
 
 Net control, message forms, weather charts and the rest of the public-service stack.
 
@@ -212,6 +212,7 @@ Net control, message forms, weather charts and the rest of the public-service st
 - [flmsg](flmsg.md) — Fills in and transmits the standard message forms EMCOMM runs on
 - [flnet](flnet.md) — Net control operator's list — who checked in, in what order
 - [flwrap](flwrap.md) — Wraps a file with a checksum so the far end knows it arrived intact
+- [freedata](freedata.md) — HF messaging and file transfer over codec2 modems, with a browser interface
 - [garim](garim.md) — Graphical ARIM messaging over an ARDOP TNC
 - [ics-forms](ics-forms.md) — FEMA's 39 fillable ICS forms, 205 radio communications plan and 213 general message among them
 - [js8spotter](js8spotter.md) — JS8Call's companion — spot tracking, forms, APRS and SMS gateways
@@ -304,13 +305,15 @@ Koch trainers, callsign drills, text-to-Morse converters and practice generators
 - [wordsworth](wordsworth.md) — Generate Morse practice text the Wordsworth way — words, not characters
 - [xcwcp](xcwcp.md) — Qt Morse tutor that both sends practice and reads your keying
 
-### `navigation-maps` — 21
+### `navigation-maps` — 25
 
 Offline maps, turn-by-turn navigation and the position on a moving map, with no network needed.
 
 - [brouter](brouter.md) — BRouter, the offline router QMapShack runs for hiking, bike and car routes with elevation
 - [brouter-mapcreator-profiles](brouter-mapcreator-profiles.md) — The two filter files BRouter's map creator needs and its release zip leaves out
 - [brouter-segments](brouter-segments.md) — BRouter routing files built from your own regions, with elevation, never downloaded
+- [comaps](comaps.md) — Offline vector maps with search and car, bike and foot routing, from CoMaps' own map files
+- [comaps-maps](comaps-maps.md) — CoMaps' own map files for your map regions, checked against CoMaps' index
 - [country-boundaries](country-boundaries.md) — Natural Earth's world country borders, which let Navit's address search find towns
 - [dem-copernicus](dem-copernicus.md) — Copernicus GLO-30 elevation tiles for your map regions, verified
 - [dem-qmapshack](dem-qmapshack.md) — Hillshade, slope and 20 m contour lines for QMapShack, from the elevation tiles
@@ -322,6 +325,7 @@ Offline maps, turn-by-turn navigation and the position on a moving map, with no 
 - [navit](navit.md) — Offline turn-by-turn navigation that follows the GPS, with spoken directions
 - [osm-garmin](osm-garmin.md) — Garmin maps of your OpenStreetMap regions, with trails, for QMapShack
 - [osm-navit](osm-navit.md) — Navit's binary maps, converted from your OpenStreetMap regions, and its configuration
+- [osm-pmtiles](osm-pmtiles.md) — Vector-tile maps of your OpenStreetMap regions, for the offline browser map
 - [osm-regions](osm-regions.md) — OpenStreetMap region extracts from Geofabrik, the regions you choose, verified
 - [osm-routino](osm-routino.md) — One Routino routing database over all your regions, for routes on foot
 - [qmapshack](qmapshack.md) — Offline topographic maps, trails, GPX tracks, elevation profiles and routing on foot
@@ -329,6 +333,7 @@ Offline maps, turn-by-turn navigation and the position on a moving map, with no 
 - [socat](socat.md) — A relay between two data channels, sockets, files or programs
 - [usgs-ustopo](usgs-ustopo.md) — USGS US Topo 7.5-minute map sheets for your US map regions, verified
 - [ustopo-qmapshack](ustopo-qmapshack.md) — The US Topo sheets as one seamless QMapShack map, collars cropped
+- [vector-map-kit](vector-map-kit.md) — The fixed files the offline browser map needs, from their publishers, pinned
 
 ### `nbems` — 5
 
@@ -567,7 +572,7 @@ Look at a capture and work out what it is: inspectrum, the sigidwiki reference, 
 - [inspectrum](inspectrum.md) — Offline visualiser for captured radio signals — read a waveform by eye
 - [kalibrate-rtl](kalibrate-rtl.md) — Measures an SDR dongle's frequency error against GSM base stations
 
-### `soundcard-modems` — 8
+### `soundcard-modems` — 10
 
 Direwolf, QtSoundModem, ARDOP and the TNCs built into radios.
 
@@ -575,6 +580,8 @@ Direwolf, QtSoundModem, ARDOP and the TNCs built into radios.
 - [baycomepp](baycomepp.md) — Driver for the HB9JNX parallel-port packet modem
 - [baycomusb](baycomusb.md) — Driver for the HB9JNX USB packet modem
 - [direwolf](direwolf.md) — Software TNC — turns a sound card into an APRS and packet modem
+- [freedata](freedata.md) — HF messaging and file transfer over codec2 modems, with a browser interface
+- [mercury](mercury.md) — Open HF data modem that speaks VARA's TCP interface, so pat uses it unchanged
 - [minimodem](minimodem.md) — General-purpose audio FSK modem — Bell 103, RTTY, AX.25 and anything else
 - [qtsoundmodem](qtsoundmodem.md) — Soundcard packet modem with a scope — an alternative to Direwolf
 - [tmd710-tncsetup](tmd710-tncsetup.md) — Configures the built-in TNC on Kenwood TM-D710 and TH-D72 radios
@@ -635,13 +642,14 @@ Capture, handshake extraction and key recovery for Wi-Fi networks.
 - [kismet](kismet.md) — Wireless network and device detector, sniffer and logger for Wi-Fi, Bluetooth and SDR sources
 - [skid-finder](skid-finder.md) — Passive BLE-spam and Wi-Fi-attack detector with foxhunting, live alerts and a sensor-net collector
 
-### `winlink` — 4
+### `winlink` — 5
 
 Radio email when the internet is down: pat, ARDOP, gateways.
 
 - [ardopcf](ardopcf.md) — HF data modem for Winlink and packet over poor paths
 - [garim](garim.md) — Graphical ARIM messaging over an ARDOP TNC
 - [linbpq](linbpq.md) — BPQ32 packet-radio node, BBS and Winlink gateway
+- [mercury](mercury.md) — Open HF data modem that speaks VARA's TCP interface, so pat uses it unchanged
 - [pat](pat.md) — Winlink client — radio email that works when the internet does not
 
 ### `workstation` — 21
@@ -710,6 +718,8 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [code](code.md) | Microsoft's Visual Studio Code build — optional alternative to the VSCodium your distro ships | apt |
 | [codium](codium.md) | VSCodium — Microsoft's VS Code source, built without their telemetry or branding | apt |
 | [coil64](coil64.md) | Calculates inductance for coils of almost any geometry | git |
+| [comaps](comaps.md) | Offline vector maps with search and car, bike and foot routing, from CoMaps' own map files | git |
+| [comaps-maps](comaps-maps.md) | CoMaps' own map files for your map regions, checked against CoMaps' index | mwm-regions |
 | [comptext](comptext.md) | Compares two text streams and scores how much of one arrived intact | apt |
 | [comptty](comptty.md) | The same accuracy comparison as comptext, for Baudot RTTY streams | apt |
 | [country-boundaries](country-boundaries.md) | Natural Earth's world country borders, which let Navit's address search find towns | data |
@@ -752,6 +762,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [flrig](flrig.md) | Rig control with a real front panel, shared between programs over XML-RPC | apt |
 | [flwkey](flwkey.md) | Control panel for the Winkeyer hardware CW keyer | source |
 | [flwrap](flwrap.md) | Wraps a file with a checksum so the far end knows it arrived intact | apt |
+| [freedata](freedata.md) | HF messaging and file transfer over codec2 modems, with a browser interface | venv |
 | [freedv](freedv.md) | Digital voice over HF in the bandwidth of an SSB signal | apt |
 | [garim](garim.md) | Graphical ARIM messaging over an ARDOP TNC | source |
 | [gdal-bin](gdal-bin.md) | GDAL's command-line tools for rasters and elevation data | apt |
@@ -819,6 +830,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [m2kcli](m2kcli.md) | Command-line control of the ADALM2000 lab instrument | apt |
 | [mapsforge-map](mapsforge-map.md) | Mapsforge vector maps of your OpenStreetMap regions, for phone map apps | derived |
 | [mapsforge-poi](mapsforge-poi.md) | Mapsforge points-of-interest files of your regions, for searching on a phone | derived |
+| [mercury](mercury.md) | Open HF data modem that speaks VARA's TCP interface, so pat uses it unchanged | apt, git |
 | [mfcuk](mfcuk.md) | MIFARE Classic key recovery with no known key — the slow path | apt |
 | [mfoc](mfoc.md) | Key recovery for MIFARE Classic cards with at least one known key | apt |
 | [minicom](minicom.md) | Full-screen serial communication program, the one everyone already knows | apt |
@@ -846,6 +858,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [openocd](openocd.md) | On-chip debugging and in-system programming over JTAG and SWD | apt |
 | [osm-garmin](osm-garmin.md) | Garmin maps of your OpenStreetMap regions, with trails, for QMapShack | derived |
 | [osm-navit](osm-navit.md) | Navit's binary maps, converted from your OpenStreetMap regions, and its configuration | derived |
+| [osm-pmtiles](osm-pmtiles.md) | Vector-tile maps of your OpenStreetMap regions, for the offline browser map | derived |
 | [osm-regions](osm-regions.md) | OpenStreetMap region extracts from Geofabrik, the regions you choose, verified | osm-regions |
 | [osm-routino](osm-routino.md) | One Routino routing database over all your regions, for routes on foot | derived |
 | [osmo-sdr](osmo-sdr.md) | Tools for the original OsmoSDR hardware | apt |
@@ -935,6 +948,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [usbutils](usbutils.md) | lsusb — step one of every hardware problem in this catalog | apt |
 | [usgs-ustopo](usgs-ustopo.md) | USGS US Topo 7.5-minute map sheets for your US map regions, verified | topo-quads |
 | [ustopo-qmapshack](ustopo-qmapshack.md) | The US Topo sheets as one seamless QMapShack map, collars cropped | derived |
+| [vector-map-kit](vector-map-kit.md) | The fixed files the offline browser map needs, from their publishers, pinned | data |
 | [voacapl](voacapl.md) | The VOACAP HF propagation prediction engine, ported to Linux | apt |
 | [welle-io](welle-io.md) | DAB and DAB+ digital radio receiver with a modern interface | apt |
 | [wfview](wfview.md) | Control a modern Icom radio, waterfall and all, over USB or the network | apt |

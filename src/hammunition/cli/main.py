@@ -62,6 +62,12 @@ from hammunition.backends import (
     VenvBackend,
 )
 from hammunition.backends.apt import stale_fetches
+from hammunition.backends.comaps_maps import (
+    ComapsMapsBackend,
+    maps_disk_needs,
+    maps_shortfall,
+    resolve_station_maps,
+)
 from hammunition.backends.data import human_size
 from hammunition.backends.dem import TIF, TILES, TerrainDisclosure, read_record
 from hammunition.backends.kiwix import (
@@ -83,6 +89,8 @@ from hammunition.backends.regions import (
 )
 from hammunition.backends.source import DEFAULT_PREFIX
 from hammunition.backends.terrain import combined_shortfall
+from hammunition.comaps import CdnProbe, ComapsError, ComapsPins, MapFile, resolve_regions
+from hammunition.comaps import load_pins as load_comaps_pins
 from hammunition.consent import (
     ConsentDeclined,
     ConsentUnavailable,
@@ -137,6 +145,7 @@ from hammunition.manifest.schema import (
     DemTilesInstall,
     DerivedDataInstall,
     KiwixBooksInstall,
+    MwmRegionsInstall,
     PackageManifest,
     ProfileManifest,
     RegionalDataInstall,
@@ -165,13 +174,23 @@ from hammunition.station import (
 )
 from hammunition.sudo_ticket import SudoKeepalive, keepalive_wanted
 from hammunition.terrain_plan import brouter_pins, build_terrain_run, resolve_station_terrain
+from hammunition.tiles_plan import build_tiles_run
 from hammunition.topo_plan import INDEX as USTOPO_INDEX
 from hammunition.topo_plan import MemoProbe, resolve_station_topo
-from hammunition.update import books_state, region_snapshots, render, report, requested_units
+from hammunition.update import (
+    UNKNOWN,
+    books_state,
+    mwm_state,
+    region_snapshots,
+    render,
+    report,
+    requested_units,
+)
 from hammunition.upstream import (
     NOT_UPSTREAM,
     http_get,
     parse_ls_remote,
+    probe_comaps_maps,
     probe_kiwix,
     probe_upstream,
 )
@@ -588,6 +607,7 @@ def cmd_update(args: argparse.Namespace) -> int:
         prefix=source.prefix,
         jobs=source.jobs,
         owner=source.owner,
+        fetcher=source.fetcher,
     )
     binary = BinaryBackend(
         fetcher=source.fetcher,
@@ -656,6 +676,24 @@ def cmd_update(args: argparse.Namespace) -> int:
             chosen_books[planned.name], data_root(source.prefix) / planned.name
         )
 
+    # CoMaps' maps, offline (D-069): each map the station's regions need
+    # against its pinned version, counted, from the carried table.
+    mwm_by_unit: dict[str, tuple[str, str]] = {}
+    comaps: dict[str, ComapsPins] = {}
+    for planned in plan.packages:
+        if not isinstance(planned.block.install, MwmRegionsInstall):
+            continue
+        try:
+            comaps_pins = load_comaps_pins(catalog_root)
+        except ComapsError as exc:
+            mwm_by_unit[planned.name] = (UNKNOWN, str(exc))
+            continue
+        comaps[planned.name] = comaps_pins
+        files, unmapped = resolve_regions(station.map_regions, comaps_pins)
+        mwm_by_unit[planned.name] = mwm_state(
+            files, data_root(source.prefix) / planned.name, unmapped=len(unmapped)
+        )
+
     result = report(
         plan,
         apt_states=states,
@@ -666,9 +704,12 @@ def cmd_update(args: argparse.Namespace) -> int:
         no_terrain=no_terrain_counts(plan, source.prefix),
         quads=installed_quad_counts(plan, source.prefix, catalog_root),
         books=books_by_unit,
+        mwm=mwm_by_unit,
     )
     lists_note = _apt_lists_note(apt)
-    upstream = _upstream_rows(plan, runner, books=chosen_books) if args.upstream else None
+    upstream = (
+        _upstream_rows(plan, runner, books=chosen_books, comaps=comaps) if args.upstream else None
+    )
     if envelope.wanted(args):
         envelope.emit(
             build_update(
@@ -689,6 +730,7 @@ def _upstream_rows(
     runner: SubprocessRunner,
     *,
     books: Mapping[str, Sequence[BookFile]] | None = None,
+    comaps: Mapping[str, ComapsPins] | None = None,
 ) -> list[UpstreamRow]:
     """D-053's second half: the catalog's pin against what upstream publishes.
 
@@ -722,6 +764,10 @@ def _upstream_rows(
     kiwix = KiwixProbe()
     for unit, chosen in (books or {}).items():
         rows.extend(probe_kiwix(unit, chosen, text=kiwix.text))
+    # D-069: CoMaps' maps are asked of the CDN, once per unit: is the pinned
+    # version still published, and how old is it.
+    for unit, comaps_pins in (comaps or {}).items():
+        rows.append(probe_comaps_maps(unit, comaps_pins, head=CdnProbe().head, today=date.today()))
     return [r for r in rows if r.state != NOT_UPSTREAM]
 
 
@@ -1003,6 +1049,86 @@ def _repeater_poi_paths(text: str) -> tuple[str, bool]:
     return ensure_paths(text, (), remove=(want,)), False
 
 
+def cmd_maps_comaps(args: argparse.Namespace) -> int:
+    """Prepare this operator's CoMaps, then start it.  D-069.
+
+    What the ``comaps-offline`` launcher runs. Per user, refused as root.
+    Writes ``EulaAccepted=true`` into CoMaps' own settings when no answer is
+    there, so the licence dialog does not block the first start, and links
+    each map ``comaps-maps`` installed into CoMaps' map directory; then
+    replaces itself with CoMaps, with its writable and resource directories
+    named. A settings file that is a symbolic link or not a regular file is
+    refused, and CoMaps is not started. No ``--json`` form: it replaces
+    itself with a GUI (D-059).
+    """
+    from hammunition.comaps_launch import data_dir, ensure_eula, link_maps, settings_path
+
+    if os.geteuid() == 0:
+        print(
+            "error: CoMaps' settings and maps are per user; run this as yourself, not as root.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    prefix = DEFAULT_PREFIX
+    program = prefix / "bin" / "CoMaps"
+    if not args.configure_only and not (program.is_file() and os.access(program, os.X_OK)):
+        print(
+            f"error: {program} is not installed; `hammunition install comaps` builds it.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    path = settings_path()
+    not_started = "Nothing was changed and CoMaps was not started"
+    try:
+        text, mode = _read_config_nofollow(path)
+    except OSError as exc:
+        print(f"error: {exc}. {not_started}.", file=sys.stderr)
+        return EXIT_FAILED
+    updated = ensure_eula(text)
+    if updated != text:
+        print(
+            f"recording in {path} that CoMaps' licence and copyright notice is accepted, "
+            f"so its first-start dialog does not block the window (the notice is "
+            f"{prefix / 'share' / 'comaps' / 'data' / 'copyright.html'})",
+            file=sys.stderr,
+        )
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _replace_atomically(path, updated, mode)
+        except OSError as exc:
+            print(
+                f"error: cannot write {path}: {exc.strerror or exc}. CoMaps was not started.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+    writable = data_dir()
+    try:
+        notes = link_maps(data_root(prefix) / "comaps-maps", writable)
+    except OSError as exc:
+        print(
+            f"error: cannot link the maps into {writable}: {exc.strerror or exc}. "
+            f"CoMaps was not started.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    for note in notes:
+        print(note, file=sys.stderr)
+    if args.configure_only:
+        return EXIT_OK
+    env = {
+        **os.environ,
+        "MWM_WRITABLE_DIR": str(writable),
+        "MWM_RESOURCES_DIR": str(prefix / "share" / "comaps" / "data"),
+    }
+    sys.stdout.flush()
+    sys.stderr.flush()  # execve discards whatever Python still buffers
+    try:
+        os.execve(str(program), ["CoMaps"], env)
+    except OSError as exc:
+        print(f"error: cannot start {program}: {exc.strerror or exc}.", file=sys.stderr)
+    return EXIT_FAILED
+
+
 def _installed_brouter(prefix: Path) -> BRouterSetup | None:
     """Hammunition's BRouter when its tree holds one jar and at least one
     routing file is built (D-063); None otherwise, and QMapShack's BRouter
@@ -1144,6 +1270,17 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
     try:
         port = gps_tether.PORT if args.port is None else gps_tether.serve_port(args.port)
         gpsd = gps_tether.GPSD if args.gpsd is None else gps_tether.gpsd_address(args.gpsd)
+        position_port = (
+            gps_tether.POSITION_PORT
+            if args.position_port is None
+            else gps_tether.serve_port(args.position_port, flag="--position-port")
+        )
+        if position_port == port:
+            raise ValueError(
+                f"--port {port} and --position-port {position_port} are the same port; "
+                f"the map's position stream is on {gps_tether.POSITION_PORT} unless "
+                f"--position-port names another"
+            )
     except ValueError as exc:
         print(f"error: {exc}.", file=sys.stderr)
         return EXIT_FAILED
@@ -1163,17 +1300,28 @@ def cmd_maps_gps_tether(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return EXIT_FAILED
-    print(gps_tether.instructions(port, gpsd=gpsd), flush=True)
+    try:
+        http = gps_tether.listen(position_port)
+    except OSError as exc:
+        listener.close()
+        print(
+            f"error: cannot listen on {gps_tether.HOST} port {position_port} for the map's "
+            f"position: {exc.strerror or exc}. --position-port N serves it on another port.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    print(gps_tether.instructions(port, gpsd=gpsd, position_port=position_port), flush=True)
 
     def log(line: str) -> None:
         print(line, file=sys.stderr, flush=True)
 
     try:
-        gps_tether.serve(listener, gpsd=gpsd, log=log)
+        gps_tether.serve(listener, http=http, gpsd=gpsd, log=log)
     except KeyboardInterrupt:
         log("Stopped.")
     finally:
         listener.close()
+        http.close()
     return EXIT_OK
 
 
@@ -1625,11 +1773,17 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
     """
     import subprocess
 
-    from hammunition import reference
+    from hammunition import gps_tether, reference
+    from hammunition.map_page import find_map
     from hammunition.paths import owner_aware_dir
 
     try:
         port = reference.PORT if args.port is None else reference.serve_port(args.port)
+        position_port = (
+            reference.POSITION_PORT
+            if args.position_port is None
+            else gps_tether.serve_port(args.position_port, flag="--position-port")
+        )
     except ValueError as exc:
         print(f"error: {exc}.", file=sys.stderr)
         return EXIT_FAILED
@@ -1645,6 +1799,7 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
     except (KiwixError, SystemExit):
         books = {}  # the page still serves every file, named by its file name
     shelf = reference.find_shelf(data_root(DEFAULT_PREFIX), books)
+    map_shelf = find_map(data_root(DEFAULT_PREFIX))  # D-071
     if shelf.books:
         missing = [t for t in ("kiwix-serve", "kiwix-manage") if shutil.which(t) is None]
         if missing:
@@ -1681,7 +1836,14 @@ def cmd_reference_serve(args: argparse.Namespace) -> int:
 
     try:
         return reference.run(
-            port, shelf=shelf, library=library, spawn=spawn, manage=manage, log=log
+            port,
+            shelf=shelf,
+            library=library,
+            spawn=spawn,
+            manage=manage,
+            log=log,
+            map_shelf=map_shelf,
+            position_port=position_port,
         )
     except OSError as exc:
         print(
@@ -1902,8 +2064,9 @@ def leftover_maps_note(plan: InstallPlan, prefix: Path) -> str | None:
     """Map data still installed while no map regions are set, named with its removal."""
     units = sorted(d.subject for d in plan.deferrals if d.why == NO_MAP_REGIONS)
     # Piece 1's regions and Navit maps, piece 2's Garmin maps, Routino
-    # database and terrain tiles (D-061), and the phone files (D-067).
-    patterns = ("*.osm.pbf", "*.bin", "*.img", "*.mem", f"*{TIF}", "*.map", "*.poi")
+    # database and terrain tiles (D-061), the phone files (D-067), and the
+    # vector-tile maps (D-071).
+    patterns = ("*.osm.pbf", "*.bin", "*.img", "*.mem", f"*{TIF}", "*.map", "*.poi", "*.pmtiles")
     found = [
         data_root(prefix) / unit
         for unit in units
@@ -2054,6 +2217,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         prefix=source.prefix,
         jobs=source.jobs,
         owner=source.owner,
+        fetcher=source.fetcher,
     )
     binary = BinaryBackend(
         fetcher=source.fetcher,
@@ -2153,6 +2317,29 @@ def cmd_install(args: argparse.Namespace) -> int:
     )
     region_notes = list(resolution.notes)
     region_notes.extend(topo_notes)
+    # D-069: CoMaps' maps for the same regions, from the carried region table,
+    # and every map not yet installed HEAD-checked for its pinned size before
+    # the plan prints: each map's size, licence and check are the disclosure,
+    # and a version the CDN has dropped refuses here rather than after apt.
+    mwm_units = [p for p in plan.packages if isinstance(p.block.install, MwmRegionsInstall)]
+    mwm_files: list[MapFile] = []
+    if mwm_units:
+        try:
+            mwm_files, mwm_notes = resolve_station_maps(
+                station.map_regions,
+                catalog_root,
+                installed=data_root(source.prefix) / mwm_units[0].name,
+                head=CdnProbe().head,
+            )
+        except ComapsError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            print("\nNothing was changed.", file=sys.stderr)
+            refused("CoMaps maps", str(exc))
+            return EXIT_UNPLANNABLE
+        region_notes.extend(mwm_notes)
+    mwm = ComapsMapsBackend(
+        fetcher=source.fetcher, prefix=source.prefix, files=mwm_files, runner=runner
+    )
     try:
         border, countries, border_notes = map_borders(plan, packages, catalog_root, source.prefix)
     except CountryBoundaryError as exc:
@@ -2203,6 +2390,16 @@ def cmd_install(args: argparse.Namespace) -> int:
         keep=kept,
         regions=ledger,
     )
+    # D-071: the vector-tile maps for the browser page, from the same regions.
+    tiles = build_tiles_run(
+        prefix=source.prefix,
+        builds=builds,
+        owner=user or None,
+        runner=runner,
+        files=region_files,
+        keep=kept,
+        regions=ledger,
+    )
     derived = DerivedBackend(
         prefix=source.prefix,
         files=region_files,
@@ -2213,7 +2410,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         runner=runner,
         boundaries=border,
         countries=countries,
-        converters={**terrain.converters, **phone.converters},
+        converters={**terrain.converters, **phone.converters, **tiles.converters},
     )
     # Only regions not already installed at their snapshot are downloaded,
     # counted and listed as downloads (the dry run is the run); a region
@@ -2243,7 +2440,14 @@ def cmd_install(args: argparse.Namespace) -> int:
     terrain_view = terrain.disclosure(plan)
     terrain_disk = terrain.needs(plan, cache=source.fetcher.cache_dir, prefix=source.prefix)
     phone_disk = phone.needs(plan, cache=source.fetcher.cache_dir, prefix=source.prefix)
-    if pending or conversions or any(terrain_disk.values()) or any(phone_disk.values()):
+    tiles_disk = tiles.needs(plan, prefix=source.prefix)
+    if (
+        pending
+        or conversions
+        or any(terrain_disk.values())
+        or any(phone_disk.values())
+        or any(tiles_disk.values())
+    ):
         # Refused at plan time, before anything is confirmed, with both numbers:
         # piece 1's and piece 2's needs together, per filesystem (D-061).
         short = combined_shortfall(
@@ -2256,30 +2460,48 @@ def cmd_install(args: argparse.Namespace) -> int:
             ),
             terrain_disk,
             phone=phone_disk,
+            tiles=tiles_disk,
         )
         if short is not None:
             print(f"error: {short}", file=sys.stderr)
             print("\nNothing was changed.", file=sys.stderr)
             refused("disk space", short)
             return EXIT_UNPLANNABLE
+    # The same run's map data per file system, which the books' and CoMaps'
+    # maps' own checks count beside their own.
+    others: dict[Path, int] = {}
+    if pending or conversions or any(terrain_disk.values()):
+        others = dict(
+            disk_needs(
+                pending,
+                conversions,
+                cache=source.fetcher.cache_dir,
+                staging=map_staging,
+                prefix=source.prefix,
+            )
+        )
+        for path, amount in terrain_disk.items():
+            others[path] = others.get(path, 0) + amount
     # The books' own room, with any map data of the same run on the same disk.
     book_pending = [f for p in book_units for f in books.pending(p.manifest)]
     book_disk = books_disk_needs(book_pending, cache=source.fetcher.cache_dir, prefix=source.prefix)
     if book_disk:
-        others: dict[Path, int] = {}
-        if pending or conversions or any(terrain_disk.values()):
-            others = dict(
-                disk_needs(
-                    pending,
-                    conversions,
-                    cache=source.fetcher.cache_dir,
-                    staging=map_staging,
-                    prefix=source.prefix,
-                )
-            )
-            for path, amount in terrain_disk.items():
-                others[path] = others.get(path, 0) + amount
         short = books_shortfall(book_disk, others)
+        if short is not None:
+            print(f"error: {short}", file=sys.stderr)
+            print("\nNothing was changed.", file=sys.stderr)
+            refused("disk space", short)
+            return EXIT_UNPLANNABLE
+    # CoMaps' maps' own room (D-069), counting the same run's map data, phone
+    # files and books on the same disk too.
+    mwm_pending = [f for p in mwm_units for f in mwm.pending(p.manifest)]
+    mwm_disk = maps_disk_needs(mwm_pending, cache=source.fetcher.cache_dir, prefix=source.prefix)
+    if mwm_disk:
+        beside = dict(others)
+        for extra in (phone_disk, book_disk):
+            for path, amount in extra.items():
+                beside[path] = beside.get(path, 0) + amount
+        short = maps_shortfall(mwm_disk, beside)
         if short is not None:
             print(f"error: {short}", file=sys.stderr)
             print("\nNothing was changed.", file=sys.stderr)
@@ -2306,6 +2528,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         dem=terrain.dem,
         topo=terrain.topo,
         books=books,
+        mwm=mwm,
         repos=repos,
         config_staging=builds,
         launcher_bin=user_bin_dir(user or None),
@@ -2322,17 +2545,24 @@ def cmd_install(args: argparse.Namespace) -> int:
         if (log_owner and euid == 0 and str(log_destination).startswith("/home"))
         else None
     )
-    # A book unit with nothing to fetch or remove reads "already installed".
+    # A book or CoMaps maps unit with nothing to fetch or remove reads
+    # "already installed".
     idle_books = frozenset(
         p.name
         for p in book_units
         if not books.steps(p.manifest, cast(KiwixBooksInstall, p.block.install))
     )
+    idle_maps = frozenset(
+        p.name
+        for p in mwm_units
+        # With no map for any region there is nothing installed to be current.
+        if mwm.files and not mwm.steps(p.manifest, cast(MwmRegionsInstall, p.block.install))
+    )
     view = build_install_view(
         plan,
         commands,
         euid=euid,
-        built=built | idle_books,
+        built=built | idle_books | idle_maps,
         log_destination=log_destination,
         hands_log_to=hands_log_to,
         suggestion_notes=suggestion_notes,
@@ -2342,7 +2572,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         sudo_keepalive=args.sudo_keepalive,
         mirror=station.mirror,
         mirror_ignored=args.no_mirror,
-        idle=phone.idle(plan),
+        idle=phone.idle(plan) | tiles.idle(plan),
     )
     if envelope.wanted(args):
         # Reached only with --dry-run: main() refuses a real install under
@@ -3134,6 +3364,8 @@ def cmd_hardware_list(args: argparse.Namespace) -> int:
 
 def cmd_hardware_apply(args: argparse.Namespace) -> int:
     """Write the catalog's udev rules and join the device-access groups."""
+    from hammunition.gpstime.grants import disclose, grant_commands, stage_grants, verify_grants
+    from hammunition.gpstime.mode import TimeError
     from hammunition.hardware import plan_hardware
 
     try:
@@ -3147,7 +3379,20 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
         print("error: could not determine which user to set up.", file=sys.stderr)
         return EXIT_FAILED
     groups_now = user_groups(user)
-    plan = plan_hardware(classes, devices, user=user, user_groups_now=groups_now)
+    try:
+        plan = plan_hardware(
+            classes,
+            devices,
+            user=user,
+            user_groups_now=groups_now,
+            with_time=not getattr(args, "no_gps_time", False),
+        )
+    except TimeError as exc:
+        print(
+            f"error: {exc}\n`--no-gps-time` sets up devices without GPS time (D-058).",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
 
     print(f"Hardware setup for {user!r}\n")
     if plan.omissions:
@@ -3161,12 +3406,14 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
     if plan.is_noop:
         print(
             "Nothing to do: the rules file already matches, you are in every access "
-            "group, and the power-control helper and its polkit action are already "
-            "installed. Hardware setup is complete."
+            "group, the power-control helper and its polkit action are installed, and "
+            "GPS time's grants are in place. Hardware setup is complete."
         )
         return EXIT_OK
 
-    def build_commands(staging_root: str) -> tuple[list[Command], Command | None, Command | None]:
+    def build_commands(
+        staging_root: str,
+    ) -> tuple[list[Command], Command | None, Command | None, list[Command]]:
         """Commands as they would look staged under ``staging_root``.
 
         Called twice: once with a placeholder string for the disclosure and
@@ -3240,7 +3487,13 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
                     requires_root=True,
                 )
             )
-        return built, helper_cmd, policy_cmd
+        time_cmds = (
+            grant_commands(plan.time, staging_root, plan.polkit.helper_path)
+            if plan.time is not None
+            else []
+        )
+        built += time_cmds
+        return built, helper_cmd, policy_cmd, time_cmds
 
     if not plan.rules_already_current:
         print(f"Will write {len(plan.rules_content.splitlines())} lines to {plan.rules_path}")
@@ -3258,8 +3511,11 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
         print(f"Will install the polkit action to {plan.polkit.policy_path}")
     for group in plan.groups_to_add:
         print(f"Will add {user!r} to the {group!r} group")
+    if plan.time is not None:
+        for line in disclose(plan.time):
+            print(line)
 
-    preview_commands, preview_helper, preview_policy = build_commands("<staging>")
+    preview_commands, preview_helper, preview_policy, _preview_time = build_commands("<staging>")
     installing_polkit = preview_helper is not None or preview_policy is not None
     """Whether this run installs *either* privileged artefact. Fix round 3:
     the helper and the policy are both routes to the same root-exec, and a
@@ -3325,7 +3581,7 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
     # 0700 mode keeps every other account out entirely.
     staging_dir = Path(tempfile.mkdtemp(prefix="hammunition-hardware-"))
     try:
-        commands, helper_command, policy_command = build_commands(str(staging_dir))
+        commands, helper_command, policy_command, time_commands = build_commands(str(staging_dir))
 
         if not plan.rules_already_current:
             staging = staging_dir / "udev-staging.rules"
@@ -3339,6 +3595,8 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             policy_staging = staging_dir / "devctl.policy"
             policy_staging.write_text(plan.polkit.policy_content)
             os.chmod(policy_staging, 0o644)
+        if plan.time is not None:
+            stage_grants(plan.time, staging_dir)
 
         runner = SubprocessRunner()
         print("\nRunning:")
@@ -3349,6 +3607,15 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
                 print(f"error: {result.stderr.strip()[:300]}", file=sys.stderr)
                 print("Stopped. What ran above is applied; the rest is not.", file=sys.stderr)
                 return EXIT_FAILED
+            if any(command is step for step in time_commands):
+                TransactionLog(owner=user).append(
+                    {
+                        "event": "time_grants",
+                        "version": 1,
+                        "description": command.description,
+                        "argv": list(command.argv),
+                    }
+                )
 
             # Recorded per artefact as soon as its own command succeeds, not
             # batched to the end: a later command in this same run (the
@@ -3423,6 +3690,8 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
         for group in plan.groups_to_add:
             if group not in after:
                 problems.append(f"{user} is still not in {group}")
+        if plan.time is not None:
+            problems += verify_grants(plan.time)
         if problems:
             for problem in problems:
                 print(f"  unverified: {problem}", file=sys.stderr)
@@ -3467,6 +3736,12 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     it is removed along with the helper and the policy action, and udev is
     told to reload so every device it was holding parked wakes from the next
     boot.
+
+    **GPS time (D-058) is taken back by content, not by the log.** A file is
+    removed only when it starts with the header Hammunition writes, ntp.conf's
+    marked lines are restored byte for byte, and only Hammunition's block
+    leaves ntpd's AppArmor local file. A hand-edited ntp.conf is refused
+    before anything runs.
     """
     from hammunition.hardware import RULES_PATH
     from hammunition.hardware.power import KEPT_RULES
@@ -3477,6 +3752,21 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         return EXIT_FAILED
 
     kept_present = Path(KEPT_RULES).exists()
+    from hammunition.gpstime import files as time_files
+    from hammunition.gpstime.grants import (
+        plan_time_removal,
+        removal_commands,
+        stage_removal,
+        verify_removal,
+    )
+    from hammunition.gpstime.mode import TimeError
+
+    try:
+        removal = plan_time_removal()
+    except TimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    time_present = not removal.is_empty
     owned = {HELPER_PATH, POLICY_PATH}
     recorded: list[str] = []
     skipped: list[str] = []
@@ -3502,7 +3792,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             if path not in recorded:
                 recorded.append(path)
 
-    if not recorded and not skipped and not kept_present:
+    if not recorded and not skipped and not kept_present and not time_present:
         print(
             "Nothing to remove: the transaction log records no hardware artefacts "
             "installed by Hammunition for this user."
@@ -3514,7 +3804,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             f"Skipped: the log names {path!r}, which this command does not own "
             f"(only the power-control helper and its polkit action are ever removed)."
         )
-    if not recorded and not kept_present:
+    if not recorded and not kept_present and not time_present:
         print("Nothing to do: no artefact this command owns is recorded.")
         return EXIT_OK
 
@@ -3522,7 +3812,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     gone = [p for p in recorded if p not in present]
     for path in gone:
         print(f"Already absent: {path}")
-    if not present and not kept_present:
+    if not present and not kept_present and not time_present:
         print("Nothing to do: every recorded artefact is already gone.")
         return EXIT_OK
 
@@ -3550,15 +3840,24 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             )
         )
         present.append(KEPT_RULES)
+
+    time_preview = removal_commands(removal, "<staging>")
+    shown = [*commands, *time_preview]
     euid = os.geteuid()
-    print(f"\nCommands ({len(commands)}):")
-    for command in commands:
+    print(f"\nCommands ({len(shown)}):")
+    for command in shown:
         print(f"  # {command.description}")
         print(f"  $ {command.display(euid=euid)}")
     if kept_present:
         print(
             f"\nRemoving {KEPT_RULES} removes the whole file, including any line in it "
             f"that Hammunition did not write."
+        )
+    if time_present:
+        print(
+            f"\nGPS time (D-058): {time_files.NTP_CONF}'s marked lines go back exactly as "
+            f"they were before Hammunition edited them, and only Hammunition's block leaves "
+            f"{time_files.APPARMOR_LOCAL}; the rest of that file stays."
         )
     print(
         f"\nThe device-access rules file, {RULES_PATH}, is not touched: it is "
@@ -3573,20 +3872,31 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         print("Aborted. Nothing was changed.")
         return EXIT_OK
 
-    runner = SubprocessRunner()
-    print("\nRunning:")
-    for command in commands:
-        print(f"  $ {command.display(euid=euid)}")
-        result = runner.run(command)
-        if result.returncode != 0:
-            print(f"error: {result.stderr.strip()[:300]}", file=sys.stderr)
-            return EXIT_FAILED
+    staging_dir = Path(tempfile.mkdtemp(prefix="hammunition-unapply-")) if time_present else None
+    try:
+        to_run = list(commands)
+        if staging_dir is not None:
+            stage_removal(removal, staging_dir)
+            to_run += removal_commands(removal, str(staging_dir))
+        runner = SubprocessRunner()
+        print("\nRunning:")
+        for command in to_run:
+            print(f"  $ {command.display(euid=euid)}")
+            result = runner.run(command)
+            if result.returncode != 0:
+                print(f"error: {result.stderr.strip()[:300]}", file=sys.stderr)
+                return EXIT_FAILED
+    finally:
+        if staging_dir is not None:
+            shutil.rmtree(staging_dir, ignore_errors=True)
 
     # D-031: `rm` exiting 0 is not evidence the file is gone.
-    still_there = [p for p in present if Path(p).exists()]
-    if still_there:
-        for path in still_there:
-            print(f"  unverified: {path} is still present", file=sys.stderr)
+    problems = [f"{p} is still present" for p in present if Path(p).exists()]
+    if time_present:
+        problems += verify_removal(removal)
+    if problems:
+        for problem in problems:
+            print(f"  unverified: {problem}", file=sys.stderr)
         return EXIT_FAILED
 
     after = []
@@ -3594,6 +3904,10 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         after.append("`hammunition hardware apply` reinstalls the helper and its polkit action.")
     if kept_present:
         after.append("Kept entries come back with `hammunition hardware park`.")
+    if time_present:
+        after.append(
+            "ntpsec runs on the package's own configuration; `hardware apply` restores GPS time."
+        )
     print("\nDone and verified. " + " ".join(after))
     return EXIT_OK
 
@@ -3665,19 +3979,9 @@ def cmd_hardware_state(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def _power_verb(args: argparse.Namespace, verb: str) -> int:
-    """Disclose the privileged call and every write it will cause, then run it."""
-    from hammunition.hardware.power import (
-        KEPT_RULES,
-        PowerError,
-        plan_forget,
-        plan_park,
-        plan_wake,
-        read_kept,
-    )
-
-    helper = Path(HELPER_PATH)
-    if not helper.is_file():
+def _helper_ready() -> int | None:
+    """An exit code when the privileged helper cannot be reached, else None."""
+    if not Path(HELPER_PATH).is_file():
         print(
             f"error: the privileged helper is not installed at {HELPER_PATH}.\n"
             f"`hammunition hardware apply` installs it, together with the polkit "
@@ -3689,12 +3993,49 @@ def _power_verb(args: argparse.Namespace, verb: str) -> int:
         print(
             "error: pkexec is not on PATH, so the privileged helper cannot be "
             "authorised. It comes from the `polkit` package (`pkexec` is in "
-            "`policykit-1` on Debian-family targets). Without it, park and wake "
-            "have no way to escalate; `hammunition hardware state` still works, "
-            "because reading sysfs needs no privilege.",
+            "`policykit-1` on Debian-family targets). Without it, park, wake and "
+            "time mode have no way to escalate; `hammunition hardware state` and "
+            "`hammunition time` still work, because reading needs no privilege.",
             file=sys.stderr,
         )
         return EXIT_UNPLANNABLE
+    return None
+
+
+def _run_helper(command: Command, done: str) -> int:
+    """Run a pkexec call and map its exit to ours: 126/127 is a dismissed prompt."""
+    try:
+        result = SubprocessRunner().run(command)
+    except BackendError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    if result.returncode in (126, 127):
+        print("The authentication prompt was dismissed; nothing was changed.", file=sys.stderr)
+        return EXIT_CONSENT
+    if result.returncode == EXIT_UNPLANNABLE:
+        print(result.stderr.strip() or "the helper refused the request", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    if result.returncode != 0:
+        print(result.stderr.strip()[:400] or f"helper exited {result.returncode}", file=sys.stderr)
+        return EXIT_FAILED
+    print(f"\n{done}")
+    return EXIT_OK
+
+
+def _power_verb(args: argparse.Namespace, verb: str) -> int:
+    """Disclose the privileged call and every write it will cause, then run it."""
+    from hammunition.hardware.power import (
+        KEPT_RULES,
+        PowerError,
+        plan_forget,
+        plan_park,
+        plan_wake,
+        read_kept,
+    )
+
+    ready = _helper_ready()
+    if ready is not None:
+        return ready
 
     found, skipped = _survey_parkables(args)
     for unit, why in skipped:
@@ -3748,25 +4089,9 @@ def _power_verb(args: argparse.Namespace, verb: str) -> int:
         print("\nDry run: nothing above was executed.")
         return EXIT_OK
 
-    try:
-        result = SubprocessRunner().run(command)
-    except BackendError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return EXIT_FAILED
-    if result.returncode in (126, 127):
-        print(
-            "The authentication prompt was dismissed; nothing was changed.",
-            file=sys.stderr,
-        )
-        return EXIT_CONSENT
-    if result.returncode == EXIT_UNPLANNABLE:
-        print(result.stderr.strip() or "the helper refused the request", file=sys.stderr)
-        return EXIT_UNPLANNABLE
-    if result.returncode != 0:
-        print(result.stderr.strip()[:400] or f"helper exited {result.returncode}", file=sys.stderr)
-        return EXIT_FAILED
-    print(f"\nDone and verified. `hammunition hardware state` shows {label} now.")
-    return EXIT_OK
+    return _run_helper(
+        command, f"Done and verified. `hammunition hardware state` shows {label} now."
+    )
 
 
 def cmd_hardware_park(args: argparse.Namespace) -> int:
@@ -3777,6 +4102,72 @@ def cmd_hardware_park(args: argparse.Namespace) -> int:
 def cmd_hardware_wake(args: argparse.Namespace) -> int:
     """Bring a parked device back."""
     return _power_verb(args, "wake")
+
+
+# ---------------------------------------------------------------------------
+# time — GPS time (D-058)
+# ---------------------------------------------------------------------------
+
+
+def cmd_time(args: argparse.Namespace) -> int:
+    """What the clock follows now, and the mode. Reads only; needs no privilege."""
+    from hammunition.gpstime import state as time_state
+
+    found, _ = _survey_parkables(args)
+    for line in time_state.describe(time_state.gather(gps=time_state.gps_from(found))):
+        print(line)
+    return EXIT_OK
+
+
+def cmd_time_mode(args: argparse.Namespace) -> int:
+    """Disclose the three files a mode change writes and the restart, then ask the helper."""
+    from hammunition.gpstime import files
+    from hammunition.gpstime.mode import GPS_MODES, TimeError, as_mode
+    from hammunition.gpstime.ntpconf import mode_writes
+    from hammunition.gpstime.state import gps_from, ntpsec_installed
+
+    ready = _helper_ready()
+    if ready is not None:
+        return ready
+    mode = as_mode(args.mode)
+    if not ntpsec_installed():
+        print(
+            f"error: ntpsec is not installed ({files.NTPD} or {files.NTP_CONF} is missing), "
+            f"and only ntpsec can take time from a GPS here (D-058). This target's time "
+            f"daemon is left as it is.",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
+    current = Path(files.NTP_CONF).read_text(encoding="utf-8")
+    try:
+        writes = mode_writes(current, mode)
+    except TimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+
+    print(f"Setting the time mode to {mode}\n")
+    print("Writes this will cause, as root, through the helper:")
+    for line in writes:
+        print(line)
+
+    found, _ = _survey_parkables(args)
+    gps = gps_from(found)
+    if mode in GPS_MODES and gps == "absent":
+        print("\nNo GPS receiver is attached: the mode is recorded and takes effect when one is.")
+    elif mode in GPS_MODES and gps == "parked":
+        print("\nThe GPS receiver is parked: GPS time stays off until it is woken.")
+
+    command = Command(
+        argv=("pkexec", HELPER_PATH, "time", "mode", mode),
+        description=f"Set the time mode to {mode}",
+    )
+    print(f"\n  # {command.description}\n  $ {command.display()}")
+    if args.dry_run:
+        print("\nDry run: nothing above was executed.")
+        return EXIT_OK
+    return _run_helper(
+        command, "Done and verified. `hammunition time` shows what the clock follows now."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -3896,6 +4287,15 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     except (OSError, PowerError, CatalogError, SystemExit):
         kept_attached, kept_absent = (), ()
 
+    time_state = None
+    try:
+        from hammunition.gpstime.state import gather, gps_from
+
+        found_now, _ = _survey_parkables(args)
+        time_state = gather(gps=gps_from(found_now))
+    except (OSError, CatalogError, SystemExit):
+        time_state = None
+
     from hammunition.launchers import survey_engine_launchers
 
     # Issue #145: every generated launcher that runs the engine can reach it.
@@ -3929,6 +4329,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         qmapshack_without_translations=(
             shutil.which("qmapshack") is not None and not Path(ROUTINO_TRANSLATIONS).is_file()
         ),
+        time_state=time_state,
         launchers_ok=engine_launchers.ok,
         launchers_bare=engine_launchers.bare,
         launchers_broken=engine_launchers.broken,
@@ -4088,7 +4489,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--upstream",
         action="store_true",
         help=(
-            "also ask upstream (GitHub, git tags, PyPI, a version file) whether the "
+            "also ask upstream (GitHub, git tags, PyPI, a version file, CoMaps' CDN) whether the "
             "catalog's pin is current; the only network the report uses"
         ),
     )
@@ -4097,7 +4498,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_maps = sub.add_parser(
         "maps",
         help="offline maps: Geofabrik's regions (D-057), QMapShack and its GPS (D-061), "
-        "Navit and repeaters (D-064), phone files (D-067)",
+        "Navit and repeaters (D-064), phone files (D-067), CoMaps (D-069)",
     )
     maps_sub = p_maps.add_subparsers(dest="maps_command", required=True)
 
@@ -4124,9 +4525,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_maps_qms.set_defaults(func=cmd_maps_qmapshack)
 
+    p_maps_comaps = maps_sub.add_parser(
+        "comaps",
+        help="accept CoMaps' licence notice and link your maps for it, then start it (D-069)",
+    )
+    p_maps_comaps.add_argument(
+        "--configure-only",
+        action="store_true",
+        help="prepare the settings and map links and do not start CoMaps",
+    )
+    p_maps_comaps.set_defaults(func=cmd_maps_comaps)
+
     p_maps_tether = maps_sub.add_parser(
         "gps-tether",
-        help="serve gpsd's position as NMEA on 127.0.0.1:10110 for QMapShack's GPS TCP/IP source (D-061)",
+        help="serve gpsd's position as NMEA on 127.0.0.1:10110 for QMapShack's GPS TCP/IP source "
+        "(D-061), and to the browser map on 127.0.0.1:10111 (D-071)",
     )
     p_maps_tether.add_argument(
         "--gpsd",
@@ -4140,6 +4553,13 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="N",
         default=None,
         help="serve on 127.0.0.1 port N, 1024 to 65535, when 10110 is taken (default 10110)",
+    )
+    p_maps_tether.add_argument(
+        "--position-port",
+        metavar="N",
+        default=None,
+        help="serve the browser map's position stream (GET /position) on 127.0.0.1 port N "
+        "(default 10111, D-071)",
     )
     p_maps_tether.set_defaults(func=cmd_maps_gps_tether)
 
@@ -4214,7 +4634,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_ref_books.set_defaults(func=cmd_reference_books)
     p_ref_serve = reference_sub.add_parser(
         "serve",
-        help="serve the books, forms and dictionaries on 127.0.0.1:8480 until Ctrl-C",
+        help="serve the books, forms, dictionaries and the offline map on 127.0.0.1:8480 "
+        "until Ctrl-C",
     )
     p_ref_serve.add_argument(
         "--port",
@@ -4222,6 +4643,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="serve the page on 127.0.0.1 port N (1024 to 65534); kiwix-serve takes N+1 "
         "(default 8480)",
+    )
+    p_ref_serve.add_argument(
+        "--position-port",
+        metavar="N",
+        default=None,
+        help="where the map page asks the GPS tether for your position: 127.0.0.1 port N "
+        "(default 10111, the tether's own default, D-071)",
     )
     p_ref_serve.set_defaults(func=cmd_reference_serve)
 
@@ -4339,6 +4767,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_hw_apply.add_argument("--dry-run", action="store_true", help="print, change nothing")
     p_hw_apply.add_argument("--yes", action="store_true", help="skip the confirmation")
     p_hw_apply.add_argument("--user", default=None, help="whom to set up")
+    p_hw_apply.add_argument(
+        "--no-gps-time",
+        action="store_true",
+        help="leave ntpsec, its grants and fake-hwclock alone (D-058)",
+    )
     p_hw_apply.set_defaults(func=cmd_hardware_apply)
 
     p_hw_unapply = hardware_sub.add_parser(
@@ -4382,6 +4815,24 @@ def build_parser() -> argparse.ArgumentParser:
                 help="park now, but let a reboot wake it (no kept entry)",
             )
         p_verb.set_defaults(func=cmd_hardware_park if verb == "park" else cmd_hardware_wake)
+
+    from hammunition.gpstime.mode import MODES
+
+    p_time = sub.add_parser(
+        "time", help="GPS time (D-058): what the clock follows, and the time mode"
+    )
+    p_time.set_defaults(func=cmd_time)
+    time_sub = p_time.add_subparsers(dest="time_command")
+    p_time_mode = time_sub.add_parser(
+        "mode", help="auto | prefer-gps | ntp-only | gps-only, through the helper"
+    )
+    p_time_mode.add_argument("mode", choices=MODES)
+    p_time_mode.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print every write, the restart and the privileged call, then stop",
+    )
+    p_time_mode.set_defaults(func=cmd_time_mode)
 
     p_station = sub.add_parser("station", help="the values only you can supply")
     station_sub = p_station.add_subparsers(dest="station_command", required=True)

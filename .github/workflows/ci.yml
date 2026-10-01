@@ -250,6 +250,11 @@ jobs:
       # "Unknown". Fetches the 0.5 MB index and compares the regions only:
       # the `measured` date moves on every fetch and is not compared.
       - run: python scripts/gen_geofabrik_countries.py --fetch --check
+      # CoMaps' map pins (D-069): fetch the ~360 KB index at the commit
+      # comaps.yaml pins, compare, and HEAD the pinned World.mwm. The CDN
+      # keeps a map version for months, and a mirror answers a missing file
+      # with 200 and a web page, so the size is compared, never the status.
+      - run: python scripts/gen_comaps_pins.py --check
 
   # -------------------------------------------------------------------------
   # D-031. Every identifier citing a distribution's udev rule is checked

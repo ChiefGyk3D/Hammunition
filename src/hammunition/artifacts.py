@@ -26,6 +26,7 @@ from datetime import date
 from pathlib import Path
 
 from .backends.data import data_name
+from .comaps import ComapsError, load_pins, resolve_regions, sha1_hex
 from .copernicus import (
     CopernicusError,
     TileProbe,
@@ -40,13 +41,19 @@ from .geofabrik import BASE, GeofabrikError, Probe
 from .geofabrik import load_pins as load_region_pins
 from .geofabrik import resolve as resolve_region
 from .interface.artifacts import ArtifactEntry
-from .manifest.schema import DataInstall, DemTilesInstall, PackageManifest, RegionalDataInstall
+from .manifest.schema import (
+    DataInstall,
+    DemTilesInstall,
+    MwmRegionsInstall,
+    PackageManifest,
+    RegionalDataInstall,
+)
 from .terrain_plan import PINS as TILE_PINS
 from .terrain_plan import TILE_LIST
 
 __all__ = ["SelectionError", "fetching_units", "list_artifacts", "select_units"]
 
-FETCHING = (DataInstall, RegionalDataInstall, DemTilesInstall)
+FETCHING = (DataInstall, RegionalDataInstall, DemTilesInstall, MwmRegionsInstall)
 REGION_PINS = Path("data") / "geofabrik-pins.yaml"
 NO_REGIONS = (
     "no map regions given: pass --map-regions with Geofabrik region paths "
@@ -58,12 +65,15 @@ class SelectionError(Exception):
     """The selection names something that cannot be listed."""
 
 
-def _blocks(manifest: PackageManifest) -> list[DataInstall | RegionalDataInstall | DemTilesInstall]:
+def _blocks(
+    manifest: PackageManifest,
+) -> list[DataInstall | RegionalDataInstall | DemTilesInstall | MwmRegionsInstall]:
     return [b.install for b in manifest.install if isinstance(b.install, FETCHING)]
 
 
 def fetching_units(catalog: Mapping[str, PackageManifest]) -> tuple[str, ...]:
-    """Every unit with a ``data``, ``osm-regions`` or ``dem-tiles`` block, sorted."""
+    """Every unit with a ``data``, ``osm-regions``, ``dem-tiles`` or ``mwm-regions``
+    block, sorted."""
     return tuple(sorted(name for name, m in catalog.items() if _blocks(m)))
 
 
@@ -222,6 +232,38 @@ def _tiles(
     return out
 
 
+def _mwm(
+    unit: str, licence: str, regions: Sequence[str], *, catalog_root: Path
+) -> list[ArtifactEntry]:
+    """CoMaps' maps for *regions* (D-069), from the carried pins alone: no
+    network. Named ``<version>/<id>.mwm``, the installed layout, so a mirror
+    can hold two versions side by side."""
+    try:
+        pins = load_pins(catalog_root)
+    except ComapsError as exc:
+        return [_deferred(unit, None, licence, f"the carried map pins cannot be read: {exc}")]
+    files, unmapped = resolve_regions(regions, pins)
+    out = [
+        _deferred(unit, region, licence, "the region table has no CoMaps map for this region")
+        for region in unmapped
+    ]
+    for f in files:
+        out.append(
+            ArtifactEntry(
+                unit=unit,
+                name=f"{f.version}/{f.file}",
+                url=f.url,
+                check="sha1-publisher",
+                digest=sha1_hex(f.pin.sha1),
+                checksum_url=None,
+                size=f.pin.size,
+                licence=licence,
+                deferred=None,
+            )
+        )
+    return out
+
+
 def list_artifacts(
     units: Sequence[str],
     *,
@@ -246,6 +288,8 @@ def list_artifacts(
         licence = _licence(block.licence)
         if not regions:
             out.append(_deferred(unit, None, licence, NO_REGIONS))
+        elif isinstance(block, MwmRegionsInstall):
+            out.extend(_mwm(unit, licence, regions, catalog_root=catalog_root))
         elif isinstance(block, RegionalDataInstall):
             out.extend(
                 _regions(
