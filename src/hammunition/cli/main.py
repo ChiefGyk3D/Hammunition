@@ -112,6 +112,7 @@ from hammunition.execute import (
     execute,
     run_removal,
     user_groups,
+    user_service_removal_steps,
 )
 from hammunition.fetch import Fetcher
 from hammunition.geofabrik import (
@@ -3092,6 +3093,27 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
 
     euid = os.geteuid()
     commands: list[Step] = list(apt.remove_commands(plan.apt_packages))
+    # User services the removed units wrote (D-073 §6d): disable each, then
+    # remove its file only if it still carries our header; a file the operator
+    # rewrote is left and named. Linger is untouched — it is a station setting
+    # with its own reversal (§5a).
+    user_service_names = list(
+        dict.fromkeys(
+            svc.name
+            for unit in args.names
+            if (unit_manifest := packages.get(unit)) is not None
+            for svc in unit_manifest.user_services
+        )
+    )
+    if user_service_names:
+        uninstall_user = operator(args)
+        commands.extend(
+            user_service_removal_steps(
+                user_service_names,
+                home=config_path(uninstall_user or None).parent,
+                machine=(uninstall_user if euid == 0 and uninstall_user not in ("", "root") else None),
+            )
+        )
     commands.extend(artifact_removal_steps(plan))
     if any(r.kind == "apt-repo" for removals in plan.artifacts.values() for r in removals):
         # The files are gone; apt's index still lists the repository until
