@@ -218,3 +218,27 @@ def test_import_file_refuses_the_register_and_names_the_route(tmp_path: Path) ->
         archive.writestr("export.gpx", "<gpx/>")
     with pytest.raises(RepeaterInputError, match="unpack it"):
         read_input(other)
+
+
+def test_a_member_in_a_compression_nothing_reads_is_a_named_refusal(tmp_path: Path) -> None:
+    """Final review: a table whose central-directory entry names a compression
+    method zipfile cannot read raised NotImplementedError past the check and
+    the import, a traceback instead of a named error."""
+    path = tmp_path / "spectra_rrl.zip"
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_STORED) as archive:
+        for name, text in register_members().items():
+            archive.writestr(name, text)
+    raw = bytearray(path.read_bytes())
+    entry = raw.find(b"PK\x01\x02", raw.find(b"PK\x01\x02"))
+    while entry != -1:
+        name_length = int.from_bytes(raw[entry + 28 : entry + 30], "little")
+        if raw[entry + 46 : entry + 46 + name_length] == b"site.csv":
+            raw[entry + 10 : entry + 12] = (99).to_bytes(2, "little")
+            break
+        entry = raw.find(b"PK\x01\x02", entry + 4)
+    assert entry != -1
+    path.write_bytes(bytes(raw))
+    with pytest.raises(acma.AcmaError, match="damaged"):
+        acma.check_register(path, crc=False)
+    with pytest.raises(RepeaterInputError, match="damaged"):
+        rs.read_acma(path, [TASMANIA])

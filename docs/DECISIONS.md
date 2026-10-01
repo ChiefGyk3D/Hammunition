@@ -8397,6 +8397,11 @@ asking for a current Azure storage API version):
   import that keeps nothing; an older `acma` layer is left as it was.
 - **The import does not re-run the CRC pass** over 600 MB the install
   already checked; it checks the tables and columns, then reads.
+- **From the final review.** A table stored in a compression `zipfile`
+  cannot read (or encrypted) raised `NotImplementedError` (or
+  `RuntimeError`) past the check and the import, a traceback rather than a
+  named refusal; both are now the check's "damaged" error, and a test
+  crafts such a member.
 
 **What has run.** The test suite: the check against a synthetic register
 in the real file's column layout, falsified by a flipped byte in a member

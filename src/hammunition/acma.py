@@ -159,9 +159,18 @@ def check_register(path: Path, *, crc: bool = True) -> RegisterCheck:
                         f"{path}: the member {bad} does not match its CRC-32: a damaged download"
                     )
             day = register_day(archive)
-        except (zipfile.BadZipFile, OSError, EOFError, ValueError) as exc:
+        except (
+            zipfile.BadZipFile,
+            OSError,
+            EOFError,
+            ValueError,
+            NotImplementedError,
+            RuntimeError,
+        ) as exc:
             # zlib.error is not an OSError; testzip and open raise BadZipFile
-            # for it, and a truncated member raises EOFError.
+            # for it, and a truncated member raises EOFError. A member in a
+            # compression zipfile cannot read raises NotImplementedError, an
+            # encrypted one RuntimeError (final review).
             raise AcmaError(f"{path}: the archive is damaged ({exc})") from None
         return RegisterCheck(day=day, members=len(infos))
 

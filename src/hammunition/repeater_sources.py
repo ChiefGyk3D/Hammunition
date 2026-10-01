@@ -480,7 +480,14 @@ def read_acma(path: Path, boxes: Sequence[Box]) -> ParsedInput:
                 for _, r in _acma_rows(archive, "site.csv")
                 if r.get("SITE_ID", "").strip() in wanted
             }
-    except (zipfile.BadZipFile, OSError, EOFError, csv.Error) as exc:
+    except (
+        zipfile.BadZipFile,
+        OSError,
+        EOFError,
+        csv.Error,
+        NotImplementedError,
+        RuntimeError,
+    ) as exc:
         raise RepeaterInputError(f"{path}: the register could not be read: {exc}") from None
     for line, r in transmitters:
         read += 1
