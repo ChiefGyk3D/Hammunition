@@ -3,7 +3,7 @@
 
 """Repeater sources beyond the operator's own export.  D-074.
 
-Five sources, each read into its own layer beside D-064's
+Six sources, each read into its own layer beside D-064's
 (:mod:`hammunition.repeaters`, which writes and registers every layer):
 
 - **Open Repeater** (CC0), the ``open-repeater`` data unit's file or a copy
@@ -18,6 +18,9 @@ Five sources, each read into its own layer beside D-064's
   anything is written.
 - **Direwolf's ``-l`` log**: the APRS repeater objects this station heard,
   :func:`read_direwolf_logs`. Never merged into the directory layers.
+- **The ACMA's Register of Radiocommunications Licences** (Australia), the
+  ``acma-register`` unit's zip, filtered to the bounding boxes of the region
+  extracts installed here: :func:`read_acma` (D-074, amended 2026-10-01).
 
 And :func:`cross_merge`, which joins the directory layers into one
 all-sources file by the spike's precedence (2026-10-01).
@@ -47,6 +50,7 @@ from .repeaters import (
     _CALLSIGN,
     _NO_CALLSIGN,
     _NO_POSITION,
+    ACMA,
     BRANDMEISTER,
     DIREWOLF,
     DIREWOLF_HEAD,
@@ -61,6 +65,7 @@ from .repeaters import (
     ParsedInput,
     Repeater,
     RepeaterInputError,
+    Skip,
     _clean,
     _hz,
     _in_band,
@@ -71,12 +76,20 @@ from .repeaters import (
     format_mhz,
 )
 
+#: A region's (left, right, top, bottom) in degrees, as an extract's header
+#: gives it (:func:`hammunition.osm_pbf.header_bbox`).
+Box = tuple[float, float, float, float]
+
 __all__ = [
+    "ACMA_OUTSIDE",
     "BRANDMEISTER_URL",
     "ETCC_URL",
     "HOTSPOT_ID",
     "HOTSPOT_SIMPLEX",
     "PRECEDENCE",
+    "acma_date",
+    "acma_layer_name",
+    "acma_licence",
     "brandmeister_layer_name",
     "brandmeister_licence",
     "cross_merge",
@@ -97,6 +110,7 @@ __all__ = [
     "osm_offset",
     "parse_brandmeister",
     "parse_etcc",
+    "read_acma",
     "read_direwolf_logs",
     "read_open_repeater",
     "read_osm_xml",
@@ -115,12 +129,15 @@ HOTSPOT_ID = "a hotspot or personal id (not 6 digits), dropped as a personal loc
 HOTSPOT_SIMPLEX = "transmit equals receive (a simplex hotspot), dropped as a personal location"
 
 #: The all-sources file's order, best first (the spike's precedence): the
-#: operator's own export or list, the regulator or coordinator, CC0
-#: community data, hearham, Brandmeister, OpenStreetMap.
+#: operator's own export or list, the regulator (the ACMA), the coordinator
+#: (the ETCC), CC0 community data, hearham, Brandmeister, OpenStreetMap.
+#: The ACMA and the ETCC cover different countries, so their order decides
+#: nothing today; the regulator is put first by the spike's word.
 PRECEDENCE = (
     REPEATERBOOK_GPX,
     REPEATERBOOK_CSV,
     HAND,
+    ACMA,
     ETCC,
     OPEN_REPEATER,
     HEARHAM,
@@ -181,6 +198,24 @@ def direwolf_licence() -> str:
         "Received by this station: APRS repeater objects from Direwolf's log. Nothing was "
         "fetched. Kept as its own layer and never merged into the directories."
     )
+
+
+def acma_licence(day: date) -> str:
+    """The attribution the ACMA's licence requires (clause 9), and what was
+    done to make this derivative."""
+    return (
+        "Based on Australian Communications and Media Authority information. ACMA "
+        "Register of Radiocommunications Licences, used under the ACMA's Licence to use "
+        "the Register (derivatives permitted, attribution required). Filtered on this "
+        "machine to the bounding boxes of your installed map regions: granted amateur "
+        "repeater licences, their transmitters and sites. No licensee's name or address "
+        f"is read or written. Register of {day.isoformat()}, fetched unverified (the "
+        "ACMA publishes no checksum)."
+    )
+
+
+def acma_layer_name(day: date) -> str:
+    return f"Repeaters (ACMA, {day.isoformat()})"
 
 
 def open_repeater_layer_name(day: date) -> str:
@@ -325,6 +360,201 @@ def open_repeater_date(path: Path) -> date:
             if when is not None:
                 days.append(when.date())
     return max(days) if days else date.fromtimestamp(mtime)
+
+
+# --- the ACMA register ------------------------------------------------------------------
+
+#: Why a register row inside Australia but outside the operator's regions is
+#: left out. Counted, never numbered: which rows fall outside says where the
+#: regions are.
+ACMA_OUTSIDE = "outside the bounding boxes of your installed map regions"
+_ACMA_NOT_GRANTED = "the licence is not granted (expired, cancelled or refused)"
+_ACMA_NO_SITE = "no site in the register"
+#: The ``SS_ID`` of "Amateur Repeater" in ``licence_subservice.csv``.
+_ACMA_REPEATER = "602"
+_ACMA_GRANTED = "1"
+#: The emission class (the designator's three characters after its
+#: bandwidth) in plain words, for the classes the 2026-10-01 register's
+#: repeater transmitters use. Any other is shown as its designator alone.
+_EMISSION_WORDS = {
+    "F3E": "FM",
+    "F1D": "FM data",
+    "F2D": "FM data",
+    "F3D": "FM data",
+    "F9W": "FM and digital",
+    "F1W": "digital",
+    "F7W": "digital",
+    "W7W": "digital",
+    "FXE": "digital voice",
+    "J3E": "SSB",
+    "A1A": "CW",
+    "F1A": "CW",
+    "C3F": "ATV",
+    "F3F": "ATV",
+    "F2F": "ATV",
+    "V7W": "digital ATV",
+}
+
+
+def _acma_mode(emission: str) -> str:
+    designator = emission.strip().upper()
+    if not designator:
+        return ""
+    words = _EMISSION_WORDS.get(designator[4:7]) if len(designator) >= 7 else None
+    return f"{words} ({designator})" if words else designator
+
+
+def _in_box(lat: float, lon: float, box: Box) -> bool:
+    left, right, top, bottom = box
+    if not bottom <= lat <= top:
+        return False
+    if left <= right:
+        return left <= lon <= right
+    return lon >= left or lon <= right  # a box across the antimeridian
+
+
+def _acma_rows(archive: Any, name: str) -> Iterable[tuple[int, dict[str, str]]]:
+    """*name*'s rows as dicts keyed by upper-case column, with line numbers."""
+    with archive.open(name) as handle:
+        text = io.TextIOWrapper(handle, encoding="utf-8", errors="replace", newline="")
+        reader = csv.reader(text)
+        header = [h.strip().upper() for h in next(reader, [])]
+        for record in reader:
+            yield reader.line_num, dict(zip(header, record, strict=False))
+
+
+def read_acma(path: Path, boxes: Sequence[Box]) -> ParsedInput:
+    """The amateur repeaters in the ACMA register at *path* (the
+    ``acma-register`` unit's zip) that lie in any of *boxes*.
+
+    A row is a transmitter (``DEVICE_TYPE`` T) on an "Amateur Repeater"
+    licence (``SS_ID`` 602); its input is the receiver of the same licence
+    and ``EFL_SYSTEM``, and its position its site's. Kept only on a granted
+    licence, with a site that has a position, a frequency from 1 to
+    10,000 MHz, inside a box. ``client.csv`` is never opened. ``read``
+    counts the transmitters; the skips are numbered by ``device_details.csv``
+    line, except :data:`ACMA_OUTSIDE`, which is only counted."""
+    import zipfile
+
+    from .acma import AcmaError, check_register
+
+    try:
+        check_register(path, crc=False)
+    except AcmaError as exc:
+        raise RepeaterInputError(str(exc)) from None
+    digest = hashlib.sha256()
+    try:
+        with path.open("rb") as handle:
+            while chunk := handle.read(1024 * 1024):
+                digest.update(chunk)
+        mtime = path.stat().st_mtime
+        archive = zipfile.ZipFile(path)
+    except (OSError, zipfile.BadZipFile) as exc:
+        raise RepeaterInputError(f"{path}: cannot read it: {exc}") from None
+    rows: list[Repeater] = []
+    skips = _Skips()
+    outside = 0
+    read = 0
+    try:
+        with archive:
+            status = {
+                r.get("LICENCE_NO", ""): r.get("STATUS", "").strip()
+                for _, r in _acma_rows(archive, "licence.csv")
+                if r.get("SS_ID", "").strip() == _ACMA_REPEATER
+            }
+            transmitters: list[tuple[int, dict[str, str]]] = []
+            receivers: dict[tuple[str, str], list[str]] = {}
+            for line, r in _acma_rows(archive, "device_details.csv"):
+                licence = r.get("LICENCE_NO", "")
+                if licence not in status:
+                    continue
+                kind = r.get("DEVICE_TYPE", "").strip().upper()
+                if kind == "T":
+                    transmitters.append((line, r))
+                elif kind == "R":
+                    key = (licence, r.get("EFL_SYSTEM", "").strip())
+                    receivers.setdefault(key, []).append(r.get("FREQUENCY", ""))
+            wanted = {r.get("SITE_ID", "").strip() for _, r in transmitters} - {""}
+            sites = {
+                r.get("SITE_ID", "").strip(): r
+                for _, r in _acma_rows(archive, "site.csv")
+                if r.get("SITE_ID", "").strip() in wanted
+            }
+    except (zipfile.BadZipFile, OSError, EOFError, csv.Error) as exc:
+        raise RepeaterInputError(f"{path}: the register could not be read: {exc}") from None
+    for line, r in transmitters:
+        read += 1
+        licence = r.get("LICENCE_NO", "")
+        if status.get(licence) != _ACMA_GRANTED:
+            skips.add(_ACMA_NOT_GRANTED, line)
+            continue
+        site = sites.get(r.get("SITE_ID", "").strip())
+        if site is None:
+            skips.add(_ACMA_NO_SITE, line)
+            continue
+        where = _position(site.get("LATITUDE"), site.get("LONGITUDE"))
+        if where is None:
+            skips.add(_NO_POSITION, line)
+            continue
+        call = _clean(r.get("CALL_SIGN")).upper()
+        if not call:
+            skips.add(_NO_CALLSIGN, line)
+            continue
+        hertz = _number(r.get("FREQUENCY"))
+        hz = _hz(hertz / 1e6) if hertz is not None else None
+        if hz is None:
+            skips.add(_BAD_FREQUENCY, line)
+            continue
+        if not any(_in_box(where[0], where[1], box) for box in boxes):
+            outside += 1
+            continue
+        inputs = receivers.get((licence, r.get("EFL_SYSTEM", "").strip()), [])
+        entry = _number(inputs[0]) if len(inputs) == 1 else None
+        precision = _clean(site.get("SITE_PRECISION"))
+        notes = [f"ACMA licence {licence}"]
+        if precision and precision.lower() != "unknown":
+            notes.append(f"site position {precision[0].lower()}{precision[1:]}")
+        else:
+            notes.append("site position precision unknown")
+        place = ", ".join(x for x in (_clean(site.get("NAME")), _clean(site.get("STATE"))) if x)
+        rows.append(
+            Repeater(
+                callsign=call,
+                output_hz=hz,
+                lat=where[0],
+                lon=where[1],
+                source=ACMA,
+                offset_hz=None if entry is None else round(entry) - hz,
+                mode=_acma_mode(r.get("EMISSION", "")),
+                place=place,
+                notes="; ".join(notes),
+            )
+        )
+    skipped = list(skips.result())
+    if outside:
+        skipped.append(Skip(ACMA_OUTSIDE, outside, ()))
+    return ParsedInput(
+        path=path,
+        format=ACMA,
+        read=read,
+        rows=tuple(rows),
+        skipped=tuple(skipped),
+        sha256=digest.hexdigest(),
+        mtime=mtime,
+    )
+
+
+def acma_date(path: Path) -> date:
+    """The register's own date: its ``licence.csv`` member's timestamp (D-031)."""
+    import zipfile
+
+    from .acma import register_day
+
+    try:
+        with zipfile.ZipFile(path) as archive:
+            return register_day(archive)
+    except (OSError, zipfile.BadZipFile, KeyError, ValueError) as exc:
+        raise RepeaterInputError(f"{path}: the register's date cannot be read: {exc}") from None
 
 
 # --- ETCC ----------------------------------------------------------------------------
