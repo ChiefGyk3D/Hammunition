@@ -821,6 +821,59 @@ class Fetcher:
         os.replace(temporary, final)
         return FetchResult(path=final, sha256=sha, from_cache=False, size=size)
 
+    def checked_path_for(self, url: str) -> Path:
+        """Where a structure-checked file lands (:meth:`fetch_checked`). Pure."""
+        return self.cache_dir / f"checked-{_safe_name(url)}"
+
+    def fetch_checked(
+        self,
+        url: str,
+        *,
+        max_bytes: int,
+        check: Callable[[Path], None],
+        mirror: MirrorPath | None = None,
+    ) -> FetchResult:
+        """A file whose publisher offers no digest at all and changes it too
+        often for a pin (D-074, amended 2026-10-01: the ACMA register). Only
+        *check*, run over the bytes as they arrived, stands between the
+        download and the install: it raises :class:`VerificationError` for a
+        file that is damaged or not what the reader expects. The weakest
+        fetch here beside :meth:`fetch_sized`, and the plan says
+        "unverified". A cached copy is never reused; a LAN mirror (D-070) is
+        asked first when one is set and checked the same way, which over
+        plain http ties the bytes to nothing but their own structure. The
+        sha256 of what arrived is returned for the log and the install's
+        own re-check.
+        """
+        make_dir(self.cache_dir)
+        final = self.checked_path_for(url)
+        final.unlink(missing_ok=True)
+        temporary = final.with_name(final.name + f".part.{os.getpid()}")
+
+        def verify(_sha: str, _size: int, _other: str | None, where: str) -> None:
+            try:
+                check(temporary)
+            except VerificationError:
+                raise
+            except Exception as exc:
+                raise VerificationError(
+                    f"{where}: {exc}. The download has been discarded."
+                ) from exc
+
+        done = self._from_sources(
+            url, mirror, temporary, max_bytes=max_bytes, md5=False, verify=verify
+        )
+        os.replace(temporary, final)
+        return FetchResult(
+            path=final,
+            sha256=done.sha256,
+            from_cache=False,
+            size=done.size,
+            source=done.source,
+            url=done.url,
+            mirror_failure=done.mirror_failure,
+        )
+
     def _download(
         self,
         url: str,

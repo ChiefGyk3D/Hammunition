@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 83 | 2 | 213 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 83 | 2 | 213 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 81 | 2 | 215 |
-| kali-rolling *(unswept)* | 0 | 0 | 76 | 1 | 221 |
-| parrot *(unswept)* | 0 | 0 | 81 | 2 | 215 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 81 | 2 | 215 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 78 | 7 | 213 |
+| debian-13 *(unswept)* | 0 | 0 | 84 | 2 | 213 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 84 | 2 | 213 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 82 | 2 | 215 |
+| kali-rolling *(unswept)* | 0 | 0 | 77 | 1 | 221 |
+| parrot *(unswept)* | 0 | 0 | 82 | 2 | 215 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 82 | 2 | 215 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 79 | 7 | 213 |
 
-**298 manifests** against **7 targets**.
+**299 manifests** against **7 targets**.
 
 ---
 
@@ -54,6 +54,7 @@ build HAS been run in a container say so in their own install notes.
 | `a2d` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `acarsdec` | git | git | git | git | git | git | git |
 | `acarsserv` | git | git | git | git | git | git | git |
+| `acma-register` | register | register | register | register | register | register | register |
 | `aethersdr` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `aircrack-ng` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `airspy` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
