@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 83 | 2 | 214 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 83 | 2 | 214 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 81 | 2 | 216 |
-| kali-rolling *(unswept)* | 0 | 0 | 76 | 1 | 222 |
-| parrot *(unswept)* | 0 | 0 | 81 | 2 | 216 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 81 | 2 | 216 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 78 | 7 | 214 |
+| debian-13 *(unswept)* | 0 | 0 | 85 | 2 | 214 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 85 | 2 | 214 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 82 | 3 | 216 |
+| kali-rolling *(unswept)* | 0 | 0 | 78 | 1 | 222 |
+| parrot *(unswept)* | 0 | 0 | 83 | 2 | 216 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 82 | 3 | 216 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 80 | 7 | 214 |
 
-**299 manifests** against **7 targets**.
+**301 manifests** against **7 targets**.
 
 ---
 
@@ -110,6 +110,7 @@ build HAS been run in a container say so in their own install notes.
 | `dictionaries` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `direwolf` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `dmrconfig` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `droidstar` | git | git | — | git | git | — | git |
 | `dsdcc` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `dump1090-mutability` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `dumphfdl` | source | source | source | source | source | source | source |
@@ -243,6 +244,7 @@ build HAS been run in a container say so in their own install notes.
 | `pciutils` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `pcsc-tools` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `picocom` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `pihpsdr` | git | git | git | git | git | git | git |
 | `pipx` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `proxmark3` | git | git | git | apt ? | git | git | git |
 | `psk31lx` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |

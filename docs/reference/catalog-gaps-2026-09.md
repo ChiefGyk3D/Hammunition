@@ -119,6 +119,44 @@ What that changed below, each noted at its row:
   that. Carrying it would need the maintainer to amend D-061; nothing
   here does.
 
+### Measured since, 2026-10-01 — the first source-built adds of D.10
+
+`scripts/apt-policy-sweep.sh`, one target at a time, over the three units'
+names and their build dependencies. `-` means the archive has no candidate.
+
+| Package | Debian 13 | Ubuntu 26.04 | Ubuntu 24.04 | Kali | Parrot 7 | Mint 22.3 | Debian 13 arm64 |
+|---|---|---|---|---|---|---|---|
+| `freedv` | 1.8.11-1+b5 | 1.8.11-1build5 | 1.8.11-1build4 | 1.8.11-1+b5 | 1.8.11-1+b5 | 1.8.11-1build4 | 1.8.11-1+b5 |
+| `libcodec2-dev` | 1.2.0-3 | 1.2.0-4 | 1.2.0-2build1 | 1.2.0-5 | 1.2.0-3 | 1.2.0-2build1 | 1.2.0-3 |
+| `librade0`, `librade-dev`, `radae`, `rade` | - | - | - | - | - | - | - |
+| `pihpsdr`, `deskhpsdr`, `libwdsp-dev` | - | - | - | - | - | - | - |
+| `droidstar`, `dudestar`, `mvoice`, `md380-emu` | - | - | - | - | - | - | - |
+| `libgtk-3-dev` | 3.24.49-3 | 3.24.52-0ubuntu1 | 3.24.41-4ubuntu1.3 | 3.24.52-1 | 3.24.49-3 | 3.24.41-4ubuntu1.3 | 3.24.49-3 |
+| `libgpiod-dev` | 2.2.1-2+deb13u1 | 2.2.1-3build1 | 1.6.3-1.1build1 | 2.2.5-1+b1 | 2.2.1-2+deb13u1 | 1.6.3-1.1build1 | 2.2.1-2+deb13u1 |
+| `qt6-base-dev` | 6.8.2+dfsg-9+deb13u2 | 6.10.2+dfsg-7 | 6.4.2+dfsg-21.1build5 | 6.10.2+dfsg-16 | 6.8.2+dfsg-9+deb13u2 | 6.4.2+dfsg-21.1build5 | 6.8.2+dfsg-9+deb13u2 |
+| `libwxgtk3.2-dev` | 3.2.8+dfsg-2 | 3.2.9+dfsg-1 | 3.2.4+dfsg-4build1 | 3.2.11+dfsg1-1 | 3.2.8+dfsg-2 | 3.2.4+dfsg-4build1 | 3.2.8+dfsg-2 |
+
+Every other build dependency of the three (the rest of piHPSDR's list, Qt 6's
+multimedia, declarative and serial-port packages and the QML modules,
+FreeDV's audio and wxWidgets stack) has a candidate on all seven. What that
+changed below:
+
+- **piHPSDR is carried** (`catalog/packages/pihpsdr.yaml`, `sdr`), from
+  DL1YCF's repository, the maintained one, at tag v3.0. Its licence is
+  GPL-3.0-or-later, not the GPL-3.0 the row below gives without the
+  "or later". Built in Debian 13 and Ubuntu 24.04 containers.
+- **DroidStar is carried** (`catalog/packages/droidstar.yaml`,
+  `digital-modes`) on Debian 13, Parrot, Kali and Ubuntu 26.04. Ubuntu 24.04
+  and Mint carry Qt 6.4, below its 6.5 floor. Its downloadable vocoder
+  plugin, the reason this report flagged it, was removed upstream on
+  2025-10-19; its build turns on an ARM-only MD-380 firmware vocoder, which a
+  two-line patch turns off. Not the `.deb`/AppImage route the row below
+  suggests: those are third-party builds, not measured.
+- **FreeDV 2.x is not carried yet.** Every target has 1.8.11. v2.4.0 builds,
+  but its CMake fetches RADE's C port and RNNoise from `main` while
+  building, which cannot be pinned from outside
+  (`source-build-gaps.md` #9, `not-carried.md`).
+
 ## A. Cross-cutting gaps — plans the catalog has not caught up with
 
 ### A1. Station config is built and almost nobody reads it
@@ -526,7 +564,8 @@ the cost:
 9. **A8** — the three re-rulings: ARDOPGUI, Morse Runner CE, Chattervox.
 10. **Source-built adds** — piHPSDR, FreeDV 2.x, DroidStar, dump978-fa,
     nrsc5, LibreVNA, k5prog, radio_tool, tar1090; each a pinned build
-    with a D-032 check first.
+    with a D-032 check first. (2026-10-01: piHPSDR and DroidStar carried,
+    FreeDV 2.x not yet; see *Measured since*.)
 11. **Hardware without hardware** — HydraSDR and Fobos entries wait for a
     unit to measure with (D-027).
 
