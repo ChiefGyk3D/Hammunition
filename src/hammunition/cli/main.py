@@ -3364,6 +3364,8 @@ def cmd_hardware_list(args: argparse.Namespace) -> int:
 
 def cmd_hardware_apply(args: argparse.Namespace) -> int:
     """Write the catalog's udev rules and join the device-access groups."""
+    from hammunition.gpstime.grants import disclose, grant_commands, stage_grants, verify_grants
+    from hammunition.gpstime.mode import TimeError
     from hammunition.hardware import plan_hardware
 
     try:
@@ -3377,7 +3379,20 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
         print("error: could not determine which user to set up.", file=sys.stderr)
         return EXIT_FAILED
     groups_now = user_groups(user)
-    plan = plan_hardware(classes, devices, user=user, user_groups_now=groups_now)
+    try:
+        plan = plan_hardware(
+            classes,
+            devices,
+            user=user,
+            user_groups_now=groups_now,
+            with_time=not getattr(args, "no_gps_time", False),
+        )
+    except TimeError as exc:
+        print(
+            f"error: {exc}\n`--no-gps-time` sets up devices without GPS time (D-058).",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
 
     print(f"Hardware setup for {user!r}\n")
     if plan.omissions:
@@ -3391,12 +3406,14 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
     if plan.is_noop:
         print(
             "Nothing to do: the rules file already matches, you are in every access "
-            "group, and the power-control helper and its polkit action are already "
-            "installed. Hardware setup is complete."
+            "group, the power-control helper and its polkit action are installed, and "
+            "GPS time's grants are in place. Hardware setup is complete."
         )
         return EXIT_OK
 
-    def build_commands(staging_root: str) -> tuple[list[Command], Command | None, Command | None]:
+    def build_commands(
+        staging_root: str,
+    ) -> tuple[list[Command], Command | None, Command | None, list[Command]]:
         """Commands as they would look staged under ``staging_root``.
 
         Called twice: once with a placeholder string for the disclosure and
@@ -3470,7 +3487,13 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
                     requires_root=True,
                 )
             )
-        return built, helper_cmd, policy_cmd
+        time_cmds = (
+            grant_commands(plan.time, staging_root, plan.polkit.helper_path)
+            if plan.time is not None
+            else []
+        )
+        built += time_cmds
+        return built, helper_cmd, policy_cmd, time_cmds
 
     if not plan.rules_already_current:
         print(f"Will write {len(plan.rules_content.splitlines())} lines to {plan.rules_path}")
@@ -3488,8 +3511,11 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
         print(f"Will install the polkit action to {plan.polkit.policy_path}")
     for group in plan.groups_to_add:
         print(f"Will add {user!r} to the {group!r} group")
+    if plan.time is not None:
+        for line in disclose(plan.time):
+            print(line)
 
-    preview_commands, preview_helper, preview_policy = build_commands("<staging>")
+    preview_commands, preview_helper, preview_policy, _preview_time = build_commands("<staging>")
     installing_polkit = preview_helper is not None or preview_policy is not None
     """Whether this run installs *either* privileged artefact. Fix round 3:
     the helper and the policy are both routes to the same root-exec, and a
@@ -3555,7 +3581,7 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
     # 0700 mode keeps every other account out entirely.
     staging_dir = Path(tempfile.mkdtemp(prefix="hammunition-hardware-"))
     try:
-        commands, helper_command, policy_command = build_commands(str(staging_dir))
+        commands, helper_command, policy_command, time_commands = build_commands(str(staging_dir))
 
         if not plan.rules_already_current:
             staging = staging_dir / "udev-staging.rules"
@@ -3569,6 +3595,8 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
             policy_staging = staging_dir / "devctl.policy"
             policy_staging.write_text(plan.polkit.policy_content)
             os.chmod(policy_staging, 0o644)
+        if plan.time is not None:
+            stage_grants(plan.time, staging_dir)
 
         runner = SubprocessRunner()
         print("\nRunning:")
@@ -3579,6 +3607,15 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
                 print(f"error: {result.stderr.strip()[:300]}", file=sys.stderr)
                 print("Stopped. What ran above is applied; the rest is not.", file=sys.stderr)
                 return EXIT_FAILED
+            if any(command is step for step in time_commands):
+                TransactionLog(owner=user).append(
+                    {
+                        "event": "time_grants",
+                        "version": 1,
+                        "description": command.description,
+                        "argv": list(command.argv),
+                    }
+                )
 
             # Recorded per artefact as soon as its own command succeeds, not
             # batched to the end: a later command in this same run (the
@@ -3653,6 +3690,8 @@ def cmd_hardware_apply(args: argparse.Namespace) -> int:
         for group in plan.groups_to_add:
             if group not in after:
                 problems.append(f"{user} is still not in {group}")
+        if plan.time is not None:
+            problems += verify_grants(plan.time)
         if problems:
             for problem in problems:
                 print(f"  unverified: {problem}", file=sys.stderr)
@@ -3697,6 +3736,12 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     it is removed along with the helper and the policy action, and udev is
     told to reload so every device it was holding parked wakes from the next
     boot.
+
+    **GPS time (D-058) is taken back by content, not by the log.** A file is
+    removed only when it starts with the header Hammunition writes, ntp.conf's
+    marked lines are restored byte for byte, and only Hammunition's block
+    leaves ntpd's AppArmor local file. A hand-edited ntp.conf is refused
+    before anything runs.
     """
     from hammunition.hardware import RULES_PATH
     from hammunition.hardware.power import KEPT_RULES
@@ -3707,6 +3752,21 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         return EXIT_FAILED
 
     kept_present = Path(KEPT_RULES).exists()
+    from hammunition.gpstime import files as time_files
+    from hammunition.gpstime.grants import (
+        plan_time_removal,
+        removal_commands,
+        stage_removal,
+        verify_removal,
+    )
+    from hammunition.gpstime.mode import TimeError
+
+    try:
+        removal = plan_time_removal()
+    except TimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    time_present = not removal.is_empty
     owned = {HELPER_PATH, POLICY_PATH}
     recorded: list[str] = []
     skipped: list[str] = []
@@ -3732,7 +3792,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             if path not in recorded:
                 recorded.append(path)
 
-    if not recorded and not skipped and not kept_present:
+    if not recorded and not skipped and not kept_present and not time_present:
         print(
             "Nothing to remove: the transaction log records no hardware artefacts "
             "installed by Hammunition for this user."
@@ -3744,7 +3804,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             f"Skipped: the log names {path!r}, which this command does not own "
             f"(only the power-control helper and its polkit action are ever removed)."
         )
-    if not recorded and not kept_present:
+    if not recorded and not kept_present and not time_present:
         print("Nothing to do: no artefact this command owns is recorded.")
         return EXIT_OK
 
@@ -3752,7 +3812,7 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
     gone = [p for p in recorded if p not in present]
     for path in gone:
         print(f"Already absent: {path}")
-    if not present and not kept_present:
+    if not present and not kept_present and not time_present:
         print("Nothing to do: every recorded artefact is already gone.")
         return EXIT_OK
 
@@ -3780,15 +3840,24 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
             )
         )
         present.append(KEPT_RULES)
+
+    time_preview = removal_commands(removal, "<staging>")
+    shown = [*commands, *time_preview]
     euid = os.geteuid()
-    print(f"\nCommands ({len(commands)}):")
-    for command in commands:
+    print(f"\nCommands ({len(shown)}):")
+    for command in shown:
         print(f"  # {command.description}")
         print(f"  $ {command.display(euid=euid)}")
     if kept_present:
         print(
             f"\nRemoving {KEPT_RULES} removes the whole file, including any line in it "
             f"that Hammunition did not write."
+        )
+    if time_present:
+        print(
+            f"\nGPS time (D-058): {time_files.NTP_CONF}'s marked lines go back exactly as "
+            f"they were before Hammunition edited them, and only Hammunition's block leaves "
+            f"{time_files.APPARMOR_LOCAL}; the rest of that file stays."
         )
     print(
         f"\nThe device-access rules file, {RULES_PATH}, is not touched: it is "
@@ -3803,20 +3872,31 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         print("Aborted. Nothing was changed.")
         return EXIT_OK
 
-    runner = SubprocessRunner()
-    print("\nRunning:")
-    for command in commands:
-        print(f"  $ {command.display(euid=euid)}")
-        result = runner.run(command)
-        if result.returncode != 0:
-            print(f"error: {result.stderr.strip()[:300]}", file=sys.stderr)
-            return EXIT_FAILED
+    staging_dir = Path(tempfile.mkdtemp(prefix="hammunition-unapply-")) if time_present else None
+    try:
+        to_run = list(commands)
+        if staging_dir is not None:
+            stage_removal(removal, staging_dir)
+            to_run += removal_commands(removal, str(staging_dir))
+        runner = SubprocessRunner()
+        print("\nRunning:")
+        for command in to_run:
+            print(f"  $ {command.display(euid=euid)}")
+            result = runner.run(command)
+            if result.returncode != 0:
+                print(f"error: {result.stderr.strip()[:300]}", file=sys.stderr)
+                return EXIT_FAILED
+    finally:
+        if staging_dir is not None:
+            shutil.rmtree(staging_dir, ignore_errors=True)
 
     # D-031: `rm` exiting 0 is not evidence the file is gone.
-    still_there = [p for p in present if Path(p).exists()]
-    if still_there:
-        for path in still_there:
-            print(f"  unverified: {path} is still present", file=sys.stderr)
+    problems = [f"{p} is still present" for p in present if Path(p).exists()]
+    if time_present:
+        problems += verify_removal(removal)
+    if problems:
+        for problem in problems:
+            print(f"  unverified: {problem}", file=sys.stderr)
         return EXIT_FAILED
 
     after = []
@@ -3824,6 +3904,10 @@ def cmd_hardware_unapply(args: argparse.Namespace) -> int:
         after.append("`hammunition hardware apply` reinstalls the helper and its polkit action.")
     if kept_present:
         after.append("Kept entries come back with `hammunition hardware park`.")
+    if time_present:
+        after.append(
+            "ntpsec runs on the package's own configuration; `hardware apply` restores GPS time."
+        )
     print("\nDone and verified. " + " ".join(after))
     return EXIT_OK
 
@@ -3895,19 +3979,9 @@ def cmd_hardware_state(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def _power_verb(args: argparse.Namespace, verb: str) -> int:
-    """Disclose the privileged call and every write it will cause, then run it."""
-    from hammunition.hardware.power import (
-        KEPT_RULES,
-        PowerError,
-        plan_forget,
-        plan_park,
-        plan_wake,
-        read_kept,
-    )
-
-    helper = Path(HELPER_PATH)
-    if not helper.is_file():
+def _helper_ready() -> int | None:
+    """An exit code when the privileged helper cannot be reached, else None."""
+    if not Path(HELPER_PATH).is_file():
         print(
             f"error: the privileged helper is not installed at {HELPER_PATH}.\n"
             f"`hammunition hardware apply` installs it, together with the polkit "
@@ -3919,12 +3993,49 @@ def _power_verb(args: argparse.Namespace, verb: str) -> int:
         print(
             "error: pkexec is not on PATH, so the privileged helper cannot be "
             "authorised. It comes from the `polkit` package (`pkexec` is in "
-            "`policykit-1` on Debian-family targets). Without it, park and wake "
-            "have no way to escalate; `hammunition hardware state` still works, "
-            "because reading sysfs needs no privilege.",
+            "`policykit-1` on Debian-family targets). Without it, park, wake and "
+            "time mode have no way to escalate; `hammunition hardware state` and "
+            "`hammunition time` still work, because reading needs no privilege.",
             file=sys.stderr,
         )
         return EXIT_UNPLANNABLE
+    return None
+
+
+def _run_helper(command: Command, done: str) -> int:
+    """Run a pkexec call and map its exit to ours: 126/127 is a dismissed prompt."""
+    try:
+        result = SubprocessRunner().run(command)
+    except BackendError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILED
+    if result.returncode in (126, 127):
+        print("The authentication prompt was dismissed; nothing was changed.", file=sys.stderr)
+        return EXIT_CONSENT
+    if result.returncode == EXIT_UNPLANNABLE:
+        print(result.stderr.strip() or "the helper refused the request", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+    if result.returncode != 0:
+        print(result.stderr.strip()[:400] or f"helper exited {result.returncode}", file=sys.stderr)
+        return EXIT_FAILED
+    print(f"\n{done}")
+    return EXIT_OK
+
+
+def _power_verb(args: argparse.Namespace, verb: str) -> int:
+    """Disclose the privileged call and every write it will cause, then run it."""
+    from hammunition.hardware.power import (
+        KEPT_RULES,
+        PowerError,
+        plan_forget,
+        plan_park,
+        plan_wake,
+        read_kept,
+    )
+
+    ready = _helper_ready()
+    if ready is not None:
+        return ready
 
     found, skipped = _survey_parkables(args)
     for unit, why in skipped:
@@ -3978,25 +4089,9 @@ def _power_verb(args: argparse.Namespace, verb: str) -> int:
         print("\nDry run: nothing above was executed.")
         return EXIT_OK
 
-    try:
-        result = SubprocessRunner().run(command)
-    except BackendError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return EXIT_FAILED
-    if result.returncode in (126, 127):
-        print(
-            "The authentication prompt was dismissed; nothing was changed.",
-            file=sys.stderr,
-        )
-        return EXIT_CONSENT
-    if result.returncode == EXIT_UNPLANNABLE:
-        print(result.stderr.strip() or "the helper refused the request", file=sys.stderr)
-        return EXIT_UNPLANNABLE
-    if result.returncode != 0:
-        print(result.stderr.strip()[:400] or f"helper exited {result.returncode}", file=sys.stderr)
-        return EXIT_FAILED
-    print(f"\nDone and verified. `hammunition hardware state` shows {label} now.")
-    return EXIT_OK
+    return _run_helper(
+        command, f"Done and verified. `hammunition hardware state` shows {label} now."
+    )
 
 
 def cmd_hardware_park(args: argparse.Namespace) -> int:
@@ -4007,6 +4102,72 @@ def cmd_hardware_park(args: argparse.Namespace) -> int:
 def cmd_hardware_wake(args: argparse.Namespace) -> int:
     """Bring a parked device back."""
     return _power_verb(args, "wake")
+
+
+# ---------------------------------------------------------------------------
+# time — GPS time (D-058)
+# ---------------------------------------------------------------------------
+
+
+def cmd_time(args: argparse.Namespace) -> int:
+    """What the clock follows now, and the mode. Reads only; needs no privilege."""
+    from hammunition.gpstime import state as time_state
+
+    found, _ = _survey_parkables(args)
+    for line in time_state.describe(time_state.gather(gps=time_state.gps_from(found))):
+        print(line)
+    return EXIT_OK
+
+
+def cmd_time_mode(args: argparse.Namespace) -> int:
+    """Disclose the three files a mode change writes and the restart, then ask the helper."""
+    from hammunition.gpstime import files
+    from hammunition.gpstime.mode import GPS_MODES, TimeError, as_mode
+    from hammunition.gpstime.ntpconf import mode_writes
+    from hammunition.gpstime.state import gps_from, ntpsec_installed
+
+    ready = _helper_ready()
+    if ready is not None:
+        return ready
+    mode = as_mode(args.mode)
+    if not ntpsec_installed():
+        print(
+            f"error: ntpsec is not installed ({files.NTPD} or {files.NTP_CONF} is missing), "
+            f"and only ntpsec can take time from a GPS here (D-058). This target's time "
+            f"daemon is left as it is.",
+            file=sys.stderr,
+        )
+        return EXIT_UNPLANNABLE
+    current = Path(files.NTP_CONF).read_text(encoding="utf-8")
+    try:
+        writes = mode_writes(current, mode)
+    except TimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_UNPLANNABLE
+
+    print(f"Setting the time mode to {mode}\n")
+    print("Writes this will cause, as root, through the helper:")
+    for line in writes:
+        print(line)
+
+    found, _ = _survey_parkables(args)
+    gps = gps_from(found)
+    if mode in GPS_MODES and gps == "absent":
+        print("\nNo GPS receiver is attached: the mode is recorded and takes effect when one is.")
+    elif mode in GPS_MODES and gps == "parked":
+        print("\nThe GPS receiver is parked: GPS time stays off until it is woken.")
+
+    command = Command(
+        argv=("pkexec", HELPER_PATH, "time", "mode", mode),
+        description=f"Set the time mode to {mode}",
+    )
+    print(f"\n  # {command.description}\n  $ {command.display()}")
+    if args.dry_run:
+        print("\nDry run: nothing above was executed.")
+        return EXIT_OK
+    return _run_helper(
+        command, "Done and verified. `hammunition time` shows what the clock follows now."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -4126,6 +4287,15 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     except (OSError, PowerError, CatalogError, SystemExit):
         kept_attached, kept_absent = (), ()
 
+    time_state = None
+    try:
+        from hammunition.gpstime.state import gather, gps_from
+
+        found_now, _ = _survey_parkables(args)
+        time_state = gather(gps=gps_from(found_now))
+    except (OSError, CatalogError, SystemExit):
+        time_state = None
+
     from hammunition.launchers import survey_engine_launchers
 
     # Issue #145: every generated launcher that runs the engine can reach it.
@@ -4159,6 +4329,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         qmapshack_without_translations=(
             shutil.which("qmapshack") is not None and not Path(ROUTINO_TRANSLATIONS).is_file()
         ),
+        time_state=time_state,
         launchers_ok=engine_launchers.ok,
         launchers_bare=engine_launchers.bare,
         launchers_broken=engine_launchers.broken,
@@ -4596,6 +4767,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_hw_apply.add_argument("--dry-run", action="store_true", help="print, change nothing")
     p_hw_apply.add_argument("--yes", action="store_true", help="skip the confirmation")
     p_hw_apply.add_argument("--user", default=None, help="whom to set up")
+    p_hw_apply.add_argument(
+        "--no-gps-time",
+        action="store_true",
+        help="leave ntpsec, its grants and fake-hwclock alone (D-058)",
+    )
     p_hw_apply.set_defaults(func=cmd_hardware_apply)
 
     p_hw_unapply = hardware_sub.add_parser(
@@ -4639,6 +4815,24 @@ def build_parser() -> argparse.ArgumentParser:
                 help="park now, but let a reboot wake it (no kept entry)",
             )
         p_verb.set_defaults(func=cmd_hardware_park if verb == "park" else cmd_hardware_wake)
+
+    from hammunition.gpstime.mode import MODES
+
+    p_time = sub.add_parser(
+        "time", help="GPS time (D-058): what the clock follows, and the time mode"
+    )
+    p_time.set_defaults(func=cmd_time)
+    time_sub = p_time.add_subparsers(dest="time_command")
+    p_time_mode = time_sub.add_parser(
+        "mode", help="auto | prefer-gps | ntp-only | gps-only, through the helper"
+    )
+    p_time_mode.add_argument("mode", choices=MODES)
+    p_time_mode.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print every write, the restart and the privileged call, then stop",
+    )
+    p_time_mode.set_defaults(func=cmd_time_mode)
 
     p_station = sub.add_parser("station", help="the values only you can supply")
     station_sub = p_station.add_subparsers(dest="station_command", required=True)

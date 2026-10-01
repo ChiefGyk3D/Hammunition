@@ -43,9 +43,11 @@ dpkg -l chrony ntpsec systemd-timesyncd 2>/dev/null | grep '^ii'
 
 | You have | Usually on | The route |
 |---|---|---|
-| **ntpsec** | Parrot (its security edition pulls it in), the field laptop | GPS time through ntpsec, **D-058**. Its guide, docs/guides/gps-time.md, arrives with pull request #124 and is not on this branch yet. Do not install chrony here: it would remove ntpsec, and Hammunition refuses to. |
+| **ntpsec** | Parrot (its security edition pulls it in), the field laptop | Hammunition sets ntpsec up to follow the GPS itself: see [GPS time](gps-time.md) (**D-058**). Do not install chrony here: it would remove ntpsec, and Hammunition refuses to. |
 | **systemd-timesyncd** | Debian 13, Ubuntu 24.04, Linux Mint 22.3; Kali, whose `kali-linux-core` pulls it in (a Kali whose `kali-linux-default` came first may have ntpsec) | It cannot read a GPS. Replace it with chrony, below. |
 | **chrony** | Ubuntu 26.04 | Already the right daemon. Install the unit below; it adds the GPS and changes nothing else. |
+
+The steps below are for a machine with systemd-timesyncd or chrony.
 
 ### 1. Plug in the GPS and confirm gpsd sees it
 

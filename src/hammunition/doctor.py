@@ -34,6 +34,8 @@ from pathlib import Path
 from typing import Literal
 
 from hammunition.desktop import Desktop, describe, describe_set
+from hammunition.gpstime.mode import GPS_MODES
+from hammunition.gpstime.state import HOLDOVER_WARN_SECONDS, TimeState, format_duration
 
 #: routino-common's file QMapShack reads at startup (D-061).
 ROUTINO_TRANSLATIONS = "/usr/share/routino/translations.xml"
@@ -82,6 +84,7 @@ def run_checks(
     desktop_current: Desktop | None = None,
     sessions_unrecognised: tuple[str, ...] = (),
     qmapshack_without_translations: bool = False,
+    time_state: TimeState | None = None,
     launchers_ok: tuple[str, ...] = (),
     launchers_bare: tuple[str, ...] = (),
     launchers_broken: tuple[tuple[str, str], ...] = (),
@@ -347,6 +350,9 @@ def run_checks(
             )
         )
 
+    if time_state is not None:
+        checks += _time_checks(time_state)
+
     # Issue #145: a generated launcher runs the engine by absolute path,
     # because a menu entry started as a systemd user service has no
     # ~/.local/bin on PATH. One written before that says bare `hammunition`;
@@ -388,6 +394,103 @@ def run_checks(
             )
         )
 
+    return checks
+
+
+def _held(t: TimeState) -> str:
+    if t.last_sync is None or t.holdover_seconds is None:
+        return ""
+    source = "the GPS" if t.last_source == "gps" else "the network"
+    return f": holdover for {format_duration(t.holdover_seconds)}, last synchronised from {source}"
+
+
+def _time_checks(t: TimeState) -> list[Check]:
+    """D-058. A missing RTC is a weakness on any target; the rest needs ntpsec."""
+    checks: list[Check] = []
+    if not t.rtc:
+        checks.append(
+            Check(
+                "hardware clock",
+                "warn",
+                "no battery-backed clock (RTC): after a power-off with no network and no "
+                "GPS the date is wrong",
+                "fit an RTC module (Raspberry Pi: a supported RTC HAT, or a battery on the "
+                "Pi 5's RTC connector); fake-hwclock, offered by `hammunition hardware "
+                "apply`, is only a stopgap",
+            )
+        )
+    if t.daemon is None:
+        if t.gps != "absent":
+            checks.append(
+                Check(
+                    "time",
+                    "info",
+                    "the time daemon here is not ntpsec, so the GPS cannot set the clock (D-058)",
+                )
+            )
+        return checks
+    if t.mode in GPS_MODES and t.gps != "absent" and not t.grants:
+        checks.append(
+            Check(
+                "time",
+                "warn",
+                "ntpd cannot read gpsd's time: its grants or gpsd's -n drop-in are not installed",
+                "hammunition hardware apply",
+            )
+        )
+    if t.dhcp_config:
+        checks.append(
+            Check(
+                "time",
+                "warn",
+                "ntpd runs on a DHCP-supplied configuration, which may not read the time mode",
+                'set IGNORE_DHCP="yes" in /etc/default/ntpsec, then sudo systemctl restart ntpsec',
+            )
+        )
+    restore_fix = "restore the network, or wake a GPS receiver in a GPS mode"
+    if t.following in ("network", "gps"):
+        where = "the network" if t.following == "network" else "the GPS"
+        offset = "" if t.offset_ms is None else f", offset {t.offset_ms:+.1f} ms"
+        checks.append(Check("time", "ok", f"the clock follows {where} (mode {t.mode}{offset})"))
+    elif t.following == "unknown":
+        checks.append(
+            Check(
+                "time",
+                "warn",
+                "could not ask ntpd what the clock follows",
+                "systemctl status ntpsec",
+            )
+        )
+    elif t.mode == "gps-only" and t.gps == "parked":
+        checks.append(
+            Check(
+                "time",
+                "warn",
+                "gps-only with the receiver parked: nothing sets the clock" + _held(t),
+                "hammunition hardware wake gps-receiver, or hammunition time mode auto",
+            )
+        )
+    elif t.holdover_seconds is None:
+        checks.append(
+            Check(
+                "time",
+                "warn",
+                "the clock follows nothing and ntpd has not synchronised since it started",
+                restore_fix,
+            )
+        )
+    elif t.holdover_seconds >= HOLDOVER_WARN_SECONDS:
+        checks.append(Check("time", "warn", "the clock follows nothing" + _held(t), restore_fix))
+    else:
+        checks.append(
+            Check(
+                "time",
+                "info",
+                "the clock follows nothing"
+                + _held(t)
+                + "; the hardware clock and ntpd's drift file carry it",
+            )
+        )
     return checks
 
 

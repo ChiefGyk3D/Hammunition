@@ -123,6 +123,7 @@ nav:
           - Rig control (CAT): guides/rig-control.md
           - Radio audio: guides/audio-routing.md
           - Time and position: guides/time-and-gps.md
+          - GPS time on ntpsec: guides/gps-time.md
           - Your callsign in each program: guides/station-settings.md
       - Modes:
           - FT8 and the digital modes: guides/digital-modes.md

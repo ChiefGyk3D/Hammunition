@@ -198,8 +198,8 @@ has the table):
 
 - **systemd-timesyncd or chrony**: the [`chrony` unit](../packages/chrony.md)
   (**D-072**). timesyncd cannot read a GPS, so it is replaced, by you.
-- **ntpsec** (Parrot, the field laptop): GPS time through ntpsec (**D-058**,
-  pull request #124, not merged when this was written).
+- **ntpsec** (Parrot, the field laptop): [GPS time](../guides/gps-time.md)
+  through ntpsec (**D-058**).
 
 Either way gpsd must be reading the receiver with nobody connected, which is
 its `-n` option; without it the daemon gets no time from the GPS at all

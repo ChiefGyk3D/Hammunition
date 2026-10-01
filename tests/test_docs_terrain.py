@@ -138,7 +138,7 @@ def test_the_cli_reference_quotes_the_golden_terrain_block() -> None:
 
 def test_the_doctor_count_is_the_number_of_checks() -> None:
     names = set(re.findall(r'Check\(\s*"([^"]+)"', DOCTOR.read_text()))
-    words = {14: "Fourteen", 15: "Fifteen", 16: "Sixteen", 17: "Seventeen"}
+    words = {14: "Fourteen", 15: "Fifteen", 16: "Sixteen", 17: "Seventeen", 18: "Eighteen"}
     assert f"{words[len(names)]} checks across four severities" in CLI.read_text()
 
 
