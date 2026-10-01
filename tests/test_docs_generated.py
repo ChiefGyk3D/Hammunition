@@ -734,6 +734,34 @@ def test_check_reports_the_page_current_and_writes_nothing(
     assert not rewritten, f"scripts/{script} --check wrote {rewritten}; a check must not write"
 
 
+def test_the_open_repeater_pin_is_well_formed_and_its_check_writes_nothing() -> None:
+    """D-074. The pin lives in catalog/packages/open-repeater.yaml, written by
+    its generator; asking the publisher needs the network, which the weekly
+    pin review does, so the suite runs the offline half: the manifest's
+    shape, through the same script, and nothing written."""
+    import subprocess
+
+    manifest = REPO_ROOT / "catalog" / "packages" / "open-repeater.yaml"
+    before = manifest.stat().st_mtime_ns
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "gen_open-repeater-pin.py"),
+            "--check",
+            "--offline",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    assert result.returncode == 0, (
+        f"{result.stdout}{result.stderr}\nrun scripts/gen_open-repeater-pin.py"
+    )
+    assert "well formed" in result.stdout, result.stdout
+    assert manifest.stat().st_mtime_ns == before, "--check wrote the manifest"
+
+
 def _load_script(name: str) -> object:
     spec = importlib.util.spec_from_file_location(
         name.removesuffix(".py"), REPO_ROOT / "scripts" / name

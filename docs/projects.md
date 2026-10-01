@@ -8,7 +8,7 @@ in their spare time — and the catalog only describes how to install it
 well. This page links each one to its own home, so the credit and the
 support questions go where they belong.
 
-**295 programs and packages** from the catalog, laid out the way the
+**296 programs and packages** from the catalog, laid out the way the
 desktop menu is. Each appears once, under its first category; its page in
 the [package reference](packages/index.md) lists the others, what it
 needs before it works, its known problems and where to get help with it.
@@ -111,6 +111,7 @@ Control the rig, keep the log, work the cluster, set the clock and the position.
 | [mkgmap](packages/mkgmap.md) | Builds Garmin-format maps from OpenStreetMap data | [mkgmap.org.uk](https://www.mkgmap.org.uk/) |
 | [mkgmap-splitter](packages/mkgmap-splitter.md) | Cuts OpenStreetMap data into tiles sized for mkgmap | [mkgmap.org.uk/doc/splitter.html](https://www.mkgmap.org.uk/doc/splitter.html) |
 | [navit](packages/navit.md) | Offline turn-by-turn navigation that follows the GPS, with spoken directions | [navit-project.org](https://www.navit-project.org/) |
+| [open-repeater](packages/open-repeater.md) | Open Repeater's CC0 list of amateur repeaters, for the repeater layer on the map | [openrepeater.org](https://www.openrepeater.org/) |
 | [osm-garmin](packages/osm-garmin.md) | Garmin maps of your OpenStreetMap regions, with trails, for QMapShack | [mkgmap.org.uk](https://www.mkgmap.org.uk/) |
 | [osm-navit](packages/osm-navit.md) | Navit's binary maps, converted from your OpenStreetMap regions, and its configuration | [navit-project.org](https://www.navit-project.org/) |
 | [osm-pmtiles](packages/osm-pmtiles.md) | Vector-tile maps of your OpenStreetMap regions, for the offline browser map | [github.com/systemed/tilemaker](https://github.com/systemed/tilemaker) |

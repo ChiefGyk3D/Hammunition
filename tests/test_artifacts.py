@@ -162,6 +162,22 @@ def test_a_data_unit_lists_each_artifact_with_its_pin(tmp_path: Path) -> None:
     assert geofabrik.asked == [], "a data unit asks nobody"
 
 
+def test_open_repeater_is_listed_for_a_mirror_like_any_pinned_data(tmp_path: Path) -> None:
+    """D-074: the Bunker keeps the Open Repeater file because it is here,
+    under the name the fetch asks a mirror for."""
+    entries, _, _ = _list(tmp_path, ("open-repeater",), ())
+    (entry,) = entries
+    artifact = CATALOG["open-repeater"].install[0].install.artifacts[0]  # type: ignore[union-attr]
+    assert (entry.name, entry.check, entry.digest, entry.size, entry.licence) == (
+        "open-repeater.json",
+        "sha256",
+        artifact.sha256,
+        artifact.size,
+        "CC0 1.0",
+    )
+    assert entry.url == artifact.url and entry.deferred is None
+
+
 # -- map regions ------------------------------------------------------------
 
 

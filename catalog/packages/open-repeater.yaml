@@ -1,0 +1,77 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: open-repeater
+version: "2026-10-01"
+summary: Open Repeater's CC0 list of amateur repeaters, for the repeater layer on the map
+categories: [navigation-maps]
+
+# D-074, a D-049 data unit. Open Repeater (openrepeater.org) publishes its
+# whole list as one JSON download, no key, under CC0 ("Repeater data is
+# licensed under CC0"; the file itself says "license": "CC0"). Measured
+# 2026-10-01: 241 kB, 461 repeaters (Sweden 243, Malaysia 121, India 96,
+# Canada 1; none in the US), byte-identical over three fetches.
+#
+# The URL is not dated: the file changes whenever the site's data does, so
+# the pin dies on Open Repeater's calendar, not ours. The `version`, `sha256`
+# and `size` lines below are written by scripts/gen_open-repeater-pin.py
+# (regenerate with no arguments; `--check` asks the publisher again and the
+# weekly pin review runs it). A stale pin refuses the install by its digest;
+# a LAN mirror (D-070) that holds the pinned bytes still serves it.
+#
+# Not in a profile: today its rows are outside the US. `hammunition maps
+# repeaters import --from-open-repeater` reads it into its own layer.
+install:
+  - install:
+      method: data
+      artifacts:
+        - url: https://www.openrepeater.org/api/downloads?format=json&country=All+countries&band=All+bands&mode=All+modes&status=All
+          sha256: 07be1cbab1bc08e77ef865e20532ac81ae341dc8327da0ce4c86b6a34de4fb1a
+          size: 240723
+          format: file
+          install_as: open-repeater.json
+      licence: CC0 1.0
+      licence_url: https://www.openrepeater.org/downloads
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    The file changes whenever Open Repeater's data does. The weekly pin
+    review runs `scripts/gen_open-repeater-pin.py --check`, which fetches it
+    (about 241 kB) and goes red when it no longer matches the pin;
+    regenerating is running the script with no arguments, which writes the
+    new digest, size and date into this manifest.
+
+documentation:
+  what_it_does: >-
+    Installs one file, Open Repeater's whole repeater list as JSON (about
+    241 kB, 461 repeaters on 2026-10-01), under
+    /usr/local/share/hammunition/data/open-repeater/. Nothing reads it on
+    its own: `hammunition maps repeaters import --from-open-repeater` turns
+    it into a repeater layer for QMapShack, Navit and phones, named
+    "Repeaters (Open Repeater YYYY-MM-DD, CC0)" and dated by the newest
+    entry's verification.
+  why_you_want_it: >-
+    It is the only bulk repeater directory found under an open licence
+    (CC0): pinned, verified and mirrorable like any other data, where
+    RepeaterBook forbids offline bundling and hearham's list cannot be
+    pinned. Its coverage today is Sweden, Malaysia and India, with one
+    repeater in Canada and none in the US, so it is worth installing where
+    it covers you; it grows as people add to it.
+  prerequisites: >-
+    Nothing. The repeater layer it feeds is written by `hammunition maps
+    repeaters import`, which needs no other unit; QMapShack and Navit show
+    the layer when they are installed.
+  known_problems: >-
+    Coverage is thin and uneven (see above). Positions are what contributors
+    entered: 113 of the 461 entries had none on 2026-10-01 and are skipped,
+    and offsets are written both in MHz and in kHz (the import reads both).
+    Because the download URL is not dated, a pin goes stale whenever the
+    site changes; the install then refuses the file by its digest until the
+    pin is regenerated, unless a LAN mirror holds the pinned copy.
+  upstream_url: https://www.openrepeater.org/
+  upstream_support: >-
+    Open Repeater's own site (https://www.openrepeater.org/), where a wrong
+    or missing repeater is corrected; Hammunition only converts the file.
