@@ -8,8 +8,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
+
 from hammunition.backends import Action, Command
-from hammunition.execute import user_service_removal_steps, user_service_steps
+from hammunition.execute import (
+    _user_unit_path,
+    user_service_removal_steps,
+    user_service_steps,
+)
 from hammunition.userservice import HEADER, PlannedUserService
 
 _BY_ID = "/dev/serial/by-id/usb-Silicon_Labs_CP2105_...-if00-port0"
@@ -99,3 +105,18 @@ def test_removal_leaves_a_file_the_operator_rewrote(tmp_path: Path) -> None:
         if isinstance(step, Action):
             step.perform()
     assert theirs.exists()  # not ours: left in place
+
+
+def test_user_config_base_is_dot_config_not_the_app_subdir(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """C2: systemd reads ~/.config/systemd/user/, so the base the install
+    passes must be the XDG config dir itself, never ~/.config/hammunition."""
+    from hammunition.paths import user_config_base
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
+    base = user_config_base(None)
+    assert base == tmp_path / ".config"
+    unit = _user_unit_path(base, "hammunition-rigctld")
+    assert unit == tmp_path / ".config" / "systemd" / "user" / "hammunition-rigctld.service"
+    assert "hammunition/systemd" not in str(unit)

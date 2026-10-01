@@ -153,7 +153,14 @@ from hammunition.manifest.schema import (
     RegionalDataInstall,
     TopoQuadsInstall,
 )
-from hammunition.paths import applications_dir, build_root, node_root, user_bin_dir, venv_root
+from hammunition.paths import (
+    applications_dir,
+    build_root,
+    node_root,
+    user_bin_dir,
+    user_config_base,
+    venv_root,
+)
 from hammunition.phone_plan import build_phone_run
 from hammunition.plan import NO_MAP_REGIONS, Blocker, InstallPlan, PlanError, resolve
 from hammunition.state import (
@@ -2753,7 +2760,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         # The operator's XDG config home, where ~/.config/systemd/user/ lives
         # (D-073 §6c). Under sudo (euid 0) with a known operator, the
         # systemctl --user steps target their manager with --machine.
-        user_services_home=config_path(user or None).parent,
+        user_services_home=user_config_base(user or None),
         user_services_machine=(user if os.geteuid() == 0 and user and user != "root" else None),
     )
     # Disclose the log destination in the plan itself, so the file write (and,
@@ -3165,7 +3172,7 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
         commands.extend(
             user_service_removal_steps(
                 user_service_names,
-                home=config_path(uninstall_user or None).parent,
+                home=user_config_base(uninstall_user or None),
                 machine=(
                     uninstall_user if euid == 0 and uninstall_user not in ("", "root") else None
                 ),

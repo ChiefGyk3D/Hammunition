@@ -41,6 +41,7 @@ __all__ = [
     "operator_for",
     "owner_aware_dir",
     "state_dir",
+    "user_config_base",
 ]
 
 APP = "hammunition"
@@ -71,6 +72,25 @@ def owner_aware_dir(
             return Path(entry.pw_dir).joinpath(*home_relative) / APP
     base = os.environ.get(xdg_var) or str(Path.home().joinpath(*home_relative))
     return Path(base) / APP
+
+
+def user_config_base(owner: str | None = None) -> Path:
+    """``$XDG_CONFIG_HOME`` (or ``~/.config``) itself — NOT the hammunition
+    subdirectory under it.
+
+    This is where systemd looks for user units (``<base>/systemd/user/``), so a
+    rig service written under ``owner_aware_dir``'s ``.../hammunition/`` would
+    never be found (D-073 §6c). Owner-aware the same way: under ``sudo`` for
+    another operator it resolves their home, never root's.
+    """
+    if owner and os.geteuid() == 0:
+        entry = None
+        with contextlib.suppress(KeyError):
+            entry = pwd.getpwnam(owner)
+        if entry is not None and entry.pw_uid != 0:
+            return Path(entry.pw_dir) / ".config"
+    base = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
+    return Path(base)
 
 
 def state_dir(owner: str | None = None) -> Path:
