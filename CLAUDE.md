@@ -504,11 +504,11 @@ in their own install notes.
 
 ```
 catalog/
-  packages/        # one YAML per piece of software          ✅ 298
+  packages/        # one YAML per piece of software          ✅ 305
   profiles/        # named bundles referencing packages      ✅ 19
   hardware/
     classes/       # device families with shared Linux needs ✅ 5
-    devices/       # one YAML per device                     ✅ 24
+    devices/       # one YAML per device                     ✅ 25
 src/hammunition/
   cli/             # install/uninstall/update/list/status/show/doctor/hardware/menus/station ✅
     devctl.py      # the root helper for park/wake (D-056)   ✅ parked and woken on the field laptop's GPS

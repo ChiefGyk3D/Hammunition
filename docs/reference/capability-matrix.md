@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 205 | 8 | 85 | 2 | 0 |
-| ubuntu-26.04 | 207 | 6 | 85 | 2 | 0 |
-| ubuntu-24.04 | 200 | 15 | 82 | 3 | 0 |
-| kali-rolling | 213 | 8 | 78 | 1 | 0 |
-| parrot | 210 | 5 | 83 | 2 | 0 |
-| linuxmint-22.3 | 200 | 15 | 82 | 3 | 0 |
-| debian-13-arm64 | 204 | 9 | 80 | 7 | 0 |
+| debian-13 | 205 | 8 | 90 | 2 | 0 |
+| ubuntu-26.04 | 207 | 6 | 90 | 2 | 0 |
+| ubuntu-24.04 | 200 | 15 | 87 | 3 | 0 |
+| kali-rolling | 213 | 8 | 83 | 1 | 0 |
+| parrot | 210 | 5 | 88 | 2 | 0 |
+| linuxmint-22.3 | 200 | 15 | 87 | 3 | 0 |
+| debian-13-arm64 | 204 | 9 | 85 | 7 | 0 |
 
-**300 manifests** against **7 targets**.
+**305 manifests** against **7 targets**.
 
 ---
 
@@ -190,6 +190,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `droidstar` | git | git | — | git | git | — | git |
 | `dsdcc` | apt | apt | apt | apt | apt | apt | apt |
 | `dump1090-mutability` | apt ✗ | apt | apt | apt ✗ | apt ✗ | apt | apt ✗ |
+| `dump978-fa` | git | git | git | git | git | git | git |
 | `dumphfdl` | source | source | source | source | source | source | source |
 | `dumpvdl2` | git | git | git | git | git | git | git |
 | `ebook2cw` | apt | apt | apt | apt | apt | apt | apt |
@@ -258,6 +259,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `js8call` | git | git | apt | git | git | apt | git |
 | `js8spotter` | binary | binary | binary | binary | binary | binary | binary |
 | `jtdx` | apt | apt | apt | apt | apt | apt | apt |
+| `k5prog` | git | git | git | git | git | git | git |
 | `kalibrate-rtl` | git | git | git | apt | git | git | git |
 | `kappanhang` | apt | apt | apt | apt | apt | apt | apt |
 | `kel-agent` | apt | apt | apt | apt | apt | apt | apt |
@@ -274,6 +276,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `libiio-utils` | apt | apt | apt | apt | apt | apt | apt |
 | `libmirisdr4` | apt | apt | apt | apt | apt | apt | apt |
 | `libnfc-bin` | apt | apt | apt | apt | apt | apt | apt |
+| `librevna` | git | git | git | git | git | git | git |
 | `limesuite` | apt | apt | apt | apt | apt | apt | apt |
 | `linbpq` | git | git | git | git | git | git | git |
 | `linpac` | apt | apt | apt | apt | apt | apt | apt |
@@ -301,6 +304,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `nec2c` | apt | apt | apt | apt | apt | apt | apt |
 | `noaa-apt` | binary | binary | binary | binary | binary | binary | binary |
 | `not1mm` | venv | venv | venv | venv | venv | venv | venv |
+| `nrsc5` | git | git | git | git | git | git | git |
 | `odr-audioenc` | apt ✗ | apt | apt ✗ | apt | apt | apt ✗ | apt ✗ |
 | `odr-dabmod` | apt | apt | apt | apt | apt | apt | apt |
 | `odr-dabmux` | apt | apt | apt | apt | apt | apt | apt |
@@ -346,6 +350,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `qttermtcp` | git | git | git | git | git | git | git |
 | `qttinysa` | apt | apt | apt | apt | apt | apt | apt |
 | `quisk` | apt | apt | apt | apt | apt | apt | apt |
+| `radio-tool` | git | git | git | git | git | git | git |
 | `radioclk` | apt | apt | apt | apt | apt | apt | apt |
 | `radiosonde-auto-rx` | venv | venv | venv | venv | venv | venv | venv |
 | `rayhunter` | binary | binary | binary | binary | binary | binary | binary |
