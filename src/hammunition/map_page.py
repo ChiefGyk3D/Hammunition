@@ -241,13 +241,17 @@ _ROUTES = """
         return;
       }
       draw(path.points);
+      for (const p of pins.splice(0)) p.remove();
+      pin(points[0], '#2a2');
+      pin(points[1], '#1a5fd0');
       const c = path.points.coordinates;
       const box = [[c[0][0], c[0][1]], [c[0][0], c[0][1]]];
       for (const [x, y] of c) {
         box[0][0] = Math.min(box[0][0], x); box[0][1] = Math.min(box[0][1], y);
         box[1][0] = Math.max(box[1][0], x); box[1][1] = Math.max(box[1][1], y);
       }
-      map.fitBounds(box, {padding: 40, animate: false, maxZoom: 16});
+      const top = document.getElementById('bar').offsetHeight + 24;
+      map.fitBounds(box, {padding: {top, bottom: 40, left: 40, right: 40}, animate: false, maxZoom: 16});
       info.textContent = '';
       const steps = document.createElement('details');
       const head = document.createElement('summary');
@@ -333,7 +337,7 @@ def map_page(*, position_port: int, router: Sequence[str] | None = None) -> str:
                 '<span id="where">Waiting for a position…</span> <span id="status"></span>',
                 *(
                     [
-                        '<br><label>Route <select id="profile">'
+                        '<br><label>Route for <select id="profile">'
                         + "".join(f"<option>{html.escape(name)}</option>" for name in router)
                         + '</select></label> <button id="route" type="button">Route</button> '
                         '<button id="clear" type="button">Clear</button> <span id="routeinfo">'

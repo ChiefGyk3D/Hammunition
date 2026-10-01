@@ -40,7 +40,7 @@ from hammunition.backends.source import extract
 from hammunition.manifest.load import load_catalog
 from hammunition.manifest.schema import DataInstall
 from hammunition.map_page import KIT_UNIT, TILES_UNIT, find_map
-from hammunition.reference import make_server
+from hammunition.reference import RouterState, make_server
 from pmtiles_fixture import write_pmtiles
 
 REPO = Path(__file__).resolve().parent.parent
@@ -124,23 +124,19 @@ class _Delay(http.server.BaseHTTPRequestHandler):
         """Quiet."""
 
 
-@pytest.mark.skipif(_chromium() is None, reason="no chromium on PATH: the render is not checked")
-@pytest.mark.skipif(
-    _kit_dir() is None,
-    reason="HAMMUNITION_MAP_KIT_DIR is not set: the pinned kit is not on disk (nothing is fetched)",
-)
-def test_the_map_renders_with_no_request_off_loopback_and_draws_the_credit(
+def _render(
     tmp_path: Path,
-) -> None:
-    source = _kit_dir()
-    assert source is not None
-    data = tmp_path / "data"
-    _build_kit(source, data / KIT_UNIT)
-    (data / TILES_UNIT).mkdir(parents=True)
-    write_pmtiles(data / TILES_UNIT / "testville.pmtiles")
+    data: Path,
+    *,
+    fragment: str = "",
+    router: RouterState | None = None,
+) -> tuple[str, str, Path]:
+    """The page from *data*, drawn by headless Chromium with every host but
+    127.0.0.1 unresolvable: (the DOM at the load event, Chromium's stderr,
+    its net log)."""
     shelf = find_map(data)
     assert shelf.ready, shelf.missing
-    server = make_server(0, "<html></html>", [], map_shelf=shelf, position_port=1)
+    server = make_server(0, "<html></html>", [], map_shelf=shelf, position_port=1, router=router)
     delay = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Delay)
     delay.daemon_threads = True
     assert server.map_page is not None
@@ -171,7 +167,7 @@ def test_the_map_renders_with_no_request_off_loopback_and_draws_the_credit(
                 f"--log-net-log={net_log}",
                 "--window-size=800,600",
                 "--dump-dom",
-                f"http://127.0.0.1:{port}/map/",
+                f"http://127.0.0.1:{port}/map/{fragment}",
             ],
             capture_output=True,
             text=True,
@@ -182,8 +178,26 @@ def test_the_map_renders_with_no_request_off_loopback_and_draws_the_credit(
         for each in (server, delay):
             each.shutdown()
             each.server_close()
-    dom = result.stdout
-    assert 'data-state="idle"' in dom, (dom[-2000:], result.stderr[-2000:])
+    return result.stdout, result.stderr, net_log
+
+
+@pytest.mark.skipif(_chromium() is None, reason="no chromium on PATH: the render is not checked")
+@pytest.mark.skipif(
+    _kit_dir() is None,
+    reason="HAMMUNITION_MAP_KIT_DIR is not set: the pinned kit is not on disk (nothing is fetched)",
+)
+def test_the_map_renders_with_no_request_off_loopback_and_draws_the_credit(
+    tmp_path: Path,
+) -> None:
+    source = _kit_dir()
+    assert source is not None
+    data = tmp_path / "data"
+    _build_kit(source, data / KIT_UNIT)
+    (data / TILES_UNIT).mkdir(parents=True)
+    write_pmtiles(data / TILES_UNIT / "testville.pmtiles")
+    dom, stderr, net_log = _render(tmp_path, data)
+    result_stderr = stderr
+    assert 'data-state="idle"' in dom, (dom[-2000:], result_stderr[-2000:])
     assert 'data-errors="0"' in dom, dom[-2000:]
     attribution = dom.split("maplibregl-ctrl-attrib-inner", 1)[1][:600]
     assert "© OpenMapTiles" in attribution and "© OpenStreetMap contributors" in attribution
@@ -196,3 +210,51 @@ def test_the_map_renders_with_no_request_off_loopback_and_draws_the_credit(
     )
     assert any(u.endswith("/map/tiles/testville.pmtiles") for u in page)
     assert any("/fonts/" in u and u.endswith(".pbf") for u in page), "a label asked for glyphs"
+
+
+@pytest.mark.skipif(_chromium() is None, reason="no chromium on PATH: the render is not checked")
+@pytest.mark.skipif(
+    _kit_dir() is None,
+    reason="HAMMUNITION_MAP_KIT_DIR is not set: the pinned kit is not on disk (nothing is fetched)",
+)
+def test_a_route_is_asked_through_this_server_and_drawn_with_no_request_off_loopback(
+    tmp_path: Path,
+) -> None:
+    """D-076: ``#route=`` asks ``/map/route`` on the page's own server, which
+    asks a loopback stand-in for GraphHopper; the line is drawn and its
+    summary shown, and nothing leaves 127.0.0.1."""
+    from hammunition.graphhopper import PROFILES
+    from test_reference_router import ROUTE_ANSWER, _FakeGraphHopper
+
+    source = _kit_dir()
+    assert source is not None
+    data = tmp_path / "data"
+    _build_kit(source, data / KIT_UNIT)
+    (data / TILES_UNIT).mkdir(parents=True)
+    write_pmtiles(data / TILES_UNIT / "testville.pmtiles")
+    _FakeGraphHopper.asked = []
+    fake = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _FakeGraphHopper)
+    threading.Thread(target=fake.serve_forever, daemon=True).start()
+    router = RouterState(
+        port=fake.server_address[1], profiles=PROFILES, log=tmp_path / "graphhopper.log"
+    )
+    try:
+        dom, stderr, net_log = _render(
+            tmp_path, data, fragment="#route=44.255,-72.547;44.29,-72.547;hike", router=router
+        )
+    finally:
+        fake.shutdown()
+        fake.server_close()
+    assert 'data-route="drawn"' in dom, (dom[-2000:], stderr[-2000:])
+    assert 'data-errors="0"' in dom, dom[-2000:]
+    distance = ROUTE_ANSWER["paths"][0]["distance"]  # type: ignore[index]
+    assert f"{distance / 1000:.1f} km" in dom and "(hike)" in dom
+    assert "Continue onto Trail 19" in dom
+    assert len(_FakeGraphHopper.asked) == 1 and "profile=hike" in _FakeGraphHopper.asked[0]
+    page, _browser = _page_requests(net_log)
+    off = sorted(u for u in page if urlsplit(u).hostname != "127.0.0.1")
+    assert off == [], f"the page asked for something off loopback: {off}"
+    assert any("/map/route?" in u for u in page)
+    assert not any(urlsplit(u).port == fake.server_address[1] for u in page), (
+        "the page never calls GraphHopper itself"
+    )
