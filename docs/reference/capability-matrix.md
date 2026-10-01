@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 *(unswept)* | 0 | 0 | 83 | 2 | 213 |
-| ubuntu-26.04 *(unswept)* | 0 | 0 | 83 | 2 | 213 |
-| ubuntu-24.04 *(unswept)* | 0 | 0 | 81 | 2 | 215 |
-| kali-rolling *(unswept)* | 0 | 0 | 76 | 1 | 221 |
-| parrot *(unswept)* | 0 | 0 | 81 | 2 | 215 |
-| linuxmint-22.3 *(unswept)* | 0 | 0 | 81 | 2 | 215 |
-| debian-13-arm64 *(unswept)* | 0 | 0 | 78 | 7 | 213 |
+| debian-13 *(unswept)* | 0 | 0 | 85 | 2 | 213 |
+| ubuntu-26.04 *(unswept)* | 0 | 0 | 85 | 2 | 213 |
+| ubuntu-24.04 *(unswept)* | 0 | 0 | 83 | 2 | 215 |
+| kali-rolling *(unswept)* | 0 | 0 | 78 | 1 | 221 |
+| parrot *(unswept)* | 0 | 0 | 83 | 2 | 215 |
+| linuxmint-22.3 *(unswept)* | 0 | 0 | 83 | 2 | 215 |
+| debian-13-arm64 *(unswept)* | 0 | 0 | 80 | 7 | 213 |
 
-**298 manifests** against **7 targets**.
+**300 manifests** against **7 targets**.
 
 ---
 
@@ -282,6 +282,7 @@ build HAS been run in a container say so in their own install notes.
 | `sdrangel` | apt ? | binary | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `sdrpp` | git | git | git | apt ? | apt ? | git | git |
 | `ser2net` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `signal-server` | git | git | git | git | git | git | git |
 | `skid-finder` | binary | binary | binary | binary | binary | binary | binary |
 | `soapyremote-server` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `soapysdr-module-airspy` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
@@ -301,6 +302,7 @@ build HAS been run in a container say so in their own install notes.
 | `socat` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `spectools` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `splat` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
+| `splat-sdf` | derived | derived | derived | derived | derived | derived | derived |
 | `stlink-tools` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `stm32flash` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
 | `sunclock` | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? | apt ? |
