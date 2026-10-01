@@ -251,11 +251,12 @@ With `--json`, prints a `regions` document
 ([json-interface.md](json-interface.md)): the filter and the matching region
 paths. It is Geofabrik's list, nothing of yours.
 
-### `hammunition artifacts [--map-regions R[,R…]] [--map-freshness MODE] [--units U[,U…]]`
+### `hammunition artifacts [--map-regions R[,R…]] [--map-freshness MODE] [--reference-books ID[,ID…]] [--units U[,U…]]`
 
 Every remote data artifact the engine would fetch for the selection on the
 command line (**D-070**): each `data` unit's files, the Geofabrik extract of
-each region, and the Copernicus tiles each region's outline touches. It
+each region, the Copernicus tiles each region's outline touches, and each
+Kiwix book given (**D-066**, the 2026-10-01 amendment of D-070). It
 reads no station file and nothing installed on this machine, and installs
 nothing; the answer is the same on every machine. It is what
 [Hammunition Bunker](https://github.com/ChiefGyk3D/hammunition-bunker), a
@@ -269,7 +270,8 @@ $ hammunition artifacts --map-regions north-america/us/vermont --units osm-regio
 |---|---|
 | `--map-regions R[,R…]` | Geofabrik region paths, as `station set --map-regions` takes them. None defers the map units |
 | `--map-freshness MODE` | `yearly` (the default), `monthly` or `latest`: which dated file each region resolves to and how it is verified, exactly as in the plan |
-| `--units U[,U…]` | The units to list. Default: every unit with a `data`, `osm-regions`, `dem-tiles` or `mwm-regions` install block. A name not in the catalog, or a unit that fetches nothing (`osm-navit`, `navit`), exits 2 naming it |
+| `--reference-books ID[,ID…]` | Kiwix book ids, as `station set --reference-books` takes them (`hammunition reference books` lists them). Each is listed by its id with the pinned URL, `sha256`, size and the book's own licence line, from the carried pins with no network asked. An id the book list or the pins do not carry is listed as deferred; a malformed one, or an empty list, exits 2. None defers `kiwix-library` as *no books selected* |
+| `--units U[,U…]` | The units to list. Default: every unit with a `data`, `osm-regions`, `dem-tiles`, `mwm-regions` or `kiwix-books` install block. A name not in the catalog, or a unit that fetches nothing (`osm-navit`, `navit`), exits 2 naming it |
 
 The network is asked as the plan asks it, and only for what the selection
 names: Geofabrik for a region's dated file, its `.md5` and its `.poly`
@@ -284,7 +286,8 @@ With `--json`, prints an `artifacts` document
 name within the unit (what a mirror serves at `<mirror>/<unit>/<name>`), the
 publisher URL, the check (`sha256`, `md5-publisher`, `etag-md5`, `sha1-publisher` for CoMaps' maps, D-069), the
 expected digest, where a publisher checksum was read, the size, the licence,
-and `deferred`. It carries the regions given, and nothing of the station's.
+and `deferred`. It carries the regions and books given, and nothing of the
+station's.
 
 ### `hammunition maps qmapshack [--configure-only]`
 
@@ -1510,7 +1513,7 @@ hammunition station show
 | `--map-regions R[,R…]` | Geofabrik region paths for offline maps, e.g. `north-america/us/vermont,north-america/us/new-hampshire`. Replaces the whole list. Checked for shape only (lowercase words joined by `/`); whether Geofabrik has the region is checked at plan time (**D-057**) |
 | `--map-freshness MODE` | `yearly` (the default when unset), `monthly` or `latest`: which dated file each region resolves to, and so how it can be verified |
 | `--reference-books ID[,ID…]` | Kiwix books for `kiwix-library`, by id (`hammunition reference books` lists them). Replaces the whole list; an id the catalog's book list does not name is refused when you type it, and an empty list is refused (uninstall `kiwix-library` to remove the books) (**D-066**) |
-| `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
+| `--mirror URL` | A LAN mirror of the data artifacts, e.g. `http://bunker.lan:8080/` (**D-070**). Each data download (a `data` unit's files, a map region, a terrain tile, a CoMaps map, a reference book) asks `<URL>/<unit>/<name>` first and the publisher on any failure, the same digest checked either way. `http` or `https` with a host; no user, password, query or fragment. A LAN address, never one reachable from the internet; `docs/guides/lan-mirror.md` |
 | `--clear-mirror` | Remove the saved mirror |
 
 A region list says where the operator lives or travels, so `station show`
