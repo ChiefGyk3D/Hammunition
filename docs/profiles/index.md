@@ -14,7 +14,7 @@ Named bundles of software that belong together. Flat tags with overlap, never ne
 | [logging](logging.md) | 1.0 | 11 | Station logs, contest logging and award tracking |
 | [morse](morse.md) | 1.0 | 17 | Morse code — sending, decoding, learning, and licence exam practice |
 | [navigation](navigation.md) | post-1.0 | 25 | Offline maps and turn-by-turn navigation from your own GPS, with no network |
-| [packet](packet.md) | 1.0 | 22 | AX.25, APRS, Winlink and the EMCOMM stack |
+| [packet](packet.md) | 1.0 | 24 | AX.25, APRS, Winlink and the EMCOMM stack |
 | [phone-maps](phone-maps.md) | post-1.0 | 3 | Offline maps and points of interest for the team's phones, built on the laptop |
 | [propagation](propagation.md) | 1.0 | 12 | Band conditions, grey line, beacons and DX spotting |
 | [reference](reference.md) | post-1.0 | 6 | An offline library -- Wikipedia, WikiMed, ham Q&A, dictionaries and the ICS forms -- on one local page |

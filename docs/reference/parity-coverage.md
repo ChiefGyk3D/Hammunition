@@ -25,7 +25,7 @@ decision. Only CARRY, SUPERSEDE, REVIVE and ADD owe a manifest.
 | …covered | **109** |
 | …outstanding, with a recorded reason | **15** |
 | …outstanding, unexplained | **0** |
-| Manifests in the catalog | **289** |
+| Manifests in the catalog | **291** |
 
 Coverage of what is owed: **109/124** (87%).
 
@@ -44,7 +44,7 @@ Absent on purpose. Each names what it waits on.
 | `ARDOPGUI` | CARRY | post-1.0 — GUI for ARDOP; ruled CARRY (post-1.0) in dispositions.md, so 1.0 ships `ardopcf` headless |
 | `FoxTelem` | CARRY | post-1.0 — pending an AMSAT constellation census: a partial world-changed case, and neither blocking 1.0 on a satellite survey nor quietly carrying a decoder for re-entered spacecraft serves anybody (Q-015 decision 10, 2026-08-30) |
 | `HAMRS` | ADD | post-1.0 — AppImage |
-| `VARA` | ADD | post-1.0 — closed software needing a configured Wine prefix |
+| `VARA` | ADD | post-1.0 and optional since 2026-09-30 (Q-022 #6) — closed software needing a configured Wine prefix; `mercury` speaks its TCP interface and pat drives it unchanged, and what VARA still adds is VARA-only gateways |
 | `VARIM` | ADD | post-1.0 — VARA's messaging client, same constraint |
 | `ahrl_docs` | SUPERSEDE | SUPERSEDE #8-12 — replaced by our own engine, not by software |
 | `ahrl_menus` | SUPERSEDE | SUPERSEDE #8-12 — replaced by our own engine |

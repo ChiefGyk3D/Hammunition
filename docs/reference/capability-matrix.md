@@ -35,15 +35,15 @@ build HAS been run in a container say so in their own install notes.
 
 | Target | apt | apt ✗ | build | no block | unswept |
 |---|---:|---:|---:|---:|---:|
-| debian-13 | 204 | 7 | 76 | 2 | 0 |
-| ubuntu-26.04 | 206 | 5 | 76 | 2 | 0 |
-| ubuntu-24.04 | 199 | 14 | 74 | 2 | 0 |
-| kali-rolling | 210 | 8 | 71 | 0 | 0 |
-| parrot | 208 | 5 | 74 | 2 | 0 |
-| linuxmint-22.3 | 199 | 14 | 74 | 2 | 0 |
-| debian-13-arm64 | 203 | 8 | 73 | 5 | 0 |
+| debian-13 | 204 | 7 | 78 | 2 | 0 |
+| ubuntu-26.04 | 206 | 5 | 78 | 2 | 0 |
+| ubuntu-24.04 | 199 | 14 | 76 | 2 | 0 |
+| kali-rolling | 211 | 8 | 72 | 0 | 0 |
+| parrot | 208 | 5 | 76 | 2 | 0 |
+| linuxmint-22.3 | 199 | 14 | 76 | 2 | 0 |
+| debian-13-arm64 | 203 | 8 | 74 | 6 | 0 |
 
-**289 manifests** against **7 targets**.
+**291 manifests** against **7 targets**.
 
 ---
 
@@ -203,6 +203,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `flrig` | apt | apt | apt | apt | apt | apt | apt |
 | `flwkey` | source | source | source | source | source | source | source |
 | `flwrap` | apt | apt | apt | apt | apt | apt | apt |
+| `freedata` | venv | venv | venv | venv | venv | venv | — |
 | `freedv` | apt | apt | apt | apt | apt | apt | apt |
 | `garim` | source | source | source | source | source | source | source |
 | `gdal-bin` | apt | apt | apt | apt | apt | apt | apt |
@@ -271,6 +272,7 @@ Each of these is an honest gap the engine reports at plan time rather than a def
 | `m2kcli` | apt | apt | apt ✗ | apt | apt | apt ✗ | apt |
 | `mapsforge-map` | derived | derived | derived | derived | derived | derived | derived |
 | `mapsforge-poi` | derived | derived | derived | derived | derived | derived | derived |
+| `mercury` | git | git | git | apt | git | git | git |
 | `mfcuk` | apt | apt | apt | apt | apt | apt | apt |
 | `mfoc` | apt | apt | apt | apt | apt | apt | apt |
 | `minicom` | apt | apt | apt | apt | apt | apt | apt |

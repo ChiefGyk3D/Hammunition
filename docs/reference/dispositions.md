@@ -658,13 +658,16 @@ or it is not written.
 Units the gap analysis (`catalog-gaps-2026-09.md`) found in the field rather
 than in any of the six inventories, recorded here so each has a disposition,
 and kept out of the six-source summary and index above, whose counts are the
-inventories'. The apt adds are ADD on the report's recommendation (section
+inventories'. Mercury and FreeDATA are ADD by the maintainer's ruling on
+**Q-022** #6. The apt adds are ADD on the report's recommendation (section
 D, item 6), which Q-022 says needs no ruling once the seven-target sweep
 confirms a unit; a unit the sweep or the decision record rules out is listed
 with why.
 
 | Unit | Decided | How | What was measured (2026-09-30) |
 |---|---|---|---|
+| **mercury** | ADD — `catalog/packages/mercury.yaml`, `packet` profile (Q-022 #6) | apt on Kali (1.9.13+ds-1); elsewhere a `make` build of tag v1.9.15, the release Debian unstable packages (D-024) | GPL-3.0 LICENSE; default branch `mercuryv2` head 2026-09-30 (D-032). Built on Parrot in 8 s, 156 MiB peak. Debian's pat 0.16.0 carried a message peer to peer through two Mercury 1.9.15 instances wired back to back, with no radio and no sound card. Upstream's own apt repository is not used: its https certificate does not verify. |
+| **freedata** | ADD — `catalog/packages/freedata.yaml`, `packet` profile (Q-022 #6) | venv, the 0.18.2 wheel and 68 dependencies hash-pinned; x86-64 only | GPL-3.0 LICENSE; default branch `main` head 2026-07-27, which is the v0.18.2 tag (D-032). No target packages it. The wheel carries the built web interface and its own libcodec2, so no Node step and no codec2 build. The pinned set installed into a Python 3.13 venv and the codec2 binding loaded; the server was not started. |
 | **gr-fosphor** | ADD — `catalog/packages/gr-fosphor.yaml`, `sdr` profile | apt | Offered on all seven targets. GPL-3.0 COPYING; default branch `master` head 2024-03-23 (D-032), the snapshot five targets package. The .deb Depends on `gnuradio-dev` and on the OpenCL loader only. No fosphor block was run; the field laptop's Iris Xe is unmeasured. |
 | **libiio-utils** | ADD — `catalog/packages/libiio-utils.yaml`, `electronics` profile; linked from the `plutosdr` device | apt | Offered on all seven targets (0.25 or 0.26). Tools GPL-2.0-or-later, library LGPL-2.1-or-later (README); default branch `main` head 2026-09-28 (D-032), upstream tagged v1.0.0 while the archives carry 0.x. Seven tools and no desktop entry, so an `iio_scan` launcher runs `iio_info -S`. No PlutoSDR or ADALM2000 is owned; nothing was scanned. |
 | **stm32flash** | ADD — `catalog/packages/stm32flash.yaml`, `electronics` profile | apt | 0.7 on all seven targets. GPL-2.0; SourceForge default branch `master` head 2026-03-06 (D-032), still adding parts; v0.7 is the latest tag. No device in the hardware catalog, owned or not, is recorded as flashing over the STM32 serial bootloader (the STM32 entries use USB DFU), so no device links to it (D-026: the means of talking to a device, not gated on one). Nothing was flashed. |

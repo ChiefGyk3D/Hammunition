@@ -11,6 +11,21 @@ naming the PR and the decision it rests on. Decisions are authoritative in
 
 ## Unreleased
 
+- **Two free HF modems join the packet core** (gap analysis section B
+  Group 3, **Q-022** #6, branch `gap-05-hf-modems`). `mercury`
+  (Rhizomatica, GPL-3.0) speaks VARA HF's TCP interface, so Pat's
+  `varahf://` transport drives it unchanged: apt on Kali (1.9.13), a `make`
+  build of v1.9.15 elsewhere, the release Debian unstable packages
+  (**D-024**). `freedata` (DJ2LS, GPL-3.0) is station-to-station messaging
+  and file transfer with a browser interface, a hash-pinned venv of the
+  0.18.2 wheel, x86-64 only. Both are in `packet` and both transmit when a
+  client keys them; the pages say so. `overlaps.md` gains an HF-modem
+  section, `dispositions.md` records both as ADD outside the six sources,
+  and `SCOPE.md` re-ranks VARA's Wine prefix as post-1.0 and optional. The
+  packet-and-Winlink guide gains the modem choice. Measured: Pat 0.16.0 to
+  Mercury 1.9.15 peer to peer, two instances back to back with no radio.
+  Not measured: either modem over the air, FreeDATA's server and window.
+
 - **Apt units from the gap analysis** (section D.6, branch
   `gap-06-apt-adds`). The eight candidates were swept on the seven targets
   first; `catalog-gaps-2026-09.md` carries the table and corrects the
