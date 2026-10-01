@@ -8555,6 +8555,13 @@ files, because the pinned tilemaker tarball is no longer on disk; the
 committed render test for it is skipped without `HAMMUNITION_MAP_KIT_DIR`,
 as D-071's is. The jar was then deleted.
 
+**Final review, 2026-10-01.** A GraphHopper that failed to start (its
+`Popen` or its log raising) escaped `run()` and was reported as the page's
+port, stopping the books and the map; it is now caught, `/map/route` and
+the landing page say routes are off and why, and the page keeps serving
+(tested). `graphhopper-graph`'s prerequisites said "deferred" where a typed
+name is refused; corrected.
+
 **Owed by the bench:** a real region through `hammunition install
 graphhopper-graph` (time, memory, scratch); the Route control in a desktop
 browser with a real receiver's position; Java on the targets other than
