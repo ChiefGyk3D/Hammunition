@@ -693,10 +693,13 @@ broken.
 catalog's 33 `source` and `git` blocks. `qmake6` is separate from `qmake`
 because Debian 13 with only `qt6-base-dev` has no `/usr/bin/qmake` at all.
 
-`custom` and `patches` remain **measured zeros in the catalog** and are refused
-by name. `patches` is no longer a speculative zero, though: `linrad` needs one
-and cannot be shipped without it, because its Makefile bakes `-Werror` into a
-literal flag string with no variable to override.
+`custom` remains a **measured zero in the catalog** and is refused by name.
+`patches` is not: `linrad` proved it (its Makefile bakes `-Werror` into a
+literal flag string with no variable to override), the backend has applied
+declared diffs since 2026-08-30 (`source-build-gaps.md` #2), and `linrad`,
+`linbpq`, `dumphfdl`, `hamclock-next`, `openhamclock` and `droidstar` carry
+one. A patch is for a switch the build offers no variable for; try a define
+first.
 `docs/reference/source-build-gaps.md` names that and five other gaps, each
 against the unit whose build proved it.
 

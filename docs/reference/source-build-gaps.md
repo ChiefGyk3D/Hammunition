@@ -324,3 +324,37 @@ plugin is installed and would read the GPS directly, and reaching it would
 take a patch to CoMaps; that is carried by nobody and is not proposed here.
 The route that needs no patch is GeoClue's network-NMEA source, unmeasured
 (D-069).
+
+### 9. A build that fetches its own dependencies at moving refs — FreeDV 2.x (`freedv-rade`) — **open, 2026-10-01**
+
+FreeDV v2.4.0 (`drowe67/freedv-gui`, tag commit `d4acddf`) was built in a
+rootless `debian:13` container the way a `git` block with `build_system:
+cmake` would run it: `cmake --fresh -S -B`, then `cmake --build --parallel
+2`, unprivileged. It exited 0 after 49 minutes at the lowest priority, 792
+MiB peak for the largest process, and the 58 MB `freedv` started under Xvfb
+("FreeDV version 2.4.0 starting", "Using RADE API version 2"). It is not
+carried, for what the build did on its own:
+
+- **CMake fetches source the manifest never names.** `FetchContent` clones
+  `tmiw/freedv-backend` at tag `v1.0.0`. That project's `ExternalProject`
+  steps then clone `freedv/rade_c` and `xiph/rnnoise` at **`GIT_TAG main`**,
+  and download Opus as a GitHub archive of commit `940d4e5` with no
+  `URL_HASH`. Opus's and RNNoise's `autogen.sh` then fetch their model
+  tarballs from xiph.org; those two are checked against a sha256 by the
+  projects' own scripts. Two of the fetches are moving branches. The
+  security rules refuse an unpinned source, and the git backend's pin check
+  (`verify-pin`) covers only the tree the manifest names.
+- **The install rule is incomplete.** `cmake --install` into a DESTDIR wrote
+  the executable, the desktop entry, icons, the manual and sample WAVs, and
+  not `librade.so.0.1`, which the executable links from the build tree.
+
+The backend has no field for "these nested fetches, at these commits, with
+these hashes". One shape would be pre-fetching each pinned source and
+handing it to CMake with `FETCHCONTENT_SOURCE_DIR_<NAME>`. That reaches
+`freedv-backend` only; `rade_c` and RNNoise are `ExternalProject` steps
+inside it with the branch written into its CMake, so it would also need a
+patch to a tree the manifest does not check out. D-014 says one unit does
+not oblige a backend feature, and this one is not proposed here. The routes
+that need nothing from the engine: a distribution packages FreeDV 2.x (no
+target does: all seven carry 1.8.11, which is the catalog's `freedv`), or
+upstream pins the two branches and hashes the Opus archive.
