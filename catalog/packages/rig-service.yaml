@@ -24,13 +24,20 @@ update:
     method: apt_policy
   strategy: apt_upgrade
 
-# Two complete services selected by a station value — the CAT rig and the
-# PTT-only rig — never one file written two ways (ruling 4). The engine renders
-# each to a unit file, substituting the station's values and the catalog-derived
-# ones ({station.rig_hamlib_model}, {station.rig_kind}, {station.rig_ptt_line_hamlib});
-# a missing value defers the service and the rest of the transaction installs
-# (D-035). -T 127.0.0.1 binds loopback only; the gate measured that a browser's
-# HTTP POST does not key the dummy, so no proxy is interposed (D-073 §11).
+# Two complete rigctld services selected by a station value — the CAT rig and
+# the PTT-only rig — never one file written two ways (ruling 4). The engine
+# renders each to a unit file, substituting the station's values and the
+# catalog-derived ones ({station.rig_hamlib_model}, {station.rig_kind},
+# {station.rig_ptt_line_hamlib}); a missing value defers the service and the
+# rest of the transaction installs (D-035).
+#
+# rigctld binds 127.0.0.1:4632, and a loopback filter (hammunition.rigproxy)
+# binds the port programs use, 127.0.0.1:4532, and forwards to it — dropping any
+# connection that opens with an HTTP request line. A web page's request to 4532
+# was measured to reach rigctld's command parser and key the dummy, and rigctld
+# has no password (its -A is not implemented), so ruling 8 requires the filter
+# (D-073 §11). {python} is the engine's own interpreter, filled at render time
+# as the launchers embed the engine path (#145).
 user_services:
   - name: hammunition-rigctld
     description: hamlib rigctld for the station's rig
@@ -47,10 +54,10 @@ user_services:
       - -T
       - 127.0.0.1
       - -t
-      - "4532"
+      - "4632"
     binds_to_device: "{station.rig_device}"
     listens:
-      - {protocol: tcp, address: 127.0.0.1, port: 4532}
+      - {protocol: tcp, address: 127.0.0.1, port: 4632}
   - name: hammunition-rigctld
     description: hamlib rigctld keying the station's PTT-only rig
     when_station: {rig_kind: ptt_only}
@@ -66,8 +73,36 @@ user_services:
       - -T
       - 127.0.0.1
       - -t
-      - "4532"
+      - "4632"
     binds_to_device: "{station.rig_device}"
+    listens:
+      - {protocol: tcp, address: 127.0.0.1, port: 4632}
+  - name: hammunition-rig-proxy
+    description: loopback filter in front of rigctld (drops HTTP, D-073 §11)
+    when_station: {rig_kind: cat}
+    unless_station: {rig_owner: flrig}
+    exec:
+      - "{python}"
+      - -m
+      - hammunition.rigproxy
+      - --listen
+      - "4532"
+      - --target
+      - "4632"
+    listens:
+      - {protocol: tcp, address: 127.0.0.1, port: 4532}
+  - name: hammunition-rig-proxy
+    description: loopback filter in front of rigctld keying the PTT-only rig
+    when_station: {rig_kind: ptt_only}
+    unless_station: {rig_ptt_line: vox}
+    exec:
+      - "{python}"
+      - -m
+      - hammunition.rigproxy
+      - --listen
+      - "4532"
+      - --target
+      - "4632"
     listens:
       - {protocol: tcp, address: 127.0.0.1, port: 4532}
 

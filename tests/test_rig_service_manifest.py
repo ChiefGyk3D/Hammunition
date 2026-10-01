@@ -19,22 +19,30 @@ def _catalog() -> tuple[dict[str, PackageManifest], dict[str, ProfileManifest]]:
     return packages, profiles
 
 
-def test_rig_service_carries_two_user_services() -> None:
+def test_rig_service_carries_rigctld_and_proxy_for_each_kind() -> None:
     packages, _profiles = _catalog()
     rig = packages["rig-service"]
-    assert len(rig.user_services) == 2
+    # Two rigctld entries (cat, ptt_only) + two proxy entries (cat, ptt_only).
+    assert len(rig.user_services) == 4
+    names = {svc.name for svc in rig.user_services}
+    assert names == {"hammunition-rigctld", "hammunition-rig-proxy"}
     kinds = {svc.when_station.get("rig_kind") for svc in rig.user_services}
     assert kinds == {"cat", "ptt_only"}
     assert "libhamlib-utils" in rig.depends
 
 
-def test_both_services_listen_on_loopback_4532() -> None:
+def test_rigctld_binds_4632_and_the_proxy_binds_4532() -> None:
     packages, _profiles = _catalog()
     rig = packages["rig-service"]
     for svc in rig.user_services:
         (listen,) = svc.listens
         assert listen.address == "127.0.0.1"
-        assert listen.port == 4532
+        if svc.name == "hammunition-rigctld":
+            assert listen.port == 4632  # behind the filter
+        else:
+            assert listen.port == 4532  # the port programs use
+            assert svc.exec[0] == "{python}"
+            assert "hammunition.rigproxy" in svc.exec
 
 
 def test_rig_service_is_in_the_station_profile() -> None:

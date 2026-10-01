@@ -1754,20 +1754,38 @@ class UserService(Strict):
             raise ManifestError(
                 f"user service name {self.name!r} must be a lowercase unit-file base name"
             )
-        if not self.exec[0].startswith("/"):
+        # exec[0] is an absolute path, or the engine placeholder {python} (the
+        # interpreter that rendered the unit, as a launcher embeds the engine
+        # path, #145). Nothing else: a bare name resolves against systemd's own
+        # PATH, not ours.
+        if self.exec[0] != "{python}" and not self.exec[0].startswith("/"):
             raise ManifestError(
                 f"user service {self.name!r}: exec[0] {self.exec[0]!r} must be an absolute path "
-                f"to the binary systemd runs"
+                f"or {{python}}"
             )
         for word in self.exec:
             # A {station.*} reference stands in for a value re-checked after
             # substitution (D-073 §4, §6a); strip it before the word check so a
-            # legitimate reference is not mistaken for a metacharacter.
-            bare = STATION_REF.sub("X", word)
+            # legitimate reference is not mistaken for a metacharacter. {python}
+            # is likewise an engine placeholder, not a shell token.
+            bare = STATION_REF.sub("X", word).replace("{python}", "X")
             if any(c in bare for c in _EXEC_FORBIDDEN):
                 raise ManifestError(
                     f"user service {self.name!r}: exec element {word!r} is not one argv word; "
                     f"no whitespace and no shell metacharacter reaches the unit file (D-073 §6a)"
+                )
+        # The loopback guarantee is not declarative-only (final review I4): a
+        # hamlib rigctld service must actually bind the address and port it
+        # declares, or a dropped `-T` would bind every interface while the plan
+        # still printed "listens 127.0.0.1:…".
+        if self.exec[0].endswith("rigctld") and self.listens:
+            want = self.listens[0]
+            joined = " ".join(self.exec)
+            if f"-T {want.address}" not in joined or f"-t {want.port}" not in joined:
+                raise ManifestError(
+                    f"user service {self.name!r} runs rigctld and declares it listens on "
+                    f"{want.address}:{want.port}, but its exec does not pass "
+                    f"-T {want.address} -t {want.port} (D-073 §11, review I4)"
                 )
         return self
 

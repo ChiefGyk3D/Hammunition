@@ -92,7 +92,7 @@ def test_two_entries_one_name_must_have_disjoint_conditions() -> None:
         "description": "hamlib rigctld keying the PTT-only rig",
         "when_station": {"rig_kind": "ptt_only"},
         "unless_station": {"rig_ptt_line": "vox"},
-        "exec": ["/usr/bin/rigctld", "-m", "1", "-t", "4532"],
+        "exec": ["/usr/bin/rigctld", "-m", "1", "-T", "127.0.0.1", "-t", "4532"],
         "listens": [{"protocol": "tcp", "address": "127.0.0.1", "port": 4532}],
     }
     # cat vs ptt_only cannot both hold: accepted.
@@ -104,3 +104,30 @@ def test_two_entries_one_name_must_have_disjoint_conditions() -> None:
 
 def test_user_service_is_importable() -> None:
     assert UserService is not None
+
+
+def test_a_rigctld_service_must_bind_what_it_declares() -> None:
+    """Review I4: a rigctld exec that omits -T/-t matching listens is refused,
+    so the loopback guarantee is not declarative-only."""
+    bad = {
+        "name": "hammunition-rigctld",
+        "description": "rigctld without a matching -T",
+        "when_station": {"rig_kind": "cat"},
+        "exec": ["/usr/bin/rigctld", "-m", "1", "-t", "4632"],  # no -T
+        "listens": [{"protocol": "tcp", "address": "127.0.0.1", "port": 4632}],
+    }
+    with pytest.raises((ManifestError, ValidationError)):
+        PackageManifest.model_validate(_manifest([bad]))
+
+
+def test_python_placeholder_is_accepted_as_exec0() -> None:
+    """The loopback filter runs under the engine's interpreter, named {python}."""
+    proxy = {
+        "name": "hammunition-rig-proxy",
+        "description": "loopback filter",
+        "when_station": {"rig_kind": "cat"},
+        "exec": ["{python}", "-m", "hammunition.rigproxy", "--listen", "4532", "--target", "4632"],
+        "listens": [{"protocol": "tcp", "address": "127.0.0.1", "port": 4532}],
+    }
+    manifest = PackageManifest.model_validate(_manifest([proxy]))
+    assert manifest.user_services[0].exec[0] == "{python}"

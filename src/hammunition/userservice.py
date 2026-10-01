@@ -125,10 +125,10 @@ def _matches(conditions: Mapping[str, str], facts: Mapping[str, str]) -> bool:
     return all(facts.get(key) == value for key, value in conditions.items())
 
 
-def _substitute(word: str, values: Mapping[str, str]) -> str:
-    """Replace every ``{station.*}`` in *word*, re-checking the result is one
-    safe argv word. A reference with no value is a bug (the caller decides what
-    is needed before calling); an unsafe result raises."""
+def _substitute(word: str, values: Mapping[str, str], interpreter: str) -> str:
+    """Replace every ``{station.*}`` and ``{python}`` in *word*, re-checking the
+    result is one safe argv word. A reference with no value is a bug (the caller
+    decides what is needed before calling); an unsafe result raises."""
 
     def repl(match: re.Match[str]) -> str:
         key = match.group(1)
@@ -136,8 +136,10 @@ def _substitute(word: str, values: Mapping[str, str]) -> str:
             raise PlanUserServiceError(f"no value for {{station.{key}}}")
         return values[key]
 
-    result = STATION_REF.sub(repl, word)
-    if any(c in result for c in " \t\n\r;|&$`%<>"):
+    result = STATION_REF.sub(repl, word).replace("{python}", interpreter)
+    # A quote or backslash is as much a shell token to systemd as the others;
+    # RIG_DEVICE already excludes them, this is defence in depth (review minor).
+    if any(c in result for c in " \t\n\r;|&$`%<>\"'\\"):
         raise PlanUserServiceError(
             f"substituted exec word {result!r} carries a shell character or whitespace; "
             f"refusing to write it into a unit file (D-073 §6a)"
@@ -158,14 +160,22 @@ def plan_user_services(
     devices: Mapping[str, DeviceManifest | DeviceClass],
     *,
     model_lister: Callable[[], Mapping[int, tuple[int, int]]] | None = None,
+    interpreter: str | None = None,
 ) -> tuple[list[PlannedUserService], list[Deferral], list[str]]:
     """Plan *manifest*'s user services against *station*.
 
     Returns ``(planned, deferrals, notes)``: services to render, D-035
     deferrals for a missing value or a rig no longer catalogued, and operator
     notes for a skipped service (flrig, VOX) or an unmeasured radio.
+
+    ``interpreter`` fills ``{python}`` in an exec (the loopback filter runs
+    under the engine's own interpreter); it defaults to :data:`sys.executable`.
     """
+    import sys
+
     from hammunition.plan import Deferral
+
+    python = interpreter or sys.executable
 
     if not manifest.user_services:
         return [], [], []
@@ -223,33 +233,36 @@ def plan_user_services(
     deferrals: list[Deferral] = []
     notes: list[str] = []
 
-    for svc in manifest.user_services:
-        if not _matches(svc.when_station, facts):
-            continue
-        if _matches(svc.unless_station, facts):
-            if facts["rig_owner"] == "flrig":
-                notes.append(f"  {manifest.name}: skipped — the station's rig is owned by flrig")
-            else:
-                notes.append(
-                    f"  {manifest.name}: skipped — the rig is keyed by VOX, nothing to run"
-                )
-            continue
-        # The needed values are station attributes, checked on the station
-        # itself — not the substitution dict, which holds derived names.
-        missing_station = [v for v in _needed(res.kind) if getattr(station, v) in (None, "")]
-        if missing_station:
-            deferrals.append(
-                Deferral(
-                    subject=manifest.name,
-                    what=f"will not run {svc.name}",
-                    why="station values not set: " + ", ".join(missing_station),
-                    remedy="run `hammunition station set "
-                    + " ".join(f"--{m.replace('_', '-')} …" for m in missing_station)
-                    + "`",
-                )
+    # Which entries this station selects — all of the matching kind, not yet
+    # rendered. The rigctld service and its loopback filter are rendered
+    # together, so the missing-value and skip decisions are made once over the
+    # group, not once per entry (a single deferral line, spec §6b).
+    selected = [svc for svc in manifest.user_services if _matches(svc.when_station, facts)]
+    if selected and all(_matches(svc.unless_station, facts) for svc in selected):
+        if facts["rig_owner"] == "flrig":
+            notes.append(f"  {manifest.name}: skipped — the station's rig is owned by flrig")
+        else:
+            notes.append(f"  {manifest.name}: skipped — the rig is keyed by VOX, nothing to run")
+        return planned, deferrals, notes
+
+    # The needed values are station attributes, checked on the station itself —
+    # not the substitution dict, which holds derived names.
+    missing_station = [v for v in _needed(res.kind) if getattr(station, v) in (None, "")]
+    if missing_station:
+        deferrals.append(
+            Deferral(
+                subject=manifest.name,
+                what=f"will not run {first}",
+                why="station values not set: " + ", ".join(missing_station),
+                remedy="run `hammunition station set "
+                + " ".join(f"--{m.replace('_', '-')} …" for m in missing_station)
+                + "`",
             )
-            continue
-        exec_argv = tuple(_substitute(word, values) for word in svc.exec)
+        )
+        return planned, deferrals, notes
+
+    for svc in selected:
+        exec_argv = tuple(_substitute(word, values, python) for word in svc.exec)
         filled = _station_sources(svc, res)
         device_path = station.rig_device if svc.binds_to_device else None
         device_unit = device_unit_name(device_path) if device_path else None
@@ -265,17 +278,17 @@ def plan_user_services(
                 listens=tuple((lst.address, lst.port) for lst in svc.listens),
             )
         )
-        if res.uncatalogued:
-            notes.append(
-                f"  {manifest.name}: radio {station.rig} has no manifest; its USB shape, "
-                f"ports and known problems are unmeasured here"
-            )
-        if res.kind == "ptt_only":
-            notes.append(
-                f"  {manifest.name}: no frequency control — programs see the dummy model's "
-                f"frequency; start with the radio off or on a dummy load (opening the port "
-                f"may key it)"
-            )
+    if res.uncatalogued:
+        notes.append(
+            f"  {manifest.name}: radio {station.rig} has no manifest; its USB shape, "
+            f"ports and known problems are unmeasured here"
+        )
+    if res.kind == "ptt_only":
+        notes.append(
+            f"  {manifest.name}: no frequency control — programs see the dummy model's "
+            f"frequency; start with the radio off or on a dummy load (opening the port "
+            f"may key it)"
+        )
 
     return planned, deferrals, notes
 

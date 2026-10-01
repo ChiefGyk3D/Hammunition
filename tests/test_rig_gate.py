@@ -1,28 +1,16 @@
 # SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""The browser-keying gate (D-073 §11, ruling 8).
+"""The browser-keying gate and the filter it requires.  D-073 §11, ruling 8.
 
-The spec asks one question outright: can a web page's HTTP request to
-``rigctld`` on loopback key the transmitter? ``rigctld`` reads
-newline-separated commands and a browser's POST body is newline-separated
-text, so the question is real. The answer decides whether this sub-project
-ships a loopback filter proxy.
+Ruling 8: if a web page's request to ``rigctld`` on loopback can reach the
+command parser, put a filter in front of it. Measured against hamlib's dummy
+model, such a request can, so the filter (:mod:`hammunition.rigproxy`) is
+shipped and this test guards it: with the filter in front, an HTTP request
+does not reach ``rigctld``, while a real rig command passes straight through.
 
-Measured here against hamlib's dummy model (``-m 1``) on an ephemeral
-loopback port, keying nothing: a browser-shaped HTTP POST, sent as one
-write the way a browser's ``fetch``/form actually sends it, leaves PTT
-unchanged, because the request line and the CRLF-folded headers never
-leave ``rigctld``'s line parser resynchronised onto the body's ``T 1``.
-The gate is therefore OPEN and **no proxy is built** (rigctld stays on
-4532). The same test is falsified on purpose: a raw ``T 1`` with no
-request line keys the dummy, proving the keying path is reached and the
-first assertion is not passing for the trivial reason that nothing ever
-reaches the parser.
-
-If a future hamlib regresses this — if a browser-shaped POST begins to
-key — this test goes red and ruling 8's response (a filter proxy on 4532
-with ``rigctld`` moved to 4632) becomes required.
+Everything here keys nothing real: ``rigctld -m 1`` is hamlib's dummy model on
+an ephemeral loopback port, and ``t`` only *reads* PTT.
 """
 
 from __future__ import annotations
@@ -30,9 +18,12 @@ from __future__ import annotations
 import shutil
 import socket
 import subprocess
+import threading
 import time
 
 import pytest
+
+from hammunition.rigproxy import serve
 
 pytestmark = pytest.mark.skipif(
     shutil.which("rigctld") is None, reason="hamlib (rigctld) is not installed"
@@ -54,20 +45,24 @@ def _wait(port: int) -> None:
             return
         except OSError:
             time.sleep(0.05)
-    raise AssertionError("rigctld never started listening")
+    raise AssertionError("port never came up")
 
 
-def _talk(port: int, data: bytes, settle: float = 0.3) -> bytes:
+def _send(port: int, data: bytes, close_after: float = 0.1) -> None:
     conn = socket.create_connection(("127.0.0.1", port), timeout=2)
     conn.sendall(data)
-    time.sleep(settle)
+    time.sleep(close_after)
+    conn.close()
+
+
+def _ptt(port: int) -> bytes:
+    conn = socket.create_connection(("127.0.0.1", port), timeout=2)
+    conn.sendall(b"t\n")
+    time.sleep(0.2)
     conn.settimeout(0.3)
     out = b""
     try:
-        while True:
-            chunk = conn.recv(4096)
-            if not chunk:
-                break
+        while chunk := conn.recv(4096):
             out += chunk
     except OSError:
         pass
@@ -75,34 +70,52 @@ def _talk(port: int, data: bytes, settle: float = 0.3) -> bytes:
     return out
 
 
-def test_browser_post_does_not_key_the_dummy_but_a_raw_command_does() -> None:
-    port = _free_port()
+def _ptt_within(port: int, want: bytes, seconds: float) -> bool:
+    """Poll PTT for *seconds*; True as soon as it reads *want*.
+
+    A single read is not enough: rigctld takes a second or more to work
+    through the lines of a rejected HTTP request before it would act on any
+    that followed, so a short settle hides the hazard this guards against.
+    """
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        if _ptt(port) == want:
+            return True
+        time.sleep(0.5)
+    return False
+
+
+def test_the_filter_blocks_an_http_request_but_passes_a_real_command() -> None:
+    rig_port = _free_port()
+    proxy_port = _free_port()
     proc = subprocess.Popen(
-        ["rigctld", "-m", "1", "-T", "127.0.0.1", "-t", str(port)],
+        ["rigctld", "-m", "1", "-T", "127.0.0.1", "-t", str(rig_port)],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
     try:
-        _wait(port)
+        _wait(rig_port)
+        ready = threading.Event()
+        threading.Thread(
+            target=serve, args=(proxy_port, rig_port), kwargs={"ready": ready}, daemon=True
+        ).start()
+        assert ready.wait(2)
 
-        # A browser-shaped POST whose body is the keying command, sent as one
-        # write — the framing a browser controls, not the attacker's JS.
-        body = b"T 1\n"
+        # An HTTP POST whose body is the keying line, through the filter: the
+        # filter drops the connection, so nothing of it reaches rigctld. PTT
+        # stays 0 across a long window (not a single early read).
+        body = b"T 1\n" * 40
         request = (
-            b"POST / HTTP/1.1\r\n"
-            b"Host: 127.0.0.1\r\n"
-            b"Content-Type: text/plain\r\n"
-            b"Content-Length: %d\r\n\r\n" % len(body)
+            b"POST / HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+            b"Content-Type: text/plain\r\nContent-Length: %d\r\n\r\n" % len(body)
         ) + body
-        _talk(port, request, settle=1.0)
-        # Gate OPEN: PTT is still 0 after the POST.
-        assert _talk(port, b"t\n") == b"0\n"
+        _send(proxy_port, request)
+        assert not _ptt_within(proxy_port, b"1\n", 15.0), "the filter let an HTTP request key PTT"
 
-        # Falsification: a raw command with no request line reaches the parser
-        # and keys the dummy, so the assertion above is not passing merely
-        # because nothing ever reached the keying path.
-        assert b"RPRT 0" in _talk(port, b"T 1\n")
-        assert _talk(port, b"t\n") == b"1\n"
+        # A real rig command, through the same filter, reaches rigctld and keys
+        # the dummy — the filter is transparent to a genuine client.
+        _send(proxy_port, b"T 1\n", close_after=0.3)
+        assert _ptt_within(proxy_port, b"1\n", 5.0), "the filter blocked a real command"
     finally:
         proc.terminate()
         proc.wait()

@@ -7759,12 +7759,21 @@ is fixed and `listens` refuses any non-loopback address at load.
 **The gate (ruling 8), measured.** `rigctld` reads newline-separated commands
 and a browser's POST body is newline-separated text, so the question was
 whether a web page could key the transmitter on loopback. Measured against
-hamlib 4.7.2's dummy model on an ephemeral port (`tests/test_rig_gate.py`): a
-browser-shaped HTTP POST, sent the way a browser sends it, **left PTT
-unchanged**, while a raw `T 1` keyed it (the falsification that proves the test
-reaches the parser). The gate is **open**, so **no loopback filter proxy is
-built** — `rigctld` stays on 4532. The test guards the result: if a future
-hamlib regresses it, the proxy becomes required.
+hamlib 4.7.2's dummy model on an ephemeral port: a browser-producible POST,
+sent as one write, **did key it** — `rigctld` works through the request line
+and the header lines and then acts on body lines that follow, a recovery that
+takes a second or so, and it keeps parsing buffered input even after the client
+closes. A first measurement that polled PTT once, too soon, read it as unchanged
+and was wrong; the published claim was corrected here (that reading was a D-018
+failure, caught by the final review). `rigctld` has no password (its `-A` is not
+implemented), so **ruling 8 is satisfied by the filter, not by its absence**:
+`rigctld` binds `127.0.0.1:4632`, and a loopback filter
+(`hammunition.rigproxy`, run by `rig-service` as a second user service) binds
+the port programs use, `127.0.0.1:4532`, forwarding every byte unchanged except
+that it drops, unread, any connection whose first line is an HTTP request line —
+which a real rig client never sends. `tests/test_rig_gate.py` keys the dummy
+only to prove the filter stops it: through the filter the HTTP request does not
+key, and a real command still does. `doctor` checks both services.
 
 **Unattended (ruling 7).** `station set --unattended` turns on linger for the
 calling operator through the D-056 helper's new `linger on|off` verb, behind the

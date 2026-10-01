@@ -26,12 +26,13 @@ naming the PR and the decision it rests on. Decisions are authoritative in
   FT-991A (CAT) and the UV-50PRO (PTT-only) ship `untested`. Opt-in
   `hammunition station set --unattended` keeps user services running after
   logout through a new `hammunition-devctl linger` verb behind the existing
-  polkit action. A browser's HTTP POST was measured not to key hamlib's
-  dummy model, so the service binds 4532 directly with no filter in front of
-  it; a regression test guards that result. `doctor` checks the service
-  read-only and never keys the transmitter. gpredict's radio file is written
-  for the shared `rigctld`; `docs/guides/rig-control.md` is rewritten around
-  the service.
+  polkit action. A browser-producible HTTP POST was measured to key hamlib's
+  dummy model over loopback, so a small loopback filter (`hammunition.rigproxy`)
+  sits in front: `rigctld` binds `127.0.0.1:4632` and the filter binds the port
+  programs use, 4532, dropping any connection that opens with an HTTP request
+  line; a regression test guards it. `doctor` checks both services read-only and
+  never keys the transmitter. gpredict's radio file is written for the shared
+  `rigctld`; `docs/guides/rig-control.md` is rewritten around the service.
 - **A generated launcher no longer takes a PATH binary's name** (issue
   #174). `~/.local/bin/rigctl`, libhamlib-utils' launcher, ran ahead of
   hamlib's `/usr/bin/rigctl`, ignored its arguments and opened the

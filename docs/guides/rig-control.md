@@ -246,9 +246,13 @@ has been run against a real radio by this project.
 The hamlib model numbers, `rigctld`'s options and its listen-on-any default
 were read from hamlib 4.7.2 (Parrot's backport) on 2026-10-01; which programs
 link hamlib was read with `ldd`, and each program's configuration keys from the
-strings in its binary. A browser's HTTP POST to `127.0.0.1:4532` was measured
-against hamlib's dummy model and **did not** key it, which is why the service
-binds 4532 directly with no filter in front of it (D-073 §11).
+strings in its binary. A browser-producible HTTP POST to `127.0.0.1:4532` was
+measured against hamlib's dummy model and **did** key it (rigctld works through
+the request and header lines and then acts on the body), so a loopback filter
+sits in front: `rigctld` binds `127.0.0.1:4632` and `hammunition.rigproxy` binds
+4532, forwarding everything except a connection that opens with an HTTP request
+line, which it drops (D-073 §11). Programs still point at 4532 and see no
+difference.
 
 This project has not yet driven the service or any row of the program table
 against a real radio: the FT-991A and the UV-50PRO on the field laptop are the
