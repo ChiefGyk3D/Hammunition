@@ -2279,6 +2279,7 @@ def _fetch_infra(
     redirects), parsed from memory, kept to the regions' boxes and written
     as its own layer, marked unverified with its observed sha256.  D-075."""
     from hammunition import infra, repeaters
+    from hammunition import infra_sources as src
 
     if _refuse_root("infrastructure overlays"):
         return EXIT_FAILED
@@ -2289,7 +2290,7 @@ def _fetch_infra(
         return EXIT_FAILED
     print(disclosure, flush=True)
     try:
-        body, digest, when = repeaters.fetch_list(url, limit=limit)
+        body, digest, when = repeaters.fetch_list(url, limit=limit, user_agent=src.USER_AGENT)
     except repeaters.RepeaterFetchError as exc:
         print(f"error: {exc}. Nothing was written.", file=sys.stderr)
         return EXIT_FAILED

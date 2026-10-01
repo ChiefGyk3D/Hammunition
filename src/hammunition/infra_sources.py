@@ -55,6 +55,7 @@ __all__ = [
     "NWR_PAD",
     "NWR_URL",
     "UNITS",
+    "USER_AGENT",
     "SourceRead",
     "Unit",
     "parse_fcc_asr",
@@ -73,6 +74,9 @@ MEMBER_LIMIT = 256 * 1024 * 1024
 #: checksum published (ETag only).
 FCC_ASR_URL = "https://data.fcc.gov/download/pub/uls/complete/r_tower.zip"
 FCC_ASR_LIMIT = 128 * 1024 * 1024
+#: Sent by both fetches: data.fcc.gov answered a HEAD with this 200 and with
+#: a bare ``hammunition`` 403 (one request each, 2026-10-01).
+USER_AGENT = "hammunition (+https://github.com/ChiefGyk3D/Hammunition)"
 #: The data behind NWS's station tables: 754,735 B on 2026-10-01.
 NWR_URL = "https://www.weather.gov/source/nwr/JS/ccl-data.js"
 NWR_LIMIT = 8 * 1024 * 1024
@@ -394,7 +398,7 @@ def read_eia(path: Path, boxes: Sequence[Box]) -> SourceRead:
                 tuple(d for d in details if d),
             )
         )
-    stamp = f"{month:%b} {month.year}"
+    stamp = f"{_MONTHS[month.month - 1][:3].title()} {month.year}"  # not the locale's
     return SourceRead(
         layer_id="eia-plants",
         name=f"Power plants (EIA-860M {stamp})",
@@ -540,8 +544,13 @@ def parse_fcc_asr(
     if "counts" in names:
         with _open(archive, "counts", url) as handle:
             found = _COUNTS_DATE.search(handle.read(4096).decode("latin-1"))
-        if found:
-            day = datetime.strptime(" ".join(found.groups()), "%b %d %Y").date()
+        abbreviations = [m[:3] for m in _MONTHS]
+        if found and found.group(1).lower() in abbreviations:
+            day = date(
+                int(found.group(3)),
+                abbreviations.index(found.group(1).lower()) + 1,
+                int(found.group(2)),
+            )
     coordinates: dict[str, tuple[float, float]] = {}
     for fields in _lines(archive, "CO.dat", url):
         if len(fields) < 15 or fields[5] != "T":

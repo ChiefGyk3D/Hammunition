@@ -1324,10 +1324,14 @@ def fetch_hearham(
     return fetch_list(url, timeout=timeout, limit=limit)
 
 
-def fetch_list(url: str, *, timeout: float = 60.0, limit: int) -> tuple[bytes, str, datetime]:
+def fetch_list(
+    url: str, *, timeout: float = 60.0, limit: int, user_agent: str = "hammunition"
+) -> tuple[bytes, str, datetime]:
     """A list fetched on the operator's request (hearham, D-064; the ETCC
     and Brandmeister, D-074): the bytes as served, their observed sha256 and
-    when they arrived.
+    when they arrived. *user_agent* is sent as given: the FCC's server
+    refused a bare ``hammunition`` (403) and served a descriptive one
+    (D-075, one HEAD each on 2026-10-01).
 
     Built from :class:`~urllib.request.OpenerDirector` with only the HTTP
     handlers, so no ``file:`` URL is served; TLS verified by default. Nothing
@@ -1341,7 +1345,7 @@ def fetch_list(url: str, *, timeout: float = 60.0, limit: int) -> tuple[bytes, s
         urllib.request.HTTPDefaultErrorHandler(),
     ):
         opener.add_handler(handler)
-    request = urllib.request.Request(url, headers={"User-Agent": "hammunition"})
+    request = urllib.request.Request(url, headers={"User-Agent": user_agent})
     try:
         with opener.open(request, timeout=timeout) as response:
             body: bytes = response.read(limit + 1)

@@ -511,3 +511,35 @@ def test_the_fetches_have_no_json_form(
     assert cli.main(["maps", "infra", verb, "--json"]) == cli.EXIT_UNPLANNABLE
     assert served.asked == []
     capsys.readouterr()
+
+
+class _Agent(_Handler):
+    agents: ClassVar[list[str]] = []
+
+    def do_GET(self) -> None:
+        type(self).agents.append(self.headers.get("User-Agent", ""))
+        super().do_GET()
+
+
+def test_the_fetches_send_a_descriptive_user_agent(
+    station: Station, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """data.fcc.gov refused a bare `hammunition` (403) and served this one."""
+    handler = type(
+        "Agent",
+        (_Agent,),
+        {"bodies": {"/ccl-data.js": sources_test.NWR}, "asked": [], "agents": []},
+    )
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    monkeypatch.setattr(
+        infra_sources, "NWR_URL", f"http://127.0.0.1:{server.server_address[1]}/ccl-data.js"
+    )
+    station.install_region()
+    try:
+        assert cli.main(["maps", "infra", "fetch-nwr"]) == 0
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert handler.agents == [infra_sources.USER_AGENT]
+    capsys.readouterr()

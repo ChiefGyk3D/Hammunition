@@ -246,6 +246,35 @@ def test_open_repeater_is_listed_for_a_mirror_like_any_pinned_data(tmp_path: Pat
     assert entry.url == artifact.url and entry.deferred is None
 
 
+
+@pytest.mark.parametrize(
+    ("unit", "name", "licence"),
+    [
+        ("faa-nasr-airports", "APT_CSV.zip", None),
+        ("eia-860m", "eia860m.xlsx", None),
+        ("wri-power-plants", "global_power_plant_database.zip", "CC-BY-4.0"),
+    ],
+)
+def test_the_infrastructure_units_are_listed_for_a_mirror_like_any_pinned_data(
+    unit: str, name: str, licence: str | None, tmp_path: Path
+) -> None:
+    """D-075: the two US federal units and WRI's are pinned data, so a Bunker
+    keeps them under the name the fetch asks a mirror for; the FCC and NWR
+    fetches are not units and are not listed."""
+    entries, _, _ = _list(tmp_path, (unit,), ())
+    (entry,) = entries
+    block = CATALOG[unit].install[0].install
+    artifact = block.artifacts[0]  # type: ignore[union-attr]
+    assert (entry.name, entry.check, entry.digest, entry.size) == (
+        name,
+        "sha256",
+        artifact.sha256,
+        artifact.size,
+    )
+    assert entry.licence == (licence or block.licence)  # type: ignore[union-attr]
+    assert entry.url == artifact.url and entry.deferred is None
+
+
 # -- map regions ------------------------------------------------------------
 
 

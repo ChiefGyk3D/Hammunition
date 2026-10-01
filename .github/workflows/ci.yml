@@ -260,6 +260,15 @@ jobs:
       # URL is not dated, so the pin dies whenever the site's data changes;
       # this goes red naming the generator, and regenerating is running it.
       - run: python scripts/gen_open-repeater-pin.py --check
+      # The D-075 infrastructure pins. FAA NASR: fetch the pinned cycle's
+      # 8 MB APT zip again and compare (the FAA answered a HEAD with 503),
+      # red when a newer 28-day cycle has taken effect. EIA-860M: HEADs, red
+      # when a newer month is out or the pinned month moved to EIA's archive
+      # (`--follow-move` keeps the pin there). WRI: a HEAD whose ETag must
+      # stay the publisher's MD5 recorded in the manifest.
+      - run: python scripts/gen_nasr_pin.py --check
+      - run: python scripts/gen_eia860m_pin.py --check
+      - run: python scripts/gen_wri_pin.py --check
 
   # -------------------------------------------------------------------------
   # D-031. Every identifier citing a distribution's udev rule is checked

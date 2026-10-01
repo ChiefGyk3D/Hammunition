@@ -1,0 +1,83 @@
+# SPDX-FileCopyrightText: Copyright (C) 2026 Renegade Penguin LLC
+# SPDX-License-Identifier: CC0-1.0
+
+name: eia-860m
+version: "2026-08"
+summary: EIA's monthly inventory of US power plants (EIA-860M), for the infrastructure layers
+categories: [navigation-maps, emcomm]
+
+# D-075, a D-049 data unit. The U.S. Energy Information Administration's
+# Preliminary Monthly Electric Generator Inventory: one workbook a month,
+# every operating, planned and retired generator of 1 MW or more with its
+# plant's coordinates. Measured 2026-10-01: August 2026, 13,955,142 bytes,
+# byte-identical over two fetches; Delaware 44 operating plants, Vermont
+# 117. EIA: "U.S. government publications are in the public domain ... if
+# you use or reproduce any of our information products, you should use an
+# acknowledgment, which includes the publication date", which is the
+# licence line below, exactly.
+#
+# The file lives under xls/ until the next month is published and then
+# moves to archive/xls/ with the same bytes. The `version`, `url`,
+# `sha256`, `size` and `licence` lines are written by
+# scripts/gen_eia860m_pin.py: with no arguments it pins the newest month;
+# `--follow-move` keeps the pinned month at its archive address; `--check`
+# names the move, and a newer month, in the weekly pin review.
+#
+# Not in a profile: the maintainer decides. `hammunition maps infra import
+# --from-eia` reads it into its own layer, kept to the station's regions.
+install:
+  - install:
+      method: data
+      artifacts:
+        - url: https://www.eia.gov/electricity/data/eia860m/xls/august_generator2026.xlsx
+          sha256: b4b70abb4c217e8e2658c3bde7608a3d530e86a81279ccc572ced82a200e9f1c
+          size: 13955142
+          format: file
+          install_as: eia860m.xlsx
+      licence: "Source: U.S. Energy Information Administration (Aug 2026), public domain"
+      licence_url: https://www.eia.gov/about/copyrights_reuse.php
+
+update:
+  probe:
+    method: none
+  strategy: reinstall
+  cadence_hint: >-
+    A new month about the fourth week of the next. The weekly pin review
+    runs `scripts/gen_eia860m_pin.py --check`, which goes red when a newer
+    month is out or the pinned month has moved to EIA's archive;
+    `scripts/gen_eia860m_pin.py` pins the newest month (a 14 MB download)
+    and `--follow-move` keeps the pinned month at its archive address after
+    checking the archive's copy has the pinned digest.
+
+documentation:
+  what_it_does: >-
+    Installs one file, EIA-860M's monthly generator workbook (about 14 MB),
+    under /usr/local/share/hammunition/data/eia-860m/. Nothing reads it on
+    its own: `hammunition maps infra import --from-eia` turns the operating
+    plants in your map regions into a layer for QMapShack, Navit, phones and
+    the browser map, one point a plant with its operator, technologies,
+    nameplate megawatts and generator count, named "Power plants (EIA-860M
+    <month>)".
+  why_you_want_it: >-
+    Where the grid's generation is, and how big each plant is, matters when
+    the grid is down: which towns sit near a hydro or a peaker, where a
+    plant's own staff and fuel are. OpenStreetMap's `power` layer places
+    more plants (Vermont's rooftop solar arrays among them) but rarely
+    carries capacity, fuel or status; EIA's carries all three for every
+    plant of 1 MW or more.
+  prerequisites: >-
+    Map regions installed (`hammunition install osm-regions`): the import
+    keeps what lies in their boxes. QMapShack, Navit or the browser map to
+    see the layer.
+  known_problems: >-
+    US only (`wri-power-plants` covers other countries). Plants under 1 MW
+    are not in EIA-860M. The workbook's address changes the month after it
+    is published, so an install from EIA fails after that until the pin is
+    regenerated or moved, unless a LAN mirror holds the pinned copy. The
+    import reads the workbook's 56 MB operating sheet row by row; it takes
+    a few seconds.
+  upstream_url: https://www.eia.gov/electricity/data/eia860m/
+  upstream_support: >-
+    EIA's electricity data team, through the contact on
+    https://www.eia.gov/electricity/data/eia860m/; Hammunition only converts
+    the workbook.
