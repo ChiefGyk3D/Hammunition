@@ -1020,9 +1020,7 @@ def write_poi_points(
                 "INSERT INTO poi_categories VALUES (?, ?, ?)",
                 [(0, "root", None), (1, category, 0)],
             )
-            for number, (point, (lat, lon)) in enumerate(
-                zip(points, placed, strict=True), start=1
-            ):
+            for number, (point, (lat, lon)) in enumerate(zip(points, placed, strict=True), start=1):
                 data = "\r".join(
                     (
                         f"name={_poi_value(point.name)}",

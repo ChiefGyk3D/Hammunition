@@ -320,7 +320,11 @@ def test_the_repeater_poi_is_the_generic_writer_given_repeater_points(tmp_path: 
     repeaters.write_poi(ours, "Layer", "comment", date(2026, 9, 1), rows)
     points = [
         repeaters.PoiPoint(
-            r.lat, r.lon, r.label_text(), r.description(), "communication:amateur_radio:repeater=yes"
+            r.lat,
+            r.lon,
+            r.label_text(),
+            r.description(),
+            "communication:amateur_radio:repeater=yes",
         )
         for r in rows
     ]
