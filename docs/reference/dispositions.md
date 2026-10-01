@@ -30,8 +30,8 @@ depending on distro package state is marked *(verify in container)*.
 
 | Disposition | AHRL | 73Linux delta | Skywave delta | DragonOS T1* | ETC delta | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| CARRY | 67 | 2 | 0 | 0 | 0 | 69 |
-| SUPERSEDE | 13 | 0 | 1 | 0 | 0 | 14 |
+| CARRY | 67 | 1 | 0 | 0 | 0 | 68 |
+| SUPERSEDE | 13 | 1 | 1 | 0 | 0 | 15 |
 | REVIVE | 6 | 0 | 0 | 0 | 0 | 6 |
 | RETIRE | 13 | 15 | 0 | 0 | 2 | 30 |
 | ADD | — | 11 | 8 | 8 | 8 | 35 |
@@ -282,6 +282,51 @@ Low stakes — `gpsman`'s menu entry is documentation-only in AHRL.
 | `ahrl_version` | `hammunition --version` | *Standard CLI behaviour beats a generated shell script that echoes a string.* |
 | `libhamlib4` | apt `depends` resolution | *A shared library with no operator surface is a dependency, not a unit — every rig-control manifest that needs it declares it, and `libhamlib-utils` is the operator-facing hamlib manifest. Ruled by the maintainer 2026-08-30 (Q-015 decision 3).* |
 
+### 13. ARDOPGUI → `ardopcf`'s built-in web GUI
+
+**Ruled 2026-09-30** on the gap analysis (`catalog-gaps-2026-09.md` A8,
+**Q-022** #5, "all three as stated"); it was CARRY (post-1.0) from the
+73Linux delta.
+
+**Trade-off:** *the web GUI is built into the modem the catalog already
+carries and opens in any browser, phone included, where ARDOPGUI is a
+separate unversioned 32-bit binary with no source; what is lost is a native
+window, and nothing ARDOPGUI showed is missing.*
+
+What was measured on 2026-09-30:
+
+- **ARDOPGUI.** 73Linux's unit is John Wiseman's ARDOP GUI, fetched from
+  `cantab.net/users/john.wiseman/Downloads/Beta/`: `ARDOP_GUI`, a 32-bit
+  i386 PIE linking Qt5, and `piARDOP_GUI`, 32-bit armhf, both
+  `Last-Modified` 2022-08-02. There is no source repository to take a
+  head commit from (D-032 has nothing to read): `g8bpq/ardop`, whose head
+  is 2023-11-17, carries the modems and no GUI, and no other repository
+  under that account is one. On amd64 it would need i386 multiarch Qt5;
+  on arm64 there is no build at all.
+- **ardopcf.** Default branch `master`, head 2026-09-07 (D-032), latest
+  tag 1.0.4.1.3 (2024-10-31) — the catalog's pin. Upstream's changelog
+  introduces the web GUI under 1.0.4.1.2 (2024-05-30) as providing
+  "functionality similar to the ARDOP GUI previously produced by John
+  Wiseman": spectrum, waterfall and constellation, receive level with
+  warnings, PTT and busy indicators, protocol state, frame log and a
+  drive-level slider. So the pin already has it and **no pin bump was
+  needed**. `docs/Commandline_options.md` at the tag documents
+  `-G`/`--webgui <port>`, by convention 8514; a *negative* port opens a
+  developer mode that accepts arbitrary host commands.
+- **Exercised** in a `debian:13` rootless container: 1.0.4.1.3 built with
+  the manifest's flags (`make` exit 0), `ardopcf -G 8514 8515 null null`
+  printed `Webgui available at port 8514.`, and `curl` of
+  `http://127.0.0.1:8514/` returned HTTP 200, 21,138 bytes, titled
+  `Ardopcf Web GUI`. `ss` showed both 8514 and the 8515 host port
+  listening on `0.0.0.0` — every interface, which the manifest's known
+  problems now say. Nothing was transmitted; no radio or sound card.
+
+**Unmeasured:** the web GUI's controls against a live signal, and any
+browser other than `curl`.
+
+`ardopcf` declares `supersedes: [ARDOPGUI]`; the packet profile's manual
+configuration names the flag beside `pat http`.
+
 ---
 
 ## REVIVE
@@ -500,7 +545,7 @@ they depend on it.
 
 | Unit | Disposition | Note |
 |---|---|---|
-| ARDOPGUI | CARRY (post-1.0) | GUI for ARDOP; pairs with the 1.0 ARDOP |
+| ARDOPGUI | SUPERSEDE — by `ardopcf`'s web GUI (2026-09-30) | Was CARRY (post-1.0). Ruled on Q-022 #5: ardopcf has served its own browser GUI since 1.0.4.1.2. See SUPERSEDE #13. |
 | PATMENU3 | RETIRE | KM4ACK's menu wrapper for PAT — licence blocked, and ruled 2026-08-30 unneeded: `pat http` ships the interface the wrapper fronts. Documented in the packet profile. |
 | VARA | ADD (post-1.0) | Closed-source freeware, needs Wine prefix. Settled post-1.0 by D-008. |
 | HAMRS | ADD (post-1.0) | Proprietary freemium, AppImage, upstream scrapes its own download page. Settled post-1.0. |
@@ -740,7 +785,7 @@ under AHRL or covered by the Blend, and are not re-indexed here.
 
 **73Linux delta (28):**
 
-`ARDOPGUI` C · `AX25` A · `BATT` X · `BPQ` A · `CONKY` X · `DIPOLE` X · `EES` X ·
+`ARDOPGUI` S · `AX25` A · `BATT` X · `BPQ` A · `CONKY` X · `DIPOLE` X · `EES` X ·
 `GARIM` A · `GPS` C · `GPSUPDATE` X · `GRIDCALC` X · `HAMRS` A · `M0IAX` X ·
 `PAT` A · `PATMENU` X · `PATMENU3` X · `PIAPRS` A · `PIQSO` X · `PISTATS` X ·
 `PITERM` A · `QTSOUND` A · `REPEAT` X · `SECURITY` X · `SHOWLOG` X · `VARA` A ·

@@ -7,6 +7,7 @@
 - **Version recorded:** 1.0.4.1.3
 - **Categories:** `soundcard-modems`, `winlink`
 - **Upstream:** <https://github.com/pflarue/ardop>
+- **Supersedes:** `ARDOPGUI`
 
 ## What it does
 
@@ -36,6 +37,7 @@ Binaries this produces:
 
 **CM108 HID push-to-talk should be tested before you rely on it.** The compiler flag this build needs silences a real int-to-pointer conversion in the CM108 code path: `read(CM108Handle, ...)` where `CM108Handle` is a `hid_device *`. That is wrong on Linux, it is wrong upstream today, and the flag restores the behaviour older compilers produced rather than correcting it. Serial-line and VOX keying do not go through that code and are unaffected. This is worth reporting upstream; it has not been reported from here.
 ARDOP is not VARA and does not interoperate with it -- a gateway offering only VARA cannot be reached with this. Getting audio levels right matters more than for a keyboard mode, because the modem measures the channel and adapts to it, so an overdriven signal makes it choose settings that then do not work.
+**The web GUI and the host port listen on every interface.** Started as `ardopcf -G 8514 8515 ...`, both 8514 and 8515 were bound to `0.0.0.0` (measured in a Debian 13 container, 2026-09-30), so anyone on the same network can open the GUI, whose drive-level slider and two-tone and ID buttons transmit by upstream's own description (read, not exercised). That is upstream's design -- it is how a phone shows the GUI of a headless Pi -- and a host firewall is the control on a shared network. Never give `-G` a negative port outside debugging: that is developer mode, which accepts arbitrary host commands from the browser.
 
 ## Keeping it current
 

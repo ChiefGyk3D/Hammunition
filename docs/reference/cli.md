@@ -1689,8 +1689,8 @@ machine is explained before it starts.
 
 ## How a prebuilt binary is installed
 
-Eight units in the dispositions wait on this and nothing else — QtTermTCP,
-QtSoundModem and Pi-APRS from D-008's packet core, GARIM, ARDOPGUI, AntScope2,
+Seven units in the dispositions wait on this and nothing else — QtTermTCP,
+QtSoundModem and Pi-APRS from D-008's packet core, GARIM, AntScope2,
 GridTracker2, and `sdrangel` on the five targets that do not package it.
 
 Four formats, and the differences are the design:

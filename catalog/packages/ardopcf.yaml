@@ -12,6 +12,15 @@ categories: [soundcard-modems, winlink]
 # is NOT inherited: it was retested here, and the failure on Debian 13 is a
 # different one -- see the install note. It builds, and this manifest carries
 # the flag that makes it build.
+
+# SUPERSEDE, ruled 2026-09-30 (Q-022 #5, gap analysis A8): 73Linux's ARDOPGUI
+# is John Wiseman's ARDOP GUI, an unversioned prebuilt binary in a directory
+# called `Beta` (32-bit i386 Qt5 and armhf builds, both last modified
+# 2022-08-02, no source repository). ardopcf has served its own web GUI since
+# 1.0.4.1.2 (`-G 8514`, then http://localhost:8514), the release before the
+# pin below, so no pin bump was needed. dispositions.md has the measurements.
+supersedes: [ARDOPGUI]
+
 install:
   - install:
       method: git
@@ -103,6 +112,16 @@ documentation:
     more than for a keyboard mode, because the modem measures the channel and
     adapts to it, so an overdriven signal makes it choose settings that then do
     not work.
+
+    **The web GUI and the host port listen on every interface.** Started as
+    `ardopcf -G 8514 8515 ...`, both 8514 and 8515 were bound to `0.0.0.0`
+    (measured in a Debian 13 container, 2026-09-30), so anyone on the same
+    network can open the GUI, whose drive-level slider and two-tone and ID
+    buttons transmit by upstream's own description (read, not exercised).
+    That is upstream's design -- it is how a phone shows the GUI of a
+    headless Pi -- and a host firewall is the control on a shared network.
+    Never give `-G` a negative port outside debugging: that is developer mode,
+    which accepts arbitrary host commands from the browser.
   upstream_url: https://github.com/pflarue/ardop
   upstream_support: >-
     Peter LaRue and contributors. MIT licensed -- verified by reading the

@@ -238,6 +238,17 @@ RETIRED: dict[str, tuple[str, str]] = {
 #: replacement and is validated to exist. None means the replacement is the
 #: Hammunition engine itself rather than software.
 SUPERSEDED: dict[str, tuple[str, str | None, str]] = {
+    "ARDOPGUI": (
+        "`ardopcf -G 8514`, then <http://localhost:8514>",
+        "ardopcf",
+        "ardopcf has served its own web GUI since 1.0.4.1.2 — spectrum, "
+        "waterfall, constellation, levels, PTT and a drive-level slider — "
+        "and upstream's changelog introduces it as doing what John "
+        "Wiseman's ARDOP GUI did. ARDOPGUI itself is an unversioned binary "
+        "from a `Beta` directory, 32-bit i386 Qt5 or armhf, last modified "
+        "2022-08-02, with no source to build for amd64 or arm64. Superseded "
+        "2026-09-30 (Q-022 #5).",
+    ),
     "aa-analyzer": (
         "`flaa`",
         "flaa",

@@ -676,9 +676,10 @@ The binary backend was written for the largest single group of blocked units.
 Two of them turned out not to need it: **QtTermTCP and QtSoundModem tag source
 on GitHub**, so they are ordinary pinned qmake builds, and only 73Linux's habit
 of fetching unversioned executables from a directory called `Beta` made them
-look like binary units. What remains for it is Pi-APRS, GARIM, ARDOPGUI,
+look like binary units. What remains for it is Pi-APRS, GARIM,
 AntScope2, GridTracker2 and `sdrangel` on the five targets that do not package
-it. **A
+it; ARDOPGUI left the list when `ardopcf`'s own web GUI superseded it
+(2026-09-30). **A
 `.deb` goes through `apt-get install ./file.deb`, never `dpkg -i`** — apt
 resolves the dependencies where dpkg installs the package and leaves them
 broken.

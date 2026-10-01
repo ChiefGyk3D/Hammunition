@@ -119,7 +119,12 @@ documentation:
     interface is the menu** — `pat http` serves it at `localhost:8080` for
     composing, reading and posting Winlink mail. 73Linux wraps Pat in its
     PATMENU3 script; that wrapper is licence-blocked and unneeded here,
-    because the web UI it fronts ships with Pat itself.
+    because the web UI it fronts ships with Pat itself. **ardopcf's web
+    interface is the ARDOP GUI** — start the modem with `-G 8514` and open
+    `localhost:8514` for its spectrum, waterfall, levels and drive-level
+    slider. 73Linux installs John Wiseman's separate ARDOPGUI binary for
+    this; it is superseded here because the modem ships the interface
+    itself. It listens on every interface, as the modem's host port does.
 
     **Serial and audio access need the `dialout` group**, and a session already
     open does not gain it. **Transmit audio level** decides whether anyone

@@ -22,12 +22,12 @@ decision. Only CARRY, SUPERSEDE, REVIVE and ADD owe a manifest.
 |---|---:|
 | Units in the six-source union | **161** |
 | …that owe a manifest (C, S, R, A) | **124** |
-| …covered | **109** |
-| …outstanding, with a recorded reason | **15** |
+| …covered | **110** |
+| …outstanding, with a recorded reason | **14** |
 | …outstanding, unexplained | **0** |
 | Manifests in the catalog | **283** |
 
-Coverage of what is owed: **109/124** (87%).
+Coverage of what is owed: **110/124** (88%).
 
 The catalog is larger than the union because the Debian Blend contributes
 152 packages, most of which are not AHRL units, and because hardware
@@ -41,7 +41,6 @@ Absent on purpose. Each names what it waits on.
 
 | Unit | Disposition | Waiting on |
 |---|---|---|
-| `ARDOPGUI` | CARRY | post-1.0 — GUI for ARDOP; ruled CARRY (post-1.0) in dispositions.md, so 1.0 ships `ardopcf` headless |
 | `FoxTelem` | CARRY | post-1.0 — pending an AMSAT constellation census: a partial world-changed case, and neither blocking 1.0 on a satellite survey nor quietly carrying a decoder for re-entered spacecraft serves anybody (Q-015 decision 10, 2026-08-30) |
 | `HAMRS` | ADD | post-1.0 — AppImage |
 | `VARA` | ADD | post-1.0 — closed software needing a configured Wine prefix |
@@ -63,8 +62,8 @@ Absent on purpose. Each names what it waits on.
 
 | Disposition | Units | Covered |
 |---|---:|---:|
-| CARRY | 69 | 67 |
-| SUPERSEDE | 14 | 9 |
+| CARRY | 68 | 67 |
+| SUPERSEDE | 15 | 10 |
 | REVIVE | 6 | 4 |
 | ADD | 35 | 29 |
 | RETIRE | 30 | — |
@@ -93,7 +92,7 @@ catalog is where an operator would look for it.
 | `AIS-catcher` | CARRY | `ais-catcher` |
 | `AntScope2` | CARRY | `antscope2` |
 | `ardop` | REVIVE | `ardopcf` |
-| `ARDOPGUI` | CARRY | — *waiting, see above* |
+| `ARDOPGUI` | SUPERSEDE | `ardopcf` |
 | `arduino` | reserved to maintainer | — |
 | `artemis` | ADD | `artemis` |
 | `atlc` | CARRY | `atlc` |
