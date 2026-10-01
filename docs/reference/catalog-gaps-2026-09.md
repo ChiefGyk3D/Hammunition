@@ -253,6 +253,22 @@ profile's `deliberately_excludes` prose in the same commit.
 | `FoxTelem` | Post-1.0 pending an AMSAT census | Unchanged | No change |
 | VARA / VARIM | Post-1.0, Wine prefix | **Mercury** (below) is an open VARA-API-compatible modem released May 2026; the case for a Wine prefix is weaker | Re-rank after Mercury is measured |
 
+**Measured since, 2026-09-30 — the three re-rulings.** All three were
+applied, and two of this table's claims were wrong (`dispositions.md`
+has the evidence):
+
+- **ARDOPGUI** is SUPERSEDE by `ardopcf`'s web GUI, as recommended; the
+  pin already serves it, so no bump.
+- **Morse Runner CE has no Linux port.** At v1.86 (released 2026-09-25,
+  no longer "in preparation") it is a Delphi tree that stops at `Can't
+  find unit Windows` under Free Pascal, and its README lists a Linux port
+  as a goal. The native build that exists is the older Lazarus port of
+  1.68 (`zmetzing/MorseRunner`); it built and ran on Debian 13, so under
+  the conditional's second clause it is CARRY as `morse-runner`, tagged
+  `morse-training` and `cw`, in no profile.
+- **chattervox's last release is 2019-03-17**, not 2020: the 2020 date
+  was GitHub's push field (D-032). RETIRE, as recommended.
+
 ### A9. The guides the standard requires do not exist
 
 CLAUDE.md names `docs/guides/` as "task-oriented: digital modes, APRS,
