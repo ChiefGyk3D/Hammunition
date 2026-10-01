@@ -431,6 +431,93 @@ def test_no_engine_launchers_adds_no_check() -> None:
     assert "launchers" not in _by_name(run_checks(**HEALTHY))  # type: ignore[arg-type]
 
 
+# --- rig checks (D-073 §9) ---------------------------------------------------
+
+
+def test_rig_checks_report_a_missing_value() -> None:
+    from hammunition.doctor import RigStatus, rig_checks
+
+    checks = rig_checks(RigStatus(configured=True, missing=("rig_device",), kind="cat"))
+    assert any(c.name == "rig" and c.status == "warn" and "rig_device" in c.detail for c in checks)
+
+
+def test_rig_checks_are_quiet_when_nothing_is_set() -> None:
+    from hammunition.doctor import RigStatus, rig_checks
+
+    checks = rig_checks(RigStatus(configured=False))
+    assert len(checks) == 1 and checks[0].status == "info"
+
+
+def test_rig_checks_healthy_when_active_and_answering() -> None:
+    from hammunition.doctor import RigStatus, rig_checks
+
+    checks = rig_checks(
+        RigStatus(configured=True, kind="cat", service_state="active", answering=True)
+    )
+    assert any(c.status == "ok" and "active" in c.detail for c in checks)
+    assert any(c.status == "ok" and "answers" in c.detail for c in checks)
+
+
+def test_rig_checks_flag_an_argument_mismatch() -> None:
+    from hammunition.doctor import RigStatus, rig_checks
+
+    checks = rig_checks(
+        RigStatus(configured=True, kind="cat", service_state="active", args_match=False)
+    )
+    assert any("do not match" in c.detail and c.status == "warn" for c in checks)
+
+
+def test_rig_checks_never_key() -> None:
+    # The checks describe only reads; none names a keying command.
+    from hammunition.doctor import RigStatus, rig_checks
+
+    checks = rig_checks(
+        RigStatus(configured=True, kind="ptt_only", service_state="active", answering=True)
+    )
+    for c in checks:
+        assert "set_ptt" not in (c.fix or "") and "\\set" not in (c.fix or "")
+
+
+def test_rig_checks_do_not_warn_install_for_an_flrig_station() -> None:
+    """Review I5: flrig runs no rigctld service, so doctor must not tell the
+    operator to install one — that fix would do nothing."""
+    from hammunition.doctor import RigStatus, rig_checks
+
+    checks = rig_checks(
+        RigStatus(configured=True, kind="cat", owner="flrig", service_state="absent")
+    )
+    assert not any(c.status == "warn" for c in checks)
+    assert any("flrig" in c.detail for c in checks)
+
+
+def test_rig_checks_do_not_warn_install_for_a_vox_station() -> None:
+    from hammunition.doctor import RigStatus, rig_checks
+
+    checks = rig_checks(
+        RigStatus(configured=True, kind="ptt_only", vox=True, service_state="absent")
+    )
+    assert not any(c.status == "warn" for c in checks)
+    assert any("VOX" in c.detail for c in checks)
+
+
+def test_rig_checks_flag_a_missing_proxy() -> None:
+    from hammunition.doctor import RigStatus, rig_checks
+
+    checks = rig_checks(
+        RigStatus(configured=True, kind="cat", service_state="active", proxy_state="absent")
+    )
+    assert any("filter" in c.detail and c.status == "warn" for c in checks)
+
+
+def test_rig_checks_fail_when_4532_is_not_loopback_only() -> None:
+    from hammunition.doctor import RigStatus, rig_checks
+
+    checks = rig_checks(
+        RigStatus(configured=True, kind="cat", service_state="active", loopback_only=False)
+    )
+    assert any(c.status == "fail" for c in checks)
+
+
 def test_gps_resume_not_applicable_adds_no_check() -> None:
     """No GPS receiver attached, or no gpsd: nothing to say (issue #177)."""
     checks = run_checks(**HEALTHY)  # type: ignore[arg-type]

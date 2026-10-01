@@ -59,6 +59,7 @@ from hammunition.kernel import (
     USERSPACE_PATH,
     KernelProbe,
 )
+from hammunition.manifest.hardware import DeviceClass, DeviceManifest
 from hammunition.manifest.schema import (
     AptInstall,
     AptRepo,
@@ -83,6 +84,7 @@ from hammunition.manifest.schema import (
 from hammunition.state.log import TransactionLog
 from hammunition.state.uninstall import deb_attributed
 from hammunition.station import Station
+from hammunition.userservice import PlannedUserService, plan_user_services
 
 __all__ = [
     "Blocker",
@@ -317,6 +319,11 @@ class InstallPlan:
 
     config_files: tuple[tuple[str, ConfigFile, str], ...] = ()
     """(package, config file, rendered body) for every file that WILL be written."""
+
+    user_services: tuple[PlannedUserService, ...] = ()
+    """systemd user services this transaction will write and enable (D-073). A
+    service whose station values are missing is a Deferral in ``deferrals``, not
+    here; one skipped (flrig, VOX) is a note in ``notes``."""
 
     apt_release: str | None = None
     """``--target-release`` for the apt step, when the transaction resolves only
@@ -1180,6 +1187,7 @@ def resolve(
     user: str,
     refresh: bool = False,
     station: Station | None = None,
+    devices: Mapping[str, DeviceManifest | DeviceClass] | None = None,
     repos: AptRepoBackend | None = None,
     kernel: KernelProbe | None = None,
     desktops: SessionScan | frozenset[Desktop] | None = None,
@@ -1210,6 +1218,7 @@ def resolve(
     blockers: list[Blocker] = []
     deferrals: list[Deferral] = []
     config_files: list[tuple[str, ConfigFile, str]] = []
+    user_services: list[PlannedUserService] = []
     station = station if station is not None else Station()
 
     wanted, gates = _expand_requests(names, catalog, profiles, blockers)
@@ -1331,6 +1340,28 @@ def resolve(
         writable, unwritable = _plan_config(manifest, station, operator_home(user))
         config_files.extend(writable)
         deferrals.extend(unwritable)
+
+        if manifest.user_services:
+            # The rig resolution needs the hardware catalog. Without it the
+            # services cannot be rendered, so they defer by name rather than
+            # resolve to nothing (D-035) — the same shape as a missing station
+            # value, with a reason the operator can act on.
+            if devices is None:
+                deferrals.append(
+                    Deferral(
+                        subject=manifest.name,
+                        what=f"will not run {manifest.user_services[0].name}",
+                        why="the hardware catalog was not available to resolve the rig",
+                        remedy="run this through `hammunition install`, which loads it",
+                    )
+                )
+            else:
+                svc_planned, svc_deferrals, svc_notes = plan_user_services(
+                    manifest, station, devices
+                )
+                user_services.extend(svc_planned)
+                deferrals.extend(svc_deferrals)
+                notes_early.extend(svc_notes)
 
         # apt and source reach here; _check_engine_capability rejects the rest.
         # A source build needs its `build_depends` from apt before it can start,
@@ -2032,6 +2063,7 @@ def resolve(
         sessions_unrecognised=(scan.unrecognised if decided_desktops and scan is not None else ()),
         deferrals=tuple(deferrals),
         config_files=tuple(config_files),
+        user_services=tuple(user_services),
         apt_release=apt_release,
         apt_from_release=apt_from_release,
         apt_repos=tuple(repo_additions),

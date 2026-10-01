@@ -4,7 +4,7 @@
 
 Every piece of software in the catalog, one page each. Generated from `catalog/packages/` by `scripts/gen_package_reference.py` — it cannot drift from what the engine would actually install, because it is the same data.
 
-**303 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
+**304 packages** across **56 categories**. Categories are flat tags (**D-003**): they overlap freely and never nest, so most packages appear under more than one.
 
 ## By category
 
@@ -462,7 +462,7 @@ Proxmark3, libnfc, MIFARE key recovery and smartcard reader checks.
 - [pcsc-tools](pcsc-tools.md) — Smartcard reader diagnostics — is the reader even working?
 - [proxmark3](proxmark3.md) — Client and firmware tooling for the Proxmark3 RFID and NFC research device
 
-### `rig-control` — 14
+### `rig-control` — 15
 
 CAT control of a transceiver while operating: frequency, mode, PTT and the panel on the screen.
 
@@ -478,6 +478,7 @@ CAT control of a transceiver while operating: frequency, mode, PTT and the panel
 - [pihpsdr](pihpsdr.md) — Operator program for OpenHPSDR transceivers -- ANAN, Hermes Lite 2 and their kin
 - [qlog](qlog.md) — Modern Qt station log with award tracking and online-service upload
 - [quisk](quisk.md) — SDR transceiver software with a real front panel, driving hardware or a dongle
+- [rig-service](rig-service.md) — One shared rigctld for the station's rig, as a systemd user service
 - [ser2net](ser2net.md) — Serve a serial port over TCP, so a rig's CAT port can be reached from another machine
 - [wfview](wfview.md) — Control a modern Icom radio, waterfall and all, over USB or the network
 
@@ -934,6 +935,7 @@ The machine the station runs on rather than the radio: editors, multiplexers, ve
 | [rayhunter](rayhunter.md) | EFF's IMSI-catcher detector — the installer for a supported hotspot, and the offline capture analyser | binary |
 | [readsb](readsb.md) | Efficient Mode S and ADS-B decoder — the maintained dump1090 successor | apt |
 | [remotetrx](remotetrx.md) | Puts an SvxLink receiver or transceiver at the end of a network link | apt |
+| [rig-service](rig-service.md) | One shared rigctld for the station's rig, as a systemd user service | apt |
 | [routino](routino.md) | Offline routing over OpenStreetMap data, on foot, by bike or by car | apt |
 | [rtl-433](rtl-433.md) | Decoder for the unlicensed ISM bands — weather stations, sensors, tyre monitors | apt |
 | [rtl-ais](rtl-ais.md) | Receives both AIS channels at once from one cheap dongle | apt |
